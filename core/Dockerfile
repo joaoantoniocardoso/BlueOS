@@ -23,7 +23,7 @@ set -e
 
 EOF
 
-FROM bluerobotics/blueos-base:0.2.1 AS base
+FROM joaoantoniocardoso/blueos-base:gstreamer-1.26.0 AS base
 
 # Download binaries
 FROM base AS download-binaries
