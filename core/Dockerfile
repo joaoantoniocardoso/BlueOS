@@ -1,5 +1,5 @@
 # Build frontend
-FROM --platform=$BUILDPLATFORM oven/bun:1.0.3-slim AS frontendBuilder
+FROM --platform=$BUILDPLATFORM oven/bun:1.0.3-slim AS frontend-builder
 
 ARG VITE_APP_GIT_DESCRIBE
 ENV VITE_APP_GIT_DESCRIBE=${VITE_APP_GIT_DESCRIBE:-none/none-0-g00000000}
@@ -19,18 +19,18 @@ RUN <<-EOF
 set -e
 
     bun install --cwd /home/pi/frontend
-    bun run --cwd /home/pi/frontend build
+    NODE_OPTIONS=--max-old-space-size=8192 bun run --cwd /home/pi/frontend build
 
 EOF
 
-FROM bluerobotics/blueos-base:0.2.0 as base
+FROM bluerobotics/blueos-base:0.2.1 AS base
 
 # Download binaries
-FROM base as downloadBinaries
+FROM base AS download-binaries
 COPY tools /home/pi/tools
 RUN /home/pi/tools/install-static-binaries.sh
 
-# BlueOS-docker base image
+# BlueOS base image
 FROM base
 
 # Define arguments for target platform
@@ -80,8 +80,8 @@ RUN /home/pi/services/install-services.sh
 COPY start-blueos-core /usr/bin/start-blueos-core
 COPY run-service.sh /usr/bin/run-service
 
-# Copy binaries and necessary folders from downloadBinaries to this stage
-COPY --from=downloadBinaries \
+# Copy binaries and necessary folders from download-binaries to this stage
+COPY --from=download-binaries \
     /usr/bin/blueos_startup_update.py \
     /usr/bin/bridges \
     /usr/bin/machineid-cli \
@@ -91,8 +91,8 @@ COPY --from=downloadBinaries \
     /usr/bin/ttyd \
     /usr/bin/
 
-# Copy frontend built on frontendBuild to this stage
-COPY --from=frontendBuilder /home/pi/frontend/dist /home/pi/frontend
+# Copy frontend built on frontend-builder to this stage
+COPY --from=frontend-builder /home/pi/frontend/dist /home/pi/frontend
 
 RUN <<-EOF
 set -e
@@ -108,6 +108,7 @@ set -e
     echo "export GIT_DESCRIBE_TAGS=$GIT_DESCRIBE_TAGS" >> $RCFILE_PATH
     echo "export HISTFILE=/etc/blueos/.bash_history" >> $RCFILE_PATH
     echo "export PATH=$(python -m site --user-base)/bin:/usr/blueos/bin:$PATH" >> $RCFILE_PATH
+    echo "export RUST_BACKTRACE=1" >> $RCFILE_PATH
 
     # Setup shortcuts
     mkdir -p /shortcuts
@@ -121,7 +122,14 @@ set -e
     # Setup user
     useradd -m -u 1000 -G dialout blueos
 
+    # Remove /etc/dhcpcd.conf if it exists inside the docker
+    # This is to prevent an awkward behavior where docker doesnt find the file
+    # on the host system and creates a folder instead, but tries to mount the folder
+    # on top of the existing file inside the docker.
+    # This allows docker to actually create a folder, which we handle in networksetup.py
+    rm -f /etc/dhcpcd.conf
+
 EOF
 
 # Start
-CMD /bin/bash -i /usr/bin/start-blueos-core && sleep infinity
+CMD ["/bin/bash", "-i", "-c", "/usr/bin/start-blueos-core && sleep infinity"]
