@@ -1,5 +1,4 @@
 #!/bin/bash
-
 set -e
 
 PROJECT_NAME="mcap"
@@ -9,7 +8,7 @@ VERSION="releases/mcap-cli/v0.0.56"
 
 echo "Installing project $PROJECT_NAME version $VERSION"
 
-# Step 1: Prepare the download URL
+# Step 1: Determine architecture
 
 ARCH="$(uname -m)"
 case "$ARCH" in
@@ -27,11 +26,9 @@ case "$ARCH" in
     exit 1
     ;;
 esac
-ARTIFACT_NAME="${PROJECT_NAME}-${BUILD_NAME}"
-REMOTE_URL="https://github.com/${REPOSITORY_ORG}/${REPOSITORY_NAME}/releases/download/${VERSION}/${ARTIFACT_NAME}"
-echo "Remote URL is $REMOTE_URL"
+echo "For architecture $ARCH, using build $BUILD_NAME"
 
-# Step 2: Prepare the installation and tools paths
+# Step 2: Prepare the installation path
 
 if [ -n "$VIRTUAL_ENV" ]; then
     BIN_DIR="$VIRTUAL_ENV/bin"
@@ -40,14 +37,36 @@ else
 fi
 mkdir -p "$BIN_DIR"
 
+# Step 3: Download and verify sources
+
+ARTIFACT_NAME="$PROJECT_NAME-$BUILD_NAME"
+SCRIPTDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source="SCRIPTDIR/../bootstrap_from_github.sh"
+source "$SCRIPTDIR/../bootstrap_from_github.sh"
+mapfile -t BOOTSTRAP_OUTPUT < <(
+    bootstrap_from_github \
+    "$REPOSITORY_ORG" \
+    "$REPOSITORY_NAME" \
+    "$VERSION" \
+    "$PROJECT_NAME" \
+    "$BUILD_NAME" \
+    "$ARTIFACT_NAME" \
+    ""
+)
+DOWNLOADED_ASSET_PATH="${BOOTSTRAP_OUTPUT[0]}"
+TMP_DIR="${BOOTSTRAP_OUTPUT[1]}"
+
+# Step 4: Install
+
 BINARY_PATH="$BIN_DIR/$PROJECT_NAME"
 echo "Installing to $BINARY_PATH"
-
-# Step 3: Download and install
-
-wget -q "$REMOTE_URL" -O "$BINARY_PATH"
+mv "$DOWNLOADED_ASSET_PATH" "$BINARY_PATH"
 chmod +x "$BINARY_PATH"
 
-echo "Installed binary type: $(file "$(which "$BINARY_PATH")")"
+# Step 5: Cleanup temp files
+
+rm -rf "$TMP_DIR"
+
+echo "Installed binary type: $(file "$BINARY_PATH")"
 
 echo "Finished installing $PROJECT_NAME"

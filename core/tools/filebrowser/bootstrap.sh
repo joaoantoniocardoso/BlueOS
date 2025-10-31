@@ -1,17 +1,14 @@
 #!/usr/bin/env bash
-
-# Immediately exit on errors
 set -e
 
 VERSION="v2.30.0"
 REPOSITORY_ORG="filebrowser"
 REPOSITORY_NAME="$REPOSITORY_ORG"
 PROJECT_NAME="$REPOSITORY_ORG"
-REPOSITORY_URL="https://github.com/$REPOSITORY_ORG/$REPOSITORY_NAME"
 
 echo "Installing project $PROJECT_NAME version $VERSION"
 
-# Step 1: Prepare the download URL
+# Step 1: Determine architecture
 
 ARCH="$(uname -m)"
 case "$ARCH" in
@@ -29,11 +26,7 @@ case "$ARCH" in
     exit 1
     ;;
 esac
-ARTIFACT_NAME="$BUILD_NAME-$PROJECT_NAME.tar.gz"
 echo "For architecture $ARCH, using build $BUILD_NAME"
-
-REMOTE_URL="$REPOSITORY_URL/releases/download/$VERSION/$ARTIFACT_NAME"
-echo "Remote URL is $REMOTE_URL"
 
 # Step 2: Prepare the installation path
 
@@ -44,23 +37,42 @@ else
 fi
 mkdir -p "$BIN_DIR"
 
+# Step 3: Download and verify sources
+
+ARTIFACT_NAME="$BUILD_NAME-$PROJECT_NAME.tar.gz"
+SCRIPTDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source="SCRIPTDIR/../bootstrap_from_github.sh"
+source "$SCRIPTDIR/../bootstrap_from_github.sh"
+mapfile -t BOOTSTRAP_OUTPUT < <(
+    bootstrap_from_github \
+    "$REPOSITORY_ORG" \
+    "$REPOSITORY_NAME" \
+    "$VERSION" \
+    "$PROJECT_NAME" \
+    "$BUILD_NAME" \
+    "$ARTIFACT_NAME" \
+    ""
+)
+DOWNLOADED_ASSET_PATH="${BOOTSTRAP_OUTPUT[0]}"
+TMP_DIR="${BOOTSTRAP_OUTPUT[1]}"
+
+# Step 4: Install
+
 BINARY_PATH="$BIN_DIR/$PROJECT_NAME"
 echo "Installing to $BINARY_PATH"
-
-# Step 3: Download and install
-
-TMP_DIR=".tmp/$PROJECT_NAME"
-mkdir -p "$TMP_DIR"
-wget -q "$REMOTE_URL" -O - | tar -zxf - -C "$TMP_DIR"
+tar -zxf "$DOWNLOADED_ASSET_PATH" -C "$TMP_DIR"
 mv "$TMP_DIR/$PROJECT_NAME" "$BINARY_PATH"
-rm -rf "$TMP_DIR"
 chmod +x "$BINARY_PATH"
 
-echo "Installed binary type: $(file "$(which "$BINARY_PATH")")"
+# Step 5: Cleanup temp files
 
-# Create configuration file
+rm -rf "$TMP_DIR"
+
+echo "Installed binary type: $(file "$BINARY_PATH")"
+
+# Step 6: Create configuration files
 DATABASE_PATH="/etc/filebrowser/filebrowser.db"
-mkdir -p "$(dirname $DATABASE_PATH)"
+mkdir -p "$(dirname "$DATABASE_PATH")"
 filebrowser config init --address=0.0.0.0 --port=7777 --auth.method=noauth --log=stdout --root=/shortcuts --database="$DATABASE_PATH"
 filebrowser users add pi raspberry --database="$DATABASE_PATH"
 
