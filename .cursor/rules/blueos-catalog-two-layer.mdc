@@ -19,6 +19,8 @@ The catalog has two layers that must never be mixed. Mixing them is the root cau
 
 - Human/LLM judgment only: authorities, criticality, trust, `bounded_context`, failure modes, capabilities.
 - **Never restate an observed fact here** (ports, tmux/nginx names, limits). Reference the observed layer.
+- Wrap fields in `Asserted<T>` (`Established { value, rationale } | Unknown { reason }`), never `Observed<T>`.
+  Asserted judgment carries a `rationale`, never `file:line` `Evidence`.
 - Unestablished fields are `Unknown { reason }`, not blank.
 
 ## Before marking any catalog task done

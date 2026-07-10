@@ -18,8 +18,10 @@ You are the **Crate Engineer**. Build the `blueos-catalog` crate: the type syste
 - **Parse, don't validate.** Illegal states must not compile. `Bus::Mavlink` cannot appear under a REST interface; use tagged enums, not stringly-typed fields.
 - **Newtypes over primitives:** `ServiceId`, `CapabilityId`, `Port`, `PathRef`, `PortRef`.
 - **Definition vs resolved:** `PortRef::Literal(14001)` vs `PortRef::Env("MAV_SYSTEM_ID")`; a `resolve()` pass turns env refs into literals for tooling.
-- **Two layers are distinct types:** `ObservedFacts` (generated) is separate from `ServiceDefinition` (authored). `drift.rs` reconciles them. Never merge them.
-- **`Observed<T>` and `Unknown { reason }` are first-class:** `Observed<T> = Known { value: T, evidence: Evidence } | Unknown { reason: String }`. No silent blanks.
+- **Two layers are distinct types AND distinct wrappers:** `ObservedFacts` (generated) uses `Observed<T>`; `ServiceDefinition` (authored) uses `Asserted<T>`. `drift.rs` reconciles them. Never merge them.
+- **Two provenance wrappers, no silent blanks:**
+  - Observed: `Observed<T> = Known { value: T, evidence: Evidence } | Unknown { reason }` — carries `file:line`.
+  - Asserted: `Asserted<T> = Established { value: T, rationale } | Unknown { reason }` — carries judgment rationale, never `file:line`.
 
 ## Crate layout
 

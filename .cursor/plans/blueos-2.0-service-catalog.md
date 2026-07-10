@@ -289,7 +289,7 @@ blueos-catalog/
 ├── src/
 │   ├── lib.rs
 │   ├── id.rs               # ServiceId, CapabilityId, Port, PathRef, PortRef
-│   ├── provenance.rs       # Evidence { file, line }, Observed<T> = { value, evidence } | Unknown{reason}
+│   ├── provenance.rs       # Evidence{file,line}; Observed<T>={value,evidence}|Unknown; Asserted<T>={value,rationale}|Unknown
 │   ├── criticality.rs
 │   ├── trust.rs
 │   ├── interface.rs        # tagged enum Interface { Rest, Zenoh, Mavlink, ... }
@@ -319,7 +319,7 @@ blueos-catalog/
 1. **Parse, don't validate** — enums/newtypes; `Bus::Mavlink` cannot appear under REST.
 2. **Definition vs resolved** — `PortRef::Literal(14001)` vs `PortRef::Env("MAV_SYSTEM_ID")`; `resolve()` pass for tooling.
 3. **Observed vs asserted are distinct types** — `ObservedFacts` (generated) is separate from `ServiceDefinition` (authored); `drift.rs` reconciles them.
-4. **`Unknown { reason }` is first-class** — enables the coverage gate; no silent blanks.
+4. **Two provenance wrappers, `Unknown { reason }` first-class** — observed fields use `Observed<T>` (carries `Evidence{file,line}`); asserted fields use `Asserted<T>` (carries `rationale`, never `file:line`). Both have an `Unknown` arm feeding the coverage gate; no silent blanks.
 5. **Unified edges** — replace separate callers/callees/producers/consumers lists.
 6. **Registration** — start with a plain slice/`Vec` registry for M0; consider `inventory`/`linkme` only if it pays for itself later.
 7. **Declaration ergonomics** — start with `const ServiceDefinition`; optional `service!` macro deferred to M1+.
