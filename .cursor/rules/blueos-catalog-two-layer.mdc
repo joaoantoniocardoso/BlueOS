@@ -1,0 +1,39 @@
+---
+description: BlueOS catalog observed-vs-asserted layer discipline (drift protection)
+globs: catalog/**
+alwaysApply: false
+---
+
+# Catalog Two-Layer Discipline
+
+The catalog has two layers that must never be mixed. Mixing them is the root cause of quality drift.
+
+## Observed layer (`catalog/observed/**`)
+
+- **Generated only.** Produced by the `extract` binary from the repo. **Never hand-edit.**
+  If a value is wrong, fix the extractor or the source, then regenerate.
+- Every observed field carries provenance: `Evidence { file, line }` or the exact command.
+- No evidence → the field is `Unknown { reason }`, never a guess.
+
+## Asserted layer (`catalog/src/services/**`)
+
+- Human/LLM judgment only: authorities, criticality, trust, `bounded_context`, failure modes, capabilities.
+- **Never restate an observed fact here** (ports, tmux/nginx names, limits). Reference the observed layer.
+- Unestablished fields are `Unknown { reason }`, not blank.
+
+## Before marking any catalog task done
+
+1. `Catalog::validate()` passes (invariants + coverage threshold).
+2. `drift` binary passes: no asserted field contradicts the observed layer.
+
+```rust
+// BAD — observed fact hand-typed into an asserted card
+const AUTOPILOT: ServiceDefinition = ServiceDefinition { listen: Port(8000), .. };
+
+// GOOD — asserted card references observed; port comes from extract → observed/
+const AUTOPILOT: ServiceDefinition = ServiceDefinition {
+    authorities: &[Authority::MavlinkRouterOwner],
+    tier: Criticality::VehicleCritical,
+    ..
+};
+```

@@ -1,0 +1,28 @@
+---
+description: BlueOS catalog crate Rust conventions
+globs: catalog/**/*.rs
+alwaysApply: false
+---
+
+# Catalog Crate Rust Conventions
+
+Complements the global Rust rules (top-down ordering, `cargo fmt`, minimal diff). Crate-specific only.
+
+- **Parse, don't validate.** Encode invariants in types so illegal states don't compile
+  (e.g. `Bus::Mavlink` cannot appear under a REST interface). Prefer newtypes over primitives:
+  `ServiceId`, `Port`, `PathRef`, `PortRef`.
+- **Definition vs resolved.** Use `PortRef::Literal(14001)` vs `PortRef::Env("MAV_SYSTEM_ID")`;
+  resolution happens in a `resolve()` pass, not at declaration.
+- **`Unknown { reason }` is first-class.** No silent blanks; it drives the coverage gate.
+- **Approved dependencies only** — do not add others without orchestrator sign-off:
+
+```toml
+schemars = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+# inventory = "0.3"  # only if compile-time registration proves worthwhile
+```
+
+- Registration starts as a plain slice/`Vec`; defer `inventory`/`linkme` and the `service!` macro.
+- After edits: `cargo fmt`, `cargo clippy -D warnings`, `cargo test`.
