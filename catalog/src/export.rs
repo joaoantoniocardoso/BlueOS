@@ -27,48 +27,41 @@ mod tests {
     use crate::id::ServiceId;
     use crate::lifecycle::Lifecycle;
     use crate::observed::ObservedFacts;
-    use crate::provenance::{Evidence, Observed};
+    use crate::provenance::{Asserted, Observed};
     use crate::service::ServiceDefinition;
-
-    fn evidence() -> Evidence {
-        Evidence {
-            file: "test.rs".to_string(),
-            line: 1,
-        }
-    }
 
     fn sample_service() -> ServiceDefinition {
         ServiceDefinition {
             id: ServiceId("sample".to_string()),
-            singleton: Observed::known(true, evidence()),
-            bounded_context: Observed::known("platform".to_string(), evidence()),
-            user_journeys: Observed::known(vec!["deploy".to_string()], evidence()),
-            tier: Observed::known(CriticalityTier::Auxiliary, evidence()),
-            offline_required: Observed::known(false, evidence()),
-            privilege_level: Observed::unknown("not established"),
-            dangerous_operations: Observed::unknown("not established"),
-            user_confirmation: Observed::unknown("not established"),
-            capabilities: Observed::unknown("not established"),
-            authorities: Observed::unknown("not established"),
-            states: Observed::unknown("not established"),
-            edges: Observed::unknown("not established"),
-            resources: Observed::unknown("not established"),
+            singleton: Asserted::established(true, "test"),
+            bounded_context: Asserted::established("platform".to_string(), "test"),
+            user_journeys: Asserted::established(vec!["deploy".to_string()], "test"),
+            tier: Asserted::established(CriticalityTier::Auxiliary, "test"),
+            offline_required: Asserted::established(false, "test"),
+            privilege_level: Asserted::unknown("not established"),
+            dangerous_operations: Asserted::unknown("not established"),
+            user_confirmation: Asserted::unknown("not established"),
+            capabilities: Asserted::unknown("not established"),
+            authorities: Asserted::unknown("not established"),
+            states: Asserted::unknown("not established"),
+            edges: Asserted::unknown("not established"),
+            resources: Asserted::unknown("not established"),
             lifecycle: Lifecycle {
-                triggers: Observed::unknown("not established"),
-                ordered_after: Observed::unknown("not established"),
-                ordered_before: Observed::unknown("not established"),
-                shutdown: Observed::unknown("not established"),
-                upgrade_behavior: Observed::unknown("not established"),
+                triggers: Asserted::unknown("not established"),
+                ordered_after: Asserted::unknown("not established"),
+                ordered_before: Asserted::unknown("not established"),
+                shutdown: Asserted::unknown("not established"),
+                upgrade_behavior: Asserted::unknown("not established"),
             },
-            health: Observed::unknown("not established"),
-            is_platform: Observed::known(false, evidence()),
-            api_stable: Observed::unknown("not established"),
-            permissions_model: Observed::unknown("not established"),
-            failure_modes: Observed::unknown("not established"),
-            blast_radius: Observed::unknown("not established"),
-            compatibility_policy: Observed::unknown("not established"),
-            team: Observed::unknown("not established"),
-            adr_refs: Observed::unknown("not established"),
+            health: Asserted::unknown("not established"),
+            is_platform: Asserted::established(false, "test"),
+            api_stable: Asserted::unknown("not established"),
+            permissions_model: Asserted::unknown("not established"),
+            failure_modes: Asserted::unknown("not established"),
+            blast_radius: Asserted::unknown("not established"),
+            compatibility_policy: Asserted::unknown("not established"),
+            team: Asserted::unknown("not established"),
+            adr_refs: Asserted::unknown("not established"),
         }
     }
 

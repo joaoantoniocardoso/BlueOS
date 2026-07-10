@@ -2,15 +2,15 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::id::ServiceId;
-use crate::provenance::Observed;
+use crate::provenance::Asserted;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Lifecycle {
-    pub triggers: Observed<Vec<String>>,
-    pub ordered_after: Observed<Vec<ServiceId>>,
-    pub ordered_before: Observed<Vec<ServiceId>>,
-    pub shutdown: Observed<String>,
-    pub upgrade_behavior: Observed<String>,
+    pub triggers: Asserted<Vec<String>>,
+    pub ordered_after: Asserted<Vec<ServiceId>>,
+    pub ordered_before: Asserted<Vec<ServiceId>>,
+    pub shutdown: Asserted<String>,
+    pub upgrade_behavior: Asserted<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

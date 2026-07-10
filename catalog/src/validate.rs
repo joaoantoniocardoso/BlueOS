@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use crate::catalog::Catalog;
 use crate::id::ServiceId;
-use crate::provenance::Observed;
+use crate::provenance::{Asserted, Observed};
 use crate::resource::ResourceOwnership;
 use crate::service::{Authority, ServiceDefinition};
 
@@ -64,7 +64,7 @@ fn check_exclusive_resources(catalog: &Catalog) -> Vec<ValidationError> {
             }
         }
 
-        if let Observed::Known {
+        if let Asserted::Established {
             value: resources, ..
         } = &service.resources
         {
@@ -104,7 +104,7 @@ fn check_conflicting_authorities(catalog: &Catalog) -> Vec<ValidationError> {
     let mut errors = Vec::new();
 
     for service in catalog.services() {
-        if let Observed::Known {
+        if let Asserted::Established {
             value: authorities, ..
         } = &service.authorities
         {
@@ -144,7 +144,7 @@ fn check_edge_targets(catalog: &Catalog) -> Vec<ValidationError> {
     let mut errors = Vec::new();
 
     for service in catalog.services() {
-        if let Observed::Known { value: edges, .. } = &service.edges {
+        if let Asserted::Established { value: edges, .. } = &service.edges {
             for edge in edges {
                 if !known_ids.contains(&edge.to) {
                     errors.push(ValidationError::UnknownEdgeTarget {
@@ -215,7 +215,7 @@ mod tests {
     use crate::id::{PathRef, ServiceId};
     use crate::lifecycle::Lifecycle;
     use crate::observed::ObservedFacts;
-    use crate::provenance::{Evidence, Observed};
+    use crate::provenance::{Asserted, Evidence, Observed};
     use crate::resource::{Resource, ResourceOwnership};
 
     fn evidence() -> Evidence {
@@ -228,35 +228,35 @@ mod tests {
     fn empty_service(id: &str) -> ServiceDefinition {
         ServiceDefinition {
             id: ServiceId(id.to_string()),
-            singleton: Observed::unknown("not established"),
-            bounded_context: Observed::unknown("not established"),
-            user_journeys: Observed::unknown("not established"),
-            tier: Observed::unknown("not established"),
-            offline_required: Observed::unknown("not established"),
-            privilege_level: Observed::unknown("not established"),
-            dangerous_operations: Observed::unknown("not established"),
-            user_confirmation: Observed::unknown("not established"),
-            capabilities: Observed::unknown("not established"),
-            authorities: Observed::unknown("not established"),
-            states: Observed::unknown("not established"),
-            edges: Observed::unknown("not established"),
-            resources: Observed::unknown("not established"),
+            singleton: Asserted::unknown("not established"),
+            bounded_context: Asserted::unknown("not established"),
+            user_journeys: Asserted::unknown("not established"),
+            tier: Asserted::unknown("not established"),
+            offline_required: Asserted::unknown("not established"),
+            privilege_level: Asserted::unknown("not established"),
+            dangerous_operations: Asserted::unknown("not established"),
+            user_confirmation: Asserted::unknown("not established"),
+            capabilities: Asserted::unknown("not established"),
+            authorities: Asserted::unknown("not established"),
+            states: Asserted::unknown("not established"),
+            edges: Asserted::unknown("not established"),
+            resources: Asserted::unknown("not established"),
             lifecycle: Lifecycle {
-                triggers: Observed::unknown("not established"),
-                ordered_after: Observed::unknown("not established"),
-                ordered_before: Observed::unknown("not established"),
-                shutdown: Observed::unknown("not established"),
-                upgrade_behavior: Observed::unknown("not established"),
+                triggers: Asserted::unknown("not established"),
+                ordered_after: Asserted::unknown("not established"),
+                ordered_before: Asserted::unknown("not established"),
+                shutdown: Asserted::unknown("not established"),
+                upgrade_behavior: Asserted::unknown("not established"),
             },
-            health: Observed::unknown("not established"),
-            is_platform: Observed::unknown("not established"),
-            api_stable: Observed::unknown("not established"),
-            permissions_model: Observed::unknown("not established"),
-            failure_modes: Observed::unknown("not established"),
-            blast_radius: Observed::unknown("not established"),
-            compatibility_policy: Observed::unknown("not established"),
-            team: Observed::unknown("not established"),
-            adr_refs: Observed::unknown("not established"),
+            health: Asserted::unknown("not established"),
+            is_platform: Asserted::unknown("not established"),
+            api_stable: Asserted::unknown("not established"),
+            permissions_model: Asserted::unknown("not established"),
+            failure_modes: Asserted::unknown("not established"),
+            blast_radius: Asserted::unknown("not established"),
+            compatibility_policy: Asserted::unknown("not established"),
+            team: Asserted::unknown("not established"),
+            adr_refs: Asserted::unknown("not established"),
         }
     }
 
@@ -301,20 +301,20 @@ mod tests {
     #[test]
     fn duplicate_exclusive_port_fails() {
         let mut service_a = empty_service("a");
-        service_a.resources = Observed::known(
+        service_a.resources = Asserted::established(
             vec![Resource {
                 path: PathRef("/dev/ttyUSB0".to_string()),
                 ownership: ResourceOwnership::Exclusive,
             }],
-            evidence(),
+            "test",
         );
         let mut service_b = empty_service("b");
-        service_b.resources = Observed::known(
+        service_b.resources = Asserted::established(
             vec![Resource {
                 path: PathRef("/dev/ttyUSB0".to_string()),
                 ownership: ResourceOwnership::Exclusive,
             }],
-            evidence(),
+            "test",
         );
 
         let mut observed_a = empty_observed("a");
@@ -334,7 +334,7 @@ mod tests {
     #[test]
     fn unknown_edge_target_fails() {
         let mut service_a = empty_service("a");
-        service_a.edges = Observed::known(
+        service_a.edges = Asserted::established(
             vec![Edge {
                 from: ServiceId("a".to_string()),
                 to: ServiceId("missing".to_string()),
@@ -345,7 +345,7 @@ mod tests {
                 required_at_boot: false,
                 failure_impact: FailureImpact::Degraded,
             }],
-            evidence(),
+            "test",
         );
 
         let catalog = Catalog::with_parts(vec![service_a], vec![empty_observed("a")]);

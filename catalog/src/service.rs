@@ -5,7 +5,7 @@ use crate::criticality::CriticalityTier;
 use crate::edge::Edge;
 use crate::id::{CapabilityId, PathRef, ServiceId};
 use crate::lifecycle::Lifecycle;
-use crate::provenance::Observed;
+use crate::provenance::Asserted;
 use crate::resource::Resource;
 use crate::state::StateMachine;
 use crate::trust::{DangerousOperation, PrivilegeLevel, UserConfirmation};
@@ -13,29 +13,29 @@ use crate::trust::{DangerousOperation, PrivilegeLevel, UserConfirmation};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct ServiceDefinition {
     pub id: ServiceId,
-    pub singleton: Observed<bool>,
-    pub bounded_context: Observed<String>,
-    pub user_journeys: Observed<Vec<String>>,
-    pub tier: Observed<CriticalityTier>,
-    pub offline_required: Observed<bool>,
-    pub privilege_level: Observed<PrivilegeLevel>,
-    pub dangerous_operations: Observed<Vec<DangerousOperation>>,
-    pub user_confirmation: Observed<UserConfirmation>,
-    pub capabilities: Observed<Vec<CapabilityId>>,
-    pub authorities: Observed<Vec<Authority>>,
-    pub states: Observed<Vec<StateMachine>>,
-    pub edges: Observed<Vec<Edge>>,
-    pub resources: Observed<Vec<Resource>>,
+    pub singleton: Asserted<bool>,
+    pub bounded_context: Asserted<String>,
+    pub user_journeys: Asserted<Vec<String>>,
+    pub tier: Asserted<CriticalityTier>,
+    pub offline_required: Asserted<bool>,
+    pub privilege_level: Asserted<PrivilegeLevel>,
+    pub dangerous_operations: Asserted<Vec<DangerousOperation>>,
+    pub user_confirmation: Asserted<UserConfirmation>,
+    pub capabilities: Asserted<Vec<CapabilityId>>,
+    pub authorities: Asserted<Vec<Authority>>,
+    pub states: Asserted<Vec<StateMachine>>,
+    pub edges: Asserted<Vec<Edge>>,
+    pub resources: Asserted<Vec<Resource>>,
     pub lifecycle: Lifecycle,
-    pub health: Observed<String>,
-    pub is_platform: Observed<bool>,
-    pub api_stable: Observed<bool>,
-    pub permissions_model: Observed<String>,
-    pub failure_modes: Observed<Vec<String>>,
-    pub blast_radius: Observed<String>,
-    pub compatibility_policy: Observed<String>,
-    pub team: Observed<String>,
-    pub adr_refs: Observed<Vec<String>>,
+    pub health: Asserted<String>,
+    pub is_platform: Asserted<bool>,
+    pub api_stable: Asserted<bool>,
+    pub permissions_model: Asserted<String>,
+    pub failure_modes: Asserted<Vec<String>>,
+    pub blast_radius: Asserted<String>,
+    pub compatibility_policy: Asserted<String>,
+    pub team: Asserted<String>,
+    pub adr_refs: Asserted<Vec<String>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]

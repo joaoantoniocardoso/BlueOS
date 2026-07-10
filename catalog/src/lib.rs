@@ -25,7 +25,7 @@ pub use id::{CapabilityId, PathRef, Port, PortRef, ServiceId};
 pub use interface::{FileAccessMode, Interface, MavlinkRole};
 pub use lifecycle::{Lifecycle, ObservedLifecycle};
 pub use observed::{ObservedFacts, ResourceLimits, ServiceKind, StartupTier};
-pub use provenance::{Evidence, Observed};
+pub use provenance::{Asserted, Evidence, Observed};
 pub use resolve::{resolve, resolve_port_ref, resolve_service_ports, ResolveError, ResolvedPorts};
 pub use resource::{Resource, ResourceOwnership};
 pub use service::{Authority, ServiceDefinition};

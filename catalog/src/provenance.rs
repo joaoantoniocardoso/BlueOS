@@ -29,3 +29,29 @@ impl<T> Observed<T> {
         matches!(self, Self::Unknown { .. })
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum Asserted<T> {
+    Established { value: T, rationale: String },
+    Unknown { reason: String },
+}
+
+impl<T> Asserted<T> {
+    pub fn established(value: T, rationale: impl Into<String>) -> Self {
+        Self::Established {
+            value,
+            rationale: rationale.into(),
+        }
+    }
+
+    pub fn unknown(reason: impl Into<String>) -> Self {
+        Self::Unknown {
+            reason: reason.into(),
+        }
+    }
+
+    pub fn is_unknown(&self) -> bool {
+        matches!(self, Self::Unknown { .. })
+    }
+}
