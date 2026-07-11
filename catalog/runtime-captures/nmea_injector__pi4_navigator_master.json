@@ -1,0 +1,64 @@
+{
+  "service": "nmea_injector",
+  "environment": "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator",
+  "captured_at": "2026-07-11",
+  "capture_host": "192.168.0.177",
+  "notes": "Read-only Tier-1 capture on a healthy running nmea_injector. CPU/RSS via tools/sample_resource.sh (--match nmea_injector/main.py, 60 samples, label running_baseline; PID 670). SLO via tools/probe_http.sh on GET /socks (--repeats 40). NO mutating routes exercised: POST /socks opens a live UDP/TCP listener and injects GPS_INPUT into the autopilot, DELETE /socks removes one; those journey outcomes remain Unknown. GET /socks returned [] (no external GPS sockets configured on this host). Raw evidence: /tmp/nmea_sample.json, /tmp/nmea_slo.json.",
+  "api_versions": [
+    "v1.0"
+  ],
+  "route_inventory": {
+    "v1.0_read_only": [
+      "GET /socks"
+    ],
+    "mutating_not_exercised": [
+      "POST /socks",
+      "DELETE /socks"
+    ],
+    "note": "Read-only GET probed; socket create/remove not exercised (would open a live GPS_INPUT listener into the autopilot)."
+  },
+  "running_baseline": {
+    "note": "GET contract on a healthy running nmea_injector with no configured sockets.",
+    "GET /socks": {
+      "status": 200,
+      "body_predicate": "[] (empty; no external GPS sockets configured)"
+    }
+  },
+  "slo_running_baseline": {
+    "sample_size": 40,
+    "note": "Single fast list read.",
+    "GET /socks": { "p50_ms": 8.3, "p95_ms": 11.3, "p99_ms": 12.2 }
+  },
+  "resource_usage": {
+    "running_baseline": {
+      "sample_size": 60,
+      "interval_s": 1,
+      "method": "/proc stat deltas, top-style (100 == 1 core), PID 670 python3 nmea_injector/main.py",
+      "cpu_pct": {
+        "mean": 0.26,
+        "median": 0.00,
+        "p95": 1.01,
+        "min": 0.00,
+        "max": 1.83,
+        "sd": 0.46
+      },
+      "rss_mb": {
+        "mean": 39.5,
+        "median": 39.5,
+        "p95": 39.5,
+        "min": 39.5,
+        "max": 39.5,
+        "sd": 0.0
+      },
+      "note": "Idle with no sockets configured; RSS flat ~40 MB, CPU near zero. Active NMEA ingest (not captured) would add per-message parse + mavlink2rest POST load."
+    }
+  },
+  "platform_matrix": {
+    "navigator": {
+      "firmware": "n/a (nmea_injector is autopilot-independent in deployment; it feeds GPS_INPUT to whatever autopilot mavlink2rest serves)",
+      "notes": "nmea_injector runs regardless of flight controller; it POSTs GPS_INPUT to mavlink2rest. Platform-independent on this Pi4/Navigator host."
+    }
+  },
+  "state_machine": "none (service_definition states: Unknown; TrafficController manages a dynamic set of listener sockets, not a discrete state machine)",
+  "settings_mutations": "Not exercised. POST /socks and DELETE /socks persist the socket spec list to /root/.config/nmea-injector/settings-1.json (SettingsV1); not mutated during this read-only capture."
+}

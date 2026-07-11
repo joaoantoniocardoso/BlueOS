@@ -88,6 +88,7 @@ allowed for services with no meaningful runtime or unreachable. Update after eac
 | 11 | versionchooser | versionchooser | 8081 /version-chooser/ | python | DONE | DONE | DONE | DONE | FULLY MODELED; core-image updater; dangerous ops = Upgrade/delete/pull |
 | 12 | bag_of_holding | bag_of_holding | 9101 /bag/ | python | DONE | DONE | DONE | DONE | FULLY MODELED; JSON store; 1 journey (Bag Editor), rest is infra |
 | 13 | customization | customization | 9152 /customization/ | python | DONE | DONE | DONE | DONE | FULLY MODELED; Auxiliary branding; no dangerous ops |
+| 14 | nmea_injector | nmea_injector | 2748 /nmea-injector/ | python | DONE | DONE | DONE | DONE | FULLY MODELED; ext-GPS→GPS_INPUT via m2r; dynamic listener = gap |
 | 9 | bridget | bridget | ? /bridget/ | python | TODO | TODO | TODO | TODO | |
 | 10 | commander | commander | 9100 /commander/ | python | DONE | DONE | DONE | DONE | FULLY MODELED (RSS~35MB; read-only SLO; dangerous POSTs Unknown by design) |
 | 11 | nmea_injector | nmea_injector | ? /nmea-injector/ | python | TODO | TODO | TODO | TODO | |
@@ -117,11 +118,13 @@ allowed for services with no meaningful runtime or unreachable. Update after eac
 
 ## >>> RESUME POINTER (update every service) <<<
 - Phases 1-3: DONE. Harness is built + hardened (gate.sh, extract, drift, frozen rubric).
-- Phase 4 progress: FULLY MODELED (13) = ardupilot_manager, kraken, disk_usage, helper, commander, beacon, cable_guy, wifi, versionchooser, bag_of_holding, customization.
-- **NEXT UP: `nmea_injector`** (then pardal, ping, bridget, recorder_extractor, then the ~9 binaries, then user_terminal).
+- Phase 4 progress: FULLY MODELED (14) = ardupilot_manager, kraken, disk_usage, helper, commander, beacon, cable_guy, wifi, versionchooser, bag_of_holding, customization, nmea_injector.
+- **NEXT UP: `pardal`** (then ping, bridget, recorder_extractor, then the ~9 binaries, then user_terminal).
 - Per-service loop (each layer committed separately, ledger updated): Fact Extractor(self-recon)→QA(observed)→Docs Specialist(journeys)→Card Author(wires all_journeys + service_def)→QA(card+journeys)→Runtime Specialist(live Pi)→commit. Run `bash catalog/gate.sh` before every commit. Pi at 192.168.0.177 (pi:raspberry). NEVER call destructive endpoints during capture.
 
 ## DECISIONS LOG (append-only; newest last)
+
+- 2026-07-11: nmea_injector FULLY MODELED. External NMEA/GPS ingest → MAVLink GPS_INPUT via HTTP POST to mavlink2rest (NOT a MAVLink connect string; OutboundHttp localhost:6040). Asserted Auxiliary (opt-in external GPS, not required for flight), nmea_gps_injector authority (producer, NOT router owner), dangerous_operations=[] (socket config reversible; wrong-position is a failure_mode). edges Unknown (mavlink2rest not yet cataloged — deferred). Extractor fixed nothing (clean); 5 dns-style anchors N/A. Harness gap: dynamic per-socket NMEA TCP/UDP listeners have no Interface variant. Tier-1 capture: RSS ~40 MB, CPU ~0.26%; GET /socks p50 8ms (returned [], no sockets configured). Mutations NOT exercised.
 
 - 2026-07-11: customization FULLY MODELED. White-labeling (theme color, logo/vehicle-image branding, .glb 3D model overrides) writing /usr/blueos/userdata/{styles,branding,modeloverrides}. Asserted Auxiliary (cosmetic, non-critical), ui_branding_manager authority (scoped to userdata assets; bag stores sidebar images separately — noted overlap), dangerous_operations=[] (.glb upload is static data served to renderer, NOT executed code ⇒ NotRequired). 8 journeys. Self-QA (simple service): verified theme route + doc + frontend paths + authority uniqueness. Tier-1 read-only capture: RSS ~35 MB, CPU ~0.26%; all GETs ~5-6ms. Mutations NOT exercised.
 
