@@ -1,7 +1,7 @@
 # BlueOS 2.0 — Service Catalog Model
 
 **Branch:** `2.0-dev/model`
-**Status:** M0–M1.5 DONE; M2 model complete, **edge graph in progress**; M3 clustering is a stub; M4 (human) pending. (Detailed run log: `.cursor/plans/blueos-2.0-autonomous-run.md`.)
+**Status:** M0–M3 DONE (harness, calibration, journey spine, full 26-service model, complete edge graph, clustering engine). **Only M4 remains — the human architecture-decision step** (score the 3 clustering proposals, event-storm, ADRs, strangler slices). (Detailed run log: `.cursor/plans/blueos-2.0-autonomous-run.md`.)
 **Audience:** Orchestrator agent (Opus) and human architects
 **Phase 1 objective:** Build a precise, agentic harness — every step of the process has a defined agent profile, its skills, and an acceptance gate. Precision over speed.
 
@@ -480,10 +480,10 @@ thiserror = "1"
 - [x] External binaries first-class (`mavlink2rest`, `mavlink-camera-manager`, `linux2rest`, `zenohd`, `blueos-recorder`, `filebrowser`, `ttyd`, `iperf3`, `nginx`)
 - [x] **Edge graph connects known static HTTP/MAVLink/Zenoh links** — edges-pass complete, **zero `edges: unknown` remain**. Concrete: mavlink2rest→ardupilot_manager, mavlink-camera-manager→ardupilot_manager, recorder→recorder_extractor (File), ttyd→user_terminal (Subprocess), helper→{versionchooser, mavlink2rest}, bridget→linux2rest, ping→mavlink2rest, nmea_injector→mavlink2rest (all Rest), **ardupilot_manager→zenohd** (Zenoh MAVLink bridge, port 7117). The 10 services with no outbound catalog coupling are now `established(vec![])` (determined-empty, distinct from Unknown — needed for the M3 coupling matrix).
 
-### M3 — Agent tooling — PARTIAL (clustering is a stub)
-- [x] JSON Schema export (`export --schema`) + `export json` + `export mermaid` implemented
-- [x] Drift detector implemented (`drift` bin) and run via `gate.sh` (no CI in this repo yet)
-- [ ] **Clustering helper: `coupling_matrix` + weights + stability export** — `coupling_matrix()` is a STUB returning an all-zeros matrix (`weights: vec![vec![0.0; size]; size]`). Needs: real per-bus edge weights + shared-resource weights populated from the (M2-completed) edge graph + resources, named policies (`coupling-only`, `coupling+trust`, `coupling+team`), a stability/modularity metric, ≥3 boundary proposals, and a `cluster` bin/export. BLOCKED on M2 edge graph (coupling needs real edges).
+### M3 — Agent tooling — DONE
+- [x] JSON Schema export (`export --schema`) + `export json` + grouped-subgraph `export mermaid` + `export_proposals_json`
+- [x] Drift detector implemented (`drift` bin) and run via `gate.sh` (no CI runner in this repo yet)
+- [x] **Clustering helper: real `coupling_matrix(policy)` + committed weights (`WEIGHTS_VERSION="v1"`) + stability export** — `src/cluster.rs` + `src/bin/cluster.rs`. Weighted undirected coupling from established edges (per-bus × failure-impact + boot bonus) + shared non-exclusive resources + policy affinity; 3 named policies (`CouplingOnly`/`CouplingTrust`/`CouplingDomain`); greedy CNM modularity clustering (deterministic); `cluster_stability()` (seeded perturbation → co-occurrence + unstable pairs); `boundary_proposals()` → exactly 3 candidate partitions (NOT the answer). CouplingOnly Q≈0.245; reproducible; 33 tests; no new deps.
 
 ### M4 — Architecture decisions (human)
 - [ ] Event storm / journey workshop output → ADRs
@@ -521,8 +521,9 @@ When picking up this branch:
 
 ## Still open
 
-- [ ] Coverage threshold value (max `Unknown` on required fields) — set during M1 calibration.
-- [ ] Exact edge weights per bus — set during M3.
+- [ ] Coverage threshold value (max `Unknown` on required fields) — deferred with rationale (Phase 3 audit); the per-field `Unknown{reason}` discipline + drift gate already enforce depth.
+- [x] Exact edge weights per bus — committed as `WEIGHTS_VERSION="v1"` in `src/cluster.rs` (tunable defaults; humans re-score during M4).
+- **Remaining = M4 (human):** event-storm/journey workshop → ADRs; score the 3 clustering proposals against quality attributes; pick target boundaries + strangler slices. Agents have produced the inputs; the decision is human.
 
 ---
 
