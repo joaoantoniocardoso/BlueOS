@@ -1,6 +1,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, HttpMethod, JourneyStep, NetworkState, Precondition, RouteRef, UserJourney, Visibility,
+    Actor, HttpMethod, JourneyStep, NetworkState, Precondition, RouteRef, StepOutcome, UserJourney,
+    Visibility,
 };
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
 
@@ -12,6 +13,8 @@ const HELPER_STORE: &str = "core/frontend/src/store/helper.ts";
 const HELPER_MENUS: &str = "core/frontend/src/menus.ts";
 const NETWORK_PRIORITY: &str = "core/frontend/src/components/app/NetworkInterfacePriorityMenu.vue";
 const REQUIRE_INTERNET: &str = "core/frontend/src/components/wizard/RequireInternet.vue";
+const RUNTIME_CAPTURE: &str = "runtime-captures/helper__pi4_navigator_master.json";
+const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
 
 pub fn journeys() -> Vec<UserJourney> {
     vec![
@@ -41,11 +44,17 @@ fn monitor_internet_connectivity() -> UserJourney {
                 "View the internet connectivity indicator in the BlueOS header",
                 None,
                 Provenance::doc(ADV, 141),
+                None,
             ),
             service_step(
                 "Poll configured websites to refresh internet connectivity state (every 20 seconds)",
                 Some(sourced_route(HttpMethod::Get, "/check_internet_access", Some("v1.0"), 540)),
                 Provenance::source(HELPER_STORE, 45),
+                Some(runtime_outcome(
+                    200,
+                    Some("\"online\": true".into()),
+                    "#running_baseline",
+                )),
             ),
         ]),
         chains_from: None,
@@ -74,6 +83,7 @@ fn verify_internet_connectivity() -> UserJourney {
                 "Check that the BlueOS header shows internet connectivity",
                 None,
                 Provenance::doc(GETTING, 100),
+                None,
             ),
             operator_step(
                 "Run the internet connectivity check used by the setup wizard",
@@ -84,6 +94,11 @@ fn verify_internet_connectivity() -> UserJourney {
                     540,
                 )),
                 Provenance::source(REQUIRE_INTERNET, 94),
+                Some(runtime_outcome(
+                    200,
+                    Some("\"online\": true".into()),
+                    "#running_baseline",
+                )),
             ),
         ]),
         chains_from: None,
@@ -110,6 +125,7 @@ fn browse_available_web_services() -> UserJourney {
                 "Open the Available Services page from the sidebar",
                 None,
                 Provenance::source(HELPER_MENUS, 17),
+                None,
             ),
             operator_step(
                 "View scanned services with port, name, webpage, API documentation, and versions",
@@ -120,6 +136,11 @@ fn browse_available_web_services() -> UserJourney {
                     529,
                 )),
                 Provenance::doc(ADV, 363),
+                Some(runtime_outcome(
+                    200,
+                    Some("\"valid\": true".into()),
+                    "#running_baseline",
+                )),
             ),
         ]),
         chains_from: None,
@@ -151,11 +172,17 @@ fn probe_interface_internet_connectivity() -> UserJourney {
                 "Open the network interface priority menu from the internet tray",
                 None,
                 Provenance::doc(ADV, 145),
+                None,
             ),
             operator_step(
                 "View per-interface internet availability while reordering interfaces",
                 Some(sourced_route(HttpMethod::Get, "/ping", Some("v1.0"), 583)),
                 Provenance::source(NETWORK_PRIORITY, 120),
+                Some(runtime_outcome(
+                    200,
+                    Some("true".into()),
+                    "#running_baseline",
+                )),
             ),
         ]),
         chains_from: None,
@@ -198,13 +225,14 @@ fn operator_step(
     description: &str,
     route: Option<Grounded<RouteRef>>,
     provenance: Provenance,
+    outcome: Option<Grounded<StepOutcome>>,
 ) -> GroundedItem<JourneyStep> {
     GroundedItem::new(
         JourneyStep {
             actor: Actor::Operator,
             description: description.into(),
             route,
-            outcome: None,
+            outcome,
         },
         provenance,
     )
@@ -214,14 +242,26 @@ fn service_step(
     description: &str,
     route: Option<Grounded<RouteRef>>,
     provenance: Provenance,
+    outcome: Option<Grounded<StepOutcome>>,
 ) -> GroundedItem<JourneyStep> {
     GroundedItem::new(
         JourneyStep {
             actor: Actor::Service(ServiceId("helper".into())),
             description: description.into(),
             route,
-            outcome: None,
+            outcome,
         },
         provenance,
+    )
+}
+
+fn runtime_outcome(status: u16, body: Option<String>, key: &str) -> Grounded<StepOutcome> {
+    Grounded::known(
+        StepOutcome {
+            expected_status: Some(status),
+            body_predicate: body,
+            transition: None,
+        },
+        Provenance::runtime(format!("{RUNTIME_CAPTURE}{key}"), RUNTIME_ENV),
     )
 }

@@ -20,6 +20,7 @@ pub fn all_runtime() -> Vec<RuntimeFacts> {
     vec![
         ardupilot_manager::runtime_facts(),
         disk_usage::runtime_facts(),
+        helper::runtime_facts(),
         kraken::runtime_facts(),
     ]
 }

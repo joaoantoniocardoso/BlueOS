@@ -1,14 +1,120 @@
 use crate::criticality::CriticalityTier;
 use crate::id::{CapabilityId, JourneyId, PathRef, PortRef, ServiceId};
 use crate::interface::{FileAccessMode, Interface};
+use crate::journey::{HttpMethod, RouteRef};
 use crate::lifecycle::{Lifecycle, ObservedLifecycle};
 use crate::observed::{ObservedFacts, ResourceLimits, ServiceKind, StartupTier};
+use crate::provenance::GroundedSet;
 use crate::provenance::{
-    Asserted, AssertedSet, Evidence, Evidenced, Observed, ObservedSet, Rationaled,
+    Asserted, AssertedSet, Evidence, Evidenced, GroundedItem, Observed, ObservedSet, Provenance,
+    Rationaled,
 };
 use crate::resource::{Resource, ResourceOwnership};
+use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts, SloBaseline};
 use crate::service::{Authority, ServiceDefinition};
 use crate::trust::{PrivilegeLevel, UserConfirmation};
+
+const RUNTIME_CAPTURE: &str = "runtime-captures/helper__pi4_navigator_master.json";
+const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
+
+pub fn runtime_facts() -> RuntimeFacts {
+    RuntimeFacts {
+        service: ServiceId("helper".into()),
+        state_contracts: GroundedSet::unknown(
+            "helper has no service-level state machine (card states Unknown)",
+        ),
+        slo_baselines: GroundedSet::known(vec![
+            runtime_slo(HttpMethod::Get, "/web_services", 7.4, 8.6, 8.9, 30),
+            runtime_slo(HttpMethod::Get, "/check_internet_access", 6.6, 12.2, 12.4, 30),
+            runtime_slo(HttpMethod::Get, "/hardware_id", 5.7, 8.4, 8.9, 30),
+            runtime_slo(HttpMethod::Get, "/ping?host=1.1.1.1", 28.2, 33.8, 43.4, 30),
+        ]),
+        resource_usage: GroundedSet::known(vec![runtime_resource(
+            "running_baseline",
+            Distribution {
+                mean: 1.06,
+                median: 0.00,
+                p95: 1.00,
+                min: 0.00,
+                max: 43.14,
+                sd: 5.51,
+            },
+            Distribution {
+                mean: 62.1,
+                median: 61.7,
+                p95: 62.6,
+                min: 61.7,
+                max: 62.6,
+                sd: 0.0,
+            },
+            60,
+        )]),
+        platform_matrix: GroundedSet::known(vec![GroundedItem::new(
+            PlatformBehavior {
+                platform: "navigator".into(),
+                firmware: None,
+                notes: vec![
+                    "helper behavior is platform-independent (local port scan, UUID reads, internet probes); not captured across boards".into(),
+                    "runtime captured on Navigator only; RSS ~62.1 MB, CPU ~1.06% mean".into(),
+                ],
+            },
+            runtime_prov("#platform_matrix"),
+        )]),
+        settings_mutations: GroundedSet::unknown(
+            "helper has no settings persistence; nginx snippet writes are config side effects, not settings",
+        ),
+    }
+}
+
+fn runtime_prov(key: &str) -> Provenance {
+    Provenance::runtime(format!("{RUNTIME_CAPTURE}{key}"), RUNTIME_ENV)
+}
+
+fn runtime_route(method: HttpMethod, path: &str) -> RouteRef {
+    RouteRef {
+        service: ServiceId("helper".into()),
+        method,
+        path: path.into(),
+        version: None,
+    }
+}
+
+fn runtime_slo(
+    method: HttpMethod,
+    path: &str,
+    p50: f64,
+    p95: f64,
+    p99: f64,
+    sample_size: u32,
+) -> GroundedItem<SloBaseline> {
+    GroundedItem::new(
+        SloBaseline {
+            route: runtime_route(method, path),
+            latency_p50_ms: p50,
+            latency_p95_ms: p95,
+            latency_p99_ms: p99,
+            sample_size,
+        },
+        runtime_prov("#slo_running_baseline"),
+    )
+}
+
+fn runtime_resource(
+    condition: &str,
+    cpu_pct: Distribution,
+    rss_mb: Distribution,
+    samples: u32,
+) -> GroundedItem<ResourceUsage> {
+    GroundedItem::new(
+        ResourceUsage {
+            condition: condition.into(),
+            cpu_pct,
+            rss_mb,
+            samples,
+        },
+        runtime_prov("#resource_usage"),
+    )
+}
 
 pub fn observed_facts() -> ObservedFacts {
     ObservedFacts {

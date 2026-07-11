@@ -1,0 +1,84 @@
+{
+  "service": "helper",
+  "environment": "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator",
+  "captured_at": "2026-07-11",
+  "capture_host": "192.168.0.177",
+  "notes": "Read-only capture on a healthy running helper service (secondary venv /usr/blueos/venv2/bin/python3). CPU/RSS via tools/sample_resource.sh (--match helper/main.py, 60 samples, label running_baseline; PID 710 cmdline verified: /home/pi/services/helper/main.py). SLO via tools/probe_http.sh on GET /web_services, /check_internet_access, /hardware_id (--repeats 30); ping via GET /ping?host=1.1.1.1 (--repeats 30). check_internet_access uses @temporary_cache(timeout_seconds=5) so rapid repeats measure cached responses (~6ms); cold probes to external hosts are slower and variable. software_id not probed for SLO (journey not exercised). Raw evidence: /tmp/helper_sample.json, /tmp/helper_slo.json, /tmp/helper_ping_slo.json.",
+
+  "api_versions": ["v1.0"],
+
+  "route_inventory": {
+    "v1.0": [
+      "GET /web_services",
+      "GET /check_internet_access",
+      "GET /hardware_id",
+      "GET /software_id",
+      "GET /ping"
+    ],
+    "note": "Confirmed routes on live Pi via /helper/v1.0/openapi.json; all read-only GETs."
+  },
+
+  "running_baseline": {
+    "note": "GET contracts on a healthy running helper (idle, no mutating actions).",
+    "GET /web_services": {
+      "status": 200,
+      "body_predicate": "\"valid\": true"
+    },
+    "GET /check_internet_access": {
+      "status": 200,
+      "body_predicate": "\"online\": true"
+    },
+    "GET /hardware_id": {
+      "status": 200,
+      "body_predicate": "\"52ac36d7-c689-45fb-9386-ae9a17d65a0b\""
+    },
+    "GET /ping?host=1.1.1.1": {
+      "status": 200,
+      "body_predicate": "true"
+    }
+  },
+
+  "slo_running_baseline": {
+    "sample_size": 30,
+    "note": "check_internet_access latencies reflect 5s temporary_cache hits during rapid probing; cold external probes are slower/variable.",
+    "GET /web_services": {
+      "p50_ms": 7.4,
+      "p95_ms": 8.6,
+      "p99_ms": 8.9
+    },
+    "GET /check_internet_access": {
+      "p50_ms": 6.6,
+      "p95_ms": 12.2,
+      "p99_ms": 12.4
+    },
+    "GET /hardware_id": {
+      "p50_ms": 5.7,
+      "p95_ms": 8.4,
+      "p99_ms": 8.9
+    },
+    "GET /ping?host=1.1.1.1": {
+      "p50_ms": 28.2,
+      "p95_ms": 33.8,
+      "p99_ms": 43.4
+    }
+  },
+
+  "resource_usage": {
+    "running_baseline": {
+      "sample_size": 60,
+      "cpu_pct": { "mean": 1.06, "median": 0.00, "p95": 1.00, "min": 0.00, "max": 43.14, "sd": 5.51 },
+      "rss_mb": { "mean": 62.1, "median": 61.7, "min": 61.7, "max": 62.6 }
+    }
+  },
+
+  "settings_mutations": {
+    "note": "helper has no settings manager or settings.json persistence (verified: no settings imports in main.py); nginx extension snippet writes are config side effects, not settings"
+  },
+
+  "platform_matrix": {
+    "note": "helper behavior is platform-independent (local port scan, UUID reads, internet probes); not captured across boards. Runtime captured on Navigator only.",
+    "navigator": { "platform": "navigator", "rss_mb": 62.1, "cpu_pct_mean": 1.06 }
+  },
+
+  "state_machine": "none — helper has no service-level lifecycle state machine; internet probe results and KNOWN_SERVICES cache are ephemeral request/periodic state (see service_definition states: Unknown)"
+}

@@ -86,7 +86,7 @@ allowed for services with no meaningful runtime or unreachable. Update after eac
 | 9 | bridget | bridget | ? /bridget/ | python | TODO | TODO | TODO | TODO | |
 | 10 | commander | commander | ? /commander/ | python | TODO | TODO | TODO | TODO | |
 | 11 | nmea_injector | nmea_injector | ? /nmea-injector/ | python | TODO | TODO | TODO | TODO | |
-| 12 | helper | helper | 81 /helper/ | python | DONE | DONE | DONE | TODO | card QA ACCEPT (1 doc-anchor fix); runtime next |
+| 12 | helper | helper | 81 /helper/ | python | DONE | DONE | DONE | DONE | FULLY MODELED (RSS~62MB, cpu~1.06%; v1.0 GETs) |
 | 13 | iperf3 | iperf3 | 5201 | binary | TODO | TODO | TODO | TODO | |
 | 14 | linux2rest | linux2rest | ? | binary | TODO | TODO | TODO | TODO | |
 | 15 | filebrowser | filebrowser | ? /file-browser | binary | TODO | TODO | TODO | TODO | |
