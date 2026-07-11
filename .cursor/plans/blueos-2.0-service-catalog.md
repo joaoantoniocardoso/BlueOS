@@ -474,11 +474,11 @@ thiserror = "1"
 - [x] Card Author: `capability_refs` + `journey_refs`; triangulated `ardupilot_manager` reference journeys → QA
 - [x] Fold remaining findings into rubric freeze: manifest-cache resource, `/v1.0` version path, error-semantics-per-state, SLO/perf baselines, settings schema, platform matrix
 
-### M2 — Coverage + extractor automation — MOSTLY DONE (edge graph in progress)
+### M2 — Coverage + extractor automation — DONE
 - [x] Real `extract` binary: scans `start-blueos-core` → self-checks observed facts; reproduces the M1 calibration artifacts (oracle)
 - [x] Observed + asserted + **runtime** cards for **all 26 processes** (from `start-blueos-core` + nginx + live Pi)
 - [x] External binaries first-class (`mavlink2rest`, `mavlink-camera-manager`, `linux2rest`, `zenohd`, `blueos-recorder`, `filebrowser`, `ttyd`, `iperf3`, `nginx`)
-- [ ] **Edge graph connects known static HTTP/MAVLink/Zenoh links** — IN PROGRESS (edges-pass). Concrete edges already established: mavlink2rest→ardupilot_manager, mavlink-camera-manager→ardupilot_manager, recorder→recorder_extractor (Bus::File), ttyd→user_terminal (Bus::Subprocess). Still `Unknown` (deferred while targets were uncataloged; NOW resolvable): helper→{version-chooser,mavlink2rest,…}, ardupilot_manager→{mavlink2rest,cable_guy,video,…}, kraken→{OutboundHttp targets}, bridget→linux2rest, ping→mavlink2rest, nmea_injector→mavlink2rest. Plus audit the several `edges: Unknown` that are actually "no outbound coupling" (should be `established(vec![])`).
+- [x] **Edge graph connects known static HTTP/MAVLink/Zenoh links** — edges-pass complete, **zero `edges: unknown` remain**. Concrete: mavlink2rest→ardupilot_manager, mavlink-camera-manager→ardupilot_manager, recorder→recorder_extractor (File), ttyd→user_terminal (Subprocess), helper→{versionchooser, mavlink2rest}, bridget→linux2rest, ping→mavlink2rest, nmea_injector→mavlink2rest (all Rest), **ardupilot_manager→zenohd** (Zenoh MAVLink bridge, port 7117). The 10 services with no outbound catalog coupling are now `established(vec![])` (determined-empty, distinct from Unknown — needed for the M3 coupling matrix).
 
 ### M3 — Agent tooling — PARTIAL (clustering is a stub)
 - [x] JSON Schema export (`export --schema`) + `export json` + `export mermaid` implemented
