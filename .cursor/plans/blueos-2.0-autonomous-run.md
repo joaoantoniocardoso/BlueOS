@@ -82,7 +82,7 @@ allowed for services with no meaningful runtime or unreachable. Update after eac
 | 5 | mavlink2rest | mavlink2rest | 6040 | binary | TODO | TODO | TODO | TODO | |
 | 6 | wifi | wifi | ? /wifi-manager/ | python | TODO | TODO | TODO | TODO | |
 | 7 | zenohd | zenohd | 7447 | binary | TODO | TODO | TODO | TODO | |
-| 8 | beacon | beacon | 9111 /beacon/ | python | DONE | DONE | TODO | TODO | obs+3 journeys; jrn not yet wired |
+| 8 | beacon | beacon | 9111 /beacon/ | python | DONE | DONE | DONE | DONE | FULLY MODELED; mDNS = harness gap (no Interface variant) |
 | 9 | bridget | bridget | ? /bridget/ | python | TODO | TODO | TODO | TODO | |
 | 10 | commander | commander | 9100 /commander/ | python | DONE | DONE | DONE | DONE | FULLY MODELED (RSS~35MB; read-only SLO; dangerous POSTs Unknown by design) |
 | 11 | nmea_injector | nmea_injector | ? /nmea-injector/ | python | TODO | TODO | TODO | TODO | |
@@ -112,11 +112,13 @@ allowed for services with no meaningful runtime or unreachable. Update after eac
 
 ## >>> RESUME POINTER (update every service) <<<
 - Phases 1-3: DONE. Harness is built + hardened (gate.sh, extract, drift, frozen rubric).
-- Phase 4 progress: FULLY MODELED = ardupilot_manager, kraken, disk_usage, helper, commander.
-- **NEXT UP: `beacon`** (then cable_guy, wifi, versionchooser, bag_of_holding, customization, nmea_injector, pardal, ping, bridget, recorder_extractor, then the ~9 binaries, then user_terminal).
+- Phase 4 progress: FULLY MODELED = ardupilot_manager, kraken, disk_usage, helper, commander, beacon.
+- **NEXT UP: `cable_guy`** (then wifi, versionchooser, bag_of_holding, customization, nmea_injector, pardal, ping, bridget, recorder_extractor, then the ~9 binaries, then user_terminal).
 - Per-service loop (each layer committed separately, ledger updated): Fact Extractor(self-recon)→QA(observed)→Docs Specialist(journeys)→Card Author(wires all_journeys + service_def)→QA(card+journeys)→Runtime Specialist(live Pi)→commit. Run `bash catalog/gate.sh` before every commit. Pi at 192.168.0.177 (pi:raspberry). NEVER call destructive endpoints during capture.
 
 ## DECISIONS LOG (append-only; newest last)
+
+- 2026-07-11: beacon FULLY MODELED. mDNS/zeroconf advertisement has no `Interface` variant — modeled honestly as capability `advertise_mdns_domains` + `discover_blueos_on_network` journey; logged as harness gap (consider `Interface::Mdns` if more network-advertisement services appear). QA bounced 2 anchors (Settings evidence → pykson_manager.py:69; discover precondition → getting-started:29); both fixed. Tier-1 read-only capture: RSS ~39.9 MB flat, CPU ~0.79% mean; GET SLOs p50 5–10.5 ms. POST /vehicle_name + /hostname NOT exercised (would rename live vehicle); those journey outcomes stay Unknown.
 
 - 2026-07-11: Kraken committed `e5ffdaf8a`. Runtime captured Tier 1+2 with Example 1; vehicle restored. Fixed `probe_http.sh` (ARG_MAX + SIGPIPE). 4 journey outcomes left Unknown → **Phase 1 target**.
 - 2026-07-11: `SloBaseline` is latency-only; `ResourceUsage` holds cpu/mem Distributions; kraken has NO state machine (state_contracts Unknown is correct).

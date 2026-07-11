@@ -23,6 +23,7 @@ pub fn all_observed() -> Vec<ObservedFacts> {
 pub fn all_runtime() -> Vec<RuntimeFacts> {
     vec![
         ardupilot_manager::runtime_facts(),
+        beacon::runtime_facts(),
         commander::runtime_facts(),
         disk_usage::runtime_facts(),
         helper::runtime_facts(),
@@ -33,6 +34,7 @@ pub fn all_runtime() -> Vec<RuntimeFacts> {
 pub fn all_service_definitions() -> Vec<ServiceDefinition> {
     vec![
         ardupilot_manager::service_definition(),
+        beacon::service_definition(),
         commander::service_definition(),
         disk_usage::service_definition(),
         helper::service_definition(),

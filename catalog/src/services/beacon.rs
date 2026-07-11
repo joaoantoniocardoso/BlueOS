@@ -1,9 +1,119 @@
-use crate::id::{PathRef, PortRef, ServiceId};
+use crate::criticality::CriticalityTier;
+use crate::id::{CapabilityId, JourneyId, PathRef, PortRef, ServiceId};
 use crate::interface::{FileAccessMode, Interface};
-use crate::lifecycle::ObservedLifecycle;
+use crate::journey::{HttpMethod, RouteRef};
+use crate::lifecycle::{Lifecycle, ObservedLifecycle};
 use crate::observed::{ObservedFacts, ResourceLimits, ServiceKind, StartupTier};
-use crate::provenance::{Evidence, Evidenced, Observed, ObservedSet};
+use crate::provenance::{
+    Asserted, AssertedSet, Evidence, Evidenced, GroundedItem, GroundedSet, Observed, ObservedSet,
+    Provenance, Rationaled,
+};
 use crate::resource::{Resource, ResourceOwnership};
+use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts, SloBaseline};
+use crate::service::{Authority, ServiceDefinition};
+use crate::trust::{PrivilegeLevel, UserConfirmation};
+
+const RUNTIME_CAPTURE: &str = "runtime-captures/beacon__pi4_navigator_master.json";
+const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
+
+pub fn runtime_facts() -> RuntimeFacts {
+    RuntimeFacts {
+        service: ServiceId("beacon".into()),
+        state_contracts: GroundedSet::unknown(
+            "beacon has no service-level state machine (card states Unknown); it runs a periodic mDNS re-advertisement loop",
+        ),
+        slo_baselines: GroundedSet::known(vec![
+            runtime_slo(HttpMethod::Get, "/vehicle_name", 5.0, 7.0, 7.7, 40),
+            runtime_slo(HttpMethod::Get, "/hostname", 4.7, 6.8, 6.9, 40),
+            runtime_slo(HttpMethod::Get, "/services", 10.5, 14.8, 15.7, 40),
+            runtime_slo(HttpMethod::Get, "/ip", 6.1, 7.8, 8.1, 40),
+        ]),
+        resource_usage: GroundedSet::known(vec![runtime_resource(
+            "running_baseline",
+            Distribution {
+                mean: 0.79,
+                median: 0.00,
+                p95: 4.02,
+                min: 0.00,
+                max: 5.74,
+                sd: 1.35,
+            },
+            Distribution {
+                mean: 39.9,
+                median: 39.9,
+                p95: 39.9,
+                min: 39.9,
+                max: 39.9,
+                sd: 0.0,
+            },
+            60,
+        )]),
+        platform_matrix: GroundedSet::known(vec![GroundedItem::new(
+            PlatformBehavior {
+                platform: "navigator".into(),
+                firmware: None,
+                notes: vec![
+                    "beacon advertises mDNS and serves identity regardless of flight controller; platform-independent".into(),
+                    "runtime captured on Navigator only; RSS ~39.9 MB flat, CPU ~0.79% mean (spikes from ~10s mDNS loop)".into(),
+                ],
+            },
+            runtime_prov("#platform_matrix"),
+        )]),
+        settings_mutations: GroundedSet::unknown(
+            "POST /vehicle_name and POST /hostname persist to /root/.config/beacon/settings-4.json but were not exercised (would rename the live vehicle)",
+        ),
+    }
+}
+
+fn runtime_prov(key: &str) -> Provenance {
+    Provenance::runtime(format!("{RUNTIME_CAPTURE}{key}"), RUNTIME_ENV)
+}
+
+fn runtime_route(method: HttpMethod, path: &str) -> RouteRef {
+    RouteRef {
+        service: ServiceId("beacon".into()),
+        method,
+        path: path.into(),
+        version: None,
+    }
+}
+
+fn runtime_slo(
+    method: HttpMethod,
+    path: &str,
+    p50: f64,
+    p95: f64,
+    p99: f64,
+    sample_size: u32,
+) -> GroundedItem<SloBaseline> {
+    GroundedItem::new(
+        SloBaseline {
+            route: runtime_route(method, path),
+            latency_p50_ms: p50,
+            latency_p95_ms: p95,
+            latency_p99_ms: p99,
+            sample_size,
+        },
+        runtime_prov("#slo_running_baseline"),
+    )
+}
+
+fn runtime_resource(
+    condition: &str,
+    cpu_pct: Distribution,
+    rss_mb: Distribution,
+    samples: u32,
+) -> GroundedItem<ResourceUsage> {
+    GroundedItem::new(
+        ResourceUsage {
+            condition: condition.into(),
+            cpu_pct,
+            rss_mb,
+            samples,
+        },
+        runtime_prov("#resource_usage"),
+    )
+}
 
 pub fn observed_facts() -> ObservedFacts {
     ObservedFacts {
@@ -100,8 +210,8 @@ pub fn observed_facts() -> ObservedFacts {
                     path: PathRef("/root/.config/beacon/settings-4.json".to_string()),
                 },
                 Evidence {
-                    file: "core/services/beacon/settings.py".to_string(),
-                    line: 188,
+                    file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py".to_string(),
+                    line: 69,
                 },
             ),
             Evidenced::new(
@@ -226,5 +336,205 @@ pub fn observed_facts() -> ObservedFacts {
             },
         ),
         openapi_refs: ObservedSet::unknown("not yet extracted"),
+    }
+}
+
+pub fn service_definition() -> ServiceDefinition {
+    ServiceDefinition {
+        id: ServiceId("beacon".to_string()),
+        singleton: Asserted::established(
+            true,
+            "single SERVICES-tier tmux instance; one Beacon process owns all mDNS runners",
+        ),
+        bounded_context: Asserted::established(
+            "vehicle-identity-and-discovery".to_string(),
+            "provisional 2.0 domain: mDNS LAN advertisement plus persisted vehicle name and hostname identity",
+        ),
+        journey_refs: AssertedSet::established(vec![
+            Rationaled::new(
+                JourneyId("rename_vehicle".into()),
+                "sidebar vehicle identifier edit persists display name via POST /vehicle_name",
+            ),
+            Rationaled::new(
+                JourneyId("change_mdns_hostname".into()),
+                "sidebar edit updates the mDNS hostname broadcast via POST /hostname",
+            ),
+            Rationaled::new(
+                JourneyId("discover_blueos_on_network".into()),
+                "beacon publishes blueos.local mDNS records so operators can open the web UI on the LAN",
+            ),
+        ]),
+        tier: Asserted::established(
+            CriticalityTier::Important,
+            "LAN hostname discovery and vehicle identity UX depend on beacon; MAVLink vehicle control paths do not",
+        ),
+        offline_required: Asserted::established(
+            true,
+            "mDNS advertisement and identity REST API operate on local network interfaces without internet",
+        ),
+        privilege_level: Asserted::established(
+            PrivilegeLevel::Root,
+            "observed run_as root; binds mDNS on network interfaces and writes /root/.config/beacon settings",
+        ),
+        dangerous_operations: AssertedSet::established(vec![]),
+        user_confirmation: Asserted::established(
+            UserConfirmation::NotRequired,
+            "vehicle rename and hostname change are reversible settings; no irreversible, untrusted-code, or vehicle-arm operations",
+        ),
+        capabilities: AssertedSet::established(vec![
+            Rationaled::new(
+                CapabilityId("set_vehicle_name".to_string()),
+                "POST /vehicle_name persists the operator-facing vehicle display name in SettingsV4",
+            ),
+            Rationaled::new(
+                CapabilityId("set_mdns_hostname".to_string()),
+                "POST /hostname updates default and per-interface mDNS domain names in settings",
+            ),
+            Rationaled::new(
+                CapabilityId("advertise_mdns_domains".to_string()),
+                "run() loop registers AsyncRunner mDNS services on filtered up interfaces every 10 seconds",
+            ),
+            Rationaled::new(
+                CapabilityId("get_vehicle_name".to_string()),
+                "GET /vehicle_name returns the persisted vehicle name with BlueROV2 default",
+            ),
+            Rationaled::new(
+                CapabilityId("get_mdns_hostname".to_string()),
+                "GET /hostname returns the primary mDNS hostname from default.domain_names",
+            ),
+            Rationaled::new(
+                CapabilityId("list_mdns_domains".to_string()),
+                "GET /services returns currently broadcast MdnsEntry records from active runners",
+            ),
+            Rationaled::new(
+                CapabilityId("report_client_ip".to_string()),
+                "GET /ip returns client IP information from the incoming HTTP request",
+            ),
+        ]),
+        authorities: AssertedSet::established(vec![Rationaled::new(
+            Authority::Other("mdns_advertiser".to_string()),
+            "sole publisher of BlueOS mDNS records on LAN interfaces; no other catalog service advertises blueos.local",
+        )]),
+        states: AssertedSet::unknown(
+            "no cataloged state machine; mDNS runners and settings reload are periodic loop state",
+        ),
+        edges: AssertedSet::unknown(
+            "beacon has no outbound coupling to other catalog services; mDNS is local multicast only",
+        ),
+        resources: AssertedSet::established(vec![
+            Rationaled::new(
+                Resource {
+                    path: PathRef("/root/.config/beacon".to_string()),
+                    ownership: ResourceOwnership::SharedWrite,
+                },
+                "SettingsV4 pykson manager directory for beacon identity and mDNS interface configuration",
+            ),
+            Rationaled::new(
+                Resource {
+                    path: PathRef("/root/.config/beacon/settings-4.json".to_string()),
+                    ownership: ResourceOwnership::SharedWrite,
+                },
+                "persisted vehicle_name, hostname, and per-interface mDNS advertisement settings",
+            ),
+            Rationaled::new(
+                Resource {
+                    path: PathRef("core/services/beacon/default-settings.json".to_string()),
+                    ownership: ResourceOwnership::SharedRead,
+                },
+                "load_default_settings seeds domain names and service types on first run",
+            ),
+        ]),
+        lifecycle: Lifecycle {
+            triggers: Asserted::established(
+                vec!["start-blueos-core create_service".to_string()],
+                "observed lifecycle trigger: tmux creation at boot in SERVICES tier",
+            ),
+            ordered_after: Asserted::established(
+                vec![
+                    ServiceId("autopilot".to_string()),
+                    ServiceId("cable_guy".to_string()),
+                    ServiceId("video".to_string()),
+                    ServiceId("mavlink2rest".to_string()),
+                    ServiceId("kraken".to_string()),
+                    ServiceId("wifi".to_string()),
+                    ServiceId("zenohd".to_string()),
+                ],
+                "observed ordered_after in start-blueos-core SERVICES block",
+            ),
+            ordered_before: Asserted::established(
+                vec![
+                    ServiceId("bridget".to_string()),
+                    ServiceId("commander".to_string()),
+                    ServiceId("nmea_injector".to_string()),
+                    ServiceId("helper".to_string()),
+                    ServiceId("iperf3".to_string()),
+                    ServiceId("linux2rest".to_string()),
+                    ServiceId("filebrowser".to_string()),
+                    ServiceId("versionchooser".to_string()),
+                    ServiceId("pardal".to_string()),
+                    ServiceId("ping".to_string()),
+                    ServiceId("user_terminal".to_string()),
+                    ServiceId("ttyd".to_string()),
+                    ServiceId("nginx".to_string()),
+                    ServiceId("bag_of_holding".to_string()),
+                    ServiceId("recorder".to_string()),
+                    ServiceId("recorder_extractor".to_string()),
+                    ServiceId("disk_usage".to_string()),
+                    ServiceId("customization".to_string()),
+                ],
+                "observed ordered_before lists beacon before remaining SERVICES-tier peers including nginx",
+            ),
+            shutdown: Asserted::established(
+                "beacon.stop unregisters all mDNS runners on uvicorn exit".to_string(),
+                "main.py awaits beacon.stop after server.serve returns",
+            ),
+            upgrade_behavior: Asserted::unknown(
+                "BlueOS upgrade semantics for in-flight mDNS registrations and settings migration not traced in service source",
+            ),
+        },
+        health: Asserted::established(
+            "implicit: process liveness via tmux; REST GET / returns service name; mDNS run loop every 10s".to_string(),
+            "no dedicated /health route; uvicorn availability and periodic mDNS registration serve as health signals",
+        ),
+        is_platform: Asserted::established(
+            false,
+            "identity and mDNS discovery utility; does not install or host third-party extensions",
+        ),
+        api_stable: Asserted::established(
+            true,
+            "versioned FastAPI v1.0 router exposed under /beacon/ via VersionedFastAPI",
+        ),
+        permissions_model: Asserted::established(
+            "no separate permissions manifest; REST routes are unauthenticated".to_string(),
+            "beacon routes have no auth decorator or extension-style permissions JSON",
+        ),
+        failure_modes: AssertedSet::established(vec![
+            Rationaled::new(
+                "mdns_registration_failure".to_string(),
+                "run() logs warnings when runner.register_services raises; affected interface stays undiscoverable",
+            ),
+            Rationaled::new(
+                "interface_runner_creation_failure".to_string(),
+                "create_default_runners and create_user_runners skip interfaces when AsyncRunner construction fails",
+            ),
+            Rationaled::new(
+                "service_info_value_error".to_string(),
+                "create_async_service_infos ValueError skips individual service advertisements on an interface",
+            ),
+            Rationaled::new(
+                "stale_mdns_after_hostname_change".to_string(),
+                "hostname change updates settings; runner diff on next loop cycle re-registers domains",
+            ),
+        ]),
+        blast_radius: Asserted::established(
+            "mDNS hostname discovery and vehicle name sidebar stale; operators can still reach BlueOS by IP; MAVLink unaffected"
+                .to_string(),
+            "beacon outage blocks LAN name resolution UX but not autopilot, nginx core paths, or FC control",
+        ),
+        compatibility_policy: Asserted::unknown(
+            "API deprecation policy and SettingsV4 migration stability not established from source",
+        ),
+        team: Asserted::unknown("no CODEOWNERS or team metadata in observed artifact"),
+        adr_refs: AssertedSet::unknown("no ADR references found in service source tree"),
     }
 }

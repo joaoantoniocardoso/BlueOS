@@ -1,0 +1,96 @@
+{
+  "service": "beacon",
+  "environment": "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator",
+  "captured_at": "2026-07-11",
+  "capture_host": "192.168.0.177",
+  "notes": "Read-only Tier-1 capture on a healthy running beacon service. CPU/RSS via tools/sample_resource.sh (--match beacon/main.py, 60 samples, label running_baseline; PID 508, comm python3). SLO via tools/probe_http.sh on the four GET routes (--repeats 40). Identity-mutating POST /vehicle_name and POST /hostname were NOT exercised (would rename the live vehicle and change its mDNS hostname); their journey outcomes remain Unknown. mDNS advertisement confirmed live: GET /services returns _mavlink/_http records for eth0 (WIRED) advertised as blueos / blueos-ethernet. Raw evidence: /tmp/beacon_sample.json, /tmp/beacon_slo.json.",
+  "api_versions": [
+    "v1.0"
+  ],
+  "route_inventory": {
+    "v1.0": [
+      "GET /vehicle_name",
+      "POST /vehicle_name",
+      "GET /hostname",
+      "POST /hostname",
+      "GET /services",
+      "GET /ip"
+    ],
+    "note": "Routes confirmed on live Pi under /beacon/v1.0. GETs are read-only and were probed; the two POSTs mutate persisted identity and were not exercised."
+  },
+  "running_baseline": {
+    "note": "GET contracts on a healthy running beacon (idle, no mutating actions).",
+    "GET /vehicle_name": {
+      "status": 200,
+      "body_predicate": "\"BlueROV2\""
+    },
+    "GET /hostname": {
+      "status": 200,
+      "body_predicate": "\"blueos\""
+    },
+    "GET /services": {
+      "status": 200,
+      "body_predicate": "array of mDNS records; eth0 WIRED advertises _mavlink._udp and _http._tcp as blueos / blueos-ethernet"
+    },
+    "GET /ip": {
+      "status": 200,
+      "body_predicate": "{ \"client_ip\": ..., \"interface_ip\": \"192.168.0.177\" }"
+    }
+  },
+  "slo_running_baseline": {
+    "sample_size": 40,
+    "note": "Latency percentiles over 40 repeats per route on the local network. /services is heaviest (enumerates advertised records across interfaces).",
+    "GET /vehicle_name": {
+      "p50_ms": 5.0,
+      "p95_ms": 7.0,
+      "p99_ms": 7.7
+    },
+    "GET /hostname": {
+      "p50_ms": 4.7,
+      "p95_ms": 6.8,
+      "p99_ms": 6.9
+    },
+    "GET /services": {
+      "p50_ms": 10.5,
+      "p95_ms": 14.8,
+      "p99_ms": 15.7
+    },
+    "GET /ip": {
+      "p50_ms": 6.1,
+      "p95_ms": 7.8,
+      "p99_ms": 8.1
+    }
+  },
+  "resource_usage": {
+    "running_baseline": {
+      "sample_size": 60,
+      "interval_s": 1,
+      "method": "/proc stat deltas, top-style (100 == 1 core), PID 508 python3 beacon/main.py",
+      "cpu_pct": {
+        "mean": 0.79,
+        "median": 0.00,
+        "p95": 4.02,
+        "min": 0.00,
+        "max": 5.74,
+        "sd": 1.35
+      },
+      "rss_mb": {
+        "mean": 39.9,
+        "median": 39.9,
+        "p95": 39.9,
+        "min": 39.9,
+        "max": 39.9,
+        "sd": 0.0
+      },
+      "note": "beacon is near-idle: CPU spends most samples at 0 with periodic small spikes from the ~10s mDNS re-advertisement loop; RSS flat at ~40 MB."
+    }
+  },
+  "platform_matrix": {
+    "navigator": {
+      "firmware": "n/a (beacon is autopilot-independent)",
+      "notes": "beacon advertises mDNS and serves identity regardless of flight controller; behavior is platform-independent on this Pi4/Navigator host."
+    }
+  },
+  "state_machine": "none (service_definition states: Unknown; beacon runs a periodic mDNS re-advertisement loop, not a discrete state machine)",
+  "settings_mutations": "Not exercised. POST /vehicle_name and POST /hostname persist to /root/.config/beacon/settings-4.json (SettingsV4); not mutated during this read-only capture."
+}

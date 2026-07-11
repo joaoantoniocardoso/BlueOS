@@ -10,7 +10,6 @@ const DEV_CORE: &str = "content/development/core/index.md";
 const GETTING: &str = "content/usage/getting-started/index.md";
 const VEHICLE_BANNER: &str = "core/frontend/src/components/app/VehicleBanner.vue";
 
-#[allow(dead_code)]
 pub fn journeys() -> Vec<UserJourney> {
     vec![
         rename_vehicle(),
@@ -104,9 +103,9 @@ fn discover_blueos_on_network() -> UserJourney {
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
             Precondition::Other(
-                "BlueOS is reachable on the local network (wired, wifi, or hotspot)".into(),
+                "BlueOS is connected via a wired connection so blueos.local is reachable".into(),
             ),
-            Provenance::doc(GETTING, 28),
+            Provenance::doc(GETTING, 29),
         )]),
         steps: GroundedSet::known(vec![
             service_step(
