@@ -85,6 +85,7 @@ allowed for services with no meaningful runtime or unreachable. Update after eac
 | 8 | beacon | beacon | 9111 /beacon/ | python | DONE | DONE | DONE | DONE | FULLY MODELED; mDNS = harness gap (no Interface variant) |
 | 9 | cable_guy | cable_guy | 9090 /cable-guy/ | python | DONE | DONE | DONE | DONE | FULLY MODELED; netlink/D-Bus mutation = harness gap |
 | 10 | wifi | wifi | 9000 /wifi-manager/ | python | DONE | DONE | DONE | DONE | FULLY MODELED; wpa ctrl-socket/D-Bus = harness gap |
+| 11 | versionchooser | versionchooser | 8081 /version-chooser/ | python | DONE | DONE | DONE | DONE | FULLY MODELED; core-image updater; dangerous ops = Upgrade/delete/pull |
 | 9 | bridget | bridget | ? /bridget/ | python | TODO | TODO | TODO | TODO | |
 | 10 | commander | commander | 9100 /commander/ | python | DONE | DONE | DONE | DONE | FULLY MODELED (RSS~35MB; read-only SLO; dangerous POSTs Unknown by design) |
 | 11 | nmea_injector | nmea_injector | ? /nmea-injector/ | python | TODO | TODO | TODO | TODO | |
@@ -114,11 +115,13 @@ allowed for services with no meaningful runtime or unreachable. Update after eac
 
 ## >>> RESUME POINTER (update every service) <<<
 - Phases 1-3: DONE. Harness is built + hardened (gate.sh, extract, drift, frozen rubric).
-- Phase 4 progress: FULLY MODELED = ardupilot_manager, kraken, disk_usage, helper, commander, beacon, cable_guy, wifi.
-- **NEXT UP: `versionchooser`** (then bag_of_holding, customization, nmea_injector, pardal, ping, bridget, recorder_extractor, then the ~9 binaries, then user_terminal).
+- Phase 4 progress: FULLY MODELED = ardupilot_manager, kraken, disk_usage, helper, commander, beacon, cable_guy, wifi, versionchooser.
+- **NEXT UP: `bag_of_holding`** (then customization, nmea_injector, pardal, ping, bridget, recorder_extractor, then the ~9 binaries, then user_terminal).
 - Per-service loop (each layer committed separately, ledger updated): Fact Extractor(self-recon)→QA(observed)→Docs Specialist(journeys)→Card Author(wires all_journeys + service_def)→QA(card+journeys)→Runtime Specialist(live Pi)→commit. Run `bash catalog/gate.sh` before every commit. Pi at 192.168.0.177 (pi:raspberry). NEVER call destructive endpoints during capture.
 
 ## DECISIONS LOG (append-only; newest last)
+
+- 2026-07-11: versionchooser FULLY MODELED. Core BlueOS Docker-image updater (pull/switch/delete/restart, bootstrap startup.json, docker login) via docker.sock. Asserted Important (system-integrity critical, not flight-critical), is_platform=false (manages core OS image, not a third-party extension host — contrast kraken=true). dangerous_operations = Upgrade + delete_core_image + pull_untrusted_image ⇒ user_confirmation Required (QA accepted; pull mirrors kraken's install_arbitrary_docker_image). Authorities blueos_version_controller / bootstrap_image_controller / UserdataWriter(startup.json) — distinct from kraken's extension orchestrator (core image vs extension image split). QA bounced 1 anchor (zenoh_log_topic main.py:12 → logs.py:78); fixed. Tier-1 read-only capture: RSS ~53 MB, CPU ~0.82%; version/bootstrap GETs ~90-105ms (docker.sock). Mutating/destructive routes NOT exercised.
 
 - 2026-07-11: wifi FULLY MODELED. WLAN manager (wpa_supplicant Bullseye / NetworkManager Bookworm handlers). Asserted Important, 2 authorities (wireless_network_controller, wifi_hotspot_operator) — distinct from cable_guy's wired authorities. dangerous_operations=[] (reversible reconfig, same rule as cable_guy). QA PASS on first submit. Real cross-service finding: wifi + cable_guy BOTH run dnsmasq and edit /etc/dhcpcd.conf (wifi=uap0 hotspot, cable_guy=wired); authority strings distinct so validator OK; narrowed cable_guy's dnsmasq authority rationale to "WIRED interfaces" for accuracy. Harness gaps: wpa_supplicant control-socket protocol, NetworkManager D-Bus, TCP fallback have no Interface variant. Tier-1 read-only capture: RSS ~46 MB, CPU ~0.37%; GET /status ~30ms (wpa ctrl socket). Mutating routes NOT exercised.
 
