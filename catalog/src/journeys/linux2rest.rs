@@ -84,14 +84,14 @@ fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
 
 fn linux2rest_services() -> GroundedSet<ServiceId> {
     GroundedSet::known(vec![GroundedItem::new(
-        ServiceId("linux2rest".into()),
+        ServiceId::Linux2rest,
         Provenance::doc(ADV, 600),
     )])
 }
 
 fn route(method: HttpMethod, path: &str, version: Option<&str>) -> RouteRef {
     RouteRef {
-        service: ServiceId("linux2rest".into()),
+        service: ServiceId::Linux2rest,
         method,
         path: path.into(),
         version: version.map(str::to_string),

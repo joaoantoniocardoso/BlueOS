@@ -155,19 +155,15 @@ impl Catalog {
                 let unstable = (together_base && co_rate < STABILITY_THRESHOLD)
                     || (!together_base && co_rate >= STABILITY_THRESHOLD);
                 if unstable {
-                    unstable_pairs.push((
-                        matrix.service_ids[i].clone(),
-                        matrix.service_ids[j].clone(),
-                        co_rate,
-                    ));
+                    unstable_pairs.push((matrix.service_ids[i], matrix.service_ids[j], co_rate));
                 }
             }
         }
         unstable_pairs.sort_by(|left, right| {
             left.0
-                 .0
-                .cmp(&right.0 .0)
-                .then_with(|| left.1 .0.cmp(&right.1 .0))
+                .as_str()
+                .cmp(right.0.as_str())
+                .then_with(|| left.1.as_str().cmp(right.1.as_str()))
         });
 
         StabilityReport {
@@ -214,7 +210,7 @@ fn build_coupling_matrix(
     let service_ids: Vec<ServiceId> = catalog
         .services()
         .iter()
-        .map(|service| service.id.clone())
+        .map(|service| service.id)
         .collect();
     let index: HashMap<&ServiceId, usize> = service_ids
         .iter()
@@ -459,11 +455,7 @@ fn greedy_modularity_cluster(matrix: &CouplingMatrix) -> (Vec<Vec<ServiceId>>, f
 
     let communities = greedy_modularity_communities(n, &matrix.weights);
     if total_edge_mass(&matrix.weights) == 0.0 {
-        let singletons = matrix
-            .service_ids
-            .iter()
-            .map(|id| vec![id.clone()])
-            .collect();
+        let singletons = matrix.service_ids.iter().map(|id| vec![*id]).collect();
         return (singletons, 0.0);
     }
 
@@ -472,9 +464,9 @@ fn greedy_modularity_cluster(matrix: &CouplingMatrix) -> (Vec<Vec<ServiceId>>, f
         .map(|community| {
             let mut ids: Vec<ServiceId> = community
                 .iter()
-                .map(|idx| matrix.service_ids[*idx].clone())
+                .map(|idx| matrix.service_ids[*idx])
                 .collect();
-            ids.sort_by(|left, right| left.0.cmp(&right.0));
+            ids.sort_by(|left, right| left.as_str().cmp(right.as_str()));
             ids
         })
         .collect();
@@ -584,8 +576,8 @@ fn sort_communities(communities: &mut [Vec<ServiceId>]) {
     communities.sort_by(|left, right| {
         right.len().cmp(&left.len()).then_with(|| {
             left.first()
-                .map(|id| id.0.as_str())
-                .cmp(&right.first().map(|id| id.0.as_str()))
+                .map(|id| id.as_str())
+                .cmp(&right.first().map(|id| id.as_str()))
         })
     });
 }
@@ -652,7 +644,7 @@ mod tests {
             .coupling_matrix(ClusterPolicy::CouplingOnly)
             .service_ids
             .iter()
-            .position(|service_id| service_id.0 == id)
+            .position(|service_id| service_id.as_str() == id)
             .unwrap_or_else(|| panic!("missing service {id}"))
     }
 
@@ -660,8 +652,8 @@ mod tests {
     fn clustering_groups_obviously_coupled_pair() {
         let catalog = Catalog::bootstrap();
         let result = catalog.cluster(ClusterPolicy::CouplingTrust);
-        let mavlink = ServiceId("mavlink2rest".to_string());
-        let manager = ServiceId("ardupilot_manager".to_string());
+        let mavlink = ServiceId::Mavlink2rest;
+        let manager = ServiceId::ArdupilotManager;
         let together = result
             .communities
             .iter()

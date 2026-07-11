@@ -195,14 +195,14 @@ fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
 
 fn helper_services() -> GroundedSet<ServiceId> {
     GroundedSet::known(vec![GroundedItem::new(
-        ServiceId("helper".into()),
+        ServiceId::Helper,
         Provenance::doc(DEV_CORE, 76),
     )])
 }
 
 fn route(method: HttpMethod, path: &str, version: Option<&str>) -> RouteRef {
     RouteRef {
-        service: ServiceId("helper".into()),
+        service: ServiceId::Helper,
         method,
         path: path.into(),
         version: version.map(str::to_string),
@@ -246,7 +246,7 @@ fn service_step(
 ) -> GroundedItem<JourneyStep> {
     GroundedItem::new(
         JourneyStep {
-            actor: Actor::Service(ServiceId("helper".into())),
+            actor: Actor::Service(ServiceId::Helper),
             description: description.into(),
             route,
             outcome,

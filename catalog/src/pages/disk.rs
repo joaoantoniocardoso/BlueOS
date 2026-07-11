@@ -1,5 +1,5 @@
 use crate::id::ServiceId;
-use crate::page::{ClientState, Page, PageId, PageServiceCall, StateOwnership};
+use crate::page::{ClientState, ConsumeTarget, Page, PageId, PageServiceCall, StateOwnership};
 use crate::provenance::{AssertedSet, Evidence, Evidenced, Observed, ObservedSet, Rationaled};
 
 pub fn page() -> Page {
@@ -59,7 +59,7 @@ pub fn page() -> Page {
         consumes: ObservedSet::known(vec![
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("disk_usage".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::DiskUsage),
                     endpoint: "GET /disk-usage/v1.0/disk/usage".to_string(),
                     purpose: "fetch du-backed usage tree for current path (depth, include_files, min_size_bytes query params)".to_string(),
                 },
@@ -70,7 +70,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("disk_usage".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::DiskUsage),
                     endpoint: "DELETE /disk-usage/v1.0/disk/paths/{target_path}".to_string(),
                     purpose: "delete selected files or folders after browser confirm dialog".to_string(),
                 },
@@ -81,7 +81,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("disk_usage".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::DiskUsage),
                     endpoint: "GET /disk-usage/v1.0/disk/speed/stream".to_string(),
                     purpose: "stream multi-size disktest benchmark points for Speed Test tab".to_string(),
                 },

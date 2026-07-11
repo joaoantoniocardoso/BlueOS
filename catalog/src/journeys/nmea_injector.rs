@@ -169,14 +169,14 @@ fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
 
 fn nmea_injector_services() -> GroundedSet<ServiceId> {
     GroundedSet::known(vec![GroundedItem::new(
-        ServiceId("nmea_injector".into()),
+        ServiceId::NmeaInjector,
         Provenance::doc(ADV, 536),
     )])
 }
 
 fn route(method: HttpMethod, path: &str, version: Option<&str>) -> RouteRef {
     RouteRef {
-        service: ServiceId("nmea_injector".into()),
+        service: ServiceId::NmeaInjector,
         method,
         path: path.into(),
         version: version.map(str::to_string),

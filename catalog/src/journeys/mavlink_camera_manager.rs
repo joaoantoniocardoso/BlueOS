@@ -284,14 +284,14 @@ fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
 
 fn mcm_services() -> GroundedSet<ServiceId> {
     GroundedSet::known(vec![GroundedItem::new(
-        ServiceId("mavlink-camera-manager".into()),
+        ServiceId::MavlinkCameraManager,
         Provenance::doc(ADV, 764),
     )])
 }
 
 fn route(method: HttpMethod, path: &str, version: Option<&str>) -> RouteRef {
     RouteRef {
-        service: ServiceId("mavlink-camera-manager".into()),
+        service: ServiceId::MavlinkCameraManager,
         method,
         path: path.into(),
         version: version.map(str::to_string),

@@ -36,7 +36,11 @@ pub fn export_mermaid(catalog: &Catalog) -> String {
     for (community_idx, community) in cluster.communities.iter().enumerate() {
         output.push_str(&format!("  subgraph community_{community_idx}\n"));
         for service_id in community {
-            output.push_str(&format!("    {}[{}]\n", service_id.0, service_id.0));
+            output.push_str(&format!(
+                "    {}[{}]\n",
+                service_id.as_str(),
+                service_id.as_str()
+            ));
         }
         output.push_str("  end\n");
     }
@@ -47,9 +51,9 @@ pub fn export_mermaid(catalog: &Catalog) -> String {
                 let edge = &rationaled.value;
                 output.push_str(&format!(
                     "  {} -->|{}| {}\n",
-                    edge.from.0,
+                    edge.from.as_str(),
                     bus_label(edge.via),
-                    edge.to.0
+                    edge.to.as_str()
                 ));
             }
         }
@@ -71,7 +75,7 @@ mod tests {
 
     fn sample_service() -> ServiceDefinition {
         ServiceDefinition {
-            id: ServiceId("sample".to_string()),
+            id: ServiceId::Ping,
             singleton: Asserted::established(true, "test"),
             bounded_context: Asserted::established("platform".to_string(), "test"),
             journey_refs: AssertedSet::unknown("not established"),
@@ -106,7 +110,7 @@ mod tests {
 
     fn sample_observed() -> ObservedFacts {
         ObservedFacts {
-            id: ServiceId("sample".to_string()),
+            id: ServiceId::Ping,
             aliases: ObservedSet::unknown("not extracted"),
             kind: Observed::unknown("not extracted"),
             entrypoint: Observed::unknown("not extracted"),
@@ -164,7 +168,7 @@ mod tests {
             ),
             visibility: Grounded::known(Visibility::Default, Provenance::doc("docs/deploy.md", 2)),
             services: GroundedSet::known(vec![GroundedItem::new(
-                ServiceId("helper".to_string()),
+                ServiceId::Helper,
                 Provenance::runtime("baseline-v1", "lab"),
             )]),
             capability_refs: GroundedSet::unknown("not grounded"),
@@ -175,7 +179,7 @@ mod tests {
                     description: "call deploy".to_string(),
                     route: Some(Grounded::known(
                         RouteRef {
-                            service: ServiceId("helper".to_string()),
+                            service: ServiceId::Helper,
                             method: HttpMethod::Post,
                             path: "/deploy".to_string(),
                             version: None,
@@ -226,13 +230,13 @@ mod tests {
         };
 
         let facts = RuntimeFacts {
-            service: ServiceId("ardupilot_manager".to_string()),
+            service: ServiceId::ArdupilotManager,
             state_contracts: GroundedSet::known(vec![GroundedItem::new(
                 StateContract {
                     machine: "autopilot_lifecycle".to_string(),
                     state: "running".to_string(),
                     route: RouteRef {
-                        service: ServiceId("ardupilot_manager".to_string()),
+                        service: ServiceId::ArdupilotManager,
                         method: HttpMethod::Get,
                         path: "/firmware_info".to_string(),
                         version: None,
@@ -248,7 +252,7 @@ mod tests {
             slo_baselines: GroundedSet::known(vec![GroundedItem::new(
                 SloBaseline {
                     route: RouteRef {
-                        service: ServiceId("ardupilot_manager".to_string()),
+                        service: ServiceId::ArdupilotManager,
                         method: HttpMethod::Post,
                         path: "/start".to_string(),
                         version: None,

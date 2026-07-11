@@ -290,14 +290,14 @@ fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
 
 fn wifi_services() -> GroundedSet<ServiceId> {
     GroundedSet::known(vec![GroundedItem::new(
-        ServiceId("wifi".into()),
+        ServiceId::Wifi,
         Provenance::doc(ADV, 114),
     )])
 }
 
 fn route(method: HttpMethod, path: &str, version: Option<&str>) -> RouteRef {
     RouteRef {
-        service: ServiceId("wifi".into()),
+        service: ServiceId::Wifi,
         method,
         path: path.into(),
         version: version.map(str::to_string),

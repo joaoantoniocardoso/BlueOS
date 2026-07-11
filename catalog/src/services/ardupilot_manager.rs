@@ -24,7 +24,7 @@ const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha2
 
 pub fn runtime_facts() -> RuntimeFacts {
     RuntimeFacts {
-        service: ServiceId("ardupilot_manager".into()),
+        service: ServiceId::ArdupilotManager,
         state_contracts: GroundedSet::known(vec![
             runtime_state_contract(
                 "running",
@@ -170,7 +170,7 @@ fn runtime_prov(key: &str) -> Provenance {
 
 fn runtime_route(method: HttpMethod, path: &str) -> RouteRef {
     RouteRef {
-        service: ServiceId("ardupilot_manager".into()),
+        service: ServiceId::ArdupilotManager,
         method,
         path: path.into(),
         version: None,
@@ -258,7 +258,7 @@ fn runtime_settings_mutation(
 
 pub fn observed_facts() -> ObservedFacts {
     ObservedFacts {
-        id: ServiceId("ardupilot_manager".to_string()),
+        id: ServiceId::ArdupilotManager,
         aliases: ObservedSet::known(vec![
             Evidenced::new(
                 "autopilot".to_string(),
@@ -617,9 +617,9 @@ pub fn observed_facts() -> ObservedFacts {
                 ],
                 ordered_after: vec![],
                 ordered_before: vec![
-                    ServiceId("cable_guy".to_string()),
-                    ServiceId("video".to_string()),
-                    ServiceId("mavlink2rest".to_string()),
+                    ServiceId::CableGuy,
+                    ServiceId::MavlinkCameraManager,
+                    ServiceId::Mavlink2rest,
                 ],
             },
             Evidence {
@@ -650,7 +650,7 @@ pub fn observed_facts() -> ObservedFacts {
 
 pub fn service_definition() -> ServiceDefinition {
     ServiceDefinition {
-        id: ServiceId("ardupilot_manager".to_string()),
+        id: ServiceId::ArdupilotManager,
         singleton: Asserted::established(
             true,
             "Singleton metaclass and single priority-tier tmux instance; no second autopilot manager process",
@@ -812,8 +812,8 @@ pub fn service_definition() -> ServiceDefinition {
         ]),
         edges: AssertedSet::established(vec![Rationaled::new(
             Edge {
-                from: ServiceId("ardupilot_manager".to_string()),
-                to: ServiceId("zenohd".to_string()),
+                from: ServiceId::ArdupilotManager,
+                to: ServiceId::Zenohd,
                 via: Bus::Zenoh,
                 sync: SyncMode::Async,
                 endpoint: "zenoh:0.0.0.0:7117".to_string(),
@@ -861,9 +861,9 @@ pub fn service_definition() -> ServiceDefinition {
             ),
             ordered_before: Asserted::established(
                 vec![
-                    ServiceId("cable_guy".to_string()),
-                    ServiceId("video".to_string()),
-                    ServiceId("mavlink2rest".to_string()),
+                    ServiceId::CableGuy,
+                    ServiceId::MavlinkCameraManager,
+                    ServiceId::Mavlink2rest,
                 ],
                 "priority startup tier lists this service before cable_guy, video, and mavlink2rest",
             ),

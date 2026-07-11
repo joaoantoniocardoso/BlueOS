@@ -17,7 +17,7 @@ const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha2
 
 pub fn runtime_facts() -> RuntimeFacts {
     RuntimeFacts {
-        service: ServiceId("pardal".into()),
+        service: ServiceId::Pardal,
         state_contracts: GroundedSet::unknown(
             "pardal has no service-level state machine (service_definition states: Unknown); \
              SPEED_TEST global and request handlers are ephemeral test state",
@@ -78,7 +78,7 @@ fn runtime_prov(key: &str) -> Provenance {
 
 fn runtime_route(method: HttpMethod, path: &str) -> RouteRef {
     RouteRef {
-        service: ServiceId("pardal".into()),
+        service: ServiceId::Pardal,
         method,
         path: path.into(),
         version: None,
@@ -135,7 +135,7 @@ fn runtime_resource(
 
 pub fn observed_facts() -> ObservedFacts {
     ObservedFacts {
-        id: ServiceId("pardal".to_string()),
+        id: ServiceId::Pardal,
         aliases: ObservedSet::known(vec![Evidenced::new(
             "pardal".to_string(),
             Evidence {
@@ -257,33 +257,33 @@ pub fn observed_facts() -> ObservedFacts {
             ObservedLifecycle {
                 triggers: vec!["start-blueos-core create_service".to_string()],
                 ordered_after: vec![
-                    ServiceId("autopilot".to_string()),
-                    ServiceId("cable_guy".to_string()),
-                    ServiceId("video".to_string()),
-                    ServiceId("mavlink2rest".to_string()),
-                    ServiceId("kraken".to_string()),
-                    ServiceId("wifi".to_string()),
-                    ServiceId("zenohd".to_string()),
-                    ServiceId("beacon".to_string()),
-                    ServiceId("bridget".to_string()),
-                    ServiceId("commander".to_string()),
-                    ServiceId("nmea_injector".to_string()),
-                    ServiceId("helper".to_string()),
-                    ServiceId("iperf3".to_string()),
-                    ServiceId("linux2rest".to_string()),
-                    ServiceId("filebrowser".to_string()),
-                    ServiceId("versionchooser".to_string()),
+                    ServiceId::ArdupilotManager,
+                    ServiceId::CableGuy,
+                    ServiceId::MavlinkCameraManager,
+                    ServiceId::Mavlink2rest,
+                    ServiceId::Kraken,
+                    ServiceId::Wifi,
+                    ServiceId::Zenohd,
+                    ServiceId::Beacon,
+                    ServiceId::Bridget,
+                    ServiceId::Commander,
+                    ServiceId::NmeaInjector,
+                    ServiceId::Helper,
+                    ServiceId::Iperf3,
+                    ServiceId::Linux2rest,
+                    ServiceId::Filebrowser,
+                    ServiceId::Versionchooser,
                 ],
                 ordered_before: vec![
-                    ServiceId("ping".to_string()),
-                    ServiceId("user_terminal".to_string()),
-                    ServiceId("ttyd".to_string()),
-                    ServiceId("nginx".to_string()),
-                    ServiceId("bag_of_holding".to_string()),
-                    ServiceId("recorder".to_string()),
-                    ServiceId("recorder_extractor".to_string()),
-                    ServiceId("disk_usage".to_string()),
-                    ServiceId("customization".to_string()),
+                    ServiceId::Ping,
+                    ServiceId::UserTerminal,
+                    ServiceId::Ttyd,
+                    ServiceId::Nginx,
+                    ServiceId::BagOfHolding,
+                    ServiceId::Recorder,
+                    ServiceId::RecorderExtractor,
+                    ServiceId::DiskUsage,
+                    ServiceId::Customization,
                 ],
             },
             Evidence {
@@ -316,7 +316,7 @@ pub fn observed_facts() -> ObservedFacts {
 
 pub fn service_definition() -> ServiceDefinition {
     ServiceDefinition {
-        id: ServiceId("pardal".to_string()),
+        id: ServiceId::Pardal,
         singleton: Asserted::established(
             true,
             "single SERVICES-tier tmux instance; one pardal aiohttp process",
@@ -377,36 +377,36 @@ pub fn service_definition() -> ServiceDefinition {
             ),
             ordered_after: Asserted::established(
                 vec![
-                    ServiceId("autopilot".to_string()),
-                    ServiceId("cable_guy".to_string()),
-                    ServiceId("video".to_string()),
-                    ServiceId("mavlink2rest".to_string()),
-                    ServiceId("kraken".to_string()),
-                    ServiceId("wifi".to_string()),
-                    ServiceId("zenohd".to_string()),
-                    ServiceId("beacon".to_string()),
-                    ServiceId("bridget".to_string()),
-                    ServiceId("commander".to_string()),
-                    ServiceId("nmea_injector".to_string()),
-                    ServiceId("helper".to_string()),
-                    ServiceId("iperf3".to_string()),
-                    ServiceId("linux2rest".to_string()),
-                    ServiceId("filebrowser".to_string()),
-                    ServiceId("versionchooser".to_string()),
+                    ServiceId::ArdupilotManager,
+                    ServiceId::CableGuy,
+                    ServiceId::MavlinkCameraManager,
+                    ServiceId::Mavlink2rest,
+                    ServiceId::Kraken,
+                    ServiceId::Wifi,
+                    ServiceId::Zenohd,
+                    ServiceId::Beacon,
+                    ServiceId::Bridget,
+                    ServiceId::Commander,
+                    ServiceId::NmeaInjector,
+                    ServiceId::Helper,
+                    ServiceId::Iperf3,
+                    ServiceId::Linux2rest,
+                    ServiceId::Filebrowser,
+                    ServiceId::Versionchooser,
                 ],
                 "observed ordered_after in start-blueos-core SERVICES block",
             ),
             ordered_before: Asserted::established(
                 vec![
-                    ServiceId("ping".to_string()),
-                    ServiceId("user_terminal".to_string()),
-                    ServiceId("ttyd".to_string()),
-                    ServiceId("nginx".to_string()),
-                    ServiceId("bag_of_holding".to_string()),
-                    ServiceId("recorder".to_string()),
-                    ServiceId("recorder_extractor".to_string()),
-                    ServiceId("disk_usage".to_string()),
-                    ServiceId("customization".to_string()),
+                    ServiceId::Ping,
+                    ServiceId::UserTerminal,
+                    ServiceId::Ttyd,
+                    ServiceId::Nginx,
+                    ServiceId::BagOfHolding,
+                    ServiceId::Recorder,
+                    ServiceId::RecorderExtractor,
+                    ServiceId::DiskUsage,
+                    ServiceId::Customization,
                 ],
                 "observed ordered_before lists pardal before ping and remaining SERVICES-tier peers",
             ),

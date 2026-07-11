@@ -258,14 +258,14 @@ fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
 
 fn disk_usage_services() -> GroundedSet<ServiceId> {
     GroundedSet::known(vec![GroundedItem::new(
-        ServiceId("disk_usage".into()),
+        ServiceId::DiskUsage,
         Provenance::source(DISK_MAIN, 26),
     )])
 }
 
 fn route(method: HttpMethod, path: &str, version: Option<&str>) -> RouteRef {
     RouteRef {
-        service: ServiceId("disk_usage".into()),
+        service: ServiceId::DiskUsage,
         method,
         path: path.into(),
         version: version.map(str::to_string),

@@ -46,7 +46,7 @@ pub use journey::{
 };
 pub use lifecycle::{Lifecycle, ObservedLifecycle};
 pub use observed::{ObservedFacts, ResourceLimits, ServiceKind, StartupTier};
-pub use page::{ClientState, Page, PageId, PageServiceCall, StateOwnership};
+pub use page::{ClientState, ConsumeTarget, Page, PageId, PageServiceCall, StateOwnership};
 pub use provenance::{
     Asserted, AssertedSet, Evidence, Evidenced, Grounded, GroundedItem, GroundedSet, Observed,
     ObservedSet, Provenance, Rationaled,

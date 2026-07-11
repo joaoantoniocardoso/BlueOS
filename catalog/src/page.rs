@@ -24,9 +24,17 @@ pub struct Page {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct PageServiceCall {
-    pub service: ServiceId,
+    pub service: ConsumeTarget,
     pub endpoint: String,
     pub purpose: String,
+}
+
+/// What a page consumes: a cataloged service, or the public internet.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ConsumeTarget {
+    Service(ServiceId),
+    External,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -97,7 +105,7 @@ mod tests {
             )]),
             consumes: ObservedSet::known(vec![Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("mavlink2rest".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::Mavlink2rest),
                     endpoint: "mavlink2rest MAV_CMD_PREFLIGHT_CALIBRATION".to_string(),
                     purpose: "calibrate accelerometer".to_string(),
                 },

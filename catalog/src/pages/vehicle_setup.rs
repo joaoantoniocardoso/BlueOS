@@ -1,5 +1,5 @@
 use crate::id::{CapabilityId, ServiceId};
-use crate::page::{ClientState, Page, PageId, PageServiceCall, StateOwnership};
+use crate::page::{ClientState, ConsumeTarget, Page, PageId, PageServiceCall, StateOwnership};
 use crate::provenance::{AssertedSet, Evidence, Evidenced, Observed, ObservedSet, Rationaled};
 
 pub fn page() -> Page {
@@ -101,7 +101,7 @@ pub fn page() -> Page {
         consumes: ObservedSet::known(vec![
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("mavlink2rest".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::Mavlink2rest),
                     endpoint: "mavlink2rest PARAM_VALUE / PARAM_REQUEST_LIST".to_string(),
                     purpose: "fetch and cache autopilot parameters into autopilot_data store (PARAM_REQUEST_LIST re-request at parameter-fetcher.ts:84)".to_string(),
                 },
@@ -112,7 +112,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("mavlink2rest".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::Mavlink2rest),
                     endpoint: "mavlink2rest PARAM_SET".to_string(),
                     purpose: "write autopilot parameters from editors, loaders, and configuration tabs".to_string(),
                 },
@@ -123,7 +123,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("mavlink2rest".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::Mavlink2rest),
                     endpoint: "mavlink2rest MAV_CMD_PREFLIGHT_CALIBRATION / COMMAND_ACK".to_string(),
                     purpose: "gyro, baro, and accelerometer preflight calibration via Calibrator singleton".to_string(),
                 },
@@ -134,7 +134,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("mavlink2rest".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::Mavlink2rest),
                     endpoint: "mavlink2rest MAV_CMD_PREFLIGHT_CALIBRATION (simple accelerometer)".to_string(),
                     purpose: "quick accelerometer calibration".to_string(),
                 },
@@ -145,7 +145,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("mavlink2rest".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::Mavlink2rest),
                     endpoint: "mavlink2rest MAV_CMD_ACCELCAL_VEHICLE_POS / COMMAND_LONG".to_string(),
                     purpose: "full accelerometer position wizard".to_string(),
                 },
@@ -156,7 +156,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("mavlink2rest".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::Mavlink2rest),
                     endpoint: "mavlink2rest MAV_CMD_PREFLIGHT_CALIBRATION (level horizon)".to_string(),
                     purpose: "level-horizon calibration from accelerometer setup tab".to_string(),
                 },
@@ -167,7 +167,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("mavlink2rest".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::Mavlink2rest),
                     endpoint: "mavlink2rest MAV_CMD_DO_START_MAG_CAL / MAG_CAL_PROGRESS / MAG_CAL_REPORT".to_string(),
                     purpose: "full compass calibration wizard with progress and fitness reports".to_string(),
                 },
@@ -178,7 +178,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("mavlink2rest".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::Mavlink2rest),
                     endpoint: "mavlink2rest MAV_CMD_DO_CANCEL_MAG_CAL".to_string(),
                     purpose: "cancel in-progress compass calibration".to_string(),
                 },
@@ -189,7 +189,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("mavlink2rest".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::Mavlink2rest),
                     endpoint: "mavlink2rest MAV_CMD_FIXED_MAG_CAL_YAW".to_string(),
                     purpose: "large-vehicle compass calibration".to_string(),
                 },
@@ -200,7 +200,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("mavlink2rest".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::Mavlink2rest),
                     endpoint: "mavlink2rest SET_GPS_GLOBAL_ORIGIN / GLOBAL_POSITION_INT".to_string(),
                     purpose: "auto-detect compass origin coordinates (listens GLOBAL_POSITION_INT at line 139)".to_string(),
                 },
@@ -211,7 +211,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("mavlink2rest".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::Mavlink2rest),
                     endpoint: "mavlink2rest MAV_CMD_PREFLIGHT_STORAGE".to_string(),
                     purpose: "reset all parameters to firmware defaults (pirate mode)".to_string(),
                 },
@@ -222,7 +222,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("mavlink2rest".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::Mavlink2rest),
                     endpoint: "mavlink2rest MAV_CMD_DO_SET_MODE / MAV_CMD_COMPONENT_ARM_DISARM".to_string(),
                     purpose: "motor direction detection mode and forced arming".to_string(),
                 },
@@ -233,7 +233,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("mavlink2rest".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::Mavlink2rest),
                     endpoint: "mavlink2rest MAV_CMD_DO_MOTOR_TEST".to_string(),
                     purpose: "manual per-motor PWM test from PWM Outputs tab".to_string(),
                 },
@@ -244,7 +244,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("mavlink2rest".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::Mavlink2rest),
                     endpoint: "mavlink2rest STATUSTEXT".to_string(),
                     purpose: "motor detection progress messages from autopilot".to_string(),
                 },
@@ -255,7 +255,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("mavlink2rest".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::Mavlink2rest),
                     endpoint: "mavlink2rest telemetry stream (REQUEST_MESSAGE / ws listeners)".to_string(),
                     purpose: "live IMU, pressure, servo, and attitude data for sensor status displays".to_string(),
                 },
@@ -266,7 +266,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("mavlink2rest".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::Mavlink2rest),
                     endpoint: "mavlink2rest MAV_CMD_DO_GIMBAL_MANAGER_TILTPAN / MAV_CMD_DO_MOUNT_CONTROL".to_string(),
                     purpose: "camera gimbal min/max PWM calibration".to_string(),
                 },
@@ -277,7 +277,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("ardupilot_manager".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::ArdupilotManager),
                     endpoint: "GET /ardupilot-manager/v1.0/vehicle_type".to_string(),
                     purpose: "poll vehicle type for frame-specific UI".to_string(),
                 },
@@ -288,7 +288,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("ardupilot_manager".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::ArdupilotManager),
                     endpoint: "GET /ardupilot-manager/v1.0/firmware_vehicle_type".to_string(),
                     purpose: "poll firmware vehicle type for motor detection eligibility".to_string(),
                 },
@@ -299,7 +299,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("ardupilot_manager".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::ArdupilotManager),
                     endpoint: "GET /ardupilot-manager/v1.0/board".to_string(),
                     purpose: "board name for parameter set matching and vehicle info".to_string(),
                 },
@@ -310,7 +310,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("ardupilot_manager".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::ArdupilotManager),
                     endpoint: "GET /ardupilot-manager/v1.0/firmware_info".to_string(),
                     purpose: "firmware version for parameter set matching and vehicle info".to_string(),
                 },
@@ -321,7 +321,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("ardupilot_manager".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::ArdupilotManager),
                     endpoint: "POST /ardupilot-manager/v1.0/restart".to_string(),
                     purpose: "reboot autopilot after parameter wipe".to_string(),
                 },
@@ -332,7 +332,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("mavlink-camera-manager".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::MavlinkCameraManager),
                     endpoint: "GET /mavlink-camera-manager/v4l".to_string(),
                     purpose: "list video devices on overview tab".to_string(),
                 },
@@ -343,7 +343,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("mavlink-camera-manager".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::MavlinkCameraManager),
                     endpoint: "GET /mavlink-camera-manager/streams".to_string(),
                     purpose: "list configured video streams on overview tab".to_string(),
                 },
@@ -354,7 +354,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("external".to_string()),
+                    service: ConsumeTarget::External,
                     endpoint: "GET https://docs.bluerobotics.com/Blueos-Parameter-Repository/params_v1.json".to_string(),
                     purpose: "download curated parameter set catalog".to_string(),
                 },
@@ -365,7 +365,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("external".to_string()),
+                    service: ConsumeTarget::External,
                     endpoint: "GET http://ip-api.com/json/".to_string(),
                     purpose: "geo-IP lookup for compass auto-coordinate detector".to_string(),
                 },

@@ -66,7 +66,7 @@ impl FeatureCatalog {
                     features.push(Feature {
                         id,
                         aggregate,
-                        origin_service: service.id.clone(),
+                        origin_service: service.id,
                         rationale: cap.rationale.clone(),
                     });
                 }
@@ -245,7 +245,8 @@ impl FeatureCatalog {
             if !known_services.contains(&feature.origin_service) {
                 errors.push(format!(
                     "feature {} references unknown origin_service {}",
-                    feature.id.0, feature.origin_service.0
+                    feature.id.0,
+                    feature.origin_service.as_str()
                 ));
             }
             if !seen_ids.insert(&feature.id) {

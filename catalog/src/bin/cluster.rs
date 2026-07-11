@@ -13,7 +13,7 @@ fn main() {
         for community in &result.communities {
             let name = community
                 .iter()
-                .map(|id| id.0.as_str())
+                .map(|id| id.as_str())
                 .collect::<Vec<_>>()
                 .join(",");
             println!("  {name}");
@@ -31,7 +31,11 @@ fn main() {
         println!("  (no unstable pairs)");
     } else {
         for (left, right, rate) in &stability.unstable_pairs {
-            println!("  {} <-> {} co_occurrence={rate}", left.0, right.0);
+            println!(
+                "  {} <-> {} co_occurrence={rate}",
+                left.as_str(),
+                right.as_str()
+            );
         }
     }
     println!();

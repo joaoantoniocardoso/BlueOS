@@ -68,7 +68,7 @@ fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
 
 fn ttyd_services() -> GroundedSet<ServiceId> {
     GroundedSet::known(vec![GroundedItem::new(
-        ServiceId("ttyd".into()),
+        ServiceId::Ttyd,
         Provenance::doc(ADV, 620),
     )])
 }

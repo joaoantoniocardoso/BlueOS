@@ -50,7 +50,7 @@ pub fn diff(asserted: &ServiceDefinition, observed: &ObservedFacts) -> DriftRepo
             let path = &resource.value.path;
             if !observed_paths.contains(path.0.as_str()) {
                 report.findings.push(DriftFinding {
-                    field: format!("{}.resources", asserted.id.0),
+                    field: format!("{}.resources", asserted.id.as_str()),
                     message: format!("asserted resource '{}' has no observed evidence", path.0),
                 });
             }
@@ -77,7 +77,7 @@ pub fn diff_runtime(asserted: &ServiceDefinition, runtime: &RuntimeFacts) -> Dri
                 AssertedSet::Unknown { .. } => {
                     if seen_missing_machines.insert(machine.clone()) {
                         report.findings.push(DriftFinding {
-                            field: format!("{}.states", asserted.id.0),
+                            field: format!("{}.states", asserted.id.as_str()),
                             message: format!(
                                 "runtime references state machine '{}' but asserted states is Unknown",
                                 machine
@@ -89,7 +89,7 @@ pub fn diff_runtime(asserted: &ServiceDefinition, runtime: &RuntimeFacts) -> Dri
                     let Some(sm) = sms.iter().find(|sm| sm.value.name == *machine) else {
                         if seen_missing_machines.insert(machine.clone()) {
                             report.findings.push(DriftFinding {
-                                field: format!("{}.states", asserted.id.0),
+                                field: format!("{}.states", asserted.id.as_str()),
                                 message: format!(
                                     "runtime references state machine '{}' not present in asserted states",
                                     machine
@@ -102,7 +102,7 @@ pub fn diff_runtime(asserted: &ServiceDefinition, runtime: &RuntimeFacts) -> Dri
                         let key = (machine.clone(), state.clone());
                         if seen_missing_states.insert(key) {
                             report.findings.push(DriftFinding {
-                                field: format!("{}.states", asserted.id.0),
+                                field: format!("{}.states", asserted.id.as_str()),
                                 message: format!(
                                     "runtime references state '{}' not declared in asserted state machine '{}'",
                                     state, machine
@@ -193,17 +193,17 @@ mod tests {
         let service = catalog
             .services()
             .iter()
-            .find(|s| s.id.0 == "ardupilot_manager")
+            .find(|s| s.id.as_str() == "ardupilot_manager")
             .expect("ardupilot_manager in bootstrap")
             .clone();
         let runtime = RuntimeFacts {
-            service: service.id.clone(),
+            service: service.id,
             state_contracts: GroundedSet::known(vec![GroundedItem::new(
                 StateContract {
                     machine: "autopilot_lifecycle".to_string(),
                     state: "bogus_state".to_string(),
                     route: RouteRef {
-                        service: service.id.clone(),
+                        service: service.id,
                         method: HttpMethod::Get,
                         path: "/vehicle_type".to_string(),
                         version: None,

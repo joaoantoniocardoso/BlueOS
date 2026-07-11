@@ -375,14 +375,14 @@ fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
 
 fn customization_services() -> GroundedSet<ServiceId> {
     GroundedSet::known(vec![GroundedItem::new(
-        ServiceId("customization".into()),
+        ServiceId::Customization,
         Provenance::source(CUSTOMIZATION_MAIN, 34),
     )])
 }
 
 fn route(method: HttpMethod, path: &str, version: Option<&str>) -> RouteRef {
     RouteRef {
-        service: ServiceId("customization".into()),
+        service: ServiceId::Customization,
         method,
         path: path.into(),
         version: version.map(str::to_string),

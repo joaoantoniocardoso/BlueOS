@@ -26,7 +26,7 @@ pub fn resolve(catalog: &Catalog, env: &EnvLookup) -> Result<Vec<ResolvedPorts>,
         .iter()
         .map(|facts| {
             Ok(ResolvedPorts {
-                service_id: facts.id.clone(),
+                service_id: facts.id,
                 ports: resolve_service_ports(facts, env)?,
             })
         })

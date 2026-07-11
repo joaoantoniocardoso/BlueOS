@@ -175,7 +175,7 @@ pub fn check_against_observed(
         if let Observed::Known { value, .. } = &facts.startup_tier {
             if *value != service.startup_tier {
                 findings.push(DriftFinding {
-                    field: format!("{}.startup_tier", facts.id.0),
+                    field: format!("{}.startup_tier", facts.id.as_str()),
                     message: format!("observed {value:?}, extracted {:?}", service.startup_tier),
                 });
             }
@@ -184,7 +184,7 @@ pub fn check_against_observed(
         if let Observed::Known { value: limits, .. } = &facts.resource_limits {
             if limits.memory_mb != service.memory_mb {
                 findings.push(DriftFinding {
-                    field: format!("{}.memory_mb", facts.id.0),
+                    field: format!("{}.memory_mb", facts.id.as_str()),
                     message: format!(
                         "observed {:?}, extracted {:?}",
                         limits.memory_mb, service.memory_mb
@@ -193,7 +193,7 @@ pub fn check_against_observed(
             }
             if limits.cpu_percent != service.cpu_percent {
                 findings.push(DriftFinding {
-                    field: format!("{}.cpu_percent", facts.id.0),
+                    field: format!("{}.cpu_percent", facts.id.as_str()),
                     message: format!(
                         "observed {:?}, extracted {:?}",
                         limits.cpu_percent, service.cpu_percent
@@ -212,14 +212,14 @@ fn find_extracted<'a>(
     extracted: &'a [ExtractedService],
     facts: &ObservedFacts,
 ) -> Option<&'a ExtractedService> {
-    let id = &facts.id.0;
+    let id = facts.id.as_str();
     if let Some(service) = extracted
         .iter()
-        .find(|service| service.service_dir.as_deref() == Some(id.as_str()))
+        .find(|service| service.service_dir.as_deref() == Some(id))
     {
         return Some(service);
     }
-    if let Some(service) = extracted.iter().find(|service| service.tmux_name == *id) {
+    if let Some(service) = extracted.iter().find(|service| service.tmux_name == id) {
         return Some(service);
     }
     // Binaries whose catalog id differs from the tmux name (e.g. id `mavlink-camera-manager`

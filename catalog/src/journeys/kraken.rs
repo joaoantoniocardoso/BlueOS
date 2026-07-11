@@ -378,14 +378,14 @@ fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
 
 fn kraken_services() -> GroundedSet<ServiceId> {
     GroundedSet::known(vec![GroundedItem::new(
-        ServiceId("kraken".into()),
+        ServiceId::Kraken,
         Provenance::doc(ADV, 836),
     )])
 }
 
 fn route(method: HttpMethod, path: &str, version: Option<&str>) -> RouteRef {
     RouteRef {
-        service: ServiceId("kraken".into()),
+        service: ServiceId::Kraken,
         method,
         path: path.into(),
         version: version.map(str::to_string),

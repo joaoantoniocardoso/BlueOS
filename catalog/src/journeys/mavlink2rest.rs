@@ -72,7 +72,7 @@ fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
 
 fn mavlink2rest_services() -> GroundedSet<ServiceId> {
     GroundedSet::known(vec![GroundedItem::new(
-        ServiceId("mavlink2rest".into()),
+        ServiceId::Mavlink2rest,
         Provenance::doc(ADV, 499),
     )])
 }

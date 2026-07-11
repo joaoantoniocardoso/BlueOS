@@ -78,7 +78,7 @@ fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
 
 fn zenohd_services() -> GroundedSet<ServiceId> {
     GroundedSet::known(vec![GroundedItem::new(
-        ServiceId("zenohd".into()),
+        ServiceId::Zenohd,
         Provenance::source(NGINX, 261),
     )])
 }

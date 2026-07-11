@@ -374,14 +374,14 @@ fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
 
 fn ardupilot_manager_services() -> GroundedSet<ServiceId> {
     GroundedSet::known(vec![GroundedItem::new(
-        ServiceId("ardupilot_manager".into()),
+        ServiceId::ArdupilotManager,
         Provenance::doc(ADV, 257),
     )])
 }
 
 fn route(method: HttpMethod, path: &str, version: Option<&str>) -> RouteRef {
     RouteRef {
-        service: ServiceId("ardupilot_manager".into()),
+        service: ServiceId::ArdupilotManager,
         method,
         path: path.into(),
         version: version.map(str::to_string),
@@ -425,7 +425,7 @@ fn service_step(
 ) -> GroundedItem<JourneyStep> {
     GroundedItem::new(
         JourneyStep {
-            actor: Actor::Service(ServiceId("ardupilot_manager".into())),
+            actor: Actor::Service(ServiceId::ArdupilotManager),
             description: description.into(),
             route,
             outcome,

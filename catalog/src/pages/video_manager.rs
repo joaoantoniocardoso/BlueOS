@@ -1,5 +1,5 @@
 use crate::id::{CapabilityId, ServiceId};
-use crate::page::{ClientState, Page, PageId, PageServiceCall, StateOwnership};
+use crate::page::{ClientState, ConsumeTarget, Page, PageId, PageServiceCall, StateOwnership};
 use crate::provenance::{AssertedSet, Evidence, Evidenced, Observed, ObservedSet, Rationaled};
 
 pub fn page() -> Page {
@@ -66,7 +66,7 @@ pub fn page() -> Page {
         consumes: ObservedSet::known(vec![
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("mavlink-camera-manager".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::MavlinkCameraManager),
                     endpoint: "GET /mavlink-camera-manager/v4l".to_string(),
                     purpose: "poll video devices via VideoUpdater (5s interval); also re-fetched after control updates and block/unblock".to_string(),
                 },
@@ -77,7 +77,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("mavlink-camera-manager".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::MavlinkCameraManager),
                     endpoint: "GET /mavlink-camera-manager/streams".to_string(),
                     purpose: "poll configured streams via VideoUpdater (5s interval); also re-fetched after block/unblock".to_string(),
                 },
@@ -88,7 +88,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("mavlink-camera-manager".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::MavlinkCameraManager),
                     endpoint: "POST /mavlink-camera-manager/streams".to_string(),
                     purpose: "create new stream from VideoDevice or replace stream on edit (delete then create)".to_string(),
                 },
@@ -99,7 +99,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("mavlink-camera-manager".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::MavlinkCameraManager),
                     endpoint: "DELETE /mavlink-camera-manager/delete_stream".to_string(),
                     purpose: "remove stream or precede stream edit with delete".to_string(),
                 },
@@ -110,7 +110,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("mavlink-camera-manager".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::MavlinkCameraManager),
                     endpoint: "GET /mavlink-camera-manager/thumbnail".to_string(),
                     purpose: "fetch device preview thumbnails on demand or continuously (1s) from VideoThumbnail".to_string(),
                 },
@@ -121,7 +121,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("mavlink-camera-manager".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::MavlinkCameraManager),
                     endpoint: "POST /mavlink-camera-manager/v4l".to_string(),
                     purpose: "write V4L device control values (slider, menu, bool) from device controls dialog".to_string(),
                 },
@@ -132,7 +132,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("mavlink-camera-manager".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::MavlinkCameraManager),
                     endpoint: "POST /mavlink-camera-manager/block_source".to_string(),
                     purpose: "block video source (pirate mode) from VideoDevice toggle".to_string(),
                 },
@@ -143,7 +143,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("mavlink-camera-manager".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::MavlinkCameraManager),
                     endpoint: "POST /mavlink-camera-manager/unblock_source".to_string(),
                     purpose: "unblock video source (pirate mode) from VideoDevice toggle".to_string(),
                 },
@@ -154,7 +154,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("mavlink-camera-manager".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::MavlinkCameraManager),
                     endpoint: "POST /mavlink-camera-manager/reset_settings".to_string(),
                     purpose: "reset mavlink-camera-manager settings to factory defaults from settings dialog".to_string(),
                 },
@@ -165,7 +165,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("mavlink-camera-manager".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::MavlinkCameraManager),
                     endpoint: "GET /mavlink-camera-manager/sdp".to_string(),
                     purpose: "download SDP file for UDP streams from VideoStream".to_string(),
                 },
@@ -176,7 +176,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("commander".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::Commander),
                     endpoint: "GET /commander/v1.0/raspi_config/camera_legacy".to_string(),
                     purpose: "read Raspberry Pi legacy camera toggle state on page mount".to_string(),
                 },
@@ -187,7 +187,7 @@ pub fn page() -> Page {
             ),
             Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId("commander".to_string()),
+                    service: ConsumeTarget::Service(ServiceId::Commander),
                     endpoint: "POST /commander/v1.0/raspi_config/camera_legacy".to_string(),
                     purpose: "toggle Raspberry Pi legacy camera support from settings dialog".to_string(),
                 },

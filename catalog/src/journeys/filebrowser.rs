@@ -78,7 +78,7 @@ fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
 
 fn filebrowser_services() -> GroundedSet<ServiceId> {
     GroundedSet::known(vec![GroundedItem::new(
-        ServiceId("filebrowser".into()),
+        ServiceId::Filebrowser,
         Provenance::doc(ADV, 429),
     )])
 }

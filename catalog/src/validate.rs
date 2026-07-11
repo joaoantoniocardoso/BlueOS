@@ -5,7 +5,7 @@ use thiserror::Error;
 use crate::catalog::Catalog;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::UserJourney;
-use crate::page::PageId;
+use crate::page::{ConsumeTarget, PageId};
 use crate::provenance::{AssertedSet, GroundedSet, ObservedSet};
 use crate::resource::ResourceOwnership;
 use crate::service::{Authority, ServiceDefinition};
@@ -127,12 +127,12 @@ fn track_exclusive_claim(
         if existing != service_id {
             errors.push(ValidationError::DuplicateExclusiveResource {
                 resource: key,
-                first: existing.0.clone(),
-                second: service_id.0.clone(),
+                first: existing.to_string(),
+                second: service_id.to_string(),
             });
         }
     } else {
-        claims.insert(key, service_id.clone());
+        claims.insert(key, *service_id);
     }
 }
 
@@ -148,12 +148,12 @@ fn check_conflicting_authorities(catalog: &Catalog) -> Vec<ValidationError> {
                     if existing != &service.id {
                         errors.push(ValidationError::ConflictingAuthority {
                             authority: key,
-                            first: existing.0.clone(),
-                            second: service.id.0.clone(),
+                            first: existing.to_string(),
+                            second: service.id.to_string(),
                         });
                     }
                 } else {
-                    claims.insert(key, service.id.clone());
+                    claims.insert(key, service.id);
                 }
             }
         }
@@ -182,8 +182,8 @@ fn check_edge_targets(catalog: &Catalog) -> Vec<ValidationError> {
             for edge in items.iter().map(|e| &e.value) {
                 if !known_ids.contains(&edge.to) {
                     errors.push(ValidationError::UnknownEdgeTarget {
-                        from: service.id.0.clone(),
-                        to: edge.to.0.clone(),
+                        from: service.id.to_string(),
+                        to: edge.to.to_string(),
                     });
                 }
             }
@@ -202,7 +202,7 @@ fn check_service_journey_refs(catalog: &Catalog) -> Vec<ValidationError> {
             for journey_ref in items.iter().map(|j| &j.value) {
                 if !known_journey_ids.contains(journey_ref) {
                     errors.push(ValidationError::UnknownServiceJourneyRef {
-                        service: service.id.0.clone(),
+                        service: service.id.to_string(),
                         journey: journey_ref.0.clone(),
                     });
                 }
@@ -237,7 +237,7 @@ fn check_journey_references(catalog: &Catalog) -> Vec<ValidationError> {
                 if !known_service_ids.contains(&item.value) {
                     errors.push(ValidationError::UnknownJourneyService {
                         journey: journey_id.clone(),
-                        service: item.value.0.clone(),
+                        service: item.value.to_string(),
                     });
                 }
             }
@@ -266,7 +266,7 @@ fn check_journey_references(catalog: &Catalog) -> Vec<ValidationError> {
                     if !known_service_ids.contains(&route.service) {
                         errors.push(ValidationError::UnknownJourneyService {
                             journey: journey_id.clone(),
-                            service: route.service.0.clone(),
+                            service: route.service.to_string(),
                         });
                     }
                 }
@@ -356,7 +356,7 @@ fn check_runtime_references(catalog: &Catalog, errors: &mut Vec<ValidationError>
     let service_index = catalog.service_index();
 
     for facts in catalog.runtime() {
-        let service_id = facts.service.0.clone();
+        let service_id = facts.service.to_string();
         if !known_service_ids.contains(&facts.service) {
             errors.push(ValidationError::UnknownRuntimeService {
                 service: service_id.clone(),
@@ -408,7 +408,6 @@ fn check_page_references(catalog: &Catalog) -> Vec<ValidationError> {
     }
 
     let known_service_ids: HashSet<&ServiceId> = catalog.services().iter().map(|s| &s.id).collect();
-    let external = ServiceId("external".to_string());
     let mut seen_page_ids: HashSet<&PageId> = HashSet::new();
     let mut errors = Vec::new();
 
@@ -423,12 +422,13 @@ fn check_page_references(catalog: &Catalog) -> Vec<ValidationError> {
 
         if let ObservedSet::Known { items } = &page.consumes {
             for item in items {
-                let service = &item.value.service;
-                if service != &external && !known_service_ids.contains(service) {
-                    errors.push(ValidationError::UnknownPageService {
-                        page: page_id.clone(),
-                        service: service.0.clone(),
-                    });
+                if let ConsumeTarget::Service(id) = &item.value.service {
+                    if !known_service_ids.contains(id) {
+                        errors.push(ValidationError::UnknownPageService {
+                            page: page_id.clone(),
+                            service: id.to_string(),
+                        });
+                    }
                 }
             }
         }
@@ -507,7 +507,7 @@ mod tests {
     };
     use crate::lifecycle::Lifecycle;
     use crate::observed::ObservedFacts;
-    use crate::page::{Page, PageId, PageServiceCall};
+    use crate::page::{ConsumeTarget, Page, PageId, PageServiceCall};
     use crate::provenance::{
         Asserted, AssertedSet, Evidence, Evidenced, Grounded, GroundedItem, GroundedSet, Observed,
         ObservedSet, Provenance, Rationaled,
@@ -523,9 +523,9 @@ mod tests {
         }
     }
 
-    fn empty_service(id: &str) -> ServiceDefinition {
+    fn empty_service(id: ServiceId) -> ServiceDefinition {
         ServiceDefinition {
-            id: ServiceId(id.to_string()),
+            id,
             singleton: Asserted::unknown("not established"),
             bounded_context: Asserted::unknown("not established"),
             journey_refs: AssertedSet::unknown("not established"),
@@ -558,9 +558,9 @@ mod tests {
         }
     }
 
-    fn empty_observed(id: &str) -> ObservedFacts {
+    fn empty_observed(id: ServiceId) -> ObservedFacts {
         ObservedFacts {
-            id: ServiceId(id.to_string()),
+            id,
             aliases: ObservedSet::unknown("not extracted"),
             kind: Observed::unknown("not extracted"),
             entrypoint: Observed::unknown("not extracted"),
@@ -596,15 +596,15 @@ mod tests {
 
     #[test]
     fn minimal_catalog_with_unknown_fields_passes() {
-        let service = empty_service("helper");
-        let observed = empty_observed("helper");
+        let service = empty_service(ServiceId::Helper);
+        let observed = empty_observed(ServiceId::Helper);
         let catalog = Catalog::with_parts(vec![service], vec![observed], vec![], vec![], vec![]);
         assert!(catalog.validate().is_ok());
     }
 
     #[test]
     fn duplicate_exclusive_port_fails() {
-        let mut service_a = empty_service("a");
+        let mut service_a = empty_service(ServiceId::Ping);
         service_a.resources = AssertedSet::established(vec![Rationaled::new(
             Resource {
                 path: PathRef("/dev/ttyUSB0".to_string()),
@@ -612,7 +612,7 @@ mod tests {
             },
             "test",
         )]);
-        let mut service_b = empty_service("b");
+        let mut service_b = empty_service(ServiceId::Beacon);
         service_b.resources = AssertedSet::established(vec![Rationaled::new(
             Resource {
                 path: PathRef("/dev/ttyUSB0".to_string()),
@@ -621,12 +621,12 @@ mod tests {
             "test",
         )]);
 
-        let mut observed_a = empty_observed("a");
+        let mut observed_a = empty_observed(ServiceId::Ping);
         observed_a.listen = ObservedSet::known(vec![Evidenced::new(
             crate::id::PortRef::Literal(8000),
             evidence(),
         )]);
-        let mut observed_b = empty_observed("b");
+        let mut observed_b = empty_observed(ServiceId::Beacon);
         observed_b.listen = ObservedSet::known(vec![Evidenced::new(
             crate::id::PortRef::Literal(8000),
             evidence(),
@@ -649,11 +649,11 @@ mod tests {
 
     #[test]
     fn unknown_edge_target_fails() {
-        let mut service_a = empty_service("a");
+        let mut service_a = empty_service(ServiceId::Ping);
         service_a.edges = AssertedSet::established(vec![Rationaled::new(
             Edge {
-                from: ServiceId("a".to_string()),
-                to: ServiceId("missing".to_string()),
+                from: ServiceId::Ping,
+                to: ServiceId::Zenohd,
                 via: Bus::Rest,
                 sync: SyncMode::Sync,
                 endpoint: "/helper/".to_string(),
@@ -666,7 +666,7 @@ mod tests {
 
         let catalog = Catalog::with_parts(
             vec![service_a],
-            vec![empty_observed("a")],
+            vec![empty_observed(ServiceId::Ping)],
             vec![],
             vec![],
             vec![],
@@ -679,7 +679,7 @@ mod tests {
             .any(|e| matches!(e, ValidationError::UnknownEdgeTarget { .. })));
     }
 
-    fn valid_journey_service(id: &str) -> ServiceDefinition {
+    fn valid_journey_service(id: ServiceId) -> ServiceDefinition {
         let mut service = empty_service(id);
         service.capabilities = AssertedSet::established(vec![Rationaled::new(
             CapabilityId("deploy".to_string()),
@@ -706,7 +706,7 @@ mod tests {
             ),
             visibility: Grounded::known(Visibility::Default, Provenance::doc("docs/deploy.md", 2)),
             services: GroundedSet::known(vec![GroundedItem::new(
-                ServiceId("helper".to_string()),
+                ServiceId::Helper,
                 Provenance::doc("docs/deploy.md", 3),
             )]),
             capability_refs: GroundedSet::known(vec![GroundedItem::new(
@@ -720,7 +720,7 @@ mod tests {
                     description: "call deploy endpoint".to_string(),
                     route: Some(Grounded::known(
                         RouteRef {
-                            service: ServiceId("helper".to_string()),
+                            service: ServiceId::Helper,
                             method: HttpMethod::Post,
                             path: "/deploy".to_string(),
                             version: Some("v1".to_string()),
@@ -748,8 +748,8 @@ mod tests {
 
     #[test]
     fn valid_journey_passes_validate() {
-        let service = valid_journey_service("helper");
-        let observed = empty_observed("helper");
+        let service = valid_journey_service(ServiceId::Helper);
+        let observed = empty_observed(ServiceId::Helper);
         let catalog = Catalog::with_parts(
             vec![service],
             vec![observed],
@@ -762,17 +762,17 @@ mod tests {
 
     #[test]
     fn unknown_journey_service_ref_fails() {
-        let service = valid_journey_service("helper");
+        let service = valid_journey_service(ServiceId::Helper);
         let journey = UserJourney {
             services: GroundedSet::known(vec![GroundedItem::new(
-                ServiceId("missing".to_string()),
+                ServiceId::Zenohd,
                 Provenance::doc("docs/deploy.md", 1),
             )]),
             ..valid_journey()
         };
         let catalog = Catalog::with_parts(
             vec![service],
-            vec![empty_observed("helper")],
+            vec![empty_observed(ServiceId::Helper)],
             vec![journey],
             vec![],
             vec![],
@@ -785,16 +785,16 @@ mod tests {
 
     #[test]
     fn unknown_journey_route_service_fails() {
-        let service = valid_journey_service("helper");
+        let service = valid_journey_service(ServiceId::Helper);
         let mut journey = valid_journey();
         if let GroundedSet::Known { items } = &mut journey.steps {
             if let Some(Grounded::Known { value: route, .. }) = &mut items[0].value.route {
-                route.service = ServiceId("missing".to_string());
+                route.service = ServiceId::Zenohd;
             }
         }
         let catalog = Catalog::with_parts(
             vec![service],
-            vec![empty_observed("helper")],
+            vec![empty_observed(ServiceId::Helper)],
             vec![journey],
             vec![],
             vec![],
@@ -807,7 +807,7 @@ mod tests {
 
     #[test]
     fn unknown_journey_capability_fails() {
-        let service = valid_journey_service("helper");
+        let service = valid_journey_service(ServiceId::Helper);
         let mut journey = valid_journey();
         journey.capability_refs = GroundedSet::known(vec![GroundedItem::new(
             CapabilityId("missing".to_string()),
@@ -815,7 +815,7 @@ mod tests {
         )]);
         let catalog = Catalog::with_parts(
             vec![service],
-            vec![empty_observed("helper")],
+            vec![empty_observed(ServiceId::Helper)],
             vec![journey],
             vec![],
             vec![],
@@ -828,7 +828,7 @@ mod tests {
 
     #[test]
     fn unknown_journey_state_fails() {
-        let service = valid_journey_service("helper");
+        let service = valid_journey_service(ServiceId::Helper);
         let mut journey = valid_journey();
         if let GroundedSet::Known { items } = &mut journey.steps {
             if let Some(Grounded::Known { value: outcome, .. }) = &mut items[0].value.outcome {
@@ -841,7 +841,7 @@ mod tests {
         }
         let catalog = Catalog::with_parts(
             vec![service],
-            vec![empty_observed("helper")],
+            vec![empty_observed(ServiceId::Helper)],
             vec![journey],
             vec![],
             vec![],
@@ -854,7 +854,7 @@ mod tests {
 
     #[test]
     fn unknown_journey_state_machine_name_fails() {
-        let service = valid_journey_service("helper");
+        let service = valid_journey_service(ServiceId::Helper);
         let mut journey = valid_journey();
         if let GroundedSet::Known { items } = &mut journey.steps {
             if let Some(Grounded::Known { value: outcome, .. }) = &mut items[0].value.outcome {
@@ -867,7 +867,7 @@ mod tests {
         }
         let catalog = Catalog::with_parts(
             vec![service],
-            vec![empty_observed("helper")],
+            vec![empty_observed(ServiceId::Helper)],
             vec![journey],
             vec![],
             vec![],
@@ -880,12 +880,12 @@ mod tests {
 
     #[test]
     fn unknown_journey_chain_fails() {
-        let service = valid_journey_service("helper");
+        let service = valid_journey_service(ServiceId::Helper);
         let mut journey = valid_journey();
         journey.chains_from = Some(JourneyId("missing".to_string()));
         let catalog = Catalog::with_parts(
             vec![service],
-            vec![empty_observed("helper")],
+            vec![empty_observed(ServiceId::Helper)],
             vec![journey],
             vec![],
             vec![],
@@ -898,14 +898,14 @@ mod tests {
 
     #[test]
     fn unknown_service_journey_ref_fails() {
-        let mut service = empty_service("helper");
+        let mut service = empty_service(ServiceId::Helper);
         service.journey_refs = AssertedSet::established(vec![Rationaled::new(
             JourneyId("missing".to_string()),
             "test",
         )]);
         let catalog = Catalog::with_parts(
             vec![service],
-            vec![empty_observed("helper")],
+            vec![empty_observed(ServiceId::Helper)],
             vec![],
             vec![],
             vec![],
@@ -919,7 +919,7 @@ mod tests {
     #[test]
     fn unknown_runtime_service_fails() {
         let runtime = RuntimeFacts {
-            service: ServiceId("missing".to_string()),
+            service: ServiceId::Zenohd,
             state_contracts: GroundedSet::unknown("not captured"),
             slo_baselines: GroundedSet::unknown("not captured"),
             resource_usage: GroundedSet::unknown("not captured"),
@@ -927,7 +927,7 @@ mod tests {
             settings_mutations: GroundedSet::unknown("not captured"),
         };
         let catalog = Catalog::with_parts(
-            vec![empty_service("helper")],
+            vec![empty_service(ServiceId::Helper)],
             vec![],
             vec![],
             vec![runtime],
@@ -941,15 +941,15 @@ mod tests {
 
     #[test]
     fn unknown_runtime_state_fails() {
-        let service = valid_journey_service("helper");
+        let service = valid_journey_service(ServiceId::Helper);
         let runtime = RuntimeFacts {
-            service: ServiceId("helper".to_string()),
+            service: ServiceId::Helper,
             state_contracts: GroundedSet::known(vec![GroundedItem::new(
                 StateContract {
                     machine: "lifecycle".to_string(),
                     state: "missing".to_string(),
                     route: RouteRef {
-                        service: ServiceId("helper".to_string()),
+                        service: ServiceId::Helper,
                         method: HttpMethod::Get,
                         path: "/status".to_string(),
                         version: None,
@@ -966,7 +966,7 @@ mod tests {
         };
         let catalog = Catalog::with_parts(
             vec![service],
-            vec![empty_observed("helper")],
+            vec![empty_observed(ServiceId::Helper)],
             vec![],
             vec![runtime],
             vec![],
@@ -977,7 +977,7 @@ mod tests {
             .any(|e| matches!(e, ValidationError::UnknownRuntimeState { .. })));
     }
 
-    fn sample_page(service_id: &str) -> Page {
+    fn sample_page(service: ConsumeTarget) -> Page {
         Page {
             id: PageId("vehicle_setup".to_string()),
             route: Observed::known("/vehicle/setup".to_string(), evidence()),
@@ -991,7 +991,7 @@ mod tests {
             stores: ObservedSet::unknown("not extracted"),
             consumes: ObservedSet::known(vec![Evidenced::new(
                 PageServiceCall {
-                    service: ServiceId(service_id.to_string()),
+                    service,
                     endpoint: "GET /status".to_string(),
                     purpose: "load page data".to_string(),
                 },
@@ -1007,9 +1007,9 @@ mod tests {
 
     #[test]
     fn valid_page_passes_validate() {
-        let service = empty_service("helper");
-        let observed = empty_observed("helper");
-        let page = sample_page("helper");
+        let service = empty_service(ServiceId::Helper);
+        let observed = empty_observed(ServiceId::Helper);
+        let page = sample_page(ConsumeTarget::Service(ServiceId::Helper));
         let catalog =
             Catalog::with_parts(vec![service], vec![observed], vec![], vec![], vec![page]);
         assert!(catalog.validate().is_ok());
@@ -1017,9 +1017,9 @@ mod tests {
 
     #[test]
     fn unknown_page_service_call_fails() {
-        let service = empty_service("helper");
-        let observed = empty_observed("helper");
-        let page = sample_page("missing");
+        let service = empty_service(ServiceId::Helper);
+        let observed = empty_observed(ServiceId::Helper);
+        let page = sample_page(ConsumeTarget::Service(ServiceId::Zenohd));
         let catalog =
             Catalog::with_parts(vec![service], vec![observed], vec![], vec![], vec![page]);
         let errors = catalog.validate().unwrap_err();
@@ -1030,9 +1030,9 @@ mod tests {
 
     #[test]
     fn external_page_service_call_passes() {
-        let service = empty_service("helper");
-        let observed = empty_observed("helper");
-        let page = sample_page("external");
+        let service = empty_service(ServiceId::Helper);
+        let observed = empty_observed(ServiceId::Helper);
+        let page = sample_page(ConsumeTarget::External);
         let catalog =
             Catalog::with_parts(vec![service], vec![observed], vec![], vec![], vec![page]);
         assert!(catalog.validate().is_ok());

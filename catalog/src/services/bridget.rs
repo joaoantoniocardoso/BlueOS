@@ -19,7 +19,7 @@ const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha2
 
 pub fn runtime_facts() -> RuntimeFacts {
     RuntimeFacts {
-        service: ServiceId("bridget".into()),
+        service: ServiceId::Bridget,
         state_contracts: GroundedSet::unknown(
             "bridget has no service-level state machine (card states Unknown); per-bridge bridges subprocess lifecycle is runtime-managed",
         ),
@@ -71,7 +71,7 @@ fn runtime_prov(key: &str) -> Provenance {
 
 fn runtime_route(method: HttpMethod, path: &str) -> RouteRef {
     RouteRef {
-        service: ServiceId("bridget".into()),
+        service: ServiceId::Bridget,
         method,
         path: path.into(),
         version: None,
@@ -117,7 +117,7 @@ fn runtime_resource(
 
 pub fn observed_facts() -> ObservedFacts {
     ObservedFacts {
-        id: ServiceId("bridget".to_string()),
+        id: ServiceId::Bridget,
         aliases: ObservedSet::known(vec![Evidenced::new(
             "bridget".to_string(),
             Evidence {
@@ -275,33 +275,33 @@ pub fn observed_facts() -> ObservedFacts {
             ObservedLifecycle {
                 triggers: vec!["start-blueos-core create_service".to_string()],
                 ordered_after: vec![
-                    ServiceId("autopilot".to_string()),
-                    ServiceId("cable_guy".to_string()),
-                    ServiceId("video".to_string()),
-                    ServiceId("mavlink2rest".to_string()),
-                    ServiceId("kraken".to_string()),
-                    ServiceId("wifi".to_string()),
-                    ServiceId("zenohd".to_string()),
-                    ServiceId("beacon".to_string()),
+                    ServiceId::ArdupilotManager,
+                    ServiceId::CableGuy,
+                    ServiceId::MavlinkCameraManager,
+                    ServiceId::Mavlink2rest,
+                    ServiceId::Kraken,
+                    ServiceId::Wifi,
+                    ServiceId::Zenohd,
+                    ServiceId::Beacon,
                 ],
                 ordered_before: vec![
-                    ServiceId("commander".to_string()),
-                    ServiceId("nmea_injector".to_string()),
-                    ServiceId("helper".to_string()),
-                    ServiceId("iperf3".to_string()),
-                    ServiceId("linux2rest".to_string()),
-                    ServiceId("filebrowser".to_string()),
-                    ServiceId("versionchooser".to_string()),
-                    ServiceId("pardal".to_string()),
-                    ServiceId("ping".to_string()),
-                    ServiceId("user_terminal".to_string()),
-                    ServiceId("ttyd".to_string()),
-                    ServiceId("nginx".to_string()),
-                    ServiceId("bag_of_holding".to_string()),
-                    ServiceId("recorder".to_string()),
-                    ServiceId("recorder_extractor".to_string()),
-                    ServiceId("disk_usage".to_string()),
-                    ServiceId("customization".to_string()),
+                    ServiceId::Commander,
+                    ServiceId::NmeaInjector,
+                    ServiceId::Helper,
+                    ServiceId::Iperf3,
+                    ServiceId::Linux2rest,
+                    ServiceId::Filebrowser,
+                    ServiceId::Versionchooser,
+                    ServiceId::Pardal,
+                    ServiceId::Ping,
+                    ServiceId::UserTerminal,
+                    ServiceId::Ttyd,
+                    ServiceId::Nginx,
+                    ServiceId::BagOfHolding,
+                    ServiceId::Recorder,
+                    ServiceId::RecorderExtractor,
+                    ServiceId::DiskUsage,
+                    ServiceId::Customization,
                 ],
             },
             Evidence {
@@ -332,7 +332,7 @@ pub fn observed_facts() -> ObservedFacts {
 
 pub fn service_definition() -> ServiceDefinition {
     ServiceDefinition {
-        id: ServiceId("bridget".to_string()),
+        id: ServiceId::Bridget,
         singleton: Asserted::established(
             true,
             "single SERVICES-tier tmux instance; one bridget process owns all operator-configured serial bridges and bridges subprocesses",
@@ -395,8 +395,8 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         edges: AssertedSet::established(vec![Rationaled::new(
             Edge {
-                from: ServiceId("bridget".to_string()),
-                to: ServiceId("linux2rest".to_string()),
+                from: ServiceId::Bridget,
+                to: ServiceId::Linux2rest,
                 via: Bus::Rest,
                 sync: SyncMode::Sync,
                 endpoint: "localhost:6030/serial".to_string(),
@@ -420,36 +420,36 @@ pub fn service_definition() -> ServiceDefinition {
             ),
             ordered_after: Asserted::established(
                 vec![
-                    ServiceId("autopilot".to_string()),
-                    ServiceId("cable_guy".to_string()),
-                    ServiceId("video".to_string()),
-                    ServiceId("mavlink2rest".to_string()),
-                    ServiceId("kraken".to_string()),
-                    ServiceId("wifi".to_string()),
-                    ServiceId("zenohd".to_string()),
-                    ServiceId("beacon".to_string()),
+                    ServiceId::ArdupilotManager,
+                    ServiceId::CableGuy,
+                    ServiceId::MavlinkCameraManager,
+                    ServiceId::Mavlink2rest,
+                    ServiceId::Kraken,
+                    ServiceId::Wifi,
+                    ServiceId::Zenohd,
+                    ServiceId::Beacon,
                 ],
                 "observed ordered_after in start-blueos-core SERVICES block",
             ),
             ordered_before: Asserted::established(
                 vec![
-                    ServiceId("commander".to_string()),
-                    ServiceId("nmea_injector".to_string()),
-                    ServiceId("helper".to_string()),
-                    ServiceId("iperf3".to_string()),
-                    ServiceId("linux2rest".to_string()),
-                    ServiceId("filebrowser".to_string()),
-                    ServiceId("versionchooser".to_string()),
-                    ServiceId("pardal".to_string()),
-                    ServiceId("ping".to_string()),
-                    ServiceId("user_terminal".to_string()),
-                    ServiceId("ttyd".to_string()),
-                    ServiceId("nginx".to_string()),
-                    ServiceId("bag_of_holding".to_string()),
-                    ServiceId("recorder".to_string()),
-                    ServiceId("recorder_extractor".to_string()),
-                    ServiceId("disk_usage".to_string()),
-                    ServiceId("customization".to_string()),
+                    ServiceId::Commander,
+                    ServiceId::NmeaInjector,
+                    ServiceId::Helper,
+                    ServiceId::Iperf3,
+                    ServiceId::Linux2rest,
+                    ServiceId::Filebrowser,
+                    ServiceId::Versionchooser,
+                    ServiceId::Pardal,
+                    ServiceId::Ping,
+                    ServiceId::UserTerminal,
+                    ServiceId::Ttyd,
+                    ServiceId::Nginx,
+                    ServiceId::BagOfHolding,
+                    ServiceId::Recorder,
+                    ServiceId::RecorderExtractor,
+                    ServiceId::DiskUsage,
+                    ServiceId::Customization,
                 ],
                 "observed ordered_before lists bridget before remaining SERVICES-tier peers including customization",
             ),
