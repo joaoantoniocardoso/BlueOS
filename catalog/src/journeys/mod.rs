@@ -3,6 +3,7 @@ mod bag_of_holding;
 mod beacon;
 mod cable_guy;
 mod commander;
+mod customization;
 mod disk_usage;
 mod helper;
 mod kraken;
