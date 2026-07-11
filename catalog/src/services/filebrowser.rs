@@ -275,7 +275,7 @@ pub fn service_definition() -> ServiceDefinition {
             "provisional 2.0 domain: browser-based file management over the local filesystem via the upstream filebrowser SPA",
         ),
         journey_refs: AssertedSet::established(vec![Rationaled::new(
-            JourneyId("manage_blueos_files".into()),
+            JourneyId::ManageBlueosFiles,
             "File Browser page embeds the upstream filebrowser SPA at /file-browser/ for viewing, editing, downloading, and uploading files",
         )]),
         tier: Asserted::established(
@@ -299,7 +299,7 @@ pub fn service_definition() -> ServiceDefinition {
             "rubric requires Required when dangerous_operations is non-empty; File Browser page is gated behind Advanced/pirate visibility per journey",
         ),
         capabilities: AssertedSet::established(vec![Rationaled::new(
-            CapabilityId("manage_blueos_files".to_string()),
+            CapabilityId::ManageBlueosFiles,
             "journey capability: operator opens File Browser page and uses the embedded filebrowser SPA to view, edit, download, and upload BlueOS files",
         )]),
         authorities: AssertedSet::established(vec![Rationaled::new(

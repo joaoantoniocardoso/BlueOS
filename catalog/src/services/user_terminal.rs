@@ -218,7 +218,7 @@ pub fn service_definition() -> ServiceDefinition {
             "no user-facing operation surface on this service; arbitrary_root_shell_execution danger is modeled on ttyd where operators actually open the web terminal (rubric pairs dangerous_operations with user-facing gates — not double-counted here)",
         ),
         capabilities: AssertedSet::established(vec![Rationaled::new(
-            CapabilityId("provide_interactive_root_shell".to_string()),
+            CapabilityId::ProvideInteractiveRootShell,
             "observed Shell kind with tmux session user_terminal; persistent interactive root shell created at boot (entrypoint cat /etc/motd then shell)",
         )]),
         authorities: AssertedSet::established(vec![]),

@@ -15,15 +15,14 @@ pub fn journeys() -> Vec<UserJourney> {
 
 fn inspect_zenoh_network() -> UserJourney {
     UserJourney {
-        id: JourneyId("inspect_zenoh_network".into()),
+        id: JourneyId::InspectZenohNetwork,
         summary: Grounded::known(
             "View detailed Zenoh traffic coming from your vehicle".into(),
             Provenance::source(ZENOH_MENUS, 146),
         ),
         visibility: Grounded::known(Visibility::Advanced, Provenance::source(ZENOH_MENUS, 145)),
         services: zenohd_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            "inspect_zenoh_network",
+        capability_refs: GroundedSet::known(vec![cap(CapabilityId::InspectZenohNetwork,
             "Zenoh Inspector connects over WebSocket to inspect live pub/sub topics and network topology",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -72,8 +71,8 @@ fn inspect_zenoh_network() -> UserJourney {
     }
 }
 
-fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
-    GroundedItem::new(CapabilityId(id.into()), Provenance::asserted(rationale))
+fn cap(id: CapabilityId, rationale: &str) -> GroundedItem<CapabilityId> {
+    GroundedItem::new(id, Provenance::asserted(rationale))
 }
 
 fn zenohd_services() -> GroundedSet<ServiceId> {

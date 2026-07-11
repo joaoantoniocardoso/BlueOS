@@ -4,7 +4,7 @@ use crate::provenance::{AssertedSet, Evidence, Evidenced, Observed, ObservedSet,
 
 pub fn page() -> Page {
     Page {
-        id: PageId("disk".to_string()),
+        id: PageId::Disk,
         route: Observed::known(
             "/tools/disk".to_string(),
             Evidence {

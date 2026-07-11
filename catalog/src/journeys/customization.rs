@@ -26,7 +26,7 @@ pub fn journeys() -> Vec<UserJourney> {
 
 fn change_ui_theme_color() -> UserJourney {
     UserJourney {
-        id: JourneyId("change_ui_theme_color".into()),
+        id: JourneyId::ChangeUiThemeColor,
         summary: Grounded::known(
             "Customise the primary color that drives the BlueOS interface gradient and scrollbar"
                 .into(),
@@ -35,7 +35,7 @@ fn change_ui_theme_color() -> UserJourney {
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 923)),
         services: customization_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "set_theme_color",
+            CapabilityId::SetThemeColor,
             "Settings Appearance panel saves a chosen primary color and regenerates theme CSS",
         )]),
         preconditions: GroundedSet::known(vec![]),
@@ -67,7 +67,7 @@ fn change_ui_theme_color() -> UserJourney {
 
 fn reset_ui_theme_color() -> UserJourney {
     UserJourney {
-        id: JourneyId("reset_ui_theme_color".into()),
+        id: JourneyId::ResetUiThemeColor,
         summary: Grounded::known(
             "Restore the default BlueOS primary theme color".into(),
             Provenance::source(THEME_CUSTOMIZATION, 89),
@@ -75,7 +75,7 @@ fn reset_ui_theme_color() -> UserJourney {
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 923)),
         services: customization_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "reset_theme_color",
+            CapabilityId::ResetThemeColor,
             "Settings Appearance panel resets theme config and regenerates default CSS",
         )]),
         preconditions: GroundedSet::known(vec![]),
@@ -107,7 +107,7 @@ fn reset_ui_theme_color() -> UserJourney {
 
 fn upload_custom_logo() -> UserJourney {
     UserJourney {
-        id: JourneyId("upload_custom_logo".into()),
+        id: JourneyId::UploadCustomLogo,
         summary: Grounded::known(
             "Upload a custom company logo for BlueOS branding".into(),
             Provenance::doc(ADV, 879),
@@ -115,7 +115,7 @@ fn upload_custom_logo() -> UserJourney {
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 875)),
         services: customization_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "upload_branding_logo",
+            CapabilityId::UploadBrandingLogo,
             "Settings Customization panel uploads a square logo image",
         )]),
         preconditions: GroundedSet::known(vec![]),
@@ -152,7 +152,7 @@ fn upload_custom_logo() -> UserJourney {
 
 fn remove_custom_logo() -> UserJourney {
     UserJourney {
-        id: JourneyId("remove_custom_logo".into()),
+        id: JourneyId::RemoveCustomLogo,
         summary: Grounded::known(
             "Remove the custom company logo and revert to default branding".into(),
             Provenance::source(THEME_CUSTOMIZATION, 179),
@@ -160,7 +160,7 @@ fn remove_custom_logo() -> UserJourney {
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 875)),
         services: customization_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "remove_branding_logo",
+            CapabilityId::RemoveBrandingLogo,
             "Settings Customization panel removes the uploaded logo asset",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -195,7 +195,7 @@ fn remove_custom_logo() -> UserJourney {
 
 fn upload_custom_vehicle_image() -> UserJourney {
     UserJourney {
-        id: JourneyId("upload_custom_vehicle_image".into()),
+        id: JourneyId::UploadCustomVehicleImage,
         summary: Grounded::known(
             "Upload a custom vehicle image shown in the interface".into(),
             Provenance::doc(ADV, 885),
@@ -203,7 +203,7 @@ fn upload_custom_vehicle_image() -> UserJourney {
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 875)),
         services: customization_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "upload_branding_vehicle_image",
+            CapabilityId::UploadBrandingVehicleImage,
             "Settings Customization panel uploads a square vehicle image",
         )]),
         preconditions: GroundedSet::known(vec![]),
@@ -240,7 +240,7 @@ fn upload_custom_vehicle_image() -> UserJourney {
 
 fn remove_custom_vehicle_image() -> UserJourney {
     UserJourney {
-        id: JourneyId("remove_custom_vehicle_image".into()),
+        id: JourneyId::RemoveCustomVehicleImage,
         summary: Grounded::known(
             "Remove the custom vehicle image and revert to default branding".into(),
             Provenance::source(THEME_CUSTOMIZATION, 194),
@@ -248,7 +248,7 @@ fn remove_custom_vehicle_image() -> UserJourney {
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 875)),
         services: customization_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "remove_branding_vehicle_image",
+            CapabilityId::RemoveBrandingVehicleImage,
             "Settings Customization panel removes the uploaded vehicle image asset",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -283,7 +283,7 @@ fn remove_custom_vehicle_image() -> UserJourney {
 
 fn upload_3d_model_override() -> UserJourney {
     UserJourney {
-        id: JourneyId("upload_3d_model_override".into()),
+        id: JourneyId::Upload3dModelOverride,
         summary: Grounded::known(
             "Replace the Vehicle Setup 3D model with a custom glTF (.glb) file".into(),
             Provenance::doc(ADV, 917),
@@ -291,7 +291,7 @@ fn upload_3d_model_override() -> UserJourney {
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 652)),
         services: customization_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "upload_model_override",
+            CapabilityId::UploadModelOverride,
             "Settings Customization panel uploads a .glb served under userdata/modeloverrides/",
         )]),
         preconditions: GroundedSet::known(vec![]),
@@ -328,7 +328,7 @@ fn upload_3d_model_override() -> UserJourney {
 
 fn delete_3d_model_override() -> UserJourney {
     UserJourney {
-        id: JourneyId("delete_3d_model_override".into()),
+        id: JourneyId::Delete3dModelOverride,
         summary: Grounded::known(
             "Delete an uploaded 3D model override".into(),
             Provenance::source(THEME_CUSTOMIZATION, 369),
@@ -336,7 +336,7 @@ fn delete_3d_model_override() -> UserJourney {
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 652)),
         services: customization_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "delete_model_override",
+            CapabilityId::DeleteModelOverride,
             "Settings Customization panel deletes a model from the override list",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -369,8 +369,8 @@ fn delete_3d_model_override() -> UserJourney {
     }
 }
 
-fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
-    GroundedItem::new(CapabilityId(id.into()), Provenance::asserted(rationale))
+fn cap(id: CapabilityId, rationale: &str) -> GroundedItem<CapabilityId> {
+    GroundedItem::new(id, Provenance::asserted(rationale))
 }
 
 fn customization_services() -> GroundedSet<ServiceId> {

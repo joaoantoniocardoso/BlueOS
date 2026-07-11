@@ -494,27 +494,27 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         journey_refs: AssertedSet::established(vec![
             Rationaled::new(
-                JourneyId("assign_static_ip_address".into()),
+                JourneyId::AssignStaticIpAddress,
                 "ethernet tray POST /address adds a static IPv4 address to a wired interface",
             ),
             Rationaled::new(
-                JourneyId("acquire_dynamic_ip_address".into()),
+                JourneyId::AcquireDynamicIpAddress,
                 "ethernet tray POST /dynamic_ip triggers dhclient DHCP acquisition on a wired interface",
             ),
             Rationaled::new(
-                JourneyId("enable_onboard_dhcp_server".into()),
+                JourneyId::EnableOnboardDhcpServer,
                 "ethernet tray POST /dhcp starts dnsmasq as a local DHCP server on a wired interface",
             ),
             Rationaled::new(
-                JourneyId("disable_onboard_dhcp_server".into()),
+                JourneyId::DisableOnboardDhcpServer,
                 "ethernet tray DELETE /dhcp stops the onboard dnsmasq DHCP server on a wired interface",
             ),
             Rationaled::new(
-                JourneyId("set_network_interface_priority".into()),
+                JourneyId::SetNetworkInterfacePriority,
                 "internet tray POST /set_interfaces_priority persists interface metric ordering for default routes",
             ),
             Rationaled::new(
-                JourneyId("configure_host_dns".into()),
+                JourneyId::ConfigureHostDns,
                 "internet tray POST /host_dns updates locked host nameserver entries in /etc/resolv.conf",
             ),
         ]),
@@ -537,51 +537,51 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         capabilities: AssertedSet::established(vec![
             Rationaled::new(
-                CapabilityId("assign_static_ip".to_string()),
+                CapabilityId::AssignStaticIp,
                 "POST /address adds a static IPv4 address to the named wired interface",
             ),
             Rationaled::new(
-                CapabilityId("acquire_dynamic_ip".to_string()),
+                CapabilityId::AcquireDynamicIp,
                 "POST /dynamic_ip runs dhclient to acquire a dynamic address on the named interface",
             ),
             Rationaled::new(
-                CapabilityId("enable_dhcp_server".to_string()),
+                CapabilityId::EnableDhcpServer,
                 "POST /dhcp starts dnsmasq as an onboard DHCP server on the interface gateway address",
             ),
             Rationaled::new(
-                CapabilityId("disable_dhcp_server".to_string()),
+                CapabilityId::DisableDhcpServer,
                 "DELETE /dhcp stops the onboard dnsmasq DHCP server on the named interface",
             ),
             Rationaled::new(
-                CapabilityId("set_interface_priority".to_string()),
+                CapabilityId::SetInterfacePriority,
                 "POST /set_interfaces_priority persists interface metric ordering used for default-route preference",
             ),
             Rationaled::new(
-                CapabilityId("configure_host_dns".to_string()),
+                CapabilityId::ConfigureHostDns,
                 "POST /host_dns updates host nameserver entries and optional immutability lock on /etc/resolv.conf",
             ),
             Rationaled::new(
-                CapabilityId("list_network_interfaces".to_string()),
+                CapabilityId::ListNetworkInterfaces,
                 "GET /interfaces returns all network interfaces with addresses, routes, and DHCP state",
             ),
             Rationaled::new(
-                CapabilityId("list_ethernet_interfaces".to_string()),
+                CapabilityId::ListEthernetInterfaces,
                 "GET /ethernet returns wired ethernet and USB-OTG interfaces",
             ),
             Rationaled::new(
-                CapabilityId("retrieve_host_dns".to_string()),
+                CapabilityId::RetrieveHostDns,
                 "GET /host_dns returns current host nameserver entries and resolv.conf lock state",
             ),
             Rationaled::new(
-                CapabilityId("get_interface_routes".to_string()),
+                CapabilityId::GetInterfaceRoutes,
                 "GET /route returns routing table entries for the named interface",
             ),
             Rationaled::new(
-                CapabilityId("get_dhcp_server_details".to_string()),
+                CapabilityId::GetDhcpServerDetails,
                 "GET /dhcp/details/{interface_name} returns onboard DHCP server configuration per interface",
             ),
             Rationaled::new(
-                CapabilityId("get_dhcp_server_leases".to_string()),
+                CapabilityId::GetDhcpServerLeases,
                 "GET /dhcp/leases/{interface_name} returns active dnsmasq DHCP leases per interface",
             ),
         ]),

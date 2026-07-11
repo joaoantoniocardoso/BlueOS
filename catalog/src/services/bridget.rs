@@ -343,15 +343,15 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         journey_refs: AssertedSet::established(vec![
             Rationaled::new(
-                JourneyId("view_configured_serial_bridges".into()),
+                JourneyId::ViewConfiguredSerialBridges,
                 "Serial Bridges page lists configured bridges and available serial ports via GET /bridges and GET /serial_ports",
             ),
             Rationaled::new(
-                JourneyId("create_serial_to_udp_bridge".into()),
+                JourneyId::CreateSerialToUdpBridge,
                 "creation dialog POST /bridges adds a serial-to-UDP bridge, spawns bridges subprocess, and persists settings",
             ),
             Rationaled::new(
-                JourneyId("remove_serial_bridge".into()),
+                JourneyId::RemoveSerialBridge,
                 "bridge card DELETE /bridges removes a configured serial bridge and stops its subprocess",
             ),
         ]),
@@ -374,15 +374,15 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         capabilities: AssertedSet::established(vec![
             Rationaled::new(
-                CapabilityId("list_configured_serial_bridges".to_string()),
+                CapabilityId::ListConfiguredSerialBridges,
                 "GET /bridges and GET /serial_ports return configured bridges and available serial ports for the Serial Bridges page",
             ),
             Rationaled::new(
-                CapabilityId("create_serial_to_udp_bridge".to_string()),
+                CapabilityId::CreateSerialToUdpBridge,
                 "POST /bridges starts a bridges subprocess for the chosen serial path, baud, and UDP endpoint and persists the configuration",
             ),
             Rationaled::new(
-                CapabilityId("remove_serial_bridge".to_string()),
+                CapabilityId::RemoveSerialBridge,
                 "DELETE /bridges stops and removes the matching serial-to-UDP bridge configuration",
             ),
         ]),

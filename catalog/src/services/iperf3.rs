@@ -228,7 +228,7 @@ pub fn service_definition() -> ServiceDefinition {
             "no irreversible, untrusted-code, or vehicle-arm operations; passive bandwidth measurement is a reversible transient side effect only",
         ),
         capabilities: AssertedSet::established(vec![Rationaled::new(
-            CapabilityId("serve_iperf_bandwidth_test".to_string()),
+            CapabilityId::ServeIperfBandwidthTest,
             "observed entrypoint iperf3 --server --port 5201; external iperf3 -c clients connect to the raw TCP listener for LAN throughput measurement",
         )]),
         authorities: AssertedSet::established(vec![]),

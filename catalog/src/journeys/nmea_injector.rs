@@ -22,7 +22,7 @@ pub fn journeys() -> Vec<UserJourney> {
 
 fn view_configured_nmea_sockets() -> UserJourney {
     UserJourney {
-        id: JourneyId("view_configured_nmea_sockets".into()),
+        id: JourneyId::ViewConfiguredNmeaSockets,
         summary: Grounded::known(
             "View configured NMEA input sockets and their MAVLink component mappings".into(),
             Provenance::doc(ADV, 543),
@@ -30,7 +30,7 @@ fn view_configured_nmea_sockets() -> UserJourney {
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 533)),
         services: nmea_injector_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "list_nmea_sockets",
+            CapabilityId::ListNmeaSockets,
             "NMEA Injector page lists sockets with kind, port, and MAVLink component ID",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -57,7 +57,7 @@ fn view_configured_nmea_sockets() -> UserJourney {
 
 fn add_external_nmea_gps_socket() -> UserJourney {
     UserJourney {
-        id: JourneyId("add_external_nmea_gps_socket".into()),
+        id: JourneyId::AddExternalNmeaGpsSocket,
         summary: Grounded::known(
             "Add a UDP or TCP socket so an external NMEA GPS device can inject positions as MAVLink"
                 .into(),
@@ -65,8 +65,7 @@ fn add_external_nmea_gps_socket() -> UserJourney {
         ),
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 533)),
         services: nmea_injector_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            "create_nmea_socket",
+        capability_refs: GroundedSet::known(vec![cap(CapabilityId::CreateNmeaSocket,
             "creation dialog submits socket kind, port, and MAVLink component ID to start listening",
         )]),
         preconditions: GroundedSet::known(vec![
@@ -111,7 +110,7 @@ fn add_external_nmea_gps_socket() -> UserJourney {
 
 fn remove_configured_nmea_socket() -> UserJourney {
     UserJourney {
-        id: JourneyId("remove_configured_nmea_socket".into()),
+        id: JourneyId::RemoveConfiguredNmeaSocket,
         summary: Grounded::known(
             "Remove a configured NMEA input socket from the NMEA Injector".into(),
             Provenance::source(NMEA_SOCKET_CARD, 55),
@@ -119,7 +118,7 @@ fn remove_configured_nmea_socket() -> UserJourney {
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 533)),
         services: nmea_injector_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "remove_nmea_socket",
+            CapabilityId::RemoveNmeaSocket,
             "socket card remove button deletes the matching kind, port, and component ID",
         )]),
         preconditions: GroundedSet::known(vec![
@@ -163,8 +162,8 @@ fn remove_configured_nmea_socket() -> UserJourney {
     }
 }
 
-fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
-    GroundedItem::new(CapabilityId(id.into()), Provenance::asserted(rationale))
+fn cap(id: CapabilityId, rationale: &str) -> GroundedItem<CapabilityId> {
+    GroundedItem::new(id, Provenance::asserted(rationale))
 }
 
 fn nmea_injector_services() -> GroundedSet<ServiceId> {

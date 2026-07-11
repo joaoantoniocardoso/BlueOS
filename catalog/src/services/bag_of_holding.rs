@@ -309,7 +309,7 @@ pub fn service_definition() -> ServiceDefinition {
             "provisional 2.0 domain: shared key-value JSON store for frontend UI state, wizard progress, and feature tokens",
         ),
         journey_refs: AssertedSet::established(vec![Rationaled::new(
-            JourneyId("modify_bag_database".into()),
+            JourneyId::ModifyBagDatabase,
             "Bag Editor loads the full document via GET /get/* and persists edits via POST /overwrite",
         )]),
         tier: Asserted::established(
@@ -334,19 +334,19 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         capabilities: AssertedSet::established(vec![
             Rationaled::new(
-                CapabilityId("edit_bag_json_store".to_string()),
+                CapabilityId::EditBagJsonStore,
                 "Bag Editor reads GET /get/* and saves the full edited document via POST /overwrite",
             ),
             Rationaled::new(
-                CapabilityId("set_bag_value".to_string()),
+                CapabilityId::SetBagValue,
                 "POST /set/{path} merges a value at a dpath key into the current JSON document",
             ),
             Rationaled::new(
-                CapabilityId("get_bag_value".to_string()),
+                CapabilityId::GetBagValue,
                 "GET /get/{path} returns a subtree or GET /get/* returns the full document",
             ),
             Rationaled::new(
-                CapabilityId("overwrite_bag_store".to_string()),
+                CapabilityId::OverwriteBagStore,
                 "POST /overwrite replaces db.json with the request body JSON object",
             ),
         ]),

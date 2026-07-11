@@ -20,7 +20,7 @@ pub fn journeys() -> Vec<UserJourney> {
 
 fn rename_vehicle() -> UserJourney {
     UserJourney {
-        id: JourneyId("rename_vehicle".into()),
+        id: JourneyId::RenameVehicle,
         summary: Grounded::known(
             "Set the vehicle name shown in the sidebar so it is easier to tell which vehicle you are connected to"
                 .into(),
@@ -28,8 +28,7 @@ fn rename_vehicle() -> UserJourney {
         ),
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 875)),
         services: beacon_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            "set_vehicle_name",
+        capability_refs: GroundedSet::known(vec![cap(CapabilityId::SetVehicleName,
             "sidebar edit dialog persists the vehicle name via the beacon API",
         )]),
         preconditions: GroundedSet::known(vec![]),
@@ -53,7 +52,7 @@ fn rename_vehicle() -> UserJourney {
 
 fn change_mdns_hostname() -> UserJourney {
     UserJourney {
-        id: JourneyId("change_mdns_hostname".into()),
+        id: JourneyId::ChangeMdnsHostname,
         summary: Grounded::known(
             "Change the mDNS hostname used to reach the BlueOS web interface in a browser".into(),
             Provenance::doc(ADV, 895),
@@ -61,7 +60,7 @@ fn change_mdns_hostname() -> UserJourney {
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 875)),
         services: beacon_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "set_mdns_hostname",
+            CapabilityId::SetMdnsHostname,
             "sidebar edit dialog updates the hostname broadcast for mDNS addresses",
         )]),
         preconditions: GroundedSet::known(vec![]),
@@ -90,7 +89,7 @@ fn change_mdns_hostname() -> UserJourney {
 
 fn discover_blueos_on_network() -> UserJourney {
     UserJourney {
-        id: JourneyId("discover_blueos_on_network".into()),
+        id: JourneyId::DiscoverBlueosOnNetwork,
         summary: Grounded::known(
             "Open the BlueOS web interface at blueos.local on the local network".into(),
             Provenance::doc(GETTING, 29),
@@ -98,7 +97,7 @@ fn discover_blueos_on_network() -> UserJourney {
         visibility: Grounded::known(Visibility::Default, Provenance::doc(GETTING, 26)),
         services: beacon_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "advertise_mdns_domains",
+            CapabilityId::AdvertiseMdnsDomains,
             "beacon publishes mDNS records that make blueos.local resolvable on the LAN",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -125,8 +124,8 @@ fn discover_blueos_on_network() -> UserJourney {
     }
 }
 
-fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
-    GroundedItem::new(CapabilityId(id.into()), Provenance::asserted(rationale))
+fn cap(id: CapabilityId, rationale: &str) -> GroundedItem<CapabilityId> {
+    GroundedItem::new(id, Provenance::asserted(rationale))
 }
 
 fn beacon_services() -> GroundedSet<ServiceId> {

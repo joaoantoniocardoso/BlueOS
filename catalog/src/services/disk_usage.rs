@@ -330,19 +330,19 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         journey_refs: AssertedSet::established(vec![
             Rationaled::new(
-                JourneyId("inspect_disk_usage".into()),
+                JourneyId::InspectDiskUsage,
                 "Disk page loads du-backed usage tree and drills into subdirectories",
             ),
             Rationaled::new(
-                JourneyId("free_disk_space".into()),
+                JourneyId::FreeDiskSpace,
                 "operator selects paths and DELETE /disk/paths/{target_path} reclaims storage",
             ),
             Rationaled::new(
-                JourneyId("run_single_disk_speed_test".into()),
+                JourneyId::RunSingleDiskSpeedTest,
                 "Speed Test tab runs GET /disk/speed disktest benchmark at one size",
             ),
             Rationaled::new(
-                JourneyId("run_multi_size_disk_speed_test".into()),
+                JourneyId::RunMultiSizeDiskSpeedTest,
                 "GET /disk/speed/stream streams NDJSON points across progressive benchmark sizes",
             ),
         ]),
@@ -368,23 +368,23 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         capabilities: AssertedSet::established(vec![
             Rationaled::new(
-                CapabilityId("inspect_disk_usage".to_string()),
+                CapabilityId::InspectDiskUsage,
                 "GET /disk/usage returns a du-backed usage tree for the requested path",
             ),
             Rationaled::new(
-                CapabilityId("navigate_disk_usage".to_string()),
+                CapabilityId::NavigateDiskUsage,
                 "repeated GET /disk/usage with a subdirectory path drills into the tree",
             ),
             Rationaled::new(
-                CapabilityId("delete_disk_paths".to_string()),
+                CapabilityId::DeleteDiskPaths,
                 "DELETE /disk/paths/{target_path} removes selected files or folders recursively",
             ),
             Rationaled::new(
-                CapabilityId("run_disk_speed_test".to_string()),
+                CapabilityId::RunDiskSpeedTest,
                 "GET /disk/speed runs one disktest write-and-verify pass at the requested size",
             ),
             Rationaled::new(
-                CapabilityId("run_multi_size_disk_speed_test".to_string()),
+                CapabilityId::RunMultiSizeDiskSpeedTest,
                 "GET /disk/speed/stream yields NDJSON benchmark points for each test size",
             ),
         ]),

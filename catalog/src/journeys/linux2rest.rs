@@ -20,15 +20,14 @@ pub fn journeys() -> Vec<UserJourney> {
 
 fn view_system_information() -> UserJourney {
     UserJourney {
-        id: JourneyId("view_system_information".into()),
+        id: JourneyId::ViewSystemInformation,
         summary: Grounded::known(
             "View live hardware and system status (CPU, memory, disk, network, processes)".into(),
             Provenance::doc(OVERVIEW, 124),
         ),
         visibility: Grounded::known(Visibility::Default, Provenance::source(SYSTEM_INFO_MENUS, 110)),
         services: linux2rest_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            "view_system_information",
+        capability_refs: GroundedSet::known(vec![cap(CapabilityId::ViewSystemInformation,
             "System Information page and System Monitor tab show live CPU, memory, disk, and temperature backed by linux2rest",
         )]),
         preconditions: GroundedSet::known(vec![]),
@@ -78,8 +77,8 @@ fn view_system_information() -> UserJourney {
     }
 }
 
-fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
-    GroundedItem::new(CapabilityId(id.into()), Provenance::asserted(rationale))
+fn cap(id: CapabilityId, rationale: &str) -> GroundedItem<CapabilityId> {
+    GroundedItem::new(id, Provenance::asserted(rationale))
 }
 
 fn linux2rest_services() -> GroundedSet<ServiceId> {

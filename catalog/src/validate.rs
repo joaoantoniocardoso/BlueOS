@@ -203,7 +203,7 @@ fn check_service_journey_refs(catalog: &Catalog) -> Vec<ValidationError> {
                 if !known_journey_ids.contains(journey_ref) {
                     errors.push(ValidationError::UnknownServiceJourneyRef {
                         service: service.id.to_string(),
-                        journey: journey_ref.0.clone(),
+                        journey: journey_ref.to_string(),
                     });
                 }
             }
@@ -220,14 +220,14 @@ fn check_journey_references(catalog: &Catalog) -> Vec<ValidationError> {
     let mut errors = Vec::new();
 
     for journey in catalog.journeys() {
-        let journey_id = journey.id.0.clone();
+        let journey_id = journey.id.to_string();
         let participating = participating_service_ids(journey);
 
         if let Some(chains_from) = &journey.chains_from {
             if !known_journey_ids.contains(chains_from) {
                 errors.push(ValidationError::UnknownJourneyChain {
                     journey: journey_id.clone(),
-                    chains_from: chains_from.0.clone(),
+                    chains_from: chains_from.to_string(),
                 });
             }
         }
@@ -252,7 +252,7 @@ fn check_journey_references(catalog: &Catalog) -> Vec<ValidationError> {
                 ) {
                     errors.push(ValidationError::UnknownJourneyCapability {
                         journey: journey_id.clone(),
-                        capability: item.value.0.clone(),
+                        capability: item.value.to_string(),
                     });
                 }
             }
@@ -412,7 +412,7 @@ fn check_page_references(catalog: &Catalog) -> Vec<ValidationError> {
     let mut errors = Vec::new();
 
     for page in catalog.pages() {
-        let page_id = page.id.0.clone();
+        let page_id = page.id.to_string();
 
         if !seen_page_ids.insert(&page.id) {
             errors.push(ValidationError::DuplicatePageId {
@@ -435,7 +435,7 @@ fn check_page_references(catalog: &Catalog) -> Vec<ValidationError> {
 
         if let AssertedSet::Established { items } = &page.frontend_features {
             for item in items {
-                if item.value.0.is_empty() {
+                if item.value.as_str().is_empty() {
                     errors.push(ValidationError::EmptyPageFrontendFeature {
                         page: page_id.clone(),
                     });
@@ -681,10 +681,8 @@ mod tests {
 
     fn valid_journey_service(id: ServiceId) -> ServiceDefinition {
         let mut service = empty_service(id);
-        service.capabilities = AssertedSet::established(vec![Rationaled::new(
-            CapabilityId("deploy".to_string()),
-            "test",
-        )]);
+        service.capabilities =
+            AssertedSet::established(vec![Rationaled::new(CapabilityId::Deploy, "test")]);
         service.states = AssertedSet::established(vec![Rationaled::new(
             StateMachine {
                 name: "lifecycle".to_string(),
@@ -699,7 +697,7 @@ mod tests {
 
     fn valid_journey() -> UserJourney {
         UserJourney {
-            id: JourneyId("deploy".to_string()),
+            id: JourneyId::Deploy,
             summary: Grounded::known(
                 "deploy vehicle".to_string(),
                 Provenance::doc("docs/deploy.md", 1),
@@ -710,7 +708,7 @@ mod tests {
                 Provenance::doc("docs/deploy.md", 3),
             )]),
             capability_refs: GroundedSet::known(vec![GroundedItem::new(
-                CapabilityId("deploy".to_string()),
+                CapabilityId::Deploy,
                 Provenance::doc("docs/deploy.md", 4),
             )]),
             preconditions: GroundedSet::unknown("not grounded"),
@@ -810,7 +808,7 @@ mod tests {
         let service = valid_journey_service(ServiceId::Helper);
         let mut journey = valid_journey();
         journey.capability_refs = GroundedSet::known(vec![GroundedItem::new(
-            CapabilityId("missing".to_string()),
+            CapabilityId::FlashFirmware,
             Provenance::doc("docs/deploy.md", 1),
         )]);
         let catalog = Catalog::with_parts(
@@ -882,7 +880,7 @@ mod tests {
     fn unknown_journey_chain_fails() {
         let service = valid_journey_service(ServiceId::Helper);
         let mut journey = valid_journey();
-        journey.chains_from = Some(JourneyId("missing".to_string()));
+        journey.chains_from = Some(JourneyId::RebootOnboardComputer);
         let catalog = Catalog::with_parts(
             vec![service],
             vec![empty_observed(ServiceId::Helper)],
@@ -900,7 +898,7 @@ mod tests {
     fn unknown_service_journey_ref_fails() {
         let mut service = empty_service(ServiceId::Helper);
         service.journey_refs = AssertedSet::established(vec![Rationaled::new(
-            JourneyId("missing".to_string()),
+            JourneyId::RebootOnboardComputer,
             "test",
         )]);
         let catalog = Catalog::with_parts(
@@ -979,7 +977,7 @@ mod tests {
 
     fn sample_page(service: ConsumeTarget) -> Page {
         Page {
-            id: PageId("vehicle_setup".to_string()),
+            id: PageId::VehicleSetup,
             route: Observed::known("/vehicle/setup".to_string(), evidence()),
             name: Observed::known("Vehicle Setup".to_string(), evidence()),
             component: Observed::known(
@@ -998,7 +996,7 @@ mod tests {
                 evidence(),
             )]),
             frontend_features: AssertedSet::established(vec![Rationaled::new(
-                CapabilityId("calibrate_accelerometer".to_string()),
+                CapabilityId::CalibrateAccelerometer,
                 "client-side only",
             )]),
             client_state: AssertedSet::unknown("not established"),

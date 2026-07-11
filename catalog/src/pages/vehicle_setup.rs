@@ -4,7 +4,7 @@ use crate::provenance::{AssertedSet, Evidence, Evidenced, Observed, ObservedSet,
 
 pub fn page() -> Page {
     Page {
-        id: PageId("vehicle_setup".to_string()),
+        id: PageId::VehicleSetup,
         route: Observed::known(
             "/vehicle/setup/:tab?/:subtab?".to_string(),
             Evidence {
@@ -377,39 +377,39 @@ pub fn page() -> Page {
         ]),
         frontend_features: AssertedSet::established(vec![
             Rationaled::new(
-                CapabilityId("calibrate_gyroscope".to_string()),
+                CapabilityId::CalibrateGyroscope,
                 "GyroCalib.vue drives Calibrator.calibrate(PreflightCalibration.GYROSCOPE) and displays live gyro offsets",
             ),
             Rationaled::new(
-                CapabilityId("calibrate_accelerometer".to_string()),
+                CapabilityId::CalibrateAccelerometer,
                 "QuickAccelerometerCalibration.vue and FullAccelerometerCalibration.vue implement quick and position-wizard accel flows client-side",
             ),
             Rationaled::new(
-                CapabilityId("calibrate_compass".to_string()),
+                CapabilityId::CalibrateCompass,
                 "FullCompassCalibrator.vue and LargeVehicleCompassCalibrator.vue orchestrate mag-cal command sequences and progress UI",
             ),
             Rationaled::new(
-                CapabilityId("calibrate_barometer".to_string()),
+                CapabilityId::CalibrateBarometer,
                 "BaroCalib.vue drives Calibrator.calibrate(PreflightCalibration.PRESSURE) with per-sensor status table",
             ),
             Rationaled::new(
-                CapabilityId("level_horizon".to_string()),
+                CapabilityId::LevelHorizon,
                 "LevelHorizonCalibration.vue sends MAV_CMD_PREFLIGHT_CALIBRATION board-level and tracks local wizard state",
             ),
             Rationaled::new(
-                CapabilityId("detect_motor_directions".to_string()),
+                CapabilityId::DetectMotorDirections,
                 "MotorDetection.vue arms vehicle into MOTOR_DETECT mode and parses STATUSTEXT for completion",
             ),
             Rationaled::new(
-                CapabilityId("edit_autopilot_parameters".to_string()),
+                CapabilityId::EditAutopilotParameters,
                 "InlineParameterEditor, ParameterSwitch, and ServoFunctionEditorDialog write params via mavlink2rest.setParam across configure and PWM tabs",
             ),
             Rationaled::new(
-                CapabilityId("apply_parameter_set".to_string()),
+                CapabilityId::ApplyParameterSet,
                 "ParamSets.vue filters external curated sets by board/firmware and ParameterLoader.vue batches PARAM_SET writes",
             ),
             Rationaled::new(
-                CapabilityId("derive_sensor_calibration_status".to_string()),
+                CapabilityId::DeriveSensorCalibrationStatus,
                 "ardupilot_sensors store getters (accelerometers_calibrated, compasses_calibrated, etc.) derive health from cached parameters",
             ),
         ]),

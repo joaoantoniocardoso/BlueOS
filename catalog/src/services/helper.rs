@@ -483,19 +483,19 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         journey_refs: AssertedSet::established(vec![
             Rationaled::new(
-                JourneyId("monitor_internet_connectivity".into()),
+                JourneyId::MonitorInternetConnectivity,
                 "header indicator polls GET /check_internet_access every 20 seconds",
             ),
             Rationaled::new(
-                JourneyId("verify_internet_connectivity".into()),
+                JourneyId::VerifyInternetConnectivity,
                 "setup wizard RequireInternet confirms probe websites before continuing",
             ),
             Rationaled::new(
-                JourneyId("browse_available_web_services".into()),
+                JourneyId::BrowseAvailableWebServices,
                 "Available Services sidebar page lists GET /web_services scan results",
             ),
             Rationaled::new(
-                JourneyId("probe_interface_internet_connectivity".into()),
+                JourneyId::ProbeInterfaceInternetConnectivity,
                 "network priority menu calls GET /ping per interface while reordering",
             ),
         ]),
@@ -518,31 +518,31 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         capabilities: AssertedSet::established(vec![
             Rationaled::new(
-                CapabilityId("check_internet_connectivity".to_string()),
+                CapabilityId::CheckInternetConnectivity,
                 "GET /check_internet_access probes configured external websites concurrently",
             ),
             Rationaled::new(
-                CapabilityId("discover_web_services".to_string()),
+                CapabilityId::DiscoverWebServices,
                 "GET /web_services scans listening TCP ports and fetches /register_service metadata",
             ),
             Rationaled::new(
-                CapabilityId("probe_interface_connectivity".to_string()),
+                CapabilityId::ProbeInterfaceConnectivity,
                 "GET /ping runs ping -I {interface} against a host to test per-interface reachability",
             ),
             Rationaled::new(
-                CapabilityId("report_hardware_id".to_string()),
+                CapabilityId::ReportHardwareId,
                 "GET /hardware_id returns the motherboard-derived UUID from /etc/blueos/hardware-uuid",
             ),
             Rationaled::new(
-                CapabilityId("report_software_id".to_string()),
+                CapabilityId::ReportSoftwareId,
                 "GET /software_id returns the install UUID from /etc/blueos/uuid",
             ),
             Rationaled::new(
-                CapabilityId("register_web_service".to_string()),
+                CapabilityId::RegisterWebService,
                 "scan_ports setup_nginx_route writes /extensionv2/{name}/ proxy snippets for services with metadata",
             ),
             Rationaled::new(
-                CapabilityId("reload_nginx".to_string()),
+                CapabilityId::ReloadNginx,
                 "reload_nginx sends kill -HUP to the nginx master pid after extension route changes",
             ),
         ]),

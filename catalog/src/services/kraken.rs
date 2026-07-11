@@ -454,31 +454,31 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         journey_refs: AssertedSet::established(vec![
             Rationaled::new(
-                JourneyId("add_custom_manifest".into()),
+                JourneyId::AddCustomManifest,
                 "POST /manifest/ registers external extension collection sources",
             ),
             Rationaled::new(
-                JourneyId("browse_extension_store".into()),
+                JourneyId::BrowseExtensionStore,
                 "Store tab lists extensions from consolidated manifests",
             ),
             Rationaled::new(
-                JourneyId("configure_installed_extension".into()),
+                JourneyId::ConfigureInstalledExtension,
                 "Installed tab permissions, logs, restart, and disable routes",
             ),
             Rationaled::new(
-                JourneyId("edit_extension_dev_version".into()),
+                JourneyId::EditExtensionDevVersion,
                 "PUT /extension/{identifier}/{tag} switches docker tag for dev versions",
             ),
             Rationaled::new(
-                JourneyId("install_custom_extension".into()),
+                JourneyId::InstallCustomExtension,
                 "POST /extension/ registers a custom Docker image via the blue plus flow",
             ),
             Rationaled::new(
-                JourneyId("install_extension".into()),
+                JourneyId::InstallExtension,
                 "POST /extension/{identifier}/{tag}/install pulls and enables store extensions",
             ),
             Rationaled::new(
-                JourneyId("uninstall_extension".into()),
+                JourneyId::UninstallExtension,
                 "DELETE /extension/{identifier}/{tag} removes an installed extension version",
             ),
         ]),
@@ -514,27 +514,27 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         capabilities: AssertedSet::established(vec![
             Rationaled::new(
-                CapabilityId("browse_extension_store".to_string()),
+                CapabilityId::BrowseExtensionStore,
                 "GET /manifest/consolidated and manifest-backed store listing",
             ),
             Rationaled::new(
-                CapabilityId("configure_extension".to_string()),
+                CapabilityId::ConfigureExtension,
                 "PUT /extension/{identifier} edits permissions and user_permissions settings",
             ),
             Rationaled::new(
-                CapabilityId("install_extension".to_string()),
+                CapabilityId::InstallExtension,
                 "POST /extension/ and POST /extension/{identifier}/{tag}/install pull and register images",
             ),
             Rationaled::new(
-                CapabilityId("manage_extension_lifecycle".to_string()),
+                CapabilityId::ManageExtensionLifecycle,
                 "restart/disable routes, starter task, and ContainerManager orchestration",
             ),
             Rationaled::new(
-                CapabilityId("manage_manifests".to_string()),
+                CapabilityId::ManageManifests,
                 "ManifestManager CRUD and POST /manifest/ for external collection sources",
             ),
             Rationaled::new(
-                CapabilityId("uninstall_extension".to_string()),
+                CapabilityId::UninstallExtension,
                 "DELETE /extension/{identifier}/{tag} and Extension.uninstall container/image removal",
             ),
         ]),

@@ -29,7 +29,7 @@ pub fn journeys() -> Vec<UserJourney> {
 
 fn view_camera_streams() -> UserJourney {
     UserJourney {
-        id: JourneyId("view_camera_streams".into()),
+        id: JourneyId::ViewCameraStreams,
         summary: Grounded::known(
             "Manage video devices and view configured camera streams".into(),
             Provenance::source(VIDEO_MENUS, 132),
@@ -37,7 +37,7 @@ fn view_camera_streams() -> UserJourney {
         visibility: Grounded::known(Visibility::Default, Provenance::source(VIDEO_MENUS, 131)),
         services: mcm_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "view_camera_streams",
+            CapabilityId::ViewCameraStreams,
             "Video Streams page lists detected cameras and their configured streams",
         )]),
         preconditions: GroundedSet::known(vec![]),
@@ -95,15 +95,14 @@ fn view_camera_streams() -> UserJourney {
 
 fn configure_camera_stream() -> UserJourney {
     UserJourney {
-        id: JourneyId("configure_camera_stream".into()),
+        id: JourneyId::ConfigureCameraStream,
         summary: Grounded::known(
             "Manually add and configure a new video stream (encoding, resolution, endpoint type)".into(),
             Provenance::doc(ADV, 780),
         ),
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 780)),
         services: mcm_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            "configure_camera_stream",
+        capability_refs: GroundedSet::known(vec![cap(CapabilityId::ConfigureCameraStream,
             "stream creation dialog submits encoding, resolution, framerate, and endpoints via POST /streams",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -168,21 +167,20 @@ fn configure_camera_stream() -> UserJourney {
                 )),
             ),
         ]),
-        chains_from: Some(JourneyId("view_camera_streams".into())),
+        chains_from: Some(JourneyId::ViewCameraStreams),
     }
 }
 
 fn remove_camera_stream() -> UserJourney {
     UserJourney {
-        id: JourneyId("remove_camera_stream".into()),
+        id: JourneyId::RemoveCameraStream,
         summary: Grounded::known(
             "Remove a configured video stream from a camera device".into(),
             Provenance::source(VIDEO_STREAM, 120),
         ),
         visibility: Grounded::known(Visibility::Default, Provenance::source(VIDEO_MENUS, 131)),
         services: mcm_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            "remove_camera_stream",
+        capability_refs: GroundedSet::known(vec![cap(CapabilityId::RemoveCameraStream,
             "stream card remove button deletes the stream via DELETE /delete_stream",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -217,21 +215,20 @@ fn remove_camera_stream() -> UserJourney {
                 )),
             ),
         ]),
-        chains_from: Some(JourneyId("view_camera_streams".into())),
+        chains_from: Some(JourneyId::ViewCameraStreams),
     }
 }
 
 fn configure_uvc_device_controls() -> UserJourney {
     UserJourney {
-        id: JourneyId("configure_uvc_device_controls".into()),
+        id: JourneyId::ConfigureUvcDeviceControls,
         summary: Grounded::known(
             "Configure UVC camera settings such as brightness and exposure via Device Controls".into(),
             Provenance::doc(ADV, 803),
         ),
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 803)),
         services: mcm_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            "configure_uvc_device_controls",
+        capability_refs: GroundedSet::known(vec![cap(CapabilityId::ConfigureUvcDeviceControls,
             "Device Controls dialog adjusts UVC sliders, menus, and booleans via POST /v4l",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -274,12 +271,12 @@ fn configure_uvc_device_controls() -> UserJourney {
                 )),
             ),
         ]),
-        chains_from: Some(JourneyId("view_camera_streams".into())),
+        chains_from: Some(JourneyId::ViewCameraStreams),
     }
 }
 
-fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
-    GroundedItem::new(CapabilityId(id.into()), Provenance::asserted(rationale))
+fn cap(id: CapabilityId, rationale: &str) -> GroundedItem<CapabilityId> {
+    GroundedItem::new(id, Provenance::asserted(rationale))
 }
 
 fn mcm_services() -> GroundedSet<ServiceId> {

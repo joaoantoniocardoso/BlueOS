@@ -14,7 +14,7 @@ pub fn journeys() -> Vec<UserJourney> {
 
 fn access_web_terminal() -> UserJourney {
     UserJourney {
-        id: JourneyId("access_web_terminal".into()),
+        id: JourneyId::AccessWebTerminal,
         summary: Grounded::known(
             "Access a web-based terminal with tmux session and direct access into the core BlueOS docker container"
                 .into(),
@@ -22,8 +22,7 @@ fn access_web_terminal() -> UserJourney {
         ),
         visibility: Grounded::known(Visibility::Advanced, Provenance::source(TERMINAL_MENUS, 117)),
         services: ttyd_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            "access_web_terminal",
+        capability_refs: GroundedSet::known(vec![cap(CapabilityId::AccessWebTerminal,
             "Terminal page embeds ttyd web terminal over WebSocket at /terminal/ attached to user_terminal tmux",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -62,8 +61,8 @@ fn access_web_terminal() -> UserJourney {
     }
 }
 
-fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
-    GroundedItem::new(CapabilityId(id.into()), Provenance::asserted(rationale))
+fn cap(id: CapabilityId, rationale: &str) -> GroundedItem<CapabilityId> {
+    GroundedItem::new(id, Provenance::asserted(rationale))
 }
 
 fn ttyd_services() -> GroundedSet<ServiceId> {

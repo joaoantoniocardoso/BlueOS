@@ -18,7 +18,7 @@ pub fn journeys() -> Vec<UserJourney> {
 
 fn modify_bag_database() -> UserJourney {
     UserJourney {
-        id: JourneyId("modify_bag_database".into()),
+        id: JourneyId::ModifyBagDatabase,
         summary: Grounded::known(
             "Modify the JSON database used to persist frontend interface state".into(),
             Provenance::doc(ADV, 382),
@@ -26,7 +26,7 @@ fn modify_bag_database() -> UserJourney {
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 376)),
         services: bag_of_holding_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "edit_bag_json_store",
+            CapabilityId::EditBagJsonStore,
             "Bag Editor loads the full document tree and overwrites it on save",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -57,8 +57,8 @@ fn modify_bag_database() -> UserJourney {
     }
 }
 
-fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
-    GroundedItem::new(CapabilityId(id.into()), Provenance::asserted(rationale))
+fn cap(id: CapabilityId, rationale: &str) -> GroundedItem<CapabilityId> {
+    GroundedItem::new(id, Provenance::asserted(rationale))
 }
 
 fn bag_of_holding_services() -> GroundedSet<ServiceId> {

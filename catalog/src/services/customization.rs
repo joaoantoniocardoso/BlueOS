@@ -368,35 +368,35 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         journey_refs: AssertedSet::established(vec![
             Rationaled::new(
-                JourneyId("change_ui_theme_color".into()),
+                JourneyId::ChangeUiThemeColor,
                 "Settings Appearance panel saves a primary color and regenerates theme CSS",
             ),
             Rationaled::new(
-                JourneyId("reset_ui_theme_color".into()),
+                JourneyId::ResetUiThemeColor,
                 "Settings Appearance panel resets theme config and restores default BlueOS colors",
             ),
             Rationaled::new(
-                JourneyId("upload_custom_logo".into()),
+                JourneyId::UploadCustomLogo,
                 "Settings Customization panel uploads a square company logo image",
             ),
             Rationaled::new(
-                JourneyId("remove_custom_logo".into()),
+                JourneyId::RemoveCustomLogo,
                 "Settings Customization panel removes the uploaded logo and reverts to default branding",
             ),
             Rationaled::new(
-                JourneyId("upload_custom_vehicle_image".into()),
+                JourneyId::UploadCustomVehicleImage,
                 "Settings Customization panel uploads a square vehicle image for the interface",
             ),
             Rationaled::new(
-                JourneyId("remove_custom_vehicle_image".into()),
+                JourneyId::RemoveCustomVehicleImage,
                 "Settings Customization panel removes the uploaded vehicle image asset",
             ),
             Rationaled::new(
-                JourneyId("upload_3d_model_override".into()),
+                JourneyId::Upload3dModelOverride,
                 "Settings Customization panel uploads a .glb model served under userdata/modeloverrides/",
             ),
             Rationaled::new(
-                JourneyId("delete_3d_model_override".into()),
+                JourneyId::Delete3dModelOverride,
                 "Settings Customization panel deletes a model from the override list",
             ),
         ]),
@@ -419,51 +419,51 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         capabilities: AssertedSet::established(vec![
             Rationaled::new(
-                CapabilityId("set_theme_color".to_string()),
+                CapabilityId::SetThemeColor,
                 "PUT /theme saves primary color to theme_config.json and regenerates theme_style.css",
             ),
             Rationaled::new(
-                CapabilityId("reset_theme_color".to_string()),
+                CapabilityId::ResetThemeColor,
                 "DELETE /theme removes theme config and restores default primary color CSS",
             ),
             Rationaled::new(
-                CapabilityId("get_theme_configuration".to_string()),
+                CapabilityId::GetThemeConfiguration,
                 "GET /theme returns current primary color, palette, and css_url for the web UI",
             ),
             Rationaled::new(
-                CapabilityId("upload_branding_logo".to_string()),
+                CapabilityId::UploadBrandingLogo,
                 "POST /branding/logo stores a custom company logo image under userdata/branding/",
             ),
             Rationaled::new(
-                CapabilityId("remove_branding_logo".to_string()),
+                CapabilityId::RemoveBrandingLogo,
                 "DELETE /branding/logo removes the custom logo file and reverts to default branding",
             ),
             Rationaled::new(
-                CapabilityId("get_branding_logo".to_string()),
+                CapabilityId::GetBrandingLogo,
                 "GET /branding/logo returns the current custom logo URL and size, if any",
             ),
             Rationaled::new(
-                CapabilityId("upload_branding_vehicle_image".to_string()),
+                CapabilityId::UploadBrandingVehicleImage,
                 "POST /branding/vehicle-image stores a custom vehicle image under userdata/branding/",
             ),
             Rationaled::new(
-                CapabilityId("remove_branding_vehicle_image".to_string()),
+                CapabilityId::RemoveBrandingVehicleImage,
                 "DELETE /branding/vehicle-image removes the custom vehicle image asset",
             ),
             Rationaled::new(
-                CapabilityId("get_branding_vehicle_image".to_string()),
+                CapabilityId::GetBrandingVehicleImage,
                 "GET /branding/vehicle-image returns the current custom vehicle image URL and size, if any",
             ),
             Rationaled::new(
-                CapabilityId("upload_model_override".to_string()),
+                CapabilityId::UploadModelOverride,
                 "POST /models uploads a .glb file into userdata/modeloverrides/",
             ),
             Rationaled::new(
-                CapabilityId("delete_model_override".to_string()),
+                CapabilityId::DeleteModelOverride,
                 "DELETE /models/{name} removes an uploaded model override file",
             ),
             Rationaled::new(
-                CapabilityId("list_model_overrides".to_string()),
+                CapabilityId::ListModelOverrides,
                 "GET /models lists uploaded model override entries with URLs and sizes",
             ),
         ]),

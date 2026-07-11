@@ -59,7 +59,7 @@ impl FeatureCatalog {
         for service in catalog.services() {
             if let AssertedSet::Established { items } = &service.capabilities {
                 for cap in items {
-                    let id = FeatureId(cap.value.0.clone());
+                    let id = FeatureId(cap.value.to_string());
                     let aggregate = aggregate_of(&id)
                         .unwrap_or_else(|| panic!("unmapped capability: {}", id.0))
                         .to_string();
@@ -324,7 +324,7 @@ fn journey_feature_indices(
     let mut features = Vec::new();
     if let GroundedSet::Known { items } = &journey.capability_refs {
         for item in items {
-            let id = FeatureId(item.value.0.clone());
+            let id = FeatureId(item.value.to_string());
             if let Some(&idx) = index.get(&id) {
                 features.push(idx);
             }
@@ -373,13 +373,13 @@ fn journey_cooccurrence_pairs(
                 pairs
                     .entry((pair_left, pair_right))
                     .or_default()
-                    .push(journey.id.clone());
+                    .push(journey.id);
             }
         }
     }
 
     for journeys in pairs.values_mut() {
-        journeys.sort_by(|left, right| left.0.cmp(&right.0));
+        journeys.sort_by(|left, right| left.as_str().cmp(right.as_str()));
         journeys.dedup();
     }
     pairs
@@ -580,7 +580,7 @@ mod tests {
         for service in catalog.services() {
             if let AssertedSet::Established { items } = &service.capabilities {
                 for item in items {
-                    distinct.insert(item.value.0.clone());
+                    distinct.insert(item.value.to_string());
                 }
             }
         }
@@ -626,7 +626,7 @@ mod tests {
                 continue;
             };
             for item in items {
-                referenced.insert(item.value.0.as_str());
+                referenced.insert(item.value.as_str());
             }
         }
         for id in &view.unreferenced_features {

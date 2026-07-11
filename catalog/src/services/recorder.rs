@@ -233,7 +233,7 @@ pub fn service_definition() -> ServiceDefinition {
             "no irreversible, untrusted-code, or vehicle-arm operations; continuous MCAP writes are additive session data, not destructive mutations of existing user files",
         ),
         capabilities: AssertedSet::established(vec![Rationaled::new(
-            CapabilityId("record_vehicle_data_stream".to_string()),
+            CapabilityId::RecordVehicleDataStream,
             "observed entrypoint blueos-recorder --recorder-path /usr/blueos/userdata/recorder; background daemon captures the vehicle data stream into MCAP session files",
         )]),
         authorities: AssertedSet::established(vec![Rationaled::new(

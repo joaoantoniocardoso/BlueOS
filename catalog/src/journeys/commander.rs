@@ -33,7 +33,7 @@ pub fn journeys() -> Vec<UserJourney> {
 
 fn reboot_onboard_computer() -> UserJourney {
     UserJourney {
-        id: JourneyId("reboot_onboard_computer".into()),
+        id: JourneyId::RebootOnboardComputer,
         summary: Grounded::known(
             "Reboot the onboard computer from the power menu".into(),
             Provenance::doc(ADV, 219),
@@ -41,7 +41,7 @@ fn reboot_onboard_computer() -> UserJourney {
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 211)),
         services: commander_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "reboot_onboard_computer",
+            CapabilityId::RebootOnboardComputer,
             "power menu triggers commander shutdown with reboot type",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -73,7 +73,7 @@ fn reboot_onboard_computer() -> UserJourney {
 
 fn shutdown_onboard_computer() -> UserJourney {
     UserJourney {
-        id: JourneyId("shutdown_onboard_computer".into()),
+        id: JourneyId::ShutdownOnboardComputer,
         summary: Grounded::known(
             "Shut down the onboard computer from the power menu before removing vehicle power"
                 .into(),
@@ -82,7 +82,7 @@ fn shutdown_onboard_computer() -> UserJourney {
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 211)),
         services: commander_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "shutdown_onboard_computer",
+            CapabilityId::ShutdownOnboardComputer,
             "power menu triggers commander shutdown with poweroff type",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -114,7 +114,7 @@ fn shutdown_onboard_computer() -> UserJourney {
 
 fn sync_system_time() -> UserJourney {
     UserJourney {
-        id: JourneyId("sync_system_time".into()),
+        id: JourneyId::SyncSystemTime,
         summary: Grounded::known(
             "Sync the onboard computer clock with the browser when drift exceeds five minutes"
                 .into(),
@@ -123,7 +123,7 @@ fn sync_system_time() -> UserJourney {
         visibility: Grounded::known(Visibility::Default, Provenance::source(APP_VUE, 798)),
         services: commander_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "sync_system_time",
+            CapabilityId::SyncSystemTime,
             "frontend posts browser unix time to commander set_time on load",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -147,7 +147,7 @@ fn sync_system_time() -> UserJourney {
 
 fn enable_legacy_camera_support() -> UserJourney {
     UserJourney {
-        id: JourneyId("enable_legacy_camera_support".into()),
+        id: JourneyId::EnableLegacyCameraSupport,
         summary: Grounded::known(
             "Enable Raspberry Pi legacy camera support for Pi camera detection".into(),
             Provenance::doc(ADV, 823),
@@ -155,7 +155,7 @@ fn enable_legacy_camera_support() -> UserJourney {
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 822)),
         services: commander_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "configure_legacy_camera",
+            CapabilityId::ConfigureLegacyCamera,
             "video manager toggles raspi-config legacy camera via commander",
         )]),
         preconditions: GroundedSet::known(vec![]),
@@ -184,13 +184,13 @@ fn enable_legacy_camera_support() -> UserJourney {
                 None,
             ),
         ]),
-        chains_from: Some(JourneyId("reboot_onboard_computer".into())),
+        chains_from: Some(JourneyId::RebootOnboardComputer),
     }
 }
 
 fn inspect_raspberry_eeprom_bootloader() -> UserJourney {
     UserJourney {
-        id: JourneyId("inspect_raspberry_eeprom_bootloader".into()),
+        id: JourneyId::InspectRaspberryEepromBootloader,
         summary: Grounded::known(
             "View Raspberry Pi firmware, bootloader, and EEPROM update availability".into(),
             Provenance::doc(ADV, 610),
@@ -198,7 +198,7 @@ fn inspect_raspberry_eeprom_bootloader() -> UserJourney {
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 611)),
         services: commander_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "inspect_raspberry_eeprom",
+            CapabilityId::InspectRaspberryEeprom,
             "system information firmware tab reads vcgencmd and rpi-eeprom-update output",
         )]),
         preconditions: GroundedSet::known(vec![
@@ -255,7 +255,7 @@ fn inspect_raspberry_eeprom_bootloader() -> UserJourney {
 
 fn update_raspberry_eeprom_bootloader() -> UserJourney {
     UserJourney {
-        id: JourneyId("update_raspberry_eeprom_bootloader".into()),
+        id: JourneyId::UpdateRaspberryEepromBootloader,
         summary: Grounded::known(
             "Update Raspberry Pi firmware and USB controller EEPROM to the latest stable versions"
                 .into(),
@@ -264,7 +264,7 @@ fn update_raspberry_eeprom_bootloader() -> UserJourney {
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 611)),
         services: commander_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "update_raspberry_eeprom",
+            CapabilityId::UpdateRaspberryEeprom,
             "firmware tab applies rpi-eeprom-update when updates are available",
         )]),
         preconditions: GroundedSet::known(vec![
@@ -296,13 +296,13 @@ fn update_raspberry_eeprom_bootloader() -> UserJourney {
                 Some(Grounded::unknown("destructive; not exercised in capture")),
             ),
         ]),
-        chains_from: Some(JourneyId("inspect_raspberry_eeprom_bootloader".into())),
+        chains_from: Some(JourneyId::InspectRaspberryEepromBootloader),
     }
 }
 
 fn reset_blueos_settings() -> UserJourney {
     UserJourney {
-        id: JourneyId("reset_blueos_settings".into()),
+        id: JourneyId::ResetBlueosSettings,
         summary: Grounded::known(
             "Reset BlueOS settings to remove camera, endpoint, and bridge configuration".into(),
             Provenance::doc(ADV, 204),
@@ -310,7 +310,7 @@ fn reset_blueos_settings() -> UserJourney {
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 200)),
         services: commander_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "reset_blueos_settings",
+            CapabilityId::ResetBlueosSettings,
             "settings page deletes service config while preserving bootstrap state",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -342,7 +342,7 @@ fn reset_blueos_settings() -> UserJourney {
 
 fn run_host_command() -> UserJourney {
     UserJourney {
-        id: JourneyId("run_host_command".into()),
+        id: JourneyId::RunHostCommand,
         summary: Grounded::known(
             "Run an arbitrary bash command on the host through commander".into(),
             Provenance::source(DEV_CORE, 74),
@@ -350,7 +350,7 @@ fn run_host_command() -> UserJourney {
         visibility: Grounded::known(Visibility::Advanced, Provenance::source(DEV_CORE, 74)),
         services: commander_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "run_host_command",
+            CapabilityId::RunHostCommand,
             "commander executes privileged shell commands when explicitly acknowledged",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -372,8 +372,8 @@ fn run_host_command() -> UserJourney {
     }
 }
 
-fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
-    GroundedItem::new(CapabilityId(id.into()), Provenance::asserted(rationale))
+fn cap(id: CapabilityId, rationale: &str) -> GroundedItem<CapabilityId> {
+    GroundedItem::new(id, Provenance::asserted(rationale))
 }
 
 fn commander_services() -> GroundedSet<ServiceId> {

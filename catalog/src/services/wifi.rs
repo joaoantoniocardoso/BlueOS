@@ -606,27 +606,27 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         journey_refs: AssertedSet::established(vec![
             Rationaled::new(
-                JourneyId("connect_to_wifi_network".into()),
+                JourneyId::ConnectToWifiNetwork,
                 "wifi tray scans networks and POST /connect joins the selected SSID",
             ),
             Rationaled::new(
-                JourneyId("disconnect_from_wifi_network".into()),
+                JourneyId::DisconnectFromWifiNetwork,
                 "wifi tray disconnects the active wlan association via GET /disconnect",
             ),
             Rationaled::new(
-                JourneyId("forget_saved_wifi_network".into()),
+                JourneyId::ForgetSavedWifiNetwork,
                 "connection dialog removes a stored SSID via POST /remove",
             ),
             Rationaled::new(
-                JourneyId("toggle_hotspot".into()),
+                JourneyId::ToggleHotspot,
                 "wifi tray hotspot button enables or disables the onboard access point via POST /hotspot",
             ),
             Rationaled::new(
-                JourneyId("configure_hotspot_credentials".into()),
+                JourneyId::ConfigureHotspotCredentials,
                 "wifi settings dialog persists hotspot SSID and password via POST /hotspot_credentials",
             ),
             Rationaled::new(
-                JourneyId("toggle_smart_hotspot".into()),
+                JourneyId::ToggleSmartHotspot,
                 "wifi settings dialog enables auto-hotspot when no known network is connected via POST /smart_hotspot",
             ),
         ]),
@@ -649,43 +649,43 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         capabilities: AssertedSet::established(vec![
             Rationaled::new(
-                CapabilityId("connect_wifi_network".to_string()),
+                CapabilityId::ConnectWifiNetwork,
                 "POST /connect joins the named SSID with supplied credentials",
             ),
             Rationaled::new(
-                CapabilityId("disconnect_wifi_network".to_string()),
+                CapabilityId::DisconnectWifiNetwork,
                 "GET /disconnect drops the active wlan association",
             ),
             Rationaled::new(
-                CapabilityId("remove_saved_wifi_network".to_string()),
+                CapabilityId::RemoveSavedWifiNetwork,
                 "POST /remove deletes a stored SSID from saved networks",
             ),
             Rationaled::new(
-                CapabilityId("toggle_hotspot".to_string()),
+                CapabilityId::ToggleHotspot,
                 "POST /hotspot enables or disables the onboard wireless access point",
             ),
             Rationaled::new(
-                CapabilityId("set_hotspot_credentials".to_string()),
+                CapabilityId::SetHotspotCredentials,
                 "POST /hotspot_credentials persists hotspot SSID and password in SettingsV1",
             ),
             Rationaled::new(
-                CapabilityId("toggle_smart_hotspot".to_string()),
+                CapabilityId::ToggleSmartHotspot,
                 "POST /smart_hotspot enables or disables auto-hotspot when no known network is connected",
             ),
             Rationaled::new(
-                CapabilityId("scan_wifi_networks".to_string()),
+                CapabilityId::ScanWifiNetworks,
                 "GET /scan returns available BSS scan results from wpa_supplicant",
             ),
             Rationaled::new(
-                CapabilityId("get_wifi_status".to_string()),
+                CapabilityId::GetWifiStatus,
                 "GET /status returns current wlan association state and interface details",
             ),
             Rationaled::new(
-                CapabilityId("list_saved_wifi_networks".to_string()),
+                CapabilityId::ListSavedWifiNetworks,
                 "GET /saved returns stored SSIDs and connection metadata",
             ),
             Rationaled::new(
-                CapabilityId("get_hotspot_status".to_string()),
+                CapabilityId::GetHotspotStatus,
                 "GET /hotspot, /hotspot_extended_status, /smart_hotspot, and /hotspot_credentials report hotspot and smart-hotspot state",
             ),
         ]),

@@ -26,7 +26,7 @@ pub fn journeys() -> Vec<UserJourney> {
 
 fn connect_to_wifi_network() -> UserJourney {
     UserJourney {
-        id: JourneyId("connect_to_wifi_network".into()),
+        id: JourneyId::ConnectToWifiNetwork,
         summary: Grounded::known(
             "Connect BlueOS to a wifi network so the web interface is reachable on the LAN".into(),
             Provenance::doc(ADV, 116),
@@ -34,7 +34,7 @@ fn connect_to_wifi_network() -> UserJourney {
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 113)),
         services: wifi_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "connect_wifi_network",
+            CapabilityId::ConnectWifiNetwork,
             "wifi tray scans networks and submits credentials to join the selected SSID",
         )]),
         preconditions: GroundedSet::known(vec![]),
@@ -75,7 +75,7 @@ fn connect_to_wifi_network() -> UserJourney {
 
 fn disconnect_from_wifi_network() -> UserJourney {
     UserJourney {
-        id: JourneyId("disconnect_from_wifi_network".into()),
+        id: JourneyId::DisconnectFromWifiNetwork,
         summary: Grounded::known(
             "Disconnect BlueOS from the currently connected wifi network".into(),
             Provenance::source(DISCONNECTION_DIALOG, 68),
@@ -83,7 +83,7 @@ fn disconnect_from_wifi_network() -> UserJourney {
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 113)),
         services: wifi_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "disconnect_wifi_network",
+            CapabilityId::DisconnectWifiNetwork,
             "wifi tray disconnects the active wlan association from the current-network card",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -121,7 +121,7 @@ fn disconnect_from_wifi_network() -> UserJourney {
 
 fn forget_saved_wifi_network() -> UserJourney {
     UserJourney {
-        id: JourneyId("forget_saved_wifi_network".into()),
+        id: JourneyId::ForgetSavedWifiNetwork,
         summary: Grounded::known(
             "Forget a saved wifi network so BlueOS no longer auto-connects to it".into(),
             Provenance::doc(ADV, 123),
@@ -129,7 +129,7 @@ fn forget_saved_wifi_network() -> UserJourney {
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 113)),
         services: wifi_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "remove_saved_wifi_network",
+            CapabilityId::RemoveSavedWifiNetwork,
             "connection dialog removes a stored SSID from saved networks",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -162,7 +162,7 @@ fn forget_saved_wifi_network() -> UserJourney {
 
 fn toggle_hotspot() -> UserJourney {
     UserJourney {
-        id: JourneyId("toggle_hotspot".into()),
+        id: JourneyId::ToggleHotspot,
         summary: Grounded::known(
             "Turn the BlueOS wireless hotspot on or off from the wifi tray".into(),
             Provenance::doc(ADV, 127),
@@ -170,7 +170,7 @@ fn toggle_hotspot() -> UserJourney {
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 113)),
         services: wifi_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "toggle_hotspot",
+            CapabilityId::ToggleHotspot,
             "wifi tray hotspot button enables or disables the onboard access point",
         )]),
         preconditions: GroundedSet::known(vec![]),
@@ -199,7 +199,7 @@ fn toggle_hotspot() -> UserJourney {
 
 fn configure_hotspot_credentials() -> UserJourney {
     UserJourney {
-        id: JourneyId("configure_hotspot_credentials".into()),
+        id: JourneyId::ConfigureHotspotCredentials,
         summary: Grounded::known(
             "Set the BlueOS hotspot SSID and password shown to connecting devices".into(),
             Provenance::doc(ADV, 127),
@@ -207,7 +207,7 @@ fn configure_hotspot_credentials() -> UserJourney {
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 113)),
         services: wifi_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "set_hotspot_credentials",
+            CapabilityId::SetHotspotCredentials,
             "wifi settings dialog persists hotspot SSID and password",
         )]),
         preconditions: GroundedSet::known(vec![]),
@@ -242,7 +242,7 @@ fn configure_hotspot_credentials() -> UserJourney {
 
 fn toggle_smart_hotspot() -> UserJourney {
     UserJourney {
-        id: JourneyId("toggle_smart_hotspot".into()),
+        id: JourneyId::ToggleSmartHotspot,
         summary: Grounded::known(
             "Enable or disable smart-hotspot so BlueOS auto-starts its hotspot when not on wifi"
                 .into(),
@@ -251,7 +251,7 @@ fn toggle_smart_hotspot() -> UserJourney {
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 113)),
         services: wifi_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "toggle_smart_hotspot",
+            CapabilityId::ToggleSmartHotspot,
             "wifi settings dialog enables auto-hotspot when no known network is connected",
         )]),
         preconditions: GroundedSet::known(vec![]),
@@ -284,8 +284,8 @@ fn toggle_smart_hotspot() -> UserJourney {
     }
 }
 
-fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
-    GroundedItem::new(CapabilityId(id.into()), Provenance::asserted(rationale))
+fn cap(id: CapabilityId, rationale: &str) -> GroundedItem<CapabilityId> {
+    GroundedItem::new(id, Provenance::asserted(rationale))
 }
 
 fn wifi_services() -> GroundedSet<ServiceId> {

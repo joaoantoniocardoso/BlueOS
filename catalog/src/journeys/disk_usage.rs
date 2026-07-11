@@ -22,7 +22,7 @@ pub fn journeys() -> Vec<UserJourney> {
 
 fn inspect_disk_usage() -> UserJourney {
     UserJourney {
-        id: JourneyId("inspect_disk_usage".into()),
+        id: JourneyId::InspectDiskUsage,
         summary: Grounded::known(
             "Get the disk usage tree for a given path".into(),
             Provenance::source(DISK_MAIN, 251),
@@ -31,11 +31,11 @@ fn inspect_disk_usage() -> UserJourney {
         services: disk_usage_services(),
         capability_refs: GroundedSet::known(vec![
             cap(
-                "inspect_disk_usage",
+                CapabilityId::InspectDiskUsage,
                 "Disk Usage tab loads a du-backed usage tree for the selected path",
             ),
             cap(
-                "navigate_disk_usage",
+                CapabilityId::NavigateDiskUsage,
                 "operator drills into subdirectories by re-fetching usage for a new path",
             ),
         ]),
@@ -84,7 +84,7 @@ fn inspect_disk_usage() -> UserJourney {
 
 fn free_disk_space() -> UserJourney {
     UserJourney {
-        id: JourneyId("free_disk_space".into()),
+        id: JourneyId::FreeDiskSpace,
         summary: Grounded::known(
             "Delete files/folders from the Disk tool".into(),
             Provenance::source(DISK_MENUS, 51),
@@ -93,11 +93,11 @@ fn free_disk_space() -> UserJourney {
         services: disk_usage_services(),
         capability_refs: GroundedSet::known(vec![
             cap(
-                "inspect_disk_usage",
+                CapabilityId::InspectDiskUsage,
                 "operator browses the usage tree to choose deletion targets",
             ),
             cap(
-                "delete_disk_paths",
+                CapabilityId::DeleteDiskPaths,
                 "selected files or folders are removed recursively via the disk usage API",
             ),
         ]),
@@ -162,13 +162,13 @@ fn free_disk_space() -> UserJourney {
                 )),
             ),
         ]),
-        chains_from: Some(JourneyId("inspect_disk_usage".into())),
+        chains_from: Some(JourneyId::InspectDiskUsage),
     }
 }
 
 fn run_single_disk_speed_test() -> UserJourney {
     UserJourney {
-        id: JourneyId("run_single_disk_speed_test".into()),
+        id: JourneyId::RunSingleDiskSpeedTest,
         summary: Grounded::known(
             "Run a single-size disk read/write speed benchmark using the disktest binary".into(),
             Provenance::source(DISK_MAIN, 413),
@@ -176,7 +176,7 @@ fn run_single_disk_speed_test() -> UserJourney {
         visibility: Grounded::known(Visibility::Advanced, Provenance::source(DISK_MENUS, 50)),
         services: disk_usage_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "run_disk_speed_test",
+            CapabilityId::RunDiskSpeedTest,
             "GET /disk/speed runs one disktest write-and-verify pass at the requested size",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -212,15 +212,14 @@ fn run_single_disk_speed_test() -> UserJourney {
 
 fn run_multi_size_disk_speed_test() -> UserJourney {
     UserJourney {
-        id: JourneyId("run_multi_size_disk_speed_test".into()),
+        id: JourneyId::RunMultiSizeDiskSpeedTest,
         summary: Grounded::known(
             "Run a progressive multi-size disk speed benchmark with streaming results".into(),
             Provenance::source(DISK_MAIN, 446),
         ),
         visibility: Grounded::known(Visibility::Advanced, Provenance::source(DISK_MENUS, 50)),
         services: disk_usage_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            "run_multi_size_disk_speed_test",
+        capability_refs: GroundedSet::known(vec![cap(CapabilityId::RunMultiSizeDiskSpeedTest,
             "GET /disk/speed/stream yields NDJSON points for each benchmark size",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -252,8 +251,8 @@ fn run_multi_size_disk_speed_test() -> UserJourney {
     }
 }
 
-fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
-    GroundedItem::new(CapabilityId(id.into()), Provenance::asserted(rationale))
+fn cap(id: CapabilityId, rationale: &str) -> GroundedItem<CapabilityId> {
+    GroundedItem::new(id, Provenance::asserted(rationale))
 }
 
 fn disk_usage_services() -> GroundedSet<ServiceId> {

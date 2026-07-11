@@ -268,7 +268,7 @@ pub fn service_definition() -> ServiceDefinition {
             "provisional 2.0 domain: read-only Linux host telemetry (CPU, memory, disk, network, processes, serial ports, USB) over HTTP",
         ),
         journey_refs: AssertedSet::established(vec![Rationaled::new(
-            JourneyId("view_system_information".into()),
+            JourneyId::ViewSystemInformation,
             "System Information page and System Monitor widgets poll linux2rest for live host metrics",
         )]),
         tier: Asserted::established(
@@ -290,11 +290,11 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         capabilities: AssertedSet::established(vec![
             Rationaled::new(
-                CapabilityId("view_system_information".to_string()),
+                CapabilityId::ViewSystemInformation,
                 "System Information page and monitor widgets display CPU, memory, disk, temperature, processes, and network data from observed Rest /system-information/",
             ),
             Rationaled::new(
-                CapabilityId("provide_system_information_over_rest".to_string()),
+                CapabilityId::ProvideSystemInformationOverRest,
                 "observed Rest interface on port 6030; bridget GET localhost:6030/serial and helper port-6030 discovery consume machine-facing host telemetry",
             ),
         ]),

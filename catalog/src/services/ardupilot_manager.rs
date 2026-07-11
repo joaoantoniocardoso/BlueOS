@@ -661,39 +661,39 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         journey_refs: AssertedSet::established(vec![
             Rationaled::new(
-                JourneyId("vehicle_first_boot".into()),
+                JourneyId::VehicleFirstBoot,
                 "wizard-driven first boot downloads firmware and arms autopilot lifecycle",
             ),
             Rationaled::new(
-                JourneyId("change_board".into()),
+                JourneyId::ChangeBoard,
                 "POST /board selects connected FC or virtual SITL board",
             ),
             Rationaled::new(
-                JourneyId("run_sitl_simulation".into()),
+                JourneyId::RunSitlSimulation,
                 "SITL board selection and sitl_frame POST configure simulated vehicle",
             ),
             Rationaled::new(
-                JourneyId("start_autopilot".into()),
+                JourneyId::StartAutopilot,
                 "POST /start transitions autopilot_lifecycle stopped to running",
             ),
             Rationaled::new(
-                JourneyId("stop_autopilot".into()),
+                JourneyId::StopAutopilot,
                 "POST /stop transitions autopilot_lifecycle running to stopped",
             ),
             Rationaled::new(
-                JourneyId("restart_autopilot".into()),
+                JourneyId::RestartAutopilot,
                 "POST /restart kills and relaunches the FC process",
             ),
             Rationaled::new(
-                JourneyId("update_firmware_online".into()),
+                JourneyId::UpdateFirmwareOnline,
                 "POST /install_firmware_from_url flashes firmware from ArduPilot repo",
             ),
             Rationaled::new(
-                JourneyId("upload_custom_firmware".into()),
+                JourneyId::UploadCustomFirmware,
                 "POST /install_firmware_from_file flashes user-supplied firmware image",
             ),
             Rationaled::new(
-                JourneyId("restore_default_firmware".into()),
+                JourneyId::RestoreDefaultFirmware,
                 "POST /restore_default_firmware reverts to factory ArduSub image",
             ),
         ]),
@@ -733,39 +733,39 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         capabilities: AssertedSet::established(vec![
             Rationaled::new(
-                CapabilityId("manage_autopilot_lifecycle".to_string()),
+                CapabilityId::ManageAutopilotLifecycle,
                 "REST start/stop/restart routes and auto_restart_ardupilot watchdog",
             ),
             Rationaled::new(
-                CapabilityId("manage_mavlink_endpoints".to_string()),
+                CapabilityId::ManageMavlinkEndpoints,
                 "REST /endpoints CRUD and default endpoint table in autopilot_manager",
             ),
             Rationaled::new(
-                CapabilityId("manage_mavlink_router".to_string()),
+                CapabilityId::ManageMavlinkRouter,
                 "spawns mavlink-routerd/mavproxy/mavp2p/mavlink-server subprocesses; preferred_router API",
             ),
             Rationaled::new(
-                CapabilityId("flash_firmware".to_string()),
+                CapabilityId::FlashFirmware,
                 "install_firmware_from_url/file and FirmwareUpload subprocess",
             ),
             Rationaled::new(
-                CapabilityId("select_flight_controller_board".to_string()),
+                CapabilityId::SelectFlightControllerBoard,
                 "board/available_boards REST and change_board logic",
             ),
             Rationaled::new(
-                CapabilityId("detect_flight_controllers".to_string()),
+                CapabilityId::DetectFlightControllers,
                 "BoardDetector used at startup and available_boards endpoint",
             ),
             Rationaled::new(
-                CapabilityId("manage_serial_ports".to_string()),
+                CapabilityId::ManageSerialPorts,
                 "serials GET/PUT routes map ArduPilot serial ports to Linux devices",
             ),
             Rationaled::new(
-                CapabilityId("query_vehicle_firmware_info".to_string()),
+                CapabilityId::QueryVehicleFirmwareInfo,
                 "firmware_info and vehicle_type REST via VehicleManager MAVLink queries",
             ),
             Rationaled::new(
-                CapabilityId("configure_sitl_frame".to_string()),
+                CapabilityId::ConfigureSitlFrame,
                 "sitl_frame GET/POST for SITL simulation frame selection",
             ),
         ]),

@@ -28,7 +28,7 @@ pub fn journeys() -> Vec<UserJourney> {
 
 fn update_blueos_version() -> UserJourney {
     UserJourney {
-        id: JourneyId("update_blueos_version".into()),
+        id: JourneyId::UpdateBlueosVersion,
         summary: Grounded::known(
             "Update BlueOS to the latest available release that is as stable or more stable than the current install"
                 .into(),
@@ -36,8 +36,7 @@ fn update_blueos_version() -> UserJourney {
         ),
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 397)),
         services: versionchooser_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            "update_blueos_version",
+        capability_refs: GroundedSet::known(vec![cap(CapabilityId::UpdateBlueosVersion,
             "simplified Version Chooser pulls and applies a newer stable or beta release",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -87,7 +86,7 @@ fn update_blueos_version() -> UserJourney {
 
 fn switch_local_blueos_version() -> UserJourney {
     UserJourney {
-        id: JourneyId("switch_local_blueos_version".into()),
+        id: JourneyId::SwitchLocalBlueosVersion,
         summary: Grounded::known(
             "Switch forwards or backwards between locally installed BlueOS versions, including roll-back after undesired changes"
                 .into(),
@@ -95,8 +94,7 @@ fn switch_local_blueos_version() -> UserJourney {
         ),
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 399)),
         services: versionchooser_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            "switch_blueos_version",
+        capability_refs: GroundedSet::known(vec![cap(CapabilityId::SwitchBlueosVersion,
             "pirate-mode local version cards apply a previously installed image without re-downloading",
         )]),
         preconditions: GroundedSet::known(vec![
@@ -134,13 +132,13 @@ fn switch_local_blueos_version() -> UserJourney {
                 None,
             ),
         ]),
-        chains_from: Some(JourneyId("update_blueos_version".into())),
+        chains_from: Some(JourneyId::UpdateBlueosVersion),
     }
 }
 
 fn pull_blueos_version_without_switch() -> UserJourney {
     UserJourney {
-        id: JourneyId("pull_blueos_version_without_switch".into()),
+        id: JourneyId::PullBlueosVersionWithoutSwitch,
         summary: Grounded::known(
             "Download a remote BlueOS core image, including from a custom Docker registry repository, without switching the running version"
                 .into(),
@@ -148,8 +146,7 @@ fn pull_blueos_version_without_switch() -> UserJourney {
         ),
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 399)),
         services: versionchooser_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            "pull_blueos_version",
+        capability_refs: GroundedSet::known(vec![cap(CapabilityId::PullBlueosVersion,
             "remote Versions section can fetch an image tag to local storage before apply",
         )]),
         preconditions: GroundedSet::known(vec![
@@ -193,7 +190,7 @@ fn pull_blueos_version_without_switch() -> UserJourney {
 
 fn delete_local_blueos_version() -> UserJourney {
     UserJourney {
-        id: JourneyId("delete_local_blueos_version".into()),
+        id: JourneyId::DeleteLocalBlueosVersion,
         summary: Grounded::known(
             "Delete a previously installed local BlueOS version to free onboard storage".into(),
             Provenance::doc(ADV, 402),
@@ -201,7 +198,7 @@ fn delete_local_blueos_version() -> UserJourney {
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 399)),
         services: versionchooser_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "delete_local_blueos_version",
+            CapabilityId::DeleteLocalBlueosVersion,
             "local version cards expose delete for non-current images when enough versions remain",
         )]),
         preconditions: GroundedSet::known(vec![
@@ -244,13 +241,13 @@ fn delete_local_blueos_version() -> UserJourney {
                 None,
             ),
         ]),
-        chains_from: Some(JourneyId("switch_local_blueos_version".into())),
+        chains_from: Some(JourneyId::SwitchLocalBlueosVersion),
     }
 }
 
 fn docker_registry_login() -> UserJourney {
     UserJourney {
-        id: JourneyId("docker_registry_login".into()),
+        id: JourneyId::DockerRegistryLogin,
         summary: Grounded::known(
             "Log in to Docker Hub or a custom registry to access private images and reduce rate limiting"
                 .into(),
@@ -258,8 +255,7 @@ fn docker_registry_login() -> UserJourney {
         ),
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 399)),
         services: versionchooser_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            "docker_registry_login",
+        capability_refs: GroundedSet::known(vec![cap(CapabilityId::DockerRegistryLogin,
             "Docker Login dialog authenticates the daemon and lists connected accounts",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -292,7 +288,7 @@ fn docker_registry_login() -> UserJourney {
 
 fn update_bootstrap_image() -> UserJourney {
     UserJourney {
-        id: JourneyId("update_bootstrap_image".into()),
+        id: JourneyId::UpdateBootstrapImage,
         summary: Grounded::known(
             "Update the BlueOS-bootstrap image to match the currently running BlueOS core release"
                 .into(),
@@ -301,7 +297,7 @@ fn update_bootstrap_image() -> UserJourney {
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 399)),
         services: versionchooser_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "update_bootstrap_image",
+            CapabilityId::UpdateBootstrapImage,
             "current-version card offers bootstrap update after core images are loaded",
         )]),
         preconditions: GroundedSet::known(vec![
@@ -349,12 +345,12 @@ fn update_bootstrap_image() -> UserJourney {
                 None,
             ),
         ]),
-        chains_from: Some(JourneyId("update_blueos_version".into())),
+        chains_from: Some(JourneyId::UpdateBlueosVersion),
     }
 }
 
-fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
-    GroundedItem::new(CapabilityId(id.into()), Provenance::asserted(rationale))
+fn cap(id: CapabilityId, rationale: &str) -> GroundedItem<CapabilityId> {
+    GroundedItem::new(id, Provenance::asserted(rationale))
 }
 
 fn versionchooser_services() -> GroundedSet<ServiceId> {

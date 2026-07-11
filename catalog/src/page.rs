@@ -1,12 +1,44 @@
+use std::fmt;
+
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::id::{CapabilityId, ServiceId};
 use crate::provenance::{AssertedSet, Observed, ObservedSet};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
-#[serde(transparent)]
-pub struct PageId(pub String);
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
+pub enum PageId {
+    #[serde(rename = "disk")]
+    Disk,
+    #[serde(rename = "vehicle_setup")]
+    VehicleSetup,
+    #[serde(rename = "video_manager")]
+    VideoManager,
+}
+
+impl PageId {
+    pub const ALL: [PageId; 3] = [PageId::Disk, PageId::VehicleSetup, PageId::VideoManager];
+
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            PageId::Disk => "disk",
+            PageId::VehicleSetup => "vehicle_setup",
+            PageId::VideoManager => "video_manager",
+        }
+    }
+
+    pub fn from_str_id(s: &str) -> Option<PageId> {
+        PageId::ALL.into_iter().find(|v| v.as_str() == s)
+    }
+}
+
+impl fmt::Display for PageId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct Page {
@@ -60,7 +92,7 @@ mod tests {
 
     fn sample_page() -> Page {
         Page {
-            id: PageId("vehicle_setup".to_string()),
+            id: PageId::VehicleSetup,
             route: Observed::known(
                 "/vehicle/setup/:tab?/:subtab?".to_string(),
                 Evidence {
@@ -115,7 +147,7 @@ mod tests {
                 },
             )]),
             frontend_features: AssertedSet::established(vec![Rationaled::new(
-                CapabilityId("calibrate_accelerometer".to_string()),
+                CapabilityId::CalibrateAccelerometer,
                 "client-side calibration wizard with no dedicated backend capability",
             )]),
             client_state: AssertedSet::established(vec![Rationaled::new(

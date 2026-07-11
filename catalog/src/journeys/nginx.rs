@@ -17,7 +17,7 @@ pub fn journeys() -> Vec<UserJourney> {
 
 fn access_blueos_web_interface() -> UserJourney {
     UserJourney {
-        id: JourneyId("access_blueos_web_interface".into()),
+        id: JourneyId::AccessBlueosWebInterface,
         summary: Grounded::known(
             "Open the BlueOS web interface in a browser to access and configure vehicle services"
                 .into(),
@@ -26,7 +26,7 @@ fn access_blueos_web_interface() -> UserJourney {
         visibility: Grounded::known(Visibility::Default, Provenance::doc(GETTING, 26)),
         services: nginx_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "access_blueos_web_interface",
+            CapabilityId::AccessBlueosWebInterface,
             "nginx listens on port 80 and serves the frontend SPA at / for browser access",
         )]),
         preconditions: GroundedSet::known(vec![]),
@@ -58,8 +58,8 @@ fn access_blueos_web_interface() -> UserJourney {
     }
 }
 
-fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
-    GroundedItem::new(CapabilityId(id.into()), Provenance::asserted(rationale))
+fn cap(id: CapabilityId, rationale: &str) -> GroundedItem<CapabilityId> {
+    GroundedItem::new(id, Provenance::asserted(rationale))
 }
 
 fn nginx_services() -> GroundedSet<ServiceId> {

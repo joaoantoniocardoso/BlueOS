@@ -352,15 +352,15 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         journey_refs: AssertedSet::established(vec![
             Rationaled::new(
-                JourneyId("rename_vehicle".into()),
+                JourneyId::RenameVehicle,
                 "sidebar vehicle identifier edit persists display name via POST /vehicle_name",
             ),
             Rationaled::new(
-                JourneyId("change_mdns_hostname".into()),
+                JourneyId::ChangeMdnsHostname,
                 "sidebar edit updates the mDNS hostname broadcast via POST /hostname",
             ),
             Rationaled::new(
-                JourneyId("discover_blueos_on_network".into()),
+                JourneyId::DiscoverBlueosOnNetwork,
                 "beacon publishes blueos.local mDNS records so operators can open the web UI on the LAN",
             ),
         ]),
@@ -383,31 +383,31 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         capabilities: AssertedSet::established(vec![
             Rationaled::new(
-                CapabilityId("set_vehicle_name".to_string()),
+                CapabilityId::SetVehicleName,
                 "POST /vehicle_name persists the operator-facing vehicle display name in SettingsV4",
             ),
             Rationaled::new(
-                CapabilityId("set_mdns_hostname".to_string()),
+                CapabilityId::SetMdnsHostname,
                 "POST /hostname updates default and per-interface mDNS domain names in settings",
             ),
             Rationaled::new(
-                CapabilityId("advertise_mdns_domains".to_string()),
+                CapabilityId::AdvertiseMdnsDomains,
                 "run() loop registers AsyncRunner mDNS services on filtered up interfaces every 10 seconds",
             ),
             Rationaled::new(
-                CapabilityId("get_vehicle_name".to_string()),
+                CapabilityId::GetVehicleName,
                 "GET /vehicle_name returns the persisted vehicle name with BlueROV2 default",
             ),
             Rationaled::new(
-                CapabilityId("get_mdns_hostname".to_string()),
+                CapabilityId::GetMdnsHostname,
                 "GET /hostname returns the primary mDNS hostname from default.domain_names",
             ),
             Rationaled::new(
-                CapabilityId("list_mdns_domains".to_string()),
+                CapabilityId::ListMdnsDomains,
                 "GET /services returns currently broadcast MdnsEntry records from active runners",
             ),
             Rationaled::new(
-                CapabilityId("report_client_ip".to_string()),
+                CapabilityId::ReportClientIp,
                 "GET /ip returns client IP information from the incoming HTTP request",
             ),
         ]),

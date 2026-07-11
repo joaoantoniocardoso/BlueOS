@@ -15,15 +15,14 @@ pub fn journeys() -> Vec<UserJourney> {
 
 fn inspect_mavlink_messages_in_browser() -> UserJourney {
     UserJourney {
-        id: JourneyId("inspect_mavlink_messages_in_browser".into()),
+        id: JourneyId::InspectMavlinkMessagesInBrowser,
         summary: Grounded::known(
             "See and inspect MAVLink messages in real time from the browser".into(),
             Provenance::doc(OVERVIEW, 122),
         ),
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 496)),
         services: mavlink2rest_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            "inspect_live_mavlink_messages",
+        capability_refs: GroundedSet::known(vec![cap(CapabilityId::InspectLiveMavlinkMessages,
             "MAVLink Inspector filters, lists, and expands live MAVLink messages from the vehicle stream",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -66,8 +65,8 @@ fn inspect_mavlink_messages_in_browser() -> UserJourney {
     }
 }
 
-fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
-    GroundedItem::new(CapabilityId(id.into()), Provenance::asserted(rationale))
+fn cap(id: CapabilityId, rationale: &str) -> GroundedItem<CapabilityId> {
+    GroundedItem::new(id, Provenance::asserted(rationale))
 }
 
 fn mavlink2rest_services() -> GroundedSet<ServiceId> {

@@ -12,7 +12,7 @@ pub fn journeys() -> Vec<UserJourney> {
 
 fn manage_blueos_files() -> UserJourney {
     UserJourney {
-        id: JourneyId("manage_blueos_files".into()),
+        id: JourneyId::ManageBlueosFiles,
         summary: Grounded::known(
             "View, edit, download, and upload BlueOS files using the web File Browser".into(),
             Provenance::doc(ADV, 431),
@@ -22,8 +22,7 @@ fn manage_blueos_files() -> UserJourney {
             Provenance::source(FILE_BROWSER_MENUS, 42),
         ),
         services: filebrowser_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            "manage_blueos_files",
+        capability_refs: GroundedSet::known(vec![cap(CapabilityId::ManageBlueosFiles,
             "File Browser page embeds the upstream filebrowser SPA at /file-browser/ for viewing, editing, downloading, and uploading files",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -72,8 +71,8 @@ fn manage_blueos_files() -> UserJourney {
     }
 }
 
-fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
-    GroundedItem::new(CapabilityId(id.into()), Provenance::asserted(rationale))
+fn cap(id: CapabilityId, rationale: &str) -> GroundedItem<CapabilityId> {
+    GroundedItem::new(id, Provenance::asserted(rationale))
 }
 
 fn filebrowser_services() -> GroundedSet<ServiceId> {

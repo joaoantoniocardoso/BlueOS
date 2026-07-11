@@ -21,7 +21,7 @@ pub fn journeys() -> Vec<UserJourney> {
 
 fn run_lan_speed_test() -> UserJourney {
     UserJourney {
-        id: JourneyId("run_lan_speed_test".into()),
+        id: JourneyId::RunLanSpeedTest,
         summary: Grounded::known(
             "Measure real-time latency and upload/download speeds between BlueOS and the surface computer"
                 .into(),
@@ -29,8 +29,7 @@ fn run_lan_speed_test() -> UserJourney {
         ),
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 518)),
         services: pardal_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            "run_lan_speed_test",
+        capability_refs: GroundedSet::known(vec![cap(CapabilityId::RunLanSpeedTest,
             "Local network test downloads and uploads a file while measuring latency over WebSocket echo",
         )]),
         preconditions: GroundedSet::known(vec![]),
@@ -94,7 +93,7 @@ fn run_lan_speed_test() -> UserJourney {
 
 fn run_internet_speed_test() -> UserJourney {
     UserJourney {
-        id: JourneyId("run_internet_speed_test".into()),
+        id: JourneyId::RunInternetSpeedTest,
         summary: Grounded::known(
             "Measure latency and upload/download speeds between BlueOS and its internet connection"
                 .into(),
@@ -102,8 +101,7 @@ fn run_internet_speed_test() -> UserJourney {
         ),
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 518)),
         services: pardal_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            "run_internet_speed_test",
+        capability_refs: GroundedSet::known(vec![cap(CapabilityId::RunInternetSpeedTest,
             "Internet speed test selects a speedtest-cli server then measures WAN download and upload",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -188,8 +186,8 @@ fn run_internet_speed_test() -> UserJourney {
     }
 }
 
-fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
-    GroundedItem::new(CapabilityId(id.into()), Provenance::asserted(rationale))
+fn cap(id: CapabilityId, rationale: &str) -> GroundedItem<CapabilityId> {
+    GroundedItem::new(id, Provenance::asserted(rationale))
 }
 
 fn pardal_services() -> GroundedSet<ServiceId> {

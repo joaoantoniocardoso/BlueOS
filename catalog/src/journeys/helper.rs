@@ -27,15 +27,14 @@ pub fn journeys() -> Vec<UserJourney> {
 
 fn monitor_internet_connectivity() -> UserJourney {
     UserJourney {
-        id: JourneyId("monitor_internet_connectivity".into()),
+        id: JourneyId::MonitorInternetConnectivity,
         summary: Grounded::known(
             "See whether the vehicle is connected to the internet".into(),
             Provenance::doc(ADV, 141),
         ),
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 139)),
         services: helper_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            "check_internet_connectivity",
+        capability_refs: GroundedSet::known(vec![cap(CapabilityId::CheckInternetConnectivity,
             "header internet indicator reflects reachability of probe websites",
         )]),
         preconditions: GroundedSet::known(vec![]),
@@ -63,7 +62,7 @@ fn monitor_internet_connectivity() -> UserJourney {
 
 fn verify_internet_connectivity() -> UserJourney {
     UserJourney {
-        id: JourneyId("verify_internet_connectivity".into()),
+        id: JourneyId::VerifyInternetConnectivity,
         summary: Grounded::known(
             "Confirm the BlueOS header shows internet connectivity after network setup".into(),
             Provenance::doc(GETTING, 100),
@@ -71,7 +70,7 @@ fn verify_internet_connectivity() -> UserJourney {
         visibility: Grounded::known(Visibility::Default, Provenance::doc(GETTING, 74)),
         services: helper_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "check_internet_connectivity",
+            CapabilityId::CheckInternetConnectivity,
             "setup flows confirm probe websites are reachable before continuing",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -107,7 +106,7 @@ fn verify_internet_connectivity() -> UserJourney {
 
 fn browse_available_web_services() -> UserJourney {
     UserJourney {
-        id: JourneyId("browse_available_web_services".into()),
+        id: JourneyId::BrowseAvailableWebServices,
         summary: Grounded::known(
             "Browse HTTP services running on BlueOS with ports, names, and API documentation links"
                 .into(),
@@ -116,7 +115,7 @@ fn browse_available_web_services() -> UserJourney {
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 357)),
         services: helper_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "discover_web_services",
+            CapabilityId::DiscoverWebServices,
             "Available Services page lists scanned HTTP servers and swagger endpoints",
         )]),
         preconditions: GroundedSet::known(vec![]),
@@ -149,7 +148,7 @@ fn browse_available_web_services() -> UserJourney {
 
 fn probe_interface_internet_connectivity() -> UserJourney {
     UserJourney {
-        id: JourneyId("probe_interface_internet_connectivity".into()),
+        id: JourneyId::ProbeInterfaceInternetConnectivity,
         summary: Grounded::known(
             "Display internet availability on each network interface while configuring priority"
                 .into(),
@@ -158,7 +157,7 @@ fn probe_interface_internet_connectivity() -> UserJourney {
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 144)),
         services: helper_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "probe_interface_connectivity",
+            CapabilityId::ProbeInterfaceConnectivity,
             "network priority menu pings a reachable host through each interface",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -189,8 +188,8 @@ fn probe_interface_internet_connectivity() -> UserJourney {
     }
 }
 
-fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
-    GroundedItem::new(CapabilityId(id.into()), Provenance::asserted(rationale))
+fn cap(id: CapabilityId, rationale: &str) -> GroundedItem<CapabilityId> {
+    GroundedItem::new(id, Provenance::asserted(rationale))
 }
 
 fn helper_services() -> GroundedSet<ServiceId> {

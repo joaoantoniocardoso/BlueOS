@@ -353,15 +353,15 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         journey_refs: AssertedSet::established(vec![
             Rationaled::new(
-                JourneyId("view_configured_nmea_sockets".into()),
+                JourneyId::ViewConfiguredNmeaSockets,
                 "NMEA Injector page lists configured sockets via GET /socks",
             ),
             Rationaled::new(
-                JourneyId("add_external_nmea_gps_socket".into()),
+                JourneyId::AddExternalNmeaGpsSocket,
                 "creation dialog submits socket kind, port, and component ID via POST /socks",
             ),
             Rationaled::new(
-                JourneyId("remove_configured_nmea_socket".into()),
+                JourneyId::RemoveConfiguredNmeaSocket,
                 "socket card remove button deletes the matching socket via DELETE /socks",
             ),
         ]),
@@ -384,15 +384,15 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         capabilities: AssertedSet::established(vec![
             Rationaled::new(
-                CapabilityId("list_nmea_sockets".to_string()),
+                CapabilityId::ListNmeaSockets,
                 "GET /socks returns configured NMEA sockets with kind, port, and MAVLink component ID",
             ),
             Rationaled::new(
-                CapabilityId("create_nmea_socket".to_string()),
+                CapabilityId::CreateNmeaSocket,
                 "POST /socks opens a UDP or TCP listen socket and persists the spec in SettingsV1",
             ),
             Rationaled::new(
-                CapabilityId("remove_nmea_socket".to_string()),
+                CapabilityId::RemoveNmeaSocket,
                 "DELETE /socks closes the matching listen socket and removes it from SettingsV1",
             ),
         ]),

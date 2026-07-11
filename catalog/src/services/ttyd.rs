@@ -277,7 +277,7 @@ pub fn service_definition() -> ServiceDefinition {
             "provisional 2.0 domain: browser-based interactive shell access into the blueos-core container",
         ),
         journey_refs: AssertedSet::established(vec![Rationaled::new(
-            JourneyId("access_web_terminal".into()),
+            JourneyId::AccessWebTerminal,
             "Terminal page embeds ttyd web terminal over WebSocket at /terminal/ attached to user_terminal tmux",
         )]),
         tier: Asserted::established(
@@ -302,11 +302,11 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         capabilities: AssertedSet::established(vec![
             Rationaled::new(
-                CapabilityId("access_web_terminal".to_string()),
+                CapabilityId::AccessWebTerminal,
                 "journey capability: operator opens Terminal page and uses the embedded web terminal attached to user_terminal tmux",
             ),
             Rationaled::new(
-                CapabilityId("provide_shell_over_websocket".to_string()),
+                CapabilityId::ProvideShellOverWebsocket,
                 "observed Websocket interface at /terminal/ on port 8088 carries an interactive Linux shell session",
             ),
         ]),

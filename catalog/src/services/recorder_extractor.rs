@@ -353,15 +353,15 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         journey_refs: AssertedSet::established(vec![
             Rationaled::new(
-                JourneyId("browse_video_recordings".into()),
+                JourneyId::BrowseVideoRecordings,
                 "Records page lists MP4 recordings with thumbnails and MCAP extraction processing status",
             ),
             Rationaled::new(
-                JourneyId("download_video_recording".into()),
+                JourneyId::DownloadVideoRecording,
                 "download button or in-dialog player streams the MP4 via GET /files/{filename}",
             ),
             Rationaled::new(
-                JourneyId("delete_video_recording".into()),
+                JourneyId::DeleteVideoRecording,
                 "recording card delete button removes the MP4 file via DELETE /files/{filename}",
             ),
         ]),
@@ -387,15 +387,15 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         capabilities: AssertedSet::established(vec![
             Rationaled::new(
-                CapabilityId("browse_video_recordings".to_string()),
+                CapabilityId::BrowseVideoRecordings,
                 "GET /files lists MP4 recordings; GET /status reports MCAP extraction progress; GET /files/{filename}/thumbnail serves JPEG previews",
             ),
             Rationaled::new(
-                CapabilityId("download_video_recording".to_string()),
+                CapabilityId::DownloadVideoRecording,
                 "GET /files/{filename} streams or downloads an MP4 recording for playback or export",
             ),
             Rationaled::new(
-                CapabilityId("delete_video_recording".to_string()),
+                CapabilityId::DeleteVideoRecording,
                 "DELETE /files/{filename} permanently removes an MP4 recording from the gallery",
             ),
         ]),

@@ -327,11 +327,11 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         journey_refs: AssertedSet::established(vec![
             Rationaled::new(
-                JourneyId("run_lan_speed_test".into()),
+                JourneyId::RunLanSpeedTest,
                 "Network Test Local tab streams /get_file and /post_file while /ws echoes latency",
             ),
             Rationaled::new(
-                JourneyId("run_internet_speed_test".into()),
+                JourneyId::RunInternetSpeedTest,
                 "Network Test Internet tab runs speedtest-cli via /internet_* routes",
             ),
         ]),
@@ -354,11 +354,11 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         capabilities: AssertedSet::established(vec![
             Rationaled::new(
-                CapabilityId("run_lan_speed_test".to_string()),
+                CapabilityId::RunLanSpeedTest,
                 "GET /get_file and POST /post_file transfer test payloads while /ws echoes latency samples",
             ),
             Rationaled::new(
-                CapabilityId("run_internet_speed_test".to_string()),
+                CapabilityId::RunInternetSpeedTest,
                 "GET /internet_best_server, /internet_download_speed, and /internet_upload_speed run speedtest-cli WAN benchmarks",
             ),
         ]),

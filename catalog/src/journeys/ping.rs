@@ -27,15 +27,14 @@ pub fn journeys() -> Vec<UserJourney> {
 
 fn view_detected_sonar_devices() -> UserJourney {
     UserJourney {
-        id: JourneyId("view_detected_sonar_devices".into()),
+        id: JourneyId::ViewDetectedSonarDevices,
         summary: Grounded::known(
             "View Ping family sonar devices auto-detected on serial/USB and the local network".into(),
             Provenance::doc(ADV, 553),
         ),
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 548)),
         services: ping_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            "list_detected_ping_sensors",
+        capability_refs: GroundedSet::known(vec![cap(CapabilityId::ListDetectedPingSensors,
             "Ping Sonar Devices page lists auto-detected Ping1D and Ping360 sensors via GET /sensors",
         )]),
         preconditions: GroundedSet::known(vec![]),
@@ -89,15 +88,14 @@ fn view_detected_sonar_devices() -> UserJourney {
 
 fn connect_ping_viewer_to_sonar() -> UserJourney {
     UserJourney {
-        id: JourneyId("connect_ping_viewer_to_sonar".into()),
+        id: JourneyId::ConnectPingViewerToSonar,
         summary: Grounded::known(
             "Connect Ping Viewer on the surface computer to a vehicle-exposed Ping sonar".into(),
             Provenance::doc(OVERVIEW, 131),
         ),
         visibility: Grounded::known(Visibility::Default, Provenance::source(PING_MENUS, 94)),
         services: ping_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            "connect_ping_viewer_to_sonar",
+        capability_refs: GroundedSet::known(vec![cap(CapabilityId::ConnectPingViewerToSonar,
             "operator uses the UDP bridge port shown on the device card to reach the sonar from Ping Viewer",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -132,7 +130,7 @@ fn connect_ping_viewer_to_sonar() -> UserJourney {
 
 fn enable_ping1d_rangefinder_mavlink() -> UserJourney {
     UserJourney {
-        id: JourneyId("enable_ping1d_rangefinder_mavlink".into()),
+        id: JourneyId::EnablePing1dRangefinderMavlink,
         summary: Grounded::known(
             "Enable Ping1D distance estimates as MAVLink DISTANCE_SENSOR messages to the autopilot"
                 .into(),
@@ -140,8 +138,7 @@ fn enable_ping1d_rangefinder_mavlink() -> UserJourney {
         ),
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 548)),
         services: ping_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            "enable_ping1d_mavlink_distance",
+        capability_refs: GroundedSet::known(vec![cap(CapabilityId::EnablePing1dMavlinkDistance,
             "Ping1D card MAVLink Distances switch posts sensor settings to toggle mavlink_driver",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -179,8 +176,8 @@ fn enable_ping1d_rangefinder_mavlink() -> UserJourney {
     }
 }
 
-fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
-    GroundedItem::new(CapabilityId(id.into()), Provenance::asserted(rationale))
+fn cap(id: CapabilityId, rationale: &str) -> GroundedItem<CapabilityId> {
+    GroundedItem::new(id, Provenance::asserted(rationale))
 }
 
 fn ping_services() -> GroundedSet<ServiceId> {

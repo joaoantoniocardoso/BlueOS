@@ -312,7 +312,7 @@ pub fn service_definition() -> ServiceDefinition {
             "provisional 2.0 domain: local Zenoh pub/sub router bridging service publishers and subscribers on the vehicle",
         ),
         journey_refs: AssertedSet::established(vec![Rationaled::new(
-            JourneyId("inspect_zenoh_network".into()),
+            JourneyId::InspectZenohNetwork,
             "Zenoh Inspector page connects over WebSocket to browse live network topology and pub/sub topics",
         )]),
         tier: Asserted::established(
@@ -334,11 +334,11 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         capabilities: AssertedSet::established(vec![
             Rationaled::new(
-                CapabilityId("inspect_zenoh_network".to_string()),
+                CapabilityId::InspectZenohNetwork,
                 "Zenoh Inspector WebSocket session to /zenoh-api/ browses live topology and pub/sub topic payloads",
             ),
             Rationaled::new(
-                CapabilityId("route_pubsub_messages".to_string()),
+                CapabilityId::RoutePubsubMessages,
                 "sole on-host Zenoh router; observed Rest /zenoh/ and WebSocket /zenoh-api/ planes carry inter-service pub/sub including commonwealth log publishers",
             ),
         ]),

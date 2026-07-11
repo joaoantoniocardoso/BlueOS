@@ -28,7 +28,7 @@ pub fn journeys() -> Vec<UserJourney> {
 
 fn vehicle_first_boot() -> UserJourney {
     UserJourney {
-        id: JourneyId("vehicle_first_boot".into()),
+        id: JourneyId::VehicleFirstBoot,
         summary: Grounded::known(
             "On first boot the configuration wizard downloads and installs up-to-date autopilot firmware".into(),
             Provenance::doc(GS, 52),
@@ -36,20 +36,16 @@ fn vehicle_first_boot() -> UserJourney {
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 256)),
         services: ardupilot_manager_services(),
         capability_refs: GroundedSet::known(vec![
-            cap(
-                "detect_flight_controllers",
+            cap(CapabilityId::DetectFlightControllers,
                 "wizard discovers connected boards before firmware install",
             ),
-            cap(
-                "flash_firmware",
+            cap(CapabilityId::FlashFirmware,
                 "install_firmware_from_url during first-boot wizard",
             ),
-            cap(
-                "manage_autopilot_lifecycle",
+            cap(CapabilityId::ManageAutopilotLifecycle,
                 "first boot completes with a running autopilot process",
             ),
-            cap(
-                "query_vehicle_firmware_info",
+            cap(CapabilityId::QueryVehicleFirmwareInfo,
                 "first-boot flow reads firmware_info to confirm the active autopilot",
             ),
         ]),
@@ -94,7 +90,7 @@ fn vehicle_first_boot() -> UserJourney {
 
 fn change_board() -> UserJourney {
     UserJourney {
-        id: JourneyId("change_board".into()),
+        id: JourneyId::ChangeBoard,
         summary: Grounded::known(
             "Select a connected flight controller board or switch to the virtual SITL board".into(),
             Provenance::doc(ADV, 262),
@@ -102,7 +98,7 @@ fn change_board() -> UserJourney {
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 261)),
         services: ardupilot_manager_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "select_flight_controller_board",
+            CapabilityId::SelectFlightControllerBoard,
             "POST /board switches between connected boards and SITL",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -124,7 +120,7 @@ fn change_board() -> UserJourney {
 
 fn run_sitl_simulation() -> UserJourney {
     UserJourney {
-        id: JourneyId("run_sitl_simulation".into()),
+        id: JourneyId::RunSitlSimulation,
         summary: Grounded::known(
             "Run ArduPilot SITL simulation by selecting the virtual board and configuring the vehicle frame"
                 .into(),
@@ -133,12 +129,10 @@ fn run_sitl_simulation() -> UserJourney {
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 303)),
         services: ardupilot_manager_services(),
         capability_refs: GroundedSet::known(vec![
-            cap(
-                "select_flight_controller_board",
+            cap(CapabilityId::SelectFlightControllerBoard,
                 "journey begins by selecting the virtual SITL board",
             ),
-            cap(
-                "configure_sitl_frame",
+            cap(CapabilityId::ConfigureSitlFrame,
                 "POST /sitl_frame sets simulated vehicle frame",
             ),
         ]),
@@ -160,13 +154,13 @@ fn run_sitl_simulation() -> UserJourney {
                 None,
             ),
         ]),
-        chains_from: Some(JourneyId("change_board".into())),
+        chains_from: Some(JourneyId::ChangeBoard),
     }
 }
 
 fn start_autopilot() -> UserJourney {
     UserJourney {
-        id: JourneyId("start_autopilot".into()),
+        id: JourneyId::StartAutopilot,
         summary: Grounded::known(
             "Start the autopilot process".into(),
             Provenance::doc(ADV, 263),
@@ -174,7 +168,7 @@ fn start_autopilot() -> UserJourney {
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 261)),
         services: ardupilot_manager_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "manage_autopilot_lifecycle",
+            CapabilityId::ManageAutopilotLifecycle,
             "POST /start launches the FC subprocess",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -192,13 +186,13 @@ fn start_autopilot() -> UserJourney {
                 "#transitions",
             )),
         )]),
-        chains_from: Some(JourneyId("change_board".into())),
+        chains_from: Some(JourneyId::ChangeBoard),
     }
 }
 
 fn stop_autopilot() -> UserJourney {
     UserJourney {
-        id: JourneyId("stop_autopilot".into()),
+        id: JourneyId::StopAutopilot,
         summary: Grounded::known(
             "Stop the autopilot process".into(),
             Provenance::doc(ADV, 264),
@@ -206,7 +200,7 @@ fn stop_autopilot() -> UserJourney {
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 261)),
         services: ardupilot_manager_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "manage_autopilot_lifecycle",
+            CapabilityId::ManageAutopilotLifecycle,
             "POST /stop terminates the FC subprocess",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -230,12 +224,12 @@ fn stop_autopilot() -> UserJourney {
 
 fn restart_autopilot() -> UserJourney {
     UserJourney {
-        id: JourneyId("restart_autopilot".into()),
+        id: JourneyId::RestartAutopilot,
         summary: Grounded::known("Restart the autopilot".into(), Provenance::doc(ADV, 267)),
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 267)),
         services: ardupilot_manager_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "manage_autopilot_lifecycle",
+            CapabilityId::ManageAutopilotLifecycle,
             "POST /restart stops and relaunches the FC process",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -254,7 +248,7 @@ fn restart_autopilot() -> UserJourney {
 
 fn update_firmware_online() -> UserJourney {
     UserJourney {
-        id: JourneyId("update_firmware_online".into()),
+        id: JourneyId::UpdateFirmwareOnline,
         summary: Grounded::known(
             "Update flight-controller firmware from the online ArduPilot repository".into(),
             Provenance::doc(ADV, 268),
@@ -262,7 +256,7 @@ fn update_firmware_online() -> UserJourney {
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 268)),
         services: ardupilot_manager_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "flash_firmware",
+            CapabilityId::FlashFirmware,
             "POST /install_firmware_from_url downloads and flashes remote firmware",
         )]),
         preconditions: GroundedSet::known(vec![
@@ -300,13 +294,13 @@ fn update_firmware_online() -> UserJourney {
                 Some(runtime_outcome(200, None, None, "#firmware_operations")),
             ),
         ]),
-        chains_from: Some(JourneyId("change_board".into())),
+        chains_from: Some(JourneyId::ChangeBoard),
     }
 }
 
 fn upload_custom_firmware() -> UserJourney {
     UserJourney {
-        id: JourneyId("upload_custom_firmware".into()),
+        id: JourneyId::UploadCustomFirmware,
         summary: Grounded::known(
             "Upload and flash a custom ArduPilot firmware file from the surface computer".into(),
             Provenance::doc(ADV, 281),
@@ -314,7 +308,7 @@ fn upload_custom_firmware() -> UserJourney {
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 268)),
         services: ardupilot_manager_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "flash_firmware",
+            CapabilityId::FlashFirmware,
             "POST /install_firmware_from_file flashes uploaded firmware image",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -332,13 +326,13 @@ fn upload_custom_firmware() -> UserJourney {
             Provenance::doc(ADV, 281),
             Some(runtime_outcome(200, None, None, "#firmware_operations")),
         )]),
-        chains_from: Some(JourneyId("change_board".into())),
+        chains_from: Some(JourneyId::ChangeBoard),
     }
 }
 
 fn restore_default_firmware() -> UserJourney {
     UserJourney {
-        id: JourneyId("restore_default_firmware".into()),
+        id: JourneyId::RestoreDefaultFirmware,
         summary: Grounded::known(
             "Restore the default ArduSub firmware for the connected flight controller".into(),
             Provenance::doc(ADV, 282),
@@ -346,7 +340,7 @@ fn restore_default_firmware() -> UserJourney {
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 268)),
         services: ardupilot_manager_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "flash_firmware",
+            CapabilityId::FlashFirmware,
             "POST /restore_default_firmware flashes factory default firmware",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -364,12 +358,12 @@ fn restore_default_firmware() -> UserJourney {
             Provenance::doc(ADV, 282),
             Some(runtime_outcome(200, None, None, "#firmware_operations")),
         )]),
-        chains_from: Some(JourneyId("change_board".into())),
+        chains_from: Some(JourneyId::ChangeBoard),
     }
 }
 
-fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
-    GroundedItem::new(CapabilityId(id.into()), Provenance::asserted(rationale))
+fn cap(id: CapabilityId, rationale: &str) -> GroundedItem<CapabilityId> {
+    GroundedItem::new(id, Provenance::asserted(rationale))
 }
 
 fn ardupilot_manager_services() -> GroundedSet<ServiceId> {

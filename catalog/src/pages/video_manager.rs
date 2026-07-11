@@ -4,7 +4,7 @@ use crate::provenance::{AssertedSet, Evidence, Evidenced, Observed, ObservedSet,
 
 pub fn page() -> Page {
     Page {
-        id: PageId("video_manager".to_string()),
+        id: PageId::VideoManager,
         route: Observed::known(
             "/vehicle/video-manager".to_string(),
             Evidence {
@@ -199,23 +199,23 @@ pub fn page() -> Page {
         ]),
         frontend_features: AssertedSet::established(vec![
             Rationaled::new(
-                CapabilityId("configure_stream_endpoints".to_string()),
+                CapabilityId::ConfigureStreamEndpoints,
                 "VideoStreamCreationDialog.vue validates UDP/RTSP endpoints, builds default addresses from beacon IPs, and maps encode type to udp/udp265 schemes",
             ),
             Rationaled::new(
-                CapabilityId("filter_displayable_devices".to_string()),
+                CapabilityId::FilterDisplayableDevices,
                 "VideoManager.vue computed video_devices filters unsupported encodes, hides RadCam secondary stream, and sorts devices client-side",
             ),
             Rationaled::new(
-                CapabilityId("diagnose_stream_accessibility".to_string()),
+                CapabilityId::DiagnoseStreamAccessibility,
                 "VideoDiagnosticHelper.vue derives whether any stream endpoint targets the client or vehicle IP from cached streams and beacon addresses",
             ),
             Rationaled::new(
-                CapabilityId("manage_thumbnail_preview".to_string()),
+                CapabilityId::ManageThumbnailPreview,
                 "VideoThumbnail.vue orchestrates snapshot vs continuous (1s) preview modes with debounce, cooldown, and blob URL lifecycle",
             ),
             Rationaled::new(
-                CapabilityId("replace_stream_configuration".to_string()),
+                CapabilityId::ReplaceStreamConfiguration,
                 "VideoStream.vue editStream deletes the existing stream then creates a new one because mavlink-camera-manager has no in-place update route",
             ),
         ]),

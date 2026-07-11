@@ -406,27 +406,27 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         journey_refs: AssertedSet::established(vec![
             Rationaled::new(
-                JourneyId("update_blueos_version".into()),
+                JourneyId::UpdateBlueosVersion,
                 "simplified update flow pulls and switches to a newer stable or beta core release",
             ),
             Rationaled::new(
-                JourneyId("switch_local_blueos_version".into()),
+                JourneyId::SwitchLocalBlueosVersion,
                 "pirate-mode local cards apply a previously installed core image without re-downloading",
             ),
             Rationaled::new(
-                JourneyId("pull_blueos_version_without_switch".into()),
+                JourneyId::PullBlueosVersionWithoutSwitch,
                 "remote Versions section fetches a tag to local storage before apply",
             ),
             Rationaled::new(
-                JourneyId("delete_local_blueos_version".into()),
+                JourneyId::DeleteLocalBlueosVersion,
                 "local version cards delete non-current core images when enough versions remain",
             ),
             Rationaled::new(
-                JourneyId("docker_registry_login".into()),
+                JourneyId::DockerRegistryLogin,
                 "Docker Login dialog authenticates the daemon and lists connected accounts",
             ),
             Rationaled::new(
-                JourneyId("update_bootstrap_image".into()),
+                JourneyId::UpdateBootstrapImage,
                 "current-version card updates blueos-bootstrap to match the running core release",
             ),
         ]),
@@ -462,47 +462,47 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         capabilities: AssertedSet::established(vec![
             Rationaled::new(
-                CapabilityId("update_blueos_version".to_string()),
+                CapabilityId::UpdateBlueosVersion,
                 "simplified Version Chooser pulls and applies a newer stable or beta core release",
             ),
             Rationaled::new(
-                CapabilityId("switch_blueos_version".to_string()),
+                CapabilityId::SwitchBlueosVersion,
                 "POST /version/current applies a previously installed local core image",
             ),
             Rationaled::new(
-                CapabilityId("pull_blueos_version".to_string()),
+                CapabilityId::PullBlueosVersion,
                 "POST /version/pull streams docker pull for a remote repository tag",
             ),
             Rationaled::new(
-                CapabilityId("delete_local_blueos_version".to_string()),
+                CapabilityId::DeleteLocalBlueosVersion,
                 "DELETE /version/delete removes a non-current local core image",
             ),
             Rationaled::new(
-                CapabilityId("docker_registry_login".to_string()),
+                CapabilityId::DockerRegistryLogin,
                 "POST /docker/login and GET /docker/accounts manage registry credentials",
             ),
             Rationaled::new(
-                CapabilityId("update_bootstrap_image".to_string()),
+                CapabilityId::UpdateBootstrapImage,
                 "POST /bootstrap/current switches blueos-bootstrap to a pulled tag",
             ),
             Rationaled::new(
-                CapabilityId("list_local_blueos_versions".to_string()),
+                CapabilityId::ListLocalBlueosVersions,
                 "GET /version/available/local lists locally installed core images",
             ),
             Rationaled::new(
-                CapabilityId("list_remote_blueos_versions".to_string()),
+                CapabilityId::ListRemoteBlueosVersions,
                 "GET /version/available/{repository}/{image} lists remote tags for a repository",
             ),
             Rationaled::new(
-                CapabilityId("get_current_blueos_version".to_string()),
+                CapabilityId::GetCurrentBlueosVersion,
                 "GET /version/current returns the configured running core image and metadata",
             ),
             Rationaled::new(
-                CapabilityId("get_current_bootstrap_version".to_string()),
+                CapabilityId::GetCurrentBootstrapVersion,
                 "GET /bootstrap/current returns the running blueos-bootstrap container image",
             ),
             Rationaled::new(
-                CapabilityId("list_docker_accounts".to_string()),
+                CapabilityId::ListDockerAccounts,
                 "GET /docker/accounts lists Docker registry accounts logged in on the host",
             ),
         ]),

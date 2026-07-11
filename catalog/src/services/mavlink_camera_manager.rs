@@ -299,19 +299,19 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         journey_refs: AssertedSet::established(vec![
             Rationaled::new(
-                JourneyId("view_camera_streams".into()),
+                JourneyId::ViewCameraStreams,
                 "Video Streams page lists detected cameras and configured streams via GET /v4l and GET /streams",
             ),
             Rationaled::new(
-                JourneyId("configure_camera_stream".into()),
+                JourneyId::ConfigureCameraStream,
                 "stream creation dialog submits encoding, resolution, and endpoints via POST /streams",
             ),
             Rationaled::new(
-                JourneyId("remove_camera_stream".into()),
+                JourneyId::RemoveCameraStream,
                 "stream card remove button deletes a stream configuration via DELETE /delete_stream",
             ),
             Rationaled::new(
-                JourneyId("configure_uvc_device_controls".into()),
+                JourneyId::ConfigureUvcDeviceControls,
                 "Device Controls dialog adjusts UVC sliders and menus via POST /v4l",
             ),
         ]),
@@ -334,27 +334,27 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         capabilities: AssertedSet::established(vec![
             Rationaled::new(
-                CapabilityId("view_camera_streams".to_string()),
+                CapabilityId::ViewCameraStreams,
                 "GET /v4l and GET /streams REST routes list detected cameras and configured streams",
             ),
             Rationaled::new(
-                CapabilityId("configure_camera_stream".to_string()),
+                CapabilityId::ConfigureCameraStream,
                 "POST /streams creates stream encoding, resolution, framerate, and UDP/RTSP endpoints",
             ),
             Rationaled::new(
-                CapabilityId("remove_camera_stream".to_string()),
+                CapabilityId::RemoveCameraStream,
                 "DELETE /delete_stream removes a stream configuration from the camera manager",
             ),
             Rationaled::new(
-                CapabilityId("configure_uvc_device_controls".to_string()),
+                CapabilityId::ConfigureUvcDeviceControls,
                 "POST /v4l adjusts UVC camera control values such as brightness and exposure",
             ),
             Rationaled::new(
-                CapabilityId("provide_webrtc_signalling".to_string()),
+                CapabilityId::ProvideWebrtcSignalling,
                 "nginx /webrtc/ws/ proxies to 127.0.0.1:6021 adjacent to MCM REST on :6020; MCM is BlueOS's sole WebRTC video provider",
             ),
             Rationaled::new(
-                CapabilityId("advertise_cameras_over_mavlink".to_string()),
+                CapabilityId::AdvertiseCamerasOverMavlink,
                 "observed Mavlink Consumer tcpout:127.0.0.1:5777 with --mavlink-camera-component-id-range=100-105 advertises camera streams to the MAVLink router",
             ),
         ]),

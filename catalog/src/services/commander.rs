@@ -522,35 +522,35 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         journey_refs: AssertedSet::established(vec![
             Rationaled::new(
-                JourneyId("reboot_onboard_computer".into()),
+                JourneyId::RebootOnboardComputer,
                 "power menu POST /shutdown with reboot type restarts the companion computer",
             ),
             Rationaled::new(
-                JourneyId("shutdown_onboard_computer".into()),
+                JourneyId::ShutdownOnboardComputer,
                 "power menu POST /shutdown with poweroff type shuts down the companion computer",
             ),
             Rationaled::new(
-                JourneyId("sync_system_time".into()),
+                JourneyId::SyncSystemTime,
                 "App.vue load posts browser unix time to POST /set_time when drift exceeds five minutes",
             ),
             Rationaled::new(
-                JourneyId("enable_legacy_camera_support".into()),
+                JourneyId::EnableLegacyCameraSupport,
                 "video manager toggles POST /raspi_config/camera_legacy then chains reboot journey",
             ),
             Rationaled::new(
-                JourneyId("inspect_raspberry_eeprom_bootloader".into()),
+                JourneyId::InspectRaspberryEepromBootloader,
                 "firmware tab GET /raspi/vcgencmd and GET /raspi/eeprom_update report Pi bootloader state",
             ),
             Rationaled::new(
-                JourneyId("update_raspberry_eeprom_bootloader".into()),
+                JourneyId::UpdateRaspberryEepromBootloader,
                 "firmware tab POST /raspi/eeprom_update applies rpi-eeprom-update when versions are stale",
             ),
             Rationaled::new(
-                JourneyId("reset_blueos_settings".into()),
+                JourneyId::ResetBlueosSettings,
                 "settings page POST /settings/reset deletes service config while preserving bootstrap",
             ),
             Rationaled::new(
-                JourneyId("run_host_command".into()),
+                JourneyId::RunHostCommand,
                 "commander store POST /command/host runs arbitrary privileged shell commands",
             ),
         ]),
@@ -594,39 +594,39 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         capabilities: AssertedSet::established(vec![
             Rationaled::new(
-                CapabilityId("reboot_onboard_computer".to_string()),
+                CapabilityId::RebootOnboardComputer,
                 "POST /shutdown with ShutdownType.REBOOT schedules companion-computer reboot",
             ),
             Rationaled::new(
-                CapabilityId("shutdown_onboard_computer".to_string()),
+                CapabilityId::ShutdownOnboardComputer,
                 "POST /shutdown with ShutdownType.POWEROFF schedules companion-computer poweroff",
             ),
             Rationaled::new(
-                CapabilityId("sync_system_time".to_string()),
+                CapabilityId::SyncSystemTime,
                 "POST /set_time adjusts system clock via timedatectl when browser time drifts beyond five minutes",
             ),
             Rationaled::new(
-                CapabilityId("configure_legacy_camera".to_string()),
+                CapabilityId::ConfigureLegacyCamera,
                 "GET/POST /raspi_config/camera_legacy reads and sets raspi-config legacy camera mode",
             ),
             Rationaled::new(
-                CapabilityId("inspect_raspberry_eeprom".to_string()),
+                CapabilityId::InspectRaspberryEeprom,
                 "GET /raspi/vcgencmd and GET /raspi/eeprom_update report Pi firmware, bootloader, and EEPROM update status",
             ),
             Rationaled::new(
-                CapabilityId("update_raspberry_eeprom".to_string()),
+                CapabilityId::UpdateRaspberryEeprom,
                 "POST /raspi/eeprom_update applies available Pi EEPROM and USB-controller firmware updates",
             ),
             Rationaled::new(
-                CapabilityId("reset_blueos_settings".to_string()),
+                CapabilityId::ResetBlueosSettings,
                 "POST /settings/reset deletes BlueOS service settings while preserving bootstrap and ardupilot-manager state",
             ),
             Rationaled::new(
-                CapabilityId("run_host_command".to_string()),
+                CapabilityId::RunHostCommand,
                 "POST /command/host runs a caller-supplied shell command and returns stdout, stderr, and return code",
             ),
             Rationaled::new(
-                CapabilityId("setup_ssh".to_string()),
+                CapabilityId::SetupSsh,
                 "startup setup_ssh generates /root/.config/.ssh keys and appends the public key to the SSH user's authorized_keys",
             ),
         ]),

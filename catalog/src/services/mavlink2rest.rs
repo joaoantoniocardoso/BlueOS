@@ -275,7 +275,7 @@ pub fn service_definition() -> ServiceDefinition {
             "provisional 2.0 domain: bridge vehicle MAVLink telemetry and commands to HTTP REST and WebSocket consumers",
         ),
         journey_refs: AssertedSet::established(vec![Rationaled::new(
-            JourneyId("inspect_mavlink_messages_in_browser".into()),
+            JourneyId::InspectMavlinkMessagesInBrowser,
             "MAVLink Inspector page filters, lists, and expands live MAVLink messages from the vehicle stream",
         )]),
         tier: Asserted::established(
@@ -297,11 +297,11 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         capabilities: AssertedSet::established(vec![
             Rationaled::new(
-                CapabilityId("inspect_live_mavlink_messages".to_string()),
+                CapabilityId::InspectLiveMavlinkMessages,
                 "MAVLink Inspector WebSocket stream and REST message listing for operator inspection",
             ),
             Rationaled::new(
-                CapabilityId("access_mavlink_over_rest".to_string()),
+                CapabilityId::AccessMavlinkOverRest,
                 "observed Rest /mavlink2rest/ and Mavlink Consumer interfaces; MavlinkMessenger and frontend vehicle store POST/read MAVLink via localhost:6040",
             ),
         ]),

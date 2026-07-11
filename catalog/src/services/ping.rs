@@ -343,15 +343,15 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         journey_refs: AssertedSet::established(vec![
             Rationaled::new(
-                JourneyId("view_detected_sonar_devices".into()),
+                JourneyId::ViewDetectedSonarDevices,
                 "Ping Sonar Devices page lists auto-detected Ping1D and Ping360 sensors via GET /sensors",
             ),
             Rationaled::new(
-                JourneyId("connect_ping_viewer_to_sonar".into()),
+                JourneyId::ConnectPingViewerToSonar,
                 "operator uses the UDP bridge port shown on the device card to reach the sonar from Ping Viewer",
             ),
             Rationaled::new(
-                JourneyId("enable_ping1d_rangefinder_mavlink".into()),
+                JourneyId::EnablePing1dRangefinderMavlink,
                 "Ping1D card MAVLink Distances switch posts sensor settings to toggle mavlink_driver",
             ),
         ]),
@@ -374,15 +374,15 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         capabilities: AssertedSet::established(vec![
             Rationaled::new(
-                CapabilityId("list_detected_ping_sensors".to_string()),
+                CapabilityId::ListDetectedPingSensors,
                 "GET /sensors returns auto-detected Ping1D and Ping360 devices with bridge ports and serial paths",
             ),
             Rationaled::new(
-                CapabilityId("connect_ping_viewer_to_sonar".to_string()),
+                CapabilityId::ConnectPingViewerToSonar,
                 "per-device UDP bridge exposes the sonar on an assigned port for Ping Viewer on the surface computer",
             ),
             Rationaled::new(
-                CapabilityId("enable_ping1d_mavlink_distance".to_string()),
+                CapabilityId::EnablePing1dMavlinkDistance,
                 "POST /sensors persists Ping1D settings to toggle mavlink_driver DISTANCE_SENSOR forwarding via mavlink2rest",
             ),
         ]),

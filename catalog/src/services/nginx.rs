@@ -418,7 +418,7 @@ pub fn service_definition() -> ServiceDefinition {
             "provisional 2.0 domain: HTTP reverse proxy and frontend server — the vehicle's web front door",
         ),
         journey_refs: AssertedSet::established(vec![Rationaled::new(
-            JourneyId("access_blueos_web_interface".into()),
+            JourneyId::AccessBlueosWebInterface,
             "operator opens the BlueOS web interface in a browser via nginx port 80",
         )]),
         tier: Asserted::established(
@@ -443,23 +443,23 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         capabilities: AssertedSet::established(vec![
             Rationaled::new(
-                CapabilityId("access_blueos_web_interface".to_string()),
+                CapabilityId::AccessBlueosWebInterface,
                 "journey capability: nginx listens on port 80 and serves the frontend SPA at / for browser access to configure vehicle services",
             ),
             Rationaled::new(
-                CapabilityId("serve_frontend_spa".to_string()),
+                CapabilityId::ServeFrontendSpa,
                 "observed Rest / on port 80 serves static frontend from /home/pi/frontend at location /",
             ),
             Rationaled::new(
-                CapabilityId("reverse_proxy_backend_services".to_string()),
+                CapabilityId::ReverseProxyBackendServices,
                 "observed nginx.conf location blocks proxy_pass every catalog backend; sole HTTP ingress routing operator and frontend traffic to localhost services",
             ),
             Rationaled::new(
-                CapabilityId("serve_webdav_uploads".to_string()),
+                CapabilityId::ServeWebdavUploads,
                 "observed /upload/ WebDAV alias to /usr/blueos/ with dav_methods PUT DELETE MKCOL COPY MOVE and File write interface",
             ),
             Rationaled::new(
-                CapabilityId("cache_external_http".to_string()),
+                CapabilityId::CacheExternalHttp,
                 "observed /cache/ OutboundHttp proxy to https://$target with resolver 8.8.8.8 for outbound HTTPS caching",
             ),
         ]),

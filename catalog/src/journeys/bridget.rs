@@ -26,15 +26,14 @@ pub fn journeys() -> Vec<UserJourney> {
 
 fn view_configured_serial_bridges() -> UserJourney {
     UserJourney {
-        id: JourneyId("view_configured_serial_bridges".into()),
+        id: JourneyId::ViewConfiguredSerialBridges,
         summary: Grounded::known(
             "View and manage configured bridges between serial and UDP/TCP endpoints".into(),
             Provenance::doc(OVERVIEW, 132),
         ),
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 568)),
         services: bridget_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            "list_configured_serial_bridges",
+        capability_refs: GroundedSet::known(vec![cap(CapabilityId::ListConfiguredSerialBridges,
             "Serial Bridges page lists configured bridges and available serial ports",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -86,7 +85,7 @@ fn view_configured_serial_bridges() -> UserJourney {
 
 fn create_serial_to_udp_bridge() -> UserJourney {
     UserJourney {
-        id: JourneyId("create_serial_to_udp_bridge".into()),
+        id: JourneyId::CreateSerialToUdpBridge,
         summary: Grounded::known(
             "Create a high-performance link between a serial device connected to the onboard computer and a UDP port"
                 .into(),
@@ -94,8 +93,7 @@ fn create_serial_to_udp_bridge() -> UserJourney {
         ),
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 572)),
         services: bridget_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            "create_serial_to_udp_bridge",
+        capability_refs: GroundedSet::known(vec![cap(CapabilityId::CreateSerialToUdpBridge,
             "creation dialog submits serial path, baud, IP, and UDP ports to start a bridge",
         )]),
         preconditions: GroundedSet::known(vec![
@@ -176,15 +174,14 @@ fn create_serial_to_udp_bridge() -> UserJourney {
 
 fn remove_serial_bridge() -> UserJourney {
     UserJourney {
-        id: JourneyId("remove_serial_bridge".into()),
+        id: JourneyId::RemoveSerialBridge,
         summary: Grounded::known(
             "Remove a configured serial bridge from the Serial Bridges page".into(),
             Provenance::source(BRIDGET_CARD, 60),
         ),
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 568)),
         services: bridget_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            "remove_serial_bridge",
+        capability_refs: GroundedSet::known(vec![cap(CapabilityId::RemoveSerialBridge,
             "bridge card remove button deletes the matching serial path and UDP endpoint",
         )]),
         preconditions: GroundedSet::known(vec![
@@ -227,8 +224,8 @@ fn remove_serial_bridge() -> UserJourney {
     }
 }
 
-fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
-    GroundedItem::new(CapabilityId(id.into()), Provenance::asserted(rationale))
+fn cap(id: CapabilityId, rationale: &str) -> GroundedItem<CapabilityId> {
+    GroundedItem::new(id, Provenance::asserted(rationale))
 }
 
 fn bridget_services() -> GroundedSet<ServiceId> {

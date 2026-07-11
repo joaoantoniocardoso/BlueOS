@@ -21,15 +21,14 @@ pub fn journeys() -> Vec<UserJourney> {
 
 fn browse_video_recordings() -> UserJourney {
     UserJourney {
-        id: JourneyId("browse_video_recordings".into()),
+        id: JourneyId::BrowseVideoRecordings,
         summary: Grounded::known(
             "Browse, preview, and download recorded MP4 sessions".into(),
             Provenance::source(RECORDER_MENUS, 139),
         ),
         visibility: Grounded::known(Visibility::Default, Provenance::source(RECORDER_MENUS, 138)),
         services: recorder_extractor_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            "browse_video_recordings",
+        capability_refs: GroundedSet::known(vec![cap(CapabilityId::BrowseVideoRecordings,
             "Records page lists MP4 recordings with thumbnails and MCAP extraction processing status",
         )]),
         preconditions: GroundedSet::known(vec![]),
@@ -98,15 +97,14 @@ fn browse_video_recordings() -> UserJourney {
 
 fn download_video_recording() -> UserJourney {
     UserJourney {
-        id: JourneyId("download_video_recording".into()),
+        id: JourneyId::DownloadVideoRecording,
         summary: Grounded::known(
             "Download or stream an MP4 recording from the Records gallery".into(),
             Provenance::source(RECORDER_MENUS, 139),
         ),
         visibility: Grounded::known(Visibility::Default, Provenance::source(RECORDER_MENUS, 138)),
         services: recorder_extractor_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            "download_video_recording",
+        capability_refs: GroundedSet::known(vec![cap(CapabilityId::DownloadVideoRecording,
             "download button or in-dialog player streams the MP4 via GET /files/{filename}",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -163,15 +161,14 @@ fn download_video_recording() -> UserJourney {
 
 fn delete_video_recording() -> UserJourney {
     UserJourney {
-        id: JourneyId("delete_video_recording".into()),
+        id: JourneyId::DeleteVideoRecording,
         summary: Grounded::known(
             "Delete a recording".into(),
             Provenance::source(RECORDER_MAIN, 397),
         ),
         visibility: Grounded::known(Visibility::Default, Provenance::source(RECORDER_MENUS, 138)),
         services: recorder_extractor_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            "delete_video_recording",
+        capability_refs: GroundedSet::known(vec![cap(CapabilityId::DeleteVideoRecording,
             "recording card delete button removes the MP4 file via DELETE /files/{filename}",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -213,8 +210,8 @@ fn delete_video_recording() -> UserJourney {
     }
 }
 
-fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
-    GroundedItem::new(CapabilityId(id.into()), Provenance::asserted(rationale))
+fn cap(id: CapabilityId, rationale: &str) -> GroundedItem<CapabilityId> {
+    GroundedItem::new(id, Provenance::asserted(rationale))
 }
 
 fn recorder_extractor_services() -> GroundedSet<ServiceId> {

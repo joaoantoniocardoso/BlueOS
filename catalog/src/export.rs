@@ -161,7 +161,7 @@ mod tests {
         use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
 
         let journey = UserJourney {
-            id: JourneyId("deploy".to_string()),
+            id: JourneyId::Deploy,
             summary: Grounded::known(
                 "deploy vehicle".to_string(),
                 Provenance::doc("docs/deploy.md", 1),

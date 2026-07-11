@@ -26,7 +26,7 @@ pub fn journeys() -> Vec<UserJourney> {
 
 fn assign_static_ip_address() -> UserJourney {
     UserJourney {
-        id: JourneyId("assign_static_ip_address".into()),
+        id: JourneyId::AssignStaticIpAddress,
         summary: Grounded::known(
             "Assign a static IP address to a wired ethernet or USB-OTG interface".into(),
             Provenance::doc(ADV, 99),
@@ -34,7 +34,7 @@ fn assign_static_ip_address() -> UserJourney {
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 98)),
         services: cable_guy_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "assign_static_ip",
+            CapabilityId::AssignStaticIp,
             "ethernet tray adds a static IPv4 address to the selected interface",
         )]),
         preconditions: GroundedSet::known(vec![]),
@@ -69,7 +69,7 @@ fn assign_static_ip_address() -> UserJourney {
 
 fn acquire_dynamic_ip_address() -> UserJourney {
     UserJourney {
-        id: JourneyId("acquire_dynamic_ip_address".into()),
+        id: JourneyId::AcquireDynamicIpAddress,
         summary: Grounded::known(
             "Request a dynamic IP address on a wired ethernet or USB-OTG interface".into(),
             Provenance::doc(ADV, 100),
@@ -77,7 +77,7 @@ fn acquire_dynamic_ip_address() -> UserJourney {
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 98)),
         services: cable_guy_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "acquire_dynamic_ip",
+            CapabilityId::AcquireDynamicIp,
             "ethernet tray triggers DHCP client acquisition on the selected interface",
         )]),
         preconditions: GroundedSet::known(vec![]),
@@ -106,7 +106,7 @@ fn acquire_dynamic_ip_address() -> UserJourney {
 
 fn enable_onboard_dhcp_server() -> UserJourney {
     UserJourney {
-        id: JourneyId("enable_onboard_dhcp_server".into()),
+        id: JourneyId::EnableOnboardDhcpServer,
         summary: Grounded::known(
             "Enable the onboard DHCP server on a wired interface, optionally as a backup server"
                 .into(),
@@ -115,7 +115,7 @@ fn enable_onboard_dhcp_server() -> UserJourney {
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 98)),
         services: cable_guy_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "enable_dhcp_server",
+            CapabilityId::EnableDhcpServer,
             "ethernet tray starts a local DHCP server on the interface gateway address",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -151,7 +151,7 @@ fn enable_onboard_dhcp_server() -> UserJourney {
 
 fn disable_onboard_dhcp_server() -> UserJourney {
     UserJourney {
-        id: JourneyId("disable_onboard_dhcp_server".into()),
+        id: JourneyId::DisableOnboardDhcpServer,
         summary: Grounded::known(
             "Disable the onboard DHCP server on a wired interface".into(),
             Provenance::source(INTERFACE_CARD, 68),
@@ -159,7 +159,7 @@ fn disable_onboard_dhcp_server() -> UserJourney {
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 98)),
         services: cable_guy_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "disable_dhcp_server",
+            CapabilityId::DisableDhcpServer,
             "ethernet tray removes the local DHCP server from the selected interface",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -191,7 +191,7 @@ fn disable_onboard_dhcp_server() -> UserJourney {
 
 fn set_network_interface_priority() -> UserJourney {
     UserJourney {
-        id: JourneyId("set_network_interface_priority".into()),
+        id: JourneyId::SetNetworkInterfacePriority,
         summary: Grounded::known(
             "Reorder network interfaces to choose which connection is preferred for internet access"
                 .into(),
@@ -199,8 +199,7 @@ fn set_network_interface_priority() -> UserJourney {
         ),
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 144)),
         services: cable_guy_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            "set_interface_priority",
+        capability_refs: GroundedSet::known(vec![cap(CapabilityId::SetInterfacePriority,
             "internet tray persists interface metric ordering used for default routes",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -244,7 +243,7 @@ fn set_network_interface_priority() -> UserJourney {
 
 fn configure_host_dns() -> UserJourney {
     UserJourney {
-        id: JourneyId("configure_host_dns".into()),
+        id: JourneyId::ConfigureHostDns,
         summary: Grounded::known(
             "View and configure host DNS nameservers applied to /etc/resolv.conf".into(),
             Provenance::doc(ADV, 153),
@@ -252,7 +251,7 @@ fn configure_host_dns() -> UserJourney {
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 152)),
         services: cable_guy_services(),
         capability_refs: GroundedSet::known(vec![cap(
-            "configure_host_dns",
+            CapabilityId::ConfigureHostDns,
             "internet tray updates locked host nameserver entries via cable_guy",
         )]),
         preconditions: GroundedSet::known(vec![GroundedItem::new(
@@ -288,8 +287,8 @@ fn configure_host_dns() -> UserJourney {
     }
 }
 
-fn cap(id: &str, rationale: &str) -> GroundedItem<CapabilityId> {
-    GroundedItem::new(CapabilityId(id.into()), Provenance::asserted(rationale))
+fn cap(id: CapabilityId, rationale: &str) -> GroundedItem<CapabilityId> {
+    GroundedItem::new(id, Provenance::asserted(rationale))
 }
 
 fn cable_guy_services() -> GroundedSet<ServiceId> {
