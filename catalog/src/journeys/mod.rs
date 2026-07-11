@@ -1,6 +1,7 @@
 mod ardupilot_manager;
 mod bag_of_holding;
 mod beacon;
+mod bridget;
 mod cable_guy;
 mod commander;
 mod customization;
@@ -19,6 +20,7 @@ pub fn all_journeys() -> Vec<UserJourney> {
     let mut journeys = ardupilot_manager::journeys();
     journeys.extend(bag_of_holding::journeys());
     journeys.extend(beacon::journeys());
+    journeys.extend(bridget::journeys());
     journeys.extend(cable_guy::journeys());
     journeys.extend(commander::journeys());
     journeys.extend(customization::journeys());

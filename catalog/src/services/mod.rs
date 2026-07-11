@@ -1,6 +1,7 @@
 pub mod ardupilot_manager;
 pub mod bag_of_holding;
 pub mod beacon;
+pub mod bridget;
 pub mod cable_guy;
 pub mod commander;
 pub mod customization;
@@ -22,6 +23,7 @@ pub fn all_observed() -> Vec<ObservedFacts> {
         ardupilot_manager::observed_facts(),
         bag_of_holding::observed_facts(),
         beacon::observed_facts(),
+        bridget::observed_facts(),
         cable_guy::observed_facts(),
         commander::observed_facts(),
         customization::observed_facts(),
@@ -41,6 +43,7 @@ pub fn all_runtime() -> Vec<RuntimeFacts> {
         ardupilot_manager::runtime_facts(),
         bag_of_holding::runtime_facts(),
         beacon::runtime_facts(),
+        bridget::runtime_facts(),
         cable_guy::runtime_facts(),
         commander::runtime_facts(),
         customization::runtime_facts(),
@@ -60,6 +63,7 @@ pub fn all_service_definitions() -> Vec<ServiceDefinition> {
         ardupilot_manager::service_definition(),
         bag_of_holding::service_definition(),
         beacon::service_definition(),
+        bridget::service_definition(),
         cable_guy::service_definition(),
         commander::service_definition(),
         customization::service_definition(),
