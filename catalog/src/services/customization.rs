@@ -1,9 +1,14 @@
-use crate::id::{PathRef, PortRef, ServiceId};
+use crate::criticality::CriticalityTier;
+use crate::id::{CapabilityId, JourneyId, PathRef, PortRef, ServiceId};
 use crate::interface::{FileAccessMode, Interface};
-use crate::lifecycle::ObservedLifecycle;
+use crate::lifecycle::{Lifecycle, ObservedLifecycle};
 use crate::observed::{ObservedFacts, ResourceLimits, ServiceKind, StartupTier};
-use crate::provenance::{Evidence, Evidenced, Observed, ObservedSet};
+use crate::provenance::{
+    Asserted, AssertedSet, Evidence, Evidenced, Observed, ObservedSet, Rationaled,
+};
 use crate::resource::{Resource, ResourceOwnership};
+use crate::service::{Authority, ServiceDefinition};
+use crate::trust::{PrivilegeLevel, UserConfirmation};
 
 pub fn observed_facts() -> ObservedFacts {
     ObservedFacts {
@@ -242,5 +247,255 @@ pub fn observed_facts() -> ObservedFacts {
             },
         ),
         openapi_refs: ObservedSet::unknown("not yet extracted"),
+    }
+}
+
+pub fn service_definition() -> ServiceDefinition {
+    ServiceDefinition {
+        id: ServiceId("customization".to_string()),
+        singleton: Asserted::established(
+            true,
+            "single SERVICES-tier tmux instance; one customization process owns userdata branding assets",
+        ),
+        bounded_context: Asserted::established(
+            "ui-branding-and-theming".to_string(),
+            "provisional 2.0 domain: white-label theme color, logo/vehicle-image branding, and 3D model overrides",
+        ),
+        journey_refs: AssertedSet::established(vec![
+            Rationaled::new(
+                JourneyId("change_ui_theme_color".into()),
+                "Settings Appearance panel saves a primary color and regenerates theme CSS",
+            ),
+            Rationaled::new(
+                JourneyId("reset_ui_theme_color".into()),
+                "Settings Appearance panel resets theme config and restores default BlueOS colors",
+            ),
+            Rationaled::new(
+                JourneyId("upload_custom_logo".into()),
+                "Settings Customization panel uploads a square company logo image",
+            ),
+            Rationaled::new(
+                JourneyId("remove_custom_logo".into()),
+                "Settings Customization panel removes the uploaded logo and reverts to default branding",
+            ),
+            Rationaled::new(
+                JourneyId("upload_custom_vehicle_image".into()),
+                "Settings Customization panel uploads a square vehicle image for the interface",
+            ),
+            Rationaled::new(
+                JourneyId("remove_custom_vehicle_image".into()),
+                "Settings Customization panel removes the uploaded vehicle image asset",
+            ),
+            Rationaled::new(
+                JourneyId("upload_3d_model_override".into()),
+                "Settings Customization panel uploads a .glb model served under userdata/modeloverrides/",
+            ),
+            Rationaled::new(
+                JourneyId("delete_3d_model_override".into()),
+                "Settings Customization panel deletes a model from the override list",
+            ),
+        ]),
+        tier: Asserted::established(
+            CriticalityTier::Auxiliary,
+            "SERVICES startup tier; vehicle control and core functions work without custom theme, logo, or model assets",
+        ),
+        offline_required: Asserted::established(
+            true,
+            "theme, branding, and model overrides persist under local /usr/blueos/userdata without network access",
+        ),
+        privilege_level: Asserted::established(
+            PrivilegeLevel::Root,
+            "observed run_as root; writes theme CSS, branding images, and model files under userdata",
+        ),
+        dangerous_operations: AssertedSet::established(vec![]),
+        user_confirmation: Asserted::established(
+            UserConfirmation::NotRequired,
+            "dangerous_operations empty per rubric v1.0; theme, branding, and model changes are reversible reconfiguration, not irreversible destructive ops",
+        ),
+        capabilities: AssertedSet::established(vec![
+            Rationaled::new(
+                CapabilityId("set_theme_color".to_string()),
+                "PUT /theme saves primary color to theme_config.json and regenerates theme_style.css",
+            ),
+            Rationaled::new(
+                CapabilityId("reset_theme_color".to_string()),
+                "DELETE /theme removes theme config and restores default primary color CSS",
+            ),
+            Rationaled::new(
+                CapabilityId("get_theme_configuration".to_string()),
+                "GET /theme returns current primary color, palette, and css_url for the web UI",
+            ),
+            Rationaled::new(
+                CapabilityId("upload_branding_logo".to_string()),
+                "POST /branding/logo stores a custom company logo image under userdata/branding/",
+            ),
+            Rationaled::new(
+                CapabilityId("remove_branding_logo".to_string()),
+                "DELETE /branding/logo removes the custom logo file and reverts to default branding",
+            ),
+            Rationaled::new(
+                CapabilityId("get_branding_logo".to_string()),
+                "GET /branding/logo returns the current custom logo URL and size, if any",
+            ),
+            Rationaled::new(
+                CapabilityId("upload_branding_vehicle_image".to_string()),
+                "POST /branding/vehicle-image stores a custom vehicle image under userdata/branding/",
+            ),
+            Rationaled::new(
+                CapabilityId("remove_branding_vehicle_image".to_string()),
+                "DELETE /branding/vehicle-image removes the custom vehicle image asset",
+            ),
+            Rationaled::new(
+                CapabilityId("get_branding_vehicle_image".to_string()),
+                "GET /branding/vehicle-image returns the current custom vehicle image URL and size, if any",
+            ),
+            Rationaled::new(
+                CapabilityId("upload_model_override".to_string()),
+                "POST /models uploads a .glb file into userdata/modeloverrides/",
+            ),
+            Rationaled::new(
+                CapabilityId("delete_model_override".to_string()),
+                "DELETE /models/{name} removes an uploaded model override file",
+            ),
+            Rationaled::new(
+                CapabilityId("list_model_overrides".to_string()),
+                "GET /models lists uploaded model override entries with URLs and sizes",
+            ),
+        ]),
+        authorities: AssertedSet::established(vec![Rationaled::new(
+            Authority::Other("ui_branding_manager".to_string()),
+            "sole writer of /usr/blueos/userdata styles, branding, and modeloverrides assets served by the customization API; bag_of_holding separately stores sidebar vehicle images in db.json",
+        )]),
+        states: AssertedSet::unknown(
+            "no cataloged state machine; theme, branding, and model handlers are stateless request handlers",
+        ),
+        edges: AssertedSet::unknown(
+            "no outbound coupling to other catalog services; frontend reaches customization via nginx REST only",
+        ),
+        resources: AssertedSet::established(vec![
+            Rationaled::new(
+                Resource {
+                    path: PathRef("/usr/blueos/userdata/styles/theme_config.json".to_string()),
+                    ownership: ResourceOwnership::SharedWrite,
+                },
+                "persisted primary color JSON consumed by GET /theme and regenerated CSS",
+            ),
+            Rationaled::new(
+                Resource {
+                    path: PathRef("/usr/blueos/userdata/styles/theme_style.css".to_string()),
+                    ownership: ResourceOwnership::SharedWrite,
+                },
+                "generated theme CSS linked by the web UI at /userdata/styles/theme_style.css",
+            ),
+            Rationaled::new(
+                Resource {
+                    path: PathRef("/usr/blueos/userdata/branding".to_string()),
+                    ownership: ResourceOwnership::SharedWrite,
+                },
+                "directory for custom logo and Settings-panel vehicle image assets",
+            ),
+            Rationaled::new(
+                Resource {
+                    path: PathRef("/usr/blueos/userdata/modeloverrides".to_string()),
+                    ownership: ResourceOwnership::SharedWrite,
+                },
+                "directory for uploaded .glb 3D model overrides served to Vehicle Setup",
+            ),
+        ]),
+        lifecycle: Lifecycle {
+            triggers: Asserted::established(
+                vec!["start-blueos-core create_service".to_string()],
+                "observed lifecycle trigger: tmux creation at boot in SERVICES tier",
+            ),
+            ordered_after: Asserted::established(
+                vec![
+                    ServiceId("autopilot".to_string()),
+                    ServiceId("cable_guy".to_string()),
+                    ServiceId("video".to_string()),
+                    ServiceId("mavlink2rest".to_string()),
+                    ServiceId("kraken".to_string()),
+                    ServiceId("wifi".to_string()),
+                    ServiceId("zenohd".to_string()),
+                    ServiceId("beacon".to_string()),
+                    ServiceId("bridget".to_string()),
+                    ServiceId("commander".to_string()),
+                    ServiceId("nmea_injector".to_string()),
+                    ServiceId("helper".to_string()),
+                    ServiceId("iperf3".to_string()),
+                    ServiceId("linux2rest".to_string()),
+                    ServiceId("filebrowser".to_string()),
+                    ServiceId("versionchooser".to_string()),
+                    ServiceId("pardal".to_string()),
+                    ServiceId("ping".to_string()),
+                    ServiceId("user_terminal".to_string()),
+                    ServiceId("ttyd".to_string()),
+                    ServiceId("nginx".to_string()),
+                    ServiceId("bag_of_holding".to_string()),
+                    ServiceId("recorder".to_string()),
+                    ServiceId("recorder_extractor".to_string()),
+                    ServiceId("disk_usage".to_string()),
+                ],
+                "observed ordered_after in start-blueos-core SERVICES block",
+            ),
+            ordered_before: Asserted::established(
+                vec![],
+                "observed ordered_before is empty; customization is last in the SERVICES startup list",
+            ),
+            shutdown: Asserted::established(
+                "uvicorn server exit logs Customization service stopped".to_string(),
+                "main.py finally block after server.serve returns",
+            ),
+            upgrade_behavior: Asserted::unknown(
+                "BlueOS upgrade semantics for persisted userdata branding assets and in-flight uploads not traced in service source",
+            ),
+        },
+        health: Asserted::established(
+            "implicit: process liveness via tmux; REST GET / returns service name".to_string(),
+            "no dedicated /health route; uvicorn availability serves as health signal",
+        ),
+        is_platform: Asserted::established(
+            false,
+            "white-label branding utility; does not install or host third-party extensions",
+        ),
+        api_stable: Asserted::established(
+            true,
+            "versioned FastAPI v1.0 router exposed under /customization/ via VersionedFastAPI",
+        ),
+        permissions_model: Asserted::established(
+            "no separate permissions manifest; REST routes are unauthenticated".to_string(),
+            "customization routes have no auth decorator or extension-style permissions JSON",
+        ),
+        failure_modes: AssertedSet::established(vec![
+            Rationaled::new(
+                "invalid_theme_color".to_string(),
+                "PUT /theme returns 400 when parse_hex rejects the primary color value",
+            ),
+            Rationaled::new(
+                "upload_size_exceeded".to_string(),
+                "save_upload returns 413 when an uploaded file exceeds the configured size limit",
+            ),
+            Rationaled::new(
+                "invalid_file_extension".to_string(),
+                "branding and model uploads return 400 for disallowed image or model suffixes",
+            ),
+            Rationaled::new(
+                "model_not_found".to_string(),
+                "DELETE /models/{name} returns 404 when the requested override file does not exist",
+            ),
+            Rationaled::new(
+                "path_traversal_blocked".to_string(),
+                "safe_join rejects model paths that escape userdata/modeloverrides via traversal",
+            ),
+        ]),
+        blast_radius: Asserted::established(
+            "custom theme, branding, and 3D model overrides unavailable; core vehicle services and MAVLink unaffected"
+                .to_string(),
+            "customization outage reverts the UI to default theme and assets but does not block autopilot or nginx core paths",
+        ),
+        compatibility_policy: Asserted::unknown(
+            "API deprecation policy and allowed asset format evolution not established from source",
+        ),
+        team: Asserted::unknown("no CODEOWNERS or team metadata in observed artifact"),
+        adr_refs: AssertedSet::unknown("no ADR references found in service source tree"),
     }
 }

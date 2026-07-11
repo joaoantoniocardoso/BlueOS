@@ -11,7 +11,6 @@ const CUSTOMIZATION_STORE: &str = "core/frontend/src/store/customization.ts";
 const THEME_CUSTOMIZATION: &str =
     "core/frontend/src/components/customization/ThemeCustomization.vue";
 
-#[allow(dead_code)]
 pub fn journeys() -> Vec<UserJourney> {
     vec![
         change_ui_theme_color(),

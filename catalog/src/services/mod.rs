@@ -52,6 +52,7 @@ pub fn all_service_definitions() -> Vec<ServiceDefinition> {
         beacon::service_definition(),
         cable_guy::service_definition(),
         commander::service_definition(),
+        customization::service_definition(),
         disk_usage::service_definition(),
         helper::service_definition(),
         kraken::service_definition(),

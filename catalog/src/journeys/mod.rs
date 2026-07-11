@@ -18,6 +18,7 @@ pub fn all_journeys() -> Vec<UserJourney> {
     journeys.extend(beacon::journeys());
     journeys.extend(cable_guy::journeys());
     journeys.extend(commander::journeys());
+    journeys.extend(customization::journeys());
     journeys.extend(disk_usage::journeys());
     journeys.extend(helper::journeys());
     journeys.extend(kraken::journeys());
