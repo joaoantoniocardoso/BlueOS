@@ -77,11 +77,6 @@ allowed for services with no meaningful runtime or unreachable. Update after eac
 |---|---|---|---|---|---|---|---|---|---|
 | 1 | autopilot | ardupilot_manager | 8000 /ardupilot-manager/ | python | DONE | DONE | DONE | DONE | ad5950b93 |
 | 2 | kraken | kraken | 9134 /kraken/ | python | DONE | DONE | DONE | DONE | e5ffdaf8a (+Phase1) |
-| 3 | cable_guy | cable_guy | ? /cable-guy/ | python | TODO | TODO | TODO | TODO | |
-| 4 | video | mavlink-camera-manager | 6020? | binary | TODO | TODO | TODO | TODO | |
-| 5 | mavlink2rest | mavlink2rest | 6040 | binary | TODO | TODO | TODO | TODO | |
-| 6 | wifi | wifi | ? /wifi-manager/ | python | TODO | TODO | TODO | TODO | |
-| 7 | zenohd | zenohd | 7447 | binary | TODO | TODO | TODO | TODO | |
 | 8 | beacon | beacon | 9111 /beacon/ | python | DONE | DONE | DONE | DONE | FULLY MODELED; mDNS = harness gap (no Interface variant) |
 | 9 | cable_guy | cable_guy | 9090 /cable-guy/ | python | DONE | DONE | DONE | DONE | FULLY MODELED; netlink/D-Bus mutation = harness gap |
 | 10 | wifi | wifi | 9000 /wifi-manager/ | python | DONE | DONE | DONE | DONE | FULLY MODELED; wpa ctrl-socket/D-Bus = harness gap |
@@ -103,30 +98,15 @@ allowed for services with no meaningful runtime or unreachable. Update after eac
 | 26 | filebrowser | filebrowser | 7777 /file-browser/ | **BINARY** (Go) | DONE | DONE | DONE | DONE | FULLY MODELED; web file manager; Normal tier mem 250 nice -19; Rest :7777 + db /etc/filebrowser/filebrowser.db; 1 journey (manage_blueos_files, Advanced vis, embedded SPA route:None); tier Auxiliary; **dangerous_ops=arbitrary_file_mutation user_confirmation Required (edit/delete/move root files)**; authorities file_browser; edges=[]; runtime idle ~15.9MB, /file-browser/ 200 + /health 200 ("status":"OK"), /api auth-gated 401 |
 | 27 | recorder | recorder | (none, no HTTP) | **BINARY** (Rust ext.) | DONE | DONE(empty) | DONE | DONE | FULLY MODELED; blueos-recorder background daemon; Normal tier mem 250; NO nginx route, empty interfaces (no citable zenoh flag) + resource /usr/blueos/userdata/recorder SharedWrite; ZERO journeys (background daemon, UI is recorder_extractor); tier Auxiliary; dangerous_ops=[] (additive MCAP writes); authorities session_recorder; **edges recorder->recorder_extractor via Bus::File (required_at_boot=false, first filesystem edge)**; runtime PID 1272 ~9.4MB RSS ~6% idle CPU, recording dir empty (idle); binary reports v0.1.0 (bootstrap says 0.0.5) |
 | 28 | user_terminal | user_terminal | (none, no HTTP) | **SHELL** (tmux) | DONE | DONE(empty) | DONE | DONE | FULLY MODELED (LAST); interactive root-shell tmux session; Normal tier mem 0 cpu 0; entrypoint `cat /etc/motd`; kind Shell; empty interfaces/resources; ZERO journeys (web-terminal journey lives on ttyd); tier Auxiliary; 1 cap provide_interactive_root_shell; dangerous_ops=[] (root-shell hazard surfaced via ttyd, not double-counted); authorities=[]; edges=[] leaf; **RESOLVED ttyd->user_terminal edge via Bus::Subprocess (required_at_boot=false, self-heals via `tmux attach||tmux new`)**; runtime session alive since boot, idle bash PID 1040 ~2.5MB ~0% CPU |
-| 9 | bridget | bridget | ? /bridget/ | python | TODO | TODO | TODO | TODO | |
 | 10 | commander | commander | 9100 /commander/ | python | DONE | DONE | DONE | DONE | FULLY MODELED (RSS~35MB; read-only SLO; dangerous POSTs Unknown by design) |
-| 11 | nmea_injector | nmea_injector | ? /nmea-injector/ | python | TODO | TODO | TODO | TODO | |
 | 12 | helper | helper | 81 /helper/ | python | DONE | DONE | DONE | DONE | FULLY MODELED (RSS~62MB, cpu~1.06%; v1.0 GETs) |
-| 13 | iperf3 | iperf3 | 5201 | binary | TODO | TODO | TODO | TODO | |
-| 14 | linux2rest | linux2rest | ? | binary | TODO | TODO | TODO | TODO | |
-| 15 | filebrowser | filebrowser | ? /file-browser | binary | TODO | TODO | TODO | TODO | |
-| 16 | versionchooser | versionchooser | ? /version-chooser/ | python | TODO | TODO | TODO | TODO | |
-| 17 | pardal | pardal | 9120? /pardal/ | python | TODO | TODO | TODO | TODO | |
-| 18 | ping | ping | ? /ping/ | python | TODO | TODO | TODO | TODO | |
-| 19 | user_terminal | user_terminal | - | shell(motd) | TODO | TODO | TODO | n/a | trivial: cat /etc/motd |
-| 20 | ttyd | ttyd | 8088 /terminal/ | binary | TODO | TODO | TODO | TODO | |
-| 21 | nginx | nginx | 80 | binary | TODO | TODO | TODO | TODO | reverse proxy (authority) |
-| 22 | bag_of_holding | bag_of_holding | ? /bag/ | python | TODO | TODO | TODO | TODO | |
-| 23 | recorder | recorder | ? | binary | TODO | TODO | TODO | TODO | blueos-recorder |
-| 24 | recorder_extractor | recorder_extractor | ? | python | TODO | TODO | TODO | TODO | |
 | 25 | disk_usage | disk_usage | 9151 /disk-usage/ | python | DONE | DONE | DONE | DONE | FULLY MODELED (RSS~35MB, cpu~0.29%; du/ heavy) |
-| 26 | customization | customization | ? /bootstrap? | python | TODO | TODO | TODO | TODO | |
 
-> Ports/prefixes marked `?` must be confirmed from `nginx.conf` + argparse during that service's recon.
-> Suggested order: cheap python services with clear nginx routes first (disk_usage, helper, commander,
-> beacon, cable_guy, wifi, versionchooser, bag_of_holding, customization, nmea_injector, pardal, ping,
-> bridget, recorder_extractor), then binaries (mavlink2rest, linux2rest, video, zenohd, nginx, ttyd,
-> iperf3, filebrowser, recorder), then user_terminal (trivial).
+> LEDGER NOTE (2026-07-11): all stale duplicate `TODO` rows from the initial draft were removed after
+> verifying each service is genuinely 4-layer DONE (observed+journeys+asserted+runtime, wired into
+> mod.rs). The table now lists every one of the 26 distinct services exactly once, all DONE. Row `#`
+> values are historical draft ids (not contiguous) — the authoritative completeness signal is the
+> per-service 4-layer wiring in `catalog/src/services/mod.rs`, cross-checked green by `bash gate.sh`.
 
 ---
 
