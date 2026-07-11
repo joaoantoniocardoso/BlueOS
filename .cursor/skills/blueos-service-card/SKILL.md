@@ -26,7 +26,7 @@ You are the **Card Author**. Author the asserted semantics for exactly **one** s
 
 ## Wrapping asserted fields
 
-Scalar fields use `Asserted<T>` (one rationale). Collection fields (`authorities`, `capabilities`, `edges`, `resources`, `user_journeys`, `dangerous_operations`, `states`, `failure_modes`, `adr_refs`) use `AssertedSet<T>` — **each item carries its own `rationale`** via `Rationaled::new`.
+Scalar fields use `Asserted<T>` (one rationale). Collection fields (`authorities`, `capabilities`, `edges`, `resources`, `journey_refs`, `dangerous_operations`, `states`, `failure_modes`, `adr_refs`) use `AssertedSet<T>` — **each item carries its own `rationale`** via `Rationaled::new`.
 
 ```rust
 tier: Asserted::established(CriticalityTier::VehicleCritical, "vehicle uncontrollable if this dies"),
@@ -44,6 +44,30 @@ bounded_context: Asserted::unknown("defer until clustering; provisional guess on
 - **Interface** = *how* a capability is reached (already observed).
 - **Edge** = who talks to whom on which bus (target observed; purpose/impact asserted).
 - **Resource** = what it owns/shares (path observed; ownership mode asserted).
+
+## Decision rules — FROZEN RUBRIC v1.0
+
+These rules make the ambiguous judgment fields deterministic. They were frozen after an
+inter-rater calibration (two independent raters on `ardupilot_manager` + `kraken`): hard
+enum/bool agreement was 13/14 (93%); every disagreement traced to an under-specified
+definition below, not a data error. Apply them exactly; deviating requires a rationale.
+
+1. **`user_confirmation`** — `Required` **iff `dangerous_operations` is non-empty**. This is a
+   2.0 *policy* judgment (should the UX force explicit confirmation?), independent of whether
+   today's server enforces a gate. Use `NotRequired` only when there are zero dangerous ops.
+2. **`dangerous_operations`** — include an operation **only** if it is (a) irreversible/destructive
+   (`firmware_flash`, `settings_reset`, data wipe), (b) executes untrusted/third-party code
+   (`other:"install_arbitrary_docker_image"`, `other:"run_privileged_containers"`), or (c) forces an
+   unsafe physical vehicle state (`vehicle_arm`). Do **not** include routine, reversible lifecycle
+   control (start/stop/restart) or reversible reconfiguration — those live in journeys/states.
+   Prefer enum variants; use `Other("snake_case")` only for domain ops (controlled labels above).
+3. **`authorities`** — record an Authority **only** for an exclusive, system-wide right other
+   services depend on: sole MAVLink router, sole nginx proxy, sole zenoh broker, sole holder of a
+   hardware device, or sole writer of a userdata path that **other** services read. A service
+   writing only its **own private** settings (that nobody else consumes) is a `Resource`, not an
+   authority. For `hardware_exclusive`, cite the stable udev alias (e.g. `/dev/autopilot`), not a glob.
+4. **`bounded_context`** — provisional kebab-case domain; **semantic** equivalence suffices (exact
+   string not required). Clustering will canonicalize later.
 
 ## BlueOS-specific checklist (answer each, cite reasoning)
 
@@ -67,7 +91,7 @@ Card checklist for <id>:
 |-------|----------|
 | `capabilities` | Verbs, grounded in observed interfaces |
 | `authorities` | Exclusive rights only; each must be unique across the catalog (validation enforces) |
-| `tier` (criticality) | `VehicleCritical` / `Operational` / `Convenience` — justify |
+| `tier` (criticality) | `VehicleCritical` / `Important` / `Auxiliary` / `Optional` — justify (VehicleCritical = vehicle uncontrollable without it) |
 | `trust` / `privilege_level` | run-as + what it can touch |
 | `dangerous_operations`, `user_confirmation` | safety side effects |
 | `bounded_context` | provisional 2.0 domain guess (clustering will revisit) |
