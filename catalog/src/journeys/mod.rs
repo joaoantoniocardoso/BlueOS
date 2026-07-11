@@ -1,4 +1,5 @@
 mod ardupilot_manager;
+mod disk_usage;
 mod kraken;
 
 use crate::journey::UserJourney;
