@@ -1,0 +1,82 @@
+{
+  "service": "mavlink-camera-manager",
+  "environment": "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator",
+  "captured_at": "2026-07-11",
+  "capture_host": "192.168.0.177",
+  "notes": "Read-only Tier-1 capture on a healthy running mavlink-camera-manager (Rust binary PID 795, user root, comm mavlink-camera-manager). CPU/RSS via tools/sample_resource.sh (--pid 795, 90 samples, label running_baseline; no active video pipelines). SLO via tools/probe_http.sh on GET /mavlink-camera-manager/v4l and GET /mavlink-camera-manager/streams (--repeats 60). Observed REST API is UNVERSIONED at runtime: routes directly under /mavlink-camera-manager/ with no version prefix (observed_facts versions list empty). NO USB/external cameras attached; GET /streams returns 200 with empty array []. GET /v4l returns 200 listing onboard Pi ISP nodes (bcm2835-isp) and built-in test sources (Fake source, Redirect source) — not an operator-attached camera inventory. GET /info probed once: 201 with version JSON (not counted as healthy baseline). GET /xml probed once: 400 missing field `file` (requires parameters; not counted as healthy baseline). Mutating routes (POST /streams, POST /v4l, DELETE /delete_stream) not exercised (no camera hardware to configure on capture host). Raw evidence: /tmp/mcm_sample.json, /tmp/mcm_slo.json.",
+  "api_versions": [],
+  "api_path_prefix_observed": "none (unversioned; routes directly under /mavlink-camera-manager/)",
+  "route_inventory": {
+    "read_only": [
+      "GET /mavlink-camera-manager/v4l",
+      "GET /mavlink-camera-manager/streams"
+    ],
+    "observations": [
+      "GET /mavlink-camera-manager/info -> 201 {\"name\":\"mavlink-camera-manager\",\"version\":\"0.2.4\",...} (version metadata; not a healthy baseline contract)",
+      "GET /mavlink-camera-manager/xml -> 400 Query deserialize error: missing field `file` (requires parameters; not a healthy baseline)"
+    ],
+    "mutating_not_exercised": [
+      "POST /mavlink-camera-manager/streams",
+      "POST /mavlink-camera-manager/v4l",
+      "DELETE /mavlink-camera-manager/delete_stream"
+    ],
+    "note": "Read-only GETs v4l and streams probed for SLO; mutating routes skipped (no camera hardware on capture host)."
+  },
+  "running_baseline": {
+    "note": "GET contracts on a healthy running mavlink-camera-manager with no USB cameras attached and no configured streams.",
+    "GET /mavlink-camera-manager/v4l": {
+      "status": 200,
+      "body_predicate": "\"name\":\"bcm2835-isp\""
+    },
+    "GET /mavlink-camera-manager/streams": {
+      "status": 200,
+      "body_predicate": "[]"
+    }
+  },
+  "slo_running_baseline": {
+    "sample_size": 60,
+    "note": "GET /v4l returns large JSON listing onboard Pi ISP video nodes; GET /streams returns empty array when no streams are configured.",
+    "GET /mavlink-camera-manager/v4l": {
+      "p50_ms": 8.5,
+      "p95_ms": 14.9,
+      "p99_ms": 20.7
+    },
+    "GET /mavlink-camera-manager/streams": {
+      "p50_ms": 1.7,
+      "p95_ms": 5.9,
+      "p99_ms": 6.5
+    }
+  },
+  "resource_usage": {
+    "running_baseline": {
+      "sample_size": 90,
+      "interval_s": 1,
+      "method": "/proc stat deltas, top-style (100 == 1 core), PID 795 mavlink-camera-manager (Rust binary, not python)",
+      "cpu_pct": {
+        "mean": 0.59,
+        "median": 0.89,
+        "p95": 1.04,
+        "min": 0.0,
+        "max": 1.86,
+        "sd": 0.49
+      },
+      "rss_mb": {
+        "mean": 36.9,
+        "median": 36.9,
+        "p95": 36.9,
+        "min": 36.9,
+        "max": 36.9,
+        "sd": 0.0
+      },
+      "note": "Rust binary idle with no active camera pipelines; RSS flat ~36.9 MB. CPU ~0.59% mean with no video encoding load."
+    }
+  },
+  "platform_matrix": {
+    "navigator": {
+      "firmware": "n/a (camera manager behavior depends on attached /dev/video* hardware)",
+      "notes": "No USB/external cameras attached on this Pi4/Navigator host; GET /streams empty. GET /v4l still lists onboard bcm2835-isp ISP nodes and built-in test sources — stream creation and MAVLink camera advertisements require operator-attached H264-capable cameras not present here."
+    }
+  },
+  "state_machine": "none (external Rust binary; no in-repo state machine)",
+  "settings_mutations": "Not exercised. POST /streams, POST /v4l, and DELETE /delete_stream are mutating; no camera hardware on capture host."
+}
