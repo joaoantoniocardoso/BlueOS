@@ -82,7 +82,7 @@ allowed for services with no meaningful runtime or unreachable. Update after eac
 | 5 | mavlink2rest | mavlink2rest | 6040 | binary | TODO | TODO | TODO | TODO | |
 | 6 | wifi | wifi | ? /wifi-manager/ | python | TODO | TODO | TODO | TODO | |
 | 7 | zenohd | zenohd | 7447 | binary | TODO | TODO | TODO | TODO | |
-| 8 | beacon | beacon | 9111 /beacon/ | python | DONE | TODO | TODO | TODO | obs done (self-verified); mDNS not modeled (gap) |
+| 8 | beacon | beacon | 9111 /beacon/ | python | DONE | DONE | TODO | TODO | obs+3 journeys; jrn not yet wired |
 | 9 | bridget | bridget | ? /bridget/ | python | TODO | TODO | TODO | TODO | |
 | 10 | commander | commander | 9100 /commander/ | python | DONE | DONE | DONE | DONE | FULLY MODELED (RSS~35MB; read-only SLO; dangerous POSTs Unknown by design) |
 | 11 | nmea_injector | nmea_injector | ? /nmea-injector/ | python | TODO | TODO | TODO | TODO | |

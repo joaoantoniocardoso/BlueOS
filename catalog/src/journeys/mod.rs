@@ -1,4 +1,5 @@
 mod ardupilot_manager;
+mod beacon;
 mod commander;
 mod disk_usage;
 mod helper;
