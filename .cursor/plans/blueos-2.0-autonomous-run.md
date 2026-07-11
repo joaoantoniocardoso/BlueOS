@@ -86,6 +86,7 @@ allowed for services with no meaningful runtime or unreachable. Update after eac
 | 9 | cable_guy | cable_guy | 9090 /cable-guy/ | python | DONE | DONE | DONE | DONE | FULLY MODELED; netlink/D-Bus mutation = harness gap |
 | 10 | wifi | wifi | 9000 /wifi-manager/ | python | DONE | DONE | DONE | DONE | FULLY MODELED; wpa ctrl-socket/D-Bus = harness gap |
 | 11 | versionchooser | versionchooser | 8081 /version-chooser/ | python | DONE | DONE | DONE | DONE | FULLY MODELED; core-image updater; dangerous ops = Upgrade/delete/pull |
+| 12 | bag_of_holding | bag_of_holding | 9101 /bag/ | python | DONE | DONE | DONE | DONE | FULLY MODELED; JSON store; 1 journey (Bag Editor), rest is infra |
 | 9 | bridget | bridget | ? /bridget/ | python | TODO | TODO | TODO | TODO | |
 | 10 | commander | commander | 9100 /commander/ | python | DONE | DONE | DONE | DONE | FULLY MODELED (RSS~35MB; read-only SLO; dangerous POSTs Unknown by design) |
 | 11 | nmea_injector | nmea_injector | ? /nmea-injector/ | python | TODO | TODO | TODO | TODO | |
@@ -115,11 +116,13 @@ allowed for services with no meaningful runtime or unreachable. Update after eac
 
 ## >>> RESUME POINTER (update every service) <<<
 - Phases 1-3: DONE. Harness is built + hardened (gate.sh, extract, drift, frozen rubric).
-- Phase 4 progress: FULLY MODELED = ardupilot_manager, kraken, disk_usage, helper, commander, beacon, cable_guy, wifi, versionchooser.
-- **NEXT UP: `bag_of_holding`** (then customization, nmea_injector, pardal, ping, bridget, recorder_extractor, then the ~9 binaries, then user_terminal).
+- Phase 4 progress: FULLY MODELED (12) = ardupilot_manager, kraken, disk_usage, helper, commander, beacon, cable_guy, wifi, versionchooser, bag_of_holding.
+- **NEXT UP: `customization`** (then nmea_injector, pardal, ping, bridget, recorder_extractor, then the ~9 binaries, then user_terminal).
 - Per-service loop (each layer committed separately, ledger updated): Fact Extractor(self-recon)→QA(observed)→Docs Specialist(journeys)→Card Author(wires all_journeys + service_def)→QA(card+journeys)→Runtime Specialist(live Pi)→commit. Run `bash catalog/gate.sh` before every commit. Pi at 192.168.0.177 (pi:raspberry). NEVER call destructive endpoints during capture.
 
 ## DECISIONS LOG (append-only; newest last)
+
+- 2026-07-11: bag_of_holding FULLY MODELED. Generic JSON key-value store (set/get/overwrite, appdirs db.json). Only 1 first-class operator journey (modify_bag_database via advanced Bag Editor); all other frontend use (settings/wizard/vehicle-image/cloud-token) is INDIRECT infra — journeys belong to consuming features, not the store (Docs Specialist correctly declined to invent journeys). Asserted Important (many features depend on it; flight-independent), json_document_store authority, dangerous_operations=overwrite_entire_datastore (whole-db replacement, ⇒ Required; incremental /set excluded). Self-QA (simple service): verified journey anchors + /overwrite route. Tier-1 read-only capture: RSS ~35.8 MB (lightest Python service), CPU ~0.49%; GET /get/* p50 7ms. set/overwrite NOT exercised.
 
 - 2026-07-11: versionchooser FULLY MODELED. Core BlueOS Docker-image updater (pull/switch/delete/restart, bootstrap startup.json, docker login) via docker.sock. Asserted Important (system-integrity critical, not flight-critical), is_platform=false (manages core OS image, not a third-party extension host — contrast kraken=true). dangerous_operations = Upgrade + delete_core_image + pull_untrusted_image ⇒ user_confirmation Required (QA accepted; pull mirrors kraken's install_arbitrary_docker_image). Authorities blueos_version_controller / bootstrap_image_controller / UserdataWriter(startup.json) — distinct from kraken's extension orchestrator (core image vs extension image split). QA bounced 1 anchor (zenoh_log_topic main.py:12 → logs.py:78); fixed. Tier-1 read-only capture: RSS ~53 MB, CPU ~0.82%; version/bootstrap GETs ~90-105ms (docker.sock). Mutating/destructive routes NOT exercised.
 

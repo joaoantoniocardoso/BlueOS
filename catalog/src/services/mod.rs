@@ -31,6 +31,7 @@ pub fn all_observed() -> Vec<ObservedFacts> {
 pub fn all_runtime() -> Vec<RuntimeFacts> {
     vec![
         ardupilot_manager::runtime_facts(),
+        bag_of_holding::runtime_facts(),
         beacon::runtime_facts(),
         cable_guy::runtime_facts(),
         commander::runtime_facts(),
