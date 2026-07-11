@@ -7,6 +7,7 @@ mod customization;
 mod disk_usage;
 mod helper;
 mod kraken;
+mod nmea_injector;
 mod versionchooser;
 mod wifi;
 
