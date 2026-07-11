@@ -24,3 +24,7 @@ path = "src/bin/drift.rs"
 [[bin]]
 name = "cluster"
 path = "src/bin/cluster.rs"
+
+[[bin]]
+name = "features"
+path = "src/bin/features.rs"

@@ -5,6 +5,7 @@ pub mod drift;
 pub mod edge;
 pub mod export;
 pub mod extract;
+pub mod feature;
 pub mod id;
 pub mod interface;
 pub mod journey;
@@ -32,6 +33,7 @@ pub use drift::{
 pub use edge::{Bus, Edge, FailureImpact, SyncMode};
 pub use export::{export_json, export_mermaid, export_proposals_json, export_schema};
 pub use extract::{check_against_observed, extract_from_repo, ExtractedService};
+pub use feature::{AggregateGroup, Feature, FeatureCatalog, FeatureId};
 pub use id::{CapabilityId, JourneyId, PathRef, Port, PortRef, ServiceId};
 pub use interface::{FileAccessMode, Interface, MavlinkRole};
 pub use journey::{
