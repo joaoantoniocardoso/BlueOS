@@ -13,7 +13,6 @@ const INTERFACE_CARD: &str = "core/frontend/src/components/ethernet/InterfaceCar
 const NETWORK_MENU: &str = "core/frontend/src/components/app/NetworkInterfaceMenu.vue";
 const NETWORK_PRIORITY: &str = "core/frontend/src/components/app/NetworkInterfacePriorityMenu.vue";
 
-#[allow(dead_code)]
 pub fn journeys() -> Vec<UserJourney> {
     vec![
         assign_static_ip_address(),
@@ -216,7 +215,13 @@ fn set_network_interface_priority() -> UserJourney {
                 None,
             ),
             operator_step(
-                "Open the Network Interface Priority tab and drag interfaces into the desired order",
+                "Open the Network Interface Priority tab",
+                None,
+                Provenance::source(NETWORK_MENU, 54),
+                None,
+            ),
+            operator_step(
+                "Drag interfaces into the desired priority order",
                 None,
                 Provenance::source(NETWORK_PRIORITY, 5),
                 None,
