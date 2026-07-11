@@ -1,9 +1,14 @@
-use crate::id::{PathRef, PortRef, ServiceId};
+use crate::criticality::CriticalityTier;
+use crate::id::{CapabilityId, JourneyId, PathRef, PortRef, ServiceId};
 use crate::interface::{FileAccessMode, Interface};
-use crate::lifecycle::ObservedLifecycle;
+use crate::lifecycle::{Lifecycle, ObservedLifecycle};
 use crate::observed::{ObservedFacts, ResourceLimits, ServiceKind, StartupTier};
-use crate::provenance::{Evidence, Evidenced, Observed, ObservedSet};
+use crate::provenance::{
+    Asserted, AssertedSet, Evidence, Evidenced, Observed, ObservedSet, Rationaled,
+};
 use crate::resource::{Resource, ResourceOwnership};
+use crate::service::ServiceDefinition;
+use crate::trust::{DangerousOperation, PrivilegeLevel, UserConfirmation};
 
 pub fn observed_facts() -> ObservedFacts {
     ObservedFacts {
@@ -198,5 +203,187 @@ pub fn observed_facts() -> ObservedFacts {
             },
         ),
         openapi_refs: ObservedSet::unknown("not yet extracted"),
+    }
+}
+
+pub fn service_definition() -> ServiceDefinition {
+    ServiceDefinition {
+        id: ServiceId("disk_usage".to_string()),
+        singleton: Asserted::established(
+            true,
+            "single SERVICES-tier tmux instance; one disk_usage process",
+        ),
+        bounded_context: Asserted::established(
+            "storage-diagnostics-and-maintenance".to_string(),
+            "provisional 2.0 domain: local filesystem usage inspection, path deletion, and disk benchmarks",
+        ),
+        journey_refs: AssertedSet::established(vec![
+            Rationaled::new(
+                JourneyId("inspect_disk_usage".into()),
+                "Disk page loads du-backed usage tree and drills into subdirectories",
+            ),
+            Rationaled::new(
+                JourneyId("free_disk_space".into()),
+                "operator selects paths and DELETE /disk/paths/{target_path} reclaims storage",
+            ),
+            Rationaled::new(
+                JourneyId("run_single_disk_speed_test".into()),
+                "Speed Test tab runs GET /disk/speed disktest benchmark at one size",
+            ),
+            Rationaled::new(
+                JourneyId("run_multi_size_disk_speed_test".into()),
+                "GET /disk/speed/stream streams NDJSON points across progressive benchmark sizes",
+            ),
+        ]),
+        tier: Asserted::established(
+            CriticalityTier::Auxiliary,
+            "SERVICES startup tier; core vehicle operation does not depend on disk usage inspection or cleanup",
+        ),
+        offline_required: Asserted::established(
+            true,
+            "du, shutil, and disktest operate on the local filesystem without network access",
+        ),
+        privilege_level: Asserted::established(
+            PrivilegeLevel::Root,
+            "observed run_as root; DELETE /disk/paths can remove files anywhere under /",
+        ),
+        dangerous_operations: AssertedSet::established(vec![Rationaled::new(
+            DangerousOperation::Other("delete_filesystem_paths".to_string()),
+            "DELETE /disk/paths/{target_path} recursively removes files and directories via shutil",
+        )]),
+        user_confirmation: Asserted::established(
+            UserConfirmation::Required,
+            "deleting filesystem paths is irreversible and can remove operator or system data",
+        ),
+        capabilities: AssertedSet::established(vec![
+            Rationaled::new(
+                CapabilityId("inspect_disk_usage".to_string()),
+                "GET /disk/usage returns a du-backed usage tree for the requested path",
+            ),
+            Rationaled::new(
+                CapabilityId("navigate_disk_usage".to_string()),
+                "repeated GET /disk/usage with a subdirectory path drills into the tree",
+            ),
+            Rationaled::new(
+                CapabilityId("delete_disk_paths".to_string()),
+                "DELETE /disk/paths/{target_path} removes selected files or folders recursively",
+            ),
+            Rationaled::new(
+                CapabilityId("run_disk_speed_test".to_string()),
+                "GET /disk/speed runs one disktest write-and-verify pass at the requested size",
+            ),
+            Rationaled::new(
+                CapabilityId("run_multi_size_disk_speed_test".to_string()),
+                "GET /disk/speed/stream yields NDJSON benchmark points for each test size",
+            ),
+        ]),
+        authorities: AssertedSet::established(vec![]),
+        states: AssertedSet::unknown(
+            "no cataloged state machine; disk usage and speed tests are stateless request handlers",
+        ),
+        edges: AssertedSet::unknown(
+            "no outbound coupling to other catalog services; du and disktest are local subprocesses only",
+        ),
+        resources: AssertedSet::established(vec![Rationaled::new(
+            Resource {
+                path: PathRef("/".to_string()),
+                ownership: ResourceOwnership::SharedWrite,
+            },
+            "observed SharedWrite on / for usage inspection, path deletion, and temp benchmark files",
+        )]),
+        lifecycle: Lifecycle {
+            triggers: Asserted::established(
+                vec!["start-blueos-core create_service".to_string()],
+                "observed lifecycle trigger: tmux creation at boot in SERVICES tier",
+            ),
+            ordered_after: Asserted::established(
+                vec![
+                    ServiceId("autopilot".to_string()),
+                    ServiceId("cable_guy".to_string()),
+                    ServiceId("video".to_string()),
+                    ServiceId("mavlink2rest".to_string()),
+                    ServiceId("kraken".to_string()),
+                    ServiceId("wifi".to_string()),
+                    ServiceId("zenohd".to_string()),
+                    ServiceId("beacon".to_string()),
+                    ServiceId("bridget".to_string()),
+                    ServiceId("commander".to_string()),
+                    ServiceId("nmea_injector".to_string()),
+                    ServiceId("helper".to_string()),
+                    ServiceId("iperf3".to_string()),
+                    ServiceId("linux2rest".to_string()),
+                    ServiceId("filebrowser".to_string()),
+                    ServiceId("versionchooser".to_string()),
+                    ServiceId("pardal".to_string()),
+                    ServiceId("ping".to_string()),
+                    ServiceId("user_terminal".to_string()),
+                    ServiceId("ttyd".to_string()),
+                    ServiceId("nginx".to_string()),
+                    ServiceId("bag_of_holding".to_string()),
+                    ServiceId("recorder".to_string()),
+                    ServiceId("recorder_extractor".to_string()),
+                ],
+                "observed ordered_after in start-blueos-core SERVICES block",
+            ),
+            ordered_before: Asserted::established(
+                vec![ServiceId("customization".to_string())],
+                "observed ordered_before lists disk_usage before customization",
+            ),
+            shutdown: Asserted::established(
+                "uvicorn server exit logs Disk Usage service stopped".to_string(),
+                "main.py finally block after server.serve returns",
+            ),
+            upgrade_behavior: Asserted::unknown(
+                "BlueOS upgrade semantics for in-flight disk operations and temp benchmark files not traced in service source",
+            ),
+        },
+        health: Asserted::established(
+            "implicit: process liveness via tmux; REST GET / returns service name".to_string(),
+            "no dedicated /health route; uvicorn availability serves as health signal",
+        ),
+        is_platform: Asserted::established(
+            false,
+            "storage diagnostics utility; does not install or host third-party extensions",
+        ),
+        api_stable: Asserted::established(
+            true,
+            "versioned FastAPI v1.0 router exposed under /disk-usage/ via VersionedFastAPI",
+        ),
+        permissions_model: Asserted::established(
+            "protected system path roots block DELETE; no separate permissions manifest".to_string(),
+            "is_protected_target refuses deletion under /bin, /etc, /lib, and other core roots",
+        ),
+        failure_modes: AssertedSet::established(vec![
+            Rationaled::new(
+                "du_subprocess_failure".to_string(),
+                "collect_disk_usage logs non-zero du return codes but may return partial trees",
+            ),
+            Rationaled::new(
+                "disktest_binary_missing".to_string(),
+                "GET /disk/speed returns 503 when disktest is not on PATH",
+            ),
+            Rationaled::new(
+                "insufficient_storage_for_benchmark".to_string(),
+                "run_single_speed_test returns 507 when temp dir lacks space for the requested test size",
+            ),
+            Rationaled::new(
+                "protected_path_deletion_refused".to_string(),
+                "DELETE /disk/paths returns 400 for paths under protected system roots",
+            ),
+            Rationaled::new(
+                "invalid_or_missing_path".to_string(),
+                "resolve_requested_path returns 404 or 400 for missing paths or paths outside /",
+            ),
+        ]),
+        blast_radius: Asserted::established(
+            "disk usage inspection, deletion, and benchmarks unavailable; core vehicle services unaffected"
+                .to_string(),
+            "disk_usage outage blocks storage maintenance UI but not autopilot, MAVLink, or nginx core paths",
+        ),
+        compatibility_policy: Asserted::unknown(
+            "API deprecation policy and disktest binary version coupling not established from source",
+        ),
+        team: Asserted::unknown("no CODEOWNERS or team metadata in observed artifact"),
+        adr_refs: AssertedSet::unknown("no ADR references found in service source tree"),
     }
 }

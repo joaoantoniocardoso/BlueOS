@@ -5,11 +5,10 @@ use crate::journey::{
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
 
 const ADV: &str = "content/usage/advanced/index.md";
-const GS: &str = "content/usage/getting-started/index.md";
 const DISK_MAIN: &str = "core/services/disk_usage/main.py";
 const DISK_MENUS: &str = "core/frontend/src/menus.ts";
+const DISK_VIEW: &str = "core/frontend/src/views/Disk.vue";
 
-#[allow(dead_code)]
 pub fn journeys() -> Vec<UserJourney> {
     vec![
         inspect_disk_usage(),
@@ -23,9 +22,8 @@ fn inspect_disk_usage() -> UserJourney {
     UserJourney {
         id: JourneyId("inspect_disk_usage".into()),
         summary: Grounded::known(
-            "Visualize disk usage as a directory tree and navigate into folders to find what consumes storage"
-                .into(),
-            Provenance::source(DISK_MENUS, 51),
+            "Get the disk usage tree for a given path".into(),
+            Provenance::source(DISK_MAIN, 251),
         ),
         visibility: Grounded::known(Visibility::Advanced, Provenance::source(DISK_MENUS, 50)),
         services: disk_usage_services(),
@@ -44,16 +42,26 @@ fn inspect_disk_usage() -> UserJourney {
             operator_step(
                 "Open the Disk page from the sidebar",
                 None,
-                Provenance::doc(ADV, 188),
+                Provenance::source(DISK_MENUS, 49),
             ),
             operator_step(
                 "Load the disk usage tree for the current path",
-                Some(sourced_route(HttpMethod::Get, "/disk/usage", Some("v1.0"), 248)),
+                Some(sourced_route(
+                    HttpMethod::Get,
+                    "/disk/usage",
+                    Some("v1.0"),
+                    248,
+                )),
                 Provenance::source(DISK_MAIN, 251),
             ),
             operator_step(
                 "Open a subdirectory to inspect how storage is distributed beneath it",
-                Some(sourced_route(HttpMethod::Get, "/disk/usage", Some("v1.0"), 248)),
+                Some(sourced_route(
+                    HttpMethod::Get,
+                    "/disk/usage",
+                    Some("v1.0"),
+                    248,
+                )),
                 Provenance::source(DISK_MAIN, 255),
             ),
         ]),
@@ -65,8 +73,8 @@ fn free_disk_space() -> UserJourney {
     UserJourney {
         id: JourneyId("free_disk_space".into()),
         summary: Grounded::known(
-            "Delete files and folders to free up storage space on the onboard computer".into(),
-            Provenance::doc(GS, 65),
+            "Delete files/folders from the Disk tool".into(),
+            Provenance::source(DISK_MENUS, 51),
         ),
         visibility: Grounded::known(Visibility::Advanced, Provenance::source(DISK_MENUS, 50)),
         services: disk_usage_services(),
@@ -90,7 +98,7 @@ fn free_disk_space() -> UserJourney {
             operator_step(
                 "Open the Disk page from the sidebar",
                 None,
-                Provenance::doc(ADV, 188),
+                Provenance::source(DISK_MENUS, 49),
             ),
             operator_step(
                 "Browse the disk usage tree to identify files or folders to remove",
@@ -105,7 +113,7 @@ fn free_disk_space() -> UserJourney {
             operator_step(
                 "Select one or more paths to delete",
                 None,
-                Provenance::source(DISK_MAIN, 270),
+                Provenance::source(DISK_VIEW, 109),
             ),
             operator_step(
                 "Delete the selected paths",
@@ -151,9 +159,9 @@ fn run_single_disk_speed_test() -> UserJourney {
         )]),
         steps: GroundedSet::known(vec![
             operator_step(
-                "Open the Disk page and switch to the Speed Test tab",
+                "Switch to the Speed Test tab",
                 None,
-                Provenance::source(DISK_MENUS, 51),
+                Provenance::source(DISK_VIEW, 15),
             ),
             operator_step(
                 "Start a disk speed test at the chosen test size",
@@ -189,9 +197,9 @@ fn run_multi_size_disk_speed_test() -> UserJourney {
         )]),
         steps: GroundedSet::known(vec![
             operator_step(
-                "Open the Disk page and switch to the Speed Test tab",
+                "Switch to the Speed Test tab",
                 None,
-                Provenance::source(DISK_MENUS, 51),
+                Provenance::source(DISK_VIEW, 15),
             ),
             operator_step(
                 "Start the multi-size disk speed benchmark",

@@ -21,6 +21,7 @@ pub fn all_runtime() -> Vec<RuntimeFacts> {
 pub fn all_service_definitions() -> Vec<ServiceDefinition> {
     vec![
         ardupilot_manager::service_definition(),
+        disk_usage::service_definition(),
         kraken::service_definition(),
     ]
 }
