@@ -1,5 +1,6 @@
 pub mod ardupilot_manager;
 pub mod beacon;
+pub mod cable_guy;
 pub mod commander;
 pub mod disk_usage;
 pub mod helper;
@@ -13,6 +14,7 @@ pub fn all_observed() -> Vec<ObservedFacts> {
     vec![
         ardupilot_manager::observed_facts(),
         beacon::observed_facts(),
+        cable_guy::observed_facts(),
         commander::observed_facts(),
         disk_usage::observed_facts(),
         helper::observed_facts(),
