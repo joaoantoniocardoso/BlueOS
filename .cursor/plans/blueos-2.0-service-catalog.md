@@ -1,7 +1,7 @@
 # BlueOS 2.0 — Service Catalog Model
 
 **Branch:** `2.0-dev/model`
-**Status:** Planning / scaffolding
+**Status:** M0–M1.5 DONE; M2 model complete, **edge graph in progress**; M3 clustering is a stub; M4 (human) pending. (Detailed run log: `.cursor/plans/blueos-2.0-autonomous-run.md`.)
 **Audience:** Orchestrator agent (Opus) and human architects
 **Phase 1 objective:** Build a precise, agentic harness — every step of the process has a defined agent profile, its skills, and an acceptance gate. Precision over speed.
 
@@ -452,38 +452,38 @@ thiserror = "1"
 ## Milestones
 
 ### M0 — Harness scaffold (this branch)
-- [ ] `blueos-catalog` crate with core types incl. `Observed<T>` / `Unknown{reason}` / `PortRef`
-- [ ] `Catalog`, `validate()` (invariants + coverage), `export json` + `--schema`
-- [ ] `extract` + `drift` binaries (may start as stubs that read the seed table)
-- [x] Skill files for the 5 agent profiles under `.cursor/skills/`
-- [x] Catalog rules under `.cursor/rules/` (`blueos-catalog-two-layer`, `blueos-catalog-rust`)
-- [ ] CI test: empty/minimal catalog validates; schema round-trips
+- [x] `blueos-catalog` crate with core types incl. `Observed<T>` / `Unknown{reason}` / `PortRef`
+- [x] `Catalog`, `validate()` (invariants + coverage), `export json` + `--schema`
+- [x] `extract` + `drift` binaries (real, not stubs — Phase 2)
+- [x] Skill files for the 5 agent profiles under `.cursor/skills/` (+ journey/runtime/capture skills)
+- [x] Catalog rules under `.cursor/rules/` (two-layer, rust, journeys, runtime, capture-tools)
+- [x] CI test: empty/minimal catalog validates; schema round-trips (all tests green via `gate.sh`)
 
-### M1 — Calibration (reference services + frozen rubric)
-- [ ] Registration plumbing: `services/mod.rs` + `Catalog::bootstrap()`; compiling `ardupilot_manager` skeleton
-- [ ] Fact Extractor authors provenance-backed `observed_facts()` for `ardupilot_manager` and `kraken` (by hand — these become the M2 `extract` oracle)
-- [ ] Full asserted `service_definition()` for both (MAVLink router owner; Docker/extensions/Zenoh/jobs)
-- [ ] Drift gate green; exclusive-resource-uniqueness validation
-- [ ] Inter-rater pass on 2–3 services → **freeze extraction rubric + skills**
+### M1 — Calibration (reference services + frozen rubric) — DONE
+- [x] Registration plumbing: `services/mod.rs` + `Catalog::bootstrap()`; compiling `ardupilot_manager` skeleton
+- [x] Fact Extractor authors provenance-backed `observed_facts()` for `ardupilot_manager` and `kraken` (M2 `extract` oracle)
+- [x] Full asserted `service_definition()` for both (MAVLink router owner; Docker/extensions/Zenoh/jobs)
+- [x] Drift gate green; exclusive-resource-uniqueness validation
+- [x] Inter-rater pass → **froze extraction rubric v1.0 + skills** (Phase 2 item 4)
 
-### M1.5 — Journey spine (top-level, triangulated)
-- [ ] Crate Engineer: `journey.rs` types (`UserJourney`, `JourneyStep`, `RouteRef`, `Actor`, `Visibility`, `Precondition`, `StateTransition`), `Provenance`/`Grounded`/`GroundedSet`, `id::JourneyId`; `Catalog.journeys` + `bootstrap`; `validate()` cross-refs (service/route/capability/state/`chains_from`); `service.journey_refs` projection
-- [ ] QA Reviewer: crate change (compiles, `validate()` cross-refs tested, schema round-trips)
-- [ ] Docs Specialist: `ardupilot_manager` journeys from `../BlueOS-docs` (doc-grounded skeletons + route hints)
-- [ ] Fact Extractor: confirm each step route → `Source`; Runtime: fill outcomes from `../microservices_core_prototype` baselines (the 9 lifecycle scenarios)
-- [ ] Card Author: `capability_refs` + `journey_refs`; replace the 4 flat `ardupilot_manager` journey labels with the triangulated reference journeys → QA
-- [ ] Fold remaining findings into rubric freeze: manifest-cache resource, `/v1.0` version path, error-semantics-per-state, SLO/perf baselines, settings schema, platform matrix
+### M1.5 — Journey spine (top-level, triangulated) — DONE
+- [x] Crate Engineer: `journey.rs` types (`UserJourney`, `JourneyStep`, `RouteRef`, `Actor`, `Visibility`, `Precondition`, `StateTransition`), `Provenance`/`Grounded`/`GroundedSet`, `id::JourneyId`; `Catalog.journeys` + `bootstrap`; `validate()` cross-refs (service/route/capability/state/`chains_from`); `service.journey_refs` projection
+- [x] QA Reviewer: crate change (compiles, `validate()` cross-refs tested, schema round-trips)
+- [x] Docs Specialist: `ardupilot_manager` journeys from `../BlueOS-docs` (doc-grounded skeletons + route hints)
+- [x] Fact Extractor: confirm each step route → `Source`; Runtime: fill outcomes from **live BlueOS Pi** (NOT the POC — runtime values come only from live capture, per the resolved guardrail)
+- [x] Card Author: `capability_refs` + `journey_refs`; triangulated `ardupilot_manager` reference journeys → QA
+- [x] Fold remaining findings into rubric freeze: manifest-cache resource, `/v1.0` version path, error-semantics-per-state, SLO/perf baselines, settings schema, platform matrix
 
-### M2 — Coverage + extractor automation
-- [ ] Real `extract` binary: scans repo → regenerates observed facts; must reproduce the M1 calibration artifacts (oracle)
-- [ ] Observed + asserted cards for **all 26 processes** (from `start-blueos-core` + nginx)
-- [ ] External binaries first-class (`mavlink2rest`, `mavlink-camera-manager`, `linux2rest`, `zenohd`, `blueos-recorder`, `filebrowser`, `ttyd`, `iperf3`, `nginx`)
-- [ ] Edge graph connects known static HTTP/MAVLink/Zenoh links
+### M2 — Coverage + extractor automation — MOSTLY DONE (edge graph in progress)
+- [x] Real `extract` binary: scans `start-blueos-core` → self-checks observed facts; reproduces the M1 calibration artifacts (oracle)
+- [x] Observed + asserted + **runtime** cards for **all 26 processes** (from `start-blueos-core` + nginx + live Pi)
+- [x] External binaries first-class (`mavlink2rest`, `mavlink-camera-manager`, `linux2rest`, `zenohd`, `blueos-recorder`, `filebrowser`, `ttyd`, `iperf3`, `nginx`)
+- [ ] **Edge graph connects known static HTTP/MAVLink/Zenoh links** — IN PROGRESS (edges-pass). Concrete edges already established: mavlink2rest→ardupilot_manager, mavlink-camera-manager→ardupilot_manager, recorder→recorder_extractor (Bus::File), ttyd→user_terminal (Bus::Subprocess). Still `Unknown` (deferred while targets were uncataloged; NOW resolvable): helper→{version-chooser,mavlink2rest,…}, ardupilot_manager→{mavlink2rest,cable_guy,video,…}, kraken→{OutboundHttp targets}, bridget→linux2rest, ping→mavlink2rest, nmea_injector→mavlink2rest. Plus audit the several `edges: Unknown` that are actually "no outbound coupling" (should be `established(vec![])`).
 
-### M3 — Agent tooling
-- [ ] JSON Schema export validated against sample LLM output
-- [ ] Drift detector run in CI against the repo
-- [ ] Clustering helper: `coupling_matrix` + weights + stability export
+### M3 — Agent tooling — PARTIAL (clustering is a stub)
+- [x] JSON Schema export (`export --schema`) + `export json` + `export mermaid` implemented
+- [x] Drift detector implemented (`drift` bin) and run via `gate.sh` (no CI in this repo yet)
+- [ ] **Clustering helper: `coupling_matrix` + weights + stability export** — `coupling_matrix()` is a STUB returning an all-zeros matrix (`weights: vec![vec![0.0; size]; size]`). Needs: real per-bus edge weights + shared-resource weights populated from the (M2-completed) edge graph + resources, named policies (`coupling-only`, `coupling+trust`, `coupling+team`), a stability/modularity metric, ≥3 boundary proposals, and a `cluster` bin/export. BLOCKED on M2 edge graph (coupling needs real edges).
 
 ### M4 — Architecture decisions (human)
 - [ ] Event storm / journey workshop output → ADRs
