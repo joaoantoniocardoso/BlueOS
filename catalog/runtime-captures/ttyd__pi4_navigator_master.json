@@ -1,0 +1,78 @@
+{
+  "service": "ttyd",
+  "environment": "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e; RepoDigest sha256:0406983a568a66df2a56f682b52161858f30ac87ab273f15309e52f5ab87e22a), Raspberry Pi 4, Navigator",
+  "captured_at": "2026-07-11",
+  "capture_host": "192.168.0.177",
+  "notes": "Read-only Tier-1 capture on a healthy running ttyd (C binary PID 1142, user root, comm ttyd, RSS ~1.3 MB). CPU/RSS via tools/sample_resource.sh (--pid 1142, 90 samples, label running_baseline; ttyd is idle when no browser session is attached). SLO via tools/probe_http.sh on two read-only GET routes proxied by nginx (--repeats 60). ttyd is not a versioned REST service (api_versions empty). WebSocket upgrade on GET /terminal/ exposes an interactive root shell — NOT probed for safety (Tier-1 GET-only). ttyd attaches user_terminal tmux session. Raw evidence: /tmp/ttyd_sample.json, /tmp/ttyd_slo.json.",
+  "api_versions": [],
+  "api_path_prefix_observed": "none (ttyd is a WebSocket terminal server; only read-only HTTP GET landing page and token endpoint probed)",
+  "route_inventory": {
+    "read_only": [
+      "GET /terminal/",
+      "GET /terminal/token"
+    ],
+    "not_exercised": [
+      "WebSocket upgrade on GET /terminal/ (interactive root shell in blueos-core — NOT probed for safety; Tier-1 excludes websocket/shell input)"
+    ],
+    "note": "Tier-1 capture limited to read-only HTTP GETs. nginx proxies /terminal/ to ttyd on port 8088. The landing page HTML and token endpoint are safe to probe; the websocket session grants arbitrary root shell execution."
+  },
+  "running_baseline": {
+    "note": "GET contracts on a healthy running ttyd proxied via nginx /terminal/ → port 8088.",
+    "GET /terminal/": {
+      "status": 200,
+      "body_predicate": "<!DOCTYPE html>"
+    },
+    "GET /terminal/token": {
+      "status": 200,
+      "body_predicate": "\"token\"",
+      "note": "JSON object with a token field; value not recorded (may be secret when non-empty)"
+    }
+  },
+  "slo_running_baseline": {
+    "sample_size": 60,
+    "note": "GET /terminal/ serves the ttyd terminal HTML landing page (heavier than /terminal/token). LAN-idle latencies are low single-digit to low tens of ms via nginx proxy.",
+    "GET /terminal/": {
+      "p50_ms": 10.6,
+      "p95_ms": 16.1,
+      "p99_ms": 20.1
+    },
+    "GET /terminal/token": {
+      "p50_ms": 1.3,
+      "p95_ms": 2.5,
+      "p99_ms": 3.4
+    }
+  },
+  "resource_usage": {
+    "running_baseline": {
+      "sample_size": 90,
+      "interval_s": 1,
+      "method": "/proc stat deltas, top-style (100 == 1 core), PID 1142 ttyd (C binary, root)",
+      "ttyd_pid": 1142,
+      "cpu_pct": {
+        "mean": 0.13,
+        "median": 0.0,
+        "p95": 0.0,
+        "min": 0.0,
+        "max": 11.61,
+        "sd": 1.22
+      },
+      "rss_mb": {
+        "mean": 1.3,
+        "median": 1.3,
+        "p95": 1.3,
+        "min": 1.3,
+        "max": 1.3,
+        "sd": 0.0
+      },
+      "note": "Idle ttyd with no attached browser session: CPU ~0% median with occasional 11.61% spike; RSS stable ~1.3 MB."
+    }
+  },
+  "platform_matrix": {
+    "navigator": {
+      "firmware": "n/a (ttyd is the platform-independent browser web-terminal provider)",
+      "notes": "ttyd behavior is platform-independent; captured on Navigator Pi4 only."
+    }
+  },
+  "state_machine": "none (external C binary; no in-repo state machine)",
+  "settings_mutations": "none — Tier-1 GET-only probes; no websocket shell or settings mutations exercised."
+}

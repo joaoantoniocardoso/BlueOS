@@ -16,6 +16,7 @@ mod nmea_injector;
 mod pardal;
 mod ping;
 mod recorder_extractor;
+mod ttyd;
 mod versionchooser;
 mod wifi;
 mod zenohd;
@@ -41,6 +42,7 @@ pub fn all_journeys() -> Vec<UserJourney> {
     journeys.extend(pardal::journeys());
     journeys.extend(ping::journeys());
     journeys.extend(recorder_extractor::journeys());
+    journeys.extend(ttyd::journeys());
     journeys.extend(versionchooser::journeys());
     journeys.extend(wifi::journeys());
     journeys.extend(zenohd::journeys());

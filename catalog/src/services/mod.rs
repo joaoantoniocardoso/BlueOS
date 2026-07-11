@@ -16,6 +16,7 @@ pub mod nmea_injector;
 pub mod pardal;
 pub mod ping;
 pub mod recorder_extractor;
+pub mod ttyd;
 pub mod versionchooser;
 pub mod wifi;
 pub mod zenohd;
@@ -44,6 +45,7 @@ pub fn all_observed() -> Vec<ObservedFacts> {
         pardal::observed_facts(),
         ping::observed_facts(),
         recorder_extractor::observed_facts(),
+        ttyd::observed_facts(),
         versionchooser::observed_facts(),
         wifi::observed_facts(),
         zenohd::observed_facts(),
@@ -70,6 +72,7 @@ pub fn all_runtime() -> Vec<RuntimeFacts> {
         pardal::runtime_facts(),
         ping::runtime_facts(),
         recorder_extractor::runtime_facts(),
+        ttyd::runtime_facts(),
         versionchooser::runtime_facts(),
         wifi::runtime_facts(),
         zenohd::runtime_facts(),
@@ -96,6 +99,7 @@ pub fn all_service_definitions() -> Vec<ServiceDefinition> {
         pardal::service_definition(),
         ping::service_definition(),
         recorder_extractor::service_definition(),
+        ttyd::service_definition(),
         versionchooser::service_definition(),
         wifi::service_definition(),
         zenohd::service_definition(),
