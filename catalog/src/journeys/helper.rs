@@ -13,7 +13,6 @@ const HELPER_MENUS: &str = "core/frontend/src/menus.ts";
 const NETWORK_PRIORITY: &str = "core/frontend/src/components/app/NetworkInterfacePriorityMenu.vue";
 const REQUIRE_INTERNET: &str = "core/frontend/src/components/wizard/RequireInternet.vue";
 
-#[allow(dead_code)]
 pub fn journeys() -> Vec<UserJourney> {
     vec![
         monitor_internet_connectivity(),
@@ -145,7 +144,7 @@ fn probe_interface_internet_connectivity() -> UserJourney {
             Precondition::Other(
                 "Pirate mode enabled to access network interface management".into(),
             ),
-            Provenance::doc(ADV, 161),
+            Provenance::doc(ADV, 144),
         )]),
         steps: GroundedSet::known(vec![
             operator_step(
