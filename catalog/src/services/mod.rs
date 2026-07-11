@@ -8,6 +8,7 @@ pub mod customization;
 pub mod disk_usage;
 pub mod helper;
 pub mod kraken;
+pub mod linux2rest;
 pub mod mavlink2rest;
 pub mod nmea_injector;
 pub mod pardal;
@@ -32,6 +33,7 @@ pub fn all_observed() -> Vec<ObservedFacts> {
         disk_usage::observed_facts(),
         helper::observed_facts(),
         kraken::observed_facts(),
+        linux2rest::observed_facts(),
         mavlink2rest::observed_facts(),
         nmea_injector::observed_facts(),
         pardal::observed_facts(),
@@ -54,6 +56,7 @@ pub fn all_runtime() -> Vec<RuntimeFacts> {
         disk_usage::runtime_facts(),
         helper::runtime_facts(),
         kraken::runtime_facts(),
+        linux2rest::runtime_facts(),
         mavlink2rest::runtime_facts(),
         nmea_injector::runtime_facts(),
         pardal::runtime_facts(),
@@ -76,6 +79,7 @@ pub fn all_service_definitions() -> Vec<ServiceDefinition> {
         disk_usage::service_definition(),
         helper::service_definition(),
         kraken::service_definition(),
+        linux2rest::service_definition(),
         mavlink2rest::service_definition(),
         nmea_injector::service_definition(),
         pardal::service_definition(),

@@ -1,0 +1,144 @@
+{
+  "service": "linux2rest",
+  "environment": "BlueOS master (bluerobotics/blueos-core:master @ sha256:0406983a568a66df2a56f682b52161858f30ac87ab273f15309e52f5ab87e22a), Raspberry Pi 4, Navigator",
+  "captured_at": "2026-07-11",
+  "capture_host": "192.168.0.177",
+  "notes": "Read-only Tier-1 capture on a healthy running linux2rest (Rust binary PID 855, user root, comm linux2rest). CPU/RSS via tools/sample_resource.sh (--pid 855, 90 samples, label running_baseline; periodic sampler timers per --log-settings intervals). SLO via tools/probe_http.sh on nine GET routes under /system-information/ (--repeats 60). Observed REST API is UNVERSIONED at runtime: routes are directly under /system-information/ with no /v1 prefix (observed_facts versions list empty). ALL routes are read-only GETs — no mutating routes exist on linux2rest. Raw evidence: /tmp/linux2rest_sample.json, /tmp/linux2rest_slo.json.",
+  "api_versions": [],
+  "api_path_prefix_observed": "none (unversioned; routes directly under /system-information/)",
+  "route_inventory": {
+    "read_only": [
+      "GET /system-information/system",
+      "GET /system-information/system/cpu",
+      "GET /system-information/system/memory",
+      "GET /system-information/system/disk",
+      "GET /system-information/system/network",
+      "GET /system-information/system/temperature",
+      "GET /system-information/system/process",
+      "GET /system-information/platform",
+      "GET /system-information/serial"
+    ],
+    "mutating_not_exercised": [],
+    "note": "linux2rest exposes only read-only GET routes; no POST/PUT/DELETE or settings mutation endpoints exist."
+  },
+  "running_baseline": {
+    "note": "GET contracts on a healthy running linux2rest serving host system telemetry on port 6030 (nginx /system-information/).",
+    "GET /system-information/system": {
+      "status": 200,
+      "body_predicate": "\"cpu\""
+    },
+    "GET /system-information/system/cpu": {
+      "status": 200,
+      "body_predicate": "\"name\":\"cpu0\""
+    },
+    "GET /system-information/system/memory": {
+      "status": 200,
+      "body_predicate": "\"ram\""
+    },
+    "GET /system-information/system/disk": {
+      "status": 200,
+      "body_predicate": "\"mount_point\""
+    },
+    "GET /system-information/system/network": {
+      "status": 200,
+      "body_predicate": "\"name\":\"eth0\""
+    },
+    "GET /system-information/system/temperature": {
+      "status": 200,
+      "body_predicate": "\"temperature\""
+    },
+    "GET /system-information/system/process": {
+      "status": 200,
+      "body_predicate": "\"pid\":"
+    },
+    "GET /system-information/platform": {
+      "status": 200,
+      "body_predicate": "\"raspberry\""
+    },
+    "GET /system-information/serial": {
+      "status": 200,
+      "body_predicate": "\"ports\""
+    }
+  },
+  "slo_running_baseline": {
+    "sample_size": 60,
+    "note": "GET /system-information/system returns the full consolidated snapshot JSON; GET /system-information/system/process returns the full process list and is among the heaviest routes.",
+    "GET /system-information/system": {
+      "p50_ms": 10.0,
+      "p95_ms": 16.2,
+      "p99_ms": 23.7
+    },
+    "GET /system-information/system/cpu": {
+      "p50_ms": 1.6,
+      "p95_ms": 4.3,
+      "p99_ms": 12.2
+    },
+    "GET /system-information/system/memory": {
+      "p50_ms": 1.4,
+      "p95_ms": 2.7,
+      "p99_ms": 3.2
+    },
+    "GET /system-information/system/disk": {
+      "p50_ms": 1.4,
+      "p95_ms": 2.1,
+      "p99_ms": 2.4
+    },
+    "GET /system-information/system/network": {
+      "p50_ms": 1.6,
+      "p95_ms": 2.8,
+      "p99_ms": 2.8
+    },
+    "GET /system-information/system/temperature": {
+      "p50_ms": 2.0,
+      "p95_ms": 2.9,
+      "p99_ms": 4.1
+    },
+    "GET /system-information/system/process": {
+      "p50_ms": 8.7,
+      "p95_ms": 13.5,
+      "p99_ms": 18.0
+    },
+    "GET /system-information/platform": {
+      "p50_ms": 1.4,
+      "p95_ms": 1.7,
+      "p99_ms": 3.0
+    },
+    "GET /system-information/serial": {
+      "p50_ms": 1.5,
+      "p95_ms": 1.9,
+      "p99_ms": 3.9
+    }
+  },
+  "resource_usage": {
+    "running_baseline": {
+      "sample_size": 90,
+      "interval_s": 1,
+      "method": "/proc stat deltas, top-style (100 == 1 core), PID 855 linux2rest (Rust binary, not python)",
+      "cpu_pct": {
+        "mean": 2.48,
+        "median": 0.0,
+        "p95": 10.84,
+        "min": 0.0,
+        "max": 40.92,
+        "sd": 5.77
+      },
+      "rss_mb": {
+        "mean": 28.1,
+        "median": 28.1,
+        "p95": 28.1,
+        "min": 28.1,
+        "max": 28.1,
+        "sd": 0.0
+      },
+      "note": "Rust binary with periodic sampler timers (netstat=30s, process=60s, etc.); RSS flat ~28.1 MB. CPU mostly idle (~0% median) with spikes during sampler ticks (max 40.92%)."
+    }
+  },
+  "platform_matrix": {
+    "navigator": {
+      "firmware": "n/a (linux2rest reports host platform/hardware; does not depend on flight-controller firmware)",
+      "notes": "GET /system-information/platform returned Raspberry Pi 4 B / BCM2711 on this Navigator host; service behavior is platform-independent but response content reflects the connected board."
+    }
+  },
+  "state_machine": "none (external Rust binary; no in-repo state machine)",
+  "settings_mutations": "none — read-only service with no on-disk settings paths; no mutating routes exist."
+}
