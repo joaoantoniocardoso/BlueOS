@@ -1,4 +1,5 @@
 pub mod ardupilot_manager;
+pub mod bag_of_holding;
 pub mod beacon;
 pub mod cable_guy;
 pub mod commander;
@@ -15,6 +16,7 @@ use crate::service::ServiceDefinition;
 pub fn all_observed() -> Vec<ObservedFacts> {
     vec![
         ardupilot_manager::observed_facts(),
+        bag_of_holding::observed_facts(),
         beacon::observed_facts(),
         cable_guy::observed_facts(),
         commander::observed_facts(),
