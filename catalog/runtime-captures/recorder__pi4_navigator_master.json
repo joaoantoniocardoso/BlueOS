@@ -1,0 +1,55 @@
+{
+  "service": "recorder",
+  "environment": "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e; RepoDigest sha256:0406983a568a66df2a56f682b52161858f30ac87ab273f15309e52f5ab87e22a), Raspberry Pi 4, Navigator",
+  "captured_at": "2026-07-11",
+  "capture_host": "192.168.0.177",
+  "notes": "Read-only Tier-1 capture on a healthy running blueos-recorder (external Rust binary v0.1.0, PID 1272, user root, comm blueos-recorder, RSS ~9.4 MB). CPU/RSS via tools/sample_resource.sh (--pid 1272, 60 samples, label running_baseline; idle recorder with no active vehicle data stream / no MCAP files in output dir). recorder has NO HTTP interface (no nginx route, no listen port) — no probe_http.sh. Recording output dir /usr/blueos/userdata/recorder is EMPTY at capture (only . and ..; du 4.0K) = idle / no active recording. No throughput or recording session was triggered. Raw evidence: /tmp/recorder_sample.json.",
+  "api_versions": [],
+  "route_inventory": {
+    "read_only": [],
+    "not_exercised": [],
+    "note": "recorder is a background recording daemon with no HTTP interface; not proxied by nginx and no listen port."
+  },
+  "running_baseline": {
+    "note": "Idle blueos-recorder: process up in tmux (pid=1272), recording dir /usr/blueos/userdata/recorder empty — no active MCAP session recording at capture time.",
+    "recorder_pid": 1272,
+    "recording_dir": "/usr/blueos/userdata/recorder",
+    "recording_dir_state": "empty",
+    "recording_dir_du": "4.0K",
+    "healthy": true
+  },
+  "slo_running_baseline": {},
+  "resource_usage": {
+    "running_baseline": {
+      "sample_size": 60,
+      "interval_s": 1,
+      "method": "/proc stat deltas, top-style (100 == 1 core), PID 1272 blueos-recorder (external Rust binary v0.1.0, root)",
+      "recorder_pid": 1272,
+      "cpu_pct": {
+        "mean": 6.18,
+        "median": 6.08,
+        "p95": 8.74,
+        "min": 3.89,
+        "max": 10.45,
+        "sd": 1.4
+      },
+      "rss_mb": {
+        "mean": 9.4,
+        "median": 9.4,
+        "p95": 9.4,
+        "min": 9.4,
+        "max": 9.4,
+        "sd": 0.0
+      },
+      "note": "Idle recorder with empty recording dir: CPU ~6% mean across 60 samples (background polling/work); RSS stable ~9.4 MB."
+    }
+  },
+  "platform_matrix": {
+    "navigator": {
+      "firmware": "n/a (blueos-recorder is a platform-independent background MCAP recording daemon)",
+      "notes": "recorder behavior is platform-independent; captured on Navigator Pi4 only."
+    }
+  },
+  "state_machine": "none (external Rust binary; no in-repo state machine; idle at capture: process running, recording dir empty)",
+  "settings_mutations": "none — Tier-1 idle sampling and recording-dir observation only; no recording session triggered or settings mutations exercised."
+}

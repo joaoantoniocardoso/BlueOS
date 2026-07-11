@@ -17,6 +17,7 @@ mod nginx;
 mod nmea_injector;
 mod pardal;
 mod ping;
+mod recorder;
 mod recorder_extractor;
 mod ttyd;
 mod versionchooser;
@@ -45,6 +46,7 @@ pub fn all_journeys() -> Vec<UserJourney> {
     journeys.extend(nginx::journeys());
     journeys.extend(pardal::journeys());
     journeys.extend(ping::journeys());
+    journeys.extend(recorder::journeys());
     journeys.extend(recorder_extractor::journeys());
     journeys.extend(ttyd::journeys());
     journeys.extend(versionchooser::journeys());

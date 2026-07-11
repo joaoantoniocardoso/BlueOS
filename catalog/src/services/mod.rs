@@ -17,6 +17,7 @@ pub mod nginx;
 pub mod nmea_injector;
 pub mod pardal;
 pub mod ping;
+pub mod recorder;
 pub mod recorder_extractor;
 pub mod ttyd;
 pub mod versionchooser;
@@ -48,6 +49,7 @@ pub fn all_observed() -> Vec<ObservedFacts> {
         nginx::observed_facts(),
         pardal::observed_facts(),
         ping::observed_facts(),
+        recorder::observed_facts(),
         recorder_extractor::observed_facts(),
         ttyd::observed_facts(),
         versionchooser::observed_facts(),
@@ -77,6 +79,7 @@ pub fn all_runtime() -> Vec<RuntimeFacts> {
         nginx::runtime_facts(),
         pardal::runtime_facts(),
         ping::runtime_facts(),
+        recorder::runtime_facts(),
         recorder_extractor::runtime_facts(),
         ttyd::runtime_facts(),
         versionchooser::runtime_facts(),
@@ -106,6 +109,7 @@ pub fn all_service_definitions() -> Vec<ServiceDefinition> {
         nginx::service_definition(),
         pardal::service_definition(),
         ping::service_definition(),
+        recorder::service_definition(),
         recorder_extractor::service_definition(),
         ttyd::service_definition(),
         versionchooser::service_definition(),
