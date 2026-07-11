@@ -1,4 +1,5 @@
 use crate::criticality::CriticalityTier;
+use crate::edge::{Bus, Edge, FailureImpact, SyncMode};
 use crate::id::{CapabilityId, JourneyId, PathRef, PortRef, ServiceId};
 use crate::interface::{FileAccessMode, Interface};
 use crate::journey::{HttpMethod, RouteRef};
@@ -392,9 +393,19 @@ pub fn service_definition() -> ServiceDefinition {
         states: AssertedSet::unknown(
             "no cataloged state machine; PingManager probe loop and per-device bridge subprocesses are runtime-managed",
         ),
-        edges: AssertedSet::unknown(
-            "observed OutboundHttp to localhost:6040 (mavlink2rest) for DISTANCE_SENSOR; target not cataloged yet so no validated ServiceId edge",
-        ),
+        edges: AssertedSet::established(vec![Rationaled::new(
+            Edge {
+                from: ServiceId("ping".to_string()),
+                to: ServiceId("mavlink2rest".to_string()),
+                via: Bus::Rest,
+                sync: SyncMode::Async,
+                endpoint: "localhost:6040".to_string(),
+                purpose: "forward sonar DISTANCE_SENSOR to the vehicle via mavlink2rest".to_string(),
+                required_at_boot: false,
+                failure_impact: FailureImpact::Degraded,
+            },
+            "observed OutboundHttp localhost:6040 (MavlinkComm.py:24) pairs with mavlink2rest listen 6040",
+        )]),
         resources: AssertedSet::established(vec![Rationaled::new(
             Resource {
                 path: PathRef("/usr/blueos/userdata/settings/ping".to_string()),

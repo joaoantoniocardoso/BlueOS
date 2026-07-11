@@ -1,4 +1,5 @@
 use crate::criticality::CriticalityTier;
+use crate::edge::{Bus, Edge, FailureImpact, SyncMode};
 use crate::id::{CapabilityId, JourneyId, PathRef, PortRef, ServiceId};
 use crate::interface::{FileAccessMode, Interface};
 use crate::journey::{HttpMethod, RouteRef};
@@ -392,9 +393,19 @@ pub fn service_definition() -> ServiceDefinition {
         states: AssertedSet::unknown(
             "no cataloged state machine; per-bridge bridges subprocess lifecycle is runtime-managed",
         ),
-        edges: AssertedSet::unknown(
-            "observed OutboundHttp to localhost:6030/serial (linux2rest) for serial port enumeration; target not cataloged yet so no validated ServiceId edge",
-        ),
+        edges: AssertedSet::established(vec![Rationaled::new(
+            Edge {
+                from: ServiceId("bridget".to_string()),
+                to: ServiceId("linux2rest".to_string()),
+                via: Bus::Rest,
+                sync: SyncMode::Sync,
+                endpoint: "localhost:6030/serial".to_string(),
+                purpose: "enumerate host serial ports via linux2rest".to_string(),
+                required_at_boot: false,
+                failure_impact: FailureImpact::Degraded,
+            },
+            "observed OutboundHttp http://localhost:6030/serial (bridget.py:62) pairs with linux2rest listen 6030",
+        )]),
         resources: AssertedSet::established(vec![Rationaled::new(
             Resource {
                 path: PathRef("/usr/blueos/userdata/settings/bridget".to_string()),
