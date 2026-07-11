@@ -17,6 +17,7 @@ pub mod ping;
 pub mod recorder_extractor;
 pub mod versionchooser;
 pub mod wifi;
+pub mod zenohd;
 
 use crate::observed::ObservedFacts;
 use crate::runtime::RuntimeFacts;
@@ -43,6 +44,7 @@ pub fn all_observed() -> Vec<ObservedFacts> {
         recorder_extractor::observed_facts(),
         versionchooser::observed_facts(),
         wifi::observed_facts(),
+        zenohd::observed_facts(),
     ]
 }
 
@@ -67,6 +69,7 @@ pub fn all_runtime() -> Vec<RuntimeFacts> {
         recorder_extractor::runtime_facts(),
         versionchooser::runtime_facts(),
         wifi::runtime_facts(),
+        zenohd::runtime_facts(),
     ]
 }
 
@@ -91,5 +94,6 @@ pub fn all_service_definitions() -> Vec<ServiceDefinition> {
         recorder_extractor::service_definition(),
         versionchooser::service_definition(),
         wifi::service_definition(),
+        zenohd::service_definition(),
     ]
 }

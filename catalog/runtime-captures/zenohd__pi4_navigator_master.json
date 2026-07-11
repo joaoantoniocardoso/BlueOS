@@ -1,0 +1,95 @@
+{
+  "service": "zenohd",
+  "environment": "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e; RepoDigest sha256:0406983a568a66df2a56f682b52161858f30ac87ab273f15309e52f5ab87e22a), Raspberry Pi 4, Navigator",
+  "captured_at": "2026-07-11",
+  "capture_host": "192.168.0.177",
+  "notes": "Read-only Tier-1 capture on a healthy running zenohd (Rust binary PID 426, user root, comm zenohd). CPU/RSS via tools/sample_resource.sh (--pid 426, 90 samples, label running_baseline; zenohd routes all inter-service pub/sub and log traffic). SLO via tools/probe_http.sh on three read-only adminspace GETs under /zenoh/ (--repeats 60). Adminspace is a key-expression API (not versioned REST; api_versions empty). GET-only adminspace queries — no PUT/DELETE mutations. REST adminspace nginx /zenoh/ :7117; remote-api WebSocket /zenoh-api/ :7118 exists but is not HTTP-probeable with curl. Empty GET /zenoh/ returns 400 (requires a key expression). Raw evidence: /tmp/zenohd_sample.json, /tmp/zenohd_slo.json.",
+  "api_versions": [],
+  "api_path_prefix_observed": "none (adminspace key-expression API under /zenoh/; not versioned REST)",
+  "route_inventory": {
+    "read_only_adminspace": [
+      "GET /zenoh/@/local/router",
+      "GET /zenoh/@/router/local",
+      "GET /zenoh/@/**"
+    ],
+    "mutating_not_exercised": [
+      "PUT/DELETE /zenoh/@/** (adminspace config mutations — Tier-1 GET-only)"
+    ],
+    "not_exercised": [
+      "GET /zenoh/ (empty key expression → 400; not a healthy baseline)",
+      "WebSocket /zenoh-api/ :7118 (Zenoh Inspector remote-api; not HTTP-probeable with curl)"
+    ],
+    "note": "Tier-1 capture limited to read-only adminspace GETs. zenohd is the on-host Zenoh pub/sub router; adminspace probes router state, not live topic-message flow."
+  },
+  "running_baseline": {
+    "note": "GET contracts on a healthy running zenohd REST admin plugin (nginx /zenoh/ → port 7117).",
+    "GET /zenoh/@/local/router": {
+      "status": 200,
+      "body_predicate": "\"sessions\""
+    },
+    "GET /zenoh/@/router/local": {
+      "status": 200,
+      "body_predicate": "[]"
+    },
+    "GET /zenoh/@/**": {
+      "status": 200,
+      "body_predicate": "\"key\""
+    },
+    "GET /zenoh/": {
+      "status": 400,
+      "body_predicate": "empty chunks are forbidden",
+      "note": "empty key expression is invalid; not a healthy baseline probe"
+    }
+  },
+  "slo_running_baseline": {
+    "sample_size": 60,
+    "note": "GET /zenoh/@/** queries all adminspace keys and returns a large JSON array (heaviest route). GET /zenoh/@/local/router returns this router's admin state including sessions and plugins.",
+    "GET /zenoh/@/local/router": {
+      "p50_ms": 2.5,
+      "p95_ms": 7.4,
+      "p99_ms": 8.1
+    },
+    "GET /zenoh/@/router/local": {
+      "p50_ms": 1.5,
+      "p95_ms": 2.0,
+      "p99_ms": 3.0
+    },
+    "GET /zenoh/@/**": {
+      "p50_ms": 107.5,
+      "p95_ms": 143.3,
+      "p99_ms": 153.7
+    }
+  },
+  "resource_usage": {
+    "running_baseline": {
+      "sample_size": 90,
+      "interval_s": 1,
+      "method": "/proc stat deltas, top-style (100 == 1 core), PID 426 zenohd (Rust binary, not python)",
+      "cpu_pct": {
+        "mean": 9.12,
+        "median": 4.04,
+        "p95": 58.59,
+        "min": 2.92,
+        "max": 75.59,
+        "sd": 16.74
+      },
+      "rss_mb": {
+        "mean": 42.1,
+        "median": 42.0,
+        "p95": 46.9,
+        "min": 27.4,
+        "max": 46.9,
+        "sd": 4.2
+      },
+      "note": "Rust Zenoh router handling all on-host pub/sub and log traffic; steady CPU ~4% median, ~9% mean with bursts to 75.59% during routing load. RSS ~42 MB with occasional dips to 27.4 MB during sampling window."
+    }
+  },
+  "platform_matrix": {
+    "navigator": {
+      "firmware": "n/a (zenohd is the platform-independent on-host message-bus router)",
+      "notes": "Router metadata name vehicle with tcp locators on this Pi4/Navigator host; service behavior is platform-independent."
+    }
+  },
+  "state_machine": "none (external Rust binary; no in-repo state machine)",
+  "settings_mutations": "none — Tier-1 GET-only adminspace probes; no PUT/DELETE config mutations exercised."
+}

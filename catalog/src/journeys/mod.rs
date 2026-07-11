@@ -17,6 +17,7 @@ mod ping;
 mod recorder_extractor;
 mod versionchooser;
 mod wifi;
+mod zenohd;
 
 use crate::journey::UserJourney;
 
@@ -40,5 +41,6 @@ pub fn all_journeys() -> Vec<UserJourney> {
     journeys.extend(recorder_extractor::journeys());
     journeys.extend(versionchooser::journeys());
     journeys.extend(wifi::journeys());
+    journeys.extend(zenohd::journeys());
     journeys
 }
