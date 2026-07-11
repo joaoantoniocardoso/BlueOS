@@ -84,6 +84,7 @@ allowed for services with no meaningful runtime or unreachable. Update after eac
 | 7 | zenohd | zenohd | 7447 | binary | TODO | TODO | TODO | TODO | |
 | 8 | beacon | beacon | 9111 /beacon/ | python | DONE | DONE | DONE | DONE | FULLY MODELED; mDNS = harness gap (no Interface variant) |
 | 9 | cable_guy | cable_guy | 9090 /cable-guy/ | python | DONE | DONE | DONE | DONE | FULLY MODELED; netlink/D-Bus mutation = harness gap |
+| 10 | wifi | wifi | 9000 /wifi-manager/ | python | DONE | DONE | DONE | DONE | FULLY MODELED; wpa ctrl-socket/D-Bus = harness gap |
 | 9 | bridget | bridget | ? /bridget/ | python | TODO | TODO | TODO | TODO | |
 | 10 | commander | commander | 9100 /commander/ | python | DONE | DONE | DONE | DONE | FULLY MODELED (RSS~35MB; read-only SLO; dangerous POSTs Unknown by design) |
 | 11 | nmea_injector | nmea_injector | ? /nmea-injector/ | python | TODO | TODO | TODO | TODO | |
@@ -113,11 +114,13 @@ allowed for services with no meaningful runtime or unreachable. Update after eac
 
 ## >>> RESUME POINTER (update every service) <<<
 - Phases 1-3: DONE. Harness is built + hardened (gate.sh, extract, drift, frozen rubric).
-- Phase 4 progress: FULLY MODELED = ardupilot_manager, kraken, disk_usage, helper, commander, beacon, cable_guy.
-- **NEXT UP: `wifi`** (then versionchooser, bag_of_holding, customization, nmea_injector, pardal, ping, bridget, recorder_extractor, then the ~9 binaries, then user_terminal).
+- Phase 4 progress: FULLY MODELED = ardupilot_manager, kraken, disk_usage, helper, commander, beacon, cable_guy, wifi.
+- **NEXT UP: `versionchooser`** (then bag_of_holding, customization, nmea_injector, pardal, ping, bridget, recorder_extractor, then the ~9 binaries, then user_terminal).
 - Per-service loop (each layer committed separately, ledger updated): Fact Extractor(self-recon)→QA(observed)→Docs Specialist(journeys)→Card Author(wires all_journeys + service_def)→QA(card+journeys)→Runtime Specialist(live Pi)→commit. Run `bash catalog/gate.sh` before every commit. Pi at 192.168.0.177 (pi:raspberry). NEVER call destructive endpoints during capture.
 
 ## DECISIONS LOG (append-only; newest last)
+
+- 2026-07-11: wifi FULLY MODELED. WLAN manager (wpa_supplicant Bullseye / NetworkManager Bookworm handlers). Asserted Important, 2 authorities (wireless_network_controller, wifi_hotspot_operator) — distinct from cable_guy's wired authorities. dangerous_operations=[] (reversible reconfig, same rule as cable_guy). QA PASS on first submit. Real cross-service finding: wifi + cable_guy BOTH run dnsmasq and edit /etc/dhcpcd.conf (wifi=uap0 hotspot, cable_guy=wired); authority strings distinct so validator OK; narrowed cable_guy's dnsmasq authority rationale to "WIRED interfaces" for accuracy. Harness gaps: wpa_supplicant control-socket protocol, NetworkManager D-Bus, TCP fallback have no Interface variant. Tier-1 read-only capture: RSS ~46 MB, CPU ~0.37%; GET /status ~30ms (wpa ctrl socket). Mutating routes NOT exercised.
 
 - 2026-07-11: cable_guy FULLY MODELED. Priority-tier wired-network manager; asserted Important, 3 authorities (wired_network_controller, host_dns_writer, onboard_dhcp_server_operator), dangerous_operations=[] (network reconfig is REVERSIBLE per frozen rubric rule 2; lockout is a failure_mode, not a dangerous op — QA confirmed). Modeling gaps logged: pyroute2 netlink + NetworkManager D-Bus in-process mutation have no Interface variant (only subprocess/file captured). Fixed 5 mis-anchored dns.py subprocess lines (extractor cited wrapper-call lines, not the run_command lines: correct = 56/64/74/80/86). QA over-strictly bounced the Interface::Rest anchor (main.py:163 prefix_format) — but that matches the QA-passed helper.rs gold standard; kept it and documented the convention in the extraction skill. Tier-1 read-only capture: RSS ~53 MB, CPU ~2.47%; GET /host_dns is slow (~1.2s, shells out to cat/lsattr resolv.conf). Mutating routes NOT exercised (lockout hazard).
 

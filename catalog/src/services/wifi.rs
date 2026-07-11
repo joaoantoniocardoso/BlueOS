@@ -1,14 +1,120 @@
 use crate::criticality::CriticalityTier;
 use crate::id::{CapabilityId, JourneyId, PathRef, PortRef, ServiceId};
 use crate::interface::{FileAccessMode, Interface};
+use crate::journey::{HttpMethod, RouteRef};
 use crate::lifecycle::{Lifecycle, ObservedLifecycle};
 use crate::observed::{ObservedFacts, ResourceLimits, ServiceKind, StartupTier};
 use crate::provenance::{
-    Asserted, AssertedSet, Evidence, Evidenced, Observed, ObservedSet, Rationaled,
+    Asserted, AssertedSet, Evidence, Evidenced, GroundedItem, GroundedSet, Observed, ObservedSet,
+    Provenance, Rationaled,
 };
 use crate::resource::{Resource, ResourceOwnership};
+use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts, SloBaseline};
 use crate::service::{Authority, ServiceDefinition};
 use crate::trust::{PrivilegeLevel, UserConfirmation};
+
+const RUNTIME_CAPTURE: &str = "runtime-captures/wifi__pi4_navigator_master.json";
+const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
+
+pub fn runtime_facts() -> RuntimeFacts {
+    RuntimeFacts {
+        service: ServiceId("wifi".into()),
+        state_contracts: GroundedSet::unknown(
+            "wifi has no service-level state machine (card states Unknown); a wpa_supplicant event loop and hotspot watchdog reconcile periodically",
+        ),
+        slo_baselines: GroundedSet::known(vec![
+            runtime_slo(HttpMethod::Get, "/status", 30.0, 44.4, 48.8, 40),
+            runtime_slo(HttpMethod::Get, "/saved", 6.2, 9.5, 12.5, 40),
+            runtime_slo(HttpMethod::Get, "/hotspot_extended_status", 7.3, 9.2, 9.9, 40),
+            runtime_slo(HttpMethod::Get, "/smart_hotspot", 8.2, 10.5, 10.9, 40),
+        ]),
+        resource_usage: GroundedSet::known(vec![runtime_resource(
+            "running_baseline",
+            Distribution {
+                mean: 0.37,
+                median: 0.00,
+                p95: 1.02,
+                min: 0.00,
+                max: 1.07,
+                sd: 0.47,
+            },
+            Distribution {
+                mean: 45.9,
+                median: 45.9,
+                p95: 45.9,
+                min: 45.9,
+                max: 45.9,
+                sd: 0.0,
+            },
+            60,
+        )]),
+        platform_matrix: GroundedSet::known(vec![GroundedItem::new(
+            PlatformBehavior {
+                platform: "navigator".into(),
+                firmware: None,
+                notes: vec![
+                    "wifi manages wlan0/uap0 regardless of flight controller; platform-independent".into(),
+                    "runtime captured on Navigator only; RSS ~45.9 MB flat, CPU ~0.37% mean (near-idle station mode)".into(),
+                    "GET /status is heaviest (~30 ms): it queries the wpa_supplicant control socket".into(),
+                ],
+            },
+            runtime_prov("#platform_matrix"),
+        )]),
+        settings_mutations: GroundedSet::unknown(
+            "hotspot/smart-hotspot routes persist to /root/.config/wifi-manager/settings-1.json; wifi credentials persist via wpa_supplicant SAVE_CONFIG; not exercised (reachability hazard)",
+        ),
+    }
+}
+
+fn runtime_prov(key: &str) -> Provenance {
+    Provenance::runtime(format!("{RUNTIME_CAPTURE}{key}"), RUNTIME_ENV)
+}
+
+fn runtime_route(method: HttpMethod, path: &str) -> RouteRef {
+    RouteRef {
+        service: ServiceId("wifi".into()),
+        method,
+        path: path.into(),
+        version: None,
+    }
+}
+
+fn runtime_slo(
+    method: HttpMethod,
+    path: &str,
+    p50: f64,
+    p95: f64,
+    p99: f64,
+    sample_size: u32,
+) -> GroundedItem<SloBaseline> {
+    GroundedItem::new(
+        SloBaseline {
+            route: runtime_route(method, path),
+            latency_p50_ms: p50,
+            latency_p95_ms: p95,
+            latency_p99_ms: p99,
+            sample_size,
+        },
+        runtime_prov("#slo_running_baseline"),
+    )
+}
+
+fn runtime_resource(
+    condition: &str,
+    cpu_pct: Distribution,
+    rss_mb: Distribution,
+    samples: u32,
+) -> GroundedItem<ResourceUsage> {
+    GroundedItem::new(
+        ResourceUsage {
+            condition: condition.into(),
+            cpu_pct,
+            rss_mb,
+            samples,
+        },
+        runtime_prov("#resource_usage"),
+    )
+}
 
 pub fn observed_facts() -> ObservedFacts {
     ObservedFacts {

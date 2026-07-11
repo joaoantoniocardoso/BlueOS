@@ -1,0 +1,87 @@
+{
+  "service": "wifi",
+  "environment": "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator",
+  "captured_at": "2026-07-11",
+  "capture_host": "192.168.0.177",
+  "notes": "Read-only Tier-1 capture on a healthy running wifi-manager. CPU/RSS via tools/sample_resource.sh (--match wifi/main.py, 60 samples, label running_baseline; PID 378, comm python3). SLO via tools/probe_http.sh on read-only GETs (--repeats 40). NO mutating routes exercised: POST /connect, GET /disconnect, POST /remove, POST /hotspot, POST /hotspot_credentials, POST /smart_hotspot change wireless association / hotspot and could disrupt reachability; those journey outcomes remain Unknown. GET /scan not probed for SLO (triggers a live wlan scan; variable, semi-mutating). Raw evidence: /tmp/wifi_sample.json, /tmp/wifi_slo.json.",
+  "api_versions": [
+    "v1.0"
+  ],
+  "route_inventory": {
+    "v1.0_read_only": [
+      "GET /status",
+      "GET /saved",
+      "GET /hotspot_extended_status",
+      "GET /smart_hotspot",
+      "GET /scan (not SLO-probed; live scan)"
+    ],
+    "v1.0_mutating_not_exercised": [
+      "POST /connect",
+      "GET /disconnect",
+      "POST /remove",
+      "POST /hotspot",
+      "POST /hotspot_credentials",
+      "POST /smart_hotspot"
+    ],
+    "note": "Read-only status GETs probed; mutating routes deliberately not exercised (wireless reachability hazard)."
+  },
+  "running_baseline": {
+    "note": "GET contracts on a healthy running wifi-manager (idle station mode, hotspot off).",
+    "GET /status": {
+      "status": 200,
+      "body_predicate": "current wlan0 association status from wpa_supplicant"
+    },
+    "GET /saved": {
+      "status": 200,
+      "body_predicate": "list of saved networks"
+    },
+    "GET /hotspot_extended_status": {
+      "status": 200,
+      "body_predicate": "hotspot enabled/disabled + ssid/credentials state"
+    },
+    "GET /smart_hotspot": {
+      "status": 200,
+      "body_predicate": "smart-hotspot enabled boolean"
+    }
+  },
+  "slo_running_baseline": {
+    "sample_size": 40,
+    "note": "GET /status is heaviest (~30 ms) since it queries the wpa_supplicant control socket; the settings-backed GETs are fast (6-8 ms).",
+    "GET /status": { "p50_ms": 30.0, "p95_ms": 44.4, "p99_ms": 48.8 },
+    "GET /saved": { "p50_ms": 6.2, "p95_ms": 9.5, "p99_ms": 12.5 },
+    "GET /hotspot_extended_status": { "p50_ms": 7.3, "p95_ms": 9.2, "p99_ms": 9.9 },
+    "GET /smart_hotspot": { "p50_ms": 8.2, "p95_ms": 10.5, "p99_ms": 10.9 }
+  },
+  "resource_usage": {
+    "running_baseline": {
+      "sample_size": 60,
+      "interval_s": 1,
+      "method": "/proc stat deltas, top-style (100 == 1 core), PID 378 python3 wifi/main.py",
+      "cpu_pct": {
+        "mean": 0.37,
+        "median": 0.00,
+        "p95": 1.02,
+        "min": 0.00,
+        "max": 1.07,
+        "sd": 0.47
+      },
+      "rss_mb": {
+        "mean": 45.9,
+        "median": 45.9,
+        "p95": 45.9,
+        "min": 45.9,
+        "max": 45.9,
+        "sd": 0.0
+      },
+      "note": "Near-idle in station mode; RSS flat at ~46 MB, CPU mostly 0 with small periodic polling."
+    }
+  },
+  "platform_matrix": {
+    "navigator": {
+      "firmware": "n/a (wifi is autopilot-independent)",
+      "notes": "wifi manages wlan0/uap0 regardless of flight controller; platform-independent on this Pi4/Navigator host. Handler is the wpa_supplicant path (Bullseye) on this image."
+    }
+  },
+  "state_machine": "none (service_definition states: Unknown; a wpa_supplicant event loop and hotspot watchdog reconcile periodically, not a discrete state machine)",
+  "settings_mutations": "Not exercised. Hotspot/smart-hotspot routes persist to /root/.config/wifi-manager/settings-1.json (SettingsV1); wifi credentials persist via wpa_supplicant SAVE_CONFIG. Not mutated during this read-only capture."
+}
