@@ -99,15 +99,6 @@ impl Catalog {
     pub fn validate(&self) -> Result<(), Vec<ValidationError>> {
         crate::validate::validate(self)
     }
-
-    pub fn coupling_matrix(&self) -> CouplingMatrix {
-        let service_ids: Vec<ServiceId> = self.services.iter().map(|s| s.id.clone()).collect();
-        let size = service_ids.len();
-        CouplingMatrix {
-            service_ids,
-            weights: vec![vec![0.0; size]; size],
-        }
-    }
 }
 
 impl Default for Catalog {

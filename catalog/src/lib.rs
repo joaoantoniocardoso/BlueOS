@@ -1,4 +1,5 @@
 pub mod catalog;
+pub mod cluster;
 pub mod criticality;
 pub mod drift;
 pub mod edge;
@@ -21,12 +22,15 @@ pub mod trust;
 pub mod validate;
 
 pub use catalog::{Catalog, CouplingMatrix};
+pub use cluster::{
+    ClusterPolicy, ClusterResult, CouplingWeights, StabilityReport, WEIGHTS_VERSION,
+};
 pub use criticality::CriticalityTier;
 pub use drift::{
     diff, diff_catalog, diff_catalog_runtime, diff_runtime, DriftFinding, DriftReport,
 };
 pub use edge::{Bus, Edge, FailureImpact, SyncMode};
-pub use export::{export_json, export_mermaid, export_schema};
+pub use export::{export_json, export_mermaid, export_proposals_json, export_schema};
 pub use extract::{check_against_observed, extract_from_repo, ExtractedService};
 pub use id::{CapabilityId, JourneyId, PathRef, Port, PortRef, ServiceId};
 pub use interface::{FileAccessMode, Interface, MavlinkRole};

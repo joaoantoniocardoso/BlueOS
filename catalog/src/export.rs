@@ -1,6 +1,8 @@
 use schemars::schema_for;
 
 use crate::catalog::Catalog;
+use crate::cluster::{bus_label, ClusterPolicy};
+use crate::provenance::AssertedSet;
 
 pub fn export_json(catalog: &Catalog) -> Result<String, serde_json::Error> {
     serde_json::to_string_pretty(catalog)
@@ -11,11 +13,48 @@ pub fn export_schema() -> Result<String, serde_json::Error> {
     serde_json::to_string_pretty(&schema)
 }
 
+#[derive(serde::Serialize)]
+struct ProposalsExport {
+    proposals: Vec<crate::cluster::ClusterResult>,
+    coupling_matrix: crate::catalog::CouplingMatrix,
+    stability: crate::cluster::StabilityReport,
+}
+
+pub fn export_proposals_json(catalog: &Catalog) -> Result<String, serde_json::Error> {
+    let export = ProposalsExport {
+        proposals: catalog.boundary_proposals(),
+        coupling_matrix: catalog.coupling_matrix(ClusterPolicy::CouplingOnly),
+        stability: catalog.cluster_stability(ClusterPolicy::CouplingOnly, 10, 0.1),
+    };
+    serde_json::to_string_pretty(&export)
+}
+
 pub fn export_mermaid(catalog: &Catalog) -> String {
+    let cluster = catalog.cluster(ClusterPolicy::CouplingOnly);
     let mut output = String::from("graph LR\n");
-    for service in catalog.services() {
-        output.push_str(&format!("  {}[{}]\n", service.id.0, service.id.0));
+
+    for (community_idx, community) in cluster.communities.iter().enumerate() {
+        output.push_str(&format!("  subgraph community_{community_idx}\n"));
+        for service_id in community {
+            output.push_str(&format!("    {}[{}]\n", service_id.0, service_id.0));
+        }
+        output.push_str("  end\n");
     }
+
+    for service in catalog.services() {
+        if let AssertedSet::Established { items } = &service.edges {
+            for rationaled in items {
+                let edge = &rationaled.value;
+                output.push_str(&format!(
+                    "  {} -->|{}| {}\n",
+                    edge.from.0,
+                    bus_label(edge.via),
+                    edge.to.0
+                ));
+            }
+        }
+    }
+
     output
 }
 

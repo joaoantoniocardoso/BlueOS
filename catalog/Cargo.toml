@@ -20,3 +20,7 @@ path = "src/bin/extract.rs"
 [[bin]]
 name = "drift"
 path = "src/bin/drift.rs"
+
+[[bin]]
+name = "cluster"
+path = "src/bin/cluster.rs"
