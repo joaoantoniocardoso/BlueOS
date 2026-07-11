@@ -12,7 +12,6 @@ const NMEA_CREATE_DIALOG: &str =
     "core/frontend/src/components/nmea-injector/NMEASocketCreationDialog.vue";
 const NMEA_SOCKET_CARD: &str = "core/frontend/src/components/nmea-injector/NMEASocketCard.vue";
 
-#[allow(dead_code)]
 pub fn journeys() -> Vec<UserJourney> {
     vec![
         view_configured_nmea_sockets(),
