@@ -1,14 +1,121 @@
 use crate::criticality::CriticalityTier;
 use crate::id::{CapabilityId, JourneyId, PathRef, PortRef, ServiceId};
 use crate::interface::{FileAccessMode, Interface};
+use crate::journey::{HttpMethod, RouteRef};
 use crate::lifecycle::{Lifecycle, ObservedLifecycle};
 use crate::observed::{ObservedFacts, ResourceLimits, ServiceKind, StartupTier};
 use crate::provenance::{
-    Asserted, AssertedSet, Evidence, Evidenced, Observed, ObservedSet, Rationaled,
+    Asserted, AssertedSet, Evidence, Evidenced, GroundedItem, GroundedSet, Observed, ObservedSet,
+    Provenance, Rationaled,
 };
 use crate::resource::{Resource, ResourceOwnership};
+use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts, SloBaseline};
 use crate::service::{Authority, ServiceDefinition};
 use crate::trust::{PrivilegeLevel, UserConfirmation};
+
+const RUNTIME_CAPTURE: &str = "runtime-captures/cable_guy__pi4_navigator_master.json";
+const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
+
+pub fn runtime_facts() -> RuntimeFacts {
+    RuntimeFacts {
+        service: ServiceId("cable_guy".into()),
+        state_contracts: GroundedSet::unknown(
+            "cable_guy has no service-level state machine (card states Unknown); a manager watchdog reconciles interface state periodically",
+        ),
+        slo_baselines: GroundedSet::known(vec![
+            runtime_slo(HttpMethod::Get, "/interfaces", 12.4, 24.4, 26.5, 40),
+            runtime_slo(HttpMethod::Get, "/ethernet", 11.0, 19.7, 19.8, 40),
+            runtime_slo(HttpMethod::Get, "/host_dns", 1215.2, 1302.9, 1314.2, 40),
+            runtime_slo(HttpMethod::Get, "/route?interface_name=eth0", 25.9, 32.8, 35.9, 40),
+            runtime_slo(HttpMethod::Get, "/dhcp/details/eth0", 7.7, 15.7, 22.7, 40),
+        ]),
+        resource_usage: GroundedSet::known(vec![runtime_resource(
+            "running_baseline",
+            Distribution {
+                mean: 2.47,
+                median: 0.00,
+                p95: 11.94,
+                min: 0.00,
+                max: 17.35,
+                sd: 4.53,
+            },
+            Distribution {
+                mean: 53.1,
+                median: 53.1,
+                p95: 53.1,
+                min: 53.1,
+                max: 53.1,
+                sd: 0.0,
+            },
+            60,
+        )]),
+        platform_matrix: GroundedSet::known(vec![GroundedItem::new(
+            PlatformBehavior {
+                platform: "navigator".into(),
+                firmware: None,
+                notes: vec![
+                    "cable_guy manages host wired interfaces regardless of flight controller; platform-independent".into(),
+                    "runtime captured on Navigator only; RSS ~53.1 MB flat, CPU ~2.47% mean (watchdog reconciliation spikes)".into(),
+                    "GET /host_dns is ~1.2 s: it shells out (cat/lsattr on /etc/resolv.conf) per request".into(),
+                ],
+            },
+            runtime_prov("#platform_matrix"),
+        )]),
+        settings_mutations: GroundedSet::unknown(
+            "mutating routes persist to /root/.config/cable-guy/settings-2.json, /etc/dhcpcd.conf, /etc/resolv.conf but were not exercised (network-lockout hazard)",
+        ),
+    }
+}
+
+fn runtime_prov(key: &str) -> Provenance {
+    Provenance::runtime(format!("{RUNTIME_CAPTURE}{key}"), RUNTIME_ENV)
+}
+
+fn runtime_route(method: HttpMethod, path: &str) -> RouteRef {
+    RouteRef {
+        service: ServiceId("cable_guy".into()),
+        method,
+        path: path.into(),
+        version: None,
+    }
+}
+
+fn runtime_slo(
+    method: HttpMethod,
+    path: &str,
+    p50: f64,
+    p95: f64,
+    p99: f64,
+    sample_size: u32,
+) -> GroundedItem<SloBaseline> {
+    GroundedItem::new(
+        SloBaseline {
+            route: runtime_route(method, path),
+            latency_p50_ms: p50,
+            latency_p95_ms: p95,
+            latency_p99_ms: p99,
+            sample_size,
+        },
+        runtime_prov("#slo_running_baseline"),
+    )
+}
+
+fn runtime_resource(
+    condition: &str,
+    cpu_pct: Distribution,
+    rss_mb: Distribution,
+    samples: u32,
+) -> GroundedItem<ResourceUsage> {
+    GroundedItem::new(
+        ResourceUsage {
+            condition: condition.into(),
+            cpu_pct,
+            rss_mb,
+            samples,
+        },
+        runtime_prov("#resource_usage"),
+    )
+}
 
 pub fn observed_facts() -> ObservedFacts {
     ObservedFacts {

@@ -1,0 +1,94 @@
+{
+  "service": "cable_guy",
+  "environment": "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator",
+  "captured_at": "2026-07-11",
+  "capture_host": "192.168.0.177",
+  "notes": "Read-only Tier-1 capture on a healthy running cable_guy. CPU/RSS via tools/sample_resource.sh (--match cable_guy/main.py, 60 samples, label running_baseline; PID 174, comm python3). SLO via tools/probe_http.sh on read-only GETs (--repeats 40). Live interfaces observed: eth0, usb0, wlan0, uap0. NO mutating routes exercised: POST/DELETE /address, POST /dynamic_ip, POST/DELETE /dhcp, POST /set_interfaces_priority, POST /host_dns can change the vehicle's IP/route/DNS and lock out the operator's own connection; those journey outcomes remain Unknown. Raw evidence: /tmp/cableguy_sample.json, /tmp/cableguy_slo.json.",
+  "api_versions": [
+    "v1.0"
+  ],
+  "route_inventory": {
+    "v1.0_read_only": [
+      "GET /interfaces",
+      "GET /ethernet",
+      "GET /host_dns",
+      "GET /route?interface_name={iface}",
+      "GET /dhcp/details/{iface}",
+      "GET /dhcp/leases/{iface}"
+    ],
+    "v1.0_mutating_not_exercised": [
+      "POST /address",
+      "DELETE /address",
+      "POST /dynamic_ip",
+      "POST /dhcp",
+      "DELETE /dhcp",
+      "POST /set_interfaces_priority",
+      "POST /host_dns"
+    ],
+    "note": "Read-only GETs probed on the live Pi; mutating routes deliberately not exercised (network-lockout hazard)."
+  },
+  "running_baseline": {
+    "note": "GET contracts on a healthy running cable_guy (idle, no mutating actions).",
+    "GET /interfaces": {
+      "status": 200,
+      "body_predicate": "array including eth0, usb0, wlan0, uap0"
+    },
+    "GET /ethernet": {
+      "status": 200,
+      "body_predicate": "array of wired interface descriptors"
+    },
+    "GET /host_dns": {
+      "status": 200,
+      "body_predicate": "nameserver list read from /etc/resolv.conf"
+    },
+    "GET /route?interface_name=eth0": {
+      "status": 200,
+      "body_predicate": "route list for eth0"
+    },
+    "GET /dhcp/details/eth0": {
+      "status": 200,
+      "body_predicate": "dhcp server details for eth0"
+    }
+  },
+  "slo_running_baseline": {
+    "sample_size": 40,
+    "note": "GET /host_dns is ~1.2 s because it shells out (cat/lsattr on /etc/resolv.conf) per request; the other reads are fast (7-26 ms).",
+    "GET /interfaces": { "p50_ms": 12.4, "p95_ms": 24.4, "p99_ms": 26.5 },
+    "GET /ethernet": { "p50_ms": 11.0, "p95_ms": 19.7, "p99_ms": 19.8 },
+    "GET /host_dns": { "p50_ms": 1215.2, "p95_ms": 1302.9, "p99_ms": 1314.2 },
+    "GET /route?interface_name=eth0": { "p50_ms": 25.9, "p95_ms": 32.8, "p99_ms": 35.9 },
+    "GET /dhcp/details/eth0": { "p50_ms": 7.7, "p95_ms": 15.7, "p99_ms": 22.7 }
+  },
+  "resource_usage": {
+    "running_baseline": {
+      "sample_size": 60,
+      "interval_s": 1,
+      "method": "/proc stat deltas, top-style (100 == 1 core), PID 174 python3 cable_guy/main.py",
+      "cpu_pct": {
+        "mean": 2.47,
+        "median": 0.00,
+        "p95": 11.94,
+        "min": 0.00,
+        "max": 17.35,
+        "sd": 4.53
+      },
+      "rss_mb": {
+        "mean": 53.1,
+        "median": 53.1,
+        "p95": 53.1,
+        "min": 53.1,
+        "max": 53.1,
+        "sd": 0.0
+      },
+      "note": "Periodic CPU spikes from the interface-manager watchdog reconciliation loop; RSS flat at ~53 MB."
+    }
+  },
+  "platform_matrix": {
+    "navigator": {
+      "firmware": "n/a (cable_guy is autopilot-independent)",
+      "notes": "cable_guy manages host wired interfaces regardless of flight controller; platform-independent on this Pi4/Navigator host."
+    }
+  },
+  "state_machine": "none (service_definition states: Unknown; a manager watchdog reconciles interface state periodically, not a discrete state machine)",
+  "settings_mutations": "Not exercised. Mutating routes persist to /root/.config/cable-guy/settings-2.json (SettingsV2) and to /etc/dhcpcd.conf / /etc/resolv.conf; not mutated during this read-only capture."
+}

@@ -26,6 +26,7 @@ pub fn all_runtime() -> Vec<RuntimeFacts> {
     vec![
         ardupilot_manager::runtime_facts(),
         beacon::runtime_facts(),
+        cable_guy::runtime_facts(),
         commander::runtime_facts(),
         disk_usage::runtime_facts(),
         helper::runtime_facts(),
