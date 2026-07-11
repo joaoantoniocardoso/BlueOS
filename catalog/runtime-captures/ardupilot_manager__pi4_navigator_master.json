@@ -60,7 +60,7 @@
 
   "state_contracts": {
     "machine": "autopilot_lifecycle",
-    "note": "autopilot-dependent endpoints fail when stopped; config reads are state-independent. Falsifies api_stable:true.",
+    "note": "autopilot-dependent endpoints return 500 when stopped (documented state contract); config reads are state-independent. This is a graceful-degradation gap, NOT an api_stable concern (api_stable is about versioned API surface, which is unaffected).",
     "running": {
       "GET /vehicle_type": { "status": 200, "body_predicate": "Submarine" },
       "GET /firmware_vehicle_type": { "status": 200, "body_predicate": "ArduSub" },

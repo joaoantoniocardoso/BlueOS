@@ -3,6 +3,7 @@ pub mod criticality;
 pub mod drift;
 pub mod edge;
 pub mod export;
+pub mod extract;
 pub mod id;
 pub mod interface;
 pub mod journey;
@@ -21,9 +22,12 @@ pub mod validate;
 
 pub use catalog::{Catalog, CouplingMatrix};
 pub use criticality::CriticalityTier;
-pub use drift::{diff, diff_catalog, DriftFinding, DriftReport};
+pub use drift::{
+    diff, diff_catalog, diff_catalog_runtime, diff_runtime, DriftFinding, DriftReport,
+};
 pub use edge::{Bus, Edge, FailureImpact, SyncMode};
 pub use export::{export_json, export_mermaid, export_schema};
+pub use extract::{check_against_observed, extract_from_repo, ExtractedService};
 pub use id::{CapabilityId, JourneyId, PathRef, Port, PortRef, ServiceId};
 pub use interface::{FileAccessMode, Interface, MavlinkRole};
 pub use journey::{
