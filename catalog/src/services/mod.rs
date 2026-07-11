@@ -45,5 +45,6 @@ pub fn all_service_definitions() -> Vec<ServiceDefinition> {
         disk_usage::service_definition(),
         helper::service_definition(),
         kraken::service_definition(),
+        wifi::service_definition(),
     ]
 }

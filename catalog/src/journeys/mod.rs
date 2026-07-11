@@ -17,5 +17,6 @@ pub fn all_journeys() -> Vec<UserJourney> {
     journeys.extend(disk_usage::journeys());
     journeys.extend(helper::journeys());
     journeys.extend(kraken::journeys());
+    journeys.extend(wifi::journeys());
     journeys
 }

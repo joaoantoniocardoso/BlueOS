@@ -13,7 +13,6 @@ const WIFI_MANAGER: &str = "core/frontend/src/components/wifi/WifiManager.vue";
 const WIFI_SETTINGS: &str = "core/frontend/src/components/wifi/WifiSettingsDialog.vue";
 const WIFI_TRAY: &str = "core/frontend/src/components/wifi/WifiTrayMenu.vue";
 
-#[allow(dead_code)]
 pub fn journeys() -> Vec<UserJourney> {
     vec![
         connect_to_wifi_network(),

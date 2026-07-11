@@ -596,7 +596,7 @@ pub fn service_definition() -> ServiceDefinition {
             ),
             Rationaled::new(
                 Authority::Other("onboard_dhcp_server_operator".to_string()),
-                "sole manager of onboard dnsmasq DHCP servers and /var/lib/dnsmasq lease state",
+                "manager of onboard dnsmasq DHCP servers on WIRED interfaces (wifi runs a separate dnsmasq for its uap0 hotspot; /var/lib/dnsmasq lease dir is SharedWrite)",
             ),
         ]),
         states: AssertedSet::unknown(
