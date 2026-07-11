@@ -474,9 +474,7 @@ pub fn service_definition() -> ServiceDefinition {
         states: AssertedSet::unknown(
             "no cataloged state machine; theme, branding, and model handlers are stateless request handlers",
         ),
-        edges: AssertedSet::unknown(
-            "no outbound coupling to other catalog services; frontend reaches customization via nginx REST only",
-        ),
+        edges: AssertedSet::established(vec![]),
         resources: AssertedSet::established(vec![
             Rationaled::new(
                 Resource {

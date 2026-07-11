@@ -602,9 +602,7 @@ pub fn service_definition() -> ServiceDefinition {
         states: AssertedSet::unknown(
             "no cataloged state machine; interface manager and DHCP watchdog run periodic reconciliation loops",
         ),
-        edges: AssertedSet::unknown(
-            "no outbound coupling to other catalog services; network changes are local host configuration only",
-        ),
+        edges: AssertedSet::established(vec![]),
         resources: AssertedSet::established(vec![
             Rationaled::new(
                 Resource {

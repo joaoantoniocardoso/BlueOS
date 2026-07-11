@@ -418,9 +418,7 @@ pub fn service_definition() -> ServiceDefinition {
         states: AssertedSet::unknown(
             "no cataloged state machine; mDNS runners and settings reload are periodic loop state",
         ),
-        edges: AssertedSet::unknown(
-            "beacon has no outbound coupling to other catalog services; mDNS is local multicast only",
-        ),
+        edges: AssertedSet::established(vec![]),
         resources: AssertedSet::established(vec![
             Rationaled::new(
                 Resource {

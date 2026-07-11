@@ -366,9 +366,7 @@ pub fn service_definition() -> ServiceDefinition {
         states: AssertedSet::unknown(
             "no cataloged state machine; SPEED_TEST global and request handlers are ephemeral test state",
         ),
-        edges: AssertedSet::unknown(
-            "no outbound coupling to other catalog services; topside browser and speedtest-cli WAN endpoints are external",
-        ),
+        edges: AssertedSet::established(vec![]),
         resources: AssertedSet::unknown(
             "no settings paths or persistent file writes in pardal source",
         ),

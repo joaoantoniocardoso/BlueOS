@@ -357,9 +357,7 @@ pub fn service_definition() -> ServiceDefinition {
         states: AssertedSet::unknown(
             "no cataloged state machine; key-value reads and writes are stateless request handlers",
         ),
-        edges: AssertedSet::unknown(
-            "no outbound coupling to other catalog services; frontend and operators reach bag via nginx REST only",
-        ),
+        edges: AssertedSet::established(vec![]),
         resources: AssertedSet::established(vec![Rationaled::new(
             Resource {
                 path: PathRef("/root/.config/bag-of-holding".to_string()),

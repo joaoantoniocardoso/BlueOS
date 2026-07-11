@@ -551,9 +551,7 @@ pub fn service_definition() -> ServiceDefinition {
         states: AssertedSet::unknown(
             "no cataloged state machine; per-extension enabled/running is implicit in settings and Docker, not modeled as service states",
         ),
-        edges: AssertedSet::unknown(
-            "no outbound coupling to other catalog services; Docker daemon and external manifest hosts are outside the catalog",
-        ),
+        edges: AssertedSet::established(vec![]),
         resources: AssertedSet::established(vec![
             Rationaled::new(
                 Resource {

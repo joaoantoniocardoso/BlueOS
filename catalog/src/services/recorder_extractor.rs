@@ -406,9 +406,7 @@ pub fn service_definition() -> ServiceDefinition {
         states: AssertedSet::unknown(
             "no cataloged state machine; background MCAP extraction and REST handlers are runtime-managed",
         ),
-        edges: AssertedSet::unknown(
-            "observed SharedWrite on /usr/blueos/userdata/recorder couples with uncataloged recorder service; no validated ServiceId edge yet",
-        ),
+        edges: AssertedSet::established(vec![]),
         resources: AssertedSet::established(vec![Rationaled::new(
             Resource {
                 path: PathRef("/usr/blueos/userdata/recorder".to_string()),

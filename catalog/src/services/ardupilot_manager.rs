@@ -1,4 +1,5 @@
 use crate::criticality::CriticalityTier;
+use crate::edge::{Bus, Edge, FailureImpact, SyncMode};
 use crate::id::{CapabilityId, JourneyId, PathRef, PortRef, ServiceId};
 use crate::interface::{FileAccessMode, Interface, MavlinkRole};
 use crate::journey::{HttpMethod, RouteRef};
@@ -809,9 +810,20 @@ pub fn service_definition() -> ServiceDefinition {
                 "current_board property and change_board/start_ardupilot transition connected boards to running",
             ),
         ]),
-        edges: AssertedSet::unknown(
-            "edge graph deferred to M2 when target services (mavlink2rest, cable_guy, video, …) are registered; validate() requires known edge targets",
-        ),
+        edges: AssertedSet::established(vec![Rationaled::new(
+            Edge {
+                from: ServiceId("ardupilot_manager".to_string()),
+                to: ServiceId("zenohd".to_string()),
+                via: Bus::Zenoh,
+                sync: SyncMode::Async,
+                endpoint: "zenoh:0.0.0.0:7117".to_string(),
+                purpose: "bridge the vehicle MAVLink stream onto the zenoh bus for pub/sub subscribers"
+                    .to_string(),
+                required_at_boot: false,
+                failure_impact: FailureImpact::Degraded,
+            },
+            "observed Mavlink Bridge connect zenoh:0.0.0.0:7117 + zenohraw:0.0.0.0:7117 target zenohd's zenoh port 7117; the mavlink-router bridges vehicle telemetry onto the bus. Flight control via the MAVLink router is independent of zenohd, so failure is Degraded (subscribers lose vehicle data) and not required at boot (ardupilot_manager is Priority tier and starts before zenohd; the bridge attaches when zenohd is up). Other outbound interfaces are external (firmware.ardupilot.org), flight-controller hardware (/dev/autopilot), local subprocesses, and inbound router endpoints (udpin/tcpin, connected TO by mavlink2rest/video/etc.)",
+        )]),
         resources: AssertedSet::established(vec![
             Rationaled::new(
                 Resource {

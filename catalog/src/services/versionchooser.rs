@@ -523,9 +523,7 @@ pub fn service_definition() -> ServiceDefinition {
         states: AssertedSet::unknown(
             "no cataloged state machine; current core and bootstrap versions are implicit in startup.json and Docker",
         ),
-        edges: AssertedSet::unknown(
-            "no outbound coupling to other catalog services; Docker daemon and external registries are outside the catalog",
-        ),
+        edges: AssertedSet::established(vec![]),
         resources: AssertedSet::established(vec![
             Rationaled::new(
                 Resource {

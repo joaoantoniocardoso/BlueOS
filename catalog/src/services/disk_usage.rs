@@ -392,9 +392,7 @@ pub fn service_definition() -> ServiceDefinition {
         states: AssertedSet::unknown(
             "no cataloged state machine; disk usage and speed tests are stateless request handlers",
         ),
-        edges: AssertedSet::unknown(
-            "no outbound coupling to other catalog services; du and disktest are local subprocesses only",
-        ),
+        edges: AssertedSet::established(vec![]),
         resources: AssertedSet::established(vec![Rationaled::new(
             Resource {
                 path: PathRef("/".to_string()),
