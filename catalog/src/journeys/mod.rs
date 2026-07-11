@@ -1,7 +1,10 @@
 mod ardupilot_manager;
+mod kraken;
 
 use crate::journey::UserJourney;
 
 pub fn all_journeys() -> Vec<UserJourney> {
-    ardupilot_manager::journeys()
+    let mut journeys = ardupilot_manager::journeys();
+    journeys.extend(kraken::journeys());
+    journeys
 }

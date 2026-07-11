@@ -22,12 +22,16 @@ entries=""
 for path in $GETS; do
   resp=$(curl -s -m 12 -w '\n%{http_code}' "$BASE$path" || echo $'\n000')
   status=$(printf '%s' "$resp" | tail -n1)
-  body=$(printf '%s' "$resp" | sed '$d')
+  # Bound the body to a snippet and pass via --rawfile: large bodies (e.g. a full
+  # consolidated manifest) overflow ARG_MAX when passed as a jq --arg. Slice with
+  # bash parameter expansion (not `head`) to avoid SIGPIPE under `set -o pipefail`.
+  body_full=$(printf '%s' "$resp" | sed '$d')
+  printf '%s' "${body_full:0:500}" > /tmp/_body_snip
   : > /tmp/_lat
   for _ in $(seq 1 "$REPEATS"); do curl -s -m 12 -o /dev/null -w '%{time_total}\n' "$BASE$path" >> /tmp/_lat || echo 12 >> /tmp/_lat; done
   read -r p50 p95 p99 < <(sort -n /tmp/_lat | awk '{a[NR]=$1} END{n=NR; printf "%.1f %.1f %.1f\n", a[int(n*0.5)]*1000, a[int(n*0.95)]*1000, a[int(n*0.99)]*1000}')
-  entry=$(jq -cn --arg s "$status" --arg b "$body" --argjson p50 "$p50" --argjson p95 "$p95" --argjson p99 "$p99" --argjson n "$REPEATS" \
-    '{status: ($s|tonumber? // $s), body: $b, latency_ms: {p50:$p50, p95:$p95, p99:$p99, n:$n}}')
+  entry=$(jq -cn --arg s "$status" --rawfile b /tmp/_body_snip --argjson p50 "$p50" --argjson p95 "$p95" --argjson p99 "$p99" --argjson n "$REPEATS" \
+    '{status: ($s|tonumber? // $s), body: ($b[0:500]), latency_ms: {p50:$p50, p95:$p95, p99:$p99, n:$n}}')
   entries=$(printf '%s\n%s\t%s' "$entries" "$path" "$entry")
 done
 

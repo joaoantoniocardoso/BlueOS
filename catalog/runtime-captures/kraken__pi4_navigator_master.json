@@ -1,0 +1,111 @@
+{
+  "service": "kraken",
+  "environment": "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4",
+  "captured_at": "2026-07-11",
+  "capture_host": "192.168.0.177",
+  "notes": "Tier 1 (read-only) + Tier 2 (install/enable/disable/restart/uninstall of the 'Example 1' extension, williangalvani.example1). Vehicle restored to pre-capture state (only default blueos.major_tom remains). CPU/RSS via tools/sample_resource.sh; latencies via tools/probe_http.sh. Raw evidence: kraken_sample_running.json, kraken_sample_with_ext.json, kraken_slo_running.json.",
+
+  "api_versions": ["v1.0", "v2.0"],
+
+  "route_inventory": {
+    "v1.0": [
+      "GET /", "GET /extensions_manifest", "GET /installed_extensions", "GET /list_containers",
+      "GET /log", "GET /stats", "POST /extension/disable", "POST /extension/enable",
+      "POST /extension/install", "POST /extension/restart", "POST /extension/uninstall",
+      "POST /extension/update_to_version"
+    ],
+    "v2.0_selected": [
+      "GET /extension/", "GET /extension/{identifier}/details", "GET /container/", "GET /container/stats",
+      "GET /manifest/", "GET /manifest/consolidated", "GET /jobs/", "GET /stats", "GET /installed_extensions",
+      "GET /list_containers", "POST /extension/", "POST /extension/{identifier}/{tag}/install",
+      "POST /extension/{identifier}/disable", "POST /extension/{identifier}/restart",
+      "POST /extension/{identifier}/{tag}/enable", "PUT /extension/{identifier}",
+      "DELETE /extension/{identifier}", "DELETE /extension/{identifier}/{tag}",
+      "POST /manifest/", "DELETE /manifest/{identifier}"
+    ],
+    "note": "v2.0 exposes ~40 routes (extension/container/manifest/jobs); v1.0 is the legacy flat surface. Full list from /kraken/v{ver}/openapi.json."
+  },
+
+  "running_baseline": {
+    "note": "GET-endpoint contracts on a healthy running kraken with only the default major_tom extension installed.",
+    "GET /installed_extensions": { "status": 200, "body_predicate": "array; contains blueos.major_tom {enabled:true}" },
+    "GET /list_containers": { "status": 200, "body_predicate": "3 containers: major_tom extension, blueos-core, blueos-bootstrap" },
+    "GET /stats": { "status": 200, "body_predicate": "object keyed by container -> {cpu, disk, memory}" },
+    "GET /container/": { "status": 200, "body_predicate": "array of container descriptors {name,status,image}" },
+    "GET /manifest/": { "status": 200, "body_predicate": "array; contains bluerobotics-production {enabled:true, priority:0}" },
+    "GET /manifest/consolidated": { "status": 200, "body_predicate": "large consolidated manifest of all extensions across sources" }
+  },
+
+  "slo_running_baseline": {
+    "sample_size": 40,
+    "GET /installed_extensions": { "p50_ms": 6.6, "p95_ms": 12.6, "p99_ms": 14.9 },
+    "GET /list_containers": { "p50_ms": 41.7, "p95_ms": 56.2, "p99_ms": 61.7 },
+    "GET /stats": { "p50_ms": 2026.7, "p95_ms": 2046.7, "p99_ms": 2052.4, "note": "~2s: aggregates live Docker stats for all containers" },
+    "GET /container/": { "p50_ms": 43.1, "p95_ms": 58.3, "p99_ms": 60.1 },
+    "GET /manifest/consolidated": { "p50_ms": 846.2, "p95_ms": 929.2, "p99_ms": 939.1, "note": "~850ms: builds consolidated manifest" }
+  },
+
+  "resource_usage": {
+    "running_baseline": {
+      "sample_size": 60,
+      "cpu_pct": { "mean": 1.12, "median": 1.06, "p95": 3.10, "min": 0.00, "max": 3.27, "sd": 0.92 },
+      "rss_mb": { "mean": 91.8, "median": 91.8, "min": 91.8, "max": 91.8 }
+    },
+    "with_extension_installed": {
+      "sample_size": 40,
+      "cpu_pct": { "mean": 1.11, "median": 0.99, "p95": 2.04, "min": 0.00, "max": 2.98, "sd": 0.77 },
+      "rss_mb": { "mean": 91.8, "median": 91.8, "min": 91.8, "max": 91.8 },
+      "note": "kraken's own footprint is unchanged by installing/running an extension: extensions run out-of-process as separate Docker containers, so kraken RSS/CPU is independent of installed-extension count"
+    }
+  },
+
+  "transitions": {
+    "note": "Tier 2 lifecycle of williangalvani.example1 (docker williangalvani/blueos-example1:v1.0.1). Timings are single-shot observations, not distributions.",
+    "install": {
+      "route": "POST /extension/install (v1.0)",
+      "status": 200,
+      "time_s": 17.9,
+      "effect": "streams docker pull progress as base64-encoded JSON fragments; ends 'Downloaded newer image for williangalvani/blueos-example1:v1.0.1'; creates and starts container extension-williangalvaniblueosexample1v101; adds entry to installed_extensions and settings extensions[]"
+    },
+    "disable": {
+      "route": "POST /extension/{identifier}/disable (v2.0)",
+      "status": 204,
+      "time_s": 0.9,
+      "effect": "stops and removes the extension container (GET /container/ no longer lists it); settings entry enabled -> false"
+    },
+    "enable": {
+      "route": "POST /extension/{identifier}/{tag}/enable (v2.0)",
+      "status": 204,
+      "time_s": 0.02,
+      "effect": "returns immediately (async); container comes up within ~3s; settings entry enabled -> true"
+    },
+    "restart": {
+      "route": "POST /extension/{identifier}/restart (v2.0)",
+      "status": 202,
+      "time_s": 0.9,
+      "effect": "accepted (async, body null); container recreated (Up ~2s afterward)"
+    },
+    "uninstall": {
+      "route": "DELETE /extension/{identifier} (v2.0)",
+      "status": 202,
+      "time_s": 2.0,
+      "effect": "accepted (async, body null); removes container and image reference; installed_extensions and settings extensions[] revert to default (only blueos.major_tom)"
+    }
+  },
+
+  "settings_mutations": {
+    "file": "/root/.config/kraken/settings-2.json",
+    "root_shape": "{VERSION: 2, extensions: [{identifier,name,docker,tag,enabled,permissions,user_permissions}], manifests: [{identifier,name,url,enabled,priority,factory}]}",
+    "install": "appends the extension to extensions[]",
+    "enable_disable": "toggles the extension's enabled boolean in place",
+    "uninstall": "removes the extension from extensions[]",
+    "add_manifest": "appends to manifests[] (POST /manifest/) — not exercised in this capture"
+  },
+
+  "platform_matrix": {
+    "note": "kraken behavior is platform-independent (Docker/extension management does not depend on the flight-controller board); not captured across boards. Runtime captured on Navigator only.",
+    "navigator": { "platform": "navigator", "rss_mb": 91.8, "cpu_pct_mean": 1.12 }
+  },
+
+  "state_machine": "none — kraken has no service-level lifecycle state machine; per-extension enabled/running state lives in settings + Docker, not modeled as kraken states (see service_definition states: Unknown)"
+}

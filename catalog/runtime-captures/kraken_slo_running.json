@@ -1,0 +1,56 @@
+{
+  "label": "running_baseline",
+  "base": "http://192.168.0.177/kraken/v2.0",
+  "routes": {
+    "/installed_extensions": {
+      "status": 200,
+      "body": "[{\"identifier\":\"blueos.major_tom\",\"tag\":\"2026-02-11\",\"name\":\"major_tom\",\"docker\":\"public.ecr.aws/blueos/bcloud-agent\",\"enabled\":true,\"permissions\":\"{\\\"HostConfig\\\":{\\\"NetworkMode\\\":\\\"host\\\",\\\"Privileged\\\":true,\\\"Binds\\\":[\\\"/var/logs:/var/logs\\\",\\\"/:/host\\\", \\\"/var/run/docker.sock:/var/run/docker.sock\\\"],\\\"ExtraHosts\\\":[\\\"blueos:host-gateway\\\"]}}\",\"user_permissions\":\"\",\"auth\":null}]",
+      "latency_ms": {
+        "p50": 6.6,
+        "p95": 12.6,
+        "p99": 14.9,
+        "n": 40
+      }
+    },
+    "/list_containers": {
+      "status": 200,
+      "body": "[{\"name\":\"/extension-publicecrawsblueosbcloudagent20260211\",\"image\":\"public.ecr.aws/blueos/bcloud-agent:2026-02-11\",\"image_id\":\"sha256:9f84748124a1e42121cdeb835929726412fa5e3984f665227a12e0a6c60cba8c\",\"status\":\"Up 2 hours\"},{\"name\":\"/blueos-core\",\"image\":\"bluerobotics/blueos-core:master\",\"image_id\":\"sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e\",\"status\":\"Up 2 hours\"},{\"name\":\"/blueos-bootstrap\",\"image\":\"bluerobotics/blueos-bootstrap:1.4.4-beta.10\",\"image_id\":\"sha256:6b",
+      "latency_ms": {
+        "p50": 41.7,
+        "p95": 56.2,
+        "p99": 61.7,
+        "n": 40
+      }
+    },
+    "/stats": {
+      "status": 200,
+      "body": "{\"extension-publicecrawsblueosbcloudagent20260211\":{\"cpu\":0.2093628808864266,\"memory\":3.1659640501745763,\"disk\":0.24428848034723533},\"blueos-core\":{\"cpu\":18.981018766756034,\"memory\":26.00584507952929,\"disk\":0.9454912464301277},\"blueos-bootstrap\":{\"cpu\":0.0,\"memory\":1.2080175869649554,\"disk\":0.08739608478903677}}",
+      "latency_ms": {
+        "p50": 2026.7,
+        "p95": 2046.7,
+        "p99": 2052.4,
+        "n": 40
+      }
+    },
+    "/container/": {
+      "status": 200,
+      "body": "[{\"name\":\"/extension-publicecrawsblueosbcloudagent20260211\",\"image\":\"public.ecr.aws/blueos/bcloud-agent:2026-02-11\",\"image_id\":\"sha256:9f84748124a1e42121cdeb835929726412fa5e3984f665227a12e0a6c60cba8c\",\"status\":\"Up 2 hours\"},{\"name\":\"/blueos-core\",\"image\":\"bluerobotics/blueos-core:master\",\"image_id\":\"sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e\",\"status\":\"Up 2 hours\"},{\"name\":\"/blueos-bootstrap\",\"image\":\"bluerobotics/blueos-bootstrap:1.4.4-beta.10\",\"image_id\":\"sha256:6b",
+      "latency_ms": {
+        "p50": 43.1,
+        "p95": 58.3,
+        "p99": 60.1,
+        "n": 40
+      }
+    },
+    "/manifest/consolidated": {
+      "status": 200,
+      "body": "[{\"identifier\":\"rafaellehmkuhl.websocket-streamer-for-cockpit\",\"name\":\"Data Streaming to Cockpit via WebSocket (Example Extension)\",\"website\":\"https://github.com/rafaellehmkuhl/BlueOS-WebSocket-Server-For-Cockpit-Extension\",\"docker\":\"rafaellehmkuhl/blueos-websocket-server-for-cockpit\",\"description\":\"Example extension demonstrating how to create a WebSocket server that streams data-lake variables to Cockpit.\",\"extension_logo\":\"https://docs.bluerobotics.com/BlueOS-Extensions-Repository/repos/rafae",
+      "latency_ms": {
+        "p50": 846.2,
+        "p95": 929.2,
+        "p99": 939.1,
+        "n": 40
+      }
+    }
+  }
+}

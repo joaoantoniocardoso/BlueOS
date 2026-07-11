@@ -1,0 +1,9 @@
+{
+  "label": "with_extension",
+  "match": "kraken/main.py",
+  "pid": 330, "ncpu": 4, "comm": "python3",
+  "samples": 40, "interval_s": 1,
+  "method": "/proc stat deltas, top-style (100 == 1 core)",
+  "cpu_pct": {"mean": 1.11, "median": 0.99, "p95": 2.04, "min": 0.00, "max": 2.98, "sd": 0.77},
+  "rss_mb": {"mean": 91.8, "median": 91.8, "min": 91.8, "max": 91.8}
+}
