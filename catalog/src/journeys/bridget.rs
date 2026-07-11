@@ -13,34 +13,31 @@ const BRIDGET_STORE: &str = "core/frontend/src/store/bridget.ts";
 const BRIDGET_VIEW: &str = "core/frontend/src/components/bridges/Bridget.vue";
 const BRIDGET_CREATE_DIALOG: &str = "core/frontend/src/components/bridges/BridgeCreationDialog.vue";
 const BRIDGET_CARD: &str = "core/frontend/src/components/bridges/BridgeCard.vue";
-const RUNTIME_CAPTURE: &str = "runtime-captures/bridget__pi4_navigator_master.json";
 const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
 
-pub fn journeys() -> Vec<UserJourney> {
-    vec![
-        view_configured_serial_bridges(),
-        create_serial_to_udp_bridge(),
-        remove_serial_bridge(),
-    ]
-}
+pub const JOURNEYS: &[UserJourney] = &[
+    VIEW_CONFIGURED_SERIAL_BRIDGES,
+    CREATE_SERIAL_TO_UDP_BRIDGE,
+    REMOVE_SERIAL_BRIDGE,
+];
 
-fn view_configured_serial_bridges() -> UserJourney {
+const VIEW_CONFIGURED_SERIAL_BRIDGES: UserJourney =
     UserJourney {
         id: JourneyId::ViewConfiguredSerialBridges,
         summary: Grounded::known(
-            "View and manage configured bridges between serial and UDP/TCP endpoints".into(),
+            "View and manage configured bridges between serial and UDP/TCP endpoints",
             Provenance::doc(OVERVIEW, 132),
         ),
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 568)),
-        services: bridget_services(),
-        capability_refs: GroundedSet::known(vec![cap(CapabilityId::ListConfiguredSerialBridges,
+        services: BRIDGET_SERVICES,
+        capability_refs: GroundedSet::known(&[cap(CapabilityId::ListConfiguredSerialBridges,
             "Serial Bridges page lists configured bridges and available serial ports",
         )]),
-        preconditions: GroundedSet::known(vec![GroundedItem::new(
-            Precondition::Other("Advanced mode enabled to access the Serial Bridges page".into()),
+        preconditions: GroundedSet::known(&[GroundedItem::new(
+            Precondition::Other("Advanced mode enabled to access the Serial Bridges page"),
             Provenance::source(BRIDGET_MENUS, 102),
         )]),
-        steps: GroundedSet::known(vec![
+        steps: GroundedSet::known(&[
             operator_step(
                 "Open the Serial Bridges page from the sidebar",
                 None,
@@ -53,8 +50,8 @@ fn view_configured_serial_bridges() -> UserJourney {
                 Provenance::source(BRIDGET_STORE, 88),
                 Some(runtime_outcome(
                     200,
-                    Some("[] (empty; no bridges configured)".into()),
-                    "#running_baseline",
+                    Some("[] (empty; no bridges configured)"),
+                    "runtime-captures/bridget__pi4_navigator_master.json#running_baseline",
                 )),
             ),
             operator_step(
@@ -68,8 +65,8 @@ fn view_configured_serial_bridges() -> UserJourney {
                 Provenance::source(BRIDGET_STORE, 112),
                 Some(runtime_outcome(
                     200,
-                    Some("[\"/dev/ttyAMA0\", \"/dev/ttyAMA1\", \"/dev/ttyAMA2\", \"/dev/ttyAMA3\", \"/dev/ttyS0\"] (proxied from linux2rest localhost:6030/serial)".into()),
-                    "#running_baseline",
+                    Some("[\"/dev/ttyAMA0\", \"/dev/ttyAMA1\", \"/dev/ttyAMA2\", \"/dev/ttyAMA3\", \"/dev/ttyS0\"] (proxied from linux2rest localhost:6030/serial)"),
+                    "runtime-captures/bridget__pi4_navigator_master.json#running_baseline",
                 )),
             ),
             operator_step(
@@ -80,35 +77,34 @@ fn view_configured_serial_bridges() -> UserJourney {
             ),
         ]),
         chains_from: None,
-    }
-}
+    };
 
-fn create_serial_to_udp_bridge() -> UserJourney {
+const CREATE_SERIAL_TO_UDP_BRIDGE: UserJourney =
     UserJourney {
         id: JourneyId::CreateSerialToUdpBridge,
         summary: Grounded::known(
             "Create a high-performance link between a serial device connected to the onboard computer and a UDP port"
-                .into(),
+                ,
             Provenance::doc(ADV, 574),
         ),
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 572)),
-        services: bridget_services(),
-        capability_refs: GroundedSet::known(vec![cap(CapabilityId::CreateSerialToUdpBridge,
+        services: BRIDGET_SERVICES,
+        capability_refs: GroundedSet::known(&[cap(CapabilityId::CreateSerialToUdpBridge,
             "creation dialog submits serial path, baud, IP, and UDP ports to start a bridge",
         )]),
-        preconditions: GroundedSet::known(vec![
+        preconditions: GroundedSet::known(&[
             GroundedItem::new(
-                Precondition::Other("Advanced mode enabled to access the Serial Bridges page".into()),
+                Precondition::Other("Advanced mode enabled to access the Serial Bridges page"),
                 Provenance::source(BRIDGET_MENUS, 102),
             ),
             GroundedItem::new(
                 Precondition::HardwarePresent(
-                    "Serial device connected to the onboard computer".into(),
+                    "Serial device connected to the onboard computer",
                 ),
                 Provenance::doc(ADV, 574),
             ),
         ]),
-        steps: GroundedSet::known(vec![
+        steps: GroundedSet::known(&[
             operator_step(
                 "Open the Serial Bridges page from the sidebar",
                 None,
@@ -169,32 +165,31 @@ fn create_serial_to_udp_bridge() -> UserJourney {
             ),
         ]),
         chains_from: None,
-    }
-}
+    };
 
-fn remove_serial_bridge() -> UserJourney {
+const REMOVE_SERIAL_BRIDGE: UserJourney =
     UserJourney {
         id: JourneyId::RemoveSerialBridge,
         summary: Grounded::known(
-            "Remove a configured serial bridge from the Serial Bridges page".into(),
+            "Remove a configured serial bridge from the Serial Bridges page",
             Provenance::source(BRIDGET_CARD, 60),
         ),
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 568)),
-        services: bridget_services(),
-        capability_refs: GroundedSet::known(vec![cap(CapabilityId::RemoveSerialBridge,
+        services: BRIDGET_SERVICES,
+        capability_refs: GroundedSet::known(&[cap(CapabilityId::RemoveSerialBridge,
             "bridge card remove button deletes the matching serial path and UDP endpoint",
         )]),
-        preconditions: GroundedSet::known(vec![
+        preconditions: GroundedSet::known(&[
             GroundedItem::new(
-                Precondition::Other("Advanced mode enabled to access the Serial Bridges page".into()),
+                Precondition::Other("Advanced mode enabled to access the Serial Bridges page"),
                 Provenance::source(BRIDGET_MENUS, 102),
             ),
             GroundedItem::new(
-                Precondition::Other("At least one serial bridge is already configured".into()),
+                Precondition::Other("At least one serial bridge is already configured"),
                 Provenance::source(BRIDGET_VIEW, 8),
             ),
         ]),
-        steps: GroundedSet::known(vec![
+        steps: GroundedSet::known(&[
             operator_step(
                 "Open the Serial Bridges page from the sidebar",
                 None,
@@ -207,8 +202,8 @@ fn remove_serial_bridge() -> UserJourney {
                 Provenance::source(BRIDGET_VIEW, 21),
                 Some(runtime_outcome(
                     200,
-                    Some("[] (empty; no bridges configured)".into()),
-                    "#running_baseline",
+                    Some("[] (empty; no bridges configured)"),
+                    "runtime-captures/bridget__pi4_navigator_master.json#running_baseline",
                 )),
             ),
             operator_step(
@@ -221,33 +216,30 @@ fn remove_serial_bridge() -> UserJourney {
             ),
         ]),
         chains_from: None,
-    }
-}
+    };
 
-fn cap(id: CapabilityId, rationale: &str) -> GroundedItem<CapabilityId> {
+const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<CapabilityId> {
     GroundedItem::new(id, Provenance::asserted(rationale))
 }
 
-fn bridget_services() -> GroundedSet<ServiceId> {
-    GroundedSet::known(vec![GroundedItem::new(
-        ServiceId::Bridget,
-        Provenance::doc(ADV, 571),
-    )])
-}
+const BRIDGET_SERVICES: GroundedSet<ServiceId> = GroundedSet::known(&[GroundedItem::new(
+    ServiceId::Bridget,
+    Provenance::doc(ADV, 571),
+)]);
 
-fn route(method: HttpMethod, path: &str, version: Option<&str>) -> RouteRef {
+const fn route(method: HttpMethod, path: &'static str, version: Option<&'static str>) -> RouteRef {
     RouteRef {
         service: ServiceId::Bridget,
         method,
-        path: path.into(),
-        version: version.map(str::to_string),
+        path,
+        version,
     }
 }
 
-fn sourced_route(
+const fn sourced_route(
     method: HttpMethod,
-    path: &str,
-    version: Option<&str>,
+    path: &'static str,
+    version: Option<&'static str>,
     line: u32,
 ) -> Grounded<RouteRef> {
     Grounded::known(
@@ -256,8 +248,8 @@ fn sourced_route(
     )
 }
 
-fn operator_step(
-    description: &str,
+const fn operator_step(
+    description: &'static str,
     route: Option<Grounded<RouteRef>>,
     provenance: Provenance,
     outcome: Option<Grounded<StepOutcome>>,
@@ -265,7 +257,7 @@ fn operator_step(
     GroundedItem::new(
         JourneyStep {
             actor: Actor::Operator,
-            description: description.into(),
+            description,
             route,
             outcome,
         },
@@ -273,8 +265,8 @@ fn operator_step(
     )
 }
 
-fn service_step(
-    description: &str,
+const fn service_step(
+    description: &'static str,
     route: Option<Grounded<RouteRef>>,
     provenance: Provenance,
     outcome: Option<Grounded<StepOutcome>>,
@@ -282,7 +274,7 @@ fn service_step(
     GroundedItem::new(
         JourneyStep {
             actor: Actor::Service(ServiceId::Bridget),
-            description: description.into(),
+            description,
             route,
             outcome,
         },
@@ -290,17 +282,21 @@ fn service_step(
     )
 }
 
-fn pending_outcome(reason: &str) -> Grounded<StepOutcome> {
+const fn pending_outcome(reason: &'static str) -> Grounded<StepOutcome> {
     Grounded::unknown(reason)
 }
 
-fn runtime_outcome(status: u16, body: Option<String>, key: &str) -> Grounded<StepOutcome> {
+const fn runtime_outcome(
+    status: u16,
+    body: Option<&'static str>,
+    key: &'static str,
+) -> Grounded<StepOutcome> {
     Grounded::known(
         StepOutcome {
             expected_status: Some(status),
             body_predicate: body,
             transition: None,
         },
-        Provenance::runtime(format!("{RUNTIME_CAPTURE}{key}"), RUNTIME_ENV),
+        Provenance::runtime(key, RUNTIME_ENV),
     )
 }

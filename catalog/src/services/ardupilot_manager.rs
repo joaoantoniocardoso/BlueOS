@@ -19,186 +19,188 @@ use crate::service::{Authority, ServiceDefinition};
 use crate::state::StateMachine;
 use crate::trust::{DangerousOperation, PrivilegeLevel, UserConfirmation};
 
-const RUNTIME_CAPTURE: &str = "runtime-captures/ardupilot_manager__pi4_navigator_master.json";
 const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator, ArduSub 4.5.3 STABLE";
 
-pub fn runtime_facts() -> RuntimeFacts {
-    RuntimeFacts {
-        service: ServiceId::ArdupilotManager,
-        state_contracts: GroundedSet::known(vec![
-            runtime_state_contract(
-                "running",
-                HttpMethod::Get,
-                "/vehicle_type",
-                200,
-                Some("Submarine"),
+pub const RUNTIME_FACTS: RuntimeFacts = RuntimeFacts {
+    service: ServiceId::ArdupilotManager,
+    state_contracts: GroundedSet::known(&[
+        runtime_state_contract(
+            "running",
+            HttpMethod::Get,
+            "/vehicle_type",
+            200,
+            Some("Submarine"),
+        ),
+        runtime_state_contract(
+            "stopped",
+            HttpMethod::Get,
+            "/vehicle_type",
+            500,
+            Some("Did not receive an updated HEARTBEAT before timeout"),
+        ),
+        runtime_state_contract(
+            "running",
+            HttpMethod::Get,
+            "/firmware_vehicle_type",
+            200,
+            Some("ArduSub"),
+        ),
+        runtime_state_contract(
+            "stopped",
+            HttpMethod::Get,
+            "/firmware_vehicle_type",
+            500,
+            Some("Did not receive an updated HEARTBEAT before timeout"),
+        ),
+        runtime_state_contract("stopped", HttpMethod::Get, "/board", 200, None),
+        runtime_state_contract("stopped", HttpMethod::Get, "/firmware_info", 200, None),
+    ]),
+    slo_baselines: GroundedSet::known(&[
+        runtime_slo(HttpMethod::Get, "/board", 7.3, 13.6, 15.8),
+        runtime_slo(HttpMethod::Get, "/vehicle_type", 1038.5, 1518.9, 1627.9),
+        runtime_slo(HttpMethod::Get, "/firmware_info", 29.3, 62.7, 102.1),
+        runtime_slo(HttpMethod::Get, "/sitl_frame", 5.9, 10.2, 14.3),
+        runtime_slo(HttpMethod::Get, "/preferred_router", 6.2, 13.0, 15.5),
+        runtime_slo(HttpMethod::Get, "/available_boards", 15.8, 26.8, 28.5),
+        runtime_slo(HttpMethod::Get, "/available_firmwares", 6.6, 13.2, 18.1),
+        runtime_slo(HttpMethod::Get, "/endpoints/", 11.7, 27.0, 39.3),
+        runtime_slo(HttpMethod::Get, "/serials", 694.6, 1384.8, 1407.7),
+    ]),
+    resource_usage: GroundedSet::known(&[
+        runtime_resource(
+            "running_navigator",
+            Distribution {
+                mean: 8.74,
+                median: 1.11,
+                p95: 51.65,
+                min: 0.0,
+                max: 57.45,
+                sd: 17.16,
+            },
+            flat_rss(46.0),
+            60,
+        ),
+        runtime_resource(
+            "stopped_navigator",
+            Distribution {
+                mean: 0.29,
+                median: 0.0,
+                p95: 0.98,
+                min: 0.0,
+                max: 0.99,
+                sd: 0.45,
+            },
+            flat_rss(46.0),
+            20,
+        ),
+        runtime_resource(
+            "sitl",
+            Distribution {
+                mean: 7.34,
+                median: 0.0,
+                p95: 43.80,
+                min: 0.0,
+                max: 46.94,
+                sd: 14.77,
+            },
+            flat_rss(114.2),
+            20,
+        ),
+    ]),
+    platform_matrix: GroundedSet::known(&[
+        GroundedItem::new(
+            PlatformBehavior {
+                platform: "navigator",
+                firmware: Some("4.5.3 STABLE"),
+                notes: &[
+                    "GET /serials -> 200 (hardware serial /dev/ttyS0)",
+                    "manager RSS ~46 MB",
+                ],
+            },
+            runtime_prov(
+                "runtime-captures/ardupilot_manager__pi4_navigator_master.json#platform_matrix",
             ),
-            runtime_state_contract(
-                "stopped",
-                HttpMethod::Get,
-                "/vehicle_type",
-                500,
-                Some("Did not receive an updated HEARTBEAT before timeout"),
+        ),
+        GroundedItem::new(
+            PlatformBehavior {
+                platform: "SITL_arm_linux_gnueabihf",
+                firmware: Some("4.7.0 BETA"),
+                notes: &[
+                    "GET /serials -> 500 {detail:''}",
+                    "manager RSS ~114 MB",
+                    "software autopilot",
+                ],
+            },
+            runtime_prov(
+                "runtime-captures/ardupilot_manager__pi4_navigator_master.json#platform_matrix",
             ),
-            runtime_state_contract(
-                "running",
-                HttpMethod::Get,
-                "/firmware_vehicle_type",
-                200,
-                Some("ArduSub"),
-            ),
-            runtime_state_contract(
-                "stopped",
-                HttpMethod::Get,
-                "/firmware_vehicle_type",
-                500,
-                Some("Did not receive an updated HEARTBEAT before timeout"),
-            ),
-            runtime_state_contract("stopped", HttpMethod::Get, "/board", 200, None),
-            runtime_state_contract("stopped", HttpMethod::Get, "/firmware_info", 200, None),
-        ]),
-        slo_baselines: GroundedSet::known(vec![
-            runtime_slo(HttpMethod::Get, "/board", 7.3, 13.6, 15.8),
-            runtime_slo(HttpMethod::Get, "/vehicle_type", 1038.5, 1518.9, 1627.9),
-            runtime_slo(HttpMethod::Get, "/firmware_info", 29.3, 62.7, 102.1),
-            runtime_slo(HttpMethod::Get, "/sitl_frame", 5.9, 10.2, 14.3),
-            runtime_slo(HttpMethod::Get, "/preferred_router", 6.2, 13.0, 15.5),
-            runtime_slo(HttpMethod::Get, "/available_boards", 15.8, 26.8, 28.5),
-            runtime_slo(HttpMethod::Get, "/available_firmwares", 6.6, 13.2, 18.1),
-            runtime_slo(HttpMethod::Get, "/endpoints/", 11.7, 27.0, 39.3),
-            runtime_slo(HttpMethod::Get, "/serials", 694.6, 1384.8, 1407.7),
-        ]),
-        resource_usage: GroundedSet::known(vec![
-            runtime_resource(
-                "running_navigator",
-                Distribution {
-                    mean: 8.74,
-                    median: 1.11,
-                    p95: 51.65,
-                    min: 0.0,
-                    max: 57.45,
-                    sd: 17.16,
-                },
-                flat_rss(46.0),
-                60,
-            ),
-            runtime_resource(
-                "stopped_navigator",
-                Distribution {
-                    mean: 0.29,
-                    median: 0.0,
-                    p95: 0.98,
-                    min: 0.0,
-                    max: 0.99,
-                    sd: 0.45,
-                },
-                flat_rss(46.0),
-                20,
-            ),
-            runtime_resource(
-                "sitl",
-                Distribution {
-                    mean: 7.34,
-                    median: 0.0,
-                    p95: 43.80,
-                    min: 0.0,
-                    max: 46.94,
-                    sd: 14.77,
-                },
-                flat_rss(114.2),
-                20,
-            ),
-        ]),
-        platform_matrix: GroundedSet::known(vec![
-            GroundedItem::new(
-                PlatformBehavior {
-                    platform: "navigator".into(),
-                    firmware: Some("4.5.3 STABLE".into()),
-                    notes: vec![
-                        "GET /serials -> 200 (hardware serial /dev/ttyS0)".into(),
-                        "manager RSS ~46 MB".into(),
-                    ],
-                },
-                runtime_prov("#platform_matrix"),
-            ),
-            GroundedItem::new(
-                PlatformBehavior {
-                    platform: "SITL_arm_linux_gnueabihf".into(),
-                    firmware: Some("4.7.0 BETA".into()),
-                    notes: vec![
-                        "GET /serials -> 500 {detail:''}".into(),
-                        "manager RSS ~114 MB".into(),
-                        "software autopilot".into(),
-                    ],
-                },
-                runtime_prov("#platform_matrix"),
-            ),
-            GroundedItem::new(
-                PlatformBehavior {
-                    platform: "Manual".into(),
-                    firmware: Some("4.5.7 STABLE".into()),
-                    notes: vec![
-                        "GET /vehicle_type -> 500 (no HEARTBEAT; no auto-detected autopilot)"
-                            .into(),
-                        "GET /serials -> 500".into(),
-                        "manager RSS ~55 MB, CPU ~0.85% idle".into(),
-                        "CAVEAT: captured with Manual selected but no external autopilot attached to \
+        ),
+        GroundedItem::new(
+            PlatformBehavior {
+                platform: "Manual",
+                firmware: Some("4.5.7 STABLE"),
+                notes: &[
+                    "GET /vehicle_type -> 500 (no HEARTBEAT; no auto-detected autopilot)",
+                    "GET /serials -> 500",
+                    "manager RSS ~55 MB, CPU ~0.85% idle",
+                    "CAVEAT: captured with Manual selected but no external autopilot attached to \
                          the manual master endpoint (udpin 0.0.0.0:14551); 500s reflect the \
                          unconfigured/no-source sub-state, not a correctly set up Manual vehicle \
-                         (outcomes likely differ once a real autopilot streams MAVLink)"
-                            .into(),
-                        "DOC GAP: Manual board is undocumented in ../BlueOS-docs (only Navigator \
-                         and SITL board options are covered; cf. serial-autopilot support #2722)"
-                            .into(),
-                    ],
-                },
-                runtime_prov("#platform_matrix"),
+                         (outcomes likely differ once a real autopilot streams MAVLink)",
+                    "DOC GAP: Manual board is undocumented in ../BlueOS-docs (only Navigator \
+                         and SITL board options are covered; cf. serial-autopilot support #2722)",
+                ],
+            },
+            runtime_prov(
+                "runtime-captures/ardupilot_manager__pi4_navigator_master.json#platform_matrix",
             ),
-        ]),
-        settings_mutations: GroundedSet::known(vec![
-            runtime_settings_mutation("POST /sitl_frame", vec!["content.sitl_frame"]),
-            runtime_settings_mutation("POST /board", vec!["content.preferred_board"]),
-            runtime_settings_mutation("POST /start or /stop", vec!["content.start_on_boot"]),
-            runtime_settings_mutation("POST /preferred_router", vec!["content.preferred_router"]),
-        ]),
-    }
+        ),
+    ]),
+    settings_mutations: GroundedSet::known(&[
+        runtime_settings_mutation("POST /sitl_frame", &["content.sitl_frame"]),
+        runtime_settings_mutation("POST /board", &["content.preferred_board"]),
+        runtime_settings_mutation("POST /start or /stop", &["content.start_on_boot"]),
+        runtime_settings_mutation("POST /preferred_router", &["content.preferred_router"]),
+    ]),
+};
+
+const fn runtime_prov(key: &'static str) -> Provenance {
+    Provenance::runtime(key, RUNTIME_ENV)
 }
 
-fn runtime_prov(key: &str) -> Provenance {
-    Provenance::runtime(format!("{RUNTIME_CAPTURE}{key}"), RUNTIME_ENV)
-}
-
-fn runtime_route(method: HttpMethod, path: &str) -> RouteRef {
+const fn runtime_route(method: HttpMethod, path: &'static str) -> RouteRef {
     RouteRef {
         service: ServiceId::ArdupilotManager,
         method,
-        path: path.into(),
+        path,
         version: None,
     }
 }
 
-fn runtime_state_contract(
-    state: &str,
+const fn runtime_state_contract(
+    state: &'static str,
     method: HttpMethod,
-    path: &str,
+    path: &'static str,
     status: u16,
-    body_predicate: Option<&str>,
+    body_predicate: Option<&'static str>,
 ) -> GroundedItem<StateContract> {
     GroundedItem::new(
         StateContract {
-            machine: "autopilot_lifecycle".into(),
-            state: state.into(),
+            machine: "autopilot_lifecycle",
+            state,
             route: runtime_route(method, path),
             status,
-            body_predicate: body_predicate.map(str::to_string),
+            body_predicate,
         },
-        runtime_prov("#state_contracts"),
+        runtime_prov(
+            "runtime-captures/ardupilot_manager__pi4_navigator_master.json#state_contracts",
+        ),
     )
 }
 
-fn runtime_slo(
+const fn runtime_slo(
     method: HttpMethod,
-    path: &str,
+    path: &'static str,
     p50: f64,
     p95: f64,
     p99: f64,
@@ -211,11 +213,13 @@ fn runtime_slo(
             latency_p99_ms: p99,
             sample_size: 60,
         },
-        runtime_prov("#slo_running_navigator"),
+        runtime_prov(
+            "runtime-captures/ardupilot_manager__pi4_navigator_master.json#slo_running_navigator",
+        ),
     )
 }
 
-fn flat_rss(mb: f64) -> Distribution {
+const fn flat_rss(mb: f64) -> Distribution {
     Distribution {
         mean: mb,
         median: mb,
@@ -226,429 +230,423 @@ fn flat_rss(mb: f64) -> Distribution {
     }
 }
 
-fn runtime_resource(
-    condition: &str,
+const fn runtime_resource(
+    condition: &'static str,
     cpu_pct: Distribution,
     rss_mb: Distribution,
     samples: u32,
 ) -> GroundedItem<ResourceUsage> {
     GroundedItem::new(
         ResourceUsage {
-            condition: condition.into(),
+            condition,
             cpu_pct,
             rss_mb,
             samples,
         },
-        runtime_prov("#resource_by_state"),
+        runtime_prov(
+            "runtime-captures/ardupilot_manager__pi4_navigator_master.json#resource_by_state",
+        ),
     )
 }
 
-fn runtime_settings_mutation(
-    trigger: &str,
-    keys_changed: Vec<&str>,
+const fn runtime_settings_mutation(
+    trigger: &'static str,
+    keys_changed: &'static [&'static str],
 ) -> GroundedItem<SettingsMutation> {
     GroundedItem::new(
         SettingsMutation {
-            trigger: trigger.into(),
-            keys_changed: keys_changed.into_iter().map(str::to_string).collect(),
+            trigger,
+            keys_changed,
         },
-        runtime_prov("#settings_mutations"),
+        runtime_prov(
+            "runtime-captures/ardupilot_manager__pi4_navigator_master.json#settings_mutations",
+        ),
     )
 }
 
-pub fn observed_facts() -> ObservedFacts {
-    ObservedFacts {
-        id: ServiceId::ArdupilotManager,
-        aliases: ObservedSet::known(vec![
-            Evidenced::new(
-                "autopilot".to_string(),
-                Evidence {
-                    file: "core/start-blueos-core".to_string(),
-                    line: 118,
-                },
-            ),
-            Evidenced::new(
-                "ardupilot-manager".to_string(),
-                Evidence {
-                    file: "core/services/ardupilot_manager/settings.py".to_string(),
-                    line: 10,
-                },
-            ),
-        ]),
-        kind: Observed::known(
-            ServiceKind::PythonService,
+pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
+    id: ServiceId::ArdupilotManager,
+    aliases: ObservedSet::known(&[
+        Evidenced::new(
+            "autopilot",
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 118,
             },
         ),
-        entrypoint: Observed::known(
-            "nice --19 $SERVICES_PATH/ardupilot_manager/main.py".to_string(),
+        Evidenced::new(
+            "ardupilot-manager",
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 118,
+                file: "core/services/ardupilot_manager/settings.py",
+                line: 10,
             },
         ),
-        tmux_name: Observed::known(
-            "autopilot".to_string(),
+    ]),
+    kind: Observed::known(
+        ServiceKind::PythonService,
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 118,
+        },
+    ),
+    entrypoint: Observed::known(
+        "nice --19 $SERVICES_PATH/ardupilot_manager/main.py",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 118,
+        },
+    ),
+    tmux_name: Observed::known(
+        "autopilot",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 118,
+        },
+    ),
+    startup_tier: Observed::known(
+        StartupTier::Priority,
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 117,
+        },
+    ),
+    resource_limits: Observed::known(
+        ResourceLimits {
+            memory_mb: Some(0),
+            cpu_percent: Some(0),
+            io_weight: None,
+        },
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 118,
+        },
+    ),
+    nice: Observed::known(
+        19,
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 118,
+        },
+    ),
+    run_as: Observed::known(
+        "root",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 118,
+        },
+    ),
+    nginx_prefixes: ObservedSet::known(&[
+        Evidenced::new(
+            PathRef("/ardupilot-manager/"),
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 118,
+                file: "core/tools/nginx/nginx.conf",
+                line: 76,
             },
         ),
-        startup_tier: Observed::known(
-            StartupTier::Priority,
+        Evidenced::new(
+            PathRef("/autopilot-manager/"),
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 117,
+                file: "core/tools/nginx/nginx.conf",
+                line: 81,
             },
         ),
-        resource_limits: Observed::known(
-            ResourceLimits {
-                memory_mb: Some(0),
-                cpu_percent: Some(0),
-                io_weight: None,
+    ]),
+    listen: ObservedSet::known(&[Evidenced::new(
+        PortRef::Literal(8000),
+        Evidence {
+            file: "core/services/ardupilot_manager/args.py",
+            line: 28,
+        },
+    )]),
+    git_path: Observed::known(
+        PathRef("core/services/ardupilot_manager"),
+        Evidence {
+            file: "core/services/ardupilot_manager/main.py",
+            line: 1,
+        },
+    ),
+    interfaces: ObservedSet::known(&[
+        Evidenced::new(
+            Interface::Rest {
+                path_prefix: PathRef("/ardupilot-manager/"),
+                port: PortRef::Literal(8000),
+                versions: &["v1.0", "v2.0"],
             },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 118,
+                file: "core/tools/nginx/nginx.conf",
+                line: 76,
             },
         ),
-        nice: Observed::known(
-            19,
+        Evidenced::new(
+            Interface::Rest {
+                path_prefix: PathRef("/autopilot-manager/"),
+                port: PortRef::Literal(8000),
+                versions: &["v1.0", "v2.0"],
+            },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 118,
+                file: "core/tools/nginx/nginx.conf",
+                line: 81,
             },
         ),
-        run_as: Observed::known(
-            "root".to_string(),
+        Evidenced::new(
+            Interface::Mavlink {
+                role: MavlinkRole::Endpoint,
+                connect: "udpin:0.0.0.0:14550",
+            },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 118,
+                file: "core/services/ardupilot_manager/autopilot_manager.py",
+                line: 56,
             },
         ),
-        nginx_prefixes: ObservedSet::known(vec![
-            Evidenced::new(
-                PathRef("/ardupilot-manager/".to_string()),
-                Evidence {
-                    file: "core/tools/nginx/nginx.conf".to_string(),
-                    line: 76,
-                },
-            ),
-            Evidenced::new(
-                PathRef("/autopilot-manager/".to_string()),
-                Evidence {
-                    file: "core/tools/nginx/nginx.conf".to_string(),
-                    line: 81,
-                },
-            ),
-        ]),
-        listen: ObservedSet::known(vec![Evidenced::new(
-            PortRef::Literal(8000),
-            Evidence {
-                file: "core/services/ardupilot_manager/args.py".to_string(),
-                line: 28,
+        Evidenced::new(
+            Interface::Mavlink {
+                role: MavlinkRole::Consumer,
+                connect: "udpout:192.168.2.1:14550",
             },
-        )]),
-        git_path: Observed::known(
-            PathRef("core/services/ardupilot_manager".to_string()),
             Evidence {
-                file: "core/services/ardupilot_manager/main.py".to_string(),
-                line: 1,
+                file: "core/services/ardupilot_manager/autopilot_manager.py",
+                line: 65,
             },
         ),
-        interfaces: ObservedSet::known(vec![
-            Evidenced::new(
-                Interface::Rest {
-                    path_prefix: PathRef("/ardupilot-manager/".to_string()),
-                    port: PortRef::Literal(8000),
-                    versions: vec!["v1.0".to_string(), "v2.0".to_string()],
-                },
-                Evidence {
-                    file: "core/tools/nginx/nginx.conf".to_string(),
-                    line: 76,
-                },
-            ),
-            Evidenced::new(
-                Interface::Rest {
-                    path_prefix: PathRef("/autopilot-manager/".to_string()),
-                    port: PortRef::Literal(8000),
-                    versions: vec!["v1.0".to_string(), "v2.0".to_string()],
-                },
-                Evidence {
-                    file: "core/tools/nginx/nginx.conf".to_string(),
-                    line: 81,
-                },
-            ),
-            Evidenced::new(
-                Interface::Mavlink {
-                    role: MavlinkRole::Endpoint,
-                    connect: "udpin:0.0.0.0:14550".to_string(),
-                },
-                Evidence {
-                    file: "core/services/ardupilot_manager/autopilot_manager.py".to_string(),
-                    line: 56,
-                },
-            ),
-            Evidenced::new(
-                Interface::Mavlink {
-                    role: MavlinkRole::Consumer,
-                    connect: "udpout:192.168.2.1:14550".to_string(),
-                },
-                Evidence {
-                    file: "core/services/ardupilot_manager/autopilot_manager.py".to_string(),
-                    line: 65,
-                },
-            ),
-            Evidenced::new(
-                Interface::Mavlink {
-                    role: MavlinkRole::Endpoint,
-                    connect: "udpin:127.0.0.1:14001".to_string(),
-                },
-                Evidence {
-                    file: "core/services/ardupilot_manager/autopilot_manager.py".to_string(),
-                    line: 74,
-                },
-            ),
-            Evidenced::new(
-                Interface::Mavlink {
-                    role: MavlinkRole::Consumer,
-                    connect: "udpout:127.0.0.1:14000".to_string(),
-                },
-                Evidence {
-                    file: "core/services/ardupilot_manager/autopilot_manager.py".to_string(),
-                    line: 83,
-                },
-            ),
-            Evidenced::new(
-                Interface::Mavlink {
-                    role: MavlinkRole::Bridge,
-                    connect: "zenoh:0.0.0.0:7117".to_string(),
-                },
-                Evidence {
-                    file: "core/services/ardupilot_manager/autopilot_manager.py".to_string(),
-                    line: 93,
-                },
-            ),
-            Evidenced::new(
-                Interface::Mavlink {
-                    role: MavlinkRole::Bridge,
-                    connect: "zenohraw:0.0.0.0:7117".to_string(),
-                },
-                Evidence {
-                    file: "core/services/ardupilot_manager/autopilot_manager.py".to_string(),
-                    line: 102,
-                },
-            ),
-            Evidenced::new(
-                Interface::Mavlink {
-                    role: MavlinkRole::Endpoint,
-                    connect: "tcpin:127.0.0.1:5777".to_string(),
-                },
-                Evidence {
-                    file: "core/services/ardupilot_manager/autopilot_manager.py".to_string(),
-                    line: 111,
-                },
-            ),
-            Evidenced::new(
-                Interface::Mavlink {
-                    role: MavlinkRole::Endpoint,
-                    connect: "udpin:0.0.0.0:14660".to_string(),
-                },
-                Evidence {
-                    file: "core/services/ardupilot_manager/autopilot_manager.py".to_string(),
-                    line: 121,
-                },
-            ),
-            Evidenced::new(
-                Interface::Mavlink {
-                    role: MavlinkRole::Endpoint,
-                    connect: "udpin:127.0.0.1:8852".to_string(),
-                },
-                Evidence {
-                    file: "core/services/ardupilot_manager/autopilot_manager.py".to_string(),
-                    line: 331,
-                },
-            ),
-            Evidenced::new(
-                Interface::Mavlink {
-                    role: MavlinkRole::Consumer,
-                    connect: "tcpout:127.0.0.1:5760".to_string(),
-                },
-                Evidence {
-                    file: "core/services/ardupilot_manager/autopilot_manager.py".to_string(),
-                    line: 464,
-                },
-            ),
-            Evidenced::new(
-                Interface::Subprocess {
-                    command: "mavlink-routerd".to_string(),
-                },
-                Evidence {
-                    file: "core/services/ardupilot_manager/mavlink_proxy/MAVLinkRouter.py"
-                        .to_string(),
-                    line: 74,
-                },
-            ),
-            Evidenced::new(
-                Interface::Subprocess {
-                    command: "mavlink-server".to_string(),
-                },
-                Evidence {
-                    file: "core/services/ardupilot_manager/mavlink_proxy/MAVLinkServer.py"
-                        .to_string(),
-                    line: 65,
-                },
-            ),
-            Evidenced::new(
-                Interface::Subprocess {
-                    command: "mavproxy.py".to_string(),
-                },
-                Evidence {
-                    file: "core/services/ardupilot_manager/mavlink_proxy/MAVProxy.py".to_string(),
-                    line: 54,
-                },
-            ),
-            Evidenced::new(
-                Interface::Subprocess {
-                    command: "mavp2p".to_string(),
-                },
-                Evidence {
-                    file: "core/services/ardupilot_manager/mavlink_proxy/MAVP2P.py".to_string(),
-                    line: 49,
-                },
-            ),
-            Evidenced::new(
-                Interface::Subprocess {
-                    command: "ardupilot_fw_uploader.py".to_string(),
-                },
-                Evidence {
-                    file: "core/services/ardupilot_manager/firmware/FirmwareUpload.py".to_string(),
-                    line: 25,
-                },
-            ),
-            Evidenced::new(
-                Interface::OutboundHttp {
-                    url: "https://firmware.ardupilot.org/manifest.json.gz".to_string(),
-                },
-                Evidence {
-                    file: "core/services/ardupilot_manager/firmware/FirmwareDownload.py"
-                        .to_string(),
-                    line: 26,
-                },
-            ),
-            Evidenced::new(
-                Interface::Settings {
-                    path: PathRef("/root/.config/ardupilot-manager/settings.json".to_string()),
-                },
-                Evidence {
-                    file: "core/services/ardupilot_manager/settings.py".to_string(),
-                    line: 16,
-                },
-            ),
-            Evidenced::new(
-                Interface::File {
-                    path: PathRef("/usr/blueos/userdata/firmware".to_string()),
-                    mode: FileAccessMode::ReadWrite,
-                },
-                Evidence {
-                    file: "core/services/ardupilot_manager/settings.py".to_string(),
-                    line: 18,
-                },
-            ),
-            Evidenced::new(
-                Interface::Hardware {
-                    device: PathRef("/dev/autopilot".to_string()),
-                },
-                Evidence {
-                    file: "core/services/ardupilot_manager/firmware/FirmwareUpload.py".to_string(),
-                    line: 12,
-                },
-            ),
-            Evidenced::new(
-                Interface::Zenoh {
-                    topics_produced: vec!["services/ardupilot-manager/log".to_string()],
-                    topics_consumed: vec![],
-                },
-                Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/utils/logs.py".to_string(),
-                    line: 78,
-                },
-            ),
-        ]),
-        resources: ObservedSet::known(vec![
-            Evidenced::new(
-                Resource {
-                    path: PathRef("/dev/autopilot".to_string()),
-                    ownership: ResourceOwnership::Exclusive,
-                },
-                Evidence {
-                    file: "core/services/ardupilot_manager/firmware/FirmwareUpload.py".to_string(),
-                    line: 12,
-                },
-            ),
-            Evidenced::new(
-                Resource {
-                    path: PathRef("/usr/blueos/userdata/firmware".to_string()),
-                    ownership: ResourceOwnership::SharedWrite,
-                },
-                Evidence {
-                    file: "core/services/ardupilot_manager/settings.py".to_string(),
-                    line: 18,
-                },
-            ),
-            Evidenced::new(
-                Resource {
-                    path: PathRef("/root/.config/ardupilot-manager".to_string()),
-                    ownership: ResourceOwnership::SharedWrite,
-                },
-                Evidence {
-                    file: "core/services/ardupilot_manager/settings.py".to_string(),
-                    line: 15,
-                },
-            ),
-        ]),
-        lifecycle: Observed::known(
-            ObservedLifecycle {
-                triggers: vec![
-                    "start-blueos-core create_service".to_string(),
-                    "start_on_boot setting".to_string(),
-                ],
-                ordered_after: vec![],
-                ordered_before: vec![
-                    ServiceId::CableGuy,
-                    ServiceId::MavlinkCameraManager,
-                    ServiceId::Mavlink2rest,
-                ],
+        Evidenced::new(
+            Interface::Mavlink {
+                role: MavlinkRole::Endpoint,
+                connect: "udpin:127.0.0.1:14001",
             },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 318,
+                file: "core/services/ardupilot_manager/autopilot_manager.py",
+                line: 74,
             },
         ),
-        logs_path: Observed::unknown(
-            "log_path is appdirs.user_config_dir('ardupilot-manager')/logs; resolved at runtime",
-        ),
-        zenoh_log_topic: Observed::known(
-            "services/ardupilot-manager/log".to_string(),
+        Evidenced::new(
+            Interface::Mavlink {
+                role: MavlinkRole::Consumer,
+                connect: "udpout:127.0.0.1:14000",
+            },
             Evidence {
-                file: "core/libs/commonwealth/src/commonwealth/utils/logs.py".to_string(),
+                file: "core/services/ardupilot_manager/autopilot_manager.py",
+                line: 83,
+            },
+        ),
+        Evidenced::new(
+            Interface::Mavlink {
+                role: MavlinkRole::Bridge,
+                connect: "zenoh:0.0.0.0:7117",
+            },
+            Evidence {
+                file: "core/services/ardupilot_manager/autopilot_manager.py",
+                line: 93,
+            },
+        ),
+        Evidenced::new(
+            Interface::Mavlink {
+                role: MavlinkRole::Bridge,
+                connect: "zenohraw:0.0.0.0:7117",
+            },
+            Evidence {
+                file: "core/services/ardupilot_manager/autopilot_manager.py",
+                line: 102,
+            },
+        ),
+        Evidenced::new(
+            Interface::Mavlink {
+                role: MavlinkRole::Endpoint,
+                connect: "tcpin:127.0.0.1:5777",
+            },
+            Evidence {
+                file: "core/services/ardupilot_manager/autopilot_manager.py",
+                line: 111,
+            },
+        ),
+        Evidenced::new(
+            Interface::Mavlink {
+                role: MavlinkRole::Endpoint,
+                connect: "udpin:0.0.0.0:14660",
+            },
+            Evidence {
+                file: "core/services/ardupilot_manager/autopilot_manager.py",
+                line: 121,
+            },
+        ),
+        Evidenced::new(
+            Interface::Mavlink {
+                role: MavlinkRole::Endpoint,
+                connect: "udpin:127.0.0.1:8852",
+            },
+            Evidence {
+                file: "core/services/ardupilot_manager/autopilot_manager.py",
+                line: 331,
+            },
+        ),
+        Evidenced::new(
+            Interface::Mavlink {
+                role: MavlinkRole::Consumer,
+                connect: "tcpout:127.0.0.1:5760",
+            },
+            Evidence {
+                file: "core/services/ardupilot_manager/autopilot_manager.py",
+                line: 464,
+            },
+        ),
+        Evidenced::new(
+            Interface::Subprocess {
+                command: "mavlink-routerd",
+            },
+            Evidence {
+                file: "core/services/ardupilot_manager/mavlink_proxy/MAVLinkRouter.py",
+                line: 74,
+            },
+        ),
+        Evidenced::new(
+            Interface::Subprocess {
+                command: "mavlink-server",
+            },
+            Evidence {
+                file: "core/services/ardupilot_manager/mavlink_proxy/MAVLinkServer.py",
+                line: 65,
+            },
+        ),
+        Evidenced::new(
+            Interface::Subprocess {
+                command: "mavproxy.py",
+            },
+            Evidence {
+                file: "core/services/ardupilot_manager/mavlink_proxy/MAVProxy.py",
+                line: 54,
+            },
+        ),
+        Evidenced::new(
+            Interface::Subprocess { command: "mavp2p" },
+            Evidence {
+                file: "core/services/ardupilot_manager/mavlink_proxy/MAVP2P.py",
+                line: 49,
+            },
+        ),
+        Evidenced::new(
+            Interface::Subprocess {
+                command: "ardupilot_fw_uploader.py",
+            },
+            Evidence {
+                file: "core/services/ardupilot_manager/firmware/FirmwareUpload.py",
+                line: 25,
+            },
+        ),
+        Evidenced::new(
+            Interface::OutboundHttp {
+                url: "https://firmware.ardupilot.org/manifest.json.gz",
+            },
+            Evidence {
+                file: "core/services/ardupilot_manager/firmware/FirmwareDownload.py",
+                line: 26,
+            },
+        ),
+        Evidenced::new(
+            Interface::Settings {
+                path: PathRef("/root/.config/ardupilot-manager/settings.json"),
+            },
+            Evidence {
+                file: "core/services/ardupilot_manager/settings.py",
+                line: 16,
+            },
+        ),
+        Evidenced::new(
+            Interface::File {
+                path: PathRef("/usr/blueos/userdata/firmware"),
+                mode: FileAccessMode::ReadWrite,
+            },
+            Evidence {
+                file: "core/services/ardupilot_manager/settings.py",
+                line: 18,
+            },
+        ),
+        Evidenced::new(
+            Interface::Hardware {
+                device: PathRef("/dev/autopilot"),
+            },
+            Evidence {
+                file: "core/services/ardupilot_manager/firmware/FirmwareUpload.py",
+                line: 12,
+            },
+        ),
+        Evidenced::new(
+            Interface::Zenoh {
+                topics_produced: &["services/ardupilot-manager/log"],
+                topics_consumed: &[],
+            },
+            Evidence {
+                file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                 line: 78,
             },
         ),
-        sentry: Observed::known(
-            true,
+    ]),
+    resources: ObservedSet::known(&[
+        Evidenced::new(
+            Resource {
+                path: PathRef("/dev/autopilot"),
+                ownership: ResourceOwnership::Exclusive,
+            },
             Evidence {
-                file: "core/services/ardupilot_manager/main.py".to_string(),
-                line: 28,
+                file: "core/services/ardupilot_manager/firmware/FirmwareUpload.py",
+                line: 12,
             },
         ),
-        openapi_refs: ObservedSet::unknown("not yet extracted"),
-    }
-}
+        Evidenced::new(
+            Resource {
+                path: PathRef("/usr/blueos/userdata/firmware"),
+                ownership: ResourceOwnership::SharedWrite,
+            },
+            Evidence {
+                file: "core/services/ardupilot_manager/settings.py",
+                line: 18,
+            },
+        ),
+        Evidenced::new(
+            Resource {
+                path: PathRef("/root/.config/ardupilot-manager"),
+                ownership: ResourceOwnership::SharedWrite,
+            },
+            Evidence {
+                file: "core/services/ardupilot_manager/settings.py",
+                line: 15,
+            },
+        ),
+    ]),
+    lifecycle: Observed::known(
+        ObservedLifecycle {
+            triggers: &["start-blueos-core create_service", "start_on_boot setting"],
+            ordered_after: &[],
+            ordered_before: &[
+                ServiceId::CableGuy,
+                ServiceId::MavlinkCameraManager,
+                ServiceId::Mavlink2rest,
+            ],
+        },
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 318,
+        },
+    ),
+    logs_path: Observed::unknown(
+        "log_path is appdirs.user_config_dir('ardupilot-manager')/logs; resolved at runtime",
+    ),
+    zenoh_log_topic: Observed::known(
+        "services/ardupilot-manager/log",
+        Evidence {
+            file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
+            line: 78,
+        },
+    ),
+    sentry: Observed::known(
+        true,
+        Evidence {
+            file: "core/services/ardupilot_manager/main.py",
+            line: 28,
+        },
+    ),
+    openapi_refs: ObservedSet::unknown("not yet extracted"),
+};
 
-pub fn service_definition() -> ServiceDefinition {
+pub const SERVICE_DEFINITION: ServiceDefinition =
     ServiceDefinition {
         id: ServiceId::ArdupilotManager,
         singleton: Asserted::established(
@@ -656,10 +654,10 @@ pub fn service_definition() -> ServiceDefinition {
             "Singleton metaclass and single priority-tier tmux instance; no second autopilot manager process",
         ),
         bounded_context: Asserted::established(
-            "flight-controller-and-mavlink-routing".to_string(),
+            "flight-controller-and-mavlink-routing",
             "provisional 2.0 domain: owns FC process, firmware, board selection, and MAVLink router endpoints",
         ),
-        journey_refs: AssertedSet::established(vec![
+        journey_refs: AssertedSet::established(&[
             Rationaled::new(
                 JourneyId::VehicleFirstBoot,
                 "wizard-driven first boot downloads firmware and arms autopilot lifecycle",
@@ -709,7 +707,7 @@ pub fn service_definition() -> ServiceDefinition {
             PrivilegeLevel::Root,
             "observed run_as root; main.py aborts when not running as root",
         ),
-        dangerous_operations: AssertedSet::established(vec![
+        dangerous_operations: AssertedSet::established(&[
             Rationaled::new(
                 DangerousOperation::FirmwareFlash,
                 "install_firmware REST routes and ardupilot_fw_uploader subprocess rewrite FC firmware",
@@ -731,7 +729,7 @@ pub fn service_definition() -> ServiceDefinition {
             UserConfirmation::Required,
             "firmware flash, FC restart, and restore-default are irreversible vehicle-safety operations",
         ),
-        capabilities: AssertedSet::established(vec![
+        capabilities: AssertedSet::established(&[
             Rationaled::new(
                 CapabilityId::ManageAutopilotLifecycle,
                 "REST start/stop/restart routes and auto_restart_ardupilot watchdog",
@@ -769,79 +767,79 @@ pub fn service_definition() -> ServiceDefinition {
                 "sitl_frame GET/POST for SITL simulation frame selection",
             ),
         ]),
-        authorities: AssertedSet::established(vec![
+        authorities: AssertedSet::established(&[
             Rationaled::new(
                 Authority::MavlinkRouterOwner,
                 "sole spawner of mavlink-router subprocesses and creator of all router endpoints including the mavlink2rest udpin listener",
             ),
             Rationaled::new(
-                Authority::HardwareExclusive(PathRef("/dev/autopilot".to_string())),
+                Authority::HardwareExclusive(PathRef("/dev/autopilot")),
                 "exclusive /dev/autopilot access for firmware uploader; no other service claims this device",
             ),
         ]),
-        states: AssertedSet::established(vec![
+        states: AssertedSet::established(&[
             Rationaled::new(
                 StateMachine {
-                    name: "autopilot_lifecycle".to_string(),
-                    states: vec![
-                        "stopped".to_string(),
-                        "running".to_string(),
-                        "degraded".to_string(),
+                    name: "autopilot_lifecycle",
+                    states: &[
+                        "stopped",
+                        "running",
+                        "degraded",
                     ],
-                    boot_state: "stopped".to_string(),
-                    degraded_when: vec![
-                        "heartbeat_failures".to_string(),
-                        "subprocess_crash".to_string(),
+                    boot_state: "stopped",
+                    degraded_when: &[
+                        "heartbeat_failures",
+                        "subprocess_crash",
                     ],
                 },
                 "should_be_running flag, is_running check, and heartbeat watchdog drive FC lifecycle",
             ),
             Rationaled::new(
                 StateMachine {
-                    name: "board_selection".to_string(),
-                    states: vec![
-                        "none".to_string(),
-                        "selected".to_string(),
-                        "running".to_string(),
+                    name: "board_selection",
+                    states: &[
+                        "none",
+                        "selected",
+                        "running",
                     ],
-                    boot_state: "none".to_string(),
-                    degraded_when: vec!["board_disconnected".to_string()],
+                    boot_state: "none",
+                    degraded_when: &["board_disconnected"],
                 },
                 "current_board property and change_board/start_ardupilot transition connected boards to running",
             ),
         ]),
-        edges: AssertedSet::established(vec![Rationaled::new(
+        edges: AssertedSet::established(&[Rationaled::new(
             Edge {
                 from: ServiceId::ArdupilotManager,
                 to: ServiceId::Zenohd,
                 via: Bus::Zenoh,
                 sync: SyncMode::Async,
-                endpoint: "zenoh:0.0.0.0:7117".to_string(),
+                endpoint: "zenoh:0.0.0.0:7117",
                 purpose: "bridge the vehicle MAVLink stream onto the zenoh bus for pub/sub subscribers"
-                    .to_string(),
+                    ,
                 required_at_boot: false,
                 failure_impact: FailureImpact::Degraded,
             },
             "observed Mavlink Bridge connect zenoh:0.0.0.0:7117 + zenohraw:0.0.0.0:7117 target zenohd's zenoh port 7117; the mavlink-router bridges vehicle telemetry onto the bus. Flight control via the MAVLink router is independent of zenohd, so failure is Degraded (subscribers lose vehicle data) and not required at boot (ardupilot_manager is Priority tier and starts before zenohd; the bridge attaches when zenohd is up). Other outbound interfaces are external (firmware.ardupilot.org), flight-controller hardware (/dev/autopilot), local subprocesses, and inbound router endpoints (udpin/tcpin, connected TO by mavlink2rest/video/etc.)",
         )]),
-        resources: AssertedSet::established(vec![
+        resources: AssertedSet::established(&[
             Rationaled::new(
                 Resource {
-                    path: PathRef("/dev/autopilot".to_string()),
+                    path: PathRef("/dev/autopilot"),
                     ownership: ResourceOwnership::Exclusive,
                 },
                 "firmware uploader opens /dev/autopilot for exclusive bootloader access",
             ),
             Rationaled::new(
                 Resource {
-                    path: PathRef("/usr/blueos/userdata/firmware".to_string()),
+                    path: PathRef("/usr/blueos/userdata/firmware"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 "user firmware drop directory; primary writer but path is user-accessible",
             ),
             Rationaled::new(
                 Resource {
-                    path: PathRef("/root/.config/ardupilot-manager".to_string()),
+                    path: PathRef("/root/.config/ardupilot-manager"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 "service-owned settings tree; other tools may read but this service is the writer",
@@ -849,18 +847,18 @@ pub fn service_definition() -> ServiceDefinition {
         ]),
         lifecycle: Lifecycle {
             triggers: Asserted::established(
-                vec![
-                    "start-blueos-core create_service".to_string(),
-                    "start_on_boot setting".to_string(),
+                &[
+                    "start-blueos-core create_service",
+                    "start_on_boot setting",
                 ],
                 "observed lifecycle triggers: tmux creation at boot and user start_on_boot preference",
             ),
             ordered_after: Asserted::established(
-                vec![],
+                &[],
                 "observed lifecycle has no explicit ordered_after dependencies",
             ),
             ordered_before: Asserted::established(
-                vec![
+                &[
                     ServiceId::CableGuy,
                     ServiceId::MavlinkCameraManager,
                     ServiceId::Mavlink2rest,
@@ -868,7 +866,7 @@ pub fn service_definition() -> ServiceDefinition {
                 "priority startup tier lists this service before cable_guy, video, and mavlink2rest",
             ),
             shutdown: Asserted::established(
-                "kill_ardupilot on uvicorn server exit".to_string(),
+                "kill_ardupilot on uvicorn server exit",
                 "main.py awaits server shutdown then calls kill_ardupilot",
             ),
             upgrade_behavior: Asserted::unknown(
@@ -877,7 +875,7 @@ pub fn service_definition() -> ServiceDefinition {
         },
         health: Asserted::established(
             "implicit: process liveness via tmux; REST root returns 200; auto_restart watchdogs for FC and router"
-                .to_string(),
+                ,
             "no dedicated /health route; watchdog tasks and REST availability serve as health signals",
         ),
         is_platform: Asserted::established(
@@ -891,30 +889,30 @@ pub fn service_definition() -> ServiceDefinition {
         permissions_model: Asserted::unknown(
             "no auth middleware or permission checks observed in API app; LAN trust model not cataloged elsewhere",
         ),
-        failure_modes: AssertedSet::established(vec![
+        failure_modes: AssertedSet::established(&[
             Rationaled::new(
-                "mavlink_router_crash".to_string(),
+                "mavlink_router_crash",
                 "router subprocess exit breaks all MAVLink fan-out until auto_restart_router recovers",
             ),
             Rationaled::new(
-                "flight_controller_heartbeat_loss".to_string(),
+                "flight_controller_heartbeat_loss",
                 "consecutive heartbeat failures trigger FC restart loop",
             ),
             Rationaled::new(
-                "firmware_flash_failure".to_string(),
+                "firmware_flash_failure",
                 "bad image or uploader error can brick FC until manual recovery",
             ),
             Rationaled::new(
-                "autopilot_subprocess_crash".to_string(),
+                "autopilot_subprocess_crash",
                 "SITL/Linux FC process exit triggers auto_restart_ardupilot",
             ),
             Rationaled::new(
-                "hardware_device_unavailable".to_string(),
+                "hardware_device_unavailable",
                 "/dev/autopilot missing blocks firmware upload and serial FC access",
             ),
         ]),
         blast_radius: Asserted::established(
-            "vehicle loses MAVLink connectivity and FC control; GCS link, mavlink2rest consumers, Zenoh bridge, and camera MAVLink client isolated".to_string(),
+            "vehicle loses MAVLink connectivity and FC control; GCS link, mavlink2rest consumers, Zenoh bridge, and camera MAVLink client isolated",
             "owns MAVLink router and FC process; downstream priority-tier services depend on its endpoints",
         ),
         compatibility_policy: Asserted::unknown(
@@ -922,5 +920,4 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         team: Asserted::unknown("no CODEOWNERS or team metadata in observed artifact"),
         adr_refs: AssertedSet::unknown("no ADR references found in service source tree"),
-    }
-}
+    };

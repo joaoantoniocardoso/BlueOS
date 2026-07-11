@@ -13,22 +13,21 @@ use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts
 use crate::service::{Authority, ServiceDefinition};
 use crate::trust::{PrivilegeLevel, UserConfirmation};
 
-const RUNTIME_CAPTURE: &str = "runtime-captures/beacon__pi4_navigator_master.json";
 const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
 
-pub fn runtime_facts() -> RuntimeFacts {
+pub const RUNTIME_FACTS: RuntimeFacts =
     RuntimeFacts {
         service: ServiceId::Beacon,
         state_contracts: GroundedSet::unknown(
             "beacon has no service-level state machine (card states Unknown); it runs a periodic mDNS re-advertisement loop",
         ),
-        slo_baselines: GroundedSet::known(vec![
+        slo_baselines: GroundedSet::known(&[
             runtime_slo(HttpMethod::Get, "/vehicle_name", 5.0, 7.0, 7.7, 40),
             runtime_slo(HttpMethod::Get, "/hostname", 4.7, 6.8, 6.9, 40),
             runtime_slo(HttpMethod::Get, "/services", 10.5, 14.8, 15.7, 40),
             runtime_slo(HttpMethod::Get, "/ip", 6.1, 7.8, 8.1, 40),
         ]),
-        resource_usage: GroundedSet::known(vec![runtime_resource(
+        resource_usage: GroundedSet::known(&[runtime_resource(
             "running_baseline",
             Distribution {
                 mean: 0.79,
@@ -48,39 +47,38 @@ pub fn runtime_facts() -> RuntimeFacts {
             },
             60,
         )]),
-        platform_matrix: GroundedSet::known(vec![GroundedItem::new(
+        platform_matrix: GroundedSet::known(&[GroundedItem::new(
             PlatformBehavior {
-                platform: "navigator".into(),
+                platform: "navigator",
                 firmware: None,
-                notes: vec![
-                    "beacon advertises mDNS and serves identity regardless of flight controller; platform-independent".into(),
-                    "runtime captured on Navigator only; RSS ~39.9 MB flat, CPU ~0.79% mean (spikes from ~10s mDNS loop)".into(),
+                notes: &[
+                    "beacon advertises mDNS and serves identity regardless of flight controller; platform-independent",
+                    "runtime captured on Navigator only; RSS ~39.9 MB flat, CPU ~0.79% mean (spikes from ~10s mDNS loop)",
                 ],
             },
-            runtime_prov("#platform_matrix"),
+            runtime_prov("runtime-captures/beacon__pi4_navigator_master.json#platform_matrix"),
         )]),
         settings_mutations: GroundedSet::unknown(
             "POST /vehicle_name and POST /hostname persist to /root/.config/beacon/settings-4.json but were not exercised (would rename the live vehicle)",
         ),
-    }
+    };
+
+const fn runtime_prov(key: &'static str) -> Provenance {
+    Provenance::runtime(key, RUNTIME_ENV)
 }
 
-fn runtime_prov(key: &str) -> Provenance {
-    Provenance::runtime(format!("{RUNTIME_CAPTURE}{key}"), RUNTIME_ENV)
-}
-
-fn runtime_route(method: HttpMethod, path: &str) -> RouteRef {
+const fn runtime_route(method: HttpMethod, path: &'static str) -> RouteRef {
     RouteRef {
         service: ServiceId::Beacon,
         method,
-        path: path.into(),
+        path,
         version: None,
     }
 }
 
-fn runtime_slo(
+const fn runtime_slo(
     method: HttpMethod,
-    path: &str,
+    path: &'static str,
     p50: f64,
     p95: f64,
     p99: f64,
@@ -94,252 +92,247 @@ fn runtime_slo(
             latency_p99_ms: p99,
             sample_size,
         },
-        runtime_prov("#slo_running_baseline"),
+        runtime_prov("runtime-captures/beacon__pi4_navigator_master.json#slo_running_baseline"),
     )
 }
 
-fn runtime_resource(
-    condition: &str,
+const fn runtime_resource(
+    condition: &'static str,
     cpu_pct: Distribution,
     rss_mb: Distribution,
     samples: u32,
 ) -> GroundedItem<ResourceUsage> {
     GroundedItem::new(
         ResourceUsage {
-            condition: condition.into(),
+            condition,
             cpu_pct,
             rss_mb,
             samples,
         },
-        runtime_prov("#resource_usage"),
+        runtime_prov("runtime-captures/beacon__pi4_navigator_master.json#resource_usage"),
     )
 }
 
-pub fn observed_facts() -> ObservedFacts {
-    ObservedFacts {
-        id: ServiceId::Beacon,
-        aliases: ObservedSet::known(vec![Evidenced::new(
-            "beacon".to_string(),
-            Evidence {
-                file: "core/services/beacon/main.py".to_string(),
-                line: 25,
+pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
+    id: ServiceId::Beacon,
+    aliases: ObservedSet::known(&[Evidenced::new(
+        "beacon",
+        Evidence {
+            file: "core/services/beacon/main.py",
+            line: 25,
+        },
+    )]),
+    kind: Observed::known(
+        ServiceKind::PythonService,
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 130,
+        },
+    ),
+    entrypoint: Observed::known(
+        "$SERVICES_PATH/beacon/main.py",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 130,
+        },
+    ),
+    tmux_name: Observed::known(
+        "beacon",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 130,
+        },
+    ),
+    startup_tier: Observed::known(
+        StartupTier::Normal,
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 124,
+        },
+    ),
+    resource_limits: Observed::known(
+        ResourceLimits {
+            memory_mb: Some(250),
+            cpu_percent: Some(0),
+            io_weight: None,
+        },
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 130,
+        },
+    ),
+    nice: Observed::unknown("no nice prefix in start tuple"),
+    run_as: Observed::known(
+        "root",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 130,
+        },
+    ),
+    nginx_prefixes: ObservedSet::known(&[Evidenced::new(
+        PathRef("/beacon/"),
+        Evidence {
+            file: "core/tools/nginx/nginx.conf",
+            line: 91,
+        },
+    )]),
+    listen: ObservedSet::known(&[Evidenced::new(
+        PortRef::Literal(9111),
+        Evidence {
+            file: "core/services/beacon/main.py",
+            line: 348,
+        },
+    )]),
+    git_path: Observed::known(
+        PathRef("core/services/beacon"),
+        Evidence {
+            file: "core/services/beacon/main.py",
+            line: 1,
+        },
+    ),
+    interfaces: ObservedSet::known(&[
+        Evidenced::new(
+            Interface::Rest {
+                path_prefix: PathRef("/beacon/"),
+                port: PortRef::Literal(9111),
+                versions: &["v1.0"],
             },
-        )]),
-        kind: Observed::known(
-            ServiceKind::PythonService,
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 130,
+                file: "core/services/beacon/main.py",
+                line: 321,
             },
         ),
-        entrypoint: Observed::known(
-            "$SERVICES_PATH/beacon/main.py".to_string(),
+        Evidenced::new(
+            Interface::Settings {
+                path: PathRef("/root/.config/beacon/settings-4.json"),
+            },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 130,
+                file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py",
+                line: 69,
             },
         ),
-        tmux_name: Observed::known(
-            "beacon".to_string(),
+        Evidenced::new(
+            Interface::File {
+                path: PathRef("core/services/beacon/default-settings.json"),
+                mode: FileAccessMode::Read,
+            },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 130,
+                file: "core/services/beacon/main.py",
+                line: 96,
             },
         ),
-        startup_tier: Observed::known(
-            StartupTier::Normal,
+        Evidenced::new(
+            Interface::File {
+                path: PathRef("/root/.config/beacon"),
+                mode: FileAccessMode::ReadWrite,
+            },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 124,
+                file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py",
+                line: 27,
             },
         ),
-        resource_limits: Observed::known(
-            ResourceLimits {
-                memory_mb: Some(250),
-                cpu_percent: Some(0),
-                io_weight: None,
+        Evidenced::new(
+            Interface::Zenoh {
+                topics_produced: &["services/beacon/log"],
+                topics_consumed: &[],
             },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 130,
-            },
-        ),
-        nice: Observed::unknown("no nice prefix in start tuple"),
-        run_as: Observed::known(
-            "root".to_string(),
-            Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 130,
-            },
-        ),
-        nginx_prefixes: ObservedSet::known(vec![Evidenced::new(
-            PathRef("/beacon/".to_string()),
-            Evidence {
-                file: "core/tools/nginx/nginx.conf".to_string(),
-                line: 91,
-            },
-        )]),
-        listen: ObservedSet::known(vec![Evidenced::new(
-            PortRef::Literal(9111),
-            Evidence {
-                file: "core/services/beacon/main.py".to_string(),
-                line: 348,
-            },
-        )]),
-        git_path: Observed::known(
-            PathRef("core/services/beacon".to_string()),
-            Evidence {
-                file: "core/services/beacon/main.py".to_string(),
-                line: 1,
-            },
-        ),
-        interfaces: ObservedSet::known(vec![
-            Evidenced::new(
-                Interface::Rest {
-                    path_prefix: PathRef("/beacon/".to_string()),
-                    port: PortRef::Literal(9111),
-                    versions: vec!["v1.0".to_string()],
-                },
-                Evidence {
-                    file: "core/services/beacon/main.py".to_string(),
-                    line: 321,
-                },
-            ),
-            Evidenced::new(
-                Interface::Settings {
-                    path: PathRef("/root/.config/beacon/settings-4.json".to_string()),
-                },
-                Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py".to_string(),
-                    line: 69,
-                },
-            ),
-            Evidenced::new(
-                Interface::File {
-                    path: PathRef("core/services/beacon/default-settings.json".to_string()),
-                    mode: FileAccessMode::Read,
-                },
-                Evidence {
-                    file: "core/services/beacon/main.py".to_string(),
-                    line: 96,
-                },
-            ),
-            Evidenced::new(
-                Interface::File {
-                    path: PathRef("/root/.config/beacon".to_string()),
-                    mode: FileAccessMode::ReadWrite,
-                },
-                Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py"
-                        .to_string(),
-                    line: 27,
-                },
-            ),
-            Evidenced::new(
-                Interface::Zenoh {
-                    topics_produced: vec!["services/beacon/log".to_string()],
-                    topics_consumed: vec![],
-                },
-                Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/utils/logs.py".to_string(),
-                    line: 78,
-                },
-            ),
-        ]),
-        resources: ObservedSet::known(vec![
-            Evidenced::new(
-                Resource {
-                    path: PathRef("/root/.config/beacon".to_string()),
-                    ownership: ResourceOwnership::SharedWrite,
-                },
-                Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py"
-                        .to_string(),
-                    line: 27,
-                },
-            ),
-            Evidenced::new(
-                Resource {
-                    path: PathRef("/root/.config/beacon/settings-4.json".to_string()),
-                    ownership: ResourceOwnership::SharedWrite,
-                },
-                Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py"
-                        .to_string(),
-                    line: 69,
-                },
-            ),
-            Evidenced::new(
-                Resource {
-                    path: PathRef("core/services/beacon/default-settings.json".to_string()),
-                    ownership: ResourceOwnership::SharedRead,
-                },
-                Evidence {
-                    file: "core/services/beacon/main.py".to_string(),
-                    line: 96,
-                },
-            ),
-        ]),
-        lifecycle: Observed::known(
-            ObservedLifecycle {
-                triggers: vec!["start-blueos-core create_service".to_string()],
-                ordered_after: vec![
-                    ServiceId::ArdupilotManager,
-                    ServiceId::CableGuy,
-                    ServiceId::MavlinkCameraManager,
-                    ServiceId::Mavlink2rest,
-                    ServiceId::Kraken,
-                    ServiceId::Wifi,
-                    ServiceId::Zenohd,
-                ],
-                ordered_before: vec![
-                    ServiceId::Bridget,
-                    ServiceId::Commander,
-                    ServiceId::NmeaInjector,
-                    ServiceId::Helper,
-                    ServiceId::Iperf3,
-                    ServiceId::Linux2rest,
-                    ServiceId::Filebrowser,
-                    ServiceId::Versionchooser,
-                    ServiceId::Pardal,
-                    ServiceId::Ping,
-                    ServiceId::UserTerminal,
-                    ServiceId::Ttyd,
-                    ServiceId::Nginx,
-                    ServiceId::BagOfHolding,
-                    ServiceId::Recorder,
-                    ServiceId::RecorderExtractor,
-                    ServiceId::DiskUsage,
-                    ServiceId::Customization,
-                ],
-            },
-            Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 326,
-            },
-        ),
-        logs_path: Observed::unknown(
-            "init_logger publishes to zenoh only; no on-disk log path set in beacon source",
-        ),
-        zenoh_log_topic: Observed::known(
-            "services/beacon/log".to_string(),
-            Evidence {
-                file: "core/libs/commonwealth/src/commonwealth/utils/logs.py".to_string(),
+                file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                 line: 78,
             },
         ),
-        sentry: Observed::known(
-            true,
+    ]),
+    resources: ObservedSet::known(&[
+        Evidenced::new(
+            Resource {
+                path: PathRef("/root/.config/beacon"),
+                ownership: ResourceOwnership::SharedWrite,
+            },
             Evidence {
-                file: "core/services/beacon/main.py".to_string(),
-                line: 337,
+                file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py",
+                line: 27,
             },
         ),
-        openapi_refs: ObservedSet::unknown("not yet extracted"),
-    }
-}
+        Evidenced::new(
+            Resource {
+                path: PathRef("/root/.config/beacon/settings-4.json"),
+                ownership: ResourceOwnership::SharedWrite,
+            },
+            Evidence {
+                file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py",
+                line: 69,
+            },
+        ),
+        Evidenced::new(
+            Resource {
+                path: PathRef("core/services/beacon/default-settings.json"),
+                ownership: ResourceOwnership::SharedRead,
+            },
+            Evidence {
+                file: "core/services/beacon/main.py",
+                line: 96,
+            },
+        ),
+    ]),
+    lifecycle: Observed::known(
+        ObservedLifecycle {
+            triggers: &["start-blueos-core create_service"],
+            ordered_after: &[
+                ServiceId::ArdupilotManager,
+                ServiceId::CableGuy,
+                ServiceId::MavlinkCameraManager,
+                ServiceId::Mavlink2rest,
+                ServiceId::Kraken,
+                ServiceId::Wifi,
+                ServiceId::Zenohd,
+            ],
+            ordered_before: &[
+                ServiceId::Bridget,
+                ServiceId::Commander,
+                ServiceId::NmeaInjector,
+                ServiceId::Helper,
+                ServiceId::Iperf3,
+                ServiceId::Linux2rest,
+                ServiceId::Filebrowser,
+                ServiceId::Versionchooser,
+                ServiceId::Pardal,
+                ServiceId::Ping,
+                ServiceId::UserTerminal,
+                ServiceId::Ttyd,
+                ServiceId::Nginx,
+                ServiceId::BagOfHolding,
+                ServiceId::Recorder,
+                ServiceId::RecorderExtractor,
+                ServiceId::DiskUsage,
+                ServiceId::Customization,
+            ],
+        },
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 326,
+        },
+    ),
+    logs_path: Observed::unknown(
+        "init_logger publishes to zenoh only; no on-disk log path set in beacon source",
+    ),
+    zenoh_log_topic: Observed::known(
+        "services/beacon/log",
+        Evidence {
+            file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
+            line: 78,
+        },
+    ),
+    sentry: Observed::known(
+        true,
+        Evidence {
+            file: "core/services/beacon/main.py",
+            line: 337,
+        },
+    ),
+    openapi_refs: ObservedSet::unknown("not yet extracted"),
+};
 
-pub fn service_definition() -> ServiceDefinition {
+pub const SERVICE_DEFINITION: ServiceDefinition =
     ServiceDefinition {
         id: ServiceId::Beacon,
         singleton: Asserted::established(
@@ -347,10 +340,10 @@ pub fn service_definition() -> ServiceDefinition {
             "single SERVICES-tier tmux instance; one Beacon process owns all mDNS runners",
         ),
         bounded_context: Asserted::established(
-            "vehicle-identity-and-discovery".to_string(),
+            "vehicle-identity-and-discovery",
             "provisional 2.0 domain: mDNS LAN advertisement plus persisted vehicle name and hostname identity",
         ),
-        journey_refs: AssertedSet::established(vec![
+        journey_refs: AssertedSet::established(&[
             Rationaled::new(
                 JourneyId::RenameVehicle,
                 "sidebar vehicle identifier edit persists display name via POST /vehicle_name",
@@ -376,12 +369,12 @@ pub fn service_definition() -> ServiceDefinition {
             PrivilegeLevel::Root,
             "observed run_as root; binds mDNS on network interfaces and writes /root/.config/beacon settings",
         ),
-        dangerous_operations: AssertedSet::established(vec![]),
+        dangerous_operations: AssertedSet::established(&[]),
         user_confirmation: Asserted::established(
             UserConfirmation::NotRequired,
             "vehicle rename and hostname change are reversible settings; no irreversible, untrusted-code, or vehicle-arm operations",
         ),
-        capabilities: AssertedSet::established(vec![
+        capabilities: AssertedSet::established(&[
             Rationaled::new(
                 CapabilityId::SetVehicleName,
                 "POST /vehicle_name persists the operator-facing vehicle display name in SettingsV4",
@@ -411,32 +404,32 @@ pub fn service_definition() -> ServiceDefinition {
                 "GET /ip returns client IP information from the incoming HTTP request",
             ),
         ]),
-        authorities: AssertedSet::established(vec![Rationaled::new(
-            Authority::Other("mdns_advertiser".to_string()),
+        authorities: AssertedSet::established(&[Rationaled::new(
+            Authority::Other("mdns_advertiser"),
             "sole publisher of BlueOS mDNS records on LAN interfaces; no other catalog service advertises blueos.local",
         )]),
         states: AssertedSet::unknown(
             "no cataloged state machine; mDNS runners and settings reload are periodic loop state",
         ),
-        edges: AssertedSet::established(vec![]),
-        resources: AssertedSet::established(vec![
+        edges: AssertedSet::established(&[]),
+        resources: AssertedSet::established(&[
             Rationaled::new(
                 Resource {
-                    path: PathRef("/root/.config/beacon".to_string()),
+                    path: PathRef("/root/.config/beacon"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 "SettingsV4 pykson manager directory for beacon identity and mDNS interface configuration",
             ),
             Rationaled::new(
                 Resource {
-                    path: PathRef("/root/.config/beacon/settings-4.json".to_string()),
+                    path: PathRef("/root/.config/beacon/settings-4.json"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 "persisted vehicle_name, hostname, and per-interface mDNS advertisement settings",
             ),
             Rationaled::new(
                 Resource {
-                    path: PathRef("core/services/beacon/default-settings.json".to_string()),
+                    path: PathRef("core/services/beacon/default-settings.json"),
                     ownership: ResourceOwnership::SharedRead,
                 },
                 "load_default_settings seeds domain names and service types on first run",
@@ -444,11 +437,11 @@ pub fn service_definition() -> ServiceDefinition {
         ]),
         lifecycle: Lifecycle {
             triggers: Asserted::established(
-                vec!["start-blueos-core create_service".to_string()],
+                &["start-blueos-core create_service"],
                 "observed lifecycle trigger: tmux creation at boot in SERVICES tier",
             ),
             ordered_after: Asserted::established(
-                vec![
+                &[
                     ServiceId::ArdupilotManager,
                     ServiceId::CableGuy,
                     ServiceId::MavlinkCameraManager,
@@ -460,7 +453,7 @@ pub fn service_definition() -> ServiceDefinition {
                 "observed ordered_after in start-blueos-core SERVICES block",
             ),
             ordered_before: Asserted::established(
-                vec![
+                &[
                     ServiceId::Bridget,
                     ServiceId::Commander,
                     ServiceId::NmeaInjector,
@@ -483,7 +476,7 @@ pub fn service_definition() -> ServiceDefinition {
                 "observed ordered_before lists beacon before remaining SERVICES-tier peers including nginx",
             ),
             shutdown: Asserted::established(
-                "beacon.stop unregisters all mDNS runners on uvicorn exit".to_string(),
+                "beacon.stop unregisters all mDNS runners on uvicorn exit",
                 "main.py awaits beacon.stop after server.serve returns",
             ),
             upgrade_behavior: Asserted::unknown(
@@ -491,7 +484,7 @@ pub fn service_definition() -> ServiceDefinition {
             ),
         },
         health: Asserted::established(
-            "implicit: process liveness via tmux; REST GET / returns service name; mDNS run loop every 10s".to_string(),
+            "implicit: process liveness via tmux; REST GET / returns service name; mDNS run loop every 10s",
             "no dedicated /health route; uvicorn availability and periodic mDNS registration serve as health signals",
         ),
         is_platform: Asserted::established(
@@ -503,30 +496,30 @@ pub fn service_definition() -> ServiceDefinition {
             "versioned FastAPI v1.0 router exposed under /beacon/ via VersionedFastAPI",
         ),
         permissions_model: Asserted::established(
-            "no separate permissions manifest; REST routes are unauthenticated".to_string(),
+            "no separate permissions manifest; REST routes are unauthenticated",
             "beacon routes have no auth decorator or extension-style permissions JSON",
         ),
-        failure_modes: AssertedSet::established(vec![
+        failure_modes: AssertedSet::established(&[
             Rationaled::new(
-                "mdns_registration_failure".to_string(),
+                "mdns_registration_failure",
                 "run() logs warnings when runner.register_services raises; affected interface stays undiscoverable",
             ),
             Rationaled::new(
-                "interface_runner_creation_failure".to_string(),
+                "interface_runner_creation_failure",
                 "create_default_runners and create_user_runners skip interfaces when AsyncRunner construction fails",
             ),
             Rationaled::new(
-                "service_info_value_error".to_string(),
+                "service_info_value_error",
                 "create_async_service_infos ValueError skips individual service advertisements on an interface",
             ),
             Rationaled::new(
-                "stale_mdns_after_hostname_change".to_string(),
+                "stale_mdns_after_hostname_change",
                 "hostname change updates settings; runner diff on next loop cycle re-registers domains",
             ),
         ]),
         blast_radius: Asserted::established(
             "mDNS hostname discovery and vehicle name sidebar stale; operators can still reach BlueOS by IP; MAVLink unaffected"
-                .to_string(),
+                ,
             "beacon outage blocks LAN name resolution UX but not autopilot, nginx core paths, or FC control",
         ),
         compatibility_policy: Asserted::unknown(
@@ -534,5 +527,4 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         team: Asserted::unknown("no CODEOWNERS or team metadata in observed artifact"),
         adr_refs: AssertedSet::unknown("no ADR references found in service source tree"),
-    }
-}
+    };

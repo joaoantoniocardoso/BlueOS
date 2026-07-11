@@ -14,31 +14,28 @@ const PING_MENUS: &str = "core/frontend/src/menus.ts";
 const PING_STORE: &str = "core/frontend/src/store/ping.ts";
 const PING1D_CARD: &str = "core/frontend/src/components/ping/ping1d.vue";
 const PING360_CARD: &str = "core/frontend/src/components/ping/ping360.vue";
-const RUNTIME_CAPTURE: &str = "runtime-captures/ping__pi4_navigator_master.json";
 const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
 
-pub fn journeys() -> Vec<UserJourney> {
-    vec![
-        view_detected_sonar_devices(),
-        connect_ping_viewer_to_sonar(),
-        enable_ping1d_rangefinder_mavlink(),
-    ]
-}
+pub const JOURNEYS: &[UserJourney] = &[
+    VIEW_DETECTED_SONAR_DEVICES,
+    CONNECT_PING_VIEWER_TO_SONAR,
+    ENABLE_PING1D_RANGEFINDER_MAVLINK,
+];
 
-fn view_detected_sonar_devices() -> UserJourney {
+const VIEW_DETECTED_SONAR_DEVICES: UserJourney =
     UserJourney {
         id: JourneyId::ViewDetectedSonarDevices,
         summary: Grounded::known(
-            "View Ping family sonar devices auto-detected on serial/USB and the local network".into(),
+            "View Ping family sonar devices auto-detected on serial/USB and the local network",
             Provenance::doc(ADV, 553),
         ),
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 548)),
-        services: ping_services(),
-        capability_refs: GroundedSet::known(vec![cap(CapabilityId::ListDetectedPingSensors,
+        services: PING_SERVICES,
+        capability_refs: GroundedSet::known(&[cap(CapabilityId::ListDetectedPingSensors,
             "Ping Sonar Devices page lists auto-detected Ping1D and Ping360 sensors via GET /sensors",
         )]),
-        preconditions: GroundedSet::known(vec![]),
-        steps: GroundedSet::known(vec![
+        preconditions: GroundedSet::known(&[]),
+        steps: GroundedSet::known(&[
             service_step(
                 "Probe serial ports for Ping-protocol devices",
                 None,
@@ -71,8 +68,8 @@ fn view_detected_sonar_devices() -> UserJourney {
                 Provenance::source(PING_STORE, 63),
                 Some(runtime_outcome(
                     200,
-                    Some("[] (empty; no Ping sonar hardware attached)".into()),
-                    "#running_baseline",
+                    Some("[] (empty; no Ping sonar hardware attached)"),
+                    "runtime-captures/ping__pi4_navigator_master.json#running_baseline",
                 )),
             ),
             operator_step(
@@ -83,26 +80,25 @@ fn view_detected_sonar_devices() -> UserJourney {
             ),
         ]),
         chains_from: None,
-    }
-}
+    };
 
-fn connect_ping_viewer_to_sonar() -> UserJourney {
+const CONNECT_PING_VIEWER_TO_SONAR: UserJourney =
     UserJourney {
         id: JourneyId::ConnectPingViewerToSonar,
         summary: Grounded::known(
-            "Connect Ping Viewer on the surface computer to a vehicle-exposed Ping sonar".into(),
+            "Connect Ping Viewer on the surface computer to a vehicle-exposed Ping sonar",
             Provenance::doc(OVERVIEW, 131),
         ),
         visibility: Grounded::known(Visibility::Default, Provenance::source(PING_MENUS, 94)),
-        services: ping_services(),
-        capability_refs: GroundedSet::known(vec![cap(CapabilityId::ConnectPingViewerToSonar,
+        services: PING_SERVICES,
+        capability_refs: GroundedSet::known(&[cap(CapabilityId::ConnectPingViewerToSonar,
             "operator uses the UDP bridge port shown on the device card to reach the sonar from Ping Viewer",
         )]),
-        preconditions: GroundedSet::known(vec![GroundedItem::new(
-            Precondition::HardwarePresent("Ping family sonar device".into()),
+        preconditions: GroundedSet::known(&[GroundedItem::new(
+            Precondition::HardwarePresent("Ping family sonar device"),
             Provenance::doc(ADV, 553),
         )]),
-        steps: GroundedSet::known(vec![
+        steps: GroundedSet::known(&[
             operator_step(
                 "Open the Ping Sonar Devices page from the sidebar",
                 None,
@@ -125,27 +121,26 @@ fn connect_ping_viewer_to_sonar() -> UserJourney {
             ),
         ]),
         chains_from: None,
-    }
-}
+    };
 
-fn enable_ping1d_rangefinder_mavlink() -> UserJourney {
+const ENABLE_PING1D_RANGEFINDER_MAVLINK: UserJourney =
     UserJourney {
         id: JourneyId::EnablePing1dRangefinderMavlink,
         summary: Grounded::known(
             "Enable Ping1D distance estimates as MAVLink DISTANCE_SENSOR messages to the autopilot"
-                .into(),
+                ,
             Provenance::doc(ADV, 559),
         ),
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 548)),
-        services: ping_services(),
-        capability_refs: GroundedSet::known(vec![cap(CapabilityId::EnablePing1dMavlinkDistance,
+        services: PING_SERVICES,
+        capability_refs: GroundedSet::known(&[cap(CapabilityId::EnablePing1dMavlinkDistance,
             "Ping1D card MAVLink Distances switch posts sensor settings to toggle mavlink_driver",
         )]),
-        preconditions: GroundedSet::known(vec![GroundedItem::new(
-            Precondition::HardwarePresent("Ping sonar (Ping1D)".into()),
+        preconditions: GroundedSet::known(&[GroundedItem::new(
+            Precondition::HardwarePresent("Ping sonar (Ping1D)"),
             Provenance::doc(ADV, 559),
         )]),
-        steps: GroundedSet::known(vec![
+        steps: GroundedSet::known(&[
             operator_step(
                 "Open the Ping Sonar Devices page from the sidebar",
                 None,
@@ -173,33 +168,30 @@ fn enable_ping1d_rangefinder_mavlink() -> UserJourney {
             ),
         ]),
         chains_from: None,
-    }
-}
+    };
 
-fn cap(id: CapabilityId, rationale: &str) -> GroundedItem<CapabilityId> {
+const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<CapabilityId> {
     GroundedItem::new(id, Provenance::asserted(rationale))
 }
 
-fn ping_services() -> GroundedSet<ServiceId> {
-    GroundedSet::known(vec![GroundedItem::new(
-        ServiceId::Ping,
-        Provenance::doc(ADV, 549),
-    )])
-}
+const PING_SERVICES: GroundedSet<ServiceId> = GroundedSet::known(&[GroundedItem::new(
+    ServiceId::Ping,
+    Provenance::doc(ADV, 549),
+)]);
 
-fn route(method: HttpMethod, path: &str, version: Option<&str>) -> RouteRef {
+const fn route(method: HttpMethod, path: &'static str, version: Option<&'static str>) -> RouteRef {
     RouteRef {
         service: ServiceId::Ping,
         method,
-        path: path.into(),
-        version: version.map(str::to_string),
+        path,
+        version,
     }
 }
 
-fn sourced_route(
+const fn sourced_route(
     method: HttpMethod,
-    path: &str,
-    version: Option<&str>,
+    path: &'static str,
+    version: Option<&'static str>,
     line: u32,
 ) -> Grounded<RouteRef> {
     Grounded::known(
@@ -208,8 +200,8 @@ fn sourced_route(
     )
 }
 
-fn operator_step(
-    description: &str,
+const fn operator_step(
+    description: &'static str,
     route: Option<Grounded<RouteRef>>,
     provenance: Provenance,
     outcome: Option<Grounded<StepOutcome>>,
@@ -217,7 +209,7 @@ fn operator_step(
     GroundedItem::new(
         JourneyStep {
             actor: Actor::Operator,
-            description: description.into(),
+            description,
             route,
             outcome,
         },
@@ -225,8 +217,8 @@ fn operator_step(
     )
 }
 
-fn service_step(
-    description: &str,
+const fn service_step(
+    description: &'static str,
     route: Option<Grounded<RouteRef>>,
     provenance: Provenance,
     outcome: Option<Grounded<StepOutcome>>,
@@ -234,7 +226,7 @@ fn service_step(
     GroundedItem::new(
         JourneyStep {
             actor: Actor::Service(ServiceId::Ping),
-            description: description.into(),
+            description,
             route,
             outcome,
         },
@@ -242,17 +234,21 @@ fn service_step(
     )
 }
 
-fn pending_outcome(reason: &str) -> Grounded<StepOutcome> {
+const fn pending_outcome(reason: &'static str) -> Grounded<StepOutcome> {
     Grounded::unknown(reason)
 }
 
-fn runtime_outcome(status: u16, body: Option<String>, key: &str) -> Grounded<StepOutcome> {
+const fn runtime_outcome(
+    status: u16,
+    body: Option<&'static str>,
+    key: &'static str,
+) -> Grounded<StepOutcome> {
     Grounded::known(
         StepOutcome {
             expected_status: Some(status),
             body_predicate: body,
             transition: None,
         },
-        Provenance::runtime(format!("{RUNTIME_CAPTURE}{key}"), RUNTIME_ENV),
+        Provenance::runtime(key, RUNTIME_ENV),
     )
 }

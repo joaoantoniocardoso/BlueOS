@@ -1,14 +1,12 @@
 use std::fmt;
 
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 /// Identity of a cataloged BlueOS service. Closed set of the 26 processes launched by
 /// `core/start-blueos-core`. Each variant serializes to its canonical id string (explicit
 /// `rename` on every variant so the JSON is exact and independent of `rename_all` heuristics).
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, JsonSchema)]
 pub enum ServiceId {
     #[serde(rename = "ardupilot_manager")]
     ArdupilotManager,
@@ -144,9 +142,7 @@ impl fmt::Display for ServiceId {
     }
 }
 
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, JsonSchema)]
 pub enum CapabilityId {
     #[serde(rename = "access_blueos_web_interface")]
     AccessBlueosWebInterface,
@@ -748,9 +744,7 @@ impl fmt::Display for CapabilityId {
     }
 }
 
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, JsonSchema)]
 pub enum JourneyId {
     #[serde(rename = "access_blueos_web_interface")]
     AccessBlueosWebInterface,
@@ -1124,19 +1118,19 @@ impl fmt::Display for JourneyId {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, JsonSchema)]
 #[serde(transparent)]
 pub struct Port(pub u16);
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, JsonSchema)]
 #[serde(transparent)]
-pub struct PathRef(pub String);
+pub struct PathRef(pub &'static str);
 
 // Externally tagged: internal tagging (`tag = "kind"`) cannot serialize a newtype
 // variant wrapping a primitive (`Literal(u16)`). Serializes as {"literal": 8000} / {"env": "VAR"}.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum PortRef {
     Literal(u16),
-    Env(String),
+    Env(&'static str),
 }

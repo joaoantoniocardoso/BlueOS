@@ -7,103 +7,97 @@ use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
 
 const ADV: &str = "content/usage/advanced/index.md";
 const DEV: &str = "content/development/extensions/index.md";
-const RUNTIME_CAPTURE: &str = "runtime-captures/kraken__pi4_navigator_master.json";
 const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4";
 
-pub fn journeys() -> Vec<UserJourney> {
-    vec![
-        add_custom_manifest(),
-        browse_extension_store(),
-        configure_installed_extension(),
-        edit_extension_dev_version(),
-        install_custom_extension(),
-        install_extension(),
-        uninstall_extension(),
-    ]
-}
+pub const JOURNEYS: &[UserJourney] = &[
+    ADD_CUSTOM_MANIFEST,
+    BROWSE_EXTENSION_STORE,
+    CONFIGURE_INSTALLED_EXTENSION,
+    EDIT_EXTENSION_DEV_VERSION,
+    INSTALL_CUSTOM_EXTENSION,
+    INSTALL_EXTENSION,
+    UNINSTALL_EXTENSION,
+];
 
-fn add_custom_manifest() -> UserJourney {
+const ADD_CUSTOM_MANIFEST: UserJourney =
     UserJourney {
         id: JourneyId::AddCustomManifest,
         summary: Grounded::known(
-            "Add an external extension collection manifest beyond the default BlueOS Extensions Repository".into(),
+            "Add an external extension collection manifest beyond the default BlueOS Extensions Repository",
             Provenance::doc(ADV, 854),
         ),
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 852)),
-        services: kraken_services(),
-        capability_refs: GroundedSet::known(vec![cap(CapabilityId::ManageManifests,
+        services: KRAKEN_SERVICES,
+        capability_refs: GroundedSet::known(&[cap(CapabilityId::ManageManifests,
             "operator registers an external manifest source for the store",
         )]),
-        preconditions: GroundedSet::known(vec![GroundedItem::new(
+        preconditions: GroundedSet::known(&[GroundedItem::new(
             Precondition::Network(NetworkState::Online),
             Provenance::doc(ADV, 853),
         )]),
-        steps: GroundedSet::known(vec![operator_step(
+        steps: GroundedSet::known(&[operator_step(
             "Specify your own external collection of extensions in the Extensions Manager store",
             Some(doc_route(HttpMethod::Post, "/manifest/", None, ADV, 855)),
             Provenance::doc(ADV, 855),
-            Some(runtime_outcome(201, None, "#transitions")),
+            Some(runtime_outcome(201, None, "runtime-captures/kraken__pi4_navigator_master.json#transitions")),
         )]),
         chains_from: Some(JourneyId::BrowseExtensionStore),
-    }
-}
+    };
 
-fn browse_extension_store() -> UserJourney {
-    UserJourney {
-        id: JourneyId::BrowseExtensionStore,
-        summary: Grounded::known(
-            "Browse available extensions in the Store tab, including beta-marked releases".into(),
+const BROWSE_EXTENSION_STORE: UserJourney = UserJourney {
+    id: JourneyId::BrowseExtensionStore,
+    summary: Grounded::known(
+        "Browse available extensions in the Store tab, including beta-marked releases",
+        Provenance::doc(ADV, 841),
+    ),
+    visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 841)),
+    services: KRAKEN_SERVICES,
+    capability_refs: GroundedSet::known(&[cap(
+        CapabilityId::BrowseExtensionStore,
+        "Store tab lists extensions from configured manifests with default filters applied",
+    )]),
+    preconditions: GroundedSet::known(&[GroundedItem::new(
+        Precondition::Network(NetworkState::Online),
+        Provenance::doc(ADV, 853),
+    )]),
+    steps: GroundedSet::known(&[
+        operator_step(
+            "Open the Extensions Manager Store tab",
+            None,
             Provenance::doc(ADV, 841),
+            None,
         ),
-        visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 841)),
-        services: kraken_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            CapabilityId::BrowseExtensionStore,
-            "Store tab lists extensions from configured manifests with default filters applied",
-        )]),
-        preconditions: GroundedSet::known(vec![GroundedItem::new(
-            Precondition::Network(NetworkState::Online),
-            Provenance::doc(ADV, 853),
-        )]),
-        steps: GroundedSet::known(vec![
-            operator_step(
-                "Open the Extensions Manager Store tab",
+        operator_step(
+            "Browse extension cards; beta versions show a red marker on the card corner",
+            Some(doc_route(
+                HttpMethod::Get,
+                "/manifest/consolidated",
                 None,
-                Provenance::doc(ADV, 841),
-                None,
-            ),
-            operator_step(
-                "Browse extension cards; beta versions show a red marker on the card corner",
-                Some(doc_route(
-                    HttpMethod::Get,
-                    "/manifest/consolidated",
-                    None,
-                    ADV,
-                    842,
-                )),
-                Provenance::doc(ADV, 842),
-                Some(runtime_outcome(
-                    200,
-                    Some("large consolidated manifest of all extensions across sources".into()),
-                    "#running_baseline",
-                )),
-            ),
-        ]),
-        chains_from: None,
-    }
-}
+                ADV,
+                842,
+            )),
+            Provenance::doc(ADV, 842),
+            Some(runtime_outcome(
+                200,
+                Some("large consolidated manifest of all extensions across sources"),
+                "runtime-captures/kraken__pi4_navigator_master.json#running_baseline",
+            )),
+        ),
+    ]),
+    chains_from: None,
+};
 
-fn configure_installed_extension() -> UserJourney {
+const CONFIGURE_INSTALLED_EXTENSION: UserJourney =
     UserJourney {
         id: JourneyId::ConfigureInstalledExtension,
         summary: Grounded::known(
             "Manage installed extensions: view resource usage, configure permissions, read logs, restart, or disable"
-                .into(),
+                ,
             Provenance::doc(ADV, 859),
         ),
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 858)),
-        services: kraken_services(),
-        capability_refs: GroundedSet::known(vec![
+        services: KRAKEN_SERVICES,
+        capability_refs: GroundedSet::known(&[
             cap(CapabilityId::ConfigureExtension,
                 "Installed tab edits permissions and custom extension configuration",
             ),
@@ -111,11 +105,11 @@ fn configure_installed_extension() -> UserJourney {
                 "Installed tab restarts or disables running extensions",
             ),
         ]),
-        preconditions: GroundedSet::known(vec![GroundedItem::new(
-            Precondition::Other("At least one extension is installed".into()),
+        preconditions: GroundedSet::known(&[GroundedItem::new(
+            Precondition::Other("At least one extension is installed"),
             Provenance::doc(DEV, 347),
         )]),
-        steps: GroundedSet::known(vec![
+        steps: GroundedSet::known(&[
             operator_step(
                 "Open the Extensions Manager Installed tab",
                 None,
@@ -128,8 +122,8 @@ fn configure_installed_extension() -> UserJourney {
                 Provenance::doc(DEV, 355),
                 Some(runtime_outcome(
                     200,
-                    Some("array of container descriptors {name,status,image}".into()),
-                    "#running_baseline",
+                    Some("array of container descriptors {name,status,image}"),
+                    "runtime-captures/kraken__pi4_navigator_master.json#running_baseline",
                 )),
             ),
             operator_step(
@@ -150,8 +144,8 @@ fn configure_installed_extension() -> UserJourney {
                 Provenance::doc(DEV, 357),
                 Some(runtime_outcome(
                     200,
-                    Some("base64-encoded log fragments".into()),
-                    "#transitions",
+                    Some("base64-encoded log fragments"),
+                    "runtime-captures/kraken__pi4_navigator_master.json#transitions",
                 )),
             ),
             operator_step(
@@ -164,7 +158,7 @@ fn configure_installed_extension() -> UserJourney {
                     859,
                 )),
                 Provenance::doc(ADV, 859),
-                Some(runtime_outcome(202, None, "#transitions")),
+                Some(runtime_outcome(202, None, "runtime-captures/kraken__pi4_navigator_master.json#transitions")),
             ),
             operator_step(
                 "Disable an installed extension",
@@ -176,30 +170,29 @@ fn configure_installed_extension() -> UserJourney {
                     859,
                 )),
                 Provenance::doc(ADV, 859),
-                Some(runtime_outcome(204, None, "#transitions")),
+                Some(runtime_outcome(204, None, "runtime-captures/kraken__pi4_navigator_master.json#transitions")),
             ),
         ]),
         chains_from: Some(JourneyId::InstallExtension),
-    }
-}
+    };
 
-fn edit_extension_dev_version() -> UserJourney {
+const EDIT_EXTENSION_DEV_VERSION: UserJourney =
     UserJourney {
         id: JourneyId::EditExtensionDevVersion,
         summary: Grounded::known(
-            "Switch an installed extension to an alternative or development version by editing its docker tag".into(),
+            "Switch an installed extension to an alternative or development version by editing its docker tag",
             Provenance::doc(ADV, 866),
         ),
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 864)),
-        services: kraken_services(),
-        capability_refs: GroundedSet::known(vec![cap(CapabilityId::ManageExtensionLifecycle,
+        services: KRAKEN_SERVICES,
+        capability_refs: GroundedSet::known(&[cap(CapabilityId::ManageExtensionLifecycle,
             "Edit button changes the docker tag to an alternative development version",
         )]),
-        preconditions: GroundedSet::known(vec![GroundedItem::new(
-            Precondition::Other("The extension is listed on the Installed tab".into()),
+        preconditions: GroundedSet::known(&[GroundedItem::new(
+            Precondition::Other("The extension is listed on the Installed tab"),
             Provenance::doc(ADV, 865),
         )]),
-        steps: GroundedSet::known(vec![
+        steps: GroundedSet::known(&[
             operator_step(
                 "Click the Edit button on an installed extension listing",
                 None,
@@ -216,30 +209,29 @@ fn edit_extension_dev_version() -> UserJourney {
                     866,
                 )),
                 Provenance::doc(ADV, 866),
-                Some(runtime_outcome(200, None, "#transitions")),
+                Some(runtime_outcome(200, None, "runtime-captures/kraken__pi4_navigator_master.json#transitions")),
             ),
         ]),
         chains_from: Some(JourneyId::ConfigureInstalledExtension),
-    }
-}
+    };
 
-fn install_custom_extension() -> UserJourney {
+const INSTALL_CUSTOM_EXTENSION: UserJourney =
     UserJourney {
         id: JourneyId::InstallCustomExtension,
         summary: Grounded::known(
-            "Install a custom extension by registering a Docker image through the blue plus button".into(),
+            "Install a custom extension by registering a Docker image through the blue plus button",
             Provenance::doc(ADV, 863),
         ),
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 863)),
-        services: kraken_services(),
-        capability_refs: GroundedSet::known(vec![cap(CapabilityId::InstallExtension,
+        services: KRAKEN_SERVICES,
+        capability_refs: GroundedSet::known(&[cap(CapabilityId::InstallExtension,
             "blue plus button registers and installs a custom Docker image extension",
         )]),
-        preconditions: GroundedSet::known(vec![GroundedItem::new(
+        preconditions: GroundedSet::known(&[GroundedItem::new(
             Precondition::Network(NetworkState::Online),
             Provenance::doc(DEV, 460),
         )]),
-        steps: GroundedSet::known(vec![
+        steps: GroundedSet::known(&[
             operator_step(
                 "Open the Extensions Manager",
                 None,
@@ -264,32 +256,31 @@ fn install_custom_extension() -> UserJourney {
                 Provenance::doc(DEV, 473),
                 Some(runtime_outcome(
                     200,
-                    Some("streams docker pull progress; container created".into()),
-                    "#transitions",
+                    Some("streams docker pull progress; container created"),
+                    "runtime-captures/kraken__pi4_navigator_master.json#transitions",
                 )),
             ),
         ]),
         chains_from: None,
-    }
-}
+    };
 
-fn install_extension() -> UserJourney {
+const INSTALL_EXTENSION: UserJourney =
     UserJourney {
         id: JourneyId::InstallExtension,
         summary: Grounded::known(
-            "Install an extension from the store by selecting a version from its card dropdown".into(),
+            "Install an extension from the store by selecting a version from its card dropdown",
             Provenance::doc(ADV, 848),
         ),
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 846)),
-        services: kraken_services(),
-        capability_refs: GroundedSet::known(vec![cap(CapabilityId::InstallExtension,
+        services: KRAKEN_SERVICES,
+        capability_refs: GroundedSet::known(&[cap(CapabilityId::InstallExtension,
             "version dropdown on a store card installs the selected extension release",
         )]),
-        preconditions: GroundedSet::known(vec![GroundedItem::new(
+        preconditions: GroundedSet::known(&[GroundedItem::new(
             Precondition::Network(NetworkState::Online),
             Provenance::doc(ADV, 853),
         )]),
-        steps: GroundedSet::known(vec![
+        steps: GroundedSet::known(&[
             operator_step(
                 "Click an extension card to view developer information, default settings, permissions, and usage instructions",
                 Some(doc_route(
@@ -318,86 +309,85 @@ fn install_extension() -> UserJourney {
                     848,
                 )),
                 Provenance::doc(ADV, 848),
-                Some(runtime_outcome(200, None, "#transitions")),
+                Some(runtime_outcome(200, None, "runtime-captures/kraken__pi4_navigator_master.json#transitions")),
             ),
         ]),
         chains_from: Some(JourneyId::BrowseExtensionStore),
-    }
-}
+    };
 
-fn uninstall_extension() -> UserJourney {
-    UserJourney {
-        id: JourneyId::UninstallExtension,
-        summary: Grounded::known(
-            "Uninstall an extension version from the store card version dropdown".into(),
+const UNINSTALL_EXTENSION: UserJourney = UserJourney {
+    id: JourneyId::UninstallExtension,
+    summary: Grounded::known(
+        "Uninstall an extension version from the store card version dropdown",
+        Provenance::doc(ADV, 848),
+    ),
+    visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 848)),
+    services: KRAKEN_SERVICES,
+    capability_refs: GroundedSet::known(&[cap(
+        CapabilityId::UninstallExtension,
+        "version dropdown on a store card uninstalls the selected extension release",
+    )]),
+    preconditions: GroundedSet::known(&[GroundedItem::new(
+        Precondition::Other("The extension version is installed"),
+        Provenance::doc(DEV, 359),
+    )]),
+    steps: GroundedSet::known(&[
+        operator_step(
+            "Open an extension card and select the installed version from the dropdown",
+            None,
             Provenance::doc(ADV, 848),
+            None,
         ),
-        visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 848)),
-        services: kraken_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            CapabilityId::UninstallExtension,
-            "version dropdown on a store card uninstalls the selected extension release",
-        )]),
-        preconditions: GroundedSet::known(vec![GroundedItem::new(
-            Precondition::Other("The extension version is installed".into()),
-            Provenance::doc(DEV, 359),
-        )]),
-        steps: GroundedSet::known(vec![
-            operator_step(
-                "Open an extension card and select the installed version from the dropdown",
+        operator_step(
+            "Uninstall the selected extension version",
+            Some(doc_route(
+                HttpMethod::Delete,
+                "/extension/{identifier}/{tag}",
                 None,
-                Provenance::doc(ADV, 848),
+                ADV,
+                848,
+            )),
+            Provenance::doc(ADV, 848),
+            Some(runtime_outcome(
+                202,
                 None,
-            ),
-            operator_step(
-                "Uninstall the selected extension version",
-                Some(doc_route(
-                    HttpMethod::Delete,
-                    "/extension/{identifier}/{tag}",
-                    None,
-                    ADV,
-                    848,
-                )),
-                Provenance::doc(ADV, 848),
-                Some(runtime_outcome(202, None, "#transitions")),
-            ),
-        ]),
-        chains_from: Some(JourneyId::InstallExtension),
-    }
-}
+                "runtime-captures/kraken__pi4_navigator_master.json#transitions",
+            )),
+        ),
+    ]),
+    chains_from: Some(JourneyId::InstallExtension),
+};
 
-fn cap(id: CapabilityId, rationale: &str) -> GroundedItem<CapabilityId> {
+const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<CapabilityId> {
     GroundedItem::new(id, Provenance::asserted(rationale))
 }
 
-fn kraken_services() -> GroundedSet<ServiceId> {
-    GroundedSet::known(vec![GroundedItem::new(
-        ServiceId::Kraken,
-        Provenance::doc(ADV, 836),
-    )])
-}
+const KRAKEN_SERVICES: GroundedSet<ServiceId> = GroundedSet::known(&[GroundedItem::new(
+    ServiceId::Kraken,
+    Provenance::doc(ADV, 836),
+)]);
 
-fn route(method: HttpMethod, path: &str, version: Option<&str>) -> RouteRef {
+const fn route(method: HttpMethod, path: &'static str, version: Option<&'static str>) -> RouteRef {
     RouteRef {
         service: ServiceId::Kraken,
         method,
-        path: path.into(),
-        version: version.map(str::to_string),
+        path,
+        version,
     }
 }
 
-fn doc_route(
+const fn doc_route(
     method: HttpMethod,
-    path: &str,
-    version: Option<&str>,
-    file: &str,
+    path: &'static str,
+    version: Option<&'static str>,
+    file: &'static str,
     line: u32,
 ) -> Grounded<RouteRef> {
     Grounded::known(route(method, path, version), Provenance::doc(file, line))
 }
 
-fn operator_step(
-    description: &str,
+const fn operator_step(
+    description: &'static str,
     route: Option<Grounded<RouteRef>>,
     provenance: Provenance,
     outcome: Option<Grounded<StepOutcome>>,
@@ -405,7 +395,7 @@ fn operator_step(
     GroundedItem::new(
         JourneyStep {
             actor: Actor::Operator,
-            description: description.into(),
+            description,
             route,
             outcome,
         },
@@ -413,13 +403,17 @@ fn operator_step(
     )
 }
 
-fn runtime_outcome(status: u16, body: Option<String>, key: &str) -> Grounded<StepOutcome> {
+const fn runtime_outcome(
+    status: u16,
+    body: Option<&'static str>,
+    key: &'static str,
+) -> Grounded<StepOutcome> {
     Grounded::known(
         StepOutcome {
             expected_status: Some(status),
             body_predicate: body,
             transition: None,
         },
-        Provenance::runtime(format!("{RUNTIME_CAPTURE}{key}"), RUNTIME_ENV),
+        Provenance::runtime(key, RUNTIME_ENV),
     )
 }

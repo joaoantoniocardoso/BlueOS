@@ -13,23 +13,22 @@ use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts
 use crate::service::{Authority, ServiceDefinition};
 use crate::trust::{PrivilegeLevel, UserConfirmation};
 
-const RUNTIME_CAPTURE: &str = "runtime-captures/cable_guy__pi4_navigator_master.json";
 const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
 
-pub fn runtime_facts() -> RuntimeFacts {
+pub const RUNTIME_FACTS: RuntimeFacts =
     RuntimeFacts {
         service: ServiceId::CableGuy,
         state_contracts: GroundedSet::unknown(
             "cable_guy has no service-level state machine (card states Unknown); a manager watchdog reconciles interface state periodically",
         ),
-        slo_baselines: GroundedSet::known(vec![
+        slo_baselines: GroundedSet::known(&[
             runtime_slo(HttpMethod::Get, "/interfaces", 12.4, 24.4, 26.5, 40),
             runtime_slo(HttpMethod::Get, "/ethernet", 11.0, 19.7, 19.8, 40),
             runtime_slo(HttpMethod::Get, "/host_dns", 1215.2, 1302.9, 1314.2, 40),
             runtime_slo(HttpMethod::Get, "/route?interface_name=eth0", 25.9, 32.8, 35.9, 40),
             runtime_slo(HttpMethod::Get, "/dhcp/details/eth0", 7.7, 15.7, 22.7, 40),
         ]),
-        resource_usage: GroundedSet::known(vec![runtime_resource(
+        resource_usage: GroundedSet::known(&[runtime_resource(
             "running_baseline",
             Distribution {
                 mean: 2.47,
@@ -49,40 +48,39 @@ pub fn runtime_facts() -> RuntimeFacts {
             },
             60,
         )]),
-        platform_matrix: GroundedSet::known(vec![GroundedItem::new(
+        platform_matrix: GroundedSet::known(&[GroundedItem::new(
             PlatformBehavior {
-                platform: "navigator".into(),
+                platform: "navigator",
                 firmware: None,
-                notes: vec![
-                    "cable_guy manages host wired interfaces regardless of flight controller; platform-independent".into(),
-                    "runtime captured on Navigator only; RSS ~53.1 MB flat, CPU ~2.47% mean (watchdog reconciliation spikes)".into(),
-                    "GET /host_dns is ~1.2 s: it shells out (cat/lsattr on /etc/resolv.conf) per request".into(),
+                notes: &[
+                    "cable_guy manages host wired interfaces regardless of flight controller; platform-independent",
+                    "runtime captured on Navigator only; RSS ~53.1 MB flat, CPU ~2.47% mean (watchdog reconciliation spikes)",
+                    "GET /host_dns is ~1.2 s: it shells out (cat/lsattr on /etc/resolv.conf) per request",
                 ],
             },
-            runtime_prov("#platform_matrix"),
+            runtime_prov("runtime-captures/cable_guy__pi4_navigator_master.json#platform_matrix"),
         )]),
         settings_mutations: GroundedSet::unknown(
             "mutating routes persist to /root/.config/cable-guy/settings-2.json, /etc/dhcpcd.conf, /etc/resolv.conf but were not exercised (network-lockout hazard)",
         ),
-    }
+    };
+
+const fn runtime_prov(key: &'static str) -> Provenance {
+    Provenance::runtime(key, RUNTIME_ENV)
 }
 
-fn runtime_prov(key: &str) -> Provenance {
-    Provenance::runtime(format!("{RUNTIME_CAPTURE}{key}"), RUNTIME_ENV)
-}
-
-fn runtime_route(method: HttpMethod, path: &str) -> RouteRef {
+const fn runtime_route(method: HttpMethod, path: &'static str) -> RouteRef {
     RouteRef {
         service: ServiceId::CableGuy,
         method,
-        path: path.into(),
+        path,
         version: None,
     }
 }
 
-fn runtime_slo(
+const fn runtime_slo(
     method: HttpMethod,
-    path: &str,
+    path: &'static str,
     p50: f64,
     p95: f64,
     p99: f64,
@@ -96,392 +94,388 @@ fn runtime_slo(
             latency_p99_ms: p99,
             sample_size,
         },
-        runtime_prov("#slo_running_baseline"),
+        runtime_prov("runtime-captures/cable_guy__pi4_navigator_master.json#slo_running_baseline"),
     )
 }
 
-fn runtime_resource(
-    condition: &str,
+const fn runtime_resource(
+    condition: &'static str,
     cpu_pct: Distribution,
     rss_mb: Distribution,
     samples: u32,
 ) -> GroundedItem<ResourceUsage> {
     GroundedItem::new(
         ResourceUsage {
-            condition: condition.into(),
+            condition,
             cpu_pct,
             rss_mb,
             samples,
         },
-        runtime_prov("#resource_usage"),
+        runtime_prov("runtime-captures/cable_guy__pi4_navigator_master.json#resource_usage"),
     )
 }
 
-pub fn observed_facts() -> ObservedFacts {
-    ObservedFacts {
-        id: ServiceId::CableGuy,
-        aliases: ObservedSet::known(vec![
-            Evidenced::new(
-                "cable_guy".to_string(),
-                Evidence {
-                    file: "core/start-blueos-core".to_string(),
-                    line: 119,
-                },
-            ),
-            Evidenced::new(
-                "cable-guy".to_string(),
-                Evidence {
-                    file: "core/services/cable_guy/config.py".to_string(),
-                    line: 6,
-                },
-            ),
-        ]),
-        kind: Observed::known(
-            ServiceKind::PythonService,
+pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
+    id: ServiceId::CableGuy,
+    aliases: ObservedSet::known(&[
+        Evidenced::new(
+            "cable_guy",
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 119,
             },
         ),
-        entrypoint: Observed::known(
-            "$SERVICES_PATH/cable_guy/main.py".to_string(),
+        Evidenced::new(
+            "cable-guy",
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 119,
+                file: "core/services/cable_guy/config.py",
+                line: 6,
             },
         ),
-        tmux_name: Observed::known(
-            "cable_guy".to_string(),
+    ]),
+    kind: Observed::known(
+        ServiceKind::PythonService,
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 119,
+        },
+    ),
+    entrypoint: Observed::known(
+        "$SERVICES_PATH/cable_guy/main.py",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 119,
+        },
+    ),
+    tmux_name: Observed::known(
+        "cable_guy",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 119,
+        },
+    ),
+    startup_tier: Observed::known(
+        StartupTier::Priority,
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 117,
+        },
+    ),
+    resource_limits: Observed::known(
+        ResourceLimits {
+            memory_mb: Some(0),
+            cpu_percent: Some(0),
+            io_weight: None,
+        },
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 119,
+        },
+    ),
+    nice: Observed::unknown("no nice prefix in start tuple"),
+    run_as: Observed::known(
+        "root",
+        Evidence {
+            file: "core/services/cable_guy/main.py",
+            line: 193,
+        },
+    ),
+    nginx_prefixes: ObservedSet::known(&[Evidenced::new(
+        PathRef("/cable-guy/"),
+        Evidence {
+            file: "core/tools/nginx/nginx.conf",
+            line: 103,
+        },
+    )]),
+    listen: ObservedSet::known(&[Evidenced::new(
+        PortRef::Literal(9090),
+        Evidence {
+            file: "core/services/cable_guy/main.py",
+            line: 183,
+        },
+    )]),
+    git_path: Observed::known(
+        PathRef("core/services/cable_guy"),
+        Evidence {
+            file: "core/services/cable_guy/main.py",
+            line: 1,
+        },
+    ),
+    interfaces: ObservedSet::known(&[
+        Evidenced::new(
+            Interface::Rest {
+                path_prefix: PathRef("/cable-guy/"),
+                port: PortRef::Literal(9090),
+                versions: &["v1.0"],
+            },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 119,
+                file: "core/services/cable_guy/main.py",
+                line: 163,
             },
         ),
-        startup_tier: Observed::known(
-            StartupTier::Priority,
+        Evidenced::new(
+            Interface::Settings {
+                path: PathRef("/root/.config/cable-guy/settings-2.json"),
+            },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 117,
+                file:
+                    "core/libs/commonwealth/src/commonwealth/settings/managers/pydantic_manager.py",
+                line: 73,
             },
         ),
-        resource_limits: Observed::known(
-            ResourceLimits {
-                memory_mb: Some(0),
-                cpu_percent: Some(0),
-                io_weight: None,
+        Evidenced::new(
+            Interface::File {
+                path: PathRef("/root/.config/cable-guy"),
+                mode: FileAccessMode::ReadWrite,
             },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 119,
+                file:
+                    "core/libs/commonwealth/src/commonwealth/settings/managers/pydantic_manager.py",
+                line: 27,
             },
         ),
-        nice: Observed::unknown("no nice prefix in start tuple"),
-        run_as: Observed::known(
-            "root".to_string(),
+        Evidenced::new(
+            Interface::File {
+                path: PathRef("/root/.config/cable-guy/settings-1.json"),
+                mode: FileAccessMode::ReadWrite,
+            },
             Evidence {
-                file: "core/services/cable_guy/main.py".to_string(),
-                line: 193,
+                file: "core/services/cable_guy/api/settings.py",
+                line: 40,
             },
         ),
-        nginx_prefixes: ObservedSet::known(vec![Evidenced::new(
-            PathRef("/cable-guy/".to_string()),
-            Evidence {
-                file: "core/tools/nginx/nginx.conf".to_string(),
-                line: 103,
+        Evidenced::new(
+            Interface::File {
+                path: PathRef("/root/.config/cable-guy/settings.json"),
+                mode: FileAccessMode::ReadWrite,
             },
-        )]),
-        listen: ObservedSet::known(vec![Evidenced::new(
-            PortRef::Literal(9090),
             Evidence {
-                file: "core/services/cable_guy/main.py".to_string(),
-                line: 183,
-            },
-        )]),
-        git_path: Observed::known(
-            PathRef("core/services/cable_guy".to_string()),
-            Evidence {
-                file: "core/services/cable_guy/main.py".to_string(),
-                line: 1,
+                file: "core/services/cable_guy/api/settings.py",
+                line: 47,
             },
         ),
-        interfaces: ObservedSet::known(vec![
-            Evidenced::new(
-                Interface::Rest {
-                    path_prefix: PathRef("/cable-guy/".to_string()),
-                    port: PortRef::Literal(9090),
-                    versions: vec!["v1.0".to_string()],
-                },
-                Evidence {
-                    file: "core/services/cable_guy/main.py".to_string(),
-                    line: 163,
-                },
-            ),
-            Evidenced::new(
-                Interface::Settings {
-                    path: PathRef("/root/.config/cable-guy/settings-2.json".to_string()),
-                },
-                Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/settings/managers/pydantic_manager.py"
-                        .to_string(),
-                    line: 73,
-                },
-            ),
-            Evidenced::new(
-                Interface::File {
-                    path: PathRef("/root/.config/cable-guy".to_string()),
-                    mode: FileAccessMode::ReadWrite,
-                },
-                Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/settings/managers/pydantic_manager.py"
-                        .to_string(),
-                    line: 27,
-                },
-            ),
-            Evidenced::new(
-                Interface::File {
-                    path: PathRef("/root/.config/cable-guy/settings-1.json".to_string()),
-                    mode: FileAccessMode::ReadWrite,
-                },
-                Evidence {
-                    file: "core/services/cable_guy/api/settings.py".to_string(),
-                    line: 40,
-                },
-            ),
-            Evidenced::new(
-                Interface::File {
-                    path: PathRef("/root/.config/cable-guy/settings.json".to_string()),
-                    mode: FileAccessMode::ReadWrite,
-                },
-                Evidence {
-                    file: "core/services/cable_guy/api/settings.py".to_string(),
-                    line: 47,
-                },
-            ),
-            Evidenced::new(
-                Interface::File {
-                    path: PathRef("/etc/resolv.conf".to_string()),
-                    mode: FileAccessMode::ReadWrite,
-                },
-                Evidence {
-                    file: "core/services/cable_guy/api/dns.py".to_string(),
-                    line: 9,
-                },
-            ),
-            Evidenced::new(
-                Interface::File {
-                    path: PathRef("/etc/dhcpcd.conf".to_string()),
-                    mode: FileAccessMode::ReadWrite,
-                },
-                Evidence {
-                    file: "core/services/cable_guy/networksetup.py".to_string(),
-                    line: 254,
-                },
-            ),
-            Evidenced::new(
-                Interface::File {
-                    path: PathRef("/var/lib/dnsmasq".to_string()),
-                    mode: FileAccessMode::ReadWrite,
-                },
-                Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/utils/DHCPServerManager.py".to_string(),
-                    line: 50,
-                },
-            ),
-            Evidenced::new(
-                Interface::Subprocess {
-                    command: "cat '{filename}'".to_string(),
-                },
-                Evidence {
-                    file: "core/services/cable_guy/api/dns.py".to_string(),
-                    line: 56,
-                },
-            ),
-            Evidenced::new(
-                Interface::Subprocess {
-                    command: "lsattr {filename}".to_string(),
-                },
-                Evidence {
-                    file: "core/services/cable_guy/api/dns.py".to_string(),
-                    line: 64,
-                },
-            ),
-            Evidenced::new(
-                Interface::Subprocess {
-                    command: "sudo chattr -i {filename}".to_string(),
-                },
-                Evidence {
-                    file: "core/services/cable_guy/api/dns.py".to_string(),
-                    line: 80,
-                },
-            ),
-            Evidenced::new(
-                Interface::Subprocess {
-                    command: "echo '{content}' | sudo tee {filename}".to_string(),
-                },
-                Evidence {
-                    file: "core/services/cable_guy/api/dns.py".to_string(),
-                    line: 86,
-                },
-            ),
-            Evidenced::new(
-                Interface::Subprocess {
-                    command: "sudo chattr +i {filename}".to_string(),
-                },
-                Evidence {
-                    file: "core/services/cable_guy/api/dns.py".to_string(),
-                    line: 74,
-                },
-            ),
-            Evidenced::new(
-                Interface::Subprocess {
-                    command: "timeout 5 dhclient -d -v {interface_name} 2>&1 || echo 'timeout'".to_string(),
-                },
-                Evidence {
-                    file: "core/services/cable_guy/networksetup.py".to_string(),
-                    line: 124,
-                },
-            ),
-            Evidenced::new(
-                Interface::Subprocess {
-                    command: "ifmetric".to_string(),
-                },
-                Evidence {
-                    file: "core/services/cable_guy/api/manager.py".to_string(),
-                    line: 605,
-                },
-            ),
-            Evidenced::new(
-                Interface::Subprocess {
-                    command: "dnsmasq".to_string(),
-                },
-                Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/utils/DHCPServerManager.py".to_string(),
-                    line: 95,
-                },
-            ),
-            Evidenced::new(
-                Interface::Zenoh {
-                    topics_produced: vec!["services/cable-guy/log".to_string()],
-                    topics_consumed: vec![],
-                },
-                Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/utils/logs.py".to_string(),
-                    line: 78,
-                },
-            ),
-        ]),
-        resources: ObservedSet::known(vec![
-            Evidenced::new(
-                Resource {
-                    path: PathRef("/root/.config/cable-guy".to_string()),
-                    ownership: ResourceOwnership::SharedWrite,
-                },
-                Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/settings/managers/pydantic_manager.py"
-                        .to_string(),
-                    line: 27,
-                },
-            ),
-            Evidenced::new(
-                Resource {
-                    path: PathRef("/root/.config/cable-guy/settings-2.json".to_string()),
-                    ownership: ResourceOwnership::SharedWrite,
-                },
-                Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/settings/managers/pydantic_manager.py"
-                        .to_string(),
-                    line: 73,
-                },
-            ),
-            Evidenced::new(
-                Resource {
-                    path: PathRef("/etc/resolv.conf".to_string()),
-                    ownership: ResourceOwnership::SharedWrite,
-                },
-                Evidence {
-                    file: "core/services/cable_guy/api/dns.py".to_string(),
-                    line: 86,
-                },
-            ),
-            Evidenced::new(
-                Resource {
-                    path: PathRef("/etc/dhcpcd.conf".to_string()),
-                    ownership: ResourceOwnership::SharedWrite,
-                },
-                Evidence {
-                    file: "core/services/cable_guy/networksetup.py".to_string(),
-                    line: 355,
-                },
-            ),
-            Evidenced::new(
-                Resource {
-                    path: PathRef("/var/lib/dnsmasq".to_string()),
-                    ownership: ResourceOwnership::SharedWrite,
-                },
-                Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/utils/DHCPServerManager.py".to_string(),
-                    line: 79,
-                },
-            ),
-        ]),
-        lifecycle: Observed::known(
-            ObservedLifecycle {
-                triggers: vec!["start-blueos-core create_service".to_string()],
-                ordered_after: vec![ServiceId::ArdupilotManager],
-                ordered_before: vec![
-                    ServiceId::MavlinkCameraManager,
-                    ServiceId::Mavlink2rest,
-                    ServiceId::Kraken,
-                    ServiceId::Wifi,
-                    ServiceId::Zenohd,
-                    ServiceId::Beacon,
-                    ServiceId::Bridget,
-                    ServiceId::Commander,
-                    ServiceId::NmeaInjector,
-                    ServiceId::Helper,
-                    ServiceId::Iperf3,
-                    ServiceId::Linux2rest,
-                    ServiceId::Filebrowser,
-                    ServiceId::Versionchooser,
-                    ServiceId::Pardal,
-                    ServiceId::Ping,
-                    ServiceId::UserTerminal,
-                    ServiceId::Ttyd,
-                    ServiceId::Nginx,
-                    ServiceId::BagOfHolding,
-                    ServiceId::Recorder,
-                    ServiceId::RecorderExtractor,
-                    ServiceId::DiskUsage,
-                    ServiceId::Customization,
-                ],
+        Evidenced::new(
+            Interface::File {
+                path: PathRef("/etc/resolv.conf"),
+                mode: FileAccessMode::ReadWrite,
             },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 318,
+                file: "core/services/cable_guy/api/dns.py",
+                line: 9,
             },
         ),
-        logs_path: Observed::unknown(
-            "init_logger publishes to zenoh only; no on-disk log path set in cable_guy source",
-        ),
-        zenoh_log_topic: Observed::known(
-            "services/cable-guy/log".to_string(),
+        Evidenced::new(
+            Interface::File {
+                path: PathRef("/etc/dhcpcd.conf"),
+                mode: FileAccessMode::ReadWrite,
+            },
             Evidence {
-                file: "core/libs/commonwealth/src/commonwealth/utils/logs.py".to_string(),
+                file: "core/services/cable_guy/networksetup.py",
+                line: 254,
+            },
+        ),
+        Evidenced::new(
+            Interface::File {
+                path: PathRef("/var/lib/dnsmasq"),
+                mode: FileAccessMode::ReadWrite,
+            },
+            Evidence {
+                file: "core/libs/commonwealth/src/commonwealth/utils/DHCPServerManager.py",
+                line: 50,
+            },
+        ),
+        Evidenced::new(
+            Interface::Subprocess {
+                command: "cat '{filename}'",
+            },
+            Evidence {
+                file: "core/services/cable_guy/api/dns.py",
+                line: 56,
+            },
+        ),
+        Evidenced::new(
+            Interface::Subprocess {
+                command: "lsattr {filename}",
+            },
+            Evidence {
+                file: "core/services/cable_guy/api/dns.py",
+                line: 64,
+            },
+        ),
+        Evidenced::new(
+            Interface::Subprocess {
+                command: "sudo chattr -i {filename}",
+            },
+            Evidence {
+                file: "core/services/cable_guy/api/dns.py",
+                line: 80,
+            },
+        ),
+        Evidenced::new(
+            Interface::Subprocess {
+                command: "echo '{content}' | sudo tee {filename}",
+            },
+            Evidence {
+                file: "core/services/cable_guy/api/dns.py",
+                line: 86,
+            },
+        ),
+        Evidenced::new(
+            Interface::Subprocess {
+                command: "sudo chattr +i {filename}",
+            },
+            Evidence {
+                file: "core/services/cable_guy/api/dns.py",
+                line: 74,
+            },
+        ),
+        Evidenced::new(
+            Interface::Subprocess {
+                command: "timeout 5 dhclient -d -v {interface_name} 2>&1 || echo 'timeout'",
+            },
+            Evidence {
+                file: "core/services/cable_guy/networksetup.py",
+                line: 124,
+            },
+        ),
+        Evidenced::new(
+            Interface::Subprocess {
+                command: "ifmetric",
+            },
+            Evidence {
+                file: "core/services/cable_guy/api/manager.py",
+                line: 605,
+            },
+        ),
+        Evidenced::new(
+            Interface::Subprocess { command: "dnsmasq" },
+            Evidence {
+                file: "core/libs/commonwealth/src/commonwealth/utils/DHCPServerManager.py",
+                line: 95,
+            },
+        ),
+        Evidenced::new(
+            Interface::Zenoh {
+                topics_produced: &["services/cable-guy/log"],
+                topics_consumed: &[],
+            },
+            Evidence {
+                file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                 line: 78,
             },
         ),
-        sentry: Observed::known(
-            true,
+    ]),
+    resources: ObservedSet::known(&[
+        Evidenced::new(
+            Resource {
+                path: PathRef("/root/.config/cable-guy"),
+                ownership: ResourceOwnership::SharedWrite,
+            },
             Evidence {
-                file: "core/services/cable_guy/main.py".to_string(),
-                line: 181,
+                file:
+                    "core/libs/commonwealth/src/commonwealth/settings/managers/pydantic_manager.py",
+                line: 27,
             },
         ),
-        openapi_refs: ObservedSet::unknown("not yet extracted"),
-    }
-}
+        Evidenced::new(
+            Resource {
+                path: PathRef("/root/.config/cable-guy/settings-2.json"),
+                ownership: ResourceOwnership::SharedWrite,
+            },
+            Evidence {
+                file:
+                    "core/libs/commonwealth/src/commonwealth/settings/managers/pydantic_manager.py",
+                line: 73,
+            },
+        ),
+        Evidenced::new(
+            Resource {
+                path: PathRef("/etc/resolv.conf"),
+                ownership: ResourceOwnership::SharedWrite,
+            },
+            Evidence {
+                file: "core/services/cable_guy/api/dns.py",
+                line: 86,
+            },
+        ),
+        Evidenced::new(
+            Resource {
+                path: PathRef("/etc/dhcpcd.conf"),
+                ownership: ResourceOwnership::SharedWrite,
+            },
+            Evidence {
+                file: "core/services/cable_guy/networksetup.py",
+                line: 355,
+            },
+        ),
+        Evidenced::new(
+            Resource {
+                path: PathRef("/var/lib/dnsmasq"),
+                ownership: ResourceOwnership::SharedWrite,
+            },
+            Evidence {
+                file: "core/libs/commonwealth/src/commonwealth/utils/DHCPServerManager.py",
+                line: 79,
+            },
+        ),
+    ]),
+    lifecycle: Observed::known(
+        ObservedLifecycle {
+            triggers: &["start-blueos-core create_service"],
+            ordered_after: &[ServiceId::ArdupilotManager],
+            ordered_before: &[
+                ServiceId::MavlinkCameraManager,
+                ServiceId::Mavlink2rest,
+                ServiceId::Kraken,
+                ServiceId::Wifi,
+                ServiceId::Zenohd,
+                ServiceId::Beacon,
+                ServiceId::Bridget,
+                ServiceId::Commander,
+                ServiceId::NmeaInjector,
+                ServiceId::Helper,
+                ServiceId::Iperf3,
+                ServiceId::Linux2rest,
+                ServiceId::Filebrowser,
+                ServiceId::Versionchooser,
+                ServiceId::Pardal,
+                ServiceId::Ping,
+                ServiceId::UserTerminal,
+                ServiceId::Ttyd,
+                ServiceId::Nginx,
+                ServiceId::BagOfHolding,
+                ServiceId::Recorder,
+                ServiceId::RecorderExtractor,
+                ServiceId::DiskUsage,
+                ServiceId::Customization,
+            ],
+        },
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 318,
+        },
+    ),
+    logs_path: Observed::unknown(
+        "init_logger publishes to zenoh only; no on-disk log path set in cable_guy source",
+    ),
+    zenoh_log_topic: Observed::known(
+        "services/cable-guy/log",
+        Evidence {
+            file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
+            line: 78,
+        },
+    ),
+    sentry: Observed::known(
+        true,
+        Evidence {
+            file: "core/services/cable_guy/main.py",
+            line: 181,
+        },
+    ),
+    openapi_refs: ObservedSet::unknown("not yet extracted"),
+};
 
-pub fn service_definition() -> ServiceDefinition {
+pub const SERVICE_DEFINITION: ServiceDefinition =
     ServiceDefinition {
         id: ServiceId::CableGuy,
         singleton: Asserted::established(
@@ -489,10 +483,10 @@ pub fn service_definition() -> ServiceDefinition {
             "single PRIORITY-tier tmux instance; one cable_guy process on port 9090 owns wired network configuration",
         ),
         bounded_context: Asserted::established(
-            "wired-network-configuration".to_string(),
+            "wired-network-configuration",
             "provisional 2.0 domain: wired interface IP addresses, routes, host DNS, interface metrics, and onboard DHCP",
         ),
-        journey_refs: AssertedSet::established(vec![
+        journey_refs: AssertedSet::established(&[
             Rationaled::new(
                 JourneyId::AssignStaticIpAddress,
                 "ethernet tray POST /address adds a static IPv4 address to a wired interface",
@@ -530,12 +524,12 @@ pub fn service_definition() -> ServiceDefinition {
             PrivilegeLevel::Root,
             "observed run_as root; mutates host interfaces, /etc/resolv.conf, /etc/dhcpcd.conf, and runs dnsmasq and dhclient",
         ),
-        dangerous_operations: AssertedSet::established(vec![]),
+        dangerous_operations: AssertedSet::established(&[]),
         user_confirmation: Asserted::established(
             UserConfirmation::NotRequired,
             "dangerous_operations empty per rubric v1.0; network changes are reversible reconfiguration, not irreversible destructive ops",
         ),
-        capabilities: AssertedSet::established(vec![
+        capabilities: AssertedSet::established(&[
             Rationaled::new(
                 CapabilityId::AssignStaticIp,
                 "POST /address adds a static IPv4 address to the named wired interface",
@@ -585,56 +579,56 @@ pub fn service_definition() -> ServiceDefinition {
                 "GET /dhcp/leases/{interface_name} returns active dnsmasq DHCP leases per interface",
             ),
         ]),
-        authorities: AssertedSet::established(vec![
+        authorities: AssertedSet::established(&[
             Rationaled::new(
-                Authority::Other("wired_network_controller".to_string()),
+                Authority::Other("wired_network_controller"),
                 "sole REST surface for wired interface IP addresses, routes, and metric priority; wifi service owns wlan separately",
             ),
             Rationaled::new(
-                Authority::Other("host_dns_writer".to_string()),
+                Authority::Other("host_dns_writer"),
                 "sole writer of /etc/resolv.conf via chattr and tee; no other cataloged service mutates host DNS",
             ),
             Rationaled::new(
-                Authority::Other("onboard_dhcp_server_operator".to_string()),
+                Authority::Other("onboard_dhcp_server_operator"),
                 "manager of onboard dnsmasq DHCP servers on WIRED interfaces (wifi runs a separate dnsmasq for its uap0 hotspot; /var/lib/dnsmasq lease dir is SharedWrite)",
             ),
         ]),
         states: AssertedSet::unknown(
             "no cataloged state machine; interface manager and DHCP watchdog run periodic reconciliation loops",
         ),
-        edges: AssertedSet::established(vec![]),
-        resources: AssertedSet::established(vec![
+        edges: AssertedSet::established(&[]),
+        resources: AssertedSet::established(&[
             Rationaled::new(
                 Resource {
-                    path: PathRef("/root/.config/cable-guy".to_string()),
+                    path: PathRef("/root/.config/cable-guy"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 "SettingsV2 pydantic manager directory for persisted interface and DHCP configuration",
             ),
             Rationaled::new(
                 Resource {
-                    path: PathRef("/root/.config/cable-guy/settings-2.json".to_string()),
+                    path: PathRef("/root/.config/cable-guy/settings-2.json"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 "persisted cable_guy SettingsV2 network interface, DHCP, and priority state",
             ),
             Rationaled::new(
                 Resource {
-                    path: PathRef("/etc/resolv.conf".to_string()),
+                    path: PathRef("/etc/resolv.conf"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 "host DNS nameserver file updated via chattr unlock, tee write, and optional re-lock",
             ),
             Rationaled::new(
                 Resource {
-                    path: PathRef("/etc/dhcpcd.conf".to_string()),
+                    path: PathRef("/etc/dhcpcd.conf"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 "dhcpcd static and metric configuration written for wired interface management",
             ),
             Rationaled::new(
                 Resource {
-                    path: PathRef("/var/lib/dnsmasq".to_string()),
+                    path: PathRef("/var/lib/dnsmasq"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 "dnsmasq lease and DHCP state directory for onboard DHCP servers",
@@ -642,15 +636,15 @@ pub fn service_definition() -> ServiceDefinition {
         ]),
         lifecycle: Lifecycle {
             triggers: Asserted::established(
-                vec!["start-blueos-core create_service".to_string()],
+                &["start-blueos-core create_service"],
                 "observed lifecycle trigger: tmux creation at boot in PRIORITY tier",
             ),
             ordered_after: Asserted::established(
-                vec![ServiceId::ArdupilotManager],
+                &[ServiceId::ArdupilotManager],
                 "observed ordered_after in start-blueos-core PRIORITY block lists cable_guy after autopilot only",
             ),
             ordered_before: Asserted::established(
-                vec![
+                &[
                     ServiceId::MavlinkCameraManager,
                     ServiceId::Mavlink2rest,
                     ServiceId::Kraken,
@@ -679,7 +673,7 @@ pub fn service_definition() -> ServiceDefinition {
                 "observed ordered_before lists cable_guy before remaining PRIORITY and SERVICES-tier peers including nginx",
             ),
             shutdown: Asserted::established(
-                "uvicorn server exit on process termination".to_string(),
+                "uvicorn server exit on process termination",
                 "main.py awaits server.serve with no explicit shutdown hook beyond uvicorn exit",
             ),
             upgrade_behavior: Asserted::unknown(
@@ -687,7 +681,7 @@ pub fn service_definition() -> ServiceDefinition {
             ),
         },
         health: Asserted::established(
-            "implicit: process liveness via tmux; REST GET / returns HTML title; manager.initialize and watchdog task at boot".to_string(),
+            "implicit: process liveness via tmux; REST GET / returns HTML title; manager.initialize and watchdog task at boot",
             "no dedicated /health route; uvicorn availability and manager watchdog serve as health signals",
         ),
         is_platform: Asserted::established(
@@ -699,33 +693,33 @@ pub fn service_definition() -> ServiceDefinition {
             "versioned FastAPI v1.0 router exposed under /cable-guy/ via VersionedFastAPI",
         ),
         permissions_model: Asserted::established(
-            "no separate permissions manifest; REST routes are unauthenticated".to_string(),
+            "no separate permissions manifest; REST routes are unauthenticated",
             "cable_guy routes have no auth decorator or extension-style permissions JSON",
         ),
-        failure_modes: AssertedSet::established(vec![
+        failure_modes: AssertedSet::established(&[
             Rationaled::new(
-                "network_reconfiguration_lockout".to_string(),
+                "network_reconfiguration_lockout",
                 "incorrect static IP, route, or DNS change can sever the operator connection until physical or alternate-interface recovery",
             ),
             Rationaled::new(
-                "dhclient_acquisition_timeout".to_string(),
+                "dhclient_acquisition_timeout",
                 "POST /dynamic_ip may return timeout output when dhclient does not obtain a lease within five seconds",
             ),
             Rationaled::new(
-                "dnsmasq_start_failure".to_string(),
+                "dnsmasq_start_failure",
                 "POST /dhcp logs errors and leaves the interface without a DHCP server when dnsmasq fails to start",
             ),
             Rationaled::new(
-                "resolv_conf_write_failure".to_string(),
+                "resolv_conf_write_failure",
                 "POST /host_dns may fail when chattr or tee cannot update the immutable /etc/resolv.conf file",
             ),
             Rationaled::new(
-                "interface_watchdog_reconciliation".to_string(),
+                "interface_watchdog_reconciliation",
                 "manager watchdog periodically reconciles interface state; transient mismatches may appear until the next cycle",
             ),
         ]),
         blast_radius: Asserted::established(
-            "wired network reachability and operator UI access; MAVLink on the FC may continue but BlueOS web UI and LAN routing can become unreachable".to_string(),
+            "wired network reachability and operator UI access; MAVLink on the FC may continue but BlueOS web UI and LAN routing can become unreachable",
             "misconfigured IP, route, or DNS can lock out the operator; outage blocks ethernet tray and internet-indicator UX",
         ),
         compatibility_policy: Asserted::unknown(
@@ -733,5 +727,4 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         team: Asserted::unknown("no CODEOWNERS or team metadata in observed artifact"),
         adr_refs: AssertedSet::unknown("no ADR references found in service source tree"),
-    }
-}
+    };

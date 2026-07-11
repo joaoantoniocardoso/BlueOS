@@ -14,16 +14,15 @@ use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts
 use crate::service::{Authority, ServiceDefinition};
 use crate::trust::{DangerousOperation, PrivilegeLevel, UserConfirmation};
 
-const RUNTIME_CAPTURE: &str = "runtime-captures/commander__pi4_navigator_master.json";
 const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
 
-pub fn runtime_facts() -> RuntimeFacts {
+pub const RUNTIME_FACTS: RuntimeFacts =
     RuntimeFacts {
         service: ServiceId::Commander,
         state_contracts: GroundedSet::unknown(
             "commander has no service-level state machine",
         ),
-        slo_baselines: GroundedSet::known(vec![
+        slo_baselines: GroundedSet::known(&[
             runtime_slo(
                 HttpMethod::Get,
                 "/raspi/vcgencmd?i_know_what_i_am_doing=true",
@@ -41,7 +40,7 @@ pub fn runtime_facts() -> RuntimeFacts {
                 20,
             ),
         ]),
-        resource_usage: GroundedSet::known(vec![runtime_resource(
+        resource_usage: GroundedSet::known(&[runtime_resource(
             "running_baseline",
             Distribution {
                 mean: 1.69,
@@ -54,39 +53,38 @@ pub fn runtime_facts() -> RuntimeFacts {
             flat_rss(35.5),
             60,
         )]),
-        platform_matrix: GroundedSet::known(vec![GroundedItem::new(
+        platform_matrix: GroundedSet::known(&[GroundedItem::new(
             PlatformBehavior {
-                platform: "navigator".into(),
+                platform: "navigator",
                 firmware: None,
-                notes: vec![
-                    "raspi/vcgencmd and raspi/eeprom_update are Pi-specific (vcgencmd, rpi-eeprom-update); may error on non-Pi boards".into(),
-                    "runtime captured on Navigator only; RSS ~35.5 MB, CPU ~1.69% mean".into(),
+                notes: &[
+                    "raspi/vcgencmd and raspi/eeprom_update are Pi-specific (vcgencmd, rpi-eeprom-update); may error on non-Pi boards",
+                    "runtime captured on Navigator only; RSS ~35.5 MB, CPU ~1.69% mean",
                 ],
             },
-            runtime_prov("#platform_matrix"),
+            runtime_prov("runtime-captures/commander__pi4_navigator_master.json#platform_matrix"),
         )]),
         settings_mutations: GroundedSet::unknown(
             "mutating endpoints (settings reset) are destructive and were not exercised; not captured",
         ),
-    }
+    };
+
+const fn runtime_prov(key: &'static str) -> Provenance {
+    Provenance::runtime(key, RUNTIME_ENV)
 }
 
-fn runtime_prov(key: &str) -> Provenance {
-    Provenance::runtime(format!("{RUNTIME_CAPTURE}{key}"), RUNTIME_ENV)
-}
-
-fn runtime_route(method: HttpMethod, path: &str) -> RouteRef {
+const fn runtime_route(method: HttpMethod, path: &'static str) -> RouteRef {
     RouteRef {
         service: ServiceId::Commander,
         method,
-        path: path.into(),
+        path,
         version: None,
     }
 }
 
-fn runtime_slo(
+const fn runtime_slo(
     method: HttpMethod,
-    path: &str,
+    path: &'static str,
     p50: f64,
     p95: f64,
     p99: f64,
@@ -100,11 +98,11 @@ fn runtime_slo(
             latency_p99_ms: p99,
             sample_size,
         },
-        runtime_prov("#slo_running_baseline"),
+        runtime_prov("runtime-captures/commander__pi4_navigator_master.json#slo_running_baseline"),
     )
 }
 
-fn flat_rss(mb: f64) -> Distribution {
+const fn flat_rss(mb: f64) -> Distribution {
     Distribution {
         mean: mb,
         median: mb,
@@ -115,58 +113,58 @@ fn flat_rss(mb: f64) -> Distribution {
     }
 }
 
-fn runtime_resource(
-    condition: &str,
+const fn runtime_resource(
+    condition: &'static str,
     cpu_pct: Distribution,
     rss_mb: Distribution,
     samples: u32,
 ) -> GroundedItem<ResourceUsage> {
     GroundedItem::new(
         ResourceUsage {
-            condition: condition.into(),
+            condition,
             cpu_pct,
             rss_mb,
             samples,
         },
-        runtime_prov("#resource_usage"),
+        runtime_prov("runtime-captures/commander__pi4_navigator_master.json#resource_usage"),
     )
 }
 
-pub fn observed_facts() -> ObservedFacts {
+pub const OBSERVED_FACTS: ObservedFacts =
     ObservedFacts {
         id: ServiceId::Commander,
-        aliases: ObservedSet::known(vec![Evidenced::new(
-            "commander".to_string(),
+        aliases: ObservedSet::known(&[Evidenced::new(
+            "commander",
             Evidence {
-                file: "core/services/commander/main.py".to_string(),
+                file: "core/services/commander/main.py",
                 line: 25,
             },
         )]),
         kind: Observed::known(
             ServiceKind::PythonService,
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 132,
             },
         ),
         entrypoint: Observed::known(
-            "$SERVICES_PATH/commander/main.py".to_string(),
+            "$SERVICES_PATH/commander/main.py",
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 132,
             },
         ),
         tmux_name: Observed::known(
-            "commander".to_string(),
+            "commander",
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 132,
             },
         ),
         startup_tier: Observed::known(
             StartupTier::Normal,
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 124,
             },
         ),
@@ -177,283 +175,283 @@ pub fn observed_facts() -> ObservedFacts {
                 io_weight: None,
             },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 132,
             },
         ),
         nice: Observed::unknown("no nice prefix in start tuple"),
         run_as: Observed::known(
-            "root".to_string(),
+            "root",
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 132,
             },
         ),
-        nginx_prefixes: ObservedSet::known(vec![Evidenced::new(
-            PathRef("/commander/".to_string()),
+        nginx_prefixes: ObservedSet::known(&[Evidenced::new(
+            PathRef("/commander/"),
             Evidence {
-                file: "core/tools/nginx/nginx.conf".to_string(),
+                file: "core/tools/nginx/nginx.conf",
                 line: 108,
             },
         )]),
-        listen: ObservedSet::known(vec![Evidenced::new(
+        listen: ObservedSet::known(&[Evidenced::new(
             PortRef::Literal(9100),
             Evidence {
-                file: "core/services/commander/main.py".to_string(),
+                file: "core/services/commander/main.py",
                 line: 299,
             },
         )]),
         git_path: Observed::known(
-            PathRef("core/services/commander".to_string()),
+            PathRef("core/services/commander"),
             Evidence {
-                file: "core/services/commander/main.py".to_string(),
+                file: "core/services/commander/main.py",
                 line: 1,
             },
         ),
-        interfaces: ObservedSet::known(vec![
+        interfaces: ObservedSet::known(&[
             Evidenced::new(
                 Interface::Rest {
-                    path_prefix: PathRef("/commander/".to_string()),
+                    path_prefix: PathRef("/commander/"),
                     port: PortRef::Literal(9100),
-                    versions: vec!["v1.0".to_string()],
+                    versions: &["v1.0"],
                 },
                 Evidence {
-                    file: "core/services/commander/main.py".to_string(),
+                    file: "core/services/commander/main.py",
                     line: 240,
                 },
             ),
             Evidenced::new(
                 Interface::File {
-                    path: PathRef("/var/logs/blueos".to_string()),
+                    path: PathRef("/var/logs/blueos"),
                     mode: FileAccessMode::ReadWrite,
                 },
                 Evidence {
-                    file: "core/services/commander/main.py".to_string(),
+                    file: "core/services/commander/main.py",
                     line: 26,
                 },
             ),
             Evidenced::new(
                 Interface::File {
-                    path: PathRef("/shortcuts/ardupilot_logs/logs/".to_string()),
+                    path: PathRef("/shortcuts/ardupilot_logs/logs/"),
                     mode: FileAccessMode::ReadWrite,
                 },
                 Evidence {
-                    file: "core/services/commander/main.py".to_string(),
+                    file: "core/services/commander/main.py",
                     line: 27,
                 },
             ),
             Evidenced::new(
                 Interface::File {
-                    path: PathRef("/root/.config/.ssh".to_string()),
+                    path: PathRef("/root/.config/.ssh"),
                     mode: FileAccessMode::ReadWrite,
                 },
                 Evidence {
-                    file: "core/services/commander/main.py".to_string(),
+                    file: "core/services/commander/main.py",
                     line: 257,
                 },
             ),
             Evidenced::new(
                 Interface::File {
-                    path: PathRef("/home/{user}/.ssh/authorized_keys".to_string()),
+                    path: PathRef("/home/{user}/.ssh/authorized_keys"),
                     mode: FileAccessMode::ReadWrite,
                 },
                 Evidence {
-                    file: "core/services/commander/main.py".to_string(),
+                    file: "core/services/commander/main.py",
                     line: 263,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
-                    command: "<caller-supplied host shell command>".to_string(),
+                    command: "<caller-supplied host shell command>",
                 },
                 Evidence {
-                    file: "core/services/commander/main.py".to_string(),
+                    file: "core/services/commander/main.py",
                     line: 62,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
-                    command: "ssh".to_string(),
+                    command: "ssh",
                 },
                 Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/utils/commands.py".to_string(),
+                    file: "core/libs/commonwealth/src/commonwealth/utils/commands.py",
                     line: 47,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
-                    command: "sshpass".to_string(),
+                    command: "sshpass",
                 },
                 Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/utils/commands.py".to_string(),
+                    file: "core/libs/commonwealth/src/commonwealth/utils/commands.py",
                     line: 21,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
-                    command: "ssh-keygen".to_string(),
+                    command: "ssh-keygen",
                 },
                 Evidence {
-                    file: "core/services/commander/main.py".to_string(),
+                    file: "core/services/commander/main.py",
                     line: 269,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
-                    command: "ls".to_string(),
+                    command: "ls",
                 },
                 Evidence {
-                    file: "core/services/commander/main.py".to_string(),
+                    file: "core/services/commander/main.py",
                     line: 296,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
-                    command: "sudo timedatectl set-ntp false; sudo date -s '@{unix_time_seconds}'; sudo timedatectl set-ntp true".to_string(),
+                    command: "sudo timedatectl set-ntp false; sudo date -s '@{unix_time_seconds}'; sudo timedatectl set-ntp true",
                 },
                 Evidence {
-                    file: "core/services/commander/main.py".to_string(),
+                    file: "core/services/commander/main.py",
                     line: 83,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
-                    command: "sudo reboot".to_string(),
+                    command: "sudo reboot",
                 },
                 Evidence {
-                    file: "core/services/commander/main.py".to_string(),
+                    file: "core/services/commander/main.py",
                     line: 94,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
-                    command: "sudo shutdown --poweroff -h now".to_string(),
+                    command: "sudo shutdown --poweroff -h now",
                 },
                 Evidence {
-                    file: "core/services/commander/main.py".to_string(),
+                    file: "core/services/commander/main.py",
                     line: 97,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
-                    command: "raspi-config nonint get_legacy".to_string(),
+                    command: "raspi-config nonint get_legacy",
                 },
                 Evidence {
-                    file: "core/services/commander/main.py".to_string(),
+                    file: "core/services/commander/main.py",
                     line: 104,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
-                    command: "sudo raspi-config nonint do_legacy {argument}".to_string(),
+                    command: "sudo raspi-config nonint do_legacy {argument}",
                 },
                 Evidence {
-                    file: "core/services/commander/main.py".to_string(),
+                    file: "core/services/commander/main.py",
                     line: 121,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
-                    command: "sudo vcgencmd otp_dump".to_string(),
+                    command: "sudo vcgencmd otp_dump",
                 },
                 Evidence {
-                    file: "core/services/commander/main.py".to_string(),
+                    file: "core/services/commander/main.py",
                     line: 136,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
-                    command: "sudo vcgencmd bootloader_version".to_string(),
+                    command: "sudo vcgencmd bootloader_version",
                 },
                 Evidence {
-                    file: "core/services/commander/main.py".to_string(),
+                    file: "core/services/commander/main.py",
                     line: 138,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
-                    command: "sudo vcgencmd version".to_string(),
+                    command: "sudo vcgencmd version",
                 },
                 Evidence {
-                    file: "core/services/commander/main.py".to_string(),
+                    file: "core/services/commander/main.py",
                     line: 140,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
-                    command: "sudo rpi-eeprom-update".to_string(),
+                    command: "sudo rpi-eeprom-update",
                 },
                 Evidence {
-                    file: "core/services/commander/main.py".to_string(),
+                    file: "core/services/commander/main.py",
                     line: 154,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
-                    command: "sudo rpi-eeprom-update -a -d".to_string(),
+                    command: "sudo rpi-eeprom-update -a -d",
                 },
                 Evidence {
-                    file: "core/services/commander/main.py".to_string(),
+                    file: "core/services/commander/main.py",
                     line: 161,
                 },
             ),
             Evidenced::new(
                 Interface::Zenoh {
-                    topics_produced: vec!["services/commander/log".to_string()],
-                    topics_consumed: vec![],
+                    topics_produced: &["services/commander/log"],
+                    topics_consumed: &[],
                 },
                 Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/utils/logs.py".to_string(),
+                    file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                     line: 78,
                 },
             ),
         ]),
-        resources: ObservedSet::known(vec![
+        resources: ObservedSet::known(&[
             Evidenced::new(
                 Resource {
-                    path: PathRef("/var/logs/blueos".to_string()),
+                    path: PathRef("/var/logs/blueos"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 Evidence {
-                    file: "core/services/commander/main.py".to_string(),
+                    file: "core/services/commander/main.py",
                     line: 182,
                 },
             ),
             Evidenced::new(
                 Resource {
-                    path: PathRef("/shortcuts/ardupilot_logs/logs/".to_string()),
+                    path: PathRef("/shortcuts/ardupilot_logs/logs/"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 Evidence {
-                    file: "core/services/commander/main.py".to_string(),
+                    file: "core/services/commander/main.py",
                     line: 215,
                 },
             ),
             Evidenced::new(
                 Resource {
-                    path: PathRef("/root/.config/.ssh".to_string()),
+                    path: PathRef("/root/.config/.ssh"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 Evidence {
-                    file: "core/services/commander/main.py".to_string(),
+                    file: "core/services/commander/main.py",
                     line: 257,
                 },
             ),
             Evidenced::new(
                 Resource {
-                    path: PathRef("/home/{user}/.ssh/authorized_keys".to_string()),
+                    path: PathRef("/home/{user}/.ssh/authorized_keys"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 Evidence {
-                    file: "core/services/commander/main.py".to_string(),
+                    file: "core/services/commander/main.py",
                     line: 282,
                 },
             ),
         ]),
         lifecycle: Observed::known(
             ObservedLifecycle {
-                triggers: vec!["start-blueos-core create_service".to_string()],
-                ordered_after: vec![
+                triggers: &["start-blueos-core create_service"],
+                ordered_after: &[
                     ServiceId::ArdupilotManager,
                     ServiceId::CableGuy,
                     ServiceId::MavlinkCameraManager,
@@ -464,7 +462,7 @@ pub fn observed_facts() -> ObservedFacts {
                     ServiceId::Beacon,
                     ServiceId::Bridget,
                 ],
-                ordered_before: vec![
+                ordered_before: &[
                     ServiceId::NmeaInjector,
                     ServiceId::Helper,
                     ServiceId::Iperf3,
@@ -484,7 +482,7 @@ pub fn observed_facts() -> ObservedFacts {
                 ],
             },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 326,
             },
         ),
@@ -492,24 +490,23 @@ pub fn observed_facts() -> ObservedFacts {
             "init_logger publishes to zenoh only; no on-disk log path set in commander source",
         ),
         zenoh_log_topic: Observed::known(
-            "services/commander/log".to_string(),
+            "services/commander/log",
             Evidence {
-                file: "core/libs/commonwealth/src/commonwealth/utils/logs.py".to_string(),
+                file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                 line: 78,
             },
         ),
         sentry: Observed::known(
             true,
             Evidence {
-                file: "core/services/commander/main.py".to_string(),
+                file: "core/services/commander/main.py",
                 line: 292,
             },
         ),
         openapi_refs: ObservedSet::unknown("not yet extracted"),
-    }
-}
+    };
 
-pub fn service_definition() -> ServiceDefinition {
+pub const SERVICE_DEFINITION: ServiceDefinition =
     ServiceDefinition {
         id: ServiceId::Commander,
         singleton: Asserted::established(
@@ -517,10 +514,10 @@ pub fn service_definition() -> ServiceDefinition {
             "single SERVICES-tier tmux instance; one commander process on port 9100",
         ),
         bounded_context: Asserted::established(
-            "onboard-host-control".to_string(),
+            "onboard-host-control",
             "provisional 2.0 domain: privileged host power, time, firmware, settings reset, and shell command execution for the frontend",
         ),
-        journey_refs: AssertedSet::established(vec![
+        journey_refs: AssertedSet::established(&[
             Rationaled::new(
                 JourneyId::RebootOnboardComputer,
                 "power menu POST /shutdown with reboot type restarts the companion computer",
@@ -566,13 +563,13 @@ pub fn service_definition() -> ServiceDefinition {
             PrivilegeLevel::Root,
             "observed run_as root; executes sudo reboot, shutdown, timedatectl, raspi-config, and caller-supplied shell commands",
         ),
-        dangerous_operations: AssertedSet::established(vec![
+        dangerous_operations: AssertedSet::established(&[
             Rationaled::new(
                 DangerousOperation::Reboot,
                 "POST /shutdown with reboot type schedules sudo reboot after a five-second delay",
             ),
             Rationaled::new(
-                DangerousOperation::Other("shutdown_poweroff".to_string()),
+                DangerousOperation::Other("shutdown_poweroff"),
                 "POST /shutdown with poweroff type schedules sudo shutdown --poweroff; distinct from reboot and drops all onboard services",
             ),
             Rationaled::new(
@@ -584,7 +581,7 @@ pub fn service_definition() -> ServiceDefinition {
                 "POST /raspi/eeprom_update runs sudo rpi-eeprom-update -a -d to flash Pi bootloader EEPROM firmware",
             ),
             Rationaled::new(
-                DangerousOperation::Other("arbitrary_host_command".to_string()),
+                DangerousOperation::Other("arbitrary_host_command"),
                 "POST /command/host executes untrusted caller-supplied shell via run_command as root",
             ),
         ]),
@@ -592,7 +589,7 @@ pub fn service_definition() -> ServiceDefinition {
             UserConfirmation::Required,
             "dangerous_operations non-empty; REST routes gate destructive ops behind i_know_what_i_am_doing=true",
         ),
-        capabilities: AssertedSet::established(vec![
+        capabilities: AssertedSet::established(&[
             Rationaled::new(
                 CapabilityId::RebootOnboardComputer,
                 "POST /shutdown with ShutdownType.REBOOT schedules companion-computer reboot",
@@ -630,45 +627,45 @@ pub fn service_definition() -> ServiceDefinition {
                 "startup setup_ssh generates /root/.config/.ssh keys and appends the public key to the SSH user's authorized_keys",
             ),
         ]),
-        authorities: AssertedSet::established(vec![
+        authorities: AssertedSet::established(&[
             Rationaled::new(
-                Authority::Other("host_power_controller".to_string()),
+                Authority::Other("host_power_controller"),
                 "sole REST surface for sudo reboot and shutdown --poweroff; no other cataloged service exposes onboard power control",
             ),
             Rationaled::new(
-                Authority::Other("host_command_executor".to_string()),
+                Authority::Other("host_command_executor"),
                 "sole POST /command/host arbitrary shell executor consumed by the frontend commander store",
             ),
         ]),
         states: AssertedSet::unknown(
             "no cataloged state machine; shutdown scheduling and SSH key setup are one-shot request or boot-time side effects",
         ),
-        edges: AssertedSet::established(vec![]),
-        resources: AssertedSet::established(vec![
+        edges: AssertedSet::established(&[]),
+        resources: AssertedSet::established(&[
             Rationaled::new(
                 Resource {
-                    path: PathRef("/var/logs/blueos".to_string()),
+                    path: PathRef("/var/logs/blueos"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 "POST /services/remove_log and remove_log_stream delete files under the BlueOS log folder",
             ),
             Rationaled::new(
                 Resource {
-                    path: PathRef("/shortcuts/ardupilot_logs/logs/".to_string()),
+                    path: PathRef("/shortcuts/ardupilot_logs/logs/"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 "POST /services/remove_mavlink_log deletes MAVLink log files under the mavlink log folder",
             ),
             Rationaled::new(
                 Resource {
-                    path: PathRef("/root/.config/.ssh".to_string()),
+                    path: PathRef("/root/.config/.ssh"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 "setup_ssh at boot creates and stores the container SSH key pair",
             ),
             Rationaled::new(
                 Resource {
-                    path: PathRef("/home/{user}/.ssh/authorized_keys".to_string()),
+                    path: PathRef("/home/{user}/.ssh/authorized_keys"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 "setup_ssh appends the generated public key to the SSH user's authorized_keys",
@@ -676,11 +673,11 @@ pub fn service_definition() -> ServiceDefinition {
         ]),
         lifecycle: Lifecycle {
             triggers: Asserted::established(
-                vec!["start-blueos-core create_service".to_string()],
+                &["start-blueos-core create_service"],
                 "observed lifecycle trigger: tmux creation at boot in SERVICES tier",
             ),
             ordered_after: Asserted::established(
-                vec![
+                &[
                     ServiceId::ArdupilotManager,
                     ServiceId::CableGuy,
                     ServiceId::MavlinkCameraManager,
@@ -694,7 +691,7 @@ pub fn service_definition() -> ServiceDefinition {
                 "observed ordered_after in start-blueos-core SERVICES block",
             ),
             ordered_before: Asserted::established(
-                vec![
+                &[
                     ServiceId::NmeaInjector,
                     ServiceId::Helper,
                     ServiceId::Iperf3,
@@ -715,7 +712,7 @@ pub fn service_definition() -> ServiceDefinition {
                 "observed ordered_before lists commander before helper and remaining SERVICES-tier peers",
             ),
             shutdown: Asserted::established(
-                "uvicorn server exit on process termination".to_string(),
+                "uvicorn server exit on process termination",
                 "main.py awaits server.serve with no explicit shutdown hook beyond uvicorn exit",
             ),
             upgrade_behavior: Asserted::unknown(
@@ -723,7 +720,7 @@ pub fn service_definition() -> ServiceDefinition {
             ),
         },
         health: Asserted::established(
-            "implicit: process liveness via tmux; REST GET / returns HTML title; setup_ssh runs once at boot".to_string(),
+            "implicit: process liveness via tmux; REST GET / returns HTML title; setup_ssh runs once at boot",
             "no dedicated /health route; uvicorn availability and boot-time SSH setup serve as health signals",
         ),
         is_platform: Asserted::established(
@@ -735,33 +732,33 @@ pub fn service_definition() -> ServiceDefinition {
             "versioned FastAPI v1.0 router exposed under /commander/ via VersionedFastAPI",
         ),
         permissions_model: Asserted::established(
-            "no separate permissions manifest; destructive REST routes require i_know_what_i_am_doing=true".to_string(),
+            "no separate permissions manifest; destructive REST routes require i_know_what_i_am_doing=true",
             "check_what_i_am_doing rejects requests without explicit operator acknowledgment",
         ),
-        failure_modes: AssertedSet::established(vec![
+        failure_modes: AssertedSet::established(&[
             Rationaled::new(
-                "i_know_what_i_am_doing_rejected".to_string(),
+                "i_know_what_i_am_doing_rejected",
                 "check_what_i_am_doing returns HTTP 400 when the acknowledgment query param is false",
             ),
             Rationaled::new(
-                "host_command_subprocess_failure".to_string(),
+                "host_command_subprocess_failure",
                 "command_host returns non-zero return_code and stderr when run_command fails",
             ),
             Rationaled::new(
-                "raspi_config_legacy_failure".to_string(),
+                "raspi_config_legacy_failure",
                 "raspi_config_camera_legacy routes return HTTP 400 when raspi-config subprocess exits non-zero",
             ),
             Rationaled::new(
-                "ssh_setup_failure".to_string(),
+                "ssh_setup_failure",
                 "setup_ssh logs errors and continues when key generation or authorized_keys write fails",
             ),
             Rationaled::new(
-                "settings_reset_partial_failure".to_string(),
+                "settings_reset_partial_failure",
                 "delete_everything during settings reset may leave some config paths if deletion raises",
             ),
         ]),
         blast_radius: Asserted::established(
-            "reboot or poweroff takes down the entire companion computer and all BlueOS services; MAVLink on the FC may continue but onboard UI, logging, and routing stop".to_string(),
+            "reboot or poweroff takes down the entire companion computer and all BlueOS services; MAVLink on the FC may continue but onboard UI, logging, and routing stop",
             "host power control can remove every onboard service at once; not vehicle-critical for live FC control but high operational impact",
         ),
         compatibility_policy: Asserted::unknown(
@@ -769,5 +766,4 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         team: Asserted::unknown("no CODEOWNERS or team metadata in observed artifact"),
         adr_refs: AssertedSet::unknown("no ADR references found in service source tree"),
-    }
-}
+    };

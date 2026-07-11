@@ -12,75 +12,69 @@ const BAG_STORE: &str = "core/frontend/src/store/bag.ts";
 const BAG_VIEW: &str = "core/frontend/src/views/BagEditorView.vue";
 const BAG_MENUS: &str = "core/frontend/src/menus.ts";
 
-pub fn journeys() -> Vec<UserJourney> {
-    vec![modify_bag_database()]
-}
+pub const JOURNEYS: &[UserJourney] = &[MODIFY_BAG_DATABASE];
 
-fn modify_bag_database() -> UserJourney {
-    UserJourney {
-        id: JourneyId::ModifyBagDatabase,
-        summary: Grounded::known(
-            "Modify the JSON database used to persist frontend interface state".into(),
-            Provenance::doc(ADV, 382),
+const MODIFY_BAG_DATABASE: UserJourney = UserJourney {
+    id: JourneyId::ModifyBagDatabase,
+    summary: Grounded::known(
+        "Modify the JSON database used to persist frontend interface state",
+        Provenance::doc(ADV, 382),
+    ),
+    visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 376)),
+    services: BAG_OF_HOLDING_SERVICES,
+    capability_refs: GroundedSet::known(&[cap(
+        CapabilityId::EditBagJsonStore,
+        "Bag Editor loads the full document tree and overwrites it on save",
+    )]),
+    preconditions: GroundedSet::known(&[GroundedItem::new(
+        Precondition::Other("Pirate mode enabled to access the Bag Editor page"),
+        Provenance::doc(ADV, 376),
+    )]),
+    steps: GroundedSet::known(&[
+        operator_step(
+            "Open the Bag Editor page from the sidebar",
+            None,
+            Provenance::source(BAG_MENUS, 25),
+            None,
         ),
-        visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 376)),
-        services: bag_of_holding_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            CapabilityId::EditBagJsonStore,
-            "Bag Editor loads the full document tree and overwrites it on save",
-        )]),
-        preconditions: GroundedSet::known(vec![GroundedItem::new(
-            Precondition::Other("Pirate mode enabled to access the Bag Editor page".into()),
-            Provenance::doc(ADV, 376),
-        )]),
-        steps: GroundedSet::known(vec![
-            operator_step(
-                "Open the Bag Editor page from the sidebar",
-                None,
-                Provenance::source(BAG_MENUS, 25),
-                None,
-            ),
-            operator_step(
-                "Load the full bag database into the JSON editor",
-                Some(sourced_route(HttpMethod::Get, "/get/*", Some("v1.0"), 64)),
-                Provenance::source(BAG_VIEW, 26),
-                None,
-            ),
-            operator_step(
-                "Save edited JSON to overwrite the bag database",
-                Some(sourced_route(HttpMethod::Post, "/overwrite", None, 24)),
-                Provenance::source(BAG_VIEW, 30),
-                None,
-            ),
-        ]),
-        chains_from: None,
-    }
-}
+        operator_step(
+            "Load the full bag database into the JSON editor",
+            Some(sourced_route(HttpMethod::Get, "/get/*", Some("v1.0"), 64)),
+            Provenance::source(BAG_VIEW, 26),
+            None,
+        ),
+        operator_step(
+            "Save edited JSON to overwrite the bag database",
+            Some(sourced_route(HttpMethod::Post, "/overwrite", None, 24)),
+            Provenance::source(BAG_VIEW, 30),
+            None,
+        ),
+    ]),
+    chains_from: None,
+};
 
-fn cap(id: CapabilityId, rationale: &str) -> GroundedItem<CapabilityId> {
+const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<CapabilityId> {
     GroundedItem::new(id, Provenance::asserted(rationale))
 }
 
-fn bag_of_holding_services() -> GroundedSet<ServiceId> {
-    GroundedSet::known(vec![GroundedItem::new(
-        ServiceId::BagOfHolding,
-        Provenance::doc(ADV, 379),
-    )])
-}
+const BAG_OF_HOLDING_SERVICES: GroundedSet<ServiceId> = GroundedSet::known(&[GroundedItem::new(
+    ServiceId::BagOfHolding,
+    Provenance::doc(ADV, 379),
+)]);
 
-fn route(method: HttpMethod, path: &str, version: Option<&str>) -> RouteRef {
+const fn route(method: HttpMethod, path: &'static str, version: Option<&'static str>) -> RouteRef {
     RouteRef {
         service: ServiceId::BagOfHolding,
         method,
-        path: path.into(),
-        version: version.map(str::to_string),
+        path,
+        version,
     }
 }
 
-fn sourced_route(
+const fn sourced_route(
     method: HttpMethod,
-    path: &str,
-    version: Option<&str>,
+    path: &'static str,
+    version: Option<&'static str>,
     line: u32,
 ) -> Grounded<RouteRef> {
     Grounded::known(
@@ -89,8 +83,8 @@ fn sourced_route(
     )
 }
 
-fn operator_step(
-    description: &str,
+const fn operator_step(
+    description: &'static str,
     route: Option<Grounded<RouteRef>>,
     provenance: Provenance,
     outcome: Option<Grounded<StepOutcome>>,
@@ -98,7 +92,7 @@ fn operator_step(
     GroundedItem::new(
         JourneyStep {
             actor: Actor::Operator,
-            description: description.into(),
+            description,
             route,
             outcome,
         },

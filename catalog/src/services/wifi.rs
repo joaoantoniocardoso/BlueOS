@@ -13,22 +13,21 @@ use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts
 use crate::service::{Authority, ServiceDefinition};
 use crate::trust::{PrivilegeLevel, UserConfirmation};
 
-const RUNTIME_CAPTURE: &str = "runtime-captures/wifi__pi4_navigator_master.json";
 const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
 
-pub fn runtime_facts() -> RuntimeFacts {
+pub const RUNTIME_FACTS: RuntimeFacts =
     RuntimeFacts {
         service: ServiceId::Wifi,
         state_contracts: GroundedSet::unknown(
             "wifi has no service-level state machine (card states Unknown); a wpa_supplicant event loop and hotspot watchdog reconcile periodically",
         ),
-        slo_baselines: GroundedSet::known(vec![
+        slo_baselines: GroundedSet::known(&[
             runtime_slo(HttpMethod::Get, "/status", 30.0, 44.4, 48.8, 40),
             runtime_slo(HttpMethod::Get, "/saved", 6.2, 9.5, 12.5, 40),
             runtime_slo(HttpMethod::Get, "/hotspot_extended_status", 7.3, 9.2, 9.9, 40),
             runtime_slo(HttpMethod::Get, "/smart_hotspot", 8.2, 10.5, 10.9, 40),
         ]),
-        resource_usage: GroundedSet::known(vec![runtime_resource(
+        resource_usage: GroundedSet::known(&[runtime_resource(
             "running_baseline",
             Distribution {
                 mean: 0.37,
@@ -48,40 +47,39 @@ pub fn runtime_facts() -> RuntimeFacts {
             },
             60,
         )]),
-        platform_matrix: GroundedSet::known(vec![GroundedItem::new(
+        platform_matrix: GroundedSet::known(&[GroundedItem::new(
             PlatformBehavior {
-                platform: "navigator".into(),
+                platform: "navigator",
                 firmware: None,
-                notes: vec![
-                    "wifi manages wlan0/uap0 regardless of flight controller; platform-independent".into(),
-                    "runtime captured on Navigator only; RSS ~45.9 MB flat, CPU ~0.37% mean (near-idle station mode)".into(),
-                    "GET /status is heaviest (~30 ms): it queries the wpa_supplicant control socket".into(),
+                notes: &[
+                    "wifi manages wlan0/uap0 regardless of flight controller; platform-independent",
+                    "runtime captured on Navigator only; RSS ~45.9 MB flat, CPU ~0.37% mean (near-idle station mode)",
+                    "GET /status is heaviest (~30 ms): it queries the wpa_supplicant control socket",
                 ],
             },
-            runtime_prov("#platform_matrix"),
+            runtime_prov("runtime-captures/wifi__pi4_navigator_master.json#platform_matrix"),
         )]),
         settings_mutations: GroundedSet::unknown(
             "hotspot/smart-hotspot routes persist to /root/.config/wifi-manager/settings-1.json; wifi credentials persist via wpa_supplicant SAVE_CONFIG; not exercised (reachability hazard)",
         ),
-    }
+    };
+
+const fn runtime_prov(key: &'static str) -> Provenance {
+    Provenance::runtime(key, RUNTIME_ENV)
 }
 
-fn runtime_prov(key: &str) -> Provenance {
-    Provenance::runtime(format!("{RUNTIME_CAPTURE}{key}"), RUNTIME_ENV)
-}
-
-fn runtime_route(method: HttpMethod, path: &str) -> RouteRef {
+const fn runtime_route(method: HttpMethod, path: &'static str) -> RouteRef {
     RouteRef {
         service: ServiceId::Wifi,
         method,
-        path: path.into(),
+        path,
         version: None,
     }
 }
 
-fn runtime_slo(
+const fn runtime_slo(
     method: HttpMethod,
-    path: &str,
+    path: &'static str,
     p50: f64,
     p95: f64,
     p99: f64,
@@ -95,42 +93,42 @@ fn runtime_slo(
             latency_p99_ms: p99,
             sample_size,
         },
-        runtime_prov("#slo_running_baseline"),
+        runtime_prov("runtime-captures/wifi__pi4_navigator_master.json#slo_running_baseline"),
     )
 }
 
-fn runtime_resource(
-    condition: &str,
+const fn runtime_resource(
+    condition: &'static str,
     cpu_pct: Distribution,
     rss_mb: Distribution,
     samples: u32,
 ) -> GroundedItem<ResourceUsage> {
     GroundedItem::new(
         ResourceUsage {
-            condition: condition.into(),
+            condition,
             cpu_pct,
             rss_mb,
             samples,
         },
-        runtime_prov("#resource_usage"),
+        runtime_prov("runtime-captures/wifi__pi4_navigator_master.json#resource_usage"),
     )
 }
 
-pub fn observed_facts() -> ObservedFacts {
+pub const OBSERVED_FACTS: ObservedFacts =
     ObservedFacts {
         id: ServiceId::Wifi,
-        aliases: ObservedSet::known(vec![
+        aliases: ObservedSet::known(&[
             Evidenced::new(
-                "wifi".to_string(),
+                "wifi",
                 Evidence {
-                    file: "core/start-blueos-core".to_string(),
+                    file: "core/start-blueos-core",
                     line: 127,
                 },
             ),
             Evidenced::new(
-                "wifi-manager".to_string(),
+                "wifi-manager",
                 Evidence {
-                    file: "core/services/wifi/main.py".to_string(),
+                    file: "core/services/wifi/main.py",
                     line: 34,
                 },
             ),
@@ -138,28 +136,28 @@ pub fn observed_facts() -> ObservedFacts {
         kind: Observed::known(
             ServiceKind::PythonService,
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 127,
             },
         ),
         entrypoint: Observed::known(
-            "$SERVICES_PATH/wifi/main.py --socket wlan0".to_string(),
+            "$SERVICES_PATH/wifi/main.py --socket wlan0",
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 127,
             },
         ),
         tmux_name: Observed::known(
-            "wifi".to_string(),
+            "wifi",
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 127,
             },
         ),
         startup_tier: Observed::known(
             StartupTier::Normal,
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 124,
             },
         ),
@@ -170,381 +168,381 @@ pub fn observed_facts() -> ObservedFacts {
                 io_weight: None,
             },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 127,
             },
         ),
         nice: Observed::known(
             -19,
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 127,
             },
         ),
         run_as: Observed::known(
-            "root".to_string(),
+            "root",
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 127,
             },
         ),
-        nginx_prefixes: ObservedSet::known(vec![Evidenced::new(
-            PathRef("/wifi-manager/".to_string()),
+        nginx_prefixes: ObservedSet::known(&[Evidenced::new(
+            PathRef("/wifi-manager/"),
             Evidence {
-                file: "core/tools/nginx/nginx.conf".to_string(),
+                file: "core/tools/nginx/nginx.conf",
                 line: 228,
             },
         )]),
-        listen: ObservedSet::known(vec![Evidenced::new(
+        listen: ObservedSet::known(&[Evidenced::new(
             PortRef::Literal(9000),
             Evidence {
-                file: "core/services/wifi/main.py".to_string(),
+                file: "core/services/wifi/main.py",
                 line: 184,
             },
         )]),
         git_path: Observed::known(
-            PathRef("core/services/wifi".to_string()),
+            PathRef("core/services/wifi"),
             Evidence {
-                file: "core/services/wifi/main.py".to_string(),
+                file: "core/services/wifi/main.py",
                 line: 1,
             },
         ),
-        interfaces: ObservedSet::known(vec![
+        interfaces: ObservedSet::known(&[
             Evidenced::new(
                 Interface::Rest {
-                    path_prefix: PathRef("/wifi-manager/".to_string()),
+                    path_prefix: PathRef("/wifi-manager/"),
                     port: PortRef::Literal(9000),
-                    versions: vec!["v1.0".to_string()],
+                    versions: &["v1.0"],
                 },
                 Evidence {
-                    file: "core/services/wifi/main.py".to_string(),
+                    file: "core/services/wifi/main.py",
                     line: 166,
                 },
             ),
             Evidenced::new(
                 Interface::Settings {
-                    path: PathRef("/root/.config/wifi-manager/settings-1.json".to_string()),
+                    path: PathRef("/root/.config/wifi-manager/settings-1.json"),
                 },
                 Evidence {
                     file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py"
-                        .to_string(),
+                        ,
                     line: 69,
                 },
             ),
             Evidenced::new(
                 Interface::File {
-                    path: PathRef("/root/.config/wifi-manager".to_string()),
+                    path: PathRef("/root/.config/wifi-manager"),
                     mode: FileAccessMode::ReadWrite,
                 },
                 Evidence {
                     file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py"
-                        .to_string(),
+                        ,
                     line: 27,
                 },
             ),
             Evidenced::new(
                 Interface::File {
-                    path: PathRef("/var/run/wpa_supplicant/".to_string()),
+                    path: PathRef("/var/run/wpa_supplicant/"),
                     mode: FileAccessMode::Read,
                 },
                 Evidence {
-                    file: "core/services/wifi/wifi_handlers/wpa_supplicant/WifiManager.py".to_string(),
+                    file: "core/services/wifi/wifi_handlers/wpa_supplicant/WifiManager.py",
                     line: 530,
                 },
             ),
             Evidenced::new(
                 Interface::File {
-                    path: PathRef("/var/run/wpa_supplicant/wlan0".to_string()),
+                    path: PathRef("/var/run/wpa_supplicant/wlan0"),
                     mode: FileAccessMode::ReadWrite,
                 },
                 Evidence {
-                    file: "core/services/wifi/wifi_handlers/wpa_supplicant/WifiManager.py".to_string(),
+                    file: "core/services/wifi/wifi_handlers/wpa_supplicant/WifiManager.py",
                     line: 560,
                 },
             ),
             Evidenced::new(
                 Interface::File {
-                    path: PathRef("/tmp/wpa_playground".to_string()),
+                    path: PathRef("/tmp/wpa_playground"),
                     mode: FileAccessMode::ReadWrite,
                 },
                 Evidence {
-                    file: "core/services/wifi/wifi_handlers/wpa_supplicant/wpa_supplicant.py".to_string(),
+                    file: "core/services/wifi/wifi_handlers/wpa_supplicant/wpa_supplicant.py",
                     line: 32,
                 },
             ),
             Evidenced::new(
                 Interface::File {
-                    path: PathRef("/tmp/wpa_playground/wpa_supplicant_service_{os.getpid()}".to_string()),
+                    path: PathRef("/tmp/wpa_playground/wpa_supplicant_service_{os.getpid()}"),
                     mode: FileAccessMode::ReadWrite,
                 },
                 Evidence {
-                    file: "core/services/wifi/wifi_handlers/wpa_supplicant/wpa_supplicant.py".to_string(),
+                    file: "core/services/wifi/wifi_handlers/wpa_supplicant/wpa_supplicant.py",
                     line: 43,
                 },
             ),
             Evidenced::new(
                 Interface::File {
-                    path: PathRef("/etc/dhcpcd.conf".to_string()),
+                    path: PathRef("/etc/dhcpcd.conf"),
                     mode: FileAccessMode::ReadWrite,
                 },
                 Evidence {
-                    file: "core/services/wifi/wifi_handlers/wpa_supplicant/Hotspot.py".to_string(),
+                    file: "core/services/wifi/wifi_handlers/wpa_supplicant/Hotspot.py",
                     line: 250,
                 },
             ),
             Evidenced::new(
                 Interface::File {
-                    path: PathRef("/tmp/hostapd.conf".to_string()),
+                    path: PathRef("/tmp/hostapd.conf"),
                     mode: FileAccessMode::ReadWrite,
                 },
                 Evidence {
-                    file: "core/services/wifi/wifi_handlers/wpa_supplicant/Hotspot.py".to_string(),
+                    file: "core/services/wifi/wifi_handlers/wpa_supplicant/Hotspot.py",
                     line: 211,
                 },
             ),
             Evidenced::new(
                 Interface::File {
-                    path: PathRef("/var/lib/dnsmasq".to_string()),
+                    path: PathRef("/var/lib/dnsmasq"),
                     mode: FileAccessMode::ReadWrite,
                 },
                 Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/utils/DHCPServerManager.py".to_string(),
+                    file: "core/libs/commonwealth/src/commonwealth/utils/DHCPServerManager.py",
                     line: 50,
                 },
             ),
             Evidenced::new(
                 Interface::Hardware {
-                    device: PathRef("wlan0".to_string()),
+                    device: PathRef("wlan0"),
                 },
                 Evidence {
-                    file: "core/start-blueos-core".to_string(),
+                    file: "core/start-blueos-core",
                     line: 127,
                 },
             ),
             Evidenced::new(
                 Interface::Hardware {
-                    device: PathRef("uap0".to_string()),
+                    device: PathRef("uap0"),
                 },
                 Evidence {
-                    file: "core/services/wifi/wifi_handlers/wpa_supplicant/Hotspot.py".to_string(),
+                    file: "core/services/wifi/wifi_handlers/wpa_supplicant/Hotspot.py",
                     line: 39,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
-                    command: "dhcpcd -n wlan0".to_string(),
+                    command: "dhcpcd -n wlan0",
                 },
                 Evidence {
-                    file: "core/services/wifi/wifi_handlers/wpa_supplicant/WifiManager.py".to_string(),
+                    file: "core/services/wifi/wifi_handlers/wpa_supplicant/WifiManager.py",
                     line: 394,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
-                    command: "hostapd -h".to_string(),
+                    command: "hostapd -h",
                 },
                 Evidence {
-                    file: "core/services/wifi/wifi_handlers/wpa_supplicant/Hotspot.py".to_string(),
+                    file: "core/services/wifi/wifi_handlers/wpa_supplicant/Hotspot.py",
                     line: 98,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
                     command: "iw dev {self._base_interface} interface add {self._ap_interface_name} type __ap"
-                        .to_string(),
+                        ,
                 },
                 Evidence {
-                    file: "core/services/wifi/wifi_handlers/wpa_supplicant/Hotspot.py".to_string(),
+                    file: "core/services/wifi/wifi_handlers/wpa_supplicant/Hotspot.py",
                     line: 142,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
-                    command: "ifconfig {self._ap_interface_name} up".to_string(),
+                    command: "ifconfig {self._ap_interface_name} up",
                 },
                 Evidence {
-                    file: "core/services/wifi/wifi_handlers/wpa_supplicant/Hotspot.py".to_string(),
+                    file: "core/services/wifi/wifi_handlers/wpa_supplicant/Hotspot.py",
                     line: 154,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
-                    command: "hostapd {self.config_path()}".to_string(),
+                    command: "hostapd {self.config_path()}",
                 },
                 Evidence {
-                    file: "core/services/wifi/wifi_handlers/wpa_supplicant/Hotspot.py".to_string(),
+                    file: "core/services/wifi/wifi_handlers/wpa_supplicant/Hotspot.py",
                     line: 164,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
-                    command: "dnsmasq".to_string(),
+                    command: "dnsmasq",
                 },
                 Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/utils/DHCPServerManager.py".to_string(),
+                    file: "core/libs/commonwealth/src/commonwealth/utils/DHCPServerManager.py",
                     line: 95,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
-                    command: "ip link show {self._ap_interface}".to_string(),
+                    command: "ip link show {self._ap_interface}",
                 },
                 Evidence {
-                    file: "core/services/wifi/wifi_handlers/networkmanager/networkmanager.py".to_string(),
+                    file: "core/services/wifi/wifi_handlers/networkmanager/networkmanager.py",
                     line: 60,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
-                    command: "iw dev {phys_name} interface add {self._ap_interface} type __ap".to_string(),
+                    command: "iw dev {phys_name} interface add {self._ap_interface} type __ap",
                 },
                 Evidence {
-                    file: "core/services/wifi/wifi_handlers/networkmanager/networkmanager.py".to_string(),
+                    file: "core/services/wifi/wifi_handlers/networkmanager/networkmanager.py",
                     line: 71,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
-                    command: "ip link set {self._ap_interface} up".to_string(),
+                    command: "ip link set {self._ap_interface} up",
                 },
                 Evidence {
-                    file: "core/services/wifi/wifi_handlers/networkmanager/networkmanager.py".to_string(),
+                    file: "core/services/wifi/wifi_handlers/networkmanager/networkmanager.py",
                     line: 75,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
-                    command: "iw {phys_name} set power_save off".to_string(),
+                    command: "iw {phys_name} set power_save off",
                 },
                 Evidence {
-                    file: "core/services/wifi/wifi_handlers/networkmanager/networkmanager.py".to_string(),
+                    file: "core/services/wifi/wifi_handlers/networkmanager/networkmanager.py",
                     line: 78,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
-                    command: "iw {self._ap_interface} set power_save off".to_string(),
+                    command: "iw {self._ap_interface} set power_save off",
                 },
                 Evidence {
-                    file: "core/services/wifi/wifi_handlers/networkmanager/networkmanager.py".to_string(),
+                    file: "core/services/wifi/wifi_handlers/networkmanager/networkmanager.py",
                     line: 79,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
-                    command: "iw dev {self._ap_interface} del".to_string(),
+                    command: "iw dev {self._ap_interface} del",
                 },
                 Evidence {
-                    file: "core/services/wifi/wifi_handlers/networkmanager/networkmanager.py".to_string(),
+                    file: "core/services/wifi/wifi_handlers/networkmanager/networkmanager.py",
                     line: 97,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
                     command: "create_ap -n uap0 -g 192.168.42.1 --redirect-to-localhost {credentials.ssid} {credentials.password}"
-                        .to_string(),
+                        ,
                 },
                 Evidence {
-                    file: "core/services/wifi/wifi_handlers/networkmanager/networkmanager.py".to_string(),
+                    file: "core/services/wifi/wifi_handlers/networkmanager/networkmanager.py",
                     line: 305,
                 },
             ),
             Evidenced::new(
                 Interface::Zenoh {
-                    topics_produced: vec!["services/wifi-manager/log".to_string()],
-                    topics_consumed: vec![],
+                    topics_produced: &["services/wifi-manager/log"],
+                    topics_consumed: &[],
                 },
                 Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/utils/logs.py".to_string(),
+                    file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                     line: 78,
                 },
             ),
         ]),
-        resources: ObservedSet::known(vec![
+        resources: ObservedSet::known(&[
             Evidenced::new(
                 Resource {
-                    path: PathRef("/root/.config/wifi-manager".to_string()),
+                    path: PathRef("/root/.config/wifi-manager"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 Evidence {
                     file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py"
-                        .to_string(),
+                        ,
                     line: 27,
                 },
             ),
             Evidenced::new(
                 Resource {
-                    path: PathRef("/root/.config/wifi-manager/settings-1.json".to_string()),
+                    path: PathRef("/root/.config/wifi-manager/settings-1.json"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 Evidence {
                     file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py"
-                        .to_string(),
+                        ,
                     line: 69,
                 },
             ),
             Evidenced::new(
                 Resource {
-                    path: PathRef("/var/run/wpa_supplicant/wlan0".to_string()),
+                    path: PathRef("/var/run/wpa_supplicant/wlan0"),
                     ownership: ResourceOwnership::Exclusive,
                 },
                 Evidence {
-                    file: "core/services/wifi/wifi_handlers/wpa_supplicant/WifiManager.py".to_string(),
+                    file: "core/services/wifi/wifi_handlers/wpa_supplicant/WifiManager.py",
                     line: 560,
                 },
             ),
             Evidenced::new(
                 Resource {
-                    path: PathRef("/etc/dhcpcd.conf".to_string()),
+                    path: PathRef("/etc/dhcpcd.conf"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 Evidence {
-                    file: "core/services/wifi/wifi_handlers/wpa_supplicant/Hotspot.py".to_string(),
+                    file: "core/services/wifi/wifi_handlers/wpa_supplicant/Hotspot.py",
                     line: 281,
                 },
             ),
             Evidenced::new(
                 Resource {
-                    path: PathRef("/var/lib/dnsmasq".to_string()),
+                    path: PathRef("/var/lib/dnsmasq"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/utils/DHCPServerManager.py".to_string(),
+                    file: "core/libs/commonwealth/src/commonwealth/utils/DHCPServerManager.py",
                     line: 50,
                 },
             ),
             Evidenced::new(
                 Resource {
-                    path: PathRef("wlan0".to_string()),
+                    path: PathRef("wlan0"),
                     ownership: ResourceOwnership::Exclusive,
                 },
                 Evidence {
-                    file: "core/start-blueos-core".to_string(),
+                    file: "core/start-blueos-core",
                     line: 127,
                 },
             ),
             Evidenced::new(
                 Resource {
-                    path: PathRef("uap0".to_string()),
+                    path: PathRef("uap0"),
                     ownership: ResourceOwnership::Exclusive,
                 },
                 Evidence {
-                    file: "core/services/wifi/wifi_handlers/wpa_supplicant/Hotspot.py".to_string(),
+                    file: "core/services/wifi/wifi_handlers/wpa_supplicant/Hotspot.py",
                     line: 39,
                 },
             ),
         ]),
         lifecycle: Observed::known(
             ObservedLifecycle {
-                triggers: vec!["start-blueos-core create_service".to_string()],
-                ordered_after: vec![
+                triggers: &["start-blueos-core create_service"],
+                ordered_after: &[
                     ServiceId::ArdupilotManager,
                     ServiceId::CableGuy,
                     ServiceId::MavlinkCameraManager,
                     ServiceId::Mavlink2rest,
                     ServiceId::Kraken,
                 ],
-                ordered_before: vec![
+                ordered_before: &[
                     ServiceId::Zenohd,
                     ServiceId::Beacon,
                     ServiceId::Bridget,
@@ -568,7 +566,7 @@ pub fn observed_facts() -> ObservedFacts {
                 ],
             },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 326,
             },
         ),
@@ -576,24 +574,23 @@ pub fn observed_facts() -> ObservedFacts {
             "init_logger publishes to zenoh only; no on-disk log path set in wifi source",
         ),
         zenoh_log_topic: Observed::known(
-            "services/wifi-manager/log".to_string(),
+            "services/wifi-manager/log",
             Evidence {
-                file: "core/libs/commonwealth/src/commonwealth/utils/logs.py".to_string(),
+                file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                 line: 78,
             },
         ),
         sentry: Observed::known(
             true,
             Evidence {
-                file: "core/services/wifi/main.py".to_string(),
+                file: "core/services/wifi/main.py",
                 line: 171,
             },
         ),
         openapi_refs: ObservedSet::unknown("not yet extracted"),
-    }
-}
+    };
 
-pub fn service_definition() -> ServiceDefinition {
+pub const SERVICE_DEFINITION: ServiceDefinition =
     ServiceDefinition {
         id: ServiceId::Wifi,
         singleton: Asserted::established(
@@ -601,10 +598,10 @@ pub fn service_definition() -> ServiceDefinition {
             "single NORMAL-tier tmux instance; one wifi-manager process on port 9000 owns wlan0 wireless configuration",
         ),
         bounded_context: Asserted::established(
-            "wireless-network-configuration".to_string(),
+            "wireless-network-configuration",
             "provisional 2.0 domain: wlan scan/connect/disconnect, saved networks, hotspot, and smart-hotspot",
         ),
-        journey_refs: AssertedSet::established(vec![
+        journey_refs: AssertedSet::established(&[
             Rationaled::new(
                 JourneyId::ConnectToWifiNetwork,
                 "wifi tray scans networks and POST /connect joins the selected SSID",
@@ -642,12 +639,12 @@ pub fn service_definition() -> ServiceDefinition {
             PrivilegeLevel::Root,
             "observed run_as root; mutates wlan0/uap0, wpa_supplicant control socket, hostapd, dnsmasq, and /etc/dhcpcd.conf",
         ),
-        dangerous_operations: AssertedSet::established(vec![]),
+        dangerous_operations: AssertedSet::established(&[]),
         user_confirmation: Asserted::established(
             UserConfirmation::NotRequired,
             "dangerous_operations empty per rubric v1.0; wireless changes are reversible reconfiguration, not irreversible destructive ops",
         ),
-        capabilities: AssertedSet::established(vec![
+        capabilities: AssertedSet::established(&[
             Rationaled::new(
                 CapabilityId::ConnectWifiNetwork,
                 "POST /connect joins the named SSID with supplied credentials",
@@ -689,66 +686,66 @@ pub fn service_definition() -> ServiceDefinition {
                 "GET /hotspot, /hotspot_extended_status, /smart_hotspot, and /hotspot_credentials report hotspot and smart-hotspot state",
             ),
         ]),
-        authorities: AssertedSet::established(vec![
+        authorities: AssertedSet::established(&[
             Rationaled::new(
-                Authority::Other("wireless_network_controller".to_string()),
+                Authority::Other("wireless_network_controller"),
                 "sole REST surface for wlan0 scan, connect, disconnect, and saved networks; cable_guy owns wired interfaces separately",
             ),
             Rationaled::new(
-                Authority::Other("wifi_hotspot_operator".to_string()),
+                Authority::Other("wifi_hotspot_operator"),
                 "sole manager of uap0 access point, hostapd, dnsmasq DHCP for hotspot, and smart-hotspot watchdog",
             ),
         ]),
         states: AssertedSet::unknown(
             "no cataloged state machine; wpa_supplicant event loop and hotspot watchdog run periodic reconciliation",
         ),
-        edges: AssertedSet::established(vec![]),
-        resources: AssertedSet::established(vec![
+        edges: AssertedSet::established(&[]),
+        resources: AssertedSet::established(&[
             Rationaled::new(
                 Resource {
-                    path: PathRef("/root/.config/wifi-manager".to_string()),
+                    path: PathRef("/root/.config/wifi-manager"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 "SettingsV1 pykson manager directory for persisted hotspot and smart-hotspot configuration",
             ),
             Rationaled::new(
                 Resource {
-                    path: PathRef("/root/.config/wifi-manager/settings-1.json".to_string()),
+                    path: PathRef("/root/.config/wifi-manager/settings-1.json"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 "persisted wifi-manager SettingsV1 hotspot credentials and smart-hotspot flag",
             ),
             Rationaled::new(
                 Resource {
-                    path: PathRef("/var/run/wpa_supplicant/wlan0".to_string()),
+                    path: PathRef("/var/run/wpa_supplicant/wlan0"),
                     ownership: ResourceOwnership::Exclusive,
                 },
                 "exclusive wpa_supplicant control socket for wlan0 association and scan commands",
             ),
             Rationaled::new(
                 Resource {
-                    path: PathRef("/etc/dhcpcd.conf".to_string()),
+                    path: PathRef("/etc/dhcpcd.conf"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 "dhcpcd static configuration written when hotspot alters interface addressing; hostapd config generated at /tmp/hostapd.conf",
             ),
             Rationaled::new(
                 Resource {
-                    path: PathRef("/var/lib/dnsmasq".to_string()),
+                    path: PathRef("/var/lib/dnsmasq"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 "dnsmasq lease and DHCP state directory for hotspot clients",
             ),
             Rationaled::new(
                 Resource {
-                    path: PathRef("wlan0".to_string()),
+                    path: PathRef("wlan0"),
                     ownership: ResourceOwnership::Exclusive,
                 },
                 "exclusive control of the primary wlan station interface",
             ),
             Rationaled::new(
                 Resource {
-                    path: PathRef("uap0".to_string()),
+                    path: PathRef("uap0"),
                     ownership: ResourceOwnership::Exclusive,
                 },
                 "exclusive control of the virtual access-point interface created for hotspot",
@@ -756,11 +753,11 @@ pub fn service_definition() -> ServiceDefinition {
         ]),
         lifecycle: Lifecycle {
             triggers: Asserted::established(
-                vec!["start-blueos-core create_service".to_string()],
+                &["start-blueos-core create_service"],
                 "observed lifecycle trigger: tmux creation at boot in NORMAL tier",
             ),
             ordered_after: Asserted::established(
-                vec![
+                &[
                     ServiceId::ArdupilotManager,
                     ServiceId::CableGuy,
                     ServiceId::MavlinkCameraManager,
@@ -770,7 +767,7 @@ pub fn service_definition() -> ServiceDefinition {
                 "observed ordered_after in start-blueos-core NORMAL block lists wifi after PRIORITY-tier peers",
             ),
             ordered_before: Asserted::established(
-                vec![
+                &[
                     ServiceId::Zenohd,
                     ServiceId::Beacon,
                     ServiceId::Bridget,
@@ -795,7 +792,7 @@ pub fn service_definition() -> ServiceDefinition {
                 "observed ordered_before lists wifi before remaining SERVICES-tier peers including nginx",
             ),
             shutdown: Asserted::established(
-                "uvicorn server exit on process termination".to_string(),
+                "uvicorn server exit on process termination",
                 "main.py awaits server.serve with no explicit shutdown hook beyond uvicorn exit",
             ),
             upgrade_behavior: Asserted::unknown(
@@ -803,7 +800,7 @@ pub fn service_definition() -> ServiceDefinition {
             ),
         },
         health: Asserted::established(
-            "implicit: process liveness via tmux; REST GET /status returns wlan state; wpa_supplicant event loop at boot".to_string(),
+            "implicit: process liveness via tmux; REST GET /status returns wlan state; wpa_supplicant event loop at boot",
             "no dedicated /health route; uvicorn availability and wpa_supplicant control socket serve as health signals",
         ),
         is_platform: Asserted::established(
@@ -815,33 +812,33 @@ pub fn service_definition() -> ServiceDefinition {
             "versioned FastAPI v1.0 router exposed under /wifi-manager/ via VersionedFastAPI",
         ),
         permissions_model: Asserted::established(
-            "no separate permissions manifest; REST routes are unauthenticated".to_string(),
+            "no separate permissions manifest; REST routes are unauthenticated",
             "wifi routes have no auth decorator or extension-style permissions JSON",
         ),
-        failure_modes: AssertedSet::established(vec![
+        failure_modes: AssertedSet::established(&[
             Rationaled::new(
-                "wireless_reconfiguration_lockout".to_string(),
+                "wireless_reconfiguration_lockout",
                 "incorrect connect, disconnect, or hotspot change can sever the operator connection until physical or alternate-interface recovery",
             ),
             Rationaled::new(
-                "wpa_supplicant_connection_failure".to_string(),
+                "wpa_supplicant_connection_failure",
                 "POST /connect may fail when credentials are wrong or wpa_supplicant cannot complete association within timeout",
             ),
             Rationaled::new(
-                "hotspot_start_failure".to_string(),
+                "hotspot_start_failure",
                 "POST /hotspot enable may fail when hostapd, iw virtual interface creation, or dnsmasq cannot start",
             ),
             Rationaled::new(
-                "scan_busy".to_string(),
+                "scan_busy",
                 "GET /scan returns HTTP 425 when a scan is already in progress",
             ),
             Rationaled::new(
-                "smart_hotspot_watchdog_mismatch".to_string(),
+                "smart_hotspot_watchdog_mismatch",
                 "smart-hotspot watchdog may enable or disable hotspot asynchronously; transient state mismatches until the next cycle",
             ),
         ]),
         blast_radius: Asserted::established(
-            "wireless network reachability and operator UI access; MAVLink on the FC may continue but BlueOS web UI over wifi or hotspot can become unreachable".to_string(),
+            "wireless network reachability and operator UI access; MAVLink on the FC may continue but BlueOS web UI over wifi or hotspot can become unreachable",
             "misconfigured wlan or hotspot can lock out the operator; outage blocks wifi tray UX and wireless LAN access",
         ),
         compatibility_policy: Asserted::unknown(
@@ -849,5 +846,4 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         team: Asserted::unknown("no CODEOWNERS or team metadata in observed artifact"),
         adr_refs: AssertedSet::unknown("no ADR references found in service source tree"),
-    }
-}
+    };

@@ -14,20 +14,19 @@ use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts
 use crate::service::{Authority, ServiceDefinition};
 use crate::trust::{PrivilegeLevel, UserConfirmation};
 
-const RUNTIME_CAPTURE: &str = "runtime-captures/ping__pi4_navigator_master.json";
 const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
 
-pub fn runtime_facts() -> RuntimeFacts {
+pub const RUNTIME_FACTS: RuntimeFacts =
     RuntimeFacts {
         service: ServiceId::Ping,
         state_contracts: GroundedSet::unknown(
             "ping has no service-level state machine (card states Unknown); PingManager probe loop and per-device bridge subprocesses are runtime-managed",
         ),
-        slo_baselines: GroundedSet::known(vec![
+        slo_baselines: GroundedSet::known(&[
             runtime_slo(HttpMethod::Get, "/sensors", 10.9, 35.2, 39.7, 60),
             runtime_slo(HttpMethod::Get, "/", 5.7, 10.1, 14.8, 60),
         ]),
-        resource_usage: GroundedSet::known(vec![runtime_resource(
+        resource_usage: GroundedSet::known(&[runtime_resource(
             "running_baseline",
             Distribution {
                 mean: 0.96,
@@ -47,39 +46,38 @@ pub fn runtime_facts() -> RuntimeFacts {
             },
             90,
         )]),
-        platform_matrix: GroundedSet::known(vec![GroundedItem::new(
+        platform_matrix: GroundedSet::known(&[GroundedItem::new(
             PlatformBehavior {
-                platform: "navigator".into(),
+                platform: "navigator",
                 firmware: None,
-                notes: vec![
-                    "ping auto-detects Ping-family sonar on serial/USB and local ethernet; platform-independent".into(),
-                    "runtime captured on Navigator only with NO sonar hardware; RSS ~40.2 MB flat, CPU ~0.96% mean with occasional discovery spikes".into(),
+                notes: &[
+                    "ping auto-detects Ping-family sonar on serial/USB and local ethernet; platform-independent",
+                    "runtime captured on Navigator only with NO sonar hardware; RSS ~40.2 MB flat, CPU ~0.96% mean with occasional discovery spikes",
                 ],
             },
-            runtime_prov("#platform_matrix"),
+            runtime_prov("runtime-captures/ping__pi4_navigator_master.json#platform_matrix"),
         )]),
         settings_mutations: GroundedSet::unknown(
             "POST /sensors persists Ping1D settings to /usr/blueos/userdata/settings/ping; not exercised (mutating; no sonar hardware)",
         ),
-    }
+    };
+
+const fn runtime_prov(key: &'static str) -> Provenance {
+    Provenance::runtime(key, RUNTIME_ENV)
 }
 
-fn runtime_prov(key: &str) -> Provenance {
-    Provenance::runtime(format!("{RUNTIME_CAPTURE}{key}"), RUNTIME_ENV)
-}
-
-fn runtime_route(method: HttpMethod, path: &str) -> RouteRef {
+const fn runtime_route(method: HttpMethod, path: &'static str) -> RouteRef {
     RouteRef {
         service: ServiceId::Ping,
         method,
-        path: path.into(),
+        path,
         version: None,
     }
 }
 
-fn runtime_slo(
+const fn runtime_slo(
     method: HttpMethod,
-    path: &str,
+    path: &'static str,
     p50: f64,
     p95: f64,
     p99: f64,
@@ -93,63 +91,63 @@ fn runtime_slo(
             latency_p99_ms: p99,
             sample_size,
         },
-        runtime_prov("#slo_running_baseline"),
+        runtime_prov("runtime-captures/ping__pi4_navigator_master.json#slo_running_baseline"),
     )
 }
 
-fn runtime_resource(
-    condition: &str,
+const fn runtime_resource(
+    condition: &'static str,
     cpu_pct: Distribution,
     rss_mb: Distribution,
     samples: u32,
 ) -> GroundedItem<ResourceUsage> {
     GroundedItem::new(
         ResourceUsage {
-            condition: condition.into(),
+            condition,
             cpu_pct,
             rss_mb,
             samples,
         },
-        runtime_prov("#resource_usage"),
+        runtime_prov("runtime-captures/ping__pi4_navigator_master.json#resource_usage"),
     )
 }
 
-pub fn observed_facts() -> ObservedFacts {
+pub const OBSERVED_FACTS: ObservedFacts =
     ObservedFacts {
         id: ServiceId::Ping,
-        aliases: ObservedSet::known(vec![Evidenced::new(
-            "ping".to_string(),
+        aliases: ObservedSet::known(&[Evidenced::new(
+            "ping",
             Evidence {
-                file: "core/services/ping/main.py".to_string(),
+                file: "core/services/ping/main.py",
                 line: 20,
             },
         )]),
         kind: Observed::known(
             ServiceKind::PythonService,
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 140,
             },
         ),
         entrypoint: Observed::known(
             "nice -19 $RUN_AS_REGULAR_USER_BEGIN $SERVICES_PATH/ping/main.py $RUN_AS_REGULAR_USER_END"
-                .to_string(),
+                ,
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 140,
             },
         ),
         tmux_name: Observed::known(
-            "ping".to_string(),
+            "ping",
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 140,
             },
         ),
         startup_tier: Observed::known(
             StartupTier::Normal,
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 124,
             },
         ),
@@ -160,121 +158,121 @@ pub fn observed_facts() -> ObservedFacts {
                 io_weight: None,
             },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 140,
             },
         ),
         nice: Observed::known(
             -19,
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 140,
             },
         ),
         run_as: Observed::known(
-            "blueos".to_string(),
+            "blueos",
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 22,
             },
         ),
-        nginx_prefixes: ObservedSet::known(vec![Evidenced::new(
-            PathRef("/ping/".to_string()),
+        nginx_prefixes: ObservedSet::known(&[Evidenced::new(
+            PathRef("/ping/"),
             Evidence {
-                file: "core/tools/nginx/nginx.conf".to_string(),
+                file: "core/tools/nginx/nginx.conf",
                 line: 233,
             },
         )]),
-        listen: ObservedSet::known(vec![Evidenced::new(
+        listen: ObservedSet::known(&[Evidenced::new(
             PortRef::Literal(9110),
             Evidence {
-                file: "core/services/ping/main.py".to_string(),
+                file: "core/services/ping/main.py",
                 line: 86,
             },
         )]),
         git_path: Observed::known(
-            PathRef("core/services/ping".to_string()),
+            PathRef("core/services/ping"),
             Evidence {
-                file: "core/services/ping/main.py".to_string(),
+                file: "core/services/ping/main.py",
                 line: 1,
             },
         ),
-        interfaces: ObservedSet::known(vec![
+        interfaces: ObservedSet::known(&[
             Evidenced::new(
                 Interface::Rest {
-                    path_prefix: PathRef("/ping/".to_string()),
+                    path_prefix: PathRef("/ping/"),
                     port: PortRef::Literal(9110),
-                    versions: vec!["v1.0".to_string()],
+                    versions: &["v1.0"],
                 },
                 Evidence {
-                    file: "core/services/ping/main.py".to_string(),
+                    file: "core/services/ping/main.py",
                     line: 54,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
                     command: "{bridges} -u {ip}:{port} -p {serial_port.device}:{baud} {automatic_disconnect_clients}"
-                        .to_string(),
+                        ,
                 },
                 Evidence {
-                    file: "core/libs/bridges/src/bridges/bridges.py".to_string(),
+                    file: "core/libs/bridges/src/bridges/bridges.py",
                     line: 29,
                 },
             ),
             Evidenced::new(
                 Interface::OutboundHttp {
-                    url: "localhost:6040".to_string(),
+                    url: "localhost:6040",
                 },
                 Evidence {
                     file: "core/libs/commonwealth/src/commonwealth/mavlink_comm/MavlinkComm.py"
-                        .to_string(),
+                        ,
                     line: 24,
                 },
             ),
             Evidenced::new(
                 Interface::Settings {
-                    path: PathRef("/usr/blueos/userdata/settings/ping".to_string()),
+                    path: PathRef("/usr/blueos/userdata/settings/ping"),
                 },
                 Evidence {
-                    file: "core/services/ping/ping1d_driver.py".to_string(),
+                    file: "core/services/ping/ping1d_driver.py",
                     line: 22,
                 },
             ),
             Evidenced::new(
                 Interface::File {
-                    path: PathRef("/usr/blueos/userdata/settings/ping".to_string()),
+                    path: PathRef("/usr/blueos/userdata/settings/ping"),
                     mode: FileAccessMode::ReadWrite,
                 },
                 Evidence {
-                    file: "core/services/ping/ping1d_driver.py".to_string(),
+                    file: "core/services/ping/ping1d_driver.py",
                     line: 22,
                 },
             ),
             Evidenced::new(
                 Interface::Zenoh {
-                    topics_produced: vec!["services/ping/log".to_string()],
-                    topics_consumed: vec![],
+                    topics_produced: &["services/ping/log"],
+                    topics_consumed: &[],
                 },
                 Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/utils/logs.py".to_string(),
+                    file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                     line: 78,
                 },
             ),
         ]),
-        resources: ObservedSet::known(vec![Evidenced::new(
+        resources: ObservedSet::known(&[Evidenced::new(
             Resource {
-                path: PathRef("/usr/blueos/userdata/settings/ping".to_string()),
+                path: PathRef("/usr/blueos/userdata/settings/ping"),
                 ownership: ResourceOwnership::SharedWrite,
             },
             Evidence {
-                file: "core/services/ping/ping1d_driver.py".to_string(),
+                file: "core/services/ping/ping1d_driver.py",
                 line: 22,
             },
         )]),
         lifecycle: Observed::known(
             ObservedLifecycle {
-                triggers: vec!["start-blueos-core create_service".to_string()],
-                ordered_after: vec![
+                triggers: &["start-blueos-core create_service"],
+                ordered_after: &[
                     ServiceId::ArdupilotManager,
                     ServiceId::CableGuy,
                     ServiceId::MavlinkCameraManager,
@@ -293,7 +291,7 @@ pub fn observed_facts() -> ObservedFacts {
                     ServiceId::Versionchooser,
                     ServiceId::Pardal,
                 ],
-                ordered_before: vec![
+                ordered_before: &[
                     ServiceId::UserTerminal,
                     ServiceId::Ttyd,
                     ServiceId::Nginx,
@@ -305,7 +303,7 @@ pub fn observed_facts() -> ObservedFacts {
                 ],
             },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 326,
             },
         ),
@@ -313,24 +311,23 @@ pub fn observed_facts() -> ObservedFacts {
             "init_logger publishes to zenoh only; no on-disk log path set in ping source",
         ),
         zenoh_log_topic: Observed::known(
-            "services/ping/log".to_string(),
+            "services/ping/log",
             Evidence {
-                file: "core/libs/commonwealth/src/commonwealth/utils/logs.py".to_string(),
+                file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                 line: 78,
             },
         ),
         sentry: Observed::known(
             true,
             Evidence {
-                file: "core/services/ping/main.py".to_string(),
+                file: "core/services/ping/main.py",
                 line: 80,
             },
         ),
         openapi_refs: ObservedSet::unknown("not yet extracted"),
-    }
-}
+    };
 
-pub fn service_definition() -> ServiceDefinition {
+pub const SERVICE_DEFINITION: ServiceDefinition =
     ServiceDefinition {
         id: ServiceId::Ping,
         singleton: Asserted::established(
@@ -338,10 +335,10 @@ pub fn service_definition() -> ServiceDefinition {
             "single SERVICES-tier tmux instance; one ping process owns all sonar probes and bridges subprocesses",
         ),
         bounded_context: Asserted::established(
-            "ping-sonar-integration".to_string(),
+            "ping-sonar-integration",
             "provisional 2.0 domain: auto-detect Ping-family sonar devices, spawn UDP bridges, and optional MAVLink rangefinder forwarding",
         ),
-        journey_refs: AssertedSet::established(vec![
+        journey_refs: AssertedSet::established(&[
             Rationaled::new(
                 JourneyId::ViewDetectedSonarDevices,
                 "Ping Sonar Devices page lists auto-detected Ping1D and Ping360 sensors via GET /sensors",
@@ -367,12 +364,12 @@ pub fn service_definition() -> ServiceDefinition {
             PrivilegeLevel::Regular,
             "observed run_as blueos via RUN_AS_REGULAR_USER wrapper; reads/writes userdata settings and spawns bridges without root",
         ),
-        dangerous_operations: AssertedSet::established(vec![]),
+        dangerous_operations: AssertedSet::established(&[]),
         user_confirmation: Asserted::established(
             UserConfirmation::NotRequired,
             "sensor detection, UDP bridging, and MAVLink distance toggle are reversible reconfiguration; no irreversible, untrusted-code, or vehicle-arm operations per rubric",
         ),
-        capabilities: AssertedSet::established(vec![
+        capabilities: AssertedSet::established(&[
             Rationaled::new(
                 CapabilityId::ListDetectedPingSensors,
                 "GET /sensors returns auto-detected Ping1D and Ping360 devices with bridge ports and serial paths",
@@ -386,40 +383,40 @@ pub fn service_definition() -> ServiceDefinition {
                 "POST /sensors persists Ping1D settings to toggle mavlink_driver DISTANCE_SENSOR forwarding via mavlink2rest",
             ),
         ]),
-        authorities: AssertedSet::established(vec![Rationaled::new(
-            Authority::Other("ping_sonar_manager".to_string()),
+        authorities: AssertedSet::established(&[Rationaled::new(
+            Authority::Other("ping_sonar_manager"),
             "sole catalog service that auto-detects Ping-family sonar devices and spawns bridges subprocesses per device",
         )]),
         states: AssertedSet::unknown(
             "no cataloged state machine; PingManager probe loop and per-device bridge subprocesses are runtime-managed",
         ),
-        edges: AssertedSet::established(vec![Rationaled::new(
+        edges: AssertedSet::established(&[Rationaled::new(
             Edge {
                 from: ServiceId::Ping,
                 to: ServiceId::Mavlink2rest,
                 via: Bus::Rest,
                 sync: SyncMode::Async,
-                endpoint: "localhost:6040".to_string(),
-                purpose: "forward sonar DISTANCE_SENSOR to the vehicle via mavlink2rest".to_string(),
+                endpoint: "localhost:6040",
+                purpose: "forward sonar DISTANCE_SENSOR to the vehicle via mavlink2rest",
                 required_at_boot: false,
                 failure_impact: FailureImpact::Degraded,
             },
             "observed OutboundHttp localhost:6040 (MavlinkComm.py:24) pairs with mavlink2rest listen 6040",
         )]),
-        resources: AssertedSet::established(vec![Rationaled::new(
+        resources: AssertedSet::established(&[Rationaled::new(
             Resource {
-                path: PathRef("/usr/blueos/userdata/settings/ping".to_string()),
+                path: PathRef("/usr/blueos/userdata/settings/ping"),
                 ownership: ResourceOwnership::SharedWrite,
             },
             "persisted Ping1D sensor settings including mavlink_driver toggle consumed only by ping",
         )]),
         lifecycle: Lifecycle {
             triggers: Asserted::established(
-                vec!["start-blueos-core create_service".to_string()],
+                &["start-blueos-core create_service"],
                 "observed lifecycle trigger: tmux creation at boot in SERVICES tier",
             ),
             ordered_after: Asserted::established(
-                vec![
+                &[
                     ServiceId::ArdupilotManager,
                     ServiceId::CableGuy,
                     ServiceId::MavlinkCameraManager,
@@ -441,7 +438,7 @@ pub fn service_definition() -> ServiceDefinition {
                 "observed ordered_after in start-blueos-core SERVICES block",
             ),
             ordered_before: Asserted::established(
-                vec![
+                &[
                     ServiceId::UserTerminal,
                     ServiceId::Ttyd,
                     ServiceId::Nginx,
@@ -461,7 +458,7 @@ pub fn service_definition() -> ServiceDefinition {
             ),
         },
         health: Asserted::established(
-            "implicit: process liveness via tmux; REST GET /sensors availability serves as health signal".to_string(),
+            "implicit: process liveness via tmux; REST GET /sensors availability serves as health signal",
             "no dedicated /health route; uvicorn availability and probe loop continuity serve as health signal",
         ),
         is_platform: Asserted::established(
@@ -473,34 +470,34 @@ pub fn service_definition() -> ServiceDefinition {
             "versioned FastAPI v1.0 router exposed under /ping/ via VersionedFastAPI",
         ),
         permissions_model: Asserted::established(
-            "no separate permissions manifest; REST routes are unauthenticated".to_string(),
+            "no separate permissions manifest; REST routes are unauthenticated",
             "ping routes have no auth decorator or extension-style permissions JSON",
         ),
-        failure_modes: AssertedSet::established(vec![
+        failure_modes: AssertedSet::established(&[
             Rationaled::new(
-                "sonar_not_detected".to_string(),
+                "sonar_not_detected",
                 "serial and ethernet probes find no Ping-protocol device; GET /sensors returns an empty list",
             ),
             Rationaled::new(
-                "bridge_subprocess_crash".to_string(),
+                "bridge_subprocess_crash",
                 "bridges binary exits for a device; UDP endpoint stops until PingManager respawns the bridge",
             ),
             Rationaled::new(
-                "wrong_distance_affects_depth_hold".to_string(),
+                "wrong_distance_affects_depth_hold",
                 "stale or incorrect Ping1D distance forwarded as DISTANCE_SENSOR can skew autopilot depth-hold while mavlink_driver is enabled",
             ),
             Rationaled::new(
-                "mavlink2rest_unreachable".to_string(),
+                "mavlink2rest_unreachable",
                 "MavlinkMessenger POST to localhost:6040 fails when mavlink2rest is down; MAVLink distance forwarding stops",
             ),
             Rationaled::new(
-                "udp_bridge_port_conflict".to_string(),
+                "udp_bridge_port_conflict",
                 "assigned bridge port from the 9090/9092 range may conflict if another process binds the same UDP port",
             ),
         ]),
         blast_radius: Asserted::established(
             "Ping sonar UI and UDP bridges unavailable; Ping Viewer cannot connect; enabled MAVLink rangefinder forwarding may feed wrong depth estimates to the autopilot"
-                .to_string(),
+                ,
             "outage blocks optional sonar telemetry path; misconfigured active mavlink_driver affects depth-hold estimates but not arm/disarm or motion commands directly",
         ),
         compatibility_policy: Asserted::unknown(
@@ -508,5 +505,4 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         team: Asserted::unknown("no CODEOWNERS or team metadata in observed artifact"),
         adr_refs: AssertedSet::unknown("no ADR references found in service source tree"),
-    }
-}
+    };

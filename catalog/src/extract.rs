@@ -2,13 +2,13 @@ use std::fs;
 use std::path::Path;
 
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::drift::{DriftFinding, DriftReport};
 use crate::observed::{ObservedFacts, StartupTier};
 use crate::provenance::Observed;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct ExtractedService {
     pub tmux_name: String,
     pub service_dir: Option<String>,

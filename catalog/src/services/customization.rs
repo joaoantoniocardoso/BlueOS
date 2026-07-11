@@ -13,22 +13,21 @@ use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts
 use crate::service::{Authority, ServiceDefinition};
 use crate::trust::{PrivilegeLevel, UserConfirmation};
 
-const RUNTIME_CAPTURE: &str = "runtime-captures/customization__pi4_navigator_master.json";
 const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
 
-pub fn runtime_facts() -> RuntimeFacts {
+pub const RUNTIME_FACTS: RuntimeFacts =
     RuntimeFacts {
         service: ServiceId::Customization,
         state_contracts: GroundedSet::unknown(
             "customization has no service-level state machine (card states Unknown); stateless file-backed asset handlers",
         ),
-        slo_baselines: GroundedSet::known(vec![
+        slo_baselines: GroundedSet::known(&[
             runtime_slo(HttpMethod::Get, "/theme", 5.6, 9.4, 9.4, 40),
             runtime_slo(HttpMethod::Get, "/models", 5.3, 7.0, 9.3, 40),
             runtime_slo(HttpMethod::Get, "/branding/logo", 5.5, 8.6, 10.5, 40),
             runtime_slo(HttpMethod::Get, "/branding/vehicle-image", 5.7, 7.5, 10.1, 40),
         ]),
-        resource_usage: GroundedSet::known(vec![runtime_resource(
+        resource_usage: GroundedSet::known(&[runtime_resource(
             "running_baseline",
             Distribution {
                 mean: 0.26,
@@ -48,39 +47,38 @@ pub fn runtime_facts() -> RuntimeFacts {
             },
             60,
         )]),
-        platform_matrix: GroundedSet::known(vec![GroundedItem::new(
+        platform_matrix: GroundedSet::known(&[GroundedItem::new(
             PlatformBehavior {
-                platform: "navigator".into(),
+                platform: "navigator",
                 firmware: None,
-                notes: vec![
-                    "customization serves branding/theme assets independent of the flight controller; platform-independent".into(),
-                    "runtime captured on Navigator only; RSS ~35.0 MB flat, CPU ~0.26% mean; all GETs ~5-6 ms".into(),
+                notes: &[
+                    "customization serves branding/theme assets independent of the flight controller; platform-independent",
+                    "runtime captured on Navigator only; RSS ~35.0 MB flat, CPU ~0.26% mean; all GETs ~5-6 ms",
                 ],
             },
-            runtime_prov("#platform_matrix"),
+            runtime_prov("runtime-captures/customization__pi4_navigator_master.json#platform_matrix"),
         )]),
         settings_mutations: GroundedSet::unknown(
             "PUT /theme writes theme_config.json + theme_style.css; branding/model uploads write /usr/blueos/userdata/{branding,modeloverrides}; not exercised",
         ),
-    }
+    };
+
+const fn runtime_prov(key: &'static str) -> Provenance {
+    Provenance::runtime(key, RUNTIME_ENV)
 }
 
-fn runtime_prov(key: &str) -> Provenance {
-    Provenance::runtime(format!("{RUNTIME_CAPTURE}{key}"), RUNTIME_ENV)
-}
-
-fn runtime_route(method: HttpMethod, path: &str) -> RouteRef {
+const fn runtime_route(method: HttpMethod, path: &'static str) -> RouteRef {
     RouteRef {
         service: ServiceId::Customization,
         method,
-        path: path.into(),
+        path,
         version: None,
     }
 }
 
-fn runtime_slo(
+const fn runtime_slo(
     method: HttpMethod,
-    path: &str,
+    path: &'static str,
     p50: f64,
     p95: f64,
     p99: f64,
@@ -94,268 +92,268 @@ fn runtime_slo(
             latency_p99_ms: p99,
             sample_size,
         },
-        runtime_prov("#slo_running_baseline"),
+        runtime_prov(
+            "runtime-captures/customization__pi4_navigator_master.json#slo_running_baseline",
+        ),
     )
 }
 
-fn runtime_resource(
-    condition: &str,
+const fn runtime_resource(
+    condition: &'static str,
     cpu_pct: Distribution,
     rss_mb: Distribution,
     samples: u32,
 ) -> GroundedItem<ResourceUsage> {
     GroundedItem::new(
         ResourceUsage {
-            condition: condition.into(),
+            condition,
             cpu_pct,
             rss_mb,
             samples,
         },
-        runtime_prov("#resource_usage"),
+        runtime_prov("runtime-captures/customization__pi4_navigator_master.json#resource_usage"),
     )
 }
 
-pub fn observed_facts() -> ObservedFacts {
-    ObservedFacts {
-        id: ServiceId::Customization,
-        aliases: ObservedSet::known(vec![Evidenced::new(
-            "customization".to_string(),
-            Evidence {
-                file: "core/services/customization/main.py".to_string(),
-                line: 34,
+pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
+    id: ServiceId::Customization,
+    aliases: ObservedSet::known(&[Evidenced::new(
+        "customization",
+        Evidence {
+            file: "core/services/customization/main.py",
+            line: 34,
+        },
+    )]),
+    kind: Observed::known(
+        ServiceKind::PythonService,
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 148,
+        },
+    ),
+    entrypoint: Observed::known(
+        "$SERVICES_PATH/customization/main.py",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 148,
+        },
+    ),
+    tmux_name: Observed::known(
+        "customization",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 148,
+        },
+    ),
+    startup_tier: Observed::known(
+        StartupTier::Normal,
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 124,
+        },
+    ),
+    resource_limits: Observed::known(
+        ResourceLimits {
+            memory_mb: Some(250),
+            cpu_percent: Some(0),
+            io_weight: None,
+        },
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 148,
+        },
+    ),
+    nice: Observed::unknown("no nice prefix in start tuple"),
+    run_as: Observed::known(
+        "root",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 148,
+        },
+    ),
+    nginx_prefixes: ObservedSet::known(&[Evidenced::new(
+        PathRef("/customization/"),
+        Evidence {
+            file: "core/tools/nginx/nginx.conf",
+            line: 145,
+        },
+    )]),
+    listen: ObservedSet::known(&[Evidenced::new(
+        PortRef::Literal(9152),
+        Evidence {
+            file: "core/services/customization/main.py",
+            line: 35,
+        },
+    )]),
+    git_path: Observed::known(
+        PathRef("core/services/customization"),
+        Evidence {
+            file: "core/services/customization/main.py",
+            line: 1,
+        },
+    ),
+    interfaces: ObservedSet::known(&[
+        Evidenced::new(
+            Interface::Rest {
+                path_prefix: PathRef("/customization/"),
+                port: PortRef::Literal(9152),
+                versions: &["v1.0"],
             },
-        )]),
-        kind: Observed::known(
-            ServiceKind::PythonService,
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 148,
+                file: "core/services/customization/main.py",
+                line: 328,
             },
         ),
-        entrypoint: Observed::known(
-            "$SERVICES_PATH/customization/main.py".to_string(),
+        Evidenced::new(
+            Interface::Settings {
+                path: PathRef("/usr/blueos/userdata/styles/theme_config.json"),
+            },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 148,
+                file: "core/services/customization/storage.py",
+                line: 10,
             },
         ),
-        tmux_name: Observed::known(
-            "customization".to_string(),
+        Evidenced::new(
+            Interface::File {
+                path: PathRef("/usr/blueos/userdata/styles/theme_style.css"),
+                mode: FileAccessMode::ReadWrite,
+            },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 148,
+                file: "core/services/customization/storage.py",
+                line: 9,
             },
         ),
-        startup_tier: Observed::known(
-            StartupTier::Normal,
+        Evidenced::new(
+            Interface::File {
+                path: PathRef("/usr/blueos/userdata/modeloverrides"),
+                mode: FileAccessMode::ReadWrite,
+            },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 124,
+                file: "core/services/customization/storage.py",
+                line: 6,
             },
         ),
-        resource_limits: Observed::known(
-            ResourceLimits {
-                memory_mb: Some(250),
-                cpu_percent: Some(0),
-                io_weight: None,
+        Evidenced::new(
+            Interface::File {
+                path: PathRef("/usr/blueos/userdata/branding"),
+                mode: FileAccessMode::ReadWrite,
             },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 148,
+                file: "core/services/customization/storage.py",
+                line: 7,
             },
         ),
-        nice: Observed::unknown("no nice prefix in start tuple"),
-        run_as: Observed::known(
-            "root".to_string(),
-            Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 148,
-            },
-        ),
-        nginx_prefixes: ObservedSet::known(vec![Evidenced::new(
-            PathRef("/customization/".to_string()),
-            Evidence {
-                file: "core/tools/nginx/nginx.conf".to_string(),
-                line: 145,
-            },
-        )]),
-        listen: ObservedSet::known(vec![Evidenced::new(
-            PortRef::Literal(9152),
-            Evidence {
-                file: "core/services/customization/main.py".to_string(),
-                line: 35,
-            },
-        )]),
-        git_path: Observed::known(
-            PathRef("core/services/customization".to_string()),
-            Evidence {
-                file: "core/services/customization/main.py".to_string(),
-                line: 1,
-            },
-        ),
-        interfaces: ObservedSet::known(vec![
-            Evidenced::new(
-                Interface::Rest {
-                    path_prefix: PathRef("/customization/".to_string()),
-                    port: PortRef::Literal(9152),
-                    versions: vec!["v1.0".to_string()],
-                },
-                Evidence {
-                    file: "core/services/customization/main.py".to_string(),
-                    line: 328,
-                },
-            ),
-            Evidenced::new(
-                Interface::Settings {
-                    path: PathRef("/usr/blueos/userdata/styles/theme_config.json".to_string()),
-                },
-                Evidence {
-                    file: "core/services/customization/storage.py".to_string(),
-                    line: 10,
-                },
-            ),
-            Evidenced::new(
-                Interface::File {
-                    path: PathRef("/usr/blueos/userdata/styles/theme_style.css".to_string()),
-                    mode: FileAccessMode::ReadWrite,
-                },
-                Evidence {
-                    file: "core/services/customization/storage.py".to_string(),
-                    line: 9,
-                },
-            ),
-            Evidenced::new(
-                Interface::File {
-                    path: PathRef("/usr/blueos/userdata/modeloverrides".to_string()),
-                    mode: FileAccessMode::ReadWrite,
-                },
-                Evidence {
-                    file: "core/services/customization/storage.py".to_string(),
-                    line: 6,
-                },
-            ),
-            Evidenced::new(
-                Interface::File {
-                    path: PathRef("/usr/blueos/userdata/branding".to_string()),
-                    mode: FileAccessMode::ReadWrite,
-                },
-                Evidence {
-                    file: "core/services/customization/storage.py".to_string(),
-                    line: 7,
-                },
-            ),
-            Evidenced::new(
-                Interface::Zenoh {
-                    topics_produced: vec!["services/customization/log".to_string()],
-                    topics_consumed: vec![],
-                },
-                Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/utils/logs.py".to_string(),
-                    line: 78,
-                },
-            ),
-        ]),
-        resources: ObservedSet::known(vec![
-            Evidenced::new(
-                Resource {
-                    path: PathRef("/usr/blueos/userdata/styles/theme_config.json".to_string()),
-                    ownership: ResourceOwnership::SharedWrite,
-                },
-                Evidence {
-                    file: "core/services/customization/main.py".to_string(),
-                    line: 97,
-                },
-            ),
-            Evidenced::new(
-                Resource {
-                    path: PathRef("/usr/blueos/userdata/styles/theme_style.css".to_string()),
-                    ownership: ResourceOwnership::SharedWrite,
-                },
-                Evidence {
-                    file: "core/services/customization/main.py".to_string(),
-                    line: 102,
-                },
-            ),
-            Evidenced::new(
-                Resource {
-                    path: PathRef("/usr/blueos/userdata/modeloverrides".to_string()),
-                    ownership: ResourceOwnership::SharedWrite,
-                },
-                Evidence {
-                    file: "core/services/customization/storage.py".to_string(),
-                    line: 20,
-                },
-            ),
-            Evidenced::new(
-                Resource {
-                    path: PathRef("/usr/blueos/userdata/branding".to_string()),
-                    ownership: ResourceOwnership::SharedWrite,
-                },
-                Evidence {
-                    file: "core/services/customization/storage.py".to_string(),
-                    line: 20,
-                },
-            ),
-        ]),
-        lifecycle: Observed::known(
-            ObservedLifecycle {
-                triggers: vec!["start-blueos-core create_service".to_string()],
-                ordered_after: vec![
-                    ServiceId::ArdupilotManager,
-                    ServiceId::CableGuy,
-                    ServiceId::MavlinkCameraManager,
-                    ServiceId::Mavlink2rest,
-                    ServiceId::Kraken,
-                    ServiceId::Wifi,
-                    ServiceId::Zenohd,
-                    ServiceId::Beacon,
-                    ServiceId::Bridget,
-                    ServiceId::Commander,
-                    ServiceId::NmeaInjector,
-                    ServiceId::Helper,
-                    ServiceId::Iperf3,
-                    ServiceId::Linux2rest,
-                    ServiceId::Filebrowser,
-                    ServiceId::Versionchooser,
-                    ServiceId::Pardal,
-                    ServiceId::Ping,
-                    ServiceId::UserTerminal,
-                    ServiceId::Ttyd,
-                    ServiceId::Nginx,
-                    ServiceId::BagOfHolding,
-                    ServiceId::Recorder,
-                    ServiceId::RecorderExtractor,
-                    ServiceId::DiskUsage,
-                ],
-                ordered_before: vec![],
+        Evidenced::new(
+            Interface::Zenoh {
+                topics_produced: &["services/customization/log"],
+                topics_consumed: &[],
             },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 326,
-            },
-        ),
-        logs_path: Observed::unknown(
-            "init_logger publishes to zenoh only; no on-disk log path set in customization source",
-        ),
-        zenoh_log_topic: Observed::known(
-            "services/customization/log".to_string(),
-            Evidence {
-                file: "core/libs/commonwealth/src/commonwealth/utils/logs.py".to_string(),
+                file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                 line: 78,
             },
         ),
-        sentry: Observed::known(
-            true,
+    ]),
+    resources: ObservedSet::known(&[
+        Evidenced::new(
+            Resource {
+                path: PathRef("/usr/blueos/userdata/styles/theme_config.json"),
+                ownership: ResourceOwnership::SharedWrite,
+            },
             Evidence {
-                file: "core/services/customization/main.py".to_string(),
-                line: 340,
+                file: "core/services/customization/main.py",
+                line: 97,
             },
         ),
-        openapi_refs: ObservedSet::unknown("not yet extracted"),
-    }
-}
+        Evidenced::new(
+            Resource {
+                path: PathRef("/usr/blueos/userdata/styles/theme_style.css"),
+                ownership: ResourceOwnership::SharedWrite,
+            },
+            Evidence {
+                file: "core/services/customization/main.py",
+                line: 102,
+            },
+        ),
+        Evidenced::new(
+            Resource {
+                path: PathRef("/usr/blueos/userdata/modeloverrides"),
+                ownership: ResourceOwnership::SharedWrite,
+            },
+            Evidence {
+                file: "core/services/customization/storage.py",
+                line: 20,
+            },
+        ),
+        Evidenced::new(
+            Resource {
+                path: PathRef("/usr/blueos/userdata/branding"),
+                ownership: ResourceOwnership::SharedWrite,
+            },
+            Evidence {
+                file: "core/services/customization/storage.py",
+                line: 20,
+            },
+        ),
+    ]),
+    lifecycle: Observed::known(
+        ObservedLifecycle {
+            triggers: &["start-blueos-core create_service"],
+            ordered_after: &[
+                ServiceId::ArdupilotManager,
+                ServiceId::CableGuy,
+                ServiceId::MavlinkCameraManager,
+                ServiceId::Mavlink2rest,
+                ServiceId::Kraken,
+                ServiceId::Wifi,
+                ServiceId::Zenohd,
+                ServiceId::Beacon,
+                ServiceId::Bridget,
+                ServiceId::Commander,
+                ServiceId::NmeaInjector,
+                ServiceId::Helper,
+                ServiceId::Iperf3,
+                ServiceId::Linux2rest,
+                ServiceId::Filebrowser,
+                ServiceId::Versionchooser,
+                ServiceId::Pardal,
+                ServiceId::Ping,
+                ServiceId::UserTerminal,
+                ServiceId::Ttyd,
+                ServiceId::Nginx,
+                ServiceId::BagOfHolding,
+                ServiceId::Recorder,
+                ServiceId::RecorderExtractor,
+                ServiceId::DiskUsage,
+            ],
+            ordered_before: &[],
+        },
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 326,
+        },
+    ),
+    logs_path: Observed::unknown(
+        "init_logger publishes to zenoh only; no on-disk log path set in customization source",
+    ),
+    zenoh_log_topic: Observed::known(
+        "services/customization/log",
+        Evidence {
+            file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
+            line: 78,
+        },
+    ),
+    sentry: Observed::known(
+        true,
+        Evidence {
+            file: "core/services/customization/main.py",
+            line: 340,
+        },
+    ),
+    openapi_refs: ObservedSet::unknown("not yet extracted"),
+};
 
-pub fn service_definition() -> ServiceDefinition {
+pub const SERVICE_DEFINITION: ServiceDefinition =
     ServiceDefinition {
         id: ServiceId::Customization,
         singleton: Asserted::established(
@@ -363,10 +361,10 @@ pub fn service_definition() -> ServiceDefinition {
             "single SERVICES-tier tmux instance; one customization process owns userdata branding assets",
         ),
         bounded_context: Asserted::established(
-            "ui-branding-and-theming".to_string(),
+            "ui-branding-and-theming",
             "provisional 2.0 domain: white-label theme color, logo/vehicle-image branding, and 3D model overrides",
         ),
-        journey_refs: AssertedSet::established(vec![
+        journey_refs: AssertedSet::established(&[
             Rationaled::new(
                 JourneyId::ChangeUiThemeColor,
                 "Settings Appearance panel saves a primary color and regenerates theme CSS",
@@ -412,12 +410,12 @@ pub fn service_definition() -> ServiceDefinition {
             PrivilegeLevel::Root,
             "observed run_as root; writes theme CSS, branding images, and model files under userdata",
         ),
-        dangerous_operations: AssertedSet::established(vec![]),
+        dangerous_operations: AssertedSet::established(&[]),
         user_confirmation: Asserted::established(
             UserConfirmation::NotRequired,
             "dangerous_operations empty per rubric v1.0; theme, branding, and model changes are reversible reconfiguration, not irreversible destructive ops",
         ),
-        capabilities: AssertedSet::established(vec![
+        capabilities: AssertedSet::established(&[
             Rationaled::new(
                 CapabilityId::SetThemeColor,
                 "PUT /theme saves primary color to theme_config.json and regenerates theme_style.css",
@@ -467,39 +465,39 @@ pub fn service_definition() -> ServiceDefinition {
                 "GET /models lists uploaded model override entries with URLs and sizes",
             ),
         ]),
-        authorities: AssertedSet::established(vec![Rationaled::new(
-            Authority::Other("ui_branding_manager".to_string()),
+        authorities: AssertedSet::established(&[Rationaled::new(
+            Authority::Other("ui_branding_manager"),
             "sole writer of /usr/blueos/userdata styles, branding, and modeloverrides assets served by the customization API; bag_of_holding separately stores sidebar vehicle images in db.json",
         )]),
         states: AssertedSet::unknown(
             "no cataloged state machine; theme, branding, and model handlers are stateless request handlers",
         ),
-        edges: AssertedSet::established(vec![]),
-        resources: AssertedSet::established(vec![
+        edges: AssertedSet::established(&[]),
+        resources: AssertedSet::established(&[
             Rationaled::new(
                 Resource {
-                    path: PathRef("/usr/blueos/userdata/styles/theme_config.json".to_string()),
+                    path: PathRef("/usr/blueos/userdata/styles/theme_config.json"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 "persisted primary color JSON consumed by GET /theme and regenerated CSS",
             ),
             Rationaled::new(
                 Resource {
-                    path: PathRef("/usr/blueos/userdata/styles/theme_style.css".to_string()),
+                    path: PathRef("/usr/blueos/userdata/styles/theme_style.css"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 "generated theme CSS linked by the web UI at /userdata/styles/theme_style.css",
             ),
             Rationaled::new(
                 Resource {
-                    path: PathRef("/usr/blueos/userdata/branding".to_string()),
+                    path: PathRef("/usr/blueos/userdata/branding"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 "directory for custom logo and Settings-panel vehicle image assets",
             ),
             Rationaled::new(
                 Resource {
-                    path: PathRef("/usr/blueos/userdata/modeloverrides".to_string()),
+                    path: PathRef("/usr/blueos/userdata/modeloverrides"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 "directory for uploaded .glb 3D model overrides served to Vehicle Setup",
@@ -507,11 +505,11 @@ pub fn service_definition() -> ServiceDefinition {
         ]),
         lifecycle: Lifecycle {
             triggers: Asserted::established(
-                vec!["start-blueos-core create_service".to_string()],
+                &["start-blueos-core create_service"],
                 "observed lifecycle trigger: tmux creation at boot in SERVICES tier",
             ),
             ordered_after: Asserted::established(
-                vec![
+                &[
                     ServiceId::ArdupilotManager,
                     ServiceId::CableGuy,
                     ServiceId::MavlinkCameraManager,
@@ -541,11 +539,11 @@ pub fn service_definition() -> ServiceDefinition {
                 "observed ordered_after in start-blueos-core SERVICES block",
             ),
             ordered_before: Asserted::established(
-                vec![],
+                &[],
                 "observed ordered_before is empty; customization is last in the SERVICES startup list",
             ),
             shutdown: Asserted::established(
-                "uvicorn server exit logs Customization service stopped".to_string(),
+                "uvicorn server exit logs Customization service stopped",
                 "main.py finally block after server.serve returns",
             ),
             upgrade_behavior: Asserted::unknown(
@@ -553,7 +551,7 @@ pub fn service_definition() -> ServiceDefinition {
             ),
         },
         health: Asserted::established(
-            "implicit: process liveness via tmux; REST GET / returns service name".to_string(),
+            "implicit: process liveness via tmux; REST GET / returns service name",
             "no dedicated /health route; uvicorn availability serves as health signal",
         ),
         is_platform: Asserted::established(
@@ -565,34 +563,34 @@ pub fn service_definition() -> ServiceDefinition {
             "versioned FastAPI v1.0 router exposed under /customization/ via VersionedFastAPI",
         ),
         permissions_model: Asserted::established(
-            "no separate permissions manifest; REST routes are unauthenticated".to_string(),
+            "no separate permissions manifest; REST routes are unauthenticated",
             "customization routes have no auth decorator or extension-style permissions JSON",
         ),
-        failure_modes: AssertedSet::established(vec![
+        failure_modes: AssertedSet::established(&[
             Rationaled::new(
-                "invalid_theme_color".to_string(),
+                "invalid_theme_color",
                 "PUT /theme returns 400 when parse_hex rejects the primary color value",
             ),
             Rationaled::new(
-                "upload_size_exceeded".to_string(),
+                "upload_size_exceeded",
                 "save_upload returns 413 when an uploaded file exceeds the configured size limit",
             ),
             Rationaled::new(
-                "invalid_file_extension".to_string(),
+                "invalid_file_extension",
                 "branding and model uploads return 400 for disallowed image or model suffixes",
             ),
             Rationaled::new(
-                "model_not_found".to_string(),
+                "model_not_found",
                 "DELETE /models/{name} returns 404 when the requested override file does not exist",
             ),
             Rationaled::new(
-                "path_traversal_blocked".to_string(),
+                "path_traversal_blocked",
                 "safe_join rejects model paths that escape userdata/modeloverrides via traversal",
             ),
         ]),
         blast_radius: Asserted::established(
             "custom theme, branding, and 3D model overrides unavailable; core vehicle services and MAVLink unaffected"
-                .to_string(),
+                ,
             "customization outage reverts the UI to default theme and assets but does not block autopilot or nginx core paths",
         ),
         compatibility_policy: Asserted::unknown(
@@ -600,5 +598,4 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         team: Asserted::unknown("no CODEOWNERS or team metadata in observed artifact"),
         adr_refs: AssertedSet::unknown("no ADR references found in service source tree"),
-    }
-}
+    };

@@ -13,21 +13,20 @@ use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts
 use crate::service::{Authority, ServiceDefinition};
 use crate::trust::{DangerousOperation, PrivilegeLevel, UserConfirmation};
 
-const RUNTIME_CAPTURE: &str = "runtime-captures/recorder_extractor__pi4_navigator_master.json";
 const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
 
-pub fn runtime_facts() -> RuntimeFacts {
+pub const RUNTIME_FACTS: RuntimeFacts =
     RuntimeFacts {
         service: ServiceId::RecorderExtractor,
         state_contracts: GroundedSet::unknown(
             "recorder_extractor has no service-level state machine (card states Unknown); background MCAP extraction and REST handlers are runtime-managed",
         ),
-        slo_baselines: GroundedSet::known(vec![
+        slo_baselines: GroundedSet::known(&[
             runtime_slo(HttpMethod::Get, "/files", 5.8, 9.7, 11.0, 60),
             runtime_slo(HttpMethod::Get, "/status", 5.5, 8.0, 15.1, 60),
             runtime_slo(HttpMethod::Get, "/", 4.6, 6.6, 9.7, 60),
         ]),
-        resource_usage: GroundedSet::known(vec![runtime_resource(
+        resource_usage: GroundedSet::known(&[runtime_resource(
             "running_baseline",
             Distribution {
                 mean: 0.31,
@@ -47,39 +46,38 @@ pub fn runtime_facts() -> RuntimeFacts {
             },
             120,
         )]),
-        platform_matrix: GroundedSet::known(vec![GroundedItem::new(
+        platform_matrix: GroundedSet::known(&[GroundedItem::new(
             PlatformBehavior {
-                platform: "navigator".into(),
+                platform: "navigator",
                 firmware: None,
-                notes: vec![
-                    "recorder_extractor extracts MCAP to MP4, serves recordings over REST, and manages the gallery; platform-independent".into(),
-                    "runtime captured on Navigator only with NO MP4 recordings present; RSS ~35.6 MB flat, CPU ~0.31% mean with small periodic MCAP loop activity".into(),
+                notes: &[
+                    "recorder_extractor extracts MCAP to MP4, serves recordings over REST, and manages the gallery; platform-independent",
+                    "runtime captured on Navigator only with NO MP4 recordings present; RSS ~35.6 MB flat, CPU ~0.31% mean with small periodic MCAP loop activity",
                 ],
             },
-            runtime_prov("#platform_matrix"),
+            runtime_prov("runtime-captures/recorder_extractor__pi4_navigator_master.json#platform_matrix"),
         )]),
         settings_mutations: GroundedSet::unknown(
             "recorder_extractor has no settings.json; DELETE /files/{filename} permanently removes recordings — not exercised (destructive; no recordings present)",
         ),
-    }
+    };
+
+const fn runtime_prov(key: &'static str) -> Provenance {
+    Provenance::runtime(key, RUNTIME_ENV)
 }
 
-fn runtime_prov(key: &str) -> Provenance {
-    Provenance::runtime(format!("{RUNTIME_CAPTURE}{key}"), RUNTIME_ENV)
-}
-
-fn runtime_route(method: HttpMethod, path: &str) -> RouteRef {
+const fn runtime_route(method: HttpMethod, path: &'static str) -> RouteRef {
     RouteRef {
         service: ServiceId::RecorderExtractor,
         method,
-        path: path.into(),
+        path,
         version: None,
     }
 }
 
-fn runtime_slo(
+const fn runtime_slo(
     method: HttpMethod,
-    path: &str,
+    path: &'static str,
     p50: f64,
     p95: f64,
     p99: f64,
@@ -93,62 +91,66 @@ fn runtime_slo(
             latency_p99_ms: p99,
             sample_size,
         },
-        runtime_prov("#slo_running_baseline"),
+        runtime_prov(
+            "runtime-captures/recorder_extractor__pi4_navigator_master.json#slo_running_baseline",
+        ),
     )
 }
 
-fn runtime_resource(
-    condition: &str,
+const fn runtime_resource(
+    condition: &'static str,
     cpu_pct: Distribution,
     rss_mb: Distribution,
     samples: u32,
 ) -> GroundedItem<ResourceUsage> {
     GroundedItem::new(
         ResourceUsage {
-            condition: condition.into(),
+            condition,
             cpu_pct,
             rss_mb,
             samples,
         },
-        runtime_prov("#resource_usage"),
+        runtime_prov(
+            "runtime-captures/recorder_extractor__pi4_navigator_master.json#resource_usage",
+        ),
     )
 }
 
-pub fn observed_facts() -> ObservedFacts {
+pub const OBSERVED_FACTS: ObservedFacts =
     ObservedFacts {
         id: ServiceId::RecorderExtractor,
-        aliases: ObservedSet::known(vec![Evidenced::new(
-            "recorder-extractor".to_string(),
+        aliases: ObservedSet::known(&[Evidenced::new(
+            "recorder-extractor",
             Evidence {
-                file: "core/services/recorder_extractor/main.py".to_string(),
+                file: "core/services/recorder_extractor/main.py",
                 line: 26,
             },
         )]),
         kind: Observed::known(
             ServiceKind::PythonService,
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 146,
             },
         ),
         entrypoint: Observed::known(
-            "$SERVICES_PATH/recorder_extractor/main.py".to_string(),
+            "$SERVICES_PATH/recorder_extractor/main.py",
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 146,
             },
         ),
         tmux_name: Observed::known(
-            "recorder_extractor".to_string(),
+            "recorder_extractor",
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 146,
             },
         ),
         startup_tier: Observed::known(
             StartupTier::Normal,
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 124,
             },
         ),
@@ -159,132 +161,132 @@ pub fn observed_facts() -> ObservedFacts {
                 io_weight: None,
             },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 146,
             },
         ),
         nice: Observed::unknown("no nice prefix in start tuple"),
         run_as: Observed::known(
-            "root".to_string(),
+            "root",
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 146,
             },
         ),
-        nginx_prefixes: ObservedSet::known(vec![Evidenced::new(
-            PathRef("/recorder-extractor/".to_string()),
+        nginx_prefixes: ObservedSet::known(&[Evidenced::new(
+            PathRef("/recorder-extractor/"),
             Evidence {
-                file: "core/tools/nginx/nginx.conf".to_string(),
+                file: "core/tools/nginx/nginx.conf",
                 line: 129,
             },
         )]),
-        listen: ObservedSet::known(vec![Evidenced::new(
+        listen: ObservedSet::known(&[Evidenced::new(
             PortRef::Literal(9150),
             Evidence {
-                file: "core/services/recorder_extractor/main.py".to_string(),
+                file: "core/services/recorder_extractor/main.py",
                 line: 28,
             },
         )]),
         git_path: Observed::known(
-            PathRef("core/services/recorder_extractor".to_string()),
+            PathRef("core/services/recorder_extractor"),
             Evidence {
-                file: "core/services/recorder_extractor/main.py".to_string(),
+                file: "core/services/recorder_extractor/main.py",
                 line: 1,
             },
         ),
-        interfaces: ObservedSet::known(vec![
+        interfaces: ObservedSet::known(&[
             Evidenced::new(
                 Interface::Rest {
-                    path_prefix: PathRef("/recorder-extractor/".to_string()),
+                    path_prefix: PathRef("/recorder-extractor/"),
                     port: PortRef::Literal(9150),
-                    versions: vec!["v1.0".to_string()],
+                    versions: &["v1.0"],
                 },
                 Evidence {
-                    file: "core/services/recorder_extractor/main.py".to_string(),
+                    file: "core/services/recorder_extractor/main.py",
                     line: 434,
                 },
             ),
             Evidenced::new(
                 Interface::File {
-                    path: PathRef("/usr/blueos/userdata/recorder".to_string()),
+                    path: PathRef("/usr/blueos/userdata/recorder"),
                     mode: FileAccessMode::ReadWrite,
                 },
                 Evidence {
-                    file: "core/services/recorder_extractor/main.py".to_string(),
+                    file: "core/services/recorder_extractor/main.py",
                     line: 27,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
-                    command: "mcap doctor {path}".to_string(),
+                    command: "mcap doctor {path}",
                 },
                 Evidence {
-                    file: "core/services/recorder_extractor/main.py".to_string(),
+                    file: "core/services/recorder_extractor/main.py",
                     line: 124,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
-                    command: "mcap recover {path} -o {tmp}".to_string(),
+                    command: "mcap recover {path} -o {tmp}",
                 },
                 Evidence {
-                    file: "core/services/recorder_extractor/main.py".to_string(),
+                    file: "core/services/recorder_extractor/main.py",
                     line: 149,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
-                    command: "mcap-foxglove-video-extract {mcap} all --output {dir}".to_string(),
+                    command: "mcap-foxglove-video-extract {mcap} all --output {dir}",
                 },
                 Evidence {
-                    file: "core/services/recorder_extractor/main.py".to_string(),
+                    file: "core/services/recorder_extractor/main.py",
                     line: 281,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
-                    command: "gst-discoverer-1.0 file://{path}".to_string(),
+                    command: "gst-discoverer-1.0 file://{path}",
                 },
                 Evidence {
-                    file: "core/services/recorder_extractor/main.py".to_string(),
+                    file: "core/services/recorder_extractor/main.py",
                     line: 201,
                 },
             ),
             Evidenced::new(
                 Interface::Subprocess {
                     command: "gst-play-1.0 --start-position={target_sec} --videosink={pipeline} --audiosink=fakesink --no-interactive -q file://{path}"
-                        .to_string(),
+                        ,
                 },
                 Evidence {
-                    file: "core/services/recorder_extractor/main.py".to_string(),
+                    file: "core/services/recorder_extractor/main.py",
                     line: 230,
                 },
             ),
             Evidenced::new(
                 Interface::Zenoh {
-                    topics_produced: vec!["services/recorder-extractor/log".to_string()],
-                    topics_consumed: vec![],
+                    topics_produced: &["services/recorder-extractor/log"],
+                    topics_consumed: &[],
                 },
                 Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/utils/logs.py".to_string(),
+                    file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                     line: 78,
                 },
             ),
         ]),
-        resources: ObservedSet::known(vec![Evidenced::new(
+        resources: ObservedSet::known(&[Evidenced::new(
             Resource {
-                path: PathRef("/usr/blueos/userdata/recorder".to_string()),
+                path: PathRef("/usr/blueos/userdata/recorder"),
                 ownership: ResourceOwnership::SharedWrite,
             },
             Evidence {
-                file: "core/services/recorder_extractor/main.py".to_string(),
+                file: "core/services/recorder_extractor/main.py",
                 line: 27,
             },
         )]),
         lifecycle: Observed::known(
             ObservedLifecycle {
-                triggers: vec!["start-blueos-core create_service".to_string()],
-                ordered_after: vec![
+                triggers: &["start-blueos-core create_service"],
+                ordered_after: &[
                     ServiceId::ArdupilotManager,
                     ServiceId::CableGuy,
                     ServiceId::MavlinkCameraManager,
@@ -309,13 +311,13 @@ pub fn observed_facts() -> ObservedFacts {
                     ServiceId::BagOfHolding,
                     ServiceId::Recorder,
                 ],
-                ordered_before: vec![
+                ordered_before: &[
                     ServiceId::DiskUsage,
                     ServiceId::Customization,
                 ],
             },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 326,
             },
         ),
@@ -323,24 +325,23 @@ pub fn observed_facts() -> ObservedFacts {
             "init_logger publishes to zenoh only; no on-disk log path set in recorder_extractor source",
         ),
         zenoh_log_topic: Observed::known(
-            "services/recorder-extractor/log".to_string(),
+            "services/recorder-extractor/log",
             Evidence {
-                file: "core/libs/commonwealth/src/commonwealth/utils/logs.py".to_string(),
+                file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                 line: 78,
             },
         ),
         sentry: Observed::known(
             true,
             Evidence {
-                file: "core/services/recorder_extractor/main.py".to_string(),
+                file: "core/services/recorder_extractor/main.py",
                 line: 454,
             },
         ),
         openapi_refs: ObservedSet::unknown("not yet extracted"),
-    }
-}
+    };
 
-pub fn service_definition() -> ServiceDefinition {
+pub const SERVICE_DEFINITION: ServiceDefinition =
     ServiceDefinition {
         id: ServiceId::RecorderExtractor,
         singleton: Asserted::established(
@@ -348,10 +349,10 @@ pub fn service_definition() -> ServiceDefinition {
             "single SERVICES-tier tmux instance; one recorder_extractor process",
         ),
         bounded_context: Asserted::established(
-            "video-recording-playback-and-management".to_string(),
+            "video-recording-playback-and-management",
             "provisional 2.0 domain: MCAP-to-MP4 extraction, recording gallery REST, thumbnails, download, and deletion",
         ),
-        journey_refs: AssertedSet::established(vec![
+        journey_refs: AssertedSet::established(&[
             Rationaled::new(
                 JourneyId::BrowseVideoRecordings,
                 "Records page lists MP4 recordings with thumbnails and MCAP extraction processing status",
@@ -377,15 +378,15 @@ pub fn service_definition() -> ServiceDefinition {
             PrivilegeLevel::Root,
             "observed run_as root; DELETE /files/{filename} unlinks recordings and background extraction writes MP4s under userdata",
         ),
-        dangerous_operations: AssertedSet::established(vec![Rationaled::new(
-            DangerousOperation::Other("delete_recording".to_string()),
+        dangerous_operations: AssertedSet::established(&[Rationaled::new(
+            DangerousOperation::Other("delete_recording"),
             "DELETE /files/{filename} permanently removes the MP4 via path.unlink(); irreversible user-data loss",
         )]),
         user_confirmation: Asserted::established(
             UserConfirmation::Required,
             "rubric requires Required when dangerous_operations is non-empty; RecordsView deleteRecording issues DELETE immediately without a confirm dialog today",
         ),
-        capabilities: AssertedSet::established(vec![
+        capabilities: AssertedSet::established(&[
             Rationaled::new(
                 CapabilityId::BrowseVideoRecordings,
                 "GET /files lists MP4 recordings; GET /status reports MCAP extraction progress; GET /files/{filename}/thumbnail serves JPEG previews",
@@ -399,28 +400,28 @@ pub fn service_definition() -> ServiceDefinition {
                 "DELETE /files/{filename} permanently removes an MP4 recording from the gallery",
             ),
         ]),
-        authorities: AssertedSet::established(vec![Rationaled::new(
-            Authority::Other("video_recording_server".to_string()),
+        authorities: AssertedSet::established(&[Rationaled::new(
+            Authority::Other("video_recording_server"),
             "sole catalog service that extracts MCAP to MP4, serves recordings over REST, and deletes operator recordings; recorder writes MCAP into the shared dir but is uncataloged",
         )]),
         states: AssertedSet::unknown(
             "no cataloged state machine; background MCAP extraction and REST handlers are runtime-managed",
         ),
-        edges: AssertedSet::established(vec![]),
-        resources: AssertedSet::established(vec![Rationaled::new(
+        edges: AssertedSet::established(&[]),
+        resources: AssertedSet::established(&[Rationaled::new(
             Resource {
-                path: PathRef("/usr/blueos/userdata/recorder".to_string()),
+                path: PathRef("/usr/blueos/userdata/recorder"),
                 ownership: ResourceOwnership::SharedWrite,
             },
             "shared recorder directory: recorder writes MCAP recordings; recorder_extractor extracts MP4s, serves thumbnails/downloads, and deletes files",
         )]),
         lifecycle: Lifecycle {
             triggers: Asserted::established(
-                vec!["start-blueos-core create_service".to_string()],
+                &["start-blueos-core create_service"],
                 "observed lifecycle trigger: tmux creation at boot in SERVICES tier",
             ),
             ordered_after: Asserted::established(
-                vec![
+                &[
                     ServiceId::ArdupilotManager,
                     ServiceId::CableGuy,
                     ServiceId::MavlinkCameraManager,
@@ -448,14 +449,14 @@ pub fn service_definition() -> ServiceDefinition {
                 "observed ordered_after in start-blueos-core SERVICES block",
             ),
             ordered_before: Asserted::established(
-                vec![
+                &[
                     ServiceId::DiskUsage,
                     ServiceId::Customization,
                 ],
                 "observed ordered_before lists recorder_extractor before disk_usage and customization",
             ),
             shutdown: Asserted::established(
-                "uvicorn server exit cancels background MCAP extraction task".to_string(),
+                "uvicorn server exit cancels background MCAP extraction task",
                 "main() finally block cancels extract_mcap_recordings asyncio task after server.serve returns",
             ),
             upgrade_behavior: Asserted::unknown(
@@ -463,7 +464,7 @@ pub fn service_definition() -> ServiceDefinition {
             ),
         },
         health: Asserted::established(
-            "implicit: process liveness via tmux; REST GET / returns service name".to_string(),
+            "implicit: process liveness via tmux; REST GET / returns service name",
             "no dedicated /health route; uvicorn availability serves as health signal",
         ),
         is_platform: Asserted::established(
@@ -476,30 +477,30 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         permissions_model: Asserted::established(
             "no service-level auth; any caller reaching nginx may list, download, or delete recordings"
-                .to_string(),
+                ,
             "REST endpoints accept any caller reaching nginx; delete is not gated server-side",
         ),
-        failure_modes: AssertedSet::established(vec![
+        failure_modes: AssertedSet::established(&[
             Rationaled::new(
-                "recording_not_found".to_string(),
+                "recording_not_found",
                 "resolve_recording returns 404 when the requested filename is missing under the recorder directory",
             ),
             Rationaled::new(
-                "delete_recording_failure".to_string(),
+                "delete_recording_failure",
                 "DELETE /files/{filename} returns 500 when path.unlink raises",
             ),
             Rationaled::new(
-                "mcap_extraction_failure".to_string(),
+                "mcap_extraction_failure",
                 "background extract_mcap_recordings logs subprocess errors when mcap or gstreamer tools fail",
             ),
             Rationaled::new(
-                "thumbnail_generation_failure".to_string(),
+                "thumbnail_generation_failure",
                 "GET /files/{filename}/thumbnail may fail when gst-play cannot render a frame from the MP4",
             ),
         ]),
         blast_radius: Asserted::established(
             "recording playback, download, and deletion unavailable; MCAP-to-MP4 extraction stops; core vehicle services unaffected"
-                .to_string(),
+                ,
             "recorder_extractor outage blocks the Records UI and leaves new MCAP files unextracted but does not stop autopilot, MAVLink, or nginx core paths",
         ),
         compatibility_policy: Asserted::unknown(
@@ -507,5 +508,4 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         team: Asserted::unknown("no CODEOWNERS or team metadata in observed artifact"),
         adr_refs: AssertedSet::unknown("no ADR references found in service source tree"),
-    }
-}
+    };

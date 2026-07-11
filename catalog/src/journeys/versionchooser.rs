@@ -15,35 +15,33 @@ const VC_COMPONENT: &str = "core/frontend/src/components/version-chooser/Version
 const VC_UTILS: &str = "core/frontend/src/utils/version_chooser.ts";
 const DOCKER_LOGIN: &str = "core/frontend/src/components/version-chooser/DockerLogin.vue";
 
-pub fn journeys() -> Vec<UserJourney> {
-    vec![
-        update_blueos_version(),
-        switch_local_blueos_version(),
-        pull_blueos_version_without_switch(),
-        delete_local_blueos_version(),
-        docker_registry_login(),
-        update_bootstrap_image(),
-    ]
-}
+pub const JOURNEYS: &[UserJourney] = &[
+    UPDATE_BLUEOS_VERSION,
+    SWITCH_LOCAL_BLUEOS_VERSION,
+    PULL_BLUEOS_VERSION_WITHOUT_SWITCH,
+    DELETE_LOCAL_BLUEOS_VERSION,
+    DOCKER_REGISTRY_LOGIN,
+    UPDATE_BOOTSTRAP_IMAGE,
+];
 
-fn update_blueos_version() -> UserJourney {
+const UPDATE_BLUEOS_VERSION: UserJourney =
     UserJourney {
         id: JourneyId::UpdateBlueosVersion,
         summary: Grounded::known(
             "Update BlueOS to the latest available release that is as stable or more stable than the current install"
-                .into(),
+                ,
             Provenance::doc(ADV, 397),
         ),
         visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 397)),
-        services: versionchooser_services(),
-        capability_refs: GroundedSet::known(vec![cap(CapabilityId::UpdateBlueosVersion,
+        services: VERSIONCHOOSER_SERVICES,
+        capability_refs: GroundedSet::known(&[cap(CapabilityId::UpdateBlueosVersion,
             "simplified Version Chooser pulls and applies a newer stable or beta release",
         )]),
-        preconditions: GroundedSet::known(vec![GroundedItem::new(
+        preconditions: GroundedSet::known(&[GroundedItem::new(
             Precondition::Network(NetworkState::Online),
             Provenance::doc(GETTING, 104),
         )]),
-        steps: GroundedSet::known(vec![
+        steps: GroundedSet::known(&[
             operator_step(
                 "Open Settings and select BlueOS Version",
                 None,
@@ -52,7 +50,7 @@ fn update_blueos_version() -> UserJourney {
             ),
             operator_step(
                 "Review the current running version and whether an update button is shown",
-                Some(sourced_route(HttpMethod::Get, "/version/current", Some("v1.0"), 26)),
+                Some(sourced_route(HttpMethod::Get, "/version/current", Some("v1.0"), VERSION_ROUTER, 26)),
                 Provenance::doc(GETTING, 112),
                 None,
             ),
@@ -62,6 +60,7 @@ fn update_blueos_version() -> UserJourney {
                     HttpMethod::Get,
                     "/version/available/{repository}/{image}",
                     Some("v1.0"),
+                    VERSION_ROUTER,
                     60,
                 )),
                 Provenance::doc(ADV, 397),
@@ -69,45 +68,44 @@ fn update_blueos_version() -> UserJourney {
             ),
             operator_step(
                 "Click the update button to download the newer BlueOS core image",
-                Some(sourced_route(HttpMethod::Post, "/version/pull", Some("v1.0"), 41)),
+                Some(sourced_route(HttpMethod::Post, "/version/pull", Some("v1.0"), VERSION_ROUTER, 41)),
                 Provenance::doc(GETTING, 116),
                 None,
             ),
             operator_step(
                 "Switch BlueOS core to the downloaded version and restart",
-                Some(sourced_route(HttpMethod::Post, "/version/current", Some("v1.0"), 34)),
+                Some(sourced_route(HttpMethod::Post, "/version/current", Some("v1.0"), VERSION_ROUTER, 34)),
                 Provenance::source(VC_COMPONENT, 639),
                 None,
             ),
         ]),
         chains_from: None,
-    }
-}
+    };
 
-fn switch_local_blueos_version() -> UserJourney {
+const SWITCH_LOCAL_BLUEOS_VERSION: UserJourney =
     UserJourney {
         id: JourneyId::SwitchLocalBlueosVersion,
         summary: Grounded::known(
             "Switch forwards or backwards between locally installed BlueOS versions, including roll-back after undesired changes"
-                .into(),
+                ,
             Provenance::doc(ADV, 400),
         ),
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 399)),
-        services: versionchooser_services(),
-        capability_refs: GroundedSet::known(vec![cap(CapabilityId::SwitchBlueosVersion,
+        services: VERSIONCHOOSER_SERVICES,
+        capability_refs: GroundedSet::known(&[cap(CapabilityId::SwitchBlueosVersion,
             "pirate-mode local version cards apply a previously installed image without re-downloading",
         )]),
-        preconditions: GroundedSet::known(vec![
+        preconditions: GroundedSet::known(&[
             GroundedItem::new(
-                Precondition::Other("Pirate mode enabled".into()),
+                Precondition::Other("Pirate mode enabled"),
                 Provenance::doc(ADV, 399),
             ),
             GroundedItem::new(
-                Precondition::Other("At least one non-current BlueOS version is installed locally".into()),
+                Precondition::Other("At least one non-current BlueOS version is installed locally"),
                 Provenance::doc(ADV, 402),
             ),
         ]),
-        steps: GroundedSet::known(vec![
+        steps: GroundedSet::known(&[
             operator_step(
                 "Open BlueOS Version with pirate mode enabled to view locally stored installs",
                 None,
@@ -120,6 +118,7 @@ fn switch_local_blueos_version() -> UserJourney {
                     HttpMethod::Get,
                     "/version/available/local",
                     Some("v1.0"),
+                    VERSION_ROUTER,
                     55,
                 )),
                 Provenance::doc(ADV, 402),
@@ -127,39 +126,38 @@ fn switch_local_blueos_version() -> UserJourney {
             ),
             operator_step(
                 "Apply the chosen local version",
-                Some(sourced_route(HttpMethod::Post, "/version/current", Some("v1.0"), 34)),
+                Some(sourced_route(HttpMethod::Post, "/version/current", Some("v1.0"), VERSION_ROUTER, 34)),
                 Provenance::source(VC_COMPONENT, 639),
                 None,
             ),
         ]),
         chains_from: Some(JourneyId::UpdateBlueosVersion),
-    }
-}
+    };
 
-fn pull_blueos_version_without_switch() -> UserJourney {
+const PULL_BLUEOS_VERSION_WITHOUT_SWITCH: UserJourney =
     UserJourney {
         id: JourneyId::PullBlueosVersionWithoutSwitch,
         summary: Grounded::known(
             "Download a remote BlueOS core image, including from a custom Docker registry repository, without switching the running version"
-                .into(),
+                ,
             Provenance::doc(ADV, 406),
         ),
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 399)),
-        services: versionchooser_services(),
-        capability_refs: GroundedSet::known(vec![cap(CapabilityId::PullBlueosVersion,
+        services: VERSIONCHOOSER_SERVICES,
+        capability_refs: GroundedSet::known(&[cap(CapabilityId::PullBlueosVersion,
             "remote Versions section can fetch an image tag to local storage before apply",
         )]),
-        preconditions: GroundedSet::known(vec![
+        preconditions: GroundedSet::known(&[
             GroundedItem::new(
                 Precondition::Network(NetworkState::Online),
                 Provenance::doc(ADV, 406),
             ),
             GroundedItem::new(
-                Precondition::Other("Pirate mode enabled".into()),
+                Precondition::Other("Pirate mode enabled"),
                 Provenance::doc(ADV, 399),
             ),
         ]),
-        steps: GroundedSet::known(vec![
+        steps: GroundedSet::known(&[
             operator_step(
                 "Open the Remote Versions section and optionally change the repository name",
                 None,
@@ -172,6 +170,7 @@ fn pull_blueos_version_without_switch() -> UserJourney {
                     HttpMethod::Get,
                     "/version/available/{repository}/{image}",
                     Some("v1.0"),
+                    VERSION_ROUTER,
                     60,
                 )),
                 Provenance::doc(ADV, 406),
@@ -179,90 +178,89 @@ fn pull_blueos_version_without_switch() -> UserJourney {
             ),
             operator_step(
                 "Pull the selected remote tag to local storage",
-                Some(sourced_route(HttpMethod::Post, "/version/pull", Some("v1.0"), 41)),
+                Some(sourced_route(HttpMethod::Post, "/version/pull", Some("v1.0"), VERSION_ROUTER, 41)),
                 Provenance::source(VC_COMPONENT, 553),
                 None,
             ),
         ]),
         chains_from: None,
-    }
-}
+    };
 
-fn delete_local_blueos_version() -> UserJourney {
-    UserJourney {
-        id: JourneyId::DeleteLocalBlueosVersion,
-        summary: Grounded::known(
-            "Delete a previously installed local BlueOS version to free onboard storage".into(),
-            Provenance::doc(ADV, 402),
+const DELETE_LOCAL_BLUEOS_VERSION: UserJourney = UserJourney {
+    id: JourneyId::DeleteLocalBlueosVersion,
+    summary: Grounded::known(
+        "Delete a previously installed local BlueOS version to free onboard storage",
+        Provenance::doc(ADV, 402),
+    ),
+    visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 399)),
+    services: VERSIONCHOOSER_SERVICES,
+    capability_refs: GroundedSet::known(&[cap(
+        CapabilityId::DeleteLocalBlueosVersion,
+        "local version cards expose delete for non-current images when enough versions remain",
+    )]),
+    preconditions: GroundedSet::known(&[
+        GroundedItem::new(
+            Precondition::Other("Pirate mode enabled"),
+            Provenance::doc(ADV, 399),
         ),
-        visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 399)),
-        services: versionchooser_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            CapabilityId::DeleteLocalBlueosVersion,
-            "local version cards expose delete for non-current images when enough versions remain",
-        )]),
-        preconditions: GroundedSet::known(vec![
-            GroundedItem::new(
-                Precondition::Other("Pirate mode enabled".into()),
-                Provenance::doc(ADV, 399),
-            ),
-            GroundedItem::new(
-                Precondition::Other("More than two local BlueOS versions are installed".into()),
-                Provenance::source(VC_COMPONENT, 72),
-            ),
-        ]),
-        steps: GroundedSet::known(vec![
-            operator_step(
-                "Open the Local Versions section in pirate mode",
-                None,
-                Provenance::source(VC_COMPONENT, 61),
-                None,
-            ),
-            operator_step(
-                "List locally installed BlueOS core images",
-                Some(sourced_route(
-                    HttpMethod::Get,
-                    "/version/available/local",
-                    Some("v1.0"),
-                    55,
-                )),
-                Provenance::doc(ADV, 402),
-                None,
-            ),
-            operator_step(
-                "Delete the selected non-current local version",
-                Some(sourced_route(
-                    HttpMethod::Delete,
-                    "/version/delete",
-                    Some("v1.0"),
-                    48,
-                )),
-                Provenance::source(VC_COMPONENT, 651),
-                None,
-            ),
-        ]),
-        chains_from: Some(JourneyId::SwitchLocalBlueosVersion),
-    }
-}
+        GroundedItem::new(
+            Precondition::Other("More than two local BlueOS versions are installed"),
+            Provenance::source(VC_COMPONENT, 72),
+        ),
+    ]),
+    steps: GroundedSet::known(&[
+        operator_step(
+            "Open the Local Versions section in pirate mode",
+            None,
+            Provenance::source(VC_COMPONENT, 61),
+            None,
+        ),
+        operator_step(
+            "List locally installed BlueOS core images",
+            Some(sourced_route(
+                HttpMethod::Get,
+                "/version/available/local",
+                Some("v1.0"),
+                VERSION_ROUTER,
+                55,
+            )),
+            Provenance::doc(ADV, 402),
+            None,
+        ),
+        operator_step(
+            "Delete the selected non-current local version",
+            Some(sourced_route(
+                HttpMethod::Delete,
+                "/version/delete",
+                Some("v1.0"),
+                VERSION_ROUTER,
+                48,
+            )),
+            Provenance::source(VC_COMPONENT, 651),
+            None,
+        ),
+    ]),
+    chains_from: Some(JourneyId::SwitchLocalBlueosVersion),
+};
 
-fn docker_registry_login() -> UserJourney {
+const DOCKER_REGISTRY_LOGIN: UserJourney =
     UserJourney {
         id: JourneyId::DockerRegistryLogin,
         summary: Grounded::known(
             "Log in to Docker Hub or a custom registry to access private images and reduce rate limiting"
-                .into(),
+                ,
             Provenance::doc(ADV, 407),
         ),
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 399)),
-        services: versionchooser_services(),
-        capability_refs: GroundedSet::known(vec![cap(CapabilityId::DockerRegistryLogin,
+        services: VERSIONCHOOSER_SERVICES,
+        capability_refs: GroundedSet::known(&[cap(CapabilityId::DockerRegistryLogin,
             "Docker Login dialog authenticates the daemon and lists connected accounts",
         )]),
-        preconditions: GroundedSet::known(vec![GroundedItem::new(
-            Precondition::Other("Pirate mode enabled".into()),
+        preconditions: GroundedSet::known(&[GroundedItem::new(
+            Precondition::Other("Pirate mode enabled"),
             Provenance::doc(ADV, 399),
         )]),
-        steps: GroundedSet::known(vec![
+        steps: GroundedSet::known(&[
             operator_step(
                 "Open the Docker Login dialog from the Remote Versions section",
                 None,
@@ -271,120 +269,113 @@ fn docker_registry_login() -> UserJourney {
             ),
             operator_step(
                 "Submit registry credentials, optionally for the root user or a custom registry index",
-                Some(sourced_route(HttpMethod::Post, "/docker/login", Some("v1.0"), 20)),
+                Some(sourced_route(HttpMethod::Post, "/docker/login", Some("v1.0"), DOCKER_ROUTER, 20)),
                 Provenance::doc(ADV, 407),
                 None,
             ),
             operator_step(
                 "Review connected Docker accounts",
-                Some(sourced_route(HttpMethod::Get, "/docker/accounts", Some("v1.0"), 30)),
+                Some(sourced_route(HttpMethod::Get, "/docker/accounts", Some("v1.0"), DOCKER_ROUTER, 30)),
                 Provenance::source(DOCKER_LOGIN, 253),
                 None,
             ),
         ]),
         chains_from: None,
-    }
-}
+    };
 
-fn update_bootstrap_image() -> UserJourney {
-    UserJourney {
-        id: JourneyId::UpdateBootstrapImage,
-        summary: Grounded::known(
-            "Update the BlueOS-bootstrap image to match the currently running BlueOS core release"
-                .into(),
-            Provenance::doc(ADV, 405),
+const UPDATE_BOOTSTRAP_IMAGE: UserJourney = UserJourney {
+    id: JourneyId::UpdateBootstrapImage,
+    summary: Grounded::known(
+        "Update the BlueOS-bootstrap image to match the currently running BlueOS core release",
+        Provenance::doc(ADV, 405),
+    ),
+    visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 399)),
+    services: VERSIONCHOOSER_SERVICES,
+    capability_refs: GroundedSet::known(&[cap(
+        CapabilityId::UpdateBootstrapImage,
+        "current-version card offers bootstrap update after core images are loaded",
+    )]),
+    preconditions: GroundedSet::known(&[
+        GroundedItem::new(
+            Precondition::Network(NetworkState::Online),
+            Provenance::doc(BOOTSTRAP, 73),
         ),
-        visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 399)),
-        services: versionchooser_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            CapabilityId::UpdateBootstrapImage,
-            "current-version card offers bootstrap update after core images are loaded",
-        )]),
-        preconditions: GroundedSet::known(vec![
-            GroundedItem::new(
-                Precondition::Network(NetworkState::Online),
-                Provenance::doc(BOOTSTRAP, 73),
-            ),
-            GroundedItem::new(
-                Precondition::Other("Pirate mode enabled".into()),
-                Provenance::doc(ADV, 399),
-            ),
-        ]),
-        steps: GroundedSet::known(vec![
-            operator_step(
-                "Review the running bootstrap version shown on the current core card",
-                Some(sourced_route(
-                    HttpMethod::Get,
-                    "/bootstrap/current",
-                    Some("v1.0"),
-                    26,
-                )),
-                Provenance::source(VC_UTILS, 161),
-                None,
-            ),
-            operator_step(
-                "Download the bootstrap image tag that matches the running core version",
-                Some(sourced_route(
-                    HttpMethod::Post,
-                    "/version/pull",
-                    Some("v1.0"),
-                    41,
-                )),
-                Provenance::source(VC_COMPONENT, 596),
-                None,
-            ),
-            operator_step(
-                "Set BlueOS-bootstrap to the downloaded tag",
-                Some(sourced_route(
-                    HttpMethod::Post,
-                    "/bootstrap/current",
-                    Some("v1.0"),
-                    31,
-                )),
-                Provenance::source(VC_COMPONENT, 614),
-                None,
-            ),
-        ]),
-        chains_from: Some(JourneyId::UpdateBlueosVersion),
-    }
-}
+        GroundedItem::new(
+            Precondition::Other("Pirate mode enabled"),
+            Provenance::doc(ADV, 399),
+        ),
+    ]),
+    steps: GroundedSet::known(&[
+        operator_step(
+            "Review the running bootstrap version shown on the current core card",
+            Some(sourced_route(
+                HttpMethod::Get,
+                "/bootstrap/current",
+                Some("v1.0"),
+                BOOTSTRAP_ROUTER,
+                26,
+            )),
+            Provenance::source(VC_UTILS, 161),
+            None,
+        ),
+        operator_step(
+            "Download the bootstrap image tag that matches the running core version",
+            Some(sourced_route(
+                HttpMethod::Post,
+                "/version/pull",
+                Some("v1.0"),
+                VERSION_ROUTER,
+                41,
+            )),
+            Provenance::source(VC_COMPONENT, 596),
+            None,
+        ),
+        operator_step(
+            "Set BlueOS-bootstrap to the downloaded tag",
+            Some(sourced_route(
+                HttpMethod::Post,
+                "/bootstrap/current",
+                Some("v1.0"),
+                BOOTSTRAP_ROUTER,
+                31,
+            )),
+            Provenance::source(VC_COMPONENT, 614),
+            None,
+        ),
+    ]),
+    chains_from: Some(JourneyId::UpdateBlueosVersion),
+};
 
-fn cap(id: CapabilityId, rationale: &str) -> GroundedItem<CapabilityId> {
+const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<CapabilityId> {
     GroundedItem::new(id, Provenance::asserted(rationale))
 }
 
-fn versionchooser_services() -> GroundedSet<ServiceId> {
-    GroundedSet::known(vec![GroundedItem::new(
-        ServiceId::Versionchooser,
-        Provenance::doc(ADV, 389),
-    )])
-}
+const VERSIONCHOOSER_SERVICES: GroundedSet<ServiceId> = GroundedSet::known(&[GroundedItem::new(
+    ServiceId::Versionchooser,
+    Provenance::doc(ADV, 389),
+)]);
 
-fn route(method: HttpMethod, path: &str, version: Option<&str>) -> RouteRef {
+const fn route(method: HttpMethod, path: &'static str, version: Option<&'static str>) -> RouteRef {
     RouteRef {
         service: ServiceId::Versionchooser,
         method,
-        path: path.into(),
-        version: version.map(str::to_string),
+        path,
+        version,
     }
 }
 
-fn sourced_route(
+const fn sourced_route(
     method: HttpMethod,
-    path: &str,
-    version: Option<&str>,
+    path: &'static str,
+    version: Option<&'static str>,
+    file: &'static str,
     line: u32,
 ) -> Grounded<RouteRef> {
-    let file = match path {
-        p if p.starts_with("/bootstrap") => BOOTSTRAP_ROUTER,
-        p if p.starts_with("/docker") => DOCKER_ROUTER,
-        _ => VERSION_ROUTER,
-    };
     Grounded::known(route(method, path, version), Provenance::source(file, line))
 }
 
-fn operator_step(
-    description: &str,
+const fn operator_step(
+    description: &'static str,
     route: Option<Grounded<RouteRef>>,
     provenance: Provenance,
     outcome: Option<Grounded<StepOutcome>>,
@@ -392,7 +383,7 @@ fn operator_step(
     GroundedItem::new(
         JourneyStep {
             actor: Actor::Operator,
-            description: description.into(),
+            description,
             route,
             outcome,
         },

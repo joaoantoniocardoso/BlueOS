@@ -1,10 +1,10 @@
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct StateMachine {
-    pub name: String,
-    pub states: Vec<String>,
-    pub boot_state: String,
-    pub degraded_when: Vec<String>,
+    pub name: &'static str,
+    pub states: &'static [&'static str],
+    pub boot_state: &'static str,
+    pub degraded_when: &'static [&'static str],
 }

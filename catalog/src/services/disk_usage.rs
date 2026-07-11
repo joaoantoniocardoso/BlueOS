@@ -14,17 +14,16 @@ use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts
 use crate::service::ServiceDefinition;
 use crate::trust::{DangerousOperation, PrivilegeLevel, UserConfirmation};
 
-const RUNTIME_CAPTURE: &str = "runtime-captures/disk_usage__pi4_navigator_master.json";
 const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
 
-pub fn runtime_facts() -> RuntimeFacts {
+pub const RUNTIME_FACTS: RuntimeFacts =
     RuntimeFacts {
         service: ServiceId::DiskUsage,
         state_contracts: GroundedSet::unknown(
             "disk_usage has no service-level state machine (service_definition states: Unknown); \
              usage inspection and speed tests are stateless request handlers",
         ),
-        slo_baselines: GroundedSet::known(vec![runtime_slo(
+        slo_baselines: GroundedSet::known(&[runtime_slo(
             HttpMethod::Get,
             "/disk/usage?depth=1",
             2722.3,
@@ -32,7 +31,7 @@ pub fn runtime_facts() -> RuntimeFacts {
             2766.0,
             8,
         )]),
-        resource_usage: GroundedSet::known(vec![runtime_resource(
+        resource_usage: GroundedSet::known(&[runtime_resource(
             "running_baseline",
             Distribution {
                 mean: 0.29,
@@ -45,37 +44,36 @@ pub fn runtime_facts() -> RuntimeFacts {
             flat_rss(35.0),
             60,
         )]),
-        platform_matrix: GroundedSet::known(vec![GroundedItem::new(
+        platform_matrix: GroundedSet::known(&[GroundedItem::new(
             PlatformBehavior {
-                platform: "navigator".into(),
+                platform: "navigator",
                 firmware: None,
-                notes: vec![
-                    "disk_usage behavior is platform-independent (local du/disktest on root filesystem); not captured across boards".into(),
-                    "runtime captured on Navigator only; RSS ~35.0 MB, CPU ~0.29% mean".into(),
+                notes: &[
+                    "disk_usage behavior is platform-independent (local du/disktest on root filesystem); not captured across boards",
+                    "runtime captured on Navigator only; RSS ~35.0 MB, CPU ~0.29% mean",
                 ],
             },
-            runtime_prov("#platform_matrix"),
+            runtime_prov("runtime-captures/disk_usage__pi4_navigator_master.json#platform_matrix"),
         )]),
         settings_mutations: GroundedSet::unknown("service has no settings persistence"),
-    }
+    };
+
+const fn runtime_prov(key: &'static str) -> Provenance {
+    Provenance::runtime(key, RUNTIME_ENV)
 }
 
-fn runtime_prov(key: &str) -> Provenance {
-    Provenance::runtime(format!("{RUNTIME_CAPTURE}{key}"), RUNTIME_ENV)
-}
-
-fn runtime_route(method: HttpMethod, path: &str) -> RouteRef {
+const fn runtime_route(method: HttpMethod, path: &'static str) -> RouteRef {
     RouteRef {
         service: ServiceId::DiskUsage,
         method,
-        path: path.into(),
+        path,
         version: None,
     }
 }
 
-fn runtime_slo(
+const fn runtime_slo(
     method: HttpMethod,
-    path: &str,
+    path: &'static str,
     p50: f64,
     p95: f64,
     p99: f64,
@@ -89,11 +87,11 @@ fn runtime_slo(
             latency_p99_ms: p99,
             sample_size,
         },
-        runtime_prov("#slo_running_baseline"),
+        runtime_prov("runtime-captures/disk_usage__pi4_navigator_master.json#slo_running_baseline"),
     )
 }
 
-fn flat_rss(mb: f64) -> Distribution {
+const fn flat_rss(mb: f64) -> Distribution {
     Distribution {
         mean: mb,
         median: mb,
@@ -104,220 +102,216 @@ fn flat_rss(mb: f64) -> Distribution {
     }
 }
 
-fn runtime_resource(
-    condition: &str,
+const fn runtime_resource(
+    condition: &'static str,
     cpu_pct: Distribution,
     rss_mb: Distribution,
     samples: u32,
 ) -> GroundedItem<ResourceUsage> {
     GroundedItem::new(
         ResourceUsage {
-            condition: condition.into(),
+            condition,
             cpu_pct,
             rss_mb,
             samples,
         },
-        runtime_prov("#resource_usage"),
+        runtime_prov("runtime-captures/disk_usage__pi4_navigator_master.json#resource_usage"),
     )
 }
 
-pub fn observed_facts() -> ObservedFacts {
-    ObservedFacts {
-        id: ServiceId::DiskUsage,
-        aliases: ObservedSet::known(vec![Evidenced::new(
-            "disk-usage".to_string(),
-            Evidence {
-                file: "core/services/disk_usage/main.py".to_string(),
-                line: 26,
+pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
+    id: ServiceId::DiskUsage,
+    aliases: ObservedSet::known(&[Evidenced::new(
+        "disk-usage",
+        Evidence {
+            file: "core/services/disk_usage/main.py",
+            line: 26,
+        },
+    )]),
+    kind: Observed::known(
+        ServiceKind::PythonService,
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 147,
+        },
+    ),
+    entrypoint: Observed::known(
+        "$SERVICES_PATH/disk_usage/main.py",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 147,
+        },
+    ),
+    tmux_name: Observed::known(
+        "disk_usage",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 147,
+        },
+    ),
+    startup_tier: Observed::known(
+        StartupTier::Normal,
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 124,
+        },
+    ),
+    resource_limits: Observed::known(
+        ResourceLimits {
+            memory_mb: Some(250),
+            cpu_percent: Some(0),
+            io_weight: None,
+        },
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 147,
+        },
+    ),
+    nice: Observed::unknown("no nice prefix in start tuple"),
+    run_as: Observed::known(
+        "root",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 147,
+        },
+    ),
+    nginx_prefixes: ObservedSet::known(&[Evidenced::new(
+        PathRef("/disk-usage/"),
+        Evidence {
+            file: "core/tools/nginx/nginx.conf",
+            line: 139,
+        },
+    )]),
+    listen: ObservedSet::known(&[Evidenced::new(
+        PortRef::Literal(9151),
+        Evidence {
+            file: "core/services/disk_usage/main.py",
+            line: 28,
+        },
+    )]),
+    git_path: Observed::known(
+        PathRef("core/services/disk_usage"),
+        Evidence {
+            file: "core/services/disk_usage/main.py",
+            line: 1,
+        },
+    ),
+    interfaces: ObservedSet::known(&[
+        Evidenced::new(
+            Interface::Rest {
+                path_prefix: PathRef("/disk-usage/"),
+                port: PortRef::Literal(9151),
+                versions: &["v1.0"],
             },
-        )]),
-        kind: Observed::known(
-            ServiceKind::PythonService,
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 147,
+                file: "core/services/disk_usage/main.py",
+                line: 469,
             },
         ),
-        entrypoint: Observed::known(
-            "$SERVICES_PATH/disk_usage/main.py".to_string(),
+        Evidenced::new(
+            Interface::File {
+                path: PathRef("/"),
+                mode: FileAccessMode::ReadWrite,
+            },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 147,
+                file: "core/services/disk_usage/main.py",
+                line: 27,
             },
         ),
-        tmux_name: Observed::known(
-            "disk_usage".to_string(),
+        Evidenced::new(
+            Interface::Subprocess { command: "du" },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 147,
+                file: "core/services/disk_usage/main.py",
+                line: 211,
             },
         ),
-        startup_tier: Observed::known(
-            StartupTier::Normal,
+        Evidenced::new(
+            Interface::Subprocess {
+                command: "disktest",
+            },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 124,
+                file: "core/services/disk_usage/main.py",
+                line: 319,
             },
         ),
-        resource_limits: Observed::known(
-            ResourceLimits {
-                memory_mb: Some(250),
-                cpu_percent: Some(0),
-                io_weight: None,
+        Evidenced::new(
+            Interface::Zenoh {
+                topics_produced: &["services/disk-usage/log"],
+                topics_consumed: &[],
             },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 147,
-            },
-        ),
-        nice: Observed::unknown("no nice prefix in start tuple"),
-        run_as: Observed::known(
-            "root".to_string(),
-            Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 147,
-            },
-        ),
-        nginx_prefixes: ObservedSet::known(vec![Evidenced::new(
-            PathRef("/disk-usage/".to_string()),
-            Evidence {
-                file: "core/tools/nginx/nginx.conf".to_string(),
-                line: 139,
-            },
-        )]),
-        listen: ObservedSet::known(vec![Evidenced::new(
-            PortRef::Literal(9151),
-            Evidence {
-                file: "core/services/disk_usage/main.py".to_string(),
-                line: 28,
-            },
-        )]),
-        git_path: Observed::known(
-            PathRef("core/services/disk_usage".to_string()),
-            Evidence {
-                file: "core/services/disk_usage/main.py".to_string(),
-                line: 1,
-            },
-        ),
-        interfaces: ObservedSet::known(vec![
-            Evidenced::new(
-                Interface::Rest {
-                    path_prefix: PathRef("/disk-usage/".to_string()),
-                    port: PortRef::Literal(9151),
-                    versions: vec!["v1.0".to_string()],
-                },
-                Evidence {
-                    file: "core/services/disk_usage/main.py".to_string(),
-                    line: 469,
-                },
-            ),
-            Evidenced::new(
-                Interface::File {
-                    path: PathRef("/".to_string()),
-                    mode: FileAccessMode::ReadWrite,
-                },
-                Evidence {
-                    file: "core/services/disk_usage/main.py".to_string(),
-                    line: 27,
-                },
-            ),
-            Evidenced::new(
-                Interface::Subprocess {
-                    command: "du".to_string(),
-                },
-                Evidence {
-                    file: "core/services/disk_usage/main.py".to_string(),
-                    line: 211,
-                },
-            ),
-            Evidenced::new(
-                Interface::Subprocess {
-                    command: "disktest".to_string(),
-                },
-                Evidence {
-                    file: "core/services/disk_usage/main.py".to_string(),
-                    line: 319,
-                },
-            ),
-            Evidenced::new(
-                Interface::Zenoh {
-                    topics_produced: vec!["services/disk-usage/log".to_string()],
-                    topics_consumed: vec![],
-                },
-                Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/utils/logs.py".to_string(),
-                    line: 78,
-                },
-            ),
-        ]),
-        resources: ObservedSet::known(vec![Evidenced::new(
-            Resource {
-                path: PathRef("/".to_string()),
-                ownership: ResourceOwnership::SharedWrite,
-            },
-            Evidence {
-                file: "core/services/disk_usage/main.py".to_string(),
-                line: 281,
-            },
-        )]),
-        lifecycle: Observed::known(
-            ObservedLifecycle {
-                triggers: vec!["start-blueos-core create_service".to_string()],
-                ordered_after: vec![
-                    ServiceId::ArdupilotManager,
-                    ServiceId::CableGuy,
-                    ServiceId::MavlinkCameraManager,
-                    ServiceId::Mavlink2rest,
-                    ServiceId::Kraken,
-                    ServiceId::Wifi,
-                    ServiceId::Zenohd,
-                    ServiceId::Beacon,
-                    ServiceId::Bridget,
-                    ServiceId::Commander,
-                    ServiceId::NmeaInjector,
-                    ServiceId::Helper,
-                    ServiceId::Iperf3,
-                    ServiceId::Linux2rest,
-                    ServiceId::Filebrowser,
-                    ServiceId::Versionchooser,
-                    ServiceId::Pardal,
-                    ServiceId::Ping,
-                    ServiceId::UserTerminal,
-                    ServiceId::Ttyd,
-                    ServiceId::Nginx,
-                    ServiceId::BagOfHolding,
-                    ServiceId::Recorder,
-                    ServiceId::RecorderExtractor,
-                ],
-                ordered_before: vec![ServiceId::Customization],
-            },
-            Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 326,
-            },
-        ),
-        logs_path: Observed::unknown(
-            "init_logger publishes to zenoh only; no on-disk log path set in disk_usage source",
-        ),
-        zenoh_log_topic: Observed::known(
-            "services/disk-usage/log".to_string(),
-            Evidence {
-                file: "core/libs/commonwealth/src/commonwealth/utils/logs.py".to_string(),
+                file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                 line: 78,
             },
         ),
-        sentry: Observed::known(
-            true,
-            Evidence {
-                file: "core/services/disk_usage/main.py".to_string(),
-                line: 484,
-            },
-        ),
-        openapi_refs: ObservedSet::unknown("not yet extracted"),
-    }
-}
+    ]),
+    resources: ObservedSet::known(&[Evidenced::new(
+        Resource {
+            path: PathRef("/"),
+            ownership: ResourceOwnership::SharedWrite,
+        },
+        Evidence {
+            file: "core/services/disk_usage/main.py",
+            line: 281,
+        },
+    )]),
+    lifecycle: Observed::known(
+        ObservedLifecycle {
+            triggers: &["start-blueos-core create_service"],
+            ordered_after: &[
+                ServiceId::ArdupilotManager,
+                ServiceId::CableGuy,
+                ServiceId::MavlinkCameraManager,
+                ServiceId::Mavlink2rest,
+                ServiceId::Kraken,
+                ServiceId::Wifi,
+                ServiceId::Zenohd,
+                ServiceId::Beacon,
+                ServiceId::Bridget,
+                ServiceId::Commander,
+                ServiceId::NmeaInjector,
+                ServiceId::Helper,
+                ServiceId::Iperf3,
+                ServiceId::Linux2rest,
+                ServiceId::Filebrowser,
+                ServiceId::Versionchooser,
+                ServiceId::Pardal,
+                ServiceId::Ping,
+                ServiceId::UserTerminal,
+                ServiceId::Ttyd,
+                ServiceId::Nginx,
+                ServiceId::BagOfHolding,
+                ServiceId::Recorder,
+                ServiceId::RecorderExtractor,
+            ],
+            ordered_before: &[ServiceId::Customization],
+        },
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 326,
+        },
+    ),
+    logs_path: Observed::unknown(
+        "init_logger publishes to zenoh only; no on-disk log path set in disk_usage source",
+    ),
+    zenoh_log_topic: Observed::known(
+        "services/disk-usage/log",
+        Evidence {
+            file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
+            line: 78,
+        },
+    ),
+    sentry: Observed::known(
+        true,
+        Evidence {
+            file: "core/services/disk_usage/main.py",
+            line: 484,
+        },
+    ),
+    openapi_refs: ObservedSet::unknown("not yet extracted"),
+};
 
-pub fn service_definition() -> ServiceDefinition {
+pub const SERVICE_DEFINITION: ServiceDefinition =
     ServiceDefinition {
         id: ServiceId::DiskUsage,
         singleton: Asserted::established(
@@ -325,10 +319,10 @@ pub fn service_definition() -> ServiceDefinition {
             "single SERVICES-tier tmux instance; one disk_usage process",
         ),
         bounded_context: Asserted::established(
-            "storage-diagnostics-and-maintenance".to_string(),
+            "storage-diagnostics-and-maintenance",
             "provisional 2.0 domain: local filesystem usage inspection, path deletion, and disk benchmarks",
         ),
-        journey_refs: AssertedSet::established(vec![
+        journey_refs: AssertedSet::established(&[
             Rationaled::new(
                 JourneyId::InspectDiskUsage,
                 "Disk page loads du-backed usage tree and drills into subdirectories",
@@ -358,15 +352,15 @@ pub fn service_definition() -> ServiceDefinition {
             PrivilegeLevel::Root,
             "observed run_as root; DELETE /disk/paths can remove files anywhere under /",
         ),
-        dangerous_operations: AssertedSet::established(vec![Rationaled::new(
-            DangerousOperation::Other("delete_filesystem_paths".to_string()),
+        dangerous_operations: AssertedSet::established(&[Rationaled::new(
+            DangerousOperation::Other("delete_filesystem_paths"),
             "DELETE /disk/paths/{target_path} recursively removes files and directories via shutil",
         )]),
         user_confirmation: Asserted::established(
             UserConfirmation::Required,
             "deleting filesystem paths is irreversible and can remove operator or system data",
         ),
-        capabilities: AssertedSet::established(vec![
+        capabilities: AssertedSet::established(&[
             Rationaled::new(
                 CapabilityId::InspectDiskUsage,
                 "GET /disk/usage returns a du-backed usage tree for the requested path",
@@ -388,25 +382,25 @@ pub fn service_definition() -> ServiceDefinition {
                 "GET /disk/speed/stream yields NDJSON benchmark points for each test size",
             ),
         ]),
-        authorities: AssertedSet::established(vec![]),
+        authorities: AssertedSet::established(&[]),
         states: AssertedSet::unknown(
             "no cataloged state machine; disk usage and speed tests are stateless request handlers",
         ),
-        edges: AssertedSet::established(vec![]),
-        resources: AssertedSet::established(vec![Rationaled::new(
+        edges: AssertedSet::established(&[]),
+        resources: AssertedSet::established(&[Rationaled::new(
             Resource {
-                path: PathRef("/".to_string()),
+                path: PathRef("/"),
                 ownership: ResourceOwnership::SharedWrite,
             },
             "observed SharedWrite on / for usage inspection, path deletion, and temp benchmark files",
         )]),
         lifecycle: Lifecycle {
             triggers: Asserted::established(
-                vec!["start-blueos-core create_service".to_string()],
+                &["start-blueos-core create_service"],
                 "observed lifecycle trigger: tmux creation at boot in SERVICES tier",
             ),
             ordered_after: Asserted::established(
-                vec![
+                &[
                     ServiceId::ArdupilotManager,
                     ServiceId::CableGuy,
                     ServiceId::MavlinkCameraManager,
@@ -435,11 +429,11 @@ pub fn service_definition() -> ServiceDefinition {
                 "observed ordered_after in start-blueos-core SERVICES block",
             ),
             ordered_before: Asserted::established(
-                vec![ServiceId::Customization],
+                &[ServiceId::Customization],
                 "observed ordered_before lists disk_usage before customization",
             ),
             shutdown: Asserted::established(
-                "uvicorn server exit logs Disk Usage service stopped".to_string(),
+                "uvicorn server exit logs Disk Usage service stopped",
                 "main.py finally block after server.serve returns",
             ),
             upgrade_behavior: Asserted::unknown(
@@ -447,7 +441,7 @@ pub fn service_definition() -> ServiceDefinition {
             ),
         },
         health: Asserted::established(
-            "implicit: process liveness via tmux; REST GET / returns service name".to_string(),
+            "implicit: process liveness via tmux; REST GET / returns service name",
             "no dedicated /health route; uvicorn availability serves as health signal",
         ),
         is_platform: Asserted::established(
@@ -459,34 +453,34 @@ pub fn service_definition() -> ServiceDefinition {
             "versioned FastAPI v1.0 router exposed under /disk-usage/ via VersionedFastAPI",
         ),
         permissions_model: Asserted::established(
-            "protected system path roots block DELETE; no separate permissions manifest".to_string(),
+            "protected system path roots block DELETE; no separate permissions manifest",
             "is_protected_target refuses deletion under /bin, /etc, /lib, and other core roots",
         ),
-        failure_modes: AssertedSet::established(vec![
+        failure_modes: AssertedSet::established(&[
             Rationaled::new(
-                "du_subprocess_failure".to_string(),
+                "du_subprocess_failure",
                 "collect_disk_usage logs non-zero du return codes but may return partial trees",
             ),
             Rationaled::new(
-                "disktest_binary_missing".to_string(),
+                "disktest_binary_missing",
                 "GET /disk/speed returns 503 when disktest is not on PATH",
             ),
             Rationaled::new(
-                "insufficient_storage_for_benchmark".to_string(),
+                "insufficient_storage_for_benchmark",
                 "run_single_speed_test returns 507 when temp dir lacks space for the requested test size",
             ),
             Rationaled::new(
-                "protected_path_deletion_refused".to_string(),
+                "protected_path_deletion_refused",
                 "DELETE /disk/paths returns 400 for paths under protected system roots",
             ),
             Rationaled::new(
-                "invalid_or_missing_path".to_string(),
+                "invalid_or_missing_path",
                 "resolve_requested_path returns 404 or 400 for missing paths or paths outside /",
             ),
         ]),
         blast_radius: Asserted::established(
             "disk usage inspection, deletion, and benchmarks unavailable; core vehicle services unaffected"
-                .to_string(),
+                ,
             "disk_usage outage blocks storage maintenance UI but not autopilot, MAVLink, or nginx core paths",
         ),
         compatibility_policy: Asserted::unknown(
@@ -494,5 +488,4 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         team: Asserted::unknown("no CODEOWNERS or team metadata in observed artifact"),
         adr_refs: AssertedSet::unknown("no ADR references found in service source tree"),
-    }
-}
+    };

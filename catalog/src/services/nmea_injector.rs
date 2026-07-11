@@ -14,16 +14,15 @@ use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts
 use crate::service::{Authority, ServiceDefinition};
 use crate::trust::{PrivilegeLevel, UserConfirmation};
 
-const RUNTIME_CAPTURE: &str = "runtime-captures/nmea_injector__pi4_navigator_master.json";
 const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
 
-pub fn runtime_facts() -> RuntimeFacts {
+pub const RUNTIME_FACTS: RuntimeFacts =
     RuntimeFacts {
         service: ServiceId::NmeaInjector,
         state_contracts: GroundedSet::unknown(
             "nmea_injector has no service-level state machine (card states Unknown); TrafficController manages a dynamic set of listener sockets",
         ),
-        slo_baselines: GroundedSet::known(vec![runtime_slo(
+        slo_baselines: GroundedSet::known(&[runtime_slo(
             HttpMethod::Get,
             "/socks",
             8.3,
@@ -31,7 +30,7 @@ pub fn runtime_facts() -> RuntimeFacts {
             12.2,
             40,
         )]),
-        resource_usage: GroundedSet::known(vec![runtime_resource(
+        resource_usage: GroundedSet::known(&[runtime_resource(
             "running_baseline",
             Distribution {
                 mean: 0.26,
@@ -51,40 +50,39 @@ pub fn runtime_facts() -> RuntimeFacts {
             },
             60,
         )]),
-        platform_matrix: GroundedSet::known(vec![GroundedItem::new(
+        platform_matrix: GroundedSet::known(&[GroundedItem::new(
             PlatformBehavior {
-                platform: "navigator".into(),
+                platform: "navigator",
                 firmware: None,
-                notes: vec![
-                    "nmea_injector runs regardless of flight controller; it POSTs GPS_INPUT to mavlink2rest; platform-independent".into(),
-                    "runtime captured on Navigator only with NO sockets configured; RSS ~39.5 MB flat, CPU ~0.26% mean".into(),
-                    "active NMEA ingest (not captured) would add per-message parse + mavlink2rest POST load".into(),
+                notes: &[
+                    "nmea_injector runs regardless of flight controller; it POSTs GPS_INPUT to mavlink2rest; platform-independent",
+                    "runtime captured on Navigator only with NO sockets configured; RSS ~39.5 MB flat, CPU ~0.26% mean",
+                    "active NMEA ingest (not captured) would add per-message parse + mavlink2rest POST load",
                 ],
             },
-            runtime_prov("#platform_matrix"),
+            runtime_prov("runtime-captures/nmea_injector__pi4_navigator_master.json#platform_matrix"),
         )]),
         settings_mutations: GroundedSet::unknown(
             "POST /socks and DELETE /socks persist the socket spec list to /root/.config/nmea-injector/settings-1.json; not exercised",
         ),
-    }
+    };
+
+const fn runtime_prov(key: &'static str) -> Provenance {
+    Provenance::runtime(key, RUNTIME_ENV)
 }
 
-fn runtime_prov(key: &str) -> Provenance {
-    Provenance::runtime(format!("{RUNTIME_CAPTURE}{key}"), RUNTIME_ENV)
-}
-
-fn runtime_route(method: HttpMethod, path: &str) -> RouteRef {
+const fn runtime_route(method: HttpMethod, path: &'static str) -> RouteRef {
     RouteRef {
         service: ServiceId::NmeaInjector,
         method,
-        path: path.into(),
+        path,
         version: None,
     }
 }
 
-fn runtime_slo(
+const fn runtime_slo(
     method: HttpMethod,
-    path: &str,
+    path: &'static str,
     p50: f64,
     p95: f64,
     p99: f64,
@@ -98,249 +96,244 @@ fn runtime_slo(
             latency_p99_ms: p99,
             sample_size,
         },
-        runtime_prov("#slo_running_baseline"),
+        runtime_prov(
+            "runtime-captures/nmea_injector__pi4_navigator_master.json#slo_running_baseline",
+        ),
     )
 }
 
-fn runtime_resource(
-    condition: &str,
+const fn runtime_resource(
+    condition: &'static str,
     cpu_pct: Distribution,
     rss_mb: Distribution,
     samples: u32,
 ) -> GroundedItem<ResourceUsage> {
     GroundedItem::new(
         ResourceUsage {
-            condition: condition.into(),
+            condition,
             cpu_pct,
             rss_mb,
             samples,
         },
-        runtime_prov("#resource_usage"),
+        runtime_prov("runtime-captures/nmea_injector__pi4_navigator_master.json#resource_usage"),
     )
 }
 
-pub fn observed_facts() -> ObservedFacts {
-    ObservedFacts {
-        id: ServiceId::NmeaInjector,
-        aliases: ObservedSet::known(vec![Evidenced::new(
-            "nmea-injector".to_string(),
-            Evidence {
-                file: "core/services/nmea_injector/main.py".to_string(),
-                line: 17,
+pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
+    id: ServiceId::NmeaInjector,
+    aliases: ObservedSet::known(&[Evidenced::new(
+        "nmea-injector",
+        Evidence {
+            file: "core/services/nmea_injector/main.py",
+            line: 17,
+        },
+    )]),
+    kind: Observed::known(
+        ServiceKind::PythonService,
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 133,
+        },
+    ),
+    entrypoint: Observed::known(
+        "nice -19 $SERVICES_PATH/nmea_injector/main.py",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 133,
+        },
+    ),
+    tmux_name: Observed::known(
+        "nmea_injector",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 133,
+        },
+    ),
+    startup_tier: Observed::known(
+        StartupTier::Normal,
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 124,
+        },
+    ),
+    resource_limits: Observed::known(
+        ResourceLimits {
+            memory_mb: Some(250),
+            cpu_percent: Some(0),
+            io_weight: None,
+        },
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 133,
+        },
+    ),
+    nice: Observed::known(
+        19,
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 133,
+        },
+    ),
+    run_as: Observed::known(
+        "root",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 133,
+        },
+    ),
+    nginx_prefixes: ObservedSet::known(&[Evidenced::new(
+        PathRef("/nmea-injector/"),
+        Evidence {
+            file: "core/tools/nginx/nginx.conf",
+            line: 158,
+        },
+    )]),
+    listen: ObservedSet::known(&[Evidenced::new(
+        PortRef::Literal(2748),
+        Evidence {
+            file: "core/services/nmea_injector/main.py",
+            line: 88,
+        },
+    )]),
+    git_path: Observed::known(
+        PathRef("core/services/nmea_injector"),
+        Evidence {
+            file: "core/services/nmea_injector/main.py",
+            line: 1,
+        },
+    ),
+    interfaces: ObservedSet::known(&[
+        Evidenced::new(
+            Interface::Rest {
+                path_prefix: PathRef("/nmea-injector/"),
+                port: PortRef::Literal(2748),
+                versions: &["v1.0"],
             },
-        )]),
-        kind: Observed::known(
-            ServiceKind::PythonService,
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 133,
+                file: "core/services/nmea_injector/main.py",
+                line: 69,
             },
         ),
-        entrypoint: Observed::known(
-            "nice -19 $SERVICES_PATH/nmea_injector/main.py".to_string(),
+        Evidenced::new(
+            Interface::OutboundHttp {
+                url: "localhost:6040",
+            },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 133,
+                file: "core/libs/commonwealth/src/commonwealth/mavlink_comm/MavlinkComm.py",
+                line: 24,
             },
         ),
-        tmux_name: Observed::known(
-            "nmea_injector".to_string(),
+        Evidenced::new(
+            Interface::Settings {
+                path: PathRef("/root/.config/nmea-injector/settings-1.json"),
+            },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 133,
+                file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py",
+                line: 69,
             },
         ),
-        startup_tier: Observed::known(
-            StartupTier::Normal,
+        Evidenced::new(
+            Interface::File {
+                path: PathRef("/root/.config/nmea-injector"),
+                mode: FileAccessMode::ReadWrite,
+            },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 124,
+                file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py",
+                line: 27,
             },
         ),
-        resource_limits: Observed::known(
-            ResourceLimits {
-                memory_mb: Some(250),
-                cpu_percent: Some(0),
-                io_weight: None,
+        Evidenced::new(
+            Interface::Zenoh {
+                topics_produced: &["services/nmea-injector/log"],
+                topics_consumed: &[],
             },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 133,
-            },
-        ),
-        nice: Observed::known(
-            19,
-            Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 133,
-            },
-        ),
-        run_as: Observed::known(
-            "root".to_string(),
-            Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 133,
-            },
-        ),
-        nginx_prefixes: ObservedSet::known(vec![Evidenced::new(
-            PathRef("/nmea-injector/".to_string()),
-            Evidence {
-                file: "core/tools/nginx/nginx.conf".to_string(),
-                line: 158,
-            },
-        )]),
-        listen: ObservedSet::known(vec![Evidenced::new(
-            PortRef::Literal(2748),
-            Evidence {
-                file: "core/services/nmea_injector/main.py".to_string(),
-                line: 88,
-            },
-        )]),
-        git_path: Observed::known(
-            PathRef("core/services/nmea_injector".to_string()),
-            Evidence {
-                file: "core/services/nmea_injector/main.py".to_string(),
-                line: 1,
-            },
-        ),
-        interfaces: ObservedSet::known(vec![
-            Evidenced::new(
-                Interface::Rest {
-                    path_prefix: PathRef("/nmea-injector/".to_string()),
-                    port: PortRef::Literal(2748),
-                    versions: vec!["v1.0".to_string()],
-                },
-                Evidence {
-                    file: "core/services/nmea_injector/main.py".to_string(),
-                    line: 69,
-                },
-            ),
-            Evidenced::new(
-                Interface::OutboundHttp {
-                    url: "localhost:6040".to_string(),
-                },
-                Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/mavlink_comm/MavlinkComm.py"
-                        .to_string(),
-                    line: 24,
-                },
-            ),
-            Evidenced::new(
-                Interface::Settings {
-                    path: PathRef("/root/.config/nmea-injector/settings-1.json".to_string()),
-                },
-                Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py"
-                        .to_string(),
-                    line: 69,
-                },
-            ),
-            Evidenced::new(
-                Interface::File {
-                    path: PathRef("/root/.config/nmea-injector".to_string()),
-                    mode: FileAccessMode::ReadWrite,
-                },
-                Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py"
-                        .to_string(),
-                    line: 27,
-                },
-            ),
-            Evidenced::new(
-                Interface::Zenoh {
-                    topics_produced: vec!["services/nmea-injector/log".to_string()],
-                    topics_consumed: vec![],
-                },
-                Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/utils/logs.py".to_string(),
-                    line: 78,
-                },
-            ),
-        ]),
-        resources: ObservedSet::known(vec![
-            Evidenced::new(
-                Resource {
-                    path: PathRef("/root/.config/nmea-injector".to_string()),
-                    ownership: ResourceOwnership::SharedWrite,
-                },
-                Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py"
-                        .to_string(),
-                    line: 27,
-                },
-            ),
-            Evidenced::new(
-                Resource {
-                    path: PathRef("/root/.config/nmea-injector/settings-1.json".to_string()),
-                    ownership: ResourceOwnership::SharedWrite,
-                },
-                Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py"
-                        .to_string(),
-                    line: 69,
-                },
-            ),
-        ]),
-        lifecycle: Observed::known(
-            ObservedLifecycle {
-                triggers: vec!["start-blueos-core create_service".to_string()],
-                ordered_after: vec![
-                    ServiceId::ArdupilotManager,
-                    ServiceId::CableGuy,
-                    ServiceId::MavlinkCameraManager,
-                    ServiceId::Mavlink2rest,
-                    ServiceId::Kraken,
-                    ServiceId::Wifi,
-                    ServiceId::Zenohd,
-                    ServiceId::Beacon,
-                    ServiceId::Bridget,
-                    ServiceId::Commander,
-                ],
-                ordered_before: vec![
-                    ServiceId::Helper,
-                    ServiceId::Iperf3,
-                    ServiceId::Linux2rest,
-                    ServiceId::Filebrowser,
-                    ServiceId::Versionchooser,
-                    ServiceId::Pardal,
-                    ServiceId::Ping,
-                    ServiceId::UserTerminal,
-                    ServiceId::Ttyd,
-                    ServiceId::Nginx,
-                    ServiceId::BagOfHolding,
-                    ServiceId::Recorder,
-                    ServiceId::RecorderExtractor,
-                    ServiceId::DiskUsage,
-                    ServiceId::Customization,
-                ],
-            },
-            Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 326,
-            },
-        ),
-        logs_path: Observed::unknown(
-            "init_logger publishes to zenoh only; no on-disk log path set in nmea_injector source",
-        ),
-        zenoh_log_topic: Observed::known(
-            "services/nmea-injector/log".to_string(),
-            Evidence {
-                file: "core/libs/commonwealth/src/commonwealth/utils/logs.py".to_string(),
+                file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                 line: 78,
             },
         ),
-        sentry: Observed::known(
-            true,
+    ]),
+    resources: ObservedSet::known(&[
+        Evidenced::new(
+            Resource {
+                path: PathRef("/root/.config/nmea-injector"),
+                ownership: ResourceOwnership::SharedWrite,
+            },
             Evidence {
-                file: "core/services/nmea_injector/main.py".to_string(),
-                line: 85,
+                file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py",
+                line: 27,
             },
         ),
-        openapi_refs: ObservedSet::unknown("not yet extracted"),
-    }
-}
+        Evidenced::new(
+            Resource {
+                path: PathRef("/root/.config/nmea-injector/settings-1.json"),
+                ownership: ResourceOwnership::SharedWrite,
+            },
+            Evidence {
+                file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py",
+                line: 69,
+            },
+        ),
+    ]),
+    lifecycle: Observed::known(
+        ObservedLifecycle {
+            triggers: &["start-blueos-core create_service"],
+            ordered_after: &[
+                ServiceId::ArdupilotManager,
+                ServiceId::CableGuy,
+                ServiceId::MavlinkCameraManager,
+                ServiceId::Mavlink2rest,
+                ServiceId::Kraken,
+                ServiceId::Wifi,
+                ServiceId::Zenohd,
+                ServiceId::Beacon,
+                ServiceId::Bridget,
+                ServiceId::Commander,
+            ],
+            ordered_before: &[
+                ServiceId::Helper,
+                ServiceId::Iperf3,
+                ServiceId::Linux2rest,
+                ServiceId::Filebrowser,
+                ServiceId::Versionchooser,
+                ServiceId::Pardal,
+                ServiceId::Ping,
+                ServiceId::UserTerminal,
+                ServiceId::Ttyd,
+                ServiceId::Nginx,
+                ServiceId::BagOfHolding,
+                ServiceId::Recorder,
+                ServiceId::RecorderExtractor,
+                ServiceId::DiskUsage,
+                ServiceId::Customization,
+            ],
+        },
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 326,
+        },
+    ),
+    logs_path: Observed::unknown(
+        "init_logger publishes to zenoh only; no on-disk log path set in nmea_injector source",
+    ),
+    zenoh_log_topic: Observed::known(
+        "services/nmea-injector/log",
+        Evidence {
+            file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
+            line: 78,
+        },
+    ),
+    sentry: Observed::known(
+        true,
+        Evidence {
+            file: "core/services/nmea_injector/main.py",
+            line: 85,
+        },
+    ),
+    openapi_refs: ObservedSet::unknown("not yet extracted"),
+};
 
-pub fn service_definition() -> ServiceDefinition {
+pub const SERVICE_DEFINITION: ServiceDefinition =
     ServiceDefinition {
         id: ServiceId::NmeaInjector,
         singleton: Asserted::established(
@@ -348,10 +341,10 @@ pub fn service_definition() -> ServiceDefinition {
             "single SERVICES-tier tmux instance; one nmea_injector process owns all NMEA listen sockets",
         ),
         bounded_context: Asserted::established(
-            "external-gps-nmea-injection".to_string(),
+            "external-gps-nmea-injection",
             "provisional 2.0 domain: opt-in external NMEA ingest parsed into MAVLink GPS_INPUT for the autopilot",
         ),
-        journey_refs: AssertedSet::established(vec![
+        journey_refs: AssertedSet::established(&[
             Rationaled::new(
                 JourneyId::ViewConfiguredNmeaSockets,
                 "NMEA Injector page lists configured sockets via GET /socks",
@@ -377,12 +370,12 @@ pub fn service_definition() -> ServiceDefinition {
             PrivilegeLevel::Root,
             "observed run_as root; binds UDP/TCP listen sockets on 0.0.0.0 and writes /root/.config/nmea-injector settings",
         ),
-        dangerous_operations: AssertedSet::established(vec![]),
+        dangerous_operations: AssertedSet::established(&[]),
         user_confirmation: Asserted::established(
             UserConfirmation::NotRequired,
             "socket add/remove is reversible reconfiguration; no irreversible, untrusted-code, or vehicle-arm operations per rubric",
         ),
-        capabilities: AssertedSet::established(vec![
+        capabilities: AssertedSet::established(&[
             Rationaled::new(
                 CapabilityId::ListNmeaSockets,
                 "GET /socks returns configured NMEA sockets with kind, port, and MAVLink component ID",
@@ -396,37 +389,37 @@ pub fn service_definition() -> ServiceDefinition {
                 "DELETE /socks closes the matching listen socket and removes it from SettingsV1",
             ),
         ]),
-        authorities: AssertedSet::established(vec![Rationaled::new(
-            Authority::Other("nmea_gps_injector".to_string()),
+        authorities: AssertedSet::established(&[Rationaled::new(
+            Authority::Other("nmea_gps_injector"),
             "sole catalog service that ingests external NMEA and produces MAVLink GPS_INPUT messages via mavlink2rest",
         )]),
         states: AssertedSet::unknown(
             "no cataloged state machine; socket listeners and settings reload are managed inside TrafficController",
         ),
-        edges: AssertedSet::established(vec![Rationaled::new(
+        edges: AssertedSet::established(&[Rationaled::new(
             Edge {
                 from: ServiceId::NmeaInjector,
                 to: ServiceId::Mavlink2rest,
                 via: Bus::Rest,
                 sync: SyncMode::Async,
-                endpoint: "localhost:6040".to_string(),
-                purpose: "inject external GPS as MAVLink GPS_INPUT via mavlink2rest".to_string(),
+                endpoint: "localhost:6040",
+                purpose: "inject external GPS as MAVLink GPS_INPUT via mavlink2rest",
                 required_at_boot: false,
                 failure_impact: FailureImpact::Degraded,
             },
             "observed OutboundHttp localhost:6040 (MavlinkComm.py:24) pairs with mavlink2rest listen 6040",
         )]),
-        resources: AssertedSet::established(vec![
+        resources: AssertedSet::established(&[
             Rationaled::new(
                 Resource {
-                    path: PathRef("/root/.config/nmea-injector".to_string()),
+                    path: PathRef("/root/.config/nmea-injector"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 "SettingsV1 pykson manager directory for persisted NMEA socket specifications",
             ),
             Rationaled::new(
                 Resource {
-                    path: PathRef("/root/.config/nmea-injector/settings-1.json".to_string()),
+                    path: PathRef("/root/.config/nmea-injector/settings-1.json"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 "persisted socket kind, port, and MAVLink component ID list consumed only by nmea_injector",
@@ -434,11 +427,11 @@ pub fn service_definition() -> ServiceDefinition {
         ]),
         lifecycle: Lifecycle {
             triggers: Asserted::established(
-                vec!["start-blueos-core create_service".to_string()],
+                &["start-blueos-core create_service"],
                 "observed lifecycle trigger: tmux creation at boot in SERVICES tier",
             ),
             ordered_after: Asserted::established(
-                vec![
+                &[
                     ServiceId::ArdupilotManager,
                     ServiceId::CableGuy,
                     ServiceId::MavlinkCameraManager,
@@ -453,7 +446,7 @@ pub fn service_definition() -> ServiceDefinition {
                 "observed ordered_after in start-blueos-core SERVICES block",
             ),
             ordered_before: Asserted::established(
-                vec![
+                &[
                     ServiceId::Helper,
                     ServiceId::Iperf3,
                     ServiceId::Linux2rest,
@@ -480,7 +473,7 @@ pub fn service_definition() -> ServiceDefinition {
             ),
         },
         health: Asserted::established(
-            "implicit: process liveness via tmux; REST GET / returns service name".to_string(),
+            "implicit: process liveness via tmux; REST GET / returns service name",
             "no dedicated /health route; uvicorn availability serves as health signal",
         ),
         is_platform: Asserted::established(
@@ -492,34 +485,34 @@ pub fn service_definition() -> ServiceDefinition {
             "versioned FastAPI v1.0 router exposed under /nmea-injector/ via VersionedFastAPI",
         ),
         permissions_model: Asserted::established(
-            "no separate permissions manifest; REST routes are unauthenticated".to_string(),
+            "no separate permissions manifest; REST routes are unauthenticated",
             "nmea_injector routes have no auth decorator or extension-style permissions JSON",
         ),
-        failure_modes: AssertedSet::established(vec![
+        failure_modes: AssertedSet::established(&[
             Rationaled::new(
-                "injecting_wrong_position_affects_navigation".to_string(),
+                "injecting_wrong_position_affects_navigation",
                 "malformed or spoofed NMEA forwarded as GPS_INPUT can skew autopilot position estimates while sockets are active",
             ),
             Rationaled::new(
-                "mavlink2rest_unreachable".to_string(),
+                "mavlink2rest_unreachable",
                 "MavlinkMessenger POST to localhost:6040 fails when mavlink2rest is down; NMEA data is dropped",
             ),
             Rationaled::new(
-                "invalid_nmea_parse_failure".to_string(),
+                "invalid_nmea_parse_failure",
                 "pynmea2.parse errors on non-NMEA datagrams prevent GPS_INPUT forwarding for that message",
             ),
             Rationaled::new(
-                "port_conflict_on_socket_create".to_string(),
+                "port_conflict_on_socket_create",
                 "add_sock fails when the requested UDP/TCP port is already bound on the host",
             ),
             Rationaled::new(
-                "remove_nonexistent_socket".to_string(),
+                "remove_nonexistent_socket",
                 "DELETE /socks returns error when the specified kind, port, and component ID is not configured",
             ),
         ]),
         blast_radius: Asserted::established(
             "external GPS injection unavailable; autopilot falls back to onboard GPS; misconfigured active sockets can corrupt position data"
-                .to_string(),
+                ,
             "outage stops optional external GPS path; live misconfiguration affects navigation estimates but not arm/disarm or motion commands directly",
         ),
         compatibility_policy: Asserted::unknown(
@@ -527,5 +520,4 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         team: Asserted::unknown("no CODEOWNERS or team metadata in observed artifact"),
         adr_refs: AssertedSet::unknown("no ADR references found in service source tree"),
-    }
-}
+    };

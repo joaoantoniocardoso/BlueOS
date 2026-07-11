@@ -13,21 +13,20 @@ use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts
 use crate::service::{Authority, ServiceDefinition};
 use crate::trust::{PrivilegeLevel, UserConfirmation};
 
-const RUNTIME_CAPTURE: &str = "runtime-captures/mavlink2rest__pi4_navigator_master.json";
 const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
 
-pub fn runtime_facts() -> RuntimeFacts {
+pub const RUNTIME_FACTS: RuntimeFacts =
     RuntimeFacts {
         service: ServiceId::Mavlink2rest,
         state_contracts: GroundedSet::unknown(
             "mavlink2rest has no service-level state machine (card states Unknown); external Rust binary with no traced lifecycle states",
         ),
-        slo_baselines: GroundedSet::known(vec![
+        slo_baselines: GroundedSet::known(&[
             runtime_slo(HttpMethod::Get, "/v1/mavlink", 3.9, 6.3, 8.3, 60),
             runtime_slo(HttpMethod::Get, "/", 1.3, 1.7, 3.1, 60),
             runtime_slo(HttpMethod::Get, "/v1/mavlink/HEARTBEAT", 3.4, 4.9, 5.2, 60),
         ]),
-        resource_usage: GroundedSet::known(vec![runtime_resource(
+        resource_usage: GroundedSet::known(&[runtime_resource(
             "running_baseline",
             Distribution {
                 mean: 1.33,
@@ -47,40 +46,39 @@ pub fn runtime_facts() -> RuntimeFacts {
             },
             90,
         )]),
-        platform_matrix: GroundedSet::known(vec![GroundedItem::new(
+        platform_matrix: GroundedSet::known(&[GroundedItem::new(
             PlatformBehavior {
-                platform: "navigator".into(),
+                platform: "navigator",
                 firmware: None,
-                notes: vec![
-                    "mavlink2rest consumes udpout:127.0.0.1:14001 from ardupilot_manager; platform-independent".into(),
-                    "runtime captured on Navigator only; Rust binary RSS ~8.8 MB flat, CPU ~1.33% mean with occasional serialization spikes".into(),
-                    "observed REST API path prefix /v1 at runtime (observed_facts versions list empty)".into(),
+                notes: &[
+                    "mavlink2rest consumes udpout:127.0.0.1:14001 from ardupilot_manager; platform-independent",
+                    "runtime captured on Navigator only; Rust binary RSS ~8.8 MB flat, CPU ~1.33% mean with occasional serialization spikes",
+                    "observed REST API path prefix /v1 at runtime (observed_facts versions list empty)",
                 ],
             },
-            runtime_prov("#platform_matrix"),
+            runtime_prov("runtime-captures/mavlink2rest__pi4_navigator_master.json#platform_matrix"),
         )]),
         settings_mutations: GroundedSet::unknown(
             "mavlink2rest has no traced on-disk settings paths; POST /v1/mavlink injects MAVLink to the vehicle — not exercised",
         ),
-    }
+    };
+
+const fn runtime_prov(key: &'static str) -> Provenance {
+    Provenance::runtime(key, RUNTIME_ENV)
 }
 
-fn runtime_prov(key: &str) -> Provenance {
-    Provenance::runtime(format!("{RUNTIME_CAPTURE}{key}"), RUNTIME_ENV)
-}
-
-fn runtime_route(method: HttpMethod, path: &str) -> RouteRef {
+const fn runtime_route(method: HttpMethod, path: &'static str) -> RouteRef {
     RouteRef {
         service: ServiceId::Mavlink2rest,
         method,
-        path: path.into(),
+        path,
         version: None,
     }
 }
 
-fn runtime_slo(
+const fn runtime_slo(
     method: HttpMethod,
-    path: &str,
+    path: &'static str,
     p50: f64,
     p95: f64,
     p99: f64,
@@ -94,28 +92,30 @@ fn runtime_slo(
             latency_p99_ms: p99,
             sample_size,
         },
-        runtime_prov("#slo_running_baseline"),
+        runtime_prov(
+            "runtime-captures/mavlink2rest__pi4_navigator_master.json#slo_running_baseline",
+        ),
     )
 }
 
-fn runtime_resource(
-    condition: &str,
+const fn runtime_resource(
+    condition: &'static str,
     cpu_pct: Distribution,
     rss_mb: Distribution,
     samples: u32,
 ) -> GroundedItem<ResourceUsage> {
     GroundedItem::new(
         ResourceUsage {
-            condition: condition.into(),
+            condition,
             cpu_pct,
             rss_mb,
             samples,
         },
-        runtime_prov("#resource_usage"),
+        runtime_prov("runtime-captures/mavlink2rest__pi4_navigator_master.json#resource_usage"),
     )
 }
 
-pub fn observed_facts() -> ObservedFacts {
+pub const OBSERVED_FACTS: ObservedFacts =
     ObservedFacts {
         id: ServiceId::Mavlink2rest,
         aliases: ObservedSet::unknown(
@@ -124,29 +124,29 @@ pub fn observed_facts() -> ObservedFacts {
         kind: Observed::known(
             ServiceKind::Binary,
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 121,
             },
         ),
         entrypoint: Observed::known(
             "mavlink2rest --connect=udpout:127.0.0.1:14001 --server [::]:6040 --system-id $MAV_SYSTEM_ID --component-id $MAV_COMPONENT_ID_ONBOARD_COMPUTER4"
-                .to_string(),
+                ,
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 121,
             },
         ),
         tmux_name: Observed::known(
-            "mavlink2rest".to_string(),
+            "mavlink2rest",
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 121,
             },
         ),
         startup_tier: Observed::known(
             StartupTier::Priority,
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 117,
             },
         ),
@@ -157,54 +157,54 @@ pub fn observed_facts() -> ObservedFacts {
                 io_weight: None,
             },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 121,
             },
         ),
         nice: Observed::unknown("command line has no nice wrapper"),
         run_as: Observed::known(
-            "root".to_string(),
+            "root",
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 121,
             },
         ),
-        nginx_prefixes: ObservedSet::known(vec![Evidenced::new(
-            PathRef("/mavlink2rest/".to_string()),
+        nginx_prefixes: ObservedSet::known(&[Evidenced::new(
+            PathRef("/mavlink2rest/"),
             Evidence {
-                file: "core/tools/nginx/nginx.conf".to_string(),
+                file: "core/tools/nginx/nginx.conf",
                 line: 169,
             },
         )]),
-        listen: ObservedSet::known(vec![Evidenced::new(
+        listen: ObservedSet::known(&[Evidenced::new(
             PortRef::Literal(6040),
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 121,
             },
         )]),
         git_path: Observed::unknown(
             "external Rust binary (upstream github.com/bluerobotics/mavlink2rest); no source tree in this repository",
         ),
-        interfaces: ObservedSet::known(vec![
+        interfaces: ObservedSet::known(&[
             Evidenced::new(
                 Interface::Rest {
-                    path_prefix: PathRef("/mavlink2rest/".to_string()),
+                    path_prefix: PathRef("/mavlink2rest/"),
                     port: PortRef::Literal(6040),
-                    versions: vec![],
+                    versions: &[],
                 },
                 Evidence {
-                    file: "core/tools/nginx/nginx.conf".to_string(),
+                    file: "core/tools/nginx/nginx.conf",
                     line: 174,
                 },
             ),
             Evidenced::new(
                 Interface::Mavlink {
                     role: MavlinkRole::Consumer,
-                    connect: "udpout:127.0.0.1:14001".to_string(),
+                    connect: "udpout:127.0.0.1:14001",
                 },
                 Evidence {
-                    file: "core/start-blueos-core".to_string(),
+                    file: "core/start-blueos-core",
                     line: 121,
                 },
             ),
@@ -214,13 +214,13 @@ pub fn observed_facts() -> ObservedFacts {
         ),
         lifecycle: Observed::known(
             ObservedLifecycle {
-                triggers: vec!["start-blueos-core create_service".to_string()],
-                ordered_after: vec![
+                triggers: &["start-blueos-core create_service"],
+                ordered_after: &[
                     ServiceId::ArdupilotManager,
                     ServiceId::CableGuy,
                     ServiceId::MavlinkCameraManager,
                 ],
-                ordered_before: vec![
+                ordered_before: &[
                     ServiceId::Kraken,
                     ServiceId::Wifi,
                     ServiceId::Zenohd,
@@ -246,7 +246,7 @@ pub fn observed_facts() -> ObservedFacts {
                 ],
             },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 318,
             },
         ),
@@ -260,10 +260,9 @@ pub fn observed_facts() -> ObservedFacts {
             "external Rust binary; no init_sentry or equivalent traced in this repository",
         ),
         openapi_refs: ObservedSet::unknown("not yet extracted"),
-    }
-}
+    };
 
-pub fn service_definition() -> ServiceDefinition {
+pub const SERVICE_DEFINITION: ServiceDefinition =
     ServiceDefinition {
         id: ServiceId::Mavlink2rest,
         singleton: Asserted::established(
@@ -271,10 +270,10 @@ pub fn service_definition() -> ServiceDefinition {
             "single Priority-tier tmux instance; one mavlink2rest process bridges the vehicle MAVLink stream to REST/WebSocket",
         ),
         bounded_context: Asserted::established(
-            "vehicle-mavlink-access".to_string(),
+            "vehicle-mavlink-access",
             "provisional 2.0 domain: bridge vehicle MAVLink telemetry and commands to HTTP REST and WebSocket consumers",
         ),
-        journey_refs: AssertedSet::established(vec![Rationaled::new(
+        journey_refs: AssertedSet::established(&[Rationaled::new(
             JourneyId::InspectMavlinkMessagesInBrowser,
             "MAVLink Inspector page filters, lists, and expands live MAVLink messages from the vehicle stream",
         )]),
@@ -290,12 +289,12 @@ pub fn service_definition() -> ServiceDefinition {
             PrivilegeLevel::Root,
             "observed run_as root in start-blueos-core Priority-tier launch line",
         ),
-        dangerous_operations: AssertedSet::established(vec![]),
+        dangerous_operations: AssertedSet::established(&[]),
         user_confirmation: Asserted::established(
             UserConfirmation::NotRequired,
             "transparent MAVLink bridge; no autonomous irreversible, untrusted-code, or vehicle-arm operations per rubric — caller-initiated MAVLink send risk captured in blast_radius",
         ),
-        capabilities: AssertedSet::established(vec![
+        capabilities: AssertedSet::established(&[
             Rationaled::new(
                 CapabilityId::InspectLiveMavlinkMessages,
                 "MAVLink Inspector WebSocket stream and REST message listing for operator inspection",
@@ -305,21 +304,21 @@ pub fn service_definition() -> ServiceDefinition {
                 "observed Rest /mavlink2rest/ and Mavlink Consumer interfaces; MavlinkMessenger and frontend vehicle store POST/read MAVLink via localhost:6040",
             ),
         ]),
-        authorities: AssertedSet::established(vec![Rationaled::new(
-            Authority::Other("mavlink_rest_bridge".to_string()),
+        authorities: AssertedSet::established(&[Rationaled::new(
+            Authority::Other("mavlink_rest_bridge"),
             "sole catalog service that exposes the vehicle MAVLink stream and send path over HTTP REST/WebSocket",
         )]),
         states: AssertedSet::unknown(
             "external Rust binary; no in-repo state machine or lifecycle states traced",
         ),
-        edges: AssertedSet::established(vec![Rationaled::new(
+        edges: AssertedSet::established(&[Rationaled::new(
             Edge {
                 from: ServiceId::Mavlink2rest,
                 to: ServiceId::ArdupilotManager,
                 via: Bus::Mavlink,
                 sync: SyncMode::Async,
-                endpoint: "udpout:127.0.0.1:14001".to_string(),
-                purpose: "consume vehicle MAVLink stream from ardupilot_manager router endpoint".to_string(),
+                endpoint: "udpout:127.0.0.1:14001",
+                purpose: "consume vehicle MAVLink stream from ardupilot_manager router endpoint",
                 required_at_boot: true,
                 failure_impact: FailureImpact::ServiceUnavailable,
             },
@@ -330,11 +329,11 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         lifecycle: Lifecycle {
             triggers: Asserted::established(
-                vec!["start-blueos-core create_service".to_string()],
+                &["start-blueos-core create_service"],
                 "observed lifecycle trigger: tmux creation at boot in Priority tier",
             ),
             ordered_after: Asserted::established(
-                vec![
+                &[
                     ServiceId::ArdupilotManager,
                     ServiceId::CableGuy,
                     ServiceId::MavlinkCameraManager,
@@ -342,7 +341,7 @@ pub fn service_definition() -> ServiceDefinition {
                 "observed ordered_after in start-blueos-core Priority block",
             ),
             ordered_before: Asserted::established(
-                vec![
+                &[
                     ServiceId::Kraken,
                     ServiceId::Wifi,
                     ServiceId::Zenohd,
@@ -377,7 +376,7 @@ pub fn service_definition() -> ServiceDefinition {
         },
         health: Asserted::established(
             "implicit: process liveness via tmux; REST /mavlink2rest/ and WebSocket stream availability serve as health signals"
-                .to_string(),
+                ,
             "no dedicated /health route traced; bridge process continuity and HTTP listener serve as health signal",
         ),
         is_platform: Asserted::established(
@@ -388,30 +387,30 @@ pub fn service_definition() -> ServiceDefinition {
             "external binary with empty observed REST versions list; upstream API stability not established from this repository",
         ),
         permissions_model: Asserted::established(
-            "no auth middleware traced; REST and WebSocket routes are unauthenticated on the LAN".to_string(),
+            "no auth middleware traced; REST and WebSocket routes are unauthenticated on the LAN",
             "external binary proxied by nginx without observed permission checks; LAN trust model matches other core REST bridges",
         ),
-        failure_modes: AssertedSet::established(vec![
+        failure_modes: AssertedSet::established(&[
             Rationaled::new(
-                "mavlink_router_endpoint_unreachable".to_string(),
+                "mavlink_router_endpoint_unreachable",
                 "udpout:127.0.0.1:14001 has no router listener when ardupilot_manager is down or endpoint not yet created",
             ),
             Rationaled::new(
-                "rest_bridge_down".to_string(),
+                "rest_bridge_down",
                 "process exit or port 6040 bind failure blocks all REST/WebSocket MAVLink consumers including the frontend vehicle store",
             ),
             Rationaled::new(
-                "websocket_stream_stale".to_string(),
+                "websocket_stream_stale",
                 "MAVLink Inspector live view stops updating when the WebSocket bridge disconnects while REST may still respond",
             ),
             Rationaled::new(
-                "mavlink_send_surface_abuse".to_string(),
+                "mavlink_send_surface_abuse",
                 "unauthenticated REST POST can forward arbitrary MAVLink messages including param writes and mode commands to the vehicle",
             ),
         ]),
         blast_radius: Asserted::established(
             "BlueOS UI and dependent services lose vehicle telemetry, parameter access, and MAVLink send path; unauthenticated REST POST can inject arbitrary MAVLink to the autopilot while direct GCS/router control remains available"
-                .to_string(),
+                ,
             "data-plane bridge outage degrades BlueOS vehicle integration but does not remove the ardupilot_manager MAVLink router or GCS link; exposed send surface is a security concern independent of outage",
         ),
         compatibility_policy: Asserted::unknown(
@@ -419,5 +418,4 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         team: Asserted::unknown("no CODEOWNERS or team metadata in observed artifact"),
         adr_refs: AssertedSet::unknown("no ADR references found for external binary"),
-    }
-}
+    };

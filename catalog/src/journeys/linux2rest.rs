@@ -11,27 +11,24 @@ const SYSTEM_INFO_STORE: &str = "core/frontend/src/store/system-information.ts";
 const SYSTEM_INFO_VIEW: &str = "core/frontend/src/views/SystemInformationView.vue";
 const SYSTEM_CONDITION: &str =
     "core/frontend/src/components/system-information/SystemCondition.vue";
-const RUNTIME_CAPTURE: &str = "runtime-captures/linux2rest__pi4_navigator_master.json";
 const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:0406983a568a66df2a56f682b52161858f30ac87ab273f15309e52f5ab87e22a), Raspberry Pi 4, Navigator";
 
-pub fn journeys() -> Vec<UserJourney> {
-    vec![view_system_information()]
-}
+pub const JOURNEYS: &[UserJourney] = &[VIEW_SYSTEM_INFORMATION];
 
-fn view_system_information() -> UserJourney {
+const VIEW_SYSTEM_INFORMATION: UserJourney =
     UserJourney {
         id: JourneyId::ViewSystemInformation,
         summary: Grounded::known(
-            "View live hardware and system status (CPU, memory, disk, network, processes)".into(),
+            "View live hardware and system status (CPU, memory, disk, network, processes)",
             Provenance::doc(OVERVIEW, 124),
         ),
         visibility: Grounded::known(Visibility::Default, Provenance::source(SYSTEM_INFO_MENUS, 110)),
-        services: linux2rest_services(),
-        capability_refs: GroundedSet::known(vec![cap(CapabilityId::ViewSystemInformation,
+        services: LINUX2REST_SERVICES,
+        capability_refs: GroundedSet::known(&[cap(CapabilityId::ViewSystemInformation,
             "System Information page and System Monitor tab show live CPU, memory, disk, and temperature backed by linux2rest",
         )]),
-        preconditions: GroundedSet::known(vec![]),
-        steps: GroundedSet::known(vec![
+        preconditions: GroundedSet::known(&[]),
+        steps: GroundedSet::known(&[
             operator_step(
                 "Open the System Information page from the sidebar",
                 None,
@@ -54,7 +51,7 @@ fn view_system_information() -> UserJourney {
                 "Load the system snapshot used by the monitor widgets",
                 Some(sourced_route(HttpMethod::Get, "/system", None, 31)),
                 Provenance::source(SYSTEM_INFO_STORE, 241),
-                Some(runtime_outcome(200, Some("\"cpu\"".into()), "#running_baseline")),
+                Some(runtime_outcome(200, Some("\"cpu\""), "runtime-captures/linux2rest__pi4_navigator_master.json#running_baseline")),
             ),
             operator_step(
                 "Periodically refresh CPU, memory, and disk metrics",
@@ -62,8 +59,8 @@ fn view_system_information() -> UserJourney {
                 Provenance::source(SYSTEM_CONDITION, 135),
                 Some(runtime_outcome(
                     200,
-                    Some("\"name\":\"cpu0\"".into()),
-                    "#running_baseline",
+                    Some("\"name\":\"cpu0\""),
+                    "runtime-captures/linux2rest__pi4_navigator_master.json#running_baseline",
                 )),
             ),
             operator_step(
@@ -74,33 +71,30 @@ fn view_system_information() -> UserJourney {
             ),
         ]),
         chains_from: None,
-    }
-}
+    };
 
-fn cap(id: CapabilityId, rationale: &str) -> GroundedItem<CapabilityId> {
+const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<CapabilityId> {
     GroundedItem::new(id, Provenance::asserted(rationale))
 }
 
-fn linux2rest_services() -> GroundedSet<ServiceId> {
-    GroundedSet::known(vec![GroundedItem::new(
-        ServiceId::Linux2rest,
-        Provenance::doc(ADV, 600),
-    )])
-}
+const LINUX2REST_SERVICES: GroundedSet<ServiceId> = GroundedSet::known(&[GroundedItem::new(
+    ServiceId::Linux2rest,
+    Provenance::doc(ADV, 600),
+)]);
 
-fn route(method: HttpMethod, path: &str, version: Option<&str>) -> RouteRef {
+const fn route(method: HttpMethod, path: &'static str, version: Option<&'static str>) -> RouteRef {
     RouteRef {
         service: ServiceId::Linux2rest,
         method,
-        path: path.into(),
-        version: version.map(str::to_string),
+        path,
+        version,
     }
 }
 
-fn sourced_route(
+const fn sourced_route(
     method: HttpMethod,
-    path: &str,
-    version: Option<&str>,
+    path: &'static str,
+    version: Option<&'static str>,
     line: u32,
 ) -> Grounded<RouteRef> {
     Grounded::known(
@@ -109,19 +103,23 @@ fn sourced_route(
     )
 }
 
-fn runtime_outcome(status: u16, body: Option<String>, key: &str) -> Grounded<StepOutcome> {
+const fn runtime_outcome(
+    status: u16,
+    body: Option<&'static str>,
+    key: &'static str,
+) -> Grounded<StepOutcome> {
     Grounded::known(
         StepOutcome {
             expected_status: Some(status),
             body_predicate: body,
             transition: None,
         },
-        Provenance::runtime(format!("{RUNTIME_CAPTURE}{key}"), RUNTIME_ENV),
+        Provenance::runtime(key, RUNTIME_ENV),
     )
 }
 
-fn operator_step(
-    description: &str,
+const fn operator_step(
+    description: &'static str,
     route: Option<Grounded<RouteRef>>,
     provenance: Provenance,
     outcome: Option<Grounded<StepOutcome>>,
@@ -129,7 +127,7 @@ fn operator_step(
     GroundedItem::new(
         JourneyStep {
             actor: Actor::Operator,
-            description: description.into(),
+            description,
             route,
             outcome,
         },

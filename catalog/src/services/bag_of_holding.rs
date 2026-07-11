@@ -13,16 +13,15 @@ use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts
 use crate::service::{Authority, ServiceDefinition};
 use crate::trust::{DangerousOperation, PrivilegeLevel, UserConfirmation};
 
-const RUNTIME_CAPTURE: &str = "runtime-captures/bag_of_holding__pi4_navigator_master.json";
 const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
 
-pub fn runtime_facts() -> RuntimeFacts {
+pub const RUNTIME_FACTS: RuntimeFacts =
     RuntimeFacts {
         service: ServiceId::BagOfHolding,
         state_contracts: GroundedSet::unknown(
             "bag_of_holding has no service-level state machine (card states Unknown); stateless request handlers over a JSON file",
         ),
-        slo_baselines: GroundedSet::known(vec![runtime_slo(
+        slo_baselines: GroundedSet::known(&[runtime_slo(
             HttpMethod::Get,
             "/get/*",
             7.0,
@@ -30,7 +29,7 @@ pub fn runtime_facts() -> RuntimeFacts {
             12.2,
             40,
         )]),
-        resource_usage: GroundedSet::known(vec![runtime_resource(
+        resource_usage: GroundedSet::known(&[runtime_resource(
             "running_baseline",
             Distribution {
                 mean: 0.49,
@@ -50,39 +49,38 @@ pub fn runtime_facts() -> RuntimeFacts {
             },
             60,
         )]),
-        platform_matrix: GroundedSet::known(vec![GroundedItem::new(
+        platform_matrix: GroundedSet::known(&[GroundedItem::new(
             PlatformBehavior {
-                platform: "navigator".into(),
+                platform: "navigator",
                 firmware: None,
-                notes: vec![
-                    "bag_of_holding is a generic JSON store independent of the flight controller; platform-independent".into(),
-                    "runtime captured on Navigator only; RSS ~35.8 MB flat (lightest Python service captured), CPU ~0.49% mean".into(),
+                notes: &[
+                    "bag_of_holding is a generic JSON store independent of the flight controller; platform-independent",
+                    "runtime captured on Navigator only; RSS ~35.8 MB flat (lightest Python service captured), CPU ~0.49% mean",
                 ],
             },
-            runtime_prov("#platform_matrix"),
+            runtime_prov("runtime-captures/bag_of_holding__pi4_navigator_master.json#platform_matrix"),
         )]),
         settings_mutations: GroundedSet::unknown(
             "POST /set/{path} merges a value and POST /overwrite replaces the entire db.json; not exercised (shared-store mutation)",
         ),
-    }
+    };
+
+const fn runtime_prov(key: &'static str) -> Provenance {
+    Provenance::runtime(key, RUNTIME_ENV)
 }
 
-fn runtime_prov(key: &str) -> Provenance {
-    Provenance::runtime(format!("{RUNTIME_CAPTURE}{key}"), RUNTIME_ENV)
-}
-
-fn runtime_route(method: HttpMethod, path: &str) -> RouteRef {
+const fn runtime_route(method: HttpMethod, path: &'static str) -> RouteRef {
     RouteRef {
         service: ServiceId::BagOfHolding,
         method,
-        path: path.into(),
+        path,
         version: None,
     }
 }
 
-fn runtime_slo(
+const fn runtime_slo(
     method: HttpMethod,
-    path: &str,
+    path: &'static str,
     p50: f64,
     p95: f64,
     p99: f64,
@@ -96,208 +94,208 @@ fn runtime_slo(
             latency_p99_ms: p99,
             sample_size,
         },
-        runtime_prov("#slo_running_baseline"),
+        runtime_prov(
+            "runtime-captures/bag_of_holding__pi4_navigator_master.json#slo_running_baseline",
+        ),
     )
 }
 
-fn runtime_resource(
-    condition: &str,
+const fn runtime_resource(
+    condition: &'static str,
     cpu_pct: Distribution,
     rss_mb: Distribution,
     samples: u32,
 ) -> GroundedItem<ResourceUsage> {
     GroundedItem::new(
         ResourceUsage {
-            condition: condition.into(),
+            condition,
             cpu_pct,
             rss_mb,
             samples,
         },
-        runtime_prov("#resource_usage"),
+        runtime_prov("runtime-captures/bag_of_holding__pi4_navigator_master.json#resource_usage"),
     )
 }
 
-pub fn observed_facts() -> ObservedFacts {
-    ObservedFacts {
-        id: ServiceId::BagOfHolding,
-        aliases: ObservedSet::known(vec![Evidenced::new(
-            "bag-of-holding".to_string(),
-            Evidence {
-                file: "core/services/bag_of_holding/main.py".to_string(),
-                line: 21,
+pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
+    id: ServiceId::BagOfHolding,
+    aliases: ObservedSet::known(&[Evidenced::new(
+        "bag-of-holding",
+        Evidence {
+            file: "core/services/bag_of_holding/main.py",
+            line: 21,
+        },
+    )]),
+    kind: Observed::known(
+        ServiceKind::PythonService,
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 144,
+        },
+    ),
+    entrypoint: Observed::known(
+        "$SERVICES_PATH/bag_of_holding/main.py",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 144,
+        },
+    ),
+    tmux_name: Observed::known(
+        "bag_of_holding",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 144,
+        },
+    ),
+    startup_tier: Observed::known(
+        StartupTier::Normal,
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 124,
+        },
+    ),
+    resource_limits: Observed::known(
+        ResourceLimits {
+            memory_mb: Some(250),
+            cpu_percent: Some(0),
+            io_weight: None,
+        },
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 144,
+        },
+    ),
+    nice: Observed::unknown("no nice prefix in start tuple"),
+    run_as: Observed::known(
+        "root",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 144,
+        },
+    ),
+    nginx_prefixes: ObservedSet::known(&[Evidenced::new(
+        PathRef("/bag/"),
+        Evidence {
+            file: "core/tools/nginx/nginx.conf",
+            line: 86,
+        },
+    )]),
+    listen: ObservedSet::known(&[Evidenced::new(
+        PortRef::Literal(9101),
+        Evidence {
+            file: "core/services/bag_of_holding/main.py",
+            line: 124,
+        },
+    )]),
+    git_path: Observed::known(
+        PathRef("core/services/bag_of_holding"),
+        Evidence {
+            file: "core/services/bag_of_holding/main.py",
+            line: 1,
+        },
+    ),
+    interfaces: ObservedSet::known(&[
+        Evidenced::new(
+            Interface::Rest {
+                path_prefix: PathRef("/bag/"),
+                port: PortRef::Literal(9101),
+                versions: &["v1.0"],
             },
-        )]),
-        kind: Observed::known(
-            ServiceKind::PythonService,
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 144,
+                file: "core/services/bag_of_holding/main.py",
+                line: 105,
             },
         ),
-        entrypoint: Observed::known(
-            "$SERVICES_PATH/bag_of_holding/main.py".to_string(),
+        Evidenced::new(
+            Interface::File {
+                path: PathRef("/root/.config/bag-of-holding"),
+                mode: FileAccessMode::ReadWrite,
+            },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 144,
+                file: "core/services/bag_of_holding/main.py",
+                line: 22,
             },
         ),
-        tmux_name: Observed::known(
-            "bag_of_holding".to_string(),
-            Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 144,
-            },
-        ),
-        startup_tier: Observed::known(
-            StartupTier::Normal,
-            Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 124,
-            },
-        ),
-        resource_limits: Observed::known(
-            ResourceLimits {
-                memory_mb: Some(250),
-                cpu_percent: Some(0),
-                io_weight: None,
+        Evidenced::new(
+            Interface::Zenoh {
+                topics_produced: &["services/bag-of-holding/log"],
+                topics_consumed: &[],
             },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 144,
-            },
-        ),
-        nice: Observed::unknown("no nice prefix in start tuple"),
-        run_as: Observed::known(
-            "root".to_string(),
-            Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 144,
-            },
-        ),
-        nginx_prefixes: ObservedSet::known(vec![Evidenced::new(
-            PathRef("/bag/".to_string()),
-            Evidence {
-                file: "core/tools/nginx/nginx.conf".to_string(),
-                line: 86,
-            },
-        )]),
-        listen: ObservedSet::known(vec![Evidenced::new(
-            PortRef::Literal(9101),
-            Evidence {
-                file: "core/services/bag_of_holding/main.py".to_string(),
-                line: 124,
-            },
-        )]),
-        git_path: Observed::known(
-            PathRef("core/services/bag_of_holding".to_string()),
-            Evidence {
-                file: "core/services/bag_of_holding/main.py".to_string(),
-                line: 1,
-            },
-        ),
-        interfaces: ObservedSet::known(vec![
-            Evidenced::new(
-                Interface::Rest {
-                    path_prefix: PathRef("/bag/".to_string()),
-                    port: PortRef::Literal(9101),
-                    versions: vec!["v1.0".to_string()],
-                },
-                Evidence {
-                    file: "core/services/bag_of_holding/main.py".to_string(),
-                    line: 105,
-                },
-            ),
-            Evidenced::new(
-                Interface::File {
-                    path: PathRef("/root/.config/bag-of-holding".to_string()),
-                    mode: FileAccessMode::ReadWrite,
-                },
-                Evidence {
-                    file: "core/services/bag_of_holding/main.py".to_string(),
-                    line: 22,
-                },
-            ),
-            Evidenced::new(
-                Interface::Zenoh {
-                    topics_produced: vec!["services/bag-of-holding/log".to_string()],
-                    topics_consumed: vec![],
-                },
-                Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/utils/logs.py".to_string(),
-                    line: 78,
-                },
-            ),
-        ]),
-        resources: ObservedSet::known(vec![Evidenced::new(
-            Resource {
-                path: PathRef("/root/.config/bag-of-holding".to_string()),
-                ownership: ResourceOwnership::SharedWrite,
-            },
-            Evidence {
-                file: "core/services/bag_of_holding/main.py".to_string(),
-                line: 61,
-            },
-        )]),
-        lifecycle: Observed::known(
-            ObservedLifecycle {
-                triggers: vec!["start-blueos-core create_service".to_string()],
-                ordered_after: vec![
-                    ServiceId::ArdupilotManager,
-                    ServiceId::CableGuy,
-                    ServiceId::MavlinkCameraManager,
-                    ServiceId::Mavlink2rest,
-                    ServiceId::Kraken,
-                    ServiceId::Wifi,
-                    ServiceId::Zenohd,
-                    ServiceId::Beacon,
-                    ServiceId::Bridget,
-                    ServiceId::Commander,
-                    ServiceId::NmeaInjector,
-                    ServiceId::Helper,
-                    ServiceId::Iperf3,
-                    ServiceId::Linux2rest,
-                    ServiceId::Filebrowser,
-                    ServiceId::Versionchooser,
-                    ServiceId::Pardal,
-                    ServiceId::Ping,
-                    ServiceId::UserTerminal,
-                    ServiceId::Ttyd,
-                    ServiceId::Nginx,
-                ],
-                ordered_before: vec![
-                    ServiceId::Recorder,
-                    ServiceId::RecorderExtractor,
-                    ServiceId::DiskUsage,
-                    ServiceId::Customization,
-                ],
-            },
-            Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 326,
-            },
-        ),
-        logs_path: Observed::unknown(
-            "init_logger publishes to zenoh only; no on-disk log path set in bag_of_holding source",
-        ),
-        zenoh_log_topic: Observed::known(
-            "services/bag-of-holding/log".to_string(),
-            Evidence {
-                file: "core/libs/commonwealth/src/commonwealth/utils/logs.py".to_string(),
+                file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                 line: 78,
             },
         ),
-        sentry: Observed::known(
-            true,
-            Evidence {
-                file: "core/services/bag_of_holding/main.py".to_string(),
-                line: 121,
-            },
-        ),
-        openapi_refs: ObservedSet::unknown("not yet extracted"),
-    }
-}
+    ]),
+    resources: ObservedSet::known(&[Evidenced::new(
+        Resource {
+            path: PathRef("/root/.config/bag-of-holding"),
+            ownership: ResourceOwnership::SharedWrite,
+        },
+        Evidence {
+            file: "core/services/bag_of_holding/main.py",
+            line: 61,
+        },
+    )]),
+    lifecycle: Observed::known(
+        ObservedLifecycle {
+            triggers: &["start-blueos-core create_service"],
+            ordered_after: &[
+                ServiceId::ArdupilotManager,
+                ServiceId::CableGuy,
+                ServiceId::MavlinkCameraManager,
+                ServiceId::Mavlink2rest,
+                ServiceId::Kraken,
+                ServiceId::Wifi,
+                ServiceId::Zenohd,
+                ServiceId::Beacon,
+                ServiceId::Bridget,
+                ServiceId::Commander,
+                ServiceId::NmeaInjector,
+                ServiceId::Helper,
+                ServiceId::Iperf3,
+                ServiceId::Linux2rest,
+                ServiceId::Filebrowser,
+                ServiceId::Versionchooser,
+                ServiceId::Pardal,
+                ServiceId::Ping,
+                ServiceId::UserTerminal,
+                ServiceId::Ttyd,
+                ServiceId::Nginx,
+            ],
+            ordered_before: &[
+                ServiceId::Recorder,
+                ServiceId::RecorderExtractor,
+                ServiceId::DiskUsage,
+                ServiceId::Customization,
+            ],
+        },
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 326,
+        },
+    ),
+    logs_path: Observed::unknown(
+        "init_logger publishes to zenoh only; no on-disk log path set in bag_of_holding source",
+    ),
+    zenoh_log_topic: Observed::known(
+        "services/bag-of-holding/log",
+        Evidence {
+            file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
+            line: 78,
+        },
+    ),
+    sentry: Observed::known(
+        true,
+        Evidence {
+            file: "core/services/bag_of_holding/main.py",
+            line: 121,
+        },
+    ),
+    openapi_refs: ObservedSet::unknown("not yet extracted"),
+};
 
-pub fn service_definition() -> ServiceDefinition {
+pub const SERVICE_DEFINITION: ServiceDefinition =
     ServiceDefinition {
         id: ServiceId::BagOfHolding,
         singleton: Asserted::established(
@@ -305,10 +303,10 @@ pub fn service_definition() -> ServiceDefinition {
             "single SERVICES-tier tmux instance; one process owns the shared JSON document store",
         ),
         bounded_context: Asserted::established(
-            "generic-json-persistence".to_string(),
+            "generic-json-persistence",
             "provisional 2.0 domain: shared key-value JSON store for frontend UI state, wizard progress, and feature tokens",
         ),
-        journey_refs: AssertedSet::established(vec![Rationaled::new(
+        journey_refs: AssertedSet::established(&[Rationaled::new(
             JourneyId::ModifyBagDatabase,
             "Bag Editor loads the full document via GET /get/* and persists edits via POST /overwrite",
         )]),
@@ -324,15 +322,15 @@ pub fn service_definition() -> ServiceDefinition {
             PrivilegeLevel::Root,
             "observed run_as root; sole writer of /root/.config/bag-of-holding/db.json",
         ),
-        dangerous_operations: AssertedSet::established(vec![Rationaled::new(
-            DangerousOperation::Other("overwrite_entire_datastore".to_string()),
+        dangerous_operations: AssertedSet::established(&[Rationaled::new(
+            DangerousOperation::Other("overwrite_entire_datastore"),
             "POST /overwrite atomically replaces the entire db.json; a bad payload wipes all stored UI/setup/cloud-token state at once",
         )]),
         user_confirmation: Asserted::established(
             UserConfirmation::Required,
             "whole-store overwrite is destructive bulk replacement of persisted frontend and setup state",
         ),
-        capabilities: AssertedSet::established(vec![
+        capabilities: AssertedSet::established(&[
             Rationaled::new(
                 CapabilityId::EditBagJsonStore,
                 "Bag Editor reads GET /get/* and saves the full edited document via POST /overwrite",
@@ -350,28 +348,28 @@ pub fn service_definition() -> ServiceDefinition {
                 "POST /overwrite replaces db.json with the request body JSON object",
             ),
         ]),
-        authorities: AssertedSet::established(vec![Rationaled::new(
-            Authority::Other("json_document_store".to_string()),
+        authorities: AssertedSet::established(&[Rationaled::new(
+            Authority::Other("json_document_store"),
             "sole owner and writer of the shared generic JSON persistence file consumed by the frontend and feature stores",
         )]),
         states: AssertedSet::unknown(
             "no cataloged state machine; key-value reads and writes are stateless request handlers",
         ),
-        edges: AssertedSet::established(vec![]),
-        resources: AssertedSet::established(vec![Rationaled::new(
+        edges: AssertedSet::established(&[]),
+        resources: AssertedSet::established(&[Rationaled::new(
             Resource {
-                path: PathRef("/root/.config/bag-of-holding".to_string()),
+                path: PathRef("/root/.config/bag-of-holding"),
                 ownership: ResourceOwnership::SharedWrite,
             },
             "config directory containing db.json for wizard state, settings, vehicle images, and Major Tom tokens",
         )]),
         lifecycle: Lifecycle {
             triggers: Asserted::established(
-                vec!["start-blueos-core create_service".to_string()],
+                &["start-blueos-core create_service"],
                 "observed lifecycle trigger: tmux creation at boot in SERVICES tier",
             ),
             ordered_after: Asserted::established(
-                vec![
+                &[
                     ServiceId::ArdupilotManager,
                     ServiceId::CableGuy,
                     ServiceId::MavlinkCameraManager,
@@ -397,7 +395,7 @@ pub fn service_definition() -> ServiceDefinition {
                 "observed ordered_after in start-blueos-core SERVICES block",
             ),
             ordered_before: Asserted::established(
-                vec![
+                &[
                     ServiceId::Recorder,
                     ServiceId::RecorderExtractor,
                     ServiceId::DiskUsage,
@@ -406,7 +404,7 @@ pub fn service_definition() -> ServiceDefinition {
                 "observed ordered_before lists bag_of_holding before recorder, disk_usage, and customization",
             ),
             shutdown: Asserted::established(
-                "uvicorn server exit when main() serve loop returns".to_string(),
+                "uvicorn server exit when main() serve loop returns",
                 "no explicit shutdown hook; process stops with tmux session teardown",
             ),
             upgrade_behavior: Asserted::unknown(
@@ -414,7 +412,7 @@ pub fn service_definition() -> ServiceDefinition {
             ),
         },
         health: Asserted::established(
-            "implicit: process liveness via tmux; REST GET / returns HTML title page".to_string(),
+            "implicit: process liveness via tmux; REST GET / returns HTML title page",
             "no dedicated /health route; uvicorn availability serves as health signal",
         ),
         is_platform: Asserted::established(
@@ -426,26 +424,26 @@ pub fn service_definition() -> ServiceDefinition {
             "versioned FastAPI v1.0 set/get routes are stable under /bag/v1.0; legacy unversioned POST /overwrite retained for Bag Editor",
         ),
         permissions_model: Asserted::established(
-            "no service-level auth; Bag Editor gated by pirate mode in frontend only".to_string(),
+            "no service-level auth; Bag Editor gated by pirate mode in frontend only",
             "REST endpoints accept any caller reaching nginx; advanced UI access is a frontend precondition",
         ),
-        failure_modes: AssertedSet::established(vec![
+        failure_modes: AssertedSet::established(&[
             Rationaled::new(
-                "database_file_missing".to_string(),
+                "database_file_missing",
                 "read_db returns empty object when db.json does not exist yet",
             ),
             Rationaled::new(
-                "json_decode_error".to_string(),
+                "json_decode_error",
                 "read_db logs JSONDecodeError and returns empty object when db.json is corrupt",
             ),
             Rationaled::new(
-                "invalid_get_path".to_string(),
+                "invalid_get_path",
                 "GET /get/{path} returns 400 when dpath.get finds no key at the requested path",
             ),
         ]),
         blast_radius: Asserted::established(
             "frontend wizard, settings, cloud tokens, and vehicle image paths unavailable; core vehicle services unaffected"
-                .to_string(),
+                ,
             "bag_of_holding outage blocks UI persistence but not autopilot, MAVLink, or nginx core paths",
         ),
         compatibility_policy: Asserted::unknown(
@@ -453,5 +451,4 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         team: Asserted::unknown("no CODEOWNERS or team metadata in observed artifact"),
         adr_refs: AssertedSet::unknown("no ADR references found in service source tree"),
-    }
-}
+    };

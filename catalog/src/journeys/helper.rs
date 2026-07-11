@@ -13,205 +13,194 @@ const HELPER_STORE: &str = "core/frontend/src/store/helper.ts";
 const HELPER_MENUS: &str = "core/frontend/src/menus.ts";
 const NETWORK_PRIORITY: &str = "core/frontend/src/components/app/NetworkInterfacePriorityMenu.vue";
 const REQUIRE_INTERNET: &str = "core/frontend/src/components/wizard/RequireInternet.vue";
-const RUNTIME_CAPTURE: &str = "runtime-captures/helper__pi4_navigator_master.json";
 const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
 
-pub fn journeys() -> Vec<UserJourney> {
-    vec![
-        monitor_internet_connectivity(),
-        verify_internet_connectivity(),
-        browse_available_web_services(),
-        probe_interface_internet_connectivity(),
-    ]
-}
+pub const JOURNEYS: &[UserJourney] = &[
+    MONITOR_INTERNET_CONNECTIVITY,
+    VERIFY_INTERNET_CONNECTIVITY,
+    BROWSE_AVAILABLE_WEB_SERVICES,
+    PROBE_INTERFACE_INTERNET_CONNECTIVITY,
+];
 
-fn monitor_internet_connectivity() -> UserJourney {
-    UserJourney {
-        id: JourneyId::MonitorInternetConnectivity,
-        summary: Grounded::known(
-            "See whether the vehicle is connected to the internet".into(),
+const MONITOR_INTERNET_CONNECTIVITY: UserJourney = UserJourney {
+    id: JourneyId::MonitorInternetConnectivity,
+    summary: Grounded::known(
+        "See whether the vehicle is connected to the internet",
+        Provenance::doc(ADV, 141),
+    ),
+    visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 139)),
+    services: HELPER_SERVICES,
+    capability_refs: GroundedSet::known(&[cap(
+        CapabilityId::CheckInternetConnectivity,
+        "header internet indicator reflects reachability of probe websites",
+    )]),
+    preconditions: GroundedSet::known(&[]),
+    steps: GroundedSet::known(&[
+        operator_step(
+            "View the internet connectivity indicator in the BlueOS header",
+            None,
             Provenance::doc(ADV, 141),
+            None,
         ),
-        visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 139)),
-        services: helper_services(),
-        capability_refs: GroundedSet::known(vec![cap(CapabilityId::CheckInternetConnectivity,
-            "header internet indicator reflects reachability of probe websites",
-        )]),
-        preconditions: GroundedSet::known(vec![]),
-        steps: GroundedSet::known(vec![
-            operator_step(
-                "View the internet connectivity indicator in the BlueOS header",
-                None,
-                Provenance::doc(ADV, 141),
-                None,
-            ),
-            service_step(
-                "Poll configured websites to refresh internet connectivity state (every 20 seconds)",
-                Some(sourced_route(HttpMethod::Get, "/check_internet_access", Some("v1.0"), 540)),
-                Provenance::source(HELPER_STORE, 45),
-                Some(runtime_outcome(
-                    200,
-                    Some("\"online\": true".into()),
-                    "#running_baseline",
-                )),
-            ),
-        ]),
-        chains_from: None,
-    }
-}
+        service_step(
+            "Poll configured websites to refresh internet connectivity state (every 20 seconds)",
+            Some(sourced_route(
+                HttpMethod::Get,
+                "/check_internet_access",
+                Some("v1.0"),
+                540,
+            )),
+            Provenance::source(HELPER_STORE, 45),
+            Some(runtime_outcome(
+                200,
+                Some("\"online\": true"),
+                "runtime-captures/helper__pi4_navigator_master.json#running_baseline",
+            )),
+        ),
+    ]),
+    chains_from: None,
+};
 
-fn verify_internet_connectivity() -> UserJourney {
-    UserJourney {
-        id: JourneyId::VerifyInternetConnectivity,
-        summary: Grounded::known(
-            "Confirm the BlueOS header shows internet connectivity after network setup".into(),
+const VERIFY_INTERNET_CONNECTIVITY: UserJourney = UserJourney {
+    id: JourneyId::VerifyInternetConnectivity,
+    summary: Grounded::known(
+        "Confirm the BlueOS header shows internet connectivity after network setup",
+        Provenance::doc(GETTING, 100),
+    ),
+    visibility: Grounded::known(Visibility::Default, Provenance::doc(GETTING, 74)),
+    services: HELPER_SERVICES,
+    capability_refs: GroundedSet::known(&[cap(
+        CapabilityId::CheckInternetConnectivity,
+        "setup flows confirm probe websites are reachable before continuing",
+    )]),
+    preconditions: GroundedSet::known(&[GroundedItem::new(
+        Precondition::Network(NetworkState::Online),
+        Provenance::doc(GETTING, 76),
+    )]),
+    steps: GroundedSet::known(&[
+        operator_step(
+            "Check that the BlueOS header shows internet connectivity",
+            None,
             Provenance::doc(GETTING, 100),
+            None,
         ),
-        visibility: Grounded::known(Visibility::Default, Provenance::doc(GETTING, 74)),
-        services: helper_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            CapabilityId::CheckInternetConnectivity,
-            "setup flows confirm probe websites are reachable before continuing",
-        )]),
-        preconditions: GroundedSet::known(vec![GroundedItem::new(
-            Precondition::Network(NetworkState::Online),
-            Provenance::doc(GETTING, 76),
-        )]),
-        steps: GroundedSet::known(vec![
-            operator_step(
-                "Check that the BlueOS header shows internet connectivity",
-                None,
-                Provenance::doc(GETTING, 100),
-                None,
-            ),
-            operator_step(
-                "Run the internet connectivity check used by the setup wizard",
-                Some(sourced_route(
-                    HttpMethod::Get,
-                    "/check_internet_access",
-                    Some("v1.0"),
-                    540,
-                )),
-                Provenance::source(REQUIRE_INTERNET, 94),
-                Some(runtime_outcome(
-                    200,
-                    Some("\"online\": true".into()),
-                    "#running_baseline",
-                )),
-            ),
-        ]),
-        chains_from: None,
-    }
-}
-
-fn browse_available_web_services() -> UserJourney {
-    UserJourney {
-        id: JourneyId::BrowseAvailableWebServices,
-        summary: Grounded::known(
-            "Browse HTTP services running on BlueOS with ports, names, and API documentation links"
-                .into(),
-            Provenance::doc(ADV, 360),
+        operator_step(
+            "Run the internet connectivity check used by the setup wizard",
+            Some(sourced_route(
+                HttpMethod::Get,
+                "/check_internet_access",
+                Some("v1.0"),
+                540,
+            )),
+            Provenance::source(REQUIRE_INTERNET, 94),
+            Some(runtime_outcome(
+                200,
+                Some("\"online\": true"),
+                "runtime-captures/helper__pi4_navigator_master.json#running_baseline",
+            )),
         ),
-        visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 357)),
-        services: helper_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            CapabilityId::DiscoverWebServices,
-            "Available Services page lists scanned HTTP servers and swagger endpoints",
-        )]),
-        preconditions: GroundedSet::known(vec![]),
-        steps: GroundedSet::known(vec![
-            operator_step(
-                "Open the Available Services page from the sidebar",
-                None,
-                Provenance::source(HELPER_MENUS, 17),
-                None,
-            ),
-            operator_step(
-                "View scanned services with port, name, webpage, API documentation, and versions",
-                Some(sourced_route(
-                    HttpMethod::Get,
-                    "/web_services",
-                    Some("v1.0"),
-                    529,
-                )),
-                Provenance::doc(ADV, 363),
-                Some(runtime_outcome(
-                    200,
-                    Some("\"valid\": true".into()),
-                    "#running_baseline",
-                )),
-            ),
-        ]),
-        chains_from: None,
-    }
-}
+    ]),
+    chains_from: None,
+};
 
-fn probe_interface_internet_connectivity() -> UserJourney {
-    UserJourney {
-        id: JourneyId::ProbeInterfaceInternetConnectivity,
-        summary: Grounded::known(
-            "Display internet availability on each network interface while configuring priority"
-                .into(),
-            Provenance::doc(ADV, 147),
+const BROWSE_AVAILABLE_WEB_SERVICES: UserJourney = UserJourney {
+    id: JourneyId::BrowseAvailableWebServices,
+    summary: Grounded::known(
+        "Browse HTTP services running on BlueOS with ports, names, and API documentation links",
+        Provenance::doc(ADV, 360),
+    ),
+    visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 357)),
+    services: HELPER_SERVICES,
+    capability_refs: GroundedSet::known(&[cap(
+        CapabilityId::DiscoverWebServices,
+        "Available Services page lists scanned HTTP servers and swagger endpoints",
+    )]),
+    preconditions: GroundedSet::known(&[]),
+    steps: GroundedSet::known(&[
+        operator_step(
+            "Open the Available Services page from the sidebar",
+            None,
+            Provenance::source(HELPER_MENUS, 17),
+            None,
         ),
-        visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 144)),
-        services: helper_services(),
-        capability_refs: GroundedSet::known(vec![cap(
-            CapabilityId::ProbeInterfaceConnectivity,
-            "network priority menu pings a reachable host through each interface",
-        )]),
-        preconditions: GroundedSet::known(vec![GroundedItem::new(
-            Precondition::Other(
-                "Pirate mode enabled to access network interface management".into(),
-            ),
-            Provenance::doc(ADV, 144),
-        )]),
-        steps: GroundedSet::known(vec![
-            operator_step(
-                "Open the network interface priority menu from the internet tray",
-                None,
-                Provenance::doc(ADV, 145),
-                None,
-            ),
-            operator_step(
-                "View per-interface internet availability while reordering interfaces",
-                Some(sourced_route(HttpMethod::Get, "/ping", Some("v1.0"), 583)),
-                Provenance::source(NETWORK_PRIORITY, 120),
-                Some(runtime_outcome(
-                    200,
-                    Some("true".into()),
-                    "#running_baseline",
-                )),
-            ),
-        ]),
-        chains_from: None,
-    }
-}
+        operator_step(
+            "View scanned services with port, name, webpage, API documentation, and versions",
+            Some(sourced_route(
+                HttpMethod::Get,
+                "/web_services",
+                Some("v1.0"),
+                529,
+            )),
+            Provenance::doc(ADV, 363),
+            Some(runtime_outcome(
+                200,
+                Some("\"valid\": true"),
+                "runtime-captures/helper__pi4_navigator_master.json#running_baseline",
+            )),
+        ),
+    ]),
+    chains_from: None,
+};
 
-fn cap(id: CapabilityId, rationale: &str) -> GroundedItem<CapabilityId> {
+const PROBE_INTERFACE_INTERNET_CONNECTIVITY: UserJourney = UserJourney {
+    id: JourneyId::ProbeInterfaceInternetConnectivity,
+    summary: Grounded::known(
+        "Display internet availability on each network interface while configuring priority",
+        Provenance::doc(ADV, 147),
+    ),
+    visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 144)),
+    services: HELPER_SERVICES,
+    capability_refs: GroundedSet::known(&[cap(
+        CapabilityId::ProbeInterfaceConnectivity,
+        "network priority menu pings a reachable host through each interface",
+    )]),
+    preconditions: GroundedSet::known(&[GroundedItem::new(
+        Precondition::Other("Pirate mode enabled to access network interface management"),
+        Provenance::doc(ADV, 144),
+    )]),
+    steps: GroundedSet::known(&[
+        operator_step(
+            "Open the network interface priority menu from the internet tray",
+            None,
+            Provenance::doc(ADV, 145),
+            None,
+        ),
+        operator_step(
+            "View per-interface internet availability while reordering interfaces",
+            Some(sourced_route(HttpMethod::Get, "/ping", Some("v1.0"), 583)),
+            Provenance::source(NETWORK_PRIORITY, 120),
+            Some(runtime_outcome(
+                200,
+                Some("true"),
+                "runtime-captures/helper__pi4_navigator_master.json#running_baseline",
+            )),
+        ),
+    ]),
+    chains_from: None,
+};
+
+const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<CapabilityId> {
     GroundedItem::new(id, Provenance::asserted(rationale))
 }
 
-fn helper_services() -> GroundedSet<ServiceId> {
-    GroundedSet::known(vec![GroundedItem::new(
-        ServiceId::Helper,
-        Provenance::doc(DEV_CORE, 76),
-    )])
-}
+const HELPER_SERVICES: GroundedSet<ServiceId> = GroundedSet::known(&[GroundedItem::new(
+    ServiceId::Helper,
+    Provenance::doc(DEV_CORE, 76),
+)]);
 
-fn route(method: HttpMethod, path: &str, version: Option<&str>) -> RouteRef {
+const fn route(method: HttpMethod, path: &'static str, version: Option<&'static str>) -> RouteRef {
     RouteRef {
         service: ServiceId::Helper,
         method,
-        path: path.into(),
-        version: version.map(str::to_string),
+        path,
+        version,
     }
 }
 
-fn sourced_route(
+const fn sourced_route(
     method: HttpMethod,
-    path: &str,
-    version: Option<&str>,
+    path: &'static str,
+    version: Option<&'static str>,
     line: u32,
 ) -> Grounded<RouteRef> {
     Grounded::known(
@@ -220,8 +209,8 @@ fn sourced_route(
     )
 }
 
-fn operator_step(
-    description: &str,
+const fn operator_step(
+    description: &'static str,
     route: Option<Grounded<RouteRef>>,
     provenance: Provenance,
     outcome: Option<Grounded<StepOutcome>>,
@@ -229,7 +218,7 @@ fn operator_step(
     GroundedItem::new(
         JourneyStep {
             actor: Actor::Operator,
-            description: description.into(),
+            description,
             route,
             outcome,
         },
@@ -237,8 +226,8 @@ fn operator_step(
     )
 }
 
-fn service_step(
-    description: &str,
+const fn service_step(
+    description: &'static str,
     route: Option<Grounded<RouteRef>>,
     provenance: Provenance,
     outcome: Option<Grounded<StepOutcome>>,
@@ -246,7 +235,7 @@ fn service_step(
     GroundedItem::new(
         JourneyStep {
             actor: Actor::Service(ServiceId::Helper),
-            description: description.into(),
+            description,
             route,
             outcome,
         },
@@ -254,13 +243,17 @@ fn service_step(
     )
 }
 
-fn runtime_outcome(status: u16, body: Option<String>, key: &str) -> Grounded<StepOutcome> {
+const fn runtime_outcome(
+    status: u16,
+    body: Option<&'static str>,
+    key: &'static str,
+) -> Grounded<StepOutcome> {
     Grounded::known(
         StepOutcome {
             expected_status: Some(status),
             body_predicate: body,
             transition: None,
         },
-        Provenance::runtime(format!("{RUNTIME_CAPTURE}{key}"), RUNTIME_ENV),
+        Provenance::runtime(key, RUNTIME_ENV),
     )
 }

@@ -8,28 +8,26 @@ const TERMINAL_MENUS: &str = "core/frontend/src/menus.ts";
 const TERMINAL_VIEW: &str = "core/frontend/src/views/TerminalView.vue";
 const NGINX: &str = "core/tools/nginx/nginx.conf";
 
-pub fn journeys() -> Vec<UserJourney> {
-    vec![access_web_terminal()]
-}
+pub const JOURNEYS: &[UserJourney] = &[ACCESS_WEB_TERMINAL];
 
-fn access_web_terminal() -> UserJourney {
+const ACCESS_WEB_TERMINAL: UserJourney =
     UserJourney {
         id: JourneyId::AccessWebTerminal,
         summary: Grounded::known(
             "Access a web-based terminal with tmux session and direct access into the core BlueOS docker container"
-                .into(),
+                ,
             Provenance::doc(ADV, 623),
         ),
         visibility: Grounded::known(Visibility::Advanced, Provenance::source(TERMINAL_MENUS, 117)),
-        services: ttyd_services(),
-        capability_refs: GroundedSet::known(vec![cap(CapabilityId::AccessWebTerminal,
+        services: TTYD_SERVICES,
+        capability_refs: GroundedSet::known(&[cap(CapabilityId::AccessWebTerminal,
             "Terminal page embeds ttyd web terminal over WebSocket at /terminal/ attached to user_terminal tmux",
         )]),
-        preconditions: GroundedSet::known(vec![GroundedItem::new(
-            Precondition::Other("Advanced mode enabled to access the Terminal page".into()),
+        preconditions: GroundedSet::known(&[GroundedItem::new(
+            Precondition::Other("Advanced mode enabled to access the Terminal page"),
             Provenance::source(TERMINAL_MENUS, 117),
         )]),
-        steps: GroundedSet::known(vec![
+        steps: GroundedSet::known(&[
             operator_step(
                 "Open the Terminal page from the sidebar",
                 None,
@@ -58,26 +56,23 @@ fn access_web_terminal() -> UserJourney {
             ),
         ]),
         chains_from: None,
-    }
-}
+    };
 
-fn cap(id: CapabilityId, rationale: &str) -> GroundedItem<CapabilityId> {
+const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<CapabilityId> {
     GroundedItem::new(id, Provenance::asserted(rationale))
 }
 
-fn ttyd_services() -> GroundedSet<ServiceId> {
-    GroundedSet::known(vec![GroundedItem::new(
-        ServiceId::Ttyd,
-        Provenance::doc(ADV, 620),
-    )])
-}
+const TTYD_SERVICES: GroundedSet<ServiceId> = GroundedSet::known(&[GroundedItem::new(
+    ServiceId::Ttyd,
+    Provenance::doc(ADV, 620),
+)]);
 
-fn live_outcome(reason: &str) -> Grounded<StepOutcome> {
+const fn live_outcome(reason: &'static str) -> Grounded<StepOutcome> {
     Grounded::unknown(reason)
 }
 
-fn operator_step(
-    description: &str,
+const fn operator_step(
+    description: &'static str,
     route: Option<Grounded<crate::journey::RouteRef>>,
     provenance: Provenance,
     outcome: Option<Grounded<StepOutcome>>,
@@ -85,7 +80,7 @@ fn operator_step(
     GroundedItem::new(
         JourneyStep {
             actor: Actor::Operator,
-            description: description.into(),
+            description,
             route,
             outcome,
         },

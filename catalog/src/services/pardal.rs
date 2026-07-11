@@ -12,17 +12,16 @@ use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts
 use crate::service::ServiceDefinition;
 use crate::trust::{PrivilegeLevel, UserConfirmation};
 
-const RUNTIME_CAPTURE: &str = "runtime-captures/pardal__pi4_navigator_master.json";
 const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
 
-pub fn runtime_facts() -> RuntimeFacts {
+pub const RUNTIME_FACTS: RuntimeFacts =
     RuntimeFacts {
         service: ServiceId::Pardal,
         state_contracts: GroundedSet::unknown(
             "pardal has no service-level state machine (service_definition states: Unknown); \
              SPEED_TEST global and request handlers are ephemeral test state",
         ),
-        slo_baselines: GroundedSet::known(vec![
+        slo_baselines: GroundedSet::known(&[
             runtime_slo(HttpMethod::Get, "/", 2.6, 5.6, 7.8, 40),
             runtime_slo(
                 HttpMethod::Get,
@@ -41,7 +40,7 @@ pub fn runtime_facts() -> RuntimeFacts {
                 10,
             ),
         ]),
-        resource_usage: GroundedSet::known(vec![runtime_resource(
+        resource_usage: GroundedSet::known(&[runtime_resource(
             "running_baseline",
             Distribution {
                 mean: 0.02,
@@ -54,40 +53,39 @@ pub fn runtime_facts() -> RuntimeFacts {
             flat_rss(38.8),
             60,
         )]),
-        platform_matrix: GroundedSet::known(vec![GroundedItem::new(
+        platform_matrix: GroundedSet::known(&[GroundedItem::new(
             PlatformBehavior {
-                platform: "navigator".into(),
+                platform: "navigator",
                 firmware: None,
-                notes: vec![
-                    "pardal behavior is platform-independent (local random-byte streaming and optional speedtest-cli WAN probes)".into(),
-                    "runtime captured on Navigator only; RSS ~38.8 MB flat, CPU ~0.02% mean idle".into(),
-                    "active LAN/WAN speed tests (not fully captured) add link saturation and speedtest-cli load".into(),
+                notes: &[
+                    "pardal behavior is platform-independent (local random-byte streaming and optional speedtest-cli WAN probes)",
+                    "runtime captured on Navigator only; RSS ~38.8 MB flat, CPU ~0.02% mean idle",
+                    "active LAN/WAN speed tests (not fully captured) add link saturation and speedtest-cli load",
                 ],
             },
-            runtime_prov("#platform_matrix"),
+            runtime_prov("runtime-captures/pardal__pi4_navigator_master.json#platform_matrix"),
         )]),
         settings_mutations: GroundedSet::unknown(
             "pardal has no settings manager or settings.json persistence",
         ),
-    }
+    };
+
+const fn runtime_prov(key: &'static str) -> Provenance {
+    Provenance::runtime(key, RUNTIME_ENV)
 }
 
-fn runtime_prov(key: &str) -> Provenance {
-    Provenance::runtime(format!("{RUNTIME_CAPTURE}{key}"), RUNTIME_ENV)
-}
-
-fn runtime_route(method: HttpMethod, path: &str) -> RouteRef {
+const fn runtime_route(method: HttpMethod, path: &'static str) -> RouteRef {
     RouteRef {
         service: ServiceId::Pardal,
         method,
-        path: path.into(),
+        path,
         version: None,
     }
 }
 
-fn runtime_slo(
+const fn runtime_slo(
     method: HttpMethod,
-    path: &str,
+    path: &'static str,
     p50: f64,
     p95: f64,
     p99: f64,
@@ -101,11 +99,11 @@ fn runtime_slo(
             latency_p99_ms: p99,
             sample_size,
         },
-        runtime_prov("#slo_running_baseline"),
+        runtime_prov("runtime-captures/pardal__pi4_navigator_master.json#slo_running_baseline"),
     )
 }
 
-fn flat_rss(mb: f64) -> Distribution {
+const fn flat_rss(mb: f64) -> Distribution {
     Distribution {
         mean: mb,
         median: mb,
@@ -116,205 +114,199 @@ fn flat_rss(mb: f64) -> Distribution {
     }
 }
 
-fn runtime_resource(
-    condition: &str,
+const fn runtime_resource(
+    condition: &'static str,
     cpu_pct: Distribution,
     rss_mb: Distribution,
     samples: u32,
 ) -> GroundedItem<ResourceUsage> {
     GroundedItem::new(
         ResourceUsage {
-            condition: condition.into(),
+            condition,
             cpu_pct,
             rss_mb,
             samples,
         },
-        runtime_prov("#resource_usage"),
+        runtime_prov("runtime-captures/pardal__pi4_navigator_master.json#resource_usage"),
     )
 }
 
-pub fn observed_facts() -> ObservedFacts {
-    ObservedFacts {
-        id: ServiceId::Pardal,
-        aliases: ObservedSet::known(vec![Evidenced::new(
-            "pardal".to_string(),
-            Evidence {
-                file: "core/services/pardal/main.py".to_string(),
-                line: 16,
+pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
+    id: ServiceId::Pardal,
+    aliases: ObservedSet::known(&[Evidenced::new(
+        "pardal",
+        Evidence {
+            file: "core/services/pardal/main.py",
+            line: 16,
+        },
+    )]),
+    kind: Observed::known(
+        ServiceKind::PythonService,
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 139,
+        },
+    ),
+    entrypoint: Observed::known(
+        "nice -19 $SERVICES_PATH/pardal/main.py",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 139,
+        },
+    ),
+    tmux_name: Observed::known(
+        "pardal",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 139,
+        },
+    ),
+    startup_tier: Observed::known(
+        StartupTier::Normal,
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 124,
+        },
+    ),
+    resource_limits: Observed::known(
+        ResourceLimits {
+            memory_mb: Some(250),
+            cpu_percent: Some(0),
+            io_weight: None,
+        },
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 139,
+        },
+    ),
+    nice: Observed::known(
+        -19,
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 139,
+        },
+    ),
+    run_as: Observed::known(
+        "root",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 139,
+        },
+    ),
+    nginx_prefixes: ObservedSet::known(&[Evidenced::new(
+        PathRef("/network-test/"),
+        Evidence {
+            file: "core/tools/nginx/nginx.conf",
+            line: 197,
+        },
+    )]),
+    listen: ObservedSet::known(&[Evidenced::new(
+        PortRef::Literal(9120),
+        Evidence {
+            file: "core/services/pardal/main.py",
+            line: 20,
+        },
+    )]),
+    git_path: Observed::known(
+        PathRef("core/services/pardal"),
+        Evidence {
+            file: "core/services/pardal/main.py",
+            line: 1,
+        },
+    ),
+    interfaces: ObservedSet::known(&[
+        Evidenced::new(
+            Interface::Rest {
+                path_prefix: PathRef("/network-test/"),
+                port: PortRef::Literal(9120),
+                versions: &[],
             },
-        )]),
-        kind: Observed::known(
-            ServiceKind::PythonService,
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 139,
+                file: "core/services/pardal/main.py",
+                line: 155,
             },
         ),
-        entrypoint: Observed::known(
-            "nice -19 $SERVICES_PATH/pardal/main.py".to_string(),
+        Evidenced::new(
+            Interface::Websocket {
+                path: PathRef("/ws"),
+                port: PortRef::Literal(9120),
+            },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 139,
+                file: "core/services/pardal/main.py",
+                line: 147,
             },
         ),
-        tmux_name: Observed::known(
-            "pardal".to_string(),
-            Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 139,
-            },
-        ),
-        startup_tier: Observed::known(
-            StartupTier::Normal,
-            Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 124,
-            },
-        ),
-        resource_limits: Observed::known(
-            ResourceLimits {
-                memory_mb: Some(250),
-                cpu_percent: Some(0),
-                io_weight: None,
+        Evidenced::new(
+            Interface::Zenoh {
+                topics_produced: &["services/pardal/log"],
+                topics_consumed: &[],
             },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 139,
-            },
-        ),
-        nice: Observed::known(
-            -19,
-            Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 139,
-            },
-        ),
-        run_as: Observed::known(
-            "root".to_string(),
-            Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 139,
-            },
-        ),
-        nginx_prefixes: ObservedSet::known(vec![Evidenced::new(
-            PathRef("/network-test/".to_string()),
-            Evidence {
-                file: "core/tools/nginx/nginx.conf".to_string(),
-                line: 197,
-            },
-        )]),
-        listen: ObservedSet::known(vec![Evidenced::new(
-            PortRef::Literal(9120),
-            Evidence {
-                file: "core/services/pardal/main.py".to_string(),
-                line: 20,
-            },
-        )]),
-        git_path: Observed::known(
-            PathRef("core/services/pardal".to_string()),
-            Evidence {
-                file: "core/services/pardal/main.py".to_string(),
-                line: 1,
-            },
-        ),
-        interfaces: ObservedSet::known(vec![
-            Evidenced::new(
-                Interface::Rest {
-                    path_prefix: PathRef("/network-test/".to_string()),
-                    port: PortRef::Literal(9120),
-                    versions: vec![],
-                },
-                Evidence {
-                    file: "core/services/pardal/main.py".to_string(),
-                    line: 155,
-                },
-            ),
-            Evidenced::new(
-                Interface::Websocket {
-                    path: PathRef("/ws".to_string()),
-                    port: PortRef::Literal(9120),
-                },
-                Evidence {
-                    file: "core/services/pardal/main.py".to_string(),
-                    line: 147,
-                },
-            ),
-            Evidenced::new(
-                Interface::Zenoh {
-                    topics_produced: vec!["services/pardal/log".to_string()],
-                    topics_consumed: vec![],
-                },
-                Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/utils/logs.py".to_string(),
-                    line: 78,
-                },
-            ),
-        ]),
-        resources: ObservedSet::unknown(
-            "no settings paths or persistent file writes in pardal source",
-        ),
-        lifecycle: Observed::known(
-            ObservedLifecycle {
-                triggers: vec!["start-blueos-core create_service".to_string()],
-                ordered_after: vec![
-                    ServiceId::ArdupilotManager,
-                    ServiceId::CableGuy,
-                    ServiceId::MavlinkCameraManager,
-                    ServiceId::Mavlink2rest,
-                    ServiceId::Kraken,
-                    ServiceId::Wifi,
-                    ServiceId::Zenohd,
-                    ServiceId::Beacon,
-                    ServiceId::Bridget,
-                    ServiceId::Commander,
-                    ServiceId::NmeaInjector,
-                    ServiceId::Helper,
-                    ServiceId::Iperf3,
-                    ServiceId::Linux2rest,
-                    ServiceId::Filebrowser,
-                    ServiceId::Versionchooser,
-                ],
-                ordered_before: vec![
-                    ServiceId::Ping,
-                    ServiceId::UserTerminal,
-                    ServiceId::Ttyd,
-                    ServiceId::Nginx,
-                    ServiceId::BagOfHolding,
-                    ServiceId::Recorder,
-                    ServiceId::RecorderExtractor,
-                    ServiceId::DiskUsage,
-                    ServiceId::Customization,
-                ],
-            },
-            Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 326,
-            },
-        ),
-        logs_path: Observed::unknown(
-            "init_logger publishes to zenoh only; no on-disk log path set in pardal source",
-        ),
-        zenoh_log_topic: Observed::known(
-            "services/pardal/log".to_string(),
-            Evidence {
-                file: "core/libs/commonwealth/src/commonwealth/utils/logs.py".to_string(),
+                file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                 line: 78,
             },
         ),
-        sentry: Observed::known(
-            true,
-            Evidence {
-                file: "core/services/pardal/main.py".to_string(),
-                line: 142,
-            },
-        ),
-        openapi_refs: ObservedSet::unknown(
-            "aiohttp service; no OpenAPI or VersionedFastAPI in source",
-        ),
-    }
-}
+    ]),
+    resources: ObservedSet::unknown("no settings paths or persistent file writes in pardal source"),
+    lifecycle: Observed::known(
+        ObservedLifecycle {
+            triggers: &["start-blueos-core create_service"],
+            ordered_after: &[
+                ServiceId::ArdupilotManager,
+                ServiceId::CableGuy,
+                ServiceId::MavlinkCameraManager,
+                ServiceId::Mavlink2rest,
+                ServiceId::Kraken,
+                ServiceId::Wifi,
+                ServiceId::Zenohd,
+                ServiceId::Beacon,
+                ServiceId::Bridget,
+                ServiceId::Commander,
+                ServiceId::NmeaInjector,
+                ServiceId::Helper,
+                ServiceId::Iperf3,
+                ServiceId::Linux2rest,
+                ServiceId::Filebrowser,
+                ServiceId::Versionchooser,
+            ],
+            ordered_before: &[
+                ServiceId::Ping,
+                ServiceId::UserTerminal,
+                ServiceId::Ttyd,
+                ServiceId::Nginx,
+                ServiceId::BagOfHolding,
+                ServiceId::Recorder,
+                ServiceId::RecorderExtractor,
+                ServiceId::DiskUsage,
+                ServiceId::Customization,
+            ],
+        },
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 326,
+        },
+    ),
+    logs_path: Observed::unknown(
+        "init_logger publishes to zenoh only; no on-disk log path set in pardal source",
+    ),
+    zenoh_log_topic: Observed::known(
+        "services/pardal/log",
+        Evidence {
+            file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
+            line: 78,
+        },
+    ),
+    sentry: Observed::known(
+        true,
+        Evidence {
+            file: "core/services/pardal/main.py",
+            line: 142,
+        },
+    ),
+    openapi_refs: ObservedSet::unknown("aiohttp service; no OpenAPI or VersionedFastAPI in source"),
+};
 
-pub fn service_definition() -> ServiceDefinition {
+pub const SERVICE_DEFINITION: ServiceDefinition =
     ServiceDefinition {
         id: ServiceId::Pardal,
         singleton: Asserted::established(
@@ -322,10 +314,10 @@ pub fn service_definition() -> ServiceDefinition {
             "single SERVICES-tier tmux instance; one pardal aiohttp process",
         ),
         bounded_context: Asserted::established(
-            "network-performance-diagnostics".to_string(),
+            "network-performance-diagnostics",
             "provisional 2.0 domain: LAN throughput/latency probes and WAN speedtest-cli benchmarks",
         ),
-        journey_refs: AssertedSet::established(vec![
+        journey_refs: AssertedSet::established(&[
             Rationaled::new(
                 JourneyId::RunLanSpeedTest,
                 "Network Test Local tab streams /get_file and /post_file while /ws echoes latency",
@@ -347,12 +339,12 @@ pub fn service_definition() -> ServiceDefinition {
             PrivilegeLevel::Root,
             "observed run_as root; measurement handlers only stream random bytes and discard uploads without host reconfiguration",
         ),
-        dangerous_operations: AssertedSet::established(vec![]),
+        dangerous_operations: AssertedSet::established(&[]),
         user_confirmation: Asserted::established(
             UserConfirmation::NotRequired,
             "no irreversible, untrusted-code, or vehicle-arm operations; transient test traffic is reversible side effect only",
         ),
-        capabilities: AssertedSet::established(vec![
+        capabilities: AssertedSet::established(&[
             Rationaled::new(
                 CapabilityId::RunLanSpeedTest,
                 "GET /get_file and POST /post_file transfer test payloads while /ws echoes latency samples",
@@ -362,21 +354,21 @@ pub fn service_definition() -> ServiceDefinition {
                 "GET /internet_best_server, /internet_download_speed, and /internet_upload_speed run speedtest-cli WAN benchmarks",
             ),
         ]),
-        authorities: AssertedSet::established(vec![]),
+        authorities: AssertedSet::established(&[]),
         states: AssertedSet::unknown(
             "no cataloged state machine; SPEED_TEST global and request handlers are ephemeral test state",
         ),
-        edges: AssertedSet::established(vec![]),
+        edges: AssertedSet::established(&[]),
         resources: AssertedSet::unknown(
             "no settings paths or persistent file writes in pardal source",
         ),
         lifecycle: Lifecycle {
             triggers: Asserted::established(
-                vec!["start-blueos-core create_service".to_string()],
+                &["start-blueos-core create_service"],
                 "observed lifecycle trigger: tmux creation at boot in SERVICES tier",
             ),
             ordered_after: Asserted::established(
-                vec![
+                &[
                     ServiceId::ArdupilotManager,
                     ServiceId::CableGuy,
                     ServiceId::MavlinkCameraManager,
@@ -397,7 +389,7 @@ pub fn service_definition() -> ServiceDefinition {
                 "observed ordered_after in start-blueos-core SERVICES block",
             ),
             ordered_before: Asserted::established(
-                vec![
+                &[
                     ServiceId::Ping,
                     ServiceId::UserTerminal,
                     ServiceId::Ttyd,
@@ -418,7 +410,7 @@ pub fn service_definition() -> ServiceDefinition {
             ),
         },
         health: Asserted::established(
-            "implicit: process liveness via tmux; REST GET / returns minimal HTML page".to_string(),
+            "implicit: process liveness via tmux; REST GET / returns minimal HTML page",
             "no dedicated /health route; aiohttp server availability serves as health signal",
         ),
         is_platform: Asserted::established(
@@ -430,30 +422,30 @@ pub fn service_definition() -> ServiceDefinition {
             "unversioned aiohttp routes under /network-test/; no VersionedFastAPI or OpenAPI in source",
         ),
         permissions_model: Asserted::established(
-            "no separate permissions manifest; REST and WebSocket routes are unauthenticated".to_string(),
+            "no separate permissions manifest; REST and WebSocket routes are unauthenticated",
             "pardal routes have no auth decorator or extension-style permissions JSON",
         ),
-        failure_modes: AssertedSet::established(vec![
+        failure_modes: AssertedSet::established(&[
             Rationaled::new(
-                "speedtest_not_initialized".to_string(),
+                "speedtest_not_initialized",
                 "/internet_download_speed and /internet_upload_speed raise when SPEED_TEST global was never set by /internet_best_server",
             ),
             Rationaled::new(
-                "speedtest_cli_unavailable_offline".to_string(),
+                "speedtest_cli_unavailable_offline",
                 "internet_best_server fails when vehicle has no WAN; startup may leave SPEED_TEST None until first successful server search",
             ),
             Rationaled::new(
-                "websocket_echo_disconnect".to_string(),
+                "websocket_echo_disconnect",
                 "LAN latency measurement stops when the /ws echo session closes mid-test",
             ),
             Rationaled::new(
-                "large_transfer_resource_pressure".to_string(),
+                "large_transfer_resource_pressure",
                 "client_max_size 2 GiB and default 100 MiB /get_file streams can spike CPU and link utilization during active tests",
             ),
         ]),
         blast_radius: Asserted::established(
             "network test UI unavailable; active tests can transiently saturate LAN bandwidth and degrade live video or telemetry until the run finishes"
-                .to_string(),
+                ,
             "pardal outage blocks diagnostics only; concurrent large transfers may momentarily contend with operator links but do not mutate vehicle configuration",
         ),
         compatibility_policy: Asserted::unknown(
@@ -461,5 +453,4 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         team: Asserted::unknown("no CODEOWNERS or team metadata in observed artifact"),
         adr_refs: AssertedSet::unknown("no ADR references found in service source tree"),
-    }
-}
+    };

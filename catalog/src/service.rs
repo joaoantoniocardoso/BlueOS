@@ -1,5 +1,5 @@
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::criticality::CriticalityTier;
 use crate::edge::Edge;
@@ -10,11 +10,11 @@ use crate::resource::Resource;
 use crate::state::StateMachine;
 use crate::trust::{DangerousOperation, PrivilegeLevel, UserConfirmation};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct ServiceDefinition {
     pub id: ServiceId,
     pub singleton: Asserted<bool>,
-    pub bounded_context: Asserted<String>,
+    pub bounded_context: Asserted<&'static str>,
     pub journey_refs: AssertedSet<JourneyId>,
     pub tier: Asserted<CriticalityTier>,
     pub offline_required: Asserted<bool>,
@@ -27,18 +27,18 @@ pub struct ServiceDefinition {
     pub edges: AssertedSet<Edge>,
     pub resources: AssertedSet<Resource>,
     pub lifecycle: Lifecycle,
-    pub health: Asserted<String>,
+    pub health: Asserted<&'static str>,
     pub is_platform: Asserted<bool>,
     pub api_stable: Asserted<bool>,
-    pub permissions_model: Asserted<String>,
-    pub failure_modes: AssertedSet<String>,
-    pub blast_radius: Asserted<String>,
-    pub compatibility_policy: Asserted<String>,
-    pub team: Asserted<String>,
-    pub adr_refs: AssertedSet<String>,
+    pub permissions_model: Asserted<&'static str>,
+    pub failure_modes: AssertedSet<&'static str>,
+    pub blast_radius: Asserted<&'static str>,
+    pub compatibility_policy: Asserted<&'static str>,
+    pub team: Asserted<&'static str>,
+    pub adr_refs: AssertedSet<&'static str>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Authority {
     MavlinkRouterOwner,
@@ -46,5 +46,5 @@ pub enum Authority {
     ZenohBroker,
     UserdataWriter(PathRef),
     HardwareExclusive(PathRef),
-    Other(String),
+    Other(&'static str),
 }

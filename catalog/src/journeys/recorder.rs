@@ -1,5 +1,3 @@
 use crate::journey::UserJourney;
 
-pub fn journeys() -> Vec<UserJourney> {
-    vec![]
-}
+pub const JOURNEYS: &[UserJourney] = &[];

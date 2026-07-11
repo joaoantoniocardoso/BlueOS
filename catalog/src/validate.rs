@@ -233,7 +233,7 @@ fn check_journey_references(catalog: &Catalog) -> Vec<ValidationError> {
         }
 
         if let GroundedSet::Known { items } = &journey.services {
-            for item in items {
+            for item in items.iter() {
                 if !known_service_ids.contains(&item.value) {
                     errors.push(ValidationError::UnknownJourneyService {
                         journey: journey_id.clone(),
@@ -244,7 +244,7 @@ fn check_journey_references(catalog: &Catalog) -> Vec<ValidationError> {
         }
 
         if let GroundedSet::Known { items } = &journey.capability_refs {
-            for item in items {
+            for item in items.iter() {
                 if !capability_in_participating_services(
                     &item.value,
                     &participating,
@@ -259,7 +259,7 @@ fn check_journey_references(catalog: &Catalog) -> Vec<ValidationError> {
         }
 
         if let GroundedSet::Known { items } = &journey.steps {
-            for item in items {
+            for item in items.iter() {
                 if let Some(crate::provenance::Grounded::Known { value: route, .. }) =
                     &item.value.route
                 {
@@ -276,15 +276,15 @@ fn check_journey_references(catalog: &Catalog) -> Vec<ValidationError> {
                     if let Some(transition) = &outcome.transition {
                         for state in [&transition.from, &transition.to] {
                             if !state_in_participating_services(
-                                &transition.machine,
+                                transition.machine,
                                 state,
                                 &participating,
                                 &service_index,
                             ) {
                                 errors.push(ValidationError::UnknownJourneyState {
                                     journey: journey_id.clone(),
-                                    machine: transition.machine.clone(),
-                                    state: state.clone(),
+                                    machine: transition.machine.to_string(),
+                                    state: state.to_string(),
                                 });
                             }
                         }
@@ -348,7 +348,7 @@ fn state_in_machines(
 ) -> bool {
     machines
         .iter()
-        .any(|item| item.value.name == machine && item.value.states.iter().any(|s| s == state))
+        .any(|item| item.value.name == machine && item.value.states.contains(&state))
 }
 
 fn check_runtime_references(catalog: &Catalog, errors: &mut Vec<ValidationError>) {
@@ -365,18 +365,18 @@ fn check_runtime_references(catalog: &Catalog, errors: &mut Vec<ValidationError>
         }
 
         if let GroundedSet::Known { items } = &facts.state_contracts {
-            for item in items {
+            for item in items.iter() {
                 let contract = &item.value;
                 if !state_in_service(
                     &facts.service,
-                    &contract.machine,
-                    &contract.state,
+                    contract.machine,
+                    contract.state,
                     &service_index,
                 ) {
                     errors.push(ValidationError::UnknownRuntimeState {
                         service: service_id.clone(),
-                        machine: contract.machine.clone(),
-                        state: contract.state.clone(),
+                        machine: contract.machine.to_string(),
+                        state: contract.state.to_string(),
                     });
                 }
             }
@@ -421,7 +421,7 @@ fn check_page_references(catalog: &Catalog) -> Vec<ValidationError> {
         }
 
         if let ObservedSet::Known { items } = &page.consumes {
-            for item in items {
+            for item in items.iter() {
                 if let ConsumeTarget::Service(id) = &item.value.service {
                     if !known_service_ids.contains(id) {
                         errors.push(ValidationError::UnknownPageService {
@@ -434,7 +434,7 @@ fn check_page_references(catalog: &Catalog) -> Vec<ValidationError> {
         }
 
         if let AssertedSet::Established { items } = &page.frontend_features {
-            for item in items {
+            for item in items.iter() {
                 if item.value.as_str().is_empty() {
                     errors.push(ValidationError::EmptyPageFrontendFeature {
                         page: page_id.clone(),
@@ -516,9 +516,9 @@ mod tests {
     use crate::runtime::{RuntimeFacts, StateContract};
     use crate::state::StateMachine;
 
-    fn evidence() -> Evidence {
+    const fn evidence() -> Evidence {
         Evidence {
-            file: "test.rs".to_string(),
+            file: "test.rs",
             line: 1,
         }
     }
@@ -605,32 +605,48 @@ mod tests {
     #[test]
     fn duplicate_exclusive_port_fails() {
         let mut service_a = empty_service(ServiceId::Ping);
-        service_a.resources = AssertedSet::established(vec![Rationaled::new(
-            Resource {
-                path: PathRef("/dev/ttyUSB0".to_string()),
-                ownership: ResourceOwnership::Exclusive,
+        service_a.resources = AssertedSet::established(
+            const {
+                &[Rationaled::new(
+                    Resource {
+                        path: PathRef("/dev/ttyUSB0"),
+                        ownership: ResourceOwnership::Exclusive,
+                    },
+                    "test",
+                )]
             },
-            "test",
-        )]);
+        );
         let mut service_b = empty_service(ServiceId::Beacon);
-        service_b.resources = AssertedSet::established(vec![Rationaled::new(
-            Resource {
-                path: PathRef("/dev/ttyUSB0".to_string()),
-                ownership: ResourceOwnership::Exclusive,
+        service_b.resources = AssertedSet::established(
+            const {
+                &[Rationaled::new(
+                    Resource {
+                        path: PathRef("/dev/ttyUSB0"),
+                        ownership: ResourceOwnership::Exclusive,
+                    },
+                    "test",
+                )]
             },
-            "test",
-        )]);
+        );
 
         let mut observed_a = empty_observed(ServiceId::Ping);
-        observed_a.listen = ObservedSet::known(vec![Evidenced::new(
-            crate::id::PortRef::Literal(8000),
-            evidence(),
-        )]);
+        observed_a.listen = ObservedSet::known(
+            const {
+                &[Evidenced::new(
+                    crate::id::PortRef::Literal(8000),
+                    evidence(),
+                )]
+            },
+        );
         let mut observed_b = empty_observed(ServiceId::Beacon);
-        observed_b.listen = ObservedSet::known(vec![Evidenced::new(
-            crate::id::PortRef::Literal(8000),
-            evidence(),
-        )]);
+        observed_b.listen = ObservedSet::known(
+            const {
+                &[Evidenced::new(
+                    crate::id::PortRef::Literal(8000),
+                    evidence(),
+                )]
+            },
+        );
 
         let catalog = Catalog::with_parts(
             vec![service_a, service_b],
@@ -650,19 +666,23 @@ mod tests {
     #[test]
     fn unknown_edge_target_fails() {
         let mut service_a = empty_service(ServiceId::Ping);
-        service_a.edges = AssertedSet::established(vec![Rationaled::new(
-            Edge {
-                from: ServiceId::Ping,
-                to: ServiceId::Zenohd,
-                via: Bus::Rest,
-                sync: SyncMode::Sync,
-                endpoint: "/helper/".to_string(),
-                purpose: "call helper".to_string(),
-                required_at_boot: false,
-                failure_impact: FailureImpact::Degraded,
+        service_a.edges = AssertedSet::established(
+            const {
+                &[Rationaled::new(
+                    Edge {
+                        from: ServiceId::Ping,
+                        to: ServiceId::Zenohd,
+                        via: Bus::Rest,
+                        sync: SyncMode::Sync,
+                        endpoint: "/helper/",
+                        purpose: "call helper",
+                        required_at_boot: false,
+                        failure_impact: FailureImpact::Degraded,
+                    },
+                    "test",
+                )]
             },
-            "test",
-        )]);
+        );
 
         let catalog = Catalog::with_parts(
             vec![service_a],
@@ -682,64 +702,77 @@ mod tests {
     fn valid_journey_service(id: ServiceId) -> ServiceDefinition {
         let mut service = empty_service(id);
         service.capabilities =
-            AssertedSet::established(vec![Rationaled::new(CapabilityId::Deploy, "test")]);
-        service.states = AssertedSet::established(vec![Rationaled::new(
-            StateMachine {
-                name: "lifecycle".to_string(),
-                states: vec!["idle".to_string(), "running".to_string()],
-                boot_state: "idle".to_string(),
-                degraded_when: vec![],
+            AssertedSet::established(const { &[Rationaled::new(CapabilityId::Deploy, "test")] });
+        service.states = AssertedSet::established(
+            const {
+                &[Rationaled::new(
+                    StateMachine {
+                        name: "lifecycle",
+                        states: &["idle", "running"],
+                        boot_state: "idle",
+                        degraded_when: &[],
+                    },
+                    "test",
+                )]
             },
-            "test",
-        )]);
+        );
         service
     }
 
     fn valid_journey() -> UserJourney {
         UserJourney {
             id: JourneyId::Deploy,
-            summary: Grounded::known(
-                "deploy vehicle".to_string(),
-                Provenance::doc("docs/deploy.md", 1),
-            ),
+            summary: Grounded::known("deploy vehicle", Provenance::doc("docs/deploy.md", 1)),
             visibility: Grounded::known(Visibility::Default, Provenance::doc("docs/deploy.md", 2)),
-            services: GroundedSet::known(vec![GroundedItem::new(
-                ServiceId::Helper,
-                Provenance::doc("docs/deploy.md", 3),
-            )]),
-            capability_refs: GroundedSet::known(vec![GroundedItem::new(
-                CapabilityId::Deploy,
-                Provenance::doc("docs/deploy.md", 4),
-            )]),
-            preconditions: GroundedSet::unknown("not grounded"),
-            steps: GroundedSet::known(vec![GroundedItem::new(
-                JourneyStep {
-                    actor: Actor::Operator,
-                    description: "call deploy endpoint".to_string(),
-                    route: Some(Grounded::known(
-                        RouteRef {
-                            service: ServiceId::Helper,
-                            method: HttpMethod::Post,
-                            path: "/deploy".to_string(),
-                            version: Some("v1".to_string()),
-                        },
-                        Provenance::doc("docs/deploy.md", 5),
-                    )),
-                    outcome: Some(Grounded::known(
-                        StepOutcome {
-                            expected_status: Some(200),
-                            body_predicate: None,
-                            transition: Some(StateTransition {
-                                machine: "lifecycle".to_string(),
-                                from: "idle".to_string(),
-                                to: "running".to_string(),
-                            }),
-                        },
-                        Provenance::runtime("tests/baselines/helper.json", "lab"),
-                    )),
+            services: GroundedSet::known(
+                const {
+                    &[GroundedItem::new(
+                        ServiceId::Helper,
+                        Provenance::doc("docs/deploy.md", 3),
+                    )]
                 },
-                Provenance::source("helper/main.py", 10),
-            )]),
+            ),
+            capability_refs: GroundedSet::known(
+                const {
+                    &[GroundedItem::new(
+                        CapabilityId::Deploy,
+                        Provenance::doc("docs/deploy.md", 4),
+                    )]
+                },
+            ),
+            preconditions: GroundedSet::unknown("not grounded"),
+            steps: GroundedSet::known(
+                const {
+                    &[GroundedItem::new(
+                        JourneyStep {
+                            actor: Actor::Operator,
+                            description: "call deploy endpoint",
+                            route: Some(Grounded::known(
+                                RouteRef {
+                                    service: ServiceId::Helper,
+                                    method: HttpMethod::Post,
+                                    path: "/deploy",
+                                    version: Some("v1"),
+                                },
+                                Provenance::doc("docs/deploy.md", 5),
+                            )),
+                            outcome: Some(Grounded::known(
+                                StepOutcome {
+                                    expected_status: Some(200),
+                                    body_predicate: None,
+                                    transition: Some(StateTransition {
+                                        machine: "lifecycle",
+                                        from: "idle",
+                                        to: "running",
+                                    }),
+                                },
+                                Provenance::runtime("tests/baselines/helper.json", "lab"),
+                            )),
+                        },
+                        Provenance::source("helper/main.py", 10),
+                    )]
+                },
+            ),
             chains_from: None,
         }
     }
@@ -762,10 +795,14 @@ mod tests {
     fn unknown_journey_service_ref_fails() {
         let service = valid_journey_service(ServiceId::Helper);
         let journey = UserJourney {
-            services: GroundedSet::known(vec![GroundedItem::new(
-                ServiceId::Zenohd,
-                Provenance::doc("docs/deploy.md", 1),
-            )]),
+            services: GroundedSet::known(
+                const {
+                    &[GroundedItem::new(
+                        ServiceId::Zenohd,
+                        Provenance::doc("docs/deploy.md", 1),
+                    )]
+                },
+            ),
             ..valid_journey()
         };
         let catalog = Catalog::with_parts(
@@ -784,12 +821,41 @@ mod tests {
     #[test]
     fn unknown_journey_route_service_fails() {
         let service = valid_journey_service(ServiceId::Helper);
-        let mut journey = valid_journey();
-        if let GroundedSet::Known { items } = &mut journey.steps {
-            if let Some(Grounded::Known { value: route, .. }) = &mut items[0].value.route {
-                route.service = ServiceId::Zenohd;
-            }
-        }
+        let journey = UserJourney {
+            steps: GroundedSet::known(
+                const {
+                    &[GroundedItem::new(
+                        JourneyStep {
+                            actor: Actor::Operator,
+                            description: "call deploy endpoint",
+                            route: Some(Grounded::known(
+                                RouteRef {
+                                    service: ServiceId::Zenohd,
+                                    method: HttpMethod::Post,
+                                    path: "/deploy",
+                                    version: Some("v1"),
+                                },
+                                Provenance::doc("docs/deploy.md", 5),
+                            )),
+                            outcome: Some(Grounded::known(
+                                StepOutcome {
+                                    expected_status: Some(200),
+                                    body_predicate: None,
+                                    transition: Some(StateTransition {
+                                        machine: "lifecycle",
+                                        from: "idle",
+                                        to: "running",
+                                    }),
+                                },
+                                Provenance::runtime("tests/baselines/helper.json", "lab"),
+                            )),
+                        },
+                        Provenance::source("helper/main.py", 10),
+                    )]
+                },
+            ),
+            ..valid_journey()
+        };
         let catalog = Catalog::with_parts(
             vec![service],
             vec![empty_observed(ServiceId::Helper)],
@@ -807,10 +873,14 @@ mod tests {
     fn unknown_journey_capability_fails() {
         let service = valid_journey_service(ServiceId::Helper);
         let mut journey = valid_journey();
-        journey.capability_refs = GroundedSet::known(vec![GroundedItem::new(
-            CapabilityId::FlashFirmware,
-            Provenance::doc("docs/deploy.md", 1),
-        )]);
+        journey.capability_refs = GroundedSet::known(
+            const {
+                &[GroundedItem::new(
+                    CapabilityId::FlashFirmware,
+                    Provenance::doc("docs/deploy.md", 1),
+                )]
+            },
+        );
         let catalog = Catalog::with_parts(
             vec![service],
             vec![empty_observed(ServiceId::Helper)],
@@ -827,16 +897,41 @@ mod tests {
     #[test]
     fn unknown_journey_state_fails() {
         let service = valid_journey_service(ServiceId::Helper);
-        let mut journey = valid_journey();
-        if let GroundedSet::Known { items } = &mut journey.steps {
-            if let Some(Grounded::Known { value: outcome, .. }) = &mut items[0].value.outcome {
-                outcome.transition = Some(StateTransition {
-                    machine: "lifecycle".to_string(),
-                    from: "idle".to_string(),
-                    to: "missing".to_string(),
-                });
-            }
-        }
+        let journey = UserJourney {
+            steps: GroundedSet::known(
+                const {
+                    &[GroundedItem::new(
+                        JourneyStep {
+                            actor: Actor::Operator,
+                            description: "call deploy endpoint",
+                            route: Some(Grounded::known(
+                                RouteRef {
+                                    service: ServiceId::Helper,
+                                    method: HttpMethod::Post,
+                                    path: "/deploy",
+                                    version: Some("v1"),
+                                },
+                                Provenance::doc("docs/deploy.md", 5),
+                            )),
+                            outcome: Some(Grounded::known(
+                                StepOutcome {
+                                    expected_status: Some(200),
+                                    body_predicate: None,
+                                    transition: Some(StateTransition {
+                                        machine: "lifecycle",
+                                        from: "idle",
+                                        to: "missing",
+                                    }),
+                                },
+                                Provenance::runtime("tests/baselines/helper.json", "lab"),
+                            )),
+                        },
+                        Provenance::source("helper/main.py", 10),
+                    )]
+                },
+            ),
+            ..valid_journey()
+        };
         let catalog = Catalog::with_parts(
             vec![service],
             vec![empty_observed(ServiceId::Helper)],
@@ -853,16 +948,41 @@ mod tests {
     #[test]
     fn unknown_journey_state_machine_name_fails() {
         let service = valid_journey_service(ServiceId::Helper);
-        let mut journey = valid_journey();
-        if let GroundedSet::Known { items } = &mut journey.steps {
-            if let Some(Grounded::Known { value: outcome, .. }) = &mut items[0].value.outcome {
-                outcome.transition = Some(StateTransition {
-                    machine: "nonexistent".to_string(),
-                    from: "idle".to_string(),
-                    to: "running".to_string(),
-                });
-            }
-        }
+        let journey = UserJourney {
+            steps: GroundedSet::known(
+                const {
+                    &[GroundedItem::new(
+                        JourneyStep {
+                            actor: Actor::Operator,
+                            description: "call deploy endpoint",
+                            route: Some(Grounded::known(
+                                RouteRef {
+                                    service: ServiceId::Helper,
+                                    method: HttpMethod::Post,
+                                    path: "/deploy",
+                                    version: Some("v1"),
+                                },
+                                Provenance::doc("docs/deploy.md", 5),
+                            )),
+                            outcome: Some(Grounded::known(
+                                StepOutcome {
+                                    expected_status: Some(200),
+                                    body_predicate: None,
+                                    transition: Some(StateTransition {
+                                        machine: "nonexistent",
+                                        from: "idle",
+                                        to: "running",
+                                    }),
+                                },
+                                Provenance::runtime("tests/baselines/helper.json", "lab"),
+                            )),
+                        },
+                        Provenance::source("helper/main.py", 10),
+                    )]
+                },
+            ),
+            ..valid_journey()
+        };
         let catalog = Catalog::with_parts(
             vec![service],
             vec![empty_observed(ServiceId::Helper)],
@@ -897,10 +1017,9 @@ mod tests {
     #[test]
     fn unknown_service_journey_ref_fails() {
         let mut service = empty_service(ServiceId::Helper);
-        service.journey_refs = AssertedSet::established(vec![Rationaled::new(
-            JourneyId::RebootOnboardComputer,
-            "test",
-        )]);
+        service.journey_refs = AssertedSet::established(
+            const { &[Rationaled::new(JourneyId::RebootOnboardComputer, "test")] },
+        );
         let catalog = Catalog::with_parts(
             vec![service],
             vec![empty_observed(ServiceId::Helper)],
@@ -942,21 +1061,25 @@ mod tests {
         let service = valid_journey_service(ServiceId::Helper);
         let runtime = RuntimeFacts {
             service: ServiceId::Helper,
-            state_contracts: GroundedSet::known(vec![GroundedItem::new(
-                StateContract {
-                    machine: "lifecycle".to_string(),
-                    state: "missing".to_string(),
-                    route: RouteRef {
-                        service: ServiceId::Helper,
-                        method: HttpMethod::Get,
-                        path: "/status".to_string(),
-                        version: None,
-                    },
-                    status: 200,
-                    body_predicate: None,
+            state_contracts: GroundedSet::known(
+                const {
+                    &[GroundedItem::new(
+                        StateContract {
+                            machine: "lifecycle",
+                            state: "missing",
+                            route: RouteRef {
+                                service: ServiceId::Helper,
+                                method: HttpMethod::Get,
+                                path: "/status",
+                                version: None,
+                            },
+                            status: 200,
+                            body_predicate: None,
+                        },
+                        Provenance::runtime("runtime-captures/sample.json#k", "lab"),
+                    )]
                 },
-                Provenance::runtime("runtime-captures/sample.json#k", "lab"),
-            )]),
+            ),
             slo_baselines: GroundedSet::unknown("not captured"),
             resource_usage: GroundedSet::unknown("not captured"),
             platform_matrix: GroundedSet::unknown("not captured"),
@@ -975,30 +1098,35 @@ mod tests {
             .any(|e| matches!(e, ValidationError::UnknownRuntimeState { .. })));
     }
 
-    fn sample_page(service: ConsumeTarget) -> Page {
+    const fn consume(target: ConsumeTarget) -> Evidenced<PageServiceCall> {
+        Evidenced::new(
+            PageServiceCall {
+                service: target,
+                endpoint: "GET /status",
+                purpose: "load page data",
+            },
+            evidence(),
+        )
+    }
+
+    fn sample_page(consumes: ObservedSet<PageServiceCall>) -> Page {
         Page {
             id: PageId::VehicleSetup,
-            route: Observed::known("/vehicle/setup".to_string(), evidence()),
-            name: Observed::known("Vehicle Setup".to_string(), evidence()),
-            component: Observed::known(
-                "core/frontend/src/views/VehicleSetupView.vue".to_string(),
-                evidence(),
-            ),
+            route: Observed::known("/vehicle/setup", evidence()),
+            name: Observed::known("Vehicle Setup", evidence()),
+            component: Observed::known("core/frontend/src/views/VehicleSetupView.vue", evidence()),
             menu_title: Observed::unknown("not in menu"),
             advanced_only: Observed::unknown("not in menu"),
             stores: ObservedSet::unknown("not extracted"),
-            consumes: ObservedSet::known(vec![Evidenced::new(
-                PageServiceCall {
-                    service,
-                    endpoint: "GET /status".to_string(),
-                    purpose: "load page data".to_string(),
+            consumes,
+            frontend_features: AssertedSet::established(
+                const {
+                    &[Rationaled::new(
+                        CapabilityId::CalibrateAccelerometer,
+                        "client-side only",
+                    )]
                 },
-                evidence(),
-            )]),
-            frontend_features: AssertedSet::established(vec![Rationaled::new(
-                CapabilityId::CalibrateAccelerometer,
-                "client-side only",
-            )]),
+            ),
             client_state: AssertedSet::unknown("not established"),
         }
     }
@@ -1007,7 +1135,9 @@ mod tests {
     fn valid_page_passes_validate() {
         let service = empty_service(ServiceId::Helper);
         let observed = empty_observed(ServiceId::Helper);
-        let page = sample_page(ConsumeTarget::Service(ServiceId::Helper));
+        let page = sample_page(ObservedSet::known(
+            const { &[consume(ConsumeTarget::Service(ServiceId::Helper))] },
+        ));
         let catalog =
             Catalog::with_parts(vec![service], vec![observed], vec![], vec![], vec![page]);
         assert!(catalog.validate().is_ok());
@@ -1017,7 +1147,9 @@ mod tests {
     fn unknown_page_service_call_fails() {
         let service = empty_service(ServiceId::Helper);
         let observed = empty_observed(ServiceId::Helper);
-        let page = sample_page(ConsumeTarget::Service(ServiceId::Zenohd));
+        let page = sample_page(ObservedSet::known(
+            const { &[consume(ConsumeTarget::Service(ServiceId::Zenohd))] },
+        ));
         let catalog =
             Catalog::with_parts(vec![service], vec![observed], vec![], vec![], vec![page]);
         let errors = catalog.validate().unwrap_err();
@@ -1030,7 +1162,9 @@ mod tests {
     fn external_page_service_call_passes() {
         let service = empty_service(ServiceId::Helper);
         let observed = empty_observed(ServiceId::Helper);
-        let page = sample_page(ConsumeTarget::External);
+        let page = sample_page(ObservedSet::known(
+            const { &[consume(ConsumeTarget::External)] },
+        ));
         let catalog =
             Catalog::with_parts(vec![service], vec![observed], vec![], vec![], vec![page]);
         assert!(catalog.validate().is_ok());

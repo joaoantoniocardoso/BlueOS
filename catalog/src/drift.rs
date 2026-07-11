@@ -1,5 +1,5 @@
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::collections::HashSet;
 
 use crate::observed::ObservedFacts;
@@ -7,12 +7,12 @@ use crate::provenance::{AssertedSet, GroundedSet, ObservedSet};
 use crate::runtime::RuntimeFacts;
 use crate::service::ServiceDefinition;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct DriftReport {
     pub findings: Vec<DriftFinding>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct DriftFinding {
     pub field: String,
     pub message: String,
@@ -44,11 +44,11 @@ pub fn diff(asserted: &ServiceDefinition, observed: &ObservedFacts) -> DriftRepo
         // Ownership is a judgment layer; drift only checks that asserted paths have extraction evidence.
         let observed_paths: HashSet<&str> = observed_resources
             .iter()
-            .map(|item| item.value.path.0.as_str())
+            .map(|item| item.value.path.0)
             .collect();
-        for resource in asserted_resources {
+        for resource in asserted_resources.iter() {
             let path = &resource.value.path;
-            if !observed_paths.contains(path.0.as_str()) {
+            if !observed_paths.contains(path.0) {
                 report.findings.push(DriftFinding {
                     field: format!("{}.resources", asserted.id.as_str()),
                     message: format!("asserted resource '{}' has no observed evidence", path.0),
@@ -69,13 +69,13 @@ pub fn diff_runtime(asserted: &ServiceDefinition, runtime: &RuntimeFacts) -> Dri
         let mut seen_missing_machines = HashSet::new();
         let mut seen_missing_states = HashSet::new();
 
-        for item in items {
+        for item in items.iter() {
             let machine = &item.value.machine;
             let state = &item.value.state;
 
             match &asserted.states {
                 AssertedSet::Unknown { .. } => {
-                    if seen_missing_machines.insert(machine.clone()) {
+                    if seen_missing_machines.insert(*machine) {
                         report.findings.push(DriftFinding {
                             field: format!("{}.states", asserted.id.as_str()),
                             message: format!(
@@ -87,7 +87,7 @@ pub fn diff_runtime(asserted: &ServiceDefinition, runtime: &RuntimeFacts) -> Dri
                 }
                 AssertedSet::Established { items: sms } => {
                     let Some(sm) = sms.iter().find(|sm| sm.value.name == *machine) else {
-                        if seen_missing_machines.insert(machine.clone()) {
+                        if seen_missing_machines.insert(*machine) {
                             report.findings.push(DriftFinding {
                                 field: format!("{}.states", asserted.id.as_str()),
                                 message: format!(
@@ -99,7 +99,7 @@ pub fn diff_runtime(asserted: &ServiceDefinition, runtime: &RuntimeFacts) -> Dri
                         continue;
                     };
                     if !sm.value.states.iter().any(|s| s == state) {
-                        let key = (machine.clone(), state.clone());
+                        let key = (*machine, *state);
                         if seen_missing_states.insert(key) {
                             report.findings.push(DriftFinding {
                                 field: format!("{}.states", asserted.id.as_str()),
@@ -147,7 +147,7 @@ pub fn diff_catalog_runtime(
 mod tests {
     use super::*;
     use crate::catalog::Catalog;
-    use crate::id::PathRef;
+    use crate::id::{PathRef, ServiceId};
     use crate::journey::{HttpMethod, RouteRef};
     use crate::provenance::{AssertedSet, GroundedItem, GroundedSet, Provenance, Rationaled};
     use crate::resource::{Resource, ResourceOwnership};
@@ -171,13 +171,17 @@ mod tests {
     fn detects_missing_observed_resource() {
         let catalog = Catalog::bootstrap();
         let mut service = catalog.services()[0].clone();
-        service.resources = AssertedSet::established(vec![Rationaled::new(
-            Resource {
-                path: PathRef("/bogus/missing/path".to_string()),
-                ownership: ResourceOwnership::Exclusive,
+        service.resources = AssertedSet::established(
+            const {
+                &[Rationaled::new(
+                    Resource {
+                        path: PathRef("/bogus/missing/path"),
+                        ownership: ResourceOwnership::Exclusive,
+                    },
+                    "test",
+                )]
             },
-            "test",
-        )]);
+        );
         let observed = catalog.observed()[0].clone();
         let report = diff(&service, &observed);
         assert!(report.has_drift());
@@ -198,21 +202,25 @@ mod tests {
             .clone();
         let runtime = RuntimeFacts {
             service: service.id,
-            state_contracts: GroundedSet::known(vec![GroundedItem::new(
-                StateContract {
-                    machine: "autopilot_lifecycle".to_string(),
-                    state: "bogus_state".to_string(),
-                    route: RouteRef {
-                        service: service.id,
-                        method: HttpMethod::Get,
-                        path: "/vehicle_type".to_string(),
-                        version: None,
-                    },
-                    status: 200,
-                    body_predicate: None,
+            state_contracts: GroundedSet::known(
+                const {
+                    &[GroundedItem::new(
+                        StateContract {
+                            machine: "autopilot_lifecycle",
+                            state: "bogus_state",
+                            route: RouteRef {
+                                service: ServiceId::ArdupilotManager,
+                                method: HttpMethod::Get,
+                                path: "/vehicle_type",
+                                version: None,
+                            },
+                            status: 200,
+                            body_predicate: None,
+                        },
+                        Provenance::asserted("test"),
+                    )]
                 },
-                Provenance::asserted("test"),
-            )]),
+            ),
             slo_baselines: GroundedSet::unknown("test"),
             resource_usage: GroundedSet::unknown("test"),
             platform_matrix: GroundedSet::unknown("test"),

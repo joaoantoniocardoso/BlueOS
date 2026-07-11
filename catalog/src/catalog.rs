@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::id::{JourneyId, ServiceId};
 use crate::journey::UserJourney;
@@ -11,7 +11,7 @@ use crate::runtime::RuntimeFacts;
 use crate::service::ServiceDefinition;
 use crate::validate::ValidationError;
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
 pub struct Catalog {
     services: Vec<ServiceDefinition>,
     observed: Vec<ObservedFacts>,
@@ -20,7 +20,7 @@ pub struct Catalog {
     pages: Vec<Page>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
 pub struct CouplingMatrix {
     pub service_ids: Vec<ServiceId>,
     pub weights: Vec<Vec<f64>>,

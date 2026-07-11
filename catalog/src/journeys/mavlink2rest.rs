@@ -9,27 +9,25 @@ const OVERVIEW: &str = "content/usage/overview/index.md";
 const MAVLINK_INSPECTOR_MENUS: &str = "core/frontend/src/menus.ts";
 const MAVLINK_INSPECTOR_VIEW: &str = "core/frontend/src/views/MavlinkInspectorView.vue";
 
-pub fn journeys() -> Vec<UserJourney> {
-    vec![inspect_mavlink_messages_in_browser()]
-}
+pub const JOURNEYS: &[UserJourney] = &[INSPECT_MAVLINK_MESSAGES_IN_BROWSER];
 
-fn inspect_mavlink_messages_in_browser() -> UserJourney {
+const INSPECT_MAVLINK_MESSAGES_IN_BROWSER: UserJourney =
     UserJourney {
         id: JourneyId::InspectMavlinkMessagesInBrowser,
         summary: Grounded::known(
-            "See and inspect MAVLink messages in real time from the browser".into(),
+            "See and inspect MAVLink messages in real time from the browser",
             Provenance::doc(OVERVIEW, 122),
         ),
         visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 496)),
-        services: mavlink2rest_services(),
-        capability_refs: GroundedSet::known(vec![cap(CapabilityId::InspectLiveMavlinkMessages,
+        services: MAVLINK2REST_SERVICES,
+        capability_refs: GroundedSet::known(&[cap(CapabilityId::InspectLiveMavlinkMessages,
             "MAVLink Inspector filters, lists, and expands live MAVLink messages from the vehicle stream",
         )]),
-        preconditions: GroundedSet::known(vec![GroundedItem::new(
-            Precondition::Other("Advanced mode enabled to access the MAVLink Inspector page".into()),
+        preconditions: GroundedSet::known(&[GroundedItem::new(
+            Precondition::Other("Advanced mode enabled to access the MAVLink Inspector page"),
             Provenance::source(MAVLINK_INSPECTOR_MENUS, 73),
         )]),
-        steps: GroundedSet::known(vec![
+        steps: GroundedSet::known(&[
             operator_step(
                 "Open the MAVLink Inspector page from the sidebar",
                 None,
@@ -62,22 +60,19 @@ fn inspect_mavlink_messages_in_browser() -> UserJourney {
             ),
         ]),
         chains_from: None,
-    }
-}
+    };
 
-fn cap(id: CapabilityId, rationale: &str) -> GroundedItem<CapabilityId> {
+const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<CapabilityId> {
     GroundedItem::new(id, Provenance::asserted(rationale))
 }
 
-fn mavlink2rest_services() -> GroundedSet<ServiceId> {
-    GroundedSet::known(vec![GroundedItem::new(
-        ServiceId::Mavlink2rest,
-        Provenance::doc(ADV, 499),
-    )])
-}
+const MAVLINK2REST_SERVICES: GroundedSet<ServiceId> = GroundedSet::known(&[GroundedItem::new(
+    ServiceId::Mavlink2rest,
+    Provenance::doc(ADV, 499),
+)]);
 
-fn operator_step(
-    description: &str,
+const fn operator_step(
+    description: &'static str,
     route: Option<Grounded<RouteRef>>,
     provenance: Provenance,
     outcome: Option<Grounded<StepOutcome>>,
@@ -85,7 +80,7 @@ fn operator_step(
     GroundedItem::new(
         JourneyStep {
             actor: Actor::Operator,
-            description: description.into(),
+            description,
             route,
             outcome,
         },

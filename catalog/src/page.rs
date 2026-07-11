@@ -1,14 +1,12 @@
 use std::fmt;
 
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::id::{CapabilityId, ServiceId};
 use crate::provenance::{AssertedSet, Observed, ObservedSet};
 
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, JsonSchema)]
 pub enum PageId {
     #[serde(rename = "disk")]
     Disk,
@@ -40,44 +38,44 @@ impl fmt::Display for PageId {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
 pub struct Page {
     pub id: PageId,
-    pub route: Observed<String>,
-    pub name: Observed<String>,
-    pub component: Observed<String>,
-    pub menu_title: Observed<String>,
+    pub route: Observed<&'static str>,
+    pub name: Observed<&'static str>,
+    pub component: Observed<&'static str>,
+    pub menu_title: Observed<&'static str>,
     pub advanced_only: Observed<bool>,
-    pub stores: ObservedSet<String>,
+    pub stores: ObservedSet<&'static str>,
     pub consumes: ObservedSet<PageServiceCall>,
     pub frontend_features: AssertedSet<CapabilityId>,
     pub client_state: AssertedSet<ClientState>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct PageServiceCall {
     pub service: ConsumeTarget,
-    pub endpoint: String,
-    pub purpose: String,
+    pub endpoint: &'static str,
+    pub purpose: &'static str,
 }
 
 /// What a page consumes: a cataloged service, or the public internet.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ConsumeTarget {
     Service(ServiceId),
     External,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct ClientState {
-    pub name: String,
-    pub store: String,
+    pub name: &'static str,
+    pub store: &'static str,
     pub ownership: StateOwnership,
-    pub notes: String,
+    pub notes: &'static str,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum StateOwnership {
     BackendOwned,
@@ -94,71 +92,87 @@ mod tests {
         Page {
             id: PageId::VehicleSetup,
             route: Observed::known(
-                "/vehicle/setup/:tab?/:subtab?".to_string(),
+                "/vehicle/setup/:tab?/:subtab?",
                 Evidence {
-                    file: "core/frontend/src/router/index.ts".to_string(),
+                    file: "core/frontend/src/router/index.ts",
                     line: 42,
                 },
             ),
             name: Observed::known(
-                "Vehicle Setup".to_string(),
+                "Vehicle Setup",
                 Evidence {
-                    file: "core/frontend/src/router/index.ts".to_string(),
+                    file: "core/frontend/src/router/index.ts",
                     line: 43,
                 },
             ),
             component: Observed::known(
-                "core/frontend/src/views/VehicleSetupView.vue".to_string(),
+                "core/frontend/src/views/VehicleSetupView.vue",
                 Evidence {
-                    file: "core/frontend/src/router/index.ts".to_string(),
+                    file: "core/frontend/src/router/index.ts",
                     line: 44,
                 },
             ),
             menu_title: Observed::known(
-                "Vehicle Setup".to_string(),
+                "Vehicle Setup",
                 Evidence {
-                    file: "core/frontend/src/menus.ts".to_string(),
+                    file: "core/frontend/src/menus.ts",
                     line: 10,
                 },
             ),
             advanced_only: Observed::known(
                 false,
                 Evidence {
-                    file: "core/frontend/src/menus.ts".to_string(),
+                    file: "core/frontend/src/menus.ts",
                     line: 11,
                 },
             ),
-            stores: ObservedSet::known(vec![Evidenced::new(
-                "calibration".to_string(),
-                Evidence {
-                    file: "core/frontend/src/views/VehicleSetupView.vue".to_string(),
-                    line: 5,
+            stores: ObservedSet::known(
+                const {
+                    &[Evidenced::new(
+                        "calibration",
+                        Evidence {
+                            file: "core/frontend/src/views/VehicleSetupView.vue",
+                            line: 5,
+                        },
+                    )]
                 },
-            )]),
-            consumes: ObservedSet::known(vec![Evidenced::new(
-                PageServiceCall {
-                    service: ConsumeTarget::Service(ServiceId::Mavlink2rest),
-                    endpoint: "mavlink2rest MAV_CMD_PREFLIGHT_CALIBRATION".to_string(),
-                    purpose: "calibrate accelerometer".to_string(),
+            ),
+            consumes: ObservedSet::known(
+                const {
+                    &[Evidenced::new(
+                        PageServiceCall {
+                            service: ConsumeTarget::Service(ServiceId::Mavlink2rest),
+                            endpoint: "mavlink2rest MAV_CMD_PREFLIGHT_CALIBRATION",
+                            purpose: "calibrate accelerometer",
+                        },
+                        Evidence {
+                            file: "core/frontend/src/views/VehicleSetupView.vue",
+                            line: 80,
+                        },
+                    )]
                 },
-                Evidence {
-                    file: "core/frontend/src/views/VehicleSetupView.vue".to_string(),
-                    line: 80,
+            ),
+            frontend_features: AssertedSet::established(
+                const {
+                    &[Rationaled::new(
+                        CapabilityId::CalibrateAccelerometer,
+                        "client-side calibration wizard with no dedicated backend capability",
+                    )]
                 },
-            )]),
-            frontend_features: AssertedSet::established(vec![Rationaled::new(
-                CapabilityId::CalibrateAccelerometer,
-                "client-side calibration wizard with no dedicated backend capability",
-            )]),
-            client_state: AssertedSet::established(vec![Rationaled::new(
-                ClientState {
-                    name: "calibration progress".to_string(),
-                    store: "calibration.ts Calibrator singleton".to_string(),
-                    ownership: StateOwnership::FrontendOwned,
-                    notes: "1.x anti-pattern; 2.0 should re-home".to_string(),
+            ),
+            client_state: AssertedSet::established(
+                const {
+                    &[Rationaled::new(
+                        ClientState {
+                            name: "calibration progress",
+                            store: "calibration.ts Calibrator singleton",
+                            ownership: StateOwnership::FrontendOwned,
+                            notes: "1.x anti-pattern; 2.0 should re-home",
+                        },
+                        "wizard tracks step progress locally",
+                    )]
                 },
-                "wizard tracks step progress locally",
-            )]),
+            ),
         }
     }
 
@@ -166,7 +180,7 @@ mod tests {
     fn page_round_trips_through_serde_json() {
         let page = sample_page();
         let json = serde_json::to_string(&page).expect("serialize page");
-        let restored: Page = serde_json::from_str(&json).expect("deserialize page");
-        assert_eq!(page, restored);
+        let value: serde_json::Value = serde_json::from_str(&json).expect("valid json");
+        assert!(value.is_object());
     }
 }

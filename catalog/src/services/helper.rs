@@ -15,22 +15,21 @@ use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts
 use crate::service::{Authority, ServiceDefinition};
 use crate::trust::{PrivilegeLevel, UserConfirmation};
 
-const RUNTIME_CAPTURE: &str = "runtime-captures/helper__pi4_navigator_master.json";
 const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
 
-pub fn runtime_facts() -> RuntimeFacts {
+pub const RUNTIME_FACTS: RuntimeFacts =
     RuntimeFacts {
         service: ServiceId::Helper,
         state_contracts: GroundedSet::unknown(
             "helper has no service-level state machine (card states Unknown)",
         ),
-        slo_baselines: GroundedSet::known(vec![
+        slo_baselines: GroundedSet::known(&[
             runtime_slo(HttpMethod::Get, "/web_services", 7.4, 8.6, 8.9, 30),
             runtime_slo(HttpMethod::Get, "/check_internet_access", 6.6, 12.2, 12.4, 30),
             runtime_slo(HttpMethod::Get, "/hardware_id", 5.7, 8.4, 8.9, 30),
             runtime_slo(HttpMethod::Get, "/ping?host=1.1.1.1", 28.2, 33.8, 43.4, 30),
         ]),
-        resource_usage: GroundedSet::known(vec![runtime_resource(
+        resource_usage: GroundedSet::known(&[runtime_resource(
             "running_baseline",
             Distribution {
                 mean: 1.06,
@@ -50,39 +49,38 @@ pub fn runtime_facts() -> RuntimeFacts {
             },
             60,
         )]),
-        platform_matrix: GroundedSet::known(vec![GroundedItem::new(
+        platform_matrix: GroundedSet::known(&[GroundedItem::new(
             PlatformBehavior {
-                platform: "navigator".into(),
+                platform: "navigator",
                 firmware: None,
-                notes: vec![
-                    "helper behavior is platform-independent (local port scan, UUID reads, internet probes); not captured across boards".into(),
-                    "runtime captured on Navigator only; RSS ~62.1 MB, CPU ~1.06% mean".into(),
+                notes: &[
+                    "helper behavior is platform-independent (local port scan, UUID reads, internet probes); not captured across boards",
+                    "runtime captured on Navigator only; RSS ~62.1 MB, CPU ~1.06% mean",
                 ],
             },
-            runtime_prov("#platform_matrix"),
+            runtime_prov("runtime-captures/helper__pi4_navigator_master.json#platform_matrix"),
         )]),
         settings_mutations: GroundedSet::unknown(
             "helper has no settings persistence; nginx snippet writes are config side effects, not settings",
         ),
-    }
+    };
+
+const fn runtime_prov(key: &'static str) -> Provenance {
+    Provenance::runtime(key, RUNTIME_ENV)
 }
 
-fn runtime_prov(key: &str) -> Provenance {
-    Provenance::runtime(format!("{RUNTIME_CAPTURE}{key}"), RUNTIME_ENV)
-}
-
-fn runtime_route(method: HttpMethod, path: &str) -> RouteRef {
+const fn runtime_route(method: HttpMethod, path: &'static str) -> RouteRef {
     RouteRef {
         service: ServiceId::Helper,
         method,
-        path: path.into(),
+        path,
         version: None,
     }
 }
 
-fn runtime_slo(
+const fn runtime_slo(
     method: HttpMethod,
-    path: &str,
+    path: &'static str,
     p50: f64,
     p95: f64,
     p99: f64,
@@ -96,381 +94,368 @@ fn runtime_slo(
             latency_p99_ms: p99,
             sample_size,
         },
-        runtime_prov("#slo_running_baseline"),
+        runtime_prov("runtime-captures/helper__pi4_navigator_master.json#slo_running_baseline"),
     )
 }
 
-fn runtime_resource(
-    condition: &str,
+const fn runtime_resource(
+    condition: &'static str,
     cpu_pct: Distribution,
     rss_mb: Distribution,
     samples: u32,
 ) -> GroundedItem<ResourceUsage> {
     GroundedItem::new(
         ResourceUsage {
-            condition: condition.into(),
+            condition,
             cpu_pct,
             rss_mb,
             samples,
         },
-        runtime_prov("#resource_usage"),
+        runtime_prov("runtime-captures/helper__pi4_navigator_master.json#resource_usage"),
     )
 }
 
-pub fn observed_facts() -> ObservedFacts {
-    ObservedFacts {
-        id: ServiceId::Helper,
-        aliases: ObservedSet::known(vec![Evidenced::new(
-            "helper".to_string(),
-            Evidence {
-                file: "core/services/helper/main.py".to_string(),
-                line: 43,
+pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
+    id: ServiceId::Helper,
+    aliases: ObservedSet::known(&[Evidenced::new(
+        "helper",
+        Evidence {
+            file: "core/services/helper/main.py",
+            line: 43,
+        },
+    )]),
+    kind: Observed::known(
+        ServiceKind::PythonService,
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 134,
+        },
+    ),
+    entrypoint: Observed::known(
+        "$BLUEOS_PYTHON_BIN_SECONDARY $SERVICES_PATH/helper/main.py",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 134,
+        },
+    ),
+    tmux_name: Observed::known(
+        "helper",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 134,
+        },
+    ),
+    startup_tier: Observed::known(
+        StartupTier::Normal,
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 124,
+        },
+    ),
+    resource_limits: Observed::known(
+        ResourceLimits {
+            memory_mb: Some(250),
+            cpu_percent: Some(0),
+            io_weight: None,
+        },
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 134,
+        },
+    ),
+    nice: Observed::unknown("no nice prefix in start tuple"),
+    run_as: Observed::known(
+        "root",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 134,
+        },
+    ),
+    nginx_prefixes: ObservedSet::known(&[Evidenced::new(
+        PathRef("/helper/"),
+        Evidence {
+            file: "core/tools/nginx/nginx.conf",
+            line: 124,
+        },
+    )]),
+    listen: ObservedSet::known(&[Evidenced::new(
+        PortRef::Literal(81),
+        Evidence {
+            file: "core/services/helper/main.py",
+            line: 143,
+        },
+    )]),
+    git_path: Observed::known(
+        PathRef("core/services/helper"),
+        Evidence {
+            file: "core/services/helper/main.py",
+            line: 1,
+        },
+    ),
+    interfaces: ObservedSet::known(&[
+        Evidenced::new(
+            Interface::Rest {
+                path_prefix: PathRef("/helper/"),
+                port: PortRef::Literal(81),
+                versions: &["v1.0"],
             },
-        )]),
-        kind: Observed::known(
-            ServiceKind::PythonService,
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 134,
+                file: "core/services/helper/main.py",
+                line: 612,
             },
         ),
-        entrypoint: Observed::known(
-            "$BLUEOS_PYTHON_BIN_SECONDARY $SERVICES_PATH/helper/main.py".to_string(),
+        Evidenced::new(
+            Interface::File {
+                path: PathRef("/home/pi/tools/nginx/nginx.conf"),
+                mode: FileAccessMode::Read,
+            },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 134,
+                file: "core/services/helper/main.py",
+                line: 629,
             },
         ),
-        tmux_name: Observed::known(
-            "helper".to_string(),
+        Evidenced::new(
+            Interface::File {
+                path: PathRef("/home/pi/tools/nginx/extensions/"),
+                mode: FileAccessMode::ReadWrite,
+            },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 134,
+                file: "core/services/helper/main.py",
+                line: 491,
             },
         ),
-        startup_tier: Observed::known(
-            StartupTier::Normal,
+        Evidenced::new(
+            Interface::File {
+                path: PathRef("/var/run/nginx.pid"),
+                mode: FileAccessMode::Read,
+            },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 124,
+                file: "core/services/helper/main.py",
+                line: 453,
             },
         ),
-        resource_limits: Observed::known(
-            ResourceLimits {
-                memory_mb: Some(250),
-                cpu_percent: Some(0),
-                io_weight: None,
+        Evidenced::new(
+            Interface::File {
+                path: PathRef("/etc/blueos/hardware-uuid"),
+                mode: FileAccessMode::Read,
             },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 134,
+                file: "core/services/helper/main.py",
+                line: 553,
             },
         ),
-        nice: Observed::unknown("no nice prefix in start tuple"),
-        run_as: Observed::known(
-            "root".to_string(),
+        Evidenced::new(
+            Interface::File {
+                path: PathRef("/etc/blueos/uuid"),
+                mode: FileAccessMode::Read,
+            },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 134,
+                file: "core/services/helper/main.py",
+                line: 570,
             },
         ),
-        nginx_prefixes: ObservedSet::known(vec![Evidenced::new(
-            PathRef("/helper/".to_string()),
+        Evidenced::new(
+            Interface::OutboundHttp { url: "127.0.0.1" },
             Evidence {
-                file: "core/tools/nginx/nginx.conf".to_string(),
-                line: 124,
-            },
-        )]),
-        listen: ObservedSet::known(vec![Evidenced::new(
-            PortRef::Literal(81),
-            Evidence {
-                file: "core/services/helper/main.py".to_string(),
-                line: 143,
-            },
-        )]),
-        git_path: Observed::known(
-            PathRef("core/services/helper".to_string()),
-            Evidence {
-                file: "core/services/helper/main.py".to_string(),
-                line: 1,
+                file: "core/services/helper/main.py",
+                line: 294,
             },
         ),
-        interfaces: ObservedSet::known(vec![
-            Evidenced::new(
-                Interface::Rest {
-                    path_prefix: PathRef("/helper/".to_string()),
-                    port: PortRef::Literal(81),
-                    versions: vec!["v1.0".to_string()],
-                },
-                Evidence {
-                    file: "core/services/helper/main.py".to_string(),
-                    line: 612,
-                },
-            ),
-            Evidenced::new(
-                Interface::File {
-                    path: PathRef("/home/pi/tools/nginx/nginx.conf".to_string()),
-                    mode: FileAccessMode::Read,
-                },
-                Evidence {
-                    file: "core/services/helper/main.py".to_string(),
-                    line: 629,
-                },
-            ),
-            Evidenced::new(
-                Interface::File {
-                    path: PathRef("/home/pi/tools/nginx/extensions/".to_string()),
-                    mode: FileAccessMode::ReadWrite,
-                },
-                Evidence {
-                    file: "core/services/helper/main.py".to_string(),
-                    line: 491,
-                },
-            ),
-            Evidenced::new(
-                Interface::File {
-                    path: PathRef("/var/run/nginx.pid".to_string()),
-                    mode: FileAccessMode::Read,
-                },
-                Evidence {
-                    file: "core/services/helper/main.py".to_string(),
-                    line: 453,
-                },
-            ),
-            Evidenced::new(
-                Interface::File {
-                    path: PathRef("/etc/blueos/hardware-uuid".to_string()),
-                    mode: FileAccessMode::Read,
-                },
-                Evidence {
-                    file: "core/services/helper/main.py".to_string(),
-                    line: 553,
-                },
-            ),
-            Evidenced::new(
-                Interface::File {
-                    path: PathRef("/etc/blueos/uuid".to_string()),
-                    mode: FileAccessMode::Read,
-                },
-                Evidence {
-                    file: "core/services/helper/main.py".to_string(),
-                    line: 570,
-                },
-            ),
-            Evidenced::new(
-                Interface::OutboundHttp {
-                    url: "127.0.0.1".to_string(),
-                },
-                Evidence {
-                    file: "core/services/helper/main.py".to_string(),
-                    line: 294,
-                },
-            ),
-            Evidenced::new(
-                Interface::OutboundHttp {
-                    url: "http://localhost/version-chooser/v1.0/version/current".to_string(),
-                },
-                Evidence {
-                    file: "core/services/helper/main.py".to_string(),
-                    line: 507,
-                },
-            ),
-            Evidenced::new(
-                Interface::OutboundHttp {
-                    url: "localhost:6040".to_string(),
-                },
-                Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/mavlink_comm/MavlinkComm.py"
-                        .to_string(),
-                    line: 24,
-                },
-            ),
-            Evidenced::new(
-                Interface::OutboundHttp {
-                    url: "firmware.ardupilot.org".to_string(),
-                },
-                Evidence {
-                    file: "core/services/helper/main.py".to_string(),
-                    line: 56,
-                },
-            ),
-            Evidenced::new(
-                Interface::OutboundHttp {
-                    url: "amazon.com".to_string(),
-                },
-                Evidence {
-                    file: "core/services/helper/main.py".to_string(),
-                    line: 61,
-                },
-            ),
-            Evidenced::new(
-                Interface::OutboundHttp {
-                    url: "telemetry.blueos.cloud".to_string(),
-                },
-                Evidence {
-                    file: "core/services/helper/main.py".to_string(),
-                    line: 66,
-                },
-            ),
-            Evidenced::new(
-                Interface::OutboundHttp {
-                    url: "1.1.1.1".to_string(),
-                },
-                Evidence {
-                    file: "core/services/helper/main.py".to_string(),
-                    line: 74,
-                },
-            ),
-            Evidenced::new(
-                Interface::OutboundHttp {
-                    url: "github.com".to_string(),
-                },
-                Evidence {
-                    file: "core/services/helper/main.py".to_string(),
-                    line: 79,
-                },
-            ),
-            Evidenced::new(
-                Interface::Subprocess {
-                    command: "ping".to_string(),
-                },
-                Evidence {
-                    file: "core/services/helper/main.py".to_string(),
-                    line: 586,
-                },
-            ),
-            Evidenced::new(
-                Interface::Subprocess {
-                    command: "kill -HUP".to_string(),
-                },
-                Evidence {
-                    file: "core/services/helper/main.py".to_string(),
-                    line: 456,
-                },
-            ),
-            Evidenced::new(
-                Interface::Zenoh {
-                    topics_produced: vec!["services/helper/log".to_string()],
-                    topics_consumed: vec![],
-                },
-                Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/utils/logs.py".to_string(),
-                    line: 78,
-                },
-            ),
-        ]),
-        resources: ObservedSet::known(vec![
-            Evidenced::new(
-                Resource {
-                    path: PathRef("/home/pi/tools/nginx/nginx.conf".to_string()),
-                    ownership: ResourceOwnership::SharedRead,
-                },
-                Evidence {
-                    file: "core/services/helper/main.py".to_string(),
-                    line: 629,
-                },
-            ),
-            Evidenced::new(
-                Resource {
-                    path: PathRef("/home/pi/tools/nginx/extensions/".to_string()),
-                    ownership: ResourceOwnership::SharedWrite,
-                },
-                Evidence {
-                    file: "core/services/helper/main.py".to_string(),
-                    line: 491,
-                },
-            ),
-            Evidenced::new(
-                Resource {
-                    path: PathRef("/var/run/nginx.pid".to_string()),
-                    ownership: ResourceOwnership::SharedRead,
-                },
-                Evidence {
-                    file: "core/services/helper/main.py".to_string(),
-                    line: 453,
-                },
-            ),
-            Evidenced::new(
-                Resource {
-                    path: PathRef("/etc/blueos/hardware-uuid".to_string()),
-                    ownership: ResourceOwnership::SharedRead,
-                },
-                Evidence {
-                    file: "core/services/helper/main.py".to_string(),
-                    line: 553,
-                },
-            ),
-            Evidenced::new(
-                Resource {
-                    path: PathRef("/etc/blueos/uuid".to_string()),
-                    ownership: ResourceOwnership::SharedRead,
-                },
-                Evidence {
-                    file: "core/services/helper/main.py".to_string(),
-                    line: 570,
-                },
-            ),
-        ]),
-        lifecycle: Observed::known(
-            ObservedLifecycle {
-                triggers: vec!["start-blueos-core create_service".to_string()],
-                ordered_after: vec![
-                    ServiceId::ArdupilotManager,
-                    ServiceId::CableGuy,
-                    ServiceId::MavlinkCameraManager,
-                    ServiceId::Mavlink2rest,
-                    ServiceId::Kraken,
-                    ServiceId::Wifi,
-                    ServiceId::Zenohd,
-                    ServiceId::Beacon,
-                    ServiceId::Bridget,
-                    ServiceId::Commander,
-                    ServiceId::NmeaInjector,
-                ],
-                ordered_before: vec![
-                    ServiceId::Iperf3,
-                    ServiceId::Linux2rest,
-                    ServiceId::Filebrowser,
-                    ServiceId::Versionchooser,
-                    ServiceId::Pardal,
-                    ServiceId::Ping,
-                    ServiceId::UserTerminal,
-                    ServiceId::Ttyd,
-                    ServiceId::Nginx,
-                    ServiceId::BagOfHolding,
-                    ServiceId::Recorder,
-                    ServiceId::RecorderExtractor,
-                    ServiceId::DiskUsage,
-                    ServiceId::Customization,
-                ],
+        Evidenced::new(
+            Interface::OutboundHttp {
+                url: "http://localhost/version-chooser/v1.0/version/current",
             },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 326,
+                file: "core/services/helper/main.py",
+                line: 507,
             },
         ),
-        logs_path: Observed::unknown(
-            "init_logger publishes to zenoh only; no on-disk log path set in helper source",
-        ),
-        zenoh_log_topic: Observed::known(
-            "services/helper/log".to_string(),
+        Evidenced::new(
+            Interface::OutboundHttp {
+                url: "localhost:6040",
+            },
             Evidence {
-                file: "core/libs/commonwealth/src/commonwealth/utils/logs.py".to_string(),
+                file: "core/libs/commonwealth/src/commonwealth/mavlink_comm/MavlinkComm.py",
+                line: 24,
+            },
+        ),
+        Evidenced::new(
+            Interface::OutboundHttp {
+                url: "firmware.ardupilot.org",
+            },
+            Evidence {
+                file: "core/services/helper/main.py",
+                line: 56,
+            },
+        ),
+        Evidenced::new(
+            Interface::OutboundHttp { url: "amazon.com" },
+            Evidence {
+                file: "core/services/helper/main.py",
+                line: 61,
+            },
+        ),
+        Evidenced::new(
+            Interface::OutboundHttp {
+                url: "telemetry.blueos.cloud",
+            },
+            Evidence {
+                file: "core/services/helper/main.py",
+                line: 66,
+            },
+        ),
+        Evidenced::new(
+            Interface::OutboundHttp { url: "1.1.1.1" },
+            Evidence {
+                file: "core/services/helper/main.py",
+                line: 74,
+            },
+        ),
+        Evidenced::new(
+            Interface::OutboundHttp { url: "github.com" },
+            Evidence {
+                file: "core/services/helper/main.py",
+                line: 79,
+            },
+        ),
+        Evidenced::new(
+            Interface::Subprocess { command: "ping" },
+            Evidence {
+                file: "core/services/helper/main.py",
+                line: 586,
+            },
+        ),
+        Evidenced::new(
+            Interface::Subprocess {
+                command: "kill -HUP",
+            },
+            Evidence {
+                file: "core/services/helper/main.py",
+                line: 456,
+            },
+        ),
+        Evidenced::new(
+            Interface::Zenoh {
+                topics_produced: &["services/helper/log"],
+                topics_consumed: &[],
+            },
+            Evidence {
+                file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                 line: 78,
             },
         ),
-        sentry: Observed::known(
-            true,
+    ]),
+    resources: ObservedSet::known(&[
+        Evidenced::new(
+            Resource {
+                path: PathRef("/home/pi/tools/nginx/nginx.conf"),
+                ownership: ResourceOwnership::SharedRead,
+            },
             Evidence {
-                file: "core/services/helper/main.py".to_string(),
-                line: 633,
+                file: "core/services/helper/main.py",
+                line: 629,
             },
         ),
-        openapi_refs: ObservedSet::unknown("not yet extracted"),
-    }
-}
+        Evidenced::new(
+            Resource {
+                path: PathRef("/home/pi/tools/nginx/extensions/"),
+                ownership: ResourceOwnership::SharedWrite,
+            },
+            Evidence {
+                file: "core/services/helper/main.py",
+                line: 491,
+            },
+        ),
+        Evidenced::new(
+            Resource {
+                path: PathRef("/var/run/nginx.pid"),
+                ownership: ResourceOwnership::SharedRead,
+            },
+            Evidence {
+                file: "core/services/helper/main.py",
+                line: 453,
+            },
+        ),
+        Evidenced::new(
+            Resource {
+                path: PathRef("/etc/blueos/hardware-uuid"),
+                ownership: ResourceOwnership::SharedRead,
+            },
+            Evidence {
+                file: "core/services/helper/main.py",
+                line: 553,
+            },
+        ),
+        Evidenced::new(
+            Resource {
+                path: PathRef("/etc/blueos/uuid"),
+                ownership: ResourceOwnership::SharedRead,
+            },
+            Evidence {
+                file: "core/services/helper/main.py",
+                line: 570,
+            },
+        ),
+    ]),
+    lifecycle: Observed::known(
+        ObservedLifecycle {
+            triggers: &["start-blueos-core create_service"],
+            ordered_after: &[
+                ServiceId::ArdupilotManager,
+                ServiceId::CableGuy,
+                ServiceId::MavlinkCameraManager,
+                ServiceId::Mavlink2rest,
+                ServiceId::Kraken,
+                ServiceId::Wifi,
+                ServiceId::Zenohd,
+                ServiceId::Beacon,
+                ServiceId::Bridget,
+                ServiceId::Commander,
+                ServiceId::NmeaInjector,
+            ],
+            ordered_before: &[
+                ServiceId::Iperf3,
+                ServiceId::Linux2rest,
+                ServiceId::Filebrowser,
+                ServiceId::Versionchooser,
+                ServiceId::Pardal,
+                ServiceId::Ping,
+                ServiceId::UserTerminal,
+                ServiceId::Ttyd,
+                ServiceId::Nginx,
+                ServiceId::BagOfHolding,
+                ServiceId::Recorder,
+                ServiceId::RecorderExtractor,
+                ServiceId::DiskUsage,
+                ServiceId::Customization,
+            ],
+        },
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 326,
+        },
+    ),
+    logs_path: Observed::unknown(
+        "init_logger publishes to zenoh only; no on-disk log path set in helper source",
+    ),
+    zenoh_log_topic: Observed::known(
+        "services/helper/log",
+        Evidence {
+            file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
+            line: 78,
+        },
+    ),
+    sentry: Observed::known(
+        true,
+        Evidence {
+            file: "core/services/helper/main.py",
+            line: 633,
+        },
+    ),
+    openapi_refs: ObservedSet::unknown("not yet extracted"),
+};
 
-pub fn service_definition() -> ServiceDefinition {
+pub const SERVICE_DEFINITION: ServiceDefinition =
     ServiceDefinition {
         id: ServiceId::Helper,
         singleton: Asserted::established(
@@ -478,10 +463,10 @@ pub fn service_definition() -> ServiceDefinition {
             "single SERVICES-tier tmux instance; one Helper process with shared KNOWN_SERVICES cache",
         ),
         bounded_context: Asserted::established(
-            "connectivity-and-service-discovery".to_string(),
+            "connectivity-and-service-discovery",
             "provisional 2.0 domain: internet reachability probes, HTTP service catalog, extension nginx routing",
         ),
-        journey_refs: AssertedSet::established(vec![
+        journey_refs: AssertedSet::established(&[
             Rationaled::new(
                 JourneyId::MonitorInternetConnectivity,
                 "header indicator polls GET /check_internet_access every 20 seconds",
@@ -511,12 +496,12 @@ pub fn service_definition() -> ServiceDefinition {
             PrivilegeLevel::Root,
             "observed run_as root; writes nginx extension snippets and sends kill -HUP to nginx",
         ),
-        dangerous_operations: AssertedSet::established(vec![]),
+        dangerous_operations: AssertedSet::established(&[]),
         user_confirmation: Asserted::established(
             UserConfirmation::NotRequired,
             "no irreversible, untrusted-code, or vehicle-arm operations; nginx reload and extension route writes are reversible config",
         ),
-        capabilities: AssertedSet::established(vec![
+        capabilities: AssertedSet::established(&[
             Rationaled::new(
                 CapabilityId::CheckInternetConnectivity,
                 "GET /check_internet_access probes configured external websites concurrently",
@@ -546,28 +531,28 @@ pub fn service_definition() -> ServiceDefinition {
                 "reload_nginx sends kill -HUP to the nginx master pid after extension route changes",
             ),
         ]),
-        authorities: AssertedSet::established(vec![
+        authorities: AssertedSet::established(&[
             Rationaled::new(
-                Authority::UserdataWriter(PathRef("/home/pi/tools/nginx/extensions/".to_string())),
+                Authority::UserdataWriter(PathRef("/home/pi/tools/nginx/extensions/")),
                 "sole writer of extension v2 include snippets consumed by nginx.conf include directive",
             ),
             Rationaled::new(
-                Authority::Other("nginx_reloader".to_string()),
+                Authority::Other("nginx_reloader"),
                 "sole sender of HUP to nginx for extension route updates after scan_ports",
             ),
         ]),
         states: AssertedSet::unknown(
             "no cataloged state machine; internet probe results and KNOWN_SERVICES cache are ephemeral request/periodic state",
         ),
-        edges: AssertedSet::established(vec![
+        edges: AssertedSet::established(&[
             Rationaled::new(
                 Edge {
                     from: ServiceId::Helper,
                     to: ServiceId::Versionchooser,
                     via: Bus::Rest,
                     sync: SyncMode::Sync,
-                    endpoint: "localhost/version-chooser/v1.0/version/current".to_string(),
-                    purpose: "query current BlueOS version from version-chooser".to_string(),
+                    endpoint: "localhost/version-chooser/v1.0/version/current",
+                    purpose: "query current BlueOS version from version-chooser",
                     required_at_boot: false,
                     failure_impact: FailureImpact::Degraded,
                 },
@@ -579,47 +564,47 @@ pub fn service_definition() -> ServiceDefinition {
                     to: ServiceId::Mavlink2rest,
                     via: Bus::Rest,
                     sync: SyncMode::Async,
-                    endpoint: "localhost:6040".to_string(),
+                    endpoint: "localhost:6040",
                     purpose: "query vehicle MAVLink data (e.g. vehicle type/heartbeat) via mavlink2rest"
-                        .to_string(),
+                        ,
                     required_at_boot: false,
                     failure_impact: FailureImpact::Degraded,
                 },
                 "observed OutboundHttp localhost:6040 (MavlinkComm.py:24) pairs with mavlink2rest listen 6040; external connectivity probe URLs intentionally excluded",
             ),
         ]),
-        resources: AssertedSet::established(vec![
+        resources: AssertedSet::established(&[
             Rationaled::new(
                 Resource {
-                    path: PathRef("/home/pi/tools/nginx/nginx.conf".to_string()),
+                    path: PathRef("/home/pi/tools/nginx/nginx.conf"),
                     ownership: ResourceOwnership::SharedRead,
                 },
                 "parse_nginx_file reads nginx.conf to map ports to service path prefixes",
             ),
             Rationaled::new(
                 Resource {
-                    path: PathRef("/home/pi/tools/nginx/extensions/".to_string()),
+                    path: PathRef("/home/pi/tools/nginx/extensions/"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 "setup_nginx_route writes per-extension proxy snippets included by nginx",
             ),
             Rationaled::new(
                 Resource {
-                    path: PathRef("/var/run/nginx.pid".to_string()),
+                    path: PathRef("/var/run/nginx.pid"),
                     ownership: ResourceOwnership::SharedRead,
                 },
                 "reload_nginx reads the nginx master pid before kill -HUP",
             ),
             Rationaled::new(
                 Resource {
-                    path: PathRef("/etc/blueos/hardware-uuid".to_string()),
+                    path: PathRef("/etc/blueos/hardware-uuid"),
                     ownership: ResourceOwnership::SharedRead,
                 },
                 "GET /hardware_id reads the motherboard-derived identifier file",
             ),
             Rationaled::new(
                 Resource {
-                    path: PathRef("/etc/blueos/uuid".to_string()),
+                    path: PathRef("/etc/blueos/uuid"),
                     ownership: ResourceOwnership::SharedRead,
                 },
                 "GET /software_id reads the install UUID file",
@@ -627,11 +612,11 @@ pub fn service_definition() -> ServiceDefinition {
         ]),
         lifecycle: Lifecycle {
             triggers: Asserted::established(
-                vec!["start-blueos-core create_service".to_string()],
+                &["start-blueos-core create_service"],
                 "observed lifecycle trigger: tmux creation at boot in SERVICES tier",
             ),
             ordered_after: Asserted::established(
-                vec![
+                &[
                     ServiceId::ArdupilotManager,
                     ServiceId::CableGuy,
                     ServiceId::MavlinkCameraManager,
@@ -647,7 +632,7 @@ pub fn service_definition() -> ServiceDefinition {
                 "observed ordered_after in start-blueos-core SERVICES block",
             ),
             ordered_before: Asserted::established(
-                vec![
+                &[
                     ServiceId::Iperf3,
                     ServiceId::Linux2rest,
                     ServiceId::Filebrowser,
@@ -666,7 +651,7 @@ pub fn service_definition() -> ServiceDefinition {
                 "observed ordered_before lists helper before remaining SERVICES-tier peers including nginx",
             ),
             shutdown: Asserted::established(
-                "uvicorn server exit on process termination".to_string(),
+                "uvicorn server exit on process termination",
                 "main.py awaits server.serve with no explicit shutdown hook beyond uvicorn exit",
             ),
             upgrade_behavior: Asserted::unknown(
@@ -674,7 +659,7 @@ pub fn service_definition() -> ServiceDefinition {
             ),
         },
         health: Asserted::established(
-            "implicit: process liveness via tmux; REST GET / returns HTML title; periodic task every 60s".to_string(),
+            "implicit: process liveness via tmux; REST GET / returns HTML title; periodic task every 60s",
             "no dedicated /health route; uvicorn availability and background periodic task serve as health signals",
         ),
         is_platform: Asserted::established(
@@ -686,34 +671,34 @@ pub fn service_definition() -> ServiceDefinition {
             "versioned FastAPI v1.0 router exposed under /helper/ via VersionedFastAPI",
         ),
         permissions_model: Asserted::established(
-            "no separate permissions manifest; REST routes are unauthenticated".to_string(),
+            "no separate permissions manifest; REST routes are unauthenticated",
             "helper routes have no auth decorator or extension-style permissions JSON",
         ),
-        failure_modes: AssertedSet::established(vec![
+        failure_modes: AssertedSet::established(&[
             Rationaled::new(
-                "nginx_reload_failure".to_string(),
+                "nginx_reload_failure",
                 "reload_nginx uses subprocess.run with check=False; HUP failure leaves stale extension routes",
             ),
             Rationaled::new(
-                "internet_probe_unreachable".to_string(),
+                "internet_probe_unreachable",
                 "check_website timeouts mark sites offline; header indicator shows disconnected state",
             ),
             Rationaled::new(
-                "service_scan_timeout".to_string(),
+                "service_scan_timeout",
                 "detect_service returns invalid ServiceInfo after repeated localhost probe timeouts",
             ),
             Rationaled::new(
-                "factory_mode_notification_failure".to_string(),
+                "factory_mode_notification_failure",
                 "check_and_notify_factory_mode logs and skips MAVLink statustext when version-chooser is unreachable",
             ),
             Rationaled::new(
-                "uuid_read_failure".to_string(),
+                "uuid_read_failure",
                 "GET /hardware_id and GET /software_id return 400 when UUID files are missing or invalid",
             ),
         ]),
         blast_radius: Asserted::established(
             "internet indicator, service discovery UI, and extension nginx routes stale; core vehicle MAVLink and autopilot unaffected"
-                .to_string(),
+                ,
             "helper outage blocks connectivity UX and extension proxy registration but not FC control paths",
         ),
         compatibility_policy: Asserted::unknown(
@@ -721,5 +706,4 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         team: Asserted::unknown("no CODEOWNERS or team metadata in observed artifact"),
         adr_refs: AssertedSet::unknown("no ADR references found in service source tree"),
-    }
-}
+    };

@@ -37,10 +37,10 @@ pub fn resolve_port_ref(port_ref: &PortRef, env: &EnvLookup) -> Result<Port, Res
     match port_ref {
         PortRef::Literal(port) => Ok(Port(*port)),
         PortRef::Env(name) => {
-            let value = env(name).ok_or_else(|| ResolveError::EnvNotSet(name.clone()))?;
+            let value = env(name).ok_or_else(|| ResolveError::EnvNotSet(name.to_string()))?;
             let port = value
                 .parse::<u16>()
-                .map_err(|_| ResolveError::InvalidPort(name.clone(), value))?;
+                .map_err(|_| ResolveError::InvalidPort(name.to_string(), value))?;
             Ok(Port(port))
         }
     }

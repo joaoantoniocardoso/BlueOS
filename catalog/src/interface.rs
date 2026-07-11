@@ -1,23 +1,23 @@
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::id::{PathRef, PortRef};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(tag = "bus", rename_all = "snake_case")]
 pub enum Interface {
     Rest {
         path_prefix: PathRef,
         port: PortRef,
-        versions: Vec<String>,
+        versions: &'static [&'static str],
     },
     Zenoh {
-        topics_produced: Vec<String>,
-        topics_consumed: Vec<String>,
+        topics_produced: &'static [&'static str],
+        topics_consumed: &'static [&'static str],
     },
     Mavlink {
         role: MavlinkRole,
-        connect: String,
+        connect: &'static str,
     },
     Websocket {
         path: PathRef,
@@ -28,10 +28,10 @@ pub enum Interface {
         port: PortRef,
     },
     OutboundHttp {
-        url: String,
+        url: &'static str,
     },
     Subprocess {
-        command: String,
+        command: &'static str,
     },
     File {
         path: PathRef,
@@ -44,14 +44,14 @@ pub enum Interface {
         device: PathRef,
     },
     Docker {
-        image: String,
+        image: &'static str,
     },
 }
 
 // Directional roles derivable from the connect string (in = Endpoint, out = Consumer).
 // Router ownership is a judgment, not observable here; it lives in the asserted layer as
 // Authority::MavlinkRouterOwner.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum MavlinkRole {
     Endpoint,
@@ -59,7 +59,7 @@ pub enum MavlinkRole {
     Consumer,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum FileAccessMode {
     Read,

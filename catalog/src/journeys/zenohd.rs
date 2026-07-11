@@ -9,27 +9,25 @@ const ZENOH_INSPECTOR: &str = "core/frontend/src/components/zenoh-inspector/Zeno
 const ZENOH_LIB: &str = "core/frontend/src/libs/zenoh/index.ts";
 const NGINX: &str = "core/tools/nginx/nginx.conf";
 
-pub fn journeys() -> Vec<UserJourney> {
-    vec![inspect_zenoh_network()]
-}
+pub const JOURNEYS: &[UserJourney] = &[INSPECT_ZENOH_NETWORK];
 
-fn inspect_zenoh_network() -> UserJourney {
+const INSPECT_ZENOH_NETWORK: UserJourney =
     UserJourney {
         id: JourneyId::InspectZenohNetwork,
         summary: Grounded::known(
-            "View detailed Zenoh traffic coming from your vehicle".into(),
+            "View detailed Zenoh traffic coming from your vehicle",
             Provenance::source(ZENOH_MENUS, 146),
         ),
         visibility: Grounded::known(Visibility::Advanced, Provenance::source(ZENOH_MENUS, 145)),
-        services: zenohd_services(),
-        capability_refs: GroundedSet::known(vec![cap(CapabilityId::InspectZenohNetwork,
+        services: ZENOHD_SERVICES,
+        capability_refs: GroundedSet::known(&[cap(CapabilityId::InspectZenohNetwork,
             "Zenoh Inspector connects over WebSocket to inspect live pub/sub topics and network topology",
         )]),
-        preconditions: GroundedSet::known(vec![GroundedItem::new(
-            Precondition::Other("Advanced mode enabled to access the Zenoh Inspector page".into()),
+        preconditions: GroundedSet::known(&[GroundedItem::new(
+            Precondition::Other("Advanced mode enabled to access the Zenoh Inspector page"),
             Provenance::source(ZENOH_MENUS, 145),
         )]),
-        steps: GroundedSet::known(vec![
+        steps: GroundedSet::known(&[
             operator_step(
                 "Open the Zenoh Inspector page from the sidebar",
                 None,
@@ -68,26 +66,23 @@ fn inspect_zenoh_network() -> UserJourney {
             ),
         ]),
         chains_from: None,
-    }
-}
+    };
 
-fn cap(id: CapabilityId, rationale: &str) -> GroundedItem<CapabilityId> {
+const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<CapabilityId> {
     GroundedItem::new(id, Provenance::asserted(rationale))
 }
 
-fn zenohd_services() -> GroundedSet<ServiceId> {
-    GroundedSet::known(vec![GroundedItem::new(
-        ServiceId::Zenohd,
-        Provenance::source(NGINX, 261),
-    )])
-}
+const ZENOHD_SERVICES: GroundedSet<ServiceId> = GroundedSet::known(&[GroundedItem::new(
+    ServiceId::Zenohd,
+    Provenance::source(NGINX, 261),
+)]);
 
-fn live_outcome(reason: &str) -> Grounded<StepOutcome> {
+const fn live_outcome(reason: &'static str) -> Grounded<StepOutcome> {
     Grounded::unknown(reason)
 }
 
-fn operator_step(
-    description: &str,
+const fn operator_step(
+    description: &'static str,
     route: Option<Grounded<crate::journey::RouteRef>>,
     provenance: Provenance,
     outcome: Option<Grounded<StepOutcome>>,
@@ -95,7 +90,7 @@ fn operator_step(
     GroundedItem::new(
         JourneyStep {
             actor: Actor::Operator,
-            description: description.into(),
+            description,
             route,
             outcome,
         },

@@ -13,22 +13,21 @@ use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts
 use crate::service::{Authority, ServiceDefinition};
 use crate::trust::{DangerousOperation, PrivilegeLevel, UserConfirmation};
 
-const RUNTIME_CAPTURE: &str = "runtime-captures/versionchooser__pi4_navigator_master.json";
 const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
 
-pub fn runtime_facts() -> RuntimeFacts {
+pub const RUNTIME_FACTS: RuntimeFacts =
     RuntimeFacts {
         service: ServiceId::Versionchooser,
         state_contracts: GroundedSet::unknown(
             "versionchooser has no service-level state machine (card states Unknown); version selection is implicit in startup.json + Docker image state",
         ),
-        slo_baselines: GroundedSet::known(vec![
+        slo_baselines: GroundedSet::known(&[
             runtime_slo(HttpMethod::Get, "/version/current", 98.5, 134.9, 179.3, 40),
             runtime_slo(HttpMethod::Get, "/version/available/local", 104.2, 121.5, 140.0, 40),
             runtime_slo(HttpMethod::Get, "/bootstrap/current", 93.4, 113.8, 140.0, 40),
             runtime_slo(HttpMethod::Get, "/docker/accounts", 4.4, 7.9, 8.1, 40),
         ]),
-        resource_usage: GroundedSet::known(vec![runtime_resource(
+        resource_usage: GroundedSet::known(&[runtime_resource(
             "running_baseline",
             Distribution {
                 mean: 0.82,
@@ -48,40 +47,39 @@ pub fn runtime_facts() -> RuntimeFacts {
             },
             60,
         )]),
-        platform_matrix: GroundedSet::known(vec![GroundedItem::new(
+        platform_matrix: GroundedSet::known(&[GroundedItem::new(
             PlatformBehavior {
-                platform: "navigator".into(),
+                platform: "navigator",
                 firmware: None,
-                notes: vec![
-                    "versionchooser manages the BlueOS core Docker image regardless of flight controller; platform-independent".into(),
-                    "runtime captured on Navigator only; RSS ~53.1 MB flat, CPU ~0.82% mean".into(),
-                    "version/bootstrap GETs are ~90-105 ms (query the Docker daemon over docker.sock)".into(),
+                notes: &[
+                    "versionchooser manages the BlueOS core Docker image regardless of flight controller; platform-independent",
+                    "runtime captured on Navigator only; RSS ~53.1 MB flat, CPU ~0.82% mean",
+                    "version/bootstrap GETs are ~90-105 ms (query the Docker daemon over docker.sock)",
                 ],
             },
-            runtime_prov("#platform_matrix"),
+            runtime_prov("runtime-captures/versionchooser__pi4_navigator_master.json#platform_matrix"),
         )]),
         settings_mutations: GroundedSet::unknown(
             "POST /version/current and POST /bootstrap/current persist to /root/.config/bootstrap/startup.json; docker login writes ~/.docker/config.json; not exercised (system-integrity hazard)",
         ),
-    }
+    };
+
+const fn runtime_prov(key: &'static str) -> Provenance {
+    Provenance::runtime(key, RUNTIME_ENV)
 }
 
-fn runtime_prov(key: &str) -> Provenance {
-    Provenance::runtime(format!("{RUNTIME_CAPTURE}{key}"), RUNTIME_ENV)
-}
-
-fn runtime_route(method: HttpMethod, path: &str) -> RouteRef {
+const fn runtime_route(method: HttpMethod, path: &'static str) -> RouteRef {
     RouteRef {
         service: ServiceId::Versionchooser,
         method,
-        path: path.into(),
+        path,
         version: None,
     }
 }
 
-fn runtime_slo(
+const fn runtime_slo(
     method: HttpMethod,
-    path: &str,
+    path: &'static str,
     p50: f64,
     p95: f64,
     p99: f64,
@@ -95,305 +93,305 @@ fn runtime_slo(
             latency_p99_ms: p99,
             sample_size,
         },
-        runtime_prov("#slo_running_baseline"),
+        runtime_prov(
+            "runtime-captures/versionchooser__pi4_navigator_master.json#slo_running_baseline",
+        ),
     )
 }
 
-fn runtime_resource(
-    condition: &str,
+const fn runtime_resource(
+    condition: &'static str,
     cpu_pct: Distribution,
     rss_mb: Distribution,
     samples: u32,
 ) -> GroundedItem<ResourceUsage> {
     GroundedItem::new(
         ResourceUsage {
-            condition: condition.into(),
+            condition,
             cpu_pct,
             rss_mb,
             samples,
         },
-        runtime_prov("#resource_usage"),
+        runtime_prov("runtime-captures/versionchooser__pi4_navigator_master.json#resource_usage"),
     )
 }
 
-pub fn observed_facts() -> ObservedFacts {
-    ObservedFacts {
-        id: ServiceId::Versionchooser,
-        aliases: ObservedSet::known(vec![
-            Evidenced::new(
-                "versionchooser".to_string(),
-                Evidence {
-                    file: "core/start-blueos-core".to_string(),
-                    line: 138,
-                },
-            ),
-            Evidenced::new(
-                "version-chooser".to_string(),
-                Evidence {
-                    file: "core/services/versionchooser/main.py".to_string(),
-                    line: 12,
-                },
-            ),
-        ]),
-        kind: Observed::known(
-            ServiceKind::PythonService,
+pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
+    id: ServiceId::Versionchooser,
+    aliases: ObservedSet::known(&[
+        Evidenced::new(
+            "versionchooser",
             Evidence {
-                file: "core/start-blueos-core".to_string(),
+                file: "core/start-blueos-core",
                 line: 138,
             },
         ),
-        entrypoint: Observed::known(
-            "$BLUEOS_PYTHON_BIN_SECONDARY $SERVICES_PATH/versionchooser/main.py".to_string(),
+        Evidenced::new(
+            "version-chooser",
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 138,
+                file: "core/services/versionchooser/main.py",
+                line: 12,
             },
         ),
-        tmux_name: Observed::known(
-            "versionchooser".to_string(),
+    ]),
+    kind: Observed::known(
+        ServiceKind::PythonService,
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 138,
+        },
+    ),
+    entrypoint: Observed::known(
+        "$BLUEOS_PYTHON_BIN_SECONDARY $SERVICES_PATH/versionchooser/main.py",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 138,
+        },
+    ),
+    tmux_name: Observed::known(
+        "versionchooser",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 138,
+        },
+    ),
+    startup_tier: Observed::known(
+        StartupTier::Normal,
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 124,
+        },
+    ),
+    resource_limits: Observed::known(
+        ResourceLimits {
+            memory_mb: Some(0),
+            cpu_percent: Some(0),
+            io_weight: None,
+        },
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 138,
+        },
+    ),
+    nice: Observed::unknown("no nice prefix in start tuple"),
+    run_as: Observed::known(
+        "root",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 138,
+        },
+    ),
+    nginx_prefixes: ObservedSet::known(&[Evidenced::new(
+        PathRef("/version-chooser/"),
+        Evidence {
+            file: "core/tools/nginx/nginx.conf",
+            line: 220,
+        },
+    )]),
+    listen: ObservedSet::known(&[Evidenced::new(
+        PortRef::Literal(8081),
+        Evidence {
+            file: "core/services/versionchooser/args.py",
+            line: 26,
+        },
+    )]),
+    git_path: Observed::known(
+        PathRef("core/services/versionchooser"),
+        Evidence {
+            file: "core/services/versionchooser/main.py",
+            line: 1,
+        },
+    ),
+    interfaces: ObservedSet::known(&[
+        Evidenced::new(
+            Interface::Rest {
+                path_prefix: PathRef("/version-chooser/"),
+                port: PortRef::Literal(8081),
+                versions: &["v1.0"],
+            },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 138,
+                file: "core/services/versionchooser/api/app.py",
+                line: 30,
             },
         ),
-        startup_tier: Observed::known(
-            StartupTier::Normal,
+        Evidenced::new(
+            Interface::OutboundHttp {
+                url: "https://index.docker.io",
+            },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 124,
+                file: "core/services/versionchooser/utils/dockerhub.py",
+                line: 49,
             },
         ),
-        resource_limits: Observed::known(
-            ResourceLimits {
-                memory_mb: Some(0),
-                cpu_percent: Some(0),
-                io_weight: None,
+        Evidenced::new(
+            Interface::OutboundHttp {
+                url: "https://hub.docker.com/",
             },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 138,
+                file: "core/services/versionchooser/utils/dockerhub.py",
+                line: 50,
             },
         ),
-        nice: Observed::unknown("no nice prefix in start tuple"),
-        run_as: Observed::known(
-            "root".to_string(),
+        Evidenced::new(
+            Interface::OutboundHttp {
+                url: "https://auth.docker.io",
+            },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 138,
+                file: "core/services/versionchooser/utils/dockerhub.py",
+                line: 99,
             },
         ),
-        nginx_prefixes: ObservedSet::known(vec![Evidenced::new(
-            PathRef("/version-chooser/".to_string()),
-            Evidence {
-                file: "core/tools/nginx/nginx.conf".to_string(),
-                line: 220,
+        Evidenced::new(
+            Interface::Settings {
+                path: PathRef("/root/.config/bootstrap/startup.json"),
             },
-        )]),
-        listen: ObservedSet::known(vec![Evidenced::new(
-            PortRef::Literal(8081),
             Evidence {
-                file: "core/services/versionchooser/args.py".to_string(),
-                line: 26,
-            },
-        )]),
-        git_path: Observed::known(
-            PathRef("core/services/versionchooser".to_string()),
-            Evidence {
-                file: "core/services/versionchooser/main.py".to_string(),
-                line: 1,
+                file: "core/services/versionchooser/utils/chooser.py",
+                line: 16,
             },
         ),
-        interfaces: ObservedSet::known(vec![
-            Evidenced::new(
-                Interface::Rest {
-                    path_prefix: PathRef("/version-chooser/".to_string()),
-                    port: PortRef::Literal(8081),
-                    versions: vec!["v1.0".to_string()],
-                },
-                Evidence {
-                    file: "core/services/versionchooser/api/app.py".to_string(),
-                    line: 30,
-                },
-            ),
-            Evidenced::new(
-                Interface::OutboundHttp {
-                    url: "https://index.docker.io".to_string(),
-                },
-                Evidence {
-                    file: "core/services/versionchooser/utils/dockerhub.py".to_string(),
-                    line: 49,
-                },
-            ),
-            Evidenced::new(
-                Interface::OutboundHttp {
-                    url: "https://hub.docker.com/".to_string(),
-                },
-                Evidence {
-                    file: "core/services/versionchooser/utils/dockerhub.py".to_string(),
-                    line: 50,
-                },
-            ),
-            Evidenced::new(
-                Interface::OutboundHttp {
-                    url: "https://auth.docker.io".to_string(),
-                },
-                Evidence {
-                    file: "core/services/versionchooser/utils/dockerhub.py".to_string(),
-                    line: 99,
-                },
-            ),
-            Evidenced::new(
-                Interface::Settings {
-                    path: PathRef("/root/.config/bootstrap/startup.json".to_string()),
-                },
-                Evidence {
-                    file: "core/services/versionchooser/utils/chooser.py".to_string(),
-                    line: 16,
-                },
-            ),
-            Evidenced::new(
-                Interface::File {
-                    path: PathRef("/var/run/docker.sock".to_string()),
-                    mode: FileAccessMode::ReadWrite,
-                },
-                Evidence {
-                    file: "core/services/versionchooser/api/v1/routers/version.py".to_string(),
-                    line: 23,
-                },
-            ),
-            Evidenced::new(
-                Interface::File {
-                    path: PathRef("/root/.docker/config.json".to_string()),
-                    mode: FileAccessMode::ReadWrite,
-                },
-                Evidence {
-                    file: "core/services/versionchooser/docker_login.py".to_string(),
-                    line: 14,
-                },
-            ),
-            Evidenced::new(
-                Interface::File {
-                    path: PathRef("/home/pi/.docker/config.json".to_string()),
-                    mode: FileAccessMode::ReadWrite,
-                },
-                Evidence {
-                    file: "core/services/versionchooser/docker_login.py".to_string(),
-                    line: 13,
-                },
-            ),
-            Evidenced::new(
-                Interface::Zenoh {
-                    topics_produced: vec!["services/version-chooser/log".to_string()],
-                    topics_consumed: vec![],
-                },
-                Evidence {
-                    file: "core/libs/commonwealth/src/commonwealth/utils/logs.py".to_string(),
-                    line: 78,
-                },
-            ),
-        ]),
-        resources: ObservedSet::known(vec![
-            Evidenced::new(
-                Resource {
-                    path: PathRef("/var/run/docker.sock".to_string()),
-                    ownership: ResourceOwnership::SharedWrite,
-                },
-                Evidence {
-                    file: "core/services/versionchooser/api/v1/routers/version.py".to_string(),
-                    line: 23,
-                },
-            ),
-            Evidenced::new(
-                Resource {
-                    path: PathRef("/root/.config/bootstrap/startup.json".to_string()),
-                    ownership: ResourceOwnership::SharedWrite,
-                },
-                Evidence {
-                    file: "core/services/versionchooser/utils/chooser.py".to_string(),
-                    line: 16,
-                },
-            ),
-            Evidenced::new(
-                Resource {
-                    path: PathRef("/root/.docker/config.json".to_string()),
-                    ownership: ResourceOwnership::SharedWrite,
-                },
-                Evidence {
-                    file: "core/services/versionchooser/docker_login.py".to_string(),
-                    line: 14,
-                },
-            ),
-            Evidenced::new(
-                Resource {
-                    path: PathRef("/home/pi/.docker/config.json".to_string()),
-                    ownership: ResourceOwnership::SharedWrite,
-                },
-                Evidence {
-                    file: "core/services/versionchooser/docker_login.py".to_string(),
-                    line: 13,
-                },
-            ),
-        ]),
-        lifecycle: Observed::known(
-            ObservedLifecycle {
-                triggers: vec!["start-blueos-core create_service".to_string()],
-                ordered_after: vec![
-                    ServiceId::ArdupilotManager,
-                    ServiceId::CableGuy,
-                    ServiceId::MavlinkCameraManager,
-                    ServiceId::Mavlink2rest,
-                    ServiceId::Kraken,
-                    ServiceId::Wifi,
-                    ServiceId::Zenohd,
-                    ServiceId::Beacon,
-                    ServiceId::Bridget,
-                    ServiceId::Commander,
-                    ServiceId::NmeaInjector,
-                    ServiceId::Helper,
-                    ServiceId::Iperf3,
-                    ServiceId::Linux2rest,
-                    ServiceId::Filebrowser,
-                ],
-                ordered_before: vec![
-                    ServiceId::Pardal,
-                    ServiceId::Ping,
-                    ServiceId::UserTerminal,
-                    ServiceId::Ttyd,
-                    ServiceId::Nginx,
-                    ServiceId::BagOfHolding,
-                    ServiceId::Recorder,
-                    ServiceId::RecorderExtractor,
-                    ServiceId::DiskUsage,
-                    ServiceId::Customization,
-                ],
+        Evidenced::new(
+            Interface::File {
+                path: PathRef("/var/run/docker.sock"),
+                mode: FileAccessMode::ReadWrite,
             },
             Evidence {
-                file: "core/start-blueos-core".to_string(),
-                line: 326,
+                file: "core/services/versionchooser/api/v1/routers/version.py",
+                line: 23,
             },
         ),
-        logs_path: Observed::unknown(
-            "init_logger publishes to zenoh only; no on-disk log path set in versionchooser source",
-        ),
-        zenoh_log_topic: Observed::known(
-            "services/version-chooser/log".to_string(),
+        Evidenced::new(
+            Interface::File {
+                path: PathRef("/root/.docker/config.json"),
+                mode: FileAccessMode::ReadWrite,
+            },
             Evidence {
-                file: "core/libs/commonwealth/src/commonwealth/utils/logs.py".to_string(),
+                file: "core/services/versionchooser/docker_login.py",
+                line: 14,
+            },
+        ),
+        Evidenced::new(
+            Interface::File {
+                path: PathRef("/home/pi/.docker/config.json"),
+                mode: FileAccessMode::ReadWrite,
+            },
+            Evidence {
+                file: "core/services/versionchooser/docker_login.py",
+                line: 13,
+            },
+        ),
+        Evidenced::new(
+            Interface::Zenoh {
+                topics_produced: &["services/version-chooser/log"],
+                topics_consumed: &[],
+            },
+            Evidence {
+                file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                 line: 78,
             },
         ),
-        sentry: Observed::known(
-            true,
+    ]),
+    resources: ObservedSet::known(&[
+        Evidenced::new(
+            Resource {
+                path: PathRef("/var/run/docker.sock"),
+                ownership: ResourceOwnership::SharedWrite,
+            },
             Evidence {
-                file: "core/services/versionchooser/main.py".to_string(),
-                line: 21,
+                file: "core/services/versionchooser/api/v1/routers/version.py",
+                line: 23,
             },
         ),
-        openapi_refs: ObservedSet::unknown("not yet extracted"),
-    }
-}
+        Evidenced::new(
+            Resource {
+                path: PathRef("/root/.config/bootstrap/startup.json"),
+                ownership: ResourceOwnership::SharedWrite,
+            },
+            Evidence {
+                file: "core/services/versionchooser/utils/chooser.py",
+                line: 16,
+            },
+        ),
+        Evidenced::new(
+            Resource {
+                path: PathRef("/root/.docker/config.json"),
+                ownership: ResourceOwnership::SharedWrite,
+            },
+            Evidence {
+                file: "core/services/versionchooser/docker_login.py",
+                line: 14,
+            },
+        ),
+        Evidenced::new(
+            Resource {
+                path: PathRef("/home/pi/.docker/config.json"),
+                ownership: ResourceOwnership::SharedWrite,
+            },
+            Evidence {
+                file: "core/services/versionchooser/docker_login.py",
+                line: 13,
+            },
+        ),
+    ]),
+    lifecycle: Observed::known(
+        ObservedLifecycle {
+            triggers: &["start-blueos-core create_service"],
+            ordered_after: &[
+                ServiceId::ArdupilotManager,
+                ServiceId::CableGuy,
+                ServiceId::MavlinkCameraManager,
+                ServiceId::Mavlink2rest,
+                ServiceId::Kraken,
+                ServiceId::Wifi,
+                ServiceId::Zenohd,
+                ServiceId::Beacon,
+                ServiceId::Bridget,
+                ServiceId::Commander,
+                ServiceId::NmeaInjector,
+                ServiceId::Helper,
+                ServiceId::Iperf3,
+                ServiceId::Linux2rest,
+                ServiceId::Filebrowser,
+            ],
+            ordered_before: &[
+                ServiceId::Pardal,
+                ServiceId::Ping,
+                ServiceId::UserTerminal,
+                ServiceId::Ttyd,
+                ServiceId::Nginx,
+                ServiceId::BagOfHolding,
+                ServiceId::Recorder,
+                ServiceId::RecorderExtractor,
+                ServiceId::DiskUsage,
+                ServiceId::Customization,
+            ],
+        },
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 326,
+        },
+    ),
+    logs_path: Observed::unknown(
+        "init_logger publishes to zenoh only; no on-disk log path set in versionchooser source",
+    ),
+    zenoh_log_topic: Observed::known(
+        "services/version-chooser/log",
+        Evidence {
+            file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
+            line: 78,
+        },
+    ),
+    sentry: Observed::known(
+        true,
+        Evidence {
+            file: "core/services/versionchooser/main.py",
+            line: 21,
+        },
+    ),
+    openapi_refs: ObservedSet::unknown("not yet extracted"),
+};
 
-pub fn service_definition() -> ServiceDefinition {
+pub const SERVICE_DEFINITION: ServiceDefinition =
     ServiceDefinition {
         id: ServiceId::Versionchooser,
         singleton: Asserted::established(
@@ -401,10 +399,10 @@ pub fn service_definition() -> ServiceDefinition {
             "single SERVICES-tier tmux instance; one VersionChooser process",
         ),
         bounded_context: Asserted::established(
-            "blueos-version-management".to_string(),
+            "blueos-version-management",
             "provisional 2.0 domain: core OS image pull, switch, delete, bootstrap alignment, and registry auth",
         ),
-        journey_refs: AssertedSet::established(vec![
+        journey_refs: AssertedSet::established(&[
             Rationaled::new(
                 JourneyId::UpdateBlueosVersion,
                 "simplified update flow pulls and switches to a newer stable or beta core release",
@@ -442,17 +440,17 @@ pub fn service_definition() -> ServiceDefinition {
             PrivilegeLevel::Root,
             "observed run_as root; read-write docker.sock can pull, switch, and restart the core container",
         ),
-        dangerous_operations: AssertedSet::established(vec![
+        dangerous_operations: AssertedSet::established(&[
             Rationaled::new(
                 DangerousOperation::Upgrade,
                 "POST /version/current and update journeys switch the running blueos-core image and restart into it",
             ),
             Rationaled::new(
-                DangerousOperation::Other("delete_core_image".to_string()),
+                DangerousOperation::Other("delete_core_image"),
                 "DELETE /version/delete removes a locally stored core image; recovery may require re-pull or factory restore",
             ),
             Rationaled::new(
-                DangerousOperation::Other("pull_untrusted_image".to_string()),
+                DangerousOperation::Other("pull_untrusted_image"),
                 "POST /version/pull accepts arbitrary repository and tag, including custom registries after docker login",
             ),
         ]),
@@ -460,7 +458,7 @@ pub fn service_definition() -> ServiceDefinition {
             UserConfirmation::Required,
             "switching core OS images, deleting local versions, and pulling third-party images can brick or compromise the vehicle computer",
         ),
-        capabilities: AssertedSet::established(vec![
+        capabilities: AssertedSet::established(&[
             Rationaled::new(
                 CapabilityId::UpdateBlueosVersion,
                 "simplified Version Chooser pulls and applies a newer stable or beta core release",
@@ -506,49 +504,49 @@ pub fn service_definition() -> ServiceDefinition {
                 "GET /docker/accounts lists Docker registry accounts logged in on the host",
             ),
         ]),
-        authorities: AssertedSet::established(vec![
+        authorities: AssertedSet::established(&[
             Rationaled::new(
-                Authority::Other("blueos_version_controller".to_string()),
+                Authority::Other("blueos_version_controller"),
                 "sole writer of startup.json core image selection; bootstrap and the next boot read this path",
             ),
             Rationaled::new(
-                Authority::Other("bootstrap_image_controller".to_string()),
+                Authority::Other("bootstrap_image_controller"),
                 "sole service that stops, recreates, and starts the blueos-bootstrap container",
             ),
             Rationaled::new(
-                Authority::UserdataWriter(PathRef("/root/.config/bootstrap/startup.json".to_string())),
+                Authority::UserdataWriter(PathRef("/root/.config/bootstrap/startup.json")),
                 "owns the bootstrap startup config that records which core image tag boots on next restart",
             ),
         ]),
         states: AssertedSet::unknown(
             "no cataloged state machine; current core and bootstrap versions are implicit in startup.json and Docker",
         ),
-        edges: AssertedSet::established(vec![]),
-        resources: AssertedSet::established(vec![
+        edges: AssertedSet::established(&[]),
+        resources: AssertedSet::established(&[
             Rationaled::new(
                 Resource {
-                    path: PathRef("/var/run/docker.sock".to_string()),
+                    path: PathRef("/var/run/docker.sock"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 "primary Docker API client for core and bootstrap image pull, switch, and container lifecycle",
             ),
             Rationaled::new(
                 Resource {
-                    path: PathRef("/root/.config/bootstrap/startup.json".to_string()),
+                    path: PathRef("/root/.config/bootstrap/startup.json"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 "bootstrap startup config selecting the core image tag for the next boot",
             ),
             Rationaled::new(
                 Resource {
-                    path: PathRef("/root/.docker/config.json".to_string()),
+                    path: PathRef("/root/.docker/config.json"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 "root-user Docker registry credentials written by docker login",
             ),
             Rationaled::new(
                 Resource {
-                    path: PathRef("/home/pi/.docker/config.json".to_string()),
+                    path: PathRef("/home/pi/.docker/config.json"),
                     ownership: ResourceOwnership::SharedWrite,
                 },
                 "pi-user Docker registry credentials written when login targets the default user",
@@ -556,11 +554,11 @@ pub fn service_definition() -> ServiceDefinition {
         ]),
         lifecycle: Lifecycle {
             triggers: Asserted::established(
-                vec!["start-blueos-core create_service".to_string()],
+                &["start-blueos-core create_service"],
                 "observed lifecycle trigger: tmux creation at boot in SERVICES tier",
             ),
             ordered_after: Asserted::established(
-                vec![
+                &[
                     ServiceId::ArdupilotManager,
                     ServiceId::CableGuy,
                     ServiceId::MavlinkCameraManager,
@@ -580,7 +578,7 @@ pub fn service_definition() -> ServiceDefinition {
                 "observed ordered_after in start-blueos-core SERVICES block",
             ),
             ordered_before: Asserted::established(
-                vec![
+                &[
                     ServiceId::Pardal,
                     ServiceId::Ping,
                     ServiceId::UserTerminal,
@@ -595,7 +593,7 @@ pub fn service_definition() -> ServiceDefinition {
                 "observed ordered_before lists versionchooser before remaining SERVICES-tier peers",
             ),
             shutdown: Asserted::established(
-                "uvicorn server exit logs Version Chooser service stopped".to_string(),
+                "uvicorn server exit logs Version Chooser service stopped",
                 "main.py finally block after server.serve returns",
             ),
             upgrade_behavior: Asserted::unknown(
@@ -603,7 +601,7 @@ pub fn service_definition() -> ServiceDefinition {
             ),
         },
         health: Asserted::established(
-            "implicit: process liveness via tmux; REST GET / returns service name".to_string(),
+            "implicit: process liveness via tmux; REST GET / returns service name",
             "no dedicated /health route; uvicorn availability serves as health signal",
         ),
         is_platform: Asserted::established(
@@ -616,38 +614,38 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         permissions_model: Asserted::established(
             "pirate mode gates advanced version UI in the frontend; REST routes have no separate permissions manifest"
-                .to_string(),
+                ,
             "advanced switch, pull, delete, and docker login journeys require pirate mode in VersionChooser.vue",
         ),
-        failure_modes: AssertedSet::established(vec![
+        failure_modes: AssertedSet::established(&[
             Rationaled::new(
-                "docker_daemon_unavailable".to_string(),
+                "docker_daemon_unavailable",
                 "aiodocker client operations fail when /var/run/docker.sock is unreachable",
             ),
             Rationaled::new(
-                "image_pull_failure".to_string(),
+                "image_pull_failure",
                 "pull_version streams errors when the registry is unreachable or the tag is missing",
             ),
             Rationaled::new(
-                "invalid_startup_json".to_string(),
+                "invalid_startup_json",
                 "get_current_image_and_tag returns None when startup.json lacks core image or tag keys",
             ),
             Rationaled::new(
-                "registry_auth_failure".to_string(),
+                "registry_auth_failure",
                 "private or rate-limited pulls fail without prior POST /docker/login credentials",
             ),
             Rationaled::new(
-                "bootstrap_switch_failure".to_string(),
+                "bootstrap_switch_failure",
                 "set_bootstrap_version aborts when the target bootstrap image is not present locally",
             ),
             Rationaled::new(
-                "switch_to_missing_image".to_string(),
+                "switch_to_missing_image",
                 "set_version returns 412 when the requested core image tag is not installed locally",
             ),
         ]),
         blast_radius: Asserted::established(
             "wrong core or bootstrap image selection can brick BlueOS on next restart; already-running core may persist until switch"
-                .to_string(),
+                ,
             "versionchooser outage blocks OS updates and rollbacks but does not directly stop autopilot or MAVLink",
         ),
         compatibility_policy: Asserted::unknown(
@@ -655,5 +653,4 @@ pub fn service_definition() -> ServiceDefinition {
         ),
         team: Asserted::unknown("no CODEOWNERS or team metadata in observed artifact"),
         adr_refs: AssertedSet::unknown("no ADR references found in service source tree"),
-    }
-}
+    };

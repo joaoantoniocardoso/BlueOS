@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::catalog::Catalog;
 use crate::catalog::CouplingMatrix;
@@ -17,7 +17,7 @@ const STABILITY_SEED: u64 = 0xC47A_7005;
 const STABILITY_THRESHOLD: f64 = 0.8;
 
 /// Tunable default coupling weights; change `WEIGHTS_VERSION` when adjusting.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
 pub struct CouplingWeights {
     pub bus: HashMap<Bus, f64>,
     pub failure_impact: HashMap<FailureImpact, f64>,
@@ -62,7 +62,7 @@ impl Default for CouplingWeights {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ClusterPolicy {
     CouplingOnly,
@@ -70,14 +70,14 @@ pub enum ClusterPolicy {
     CouplingDomain,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
 pub struct ClusterResult {
     pub policy: ClusterPolicy,
     pub communities: Vec<Vec<ServiceId>>,
     pub modularity: f64,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
 pub struct StabilityReport {
     pub runs: usize,
     pub jitter: f64,
@@ -225,7 +225,7 @@ fn build_coupling_matrix(
             continue;
         };
         if let AssertedSet::Established { items } = &service.edges {
-            for rationaled in items {
+            for rationaled in items.iter() {
                 let edge = &rationaled.value;
                 let Some(&to_idx) = index.get(&edge.to) else {
                     continue;
@@ -272,7 +272,7 @@ fn add_shared_resource_coupling(
             continue;
         };
         if let AssertedSet::Established { items } = &service.resources {
-            for rationaled in items {
+            for rationaled in items.iter() {
                 let resource = &rationaled.value;
                 if resource.ownership == ResourceOwnership::Exclusive {
                     continue;
