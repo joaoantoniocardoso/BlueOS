@@ -84,7 +84,7 @@ allowed for services with no meaningful runtime or unreachable. Update after eac
 | 7 | zenohd | zenohd | 7447 | binary | TODO | TODO | TODO | TODO | |
 | 8 | beacon | beacon | ? | python | TODO | TODO | TODO | TODO | |
 | 9 | bridget | bridget | ? /bridget/ | python | TODO | TODO | TODO | TODO | |
-| 10 | commander | commander | ? /commander/ | python | TODO | TODO | TODO | TODO | |
+| 10 | commander | commander | 9100 /commander/ | python | DONE | TODO | TODO | TODO | obs QA (bounce: /command/host + do_legacy arg; fixed). HIGH-PRIV host cmds |
 | 11 | nmea_injector | nmea_injector | ? /nmea-injector/ | python | TODO | TODO | TODO | TODO | |
 | 12 | helper | helper | 81 /helper/ | python | DONE | DONE | DONE | DONE | FULLY MODELED (RSS~62MB, cpu~1.06%; v1.0 GETs) |
 | 13 | iperf3 | iperf3 | 5201 | binary | TODO | TODO | TODO | TODO | |
