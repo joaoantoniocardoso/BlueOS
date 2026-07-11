@@ -1,5 +1,7 @@
+mod vehicle_setup;
+
 use crate::page::Page;
 
 pub fn all_pages() -> Vec<Page> {
-    vec![]
+    vec![vehicle_setup::page()]
 }
