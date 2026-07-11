@@ -1,14 +1,136 @@
 use crate::criticality::CriticalityTier;
 use crate::id::{CapabilityId, JourneyId, PathRef, PortRef, ServiceId};
 use crate::interface::{FileAccessMode, Interface};
+use crate::journey::{HttpMethod, RouteRef};
 use crate::lifecycle::{Lifecycle, ObservedLifecycle};
 use crate::observed::{ObservedFacts, ResourceLimits, ServiceKind, StartupTier};
+use crate::provenance::GroundedSet;
 use crate::provenance::{
-    Asserted, AssertedSet, Evidence, Evidenced, Observed, ObservedSet, Rationaled,
+    Asserted, AssertedSet, Evidence, Evidenced, GroundedItem, Observed, ObservedSet, Provenance,
+    Rationaled,
 };
 use crate::resource::{Resource, ResourceOwnership};
+use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts, SloBaseline};
 use crate::service::{Authority, ServiceDefinition};
 use crate::trust::{DangerousOperation, PrivilegeLevel, UserConfirmation};
+
+const RUNTIME_CAPTURE: &str = "runtime-captures/commander__pi4_navigator_master.json";
+const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
+
+pub fn runtime_facts() -> RuntimeFacts {
+    RuntimeFacts {
+        service: ServiceId("commander".into()),
+        state_contracts: GroundedSet::unknown(
+            "commander has no service-level state machine",
+        ),
+        slo_baselines: GroundedSet::known(vec![
+            runtime_slo(
+                HttpMethod::Get,
+                "/raspi/vcgencmd?i_know_what_i_am_doing=true",
+                1918.3,
+                1991.4,
+                1991.4,
+                20,
+            ),
+            runtime_slo(
+                HttpMethod::Get,
+                "/raspi/eeprom_update?i_know_what_i_am_doing=true",
+                805.9,
+                876.3,
+                876.3,
+                20,
+            ),
+        ]),
+        resource_usage: GroundedSet::known(vec![runtime_resource(
+            "running_baseline",
+            Distribution {
+                mean: 1.69,
+                median: 2.04,
+                p95: 3.17,
+                min: 0.00,
+                max: 3.21,
+                sd: 0.83,
+            },
+            flat_rss(35.5),
+            60,
+        )]),
+        platform_matrix: GroundedSet::known(vec![GroundedItem::new(
+            PlatformBehavior {
+                platform: "navigator".into(),
+                firmware: None,
+                notes: vec![
+                    "raspi/vcgencmd and raspi/eeprom_update are Pi-specific (vcgencmd, rpi-eeprom-update); may error on non-Pi boards".into(),
+                    "runtime captured on Navigator only; RSS ~35.5 MB, CPU ~1.69% mean".into(),
+                ],
+            },
+            runtime_prov("#platform_matrix"),
+        )]),
+        settings_mutations: GroundedSet::unknown(
+            "mutating endpoints (settings reset) are destructive and were not exercised; not captured",
+        ),
+    }
+}
+
+fn runtime_prov(key: &str) -> Provenance {
+    Provenance::runtime(format!("{RUNTIME_CAPTURE}{key}"), RUNTIME_ENV)
+}
+
+fn runtime_route(method: HttpMethod, path: &str) -> RouteRef {
+    RouteRef {
+        service: ServiceId("commander".into()),
+        method,
+        path: path.into(),
+        version: None,
+    }
+}
+
+fn runtime_slo(
+    method: HttpMethod,
+    path: &str,
+    p50: f64,
+    p95: f64,
+    p99: f64,
+    sample_size: u32,
+) -> GroundedItem<SloBaseline> {
+    GroundedItem::new(
+        SloBaseline {
+            route: runtime_route(method, path),
+            latency_p50_ms: p50,
+            latency_p95_ms: p95,
+            latency_p99_ms: p99,
+            sample_size,
+        },
+        runtime_prov("#slo_running_baseline"),
+    )
+}
+
+fn flat_rss(mb: f64) -> Distribution {
+    Distribution {
+        mean: mb,
+        median: mb,
+        p95: mb,
+        min: mb,
+        max: mb,
+        sd: 0.0,
+    }
+}
+
+fn runtime_resource(
+    condition: &str,
+    cpu_pct: Distribution,
+    rss_mb: Distribution,
+    samples: u32,
+) -> GroundedItem<ResourceUsage> {
+    GroundedItem::new(
+        ResourceUsage {
+            condition: condition.into(),
+            cpu_pct,
+            rss_mb,
+            samples,
+        },
+        runtime_prov("#resource_usage"),
+    )
+}
 
 pub fn observed_facts() -> ObservedFacts {
     ObservedFacts {

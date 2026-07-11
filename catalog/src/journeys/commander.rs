@@ -15,6 +15,8 @@ const SETTINGS_VIEW: &str = "core/frontend/src/views/SettingsView.vue";
 const SYSINFO_VIEW: &str = "core/frontend/src/views/SystemInformationView.vue";
 const UPDATE_TIME: &str = "core/frontend/src/utils/update_time.ts";
 const VIDEO_MANAGER: &str = "core/frontend/src/components/video-manager/VideoManager.vue";
+const RUNTIME_CAPTURE: &str = "runtime-captures/commander__pi4_navigator_master.json";
+const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
 
 pub fn journeys() -> Vec<UserJourney> {
     vec![
@@ -62,7 +64,7 @@ fn reboot_onboard_computer() -> UserJourney {
                     88,
                 )),
                 Provenance::source(POWER_MENU, 173),
-                None,
+                Some(Grounded::unknown("destructive; not exercised in capture")),
             ),
         ]),
         chains_from: None,
@@ -103,7 +105,7 @@ fn shutdown_onboard_computer() -> UserJourney {
                     88,
                 )),
                 Provenance::source(POWER_MENU, 186),
-                None,
+                Some(Grounded::unknown("destructive; not exercised in capture")),
             ),
         ]),
         chains_from: None,
@@ -137,7 +139,7 @@ fn sync_system_time() -> UserJourney {
                 72,
             )),
             Provenance::source(UPDATE_TIME, 9),
-            None,
+            Some(Grounded::unknown("destructive; not exercised in capture")),
         )]),
         chains_from: None,
     }
@@ -173,7 +175,7 @@ fn enable_legacy_camera_support() -> UserJourney {
                     117,
                 )),
                 Provenance::source(VIDEO_MANAGER, 66),
-                None,
+                Some(Grounded::unknown("destructive; not exercised in capture")),
             ),
             operator_step(
                 "Reboot the onboard computer to apply legacy camera support",
@@ -225,7 +227,11 @@ fn inspect_raspberry_eeprom_bootloader() -> UserJourney {
                     132,
                 )),
                 Provenance::source(FIRMWARE, 232),
-                None,
+                Some(runtime_outcome(
+                    200,
+                    Some("\"vl085\"".into()),
+                    "#running_baseline",
+                )),
             ),
             operator_step(
                 "Load current and latest EEPROM bootloader and USB controller versions",
@@ -236,7 +242,11 @@ fn inspect_raspberry_eeprom_bootloader() -> UserJourney {
                     150,
                 )),
                 Provenance::source(FIRMWARE, 233),
-                None,
+                Some(runtime_outcome(
+                    200,
+                    Some("\"return_code\":0".into()),
+                    "#running_baseline",
+                )),
             ),
         ]),
         chains_from: None,
@@ -283,7 +293,7 @@ fn update_raspberry_eeprom_bootloader() -> UserJourney {
                     157,
                 )),
                 Provenance::source(FIRMWARE, 69),
-                None,
+                Some(Grounded::unknown("destructive; not exercised in capture")),
             ),
         ]),
         chains_from: Some(JourneyId("inspect_raspberry_eeprom_bootloader".into())),
@@ -323,7 +333,7 @@ fn reset_blueos_settings() -> UserJourney {
                     164,
                 )),
                 Provenance::source(SETTINGS_VIEW, 669),
-                None,
+                Some(Grounded::unknown("destructive; not exercised in capture")),
             ),
         ]),
         chains_from: None,
@@ -356,7 +366,7 @@ fn run_host_command() -> UserJourney {
                 57,
             )),
             Provenance::source(COMMANDER_STORE, 42),
-            None,
+            Some(Grounded::unknown("destructive; not exercised in capture")),
         )]),
         chains_from: None,
     }
@@ -425,5 +435,16 @@ fn service_step(
             outcome,
         },
         provenance,
+    )
+}
+
+fn runtime_outcome(status: u16, body: Option<String>, key: &str) -> Grounded<StepOutcome> {
+    Grounded::known(
+        StepOutcome {
+            expected_status: Some(status),
+            body_predicate: body,
+            transition: None,
+        },
+        Provenance::runtime(format!("{RUNTIME_CAPTURE}{key}"), RUNTIME_ENV),
     )
 }
