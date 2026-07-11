@@ -1,0 +1,116 @@
+{
+  "label": "stopped_navigator",
+  "base": "http://192.168.0.177/ardupilot-manager/v1.0",
+  "routes": {
+    "/board": {
+      "status": 200,
+      "body": "{\n  \"name\": \"Navigator\", \n  \"manufacturer\": \"Blue Robotics\", \n  \"platform\": \"navigator\", \n  \"path\": null, \n  \"flags\": []\n}",
+      "latency_ms": {
+        "p50": 5.9,
+        "p95": 6.4,
+        "p99": 6.4,
+        "n": 3
+      }
+    },
+    "/vehicle_type": {
+      "status": 500,
+      "body": "Timed out fetching message: Did not receive an updated HEARTBEAT before timeout.",
+      "latency_ms": {
+        "p50": 5102.8,
+        "p95": 5103.4,
+        "p99": 5103.4,
+        "n": 3
+      }
+    },
+    "/sitl_frame": {
+      "status": 200,
+      "body": "\"vectored\"",
+      "latency_ms": {
+        "p50": 5.3,
+        "p95": 6.7,
+        "p99": 6.7,
+        "n": 3
+      }
+    },
+    "/firmware_info": {
+      "status": 200,
+      "body": "{\n  \"version\": \"4.5.3\", \n  \"type\": \"STABLE\"\n}",
+      "latency_ms": {
+        "p50": 18.9,
+        "p95": 26.8,
+        "p99": 26.8,
+        "n": 3
+      }
+    },
+    "/preferred_router": {
+      "status": 200,
+      "body": "\"MAVLink-Server\"",
+      "latency_ms": {
+        "p50": 6.4,
+        "p95": 7.1,
+        "p99": 7.1,
+        "n": 3
+      }
+    },
+    "/available_routers": {
+      "status": 200,
+      "body": "[\n  \"MAVLink-Server\"\n]",
+      "latency_ms": {
+        "p50": 19.4,
+        "p95": 19.4,
+        "p99": 19.4,
+        "n": 3
+      }
+    },
+    "/available_boards": {
+      "status": 200,
+      "body": "[\n  {\n    \"name\": \"Navigator\", \n    \"manufacturer\": \"Blue Robotics\", \n    \"platform\": \"navigator\", \n    \"path\": null, \n    \"flags\": []\n  }, \n  {\n    \"name\": \"SITL\", \n    \"manufacturer\": \"ArduPilot Team\", \n    \"platform\": \"SITL_arm_linux_gnueabihf\", \n    \"path\": null, \n    \"flags\": []\n  }, \n  {\n    \"name\": \"Manual\", \n    \"manufacturer\": \"Manual\", \n    \"platform\": \"Manual\", \n    \"path\": null, \n    \"flags\": []\n  }\n]",
+      "latency_ms": {
+        "p50": 12.7,
+        "p95": 13.1,
+        "p99": 13.1,
+        "n": 3
+      }
+    },
+    "/available_firmwares": {
+      "status": 422,
+      "body": "{\"detail\":[{\"loc\":[\"query\",\"vehicle\"],\"msg\":\"field required\",\"type\":\"value_error.missing\"}]}",
+      "latency_ms": {
+        "p50": 4.0,
+        "p95": 4.1,
+        "p99": 4.1,
+        "n": 3
+      }
+    },
+    "/endpoints/": {
+      "status": 200,
+      "body": "[\n  {\n    \"name\": \"GCS Client Link\", \n    \"owner\": \"ardupilot-manager\", \n    \"connection_type\": \"udpout\", \n    \"place\": \"192.168.2.1\", \n    \"argument\": 14550, \n    \"persistent\": true, \n    \"protected\": false, \n    \"enabled\": true, \n    \"overwrite_settings\": false, \n    \"__pydantic_initialised__\": true\n  }, \n  {\n    \"name\": \"ZenohRaw\", \n    \"owner\": \"ardupilot-manager\", \n    \"connection_type\": \"zenohraw\", \n    \"place\": \"0.0.0.0\", \n    \"argument\": 7117, \n    \"persistent\": true, \n    \"protected\": true, \n    \"enabled\": true, \n    \"overwrite_settings\": false, \n    \"__pydantic_initialised__\": true\n  }, \n  {\n    \"name\": \"GCS Server Link\", \n    \"owner\": \"ardupilot-manager\", \n    \"connection_type\": \"udpin\", \n    \"place\": \"0.0.0.0\", \n    \"argument\": 14550, \n    \"persistent\": true, \n    \"protected\": false, \n    \"enabled\": true, \n    \"overwrite_settings\": false, \n    \"__pydantic_initialised__\": true\n  }, \n  {\n    \"name\": \"Ping360 Heading\", \n    \"owner\": \"ardupilot-manager\", \n    \"connection_type\": \"udpin\", \n    \"place\": \"0.0.0.0\", \n    \"argument\": 14660, \n    \"persistent\": true, \n    \"protected\": false, \n    \"enabled\": true, \n    \"overwrite_settings\": false, \n    \"__pydantic_initialised__\": true\n  }, \n  {\n    \"name\": \"MAVLink2RestServer\", \n    \"owner\": \"ardupilot-manager\", \n    \"connection_type\": \"udpin\", \n    \"place\": \"127.0.0.1\", \n    \"argument\": 14001, \n    \"persistent\": true, \n    \"protected\": true, \n    \"enabled\": true, \n    \"overwrite_settings\": false, \n    \"__pydantic_initialised__\": true\n  }, \n  {\n    \"name\": \"Zenoh Deamon\", \n    \"owner\": \"ardupilot-manager\", \n    \"connection_type\": \"zenoh\", \n    \"place\": \"0.0.0.0\", \n    \"argument\": 7117, \n    \"persistent\": true, \n    \"protected\": true, \n    \"enabled\": true, \n    \"overwrite_settings\": false, \n    \"__pydantic_initialised__\": true\n  }, \n  {\n    \"name\": \"MAVLink2Rest\", \n    \"owner\": \"ardupilot-manager\", \n    \"connection_type\": \"udpout\", \n    \"place\": \"127.0.0.1\", \n    \"argument\": 14000, \n    \"persistent\": true, \n    \"protected\": true, \n    \"enabled\": true, \n    \"overwrite_settings\": true, \n    \"__pydantic_initialised__\": true\n  }, \n  {\n    \"name\": \"Internal Link\", \n    \"owner\": \"ardupilot-manager\", \n    \"connection_type\": \"tcpin\", \n    \"place\": \"127.0.0.1\", \n    \"argument\": 5777, \n    \"persistent\": true, \n    \"protected\": true, \n    \"enabled\": true, \n    \"overwrite_settings\": true, \n    \"__pydantic_initialised__\": true\n  }\n]",
+      "latency_ms": {
+        "p50": 7.5,
+        "p95": 7.6,
+        "p99": 7.6,
+        "n": 3
+      }
+    },
+    "/serials": {
+      "status": 200,
+      "body": "[\n  {\n    \"port\": \"C\", \n    \"endpoint\": \"/dev/ttyS0\"\n  }, \n  {\n    \"port\": \"B\", \n    \"endpoint\": \"/dev/ttyAMA1\"\n  }, \n  {\n    \"port\": \"E\", \n    \"endpoint\": \"/dev/ttyAMA2\"\n  }, \n  {\n    \"port\": \"F\", \n    \"endpoint\": \"/dev/ttyAMA3\"\n  }\n]",
+      "latency_ms": {
+        "p50": 532.8,
+        "p95": 540.2,
+        "p99": 540.2,
+        "n": 3
+      }
+    },
+    "/firmware_vehicle_type": {
+      "status": 500,
+      "body": "{\"detail\":\"Did not receive an updated HEARTBEAT before timeout.\"}",
+      "latency_ms": {
+        "p50": 5092.6,
+        "p95": 5095.5,
+        "p99": 5095.5,
+        "n": 3
+      }
+    }
+  }
+}

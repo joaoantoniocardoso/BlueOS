@@ -1,0 +1,110 @@
+{
+  "service": "ardupilot_manager",
+  "environment": "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator, ArduSub 4.5.3 STABLE",
+  "captured_at": "2026-07-11T01:57Z",
+  "capture_host": "192.168.0.177",
+  "notes": "Values captured against a live BlueOS master instance. Not derived from any POC prototype. docker stats is container-wide (blueos-core hosts all services via tmux), so CPU/mem are sampled per-process instead.",
+
+  "api_versions": ["v1.0", "v2.0"],
+  "route_inventory": [
+    "DELETE /endpoints/", "GET /available_boards", "GET /available_firmwares", "GET /available_routers",
+    "GET /board", "GET /endpoints/", "GET /endpoints/manual_board_master_endpoint", "GET /firmware_info",
+    "GET /firmware_vehicle_type", "GET /preferred_router", "GET /serials", "GET /sitl_frame",
+    "GET /vehicle_type", "POST /board", "POST /endpoints/", "POST /endpoints/manual_board_master_endpoint",
+    "POST /install_firmware_from_file", "POST /install_firmware_from_url", "POST /preferred_router",
+    "POST /restart", "POST /restore_default_firmware", "POST /sitl_frame", "POST /start", "POST /stop",
+    "PUT /endpoints/", "PUT /serials"
+  ],
+
+  "running_navigator": {
+    "GET /board":            { "status": 200, "body_predicate": "\"platform\": \"navigator\"" },
+    "GET /vehicle_type":     { "status": 200, "body_predicate": "Submarine" },
+    "GET /sitl_frame":       { "status": 200, "body_predicate": "vectored" },
+    "GET /firmware_info":    { "status": 200, "body_predicate": "\"version\": \"4.5.3\"" },
+    "GET /preferred_router": { "status": 200, "body_predicate": "MAVLink-Server" },
+    "GET /available_routers":{ "status": 200, "body_predicate": "MAVLink-Server" },
+    "GET /endpoints/":       { "status": 200, "body_predicate": "GCS Client Link" },
+    "GET /serials":          { "status": 200, "body_predicate": "/dev/ttyS0" }
+  },
+
+  "slo_running_navigator": {
+    "GET /board":             { "p50_ms": 7.3,    "p95_ms": 13.6,   "p99_ms": 15.8,   "n": 60 },
+    "GET /vehicle_type":      { "p50_ms": 1038.5, "p95_ms": 1518.9, "p99_ms": 1627.9, "n": 60, "note": "queries the live autopilot over MAVLink" },
+    "GET /firmware_info":     { "p50_ms": 29.3,   "p95_ms": 62.7,   "p99_ms": 102.1,  "n": 60 },
+    "GET /sitl_frame":        { "p50_ms": 5.9,    "p95_ms": 10.2,   "p99_ms": 14.3,   "n": 60 },
+    "GET /preferred_router":  { "p50_ms": 6.2,    "p95_ms": 13.0,   "p99_ms": 15.5,   "n": 60 },
+    "GET /available_boards":  { "p50_ms": 15.8,   "p95_ms": 26.8,   "p99_ms": 28.5,   "n": 60 },
+    "GET /available_firmwares":{ "p50_ms": 6.6,   "p95_ms": 13.2,   "p99_ms": 18.1,   "n": 60 },
+    "GET /endpoints/":        { "p50_ms": 11.7,   "p95_ms": 27.0,   "p99_ms": 39.3,   "n": 60 },
+    "GET /serials":           { "p50_ms": 694.6,  "p95_ms": 1384.8, "p99_ms": 1407.7, "n": 60, "note": "enumerates serial ports" }
+  },
+
+  "resource_usage_resting": {
+    "comm": "python3 /home/pi/services/ardupilot_manager/main.py",
+    "launcher": "run-service autopilot nice --19",
+    "method": "/proc/<pid>/stat utime+stime vs /proc/stat total, 1s interval, top-style (100 = 1 core, ncpu=4)",
+    "samples": 60,
+    "window_s": 60,
+    "condition": "resting (no external HTTP load)",
+    "cpu_pct": { "mean": 8.74, "median": 1.11, "p95": 51.65, "min": 0.0, "max": 57.45, "sd": 17.16 },
+    "cpu_note": "bimodal: near-idle (~0-1%) with a periodic ~50%-of-one-core burst roughly every 6s",
+    "rss_mb": { "mean": 46.0, "median": 46.0, "min": 46.0, "max": 46.0 }
+  },
+
+  "settings_root": {
+    "file": "/root/.config/ardupilot-manager/settings.json",
+    "shape": { "version": 0, "content": {} },
+    "pristine_content_keys": ["preferred_router", "sitl_frame"],
+    "content_keys_observed": ["preferred_router", "sitl_frame", "start_on_boot", "preferred_board"]
+  },
+
+  "state_contracts": {
+    "machine": "autopilot_lifecycle",
+    "note": "autopilot-dependent endpoints fail when stopped; config reads are state-independent. Falsifies api_stable:true.",
+    "running": {
+      "GET /vehicle_type": { "status": 200, "body_predicate": "Submarine" },
+      "GET /firmware_vehicle_type": { "status": 200, "body_predicate": "ArduSub" },
+      "GET /board": { "status": 200 }, "GET /firmware_info": { "status": 200 }, "GET /endpoints/": { "status": 200 }, "GET /serials": { "status": 200 }
+    },
+    "stopped": {
+      "GET /vehicle_type": { "status": 500, "body_predicate": "Did not receive an updated HEARTBEAT before timeout" },
+      "GET /firmware_vehicle_type": { "status": 500, "body_predicate": "Did not receive an updated HEARTBEAT before timeout" },
+      "GET /board": { "status": 200 }, "GET /firmware_info": { "status": 200 }, "GET /sitl_frame": { "status": 200 }, "GET /preferred_router": { "status": 200 }, "GET /endpoints/": { "status": 200 }, "GET /serials": { "status": 200 }
+    }
+  },
+
+  "transitions": {
+    "POST /stop":    { "status": 200, "to": "stopped", "recovery_s": 0 },
+    "POST /start":   { "status": 200, "to": "running", "recovery_s": 0 },
+    "POST /restart": { "status": 200, "to": "running", "recovery_s": 13.2, "note": "synchronous; blocks until autopilot back" },
+    "POST /board":   { "status": 200, "note": "board switch Navigator<->SITL observed 200 both directions; autopilot restarts under the new platform" },
+    "POST /sitl_frame": { "status": 200, "note": "observed 200; mutates content.sitl_frame" }
+  },
+
+  "settings_mutations": [
+    { "trigger": "POST /sitl_frame", "keys_changed": ["content.sitl_frame"], "verified": "diff vectored -> vectored_6dof -> vectored" },
+    { "trigger": "POST /board", "keys_changed": ["content.preferred_board"], "verified": "preferred_board object appeared after POST /board" },
+    { "trigger": "POST /start|/stop", "keys_changed": ["content.start_on_boot"], "verified": "start_on_boot appeared during lifecycle cycle (exact trigger not isolated)" },
+    { "trigger": "POST /preferred_router", "keys_changed": ["content.preferred_router"], "verified": "shape only; only MAVLink-Server available" }
+  ],
+
+  "platform_matrix": {
+    "navigator": { "platform": "navigator", "firmware": "4.5.3 STABLE", "GET /serials": 200, "rss_mb": 46.0, "note": "hardware autopilot over serial /dev/ttyS0" },
+    "sitl":      { "platform": "SITL_arm_linux_gnueabihf", "firmware": "4.7.0 BETA", "GET /serials": 500, "rss_mb": 114.2, "note": "software autopilot; /serials errors {detail:''}" },
+    "manual":    { "platform": "Manual", "firmware": "4.5.7 STABLE", "GET /vehicle_type": 500, "GET /serials": 500, "rss_mb": 55.4, "cpu_pct_mean": 0.85, "note": "manual endpoint config; no auto-detected autopilot -> vehicle_type 500 (no HEARTBEAT), serials 500", "caveat": "captured with Manual selected but NO external autopilot attached to the manual master endpoint (udpin 0.0.0.0:14551); these 500s reflect the unconfigured/no-source sub-state, not a correctly set up Manual vehicle - outcomes likely differ once a real autopilot streams MAVLink to 14551", "doc_gap": "Manual board is undocumented in ../BlueOS-docs (only Navigator and SITL board options are covered; cf. serial-autopilot support issue #2722)" }
+  },
+
+  "firmware_operations": {
+    "note": "Navigator firmware = ArduSub ELF run by the Pi; install = binary swap + autopilot restart (no MCU bootloader). Captured by flashing 4.5.7 (url) -> 4.5.6 (file) -> default.",
+    "POST /install_firmware_from_url":  { "status": 200, "sync_s": 13.4, "effect": "installed STABLE-4.5.7 from https://firmware.ardupilot.org/Sub/stable-4.5.7/navigator/ardusub", "params": "url (req), board_name, make_default, auto_switch_board" },
+    "POST /install_firmware_from_file": { "status": 200, "sync_s": 12.3, "effect": "installed uploaded 4.5.6 ELF (multipart field 'binary')", "params": "board_name; multipart binary" },
+    "POST /restore_default_firmware":   { "status": 200, "sync_s": 11.6, "effect": "restored default -> 4.5.7 STABLE (master default)", "params": "board_name" }
+  },
+
+  "resource_by_state": {
+    "method": "sample_resource.sh, /proc deltas, top-style (100 == 1 core), ncpu=4, 20-60 samples @1s",
+    "running_navigator": { "cpu_pct": { "mean": 8.74, "median": 1.11, "p95": 51.65, "max": 57.45, "sd": 17.16 }, "rss_mb": 46.0, "note": "~50%/6s burst = autopilot/MAVLink loop" },
+    "stopped_navigator": { "cpu_pct": { "mean": 0.29, "median": 0.0, "p95": 0.98, "max": 0.99, "sd": 0.45 }, "rss_mb": 46.0 },
+    "sitl":              { "cpu_pct": { "mean": 7.34, "median": 0.0, "p95": 43.80, "max": 46.94, "sd": 14.77 }, "rss_mb": 114.2 }
+  }
+}

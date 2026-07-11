@@ -1,0 +1,56 @@
+{
+  "label": "manual",
+  "base": "http://192.168.0.177/ardupilot-manager/v1.0",
+  "routes": {
+    "/board": {
+      "status": 200,
+      "body": "{\n  \"name\": \"Manual\", \n  \"manufacturer\": \"Manual\", \n  \"platform\": \"Manual\", \n  \"path\": null, \n  \"flags\": []\n}",
+      "latency_ms": {
+        "p50": 7.8,
+        "p95": 7.8,
+        "p99": 7.8,
+        "n": 2
+      }
+    },
+    "/vehicle_type": {
+      "status": 500,
+      "body": "Timed out fetching message: Did not receive an updated HEARTBEAT before timeout.",
+      "latency_ms": {
+        "p50": 5093.2,
+        "p95": 5093.2,
+        "p99": 5093.2,
+        "n": 2
+      }
+    },
+    "/firmware_info": {
+      "status": 200,
+      "body": "{\n  \"version\": \"4.5.7\", \n  \"type\": \"STABLE\"\n}",
+      "latency_ms": {
+        "p50": 18.6,
+        "p95": 18.6,
+        "p99": 18.6,
+        "n": 2
+      }
+    },
+    "/serials": {
+      "status": 500,
+      "body": "{\"detail\":\"\"}",
+      "latency_ms": {
+        "p50": 4.1,
+        "p95": 4.1,
+        "p99": 4.1,
+        "n": 2
+      }
+    },
+    "/preferred_router": {
+      "status": 200,
+      "body": "\"MAVLink-Server\"",
+      "latency_ms": {
+        "p50": 4.1,
+        "p95": 4.1,
+        "p99": 4.1,
+        "n": 2
+      }
+    }
+  }
+}

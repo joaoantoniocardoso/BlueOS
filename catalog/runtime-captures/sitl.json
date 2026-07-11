@@ -1,0 +1,66 @@
+{
+  "label": "sitl",
+  "base": "http://192.168.0.177/ardupilot-manager/v1.0",
+  "routes": {
+    "/board": {
+      "status": 200,
+      "body": "{\n  \"name\": \"SITL\", \n  \"manufacturer\": \"ArduPilot Team\", \n  \"platform\": \"SITL_arm_linux_gnueabihf\", \n  \"path\": null, \n  \"flags\": []\n}",
+      "latency_ms": {
+        "p50": 4.5,
+        "p95": 4.6,
+        "p99": 4.6,
+        "n": 3
+      }
+    },
+    "/vehicle_type": {
+      "status": 200,
+      "body": "\"Submarine\"",
+      "latency_ms": {
+        "p50": 1027.1,
+        "p95": 1028.4,
+        "p99": 1028.4,
+        "n": 3
+      }
+    },
+    "/sitl_frame": {
+      "status": 200,
+      "body": "\"vectored\"",
+      "latency_ms": {
+        "p50": 4.8,
+        "p95": 6.7,
+        "p99": 6.7,
+        "n": 3
+      }
+    },
+    "/firmware_info": {
+      "status": 200,
+      "body": "{\n  \"version\": \"4.7.0\", \n  \"type\": \"BETA\"\n}",
+      "latency_ms": {
+        "p50": 20.6,
+        "p95": 26.6,
+        "p99": 26.6,
+        "n": 3
+      }
+    },
+    "/preferred_router": {
+      "status": 200,
+      "body": "\"MAVLink-Server\"",
+      "latency_ms": {
+        "p50": 4.4,
+        "p95": 4.5,
+        "p99": 4.5,
+        "n": 3
+      }
+    },
+    "/serials": {
+      "status": 500,
+      "body": "{\"detail\":\"\"}",
+      "latency_ms": {
+        "p50": 4.4,
+        "p95": 4.4,
+        "p99": 4.4,
+        "n": 3
+      }
+    }
+  }
+}

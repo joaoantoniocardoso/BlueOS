@@ -1,0 +1,35 @@
+---
+description: Capture/measurement tooling must be reusable, parameterized, and reused (never ad-hoc)
+globs: catalog/runtime-captures/**
+alwaysApply: false
+---
+
+# Reusable Capture Tooling
+
+Any measurement against a live system (resource sampling, HTTP probing, latency, contract capture) is done through a **committed, parameterized tool** under `catalog/runtime-captures/tools/` — never an ad-hoc inline shell snippet that gets recreated each session. A one-off command is not reproducible, drifts between runs, and cannot be QA'd. If you catch yourself pasting a sampler loop into a terminal, stop and put it in a tool.
+
+## Reuse over recreate
+
+- Need a capture an existing tool almost does? **Extend that tool** with a flag — do not fork a throwaway copy.
+- Genuinely new measurement? Add a new tool with a `--help` header, sensible defaults, and JSON output.
+- The tool, not the invocation, is the artifact. Invocations should be short and obvious.
+
+## Current tools (keep this list current)
+
+| Tool | Purpose |
+|------|---------|
+| `tools/sample_resource.sh` | Sample an in-container process CPU (top-style, 100 == 1 core) + RSS over a window → JSON distribution |
+| `tools/probe_http.sh` | Probe GET routes → status + body + latency p50/p95/p99 → JSON keyed by route |
+
+## Tool contract
+
+- **Parameterized**: host/user/container/label/samples/interval via flags with defaults; no hard-coded one-instance assumptions beyond defaults.
+- **Self-describing JSON**: emit the parameters used (samples, interval, environment, method) alongside results, so a capture artifact is reproducible from its own contents.
+- **Statistical significance**: CPU/memory/latency are sampled over a window and reported as a **distribution** (mean/median/p95/min/max/sd). A single point-in-time reading is never acceptable — resources fluctuate.
+- **stdout or `--out`**: print JSON to stdout or write to a capture file; do not bury results in prose.
+
+## Never
+
+- Paste an inline CPU/mem/latency loop instead of invoking a tool.
+- Report a single-snapshot CPU or memory number as if representative.
+- Hardcode credentials or an IP into the tool body beyond an overridable default.

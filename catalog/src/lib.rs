@@ -5,11 +5,14 @@ pub mod edge;
 pub mod export;
 pub mod id;
 pub mod interface;
+pub mod journey;
+pub mod journeys;
 pub mod lifecycle;
 pub mod observed;
 pub mod provenance;
 pub mod resolve;
 pub mod resource;
+pub mod runtime;
 pub mod service;
 pub mod services;
 pub mod state;
@@ -21,13 +24,24 @@ pub use criticality::CriticalityTier;
 pub use drift::{diff, diff_catalog, DriftFinding, DriftReport};
 pub use edge::{Bus, Edge, FailureImpact, SyncMode};
 pub use export::{export_json, export_mermaid, export_schema};
-pub use id::{CapabilityId, PathRef, Port, PortRef, ServiceId};
+pub use id::{CapabilityId, JourneyId, PathRef, Port, PortRef, ServiceId};
 pub use interface::{FileAccessMode, Interface, MavlinkRole};
+pub use journey::{
+    Actor, HttpMethod, JourneyStep, NetworkState, Precondition, RouteRef, StateTransition,
+    StepOutcome, UserJourney, Visibility,
+};
 pub use lifecycle::{Lifecycle, ObservedLifecycle};
 pub use observed::{ObservedFacts, ResourceLimits, ServiceKind, StartupTier};
-pub use provenance::{Asserted, Evidence, Observed};
+pub use provenance::{
+    Asserted, AssertedSet, Evidence, Evidenced, Grounded, GroundedItem, GroundedSet, Observed,
+    ObservedSet, Provenance, Rationaled,
+};
 pub use resolve::{resolve, resolve_port_ref, resolve_service_ports, ResolveError, ResolvedPorts};
 pub use resource::{Resource, ResourceOwnership};
+pub use runtime::{
+    Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts, SettingsMutation, SloBaseline,
+    StateContract,
+};
 pub use service::{Authority, ServiceDefinition};
 pub use state::StateMachine;
 pub use trust::{DangerousOperation, PrivilegeLevel, UserConfirmation};

@@ -18,7 +18,8 @@ You are the **Fact Extractor**. Produce the observed-facts artifact for exactly 
 - **Provenance or Unknown.** Every value cites `file:line` or the exact shell command that produced it. No evidence → `Unknown { reason }`. Never guess or infer.
 - **Facts only.** Do NOT set authorities, criticality, trust, `bounded_context`, blast radius, or failure modes. Those belong to the Card Author.
 - **Key on the process, not the directory.** ~10 processes are external binaries with no `core/services/` dir but own critical ports/routes. Start from the `start-blueos-core` process tuple.
-- Output goes to `catalog/observed/<id>`. This file is generated; treat it as write-only output of this procedure.
+- Output is the `observed_facts() -> ObservedFacts` builder function in `catalog/src/services/<id>.rs`. Populate each field with `Observed::known(value, Evidence { file, line })` or `Observed::unknown(reason)`. (`catalog/observed/**` JSON is a generated export — do not write there.)
+- Do NOT touch `service_definition()` in the same file — that is the Card Author's asserted layer.
 
 ## Ground-truth sources
 
@@ -50,20 +51,33 @@ Extraction checklist for <id>:
 
 1. **Identity & deployment** — find the tuple in `PRIORITY_SERVICES` or `SERVICES` in `start-blueos-core`. Record tmux name, tier, `MEMORY_MB/CPU_PERCENT/IO_READ/IO_WRITE`, `nice` value, run-as (`RUN_AS_REGULAR_USER_*`), and the exact command. → `core/start-blueos-core:LINE`.
 2. **Listener port(s)** — grep the main/command for `--port`, `--server`, `listen`, `argparse` defaults, or hardcoded ports.
-3. **nginx route(s)** — grep `nginx.conf` for the `proxy_pass` matching the port; record **every** `location` prefix (e.g. `/ardupilot-manager/` and `/autopilot-manager/` both → `:8000`). → `core/tools/nginx/nginx.conf:LINE`.
-4. **MAVLink role** — grep for `udpin|udpout|tcpin|tcpout|--connect|--mavlink|MAV_SYSTEM_ID|component-id`. Record connect strings. Do not classify router/endpoint/bridge (that is an assertion) — record the raw evidence.
+3. **nginx route(s) + API version(s)** — grep `nginx.conf` for the `proxy_pass` matching the port; record **every** `location` prefix (e.g. `/ardupilot-manager/` and `/autopilot-manager/` both → `:8000`). → `core/tools/nginx/nginx.conf:LINE`. Also record the **API version prefix(es)**: grep for `VersionedFastAPI`/`prefix_format` (e.g. `"/v{major}.{minor}"` → `/v1.0`, `/v2.0`) and set `Interface::Rest { version }`. → evidence at the `VersionedFastAPI(...)` call. Full per-route+verb enumeration is deferred to the M2 automated extractor.
+4. **MAVLink role** — grep for `udpin|udpout|tcpin|tcpout|--connect|--mavlink|MAV_SYSTEM_ID|component-id`. Record each connect string as `Interface::Mavlink { connect, role }`. The `role` is *directional and factual*: inbound/listen (`udpin`/`tcpin`) → `Endpoint`; outbound (`udpout`/`tcpout`) → `Consumer`; forwarding → `Bridge`. Do NOT assert router ownership — that is `Authority::MavlinkRouterOwner` in the asserted layer, not an observed role.
 5. **Zenoh** — grep for `zenoh`, `zenoh_helper`, session/topic names; record topics with evidence.
 6. **Hardware exclusivity** — serial (`/dev/tty*`), camera (`/dev/video*`), `wlan0`, GPIO. Record device path + evidence.
-7. **Settings / files** — writes under `/usr/blueos/userdata`, settings dirs. Record path only (who-else-writes is a cross-service concern for validation, not this card).
+7. **Settings / files / caches** — writes under `/usr/blueos/userdata`, settings dirs, AND cache/manifest dirs (e.g. `.../ardupilot-manager/manifest-cache`). Record every distinct path as a `Resource`/`Interface::File`. For the settings file, record its path + root shape (e.g. `{version, content}`) via `Interface::Settings`. Record path only (who-else-writes is a cross-service concern for validation, not this card). Per-transition settings *mutation* is runtime, not source — it belongs in the `RuntimeFacts` layer, not here.
 8. **Subprocesses / external binaries** — spawned processes (`mavlink-camera-manager`, `linux2rest`, `mavlink2rest`, `zenohd`, `nginx`, `filebrowser`, `ttyd`, `iperf3`, `blueos-recorder`).
 9. **Outbound edges** — grep for `http://`, `127.0.0.1:`, `aiohttp`, other services' base URLs. Record `to` target + endpoint + evidence. Leave `purpose`/`failure_impact` empty (assertion).
 10. **Env coupling** — `MAV_SYSTEM_ID`, `BLUEOS_*`, secondary venv (`BLUEOS_VENV_SECONDARY`/`venv2`).
 
 ## Provenance format
 
+Scalar fields use `Observed<T>` (one evidence). Collection fields (`aliases`, `nginx_prefixes`, `listen`, `interfaces`, `resources`, `openapi_refs`) use `ObservedSet<T>` — **each item carries its own `Evidence`** via `Evidenced::new`. Never bundle facts from different `file:line`s under one citation.
+
 ```rust
-Observed::known(Port(8000), Evidence { file: "core/tools/nginx/nginx.conf", line: 78 })
-Observed::unknown("no --port flag; binds via aiohttp default resolved at runtime")
+// scalar
+tmux_name: Observed::known("autopilot".into(),
+    Evidence { file: "core/start-blueos-core".into(), line: 118 }),
+run_as: Observed::unknown("no RUN_AS_REGULAR_USER wrapper on line 118, so runs as container default"),
+
+// collection — one Evidence PER item
+nginx_prefixes: ObservedSet::known(vec![
+    Evidenced::new(PathRef("/ardupilot-manager/".into()),
+        Evidence { file: "core/tools/nginx/nginx.conf".into(), line: 76 }),
+    Evidenced::new(PathRef("/autopilot-manager/".into()),
+        Evidence { file: "core/tools/nginx/nginx.conf".into(), line: 81 }),
+]),
+interfaces: ObservedSet::unknown("none found"),
 ```
 
 ## Done criteria (self-check before returning)

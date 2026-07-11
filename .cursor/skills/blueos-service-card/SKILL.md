@@ -24,6 +24,19 @@ You are the **Card Author**. Author the asserted semantics for exactly **one** s
 - **Judgment only, with justification.** Every authority/edge must trace to a capability or interface that exists in the observed layer.
 - **`Unknown { reason }` over guessing.** Unestablished fields are explicit Unknowns, not blanks. The coverage gate depends on this.
 
+## Wrapping asserted fields
+
+Scalar fields use `Asserted<T>` (one rationale). Collection fields (`authorities`, `capabilities`, `edges`, `resources`, `user_journeys`, `dangerous_operations`, `states`, `failure_modes`, `adr_refs`) use `AssertedSet<T>` — **each item carries its own `rationale`** via `Rationaled::new`.
+
+```rust
+tier: Asserted::established(CriticalityTier::VehicleCritical, "vehicle uncontrollable if this dies"),
+authorities: AssertedSet::established(vec![
+    Rationaled::new(Authority::MavlinkRouterOwner,
+        "sole owner of the MAVLink router; every other service reaches the FC through it"),
+]),
+bounded_context: Asserted::unknown("defer until clustering; provisional guess only"),
+```
+
 ## Disambiguation (use these terms exactly)
 
 - **Capability** = what it *can* do (verb).

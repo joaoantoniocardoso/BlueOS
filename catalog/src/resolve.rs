@@ -51,10 +51,10 @@ pub fn resolve_service_ports(
     env: &EnvLookup,
 ) -> Result<Vec<Port>, ResolveError> {
     match &facts.listen {
-        crate::provenance::Observed::Known { value, .. } => value
+        crate::provenance::ObservedSet::Known { items } => items
             .iter()
-            .map(|port_ref| resolve_port_ref(port_ref, env))
+            .map(|evidenced| resolve_port_ref(&evidenced.value, env))
             .collect(),
-        crate::provenance::Observed::Unknown { .. } => Ok(Vec::new()),
+        crate::provenance::ObservedSet::Unknown { .. } => Ok(Vec::new()),
     }
 }

@@ -1,0 +1,9 @@
+{
+  "label": "stopped",
+  "match": "ardupilot_manager/main.py",
+  "pid": 135, "ncpu": 4, "comm": "python3",
+  "samples": 20, "interval_s": 1,
+  "method": "/proc stat deltas, top-style (100 == 1 core)",
+  "cpu_pct": {"mean": 0.29, "median": 0.00, "p95": 0.98, "min": 0.00, "max": 0.99, "sd": 0.45},
+  "rss_mb": {"mean": 46.0, "median": 46.0, "min": 46.0, "max": 46.0}
+}

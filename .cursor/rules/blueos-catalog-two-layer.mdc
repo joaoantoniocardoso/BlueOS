@@ -6,22 +6,22 @@ alwaysApply: false
 
 # Catalog Two-Layer Discipline
 
-The catalog has two layers that must never be mixed. Mixing them is the root cause of quality drift.
+The catalog has two layers that must never be mixed. Mixing them is the root cause of quality drift. Each service is one module `catalog/src/services/<id>.rs` exposing two builder functions: `observed_facts() -> ObservedFacts` and `service_definition() -> ServiceDefinition`. The separation is enforced by distinct types AND distinct wrappers, not by directory.
 
-## Observed layer (`catalog/observed/**`)
+## Observed layer — `ObservedFacts`, wrapped in `Observed<T>`
 
-- **Generated only.** Produced by the `extract` binary from the repo. **Never hand-edit.**
-  If a value is wrong, fix the extractor or the source, then regenerate.
-- Every observed field carries provenance: `Evidence { file, line }` or the exact command.
-- No evidence → the field is `Unknown { reason }`, never a guess.
+- Facts extractable from the repo: ports, tmux/nginx names, limits, subprocess/MAVLink/Zenoh interfaces.
+- Every observed field carries provenance: `Observed::known(value, Evidence { file, line })`.
+- No evidence → `Observed::unknown(reason)`, never a guess.
+- The JSON in `catalog/observed/**` is a **generated export** (`extract`/`export` output). **Never hand-edit it**; regenerate.
 
-## Asserted layer (`catalog/src/services/**`)
+## Asserted layer — `ServiceDefinition`, wrapped in `Asserted<T>`
 
 - Human/LLM judgment only: authorities, criticality, trust, `bounded_context`, failure modes, capabilities.
-- **Never restate an observed fact here** (ports, tmux/nginx names, limits). Reference the observed layer.
+- **Never restate an observed fact here** (ports, tmux/nginx names, limits). Those live in `observed_facts()`.
 - Wrap fields in `Asserted<T>` (`Established { value, rationale } | Unknown { reason }`), never `Observed<T>`.
   Asserted judgment carries a `rationale`, never `file:line` `Evidence`.
-- Unestablished fields are `Unknown { reason }`, not blank.
+- Unestablished fields are `Asserted::unknown(reason)`, not blank.
 
 ## Before marking any catalog task done
 
@@ -29,13 +29,25 @@ The catalog has two layers that must never be mixed. Mixing them is the root cau
 2. `drift` binary passes: no asserted field contradicts the observed layer.
 
 ```rust
-// BAD — observed fact hand-typed into an asserted card
-const AUTOPILOT: ServiceDefinition = ServiceDefinition { listen: Port(8000), .. };
+// BAD — observed fact restated in the asserted card
+fn service_definition() -> ServiceDefinition {
+    ServiceDefinition { listen: Port(8000), .. } // listen is an OBSERVED field; wrong layer
+}
 
-// GOOD — asserted card references observed; port comes from extract → observed/
-const AUTOPILOT: ServiceDefinition = ServiceDefinition {
-    authorities: &[Authority::MavlinkRouterOwner],
-    tier: Criticality::VehicleCritical,
-    ..
-};
+// GOOD — observed facts carry evidence; asserted facts carry rationale
+fn observed_facts() -> ObservedFacts {
+    ObservedFacts {
+        listen: Observed::known(vec![PortRef::Literal(8000)],
+            Evidence { file: "core/tools/nginx/nginx.conf".into(), line: 78 }),
+        ..
+    }
+}
+fn service_definition() -> ServiceDefinition {
+    ServiceDefinition {
+        authorities: Asserted::established(vec![Authority::MavlinkRouterOwner],
+            "owns the MAVLink router; sole udpout:14001 producer"),
+        tier: Asserted::established(CriticalityTier::VehicleCritical, "vehicle uncontrollable if down"),
+        ..
+    }
+}
 ```

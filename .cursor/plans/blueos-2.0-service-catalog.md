@@ -61,6 +61,26 @@ The single biggest risk to this project is **quality drift**: card #18 researche
 
 ---
 
+## User journeys — the spine (three-source triangulation)
+
+Services are *nouns*; the model also needs the *verbs* — the workflows an operator actually performs. **User journeys are the spine**: routes, state transitions, error semantics, and platform behavior are all **projections of the journey set**. A journey is therefore a **top-level** artifact (`catalog/src/journeys/<id>.rs`) that references services/routes/states by id — never trapped inside one service module, because real journeys (e.g. first-boot wizard) cross several services.
+
+This forces a **third provenance class** beyond source-`Evidence` and asserted-`rationale`. A journey is only *fully grounded* when three independent sources agree:
+
+| Source repo | Supplies | Provenance | Owner |
+|-------------|----------|------------|-------|
+| `../BlueOS-docs` | operator intent, visibility (pirate/advanced), preconditions, step order | `Provenance::Doc{file,line}` | Docs Specialist |
+| BlueOS repo source | the route each step hits actually exists | `Provenance::Source(Evidence)` | Fact Extractor |
+| **live BlueOS capture** (Raspberry Pi 4, `master`) | what actually happens: status, body, transition, latency | `Provenance::Runtime{capture,environment}` | Runtime Specialist |
+
+> The POC `../microservices_core_prototype` is **design-reference only** — it revealed *which* runtime dimensions exist (state contracts, SLOs, settings mutations, platform matrix) but is **never a value source**. Runtime values come only from capturing a live BlueOS instance; absent a capture, the field is `Unknown`. These runtime facts have their own per-service **`RuntimeFacts`** layer (see `runtime.rs`), parallel to observed/asserted, so they can *diff against* the asserted layer (e.g. a captured `500`-when-stopped falsifies `api_stable: true`).
+
+**Anti-drift payoff:** a documented journey with no source route = doc drift; a route in no journey = undocumented/dead surface; a runtime outcome contradicting the doc = behavioral drift. `Catalog::validate()` enforces the join: every journey route/service/capability/state/`chains_from` reference must resolve. Journeys are also *replayable* (the prototype does baseline→compare), so the spine is executable, not just prose.
+
+> The existing two-layer `Evidence`/`rationale` split is unchanged for the observed and asserted layers. `Provenance` (with a `Source(Evidence)` arm) is introduced only for the journey layer, which legitimately mixes all three kinds per item.
+
+---
+
 ## Background — why not manual WBS + clustering?
 
 We considered: per-service WBS (features, inputs, outputs, states) → flatten under BlueOS → mental cluster analysis by responsibility.
@@ -126,8 +146,10 @@ Phase 1 delivers a harness where each step has an **agent profile** (mission, in
 |------|-------|------|------------|
 | **Orchestrator** | Opus (this agent) | Planning, spawning workers, dispatching QA, adjudicating verdicts, merges, rubric ownership | Produce or QA the artifact itself |
 | **Crate Engineer** | composer-2.5 | `blueos-catalog` crate: types, registry, `validate()`, export, extractor + drift binaries | Encode service data by hand |
-| **Fact Extractor** | composer-2.5 | Observed layer for one process (with provenance) | Make judgment calls; guess |
-| **Card Author** | composer-2.5 | Asserted semantics for one service | Touch observed fields |
+| **Fact Extractor** | composer-2.5 | Observed layer for one process (with provenance); confirms journey route hints → `Source` | Make judgment calls; guess |
+| **Docs Specialist** | composer-2.5 | Doc-grounded journey skeletons from `../BlueOS-docs` (intent, visibility, services, preconditions, steps) | Assert runtime behavior; confirm routes; invent undocumented journeys |
+| **Runtime Specialist** | composer-2.5 | `RuntimeFacts` + journey step `outcome`s captured from a **live BlueOS Pi** (state contracts, SLO baselines, settings mutations, platform matrix) | Take values from the POC prototype; assert runtime from docs/source; guess uncaptured boards/states |
+| **Card Author** | composer-2.5 | Asserted semantics for one service; journey `capability_refs` + per-service `journey_refs` | Touch observed fields |
 | **QA Reviewer** | composer-2.5 (fresh context) | Independent verification of one worker output → ACCEPT/BOUNCE verdict | Review work it produced; fix the artifact itself |
 | **Clustering Analyst** | composer-2.5 | Multi-policy clustering + stability metrics | Decide final boundaries |
 
@@ -141,6 +163,8 @@ Each skill is a `SKILL.md` the worker reads first. They encode the precision rul
 |-------|-----------|---------|
 | `blueos-catalog-crate` | Crate Engineer | Rust conventions, top-down ordering, `cargo fmt`/`cargo test`, type-design invariants (parse-don't-validate, `PortRef`, `Unknown`) |
 | `blueos-service-extraction` | Fact Extractor | The frozen extraction protocol + provenance format + output contract |
+| `blueos-journey-extraction` | Docs Specialist | Mining `../BlueOS-docs` for operator journeys; `service()`/`pirate()` shortcodes; doc-anchored journey skeletons + route hints |
+| `blueos-runtime-capture` | Runtime Specialist | Capturing a live BlueOS Pi into `RuntimeFacts` + step outcomes; capture-artifact provenance; POC prototype is reference-only, never a value source |
 | `blueos-service-card` | Card Author | Disambiguation rules (capability vs authority vs interface vs edge vs resource), the BlueOS-specific checklist, `Unknown{reason}` policy |
 | `blueos-catalog-validate` | QA Reviewer (+ orchestrator adjudication) | Running `validate()`, drift diff, coverage + provenance spot-check; ACCEPT/BOUNCE verdict |
 | `blueos-clustering` | Clustering Analyst | Edge weights, named policies, stability/modularity metrics |
@@ -158,6 +182,9 @@ The orchestrator QA protocol stays in this plan (it governs orchestrator behavio
 |------|------|----------|
 | `blueos-catalog-two-layer` | `catalog/**` | Observed/asserted separation; `observed/` generated-only; provenance required; `Unknown{reason}` over blanks; `validate()` + `drift` before done |
 | `blueos-catalog-rust` | `catalog/**/*.rs` | Parse-don't-validate, `PortRef` literal-vs-env, approved deps only, `cargo fmt`/`clippy`/`test` |
+| `blueos-catalog-journeys` | `catalog/src/journeys/**`, `catalog/src/journey.rs` | Journeys are top-level + cross-service; three-source triangulation (`Doc`/`Source`/`Runtime`); layer ownership; `validate()` cross-refs required for every reference field |
+| `blueos-catalog-runtime` | `catalog/src/runtime.rs`, `catalog/src/services/*.rs`, `catalog/src/journeys/*.rs`, `catalog/runtime-captures/**` | `RuntimeFacts` is a third layer grounded in `Provenance::Runtime`; only a live BlueOS capture is trusted (POC prototype is reference-only); capture-artifact + environment required; runtime never lives in the asserted layer |
+| `blueos-capture-tools` | `catalog/runtime-captures/**` | Measurements go through committed, parameterized tools under `runtime-captures/tools/` (reuse/extend, never ad-hoc); self-describing JSON; CPU/mem/latency as a distribution over a window, never a single snapshot |
 
 ### Agent profiles
 
@@ -176,6 +203,14 @@ The orchestrator QA protocol stays in this plan (it governs orchestrator behavio
 - **Output contract:** `observed/<id>` populated per the protocol; each field `{value, evidence}` or `Unknown{reason}`.
 - **Done-criteria (gate):** Every populated field has resolvable `file:line`; ports/routes reconcile with nginx + startup; drift gate passes for the observed layer.
 - **Forbidden:** Authorities, tiers, `bounded_context`, or any judgment field.
+
+#### Docs Specialist (M1.5+, one service/flow per task)
+- **Mission:** Mine `../BlueOS-docs` for the operator journeys of a service (or a cross-service flow) and produce the **doc-grounded** journey skeleton.
+- **Inputs:** `../BlueOS-docs/content/usage/**` (esp. `advanced/index.md`, `getting-started`); `service()`/`pirate()`/`note()` shortcodes; `blueos-journey-extraction` skill.
+- **Tools/skills:** Read/Grep over `../BlueOS-docs`, `blueos-journey-extraction`.
+- **Output contract:** top-level `UserJourney` builders in `catalog/src/journeys/<id>.rs` with every doc-grounded field `Grounded::known(value, Provenance::Doc{file,line})`; step routes as **hints**; runtime fields `None`.
+- **Done-criteria (gate):** every journey + field resolves to a real `content/…:LINE`; `visibility` matches pirate membership; each participating `ServiceId` maps to a catalog service; no runtime field set.
+- **Forbidden:** Asserting `expected_status`/`body_predicate`/`transition`; confirming routes exist in code (Fact Extractor's job); inventing undocumented journeys.
 
 #### Card Author (M1+, one service per task)
 - **Mission:** Author the asserted semantics on top of a completed observed artifact.
@@ -252,7 +287,8 @@ Each field is tagged **[O]** observed (extractor) or **[A]** asserted (author).
 | Observability | logs path **[O]**, zenoh log topic **[O]**, sentry **[O]**, health **[A]** |
 | Extension | `is_platform` **[A]**, `api_stable` **[A]**, `permissions_model` **[A]** |
 | Failure | modes, `blast_radius` **[A]** |
-| Contracts | OpenAPI refs **[O]**, compatibility policy **[A]** |
+| Contracts | OpenAPI refs **[O]**, API version prefix(es) on `Interface::Rest` **[O]**, settings root shape **[O]**, compatibility policy **[A]** |
+| Runtime **[R]** | `RuntimeFacts` (new layer, `Provenance::Runtime`): `state_contracts` (per-state endpoint status/body), `slo_baselines` (latency/cpu/mem), `platform_matrix` (per-board behavior), settings-mutation-per-transition — captured from parity baselines, never source/asserted |
 | Meta | team **[A]**, `git_path` **[O]**, ADR refs **[A]** |
 
 ### Disambiguation rules
@@ -292,23 +328,29 @@ blueos-catalog/
 │   ├── provenance.rs       # Evidence{file,line}; Observed<T>={value,evidence}|Unknown; Asserted<T>={value,rationale}|Unknown
 │   ├── criticality.rs
 │   ├── trust.rs
-│   ├── interface.rs        # tagged enum Interface { Rest, Zenoh, Mavlink, ... }
+│   ├── interface.rs        # tagged enum Interface { Rest{versions}, Zenoh, Mavlink, OutboundHttp, ... }
 │   ├── resource.rs
 │   ├── state.rs
 │   ├── edge.rs
 │   ├── lifecycle.rs
 │   ├── observed.rs         # ObservedFacts (extractor output shape)
-│   ├── service.rs          # ServiceDefinition (asserted) + link to ObservedFacts
+│   ├── service.rs          # ServiceDefinition (asserted) + link to ObservedFacts + journey_refs
+│   ├── journey.rs          # UserJourney, JourneyStep (route: Grounded<RouteRef>, outcome: Grounded<StepOutcome>), Actor, Visibility, Precondition
+│   ├── runtime.rs          # RuntimeFacts (third layer, Provenance::Runtime): state_contracts, slo_baselines, platform_matrix, settings_mutations
 │   ├── catalog.rs          # Catalog + indexing + coupling_matrix()
 │   ├── resolve.rs          # PortRef::Env → literal
 │   ├── validate.rs         # cross-service rules + coverage gate
 │   ├── drift.rs            # diff(asserted, observed)
 │   ├── export.rs           # JSON, JSON Schema, mermaid
-│   └── services/
+│   ├── services/           # per service: observed_facts() + service_definition() + runtime_facts()
+│   │   ├── mod.rs          # all_observed() + all_service_definitions() + all_runtime()
+│   │   ├── ardupilot_manager.rs
+│   │   └── kraken.rs
+│   └── journeys/           # TOP-LEVEL user journeys (may cross services)
 │       ├── mod.rs
-│       ├── ardupilot_manager.rs
-│       └── kraken.rs
+│       └── <journey_id>.rs
 ├── observed/               # GENERATED by `extract` — never hand-edited
+├── runtime-captures/       # raw live-BlueOS capture artifacts (Provenance::Runtime source)
 └── src/bin/
     ├── extract.rs          # repo → observed/
     └── drift.rs            # asserted vs observed → CI gate
@@ -322,7 +364,7 @@ blueos-catalog/
 4. **Two provenance wrappers, `Unknown { reason }` first-class** — observed fields use `Observed<T>` (carries `Evidence{file,line}`); asserted fields use `Asserted<T>` (carries `rationale`, never `file:line`). Both have an `Unknown` arm feeding the coverage gate; no silent blanks.
 5. **Unified edges** — replace separate callers/callees/producers/consumers lists.
 6. **Registration** — start with a plain slice/`Vec` registry for M0; consider `inventory`/`linkme` only if it pays for itself later.
-7. **Declaration ergonomics** — start with `const ServiceDefinition`; optional `service!` macro deferred to M1+.
+7. **Declaration ergonomics** — types use owned `String`/`Vec`, so `const` service definitions are impossible. Each service is a module `catalog/src/services/<id>.rs` exposing `observed_facts() -> ObservedFacts` and `service_definition() -> ServiceDefinition`; `services/mod.rs` aggregates them and `Catalog::bootstrap()` collects them. Optional `service!` macro deferred.
 
 ### Dependencies (approved list)
 
@@ -418,12 +460,22 @@ thiserror = "1"
 - [ ] CI test: empty/minimal catalog validates; schema round-trips
 
 ### M1 — Calibration (reference services + frozen rubric)
-- [ ] `extract` produces real `observed/` for `ardupilot_manager` and `kraken`
-- [ ] Full asserted cards for both (MAVLink router owner; Docker/extensions/Zenoh/jobs)
+- [ ] Registration plumbing: `services/mod.rs` + `Catalog::bootstrap()`; compiling `ardupilot_manager` skeleton
+- [ ] Fact Extractor authors provenance-backed `observed_facts()` for `ardupilot_manager` and `kraken` (by hand — these become the M2 `extract` oracle)
+- [ ] Full asserted `service_definition()` for both (MAVLink router owner; Docker/extensions/Zenoh/jobs)
 - [ ] Drift gate green; exclusive-resource-uniqueness validation
 - [ ] Inter-rater pass on 2–3 services → **freeze extraction rubric + skills**
 
-### M2 — Coverage
+### M1.5 — Journey spine (top-level, triangulated)
+- [ ] Crate Engineer: `journey.rs` types (`UserJourney`, `JourneyStep`, `RouteRef`, `Actor`, `Visibility`, `Precondition`, `StateTransition`), `Provenance`/`Grounded`/`GroundedSet`, `id::JourneyId`; `Catalog.journeys` + `bootstrap`; `validate()` cross-refs (service/route/capability/state/`chains_from`); `service.journey_refs` projection
+- [ ] QA Reviewer: crate change (compiles, `validate()` cross-refs tested, schema round-trips)
+- [ ] Docs Specialist: `ardupilot_manager` journeys from `../BlueOS-docs` (doc-grounded skeletons + route hints)
+- [ ] Fact Extractor: confirm each step route → `Source`; Runtime: fill outcomes from `../microservices_core_prototype` baselines (the 9 lifecycle scenarios)
+- [ ] Card Author: `capability_refs` + `journey_refs`; replace the 4 flat `ardupilot_manager` journey labels with the triangulated reference journeys → QA
+- [ ] Fold remaining findings into rubric freeze: manifest-cache resource, `/v1.0` version path, error-semantics-per-state, SLO/perf baselines, settings schema, platform matrix
+
+### M2 — Coverage + extractor automation
+- [ ] Real `extract` binary: scans repo → regenerates observed facts; must reproduce the M1 calibration artifacts (oracle)
 - [ ] Observed + asserted cards for **all 26 processes** (from `start-blueos-core` + nginx)
 - [ ] External binaries first-class (`mavlink2rest`, `mavlink-camera-manager`, `linux2rest`, `zenohd`, `blueos-recorder`, `filebrowser`, `ttyd`, `iperf3`, `nginx`)
 - [ ] Edge graph connects known static HTTP/MAVLink/Zenoh links

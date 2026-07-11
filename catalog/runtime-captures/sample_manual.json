@@ -1,0 +1,9 @@
+{
+  "label": "manual",
+  "match": "ardupilot_manager/main.py",
+  "pid": 135, "ncpu": 4, "comm": "python3",
+  "samples": 15, "interval_s": 1,
+  "method": "/proc stat deltas, top-style (100 == 1 core)",
+  "cpu_pct": {"mean": 0.85, "median": 0.98, "p95": 1.97, "min": 0.00, "max": 1.99, "sd": 0.70},
+  "rss_mb": {"mean": 55.4, "median": 55.4, "min": 55.4, "max": 55.4}
+}

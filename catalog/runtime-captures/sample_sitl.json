@@ -1,0 +1,9 @@
+{
+  "label": "sitl",
+  "match": "ardupilot_manager/main.py",
+  "pid": 135, "ncpu": 4, "comm": "python3",
+  "samples": 20, "interval_s": 1,
+  "method": "/proc stat deltas, top-style (100 == 1 core)",
+  "cpu_pct": {"mean": 7.34, "median": 0.00, "p95": 43.80, "min": 0.00, "max": 46.94, "sd": 14.77},
+  "rss_mb": {"mean": 114.2, "median": 114.2, "min": 114.2, "max": 114.2}
+}

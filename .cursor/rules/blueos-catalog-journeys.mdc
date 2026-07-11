@@ -1,0 +1,43 @@
+---
+description: BlueOS catalog user-journey spine — top-level, triangulated, cross-referenced
+globs: catalog/src/journeys/**,catalog/src/journey.rs
+alwaysApply: false
+---
+
+# Catalog Journey Spine
+
+User journeys are the **spine** of the model: routes, state transitions, error semantics, and platform behavior are projections of the journey set. They are a **top-level** artifact (`catalog/src/journeys/<id>.rs`), never a per-service field, because a journey may cross several services.
+
+## Three-source triangulation (one struct, three provenance kinds)
+
+Every journey fact carries a `Provenance`, not a bare `Evidence`. Provenance is **per-facet**: a step is a `GroundedItem<JourneyStep>` (Doc-anchored action) whose `route: Option<Grounded<RouteRef>>` and `outcome: Option<Grounded<StepOutcome>>` each carry their own provenance:
+
+- `Provenance::Doc { file, line }` — operator intent/visibility/preconditions/step description, anchored in `../BlueOS-docs`.
+- `Provenance::Source(Evidence)` — a step's `route` confirmed to exist in BlueOS repo code (starts as a Doc hint, re-grounded to Source).
+- `Provenance::Runtime { capture, environment }` — a step's `outcome` (`expected_status`, `body_predicate`, `transition`, latency) captured by running the service (parity baselines).
+
+Do not put a doc claim under `Source`, a source fact under `Doc`, or assert a runtime outcome from prose. A journey is **fully grounded** only when its intent (Doc), its routes (Source), and its outcomes (Runtime) agree — disagreement is drift and must surface, not be smoothed over.
+
+## Layer ownership
+
+- **Docs Specialist** writes the Doc-grounded skeleton (intent, visibility, services, preconditions, step descriptions + Doc-grounded route *hints*; `outcome: None`).
+- **Fact Extractor** re-grounds each step's `route` from `Doc` to `Source` once confirmed in code.
+- **Runtime** fills each step's `outcome` (`StepOutcome`) with `Provenance::Runtime` from baselines.
+- **Card Author** sets `capability_refs` and the per-service `journey_refs` projection.
+
+## Cross-reference invariants (enforced by `validate()`)
+
+A journey is a join table; `Catalog::validate()` must reject dangling references:
+
+- Every `RouteRef.service` and every `services` item is a known `ServiceId`.
+- Every `capability_refs` item exists in a participating service's `capabilities`.
+- Every `transition.{from,to}` state exists in a `StateMachine` of a participating service.
+- Every `chains_from` is a known `JourneyId`.
+
+Adding a journey field that references services/routes/states/capabilities **requires** a matching `validate()` check; a reference with no check is not allowed.
+
+## Never
+
+- Trap a cross-service journey inside one service module.
+- Enumerate API endpoints as "journeys" — a journey is one operator goal, an ordered chain.
+- Invent a journey with no `../BlueOS-docs` anchor.
