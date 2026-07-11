@@ -1,7 +1,7 @@
 # BlueOS 2.0 — Service Catalog Model
 
 **Branch:** `2.0-dev/model`
-**Status:** M0–M3 DONE (harness, calibration, journey spine, full 26-service model, complete edge graph, clustering engine). **Only M4 remains — the human architecture-decision step** (score the 3 clustering proposals, event-storm, ADRs, strangler slices). (Detailed run log: `.cursor/plans/blueos-2.0-autonomous-run.md`.)
+**Status:** M0–M3 DONE (harness, calibration, journey spine, full 26-service model, complete edge graph, clustering engine); F1 DONE (feature-first Views A+B); **F2 frontend layer — rubric frozen on 3 calibration pages, scaling to the remaining ~22 next.** M4 (human architecture-decision step) still pending. (Detailed run log: `.cursor/plans/blueos-2.0-autonomous-run.md`.)
 **Audience:** Orchestrator agent (Opus) and human architects
 **Phase 1 objective:** Build a precise, agentic harness — every step of the process has a defined agent profile, its skills, and an acceptance gate. Precision over speed.
 
@@ -491,7 +491,14 @@ thiserror = "1"
 - [x] **View A (aggregate-first):** features grouped by the entity they act on → 19 aggregates.
 - [x] **View B (journey-first):** feature co-occurrence from journey `capability_refs` (+ `chains_from`) → 7 workflow communities (Q≈0.238); 47 features touched by no journey (read-only/status/mavlink/infra).
 - [x] **A-vs-B divergence report:** where "same thing" (A) and "same workflow" (B) disagree = the 2.0 boundary tensions.
-- [ ] **NEXT:** fold the ~19 aggregates / 7 workflow communities into a handful of candidate **2.0 bounded contexts**, then declare the new **feature→2.0-service** binding (some 1.x services split, some merge, infra dissolves into a platform layer). This is the human decision the two views feed.
+- [ ] **NEXT (after F2):** fold the ~19 aggregates / 7 workflow communities into a handful of candidate **2.0 bounded contexts**, then declare the new **feature→2.0-service** binding (some 1.x services split, some merge, infra dissolves into a platform layer). This is the human decision the two views feed.
+
+### F2 — Frontend as a first-class subject (fills the biggest blind spot) — RUBRIC FROZEN
+> Architect insight: BlueOS 1.x implements whole journeys **in the frontend** (calibration wizards, motor detection, param editing), holds **domain state in the browser**, and pages fan out to *several* services — none of which the backend-only model saw. The unit is the **Page** (a router route), not the 208 components.
+- [x] `src/page.rs`: `Page { route/name/component/menu_title/advanced_only/stores/consumes (Observed) + frontend_features/client_state (Asserted) }`; `PageServiceCall`, `ClientState`, `StateOwnership {BackendOwned, FrontendOwned, Shared}`. Wired into `Catalog.pages` + `validate()` (page→service targets must be cataloged or `external`; no dup `PageId`).
+- [x] **Frontend Extractor** agent: `.cursor/skills/blueos-frontend-extraction/SKILL.md` + rule `.cursor/rules/blueos-catalog-frontend.mdc`. Observed fields cite `core/frontend/src/...:LINE`; asserted fields (client-implemented features + state ownership) carry a rationale.
+- [x] **Rubric frozen on a 3-page calibration set** (all QA-accepted, Page type unchanged across all three): `vehicle_setup` (calibration hub — 25 consume edges, 9 client-implemented features, 13 client-state entries incl. FrontendOwned calibration progress + Shared param-derived "is calibrated?"), `video_manager` (streaming — 12 edges to mavlink-camera-manager + commander, 5 features, backend-mirrored lists), `disk` (simple — backend-driven, `frontend_features` intentionally empty). Frozen conventions recorded in the skill.
+- [ ] **NEXT:** scale the Frontend Extractor to the remaining ~22 pages, then **merge frontend features into the Feature inventory** (`Feature.origin → Origin::{BackendService, FrontendPage}`) and re-home `FrontendOwned` domain state — a direct 2.0-boundary input. Deferred type work (only if coupling analysis needs it): typed `consume.trigger` (page-triggered vs global-background) and `endpoint.protocol` tag.
 
 ### M4 — Architecture decisions (human)
 - [ ] Event storm / journey workshop output → ADRs

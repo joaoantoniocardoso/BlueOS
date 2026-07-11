@@ -91,6 +91,35 @@ Frontend extraction checklist for <page_id>:
 
 Steps 1-5 are OBSERVED (need `file:line`). Steps 6-7 are ASSERTED (need rationale).
 
+## Frozen conventions (calibrated on vehicle_setup / video_manager / disk)
+
+The rubric was frozen after 3 exemplar pages spanning the complexity range (a
+calibration hub, a streaming manager, a simple read-only tool). The `Page` type
+held unchanged across all three. Apply these conventions verbatim when scaling:
+
+- **Edge trigger.** Only calls the page (or its child components) actually triggers
+  become `consumes` edges. Global background store fetches the page merely *reads*
+  from (e.g. `ping`, `system`, `beacon`, `customization` stores polling on their own
+  timers) are NOT edges — note them in a rationale/`notes` and move on. (A typed
+  `trigger` field is deferred to the coupling-analysis milestone.)
+- **Store naming.** Use the Vuex *module* name (the `@Module({name})`), not the file
+  name, in `stores` and `ClientState.store` (e.g. module `autopilot` lives in
+  `store/autopilot.ts`; module `system` in `store/system-information.ts`).
+- **Component anchor.** `component` is the single view file (`views/<X>.vue`). The
+  child-component tree is not modeled as a field; cite child components inside the
+  relevant `consumes`/`client_state`/`frontend_features` evidence/rationale instead.
+- **Capability namespace.** `frontend_features` reuse the shared `CapabilityId` verb
+  space (a capability is the same concept wherever implemented). The frontend-vs-
+  backend origin is disambiguated later by the Page itself; the feature-merge step
+  resolves each feature's `Origin::{BackendService, FrontendPage}`. Do NOT invent a
+  separate id type.
+- **Backend-driven pages.** A page that only displays/relays backend data (like
+  `disk`) gets `frontend_features: AssertedSet::established(vec![])` with a rationale
+  saying so. Client-side sorting / unit math / percentage display is derived
+  `client_state` (Shared), NOT a feature.
+- **Param plane.** Autopilot parameter read/write is via `mavlink2rest` (MAVLink
+  PARAM protocol through `libs/MAVLink2Rest`), not a REST param service.
+
 ## Output contract
 
 `catalog/src/pages/<id>.rs` exposing `pub fn page() -> Page`, registered in
