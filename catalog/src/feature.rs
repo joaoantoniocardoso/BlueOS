@@ -4,8 +4,9 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::catalog::Catalog;
-use crate::id::ServiceId;
-use crate::provenance::AssertedSet;
+use crate::cluster::{greedy_modularity_communities, modularity_q_indices};
+use crate::id::{JourneyId, ServiceId};
+use crate::provenance::{AssertedSet, GroundedSet};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(transparent)]
@@ -28,6 +29,24 @@ pub struct FeatureCatalog {
 pub struct AggregateGroup {
     pub aggregate: String,
     pub features: Vec<FeatureId>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct FeatureCommunity {
+    pub members: Vec<FeatureId>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct JourneyView {
+    pub communities: Vec<FeatureCommunity>,
+    pub modularity: f64,
+    pub unreferenced_features: Vec<FeatureId>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct Divergence {
+    pub split_by_journey: Vec<(FeatureId, FeatureId, String)>,
+    pub joined_by_journey: Vec<(FeatureId, FeatureId, String)>,
 }
 
 impl FeatureCatalog {
@@ -82,6 +101,136 @@ impl FeatureCatalog {
         groups
     }
 
+    pub fn journey_view(&self, catalog: &Catalog) -> JourneyView {
+        let n = self.features.len();
+        let index: HashMap<&FeatureId, usize> = self
+            .features
+            .iter()
+            .enumerate()
+            .map(|(idx, feature)| (&feature.id, idx))
+            .collect();
+        let mut weights = vec![vec![0.0; n]; n];
+        let mut referenced = HashSet::new();
+
+        for journey in catalog.journeys() {
+            let journey_features = journey_feature_indices(journey, catalog, &index);
+            for &idx in &journey_features {
+                referenced.insert(idx);
+            }
+            for left in 0..journey_features.len() {
+                for right in (left + 1)..journey_features.len() {
+                    let a = journey_features[left];
+                    let b = journey_features[right];
+                    weights[a][b] += 1.0;
+                    weights[b][a] += 1.0;
+                }
+            }
+        }
+
+        let communities_idx = greedy_modularity_communities(n, &weights);
+        let modularity = modularity_q_indices(&weights, &communities_idx);
+        let mut communities: Vec<FeatureCommunity> = communities_idx
+            .into_iter()
+            .map(|community| {
+                let mut members: Vec<FeatureId> = community
+                    .iter()
+                    .map(|idx| self.features[*idx].id.clone())
+                    .collect();
+                members.sort_by(|left, right| left.0.cmp(&right.0));
+                FeatureCommunity { members }
+            })
+            .collect();
+        sort_feature_communities(&mut communities);
+
+        let mut unreferenced_features: Vec<FeatureId> = self
+            .features
+            .iter()
+            .filter(|feature| !referenced.contains(index.get(&feature.id).expect("feature index")))
+            .map(|feature| feature.id.clone())
+            .collect();
+        unreferenced_features.sort_by(|left, right| left.0.cmp(&right.0));
+
+        JourneyView {
+            communities,
+            modularity,
+            unreferenced_features,
+        }
+    }
+
+    pub fn view_divergence(&self, catalog: &Catalog) -> Divergence {
+        let journey_view = self.journey_view(catalog);
+        let feature_aggregate: HashMap<&str, &str> = self
+            .features
+            .iter()
+            .map(|feature| (feature.id.0.as_str(), feature.aggregate.as_str()))
+            .collect();
+        let feature_community = feature_community_map(&journey_view.communities);
+        let community_sizes: HashMap<usize, usize> = journey_view
+            .communities
+            .iter()
+            .enumerate()
+            .map(|(idx, community)| (idx, community.members.len()))
+            .collect();
+        let pair_journeys = journey_cooccurrence_pairs(catalog, &index_from_features(self));
+
+        let mut joined_by_journey = Vec::new();
+        for (left_id, right_id) in pair_journeys.keys() {
+            let left_agg = feature_aggregate[left_id.0.as_str()];
+            let right_agg = feature_aggregate[right_id.0.as_str()];
+            if left_agg == right_agg {
+                continue;
+            }
+            let left_comm = feature_community[left_id];
+            let right_comm = feature_community[right_id];
+            if left_comm != right_comm {
+                continue;
+            }
+            if community_sizes[&left_comm] < 2 {
+                continue;
+            }
+            let bridge = format_aggregate_bridge(left_agg, right_agg);
+            joined_by_journey.push((left_id.clone(), right_id.clone(), bridge));
+        }
+        joined_by_journey.sort_by(|left, right| {
+            left.0
+                 .0
+                .cmp(&right.0 .0)
+                .then_with(|| left.1 .0.cmp(&right.1 .0))
+        });
+        joined_by_journey.dedup_by(|left, right| left.0 == right.0 && left.1 == right.1);
+
+        let mut split_by_journey = Vec::new();
+        for aggregate_group in self.aggregate_view() {
+            for left in 0..aggregate_group.features.len() {
+                for right in (left + 1)..aggregate_group.features.len() {
+                    let left_id = &aggregate_group.features[left];
+                    let right_id = &aggregate_group.features[right];
+                    let left_comm = feature_community[left_id];
+                    let right_comm = feature_community[right_id];
+                    if left_comm == right_comm {
+                        continue;
+                    }
+                    if community_sizes[&left_comm] < 2 || community_sizes[&right_comm] < 2 {
+                        continue;
+                    }
+                    let (left_id, right_id) = ordered_pair(left_id.clone(), right_id.clone());
+                    split_by_journey.push((left_id, right_id, aggregate_group.aggregate.clone()));
+                }
+            }
+        }
+        split_by_journey.sort_by(|left, right| {
+            left.0
+                 .0
+                .cmp(&right.0 .0)
+                .then_with(|| left.1 .0.cmp(&right.1 .0))
+        });
+
+        Divergence {
+            split_by_journey,
+            joined_by_journey,
+        }
+    }
+
     pub fn validate(&self, catalog: &Catalog) -> Result<(), Vec<String>> {
         let mut errors = Vec::new();
         let known_services: HashSet<&ServiceId> =
@@ -129,6 +278,126 @@ fn distinct_capability_count(catalog: &Catalog) -> usize {
         }
     }
     seen.len()
+}
+
+fn index_from_features(catalog: &FeatureCatalog) -> HashMap<FeatureId, usize> {
+    catalog
+        .features
+        .iter()
+        .enumerate()
+        .map(|(idx, feature)| (feature.id.clone(), idx))
+        .collect()
+}
+
+fn sort_feature_communities(communities: &mut [FeatureCommunity]) {
+    for community in communities.iter_mut() {
+        community
+            .members
+            .sort_by(|left, right| left.0.cmp(&right.0));
+    }
+    communities.sort_by(|left, right| {
+        right.members.len().cmp(&left.members.len()).then_with(|| {
+            left.members
+                .first()
+                .map(|id| id.0.as_str())
+                .cmp(&right.members.first().map(|id| id.0.as_str()))
+        })
+    });
+}
+
+fn feature_community_map(communities: &[FeatureCommunity]) -> HashMap<FeatureId, usize> {
+    let mut map = HashMap::new();
+    for (idx, community) in communities.iter().enumerate() {
+        for member in &community.members {
+            map.insert(member.clone(), idx);
+        }
+    }
+    map
+}
+
+fn journey_feature_indices(
+    journey: &crate::journey::UserJourney,
+    catalog: &Catalog,
+    index: &HashMap<&FeatureId, usize>,
+) -> Vec<usize> {
+    let mut features = Vec::new();
+    if let GroundedSet::Known { items } = &journey.capability_refs {
+        for item in items {
+            let id = FeatureId(item.value.0.clone());
+            if let Some(&idx) = index.get(&id) {
+                features.push(idx);
+            }
+        }
+    }
+    if let Some(chain_id) = &journey.chains_from {
+        if let Some(parent) = catalog
+            .journeys()
+            .iter()
+            .find(|candidate| &candidate.id == chain_id)
+        {
+            features.extend(journey_feature_indices(parent, catalog, index));
+        }
+    }
+    features.sort_unstable();
+    features.dedup();
+    features
+}
+
+fn journey_cooccurrence_pairs(
+    catalog: &Catalog,
+    feature_index: &HashMap<FeatureId, usize>,
+) -> HashMap<(FeatureId, FeatureId), Vec<JourneyId>> {
+    let known: HashSet<FeatureId> = feature_index.keys().cloned().collect();
+    let reverse_index: HashMap<usize, FeatureId> = feature_index
+        .iter()
+        .map(|(id, idx)| (*idx, id.clone()))
+        .collect();
+    let forward_index: HashMap<&FeatureId, usize> =
+        feature_index.iter().map(|(id, idx)| (id, *idx)).collect();
+    let mut pairs: HashMap<(FeatureId, FeatureId), Vec<JourneyId>> = HashMap::new();
+
+    for journey in catalog.journeys() {
+        let journey_features: Vec<FeatureId> =
+            journey_feature_indices(journey, catalog, &forward_index)
+                .into_iter()
+                .filter_map(|idx| reverse_index.get(&idx).cloned())
+                .filter(|id| known.contains(id))
+                .collect();
+        for left in 0..journey_features.len() {
+            for right in (left + 1)..journey_features.len() {
+                let (pair_left, pair_right) = ordered_pair(
+                    journey_features[left].clone(),
+                    journey_features[right].clone(),
+                );
+                pairs
+                    .entry((pair_left, pair_right))
+                    .or_default()
+                    .push(journey.id.clone());
+            }
+        }
+    }
+
+    for journeys in pairs.values_mut() {
+        journeys.sort_by(|left, right| left.0.cmp(&right.0));
+        journeys.dedup();
+    }
+    pairs
+}
+
+fn ordered_pair(left: FeatureId, right: FeatureId) -> (FeatureId, FeatureId) {
+    if left.0 <= right.0 {
+        (left, right)
+    } else {
+        (right, left)
+    }
+}
+
+fn format_aggregate_bridge(left: &str, right: &str) -> String {
+    if left <= right {
+        format!("{left} + {right}")
+    } else {
+        format!("{right} + {left}")
+    }
 }
 
 fn aggregate_of(id: &FeatureId) -> Option<&'static str> {
@@ -317,5 +586,74 @@ mod tests {
         let features = FeatureCatalog::from_catalog(&catalog);
         assert_eq!(features.features().len(), distinct.len());
         assert!(features.validate(&catalog).is_ok());
+    }
+
+    #[test]
+    fn journey_view_is_deterministic() {
+        let catalog = Catalog::bootstrap();
+        let features = FeatureCatalog::from_catalog(&catalog);
+        let first = features.journey_view(&catalog);
+        let second = features.journey_view(&catalog);
+        assert_eq!(first, second);
+    }
+
+    #[test]
+    fn journey_view_co_referenced_capabilities_share_community() {
+        let catalog = Catalog::bootstrap();
+        let features = FeatureCatalog::from_catalog(&catalog);
+        let view = features.journey_view(&catalog);
+        let flash = FeatureId("flash_firmware".into());
+        let detect = FeatureId("detect_flight_controllers".into());
+        let flash_community = view
+            .communities
+            .iter()
+            .find(|community| community.members.contains(&flash))
+            .expect("flash_firmware community");
+        assert!(flash_community.members.contains(&detect));
+    }
+
+    #[test]
+    fn journey_view_unreferenced_features_are_absent_from_journeys() {
+        let catalog = Catalog::bootstrap();
+        let features = FeatureCatalog::from_catalog(&catalog);
+        let view = features.journey_view(&catalog);
+        assert!(!view.unreferenced_features.is_empty());
+
+        let mut referenced = HashSet::new();
+        for journey in catalog.journeys() {
+            let GroundedSet::Known { items } = &journey.capability_refs else {
+                continue;
+            };
+            for item in items {
+                referenced.insert(item.value.0.as_str());
+            }
+        }
+        for id in &view.unreferenced_features {
+            assert!(!referenced.contains(id.0.as_str()));
+        }
+    }
+
+    #[test]
+    fn view_divergence_finds_cross_aggregate_joins() {
+        let catalog = Catalog::bootstrap();
+        let features = FeatureCatalog::from_catalog(&catalog);
+        let divergence = features.view_divergence(&catalog);
+        assert!(!divergence.joined_by_journey.is_empty());
+    }
+
+    #[test]
+    fn journey_view_and_divergence_round_trip_serde() {
+        let catalog = Catalog::bootstrap();
+        let features = FeatureCatalog::from_catalog(&catalog);
+        let view = features.journey_view(&catalog);
+        let divergence = features.view_divergence(&catalog);
+
+        let view_json = serde_json::to_string(&view).unwrap();
+        let view_decoded: JourneyView = serde_json::from_str(&view_json).unwrap();
+        assert_eq!(view, view_decoded);
+
+        let divergence_json = serde_json::to_string(&divergence).unwrap();
+        let divergence_decoded: Divergence = serde_json::from_str(&divergence_json).unwrap();
+        assert_eq!(divergence, divergence_decoded);
     }
 }

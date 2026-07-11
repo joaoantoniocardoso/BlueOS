@@ -387,21 +387,15 @@ fn total_edge_mass(weights: &[Vec<f64>]) -> f64 {
     total
 }
 
-fn greedy_modularity_cluster(matrix: &CouplingMatrix) -> (Vec<Vec<ServiceId>>, f64) {
-    let n = matrix.service_ids.len();
+pub(crate) fn greedy_modularity_communities(n: usize, weights: &[Vec<f64>]) -> Vec<Vec<usize>> {
     if n == 0 {
-        return (Vec::new(), 0.0);
+        return Vec::new();
     }
 
     let mut communities: Vec<Vec<usize>> = (0..n).map(|idx| vec![idx]).collect();
-    let mass = total_edge_mass(&matrix.weights);
+    let mass = total_edge_mass(weights);
     if mass == 0.0 {
-        let singletons = matrix
-            .service_ids
-            .iter()
-            .map(|id| vec![id.clone()])
-            .collect();
-        return (singletons, 0.0);
+        return communities;
     }
 
     loop {
@@ -410,12 +404,7 @@ fn greedy_modularity_cluster(matrix: &CouplingMatrix) -> (Vec<Vec<ServiceId>>, f
 
         for left in 0..communities.len() {
             for right in (left + 1)..communities.len() {
-                let delta = merge_delta(
-                    &communities[left],
-                    &communities[right],
-                    &matrix.weights,
-                    mass,
-                );
+                let delta = merge_delta(&communities[left], &communities[right], weights, mass);
                 if delta > best_delta + f64::EPSILON {
                     best_delta = delta;
                     best_pair = Some((left, right));
@@ -444,6 +433,40 @@ fn greedy_modularity_cluster(matrix: &CouplingMatrix) -> (Vec<Vec<ServiceId>>, f
         communities.push(merged);
     }
 
+    communities
+}
+
+pub(crate) fn modularity_q_indices(weights: &[Vec<f64>], communities: &[Vec<usize>]) -> f64 {
+    let mass = total_edge_mass(weights);
+    if mass == 0.0 {
+        return 0.0;
+    }
+    let two_m = 2.0 * mass;
+    let mut q = 0.0;
+    for community in communities {
+        let internal = community_internal(community, weights);
+        let total = community_total(community, weights);
+        q += internal / two_m - (total / two_m).powi(2);
+    }
+    q
+}
+
+fn greedy_modularity_cluster(matrix: &CouplingMatrix) -> (Vec<Vec<ServiceId>>, f64) {
+    let n = matrix.service_ids.len();
+    if n == 0 {
+        return (Vec::new(), 0.0);
+    }
+
+    let communities = greedy_modularity_communities(n, &matrix.weights);
+    if total_edge_mass(&matrix.weights) == 0.0 {
+        let singletons = matrix
+            .service_ids
+            .iter()
+            .map(|id| vec![id.clone()])
+            .collect();
+        return (singletons, 0.0);
+    }
+
     let mut result: Vec<Vec<ServiceId>> = communities
         .into_iter()
         .map(|community| {
@@ -456,7 +479,12 @@ fn greedy_modularity_cluster(matrix: &CouplingMatrix) -> (Vec<Vec<ServiceId>>, f
         })
         .collect();
     sort_communities(&mut result);
-    let modularity = modularity_q(&matrix.weights, &result, &matrix.service_ids, mass);
+    let modularity = modularity_q(
+        &matrix.weights,
+        &result,
+        &matrix.service_ids,
+        total_edge_mass(&matrix.weights),
+    );
     (result, modularity)
 }
 
