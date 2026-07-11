@@ -1,4 +1,5 @@
 mod ardupilot_manager;
+mod bag_of_holding;
 mod beacon;
 mod cable_guy;
 mod commander;
