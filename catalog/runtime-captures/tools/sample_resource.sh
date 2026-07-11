@@ -5,32 +5,51 @@
 #
 # Usage:
 #   sample_resource.sh --match <proc-substr> [options]
+#   sample_resource.sh --pid <pid> [options]
 # Options:
 #   --host H (192.168.0.177)  --user U (pi)  --pass P (raspberry)
 #   --container C (blueos-core)  --samples N (60)  --interval S (1)
 #   --label L (resting)  --out FILE (stdout if unset)
+#   --match matches python/python3 processes (default); --pid samples any process by PID
 set -euo pipefail
 
 HOST=192.168.0.177; USER=pi; PASS=raspberry; CONTAINER=blueos-core
-MATCH=""; SAMPLES=60; INTERVAL=1; LABEL=resting; OUT=""
+MATCH=""; PID=""; SAMPLES=60; INTERVAL=1; LABEL=resting; OUT=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --host) HOST="$2"; shift 2;; --user) USER="$2"; shift 2;; --pass) PASS="$2"; shift 2;;
     --container) CONTAINER="$2"; shift 2;; --match) MATCH="$2"; shift 2;;
-    --samples) SAMPLES="$2"; shift 2;; --interval) INTERVAL="$2"; shift 2;;
+    --pid) PID="$2"; shift 2;; --samples) SAMPLES="$2"; shift 2;; --interval) INTERVAL="$2"; shift 2;;
     --label) LABEL="$2"; shift 2;; --out) OUT="$2"; shift 2;;
     -h|--help) grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0;;
     *) echo "unknown arg: $1" >&2; exit 1;;
   esac
 done
-[ -n "$MATCH" ] || { echo "error: --match is required" >&2; exit 1; }
+if [ -n "$PID" ] && [ -n "$MATCH" ]; then
+  echo "error: use --pid or --match, not both" >&2; exit 1
+fi
+if [ -z "$PID" ] && [ -z "$MATCH" ]; then
+  echo "error: --match or --pid is required" >&2; exit 1
+fi
+
+if [ -n "$PID" ]; then
+  remote_args="$PID $SAMPLES $INTERVAL pid"
+else
+  remote_args="$MATCH $SAMPLES $INTERVAL match"
+fi
 
 raw=$(sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=8 "$USER@$HOST" \
-  "docker exec -i $CONTAINER sh -s '$MATCH' '$SAMPLES' '$INTERVAL'" <<'REMOTE'
-match="$1"; samples="$2"; interval="$3"
-pid=$(ps -eo pid,rss,args | grep -E 'python3? ' | grep -F -- "$match" | grep -v grep | sort -k2 -nr | awk '{print $1}' | head -1)
-[ -n "$pid" ] || { echo "ERR no matching python process for: $match" >&2; exit 3; }
+  "docker exec -i $CONTAINER sh -s $remote_args" <<'REMOTE'
+arg1="$1"; samples="$2"; interval="$3"; mode="$4"
+if [ "$mode" = pid ]; then
+  pid="$arg1"
+  [ -d "/proc/$pid" ] || { echo "ERR no process for pid: $pid" >&2; exit 3; }
+else
+  match="$arg1"
+  pid=$(ps -eo pid,rss,args | grep -E 'python3? ' | grep -F -- "$match" | grep -v grep | sort -k2 -nr | awk '{print $1}' | head -1)
+  [ -n "$pid" ] || { echo "ERR no matching python process for: $match" >&2; exit 3; }
+fi
 ncpu=$(nproc)
 echo "META $pid $ncpu $(cat /proc/$pid/comm)"
 prev=$(awk '{print $14+$15}' /proc/$pid/stat)
@@ -53,8 +72,9 @@ REMOTE
 meta=$(printf '%s\n' "$raw" | awk '/^META/{print $2, $3, $4}')
 pid=$(echo "$meta" | awk '{print $1}'); ncpu=$(echo "$meta" | awk '{print $2}'); comm=$(echo "$meta" | awk '{print $3}')
 
+pat="${MATCH:-pid:$PID}"
 json=$(printf '%s\n' "$raw" | awk -v label="$LABEL" -v pid="$pid" -v ncpu="$ncpu" -v comm="$comm" \
-  -v samples="$SAMPLES" -v interval="$INTERVAL" -v pat="$MATCH" '
+  -v samples="$SAMPLES" -v interval="$INTERVAL" -v pat="$pat" '
   function pct(a,n,p,  idx){idx=int(n*p); if(idx<1)idx=1; if(idx>n)idx=n; return a[idx]}
   /^S /{c[++nc]=$2+0; r[nr+1]=$3+0; nr++}
   END{

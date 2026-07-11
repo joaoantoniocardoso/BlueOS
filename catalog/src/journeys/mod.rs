@@ -8,6 +8,7 @@ mod customization;
 mod disk_usage;
 mod helper;
 mod kraken;
+mod mavlink2rest;
 mod nmea_injector;
 mod pardal;
 mod ping;
@@ -28,6 +29,7 @@ pub fn all_journeys() -> Vec<UserJourney> {
     journeys.extend(disk_usage::journeys());
     journeys.extend(helper::journeys());
     journeys.extend(kraken::journeys());
+    journeys.extend(mavlink2rest::journeys());
     journeys.extend(nmea_injector::journeys());
     journeys.extend(pardal::journeys());
     journeys.extend(ping::journeys());

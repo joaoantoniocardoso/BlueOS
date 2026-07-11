@@ -1,0 +1,89 @@
+{
+  "service": "mavlink2rest",
+  "environment": "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator",
+  "captured_at": "2026-07-11",
+  "capture_host": "192.168.0.177",
+  "notes": "Read-only Tier-1 capture on a healthy running mavlink2rest (Rust binary PID 243, user root, comm mavlink2rest). CPU/RSS via tools/sample_resource.sh (--pid 243, 90 samples, label running_baseline; continuous live MAVLink stream processing). SLO via tools/probe_http.sh on GET /mavlink2rest/v1/mavlink, GET /mavlink2rest/, and GET /mavlink2rest/v1/mavlink/HEARTBEAT (--repeats 60). Observed REST API path prefix /v1 at runtime (observed_facts versions list empty). NO mutating routes exercised: POST /mavlink2rest/v1/mavlink injects MAVLink to the autopilot — skipped (mutating/dangerous). WebSocket live stream and MAVLink send paths not probed (not Tier-1 GET). Raw evidence: /tmp/mavlink2rest_sample.json, /tmp/mavlink2rest_slo.json.",
+  "api_versions": [],
+  "api_path_prefix_observed": "/v1",
+  "route_inventory": {
+    "v1_read_only": [
+      "GET /mavlink2rest/v1/mavlink",
+      "GET /mavlink2rest/",
+      "GET /mavlink2rest/v1/mavlink/HEARTBEAT"
+    ],
+    "mutating_not_exercised": [
+      "POST /mavlink2rest/v1/mavlink"
+    ],
+    "not_exercised": [
+      "WebSocket live MAVLink stream (MAVLink Inspector UI; not a Tier-1 GET probe)"
+    ],
+    "note": "Read-only GETs probed; POST /v1/mavlink forwards arbitrary MAVLink to the vehicle — not exercised (mutating; injects commands to autopilot)."
+  },
+  "running_baseline": {
+    "note": "GET contracts on a healthy running mavlink2rest bridging live vehicle MAVLink from udpout:127.0.0.1:14001.",
+    "GET /mavlink2rest/v1/mavlink": {
+      "status": 200,
+      "body_predicate": "\"vehicles\""
+    },
+    "GET /mavlink2rest/": {
+      "status": 200,
+      "body_predicate": "<title>MAVLink2Rest</title>"
+    },
+    "GET /mavlink2rest/v1/mavlink/HEARTBEAT": {
+      "status": 200,
+      "body_predicate": "None"
+    }
+  },
+  "slo_running_baseline": {
+    "sample_size": 60,
+    "note": "GET /v1/mavlink returns the full live message tree JSON; GET / is the built-in Vue web UI HTML; GET /v1/mavlink/HEARTBEAT returns the literal body None when probed as a subtree endpoint.",
+    "GET /mavlink2rest/v1/mavlink": {
+      "p50_ms": 3.9,
+      "p95_ms": 6.3,
+      "p99_ms": 8.3
+    },
+    "GET /mavlink2rest/": {
+      "p50_ms": 1.3,
+      "p95_ms": 1.7,
+      "p99_ms": 3.1
+    },
+    "GET /mavlink2rest/v1/mavlink/HEARTBEAT": {
+      "p50_ms": 3.4,
+      "p95_ms": 4.9,
+      "p99_ms": 5.2
+    }
+  },
+  "resource_usage": {
+    "running_baseline": {
+      "sample_size": 90,
+      "interval_s": 1,
+      "method": "/proc stat deltas, top-style (100 == 1 core), PID 243 mavlink2rest (Rust binary, not python)",
+      "cpu_pct": {
+        "mean": 1.33,
+        "median": 1.01,
+        "p95": 2.03,
+        "min": 0.0,
+        "max": 33.59,
+        "sd": 3.51
+      },
+      "rss_mb": {
+        "mean": 8.8,
+        "median": 8.8,
+        "p95": 8.8,
+        "min": 8.8,
+        "max": 8.8,
+        "sd": 0.0
+      },
+      "note": "Rust binary processing continuous MAVLink stream; RSS flat ~8.8 MB. CPU mostly ~1% with occasional spikes (max 33.59%) during message-tree serialization bursts."
+    }
+  },
+  "platform_matrix": {
+    "navigator": {
+      "firmware": "n/a (mavlink2rest bridges vehicle MAVLink regardless of flight controller firmware)",
+      "notes": "mavlink2rest consumes udpout:127.0.0.1:14001 from ardupilot_manager; platform-independent on this Pi4/Navigator host."
+    }
+  },
+  "state_machine": "none (external Rust binary; no in-repo state machine)",
+  "settings_mutations": "Not exercised. mavlink2rest has no traced on-disk settings paths; POST /v1/mavlink mutates vehicle state via MAVLink injection — not exercised."
+}
