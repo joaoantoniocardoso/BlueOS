@@ -6,6 +6,7 @@ pub mod cable_guy;
 pub mod commander;
 pub mod customization;
 pub mod disk_usage;
+pub mod filebrowser;
 pub mod helper;
 pub mod iperf3;
 pub mod kraken;
@@ -36,6 +37,7 @@ pub fn all_observed() -> Vec<ObservedFacts> {
         commander::observed_facts(),
         customization::observed_facts(),
         disk_usage::observed_facts(),
+        filebrowser::observed_facts(),
         helper::observed_facts(),
         iperf3::observed_facts(),
         kraken::observed_facts(),
@@ -64,6 +66,7 @@ pub fn all_runtime() -> Vec<RuntimeFacts> {
         commander::runtime_facts(),
         customization::runtime_facts(),
         disk_usage::runtime_facts(),
+        filebrowser::runtime_facts(),
         helper::runtime_facts(),
         iperf3::runtime_facts(),
         kraken::runtime_facts(),
@@ -92,6 +95,7 @@ pub fn all_service_definitions() -> Vec<ServiceDefinition> {
         commander::service_definition(),
         customization::service_definition(),
         disk_usage::service_definition(),
+        filebrowser::service_definition(),
         helper::service_definition(),
         iperf3::service_definition(),
         kraken::service_definition(),

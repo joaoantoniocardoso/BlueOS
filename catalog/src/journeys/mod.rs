@@ -6,6 +6,7 @@ mod cable_guy;
 mod commander;
 mod customization;
 mod disk_usage;
+mod filebrowser;
 mod helper;
 mod iperf3;
 mod kraken;
@@ -33,6 +34,7 @@ pub fn all_journeys() -> Vec<UserJourney> {
     journeys.extend(commander::journeys());
     journeys.extend(customization::journeys());
     journeys.extend(disk_usage::journeys());
+    journeys.extend(filebrowser::journeys());
     journeys.extend(helper::journeys());
     journeys.extend(iperf3::journeys());
     journeys.extend(kraken::journeys());

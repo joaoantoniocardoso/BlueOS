@@ -1,0 +1,82 @@
+{
+  "service": "filebrowser",
+  "environment": "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e; RepoDigest sha256:0406983a568a66df2a56f682b52161858f30ac87ab273f15309e52f5ab87e22a), Raspberry Pi 4, Navigator",
+  "captured_at": "2026-07-11",
+  "capture_host": "192.168.0.177",
+  "notes": "Read-only Tier-1 capture on a healthy running filebrowser (Go binary PID 921, user root, comm filebrowser, RSS ~15.9 MB). CPU/RSS via tools/sample_resource.sh (--pid 921, 90 samples, label running_baseline; idle filebrowser with no active browser session). SLO via tools/probe_http.sh on two read-only GET routes proxied by nginx (--repeats 60). filebrowser is not a versioned REST service (api_versions empty). Unversioned SPA and API under /file-browser/ baseurl. GET /file-browser/health is a dedicated health endpoint. GET /file-browser/api/renew returns 401 without auth (recorded; not authenticated). File-mutating /file-browser/api/* endpoints (upload/delete/rename/move) NOT touched (Tier-1). Raw evidence: /tmp/filebrowser_sample.json, /tmp/filebrowser_slo.json.",
+  "api_versions": [],
+  "api_path_prefix_observed": "none versioned (filebrowser SPA and /api/* under unversioned /file-browser/ baseurl)",
+  "route_inventory": {
+    "read_only": [
+      "GET /file-browser/",
+      "GET /file-browser/health"
+    ],
+    "auth_gated": [
+      "GET /file-browser/api/renew → 401 Unauthorized (requires authentication; status recorded only, no login attempted)"
+    ],
+    "not_exercised": [
+      "POST/PUT/DELETE /file-browser/api/* file-mutating endpoints (upload/delete/rename/move — Tier-1 forbidden)",
+      "Authenticated /file-browser/api/* session flows (login, renew with credentials — NOT probed)"
+    ],
+    "note": "Tier-1 capture limited to read-only HTTP GETs on unauthenticated routes. nginx proxies /file-browser/ to filebrowser on port 7777."
+  },
+  "running_baseline": {
+    "note": "GET contracts on a healthy running filebrowser proxied via nginx /file-browser/ → port 7777.",
+    "GET /file-browser/": {
+      "status": 200,
+      "body_predicate": "<!doctype html>"
+    },
+    "GET /file-browser/health": {
+      "status": 200,
+      "body_predicate": "\"status\":\"OK\"",
+      "note": "JSON object {\"status\":\"OK\"}"
+    }
+  },
+  "slo_running_baseline": {
+    "sample_size": 60,
+    "note": "GET /file-browser/ serves the filebrowser SPA HTML landing page (heavier than /health). LAN-idle latencies are low single-digit ms via nginx proxy.",
+    "GET /file-browser/": {
+      "p50_ms": 2.8,
+      "p95_ms": 5.6,
+      "p99_ms": 6.3
+    },
+    "GET /file-browser/health": {
+      "p50_ms": 1.7,
+      "p95_ms": 2.3,
+      "p99_ms": 3.1
+    }
+  },
+  "resource_usage": {
+    "running_baseline": {
+      "sample_size": 90,
+      "interval_s": 1,
+      "method": "/proc stat deltas, top-style (100 == 1 core), PID 921 filebrowser (Go binary, root)",
+      "filebrowser_pid": 921,
+      "cpu_pct": {
+        "mean": 0.0,
+        "median": 0.0,
+        "p95": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "sd": 0.0
+      },
+      "rss_mb": {
+        "mean": 15.9,
+        "median": 15.9,
+        "p95": 15.9,
+        "min": 15.9,
+        "max": 15.9,
+        "sd": 0.0
+      },
+      "note": "Idle filebrowser with no active browser session: CPU ~0% across 90 samples; RSS stable ~15.9 MB."
+    }
+  },
+  "platform_matrix": {
+    "navigator": {
+      "firmware": "n/a (filebrowser is the platform-independent browser web file-manager provider)",
+      "notes": "filebrowser behavior is platform-independent; captured on Navigator Pi4 only."
+    }
+  },
+  "state_machine": "none (external Go binary; no in-repo state machine)",
+  "settings_mutations": "none — Tier-1 GET-only probes; no login, file mutations, or settings changes exercised."
+}
