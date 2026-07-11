@@ -1,6 +1,6 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, HttpMethod, JourneyStep, Precondition, RouteRef, UserJourney, Visibility,
+    Actor, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome, UserJourney, Visibility,
 };
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
 
@@ -8,6 +8,8 @@ const ADV: &str = "content/usage/advanced/index.md";
 const DISK_MAIN: &str = "core/services/disk_usage/main.py";
 const DISK_MENUS: &str = "core/frontend/src/menus.ts";
 const DISK_VIEW: &str = "core/frontend/src/views/Disk.vue";
+const RUNTIME_CAPTURE: &str = "runtime-captures/disk_usage__pi4_navigator_master.json";
+const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
 
 pub fn journeys() -> Vec<UserJourney> {
     vec![
@@ -43,6 +45,7 @@ fn inspect_disk_usage() -> UserJourney {
                 "Open the Disk page from the sidebar",
                 None,
                 Provenance::source(DISK_MENUS, 49),
+                None,
             ),
             operator_step(
                 "Load the disk usage tree for the current path",
@@ -53,6 +56,11 @@ fn inspect_disk_usage() -> UserJourney {
                     248,
                 )),
                 Provenance::source(DISK_MAIN, 251),
+                Some(runtime_outcome(
+                    200,
+                    Some("\"root\": {\"name\": \"/\"".into()),
+                    "#running_baseline",
+                )),
             ),
             operator_step(
                 "Open a subdirectory to inspect how storage is distributed beneath it",
@@ -63,6 +71,11 @@ fn inspect_disk_usage() -> UserJourney {
                     248,
                 )),
                 Provenance::source(DISK_MAIN, 255),
+                Some(runtime_outcome(
+                    200,
+                    Some("\"root\": {\"name\": \"/\"".into()),
+                    "#running_baseline",
+                )),
             ),
         ]),
         chains_from: None,
@@ -99,6 +112,7 @@ fn free_disk_space() -> UserJourney {
                 "Open the Disk page from the sidebar",
                 None,
                 Provenance::source(DISK_MENUS, 49),
+                None,
             ),
             operator_step(
                 "Browse the disk usage tree to identify files or folders to remove",
@@ -109,11 +123,17 @@ fn free_disk_space() -> UserJourney {
                     248,
                 )),
                 Provenance::source(DISK_MAIN, 251),
+                Some(runtime_outcome(
+                    200,
+                    Some("\"root\": {\"name\": \"/\"".into()),
+                    "#running_baseline",
+                )),
             ),
             operator_step(
                 "Select one or more paths to delete",
                 None,
                 Provenance::source(DISK_VIEW, 109),
+                None,
             ),
             operator_step(
                 "Delete the selected paths",
@@ -124,6 +144,7 @@ fn free_disk_space() -> UserJourney {
                     268,
                 )),
                 Provenance::source(DISK_MAIN, 270),
+                Some(Grounded::unknown("destructive; not exercised in capture")),
             ),
             operator_step(
                 "Refresh the disk usage tree to confirm reclaimed space",
@@ -134,6 +155,11 @@ fn free_disk_space() -> UserJourney {
                     248,
                 )),
                 Provenance::source(DISK_MAIN, 251),
+                Some(runtime_outcome(
+                    200,
+                    Some("\"root\": {\"name\": \"/\"".into()),
+                    "#running_baseline",
+                )),
             ),
         ]),
         chains_from: Some(JourneyId("inspect_disk_usage".into())),
@@ -162,6 +188,7 @@ fn run_single_disk_speed_test() -> UserJourney {
                 "Switch to the Speed Test tab",
                 None,
                 Provenance::source(DISK_VIEW, 15),
+                None,
             ),
             operator_step(
                 "Start a disk speed test at the chosen test size",
@@ -172,6 +199,11 @@ fn run_single_disk_speed_test() -> UserJourney {
                     410,
                 )),
                 Provenance::source(DISK_MAIN, 413),
+                Some(runtime_outcome(
+                    200,
+                    Some("\"success\": true".into()),
+                    "#transitions",
+                )),
             ),
         ]),
         chains_from: None,
@@ -200,6 +232,7 @@ fn run_multi_size_disk_speed_test() -> UserJourney {
                 "Switch to the Speed Test tab",
                 None,
                 Provenance::source(DISK_VIEW, 15),
+                None,
             ),
             operator_step(
                 "Start the multi-size disk speed benchmark",
@@ -210,6 +243,9 @@ fn run_multi_size_disk_speed_test() -> UserJourney {
                     444,
                 )),
                 Provenance::source(DISK_MAIN, 446),
+                Some(Grounded::unknown(
+                    "GET /disk/speed/stream not exercised in capture (multi-size benchmark is long-running)",
+                )),
             ),
         ]),
         chains_from: None,
@@ -252,14 +288,26 @@ fn operator_step(
     description: &str,
     route: Option<Grounded<RouteRef>>,
     provenance: Provenance,
+    outcome: Option<Grounded<StepOutcome>>,
 ) -> GroundedItem<JourneyStep> {
     GroundedItem::new(
         JourneyStep {
             actor: Actor::Operator,
             description: description.into(),
             route,
-            outcome: None,
+            outcome,
         },
         provenance,
+    )
+}
+
+fn runtime_outcome(status: u16, body: Option<String>, key: &str) -> Grounded<StepOutcome> {
+    Grounded::known(
+        StepOutcome {
+            expected_status: Some(status),
+            body_predicate: body,
+            transition: None,
+        },
+        Provenance::runtime(format!("{RUNTIME_CAPTURE}{key}"), RUNTIME_ENV),
     )
 }

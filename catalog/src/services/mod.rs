@@ -15,7 +15,11 @@ pub fn all_observed() -> Vec<ObservedFacts> {
 }
 
 pub fn all_runtime() -> Vec<RuntimeFacts> {
-    vec![ardupilot_manager::runtime_facts(), kraken::runtime_facts()]
+    vec![
+        ardupilot_manager::runtime_facts(),
+        disk_usage::runtime_facts(),
+        kraken::runtime_facts(),
+    ]
 }
 
 pub fn all_service_definitions() -> Vec<ServiceDefinition> {
