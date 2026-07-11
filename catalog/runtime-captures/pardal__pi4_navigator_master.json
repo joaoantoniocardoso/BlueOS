@@ -1,0 +1,93 @@
+{
+  "service": "pardal",
+  "environment": "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator",
+  "captured_at": "2026-07-11",
+  "capture_host": "192.168.0.177",
+  "notes": "Read-only Tier-1 capture on a healthy running pardal (python PID 1008). CPU/RSS via tools/sample_resource.sh (--match pardal/main.py, 60 samples, label running_baseline). SLO via tools/probe_http.sh: GET /network-test/ and /network-test/internet_test_previous_result (--repeats 40); GET /network-test/get_file?size=1048576 single bounded 1 MiB download (--repeats 10, transfer-dominated latency). SPEED_TEST was initialized at service boot on this host so internet_test_previous_result returned 200 JSON (not 500). NO mutating routes: POST /post_file not exercised. Tier-2/hazard NOT exercised: GET /internet_best_server, /internet_download_speed, /internet_upload_speed (WAN speedtest saturates operator link); WebSocket /ws echo not probed. Raw evidence: /tmp/pardal_sample.json, /tmp/pardal_slo_fast.json, /tmp/pardal_slo_getfile.json.",
+  "api_versions": [],
+  "route_inventory": {
+    "unversioned_read_only": [
+      "GET /network-test/",
+      "GET /network-test/internet_test_previous_result",
+      "GET /network-test/get_file?size=1048576"
+    ],
+    "mutating_not_exercised": [
+      "POST /network-test/post_file"
+    ],
+    "tier2_hazard_not_exercised": [
+      "GET /network-test/internet_best_server",
+      "GET /network-test/internet_download_speed",
+      "GET /network-test/internet_upload_speed",
+      "GET /network-test/ws"
+    ],
+    "note": "WAN speedtest routes saturate the vehicle internet link; WebSocket /ws requires a live session; POST /post_file needs upload body."
+  },
+  "running_baseline": {
+    "note": "GET contracts on a healthy running pardal (idle, no active LAN speed test UI session).",
+    "GET /network-test/": {
+      "status": 200,
+      "body_predicate": "<title>Pardal</title>"
+    },
+    "GET /network-test/internet_test_previous_result": {
+      "status": 200,
+      "body_predicate": "\"download\":"
+    },
+    "GET /network-test/get_file?size=1048576": {
+      "status": 200,
+      "body_predicate": "1 MiB random byte stream (Content-Length: 1048576); not JSON"
+    }
+  },
+  "slo_running_baseline": {
+    "sample_size": 40,
+    "note": "Root and previous_result are fast metadata reads. get_file probed separately at n=10 because latency is dominated by 1 MiB transfer over the operator link, not server handler overhead.",
+    "GET /network-test/": {
+      "p50_ms": 2.6,
+      "p95_ms": 5.6,
+      "p99_ms": 7.8
+    },
+    "GET /network-test/internet_test_previous_result": {
+      "p50_ms": 2.7,
+      "p95_ms": 5.1,
+      "p99_ms": 5.2
+    },
+    "GET /network-test/get_file?size=1048576": {
+      "sample_size": 10,
+      "p50_ms": 81.9,
+      "p95_ms": 89.6,
+      "p99_ms": 89.6,
+      "note": "Transfer-dominated; reflects ~1 MiB download throughput over LAN, not aiohttp routing overhead alone."
+    }
+  },
+  "resource_usage": {
+    "running_baseline": {
+      "sample_size": 60,
+      "interval_s": 1,
+      "method": "/proc stat deltas, top-style (100 == 1 core), PID 1008 python pardal/main.py",
+      "cpu_pct": {
+        "mean": 0.02,
+        "median": 0.00,
+        "p95": 0.00,
+        "min": 0.00,
+        "max": 0.97,
+        "sd": 0.12
+      },
+      "rss_mb": {
+        "mean": 38.8,
+        "median": 38.8,
+        "p95": 38.8,
+        "min": 38.8,
+        "max": 38.8,
+        "sd": 0.0
+      },
+      "note": "Idle with no active speed test; RSS flat ~39 MB, CPU near zero."
+    }
+  },
+  "platform_matrix": {
+    "navigator": {
+      "firmware": "n/a (pardal is network diagnostics only; no autopilot coupling)",
+      "notes": "pardal behavior is platform-independent (local random-byte streaming and optional speedtest-cli WAN probes); runtime captured on Navigator Pi4 only."
+    }
+  },
+  "state_machine": "none (service_definition states: Unknown; SPEED_TEST global and request handlers are ephemeral test state)",
+  "settings_mutations": "Not exercised. pardal has no settings manager or settings.json persistence."
+}

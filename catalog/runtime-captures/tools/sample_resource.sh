@@ -29,8 +29,8 @@ done
 raw=$(sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=8 "$USER@$HOST" \
   "docker exec -i $CONTAINER sh -s '$MATCH' '$SAMPLES' '$INTERVAL'" <<'REMOTE'
 match="$1"; samples="$2"; interval="$3"
-pid=$(ps -eo pid,rss,args | grep python3 | grep -F -- "$match" | grep -v grep | sort -k2 -nr | awk '{print $1}' | head -1)
-[ -n "$pid" ] || { echo "ERR no matching python3 process for: $match" >&2; exit 3; }
+pid=$(ps -eo pid,rss,args | grep -E 'python3? ' | grep -F -- "$match" | grep -v grep | sort -k2 -nr | awk '{print $1}' | head -1)
+[ -n "$pid" ] || { echo "ERR no matching python process for: $match" >&2; exit 3; }
 ncpu=$(nproc)
 echo "META $pid $ncpu $(cat /proc/$pid/comm)"
 prev=$(awk '{print $14+$15}' /proc/$pid/stat)

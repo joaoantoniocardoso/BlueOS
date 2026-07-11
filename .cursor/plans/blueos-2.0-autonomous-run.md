@@ -89,6 +89,7 @@ allowed for services with no meaningful runtime or unreachable. Update after eac
 | 12 | bag_of_holding | bag_of_holding | 9101 /bag/ | python | DONE | DONE | DONE | DONE | FULLY MODELED; JSON store; 1 journey (Bag Editor), rest is infra |
 | 13 | customization | customization | 9152 /customization/ | python | DONE | DONE | DONE | DONE | FULLY MODELED; Auxiliary branding; no dangerous ops |
 | 14 | nmea_injector | nmea_injector | 2748 /nmea-injector/ | python | DONE | DONE | DONE | DONE | FULLY MODELED; ext-GPS→GPS_INPUT via m2r; dynamic listener = gap |
+| 15 | pardal | pardal | 9120 /network-test/ | python(aiohttp) | DONE | DONE | DONE | DONE | FULLY MODELED; unversioned; LAN throughput + WAN speedtest; measurement-only |
 | 9 | bridget | bridget | ? /bridget/ | python | TODO | TODO | TODO | TODO | |
 | 10 | commander | commander | 9100 /commander/ | python | DONE | DONE | DONE | DONE | FULLY MODELED (RSS~35MB; read-only SLO; dangerous POSTs Unknown by design) |
 | 11 | nmea_injector | nmea_injector | ? /nmea-injector/ | python | TODO | TODO | TODO | TODO | |
@@ -118,11 +119,13 @@ allowed for services with no meaningful runtime or unreachable. Update after eac
 
 ## >>> RESUME POINTER (update every service) <<<
 - Phases 1-3: DONE. Harness is built + hardened (gate.sh, extract, drift, frozen rubric).
-- Phase 4 progress: FULLY MODELED (14) = ardupilot_manager, kraken, disk_usage, helper, commander, beacon, cable_guy, wifi, versionchooser, bag_of_holding, customization, nmea_injector.
-- **NEXT UP: `pardal`** (then ping, bridget, recorder_extractor, then the ~9 binaries, then user_terminal).
+- Phase 4 progress: FULLY MODELED (15) = ardupilot_manager, kraken, disk_usage, helper, commander, beacon, cable_guy, wifi, versionchooser, bag_of_holding, customization, nmea_injector, pardal.
+- **NEXT UP: `ping`** (then bridget, recorder_extractor, then the ~9 binaries, then user_terminal).
 - Per-service loop (each layer committed separately, ledger updated): Fact Extractor(self-recon)→QA(observed)→Docs Specialist(journeys)→Card Author(wires all_journeys + service_def)→QA(card+journeys)→Runtime Specialist(live Pi)→commit. Run `bash catalog/gate.sh` before every commit. Pi at 192.168.0.177 (pi:raspberry). NEVER call destructive endpoints during capture.
 
 ## DECISIONS LOG (append-only; newest last)
+
+- 2026-07-11: pardal FULLY MODELED. Network speed-test service (nginx /network-test/, NOT /pardal/; unversioned aiohttp on :9120). Two mechanisms: LAN throughput via self-hosted HTTP /get_file (download) + /post_file (upload) + /ws echo (latency); WAN via speedtest-cli library (/internet_* routes) — NO iperf3 subprocess (iperf3 is a SIBLING tmux service) and NO literal OutboundHttp URL (speedtest-cli hides them). Asserted Auxiliary, dangerous_operations=[] (bandwidth saturation is transient/reversible, captured in blast_radius), authorities=[] (measurement producer, no exclusive right — consistent with disk_usage), offline_required true (LAN test offline-capable). QA BOUNCE ×2, both fixed: (1) /ws step used Actor::Service with a frontend client anchor → re-anchored to service handler main.py:45; (2) Interface::Rest anchored at web.Application() (line 144, shows neither prefix/port/version) → re-anchored to the TCPSite bind main.py:155 (carries port; prefix corroborated by nginx.conf:197). NOTE: unversioned service → versions:[]; the "cite prefix_format line" convention doesn't apply, so anchor the bind line. Tier-1 capture: PID 1008 `python` (NOT python3 — extended sample_resource.sh to match both), RSS flat 38.8 MB, CPU ~0.02% idle; GET / p50 2.6ms, internet_test_previous_result p50 2.7ms (returned 200 not 500 — SPEED_TEST initialized at boot on this host), get_file?size=1MB p50 82ms (transfer-dominated). WAN speedtest routes + POST upload + /ws NOT exercised (link-saturation hazard / mutating).
 
 - 2026-07-11: nmea_injector FULLY MODELED. External NMEA/GPS ingest → MAVLink GPS_INPUT via HTTP POST to mavlink2rest (NOT a MAVLink connect string; OutboundHttp localhost:6040). Asserted Auxiliary (opt-in external GPS, not required for flight), nmea_gps_injector authority (producer, NOT router owner), dangerous_operations=[] (socket config reversible; wrong-position is a failure_mode). edges Unknown (mavlink2rest not yet cataloged — deferred). Extractor fixed nothing (clean); 5 dns-style anchors N/A. Harness gap: dynamic per-socket NMEA TCP/UDP listeners have no Interface variant. Tier-1 capture: RSS ~40 MB, CPU ~0.26%; GET /socks p50 8ms (returned [], no sockets configured). Mutations NOT exercised.
 
