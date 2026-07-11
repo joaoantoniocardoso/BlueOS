@@ -1,0 +1,77 @@
+{
+  "service": "ping",
+  "environment": "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator",
+  "captured_at": "2026-07-11",
+  "capture_host": "192.168.0.177",
+  "notes": "Read-only Tier-1 capture on a healthy running ping (python3 PID 1072, user blueos). CPU/RSS via tools/sample_resource.sh (--match ping/main.py, 90 samples, label running_baseline; 1s serial-port poll + ethernet discovery loop). SLO via tools/probe_http.sh on GET /ping/v1.0/sensors and GET /ping/ (--repeats 60). NO Ping sonar hardware attached: GET /sensors returned []. NO mutating routes exercised: POST /ping/v1.0/sensors (sensor settings / MAVLink forwarding toggle) skipped. UDP bridge port assignment, Ping Viewer connection, and MAVLink DISTANCE_SENSOR forwarding outcomes remain Unknown (no hardware / mutating / not exercised). Raw evidence: /tmp/ping_sample.json, /tmp/ping_slo.json.",
+  "api_versions": [
+    "v1.0"
+  ],
+  "route_inventory": {
+    "v1.0_read_only": [
+      "GET /ping/v1.0/sensors",
+      "GET /ping/"
+    ],
+    "mutating_not_exercised": [
+      "POST /ping/v1.0/sensors"
+    ],
+    "note": "Read-only GETs probed; POST /sensors persists sensor settings and toggles mavlink_driver — not exercised (mutating; no sonar hardware on this host)."
+  },
+  "running_baseline": {
+    "note": "GET contracts on a healthy running ping with no Ping sonar hardware detected.",
+    "GET /ping/v1.0/sensors": {
+      "status": 200,
+      "body_predicate": "[] (empty; no Ping sonar hardware attached)"
+    },
+    "GET /ping/": {
+      "status": 200,
+      "body_predicate": "<title>Ping Service</title>"
+    }
+  },
+  "slo_running_baseline": {
+    "sample_size": 60,
+    "note": "GET /sensors is a fast list read (empty on this host); GET / is root HTML.",
+    "GET /ping/v1.0/sensors": {
+      "p50_ms": 10.9,
+      "p95_ms": 35.2,
+      "p99_ms": 39.7
+    },
+    "GET /ping/": {
+      "p50_ms": 5.7,
+      "p95_ms": 10.1,
+      "p99_ms": 14.8
+    }
+  },
+  "resource_usage": {
+    "running_baseline": {
+      "sample_size": 90,
+      "interval_s": 1,
+      "method": "/proc stat deltas, top-style (100 == 1 core), PID 1072 python3 ping/main.py",
+      "cpu_pct": {
+        "mean": 0.96,
+        "median": 0.94,
+        "p95": 2.00,
+        "min": 0.00,
+        "max": 26.25,
+        "sd": 2.78
+      },
+      "rss_mb": {
+        "mean": 40.2,
+        "median": 40.2,
+        "p95": 40.2,
+        "min": 40.2,
+        "max": 40.2,
+        "sd": 0.0
+      },
+      "note": "Idle with no sonar hardware; RSS flat ~40 MB. CPU mostly ~1% from 1s serial probe + ethernet discovery; occasional spikes (max 26.25%) during discovery bursts."
+    }
+  },
+  "platform_matrix": {
+    "navigator": {
+      "firmware": "n/a (ping is sonar-peripheral integration; runs regardless of flight controller firmware)",
+      "notes": "ping auto-detects Ping-family sonar on serial/USB and local ethernet; platform-independent on this Pi4/Navigator host. Runtime captured with NO sonar hardware attached."
+    }
+  },
+  "state_machine": "none (service_definition states: Unknown; PingManager probe loop and per-device bridge subprocesses are runtime-managed)",
+  "settings_mutations": "Not exercised. POST /ping/v1.0/sensors persists Ping1D settings to /usr/blueos/userdata/settings/ping (mavlink_driver toggle); not mutated during this read-only capture (no sonar hardware)."
+}

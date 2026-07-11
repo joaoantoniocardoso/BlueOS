@@ -9,6 +9,7 @@ pub mod helper;
 pub mod kraken;
 pub mod nmea_injector;
 pub mod pardal;
+pub mod ping;
 pub mod versionchooser;
 pub mod wifi;
 
@@ -29,6 +30,7 @@ pub fn all_observed() -> Vec<ObservedFacts> {
         kraken::observed_facts(),
         nmea_injector::observed_facts(),
         pardal::observed_facts(),
+        ping::observed_facts(),
         versionchooser::observed_facts(),
         wifi::observed_facts(),
     ]
@@ -47,6 +49,7 @@ pub fn all_runtime() -> Vec<RuntimeFacts> {
         kraken::runtime_facts(),
         nmea_injector::runtime_facts(),
         pardal::runtime_facts(),
+        ping::runtime_facts(),
         versionchooser::runtime_facts(),
         wifi::runtime_facts(),
     ]
@@ -65,6 +68,7 @@ pub fn all_service_definitions() -> Vec<ServiceDefinition> {
         kraken::service_definition(),
         nmea_injector::service_definition(),
         pardal::service_definition(),
+        ping::service_definition(),
         versionchooser::service_definition(),
         wifi::service_definition(),
     ]

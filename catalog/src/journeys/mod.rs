@@ -9,6 +9,7 @@ mod helper;
 mod kraken;
 mod nmea_injector;
 mod pardal;
+mod ping;
 mod versionchooser;
 mod wifi;
 
@@ -26,6 +27,7 @@ pub fn all_journeys() -> Vec<UserJourney> {
     journeys.extend(kraken::journeys());
     journeys.extend(nmea_injector::journeys());
     journeys.extend(pardal::journeys());
+    journeys.extend(ping::journeys());
     journeys.extend(versionchooser::journeys());
     journeys.extend(wifi::journeys());
     journeys
