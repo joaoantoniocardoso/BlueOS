@@ -7,6 +7,7 @@ pub mod customization;
 pub mod disk_usage;
 pub mod helper;
 pub mod kraken;
+pub mod nmea_injector;
 pub mod versionchooser;
 pub mod wifi;
 
@@ -25,6 +26,7 @@ pub fn all_observed() -> Vec<ObservedFacts> {
         disk_usage::observed_facts(),
         helper::observed_facts(),
         kraken::observed_facts(),
+        nmea_injector::observed_facts(),
         versionchooser::observed_facts(),
         wifi::observed_facts(),
     ]
