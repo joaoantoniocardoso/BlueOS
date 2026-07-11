@@ -5,6 +5,7 @@ mod commander;
 mod disk_usage;
 mod helper;
 mod kraken;
+mod versionchooser;
 mod wifi;
 
 use crate::journey::UserJourney;
