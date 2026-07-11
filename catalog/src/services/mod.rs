@@ -7,6 +7,7 @@ pub mod commander;
 pub mod customization;
 pub mod disk_usage;
 pub mod helper;
+pub mod iperf3;
 pub mod kraken;
 pub mod linux2rest;
 pub mod mavlink2rest;
@@ -36,6 +37,7 @@ pub fn all_observed() -> Vec<ObservedFacts> {
         customization::observed_facts(),
         disk_usage::observed_facts(),
         helper::observed_facts(),
+        iperf3::observed_facts(),
         kraken::observed_facts(),
         linux2rest::observed_facts(),
         mavlink_camera_manager::observed_facts(),
@@ -63,6 +65,7 @@ pub fn all_runtime() -> Vec<RuntimeFacts> {
         customization::runtime_facts(),
         disk_usage::runtime_facts(),
         helper::runtime_facts(),
+        iperf3::runtime_facts(),
         kraken::runtime_facts(),
         linux2rest::runtime_facts(),
         mavlink_camera_manager::runtime_facts(),
@@ -90,6 +93,7 @@ pub fn all_service_definitions() -> Vec<ServiceDefinition> {
         customization::service_definition(),
         disk_usage::service_definition(),
         helper::service_definition(),
+        iperf3::service_definition(),
         kraken::service_definition(),
         linux2rest::service_definition(),
         mavlink_camera_manager::service_definition(),

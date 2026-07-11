@@ -7,6 +7,7 @@ mod commander;
 mod customization;
 mod disk_usage;
 mod helper;
+mod iperf3;
 mod kraken;
 mod linux2rest;
 mod mavlink2rest;
@@ -33,6 +34,7 @@ pub fn all_journeys() -> Vec<UserJourney> {
     journeys.extend(customization::journeys());
     journeys.extend(disk_usage::journeys());
     journeys.extend(helper::journeys());
+    journeys.extend(iperf3::journeys());
     journeys.extend(kraken::journeys());
     journeys.extend(linux2rest::journeys());
     journeys.extend(mavlink2rest::journeys());
