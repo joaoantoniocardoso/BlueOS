@@ -1,4 +1,5 @@
 pub mod ardupilot_manager;
+pub mod disk_usage;
 pub mod kraken;
 
 use crate::observed::ObservedFacts;
@@ -8,6 +9,7 @@ use crate::service::ServiceDefinition;
 pub fn all_observed() -> Vec<ObservedFacts> {
     vec![
         ardupilot_manager::observed_facts(),
+        disk_usage::observed_facts(),
         kraken::observed_facts(),
     ]
 }

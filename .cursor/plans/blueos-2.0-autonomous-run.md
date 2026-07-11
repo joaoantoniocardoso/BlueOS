@@ -99,7 +99,7 @@ allowed for services with no meaningful runtime or unreachable. Update after eac
 | 22 | bag_of_holding | bag_of_holding | ? /bag/ | python | TODO | TODO | TODO | TODO | |
 | 23 | recorder | recorder | ? | binary | TODO | TODO | TODO | TODO | blueos-recorder |
 | 24 | recorder_extractor | recorder_extractor | ? | python | TODO | TODO | TODO | TODO | |
-| 25 | disk_usage | disk_usage | ? /disk-usage/ | python | TODO | TODO | TODO | TODO | reference PR #3669 |
+| 25 | disk_usage | disk_usage | 9151 /disk-usage/ | python | DONE | TODO | TODO | TODO | obs QA-accepted |
 | 26 | customization | customization | ? /bootstrap? | python | TODO | TODO | TODO | TODO | |
 
 > Ports/prefixes marked `?` must be confirmed from `nginx.conf` + argparse during that service's recon.
