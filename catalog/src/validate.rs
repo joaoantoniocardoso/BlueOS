@@ -5,6 +5,7 @@ use thiserror::Error;
 use crate::catalog::Catalog;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::UserJourney;
+use crate::page::PageId;
 use crate::provenance::{AssertedSet, GroundedSet, ObservedSet};
 use crate::resource::ResourceOwnership;
 use crate::service::{Authority, ServiceDefinition};
@@ -61,6 +62,12 @@ pub enum ValidationError {
         machine: String,
         state: String,
     },
+    #[error("page {page} consumes unknown service {service}")]
+    UnknownPageService { page: String, service: String },
+    #[error("page {page} has empty frontend feature capability id")]
+    EmptyPageFrontendFeature { page: String },
+    #[error("duplicate page id {page}")]
+    DuplicatePageId { page: String },
 }
 
 pub fn validate(catalog: &Catalog) -> Result<(), Vec<ValidationError>> {
@@ -71,6 +78,7 @@ pub fn validate(catalog: &Catalog) -> Result<(), Vec<ValidationError>> {
     errors.extend(check_service_journey_refs(catalog));
     errors.extend(check_journey_references(catalog));
     check_runtime_references(catalog, &mut errors);
+    errors.extend(check_page_references(catalog));
     errors.extend(check_coverage_gate(catalog));
 
     if errors.is_empty() {
@@ -394,6 +402,51 @@ fn state_in_service(
         .unwrap_or(false)
 }
 
+fn check_page_references(catalog: &Catalog) -> Vec<ValidationError> {
+    if catalog.pages().is_empty() {
+        return Vec::new();
+    }
+
+    let known_service_ids: HashSet<&ServiceId> = catalog.services().iter().map(|s| &s.id).collect();
+    let external = ServiceId("external".to_string());
+    let mut seen_page_ids: HashSet<&PageId> = HashSet::new();
+    let mut errors = Vec::new();
+
+    for page in catalog.pages() {
+        let page_id = page.id.0.clone();
+
+        if !seen_page_ids.insert(&page.id) {
+            errors.push(ValidationError::DuplicatePageId {
+                page: page_id.clone(),
+            });
+        }
+
+        if let ObservedSet::Known { items } = &page.consumes {
+            for item in items {
+                let service = &item.value.service;
+                if service != &external && !known_service_ids.contains(service) {
+                    errors.push(ValidationError::UnknownPageService {
+                        page: page_id.clone(),
+                        service: service.0.clone(),
+                    });
+                }
+            }
+        }
+
+        if let AssertedSet::Established { items } = &page.frontend_features {
+            for item in items {
+                if item.value.0.is_empty() {
+                    errors.push(ValidationError::EmptyPageFrontendFeature {
+                        page: page_id.clone(),
+                    });
+                }
+            }
+        }
+    }
+
+    errors
+}
+
 fn check_coverage_gate(catalog: &Catalog) -> Vec<ValidationError> {
     let unknown_count: usize = catalog
         .services()
@@ -454,6 +507,7 @@ mod tests {
     };
     use crate::lifecycle::Lifecycle;
     use crate::observed::ObservedFacts;
+    use crate::page::{Page, PageId, PageServiceCall};
     use crate::provenance::{
         Asserted, AssertedSet, Evidence, Evidenced, Grounded, GroundedItem, GroundedSet, Observed,
         ObservedSet, Provenance, Rationaled,
@@ -544,7 +598,7 @@ mod tests {
     fn minimal_catalog_with_unknown_fields_passes() {
         let service = empty_service("helper");
         let observed = empty_observed("helper");
-        let catalog = Catalog::with_parts(vec![service], vec![observed], vec![], vec![]);
+        let catalog = Catalog::with_parts(vec![service], vec![observed], vec![], vec![], vec![]);
         assert!(catalog.validate().is_ok());
     }
 
@@ -583,6 +637,7 @@ mod tests {
             vec![observed_a, observed_b],
             vec![],
             vec![],
+            vec![],
         );
         let result = catalog.validate();
         assert!(result.is_err());
@@ -609,8 +664,13 @@ mod tests {
             "test",
         )]);
 
-        let catalog =
-            Catalog::with_parts(vec![service_a], vec![empty_observed("a")], vec![], vec![]);
+        let catalog = Catalog::with_parts(
+            vec![service_a],
+            vec![empty_observed("a")],
+            vec![],
+            vec![],
+            vec![],
+        );
         let result = catalog.validate();
         assert!(result.is_err());
         let errors = result.unwrap_err();
@@ -690,8 +750,13 @@ mod tests {
     fn valid_journey_passes_validate() {
         let service = valid_journey_service("helper");
         let observed = empty_observed("helper");
-        let catalog =
-            Catalog::with_parts(vec![service], vec![observed], vec![valid_journey()], vec![]);
+        let catalog = Catalog::with_parts(
+            vec![service],
+            vec![observed],
+            vec![valid_journey()],
+            vec![],
+            vec![],
+        );
         assert!(catalog.validate().is_ok());
     }
 
@@ -709,6 +774,7 @@ mod tests {
             vec![service],
             vec![empty_observed("helper")],
             vec![journey],
+            vec![],
             vec![],
         );
         let errors = catalog.validate().unwrap_err();
@@ -731,6 +797,7 @@ mod tests {
             vec![empty_observed("helper")],
             vec![journey],
             vec![],
+            vec![],
         );
         let errors = catalog.validate().unwrap_err();
         assert!(errors
@@ -750,6 +817,7 @@ mod tests {
             vec![service],
             vec![empty_observed("helper")],
             vec![journey],
+            vec![],
             vec![],
         );
         let errors = catalog.validate().unwrap_err();
@@ -776,6 +844,7 @@ mod tests {
             vec![empty_observed("helper")],
             vec![journey],
             vec![],
+            vec![],
         );
         let errors = catalog.validate().unwrap_err();
         assert!(errors
@@ -801,6 +870,7 @@ mod tests {
             vec![empty_observed("helper")],
             vec![journey],
             vec![],
+            vec![],
         );
         let errors = catalog.validate().unwrap_err();
         assert!(errors
@@ -817,6 +887,7 @@ mod tests {
             vec![service],
             vec![empty_observed("helper")],
             vec![journey],
+            vec![],
             vec![],
         );
         let errors = catalog.validate().unwrap_err();
@@ -837,6 +908,7 @@ mod tests {
             vec![empty_observed("helper")],
             vec![],
             vec![],
+            vec![],
         );
         let errors = catalog.validate().unwrap_err();
         assert!(errors
@@ -854,8 +926,13 @@ mod tests {
             platform_matrix: GroundedSet::unknown("not captured"),
             settings_mutations: GroundedSet::unknown("not captured"),
         };
-        let catalog =
-            Catalog::with_parts(vec![empty_service("helper")], vec![], vec![], vec![runtime]);
+        let catalog = Catalog::with_parts(
+            vec![empty_service("helper")],
+            vec![],
+            vec![],
+            vec![runtime],
+            vec![],
+        );
         let errors = catalog.validate().unwrap_err();
         assert!(errors
             .iter()
@@ -892,10 +969,72 @@ mod tests {
             vec![empty_observed("helper")],
             vec![],
             vec![runtime],
+            vec![],
         );
         let errors = catalog.validate().unwrap_err();
         assert!(errors
             .iter()
             .any(|e| matches!(e, ValidationError::UnknownRuntimeState { .. })));
+    }
+
+    fn sample_page(service_id: &str) -> Page {
+        Page {
+            id: PageId("vehicle_setup".to_string()),
+            route: Observed::known("/vehicle/setup".to_string(), evidence()),
+            name: Observed::known("Vehicle Setup".to_string(), evidence()),
+            component: Observed::known(
+                "core/frontend/src/views/VehicleSetupView.vue".to_string(),
+                evidence(),
+            ),
+            menu_title: Observed::unknown("not in menu"),
+            advanced_only: Observed::unknown("not in menu"),
+            stores: ObservedSet::unknown("not extracted"),
+            consumes: ObservedSet::known(vec![Evidenced::new(
+                PageServiceCall {
+                    service: ServiceId(service_id.to_string()),
+                    endpoint: "GET /status".to_string(),
+                    purpose: "load page data".to_string(),
+                },
+                evidence(),
+            )]),
+            frontend_features: AssertedSet::established(vec![Rationaled::new(
+                CapabilityId("calibrate_accelerometer".to_string()),
+                "client-side only",
+            )]),
+            client_state: AssertedSet::unknown("not established"),
+        }
+    }
+
+    #[test]
+    fn valid_page_passes_validate() {
+        let service = empty_service("helper");
+        let observed = empty_observed("helper");
+        let page = sample_page("helper");
+        let catalog =
+            Catalog::with_parts(vec![service], vec![observed], vec![], vec![], vec![page]);
+        assert!(catalog.validate().is_ok());
+    }
+
+    #[test]
+    fn unknown_page_service_call_fails() {
+        let service = empty_service("helper");
+        let observed = empty_observed("helper");
+        let page = sample_page("missing");
+        let catalog =
+            Catalog::with_parts(vec![service], vec![observed], vec![], vec![], vec![page]);
+        let errors = catalog.validate().unwrap_err();
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::UnknownPageService { .. })));
+    }
+
+    #[test]
+    fn external_page_service_call_passes() {
+        let service = empty_service("helper");
+        let observed = empty_observed("helper");
+        let page = sample_page("external");
+        let catalog =
+            Catalog::with_parts(vec![service], vec![observed], vec![], vec![], vec![page]);
+        assert!(catalog.validate().is_ok());
     }
 }

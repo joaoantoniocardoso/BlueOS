@@ -1,0 +1,41 @@
+---
+description: BlueOS catalog frontend Page layer discipline (pages are first-class, observed/asserted split, state ownership)
+globs: catalog/src/page.rs,catalog/src/pages/**
+alwaysApply: false
+---
+
+# Catalog Frontend Page Layer
+
+The Vue frontend (`core/frontend/src`) is a first-class modeled subject. A **Page**
+(a router route) is the user-facing feature unit — it does NOT map 1:1 to a backend
+service, it usually consumes several, and it frequently holds domain state in the
+browser. Each page is one module `catalog/src/pages/<id>.rs` exposing `page() -> Page`,
+registered in `catalog/src/pages/mod.rs::all_pages()`.
+
+## Observed vs asserted (same discipline as the service layer)
+
+- **Observed** (grep-able from `core/frontend/src`, each carries `Evidence{file,line}`):
+  `route`, `name`, `component`, `menu_title`, `advanced_only`, `stores`, `consumes`.
+  No evidence -> `Observed::unknown(reason)`, never a guess.
+- **Asserted** (judgment, each carries a rationale, never `file:line`):
+  `frontend_features`, `client_state`. Unset -> `Asserted::unknown(reason)`.
+
+## Edges to the backend
+
+- Every `PageServiceCall.service` MUST resolve to a cataloged `ServiceId` (the 26) or
+  be `ServiceId("external")` for the public internet. `Catalog::validate()` enforces this.
+- A call to a backend route is a `consumes` edge, NOT a `frontend_feature`.
+
+## State ownership (a 2.0 decision input)
+
+- Classify every piece of held domain state: `FrontendOwned` (lives only in the
+  client — the 1.x anti-pattern 2.0 must re-home), `Shared` (cached from a backend
+  but derived/mutated client-side), or `BackendOwned` (client only mirrors it).
+- `frontend_features` are capabilities IMPLEMENTED client-side (wizards, calibration
+  sequences, param-derived computations) with no single backend capability.
+
+## Before marking a page task done
+
+1. Every observed field resolves to a real `core/frontend/src/...:LINE`.
+2. `Catalog::validate()` + `drift` + `bash gate.sh` pass.
+3. No held state left unclassified; no backend-passthrough mislabeled as a frontend feature.

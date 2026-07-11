@@ -141,6 +141,7 @@ mod tests {
             vec![sample_observed()],
             vec![],
             vec![],
+            vec![],
         );
         let json = export_json(&catalog).expect("serialize catalog");
         let restored: Catalog = serde_json::from_str(&json).expect("deserialize catalog");

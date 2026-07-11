@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::id::{JourneyId, ServiceId};
 use crate::journey::UserJourney;
 use crate::observed::ObservedFacts;
+use crate::page::{Page, PageId};
 use crate::runtime::RuntimeFacts;
 use crate::service::ServiceDefinition;
 use crate::validate::ValidationError;
@@ -16,6 +17,7 @@ pub struct Catalog {
     observed: Vec<ObservedFacts>,
     journeys: Vec<UserJourney>,
     runtime: Vec<RuntimeFacts>,
+    pages: Vec<Page>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -31,6 +33,7 @@ impl Catalog {
             observed: Vec::new(),
             journeys: Vec::new(),
             runtime: Vec::new(),
+            pages: Vec::new(),
         }
     }
 
@@ -39,12 +42,14 @@ impl Catalog {
         observed: Vec<ObservedFacts>,
         journeys: Vec<UserJourney>,
         runtime: Vec<RuntimeFacts>,
+        pages: Vec<Page>,
     ) -> Self {
         Self {
             services,
             observed,
             journeys,
             runtime,
+            pages,
         }
     }
 
@@ -54,6 +59,7 @@ impl Catalog {
             crate::services::all_observed(),
             crate::journeys::all_journeys(),
             crate::services::all_runtime(),
+            crate::pages::all_pages(),
         )
     }
 
@@ -87,6 +93,14 @@ impl Catalog {
 
     pub fn runtime_by_id(&self, id: &ServiceId) -> Option<&RuntimeFacts> {
         self.runtime.iter().find(|facts| &facts.service == id)
+    }
+
+    pub fn pages(&self) -> &[Page] {
+        &self.pages
+    }
+
+    pub fn page_by_id(&self, id: &PageId) -> Option<&Page> {
+        self.pages.iter().find(|page| &page.id == id)
     }
 
     pub fn service_index(&self) -> HashMap<&ServiceId, &ServiceDefinition> {
