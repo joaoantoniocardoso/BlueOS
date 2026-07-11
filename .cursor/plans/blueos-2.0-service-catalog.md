@@ -485,6 +485,14 @@ thiserror = "1"
 - [x] Drift detector implemented (`drift` bin) and run via `gate.sh` (no CI runner in this repo yet)
 - [x] **Clustering helper: real `coupling_matrix(policy)` + committed weights (`WEIGHTS_VERSION="v1"`) + stability export** — `src/cluster.rs` + `src/bin/cluster.rs`. Weighted undirected coupling from established edges (per-bus × failure-impact + boot bonus) + shared non-exclusive resources + policy affinity; 3 named policies (`CouplingOnly`/`CouplingTrust`/`CouplingDomain`); greedy CNM modularity clustering (deterministic); `cluster_stability()` (seeded perturbation → co-occurrence + unstable pairs); `boundary_proposals()` → exactly 3 candidate partitions (NOT the answer). CouplingOnly Q≈0.245; reproducible; 33 tests; no new deps.
 
+### F1 — Feature-first 2.0 redesign (inverts the model) — VIEWS A+B DONE
+> Pivot requested by the architect: **don't re-cluster the 26 services — forget the current feature↔service map and author a new one.** Features (capabilities/journeys) are the durable SSOT; services are a rebindable projection.
+- [x] `src/feature.rs`: 129 grounded capabilities → service-agnostic `Feature { id, aggregate, origin_service (traceability only), rationale }`, built mechanically from the catalog (none lost/invented; `validate()` enforces 1:1). `src/bin/features.rs`.
+- [x] **View A (aggregate-first):** features grouped by the entity they act on → 19 aggregates.
+- [x] **View B (journey-first):** feature co-occurrence from journey `capability_refs` (+ `chains_from`) → 7 workflow communities (Q≈0.238); 47 features touched by no journey (read-only/status/mavlink/infra).
+- [x] **A-vs-B divergence report:** where "same thing" (A) and "same workflow" (B) disagree = the 2.0 boundary tensions.
+- [ ] **NEXT:** fold the ~19 aggregates / 7 workflow communities into a handful of candidate **2.0 bounded contexts**, then declare the new **feature→2.0-service** binding (some 1.x services split, some merge, infra dissolves into a platform layer). This is the human decision the two views feed.
+
 ### M4 — Architecture decisions (human)
 - [ ] Event storm / journey workshop output → ADRs
 - [ ] ≥3 boundary proposals from clustering policies
