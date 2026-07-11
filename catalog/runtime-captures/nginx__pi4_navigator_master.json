@@ -1,0 +1,108 @@
+{
+  "service": "nginx",
+  "environment": "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e; RepoDigest sha256:0406983a568a66df2a56f682b52161858f30ac87ab273f15309e52f5ab87e22a), Raspberry Pi 4, Navigator",
+  "captured_at": "2026-07-11",
+  "capture_host": "192.168.0.177",
+  "notes": "Read-only Tier-1 capture on a healthy running nginx (C binary reverse proxy; multi-process: 1 root master PID 1178 RSS ~5.5 MB + 5 www-data workers PIDs 1216-1220 aggregate RSS ~16.5 MB, total ~22.0 MB at snapshot). Master CPU/RSS via tools/sample_resource.sh (--pid 1178, 90 samples, label running_baseline; master is mostly idle while www-data workers serve traffic). SLO via tools/probe_http.sh on four read-only GET routes (--repeats 60). GET /status is an unconditional return 204 liveness probe (nginx.conf return 204) — signals nginx process liveness only, NOT proxied-backend reachability. /upload/ (WebDAV PUT/DELETE write) and /cache/ (outbound HTTPS proxy to external internet) NOT probed — Tier-1 GET-only. Raw evidence: /tmp/nginx_sample.json, /tmp/nginx_slo.json.",
+  "api_versions": [],
+  "api_path_prefix_observed": "none (nginx is not a versioned REST service; HTTP reverse proxy and static file server on port 80)",
+  "route_inventory": {
+    "read_only": [
+      "GET /status",
+      "GET /",
+      "GET /userdata/",
+      "GET /assets/"
+    ],
+    "mutating_not_exercised": [
+      "PUT/DELETE /upload/ (WebDAV file mutations on /usr/blueos/ — Tier-1 GET-only)"
+    ],
+    "not_exercised": [
+      "GET /cache/ (outbound HTTPS proxy to external internet — Tier-1 excludes external reach)",
+      "proxied backend routes (e.g. /helper/, /zenoh/) — exercised per downstream service captures"
+    ],
+    "note": "Tier-1 capture limited to read-only nginx-native routes. nginx is the sole HTTP ingress reverse proxy; most catalog REST APIs are proxied to localhost backends."
+  },
+  "running_baseline": {
+    "note": "GET contracts on a healthy running nginx master+workers serving port 80.",
+    "GET /status": {
+      "status": 204,
+      "body_predicate": null,
+      "note": "unconditional return 204; empty body"
+    },
+    "GET /": {
+      "status": 200,
+      "body_predicate": "<!DOCTYPE html>"
+    },
+    "GET /userdata/": {
+      "status": 200,
+      "body_predicate": "\"name\""
+    },
+    "GET /assets/": {
+      "status": 200,
+      "body_predicate": "Index of /assets/"
+    }
+  },
+  "slo_running_baseline": {
+    "sample_size": 60,
+    "note": "GET / serves the frontend SPA index.html (among the heavier static routes). GET /assets/ autoindex listing is the slowest read-only route in this capture. LAN-idle latencies are sub-millisecond to low single-digit ms.",
+    "GET /status": {
+      "p50_ms": 0.5,
+      "p95_ms": 0.7,
+      "p99_ms": 0.9
+    },
+    "GET /": {
+      "p50_ms": 0.8,
+      "p95_ms": 1.3,
+      "p99_ms": 2.0
+    },
+    "GET /userdata/": {
+      "p50_ms": 0.8,
+      "p95_ms": 1.1,
+      "p99_ms": 1.7
+    },
+    "GET /assets/": {
+      "p50_ms": 3.9,
+      "p95_ms": 5.6,
+      "p99_ms": 6.9
+    }
+  },
+  "resource_usage": {
+    "running_baseline": {
+      "sample_size": 90,
+      "interval_s": 1,
+      "method": "/proc stat deltas, top-style (100 == 1 core), PID 1178 nginx master (C binary, root)",
+      "master_pid": 1178,
+      "worker_pids": [1216, 1217, 1218, 1219, 1220],
+      "worker_count": 5,
+      "worker_aggregate_rss_kb": 16880,
+      "worker_aggregate_rss_mb": 16.5,
+      "total_rss_kb": 22552,
+      "total_rss_mb": 22.0,
+      "cpu_pct": {
+        "mean": 0.0,
+        "median": 0.0,
+        "p95": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "sd": 0.0
+      },
+      "rss_mb": {
+        "mean": 5.5,
+        "median": 5.5,
+        "p95": 5.5,
+        "min": 5.5,
+        "max": 5.5,
+        "sd": 0.0
+      },
+      "note": "Multi-process nginx: master PID 1178 sampled for CPU/RSS distribution; workers (5x www-data, aggregate RSS ~16.5 MB at snapshot) serve HTTP traffic. Master CPU ~0% under LAN-idle; total process RSS (master + workers) ~22.0 MB."
+    }
+  },
+  "platform_matrix": {
+    "navigator": {
+      "firmware": "n/a (nginx is the platform-independent HTTP ingress reverse proxy)",
+      "notes": "nginx behavior is platform-independent; captured on Navigator Pi4 only."
+    }
+  },
+  "state_machine": "none (external C binary; no in-repo state machine)",
+  "settings_mutations": "none — Tier-1 GET-only probes; no WebDAV /upload/ mutations exercised."
+}

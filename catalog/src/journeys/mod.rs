@@ -11,6 +11,7 @@ mod kraken;
 mod linux2rest;
 mod mavlink2rest;
 mod mavlink_camera_manager;
+mod nginx;
 mod nmea_injector;
 mod pardal;
 mod ping;
@@ -36,6 +37,7 @@ pub fn all_journeys() -> Vec<UserJourney> {
     journeys.extend(mavlink2rest::journeys());
     journeys.extend(mavlink_camera_manager::journeys());
     journeys.extend(nmea_injector::journeys());
+    journeys.extend(nginx::journeys());
     journeys.extend(pardal::journeys());
     journeys.extend(ping::journeys());
     journeys.extend(recorder_extractor::journeys());

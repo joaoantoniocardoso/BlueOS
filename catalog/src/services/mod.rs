@@ -11,6 +11,7 @@ pub mod kraken;
 pub mod linux2rest;
 pub mod mavlink2rest;
 pub mod mavlink_camera_manager;
+pub mod nginx;
 pub mod nmea_injector;
 pub mod pardal;
 pub mod ping;
@@ -39,6 +40,7 @@ pub fn all_observed() -> Vec<ObservedFacts> {
         mavlink_camera_manager::observed_facts(),
         mavlink2rest::observed_facts(),
         nmea_injector::observed_facts(),
+        nginx::observed_facts(),
         pardal::observed_facts(),
         ping::observed_facts(),
         recorder_extractor::observed_facts(),
@@ -64,6 +66,7 @@ pub fn all_runtime() -> Vec<RuntimeFacts> {
         mavlink_camera_manager::runtime_facts(),
         mavlink2rest::runtime_facts(),
         nmea_injector::runtime_facts(),
+        nginx::runtime_facts(),
         pardal::runtime_facts(),
         ping::runtime_facts(),
         recorder_extractor::runtime_facts(),
@@ -89,6 +92,7 @@ pub fn all_service_definitions() -> Vec<ServiceDefinition> {
         mavlink_camera_manager::service_definition(),
         mavlink2rest::service_definition(),
         nmea_injector::service_definition(),
+        nginx::service_definition(),
         pardal::service_definition(),
         ping::service_definition(),
         recorder_extractor::service_definition(),
