@@ -110,6 +110,12 @@ allowed for services with no meaningful runtime or unreachable. Update after eac
 
 ---
 
+## >>> RESUME POINTER (update every service) <<<
+- Phases 1-3: DONE. Harness is built + hardened (gate.sh, extract, drift, frozen rubric).
+- Phase 4 progress: FULLY MODELED = ardupilot_manager, kraken, disk_usage, helper, commander.
+- **NEXT UP: `beacon`** (then cable_guy, wifi, versionchooser, bag_of_holding, customization, nmea_injector, pardal, ping, bridget, recorder_extractor, then the ~9 binaries, then user_terminal).
+- Per-service loop (each layer committed separately, ledger updated): Fact Extractor(self-recon)→QA(observed)→Docs Specialist(journeys)→Card Author(wires all_journeys + service_def)→QA(card+journeys)→Runtime Specialist(live Pi)→commit. Run `bash catalog/gate.sh` before every commit. Pi at 192.168.0.177 (pi:raspberry). NEVER call destructive endpoints during capture.
+
 ## DECISIONS LOG (append-only; newest last)
 
 - 2026-07-11: Kraken committed `e5ffdaf8a`. Runtime captured Tier 1+2 with Example 1; vehicle restored. Fixed `probe_http.sh` (ARG_MAX + SIGPIPE). 4 journey outcomes left Unknown → **Phase 1 target**.
