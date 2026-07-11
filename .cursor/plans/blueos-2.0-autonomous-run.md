@@ -82,7 +82,7 @@ allowed for services with no meaningful runtime or unreachable. Update after eac
 | 5 | mavlink2rest | mavlink2rest | 6040 | binary | TODO | TODO | TODO | TODO | |
 | 6 | wifi | wifi | ? /wifi-manager/ | python | TODO | TODO | TODO | TODO | |
 | 7 | zenohd | zenohd | 7447 | binary | TODO | TODO | TODO | TODO | |
-| 8 | beacon | beacon | ? | python | TODO | TODO | TODO | TODO | |
+| 8 | beacon | beacon | 9111 /beacon/ | python | DONE | TODO | TODO | TODO | obs done (self-verified); mDNS not modeled (gap) |
 | 9 | bridget | bridget | ? /bridget/ | python | TODO | TODO | TODO | TODO | |
 | 10 | commander | commander | 9100 /commander/ | python | DONE | DONE | DONE | DONE | FULLY MODELED (RSS~35MB; read-only SLO; dangerous POSTs Unknown by design) |
 | 11 | nmea_injector | nmea_injector | ? /nmea-injector/ | python | TODO | TODO | TODO | TODO | |
@@ -137,6 +137,7 @@ Deliberate deferrals (documented; low ROI until more services exist):
 - **Coverage threshold** stays advisory (10_000). Phase-4 services legitimately carry Unknowns (`team`, `adr_refs`, `compatibility_policy`). Revisit AFTER all services are modeled to set a data-driven threshold; completeness is meanwhile enforced by mandatory Unknown reasons + QA.
 - **Route-inventory cross-check**: `RouteRef`s in journeys/runtime are not validated against each service's real OpenAPI routes (validate.rs notes this). Mitigation today: runtime-capture skill grounds routes from live OpenAPI + QA spot-check. Future: store per-service route inventory in `observed.openapi_refs` and cross-check.
 - **`Interface::Settings`** carries only `path` (root shape lives in prose/rationale).
+- **No mDNS/zeroconf `Interface` variant**: beacon advertises BlueOS over mDNS (zeroconf lib) but the `Interface` enum has no network-advertisement variant. Currently captured via the service purpose + a capability, not an interface. Future: consider an `Interface::Mdns`/`NetworkAdvertisement` variant (schema change).
 
 ## OPEN HARNESS GAPS (superseded by PHASE 3 AUDIT above; kept for history)
 
