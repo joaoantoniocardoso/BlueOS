@@ -15,7 +15,6 @@ const VC_COMPONENT: &str = "core/frontend/src/components/version-chooser/Version
 const VC_UTILS: &str = "core/frontend/src/utils/version_chooser.ts";
 const DOCKER_LOGIN: &str = "core/frontend/src/components/version-chooser/DockerLogin.vue";
 
-#[allow(dead_code)]
 pub fn journeys() -> Vec<UserJourney> {
     vec![
         update_blueos_version(),
