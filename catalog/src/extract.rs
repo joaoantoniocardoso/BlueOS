@@ -219,7 +219,15 @@ fn find_extracted<'a>(
     {
         return Some(service);
     }
-    extracted.iter().find(|service| service.tmux_name == *id)
+    if let Some(service) = extracted.iter().find(|service| service.tmux_name == *id) {
+        return Some(service);
+    }
+    // Binaries whose catalog id differs from the tmux name (e.g. id `mavlink-camera-manager`
+    // for tmux `video`) still cross-check against source via the observed tmux_name.
+    if let Observed::Known { value: tmux, .. } = &facts.tmux_name {
+        return extracted.iter().find(|service| service.tmux_name == *tmux);
+    }
+    None
 }
 
 #[cfg(test)]
