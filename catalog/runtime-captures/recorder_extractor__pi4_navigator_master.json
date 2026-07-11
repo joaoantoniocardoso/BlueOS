@@ -1,0 +1,91 @@
+{
+  "service": "recorder_extractor",
+  "environment": "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator",
+  "captured_at": "2026-07-11",
+  "capture_host": "192.168.0.177",
+  "notes": "Read-only Tier-1 capture on a healthy running recorder_extractor (python3 PID 1323, user root). CPU/RSS via tools/sample_resource.sh (--match recorder_extractor/main.py, 120 samples, label running_baseline) spanning 12 MCAP extraction loop periods (asyncio.sleep(10)). SLO via tools/probe_http.sh on GET /recorder-extractor/v1.0/recorder/files, GET /recorder-extractor/v1.0/recorder/status, and GET /recorder-extractor/ (--repeats 60). NO MP4 recordings present (GET /files returned []). GET /files/{filename}/thumbnail and GET /files/{filename} skipped (no recordings to fetch). DELETE /files/{filename} skipped (destructive; no recordings present). Raw evidence: /tmp/recorder_extractor_sample.json, /tmp/recorder_extractor_slo.json.",
+  "api_versions": [
+    "v1.0"
+  ],
+  "route_inventory": {
+    "v1.0_read_only": [
+      "GET /recorder-extractor/v1.0/recorder/files",
+      "GET /recorder-extractor/v1.0/recorder/status",
+      "GET /recorder-extractor/"
+    ],
+    "mutating_not_exercised": [
+      "DELETE /recorder-extractor/v1.0/recorder/files/{filename}"
+    ],
+    "read_only_not_exercised": [
+      "GET /recorder-extractor/v1.0/recorder/files/{filename}/thumbnail",
+      "GET /recorder-extractor/v1.0/recorder/files/{filename}"
+    ],
+    "note": "Read-only GETs probed on empty gallery; thumbnail/download require an existing MP4 recording (none present). DELETE permanently removes recordings — not exercised (destructive; no recordings present)."
+  },
+  "running_baseline": {
+    "note": "GET contracts on a healthy running recorder_extractor with no MP4 recordings under /usr/blueos/userdata/recorder.",
+    "GET /recorder-extractor/v1.0/recorder/files": {
+      "status": 200,
+      "body_predicate": "[] (empty; no MP4 recordings present)"
+    },
+    "GET /recorder-extractor/v1.0/recorder/status": {
+      "status": 200,
+      "body_predicate": "\"processing\": [] (empty; no MCAP extraction active)"
+    },
+    "GET /recorder-extractor/": {
+      "status": 200,
+      "body_predicate": "<title>Recorder Extractor</title>"
+    }
+  },
+  "slo_running_baseline": {
+    "sample_size": 60,
+    "note": "GET /files and GET /status are fast JSON reads on an empty gallery; GET / is root HTML.",
+    "GET /recorder-extractor/v1.0/recorder/files": {
+      "p50_ms": 5.8,
+      "p95_ms": 9.7,
+      "p99_ms": 11.0
+    },
+    "GET /recorder-extractor/v1.0/recorder/status": {
+      "p50_ms": 5.5,
+      "p95_ms": 8.0,
+      "p99_ms": 15.1
+    },
+    "GET /recorder-extractor/": {
+      "p50_ms": 4.6,
+      "p95_ms": 6.6,
+      "p99_ms": 9.7
+    }
+  },
+  "resource_usage": {
+    "running_baseline": {
+      "sample_size": 120,
+      "interval_s": 1,
+      "method": "/proc stat deltas, top-style (100 == 1 core), PID 1323 python3 recorder_extractor/main.py",
+      "cpu_pct": {
+        "mean": 0.31,
+        "median": 0.00,
+        "p95": 1.02,
+        "min": 0.00,
+        "max": 1.92,
+        "sd": 0.47
+      },
+      "rss_mb": {
+        "mean": 35.6,
+        "median": 35.6,
+        "p95": 35.6,
+        "min": 35.6,
+        "max": 35.6,
+        "sd": 0.0
+      },
+      "note": "Idle with no MP4 recordings; RSS flat ~35.6 MB. CPU mostly near 0% with small periodic activity from the 10s MCAP extraction loop (max 1.92% during capture window; no MCAP files to process)."
+    }
+  },
+  "platform_matrix": {
+    "navigator": {
+      "firmware": "n/a (recorder_extractor is video recording playback/management; runs regardless of flight controller firmware)",
+      "notes": "recorder_extractor extracts MCAP to MP4, serves recordings over REST, and manages the gallery; platform-independent on this Pi4/Navigator host. Runtime captured with NO MP4 recordings present."
+    }
+  },
+  "state_machine": "none (service_definition states: Unknown; background MCAP extraction and REST handlers are runtime-managed)",
+  "settings_mutations": "Not exercised. recorder_extractor has no settings.json; DELETE /files/{filename} permanently removes recordings — not mutated during this read-only capture (destructive; no recordings present)."
+}
