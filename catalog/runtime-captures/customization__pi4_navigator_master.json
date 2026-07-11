@@ -1,0 +1,76 @@
+{
+  "service": "customization",
+  "environment": "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator",
+  "captured_at": "2026-07-11",
+  "capture_host": "192.168.0.177",
+  "notes": "Read-only Tier-1 capture on a healthy running customization. CPU/RSS via tools/sample_resource.sh (--match customization/main.py, 60 samples, label running_baseline; PID 1408). SLO via tools/probe_http.sh on the four read-only GETs (--repeats 40). NO mutating routes exercised: PUT/DELETE /theme, POST/DELETE /branding/logo, POST/DELETE /branding/vehicle-image, POST /models, DELETE /models/{name} change branding assets; those journey outcomes remain Unknown. All GETs returned 200 (defaults present). Raw evidence: /tmp/cust_sample.json, /tmp/cust_slo.json.",
+  "api_versions": [
+    "v1.0"
+  ],
+  "route_inventory": {
+    "v1.0_read_only": [
+      "GET /theme",
+      "GET /models",
+      "GET /branding/logo",
+      "GET /branding/vehicle-image"
+    ],
+    "mutating_not_exercised": [
+      "PUT /theme",
+      "DELETE /theme",
+      "POST /branding/logo",
+      "DELETE /branding/logo",
+      "POST /branding/vehicle-image",
+      "DELETE /branding/vehicle-image",
+      "POST /models",
+      "DELETE /models/{name}"
+    ],
+    "note": "Read-only GETs probed; branding/theme/model mutations not exercised (reversible but would alter live branding)."
+  },
+  "running_baseline": {
+    "note": "GET contracts on a healthy running customization (defaults).",
+    "GET /theme": { "status": 200, "body_predicate": "current theme primary color / status" },
+    "GET /models": { "status": 200, "body_predicate": "list of uploaded 3D model overrides (empty by default)" },
+    "GET /branding/logo": { "status": 200, "body_predicate": "logo asset or default" },
+    "GET /branding/vehicle-image": { "status": 200, "body_predicate": "vehicle image asset or default" }
+  },
+  "slo_running_baseline": {
+    "sample_size": 40,
+    "note": "All branding/theme GETs are fast (~5-6 ms); the service is a thin file-backed asset API.",
+    "GET /theme": { "p50_ms": 5.6, "p95_ms": 9.4, "p99_ms": 9.4 },
+    "GET /models": { "p50_ms": 5.3, "p95_ms": 7.0, "p99_ms": 9.3 },
+    "GET /branding/logo": { "p50_ms": 5.5, "p95_ms": 8.6, "p99_ms": 10.5 },
+    "GET /branding/vehicle-image": { "p50_ms": 5.7, "p95_ms": 7.5, "p99_ms": 10.1 }
+  },
+  "resource_usage": {
+    "running_baseline": {
+      "sample_size": 60,
+      "interval_s": 1,
+      "method": "/proc stat deltas, top-style (100 == 1 core), PID 1408 python3 customization/main.py",
+      "cpu_pct": {
+        "mean": 0.26,
+        "median": 0.00,
+        "p95": 1.01,
+        "min": 0.00,
+        "max": 1.06,
+        "sd": 0.43
+      },
+      "rss_mb": {
+        "mean": 35.0,
+        "median": 35.0,
+        "p95": 35.0,
+        "min": 35.0,
+        "max": 35.0,
+        "sd": 0.0
+      },
+      "note": "Idle cosmetic service; RSS flat ~35 MB, CPU near zero."
+    }
+  },
+  "platform_matrix": {
+    "navigator": {
+      "firmware": "n/a (customization is autopilot-independent)",
+      "notes": "customization serves branding/theme assets independent of the flight controller; platform-independent on this Pi4/Navigator host."
+    }
+  },
+  "state_machine": "none (service_definition states: Unknown; stateless file-backed asset handlers)",
+  "settings_mutations": "Not exercised. PUT /theme writes theme_config.json + theme_style.css; branding/model uploads write /usr/blueos/userdata/{branding,modeloverrides}; not mutated during this read-only capture."
+}

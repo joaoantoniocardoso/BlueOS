@@ -87,6 +87,7 @@ allowed for services with no meaningful runtime or unreachable. Update after eac
 | 10 | wifi | wifi | 9000 /wifi-manager/ | python | DONE | DONE | DONE | DONE | FULLY MODELED; wpa ctrl-socket/D-Bus = harness gap |
 | 11 | versionchooser | versionchooser | 8081 /version-chooser/ | python | DONE | DONE | DONE | DONE | FULLY MODELED; core-image updater; dangerous ops = Upgrade/delete/pull |
 | 12 | bag_of_holding | bag_of_holding | 9101 /bag/ | python | DONE | DONE | DONE | DONE | FULLY MODELED; JSON store; 1 journey (Bag Editor), rest is infra |
+| 13 | customization | customization | 9152 /customization/ | python | DONE | DONE | DONE | DONE | FULLY MODELED; Auxiliary branding; no dangerous ops |
 | 9 | bridget | bridget | ? /bridget/ | python | TODO | TODO | TODO | TODO | |
 | 10 | commander | commander | 9100 /commander/ | python | DONE | DONE | DONE | DONE | FULLY MODELED (RSS~35MB; read-only SLO; dangerous POSTs Unknown by design) |
 | 11 | nmea_injector | nmea_injector | ? /nmea-injector/ | python | TODO | TODO | TODO | TODO | |
@@ -116,11 +117,13 @@ allowed for services with no meaningful runtime or unreachable. Update after eac
 
 ## >>> RESUME POINTER (update every service) <<<
 - Phases 1-3: DONE. Harness is built + hardened (gate.sh, extract, drift, frozen rubric).
-- Phase 4 progress: FULLY MODELED (12) = ardupilot_manager, kraken, disk_usage, helper, commander, beacon, cable_guy, wifi, versionchooser, bag_of_holding.
-- **NEXT UP: `customization`** (then nmea_injector, pardal, ping, bridget, recorder_extractor, then the ~9 binaries, then user_terminal).
+- Phase 4 progress: FULLY MODELED (13) = ardupilot_manager, kraken, disk_usage, helper, commander, beacon, cable_guy, wifi, versionchooser, bag_of_holding, customization.
+- **NEXT UP: `nmea_injector`** (then pardal, ping, bridget, recorder_extractor, then the ~9 binaries, then user_terminal).
 - Per-service loop (each layer committed separately, ledger updated): Fact Extractor(self-recon)→QA(observed)→Docs Specialist(journeys)→Card Author(wires all_journeys + service_def)→QA(card+journeys)→Runtime Specialist(live Pi)→commit. Run `bash catalog/gate.sh` before every commit. Pi at 192.168.0.177 (pi:raspberry). NEVER call destructive endpoints during capture.
 
 ## DECISIONS LOG (append-only; newest last)
+
+- 2026-07-11: customization FULLY MODELED. White-labeling (theme color, logo/vehicle-image branding, .glb 3D model overrides) writing /usr/blueos/userdata/{styles,branding,modeloverrides}. Asserted Auxiliary (cosmetic, non-critical), ui_branding_manager authority (scoped to userdata assets; bag stores sidebar images separately — noted overlap), dangerous_operations=[] (.glb upload is static data served to renderer, NOT executed code ⇒ NotRequired). 8 journeys. Self-QA (simple service): verified theme route + doc + frontend paths + authority uniqueness. Tier-1 read-only capture: RSS ~35 MB, CPU ~0.26%; all GETs ~5-6ms. Mutations NOT exercised.
 
 - 2026-07-11: bag_of_holding FULLY MODELED. Generic JSON key-value store (set/get/overwrite, appdirs db.json). Only 1 first-class operator journey (modify_bag_database via advanced Bag Editor); all other frontend use (settings/wizard/vehicle-image/cloud-token) is INDIRECT infra — journeys belong to consuming features, not the store (Docs Specialist correctly declined to invent journeys). Asserted Important (many features depend on it; flight-independent), json_document_store authority, dangerous_operations=overwrite_entire_datastore (whole-db replacement, ⇒ Required; incremental /set excluded). Self-QA (simple service): verified journey anchors + /overwrite route. Tier-1 read-only capture: RSS ~35.8 MB (lightest Python service), CPU ~0.49%; GET /get/* p50 7ms. set/overwrite NOT exercised.
 

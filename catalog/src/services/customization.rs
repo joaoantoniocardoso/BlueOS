@@ -1,14 +1,119 @@
 use crate::criticality::CriticalityTier;
 use crate::id::{CapabilityId, JourneyId, PathRef, PortRef, ServiceId};
 use crate::interface::{FileAccessMode, Interface};
+use crate::journey::{HttpMethod, RouteRef};
 use crate::lifecycle::{Lifecycle, ObservedLifecycle};
 use crate::observed::{ObservedFacts, ResourceLimits, ServiceKind, StartupTier};
 use crate::provenance::{
-    Asserted, AssertedSet, Evidence, Evidenced, Observed, ObservedSet, Rationaled,
+    Asserted, AssertedSet, Evidence, Evidenced, GroundedItem, GroundedSet, Observed, ObservedSet,
+    Provenance, Rationaled,
 };
 use crate::resource::{Resource, ResourceOwnership};
+use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts, SloBaseline};
 use crate::service::{Authority, ServiceDefinition};
 use crate::trust::{PrivilegeLevel, UserConfirmation};
+
+const RUNTIME_CAPTURE: &str = "runtime-captures/customization__pi4_navigator_master.json";
+const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
+
+pub fn runtime_facts() -> RuntimeFacts {
+    RuntimeFacts {
+        service: ServiceId("customization".into()),
+        state_contracts: GroundedSet::unknown(
+            "customization has no service-level state machine (card states Unknown); stateless file-backed asset handlers",
+        ),
+        slo_baselines: GroundedSet::known(vec![
+            runtime_slo(HttpMethod::Get, "/theme", 5.6, 9.4, 9.4, 40),
+            runtime_slo(HttpMethod::Get, "/models", 5.3, 7.0, 9.3, 40),
+            runtime_slo(HttpMethod::Get, "/branding/logo", 5.5, 8.6, 10.5, 40),
+            runtime_slo(HttpMethod::Get, "/branding/vehicle-image", 5.7, 7.5, 10.1, 40),
+        ]),
+        resource_usage: GroundedSet::known(vec![runtime_resource(
+            "running_baseline",
+            Distribution {
+                mean: 0.26,
+                median: 0.00,
+                p95: 1.01,
+                min: 0.00,
+                max: 1.06,
+                sd: 0.43,
+            },
+            Distribution {
+                mean: 35.0,
+                median: 35.0,
+                p95: 35.0,
+                min: 35.0,
+                max: 35.0,
+                sd: 0.0,
+            },
+            60,
+        )]),
+        platform_matrix: GroundedSet::known(vec![GroundedItem::new(
+            PlatformBehavior {
+                platform: "navigator".into(),
+                firmware: None,
+                notes: vec![
+                    "customization serves branding/theme assets independent of the flight controller; platform-independent".into(),
+                    "runtime captured on Navigator only; RSS ~35.0 MB flat, CPU ~0.26% mean; all GETs ~5-6 ms".into(),
+                ],
+            },
+            runtime_prov("#platform_matrix"),
+        )]),
+        settings_mutations: GroundedSet::unknown(
+            "PUT /theme writes theme_config.json + theme_style.css; branding/model uploads write /usr/blueos/userdata/{branding,modeloverrides}; not exercised",
+        ),
+    }
+}
+
+fn runtime_prov(key: &str) -> Provenance {
+    Provenance::runtime(format!("{RUNTIME_CAPTURE}{key}"), RUNTIME_ENV)
+}
+
+fn runtime_route(method: HttpMethod, path: &str) -> RouteRef {
+    RouteRef {
+        service: ServiceId("customization".into()),
+        method,
+        path: path.into(),
+        version: None,
+    }
+}
+
+fn runtime_slo(
+    method: HttpMethod,
+    path: &str,
+    p50: f64,
+    p95: f64,
+    p99: f64,
+    sample_size: u32,
+) -> GroundedItem<SloBaseline> {
+    GroundedItem::new(
+        SloBaseline {
+            route: runtime_route(method, path),
+            latency_p50_ms: p50,
+            latency_p95_ms: p95,
+            latency_p99_ms: p99,
+            sample_size,
+        },
+        runtime_prov("#slo_running_baseline"),
+    )
+}
+
+fn runtime_resource(
+    condition: &str,
+    cpu_pct: Distribution,
+    rss_mb: Distribution,
+    samples: u32,
+) -> GroundedItem<ResourceUsage> {
+    GroundedItem::new(
+        ResourceUsage {
+            condition: condition.into(),
+            cpu_pct,
+            rss_mb,
+            samples,
+        },
+        runtime_prov("#resource_usage"),
+    )
+}
 
 pub fn observed_facts() -> ObservedFacts {
     ObservedFacts {
