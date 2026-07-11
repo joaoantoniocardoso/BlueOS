@@ -5,6 +5,7 @@ pub mod commander;
 pub mod disk_usage;
 pub mod helper;
 pub mod kraken;
+pub mod wifi;
 
 use crate::observed::ObservedFacts;
 use crate::runtime::RuntimeFacts;
@@ -19,6 +20,7 @@ pub fn all_observed() -> Vec<ObservedFacts> {
         disk_usage::observed_facts(),
         helper::observed_facts(),
         kraken::observed_facts(),
+        wifi::observed_facts(),
     ]
 }
 
