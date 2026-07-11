@@ -16,7 +16,6 @@ const SYSINFO_VIEW: &str = "core/frontend/src/views/SystemInformationView.vue";
 const UPDATE_TIME: &str = "core/frontend/src/utils/update_time.ts";
 const VIDEO_MANAGER: &str = "core/frontend/src/components/video-manager/VideoManager.vue";
 
-#[allow(dead_code)]
 pub fn journeys() -> Vec<UserJourney> {
     vec![
         reboot_onboard_computer(),
