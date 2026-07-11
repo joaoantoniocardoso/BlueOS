@@ -20,6 +20,7 @@ mod ping;
 mod recorder;
 mod recorder_extractor;
 mod ttyd;
+mod user_terminal;
 mod versionchooser;
 mod wifi;
 mod zenohd;
@@ -49,6 +50,7 @@ pub fn all_journeys() -> Vec<UserJourney> {
     journeys.extend(recorder::journeys());
     journeys.extend(recorder_extractor::journeys());
     journeys.extend(ttyd::journeys());
+    journeys.extend(user_terminal::journeys());
     journeys.extend(versionchooser::journeys());
     journeys.extend(wifi::journeys());
     journeys.extend(zenohd::journeys());

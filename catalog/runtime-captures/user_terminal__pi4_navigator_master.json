@@ -1,0 +1,52 @@
+{
+  "service": "user_terminal",
+  "environment": "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e; RepoDigest sha256:0406983a568a66df2a56f682b52161858f30ac87ab273f15309e52f5ab87e22a), Raspberry Pi 4, Navigator",
+  "captured_at": "2026-07-11",
+  "capture_host": "192.168.0.177",
+  "notes": "Read-only Tier-1 capture on the boot-created user_terminal tmux session (single pane, idle bash PID 1040, comm bash, RSS ~2.5 MB). CPU/RSS via tools/sample_resource.sh (--pid 1040, 60 samples, label idle_bash; idle interactive shell with no commands typed). user_terminal has NO HTTP interface (no nginx route, no listen port) — probe_http.sh NOT used. NO shell interaction: no tmux attach, no keystrokes sent to the pane; observation only via tmux list-sessions/list-panes and external /proc sampling. Entrypoint cat /etc/motd ran once at boot then dropped to -bash interactive shell. Raw evidence: /tmp/user_terminal_sample.json.",
+  "api_versions": [],
+  "route_inventory": [],
+  "slo_baselines": [],
+  "session_state": {
+    "note": "tmux session user_terminal alive since boot (created Sat Jul 11 01:53:50 2026); single pane runs idle interactive bash",
+    "tmux_session": "user_terminal",
+    "pane_pid": 1040,
+    "pane_command": "bash",
+    "pane_args": "-bash",
+    "healthy": true,
+    "entrypoint_note": "cat /etc/motd ran once at boot then dropped to interactive shell"
+  },
+  "resource_usage": {
+    "idle_bash": {
+      "sample_size": 60,
+      "interval_s": 1,
+      "method": "/proc stat deltas, top-style (100 == 1 core), PID 1040 bash (idle pane backing user_terminal tmux session)",
+      "bash_pid": 1040,
+      "cpu_pct": {
+        "mean": 0.0,
+        "median": 0.0,
+        "p95": 0.0,
+        "min": 0.0,
+        "max": 0.0,
+        "sd": 0.0
+      },
+      "rss_mb": {
+        "mean": 2.5,
+        "median": 2.5,
+        "p95": 2.5,
+        "min": 2.5,
+        "max": 2.5,
+        "sd": 0.0
+      },
+      "note": "Idle interactive bash pane with no commands typed: CPU 0% across all 60 samples; RSS stable ~2.5 MB (2568 kB VmRSS)."
+    }
+  },
+  "platform_matrix": {
+    "navigator": {
+      "firmware": "n/a (user_terminal is a platform-independent persistent root shell tmux session)",
+      "notes": "user_terminal behavior is platform-independent; captured on Navigator Pi4 only."
+    }
+  },
+  "state_machine": "none (shell tmux session; no in-repo state machine)",
+  "settings_mutations": "none — Tier-1 read-only external observation only; no shell interaction, keystrokes, or settings mutations exercised."
+}

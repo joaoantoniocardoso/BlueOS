@@ -20,6 +20,7 @@ pub mod ping;
 pub mod recorder;
 pub mod recorder_extractor;
 pub mod ttyd;
+pub mod user_terminal;
 pub mod versionchooser;
 pub mod wifi;
 pub mod zenohd;
@@ -52,6 +53,7 @@ pub fn all_observed() -> Vec<ObservedFacts> {
         recorder::observed_facts(),
         recorder_extractor::observed_facts(),
         ttyd::observed_facts(),
+        user_terminal::observed_facts(),
         versionchooser::observed_facts(),
         wifi::observed_facts(),
         zenohd::observed_facts(),
@@ -82,6 +84,7 @@ pub fn all_runtime() -> Vec<RuntimeFacts> {
         recorder::runtime_facts(),
         recorder_extractor::runtime_facts(),
         ttyd::runtime_facts(),
+        user_terminal::runtime_facts(),
         versionchooser::runtime_facts(),
         wifi::runtime_facts(),
         zenohd::runtime_facts(),
@@ -112,6 +115,7 @@ pub fn all_service_definitions() -> Vec<ServiceDefinition> {
         recorder::service_definition(),
         recorder_extractor::service_definition(),
         ttyd::service_definition(),
+        user_terminal::service_definition(),
         versionchooser::service_definition(),
         wifi::service_definition(),
         zenohd::service_definition(),

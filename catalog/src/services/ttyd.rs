@@ -1,4 +1,5 @@
 use crate::criticality::CriticalityTier;
+use crate::edge::{Bus, Edge, FailureImpact, SyncMode};
 use crate::id::{CapabilityId, JourneyId, PathRef, PortRef, ServiceId};
 use crate::interface::Interface;
 use crate::journey::{HttpMethod, RouteRef};
@@ -316,9 +317,20 @@ pub fn service_definition() -> ServiceDefinition {
         states: AssertedSet::unknown(
             "external ttyd binary; no in-repo state machine or lifecycle states traced",
         ),
-        edges: AssertedSet::unknown(
-            "observed Subprocess attaches to user_terminal tmux session (start-blueos-core:141); user_terminal is not yet cataloged so no validated ServiceId edge",
-        ),
+        edges: AssertedSet::established(vec![Rationaled::new(
+            Edge {
+                from: ServiceId("ttyd".to_string()),
+                to: ServiceId("user_terminal".to_string()),
+                via: Bus::Subprocess,
+                sync: SyncMode::Sync,
+                endpoint: "user_terminal".to_string(),
+                purpose: "attach the web terminal to the interactive root-shell tmux session"
+                    .to_string(),
+                required_at_boot: false,
+                failure_impact: FailureImpact::Degraded,
+            },
+            "observed Subprocess sh -c tmux attach -t user_terminal || tmux new -s user_terminal (start-blueos-core:142); ttyd self-heals when the boot session is absent so the edge is not boot-hard",
+        )]),
         resources: AssertedSet::unknown(
             "no config or data paths in start-blueos-core launch; ttyd attaches an existing tmux session only",
         ),
