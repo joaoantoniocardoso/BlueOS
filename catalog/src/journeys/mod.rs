@@ -13,6 +13,7 @@ use crate::journey::UserJourney;
 
 pub fn all_journeys() -> Vec<UserJourney> {
     let mut journeys = ardupilot_manager::journeys();
+    journeys.extend(bag_of_holding::journeys());
     journeys.extend(beacon::journeys());
     journeys.extend(cable_guy::journeys());
     journeys.extend(commander::journeys());

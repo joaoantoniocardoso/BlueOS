@@ -12,7 +12,6 @@ const BAG_STORE: &str = "core/frontend/src/store/bag.ts";
 const BAG_VIEW: &str = "core/frontend/src/views/BagEditorView.vue";
 const BAG_MENUS: &str = "core/frontend/src/menus.ts";
 
-#[allow(dead_code)]
 pub fn journeys() -> Vec<UserJourney> {
     vec![modify_bag_database()]
 }
