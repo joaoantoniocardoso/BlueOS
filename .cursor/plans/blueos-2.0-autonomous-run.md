@@ -61,7 +61,7 @@ Reusable capture tools: `catalog/runtime-captures/tools/{sample_resource.sh,prob
 
 ## PHASE CHECKLIST
 
-- [ ] **Phase 1 — Finish kraken**: close the 4 `Unknown` journey-outcome gaps using Example 1 (custom-image install via `POST /extension/`, add-manifest, docker-tag edit, view logs). Repo: reachable; DockerHub `williangalvani/blueos-example1`. Use docs/web as needed. Leave Unknown only if truly low-value/high-effort.
+- [x] **Phase 1 — Finish kraken**: DONE. Captured all 4 gaps live (custom install POST /extension/ 200; add-manifest POST /manifest/ 201 + DELETE 204; tag edit PUT /extension/{id}/{tag} 200; container log GET .../log 200). All 10 kraken journey route-steps now runtime-grounded; no Unknown outcomes remain. Vehicle restored.
 - [ ] **Phase 2 — Fix harness**: (2) implement `extract` binary (mechanical observed-layer regen); (3) extend `drift` to diff RuntimeFacts vs asserted; (4) inter-rater rubric freeze (two independent passes on 2-3 services, measure disagreement on authorities/tiers/bounded_context, fix rubric, then freeze).
 - [ ] **Phase 3 — Harness eval & polish**: (5) re-evaluate the whole harness for loose ends + how to bulletproof; (6) fix what's needed.
 - [ ] **Phase 4 — The hard work**: (7) orchestrate the remaining services one by one (ledger below).
@@ -76,7 +76,7 @@ allowed for services with no meaningful runtime or unreachable. Update after eac
 | # | Service (tmux) | catalog id | port/prefix | kind | Obs | Jrn | Card | Rt | Committed |
 |---|---|---|---|---|---|---|---|---|---|
 | 1 | autopilot | ardupilot_manager | 8000 /ardupilot-manager/ | python | DONE | DONE | DONE | DONE | ad5950b93 |
-| 2 | kraken | kraken | 9134 /kraken/ | python | DONE | DONE | DONE | DONE (gaps: Phase 1) | e5ffdaf8a |
+| 2 | kraken | kraken | 9134 /kraken/ | python | DONE | DONE | DONE | DONE | e5ffdaf8a (+Phase1) |
 | 3 | cable_guy | cable_guy | ? /cable-guy/ | python | TODO | TODO | TODO | TODO | |
 | 4 | video | mavlink-camera-manager | 6020? | binary | TODO | TODO | TODO | TODO | |
 | 5 | mavlink2rest | mavlink2rest | 6040 | binary | TODO | TODO | TODO | TODO | |
@@ -115,6 +115,7 @@ allowed for services with no meaningful runtime or unreachable. Update after eac
 - 2026-07-11: Kraken committed `e5ffdaf8a`. Runtime captured Tier 1+2 with Example 1; vehicle restored. Fixed `probe_http.sh` (ARG_MAX + SIGPIPE). 4 journey outcomes left Unknown → **Phase 1 target**.
 - 2026-07-11: `SloBaseline` is latency-only; `ResourceUsage` holds cpu/mem Distributions; kraken has NO state machine (state_contracts Unknown is correct).
 - 2026-07-11: Journey validation requires participating service + capabilities to exist → wire `all_journeys()` together with the Card Author step, not before.
+- 2026-07-11: Phase 1 done. Closed kraken's 4 gaps with a reversible Tier-2 capture of Example 1: custom install (POST /extension/ 200), add/del manifest (POST 201 / DELETE 204), tag edit v1.0.0→v1.0.1 (PUT 200), container log (GET 200). Artifact `transitions` extended; 4 journey outcomes re-grounded. Values orchestrator-captured + verified against artifact; gates green.
 
 ## OPEN HARNESS GAPS (Phase 2/3 backlog)
 

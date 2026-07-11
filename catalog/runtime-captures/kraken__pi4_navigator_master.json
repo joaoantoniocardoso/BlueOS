@@ -3,7 +3,7 @@
   "environment": "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4",
   "captured_at": "2026-07-11",
   "capture_host": "192.168.0.177",
-  "notes": "Tier 1 (read-only) + Tier 2 (install/enable/disable/restart/uninstall of the 'Example 1' extension, williangalvani.example1). Vehicle restored to pre-capture state (only default blueos.major_tom remains). CPU/RSS via tools/sample_resource.sh; latencies via tools/probe_http.sh. Raw evidence: kraken_sample_running.json, kraken_sample_with_ext.json, kraken_slo_running.json.",
+  "notes": "Tier 1 (read-only) + Tier 2 (install/enable/disable/restart/uninstall, plus custom-image install, tag edit, container log, and add/delete manifest) of the 'Example 1' extension, williangalvani.example1 (docker williangalvani/blueos-example1). Vehicle restored to pre-capture state (only default blueos.major_tom remains; only default manifest). CPU/RSS via tools/sample_resource.sh; latencies via tools/probe_http.sh. Raw evidence: kraken_sample_running.json, kraken_sample_with_ext.json, kraken_slo_running.json.",
 
   "api_versions": ["v1.0", "v2.0"],
 
@@ -90,6 +90,34 @@
       "status": 202,
       "time_s": 2.0,
       "effect": "accepted (async, body null); removes container and image reference; installed_extensions and settings extensions[] revert to default (only blueos.major_tom)"
+    },
+    "custom_install": {
+      "route": "POST /extension/ (v2.0)",
+      "status": 200,
+      "time_s": 17.5,
+      "effect": "custom-image install (blue plus flow): accepts a full ExtensionSource {identifier,tag,name,docker,enabled,permissions}, streams docker pull progress, creates+starts the container. Captured installing williangalvani.example1:v1.0.0 (docker williangalvani/blueos-example1)"
+    },
+    "tag_edit": {
+      "route": "PUT /extension/{identifier}/{tag} (v2.0)",
+      "status": 200,
+      "time_s": 18.8,
+      "effect": "switches an installed extension to a different tag (dev/alternative version); pulls the new tag image and recreates the container. Captured switching williangalvani.example1 v1.0.0 -> v1.0.1 (settings tag updated)"
+    },
+    "container_log": {
+      "route": "GET /container/{container_name}/log (v2.0)",
+      "status": 200,
+      "effect": "returns the extension container log as streamed base64-encoded JSON fragments (decoded sample: 'heartbeat')"
+    },
+    "add_manifest": {
+      "route": "POST /manifest/ (v2.0)",
+      "status": 201,
+      "time_s": 0.9,
+      "effect": "adds an external manifest source {name,url,enabled}; returns the created manifest with a generated identifier (UUID) and next priority. Captured adding a test manifest then removing it"
+    },
+    "delete_manifest": {
+      "route": "DELETE /manifest/{identifier} (v2.0)",
+      "status": 204,
+      "effect": "removes an external manifest source by identifier"
     }
   },
 
@@ -99,7 +127,7 @@
     "install": "appends the extension to extensions[]",
     "enable_disable": "toggles the extension's enabled boolean in place",
     "uninstall": "removes the extension from extensions[]",
-    "add_manifest": "appends to manifests[] (POST /manifest/) — not exercised in this capture"
+    "add_manifest": "appends to manifests[] (POST /manifest/ -> 201); DELETE /manifest/{id} -> 204 removes it"
   },
 
   "platform_matrix": {

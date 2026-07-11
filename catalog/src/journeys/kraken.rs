@@ -43,7 +43,7 @@ fn add_custom_manifest() -> UserJourney {
             "Specify your own external collection of extensions in the Extensions Manager store",
             Some(doc_route(HttpMethod::Post, "/manifest/", None, ADV, 855)),
             Provenance::doc(ADV, 855),
-            Some(Grounded::unknown("POST /manifest/ not exercised in capture")),
+            Some(runtime_outcome(201, None, "#transitions")),
         )]),
         chains_from: Some(JourneyId("browse_extension_store".into())),
     }
@@ -151,8 +151,10 @@ fn configure_installed_extension() -> UserJourney {
                     357,
                 )),
                 Provenance::doc(DEV, 357),
-                Some(Grounded::unknown(
-                    "GET /container/{container_name}/log not exercised in capture",
+                Some(runtime_outcome(
+                    200,
+                    Some("base64-encoded log fragments".into()),
+                    "#transitions",
                 )),
             ),
             operator_step(
@@ -218,9 +220,7 @@ fn edit_extension_dev_version() -> UserJourney {
                     866,
                 )),
                 Provenance::doc(ADV, 866),
-                Some(Grounded::unknown(
-                    "PUT docker-tag edit not exercised; only enable/disable/restart/install/uninstall were captured",
-                )),
+                Some(runtime_outcome(200, None, "#transitions")),
             ),
         ]),
         chains_from: Some(JourneyId("configure_installed_extension".into())),
@@ -267,8 +267,10 @@ fn install_custom_extension() -> UserJourney {
                 "Enter the extension identifier, name, Docker image, tag, and custom settings so the image can be fetched from Docker Hub",
                 Some(doc_route(HttpMethod::Post, "/extension/", None, DEV, 473)),
                 Provenance::doc(DEV, 473),
-                Some(Grounded::unknown(
-                    "custom install via POST /extension/ (v2) not exercised in capture; only v1 POST /extension/install was captured",
+                Some(runtime_outcome(
+                    200,
+                    Some("streams docker pull progress; container created".into()),
+                    "#transitions",
                 )),
             ),
         ]),
