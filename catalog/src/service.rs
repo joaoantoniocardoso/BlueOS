@@ -5,10 +5,20 @@ use crate::criticality::CriticalityTier;
 use crate::edge::Edge;
 use crate::id::{CapabilityId, JourneyId, PathRef, ServiceId};
 use crate::lifecycle::Lifecycle;
+use crate::observed::ObservedFacts;
 use crate::provenance::{Asserted, AssertedSet};
 use crate::resource::Resource;
+use crate::runtime::RuntimeFacts;
 use crate::state::StateMachine;
 use crate::trust::{DangerousOperation, PrivilegeLevel, UserConfirmation};
+
+#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
+pub struct Service {
+    pub id: ServiceId,
+    pub observed: ObservedFacts,
+    pub definition: ServiceDefinition,
+    pub runtime: RuntimeFacts,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct ServiceDefinition {

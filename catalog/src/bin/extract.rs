@@ -26,7 +26,7 @@ fn main() {
         return;
     }
 
-    let report = check_against_observed(&extracted, Catalog::bootstrap().observed());
+    let report = check_against_observed(&extracted, Catalog::bootstrap().services());
     if report.has_drift() {
         for finding in &report.findings {
             eprintln!("extract-drift: {} — {}", finding.field, finding.message);

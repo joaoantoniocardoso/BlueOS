@@ -46,7 +46,7 @@ pub fn export_mermaid(catalog: &Catalog) -> String {
     }
 
     for service in catalog.services() {
-        if let AssertedSet::Established { items } = &service.edges {
+        if let AssertedSet::Established { items } = &service.definition.edges {
             for rationaled in items.iter() {
                 let edge = &rationaled.value;
                 output.push_str(&format!(
@@ -70,8 +70,9 @@ mod tests {
     use crate::id::ServiceId;
     use crate::lifecycle::Lifecycle;
     use crate::observed::ObservedFacts;
-    use crate::provenance::{Asserted, AssertedSet, Evidenced, Observed, ObservedSet};
-    use crate::service::ServiceDefinition;
+    use crate::provenance::{Asserted, AssertedSet, Evidenced, GroundedSet, Observed, ObservedSet};
+    use crate::runtime::RuntimeFacts;
+    use crate::service::{Service, ServiceDefinition};
 
     fn sample_service() -> ServiceDefinition {
         ServiceDefinition {
@@ -144,10 +145,21 @@ mod tests {
 
     #[test]
     fn catalog_json_round_trips() {
+        let runtime = RuntimeFacts {
+            service: ServiceId::Ping,
+            state_contracts: GroundedSet::unknown("not captured"),
+            slo_baselines: GroundedSet::unknown("not captured"),
+            resource_usage: GroundedSet::unknown("not captured"),
+            platform_matrix: GroundedSet::unknown("not captured"),
+            settings_mutations: GroundedSet::unknown("not captured"),
+        };
         let catalog = Catalog::with_parts(
-            vec![sample_service()],
-            vec![sample_observed()],
-            vec![],
+            vec![Service {
+                id: ServiceId::Ping,
+                observed: sample_observed(),
+                definition: sample_service(),
+                runtime,
+            }],
             vec![],
             vec![],
         );

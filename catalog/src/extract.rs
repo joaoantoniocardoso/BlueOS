@@ -163,11 +163,12 @@ fn service_dir_from_command(command: &str) -> Option<String> {
 
 pub fn check_against_observed(
     extracted: &[ExtractedService],
-    observed: &[ObservedFacts],
+    services: &[crate::service::Service],
 ) -> DriftReport {
     let mut findings = Vec::new();
 
-    for facts in observed {
+    for service in services {
+        let facts = &service.observed;
         let Some(service) = find_extracted(extracted, facts) else {
             continue;
         };
@@ -258,7 +259,7 @@ mod tests {
     fn bootstrap_observed_matches_source() {
         let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
         let extracted = extract_from_repo(repo_root).expect("extract from repo");
-        let report = check_against_observed(&extracted, Catalog::bootstrap().observed());
+        let report = check_against_observed(&extracted, Catalog::bootstrap().services());
         assert!(!report.has_drift(), "drift findings: {:?}", report.findings);
     }
 }

@@ -57,7 +57,7 @@ pub use runtime::{
     Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts, SettingsMutation, SloBaseline,
     StateContract,
 };
-pub use service::{Authority, ServiceDefinition};
+pub use service::{Authority, Service, ServiceDefinition};
 pub use state::StateMachine;
 pub use trust::{DangerousOperation, PrivilegeLevel, UserConfirmation};
 pub use validate::{validate, ValidationError, COVERAGE_UNKNOWN_THRESHOLD};

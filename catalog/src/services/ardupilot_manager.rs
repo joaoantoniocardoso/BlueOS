@@ -15,7 +15,7 @@ use crate::runtime::{
     Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts, SettingsMutation, SloBaseline,
     StateContract,
 };
-use crate::service::{Authority, ServiceDefinition};
+use crate::service::{Authority, Service, ServiceDefinition};
 use crate::state::StateMachine;
 use crate::trust::{DangerousOperation, PrivilegeLevel, UserConfirmation};
 
@@ -921,3 +921,10 @@ pub const SERVICE_DEFINITION: ServiceDefinition =
         team: Asserted::unknown("no CODEOWNERS or team metadata in observed artifact"),
         adr_refs: AssertedSet::unknown("no ADR references found in service source tree"),
     };
+
+pub const SERVICE: Service = Service {
+    id: ServiceId::ArdupilotManager,
+    observed: OBSERVED_FACTS,
+    definition: SERVICE_DEFINITION,
+    runtime: RUNTIME_FACTS,
+};

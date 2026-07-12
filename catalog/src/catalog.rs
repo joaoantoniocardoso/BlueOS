@@ -8,15 +8,13 @@ use crate::journey::UserJourney;
 use crate::observed::ObservedFacts;
 use crate::page::{Page, PageId};
 use crate::runtime::RuntimeFacts;
-use crate::service::ServiceDefinition;
+use crate::service::{Service, ServiceDefinition};
 use crate::validate::ValidationError;
 
 #[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
 pub struct Catalog {
-    services: Vec<ServiceDefinition>,
-    observed: Vec<ObservedFacts>,
+    services: Vec<Service>,
     journeys: Vec<UserJourney>,
-    runtime: Vec<RuntimeFacts>,
     pages: Vec<Page>,
 }
 
@@ -30,53 +28,49 @@ impl Catalog {
     pub fn new() -> Self {
         Self {
             services: Vec::new(),
-            observed: Vec::new(),
             journeys: Vec::new(),
-            runtime: Vec::new(),
             pages: Vec::new(),
         }
     }
 
     pub fn with_parts(
-        services: Vec<ServiceDefinition>,
-        observed: Vec<ObservedFacts>,
+        services: Vec<Service>,
         journeys: Vec<UserJourney>,
-        runtime: Vec<RuntimeFacts>,
         pages: Vec<Page>,
     ) -> Self {
         Self {
             services,
-            observed,
             journeys,
-            runtime,
             pages,
         }
     }
 
     pub fn bootstrap() -> Self {
         Self::with_parts(
-            crate::services::all_service_definitions(),
-            crate::services::all_observed(),
+            crate::services::all_services(),
             crate::journeys::all_journeys(),
-            crate::services::all_runtime(),
             crate::pages::all_pages(),
         )
     }
 
-    pub fn services(&self) -> &[ServiceDefinition] {
+    pub fn services(&self) -> &[Service] {
         &self.services
     }
 
-    pub fn observed(&self) -> &[ObservedFacts] {
-        &self.observed
-    }
-
-    pub fn service_by_id(&self, id: &ServiceId) -> Option<&ServiceDefinition> {
+    pub fn service_by_id(&self, id: &ServiceId) -> Option<&Service> {
         self.services.iter().find(|service| &service.id == id)
     }
 
+    pub fn definition_by_id(&self, id: &ServiceId) -> Option<&ServiceDefinition> {
+        self.service_by_id(id).map(|service| &service.definition)
+    }
+
     pub fn observed_by_id(&self, id: &ServiceId) -> Option<&ObservedFacts> {
-        self.observed.iter().find(|facts| &facts.id == id)
+        self.service_by_id(id).map(|service| &service.observed)
+    }
+
+    pub fn runtime_by_id(&self, id: &ServiceId) -> Option<&RuntimeFacts> {
+        self.service_by_id(id).map(|service| &service.runtime)
     }
 
     pub fn journeys(&self) -> &[UserJourney] {
@@ -87,14 +81,6 @@ impl Catalog {
         self.journeys.iter().find(|journey| &journey.id == id)
     }
 
-    pub fn runtime(&self) -> &[RuntimeFacts] {
-        &self.runtime
-    }
-
-    pub fn runtime_by_id(&self, id: &ServiceId) -> Option<&RuntimeFacts> {
-        self.runtime.iter().find(|facts| &facts.service == id)
-    }
-
     pub fn pages(&self) -> &[Page] {
         &self.pages
     }
@@ -103,7 +89,7 @@ impl Catalog {
         self.pages.iter().find(|page| &page.id == id)
     }
 
-    pub fn service_index(&self) -> HashMap<&ServiceId, &ServiceDefinition> {
+    pub fn service_index(&self) -> HashMap<&ServiceId, &Service> {
         self.services
             .iter()
             .map(|service| (&service.id, service))

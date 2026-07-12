@@ -224,7 +224,7 @@ fn build_coupling_matrix(
         let Some(&from_idx) = index.get(&service.id) else {
             continue;
         };
-        if let AssertedSet::Established { items } = &service.edges {
+        if let AssertedSet::Established { items } = &service.definition.edges {
             for rationaled in items.iter() {
                 let edge = &rationaled.value;
                 let Some(&to_idx) = index.get(&edge.to) else {
@@ -271,7 +271,7 @@ fn add_shared_resource_coupling(
         let Some(&service_idx) = index.get(&service.id) else {
             continue;
         };
-        if let AssertedSet::Established { items } = &service.resources {
+        if let AssertedSet::Established { items } = &service.definition.resources {
             for rationaled in items.iter() {
                 let resource = &rationaled.value;
                 if resource.ownership == ResourceOwnership::Exclusive {
@@ -337,7 +337,11 @@ fn add_policy_affinity(
     let services = catalog.services();
     for left in 0..services.len() {
         for right in (left + 1)..services.len() {
-            if policy_matches(&services[left], &services[right], policy) {
+            if policy_matches(
+                &services[left].definition,
+                &services[right].definition,
+                policy,
+            ) {
                 let i = index[&services[left].id];
                 let j = index[&services[right].id];
                 matrix[i][j] += bonus;

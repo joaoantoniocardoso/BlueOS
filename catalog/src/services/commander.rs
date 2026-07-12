@@ -11,7 +11,7 @@ use crate::provenance::{
 };
 use crate::resource::{Resource, ResourceOwnership};
 use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts, SloBaseline};
-use crate::service::{Authority, ServiceDefinition};
+use crate::service::{Authority, Service, ServiceDefinition};
 use crate::trust::{DangerousOperation, PrivilegeLevel, UserConfirmation};
 
 const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
@@ -767,3 +767,10 @@ pub const SERVICE_DEFINITION: ServiceDefinition =
         team: Asserted::unknown("no CODEOWNERS or team metadata in observed artifact"),
         adr_refs: AssertedSet::unknown("no ADR references found in service source tree"),
     };
+
+pub const SERVICE: Service = Service {
+    id: ServiceId::Commander,
+    observed: OBSERVED_FACTS,
+    definition: SERVICE_DEFINITION,
+    runtime: RUNTIME_FACTS,
+};

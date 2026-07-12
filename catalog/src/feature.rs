@@ -57,7 +57,7 @@ impl FeatureCatalog {
     pub fn from_catalog(catalog: &Catalog) -> Self {
         let mut features = Vec::new();
         for service in catalog.services() {
-            if let AssertedSet::Established { items } = &service.capabilities {
+            if let AssertedSet::Established { items } = &service.definition.capabilities {
                 for cap in items.iter() {
                     let id = FeatureId(cap.value.to_string());
                     let aggregate = aggregate_of(&id)
@@ -272,7 +272,7 @@ impl FeatureCatalog {
 fn distinct_capability_count(catalog: &Catalog) -> usize {
     let mut seen = HashSet::new();
     for service in catalog.services() {
-        if let AssertedSet::Established { items } = &service.capabilities {
+        if let AssertedSet::Established { items } = &service.definition.capabilities {
             for item in items.iter() {
                 seen.insert(&item.value);
             }
@@ -578,7 +578,7 @@ mod tests {
         let catalog = Catalog::bootstrap();
         let mut distinct = HashSet::new();
         for service in catalog.services() {
-            if let AssertedSet::Established { items } = &service.capabilities {
+            if let AssertedSet::Established { items } = &service.definition.capabilities {
                 for item in items.iter() {
                     distinct.insert(item.value);
                 }

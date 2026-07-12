@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use crate::observed::ObservedFacts;
 use crate::provenance::{AssertedSet, GroundedSet, ObservedSet};
 use crate::runtime::RuntimeFacts;
-use crate::service::ServiceDefinition;
+use crate::service::{Service, ServiceDefinition};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct DriftReport {
@@ -118,27 +118,20 @@ pub fn diff_runtime(asserted: &ServiceDefinition, runtime: &RuntimeFacts) -> Dri
     report
 }
 
-pub fn diff_catalog(services: &[ServiceDefinition], observed: &[ObservedFacts]) -> DriftReport {
+pub fn diff_catalog(services: &[Service]) -> DriftReport {
     let mut report = DriftReport::no_drift();
     for service in services {
-        if let Some(facts) = observed.iter().find(|f| f.id == service.id) {
-            let service_report = diff(service, facts);
-            report.findings.extend(service_report.findings);
-        }
+        let service_report = diff(&service.definition, &service.observed);
+        report.findings.extend(service_report.findings);
     }
     report
 }
 
-pub fn diff_catalog_runtime(
-    services: &[ServiceDefinition],
-    runtime: &[RuntimeFacts],
-) -> DriftReport {
+pub fn diff_catalog_runtime(services: &[Service]) -> DriftReport {
     let mut report = DriftReport::no_drift();
     for service in services {
-        if let Some(facts) = runtime.iter().find(|f| f.service == service.id) {
-            let service_report = diff_runtime(service, facts);
-            report.findings.extend(service_report.findings);
-        }
+        let service_report = diff_runtime(&service.definition, &service.runtime);
+        report.findings.extend(service_report.findings);
     }
     report
 }
@@ -156,21 +149,21 @@ mod tests {
     #[test]
     fn bootstrap_has_no_asserted_observed_drift() {
         let catalog = Catalog::bootstrap();
-        let report = diff_catalog(catalog.services(), catalog.observed());
+        let report = diff_catalog(catalog.services());
         assert!(!report.has_drift(), "{:?}", report.findings);
     }
 
     #[test]
     fn bootstrap_has_no_runtime_drift() {
         let catalog = Catalog::bootstrap();
-        let report = diff_catalog_runtime(catalog.services(), catalog.runtime());
+        let report = diff_catalog_runtime(catalog.services());
         assert!(!report.has_drift(), "{:?}", report.findings);
     }
 
     #[test]
     fn detects_missing_observed_resource() {
         let catalog = Catalog::bootstrap();
-        let mut service = catalog.services()[0].clone();
+        let mut service = catalog.services()[0].definition.clone();
         service.resources = AssertedSet::established(
             const {
                 &[Rationaled::new(
@@ -182,7 +175,7 @@ mod tests {
                 )]
             },
         );
-        let observed = catalog.observed()[0].clone();
+        let observed = catalog.services()[0].observed.clone();
         let report = diff(&service, &observed);
         assert!(report.has_drift());
         assert!(report
@@ -199,6 +192,7 @@ mod tests {
             .iter()
             .find(|s| s.id.as_str() == "ardupilot_manager")
             .expect("ardupilot_manager in bootstrap")
+            .definition
             .clone();
         let runtime = RuntimeFacts {
             service: service.id,

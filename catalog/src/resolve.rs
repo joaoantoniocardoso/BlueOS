@@ -22,12 +22,12 @@ pub struct ResolvedPorts {
 
 pub fn resolve(catalog: &Catalog, env: &EnvLookup) -> Result<Vec<ResolvedPorts>, ResolveError> {
     catalog
-        .observed()
+        .services()
         .iter()
-        .map(|facts| {
+        .map(|service| {
             Ok(ResolvedPorts {
-                service_id: facts.id,
-                ports: resolve_service_ports(facts, env)?,
+                service_id: service.id,
+                ports: resolve_service_ports(&service.observed, env)?,
             })
         })
         .collect()
