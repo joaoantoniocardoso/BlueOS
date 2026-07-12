@@ -37,8 +37,14 @@ registered in `catalog/src/pages/mod.rs` (the `PAGES` slice / `all_pages()`).
   calls it, so it belongs in `consumes`, never in `frontend_features`. (E.g.
   `FlashFirmware`, `ManageExtensionLifecycle`, `InspectZenohNetwork` are backend-owned;
   `CalibrateAccelerometer`, `EditAutopilotParameters` are frontend-origin.)
-- QA check: `rg "id: CapabilityId::<Name>," catalog/src/capability.rs` — a hit means
-  REMOVE it from `frontend_features`; no hit means it is a legitimate frontend feature.
+- QA check: `rg "id: CapabilityId::<Name>," catalog/src/capability.rs` — a hit in a
+  `CapabilityDef` (backend `CAPABILITIES`) means REMOVE it from `frontend_features`.
+- Every legitimate frontend feature MUST be registered once in
+  `capability.rs::FRONTEND_CAPABILITIES` as a `FrontendCapabilityDef { id, aggregate,
+  owner: PageId }` (the `owner` is the page that most centrally implements it). It then
+  becomes a `Feature` with `origin: Origin::FrontendPage(owner)`. `FeatureCatalog::
+  validate()` enforces both directions: a page feature not in the registry, or a
+  registry id that collides with backend `CAPABILITIES`, fails the build.
 
 ## State ownership (a 2.0 decision input)
 

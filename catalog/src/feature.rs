@@ -5,10 +5,11 @@ use std::hash::{Hash, Hasher};
 use schemars::JsonSchema;
 use serde::Serialize;
 
-use crate::capability::{capability_def, Aggregate};
+use crate::capability::{capability_def, Aggregate, CAPABILITIES, FRONTEND_CAPABILITIES};
 use crate::catalog::Catalog;
 use crate::cluster::{greedy_modularity_communities, modularity_q_indices};
 use crate::id::{CapabilityId, JourneyId, ServiceId};
+use crate::page::PageId;
 use crate::provenance::{AssertedSet, GroundedSet};
 
 #[derive(Debug, Clone, Copy, Serialize, JsonSchema)]
@@ -41,11 +42,18 @@ impl Hash for FeatureId {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Origin {
+    BackendService(ServiceId),
+    FrontendPage(PageId),
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct Feature {
     pub id: FeatureId,
     pub aggregate: Aggregate,
-    pub origin_service: ServiceId,
+    pub origin: Origin,
     pub rationale: String,
 }
 
@@ -102,11 +110,47 @@ impl FeatureCatalog {
                     features.push(Feature {
                         id,
                         aggregate: def.aggregate,
-                        origin_service: service.id,
+                        origin: Origin::BackendService(service.id),
                         rationale: cap.rationale.to_string(),
                     });
                 }
             }
+        }
+        for def in FRONTEND_CAPABILITIES {
+            let page = catalog
+                .pages()
+                .iter()
+                .find(|page| page.id == def.owner)
+                .unwrap_or_else(|| {
+                    panic!(
+                        "frontend capability {} owner page {:?} not found in catalog",
+                        def.id.as_str(),
+                        def.owner
+                    )
+                });
+            let AssertedSet::Established { items } = &page.frontend_features else {
+                panic!(
+                    "owner page {:?} has no established frontend_features for capability {}",
+                    def.owner,
+                    def.id.as_str()
+                );
+            };
+            let rationaled = items
+                .iter()
+                .find(|item| item.value == def.id)
+                .unwrap_or_else(|| {
+                    panic!(
+                        "owner page {:?} does not list frontend capability {}",
+                        def.owner,
+                        def.id.as_str()
+                    )
+                });
+            features.push(Feature {
+                id: FeatureId(def.id),
+                aggregate: def.aggregate,
+                origin: Origin::FrontendPage(def.owner),
+                rationale: rationaled.rationale.to_string(),
+            });
         }
         Self { features }
     }
@@ -265,27 +309,66 @@ impl FeatureCatalog {
         let mut errors = Vec::new();
         let known_services: HashSet<&ServiceId> =
             catalog.services().iter().map(|s| &s.id).collect();
+        let known_pages: HashSet<PageId> = catalog.pages().iter().map(|page| page.id).collect();
         let distinct_capabilities = distinct_capability_count(catalog);
+        let expected_count = distinct_capabilities + FRONTEND_CAPABILITIES.len();
 
         let mut seen_ids = HashSet::new();
         for feature in &self.features {
-            if !known_services.contains(&feature.origin_service) {
-                errors.push(format!(
-                    "feature {} references unknown origin_service {}",
-                    feature.id.0.as_str(),
-                    feature.origin_service.as_str()
-                ));
+            match feature.origin {
+                Origin::BackendService(service) => {
+                    if !known_services.contains(&service) {
+                        errors.push(format!(
+                            "feature {} references unknown backend origin service {}",
+                            feature.id.0.as_str(),
+                            service.as_str()
+                        ));
+                    }
+                }
+                Origin::FrontendPage(page) => {
+                    if !known_pages.contains(&page) {
+                        errors.push(format!(
+                            "feature {} references unknown frontend origin page {}",
+                            feature.id.0.as_str(),
+                            page.as_str()
+                        ));
+                    }
+                }
             }
             if !seen_ids.insert(feature.id) {
                 errors.push(format!("duplicate feature id {}", feature.id.0.as_str()));
             }
         }
 
-        if self.features.len() != distinct_capabilities {
+        if self.features.len() != expected_count {
             errors.push(format!(
-                "feature count {} does not match distinct capability count {distinct_capabilities}",
-                self.features.len()
+                "feature count {} does not match expected count {expected_count} \
+                 ({distinct_capabilities} backend + {} frontend)",
+                self.features.len(),
+                FRONTEND_CAPABILITIES.len()
             ));
+        }
+
+        for page in catalog.pages() {
+            if let AssertedSet::Established { items } = &page.frontend_features {
+                for item in items.iter() {
+                    if FRONTEND_CAPABILITIES.iter().all(|def| def.id != item.value) {
+                        errors.push(format!(
+                            "page frontend feature {} is not registered in FRONTEND_CAPABILITIES",
+                            item.value.as_str()
+                        ));
+                    }
+                }
+            }
+        }
+
+        for def in FRONTEND_CAPABILITIES {
+            if CAPABILITIES.iter().any(|cap| cap.id == def.id) {
+                errors.push(format!(
+                    "frontend capability {} collides with backend registry",
+                    def.id.as_str()
+                ));
+            }
         }
 
         if errors.is_empty() {
@@ -425,10 +508,11 @@ fn format_aggregate_bridge(left: &str, right: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::capability::FRONTEND_CAPABILITIES;
     use crate::id::CapabilityId;
     use crate::provenance::AssertedSet;
 
-    const EXPECTED_FEATURE_COUNT: usize = 129;
+    const EXPECTED_FEATURE_COUNT: usize = 143;
     const EXPECTED_AGGREGATE_COUNT: usize = 19;
 
     #[test]
@@ -436,6 +520,24 @@ mod tests {
         let catalog = Catalog::bootstrap();
         let features = FeatureCatalog::from_catalog(&catalog);
         assert_eq!(features.features().len(), EXPECTED_FEATURE_COUNT);
+    }
+
+    #[test]
+    fn origin_split_backend_and_frontend() {
+        let features = FeatureCatalog::bootstrap();
+        let backend = features
+            .features()
+            .iter()
+            .filter(|f| matches!(f.origin, Origin::BackendService(_)))
+            .count();
+        let frontend = features
+            .features()
+            .iter()
+            .filter(|f| matches!(f.origin, Origin::FrontendPage(_)))
+            .count();
+        assert_eq!(frontend, FRONTEND_CAPABILITIES.len());
+        assert_eq!(backend + frontend, EXPECTED_FEATURE_COUNT);
+        assert_eq!(frontend, 14);
     }
 
     #[test]
@@ -474,7 +576,10 @@ mod tests {
             }
         }
         let features = FeatureCatalog::from_catalog(&catalog);
-        assert_eq!(features.features().len(), distinct.len());
+        assert_eq!(
+            features.features().len(),
+            distinct.len() + FRONTEND_CAPABILITIES.len()
+        );
         assert!(features.validate(&catalog).is_ok());
     }
 

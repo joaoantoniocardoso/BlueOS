@@ -4,6 +4,7 @@ use schemars::JsonSchema;
 use serde::Serialize;
 
 use crate::id::{CapabilityId, ServiceId};
+use crate::page::PageId;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, JsonSchema)]
 pub enum Aggregate {
@@ -735,4 +736,87 @@ pub const CAPABILITIES: &[CapabilityDef] = &[
 
 pub fn capability_def(id: CapabilityId) -> Option<&'static CapabilityDef> {
     CAPABILITIES.iter().find(|def| def.id == id)
+}
+
+pub struct FrontendCapabilityDef {
+    pub id: CapabilityId,
+    pub aggregate: Aggregate,
+    pub owner: PageId,
+}
+
+pub const FRONTEND_CAPABILITIES: &[FrontendCapabilityDef] = &[
+    FrontendCapabilityDef {
+        id: CapabilityId::CalibrateAccelerometer,
+        aggregate: Aggregate::Autopilot,
+        owner: PageId::VehicleSetup,
+    },
+    FrontendCapabilityDef {
+        id: CapabilityId::CalibrateBarometer,
+        aggregate: Aggregate::Autopilot,
+        owner: PageId::VehicleSetup,
+    },
+    FrontendCapabilityDef {
+        id: CapabilityId::CalibrateCompass,
+        aggregate: Aggregate::Autopilot,
+        owner: PageId::VehicleSetup,
+    },
+    FrontendCapabilityDef {
+        id: CapabilityId::CalibrateGyroscope,
+        aggregate: Aggregate::Autopilot,
+        owner: PageId::VehicleSetup,
+    },
+    FrontendCapabilityDef {
+        id: CapabilityId::DeriveSensorCalibrationStatus,
+        aggregate: Aggregate::Autopilot,
+        owner: PageId::VehicleSetup,
+    },
+    FrontendCapabilityDef {
+        id: CapabilityId::DetectMotorDirections,
+        aggregate: Aggregate::Autopilot,
+        owner: PageId::VehicleSetup,
+    },
+    FrontendCapabilityDef {
+        id: CapabilityId::LevelHorizon,
+        aggregate: Aggregate::Autopilot,
+        owner: PageId::VehicleSetup,
+    },
+    FrontendCapabilityDef {
+        id: CapabilityId::EditAutopilotParameters,
+        aggregate: Aggregate::Autopilot,
+        owner: PageId::ParameterEditor,
+    },
+    FrontendCapabilityDef {
+        id: CapabilityId::ApplyParameterSet,
+        aggregate: Aggregate::Autopilot,
+        owner: PageId::ParameterEditor,
+    },
+    FrontendCapabilityDef {
+        id: CapabilityId::ConfigureStreamEndpoints,
+        aggregate: Aggregate::Camera,
+        owner: PageId::VideoManager,
+    },
+    FrontendCapabilityDef {
+        id: CapabilityId::DiagnoseStreamAccessibility,
+        aggregate: Aggregate::Camera,
+        owner: PageId::VideoManager,
+    },
+    FrontendCapabilityDef {
+        id: CapabilityId::FilterDisplayableDevices,
+        aggregate: Aggregate::Camera,
+        owner: PageId::VideoManager,
+    },
+    FrontendCapabilityDef {
+        id: CapabilityId::ManageThumbnailPreview,
+        aggregate: Aggregate::Camera,
+        owner: PageId::VideoManager,
+    },
+    FrontendCapabilityDef {
+        id: CapabilityId::ReplaceStreamConfiguration,
+        aggregate: Aggregate::Camera,
+        owner: PageId::VideoManager,
+    },
+];
+
+pub fn frontend_capability_def(id: CapabilityId) -> Option<&'static FrontendCapabilityDef> {
+    FRONTEND_CAPABILITIES.iter().find(|def| def.id == id)
 }
