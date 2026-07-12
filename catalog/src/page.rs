@@ -38,6 +38,13 @@ impl fmt::Display for PageId {
     }
 }
 
+impl crate::id::Entity for PageId {
+    const ALL: &'static [PageId] = &PageId::ALL;
+    fn as_str(&self) -> &'static str {
+        PageId::as_str(self)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
 pub struct Page {
     pub id: PageId,

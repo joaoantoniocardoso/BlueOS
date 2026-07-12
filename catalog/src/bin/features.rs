@@ -8,7 +8,7 @@ fn main() {
     for group in &view {
         println!("== {} ({}) ==", group.aggregate, group.features.len());
         for id in &group.features {
-            println!("  {}", id.0);
+            println!("  {}", id.0.as_str());
         }
         println!();
     }
@@ -47,7 +47,7 @@ fn main() {
     println!();
     println!("== Divergence (A aggregate vs B journey) ==");
     for (left, right, bridge) in &divergence.joined_by_journey {
-        println!("  {} <-> {} ({bridge})", left.0, right.0);
+        println!("  {} <-> {} ({bridge})", left.0.as_str(), right.0.as_str());
     }
     println!(
         "split_by_journey pairs: {}",

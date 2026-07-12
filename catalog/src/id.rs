@@ -3,6 +3,11 @@ use std::fmt;
 use schemars::JsonSchema;
 use serde::Serialize;
 
+pub trait Entity: Copy + Sized + 'static {
+    const ALL: &'static [Self];
+    fn as_str(&self) -> &'static str;
+}
+
 /// Identity of a cataloged BlueOS service. Closed set of the 26 processes launched by
 /// `core/start-blueos-core`. Each variant serializes to its canonical id string (explicit
 /// `rename` on every variant so the JSON is exact and independent of `rename_all` heuristics).
@@ -139,6 +144,13 @@ impl ServiceId {
 impl fmt::Display for ServiceId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.as_str())
+    }
+}
+
+impl Entity for ServiceId {
+    const ALL: &'static [ServiceId] = &ServiceId::ALL;
+    fn as_str(&self) -> &'static str {
+        ServiceId::as_str(self)
     }
 }
 
@@ -744,6 +756,13 @@ impl fmt::Display for CapabilityId {
     }
 }
 
+impl Entity for CapabilityId {
+    const ALL: &'static [CapabilityId] = &CapabilityId::ALL;
+    fn as_str(&self) -> &'static str {
+        CapabilityId::as_str(self)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, JsonSchema)]
 pub enum JourneyId {
     #[serde(rename = "access_blueos_web_interface")]
@@ -1115,6 +1134,13 @@ impl JourneyId {
 impl fmt::Display for JourneyId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.as_str())
+    }
+}
+
+impl Entity for JourneyId {
+    const ALL: &'static [JourneyId] = &JourneyId::ALL;
+    fn as_str(&self) -> &'static str {
+        JourneyId::as_str(self)
     }
 }
 

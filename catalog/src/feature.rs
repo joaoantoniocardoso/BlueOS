@@ -1,21 +1,50 @@
+use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
+use std::hash::{Hash, Hasher};
 
 use schemars::JsonSchema;
 use serde::Serialize;
 
+use crate::capability::{capability_def, Aggregate};
 use crate::catalog::Catalog;
 use crate::cluster::{greedy_modularity_communities, modularity_q_indices};
-use crate::id::{JourneyId, ServiceId};
+use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::provenance::{AssertedSet, GroundedSet};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, Serialize, JsonSchema)]
 #[serde(transparent)]
-pub struct FeatureId(pub String);
+pub struct FeatureId(pub CapabilityId);
+
+impl PartialEq for FeatureId {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.as_str() == other.0.as_str()
+    }
+}
+
+impl Eq for FeatureId {}
+
+impl PartialOrd for FeatureId {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for FeatureId {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.0.as_str().cmp(other.0.as_str())
+    }
+}
+
+impl Hash for FeatureId {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.as_str().hash(state);
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct Feature {
     pub id: FeatureId,
-    pub aggregate: String,
+    pub aggregate: Aggregate,
     pub origin_service: ServiceId,
     pub rationale: String,
 }
@@ -27,7 +56,7 @@ pub struct FeatureCatalog {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct AggregateGroup {
-    pub aggregate: String,
+    pub aggregate: Aggregate,
     pub features: Vec<FeatureId>,
 }
 
@@ -59,13 +88,20 @@ impl FeatureCatalog {
         for service in catalog.services() {
             if let AssertedSet::Established { items } = &service.definition.capabilities {
                 for cap in items.iter() {
-                    let id = FeatureId(cap.value.to_string());
-                    let aggregate = aggregate_of(&id)
-                        .unwrap_or_else(|| panic!("unmapped capability: {}", id.0))
-                        .to_string();
+                    let id = FeatureId(cap.value);
+                    let def = capability_def(cap.value)
+                        .unwrap_or_else(|| panic!("unmapped capability: {}", cap.value.as_str()));
+                    assert_eq!(
+                        def.owner,
+                        service.id,
+                        "capability {} registry owner {:?} != declaring service {:?}",
+                        cap.value.as_str(),
+                        def.owner,
+                        service.id
+                    );
                     features.push(Feature {
                         id,
-                        aggregate,
+                        aggregate: def.aggregate,
                         origin_service: service.id,
                         rationale: cap.rationale.to_string(),
                     });
@@ -80,34 +116,34 @@ impl FeatureCatalog {
     }
 
     pub fn aggregate_view(&self) -> Vec<AggregateGroup> {
-        let mut by_aggregate: HashMap<&str, Vec<FeatureId>> = HashMap::new();
+        let mut by_aggregate: HashMap<Aggregate, Vec<FeatureId>> = HashMap::new();
         for feature in &self.features {
             by_aggregate
-                .entry(feature.aggregate.as_str())
+                .entry(feature.aggregate)
                 .or_default()
-                .push(feature.id.clone());
+                .push(feature.id);
         }
         let mut groups: Vec<AggregateGroup> = by_aggregate
             .into_iter()
             .map(|(aggregate, mut features)| {
-                features.sort_by(|left, right| left.0.cmp(&right.0));
+                features.sort();
                 AggregateGroup {
-                    aggregate: aggregate.to_string(),
+                    aggregate,
                     features,
                 }
             })
             .collect();
-        groups.sort_by(|left, right| left.aggregate.cmp(&right.aggregate));
+        groups.sort_by(|left, right| left.aggregate.as_str().cmp(right.aggregate.as_str()));
         groups
     }
 
     pub fn journey_view(&self, catalog: &Catalog) -> JourneyView {
         let n = self.features.len();
-        let index: HashMap<&FeatureId, usize> = self
+        let index: HashMap<FeatureId, usize> = self
             .features
             .iter()
             .enumerate()
-            .map(|(idx, feature)| (&feature.id, idx))
+            .map(|(idx, feature)| (feature.id, idx))
             .collect();
         let mut weights = vec![vec![0.0; n]; n];
         let mut referenced = HashSet::new();
@@ -132,11 +168,9 @@ impl FeatureCatalog {
         let mut communities: Vec<FeatureCommunity> = communities_idx
             .into_iter()
             .map(|community| {
-                let mut members: Vec<FeatureId> = community
-                    .iter()
-                    .map(|idx| self.features[*idx].id.clone())
-                    .collect();
-                members.sort_by(|left, right| left.0.cmp(&right.0));
+                let mut members: Vec<FeatureId> =
+                    community.iter().map(|idx| self.features[*idx].id).collect();
+                members.sort();
                 FeatureCommunity { members }
             })
             .collect();
@@ -146,9 +180,9 @@ impl FeatureCatalog {
             .features
             .iter()
             .filter(|feature| !referenced.contains(index.get(&feature.id).expect("feature index")))
-            .map(|feature| feature.id.clone())
+            .map(|feature| feature.id)
             .collect();
-        unreferenced_features.sort_by(|left, right| left.0.cmp(&right.0));
+        unreferenced_features.sort();
 
         JourneyView {
             communities,
@@ -159,10 +193,10 @@ impl FeatureCatalog {
 
     pub fn view_divergence(&self, catalog: &Catalog) -> Divergence {
         let journey_view = self.journey_view(catalog);
-        let feature_aggregate: HashMap<&str, &str> = self
+        let feature_aggregate: HashMap<&str, Aggregate> = self
             .features
             .iter()
-            .map(|feature| (feature.id.0.as_str(), feature.aggregate.as_str()))
+            .map(|feature| (feature.id.0.as_str(), feature.aggregate))
             .collect();
         let feature_community = feature_community_map(&journey_view.communities);
         let community_sizes: HashMap<usize, usize> = journey_view
@@ -188,42 +222,38 @@ impl FeatureCatalog {
             if community_sizes[&left_comm] < 2 {
                 continue;
             }
-            let bridge = format_aggregate_bridge(left_agg, right_agg);
-            joined_by_journey.push((left_id.clone(), right_id.clone(), bridge));
+            let bridge = format_aggregate_bridge(left_agg.as_str(), right_agg.as_str());
+            joined_by_journey.push((*left_id, *right_id, bridge));
         }
-        joined_by_journey.sort_by(|left, right| {
-            left.0
-                 .0
-                .cmp(&right.0 .0)
-                .then_with(|| left.1 .0.cmp(&right.1 .0))
-        });
+        joined_by_journey
+            .sort_by(|left, right| left.0.cmp(&right.0).then_with(|| left.1.cmp(&right.1)));
         joined_by_journey.dedup_by(|left, right| left.0 == right.0 && left.1 == right.1);
 
         let mut split_by_journey = Vec::new();
         for aggregate_group in self.aggregate_view() {
             for left in 0..aggregate_group.features.len() {
                 for right in (left + 1)..aggregate_group.features.len() {
-                    let left_id = &aggregate_group.features[left];
-                    let right_id = &aggregate_group.features[right];
-                    let left_comm = feature_community[left_id];
-                    let right_comm = feature_community[right_id];
+                    let left_id = aggregate_group.features[left];
+                    let right_id = aggregate_group.features[right];
+                    let left_comm = feature_community[&left_id];
+                    let right_comm = feature_community[&right_id];
                     if left_comm == right_comm {
                         continue;
                     }
                     if community_sizes[&left_comm] < 2 || community_sizes[&right_comm] < 2 {
                         continue;
                     }
-                    let (left_id, right_id) = ordered_pair(left_id.clone(), right_id.clone());
-                    split_by_journey.push((left_id, right_id, aggregate_group.aggregate.clone()));
+                    let (left_id, right_id) = ordered_pair(left_id, right_id);
+                    split_by_journey.push((
+                        left_id,
+                        right_id,
+                        aggregate_group.aggregate.as_str().to_string(),
+                    ));
                 }
             }
         }
-        split_by_journey.sort_by(|left, right| {
-            left.0
-                 .0
-                .cmp(&right.0 .0)
-                .then_with(|| left.1 .0.cmp(&right.1 .0))
-        });
+        split_by_journey
+            .sort_by(|left, right| left.0.cmp(&right.0).then_with(|| left.1.cmp(&right.1)));
 
         Divergence {
             split_by_journey,
@@ -239,18 +269,15 @@ impl FeatureCatalog {
 
         let mut seen_ids = HashSet::new();
         for feature in &self.features {
-            if feature.aggregate.is_empty() {
-                errors.push(format!("feature {} has empty aggregate", feature.id.0));
-            }
             if !known_services.contains(&feature.origin_service) {
                 errors.push(format!(
                     "feature {} references unknown origin_service {}",
-                    feature.id.0,
+                    feature.id.0.as_str(),
                     feature.origin_service.as_str()
                 ));
             }
-            if !seen_ids.insert(&feature.id) {
-                errors.push(format!("duplicate feature id {}", feature.id.0));
+            if !seen_ids.insert(feature.id) {
+                errors.push(format!("duplicate feature id {}", feature.id.0.as_str()));
             }
         }
 
@@ -286,15 +313,13 @@ fn index_from_features(catalog: &FeatureCatalog) -> HashMap<FeatureId, usize> {
         .features
         .iter()
         .enumerate()
-        .map(|(idx, feature)| (feature.id.clone(), idx))
+        .map(|(idx, feature)| (feature.id, idx))
         .collect()
 }
 
 fn sort_feature_communities(communities: &mut [FeatureCommunity]) {
     for community in communities.iter_mut() {
-        community
-            .members
-            .sort_by(|left, right| left.0.cmp(&right.0));
+        community.members.sort();
     }
     communities.sort_by(|left, right| {
         right.members.len().cmp(&left.members.len()).then_with(|| {
@@ -310,7 +335,7 @@ fn feature_community_map(communities: &[FeatureCommunity]) -> HashMap<FeatureId,
     let mut map = HashMap::new();
     for (idx, community) in communities.iter().enumerate() {
         for member in &community.members {
-            map.insert(member.clone(), idx);
+            map.insert(*member, idx);
         }
     }
     map
@@ -319,12 +344,12 @@ fn feature_community_map(communities: &[FeatureCommunity]) -> HashMap<FeatureId,
 fn journey_feature_indices(
     journey: &crate::journey::UserJourney,
     catalog: &Catalog,
-    index: &HashMap<&FeatureId, usize>,
+    index: &HashMap<FeatureId, usize>,
 ) -> Vec<usize> {
     let mut features = Vec::new();
     if let GroundedSet::Known { items } = &journey.capability_refs {
         for item in items.iter() {
-            let id = FeatureId(item.value.to_string());
+            let id = FeatureId(item.value);
             if let Some(&idx) = index.get(&id) {
                 features.push(idx);
             }
@@ -348,28 +373,24 @@ fn journey_cooccurrence_pairs(
     catalog: &Catalog,
     feature_index: &HashMap<FeatureId, usize>,
 ) -> HashMap<(FeatureId, FeatureId), Vec<JourneyId>> {
-    let known: HashSet<FeatureId> = feature_index.keys().cloned().collect();
-    let reverse_index: HashMap<usize, FeatureId> = feature_index
-        .iter()
-        .map(|(id, idx)| (*idx, id.clone()))
-        .collect();
-    let forward_index: HashMap<&FeatureId, usize> =
-        feature_index.iter().map(|(id, idx)| (id, *idx)).collect();
+    let known: HashSet<FeatureId> = feature_index.keys().copied().collect();
+    let reverse_index: HashMap<usize, FeatureId> =
+        feature_index.iter().map(|(id, idx)| (*idx, *id)).collect();
+    let forward_index: HashMap<FeatureId, usize> =
+        feature_index.iter().map(|(id, idx)| (*id, *idx)).collect();
     let mut pairs: HashMap<(FeatureId, FeatureId), Vec<JourneyId>> = HashMap::new();
 
     for journey in catalog.journeys() {
         let journey_features: Vec<FeatureId> =
             journey_feature_indices(journey, catalog, &forward_index)
                 .into_iter()
-                .filter_map(|idx| reverse_index.get(&idx).cloned())
+                .filter_map(|idx| reverse_index.get(&idx).copied())
                 .filter(|id| known.contains(id))
                 .collect();
         for left in 0..journey_features.len() {
             for right in (left + 1)..journey_features.len() {
-                let (pair_left, pair_right) = ordered_pair(
-                    journey_features[left].clone(),
-                    journey_features[right].clone(),
-                );
+                let (pair_left, pair_right) =
+                    ordered_pair(journey_features[left], journey_features[right]);
                 pairs
                     .entry((pair_left, pair_right))
                     .or_default()
@@ -386,7 +407,7 @@ fn journey_cooccurrence_pairs(
 }
 
 fn ordered_pair(left: FeatureId, right: FeatureId) -> (FeatureId, FeatureId) {
-    if left.0 <= right.0 {
+    if left <= right {
         (left, right)
     } else {
         (right, left)
@@ -401,142 +422,10 @@ fn format_aggregate_bridge(left: &str, right: &str) -> String {
     }
 }
 
-fn aggregate_of(id: &FeatureId) -> Option<&'static str> {
-    match id.0.as_str() {
-        "manage_autopilot_lifecycle"
-        | "select_flight_controller_board"
-        | "detect_flight_controllers"
-        | "configure_sitl_frame"
-        | "flash_firmware"
-        | "query_vehicle_firmware_info" => Some("autopilot"),
-        "manage_mavlink_router"
-        | "manage_mavlink_endpoints"
-        | "access_mavlink_over_rest"
-        | "inspect_live_mavlink_messages"
-        | "advertise_cameras_over_mavlink" => Some("mavlink"),
-        "list_detected_ping_sensors"
-        | "connect_ping_viewer_to_sonar"
-        | "enable_ping1d_mavlink_distance" => Some("sonar"),
-        "create_nmea_socket" | "remove_nmea_socket" | "list_nmea_sockets" => Some("gps_nmea"),
-        "create_serial_to_udp_bridge"
-        | "remove_serial_bridge"
-        | "list_configured_serial_bridges"
-        | "manage_serial_ports" => Some("serial_bridge"),
-        "configure_camera_stream"
-        | "remove_camera_stream"
-        | "view_camera_streams"
-        | "configure_legacy_camera"
-        | "configure_uvc_device_controls"
-        | "provide_webrtc_signalling" => Some("camera"),
-        "record_vehicle_data_stream"
-        | "browse_video_recordings"
-        | "download_video_recording"
-        | "delete_video_recording" => Some("recording"),
-        "list_network_interfaces"
-        | "list_ethernet_interfaces"
-        | "set_interface_priority"
-        | "assign_static_ip"
-        | "acquire_dynamic_ip"
-        | "get_interface_routes"
-        | "configure_host_dns"
-        | "retrieve_host_dns"
-        | "enable_dhcp_server"
-        | "disable_dhcp_server"
-        | "get_dhcp_server_leases"
-        | "get_dhcp_server_details" => Some("wired_network"),
-        "scan_wifi_networks"
-        | "connect_wifi_network"
-        | "disconnect_wifi_network"
-        | "list_saved_wifi_networks"
-        | "remove_saved_wifi_network"
-        | "get_wifi_status"
-        | "toggle_hotspot"
-        | "toggle_smart_hotspot"
-        | "set_hotspot_credentials"
-        | "get_hotspot_status" => Some("wireless_network"),
-        "run_lan_speed_test"
-        | "run_internet_speed_test"
-        | "serve_iperf_bandwidth_test"
-        | "probe_interface_connectivity"
-        | "check_internet_connectivity"
-        | "report_client_ip" => Some("net_diagnostics"),
-        "advertise_mdns_domains"
-        | "list_mdns_domains"
-        | "set_mdns_hostname"
-        | "get_mdns_hostname"
-        | "set_vehicle_name"
-        | "get_vehicle_name"
-        | "discover_web_services"
-        | "register_web_service"
-        | "report_hardware_id"
-        | "report_software_id" => Some("identity_discovery"),
-        "update_blueos_version"
-        | "switch_blueos_version"
-        | "pull_blueos_version"
-        | "list_remote_blueos_versions"
-        | "list_local_blueos_versions"
-        | "get_current_blueos_version"
-        | "delete_local_blueos_version"
-        | "update_bootstrap_image"
-        | "get_current_bootstrap_version"
-        | "reset_blueos_settings" => Some("versioning"),
-        "install_extension"
-        | "uninstall_extension"
-        | "configure_extension"
-        | "manage_extension_lifecycle"
-        | "manage_manifests"
-        | "browse_extension_store"
-        | "docker_registry_login"
-        | "list_docker_accounts" => Some("extensions"),
-        "inspect_disk_usage"
-        | "navigate_disk_usage"
-        | "run_disk_speed_test"
-        | "run_multi_size_disk_speed_test"
-        | "delete_disk_paths" => Some("storage"),
-        "manage_blueos_files"
-        | "serve_webdav_uploads"
-        | "set_bag_value"
-        | "get_bag_value"
-        | "overwrite_bag_store"
-        | "edit_bag_json_store" => Some("files_kv"),
-        "upload_branding_logo"
-        | "get_branding_logo"
-        | "remove_branding_logo"
-        | "upload_branding_vehicle_image"
-        | "get_branding_vehicle_image"
-        | "remove_branding_vehicle_image"
-        | "set_theme_color"
-        | "reset_theme_color"
-        | "get_theme_configuration"
-        | "upload_model_override"
-        | "list_model_overrides"
-        | "delete_model_override"
-        | "serve_frontend_spa"
-        | "access_blueos_web_interface" => Some("branding_ui"),
-        "run_host_command"
-        | "shutdown_onboard_computer"
-        | "reboot_onboard_computer"
-        | "sync_system_time"
-        | "setup_ssh"
-        | "provide_system_information_over_rest"
-        | "view_system_information"
-        | "update_raspberry_eeprom"
-        | "inspect_raspberry_eeprom" => Some("host_control"),
-        "access_web_terminal"
-        | "provide_shell_over_websocket"
-        | "provide_interactive_root_shell" => Some("shell_access"),
-        "route_pubsub_messages"
-        | "inspect_zenoh_network"
-        | "reverse_proxy_backend_services"
-        | "reload_nginx"
-        | "cache_external_http" => Some("platform_infra"),
-        _ => None,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::id::CapabilityId;
     use crate::provenance::AssertedSet;
 
     const EXPECTED_FEATURE_COUNT: usize = 129;
@@ -603,8 +492,8 @@ mod tests {
         let catalog = Catalog::bootstrap();
         let features = FeatureCatalog::from_catalog(&catalog);
         let view = features.journey_view(&catalog);
-        let flash = FeatureId("flash_firmware".to_string());
-        let detect = FeatureId("detect_flight_controllers".to_string());
+        let flash = FeatureId(CapabilityId::FlashFirmware);
+        let detect = FeatureId(CapabilityId::DetectFlightControllers);
         let flash_community = view
             .communities
             .iter()

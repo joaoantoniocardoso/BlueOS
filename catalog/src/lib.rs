@@ -1,3 +1,4 @@
+pub mod capability;
 pub mod catalog;
 pub mod cluster;
 pub mod criticality;
@@ -24,6 +25,7 @@ pub mod state;
 pub mod trust;
 pub mod validate;
 
+pub use capability::{Aggregate, CapabilityDef, CAPABILITIES};
 pub use catalog::{Catalog, CouplingMatrix};
 pub use cluster::{
     ClusterPolicy, ClusterResult, CouplingWeights, StabilityReport, WEIGHTS_VERSION,
@@ -38,7 +40,7 @@ pub use extract::{check_against_observed, extract_from_repo, ExtractedService};
 pub use feature::{
     AggregateGroup, Divergence, Feature, FeatureCatalog, FeatureCommunity, FeatureId, JourneyView,
 };
-pub use id::{CapabilityId, JourneyId, PathRef, Port, PortRef, ServiceId};
+pub use id::{CapabilityId, Entity, JourneyId, PathRef, Port, PortRef, ServiceId};
 pub use interface::{FileAccessMode, Interface, MavlinkRole};
 pub use journey::{
     Actor, HttpMethod, JourneyStep, NetworkState, Precondition, RouteRef, StateTransition,
