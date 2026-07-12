@@ -7,6 +7,9 @@ mod commander;
 mod customization;
 mod disk_usage;
 mod filebrowser;
+mod frontend_calibration;
+mod frontend_parameters;
+mod frontend_video;
 mod helper;
 mod iperf3;
 mod kraken;
@@ -38,6 +41,9 @@ pub fn all_journeys() -> Vec<UserJourney> {
         customization::JOURNEYS,
         disk_usage::JOURNEYS,
         filebrowser::JOURNEYS,
+        frontend_calibration::JOURNEYS,
+        frontend_parameters::JOURNEYS,
+        frontend_video::JOURNEYS,
         helper::JOURNEYS,
         iperf3::JOURNEYS,
         kraken::JOURNEYS,

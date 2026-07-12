@@ -2,6 +2,7 @@ use schemars::JsonSchema;
 use serde::Serialize;
 
 use crate::id::{CapabilityId, JourneyId, PathRef, ServiceId};
+use crate::page::PageId;
 use crate::provenance::{Grounded, GroundedSet};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
@@ -55,6 +56,9 @@ pub enum Actor {
     Operator,
     Service(ServiceId),
     Subprocess(&'static str),
+    /// A step driven by client-side (browser) logic on a given page — the 1.x
+    /// pattern where a wizard/sequence runs in the frontend rather than a service.
+    Frontend(PageId),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]

@@ -30,11 +30,20 @@ Do not put a doc claim under `Source`, a source fact under `Doc`, or assert a ru
 A journey is a join table; `Catalog::validate()` must reject dangling references:
 
 - Every `RouteRef.service` and every `services` item is a known `ServiceId`.
-- Every `capability_refs` item exists in a participating service's `capabilities`.
+- Every `capability_refs` item exists in a participating service's `capabilities` **or** is a registered frontend-origin capability (`capability::FRONTEND_CAPABILITIES`).
 - Every `transition.{from,to}` state exists in a `StateMachine` of a participating service.
 - Every `chains_from` is a known `JourneyId`.
 
 Adding a journey field that references services/routes/states/capabilities **requires** a matching `validate()` check; a reference with no check is not allowed.
+
+## Frontend (client-driven) journeys
+
+BlueOS 1.x implements whole flows in the browser (calibration wizards, parameter-file apply, video-stream configuration). Model these as first-class `UserJourney`s, not just as `Page.frontend_features`:
+
+- Use `Actor::Frontend(PageId)` for steps executed by client-side logic (a wizard sending a MAVLink command via mavlink2rest, deriving status from cached params, sequencing orientations). Keep `Actor::Operator` for physical/UI actions and `Actor::Service(_)` for backend/autopilot execution.
+- `capability_refs` point at the frontend-origin capabilities (owned by a `PageId` in `FRONTEND_CAPABILITIES`); `services` still lists the real backend services the wizard talks to, each `Source`-grounded to the Vue `file:line` that makes the call.
+- Ground steps by **triangulation**: `Doc` (operator intent in `../BlueOS-docs`) + `Source` (the Vue component `file:line`). A wizard step's `outcome` stays `Grounded::unknown(...)` unless a live run on the Pi captured it (mutating flows are not fabricated).
+- The journey's home page is implicit in its `Actor::Frontend(PageId)` steps — no separate page field is added (parse-don't-validate: the `PageId` enum already guarantees a real page).
 
 ## Never
 

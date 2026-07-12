@@ -102,6 +102,14 @@ JourneyStep {
 }
 ```
 
+## Frontend (client-driven) journeys
+
+Some flows live in the browser (calibration wizards, parameter-file apply, video-stream config), not a backend service. Model them the same way, with two differences:
+
+- Use `Actor::Frontend(PageId::…)` for browser-driven steps (sending a MAVLink command via mavlink2rest, deriving status from cached params, sequencing a wizard). Keep `Actor::Operator` for physical/UI actions.
+- `capability_refs` point at frontend-origin capabilities (registered in `capability::FRONTEND_CAPABILITIES`, owned by a `PageId`). `services` still lists the real backend services the wizard calls, each `Source`-grounded to the Vue `file:line`.
+- Triangulate `Doc` (operator intent) + `Source` (the Vue component `file:line`). Wizard `outcome`s stay `Grounded::unknown(...)` unless a live run on the Pi captured them — never fabricate a mutating result.
+
 ## Done criteria (self-check before returning)
 
 - [ ] Every journey and every doc-grounded field resolves to a real `content/…:LINE` in `../BlueOS-docs` (open it and confirm).

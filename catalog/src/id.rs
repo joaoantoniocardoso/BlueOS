@@ -775,6 +775,8 @@ pub enum JourneyId {
     AddCustomManifest,
     #[serde(rename = "add_external_nmea_gps_socket")]
     AddExternalNmeaGpsSocket,
+    #[serde(rename = "apply_parameter_file")]
+    ApplyParameterFile,
     #[serde(rename = "assign_static_ip_address")]
     AssignStaticIpAddress,
     #[serde(rename = "browse_available_web_services")]
@@ -783,6 +785,14 @@ pub enum JourneyId {
     BrowseExtensionStore,
     #[serde(rename = "browse_video_recordings")]
     BrowseVideoRecordings,
+    #[serde(rename = "calibrate_accelerometer")]
+    CalibrateAccelerometer,
+    #[serde(rename = "calibrate_barometer")]
+    CalibrateBarometer,
+    #[serde(rename = "calibrate_compass")]
+    CalibrateCompass,
+    #[serde(rename = "calibrate_gyroscope")]
+    CalibrateGyroscope,
     #[serde(rename = "change_board")]
     ChangeBoard,
     #[serde(rename = "change_mdns_hostname")]
@@ -799,6 +809,8 @@ pub enum JourneyId {
     ConfigureInstalledExtension,
     #[serde(rename = "configure_uvc_device_controls")]
     ConfigureUvcDeviceControls,
+    #[serde(rename = "configure_video_stream")]
+    ConfigureVideoStream,
     #[serde(rename = "connect_ping_viewer_to_sonar")]
     ConnectPingViewerToSonar,
     #[serde(rename = "connect_to_wifi_network")]
@@ -813,6 +825,8 @@ pub enum JourneyId {
     DeleteVideoRecording,
     #[serde(rename = "deploy")]
     Deploy,
+    #[serde(rename = "detect_motor_directions")]
+    DetectMotorDirections,
     #[serde(rename = "disable_onboard_dhcp_server")]
     DisableOnboardDhcpServer,
     #[serde(rename = "disconnect_from_wifi_network")]
@@ -847,6 +861,8 @@ pub enum JourneyId {
     InstallCustomExtension,
     #[serde(rename = "install_extension")]
     InstallExtension,
+    #[serde(rename = "level_horizon")]
+    LevelHorizon,
     #[serde(rename = "manage_blueos_files")]
     ManageBlueosFiles,
     #[serde(rename = "modify_bag_database")]
@@ -942,16 +958,21 @@ pub enum JourneyId {
 }
 
 impl JourneyId {
-    pub const ALL: [JourneyId; 87] = [
+    pub const ALL: [JourneyId; 95] = [
         JourneyId::AccessBlueosWebInterface,
         JourneyId::AccessWebTerminal,
         JourneyId::AcquireDynamicIpAddress,
         JourneyId::AddCustomManifest,
         JourneyId::AddExternalNmeaGpsSocket,
+        JourneyId::ApplyParameterFile,
         JourneyId::AssignStaticIpAddress,
         JourneyId::BrowseAvailableWebServices,
         JourneyId::BrowseExtensionStore,
         JourneyId::BrowseVideoRecordings,
+        JourneyId::CalibrateAccelerometer,
+        JourneyId::CalibrateBarometer,
+        JourneyId::CalibrateCompass,
+        JourneyId::CalibrateGyroscope,
         JourneyId::ChangeBoard,
         JourneyId::ChangeMdnsHostname,
         JourneyId::ChangeUiThemeColor,
@@ -960,6 +981,7 @@ impl JourneyId {
         JourneyId::ConfigureHotspotCredentials,
         JourneyId::ConfigureInstalledExtension,
         JourneyId::ConfigureUvcDeviceControls,
+        JourneyId::ConfigureVideoStream,
         JourneyId::ConnectPingViewerToSonar,
         JourneyId::ConnectToWifiNetwork,
         JourneyId::CreateSerialToUdpBridge,
@@ -967,6 +989,7 @@ impl JourneyId {
         JourneyId::DeleteLocalBlueosVersion,
         JourneyId::DeleteVideoRecording,
         JourneyId::Deploy,
+        JourneyId::DetectMotorDirections,
         JourneyId::DisableOnboardDhcpServer,
         JourneyId::DisconnectFromWifiNetwork,
         JourneyId::DiscoverBlueosOnNetwork,
@@ -984,6 +1007,7 @@ impl JourneyId {
         JourneyId::InspectZenohNetwork,
         JourneyId::InstallCustomExtension,
         JourneyId::InstallExtension,
+        JourneyId::LevelHorizon,
         JourneyId::ManageBlueosFiles,
         JourneyId::ModifyBagDatabase,
         JourneyId::MonitorInternetConnectivity,
@@ -1039,10 +1063,15 @@ impl JourneyId {
             JourneyId::AcquireDynamicIpAddress => "acquire_dynamic_ip_address",
             JourneyId::AddCustomManifest => "add_custom_manifest",
             JourneyId::AddExternalNmeaGpsSocket => "add_external_nmea_gps_socket",
+            JourneyId::ApplyParameterFile => "apply_parameter_file",
             JourneyId::AssignStaticIpAddress => "assign_static_ip_address",
             JourneyId::BrowseAvailableWebServices => "browse_available_web_services",
             JourneyId::BrowseExtensionStore => "browse_extension_store",
             JourneyId::BrowseVideoRecordings => "browse_video_recordings",
+            JourneyId::CalibrateAccelerometer => "calibrate_accelerometer",
+            JourneyId::CalibrateBarometer => "calibrate_barometer",
+            JourneyId::CalibrateCompass => "calibrate_compass",
+            JourneyId::CalibrateGyroscope => "calibrate_gyroscope",
             JourneyId::ChangeBoard => "change_board",
             JourneyId::ChangeMdnsHostname => "change_mdns_hostname",
             JourneyId::ChangeUiThemeColor => "change_ui_theme_color",
@@ -1051,6 +1080,7 @@ impl JourneyId {
             JourneyId::ConfigureHotspotCredentials => "configure_hotspot_credentials",
             JourneyId::ConfigureInstalledExtension => "configure_installed_extension",
             JourneyId::ConfigureUvcDeviceControls => "configure_uvc_device_controls",
+            JourneyId::ConfigureVideoStream => "configure_video_stream",
             JourneyId::ConnectPingViewerToSonar => "connect_ping_viewer_to_sonar",
             JourneyId::ConnectToWifiNetwork => "connect_to_wifi_network",
             JourneyId::CreateSerialToUdpBridge => "create_serial_to_udp_bridge",
@@ -1058,6 +1088,7 @@ impl JourneyId {
             JourneyId::DeleteLocalBlueosVersion => "delete_local_blueos_version",
             JourneyId::DeleteVideoRecording => "delete_video_recording",
             JourneyId::Deploy => "deploy",
+            JourneyId::DetectMotorDirections => "detect_motor_directions",
             JourneyId::DisableOnboardDhcpServer => "disable_onboard_dhcp_server",
             JourneyId::DisconnectFromWifiNetwork => "disconnect_from_wifi_network",
             JourneyId::DiscoverBlueosOnNetwork => "discover_blueos_on_network",
@@ -1075,6 +1106,7 @@ impl JourneyId {
             JourneyId::InspectZenohNetwork => "inspect_zenoh_network",
             JourneyId::InstallCustomExtension => "install_custom_extension",
             JourneyId::InstallExtension => "install_extension",
+            JourneyId::LevelHorizon => "level_horizon",
             JourneyId::ManageBlueosFiles => "manage_blueos_files",
             JourneyId::ModifyBagDatabase => "modify_bag_database",
             JourneyId::MonitorInternetConnectivity => "monitor_internet_connectivity",

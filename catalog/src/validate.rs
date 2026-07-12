@@ -245,7 +245,8 @@ fn check_journey_references(catalog: &Catalog) -> Vec<ValidationError> {
                     &item.value,
                     &participating,
                     &service_index,
-                ) {
+                ) && !is_frontend_capability(&item.value)
+                {
                     errors.push(ValidationError::UnknownJourneyCapability {
                         journey: journey_id.clone(),
                         capability: item.value.to_string(),
@@ -298,6 +299,10 @@ fn participating_service_ids(journey: &UserJourney) -> Vec<&ServiceId> {
         GroundedSet::Known { items } => items.iter().map(|item| &item.value).collect(),
         GroundedSet::Unknown { .. } => Vec::new(),
     }
+}
+
+fn is_frontend_capability(capability: &CapabilityId) -> bool {
+    crate::capability::frontend_capability_def(*capability).is_some()
 }
 
 fn capability_in_participating_services(
