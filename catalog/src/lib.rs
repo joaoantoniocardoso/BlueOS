@@ -10,6 +10,7 @@ pub mod feature;
 pub mod id;
 pub mod interface;
 pub mod journey;
+pub mod journey_group;
 pub mod journeys;
 pub mod lifecycle;
 pub mod observed;
@@ -21,6 +22,7 @@ pub mod resource;
 pub mod runtime;
 pub mod service;
 pub mod services;
+pub mod split;
 pub mod state;
 pub mod trust;
 pub mod validate;
@@ -39,8 +41,8 @@ pub use edge::{Bus, Edge, FailureImpact, SyncMode};
 pub use export::{export_json, export_mermaid, export_proposals_json, export_schema};
 pub use extract::{check_against_observed, extract_from_repo, ExtractedService};
 pub use feature::{
-    AggregateGroup, Divergence, Feature, FeatureCatalog, FeatureCommunity, FeatureId, JourneyView,
-    Origin,
+    AggregateGroup, Divergence, Feature, FeatureCatalog, FeatureCommunity, FeatureId, FeatureLens,
+    FeaturePairAgreement, FeatureSplitConsensus, JourneyView, Origin,
 };
 pub use id::{CapabilityId, Entity, JourneyId, PathRef, Port, PortRef, ServiceId};
 pub use interface::{FileAccessMode, Interface, MavlinkRole};
@@ -48,6 +50,7 @@ pub use journey::{
     Actor, HttpMethod, JourneyStep, NetworkState, Precondition, RouteRef, StateTransition,
     StepOutcome, UserJourney, Visibility,
 };
+pub use journey_group::{JourneyLens, JourneyPairAgreement, JourneySplitConsensus};
 pub use lifecycle::{Lifecycle, ObservedLifecycle};
 pub use observed::{ObservedFacts, ResourceLimits, ServiceKind, StartupTier};
 pub use page::{ClientState, ConsumeTarget, Page, PageId, PageServiceCall, StateOwnership};

@@ -9,8 +9,9 @@ use crate::capability::{capability_def, Aggregate, CAPABILITIES, FRONTEND_CAPABI
 use crate::catalog::Catalog;
 use crate::cluster::{greedy_modularity_communities, modularity_q_indices};
 use crate::id::{CapabilityId, JourneyId, ServiceId};
-use crate::page::PageId;
-use crate::provenance::{AssertedSet, GroundedSet};
+use crate::page::{ConsumeTarget, PageId};
+use crate::provenance::{AssertedSet, GroundedSet, ObservedSet};
+use crate::split::{clique_weights, consensus_over, group_by_key, modularity_partition};
 
 #[derive(Debug, Clone, Copy, Serialize, JsonSchema)]
 #[serde(transparent)]
@@ -84,6 +85,32 @@ pub struct JourneyView {
 pub struct Divergence {
     pub split_by_journey: Vec<(FeatureId, FeatureId, String)>,
     pub joined_by_journey: Vec<(FeatureId, FeatureId, String)>,
+}
+
+/// One feature-grouping approach: a partition of all features by a single lens.
+/// `modularity` is `Some` for clustering lenses, `None` for label lenses.
+#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
+pub struct FeatureLens {
+    pub lens: &'static str,
+    pub groups: Vec<Vec<FeatureId>>,
+    pub modularity: Option<f64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
+pub struct FeaturePairAgreement {
+    pub a: FeatureId,
+    pub b: FeatureId,
+    pub agree: usize,
+    pub total: usize,
+}
+
+/// Cross-lens consensus over feature groupings. Input for M4, not a decision.
+#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
+pub struct FeatureSplitConsensus {
+    pub lenses: Vec<FeatureLens>,
+    pub pair_agreement: Vec<FeaturePairAgreement>,
+    pub majority_threshold: usize,
+    pub consensus_clusters: Vec<Vec<FeatureId>>,
 }
 
 impl FeatureCatalog {
@@ -305,6 +332,145 @@ impl FeatureCatalog {
         }
     }
 
+    /// Group features through four independent lenses and reconcile them by consensus:
+    /// `aggregate` (entity the feature acts on), `origin` (owning service/page today),
+    /// `journey_cooccurrence` (features used together in a workflow), and
+    /// `page_reachability` (features surfaced together through one frontend page).
+    pub fn split_consensus(&self, catalog: &Catalog) -> FeatureSplitConsensus {
+        let n = self.features.len();
+        let ids: Vec<FeatureId> = self.features.iter().map(|feature| feature.id).collect();
+        let index: HashMap<FeatureId, usize> =
+            ids.iter().enumerate().map(|(idx, id)| (*id, idx)).collect();
+
+        let aggregate_keys: Vec<&str> = self
+            .features
+            .iter()
+            .map(|feature| feature.aggregate.as_str())
+            .collect();
+        let aggregate_groups = group_by_key(&aggregate_keys);
+
+        let origin_keys: Vec<String> = self
+            .features
+            .iter()
+            .map(|feature| origin_key(&feature.origin))
+            .collect();
+        let origin_groups = group_by_key(&origin_keys);
+
+        let journey_weights = self.journey_feature_weights(catalog, &index);
+        let (journey_groups, journey_q) = modularity_partition(n, &journey_weights);
+
+        let page_weights = self.page_feature_weights(catalog, &index);
+        let (page_groups, page_q) = modularity_partition(n, &page_weights);
+
+        let partitions = vec![
+            aggregate_groups.clone(),
+            origin_groups.clone(),
+            journey_groups.clone(),
+            page_groups.clone(),
+        ];
+        let consensus = consensus_over(&partitions, n);
+
+        let lenses = vec![
+            FeatureLens {
+                lens: "aggregate",
+                groups: map_feature_groups(&aggregate_groups, &ids),
+                modularity: None,
+            },
+            FeatureLens {
+                lens: "origin",
+                groups: map_feature_groups(&origin_groups, &ids),
+                modularity: None,
+            },
+            FeatureLens {
+                lens: "journey_cooccurrence",
+                groups: map_feature_groups(&journey_groups, &ids),
+                modularity: Some(journey_q),
+            },
+            FeatureLens {
+                lens: "page_reachability",
+                groups: map_feature_groups(&page_groups, &ids),
+                modularity: Some(page_q),
+            },
+        ];
+
+        let pair_agreement = consensus
+            .pair_agreement
+            .iter()
+            .map(|(i, j, agree)| FeaturePairAgreement {
+                a: ids[*i],
+                b: ids[*j],
+                agree: *agree,
+                total: consensus.total,
+            })
+            .collect();
+        let consensus_clusters = map_feature_groups(&consensus.clusters, &ids);
+
+        FeatureSplitConsensus {
+            lenses,
+            pair_agreement,
+            majority_threshold: consensus.majority_threshold,
+            consensus_clusters,
+        }
+    }
+
+    fn journey_feature_weights(
+        &self,
+        catalog: &Catalog,
+        index: &HashMap<FeatureId, usize>,
+    ) -> Vec<Vec<f64>> {
+        let sets: Vec<Vec<usize>> = catalog
+            .journeys()
+            .iter()
+            .map(|journey| journey_feature_indices(journey, catalog, index))
+            .filter(|set| set.len() >= 2)
+            .collect();
+        clique_weights(self.features.len(), &sets)
+    }
+
+    fn page_feature_weights(
+        &self,
+        catalog: &Catalog,
+        index: &HashMap<FeatureId, usize>,
+    ) -> Vec<Vec<f64>> {
+        let mut service_features: HashMap<ServiceId, Vec<usize>> = HashMap::new();
+        for (idx, feature) in self.features.iter().enumerate() {
+            if let Origin::BackendService(service) = feature.origin {
+                service_features.entry(service).or_default().push(idx);
+            }
+        }
+
+        let mut sets: Vec<Vec<usize>> = Vec::new();
+        for page in catalog.pages() {
+            let mut members: Vec<usize> = Vec::new();
+            if let AssertedSet::Established { items } = &page.frontend_features {
+                for item in items.iter() {
+                    if let Some(&idx) = index.get(&FeatureId(item.value)) {
+                        if !members.contains(&idx) {
+                            members.push(idx);
+                        }
+                    }
+                }
+            }
+            if let ObservedSet::Known { items } = &page.consumes {
+                for item in items.iter() {
+                    if let ConsumeTarget::Service(service) = item.value.service {
+                        if let Some(feature_idxs) = service_features.get(&service) {
+                            for &idx in feature_idxs {
+                                if !members.contains(&idx) {
+                                    members.push(idx);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if members.len() >= 2 {
+                sets.push(members);
+            }
+        }
+        clique_weights(self.features.len(), &sets)
+    }
+
     pub fn validate(&self, catalog: &Catalog) -> Result<(), Vec<String>> {
         let mut errors = Vec::new();
         let known_services: HashSet<&ServiceId> =
@@ -489,6 +655,32 @@ fn journey_cooccurrence_pairs(
     pairs
 }
 
+fn origin_key(origin: &Origin) -> String {
+    match origin {
+        Origin::BackendService(service) => format!("service:{}", service.as_str()),
+        Origin::FrontendPage(page) => format!("page:{}", page.as_str()),
+    }
+}
+
+fn map_feature_groups(groups: &[Vec<usize>], ids: &[FeatureId]) -> Vec<Vec<FeatureId>> {
+    let mut out: Vec<Vec<FeatureId>> = groups
+        .iter()
+        .map(|group| {
+            let mut members: Vec<FeatureId> = group.iter().map(|&idx| ids[idx]).collect();
+            members.sort();
+            members
+        })
+        .collect();
+    out.sort_by(|left, right| {
+        right.len().cmp(&left.len()).then_with(|| {
+            left.first()
+                .map(|id| id.0.as_str())
+                .cmp(&right.first().map(|id| id.0.as_str()))
+        })
+    });
+    out
+}
+
 fn ordered_pair(left: FeatureId, right: FeatureId) -> (FeatureId, FeatureId) {
     if left <= right {
         (left, right)
@@ -634,6 +826,53 @@ mod tests {
         let features = FeatureCatalog::from_catalog(&catalog);
         let divergence = features.view_divergence(&catalog);
         assert!(!divergence.joined_by_journey.is_empty());
+    }
+
+    #[test]
+    fn feature_split_lenses_each_partition_all_features() {
+        let catalog = Catalog::bootstrap();
+        let features = FeatureCatalog::from_catalog(&catalog);
+        let split = features.split_consensus(&catalog);
+        assert_eq!(split.lenses.len(), 4);
+        assert_eq!(split.majority_threshold, 3);
+        for lens in &split.lenses {
+            let mut seen = HashSet::new();
+            let mut total = 0;
+            for group in &lens.groups {
+                for id in group {
+                    assert!(seen.insert(*id), "duplicate feature in lens {}", lens.lens);
+                    total += 1;
+                }
+            }
+            assert_eq!(
+                total, EXPECTED_FEATURE_COUNT,
+                "lens {} missing features",
+                lens.lens
+            );
+        }
+    }
+
+    #[test]
+    fn feature_split_consensus_is_deterministic() {
+        let catalog = Catalog::bootstrap();
+        let features = FeatureCatalog::from_catalog(&catalog);
+        assert_eq!(
+            features.split_consensus(&catalog),
+            features.split_consensus(&catalog)
+        );
+    }
+
+    #[test]
+    fn feature_split_consensus_agreement_bounds_and_partition() {
+        let catalog = Catalog::bootstrap();
+        let features = FeatureCatalog::from_catalog(&catalog);
+        let split = features.split_consensus(&catalog);
+        for pair in &split.pair_agreement {
+            assert!(pair.agree >= 1 && pair.agree <= pair.total);
+            assert_eq!(pair.total, 4);
+        }
+        let total: usize = split.consensus_clusters.iter().map(|c| c.len()).sum();
+        assert_eq!(total, EXPECTED_FEATURE_COUNT);
     }
 
     #[test]
