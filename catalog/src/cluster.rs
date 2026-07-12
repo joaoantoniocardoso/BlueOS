@@ -7,7 +7,8 @@ use crate::catalog::Catalog;
 use crate::catalog::CouplingMatrix;
 use crate::edge::{Bus, Edge, FailureImpact};
 use crate::id::{PathRef, ServiceId};
-use crate::provenance::{Asserted, AssertedSet};
+use crate::page::ConsumeTarget;
+use crate::provenance::{Asserted, AssertedSet, Grounded, GroundedSet, ObservedSet};
 use crate::resource::ResourceOwnership;
 use crate::service::ServiceDefinition;
 
@@ -83,6 +84,36 @@ pub struct StabilityReport {
     pub jitter: f64,
     pub co_occurrence: Vec<Vec<f64>>,
     pub unstable_pairs: Vec<(ServiceId, ServiceId, f64)>,
+}
+
+/// One split "approach": a service partition produced by a single lens. The label
+/// identifies the signal (structural coupling policy, page co-occurrence, or journey
+/// co-occurrence) so partitions from different lenses can be compared side by side.
+#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
+pub struct LensPartition {
+    pub lens: &'static str,
+    pub communities: Vec<Vec<ServiceId>>,
+    pub modularity: f64,
+}
+
+/// How often a service pair lands in the same community across the lenses.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
+pub struct PairAgreement {
+    pub a: ServiceId,
+    pub b: ServiceId,
+    pub agree: usize,
+    pub total: usize,
+}
+
+/// Cross-lens consensus: every lens partition, the pairwise agreement counts, and the
+/// consensus clusters formed by keeping only pairs agreed on by a majority of lenses.
+/// This is decision *input* for M4, not a boundary decision.
+#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
+pub struct SplitConsensus {
+    pub lenses: Vec<LensPartition>,
+    pub pair_agreement: Vec<PairAgreement>,
+    pub majority_threshold: usize,
+    pub consensus_clusters: Vec<Vec<ServiceId>>,
 }
 
 impl Catalog {
@@ -182,6 +213,258 @@ impl Catalog {
             self.cluster(ClusterPolicy::CouplingDomain),
         ]
     }
+
+    /// Service affinity from the frontend: two services that a page consumes together
+    /// gain +1 per shared page. Captures "which services the operator uses together",
+    /// a signal invisible to the structural edge graph.
+    pub fn page_cooccurrence_matrix(&self) -> CouplingMatrix {
+        let service_ids = all_service_ids(self);
+        let index = index_of(&service_ids);
+        let mut groups: Vec<Vec<usize>> = Vec::new();
+        for page in self.pages() {
+            if let ObservedSet::Known { items } = &page.consumes {
+                let mut members: Vec<usize> = Vec::new();
+                for item in items.iter() {
+                    if let ConsumeTarget::Service(sid) = item.value.service {
+                        if let Some(&idx) = index.get(&sid) {
+                            if !members.contains(&idx) {
+                                members.push(idx);
+                            }
+                        }
+                    }
+                }
+                if members.len() >= 2 {
+                    groups.push(members);
+                }
+            }
+        }
+        cooccurrence_matrix(service_ids, &groups)
+    }
+
+    /// Service affinity from workflows: two services that co-participate in a journey
+    /// (via `services` or a step `route`) gain +1 per shared journey. Captures
+    /// "which services collaborate to accomplish one operator goal".
+    pub fn journey_cooccurrence_matrix(&self) -> CouplingMatrix {
+        let service_ids = all_service_ids(self);
+        let index = index_of(&service_ids);
+        let mut groups: Vec<Vec<usize>> = Vec::new();
+        for journey in self.journeys() {
+            let mut members: Vec<usize> = Vec::new();
+            if let GroundedSet::Known { items } = &journey.services {
+                for item in items.iter() {
+                    push_unique(&index, &mut members, item.value);
+                }
+            }
+            if let GroundedSet::Known { items } = &journey.steps {
+                for item in items.iter() {
+                    if let Some(Grounded::Known { value: route, .. }) = &item.value.route {
+                        push_unique(&index, &mut members, route.service);
+                    }
+                }
+            }
+            if members.len() >= 2 {
+                groups.push(members);
+            }
+        }
+        cooccurrence_matrix(service_ids, &groups)
+    }
+
+    /// All service-level split lenses: the three structural coupling policies plus the
+    /// two co-occurrence lenses. Each returns a partition over the same 26 services.
+    pub fn split_lenses(&self) -> Vec<LensPartition> {
+        let mut lenses = Vec::new();
+        for policy in [
+            ClusterPolicy::CouplingOnly,
+            ClusterPolicy::CouplingTrust,
+            ClusterPolicy::CouplingDomain,
+        ] {
+            let result = self.cluster(policy);
+            lenses.push(LensPartition {
+                lens: policy_label(policy),
+                communities: result.communities,
+                modularity: result.modularity,
+            });
+        }
+        let (communities, modularity) = greedy_modularity_cluster(&self.page_cooccurrence_matrix());
+        lenses.push(LensPartition {
+            lens: "page_cooccurrence",
+            communities,
+            modularity,
+        });
+        let (communities, modularity) =
+            greedy_modularity_cluster(&self.journey_cooccurrence_matrix());
+        lenses.push(LensPartition {
+            lens: "journey_cooccurrence",
+            communities,
+            modularity,
+        });
+        lenses
+    }
+
+    /// Cross-lens consensus over all split lenses. Emits, per service pair, how many
+    /// lenses grouped them together, and the consensus clusters formed by keeping only
+    /// majority-agreed pairs (connected components). Input for M4, not a decision.
+    pub fn split_consensus(&self) -> SplitConsensus {
+        let lenses = self.split_lenses();
+        let total = lenses.len();
+        let service_ids = all_service_ids(self);
+        let index = index_of(&service_ids);
+        let n = service_ids.len();
+
+        let memberships: Vec<Vec<usize>> = lenses
+            .iter()
+            .map(|lens| membership_vec(&lens.communities, &index, n))
+            .collect();
+
+        let mut pair_agreement = Vec::new();
+        let mut agree_matrix = vec![vec![0usize; n]; n];
+        for i in 0..n {
+            for j in (i + 1)..n {
+                let agree = memberships
+                    .iter()
+                    .filter(|m| m[i] == m[j] && m[i] != usize::MAX)
+                    .count();
+                agree_matrix[i][j] = agree;
+                agree_matrix[j][i] = agree;
+                if agree > 0 {
+                    pair_agreement.push(PairAgreement {
+                        a: service_ids[i],
+                        b: service_ids[j],
+                        agree,
+                        total,
+                    });
+                }
+            }
+        }
+        pair_agreement.sort_by(|left, right| {
+            right
+                .agree
+                .cmp(&left.agree)
+                .then_with(|| left.a.as_str().cmp(right.a.as_str()))
+                .then_with(|| left.b.as_str().cmp(right.b.as_str()))
+        });
+
+        let majority_threshold = total / 2 + 1;
+        let consensus_clusters =
+            connected_components(&service_ids, &agree_matrix, majority_threshold);
+
+        SplitConsensus {
+            lenses,
+            pair_agreement,
+            majority_threshold,
+            consensus_clusters,
+        }
+    }
+}
+
+fn all_service_ids(catalog: &Catalog) -> Vec<ServiceId> {
+    catalog
+        .services()
+        .iter()
+        .map(|service| service.id)
+        .collect()
+}
+
+fn index_of(service_ids: &[ServiceId]) -> HashMap<ServiceId, usize> {
+    service_ids
+        .iter()
+        .enumerate()
+        .map(|(idx, id)| (*id, idx))
+        .collect()
+}
+
+fn push_unique(index: &HashMap<ServiceId, usize>, members: &mut Vec<usize>, id: ServiceId) {
+    if let Some(&idx) = index.get(&id) {
+        if !members.contains(&idx) {
+            members.push(idx);
+        }
+    }
+}
+
+fn cooccurrence_matrix(service_ids: Vec<ServiceId>, groups: &[Vec<usize>]) -> CouplingMatrix {
+    let n = service_ids.len();
+    let mut weights = vec![vec![0.0; n]; n];
+    for group in groups {
+        for (pos, &i) in group.iter().enumerate() {
+            for &j in group.iter().skip(pos + 1) {
+                weights[i][j] += 1.0;
+                weights[j][i] += 1.0;
+            }
+        }
+    }
+    CouplingMatrix {
+        service_ids,
+        weights,
+    }
+}
+
+fn policy_label(policy: ClusterPolicy) -> &'static str {
+    match policy {
+        ClusterPolicy::CouplingOnly => "coupling_only",
+        ClusterPolicy::CouplingTrust => "coupling_trust",
+        ClusterPolicy::CouplingDomain => "coupling_domain",
+    }
+}
+
+/// Membership vector: `out[i]` is the community index of service `i` in a partition,
+/// or `usize::MAX` if the service is absent (should not happen for full partitions).
+fn membership_vec(
+    communities: &[Vec<ServiceId>],
+    index: &HashMap<ServiceId, usize>,
+    n: usize,
+) -> Vec<usize> {
+    let mut out = vec![usize::MAX; n];
+    for (community_idx, community) in communities.iter().enumerate() {
+        for id in community {
+            if let Some(&i) = index.get(id) {
+                out[i] = community_idx;
+            }
+        }
+    }
+    out
+}
+
+/// Connected components over the agreement graph, keeping edges with `agree >= threshold`.
+/// Every service appears in exactly one component (singletons included). Deterministic.
+fn connected_components(
+    service_ids: &[ServiceId],
+    agree_matrix: &[Vec<usize>],
+    threshold: usize,
+) -> Vec<Vec<ServiceId>> {
+    let n = service_ids.len();
+    let mut parent: Vec<usize> = (0..n).collect();
+    fn find(parent: &mut [usize], mut x: usize) -> usize {
+        while parent[x] != x {
+            parent[x] = parent[parent[x]];
+            x = parent[x];
+        }
+        x
+    }
+    for (i, row) in agree_matrix.iter().enumerate() {
+        for (j, &agree) in row.iter().enumerate().skip(i + 1) {
+            if agree >= threshold {
+                let ri = find(&mut parent, i);
+                let rj = find(&mut parent, j);
+                if ri != rj {
+                    parent[ri.max(rj)] = ri.min(rj);
+                }
+            }
+        }
+    }
+    let mut groups: HashMap<usize, Vec<ServiceId>> = HashMap::new();
+    for (i, id) in service_ids.iter().enumerate() {
+        let root = find(&mut parent, i);
+        groups.entry(root).or_default().push(*id);
+    }
+    let mut clusters: Vec<Vec<ServiceId>> = groups
+        .into_values()
+        .map(|mut ids| {
+            ids.sort_by(|left, right| left.as_str().cmp(right.as_str()));
+            ids
+        })
+        .collect();
+    clusters.sort_by(|left, right| left[0].as_str().cmp(right[0].as_str()));
+    clusters
 }
 
 struct Lcg {
@@ -725,5 +1008,60 @@ mod tests {
         assert!(result.modularity.is_finite());
         assert!(result.modularity > -1.0);
         assert!(result.modularity <= 1.0);
+    }
+
+    fn assert_full_partition(communities: &[Vec<ServiceId>], n: usize) {
+        let mut seen: Vec<ServiceId> = communities.iter().flatten().copied().collect();
+        assert_eq!(seen.len(), n, "every service appears exactly once");
+        seen.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+        seen.dedup();
+        assert_eq!(seen.len(), n, "no service appears twice");
+    }
+
+    #[test]
+    fn cooccurrence_matrices_are_symmetric_zero_diagonal() {
+        let catalog = Catalog::bootstrap();
+        for matrix in [
+            catalog.page_cooccurrence_matrix(),
+            catalog.journey_cooccurrence_matrix(),
+        ] {
+            let n = matrix.service_ids.len();
+            for i in 0..n {
+                assert_eq!(matrix.weights[i][i], 0.0);
+                for j in 0..n {
+                    assert_eq!(matrix.weights[i][j], matrix.weights[j][i]);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn split_lenses_all_partition_every_service() {
+        let catalog = Catalog::bootstrap();
+        let n = catalog.services().len();
+        let lenses = catalog.split_lenses();
+        assert_eq!(lenses.len(), 5);
+        for lens in &lenses {
+            assert_full_partition(&lens.communities, n);
+        }
+    }
+
+    #[test]
+    fn consensus_partitions_and_bounds_agreement() {
+        let catalog = Catalog::bootstrap();
+        let n = catalog.services().len();
+        let consensus = catalog.split_consensus();
+        assert_eq!(consensus.majority_threshold, 3);
+        for pair in &consensus.pair_agreement {
+            assert!(pair.agree >= 1 && pair.agree <= pair.total);
+            assert_eq!(pair.total, consensus.lenses.len());
+        }
+        assert_full_partition(&consensus.consensus_clusters, n);
+    }
+
+    #[test]
+    fn consensus_is_deterministic() {
+        let catalog = Catalog::bootstrap();
+        assert_eq!(catalog.split_consensus(), catalog.split_consensus());
     }
 }

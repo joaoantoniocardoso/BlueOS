@@ -28,7 +28,8 @@ pub mod validate;
 pub use capability::{Aggregate, CapabilityDef, CAPABILITIES};
 pub use catalog::{Catalog, CouplingMatrix};
 pub use cluster::{
-    ClusterPolicy, ClusterResult, CouplingWeights, StabilityReport, WEIGHTS_VERSION,
+    ClusterPolicy, ClusterResult, CouplingWeights, LensPartition, PairAgreement, SplitConsensus,
+    StabilityReport, WEIGHTS_VERSION,
 };
 pub use criticality::CriticalityTier;
 pub use drift::{
