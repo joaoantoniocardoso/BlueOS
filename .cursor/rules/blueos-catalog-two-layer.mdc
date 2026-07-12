@@ -37,15 +37,15 @@ fn service_definition() -> ServiceDefinition {
 // GOOD — observed facts carry evidence; asserted facts carry rationale
 fn observed_facts() -> ObservedFacts {
     ObservedFacts {
-        listen: Observed::known(vec![PortRef::Literal(8000)],
-            Evidence { file: "core/tools/nginx/nginx.conf".into(), line: 78 }),
+        listen: ObservedSet::known(&[Evidenced::new(PortRef::Literal(8000),
+            Evidence { file: "core/tools/nginx/nginx.conf", line: 78 })]),
         ..
     }
 }
 fn service_definition() -> ServiceDefinition {
     ServiceDefinition {
-        authorities: Asserted::established(vec![Authority::MavlinkRouterOwner],
-            "owns the MAVLink router; sole udpout:14001 producer"),
+        authorities: AssertedSet::established(&[Rationaled::new(Authority::MavlinkRouterOwner,
+            "owns the MAVLink router; sole udpout:14001 producer")]),
         tier: Asserted::established(CriticalityTier::VehicleCritical, "vehicle uncontrollable if down"),
         ..
     }

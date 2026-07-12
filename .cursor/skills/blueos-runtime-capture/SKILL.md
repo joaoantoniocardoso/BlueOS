@@ -62,7 +62,7 @@ Provenance::runtime(
 
 ## Output contract
 
-- Fill `runtime_facts()` in `catalog/src/services/<id>.rs` (replace the `pending capture…` `Unknown`s with `GroundedSet::known(vec![GroundedItem::new(value, Provenance::runtime(..))])`).
+- Fill `pub const RUNTIME_FACTS` in `catalog/src/services/<id>.rs` (replace the `pending capture…` `Unknown`s with `GroundedSet::known(&[GroundedItem::new(value, Provenance::runtime(..))])`).
 - Re-ground journey step `outcome`s in `catalog/src/journeys/<id>.rs` from the same capture (replace `pending_outcome()`).
 - Commit the capture artifact(s) under `catalog/runtime-captures/`.
 

@@ -18,8 +18,8 @@ You are the **Fact Extractor**. Produce the observed-facts artifact for exactly 
 - **Provenance or Unknown.** Every value cites `file:line` or the exact shell command that produced it. No evidence → `Unknown { reason }`. Never guess or infer.
 - **Facts only.** Do NOT set authorities, criticality, trust, `bounded_context`, blast radius, or failure modes. Those belong to the Card Author.
 - **Key on the process, not the directory.** ~10 processes are external binaries with no `core/services/` dir but own critical ports/routes. Start from the `start-blueos-core` process tuple.
-- Output is the `observed_facts() -> ObservedFacts` builder function in `catalog/src/services/<id>.rs`. Populate each field with `Observed::known(value, Evidence { file, line })` or `Observed::unknown(reason)`. (`catalog/observed/**` JSON is a generated export — do not write there.)
-- Do NOT touch `service_definition()` in the same file — that is the Card Author's asserted layer.
+- Output is `pub const OBSERVED_FACTS: ObservedFacts` in `catalog/src/services/<id>.rs`. Populate each field with `Observed::known(value, Evidence { file, line })` or `Observed::unknown(reason)`. (`catalog/observed/**` JSON is a generated export — do not write there.)
+- Do NOT touch `SERVICE_DEFINITION` in the same file — that is the Card Author's asserted layer.
 
 ## Ground-truth sources
 
@@ -71,7 +71,7 @@ tmux_name: Observed::known("autopilot".into(),
 run_as: Observed::unknown("no RUN_AS_REGULAR_USER wrapper on line 118, so runs as container default"),
 
 // collection — one Evidence PER item
-nginx_prefixes: ObservedSet::known(vec![
+nginx_prefixes: ObservedSet::known(&[
     Evidenced::new(PathRef("/ardupilot-manager/".into()),
         Evidence { file: "core/tools/nginx/nginx.conf".into(), line: 76 }),
     Evidenced::new(PathRef("/autopilot-manager/".into()),

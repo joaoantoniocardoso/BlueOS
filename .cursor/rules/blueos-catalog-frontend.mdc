@@ -22,8 +22,9 @@ registered in `catalog/src/pages/mod.rs::all_pages()`.
 
 ## Edges to the backend
 
-- Every `PageServiceCall.service` MUST resolve to a cataloged `ServiceId` (the 26) or
-  be `ServiceId("external")` for the public internet. `Catalog::validate()` enforces this.
+- Every `PageServiceCall.service` MUST be `ConsumeTarget::Service(ServiceId::X)` for a
+  cataloged service (the 26) or `ConsumeTarget::External` for the public internet.
+  `Catalog::validate()` enforces this.
 - A call to a backend route is a `consumes` edge, NOT a `frontend_feature`.
 
 ## State ownership (a 2.0 decision input)

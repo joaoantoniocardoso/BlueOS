@@ -29,8 +29,9 @@ does **not** map 1:1 to a service. The catalog must model the frontend so this
 - **Asserted fields carry a rationale, never `file:line`.** `frontend_features` and
   `client_state` are judgment; wrap in `Asserted`/`AssertedSet` with a rationale
   that *points at* the implementing component but is not raw evidence.
-- **Only real backend targets are edges.** A `PageServiceCall.service` MUST be a
-  cataloged `ServiceId` (the 26) or `ServiceId("external")` for the public internet.
+- **Only real backend targets are edges.** A `PageServiceCall.service` MUST be
+  `ConsumeTarget::Service(ServiceId::X)` for a cataloged service (the 26) or
+  `ConsumeTarget::External` for the public internet.
   Map the call by its base URL / nginx prefix / port (e.g. `mavlink2rest`=6040
   `/mavlink2rest/`, `ardupilot_manager` `/ardupilot-manager/`, etc. — see
   `core/tools/nginx/nginx.conf` and the catalog service cards).
@@ -39,8 +40,8 @@ does **not** map 1:1 to a service. The catalog must model the frontend so this
   is a `consumes` edge, NOT a `frontend_feature`. A `frontend_feature` is logic
   IMPLEMENTED in the client (a wizard, a state machine, a derived-from-params
   computation, a MAVLink command sequence) with no single backend capability.
-- Output is the `page() -> Page` builder in `catalog/src/pages/<id>.rs`, wired into
-  `catalog/src/pages/mod.rs::all_pages()`. Keep the crate green.
+- Output is `pub const PAGE: Page` in `catalog/src/pages/<id>.rs`, registered in
+  `catalog/src/pages/mod.rs`. Keep the crate green.
 
 ## Ground-truth sources (read these)
 
@@ -114,7 +115,7 @@ held unchanged across all three. Apply these conventions verbatim when scaling:
   resolves each feature's `Origin::{BackendService, FrontendPage}`. Do NOT invent a
   separate id type.
 - **Backend-driven pages.** A page that only displays/relays backend data (like
-  `disk`) gets `frontend_features: AssertedSet::established(vec![])` with a rationale
+  `disk`) gets `frontend_features: AssertedSet::established(&[])` with a rationale
   saying so. Client-side sorting / unit math / percentage display is derived
   `client_state` (Shared), NOT a feature.
 - **Param plane.** Autopilot parameter read/write is via `mavlink2rest` (MAVLink
@@ -122,8 +123,8 @@ held unchanged across all three. Apply these conventions verbatim when scaling:
 
 ## Output contract
 
-`catalog/src/pages/<id>.rs` exposing `pub fn page() -> Page`, registered in
-`all_pages()`. `route`/`name`/`component`/`menu_title`/`advanced_only`/`stores`/
+`catalog/src/pages/<id>.rs` exposing `pub const PAGE: Page`, registered in
+`pages/mod.rs`. `route`/`name`/`component`/`menu_title`/`advanced_only`/`stores`/
 `consumes` use `Observed`/`ObservedSet` with `Evidence`; `frontend_features`/
 `client_state` use `AssertedSet` with rationale. Unset -> `Unknown{reason}`.
 

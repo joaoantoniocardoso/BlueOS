@@ -30,7 +30,7 @@ Scalar fields use `Asserted<T>` (one rationale). Collection fields (`authorities
 
 ```rust
 tier: Asserted::established(CriticalityTier::VehicleCritical, "vehicle uncontrollable if this dies"),
-authorities: AssertedSet::established(vec![
+authorities: AssertedSet::established(&[
     Rationaled::new(Authority::MavlinkRouterOwner,
         "sole owner of the MAVLink router; every other service reaches the FC through it"),
 ]),

@@ -74,29 +74,29 @@ Journey extraction for <service/flow>:
 
 ## Output contract
 
-The `journey_intents()` (or the doc-grounded portion of `user_journey()` builders) in `catalog/src/journeys/<id>.rs`. Every field is `Grounded::known(value, Provenance::Doc { file, line })` / `GroundedSet::known(items)` or `…::unknown(reason)`. Runtime fields on steps stay `None`.
+Each journey module exposes `pub const JOURNEYS: &[UserJourney]` in `catalog/src/journeys/<id>.rs` (not `pub fn journeys()`). Every field is `Grounded::known(value, Provenance::Doc { file, line })` / `GroundedSet::known(items)` or `…::unknown(reason)`. Runtime fields on steps stay `None`.
 
 ```rust
 // doc-grounded scalar
 summary: Grounded::known(
-    "Update the flight-controller firmware from the online ArduPilot repository".into(),
+    "Update the flight-controller firmware from the online ArduPilot repository",
     Provenance::doc("content/usage/advanced/index.md", 268)),
 visibility: Grounded::known(Visibility::Default,
     Provenance::doc("content/usage/advanced/index.md", 256)),
 
 // participating services (cross-service journeys allowed)
-services: GroundedSet::known(vec![
-    GroundedItem::new(ServiceId("ardupilot_manager".into()),
+services: GroundedSet::known(&[
+    GroundedItem::new(ServiceId::ArdupilotManager,
         Provenance::doc("content/usage/advanced/index.md", 257)),
 ]),
 
 // step with a Doc-grounded ROUTE HINT (Fact Extractor re-grounds to Source); outcome None
 JourneyStep {
     actor: Actor::Operator,
-    description: "Select vehicle type, release and stability, then install".into(),
+    description: "Select vehicle type, release and stability, then install",
     route: Some(Grounded::known(
-        RouteRef { service: ServiceId("ardupilot_manager".into()),
-            method: HttpMethod::Post, path: "/install_firmware_from_url".into(), version: None },
+        RouteRef { service: ServiceId::ArdupilotManager,
+            method: HttpMethod::Post, path: "/install_firmware_from_url", version: None },
         Provenance::doc("content/usage/advanced/index.md", 271))),
     outcome: None,
 }
