@@ -39,7 +39,7 @@ const BROWSE_VIDEO_RECORDINGS: UserJourney =
             ),
             operator_step(
                 "Load the list of available MP4 recordings",
-                Some(sourced_route(HttpMethod::Get, "/files", Some("v1.0"), 340)),
+                Some(sourced_route(HttpMethod::Get, "/recorder/files", Some("v1.0"), 340)),
                 Provenance::source(RECORDER_STORE, 47),
                 Some(runtime_outcome(
                     200,
@@ -49,7 +49,7 @@ const BROWSE_VIDEO_RECORDINGS: UserJourney =
             ),
             operator_step(
                 "Load MCAP extraction processing status",
-                Some(sourced_route(HttpMethod::Get, "/status", Some("v1.0"), 370)),
+                Some(sourced_route(HttpMethod::Get, "/recorder/status", Some("v1.0"), 370)),
                 Provenance::source(RECORDER_STORE, 84),
                 Some(runtime_outcome(
                     200,
@@ -73,7 +73,7 @@ const BROWSE_VIDEO_RECORDINGS: UserJourney =
                 "Load a JPEG thumbnail for each recording card",
                 Some(sourced_route(
                     HttpMethod::Get,
-                    "/files/{filename}/thumbnail",
+                    "/recorder/files/{filename}/thumbnail",
                     Some("v1.0"),
                     383,
                 )),
@@ -117,7 +117,7 @@ const DOWNLOAD_VIDEO_RECORDING: UserJourney =
             ),
             operator_step(
                 "Load the list of available MP4 recordings",
-                Some(sourced_route(HttpMethod::Get, "/files", Some("v1.0"), 340)),
+                Some(sourced_route(HttpMethod::Get, "/recorder/files", Some("v1.0"), 340)),
                 Provenance::source(RECORDER_STORE, 47),
                 Some(runtime_outcome(
                     200,
@@ -129,7 +129,7 @@ const DOWNLOAD_VIDEO_RECORDING: UserJourney =
                 "Click the download button on a recording card",
                 Some(sourced_route(
                     HttpMethod::Get,
-                    "/files/{filename}",
+                    "/recorder/files/{filename}",
                     Some("v1.0"),
                     413,
                 )),
@@ -142,7 +142,7 @@ const DOWNLOAD_VIDEO_RECORDING: UserJourney =
                 "Open the playback dialog and stream the recording",
                 Some(sourced_route(
                     HttpMethod::Get,
-                    "/files/{filename}",
+                    "/recorder/files/{filename}",
                     Some("v1.0"),
                     413,
                 )),
@@ -180,7 +180,7 @@ const DELETE_VIDEO_RECORDING: UserJourney =
             ),
             operator_step(
                 "Load the list of available MP4 recordings",
-                Some(sourced_route(HttpMethod::Get, "/files", Some("v1.0"), 340)),
+                Some(sourced_route(HttpMethod::Get, "/recorder/files", Some("v1.0"), 340)),
                 Provenance::source(RECORDER_STORE, 47),
                 Some(runtime_outcome(
                     200,
@@ -192,7 +192,7 @@ const DELETE_VIDEO_RECORDING: UserJourney =
                 "Click the delete button on a recording card",
                 Some(sourced_route(
                     HttpMethod::Delete,
-                    "/files/{filename}",
+                    "/recorder/files/{filename}",
                     Some("v1.0"),
                     395,
                 )),

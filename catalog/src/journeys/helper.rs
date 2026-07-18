@@ -167,7 +167,12 @@ const PROBE_INTERFACE_INTERNET_CONNECTIVITY: UserJourney = UserJourney {
         ),
         operator_step(
             "View per-interface internet availability while reordering interfaces",
-            Some(sourced_route(HttpMethod::Get, "/ping", Some("v1.0"), 583)),
+            Some(sourced_route(
+                HttpMethod::Get,
+                "/ping?host=1.1.1.1",
+                Some("v1.0"),
+                583,
+            )),
             Provenance::source(NETWORK_PRIORITY, 120),
             Some(runtime_outcome(
                 200,

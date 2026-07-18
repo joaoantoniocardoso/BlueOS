@@ -37,7 +37,7 @@ const ADD_CUSTOM_MANIFEST: UserJourney =
         )]),
         steps: GroundedSet::known(&[operator_step(
             "Specify your own external collection of extensions in the Extensions Manager store",
-            Some(doc_route(HttpMethod::Post, "/manifest/", None, ADV, 855)),
+            Some(doc_route(HttpMethod::Post, "/manifest/", Some("v2.0"), ADV, 855)),
             Provenance::doc(ADV, 855),
             Some(runtime_outcome(201, None, "runtime-captures/kraken__pi4_navigator_master.json#transitions")),
         )]),
@@ -72,7 +72,7 @@ const BROWSE_EXTENSION_STORE: UserJourney = UserJourney {
             Some(doc_route(
                 HttpMethod::Get,
                 "/manifest/consolidated",
-                None,
+                Some("v2.0"),
                 ADV,
                 842,
             )),
@@ -118,7 +118,7 @@ const CONFIGURE_INSTALLED_EXTENSION: UserJourney =
             ),
             operator_step(
                 "View CPU and memory resource usage for installed extensions",
-                Some(doc_route(HttpMethod::Get, "/container/", None, DEV, 355)),
+                Some(doc_route(HttpMethod::Get, "/container/", Some("v2.0"), DEV, 355)),
                 Provenance::doc(DEV, 355),
                 Some(runtime_outcome(
                     200,
@@ -128,7 +128,13 @@ const CONFIGURE_INSTALLED_EXTENSION: UserJourney =
             ),
             operator_step(
                 "Configure extension permissions and custom settings",
-                Some(doc_route(HttpMethod::Put, "/extension/{identifier}", None, DEV, 356)),
+                Some(doc_route(
+                    HttpMethod::Put,
+                    "/extension/{identifier}",
+                    Some("v2.0"),
+                    DEV,
+                    356,
+                )),
                 Provenance::doc(DEV, 356),
                 None,
             ),
@@ -137,7 +143,7 @@ const CONFIGURE_INSTALLED_EXTENSION: UserJourney =
                 Some(doc_route(
                     HttpMethod::Get,
                     "/container/{container_name}/log",
-                    None,
+                    Some("v2.0"),
                     DEV,
                     357,
                 )),
@@ -153,7 +159,7 @@ const CONFIGURE_INSTALLED_EXTENSION: UserJourney =
                 Some(doc_route(
                     HttpMethod::Post,
                     "/extension/{identifier}/restart",
-                    None,
+                    Some("v2.0"),
                     ADV,
                     859,
                 )),
@@ -165,7 +171,7 @@ const CONFIGURE_INSTALLED_EXTENSION: UserJourney =
                 Some(doc_route(
                     HttpMethod::Post,
                     "/extension/{identifier}/disable",
-                    None,
+                    Some("v2.0"),
                     ADV,
                     859,
                 )),
@@ -204,7 +210,7 @@ const EDIT_EXTENSION_DEV_VERSION: UserJourney =
                 Some(doc_route(
                     HttpMethod::Put,
                     "/extension/{identifier}/{tag}",
-                    None,
+                    Some("v2.0"),
                     ADV,
                     866,
                 )),
@@ -252,7 +258,7 @@ const INSTALL_CUSTOM_EXTENSION: UserJourney =
             ),
             operator_step(
                 "Enter the extension identifier, name, Docker image, tag, and custom settings so the image can be fetched from Docker Hub",
-                Some(doc_route(HttpMethod::Post, "/extension/", None, DEV, 473)),
+                Some(doc_route(HttpMethod::Post, "/extension/", Some("v2.0"), DEV, 473)),
                 Provenance::doc(DEV, 473),
                 Some(runtime_outcome(
                     200,
@@ -286,7 +292,7 @@ const INSTALL_EXTENSION: UserJourney =
                 Some(doc_route(
                     HttpMethod::Get,
                     "/extension/{identifier}/details",
-                    None,
+                    Some("v2.0"),
                     ADV,
                     846,
                 )),
@@ -304,7 +310,7 @@ const INSTALL_EXTENSION: UserJourney =
                 Some(doc_route(
                     HttpMethod::Post,
                     "/extension/{identifier}/{tag}/install",
-                    None,
+                    Some("v2.0"),
                     ADV,
                     848,
                 )),
@@ -343,7 +349,7 @@ const UNINSTALL_EXTENSION: UserJourney = UserJourney {
             Some(doc_route(
                 HttpMethod::Delete,
                 "/extension/{identifier}/{tag}",
-                None,
+                Some("v2.0"),
                 ADV,
                 848,
             )),

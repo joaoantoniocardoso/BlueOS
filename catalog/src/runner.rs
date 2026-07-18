@@ -1,7 +1,7 @@
 use std::process::Command;
 
 use crate::catalog::Catalog;
-use crate::id::JourneyId;
+use crate::id::{JourneyId, ServiceId};
 use crate::journey::{derive_automatable, Actor, Automatable, HttpMethod, RouteRef, UserJourney};
 use crate::provenance::{Grounded, GroundedSet, ObservedSet};
 
@@ -95,6 +95,11 @@ pub fn http_steps(journey: &UserJourney) -> Vec<RunnableStep> {
 
 pub fn join_url(base: &str, path: &str) -> String {
     let base = base.trim_end_matches('/');
+    let base = if base.contains("://") {
+        base.to_string()
+    } else {
+        format!("http://{base}")
+    };
     let path = if path.starts_with('/') {
         path.to_string()
     } else {
@@ -108,7 +113,7 @@ pub fn resolve_http_path(catalog: &Catalog, route: &RouteRef) -> Option<String> 
     if path.contains('{') {
         return None;
     }
-    if path_starts_with_known_prefix(catalog, path) {
+    if path_starts_with_service_prefix(catalog, route.service, path) {
         return Some(ensure_leading_slash(path));
     }
 
@@ -256,20 +261,20 @@ pub fn summarize_journey(step_results: &[StepResult]) -> JourneyResult {
     }
 }
 
-fn path_starts_with_known_prefix(catalog: &Catalog, path: &str) -> bool {
-    catalog
-        .services()
-        .iter()
-        .any(|service| match &service.observed.nginx_prefixes {
-            ObservedSet::Known { items } => items.iter().any(|prefix| {
-                let prefix = prefix.value.0;
-                if prefix == "/" {
-                    return false;
-                }
-                path.starts_with(prefix) || path.starts_with(prefix.trim_end_matches('/'))
-            }),
-            ObservedSet::Unknown { .. } => false,
-        })
+fn path_starts_with_service_prefix(catalog: &Catalog, service: ServiceId, path: &str) -> bool {
+    let Some(observed) = catalog.observed_by_id(&service) else {
+        return false;
+    };
+    match &observed.nginx_prefixes {
+        ObservedSet::Known { items } => items.iter().any(|prefix| {
+            let prefix = prefix.value.0;
+            if prefix == "/" {
+                return false;
+            }
+            path.starts_with(prefix) || path.starts_with(prefix.trim_end_matches('/'))
+        }),
+        ObservedSet::Unknown { .. } => false,
+    }
 }
 
 fn first_nginx_prefix(observed: &crate::observed::ObservedFacts) -> Option<&'static str> {
@@ -401,6 +406,10 @@ mod tests {
         assert_eq!(
             join_url("http://example.com", "wifi-manager/v1.0/scan"),
             "http://example.com/wifi-manager/v1.0/scan"
+        );
+        assert_eq!(
+            join_url("192.168.0.177", "/helper/v1.0/ping?host=1.1.1.1"),
+            "http://192.168.0.177/helper/v1.0/ping?host=1.1.1.1"
         );
     }
 
