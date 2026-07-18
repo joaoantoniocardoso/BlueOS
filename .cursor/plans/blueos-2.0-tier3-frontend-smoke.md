@@ -31,3 +31,16 @@ BLUEOS_BASE=http://192.168.0.177 npm run smoke
 ## Gate policy
 
 Unlike Tier-1 GET smoke (`journey_http --smoke`, wired into `catalog/gate.sh`), Tier-3 is an **optional live check**. Offline development stays green via Rust unit tests for `concrete_page_path` and `bash catalog/gate.sh` (which does not run Playwright).
+
+## Console / network noise (bench Pi)
+
+Page-load smoke filters **known-benign** SPA bootstrap failures that appear on every page without optional userdata / MajorTom / a live FC stream:
+
+| Pattern | Why expected |
+|---|---|
+| `GET /bag/v1.0/get/{major_tom,vehicle.image_path,vehicle.logo_image_path}` → 400 | Unset bag-of-holding keys |
+| `GET .../.majortom/token.key` → 404 | MajorTom token not present |
+| `GET /userdata/metadata_override.json`, `HEAD .../modeloverrides/*.glb` → 404 | Optional branding/model overrides |
+| `POST /mavlink2rest/mavlink` → 404, WS `filter=HEARTBEAT|...` close | No live MAVLink stream / teardown race |
+
+Unexpected ≥400 responses still soft-log. Generic Chromium "Failed to load resource" lines (no URL) are suppressed because the `response` listener already classifies them.
