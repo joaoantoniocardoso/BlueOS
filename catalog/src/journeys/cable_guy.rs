@@ -1,6 +1,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome, UserJourney, Visibility,
+    Actor, DataRequirement, HttpMethod, JourneyStep, Precondition, RouteRef, SoftwareRequirement,
+    StepOutcome, UserJourney, Visibility,
 };
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
 
@@ -152,7 +153,7 @@ const DISABLE_ONBOARD_DHCP_SERVER: UserJourney = UserJourney {
         "ethernet tray removes the local DHCP server from the selected interface",
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Other("The interface has an active onboard DHCP server"),
+        Precondition::Data(DataRequirement::OnboardDhcpServerActive),
         Provenance::source(INTERFACE_CARD, 63),
     )]),
     steps: GroundedSet::known(&[
@@ -190,7 +191,7 @@ const SET_NETWORK_INTERFACE_PRIORITY: UserJourney = UserJourney {
         "internet tray persists interface metric ordering used for default routes",
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Other("Pirate mode enabled to access network interface management"),
+        Precondition::Software(SoftwareRequirement::PirateMode),
         Provenance::doc(ADV, 144),
     )]),
     steps: GroundedSet::known(&[
@@ -240,7 +241,7 @@ const CONFIGURE_HOST_DNS: UserJourney = UserJourney {
         "internet tray updates locked host nameserver entries via cable_guy",
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Other("Pirate mode enabled to access DNS configuration"),
+        Precondition::Software(SoftwareRequirement::PirateMode),
         Provenance::doc(ADV, 152),
     )]),
     steps: GroundedSet::known(&[

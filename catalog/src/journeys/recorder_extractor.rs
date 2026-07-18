@@ -1,6 +1,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome, UserJourney, Visibility,
+    Actor, DataRequirement, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome,
+    UserJourney, Visibility,
 };
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
 
@@ -104,7 +105,7 @@ const DOWNLOAD_VIDEO_RECORDING: UserJourney =
             "download button or in-dialog player streams the MP4 via GET /files/{filename}",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
-            Precondition::Other("At least one MP4 recording is listed on the Records page"),
+            Precondition::Data(DataRequirement::RecordingListed),
             Provenance::source(RECORDS_VIEW, 57),
         )]),
         steps: GroundedSet::known(&[
@@ -167,7 +168,7 @@ const DELETE_VIDEO_RECORDING: UserJourney =
             "recording card delete button removes the MP4 file via DELETE /files/{filename}",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
-            Precondition::Other("At least one MP4 recording is listed on the Records page"),
+            Precondition::Data(DataRequirement::RecordingListed),
             Provenance::source(RECORDS_VIEW, 57),
         )]),
         steps: GroundedSet::known(&[

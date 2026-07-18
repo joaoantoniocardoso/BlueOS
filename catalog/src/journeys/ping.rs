@@ -1,6 +1,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome, UserJourney, Visibility,
+    Actor, HardwareRequirement, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome,
+    UserJourney, Visibility,
 };
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
 
@@ -137,7 +138,7 @@ const ENABLE_PING1D_RANGEFINDER_MAVLINK: UserJourney =
             "Ping1D card MAVLink Distances switch posts sensor settings to toggle mavlink_driver",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
-            Precondition::HardwarePresent("Ping sonar (Ping1D)"),
+            Precondition::Hardware(HardwareRequirement::Ping1d),
             Provenance::doc(ADV, 559),
         )]),
         steps: GroundedSet::known(&[

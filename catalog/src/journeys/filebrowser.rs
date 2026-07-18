@@ -1,5 +1,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
-use crate::journey::{Actor, JourneyStep, Precondition, UserJourney, Visibility};
+use crate::journey::{
+    Actor, JourneyStep, Precondition, SoftwareRequirement, UserJourney, Visibility,
+};
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
 
 const ADV: &str = "content/usage/advanced/index.md";
@@ -24,7 +26,7 @@ const MANAGE_BLUEOS_FILES: UserJourney =
             "File Browser page embeds the upstream filebrowser SPA at /file-browser/ for viewing, editing, downloading, and uploading files",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
-            Precondition::Other("Advanced mode enabled to access the File Browser page"),
+            Precondition::Software(SoftwareRequirement::AdvancedMode),
             Provenance::source(FILE_BROWSER_MENUS, 42),
         )]),
         steps: GroundedSet::known(&[

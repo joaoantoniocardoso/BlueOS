@@ -1,7 +1,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, HttpMethod, JourneyStep, NetworkState, Precondition, RouteRef, StepOutcome, UserJourney,
-    Visibility,
+    Actor, HttpMethod, JourneyStep, NetworkState, Precondition, RouteRef, SoftwareRequirement,
+    StepOutcome, UserJourney, Visibility,
 };
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
 
@@ -155,7 +155,7 @@ const PROBE_INTERFACE_INTERNET_CONNECTIVITY: UserJourney = UserJourney {
         "network priority menu pings a reachable host through each interface",
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Other("Pirate mode enabled to access network interface management"),
+        Precondition::Software(SoftwareRequirement::PirateMode),
         Provenance::doc(ADV, 144),
     )]),
     steps: GroundedSet::known(&[

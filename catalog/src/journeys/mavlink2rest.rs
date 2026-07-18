@@ -1,6 +1,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, JourneyStep, Precondition, RouteRef, StepOutcome, UserJourney, Visibility,
+    Actor, JourneyStep, Precondition, RouteRef, SoftwareRequirement, StepOutcome, UserJourney,
+    Visibility,
 };
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
 
@@ -24,7 +25,7 @@ const INSPECT_MAVLINK_MESSAGES_IN_BROWSER: UserJourney =
             "MAVLink Inspector filters, lists, and expands live MAVLink messages from the vehicle stream",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
-            Precondition::Other("Advanced mode enabled to access the MAVLink Inspector page"),
+            Precondition::Software(SoftwareRequirement::AdvancedMode),
             Provenance::source(MAVLINK_INSPECTOR_MENUS, 73),
         )]),
         steps: GroundedSet::known(&[

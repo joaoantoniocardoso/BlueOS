@@ -1,6 +1,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome, UserJourney, Visibility,
+    Actor, DataRequirement, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome,
+    UserJourney, Visibility,
 };
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
 
@@ -82,7 +83,7 @@ const DISCONNECT_FROM_WIFI_NETWORK: UserJourney = UserJourney {
         "wifi tray disconnects the active wlan association from the current-network card",
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Other("BlueOS is connected to a wifi network"),
+        Precondition::Data(DataRequirement::WifiCurrentlyConnected),
         Provenance::source(WIFI_MANAGER, 47),
     )]),
     steps: GroundedSet::known(&[
@@ -126,7 +127,7 @@ const FORGET_SAVED_WIFI_NETWORK: UserJourney = UserJourney {
         "connection dialog removes a stored SSID from saved networks",
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Other("The target network is already saved on the vehicle"),
+        Precondition::Data(DataRequirement::WifiNetworkSaved),
         Provenance::source(CONNECTION_DIALOG, 76),
     )]),
     steps: GroundedSet::known(&[

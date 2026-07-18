@@ -1,6 +1,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome, UserJourney, Visibility,
+    Actor, HttpMethod, JourneyStep, Precondition, RouteRef, SoftwareRequirement, StepOutcome,
+    UserJourney, Visibility,
 };
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
 
@@ -41,7 +42,7 @@ const REBOOT_ONBOARD_COMPUTER: UserJourney = UserJourney {
         "power menu triggers commander shutdown with reboot type",
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Other("Request must pass i_know_what_i_am_doing=true"),
+        Precondition::Software(SoftwareRequirement::ConfirmDangerousOp),
         Provenance::source(COMMANDER_MAIN, 49),
     )]),
     steps: GroundedSet::known(&[
@@ -79,7 +80,7 @@ const SHUTDOWN_ONBOARD_COMPUTER: UserJourney = UserJourney {
         "power menu triggers commander shutdown with poweroff type",
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Other("Request must pass i_know_what_i_am_doing=true"),
+        Precondition::Software(SoftwareRequirement::ConfirmDangerousOp),
         Provenance::source(COMMANDER_MAIN, 49),
     )]),
     steps: GroundedSet::known(&[
@@ -117,7 +118,7 @@ const SYNC_SYSTEM_TIME: UserJourney = UserJourney {
         "frontend posts browser unix time to commander set_time on load",
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Other("Request must pass i_know_what_i_am_doing=true"),
+        Precondition::Software(SoftwareRequirement::ConfirmDangerousOp),
         Provenance::source(COMMANDER_MAIN, 74),
     )]),
     steps: GroundedSet::known(&[service_step(
@@ -189,11 +190,11 @@ const INSPECT_RASPBERRY_EEPROM_BOOTLOADER: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[
         GroundedItem::new(
-            Precondition::Other("Pirate mode enabled to access the Firmware tab"),
+            Precondition::Software(SoftwareRequirement::PirateMode),
             Provenance::source(SYSINFO_VIEW, 85),
         ),
         GroundedItem::new(
-            Precondition::Other("Request must pass i_know_what_i_am_doing=true"),
+            Precondition::Software(SoftwareRequirement::ConfirmDangerousOp),
             Provenance::source(COMMANDER_MAIN, 49),
         ),
     ]),
@@ -252,11 +253,11 @@ const UPDATE_RASPBERRY_EEPROM_BOOTLOADER: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[
         GroundedItem::new(
-            Precondition::Other("Pirate mode enabled to access the Firmware tab"),
+            Precondition::Software(SoftwareRequirement::PirateMode),
             Provenance::source(SYSINFO_VIEW, 85),
         ),
         GroundedItem::new(
-            Precondition::Other("Request must pass i_know_what_i_am_doing=true"),
+            Precondition::Software(SoftwareRequirement::ConfirmDangerousOp),
             Provenance::source(COMMANDER_MAIN, 49),
         ),
     ]),
@@ -295,7 +296,7 @@ const RESET_BLUEOS_SETTINGS: UserJourney = UserJourney {
         "settings page deletes service config while preserving bootstrap state",
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Other("Request must pass i_know_what_i_am_doing=true"),
+        Precondition::Software(SoftwareRequirement::ConfirmDangerousOp),
         Provenance::source(COMMANDER_MAIN, 49),
     )]),
     steps: GroundedSet::known(&[
@@ -333,7 +334,7 @@ const RUN_HOST_COMMAND: UserJourney = UserJourney {
         "commander executes privileged shell commands when explicitly acknowledged",
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Other("Request must pass i_know_what_i_am_doing=true"),
+        Precondition::Software(SoftwareRequirement::ConfirmDangerousOp),
         Provenance::source(COMMANDER_MAIN, 49),
     )]),
     steps: GroundedSet::known(&[operator_step(

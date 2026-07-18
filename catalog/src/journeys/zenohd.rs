@@ -1,5 +1,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
-use crate::journey::{Actor, JourneyStep, Precondition, StepOutcome, UserJourney, Visibility};
+use crate::journey::{
+    Actor, JourneyStep, Precondition, SoftwareRequirement, StepOutcome, UserJourney, Visibility,
+};
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
 
 const ZENOH_MENUS: &str = "core/frontend/src/menus.ts";
@@ -24,7 +26,7 @@ const INSPECT_ZENOH_NETWORK: UserJourney =
             "Zenoh Inspector connects over WebSocket to inspect live pub/sub topics and network topology",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
-            Precondition::Other("Advanced mode enabled to access the Zenoh Inspector page"),
+            Precondition::Software(SoftwareRequirement::AdvancedMode),
             Provenance::source(ZENOH_MENUS, 145),
         )]),
         steps: GroundedSet::known(&[

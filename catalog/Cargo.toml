@@ -28,3 +28,7 @@ path = "src/bin/cluster.rs"
 [[bin]]
 name = "features"
 path = "src/bin/features.rs"
+
+[[bin]]
+name = "coverage"
+path = "src/bin/coverage.rs"

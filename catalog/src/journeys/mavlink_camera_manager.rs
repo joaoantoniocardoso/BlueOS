@@ -1,6 +1,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome, UserJourney, Visibility,
+    Actor, HardwareRequirement, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome,
+    UserJourney, Visibility,
 };
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
 
@@ -102,7 +103,7 @@ const CONFIGURE_CAMERA_STREAM: UserJourney =
             "stream creation dialog submits encoding, resolution, framerate, and endpoints via POST /streams",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
-            Precondition::HardwarePresent("H264-capable camera connected to the onboard computer"),
+            Precondition::Hardware(HardwareRequirement::UsbCamera),
             Provenance::doc(GETTING_STARTED, 121),
         )]),
         steps: GroundedSet::known(&[
@@ -226,9 +227,7 @@ const CONFIGURE_UVC_DEVICE_CONTROLS: UserJourney =
             "Device Controls dialog adjusts UVC sliders, menus, and booleans via POST /v4l",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
-            Precondition::HardwarePresent(
-                "UVC camera with exposed controls connected to the onboard computer",
-            ),
+            Precondition::Hardware(HardwareRequirement::UsbCamera),
             Provenance::doc(ADV, 803),
         )]),
         steps: GroundedSet::known(&[

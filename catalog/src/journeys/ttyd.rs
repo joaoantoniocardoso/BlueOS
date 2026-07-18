@@ -1,5 +1,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
-use crate::journey::{Actor, JourneyStep, Precondition, StepOutcome, UserJourney, Visibility};
+use crate::journey::{
+    Actor, JourneyStep, Precondition, SoftwareRequirement, StepOutcome, UserJourney, Visibility,
+};
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
 
 const ADV: &str = "content/usage/advanced/index.md";
@@ -24,7 +26,7 @@ const ACCESS_WEB_TERMINAL: UserJourney =
             "Terminal page embeds ttyd web terminal over WebSocket at /terminal/ attached to user_terminal tmux",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
-            Precondition::Other("Advanced mode enabled to access the Terminal page"),
+            Precondition::Software(SoftwareRequirement::AdvancedMode),
             Provenance::source(TERMINAL_MENUS, 117),
         )]),
         steps: GroundedSet::known(&[

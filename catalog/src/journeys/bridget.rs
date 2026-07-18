@@ -1,6 +1,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome, UserJourney, Visibility,
+    Actor, DataRequirement, HardwareRequirement, HttpMethod, JourneyStep, Precondition, RouteRef,
+    SoftwareRequirement, StepOutcome, UserJourney, Visibility,
 };
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
 
@@ -34,7 +35,7 @@ const VIEW_CONFIGURED_SERIAL_BRIDGES: UserJourney =
             "Serial Bridges page lists configured bridges and available serial ports",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
-            Precondition::Other("Advanced mode enabled to access the Serial Bridges page"),
+            Precondition::Software(SoftwareRequirement::AdvancedMode),
             Provenance::source(BRIDGET_MENUS, 102),
         )]),
         steps: GroundedSet::known(&[
@@ -94,13 +95,11 @@ const CREATE_SERIAL_TO_UDP_BRIDGE: UserJourney =
         )]),
         preconditions: GroundedSet::known(&[
             GroundedItem::new(
-                Precondition::Other("Advanced mode enabled to access the Serial Bridges page"),
+                Precondition::Software(SoftwareRequirement::AdvancedMode),
                 Provenance::source(BRIDGET_MENUS, 102),
             ),
             GroundedItem::new(
-                Precondition::HardwarePresent(
-                    "Serial device connected to the onboard computer",
-                ),
+                Precondition::Hardware(HardwareRequirement::UsbSerialDevice),
                 Provenance::doc(ADV, 574),
             ),
         ]),
@@ -181,11 +180,11 @@ const REMOVE_SERIAL_BRIDGE: UserJourney =
         )]),
         preconditions: GroundedSet::known(&[
             GroundedItem::new(
-                Precondition::Other("Advanced mode enabled to access the Serial Bridges page"),
+                Precondition::Software(SoftwareRequirement::AdvancedMode),
                 Provenance::source(BRIDGET_MENUS, 102),
             ),
             GroundedItem::new(
-                Precondition::Other("At least one serial bridge is already configured"),
+                Precondition::Data(DataRequirement::SerialBridgeConfigured),
                 Provenance::source(BRIDGET_VIEW, 8),
             ),
         ]),

@@ -1,7 +1,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, HttpMethod, JourneyStep, NetworkState, Precondition, RouteRef, StepOutcome, UserJourney,
-    Visibility,
+    Actor, DataRequirement, HttpMethod, JourneyStep, NetworkState, Precondition, RouteRef,
+    SoftwareRequirement, StepOutcome, UserJourney, Visibility,
 };
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
 
@@ -97,11 +97,11 @@ const SWITCH_LOCAL_BLUEOS_VERSION: UserJourney =
         )]),
         preconditions: GroundedSet::known(&[
             GroundedItem::new(
-                Precondition::Other("Pirate mode enabled"),
+                Precondition::Software(SoftwareRequirement::PirateMode),
                 Provenance::doc(ADV, 399),
             ),
             GroundedItem::new(
-                Precondition::Other("At least one non-current BlueOS version is installed locally"),
+                Precondition::Data(DataRequirement::LocalBlueosVersionAvailable),
                 Provenance::doc(ADV, 402),
             ),
         ]),
@@ -153,7 +153,7 @@ const PULL_BLUEOS_VERSION_WITHOUT_SWITCH: UserJourney =
                 Provenance::doc(ADV, 406),
             ),
             GroundedItem::new(
-                Precondition::Other("Pirate mode enabled"),
+                Precondition::Software(SoftwareRequirement::PirateMode),
                 Provenance::doc(ADV, 399),
             ),
         ]),
@@ -200,11 +200,11 @@ const DELETE_LOCAL_BLUEOS_VERSION: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[
         GroundedItem::new(
-            Precondition::Other("Pirate mode enabled"),
+            Precondition::Software(SoftwareRequirement::PirateMode),
             Provenance::doc(ADV, 399),
         ),
         GroundedItem::new(
-            Precondition::Other("More than two local BlueOS versions are installed"),
+            Precondition::Data(DataRequirement::LocalBlueosVersionAvailable),
             Provenance::source(VC_COMPONENT, 72),
         ),
     ]),
@@ -257,7 +257,7 @@ const DOCKER_REGISTRY_LOGIN: UserJourney =
             "Docker Login dialog authenticates the daemon and lists connected accounts",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
-            Precondition::Other("Pirate mode enabled"),
+            Precondition::Software(SoftwareRequirement::PirateMode),
             Provenance::doc(ADV, 399),
         )]),
         steps: GroundedSet::known(&[
@@ -301,7 +301,7 @@ const UPDATE_BOOTSTRAP_IMAGE: UserJourney = UserJourney {
             Provenance::doc(BOOTSTRAP, 73),
         ),
         GroundedItem::new(
-            Precondition::Other("Pirate mode enabled"),
+            Precondition::Software(SoftwareRequirement::PirateMode),
             Provenance::doc(ADV, 399),
         ),
     ]),

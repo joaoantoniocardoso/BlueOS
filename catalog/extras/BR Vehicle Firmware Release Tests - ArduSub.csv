@@ -1,0 +1,122 @@
+Test,Category,Sub-category,Topic,Priority,Frequency,Status,Notes,Tested by,Last passed,Autotests,Used in
+Heartbeat failsafe,Communication,MAVLink,Telemetry,High,Annually,Pass,,Willian Galvani,v4.7.0,GCSFailsafe,All
+HEARTBEAT arrival,Communication,MAVLink,Telemetry,High,Annually,Pass,,Autotest,v4.7.0,infra,All
+Fetch,Communication,MAVLink,Parameters,Critical,Annually,Pass,,Willian Galvani,v4.7.0,infra,All
+Set,Communication,MAVLink,Parameters,High,Annually,Pass,,Willian Galvani,v4.7.0,infra,All
+Manual control axes,Communication,MAVLink,Joystick,Critical,Patch release,Pass,it looks like one of my trusters is failing,Willian Galvani,v4.7.0,Y,All
+Manual control buttons,Communication,MAVLink,Joystick,Critical,Patch release,Pass,,Willian Galvani,v4.7.0,Y,BlueROV2
+Pilot gain,Communication,MAVLink,Joystick,Ledium,Minor release,Pass,,Willian Galvani,v4.7.0,Y,BlueROV2
+Pilot input failsafe,Communication,MAVLink,Joystick,Ledium,Minor release,Pass,,Willian Galvani,v4.7.0,Y,BlueROV2
+RC_CHANNELS_OVERRIDE,Communication,MAVLink,Joystick,Mow,Annually,,,,,Y,ArduSub
+Mission upload,Communication,MAVLink,File transfer,High,Minor release,Pass,,Willian Galvani,v4.7.0,DiveMission,All
+Upload Lua script,Communication,MAVLink,File transfer,Ledium,Annually,,,Autotest,,Surftrak,"BlueBoat, ArduSub"
+Fetch DataFlash (bin) logs,Communication,MAVLink,File transfer,Mow,Minor release,,,,v4.5.7,TestLogDownload*,All
+THR failsafe,Communication,Radio,RC input,Mow,Annually,,,Autotest,,ThrottleFailsafe,"ArduSub, ArduRover"
+"Standard (MOT_PWM_MIN/MAX, MOT_REVERSED)",Motion Control,Motor Control,Servo PWM ESCs,Critical,Minor release,Pass,,Willian Galvani,v4.7.0,Y,BlueROV2
+Angle (SERVOn_MIN/MAX/TRIM/REVERSE),Motion Control,Motor Control,Servo PWM ESCs,Ledium,Minor release,Pass,reverses are cumulative with _direction,Willian Galvani,v4.7.0,Y,"BlueBoat, ArduSub"
+Depth hold,Motion Control,Motor Control,Position control,Critical,Patch release,Pass,,Willian Galvani,v4.7.0,AltitudeHold,BlueROV2
+GoTo (guided),Motion Control,Motor Control,Position control,Ledium,Minor release,,,Autotest,,SET_POSITION_TARGET_GLOBAL_INT,"BlueROV2, BlueBoat"
+Default PSC_ PID terms,Motion Control,Motor Control,Position control,Ledium,Annually,,,,,N,All
+Surftrack (altimeter/DVL),Motion Control,Motor Control,Position control,Mow,Annually,,,Autotest,v4.5.7,Surftrak,BlueROV2
+Poshold (vision_position / GPS),Motion Control,Motor Control,Position control,Mow,Annually,,,Autotest,,PositionHold,BlueROV2
+Default NAV_ controller PID terms,Motion Control,Motor Control,Navigation,Ledium,Minor release,,,Willian Galvani,,N,All
+Missions (paths/surveys),Motion Control,Motor Control,Navigation,Ledium,Minor release,,,Autotest,,DiveMission,"BlueBoat, BlueROV2"
+Mission resuming,Motion Control,Motor Control,Navigation,Ledium,Annually,,,,,Y,All
+Obstacle avoidance?,Motion Control,Motor Control,Navigation,,,,,,,,ArduRover
+Motors test,Motion Control,Motor Control,Motor testing,High,Minor release,Pass,,Willian Galvani,v4.7.0,M,All
+Automatic reversal detection,Motion Control,Motor Control,Motor testing,Mow,Minor release,Pass,found my badly-connected thruster #2,Willian Galvani,v4.7.0,Y,BlueROV2
+Vectored_6DoF,Motion Control,Motor Control,Motor frames,Critical,Minor release,,,Willian Galvani,v4.5.7,Y,BlueROV2
+Vectored,Motion Control,Motor Control,Motor frames,Critical,Minor release,,,Autotest,v4.5.7,infra,BlueROV2
+Custom/dynamic/Lua (FUTURE),Motion Control,Motor Control,Motor frames,,,,,,,,ArduSub
+"Manual/Acro forward/reverse, heave, sway, yaw",Motion Control,Motor Control,Directional control,Critical,Patch release,,,Autotest,,DiveManual,All
+Manual roll/pitch,Motion Control,Motor Control,Directional control,Ledium,Minor release,,,Willian Galvani,v4.5.7,Y,BlueROV2
+Acro 6DoF,Motion Control,Motor Control,Directional control,Mow,Annually,,,Willian Galvani,,M,BlueROV2
+Stabilisation (STABILIZE mode),Motion Control,Motor Control,Attitude control,High,Patch release,,,Willian Galvani,v4.5.7,M,BlueROV2
+Default ATC_ PID terms,Motion Control,Motor Control,Attitude control,High,Minor release,,,Willian Galvani,,N,All
+Joystick “trim” buttons,Motion Control,Motor Control,Attitude control,Ledium,Minor release,,,Willian Galvani,v4.5.7,Y,BlueROV2
+Roll-pitch toggle,Motion Control,Motor Control,Attitude control,Mow,Annually,,,,,N,ArduSub?
+MAVLink SERVO_OUTPUT_RAW,Outputs,Actuators,Status,Ledium,Minor release,,,Autotest,v4.5.7,infra,ArduSub
+Joystick button inc/dec/min/max/center/momentary functions,Outputs,Actuators,Control,Ledium,Minor release,,,,v4.5.7,Y,BlueROV2
+Programmatic control (MAVLink DO_SET_ACTUATOR? DO_SET_SERVO?),Outputs,Actuators,Control,Mow,Minor release,Fail,#32033,,Never,incoming,ArduSub
+GIMBAL_DEVICE_ATTITUDE_STATUS,Outputs,Gimbal,Status,Mow,Occasionally,,,,,copter,ArduSub
+CamTilt NAMED_VALUE,Outputs,Gimbal,Status,Mow,Minor release,,,,v4.5.7,Y,BlueROV2
+PWM range,Outputs,Gimbal,Mount tilt servo,High,Minor release,,,,,Y,BlueROV2
+Joystick button inc/dec,Outputs,Gimbal,Mount tilt servo,High,Minor release,,,,v4.5.7,Y,BlueROV2
+Stabilised angle control (angle range),Outputs,Gimbal,Mount tilt servo,Ledium,Minor release,,,,v4.5.7,copter (no rate mode),BlueROV2
+"Programmatic control (MAVLink DO_MOUNT_CONTROL, DO_MOUNT_CONFIGURE)",Outputs,Gimbal,Mount tilt servo,Mow,Annually,,,,v4.5.7,copter,ArduSub
+Joystick momentary button functions,Outputs,Gripper,BR gripper,High,Minor release,,,,v4.5.7,Y,BlueROV2
+Programmatic control (DO_GRIPPER?),Outputs,Gripper,BR gripper,Ledium,Annually,Fail,Removed with Actuator migration,,v4.5.4,Y,ArduSub
+Lights1/2 output function,Outputs,Lights,PWM-controlled,High,Patch release,,,,v4.5.7,Y,BlueROV2
+"Joystick inc/dec buttons, JS_LIGHTS_STEP",Outputs,Lights,PWM-controlled,High,Patch release,,,,v4.5.7,Y,BlueROV2
+Lights1/2 level NAMED_VALUEs,Outputs,Lights,PWM-controlled,Ledium,Minor release,,,,v4.5.7,Y,BlueROV2
+Programmatic control (MAVLink DO_SET_SERVO / ILLUMINATOR?),Outputs,Lights,PWM-controlled,Ledium,Minor release,Fail,Removed with transition to dedicated functions,,v4.5.5,Y,ArduSub
+Servo PWM range,Outputs,Lights,PWM-controlled,Mow,Annually,,,Willian Galvani,,Y,BlueROV2
+Duty-cycle PWM range,Outputs,Lights,PWM-controlled,Mow,Occasionally,,,,,Y,ArduSub
+RELAY_STATUS?,Outputs,Relays,Status,Ledium,Minor release,,,,,"rover, we should also test in sub","BlueROV2, BlueBoat"
+Navigator SERVO_OUTPUT_RAW status,Outputs,Relays,Status,Mow,Occasionally,,,,v4.5.7,M,"BlueROV2, BlueBoat"
+Joystick on/off button functions,Outputs,Relays,Control,Ledium,Minor release,,,,v4.5.7,Y,BlueROV2
+Programmatic control (MAVLink DO_SET_RELAY),Outputs,Relays,Control,Ledium,Minor release,,,,v4.5.7,rover.ServoRelayEvents,"BlueROV2, BlueBoat"
+Surface GPS + DVL,State Estimation,Sensor fusion,EKF,Ledium,Minor release,,,Willian Galvani,,incoming,"ArduSub, ArduRover"
+ESTIMATOR_STATUS,State Estimation,Sensor fusion,EKF,Ledium,Minor release,,,,,infra,All
+EKF failsafe,State Estimation,Sensor fusion,EKF,Mow,Minor release,,,,,M,All
+TSYS01 driver,State Estimation,Sensors,Thermometer,High,Patch release,,,Autotest,v4.5.7,DiveManual,"BlueROV2, BlueBoat?"
+SCALED_PRESSURE2/3,State Estimation,Sensors,Thermometer,Ledium,Minor release,,,,v4.5.7,SCALED_PRESSURE3 in DiveManual,BlueROV2
+Internal temp failsafe,State Estimation,Sensors,Thermometer,Mow,Minor release,,,,,M,BlueROV2
+WATER_DEPTH override (WIP),State Estimation,Sensors,Thermometer,Mow,Annually,,#33153,,,Y,"BlueBoat, BlueROV2?"
+SCALED_PRESSURE,State Estimation,Sensors,Thermometer,Mow,Occasionally,,,,,M,All
+Battery (NOT IMPLEMENTED),State Estimation,Sensors,Thermometer,,,,,,,,"BlueROV2, BlueBoat"
+Battery failsafe,State Estimation,Sensors,Power meter,High,Patch release,,,Autotest,,INA3221,All
+Compass/motor compensation,State Estimation,Sensors,Power meter,Ledium,Annually,,,,,Y (DISABLED: copter.CompassMot),All
+Leak failsafe,State Estimation,Sensors,Leak sensor,Critical,Patch release,,,Willian Galvani,v4.5.7,Y,"BlueROV2, BlueBoat?"
+Navigator driver,State Estimation,Sensors,Gyroscope,Critical,Patch release,Pass,,Willian Galvani,v4.7.0,,"BlueROV2, BlueBoat"
+Calibrate (when stable),State Estimation,Sensors,Gyroscope,High,Minor release,,,,v4.5.7,plane.MAV_CMD_PREFLIGHT_CALIBRATION,All
+Pixhawk driver,State Estimation,Sensors,Gyroscope,Ledium,Minor release,,,,v4.5.7,,BlueROV2
+Crash failsafe,State Estimation,Sensors,Gyroscope,Mow,Occasionally,,,,,,"BlueROV2, BlueBoat"
+MAVLink *_IMU / AHRS,State Estimation,Sensors,Gyroscope,Mow,Annually,,,,,Y,All
+MAVLink GPS,State Estimation,Sensors,GNSS,Ledium,Annually,,,,,Y,BlueROV2
+USBL (UGPS),State Estimation,Sensors,GNSS,Ledium,Annually,,,,,N,BlueROV2
+Serial uBlox GPS,State Estimation,Sensors,GNSS,Mow,Annually,,,Autotest,v4.5.7,infra,"BlueBoat, ArduSub"
+NMEA GPS,State Estimation,Sensors,GNSS,Mow,Occasionally,,,Autotest,,GPSForYaw,"BlueBoat, ArduSub"
+Antenna position offset (GPSn_POS_*),State Estimation,Sensors,GNSS,Mow,Occasionally,,,,,M,"BlueROV2, BlueBoat"
+VISION_POSITION_ESTIMATE/DELTA,State Estimation,Sensors,DVL,High,Minor release,Pass,,Willian Galvani,v4.7.0,incoming (IgnoreGPSDrift),"BlueROV2, BlueBoat"
+Position offset (VISO_POS_*),State Estimation,Sensors,DVL,High,Minor release,,,,,M,"BlueROV2, ArduRover"
+Orientation (VISO_ORIENT),State Estimation,Sensors,DVL,High,Minor release,,,,,Y,"BlueROV2, BlueBoat"
+Orientation offset,State Estimation,Sensors,Distance sensor,Critical,Patch release,,,,,"only down tested (25), good to test if non-down gets ignored properly",All
+MAVLink RANGEFINDER,State Estimation,Sensors,Distance sensor,High,Patch release,,,Autotest,v4.5.7,Surftrak,"ArduSub, ArduRover"
+MAVLink DISTANCE_SENSOR,State Estimation,Sensors,Distance sensor,Ledium,Minor release,,,Autotest,v4.5.7,Surftrak,"BlueROV2, BlueBoat"
+Position offset,State Estimation,Sensors,Distance sensor,Ledium,Annually,,,,,Y,"BlueROV2, BlueBoat"
+MAVLink WATER_DEPTH,State Estimation,Sensors,Distance sensor,Ledium,Minor release,,,,,incoming,"BlueROV2, BlueBoat"
+DVL,State Estimation,Sensors,Distance sensor,Mow,Annually,Pass,,Willian Galvani,v4.7.0,incoming,"BlueROV2, BlueBoat"
+Distance alt (surftrak),State Estimation,Sensors,Distance sensor,Mow,Annually,,,Autotest,v4.5.7,Surftrak,BlueROV2
+BR Ping Driver,State Estimation,Sensors,Distance sensor,Mow,Annually,,,,,M,"ArduSub, ArduRover"
+Navigator driver,State Estimation,Sensors,Compass,Critical,Patch release,Pass,,Willian Galvani,v4.7.0,,"BlueROV2, BlueBoat"
+Orientation offset (COMPASS_ORIENT),State Estimation,Sensors,Compass,Critical,Minor release,,,,,autotest.FixedYawCalibration ?,All
+Calibration dance,State Estimation,Sensors,Compass,High,Patch release,,,Willian Galvani,v4.5.7,autotest.SITL_CompassCalibration ?,All
+Calibration from log,State Estimation,Sensors,Compass,High,Minor release,,,,,M,All
+MAVLink ATTITUDE / VFR_HUD.heading,State Estimation,Sensors,Compass,High,Minor release,,4.5.7 has no VFR_HUD without position,,,infra,All
+Pixhawk driver,State Estimation,Sensors,Compass,Ledium,Minor release,,,,v4.5.7,,BlueROV2
+"Calibration quick (in-place, point north)",State Estimation,Sensors,Compass,Mow,Minor release,,,,v4.5.7,autotest.FixedYawCalibration ?,All
+Calibration learn,State Estimation,Sensors,Compass,Mow,Occasionally,,,,,copter.GPSForYawCompassLearn,All
+Tether turns NAMED_VALUE,State Estimation,Sensors,Compass,Mow,Occasionally,,,,v4.5.7,Y,BlueROV2
+GPS heading,State Estimation,Sensors,Compass,,,,,Autotest,,GPSForYaw,
+MS5837 driver,State Estimation,Sensors,Barometers,Critical,Patch release,Pass,,Willian Galvani,v4.7.0,Y (driver bitmask enumeration and devid response),"BlueROV2, ArduRover"
+KellerLD driver,State Estimation,Sensors,Barometers,Critical,Patch release,,,,v4.5.7,M,"BlueROV2, ArduRover"
+Offset calibration,State Estimation,Sensors,Barometers,High,Patch release,,,,v4.5.7,Y,"BlueROV2, ArduRover"
+"MAVLink SCALED_PRESSURE2, VFR_HUD.alt, AHRS2.altitude",State Estimation,Sensors,Barometers,High,Patch release,,4.5.7 has no VFR_HUD without position,,,"VFR_HUD.alt checked by something, would be nice to check SCALED_PRESSURE2 vs 3 by number of internal baros",BlueROV2
+Navigator driver,State Estimation,Sensors,Barometers,Ledium,Annually,,,,v4.5.7,,ArduSub
+Pixhawk driver,State Estimation,Sensors,Barometers,Ledium,Occasionally,,,,v4.5.7,,ArduSub
+Position offset (WIP),State Estimation,Sensors,Barometers,Mow,Occasionally,,#30876,,Never,,"BlueROV2, ArduRover"
+Auto-zero when negative depth,State Estimation,Sensors,Barometers,Mow,Minor release,,,,v4.5.7,Y,BlueROV2
+Internal pressure failsafe,State Estimation,Sensors,Barometers,Mow,Minor release,,#32099,,Never,M,ArduSub
+AP_ADC?,State Estimation,Sensors,ADC,Mow,Minor release,,,,,Y,All
+Lua access?,State Estimation,Sensors,ADC,Mow,Occasionally,,,,,N,All
+Navigator driver,State Estimation,Sensors,Accelerometer,Critical,Patch release,Pass,,Willian Galvani,v4.7.0,,"BlueROV2, BlueBoat"
+Orientation offset (AHRS_ORIENTATION),State Estimation,Sensors,Accelerometer,Critical,Annually,,,,,Y,All
+Calibration,State Estimation,Sensors,Accelerometer,High,Minor release,,,Willian Galvani,v4.5.7,M (autotest.AccelCal?),All
+MAVLink ATTITUDE,State Estimation,Sensors,Accelerometer,Ledium,Minor release,,,Autotest,v4.5.7,GPSForYaw,All
+Pixhawk driver,State Estimation,Sensors,Accelerometer,Ledium,Minor release,,,,v4.5.7,,BlueROV2
+Position offset (INS_POSn_*),State Estimation,Sensors,Accelerometer,Ledium,Annually,,,,,M,All
+Vibration failsafe?,State Estimation,Sensors,Accelerometer,Mow,Occasionally,,,,,M,ArduSub
+MAVLink *_IMU / VIBRATION / ESTIMATOR_STATUS,State Estimation,Sensors,Accelerometer,Mow,Annually,,,,,M,All
+Bump failsafe (NOT IMPLEMENTED),State Estimation,Sensors,Accelerometer,,,,,,,,"BlueROV2, BlueBoat"
+Snagged failsafe (NOT IMPLEMENTED),State Estimation,Sensors,Accelerometer,,,,,,,,BlueROV2

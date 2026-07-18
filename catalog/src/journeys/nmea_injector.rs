@@ -1,6 +1,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome, UserJourney, Visibility,
+    Actor, DataRequirement, HardwareRequirement, HttpMethod, JourneyStep, Precondition, RouteRef,
+    SoftwareRequirement, StepOutcome, UserJourney, Visibility,
 };
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
 
@@ -31,7 +32,7 @@ const VIEW_CONFIGURED_NMEA_SOCKETS: UserJourney = UserJourney {
         "NMEA Injector page lists sockets with kind, port, and MAVLink component ID",
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Other("Advanced mode enabled to access the NMEA Injector page"),
+        Precondition::Software(SoftwareRequirement::AdvancedMode),
         Provenance::source(NMEA_MENUS, 80),
     )]),
     steps: GroundedSet::known(&[
@@ -65,11 +66,11 @@ const ADD_EXTERNAL_NMEA_GPS_SOCKET: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[
         GroundedItem::new(
-            Precondition::Other("Advanced mode enabled to access the NMEA Injector page"),
+            Precondition::Software(SoftwareRequirement::AdvancedMode),
             Provenance::source(NMEA_MENUS, 80),
         ),
         GroundedItem::new(
-            Precondition::HardwarePresent("External NMEA GPS device"),
+            Precondition::Hardware(HardwareRequirement::ExternalNmeaGps),
             Provenance::doc(ADV, 539),
         ),
     ]),
@@ -116,11 +117,11 @@ const REMOVE_CONFIGURED_NMEA_SOCKET: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[
         GroundedItem::new(
-            Precondition::Other("Advanced mode enabled to access the NMEA Injector page"),
+            Precondition::Software(SoftwareRequirement::AdvancedMode),
             Provenance::source(NMEA_MENUS, 80),
         ),
         GroundedItem::new(
-            Precondition::Other("At least one NMEA socket is already configured"),
+            Precondition::Data(DataRequirement::NmeaSocketConfigured),
             Provenance::source(NMEA_INJECTOR, 71),
         ),
     ]),

@@ -1,7 +1,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, HttpMethod, JourneyStep, NetworkState, Precondition, RouteRef, StepOutcome, UserJourney,
-    Visibility,
+    Actor, DataRequirement, HttpMethod, JourneyStep, NetworkState, Precondition, RouteRef,
+    StepOutcome, UserJourney, Visibility,
 };
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
 
@@ -106,7 +106,7 @@ const CONFIGURE_INSTALLED_EXTENSION: UserJourney =
             ),
         ]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
-            Precondition::Other("At least one extension is installed"),
+            Precondition::Data(DataRequirement::ExtensionInstalled),
             Provenance::doc(DEV, 347),
         )]),
         steps: GroundedSet::known(&[
@@ -189,7 +189,7 @@ const EDIT_EXTENSION_DEV_VERSION: UserJourney =
             "Edit button changes the docker tag to an alternative development version",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
-            Precondition::Other("The extension is listed on the Installed tab"),
+            Precondition::Data(DataRequirement::ExtensionInstalled),
             Provenance::doc(ADV, 865),
         )]),
         steps: GroundedSet::known(&[
@@ -328,7 +328,7 @@ const UNINSTALL_EXTENSION: UserJourney = UserJourney {
         "version dropdown on a store card uninstalls the selected extension release",
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Other("The extension version is installed"),
+        Precondition::Data(DataRequirement::ExtensionInstalled),
         Provenance::doc(DEV, 359),
     )]),
     steps: GroundedSet::known(&[

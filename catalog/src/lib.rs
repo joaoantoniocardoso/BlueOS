@@ -1,6 +1,7 @@
 pub mod capability;
 pub mod catalog;
 pub mod cluster;
+pub mod coverage;
 pub mod criticality;
 pub mod drift;
 pub mod edge;
@@ -33,6 +34,11 @@ pub use cluster::{
     ClusterPolicy, ClusterResult, CouplingWeights, LensPartition, PairAgreement, SplitConsensus,
     StabilityReport, WEIGHTS_VERSION,
 };
+pub use coverage::{
+    clean_tracker_task, coverage_report, precondition_label, AutomatableCounts, CoverageKind,
+    CoverageReport, JourneyCoverage, KindCounts, MappedTaskCoverage, TrackerMapping,
+    TrackerTaskRef, TRACKER_CSV_PATH, TRACKER_MAPPINGS,
+};
 pub use criticality::CriticalityTier;
 pub use drift::{
     diff, diff_catalog, diff_catalog_runtime, diff_runtime, DriftFinding, DriftReport,
@@ -47,8 +53,10 @@ pub use feature::{
 pub use id::{CapabilityId, Entity, JourneyId, PathRef, Port, PortRef, ServiceId};
 pub use interface::{FileAccessMode, Interface, MavlinkRole};
 pub use journey::{
-    Actor, HttpMethod, JourneyStep, NetworkState, Precondition, RouteRef, StateTransition,
-    StepOutcome, UserJourney, Visibility,
+    derive_automatable, journey_requirements, precondition_is_typed, Actor, Automatable, BoardKind,
+    DataRequirement, HardwareRequirement, HttpMethod, JourneyStep, NetworkResource, NetworkState,
+    Precondition, RouteRef, SoftwareRequirement, StateTransition, StepOutcome, UserJourney,
+    Visibility,
 };
 pub use journey_group::{JourneyLens, JourneyPairAgreement, JourneySplitConsensus};
 pub use lifecycle::{Lifecycle, ObservedLifecycle};

@@ -1,5 +1,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
-use crate::journey::{Actor, JourneyStep, Precondition, StepOutcome, UserJourney, Visibility};
+use crate::journey::{
+    Actor, HardwareRequirement, JourneyStep, Precondition, StepOutcome, UserJourney, Visibility,
+};
 use crate::page::PageId;
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
 
@@ -46,7 +48,7 @@ const CONFIGURE_VIDEO_STREAM: UserJourney = UserJourney {
         ),
     ]),
     preconditions: GroundedSet::known(&[precond(
-        Precondition::HardwarePresent("camera detected by mavlink-camera-manager"),
+        Precondition::Hardware(HardwareRequirement::UsbCamera),
         Provenance::doc(ADV, 766),
     )]),
     steps: GroundedSet::known(&[
