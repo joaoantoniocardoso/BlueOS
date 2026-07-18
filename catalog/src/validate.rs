@@ -4,7 +4,9 @@ use std::path::{Path, PathBuf};
 use serde_json::Value;
 use thiserror::Error;
 
+use crate::capability::Aggregate;
 use crate::catalog::Catalog;
+use crate::domain::{ALL_AGGREGATES, DOMAINS};
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::UserJourney;
 use crate::page::{ConsumeTarget, PageId};
@@ -89,6 +91,14 @@ pub enum ValidationError {
         expected: String,
         store_file: &'static str,
     },
+    #[error("aggregate {aggregate} assigned to domains {first} and {second}")]
+    DuplicateAggregateDomain {
+        aggregate: String,
+        first: String,
+        second: String,
+    },
+    #[error("aggregate {aggregate} is not assigned to any domain")]
+    UnassignedAggregate { aggregate: String },
 }
 
 pub fn validate(catalog: &Catalog) -> Result<(), Vec<ValidationError>> {
@@ -103,6 +113,7 @@ pub fn validate(catalog: &Catalog) -> Result<(), Vec<ValidationError>> {
     check_runtime_references(catalog, &mut errors);
     errors.extend(check_page_references(catalog));
     errors.extend(check_coverage_gate(catalog));
+    errors.extend(check_domain_taxonomy());
 
     if errors.is_empty() {
         Ok(())
@@ -610,6 +621,33 @@ fn check_coverage_gate(catalog: &Catalog) -> Vec<ValidationError> {
     } else {
         Vec::new()
     }
+}
+
+fn check_domain_taxonomy() -> Vec<ValidationError> {
+    let mut errors = Vec::new();
+    let mut owner: HashMap<Aggregate, &'static str> = HashMap::new();
+
+    for def in DOMAINS {
+        for &aggregate in def.aggregates {
+            if let Some(first) = owner.insert(aggregate, def.id.as_str()) {
+                errors.push(ValidationError::DuplicateAggregateDomain {
+                    aggregate: aggregate.to_string(),
+                    first: first.to_owned(),
+                    second: def.id.as_str().to_owned(),
+                });
+            }
+        }
+    }
+
+    for &aggregate in ALL_AGGREGATES {
+        if !owner.contains_key(&aggregate) {
+            errors.push(ValidationError::UnassignedAggregate {
+                aggregate: aggregate.to_string(),
+            });
+        }
+    }
+
+    errors
 }
 
 fn count_unknown_in_service(service: &ServiceDefinition) -> usize {

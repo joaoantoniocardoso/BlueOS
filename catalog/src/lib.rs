@@ -3,6 +3,7 @@ pub mod catalog;
 pub mod cluster;
 pub mod coverage;
 pub mod criticality;
+pub mod domain;
 pub mod drift;
 pub mod edge;
 pub mod export;
@@ -43,6 +44,7 @@ pub use coverage::{
     TrackerTaskRef, TRACKER_CSV_PATH, TRACKER_MAPPINGS,
 };
 pub use criticality::CriticalityTier;
+pub use domain::{domain_of, Domain, DomainDef, DOMAINS};
 pub use drift::{
     diff, diff_catalog, diff_catalog_runtime, diff_runtime, DriftFinding, DriftReport,
 };

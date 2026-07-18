@@ -40,3 +40,7 @@ path = "src/bin/coverage.rs"
 [[bin]]
 name = "journey_http"
 path = "src/bin/journey_http.rs"
+
+[[bin]]
+name = "wbs"
+path = "src/bin/wbs.rs"

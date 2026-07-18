@@ -26,10 +26,10 @@ pub enum Aggregate {
     IdentityDiscovery,
     #[serde(rename = "mavlink")]
     Mavlink,
+    #[serde(rename = "message_bus")]
+    MessageBus,
     #[serde(rename = "net_diagnostics")]
     NetDiagnostics,
-    #[serde(rename = "platform_infra")]
-    PlatformInfra,
     #[serde(rename = "recording")]
     Recording,
     #[serde(rename = "serial_bridge")]
@@ -42,6 +42,8 @@ pub enum Aggregate {
     Storage,
     #[serde(rename = "versioning")]
     Versioning,
+    #[serde(rename = "web_ingress")]
+    WebIngress,
     #[serde(rename = "wired_network")]
     WiredNetwork,
     #[serde(rename = "wireless_network")]
@@ -60,14 +62,15 @@ impl Aggregate {
             Aggregate::HostControl => "host_control",
             Aggregate::IdentityDiscovery => "identity_discovery",
             Aggregate::Mavlink => "mavlink",
+            Aggregate::MessageBus => "message_bus",
             Aggregate::NetDiagnostics => "net_diagnostics",
-            Aggregate::PlatformInfra => "platform_infra",
             Aggregate::Recording => "recording",
             Aggregate::SerialBridge => "serial_bridge",
             Aggregate::ShellAccess => "shell_access",
             Aggregate::Sonar => "sonar",
             Aggregate::Storage => "storage",
             Aggregate::Versioning => "versioning",
+            Aggregate::WebIngress => "web_ingress",
             Aggregate::WiredNetwork => "wired_network",
             Aggregate::WirelessNetwork => "wireless_network",
         }
@@ -429,7 +432,7 @@ pub const CAPABILITIES: &[CapabilityDef] = &[
     },
     CapabilityDef {
         id: CapabilityId::ReloadNginx,
-        aggregate: Aggregate::PlatformInfra,
+        aggregate: Aggregate::WebIngress,
         owner: ServiceId::Helper,
     },
     CapabilityDef {
@@ -544,7 +547,7 @@ pub const CAPABILITIES: &[CapabilityDef] = &[
     },
     CapabilityDef {
         id: CapabilityId::ReverseProxyBackendServices,
-        aggregate: Aggregate::PlatformInfra,
+        aggregate: Aggregate::WebIngress,
         owner: ServiceId::Nginx,
     },
     CapabilityDef {
@@ -554,7 +557,7 @@ pub const CAPABILITIES: &[CapabilityDef] = &[
     },
     CapabilityDef {
         id: CapabilityId::CacheExternalHttp,
-        aggregate: Aggregate::PlatformInfra,
+        aggregate: Aggregate::WebIngress,
         owner: ServiceId::Nginx,
     },
     CapabilityDef {
@@ -724,12 +727,12 @@ pub const CAPABILITIES: &[CapabilityDef] = &[
     },
     CapabilityDef {
         id: CapabilityId::InspectZenohNetwork,
-        aggregate: Aggregate::PlatformInfra,
+        aggregate: Aggregate::MessageBus,
         owner: ServiceId::Zenohd,
     },
     CapabilityDef {
         id: CapabilityId::RoutePubsubMessages,
-        aggregate: Aggregate::PlatformInfra,
+        aggregate: Aggregate::MessageBus,
         owner: ServiceId::Zenohd,
     },
 ];

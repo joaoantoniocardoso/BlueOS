@@ -701,11 +701,12 @@ fn format_aggregate_bridge(left: &str, right: &str) -> String {
 mod tests {
     use super::*;
     use crate::capability::FRONTEND_CAPABILITIES;
+    use crate::domain::{domain_of, DOMAINS};
     use crate::id::CapabilityId;
     use crate::provenance::AssertedSet;
 
     const EXPECTED_FEATURE_COUNT: usize = 143;
-    const EXPECTED_AGGREGATE_COUNT: usize = 19;
+    const EXPECTED_AGGREGATE_COUNT: usize = 20;
 
     #[test]
     fn from_catalog_builds_expected_features() {
@@ -773,6 +774,28 @@ mod tests {
             distinct.len() + FRONTEND_CAPABILITIES.len()
         );
         assert!(features.validate(&catalog).is_ok());
+    }
+
+    #[test]
+    fn features_per_domain() {
+        let features = FeatureCatalog::bootstrap();
+        assert_eq!(features.features().len(), EXPECTED_FEATURE_COUNT);
+
+        let mut total = 0;
+        for domain_def in DOMAINS {
+            let count = features
+                .features()
+                .iter()
+                .filter(|feature| domain_of(feature.aggregate) == domain_def.id)
+                .count();
+            eprintln!("{}: {count}", domain_def.id);
+            total += count;
+        }
+        assert_eq!(total, EXPECTED_FEATURE_COUNT);
+
+        for feature in features.features() {
+            let _ = domain_of(feature.aggregate);
+        }
     }
 
     #[test]
