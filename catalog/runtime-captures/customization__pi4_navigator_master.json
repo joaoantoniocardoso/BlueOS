@@ -28,18 +28,46 @@
   },
   "running_baseline": {
     "note": "GET contracts on a healthy running customization (defaults).",
-    "GET /theme": { "status": 200, "body_predicate": "current theme primary color / status" },
-    "GET /models": { "status": 200, "body_predicate": "list of uploaded 3D model overrides (empty by default)" },
-    "GET /branding/logo": { "status": 200, "body_predicate": "logo asset or default" },
-    "GET /branding/vehicle-image": { "status": 200, "body_predicate": "vehicle image asset or default" }
+    "GET /customization/v1.0/theme": {
+      "status": 200,
+      "body_predicate": "current theme primary color / status"
+    },
+    "GET /customization/v1.0/models": {
+      "status": 200,
+      "body_predicate": "list of uploaded 3D model overrides (empty by default)"
+    },
+    "GET /customization/v1.0/branding/logo": {
+      "status": 200,
+      "body_predicate": "logo asset or default"
+    },
+    "GET /customization/v1.0/branding/vehicle-image": {
+      "status": 200,
+      "body_predicate": "vehicle image asset or default"
+    }
   },
   "slo_running_baseline": {
     "sample_size": 40,
     "note": "All branding/theme GETs are fast (~5-6 ms); the service is a thin file-backed asset API.",
-    "GET /theme": { "p50_ms": 5.6, "p95_ms": 9.4, "p99_ms": 9.4 },
-    "GET /models": { "p50_ms": 5.3, "p95_ms": 7.0, "p99_ms": 9.3 },
-    "GET /branding/logo": { "p50_ms": 5.5, "p95_ms": 8.6, "p99_ms": 10.5 },
-    "GET /branding/vehicle-image": { "p50_ms": 5.7, "p95_ms": 7.5, "p99_ms": 10.1 }
+    "GET /customization/v1.0/theme": {
+      "p50_ms": 5.6,
+      "p95_ms": 9.4,
+      "p99_ms": 9.4
+    },
+    "GET /customization/v1.0/models": {
+      "p50_ms": 5.3,
+      "p95_ms": 7.0,
+      "p99_ms": 9.3
+    },
+    "GET /customization/v1.0/branding/logo": {
+      "p50_ms": 5.5,
+      "p95_ms": 8.6,
+      "p99_ms": 10.5
+    },
+    "GET /customization/v1.0/branding/vehicle-image": {
+      "p50_ms": 5.7,
+      "p95_ms": 7.5,
+      "p99_ms": 10.1
+    }
   },
   "resource_usage": {
     "running_baseline": {
@@ -48,9 +76,9 @@
       "method": "/proc stat deltas, top-style (100 == 1 core), PID 1408 python3 customization/main.py",
       "cpu_pct": {
         "mean": 0.26,
-        "median": 0.00,
+        "median": 0.0,
         "p95": 1.01,
-        "min": 0.00,
+        "min": 0.0,
         "max": 1.06,
         "sd": 0.43
       },

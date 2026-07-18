@@ -4,9 +4,9 @@
   "captured_at": "2026-07-11",
   "capture_host": "192.168.0.177",
   "notes": "Read-only capture on a healthy running disk_usage service. CPU/RSS via tools/sample_resource.sh (--match disk_usage/main.py, 60 samples, label running_baseline). SLO via tools/probe_http.sh on GET /disk/usage?depth=1 (--repeats 8); full-depth du / is heavy (~5.5s) so depth=1 limits du work. Single GET /disk/speed at size_bytes=1048576 (1 MiB minimum). DELETE /disk/paths not exercised (destructive). Raw evidence: /tmp/disk_usage_sample.json, /tmp/disk_usage_slo.json, /tmp/disk_speed_response.txt.",
-
-  "api_versions": ["v1.0"],
-
+  "api_versions": [
+    "v1.0"
+  ],
   "route_inventory": {
     "v1.0": [
       "GET /disk/usage",
@@ -16,33 +16,41 @@
     ],
     "note": "Confirmed routes on live Pi; DELETE not exercised in this capture."
   },
-
   "running_baseline": {
     "note": "GET contracts on a healthy running disk_usage (idle, no concurrent benchmarks).",
-    "GET /disk/usage?depth=1": {
+    "GET /disk-usage/v1.0/disk/usage?depth=1": {
       "status": 200,
       "body_predicate": "\"root\": {\"name\": \"/\""
     }
   },
-
   "slo_running_baseline": {
     "sample_size": 8,
-    "note": "GET /disk/usage?depth=1 only; default depth runs du / and is ~5.5s per request — not suitable for high repeat counts.",
-    "GET /disk/usage?depth=1": {
+    "note": "GET /disk/usage?depth=1 only; default depth runs du / and is ~5.5s per request \u2014 not suitable for high repeat counts.",
+    "GET /disk-usage/v1.0/disk/usage?depth=1": {
       "p50_ms": 2722.3,
       "p95_ms": 2766.0,
       "p99_ms": 2766.0
     }
   },
-
   "resource_usage": {
     "running_baseline": {
       "sample_size": 60,
-      "cpu_pct": { "mean": 0.29, "median": 0.00, "p95": 1.00, "min": 0.00, "max": 1.03, "sd": 0.44 },
-      "rss_mb": { "mean": 35.0, "median": 35.0, "min": 35.0, "max": 35.0 }
+      "cpu_pct": {
+        "mean": 0.29,
+        "median": 0.0,
+        "p95": 1.0,
+        "min": 0.0,
+        "max": 1.03,
+        "sd": 0.44
+      },
+      "rss_mb": {
+        "mean": 35.0,
+        "median": 35.0,
+        "min": 35.0,
+        "max": 35.0
+      }
     }
   },
-
   "transitions": {
     "note": "Single-shot speed benchmark (reversible: temp file written then deleted). Not looped.",
     "speed_test_single": {
@@ -51,17 +59,22 @@
       "time_s": 0.7,
       "body_predicate": "\"success\": true",
       "effect": "disktest write+verify at 1 MiB; returns write_speed_mbps, read_speed_mbps, bytes_tested, seed"
+    },
+    "GET /disk-usage/v1.0/disk/speed?size_bytes=1048576": {
+      "status": 200,
+      "body_predicate": "\"success\": true"
     }
   },
-
   "settings_mutations": {
     "note": "disk_usage has no settings manager or settings.json persistence (verified: no settings imports in main.py)"
   },
-
   "platform_matrix": {
     "note": "disk_usage behavior is platform-independent (local du/disktest on root filesystem); not captured across boards. Runtime captured on Navigator only.",
-    "navigator": { "platform": "navigator", "rss_mb": 35.0, "cpu_pct_mean": 0.29 }
+    "navigator": {
+      "platform": "navigator",
+      "rss_mb": 35.0,
+      "cpu_pct_mean": 0.29
+    }
   },
-
-  "state_machine": "none — disk_usage has no service-level lifecycle state machine; usage inspection and speed tests are stateless request handlers (see service_definition states: Unknown)"
+  "state_machine": "none \u2014 disk_usage has no service-level lifecycle state machine; usage inspection and speed tests are stateless request handlers (see service_definition states: Unknown)"
 }

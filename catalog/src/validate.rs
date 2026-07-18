@@ -10,7 +10,7 @@ use crate::journey::UserJourney;
 use crate::page::{ConsumeTarget, PageId};
 use crate::provenance::{AssertedSet, Grounded, GroundedSet, ObservedSet, Provenance};
 use crate::resource::ResourceOwnership;
-use crate::runner::{path_starts_with_service_prefix, resolve_http_path};
+use crate::runner::{http_method_label, resolve_http_path};
 use crate::service::{Authority, Service, ServiceDefinition};
 use crate::state::StateMachine;
 
@@ -79,6 +79,16 @@ pub enum ValidationError {
         capture: String,
         hint: String,
     },
+    #[error(
+        "journey {journey} step {step} route resolves to {resolved} but frontend {store_file} expects {expected}"
+    )]
+    FrontendRoutePrefixDropped {
+        journey: String,
+        step: usize,
+        resolved: String,
+        expected: String,
+        store_file: &'static str,
+    },
 }
 
 pub fn validate(catalog: &Catalog) -> Result<(), Vec<ValidationError>> {
@@ -89,6 +99,7 @@ pub fn validate(catalog: &Catalog) -> Result<(), Vec<ValidationError>> {
     errors.extend(check_service_journey_refs(catalog));
     errors.extend(check_journey_references(catalog));
     errors.extend(check_journey_runtime_route_consistency(catalog));
+    errors.extend(crate::frontend_routes::check_frontend_route_refs(catalog));
     check_runtime_references(catalog, &mut errors);
     errors.extend(check_page_references(catalog));
     errors.extend(check_coverage_gate(catalog));
@@ -361,17 +372,15 @@ fn check_journey_runtime_route_consistency(catalog: &Catalog) -> Vec<ValidationE
                 continue;
             };
 
-            let get_keys: Vec<&str> = section
+            let method_label = http_method_label(&route_ref.method);
+            let method_prefix = format!("{method_label} ");
+            let route_keys: Vec<&str> = section
                 .keys()
-                .filter(|key| key.starts_with("GET "))
+                .filter(|key| key.starts_with(method_prefix.as_str()))
                 .map(String::as_str)
                 .collect();
-            if !section_enforces_route_match(&get_keys, route_ref.service, catalog) {
-                continue;
-            }
-
-            let matched = get_keys.iter().any(|key| {
-                capture_route_path(key)
+            let matched = route_keys.iter().any(|key| {
+                capture_route_path(key, method_label)
                     .is_some_and(|capture_path| paths_match(&resolved, capture_path))
             });
             if !matched {
@@ -380,7 +389,7 @@ fn check_journey_runtime_route_consistency(catalog: &Catalog) -> Vec<ValidationE
                     step: step_index,
                     resolved,
                     capture: capture.to_string(),
-                    hint: format_available_get_keys(&get_keys),
+                    hint: format_available_route_keys(method_label, &route_keys),
                 });
             }
         }
@@ -403,15 +412,8 @@ fn load_runtime_capture<'a>(
     cache.get(file)
 }
 
-fn section_enforces_route_match(get_keys: &[&str], service: ServiceId, catalog: &Catalog) -> bool {
-    get_keys.iter().any(|key| {
-        capture_route_path(key)
-            .is_some_and(|path| path_starts_with_service_prefix(catalog, service, path))
-    })
-}
-
-fn capture_route_path(key: &str) -> Option<&str> {
-    key.strip_prefix("GET ")
+fn capture_route_path<'a>(key: &'a str, method_label: &str) -> Option<&'a str> {
+    key.strip_prefix(&format!("{method_label} "))
 }
 
 fn normalize_http_path(path: &str) -> String {
@@ -434,7 +436,7 @@ fn paths_match(resolved: &str, capture_path: &str) -> bool {
         .is_some_and(|suffix| suffix.is_empty() || suffix.starts_with('?'))
 }
 
-fn format_available_get_keys(keys: &[&str]) -> String {
+fn format_available_route_keys(method_label: &str, keys: &[&str]) -> String {
     const MAX_KEYS: usize = 8;
     let preview: Vec<&str> = keys.iter().copied().take(MAX_KEYS).collect();
     let mut hint = preview.join(", ");
@@ -442,7 +444,7 @@ fn format_available_get_keys(keys: &[&str]) -> String {
         hint.push_str(&format!(", … (+{} more)", keys.len() - MAX_KEYS));
     }
     if hint.is_empty() {
-        hint = "(no GET keys in section)".to_string();
+        hint = format!("(no {method_label} keys in section)");
     }
     hint
 }

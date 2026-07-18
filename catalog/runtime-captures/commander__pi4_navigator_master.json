@@ -4,9 +4,9 @@
   "captured_at": "2026-07-11",
   "capture_host": "192.168.0.177",
   "notes": "Read-only capture on a healthy running commander service. CPU/RSS via tools/sample_resource.sh (--match commander/main.py, 60 samples, label running_baseline; PID 603 cmdline verified: python3 /home/pi/services/commander/main.py). SLO via tools/probe_http.sh on safe GET /raspi/vcgencmd and GET /raspi/eeprom_update with i_know_what_i_am_doing=true (--repeats 20). No destructive POST endpoints called (shutdown, set_time, settings/reset, eeprom_update POST, camera_legacy POST, command/host). Pi-specific raspi/* endpoints may error on non-Pi boards. Raw evidence: /tmp/commander_sample.json, /tmp/commander_slo.json.",
-
-  "api_versions": ["v1.0"],
-
+  "api_versions": [
+    "v1.0"
+  ],
   "route_inventory": {
     "v1.0": {
       "safe_gets": [
@@ -31,52 +31,62 @@
       "note": "Confirmed routes on live Pi via /commander/v1.0/openapi.json; only safe GETs probed for SLO."
     }
   },
-
   "running_baseline": {
     "note": "GET contracts on a healthy running commander (idle, no mutating actions). i_know_what_i_am_doing=true required for raspi inspection routes.",
-    "GET /raspi/vcgencmd?i_know_what_i_am_doing=true": {
+    "GET /commander/v1.0/raspi/vcgencmd?i_know_what_i_am_doing=true": {
       "status": 200,
       "body_predicate": "\"vl085\""
     },
-    "GET /raspi/eeprom_update?i_know_what_i_am_doing=true": {
+    "GET /commander/v1.0/raspi/eeprom_update?i_know_what_i_am_doing=true": {
       "status": 200,
       "body_predicate": "\"return_code\":0"
     }
   },
-
   "slo_running_baseline": {
     "sample_size": 20,
     "note": "vcgencmd runs three sudo vcgencmd subprocesses per request; eeprom_update runs sudo rpi-eeprom-update (read-only check).",
-    "GET /raspi/vcgencmd?i_know_what_i_am_doing=true": {
+    "GET /commander/v1.0/raspi/vcgencmd?i_know_what_i_am_doing=true": {
       "p50_ms": 1918.3,
       "p95_ms": 1991.4,
       "p99_ms": 1991.4
     },
-    "GET /raspi/eeprom_update?i_know_what_i_am_doing=true": {
+    "GET /commander/v1.0/raspi/eeprom_update?i_know_what_i_am_doing=true": {
       "p50_ms": 805.9,
       "p95_ms": 876.3,
       "p99_ms": 876.3
     }
   },
-
   "resource_usage": {
     "running_baseline": {
       "sample_size": 60,
       "pid": 603,
       "cmdline": "python3 /home/pi/services/commander/main.py",
-      "cpu_pct": { "mean": 1.69, "median": 2.04, "p95": 3.17, "min": 0.00, "max": 3.21, "sd": 0.83 },
-      "rss_mb": { "mean": 35.5, "median": 35.5, "min": 35.5, "max": 35.5 }
+      "cpu_pct": {
+        "mean": 1.69,
+        "median": 2.04,
+        "p95": 3.17,
+        "min": 0.0,
+        "max": 3.21,
+        "sd": 0.83
+      },
+      "rss_mb": {
+        "mean": 35.5,
+        "median": 35.5,
+        "min": 35.5,
+        "max": 35.5
+      }
     }
   },
-
   "settings_mutations": {
     "note": "mutating endpoints (settings reset) are destructive and were not exercised; not captured"
   },
-
   "platform_matrix": {
     "note": "raspi/vcgencmd and raspi/eeprom_update are Pi-specific (vcgencmd, rpi-eeprom-update); may error on non-Pi boards. Runtime captured on Navigator (Raspberry Pi 4) only.",
-    "navigator": { "platform": "navigator", "rss_mb": 35.5, "cpu_pct_mean": 1.69 }
+    "navigator": {
+      "platform": "navigator",
+      "rss_mb": 35.5,
+      "cpu_pct_mean": 1.69
+    }
   },
-
-  "state_machine": "none — commander has no service-level lifecycle state machine (see service_definition states: Unknown)"
+  "state_machine": "none \u2014 commander has no service-level lifecycle state machine (see service_definition states: Unknown)"
 }

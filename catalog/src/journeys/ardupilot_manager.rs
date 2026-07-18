@@ -65,13 +65,13 @@ const VEHICLE_FIRST_BOOT: UserJourney =
             ),
             service_step(
                 "Download and install up-to-date autopilot firmware for the selected vehicle type",
-                Some(sourced_route(HttpMethod::Post, "/install_firmware_from_url", None, 163)),
+                Some(sourced_route(HttpMethod::Post, "/install_firmware_from_url", Some("v1.0"), 163)),
                 Provenance::doc(GS, 52),
                 Some(runtime_outcome(200, None, None, "runtime-captures/ardupilot_manager__pi4_navigator_master.json#firmware_operations")),
             ),
             operator_step(
                 "Open the Autopilot Firmware page to view basic information about the active autopilot",
-                Some(sourced_route(HttpMethod::Get, "/firmware_info", None, 103)),
+                Some(sourced_route(HttpMethod::Get, "/firmware_info", Some("v1.0"), 103)),
                 Provenance::doc(ADV, 259),
                 Some(runtime_outcome(
                     200,
@@ -104,7 +104,7 @@ const CHANGE_BOARD: UserJourney = UserJourney {
     )]),
     steps: GroundedSet::known(&[operator_step(
         "Select a connected board or the SITL simulation board on the Autopilot Firmware page",
-        Some(sourced_route(HttpMethod::Post, "/board", None, 226)),
+        Some(sourced_route(HttpMethod::Post, "/board", Some("v1.0"), 226)),
         Provenance::doc(ADV, 262),
         Some(runtime_outcome(
             200,
@@ -141,7 +141,7 @@ const RUN_SITL_SIMULATION: UserJourney =
         steps: GroundedSet::known(&[
             operator_step(
                 "Select the virtual SITL flight controller board",
-                Some(sourced_route(HttpMethod::Post, "/board", None, 226)),
+                Some(sourced_route(HttpMethod::Post, "/board", Some("v1.0"), 226)),
                 Provenance::doc(ADV, 262),
                 Some(runtime_outcome(200, None, None, "runtime-captures/ardupilot_manager__pi4_navigator_master.json#transitions")),
             ),
@@ -170,7 +170,7 @@ const START_AUTOPILOT: UserJourney = UserJourney {
     )]),
     steps: GroundedSet::known(&[operator_step(
         "Start the autopilot from the Autopilot Firmware page",
-        Some(sourced_route(HttpMethod::Post, "/start", None, 241)),
+        Some(sourced_route(HttpMethod::Post, "/start", Some("v1.0"), 241)),
         Provenance::doc(ADV, 263),
         Some(runtime_outcome(
             200,
@@ -197,7 +197,7 @@ const STOP_AUTOPILOT: UserJourney = UserJourney {
     )]),
     steps: GroundedSet::known(&[operator_step(
         "Stop the autopilot from the Autopilot Firmware page",
-        Some(sourced_route(HttpMethod::Post, "/stop", None, 270)),
+        Some(sourced_route(HttpMethod::Post, "/stop", Some("v1.0"), 270)),
         Provenance::doc(ADV, 264),
         Some(runtime_outcome(
             200,
@@ -224,7 +224,12 @@ const RESTART_AUTOPILOT: UserJourney = UserJourney {
     )]),
     steps: GroundedSet::known(&[operator_step(
         "Restart the autopilot from the Autopilot Firmware page",
-        Some(sourced_route(HttpMethod::Post, "/restart", None, 233)),
+        Some(sourced_route(
+            HttpMethod::Post,
+            "/restart",
+            Some("v1.0"),
+            233,
+        )),
         Provenance::doc(ADV, 267),
         Some(runtime_outcome(
             200,
@@ -276,7 +281,7 @@ const UPDATE_FIRMWARE_ONLINE: UserJourney = UserJourney {
             Some(sourced_route(
                 HttpMethod::Post,
                 "/install_firmware_from_url",
-                None,
+                Some("v1.0"),
                 163,
             )),
             Provenance::doc(ADV, 271),
@@ -312,7 +317,7 @@ const UPLOAD_CUSTOM_FIRMWARE: UserJourney = UserJourney {
         Some(sourced_route(
             HttpMethod::Post,
             "/install_firmware_from_file",
-            None,
+            Some("v1.0"),
             193,
         )),
         Provenance::doc(ADV, 281),
@@ -347,7 +352,7 @@ const RESTORE_DEFAULT_FIRMWARE: UserJourney = UserJourney {
         Some(sourced_route(
             HttpMethod::Post,
             "/restore_default_firmware",
-            None,
+            Some("v1.0"),
             279,
         )),
         Provenance::doc(ADV, 282),

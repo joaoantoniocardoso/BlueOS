@@ -19,7 +19,7 @@
   },
   "running_baseline": {
     "note": "GET contract on a healthy running nmea_injector with no configured sockets.",
-    "GET /socks": {
+    "GET /nmea-injector/v1.0/socks": {
       "status": 200,
       "body_predicate": "[] (empty; no external GPS sockets configured)"
     }
@@ -27,7 +27,11 @@
   "slo_running_baseline": {
     "sample_size": 40,
     "note": "Single fast list read.",
-    "GET /socks": { "p50_ms": 8.3, "p95_ms": 11.3, "p99_ms": 12.2 }
+    "GET /nmea-injector/v1.0/socks": {
+      "p50_ms": 8.3,
+      "p95_ms": 11.3,
+      "p99_ms": 12.2
+    }
   },
   "resource_usage": {
     "running_baseline": {
@@ -36,9 +40,9 @@
       "method": "/proc stat deltas, top-style (100 == 1 core), PID 670 python3 nmea_injector/main.py",
       "cpu_pct": {
         "mean": 0.26,
-        "median": 0.00,
+        "median": 0.0,
         "p95": 1.01,
-        "min": 0.00,
+        "min": 0.0,
         "max": 1.83,
         "sd": 0.46
       },

@@ -20,19 +20,19 @@
   },
   "running_baseline": {
     "note": "GET contracts on a healthy running beacon (idle, no mutating actions).",
-    "GET /vehicle_name": {
+    "GET /beacon/v1.0/vehicle_name": {
       "status": 200,
       "body_predicate": "\"BlueROV2\""
     },
-    "GET /hostname": {
+    "GET /beacon/v1.0/hostname": {
       "status": 200,
       "body_predicate": "\"blueos\""
     },
-    "GET /services": {
+    "GET /beacon/v1.0/services": {
       "status": 200,
       "body_predicate": "array of mDNS records; eth0 WIRED advertises _mavlink._udp and _http._tcp as blueos / blueos-ethernet"
     },
-    "GET /ip": {
+    "GET /beacon/v1.0/ip": {
       "status": 200,
       "body_predicate": "{ \"client_ip\": ..., \"interface_ip\": \"192.168.0.177\" }"
     }
@@ -40,22 +40,22 @@
   "slo_running_baseline": {
     "sample_size": 40,
     "note": "Latency percentiles over 40 repeats per route on the local network. /services is heaviest (enumerates advertised records across interfaces).",
-    "GET /vehicle_name": {
+    "GET /beacon/v1.0/vehicle_name": {
       "p50_ms": 5.0,
       "p95_ms": 7.0,
       "p99_ms": 7.7
     },
-    "GET /hostname": {
+    "GET /beacon/v1.0/hostname": {
       "p50_ms": 4.7,
       "p95_ms": 6.8,
       "p99_ms": 6.9
     },
-    "GET /services": {
+    "GET /beacon/v1.0/services": {
       "p50_ms": 10.5,
       "p95_ms": 14.8,
       "p99_ms": 15.7
     },
-    "GET /ip": {
+    "GET /beacon/v1.0/ip": {
       "p50_ms": 6.1,
       "p95_ms": 7.8,
       "p99_ms": 8.1
@@ -68,9 +68,9 @@
       "method": "/proc stat deltas, top-style (100 == 1 core), PID 508 python3 beacon/main.py",
       "cpu_pct": {
         "mean": 0.79,
-        "median": 0.00,
+        "median": 0.0,
         "p95": 4.02,
-        "min": 0.00,
+        "min": 0.0,
         "max": 5.74,
         "sd": 1.35
       },

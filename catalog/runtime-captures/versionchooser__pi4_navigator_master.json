@@ -28,19 +28,19 @@
   },
   "running_baseline": {
     "note": "GET contracts on a healthy running versionchooser (idle).",
-    "GET /version/current": {
+    "GET /version-chooser/v1.0/version/current": {
       "status": 200,
       "body_predicate": "running blueos-core image tag + repository"
     },
-    "GET /version/available/local": {
+    "GET /version-chooser/v1.0/version/available/local": {
       "status": 200,
       "body_predicate": "list of locally installed blueos-core images"
     },
-    "GET /bootstrap/current": {
+    "GET /version-chooser/v1.0/bootstrap/current": {
       "status": 200,
       "body_predicate": "current blueos-bootstrap image tag"
     },
-    "GET /docker/accounts": {
+    "GET /version-chooser/v1.0/docker/accounts": {
       "status": 200,
       "body_predicate": "logged-in docker registry accounts (from ~/.docker/config.json)"
     }
@@ -48,10 +48,26 @@
   "slo_running_baseline": {
     "sample_size": 40,
     "note": "Version/bootstrap GETs are ~90-105 ms because they query the Docker daemon over docker.sock; /docker/accounts is fast (~4 ms, reads config.json).",
-    "GET /version/current": { "p50_ms": 98.5, "p95_ms": 134.9, "p99_ms": 179.3 },
-    "GET /version/available/local": { "p50_ms": 104.2, "p95_ms": 121.5, "p99_ms": 140.0 },
-    "GET /bootstrap/current": { "p50_ms": 93.4, "p95_ms": 113.8, "p99_ms": 140.0 },
-    "GET /docker/accounts": { "p50_ms": 4.4, "p95_ms": 7.9, "p99_ms": 8.1 }
+    "GET /version-chooser/v1.0/version/current": {
+      "p50_ms": 98.5,
+      "p95_ms": 134.9,
+      "p99_ms": 179.3
+    },
+    "GET /version-chooser/v1.0/version/available/local": {
+      "p50_ms": 104.2,
+      "p95_ms": 121.5,
+      "p99_ms": 140.0
+    },
+    "GET /version-chooser/v1.0/bootstrap/current": {
+      "p50_ms": 93.4,
+      "p95_ms": 113.8,
+      "p99_ms": 140.0
+    },
+    "GET /version-chooser/v1.0/docker/accounts": {
+      "p50_ms": 4.4,
+      "p95_ms": 7.9,
+      "p99_ms": 8.1
+    }
   },
   "resource_usage": {
     "running_baseline": {
@@ -62,7 +78,7 @@
         "mean": 0.82,
         "median": 0.86,
         "p95": 2.84,
-        "min": 0.00,
+        "min": 0.0,
         "max": 3.17,
         "sd": 0.98
       },

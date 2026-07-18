@@ -29,23 +29,23 @@
   },
   "running_baseline": {
     "note": "GET contracts on a healthy running cable_guy (idle, no mutating actions).",
-    "GET /interfaces": {
+    "GET /cable-guy/v1.0/interfaces": {
       "status": 200,
       "body_predicate": "array including eth0, usb0, wlan0, uap0"
     },
-    "GET /ethernet": {
+    "GET /cable-guy/v1.0/ethernet": {
       "status": 200,
       "body_predicate": "array of wired interface descriptors"
     },
-    "GET /host_dns": {
+    "GET /cable-guy/v1.0/host_dns": {
       "status": 200,
       "body_predicate": "nameserver list read from /etc/resolv.conf"
     },
-    "GET /route?interface_name=eth0": {
+    "GET /cable-guy/v1.0/route?interface_name=eth0": {
       "status": 200,
       "body_predicate": "route list for eth0"
     },
-    "GET /dhcp/details/eth0": {
+    "GET /cable-guy/v1.0/dhcp/details/eth0": {
       "status": 200,
       "body_predicate": "dhcp server details for eth0"
     }
@@ -53,11 +53,31 @@
   "slo_running_baseline": {
     "sample_size": 40,
     "note": "GET /host_dns is ~1.2 s because it shells out (cat/lsattr on /etc/resolv.conf) per request; the other reads are fast (7-26 ms).",
-    "GET /interfaces": { "p50_ms": 12.4, "p95_ms": 24.4, "p99_ms": 26.5 },
-    "GET /ethernet": { "p50_ms": 11.0, "p95_ms": 19.7, "p99_ms": 19.8 },
-    "GET /host_dns": { "p50_ms": 1215.2, "p95_ms": 1302.9, "p99_ms": 1314.2 },
-    "GET /route?interface_name=eth0": { "p50_ms": 25.9, "p95_ms": 32.8, "p99_ms": 35.9 },
-    "GET /dhcp/details/eth0": { "p50_ms": 7.7, "p95_ms": 15.7, "p99_ms": 22.7 }
+    "GET /cable-guy/v1.0/interfaces": {
+      "p50_ms": 12.4,
+      "p95_ms": 24.4,
+      "p99_ms": 26.5
+    },
+    "GET /cable-guy/v1.0/ethernet": {
+      "p50_ms": 11.0,
+      "p95_ms": 19.7,
+      "p99_ms": 19.8
+    },
+    "GET /cable-guy/v1.0/host_dns": {
+      "p50_ms": 1215.2,
+      "p95_ms": 1302.9,
+      "p99_ms": 1314.2
+    },
+    "GET /cable-guy/v1.0/route?interface_name=eth0": {
+      "p50_ms": 25.9,
+      "p95_ms": 32.8,
+      "p99_ms": 35.9
+    },
+    "GET /cable-guy/v1.0/dhcp/details/eth0": {
+      "p50_ms": 7.7,
+      "p95_ms": 15.7,
+      "p99_ms": 22.7
+    }
   },
   "resource_usage": {
     "running_baseline": {
@@ -66,9 +86,9 @@
       "method": "/proc stat deltas, top-style (100 == 1 core), PID 174 python3 cable_guy/main.py",
       "cpu_pct": {
         "mean": 2.47,
-        "median": 0.00,
+        "median": 0.0,
         "p95": 11.94,
-        "min": 0.00,
+        "min": 0.0,
         "max": 17.35,
         "sd": 4.53
       },
