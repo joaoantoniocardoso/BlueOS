@@ -25,6 +25,12 @@ alwaysApply: false
 - **Runtime Specialist** fills `RuntimeFacts` and re-grounds journey step `outcome`s from the same capture.
 - Runtime facts never live in the asserted `ServiceDefinition` — they must be able to **diff against** it (e.g. a captured `500`-when-stopped falsifies an asserted `api_stable: true`).
 
+## Live URL contract
+
+- Capture keys MUST be the exact nginx front-door `METHOD + path` (version, router prefix, query) — e.g. `GET /helper/v1.0/ping?host=1.1.1.1`, never bare service-relative paths.
+- Probe through nginx (`http://<pi>/{nginx-prefix}/…`), not only `localhost:<servicePort>`.
+- Journey step `outcome`s MUST key-match: `RouteRef` + `version` via `resolve_http_path` must equal the stored capture key.
+
 ## Never
 
 - Copy a value from the POC prototype or any test fixture that is not a live-BlueOS capture.

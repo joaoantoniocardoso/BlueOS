@@ -59,6 +59,55 @@ pub fn http_journeys(catalog: &Catalog) -> Vec<&UserJourney> {
         .collect()
 }
 
+pub const SMOKE_DEFAULT_FIXTURES: &str = "internet,pirate,advanced";
+
+pub fn http_method_label(method: &HttpMethod) -> &'static str {
+    match method {
+        HttpMethod::Get => "GET",
+        HttpMethod::Post => "POST",
+        HttpMethod::Put => "PUT",
+        HttpMethod::Delete => "DELETE",
+        HttpMethod::Patch => "PATCH",
+    }
+}
+
+pub fn format_http_fail(
+    journey_id: JourneyId,
+    step: &RunnableStep,
+    resolved_url: &str,
+    reason: &str,
+) -> String {
+    format!(
+        "FAIL {journey_id} step {} {} {} → {resolved_url} — {reason}",
+        step.step_index,
+        http_method_label(&step.route.method),
+        step.route.path
+    )
+}
+
+pub fn format_dry_run(journey_id: JourneyId, step: &RunnableStep, resolved_path: &str) -> String {
+    format!(
+        "DRY-RUN {journey_id} step {} {} {} → {resolved_path}",
+        step.step_index,
+        http_method_label(&step.route.method),
+        step.route.path
+    )
+}
+
+pub fn journey_http_requires_base(
+    dry_run: bool,
+    smoke: bool,
+    base: Option<&str>,
+) -> Result<(), &'static str> {
+    if smoke && base.is_none() {
+        return Err("--base is required for --smoke");
+    }
+    if !dry_run && base.is_none() {
+        return Err("--base is required unless --dry-run is set");
+    }
+    Ok(())
+}
+
 pub fn http_steps(journey: &UserJourney) -> Vec<RunnableStep> {
     let GroundedSet::Known { items: steps } = &journey.steps else {
         return Vec::new();
@@ -91,6 +140,15 @@ pub fn http_steps(journey: &UserJourney) -> Vec<RunnableStep> {
         });
     }
     runnable
+}
+
+pub fn http_smoke_steps(journey: &UserJourney) -> Vec<RunnableStep> {
+    http_steps(journey)
+        .into_iter()
+        .filter(|step| {
+            matches!(step.route.method, HttpMethod::Get) && step.expected_status.is_some()
+        })
+        .collect()
 }
 
 pub fn join_url(base: &str, path: &str) -> String {
@@ -261,7 +319,7 @@ pub fn summarize_journey(step_results: &[StepResult]) -> JourneyResult {
     }
 }
 
-fn path_starts_with_service_prefix(catalog: &Catalog, service: ServiceId, path: &str) -> bool {
+pub fn path_starts_with_service_prefix(catalog: &Catalog, service: ServiceId, path: &str) -> bool {
     let Some(observed) = catalog.observed_by_id(&service) else {
         return false;
     };
@@ -431,6 +489,145 @@ mod tests {
             evaluate_http_response(404, "{}", Some(200), None),
             StepResult::Fail(_)
         ));
+    }
+
+    #[test]
+    fn format_http_fail_includes_resolved_url() {
+        let step = RunnableStep {
+            journey_id: JourneyId::ConnectToWifiNetwork,
+            step_index: 2,
+            route: RouteRef {
+                service: ServiceId::Helper,
+                method: HttpMethod::Get,
+                path: "/ping",
+                version: Some("v1.0"),
+            },
+            expected_status: Some(200),
+            body_predicate: None,
+        };
+        let line = format_http_fail(
+            JourneyId::ConnectToWifiNetwork,
+            &step,
+            "http://192.168.0.177/helper/v1.0/ping?host=1.1.1.1",
+            "expected HTTP 200, got 404",
+        );
+        assert!(line.contains("→ http://192.168.0.177/helper/v1.0/ping?host=1.1.1.1"));
+        assert!(line.contains("FAIL connect_to_wifi_network step 2 GET /ping"));
+        assert!(line.contains("expected HTTP 200, got 404"));
+    }
+
+    #[test]
+    fn format_dry_run_includes_resolved_path() {
+        let step = RunnableStep {
+            journey_id: JourneyId::ConnectToWifiNetwork,
+            step_index: 1,
+            route: RouteRef {
+                service: ServiceId::Helper,
+                method: HttpMethod::Get,
+                path: "/ping",
+                version: Some("v1.0"),
+            },
+            expected_status: Some(200),
+            body_predicate: None,
+        };
+        let line = format_dry_run(JourneyId::ConnectToWifiNetwork, &step, "/helper/v1.0/ping");
+        assert_eq!(
+            line,
+            "DRY-RUN connect_to_wifi_network step 1 GET /ping → /helper/v1.0/ping"
+        );
+    }
+
+    #[test]
+    fn journey_http_base_required_for_smoke() {
+        assert!(journey_http_requires_base(false, true, None).is_err());
+        assert!(journey_http_requires_base(true, false, None).is_ok());
+        assert!(journey_http_requires_base(false, false, None).is_err());
+        assert!(journey_http_requires_base(false, true, Some("http://pi")).is_ok());
+    }
+
+    #[test]
+    fn http_smoke_steps_only_get_with_expected_status() {
+        static STEPS: &[GroundedItem<JourneyStep>] = &[
+            GroundedItem::new(
+                JourneyStep {
+                    actor: Actor::Operator,
+                    description: "get scan",
+                    route: Some(Grounded::known(
+                        RouteRef {
+                            service: ServiceId::Wifi,
+                            method: HttpMethod::Get,
+                            path: "/scan",
+                            version: Some("v1.0"),
+                        },
+                        DOC,
+                    )),
+                    outcome: Some(Grounded::known(
+                        crate::journey::StepOutcome {
+                            expected_status: Some(200),
+                            body_predicate: None,
+                            transition: None,
+                        },
+                        DOC,
+                    )),
+                },
+                DOC,
+            ),
+            GroundedItem::new(
+                JourneyStep {
+                    actor: Actor::Operator,
+                    description: "post connect",
+                    route: Some(Grounded::known(
+                        RouteRef {
+                            service: ServiceId::Wifi,
+                            method: HttpMethod::Post,
+                            path: "/connect",
+                            version: Some("v1.0"),
+                        },
+                        DOC,
+                    )),
+                    outcome: Some(Grounded::known(
+                        crate::journey::StepOutcome {
+                            expected_status: Some(200),
+                            body_predicate: None,
+                            transition: None,
+                        },
+                        DOC,
+                    )),
+                },
+                DOC,
+            ),
+            GroundedItem::new(
+                JourneyStep {
+                    actor: Actor::Operator,
+                    description: "get unasserted",
+                    route: Some(Grounded::known(
+                        RouteRef {
+                            service: ServiceId::Wifi,
+                            method: HttpMethod::Get,
+                            path: "/status",
+                            version: Some("v1.0"),
+                        },
+                        DOC,
+                    )),
+                    outcome: None,
+                },
+                DOC,
+            ),
+        ];
+        let journey = UserJourney {
+            id: JourneyId::ConnectToWifiNetwork,
+            summary: Grounded::known("test", DOC),
+            visibility: Grounded::known(Visibility::Default, DOC),
+            services: GroundedSet::unknown("test"),
+            capability_refs: GroundedSet::unknown("test"),
+            preconditions: GroundedSet::known(&[]),
+            steps: GroundedSet::known(STEPS),
+            chains_from: None,
+        };
+
+        let steps = http_smoke_steps(&journey);
+        assert_eq!(steps.len(), 1);
+        assert_eq!(steps[0].route.path, "/scan");
     }
 
     #[test]

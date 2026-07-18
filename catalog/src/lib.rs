@@ -75,8 +75,10 @@ pub use provenance::{
 pub use resolve::{resolve, resolve_port_ref, resolve_service_ports, ResolveError, ResolvedPorts};
 pub use resource::{Resource, ResourceOwnership};
 pub use runner::{
-    evaluate_http_response, execute_curl, http_journeys, http_steps, join_url, resolve_http_path,
-    run_http_step, summarize_journey, JourneyResult, RunCounts, RunnableStep, StepResult,
+    evaluate_http_response, execute_curl, format_dry_run, format_http_fail, http_journeys,
+    http_method_label, http_smoke_steps, http_steps, join_url, journey_http_requires_base,
+    resolve_http_path, run_http_step, summarize_journey, JourneyResult, RunCounts, RunnableStep,
+    StepResult, SMOKE_DEFAULT_FIXTURES,
 };
 pub use runtime::{
     Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts, SettingsMutation, SloBaseline,

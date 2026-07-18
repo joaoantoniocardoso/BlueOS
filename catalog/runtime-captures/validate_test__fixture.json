@@ -1,0 +1,8 @@
+{
+  "running_baseline": {
+    "GET /helper/v1.0/wrong-route": {
+      "status": 200,
+      "body_predicate": "fixture only"
+    }
+  }
+}

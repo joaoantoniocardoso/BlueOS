@@ -16,4 +16,8 @@ echo "== drift (asserted vs observed + runtime) =="
 cargo run -q --bin drift
 echo "== export (schema/json build) =="
 cargo run -q --bin export >/dev/null
+if [ -n "${BLUEOS_BASE:-}" ]; then
+  echo "== journey_smoke (BLUEOS_BASE=$BLUEOS_BASE) =="
+  cargo run -q --bin journey_http -- --base "$BLUEOS_BASE" --smoke --fixtures "${BLUEOS_SMOKE_FIXTURES:-internet,pirate,advanced}"
+fi
 echo "ALL GATES GREEN"

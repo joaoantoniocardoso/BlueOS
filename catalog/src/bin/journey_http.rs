@@ -1,9 +1,13 @@
+// Live HTTP journey runner: `journey_http --base http://<pi> [--fixtures internet,pirate,advanced]`.
+// Smoke gate (GET + known status only): `journey_http --base http://<pi> --smoke`.
+// Offline plan: `journey_http --dry-run` (no --base).
 use std::process;
 
 use blueos_catalog::{
-    evaluate_journey, http_journeys, http_steps, journey_fixtures_ready, parse_fixture_list,
-    run_http_step, summarize_journey, Catalog, FixtureInventory, JourneyId, JourneyResult,
-    PreconditionStatus, RunCounts, StepResult,
+    evaluate_journey, format_dry_run, format_http_fail, http_journeys, http_smoke_steps,
+    http_steps, join_url, journey_fixtures_ready, journey_http_requires_base, parse_fixture_list,
+    resolve_http_path, run_http_step, summarize_journey, Catalog, FixtureInventory, JourneyId,
+    JourneyResult, PreconditionStatus, RunCounts, StepResult, SMOKE_DEFAULT_FIXTURES,
 };
 
 fn main() {
@@ -12,6 +16,7 @@ fn main() {
     let mut fixtures_spec: Option<String> = None;
     let mut dry_run = false;
     let mut allow_mutating = false;
+    let mut smoke = false;
     let mut journey_filter: Option<JourneyId> = None;
 
     let mut index = 1;
@@ -35,6 +40,7 @@ fn main() {
             }
             "--dry-run" => dry_run = true,
             "--allow-mutating" => allow_mutating = true,
+            "--smoke" => smoke = true,
             "--journey" => {
                 index += 1;
                 let id = args
@@ -52,12 +58,31 @@ fn main() {
         index += 1;
     }
 
-    if !dry_run && base.is_none() {
-        usage_and_exit("--base is required unless --dry-run is set");
+    if let Err(message) = journey_http_requires_base(dry_run, smoke, base.as_deref()) {
+        usage_and_exit(message);
     }
+
+    if smoke {
+        allow_mutating = false;
+    }
+
+    let fixtures_label = if let Some(spec) = &fixtures_spec {
+        spec.clone()
+    } else if smoke {
+        SMOKE_DEFAULT_FIXTURES.to_string()
+    } else {
+        String::new()
+    };
 
     let fixtures = match fixtures_spec {
         Some(spec) => match parse_fixture_list(&spec) {
+            Ok(fixtures) => fixtures,
+            Err(err) => {
+                eprintln!("journey_http: fixtures: {err}");
+                process::exit(2);
+            }
+        },
+        None if smoke => match parse_fixture_list(SMOKE_DEFAULT_FIXTURES) {
             Ok(fixtures) => fixtures,
             Err(err) => {
                 eprintln!("journey_http: fixtures: {err}");
@@ -81,10 +106,17 @@ fn main() {
     let mut journey_lines: Vec<String> = Vec::new();
     let mut any_fail = false;
 
-    println!(
-        "journey_http: {} Http journeys (dry_run={dry_run}, allow_mutating={allow_mutating})",
-        journeys.len()
-    );
+    if smoke {
+        println!(
+            "journey_http: smoke — {} Http journeys (fixtures={fixtures_label})",
+            journeys.len()
+        );
+    } else {
+        println!(
+            "journey_http: {} Http journeys (dry_run={dry_run}, allow_mutating={allow_mutating})",
+            journeys.len()
+        );
+    }
     if let Some(base) = &base {
         println!("base: {base}");
     }
@@ -94,24 +126,37 @@ fn main() {
         let journey_id = journey.id;
         if !journey_fixtures_ready(journey, &fixtures) {
             let reasons = skip_reasons(journey, &fixtures);
-            totals.skipped += http_steps(journey).len().max(1);
+            let step_count = if smoke {
+                http_smoke_steps(journey).len().max(1)
+            } else {
+                http_steps(journey).len().max(1)
+            };
+            totals.skipped += step_count;
             journey_lines.push(format!("SKIP {journey_id}: {}", reasons.join("; ")));
             continue;
         }
 
-        let steps = http_steps(journey);
+        let steps = if smoke {
+            http_smoke_steps(journey)
+        } else {
+            http_steps(journey)
+        };
         if steps.is_empty() {
-            journey_lines.push(format!("SKIP {journey_id}: no runnable HTTP steps"));
+            let reason = if smoke {
+                "no smoke-eligible GET steps with expected_status"
+            } else {
+                "no runnable HTTP steps"
+            };
+            journey_lines.push(format!("SKIP {journey_id}: {reason}"));
             totals.skipped += 1;
             continue;
         }
 
         if dry_run {
             for step in &steps {
-                println!(
-                    "DRY-RUN {} step {} {:?} {}",
-                    journey_id, step.step_index, step.route.method, step.route.path
-                );
+                let resolved = resolve_http_path(&catalog, &step.route)
+                    .unwrap_or_else(|| "(unresolved)".to_string());
+                println!("{}", format_dry_run(journey_id, step, &resolved));
                 totals.skipped += 1;
             }
             journey_lines.push(format!("DRY-RUN {journey_id}: {} step(s)", steps.len()));
@@ -121,12 +166,12 @@ fn main() {
         let base = base.as_deref().expect("base checked above");
         let mut step_results = Vec::new();
         for step in &steps {
+            let resolved_url = resolve_http_path(&catalog, &step.route)
+                .map(|path| join_url(base, &path))
+                .unwrap_or_else(|| "(unresolved)".to_string());
             let result = run_http_step(&catalog, base, step, allow_mutating);
             if let StepResult::Fail(msg) = &result {
-                eprintln!(
-                    "FAIL {} step {} {:?} {} — {msg}",
-                    journey_id, step.step_index, step.route.method, step.route.path
-                );
+                eprintln!("{}", format_http_fail(journey_id, step, &resolved_url, msg));
             }
             totals.record(&result);
             step_results.push(result);
@@ -180,6 +225,6 @@ fn usage_and_exit(message: &str) -> ! {
 
 fn print_help() {
     eprintln!(
-        "usage: journey_http --base <url> [--fixtures internet,pirate] [--dry-run] [--allow-mutating] [--journey <id>]"
+        "usage: journey_http --base <url> [--fixtures internet,pirate,advanced] [--smoke] [--dry-run] [--allow-mutating] [--journey <id>]"
     );
 }

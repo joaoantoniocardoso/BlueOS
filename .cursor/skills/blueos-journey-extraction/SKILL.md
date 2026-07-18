@@ -28,6 +28,9 @@ A journey is triangulated across three sources; you own exactly one of them:
 - **Doc provenance or Unknown.** Every value cites `content/…/index.md:LINE` in `../BlueOS-docs`. No doc anchor → `Grounded::unknown(reason)`. Never invent a journey that is not documented.
 - **You do not assert runtime behavior.** Leave each step's `outcome` as `None`. `StepOutcome` (`expected_status`, `body_predicate`, `transition`) is Runtime-provenance, filled from the parity baselines, not from prose.
 - **You do not confirm routes.** Record the route the docs *imply* as a **Doc-grounded** hint (`route: Some(Grounded::known(RouteRef{..}, Provenance::doc(..)))`); the Fact Extractor re-grounds it to `Source` once found in code.
+- **Route hints are nginx-correct.** Each hint MUST include nginx-facing API version, router prefix, path, and required query params. Leave `outcome` `None` (Runtime fills status) — but the path must already resolve to the operator URL.
+- **Preserve frontend `API_URL` prefixes.** When Vue uses `API_URL='/recorder-extractor/v1.0/recorder'` + `/files`, record `path: "/recorder/files"`, `version: Some("v1.0")` — do NOT strip to `/files`.
+- **Kraken store APIs are v2.0** (`KrakenManager.ts` → `KRAKEN_API_V2_URL`).
 - **Journeys are operator workflows, not API coverage.** One journey = one goal a human pursues ("update firmware"), a chained sequence of steps — not an endpoint list.
 
 ## Ground-truth sources (in `../BlueOS-docs`)
@@ -69,7 +72,7 @@ Journey extraction for <service/flow>:
 1. **Resolve services** — from `service(link=…)`; a getting-started flow may list several (wifi → version-chooser → autopilot). Record each as a `Grounded` item with its doc anchor.
 2. **Enumerate goals** — each heading / bullet cluster describing a task the operator *does* is one journey. E.g. the Autopilot Firmware page yields: change board, start, stop, restart, update firmware (online), upload custom firmware, restore default, run SITL.
 3. **Intent + visibility + preconditions** — summary is the operator's goal in one line. Preconditions come from doc prose (hardware present, internet required, board selected, "flash default params after firmware change"). Platform differences (Navigator vs SITL vs serial) are preconditions or separate journeys.
-4. **Steps** — ordered `JourneyStep`s. Set `actor` (Operator initiates, Service reacts), a `description`, and a **route hint** (`RouteRef` with the service + your best-guess `METHOD /path` from the prose/API links, e.g. docs mention `POST /sitl_frame`). Leave runtime fields `None`.
+4. **Steps** — ordered `JourneyStep`s. Set `actor` (Operator initiates, Service reacts), a `description`, and a **route hint** (`RouteRef` with service, nginx-facing `version`, router prefix + path, and required query params — e.g. `path: "/recorder/files"`, `version: Some("v1.0")` when frontend `API_URL` is `/recorder-extractor/v1.0/recorder`). Leave `outcome` `None`.
 5. **Chaining** — if the docs describe a flow where one task's end state is the next task's start (setup → firmware → parameters), set `chains_from`.
 
 ## Output contract
@@ -117,5 +120,6 @@ Some flows live in the browser (calibration wizards, parameter-file apply, video
 - [ ] Each participating `ServiceId` maps to a real catalog service (via `service()` link/port).
 - [ ] No step `outcome` is set (Runtime layer, not yours).
 - [ ] Steps are ordered and each carries an actor; routes are Doc-grounded hints, not confirmed facts.
+- [ ] Route hints include nginx version, router prefix, path, and query params; paths are operator-resolvable (not service-relative).
 
 Return: the artifact path, the list of journeys with their service(s) and visibility, and any `Unknown` fields with reasons.

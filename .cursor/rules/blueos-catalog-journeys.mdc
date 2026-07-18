@@ -45,6 +45,12 @@ BlueOS 1.x implements whole flows in the browser (calibration wizards, parameter
 - Ground steps by **triangulation**: `Doc` (operator intent in `../BlueOS-docs`) + `Source` (the Vue component `file:line`). A wizard step's `outcome` stays `Grounded::unknown(...)` unless a live run on the Pi captured it (mutating flows are not fabricated).
 - The journey's home page is implicit in its `Actor::Frontend(PageId)` steps — no separate page field is added (parse-don't-validate: the `PageId` enum already guarantees a real page).
 
+## Live URL contract
+
+- Every `RouteRef` MUST be nginx-resolvable: `version`, nested router prefix, and `query` all participate in `resolve_http_path`.
+- QA: each routed step MUST have a resolved URL and either a live GET against it or explicit `UnverifiedLive` — `Source` line provenance alone is insufficient.
+- Smoke (when `BLUEOS_BASE` set): `cargo run -q --bin journey_http -- --base "$BLUEOS_BASE" --smoke` — safe GETs only.
+
 ## Never
 
 - Trap a cross-service journey inside one service module.

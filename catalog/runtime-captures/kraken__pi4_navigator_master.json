@@ -28,21 +28,21 @@
 
   "running_baseline": {
     "note": "GET-endpoint contracts on a healthy running kraken with only the default major_tom extension installed.",
-    "GET /installed_extensions": { "status": 200, "body_predicate": "array; contains blueos.major_tom {enabled:true}" },
-    "GET /list_containers": { "status": 200, "body_predicate": "3 containers: major_tom extension, blueos-core, blueos-bootstrap" },
-    "GET /stats": { "status": 200, "body_predicate": "object keyed by container -> {cpu, disk, memory}" },
-    "GET /container/": { "status": 200, "body_predicate": "array of container descriptors {name,status,image}" },
-    "GET /manifest/": { "status": 200, "body_predicate": "array; contains bluerobotics-production {enabled:true, priority:0}" },
-    "GET /manifest/consolidated": { "status": 200, "body_predicate": "large consolidated manifest of all extensions across sources" }
+    "GET /kraken/v2.0/installed_extensions": { "status": 200, "body_predicate": "array; contains blueos.major_tom {enabled:true}" },
+    "GET /kraken/v2.0/list_containers": { "status": 200, "body_predicate": "3 containers: major_tom extension, blueos-core, blueos-bootstrap" },
+    "GET /kraken/v2.0/stats": { "status": 200, "body_predicate": "object keyed by container -> {cpu, disk, memory}" },
+    "GET /kraken/v2.0/container/": { "status": 200, "body_predicate": "array of container descriptors {name,status,image}" },
+    "GET /kraken/v2.0/manifest/": { "status": 200, "body_predicate": "array; contains bluerobotics-production {enabled:true, priority:0}" },
+    "GET /kraken/v2.0/manifest/consolidated": { "status": 200, "body_predicate": "large consolidated manifest of all extensions across sources" }
   },
 
   "slo_running_baseline": {
     "sample_size": 40,
-    "GET /installed_extensions": { "p50_ms": 6.6, "p95_ms": 12.6, "p99_ms": 14.9 },
-    "GET /list_containers": { "p50_ms": 41.7, "p95_ms": 56.2, "p99_ms": 61.7 },
-    "GET /stats": { "p50_ms": 2026.7, "p95_ms": 2046.7, "p99_ms": 2052.4, "note": "~2s: aggregates live Docker stats for all containers" },
-    "GET /container/": { "p50_ms": 43.1, "p95_ms": 58.3, "p99_ms": 60.1 },
-    "GET /manifest/consolidated": { "p50_ms": 846.2, "p95_ms": 929.2, "p99_ms": 939.1, "note": "~850ms: builds consolidated manifest" }
+    "GET /kraken/v2.0/installed_extensions": { "p50_ms": 6.6, "p95_ms": 12.6, "p99_ms": 14.9 },
+    "GET /kraken/v2.0/list_containers": { "p50_ms": 41.7, "p95_ms": 56.2, "p99_ms": 61.7 },
+    "GET /kraken/v2.0/stats": { "p50_ms": 2026.7, "p95_ms": 2046.7, "p99_ms": 2052.4, "note": "~2s: aggregates live Docker stats for all containers" },
+    "GET /kraken/v2.0/container/": { "p50_ms": 43.1, "p95_ms": 58.3, "p99_ms": 60.1 },
+    "GET /kraken/v2.0/manifest/consolidated": { "p50_ms": 846.2, "p95_ms": 929.2, "p99_ms": 939.1, "note": "~850ms: builds consolidated manifest" }
   },
 
   "resource_usage": {

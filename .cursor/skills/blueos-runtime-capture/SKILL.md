@@ -8,6 +8,9 @@ You are the **Runtime Specialist**. Your source of truth is a **live BlueOS inst
 - **Runtime provenance or Unknown.** Every value carries `Provenance::Runtime { capture, environment }`. `capture` points to a saved artifact under `catalog/runtime-captures/`; `environment` records exactly what was running.
 - **Capture, then record.** Values must come from a capture artifact you actually produced against the Pi, not from memory or inference.
 - **Record the environment precisely.** BlueOS version + git commit, board (Navigator / SITL / Manual-Serial), Pi model, and which manager (python/rust) — differences here change the facts.
+- **Capture keys are nginx front-door paths.** Keys MUST be the exact operator-facing URL: `METHOD /{nginx-prefix}/{version}/…path?query`, e.g. `GET /helper/v1.0/ping?host=1.1.1.1` — never bare service-relative paths like `GET /ping`. Nested FastAPI router prefixes (e.g. `/recorder`) are part of the path.
+- **Probe like an operator.** Hit `http://<pi>/{nginx-prefix}/…` through nginx (same URL operators use), not only `localhost:<servicePort>`.
+- **Journey outcomes must key-match.** When re-grounding step `outcome`s, `RouteRef.path` + `version` MUST resolve (runner `resolve_http_path`) to the same capture key you stored.
 
 ## What you fill
 
@@ -26,7 +29,7 @@ Measurements go through committed, parameterized tools under `catalog/runtime-ca
 | Tool | Use |
 |------|-----|
 | `tools/sample_resource.sh --match <proc> [--samples N --interval S --label L --out F]` | process CPU (top-style) + RSS distribution over a window |
-| `tools/probe_http.sh --base <url> --gets "/a /b" [--repeats N --label L --out F]` | per-route status + body + latency p50/p95/p99 |
+| `tools/probe_http.sh --base http://<pi> --gets "/helper/v1.0/ping?host=1.1.1.1 /…" [--repeats N --label L --out F]` | per-route status + body + latency p50/p95/p99; `--gets` entries are full nginx paths (version + query included) |
 
 CPU/mem/latency are always a **distribution over a window** (mean/median/p95/min/max/sd), never a single snapshot — resources fluctuate.
 
@@ -44,7 +47,7 @@ Runtime capture for <service> on <env>:
 ```
 
 1. **Environment** — capture the running version/commit (e.g. via the version-chooser/helper endpoints) plus `uname -a` and board detection. This string is the `environment` for every value in this capture.
-2. **State contracts** — put the service into each `StateMachine` state (e.g. running vs stopped via the start/stop routes), then request each endpoint and record the real `status` and a literal `body_predicate` (a substring actually present in the response, not a paraphrase). This is where over-asserted stability (`api_stable`) gets falsified — record the true `500`/error when stopped.
+2. **State contracts** — put the service into each `StateMachine` state (e.g. running vs stopped via the start/stop routes), then request each endpoint through nginx and record the real `status` and a literal `body_predicate` (a substring actually present in the response, not a paraphrase). Store capture keys as `METHOD /{nginx-prefix}/{version}/…path?query`. This is where over-asserted stability (`api_stable`) gets falsified — record the true `500`/error when stopped.
 3. **SLO baselines** — call each route enough times (e.g. 100) to compute p50/p95/p99 (ms) and set `sample_size`. Sample `cpu_percent`/`memory_mb` from `docker stats` (or the system service) during load.
 4. **Settings mutations** — snapshot `settings.json` before and after each mutating action; `keys_changed` lists the changed JSON paths (e.g. `content.preferred_router`); `trigger` is the route/action.
 5. **Platform matrix** — record only what the connected board shows; for boards you cannot exercise, leave that entry out (the set stays partial) and note the gap.
@@ -69,6 +72,7 @@ Provenance::runtime(
 ## Done criteria (self-check before returning)
 
 - [ ] Every filled value cites a `runtime-captures/…#key` that exists and an accurate `environment`.
+- [ ] Capture keys are full nginx front-door paths (version + query); journey `RouteRef`s resolve to the same keys via `resolve_http_path`.
 - [ ] No value traces to `microservices_core_prototype` or any reimplementation.
 - [ ] `body_predicate`s are literal substrings from the captured response.
 - [ ] Boards/states you could not exercise remain `Unknown` (no guessing).

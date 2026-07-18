@@ -1,13 +1,16 @@
 use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
 
+use serde_json::Value;
 use thiserror::Error;
 
 use crate::catalog::Catalog;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::UserJourney;
 use crate::page::{ConsumeTarget, PageId};
-use crate::provenance::{AssertedSet, GroundedSet, ObservedSet};
+use crate::provenance::{AssertedSet, Grounded, GroundedSet, ObservedSet, Provenance};
 use crate::resource::ResourceOwnership;
+use crate::runner::{path_starts_with_service_prefix, resolve_http_path};
 use crate::service::{Authority, Service, ServiceDefinition};
 use crate::state::StateMachine;
 
@@ -66,6 +69,16 @@ pub enum ValidationError {
     EmptyPageFrontendFeature { page: String },
     #[error("duplicate page id {page}")]
     DuplicatePageId { page: String },
+    #[error(
+        "journey {journey} step {step} route resolves to {resolved} but capture {capture} has no matching GET key ({hint})"
+    )]
+    JourneyRuntimeRouteMismatch {
+        journey: String,
+        step: usize,
+        resolved: String,
+        capture: String,
+        hint: String,
+    },
 }
 
 pub fn validate(catalog: &Catalog) -> Result<(), Vec<ValidationError>> {
@@ -75,6 +88,7 @@ pub fn validate(catalog: &Catalog) -> Result<(), Vec<ValidationError>> {
     errors.extend(check_edge_targets(catalog));
     errors.extend(check_service_journey_refs(catalog));
     errors.extend(check_journey_references(catalog));
+    errors.extend(check_journey_runtime_route_consistency(catalog));
     check_runtime_references(catalog, &mut errors);
     errors.extend(check_page_references(catalog));
     errors.extend(check_coverage_gate(catalog));
@@ -292,6 +306,145 @@ fn check_journey_references(catalog: &Catalog) -> Vec<ValidationError> {
     }
 
     errors
+}
+
+fn check_journey_runtime_route_consistency(catalog: &Catalog) -> Vec<ValidationError> {
+    let crate_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let mut capture_cache: HashMap<&'static str, Value> = HashMap::new();
+    let mut errors = Vec::new();
+
+    for journey in catalog.journeys() {
+        let GroundedSet::Known { items: steps } = &journey.steps else {
+            continue;
+        };
+        let journey_id = journey.id.to_string();
+
+        for (step_index, step) in steps.iter().enumerate() {
+            let Some(Grounded::Known {
+                value: route_ref, ..
+            }) = &step.value.route
+            else {
+                continue;
+            };
+            let Some(Grounded::Known {
+                value: outcome,
+                provenance,
+            }) = &step.value.outcome
+            else {
+                continue;
+            };
+            let Provenance::Runtime { capture, .. } = provenance else {
+                continue;
+            };
+            if outcome.expected_status.is_none() {
+                continue;
+            }
+            let Some(resolved) = resolve_http_path(catalog, route_ref) else {
+                continue;
+            };
+
+            let Some((file, section_name)) = capture.split_once('#') else {
+                continue;
+            };
+            let doc = match load_runtime_capture(&crate_dir, file, &mut capture_cache) {
+                Some(doc) => doc,
+                None => continue,
+            };
+            let Some(section) = doc.get(section_name).and_then(Value::as_object) else {
+                errors.push(ValidationError::JourneyRuntimeRouteMismatch {
+                    journey: journey_id.clone(),
+                    step: step_index,
+                    resolved: resolved.clone(),
+                    capture: capture.to_string(),
+                    hint: format!("section '{section_name}' not found in {file}"),
+                });
+                continue;
+            };
+
+            let get_keys: Vec<&str> = section
+                .keys()
+                .filter(|key| key.starts_with("GET "))
+                .map(String::as_str)
+                .collect();
+            if !section_enforces_route_match(&get_keys, route_ref.service, catalog) {
+                continue;
+            }
+
+            let matched = get_keys.iter().any(|key| {
+                capture_route_path(key)
+                    .is_some_and(|capture_path| paths_match(&resolved, capture_path))
+            });
+            if !matched {
+                errors.push(ValidationError::JourneyRuntimeRouteMismatch {
+                    journey: journey_id.clone(),
+                    step: step_index,
+                    resolved,
+                    capture: capture.to_string(),
+                    hint: format_available_get_keys(&get_keys),
+                });
+            }
+        }
+    }
+
+    errors
+}
+
+fn load_runtime_capture<'a>(
+    crate_dir: &Path,
+    file: &'static str,
+    cache: &'a mut HashMap<&'static str, Value>,
+) -> Option<&'a Value> {
+    if !cache.contains_key(file) {
+        let path = crate_dir.join(file);
+        let content = std::fs::read_to_string(path).ok()?;
+        let doc: Value = serde_json::from_str(&content).ok()?;
+        cache.insert(file, doc);
+    }
+    cache.get(file)
+}
+
+fn section_enforces_route_match(get_keys: &[&str], service: ServiceId, catalog: &Catalog) -> bool {
+    get_keys.iter().any(|key| {
+        capture_route_path(key)
+            .is_some_and(|path| path_starts_with_service_prefix(catalog, service, path))
+    })
+}
+
+fn capture_route_path(key: &str) -> Option<&str> {
+    key.strip_prefix("GET ")
+}
+
+fn normalize_http_path(path: &str) -> String {
+    if path.len() > 1 && path.ends_with('/') {
+        path.trim_end_matches('/').to_string()
+    } else {
+        path.to_string()
+    }
+}
+
+fn paths_match(resolved: &str, capture_path: &str) -> bool {
+    if resolved == capture_path {
+        return true;
+    }
+    if normalize_http_path(resolved) == normalize_http_path(capture_path) {
+        return true;
+    }
+    capture_path
+        .strip_prefix(resolved)
+        .is_some_and(|suffix| suffix.is_empty() || suffix.starts_with('?'))
+}
+
+fn format_available_get_keys(keys: &[&str]) -> String {
+    const MAX_KEYS: usize = 8;
+    let preview: Vec<&str> = keys.iter().copied().take(MAX_KEYS).collect();
+    let mut hint = preview.join(", ");
+    if keys.len() > MAX_KEYS {
+        hint.push_str(&format!(", … (+{} more)", keys.len() - MAX_KEYS));
+    }
+    if hint.is_empty() {
+        hint = "(no GET keys in section)".to_string();
+    }
+    hint
 }
 
 fn participating_service_ids(journey: &UserJourney) -> Vec<&ServiceId> {
@@ -1238,5 +1391,82 @@ mod tests {
             vec![page],
         );
         assert!(catalog.validate().is_ok());
+    }
+
+    #[test]
+    fn journey_runtime_route_mismatch_detected() {
+        use crate::services::helper::OBSERVED_FACTS;
+
+        let service = empty_service(ServiceId::Helper);
+        let journey = UserJourney {
+            id: JourneyId::MonitorInternetConnectivity,
+            summary: Grounded::known("test", Provenance::doc("test.md", 1)),
+            visibility: Grounded::known(Visibility::Default, Provenance::doc("test.md", 1)),
+            services: GroundedSet::known(
+                const {
+                    &[GroundedItem::new(
+                        ServiceId::Helper,
+                        Provenance::doc("test.md", 1),
+                    )]
+                },
+            ),
+            capability_refs: GroundedSet::known(&[]),
+            preconditions: GroundedSet::known(&[]),
+            steps: GroundedSet::known(
+                const {
+                    &[GroundedItem::new(
+                        JourneyStep {
+                            actor: Actor::Service(ServiceId::Helper),
+                            description: "probe",
+                            route: Some(Grounded::known(
+                                RouteRef {
+                                    service: ServiceId::Helper,
+                                    method: HttpMethod::Get,
+                                    path: "/check_internet_access",
+                                    version: Some("v1.0"),
+                                },
+                                Provenance::source("helper/main.py", 1),
+                            )),
+                            outcome: Some(Grounded::known(
+                                StepOutcome {
+                                    expected_status: Some(200),
+                                    body_predicate: Some("\"online\": true"),
+                                    transition: None,
+                                },
+                                Provenance::runtime(
+                                    "runtime-captures/validate_test__fixture.json#running_baseline",
+                                    "test",
+                                ),
+                            )),
+                        },
+                        Provenance::source("helper/main.py", 1),
+                    )]
+                },
+            ),
+            chains_from: None,
+        };
+        let catalog = Catalog::with_parts(
+            vec![svc(
+                ServiceId::Helper,
+                OBSERVED_FACTS,
+                service,
+                empty_runtime(ServiceId::Helper),
+            )],
+            vec![journey],
+            vec![],
+        );
+        let errors = catalog.validate().unwrap_err();
+        assert!(errors.iter().any(|error| {
+            matches!(
+                error,
+                ValidationError::JourneyRuntimeRouteMismatch {
+                    journey,
+                    step: 0,
+                    resolved,
+                    ..
+                } if journey == "monitor_internet_connectivity"
+                    && resolved == "/helper/v1.0/check_internet_access"
+            )
+        }));
     }
 }

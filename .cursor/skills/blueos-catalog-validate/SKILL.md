@@ -33,6 +33,20 @@ cargo run --bin drift        # asserted vs observed + asserted vs runtime reconc
 - **`validate()`** — invariants + coverage threshold (authority uniqueness, edge targets exist, journey/runtime cross-refs, `Unknown` count ≤ threshold).
 - **`extract`** — the hand-authored observed layer (startup_tier/memory/cpu) matches `core/start-blueos-core`.
 - **`drift`** — no asserted field contradicts the observed layer; runtime StateContracts reference declared states.
+- **`journey_http` smoke (when `BLUEOS_BASE` set)** — planned gate hook:
+
+```bash
+cargo run -q --bin journey_http -- --base "$BLUEOS_BASE" --smoke --fixtures internet,pirate,advanced
+```
+
+(`--smoke` = safe GETs only; requires live Pi.)
+
+## Journey route QA (live-URL harness)
+
+For journeys with `route: Some(…)`:
+
+- MUST have a **resolved URL** (`nginx-prefix` + `version` + `path` + `query`) via `resolve_http_path`.
+- MUST have either a live GET result against that URL or explicit `UnverifiedLive` — line-number `Source` provenance alone is insufficient for `RouteRef` acceptance.
 
 ## Provenance spot-check (manual, sample K fields)
 
@@ -68,6 +82,8 @@ QA for <id>:
 - [ ] provenance spot-check: K/K citations verified
 - [ ] judgment fields obey FROZEN RUBRIC v1.0
 - [ ] authorities/edges trace to observed capabilities
+- [ ] journey routes: resolved URL present; live GET or `UnverifiedLive` (not Source line alone)
+- [ ] `BLUEOS_BASE` set → `journey_http --smoke` green (when gate hook enabled)
 ```
 
 ## Verdict format
