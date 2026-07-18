@@ -8,6 +8,7 @@ pub mod edge;
 pub mod export;
 pub mod extract;
 pub mod feature;
+pub mod fixture;
 pub mod id;
 pub mod interface;
 pub mod journey;
@@ -20,6 +21,7 @@ pub mod pages;
 pub mod provenance;
 pub mod resolve;
 pub mod resource;
+pub mod runner;
 pub mod runtime;
 pub mod service;
 pub mod services;
@@ -50,6 +52,10 @@ pub use feature::{
     AggregateGroup, Divergence, Feature, FeatureCatalog, FeatureCommunity, FeatureId, FeatureLens,
     FeaturePairAgreement, FeatureSplitConsensus, JourneyView, Origin,
 };
+pub use fixture::{
+    evaluate_journey, evaluate_precondition, journey_fixtures_ready, parse_fixture_list,
+    FixtureInventory, PreconditionStatus,
+};
 pub use id::{CapabilityId, Entity, JourneyId, PathRef, Port, PortRef, ServiceId};
 pub use interface::{FileAccessMode, Interface, MavlinkRole};
 pub use journey::{
@@ -68,6 +74,10 @@ pub use provenance::{
 };
 pub use resolve::{resolve, resolve_port_ref, resolve_service_ports, ResolveError, ResolvedPorts};
 pub use resource::{Resource, ResourceOwnership};
+pub use runner::{
+    evaluate_http_response, execute_curl, http_journeys, http_steps, join_url, resolve_http_path,
+    run_http_step, summarize_journey, JourneyResult, RunCounts, RunnableStep, StepResult,
+};
 pub use runtime::{
     Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts, SettingsMutation, SloBaseline,
     StateContract,
