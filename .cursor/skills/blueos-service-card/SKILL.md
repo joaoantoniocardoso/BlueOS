@@ -106,5 +106,6 @@ Card checklist for <id>:
 - [ ] Coverage threshold met (few enough `Unknown` on required fields).
 - [ ] `drift` passes — no asserted field contradicts the observed layer.
 - [ ] Every authority/edge traces to an observed capability/interface.
+- [ ] **Journey wiring smoke (blocking when Pi reachable).** Card Author wires `all_journeys()` — when `192.168.0.177` is reachable, do NOT claim DONE until smoke reports **`failed=0`** (`BLUEOS_BASE=http://192.168.0.177 bash catalog/gate.sh` or minimum `journey_http --smoke --fixtures internet,pirate,advanced`). If unreachable: defer commit or ensure QA marks routed steps `UnverifiedLive`.
 
-Return: the card path, the authorities claimed, `bounded_context`, and any `Unknown` fields with reasons.
+Return: the card path, the authorities claimed, `bounded_context`, smoke status if journeys wired, and any `Unknown` fields with reasons.

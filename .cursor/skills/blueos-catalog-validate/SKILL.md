@@ -30,23 +30,61 @@ cargo run --bin drift        # asserted vs observed + asserted vs runtime reconc
 # validate() runs inside tests; confirm it exercises the new service
 ```
 
-- **`validate()`** — invariants + coverage threshold (authority uniqueness, edge targets exist, journey/runtime cross-refs, `Unknown` count ≤ threshold).
+- **`validate()`** — invariants + coverage threshold (authority uniqueness, edge targets exist, journey/runtime cross-refs, frontend `FRONTEND_API_ENDPOINTS` / `API_URL` composition via `FrontendRoutePrefixDropped`, `Unknown` count ≤ threshold).
 - **`extract`** — the hand-authored observed layer (startup_tier/memory/cpu) matches `core/start-blueos-core`.
 - **`drift`** — no asserted field contradicts the observed layer; runtime StateContracts reference declared states.
-- **`journey_http` smoke (when `BLUEOS_BASE` set)** — planned gate hook:
+- **`journey_http` smoke (required when Pi reachable)** — blocking gate for journey/route/runtime work:
 
 ```bash
-cargo run -q --bin journey_http -- --base "$BLUEOS_BASE" --smoke --fixtures internet,pirate,advanced
+BLUEOS_BASE=http://192.168.0.177 bash catalog/gate.sh
+# or at minimum:
+cargo run -q --bin journey_http -- --base http://192.168.0.177 --smoke --fixtures internet,pirate,advanced
 ```
 
-(`--smoke` = safe GETs only; requires live Pi.)
+Require **`failed=0`**. (`--smoke` = safe GETs only; requires live Pi.) If Pi unreachable: ACCEPT only with explicit per-step `UnverifiedLive` in the verdict — never ACCEPT `Known` `expected_status` on an unverified `RouteRef`.
 
-## Journey route QA (live-URL harness)
+## FROZEN JOURNEY ROUTE RUBRIC v1.0
 
-For journeys with `route: Some(…)`:
+These rules make journey `RouteRef` QA deterministic. They were frozen after inter-rater
+calibration on 3 representative journeys spanning query params, API version prefixes, and
+nested router prefixes. Apply them exactly; deviating requires a rationale. **A provenance
+line alone is NEVER sufficient for `RouteRef` acceptance.**
 
-- MUST have a **resolved URL** (`nginx-prefix` + `version` + `path` + `query`) via `resolve_http_path`.
-- MUST have either a live GET result against that URL or explicit `UnverifiedLive` — line-number `Source` provenance alone is insufficient for `RouteRef` acceptance.
+### Hard fields (must agree)
+
+1. **Resolved URL** — `resolve_http_path(RouteRef)` is documented in the QA report for every
+   Known routed step sampled.
+2. **Live proof** — either smoke `failed=0` summary for the PR, OR per-step `UnverifiedLive`
+   with reason (Pi down / hardware fixture).
+3. **Capture key** — when the outcome is Runtime, the capture key equals the full nginx path of
+   the resolved URL.
+4. **Query params / API version / nested router prefix** — present when frontend `API_URL`
+   requires them.
+
+### Soft fields
+
+Step description wording; doc line choice among equivalents.
+
+### Calibration set (must pass smoke when Pi up)
+
+- `probe_interface_internet_connectivity` (query param)
+- `browse_extension_store` (kraken v2.0)
+- `browse_video_recordings` (nested `/recorder` prefix)
+
+**QA ACCEPT** requires: smoke summary including these three as Pass (or Skip only for fixture
+reasons, never Fail) when `BLUEOS_BASE` reachable.
+
+### Calibration evidence (2026-07-18)
+
+Base `http://192.168.0.177`, fixtures `internet,pirate,advanced`:
+
+```
+probe_interface_internet_connectivity: passed=1 failed=0 skipped=0 — Pass (1 step)
+browse_extension_store:                passed=1 failed=0 skipped=0 — Pass (1 step)
+browse_video_recordings:               passed=2 failed=0 skipped=0 — Pass (2 steps)
+```
+
+Aggregate: **4 routed steps, 4 Pass, 0 Fail, 0 Skip.**
 
 ## Provenance spot-check (manual, sample K fields)
 
@@ -60,9 +98,14 @@ Prioritize sampling: ports, nginx routes, MAVLink connect strings, outbound edge
 
 ## Inter-rater rubric (FROZEN v1.0 — calibration complete)
 
-Calibration is done (ardupilot_manager + kraken, 13/14 hard-field agreement). The rubric is
-frozen in `blueos-service-card/SKILL.md` → **Decision rules — FROZEN RUBRIC v1.0**. When spot-checking
-judgment fields, apply those rules and BOUNCE deviations lacking a rationale:
+**Service cards:** calibration done (ardupilot_manager + kraken, 13/14 hard-field agreement).
+Frozen in `blueos-service-card/SKILL.md` → **Decision rules — FROZEN RUBRIC v1.0**. When
+spot-checking judgment fields, apply those rules and BOUNCE deviations lacking a rationale:
+
+**Journey routes:** frozen in this skill → **FROZEN JOURNEY ROUTE RUBRIC v1.0** above. Provenance
+line alone is insufficient; require resolved URL + live proof per the hard fields.
+
+Service-card rules:
 - `user_confirmation` must be `Required` iff `dangerous_operations` is non-empty.
 - `dangerous_operations` include only irreversible / untrusted-code / unsafe-physical-state ops (not reversible lifecycle).
 - `authorities` are exclusive rights other services depend on (a private-only settings dir is a Resource, not an authority).
@@ -82,12 +125,12 @@ QA for <id>:
 - [ ] provenance spot-check: K/K citations verified
 - [ ] judgment fields obey FROZEN RUBRIC v1.0
 - [ ] authorities/edges trace to observed capabilities
-- [ ] journey routes: resolved URL present; live GET or `UnverifiedLive` (not Source line alone)
-- [ ] `BLUEOS_BASE` set → `journey_http --smoke` green (when gate hook enabled)
+- [ ] journey routes obey FROZEN JOURNEY ROUTE RUBRIC v1.0 (resolved URL + live proof; not Source line alone)
+- [ ] Pi reachable → smoke **`failed=0`** (paste summary in verdict) OR explicit per-step `UnverifiedLive`; do NOT ACCEPT without one of these
 ```
 
 ## Verdict format
 
 Return one of:
-- **ACCEPT** — all gates green; note anything to revisit later.
-- **BOUNCE** — list each failing gate with the exact command output or the bad `file:line`, and the specific fix required.
+- **ACCEPT** — all gates green; for journey/route/runtime work when Pi reachable, include pasted smoke summary (`failed=0`) or explicit per-step `UnverifiedLive`; note anything to revisit later.
+- **BOUNCE** — list each failing gate with the exact command output or the bad `file:line`, and the specific fix required. Smoke `failed>0` when Pi reachable is an automatic BOUNCE.

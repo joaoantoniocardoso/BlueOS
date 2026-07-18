@@ -49,7 +49,7 @@ BlueOS 1.x implements whole flows in the browser (calibration wizards, parameter
 
 - Every `RouteRef` MUST be nginx-resolvable: `version`, nested router prefix, and `query` all participate in `resolve_http_path`.
 - QA: each routed step MUST have a resolved URL and either a live GET against it or explicit `UnverifiedLive` — `Source` line provenance alone is insufficient.
-- Smoke (when `BLUEOS_BASE` set): `cargo run -q --bin journey_http -- --base "$BLUEOS_BASE" --smoke` — safe GETs only.
+- **MUST smoke before commit (Pi reachable).** Run `BLUEOS_BASE=http://192.168.0.177 bash catalog/gate.sh` (or `cargo run -q --bin journey_http -- --base http://192.168.0.177 --smoke --fixtures internet,pirate,advanced`); require **`failed=0`**. Orchestrator MUST refuse commit without smoke green or a ledger/QA `UnverifiedLive` note per affected step.
 
 ## Never
 

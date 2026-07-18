@@ -29,7 +29,7 @@ A journey is triangulated across three sources; you own exactly one of them:
 - **You do not assert runtime behavior.** Leave each step's `outcome` as `None`. `StepOutcome` (`expected_status`, `body_predicate`, `transition`) is Runtime-provenance, filled from the parity baselines, not from prose.
 - **You do not confirm routes.** Record the route the docs *imply* as a **Doc-grounded** hint (`route: Some(Grounded::known(RouteRef{..}, Provenance::doc(..)))`); the Fact Extractor re-grounds it to `Source` once found in code.
 - **Route hints are nginx-correct.** Each hint MUST include nginx-facing API version, router prefix, path, and required query params. Leave `outcome` `None` (Runtime fills status) — but the path must already resolve to the operator URL.
-- **Preserve frontend `API_URL` prefixes.** When Vue uses `API_URL='/recorder-extractor/v1.0/recorder'` + `/files`, record `path: "/recorder/files"`, `version: Some("v1.0")` — do NOT strip to `/files`.
+RouteRefs for frontend-backed HTTP calls must match the composed paths in `catalog/src/frontend_routes.rs` (`FRONTEND_API_ENDPOINTS`, mined from `core/frontend/src` `API_URL` + relative path with `file:line` provenance). When a Vue store uses a nested router prefix (e.g. `API_URL='/recorder-extractor/v1.0/recorder'` + `/files`), journey `RouteRef.path` must preserve that segment (`/recorder/files`, not bare `/files`). `Catalog::validate()` enforces this via `FrontendRoutePrefixDropped`.
 - **Kraken store APIs are v2.0** (`KrakenManager.ts` → `KRAKEN_API_V2_URL`).
 - **Journeys are operator workflows, not API coverage.** One journey = one goal a human pursues ("update firmware"), a chained sequence of steps — not an endpoint list.
 
@@ -121,5 +121,6 @@ Some flows live in the browser (calibration wizards, parameter-file apply, video
 - [ ] No step `outcome` is set (Runtime layer, not yours).
 - [ ] Steps are ordered and each carries an actor; routes are Doc-grounded hints, not confirmed facts.
 - [ ] Route hints include nginx version, router prefix, path, and query params; paths are operator-resolvable (not service-relative).
+- [ ] **Live smoke (blocking when Pi reachable).** When `192.168.0.177` is reachable, do NOT claim DONE until `BLUEOS_BASE=http://192.168.0.177 bash catalog/gate.sh` (or `cargo run -q --bin journey_http -- --base http://192.168.0.177 --smoke --fixtures internet,pirate,advanced`) reports **`failed=0`**. If unreachable: do not invent routes — leave outcomes `Unknown` or mark affected steps `UnverifiedLive`; never commit `Known` `expected_status` on an unverified `RouteRef`.
 
-Return: the artifact path, the list of journeys with their service(s) and visibility, and any `Unknown` fields with reasons.
+Return: the artifact path, the list of journeys with their service(s) and visibility, smoke summary (`failed=0` or `UnverifiedLive` per step), and any `Unknown` fields with reasons.

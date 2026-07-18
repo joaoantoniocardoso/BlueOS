@@ -77,5 +77,6 @@ Provenance::runtime(
 - [ ] `body_predicate`s are literal substrings from the captured response.
 - [ ] Boards/states you could not exercise remain `Unknown` (no guessing).
 - [ ] `cargo fmt` + `cargo clippy -D warnings` + `cargo test` green; `Catalog::bootstrap().validate()` Ok.
+- [ ] **Live smoke (blocking when Pi reachable).** When `192.168.0.177` is reachable, do NOT claim DONE / ACCEPT for re-grounded journey outcomes until `BLUEOS_BASE=http://192.168.0.177 bash catalog/gate.sh` (or `cargo run -q --bin journey_http -- --base http://192.168.0.177 --smoke --fixtures internet,pirate,advanced`) reports **`failed=0`**. If unreachable: leave outcomes `Unknown` or mark steps `UnverifiedLive` — never commit `Known` `expected_status` against an unverified route.
 
-Return: the environment string, the capture artifact path(s), which fields moved from Unknown to Known, and every field still Unknown with its reason.
+Return: the environment string, the capture artifact path(s), smoke summary (`failed=0` or `UnverifiedLive` per step), which fields moved from Unknown to Known, and every field still Unknown with its reason.

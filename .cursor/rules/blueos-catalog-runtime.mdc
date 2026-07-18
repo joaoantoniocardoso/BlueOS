@@ -30,6 +30,7 @@ alwaysApply: false
 - Capture keys MUST be the exact nginx front-door `METHOD + path` (version, router prefix, query) — e.g. `GET /helper/v1.0/ping?host=1.1.1.1`, never bare service-relative paths.
 - Probe through nginx (`http://<pi>/{nginx-prefix}/…`), not only `localhost:<servicePort>`.
 - Journey step `outcome`s MUST key-match: `RouteRef` + `version` via `resolve_http_path` must equal the stored capture key.
+- **MUST smoke before commit (Pi reachable).** Re-grounded outcomes require `BLUEOS_BASE=http://192.168.0.177 bash catalog/gate.sh` (or `journey_http --smoke --fixtures internet,pirate,advanced`) with **`failed=0`**. Orchestrator MUST refuse commit without smoke green or `UnverifiedLive` ledger note — never commit `Known` `expected_status` on an unverified route.
 
 ## Never
 
