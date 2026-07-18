@@ -29,6 +29,7 @@ pub struct RunnableStep {
     pub route: RouteRef,
     pub expected_status: Option<u16>,
     pub body_predicate: Option<&'static str>,
+    pub body: Option<&'static str>,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -60,6 +61,10 @@ pub fn http_journeys(catalog: &Catalog) -> Vec<&UserJourney> {
 }
 
 pub const SMOKE_DEFAULT_FIXTURES: &str = "internet,pirate,advanced";
+
+/// Journeys safe for automated mutating smoke on a live BlueOS (reversible / non-destructive).
+pub const MUTATING_SMOKE_JOURNEY_IDS: &[JourneyId] =
+    &[JourneyId::ChangeUiThemeColor, JourneyId::ResetUiThemeColor];
 
 pub fn http_method_label(method: &HttpMethod) -> &'static str {
     match method {
@@ -94,13 +99,21 @@ pub fn format_dry_run(journey_id: JourneyId, step: &RunnableStep, resolved_path:
     )
 }
 
+pub fn journey_http_mode_conflict(smoke: bool, mutating_smoke: bool) -> Result<(), &'static str> {
+    if smoke && mutating_smoke {
+        return Err("--smoke and --mutating-smoke are mutually exclusive");
+    }
+    Ok(())
+}
+
 pub fn journey_http_requires_base(
     dry_run: bool,
     smoke: bool,
+    mutating_smoke: bool,
     base: Option<&str>,
 ) -> Result<(), &'static str> {
-    if smoke && base.is_none() {
-        return Err("--base is required for --smoke");
+    if (smoke || mutating_smoke) && base.is_none() {
+        return Err("--base is required for --smoke and --mutating-smoke");
     }
     if !dry_run && base.is_none() {
         return Err("--base is required unless --dry-run is set");
@@ -137,6 +150,7 @@ pub fn http_steps(journey: &UserJourney) -> Vec<RunnableStep> {
             route: route.clone(),
             expected_status,
             body_predicate,
+            body: None,
         });
     }
     runnable
@@ -147,6 +161,32 @@ pub fn http_smoke_steps(journey: &UserJourney) -> Vec<RunnableStep> {
         .into_iter()
         .filter(|step| {
             matches!(step.route.method, HttpMethod::Get) && step.expected_status.is_some()
+        })
+        .collect()
+}
+
+pub fn mutating_smoke_body(journey_id: JourneyId, route: &RouteRef) -> Option<&'static str> {
+    match journey_id {
+        JourneyId::ChangeUiThemeColor
+            if matches!(route.method, HttpMethod::Put) && route.path == "/theme" =>
+        {
+            Some(r##"{"primary":"#1e88e5"}"##)
+        }
+        _ => None,
+    }
+}
+
+pub fn http_mutating_smoke_steps(journey: &UserJourney) -> Vec<RunnableStep> {
+    http_steps(journey)
+        .into_iter()
+        .filter(|step| {
+            !matches!(step.route.method, HttpMethod::Get)
+                && step.expected_status.is_some()
+                && !step.route.path.contains('{')
+        })
+        .map(|mut step| {
+            step.body = mutating_smoke_body(step.journey_id, &step.route);
+            step
         })
         .collect()
 }
@@ -196,6 +236,7 @@ pub fn execute_curl(
     method: &HttpMethod,
     url: &str,
     allow_mutating: bool,
+    body: Option<&str>,
 ) -> Result<(u16, String), String> {
     if !matches!(method, HttpMethod::Get) && !allow_mutating {
         return Err("mutating HTTP method blocked (pass --allow-mutating)".into());
@@ -217,6 +258,9 @@ pub fn execute_curl(
         HttpMethod::Patch => {
             command.args(["-X", "PATCH"]);
         }
+    }
+    if let Some(body) = body {
+        command.args(["-H", "Content-Type: application/json", "-d", body]);
     }
     command.arg(url);
 
@@ -277,10 +321,11 @@ pub fn run_http_step(
     };
 
     let url = join_url(base, &path);
-    let (status_code, body) = match execute_curl(&step.route.method, &url, allow_mutating) {
-        Ok(response) => response,
-        Err(err) => return StepResult::Fail(err),
-    };
+    let (status_code, body) =
+        match execute_curl(&step.route.method, &url, allow_mutating, step.body) {
+            Ok(response) => response,
+            Err(err) => return StepResult::Fail(err),
+        };
 
     evaluate_http_response(
         status_code,
@@ -504,6 +549,7 @@ mod tests {
             },
             expected_status: Some(200),
             body_predicate: None,
+            body: None,
         };
         let line = format_http_fail(
             JourneyId::ConnectToWifiNetwork,
@@ -529,6 +575,7 @@ mod tests {
             },
             expected_status: Some(200),
             body_predicate: None,
+            body: None,
         };
         let line = format_dry_run(JourneyId::ConnectToWifiNetwork, &step, "/helper/v1.0/ping");
         assert_eq!(
@@ -539,10 +586,129 @@ mod tests {
 
     #[test]
     fn journey_http_base_required_for_smoke() {
-        assert!(journey_http_requires_base(false, true, None).is_err());
-        assert!(journey_http_requires_base(true, false, None).is_ok());
-        assert!(journey_http_requires_base(false, false, None).is_err());
-        assert!(journey_http_requires_base(false, true, Some("http://pi")).is_ok());
+        assert!(journey_http_requires_base(false, true, false, None).is_err());
+        assert!(journey_http_requires_base(false, false, true, None).is_err());
+        assert!(journey_http_requires_base(true, false, false, None).is_ok());
+        assert!(journey_http_requires_base(false, false, false, None).is_err());
+        assert!(journey_http_requires_base(false, true, false, Some("http://pi")).is_ok());
+        assert!(journey_http_requires_base(false, false, true, Some("http://pi")).is_ok());
+    }
+
+    #[test]
+    fn journey_http_smoke_modes_are_mutually_exclusive() {
+        assert!(journey_http_mode_conflict(true, true).is_err());
+        assert!(journey_http_mode_conflict(true, false).is_ok());
+        assert!(journey_http_mode_conflict(false, true).is_ok());
+        assert!(journey_http_mode_conflict(false, false).is_ok());
+    }
+
+    #[test]
+    fn mutating_smoke_journey_ids_are_http_automatable() {
+        let catalog = Catalog::bootstrap();
+        let journeys: std::collections::HashMap<_, _> = catalog
+            .journeys()
+            .iter()
+            .map(|journey| (journey.id, journey))
+            .collect();
+        for journey_id in MUTATING_SMOKE_JOURNEY_IDS {
+            let journey = journeys
+                .get(journey_id)
+                .unwrap_or_else(|| panic!("missing journey {journey_id}"));
+            assert_eq!(derive_automatable(journey), Automatable::Http);
+        }
+    }
+
+    #[test]
+    fn http_mutating_smoke_steps_filters_get_out() {
+        static STEPS: &[GroundedItem<JourneyStep>] = &[
+            GroundedItem::new(
+                JourneyStep {
+                    actor: Actor::Operator,
+                    description: "get scan",
+                    route: Some(Grounded::known(
+                        RouteRef {
+                            service: ServiceId::Wifi,
+                            method: HttpMethod::Get,
+                            path: "/scan",
+                            version: Some("v1.0"),
+                        },
+                        DOC,
+                    )),
+                    outcome: Some(Grounded::known(
+                        crate::journey::StepOutcome {
+                            expected_status: Some(200),
+                            body_predicate: None,
+                            transition: None,
+                        },
+                        DOC,
+                    )),
+                },
+                DOC,
+            ),
+            GroundedItem::new(
+                JourneyStep {
+                    actor: Actor::Operator,
+                    description: "put theme",
+                    route: Some(Grounded::known(
+                        RouteRef {
+                            service: ServiceId::Customization,
+                            method: HttpMethod::Put,
+                            path: "/theme",
+                            version: Some("v1.0"),
+                        },
+                        DOC,
+                    )),
+                    outcome: Some(Grounded::known(
+                        crate::journey::StepOutcome {
+                            expected_status: Some(200),
+                            body_predicate: None,
+                            transition: None,
+                        },
+                        DOC,
+                    )),
+                },
+                DOC,
+            ),
+            GroundedItem::new(
+                JourneyStep {
+                    actor: Actor::Operator,
+                    description: "delete templated",
+                    route: Some(Grounded::known(
+                        RouteRef {
+                            service: ServiceId::Customization,
+                            method: HttpMethod::Delete,
+                            path: "/models/{name}",
+                            version: Some("v1.0"),
+                        },
+                        DOC,
+                    )),
+                    outcome: Some(Grounded::known(
+                        crate::journey::StepOutcome {
+                            expected_status: Some(204),
+                            body_predicate: None,
+                            transition: None,
+                        },
+                        DOC,
+                    )),
+                },
+                DOC,
+            ),
+        ];
+        let journey = UserJourney {
+            id: JourneyId::ChangeUiThemeColor,
+            summary: Grounded::known("test", DOC),
+            visibility: Grounded::known(Visibility::Default, DOC),
+            services: GroundedSet::unknown("test"),
+            capability_refs: GroundedSet::unknown("test"),
+            preconditions: GroundedSet::known(&[]),
+            steps: GroundedSet::known(STEPS),
+            chains_from: None,
+        };
+
+        let steps = http_mutating_smoke_steps(&journey);
+        assert_eq!(steps.len(), 1);
+        assert_eq!(steps[0].route.path, "/theme");
+        assert_eq!(steps[0].body, Some(r##"{"primary":"#1e88e5"}"##));
     }
 
     #[test]

@@ -1,4 +1,5 @@
-//! Test-bed fixture inventory and journey precondition evaluation for Tier-1 HTTP runners.
+//! Test-bed fixture inventory and journey precondition evaluation for Tier-1 GET and Tier-2
+//! mutating HTTP runners.
 //! `FixtureInventory` describes what the runner's environment provides; `evaluate_precondition`
 //! and `journey_fixtures_ready` decide whether to run or skip a journey. Runners build inventory
 //! via `parse_fixture_list` (CLI) or by setting fields directly; skip when any status is not

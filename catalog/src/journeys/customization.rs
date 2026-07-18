@@ -1,6 +1,6 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, HttpMethod, JourneyStep, Precondition, RouteRef, UserJourney, Visibility,
+    Actor, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome, UserJourney, Visibility,
 };
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
 
@@ -51,10 +51,11 @@ const CHANGE_UI_THEME_COLOR: UserJourney = UserJourney {
             None,
             Provenance::doc(ADV, 977),
         ),
-        operator_step(
+        operator_step_with_outcome(
             "Click Apply to save the chosen color",
             Some(sourced_route(HttpMethod::Put, "/theme", Some("v1.0"), 144)),
             Provenance::source(THEME_CUSTOMIZATION, 74),
+            Some(source_outcome(200, 144)),
         ),
     ]),
     chains_from: None,
@@ -84,7 +85,7 @@ const RESET_UI_THEME_COLOR: UserJourney = UserJourney {
             None,
             Provenance::source(THEME_CUSTOMIZATION, 3),
         ),
-        operator_step(
+        operator_step_with_outcome(
             "Click Reset and confirm restoring the default BlueOS theme",
             Some(sourced_route(
                 HttpMethod::Delete,
@@ -93,6 +94,7 @@ const RESET_UI_THEME_COLOR: UserJourney = UserJourney {
                 156,
             )),
             Provenance::source(THEME_CUSTOMIZATION, 88),
+            Some(source_outcome(204, 156)),
         ),
     ]),
     chains_from: None,
@@ -376,6 +378,34 @@ const fn sourced_route(
 ) -> Grounded<RouteRef> {
     Grounded::known(
         route(method, path, version),
+        Provenance::source(CUSTOMIZATION_MAIN, line),
+    )
+}
+
+const fn operator_step_with_outcome(
+    description: &'static str,
+    route: Option<Grounded<RouteRef>>,
+    provenance: Provenance,
+    outcome: Option<Grounded<StepOutcome>>,
+) -> GroundedItem<JourneyStep> {
+    GroundedItem::new(
+        JourneyStep {
+            actor: Actor::Operator,
+            description,
+            route,
+            outcome,
+        },
+        provenance,
+    )
+}
+
+const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
+    Grounded::known(
+        StepOutcome {
+            expected_status: Some(status),
+            body_predicate: None,
+            transition: None,
+        },
         Provenance::source(CUSTOMIZATION_MAIN, line),
     )
 }
