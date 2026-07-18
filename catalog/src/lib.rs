@@ -9,6 +9,7 @@ pub mod export;
 pub mod extract;
 pub mod feature;
 pub mod fixture;
+pub mod frontend_routes;
 pub mod id;
 pub mod interface;
 pub mod journey;

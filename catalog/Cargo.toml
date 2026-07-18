@@ -10,6 +10,10 @@ serde_json = "1"
 thiserror = "1"
 
 [[bin]]
+name = "route_lint"
+path = "src/bin/route_lint.rs"
+
+[[bin]]
 name = "export"
 path = "src/bin/export.rs"
 
