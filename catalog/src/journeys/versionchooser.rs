@@ -14,6 +14,7 @@ const DOCKER_ROUTER: &str = "core/services/versionchooser/api/v1/routers/docker.
 const VC_COMPONENT: &str = "core/frontend/src/components/version-chooser/VersionChooser.vue";
 const VC_UTILS: &str = "core/frontend/src/utils/version_chooser.ts";
 const DOCKER_LOGIN: &str = "core/frontend/src/components/version-chooser/DockerLogin.vue";
+const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
 
 pub const JOURNEYS: &[UserJourney] = &[
     UPDATE_BLUEOS_VERSION,
@@ -52,7 +53,11 @@ const UPDATE_BLUEOS_VERSION: UserJourney =
                 "Review the current running version and whether an update button is shown",
                 Some(sourced_route(HttpMethod::Get, "/version/current", Some("v1.0"), VERSION_ROUTER, 26)),
                 Provenance::doc(GETTING, 112),
-                None,
+                Some(runtime_outcome(
+                    200,
+                    None,
+                    "runtime-captures/versionchooser__pi4_navigator_master.json#running_baseline",
+                )),
             ),
             operator_step(
                 "Fetch remote stable, beta, and master tags to determine the offered upgrade",
@@ -122,7 +127,11 @@ const SWITCH_LOCAL_BLUEOS_VERSION: UserJourney =
                     55,
                 )),
                 Provenance::doc(ADV, 402),
-                None,
+                Some(runtime_outcome(
+                    200,
+                    None,
+                    "runtime-captures/versionchooser__pi4_navigator_master.json#running_baseline",
+                )),
             ),
             operator_step(
                 "Apply the chosen local version",
@@ -225,7 +234,11 @@ const DELETE_LOCAL_BLUEOS_VERSION: UserJourney = UserJourney {
                 55,
             )),
             Provenance::doc(ADV, 402),
-            None,
+            Some(runtime_outcome(
+                200,
+                None,
+                "runtime-captures/versionchooser__pi4_navigator_master.json#running_baseline",
+            )),
         ),
         operator_step(
             "Delete the selected non-current local version",
@@ -277,7 +290,11 @@ const DOCKER_REGISTRY_LOGIN: UserJourney =
                 "Review connected Docker accounts",
                 Some(sourced_route(HttpMethod::Get, "/docker/accounts", Some("v1.0"), DOCKER_ROUTER, 30)),
                 Provenance::source(DOCKER_LOGIN, 253),
-                None,
+                Some(runtime_outcome(
+                    200,
+                    None,
+                    "runtime-captures/versionchooser__pi4_navigator_master.json#running_baseline",
+                )),
             ),
         ]),
         chains_from: None,
@@ -316,7 +333,11 @@ const UPDATE_BOOTSTRAP_IMAGE: UserJourney = UserJourney {
                 26,
             )),
             Provenance::source(VC_UTILS, 161),
-            None,
+            Some(runtime_outcome(
+                200,
+                None,
+                "runtime-captures/versionchooser__pi4_navigator_master.json#running_baseline",
+            )),
         ),
         operator_step(
             "Download the bootstrap image tag that matches the running core version",
@@ -388,5 +409,20 @@ const fn operator_step(
             outcome,
         },
         provenance,
+    )
+}
+
+const fn runtime_outcome(
+    status: u16,
+    body: Option<&'static str>,
+    key: &'static str,
+) -> Grounded<StepOutcome> {
+    Grounded::known(
+        StepOutcome {
+            expected_status: Some(status),
+            body_predicate: body,
+            transition: None,
+        },
+        Provenance::runtime(key, RUNTIME_ENV),
     )
 }

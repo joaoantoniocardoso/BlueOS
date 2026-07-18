@@ -12,6 +12,7 @@ const NMEA_INJECTOR: &str = "core/frontend/src/components/nmea-injector/NMEAInje
 const NMEA_CREATE_DIALOG: &str =
     "core/frontend/src/components/nmea-injector/NMEASocketCreationDialog.vue";
 const NMEA_SOCKET_CARD: &str = "core/frontend/src/components/nmea-injector/NMEASocketCard.vue";
+const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
 
 pub const JOURNEYS: &[UserJourney] = &[
     VIEW_CONFIGURED_NMEA_SOCKETS,
@@ -46,7 +47,11 @@ const VIEW_CONFIGURED_NMEA_SOCKETS: UserJourney = UserJourney {
             "View configured NMEA sockets with transport kind, port, and MAVLink component ID",
             Some(sourced_route(HttpMethod::Get, "/socks", Some("v1.0"), 40)),
             Provenance::source(NMEA_INJECTOR, 138),
-            None,
+            Some(runtime_outcome(
+                200,
+                Some("[]"),
+                "runtime-captures/nmea_injector__pi4_navigator_master.json#running_baseline",
+            )),
         ),
     ]),
     chains_from: None,
@@ -136,7 +141,11 @@ const REMOVE_CONFIGURED_NMEA_SOCKET: UserJourney = UserJourney {
             "View the configured NMEA socket to remove",
             Some(sourced_route(HttpMethod::Get, "/socks", Some("v1.0"), 40)),
             Provenance::source(NMEA_INJECTOR, 138),
-            None,
+            Some(runtime_outcome(
+                200,
+                Some("[]"),
+                "runtime-captures/nmea_injector__pi4_navigator_master.json#running_baseline",
+            )),
         ),
         operator_step(
             "Click the remove button on the socket card",
@@ -197,5 +206,20 @@ const fn operator_step(
             outcome,
         },
         provenance,
+    )
+}
+
+const fn runtime_outcome(
+    status: u16,
+    body: Option<&'static str>,
+    key: &'static str,
+) -> Grounded<StepOutcome> {
+    Grounded::known(
+        StepOutcome {
+            expected_status: Some(status),
+            body_predicate: body,
+            transition: None,
+        },
+        Provenance::runtime(key, RUNTIME_ENV),
     )
 }

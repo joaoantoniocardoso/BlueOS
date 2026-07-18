@@ -83,8 +83,8 @@ pub use runner::{
     evaluate_http_response, execute_curl, format_dry_run, format_http_fail, http_journeys,
     http_method_label, http_mutating_smoke_steps, http_smoke_steps, http_steps, join_url,
     journey_http_mode_conflict, journey_http_requires_base, mutating_smoke_body, resolve_http_path,
-    run_http_step, summarize_journey, JourneyResult, RunCounts, RunnableStep, StepResult,
-    MUTATING_SMOKE_JOURNEY_IDS, SMOKE_DEFAULT_FIXTURES,
+    run_http_step, summarize_journey, tier1_get_coverage, JourneyResult, RunCounts, RunnableStep,
+    StepResult, Tier1GetCoverage, MUTATING_SMOKE_JOURNEY_IDS, SMOKE_DEFAULT_FIXTURES,
 };
 pub use runtime::{
     Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts, SettingsMutation, SloBaseline,

@@ -199,45 +199,43 @@ const RUN_SINGLE_DISK_SPEED_TEST: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const RUN_MULTI_SIZE_DISK_SPEED_TEST: UserJourney =
-    UserJourney {
-        id: JourneyId::RunMultiSizeDiskSpeedTest,
-        summary: Grounded::known(
-            "Run a progressive multi-size disk speed benchmark with streaming results",
-            Provenance::source(DISK_MAIN, 446),
+const RUN_MULTI_SIZE_DISK_SPEED_TEST: UserJourney = UserJourney {
+    id: JourneyId::RunMultiSizeDiskSpeedTest,
+    summary: Grounded::known(
+        "Run a progressive multi-size disk speed benchmark with streaming results",
+        Provenance::source(DISK_MAIN, 446),
+    ),
+    visibility: Grounded::known(Visibility::Advanced, Provenance::source(DISK_MENUS, 50)),
+    services: DISK_USAGE_SERVICES,
+    capability_refs: GroundedSet::known(&[cap(
+        CapabilityId::RunMultiSizeDiskSpeedTest,
+        "GET /disk/speed/stream yields NDJSON points for each benchmark size",
+    )]),
+    preconditions: GroundedSet::known(&[GroundedItem::new(
+        Precondition::Other("disktest binary is available on PATH"),
+        Provenance::source(DISK_MAIN, 323),
+    )]),
+    steps: GroundedSet::known(&[
+        operator_step(
+            "Switch to the Speed Test tab",
+            None,
+            Provenance::source(DISK_VIEW, 15),
+            None,
         ),
-        visibility: Grounded::known(Visibility::Advanced, Provenance::source(DISK_MENUS, 50)),
-        services: DISK_USAGE_SERVICES,
-        capability_refs: GroundedSet::known(&[cap(CapabilityId::RunMultiSizeDiskSpeedTest,
-            "GET /disk/speed/stream yields NDJSON points for each benchmark size",
-        )]),
-        preconditions: GroundedSet::known(&[GroundedItem::new(
-            Precondition::Other("disktest binary is available on PATH"),
-            Provenance::source(DISK_MAIN, 323),
-        )]),
-        steps: GroundedSet::known(&[
-            operator_step(
-                "Switch to the Speed Test tab",
-                None,
-                Provenance::source(DISK_VIEW, 15),
-                None,
-            ),
-            operator_step(
-                "Start the multi-size disk speed benchmark",
-                Some(sourced_route(
-                    HttpMethod::Get,
-                    "/disk/speed/stream",
-                    Some("v1.0"),
-                    444,
-                )),
-                Provenance::source(DISK_MAIN, 446),
-                Some(Grounded::unknown(
-                    "GET /disk/speed/stream not exercised in capture (multi-size benchmark is long-running)",
-                )),
-            ),
-        ]),
-        chains_from: None,
-    };
+        operator_step(
+            "Start the multi-size disk speed benchmark",
+            Some(sourced_route(
+                HttpMethod::Get,
+                "/disk/speed/stream",
+                Some("v1.0"),
+                444,
+            )),
+            Provenance::source(DISK_MAIN, 446),
+            Some(source_outcome(200, 448)),
+        ),
+    ]),
+    chains_from: None,
+};
 
 const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<CapabilityId> {
     GroundedItem::new(id, Provenance::asserted(rationale))
@@ -283,6 +281,17 @@ const fn operator_step(
             outcome,
         },
         provenance,
+    )
+}
+
+const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
+    Grounded::known(
+        StepOutcome {
+            expected_status: Some(status),
+            body_predicate: None,
+            transition: None,
+        },
+        Provenance::source(DISK_MAIN, line),
     )
 }
 

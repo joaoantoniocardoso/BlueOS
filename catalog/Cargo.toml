@@ -48,3 +48,7 @@ path = "src/bin/wbs.rs"
 [[bin]]
 name = "frontend_smoke"
 path = "src/bin/frontend_smoke.rs"
+
+[[bin]]
+name = "tier1_coverage"
+path = "src/bin/tier1_coverage.rs"

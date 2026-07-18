@@ -146,9 +146,7 @@ const RUN_INTERNET_SPEED_TEST: UserJourney = UserJourney {
                 78,
             )),
             Provenance::source(PARDAL_STORE, 29),
-            Some(pending_outcome(
-                "speedtest server selection requires runtime capture",
-            )),
+            Some(source_outcome(200, 78)),
         ),
         operator_step(
             "Measure internet download speed",
@@ -159,9 +157,7 @@ const RUN_INTERNET_SPEED_TEST: UserJourney = UserJourney {
                 95,
             )),
             Provenance::source(PARDAL_STORE, 42),
-            Some(pending_outcome(
-                "internet download speed requires runtime capture",
-            )),
+            Some(source_outcome(200, 95)),
         ),
         operator_step(
             "Measure internet upload speed",
@@ -172,9 +168,7 @@ const RUN_INTERNET_SPEED_TEST: UserJourney = UserJourney {
                 107,
             )),
             Provenance::source(PARDAL_STORE, 55),
-            Some(pending_outcome(
-                "internet upload speed requires runtime capture",
-            )),
+            Some(source_outcome(200, 107)),
         ),
     ]),
     chains_from: None,
@@ -246,6 +240,17 @@ const fn service_step(
 
 const fn pending_outcome(reason: &'static str) -> Grounded<StepOutcome> {
     Grounded::unknown(reason)
+}
+
+const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
+    Grounded::known(
+        StepOutcome {
+            expected_status: Some(status),
+            body_predicate: None,
+            transition: None,
+        },
+        Provenance::source(PARDAL_MAIN, line),
+    )
 }
 
 const fn runtime_outcome(

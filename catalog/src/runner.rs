@@ -60,6 +60,62 @@ pub fn http_journeys(catalog: &Catalog) -> Vec<&UserJourney> {
         .collect()
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Tier1GetCoverage {
+    pub http_journeys: usize,
+    pub get_concrete: usize,
+    pub get_asserted: usize,
+    pub get_unasserted: usize,
+    pub get_templated: usize,
+    pub unasserted: Vec<(JourneyId, usize, &'static str)>,
+}
+
+fn is_templated_http_path(path: &str) -> bool {
+    path.contains('{') || path.contains('*')
+}
+
+pub fn is_smoke_excluded_get(path: &str) -> bool {
+    matches!(
+        path,
+        "/disk/speed/stream" | "/internet_download_speed" | "/internet_upload_speed"
+    )
+}
+
+pub fn tier1_get_coverage(catalog: &Catalog) -> Tier1GetCoverage {
+    let journeys = http_journeys(catalog);
+    let mut coverage = Tier1GetCoverage {
+        http_journeys: journeys.len(),
+        get_concrete: 0,
+        get_asserted: 0,
+        get_unasserted: 0,
+        get_templated: 0,
+        unasserted: Vec::new(),
+    };
+
+    for journey in journeys {
+        for step in http_steps(journey) {
+            if !matches!(step.route.method, HttpMethod::Get) {
+                continue;
+            }
+            if is_templated_http_path(step.route.path) {
+                coverage.get_templated += 1;
+                continue;
+            }
+            coverage.get_concrete += 1;
+            if step.expected_status.is_some() {
+                coverage.get_asserted += 1;
+            } else {
+                coverage.get_unasserted += 1;
+                coverage
+                    .unasserted
+                    .push((step.journey_id, step.step_index, step.route.path));
+            }
+        }
+    }
+
+    coverage
+}
+
 pub const SMOKE_DEFAULT_FIXTURES: &str = "internet,pirate,advanced";
 
 /// Journeys safe for automated mutating smoke on a live BlueOS (reversible / non-destructive).
@@ -160,7 +216,9 @@ pub fn http_smoke_steps(journey: &UserJourney) -> Vec<RunnableStep> {
     http_steps(journey)
         .into_iter()
         .filter(|step| {
-            matches!(step.route.method, HttpMethod::Get) && step.expected_status.is_some()
+            matches!(step.route.method, HttpMethod::Get)
+                && step.expected_status.is_some()
+                && !is_smoke_excluded_get(step.route.path)
         })
         .collect()
 }
@@ -410,6 +468,56 @@ mod tests {
         for journey in http_journeys(&catalog) {
             assert_eq!(derive_automatable(journey), Automatable::Http);
         }
+    }
+
+    #[test]
+    fn tier1_get_coverage_reports_http_journey_get_steps() {
+        let catalog = Catalog::bootstrap();
+        let coverage = tier1_get_coverage(&catalog);
+
+        assert!(coverage.http_journeys > 0);
+        assert_eq!(
+            coverage.get_concrete,
+            coverage.get_asserted + coverage.get_unasserted
+        );
+        assert_eq!(coverage.get_unasserted, coverage.unasserted.len());
+        assert!(
+            coverage.get_concrete + coverage.get_templated > 0,
+            "expected at least one GET step across Http journeys"
+        );
+    }
+
+    #[test]
+    fn tier1_get_coverage_is_complete() {
+        let catalog = Catalog::bootstrap();
+        let coverage = tier1_get_coverage(&catalog);
+        assert_eq!(
+            coverage.get_unasserted, 0,
+            "unasserted concrete GET steps: {:?}",
+            coverage.unasserted
+        );
+    }
+
+    #[test]
+    fn tier1_get_coverage_treats_wildcard_paths_as_templated() {
+        let catalog = Catalog::bootstrap();
+        let coverage = tier1_get_coverage(&catalog);
+        assert!(
+            !coverage
+                .unasserted
+                .iter()
+                .any(|(_, _, path)| path.contains('*')),
+            "wildcard paths must not count as unasserted concrete GETs"
+        );
+    }
+
+    #[test]
+    fn http_smoke_steps_excludes_streaming_gets() {
+        assert!(is_smoke_excluded_get("/disk/speed/stream"));
+        assert!(is_smoke_excluded_get("/internet_download_speed"));
+        assert!(is_smoke_excluded_get("/internet_upload_speed"));
+        assert!(!is_smoke_excluded_get("/internet_best_server"));
+        assert!(!is_smoke_excluded_get("/disk/speed"));
     }
 
     #[test]

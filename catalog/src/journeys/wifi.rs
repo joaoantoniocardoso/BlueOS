@@ -47,7 +47,7 @@ const CONNECT_TO_WIFI_NETWORK: UserJourney = UserJourney {
             "Scan for available wifi networks",
             Some(sourced_route(HttpMethod::Get, "/scan", Some("v1.0"), 63)),
             Provenance::doc(GETTING, 81),
-            None,
+            Some(source_outcome(200, 63)),
         ),
         operator_step(
             "Select the desired network from the scan results",
@@ -108,7 +108,7 @@ const DISCONNECT_FROM_WIFI_NETWORK: UserJourney = UserJourney {
                 102,
             )),
             Provenance::source(DISCONNECTION_DIALOG, 135),
-            None,
+            Some(source_outcome(200, 102)),
         ),
     ]),
     chains_from: None,
@@ -314,5 +314,16 @@ const fn operator_step(
             outcome,
         },
         provenance,
+    )
+}
+
+const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
+    Grounded::known(
+        StepOutcome {
+            expected_status: Some(status),
+            body_predicate: None,
+            transition: None,
+        },
+        Provenance::source(WIFI_MAIN, line),
     )
 }
