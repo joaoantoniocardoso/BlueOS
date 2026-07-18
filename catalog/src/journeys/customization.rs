@@ -170,7 +170,7 @@ const REMOVE_CUSTOM_LOGO: UserJourney = UserJourney {
             None,
             Provenance::source(THEME_CUSTOMIZATION, 3),
         ),
-        operator_step(
+        operator_step_with_outcome(
             "Click Remove on the project logo and confirm",
             Some(sourced_route(
                 HttpMethod::Delete,
@@ -179,6 +179,7 @@ const REMOVE_CUSTOM_LOGO: UserJourney = UserJourney {
                 279,
             )),
             Provenance::source(BRANDING_UPLOADER, 45),
+            Some(source_outcome(204, 279)),
         ),
     ]),
     chains_from: None,
@@ -254,15 +255,16 @@ const REMOVE_CUSTOM_VEHICLE_IMAGE: UserJourney = UserJourney {
             None,
             Provenance::source(THEME_CUSTOMIZATION, 3),
         ),
-        operator_step(
+        operator_step_with_outcome(
             "Click Remove on the vehicle image and confirm",
             Some(sourced_route(
                 HttpMethod::Delete,
                 "/branding/vehicle-image",
                 Some("v1.0"),
-                305,
+                307,
             )),
             Provenance::source(BRANDING_UPLOADER, 45),
+            Some(source_outcome(204, 307)),
         ),
     ]),
     chains_from: None,

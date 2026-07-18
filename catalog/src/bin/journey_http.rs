@@ -7,9 +7,10 @@ use std::process;
 use blueos_catalog::{
     evaluate_journey, format_dry_run, format_http_fail, http_journeys, http_mutating_smoke_steps,
     http_smoke_steps, http_steps, join_url, journey_fixtures_ready, journey_http_mode_conflict,
-    journey_http_requires_base, parse_fixture_list, resolve_http_path, run_http_step,
-    summarize_journey, Catalog, FixtureInventory, JourneyId, JourneyResult, PreconditionStatus,
-    RunCounts, StepResult, MUTATING_SMOKE_JOURNEY_IDS, SMOKE_DEFAULT_FIXTURES,
+    journey_http_requires_base, journey_mutating_smoke_ready, parse_fixture_list,
+    resolve_http_path, run_http_step, summarize_journey, Catalog, FixtureInventory, JourneyId,
+    JourneyResult, PreconditionStatus, RunCounts, StepResult, MUTATING_SMOKE_JOURNEY_IDS,
+    SMOKE_DEFAULT_FIXTURES,
 };
 
 fn main() {
@@ -144,7 +145,12 @@ fn main() {
 
     for journey in journeys {
         let journey_id = journey.id;
-        if !journey_fixtures_ready(journey, &fixtures) {
+        let fixtures_ready = if mutating_smoke {
+            journey_mutating_smoke_ready(journey, &fixtures)
+        } else {
+            journey_fixtures_ready(journey, &fixtures)
+        };
+        if !fixtures_ready {
             let reasons = skip_reasons(journey, &fixtures);
             let step_count = if smoke {
                 http_smoke_steps(journey).len().max(1)

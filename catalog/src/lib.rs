@@ -57,8 +57,8 @@ pub use feature::{
     FeaturePairAgreement, FeatureSplitConsensus, JourneyView, Origin,
 };
 pub use fixture::{
-    evaluate_journey, evaluate_precondition, journey_fixtures_ready, parse_fixture_list,
-    FixtureInventory, PreconditionStatus,
+    evaluate_journey, evaluate_precondition, journey_fixtures_ready, journey_mutating_smoke_ready,
+    parse_fixture_list, FixtureInventory, PreconditionStatus,
 };
 pub use frontend_smoke::{calibration_smoke_targets, concrete_page_path, FrontendSmokeTarget};
 pub use id::{CapabilityId, Entity, JourneyId, PathRef, Port, PortRef, ServiceId};

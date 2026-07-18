@@ -73,9 +73,7 @@ const RUN_LAN_SPEED_TEST: UserJourney =
                 "Upload a test file to the vehicle to measure upload throughput",
                 Some(sourced_route(HttpMethod::Post, "/post_file", None, 150)),
                 Provenance::source(NETWORK_SPEED_TEST, 202),
-                Some(pending_outcome(
-                    "upload throughput requires runtime capture",
-                )),
+                Some(source_outcome(200, 70)),
             ),
             operator_step(
                 "View the speed plot for the test run",

@@ -119,8 +119,13 @@ pub fn tier1_get_coverage(catalog: &Catalog) -> Tier1GetCoverage {
 pub const SMOKE_DEFAULT_FIXTURES: &str = "internet,pirate,advanced";
 
 /// Journeys safe for automated mutating smoke on a live BlueOS (reversible / non-destructive).
-pub const MUTATING_SMOKE_JOURNEY_IDS: &[JourneyId] =
-    &[JourneyId::ChangeUiThemeColor, JourneyId::ResetUiThemeColor];
+pub const MUTATING_SMOKE_JOURNEY_IDS: &[JourneyId] = &[
+    JourneyId::ChangeUiThemeColor,
+    JourneyId::ResetUiThemeColor,
+    JourneyId::RunLanSpeedTest,
+    JourneyId::RemoveCustomLogo,
+    JourneyId::RemoveCustomVehicleImage,
+];
 
 pub fn http_method_label(method: &HttpMethod) -> &'static str {
     match method {
@@ -712,6 +717,7 @@ mod tests {
 
     #[test]
     fn mutating_smoke_journey_ids_are_http_automatable() {
+        assert_eq!(MUTATING_SMOKE_JOURNEY_IDS.len(), 5);
         let catalog = Catalog::bootstrap();
         let journeys: std::collections::HashMap<_, _> = catalog
             .journeys()
@@ -723,6 +729,10 @@ mod tests {
                 .get(journey_id)
                 .unwrap_or_else(|| panic!("missing journey {journey_id}"));
             assert_eq!(derive_automatable(journey), Automatable::Http);
+            assert!(
+                !http_mutating_smoke_steps(journey).is_empty(),
+                "{journey_id} has no mutating-smoke-eligible steps"
+            );
         }
     }
 

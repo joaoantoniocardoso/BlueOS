@@ -167,6 +167,17 @@ pub fn journey_fixtures_ready(journey: &UserJourney, fixtures: &FixtureInventory
         .all(|status| matches!(status, PreconditionStatus::Satisfied))
 }
 
+/// Like [`journey_fixtures_ready`], but treats `Precondition::Other` as satisfied for allowlisted
+/// idempotent mutating-smoke journeys (e.g. DELETE branding assets when none are uploaded).
+pub fn journey_mutating_smoke_ready(journey: &UserJourney, fixtures: &FixtureInventory) -> bool {
+    evaluate_journey(journey, fixtures).iter().all(|status| {
+        matches!(
+            status,
+            PreconditionStatus::Satisfied | PreconditionStatus::Unevaluable(_)
+        )
+    })
+}
+
 /// Parse comma-separated fixture tokens: `internet,pirate,usb-camera,board:navigator,known-wifi`.
 ///
 /// Tokens: `internet`, `pirate`, `advanced`, `dev`, `confirm-dangerous`, `usb-camera`, `ping1d`,
@@ -340,6 +351,7 @@ mod tests {
         assert_eq!(statuses.len(), 1);
         assert!(matches!(statuses[0], PreconditionStatus::Unevaluable(_)));
         assert!(!journey_fixtures_ready(&journey, &fixtures));
+        assert!(journey_mutating_smoke_ready(&journey, &fixtures));
     }
 
     #[test]
