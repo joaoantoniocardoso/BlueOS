@@ -11,6 +11,7 @@ pub mod extract;
 pub mod feature;
 pub mod fixture;
 pub mod frontend_routes;
+pub mod frontend_smoke;
 pub mod id;
 pub mod interface;
 pub mod journey;
@@ -59,6 +60,7 @@ pub use fixture::{
     evaluate_journey, evaluate_precondition, journey_fixtures_ready, parse_fixture_list,
     FixtureInventory, PreconditionStatus,
 };
+pub use frontend_smoke::{calibration_smoke_targets, concrete_page_path, FrontendSmokeTarget};
 pub use id::{CapabilityId, Entity, JourneyId, PathRef, Port, PortRef, ServiceId};
 pub use interface::{FileAccessMode, Interface, MavlinkRole};
 pub use journey::{

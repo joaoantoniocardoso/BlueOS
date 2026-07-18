@@ -44,3 +44,7 @@ path = "src/bin/journey_http.rs"
 [[bin]]
 name = "wbs"
 path = "src/bin/wbs.rs"
+
+[[bin]]
+name = "frontend_smoke"
+path = "src/bin/frontend_smoke.rs"

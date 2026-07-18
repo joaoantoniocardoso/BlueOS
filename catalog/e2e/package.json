@@ -1,0 +1,11 @@
+{
+  "name": "blueos-catalog-e2e",
+  "private": true,
+  "scripts": {
+    "smoke": "cargo run -q --manifest-path ../Cargo.toml --bin frontend_smoke > pages.json && playwright test",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.51.0"
+  }
+}
