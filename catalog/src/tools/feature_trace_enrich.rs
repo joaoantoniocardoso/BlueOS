@@ -5,6 +5,18 @@
 //! Discovery: path-scoped backport/follow-up PR probing, issue harvest (landing
 //! full signals; related PRs closing-only). Invoked by:
 //! `cargo run -p blueos-catalog --bin enrich_feature_traces`
+//!
+//! Flags:
+//! - `--journey NAME`: scope the run to one journey. Merges into the existing
+//!   `feature_traces.json` (via [`merge_output`]) instead of overwriting it, so
+//!   sibling journeys/clusters are preserved untouched.
+//! - `--resume`: skip intro commits whose cluster already has a `by_journey`
+//!   entry for every journey in the run (see [`cluster_already_enriched`]);
+//!   safe default is *off* — a plain re-run always recomputes everything, even
+//!   if a prior run left a checkpointed `feature_traces.json` on disk. Every
+//!   run (with or without `--resume`) checkpoints progress after each intro
+//!   commit by writing the merged output to `feature_traces.json`, so a killed
+//!   `--resume` run can be resumed again from where it left off.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs;
@@ -636,7 +648,11 @@ fn journey_override_paths(journey_id: &str) -> Vec<String> {
 /// The `Override::Pickaxe` term declared for a journey, if any. Unlike
 /// `journey_override_paths` (which every override row contributes to), only
 /// `Pickaxe` rows carry a term — `Path` rows have none.
-fn journey_pickaxe_term(journey_id: &str) -> Option<&'static str> {
+///
+/// `pub(crate)`: also read by `feature_trace_report`'s `term_hit` (N5) to
+/// recompute the pickaxe hit straight from `feature_traces.json`, without
+/// requiring a re-enrich.
+pub(crate) fn journey_pickaxe_term(journey_id: &str) -> Option<&'static str> {
     use super::feature_presence::{Override, OVERRIDES};
 
     OVERRIDES.iter().find_map(|(k, ov)| {
@@ -1351,6 +1367,37 @@ mod journey_override_tests {
             .iter()
             .any(|p| p.contains("VideoStreamCreationDialog.vue")));
     }
+
+    #[test]
+    fn configure_video_stream_discovery_excludes_video_manager_hub() {
+        // Before its own OVERRIDES rows, ConfigureVideoStream fell back to
+        // module-token matching and resolved to the whole `video-manager/`
+        // tree (13 paths, including VideoManager.vue already claimed by
+        // ViewCameraStreams). With explicit overrides it must stay scoped to
+        // its own files.
+        let candidate_paths = vec![
+            "core/frontend/src/components/video-manager/VideoDiagnosticHelper.vue".to_string(),
+            "core/frontend/src/components/video-manager/VideoThumbnail.vue".to_string(),
+            "core/frontend/src/components/video-manager/VideoManager.vue".to_string(),
+            "core/start-blueos-core".to_string(),
+        ];
+
+        let paths = resolve_journey_discovery_paths(
+            "ConfigureVideoStream",
+            "frontend_video",
+            &candidate_paths,
+            &module_hint_paths("ConfigureVideoStream", "frontend_video"),
+        );
+
+        assert!(paths
+            .iter()
+            .any(|p| p.contains("VideoDiagnosticHelper.vue")));
+        assert!(paths.iter().any(|p| p.contains("VideoThumbnail.vue")));
+        assert!(!paths.iter().any(|p| p.contains("VideoManager.vue")));
+        assert!(!paths
+            .iter()
+            .any(|p| p == "core/frontend/src/components/video-manager"));
+    }
 }
 
 /// BlueOS disables squash/merge-commit merges repo-wide (rebase-only), so
@@ -1608,6 +1655,9 @@ const GOLDEN_JOURNEY_IDS: &[&str] = &[
     "InspectDiskUsage",
     "RunInternetSpeedTest",
     "LevelHorizon",
+    "AccessWebTerminal",
+    "InspectMavlinkMessagesInBrowser",
+    "CalibrateGyroscope",
 ];
 
 /// `journeys[].intro_commit` + `intro_clusters[sha]` for one journey: the
@@ -1643,9 +1693,10 @@ fn issue_numbers(by_journey: &Value) -> BTreeSet<u64> {
         .collect()
 }
 
-/// Precision-regression gate (`IMPROVE_DESIGN.md` T2 / `PRECISION_QA.md` §1):
-/// fails loudly if any of the 5 golden journeys' PR/issue sets drift from the
-/// values locked in as the precision baseline.
+/// Precision-regression gate (`IMPROVE_DESIGN.md` T2 / `PRECISION_QA.md` §1,
+/// plus `NEXT11_DESIGN.md` N11): fails loudly if any of the 8 golden
+/// journeys' PR/issue sets drift from the values locked in as the precision
+/// baseline.
 fn check_strict_goldens(output: &Value) -> Result<(), String> {
     let mut violations: Vec<String> = vec![];
 
@@ -1743,6 +1794,58 @@ fn check_strict_goldens(output: &Value) -> Result<(), String> {
         }
     }
 
+    match journey_cluster_view(output, "AccessWebTerminal") {
+        None => {
+            violations.push("AccessWebTerminal: journey/cluster not found in output".to_string())
+        }
+        Some((_cluster, by_journey)) => {
+            let follow = u64_set(by_journey, "follow_up_prs");
+            let expected: BTreeSet<u64> = [659, 2279].into_iter().collect();
+            if follow != expected {
+                violations.push(format!(
+                    "AccessWebTerminal: expected follow_up_prs == {expected:?}, got {follow:?}"
+                ));
+            }
+        }
+    }
+
+    match journey_cluster_view(output, "InspectMavlinkMessagesInBrowser") {
+        None => violations.push(
+            "InspectMavlinkMessagesInBrowser: journey/cluster not found in output".to_string(),
+        ),
+        Some((_cluster, by_journey)) => {
+            let follow = u64_set(by_journey, "follow_up_prs");
+            let expected: BTreeSet<u64> = [3310].into_iter().collect();
+            if follow != expected {
+                violations.push(format!(
+                    "InspectMavlinkMessagesInBrowser: expected follow_up_prs == {expected:?}, got {follow:?}"
+                ));
+            }
+        }
+    }
+
+    match journey_cluster_view(output, "CalibrateGyroscope") {
+        None => {
+            violations.push("CalibrateGyroscope: journey/cluster not found in output".to_string())
+        }
+        Some((_cluster, by_journey)) => {
+            let follow = u64_set(by_journey, "follow_up_prs");
+            let backport = u64_set(by_journey, "backport_prs");
+            let expected: BTreeSet<u64> = [3443].into_iter().collect();
+            if follow != expected {
+                violations.push(format!(
+                    "CalibrateGyroscope: expected follow_up_prs == {expected:?}, got {follow:?}"
+                ));
+            }
+            if !backport.contains(&3867) {
+                violations.push(
+                    "CalibrateGyroscope: golden backport PR #3867 missing (shared calibration-family backport)"
+                        .to_string(),
+                );
+            }
+        }
+    }
+
     if violations.is_empty() {
         Ok(())
     } else {
@@ -1751,6 +1854,227 @@ fn check_strict_goldens(output: &Value) -> Result<(), String> {
             violations.len(),
             violations.join("\n  - ")
         ))
+    }
+}
+
+/// Merges freshly built `new_output` into the on-disk `existing` (a prior
+/// `feature_traces.json`), so a `--journey`-scoped or resumed run doesn't
+/// clobber journeys/clusters it didn't touch (N2, N10).
+///
+/// - `journeys`: unioned by `journey` id; `new_output` wins on id collision.
+/// - `intro_clusters`: unioned by intro sha; when both sides have the same
+///   sha, their `by_journey` maps are unioned by journey id (`new_output`
+///   wins on collision) and the rest of the cluster (`landing_prs`, …) is
+///   taken from `new_output`, which is authoritative for any sha it touched.
+/// - `commits`/`pull_requests`/`issues`: unioned by key, `new_output` wins.
+/// - everything else (`schema_version`, `generated_at`, …): taken from `new_output`.
+fn merge_output(existing: Option<Value>, new_output: &Value) -> Value {
+    let Some(existing) = existing else {
+        return new_output.clone();
+    };
+
+    let mut journeys_by_id: BTreeMap<String, Value> = BTreeMap::new();
+    for j in [&existing, new_output]
+        .into_iter()
+        .filter_map(|o| o.get("journeys"))
+        .filter_map(|v| v.as_array())
+        .flatten()
+    {
+        if let Some(id) = j.get("journey").and_then(|v| v.as_str()) {
+            journeys_by_id.insert(id.to_string(), j.clone());
+        }
+    }
+
+    let mut clusters: serde_json::Map<String, Value> = existing
+        .get("intro_clusters")
+        .and_then(|v| v.as_object())
+        .cloned()
+        .unwrap_or_default();
+    for (sha, new_cluster) in new_output
+        .get("intro_clusters")
+        .and_then(|v| v.as_object())
+        .into_iter()
+        .flatten()
+    {
+        let mut merged_cluster = new_cluster.clone();
+        if let Some(mut by_journey) = clusters
+            .get(sha)
+            .and_then(|c| c.get("by_journey"))
+            .and_then(|v| v.as_object())
+            .cloned()
+        {
+            for (jid, disc) in new_cluster
+                .get("by_journey")
+                .and_then(|v| v.as_object())
+                .into_iter()
+                .flatten()
+            {
+                by_journey.insert(jid.clone(), disc.clone());
+            }
+            merged_cluster["by_journey"] = Value::Object(by_journey);
+        }
+        clusters.insert(sha.clone(), merged_cluster);
+    }
+
+    let mut merged = new_output.clone();
+    merged["journeys"] = Value::Array(journeys_by_id.into_values().collect());
+    merged["intro_clusters"] = Value::Object(clusters);
+    for field in ["commits", "pull_requests", "issues"] {
+        let mut map = existing
+            .get(field)
+            .and_then(|v| v.as_object())
+            .cloned()
+            .unwrap_or_default();
+        for (k, v) in new_output
+            .get(field)
+            .and_then(|v| v.as_object())
+            .into_iter()
+            .flatten()
+        {
+            map.insert(k.clone(), v.clone());
+        }
+        merged[field] = Value::Object(map);
+    }
+    merged
+}
+
+/// Whether `sha`'s intro cluster in `existing_clusters` already carries a
+/// `by_journey` entry for every id in `journey_ids` — i.e. a `--resume` run
+/// has nothing new to discover for that commit and can skip `build_intro_cluster`
+/// (and the `gh` calls it makes) entirely.
+fn cluster_already_enriched(
+    existing_clusters: &serde_json::Map<String, Value>,
+    sha: &str,
+    journey_ids: &[String],
+) -> bool {
+    let Some(by_journey) = existing_clusters
+        .get(sha)
+        .and_then(|c| c.get("by_journey"))
+        .and_then(|v| v.as_object())
+    else {
+        return false;
+    };
+    !journey_ids.is_empty() && journey_ids.iter().all(|id| by_journey.contains_key(id))
+}
+
+#[cfg(test)]
+mod merge_and_resume_tests {
+    use super::*;
+
+    fn fixture(journey: &str, sha: &str, follow_up_prs: &[u64]) -> Value {
+        json!({
+            "journeys": [{"journey": journey, "intro_commit": sha}],
+            "commits": {sha: {"sha": sha}},
+            "pull_requests": {},
+            "issues": {},
+            "intro_clusters": {
+                sha: {
+                    "landing_prs": [1],
+                    "by_journey": {
+                        journey: {"follow_up_prs": follow_up_prs, "backport_prs": [], "issues": []}
+                    }
+                }
+            }
+        })
+    }
+
+    #[test]
+    fn journey_filter_merges_not_overwrites() {
+        let existing = merge_output(None, &fixture("CalibrateGyroscope", "sha_gyro", &[100]));
+        let existing = merge_output(
+            Some(existing),
+            &fixture("LevelHorizon", "sha_horizon", &[200]),
+        );
+
+        let refreshed = merge_output(
+            Some(existing.clone()),
+            &fixture("CalibrateGyroscope", "sha_gyro", &[999]),
+        );
+
+        // Refreshed journey's own data changed.
+        assert_eq!(
+            journey_cluster_view(&refreshed, "CalibrateGyroscope")
+                .map(|(_, by_journey)| u64_set(by_journey, "follow_up_prs")),
+            Some([999].into_iter().collect())
+        );
+        // Sibling journey/cluster is untouched — semantically identical.
+        assert_eq!(
+            existing.get("intro_clusters").unwrap().get("sha_horizon"),
+            refreshed.get("intro_clusters").unwrap().get("sha_horizon"),
+        );
+        assert_eq!(
+            journey_cluster_view(&refreshed, "LevelHorizon"),
+            journey_cluster_view(&existing, "LevelHorizon"),
+        );
+        // Both journeys present in the merged journeys array.
+        let ids: BTreeSet<String> = refreshed["journeys"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|j| j.get("journey").and_then(|v| v.as_str()).map(String::from))
+            .collect();
+        assert_eq!(
+            ids,
+            ["CalibrateGyroscope", "LevelHorizon"]
+                .into_iter()
+                .map(String::from)
+                .collect()
+        );
+    }
+
+    #[test]
+    fn merge_unions_shared_cluster_by_journey_without_dropping_sibling() {
+        let existing = fixture("JourneyA", "sha_shared", &[10]);
+        let new_output = fixture("JourneyB", "sha_shared", &[20]);
+
+        let merged = merge_output(Some(existing), &new_output);
+
+        let by_journey = merged["intro_clusters"]["sha_shared"]["by_journey"]
+            .as_object()
+            .unwrap();
+        assert!(by_journey.contains_key("JourneyA"));
+        assert!(by_journey.contains_key("JourneyB"));
+    }
+
+    #[test]
+    fn merge_with_no_existing_file_returns_new_output_unchanged() {
+        let new_output = fixture("CalibrateGyroscope", "sha_gyro", &[1]);
+        assert_eq!(merge_output(None, &new_output), new_output);
+    }
+
+    #[test]
+    fn cluster_already_enriched_true_when_all_journeys_present() {
+        let mut clusters = serde_json::Map::new();
+        clusters.insert(
+            "sha1".to_string(),
+            json!({"by_journey": {"A": {}, "B": {}}}),
+        );
+        assert!(cluster_already_enriched(
+            &clusters,
+            "sha1",
+            &["A".to_string(), "B".to_string()]
+        ));
+    }
+
+    #[test]
+    fn cluster_already_enriched_false_when_a_journey_missing() {
+        let mut clusters = serde_json::Map::new();
+        clusters.insert("sha1".to_string(), json!({"by_journey": {"A": {}}}));
+        assert!(!cluster_already_enriched(
+            &clusters,
+            "sha1",
+            &["A".to_string(), "B".to_string()]
+        ));
+    }
+
+    #[test]
+    fn cluster_already_enriched_false_when_sha_absent() {
+        let clusters = serde_json::Map::new();
+        assert!(!cluster_already_enriched(
+            &clusters,
+            "sha1",
+            &["A".to_string()]
+        ));
     }
 }
 
@@ -1823,11 +2147,35 @@ mod strict_goldens_tests {
                 &[2146],
             ),
             cluster_fixture("LevelHorizon", "sha_horizon", &[9003], &[], &[3867], &[]),
+            cluster_fixture(
+                "AccessWebTerminal",
+                "sha_webterm",
+                &[9004],
+                &[659, 2279],
+                &[],
+                &[],
+            ),
+            cluster_fixture(
+                "InspectMavlinkMessagesInBrowser",
+                "sha_mavlink",
+                &[9005],
+                &[3310],
+                &[],
+                &[],
+            ),
+            cluster_fixture(
+                "CalibrateGyroscope",
+                "sha_gyro",
+                &[9006],
+                &[3443],
+                &[3867],
+                &[],
+            ),
         ])
     }
 
     #[test]
-    fn passes_when_all_five_goldens_hold() {
+    fn passes_when_all_eight_goldens_hold() {
         assert_eq!(check_strict_goldens(&all_golden_fixture()), Ok(()));
     }
 
@@ -2036,6 +2384,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
     let mut refresh = false;
     let mut only_1_5_exclusive = false;
     let mut strict_goldens = false;
+    let mut resume = false;
 
     let mut i = 0;
     while i < args.len() {
@@ -2051,6 +2400,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
             "--refresh" => refresh = true,
             "--only-1_5_exclusive" => only_1_5_exclusive = true,
             "--strict-goldens" => strict_goldens = true,
+            "--resume" => resume = true,
             other => return Err(format!("unknown argument: {other}")),
         }
         i += 1;
@@ -2123,30 +2473,6 @@ pub fn run(args: &[String]) -> Result<(), String> {
         by_commit.entry(sha).or_default().push(j.clone());
     }
 
-    println!(
-        "Enriching {} unique intro commits across {} journeys…",
-        by_commit.len(),
-        journeys.len()
-    );
-
-    let mut ctx = Ctx::new(&root, &cache_dir);
-    let mut clusters: BTreeMap<String, IntroClusterOut> = BTreeMap::new();
-    let total = by_commit.len();
-    for (i, (sha, group)) in by_commit.iter().enumerate() {
-        let names: Vec<String> = group
-            .iter()
-            .filter_map(|j| j.get("journey").and_then(|v| v.as_str()).map(String::from))
-            .collect();
-        println!(
-            "  [{}/{total}] {} ← {}",
-            i + 1,
-            &sha[..sha.len().min(12)],
-            names.join(", ")
-        );
-        let cluster = build_intro_cluster(&mut ctx, sha, group)?;
-        clusters.insert(sha.clone(), cluster);
-    }
-
     let mut out_journeys = journeys.clone();
     out_journeys.sort_by(|a, b| {
         let ja = a.get("journey").and_then(|v| v.as_str()).unwrap_or("");
@@ -2159,21 +2485,85 @@ pub fn run(args: &[String]) -> Result<(), String> {
         .map(|p| p.display().to_string())
         .unwrap_or_else(|_| "catalog/feature_presence_map.json".to_string());
 
-    let output = json!({
-        "schema_version": 2,
-        "repo": REPO,
-        "source_presence": source_presence,
-        "tool": "gh + git (cargo run -p blueos-catalog --bin enrich_feature_traces)",
-        "generated_at": generated_at_now(&root),
-        "commits": ctx.commits,
-        "pull_requests": ctx.pull_requests,
-        "issues": ctx.issues,
-        "intro_clusters": clusters,
-        "journeys": out_journeys,
-    });
+    // A --journey run always merges into whatever's on disk (N2); a full run
+    // only does so with --resume, so a plain re-run stays a clean overwrite.
+    let existing_output: Option<Value> = if journey_filter.is_some() || resume {
+        fs::read_to_string(&out_path)
+            .ok()
+            .and_then(|text| serde_json::from_str(&text).ok())
+    } else {
+        None
+    };
+    let existing_clusters: serde_json::Map<String, Value> = existing_output
+        .as_ref()
+        .and_then(|o| o.get("intro_clusters"))
+        .and_then(|v| v.as_object())
+        .cloned()
+        .unwrap_or_default();
 
-    let text = serde_json::to_string_pretty(&output).map_err(|e| e.to_string())? + "\n";
-    fs::write(&out_path, &text).map_err(|e| e.to_string())?;
+    println!(
+        "Enriching {} unique intro commits across {} journeys…",
+        by_commit.len(),
+        journeys.len()
+    );
+
+    // Checkpoint after every intro commit (N10): merges the run's progress so
+    // far with `existing_output` (same path N2 uses) and writes it, so a
+    // killed run leaves a valid, resumable `feature_traces.json` rather than
+    // nothing, and a --journey run's writes never lose sibling data.
+    let checkpoint = |ctx: &Ctx, clusters: &BTreeMap<String, Value>| -> Result<Value, String> {
+        let partial = json!({
+            "schema_version": 2,
+            "repo": REPO,
+            "source_presence": source_presence,
+            "tool": "gh + git (cargo run -p blueos-catalog --bin enrich_feature_traces)",
+            "generated_at": generated_at_now(&root),
+            "commits": ctx.commits,
+            "pull_requests": ctx.pull_requests,
+            "issues": ctx.issues,
+            "intro_clusters": clusters,
+            "journeys": out_journeys,
+        });
+        let merged = merge_output(existing_output.clone(), &partial);
+        let text = serde_json::to_string_pretty(&merged).map_err(|e| e.to_string())? + "\n";
+        fs::write(&out_path, &text).map_err(|e| e.to_string())?;
+        Ok(merged)
+    };
+
+    let mut ctx = Ctx::new(&root, &cache_dir);
+    let mut clusters: BTreeMap<String, Value> = BTreeMap::new();
+    let mut merged = checkpoint(&ctx, &clusters)?;
+    let total = by_commit.len();
+    for (i, (sha, group)) in by_commit.iter().enumerate() {
+        let names: Vec<String> = group
+            .iter()
+            .filter_map(|j| j.get("journey").and_then(|v| v.as_str()).map(String::from))
+            .collect();
+        if resume && cluster_already_enriched(&existing_clusters, sha, &names) {
+            println!(
+                "  [{}/{total}] {} ← {} (skipped, already enriched)",
+                i + 1,
+                &sha[..sha.len().min(12)],
+                names.join(", ")
+            );
+            if let Some(cluster) = existing_clusters.get(sha) {
+                clusters.insert(sha.clone(), cluster.clone());
+            }
+        } else {
+            println!(
+                "  [{}/{total}] {} ← {}",
+                i + 1,
+                &sha[..sha.len().min(12)],
+                names.join(", ")
+            );
+            let cluster = build_intro_cluster(&mut ctx, sha, group)?;
+            clusters.insert(
+                sha.clone(),
+                serde_json::to_value(cluster).map_err(|e| e.to_string())?,
+            );
+        }
+        merged = checkpoint(&ctx, &clusters)?;
+    }
 
     let size = fs::metadata(&out_path).map(|m| m.len()).unwrap_or(0);
     let out_rel = out_path
@@ -2196,12 +2586,14 @@ pub fn run(args: &[String]) -> Result<(), String> {
         };
         if !relevant.is_empty() {
             let scoped = json!({
-                "journeys": out_journeys
-                    .iter()
-                    .filter(|j| relevant.contains(&j.get("journey").and_then(|v| v.as_str()).unwrap_or("")))
+                "journeys": merged["journeys"]
+                    .as_array()
                     .cloned()
+                    .unwrap_or_default()
+                    .into_iter()
+                    .filter(|j| relevant.contains(&j.get("journey").and_then(|v| v.as_str()).unwrap_or("")))
                     .collect::<Vec<_>>(),
-                "intro_clusters": output.get("intro_clusters").cloned().unwrap_or(json!({})),
+                "intro_clusters": merged.get("intro_clusters").cloned().unwrap_or(json!({})),
             });
             check_strict_goldens(&scoped).map_err(|e| format!("--strict-goldens: {e}"))?;
             println!(

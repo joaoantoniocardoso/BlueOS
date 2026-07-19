@@ -284,6 +284,20 @@
       "subject": "frontend: components: video-manager: VideoThumbnail: Add manual thumbnail controls",
       "url": "https://github.com/bluerobotics/BlueOS/commit/0180bcc080536b678432844945bb4bd3d7cd00fa"
     },
+    "01a30076382a38638012ba447d56af6ae85685c3": {
+      "author_email": "sandman.esalexander@gmail.com",
+      "author_name": "ES-Alexander",
+      "authored_at": "2026-04-24T11:03:33+08:00",
+      "body": "",
+      "files_changed": [
+        "core/frontend/src/components/video-manager/VideoDiagnosticHelper.vue"
+      ],
+      "files_changed_truncated": false,
+      "sha": "01a30076382a38638012ba447d56af6ae85685c3",
+      "short": "01a30076382a",
+      "subject": "frontend: video-manager: include default route in RTSP availability check",
+      "url": "https://github.com/bluerobotics/BlueOS/commit/01a30076382a38638012ba447d56af6ae85685c3"
+    },
     "01ab967340e6a1e22a68984158be1bf932cf6359": {
       "author_email": null,
       "author_name": "Williangalvani",
@@ -2787,6 +2801,18 @@
       "subject": "frontend: index.html/nginx.conf: add meta tags and headers to hint browser not to cache the html",
       "url": "https://github.com/bluerobotics/BlueOS/commit/1047e3ffa4404f92c2da6b39b2d09d4a46cac1cc"
     },
+    "1050de0ed12d7cf29640086ba0efa77f52cb2a38": {
+      "author_email": null,
+      "author_name": "ES-Alexander",
+      "authored_at": null,
+      "body": "",
+      "files_changed": [],
+      "files_changed_truncated": false,
+      "sha": "1050de0ed12d7cf29640086ba0efa77f52cb2a38",
+      "short": "1050de0ed12d",
+      "subject": "frontend: video-manager: include default route in RTSP availability c…",
+      "url": "https://github.com/bluerobotics/BlueOS/commit/1050de0ed12d7cf29640086ba0efa77f52cb2a38"
+    },
     "105c23b8735b51b8188ba347b5debc2b1527b587": {
       "author_email": "williangalvani@gmail.com",
       "author_name": "Willian Galvani",
@@ -3058,6 +3084,21 @@
       "short": "11a7b6ff0f81",
       "subject": "core: tools: nginx: Add a 404 if extension is not registered",
       "url": "https://github.com/bluerobotics/BlueOS/commit/11a7b6ff0f81b3cb6dad8d8ba429387d9c79135b"
+    },
+    "11b310ea575a33fe8f173a167eb2db7a8611687d": {
+      "author_email": "williangalvani@gmail.com",
+      "author_name": "Willian Galvani",
+      "authored_at": "2022-08-25T16:57:56-03:00",
+      "body": "",
+      "files_changed": [
+        "core/frontend/src/components/video-manager/VideoDiagnosticHelper.vue",
+        "core/frontend/src/components/video-manager/VideoManager.vue"
+      ],
+      "files_changed_truncated": false,
+      "sha": "11b310ea575a33fe8f173a167eb2db7a8611687d",
+      "short": "11b310ea575a",
+      "subject": "core: frontend: create VideoDiagnosticHelper.vue",
+      "url": "https://github.com/bluerobotics/BlueOS/commit/11b310ea575a33fe8f173a167eb2db7a8611687d"
     },
     "11b94da79075db4113e640b8c27c5ded8a371846": {
       "author_email": null,
@@ -4961,6 +5002,20 @@
       "short": "1cd67ce44d4f",
       "subject": "frontend: add Power configuration tab to vehicle setup",
       "url": "https://github.com/bluerobotics/BlueOS/commit/1cd67ce44d4ff8f136b1db31502f9b7473e1a24f"
+    },
+    "1cdc8accbb7e980613ba2418696d149fec847290": {
+      "author_email": "joao.mario.lago@hotmail.com",
+      "author_name": "Joao Mario Lago",
+      "authored_at": "2024-03-12T10:01:36-03:00",
+      "body": "* Updat BeaconTrayMenu to consider cases where a unknown network is\n  listed to avoid cases where interfaces are classified mistakenly",
+      "files_changed": [
+        "core/frontend/src/components/beacon/BeaconTrayMenu.vue"
+      ],
+      "files_changed_truncated": false,
+      "sha": "1cdc8accbb7e980613ba2418696d149fec847290",
+      "short": "1cdc8accbb7e",
+      "subject": "core: frontend: Update BeaconTray network checks",
+      "url": "https://github.com/bluerobotics/BlueOS/commit/1cdc8accbb7e980613ba2418696d149fec847290"
     },
     "1ce60c829b80a27059640e1a2869e81c433e1ce1": {
       "author_email": "patrickelectric@gmail.com",
@@ -17978,6 +18033,20 @@
       "subject": "frontend: vehicle-setup: fix typo",
       "url": "https://github.com/bluerobotics/BlueOS/commit/6c482b36d3a98c3d327cee89c07d002ded265539"
     },
+    "6cc755bb7067d2fe642c6c2cf4858f34f55a8d97": {
+      "author_email": "joao.maker@gmail.com",
+      "author_name": "João Antônio Cardoso",
+      "authored_at": "2026-03-24T12:51:54-03:00",
+      "body": "Constrain the thumbnail frame height to its parent and use object-fit\ncontain so the full image is visible without overflow or cropping.",
+      "files_changed": [
+        "core/frontend/src/components/video-manager/VideoThumbnail.vue"
+      ],
+      "files_changed_truncated": false,
+      "sha": "6cc755bb7067d2fe642c6c2cf4858f34f55a8d97",
+      "short": "6cc755bb7067",
+      "subject": "frontend: components: video-manager: VideoThumbnail: contain image within parent",
+      "url": "https://github.com/bluerobotics/BlueOS/commit/6cc755bb7067d2fe642c6c2cf4858f34f55a8d97"
+    },
     "6ccd67c5c1d2e21bbfe2faed22fd94958d14b7e8": {
       "author_email": null,
       "author_name": "Williangalvani",
@@ -21521,6 +21590,20 @@
       "subject": "core: services: ping: ping360_ethernet_prober: Use REUSEADDR with 30303",
       "url": "https://github.com/bluerobotics/BlueOS/commit/80a5c6484747d136b403c28b9d82b207aad6dea3"
     },
+    "80a780d1379f8a57f693e3caa1e8a72dd4acbb79": {
+      "author_email": "patrickelectric@gmail.com",
+      "author_name": "Patrick José Pereira",
+      "authored_at": "2024-02-23T07:01:43-03:00",
+      "body": "Signed-off-by: Patrick José Pereira <patrickelectric@gmail.com>",
+      "files_changed": [
+        "core/frontend/src/components/video-manager/VideoThumbnail.vue"
+      ],
+      "files_changed_truncated": false,
+      "sha": "80a780d1379f8a57f693e3caa1e8a72dd4acbb79",
+      "short": "80a780d1379f",
+      "subject": "frontend: components: VideoThumbnail: Show last thumbnail over fetching animation",
+      "url": "https://github.com/bluerobotics/BlueOS/commit/80a780d1379f8a57f693e3caa1e8a72dd4acbb79"
+    },
     "80ae09f34e61e084dd2f4eca8229397c78db2607": {
       "author_email": "patrickelectric@gmail.com",
       "author_name": "Patrick José Pereira",
@@ -21884,6 +21967,20 @@
       "short": "833f8da64ef3",
       "subject": "frontend: pwa: Use default primary color as app theme color",
       "url": "https://github.com/bluerobotics/BlueOS/commit/833f8da64ef3b60c972ffddfed6ae383d06cee22"
+    },
+    "836feb80c69f9c0a1d4e43e6c27a2cd4c541f147": {
+      "author_email": "joao.mario.lago@hotmail.com",
+      "author_name": "Joao Mario Lago",
+      "authored_at": "2024-03-11T16:57:18-03:00",
+      "body": "",
+      "files_changed": [
+        "core/frontend/src/types/beacon.ts"
+      ],
+      "files_changed_truncated": false,
+      "sha": "836feb80c69f9c0a1d4e43e6c27a2cd4c541f147",
+      "short": "836feb80c69f",
+      "subject": "core: frontend: Add USB to Beacon Interface Type",
+      "url": "https://github.com/bluerobotics/BlueOS/commit/836feb80c69f9c0a1d4e43e6c27a2cd4c541f147"
     },
     "83704032775851817fe4f79273f1b5bde105072d": {
       "author_email": null,
@@ -24784,6 +24881,21 @@
       "subject": "core: frontend: components: parameter-editor: Add fuzzy finder",
       "url": "https://github.com/bluerobotics/BlueOS/commit/9668fe47ad51301612ab2b3abade553bf6479691"
     },
+    "966a8c5664792802dcabfe28ab8e1a481147291b": {
+      "author_email": "joao.maker@gmail.com",
+      "author_name": "João Antônio Cardoso",
+      "authored_at": "2026-03-24T12:42:20-03:00",
+      "body": "The width prop was concatenated with 'px' unconditionally, producing\ninvalid CSS 'autopx' when the dashboard passed 'auto'. Add a computed\nthat only appends 'px' for purely numeric values, and pass '100%' from\nthe dashboard so the thumbnail fills the card like it does on the\nVideo Manager page.",
+      "files_changed": [
+        "core/frontend/src/components/video-manager/VideoThumbnail.vue",
+        "core/frontend/src/views/MainView.vue"
+      ],
+      "files_changed_truncated": false,
+      "sha": "966a8c5664792802dcabfe28ab8e1a481147291b",
+      "short": "966a8c566479",
+      "subject": "frontend: fix dashboard thumbnail sizing to fill card width",
+      "url": "https://github.com/bluerobotics/BlueOS/commit/966a8c5664792802dcabfe28ab8e1a481147291b"
+    },
     "966e2662ce05e75376d2dd09ad473cea845c53ab": {
       "author_email": null,
       "author_name": "patrickelectric",
@@ -26661,6 +26773,20 @@
       "subject": "core: frontend: SystemInformationView: Move 'System Monitor' to first page",
       "url": "https://github.com/bluerobotics/BlueOS/commit/a0905f0a18628bf4fa5d638d7009948b0f461875"
     },
+    "a090ded22157ebaff824496a8551202281b4ea41": {
+      "author_email": "sandman.esalexander@gmail.com",
+      "author_name": "ES-Alexander",
+      "authored_at": "2026-04-24T11:08:52+08:00",
+      "body": "",
+      "files_changed": [
+        "core/frontend/src/components/video-manager/VideoDiagnosticHelper.vue"
+      ],
+      "files_changed_truncated": false,
+      "sha": "a090ded22157ebaff824496a8551202281b4ea41",
+      "short": "a090ded22157",
+      "subject": "frontend: video-manager: improve no accessible streams error message",
+      "url": "https://github.com/bluerobotics/BlueOS/commit/a090ded22157ebaff824496a8551202281b4ea41"
+    },
     "a095eb05d0056ff26df7e9382731c17ffc1a49c3": {
       "author_email": null,
       "author_name": "Williangalvani",
@@ -28070,6 +28196,20 @@
       "short": "a786bd8e99e8",
       "subject": "core: frontend: Stop automatically closing wifi connection dialog",
       "url": "https://github.com/bluerobotics/BlueOS/commit/a786bd8e99e8a1413610e1d67ef99f0159caaf8c"
+    },
+    "a78f67bb3233499a39d468105a5393c5a3a866b2": {
+      "author_email": "joao.maker@gmail.com",
+      "author_name": "João Antônio Cardoso",
+      "authored_at": "2026-03-24T12:41:00-03:00",
+      "body": "Prevents the play/camera buttons from triggering navigation to the\nVideo Manager page when the thumbnail is embedded in the dashboard.\n\nCloses #3848",
+      "files_changed": [
+        "core/frontend/src/components/video-manager/VideoThumbnail.vue"
+      ],
+      "files_changed_truncated": false,
+      "sha": "a78f67bb3233499a39d468105a5393c5a3a866b2",
+      "short": "a78f67bb3233",
+      "subject": "frontend: components: video-manager: VideoThumbnail: stop click propagation on controls",
+      "url": "https://github.com/bluerobotics/BlueOS/commit/a78f67bb3233499a39d468105a5393c5a3a866b2"
     },
     "a7e0dbfef15d5854bf30e0005c21b9259ea91731": {
       "author_email": "joao.maker@gmail.com",
@@ -30950,6 +31090,20 @@
       "subject": "core: frontend: components: ParameterEditorDialog: Simplify and fix bitflags",
       "url": "https://github.com/bluerobotics/BlueOS/commit/b9eea8f5534a9d28ed7ca05b15bc207d17bdf1fb"
     },
+    "b9ff486ce7d040b602543f1c813e8bd9529f3786": {
+      "author_email": "joao.mario.lago@hotmail.com",
+      "author_name": "Joao Mario Lago",
+      "authored_at": "2024-03-12T09:57:08-03:00",
+      "body": "* Update wireless diagnostic in VideoDiagnoticHelper to be consice as\n  the way BeaconTray does, removing cases where unknown interfaces are\n  classified as Wireless",
+      "files_changed": [
+        "core/frontend/src/components/video-manager/VideoDiagnosticHelper.vue"
+      ],
+      "files_changed_truncated": false,
+      "sha": "b9ff486ce7d040b602543f1c813e8bd9529f3786",
+      "short": "b9ff486ce7d0",
+      "subject": "core: frontend: Make Wireless diagnostic consice",
+      "url": "https://github.com/bluerobotics/BlueOS/commit/b9ff486ce7d040b602543f1c813e8bd9529f3786"
+    },
     "ba444cad53be9559250f5e0a1a83b52cb242b9ef": {
       "author_email": "patrickelectric@gmail.com",
       "author_name": "Patrick José Pereira",
@@ -31613,6 +31767,18 @@
       "short": "beb0e3d53bab",
       "subject": "kraken: get historical extension logs through zenoh queryable",
       "url": "https://github.com/bluerobotics/BlueOS/commit/beb0e3d53babe6f42bafc896bef8e1a023a78f42"
+    },
+    "bec4f2318c243534cbeee018a0f10496c70665fc": {
+      "author_email": null,
+      "author_name": "ES-Alexander",
+      "authored_at": null,
+      "body": "",
+      "files_changed": [],
+      "files_changed_truncated": false,
+      "sha": "bec4f2318c243534cbeee018a0f10496c70665fc",
+      "short": "bec4f2318c24",
+      "subject": "frontend: video-manager: improve no accessible streams error message",
+      "url": "https://github.com/bluerobotics/BlueOS/commit/bec4f2318c243534cbeee018a0f10496c70665fc"
     },
     "beccfd166ec8683257d500f022a1730942fad67e": {
       "author_email": "patrickelectric@gmail.com",
@@ -35042,6 +35208,20 @@
       "short": "d36aa628cafc",
       "subject": "Core: tools: nginx: add kraken",
       "url": "https://github.com/bluerobotics/BlueOS/commit/d36aa628cafc5740ea84e1d9b906c4d3b37990b1"
+    },
+    "d375166e9df07935a8d55a453cb60b8902668ea5": {
+      "author_email": "joao.maker@gmail.com",
+      "author_name": "João Antônio Cardoso",
+      "authored_at": "2026-03-24T12:51:54-03:00",
+      "body": "Constrain the thumbnail frame height to its parent and use object-fit\ncontain so the full image is visible without overflow or cropping.",
+      "files_changed": [
+        "core/frontend/src/components/video-manager/VideoThumbnail.vue"
+      ],
+      "files_changed_truncated": false,
+      "sha": "d375166e9df07935a8d55a453cb60b8902668ea5",
+      "short": "d375166e9df0",
+      "subject": "frontend: components: video-manager: VideoThumbnail: contain image within parent",
+      "url": "https://github.com/bluerobotics/BlueOS/commit/d375166e9df07935a8d55a453cb60b8902668ea5"
     },
     "d37869c174bfd0ceb03d0407afe7f1baa41c7c3d": {
       "author_email": "joao.maker@gmail.com",
@@ -39862,6 +40042,20 @@
       "subject": "frontend: types: video: Add extended_configuration",
       "url": "https://github.com/bluerobotics/BlueOS/commit/f0ab6cc04e6089c17c9400ce82e6634f843b273b"
     },
+    "f0e43ecfbbba6593ad044250908c1a99e034b906": {
+      "author_email": "joao.maker@gmail.com",
+      "author_name": "João Antônio Cardoso",
+      "authored_at": "2026-03-24T12:41:00-03:00",
+      "body": "Prevents the play/camera buttons from triggering navigation to the\nVideo Manager page when the thumbnail is embedded in the dashboard.\n\nCloses #3848",
+      "files_changed": [
+        "core/frontend/src/components/video-manager/VideoThumbnail.vue"
+      ],
+      "files_changed_truncated": false,
+      "sha": "f0e43ecfbbba6593ad044250908c1a99e034b906",
+      "short": "f0e43ecfbbba",
+      "subject": "frontend: components: video-manager: VideoThumbnail: stop click propagation on controls",
+      "url": "https://github.com/bluerobotics/BlueOS/commit/f0e43ecfbbba6593ad044250908c1a99e034b906"
+    },
     "f0e691e14f1e4718c8f2265ccddba1e9126e6960": {
       "author_email": "williangalvani@gmail.com",
       "author_name": "Willian Galvani",
@@ -42034,7 +42228,7 @@
       "url": "https://github.com/bluerobotics/BlueOS/commit/fff549e84987192fd579fbbbe75b1ecfe0fd306b"
     }
   },
-  "generated_at": "2026-07-19T17:35:07-03:00",
+  "generated_at": "2026-07-19T19:16:23-03:00",
   "intro_clusters": {
     "05fb99f125e2b4f8ad53a886317db2abbda063b3": {
       "by_journey": {
@@ -42845,6 +43039,69 @@
         2760
       ],
       "merge_commit_sha": "8979e5fcdcabf34abcfa92808b5c4aed32649759",
+      "merge_method": "rebase",
+      "squash_merge": false
+    },
+    "11b310ea575a33fe8f173a167eb2db7a8611687d": {
+      "by_journey": {
+        "ConfigureVideoStream": {
+          "backport_prs": [
+            3850,
+            3854,
+            3899
+          ],
+          "discovery_paths": [
+            "core/frontend/src/components/video-manager/VideoDiagnosticHelper.vue",
+            "core/frontend/src/components/video-manager/VideoThumbnail.vue"
+          ],
+          "follow_up_prs": [
+            1376,
+            2407,
+            2440,
+            3221,
+            3241,
+            3844,
+            3849,
+            3853,
+            3893
+          ],
+          "issues": [
+            {
+              "number": 3211,
+              "sources": [
+                {
+                  "kind": "closing",
+                  "pr": 3221
+                }
+              ]
+            },
+            {
+              "number": 3848,
+              "sources": [
+                {
+                  "kind": "closing",
+                  "pr": 3849
+                }
+              ]
+            },
+            {
+              "number": 3851,
+              "sources": [
+                {
+                  "kind": "closing",
+                  "pr": 3853
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "intro_commit": "11b310ea575a33fe8f173a167eb2db7a8611687d",
+      "intro_sha_in_pr_commits": false,
+      "landing_prs": [
+        1127
+      ],
+      "merge_commit_sha": "11b310ea575a33fe8f173a167eb2db7a8611687d",
       "merge_method": "rebase",
       "squash_merge": false
     },
@@ -54679,6 +54936,17 @@
       "title": "Version chooser is not filtering dockers that are not core",
       "url": "https://github.com/bluerobotics/BlueOS/issues/384"
     },
+    "3848": {
+      "author": "patrickelectric",
+      "closed_at": "2026-03-27T00:57:43Z",
+      "created_at": "2026-03-24T11:01:35Z",
+      "labels": [],
+      "missing": false,
+      "number": 3848,
+      "state": "CLOSED",
+      "title": "Camera \"play\" to fetch for thumbnail in the dashboard redirect to video stream page",
+      "url": "https://github.com/bluerobotics/BlueOS/issues/3848"
+    },
     "3851": {
       "author": "joaoantoniocardoso",
       "closed_at": "2026-03-27T02:44:17Z",
@@ -59011,40 +59279,13 @@
       "tag_count": 173
     },
     {
-      "first_tag": "1.0.0.beta1",
-      "intro_commit": "8da1baa6c56aee23c4706858451c226b64c6653c",
-      "intro_commit_short": "8da1baa6c56a",
+      "first_tag": "1.1.0-beta.9",
+      "intro_commit": "11b310ea575a33fe8f173a167eb2db7a8611687d",
+      "intro_commit_short": "11b310ea575a",
       "journey": "ConfigureVideoStream",
-      "method": "path:core/frontend/src/components/video-manager/VideoManager.vue",
+      "method": "path:core/frontend/src/components/video-manager/VideoDiagnosticHelper.vue",
       "module": "frontend_video",
       "present_in_tags": [
-        "1.0.0.beta1",
-        "1.0.0.beta2",
-        "1.0.0.beta3",
-        "1.0.0.beta4",
-        "1.0.0.beta5",
-        "1.0.0.beta6",
-        "1.0.0.beta7",
-        "1.0.0.beta8",
-        "1.0.0.beta9",
-        "1.0.0.beta10",
-        "1.0.0.beta11",
-        "1.0.0.beta12",
-        "1.0.0-beta.13",
-        "1.0.0-beta.14",
-        "1.0.0-beta.15",
-        "1.0.0-beta.16",
-        "1.0.0",
-        "1.0.1",
-        "1.0.2-beta.1",
-        "1.1.0-beta.1",
-        "1.1.0-beta.2",
-        "1.1.0-beta.3",
-        "1.1.0-beta.4",
-        "1.1.0-beta5",
-        "1.1.0-beta.6",
-        "1.1.0-beta.7",
-        "1.1.0-beta.8",
         "1.1.0-beta.9",
         "1.1.0-beta.10",
         "1.1.0-beta.11",
@@ -59194,7 +59435,7 @@
       ],
       "present_on_1_4_dev": true,
       "present_on_master": true,
-      "tag_count": 173
+      "tag_count": 146
     },
     {
       "first_tag": "1.0.0.beta1",
@@ -81283,6 +81524,31 @@
       "title": "core: frontend: Move to use extended glMatrix library",
       "url": "https://github.com/bluerobotics/BlueOS/pull/2404"
     },
+    "2407": {
+      "author": "patrickelectric",
+      "base_ref": "master",
+      "body": "A problem on the video page is that mostly of the time is showing the fetching animation over showing the thumbnail itself.\r\nThe PR changes the logic to show the last thumbnail, and only show the fetching animation when a thumbnail is not available. ",
+      "body_truncated": false,
+      "closed_at": "2024-02-26T12:41:06Z",
+      "commit_headlines": [
+        "frontend: components: VideoThumbnail: Show last thumbnail over fetchi…"
+      ],
+      "commit_shas": [
+        "80a780d1379f8a57f693e3caa1e8a72dd4acbb79"
+      ],
+      "files_changed": [
+        "core/frontend/src/components/video-manager/VideoThumbnail.vue"
+      ],
+      "files_changed_truncated": false,
+      "head_ref": "fix-video",
+      "labels": [],
+      "merge_commit_sha": "598d448c7385a1d68a78e8391bd9004f999d19d1",
+      "merged_at": "2024-02-26T12:41:06Z",
+      "number": 2407,
+      "state": "MERGED",
+      "title": "frontend: components: VideoThumbnail: Show last thumbnail over fetching animation",
+      "url": "https://github.com/bluerobotics/BlueOS/pull/2407"
+    },
     "2412": {
       "author": "patrickelectric",
       "base_ref": "master",
@@ -81445,6 +81711,39 @@
       "state": "MERGED",
       "title": "core: services: Fix USB not being listed in Beacon",
       "url": "https://github.com/bluerobotics/BlueOS/pull/2433"
+    },
+    "2440": {
+      "author": "joaomariolago",
+      "base_ref": "master",
+      "body": "This update enhances how BeaconTrayMenu reports the connection methods to BlueOS, introducing proper report for unknown interfaces and adding USB as a recognized type, reflecting beacon's expanded listings.\r\n\r\nRelated to #2198 ",
+      "body_truncated": false,
+      "closed_at": "2024-03-25T16:07:31Z",
+      "commit_headlines": [
+        "core: frontend: Add USB to Beacon Interface Type",
+        "core: frontend: Make Wireless diagnostic consice",
+        "core: frontend: Update BeaconTray network checks"
+      ],
+      "commit_shas": [
+        "836feb80c69f9c0a1d4e43e6c27a2cd4c541f147",
+        "b9ff486ce7d040b602543f1c813e8bd9529f3786",
+        "1cdc8accbb7e980613ba2418696d149fec847290"
+      ],
+      "files_changed": [
+        "core/frontend/src/components/beacon/BeaconTrayMenu.vue",
+        "core/frontend/src/components/video-manager/VideoDiagnosticHelper.vue",
+        "core/frontend/src/types/beacon.ts"
+      ],
+      "files_changed_truncated": false,
+      "head_ref": "improv-blueos-reaching-way",
+      "labels": [
+        "merge-after-stable"
+      ],
+      "merge_commit_sha": "364bfd492851a1e92b81f070085e01710913eab1",
+      "merged_at": "2024-03-25T16:07:31Z",
+      "number": 2440,
+      "state": "MERGED",
+      "title": "Enhancement Network Connection Detection in BeaconTray",
+      "url": "https://github.com/bluerobotics/BlueOS/pull/2440"
     },
     "2442": {
       "author": "patrickelectric",
@@ -94522,6 +94821,63 @@
       "title": "frontend: video-manager: Add block list support for MCM sources",
       "url": "https://github.com/bluerobotics/BlueOS/pull/3846"
     },
+    "3849": {
+      "author": "joaoantoniocardoso",
+      "base_ref": "master",
+      "body": "Closes #3848\n\n## Summary by Sourcery\n\nFix sizing and interaction behavior of video thumbnail cards in the dashboard.\n\nBug Fixes:\n- Ensure thumbnail width values are correctly interpreted whether passed as numbers or CSS strings.\n- Prevent thumbnail control clicks from propagating to parent elements and causing unintended actions.\n- Adjust thumbnail rendering to maintain full visibility within its container and respect container height constraints.\n- Correct dashboard thumbnail card sizing by using full-width thumbnails instead of auto width with explicit height.",
+      "body_truncated": false,
+      "closed_at": "2026-03-27T00:57:42Z",
+      "commit_headlines": [
+        "frontend: components: video-manager: VideoThumbnail: stop click propa…",
+        "frontend: fix dashboard thumbnail sizing to fill card width",
+        "frontend: components: video-manager: VideoThumbnail: contain image wi…"
+      ],
+      "commit_shas": [
+        "f0e43ecfbbba6593ad044250908c1a99e034b906",
+        "966a8c5664792802dcabfe28ab8e1a481147291b",
+        "d375166e9df07935a8d55a453cb60b8902668ea5"
+      ],
+      "files_changed": [
+        "core/frontend/src/components/video-manager/VideoThumbnail.vue",
+        "core/frontend/src/views/MainView.vue"
+      ],
+      "files_changed_truncated": false,
+      "head_ref": "fix_thumbnail_dashboard_card",
+      "labels": [],
+      "merge_commit_sha": "f5615f3e1188c6665a0e1d12064cf331b52302b4",
+      "merged_at": "2026-03-27T00:57:42Z",
+      "number": 3849,
+      "state": "MERGED",
+      "title": "Fix thumbnail dashboard card",
+      "url": "https://github.com/bluerobotics/BlueOS/pull/3849"
+    },
+    "3850": {
+      "author": "joaoantoniocardoso",
+      "base_ref": "1.4",
+      "body": "## Summary\n- Backport of #3849 into 1.4\n- Stop click propagation on VideoThumbnail controls so buttons don't trigger parent navigation\n- Constrain thumbnail frame height and use `object-fit: contain` so the full image fits within its parent\n\n## Test plan\n- [x] Verify camera thumbnail play/camera buttons work without navigating away\n- [x] Verify thumbnail image is fully contained within its parent card\n\n## Summary by Sourcery\n\nBackport video thumbnail interaction and layout improvements to the 1.4 branch.\n\nBug Fixes:\n- Prevent video thumbnail control clicks from triggering parent navigation actions.\n\nEnhancements:\n- Ensure video thumbnails are fully visible within their container by constraining frame height and using contained object-fit behavior.",
+      "body_truncated": false,
+      "closed_at": "2026-03-27T17:36:11Z",
+      "commit_headlines": [
+        "frontend: components: video-manager: VideoThumbnail: stop click propa…",
+        "frontend: components: video-manager: VideoThumbnail: contain image wi…"
+      ],
+      "commit_shas": [
+        "a78f67bb3233499a39d468105a5393c5a3a866b2",
+        "6cc755bb7067d2fe642c6c2cf4858f34f55a8d97"
+      ],
+      "files_changed": [
+        "core/frontend/src/components/video-manager/VideoThumbnail.vue"
+      ],
+      "files_changed_truncated": false,
+      "head_ref": "backports/1.4/fix-thumbnail-dashboard-redirect",
+      "labels": [],
+      "merge_commit_sha": "62ba3e66ab0a129d2579a10aaea9d94a8e894f99",
+      "merged_at": "2026-03-27T17:36:11Z",
+      "number": 3850,
+      "state": "MERGED",
+      "title": "[Backport] Fix thumbnail dashboard card",
+      "url": "https://github.com/bluerobotics/BlueOS/pull/3850"
+    },
     "3852": {
       "author": "Williangalvani",
       "base_ref": "master",
@@ -95016,6 +95372,35 @@
       "title": "New sensor",
       "url": "https://github.com/bluerobotics/BlueOS/pull/3887"
     },
+    "3893": {
+      "author": "ES-Alexander",
+      "base_ref": "master",
+      "body": "@dgudiel reported that the existing error display check was giving a false positive for a default, working RadCam setup:\r\n\r\n<img width=\"500\" alt=\"image\" src=\"https://github.com/user-attachments/assets/cd5b7bfd-af2e-44d3-86f7-5633bcb68a3d\" />\r\n\r\n---\r\n\r\nThis PR includes the default route (`0.0.0.0`) in that check, and clarifies the error message for when it does occur.\n\n## Summary by Sourcery\n\nImprove video diagnostic handling of RTSP stream availability for default-routed cameras.\n\nBug Fixes:\n- Account for RTSP streams bound to the default route (0.0.0.0) when determining if any camera streams are accessible.\n\nEnhancements:\n- Clarify the user-facing error message shown when no accessible video streams are detected.\n\n<!-- CURSOR_SUMMARY -->\n---\n\n> [!NOTE]\n> **Low Risk**\n> Low risk UI/diagnostic logic tweak that only affects when the Video Manager shows a warning; no auth, persistence, or backend behavior changes.\n> \n> **Overview**\n> Updates `VideoDiagnosticHelper.vue` to treat RTSP endpoints using the default route (`rtsp://0.0.0.0`) as accessible in addition to the vehicle IP, reducing false “no stream accessible” warnings.\n> \n> Rewords the warning text to more clearly indicate that streams may simply not be configured to reach the client IP.\n> \n> <sup>Reviewed by [Cursor Bugbot](https://cursor.com/bugbot) for commit b2a8764970206049eb9c17ede1a4685c2e7b2d88. Bugbot is set up for automated code reviews on this repo. Configure [here](https://www.cursor.com/dashboard/bugbot).</sup>\n<!-- /CURSOR_SUMMARY -->",
+      "body_truncated": false,
+      "closed_at": "2026-04-24T12:16:20Z",
+      "commit_headlines": [
+        "frontend: video-manager: include default route in RTSP availability c…",
+        "frontend: video-manager: improve no accessible streams error message"
+      ],
+      "commit_shas": [
+        "1050de0ed12d7cf29640086ba0efa77f52cb2a38",
+        "bec4f2318c243534cbeee018a0f10496c70665fc"
+      ],
+      "files_changed": [
+        "core/frontend/src/components/video-manager/VideoDiagnosticHelper.vue"
+      ],
+      "files_changed_truncated": false,
+      "head_ref": "rtsp-check-default-route-ip",
+      "labels": [
+        "move-to-stable"
+      ],
+      "merge_commit_sha": "279476b6a6ff079e2abbf5cc2fdd73cb26d4a217",
+      "merged_at": "2026-04-24T12:16:20Z",
+      "number": 3893,
+      "state": "MERGED",
+      "title": "Video Manager: Check default route ip for RTSP availability",
+      "url": "https://github.com/bluerobotics/BlueOS/pull/3893"
+    },
     "3895": {
       "author": "patrickelectric",
       "base_ref": "1.4-dev",
@@ -95043,6 +95428,33 @@
       "state": "MERGED",
       "title": "[backport/1.4] trigger frontend to re-download parameters ",
       "url": "https://github.com/bluerobotics/BlueOS/pull/3895"
+    },
+    "3899": {
+      "author": "patrickelectric",
+      "base_ref": "1.4-dev",
+      "body": "Backport from https://github.com/bluerobotics/BlueOS/pull/3893\n\n## Summary by Sourcery\n\nUpdate video diagnostics to better detect RTSP stream availability when using the default route and clarify messaging when no accessible streams are found.\n\nEnhancements:\n- Include RTSP streams bound to 0.0.0.0 in accessibility checks alongside vehicle-specific IP streams.\n- Refine user-facing diagnostic text to describe lack of reachable video streams rather than a single IP-specific issue.",
+      "body_truncated": false,
+      "closed_at": "2026-04-24T14:30:08Z",
+      "commit_headlines": [
+        "frontend: video-manager: include default route in RTSP availability c…",
+        "frontend: video-manager: improve no accessible streams error message"
+      ],
+      "commit_shas": [
+        "01a30076382a38638012ba447d56af6ae85685c3",
+        "a090ded22157ebaff824496a8551202281b4ea41"
+      ],
+      "files_changed": [
+        "core/frontend/src/components/video-manager/VideoDiagnosticHelper.vue"
+      ],
+      "files_changed_truncated": false,
+      "head_ref": "1.4-ipradcam",
+      "labels": [],
+      "merge_commit_sha": "a64ed9b246db2b4b8cc639ae44d20f761dcb9b38",
+      "merged_at": "2026-04-24T14:30:08Z",
+      "number": 3899,
+      "state": "MERGED",
+      "title": "[backport/1.4] Video Manager: Check default route ip for RTSP availability",
+      "url": "https://github.com/bluerobotics/BlueOS/pull/3899"
     },
     "3902": {
       "author": "patrickelectric",

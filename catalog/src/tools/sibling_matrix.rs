@@ -16,8 +16,9 @@ use std::collections::HashSet;
 
 use crate::feature_trace::discovery_for_journey;
 
-/// Pairs from `IMPROVE_DESIGN.md` "T1 sibling-pair matrix" (10 pairs; #1 carries
-/// the explicit numeric gate, the rest are regression-watch).
+/// Pairs from `IMPROVE_DESIGN.md` "T1 sibling-pair matrix" plus `NEXT11_DESIGN.md`
+/// N1's video pair additions (12 pairs; #1 carries the explicit numeric gate,
+/// the rest are regression-watch).
 pub const PAIRS: &[(&str, &str)] = &[
     ("ConfigureCameraStream", "ViewCameraStreams"),
     ("ConnectToWifiNetwork", "ForgetSavedWifiNetwork"),
@@ -35,6 +36,8 @@ pub const PAIRS: &[(&str, &str)] = &[
     ),
     ("UpdateBootstrapImage", "DeleteLocalBlueosVersion"),
     ("StartAutopilot", "UpdateFirmwareOnline"),
+    ("ConfigureVideoStream", "ViewCameraStreams"),
+    ("ConfigureVideoStream", "ConfigureCameraStream"),
 ];
 
 const CAMERA_GATE_PAIR: (&str, &str) = ("ConfigureCameraStream", "ViewCameraStreams");
@@ -121,9 +124,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn matrix_has_all_ten_designed_pairs() {
-        assert_eq!(PAIRS.len(), 10);
-        assert_eq!(score_matrix().len(), 10);
+    fn matrix_has_all_designed_pairs() {
+        assert_eq!(PAIRS.len(), 12);
+        assert_eq!(score_matrix().len(), 12);
     }
 
     #[test]

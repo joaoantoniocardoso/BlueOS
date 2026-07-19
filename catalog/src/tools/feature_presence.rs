@@ -142,6 +142,14 @@ pub(crate) const OVERRIDES: &[(&str, Override)] = &[
         Override::Path("core/frontend/src/components/video-manager/VideoControlsDialog.vue"),
     ),
     (
+        "ConfigureVideoStream",
+        Override::Path("core/frontend/src/components/video-manager/VideoDiagnosticHelper.vue"),
+    ),
+    (
+        "ConfigureVideoStream",
+        Override::Path("core/frontend/src/components/video-manager/VideoThumbnail.vue"),
+    ),
+    (
         "ApplyParameterFile",
         Override::Path("core/frontend/src/components/parameter-editor/ParameterEditor.vue"),
     ),

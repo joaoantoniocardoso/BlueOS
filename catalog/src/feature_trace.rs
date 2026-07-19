@@ -193,6 +193,14 @@ pub fn intro_commit_for_journey(journey_id: &str) -> Option<&'static str> {
         .map(|j| j.intro_commit.as_str())
 }
 
+/// Journey ref record (module/method/presence fields) for a journey id.
+pub fn journey_ref(journey_id: &str) -> Option<&'static TraceJourneyRef> {
+    feature_traces()
+        .journeys
+        .iter()
+        .find(|j| j.journey == journey_id)
+}
+
 pub fn pull_request(number: u64) -> Option<&'static TracePullRequest> {
     feature_traces().pull_requests.get(&number.to_string())
 }
@@ -248,7 +256,7 @@ mod tests {
         assert_eq!(traces.repo, "bluerobotics/BlueOS");
         assert!(!traces.generated_at.is_empty());
         assert_eq!(traces.journeys.len(), 94);
-        assert_eq!(traces.intro_clusters.len(), 55);
+        assert_eq!(traces.intro_clusters.len(), 56);
     }
 
     #[test]
@@ -323,6 +331,102 @@ mod tests {
     fn helper_pair_sibling_ratio_below_gate() {
         let ratio = sibling_ratio("BrowseAvailableWebServices", "MonitorInternetConnectivity");
         assert!(ratio < 0.40, "helper sibling ratio {ratio} >= 0.40 gate");
+    }
+
+    #[test]
+    fn configure_video_stream_vs_view_camera_streams_sibling_ratio_below_gate() {
+        let ratio = sibling_ratio("ConfigureVideoStream", "ViewCameraStreams");
+        assert!(
+            ratio < 0.40,
+            "video/view-camera sibling ratio {ratio} >= 0.40 gate"
+        );
+    }
+
+    /// Pins the shared-legit groups documented impossible-to-split in
+    /// `IMPROVE_AUDIT.md` T3 / `NEXT11_AUDIT.md` N4: no journey-level override
+    /// exists for these journeys, so each falls back to the module's whole-service
+    /// discovery path and their `follow_up_prs` sets are byte-identical. Inverse of
+    /// the N1/N6 `< 0.40` separation gate — this one catches accidental future
+    /// separation (e.g. an override added to only one sibling).
+    #[test]
+    fn commander_reboot_shutdown_is_pinned_shared_cluster() {
+        let ratio = sibling_ratio("RebootOnboardComputer", "ShutdownOnboardComputer");
+        assert!(
+            ratio >= 0.99,
+            "commander shared-cluster ratio {ratio} < 0.99 pin"
+        );
+    }
+
+    #[test]
+    fn versionchooser_trio_is_pinned_shared_cluster() {
+        let pairs = [
+            ("UpdateBlueosVersion", "SwitchLocalBlueosVersion"),
+            ("UpdateBlueosVersion", "PullBlueosVersionWithoutSwitch"),
+            ("SwitchLocalBlueosVersion", "PullBlueosVersionWithoutSwitch"),
+        ];
+        for (a, b) in pairs {
+            let ratio = sibling_ratio(a, b);
+            assert!(
+                ratio >= 0.99,
+                "versionchooser {a}/{b} shared-cluster ratio {ratio} < 0.99 pin"
+            );
+        }
+    }
+
+    #[test]
+    fn kraken_install_uninstall_is_pinned_shared_cluster() {
+        let ratio = sibling_ratio("InstallExtension", "UninstallExtension");
+        assert!(
+            ratio >= 0.99,
+            "kraken shared-cluster ratio {ratio} < 0.99 pin"
+        );
+    }
+
+    #[test]
+    fn configure_video_stream_vs_configure_camera_stream_sibling_ratio_below_gate() {
+        let ratio = sibling_ratio("ConfigureVideoStream", "ConfigureCameraStream");
+        assert!(
+            ratio < 0.40,
+            "video/configure-camera sibling ratio {ratio} >= 0.40 gate"
+        );
+    }
+
+    #[test]
+    fn wifi_pair_sibling_ratio_below_gate() {
+        let ratio = sibling_ratio("ConnectToWifiNetwork", "ForgetSavedWifiNetwork");
+        assert!(ratio < 0.40, "wifi sibling ratio {ratio} >= 0.40 gate");
+    }
+
+    #[test]
+    fn eeprom_pair_sibling_ratio_below_gate() {
+        let ratio = sibling_ratio(
+            "InspectRaspberryEepromBootloader",
+            "UpdateRaspberryEepromBootloader",
+        );
+        assert!(ratio < 0.40, "eeprom sibling ratio {ratio} >= 0.40 gate");
+    }
+
+    #[test]
+    fn access_web_terminal_follow_ups_exact_set() {
+        let discovery = discovery_for_journey("AccessWebTerminal").expect("web terminal discovery");
+        let follow_ups: HashSet<u64> = discovery.follow_up_prs.iter().copied().collect();
+        assert_eq!(follow_ups, HashSet::from([659, 2279]));
+    }
+
+    #[test]
+    fn inspect_mavlink_messages_in_browser_follow_ups_exact_set() {
+        let discovery = discovery_for_journey("InspectMavlinkMessagesInBrowser")
+            .expect("mavlink browser discovery");
+        let follow_ups: HashSet<u64> = discovery.follow_up_prs.iter().copied().collect();
+        assert_eq!(follow_ups, HashSet::from([3310]));
+    }
+
+    #[test]
+    fn calibrate_gyroscope_follow_ups_and_backport_exact_set() {
+        let discovery = discovery_for_journey("CalibrateGyroscope").expect("gyroscope discovery");
+        let follow_ups: HashSet<u64> = discovery.follow_up_prs.iter().copied().collect();
+        assert_eq!(follow_ups, HashSet::from([3443]));
+        assert!(discovery.backport_prs.contains(&3867));
     }
 
     #[test]
