@@ -99,7 +99,7 @@ pub const MUTATING_SMOKE_ENTRIES: &[MutatingSmokeEntry] = &[
         journey_id: JourneyId::ChangeMdnsHostname,
         setup: SmokeRepair::HttpRoundTrip,
         restore: SmokeRepair::HttpRoundTrip,
-        notes: "GET /hostname snapshot before POST; restore after mutate",
+        notes: "GET /hostname; POST hostname=smoke-catalog; POST hostname=blueos restore",
     },
     MutatingSmokeEntry {
         journey_id: JourneyId::ConfigureHostDns,
@@ -123,7 +123,7 @@ pub const MUTATING_SMOKE_ENTRIES: &[MutatingSmokeEntry] = &[
         journey_id: JourneyId::ConnectToWifiNetwork,
         setup: SmokeRepair::HttpRoundTrip,
         restore: SmokeRepair::HttpRoundTrip,
-        notes: "GET wifi state snapshot; POST /connect mutate; disconnect/reconnect restore; HostReboot if stranded",
+        notes: "DEFERRED for Pi3 harness: tester AP ← DUT join; tester ← BlueOS emergency hotspot; CI-triggered. Local fake-SSID hangs on association.",
     },
     MutatingSmokeEntry {
         journey_id: JourneyId::Delete3dModelOverride,
@@ -289,9 +289,9 @@ pub const MUTATING_SMOKE_ENTRIES: &[MutatingSmokeEntry] = &[
     },
     MutatingSmokeEntry {
         journey_id: JourneyId::SwitchLocalBlueosVersion,
-        setup: SmokeRepair::HttpRoundTrip,
-        restore: SmokeRepair::ExternalProxy,
-        notes: "GET /version/current snapshot; POST switch mutate; POST restore prior tag; ContainerRestart; proxy for re-pull if needed",
+        setup: SmokeRepair::FilesystemReplace,
+        restore: SmokeRepair::ContainerRestart,
+        notes: "docker tag master→smoke-catalog-switch; POST /version/current to switch tag (same image); restore POST master; wait_for_blueos both ways",
     },
     MutatingSmokeEntry {
         journey_id: JourneyId::SyncSystemTime,

@@ -332,9 +332,11 @@ pub fn mutating_smoke_body(journey_id: JourneyId, route: &RouteRef) -> Option<&'
         (JourneyId::UpdateBootstrapImage, "/version/pull", Post) => {
             Some(r##"{"repository":"bluerobotics/blueos-bootstrap","tag":"master"}"##)
         }
-        (JourneyId::UpdateBlueosVersion, "/version/current", Post)
-        | (JourneyId::SwitchLocalBlueosVersion, "/version/current", Post) => {
+        (JourneyId::UpdateBlueosVersion, "/version/current", Post) => {
             Some(r##"{"repository":"bluerobotics/blueos-core","tag":"master"}"##)
+        }
+        (JourneyId::SwitchLocalBlueosVersion, "/version/current", Post) => {
+            Some(SMOKE_CORE_SWITCH_JSON)
         }
         (JourneyId::DeleteLocalBlueosVersion, "/version/delete", Delete) => {
             Some(r##"{"repository":"bluerobotics/blueos-core","tag":"smoke-catalog-deleteme"}"##)
@@ -393,12 +395,6 @@ pub fn is_mutating_smoke_step_deferred(journey_id: JourneyId, path: &str) -> Opt
         (JourneyId::UpdateBootstrapImage, "/bootstrap/current") => {
             Some("deferred: POST /bootstrap/current replaces bootstrap container")
         }
-        (JourneyId::SwitchLocalBlueosVersion, "/version/current") => {
-            Some("deferred: switching local core image restarts blueos-core mid-suite")
-        }
-        (JourneyId::ChangeMdnsHostname, "/hostname") => {
-            Some("deferred: beacon hostname mutation returns 500 on current test bed")
-        }
         _ => None,
     }
 }
@@ -408,10 +404,10 @@ pub fn mutating_smoke_skip_reason(
     _fixtures: &crate::fixture::FixtureInventory,
 ) -> Option<&'static str> {
     match journey_id {
-        // POST /connect blocks on association; fake SSID hangs past useful smoke budgets.
-        JourneyId::ConnectToWifiNetwork => {
-            Some("connect association blocks; needs real SSID or async API")
-        }
+        // Association to a fake SSID hangs; full connect coverage waits on a Pi3 harness AP.
+        JourneyId::ConnectToWifiNetwork => Some(
+            "deferred: Pi3 harness hotspot plan — DUT joins tester AP; tester joins BlueOS emergency hotspot (CI)",
+        ),
         _ => None,
     }
 }
@@ -444,6 +440,13 @@ const SMOKE_ADDR_DEL_1_QUERY: &str = "command=bash%20-lc%20%27curl%20-s%20-m%201
 const SMOKE_ADDR_DEL_178_QUERY: &str = "command=bash%20-lc%20%27curl%20-s%20-m%2010%20-o%20%2Fdev%2Fnull%20-X%20DELETE%20%22http%3A%2F%2F127.0.0.1%2Fcable-guy%2Fv1.0%2Faddress%3Finterface_name%3Deth0%26ip_address%3D192.168.0.178%22%20%7C%7C%20true%3B%20ip%20addr%20del%20192.168.0.178%2F24%20dev%20eth0%202%3E%2Fdev%2Fnull%20%7C%7C%20true%27&i_know_what_i_am_doing=true";
 const SMOKE_RESOLV_FIX_QUERY: &str = "command=docker%20exec%20blueos-core%20sh%20-c%20%27printf%20%22nameserver%208.8.8.8%5Cnnameserver%201.1.1.1%5Cn%22%20%3E%20%2Fetc%2Fresolv.conf.host%27&i_know_what_i_am_doing=true";
 const SMOKE_LOCAL_VERSION_TAG_QUERY: &str = "command=docker%20tag%20bluerobotics%2Fblueos-core%3Amaster%20bluerobotics%2Fblueos-core%3Asmoke-catalog-deleteme&i_know_what_i_am_doing=true";
+const SMOKE_CORE_SWITCH_TAG_QUERY: &str = "command=docker%20tag%20bluerobotics%2Fblueos-core%3Amaster%20bluerobotics%2Fblueos-core%3Asmoke-catalog-switch&i_know_what_i_am_doing=true";
+pub const SMOKE_CORE_SWITCH_JSON: &str =
+    r##"{"repository":"bluerobotics/blueos-core","tag":"smoke-catalog-switch"}"##;
+pub const SMOKE_CORE_MASTER_JSON: &str =
+    r##"{"repository":"bluerobotics/blueos-core","tag":"master"}"##;
+pub const SMOKE_CORE_SWITCH_TAG: &str = "smoke-catalog-switch";
+pub const SMOKE_CORE_MASTER_TAG: &str = "master";
 const SMOKE_KRAKEN_MANIFEST_CLEAN_QUERY: &str = "command=docker%20exec%20blueos-core%20python3%20-c%20%22import%20json%2Cpathlib%3Bp%3Dpathlib.Path%28%27%2Froot%2F.config%2Fkraken%2Fsettings-2.json%27%29%3Bd%3Djson.loads%28p.read_text%28%29%29%3Bd%5B%27manifests%27%5D%3D%5Bm%20for%20m%20in%20d.get%28%27manifests%27%2C%5B%5D%29%20if%20m.get%28%27name%27%29%21%3D%27smoke-catalog%27%5D%3Bp.write_text%28json.dumps%28d%2Cindent%3D4%29%2Bchr%2810%29%29%22&i_know_what_i_am_doing=true";
 const SMOKE_CABLE_GUY_SETTINGS_CLEAN_QUERY: &str = "command=docker%20exec%20blueos-core%20python3%20-c%20%22import%20json%2Cpathlib%3Bp%3Dpathlib.Path%28%27%2Froot%2F.config%2Fcable-guy%2Fsettings-2.json%27%29%3Bd%3Djson.loads%28p.read_text%28%29%29%3B%5Biface.update%28%7B%27addresses%27%3A%5B%7B%27ip%27%3A%270.0.0.0%27%2C%27mode%27%3A%27client%27%7D%5D%2C%27routes%27%3A%5Br%20for%20r%20in%20%28iface.get%28%27routes%27%29%20or%20%5B%5D%29%20if%20r.get%28%27managed%27%29%20and%20str%28r.get%28%27destination%27%2C%27%27%29%29.startswith%28%27224.%27%29%5D%7D%29%20for%20iface%20in%20d.get%28%27content%27%2C%5B%5D%29%20if%20iface.get%28%27name%27%29%3D%3D%27eth0%27%5D%3Bp.write_text%28json.dumps%28d%2Cindent%3D4%29%2Bchr%2810%29%29%22&i_know_what_i_am_doing=true";
 
@@ -614,6 +617,18 @@ pub fn mutating_smoke_setup_calls(journey_id: JourneyId) -> &'static [SmokeHttpC
             expected_status: 200,
             body: None,
             query: Some(SMOKE_LOCAL_VERSION_TAG_QUERY),
+            form_file: None,
+        }],
+        JourneyId::SwitchLocalBlueosVersion => &[SmokeHttpCall {
+            route: RouteRef {
+                service: ServiceId::Commander,
+                method: Post,
+                path: "/command/host",
+                version: Some("v1.0"),
+            },
+            expected_status: 200,
+            body: None,
+            query: Some(SMOKE_CORE_SWITCH_TAG_QUERY),
             form_file: None,
         }],
         JourneyId::RemoveCameraStream => &[SmokeHttpCall {
@@ -920,6 +935,20 @@ pub fn mutating_smoke_teardown_calls(journey_id: JourneyId) -> &'static [SmokeHt
             query: Some(SMOKE_KRAKEN_MANIFEST_CLEAN_QUERY),
             form_file: None,
         }],
+        JourneyId::ChangeMdnsHostname => &[SmokeHttpCall {
+            route: RouteRef {
+                service: ServiceId::Beacon,
+                method: Post,
+                path: "/hostname",
+                version: Some("v1.0"),
+            },
+            expected_status: 200,
+            body: None,
+            query: Some("hostname=blueos"),
+            form_file: None,
+        }],
+        // SwitchLocalBlueosVersion teardown is handled by run_core_image_switch in journey_http
+        // (POST /version/current kills blueos-core before the HTTP response returns).
         JourneyId::ToggleHotspot => &[SmokeHttpCall {
             route: RouteRef {
                 service: ServiceId::Wifi,
@@ -1091,6 +1120,66 @@ pub fn wait_for_blueos(base: &str, timeout_secs: u64) -> Result<(), String> {
     Err(format!(
         "BlueOS did not recover within {timeout_secs}s (last: {last_err})"
     ))
+}
+
+/// POST `/version/current` kills `blueos-core` before the HTTP response is written, so curl
+/// often sees HTTP 0 / transport failure. Treat that as expected, wait for recovery, then
+/// assert the running tag.
+pub fn run_core_image_switch(
+    catalog: &Catalog,
+    base: &str,
+    body: &str,
+    expected_tag: &str,
+    allow_mutating: bool,
+) -> StepResult {
+    use HttpMethod::*;
+    let post = RouteRef {
+        service: ServiceId::Versionchooser,
+        method: Post,
+        path: "/version/current",
+        version: Some("v1.0"),
+    };
+    let Some(path) = resolve_http_path(catalog, &post) else {
+        return StepResult::Skip("unresolved /version/current".into());
+    };
+    let url = join_url(base, &path);
+    match execute_curl(&Post, &url, allow_mutating, Some(body), None) {
+        Ok((200, _)) | Ok((0, _)) => {}
+        Ok((code, _)) => {
+            return StepResult::Fail(format!(
+                "core switch: expected HTTP 200 or connection drop, got {code}"
+            ));
+        }
+        Err(_) => {}
+    }
+    if let Err(err) = wait_for_blueos(base, 600) {
+        return StepResult::Fail(format!("core switch recovery: {err}"));
+    }
+    let get = RouteRef {
+        service: ServiceId::Versionchooser,
+        method: Get,
+        path: "/version/current",
+        version: Some("v1.0"),
+    };
+    let Some(get_path) = resolve_http_path(catalog, &get) else {
+        return StepResult::Fail("unresolved GET /version/current after switch".into());
+    };
+    let get_url = join_url(base, &get_path);
+    match execute_curl(&Get, &get_url, false, None, None) {
+        Ok((200, body))
+            if body.contains(&format!("\"tag\":\"{expected_tag}\""))
+                || body.contains(&format!("\"tag\": \"{expected_tag}\"")) =>
+        {
+            StepResult::Pass
+        }
+        Ok((200, body)) => StepResult::Fail(format!(
+            "core switch: expected tag {expected_tag}, body={body}"
+        )),
+        Ok((code, _)) => StepResult::Fail(format!(
+            "core switch: GET /version/current expected 200, got {code}"
+        )),
+        Err(err) => StepResult::Fail(format!("core switch: GET /version/current: {err}")),
+    }
 }
 
 pub fn resolve_http_path(catalog: &Catalog, route: &RouteRef) -> Option<String> {

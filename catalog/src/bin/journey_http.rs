@@ -9,9 +9,11 @@ use blueos_catalog::{
     http_smoke_steps, http_steps, is_mutating_smoke_journey, join_url, journey_fixtures_ready,
     journey_http_mode_conflict, journey_http_requires_base, journey_mutating_smoke_ready,
     mutating_smoke_setup_calls, mutating_smoke_skip_reason, mutating_smoke_teardown_calls,
-    parse_fixture_list, resolve_http_path, run_http_step, run_smoke_http_call, summarize_journey,
-    wait_for_blueos, Catalog, FixtureInventory, JourneyId, JourneyResult, PreconditionStatus,
-    RunCounts, StepResult, MUTATING_SMOKE_DEFAULT_FIXTURES, SMOKE_DEFAULT_FIXTURES,
+    parse_fixture_list, resolve_http_path, run_core_image_switch, run_http_step,
+    run_smoke_http_call, summarize_journey, wait_for_blueos, Catalog, FixtureInventory, JourneyId,
+    JourneyResult, PreconditionStatus, RunCounts, StepResult, MUTATING_SMOKE_DEFAULT_FIXTURES,
+    SMOKE_CORE_MASTER_JSON, SMOKE_CORE_MASTER_TAG, SMOKE_CORE_SWITCH_JSON, SMOKE_CORE_SWITCH_TAG,
+    SMOKE_DEFAULT_FIXTURES,
 };
 
 fn main() {
@@ -119,10 +121,12 @@ fn main() {
     let mut journeys: Vec<_> = http_journeys(&catalog);
     if mutating_smoke {
         journeys.retain(|journey| is_mutating_smoke_journey(journey.id));
-        // Forget needs healthy wpa before late hotspot churn; reboot must stay last.
+        // Forget needs healthy wpa before late hotspot churn; core switch restarts mid-suite;
+        // reboot must stay last.
         journeys.sort_by_key(|journey| match journey.id {
             JourneyId::ForgetSavedWifiNetwork => 0,
-            JourneyId::RebootOnboardComputer => 2,
+            JourneyId::SwitchLocalBlueosVersion => 2,
+            JourneyId::RebootOnboardComputer => 3,
             _ => 1,
         });
     }
@@ -240,7 +244,20 @@ fn main() {
             let resolved_url = resolve_http_path(&catalog, &step.route)
                 .map(|path| join_url(base, &path))
                 .unwrap_or_else(|| "(unresolved)".to_string());
-            let result = run_http_step(&catalog, base, step, allow_mutating);
+            let result = if mutating_smoke
+                && journey_id == JourneyId::SwitchLocalBlueosVersion
+                && step.route.path == "/version/current"
+            {
+                run_core_image_switch(
+                    &catalog,
+                    base,
+                    SMOKE_CORE_SWITCH_JSON,
+                    SMOKE_CORE_SWITCH_TAG,
+                    allow_mutating,
+                )
+            } else {
+                run_http_step(&catalog, base, step, allow_mutating)
+            };
             if let StepResult::Fail(msg) = &result {
                 eprintln!("{}", format_http_fail(journey_id, step, &resolved_url, msg));
             }
@@ -263,6 +280,21 @@ fn main() {
         }
 
         if mutating_smoke {
+            if journey_id == JourneyId::SwitchLocalBlueosVersion {
+                eprintln!("journey_http: restoring core image to {SMOKE_CORE_MASTER_TAG}…");
+                let result = run_core_image_switch(
+                    &catalog,
+                    base,
+                    SMOKE_CORE_MASTER_JSON,
+                    SMOKE_CORE_MASTER_TAG,
+                    allow_mutating,
+                );
+                if let StepResult::Fail(msg) = &result {
+                    eprintln!("FAIL {journey_id} teardown core restore — {msg}");
+                }
+                totals.record(&result);
+                step_results.push(result);
+            }
             for call in mutating_smoke_teardown_calls(journey_id) {
                 let result = run_smoke_http_call(&catalog, base, call, allow_mutating);
                 if let StepResult::Fail(msg) = &result {
