@@ -947,8 +947,19 @@ pub fn mutating_smoke_teardown_calls(journey_id: JourneyId) -> &'static [SmokeHt
             query: Some("hostname=blueos"),
             form_file: None,
         }],
-        // SwitchLocalBlueosVersion teardown is handled by run_core_image_switch in journey_http
-        // (POST /version/current kills blueos-core before the HTTP response returns).
+        // Core restore (POST /version/current → master) runs in journey_http before these calls.
+        JourneyId::SwitchLocalBlueosVersion => &[SmokeHttpCall {
+            route: RouteRef {
+                service: ServiceId::Versionchooser,
+                method: Delete,
+                path: "/version/delete",
+                version: Some("v1.0"),
+            },
+            expected_status: 200,
+            body: Some(SMOKE_CORE_SWITCH_JSON),
+            query: None,
+            form_file: None,
+        }],
         JourneyId::ToggleHotspot => &[SmokeHttpCall {
             route: RouteRef {
                 service: ServiceId::Wifi,
