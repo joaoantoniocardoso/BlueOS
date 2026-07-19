@@ -114,6 +114,23 @@ fn default_merge_method() -> String {
     "unknown".to_string()
 }
 
+/// Per-journey discovery within a shared `IntroCluster`: two journeys can
+/// share an `intro_commit` (bootstrap-era multi-module commits, or several
+/// journeys landing via one module-wide commit) while needing independent
+/// follow-up/backport/issue discovery scoped to each journey's own module —
+/// see `catalog/extras/feature-traces-orch/BOOTSTRAP_SPLIT.md`.
+#[derive(Debug, Clone, Deserialize)]
+pub struct JourneyDiscovery {
+    #[serde(default)]
+    pub discovery_paths: Vec<String>,
+    #[serde(default)]
+    pub follow_up_prs: Vec<u64>,
+    #[serde(default)]
+    pub backport_prs: Vec<u64>,
+    #[serde(default)]
+    pub issues: Vec<ClusterIssueRef>,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct IntroCluster {
     pub intro_commit: String,
@@ -125,13 +142,7 @@ pub struct IntroCluster {
     pub intro_sha_in_pr_commits: bool,
     pub merge_commit_sha: Option<String>,
     #[serde(default)]
-    pub backport_prs: Vec<u64>,
-    #[serde(default)]
-    pub follow_up_prs: Vec<u64>,
-    #[serde(default)]
-    pub discovery_paths: Vec<String>,
-    #[serde(default)]
-    pub issues: Vec<ClusterIssueRef>,
+    pub by_journey: HashMap<String, JourneyDiscovery>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -165,6 +176,12 @@ pub fn cluster_for_journey(journey_id: &str) -> Option<&'static IntroCluster> {
     let traces = feature_traces();
     let journey = traces.journeys.iter().find(|j| j.journey == journey_id)?;
     traces.intro_clusters.get(&journey.intro_commit)
+}
+
+/// This journey's own discovery (paths/follow-ups/backports/issues) within
+/// its intro-commit cluster.
+pub fn discovery_for_journey(journey_id: &str) -> Option<&'static JourneyDiscovery> {
+    cluster_for_journey(journey_id)?.by_journey.get(journey_id)
 }
 
 /// Intro commit sha recorded in the traces map for a journey.
@@ -213,9 +230,10 @@ mod tests {
     fn zenoh_landing_and_follow_ups() {
         let cluster = cluster_for_journey("InspectZenohNetwork").expect("zenoh cluster");
         assert_eq!(cluster.landing_prs, vec![3300]);
-        assert!(cluster.backport_prs.is_empty());
-        assert!(cluster.follow_up_prs.contains(&3313));
-        assert!(cluster.follow_up_prs.contains(&3953));
+        let discovery = discovery_for_journey("InspectZenohNetwork").expect("zenoh discovery");
+        assert!(discovery.backport_prs.is_empty());
+        assert!(discovery.follow_up_prs.contains(&3313));
+        assert!(discovery.follow_up_prs.contains(&3953));
         assert!(!cluster.intro_sha_in_pr_commits);
         let pr = landing_pr_for_journey("InspectZenohNetwork").expect("landing pr");
         assert!(pr.title.as_deref().unwrap_or("").contains("zenoh"));
@@ -227,13 +245,15 @@ mod tests {
     fn customization_has_no_backport() {
         let cluster = cluster_for_journey("ChangeUiThemeColor").expect("customization");
         assert_eq!(cluster.landing_prs, vec![3930]);
-        assert!(cluster.backport_prs.is_empty());
+        let discovery =
+            discovery_for_journey("ChangeUiThemeColor").expect("customization discovery");
+        assert!(discovery.backport_prs.is_empty());
     }
 
     #[test]
     fn internet_speed_links_closing_issue() {
-        let cluster = cluster_for_journey("RunInternetSpeedTest").expect("pardal");
-        assert!(cluster.issues.iter().any(|i| i.number == 2146));
+        let discovery = discovery_for_journey("RunInternetSpeedTest").expect("pardal discovery");
+        assert!(discovery.issues.iter().any(|i| i.number == 2146));
         let issue = issue(2146).expect("issue 2146");
         assert!(issue
             .title

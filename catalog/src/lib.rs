@@ -73,9 +73,10 @@ pub use feature::{
 };
 pub use feature_intro::{feature_map_for_version, journeys_for_version, presence_for_journey};
 pub use feature_trace::{
-    cluster_for_journey, commit, feature_traces, intro_commit_for_journey, issue,
-    landing_pr_for_journey, pull_request, ClusterIssueRef, FeatureTraces, IntroCluster,
-    IssueSource, IssueSourceKind, TraceCommit, TraceIssue, TraceJourneyRef, TracePullRequest,
+    cluster_for_journey, commit, discovery_for_journey, feature_traces, intro_commit_for_journey,
+    issue, landing_pr_for_journey, pull_request, ClusterIssueRef, FeatureTraces, IntroCluster,
+    IssueSource, IssueSourceKind, JourneyDiscovery, TraceCommit, TraceIssue, TraceJourneyRef,
+    TracePullRequest,
 };
 pub use fixture::{
     evaluate_journey, evaluate_precondition, journey_fixtures_ready, journey_mutating_smoke_ready,

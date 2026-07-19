@@ -84,6 +84,14 @@ struct ClusterIssueRef {
 }
 
 #[derive(Debug, Clone, Serialize)]
+struct JourneyDiscoveryOut {
+    discovery_paths: Vec<String>,
+    follow_up_prs: Vec<u64>,
+    backport_prs: Vec<u64>,
+    issues: Vec<ClusterIssueRef>,
+}
+
+#[derive(Debug, Clone, Serialize)]
 struct IntroClusterOut {
     intro_commit: String,
     landing_prs: Vec<u64>,
@@ -91,10 +99,7 @@ struct IntroClusterOut {
     merge_method: String,
     intro_sha_in_pr_commits: bool,
     merge_commit_sha: Option<String>,
-    backport_prs: Vec<u64>,
-    follow_up_prs: Vec<u64>,
-    discovery_paths: Vec<String>,
-    issues: Vec<ClusterIssueRef>,
+    by_journey: BTreeMap<String, JourneyDiscoveryOut>,
 }
 
 /// Run-scoped dedup indexes for commits/pull_requests/issues.
@@ -387,8 +392,81 @@ fn discover_release_branches(root: &Path) -> Vec<String> {
     branches.into_iter().collect()
 }
 
+fn module_tokens(module: &str) -> BTreeSet<String> {
+    let module_lower = module.to_lowercase();
+    let mut tokens: BTreeSet<String> = BTreeSet::new();
+    tokens.insert(module_lower.clone());
+    tokens.insert(module_lower.replace('_', "-"));
+    if let Some(first) = module.split('_').next() {
+        if module.contains('_') {
+            let first_lower = first.to_lowercase();
+            if first_lower.len() >= 4 {
+                tokens.insert(first_lower);
+            }
+        }
+    }
+    tokens
+}
+
+fn matches_module(path: &str, module: &str, tokens: &BTreeSet<String>) -> bool {
+    let pl = path.to_lowercase();
+    path.contains(&format!("/services/{module}/"))
+        || path.contains(&format!("/{module}/"))
+        || tokens.iter().any(|t| pl.contains(t.as_str()))
+}
+
+fn camel_boundary_re() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"([a-z0-9])([A-Z])").expect("valid camel boundary regex"))
+}
+
+/// Extend module tokens with words pulled from the module's own hint paths
+/// (journey path override / `MODULE_DEFAULT_PATH`). Covers modules whose
+/// declared name (e.g. `zenohd`) doesn't literally appear in its actual
+/// source directory (`components/zenoh-inspector/`), without loosening the
+/// module gate for modules that have no such hint (MODULE_S binaries).
+fn hint_word_tokens(hint_paths: &[String]) -> BTreeSet<String> {
+    const STOP_WORDS: &[&str] = &[
+        "view",
+        "vue",
+        "manager",
+        "index",
+        "config",
+        "component",
+        "store",
+        "main",
+        "default",
+        "service",
+        "settings",
+        "core",
+        "services",
+    ];
+    let camel = camel_boundary_re();
+    let mut tokens = BTreeSet::new();
+    for path in hint_paths {
+        let stem = Path::new(path)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("");
+        let spaced = camel.replace_all(stem, "$1 $2");
+        for word in spaced.split(|c: char| !c.is_ascii_alphanumeric()) {
+            let lower = word.to_lowercase();
+            if lower.len() >= 4 && !STOP_WORDS.contains(&lower.as_str()) {
+                tokens.insert(lower);
+            }
+        }
+    }
+    tokens
+}
+
 /// Keep feature-local paths; drop shared wiring that creates false-positive graphs.
-fn discovery_paths(paths: &[String], module: Option<&str>) -> Vec<String> {
+///
+/// `hint_paths` are module-specific path hints (journey overrides, module default
+/// path, `MODULE_S` focused paths) used as the last-resort fallback. Unlike a
+/// generic `/services/` sweep, they stay scoped to the journey's own module, so a
+/// bootstrap-era commit that touches many unrelated services can't leak into
+/// every journey sharing that commit (see `BOOTSTRAP_SPLIT.md`).
+fn discovery_paths(paths: &[String], module: Option<&str>, hint_paths: &[String]) -> Vec<String> {
     let noise = discovery_path_noise_re();
     let mut cleaned: Vec<String> = paths
         .iter()
@@ -400,31 +478,35 @@ fn discovery_paths(paths: &[String], module: Option<&str>) -> Vec<String> {
     }
 
     if let Some(module) = module {
-        let module_lower = module.to_lowercase();
-        let mut tokens: BTreeSet<String> = BTreeSet::new();
-        tokens.insert(module_lower.clone());
-        tokens.insert(module_lower.replace('_', "-"));
-        if let Some(first) = module.split('_').next() {
-            if module.contains('_') {
-                let first_lower = first.to_lowercase();
-                if first_lower.len() >= 4 {
-                    tokens.insert(first_lower);
-                }
-            }
-        }
+        let mut tokens = module_tokens(module);
+        tokens.extend(hint_word_tokens(hint_paths));
         let preferred: Vec<String> = cleaned
             .iter()
-            .filter(|p| {
-                let pl = p.to_lowercase();
-                p.contains(&format!("/services/{module}/"))
-                    || p.contains(&format!("/{module}/"))
-                    || tokens.iter().any(|t| pl.contains(t.as_str()))
-            })
+            .filter(|p| matches_module(p, module, &tokens))
             .cloned()
             .collect();
         if !preferred.is_empty() {
             return dedup_sorted(widen_with_feature_dirs(preferred));
         }
+
+        let focused: Vec<String> = cleaned
+            .iter()
+            .filter(|p| {
+                (p.contains("/components/") || p.contains("/views/") || p.contains("/store/"))
+                    && matches_module(p, module, &tokens)
+            })
+            .cloned()
+            .collect();
+        if !focused.is_empty() {
+            return dedup_sorted(widen_with_feature_dirs(focused));
+        }
+
+        let hints: Vec<String> = hint_paths
+            .iter()
+            .filter(|p| !p.is_empty())
+            .cloned()
+            .collect();
+        return dedup_sorted(widen_with_feature_dirs(hints));
     }
 
     let services: Vec<String> = cleaned
@@ -444,6 +526,55 @@ fn discovery_paths(paths: &[String], module: Option<&str>) -> Vec<String> {
         return dedup_sorted(widen_with_feature_dirs(focused));
     }
     dedup_sorted(cleaned)
+}
+
+/// `ttyd` / `linux2rest` / etc. have no in-repo tree. Allow `start-blueos-core`
+/// only when paired with a MODULE_S pickaxe token filter on follow-up PRs.
+fn module_s_token(module: &str) -> Option<&'static str> {
+    use super::feature_presence::MODULE_S;
+    MODULE_S
+        .iter()
+        .find(|(m, _, _)| *m == module)
+        .map(|(_, term, _)| *term)
+}
+
+fn entry_mentions_token(entry: &PrEntry, token: &str) -> bool {
+    let t = token.to_lowercase();
+    if entry
+        .title
+        .as_deref()
+        .unwrap_or("")
+        .to_lowercase()
+        .contains(&t)
+    {
+        return true;
+    }
+    if entry.body.to_lowercase().contains(&t) {
+        return true;
+    }
+    entry
+        .files_changed
+        .iter()
+        .any(|f| f.to_lowercase().contains(&t))
+}
+
+/// Path hints for a journey's own module, drawn from the same tables
+/// `generate_feature_presence` uses to resolve intro commits: journey path
+/// overrides, the module's default service/component path, and nginx's config.
+fn module_hint_paths(journey_id: &str, module: &str) -> Vec<String> {
+    use super::feature_presence::{Override, MODULE_DEFAULT_PATH, MODULE_S, OVERRIDES};
+
+    let mut hints: Vec<String> = vec![];
+    if let Some((_, Override::Path(path))) = OVERRIDES.iter().find(|(k, _)| *k == journey_id) {
+        hints.push((*path).to_string());
+    }
+    if let Some((_, path)) = MODULE_DEFAULT_PATH.iter().find(|(m, _)| *m == module) {
+        hints.push((*path).to_string());
+    }
+    if MODULE_S.iter().any(|(m, _, _)| *m == module) && module == "nginx" {
+        hints.push("core/tools/nginx/nginx.conf".to_string());
+    }
+    hints
 }
 
 /// Add the immediate parent directory of each file when it is a feature folder
@@ -809,11 +940,14 @@ fn discover_backport_prs(
 }
 
 /// Probe §B: path-scoped git log intro..master, minus the landing PR.
+/// When `require_token` is set (MODULE_S via start-blueos-core), keep only PRs
+/// that mention that token in title/body/files.
 fn discover_follow_up_prs(
     ctx: &mut Ctx,
     paths: &[String],
     intro_sha: &str,
     landing_prs: &BTreeSet<u64>,
+    require_token: Option<&str>,
 ) -> Result<Vec<u64>, String> {
     let mut candidates: BTreeSet<u64> = BTreeSet::new();
     for sha in git_log_shas(
@@ -838,6 +972,11 @@ fn discover_follow_up_prs(
         let (_raw, entry) = ctx.get_pr(number)?;
         if is_incidental_follow_up(&entry, paths) {
             continue;
+        }
+        if let Some(token) = require_token {
+            if !entry_mentions_token(&entry, token) {
+                continue;
+            }
         }
         follow_up_prs.push(number);
     }
@@ -1123,32 +1262,25 @@ fn build_intro_cluster(
     );
     let squash_merge = merge_method == "squash";
 
-    let module = group
-        .first()
-        .and_then(|j| j.get("module"))
-        .and_then(|v| v.as_str());
-    let mut paths_set: BTreeSet<String> = intro_commit.files_changed.iter().cloned().collect();
+    let mut candidate_paths: BTreeSet<String> =
+        intro_commit.files_changed.iter().cloned().collect();
     if let Some(entry) = &primary_entry {
-        paths_set.extend(entry.files_changed.iter().cloned());
+        candidate_paths.extend(entry.files_changed.iter().cloned());
     }
-    let paths_vec: Vec<String> = paths_set.into_iter().collect();
-    let paths = discovery_paths(&paths_vec, module);
+    let candidate_paths: Vec<String> = candidate_paths.into_iter().collect();
 
-    let backport_prs = discover_backport_prs(ctx, &paths, intro_sha)?;
-    let follow_up_prs = discover_follow_up_prs(ctx, &paths, intro_sha, &landing_prs_set)?;
-
-    let mut cluster_sources: BTreeMap<u64, Vec<IssueSourceRec>> = BTreeMap::new();
-
+    // Facts about the landing commit/PR (issue refs on intro commit + full
+    // harvest on landing PRs) are shared by every journey in this cluster —
+    // computed once, then extended per-journey with that journey's own
+    // backport/follow-up closing-issue refs.
+    let mut shared_sources: BTreeMap<u64, Vec<IssueSourceRec>> = BTreeMap::new();
     let primary_pr = landing_prs.first().copied();
     for number in extract_issue_numbers(&[
         Some(intro_commit.subject.as_str()),
         Some(intro_commit.body.as_str()),
     ]) {
-        add_source(&mut cluster_sources, number, "commit", primary_pr);
+        add_source(&mut shared_sources, number, "commit", primary_pr);
     }
-
-    // Issue harvest: full signals on landing PRs; closing-only on related PRs
-    // (follow-up/backport bodies mention many unrelated #NNNN).
     for &pr_number in &landing_prs {
         let (raw, _entry) = ctx.get_pr(pr_number)?;
         for r in raw
@@ -1158,13 +1290,13 @@ fn build_intro_cluster(
             .flatten()
         {
             if let Some(n) = r.get("number").and_then(|v| v.as_u64()) {
-                add_source(&mut cluster_sources, n, "closing", Some(pr_number));
+                add_source(&mut shared_sources, n, "closing", Some(pr_number));
             }
         }
         let body = raw.get("body").and_then(|v| v.as_str());
         let title = raw.get("title").and_then(|v| v.as_str());
         for number in extract_issue_numbers(&[body, title]) {
-            add_source(&mut cluster_sources, number, "body", Some(pr_number));
+            add_source(&mut shared_sources, number, "body", Some(pr_number));
         }
         for c in raw
             .get("commits")
@@ -1174,31 +1306,67 @@ fn build_intro_cluster(
         {
             let headline = c.get("messageHeadline").and_then(|v| v.as_str());
             for number in extract_issue_numbers(&[headline]) {
-                add_source(&mut cluster_sources, number, "commit", Some(pr_number));
+                add_source(&mut shared_sources, number, "commit", Some(pr_number));
             }
         }
         for number in gh_pr_timeline_issue_refs(ctx.root, ctx.cache_dir, pr_number) {
-            add_source(&mut cluster_sources, number, "timeline", Some(pr_number));
+            add_source(&mut shared_sources, number, "timeline", Some(pr_number));
         }
     }
 
-    for &pr_number in backport_prs.iter().chain(follow_up_prs.iter()) {
-        let (raw, _entry) = ctx.get_pr(pr_number)?;
-        for r in raw
-            .get("closingIssuesReferences")
-            .and_then(|v| v.as_array())
-            .into_iter()
-            .flatten()
-        {
-            if let Some(n) = r.get("number").and_then(|v| v.as_u64()) {
-                add_source(&mut cluster_sources, n, "closing", Some(pr_number));
+    let mut by_journey: BTreeMap<String, JourneyDiscoveryOut> = BTreeMap::new();
+    for journey in group {
+        let Some(journey_id) = journey.get("journey").and_then(|v| v.as_str()) else {
+            continue;
+        };
+        let module = journey.get("module").and_then(|v| v.as_str()).unwrap_or("");
+        let hints = module_hint_paths(journey_id, module);
+        let mut paths = discovery_paths(&candidate_paths, Some(module), &hints);
+        let mut require_token: Option<&str> = None;
+        if paths.is_empty() {
+            if let Some(token) = module_s_token(module) {
+                // Noisy shared launcher — only keep PRs that mention this binary.
+                paths = vec!["core/start-blueos-core".to_string()];
+                require_token = Some(token);
             }
         }
-    }
 
-    let issue_numbers: Vec<u64> = cluster_sources.keys().copied().collect();
-    for number in issue_numbers {
-        ctx.get_issue(number);
+        let backport_prs = discover_backport_prs(ctx, &paths, intro_sha)?;
+        let follow_up_prs =
+            discover_follow_up_prs(ctx, &paths, intro_sha, &landing_prs_set, require_token)?;
+
+        let mut journey_sources = shared_sources.clone();
+        for &pr_number in backport_prs.iter().chain(follow_up_prs.iter()) {
+            let (raw, _entry) = ctx.get_pr(pr_number)?;
+            for r in raw
+                .get("closingIssuesReferences")
+                .and_then(|v| v.as_array())
+                .into_iter()
+                .flatten()
+            {
+                if let Some(n) = r.get("number").and_then(|v| v.as_u64()) {
+                    add_source(&mut journey_sources, n, "closing", Some(pr_number));
+                }
+            }
+        }
+
+        let issue_numbers: Vec<u64> = journey_sources.keys().copied().collect();
+        for number in issue_numbers {
+            ctx.get_issue(number);
+        }
+
+        by_journey.insert(
+            journey_id.to_string(),
+            JourneyDiscoveryOut {
+                discovery_paths: paths,
+                follow_up_prs,
+                backport_prs,
+                issues: journey_sources
+                    .into_iter()
+                    .map(|(number, sources)| ClusterIssueRef { number, sources })
+                    .collect(),
+            },
+        );
     }
 
     Ok(IntroClusterOut {
@@ -1208,13 +1376,7 @@ fn build_intro_cluster(
         merge_method,
         intro_sha_in_pr_commits,
         merge_commit_sha,
-        backport_prs,
-        follow_up_prs,
-        discovery_paths: paths,
-        issues: cluster_sources
-            .into_iter()
-            .map(|(number, sources)| ClusterIssueRef { number, sources })
-            .collect(),
+        by_journey,
     })
 }
 

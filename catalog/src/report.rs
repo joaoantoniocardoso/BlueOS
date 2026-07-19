@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::feature_trace::cluster_for_journey;
+use crate::feature_trace::{cluster_for_journey, discovery_for_journey};
 use crate::id::JourneyId;
 use crate::runner::{DutVersion, JourneyResult, RunCounts, StepResult};
 use crate::version::FeatureAvailability;
@@ -117,15 +117,17 @@ pub struct ReportTrace {
 impl ReportTrace {
     pub fn for_journey(journey_id: &str) -> Option<Self> {
         let cluster = cluster_for_journey(journey_id)?;
+        let discovery = discovery_for_journey(journey_id);
         Some(Self {
             landing_prs: cluster.landing_prs.clone(),
-            backport_prs: cluster.backport_prs.clone(),
-            follow_up_prs: cluster.follow_up_prs.clone(),
+            backport_prs: discovery.map_or_else(Vec::new, |d| d.backport_prs.clone()),
+            follow_up_prs: discovery.map_or_else(Vec::new, |d| d.follow_up_prs.clone()),
             squash_merge: cluster.squash_merge,
             merge_method: cluster.merge_method.clone(),
             intro_sha_in_pr_commits: cluster.intro_sha_in_pr_commits,
             merge_commit_sha: cluster.merge_commit_sha.clone(),
-            issue_numbers: cluster.issues.iter().map(|i| i.number).collect(),
+            issue_numbers: discovery
+                .map_or_else(Vec::new, |d| d.issues.iter().map(|i| i.number).collect()),
         })
     }
 }

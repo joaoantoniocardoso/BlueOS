@@ -10,13 +10,13 @@ use sha1::{Digest, Sha1};
 
 use crate::tools::shell::{repo_root, run as run_git, run_ok};
 
-enum Override {
+pub(crate) enum Override {
     Path(&'static str),
     Pickaxe(&'static str, &'static str),
 }
 
 // Copied from generate logic — keep in sync with journey overrides.
-const OVERRIDES: &[(&str, Override)] = &[
+pub(crate) const OVERRIDES: &[(&str, Override)] = &[
     (
         "InspectZenohNetwork",
         Override::Path("core/frontend/src/views/ZenohInspectorView.vue"),
@@ -98,7 +98,7 @@ const OVERRIDES: &[(&str, Override)] = &[
     ),
 ];
 
-const MODULE_DEFAULT_PATH: &[(&str, &str)] = &[
+pub(crate) const MODULE_DEFAULT_PATH: &[(&str, &str)] = &[
     ("ardupilot_manager", "core/services/ardupilot_manager"),
     ("bag_of_holding", "core/services/bag_of_holding"),
     ("beacon", "core/services/beacon"),
@@ -132,7 +132,7 @@ const MODULE_DEFAULT_PATH: &[(&str, &str)] = &[
     ("user_terminal", "core/frontend/src/views/TerminalView.vue"),
 ];
 
-const MODULE_S: &[(&str, &str, &str)] = &[
+pub(crate) const MODULE_S: &[(&str, &str, &str)] = &[
     ("linux2rest", "linux2rest", "core/start-blueos-core"),
     ("mavlink2rest", "mavlink2rest", "core/start-blueos-core"),
     (
