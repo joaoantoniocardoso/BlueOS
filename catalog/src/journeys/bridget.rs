@@ -5,6 +5,7 @@ use crate::journey::{
     SoftwareRequirement, StepOutcome, UserJourney, Visibility,
 };
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
+use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const OVERVIEW: &str = "content/usage/overview/index.md";
@@ -78,7 +79,8 @@ const VIEW_CONFIGURED_SERIAL_BRIDGES: UserJourney =
                 None,
             ),
         ]),
-        chains_from: None,
+        availability: FeatureAvailability::unknown(),
+    chains_from: None,
     };
 
 const CREATE_SERIAL_TO_UDP_BRIDGE: UserJourney =
@@ -164,7 +166,8 @@ const CREATE_SERIAL_TO_UDP_BRIDGE: UserJourney =
                 None,
             ),
         ]),
-        chains_from: None,
+        availability: FeatureAvailability::unknown(),
+    chains_from: None,
     };
 
 const REMOVE_SERIAL_BRIDGE: UserJourney = UserJourney {
@@ -218,6 +221,7 @@ const REMOVE_SERIAL_BRIDGE: UserJourney = UserJourney {
             Some(source_outcome(200, 56)),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 

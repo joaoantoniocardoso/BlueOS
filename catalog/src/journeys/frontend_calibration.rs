@@ -2,6 +2,7 @@ use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{Actor, JourneyStep, Precondition, StepOutcome, UserJourney, Visibility};
 use crate::page::PageId;
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
+use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const CALIB_TS: &str = "core/frontend/src/components/vehiclesetup/calibration.ts";
@@ -68,6 +69,7 @@ const CALIBRATE_GYROSCOPE: UserJourney = UserJourney {
             None,
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 
@@ -118,6 +120,7 @@ const CALIBRATE_ACCELEROMETER: UserJourney = UserJourney {
             None,
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 
@@ -158,6 +161,7 @@ const CALIBRATE_COMPASS: UserJourney = UserJourney {
             None,
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 
@@ -192,6 +196,7 @@ const CALIBRATE_BAROMETER: UserJourney = UserJourney {
             Some(live_calibration_outcome()),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 
@@ -222,6 +227,7 @@ const LEVEL_HORIZON: UserJourney = UserJourney {
             Some(live_calibration_outcome()),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 
@@ -257,6 +263,7 @@ const DETECT_MOTOR_DIRECTIONS: UserJourney = UserJourney {
             None,
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 

@@ -3,6 +3,7 @@ use crate::journey::{
     Actor, JourneyStep, Precondition, SoftwareRequirement, UserJourney, Visibility,
 };
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
+use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const FILE_BROWSER_MENUS: &str = "core/frontend/src/menus.ts";
@@ -67,7 +68,8 @@ const MANAGE_BLUEOS_FILES: UserJourney =
                 None,
             ),
         ]),
-        chains_from: None,
+        availability: FeatureAvailability::unknown(),
+    chains_from: None,
     };
 
 const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<CapabilityId> {

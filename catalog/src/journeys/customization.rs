@@ -3,6 +3,7 @@ use crate::journey::{
     Actor, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome, UserJourney, Visibility,
 };
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
+use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const BRANDING_UPLOADER: &str = "core/frontend/src/components/customization/BrandingUploader.vue";
@@ -58,6 +59,7 @@ const CHANGE_UI_THEME_COLOR: UserJourney = UserJourney {
             Some(source_outcome(200, 144)),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 
@@ -97,6 +99,7 @@ const RESET_UI_THEME_COLOR: UserJourney = UserJourney {
             Some(source_outcome(204, 156)),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 
@@ -141,6 +144,7 @@ const UPLOAD_CUSTOM_LOGO: UserJourney = UserJourney {
             Some(source_outcome(200, 275)),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 
@@ -183,6 +187,7 @@ const REMOVE_CUSTOM_LOGO: UserJourney = UserJourney {
             Some(source_outcome(204, 279)),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 
@@ -227,6 +232,7 @@ const UPLOAD_CUSTOM_VEHICLE_IMAGE: UserJourney = UserJourney {
             Some(source_outcome(200, 301)),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 
@@ -269,6 +275,7 @@ const REMOVE_CUSTOM_VEHICLE_IMAGE: UserJourney = UserJourney {
             Some(source_outcome(204, 307)),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 
@@ -313,6 +320,7 @@ const UPLOAD_3D_MODEL_OVERRIDE: UserJourney = UserJourney {
             Some(source_outcome(200, 199)),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 
@@ -355,6 +363,7 @@ const DELETE_3D_MODEL_OVERRIDE: UserJourney = UserJourney {
             Some(source_outcome(204, 215)),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 

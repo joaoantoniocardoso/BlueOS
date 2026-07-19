@@ -5,6 +5,7 @@ use crate::journey::{
     StepOutcome, UserJourney, Visibility,
 };
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
+use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const GS: &str = "content/usage/getting-started/index.md";
@@ -82,7 +83,8 @@ const VEHICLE_FIRST_BOOT: UserJourney =
                 )),
             ),
         ]),
-        chains_from: None,
+        availability: FeatureAvailability::unknown(),
+    chains_from: None,
     };
 
 const CHANGE_BOARD: UserJourney = UserJourney {
@@ -114,6 +116,7 @@ const CHANGE_BOARD: UserJourney = UserJourney {
             "runtime-captures/ardupilot_manager__pi4_navigator_master.json#transitions",
         )),
     )]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 
@@ -153,7 +156,8 @@ const RUN_SITL_SIMULATION: UserJourney =
                 Some(source_outcome(200, APM_ROUTER, 135)),
             ),
         ]),
-        chains_from: Some(JourneyId::ChangeBoard),
+        availability: FeatureAvailability::unknown(),
+    chains_from: Some(JourneyId::ChangeBoard),
     };
 
 const START_AUTOPILOT: UserJourney = UserJourney {
@@ -180,6 +184,7 @@ const START_AUTOPILOT: UserJourney = UserJourney {
             "runtime-captures/ardupilot_manager__pi4_navigator_master.json#transitions",
         )),
     )]),
+    availability: FeatureAvailability::unknown(),
     chains_from: Some(JourneyId::ChangeBoard),
 };
 
@@ -207,6 +212,7 @@ const STOP_AUTOPILOT: UserJourney = UserJourney {
             "runtime-captures/ardupilot_manager__pi4_navigator_master.json#transitions",
         )),
     )]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 
@@ -239,6 +245,7 @@ const RESTART_AUTOPILOT: UserJourney = UserJourney {
             "runtime-captures/ardupilot_manager__pi4_navigator_master.json#transitions",
         )),
     )]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 
@@ -294,6 +301,7 @@ const UPDATE_FIRMWARE_ONLINE: UserJourney = UserJourney {
             )),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: Some(JourneyId::ChangeBoard),
 };
 
@@ -329,6 +337,7 @@ const UPLOAD_CUSTOM_FIRMWARE: UserJourney = UserJourney {
             "runtime-captures/ardupilot_manager__pi4_navigator_master.json#firmware_operations",
         )),
     )]),
+    availability: FeatureAvailability::unknown(),
     chains_from: Some(JourneyId::ChangeBoard),
 };
 
@@ -364,6 +373,7 @@ const RESTORE_DEFAULT_FIRMWARE: UserJourney = UserJourney {
             "runtime-captures/ardupilot_manager__pi4_navigator_master.json#firmware_operations",
         )),
     )]),
+    availability: FeatureAvailability::unknown(),
     chains_from: Some(JourneyId::ChangeBoard),
 };
 

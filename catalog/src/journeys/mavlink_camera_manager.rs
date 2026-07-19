@@ -5,6 +5,7 @@ use crate::journey::{
     UserJourney, Visibility,
 };
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
+use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const GETTING_STARTED: &str = "content/usage/getting-started/index.md";
@@ -88,7 +89,8 @@ const VIEW_CAMERA_STREAMS: UserJourney =
                 None,
             ),
         ]),
-        chains_from: None,
+        availability: FeatureAvailability::unknown(),
+    chains_from: None,
     };
 
 const CONFIGURE_CAMERA_STREAM: UserJourney =
@@ -165,7 +167,8 @@ const CONFIGURE_CAMERA_STREAM: UserJourney =
                 )),
             ),
         ]),
-        chains_from: Some(JourneyId::ViewCameraStreams),
+        availability: FeatureAvailability::unknown(),
+    chains_from: Some(JourneyId::ViewCameraStreams),
     };
 
 const REMOVE_CAMERA_STREAM: UserJourney = UserJourney {
@@ -215,6 +218,7 @@ const REMOVE_CAMERA_STREAM: UserJourney = UserJourney {
             Some(source_outcome(200, VIDEO_STORE, 102)),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: Some(JourneyId::ViewCameraStreams),
 };
 
@@ -268,7 +272,8 @@ const CONFIGURE_UVC_DEVICE_CONTROLS: UserJourney =
                 )),
             ),
         ]),
-        chains_from: Some(JourneyId::ViewCameraStreams),
+        availability: FeatureAvailability::unknown(),
+    chains_from: Some(JourneyId::ViewCameraStreams),
     };
 
 const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<CapabilityId> {

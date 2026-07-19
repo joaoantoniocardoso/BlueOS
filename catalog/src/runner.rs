@@ -5,6 +5,7 @@ use crate::catalog::Catalog;
 use crate::id::{JourneyId, ServiceId};
 use crate::journey::{derive_automatable, Actor, Automatable, HttpMethod, RouteRef, UserJourney};
 use crate::provenance::{Grounded, GroundedSet, ObservedSet};
+use crate::version::{availability_skip, format_availability_skip_reason};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StepResult {
@@ -1072,6 +1073,47 @@ pub fn http_mutating_smoke_steps(journey: &UserJourney) -> Vec<RunnableStep> {
         .collect()
 }
 
+const DUT_VERSION_PATH: &str = "/version-chooser/v1.0/version/current";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DutVersion {
+    pub repository: String,
+    pub tag: String,
+    pub digest: Option<String>,
+}
+
+#[derive(serde::Deserialize)]
+struct VersionCurrentJson {
+    repository: String,
+    tag: String,
+    #[serde(default)]
+    sha: Option<String>,
+}
+
+pub fn fetch_dut_version(base: &str) -> Result<DutVersion, String> {
+    let url = join_url(base, DUT_VERSION_PATH);
+    let (status, body) = execute_curl(&HttpMethod::Get, &url, false, None, None)?;
+    if status != 200 {
+        return Err(format!("GET {DUT_VERSION_PATH} returned HTTP {status}"));
+    }
+    parse_dut_version_json(&body)
+}
+
+fn parse_dut_version_json(body: &str) -> Result<DutVersion, String> {
+    let parsed: VersionCurrentJson =
+        serde_json::from_str(body).map_err(|err| format!("parse version/current JSON: {err}"))?;
+    Ok(DutVersion {
+        repository: parsed.repository,
+        tag: parsed.tag,
+        digest: parsed.sha,
+    })
+}
+
+pub fn journey_availability_skip(journey: &UserJourney, dut: &DutVersion) -> Option<String> {
+    availability_skip(&dut.tag, &journey.availability)
+        .map(|skip| format_availability_skip_reason(&skip, &dut.tag))
+}
+
 pub fn join_url(base: &str, path: &str) -> String {
     let base = base.trim_end_matches('/');
     let base = if base.contains("://") {
@@ -1446,6 +1488,7 @@ mod tests {
     use crate::id::ServiceId;
     use crate::journey::{JourneyStep, Visibility};
     use crate::provenance::{GroundedItem, Provenance};
+    use crate::version::FeatureAvailability;
 
     const DOC: Provenance = Provenance::doc("test.md", 1);
 
@@ -1561,6 +1604,7 @@ mod tests {
             capability_refs: GroundedSet::unknown("test"),
             preconditions: GroundedSet::known(&[]),
             steps: GroundedSet::known(STEPS),
+            availability: FeatureAvailability::unknown(),
             chains_from: None,
         };
 
@@ -1593,6 +1637,15 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn parse_dut_version_json_extracts_fields() {
+        let body = r#"{"repository":"bluerobotics/blueos-core","tag":"master","sha":"sha256:abc"}"#;
+        let dut = parse_dut_version_json(body).expect("parse");
+        assert_eq!(dut.repository, "bluerobotics/blueos-core");
+        assert_eq!(dut.tag, "master");
+        assert_eq!(dut.digest.as_deref(), Some("sha256:abc"));
     }
 
     #[test]
@@ -1785,6 +1838,7 @@ mod tests {
             capability_refs: GroundedSet::unknown("test"),
             preconditions: GroundedSet::known(&[]),
             steps: GroundedSet::known(STEPS),
+            availability: FeatureAvailability::unknown(),
             chains_from: None,
         };
 
@@ -1872,6 +1926,7 @@ mod tests {
             capability_refs: GroundedSet::unknown("test"),
             preconditions: GroundedSet::known(&[]),
             steps: GroundedSet::known(STEPS),
+            availability: FeatureAvailability::unknown(),
             chains_from: None,
         };
 

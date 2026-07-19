@@ -4,6 +4,7 @@ use crate::journey::{
     Actor, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome, UserJourney, Visibility,
 };
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
+use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const DISK_MAIN: &str = "core/services/disk_usage/main.py";
@@ -75,6 +76,7 @@ const INSPECT_DISK_USAGE: UserJourney = UserJourney {
             )),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 
@@ -155,6 +157,7 @@ const FREE_DISK_SPACE: UserJourney = UserJourney {
             )),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: Some(JourneyId::InspectDiskUsage),
 };
 
@@ -197,6 +200,7 @@ const RUN_SINGLE_DISK_SPEED_TEST: UserJourney = UserJourney {
             )),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 
@@ -235,6 +239,7 @@ const RUN_MULTI_SIZE_DISK_SPEED_TEST: UserJourney = UserJourney {
             Some(source_outcome(200, 448)),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 

@@ -5,6 +5,7 @@ use crate::journey::{
     UserJourney, Visibility,
 };
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
+use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const DEV_CORE: &str = "content/development/core/index.md";
@@ -65,6 +66,7 @@ const REBOOT_ONBOARD_COMPUTER: UserJourney = UserJourney {
             Some(source_outcome(200, 88)),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 
@@ -103,6 +105,7 @@ const SHUTDOWN_ONBOARD_COMPUTER: UserJourney = UserJourney {
             Some(Grounded::unknown("destructive; not exercised in capture")),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 
@@ -133,6 +136,7 @@ const SYNC_SYSTEM_TIME: UserJourney = UserJourney {
         Provenance::source(UPDATE_TIME, 9),
         Some(source_outcome(200, 72)),
     )]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 
@@ -174,6 +178,7 @@ const ENABLE_LEGACY_CAMERA_SUPPORT: UserJourney = UserJourney {
             None,
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: Some(JourneyId::RebootOnboardComputer),
 };
 
@@ -237,6 +242,7 @@ const INSPECT_RASPBERRY_EEPROM_BOOTLOADER: UserJourney = UserJourney {
             )),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 
@@ -281,6 +287,7 @@ const UPDATE_RASPBERRY_EEPROM_BOOTLOADER: UserJourney = UserJourney {
             Some(source_outcome(200, 157)),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: Some(JourneyId::InspectRaspberryEepromBootloader),
 };
 
@@ -319,6 +326,7 @@ const RESET_BLUEOS_SETTINGS: UserJourney = UserJourney {
             Some(source_outcome(200, 164)),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 
@@ -349,6 +357,7 @@ const RUN_HOST_COMMAND: UserJourney = UserJourney {
         Provenance::source(COMMANDER_STORE, 42),
         Some(source_outcome(200, 57)),
     )]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 

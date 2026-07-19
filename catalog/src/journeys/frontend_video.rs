@@ -4,6 +4,7 @@ use crate::journey::{
 };
 use crate::page::PageId;
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
+use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const MENUS: &str = "core/frontend/src/menus.ts";
@@ -91,6 +92,7 @@ const CONFIGURE_VIDEO_STREAM: UserJourney = UserJourney {
             None,
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 

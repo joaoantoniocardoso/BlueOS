@@ -1,0 +1,263 @@
+use serde::Serialize;
+
+use crate::id::JourneyId;
+use crate::runner::{DutVersion, JourneyResult, RunCounts, StepResult};
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ReportDut {
+    pub repository: String,
+    pub tag: String,
+    pub digest: String,
+}
+
+impl ReportDut {
+    pub fn from_dut(dut: &DutVersion) -> Self {
+        Self {
+            repository: dut.repository.clone(),
+            tag: dut.tag.clone(),
+            digest: normalize_digest(dut.digest.as_deref()),
+        }
+    }
+}
+
+fn normalize_digest(digest: Option<&str>) -> String {
+    match digest {
+        Some(sha) if sha.starts_with("sha256:") => sha.to_string(),
+        Some(sha) => format!("sha256:{sha}"),
+        None => "sha256:unknown".to_string(),
+    }
+}
+use crate::version::FeatureAvailability;
+
+pub const SCHEMA_VERSION: u32 = 1;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SuiteKind {
+    Smoke,
+    MutatingSmoke,
+    Full,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct ReportCounts {
+    pub passed: usize,
+    pub failed: usize,
+    pub skipped: usize,
+    pub unasserted: usize,
+}
+
+impl From<RunCounts> for ReportCounts {
+    fn from(counts: RunCounts) -> Self {
+        Self {
+            passed: counts.passed,
+            failed: counts.failed,
+            skipped: counts.skipped,
+            unasserted: counts.unasserted,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum JourneyReportResult {
+    Pass,
+    Fail,
+    Skip,
+}
+
+impl From<JourneyResult> for JourneyReportResult {
+    fn from(result: JourneyResult) -> Self {
+        match result {
+            JourneyResult::Pass | JourneyResult::Partial => Self::Pass,
+            JourneyResult::Fail => Self::Fail,
+            JourneyResult::Skip => Self::Skip,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ReportAvailability {
+    pub introduced_in: Option<&'static str>,
+    pub removed_in: Option<&'static str>,
+}
+
+impl From<&FeatureAvailability> for ReportAvailability {
+    fn from(availability: &FeatureAvailability) -> Self {
+        Self {
+            introduced_in: availability
+                .introduced_in
+                .as_ref()
+                .map(|bound| bound.release_tag),
+            removed_in: availability
+                .removed_in
+                .as_ref()
+                .map(|bound| bound.release_tag),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct JourneyReportEntry {
+    pub id: &'static str,
+    pub result: JourneyReportResult,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skip_reason: Option<String>,
+    pub availability: ReportAvailability,
+    pub steps_passed: usize,
+    pub steps_failed: usize,
+    pub steps_skipped: usize,
+}
+
+impl JourneyReportEntry {
+    pub fn from_run(
+        journey_id: JourneyId,
+        availability: &FeatureAvailability,
+        outcome: JourneyResult,
+        step_results: &[StepResult],
+    ) -> Self {
+        let (steps_passed, steps_failed, steps_skipped) = count_journey_steps(step_results);
+        Self {
+            id: journey_id.as_str(),
+            result: outcome.into(),
+            skip_reason: None,
+            availability: availability.into(),
+            steps_passed,
+            steps_failed,
+            steps_skipped,
+        }
+    }
+
+    pub fn skipped(
+        journey_id: JourneyId,
+        availability: &FeatureAvailability,
+        reason: impl Into<String>,
+        steps_skipped: usize,
+    ) -> Self {
+        Self {
+            id: journey_id.as_str(),
+            result: JourneyReportResult::Skip,
+            skip_reason: Some(reason.into()),
+            availability: availability.into(),
+            steps_passed: 0,
+            steps_failed: 0,
+            steps_skipped,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct JourneyHttpReport {
+    pub schema_version: u32,
+    pub suite: SuiteKind,
+    pub base: String,
+    pub dut: Option<ReportDut>,
+    pub started_at: String,
+    pub finished_at: String,
+    pub counts: ReportCounts,
+    pub journeys: Vec<JourneyReportEntry>,
+}
+
+pub fn count_journey_steps(step_results: &[StepResult]) -> (usize, usize, usize) {
+    let mut passed = 0;
+    let mut failed = 0;
+    let mut skipped = 0;
+    for result in step_results {
+        match result {
+            StepResult::Pass | StepResult::Unasserted => passed += 1,
+            StepResult::Fail(_) => failed += 1,
+            StepResult::Skip(_) | StepResult::Ignored => skipped += 1,
+        }
+    }
+    (passed, failed, skipped)
+}
+
+pub fn utc_rfc3339_now() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("clock before epoch")
+        .as_secs();
+    format_unix_utc_rfc3339(secs)
+}
+
+fn format_unix_utc_rfc3339(secs: u64) -> String {
+    const SECS_PER_DAY: u64 = 86_400;
+    let days = (secs / SECS_PER_DAY) as i64;
+    let day_secs = secs % SECS_PER_DAY;
+    let (year, month, day) = days_to_ymd(days);
+    format!(
+        "{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}Z",
+        day_secs / 3600,
+        (day_secs % 3600) / 60,
+        day_secs % 60
+    )
+}
+
+fn days_to_ymd(mut z: i64) -> (i32, u32, u32) {
+    z += 719_468;
+    let era = (if z >= 0 { z } else { z - 146_096 }) / 146_097;
+    let doe = (z - era * 146_097) as u32;
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let year = yoe as i32 + (era * 400) as i32;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mut month = (5 * doy + 2) / 153;
+    let day = doy - (153 * month + 2) / 5 + 1;
+    if month < 10 {
+        month += 3;
+    } else {
+        month -= 9;
+    }
+    let year = if month <= 2 { year + 1 } else { year };
+    (year, month, day)
+}
+
+pub fn write_journey_http_report(path: &str, report: &JourneyHttpReport) -> Result<(), String> {
+    let json = serde_json::to_string_pretty(report).map_err(|err| err.to_string())?;
+    std::fs::write(path, json).map_err(|err| err.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        format_unix_utc_rfc3339, JourneyHttpReport, JourneyReportEntry, ReportCounts, SuiteKind,
+        SCHEMA_VERSION,
+    };
+    use crate::id::JourneyId;
+    use crate::version::{bound_tag, FeatureAvailability};
+
+    #[test]
+    fn minimal_report_json_contains_schema_version() {
+        let report = JourneyHttpReport {
+            schema_version: SCHEMA_VERSION,
+            suite: SuiteKind::Smoke,
+            base: "http://test".into(),
+            dut: None,
+            started_at: "2026-01-01T00:00:00Z".into(),
+            finished_at: "2026-01-01T00:00:01Z".into(),
+            counts: ReportCounts {
+                passed: 1,
+                failed: 0,
+                skipped: 0,
+                unasserted: 0,
+            },
+            journeys: vec![JourneyReportEntry::skipped(
+                JourneyId::MonitorInternetConnectivity,
+                &FeatureAvailability {
+                    introduced_in: Some(bound_tag("1.5.0")),
+                    removed_in: None,
+                },
+                "offline",
+                1,
+            )],
+        };
+        let json = serde_json::to_string(&report).expect("serialize report");
+        assert!(json.contains("\"schema_version\":1"));
+        assert!(json.contains("\"introduced_in\":\"1.5.0\""));
+    }
+
+    #[test]
+    fn utc_rfc3339_epoch() {
+        assert_eq!(format_unix_utc_rfc3339(0), "1970-01-01T00:00:00Z");
+    }
+}

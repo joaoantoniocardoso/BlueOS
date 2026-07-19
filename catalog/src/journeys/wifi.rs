@@ -4,6 +4,7 @@ use crate::journey::{
     UserJourney, Visibility,
 };
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
+use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const GETTING: &str = "content/usage/getting-started/index.md";
@@ -67,6 +68,7 @@ const CONNECT_TO_WIFI_NETWORK: UserJourney = UserJourney {
             Some(source_outcome(200, 84)),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 
@@ -111,6 +113,7 @@ const DISCONNECT_FROM_WIFI_NETWORK: UserJourney = UserJourney {
             Some(source_outcome(200, 102)),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 
@@ -150,6 +153,7 @@ const FORGET_SAVED_WIFI_NETWORK: UserJourney = UserJourney {
             Some(source_outcome(200, 91)),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 
@@ -185,6 +189,7 @@ const TOGGLE_HOTSPOT: UserJourney = UserJourney {
             Some(source_outcome(200, 128)),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 
@@ -226,6 +231,7 @@ const CONFIGURE_HOTSPOT_CREDENTIALS: UserJourney = UserJourney {
             Some(source_outcome(200, 154)),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 
@@ -267,6 +273,7 @@ const TOGGLE_SMART_HOTSPOT: UserJourney = UserJourney {
             Some(source_outcome(200, 137)),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 

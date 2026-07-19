@@ -15,6 +15,7 @@ use crate::resource::ResourceOwnership;
 use crate::runner::{http_method_label, resolve_http_path};
 use crate::service::{Authority, Service, ServiceDefinition};
 use crate::state::StateMachine;
+use crate::version::availability_is_valid;
 
 // M1 will calibrate this against reference service cards.
 pub const COVERAGE_UNKNOWN_THRESHOLD: usize = 10_000;
@@ -54,6 +55,11 @@ pub enum ValidationError {
     UnknownJourneyChain {
         journey: String,
         chains_from: String,
+    },
+    #[error("journey {journey} has invalid availability: {reason}")]
+    InvalidJourneyAvailability {
+        journey: String,
+        reason: &'static str,
     },
     #[error("service {service} references unknown journey {journey}")]
     UnknownServiceJourneyRef { service: String, journey: String },
@@ -254,6 +260,13 @@ fn check_journey_references(catalog: &Catalog) -> Vec<ValidationError> {
     for journey in catalog.journeys() {
         let journey_id = journey.id.to_string();
         let participating = participating_service_ids(journey);
+
+        if let Err(reason) = availability_is_valid(&journey.availability) {
+            errors.push(ValidationError::InvalidJourneyAvailability {
+                journey: journey_id.clone(),
+                reason,
+            });
+        }
 
         if let Some(chains_from) = &journey.chains_from {
             if !known_journey_ids.contains(chains_from) {
@@ -702,6 +715,7 @@ mod tests {
     use crate::runtime::{RuntimeFacts, StateContract};
     use crate::service::Service;
     use crate::state::StateMachine;
+    use crate::version::{bound_tag, FeatureAvailability};
 
     const fn evidence() -> Evidence {
         Evidence {
@@ -1008,8 +1022,35 @@ mod tests {
                     )]
                 },
             ),
+            availability: FeatureAvailability::unknown(),
             chains_from: None,
         }
+    }
+
+    #[test]
+    fn invalid_journey_availability_fails_validate() {
+        let service = valid_journey_service(ServiceId::Helper);
+        let journey = UserJourney {
+            availability: FeatureAvailability {
+                introduced_in: Some(bound_tag("1.5.0")),
+                removed_in: Some(bound_tag("1.4.0")),
+            },
+            ..valid_journey()
+        };
+        let catalog = Catalog::with_parts(
+            vec![svc(
+                ServiceId::Helper,
+                empty_observed(ServiceId::Helper),
+                service,
+                empty_runtime(ServiceId::Helper),
+            )],
+            vec![journey],
+            vec![],
+        );
+        let errors = catalog.validate().unwrap_err();
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::InvalidJourneyAvailability { .. })));
     }
 
     #[test]
@@ -1483,6 +1524,7 @@ mod tests {
                     )]
                 },
             ),
+            availability: FeatureAvailability::unknown(),
             chains_from: None,
         };
         let catalog = Catalog::with_parts(

@@ -24,6 +24,7 @@ pub mod observed;
 pub mod page;
 pub mod pages;
 pub mod provenance;
+pub mod report;
 pub mod resolve;
 pub mod resource;
 pub mod runner;
@@ -34,6 +35,7 @@ pub mod split;
 pub mod state;
 pub mod trust;
 pub mod validate;
+pub mod version;
 
 pub use capability::{Aggregate, CapabilityDef, CAPABILITIES};
 pub use capture_env::{
@@ -91,18 +93,23 @@ pub use provenance::{
     Asserted, AssertedSet, Evidence, Evidenced, Grounded, GroundedItem, GroundedSet, Observed,
     ObservedSet, Provenance, Rationaled,
 };
+pub use report::{
+    count_journey_steps, utc_rfc3339_now, write_journey_http_report, JourneyHttpReport,
+    JourneyReportEntry, JourneyReportResult, ReportAvailability, ReportCounts, ReportDut,
+    SuiteKind, SCHEMA_VERSION,
+};
 pub use resolve::{resolve, resolve_port_ref, resolve_service_ports, ResolveError, ResolvedPorts};
 pub use resource::{Resource, ResourceOwnership};
 pub use runner::{
-    evaluate_http_response, execute_curl, format_dry_run, format_http_fail, http_journeys,
-    http_method_label, http_mutating_smoke_steps, http_smoke_steps, http_steps, join_url,
-    journey_http_mode_conflict, journey_http_requires_base, mutating_smoke_body,
-    mutating_smoke_path_bind, mutating_smoke_setup_calls, mutating_smoke_skip_reason,
-    mutating_smoke_teardown_calls, resolve_http_path, run_core_image_switch, run_http_step,
-    run_smoke_http_call, summarize_journey, tier1_get_coverage, wait_for_blueos, JourneyResult,
-    RunCounts, RunnableStep, StepResult, Tier1GetCoverage, MUTATING_SMOKE_DEFAULT_FIXTURES,
-    SMOKE_CORE_MASTER_JSON, SMOKE_CORE_MASTER_TAG, SMOKE_CORE_SWITCH_JSON, SMOKE_CORE_SWITCH_TAG,
-    SMOKE_DEFAULT_FIXTURES,
+    evaluate_http_response, execute_curl, fetch_dut_version, format_dry_run, format_http_fail,
+    http_journeys, http_method_label, http_mutating_smoke_steps, http_smoke_steps, http_steps,
+    join_url, journey_availability_skip, journey_http_mode_conflict, journey_http_requires_base,
+    mutating_smoke_body, mutating_smoke_path_bind, mutating_smoke_setup_calls,
+    mutating_smoke_skip_reason, mutating_smoke_teardown_calls, resolve_http_path,
+    run_core_image_switch, run_http_step, run_smoke_http_call, summarize_journey,
+    tier1_get_coverage, wait_for_blueos, DutVersion, JourneyResult, RunCounts, RunnableStep,
+    StepResult, Tier1GetCoverage, MUTATING_SMOKE_DEFAULT_FIXTURES, SMOKE_CORE_MASTER_JSON,
+    SMOKE_CORE_MASTER_TAG, SMOKE_CORE_SWITCH_JSON, SMOKE_CORE_SWITCH_TAG, SMOKE_DEFAULT_FIXTURES,
 };
 pub use runtime::{
     Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts, SettingsMutation, SloBaseline,
@@ -112,3 +119,8 @@ pub use service::{Authority, Service, ServiceDefinition};
 pub use state::StateMachine;
 pub use trust::{DangerousOperation, PrivilegeLevel, UserConfirmation};
 pub use validate::{validate, ValidationError, COVERAGE_UNKNOWN_THRESHOLD};
+pub use version::{
+    availability_is_valid, availability_skip, bound_tag, cmp_channels,
+    format_availability_skip_reason, parse_release_tag, AvailabilitySkip, BlueOsChannel,
+    FeatureAvailability, VersionBound,
+};

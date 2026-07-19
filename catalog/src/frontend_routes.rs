@@ -4,7 +4,6 @@ use crate::journey::{JourneyStep, RouteRef};
 use crate::provenance::{Grounded, GroundedSet, Provenance};
 use crate::runner::resolve_http_path;
 use crate::validate::ValidationError;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FrontendApiBase {
     pub store_file: &'static str,
@@ -298,6 +297,7 @@ mod tests {
     use crate::runtime::RuntimeFacts;
     use crate::service::Service;
     use crate::services::recorder_extractor::{OBSERVED_FACTS, SERVICE_DEFINITION};
+    use crate::version::FeatureAvailability;
 
     #[test]
     fn frontend_api_endpoints_table_is_populated() {
@@ -363,6 +363,7 @@ mod tests {
             capability_refs: CAPABILITIES,
             preconditions: GroundedSet::known(&[]),
             steps: GroundedSet::known(STEPS),
+            availability: FeatureAvailability::unknown(),
             chains_from: None,
         };
 

@@ -10,7 +10,6 @@ use crate::journey::{
     journey_requirements, BoardKind, DataRequirement, HardwareRequirement, NetworkResource,
     NetworkState, Precondition, SoftwareRequirement, UserJourney,
 };
-
 /// Declared test-bed resources. Absent/false means "not available";
 /// evaluation returns Missing → runner SKIPS the journey (not fail).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -257,6 +256,7 @@ mod tests {
     use crate::id::JourneyId;
     use crate::journey::Visibility;
     use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
+    use crate::version::FeatureAvailability;
 
     const DOC: Provenance = Provenance::doc("test.md", 1);
 
@@ -269,6 +269,7 @@ mod tests {
             capability_refs: GroundedSet::unknown("test"),
             preconditions,
             steps: GroundedSet::unknown("test"),
+            availability: FeatureAvailability::unknown(),
             chains_from: None,
         }
     }

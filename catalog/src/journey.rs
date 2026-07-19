@@ -4,6 +4,10 @@ use serde::Serialize;
 use crate::id::{CapabilityId, JourneyId, PathRef, ServiceId};
 use crate::page::PageId;
 use crate::provenance::{Grounded, GroundedSet};
+use crate::version::FeatureAvailability;
+
+// Journey `availability` bounds are seeded incrementally as release history is grounded;
+// unknown is the honest default until a feature's intro/removal tag is confirmed.
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct UserJourney {
@@ -14,6 +18,7 @@ pub struct UserJourney {
     pub capability_refs: GroundedSet<CapabilityId>,
     pub preconditions: GroundedSet<Precondition>,
     pub steps: GroundedSet<JourneyStep>,
+    pub availability: FeatureAvailability,
     pub chains_from: Option<JourneyId>,
 }
 
@@ -238,6 +243,7 @@ mod tests {
             capability_refs: GroundedSet::unknown("test"),
             preconditions,
             steps,
+            availability: FeatureAvailability::unknown(),
             chains_from: None,
         }
     }

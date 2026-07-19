@@ -5,6 +5,7 @@ use crate::journey::{
     SoftwareRequirement, StepOutcome, UserJourney, Visibility,
 };
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
+use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const GETTING: &str = "content/usage/getting-started/index.md";
@@ -85,7 +86,8 @@ const UPDATE_BLUEOS_VERSION: UserJourney =
                 Some(source_outcome(200, VERSION_ROUTER, 34)),
             ),
         ]),
-        chains_from: None,
+        availability: FeatureAvailability::unknown(),
+    chains_from: None,
     };
 
 const SWITCH_LOCAL_BLUEOS_VERSION: UserJourney =
@@ -141,7 +143,8 @@ const SWITCH_LOCAL_BLUEOS_VERSION: UserJourney =
                 Some(source_outcome(200, VERSION_ROUTER, 34)),
             ),
         ]),
-        chains_from: Some(JourneyId::UpdateBlueosVersion),
+        availability: FeatureAvailability::unknown(),
+    chains_from: Some(JourneyId::UpdateBlueosVersion),
     };
 
 const PULL_BLUEOS_VERSION_WITHOUT_SWITCH: UserJourney =
@@ -193,7 +196,8 @@ const PULL_BLUEOS_VERSION_WITHOUT_SWITCH: UserJourney =
                 Some(source_outcome(200, VERSION_ROUTER, 41)),
             ),
         ]),
-        chains_from: None,
+        availability: FeatureAvailability::unknown(),
+    chains_from: None,
     };
 
 const DELETE_LOCAL_BLUEOS_VERSION: UserJourney = UserJourney {
@@ -254,6 +258,7 @@ const DELETE_LOCAL_BLUEOS_VERSION: UserJourney = UserJourney {
             Some(source_outcome(200, VERSION_ROUTER, 48)),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: Some(JourneyId::SwitchLocalBlueosVersion),
 };
 
@@ -298,7 +303,8 @@ const DOCKER_REGISTRY_LOGIN: UserJourney =
                 )),
             ),
         ]),
-        chains_from: None,
+        availability: FeatureAvailability::unknown(),
+    chains_from: None,
     };
 
 const UPDATE_BOOTSTRAP_IMAGE: UserJourney = UserJourney {
@@ -365,6 +371,7 @@ const UPDATE_BOOTSTRAP_IMAGE: UserJourney = UserJourney {
             Some(source_outcome(200, BOOTSTRAP_ROUTER, 31)),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: Some(JourneyId::UpdateBlueosVersion),
 };
 

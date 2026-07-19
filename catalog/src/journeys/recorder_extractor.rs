@@ -5,6 +5,7 @@ use crate::journey::{
     UserJourney, Visibility,
 };
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
+use crate::version::FeatureAvailability;
 
 const RECORDER_MAIN: &str = "core/services/recorder_extractor/main.py";
 const RECORDER_MENUS: &str = "core/frontend/src/menus.ts";
@@ -90,7 +91,8 @@ const BROWSE_VIDEO_RECORDINGS: UserJourney =
                 None,
             ),
         ]),
-        chains_from: None,
+        availability: FeatureAvailability::unknown(),
+    chains_from: None,
     };
 
 const DOWNLOAD_VIDEO_RECORDING: UserJourney =
@@ -153,7 +155,8 @@ const DOWNLOAD_VIDEO_RECORDING: UserJourney =
                 )),
             ),
         ]),
-        chains_from: None,
+        availability: FeatureAvailability::unknown(),
+    chains_from: None,
     };
 
 const DELETE_VIDEO_RECORDING: UserJourney = UserJourney {
@@ -203,6 +206,7 @@ const DELETE_VIDEO_RECORDING: UserJourney = UserJourney {
             Some(source_outcome(204, 395)),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 

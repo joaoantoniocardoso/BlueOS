@@ -2,6 +2,7 @@ use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{Actor, JourneyStep, StepOutcome, UserJourney, Visibility};
 use crate::page::PageId;
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
+use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const MENUS: &str = "core/frontend/src/menus.ts";
@@ -56,6 +57,7 @@ const APPLY_PARAMETER_FILE: UserJourney = UserJourney {
             None,
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 

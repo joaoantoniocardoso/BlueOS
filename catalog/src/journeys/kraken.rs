@@ -5,6 +5,7 @@ use crate::journey::{
     StepOutcome, UserJourney, Visibility,
 };
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
+use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const DEV: &str = "content/development/extensions/index.md";
@@ -42,7 +43,8 @@ const ADD_CUSTOM_MANIFEST: UserJourney =
             Provenance::doc(ADV, 855),
             Some(runtime_outcome(201, None, "runtime-captures/kraken__pi4_navigator_master.json#transitions")),
         )]),
-        chains_from: Some(JourneyId::BrowseExtensionStore),
+        availability: FeatureAvailability::unknown(),
+    chains_from: Some(JourneyId::BrowseExtensionStore),
     };
 
 const BROWSE_EXTENSION_STORE: UserJourney = UserJourney {
@@ -85,6 +87,7 @@ const BROWSE_EXTENSION_STORE: UserJourney = UserJourney {
             )),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 
@@ -180,7 +183,8 @@ const CONFIGURE_INSTALLED_EXTENSION: UserJourney =
                 Some(runtime_outcome(204, None, "runtime-captures/kraken__pi4_navigator_master.json#transitions")),
             ),
         ]),
-        chains_from: Some(JourneyId::InstallExtension),
+        availability: FeatureAvailability::unknown(),
+    chains_from: Some(JourneyId::InstallExtension),
     };
 
 const EDIT_EXTENSION_DEV_VERSION: UserJourney =
@@ -219,7 +223,8 @@ const EDIT_EXTENSION_DEV_VERSION: UserJourney =
                 Some(runtime_outcome(200, None, "runtime-captures/kraken__pi4_navigator_master.json#transitions")),
             ),
         ]),
-        chains_from: Some(JourneyId::ConfigureInstalledExtension),
+        availability: FeatureAvailability::unknown(),
+    chains_from: Some(JourneyId::ConfigureInstalledExtension),
     };
 
 const INSTALL_CUSTOM_EXTENSION: UserJourney =
@@ -268,7 +273,8 @@ const INSTALL_CUSTOM_EXTENSION: UserJourney =
                 )),
             ),
         ]),
-        chains_from: None,
+        availability: FeatureAvailability::unknown(),
+    chains_from: None,
     };
 
 const INSTALL_EXTENSION: UserJourney =
@@ -319,7 +325,8 @@ const INSTALL_EXTENSION: UserJourney =
                 Some(runtime_outcome(200, None, "runtime-captures/kraken__pi4_navigator_master.json#transitions")),
             ),
         ]),
-        chains_from: Some(JourneyId::BrowseExtensionStore),
+        availability: FeatureAvailability::unknown(),
+    chains_from: Some(JourneyId::BrowseExtensionStore),
     };
 
 const UNINSTALL_EXTENSION: UserJourney = UserJourney {
@@ -362,6 +369,7 @@ const UNINSTALL_EXTENSION: UserJourney = UserJourney {
             )),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: Some(JourneyId::InstallExtension),
 };
 

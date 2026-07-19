@@ -5,6 +5,7 @@ use crate::journey::{
     Visibility,
 };
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
+use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const PARDAL_MAIN: &str = "core/services/pardal/main.py";
@@ -83,7 +84,8 @@ const RUN_LAN_SPEED_TEST: UserJourney =
                 None,
             ),
         ]),
-        chains_from: None,
+        availability: FeatureAvailability::unknown(),
+    chains_from: None,
     };
 
 const RUN_INTERNET_SPEED_TEST: UserJourney = UserJourney {
@@ -170,6 +172,7 @@ const RUN_INTERNET_SPEED_TEST: UserJourney = UserJourney {
             Some(source_outcome(200, 107)),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 

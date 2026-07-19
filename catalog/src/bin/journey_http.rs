@@ -5,15 +5,18 @@
 use std::process;
 
 use blueos_catalog::{
-    evaluate_journey, format_dry_run, format_http_fail, http_journeys, http_mutating_smoke_steps,
-    http_smoke_steps, http_steps, is_mutating_smoke_journey, join_url, journey_fixtures_ready,
-    journey_http_mode_conflict, journey_http_requires_base, journey_mutating_smoke_ready,
-    mutating_smoke_setup_calls, mutating_smoke_skip_reason, mutating_smoke_teardown_calls,
-    parse_fixture_list, resolve_http_path, run_core_image_switch, run_http_step,
-    run_smoke_http_call, summarize_journey, wait_for_blueos, Catalog, FixtureInventory, JourneyId,
-    JourneyResult, PreconditionStatus, RunCounts, StepResult, MUTATING_SMOKE_DEFAULT_FIXTURES,
-    SMOKE_CORE_MASTER_JSON, SMOKE_CORE_MASTER_TAG, SMOKE_CORE_SWITCH_JSON, SMOKE_CORE_SWITCH_TAG,
-    SMOKE_DEFAULT_FIXTURES, TIER2_SMOKE_DUT_CORE_DIGEST,
+    evaluate_journey, fetch_dut_version, format_dry_run, format_http_fail, http_journeys,
+    http_mutating_smoke_steps, http_smoke_steps, http_steps, is_mutating_smoke_journey, join_url,
+    journey_availability_skip, journey_fixtures_ready, journey_http_mode_conflict,
+    journey_http_requires_base, journey_mutating_smoke_ready, mutating_smoke_setup_calls,
+    mutating_smoke_skip_reason, mutating_smoke_teardown_calls, parse_fixture_list,
+    resolve_http_path, run_core_image_switch, run_http_step, run_smoke_http_call,
+    summarize_journey, utc_rfc3339_now, wait_for_blueos, write_journey_http_report, Catalog,
+    DutVersion, FixtureInventory, JourneyHttpReport, JourneyId, JourneyReportEntry, JourneyResult,
+    PreconditionStatus, ReportDut, RunCounts, StepResult, SuiteKind,
+    MUTATING_SMOKE_DEFAULT_FIXTURES, SCHEMA_VERSION, SMOKE_CORE_MASTER_JSON, SMOKE_CORE_MASTER_TAG,
+    SMOKE_CORE_SWITCH_JSON, SMOKE_CORE_SWITCH_TAG, SMOKE_DEFAULT_FIXTURES,
+    TIER2_SMOKE_DUT_CORE_DIGEST,
 };
 
 fn main() {
@@ -25,6 +28,7 @@ fn main() {
     let mut smoke = false;
     let mut mutating_smoke = false;
     let mut journey_filter: Option<JourneyId> = None;
+    let mut report_path: Option<String> = None;
 
     let mut index = 1;
     while index < args.len() {
@@ -56,6 +60,14 @@ fn main() {
                     .cloned()
                     .unwrap_or_else(|| usage_and_exit("--journey requires an id"));
                 journey_filter = Some(parse_journey_id(&id));
+            }
+            "--report" => {
+                index += 1;
+                report_path = Some(
+                    args.get(index)
+                        .cloned()
+                        .unwrap_or_else(|| usage_and_exit("--report requires a path")),
+                );
             }
             "-h" | "--help" => {
                 print_help();
@@ -140,7 +152,14 @@ fn main() {
 
     let mut totals = RunCounts::default();
     let mut journey_lines: Vec<String> = Vec::new();
+    let mut report_journeys: Vec<JourneyReportEntry> = Vec::new();
     let mut any_fail = false;
+    let emit_report = report_path.is_some() && !dry_run;
+    let started_at = if emit_report {
+        Some(utc_rfc3339_now())
+    } else {
+        None
+    };
 
     if smoke {
         println!(
@@ -161,6 +180,30 @@ fn main() {
     if let Some(base) = &base {
         println!("base: {base}");
     }
+
+    let dut_version: Option<DutVersion> = if dry_run {
+        None
+    } else if let Some(base_url) = base.as_deref() {
+        match fetch_dut_version(base_url) {
+            Ok(dut) => {
+                if smoke || mutating_smoke {
+                    let digest = dut.digest.as_deref().unwrap_or("(none)");
+                    println!("dut: tag={} digest={digest}", dut.tag);
+                }
+                Some(dut)
+            }
+            Err(err) => {
+                if smoke || mutating_smoke {
+                    eprintln!(
+                        "journey_http: warning: could not probe DUT version ({err}); availability skips disabled"
+                    );
+                }
+                None
+            }
+        }
+    } else {
+        None
+    };
     println!();
 
     for journey in journeys {
@@ -170,6 +213,14 @@ fn main() {
                 let step_count = http_mutating_smoke_steps(journey).len().max(1);
                 totals.skipped += step_count;
                 journey_lines.push(format!("SKIP {journey_id}: {reason}"));
+                if emit_report {
+                    report_journeys.push(JourneyReportEntry::skipped(
+                        journey_id,
+                        &journey.availability,
+                        reason,
+                        step_count,
+                    ));
+                }
                 continue;
             }
         }
@@ -188,8 +239,40 @@ fn main() {
                 http_steps(journey).len().max(1)
             };
             totals.skipped += step_count;
-            journey_lines.push(format!("SKIP {journey_id}: {}", reasons.join("; ")));
+            let reason = reasons.join("; ");
+            journey_lines.push(format!("SKIP {journey_id}: {reason}"));
+            if emit_report {
+                report_journeys.push(JourneyReportEntry::skipped(
+                    journey_id,
+                    &journey.availability,
+                    reason,
+                    step_count,
+                ));
+            }
             continue;
+        }
+
+        if let Some(dut) = dut_version.as_ref() {
+            if let Some(reason) = journey_availability_skip(journey, dut) {
+                let step_count = if smoke {
+                    http_smoke_steps(journey).len().max(1)
+                } else if mutating_smoke {
+                    http_mutating_smoke_steps(journey).len().max(1)
+                } else {
+                    http_steps(journey).len().max(1)
+                };
+                totals.skipped += step_count;
+                journey_lines.push(format!("SKIP {journey_id}: {reason}"));
+                if emit_report {
+                    report_journeys.push(JourneyReportEntry::skipped(
+                        journey_id,
+                        &journey.availability,
+                        reason,
+                        step_count,
+                    ));
+                }
+                continue;
+            }
         }
 
         let steps = if smoke {
@@ -209,6 +292,14 @@ fn main() {
             };
             journey_lines.push(format!("SKIP {journey_id}: {reason}"));
             totals.skipped += 1;
+            if emit_report {
+                report_journeys.push(JourneyReportEntry::skipped(
+                    journey_id,
+                    &journey.availability,
+                    reason,
+                    1,
+                ));
+            }
             continue;
         }
 
@@ -315,6 +406,14 @@ fn main() {
             any_fail = true;
         }
         journey_lines.push(format!("{outcome:?} {journey_id}: {} step(s)", steps.len()));
+        if emit_report {
+            report_journeys.push(JourneyReportEntry::from_run(
+                journey_id,
+                &journey.availability,
+                outcome,
+                &step_results,
+            ));
+        }
     }
 
     println!();
@@ -324,6 +423,32 @@ fn main() {
     );
     for line in journey_lines {
         println!("  {line}");
+    }
+
+    if let Some(path) = report_path {
+        if !dry_run {
+            let suite = if smoke {
+                SuiteKind::Smoke
+            } else if mutating_smoke {
+                SuiteKind::MutatingSmoke
+            } else {
+                SuiteKind::Full
+            };
+            let report = JourneyHttpReport {
+                schema_version: SCHEMA_VERSION,
+                suite,
+                base: base.clone().unwrap_or_default(),
+                dut: dut_version.as_ref().map(ReportDut::from_dut),
+                started_at: started_at.unwrap_or_else(utc_rfc3339_now),
+                finished_at: utc_rfc3339_now(),
+                counts: totals.into(),
+                journeys: report_journeys,
+            };
+            if let Err(err) = write_journey_http_report(&path, &report) {
+                eprintln!("journey_http: report: {err}");
+                process::exit(2);
+            }
+        }
     }
 
     if any_fail || totals.failed > 0 {
@@ -358,6 +483,6 @@ fn usage_and_exit(message: &str) -> ! {
 
 fn print_help() {
     eprintln!(
-        "usage: journey_http --base <url> [--fixtures internet,pirate,advanced] [--smoke | --mutating-smoke] [--dry-run] [--allow-mutating] [--journey <id>]"
+        "usage: journey_http --base <url> [--fixtures internet,pirate,advanced] [--smoke | --mutating-smoke] [--dry-run] [--allow-mutating] [--journey <id>] [--report <path.json>]"
     );
 }

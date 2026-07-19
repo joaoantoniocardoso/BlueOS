@@ -3,7 +3,6 @@ use schemars::schema_for;
 use crate::catalog::Catalog;
 use crate::cluster::{bus_label, ClusterPolicy};
 use crate::provenance::AssertedSet;
-
 pub fn export_json(catalog: &Catalog) -> Result<String, serde_json::Error> {
     serde_json::to_string_pretty(catalog)
 }
@@ -175,6 +174,7 @@ mod tests {
             Actor, HttpMethod, JourneyStep, RouteRef, StepOutcome, UserJourney, Visibility,
         };
         use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
+        use crate::version::FeatureAvailability;
 
         let journey = UserJourney {
             id: JourneyId::Deploy,
@@ -224,6 +224,7 @@ mod tests {
                     )]
                 },
             ),
+            availability: FeatureAvailability::unknown(),
             chains_from: None,
         };
 

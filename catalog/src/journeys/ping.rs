@@ -5,6 +5,7 @@ use crate::journey::{
     UserJourney, Visibility,
 };
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
+use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const OVERVIEW: &str = "content/usage/overview/index.md";
@@ -81,7 +82,8 @@ const VIEW_DETECTED_SONAR_DEVICES: UserJourney =
                 None,
             ),
         ]),
-        chains_from: None,
+        availability: FeatureAvailability::unknown(),
+    chains_from: None,
     };
 
 const CONNECT_PING_VIEWER_TO_SONAR: UserJourney =
@@ -122,7 +124,8 @@ const CONNECT_PING_VIEWER_TO_SONAR: UserJourney =
                 )),
             ),
         ]),
-        chains_from: None,
+        availability: FeatureAvailability::unknown(),
+    chains_from: None,
     };
 
 const ENABLE_PING1D_RANGEFINDER_MAVLINK: UserJourney =
@@ -169,7 +172,8 @@ const ENABLE_PING1D_RANGEFINDER_MAVLINK: UserJourney =
                 )),
             ),
         ]),
-        chains_from: None,
+        availability: FeatureAvailability::unknown(),
+    chains_from: None,
     };
 
 const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<CapabilityId> {

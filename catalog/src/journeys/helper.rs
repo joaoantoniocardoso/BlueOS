@@ -5,6 +5,7 @@ use crate::journey::{
     StepOutcome, UserJourney, Visibility,
 };
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
+use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const GETTING: &str = "content/usage/getting-started/index.md";
@@ -59,6 +60,7 @@ const MONITOR_INTERNET_CONNECTIVITY: UserJourney = UserJourney {
             )),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 
@@ -101,6 +103,7 @@ const VERIFY_INTERNET_CONNECTIVITY: UserJourney = UserJourney {
             )),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 
@@ -140,6 +143,7 @@ const BROWSE_AVAILABLE_WEB_SERVICES: UserJourney = UserJourney {
             )),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 
@@ -182,6 +186,7 @@ const PROBE_INTERFACE_INTERNET_CONNECTIVITY: UserJourney = UserJourney {
             )),
         ),
     ]),
+    availability: FeatureAvailability::unknown(),
     chains_from: None,
 };
 
