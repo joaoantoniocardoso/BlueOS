@@ -136,7 +136,7 @@ pub fn tier1_get_coverage(catalog: &Catalog) -> Tier1GetCoverage {
 
 pub const SMOKE_DEFAULT_FIXTURES: &str = "internet,pirate,advanced";
 
-pub const MUTATING_SMOKE_DEFAULT_FIXTURES: &str = "internet,pirate,advanced,confirm-dangerous,board:any,wifi-radio,hotspot,nmea-socket,serial-bridge,dhcp-active,extension-installed";
+pub const MUTATING_SMOKE_DEFAULT_FIXTURES: &str = "internet,pirate,advanced,confirm-dangerous,board:any,wifi-radio,hotspot,nmea-socket,serial-bridge,dhcp-active,extension-installed,recording,local-version,wifi-saved";
 
 pub fn http_method_label(method: &HttpMethod) -> &'static str {
     match method {
@@ -260,7 +260,7 @@ pub fn mutating_smoke_query(journey_id: JourneyId, route: &RouteRef) -> Option<&
         (JourneyId::EnableOnboardDhcpServer, "/dhcp", Post) => {
             Some("interface_name=eth0&ipv4_gateway=192.168.0.1&is_backup_server=false")
         }
-        (JourneyId::ForgetSavedWifiNetwork, "/remove", Post) => Some("ssid=__smoke_nonexistent__"),
+        (JourneyId::ForgetSavedWifiNetwork, "/remove", Post) => Some("ssid=__smoke_catalog__"),
         (JourneyId::ToggleHotspot, "/hotspot", Post) => Some("enable=false"),
         (JourneyId::ToggleSmartHotspot, "/smart_hotspot", Post) => Some("enable=false"),
         (JourneyId::RebootOnboardComputer, "/shutdown", Post) => {
@@ -337,7 +337,7 @@ pub fn mutating_smoke_body(journey_id: JourneyId, route: &RouteRef) -> Option<&'
             Some(r##"{"repository":"bluerobotics/blueos-core","tag":"master"}"##)
         }
         (JourneyId::DeleteLocalBlueosVersion, "/version/delete", Delete) => {
-            Some(r##"{"repository":"bluerobotics/blueos-core","tag":"__smoke_nonexistent__"}"##)
+            Some(r##"{"repository":"bluerobotics/blueos-core","tag":"smoke-catalog-deleteme"}"##)
         }
         (JourneyId::UpdateBootstrapImage, "/bootstrap/current", Post) => {
             Some(r##"{"tag":"master"}"##)
@@ -393,7 +393,9 @@ pub fn is_mutating_smoke_step_deferred(journey_id: JourneyId, path: &str) -> Opt
         (JourneyId::UpdateBootstrapImage, "/bootstrap/current") => {
             Some("deferred: POST /bootstrap/current replaces bootstrap container")
         }
-        (JourneyId::RebootOnboardComputer, _) => Some("deferred: host reboot optional this pass"),
+        (JourneyId::SwitchLocalBlueosVersion, "/version/current") => {
+            Some("deferred: switching local core image restarts blueos-core mid-suite")
+        }
         (JourneyId::ChangeMdnsHostname, "/hostname") => {
             Some("deferred: beacon hostname mutation returns 500 on current test bed")
         }
@@ -406,7 +408,10 @@ pub fn mutating_smoke_skip_reason(
     _fixtures: &crate::fixture::FixtureInventory,
 ) -> Option<&'static str> {
     match journey_id {
-        JourneyId::ConnectToWifiNetwork => Some("connect requires real known network credentials"),
+        // POST /connect blocks on association; fake SSID hangs past useful smoke budgets.
+        JourneyId::ConnectToWifiNetwork => {
+            Some("connect association blocks; needs real SSID or async API")
+        }
         _ => None,
     }
 }
@@ -427,6 +432,20 @@ const SMOKE_EXT_LIFECYCLE_DISABLE_PATH: &str = "/extension/blueos.major_tom/disa
 const SMOKE_EXT_LIFECYCLE_ENABLE_PATH: &str = "/extension/blueos.major_tom/2026-02-11/enable";
 const SMOKE_CUSTOM_EXT_JSON: &str = r##"{"identifier":"smoke.catalog","tag":"latest","name":"Smoke Catalog","docker":"alpine","enabled":false,"permissions":"{}"}"##;
 const SMOKE_CUSTOM_EXT_UNINSTALL_PATH: &str = "/extension/smoke.catalog/latest";
+const SMOKE_DISK_DELETE_PATH: &str =
+    "/disk/paths/usr%2Fblueos%2Fuserdata%2Fsmoke-catalog%2Fdelete-me.txt";
+const SMOKE_RECORDING_DELETE_PATH: &str = "/recorder/files/smoke_catalog%2Fsmoke-catalog.mp4";
+const SMOKE_DISK_SEED_QUERY: &str = "command=docker%20exec%20blueos-core%20sh%20-c%20%27mkdir%20-p%20/usr/blueos/userdata/smoke-catalog%20%26%26%20echo%20x%3E/usr/blueos/userdata/smoke-catalog/delete-me.txt%27&i_know_what_i_am_doing=true";
+const SMOKE_RECORDING_SEED_QUERY: &str = "command=docker%20exec%20blueos-core%20sh%20-c%20%27mkdir%20-p%20/usr/blueos/userdata/recorder/smoke_catalog%20%26%26%20printf%20mp4%3E/usr/blueos/userdata/recorder/smoke_catalog/smoke-catalog.mp4%27&i_know_what_i_am_doing=true";
+const SMOKE_WIFI_SAVE_QUERY: &str = "command=bash%20-lc%20%27id%3D%24%28sudo%20wpa_cli%20-i%20wlan0%20add_network%29%20%26%26%20sudo%20wpa_cli%20-i%20wlan0%20set_network%20%22%24id%22%20ssid%20%22%5C%22__smoke_catalog__%5C%22%22%20%26%26%20sudo%20wpa_cli%20-i%20wlan0%20set_network%20%22%24id%22%20key_mgmt%20NONE%20%26%26%20sudo%20wpa_cli%20-i%20wlan0%20disable_network%20%22%24id%22%20%26%26%20sudo%20wpa_cli%20-i%20wlan0%20save_config%27&i_know_what_i_am_doing=true";
+const SMOKE_ROUTE_FLUSH_QUERY: &str =
+    "command=ip%20route%20flush%20proto%20static&i_know_what_i_am_doing=true";
+const SMOKE_ADDR_DEL_1_QUERY: &str = "command=bash%20-lc%20%27curl%20-s%20-m%2010%20-o%20%2Fdev%2Fnull%20-X%20DELETE%20%22http%3A%2F%2F127.0.0.1%2Fcable-guy%2Fv1.0%2Faddress%3Finterface_name%3Deth0%26ip_address%3D192.168.0.1%22%20%7C%7C%20true%3B%20ip%20addr%20del%20192.168.0.1%2F24%20dev%20eth0%202%3E%2Fdev%2Fnull%20%7C%7C%20true%27&i_know_what_i_am_doing=true";
+const SMOKE_ADDR_DEL_178_QUERY: &str = "command=bash%20-lc%20%27curl%20-s%20-m%2010%20-o%20%2Fdev%2Fnull%20-X%20DELETE%20%22http%3A%2F%2F127.0.0.1%2Fcable-guy%2Fv1.0%2Faddress%3Finterface_name%3Deth0%26ip_address%3D192.168.0.178%22%20%7C%7C%20true%3B%20ip%20addr%20del%20192.168.0.178%2F24%20dev%20eth0%202%3E%2Fdev%2Fnull%20%7C%7C%20true%27&i_know_what_i_am_doing=true";
+const SMOKE_RESOLV_FIX_QUERY: &str = "command=docker%20exec%20blueos-core%20sh%20-c%20%27printf%20%22nameserver%208.8.8.8%5Cnnameserver%201.1.1.1%5Cn%22%20%3E%20%2Fetc%2Fresolv.conf.host%27&i_know_what_i_am_doing=true";
+const SMOKE_LOCAL_VERSION_TAG_QUERY: &str = "command=docker%20tag%20bluerobotics%2Fblueos-core%3Amaster%20bluerobotics%2Fblueos-core%3Asmoke-catalog-deleteme&i_know_what_i_am_doing=true";
+const SMOKE_KRAKEN_MANIFEST_CLEAN_QUERY: &str = "command=docker%20exec%20blueos-core%20python3%20-c%20%22import%20json%2Cpathlib%3Bp%3Dpathlib.Path%28%27%2Froot%2F.config%2Fkraken%2Fsettings-2.json%27%29%3Bd%3Djson.loads%28p.read_text%28%29%29%3Bd%5B%27manifests%27%5D%3D%5Bm%20for%20m%20in%20d.get%28%27manifests%27%2C%5B%5D%29%20if%20m.get%28%27name%27%29%21%3D%27smoke-catalog%27%5D%3Bp.write_text%28json.dumps%28d%2Cindent%3D4%29%2Bchr%2810%29%29%22&i_know_what_i_am_doing=true";
+const SMOKE_CABLE_GUY_SETTINGS_CLEAN_QUERY: &str = "command=docker%20exec%20blueos-core%20python3%20-c%20%22import%20json%2Cpathlib%3Bp%3Dpathlib.Path%28%27%2Froot%2F.config%2Fcable-guy%2Fsettings-2.json%27%29%3Bd%3Djson.loads%28p.read_text%28%29%29%3B%5Biface.update%28%7B%27addresses%27%3A%5B%7B%27ip%27%3A%270.0.0.0%27%2C%27mode%27%3A%27client%27%7D%5D%2C%27routes%27%3A%5Br%20for%20r%20in%20%28iface.get%28%27routes%27%29%20or%20%5B%5D%29%20if%20r.get%28%27managed%27%29%20and%20str%28r.get%28%27destination%27%2C%27%27%29%29.startswith%28%27224.%27%29%5D%7D%29%20for%20iface%20in%20d.get%28%27content%27%2C%5B%5D%29%20if%20iface.get%28%27name%27%29%3D%3D%27eth0%27%5D%3Bp.write_text%28json.dumps%28d%2Cindent%3D4%29%2Bchr%2810%29%29%22&i_know_what_i_am_doing=true";
 
 /// Bind templated mutating paths to concrete smoke values (Tier-2 only).
 pub fn mutating_smoke_path_bind(journey_id: JourneyId, path: &str) -> Option<&'static str> {
@@ -446,6 +465,10 @@ pub fn mutating_smoke_path_bind(journey_id: JourneyId, path: &str) -> Option<&'s
         }
         (JourneyId::EditExtensionDevVersion, "/extension/{identifier}/{tag}") => {
             Some(SMOKE_EXT_EDIT_PATH)
+        }
+        (JourneyId::FreeDiskSpace, "/disk/paths/{target_path}") => Some(SMOKE_DISK_DELETE_PATH),
+        (JourneyId::DeleteVideoRecording, "/recorder/files/{filename}") => {
+            Some(SMOKE_RECORDING_DELETE_PATH)
         }
         _ => None,
     }
@@ -469,18 +492,44 @@ pub fn mutating_smoke_setup_calls(journey_id: JourneyId) -> &'static [SmokeHttpC
         JourneyId::VehicleFirstBoot
         | JourneyId::UpdateFirmwareOnline
         | JourneyId::UploadCustomFirmware
-        | JourneyId::RestoreDefaultFirmware => &[SmokeHttpCall {
-            route: RouteRef {
-                service: ServiceId::ArdupilotManager,
-                method: Post,
-                path: "/start",
-                version: Some("v1.0"),
+        | JourneyId::RestoreDefaultFirmware => &[
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::CableGuy,
+                    method: Post,
+                    path: "/host_dns",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: Some(SMOKE_HOST_DNS_JSON),
+                query: None,
+                form_file: None,
             },
-            expected_status: 200,
-            body: None,
-            query: None,
-            form_file: None,
-        }],
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::Commander,
+                    method: Post,
+                    path: "/command/host",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: None,
+                query: Some(SMOKE_RESOLV_FIX_QUERY),
+                form_file: None,
+            },
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::ArdupilotManager,
+                    method: Post,
+                    path: "/start",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: None,
+                query: None,
+                form_file: None,
+            },
+        ],
         JourneyId::UninstallExtension | JourneyId::EditExtensionDevVersion => &[SmokeHttpCall {
             route: RouteRef {
                 service: ServiceId::Kraken,
@@ -519,6 +568,54 @@ pub fn mutating_smoke_setup_calls(journey_id: JourneyId) -> &'static [SmokeHttpC
                 form_file: None,
             },
         ],
+        JourneyId::FreeDiskSpace => &[SmokeHttpCall {
+            route: RouteRef {
+                service: ServiceId::Commander,
+                method: Post,
+                path: "/command/host",
+                version: Some("v1.0"),
+            },
+            expected_status: 200,
+            body: None,
+            query: Some(SMOKE_DISK_SEED_QUERY),
+            form_file: None,
+        }],
+        JourneyId::DeleteVideoRecording => &[SmokeHttpCall {
+            route: RouteRef {
+                service: ServiceId::Commander,
+                method: Post,
+                path: "/command/host",
+                version: Some("v1.0"),
+            },
+            expected_status: 200,
+            body: None,
+            query: Some(SMOKE_RECORDING_SEED_QUERY),
+            form_file: None,
+        }],
+        JourneyId::ForgetSavedWifiNetwork => &[SmokeHttpCall {
+            route: RouteRef {
+                service: ServiceId::Commander,
+                method: Post,
+                path: "/command/host",
+                version: Some("v1.0"),
+            },
+            expected_status: 200,
+            body: None,
+            query: Some(SMOKE_WIFI_SAVE_QUERY),
+            form_file: None,
+        }],
+        JourneyId::DeleteLocalBlueosVersion => &[SmokeHttpCall {
+            route: RouteRef {
+                service: ServiceId::Commander,
+                method: Post,
+                path: "/command/host",
+                version: Some("v1.0"),
+            },
+            expected_status: 200,
+            body: None,
+            query: Some(SMOKE_LOCAL_VERSION_TAG_QUERY),
+            form_file: None,
+        }],
         JourneyId::RemoveCameraStream => &[SmokeHttpCall {
             route: RouteRef {
                 service: ServiceId::MavlinkCameraManager,
@@ -613,20 +710,70 @@ pub fn mutating_smoke_teardown_calls(journey_id: JourneyId) -> &'static [SmokeHt
             query: None,
             form_file: None,
         }],
-        JourneyId::AssignStaticIpAddress => &[SmokeHttpCall {
-            route: RouteRef {
-                service: ServiceId::CableGuy,
-                method: Delete,
-                path: "/address",
-                version: Some("v1.0"),
+        JourneyId::AssignStaticIpAddress => &[
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::Commander,
+                    method: Post,
+                    path: "/command/host",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: None,
+                query: Some(SMOKE_ADDR_DEL_178_QUERY),
+                form_file: None,
             },
-            expected_status: 200,
-            body: None,
-            query: Some("interface_name=eth0&ip_address=192.168.0.178"),
-            form_file: None,
-        }],
-        JourneyId::EnableOnboardDhcpServer | JourneyId::DisableOnboardDhcpServer => {
-            &[SmokeHttpCall {
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::Commander,
+                    method: Post,
+                    path: "/command/host",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: None,
+                query: Some(SMOKE_ROUTE_FLUSH_QUERY),
+                form_file: None,
+            },
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::Commander,
+                    method: Post,
+                    path: "/command/host",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: None,
+                query: Some(SMOKE_CABLE_GUY_SETTINGS_CLEAN_QUERY),
+                form_file: None,
+            },
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::CableGuy,
+                    method: Post,
+                    path: "/host_dns",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: Some(SMOKE_HOST_DNS_JSON),
+                query: None,
+                form_file: None,
+            },
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::Commander,
+                    method: Post,
+                    path: "/command/host",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: None,
+                query: Some(SMOKE_RESOLV_FIX_QUERY),
+                form_file: None,
+            },
+        ],
+        JourneyId::EnableOnboardDhcpServer | JourneyId::DisableOnboardDhcpServer => &[
+            SmokeHttpCall {
                 route: RouteRef {
                     service: ServiceId::CableGuy,
                     method: Delete,
@@ -637,18 +784,140 @@ pub fn mutating_smoke_teardown_calls(journey_id: JourneyId) -> &'static [SmokeHt
                 body: None,
                 query: Some("interface_name=eth0"),
                 form_file: None,
-            }]
-        }
-        JourneyId::ConfigureHostDns => &[SmokeHttpCall {
+            },
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::Commander,
+                    method: Post,
+                    path: "/command/host",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: None,
+                query: Some(SMOKE_ADDR_DEL_1_QUERY),
+                form_file: None,
+            },
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::Commander,
+                    method: Post,
+                    path: "/command/host",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: None,
+                query: Some(SMOKE_ROUTE_FLUSH_QUERY),
+                form_file: None,
+            },
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::Commander,
+                    method: Post,
+                    path: "/command/host",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: None,
+                query: Some(SMOKE_CABLE_GUY_SETTINGS_CLEAN_QUERY),
+                form_file: None,
+            },
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::CableGuy,
+                    method: Post,
+                    path: "/host_dns",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: Some(SMOKE_HOST_DNS_JSON),
+                query: None,
+                form_file: None,
+            },
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::Commander,
+                    method: Post,
+                    path: "/command/host",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: None,
+                query: Some(SMOKE_RESOLV_FIX_QUERY),
+                form_file: None,
+            },
+        ],
+        JourneyId::ConfigureHostDns => &[
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::CableGuy,
+                    method: Post,
+                    path: "/host_dns",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: Some(SMOKE_HOST_DNS_JSON),
+                query: None,
+                form_file: None,
+            },
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::Commander,
+                    method: Post,
+                    path: "/command/host",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: None,
+                query: Some(SMOKE_ADDR_DEL_1_QUERY),
+                form_file: None,
+            },
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::Commander,
+                    method: Post,
+                    path: "/command/host",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: None,
+                query: Some(SMOKE_ROUTE_FLUSH_QUERY),
+                form_file: None,
+            },
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::Commander,
+                    method: Post,
+                    path: "/command/host",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: None,
+                query: Some(SMOKE_CABLE_GUY_SETTINGS_CLEAN_QUERY),
+                form_file: None,
+            },
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::Commander,
+                    method: Post,
+                    path: "/command/host",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: None,
+                query: Some(SMOKE_RESOLV_FIX_QUERY),
+                form_file: None,
+            },
+        ],
+        JourneyId::AddCustomManifest => &[SmokeHttpCall {
             route: RouteRef {
-                service: ServiceId::CableGuy,
+                service: ServiceId::Commander,
                 method: Post,
-                path: "/host_dns",
+                path: "/command/host",
                 version: Some("v1.0"),
             },
             expected_status: 200,
-            body: Some(SMOKE_HOST_DNS_JSON),
-            query: None,
+            body: None,
+            query: Some(SMOKE_KRAKEN_MANIFEST_CLEAN_QUERY),
             form_file: None,
         }],
         JourneyId::ToggleHotspot => &[SmokeHttpCall {
@@ -765,6 +1034,63 @@ pub fn join_url(base: &str, path: &str) -> String {
         format!("/{path}")
     };
     format!("{base}{path}")
+}
+
+/// Poll `/status` until BlueOS has rebooted and recovered.
+///
+/// Requires at least one failed probe (downtime) before accepting HTTP 204, then
+/// waits for a short settle window so nginx backends finish coming up.
+pub fn wait_for_blueos(base: &str, timeout_secs: u64) -> Result<(), String> {
+    let status_url = join_url(base, "/status");
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(timeout_secs);
+    let mut saw_downtime = false;
+    let mut last_err = String::from("no attempts");
+
+    // Brief grace: reboot may not drop HTTP immediately after POST /shutdown returns.
+    let downtime_deadline = std::time::Instant::now() + std::time::Duration::from_secs(45);
+    while std::time::Instant::now() < downtime_deadline.min(deadline) {
+        match execute_curl(&HttpMethod::Get, &status_url, false, None, None) {
+            Ok((204, _)) => {
+                last_err = "still HTTP 204 (waiting for reboot downtime)".into();
+            }
+            Ok((code, _)) => {
+                saw_downtime = true;
+                last_err = format!("HTTP {code}");
+                break;
+            }
+            Err(err) => {
+                saw_downtime = true;
+                last_err = err;
+                break;
+            }
+        }
+        std::thread::sleep(std::time::Duration::from_secs(2));
+    }
+
+    if !saw_downtime {
+        // Soft-reboot / no drop: still require sustained 204 after a settle pause.
+        std::thread::sleep(std::time::Duration::from_secs(15));
+    }
+
+    while std::time::Instant::now() < deadline {
+        match execute_curl(&HttpMethod::Get, &status_url, false, None, None) {
+            Ok((204, _)) => {
+                // Settle so companion services (kraken/wifi/nginx upstreams) finish boot.
+                std::thread::sleep(std::time::Duration::from_secs(45));
+                match execute_curl(&HttpMethod::Get, &status_url, false, None, None) {
+                    Ok((204, _)) => return Ok(()),
+                    Ok((code, _)) => last_err = format!("HTTP {code} after settle"),
+                    Err(err) => last_err = err,
+                }
+            }
+            Ok((code, _)) => last_err = format!("HTTP {code}"),
+            Err(err) => last_err = err,
+        }
+        std::thread::sleep(std::time::Duration::from_secs(5));
+    }
+    Err(format!(
+        "BlueOS did not recover within {timeout_secs}s (last: {last_err})"
+    ))
 }
 
 pub fn resolve_http_path(catalog: &Catalog, route: &RouteRef) -> Option<String> {

@@ -136,7 +136,7 @@ const FREE_DISK_SPACE: UserJourney = UserJourney {
                 268,
             )),
             Provenance::source(DISK_MAIN, 270),
-            Some(Grounded::unknown("destructive; not exercised in capture")),
+            Some(source_outcome(204, 270)),
         ),
         operator_step(
             "Refresh the disk usage tree to confirm reclaimed space",

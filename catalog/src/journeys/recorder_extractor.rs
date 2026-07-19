@@ -155,55 +155,55 @@ const DOWNLOAD_VIDEO_RECORDING: UserJourney =
         chains_from: None,
     };
 
-const DELETE_VIDEO_RECORDING: UserJourney =
-    UserJourney {
-        id: JourneyId::DeleteVideoRecording,
-        summary: Grounded::known(
-            "Delete a recording",
-            Provenance::source(RECORDER_MAIN, 397),
+const DELETE_VIDEO_RECORDING: UserJourney = UserJourney {
+    id: JourneyId::DeleteVideoRecording,
+    summary: Grounded::known("Delete a recording", Provenance::source(RECORDER_MAIN, 397)),
+    visibility: Grounded::known(Visibility::Default, Provenance::source(RECORDER_MENUS, 138)),
+    services: RECORDER_EXTRACTOR_SERVICES,
+    capability_refs: GroundedSet::known(&[cap(
+        CapabilityId::DeleteVideoRecording,
+        "recording card delete button removes the MP4 file via DELETE /files/{filename}",
+    )]),
+    preconditions: GroundedSet::known(&[GroundedItem::new(
+        Precondition::Data(DataRequirement::RecordingListed),
+        Provenance::source(RECORDS_VIEW, 57),
+    )]),
+    steps: GroundedSet::known(&[
+        operator_step(
+            "Open the Records page from the sidebar",
+            None,
+            Provenance::source(RECORDER_MENUS, 135),
+            None,
         ),
-        visibility: Grounded::known(Visibility::Default, Provenance::source(RECORDER_MENUS, 138)),
-        services: RECORDER_EXTRACTOR_SERVICES,
-        capability_refs: GroundedSet::known(&[cap(CapabilityId::DeleteVideoRecording,
-            "recording card delete button removes the MP4 file via DELETE /files/{filename}",
-        )]),
-        preconditions: GroundedSet::known(&[GroundedItem::new(
-            Precondition::Data(DataRequirement::RecordingListed),
-            Provenance::source(RECORDS_VIEW, 57),
-        )]),
-        steps: GroundedSet::known(&[
-            operator_step(
-                "Open the Records page from the sidebar",
-                None,
-                Provenance::source(RECORDER_MENUS, 135),
-                None,
-            ),
-            operator_step(
-                "Load the list of available MP4 recordings",
-                Some(sourced_route(HttpMethod::Get, "/recorder/files", Some("v1.0"), 340)),
-                Provenance::source(RECORDER_STORE, 47),
-                Some(runtime_outcome(
-                    200,
-                    Some("[] (empty; no MP4 recordings present)"),
-                    "runtime-captures/recorder_extractor__pi4_navigator_master.json#running_baseline",
-                )),
-            ),
-            operator_step(
-                "Click the delete button on a recording card",
-                Some(sourced_route(
-                    HttpMethod::Delete,
-                    "/recorder/files/{filename}",
-                    Some("v1.0"),
-                    395,
-                )),
-                Provenance::source(RECORDS_VIEW, 126),
-                Some(pending_outcome(
-                    "DELETE /files/{filename} permanently removes the MP4 file (destructive; not exercised; no recordings present on capture host)",
-                )),
-            ),
-        ]),
-        chains_from: None,
-    };
+        operator_step(
+            "Load the list of available MP4 recordings",
+            Some(sourced_route(
+                HttpMethod::Get,
+                "/recorder/files",
+                Some("v1.0"),
+                340,
+            )),
+            Provenance::source(RECORDER_STORE, 47),
+            Some(runtime_outcome(
+                200,
+                Some("[] (empty; no MP4 recordings present)"),
+                "runtime-captures/recorder_extractor__pi4_navigator_master.json#running_baseline",
+            )),
+        ),
+        operator_step(
+            "Click the delete button on a recording card",
+            Some(sourced_route(
+                HttpMethod::Delete,
+                "/recorder/files/{filename}",
+                Some("v1.0"),
+                395,
+            )),
+            Provenance::source(RECORDS_VIEW, 126),
+            Some(source_outcome(204, 395)),
+        ),
+    ]),
+    chains_from: None,
+};
 
 const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<CapabilityId> {
     GroundedItem::new(id, Provenance::asserted(rationale))
@@ -272,6 +272,17 @@ const fn service_step(
 
 const fn pending_outcome(reason: &'static str) -> Grounded<StepOutcome> {
     Grounded::unknown(reason)
+}
+
+const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
+    Grounded::known(
+        StepOutcome {
+            expected_status: Some(status),
+            body_predicate: None,
+            transition: None,
+        },
+        Provenance::source(RECORDER_MAIN, line),
+    )
 }
 
 const fn runtime_outcome(

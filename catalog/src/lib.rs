@@ -91,8 +91,8 @@ pub use runner::{
     journey_http_mode_conflict, journey_http_requires_base, mutating_smoke_body,
     mutating_smoke_path_bind, mutating_smoke_setup_calls, mutating_smoke_skip_reason,
     mutating_smoke_teardown_calls, resolve_http_path, run_http_step, run_smoke_http_call,
-    summarize_journey, tier1_get_coverage, JourneyResult, RunCounts, RunnableStep, StepResult,
-    Tier1GetCoverage, MUTATING_SMOKE_DEFAULT_FIXTURES, SMOKE_DEFAULT_FIXTURES,
+    summarize_journey, tier1_get_coverage, wait_for_blueos, JourneyResult, RunCounts, RunnableStep,
+    StepResult, Tier1GetCoverage, MUTATING_SMOKE_DEFAULT_FIXTURES, SMOKE_DEFAULT_FIXTURES,
 };
 pub use runtime::{
     Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts, SettingsMutation, SloBaseline,

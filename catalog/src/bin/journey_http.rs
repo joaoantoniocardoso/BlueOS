@@ -10,8 +10,8 @@ use blueos_catalog::{
     journey_http_mode_conflict, journey_http_requires_base, journey_mutating_smoke_ready,
     mutating_smoke_setup_calls, mutating_smoke_skip_reason, mutating_smoke_teardown_calls,
     parse_fixture_list, resolve_http_path, run_http_step, run_smoke_http_call, summarize_journey,
-    Catalog, FixtureInventory, JourneyId, JourneyResult, PreconditionStatus, RunCounts, StepResult,
-    MUTATING_SMOKE_DEFAULT_FIXTURES, SMOKE_DEFAULT_FIXTURES,
+    wait_for_blueos, Catalog, FixtureInventory, JourneyId, JourneyResult, PreconditionStatus,
+    RunCounts, StepResult, MUTATING_SMOKE_DEFAULT_FIXTURES, SMOKE_DEFAULT_FIXTURES,
 };
 
 fn main() {
@@ -119,6 +119,12 @@ fn main() {
     let mut journeys: Vec<_> = http_journeys(&catalog);
     if mutating_smoke {
         journeys.retain(|journey| is_mutating_smoke_journey(journey.id));
+        // Forget needs healthy wpa before late hotspot churn; reboot must stay last.
+        journeys.sort_by_key(|journey| match journey.id {
+            JourneyId::ForgetSavedWifiNetwork => 0,
+            JourneyId::RebootOnboardComputer => 2,
+            _ => 1,
+        });
     }
     if let Some(filter) = journey_filter {
         journeys.retain(|journey| journey.id == filter);
@@ -240,6 +246,20 @@ fn main() {
             }
             totals.record(&result);
             step_results.push(result);
+            if mutating_smoke
+                && journey_id == JourneyId::RebootOnboardComputer
+                && matches!(step_results.last(), Some(StepResult::Pass))
+            {
+                eprintln!("journey_http: waiting for BlueOS after reboot…");
+                if let Err(err) = wait_for_blueos(base, 600) {
+                    eprintln!("FAIL {journey_id} recovery — {err}");
+                    totals.failed += 1;
+                    step_results.push(StepResult::Fail(err));
+                } else {
+                    totals.passed += 1;
+                    step_results.push(StepResult::Pass);
+                }
+            }
         }
 
         if mutating_smoke {
