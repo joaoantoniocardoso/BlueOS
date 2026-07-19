@@ -558,16 +558,29 @@ fn entry_mentions_token(entry: &PrEntry, token: &str) -> bool {
         .any(|f| f.to_lowercase().contains(&t))
 }
 
+/// All `OVERRIDES` rows (`Path` and `Pickaxe`'s path field) declared for a
+/// journey. Multi-row journeys (e.g. `ViewCameraStreams`) get every row, not
+/// just the first match — see `PRECISION_DESIGN.md` §2.
+fn journey_override_paths(journey_id: &str) -> Vec<String> {
+    use super::feature_presence::{Override, OVERRIDES};
+
+    OVERRIDES
+        .iter()
+        .filter(|(k, _)| *k == journey_id)
+        .map(|(_, ov)| match ov {
+            Override::Path(path) => (*path).to_string(),
+            Override::Pickaxe(_, path) => (*path).to_string(),
+        })
+        .collect()
+}
+
 /// Path hints for a journey's own module, drawn from the same tables
 /// `generate_feature_presence` uses to resolve intro commits: journey path
 /// overrides, the module's default service/component path, and nginx's config.
 fn module_hint_paths(journey_id: &str, module: &str) -> Vec<String> {
-    use super::feature_presence::{Override, MODULE_DEFAULT_PATH, MODULE_S, OVERRIDES};
+    use super::feature_presence::{MODULE_DEFAULT_PATH, MODULE_S};
 
-    let mut hints: Vec<String> = vec![];
-    if let Some((_, Override::Path(path))) = OVERRIDES.iter().find(|(k, _)| *k == journey_id) {
-        hints.push((*path).to_string());
-    }
+    let mut hints: Vec<String> = journey_override_paths(journey_id);
     if let Some((_, path)) = MODULE_DEFAULT_PATH.iter().find(|(m, _)| *m == module) {
         hints.push((*path).to_string());
     }
@@ -575,6 +588,23 @@ fn module_hint_paths(journey_id: &str, module: &str) -> Vec<String> {
         hints.push("core/tools/nginx/nginx.conf".to_string());
     }
     hints
+}
+
+/// Precedence per `PRECISION_DESIGN.md` §1: an explicit journey override is the
+/// discovery path — full stop. Broad module-token candidate matching (which can
+/// leak a sibling's path, e.g. `store/mavlink.ts` for a camera journey) is not
+/// consulted when an override exists.
+fn resolve_journey_discovery_paths(
+    journey_id: &str,
+    module: &str,
+    candidate_paths: &[String],
+    hint_paths: &[String],
+) -> Vec<String> {
+    let overrides = journey_override_paths(journey_id);
+    if !overrides.is_empty() {
+        return dedup_sorted(widen_with_feature_dirs(overrides));
+    }
+    discovery_paths(candidate_paths, Some(module), hint_paths)
 }
 
 /// Add the immediate parent directory of each file when it is a feature folder
@@ -596,6 +626,14 @@ fn widen_with_feature_dirs(paths: Vec<String>) -> Vec<String> {
         "common",
         "utils",
         "libs",
+        // Feature-component hubs whose sibling journeys each already have a
+        // distinct file-level `OVERRIDES` row (see `PRECISION_INVENTORY.md`);
+        // widening to the shared directory would re-merge those siblings'
+        // discovery_paths (e.g. `ConfigureCameraStream`/`ViewCameraStreams`,
+        // `AddCustomManifest`/`BrowseExtensionStore`, wifi dialogs/manager).
+        "video-manager",
+        "kraken",
+        "wifi",
     ];
     let mut out: BTreeSet<String> = paths.into_iter().collect();
     let parents: Vec<String> = out
@@ -1143,6 +1181,93 @@ mod incidental_follow_up_tests {
     }
 }
 
+#[cfg(test)]
+mod journey_override_tests {
+    use super::*;
+
+    #[test]
+    fn sibling_overrides_do_not_leak_into_each_other() {
+        // InspectZenohNetwork / RunLanSpeedTest are unrelated journeys with
+        // distinct OVERRIDES rows sharing a hypothetical commit's file list.
+        let candidate_paths = vec![
+            "core/frontend/src/views/ZenohInspectorView.vue".to_string(),
+            "core/services/pardal".to_string(),
+            "core/start-blueos-core".to_string(),
+        ];
+
+        let zenoh_paths =
+            resolve_journey_discovery_paths("InspectZenohNetwork", "zenohd", &candidate_paths, &[]);
+        let pardal_paths =
+            resolve_journey_discovery_paths("RunLanSpeedTest", "pardal", &candidate_paths, &[]);
+
+        assert!(zenoh_paths
+            .iter()
+            .any(|p| p.contains("ZenohInspectorView.vue")));
+        assert!(!zenoh_paths.iter().any(|p| p.contains("pardal")));
+
+        assert!(pardal_paths.iter().any(|p| p.contains("pardal")));
+        assert!(!pardal_paths
+            .iter()
+            .any(|p| p.contains("ZenohInspectorView.vue")));
+    }
+
+    #[test]
+    fn camera_journey_discovery_excludes_mavlink_store_leak() {
+        // A shared bootstrap-era commit that also touched mavlink2rest's
+        // frontend store — the historical source of the store/mavlink.ts leak.
+        let candidate_paths = vec![
+            "core/frontend/src/store/video.ts".to_string(),
+            "core/frontend/src/components/video-manager/VideoManager.vue".to_string(),
+            "core/frontend/src/store/mavlink.ts".to_string(),
+            "core/start-blueos-core".to_string(),
+        ];
+
+        let paths = resolve_journey_discovery_paths(
+            "ViewCameraStreams",
+            "mavlink_camera_manager",
+            &candidate_paths,
+            &module_hint_paths("ViewCameraStreams", "mavlink_camera_manager"),
+        );
+
+        assert!(paths.iter().any(|p| p.contains("store/video.ts")));
+        assert!(paths.iter().any(|p| p.contains("VideoManager.vue")));
+        assert!(!paths.iter().any(|p| p.contains("mavlink.ts")));
+    }
+
+    #[test]
+    fn camera_sibling_journeys_are_not_remerged_by_video_manager_widening() {
+        // ConfigureCameraStream's own OVERRIDES row lives in the same
+        // `video-manager/` dir as ViewCameraStreams' — widening must not pull
+        // the whole shared dir (or ViewCameraStreams' VideoManager.vue) back in.
+        let candidate_paths = vec![
+            "core/frontend/src/components/video-manager/VideoStreamCreationDialog.vue".to_string(),
+            "core/start-blueos-core".to_string(),
+        ];
+
+        let configure_paths = resolve_journey_discovery_paths(
+            "ConfigureCameraStream",
+            "mavlink_camera_manager",
+            &candidate_paths,
+            &module_hint_paths("ConfigureCameraStream", "mavlink_camera_manager"),
+        );
+        let view_paths = resolve_journey_discovery_paths(
+            "ViewCameraStreams",
+            "mavlink_camera_manager",
+            &candidate_paths,
+            &module_hint_paths("ViewCameraStreams", "mavlink_camera_manager"),
+        );
+
+        assert_ne!(configure_paths, view_paths);
+        assert!(!configure_paths
+            .iter()
+            .any(|p| p.contains("VideoManager.vue")
+                || p == "core/frontend/src/components/video-manager"));
+        assert!(configure_paths
+            .iter()
+            .any(|p| p.contains("VideoStreamCreationDialog.vue")));
+    }
+}
+
 /// BlueOS disables squash/merge-commit merges repo-wide (rebase-only), so
 /// `merge_commit_sha not in commit_shas` is always true and can't tell rebase
 /// from squash on its own (see `SQUASH_QA.md`). Classify via: parent count on
@@ -1321,7 +1446,8 @@ fn build_intro_cluster(
         };
         let module = journey.get("module").and_then(|v| v.as_str()).unwrap_or("");
         let hints = module_hint_paths(journey_id, module);
-        let mut paths = discovery_paths(&candidate_paths, Some(module), &hints);
+        let mut paths =
+            resolve_journey_discovery_paths(journey_id, module, &candidate_paths, &hints);
         let mut require_token: Option<&str> = None;
         if paths.is_empty() {
             if let Some(token) = module_s_token(module) {

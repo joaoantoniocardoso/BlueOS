@@ -22,6 +22,10 @@ pub(crate) const OVERRIDES: &[(&str, Override)] = &[
         Override::Path("core/frontend/src/views/ZenohInspectorView.vue"),
     ),
     (
+        "InspectZenohNetwork",
+        Override::Path("core/frontend/src/components/zenoh-inspector"),
+    ),
+    (
         "RunInternetSpeedTest",
         Override::Pickaxe("internet_best_server", "core/services/pardal"),
     ),
@@ -33,6 +37,14 @@ pub(crate) const OVERRIDES: &[(&str, Override)] = &[
         ),
     ),
     ("InspectDiskUsage", Override::Path("core/services/disk_usage")),
+    (
+        "InspectDiskUsage",
+        Override::Path("core/frontend/src/views/Disk.vue"),
+    ),
+    (
+        "InspectDiskUsage",
+        Override::Path("core/frontend/src/store/disk.ts"),
+    ),
     ("FreeDiskSpace", Override::Path("core/services/disk_usage")),
     (
         "RunSingleDiskSpeedTest",
@@ -95,6 +107,253 @@ pub(crate) const OVERRIDES: &[(&str, Override)] = &[
     (
         "DetectMotorDirections",
         Override::Path("core/frontend/src/components/vehiclesetup/MotorDetection.vue"),
+    ),
+    (
+        "ViewCameraStreams",
+        Override::Path("core/frontend/src/store/video.ts"),
+    ),
+    (
+        "ViewCameraStreams",
+        Override::Path("core/frontend/src/components/video-manager/VideoManager.vue"),
+    ),
+    ("AccessWebTerminal", Override::Path("core/frontend/src/views/TerminalView.vue")),
+    (
+        "ViewSystemInformation",
+        Override::Path("core/frontend/src/views/SystemInformationView.vue"),
+    ),
+    (
+        "ViewSystemInformation",
+        Override::Path("core/frontend/src/store/system-information.ts"),
+    ),
+    (
+        "InspectMavlinkMessagesInBrowser",
+        Override::Path("core/frontend/src/views/MavlinkInspectorView.vue"),
+    ),
+    (
+        "ConfigureCameraStream",
+        Override::Path("core/frontend/src/components/video-manager/VideoStreamCreationDialog.vue"),
+    ),
+    (
+        "RemoveCameraStream",
+        Override::Path("core/frontend/src/components/video-manager/VideoStream.vue"),
+    ),
+    (
+        "ConfigureUvcDeviceControls",
+        Override::Path("core/frontend/src/components/video-manager/VideoControlsDialog.vue"),
+    ),
+    (
+        "ApplyParameterFile",
+        Override::Path("core/frontend/src/components/parameter-editor/ParameterEditor.vue"),
+    ),
+    (
+        "ApplyParameterFile",
+        Override::Path("core/frontend/src/components/parameter-editor/ParameterLoader.vue"),
+    ),
+    (
+        "ApplyParameterFile",
+        Override::Path("core/frontend/src/components/parameter-editor/ParameterEditorDialog.vue"),
+    ),
+    (
+        "ApplyParameterFile",
+        Override::Path("core/frontend/src/views/ParameterEditorView.vue"),
+    ),
+    (
+        "MonitorInternetConnectivity",
+        Override::Path("core/frontend/src/store/helper.ts"),
+    ),
+    (
+        "VerifyInternetConnectivity",
+        Override::Path("core/frontend/src/components/wizard/RequireInternet.vue"),
+    ),
+    (
+        "BrowseAvailableWebServices",
+        Override::Path("core/frontend/src/views/AvailableServicesView.vue"),
+    ),
+    (
+        "BrowseAvailableWebServices",
+        Override::Path("core/frontend/src/components/scanner/availableServicesTable.vue"),
+    ),
+    (
+        "ProbeInterfaceInternetConnectivity",
+        Override::Path("core/frontend/src/components/app/NetworkInterfacePriorityMenu.vue"),
+    ),
+    ("SyncSystemTime", Override::Path("core/frontend/src/utils/update_time.ts")),
+    (
+        "EnableLegacyCameraSupport",
+        Override::Path("core/frontend/src/components/video-manager/VideoManager.vue"),
+    ),
+    ("ResetBlueosSettings", Override::Path("core/frontend/src/views/SettingsView.vue")),
+    ("RunHostCommand", Override::Path("core/frontend/src/store/commander.ts")),
+    (
+        "InspectRaspberryEepromBootloader",
+        Override::Pickaxe("getVcgencmd", "core/frontend/src/components/system-information/Firmware.vue"),
+    ),
+    (
+        "InspectRaspberryEepromBootloader",
+        Override::Pickaxe("getRaspiEEPROM", "core/frontend/src/components/system-information/Firmware.vue"),
+    ),
+    (
+        "UpdateRaspberryEepromBootloader",
+        Override::Pickaxe("doRaspiEEPROMUpdate", "core/frontend/src/components/system-information/Firmware.vue"),
+    ),
+    (
+        "DisconnectFromWifiNetwork",
+        Override::Path("core/frontend/src/components/wifi/DisconnectionDialog.vue"),
+    ),
+    (
+        "ForgetSavedWifiNetwork",
+        Override::Pickaxe("/remove", "core/frontend/src/components/wifi/ConnectionDialog.vue"),
+    ),
+    (
+        "ConnectToWifiNetwork",
+        Override::Pickaxe("/connect", "core/frontend/src/components/wifi/ConnectionDialog.vue"),
+    ),
+    (
+        "ConfigureHotspotCredentials",
+        Override::Pickaxe("hotspot_credentials", "core/frontend/src/components/wifi/WifiSettingsDialog.vue"),
+    ),
+    (
+        "ToggleSmartHotspot",
+        Override::Pickaxe("smart_hotspot", "core/frontend/src/components/wifi/WifiSettingsDialog.vue"),
+    ),
+    ("ToggleHotspot", Override::Path("core/frontend/src/components/wifi/WifiManager.vue")),
+    (
+        "UpdateBootstrapImage",
+        Override::Path("core/services/versionchooser/api/v1/routers/bootstrap.py"),
+    ),
+    (
+        "DeleteLocalBlueosVersion",
+        Override::Pickaxe("/version/delete", "core/services/versionchooser/api/v1/routers/version.py"),
+    ),
+    (
+        "AddCustomManifest",
+        Override::Path("core/frontend/src/components/kraken/BackAlleyTab.vue"),
+    ),
+    (
+        "BrowseExtensionStore",
+        Override::Path("core/frontend/src/components/kraken/BazaarTab.vue"),
+    ),
+    (
+        "InstallCustomExtension",
+        Override::Path("core/frontend/src/components/kraken/modals/ExtensionCreationModal.vue"),
+    ),
+    (
+        "ConfigureInstalledExtension",
+        Override::Path("core/frontend/src/components/kraken/cards/InstalledExtensionCard.vue"),
+    ),
+    (
+        "ConfigureInstalledExtension",
+        Override::Path("core/frontend/src/components/kraken/modals/ExtensionSettingsModal.vue"),
+    ),
+    (
+        "ConfigureInstalledExtension",
+        Override::Path("core/frontend/src/components/kraken/modals/ExtensionLogsModal.vue"),
+    ),
+    (
+        "AssignStaticIpAddress",
+        Override::Path("core/frontend/src/components/ethernet/AddressCreationDialog.vue"),
+    ),
+    (
+        "EnableOnboardDhcpServer",
+        Override::Path("core/frontend/src/components/ethernet/DHCPServerDialog.vue"),
+    ),
+    (
+        "SetNetworkInterfacePriority",
+        Override::Path("core/frontend/src/components/app/NetworkInterfacePriorityMenu.vue"),
+    ),
+    (
+        "ConfigureHostDns",
+        Override::Path("core/frontend/src/components/app/DnsConfigurationMenu.vue"),
+    ),
+    (
+        "AcquireDynamicIpAddress",
+        Override::Pickaxe("triggerForDynamicIP", "core/frontend/src/components/ethernet/InterfaceCard.vue"),
+    ),
+    (
+        "DisableOnboardDhcpServer",
+        Override::Pickaxe("removeDHCPServer", "core/frontend/src/components/ethernet/InterfaceCard.vue"),
+    ),
+    (
+        "RenameVehicle",
+        Override::Pickaxe("/vehicle_name", "core/frontend/src/components/app/VehicleBanner.vue"),
+    ),
+    (
+        "ChangeMdnsHostname",
+        Override::Pickaxe("/hostname", "core/frontend/src/components/app/VehicleBanner.vue"),
+    ),
+    (
+        "ViewConfiguredSerialBridges",
+        Override::Path("core/frontend/src/store/bridget.ts"),
+    ),
+    (
+        "CreateSerialToUdpBridge",
+        Override::Path("core/frontend/src/components/bridges/BridgeCreationDialog.vue"),
+    ),
+    ("CreateSerialToUdpBridge", Override::Path("core/services/bridget/bridget.py")),
+    (
+        "RemoveSerialBridge",
+        Override::Pickaxe("removeBridge", "core/frontend/src/components/bridges/BridgeCard.vue"),
+    ),
+    (
+        "AddExternalNmeaGpsSocket",
+        Override::Path("core/frontend/src/components/nmea-injector/NMEASocketCreationDialog.vue"),
+    ),
+    (
+        "RemoveConfiguredNmeaSocket",
+        Override::Path("core/frontend/src/components/nmea-injector/NMEASocketCard.vue"),
+    ),
+    (
+        "ViewConfiguredNmeaSockets",
+        Override::Path("core/frontend/src/components/nmea-injector/NMEAInjector.vue"),
+    ),
+    ("VehicleFirstBoot", Override::Path("core/services/ardupilot_manager/firmware")),
+    (
+        "VehicleFirstBoot",
+        Override::Path("core/frontend/src/components/autopilot/FirmwareManager.vue"),
+    ),
+    (
+        "VehicleFirstBoot",
+        Override::Pickaxe(
+            "install_firmware_from_url",
+            "core/services/ardupilot_manager/api/v1/routers/index.py",
+        ),
+    ),
+    (
+        "ChangeBoard",
+        Override::Path("core/services/ardupilot_manager/flight_controller_detector"),
+    ),
+    (
+        "ChangeBoard",
+        Override::Path("core/frontend/src/components/autopilot/BoardChangeDialog.vue"),
+    ),
+    ("RunSitlSimulation", Override::Path("core/services/ardupilot_manager/typedefs.py")),
+    (
+        "RunSitlSimulation",
+        Override::Path("core/frontend/src/components/autopilot/SitlConfiguration.vue"),
+    ),
+    (
+        "UpdateFirmwareOnline",
+        Override::Path("core/services/ardupilot_manager/firmware/FirmwareDownload.py"),
+    ),
+    (
+        "UpdateFirmwareOnline",
+        Override::Path("core/frontend/src/components/autopilot/FirmwareManager.vue"),
+    ),
+    (
+        "UploadCustomFirmware",
+        Override::Path("core/services/ardupilot_manager/firmware/FirmwareUpload.py"),
+    ),
+    (
+        "UploadCustomFirmware",
+        Override::Path("core/frontend/src/components/autopilot/FirmwareManager.vue"),
+    ),
+    (
+        "RestoreDefaultFirmware",
+        Override::Path("core/services/ardupilot_manager/firmware/FirmwareInstall.py"),
+    ),
+    (
+        "RestoreDefaultFirmware",
+        Override::Path("core/frontend/src/components/autopilot/FirmwareManager.vue"),
     ),
 ];
 
