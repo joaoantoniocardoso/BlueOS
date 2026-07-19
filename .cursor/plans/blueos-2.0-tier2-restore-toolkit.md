@@ -2,6 +2,23 @@
 
 Play Pi (`192.168.0.177`) is owned test hardware. Reimage is acceptable. Tier-2 grows by **declared restore**, not by avoiding mutation.
 
+## 100% coverage gate (typed, not yet enforced)
+
+A journey is **Tier-2 eligible** when:
+
+- `derive_automatable(journey) == Automatable::Http`, and
+- it has at least one known non-GET `RouteRef` step (concrete path, or templated — templated journeys still count but need path binding before live smoke).
+
+**Hard-excluded** from the gate (not a coverage failure): `JourneyId::ShutdownOnboardComputer` only (power-off with no automated wake). Reboot, bag overwrite, and firmware journeys remain eligible.
+
+**100%** means every eligible journey has a `MutatingSmokeEntry` in `MUTATING_SMOKE_ENTRIES` (`catalog/src/mutating_smoke.rs`). Report:
+
+```bash
+cargo run -q --bin tier2_coverage
+```
+
+Fields: `eligible_count`, `allowlisted_count`, `missing` (eligible but not allowlisted), `excluded` (shutdown). The test `tier2_mutating_coverage_is_complete` asserts `missing.is_empty()` — every eligible journey must have a `MutatingSmokeEntry` with `setup`, `restore`, and `notes`.
+
 ## Rule
 
 Every `--mutating-smoke` allowlist entry must name how state returns to a known-good baseline after the mutate step(s). Prefer the lightest restore that works.
@@ -15,26 +32,28 @@ Every `--mutating-smoke` allowlist entry must name how state returns to a known-
 3. **Service tmux restart** — attach service session, Ctrl-C, Up, Enter (reload process without full container bounce).
 4. **Container restart** — `docker restart blueos-core` (or equivalent); wait for nginx + health.
 5. **Host reboot** — reboot Pi; wait until BlueOS HTTP is back; resume smoke.
-6. **External dependency proxy** — cache/serve Docker Hub and similar so version/extension pulls do not require live upstream.
+6. **External dependency proxy** — cache/serve Docker Hub and similar so version/extension pulls do not require live upstream. When provisioning git-based sources on the Pi/container, prefer **`git clone`** (fresh tree) over **`git fetch`** into an existing checkout — cleaner, reproducible, avoids dirty/partial fetch state.
 
 ## Hard exclude
 
 - **Shutdown / power-off** with no automated wake path.
 
-## Allowlist entry shape (target)
+## Allowlist entry shape
 
-Future runner work should encode roughly:
+`MutatingSmokeEntry` in `catalog/src/mutating_smoke.rs`:
 
-```text
-MutatingSmokeEntry {
-  journey_id,
-  setup: optional provisioning of preconditions (same toolkit as restore),
-  mutate steps (+ bodies / path bindings),
-  restore: HttpPair | SnapshotRestore | TmuxRestart | ContainerRestart | HostReboot | FilesystemReplace | ProxyBackedPull,
+```rust
+pub struct MutatingSmokeEntry {
+    pub journey_id: JourneyId,
+    pub setup: SmokeRepair,      // may provision preconditions
+    pub restore: SmokeRepair,
+    pub notes: &'static str,
 }
 ```
 
-Until that type exists, document setup + restore in the allowlist decision log / comments when adding journeys.
+`SmokeRepair` variants: `None`, `HttpRoundTrip`, `FilesystemReplace`, `TmuxServiceRestart`, `ContainerRestart`, `HostReboot`, `ExternalProxy`, `ManualDocumented`.
+
+Live runner restore automation is incremental — entries declare the target repair; `journey_http --mutating-smoke` still exercises only the current allowlist.
 
 ## Not a RouteRef commit gate
 
