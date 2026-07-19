@@ -107,6 +107,7 @@ pub struct ReportTrace {
     pub backport_prs: Vec<u64>,
     pub follow_up_prs: Vec<u64>,
     pub squash_merge: bool,
+    pub merge_method: String,
     pub intro_sha_in_pr_commits: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub merge_commit_sha: Option<String>,
@@ -121,6 +122,7 @@ impl ReportTrace {
             backport_prs: cluster.backport_prs.clone(),
             follow_up_prs: cluster.follow_up_prs.clone(),
             squash_merge: cluster.squash_merge,
+            merge_method: cluster.merge_method.clone(),
             intro_sha_in_pr_commits: cluster.intro_sha_in_pr_commits,
             merge_commit_sha: cluster.merge_commit_sha.clone(),
             issue_numbers: cluster.issues.iter().map(|i| i.number).collect(),

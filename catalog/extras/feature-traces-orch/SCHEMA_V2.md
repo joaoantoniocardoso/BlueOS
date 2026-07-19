@@ -61,6 +61,7 @@ copy — this replaces v1's per-journey duplicated `trace` blob.
   "body": "## Summary\n...",
   "body_truncated": false,
   "commit_shas": ["caf22779272b469216ca4249fc5c0e4108728f32"],
+  "commit_headlines": ["core: frontend: Add initial zenoh integration"],
   "files_changed": ["core/frontend/src/views/ZenohInspectorView.vue"],
   "files_changed_truncated": false,
   "merge_commit_sha": "127f885b2dafa5a2c4ac39420fb1f5a6bc38bbab"
@@ -68,10 +69,14 @@ copy — this replaces v1's per-journey duplicated `trace` blob.
 ```
 
 `commit_shas`/`files_changed` are refs/paths only; full commit detail lives
-in the `commits` index (gap 4/7). `body` is stored in full (gap 5); cap at
-20000 chars only if exceeded, then set `body_truncated: true`. `base_ref`
-alone tells the reader whether a PR is a `1.4`/`1.4-dev` backport (gap 1) —
-no redundant boolean needed on the PR itself.
+in the `commits` index (gap 4/7). `commit_headlines` (same order as
+`commit_shas`, from `gh pr view --json commits[].messageHeadline`) exists
+solely to feed the `merge_method` classification below — `gh` truncates long
+headlines with a trailing `…`, so comparisons against it must be prefix-aware.
+`body` is stored in full (gap 5); cap at 20000 chars only if exceeded, then
+set `body_truncated: true`. `base_ref` alone tells the reader whether a PR is
+a `1.4`/`1.4-dev` backport (gap 1) — no redundant boolean needed on the PR
+itself.
 
 ## `Issue`
 
@@ -98,7 +103,8 @@ issue view` 404s (deleted/transferred/cross-repo).
 {
   "intro_commit": "127f885b2dafa5a2c4ac39420fb1f5a6bc38bbab",
   "landing_prs": [3300],
-  "squash_merge": true,
+  "squash_merge": false,
+  "merge_method": "rebase",
   "intro_sha_in_pr_commits": false,
   "merge_commit_sha": "127f885b2dafa5a2c4ac39420fb1f5a6bc38bbab",
   "backport_prs": [3350],
@@ -113,13 +119,21 @@ issue view` 404s (deleted/transferred/cross-repo).
 - **`landing_prs`** (array, usually len 1): PRs resolved from
   `commits/{intro_sha}/pulls` — v1's only PR link. Array because that API
   can return >1 PR for a shared sha (rare, but v1 already looped it).
-- **squash fields** (gap 3): `squash_merge = merge_commit_sha != null &&
-  merge_commit_sha not in landing_pr.commit_shas`. `intro_sha_in_pr_commits
-  = intro_commit in landing_pr.commit_shas`. In the common BlueOS case the
-  intro commit *is* the squash merge commit (found by walking `master`
-  path history), so `intro_sha_in_pr_commits` is `false` and
-  `merge_commit_sha == intro_commit`. `merge_commit_sha` comes from `gh pr
-  view --json mergeCommit`.
+- **merge/squash fields** (gap 3, revised per `SQUASH_QA.md`): BlueOS
+  disables squash and merge-commit merges repo-wide (rebase-only), so
+  `merge_commit_sha not in commit_shas` is *always* true and cannot
+  distinguish squash from rebase on its own. `merge_method` (`merge_commit
+  | rebase | squash | unknown`) is classified instead via
+  `git rev-list --parents` (≥2 parents ⇒ `merge_commit`) and, for 1-parent
+  tips, by comparing the rebased subject chain (`git log --format=%s`) to
+  the PR's pre-rebase commit headlines (`commit_headlines`, from `gh pr
+  view --json commits`) — a match (either order) ⇒ `rebase`, a mismatch ⇒
+  `squash`; no `merge_commit_sha` ⇒ `unknown`. `squash_merge` is now a
+  derived `merge_method == "squash"`. `intro_sha_in_pr_commits = intro_commit
+  in landing_pr.commit_shas`; under rebase-merge it is `false` by
+  construction (rebase gives every commit a new sha) — read it as "intro
+  predates the rebase", not as a squash signal. `merge_commit_sha` comes
+  from `gh pr view --json mergeCommit`.
 - **`backport_prs`** (gap 1, Probe §A): for each release line, `git log
   origin/<line>-dev -- <intro commit's files_changed>` (and `origin/<line>`
   too); empty = no backport for that line. Non-empty SHAs resolved via
@@ -180,4 +194,5 @@ refs); `schema_version: 1`.
 **Add:** `generated_at`; `commits`/`pull_requests`/`issues` top-level
 indexes; `intro_clusters` (backport/follow-up/squash/multi-source issues);
 `files_changed` on `Commit` and `PullRequest`; `body`/`body_truncated` on
-`PullRequest`; `merge_commit_sha`.
+`PullRequest`; `merge_commit_sha`; `commit_headlines` on `PullRequest`;
+`merge_method` on `IntroCluster`.

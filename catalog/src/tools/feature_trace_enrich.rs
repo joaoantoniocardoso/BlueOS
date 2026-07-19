@@ -52,6 +52,7 @@ struct PrEntry {
     body: String,
     body_truncated: bool,
     commit_shas: Vec<String>,
+    commit_headlines: Vec<String>,
     files_changed: Vec<String>,
     files_changed_truncated: bool,
     merge_commit_sha: Option<String>,
@@ -87,6 +88,7 @@ struct IntroClusterOut {
     intro_commit: String,
     landing_prs: Vec<u64>,
     squash_merge: bool,
+    merge_method: String,
     intro_sha_in_pr_commits: bool,
     merge_commit_sha: Option<String>,
     backport_prs: Vec<u64>,
@@ -265,11 +267,6 @@ fn cache_key_sanitize_re() -> &'static Regex {
     RE.get_or_init(|| Regex::new(r"[^a-zA-Z0-9._-]").expect("valid cache key sanitize regex"))
 }
 
-fn issue_search_key_re() -> &'static Regex {
-    static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| Regex::new(r"[^a-zA-Z0-9]+").expect("valid issue search key regex"))
-}
-
 fn names_of(labels: Option<&Value>) -> Vec<String> {
     labels
         .and_then(|l| l.as_array())
@@ -426,7 +423,7 @@ fn discovery_paths(paths: &[String], module: Option<&str>) -> Vec<String> {
             .cloned()
             .collect();
         if !preferred.is_empty() {
-            return dedup_sorted(preferred);
+            return dedup_sorted(widen_with_feature_dirs(preferred));
         }
     }
 
@@ -444,9 +441,45 @@ fn discovery_paths(paths: &[String], module: Option<&str>) -> Vec<String> {
         .cloned()
         .collect();
     if !focused.is_empty() {
-        return dedup_sorted(focused);
+        return dedup_sorted(widen_with_feature_dirs(focused));
     }
     dedup_sorted(cleaned)
+}
+
+/// Add the immediate parent directory of each file when it is a feature folder
+/// (not a generic hub like `components` / `configuration` / `src`). That covers
+/// siblings added later (`zenoh-inspector/ZenohNetwork.vue`) without widening all
+/// the way to coarse hubs (`vehiclesetup/`), which pulls unrelated follow-ups.
+fn widen_with_feature_dirs(paths: Vec<String>) -> Vec<String> {
+    const HUBS: &[&str] = &[
+        "components",
+        "views",
+        "store",
+        "types",
+        "src",
+        "frontend",
+        "core",
+        "services",
+        "configuration",
+        "overview",
+        "common",
+        "utils",
+        "libs",
+    ];
+    let mut out: BTreeSet<String> = paths.into_iter().collect();
+    let parents: Vec<String> = out
+        .iter()
+        .filter_map(|p| {
+            let parent = std::path::Path::new(p).parent()?;
+            let name = parent.file_name()?.to_str()?;
+            if HUBS.contains(&name) {
+                return None;
+            }
+            Some(parent.to_string_lossy().replace('\\', "/"))
+        })
+        .collect();
+    out.extend(parents);
+    out.into_iter().collect()
 }
 
 fn dedup_sorted(items: Vec<String>) -> Vec<String> {
@@ -601,13 +634,25 @@ fn build_pr_entry(number: u64, raw: &Value) -> PrEntry {
     let (files, files_truncated) = cap_list(files_raw, FILES_CAP);
     let body_raw = raw.get("body").and_then(|b| b.as_str()).unwrap_or("");
     let (body, body_truncated) = cap_text(body_raw, BODY_CAP);
-    let commit_shas: Vec<String> = raw
+    let mut commit_shas: Vec<String> = vec![];
+    let mut commit_headlines: Vec<String> = vec![];
+    for c in raw
         .get("commits")
         .and_then(|c| c.as_array())
         .into_iter()
         .flatten()
-        .filter_map(|c| c.get("oid").and_then(|o| o.as_str()).map(String::from))
-        .collect();
+    {
+        let Some(oid) = c.get("oid").and_then(|o| o.as_str()) else {
+            continue;
+        };
+        commit_shas.push(oid.to_string());
+        commit_headlines.push(
+            c.get("messageHeadline")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+        );
+    }
     PrEntry {
         number,
         title: raw.get("title").and_then(|v| v.as_str()).map(String::from),
@@ -638,6 +683,7 @@ fn build_pr_entry(number: u64, raw: &Value) -> PrEntry {
         body,
         body_truncated,
         commit_shas,
+        commit_headlines,
         files_changed: files,
         files_changed_truncated: files_truncated,
         merge_commit_sha: raw
@@ -721,44 +767,6 @@ fn gh_pr_timeline_issue_refs(root: &Path, cache_dir: &Path, number: u64) -> Vec<
         .collect()
 }
 
-/// Lowest-confidence fallback; only called when no other signal found an issue.
-fn gh_issue_search(root: &Path, cache_dir: &Path, keyword: &str) -> Vec<u64> {
-    let safe_keyword = issue_search_key_re()
-        .replace_all(&keyword.to_lowercase(), "_")
-        .to_string();
-    let key = format!("issue_search_{safe_keyword}");
-    let data = cached_json(cache_dir, &key, || {
-        let raw = run_ok_dyn(
-            root,
-            &[
-                "gh".into(),
-                "issue".into(),
-                "list".into(),
-                "--repo".into(),
-                REPO.into(),
-                "--search".into(),
-                format!("{keyword} in:title"),
-                "--state".into(),
-                "all".into(),
-                "--json".into(),
-                "number".into(),
-                "--limit".into(),
-                "20".into(),
-            ],
-        );
-        shell::sleep_cold();
-        match raw {
-            None => Value::Array(vec![]),
-            Some(s) => serde_json::from_str(&s).unwrap_or(Value::Array(vec![])),
-        }
-    });
-    data.as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(|d| d.get("number").and_then(|v| v.as_u64()))
-        .collect()
-}
-
 /// Probe §A: path-scoped git log over each release line, restricted to `origin/<branch>`.
 fn discover_backport_prs(
     ctx: &mut Ctx,
@@ -827,10 +835,93 @@ fn discover_follow_up_prs(
         if landing_prs.contains(&number) {
             continue;
         }
-        ctx.get_pr(number)?;
+        let (_raw, entry) = ctx.get_pr(number)?;
+        if is_repo_wide_sweep(&entry.files_changed, paths) {
+            continue;
+        }
         follow_up_prs.push(number);
     }
     Ok(follow_up_prs)
+}
+
+/// Reject repo-wide sweeps (lint/dependency-bump PRs) that only incidentally
+/// touch a feature's paths: >20 files changed and <10% of them in-scope.
+fn is_repo_wide_sweep(files_changed: &[String], discovery_paths: &[String]) -> bool {
+    if files_changed.len() <= 20 {
+        return false;
+    }
+    let covered = files_changed
+        .iter()
+        .filter(|f| {
+            discovery_paths
+                .iter()
+                .any(|p| f.as_str() == p.as_str() || f.starts_with(&format!("{p}/")))
+        })
+        .count();
+    (covered as f64 / files_changed.len() as f64) < 0.10
+}
+
+/// BlueOS disables squash/merge-commit merges repo-wide (rebase-only), so
+/// `merge_commit_sha not in commit_shas` is always true and can't tell rebase
+/// from squash on its own (see `SQUASH_QA.md`). Classify via: parent count on
+/// `merge_commit_sha` (>=2 ⇒ an actual merge commit); otherwise compare the
+/// rebased tip's subject chain to the PR's pre-rebase commit headlines —
+/// matching (in either order) means rebase, a mismatch means squash.
+fn classify_merge_method(
+    root: &Path,
+    merge_commit_sha: Option<&str>,
+    headlines: &[String],
+) -> String {
+    let Some(merge_sha) = merge_commit_sha else {
+        return "unknown".to_string();
+    };
+    let Some(parents_out) =
+        shell::run_ok(&["git", "rev-list", "--parents", "-n1", merge_sha], root)
+    else {
+        return "unknown".to_string();
+    };
+    if parents_out.split_whitespace().count() >= 3 {
+        return "merge_commit".to_string();
+    }
+    if headlines.is_empty() {
+        return "unknown".to_string();
+    }
+    let n_arg = format!("-n{}", headlines.len());
+    let Some(chain_out) = run_ok_dyn(
+        root,
+        &[
+            "git".into(),
+            "log".into(),
+            "--format=%s".into(),
+            n_arg,
+            merge_sha.into(),
+        ],
+    ) else {
+        return "unknown".to_string();
+    };
+    let chain: Vec<&str> = chain_out.lines().collect();
+    let forward: Vec<&str> = headlines.iter().map(String::as_str).collect();
+    let reversed: Vec<&str> = forward.iter().rev().copied().collect();
+    if subject_chains_match(&chain, &forward) || subject_chains_match(&chain, &reversed) {
+        "rebase".to_string()
+    } else {
+        "squash".to_string()
+    }
+}
+
+/// `gh`'s `messageHeadline` truncates long subjects with a trailing `…`
+/// (unlike `git log --format=%s`), so compare as a prefix when truncated.
+fn subject_chains_match(git_subjects: &[&str], gh_headlines: &[&str]) -> bool {
+    git_subjects.len() == gh_headlines.len()
+        && git_subjects
+            .iter()
+            .zip(gh_headlines.iter())
+            .all(
+                |(git_subject, gh_headline)| match gh_headline.strip_suffix('…') {
+                    Some(prefix) => git_subject.starts_with(prefix),
+                    None => git_subject == gh_headline,
+                },
+            )
 }
 
 fn add_source(
@@ -877,11 +968,17 @@ fn build_intro_cluster(
     let merge_commit_sha = primary_entry
         .as_ref()
         .and_then(|e| e.merge_commit_sha.clone());
+    let primary_commit_headlines = primary_entry
+        .as_ref()
+        .map(|e| e.commit_headlines.clone())
+        .unwrap_or_default();
     let intro_sha_in_pr_commits = primary_commit_shas.iter().any(|s| s == intro_sha);
-    let squash_merge = match &merge_commit_sha {
-        Some(m) => !primary_commit_shas.contains(m),
-        None => false,
-    };
+    let merge_method = classify_merge_method(
+        ctx.root,
+        merge_commit_sha.as_deref(),
+        &primary_commit_headlines,
+    );
+    let squash_merge = merge_method == "squash";
 
     let module = group
         .first()
@@ -956,14 +1053,6 @@ fn build_intro_cluster(
         }
     }
 
-    if cluster_sources.is_empty() {
-        if let Some(module) = module {
-            for number in gh_issue_search(ctx.root, ctx.cache_dir, module) {
-                add_source(&mut cluster_sources, number, "search", None);
-            }
-        }
-    }
-
     let issue_numbers: Vec<u64> = cluster_sources.keys().copied().collect();
     for number in issue_numbers {
         ctx.get_issue(number);
@@ -973,6 +1062,7 @@ fn build_intro_cluster(
         intro_commit: intro_sha.to_string(),
         landing_prs,
         squash_merge,
+        merge_method,
         intro_sha_in_pr_commits,
         merge_commit_sha,
         backport_prs,

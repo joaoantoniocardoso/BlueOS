@@ -64,6 +64,8 @@ pub struct TracePullRequest {
     #[serde(default)]
     pub commit_shas: Vec<String>,
     #[serde(default)]
+    pub commit_headlines: Vec<String>,
+    #[serde(default)]
     pub files_changed: Vec<String>,
     #[serde(default)]
     pub files_changed_truncated: bool,
@@ -108,12 +110,18 @@ pub struct ClusterIssueRef {
     pub sources: Vec<IssueSource>,
 }
 
+fn default_merge_method() -> String {
+    "unknown".to_string()
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct IntroCluster {
     pub intro_commit: String,
     #[serde(default)]
     pub landing_prs: Vec<u64>,
     pub squash_merge: bool,
+    #[serde(default = "default_merge_method")]
+    pub merge_method: String,
     pub intro_sha_in_pr_commits: bool,
     pub merge_commit_sha: Option<String>,
     #[serde(default)]
