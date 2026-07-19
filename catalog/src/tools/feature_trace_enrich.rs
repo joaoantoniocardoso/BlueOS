@@ -836,7 +836,7 @@ fn discover_follow_up_prs(
             continue;
         }
         let (_raw, entry) = ctx.get_pr(number)?;
-        if is_repo_wide_sweep(&entry.files_changed, paths) {
+        if is_incidental_follow_up(&entry, paths) {
             continue;
         }
         follow_up_prs.push(number);
@@ -844,21 +844,164 @@ fn discover_follow_up_prs(
     Ok(follow_up_prs)
 }
 
-/// Reject repo-wide sweeps (lint/dependency-bump PRs) that only incidentally
-/// touch a feature's paths: >20 files changed and <10% of them in-scope.
-fn is_repo_wide_sweep(files_changed: &[String], discovery_paths: &[String]) -> bool {
-    if files_changed.len() <= 20 {
-        return false;
-    }
-    let covered = files_changed
+fn discovery_path_covers(file: &str, discovery_paths: &[String]) -> bool {
+    discovery_paths
         .iter()
-        .filter(|f| {
-            discovery_paths
-                .iter()
-                .any(|p| f.as_str() == p.as_str() || f.starts_with(&format!("{p}/")))
-        })
-        .count();
-    (covered as f64 / files_changed.len() as f64) < 0.10
+        .any(|p| file == p.as_str() || file.starts_with(&format!("{p}/")))
+}
+
+fn covered_file_count(files_changed: &[String], discovery_paths: &[String]) -> usize {
+    files_changed
+        .iter()
+        .filter(|f| discovery_path_covers(f, discovery_paths))
+        .count()
+}
+
+/// Title substrings for repo-wide sweeps that only incidentally touch feature paths.
+const FOLLOW_UP_TITLE_DENY_SUBSTR: &[&str] = &[
+    "isort",
+    "pylint",
+    "ruff",
+    "mypy",
+    "flake8",
+    "eslint",
+    "prettier",
+    "clippy",
+    "random typo",
+    "random typos",
+    "typo fix",
+    "rework project to use",
+    "sanitize lib",
+    "update kraken",
+    "100% mobile",
+    "mobile friendly",
+    "sentry sdk",
+    "limit_ram_usage",
+    "uv package manager",
+    "migrate to uv",
+    "pyproject.toml",
+    "poetry to ",
+    "chaining operator",
+    "optional chaining",
+    "base image",
+];
+
+fn follow_up_title_denied(title: &str) -> bool {
+    let lower = title.to_lowercase();
+    FOLLOW_UP_TITLE_DENY_SUBSTR
+        .iter()
+        .any(|needle| lower.contains(needle))
+        || {
+            // Word-ish match for short lint tokens that appear as whole words.
+            lower
+                .split(|c: char| !c.is_ascii_alphanumeric() && c != '_')
+                .any(|w| matches!(w, "lint" | "lints" | "linter" | "linting" | "black"))
+        }
+}
+
+/// Drop incidental follow-ups: title denylist, thin path overlap on medium PRs,
+/// and repo-wide sweep fraction on large PRs.
+fn is_incidental_follow_up(entry: &PrEntry, discovery_paths: &[String]) -> bool {
+    let title = entry.title.as_deref().unwrap_or("");
+    if follow_up_title_denied(title) {
+        return true;
+    }
+
+    let files = &entry.files_changed;
+    let covered = covered_file_count(files, discovery_paths);
+
+    // Medium PRs that only graze one discovery path are almost always sweeps.
+    if files.len() > 12 && covered < 2 {
+        return true;
+    }
+
+    // Large diffs must still be mostly about this feature.
+    if files.len() > 20 {
+        let frac = covered as f64 / files.len() as f64;
+        if frac < 0.10 {
+            return true;
+        }
+    }
+
+    false
+}
+
+#[cfg(test)]
+mod incidental_follow_up_tests {
+    use super::*;
+
+    fn pr(title: &str, files: &[&str]) -> PrEntry {
+        PrEntry {
+            number: 1,
+            title: Some(title.to_string()),
+            url: None,
+            state: None,
+            author: None,
+            merged_at: None,
+            closed_at: None,
+            base_ref: None,
+            head_ref: None,
+            labels: vec![],
+            body: String::new(),
+            body_truncated: false,
+            commit_shas: vec![],
+            commit_headlines: vec![],
+            files_changed: files.iter().map(|s| (*s).to_string()).collect(),
+            files_changed_truncated: false,
+            merge_commit_sha: None,
+        }
+    }
+
+    #[test]
+    fn title_denylist_drops_isort() {
+        let paths = vec!["core/services/helper".into()];
+        assert!(is_incidental_follow_up(
+            &pr("Core: isort fixes", &["core/services/helper/main.py"]),
+            &paths
+        ));
+    }
+
+    #[test]
+    fn medium_pr_with_single_graze_dropped() {
+        let paths = vec!["core/frontend/src/components/zenoh-inspector".into()];
+        let mut files = vec!["core/frontend/src/components/zenoh-inspector/A.vue".to_string()];
+        for i in 0..13 {
+            files.push(format!("core/unrelated/file_{i}.py"));
+        }
+        let mut entry = pr("Tweaks around the tree", &[]);
+        entry.files_changed = files;
+        assert!(is_incidental_follow_up(&entry, &paths));
+    }
+
+    #[test]
+    fn zenoh_style_medium_pr_with_two_hits_kept() {
+        let paths = vec!["core/frontend/src/components/zenoh-inspector".into()];
+        let mut files = vec![
+            "core/frontend/src/components/zenoh-inspector/A.vue".to_string(),
+            "core/frontend/src/components/zenoh-inspector/B.vue".to_string(),
+        ];
+        for i in 0..12 {
+            files.push(format!("core/services/other/f_{i}.py"));
+        }
+        let mut entry = pr("Update zenoh and enable shared memory", &[]);
+        entry.files_changed = files;
+        assert!(!is_incidental_follow_up(&entry, &paths));
+    }
+
+    #[test]
+    fn small_feature_pr_kept() {
+        let paths = vec!["core/services/disk_usage".into()];
+        assert!(!is_incidental_follow_up(
+            &pr(
+                "core: services: disk_usage: Add speed test",
+                &[
+                    "core/services/disk_usage/main.py",
+                    "core/frontend/src/views/Disk.vue",
+                ],
+            ),
+            &paths
+        ));
+    }
 }
 
 /// BlueOS disables squash/merge-commit merges repo-wide (rebase-only), so

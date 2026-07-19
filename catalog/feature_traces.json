@@ -42206,7 +42206,7 @@
       "url": "https://github.com/bluerobotics/BlueOS/commit/fff549e84987192fd579fbbbe75b1ecfe0fd306b"
     }
   },
-  "generated_at": "2026-07-19T15:04:51-03:00",
+  "generated_at": "2026-07-19T15:16:14-03:00",
   "intro_clusters": {
     "0384553acf477997f725d2874873d51b1c9db7db": {
       "backport_prs": [],
@@ -42231,17 +42231,13 @@
         558,
         607,
         608,
-        672,
         679,
         787,
         885,
-        942,
-        969,
         981,
         986,
         994,
         1006,
-        1013,
         1292,
         1321,
         1330,
@@ -42249,24 +42245,14 @@
         1340,
         1350,
         1364,
-        1370,
         1381,
-        1388,
-        1403,
         1428,
-        1512,
         2071,
         2098,
         2100,
         2103,
-        2104,
-        2269,
         2379,
-        2392,
         2452,
-        3357,
-        3396,
-        3427,
         3787
       ],
       "intro_commit": "0384553acf477997f725d2874873d51b1c9db7db",
@@ -42282,38 +42268,11 @@
           ]
         },
         {
-          "number": 458,
-          "sources": [
-            {
-              "kind": "closing",
-              "pr": 942
-            }
-          ]
-        },
-        {
           "number": 520,
           "sources": [
             {
               "kind": "closing",
               "pr": 608
-            }
-          ]
-        },
-        {
-          "number": 530,
-          "sources": [
-            {
-              "kind": "closing",
-              "pr": 942
-            }
-          ]
-        },
-        {
-          "number": 531,
-          "sources": [
-            {
-              "kind": "closing",
-              "pr": 942
             }
           ]
         },
@@ -42354,29 +42313,11 @@
           ]
         },
         {
-          "number": 777,
-          "sources": [
-            {
-              "kind": "closing",
-              "pr": 942
-            }
-          ]
-        },
-        {
           "number": 790,
           "sources": [
             {
               "kind": "closing",
               "pr": 981
-            }
-          ]
-        },
-        {
-          "number": 949,
-          "sources": [
-            {
-              "kind": "closing",
-              "pr": 942
             }
           ]
         },
@@ -42519,7 +42460,6 @@
         3668,
         3676,
         3736,
-        3785,
         3788,
         3799,
         3826,
@@ -42528,7 +42468,6 @@
         3860,
         3874,
         3915,
-        3930,
         3962,
         3978,
         3983
@@ -42536,15 +42475,6 @@
       "intro_commit": "11088c7b8afe328e40a7104b149c782cac101b51",
       "intro_sha_in_pr_commits": false,
       "issues": [
-        {
-          "number": 191,
-          "sources": [
-            {
-              "kind": "closing",
-              "pr": 3785
-            }
-          ]
-        },
         {
           "number": 1682,
           "sources": [
@@ -42780,7 +42710,6 @@
         3676,
         3689,
         3736,
-        3785,
         3788,
         3799,
         3826,
@@ -42790,7 +42719,6 @@
         3874,
         3914,
         3915,
-        3930,
         3954,
         3962,
         3978,
@@ -42799,15 +42727,6 @@
       "intro_commit": "22025de9a5d75336a7b45f742d471f6c78284abf",
       "intro_sha_in_pr_commits": false,
       "issues": [
-        {
-          "number": 191,
-          "sources": [
-            {
-              "kind": "closing",
-              "pr": 3785
-            }
-          ]
-        },
         {
           "number": 1682,
           "sources": [
@@ -42962,10 +42881,8 @@
         787,
         796,
         885,
-        969,
         981,
         986,
-        1013,
         1018,
         1055,
         1066,
@@ -42976,22 +42893,12 @@
         1334,
         1363,
         1366,
-        1403,
         1413,
-        1453,
-        1512,
-        2104,
         2240,
-        2256,
-        2269,
         2322,
-        2392,
         2872,
         2879,
-        2954,
-        3357,
-        3396,
-        3427
+        2954
       ],
       "intro_commit": "295763cb8ff9cd4d3fe08f49457a515ca5b68074",
       "intro_sha_in_pr_commits": false,
@@ -43091,15 +42998,6 @@
           ]
         },
         {
-          "number": 1175,
-          "sources": [
-            {
-              "kind": "closing",
-              "pr": 2256
-            }
-          ]
-        },
-        {
           "number": 2197,
           "sources": [
             {
@@ -43192,7 +43090,6 @@
         2582,
         2638,
         2719,
-        2759,
         2769,
         2794,
         2800,
@@ -43204,7 +43101,6 @@
         3159,
         3222,
         3272,
-        3785,
         3826,
         3874,
         3962
@@ -43213,29 +43109,11 @@
       "intro_sha_in_pr_commits": false,
       "issues": [
         {
-          "number": 191,
-          "sources": [
-            {
-              "kind": "closing",
-              "pr": 3785
-            }
-          ]
-        },
-        {
           "number": 2618,
           "sources": [
             {
               "kind": "closing",
               "pr": 2638
-            }
-          ]
-        },
-        {
-          "number": 2757,
-          "sources": [
-            {
-              "kind": "closing",
-              "pr": 2759
             }
           ]
         },
@@ -43305,7 +43183,6 @@
         1776,
         1816,
         1850,
-        1889,
         1922,
         1969,
         1997,
@@ -43652,11 +43529,7 @@
       ],
       "follow_up_prs": [
         925,
-        2104,
         2237,
-        2392,
-        3357,
-        3427,
         3602,
         3758
       ],
@@ -43725,30 +43598,17 @@
         592,
         653,
         666,
-        672,
         700,
         787,
         1111,
-        1143,
-        1512,
-        1889,
         1925,
         1940,
         2057,
         2085,
-        2104,
-        2256,
-        2269,
         2322,
         2354,
-        2392,
         2576,
-        3357,
-        3396,
-        3427,
         3430,
-        3535,
-        3686,
         3713
       ],
       "intro_commit": "5de1feb47221db3c88d2ed669ae91de43aeefd6d",
@@ -43823,15 +43683,6 @@
             {
               "kind": "closing",
               "pr": 700
-            }
-          ]
-        },
-        {
-          "number": 1175,
-          "sources": [
-            {
-              "kind": "closing",
-              "pr": 2256
             }
           ]
         },
@@ -43928,7 +43779,6 @@
         "core/services/cable_guy/swagger/cable-guy.yaml"
       ],
       "follow_up_prs": [
-        2392,
         2682,
         2988,
         3011,
@@ -43947,10 +43797,6 @@
         3298,
         3301,
         3311,
-        3321,
-        3357,
-        3396,
-        3427,
         3463,
         3479,
         3564,
@@ -44097,11 +43943,9 @@
         "core/services/versionchooser/utils/dockerhub.py"
       ],
       "follow_up_prs": [
-        672,
         732,
         741,
         745,
-        751,
         753,
         754,
         770,
@@ -44109,30 +43953,23 @@
         812,
         829,
         851,
-        871,
         894,
         910,
         1005,
         1100,
-        1216,
         1387,
-        1429,
         1531,
         1652,
         1653,
         1848,
         1872,
-        1889,
         1943,
         1945,
         1950,
         2027,
         2036,
         2068,
-        2104,
         2134,
-        2256,
-        2392,
         2459,
         2526,
         2528,
@@ -44143,15 +43980,10 @@
         2931,
         3081,
         3109,
-        3357,
-        3396,
         3412,
-        3427,
         3435,
         3490,
-        3535,
         3628,
-        3658,
         3696,
         3805
       ],
@@ -44213,15 +44045,6 @@
           ]
         },
         {
-          "number": 715,
-          "sources": [
-            {
-              "kind": "closing",
-              "pr": 871
-            }
-          ]
-        },
-        {
           "number": 757,
           "sources": [
             {
@@ -44236,24 +44059,6 @@
             {
               "kind": "closing",
               "pr": 770
-            }
-          ]
-        },
-        {
-          "number": 772,
-          "sources": [
-            {
-              "kind": "closing",
-              "pr": 871
-            }
-          ]
-        },
-        {
-          "number": 1175,
-          "sources": [
-            {
-              "kind": "closing",
-              "pr": 2256
             }
           ]
         },
@@ -44392,7 +44197,6 @@
         3668,
         3676,
         3736,
-        3785,
         3788,
         3799,
         3826,
@@ -44401,7 +44205,6 @@
         3860,
         3874,
         3915,
-        3930,
         3962,
         3978,
         3983
@@ -44409,15 +44212,6 @@
       "intro_commit": "81fddcf87fdd5f55c424224e10fb4ed8b06f69ff",
       "intro_sha_in_pr_commits": false,
       "issues": [
-        {
-          "number": 191,
-          "sources": [
-            {
-              "kind": "closing",
-              "pr": 3785
-            }
-          ]
-        },
         {
           "number": 1682,
           "sources": [
@@ -44564,19 +44358,12 @@
         1096,
         1098,
         1099,
-        1143,
-        1512,
         1687,
-        1889,
         1899,
         1900,
         1904,
         1958,
         2068,
-        2104,
-        2256,
-        2269,
-        2392,
         2765,
         2811,
         2881,
@@ -44592,11 +44379,6 @@
         3239,
         3240,
         3245,
-        3257,
-        3357,
-        3396,
-        3427,
-        3535,
         3567
       ],
       "intro_commit": "899812c65007508991988897e32eb778213ac74c",
@@ -44639,15 +44421,6 @@
             {
               "kind": "closing",
               "pr": 1098
-            }
-          ]
-        },
-        {
-          "number": 1175,
-          "sources": [
-            {
-              "kind": "closing",
-              "pr": 2256
             }
           ]
         },
@@ -44747,7 +44520,6 @@
         2407,
         2412,
         2440,
-        2539,
         2740,
         2741,
         2748,
@@ -44810,15 +44582,6 @@
             {
               "kind": "closing",
               "pr": 2367
-            }
-          ]
-        },
-        {
-          "number": 2489,
-          "sources": [
-            {
-              "kind": "closing",
-              "pr": 2539
             }
           ]
         },
@@ -44918,17 +44681,12 @@
       ],
       "follow_up_prs": [
         3043,
-        3357,
-        3396,
         3412,
-        3427,
         3435,
         3490,
-        3535,
         3601,
         3605,
         3628,
-        3658,
         3687,
         3696,
         3805,
@@ -45040,8 +44798,6 @@
         346,
         362,
         370,
-        378,
-        379,
         476,
         482,
         552,
@@ -45051,14 +44807,10 @@
         750,
         866,
         980,
-        1029,
         1122,
         1126,
-        1143,
         1226,
         1291,
-        1532,
-        1889,
         2072,
         2106,
         2223,
@@ -45085,7 +44837,6 @@
         3128,
         3139,
         3256,
-        3257,
         3261,
         3340,
         3342,
@@ -45406,7 +45157,6 @@
         3018,
         3020,
         3028,
-        3055,
         3056,
         3088,
         3097,
@@ -45418,7 +45168,6 @@
         3232,
         3239,
         3250,
-        3357,
         3362,
         3435,
         3454,
@@ -45426,21 +45175,18 @@
         3514,
         3515,
         3516,
-        3535,
         3564,
         3598,
         3602,
         3628,
         3659,
         3677,
-        3686,
         3696,
         3727,
         3729,
         3762,
         3775,
-        3902,
-        3930
+        3902
       ],
       "intro_commit": "c4fe82a264d4e5d8cccd40364d69a432560f7807",
       "intro_sha_in_pr_commits": false,
@@ -45652,11 +45398,7 @@
         3216,
         3297,
         3316,
-        3357,
         3382,
-        3396,
-        3427,
-        3535,
         3556,
         3563,
         3568,
@@ -45669,7 +45411,6 @@
         3646,
         3649,
         3657,
-        3686,
         3700,
         3702,
         3732,
@@ -45686,8 +45427,7 @@
         3883,
         3903,
         3946,
-        3952,
-        3953
+        3952
       ],
       "intro_commit": "ce9c65e18f0b3f333983bd8810b062c8fe60a6ee",
       "intro_sha_in_pr_commits": false,
@@ -45856,25 +45596,17 @@
         1431,
         1467,
         1507,
-        1512,
         1521,
         1523,
         1528,
         1649,
         1963,
         1968,
-        2104,
         2128,
-        2256,
-        2269,
         2325,
-        2392,
         2865,
         2998,
         3250,
-        3357,
-        3396,
-        3427,
         3677
       ],
       "intro_commit": "d1c0ee626e362a93d77fbc1209122458af5daead",
@@ -45944,15 +45676,6 @@
             {
               "kind": "closing",
               "pr": 868
-            }
-          ]
-        },
-        {
-          "number": 1175,
-          "sources": [
-            {
-              "kind": "closing",
-              "pr": 2256
             }
           ]
         },
@@ -46050,7 +45773,6 @@
         3668,
         3676,
         3736,
-        3785,
         3788,
         3799,
         3826,
@@ -46059,7 +45781,6 @@
         3860,
         3874,
         3915,
-        3930,
         3962,
         3978,
         3983
@@ -46067,15 +45788,6 @@
       "intro_commit": "dc388cef20f9e68c60d8253539f22e257aa15c35",
       "intro_sha_in_pr_commits": false,
       "issues": [
-        {
-          "number": 191,
-          "sources": [
-            {
-              "kind": "closing",
-              "pr": 3785
-            }
-          ]
-        },
         {
           "number": 1682,
           "sources": [
@@ -46229,15 +45941,9 @@
       "follow_up_prs": [
         1602,
         1605,
-        2104,
-        2269,
         2341,
-        2392,
         2761,
         3220,
-        3357,
-        3396,
-        3427,
         3731,
         3961
       ],
@@ -46299,44 +46005,26 @@
         960,
         966,
         977,
-        1019,
         1058,
         1103,
         1107,
         1144,
         1145,
-        1159,
         1167,
-        1512,
         1589,
         1590,
         1711,
         1916,
         1920,
         2099,
-        2104,
         2150,
-        2256,
-        2392,
         2433,
         2549,
-        3157,
-        3357,
-        3396,
-        3427
+        3157
       ],
       "intro_commit": "f5958d484bf1a283104cd79b0be3abc16effc26a",
       "intro_sha_in_pr_commits": false,
       "issues": [
-        {
-          "number": 307,
-          "sources": [
-            {
-              "kind": "closing",
-              "pr": 1019
-            }
-          ]
-        },
         {
           "number": 360,
           "sources": [
@@ -46395,15 +46083,6 @@
           ]
         },
         {
-          "number": 1175,
-          "sources": [
-            {
-              "kind": "closing",
-              "pr": 2256
-            }
-          ]
-        },
-        {
           "number": 1827,
           "sources": [
             {
@@ -46452,7 +46131,6 @@
         1843,
         1851,
         1857,
-        1889,
         1949,
         1964,
         1986,
@@ -46460,19 +46138,15 @@
         2068,
         2088,
         2090,
-        2104,
         2114,
         2117,
-        2256,
         2257,
-        2269,
         2280,
         2331,
         2356,
         2403,
         2449,
         2450,
-        2634,
         2745,
         2815,
         2818,
@@ -46486,23 +46160,18 @@
         3028,
         3088,
         3121,
-        3357,
         3362,
-        3396,
-        3427,
         3454,
         3514,
         3515,
         3516,
-        3535,
         3598,
         3602,
         3659,
         3729,
         3758,
         3762,
-        3775,
-        3930
+        3775
       ],
       "intro_commit": "f72511146a462b883dc18556f53c682542597d26",
       "intro_sha_in_pr_commits": false,
@@ -46522,15 +46191,6 @@
             {
               "kind": "closing",
               "pr": 1989
-            }
-          ]
-        },
-        {
-          "number": 1175,
-          "sources": [
-            {
-              "kind": "closing",
-              "pr": 2256
             }
           ]
         },
@@ -46737,17 +46397,6 @@
       "state": "CLOSED",
       "title": "NMEA Injector should list the supported NMEA sentences",
       "url": "https://github.com/bluerobotics/BlueOS/issues/1157"
-    },
-    "1175": {
-      "author": "ES-Alexander",
-      "closed_at": "2023-12-20T15:51:28Z",
-      "created_at": "2022-10-14T06:31:14Z",
-      "labels": [],
-      "missing": false,
-      "number": 1175,
-      "state": "CLOSED",
-      "title": "suggestion: transition to a more recent Python version",
-      "url": "https://github.com/bluerobotics/BlueOS/issues/1175"
     },
     "1200": {
       "author": "patrickelectric",
@@ -47205,19 +46854,6 @@
       "title": "version-chooser: Catch up with others services",
       "url": "https://github.com/bluerobotics/BlueOS/issues/1866"
     },
-    "191": {
-      "author": "Williangalvani",
-      "closed_at": "2026-02-23T16:59:43Z",
-      "created_at": "2021-04-27T14:13:53Z",
-      "labels": [
-        "must-have"
-      ],
-      "missing": false,
-      "number": 191,
-      "state": "CLOSED",
-      "title": "Add css validation to eslint",
-      "url": "https://github.com/bluerobotics/BlueOS/issues/191"
-    },
     "1914": {
       "author": "Williangalvani",
       "closed_at": "2023-08-10T10:55:23Z",
@@ -47672,19 +47308,6 @@
       "title": "core: tools: mavlink2rest: Update to t0.11.20",
       "url": "https://github.com/bluerobotics/BlueOS/pull/2463"
     },
-    "2489": {
-      "author": "patrickelectric",
-      "closed_at": "2024-04-16T18:52:47Z",
-      "created_at": "2024-03-26T12:34:52Z",
-      "labels": [
-        "P0 - Critical Priority"
-      ],
-      "missing": false,
-      "number": 2489,
-      "state": "CLOSED",
-      "title": "3D models are not working ",
-      "url": "https://github.com/bluerobotics/BlueOS/issues/2489"
-    },
     "2502": {
       "author": "patrickelectric",
       "closed_at": null,
@@ -47933,20 +47556,6 @@
       "state": "CLOSED",
       "title": "bug: firmware upload does not reload parameters",
       "url": "https://github.com/bluerobotics/BlueOS/issues/2756"
-    },
-    "2757": {
-      "author": "clydemcqueen",
-      "closed_at": "2024-06-28T10:20:08Z",
-      "created_at": "2024-06-27T17:02:22Z",
-      "labels": [
-        "bug",
-        "ui"
-      ],
-      "missing": false,
-      "number": 2757,
-      "state": "CLOSED",
-      "title": "bug: EKF needle color in new compass widget does not match color key",
-      "url": "https://github.com/bluerobotics/BlueOS/issues/2757"
     },
     "2774": {
       "author": "Williangalvani",
@@ -48857,22 +48466,6 @@
       "title": "ardupilot-manager: Pixhawk4 vs Pixhawk1",
       "url": "https://github.com/bluerobotics/BlueOS/issues/452"
     },
-    "458": {
-      "author": "rafaellehmkuhl",
-      "closed_at": "2022-04-08T12:14:15Z",
-      "created_at": "2021-09-01T15:14:22Z",
-      "labels": [
-        "enhancement",
-        "core",
-        "P1 - Important Priority",
-        "ardupilot-manager"
-      ],
-      "missing": false,
-      "number": 458,
-      "state": "CLOSED",
-      "title": "ardupilot-manager: Provide autopilot-related information on API",
-      "url": "https://github.com/bluerobotics/BlueOS/issues/458"
-    },
     "472": {
       "author": "Williangalvani",
       "closed_at": "2022-03-22T20:18:27Z",
@@ -49032,32 +48625,6 @@
       "state": "CLOSED",
       "title": "core: ardupilot-manager: Connection is not restored when pixhawk disconnects",
       "url": "https://github.com/bluerobotics/BlueOS/issues/523"
-    },
-    "530": {
-      "author": "rafaellehmkuhl",
-      "closed_at": "2022-04-08T12:14:15Z",
-      "created_at": "2021-10-10T19:10:41Z",
-      "labels": [
-        "enhancement",
-        "good first issue",
-        "core"
-      ],
-      "missing": false,
-      "number": 530,
-      "state": "CLOSED",
-      "title": "core: backend: Make HTTP requests async",
-      "url": "https://github.com/bluerobotics/BlueOS/issues/530"
-    },
-    "531": {
-      "author": "rafaellehmkuhl",
-      "closed_at": "2022-04-08T12:14:16Z",
-      "created_at": "2021-10-10T19:30:12Z",
-      "labels": [],
-      "missing": false,
-      "number": 531,
-      "state": "CLOSED",
-      "title": "core: MavlinkMessenger: Refactor class",
-      "url": "https://github.com/bluerobotics/BlueOS/issues/531"
     },
     "542": {
       "author": "patrickelectric",
@@ -49352,23 +48919,6 @@
       "title": "Rename files from companion to blueos",
       "url": "https://github.com/bluerobotics/BlueOS/issues/772"
     },
-    "777": {
-      "author": "ES-Alexander",
-      "closed_at": "2022-04-08T12:14:15Z",
-      "created_at": "2022-02-05T04:13:26Z",
-      "labels": [
-        "enhancement",
-        "core",
-        "ui",
-        "triage",
-        "ardupilot-manager"
-      ],
-      "missing": false,
-      "number": 777,
-      "state": "CLOSED",
-      "title": "core: frontend: show current firmware version",
-      "url": "https://github.com/bluerobotics/BlueOS/issues/777"
-    },
     "790": {
       "author": "rafaellehmkuhl",
       "closed_at": "2022-04-14T12:50:50Z",
@@ -49442,22 +48992,6 @@
       "state": "CLOSED",
       "title": "Rename project and files to use BlueOS",
       "url": "https://github.com/bluerobotics/BlueOS/pull/870"
-    },
-    "949": {
-      "author": "ES-Alexander",
-      "closed_at": "2022-04-08T12:14:15Z",
-      "created_at": "2022-04-04T20:44:53Z",
-      "labels": [
-        "enhancement",
-        "core",
-        "ui",
-        "triage"
-      ],
-      "missing": false,
-      "number": 949,
-      "state": "CLOSED",
-      "title": "frontend: autopilot: present latest stable earlier",
-      "url": "https://github.com/bluerobotics/BlueOS/issues/949"
     },
     "97": {
       "author": "patrickelectric",
