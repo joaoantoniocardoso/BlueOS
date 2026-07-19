@@ -61,7 +61,7 @@ HttpRoundTrip setup now clears these former live skips: `remove_configured_nmea_
 
 **Firmware + extensions (policy update):** flashing, install/uninstall/edit/restart/disable are allowlisted on the play Pi. Fixture `smoke-firmware.bin` (Navigator ArduSub). Store smoke uses `williangalvani.example1`; lifecycle restart/disable uses `blueos.major_tom`; custom install uses `alpine` as `smoke.catalog`.
 
-**Core image switch (policy update):** `switch_local_blueos_version` is allowlisted. Setup `docker tag`s `bluerobotics/blueos-core:master` → `:smoke-catalog-switch` (same image, different tag), POST `/version/current` to the duplicate, wait for recovery, then restore to `:master`. Does not change the running image content—only exercises the switch path. `UpdateBlueosVersion` POST `/version/current` and bootstrap image replace remain deferred.
+**Core image switch (policy update):** `switch_local_blueos_version` is allowlisted. Setup `docker tag`s `bluerobotics/blueos-core:master` → `:smoke-catalog-switch` (same image bits, different tag alias), POST `/version/current` to the duplicate, wait for recovery, then restore to `:master`. **Tag names are aliases; identity is the image digest.** Before/after the switch, record `GET /version-chooser/v1.0/version/current` (or `docker inspect` RepoDigest) so provenance reads `bluerobotics/blueos-core:<tag> @ sha256:…` — not bare `master`. The exercise does not change running image content (both tags point at the same digest); it only exercises the switch path. `UpdateBlueosVersion` POST `/version/current` and bootstrap image replace remain deferred.
 
 **mDNS hostname:** allowlisted; POST `hostname=smoke-catalog`, restore `hostname=blueos`.
 

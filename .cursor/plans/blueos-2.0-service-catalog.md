@@ -71,7 +71,9 @@ This forces a **third provenance class** beyond source-`Evidence` and asserted-`
 |-------------|----------|------------|-------|
 | `../BlueOS-docs` | operator intent, visibility (pirate/advanced), preconditions, step order | `Provenance::Doc{file,line}` | Docs Specialist |
 | BlueOS repo source | the route each step hits actually exists | `Provenance::Source(Evidence)` | Fact Extractor |
-| **live BlueOS capture** (Raspberry Pi 4, `master`) | what actually happens: status, body, transition, latency | `Provenance::Runtime{capture,environment}` | Runtime Specialist |
+| **live BlueOS capture** (Raspberry Pi 4; identity = image digest, not floating tag) | what actually happens: status, body, transition, latency | `Provenance::Runtime{capture,environment}` | Runtime Specialist |
+
+> **Version-pin policy (runtime captures):** a floating tag like `master` is a channel label, not a pin. Every `Provenance::Runtime.environment` MUST record `bluerobotics/blueos-core:<tag> @ sha256:<digest>` (and ideally `captured_at`). Capture filenames may keep `__master` as the channel suffix; the digest inside the artifact JSON / `environment` string is the identity. Re-read `GET /version-chooser/v1.0/version/current` on the play Pi before claiming an environment — the Pi may drift. Historical baseline digest: `sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e`.
 
 > The POC `../microservices_core_prototype` is **design-reference only** — it revealed *which* runtime dimensions exist (state contracts, SLOs, settings mutations, platform matrix) but is **never a value source**. Runtime values come only from capturing a live BlueOS instance; absent a capture, the field is `Unknown`. These runtime facts have their own per-service **`RuntimeFacts`** layer (see `runtime.rs`), parallel to observed/asserted, so they can *diff against* the asserted layer (e.g. a captured `500`-when-stopped falsifies `api_stable: true`).
 

@@ -16,7 +16,7 @@ The catalog is the machine-verifiable single source of truth for the BlueOS 2.0 
 
 1. **Only model services that exist** in `core/start-blueos-core` (the 26 in the ledger). Do not invent services, routes, or capabilities.
 2. **Never fabricate a fact.** Every observed fact cites `file:line`; every asserted value has a rationale; every runtime value traces to a live-capture artifact. No evidence → `Unknown{reason}`.
-3. **Runtime values come ONLY from the live BlueOS Pi** at `192.168.0.177` (user `pi`, pass `raspberry`, container `blueos-core`, image `bluerobotics/blueos-core:master @ sha256:cdccc744...`). The POC `../microservices_core_prototype` is design-reference only, never a value source. If the Pi is unreachable, mark runtime `Unknown` and move on — do NOT block.
+3. **Runtime values come ONLY from the live BlueOS Pi** at `192.168.0.177` (user `pi`, pass `raspberry`, container `blueos-core`). **Floating tag `master` is not a pin** — always re-read `GET /version-chooser/v1.0/version/current` (or `docker inspect` RepoDigest) and record `bluerobotics/blueos-core:<tag> @ sha256:<digest>` in every `environment` string (ideally with `captured_at`). Historical baseline: `bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e`; the play Pi may have drifted since. The POC `../microservices_core_prototype` is design-reference only, never a value source. If the Pi is unreachable, mark runtime `Unknown` and move on — do NOT block.
 4. **Follow the harness**: dispatch composer-2.5 subagents per role; the orchestrator QAs (independent, fresh subagent) and adjudicates but does not author artifacts it will QA. Every artifact passes `cargo fmt` + `clippy -D warnings` + `test` + `drift` + `Catalog::validate()` before acceptance.
 5. **One service per unit of work.** Keep the crate green at every commit. Commit after each service (or each harness fix) with the repo commit-style (`catalog: ...` / path-prefixed, capitalized).
 6. **Mutating runtime captures must be reversible** and the vehicle restored to pre-capture state. Do not run destructive ops (firmware bricking, factory reset) without a restore path.
@@ -53,7 +53,7 @@ Templates to copy: `catalog/src/services/ardupilot_manager.rs`, `catalog/src/ser
 Reusable capture tools: `catalog/runtime-captures/tools/{sample_resource.sh,probe_http.sh}` (params documented in their headers).
 
 ## Reusable capture facts
-- Pi: `192.168.0.177`, ssh `pi:raspberry`, container `blueos-core`, board Navigator, image sha256:cdccc744...
+- Pi: `192.168.0.177`, ssh `pi:raspberry`, container `blueos-core`, board Navigator. **Re-read `/version-chooser/v1.0/version/current` before capture** — do not assume `master`; identity is digest. Historical baseline: `bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e`.
 - Resource sample: `bash tools/sample_resource.sh --match "<id>/main.py" --samples 60 --label <state> --out <file>`
 - HTTP SLO probe: `bash tools/probe_http.sh --base http://192.168.0.177/<prefix>/v2.0 --gets "/a /b" --repeats 40 --out <file>`
 - Get routes: `curl -s http://192.168.0.177/<prefix>/v{ver}/openapi.json | jq ...`
@@ -126,6 +126,8 @@ allowed for services with no meaningful runtime or unreachable. Update after eac
 - Per-service loop (each layer committed separately, ledger updated): Fact Extractor(self-recon)→QA(observed)→Docs Specialist(journeys)→Card Author(wires all_journeys + service_def)→QA(card+journeys)→Runtime Specialist(live Pi)→commit. Run `bash catalog/gate.sh` before every commit. Pi at 192.168.0.177 (pi:raspberry). NEVER call destructive endpoints during capture.
 
 ## DECISIONS LOG (append-only; newest last)
+
+- 2026-07-19: **RUNTIME VERSION-PIN POLICY.** Floating tag `master` is a channel label, not a capture identity. Every `Provenance::Runtime.environment` MUST include `bluerobotics/blueos-core:<tag> @ sha256:<digest>` (ideally `captured_at`); capture filenames may keep `__master` as the channel suffix. Before claiming an environment, re-read `GET /version-chooser/v1.0/version/current` on the play Pi (`192.168.0.177`) — hardware may drift. Historical baseline digest: `sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e`. Documented in service-catalog plan, tier2 restore toolkit (tag vs digest for core switch), runtime-capture skill, and guardrail #3 here.
 
 - 2026-07-19: **TIER-2 CORE SWITCH + MDNS + WIFI HARNESS PLAN.** (1) `switch_local_blueos_version` undefferred: `docker tag` master→`smoke-catalog-switch` (same image bits), POST `/version/current`, `wait_for_blueos`, restore to master. Versionchooser kills core before HTTP 200 — runner accepts HTTP 0/transport fail then verifies tag. (2) `change_mdns_hostname` undefferred: POST `smoke-catalog`, restore `blueos`. (3) `connect_to_wifi_network` stays deferred. Final CI topology: Pi3 tester/harness ↔ Pi4 DUT — Pi3 hotspot for DUT join; Pi3 joins BlueOS emergency hotspot. Documented in `.cursor/plans/blueos-2.0-tier2-restore-toolkit.md`.
 
