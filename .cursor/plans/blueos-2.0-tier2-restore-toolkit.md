@@ -59,9 +59,18 @@ Live runner restore automation is incremental — entries declare the target rep
 
 HttpRoundTrip setup now clears these former live skips: `remove_configured_nmea_socket`, `remove_serial_bridge`, `delete_3d_model_override` (path bind `/models/{name}` → `smoke-catalog.glb`), `disable_onboard_dhcp_server`. Cable_guy teardowns: delete smoke static IP `192.168.0.178`, `DELETE /dhcp` after enable/disable, restore host DNS.
 
-**Firmware + extensions (policy update):** flashing, install/uninstall/edit/restart/disable are allowlisted on the play Pi. Fixture `smoke-firmware.bin` (Navigator ArduSub). Store smoke uses `williangalvani.example1`; lifecycle restart/disable uses `blueos.major_tom`; custom install uses `alpine` as `smoke.catalog`. Live `--mutating-smoke`: `passed=77 failed=0 skipped=8`.
+**Firmware + extensions (policy update):** flashing, install/uninstall/edit/restart/disable are allowlisted on the play Pi. Fixture `smoke-firmware.bin` (Navigator ArduSub). Store smoke uses `williangalvani.example1`; lifecycle restart/disable uses `blueos.major_tom`; custom install uses `alpine` as `smoke.catalog`.
 
-Remaining skips: deferred core/bootstrap image switch, host reboot, mdns hostname, wifi credentials, recording/local-version fixtures, free_disk_space.
+**Core image switch (policy update):** `switch_local_blueos_version` is allowlisted. Setup `docker tag`s `bluerobotics/blueos-core:master` → `:smoke-catalog-switch` (same image, different tag), POST `/version/current` to the duplicate, wait for recovery, then restore to `:master`. Does not change the running image content—only exercises the switch path. `UpdateBlueosVersion` POST `/version/current` and bootstrap image replace remain deferred.
+
+**mDNS hostname:** allowlisted; POST `hostname=smoke-catalog`, restore `hostname=blueos`.
+
+**Wi-Fi connect (deferred — harness plan):** full suite will run from a Raspberry Pi 3 (tester/harness) against a Pi 4 (DUT), CI-triggered. Plan:
+1. Pi3 creates a controlled hotspot; Pi4 (BlueOS) connects to it (`connect_to_wifi_network`).
+2. Pi3 joins BlueOS emergency/smart hotspot (inverse direction).
+Until that harness exists, `connect_to_wifi_network` stays skipped (fake SSID association hangs).
+
+Remaining deferred: bootstrap image replace, UpdateBlueosVersion apply-switch, wifi connect (harness above).
 
 ## Not a RouteRef commit gate
 
