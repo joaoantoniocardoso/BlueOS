@@ -57,9 +57,11 @@ Live runner restore automation is incremental — entries declare the target rep
 
 ## Provisioning progress (2026-07-18)
 
-HttpRoundTrip setup now clears these former live skips: `remove_configured_nmea_socket`, `remove_serial_bridge`, `delete_3d_model_override` (path bind `/models/{name}` → `smoke-catalog.glb`), `disable_onboard_dhcp_server`. Cable_guy teardowns: delete smoke static IP `192.168.0.178`, `DELETE /dhcp` after enable/disable, restore host DNS. Live `--mutating-smoke`: `passed=55 failed=0 skipped=17`.
+HttpRoundTrip setup now clears these former live skips: `remove_configured_nmea_socket`, `remove_serial_bridge`, `delete_3d_model_override` (path bind `/models/{name}` → `smoke-catalog.glb`), `disable_onboard_dhcp_server`. Cable_guy teardowns: delete smoke static IP `192.168.0.178`, `DELETE /dhcp` after enable/disable, restore host DNS.
 
-Remaining skips are mostly deferred unsafe ops (firmware, version switch, extension docker pull), wifi credential flows, and data fixtures not yet provisioned (recording, local version, saved wifi).
+**Firmware + extensions (policy update):** flashing, install/uninstall/edit/restart/disable are allowlisted on the play Pi. Fixture `smoke-firmware.bin` (Navigator ArduSub). Store smoke uses `williangalvani.example1`; lifecycle restart/disable uses `blueos.major_tom`; custom install uses `alpine` as `smoke.catalog`. Live `--mutating-smoke`: `passed=77 failed=0 skipped=8`.
+
+Remaining skips: deferred core/bootstrap image switch, host reboot, mdns hostname, wifi credentials, recording/local-version fixtures, free_disk_space.
 
 ## Not a RouteRef commit gate
 
