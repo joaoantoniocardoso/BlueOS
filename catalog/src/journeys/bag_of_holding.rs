@@ -9,6 +9,7 @@ use crate::journey::{
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
 
 const ADV: &str = "content/usage/advanced/index.md";
+const BAG_MAIN: &str = "core/services/bag_of_holding/main.py";
 const BAG_STORE: &str = "core/frontend/src/store/bag.ts";
 const BAG_VIEW: &str = "core/frontend/src/views/BagEditorView.vue";
 const BAG_MENUS: &str = "core/frontend/src/menus.ts";
@@ -46,9 +47,14 @@ const MODIFY_BAG_DATABASE: UserJourney = UserJourney {
         ),
         operator_step(
             "Save edited JSON to overwrite the bag database",
-            Some(sourced_route(HttpMethod::Post, "/overwrite", None, 24)),
+            Some(sourced_route(
+                HttpMethod::Post,
+                "/overwrite",
+                Some("v1.0"),
+                24,
+            )),
             Provenance::source(BAG_VIEW, 30),
-            None,
+            Some(source_outcome(200, 73)),
         ),
     ]),
     chains_from: None,
@@ -70,6 +76,17 @@ const fn route(method: HttpMethod, path: &'static str, version: Option<&'static 
         path,
         version,
     }
+}
+
+const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
+    Grounded::known(
+        StepOutcome {
+            expected_status: Some(status),
+            body_predicate: None,
+            transition: None,
+        },
+        Provenance::source(BAG_MAIN, line),
+    )
 }
 
 const fn sourced_route(

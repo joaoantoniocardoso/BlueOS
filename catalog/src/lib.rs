@@ -18,6 +18,7 @@ pub mod journey;
 pub mod journey_group;
 pub mod journeys;
 pub mod lifecycle;
+pub mod mutating_smoke;
 pub mod observed;
 pub mod page;
 pub mod pages;
@@ -71,6 +72,11 @@ pub use journey::{
 };
 pub use journey_group::{JourneyLens, JourneyPairAgreement, JourneySplitConsensus};
 pub use lifecycle::{Lifecycle, ObservedLifecycle};
+pub use mutating_smoke::{
+    is_mutating_smoke_journey, is_tier2_mutating_eligible, is_tier2_mutating_hard_excluded,
+    journey_has_mutating_http_route, mutating_smoke_journey_ids, tier2_mutating_coverage,
+    MutatingSmokeEntry, SmokeRepair, Tier2MutatingCoverage, MUTATING_SMOKE_ENTRIES,
+};
 pub use observed::{ObservedFacts, ResourceLimits, ServiceKind, StartupTier};
 pub use page::{ClientState, ConsumeTarget, Page, PageId, PageServiceCall, StateOwnership};
 pub use provenance::{
@@ -82,9 +88,11 @@ pub use resource::{Resource, ResourceOwnership};
 pub use runner::{
     evaluate_http_response, execute_curl, format_dry_run, format_http_fail, http_journeys,
     http_method_label, http_mutating_smoke_steps, http_smoke_steps, http_steps, join_url,
-    journey_http_mode_conflict, journey_http_requires_base, mutating_smoke_body, resolve_http_path,
-    run_http_step, summarize_journey, tier1_get_coverage, JourneyResult, RunCounts, RunnableStep,
-    StepResult, Tier1GetCoverage, MUTATING_SMOKE_JOURNEY_IDS, SMOKE_DEFAULT_FIXTURES,
+    journey_http_mode_conflict, journey_http_requires_base, mutating_smoke_body,
+    mutating_smoke_setup_calls, mutating_smoke_skip_reason, mutating_smoke_teardown_calls,
+    resolve_http_path, run_http_step, run_smoke_http_call, summarize_journey, tier1_get_coverage,
+    JourneyResult, RunCounts, RunnableStep, StepResult, Tier1GetCoverage,
+    MUTATING_SMOKE_DEFAULT_FIXTURES, SMOKE_DEFAULT_FIXTURES,
 };
 pub use runtime::{
     Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts, SettingsMutation, SloBaseline,

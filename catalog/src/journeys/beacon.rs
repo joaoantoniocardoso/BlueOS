@@ -41,7 +41,7 @@ const RENAME_VEHICLE: UserJourney =
                 "Enter a vehicle name and save",
                 Some(sourced_route(HttpMethod::Post, "/vehicle_name", Some("v1.0"), 298)),
                 Provenance::source(VEHICLE_BANNER, 160),
-                None,
+                Some(source_outcome(200, 298)),
             ),
         ]),
         chains_from: None,
@@ -76,7 +76,7 @@ const CHANGE_MDNS_HOSTNAME: UserJourney = UserJourney {
                 286,
             )),
             Provenance::source(VEHICLE_BANNER, 163),
-            None,
+            Some(source_outcome(200, 286)),
         ),
     ]),
     chains_from: None,
@@ -143,6 +143,17 @@ const fn sourced_route(
 ) -> Grounded<RouteRef> {
     Grounded::known(
         route(method, path, version),
+        Provenance::source(BEACON_MAIN, line),
+    )
+}
+
+const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
+    Grounded::known(
+        StepOutcome {
+            expected_status: Some(status),
+            body_predicate: None,
+            transition: None,
+        },
         Provenance::source(BEACON_MAIN, line),
     )
 }

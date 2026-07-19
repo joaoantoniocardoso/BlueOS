@@ -167,52 +167,55 @@ const CONFIGURE_CAMERA_STREAM: UserJourney =
         chains_from: Some(JourneyId::ViewCameraStreams),
     };
 
-const REMOVE_CAMERA_STREAM: UserJourney =
-    UserJourney {
-        id: JourneyId::RemoveCameraStream,
-        summary: Grounded::known(
-            "Remove a configured video stream from a camera device",
-            Provenance::source(VIDEO_STREAM, 120),
+const REMOVE_CAMERA_STREAM: UserJourney = UserJourney {
+    id: JourneyId::RemoveCameraStream,
+    summary: Grounded::known(
+        "Remove a configured video stream from a camera device",
+        Provenance::source(VIDEO_STREAM, 120),
+    ),
+    visibility: Grounded::known(Visibility::Default, Provenance::source(VIDEO_MENUS, 131)),
+    services: MCM_SERVICES,
+    capability_refs: GroundedSet::known(&[cap(
+        CapabilityId::RemoveCameraStream,
+        "stream card remove button deletes the stream via DELETE /delete_stream",
+    )]),
+    preconditions: GroundedSet::known(&[GroundedItem::new(
+        Precondition::Other("At least one configured stream is listed on a device card"),
+        Provenance::source(VIDEO_DEVICE, 82),
+    )]),
+    steps: GroundedSet::known(&[
+        operator_step(
+            "Open the Video Streams page from the sidebar",
+            None,
+            Provenance::source(VIDEO_MENUS, 128),
+            None,
         ),
-        visibility: Grounded::known(Visibility::Default, Provenance::source(VIDEO_MENUS, 131)),
-        services: MCM_SERVICES,
-        capability_refs: GroundedSet::known(&[cap(CapabilityId::RemoveCameraStream,
-            "stream card remove button deletes the stream via DELETE /delete_stream",
-        )]),
-        preconditions: GroundedSet::known(&[GroundedItem::new(
-            Precondition::Other("At least one configured stream is listed on a device card"),
-            Provenance::source(VIDEO_DEVICE, 82),
-        )]),
-        steps: GroundedSet::known(&[
-            operator_step(
-                "Open the Video Streams page from the sidebar",
+        operator_step(
+            "View the configured stream to remove on the device card",
+            None,
+            Provenance::source(VIDEO_DEVICE, 88),
+            None,
+        ),
+        operator_step(
+            "Click the Remove stream button on the stream card",
+            None,
+            Provenance::source(VIDEO_STREAM, 120),
+            None,
+        ),
+        operator_step(
+            "Delete the selected stream",
+            Some(sourced_route(
+                HttpMethod::Delete,
+                "/delete_stream",
                 None,
-                Provenance::source(VIDEO_MENUS, 128),
-                None,
-            ),
-            operator_step(
-                "View the configured stream to remove on the device card",
-                None,
-                Provenance::source(VIDEO_DEVICE, 88),
-                None,
-            ),
-            operator_step(
-                "Click the Remove stream button on the stream card",
-                None,
-                Provenance::source(VIDEO_STREAM, 120),
-                None,
-            ),
-            operator_step(
-                "Delete the selected stream",
-                Some(sourced_route(HttpMethod::Delete, "/delete_stream", None, 102)),
-                Provenance::source(VIDEO_STORE, 102),
-                Some(pending_outcome(
-                    "DELETE /delete_stream requires runtime capture with a configured stream (mutating; not exercised)",
-                )),
-            ),
-        ]),
-        chains_from: Some(JourneyId::ViewCameraStreams),
-    };
+                102,
+            )),
+            Provenance::source(VIDEO_STORE, 102),
+            Some(source_outcome(200, VIDEO_STORE, 102)),
+        ),
+    ]),
+    chains_from: Some(JourneyId::ViewCameraStreams),
+};
 
 const CONFIGURE_UVC_DEVICE_CONTROLS: UserJourney =
     UserJourney {
@@ -323,6 +326,17 @@ const fn operator_step(
 
 const fn pending_outcome(reason: &'static str) -> Grounded<StepOutcome> {
     Grounded::unknown(reason)
+}
+
+const fn source_outcome(status: u16, file: &'static str, line: u32) -> Grounded<StepOutcome> {
+    Grounded::known(
+        StepOutcome {
+            expected_status: Some(status),
+            body_predicate: None,
+            transition: None,
+        },
+        Provenance::source(file, line),
+    )
 }
 
 const fn runtime_outcome(

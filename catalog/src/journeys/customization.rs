@@ -129,7 +129,7 @@ const UPLOAD_CUSTOM_LOGO: UserJourney = UserJourney {
             None,
             Provenance::doc(ADV, 881),
         ),
-        operator_step(
+        operator_step_with_outcome(
             "Upload the logo",
             Some(sourced_route(
                 HttpMethod::Post,
@@ -138,6 +138,7 @@ const UPLOAD_CUSTOM_LOGO: UserJourney = UserJourney {
                 273,
             )),
             Provenance::source(BRANDING_UPLOADER, 31),
+            Some(source_outcome(200, 275)),
         ),
     ]),
     chains_from: None,
@@ -214,7 +215,7 @@ const UPLOAD_CUSTOM_VEHICLE_IMAGE: UserJourney = UserJourney {
             None,
             Provenance::doc(ADV, 887),
         ),
-        operator_step(
+        operator_step_with_outcome(
             "Upload the vehicle image",
             Some(sourced_route(
                 HttpMethod::Post,
@@ -223,6 +224,7 @@ const UPLOAD_CUSTOM_VEHICLE_IMAGE: UserJourney = UserJourney {
                 295,
             )),
             Provenance::source(BRANDING_UPLOADER, 31),
+            Some(source_outcome(200, 301)),
         ),
     ]),
     chains_from: None,
@@ -299,7 +301,7 @@ const UPLOAD_3D_MODEL_OVERRIDE: UserJourney = UserJourney {
             None,
             Provenance::source(THEME_CUSTOMIZATION, 204),
         ),
-        operator_step(
+        operator_step_with_outcome(
             "Upload the model override",
             Some(sourced_route(
                 HttpMethod::Post,
@@ -308,6 +310,7 @@ const UPLOAD_3D_MODEL_OVERRIDE: UserJourney = UserJourney {
                 197,
             )),
             Provenance::source(CUSTOMIZATION_STORE, 180),
+            Some(source_outcome(200, 199)),
         ),
     ]),
     chains_from: None,

@@ -58,7 +58,7 @@ const ASSIGN_STATIC_IP_ADDRESS: UserJourney = UserJourney {
                 69,
             )),
             Provenance::source(ADDRESS_DIALOG, 87),
-            None,
+            Some(source_outcome(200, 71)),
         ),
     ]),
     chains_from: None,
@@ -93,7 +93,7 @@ const ACQUIRE_DYNAMIC_IP_ADDRESS: UserJourney = UserJourney {
                 115,
             )),
             Provenance::source(INTERFACE_CARD, 324),
-            None,
+            Some(source_outcome(200, 117)),
         ),
     ]),
     chains_from: None,
@@ -134,7 +134,7 @@ const ENABLE_ONBOARD_DHCP_SERVER: UserJourney = UserJourney {
             "Select the server gateway, optionally enable backup mode, and confirm",
             Some(sourced_route(HttpMethod::Post, "/dhcp", Some("v1.0"), 99)),
             Provenance::source(DHCP_DIALOG, 141),
-            None,
+            Some(source_outcome(200, 101)),
         ),
     ]),
     chains_from: None,
@@ -172,7 +172,7 @@ const DISABLE_ONBOARD_DHCP_SERVER: UserJourney = UserJourney {
                 107,
             )),
             Provenance::source(INTERFACE_CARD, 332),
-            None,
+            Some(source_outcome(200, 109)),
         ),
     ]),
     chains_from: None,
@@ -222,7 +222,7 @@ const SET_NETWORK_INTERFACE_PRIORITY: UserJourney = UserJourney {
                 62,
             )),
             Provenance::source(NETWORK_PRIORITY, 141),
-            None,
+            Some(source_outcome(200, 64)),
         ),
     ]),
     chains_from: None,
@@ -266,7 +266,7 @@ const CONFIGURE_HOST_DNS: UserJourney = UserJourney {
                 130,
             )),
             Provenance::source(DNS_MENU, 171),
-            None,
+            Some(source_outcome(200, 132)),
         ),
     ]),
     chains_from: None,
@@ -316,5 +316,16 @@ const fn operator_step(
             outcome,
         },
         provenance,
+    )
+}
+
+const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
+    Grounded::known(
+        StepOutcome {
+            expected_status: Some(status),
+            body_predicate: None,
+            transition: None,
+        },
+        Provenance::source(CABLE_GUY_MAIN, line),
     )
 }

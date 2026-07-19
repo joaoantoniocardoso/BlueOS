@@ -166,56 +166,59 @@ const CREATE_SERIAL_TO_UDP_BRIDGE: UserJourney =
         chains_from: None,
     };
 
-const REMOVE_SERIAL_BRIDGE: UserJourney =
-    UserJourney {
-        id: JourneyId::RemoveSerialBridge,
-        summary: Grounded::known(
-            "Remove a configured serial bridge from the Serial Bridges page",
-            Provenance::source(BRIDGET_CARD, 60),
+const REMOVE_SERIAL_BRIDGE: UserJourney = UserJourney {
+    id: JourneyId::RemoveSerialBridge,
+    summary: Grounded::known(
+        "Remove a configured serial bridge from the Serial Bridges page",
+        Provenance::source(BRIDGET_CARD, 60),
+    ),
+    visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 568)),
+    services: BRIDGET_SERVICES,
+    capability_refs: GroundedSet::known(&[cap(
+        CapabilityId::RemoveSerialBridge,
+        "bridge card remove button deletes the matching serial path and UDP endpoint",
+    )]),
+    preconditions: GroundedSet::known(&[
+        GroundedItem::new(
+            Precondition::Software(SoftwareRequirement::AdvancedMode),
+            Provenance::source(BRIDGET_MENUS, 102),
         ),
-        visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 568)),
-        services: BRIDGET_SERVICES,
-        capability_refs: GroundedSet::known(&[cap(CapabilityId::RemoveSerialBridge,
-            "bridge card remove button deletes the matching serial path and UDP endpoint",
-        )]),
-        preconditions: GroundedSet::known(&[
-            GroundedItem::new(
-                Precondition::Software(SoftwareRequirement::AdvancedMode),
-                Provenance::source(BRIDGET_MENUS, 102),
-            ),
-            GroundedItem::new(
-                Precondition::Data(DataRequirement::SerialBridgeConfigured),
-                Provenance::source(BRIDGET_VIEW, 8),
-            ),
-        ]),
-        steps: GroundedSet::known(&[
-            operator_step(
-                "Open the Serial Bridges page from the sidebar",
-                None,
-                Provenance::source(BRIDGET_MENUS, 99),
-                None,
-            ),
-            operator_step(
-                "View the configured bridge to remove",
-                Some(sourced_route(HttpMethod::Get, "/bridges", Some("v1.0"), 40)),
-                Provenance::source(BRIDGET_VIEW, 21),
-                Some(runtime_outcome(
-                    200,
-                    Some("[] (empty; no bridges configured)"),
-                    "runtime-captures/bridget__pi4_navigator_master.json#running_baseline",
-                )),
-            ),
-            operator_step(
-                "Click the remove button on the bridge card",
-                Some(sourced_route(HttpMethod::Delete, "/bridges", Some("v1.0"), 56)),
-                Provenance::source(BRIDGET_CARD, 60),
-                Some(pending_outcome(
-                    "DELETE /bridges bridge removal requires runtime capture with a configured bridge (mutating; not exercised)",
-                )),
-            ),
-        ]),
-        chains_from: None,
-    };
+        GroundedItem::new(
+            Precondition::Data(DataRequirement::SerialBridgeConfigured),
+            Provenance::source(BRIDGET_VIEW, 8),
+        ),
+    ]),
+    steps: GroundedSet::known(&[
+        operator_step(
+            "Open the Serial Bridges page from the sidebar",
+            None,
+            Provenance::source(BRIDGET_MENUS, 99),
+            None,
+        ),
+        operator_step(
+            "View the configured bridge to remove",
+            Some(sourced_route(HttpMethod::Get, "/bridges", Some("v1.0"), 40)),
+            Provenance::source(BRIDGET_VIEW, 21),
+            Some(runtime_outcome(
+                200,
+                Some("[] (empty; no bridges configured)"),
+                "runtime-captures/bridget__pi4_navigator_master.json#running_baseline",
+            )),
+        ),
+        operator_step(
+            "Click the remove button on the bridge card",
+            Some(sourced_route(
+                HttpMethod::Delete,
+                "/bridges",
+                Some("v1.0"),
+                56,
+            )),
+            Provenance::source(BRIDGET_CARD, 60),
+            Some(source_outcome(200, 56)),
+        ),
+    ]),
+    chains_from: None,
+};
 
 const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<CapabilityId> {
     GroundedItem::new(id, Provenance::asserted(rationale))
@@ -283,6 +286,17 @@ const fn service_step(
 
 const fn pending_outcome(reason: &'static str) -> Grounded<StepOutcome> {
     Grounded::unknown(reason)
+}
+
+const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
+    Grounded::known(
+        StepOutcome {
+            expected_status: Some(status),
+            body_predicate: None,
+            transition: None,
+        },
+        Provenance::source(BRIDGET_MAIN, line),
+    )
 }
 
 const fn runtime_outcome(

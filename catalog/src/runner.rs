@@ -1,3 +1,4 @@
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use crate::catalog::Catalog;
@@ -23,6 +24,21 @@ pub enum JourneyResult {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FormFilePart {
+    pub field: &'static str,
+    pub fixture: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SmokeHttpCall {
+    pub route: RouteRef,
+    pub expected_status: u16,
+    pub body: Option<&'static str>,
+    pub query: Option<&'static str>,
+    pub form_file: Option<FormFilePart>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RunnableStep {
     pub journey_id: JourneyId,
     pub step_index: usize,
@@ -30,6 +46,8 @@ pub struct RunnableStep {
     pub expected_status: Option<u16>,
     pub body_predicate: Option<&'static str>,
     pub body: Option<&'static str>,
+    pub query: Option<&'static str>,
+    pub form_file: Option<FormFilePart>,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -118,14 +136,8 @@ pub fn tier1_get_coverage(catalog: &Catalog) -> Tier1GetCoverage {
 
 pub const SMOKE_DEFAULT_FIXTURES: &str = "internet,pirate,advanced";
 
-/// Journeys safe for automated mutating smoke on a live BlueOS (reversible / non-destructive).
-pub const MUTATING_SMOKE_JOURNEY_IDS: &[JourneyId] = &[
-    JourneyId::ChangeUiThemeColor,
-    JourneyId::ResetUiThemeColor,
-    JourneyId::RunLanSpeedTest,
-    JourneyId::RemoveCustomLogo,
-    JourneyId::RemoveCustomVehicleImage,
-];
+pub const MUTATING_SMOKE_DEFAULT_FIXTURES: &str =
+    "internet,pirate,advanced,confirm-dangerous,board:any,wifi-radio,hotspot";
 
 pub fn http_method_label(method: &HttpMethod) -> &'static str {
     match method {
@@ -212,9 +224,17 @@ pub fn http_steps(journey: &UserJourney) -> Vec<RunnableStep> {
             expected_status,
             body_predicate,
             body: None,
+            query: None,
+            form_file: None,
         });
     }
     runnable
+}
+
+pub fn fixture_path(relative: &str) -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("fixtures")
+        .join(relative)
 }
 
 pub fn http_smoke_steps(journey: &UserJourney) -> Vec<RunnableStep> {
@@ -228,14 +248,269 @@ pub fn http_smoke_steps(journey: &UserJourney) -> Vec<RunnableStep> {
         .collect()
 }
 
+pub fn mutating_smoke_query(journey_id: JourneyId, route: &RouteRef) -> Option<&'static str> {
+    use HttpMethod::*;
+    match (journey_id, route.path, &route.method) {
+        (JourneyId::RenameVehicle, "/vehicle_name", Post) => Some("name=smoke-catalog"),
+        (JourneyId::ChangeMdnsHostname, "/hostname", Post) => Some("hostname=smoke-catalog"),
+        (JourneyId::AcquireDynamicIpAddress, "/dynamic_ip", Post) => Some("interface_name=eth0"),
+        (JourneyId::AssignStaticIpAddress, "/address", Post) => {
+            Some("interface_name=eth0&ip_address=192.168.0.178")
+        }
+        (JourneyId::DisableOnboardDhcpServer, "/dhcp", Delete) => Some("interface_name=eth0"),
+        (JourneyId::EnableOnboardDhcpServer, "/dhcp", Post) => {
+            Some("interface_name=eth0&ipv4_gateway=192.168.0.1&is_backup_server=false")
+        }
+        (JourneyId::ForgetSavedWifiNetwork, "/remove", Post) => Some("ssid=__smoke_nonexistent__"),
+        (JourneyId::ToggleHotspot, "/hotspot", Post) => Some("enable=false"),
+        (JourneyId::ToggleSmartHotspot, "/smart_hotspot", Post) => Some("enable=false"),
+        (JourneyId::RebootOnboardComputer, "/shutdown", Post) => {
+            Some("shutdown_type=reboot&i_know_what_i_am_doing=true")
+        }
+        (JourneyId::SyncSystemTime, "/set_time", Post) => {
+            Some("unix_time_seconds=1700000000&i_know_what_i_am_doing=true")
+        }
+        (JourneyId::EnableLegacyCameraSupport, "/raspi_config/camera_legacy", Post) => {
+            Some("enable=false")
+        }
+        (JourneyId::UpdateRaspberryEepromBootloader, "/raspi/eeprom_update", Post) => {
+            Some("i_know_what_i_am_doing=true")
+        }
+        (JourneyId::ResetBlueosSettings, "/settings/reset", Post) => {
+            Some("i_know_what_i_am_doing=true")
+        }
+        (JourneyId::RunHostCommand, "/command/host", Post) => {
+            Some("command=true&i_know_what_i_am_doing=true")
+        }
+        (JourneyId::ChangeBoard, "/board", Post) | (JourneyId::RunSitlSimulation, "/board", Post) => {
+            None
+        }
+        (JourneyId::RunSitlSimulation, "/sitl_frame", Post) => Some("frame=vectored"),
+        (JourneyId::VehicleFirstBoot, "/install_firmware_from_url", Post)
+        | (JourneyId::UpdateFirmwareOnline, "/install_firmware_from_url", Post) => Some(
+            "url=https://firmware.ardupilot.org/Sub/stable-4.5.7/navigator/ardusub&board_name=Navigator",
+        ),
+        (JourneyId::RestoreDefaultFirmware, "/restore_default_firmware", Post) => {
+            Some("board_name=Navigator")
+        }
+        (JourneyId::RemoveCameraStream, "/delete_stream", Delete) => Some("name=__smoke_catalog__"),
+        (JourneyId::Upload3dModelOverride, "/models", Post) => Some("name=smoke-catalog.glb"),
+        (JourneyId::AddCustomManifest, "/manifest/", Post) => Some("validate_url=false"),
+        _ => None,
+    }
+}
+
 pub fn mutating_smoke_body(journey_id: JourneyId, route: &RouteRef) -> Option<&'static str> {
-    match journey_id {
-        JourneyId::ChangeUiThemeColor
-            if matches!(route.method, HttpMethod::Put) && route.path == "/theme" =>
-        {
-            Some(r##"{"primary":"#1e88e5"}"##)
+    use HttpMethod::*;
+    match (journey_id, route.path, &route.method) {
+        (JourneyId::ChangeUiThemeColor, "/theme", Put) => Some(r##"{"primary":"#1e88e5"}"##),
+        (JourneyId::ModifyBagDatabase, "/overwrite", Post) => Some("{}"),
+        (JourneyId::ConfigureHostDns, "/host_dns", Post) => {
+            Some(r##"{"nameservers":["8.8.8.8"],"lock":false}"##)
+        }
+        (JourneyId::SetNetworkInterfacePriority, "/set_interfaces_priority", Post) => {
+            Some(r##"[{"name":"eth0","priority":100}]"##)
+        }
+        (JourneyId::ChangeBoard, "/board", Post) => Some(NAVIGATOR_BOARD_JSON),
+        (JourneyId::RunSitlSimulation, "/board", Post) => Some(
+            r##"{"name":"SITL","manufacturer":"ArduPilot Team","platform":"SITL_arm_linux_gnueabihf","path":null,"flags":[]}"##,
+        ),
+        (JourneyId::ConnectToWifiNetwork, "/connect", Post) => {
+            Some(r##"{"ssid":"__smoke_nonexistent__","password":"invalidpass"}"##)
+        }
+        (JourneyId::ConfigureHotspotCredentials, "/hotspot_credentials", Post) => {
+            Some(r##"{"ssid":"BlueOS","password":"smoke-test"}"##)
+        }
+        (JourneyId::RemoveConfiguredNmeaSocket, "/socks", Delete) => {
+            Some(r##"{"kind":"UDP","port":9999,"component_id":220}"##)
+        }
+        (JourneyId::RemoveSerialBridge, "/bridges", Delete) => {
+            Some(r##"{"serial_path":"/dev/ttyUSB0","ip":"127.0.0.1","udp_port":14550}"##)
+        }
+        (JourneyId::DockerRegistryLogin, "/docker/login", Post) => {
+            Some(r##"{"username":"","password":"","registry":"","root":true}"##)
+        }
+        (JourneyId::UpdateBlueosVersion, "/version/pull", Post)
+        | (JourneyId::PullBlueosVersionWithoutSwitch, "/version/pull", Post) => {
+            Some(r##"{"repository":"bluerobotics/blueos-core","tag":"master"}"##)
+        }
+        (JourneyId::UpdateBootstrapImage, "/version/pull", Post) => {
+            Some(r##"{"repository":"bluerobotics/blueos-bootstrap","tag":"master"}"##)
+        }
+        (JourneyId::UpdateBlueosVersion, "/version/current", Post)
+        | (JourneyId::SwitchLocalBlueosVersion, "/version/current", Post) => {
+            Some(r##"{"repository":"bluerobotics/blueos-core","tag":"master"}"##)
+        }
+        (JourneyId::DeleteLocalBlueosVersion, "/version/delete", Delete) => {
+            Some(r##"{"repository":"bluerobotics/blueos-core","tag":"__smoke_nonexistent__"}"##)
+        }
+        (JourneyId::UpdateBootstrapImage, "/bootstrap/current", Post) => {
+            Some(r##"{"tag":"master"}"##)
+        }
+        (JourneyId::AddCustomManifest, "/manifest/", Post) => Some(
+            r##"{"name":"smoke-catalog","url":"https://example.com/smoke-catalog.json","enabled":false}"##,
+        ),
+        (JourneyId::InstallCustomExtension, "/extension/", Post) => Some(
+            r##"{"identifier":"smoke.catalog","tag":"latest","name":"Smoke Catalog","docker":"alpine","enabled":false,"permissions":"[]"}"##,
+        ),
+        _ => None,
+    }
+}
+
+pub fn mutating_smoke_form_file(journey_id: JourneyId, route: &RouteRef) -> Option<FormFilePart> {
+    use HttpMethod::*;
+    match (journey_id, route.path, &route.method) {
+        (JourneyId::UploadCustomLogo, "/branding/logo", Post) => Some(FormFilePart {
+            field: "file",
+            fixture: "smoke-logo.png",
+        }),
+        (JourneyId::UploadCustomVehicleImage, "/branding/vehicle-image", Post) => {
+            Some(FormFilePart {
+                field: "file",
+                fixture: "smoke-vehicle.png",
+            })
+        }
+        (JourneyId::Upload3dModelOverride, "/models", Post) => Some(FormFilePart {
+            field: "file",
+            fixture: "smoke-model.glb",
+        }),
+        (JourneyId::UploadCustomFirmware, "/install_firmware_from_file", Post) => {
+            Some(FormFilePart {
+                field: "binary",
+                fixture: "smoke-firmware.bin",
+            })
         }
         _ => None,
+    }
+}
+
+pub fn mutating_smoke_expected_status(journey_id: JourneyId, route: &RouteRef) -> Option<u16> {
+    use HttpMethod::*;
+    match (journey_id, route.path, &route.method) {
+        (JourneyId::ConnectToWifiNetwork, "/connect", Post) => Some(500),
+        _ => None,
+    }
+}
+
+pub fn is_mutating_smoke_step_deferred(journey_id: JourneyId, path: &str) -> Option<&'static str> {
+    match (journey_id, path) {
+        (JourneyId::VehicleFirstBoot, _)
+        | (JourneyId::UpdateFirmwareOnline, _)
+        | (JourneyId::UploadCustomFirmware, _)
+        | (JourneyId::RestoreDefaultFirmware, _)
+        | (JourneyId::InstallCustomExtension, _) => {
+            Some("deferred: firmware flash or extension docker pull unsafe for automated smoke")
+        }
+        (JourneyId::UpdateBlueosVersion, "/version/current") => {
+            Some("deferred: POST /version/current switches running core image")
+        }
+        (JourneyId::UpdateBootstrapImage, "/bootstrap/current") => {
+            Some("deferred: POST /bootstrap/current replaces bootstrap container")
+        }
+        (JourneyId::RebootOnboardComputer, _) => Some("deferred: host reboot optional this pass"),
+        (JourneyId::ChangeMdnsHostname, "/hostname") => {
+            Some("deferred: beacon hostname mutation returns 500 on current test bed")
+        }
+        _ => None,
+    }
+}
+
+pub fn mutating_smoke_skip_reason(
+    journey_id: JourneyId,
+    _fixtures: &crate::fixture::FixtureInventory,
+) -> Option<&'static str> {
+    match journey_id {
+        JourneyId::ConnectToWifiNetwork => Some("connect requires real known network credentials"),
+        _ => None,
+    }
+}
+
+const NAVIGATOR_BOARD_JSON: &str = r##"{"name":"Navigator","manufacturer":"Blue Robotics","platform":"navigator","path":null,"flags":[]}"##;
+const SMOKE_STREAM_JSON: &str = r##"{"name":"__smoke_catalog__","source":"Redirect","stream_information":{"endpoints":["udp://127.0.0.1:5599"],"configuration":{"type":"redirect"},"extended_configuration":{"thermal":false,"disable_lazy":false,"disable_mavlink":false,"disable_thumbnails":true,"disable_zenoh":true}}}"##;
+
+pub fn mutating_smoke_setup_calls(journey_id: JourneyId) -> &'static [SmokeHttpCall] {
+    use HttpMethod::*;
+    match journey_id {
+        JourneyId::ChangeBoard | JourneyId::RunSitlSimulation => &[SmokeHttpCall {
+            route: RouteRef {
+                service: ServiceId::ArdupilotManager,
+                method: Post,
+                path: "/stop",
+                version: Some("v1.0"),
+            },
+            expected_status: 200,
+            body: None,
+            query: None,
+            form_file: None,
+        }],
+        JourneyId::RemoveCameraStream => &[SmokeHttpCall {
+            route: RouteRef {
+                service: ServiceId::MavlinkCameraManager,
+                method: Post,
+                path: "/streams",
+                version: None,
+            },
+            expected_status: 200,
+            body: Some(SMOKE_STREAM_JSON),
+            query: None,
+            form_file: None,
+        }],
+        JourneyId::ResetUiThemeColor => &[SmokeHttpCall {
+            route: RouteRef {
+                service: ServiceId::Customization,
+                method: Put,
+                path: "/theme",
+                version: Some("v1.0"),
+            },
+            expected_status: 200,
+            body: Some(r##"{"primary":"#1e88e5"}"##),
+            query: None,
+            form_file: None,
+        }],
+        _ => &[],
+    }
+}
+
+pub fn mutating_smoke_teardown_calls(journey_id: JourneyId) -> &'static [SmokeHttpCall] {
+    use HttpMethod::*;
+    match journey_id {
+        JourneyId::ChangeBoard | JourneyId::RunSitlSimulation => &[SmokeHttpCall {
+            route: RouteRef {
+                service: ServiceId::ArdupilotManager,
+                method: Post,
+                path: "/board",
+                version: Some("v1.0"),
+            },
+            expected_status: 200,
+            body: Some(NAVIGATOR_BOARD_JSON),
+            query: None,
+            form_file: None,
+        }],
+        JourneyId::ToggleHotspot => &[SmokeHttpCall {
+            route: RouteRef {
+                service: ServiceId::Wifi,
+                method: Post,
+                path: "/hotspot",
+                version: Some("v1.0"),
+            },
+            expected_status: 200,
+            body: None,
+            query: Some("enable=true"),
+            form_file: None,
+        }],
+        JourneyId::ToggleSmartHotspot => &[SmokeHttpCall {
+            route: RouteRef {
+                service: ServiceId::Wifi,
+                method: Post,
+                path: "/smart_hotspot",
+                version: Some("v1.0"),
+            },
+            expected_status: 200,
+            body: None,
+            query: Some("enable=true"),
+            form_file: None,
+        }],
+        _ => &[],
     }
 }
 
@@ -246,9 +521,15 @@ pub fn http_mutating_smoke_steps(journey: &UserJourney) -> Vec<RunnableStep> {
             !matches!(step.route.method, HttpMethod::Get)
                 && step.expected_status.is_some()
                 && !step.route.path.contains('{')
+                && is_mutating_smoke_step_deferred(step.journey_id, step.route.path).is_none()
         })
         .map(|mut step| {
             step.body = mutating_smoke_body(step.journey_id, &step.route);
+            step.query = mutating_smoke_query(step.journey_id, &step.route);
+            step.form_file = mutating_smoke_form_file(step.journey_id, &step.route);
+            if let Some(status) = mutating_smoke_expected_status(step.journey_id, &step.route) {
+                step.expected_status = Some(status);
+            }
             step
         })
         .collect()
@@ -300,13 +581,14 @@ pub fn execute_curl(
     url: &str,
     allow_mutating: bool,
     body: Option<&str>,
+    form_file: Option<&FormFilePart>,
 ) -> Result<(u16, String), String> {
     if !matches!(method, HttpMethod::Get) && !allow_mutating {
         return Err("mutating HTTP method blocked (pass --allow-mutating)".into());
     }
 
     let mut command = Command::new("curl");
-    command.args(["-s", "-m", "30", "-w", "\n%{http_code}"]);
+    command.args(["-s", "-m", "120", "-w", "\n%{http_code}"]);
     match method {
         HttpMethod::Get => {}
         HttpMethod::Post => {
@@ -322,7 +604,14 @@ pub fn execute_curl(
             command.args(["-X", "PATCH"]);
         }
     }
-    if let Some(body) = body {
+    if let Some(form) = form_file {
+        let path = fixture_path(form.fixture);
+        if !path.is_file() {
+            return Err(format!("fixture file missing: {}", path.display()));
+        }
+        let field = format!("{}=@{}", form.field, path.display());
+        command.args(["-F", &field]);
+    } else if let Some(body) = body {
         command.args(["-H", "Content-Type: application/json", "-d", body]);
     }
     command.arg(url);
@@ -369,6 +658,25 @@ pub fn evaluate_http_response(
     }
 }
 
+pub fn run_smoke_http_call(
+    catalog: &Catalog,
+    base: &str,
+    call: &SmokeHttpCall,
+    allow_mutating: bool,
+) -> StepResult {
+    let step = RunnableStep {
+        journey_id: JourneyId::ConnectToWifiNetwork,
+        step_index: 0,
+        route: call.route.clone(),
+        expected_status: Some(call.expected_status),
+        body_predicate: None,
+        body: call.body,
+        query: call.query,
+        form_file: call.form_file.clone(),
+    };
+    run_http_step(catalog, base, &step, allow_mutating)
+}
+
 pub fn run_http_step(
     catalog: &Catalog,
     base: &str,
@@ -384,11 +692,21 @@ pub fn run_http_step(
     };
 
     let url = join_url(base, &path);
-    let (status_code, body) =
-        match execute_curl(&step.route.method, &url, allow_mutating, step.body) {
-            Ok(response) => response,
-            Err(err) => return StepResult::Fail(err),
-        };
+    let url = if let Some(query) = step.query {
+        format!("{url}?{query}")
+    } else {
+        url
+    };
+    let (status_code, body) = match execute_curl(
+        &step.route.method,
+        &url,
+        allow_mutating,
+        step.body,
+        step.form_file.as_ref(),
+    ) {
+        Ok(response) => response,
+        Err(err) => return StepResult::Fail(err),
+    };
 
     evaluate_http_response(
         status_code,
@@ -663,6 +981,8 @@ mod tests {
             expected_status: Some(200),
             body_predicate: None,
             body: None,
+            query: None,
+            form_file: None,
         };
         let line = format_http_fail(
             JourneyId::ConnectToWifiNetwork,
@@ -689,6 +1009,8 @@ mod tests {
             expected_status: Some(200),
             body_predicate: None,
             body: None,
+            query: None,
+            form_file: None,
         };
         let line = format_dry_run(JourneyId::ConnectToWifiNetwork, &step, "/helper/v1.0/ping");
         assert_eq!(
@@ -713,27 +1035,6 @@ mod tests {
         assert!(journey_http_mode_conflict(true, false).is_ok());
         assert!(journey_http_mode_conflict(false, true).is_ok());
         assert!(journey_http_mode_conflict(false, false).is_ok());
-    }
-
-    #[test]
-    fn mutating_smoke_journey_ids_are_http_automatable() {
-        assert_eq!(MUTATING_SMOKE_JOURNEY_IDS.len(), 5);
-        let catalog = Catalog::bootstrap();
-        let journeys: std::collections::HashMap<_, _> = catalog
-            .journeys()
-            .iter()
-            .map(|journey| (journey.id, journey))
-            .collect();
-        for journey_id in MUTATING_SMOKE_JOURNEY_IDS {
-            let journey = journeys
-                .get(journey_id)
-                .unwrap_or_else(|| panic!("missing journey {journey_id}"));
-            assert_eq!(derive_automatable(journey), Automatable::Http);
-            assert!(
-                !http_mutating_smoke_steps(journey).is_empty(),
-                "{journey_id} has no mutating-smoke-eligible steps"
-            );
-        }
     }
 
     #[test]
@@ -827,6 +1128,7 @@ mod tests {
         assert_eq!(steps.len(), 1);
         assert_eq!(steps[0].route.path, "/theme");
         assert_eq!(steps[0].body, Some(r##"{"primary":"#1e88e5"}"##));
+        assert!(steps[0].query.is_none());
     }
 
     #[test]

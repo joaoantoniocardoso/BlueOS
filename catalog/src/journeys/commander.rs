@@ -61,7 +61,7 @@ const REBOOT_ONBOARD_COMPUTER: UserJourney = UserJourney {
                 88,
             )),
             Provenance::source(POWER_MENU, 173),
-            Some(Grounded::unknown("destructive; not exercised in capture")),
+            Some(source_outcome(200, 88)),
         ),
     ]),
     chains_from: None,
@@ -130,7 +130,7 @@ const SYNC_SYSTEM_TIME: UserJourney = UserJourney {
             72,
         )),
         Provenance::source(UPDATE_TIME, 9),
-        Some(Grounded::unknown("destructive; not exercised in capture")),
+        Some(source_outcome(200, 72)),
     )]),
     chains_from: None,
 };
@@ -164,7 +164,7 @@ const ENABLE_LEGACY_CAMERA_SUPPORT: UserJourney = UserJourney {
                 117,
             )),
             Provenance::source(VIDEO_MANAGER, 66),
-            Some(Grounded::unknown("destructive; not exercised in capture")),
+            Some(source_outcome(200, 117)),
         ),
         operator_step(
             "Reboot the onboard computer to apply legacy camera support",
@@ -277,7 +277,7 @@ const UPDATE_RASPBERRY_EEPROM_BOOTLOADER: UserJourney = UserJourney {
                 157,
             )),
             Provenance::source(FIRMWARE, 69),
-            Some(Grounded::unknown("destructive; not exercised in capture")),
+            Some(source_outcome(200, 157)),
         ),
     ]),
     chains_from: Some(JourneyId::InspectRaspberryEepromBootloader),
@@ -315,7 +315,7 @@ const RESET_BLUEOS_SETTINGS: UserJourney = UserJourney {
                 164,
             )),
             Provenance::source(SETTINGS_VIEW, 669),
-            Some(Grounded::unknown("destructive; not exercised in capture")),
+            Some(source_outcome(200, 164)),
         ),
     ]),
     chains_from: None,
@@ -346,7 +346,7 @@ const RUN_HOST_COMMAND: UserJourney = UserJourney {
             57,
         )),
         Provenance::source(COMMANDER_STORE, 42),
-        Some(Grounded::unknown("destructive; not exercised in capture")),
+        Some(source_outcome(200, 57)),
     )]),
     chains_from: None,
 };
@@ -427,5 +427,16 @@ const fn runtime_outcome(
             transition: None,
         },
         Provenance::runtime(key, RUNTIME_ENV),
+    )
+}
+
+const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
+    Grounded::known(
+        StepOutcome {
+            expected_status: Some(status),
+            body_predicate: None,
+            transition: None,
+        },
+        Provenance::source(COMMANDER_MAIN, line),
     )
 }

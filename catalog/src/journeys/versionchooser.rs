@@ -75,13 +75,13 @@ const UPDATE_BLUEOS_VERSION: UserJourney =
                 "Click the update button to download the newer BlueOS core image",
                 Some(sourced_route(HttpMethod::Post, "/version/pull", Some("v1.0"), VERSION_ROUTER, 41)),
                 Provenance::doc(GETTING, 116),
-                None,
+                Some(source_outcome(200, VERSION_ROUTER, 41)),
             ),
             operator_step(
                 "Switch BlueOS core to the downloaded version and restart",
                 Some(sourced_route(HttpMethod::Post, "/version/current", Some("v1.0"), VERSION_ROUTER, 34)),
                 Provenance::source(VC_COMPONENT, 639),
-                None,
+                Some(source_outcome(200, VERSION_ROUTER, 34)),
             ),
         ]),
         chains_from: None,
@@ -137,7 +137,7 @@ const SWITCH_LOCAL_BLUEOS_VERSION: UserJourney =
                 "Apply the chosen local version",
                 Some(sourced_route(HttpMethod::Post, "/version/current", Some("v1.0"), VERSION_ROUTER, 34)),
                 Provenance::source(VC_COMPONENT, 639),
-                None,
+                Some(source_outcome(200, VERSION_ROUTER, 34)),
             ),
         ]),
         chains_from: Some(JourneyId::UpdateBlueosVersion),
@@ -189,7 +189,7 @@ const PULL_BLUEOS_VERSION_WITHOUT_SWITCH: UserJourney =
                 "Pull the selected remote tag to local storage",
                 Some(sourced_route(HttpMethod::Post, "/version/pull", Some("v1.0"), VERSION_ROUTER, 41)),
                 Provenance::source(VC_COMPONENT, 553),
-                None,
+                Some(source_outcome(200, VERSION_ROUTER, 41)),
             ),
         ]),
         chains_from: None,
@@ -250,7 +250,7 @@ const DELETE_LOCAL_BLUEOS_VERSION: UserJourney = UserJourney {
                 48,
             )),
             Provenance::source(VC_COMPONENT, 651),
-            None,
+            Some(source_outcome(200, VERSION_ROUTER, 48)),
         ),
     ]),
     chains_from: Some(JourneyId::SwitchLocalBlueosVersion),
@@ -284,7 +284,7 @@ const DOCKER_REGISTRY_LOGIN: UserJourney =
                 "Submit registry credentials, optionally for the root user or a custom registry index",
                 Some(sourced_route(HttpMethod::Post, "/docker/login", Some("v1.0"), DOCKER_ROUTER, 20)),
                 Provenance::doc(ADV, 407),
-                None,
+                Some(source_outcome(200, DOCKER_ROUTER, 20)),
             ),
             operator_step(
                 "Review connected Docker accounts",
@@ -349,7 +349,7 @@ const UPDATE_BOOTSTRAP_IMAGE: UserJourney = UserJourney {
                 41,
             )),
             Provenance::source(VC_COMPONENT, 596),
-            None,
+            Some(source_outcome(200, VERSION_ROUTER, 41)),
         ),
         operator_step(
             "Set BlueOS-bootstrap to the downloaded tag",
@@ -361,7 +361,7 @@ const UPDATE_BOOTSTRAP_IMAGE: UserJourney = UserJourney {
                 31,
             )),
             Provenance::source(VC_COMPONENT, 614),
-            None,
+            Some(source_outcome(200, BOOTSTRAP_ROUTER, 31)),
         ),
     ]),
     chains_from: Some(JourneyId::UpdateBlueosVersion),
@@ -424,5 +424,16 @@ const fn runtime_outcome(
             transition: None,
         },
         Provenance::runtime(key, RUNTIME_ENV),
+    )
+}
+
+const fn source_outcome(status: u16, file: &'static str, line: u32) -> Grounded<StepOutcome> {
+    Grounded::known(
+        StepOutcome {
+            expected_status: Some(status),
+            body_predicate: None,
+            transition: None,
+        },
+        Provenance::source(file, line),
     )
 }

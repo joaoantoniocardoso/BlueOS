@@ -6,11 +6,12 @@ use std::process;
 
 use blueos_catalog::{
     evaluate_journey, format_dry_run, format_http_fail, http_journeys, http_mutating_smoke_steps,
-    http_smoke_steps, http_steps, join_url, journey_fixtures_ready, journey_http_mode_conflict,
-    journey_http_requires_base, journey_mutating_smoke_ready, parse_fixture_list,
-    resolve_http_path, run_http_step, summarize_journey, Catalog, FixtureInventory, JourneyId,
-    JourneyResult, PreconditionStatus, RunCounts, StepResult, MUTATING_SMOKE_JOURNEY_IDS,
-    SMOKE_DEFAULT_FIXTURES,
+    http_smoke_steps, http_steps, is_mutating_smoke_journey, join_url, journey_fixtures_ready,
+    journey_http_mode_conflict, journey_http_requires_base, journey_mutating_smoke_ready,
+    mutating_smoke_setup_calls, mutating_smoke_skip_reason, mutating_smoke_teardown_calls,
+    parse_fixture_list, resolve_http_path, run_http_step, run_smoke_http_call, summarize_journey,
+    Catalog, FixtureInventory, JourneyId, JourneyResult, PreconditionStatus, RunCounts, StepResult,
+    MUTATING_SMOKE_DEFAULT_FIXTURES, SMOKE_DEFAULT_FIXTURES,
 };
 
 fn main() {
@@ -81,8 +82,10 @@ fn main() {
 
     let fixtures_label = if let Some(spec) = &fixtures_spec {
         spec.clone()
-    } else if smoke || mutating_smoke {
+    } else if smoke {
         SMOKE_DEFAULT_FIXTURES.to_string()
+    } else if mutating_smoke {
+        MUTATING_SMOKE_DEFAULT_FIXTURES.to_string()
     } else {
         String::new()
     };
@@ -95,7 +98,14 @@ fn main() {
                 process::exit(2);
             }
         },
-        None if smoke || mutating_smoke => match parse_fixture_list(SMOKE_DEFAULT_FIXTURES) {
+        None if smoke => match parse_fixture_list(SMOKE_DEFAULT_FIXTURES) {
+            Ok(fixtures) => fixtures,
+            Err(err) => {
+                eprintln!("journey_http: fixtures: {err}");
+                process::exit(2);
+            }
+        },
+        None if mutating_smoke => match parse_fixture_list(MUTATING_SMOKE_DEFAULT_FIXTURES) {
             Ok(fixtures) => fixtures,
             Err(err) => {
                 eprintln!("journey_http: fixtures: {err}");
@@ -108,7 +118,7 @@ fn main() {
     let catalog = Catalog::bootstrap();
     let mut journeys: Vec<_> = http_journeys(&catalog);
     if mutating_smoke {
-        journeys.retain(|journey| MUTATING_SMOKE_JOURNEY_IDS.contains(&journey.id));
+        journeys.retain(|journey| is_mutating_smoke_journey(journey.id));
     }
     if let Some(filter) = journey_filter {
         journeys.retain(|journey| journey.id == filter);
@@ -145,6 +155,14 @@ fn main() {
 
     for journey in journeys {
         let journey_id = journey.id;
+        if mutating_smoke {
+            if let Some(reason) = mutating_smoke_skip_reason(journey_id, &fixtures) {
+                let step_count = http_mutating_smoke_steps(journey).len().max(1);
+                totals.skipped += step_count;
+                journey_lines.push(format!("SKIP {journey_id}: {reason}"));
+                continue;
+            }
+        }
         let fixtures_ready = if mutating_smoke {
             journey_mutating_smoke_ready(journey, &fixtures)
         } else {
@@ -197,6 +215,21 @@ fn main() {
 
         let base = base.as_deref().expect("base checked above");
         let mut step_results = Vec::new();
+
+        if mutating_smoke {
+            for call in mutating_smoke_setup_calls(journey_id) {
+                let result = run_smoke_http_call(&catalog, base, call, allow_mutating);
+                if let StepResult::Fail(msg) = &result {
+                    eprintln!(
+                        "FAIL {journey_id} setup {:?} {} — {msg}",
+                        call.route.method, call.route.path
+                    );
+                }
+                totals.record(&result);
+                step_results.push(result);
+            }
+        }
+
         for step in &steps {
             let resolved_url = resolve_http_path(&catalog, &step.route)
                 .map(|path| join_url(base, &path))
@@ -207,6 +240,20 @@ fn main() {
             }
             totals.record(&result);
             step_results.push(result);
+        }
+
+        if mutating_smoke {
+            for call in mutating_smoke_teardown_calls(journey_id) {
+                let result = run_smoke_http_call(&catalog, base, call, allow_mutating);
+                if let StepResult::Fail(msg) = &result {
+                    eprintln!(
+                        "FAIL {journey_id} teardown {:?} {} — {msg}",
+                        call.route.method, call.route.path
+                    );
+                }
+                totals.record(&result);
+                step_results.push(result);
+            }
         }
 
         let outcome = summarize_journey(&step_results);
@@ -225,7 +272,7 @@ fn main() {
         println!("  {line}");
     }
 
-    if any_fail {
+    if any_fail || totals.failed > 0 {
         process::exit(1);
     }
 }

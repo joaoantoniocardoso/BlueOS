@@ -147,9 +147,9 @@ const RUN_SITL_SIMULATION: UserJourney =
             ),
             operator_step(
                 "Set the SITL vehicle frame in the POST /sitl_frame endpoint",
-                Some(sourced_route(HttpMethod::Post, "/sitl_frame", Some("v2.0"), 133)),
+                Some(sourced_route(HttpMethod::Post, "/sitl_frame", Some("v1.0"), 133)),
                 Provenance::doc(ADV, 319),
-                None,
+                Some(source_outcome(200, APM_ROUTER, 135)),
             ),
         ]),
         chains_from: Some(JourneyId::ChangeBoard),
@@ -428,6 +428,17 @@ const fn service_step(
             outcome,
         },
         provenance,
+    )
+}
+
+const fn source_outcome(status: u16, file: &'static str, line: u32) -> Grounded<StepOutcome> {
+    Grounded::known(
+        StepOutcome {
+            expected_status: Some(status),
+            body_predicate: None,
+            transition: None,
+        },
+        Provenance::source(file, line),
     )
 }
 

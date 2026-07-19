@@ -156,7 +156,7 @@ const REMOVE_CONFIGURED_NMEA_SOCKET: UserJourney = UserJourney {
                 59,
             )),
             Provenance::source(NMEA_SOCKET_CARD, 55),
-            None,
+            Some(source_outcome(200, 65)),
         ),
     ]),
     chains_from: None,
@@ -221,5 +221,16 @@ const fn runtime_outcome(
             transition: None,
         },
         Provenance::runtime(key, RUNTIME_ENV),
+    )
+}
+
+const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
+    Grounded::known(
+        StepOutcome {
+            expected_status: Some(status),
+            body_predicate: None,
+            transition: None,
+        },
+        Provenance::source(NMEA_MAIN, line),
     )
 }
