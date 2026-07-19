@@ -4,8 +4,11 @@ use crate::journey::{
     Actor, HttpMethod, JourneyStep, NetworkState, Precondition, RouteRef, SoftwareRequirement,
     StepOutcome, UserJourney, Visibility,
 };
+use crate::journey_presence::{
+    PRESENCE_BROWSE_AVAILABLE_WEB_SERVICES, PRESENCE_MONITOR_INTERNET_CONNECTIVITY,
+    PRESENCE_PROBE_INTERFACE_INTERNET_CONNECTIVITY, PRESENCE_VERIFY_INTERNET_CONNECTIVITY,
+};
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
-use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const GETTING: &str = "content/usage/getting-started/index.md";
@@ -60,7 +63,7 @@ const MONITOR_INTERNET_CONNECTIVITY: UserJourney = UserJourney {
             )),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_MONITOR_INTERNET_CONNECTIVITY,
     chains_from: None,
 };
 
@@ -103,7 +106,7 @@ const VERIFY_INTERNET_CONNECTIVITY: UserJourney = UserJourney {
             )),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_VERIFY_INTERNET_CONNECTIVITY,
     chains_from: None,
 };
 
@@ -143,7 +146,7 @@ const BROWSE_AVAILABLE_WEB_SERVICES: UserJourney = UserJourney {
             )),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_BROWSE_AVAILABLE_WEB_SERVICES,
     chains_from: None,
 };
 
@@ -186,7 +189,7 @@ const PROBE_INTERFACE_INTERNET_CONNECTIVITY: UserJourney = UserJourney {
             )),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_PROBE_INTERFACE_INTERNET_CONNECTIVITY,
     chains_from: None,
 };
 

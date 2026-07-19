@@ -6,8 +6,8 @@ use crate::journey::{
     Actor, HttpMethod, JourneyStep, Precondition, RouteRef, SoftwareRequirement, StepOutcome,
     UserJourney, Visibility,
 };
+use crate::journey_presence::PRESENCE_MODIFY_BAG_DATABASE;
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
-use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const BAG_MAIN: &str = "core/services/bag_of_holding/main.py";
@@ -58,7 +58,7 @@ const MODIFY_BAG_DATABASE: UserJourney = UserJourney {
             Some(source_outcome(200, 73)),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_MODIFY_BAG_DATABASE,
     chains_from: None,
 };
 

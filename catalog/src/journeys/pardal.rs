@@ -4,8 +4,8 @@ use crate::journey::{
     Actor, HttpMethod, JourneyStep, NetworkState, Precondition, RouteRef, StepOutcome, UserJourney,
     Visibility,
 };
+use crate::journey_presence::{PRESENCE_RUN_INTERNET_SPEED_TEST, PRESENCE_RUN_LAN_SPEED_TEST};
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
-use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const PARDAL_MAIN: &str = "core/services/pardal/main.py";
@@ -84,7 +84,7 @@ const RUN_LAN_SPEED_TEST: UserJourney =
                 None,
             ),
         ]),
-        availability: FeatureAvailability::unknown(),
+        availability: PRESENCE_RUN_LAN_SPEED_TEST,
     chains_from: None,
     };
 
@@ -172,7 +172,7 @@ const RUN_INTERNET_SPEED_TEST: UserJourney = UserJourney {
             Some(source_outcome(200, 107)),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_RUN_INTERNET_SPEED_TEST,
     chains_from: None,
 };
 

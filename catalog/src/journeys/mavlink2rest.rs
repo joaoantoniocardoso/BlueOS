@@ -3,8 +3,8 @@ use crate::journey::{
     Actor, JourneyStep, Precondition, RouteRef, SoftwareRequirement, StepOutcome, UserJourney,
     Visibility,
 };
+use crate::journey_presence::PRESENCE_INSPECT_MAVLINK_MESSAGES_IN_BROWSER;
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
-use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const OVERVIEW: &str = "content/usage/overview/index.md";
@@ -61,7 +61,7 @@ const INSPECT_MAVLINK_MESSAGES_IN_BROWSER: UserJourney =
                 None,
             ),
         ]),
-        availability: FeatureAvailability::unknown(),
+        availability: PRESENCE_INSPECT_MAVLINK_MESSAGES_IN_BROWSER,
     chains_from: None,
     };
 

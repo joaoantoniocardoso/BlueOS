@@ -2,9 +2,9 @@ use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
     Actor, HardwareRequirement, JourneyStep, Precondition, StepOutcome, UserJourney, Visibility,
 };
+use crate::journey_presence::PRESENCE_CONFIGURE_VIDEO_STREAM;
 use crate::page::PageId;
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
-use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const MENUS: &str = "core/frontend/src/menus.ts";
@@ -92,7 +92,7 @@ const CONFIGURE_VIDEO_STREAM: UserJourney = UserJourney {
             None,
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_CONFIGURE_VIDEO_STREAM,
     chains_from: None,
 };
 

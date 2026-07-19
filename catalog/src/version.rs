@@ -11,18 +11,40 @@ pub struct VersionBound {
     pub approx_date: Option<&'static str>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
+/// Where a catalog feature exists across BlueOS releases.
+///
+/// Features land on `master` first, then appear on release tags (and sometimes
+/// backports). Presence is the full `git tag --contains <intro_commit>` set plus
+/// floating channel tips (`master`, `1.4-dev`) recorded at seed time.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct FeatureAvailability {
-    pub introduced_in: Option<VersionBound>,
-    pub removed_in: Option<VersionBound>,
+    /// Commit that introduced the feature (usually first landed on master).
+    pub intro_commit: &'static str,
+    /// Every version tag that contains `intro_commit` (includes backports).
+    pub present_in_tags: &'static [&'static str],
+    /// `git merge-base --is-ancestor intro_commit master` at seed time.
+    pub present_on_master: bool,
+    /// `git merge-base --is-ancestor intro_commit 1.4-dev` at seed time.
+    pub present_on_1_4_dev: bool,
 }
 
 impl FeatureAvailability {
+    /// Empty / unset — **not valid** on catalog journeys.
     pub const fn unknown() -> Self {
         Self {
-            introduced_in: None,
-            removed_in: None,
+            intro_commit: "",
+            present_in_tags: &[],
+            present_on_master: false,
+            present_on_1_4_dev: false,
         }
+    }
+
+    pub fn first_tag(self) -> Option<&'static str> {
+        self.present_in_tags.first().copied()
+    }
+
+    pub fn present_on_dut(self, dut_tag: &str) -> bool {
+        feature_present_on(dut_tag, &self)
     }
 }
 
@@ -30,13 +52,18 @@ impl FeatureAvailability {
 pub enum BlueOsChannel {
     Numbered { major: u32, minor: u32, patch: u32 },
     Master,
+    Dev { major: u32, minor: u32 },
     Other(&'static str),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
 pub enum AvailabilitySkip {
-    NotYetIntroduced { introduced_in: &'static str },
-    RemovedInVersion { removed_in: &'static str },
+    /// DUT tag/channel does not contain the feature's intro commit.
+    NotPresentOnDut {
+        dut_tag: String,
+        intro_commit: &'static str,
+        first_tag: Option<&'static str>,
+    },
 }
 
 pub const fn bound_tag(tag: &'static str) -> VersionBound {
@@ -52,6 +79,16 @@ pub fn parse_release_tag(tag: &str) -> BlueOsChannel {
     let tag = tag.strip_prefix('v').unwrap_or(tag);
     if tag == "master" {
         return BlueOsChannel::Master;
+    }
+    if let Some((base, "dev")) = tag.rsplit_once('-') {
+        let mut parts = base.split('.');
+        if let (Some(major), Some(minor), None) = (
+            parts.next().and_then(|s| s.parse().ok()),
+            parts.next().and_then(|s| s.parse().ok()),
+            parts.next(),
+        ) {
+            return BlueOsChannel::Dev { major, minor };
+        }
     }
     if let Some((major, minor, patch)) = parse_numbered(tag) {
         return BlueOsChannel::Numbered {
@@ -85,6 +122,18 @@ pub fn cmp_channels(a: &BlueOsChannel, b: &BlueOsChannel) -> Option<Ordering> {
         (BlueOsChannel::Master, BlueOsChannel::Master) => Some(Ordering::Equal),
         (BlueOsChannel::Master, BlueOsChannel::Numbered { .. }) => Some(Ordering::Greater),
         (BlueOsChannel::Numbered { .. }, BlueOsChannel::Master) => Some(Ordering::Less),
+        (BlueOsChannel::Master, BlueOsChannel::Dev { .. }) => Some(Ordering::Greater),
+        (BlueOsChannel::Dev { .. }, BlueOsChannel::Master) => Some(Ordering::Less),
+        (
+            BlueOsChannel::Dev {
+                major: am,
+                minor: ai,
+            },
+            BlueOsChannel::Dev {
+                major: bm,
+                minor: bi,
+            },
+        ) => Some((am, ai).cmp(&(bm, bi))),
         (BlueOsChannel::Other(a_tag), BlueOsChannel::Other(b_tag)) if a_tag == b_tag => {
             Some(Ordering::Equal)
         }
@@ -95,93 +144,78 @@ pub fn cmp_channels(a: &BlueOsChannel, b: &BlueOsChannel) -> Option<Ordering> {
 
 pub fn format_availability_skip_reason(skip: &AvailabilitySkip, dut_tag: &str) -> String {
     match skip {
-        AvailabilitySkip::NotYetIntroduced { introduced_in } => {
-            format!("not introduced until {introduced_in} (dut {dut_tag})")
-        }
-        AvailabilitySkip::RemovedInVersion { removed_in } => {
-            format!("removed in {removed_in} (dut {dut_tag})")
+        AvailabilitySkip::NotPresentOnDut {
+            intro_commit,
+            first_tag,
+            ..
+        } => {
+            let first = first_tag.unwrap_or("(none)");
+            let short = intro_commit.get(..12).unwrap_or(intro_commit);
+            format!("not present on {dut_tag} (intro {short}; first tag {first})")
         }
     }
+}
+
+/// Whether the feature is present on the DUT's reported version tag.
+///
+/// - `master` → `present_on_master`
+/// - `1.4-dev` → `present_on_1_4_dev`
+/// - any other tag → exact membership in `present_in_tags` (covers backports)
+pub fn feature_present_on(dut_tag: &str, availability: &FeatureAvailability) -> bool {
+    let tag = dut_tag.strip_prefix('v').unwrap_or(dut_tag);
+    if tag == "master" {
+        return availability.present_on_master;
+    }
+    if tag == "1.4-dev" {
+        return availability.present_on_1_4_dev;
+    }
+    availability.present_in_tags.contains(&tag)
 }
 
 pub fn availability_skip(
     dut_tag: &str,
     availability: &FeatureAvailability,
 ) -> Option<AvailabilitySkip> {
-    if let Some(introduced) = availability.introduced_in.as_ref() {
-        match cmp_release_tags(dut_tag, introduced.release_tag) {
-            Some(Ordering::Less) => {
-                return Some(AvailabilitySkip::NotYetIntroduced {
-                    introduced_in: introduced.release_tag,
-                });
-            }
-            None => {}
-            Some(_) => {}
-        }
+    if feature_present_on(dut_tag, availability) {
+        return None;
     }
-
-    if let Some(removed) = availability.removed_in.as_ref() {
-        match cmp_release_tags(dut_tag, removed.release_tag) {
-            Some(Ordering::Greater) | Some(Ordering::Equal) => {
-                return Some(AvailabilitySkip::RemovedInVersion {
-                    removed_in: removed.release_tag,
-                });
-            }
-            None => {}
-            Some(Ordering::Less) => {}
-        }
-    }
-
-    None
+    Some(AvailabilitySkip::NotPresentOnDut {
+        dut_tag: dut_tag.to_string(),
+        intro_commit: availability.intro_commit,
+        first_tag: availability.first_tag(),
+    })
 }
 
 pub fn availability_is_valid(a: &FeatureAvailability) -> Result<(), &'static str> {
-    let (Some(introduced), Some(removed)) = (&a.introduced_in, &a.removed_in) else {
-        return Ok(());
-    };
-
-    match cmp_release_tags(introduced.release_tag, removed.release_tag) {
-        Some(Ordering::Less) => Ok(()),
-        Some(Ordering::Equal) => Err("introduced_in must be strictly before removed_in"),
-        Some(Ordering::Greater) => Err("introduced_in must be strictly before removed_in"),
-        None => Err("introduced_in and removed_in are not comparable"),
+    if a.intro_commit.is_empty() {
+        return Err("intro_commit is required (unknown availability is not allowed)");
     }
+    if a.present_in_tags.is_empty() && !a.present_on_master && !a.present_on_1_4_dev {
+        return Err("feature must be present on at least one tag or channel tip");
+    }
+    Ok(())
+}
+
+/// Journey ids (as strings) present on a given DUT tag / channel tip.
+pub fn journeys_present_on(
+    dut_tag: &str,
+    presence: &[(&'static str, FeatureAvailability)],
+) -> Vec<&'static str> {
+    presence
+        .iter()
+        .filter(|(_, avail)| feature_present_on(dut_tag, avail))
+        .map(|(id, _)| *id)
+        .collect()
 }
 
 const UNPARSED_TAG: &str = "";
 const KNOWN_OTHER_TAGS: &[&str] = &[];
 
-fn cmp_release_tags(a: &str, b: &str) -> Option<Ordering> {
-    let a = a.strip_prefix('v').unwrap_or(a);
-    let b = b.strip_prefix('v').unwrap_or(b);
-
-    if a == "master" && b == "master" {
-        return Some(Ordering::Equal);
-    }
-    if a == "master" {
-        return Some(Ordering::Greater);
-    }
-    if b == "master" {
-        return Some(Ordering::Less);
-    }
-
-    if let (Some(na), Some(nb)) = (parse_numbered(a), parse_numbered(b)) {
-        return Some(cmp_numbered(na, nb));
-    }
-
-    if parse_numbered(a).is_some() || parse_numbered(b).is_some() {
-        return None;
-    }
-
-    if a == b {
-        Some(Ordering::Equal)
-    } else {
-        None
-    }
-}
-
 fn parse_numbered(tag: &str) -> Option<(u32, u32, u32)> {
-    let mut parts = tag.split('.');
+    // Strip trailing -beta.N / .betaN for ordering helpers that need X.Y.Z only.
+    let base = tag.split("-beta").next().unwrap_or(tag);
+    let base = base.split(".beta").next().unwrap_or(base);
+    let mut parts = base.split('.');
     let major = parts.next()?.parse().ok()?;
     let minor = parts.next()?.parse().ok()?;
     let patch = parts.next()?.parse().ok()?;
@@ -201,6 +235,20 @@ fn cmp_numbered(a: (u32, u32, u32), b: (u32, u32, u32)) -> Ordering {
 mod tests {
     use super::*;
 
+    const SAMPLE_TAGS: &[&str] = &[
+        "1.4.4-beta.16",
+        "1.4.4-beta.17",
+        "1.5.0-beta.2",
+        "1.5.0-beta.22",
+    ];
+
+    const ZENOH_LIKE: FeatureAvailability = FeatureAvailability {
+        intro_commit: "127f885b2daf",
+        present_in_tags: SAMPLE_TAGS,
+        present_on_master: true,
+        present_on_1_4_dev: false,
+    };
+
     #[test]
     fn parse_release_tags() {
         assert_eq!(
@@ -211,117 +259,44 @@ mod tests {
                 patch: 4,
             }
         );
-        assert_eq!(
-            parse_release_tag("v1.5.0"),
-            BlueOsChannel::Numbered {
-                major: 1,
-                minor: 5,
-                patch: 0,
-            }
-        );
         assert_eq!(parse_release_tag("master"), BlueOsChannel::Master);
-    }
-
-    #[test]
-    fn channel_ordering() {
-        let a = parse_release_tag("1.4.4");
-        let b = parse_release_tag("1.5.0");
-        let m = parse_release_tag("master");
-        assert_eq!(cmp_channels(&a, &b), Some(Ordering::Less));
-        assert_eq!(cmp_channels(&b, &m), Some(Ordering::Less));
-        assert_eq!(cmp_channels(&a, &m), Some(Ordering::Less));
-    }
-
-    #[test]
-    fn format_availability_skip_reason_strings() {
         assert_eq!(
-            format_availability_skip_reason(
-                &AvailabilitySkip::NotYetIntroduced {
-                    introduced_in: "1.5.0",
-                },
-                "1.4.4",
-            ),
-            "not introduced until 1.5.0 (dut 1.4.4)"
-        );
-        assert_eq!(
-            format_availability_skip_reason(
-                &AvailabilitySkip::RemovedInVersion {
-                    removed_in: "1.5.0",
-                },
-                "1.5.1",
-            ),
-            "removed in 1.5.0 (dut 1.5.1)"
+            parse_release_tag("1.4-dev"),
+            BlueOsChannel::Dev { major: 1, minor: 4 }
         );
     }
 
     #[test]
-    fn availability_skip_not_introduced() {
-        let availability = FeatureAvailability {
-            introduced_in: Some(bound_tag("1.5.0")),
-            removed_in: None,
-        };
-        assert_eq!(
-            availability_skip("1.4.4", &availability),
-            Some(AvailabilitySkip::NotYetIntroduced {
-                introduced_in: "1.5.0",
-            })
-        );
+    fn presence_includes_backports_and_excludes_missing_channels() {
+        assert!(feature_present_on("1.4.4-beta.16", &ZENOH_LIKE));
+        assert!(feature_present_on("1.5.0-beta.2", &ZENOH_LIKE));
+        assert!(feature_present_on("master", &ZENOH_LIKE));
+        assert!(!feature_present_on("1.4-dev", &ZENOH_LIKE));
+        assert!(!feature_present_on("1.4.0", &ZENOH_LIKE));
     }
 
     #[test]
-    fn availability_skip_removed() {
-        let availability = FeatureAvailability {
-            introduced_in: None,
-            removed_in: Some(bound_tag("1.5.0")),
-        };
-        assert_eq!(
-            availability_skip("1.5.0", &availability),
-            Some(AvailabilitySkip::RemovedInVersion {
-                removed_in: "1.5.0",
-            })
-        );
-        assert_eq!(
-            availability_skip("1.6.0", &availability),
-            Some(AvailabilitySkip::RemovedInVersion {
-                removed_in: "1.5.0",
-            })
-        );
+    fn availability_skip_when_absent() {
+        let skip = availability_skip("1.4-dev", &ZENOH_LIKE).expect("skip");
+        match skip {
+            AvailabilitySkip::NotPresentOnDut { dut_tag, .. } => assert_eq!(dut_tag, "1.4-dev"),
+        }
+        assert!(availability_skip("master", &ZENOH_LIKE).is_none());
+        assert!(availability_skip("1.5.0-beta.22", &ZENOH_LIKE).is_none());
     }
 
     #[test]
-    fn availability_skip_always_available() {
-        let availability = FeatureAvailability::unknown();
-        assert_eq!(availability_skip("1.4.4", &availability), None);
-        assert_eq!(availability_skip("master", &availability), None);
+    fn availability_is_valid_rejects_unknown() {
+        assert!(availability_is_valid(&FeatureAvailability::unknown()).is_err());
+        assert!(availability_is_valid(&ZENOH_LIKE).is_ok());
     }
 
     #[test]
-    fn availability_skip_master_has_introduced_feature() {
-        let availability = FeatureAvailability {
-            introduced_in: Some(bound_tag("1.5.0")),
-            removed_in: None,
-        };
-        assert_eq!(availability_skip("master", &availability), None);
-    }
-
-    #[test]
-    fn invalid_introduced_not_before_removed() {
-        let availability = FeatureAvailability {
-            introduced_in: Some(bound_tag("1.5.0")),
-            removed_in: Some(bound_tag("1.4.0")),
-        };
-        assert!(availability_is_valid(&availability).is_err());
-
-        let equal = FeatureAvailability {
-            introduced_in: Some(bound_tag("1.5.0")),
-            removed_in: Some(bound_tag("1.5.0")),
-        };
-        assert!(availability_is_valid(&equal).is_err());
-
-        let valid = FeatureAvailability {
-            introduced_in: Some(bound_tag("1.4.0")),
-            removed_in: Some(bound_tag("1.5.0")),
-        };
-        assert!(availability_is_valid(&valid).is_ok());
+    fn journeys_present_on_filters() {
+        let table = [("InspectZenohNetwork", ZENOH_LIKE), ("Other", ZENOH_LIKE)];
+        let on_14dev = journeys_present_on("1.4-dev", &table);
+        assert!(on_14dev.is_empty());
+        let on_master = journeys_present_on("master", &table);
+        assert_eq!(on_master.len(), 2);
     }
 }

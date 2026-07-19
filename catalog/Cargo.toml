@@ -4,9 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+regex = "1"
 schemars = "0.8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sha1 = "0.10"
 thiserror = "1"
 
 [[bin]]
@@ -56,3 +58,11 @@ path = "src/bin/tier1_coverage.rs"
 [[bin]]
 name = "tier2_coverage"
 path = "src/bin/tier2_coverage.rs"
+
+[[bin]]
+name = "generate_feature_presence"
+path = "src/bin/generate_feature_presence.rs"
+
+[[bin]]
+name = "enrich_feature_traces"
+path = "src/bin/enrich_feature_traces.rs"

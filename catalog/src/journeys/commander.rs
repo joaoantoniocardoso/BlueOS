@@ -4,8 +4,13 @@ use crate::journey::{
     Actor, HttpMethod, JourneyStep, Precondition, RouteRef, SoftwareRequirement, StepOutcome,
     UserJourney, Visibility,
 };
+use crate::journey_presence::{
+    PRESENCE_ENABLE_LEGACY_CAMERA_SUPPORT, PRESENCE_INSPECT_RASPBERRY_EEPROM_BOOTLOADER,
+    PRESENCE_REBOOT_ONBOARD_COMPUTER, PRESENCE_RESET_BLUEOS_SETTINGS, PRESENCE_RUN_HOST_COMMAND,
+    PRESENCE_SHUTDOWN_ONBOARD_COMPUTER, PRESENCE_SYNC_SYSTEM_TIME,
+    PRESENCE_UPDATE_RASPBERRY_EEPROM_BOOTLOADER,
+};
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
-use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const DEV_CORE: &str = "content/development/core/index.md";
@@ -66,7 +71,7 @@ const REBOOT_ONBOARD_COMPUTER: UserJourney = UserJourney {
             Some(source_outcome(200, 88)),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_REBOOT_ONBOARD_COMPUTER,
     chains_from: None,
 };
 
@@ -105,7 +110,7 @@ const SHUTDOWN_ONBOARD_COMPUTER: UserJourney = UserJourney {
             Some(Grounded::unknown("destructive; not exercised in capture")),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_SHUTDOWN_ONBOARD_COMPUTER,
     chains_from: None,
 };
 
@@ -136,7 +141,7 @@ const SYNC_SYSTEM_TIME: UserJourney = UserJourney {
         Provenance::source(UPDATE_TIME, 9),
         Some(source_outcome(200, 72)),
     )]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_SYNC_SYSTEM_TIME,
     chains_from: None,
 };
 
@@ -178,7 +183,7 @@ const ENABLE_LEGACY_CAMERA_SUPPORT: UserJourney = UserJourney {
             None,
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_ENABLE_LEGACY_CAMERA_SUPPORT,
     chains_from: Some(JourneyId::RebootOnboardComputer),
 };
 
@@ -242,7 +247,7 @@ const INSPECT_RASPBERRY_EEPROM_BOOTLOADER: UserJourney = UserJourney {
             )),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_INSPECT_RASPBERRY_EEPROM_BOOTLOADER,
     chains_from: None,
 };
 
@@ -287,7 +292,7 @@ const UPDATE_RASPBERRY_EEPROM_BOOTLOADER: UserJourney = UserJourney {
             Some(source_outcome(200, 157)),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_UPDATE_RASPBERRY_EEPROM_BOOTLOADER,
     chains_from: Some(JourneyId::InspectRaspberryEepromBootloader),
 };
 
@@ -326,7 +331,7 @@ const RESET_BLUEOS_SETTINGS: UserJourney = UserJourney {
             Some(source_outcome(200, 164)),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_RESET_BLUEOS_SETTINGS,
     chains_from: None,
 };
 
@@ -357,7 +362,7 @@ const RUN_HOST_COMMAND: UserJourney = UserJourney {
         Provenance::source(COMMANDER_STORE, 42),
         Some(source_outcome(200, 57)),
     )]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_RUN_HOST_COMMAND,
     chains_from: None,
 };
 

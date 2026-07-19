@@ -715,7 +715,14 @@ mod tests {
     use crate::runtime::{RuntimeFacts, StateContract};
     use crate::service::Service;
     use crate::state::StateMachine;
-    use crate::version::{bound_tag, FeatureAvailability};
+    use crate::version::FeatureAvailability;
+
+    const TEST_PRESENCE: FeatureAvailability = FeatureAvailability {
+        intro_commit: "0000000000000000000000000000000000000001",
+        present_in_tags: &["1.0.0"],
+        present_on_master: true,
+        present_on_1_4_dev: true,
+    };
 
     const fn evidence() -> Evidence {
         Evidence {
@@ -1022,7 +1029,7 @@ mod tests {
                     )]
                 },
             ),
-            availability: FeatureAvailability::unknown(),
+            availability: TEST_PRESENCE,
             chains_from: None,
         }
     }
@@ -1031,10 +1038,7 @@ mod tests {
     fn invalid_journey_availability_fails_validate() {
         let service = valid_journey_service(ServiceId::Helper);
         let journey = UserJourney {
-            availability: FeatureAvailability {
-                introduced_in: Some(bound_tag("1.5.0")),
-                removed_in: Some(bound_tag("1.4.0")),
-            },
+            availability: FeatureAvailability::unknown(),
             ..valid_journey()
         };
         let catalog = Catalog::with_parts(
@@ -1524,7 +1528,7 @@ mod tests {
                     )]
                 },
             ),
-            availability: FeatureAvailability::unknown(),
+            availability: TEST_PRESENCE,
             chains_from: None,
         };
         let catalog = Catalog::with_parts(

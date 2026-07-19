@@ -290,6 +290,15 @@ pub fn check_frontend_route_refs(catalog: &Catalog) -> Vec<ValidationError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const TEST_PRESENCE: crate::version::FeatureAvailability =
+        crate::version::FeatureAvailability {
+            intro_commit: "0000000000000000000000000000000000000001",
+            present_in_tags: &["1.0.0"],
+            present_on_master: true,
+            present_on_1_4_dev: true,
+        };
+
     use crate::catalog::Catalog;
     use crate::id::{CapabilityId, JourneyId};
     use crate::journey::{Actor, HttpMethod, JourneyStep, RouteRef, UserJourney, Visibility};
@@ -297,7 +306,6 @@ mod tests {
     use crate::runtime::RuntimeFacts;
     use crate::service::Service;
     use crate::services::recorder_extractor::{OBSERVED_FACTS, SERVICE_DEFINITION};
-    use crate::version::FeatureAvailability;
 
     #[test]
     fn frontend_api_endpoints_table_is_populated() {
@@ -363,7 +371,7 @@ mod tests {
             capability_refs: CAPABILITIES,
             preconditions: GroundedSet::known(&[]),
             steps: GroundedSet::known(STEPS),
-            availability: FeatureAvailability::unknown(),
+            availability: TEST_PRESENCE,
             chains_from: None,
         };
 

@@ -4,8 +4,11 @@ use crate::journey::{
     Actor, HardwareRequirement, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome,
     UserJourney, Visibility,
 };
+use crate::journey_presence::{
+    PRESENCE_CONNECT_PING_VIEWER_TO_SONAR, PRESENCE_ENABLE_PING1D_RANGEFINDER_MAVLINK,
+    PRESENCE_VIEW_DETECTED_SONAR_DEVICES,
+};
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
-use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const OVERVIEW: &str = "content/usage/overview/index.md";
@@ -82,7 +85,7 @@ const VIEW_DETECTED_SONAR_DEVICES: UserJourney =
                 None,
             ),
         ]),
-        availability: FeatureAvailability::unknown(),
+        availability: PRESENCE_VIEW_DETECTED_SONAR_DEVICES,
     chains_from: None,
     };
 
@@ -124,7 +127,7 @@ const CONNECT_PING_VIEWER_TO_SONAR: UserJourney =
                 )),
             ),
         ]),
-        availability: FeatureAvailability::unknown(),
+        availability: PRESENCE_CONNECT_PING_VIEWER_TO_SONAR,
     chains_from: None,
     };
 
@@ -172,7 +175,7 @@ const ENABLE_PING1D_RANGEFINDER_MAVLINK: UserJourney =
                 )),
             ),
         ]),
-        availability: FeatureAvailability::unknown(),
+        availability: PRESENCE_ENABLE_PING1D_RANGEFINDER_MAVLINK,
     chains_from: None,
     };
 

@@ -4,8 +4,11 @@ use crate::journey::{
     Actor, DataRequirement, HardwareRequirement, HttpMethod, JourneyStep, Precondition, RouteRef,
     SoftwareRequirement, StepOutcome, UserJourney, Visibility,
 };
+use crate::journey_presence::{
+    PRESENCE_ADD_EXTERNAL_NMEA_GPS_SOCKET, PRESENCE_REMOVE_CONFIGURED_NMEA_SOCKET,
+    PRESENCE_VIEW_CONFIGURED_NMEA_SOCKETS,
+};
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
-use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const NMEA_MAIN: &str = "core/services/nmea_injector/main.py";
@@ -56,7 +59,7 @@ const VIEW_CONFIGURED_NMEA_SOCKETS: UserJourney = UserJourney {
             )),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_VIEW_CONFIGURED_NMEA_SOCKETS,
     chains_from: None,
 };
 
@@ -108,7 +111,7 @@ const ADD_EXTERNAL_NMEA_GPS_SOCKET: UserJourney = UserJourney {
             None,
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_ADD_EXTERNAL_NMEA_GPS_SOCKET,
     chains_from: None,
 };
 
@@ -163,7 +166,7 @@ const REMOVE_CONFIGURED_NMEA_SOCKET: UserJourney = UserJourney {
             Some(source_outcome(200, 65)),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_REMOVE_CONFIGURED_NMEA_SOCKET,
     chains_from: None,
 };
 

@@ -3,8 +3,12 @@ use crate::journey::{
     Actor, DataRequirement, HttpMethod, JourneyStep, Precondition, RouteRef, SoftwareRequirement,
     StepOutcome, UserJourney, Visibility,
 };
+use crate::journey_presence::{
+    PRESENCE_ACQUIRE_DYNAMIC_IP_ADDRESS, PRESENCE_ASSIGN_STATIC_IP_ADDRESS,
+    PRESENCE_CONFIGURE_HOST_DNS, PRESENCE_DISABLE_ONBOARD_DHCP_SERVER,
+    PRESENCE_ENABLE_ONBOARD_DHCP_SERVER, PRESENCE_SET_NETWORK_INTERFACE_PRIORITY,
+};
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
-use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const CABLE_GUY_MAIN: &str = "core/services/cable_guy/main.py";
@@ -62,7 +66,7 @@ const ASSIGN_STATIC_IP_ADDRESS: UserJourney = UserJourney {
             Some(source_outcome(200, 71)),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_ASSIGN_STATIC_IP_ADDRESS,
     chains_from: None,
 };
 
@@ -98,7 +102,7 @@ const ACQUIRE_DYNAMIC_IP_ADDRESS: UserJourney = UserJourney {
             Some(source_outcome(200, 117)),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_ACQUIRE_DYNAMIC_IP_ADDRESS,
     chains_from: None,
 };
 
@@ -140,7 +144,7 @@ const ENABLE_ONBOARD_DHCP_SERVER: UserJourney = UserJourney {
             Some(source_outcome(200, 101)),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_ENABLE_ONBOARD_DHCP_SERVER,
     chains_from: None,
 };
 
@@ -179,7 +183,7 @@ const DISABLE_ONBOARD_DHCP_SERVER: UserJourney = UserJourney {
             Some(source_outcome(200, 109)),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_DISABLE_ONBOARD_DHCP_SERVER,
     chains_from: None,
 };
 
@@ -230,7 +234,7 @@ const SET_NETWORK_INTERFACE_PRIORITY: UserJourney = UserJourney {
             Some(source_outcome(200, 64)),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_SET_NETWORK_INTERFACE_PRIORITY,
     chains_from: None,
 };
 
@@ -275,7 +279,7 @@ const CONFIGURE_HOST_DNS: UserJourney = UserJourney {
             Some(source_outcome(200, 132)),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_CONFIGURE_HOST_DNS,
     chains_from: None,
 };
 

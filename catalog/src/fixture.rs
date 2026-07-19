@@ -253,10 +253,18 @@ fn evaluate_flight_controller(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const TEST_PRESENCE: crate::version::FeatureAvailability =
+        crate::version::FeatureAvailability {
+            intro_commit: "0000000000000000000000000000000000000001",
+            present_in_tags: &["1.0.0"],
+            present_on_master: true,
+            present_on_1_4_dev: true,
+        };
+
     use crate::id::JourneyId;
     use crate::journey::Visibility;
     use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
-    use crate::version::FeatureAvailability;
 
     const DOC: Provenance = Provenance::doc("test.md", 1);
 
@@ -269,7 +277,7 @@ mod tests {
             capability_refs: GroundedSet::unknown("test"),
             preconditions,
             steps: GroundedSet::unknown("test"),
-            availability: FeatureAvailability::unknown(),
+            availability: TEST_PRESENCE,
             chains_from: None,
         }
     }

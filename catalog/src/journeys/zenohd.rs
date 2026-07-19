@@ -2,8 +2,8 @@ use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
     Actor, JourneyStep, Precondition, SoftwareRequirement, StepOutcome, UserJourney, Visibility,
 };
+use crate::journey_presence::PRESENCE_INSPECT_ZENOH_NETWORK;
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
-use crate::version::FeatureAvailability;
 
 const ZENOH_MENUS: &str = "core/frontend/src/menus.ts";
 const ZENOH_VIEW: &str = "core/frontend/src/views/ZenohInspectorView.vue";
@@ -68,7 +68,7 @@ const INSPECT_ZENOH_NETWORK: UserJourney =
                 Some(live_outcome("topic message payload depends on live Zenoh traffic at runtime")),
             ),
         ]),
-        availability: FeatureAvailability::unknown(),
+        availability: PRESENCE_INSPECT_ZENOH_NETWORK,
     chains_from: None,
     };
 

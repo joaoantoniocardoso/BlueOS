@@ -3,8 +3,8 @@ use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
     Actor, HttpMethod, JourneyStep, RouteRef, StepOutcome, UserJourney, Visibility,
 };
+use crate::journey_presence::PRESENCE_ACCESS_BLUEOS_WEB_INTERFACE;
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
-use crate::version::FeatureAvailability;
 
 const DEV_CORE: &str = "content/development/core/index.md";
 const GETTING: &str = "content/usage/getting-started/index.md";
@@ -55,7 +55,7 @@ const ACCESS_BLUEOS_WEB_INTERFACE: UserJourney = UserJourney {
             )),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_ACCESS_BLUEOS_WEB_INTERFACE,
     chains_from: None,
 };
 

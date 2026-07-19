@@ -4,8 +4,11 @@ use crate::journey::{
     Actor, DataRequirement, HardwareRequirement, HttpMethod, JourneyStep, Precondition, RouteRef,
     SoftwareRequirement, StepOutcome, UserJourney, Visibility,
 };
+use crate::journey_presence::{
+    PRESENCE_CREATE_SERIAL_TO_UDP_BRIDGE, PRESENCE_REMOVE_SERIAL_BRIDGE,
+    PRESENCE_VIEW_CONFIGURED_SERIAL_BRIDGES,
+};
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
-use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const OVERVIEW: &str = "content/usage/overview/index.md";
@@ -79,7 +82,7 @@ const VIEW_CONFIGURED_SERIAL_BRIDGES: UserJourney =
                 None,
             ),
         ]),
-        availability: FeatureAvailability::unknown(),
+        availability: PRESENCE_VIEW_CONFIGURED_SERIAL_BRIDGES,
     chains_from: None,
     };
 
@@ -166,7 +169,7 @@ const CREATE_SERIAL_TO_UDP_BRIDGE: UserJourney =
                 None,
             ),
         ]),
-        availability: FeatureAvailability::unknown(),
+        availability: PRESENCE_CREATE_SERIAL_TO_UDP_BRIDGE,
     chains_from: None,
     };
 
@@ -221,7 +224,7 @@ const REMOVE_SERIAL_BRIDGE: UserJourney = UserJourney {
             Some(source_outcome(200, 56)),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_REMOVE_SERIAL_BRIDGE,
     chains_from: None,
 };
 

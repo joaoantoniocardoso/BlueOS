@@ -1485,10 +1485,18 @@ fn ensure_leading_slash(path: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const TEST_PRESENCE: crate::version::FeatureAvailability =
+        crate::version::FeatureAvailability {
+            intro_commit: "0000000000000000000000000000000000000001",
+            present_in_tags: &["1.0.0"],
+            present_on_master: true,
+            present_on_1_4_dev: true,
+        };
+
     use crate::id::ServiceId;
     use crate::journey::{JourneyStep, Visibility};
     use crate::provenance::{GroundedItem, Provenance};
-    use crate::version::FeatureAvailability;
 
     const DOC: Provenance = Provenance::doc("test.md", 1);
 
@@ -1604,7 +1612,7 @@ mod tests {
             capability_refs: GroundedSet::unknown("test"),
             preconditions: GroundedSet::known(&[]),
             steps: GroundedSet::known(STEPS),
-            availability: FeatureAvailability::unknown(),
+            availability: TEST_PRESENCE,
             chains_from: None,
         };
 
@@ -1838,7 +1846,7 @@ mod tests {
             capability_refs: GroundedSet::unknown("test"),
             preconditions: GroundedSet::known(&[]),
             steps: GroundedSet::known(STEPS),
-            availability: FeatureAvailability::unknown(),
+            availability: TEST_PRESENCE,
             chains_from: None,
         };
 
@@ -1926,7 +1934,7 @@ mod tests {
             capability_refs: GroundedSet::unknown("test"),
             preconditions: GroundedSet::known(&[]),
             steps: GroundedSet::known(STEPS),
-            availability: FeatureAvailability::unknown(),
+            availability: TEST_PRESENCE,
             chains_from: None,
         };
 

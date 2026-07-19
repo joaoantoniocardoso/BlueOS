@@ -10,6 +10,8 @@ pub mod edge;
 pub mod export;
 pub mod extract;
 pub mod feature;
+pub mod feature_intro;
+pub mod feature_trace;
 pub mod fixture;
 pub mod frontend_routes;
 pub mod frontend_smoke;
@@ -17,6 +19,7 @@ pub mod id;
 pub mod interface;
 pub mod journey;
 pub mod journey_group;
+pub mod journey_presence;
 pub mod journeys;
 pub mod lifecycle;
 pub mod mutating_smoke;
@@ -33,6 +36,7 @@ pub mod service;
 pub mod services;
 pub mod split;
 pub mod state;
+pub mod tools;
 pub mod trust;
 pub mod validate;
 pub mod version;
@@ -67,6 +71,12 @@ pub use feature::{
     AggregateGroup, Divergence, Feature, FeatureCatalog, FeatureCommunity, FeatureId, FeatureLens,
     FeaturePairAgreement, FeatureSplitConsensus, JourneyView, Origin,
 };
+pub use feature_intro::{feature_map_for_version, journeys_for_version, presence_for_journey};
+pub use feature_trace::{
+    cluster_for_journey, commit, feature_traces, intro_commit_for_journey, issue,
+    landing_pr_for_journey, pull_request, ClusterIssueRef, FeatureTraces, IntroCluster,
+    IssueSource, IssueSourceKind, TraceCommit, TraceIssue, TraceJourneyRef, TracePullRequest,
+};
 pub use fixture::{
     evaluate_journey, evaluate_precondition, journey_fixtures_ready, journey_mutating_smoke_ready,
     parse_fixture_list, FixtureInventory, PreconditionStatus,
@@ -81,6 +91,7 @@ pub use journey::{
     Visibility,
 };
 pub use journey_group::{JourneyLens, JourneyPairAgreement, JourneySplitConsensus};
+pub use journey_presence::ALL_JOURNEY_PRESENCE;
 pub use lifecycle::{Lifecycle, ObservedLifecycle};
 pub use mutating_smoke::{
     is_mutating_smoke_journey, is_tier2_mutating_eligible, is_tier2_mutating_hard_excluded,
@@ -96,7 +107,7 @@ pub use provenance::{
 pub use report::{
     count_journey_steps, utc_rfc3339_now, write_journey_http_report, JourneyHttpReport,
     JourneyReportEntry, JourneyReportResult, ReportAvailability, ReportCounts, ReportDut,
-    SuiteKind, SCHEMA_VERSION,
+    ReportTrace, SuiteKind, SCHEMA_VERSION,
 };
 pub use resolve::{resolve, resolve_port_ref, resolve_service_ports, ResolveError, ResolvedPorts};
 pub use resource::{Resource, ResourceOwnership};
@@ -120,7 +131,7 @@ pub use state::StateMachine;
 pub use trust::{DangerousOperation, PrivilegeLevel, UserConfirmation};
 pub use validate::{validate, ValidationError, COVERAGE_UNKNOWN_THRESHOLD};
 pub use version::{
-    availability_is_valid, availability_skip, bound_tag, cmp_channels,
-    format_availability_skip_reason, parse_release_tag, AvailabilitySkip, BlueOsChannel,
-    FeatureAvailability, VersionBound,
+    availability_is_valid, availability_skip, bound_tag, cmp_channels, feature_present_on,
+    format_availability_skip_reason, journeys_present_on, parse_release_tag, AvailabilitySkip,
+    BlueOsChannel, FeatureAvailability, VersionBound,
 };

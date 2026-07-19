@@ -64,6 +64,15 @@ pub fn export_mermaid(catalog: &Catalog) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const TEST_PRESENCE: crate::version::FeatureAvailability =
+        crate::version::FeatureAvailability {
+            intro_commit: "0000000000000000000000000000000000000001",
+            present_in_tags: &["1.0.0"],
+            present_on_master: true,
+            present_on_1_4_dev: true,
+        };
+
     use crate::catalog::Catalog;
     use crate::criticality::CriticalityTier;
     use crate::id::ServiceId;
@@ -174,7 +183,6 @@ mod tests {
             Actor, HttpMethod, JourneyStep, RouteRef, StepOutcome, UserJourney, Visibility,
         };
         use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
-        use crate::version::FeatureAvailability;
 
         let journey = UserJourney {
             id: JourneyId::Deploy,
@@ -224,7 +232,7 @@ mod tests {
                     )]
                 },
             ),
-            availability: FeatureAvailability::unknown(),
+            availability: TEST_PRESENCE,
             chains_from: None,
         };
 

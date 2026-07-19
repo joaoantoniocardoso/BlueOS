@@ -1,7 +1,9 @@
 use serde::Serialize;
 
+use crate::feature_trace::cluster_for_journey;
 use crate::id::JourneyId;
 use crate::runner::{DutVersion, JourneyResult, RunCounts, StepResult};
+use crate::version::FeatureAvailability;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ReportDut {
@@ -27,7 +29,6 @@ fn normalize_digest(digest: Option<&str>) -> String {
         None => "sha256:unknown".to_string(),
     }
 }
-use crate::version::FeatureAvailability;
 
 pub const SCHEMA_VERSION: u32 = 1;
 
@@ -78,22 +79,52 @@ impl From<JourneyResult> for JourneyReportResult {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ReportAvailability {
-    pub introduced_in: Option<&'static str>,
-    pub removed_in: Option<&'static str>,
+    pub intro_commit: &'static str,
+    pub first_tag: Option<&'static str>,
+    pub tag_count: usize,
+    pub present_on_master: bool,
+    pub present_on_1_4_dev: bool,
+    /// Full tag list (includes backports). May be large for early features.
+    pub present_in_tags: &'static [&'static str],
 }
 
 impl From<&FeatureAvailability> for ReportAvailability {
     fn from(availability: &FeatureAvailability) -> Self {
         Self {
-            introduced_in: availability
-                .introduced_in
-                .as_ref()
-                .map(|bound| bound.release_tag),
-            removed_in: availability
-                .removed_in
-                .as_ref()
-                .map(|bound| bound.release_tag),
+            intro_commit: availability.intro_commit,
+            first_tag: availability.first_tag(),
+            tag_count: availability.present_in_tags.len(),
+            present_on_master: availability.present_on_master,
+            present_on_1_4_dev: availability.present_on_1_4_dev,
+            present_in_tags: availability.present_in_tags,
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ReportTrace {
+    pub landing_prs: Vec<u64>,
+    pub backport_prs: Vec<u64>,
+    pub follow_up_prs: Vec<u64>,
+    pub squash_merge: bool,
+    pub intro_sha_in_pr_commits: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub merge_commit_sha: Option<String>,
+    pub issue_numbers: Vec<u64>,
+}
+
+impl ReportTrace {
+    pub fn for_journey(journey_id: &str) -> Option<Self> {
+        let cluster = cluster_for_journey(journey_id)?;
+        Some(Self {
+            landing_prs: cluster.landing_prs.clone(),
+            backport_prs: cluster.backport_prs.clone(),
+            follow_up_prs: cluster.follow_up_prs.clone(),
+            squash_merge: cluster.squash_merge,
+            intro_sha_in_pr_commits: cluster.intro_sha_in_pr_commits,
+            merge_commit_sha: cluster.merge_commit_sha.clone(),
+            issue_numbers: cluster.issues.iter().map(|i| i.number).collect(),
+        })
     }
 }
 
@@ -104,6 +135,8 @@ pub struct JourneyReportEntry {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub skip_reason: Option<String>,
     pub availability: ReportAvailability,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trace: Option<ReportTrace>,
     pub steps_passed: usize,
     pub steps_failed: usize,
     pub steps_skipped: usize,
@@ -122,6 +155,7 @@ impl JourneyReportEntry {
             result: outcome.into(),
             skip_reason: None,
             availability: availability.into(),
+            trace: ReportTrace::for_journey(journey_id.as_str()),
             steps_passed,
             steps_failed,
             steps_skipped,
@@ -139,6 +173,7 @@ impl JourneyReportEntry {
             result: JourneyReportResult::Skip,
             skip_reason: Some(reason.into()),
             availability: availability.into(),
+            trace: ReportTrace::for_journey(journey_id.as_str()),
             steps_passed: 0,
             steps_failed: 0,
             steps_skipped,
@@ -224,7 +259,14 @@ mod tests {
         SCHEMA_VERSION,
     };
     use crate::id::JourneyId;
-    use crate::version::{bound_tag, FeatureAvailability};
+    use crate::version::FeatureAvailability;
+
+    const SAMPLE: FeatureAvailability = FeatureAvailability {
+        intro_commit: "abc123",
+        present_in_tags: &["1.5.0-beta.2"],
+        present_on_master: true,
+        present_on_1_4_dev: false,
+    };
 
     #[test]
     fn minimal_report_json_contains_schema_version() {
@@ -243,17 +285,17 @@ mod tests {
             },
             journeys: vec![JourneyReportEntry::skipped(
                 JourneyId::MonitorInternetConnectivity,
-                &FeatureAvailability {
-                    introduced_in: Some(bound_tag("1.5.0")),
-                    removed_in: None,
-                },
+                &SAMPLE,
                 "offline",
                 1,
             )],
         };
         let json = serde_json::to_string(&report).expect("serialize report");
         assert!(json.contains("\"schema_version\":1"));
-        assert!(json.contains("\"introduced_in\":\"1.5.0\""));
+        assert!(json.contains("\"intro_commit\":\"abc123\""));
+        assert!(json.contains("\"present_on_master\":true"));
+        // Real journeys get a compact GitHub provenance summary when traces are loaded.
+        assert!(json.contains("\"landing_prs\"") || !json.contains("\"trace\""));
     }
 
     #[test]

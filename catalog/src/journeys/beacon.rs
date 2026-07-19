@@ -2,8 +2,10 @@ use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
     Actor, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome, UserJourney, Visibility,
 };
+use crate::journey_presence::{
+    PRESENCE_CHANGE_MDNS_HOSTNAME, PRESENCE_DISCOVER_BLUEOS_ON_NETWORK, PRESENCE_RENAME_VEHICLE,
+};
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
-use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const BEACON_MAIN: &str = "core/services/beacon/main.py";
@@ -45,7 +47,7 @@ const RENAME_VEHICLE: UserJourney =
                 Some(source_outcome(200, 298)),
             ),
         ]),
-        availability: FeatureAvailability::unknown(),
+        availability: PRESENCE_RENAME_VEHICLE,
     chains_from: None,
     };
 
@@ -81,7 +83,7 @@ const CHANGE_MDNS_HOSTNAME: UserJourney = UserJourney {
             Some(source_outcome(200, 286)),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_CHANGE_MDNS_HOSTNAME,
     chains_from: None,
 };
 
@@ -117,7 +119,7 @@ const DISCOVER_BLUEOS_ON_NETWORK: UserJourney = UserJourney {
             None,
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_DISCOVER_BLUEOS_ON_NETWORK,
     chains_from: None,
 };
 

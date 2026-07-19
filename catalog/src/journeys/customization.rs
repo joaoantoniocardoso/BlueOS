@@ -2,8 +2,13 @@ use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
     Actor, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome, UserJourney, Visibility,
 };
+use crate::journey_presence::{
+    PRESENCE_CHANGE_UI_THEME_COLOR, PRESENCE_DELETE3D_MODEL_OVERRIDE, PRESENCE_REMOVE_CUSTOM_LOGO,
+    PRESENCE_REMOVE_CUSTOM_VEHICLE_IMAGE, PRESENCE_RESET_UI_THEME_COLOR,
+    PRESENCE_UPLOAD3D_MODEL_OVERRIDE, PRESENCE_UPLOAD_CUSTOM_LOGO,
+    PRESENCE_UPLOAD_CUSTOM_VEHICLE_IMAGE,
+};
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
-use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const BRANDING_UPLOADER: &str = "core/frontend/src/components/customization/BrandingUploader.vue";
@@ -59,7 +64,7 @@ const CHANGE_UI_THEME_COLOR: UserJourney = UserJourney {
             Some(source_outcome(200, 144)),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_CHANGE_UI_THEME_COLOR,
     chains_from: None,
 };
 
@@ -99,7 +104,7 @@ const RESET_UI_THEME_COLOR: UserJourney = UserJourney {
             Some(source_outcome(204, 156)),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_RESET_UI_THEME_COLOR,
     chains_from: None,
 };
 
@@ -144,7 +149,7 @@ const UPLOAD_CUSTOM_LOGO: UserJourney = UserJourney {
             Some(source_outcome(200, 275)),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_UPLOAD_CUSTOM_LOGO,
     chains_from: None,
 };
 
@@ -187,7 +192,7 @@ const REMOVE_CUSTOM_LOGO: UserJourney = UserJourney {
             Some(source_outcome(204, 279)),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_REMOVE_CUSTOM_LOGO,
     chains_from: None,
 };
 
@@ -232,7 +237,7 @@ const UPLOAD_CUSTOM_VEHICLE_IMAGE: UserJourney = UserJourney {
             Some(source_outcome(200, 301)),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_UPLOAD_CUSTOM_VEHICLE_IMAGE,
     chains_from: None,
 };
 
@@ -275,7 +280,7 @@ const REMOVE_CUSTOM_VEHICLE_IMAGE: UserJourney = UserJourney {
             Some(source_outcome(204, 307)),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_REMOVE_CUSTOM_VEHICLE_IMAGE,
     chains_from: None,
 };
 
@@ -320,7 +325,7 @@ const UPLOAD_3D_MODEL_OVERRIDE: UserJourney = UserJourney {
             Some(source_outcome(200, 199)),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_UPLOAD3D_MODEL_OVERRIDE,
     chains_from: None,
 };
 
@@ -363,7 +368,7 @@ const DELETE_3D_MODEL_OVERRIDE: UserJourney = UserJourney {
             Some(source_outcome(204, 215)),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_DELETE3D_MODEL_OVERRIDE,
     chains_from: None,
 };
 

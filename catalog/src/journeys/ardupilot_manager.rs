@@ -4,8 +4,12 @@ use crate::journey::{
     Actor, HttpMethod, JourneyStep, NetworkState, Precondition, RouteRef, StateTransition,
     StepOutcome, UserJourney, Visibility,
 };
+use crate::journey_presence::{
+    PRESENCE_CHANGE_BOARD, PRESENCE_RESTART_AUTOPILOT, PRESENCE_RESTORE_DEFAULT_FIRMWARE,
+    PRESENCE_RUN_SITL_SIMULATION, PRESENCE_START_AUTOPILOT, PRESENCE_STOP_AUTOPILOT,
+    PRESENCE_UPDATE_FIRMWARE_ONLINE, PRESENCE_UPLOAD_CUSTOM_FIRMWARE, PRESENCE_VEHICLE_FIRST_BOOT,
+};
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
-use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const GS: &str = "content/usage/getting-started/index.md";
@@ -83,7 +87,7 @@ const VEHICLE_FIRST_BOOT: UserJourney =
                 )),
             ),
         ]),
-        availability: FeatureAvailability::unknown(),
+        availability: PRESENCE_VEHICLE_FIRST_BOOT,
     chains_from: None,
     };
 
@@ -116,7 +120,7 @@ const CHANGE_BOARD: UserJourney = UserJourney {
             "runtime-captures/ardupilot_manager__pi4_navigator_master.json#transitions",
         )),
     )]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_CHANGE_BOARD,
     chains_from: None,
 };
 
@@ -156,7 +160,7 @@ const RUN_SITL_SIMULATION: UserJourney =
                 Some(source_outcome(200, APM_ROUTER, 135)),
             ),
         ]),
-        availability: FeatureAvailability::unknown(),
+        availability: PRESENCE_RUN_SITL_SIMULATION,
     chains_from: Some(JourneyId::ChangeBoard),
     };
 
@@ -184,7 +188,7 @@ const START_AUTOPILOT: UserJourney = UserJourney {
             "runtime-captures/ardupilot_manager__pi4_navigator_master.json#transitions",
         )),
     )]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_START_AUTOPILOT,
     chains_from: Some(JourneyId::ChangeBoard),
 };
 
@@ -212,7 +216,7 @@ const STOP_AUTOPILOT: UserJourney = UserJourney {
             "runtime-captures/ardupilot_manager__pi4_navigator_master.json#transitions",
         )),
     )]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_STOP_AUTOPILOT,
     chains_from: None,
 };
 
@@ -245,7 +249,7 @@ const RESTART_AUTOPILOT: UserJourney = UserJourney {
             "runtime-captures/ardupilot_manager__pi4_navigator_master.json#transitions",
         )),
     )]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_RESTART_AUTOPILOT,
     chains_from: None,
 };
 
@@ -301,7 +305,7 @@ const UPDATE_FIRMWARE_ONLINE: UserJourney = UserJourney {
             )),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_UPDATE_FIRMWARE_ONLINE,
     chains_from: Some(JourneyId::ChangeBoard),
 };
 
@@ -337,7 +341,7 @@ const UPLOAD_CUSTOM_FIRMWARE: UserJourney = UserJourney {
             "runtime-captures/ardupilot_manager__pi4_navigator_master.json#firmware_operations",
         )),
     )]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_UPLOAD_CUSTOM_FIRMWARE,
     chains_from: Some(JourneyId::ChangeBoard),
 };
 
@@ -373,7 +377,7 @@ const RESTORE_DEFAULT_FIRMWARE: UserJourney = UserJourney {
             "runtime-captures/ardupilot_manager__pi4_navigator_master.json#firmware_operations",
         )),
     )]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_RESTORE_DEFAULT_FIRMWARE,
     chains_from: Some(JourneyId::ChangeBoard),
 };
 

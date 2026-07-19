@@ -1,8 +1,11 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{Actor, JourneyStep, Precondition, StepOutcome, UserJourney, Visibility};
+use crate::journey_presence::{
+    PRESENCE_CALIBRATE_ACCELEROMETER, PRESENCE_CALIBRATE_BAROMETER, PRESENCE_CALIBRATE_COMPASS,
+    PRESENCE_CALIBRATE_GYROSCOPE, PRESENCE_DETECT_MOTOR_DIRECTIONS, PRESENCE_LEVEL_HORIZON,
+};
 use crate::page::PageId;
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
-use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const CALIB_TS: &str = "core/frontend/src/components/vehiclesetup/calibration.ts";
@@ -69,7 +72,7 @@ const CALIBRATE_GYROSCOPE: UserJourney = UserJourney {
             None,
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_CALIBRATE_GYROSCOPE,
     chains_from: None,
 };
 
@@ -120,7 +123,7 @@ const CALIBRATE_ACCELEROMETER: UserJourney = UserJourney {
             None,
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_CALIBRATE_ACCELEROMETER,
     chains_from: None,
 };
 
@@ -161,7 +164,7 @@ const CALIBRATE_COMPASS: UserJourney = UserJourney {
             None,
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_CALIBRATE_COMPASS,
     chains_from: None,
 };
 
@@ -196,7 +199,7 @@ const CALIBRATE_BAROMETER: UserJourney = UserJourney {
             Some(live_calibration_outcome()),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_CALIBRATE_BAROMETER,
     chains_from: None,
 };
 
@@ -227,7 +230,7 @@ const LEVEL_HORIZON: UserJourney = UserJourney {
             Some(live_calibration_outcome()),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_LEVEL_HORIZON,
     chains_from: None,
 };
 
@@ -263,7 +266,7 @@ const DETECT_MOTOR_DIRECTIONS: UserJourney = UserJourney {
             None,
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_DETECT_MOTOR_DIRECTIONS,
     chains_from: None,
 };
 

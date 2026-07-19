@@ -4,8 +4,11 @@ use crate::journey::{
     Actor, HardwareRequirement, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome,
     UserJourney, Visibility,
 };
+use crate::journey_presence::{
+    PRESENCE_CONFIGURE_CAMERA_STREAM, PRESENCE_CONFIGURE_UVC_DEVICE_CONTROLS,
+    PRESENCE_REMOVE_CAMERA_STREAM, PRESENCE_VIEW_CAMERA_STREAMS,
+};
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
-use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const GETTING_STARTED: &str = "content/usage/getting-started/index.md";
@@ -89,7 +92,7 @@ const VIEW_CAMERA_STREAMS: UserJourney =
                 None,
             ),
         ]),
-        availability: FeatureAvailability::unknown(),
+        availability: PRESENCE_VIEW_CAMERA_STREAMS,
     chains_from: None,
     };
 
@@ -167,7 +170,7 @@ const CONFIGURE_CAMERA_STREAM: UserJourney =
                 )),
             ),
         ]),
-        availability: FeatureAvailability::unknown(),
+        availability: PRESENCE_CONFIGURE_CAMERA_STREAM,
     chains_from: Some(JourneyId::ViewCameraStreams),
     };
 
@@ -218,7 +221,7 @@ const REMOVE_CAMERA_STREAM: UserJourney = UserJourney {
             Some(source_outcome(200, VIDEO_STORE, 102)),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_REMOVE_CAMERA_STREAM,
     chains_from: Some(JourneyId::ViewCameraStreams),
 };
 
@@ -272,7 +275,7 @@ const CONFIGURE_UVC_DEVICE_CONTROLS: UserJourney =
                 )),
             ),
         ]),
-        availability: FeatureAvailability::unknown(),
+        availability: PRESENCE_CONFIGURE_UVC_DEVICE_CONTROLS,
     chains_from: Some(JourneyId::ViewCameraStreams),
     };
 

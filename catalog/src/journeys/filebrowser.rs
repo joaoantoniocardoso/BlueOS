@@ -2,8 +2,8 @@ use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
     Actor, JourneyStep, Precondition, SoftwareRequirement, UserJourney, Visibility,
 };
+use crate::journey_presence::PRESENCE_MANAGE_BLUEOS_FILES;
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
-use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const FILE_BROWSER_MENUS: &str = "core/frontend/src/menus.ts";
@@ -68,7 +68,7 @@ const MANAGE_BLUEOS_FILES: UserJourney =
                 None,
             ),
         ]),
-        availability: FeatureAvailability::unknown(),
+        availability: PRESENCE_MANAGE_BLUEOS_FILES,
     chains_from: None,
     };
 

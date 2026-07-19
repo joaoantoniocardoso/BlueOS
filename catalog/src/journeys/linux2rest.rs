@@ -2,8 +2,8 @@ use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
     Actor, HttpMethod, JourneyStep, RouteRef, StepOutcome, UserJourney, Visibility,
 };
+use crate::journey_presence::PRESENCE_VIEW_SYSTEM_INFORMATION;
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
-use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const OVERVIEW: &str = "content/usage/overview/index.md";
@@ -72,7 +72,7 @@ const VIEW_SYSTEM_INFORMATION: UserJourney =
                 None,
             ),
         ]),
-        availability: FeatureAvailability::unknown(),
+        availability: PRESENCE_VIEW_SYSTEM_INFORMATION,
     chains_from: None,
     };
 

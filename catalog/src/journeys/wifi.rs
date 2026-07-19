@@ -3,8 +3,12 @@ use crate::journey::{
     Actor, DataRequirement, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome,
     UserJourney, Visibility,
 };
+use crate::journey_presence::{
+    PRESENCE_CONFIGURE_HOTSPOT_CREDENTIALS, PRESENCE_CONNECT_TO_WIFI_NETWORK,
+    PRESENCE_DISCONNECT_FROM_WIFI_NETWORK, PRESENCE_FORGET_SAVED_WIFI_NETWORK,
+    PRESENCE_TOGGLE_HOTSPOT, PRESENCE_TOGGLE_SMART_HOTSPOT,
+};
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
-use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const GETTING: &str = "content/usage/getting-started/index.md";
@@ -68,7 +72,7 @@ const CONNECT_TO_WIFI_NETWORK: UserJourney = UserJourney {
             Some(source_outcome(200, 84)),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_CONNECT_TO_WIFI_NETWORK,
     chains_from: None,
 };
 
@@ -113,7 +117,7 @@ const DISCONNECT_FROM_WIFI_NETWORK: UserJourney = UserJourney {
             Some(source_outcome(200, 102)),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_DISCONNECT_FROM_WIFI_NETWORK,
     chains_from: None,
 };
 
@@ -153,7 +157,7 @@ const FORGET_SAVED_WIFI_NETWORK: UserJourney = UserJourney {
             Some(source_outcome(200, 91)),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_FORGET_SAVED_WIFI_NETWORK,
     chains_from: None,
 };
 
@@ -189,7 +193,7 @@ const TOGGLE_HOTSPOT: UserJourney = UserJourney {
             Some(source_outcome(200, 128)),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_TOGGLE_HOTSPOT,
     chains_from: None,
 };
 
@@ -231,7 +235,7 @@ const CONFIGURE_HOTSPOT_CREDENTIALS: UserJourney = UserJourney {
             Some(source_outcome(200, 154)),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_CONFIGURE_HOTSPOT_CREDENTIALS,
     chains_from: None,
 };
 
@@ -273,7 +277,7 @@ const TOGGLE_SMART_HOTSPOT: UserJourney = UserJourney {
             Some(source_outcome(200, 137)),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_TOGGLE_SMART_HOTSPOT,
     chains_from: None,
 };
 

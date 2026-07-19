@@ -229,28 +229,6 @@ fn main() {
         } else {
             journey_fixtures_ready(journey, &fixtures)
         };
-        if !fixtures_ready {
-            let reasons = skip_reasons(journey, &fixtures);
-            let step_count = if smoke {
-                http_smoke_steps(journey).len().max(1)
-            } else if mutating_smoke {
-                http_mutating_smoke_steps(journey).len().max(1)
-            } else {
-                http_steps(journey).len().max(1)
-            };
-            totals.skipped += step_count;
-            let reason = reasons.join("; ");
-            journey_lines.push(format!("SKIP {journey_id}: {reason}"));
-            if emit_report {
-                report_journeys.push(JourneyReportEntry::skipped(
-                    journey_id,
-                    &journey.availability,
-                    reason,
-                    step_count,
-                ));
-            }
-            continue;
-        }
 
         if let Some(dut) = dut_version.as_ref() {
             if let Some(reason) = journey_availability_skip(journey, dut) {
@@ -273,6 +251,29 @@ fn main() {
                 }
                 continue;
             }
+        }
+
+        if !fixtures_ready {
+            let reasons = skip_reasons(journey, &fixtures);
+            let step_count = if smoke {
+                http_smoke_steps(journey).len().max(1)
+            } else if mutating_smoke {
+                http_mutating_smoke_steps(journey).len().max(1)
+            } else {
+                http_steps(journey).len().max(1)
+            };
+            totals.skipped += step_count;
+            let reason = reasons.join("; ");
+            journey_lines.push(format!("SKIP {journey_id}: {reason}"));
+            if emit_report {
+                report_journeys.push(JourneyReportEntry::skipped(
+                    journey_id,
+                    &journey.availability,
+                    reason,
+                    step_count,
+                ));
+            }
+            continue;
         }
 
         let steps = if smoke {

@@ -1,0 +1,28 @@
+<working_memory last_updated="iteration 3 @ 2026-07-19T16:55:00Z">
+  <recovery prompt="catalog/extras/feature-traces-orch/ORCHESTRATOR_PROMPT.xml">
+    Re-read prompt if context lost. ORCHESTRATOR only — delegate all work.
+  </recovery>
+
+  <confirmed_findings>
+    - Schema v2 enricher live; full run ~81s after path/title tightening.
+    - All 7 gaps PASS per VALIDATION_REPORT.md (spot-checks green).
+    - Hot-path FPs fixed via module-preferred discovery_paths + backport title filter.
+    - Follow-ups use intro_sha..origin/master + MAX_DISCOVERY_SHAS=80.
+  </confirmed_findings>
+
+  <active_hypothesis>
+    None — acceptance met.
+  </active_hypothesis>
+
+  <last_results>
+    feature_traces.json schema 2: 94 journeys, 30 clusters, 750 PRs, 197 issues.
+    Spot: zenoh 8 follow-ups; customization clean; disk #3681/#3691/#3743; speed #2146.
+  </last_results>
+
+  <next_steps>
+    - User may commit artifacts when ready.
+    - Optional: refine squash_merge vs rebase ambiguity noted in IMPLEMENTATION_NOTES.
+  </next_steps>
+
+  <blocked_on>Nothing — done.</blocked_on>
+</working_memory>

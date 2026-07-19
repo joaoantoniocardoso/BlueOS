@@ -6,8 +6,8 @@ use crate::page::PageId;
 use crate::provenance::{Grounded, GroundedSet};
 use crate::version::FeatureAvailability;
 
-// Journey `availability` bounds are seeded incrementally as release history is grounded;
-// unknown is the honest default until a feature's intro/removal tag is confirmed.
+// Every journey must set `availability` from `journey_presence::PRESENCE_*`
+// (full git tag membership). `FeatureAvailability::unknown()` fails `validate()`.
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct UserJourney {
@@ -231,6 +231,13 @@ mod tests {
 
     const DOC: Provenance = Provenance::doc("test.md", 1);
 
+    const TEST_PRESENCE: FeatureAvailability = FeatureAvailability {
+        intro_commit: "0000000000000000000000000000000000000001",
+        present_in_tags: &["1.0.0"],
+        present_on_master: true,
+        present_on_1_4_dev: true,
+    };
+
     const fn empty_journey(
         preconditions: GroundedSet<Precondition>,
         steps: GroundedSet<JourneyStep>,
@@ -243,7 +250,7 @@ mod tests {
             capability_refs: GroundedSet::unknown("test"),
             preconditions,
             steps,
-            availability: FeatureAvailability::unknown(),
+            availability: TEST_PRESENCE,
             chains_from: None,
         }
     }

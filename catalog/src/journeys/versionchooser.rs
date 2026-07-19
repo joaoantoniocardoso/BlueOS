@@ -4,8 +4,12 @@ use crate::journey::{
     Actor, DataRequirement, HttpMethod, JourneyStep, NetworkState, Precondition, RouteRef,
     SoftwareRequirement, StepOutcome, UserJourney, Visibility,
 };
+use crate::journey_presence::{
+    PRESENCE_DELETE_LOCAL_BLUEOS_VERSION, PRESENCE_DOCKER_REGISTRY_LOGIN,
+    PRESENCE_PULL_BLUEOS_VERSION_WITHOUT_SWITCH, PRESENCE_SWITCH_LOCAL_BLUEOS_VERSION,
+    PRESENCE_UPDATE_BLUEOS_VERSION, PRESENCE_UPDATE_BOOTSTRAP_IMAGE,
+};
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
-use crate::version::FeatureAvailability;
 
 const ADV: &str = "content/usage/advanced/index.md";
 const GETTING: &str = "content/usage/getting-started/index.md";
@@ -86,7 +90,7 @@ const UPDATE_BLUEOS_VERSION: UserJourney =
                 Some(source_outcome(200, VERSION_ROUTER, 34)),
             ),
         ]),
-        availability: FeatureAvailability::unknown(),
+        availability: PRESENCE_UPDATE_BLUEOS_VERSION,
     chains_from: None,
     };
 
@@ -143,7 +147,7 @@ const SWITCH_LOCAL_BLUEOS_VERSION: UserJourney =
                 Some(source_outcome(200, VERSION_ROUTER, 34)),
             ),
         ]),
-        availability: FeatureAvailability::unknown(),
+        availability: PRESENCE_SWITCH_LOCAL_BLUEOS_VERSION,
     chains_from: Some(JourneyId::UpdateBlueosVersion),
     };
 
@@ -196,7 +200,7 @@ const PULL_BLUEOS_VERSION_WITHOUT_SWITCH: UserJourney =
                 Some(source_outcome(200, VERSION_ROUTER, 41)),
             ),
         ]),
-        availability: FeatureAvailability::unknown(),
+        availability: PRESENCE_PULL_BLUEOS_VERSION_WITHOUT_SWITCH,
     chains_from: None,
     };
 
@@ -258,7 +262,7 @@ const DELETE_LOCAL_BLUEOS_VERSION: UserJourney = UserJourney {
             Some(source_outcome(200, VERSION_ROUTER, 48)),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_DELETE_LOCAL_BLUEOS_VERSION,
     chains_from: Some(JourneyId::SwitchLocalBlueosVersion),
 };
 
@@ -294,7 +298,7 @@ const DOCKER_REGISTRY_LOGIN: UserJourney =
             ),
             operator_step(
                 "Review connected Docker accounts",
-                Some(sourced_route(HttpMethod::Get, "/docker/accounts", Some("v1.0"), DOCKER_ROUTER, 30)),
+                Some(sourced_route(HttpMethod::Get, "/docker/accounts/", Some("v1.0"), DOCKER_ROUTER, 30)),
                 Provenance::source(DOCKER_LOGIN, 253),
                 Some(runtime_outcome(
                     200,
@@ -303,7 +307,7 @@ const DOCKER_REGISTRY_LOGIN: UserJourney =
                 )),
             ),
         ]),
-        availability: FeatureAvailability::unknown(),
+        availability: PRESENCE_DOCKER_REGISTRY_LOGIN,
     chains_from: None,
     };
 
@@ -371,7 +375,7 @@ const UPDATE_BOOTSTRAP_IMAGE: UserJourney = UserJourney {
             Some(source_outcome(200, BOOTSTRAP_ROUTER, 31)),
         ),
     ]),
-    availability: FeatureAvailability::unknown(),
+    availability: PRESENCE_UPDATE_BOOTSTRAP_IMAGE,
     chains_from: Some(JourneyId::UpdateBlueosVersion),
 };
 
