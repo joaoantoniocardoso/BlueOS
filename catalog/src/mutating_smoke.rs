@@ -511,7 +511,10 @@ mod tests {
                 if matches!(step.route.method, crate::journey::HttpMethod::Get) {
                     continue;
                 }
-                if step.route.path.contains('{') || step.route.path.contains('*') {
+                if (step.route.path.contains('{') || step.route.path.contains('*'))
+                    && crate::runner::mutating_smoke_path_bind(journey.id, step.route.path)
+                        .is_none()
+                {
                     continue;
                 }
                 if step.expected_status.is_none() {

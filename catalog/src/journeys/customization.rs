@@ -343,7 +343,7 @@ const DELETE_3D_MODEL_OVERRIDE: UserJourney = UserJourney {
             None,
             Provenance::source(THEME_CUSTOMIZATION, 3),
         ),
-        operator_step(
+        operator_step_with_outcome(
             "Click the delete button on a model override and confirm",
             Some(sourced_route(
                 HttpMethod::Delete,
@@ -352,6 +352,7 @@ const DELETE_3D_MODEL_OVERRIDE: UserJourney = UserJourney {
                 215,
             )),
             Provenance::source(THEME_CUSTOMIZATION, 155),
+            Some(source_outcome(204, 215)),
         ),
     ]),
     chains_from: None,

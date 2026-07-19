@@ -136,8 +136,7 @@ pub fn tier1_get_coverage(catalog: &Catalog) -> Tier1GetCoverage {
 
 pub const SMOKE_DEFAULT_FIXTURES: &str = "internet,pirate,advanced";
 
-pub const MUTATING_SMOKE_DEFAULT_FIXTURES: &str =
-    "internet,pirate,advanced,confirm-dangerous,board:any,wifi-radio,hotspot";
+pub const MUTATING_SMOKE_DEFAULT_FIXTURES: &str = "internet,pirate,advanced,confirm-dangerous,board:any,wifi-radio,hotspot,nmea-socket,serial-bridge,dhcp-active";
 
 pub fn http_method_label(method: &HttpMethod) -> &'static str {
     match method {
@@ -321,12 +320,8 @@ pub fn mutating_smoke_body(journey_id: JourneyId, route: &RouteRef) -> Option<&'
         (JourneyId::ConfigureHotspotCredentials, "/hotspot_credentials", Post) => {
             Some(r##"{"ssid":"BlueOS","password":"smoke-test"}"##)
         }
-        (JourneyId::RemoveConfiguredNmeaSocket, "/socks", Delete) => {
-            Some(r##"{"kind":"UDP","port":9999,"component_id":220}"##)
-        }
-        (JourneyId::RemoveSerialBridge, "/bridges", Delete) => {
-            Some(r##"{"serial_path":"/dev/ttyUSB0","ip":"127.0.0.1","udp_port":14550}"##)
-        }
+        (JourneyId::RemoveConfiguredNmeaSocket, "/socks", Delete) => Some(SMOKE_NMEA_SOCK_JSON),
+        (JourneyId::RemoveSerialBridge, "/bridges", Delete) => Some(SMOKE_BRIDGE_JSON),
         (JourneyId::DockerRegistryLogin, "/docker/login", Post) => {
             Some(r##"{"username":"","password":"","registry":"","root":true}"##)
         }
@@ -427,6 +422,18 @@ pub fn mutating_smoke_skip_reason(
 
 const NAVIGATOR_BOARD_JSON: &str = r##"{"name":"Navigator","manufacturer":"Blue Robotics","platform":"navigator","path":null,"flags":[]}"##;
 const SMOKE_STREAM_JSON: &str = r##"{"name":"__smoke_catalog__","source":"Redirect","stream_information":{"endpoints":["udp://127.0.0.1:5599"],"configuration":{"type":"redirect"},"extended_configuration":{"thermal":false,"disable_lazy":false,"disable_mavlink":false,"disable_thumbnails":true,"disable_zenoh":true}}}"##;
+const SMOKE_NMEA_SOCK_JSON: &str = r##"{"kind":"UDP","port":9999,"component_id":220}"##;
+const SMOKE_BRIDGE_JSON: &str = r##"{"serial_path":"/dev/ttyAMA3","baud":115200,"ip":"127.0.0.1","udp_target_port":14559,"udp_listen_port":14558}"##;
+const SMOKE_HOST_DNS_JSON: &str = r##"{"nameservers":["8.8.8.8","1.1.1.1"],"lock":true}"##;
+const SMOKE_MODEL_PATH: &str = "/models/smoke-catalog.glb";
+
+/// Bind templated mutating paths to concrete smoke values (Tier-2 only).
+pub fn mutating_smoke_path_bind(journey_id: JourneyId, path: &str) -> Option<&'static str> {
+    match (journey_id, path) {
+        (JourneyId::Delete3dModelOverride, "/models/{name}") => Some(SMOKE_MODEL_PATH),
+        _ => None,
+    }
+}
 
 pub fn mutating_smoke_setup_calls(journey_id: JourneyId) -> &'static [SmokeHttpCall] {
     use HttpMethod::*;
@@ -453,6 +460,57 @@ pub fn mutating_smoke_setup_calls(journey_id: JourneyId) -> &'static [SmokeHttpC
             expected_status: 200,
             body: Some(SMOKE_STREAM_JSON),
             query: None,
+            form_file: None,
+        }],
+        JourneyId::RemoveConfiguredNmeaSocket => &[SmokeHttpCall {
+            route: RouteRef {
+                service: ServiceId::NmeaInjector,
+                method: Post,
+                path: "/socks",
+                version: Some("v1.0"),
+            },
+            expected_status: 201,
+            body: Some(SMOKE_NMEA_SOCK_JSON),
+            query: None,
+            form_file: None,
+        }],
+        JourneyId::RemoveSerialBridge => &[SmokeHttpCall {
+            route: RouteRef {
+                service: ServiceId::Bridget,
+                method: Post,
+                path: "/bridges",
+                version: Some("v1.0"),
+            },
+            expected_status: 201,
+            body: Some(SMOKE_BRIDGE_JSON),
+            query: None,
+            form_file: None,
+        }],
+        JourneyId::Delete3dModelOverride => &[SmokeHttpCall {
+            route: RouteRef {
+                service: ServiceId::Customization,
+                method: Post,
+                path: "/models",
+                version: Some("v1.0"),
+            },
+            expected_status: 200,
+            body: None,
+            query: Some("name=smoke-catalog.glb"),
+            form_file: Some(FormFilePart {
+                field: "file",
+                fixture: "smoke-model.glb",
+            }),
+        }],
+        JourneyId::DisableOnboardDhcpServer => &[SmokeHttpCall {
+            route: RouteRef {
+                service: ServiceId::CableGuy,
+                method: Post,
+                path: "/dhcp",
+                version: Some("v1.0"),
+            },
+            expected_status: 200,
+            body: None,
+            query: Some("interface_name=eth0&ipv4_gateway=192.168.0.1&is_backup_server=false"),
             form_file: None,
         }],
         JourneyId::ResetUiThemeColor => &[SmokeHttpCall {
@@ -483,6 +541,44 @@ pub fn mutating_smoke_teardown_calls(journey_id: JourneyId) -> &'static [SmokeHt
             },
             expected_status: 200,
             body: Some(NAVIGATOR_BOARD_JSON),
+            query: None,
+            form_file: None,
+        }],
+        JourneyId::AssignStaticIpAddress => &[SmokeHttpCall {
+            route: RouteRef {
+                service: ServiceId::CableGuy,
+                method: Delete,
+                path: "/address",
+                version: Some("v1.0"),
+            },
+            expected_status: 200,
+            body: None,
+            query: Some("interface_name=eth0&ip_address=192.168.0.178"),
+            form_file: None,
+        }],
+        JourneyId::EnableOnboardDhcpServer | JourneyId::DisableOnboardDhcpServer => {
+            &[SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::CableGuy,
+                    method: Delete,
+                    path: "/dhcp",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: None,
+                query: Some("interface_name=eth0"),
+                form_file: None,
+            }]
+        }
+        JourneyId::ConfigureHostDns => &[SmokeHttpCall {
+            route: RouteRef {
+                service: ServiceId::CableGuy,
+                method: Post,
+                path: "/host_dns",
+                version: Some("v1.0"),
+            },
+            expected_status: 200,
+            body: Some(SMOKE_HOST_DNS_JSON),
             query: None,
             form_file: None,
         }],
@@ -520,10 +616,14 @@ pub fn http_mutating_smoke_steps(journey: &UserJourney) -> Vec<RunnableStep> {
         .filter(|step| {
             !matches!(step.route.method, HttpMethod::Get)
                 && step.expected_status.is_some()
-                && !step.route.path.contains('{')
+                && (!step.route.path.contains('{')
+                    || mutating_smoke_path_bind(step.journey_id, step.route.path).is_some())
                 && is_mutating_smoke_step_deferred(step.journey_id, step.route.path).is_none()
         })
         .map(|mut step| {
+            if let Some(bound) = mutating_smoke_path_bind(step.journey_id, step.route.path) {
+                step.route.path = bound;
+            }
             step.body = mutating_smoke_body(step.journey_id, &step.route);
             step.query = mutating_smoke_query(step.journey_id, &step.route);
             step.form_file = mutating_smoke_form_file(step.journey_id, &step.route);
