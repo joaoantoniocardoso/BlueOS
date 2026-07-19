@@ -136,7 +136,7 @@ pub fn tier1_get_coverage(catalog: &Catalog) -> Tier1GetCoverage {
 
 pub const SMOKE_DEFAULT_FIXTURES: &str = "internet,pirate,advanced";
 
-pub const MUTATING_SMOKE_DEFAULT_FIXTURES: &str = "internet,pirate,advanced,confirm-dangerous,board:any,wifi-radio,hotspot,nmea-socket,serial-bridge,dhcp-active";
+pub const MUTATING_SMOKE_DEFAULT_FIXTURES: &str = "internet,pirate,advanced,confirm-dangerous,board:any,wifi-radio,hotspot,nmea-socket,serial-bridge,dhcp-active,extension-installed";
 
 pub fn http_method_label(method: &HttpMethod) -> &'static str {
     match method {
@@ -345,9 +345,7 @@ pub fn mutating_smoke_body(journey_id: JourneyId, route: &RouteRef) -> Option<&'
         (JourneyId::AddCustomManifest, "/manifest/", Post) => Some(
             r##"{"name":"smoke-catalog","url":"https://example.com/smoke-catalog.json","enabled":false}"##,
         ),
-        (JourneyId::InstallCustomExtension, "/extension/", Post) => Some(
-            r##"{"identifier":"smoke.catalog","tag":"latest","name":"Smoke Catalog","docker":"alpine","enabled":false,"permissions":"[]"}"##,
-        ),
+        (JourneyId::InstallCustomExtension, "/extension/", Post) => Some(SMOKE_CUSTOM_EXT_JSON),
         _ => None,
     }
 }
@@ -389,13 +387,6 @@ pub fn mutating_smoke_expected_status(journey_id: JourneyId, route: &RouteRef) -
 
 pub fn is_mutating_smoke_step_deferred(journey_id: JourneyId, path: &str) -> Option<&'static str> {
     match (journey_id, path) {
-        (JourneyId::VehicleFirstBoot, _)
-        | (JourneyId::UpdateFirmwareOnline, _)
-        | (JourneyId::UploadCustomFirmware, _)
-        | (JourneyId::RestoreDefaultFirmware, _)
-        | (JourneyId::InstallCustomExtension, _) => {
-            Some("deferred: firmware flash or extension docker pull unsafe for automated smoke")
-        }
         (JourneyId::UpdateBlueosVersion, "/version/current") => {
             Some("deferred: POST /version/current switches running core image")
         }
@@ -426,11 +417,36 @@ const SMOKE_NMEA_SOCK_JSON: &str = r##"{"kind":"UDP","port":9999,"component_id":
 const SMOKE_BRIDGE_JSON: &str = r##"{"serial_path":"/dev/ttyAMA3","baud":115200,"ip":"127.0.0.1","udp_target_port":14559,"udp_listen_port":14558}"##;
 const SMOKE_HOST_DNS_JSON: &str = r##"{"nameservers":["8.8.8.8","1.1.1.1"],"lock":true}"##;
 const SMOKE_MODEL_PATH: &str = "/models/smoke-catalog.glb";
+const SMOKE_EXT_INSTALL_PATH: &str = "/extension/williangalvani.example1/v1.0.1/install";
+const SMOKE_EXT_UNINSTALL_PATH: &str = "/extension/williangalvani.example1/v1.0.1";
+const SMOKE_EXT_EDIT_PATH: &str = "/extension/williangalvani.example1/v1.0.0";
+const SMOKE_EXT_UNINSTALL_ALT_PATH: &str = "/extension/williangalvani.example1/v1.0.0";
+/// Running extension used for restart/disable (example1 container is flaky right after install).
+const SMOKE_EXT_LIFECYCLE_RESTART_PATH: &str = "/extension/blueos.major_tom/restart";
+const SMOKE_EXT_LIFECYCLE_DISABLE_PATH: &str = "/extension/blueos.major_tom/disable";
+const SMOKE_EXT_LIFECYCLE_ENABLE_PATH: &str = "/extension/blueos.major_tom/2026-02-11/enable";
+const SMOKE_CUSTOM_EXT_JSON: &str = r##"{"identifier":"smoke.catalog","tag":"latest","name":"Smoke Catalog","docker":"alpine","enabled":false,"permissions":"{}"}"##;
+const SMOKE_CUSTOM_EXT_UNINSTALL_PATH: &str = "/extension/smoke.catalog/latest";
 
 /// Bind templated mutating paths to concrete smoke values (Tier-2 only).
 pub fn mutating_smoke_path_bind(journey_id: JourneyId, path: &str) -> Option<&'static str> {
     match (journey_id, path) {
         (JourneyId::Delete3dModelOverride, "/models/{name}") => Some(SMOKE_MODEL_PATH),
+        (JourneyId::InstallExtension, "/extension/{identifier}/{tag}/install") => {
+            Some(SMOKE_EXT_INSTALL_PATH)
+        }
+        (JourneyId::UninstallExtension, "/extension/{identifier}/{tag}") => {
+            Some(SMOKE_EXT_UNINSTALL_PATH)
+        }
+        (JourneyId::ConfigureInstalledExtension, "/extension/{identifier}/restart") => {
+            Some(SMOKE_EXT_LIFECYCLE_RESTART_PATH)
+        }
+        (JourneyId::ConfigureInstalledExtension, "/extension/{identifier}/disable") => {
+            Some(SMOKE_EXT_LIFECYCLE_DISABLE_PATH)
+        }
+        (JourneyId::EditExtensionDevVersion, "/extension/{identifier}/{tag}") => {
+            Some(SMOKE_EXT_EDIT_PATH)
+        }
         _ => None,
     }
 }
@@ -450,6 +466,59 @@ pub fn mutating_smoke_setup_calls(journey_id: JourneyId) -> &'static [SmokeHttpC
             query: None,
             form_file: None,
         }],
+        JourneyId::VehicleFirstBoot
+        | JourneyId::UpdateFirmwareOnline
+        | JourneyId::UploadCustomFirmware
+        | JourneyId::RestoreDefaultFirmware => &[SmokeHttpCall {
+            route: RouteRef {
+                service: ServiceId::ArdupilotManager,
+                method: Post,
+                path: "/start",
+                version: Some("v1.0"),
+            },
+            expected_status: 200,
+            body: None,
+            query: None,
+            form_file: None,
+        }],
+        JourneyId::UninstallExtension | JourneyId::EditExtensionDevVersion => &[SmokeHttpCall {
+            route: RouteRef {
+                service: ServiceId::Kraken,
+                method: Post,
+                path: SMOKE_EXT_INSTALL_PATH,
+                version: Some("v2.0"),
+            },
+            expected_status: 200,
+            body: None,
+            query: None,
+            form_file: None,
+        }],
+        JourneyId::ConfigureInstalledExtension => &[
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::Kraken,
+                    method: Post,
+                    path: SMOKE_EXT_LIFECYCLE_ENABLE_PATH,
+                    version: Some("v2.0"),
+                },
+                expected_status: 204,
+                body: None,
+                query: None,
+                form_file: None,
+            },
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::Commander,
+                    method: Post,
+                    path: "/command/host",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: None,
+                query: Some("command=sleep%208&i_know_what_i_am_doing=true"),
+                form_file: None,
+            },
+        ],
         JourneyId::RemoveCameraStream => &[SmokeHttpCall {
             route: RouteRef {
                 service: ServiceId::MavlinkCameraManager,
@@ -606,6 +675,54 @@ pub fn mutating_smoke_teardown_calls(journey_id: JourneyId) -> &'static [SmokeHt
             query: Some("enable=true"),
             form_file: None,
         }],
+        JourneyId::InstallExtension => &[SmokeHttpCall {
+            route: RouteRef {
+                service: ServiceId::Kraken,
+                method: Delete,
+                path: SMOKE_EXT_UNINSTALL_PATH,
+                version: Some("v2.0"),
+            },
+            expected_status: 202,
+            body: None,
+            query: None,
+            form_file: None,
+        }],
+        JourneyId::ConfigureInstalledExtension => &[SmokeHttpCall {
+            route: RouteRef {
+                service: ServiceId::Kraken,
+                method: Post,
+                path: SMOKE_EXT_LIFECYCLE_ENABLE_PATH,
+                version: Some("v2.0"),
+            },
+            expected_status: 204,
+            body: None,
+            query: None,
+            form_file: None,
+        }],
+        JourneyId::InstallCustomExtension => &[SmokeHttpCall {
+            route: RouteRef {
+                service: ServiceId::Kraken,
+                method: Delete,
+                path: SMOKE_CUSTOM_EXT_UNINSTALL_PATH,
+                version: Some("v2.0"),
+            },
+            expected_status: 202,
+            body: None,
+            query: None,
+            form_file: None,
+        }],
+        JourneyId::EditExtensionDevVersion => &[SmokeHttpCall {
+            route: RouteRef {
+                service: ServiceId::Kraken,
+                method: Delete,
+                path: SMOKE_EXT_UNINSTALL_ALT_PATH,
+                version: Some("v2.0"),
+            },
+            expected_status: 202,
+            body: None,
+            query: None,
+            form_file: None,
+        }],
         _ => &[],
     }
 }
@@ -687,8 +804,18 @@ pub fn execute_curl(
         return Err("mutating HTTP method blocked (pass --allow-mutating)".into());
     }
 
+    let timeout_secs = if url.contains("firmware")
+        || url.contains("/extension")
+        || url.contains("install_firmware")
+        || url.contains("restore_default")
+    {
+        "600"
+    } else {
+        "120"
+    };
+
     let mut command = Command::new("curl");
-    command.args(["-s", "-m", "120", "-w", "\n%{http_code}"]);
+    command.args(["-s", "-m", timeout_secs, "-w", "\n%{http_code}"]);
     match method {
         HttpMethod::Get => {}
         HttpMethod::Post => {
