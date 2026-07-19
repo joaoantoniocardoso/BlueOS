@@ -281,14 +281,21 @@ fn names_of(labels: Option<&Value>) -> Vec<String> {
         .collect()
 }
 
-fn run_dyn(root: &Path, args: &[String]) -> Result<String, String> {
-    let refs: Vec<&str> = args.iter().map(String::as_str).collect();
-    shell::run(&refs, root)
-}
-
 fn run_ok_dyn(root: &Path, args: &[String]) -> Option<String> {
     let refs: Vec<&str> = args.iter().map(String::as_str).collect();
     shell::run_ok(&refs, root)
+}
+
+/// `gh` invocation layer: retries transient 5xx/timeout failures with backoff
+/// (see `shell::run_with_retry`). Used by every PR/issue/commit-pulls fetch so
+/// all callers benefit; `git` calls keep using the non-retrying `run_ok_dyn`.
+fn run_gh_dyn(root: &Path, args: &[String]) -> Result<String, String> {
+    let refs: Vec<&str> = args.iter().map(String::as_str).collect();
+    shell::run_with_retry(|| shell::run(&refs, root))
+}
+
+fn run_gh_ok_dyn(root: &Path, args: &[String]) -> Option<String> {
+    run_gh_dyn(root, args).ok().filter(|s| !s.is_empty())
 }
 
 fn cache_path(cache_dir: &Path, key: &str) -> std::path::PathBuf {
@@ -332,6 +339,58 @@ fn cached_json_try<F: FnOnce() -> Result<Value, String>>(
         let _ = fs::write(&path, text + "\n");
     }
     Ok(data)
+}
+
+#[cfg(test)]
+mod cache_write_through_tests {
+    use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    fn unique_cache_dir(label: &str) -> std::path::PathBuf {
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let n = COUNTER.fetch_add(1, Ordering::Relaxed);
+        std::env::temp_dir().join(format!("feature_trace_enrich_test_{label}_{n}"))
+    }
+
+    #[test]
+    fn cached_json_writes_successful_fetch_before_returning() {
+        let dir = unique_cache_dir("cached_json");
+        let key = "issue_123";
+        let result = cached_json(&dir, key, || json!({"number": 123, "title": "ok"}));
+        assert_eq!(result, json!({"number": 123, "title": "ok"}));
+
+        let on_disk = fs::read_to_string(cache_path(&dir, key)).expect("cache file must exist");
+        let parsed: Value = serde_json::from_str(&on_disk).unwrap();
+        assert_eq!(parsed, json!({"number": 123, "title": "ok"}));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn cached_json_try_writes_successful_fetch_before_returning() {
+        let dir = unique_cache_dir("cached_json_try");
+        let key = "pr_v2_456";
+        let result: Result<Value, String> =
+            cached_json_try(&dir, key, || Ok(json!({"number": 456, "state": "OPEN"})));
+        assert_eq!(result, Ok(json!({"number": 456, "state": "OPEN"})));
+
+        let on_disk = fs::read_to_string(cache_path(&dir, key)).expect("cache file must exist");
+        let parsed: Value = serde_json::from_str(&on_disk).unwrap();
+        assert_eq!(parsed, json!({"number": 456, "state": "OPEN"}));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn cached_json_try_does_not_write_on_failure() {
+        let dir = unique_cache_dir("cached_json_try_fail");
+        let key = "pr_v2_789";
+        let result: Result<Value, String> = cached_json_try(&dir, key, || Err("boom".to_string()));
+        assert_eq!(result, Err("boom".to_string()));
+        assert!(!cache_path(&dir, key).exists());
+
+        let _ = fs::remove_dir_all(&dir);
+    }
 }
 
 fn cap_list(items: Vec<String>, cap: usize) -> (Vec<String>, bool) {
@@ -574,6 +633,23 @@ fn journey_override_paths(journey_id: &str) -> Vec<String> {
         .collect()
 }
 
+/// The `Override::Pickaxe` term declared for a journey, if any. Unlike
+/// `journey_override_paths` (which every override row contributes to), only
+/// `Pickaxe` rows carry a term — `Path` rows have none.
+fn journey_pickaxe_term(journey_id: &str) -> Option<&'static str> {
+    use super::feature_presence::{Override, OVERRIDES};
+
+    OVERRIDES.iter().find_map(|(k, ov)| {
+        if *k != journey_id {
+            return None;
+        }
+        match ov {
+            Override::Pickaxe(term, _) => Some(*term),
+            Override::Path(_) => None,
+        }
+    })
+}
+
 /// Path hints for a journey's own module, drawn from the same tables
 /// `generate_feature_presence` uses to resolve intro commits: journey path
 /// overrides, the module's default service/component path, and nginx's config.
@@ -662,6 +738,7 @@ fn git_log_shas(
     paths: &[String],
     since_exclusive_sha: Option<&str>,
     max_shas: usize,
+    pickaxe_term: Option<&str>,
 ) -> Vec<String> {
     if paths.is_empty() {
         return vec![];
@@ -670,13 +747,15 @@ fn git_log_shas(
         Some(sha) => format!("{sha}..{ref_}"),
         None => ref_.to_string(),
     };
-    let mut cmd: Vec<String> = vec![
-        "git".into(),
-        "log".into(),
-        "--format=%H".into(),
-        rev,
-        "--".into(),
-    ];
+    let mut cmd: Vec<String> = vec!["git".into(), "log".into(), "--format=%H".into(), rev];
+    if let Some(term) = pickaxe_term {
+        // Real `-S` pickaxe: only commits whose diff adds/removes this term, not
+        // just commits that touch the path (see `IMPROVE_AUDIT.md` §T3 — a plain
+        // path-scoped log can't separate siblings sharing one file/handler).
+        cmd.push("-S".into());
+        cmd.push(term.to_string());
+    }
+    cmd.push("--".into());
     cmd.extend(paths.iter().cloned());
     let Some(out) = run_ok_dyn(root, &cmd) else {
         return vec![];
@@ -750,7 +829,7 @@ fn build_commit_entry(root: &Path, sha: &str, fallback: Option<(&str, &str)>) ->
 fn gh_commit_pulls(root: &Path, cache_dir: &Path, sha: &str) -> Vec<Value> {
     let key = format!("commit_pulls_{}", &sha[..sha.len().min(12)]);
     let data = cached_json(cache_dir, &key, || {
-        let raw = run_ok_dyn(
+        let raw = run_gh_ok_dyn(
             root,
             &[
                 "gh".into(),
@@ -772,7 +851,7 @@ fn gh_pr_detail(root: &Path, cache_dir: &Path, number: u64) -> Result<Value, Str
     // v2 cache key: v1's `pr_{number}.json` cache lacks `files`/`mergeCommit`, so
     // reuse under a new key rather than silently returning stale (incomplete) data.
     cached_json_try(cache_dir, &key, || {
-        let out = run_dyn(
+        let out = run_gh_dyn(
             root,
             &[
                 "gh".into(),
@@ -866,7 +945,7 @@ fn build_pr_entry(number: u64, raw: &Value) -> PrEntry {
 fn gh_issue(root: &Path, cache_dir: &Path, number: u64) -> Option<Value> {
     let key = format!("issue_{number}");
     let data = cached_json(cache_dir, &key, || {
-        let raw = run_ok_dyn(
+        let raw = run_gh_ok_dyn(
             root,
             &[
                 "gh".into(),
@@ -896,7 +975,7 @@ fn gh_issue(root: &Path, cache_dir: &Path, number: u64) -> Option<Value> {
 fn gh_pr_timeline_issue_refs(root: &Path, cache_dir: &Path, number: u64) -> Vec<u64> {
     let key = format!("pr_timeline_{number}");
     let data = cached_json(cache_dir, &key, || {
-        let raw = run_ok_dyn(
+        let raw = run_gh_ok_dyn(
             root,
             &[
                 "gh".into(),
@@ -944,7 +1023,7 @@ fn discover_backport_prs(
 ) -> Result<Vec<u64>, String> {
     let mut candidates: BTreeSet<u64> = BTreeSet::new();
     for branch in discover_release_branches(ctx.root) {
-        for sha in git_log_shas(ctx.root, &branch, paths, None, MAX_DISCOVERY_SHAS) {
+        for sha in git_log_shas(ctx.root, &branch, paths, None, MAX_DISCOVERY_SHAS, None) {
             if sha == intro_sha {
                 continue;
             }
@@ -980,12 +1059,17 @@ fn discover_backport_prs(
 /// Probe §B: path-scoped git log intro..master, minus the landing PR.
 /// When `require_token` is set (MODULE_S via start-blueos-core), keep only PRs
 /// that mention that token in title/body/files.
+/// When `pickaxe_term` is set (a journey's `Override::Pickaxe` term, e.g.
+/// `start_ardupilot`), the underlying git log is `-S`-scoped to commits whose
+/// diff actually touches that term, separating siblings that share one file
+/// (see `IMPROVE_AUDIT.md` §T3).
 fn discover_follow_up_prs(
     ctx: &mut Ctx,
     paths: &[String],
     intro_sha: &str,
     landing_prs: &BTreeSet<u64>,
     require_token: Option<&str>,
+    pickaxe_term: Option<&str>,
 ) -> Result<Vec<u64>, String> {
     let mut candidates: BTreeSet<u64> = BTreeSet::new();
     for sha in git_log_shas(
@@ -994,6 +1078,7 @@ fn discover_follow_up_prs(
         paths,
         Some(intro_sha),
         MAX_DISCOVERY_SHAS,
+        pickaxe_term,
     ) {
         for p in gh_commit_pulls(ctx.root, ctx.cache_dir, &sha) {
             if let Some(n) = p.get("number").and_then(|v| v.as_u64()) {
@@ -1457,9 +1542,16 @@ fn build_intro_cluster(
             }
         }
 
+        let pickaxe_term = journey_pickaxe_term(journey_id);
         let backport_prs = discover_backport_prs(ctx, &paths, intro_sha)?;
-        let follow_up_prs =
-            discover_follow_up_prs(ctx, &paths, intro_sha, &landing_prs_set, require_token)?;
+        let follow_up_prs = discover_follow_up_prs(
+            ctx,
+            &paths,
+            intro_sha,
+            &landing_prs_set,
+            require_token,
+            pickaxe_term,
+        )?;
 
         let mut journey_sources = shared_sources.clone();
         for &pr_number in backport_prs.iter().chain(follow_up_prs.iter()) {
@@ -1510,10 +1602,440 @@ fn generated_at_now(root: &Path) -> String {
     shell::run_ok(&["date", "+%Y-%m-%dT%H:%M:%S%:z"], root).unwrap_or_default()
 }
 
+const GOLDEN_JOURNEY_IDS: &[&str] = &[
+    "InspectZenohNetwork",
+    "ChangeUiThemeColor",
+    "InspectDiskUsage",
+    "RunInternetSpeedTest",
+    "LevelHorizon",
+];
+
+/// `journeys[].intro_commit` + `intro_clusters[sha]` for one journey: the
+/// cluster (shared `landing_prs`) and that journey's own `by_journey` entry.
+fn journey_cluster_view<'a>(output: &'a Value, journey_id: &str) -> Option<(&'a Value, &'a Value)> {
+    let journeys = output.get("journeys")?.as_array()?;
+    let journey = journeys
+        .iter()
+        .find(|j| j.get("journey").and_then(|v| v.as_str()) == Some(journey_id))?;
+    let sha = journey.get("intro_commit")?.as_str()?;
+    let cluster = output.get("intro_clusters")?.get(sha)?;
+    let by_journey = cluster.get("by_journey")?.get(journey_id)?;
+    Some((cluster, by_journey))
+}
+
+fn u64_set(value: &Value, field: &str) -> BTreeSet<u64> {
+    value
+        .get(field)
+        .and_then(|v| v.as_array())
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_u64)
+        .collect()
+}
+
+fn issue_numbers(by_journey: &Value) -> BTreeSet<u64> {
+    by_journey
+        .get("issues")
+        .and_then(|v| v.as_array())
+        .into_iter()
+        .flatten()
+        .filter_map(|i| i.get("number").and_then(Value::as_u64))
+        .collect()
+}
+
+/// Precision-regression gate (`IMPROVE_DESIGN.md` T2 / `PRECISION_QA.md` §1):
+/// fails loudly if any of the 5 golden journeys' PR/issue sets drift from the
+/// values locked in as the precision baseline.
+fn check_strict_goldens(output: &Value) -> Result<(), String> {
+    let mut violations: Vec<String> = vec![];
+
+    match journey_cluster_view(output, "InspectZenohNetwork") {
+        None => {
+            violations.push("InspectZenohNetwork: journey/cluster not found in output".to_string())
+        }
+        Some((cluster, by_journey)) => {
+            let seen: BTreeSet<u64> = u64_set(cluster, "landing_prs")
+                .union(&u64_set(by_journey, "follow_up_prs"))
+                .copied()
+                .collect();
+            for pr in [3300, 3313, 3953] {
+                if !seen.contains(&pr) {
+                    violations.push(format!(
+                        "InspectZenohNetwork: golden PR #{pr} missing from landing/follow-up set"
+                    ));
+                }
+            }
+        }
+    }
+
+    match journey_cluster_view(output, "ChangeUiThemeColor") {
+        None => {
+            violations.push("ChangeUiThemeColor: journey/cluster not found in output".to_string())
+        }
+        Some((_cluster, by_journey)) => {
+            let follow = u64_set(by_journey, "follow_up_prs");
+            let backport = u64_set(by_journey, "backport_prs");
+            if !follow.is_empty() {
+                violations.push(format!(
+                    "ChangeUiThemeColor: expected empty follow_up_prs, got {follow:?}"
+                ));
+            }
+            if !backport.is_empty() {
+                violations.push(format!(
+                    "ChangeUiThemeColor: expected empty backport_prs, got {backport:?}"
+                ));
+            }
+        }
+    }
+
+    match journey_cluster_view(output, "InspectDiskUsage") {
+        None => {
+            violations.push("InspectDiskUsage: journey/cluster not found in output".to_string())
+        }
+        Some((_cluster, by_journey)) => {
+            let follow = u64_set(by_journey, "follow_up_prs");
+            let expected: BTreeSet<u64> = [3681, 3691, 3743].into_iter().collect();
+            if follow != expected {
+                violations.push(format!(
+                    "InspectDiskUsage: expected follow_up_prs == {expected:?}, got {follow:?}"
+                ));
+            }
+        }
+    }
+
+    match journey_cluster_view(output, "RunInternetSpeedTest") {
+        None => {
+            violations.push("RunInternetSpeedTest: journey/cluster not found in output".to_string())
+        }
+        Some((cluster, by_journey)) => {
+            let landing = u64_set(cluster, "landing_prs");
+            let follow = u64_set(by_journey, "follow_up_prs");
+            let backport = u64_set(by_journey, "backport_prs");
+            if !landing.contains(&3602) {
+                violations
+                    .push("RunInternetSpeedTest: golden landing PR #3602 missing".to_string());
+            }
+            if follow.contains(&3686) || backport.contains(&3686) {
+                violations.push(
+                    "RunInternetSpeedTest: PR #3686 must be absent from follow_up/backport"
+                        .to_string(),
+                );
+            }
+            if !issue_numbers(by_journey).contains(&2146) {
+                violations.push("RunInternetSpeedTest: golden issue #2146 missing".to_string());
+            }
+        }
+    }
+
+    match journey_cluster_view(output, "LevelHorizon") {
+        None => violations.push("LevelHorizon: journey/cluster not found in output".to_string()),
+        Some((_cluster, by_journey)) => {
+            let follow = u64_set(by_journey, "follow_up_prs");
+            let backport = u64_set(by_journey, "backport_prs");
+            if !backport.contains(&3867) {
+                violations.push("LevelHorizon: golden backport PR #3867 missing".to_string());
+            }
+            if follow.contains(&3930) || backport.contains(&3930) {
+                violations.push(
+                    "LevelHorizon: PR #3930 must be absent from follow_up/backport".to_string(),
+                );
+            }
+        }
+    }
+
+    if violations.is_empty() {
+        Ok(())
+    } else {
+        Err(format!(
+            "{} golden check(s) failed:\n  - {}",
+            violations.len(),
+            violations.join("\n  - ")
+        ))
+    }
+}
+
+#[cfg(test)]
+mod strict_goldens_tests {
+    use super::*;
+
+    fn cluster_fixture(
+        journey: &str,
+        sha: &str,
+        landing_prs: &[u64],
+        follow_up_prs: &[u64],
+        backport_prs: &[u64],
+        issues: &[u64],
+    ) -> Value {
+        json!({
+            "journeys": [{"journey": journey, "intro_commit": sha}],
+            "intro_clusters": {
+                sha: {
+                    "landing_prs": landing_prs,
+                    "by_journey": {
+                        journey: {
+                            "follow_up_prs": follow_up_prs,
+                            "backport_prs": backport_prs,
+                            "issues": issues.iter().map(|n| json!({"number": n, "sources": []})).collect::<Vec<_>>(),
+                        }
+                    }
+                }
+            }
+        })
+    }
+
+    fn merge(fixtures: Vec<Value>) -> Value {
+        let mut journeys = vec![];
+        let mut clusters = serde_json::Map::new();
+        for f in fixtures {
+            journeys.extend(f["journeys"].as_array().unwrap().clone());
+            for (sha, cluster) in f["intro_clusters"].as_object().unwrap() {
+                clusters.insert(sha.clone(), cluster.clone());
+            }
+        }
+        json!({"journeys": journeys, "intro_clusters": Value::Object(clusters)})
+    }
+
+    fn all_golden_fixture() -> Value {
+        merge(vec![
+            cluster_fixture(
+                "InspectZenohNetwork",
+                "sha_zenoh",
+                &[3300],
+                &[3313, 3953, 3386],
+                &[],
+                &[],
+            ),
+            cluster_fixture("ChangeUiThemeColor", "sha_theme", &[9001], &[], &[], &[]),
+            cluster_fixture(
+                "InspectDiskUsage",
+                "sha_disk",
+                &[9002],
+                &[3681, 3691, 3743],
+                &[],
+                &[],
+            ),
+            cluster_fixture(
+                "RunInternetSpeedTest",
+                "sha_speed",
+                &[3602],
+                &[],
+                &[],
+                &[2146],
+            ),
+            cluster_fixture("LevelHorizon", "sha_horizon", &[9003], &[], &[3867], &[]),
+        ])
+    }
+
+    #[test]
+    fn passes_when_all_five_goldens_hold() {
+        assert_eq!(check_strict_goldens(&all_golden_fixture()), Ok(()));
+    }
+
+    #[test]
+    fn fails_when_zenoh_landing_pr_missing() {
+        let output = merge(vec![
+            cluster_fixture(
+                "InspectZenohNetwork",
+                "sha_zenoh",
+                &[3300],
+                &[3953],
+                &[],
+                &[],
+            ),
+            cluster_fixture("ChangeUiThemeColor", "sha_theme", &[9001], &[], &[], &[]),
+            cluster_fixture(
+                "InspectDiskUsage",
+                "sha_disk",
+                &[9002],
+                &[3681, 3691, 3743],
+                &[],
+                &[],
+            ),
+            cluster_fixture(
+                "RunInternetSpeedTest",
+                "sha_speed",
+                &[3602],
+                &[],
+                &[],
+                &[2146],
+            ),
+            cluster_fixture("LevelHorizon", "sha_horizon", &[9003], &[], &[3867], &[]),
+        ]);
+        let err = check_strict_goldens(&output).unwrap_err();
+        assert!(err.contains("InspectZenohNetwork"));
+        assert!(err.contains("3313"));
+    }
+
+    #[test]
+    fn fails_when_ui_theme_has_unexpected_follow_up() {
+        let output = merge(vec![
+            cluster_fixture(
+                "InspectZenohNetwork",
+                "sha_zenoh",
+                &[3300],
+                &[3313, 3953],
+                &[],
+                &[],
+            ),
+            cluster_fixture(
+                "ChangeUiThemeColor",
+                "sha_theme",
+                &[9001],
+                &[4242],
+                &[],
+                &[],
+            ),
+            cluster_fixture(
+                "InspectDiskUsage",
+                "sha_disk",
+                &[9002],
+                &[3681, 3691, 3743],
+                &[],
+                &[],
+            ),
+            cluster_fixture(
+                "RunInternetSpeedTest",
+                "sha_speed",
+                &[3602],
+                &[],
+                &[],
+                &[2146],
+            ),
+            cluster_fixture("LevelHorizon", "sha_horizon", &[9003], &[], &[3867], &[]),
+        ]);
+        let err = check_strict_goldens(&output).unwrap_err();
+        assert!(err.contains("ChangeUiThemeColor"));
+    }
+
+    #[test]
+    fn fails_when_disk_usage_follow_ups_not_exact() {
+        let output = merge(vec![
+            cluster_fixture(
+                "InspectZenohNetwork",
+                "sha_zenoh",
+                &[3300],
+                &[3313, 3953],
+                &[],
+                &[],
+            ),
+            cluster_fixture("ChangeUiThemeColor", "sha_theme", &[9001], &[], &[], &[]),
+            cluster_fixture(
+                "InspectDiskUsage",
+                "sha_disk",
+                &[9002],
+                &[3681, 3691],
+                &[],
+                &[],
+            ),
+            cluster_fixture(
+                "RunInternetSpeedTest",
+                "sha_speed",
+                &[3602],
+                &[],
+                &[],
+                &[2146],
+            ),
+            cluster_fixture("LevelHorizon", "sha_horizon", &[9003], &[], &[3867], &[]),
+        ]);
+        let err = check_strict_goldens(&output).unwrap_err();
+        assert!(err.contains("InspectDiskUsage"));
+    }
+
+    #[test]
+    fn fails_when_speed_test_has_denied_pr_or_missing_issue() {
+        let output = merge(vec![
+            cluster_fixture(
+                "InspectZenohNetwork",
+                "sha_zenoh",
+                &[3300],
+                &[3313, 3953],
+                &[],
+                &[],
+            ),
+            cluster_fixture("ChangeUiThemeColor", "sha_theme", &[9001], &[], &[], &[]),
+            cluster_fixture(
+                "InspectDiskUsage",
+                "sha_disk",
+                &[9002],
+                &[3681, 3691, 3743],
+                &[],
+                &[],
+            ),
+            cluster_fixture(
+                "RunInternetSpeedTest",
+                "sha_speed",
+                &[3602],
+                &[3686],
+                &[],
+                &[],
+            ),
+            cluster_fixture("LevelHorizon", "sha_horizon", &[9003], &[], &[3867], &[]),
+        ]);
+        let err = check_strict_goldens(&output).unwrap_err();
+        assert!(err.contains("RunInternetSpeedTest"));
+        assert!(err.contains("3686"));
+        assert!(err.contains("2146"));
+    }
+
+    #[test]
+    fn fails_when_level_horizon_missing_backport_or_has_denied_pr() {
+        let output = merge(vec![
+            cluster_fixture(
+                "InspectZenohNetwork",
+                "sha_zenoh",
+                &[3300],
+                &[3313, 3953],
+                &[],
+                &[],
+            ),
+            cluster_fixture("ChangeUiThemeColor", "sha_theme", &[9001], &[], &[], &[]),
+            cluster_fixture(
+                "InspectDiskUsage",
+                "sha_disk",
+                &[9002],
+                &[3681, 3691, 3743],
+                &[],
+                &[],
+            ),
+            cluster_fixture(
+                "RunInternetSpeedTest",
+                "sha_speed",
+                &[3602],
+                &[],
+                &[],
+                &[2146],
+            ),
+            cluster_fixture("LevelHorizon", "sha_horizon", &[9003], &[], &[3930], &[]),
+        ]);
+        let err = check_strict_goldens(&output).unwrap_err();
+        assert!(err.contains("LevelHorizon"));
+        assert!(err.contains("3867"));
+        assert!(err.contains("3930"));
+    }
+
+    #[test]
+    fn fails_when_journey_missing_from_output_entirely() {
+        let output = merge(vec![cluster_fixture(
+            "InspectZenohNetwork",
+            "sha_zenoh",
+            &[3300],
+            &[3313, 3953],
+            &[],
+            &[],
+        )]);
+        let err = check_strict_goldens(&output).unwrap_err();
+        assert!(GOLDEN_JOURNEY_IDS
+            .iter()
+            .filter(|j| **j != "InspectZenohNetwork")
+            .all(|j| err.contains(j)));
+    }
+}
+
 pub fn run(args: &[String]) -> Result<(), String> {
     let mut journey_filter: Option<String> = None;
     let mut refresh = false;
     let mut only_1_5_exclusive = false;
+    let mut strict_goldens = false;
 
     let mut i = 0;
     while i < args.len() {
@@ -1528,6 +2050,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
             }
             "--refresh" => refresh = true,
             "--only-1_5_exclusive" => only_1_5_exclusive = true,
+            "--strict-goldens" => strict_goldens = true,
             other => return Err(format!("unknown argument: {other}")),
         }
         i += 1;
@@ -1658,6 +2181,35 @@ pub fn run(args: &[String]) -> Result<(), String> {
         .map(|p| p.display().to_string())
         .unwrap_or_else(|_| "catalog/feature_traces.json".to_string());
     println!("Wrote {out_rel} ({size} bytes)");
+
+    if strict_goldens {
+        // A --journey filter narrows the run to one journey; only gate on the
+        // golden(s) that journey actually is, so an unrelated run doesn't fail
+        // on goldens it never touched.
+        let relevant: Vec<&str> = match &journey_filter {
+            Some(j) => GOLDEN_JOURNEY_IDS
+                .iter()
+                .filter(|g| *g == j)
+                .copied()
+                .collect(),
+            None => GOLDEN_JOURNEY_IDS.to_vec(),
+        };
+        if !relevant.is_empty() {
+            let scoped = json!({
+                "journeys": out_journeys
+                    .iter()
+                    .filter(|j| relevant.contains(&j.get("journey").and_then(|v| v.as_str()).unwrap_or("")))
+                    .cloned()
+                    .collect::<Vec<_>>(),
+                "intro_clusters": output.get("intro_clusters").cloned().unwrap_or(json!({})),
+            });
+            check_strict_goldens(&scoped).map_err(|e| format!("--strict-goldens: {e}"))?;
+            println!(
+                "--strict-goldens: {} golden journey check(s) passed",
+                relevant.len()
+            );
+        }
+    }
 
     Ok(())
 }

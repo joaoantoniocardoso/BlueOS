@@ -66,3 +66,11 @@ path = "src/bin/generate_feature_presence.rs"
 [[bin]]
 name = "enrich_feature_traces"
 path = "src/bin/enrich_feature_traces.rs"
+
+[[bin]]
+name = "feature_trace_report"
+path = "src/bin/feature_trace_report.rs"
+
+[[bin]]
+name = "sibling_matrix"
+path = "src/bin/sibling_matrix.rs"

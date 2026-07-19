@@ -6,4 +6,6 @@
 
 pub mod feature_presence;
 pub mod feature_trace_enrich;
+pub mod feature_trace_report;
 pub mod shell;
+pub mod sibling_matrix;

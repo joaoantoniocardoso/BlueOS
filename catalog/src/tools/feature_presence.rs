@@ -223,7 +223,7 @@ pub(crate) const OVERRIDES: &[(&str, Override)] = &[
     ),
     (
         "DeleteLocalBlueosVersion",
-        Override::Pickaxe("/version/delete", "core/services/versionchooser/api/v1/routers/version.py"),
+        Override::Pickaxe("/delete", "core/services/versionchooser/api/v1/routers/version.py"),
     ),
     (
         "AddCustomManifest",
@@ -325,6 +325,18 @@ pub(crate) const OVERRIDES: &[(&str, Override)] = &[
     (
         "ChangeBoard",
         Override::Path("core/frontend/src/components/autopilot/BoardChangeDialog.vue"),
+    ),
+    (
+        "StartAutopilot",
+        Override::Pickaxe("start_ardupilot", "core/services/ardupilot_manager"),
+    ),
+    (
+        "StopAutopilot",
+        Override::Pickaxe("kill_ardupilot", "core/services/ardupilot_manager"),
+    ),
+    (
+        "RestartAutopilot",
+        Override::Pickaxe("restart_ardupilot", "core/services/ardupilot_manager"),
     ),
     ("RunSitlSimulation", Override::Path("core/services/ardupilot_manager/typedefs.py")),
     (

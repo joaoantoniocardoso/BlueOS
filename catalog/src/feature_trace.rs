@@ -5,7 +5,7 @@
 //! (after `cargo run -p blueos-catalog --bin generate_feature_presence`).
 //! Loaded as first-class typed data via [`feature_traces`].
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::OnceLock;
 
 use serde::Deserialize;
@@ -212,6 +212,31 @@ pub fn landing_pr_for_journey(journey_id: &str) -> Option<&'static TracePullRequ
     pull_request(number)
 }
 
+/// Sibling separation ratio for a journey pair at risk of over-broad
+/// discovery hints re-merging their follow-up history: `|∩|/|∪|` of
+/// `follow_up_prs`. See the T1 matrix in
+/// `catalog/extras/feature-traces-orch/improve/IMPROVE_DESIGN.md`.
+///
+/// Hub path-intersection (whether a follow-up PR's `files_changed` overlaps
+/// `discovery_paths`) is never used as a gate here or anywhere in this crate
+/// — every discovered follow-up trivially intersects its own hint set by
+/// construction (it was found via `git log -- <discovery_paths>`), so that
+/// check only validates internal consistency, not hint precision. Sibling
+/// ratio is the real over-broad-hint signal (see `PRECISION_QA.md` §2).
+pub fn sibling_ratio(journey_a: &str, journey_b: &str) -> f64 {
+    let a: HashSet<u64> = discovery_for_journey(journey_a)
+        .map(|d| d.follow_up_prs.iter().copied().collect())
+        .unwrap_or_default();
+    let b: HashSet<u64> = discovery_for_journey(journey_b)
+        .map(|d| d.follow_up_prs.iter().copied().collect())
+        .unwrap_or_default();
+    let union: HashSet<u64> = a.union(&b).copied().collect();
+    if union.is_empty() {
+        return 0.0;
+    }
+    a.intersection(&b).count() as f64 / union.len() as f64
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -223,7 +248,7 @@ mod tests {
         assert_eq!(traces.repo, "bluerobotics/BlueOS");
         assert!(!traces.generated_at.is_empty());
         assert_eq!(traces.journeys.len(), 94);
-        assert_eq!(traces.intro_clusters.len(), 30);
+        assert_eq!(traces.intro_clusters.len(), 55);
     }
 
     #[test]
@@ -248,12 +273,16 @@ mod tests {
         let discovery =
             discovery_for_journey("ChangeUiThemeColor").expect("customization discovery");
         assert!(discovery.backport_prs.is_empty());
+        assert!(discovery.follow_up_prs.is_empty());
     }
 
     #[test]
     fn internet_speed_links_closing_issue() {
+        let cluster = cluster_for_journey("RunInternetSpeedTest").expect("pardal cluster");
+        assert_eq!(cluster.landing_prs, vec![3602]);
         let discovery = discovery_for_journey("RunInternetSpeedTest").expect("pardal discovery");
         assert!(discovery.issues.iter().any(|i| i.number == 2146));
+        assert!(!discovery.follow_up_prs.contains(&3686));
         let issue = issue(2146).expect("issue 2146");
         assert!(issue
             .title
@@ -264,10 +293,49 @@ mod tests {
     }
 
     #[test]
+    fn disk_usage_follow_ups_exact_set() {
+        let discovery = discovery_for_journey("InspectDiskUsage").expect("disk usage discovery");
+        let follow_ups: HashSet<u64> = discovery.follow_up_prs.iter().copied().collect();
+        assert_eq!(follow_ups, HashSet::from([3681, 3691, 3743]));
+    }
+
+    #[test]
+    fn level_horizon_backport_no_customization_leak() {
+        let discovery = discovery_for_journey("LevelHorizon").expect("level horizon discovery");
+        assert!(discovery.backport_prs.contains(&3867));
+        assert!(!discovery.follow_up_prs.contains(&3930));
+        assert!(!discovery.backport_prs.contains(&3930));
+    }
+
+    #[test]
+    fn camera_pair_sibling_ratio_below_gate() {
+        let ratio = sibling_ratio("ConfigureCameraStream", "ViewCameraStreams");
+        assert!(ratio < 0.40, "camera sibling ratio {ratio} >= 0.40 gate");
+    }
+
+    #[test]
+    fn autopilot_pair_sibling_ratio_below_gate() {
+        let ratio = sibling_ratio("StartAutopilot", "UpdateFirmwareOnline");
+        assert!(ratio < 0.20, "autopilot sibling ratio {ratio} >= 0.20 gate");
+    }
+
+    #[test]
+    fn helper_pair_sibling_ratio_below_gate() {
+        let ratio = sibling_ratio("BrowseAvailableWebServices", "MonitorInternetConnectivity");
+        assert!(ratio < 0.40, "helper sibling ratio {ratio} >= 0.40 gate");
+    }
+
+    #[test]
     fn presence_and_traces_share_intro_commits() {
         use crate::feature_intro::presence_for_journey;
 
-        for journey_id in ["InspectZenohNetwork", "InspectDiskUsage", "LevelHorizon"] {
+        for journey_id in [
+            "InspectZenohNetwork",
+            "InspectDiskUsage",
+            "LevelHorizon",
+            "ViewCameraStreams",
+            "AccessWebTerminal",
+        ] {
             let presence = presence_for_journey(journey_id).expect("presence");
             let intro = intro_commit_for_journey(journey_id).expect("trace intro");
             assert_eq!(presence.intro_commit, intro);
