@@ -12,6 +12,7 @@ use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts
 use crate::service::{Authority, Service, ServiceDefinition};
 use crate::trust::{PrivilegeLevel, UserConfirmation};
 
+// capture used RepoDigest as primary
 const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:0406983a568a66df2a56f682b52161858f30ac87ab273f15309e52f5ab87e22a), Raspberry Pi 4, Navigator";
 
 pub const RUNTIME_FACTS: RuntimeFacts =

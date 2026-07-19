@@ -1,3 +1,4 @@
+use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR_ARDUSUB;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
     Actor, HttpMethod, JourneyStep, NetworkState, Precondition, RouteRef, StateTransition,
@@ -9,7 +10,7 @@ const ADV: &str = "content/usage/advanced/index.md";
 const GS: &str = "content/usage/getting-started/index.md";
 const INSTALL: &str = "content/usage/installation.md";
 const APM_ROUTER: &str = "core/services/ardupilot_manager/api/v1/routers/index.py";
-const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator, ArduSub 4.5.3 STABLE";
+const RUNTIME_ENV: &str = RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR_ARDUSUB;
 
 pub const JOURNEYS: &[UserJourney] = &[
     VEHICLE_FIRST_BOOT,

@@ -1,3 +1,4 @@
+use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
     Actor, HttpMethod, JourneyStep, Precondition, RouteRef, SoftwareRequirement, StepOutcome,
@@ -16,7 +17,7 @@ const SETTINGS_VIEW: &str = "core/frontend/src/views/SettingsView.vue";
 const SYSINFO_VIEW: &str = "core/frontend/src/views/SystemInformationView.vue";
 const UPDATE_TIME: &str = "core/frontend/src/utils/update_time.ts";
 const VIDEO_MANAGER: &str = "core/frontend/src/components/video-manager/VideoManager.vue";
-const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
+const RUNTIME_ENV: &str = RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 
 pub const JOURNEYS: &[UserJourney] = &[
     REBOOT_ONBOARD_COMPUTER,

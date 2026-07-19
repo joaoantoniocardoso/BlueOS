@@ -1,3 +1,4 @@
+use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
     Actor, DataRequirement, HardwareRequirement, HttpMethod, JourneyStep, Precondition, RouteRef,
@@ -12,7 +13,7 @@ const NMEA_INJECTOR: &str = "core/frontend/src/components/nmea-injector/NMEAInje
 const NMEA_CREATE_DIALOG: &str =
     "core/frontend/src/components/nmea-injector/NMEASocketCreationDialog.vue";
 const NMEA_SOCKET_CARD: &str = "core/frontend/src/components/nmea-injector/NMEASocketCard.vue";
-const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
+const RUNTIME_ENV: &str = RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 
 pub const JOURNEYS: &[UserJourney] = &[
     VIEW_CONFIGURED_NMEA_SOCKETS,

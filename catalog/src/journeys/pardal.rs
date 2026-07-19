@@ -1,3 +1,4 @@
+use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
     Actor, HttpMethod, JourneyStep, NetworkState, Precondition, RouteRef, StepOutcome, UserJourney,
@@ -12,7 +13,7 @@ const PARDAL_MENUS: &str = "core/frontend/src/menus.ts";
 const NETWORK_TEST_VIEW: &str = "core/frontend/src/views/NetworkTestView.vue";
 const NETWORK_SPEED_TEST: &str = "core/frontend/src/components/speedtest/NetworkSpeedTest.vue";
 const INTERNET_SPEED_TEST: &str = "core/frontend/src/components/speedtest/InternetSpeedTest.vue";
-const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
+const RUNTIME_ENV: &str = RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 
 pub const JOURNEYS: &[UserJourney] = &[RUN_LAN_SPEED_TEST, RUN_INTERNET_SPEED_TEST];
 

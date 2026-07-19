@@ -16,7 +16,9 @@ use crate::runtime::{
 use crate::service::{Authority, Service, ServiceDefinition};
 use crate::trust::{DangerousOperation, PrivilegeLevel, UserConfirmation};
 
-const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4";
+use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4;
+
+const RUNTIME_ENV: &str = RUNTIME_CAPTURE_ENV_PI4;
 
 pub const RUNTIME_FACTS: RuntimeFacts =
     RuntimeFacts {

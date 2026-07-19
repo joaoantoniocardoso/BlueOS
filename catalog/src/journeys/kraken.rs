@@ -1,3 +1,4 @@
+use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
     Actor, DataRequirement, HttpMethod, JourneyStep, NetworkState, Precondition, RouteRef,
@@ -7,7 +8,7 @@ use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
 
 const ADV: &str = "content/usage/advanced/index.md";
 const DEV: &str = "content/development/extensions/index.md";
-const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4";
+const RUNTIME_ENV: &str = RUNTIME_CAPTURE_ENV_PI4;
 
 pub const JOURNEYS: &[UserJourney] = &[
     ADD_CUSTOM_MANIFEST,

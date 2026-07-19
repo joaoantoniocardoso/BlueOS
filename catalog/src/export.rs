@@ -234,6 +234,7 @@ mod tests {
 
     #[test]
     fn runtime_types_round_trip() {
+        use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_SITL;
         use crate::id::ServiceId;
         use crate::journey::{HttpMethod, RouteRef};
         use crate::provenance::{GroundedItem, GroundedSet, Provenance};
@@ -260,7 +261,7 @@ mod tests {
                         },
                         Provenance::runtime(
                             "runtime-captures/sample.json#k",
-                            "BlueOS master, Pi 4, SITL",
+                            RUNTIME_CAPTURE_ENV_PI4_SITL,
                         ),
                     )]
                 },
@@ -282,7 +283,7 @@ mod tests {
                         },
                         Provenance::runtime(
                             "runtime-captures/sample.json#k",
-                            "BlueOS master, Pi 4, SITL",
+                            RUNTIME_CAPTURE_ENV_PI4_SITL,
                         ),
                     )]
                 },
@@ -312,7 +313,7 @@ mod tests {
                         },
                         Provenance::runtime(
                             "runtime-captures/sample.json#k",
-                            "BlueOS master, Pi 4, SITL",
+                            RUNTIME_CAPTURE_ENV_PI4_SITL,
                         ),
                     )]
                 },

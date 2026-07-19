@@ -13,7 +13,7 @@ use blueos_catalog::{
     run_smoke_http_call, summarize_journey, wait_for_blueos, Catalog, FixtureInventory, JourneyId,
     JourneyResult, PreconditionStatus, RunCounts, StepResult, MUTATING_SMOKE_DEFAULT_FIXTURES,
     SMOKE_CORE_MASTER_JSON, SMOKE_CORE_MASTER_TAG, SMOKE_CORE_SWITCH_JSON, SMOKE_CORE_SWITCH_TAG,
-    SMOKE_DEFAULT_FIXTURES,
+    SMOKE_DEFAULT_FIXTURES, TIER2_SMOKE_DUT_CORE_DIGEST,
 };
 
 fn main() {
@@ -281,7 +281,9 @@ fn main() {
 
         if mutating_smoke {
             if journey_id == JourneyId::SwitchLocalBlueosVersion {
-                eprintln!("journey_http: restoring core image to {SMOKE_CORE_MASTER_TAG}…");
+                eprintln!(
+                    "journey_http: restoring core image to tag `{SMOKE_CORE_MASTER_TAG}` (intended digest {TIER2_SMOKE_DUT_CORE_DIGEST})…"
+                );
                 let result = run_core_image_switch(
                     &catalog,
                     base,

@@ -291,7 +291,7 @@ pub const MUTATING_SMOKE_ENTRIES: &[MutatingSmokeEntry] = &[
         journey_id: JourneyId::SwitchLocalBlueosVersion,
         setup: SmokeRepair::FilesystemReplace,
         restore: SmokeRepair::ContainerRestart,
-        notes: "docker tag master→smoke-catalog-switch; POST switch; restore master; DELETE /version/delete smoke-catalog-switch",
+        notes: "docker tag :master→smoke-catalog-switch (copies DUT digest, not a pin); POST switch; restore tag :master (intended digest sha256:ae50d2d1d5935db0d764e2f14837039ff498d78abf22eb3c8f3fd68aa3fe4b76); DELETE smoke-catalog-switch",
     },
     MutatingSmokeEntry {
         journey_id: JourneyId::SyncSystemTime,

@@ -1,4 +1,5 @@
 pub mod capability;
+pub mod capture_env;
 pub mod catalog;
 pub mod cluster;
 pub mod coverage;
@@ -35,6 +36,13 @@ pub mod trust;
 pub mod validate;
 
 pub use capability::{Aggregate, CapabilityDef, CAPABILITIES};
+pub use capture_env::{
+    format_runtime_env, RUNTIME_CAPTURE_CORE_DIGEST, RUNTIME_CAPTURE_CORE_REPO,
+    RUNTIME_CAPTURE_CORE_REPO_DIGEST, RUNTIME_CAPTURE_CORE_TAG, RUNTIME_CAPTURE_ENV_PI4,
+    RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR, RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR_ARDUSUB,
+    RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR_REPODIGEST, RUNTIME_CAPTURE_ENV_PI4_SITL,
+    TIER2_SMOKE_DUT_CORE_DIGEST,
+};
 pub use catalog::{Catalog, CouplingMatrix};
 pub use cluster::{
     ClusterPolicy, ClusterResult, CouplingWeights, LensPartition, PairAgreement, SplitConsensus,

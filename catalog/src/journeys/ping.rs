@@ -1,3 +1,4 @@
+use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
     Actor, HardwareRequirement, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome,
@@ -15,7 +16,7 @@ const PING_MENUS: &str = "core/frontend/src/menus.ts";
 const PING_STORE: &str = "core/frontend/src/store/ping.ts";
 const PING1D_CARD: &str = "core/frontend/src/components/ping/ping1d.vue";
 const PING360_CARD: &str = "core/frontend/src/components/ping/ping360.vue";
-const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator";
+const RUNTIME_ENV: &str = RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 
 pub const JOURNEYS: &[UserJourney] = &[
     VIEW_DETECTED_SONAR_DEVICES,

@@ -325,6 +325,7 @@ pub fn mutating_smoke_body(journey_id: JourneyId, route: &RouteRef) -> Option<&'
         (JourneyId::DockerRegistryLogin, "/docker/login", Post) => {
             Some(r##"{"username":"","password":"","registry":"","root":true}"##)
         }
+        // Tag `master` is the DUT restore/pull name, not an image identity pin (see capture_env digests).
         (JourneyId::UpdateBlueosVersion, "/version/pull", Post)
         | (JourneyId::PullBlueosVersionWithoutSwitch, "/version/pull", Post) => {
             Some(r##"{"repository":"bluerobotics/blueos-core","tag":"master"}"##)
@@ -439,13 +440,23 @@ const SMOKE_ROUTE_FLUSH_QUERY: &str =
 const SMOKE_ADDR_DEL_1_QUERY: &str = "command=bash%20-lc%20%27curl%20-s%20-m%2010%20-o%20%2Fdev%2Fnull%20-X%20DELETE%20%22http%3A%2F%2F127.0.0.1%2Fcable-guy%2Fv1.0%2Faddress%3Finterface_name%3Deth0%26ip_address%3D192.168.0.1%22%20%7C%7C%20true%3B%20ip%20addr%20del%20192.168.0.1%2F24%20dev%20eth0%202%3E%2Fdev%2Fnull%20%7C%7C%20true%27&i_know_what_i_am_doing=true";
 const SMOKE_ADDR_DEL_178_QUERY: &str = "command=bash%20-lc%20%27curl%20-s%20-m%2010%20-o%20%2Fdev%2Fnull%20-X%20DELETE%20%22http%3A%2F%2F127.0.0.1%2Fcable-guy%2Fv1.0%2Faddress%3Finterface_name%3Deth0%26ip_address%3D192.168.0.178%22%20%7C%7C%20true%3B%20ip%20addr%20del%20192.168.0.178%2F24%20dev%20eth0%202%3E%2Fdev%2Fnull%20%7C%7C%20true%27&i_know_what_i_am_doing=true";
 const SMOKE_RESOLV_FIX_QUERY: &str = "command=docker%20exec%20blueos-core%20sh%20-c%20%27printf%20%22nameserver%208.8.8.8%5Cnnameserver%201.1.1.1%5Cn%22%20%3E%20%2Fetc%2Fresolv.conf.host%27&i_know_what_i_am_doing=true";
+// Copies whatever digest `bluerobotics/blueos-core:master` currently points to on the DUT.
 const SMOKE_LOCAL_VERSION_TAG_QUERY: &str = "command=docker%20tag%20bluerobotics%2Fblueos-core%3Amaster%20bluerobotics%2Fblueos-core%3Asmoke-catalog-deleteme&i_know_what_i_am_doing=true";
+// Copies whatever digest `bluerobotics/blueos-core:master` currently points to on the DUT.
 const SMOKE_CORE_SWITCH_TAG_QUERY: &str = "command=docker%20tag%20bluerobotics%2Fblueos-core%3Amaster%20bluerobotics%2Fblueos-core%3Asmoke-catalog-switch&i_know_what_i_am_doing=true";
 pub const SMOKE_CORE_SWITCH_JSON: &str =
     r##"{"repository":"bluerobotics/blueos-core","tag":"smoke-catalog-switch"}"##;
+/// POST `/version/current` body to restore the pre-smoke core image by DUT tag name.
+///
+/// Floating tag name on DUT; pin identity via [`crate::capture_env::TIER2_SMOKE_DUT_CORE_DIGEST`]
+/// (play Pi) or [`crate::capture_env::RUNTIME_CAPTURE_CORE_DIGEST`] (historical captures).
+/// Not a content pin.
 pub const SMOKE_CORE_MASTER_JSON: &str =
     r##"{"repository":"bluerobotics/blueos-core","tag":"master"}"##;
 pub const SMOKE_CORE_SWITCH_TAG: &str = "smoke-catalog-switch";
+/// Floating tag name on DUT restore target; pin identity via
+/// [`crate::capture_env::TIER2_SMOKE_DUT_CORE_DIGEST`] /
+/// [`crate::capture_env::RUNTIME_CAPTURE_CORE_DIGEST`]. Not a content pin.
 pub const SMOKE_CORE_MASTER_TAG: &str = "master";
 const SMOKE_KRAKEN_MANIFEST_CLEAN_QUERY: &str = "command=docker%20exec%20blueos-core%20python3%20-c%20%22import%20json%2Cpathlib%3Bp%3Dpathlib.Path%28%27%2Froot%2F.config%2Fkraken%2Fsettings-2.json%27%29%3Bd%3Djson.loads%28p.read_text%28%29%29%3Bd%5B%27manifests%27%5D%3D%5Bm%20for%20m%20in%20d.get%28%27manifests%27%2C%5B%5D%29%20if%20m.get%28%27name%27%29%21%3D%27smoke-catalog%27%5D%3Bp.write_text%28json.dumps%28d%2Cindent%3D4%29%2Bchr%2810%29%29%22&i_know_what_i_am_doing=true";
 const SMOKE_CABLE_GUY_SETTINGS_CLEAN_QUERY: &str = "command=docker%20exec%20blueos-core%20python3%20-c%20%22import%20json%2Cpathlib%3Bp%3Dpathlib.Path%28%27%2Froot%2F.config%2Fcable-guy%2Fsettings-2.json%27%29%3Bd%3Djson.loads%28p.read_text%28%29%29%3B%5Biface.update%28%7B%27addresses%27%3A%5B%7B%27ip%27%3A%270.0.0.0%27%2C%27mode%27%3A%27client%27%7D%5D%2C%27routes%27%3A%5Br%20for%20r%20in%20%28iface.get%28%27routes%27%29%20or%20%5B%5D%29%20if%20r.get%28%27managed%27%29%20and%20str%28r.get%28%27destination%27%2C%27%27%29%29.startswith%28%27224.%27%29%5D%7D%29%20for%20iface%20in%20d.get%28%27content%27%2C%5B%5D%29%20if%20iface.get%28%27name%27%29%3D%3D%27eth0%27%5D%3Bp.write_text%28json.dumps%28d%2Cindent%3D4%29%2Bchr%2810%29%29%22&i_know_what_i_am_doing=true";
@@ -947,7 +958,7 @@ pub fn mutating_smoke_teardown_calls(journey_id: JourneyId) -> &'static [SmokeHt
             query: Some("hostname=blueos"),
             form_file: None,
         }],
-        // Core restore (POST /version/current → master) runs in journey_http before these calls.
+        // Core restore (POST /version/current → tag `master`) runs in journey_http before these calls.
         JourneyId::SwitchLocalBlueosVersion => &[SmokeHttpCall {
             route: RouteRef {
                 service: ServiceId::Versionchooser,
