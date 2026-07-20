@@ -53,3 +53,12 @@ See `abc/RELEASE_CHECKLIST.md` for full flow:
 4. `bash extras/feature-traces-orch/next11/check-traces.sh`
 5. `bash gate.sh`
 6. Regenerate UI asset: `cargo run -p blueos-catalog --bin export_feature_provenance`
+
+---
+
+## Follow-on F1–F2
+
+| ID | Result | Evidence |
+|---|---|---|
+| **F1** multi-cluster soak | **PASS** | `abc/B_SMOKE.md`: 2 clusters processed with `--jobs 2 --resume --strict-goldens`, exit 0, 8/8 goldens |
+| **F2** full UI | **PASS** | `FeatureProvenanceView.vue`: `v-switch` "All journeys" toggles `useFullSet`; `?full=1` query sync; loads `feature-provenance-full.json` |

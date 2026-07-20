@@ -9,7 +9,15 @@
           Snapshot {{ snapshot.generated_at }}
         </div>
       </v-col>
-      <v-col cols="12" md="6">
+      <v-col cols="12" md="6" class="d-flex align-center">
+        <v-switch
+          v-model="useFullSet"
+          class="mr-4 mt-0"
+          dense
+          hide-details
+          label="All journeys"
+          @change="onFullSetChange"
+        />
         <v-select
           v-model="selectedJourneyId"
           :items="journeyItems"
@@ -17,6 +25,7 @@
           dense
           outlined
           hide-details
+          class="flex-grow-1"
         />
       </v-col>
     </v-row>
@@ -173,6 +182,19 @@
         </v-col>
       </v-row>
     </template>
+
+    <v-snackbar
+      v-model="noticeVisible"
+      :timeout="6000"
+      top
+    >
+      {{ noticeMessage }}
+      <template #action="{ attrs }">
+        <v-btn text v-bind="attrs" @click="noticeVisible = false">
+          Close
+        </v-btn>
+      </template>
+    </v-snackbar>
   </v-container>
 </template>
 
@@ -234,6 +256,9 @@ export default Vue.extend({
       selectedJourneyId: null as string | null,
       dutTag: null as string | null,
       dutSource: null as 'query' | 'live' | null,
+      useFullSet: false,
+      noticeVisible: false,
+      noticeMessage: '',
     }
   },
   computed: {
@@ -287,25 +312,58 @@ export default Vue.extend({
     },
   },
   async mounted() {
+    this.useFullSet = this.$route.query.full === '1'
     await Promise.all([this.loadSnapshot(), this.resolveDutTag()])
   },
   methods: {
     async loadSnapshot(): Promise<void> {
       this.loading = true
       this.error = null
+      const previousJourneyId = this.selectedJourneyId
       try {
-        const response = await fetch('/assets/feature-provenance.json')
-        if (!response.ok) {
-          throw new Error(`Failed to load snapshot (${response.status})`)
+        let data: ProvenanceSnapshot | null = null
+        if (this.useFullSet) {
+          const fullResponse = await fetch('/assets/feature-provenance-full.json')
+          if (fullResponse.ok) {
+            data = await fullResponse.json() as ProvenanceSnapshot
+          } else {
+            this.showNotice(
+              'Full journey set not found locally; showing golden journeys. '
+              + 'Run: cargo run -p blueos-catalog --bin export_feature_provenance -- --full',
+            )
+          }
         }
-        const data = await response.json() as ProvenanceSnapshot
+        if (!data) {
+          const response = await fetch('/assets/feature-provenance.json')
+          if (!response.ok) {
+            throw new Error(`Failed to load snapshot (${response.status})`)
+          }
+          data = await response.json() as ProvenanceSnapshot
+        }
         this.snapshot = data
-        this.selectedJourneyId = data.journeys[0]?.id ?? null
+        const journeyIds = new Set(data.journeys.map((journey) => journey.id))
+        this.selectedJourneyId = previousJourneyId && journeyIds.has(previousJourneyId)
+          ? previousJourneyId
+          : data.journeys[0]?.id ?? null
       } catch (err) {
         this.error = err instanceof Error ? err.message : 'Failed to load provenance snapshot'
       } finally {
         this.loading = false
       }
+    },
+    showNotice(message: string): void {
+      this.noticeMessage = message
+      this.noticeVisible = true
+    },
+    onFullSetChange(): void {
+      const query = { ...this.$route.query }
+      if (this.useFullSet) {
+        query.full = '1'
+      } else {
+        delete query.full
+      }
+      this.$router.replace({ query }).catch(() => undefined)
+      this.loadSnapshot()
     },
     async resolveDutTag(): Promise<void> {
       const queryDut = this.$route.query.dut

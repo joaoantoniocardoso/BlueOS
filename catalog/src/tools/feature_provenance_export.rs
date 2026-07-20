@@ -206,6 +206,8 @@ fn default_full_out_path() -> PathBuf {
 pub fn run(args: &[String]) -> Result<(), String> {
     let mut out = default_out_path();
     let mut full_out = default_full_out_path();
+    let write_golden = true;
+    let mut write_full = false;
     let mut index = 0;
     while index < args.len() {
         match args[index].as_str() {
@@ -223,11 +225,14 @@ pub fn run(args: &[String]) -> Result<(), String> {
                     .ok_or_else(|| "--full-out requires a path".to_string())?;
                 full_out = PathBuf::from(value);
             }
+            "--full" => {
+                write_full = true;
+            }
             "--help" | "-h" => {
                 eprintln!(
-                    "usage: export_feature_provenance [--out PATH] [--full-out PATH]\n\
+                    "usage: export_feature_provenance [--out PATH] [--full] [--full-out PATH]\n\
                      default: golden journeys → feature-provenance.json;\n\
-                     full 94 journeys → feature-provenance-full.json (gitignored when >500KB)"
+                     --full: also write all journeys → feature-provenance-full.json (gitignored)"
                 );
                 return Ok(());
             }
@@ -235,20 +240,24 @@ pub fn run(args: &[String]) -> Result<(), String> {
         }
         index += 1;
     }
-    let golden = build_golden_snapshot();
-    write_snapshot(&out, &golden)?;
-    eprintln!(
-        "wrote {} ({} golden journeys)",
-        out.display(),
-        golden.journeys.len()
-    );
-    let full = build_snapshot();
-    write_snapshot(&full_out, &full)?;
-    eprintln!(
-        "wrote {} ({} journeys)",
-        full_out.display(),
-        full.journeys.len()
-    );
+    if write_golden {
+        let golden = build_golden_snapshot();
+        write_snapshot(&out, &golden)?;
+        eprintln!(
+            "wrote {} ({} golden journeys)",
+            out.display(),
+            golden.journeys.len()
+        );
+    }
+    if write_full {
+        let full = build_snapshot();
+        write_snapshot(&full_out, &full)?;
+        eprintln!(
+            "wrote {} ({} journeys)",
+            full_out.display(),
+            full.journeys.len()
+        );
+    }
     Ok(())
 }
 
