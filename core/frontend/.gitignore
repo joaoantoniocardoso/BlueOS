@@ -5,3 +5,4 @@ yarn.lock
 dev-dist/
 components.d.ts
 bun.lockb
+public/assets/feature-provenance-full.json

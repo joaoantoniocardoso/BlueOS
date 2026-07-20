@@ -32,7 +32,8 @@
 //!   and every on-disk checkpoint write are serialized behind one
 //!   `Mutex<RunState>` (see [`enrich_parallel`]), so `--resume`'s checkpoint
 //!   file is never written from a torn/partial state. `gh` rate limits are
-//!   the practical ceiling on useful `N`; this flag does not raise them.
+//!   retried with process-wide backoff via `shell::GH_RATE_LIMIT` so parallel
+//!   workers don't stampede; useful `N` is still bounded by GitHub limits.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 use std::fs;
@@ -321,9 +322,10 @@ fn run_ok_dyn(root: &Path, args: &[String]) -> Option<String> {
     shell::run_ok(&refs, root)
 }
 
-/// `gh` invocation layer: retries transient 5xx/timeout failures with backoff
-/// (see `shell::run_with_retry`). Used by every PR/issue/commit-pulls fetch so
-/// all callers benefit; `git` calls keep using the non-retrying `run_ok_dyn`.
+/// `gh` invocation layer: retries transient 5xx/timeout/rate-limit failures with
+/// backoff (see `shell::run_with_retry` and `shell::GH_RATE_LIMIT`). Used by every
+/// PR/issue/commit-pulls fetch so all callers benefit; `git` calls keep using
+/// the non-retrying `run_ok_dyn`.
 fn run_gh_dyn(root: &Path, args: &[String]) -> Result<String, String> {
     let refs: Vec<&str> = args.iter().map(String::as_str).collect();
     shell::run_with_retry(|| shell::run(&refs, root))
@@ -3023,6 +3025,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
     let total = by_commit.len();
     let (merged, skipped_clusters, processed_clusters, skipped_journeys, processed_journeys) =
         if jobs > 1 {
+            println!("Using parallel enrich with {jobs} workers…");
             enrich_parallel(
                 jobs,
                 &root,

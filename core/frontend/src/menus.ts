@@ -36,6 +36,13 @@ const menus = [
     text: 'Manage BlueOS versions and update to the latest available.',
   },
   {
+    title: 'Feature Provenance',
+    icon: 'mdi-source-branch',
+    route: '/tools/feature-provenance',
+    advanced: true,
+    text: 'Browse feature journey provenance: PR timelines, release presence, and skip reasons.',
+  },
+  {
     title: 'File Browser',
     icon: 'mdi-file-tree',
     route: '/tools/file-browser',

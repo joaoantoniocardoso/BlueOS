@@ -5,6 +5,7 @@
 //! - `cargo run -p blueos-catalog --bin enrich_feature_traces`
 
 pub mod feature_presence;
+pub mod feature_provenance_export;
 pub mod feature_trace_diff;
 pub mod feature_trace_enrich;
 pub mod feature_trace_report;

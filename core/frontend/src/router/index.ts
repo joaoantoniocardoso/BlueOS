@@ -1,10 +1,10 @@
-import { defineAsyncComponent } from 'vue'
-import Vue from 'vue'
+import Vue, { defineAsyncComponent } from 'vue'
 import VueRouter, { RouteConfig } from 'vue-router'
 
 import ExtensionView from '../views/ExtensionView.vue'
 import Main from '../views/MainView.vue'
 import PageNotFound from '../views/PageNotFound.vue'
+
 Vue.use(VueRouter)
 
 const routes: Array<RouteConfig> = [
@@ -37,6 +37,11 @@ const routes: Array<RouteConfig> = [
     path: '/vehicle/endpoints',
     name: 'Endpoints',
     component: defineAsyncComponent(() => import('../views/EndpointView.vue')),
+  },
+  {
+    path: '/tools/feature-provenance',
+    name: 'Feature Provenance',
+    component: defineAsyncComponent(() => import('../views/FeatureProvenanceView.vue')),
   },
   {
     path: '/tools/file-browser/:path*',
