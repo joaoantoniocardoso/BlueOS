@@ -16,12 +16,28 @@
 //!   if a prior run left a checkpointed `feature_traces.json` on disk. Every
 //!   run (with or without `--resume`) checkpoints progress after each intro
 //!   commit by writing the merged output to `feature_traces.json`, so a killed
-//!   `--resume` run can be resumed again from where it left off.
+//!   `--resume` run can be resumed again from where it left off. After the
+//!   run, a summary line reports how many clusters/journeys were skipped vs
+//!   processed (see [`format_resume_summary`]).
+//! - `--jobs N`: bounded concurrency for the intro-commit enrich loop
+//!   (default `1` = today's sequential behavior, byte-identical output).
+//!   `N > 1` spawns `N` worker threads pulling intro commits off a shared
+//!   queue; each worker keeps its own [`Ctx`] (so in-memory PR/issue/commit
+//!   dedup is per-thread, not global — a PR referenced by clusters on two
+//!   different threads may be fetched twice before the disk cache in
+//!   `.cache/gh_traces` catches up, which costs an extra `gh` call but is not
+//!   a correctness issue). Cache file writes are serialized behind
+//!   `CACHE_WRITE_LOCK` so two threads racing on the same cache key can't
+//!   interleave partial writes; the shared commit/PR/issue maps, cluster map,
+//!   and every on-disk checkpoint write are serialized behind one
+//!   `Mutex<RunState>` (see [`enrich_parallel`]), so `--resume`'s checkpoint
+//!   file is never written from a torn/partial state. `gh` rate limits are
+//!   the practical ceiling on useful `N`; this flag does not raise them.
 
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 use std::fs;
 use std::path::Path;
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 
 use regex::Regex;
 use serde::Serialize;
@@ -34,6 +50,13 @@ const FILES_CAP: usize = 400;
 const BODY_CAP: usize = 20000;
 // Bound gh resolution for path-hot files (e.g. nginx/frontend shared paths).
 const MAX_DISCOVERY_SHAS: usize = 80;
+// Bumped whenever a cache entry's on-disk shape changes; a mismatch (or a
+// pre-versioning entry with no `cache_version` field at all) is a miss, not
+// a read of stale/incompatible data.
+const CACHE_VERSION: u64 = 1;
+// Serializes every on-disk `.cache/gh_traces` write so concurrent `--jobs N`
+// workers racing on the same cache key can't interleave partial writes.
+static CACHE_WRITE_LOCK: Mutex<()> = Mutex::new(());
 
 #[derive(Debug, Clone, Serialize)]
 struct CommitEntry {
@@ -315,20 +338,39 @@ fn cache_path(cache_dir: &Path, key: &str) -> std::path::PathBuf {
     cache_dir.join(format!("{safe}.json"))
 }
 
+/// Reads a `{"cache_version": N, "data": <value>}` envelope from `path`.
+/// Missing file, unparseable JSON, or a `cache_version` that isn't exactly
+/// [`CACHE_VERSION`] (including entries with no `cache_version` field at
+/// all — the pre-versioning shape) are all treated as a miss.
+fn read_cache_entry(path: &Path) -> Option<Value> {
+    let text = fs::read_to_string(path).ok()?;
+    let envelope: Value = serde_json::from_str(&text).ok()?;
+    if envelope.get("cache_version").and_then(Value::as_u64) != Some(CACHE_VERSION) {
+        return None;
+    }
+    envelope.get("data").cloned()
+}
+
+/// Writes `data` under `path` wrapped in a `cache_version`-stamped envelope,
+/// holding [`CACHE_WRITE_LOCK`] for the write so concurrent `--jobs N`
+/// workers can't interleave partial writes to the same cache file.
+fn write_cache_entry(path: &Path, data: &Value) {
+    let envelope = json!({"cache_version": CACHE_VERSION, "data": data});
+    let Ok(text) = serde_json::to_string_pretty(&envelope) else {
+        return;
+    };
+    let _guard = CACHE_WRITE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _ = fs::write(path, text + "\n");
+}
+
 fn cached_json<F: FnOnce() -> Value>(cache_dir: &Path, key: &str, fetcher: F) -> Value {
     let _ = fs::create_dir_all(cache_dir);
     let path = cache_path(cache_dir, key);
-    if path.exists() {
-        if let Ok(text) = fs::read_to_string(&path) {
-            if let Ok(v) = serde_json::from_str::<Value>(&text) {
-                return v;
-            }
-        }
+    if let Some(cached) = read_cache_entry(&path) {
+        return cached;
     }
     let data = fetcher();
-    if let Ok(text) = serde_json::to_string_pretty(&data) {
-        let _ = fs::write(&path, text + "\n");
-    }
+    write_cache_entry(&path, &data);
     data
 }
 
@@ -339,17 +381,11 @@ fn cached_json_try<F: FnOnce() -> Result<Value, String>>(
 ) -> Result<Value, String> {
     let _ = fs::create_dir_all(cache_dir);
     let path = cache_path(cache_dir, key);
-    if path.exists() {
-        if let Ok(text) = fs::read_to_string(&path) {
-            if let Ok(v) = serde_json::from_str::<Value>(&text) {
-                return Ok(v);
-            }
-        }
+    if let Some(cached) = read_cache_entry(&path) {
+        return Ok(cached);
     }
     let data = fetcher()?;
-    if let Ok(text) = serde_json::to_string_pretty(&data) {
-        let _ = fs::write(&path, text + "\n");
-    }
+    write_cache_entry(&path, &data);
     Ok(data)
 }
 
@@ -373,7 +409,8 @@ mod cache_write_through_tests {
 
         let on_disk = fs::read_to_string(cache_path(&dir, key)).expect("cache file must exist");
         let parsed: Value = serde_json::from_str(&on_disk).unwrap();
-        assert_eq!(parsed, json!({"number": 123, "title": "ok"}));
+        assert_eq!(parsed["cache_version"], json!(CACHE_VERSION));
+        assert_eq!(parsed["data"], json!({"number": 123, "title": "ok"}));
 
         let _ = fs::remove_dir_all(&dir);
     }
@@ -388,7 +425,8 @@ mod cache_write_through_tests {
 
         let on_disk = fs::read_to_string(cache_path(&dir, key)).expect("cache file must exist");
         let parsed: Value = serde_json::from_str(&on_disk).unwrap();
-        assert_eq!(parsed, json!({"number": 456, "state": "OPEN"}));
+        assert_eq!(parsed["cache_version"], json!(CACHE_VERSION));
+        assert_eq!(parsed["data"], json!({"number": 456, "state": "OPEN"}));
 
         let _ = fs::remove_dir_all(&dir);
     }
@@ -400,6 +438,92 @@ mod cache_write_through_tests {
         let result: Result<Value, String> = cached_json_try(&dir, key, || Err("boom".to_string()));
         assert_eq!(result, Err("boom".to_string()));
         assert!(!cache_path(&dir, key).exists());
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn cached_json_treats_missing_cache_version_as_miss() {
+        let dir = unique_cache_dir("version_missing");
+        let key = "issue_999";
+        fs::create_dir_all(&dir).unwrap();
+        // Pre-versioning shape: the raw fetched value, no envelope at all.
+        fs::write(
+            cache_path(&dir, key),
+            serde_json::to_string_pretty(&json!({"number": 999, "title": "stale"})).unwrap(),
+        )
+        .unwrap();
+
+        let result = cached_json(&dir, key, || json!({"number": 999, "title": "refetched"}));
+        assert_eq!(result, json!({"number": 999, "title": "refetched"}));
+
+        let on_disk = fs::read_to_string(cache_path(&dir, key)).unwrap();
+        let parsed: Value = serde_json::from_str(&on_disk).unwrap();
+        assert_eq!(parsed["cache_version"], json!(CACHE_VERSION));
+        assert_eq!(parsed["data"], json!({"number": 999, "title": "refetched"}));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn cached_json_treats_mismatched_cache_version_as_miss() {
+        let dir = unique_cache_dir("version_mismatch");
+        let key = "issue_998";
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(
+            cache_path(&dir, key),
+            serde_json::to_string_pretty(&json!({
+                "cache_version": CACHE_VERSION + 1,
+                "data": {"number": 998, "title": "from a newer/older shape"},
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+
+        let result = cached_json(&dir, key, || json!({"number": 998, "title": "refetched"}));
+        assert_eq!(result, json!({"number": 998, "title": "refetched"}));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn cached_json_reuses_entry_when_version_matches() {
+        let dir = unique_cache_dir("version_match");
+        let key = "issue_997";
+        let first = cached_json(&dir, key, || json!({"number": 997, "title": "first"}));
+        assert_eq!(first, json!({"number": 997, "title": "first"}));
+
+        let second = cached_json(
+            &dir,
+            key,
+            || json!({"number": 997, "title": "should not be reached"}),
+        );
+        assert_eq!(second, json!({"number": 997, "title": "first"}));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn concurrent_cache_writes_do_not_corrupt_the_file() {
+        let dir = unique_cache_dir("concurrent_writes");
+        let key = "issue_concurrent";
+        let path = cache_path(&dir, key);
+        fs::create_dir_all(&dir).unwrap();
+
+        std::thread::scope(|scope| {
+            for writer in 0..8u64 {
+                let path = path.clone();
+                scope.spawn(move || {
+                    write_cache_entry(&path, &json!({"writer": writer}));
+                });
+            }
+        });
+
+        let text = fs::read_to_string(&path).expect("file must exist after concurrent writes");
+        let parsed: Value = serde_json::from_str(&text)
+            .expect("concurrent writes must not interleave/corrupt JSON");
+        assert_eq!(parsed["cache_version"], json!(CACHE_VERSION));
+        assert!(parsed["data"]["writer"].as_u64().is_some());
 
         let _ = fs::remove_dir_all(&dir);
     }
@@ -1697,151 +1821,164 @@ fn issue_numbers(by_journey: &Value) -> BTreeSet<u64> {
 /// plus `NEXT11_DESIGN.md` N11): fails loudly if any of the 8 golden
 /// journeys' PR/issue sets drift from the values locked in as the precision
 /// baseline.
-fn check_strict_goldens(output: &Value) -> Result<(), String> {
+fn check_strict_goldens(output: &Value, journeys: &[&str]) -> Result<(), String> {
     let mut violations: Vec<String> = vec![];
 
-    match journey_cluster_view(output, "InspectZenohNetwork") {
-        None => {
-            violations.push("InspectZenohNetwork: journey/cluster not found in output".to_string())
+    if journeys.contains(&"InspectZenohNetwork") {
+        match journey_cluster_view(output, "InspectZenohNetwork") {
+            None => violations
+                .push("InspectZenohNetwork: journey/cluster not found in output".to_string()),
+            Some((cluster, by_journey)) => {
+                let seen: BTreeSet<u64> = u64_set(cluster, "landing_prs")
+                    .union(&u64_set(by_journey, "follow_up_prs"))
+                    .copied()
+                    .collect();
+                for pr in [3300, 3313, 3953] {
+                    if !seen.contains(&pr) {
+                        violations.push(format!(
+                            "InspectZenohNetwork: golden PR #{pr} missing from landing/follow-up set"
+                        ));
+                    }
+                }
+            }
         }
-        Some((cluster, by_journey)) => {
-            let seen: BTreeSet<u64> = u64_set(cluster, "landing_prs")
-                .union(&u64_set(by_journey, "follow_up_prs"))
-                .copied()
-                .collect();
-            for pr in [3300, 3313, 3953] {
-                if !seen.contains(&pr) {
+    }
+
+    if journeys.contains(&"ChangeUiThemeColor") {
+        match journey_cluster_view(output, "ChangeUiThemeColor") {
+            None => violations
+                .push("ChangeUiThemeColor: journey/cluster not found in output".to_string()),
+            Some((_cluster, by_journey)) => {
+                let follow = u64_set(by_journey, "follow_up_prs");
+                let backport = u64_set(by_journey, "backport_prs");
+                if !follow.is_empty() {
                     violations.push(format!(
-                        "InspectZenohNetwork: golden PR #{pr} missing from landing/follow-up set"
+                        "ChangeUiThemeColor: expected empty follow_up_prs, got {follow:?}"
+                    ));
+                }
+                if !backport.is_empty() {
+                    violations.push(format!(
+                        "ChangeUiThemeColor: expected empty backport_prs, got {backport:?}"
                     ));
                 }
             }
         }
     }
 
-    match journey_cluster_view(output, "ChangeUiThemeColor") {
-        None => {
-            violations.push("ChangeUiThemeColor: journey/cluster not found in output".to_string())
-        }
-        Some((_cluster, by_journey)) => {
-            let follow = u64_set(by_journey, "follow_up_prs");
-            let backport = u64_set(by_journey, "backport_prs");
-            if !follow.is_empty() {
-                violations.push(format!(
-                    "ChangeUiThemeColor: expected empty follow_up_prs, got {follow:?}"
-                ));
+    if journeys.contains(&"InspectDiskUsage") {
+        match journey_cluster_view(output, "InspectDiskUsage") {
+            None => {
+                violations.push("InspectDiskUsage: journey/cluster not found in output".to_string())
             }
-            if !backport.is_empty() {
-                violations.push(format!(
-                    "ChangeUiThemeColor: expected empty backport_prs, got {backport:?}"
-                ));
+            Some((_cluster, by_journey)) => {
+                let follow = u64_set(by_journey, "follow_up_prs");
+                let expected: BTreeSet<u64> = [3681, 3691, 3743].into_iter().collect();
+                if follow != expected {
+                    violations.push(format!(
+                        "InspectDiskUsage: expected follow_up_prs == {expected:?}, got {follow:?}"
+                    ));
+                }
             }
         }
     }
 
-    match journey_cluster_view(output, "InspectDiskUsage") {
-        None => {
-            violations.push("InspectDiskUsage: journey/cluster not found in output".to_string())
-        }
-        Some((_cluster, by_journey)) => {
-            let follow = u64_set(by_journey, "follow_up_prs");
-            let expected: BTreeSet<u64> = [3681, 3691, 3743].into_iter().collect();
-            if follow != expected {
-                violations.push(format!(
-                    "InspectDiskUsage: expected follow_up_prs == {expected:?}, got {follow:?}"
-                ));
+    if journeys.contains(&"RunInternetSpeedTest") {
+        match journey_cluster_view(output, "RunInternetSpeedTest") {
+            None => violations
+                .push("RunInternetSpeedTest: journey/cluster not found in output".to_string()),
+            Some((cluster, by_journey)) => {
+                let landing = u64_set(cluster, "landing_prs");
+                let follow = u64_set(by_journey, "follow_up_prs");
+                let backport = u64_set(by_journey, "backport_prs");
+                if !landing.contains(&3602) {
+                    violations
+                        .push("RunInternetSpeedTest: golden landing PR #3602 missing".to_string());
+                }
+                if follow.contains(&3686) || backport.contains(&3686) {
+                    violations.push(
+                        "RunInternetSpeedTest: PR #3686 must be absent from follow_up/backport"
+                            .to_string(),
+                    );
+                }
+                if !issue_numbers(by_journey).contains(&2146) {
+                    violations.push("RunInternetSpeedTest: golden issue #2146 missing".to_string());
+                }
             }
         }
     }
 
-    match journey_cluster_view(output, "RunInternetSpeedTest") {
-        None => {
-            violations.push("RunInternetSpeedTest: journey/cluster not found in output".to_string())
-        }
-        Some((cluster, by_journey)) => {
-            let landing = u64_set(cluster, "landing_prs");
-            let follow = u64_set(by_journey, "follow_up_prs");
-            let backport = u64_set(by_journey, "backport_prs");
-            if !landing.contains(&3602) {
-                violations
-                    .push("RunInternetSpeedTest: golden landing PR #3602 missing".to_string());
+    if journeys.contains(&"LevelHorizon") {
+        match journey_cluster_view(output, "LevelHorizon") {
+            None => {
+                violations.push("LevelHorizon: journey/cluster not found in output".to_string())
             }
-            if follow.contains(&3686) || backport.contains(&3686) {
-                violations.push(
-                    "RunInternetSpeedTest: PR #3686 must be absent from follow_up/backport"
-                        .to_string(),
-                );
-            }
-            if !issue_numbers(by_journey).contains(&2146) {
-                violations.push("RunInternetSpeedTest: golden issue #2146 missing".to_string());
+            Some((_cluster, by_journey)) => {
+                let follow = u64_set(by_journey, "follow_up_prs");
+                let backport = u64_set(by_journey, "backport_prs");
+                if !backport.contains(&3867) {
+                    violations.push("LevelHorizon: golden backport PR #3867 missing".to_string());
+                }
+                if follow.contains(&3930) || backport.contains(&3930) {
+                    violations.push(
+                        "LevelHorizon: PR #3930 must be absent from follow_up/backport".to_string(),
+                    );
+                }
             }
         }
     }
 
-    match journey_cluster_view(output, "LevelHorizon") {
-        None => violations.push("LevelHorizon: journey/cluster not found in output".to_string()),
-        Some((_cluster, by_journey)) => {
-            let follow = u64_set(by_journey, "follow_up_prs");
-            let backport = u64_set(by_journey, "backport_prs");
-            if !backport.contains(&3867) {
-                violations.push("LevelHorizon: golden backport PR #3867 missing".to_string());
-            }
-            if follow.contains(&3930) || backport.contains(&3930) {
-                violations.push(
-                    "LevelHorizon: PR #3930 must be absent from follow_up/backport".to_string(),
-                );
-            }
-        }
-    }
-
-    match journey_cluster_view(output, "AccessWebTerminal") {
-        None => {
-            violations.push("AccessWebTerminal: journey/cluster not found in output".to_string())
-        }
-        Some((_cluster, by_journey)) => {
-            let follow = u64_set(by_journey, "follow_up_prs");
-            let expected: BTreeSet<u64> = [659, 2279].into_iter().collect();
-            if follow != expected {
-                violations.push(format!(
-                    "AccessWebTerminal: expected follow_up_prs == {expected:?}, got {follow:?}"
-                ));
+    if journeys.contains(&"AccessWebTerminal") {
+        match journey_cluster_view(output, "AccessWebTerminal") {
+            None => violations
+                .push("AccessWebTerminal: journey/cluster not found in output".to_string()),
+            Some((_cluster, by_journey)) => {
+                let follow = u64_set(by_journey, "follow_up_prs");
+                let expected: BTreeSet<u64> = [659, 2279].into_iter().collect();
+                if follow != expected {
+                    violations.push(format!(
+                        "AccessWebTerminal: expected follow_up_prs == {expected:?}, got {follow:?}"
+                    ));
+                }
             }
         }
     }
 
-    match journey_cluster_view(output, "InspectMavlinkMessagesInBrowser") {
-        None => violations.push(
-            "InspectMavlinkMessagesInBrowser: journey/cluster not found in output".to_string(),
-        ),
-        Some((_cluster, by_journey)) => {
-            let follow = u64_set(by_journey, "follow_up_prs");
-            let expected: BTreeSet<u64> = [3310].into_iter().collect();
-            if follow != expected {
-                violations.push(format!(
+    if journeys.contains(&"InspectMavlinkMessagesInBrowser") {
+        match journey_cluster_view(output, "InspectMavlinkMessagesInBrowser") {
+            None => violations.push(
+                "InspectMavlinkMessagesInBrowser: journey/cluster not found in output".to_string(),
+            ),
+            Some((_cluster, by_journey)) => {
+                let follow = u64_set(by_journey, "follow_up_prs");
+                let expected: BTreeSet<u64> = [3310].into_iter().collect();
+                if follow != expected {
+                    violations.push(format!(
                     "InspectMavlinkMessagesInBrowser: expected follow_up_prs == {expected:?}, got {follow:?}"
                 ));
+                }
             }
         }
     }
 
-    match journey_cluster_view(output, "CalibrateGyroscope") {
-        None => {
-            violations.push("CalibrateGyroscope: journey/cluster not found in output".to_string())
-        }
-        Some((_cluster, by_journey)) => {
-            let follow = u64_set(by_journey, "follow_up_prs");
-            let backport = u64_set(by_journey, "backport_prs");
-            let expected: BTreeSet<u64> = [3443].into_iter().collect();
-            if follow != expected {
-                violations.push(format!(
+    if journeys.contains(&"CalibrateGyroscope") {
+        match journey_cluster_view(output, "CalibrateGyroscope") {
+            None => violations
+                .push("CalibrateGyroscope: journey/cluster not found in output".to_string()),
+            Some((_cluster, by_journey)) => {
+                let follow = u64_set(by_journey, "follow_up_prs");
+                let backport = u64_set(by_journey, "backport_prs");
+                let expected: BTreeSet<u64> = [3443].into_iter().collect();
+                if follow != expected {
+                    violations.push(format!(
                     "CalibrateGyroscope: expected follow_up_prs == {expected:?}, got {follow:?}"
                 ));
-            }
-            if !backport.contains(&3867) {
-                violations.push(
+                }
+                if !backport.contains(&3867) {
+                    violations.push(
                     "CalibrateGyroscope: golden backport PR #3867 missing (shared calibration-family backport)"
                         .to_string(),
                 );
+                }
             }
         }
     }
@@ -1936,6 +2073,42 @@ fn merge_output(existing: Option<Value>, new_output: &Value) -> Value {
         merged[field] = Value::Object(map);
     }
     merged
+}
+
+/// Drops `intro_clusters` entries that are stale relative to `journeys`'
+/// *current* `intro_commit` values (NEXT11_QA open follow-up: a re-point
+/// like N1's can leave an old sha's cluster on disk with no live owner).
+/// A cluster is dropped when its `by_journey` is empty, or when none of the
+/// journey ids it lists currently has `intro_commit == sha` (i.e. every
+/// journey that once enriched under this sha has since moved to another
+/// intro commit — an orphan).
+fn prune_stale_clusters(
+    clusters: serde_json::Map<String, Value>,
+    journeys: &[Value],
+) -> serde_json::Map<String, Value> {
+    let current_intro: BTreeMap<&str, &str> = journeys
+        .iter()
+        .filter_map(|j| {
+            let id = j.get("journey")?.as_str()?;
+            let sha = j.get("intro_commit")?.as_str()?;
+            Some((id, sha))
+        })
+        .collect();
+
+    clusters
+        .into_iter()
+        .filter(|(sha, cluster)| {
+            cluster
+                .get("by_journey")
+                .and_then(|v| v.as_object())
+                .is_some_and(|by_journey| {
+                    !by_journey.is_empty()
+                        && by_journey
+                            .keys()
+                            .any(|jid| current_intro.get(jid.as_str()) == Some(&sha.as_str()))
+                })
+        })
+        .collect()
 }
 
 /// Whether `sha`'s intro cluster in `existing_clusters` already carries a
@@ -2076,6 +2249,57 @@ mod merge_and_resume_tests {
             &["A".to_string()]
         ));
     }
+
+    #[test]
+    fn prune_stale_clusters_keeps_cluster_with_a_live_journey() {
+        let mut clusters = serde_json::Map::new();
+        clusters.insert("sha_live".to_string(), json!({"by_journey": {"A": {}}}));
+        let journeys = vec![json!({"journey": "A", "intro_commit": "sha_live"})];
+
+        let pruned = prune_stale_clusters(clusters, &journeys);
+        assert!(pruned.contains_key("sha_live"));
+    }
+
+    #[test]
+    fn prune_stale_clusters_drops_orphan_after_repoint() {
+        // NEXT11_QA follow-up: journey A moved from sha_old to sha_new, but
+        // sha_old's cluster still lists A in by_journey.
+        let mut clusters = serde_json::Map::new();
+        clusters.insert("sha_old".to_string(), json!({"by_journey": {"A": {}}}));
+        clusters.insert("sha_new".to_string(), json!({"by_journey": {}}));
+        let journeys = vec![json!({"journey": "A", "intro_commit": "sha_new"})];
+
+        let pruned = prune_stale_clusters(clusters, &journeys);
+        assert!(!pruned.contains_key("sha_old"));
+        assert!(!pruned.contains_key("sha_new"));
+    }
+
+    #[test]
+    fn prune_stale_clusters_drops_empty_by_journey() {
+        let mut clusters = serde_json::Map::new();
+        clusters.insert("sha_empty".to_string(), json!({"by_journey": {}}));
+        let journeys = vec![json!({"journey": "A", "intro_commit": "sha_empty"})];
+
+        let pruned = prune_stale_clusters(clusters, &journeys);
+        assert!(!pruned.contains_key("sha_empty"));
+    }
+
+    #[test]
+    fn prune_stale_clusters_keeps_shared_cluster_if_any_sibling_still_live() {
+        let mut clusters = serde_json::Map::new();
+        clusters.insert(
+            "sha_shared".to_string(),
+            json!({"by_journey": {"A": {}, "B": {}}}),
+        );
+        // A moved away, B still points at sha_shared.
+        let journeys = vec![
+            json!({"journey": "A", "intro_commit": "sha_new"}),
+            json!({"journey": "B", "intro_commit": "sha_shared"}),
+        ];
+
+        let pruned = prune_stale_clusters(clusters, &journeys);
+        assert!(pruned.contains_key("sha_shared"));
+    }
 }
 
 #[cfg(test)]
@@ -2176,7 +2400,10 @@ mod strict_goldens_tests {
 
     #[test]
     fn passes_when_all_eight_goldens_hold() {
-        assert_eq!(check_strict_goldens(&all_golden_fixture()), Ok(()));
+        assert_eq!(
+            check_strict_goldens(&all_golden_fixture(), GOLDEN_JOURNEY_IDS),
+            Ok(())
+        );
     }
 
     #[test]
@@ -2209,7 +2436,7 @@ mod strict_goldens_tests {
             ),
             cluster_fixture("LevelHorizon", "sha_horizon", &[9003], &[], &[3867], &[]),
         ]);
-        let err = check_strict_goldens(&output).unwrap_err();
+        let err = check_strict_goldens(&output, GOLDEN_JOURNEY_IDS).unwrap_err();
         assert!(err.contains("InspectZenohNetwork"));
         assert!(err.contains("3313"));
     }
@@ -2251,7 +2478,7 @@ mod strict_goldens_tests {
             ),
             cluster_fixture("LevelHorizon", "sha_horizon", &[9003], &[], &[3867], &[]),
         ]);
-        let err = check_strict_goldens(&output).unwrap_err();
+        let err = check_strict_goldens(&output, GOLDEN_JOURNEY_IDS).unwrap_err();
         assert!(err.contains("ChangeUiThemeColor"));
     }
 
@@ -2285,7 +2512,7 @@ mod strict_goldens_tests {
             ),
             cluster_fixture("LevelHorizon", "sha_horizon", &[9003], &[], &[3867], &[]),
         ]);
-        let err = check_strict_goldens(&output).unwrap_err();
+        let err = check_strict_goldens(&output, GOLDEN_JOURNEY_IDS).unwrap_err();
         assert!(err.contains("InspectDiskUsage"));
     }
 
@@ -2319,7 +2546,7 @@ mod strict_goldens_tests {
             ),
             cluster_fixture("LevelHorizon", "sha_horizon", &[9003], &[], &[3867], &[]),
         ]);
-        let err = check_strict_goldens(&output).unwrap_err();
+        let err = check_strict_goldens(&output, GOLDEN_JOURNEY_IDS).unwrap_err();
         assert!(err.contains("RunInternetSpeedTest"));
         assert!(err.contains("3686"));
         assert!(err.contains("2146"));
@@ -2355,7 +2582,7 @@ mod strict_goldens_tests {
             ),
             cluster_fixture("LevelHorizon", "sha_horizon", &[9003], &[], &[3930], &[]),
         ]);
-        let err = check_strict_goldens(&output).unwrap_err();
+        let err = check_strict_goldens(&output, GOLDEN_JOURNEY_IDS).unwrap_err();
         assert!(err.contains("LevelHorizon"));
         assert!(err.contains("3867"));
         assert!(err.contains("3930"));
@@ -2371,12 +2598,256 @@ mod strict_goldens_tests {
             &[],
             &[],
         )]);
-        let err = check_strict_goldens(&output).unwrap_err();
+        let err = check_strict_goldens(&output, GOLDEN_JOURNEY_IDS).unwrap_err();
         assert!(GOLDEN_JOURNEY_IDS
             .iter()
             .filter(|j| **j != "InspectZenohNetwork")
             .all(|j| err.contains(j)));
     }
+
+    #[test]
+    fn journey_filter_skips_unenriched_goldens() {
+        // Only InspectDiskUsage was enriched (as with a `--journey`-scoped
+        // run); the other 7 goldens are absent from the output entirely.
+        let output = merge(vec![cluster_fixture(
+            "InspectDiskUsage",
+            "sha_disk",
+            &[9002],
+            &[3681, 3691, 3743],
+            &[],
+            &[],
+        )]);
+
+        assert_eq!(check_strict_goldens(&output, &["InspectDiskUsage"]), Ok(()));
+        assert!(check_strict_goldens(&output, GOLDEN_JOURNEY_IDS)
+            .unwrap_err()
+            .contains("InspectZenohNetwork"));
+    }
+}
+
+/// One-line post-run summary (P4): how many intro clusters/journeys a
+/// `--resume` run skipped (already enriched on disk) vs actually processed.
+/// Without `--resume` every cluster is processed, so `skipped_*` are always 0.
+fn format_resume_summary(
+    skipped_clusters: usize,
+    processed_clusters: usize,
+    skipped_journeys: usize,
+    processed_journeys: usize,
+) -> String {
+    format!(
+        "Resumed: {skipped_clusters} skipped (already enriched, {skipped_journeys} journeys), \
+         {processed_clusters} processed ({processed_journeys} journeys)"
+    )
+}
+
+#[cfg(test)]
+mod resume_summary_tests {
+    use super::*;
+
+    #[test]
+    fn reports_skipped_and_processed_cluster_and_journey_counts() {
+        assert_eq!(
+            format_resume_summary(3, 5, 6, 11),
+            "Resumed: 3 skipped (already enriched, 6 journeys), 5 processed (11 journeys)"
+        );
+    }
+
+    #[test]
+    fn handles_a_run_with_nothing_skipped() {
+        assert_eq!(
+            format_resume_summary(0, 8, 0, 15),
+            "Resumed: 0 skipped (already enriched, 0 journeys), 8 processed (15 journeys)"
+        );
+    }
+
+    #[test]
+    fn handles_a_fully_resumed_run_with_nothing_processed() {
+        assert_eq!(
+            format_resume_summary(8, 0, 15, 0),
+            "Resumed: 8 skipped (already enriched, 15 journeys), 0 processed (0 journeys)"
+        );
+    }
+}
+
+/// Signature of the `checkpoint` closure shared by [`run`]'s sequential and
+/// parallel paths: merges the given commit/PR/issue/cluster maps into
+/// `existing_output` and writes the result to `feature_traces.json`.
+type CheckpointFn<'a> = dyn Fn(
+        &BTreeMap<String, CommitEntry>,
+        &BTreeMap<u64, PrEntry>,
+        &BTreeMap<u64, IssueEntry>,
+        &BTreeMap<String, Value>,
+    ) -> Result<Value, String>
+    + Sync
+    + 'a;
+
+/// Per-run shared state for [`enrich_parallel`]: the accumulated
+/// commit/PR/issue dedup maps (mirrors [`Ctx`]'s fields, merged in from each
+/// worker's own local `Ctx` under this state's lock), the cluster map being
+/// built up, and the running skip/process counters (P4).
+struct RunState {
+    commits: BTreeMap<String, CommitEntry>,
+    pull_requests: BTreeMap<u64, PrEntry>,
+    issues: BTreeMap<u64, IssueEntry>,
+    clusters: BTreeMap<String, Value>,
+    skipped_clusters: usize,
+    processed_clusters: usize,
+    skipped_journeys: usize,
+    processed_journeys: usize,
+}
+
+/// Bounded-concurrency counterpart of the sequential loop in [`run`]. Workers
+/// pull `(sha, group)` pairs off a shared queue; each keeps its own [`Ctx`]
+/// (see the module docs on why cross-thread PR/issue dedup is not attempted),
+/// builds the intro cluster, then merges its `Ctx` into the shared
+/// [`RunState`] and checkpoints — both steps under `state`'s lock, so the
+/// on-disk file is never written from a partially-merged snapshot and two
+/// workers can never race on the same write.
+fn enrich_parallel(
+    jobs: usize,
+    root: &Path,
+    cache_dir: &Path,
+    by_commit: &BTreeMap<String, Vec<Value>>,
+    existing_clusters: &serde_json::Map<String, Value>,
+    resume: bool,
+    checkpoint: &CheckpointFn,
+) -> Result<(Value, usize, usize, usize, usize), String> {
+    let total = by_commit.len();
+    let queue: Mutex<VecDeque<(String, Vec<Value>)>> = Mutex::new(
+        by_commit
+            .iter()
+            .map(|(sha, group)| (sha.clone(), group.clone()))
+            .collect(),
+    );
+    let state = Mutex::new(RunState {
+        commits: BTreeMap::new(),
+        pull_requests: BTreeMap::new(),
+        issues: BTreeMap::new(),
+        clusters: BTreeMap::new(),
+        skipped_clusters: 0,
+        processed_clusters: 0,
+        skipped_journeys: 0,
+        processed_journeys: 0,
+    });
+    let first_error: Mutex<Option<String>> = Mutex::new(None);
+
+    // Mirrors the sequential path's pre-loop checkpoint (empty state), so a
+    // run interrupted before any worker finishes still leaves a valid file.
+    {
+        let guard = state.lock().unwrap_or_else(|e| e.into_inner());
+        checkpoint(
+            &guard.commits,
+            &guard.pull_requests,
+            &guard.issues,
+            &guard.clusters,
+        )?;
+    }
+
+    std::thread::scope(|scope| {
+        for _ in 0..jobs {
+            scope.spawn(|| loop {
+                if first_error
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .is_some()
+                {
+                    return;
+                }
+                let next = queue.lock().unwrap_or_else(|e| e.into_inner()).pop_front();
+                let Some((sha, group)) = next else {
+                    return;
+                };
+                let names: Vec<String> = group
+                    .iter()
+                    .filter_map(|j| j.get("journey").and_then(|v| v.as_str()).map(String::from))
+                    .collect();
+
+                if resume && cluster_already_enriched(existing_clusters, &sha, &names) {
+                    let existing_cluster = existing_clusters.get(&sha).cloned();
+                    let mut guard = state.lock().unwrap_or_else(|e| e.into_inner());
+                    guard.skipped_clusters += 1;
+                    guard.skipped_journeys += names.len();
+                    println!(
+                        "  [{}/{total}] {} ← {} (skipped, already enriched)",
+                        guard.skipped_clusters + guard.processed_clusters,
+                        &sha[..sha.len().min(12)],
+                        names.join(", ")
+                    );
+                    if let Some(cluster) = existing_cluster {
+                        guard.clusters.insert(sha.clone(), cluster);
+                    }
+                    if let Err(err) = checkpoint(
+                        &guard.commits,
+                        &guard.pull_requests,
+                        &guard.issues,
+                        &guard.clusters,
+                    ) {
+                        *first_error.lock().unwrap_or_else(|e| e.into_inner()) = Some(err);
+                        return;
+                    }
+                    continue;
+                }
+
+                let mut local_ctx = Ctx::new(root, cache_dir);
+                let cluster = match build_intro_cluster(&mut local_ctx, &sha, &group) {
+                    Ok(cluster) => cluster,
+                    Err(err) => {
+                        *first_error.lock().unwrap_or_else(|e| e.into_inner()) = Some(err);
+                        return;
+                    }
+                };
+                let cluster_value = match serde_json::to_value(cluster) {
+                    Ok(v) => v,
+                    Err(err) => {
+                        *first_error.lock().unwrap_or_else(|e| e.into_inner()) =
+                            Some(err.to_string());
+                        return;
+                    }
+                };
+
+                let mut guard = state.lock().unwrap_or_else(|e| e.into_inner());
+                guard.commits.extend(local_ctx.commits);
+                guard.pull_requests.extend(local_ctx.pull_requests);
+                guard.issues.extend(local_ctx.issues);
+                guard.clusters.insert(sha.clone(), cluster_value);
+                guard.processed_clusters += 1;
+                guard.processed_journeys += names.len();
+                println!(
+                    "  [{}/{total}] {} ← {}",
+                    guard.skipped_clusters + guard.processed_clusters,
+                    &sha[..sha.len().min(12)],
+                    names.join(", ")
+                );
+                if let Err(err) = checkpoint(
+                    &guard.commits,
+                    &guard.pull_requests,
+                    &guard.issues,
+                    &guard.clusters,
+                ) {
+                    *first_error.lock().unwrap_or_else(|e| e.into_inner()) = Some(err);
+                }
+            });
+        }
+    });
+
+    if let Some(err) = first_error.into_inner().unwrap_or_else(|e| e.into_inner()) {
+        return Err(err);
+    }
+
+    let final_state = state.into_inner().unwrap_or_else(|e| e.into_inner());
+    let merged = checkpoint(
+        &final_state.commits,
+        &final_state.pull_requests,
+        &final_state.issues,
+        &final_state.clusters,
+    )?;
+    Ok((
+        merged,
+        final_state.skipped_clusters,
+        final_state.processed_clusters,
+        final_state.skipped_journeys,
+        final_state.processed_journeys,
+    ))
 }
 
 pub fn run(args: &[String]) -> Result<(), String> {
@@ -2385,6 +2856,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
     let mut only_1_5_exclusive = false;
     let mut strict_goldens = false;
     let mut resume = false;
+    let mut jobs: usize = 1;
 
     let mut i = 0;
     while i < args.len() {
@@ -2401,6 +2873,17 @@ pub fn run(args: &[String]) -> Result<(), String> {
             "--only-1_5_exclusive" => only_1_5_exclusive = true,
             "--strict-goldens" => strict_goldens = true,
             "--resume" => resume = true,
+            "--jobs" => {
+                i += 1;
+                let raw = args
+                    .get(i)
+                    .ok_or_else(|| "--jobs requires a value".to_string())?;
+                jobs = raw
+                    .parse::<usize>()
+                    .ok()
+                    .filter(|n| *n >= 1)
+                    .ok_or_else(|| format!("--jobs requires a positive integer, got {raw:?}"))?;
+            }
             other => return Err(format!("unknown argument: {other}")),
         }
         i += 1;
@@ -2510,17 +2993,24 @@ pub fn run(args: &[String]) -> Result<(), String> {
     // Checkpoint after every intro commit (N10): merges the run's progress so
     // far with `existing_output` (same path N2 uses) and writes it, so a
     // killed run leaves a valid, resumable `feature_traces.json` rather than
-    // nothing, and a --journey run's writes never lose sibling data.
-    let checkpoint = |ctx: &Ctx, clusters: &BTreeMap<String, Value>| -> Result<Value, String> {
+    // nothing, and a --journey run's writes never lose sibling data. Shared
+    // by both the sequential (`--jobs 1`) and parallel (`--jobs N`, N > 1)
+    // paths below; the parallel path only ever calls it while holding
+    // `RunState`'s lock, so writes across the two paths are never interleaved.
+    let checkpoint = |commits: &BTreeMap<String, CommitEntry>,
+                      pull_requests: &BTreeMap<u64, PrEntry>,
+                      issues: &BTreeMap<u64, IssueEntry>,
+                      clusters: &BTreeMap<String, Value>|
+     -> Result<Value, String> {
         let partial = json!({
             "schema_version": 2,
             "repo": REPO,
             "source_presence": source_presence,
             "tool": "gh + git (cargo run -p blueos-catalog --bin enrich_feature_traces)",
             "generated_at": generated_at_now(&root),
-            "commits": ctx.commits,
-            "pull_requests": ctx.pull_requests,
-            "issues": ctx.issues,
+            "commits": commits,
+            "pull_requests": pull_requests,
+            "issues": issues,
             "intro_clusters": clusters,
             "journeys": out_journeys,
         });
@@ -2530,39 +3020,87 @@ pub fn run(args: &[String]) -> Result<(), String> {
         Ok(merged)
     };
 
-    let mut ctx = Ctx::new(&root, &cache_dir);
-    let mut clusters: BTreeMap<String, Value> = BTreeMap::new();
-    let mut merged = checkpoint(&ctx, &clusters)?;
     let total = by_commit.len();
-    for (i, (sha, group)) in by_commit.iter().enumerate() {
-        let names: Vec<String> = group
-            .iter()
-            .filter_map(|j| j.get("journey").and_then(|v| v.as_str()).map(String::from))
-            .collect();
-        if resume && cluster_already_enriched(&existing_clusters, sha, &names) {
-            println!(
-                "  [{}/{total}] {} ← {} (skipped, already enriched)",
-                i + 1,
-                &sha[..sha.len().min(12)],
-                names.join(", ")
-            );
-            if let Some(cluster) = existing_clusters.get(sha) {
-                clusters.insert(sha.clone(), cluster.clone());
-            }
+    let (merged, skipped_clusters, processed_clusters, skipped_journeys, processed_journeys) =
+        if jobs > 1 {
+            enrich_parallel(
+                jobs,
+                &root,
+                &cache_dir,
+                &by_commit,
+                &existing_clusters,
+                resume,
+                &checkpoint,
+            )?
         } else {
-            println!(
-                "  [{}/{total}] {} ← {}",
-                i + 1,
-                &sha[..sha.len().min(12)],
-                names.join(", ")
-            );
-            let cluster = build_intro_cluster(&mut ctx, sha, group)?;
-            clusters.insert(
-                sha.clone(),
-                serde_json::to_value(cluster).map_err(|e| e.to_string())?,
-            );
+            let mut ctx = Ctx::new(&root, &cache_dir);
+            let mut clusters: BTreeMap<String, Value> = BTreeMap::new();
+            let mut merged = checkpoint(&ctx.commits, &ctx.pull_requests, &ctx.issues, &clusters)?;
+            let mut skipped_clusters = 0usize;
+            let mut processed_clusters = 0usize;
+            let mut skipped_journeys = 0usize;
+            let mut processed_journeys = 0usize;
+            for (i, (sha, group)) in by_commit.iter().enumerate() {
+                let names: Vec<String> = group
+                    .iter()
+                    .filter_map(|j| j.get("journey").and_then(|v| v.as_str()).map(String::from))
+                    .collect();
+                if resume && cluster_already_enriched(&existing_clusters, sha, &names) {
+                    println!(
+                        "  [{}/{total}] {} ← {} (skipped, already enriched)",
+                        i + 1,
+                        &sha[..sha.len().min(12)],
+                        names.join(", ")
+                    );
+                    if let Some(cluster) = existing_clusters.get(sha) {
+                        clusters.insert(sha.clone(), cluster.clone());
+                    }
+                    skipped_clusters += 1;
+                    skipped_journeys += names.len();
+                } else {
+                    println!(
+                        "  [{}/{total}] {} ← {}",
+                        i + 1,
+                        &sha[..sha.len().min(12)],
+                        names.join(", ")
+                    );
+                    let cluster = build_intro_cluster(&mut ctx, sha, group)?;
+                    clusters.insert(
+                        sha.clone(),
+                        serde_json::to_value(cluster).map_err(|e| e.to_string())?,
+                    );
+                    processed_clusters += 1;
+                    processed_journeys += names.len();
+                }
+                merged = checkpoint(&ctx.commits, &ctx.pull_requests, &ctx.issues, &clusters)?;
+            }
+            (
+                merged,
+                skipped_clusters,
+                processed_clusters,
+                skipped_journeys,
+                processed_journeys,
+            )
+        };
+    let mut merged = merged;
+
+    // Only a full, unscoped run sees every journey's current intro_commit, so
+    // pruning stale/orphaned clusters (P1) is safe here but not for
+    // --journey/--only-1_5_exclusive runs, which would otherwise mistake
+    // out-of-scope journeys for orphans.
+    if journey_filter.is_none() && !only_1_5_exclusive {
+        if let Some(existing_clusters) = merged
+            .get("intro_clusters")
+            .and_then(|v| v.as_object())
+            .cloned()
+        {
+            let pruned = prune_stale_clusters(existing_clusters.clone(), &out_journeys);
+            if pruned.len() != existing_clusters.len() {
+                merged["intro_clusters"] = Value::Object(pruned);
+                let text = serde_json::to_string_pretty(&merged).map_err(|e| e.to_string())? + "\n";
+                fs::write(&out_path, &text).map_err(|e| e.to_string())?;
+            }
         }
-        merged = checkpoint(&ctx, &clusters)?;
     }
 
     let size = fs::metadata(&out_path).map(|m| m.len()).unwrap_or(0);
@@ -2571,6 +3109,15 @@ pub fn run(args: &[String]) -> Result<(), String> {
         .map(|p| p.display().to_string())
         .unwrap_or_else(|_| "catalog/feature_traces.json".to_string());
     println!("Wrote {out_rel} ({size} bytes)");
+    println!(
+        "{}",
+        format_resume_summary(
+            skipped_clusters,
+            processed_clusters,
+            skipped_journeys,
+            processed_journeys
+        )
+    );
 
     if strict_goldens {
         // A --journey filter narrows the run to one journey; only gate on the
@@ -2585,17 +3132,8 @@ pub fn run(args: &[String]) -> Result<(), String> {
             None => GOLDEN_JOURNEY_IDS.to_vec(),
         };
         if !relevant.is_empty() {
-            let scoped = json!({
-                "journeys": merged["journeys"]
-                    .as_array()
-                    .cloned()
-                    .unwrap_or_default()
-                    .into_iter()
-                    .filter(|j| relevant.contains(&j.get("journey").and_then(|v| v.as_str()).unwrap_or("")))
-                    .collect::<Vec<_>>(),
-                "intro_clusters": merged.get("intro_clusters").cloned().unwrap_or(json!({})),
-            });
-            check_strict_goldens(&scoped).map_err(|e| format!("--strict-goldens: {e}"))?;
+            check_strict_goldens(&merged, &relevant)
+                .map_err(|e| format!("--strict-goldens: {e}"))?;
             println!(
                 "--strict-goldens: {} golden journey check(s) passed",
                 relevant.len()

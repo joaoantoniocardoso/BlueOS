@@ -1494,11 +1494,72 @@ mod tests {
             present_on_1_4_dev: true,
         };
 
+    const TEST_ABSENCE: crate::version::FeatureAvailability = crate::version::FeatureAvailability {
+        intro_commit: "0000000000000000000000000000000000000002",
+        present_in_tags: &["1.5.0"],
+        present_on_master: true,
+        present_on_1_4_dev: false,
+    };
+
     use crate::id::ServiceId;
     use crate::journey::{JourneyStep, Visibility};
     use crate::provenance::{GroundedItem, Provenance};
 
     const DOC: Provenance = Provenance::doc("test.md", 1);
+
+    fn test_journey(availability: crate::version::FeatureAvailability) -> UserJourney {
+        UserJourney {
+            id: JourneyId::ConnectToWifiNetwork,
+            summary: Grounded::known("test", DOC),
+            visibility: Grounded::known(Visibility::Default, DOC),
+            services: GroundedSet::unknown("test"),
+            capability_refs: GroundedSet::unknown("test"),
+            preconditions: GroundedSet::known(&[]),
+            steps: GroundedSet::known(&[]),
+            availability,
+            chains_from: None,
+        }
+    }
+
+    fn test_dut(tag: &str) -> DutVersion {
+        DutVersion {
+            repository: "bluerobotics/blueos-core".into(),
+            tag: tag.into(),
+            digest: None,
+        }
+    }
+
+    #[test]
+    fn journey_availability_skip_reports_reason_when_absent() {
+        let journey = test_journey(TEST_ABSENCE);
+        let reason =
+            journey_availability_skip(&journey, &test_dut("1.4-dev")).expect("expected skip");
+        assert!(
+            reason.contains("intro 000000000000"),
+            "reason should cite intro_commit: {reason}"
+        );
+        assert!(
+            reason.contains("first tag 1.5.0"),
+            "reason should cite first_tag/present_in_tags: {reason}"
+        );
+        assert_eq!(
+            reason,
+            "not present on 1.4-dev (intro 000000000000; first tag 1.5.0)"
+        );
+    }
+
+    #[test]
+    fn journey_availability_skip_none_when_present() {
+        let journey = test_journey(TEST_PRESENCE);
+        assert_eq!(
+            journey_availability_skip(&journey, &test_dut("1.0.0")),
+            None
+        );
+        assert_eq!(
+            journey_availability_skip(&journey, &test_dut("master")),
+            None
+        );
+    }
 
     #[test]
     fn http_journeys_are_http_automatable() {

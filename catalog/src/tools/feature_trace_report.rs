@@ -19,6 +19,7 @@ use crate::feature_trace::{
 };
 use crate::report::ReportTrace;
 use crate::tools::feature_trace_enrich::journey_pickaxe_term;
+use crate::version::{parse_release_tag, BlueOsChannel};
 
 /// The 8 precision-baseline goldens (`IMPROVE_DESIGN.md` / `PRECISION_QA.md`
 /// §1, plus `NEXT11_DESIGN.md` N11's 3 additions); default journey selection
@@ -401,13 +402,36 @@ border-radius:10px;font-size:12px;background:{bg};color:{fg};\">{}</span>",
     )
 }
 
+/// GitHub release URL for `tag`, or `None` when it doesn't parse as a real
+/// numbered release tag (`master`/`1.4-dev`/unparseable — P12). No network
+/// call: derived purely from `parse_release_tag`'s existing shape-matching.
+fn tag_release_url(tag: &str) -> Option<String> {
+    match parse_release_tag(tag) {
+        BlueOsChannel::Numbered { .. } => Some(format!(
+            "https://github.com/{}/releases/tag/{tag}",
+            feature_traces().repo
+        )),
+        BlueOsChannel::Master | BlueOsChannel::Dev { .. } | BlueOsChannel::Other(_) => None,
+    }
+}
+
+/// One `present_in_tags` chip, wrapped in a link to its GitHub release page
+/// when `tag` is a real release tag (P12); plain chip otherwise.
+fn tag_chip_html(tag: &str) -> String {
+    let chip = html_chip(tag, true);
+    match tag_release_url(tag) {
+        Some(url) => format!("<a href=\"{}\">{chip}</a>", html_escape(&url)),
+        None => chip,
+    }
+}
+
 /// `master`/`1.4-dev` channel chips plus one chip per `present_in_tags`
 /// entry, rendered above the journey's timeline table (N9).
 fn presence_chips_html(timeline: &JourneyTimeline) -> String {
     let mut chips = html_chip("master", timeline.present_on_master);
     chips.push_str(&html_chip("1.4-dev", timeline.present_on_1_4_dev));
     for tag in &timeline.present_in_tags {
-        chips.push_str(&html_chip(tag, true));
+        chips.push_str(&tag_chip_html(tag));
     }
     chips
 }
@@ -1021,6 +1045,32 @@ mod tests {
         assert!(html.contains("<nav>"));
         assert!(html.contains("href=\"#InspectDiskUsage\""));
         assert!(html.contains("href=\"#LevelHorizon\""));
+    }
+
+    #[test]
+    fn tag_release_url_links_numbered_release_tag() {
+        assert_eq!(
+            tag_release_url("1.4.0-beta.12"),
+            Some("https://github.com/bluerobotics/BlueOS/releases/tag/1.4.0-beta.12".to_string())
+        );
+        assert_eq!(
+            tag_release_url("1.0.0"),
+            Some("https://github.com/bluerobotics/BlueOS/releases/tag/1.0.0".to_string())
+        );
+    }
+
+    #[test]
+    fn tag_release_url_none_for_master_and_dev_channels() {
+        assert_eq!(tag_release_url("master"), None);
+        assert_eq!(tag_release_url("1.4-dev"), None);
+        assert_eq!(tag_release_url("not-a-tag"), None);
+    }
+
+    #[test]
+    fn html_render_links_release_tag_chip_to_github_releases() {
+        let html = format_timeline_html(&sample_timeline());
+        assert!(html
+            .contains("<a href=\"https://github.com/bluerobotics/BlueOS/releases/tag/v1.4.0\">"));
     }
 
     #[test]

@@ -1373,9 +1373,7 @@ const TAGS_25EAA686BC: &[&str] = &[
     "1.5.0-beta.38",
 ];
 
-const TAGS_D8040E4FFC: &[&str] = &[
-    "1.5.0-beta.38",
-];
+const TAGS_D8040E4FFC: &[&str] = &["1.5.0-beta.38"];
 
 const TAGS_076365CCED: &[&str] = &[
     "1.4.4-beta.16",
@@ -3317,12 +3315,13 @@ pub const PRESENCE_MONITOR_INTERNET_CONNECTIVITY: FeatureAvailability = FeatureA
 };
 
 /// ProbeInterfaceInternetConnectivity: intro `27862ec2d86f` via path:core/frontend/src/components/app/NetworkInterfacePriorityMenu.vue; 132 tags; master=true; 1.4-dev=true
-pub const PRESENCE_PROBE_INTERFACE_INTERNET_CONNECTIVITY: FeatureAvailability = FeatureAvailability {
-    intro_commit: "27862ec2d86fbbd133a75549895e3ff0bce85c06",
-    present_in_tags: TAGS_554676EB69,
-    present_on_master: true,
-    present_on_1_4_dev: true,
-};
+pub const PRESENCE_PROBE_INTERFACE_INTERNET_CONNECTIVITY: FeatureAvailability =
+    FeatureAvailability {
+        intro_commit: "27862ec2d86fbbd133a75549895e3ff0bce85c06",
+        present_in_tags: TAGS_554676EB69,
+        present_on_master: true,
+        present_on_1_4_dev: true,
+    };
 
 /// PullBlueosVersionWithoutSwitch: intro `7c62889397a3` via path:core/services/versionchooser; 173 tags; master=true; 1.4-dev=true
 pub const PRESENCE_PULL_BLUEOS_VERSION_WITHOUT_SWITCH: FeatureAvailability = FeatureAvailability {
@@ -3662,14 +3661,26 @@ pub const PRESENCE_VIEW_SYSTEM_INFORMATION: FeatureAvailability = FeatureAvailab
 
 /// All journey presence records (for version→feature maps).
 pub const ALL_JOURNEY_PRESENCE: &[(&str, FeatureAvailability)] = &[
-    ("AccessBlueosWebInterface", PRESENCE_ACCESS_BLUEOS_WEB_INTERFACE),
+    (
+        "AccessBlueosWebInterface",
+        PRESENCE_ACCESS_BLUEOS_WEB_INTERFACE,
+    ),
     ("AccessWebTerminal", PRESENCE_ACCESS_WEB_TERMINAL),
-    ("AcquireDynamicIpAddress", PRESENCE_ACQUIRE_DYNAMIC_IP_ADDRESS),
+    (
+        "AcquireDynamicIpAddress",
+        PRESENCE_ACQUIRE_DYNAMIC_IP_ADDRESS,
+    ),
     ("AddCustomManifest", PRESENCE_ADD_CUSTOM_MANIFEST),
-    ("AddExternalNmeaGpsSocket", PRESENCE_ADD_EXTERNAL_NMEA_GPS_SOCKET),
+    (
+        "AddExternalNmeaGpsSocket",
+        PRESENCE_ADD_EXTERNAL_NMEA_GPS_SOCKET,
+    ),
     ("ApplyParameterFile", PRESENCE_APPLY_PARAMETER_FILE),
     ("AssignStaticIpAddress", PRESENCE_ASSIGN_STATIC_IP_ADDRESS),
-    ("BrowseAvailableWebServices", PRESENCE_BROWSE_AVAILABLE_WEB_SERVICES),
+    (
+        "BrowseAvailableWebServices",
+        PRESENCE_BROWSE_AVAILABLE_WEB_SERVICES,
+    ),
     ("BrowseExtensionStore", PRESENCE_BROWSE_EXTENSION_STORE),
     ("BrowseVideoRecordings", PRESENCE_BROWSE_VIDEO_RECORDINGS),
     ("CalibrateAccelerometer", PRESENCE_CALIBRATE_ACCELEROMETER),
@@ -3681,45 +3692,105 @@ pub const ALL_JOURNEY_PRESENCE: &[(&str, FeatureAvailability)] = &[
     ("ChangeUiThemeColor", PRESENCE_CHANGE_UI_THEME_COLOR),
     ("ConfigureCameraStream", PRESENCE_CONFIGURE_CAMERA_STREAM),
     ("ConfigureHostDns", PRESENCE_CONFIGURE_HOST_DNS),
-    ("ConfigureHotspotCredentials", PRESENCE_CONFIGURE_HOTSPOT_CREDENTIALS),
-    ("ConfigureInstalledExtension", PRESENCE_CONFIGURE_INSTALLED_EXTENSION),
-    ("ConfigureUvcDeviceControls", PRESENCE_CONFIGURE_UVC_DEVICE_CONTROLS),
+    (
+        "ConfigureHotspotCredentials",
+        PRESENCE_CONFIGURE_HOTSPOT_CREDENTIALS,
+    ),
+    (
+        "ConfigureInstalledExtension",
+        PRESENCE_CONFIGURE_INSTALLED_EXTENSION,
+    ),
+    (
+        "ConfigureUvcDeviceControls",
+        PRESENCE_CONFIGURE_UVC_DEVICE_CONTROLS,
+    ),
     ("ConfigureVideoStream", PRESENCE_CONFIGURE_VIDEO_STREAM),
-    ("ConnectPingViewerToSonar", PRESENCE_CONNECT_PING_VIEWER_TO_SONAR),
+    (
+        "ConnectPingViewerToSonar",
+        PRESENCE_CONNECT_PING_VIEWER_TO_SONAR,
+    ),
     ("ConnectToWifiNetwork", PRESENCE_CONNECT_TO_WIFI_NETWORK),
-    ("CreateSerialToUdpBridge", PRESENCE_CREATE_SERIAL_TO_UDP_BRIDGE),
+    (
+        "CreateSerialToUdpBridge",
+        PRESENCE_CREATE_SERIAL_TO_UDP_BRIDGE,
+    ),
     ("Delete3dModelOverride", PRESENCE_DELETE3D_MODEL_OVERRIDE),
-    ("DeleteLocalBlueosVersion", PRESENCE_DELETE_LOCAL_BLUEOS_VERSION),
+    (
+        "DeleteLocalBlueosVersion",
+        PRESENCE_DELETE_LOCAL_BLUEOS_VERSION,
+    ),
     ("DeleteVideoRecording", PRESENCE_DELETE_VIDEO_RECORDING),
     ("DetectMotorDirections", PRESENCE_DETECT_MOTOR_DIRECTIONS),
-    ("DisableOnboardDhcpServer", PRESENCE_DISABLE_ONBOARD_DHCP_SERVER),
-    ("DisconnectFromWifiNetwork", PRESENCE_DISCONNECT_FROM_WIFI_NETWORK),
-    ("DiscoverBlueosOnNetwork", PRESENCE_DISCOVER_BLUEOS_ON_NETWORK),
+    (
+        "DisableOnboardDhcpServer",
+        PRESENCE_DISABLE_ONBOARD_DHCP_SERVER,
+    ),
+    (
+        "DisconnectFromWifiNetwork",
+        PRESENCE_DISCONNECT_FROM_WIFI_NETWORK,
+    ),
+    (
+        "DiscoverBlueosOnNetwork",
+        PRESENCE_DISCOVER_BLUEOS_ON_NETWORK,
+    ),
     ("DockerRegistryLogin", PRESENCE_DOCKER_REGISTRY_LOGIN),
     ("DownloadVideoRecording", PRESENCE_DOWNLOAD_VIDEO_RECORDING),
-    ("EditExtensionDevVersion", PRESENCE_EDIT_EXTENSION_DEV_VERSION),
-    ("EnableLegacyCameraSupport", PRESENCE_ENABLE_LEGACY_CAMERA_SUPPORT),
-    ("EnableOnboardDhcpServer", PRESENCE_ENABLE_ONBOARD_DHCP_SERVER),
-    ("EnablePing1dRangefinderMavlink", PRESENCE_ENABLE_PING1D_RANGEFINDER_MAVLINK),
+    (
+        "EditExtensionDevVersion",
+        PRESENCE_EDIT_EXTENSION_DEV_VERSION,
+    ),
+    (
+        "EnableLegacyCameraSupport",
+        PRESENCE_ENABLE_LEGACY_CAMERA_SUPPORT,
+    ),
+    (
+        "EnableOnboardDhcpServer",
+        PRESENCE_ENABLE_ONBOARD_DHCP_SERVER,
+    ),
+    (
+        "EnablePing1dRangefinderMavlink",
+        PRESENCE_ENABLE_PING1D_RANGEFINDER_MAVLINK,
+    ),
     ("ForgetSavedWifiNetwork", PRESENCE_FORGET_SAVED_WIFI_NETWORK),
     ("FreeDiskSpace", PRESENCE_FREE_DISK_SPACE),
     ("InspectDiskUsage", PRESENCE_INSPECT_DISK_USAGE),
-    ("InspectMavlinkMessagesInBrowser", PRESENCE_INSPECT_MAVLINK_MESSAGES_IN_BROWSER),
-    ("InspectRaspberryEepromBootloader", PRESENCE_INSPECT_RASPBERRY_EEPROM_BOOTLOADER),
+    (
+        "InspectMavlinkMessagesInBrowser",
+        PRESENCE_INSPECT_MAVLINK_MESSAGES_IN_BROWSER,
+    ),
+    (
+        "InspectRaspberryEepromBootloader",
+        PRESENCE_INSPECT_RASPBERRY_EEPROM_BOOTLOADER,
+    ),
     ("InspectZenohNetwork", PRESENCE_INSPECT_ZENOH_NETWORK),
     ("InstallCustomExtension", PRESENCE_INSTALL_CUSTOM_EXTENSION),
     ("InstallExtension", PRESENCE_INSTALL_EXTENSION),
     ("LevelHorizon", PRESENCE_LEVEL_HORIZON),
     ("ManageBlueosFiles", PRESENCE_MANAGE_BLUEOS_FILES),
     ("ModifyBagDatabase", PRESENCE_MODIFY_BAG_DATABASE),
-    ("MonitorInternetConnectivity", PRESENCE_MONITOR_INTERNET_CONNECTIVITY),
-    ("ProbeInterfaceInternetConnectivity", PRESENCE_PROBE_INTERFACE_INTERNET_CONNECTIVITY),
-    ("PullBlueosVersionWithoutSwitch", PRESENCE_PULL_BLUEOS_VERSION_WITHOUT_SWITCH),
+    (
+        "MonitorInternetConnectivity",
+        PRESENCE_MONITOR_INTERNET_CONNECTIVITY,
+    ),
+    (
+        "ProbeInterfaceInternetConnectivity",
+        PRESENCE_PROBE_INTERFACE_INTERNET_CONNECTIVITY,
+    ),
+    (
+        "PullBlueosVersionWithoutSwitch",
+        PRESENCE_PULL_BLUEOS_VERSION_WITHOUT_SWITCH,
+    ),
     ("RebootOnboardComputer", PRESENCE_REBOOT_ONBOARD_COMPUTER),
     ("RemoveCameraStream", PRESENCE_REMOVE_CAMERA_STREAM),
-    ("RemoveConfiguredNmeaSocket", PRESENCE_REMOVE_CONFIGURED_NMEA_SOCKET),
+    (
+        "RemoveConfiguredNmeaSocket",
+        PRESENCE_REMOVE_CONFIGURED_NMEA_SOCKET,
+    ),
     ("RemoveCustomLogo", PRESENCE_REMOVE_CUSTOM_LOGO),
-    ("RemoveCustomVehicleImage", PRESENCE_REMOVE_CUSTOM_VEHICLE_IMAGE),
+    (
+        "RemoveCustomVehicleImage",
+        PRESENCE_REMOVE_CUSTOM_VEHICLE_IMAGE,
+    ),
     ("RemoveSerialBridge", PRESENCE_REMOVE_SERIAL_BRIDGE),
     ("RenameVehicle", PRESENCE_RENAME_VEHICLE),
     ("ResetBlueosSettings", PRESENCE_RESET_BLUEOS_SETTINGS),
@@ -3729,14 +3800,29 @@ pub const ALL_JOURNEY_PRESENCE: &[(&str, FeatureAvailability)] = &[
     ("RunHostCommand", PRESENCE_RUN_HOST_COMMAND),
     ("RunInternetSpeedTest", PRESENCE_RUN_INTERNET_SPEED_TEST),
     ("RunLanSpeedTest", PRESENCE_RUN_LAN_SPEED_TEST),
-    ("RunMultiSizeDiskSpeedTest", PRESENCE_RUN_MULTI_SIZE_DISK_SPEED_TEST),
-    ("RunSingleDiskSpeedTest", PRESENCE_RUN_SINGLE_DISK_SPEED_TEST),
+    (
+        "RunMultiSizeDiskSpeedTest",
+        PRESENCE_RUN_MULTI_SIZE_DISK_SPEED_TEST,
+    ),
+    (
+        "RunSingleDiskSpeedTest",
+        PRESENCE_RUN_SINGLE_DISK_SPEED_TEST,
+    ),
     ("RunSitlSimulation", PRESENCE_RUN_SITL_SIMULATION),
-    ("SetNetworkInterfacePriority", PRESENCE_SET_NETWORK_INTERFACE_PRIORITY),
-    ("ShutdownOnboardComputer", PRESENCE_SHUTDOWN_ONBOARD_COMPUTER),
+    (
+        "SetNetworkInterfacePriority",
+        PRESENCE_SET_NETWORK_INTERFACE_PRIORITY,
+    ),
+    (
+        "ShutdownOnboardComputer",
+        PRESENCE_SHUTDOWN_ONBOARD_COMPUTER,
+    ),
     ("StartAutopilot", PRESENCE_START_AUTOPILOT),
     ("StopAutopilot", PRESENCE_STOP_AUTOPILOT),
-    ("SwitchLocalBlueosVersion", PRESENCE_SWITCH_LOCAL_BLUEOS_VERSION),
+    (
+        "SwitchLocalBlueosVersion",
+        PRESENCE_SWITCH_LOCAL_BLUEOS_VERSION,
+    ),
     ("SyncSystemTime", PRESENCE_SYNC_SYSTEM_TIME),
     ("ToggleHotspot", PRESENCE_TOGGLE_HOTSPOT),
     ("ToggleSmartHotspot", PRESENCE_TOGGLE_SMART_HOTSPOT),
@@ -3744,17 +3830,34 @@ pub const ALL_JOURNEY_PRESENCE: &[(&str, FeatureAvailability)] = &[
     ("UpdateBlueosVersion", PRESENCE_UPDATE_BLUEOS_VERSION),
     ("UpdateBootstrapImage", PRESENCE_UPDATE_BOOTSTRAP_IMAGE),
     ("UpdateFirmwareOnline", PRESENCE_UPDATE_FIRMWARE_ONLINE),
-    ("UpdateRaspberryEepromBootloader", PRESENCE_UPDATE_RASPBERRY_EEPROM_BOOTLOADER),
+    (
+        "UpdateRaspberryEepromBootloader",
+        PRESENCE_UPDATE_RASPBERRY_EEPROM_BOOTLOADER,
+    ),
     ("Upload3dModelOverride", PRESENCE_UPLOAD3D_MODEL_OVERRIDE),
     ("UploadCustomFirmware", PRESENCE_UPLOAD_CUSTOM_FIRMWARE),
     ("UploadCustomLogo", PRESENCE_UPLOAD_CUSTOM_LOGO),
-    ("UploadCustomVehicleImage", PRESENCE_UPLOAD_CUSTOM_VEHICLE_IMAGE),
+    (
+        "UploadCustomVehicleImage",
+        PRESENCE_UPLOAD_CUSTOM_VEHICLE_IMAGE,
+    ),
     ("VehicleFirstBoot", PRESENCE_VEHICLE_FIRST_BOOT),
-    ("VerifyInternetConnectivity", PRESENCE_VERIFY_INTERNET_CONNECTIVITY),
+    (
+        "VerifyInternetConnectivity",
+        PRESENCE_VERIFY_INTERNET_CONNECTIVITY,
+    ),
     ("ViewCameraStreams", PRESENCE_VIEW_CAMERA_STREAMS),
-    ("ViewConfiguredNmeaSockets", PRESENCE_VIEW_CONFIGURED_NMEA_SOCKETS),
-    ("ViewConfiguredSerialBridges", PRESENCE_VIEW_CONFIGURED_SERIAL_BRIDGES),
-    ("ViewDetectedSonarDevices", PRESENCE_VIEW_DETECTED_SONAR_DEVICES),
+    (
+        "ViewConfiguredNmeaSockets",
+        PRESENCE_VIEW_CONFIGURED_NMEA_SOCKETS,
+    ),
+    (
+        "ViewConfiguredSerialBridges",
+        PRESENCE_VIEW_CONFIGURED_SERIAL_BRIDGES,
+    ),
+    (
+        "ViewDetectedSonarDevices",
+        PRESENCE_VIEW_DETECTED_SONAR_DEVICES,
+    ),
     ("ViewSystemInformation", PRESENCE_VIEW_SYSTEM_INFORMATION),
 ];
-

@@ -74,3 +74,7 @@ path = "src/bin/feature_trace_report.rs"
 [[bin]]
 name = "sibling_matrix"
 path = "src/bin/sibling_matrix.rs"
+
+[[bin]]
+name = "feature_trace_diff"
+path = "src/bin/feature_trace_diff.rs"
