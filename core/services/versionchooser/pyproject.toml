@@ -13,7 +13,7 @@ dependencies = [
     "fastapi-versioning==0.10.0",
     "loguru==0.7.3",
     "pydantic==2.12.5",
-    "python-multipart==0.0.21",
+    "python-multipart==0.0.31",
     "uvicorn==0.38.0",
 ]
 

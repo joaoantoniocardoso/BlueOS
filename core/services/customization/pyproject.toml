@@ -9,7 +9,7 @@ dependencies = [
     "fastapi-versioning==0.9.1",
     "loguru==0.5.3",
     "pydantic==1.10.12",
-    "python-multipart==0.0.5",
+    "python-multipart==0.0.31",
     "uvicorn==0.18.0",
 ]
 
