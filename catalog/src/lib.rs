@@ -40,6 +40,7 @@ pub mod tools;
 pub mod trust;
 pub mod validate;
 pub mod version;
+pub mod wifi_endpoints;
 pub mod wifi_rf;
 
 pub use capability::{Aggregate, CapabilityDef, CAPABILITIES};
@@ -137,3 +138,4 @@ pub use version::{
     format_availability_skip_reason, journeys_present_on, parse_release_tag, AvailabilitySkip,
     BlueOsChannel, FeatureAvailability, VersionBound,
 };
+pub use wifi_endpoints::run_wifi_endpoints;

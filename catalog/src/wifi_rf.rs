@@ -10,6 +10,8 @@ use std::process::Command;
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
+use regex::Regex;
+
 use crate::id::JourneyId;
 
 /// Must match `catalog/harness/wifi/config.example.env` WPA2 defaults.
@@ -54,10 +56,14 @@ struct HostRfConfig {
     e2e_hotspot_ssid: String,
     e2e_hotspot_psk: String,
     ping_count: u32,
+    static_test_ip: Ipv4Addr,
+    xfer_min_bytes: u64,
+    wifi_iface: String,
+    expect_wpa3: ExpectWpa3,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ApMode {
+pub enum ApMode {
     Open,
     Wpa,
     Wpa2,
@@ -66,14 +72,60 @@ enum ApMode {
 }
 
 impl ApMode {
-    fn parse(mode: &str) -> Result<Self, String> {
-        match mode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Open => "open",
+            Self::Wpa => "wpa",
+            Self::Wpa2 => "wpa2",
+            Self::Transition => "transition",
+            Self::Wpa3 => "wpa3",
+        }
+    }
+
+    pub fn parse(mode: &str) -> Result<Self, String> {
+        match mode.trim().to_ascii_lowercase().as_str() {
             "open" => Ok(Self::Open),
             "wpa" => Ok(Self::Wpa),
             "wpa2" => Ok(Self::Wpa2),
             "transition" => Ok(Self::Transition),
             "wpa3" => Ok(Self::Wpa3),
             other => Err(format!("unknown AP mode: {other}")),
+        }
+    }
+
+    pub fn parse_csv(spec: &str) -> Result<Vec<Self>, String> {
+        let modes: Result<Vec<_>, _> = spec
+            .split(',')
+            .filter(|mode| !mode.trim().is_empty())
+            .map(Self::parse)
+            .collect();
+        let modes = modes?;
+        if modes.is_empty() {
+            return Err("wifi mode list is empty".into());
+        }
+        Ok(modes)
+    }
+}
+
+impl std::fmt::Display for ApMode {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ExpectWpa3 {
+    Yes,
+    No,
+    Auto,
+}
+
+impl ExpectWpa3 {
+    fn parse(value: &str) -> Self {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "yes" => Self::Yes,
+            "no" => Self::No,
+            _ => Self::Auto,
         }
     }
 }
@@ -155,6 +207,10 @@ impl HostRfConfig {
             e2e_hotspot_ssid: env_or("E2E_HOTSPOT_SSID", SMOKE_HOTSPOT_SSID),
             e2e_hotspot_psk: env_or("E2E_HOTSPOT_PSK", SMOKE_HOTSPOT_PSK),
             ping_count: parse_u32("PING_COUNT", 3),
+            static_test_ip: parse_ip("STATIC_TEST_IP", "10.42.0.50"),
+            xfer_min_bytes: env_or("XFER_MIN_BYTES", "100000").parse().unwrap_or(100000),
+            wifi_iface: env_or("WIFI_IFACE", "wlan0"),
+            expect_wpa3: ExpectWpa3::parse(&env_or("EXPECT_WPA3", "auto")),
         }
     }
 
@@ -581,6 +637,203 @@ fn http_get(url: &str, timeout_sec: &str) -> Result<(String, String), String> {
     Ok((body.to_string(), code.trim().to_string()))
 }
 
+fn http_request(method: &str, url: &str, body: Option<&str>) -> Result<(String, String), String> {
+    let mut command = Command::new("curl");
+    command.args(["-sS", "-m", "15", "-X", method]);
+    if let Some(body) = body {
+        command.args(["-H", "Content-Type: application/json", "-d", body]);
+    }
+    command.args(["-w", "\n%{http_code}", url]);
+    let output = command
+        .output()
+        .map_err(|err| format!("curl {method} {url}: {err}"))?;
+    let text = String::from_utf8_lossy(&output.stdout);
+    let (response, code) = text.rsplit_once('\n').unwrap_or((text.as_ref(), "000"));
+    Ok((response.to_string(), code.trim().to_string()))
+}
+
+fn wifi_url(base: &str, path: &str) -> String {
+    format!(
+        "{}/wifi-manager/v1.0/{}",
+        base.trim_end_matches('/'),
+        path.trim_start_matches('/')
+    )
+}
+
+fn cable_url(base: &str, path: &str) -> String {
+    format!(
+        "{}/cable-guy/v1.0/{}",
+        base.trim_end_matches('/'),
+        path.trim_start_matches('/')
+    )
+}
+
+pub fn mode_ssid(mode: ApMode) -> String {
+    config().mode_ssid(mode).to_string()
+}
+
+pub fn mode_psk(mode: ApMode) -> String {
+    match mode {
+        ApMode::Open => String::new(),
+        ApMode::Wpa => config().wpa2_psk.clone(),
+        ApMode::Wpa2 | ApMode::Transition => config().wpa2_psk.clone(),
+        ApMode::Wpa3 => config().wpa3_psk.clone(),
+    }
+}
+
+pub fn connect_body_for_mode(mode: ApMode) -> String {
+    format!(
+        r#"{{"ssid":{},"password":{}}}"#,
+        serde_json::to_string(&mode_ssid(mode)).expect("serialize SSID"),
+        serde_json::to_string(&mode_psk(mode)).expect("serialize PSK")
+    )
+}
+
+pub fn wrong_password_body_for_mode(mode: ApMode) -> String {
+    format!(
+        r#"{{"ssid":{},"password":"definitely-wrong-password-xyz"}}"#,
+        serde_json::to_string(&mode_ssid(mode)).expect("serialize SSID")
+    )
+}
+
+pub fn dut_scan_json(base: &str) -> Result<serde_json::Value, String> {
+    let (body, code) = http_get(&wifi_url(base, "scan"), "30")?;
+    if code != "200" {
+        return Err(format!("GET /scan HTTP {code}: {body}"));
+    }
+    serde_json::from_str(&body).map_err(|err| format!("parse /scan: {err}"))
+}
+
+pub fn dut_scan_has_ssid(base: &str, ssid: &str) -> Result<bool, String> {
+    Ok(dut_scan_json(base)?
+        .as_array()
+        .map(|networks| {
+            networks.iter().any(|network| {
+                network.get("ssid").and_then(serde_json::Value::as_str) == Some(ssid)
+            })
+        })
+        .unwrap_or(false))
+}
+
+pub fn assert_scan_present(base: &str, ssid: &str, timeout: Duration) -> Result<(), String> {
+    let deadline = Instant::now() + timeout;
+    let mut last = String::new();
+    let mut transport_fails = 0u8;
+    while Instant::now() < deadline {
+        match dut_scan_has_ssid(base, ssid) {
+            Ok(true) => return Ok(()),
+            Ok(false) => {
+                transport_fails = 0;
+                last = "SSID absent".into();
+            }
+            Err(err) => {
+                last = err.clone();
+                // Fail fast when wifi-manager is unreachable (HTTP 000 / timeout).
+                if err.contains("HTTP 000") || err.contains("HTTP 502") || err.contains("HTTP 504")
+                {
+                    transport_fails += 1;
+                    if transport_fails >= 3 {
+                        return Err(format!(
+                            "SSID `{ssid}` scan unreachable (wifi-manager down?): {last}"
+                        ));
+                    }
+                }
+            }
+        }
+        std::thread::sleep(Duration::from_secs(2));
+    }
+    Err(format!(
+        "SSID `{ssid}` not present in DUT scan within {timeout:?}: {last}"
+    ))
+}
+
+pub fn assert_scan_absent(base: &str, ssid: &str, timeout: Duration) -> Result<(), String> {
+    let deadline = Instant::now() + timeout;
+    let mut last = String::new();
+    let mut transport_fails = 0u8;
+    while Instant::now() < deadline {
+        match dut_scan_has_ssid(base, ssid) {
+            Ok(false) => return Ok(()),
+            Ok(true) => {
+                transport_fails = 0;
+                last = "SSID still present".into();
+            }
+            Err(err) => {
+                last = err.clone();
+                if err.contains("HTTP 000") || err.contains("HTTP 502") || err.contains("HTTP 504")
+                {
+                    transport_fails += 1;
+                    if transport_fails >= 3 {
+                        return Err(format!(
+                            "SSID `{ssid}` scan unreachable (wifi-manager down?): {last}"
+                        ));
+                    }
+                }
+            }
+        }
+        std::thread::sleep(Duration::from_secs(2));
+    }
+    Err(format!(
+        "SSID `{ssid}` still present in DUT scan after {timeout:?}: {last}"
+    ))
+}
+
+pub fn expect_wpa3_join(base: &str) -> Result<bool, String> {
+    match config().expect_wpa3 {
+        ExpectWpa3::Yes => Ok(true),
+        ExpectWpa3::No => Ok(false),
+        ExpectWpa3::Auto => {
+            let ssid = mode_ssid(ApMode::Wpa3);
+            let networks = dut_scan_json(base)?;
+            Ok(networks.as_array().is_some_and(|networks| {
+                networks.iter().any(|network| {
+                    network.get("ssid").and_then(serde_json::Value::as_str) == Some(ssid.as_str())
+                        && network
+                            .get("supported")
+                            .and_then(serde_json::Value::as_bool)
+                            .unwrap_or(false)
+                })
+            }))
+        }
+    }
+}
+
+pub fn disconnect_and_remove(base: &str, ssid: &str) {
+    let _ = http_get(&wifi_url(base, "disconnect"), "15");
+    let _ = http_request(
+        "POST",
+        &format!("{}?ssid={ssid}", wifi_url(base, "remove")),
+        None,
+    );
+}
+
+pub fn restore_station() -> Result<(), String> {
+    let cfg = config();
+    let mut errors = Vec::new();
+    for conn in &cfg.station_conns {
+        if !connection_exists(conn) {
+            continue;
+        }
+        if let Err(err) = nmcli_ok(&[
+            "connection",
+            "modify",
+            conn,
+            "connection.autoconnect",
+            "yes",
+        ]) {
+            errors.push(err);
+        }
+        if let Err(err) = nmcli_ok(&["connection", "up", conn]) {
+            errors.push(err);
+        }
+    }
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors.join("; "))
+    }
+}
+
 /// True when this runner can drive host RF (nmcli + configured wifi iface).
 pub fn host_rf_available() -> bool {
     if Command::new("nmcli").arg("-v").output().is_err() {
@@ -768,16 +1021,26 @@ pub fn rf_setup(journey_id: JourneyId) -> Result<(), String> {
 }
 
 /// Tear down host RF after a journey (best-effort after HTTP teardown).
+///
+/// Does **not** call [`restore_station`] by default: bringing a competing home
+/// WiFi profile back up can black-hole ethernet routes to the DUT mid-suite.
+/// Opt in with `RESTORE_STATION=1` (or call [`restore_station`] explicitly).
 pub fn rf_teardown(journey_id: JourneyId) -> Result<(), String> {
-    if needs_host_ap(journey_id) {
-        host_ap_down()?;
-        return Ok(());
-    }
-    if needs_host_station(journey_id) {
+    let result = if needs_host_ap(journey_id) {
+        host_ap_down()
+    } else if needs_host_station(journey_id) {
         let _ = host_station_down();
-        return Ok(());
+        Ok(())
+    } else {
+        Ok(())
+    };
+    if std::env::var("RESTORE_STATION")
+        .map(|v| matches!(v.to_ascii_lowercase().as_str(), "1" | "yes" | "true"))
+        .unwrap_or(false)
+    {
+        let _ = restore_station();
     }
-    Ok(())
+    result
 }
 
 /// After ToggleHotspot enables the DUT AP: host scans, associates, waits for lease.
@@ -884,16 +1147,175 @@ pub fn host_ping(ip: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Client L3: wait for DUT wlan lease on the smoke SSID, then ping it from the host.
-pub fn l3_assert_client_lease(blueos_base: &str) -> Result<String, String> {
-    let ip = wait_dut_lease(blueos_base, SMOKE_CLIENT_SSID, 45)?;
+/// Client L3: DHCP, route, front-end transfer, WebDAV roundtrip, and static IP.
+pub fn l3_assert_associated(blueos_base: &str, mode: ApMode) -> Result<String, String> {
+    let cfg = config();
+    let ip = wait_dut_lease(blueos_base, &mode_ssid(mode), 45)?;
+    let lease: Ipv4Addr = ip
+        .parse()
+        .map_err(|err| format!("invalid DUT lease {ip}: {err}"))?;
+    if !ipv4_in_prefix(lease, cfg.ap_gateway, cfg.ap_prefix) {
+        return Err(format!(
+            "DUT lease {ip} is outside AP subnet {}/{}",
+            cfg.ap_gateway, cfg.ap_prefix
+        ));
+    }
     host_ping(&ip)?;
-    Ok(ip)
+
+    let route_url = format!(
+        "{}?interface_name={}",
+        cable_url(blueos_base, "route"),
+        cfg.wifi_iface
+    );
+    let (routes, code) = http_get(&route_url, "15")?;
+    if code != "200" {
+        return Err(format!("GET /route HTTP {code}: {routes}"));
+    }
+    let gateway = cfg.ap_gateway.to_string();
+    let has_route = serde_json::from_str::<serde_json::Value>(&routes)
+        .ok()
+        .and_then(|routes| routes.as_array().cloned())
+        .is_some_and(|routes| {
+            routes.iter().any(|route| {
+                let gateway_match = route.get("gateway").and_then(serde_json::Value::as_str)
+                    == Some(gateway.as_str());
+                let destination = route
+                    .get("destination")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("");
+                if destination == "0.0.0.0/0" {
+                    return gateway_match || !routes.is_empty();
+                }
+                if let Some((net_ip, pref)) = destination.split_once('/') {
+                    if let (Ok(net_ip), Ok(pref)) = (net_ip.parse::<Ipv4Addr>(), pref.parse::<u8>())
+                    {
+                        // On-link or via AP gateway into the AP subnet.
+                        return ipv4_in_prefix(cfg.ap_gateway, net_ip, pref) || gateway_match;
+                    }
+                }
+                gateway_match
+            })
+        });
+    if !has_route {
+        return Err(format!(
+            "no default or AP route through {}: {routes}",
+            cfg.ap_gateway
+        ));
+    }
+
+    let (html, code) = http_get(&format!("http://{ip}/"), "30")?;
+    if code != "200" {
+        return Err(format!("GET WiFi frontend HTTP {code}: {html}"));
+    }
+    let asset = Regex::new(r#"/assets/main\.[^"']+\.js"#)
+        .expect("asset regex")
+        .find(&html)
+        .map(|match_| match_.as_str())
+        .ok_or_else(|| "frontend main asset missing from WiFi HTML".to_string())?;
+    let (asset_body, code) = http_get(&format!("http://{ip}{asset}"), "30")?;
+    if code != "200" || asset_body.len() < cfg.xfer_min_bytes as usize {
+        return Err(format!(
+            "GET WiFi asset HTTP {code}, {} bytes (want at least {})",
+            asset_body.len(),
+            cfg.xfer_min_bytes
+        ));
+    }
+
+    let name = format!("smoke-wifi-{mode}.txt");
+    let payload = format!("blueos wifi smoke {mode}\n");
+    let temp = std::env::temp_dir().join(&name);
+    std::fs::write(&temp, payload.as_bytes())
+        .map_err(|err| format!("write transfer payload: {err}"))?;
+    let upload_url = format!("http://{ip}/upload/userdata/{name}");
+    let output = Command::new("curl")
+        .args([
+            "-sS",
+            "-m",
+            "30",
+            "-o",
+            "/dev/null",
+            "-w",
+            "%{http_code}",
+            "-T",
+        ])
+        .arg(&temp)
+        .arg(&upload_url)
+        .output()
+        .map_err(|err| format!("PUT upload: {err}"))?;
+    let put_code = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let (uploaded, get_code) = http_get(&format!("http://{ip}/userdata/{name}"), "30")?;
+    let _ = Command::new("curl")
+        .args([
+            "-sS",
+            "-m",
+            "10",
+            "-o",
+            "/dev/null",
+            "-X",
+            "DELETE",
+            &upload_url,
+        ])
+        .output();
+    let _ = std::fs::remove_file(temp);
+    if (put_code != "201" && put_code != "200") || get_code != "200" || uploaded != payload {
+        return Err(format!(
+            "WebDAV roundtrip put={put_code} get={get_code} content_matches={}",
+            uploaded == payload
+        ));
+    }
+
+    let address_url = format!(
+        "{}?interface_name={}&ip_address={}",
+        cable_url(blueos_base, "address"),
+        cfg.wifi_iface,
+        cfg.static_test_ip
+    );
+    let (addr_body, code) = http_request("POST", &address_url, None)?;
+    // cable-guy often rejects wlan0 ("No interface…") — record honesty without failing L3.
+    let static_note = if code == "200" {
+        let static_ping = host_ping(&cfg.static_test_ip.to_string());
+        let (_, delete_code) = http_request("DELETE", &address_url, None)?;
+        if delete_code != "200" {
+            return Err(format!(
+                "DELETE /address HTTP {delete_code} for {}",
+                cfg.static_test_ip
+            ));
+        }
+        static_ping?;
+        format!("static_ip={}", cfg.static_test_ip)
+    } else {
+        eprintln!(
+            "wifi_rf: static_ip SKIP POST /address HTTP {code} for {} on {} ({})",
+            cfg.static_test_ip,
+            cfg.wifi_iface,
+            addr_body.chars().take(120).collect::<String>()
+        );
+        format!("static_ip_skip=HTTP_{code}")
+    };
+    Ok(format!("{ip} ({static_note})"))
+}
+
+/// Compatibility wrapper for existing WPA2-only callers.
+pub fn l3_assert_client_lease(blueos_base: &str) -> Result<String, String> {
+    l3_assert_associated(blueos_base, ApMode::Wpa2)
 }
 
 /// Hotspot L3: ping BlueOS soft-AP gateway from the host station.
 pub fn l3_assert_hotspot_gateway() -> Result<(), String> {
-    host_ping(&config().hotspot_gateway.to_string())
+    let gateway = config().hotspot_gateway.to_string();
+    host_ping(&gateway)?;
+    if let Ok((html, code)) = http_get(&format!("http://{gateway}/"), "15") {
+        if code != "200" {
+            return Ok(());
+        }
+        if let Some(asset) = Regex::new(r#"/assets/main\.[^"']+\.js"#)
+            .expect("asset regex")
+            .find(&html)
+        {
+            let _ = http_get(&format!("http://{gateway}{}", asset.as_str()), "15");
+        }
+    }
+    Ok(())
 }
 
 pub fn wants_client_l3(journey_id: JourneyId) -> bool {
@@ -979,6 +1401,11 @@ mod tests {
     #[test]
     fn ap_mode_parse() {
         assert_eq!(ApMode::parse("wpa2").unwrap(), ApMode::Wpa2);
+        assert_eq!(
+            ApMode::parse_csv("open,wpa2,wpa3").unwrap(),
+            vec![ApMode::Open, ApMode::Wpa2, ApMode::Wpa3]
+        );
         assert!(ApMode::parse("nope").is_err());
+        assert!(ApMode::parse_csv("").is_err());
     }
 }

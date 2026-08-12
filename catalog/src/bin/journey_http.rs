@@ -4,20 +4,20 @@
 // Offline plan: `journey_http --dry-run` (no --base).
 use std::process;
 
-use blueos_catalog::wifi_rf;
+use blueos_catalog::wifi_rf::{self, ApMode};
 use blueos_catalog::{
-    evaluate_journey, fetch_dut_version, format_dry_run, format_http_fail, http_journeys,
-    http_mutating_smoke_steps, http_smoke_steps, http_steps, is_mutating_smoke_journey, join_url,
-    journey_availability_skip, journey_fixtures_ready, journey_http_mode_conflict,
-    journey_http_requires_base, journey_mutating_smoke_ready, mutating_smoke_setup_calls,
-    mutating_smoke_skip_reason, mutating_smoke_teardown_calls, parse_fixture_list,
-    resolve_http_path, run_core_image_switch, run_http_step, run_smoke_http_call,
-    summarize_journey, utc_rfc3339_now, wait_for_blueos, write_journey_http_report, Catalog,
-    DutVersion, FixtureInventory, JourneyHttpReport, JourneyId, JourneyReportEntry, JourneyResult,
-    PreconditionStatus, ReportDut, RunCounts, StepResult, SuiteKind,
-    MUTATING_SMOKE_DEFAULT_FIXTURES, SCHEMA_VERSION, SMOKE_CORE_MASTER_JSON, SMOKE_CORE_MASTER_TAG,
-    SMOKE_CORE_SWITCH_JSON, SMOKE_CORE_SWITCH_TAG, SMOKE_DEFAULT_FIXTURES,
-    TIER2_SMOKE_DUT_CORE_DIGEST,
+    evaluate_journey, execute_curl, fetch_dut_version, format_dry_run, format_http_fail,
+    http_journeys, http_mutating_smoke_steps, http_smoke_steps, http_steps,
+    is_mutating_smoke_journey, join_url, journey_availability_skip, journey_fixtures_ready,
+    journey_http_mode_conflict, journey_http_requires_base, journey_mutating_smoke_ready,
+    mutating_smoke_setup_calls, mutating_smoke_skip_reason, mutating_smoke_teardown_calls,
+    parse_fixture_list, resolve_http_path, run_core_image_switch, run_http_step,
+    run_smoke_http_call, summarize_journey, utc_rfc3339_now, wait_for_blueos,
+    write_journey_http_report, Catalog, DutVersion, FixtureInventory, HttpMethod,
+    JourneyHttpReport, JourneyId, JourneyReportEntry, JourneyResult, PreconditionStatus, ReportDut,
+    RunCounts, StepResult, SuiteKind, MUTATING_SMOKE_DEFAULT_FIXTURES, SCHEMA_VERSION,
+    SMOKE_CORE_MASTER_JSON, SMOKE_CORE_MASTER_TAG, SMOKE_CORE_SWITCH_JSON, SMOKE_CORE_SWITCH_TAG,
+    SMOKE_DEFAULT_FIXTURES, TIER2_SMOKE_DUT_CORE_DIGEST,
 };
 
 fn main() {
@@ -30,6 +30,8 @@ fn main() {
     let mut mutating_smoke = false;
     let mut journey_filter: Option<JourneyId> = None;
     let mut report_path: Option<String> = None;
+    let mut wifi_modes_spec: Option<String> = None;
+    let mut wifi_endpoints = false;
 
     let mut index = 1;
     while index < args.len() {
@@ -54,6 +56,15 @@ fn main() {
             "--allow-mutating" => allow_mutating = true,
             "--smoke" => smoke = true,
             "--mutating-smoke" => mutating_smoke = true,
+            "--wifi-modes" => {
+                index += 1;
+                wifi_modes_spec = Some(
+                    args.get(index)
+                        .cloned()
+                        .unwrap_or_else(|| usage_and_exit("--wifi-modes requires a csv")),
+                );
+            }
+            "--wifi-endpoints" => wifi_endpoints = true,
             "--journey" => {
                 index += 1;
                 let id = args
@@ -82,6 +93,12 @@ fn main() {
     if let Err(message) = journey_http_mode_conflict(smoke, mutating_smoke) {
         usage_and_exit(message);
     }
+    if wifi_endpoints && (smoke || mutating_smoke) {
+        usage_and_exit("--wifi-endpoints is mutually exclusive with --smoke and --mutating-smoke");
+    }
+    if wifi_endpoints && (dry_run || base.is_none()) {
+        usage_and_exit("--wifi-endpoints requires --base and cannot use --dry-run");
+    }
 
     if let Err(message) =
         journey_http_requires_base(dry_run, smoke, mutating_smoke, base.as_deref())
@@ -94,6 +111,31 @@ fn main() {
     } else if mutating_smoke {
         allow_mutating = true;
     }
+
+    if wifi_endpoints {
+        let base = base.as_deref().expect("base checked above");
+        match blueos_catalog::run_wifi_endpoints(base) {
+            Ok(results) => {
+                let failed = results.iter().filter(|(_, ok, _)| !ok).count();
+                for (name, ok, detail) in results {
+                    println!("{} {name}: {detail}", if ok { "PASS" } else { "FAIL" });
+                }
+                if failed > 0 {
+                    process::exit(1);
+                }
+                return;
+            }
+            Err(err) => {
+                eprintln!("journey_http: wifi endpoint RF setup: {err}");
+                process::exit(1);
+            }
+        }
+    }
+
+    let wifi_modes = match wifi_modes_spec.as_deref() {
+        Some(spec) => ApMode::parse_csv(spec).unwrap_or_else(|err| usage_and_exit(&err)),
+        None => vec![ApMode::Wpa2],
+    };
 
     let fixtures_label = if let Some(spec) = &fixtures_spec {
         spec.clone()
@@ -343,7 +385,12 @@ fn main() {
                     }
                 }
             }
-            if let Err(err) = wifi_rf::rf_setup(journey_id) {
+            let rf_setup = if journey_id == JourneyId::ConnectToWifiNetwork {
+                wifi_rf::host_ap_ensure()
+            } else {
+                wifi_rf::rf_setup(journey_id)
+            };
+            if let Err(err) = rf_setup {
                 eprintln!("FAIL {journey_id} wifi RF setup — {err}");
                 totals.failed += 1;
                 step_results.push(StepResult::Fail(format!("wifi RF setup — {err}")));
@@ -373,7 +420,25 @@ fn main() {
             }
         }
 
-        if mutating_smoke && wifi_rf::is_rf_status_journey(journey_id) {
+        if mutating_smoke && journey_id == JourneyId::ConnectToWifiNetwork {
+            for mode in &wifi_modes {
+                let ssid = wifi_rf::mode_ssid(*mode);
+                let result = run_wifi_mode(base, *mode);
+                match result {
+                    Ok(ip) => {
+                        eprintln!("journey_http: WiFi {mode} connect+L3 ok ip={ip}");
+                        totals.passed += 1;
+                        step_results.push(StepResult::Pass);
+                    }
+                    Err(err) => {
+                        eprintln!("FAIL {journey_id} WiFi {mode} — {err}");
+                        totals.failed += 1;
+                        step_results.push(StepResult::Fail(err));
+                    }
+                }
+                wifi_rf::disconnect_and_remove(base, &ssid);
+            }
+        } else if mutating_smoke && wifi_rf::is_rf_status_journey(journey_id) {
             let rf_result = match journey_id {
                 JourneyId::DetectWifiApLoss => wifi_rf::run_detect_ap_loss(base),
                 JourneyId::AutoconnectToSavedWifiNetwork => wifi_rf::run_autoconnect(base),
@@ -674,6 +739,31 @@ fn usage_and_exit(message: &str) -> ! {
 
 fn print_help() {
     eprintln!(
-        "usage: journey_http --base <url> [--fixtures internet,pirate,advanced] [--smoke | --mutating-smoke] [--dry-run] [--allow-mutating] [--journey <id>] [--report <path.json>]"
+        "usage: journey_http --base <url> [--fixtures internet,pirate,advanced] [--smoke | --mutating-smoke | --wifi-endpoints] [--wifi-modes open,wpa,wpa2,transition,wpa3] [--dry-run] [--allow-mutating] [--journey <id>] [--report <path.json>]"
     );
+}
+
+fn run_wifi_mode(base: &str, mode: ApMode) -> Result<String, String> {
+    let ssid = wifi_rf::mode_ssid(mode);
+    let _ = wifi_rf::host_ap_down();
+    wifi_rf::assert_scan_absent(base, &ssid, std::time::Duration::from_secs(30))?;
+    wifi_rf::host_ap_up(mode.as_str())?;
+    wifi_rf::assert_scan_present(base, &ssid, std::time::Duration::from_secs(45))?;
+    let (status, body) = execute_curl(
+        &HttpMethod::Post,
+        &format!("{base}/wifi-manager/v1.0/connect?hidden=false"),
+        true,
+        Some(&wifi_rf::connect_body_for_mode(mode)),
+        None,
+    )?;
+    if mode == ApMode::Wpa3 && !wifi_rf::expect_wpa3_join(base)? {
+        if status != 200 || wifi_rf::wait_dut_lease(base, &ssid, 5).is_err() {
+            return Ok("WPA3 rejected as expected".into());
+        }
+        return Err("WPA3 connected although EXPECT_WPA3 says it must reject".into());
+    }
+    if status != 200 {
+        return Err(format!("POST /connect HTTP {status}: {body}"));
+    }
+    wifi_rf::l3_assert_associated(base, mode)
 }

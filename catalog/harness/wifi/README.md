@@ -28,8 +28,22 @@ Optional override for the config directory: `BLUEOS_WIFI_HARNESS_DIR=/path/to/di
 # Host must have nmcli + a WiFi iface; DUT on ethernet:
 cargo run -q -p blueos-catalog --bin journey_http -- \
   --base http://192.168.0.177 --mutating-smoke --journey connect_to_wifi_network
+
+# RF mode matrix; omit --wifi-modes to retain the WPA2-only default:
+cargo run -q -p blueos-catalog --bin journey_http -- \
+  --base http://192.168.0.177 --mutating-smoke --journey connect_to_wifi_network \
+  --wifi-modes open,wpa,wpa2,transition,wpa3
+
+# Exercise the wifi-manager endpoint surface and restore hotspot credentials:
+cargo run -q -p blueos-catalog --bin journey_http -- \
+  --base http://192.168.0.177 --wifi-endpoints
 ```
 
 RF setup/teardown runs automatically when `wifi_rf` reports the host ready
 (`nmcli` present and `HOST_WIFI_IFACE` exists). Otherwise RF-backed journeys skip
 with an explicit reason.
+
+The host keeps `HOST_STATION_CONNS` down during RF tests. Set `RESTORE_STATION=1`
+to re-enable them after teardown (can break ethernet routes to the DUT).
+`EXPECT_WPA3=yes|no` overrides WPA3 capability; `auto` uses the WPA3 scan
+entry's `supported` field.
