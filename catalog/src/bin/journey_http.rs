@@ -284,7 +284,7 @@ fn main() {
         } else {
             http_steps(journey)
         };
-        if steps.is_empty() {
+        if steps.is_empty() && !(mutating_smoke && wifi_rf::is_rf_status_journey(journey_id)) {
             let reason = if smoke {
                 "no smoke-eligible GET steps with expected_status"
             } else if mutating_smoke {
@@ -350,59 +350,79 @@ fn main() {
             }
         }
 
-        for step in &steps {
-            let resolved_url = resolve_http_path(&catalog, &step.route)
-                .map(|path| join_url(base, &path))
-                .unwrap_or_else(|| "(unresolved)".to_string());
-            let result = if mutating_smoke
-                && journey_id == JourneyId::SwitchLocalBlueosVersion
-                && step.route.path == "/version/current"
-            {
-                run_core_image_switch(
-                    &catalog,
-                    base,
-                    SMOKE_CORE_SWITCH_JSON,
-                    SMOKE_CORE_SWITCH_TAG,
-                    allow_mutating,
-                )
-            } else {
-                run_http_step(&catalog, base, step, allow_mutating)
+        if mutating_smoke && wifi_rf::is_rf_status_journey(journey_id) {
+            let rf_result = match journey_id {
+                JourneyId::DetectWifiApLoss => wifi_rf::run_detect_ap_loss(base),
+                JourneyId::AutoconnectToSavedWifiNetwork => wifi_rf::run_autoconnect(base),
+                _ => unreachable!("is_rf_status_journey"),
             };
-            if let StepResult::Fail(msg) = &result {
-                eprintln!("{}", format_http_fail(journey_id, step, &resolved_url, msg));
+            match rf_result {
+                Ok(()) => {
+                    eprintln!("journey_http: wifi RF mid-journey ok for {journey_id}");
+                    totals.passed += 1;
+                    step_results.push(StepResult::Pass);
+                }
+                Err(err) => {
+                    eprintln!("FAIL {journey_id} wifi RF mid-journey — {err}");
+                    totals.failed += 1;
+                    step_results.push(StepResult::Fail(err));
+                }
             }
-            totals.record(&result);
-            step_results.push(result);
-            if mutating_smoke
-                && journey_id == JourneyId::ToggleHotspot
-                && step.route.path == "/hotspot"
-                && matches!(step_results.last(), Some(StepResult::Pass))
-            {
-                match wifi_rf::rf_verify_hotspot_join() {
-                    Ok(lease) => {
-                        eprintln!("journey_http: host joined BlueOS hotspot lease={lease}");
+        } else {
+            for step in &steps {
+                let resolved_url = resolve_http_path(&catalog, &step.route)
+                    .map(|path| join_url(base, &path))
+                    .unwrap_or_else(|| "(unresolved)".to_string());
+                let result = if mutating_smoke
+                    && journey_id == JourneyId::SwitchLocalBlueosVersion
+                    && step.route.path == "/version/current"
+                {
+                    run_core_image_switch(
+                        &catalog,
+                        base,
+                        SMOKE_CORE_SWITCH_JSON,
+                        SMOKE_CORE_SWITCH_TAG,
+                        allow_mutating,
+                    )
+                } else {
+                    run_http_step(&catalog, base, step, allow_mutating)
+                };
+                if let StepResult::Fail(msg) = &result {
+                    eprintln!("{}", format_http_fail(journey_id, step, &resolved_url, msg));
+                }
+                totals.record(&result);
+                step_results.push(result);
+                if mutating_smoke
+                    && journey_id == JourneyId::ToggleHotspot
+                    && step.route.path == "/hotspot"
+                    && matches!(step_results.last(), Some(StepResult::Pass))
+                {
+                    match wifi_rf::rf_verify_hotspot_join() {
+                        Ok(lease) => {
+                            eprintln!("journey_http: host joined BlueOS hotspot lease={lease}");
+                            totals.passed += 1;
+                            step_results.push(StepResult::Pass);
+                        }
+                        Err(err) => {
+                            eprintln!("FAIL {journey_id} hotspot RF join — {err}");
+                            totals.failed += 1;
+                            step_results.push(StepResult::Fail(err));
+                        }
+                    }
+                }
+                if mutating_smoke
+                    && journey_id == JourneyId::RebootOnboardComputer
+                    && matches!(step_results.last(), Some(StepResult::Pass))
+                {
+                    eprintln!("journey_http: waiting for BlueOS after reboot…");
+                    if let Err(err) = wait_for_blueos(base, 600) {
+                        eprintln!("FAIL {journey_id} recovery — {err}");
+                        totals.failed += 1;
+                        step_results.push(StepResult::Fail(err));
+                    } else {
                         totals.passed += 1;
                         step_results.push(StepResult::Pass);
                     }
-                    Err(err) => {
-                        eprintln!("FAIL {journey_id} hotspot RF join — {err}");
-                        totals.failed += 1;
-                        step_results.push(StepResult::Fail(err));
-                    }
-                }
-            }
-            if mutating_smoke
-                && journey_id == JourneyId::RebootOnboardComputer
-                && matches!(step_results.last(), Some(StepResult::Pass))
-            {
-                eprintln!("journey_http: waiting for BlueOS after reboot…");
-                if let Err(err) = wait_for_blueos(base, 600) {
-                    eprintln!("FAIL {journey_id} recovery — {err}");
-                    totals.failed += 1;
-                    step_results.push(StepResult::Fail(err));
-                } else {
-                    totals.passed += 1;
-                    step_results.push(StepResult::Pass);
                 }
             }
         }

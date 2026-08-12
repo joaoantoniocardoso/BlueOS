@@ -45,6 +45,12 @@ pub struct MutatingSmokeEntry {
 
 pub const MUTATING_SMOKE_ENTRIES: &[MutatingSmokeEntry] = &[
     MutatingSmokeEntry {
+        journey_id: JourneyId::AutoconnectToSavedWifiNetwork,
+        setup: SmokeRepair::HostWifiRf,
+        restore: SmokeRepair::HostWifiRf,
+        notes: "host AP up; connect+save; AP down→status idle; AP up→autoconnect without POST /connect",
+    },
+    MutatingSmokeEntry {
         journey_id: JourneyId::ChangeUiThemeColor,
         setup: SmokeRepair::None,
         restore: SmokeRepair::HttpRoundTrip,
@@ -169,6 +175,12 @@ pub const MUTATING_SMOKE_ENTRIES: &[MutatingSmokeEntry] = &[
         setup: SmokeRepair::HttpRoundTrip,
         restore: SmokeRepair::FilesystemReplace,
         notes: "setup seeds test MP4; DELETE /recorder/files/{filename} mutate; restore file from snapshot",
+    },
+    MutatingSmokeEntry {
+        journey_id: JourneyId::DetectWifiApLoss,
+        setup: SmokeRepair::HostWifiRf,
+        restore: SmokeRepair::HostWifiRf,
+        notes: "host AP up; connect; host-ap down; poll GET /status until SSID clears",
     },
     MutatingSmokeEntry {
         journey_id: JourneyId::DisableOnboardDhcpServer,
@@ -420,7 +432,10 @@ pub fn is_tier2_mutating_eligible(journey: &UserJourney) -> bool {
     if journey.id == JourneyId::ShutdownOnboardComputer {
         return false;
     }
-    derive_automatable(journey) == Automatable::Http && journey_has_mutating_http_route(journey)
+    if derive_automatable(journey) != Automatable::Http {
+        return false;
+    }
+    journey_has_mutating_http_route(journey) || crate::wifi_rf::is_rf_status_journey(journey.id)
 }
 
 pub fn is_tier2_mutating_hard_excluded(journey_id: JourneyId) -> bool {
@@ -491,7 +506,8 @@ mod tests {
                 .unwrap_or_else(|| panic!("missing journey {}", entry.journey_id));
             assert_eq!(derive_automatable(journey), Automatable::Http);
             assert!(
-                journey_has_mutating_http_route(journey),
+                journey_has_mutating_http_route(journey)
+                    || crate::wifi_rf::is_rf_status_journey(entry.journey_id),
                 "{} has no mutating HTTP route steps",
                 entry.journey_id
             );

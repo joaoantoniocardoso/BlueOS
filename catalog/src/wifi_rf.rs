@@ -133,7 +133,16 @@ pub fn host_station_wait_lease(timeout_sec: &str) -> Result<String, String> {
 }
 
 pub fn host_scan_has_ssid(ssid: &str) -> Result<(), String> {
-    run_script("host-station.sh", &["scan-has", ssid])
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(45);
+    let mut last = String::new();
+    while std::time::Instant::now() < deadline {
+        match run_script("host-station.sh", &["scan-has", ssid]) {
+            Ok(()) => return Ok(()),
+            Err(err) => last = err,
+        }
+        std::thread::sleep(std::time::Duration::from_secs(2));
+    }
+    Err(format!("SSID `{ssid}` not seen within 45s ({last})"))
 }
 
 /// Journeys that need the runner host to act as AP (BlueOS is the WiFi client).
@@ -199,6 +208,87 @@ pub fn rf_verify_hotspot_join() -> Result<String, String> {
     host_scan_has_ssid(SMOKE_HOTSPOT_SSID)?;
     host_station_up(SMOKE_HOTSPOT_SSID, SMOKE_HOTSPOT_PSK)?;
     host_station_wait_lease("45")
+}
+
+/// GET /wifi-manager/v1.0/status → associated SSID (None if idle / missing).
+pub fn dut_status_ssid(blueos_base: &str) -> Result<Option<String>, String> {
+    let base = blueos_base.trim_end_matches('/');
+    let url = format!("{base}/wifi-manager/v1.0/status");
+    let output = Command::new("curl")
+        .args(["-sS", "-m", "15", "-w", "\n%{http_code}", url.as_str()])
+        .output()
+        .map_err(|err| format!("curl status: {err}"))?;
+    let text = String::from_utf8_lossy(&output.stdout);
+    let (body, code) = text.rsplit_once('\n').unwrap_or((text.as_ref(), "000"));
+    if code.trim() != "200" {
+        return Err(format!("GET /status HTTP {code}: {body}"));
+    }
+    let value: serde_json::Value =
+        serde_json::from_str(body).map_err(|err| format!("parse /status: {err}"))?;
+    Ok(value
+        .get("ssid")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string))
+}
+
+fn wait_dut_ssid(
+    blueos_base: &str,
+    want: Option<&str>,
+    timeout_sec: u64,
+) -> Result<Option<String>, String> {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(timeout_sec);
+    let mut last = None;
+    while std::time::Instant::now() < deadline {
+        last = dut_status_ssid(blueos_base)?;
+        match (want, last.as_deref()) {
+            (None, None) => return Ok(None),
+            (Some(expected), Some(got)) if got == expected => return Ok(last),
+            (None, Some(_)) | (Some(_), None) | (Some(_), Some(_)) => {}
+        }
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
+    Err(format!(
+        "timeout waiting for status ssid={want:?} (last={last:?})"
+    ))
+}
+
+/// Setup already associated the DUT to [`SMOKE_CLIENT_SSID`]. Drop the host AP and
+/// wait until BlueOS notices (status SSID clears).
+pub fn run_detect_ap_loss(blueos_base: &str) -> Result<(), String> {
+    let associated = dut_status_ssid(blueos_base)?;
+    if associated.as_deref() != Some(SMOKE_CLIENT_SSID) {
+        return Err(format!(
+            "expected associated to {SMOKE_CLIENT_SSID} before AP drop, got {associated:?}"
+        ));
+    }
+    host_ap_down()?;
+    wait_dut_ssid(blueos_base, None, 90)?;
+    Ok(())
+}
+
+/// Setup already associated + saved. Drop AP, wait disconnect, restore AP, wait
+/// autoconnect without a new POST /connect.
+pub fn run_autoconnect(blueos_base: &str) -> Result<(), String> {
+    let associated = dut_status_ssid(blueos_base)?;
+    if associated.as_deref() != Some(SMOKE_CLIENT_SSID) {
+        return Err(format!(
+            "expected associated to {SMOKE_CLIENT_SSID} before AP drop, got {associated:?}"
+        ));
+    }
+    host_ap_down()?;
+    wait_dut_ssid(blueos_base, None, 90)?;
+    host_ap_up("wpa2")?;
+    wait_dut_ssid(blueos_base, Some(SMOKE_CLIENT_SSID), 120)?;
+    Ok(())
+}
+
+pub fn is_rf_status_journey(journey_id: JourneyId) -> bool {
+    matches!(
+        journey_id,
+        JourneyId::DetectWifiApLoss | JourneyId::AutoconnectToSavedWifiNetwork
+    )
 }
 
 #[cfg(test)]

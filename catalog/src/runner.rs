@@ -137,7 +137,7 @@ pub fn tier1_get_coverage(catalog: &Catalog) -> Tier1GetCoverage {
 
 pub const SMOKE_DEFAULT_FIXTURES: &str = "internet,pirate,advanced";
 
-pub const MUTATING_SMOKE_DEFAULT_FIXTURES: &str = "internet,pirate,advanced,confirm-dangerous,board:any,wifi-radio,hotspot,nmea-socket,serial-bridge,dhcp-active,extension-installed,recording,local-version,wifi-saved";
+pub const MUTATING_SMOKE_DEFAULT_FIXTURES: &str = "internet,pirate,advanced,confirm-dangerous,board:any,wifi-radio,hotspot,nmea-socket,serial-bridge,dhcp-active,extension-installed,recording,local-version,wifi-saved,wifi-connected";
 
 pub fn http_method_label(method: &HttpMethod) -> &'static str {
     match method {
@@ -624,7 +624,10 @@ pub fn mutating_smoke_setup_calls(journey_id: JourneyId) -> &'static [SmokeHttpC
             query: Some(SMOKE_RECORDING_SEED_QUERY),
             form_file: None,
         }],
-        JourneyId::ForgetSavedWifiNetwork | JourneyId::ForceWifiNetworkPassword => &[
+        JourneyId::ForgetSavedWifiNetwork
+        | JourneyId::ForceWifiNetworkPassword
+        | JourneyId::DetectWifiApLoss
+        | JourneyId::AutoconnectToSavedWifiNetwork => &[
             SmokeHttpCall {
                 route: RouteRef {
                     service: ServiceId::Wifi,
@@ -1108,7 +1111,8 @@ pub fn mutating_smoke_teardown_calls(journey_id: JourneyId) -> &'static [SmokeHt
         JourneyId::ConnectToWifiNetwork
         | JourneyId::ConnectToHiddenWifiNetwork
         | JourneyId::ForceWifiNetworkPassword
-        | JourneyId::ReconnectToSavedWifiNetwork => &[
+        | JourneyId::ReconnectToSavedWifiNetwork
+        | JourneyId::AutoconnectToSavedWifiNetwork => &[
             SmokeHttpCall {
                 route: RouteRef {
                     service: ServiceId::Wifi,
@@ -1134,8 +1138,8 @@ pub fn mutating_smoke_teardown_calls(journey_id: JourneyId) -> &'static [SmokeHt
                 form_file: None,
             },
         ],
-        // Wrong-password never associates; GET /disconnect is 500 when idle.
-        JourneyId::RejectInvalidWifiCredentials => &[SmokeHttpCall {
+        // Wrong-password never associates; AP-loss leaves idle — GET /disconnect is 500.
+        JourneyId::RejectInvalidWifiCredentials | JourneyId::DetectWifiApLoss => &[SmokeHttpCall {
             route: RouteRef {
                 service: ServiceId::Wifi,
                 method: Post,
@@ -1147,18 +1151,8 @@ pub fn mutating_smoke_teardown_calls(journey_id: JourneyId) -> &'static [SmokeHt
             query: Some("ssid=BlueOS-Hotspot"),
             form_file: None,
         }],
-        JourneyId::ForgetSavedWifiNetwork => &[SmokeHttpCall {
-            route: RouteRef {
-                service: ServiceId::Wifi,
-                method: Get,
-                path: "/disconnect",
-                version: Some("v1.0"),
-            },
-            expected_status: 200,
-            body: None,
-            query: None,
-            form_file: None,
-        }],
+        // POST /remove already drops the association; GET /disconnect is 500 when idle.
+        JourneyId::ForgetSavedWifiNetwork => &[],
         JourneyId::ToggleSmartHotspot => &[SmokeHttpCall {
             route: RouteRef {
                 service: ServiceId::Wifi,
@@ -1555,7 +1549,14 @@ pub fn run_smoke_http_call(
         query: call.query,
         form_file: call.form_file.clone(),
     };
-    run_http_step(catalog, base, &step, allow_mutating)
+    let result = run_http_step(catalog, base, &step, allow_mutating);
+    // wifi-manager returns 500 when already idle; treat as success for setup/teardown.
+    if call.route.path == "/disconnect"
+        && matches!(&result, StepResult::Fail(msg) if msg.contains("got 500"))
+    {
+        return StepResult::Pass;
+    }
+    result
 }
 
 pub fn run_http_step(
