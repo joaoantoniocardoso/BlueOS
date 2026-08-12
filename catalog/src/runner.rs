@@ -1108,8 +1108,7 @@ pub fn mutating_smoke_teardown_calls(journey_id: JourneyId) -> &'static [SmokeHt
         JourneyId::ConnectToWifiNetwork
         | JourneyId::ConnectToHiddenWifiNetwork
         | JourneyId::ForceWifiNetworkPassword
-        | JourneyId::ReconnectToSavedWifiNetwork
-        | JourneyId::RejectInvalidWifiCredentials => &[
+        | JourneyId::ReconnectToSavedWifiNetwork => &[
             SmokeHttpCall {
                 route: RouteRef {
                     service: ServiceId::Wifi,
@@ -1135,6 +1134,19 @@ pub fn mutating_smoke_teardown_calls(journey_id: JourneyId) -> &'static [SmokeHt
                 form_file: None,
             },
         ],
+        // Wrong-password never associates; GET /disconnect is 500 when idle.
+        JourneyId::RejectInvalidWifiCredentials => &[SmokeHttpCall {
+            route: RouteRef {
+                service: ServiceId::Wifi,
+                method: Post,
+                path: "/remove",
+                version: Some("v1.0"),
+            },
+            expected_status: 200,
+            body: None,
+            query: Some("ssid=BlueOS-Hotspot"),
+            form_file: None,
+        }],
         JourneyId::ForgetSavedWifiNetwork => &[SmokeHttpCall {
             route: RouteRef {
                 service: ServiceId::Wifi,
