@@ -1,4 +1,4 @@
-//! Journey-first grouping: cluster the 94 user journeys through several independent
+//! Journey-first grouping: cluster the 100 user journeys through several independent
 //! lenses and reconcile them by cross-lens consensus. This is the journey analogue of
 //! the service split in [`crate::cluster`] and the feature split in [`crate::feature`].
 //! Output is an M4 input, not an architectural decision.

@@ -4,8 +4,11 @@ use crate::journey::{
     UserJourney, Visibility,
 };
 use crate::journey_presence::{
-    PRESENCE_CONFIGURE_HOTSPOT_CREDENTIALS, PRESENCE_CONNECT_TO_WIFI_NETWORK,
-    PRESENCE_DISCONNECT_FROM_WIFI_NETWORK, PRESENCE_FORGET_SAVED_WIFI_NETWORK,
+    PRESENCE_AUTOCONNECT_TO_SAVED_WIFI_NETWORK, PRESENCE_CONFIGURE_HOTSPOT_CREDENTIALS,
+    PRESENCE_CONNECT_TO_HIDDEN_WIFI_NETWORK, PRESENCE_CONNECT_TO_WIFI_NETWORK,
+    PRESENCE_DETECT_WIFI_AP_LOSS, PRESENCE_DISCONNECT_FROM_WIFI_NETWORK,
+    PRESENCE_FORCE_WIFI_NETWORK_PASSWORD, PRESENCE_FORGET_SAVED_WIFI_NETWORK,
+    PRESENCE_RECONNECT_TO_SAVED_WIFI_NETWORK, PRESENCE_REJECT_INVALID_WIFI_CREDENTIALS,
     PRESENCE_TOGGLE_HOTSPOT, PRESENCE_TOGGLE_SMART_HOTSPOT,
 };
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
@@ -21,8 +24,14 @@ const WIFI_TRAY: &str = "core/frontend/src/components/wifi/WifiTrayMenu.vue";
 
 pub const JOURNEYS: &[UserJourney] = &[
     CONNECT_TO_WIFI_NETWORK,
+    CONNECT_TO_HIDDEN_WIFI_NETWORK,
     DISCONNECT_FROM_WIFI_NETWORK,
     FORGET_SAVED_WIFI_NETWORK,
+    FORCE_WIFI_NETWORK_PASSWORD,
+    RECONNECT_TO_SAVED_WIFI_NETWORK,
+    REJECT_INVALID_WIFI_CREDENTIALS,
+    DETECT_WIFI_AP_LOSS,
+    AUTOCONNECT_TO_SAVED_WIFI_NETWORK,
     TOGGLE_HOTSPOT,
     CONFIGURE_HOTSPOT_CREDENTIALS,
     TOGGLE_SMART_HOTSPOT,
@@ -73,6 +82,42 @@ const CONNECT_TO_WIFI_NETWORK: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_CONNECT_TO_WIFI_NETWORK,
+    chains_from: None,
+};
+
+const CONNECT_TO_HIDDEN_WIFI_NETWORK: UserJourney = UserJourney {
+    id: JourneyId::ConnectToHiddenWifiNetwork,
+    summary: Grounded::known(
+        "Connect BlueOS to a hidden wifi network by entering its SSID and password",
+        Provenance::doc("content/usage/overview/index.md", 117),
+    ),
+    visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 113)),
+    services: WIFI_SERVICES,
+    capability_refs: GroundedSet::known(&[cap(
+        CapabilityId::ConnectWifiNetwork,
+        "connection dialog posts /connect with hidden=true for an operator-entered SSID",
+    )]),
+    preconditions: GroundedSet::known(&[]),
+    steps: GroundedSet::known(&[
+        operator_step(
+            "Open the wifi tray menu from the header bar",
+            None,
+            Provenance::source(WIFI_TRAY, 12),
+            None,
+        ),
+        operator_step(
+            "Enter the hidden network SSID and password, then click Connect",
+            Some(sourced_route(
+                HttpMethod::Post,
+                "/connect",
+                Some("v1.0"),
+                82,
+            )),
+            Provenance::source(CONNECTION_DIALOG, 211),
+            Some(source_outcome(200, 84)),
+        ),
+    ]),
+    availability: PRESENCE_CONNECT_TO_HIDDEN_WIFI_NETWORK,
     chains_from: None,
 };
 
@@ -159,6 +204,178 @@ const FORGET_SAVED_WIFI_NETWORK: UserJourney = UserJourney {
     ]),
     availability: PRESENCE_FORGET_SAVED_WIFI_NETWORK,
     chains_from: None,
+};
+
+const FORCE_WIFI_NETWORK_PASSWORD: UserJourney = UserJourney {
+    id: JourneyId::ForceWifiNetworkPassword,
+    summary: Grounded::known(
+        "Force a new password when reconnecting to a saved wifi network",
+        Provenance::doc(ADV, 123),
+    ),
+    visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 113)),
+    services: WIFI_SERVICES,
+    capability_refs: GroundedSet::known(&[cap(
+        CapabilityId::ConnectWifiNetwork,
+        "connection dialog Force new password re-submits credentials via POST /connect",
+    )]),
+    preconditions: GroundedSet::known(&[GroundedItem::new(
+        Precondition::Data(DataRequirement::WifiNetworkSaved),
+        Provenance::source(CONNECTION_DIALOG, 76),
+    )]),
+    steps: GroundedSet::known(&[
+        operator_step(
+            "Open the wifi tray menu from the header bar",
+            None,
+            Provenance::source(WIFI_TRAY, 12),
+            None,
+        ),
+        operator_step(
+            "Select the saved network and click Force new password",
+            None,
+            Provenance::source(CONNECTION_DIALOG, 62),
+            None,
+        ),
+        operator_step(
+            "Enter the new password and click Connect",
+            Some(sourced_route(
+                HttpMethod::Post,
+                "/connect",
+                Some("v1.0"),
+                82,
+            )),
+            Provenance::source(CONNECTION_DIALOG, 199),
+            Some(source_outcome(200, 84)),
+        ),
+    ]),
+    availability: PRESENCE_FORCE_WIFI_NETWORK_PASSWORD,
+    chains_from: None,
+};
+
+const RECONNECT_TO_SAVED_WIFI_NETWORK: UserJourney = UserJourney {
+    id: JourneyId::ReconnectToSavedWifiNetwork,
+    summary: Grounded::known(
+        "Reconnect to a saved wifi network using the stored password",
+        Provenance::doc(ADV, 123),
+    ),
+    visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 113)),
+    services: WIFI_SERVICES,
+    capability_refs: GroundedSet::known(&[cap(
+        CapabilityId::ConnectWifiNetwork,
+        "connection dialog connects to a saved SSID without re-entering the password",
+    )]),
+    preconditions: GroundedSet::known(&[GroundedItem::new(
+        Precondition::Data(DataRequirement::WifiNetworkSaved),
+        Provenance::source(CONNECTION_DIALOG, 76),
+    )]),
+    steps: GroundedSet::known(&[
+        operator_step(
+            "Open the wifi tray menu from the header bar",
+            None,
+            Provenance::source(WIFI_TRAY, 12),
+            None,
+        ),
+        operator_step(
+            "Select the saved network and click Connect without entering a password",
+            Some(sourced_route(
+                HttpMethod::Post,
+                "/connect",
+                Some("v1.0"),
+                82,
+            )),
+            Provenance::doc(ADV, 123),
+            Some(source_outcome(200, 84)),
+        ),
+    ]),
+    availability: PRESENCE_RECONNECT_TO_SAVED_WIFI_NETWORK,
+    chains_from: None,
+};
+
+const REJECT_INVALID_WIFI_CREDENTIALS: UserJourney = UserJourney {
+    id: JourneyId::RejectInvalidWifiCredentials,
+    summary: Grounded::known(
+        "Attempt to join a wifi network with the wrong password and see the connection fail",
+        Provenance::source(CONNECTION_DIALOG, 222),
+    ),
+    visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 113)),
+    services: WIFI_SERVICES,
+    capability_refs: GroundedSet::known(&[cap(
+        CapabilityId::ConnectWifiNetwork,
+        "failed POST /connect surfaces a check-password error to the operator",
+    )]),
+    preconditions: GroundedSet::known(&[]),
+    steps: GroundedSet::known(&[
+        operator_step(
+            "Open the wifi tray menu from the header bar",
+            None,
+            Provenance::source(WIFI_TRAY, 12),
+            None,
+        ),
+        operator_step(
+            "Select a network, enter an incorrect password, and click Connect",
+            Some(sourced_route(
+                HttpMethod::Post,
+                "/connect",
+                Some("v1.0"),
+                82,
+            )),
+            Provenance::source(CONNECTION_DIALOG, 222),
+            Some(source_outcome(500, 84)),
+        ),
+    ]),
+    availability: PRESENCE_REJECT_INVALID_WIFI_CREDENTIALS,
+    chains_from: None,
+};
+
+const DETECT_WIFI_AP_LOSS: UserJourney = UserJourney {
+    id: JourneyId::DetectWifiApLoss,
+    summary: Grounded::known(
+        "Notice when the associated wifi access point disappears while BlueOS is connected",
+        Provenance::source(WIFI_MANAGER, 47),
+    ),
+    visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 113)),
+    services: WIFI_SERVICES,
+    capability_refs: GroundedSet::known(&[cap(
+        CapabilityId::GetWifiStatus,
+        "wifi updater poll of GET /status reflects loss of the associated SSID",
+    )]),
+    preconditions: GroundedSet::known(&[GroundedItem::new(
+        Precondition::Data(DataRequirement::WifiCurrentlyConnected),
+        Provenance::source(WIFI_MANAGER, 47),
+    )]),
+    steps: GroundedSet::known(&[operator_step(
+        "While connected, observe the wifi tray when the access point goes away",
+        Some(sourced_route(HttpMethod::Get, "/status", Some("v1.0"), 53)),
+        Provenance::source("core/frontend/src/components/wifi/WifiUpdater.vue", 1),
+        Some(source_outcome(200, 53)),
+    )]),
+    availability: PRESENCE_DETECT_WIFI_AP_LOSS,
+    chains_from: Some(JourneyId::ConnectToWifiNetwork),
+};
+
+const AUTOCONNECT_TO_SAVED_WIFI_NETWORK: UserJourney = UserJourney {
+    id: JourneyId::AutoconnectToSavedWifiNetwork,
+    summary: Grounded::known(
+        "Automatically reconnect to a saved wifi network when its access point returns",
+        Provenance::doc(ADV, 123),
+    ),
+    visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 113)),
+    services: WIFI_SERVICES,
+    capability_refs: GroundedSet::known(&[cap(
+        CapabilityId::ConnectWifiNetwork,
+        "wpa_supplicant autoconnect rejoins the saved SSID without a new POST /connect",
+    )]),
+    preconditions: GroundedSet::known(&[GroundedItem::new(
+        Precondition::Data(DataRequirement::WifiNetworkSaved),
+        Provenance::source(CONNECTION_DIALOG, 76),
+    )]),
+    steps: GroundedSet::known(&[operator_step(
+        "After the known access point returns, wait for BlueOS to reassociate",
+        Some(sourced_route(HttpMethod::Get, "/status", Some("v1.0"), 53)),
+        Provenance::doc(ADV, 123),
+        Some(source_outcome(200, 53)),
+    )]),
+    availability: PRESENCE_AUTOCONNECT_TO_SAVED_WIFI_NETWORK,
+    chains_from: Some(JourneyId::DetectWifiApLoss),
 };
 
 const TOGGLE_HOTSPOT: UserJourney = UserJourney {

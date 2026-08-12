@@ -262,7 +262,11 @@ pub fn mutating_smoke_query(journey_id: JourneyId, route: &RouteRef) -> Option<&
             Some("interface_name=eth0&ipv4_gateway=192.168.0.1&is_backup_server=false")
         }
         (JourneyId::ForgetSavedWifiNetwork, "/remove", Post) => Some("ssid=BlueOS-Hotspot"),
-        (JourneyId::ConnectToWifiNetwork, "/connect", Post) => Some("hidden=false"),
+        (JourneyId::ConnectToWifiNetwork, "/connect", Post)
+        | (JourneyId::ForceWifiNetworkPassword, "/connect", Post)
+        | (JourneyId::ReconnectToSavedWifiNetwork, "/connect", Post)
+        | (JourneyId::RejectInvalidWifiCredentials, "/connect", Post) => Some("hidden=false"),
+        (JourneyId::ConnectToHiddenWifiNetwork, "/connect", Post) => Some("hidden=true"),
         (JourneyId::ToggleHotspot, "/hotspot", Post) => Some("enable=true"),
         (JourneyId::ToggleSmartHotspot, "/smart_hotspot", Post) => Some("enable=false"),
         (JourneyId::RebootOnboardComputer, "/shutdown", Post) => {
@@ -318,6 +322,16 @@ pub fn mutating_smoke_body(journey_id: JourneyId, route: &RouteRef) -> Option<&'
         ),
         (JourneyId::ConnectToWifiNetwork, "/connect", Post) => {
             Some(crate::wifi_rf::CONNECT_SMOKE_BODY)
+        }
+        (JourneyId::ConnectToHiddenWifiNetwork, "/connect", Post)
+        | (JourneyId::ForceWifiNetworkPassword, "/connect", Post) => {
+            Some(crate::wifi_rf::CONNECT_SMOKE_BODY)
+        }
+        (JourneyId::ReconnectToSavedWifiNetwork, "/connect", Post) => {
+            Some(crate::wifi_rf::EMPTY_PASSWORD_SMOKE_BODY)
+        }
+        (JourneyId::RejectInvalidWifiCredentials, "/connect", Post) => {
+            Some(crate::wifi_rf::WRONG_PASSWORD_SMOKE_BODY)
         }
         (JourneyId::ConfigureHotspotCredentials, "/hotspot_credentials", Post) => {
             Some(crate::wifi_rf::HOTSPOT_CREDENTIALS_SMOKE_BODY)
@@ -385,7 +399,11 @@ pub fn mutating_smoke_form_file(journey_id: JourneyId, route: &RouteRef) -> Opti
 pub fn mutating_smoke_expected_status(journey_id: JourneyId, route: &RouteRef) -> Option<u16> {
     use HttpMethod::*;
     match (journey_id, route.path, &route.method) {
-        (JourneyId::ConnectToWifiNetwork, "/connect", Post) => Some(200),
+        (JourneyId::ConnectToWifiNetwork, "/connect", Post)
+        | (JourneyId::ConnectToHiddenWifiNetwork, "/connect", Post)
+        | (JourneyId::ForceWifiNetworkPassword, "/connect", Post)
+        | (JourneyId::ReconnectToSavedWifiNetwork, "/connect", Post) => Some(200),
+        (JourneyId::RejectInvalidWifiCredentials, "/connect", Post) => Some(500),
         _ => None,
     }
 }
@@ -606,7 +624,7 @@ pub fn mutating_smoke_setup_calls(journey_id: JourneyId) -> &'static [SmokeHttpC
             query: Some(SMOKE_RECORDING_SEED_QUERY),
             form_file: None,
         }],
-        JourneyId::ForgetSavedWifiNetwork => &[
+        JourneyId::ForgetSavedWifiNetwork | JourneyId::ForceWifiNetworkPassword => &[
             SmokeHttpCall {
                 route: RouteRef {
                     service: ServiceId::Wifi,
@@ -632,7 +650,47 @@ pub fn mutating_smoke_setup_calls(journey_id: JourneyId) -> &'static [SmokeHttpC
                 form_file: None,
             },
         ],
-        JourneyId::ConnectToWifiNetwork => &[SmokeHttpCall {
+        JourneyId::ReconnectToSavedWifiNetwork => &[
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::Wifi,
+                    method: Post,
+                    path: "/hotspot",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: None,
+                query: Some("enable=false"),
+                form_file: None,
+            },
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::Wifi,
+                    method: Post,
+                    path: "/connect",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: Some(crate::wifi_rf::CONNECT_SMOKE_BODY),
+                query: Some("hidden=false"),
+                form_file: None,
+            },
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::Wifi,
+                    method: Get,
+                    path: "/disconnect",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: None,
+                query: None,
+                form_file: None,
+            },
+        ],
+        JourneyId::ConnectToWifiNetwork
+        | JourneyId::ConnectToHiddenWifiNetwork
+        | JourneyId::RejectInvalidWifiCredentials => &[SmokeHttpCall {
             route: RouteRef {
                 service: ServiceId::Wifi,
                 method: Post,
@@ -1047,7 +1105,11 @@ pub fn mutating_smoke_teardown_calls(journey_id: JourneyId) -> &'static [SmokeHt
             query: Some("enable=false"),
             form_file: None,
         }],
-        JourneyId::ConnectToWifiNetwork => &[
+        JourneyId::ConnectToWifiNetwork
+        | JourneyId::ConnectToHiddenWifiNetwork
+        | JourneyId::ForceWifiNetworkPassword
+        | JourneyId::ReconnectToSavedWifiNetwork
+        | JourneyId::RejectInvalidWifiCredentials => &[
             SmokeHttpCall {
                 route: RouteRef {
                     service: ServiceId::Wifi,

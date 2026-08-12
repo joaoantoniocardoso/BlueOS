@@ -609,12 +609,36 @@ pub const SERVICE_DEFINITION: ServiceDefinition =
                 "wifi tray scans networks and POST /connect joins the selected SSID",
             ),
             Rationaled::new(
+                JourneyId::ConnectToHiddenWifiNetwork,
+                "connection dialog POST /connect?hidden=true joins an operator-entered SSID",
+            ),
+            Rationaled::new(
                 JourneyId::DisconnectFromWifiNetwork,
                 "wifi tray disconnects the active wlan association via GET /disconnect",
             ),
             Rationaled::new(
                 JourneyId::ForgetSavedWifiNetwork,
                 "connection dialog removes a stored SSID via POST /remove",
+            ),
+            Rationaled::new(
+                JourneyId::ForceWifiNetworkPassword,
+                "connection dialog Force new password re-submits credentials via POST /connect",
+            ),
+            Rationaled::new(
+                JourneyId::ReconnectToSavedWifiNetwork,
+                "connection dialog reconnects to a saved SSID without re-entering the password",
+            ),
+            Rationaled::new(
+                JourneyId::RejectInvalidWifiCredentials,
+                "failed POST /connect with wrong password surfaces a connection error",
+            ),
+            Rationaled::new(
+                JourneyId::DetectWifiApLoss,
+                "GET /status reflects loss of the associated SSID when the AP disappears",
+            ),
+            Rationaled::new(
+                JourneyId::AutoconnectToSavedWifiNetwork,
+                "wpa_supplicant autoconnect rejoins a saved SSID when the AP returns",
             ),
             Rationaled::new(
                 JourneyId::ToggleHotspot,

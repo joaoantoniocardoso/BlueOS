@@ -10,7 +10,7 @@
 
 use crate::version::FeatureAvailability;
 
-// 28 shared tag-list constants, 94 journeys
+// 28 shared tag-list constants, 100 journeys
 
 const TAGS_CB9047B71D: &[&str] = &[
     "1.0.0.beta1",
@@ -3106,6 +3106,19 @@ pub const PRESENCE_CONNECT_TO_WIFI_NETWORK: FeatureAvailability = FeatureAvailab
     present_on_1_4_dev: true,
 };
 
+/// Same intro tip as ConnectToWifiNetwork (client wifi manager landing).
+pub const PRESENCE_CONNECT_TO_HIDDEN_WIFI_NETWORK: FeatureAvailability =
+    PRESENCE_CONNECT_TO_WIFI_NETWORK;
+pub const PRESENCE_FORCE_WIFI_NETWORK_PASSWORD: FeatureAvailability =
+    PRESENCE_CONNECT_TO_WIFI_NETWORK;
+pub const PRESENCE_RECONNECT_TO_SAVED_WIFI_NETWORK: FeatureAvailability =
+    PRESENCE_CONNECT_TO_WIFI_NETWORK;
+pub const PRESENCE_REJECT_INVALID_WIFI_CREDENTIALS: FeatureAvailability =
+    PRESENCE_CONNECT_TO_WIFI_NETWORK;
+pub const PRESENCE_DETECT_WIFI_AP_LOSS: FeatureAvailability = PRESENCE_CONNECT_TO_WIFI_NETWORK;
+pub const PRESENCE_AUTOCONNECT_TO_SAVED_WIFI_NETWORK: FeatureAvailability =
+    PRESENCE_CONNECT_TO_WIFI_NETWORK;
+
 /// CreateSerialToUdpBridge: intro `c0cdf06cefdb` via path:core/frontend/src/components/bridges/BridgeCreationDialog.vue; 173 tags; master=true; 1.4-dev=true
 pub const PRESENCE_CREATE_SERIAL_TO_UDP_BRIDGE: FeatureAvailability = FeatureAvailability {
     intro_commit: "c0cdf06cefdb1767a4f234d20b7461ec4d135273",
@@ -3678,6 +3691,10 @@ pub const ALL_JOURNEY_PRESENCE: &[(&str, FeatureAvailability)] = &[
     ("ApplyParameterFile", PRESENCE_APPLY_PARAMETER_FILE),
     ("AssignStaticIpAddress", PRESENCE_ASSIGN_STATIC_IP_ADDRESS),
     (
+        "AutoconnectToSavedWifiNetwork",
+        PRESENCE_AUTOCONNECT_TO_SAVED_WIFI_NETWORK,
+    ),
+    (
         "BrowseAvailableWebServices",
         PRESENCE_BROWSE_AVAILABLE_WEB_SERVICES,
     ),
@@ -3711,6 +3728,10 @@ pub const ALL_JOURNEY_PRESENCE: &[(&str, FeatureAvailability)] = &[
     ),
     ("ConnectToWifiNetwork", PRESENCE_CONNECT_TO_WIFI_NETWORK),
     (
+        "ConnectToHiddenWifiNetwork",
+        PRESENCE_CONNECT_TO_HIDDEN_WIFI_NETWORK,
+    ),
+    (
         "CreateSerialToUdpBridge",
         PRESENCE_CREATE_SERIAL_TO_UDP_BRIDGE,
     ),
@@ -3721,6 +3742,7 @@ pub const ALL_JOURNEY_PRESENCE: &[(&str, FeatureAvailability)] = &[
     ),
     ("DeleteVideoRecording", PRESENCE_DELETE_VIDEO_RECORDING),
     ("DetectMotorDirections", PRESENCE_DETECT_MOTOR_DIRECTIONS),
+    ("DetectWifiApLoss", PRESENCE_DETECT_WIFI_AP_LOSS),
     (
         "DisableOnboardDhcpServer",
         PRESENCE_DISABLE_ONBOARD_DHCP_SERVER,
@@ -3752,6 +3774,10 @@ pub const ALL_JOURNEY_PRESENCE: &[(&str, FeatureAvailability)] = &[
         PRESENCE_ENABLE_PING1D_RANGEFINDER_MAVLINK,
     ),
     ("ForgetSavedWifiNetwork", PRESENCE_FORGET_SAVED_WIFI_NETWORK),
+    (
+        "ForceWifiNetworkPassword",
+        PRESENCE_FORCE_WIFI_NETWORK_PASSWORD,
+    ),
     ("FreeDiskSpace", PRESENCE_FREE_DISK_SPACE),
     ("InspectDiskUsage", PRESENCE_INSPECT_DISK_USAGE),
     (
@@ -3781,6 +3807,14 @@ pub const ALL_JOURNEY_PRESENCE: &[(&str, FeatureAvailability)] = &[
         PRESENCE_PULL_BLUEOS_VERSION_WITHOUT_SWITCH,
     ),
     ("RebootOnboardComputer", PRESENCE_REBOOT_ONBOARD_COMPUTER),
+    (
+        "ReconnectToSavedWifiNetwork",
+        PRESENCE_RECONNECT_TO_SAVED_WIFI_NETWORK,
+    ),
+    (
+        "RejectInvalidWifiCredentials",
+        PRESENCE_REJECT_INVALID_WIFI_CREDENTIALS,
+    ),
     ("RemoveCameraStream", PRESENCE_REMOVE_CAMERA_STREAM),
     (
         "RemoveConfiguredNmeaSocket",

@@ -129,6 +129,30 @@ pub const MUTATING_SMOKE_ENTRIES: &[MutatingSmokeEntry] = &[
         notes: "Runner host-ap.sh up wpa2; POST /connect to BlueOS-Hotspot; disconnect+remove; host-ap down",
     },
     MutatingSmokeEntry {
+        journey_id: JourneyId::ConnectToHiddenWifiNetwork,
+        setup: SmokeRepair::HostWifiRf,
+        restore: SmokeRepair::HostWifiRf,
+        notes: "host AP up; POST /connect?hidden=true; disconnect+remove; host-ap down",
+    },
+    MutatingSmokeEntry {
+        journey_id: JourneyId::ForceWifiNetworkPassword,
+        setup: SmokeRepair::HostWifiRf,
+        restore: SmokeRepair::HostWifiRf,
+        notes: "host AP up; connect+save; POST /connect with new password; disconnect+remove; host-ap down",
+    },
+    MutatingSmokeEntry {
+        journey_id: JourneyId::ReconnectToSavedWifiNetwork,
+        setup: SmokeRepair::HostWifiRf,
+        restore: SmokeRepair::HostWifiRf,
+        notes: "host AP up; connect+save; disconnect; POST /connect empty password; cleanup; host-ap down",
+    },
+    MutatingSmokeEntry {
+        journey_id: JourneyId::RejectInvalidWifiCredentials,
+        setup: SmokeRepair::HostWifiRf,
+        restore: SmokeRepair::HostWifiRf,
+        notes: "host AP up; POST /connect wrong password expects failure; host-ap down",
+    },
+    MutatingSmokeEntry {
         journey_id: JourneyId::Delete3dModelOverride,
         setup: SmokeRepair::HttpRoundTrip,
         restore: SmokeRepair::HttpRoundTrip,

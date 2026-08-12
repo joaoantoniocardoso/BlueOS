@@ -22,17 +22,17 @@ Integrate `../BlueOS-docker/support/wifi-e2e` **coverage** into the catalog harn
 
 | e2e scenario | Catalog journey | Action |
 |---|---|---|
-| Connect (right password) | `ConnectToWifiNetwork` | Undefer; host AP setup |
-| Disconnect | `DisconnectFromWifiNetwork` | Host AP + associate first |
-| Forget | `ForgetSavedWifiNetwork` | Host AP + save then remove |
-| Wrong password | — | **Add** `RejectInvalidWifiCredentials` |
-| Reconnect saved (empty PSK) | — | **Add** `ReconnectToSavedWifiNetwork` |
-| Force new password | — | **Add** `ForceWifiNetworkPassword` (docs ADV:123) |
-| Hidden connect | — | **Add** `ConnectToHiddenWifiNetwork` |
-| AP drop detected | — | **Add** `DetectWifiApLoss` |
-| AP restore autoconnect | — | **Add** `AutoconnectToSavedWifiNetwork` |
-| Toggle hotspot + RF join | `ToggleHotspot` | Host station join after enable |
-| Credentials / smart | `ConfigureHotspotCredentials` / `ToggleSmartHotspot` | Keep HTTP round-trip |
+| Connect (right password) | `ConnectToWifiNetwork` | Done — host AP RF |
+| Disconnect | `DisconnectFromWifiNetwork` | Exists |
+| Forget | `ForgetSavedWifiNetwork` | Done — host AP RF |
+| Wrong password | `RejectInvalidWifiCredentials` | Done |
+| Reconnect saved (empty PSK) | `ReconnectToSavedWifiNetwork` | Done |
+| Force new password | `ForceWifiNetworkPassword` | Done |
+| Hidden connect | `ConnectToHiddenWifiNetwork` | Done |
+| AP drop detected | `DetectWifiApLoss` | Done (GET /status; RF mid-journey TBD) |
+| AP restore autoconnect | `AutoconnectToSavedWifiNetwork` | Done (GET /status; RF mid-journey TBD) |
+| Toggle hotspot + RF join | `ToggleHotspot` | Done — host station join |
+| Credentials / smart | `ConfigureHotspotCredentials` / `ToggleSmartHotspot` | HTTP round-trip |
 
 L3 checks (ping/route/file xfer over wlan IP) become post-connect assertions on RF-backed journeys, not separate JourneyIds.
 

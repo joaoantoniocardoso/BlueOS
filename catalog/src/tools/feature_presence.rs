@@ -217,6 +217,30 @@ pub(crate) const OVERRIDES: &[(&str, Override)] = &[
         Override::Pickaxe("/connect", "core/frontend/src/components/wifi/ConnectionDialog.vue"),
     ),
     (
+        "ConnectToHiddenWifiNetwork",
+        Override::Pickaxe("/connect", "core/frontend/src/components/wifi/ConnectionDialog.vue"),
+    ),
+    (
+        "ForceWifiNetworkPassword",
+        Override::Pickaxe("/connect", "core/frontend/src/components/wifi/ConnectionDialog.vue"),
+    ),
+    (
+        "ReconnectToSavedWifiNetwork",
+        Override::Pickaxe("/connect", "core/frontend/src/components/wifi/ConnectionDialog.vue"),
+    ),
+    (
+        "RejectInvalidWifiCredentials",
+        Override::Pickaxe("/connect", "core/frontend/src/components/wifi/ConnectionDialog.vue"),
+    ),
+    (
+        "DetectWifiApLoss",
+        Override::Path("core/frontend/src/components/wifi/WifiUpdater.vue"),
+    ),
+    (
+        "AutoconnectToSavedWifiNetwork",
+        Override::Pickaxe("/connect", "core/frontend/src/components/wifi/ConnectionDialog.vue"),
+    ),
+    (
         "ConfigureHotspotCredentials",
         Override::Pickaxe("hotspot_credentials", "core/frontend/src/components/wifi/WifiSettingsDialog.vue"),
     ),

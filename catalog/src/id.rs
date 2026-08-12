@@ -779,6 +779,8 @@ pub enum JourneyId {
     ApplyParameterFile,
     #[serde(rename = "assign_static_ip_address")]
     AssignStaticIpAddress,
+    #[serde(rename = "autoconnect_to_saved_wifi_network")]
+    AutoconnectToSavedWifiNetwork,
     #[serde(rename = "browse_available_web_services")]
     BrowseAvailableWebServices,
     #[serde(rename = "browse_extension_store")]
@@ -815,6 +817,8 @@ pub enum JourneyId {
     ConnectPingViewerToSonar,
     #[serde(rename = "connect_to_wifi_network")]
     ConnectToWifiNetwork,
+    #[serde(rename = "connect_to_hidden_wifi_network")]
+    ConnectToHiddenWifiNetwork,
     #[serde(rename = "create_serial_to_udp_bridge")]
     CreateSerialToUdpBridge,
     #[serde(rename = "delete_3d_model_override")]
@@ -827,6 +831,8 @@ pub enum JourneyId {
     Deploy,
     #[serde(rename = "detect_motor_directions")]
     DetectMotorDirections,
+    #[serde(rename = "detect_wifi_ap_loss")]
+    DetectWifiApLoss,
     #[serde(rename = "disable_onboard_dhcp_server")]
     DisableOnboardDhcpServer,
     #[serde(rename = "disconnect_from_wifi_network")]
@@ -847,6 +853,8 @@ pub enum JourneyId {
     EnablePing1dRangefinderMavlink,
     #[serde(rename = "forget_saved_wifi_network")]
     ForgetSavedWifiNetwork,
+    #[serde(rename = "force_wifi_network_password")]
+    ForceWifiNetworkPassword,
     #[serde(rename = "free_disk_space")]
     FreeDiskSpace,
     #[serde(rename = "inspect_disk_usage")]
@@ -875,6 +883,10 @@ pub enum JourneyId {
     PullBlueosVersionWithoutSwitch,
     #[serde(rename = "reboot_onboard_computer")]
     RebootOnboardComputer,
+    #[serde(rename = "reconnect_to_saved_wifi_network")]
+    ReconnectToSavedWifiNetwork,
+    #[serde(rename = "reject_invalid_wifi_credentials")]
+    RejectInvalidWifiCredentials,
     #[serde(rename = "remove_camera_stream")]
     RemoveCameraStream,
     #[serde(rename = "remove_configured_nmea_socket")]
@@ -958,7 +970,7 @@ pub enum JourneyId {
 }
 
 impl JourneyId {
-    pub const ALL: [JourneyId; 95] = [
+    pub const ALL: [JourneyId; 101] = [
         JourneyId::AccessBlueosWebInterface,
         JourneyId::AccessWebTerminal,
         JourneyId::AcquireDynamicIpAddress,
@@ -966,6 +978,7 @@ impl JourneyId {
         JourneyId::AddExternalNmeaGpsSocket,
         JourneyId::ApplyParameterFile,
         JourneyId::AssignStaticIpAddress,
+        JourneyId::AutoconnectToSavedWifiNetwork,
         JourneyId::BrowseAvailableWebServices,
         JourneyId::BrowseExtensionStore,
         JourneyId::BrowseVideoRecordings,
@@ -984,12 +997,14 @@ impl JourneyId {
         JourneyId::ConfigureVideoStream,
         JourneyId::ConnectPingViewerToSonar,
         JourneyId::ConnectToWifiNetwork,
+        JourneyId::ConnectToHiddenWifiNetwork,
         JourneyId::CreateSerialToUdpBridge,
         JourneyId::Delete3dModelOverride,
         JourneyId::DeleteLocalBlueosVersion,
         JourneyId::DeleteVideoRecording,
         JourneyId::Deploy,
         JourneyId::DetectMotorDirections,
+        JourneyId::DetectWifiApLoss,
         JourneyId::DisableOnboardDhcpServer,
         JourneyId::DisconnectFromWifiNetwork,
         JourneyId::DiscoverBlueosOnNetwork,
@@ -1000,6 +1015,7 @@ impl JourneyId {
         JourneyId::EnableOnboardDhcpServer,
         JourneyId::EnablePing1dRangefinderMavlink,
         JourneyId::ForgetSavedWifiNetwork,
+        JourneyId::ForceWifiNetworkPassword,
         JourneyId::FreeDiskSpace,
         JourneyId::InspectDiskUsage,
         JourneyId::InspectMavlinkMessagesInBrowser,
@@ -1014,6 +1030,8 @@ impl JourneyId {
         JourneyId::ProbeInterfaceInternetConnectivity,
         JourneyId::PullBlueosVersionWithoutSwitch,
         JourneyId::RebootOnboardComputer,
+        JourneyId::ReconnectToSavedWifiNetwork,
+        JourneyId::RejectInvalidWifiCredentials,
         JourneyId::RemoveCameraStream,
         JourneyId::RemoveConfiguredNmeaSocket,
         JourneyId::RemoveCustomLogo,
@@ -1065,6 +1083,7 @@ impl JourneyId {
             JourneyId::AddExternalNmeaGpsSocket => "add_external_nmea_gps_socket",
             JourneyId::ApplyParameterFile => "apply_parameter_file",
             JourneyId::AssignStaticIpAddress => "assign_static_ip_address",
+            JourneyId::AutoconnectToSavedWifiNetwork => "autoconnect_to_saved_wifi_network",
             JourneyId::BrowseAvailableWebServices => "browse_available_web_services",
             JourneyId::BrowseExtensionStore => "browse_extension_store",
             JourneyId::BrowseVideoRecordings => "browse_video_recordings",
@@ -1083,12 +1102,14 @@ impl JourneyId {
             JourneyId::ConfigureVideoStream => "configure_video_stream",
             JourneyId::ConnectPingViewerToSonar => "connect_ping_viewer_to_sonar",
             JourneyId::ConnectToWifiNetwork => "connect_to_wifi_network",
+            JourneyId::ConnectToHiddenWifiNetwork => "connect_to_hidden_wifi_network",
             JourneyId::CreateSerialToUdpBridge => "create_serial_to_udp_bridge",
             JourneyId::Delete3dModelOverride => "delete_3d_model_override",
             JourneyId::DeleteLocalBlueosVersion => "delete_local_blueos_version",
             JourneyId::DeleteVideoRecording => "delete_video_recording",
             JourneyId::Deploy => "deploy",
             JourneyId::DetectMotorDirections => "detect_motor_directions",
+            JourneyId::DetectWifiApLoss => "detect_wifi_ap_loss",
             JourneyId::DisableOnboardDhcpServer => "disable_onboard_dhcp_server",
             JourneyId::DisconnectFromWifiNetwork => "disconnect_from_wifi_network",
             JourneyId::DiscoverBlueosOnNetwork => "discover_blueos_on_network",
@@ -1099,6 +1120,7 @@ impl JourneyId {
             JourneyId::EnableOnboardDhcpServer => "enable_onboard_dhcp_server",
             JourneyId::EnablePing1dRangefinderMavlink => "enable_ping1d_rangefinder_mavlink",
             JourneyId::ForgetSavedWifiNetwork => "forget_saved_wifi_network",
+            JourneyId::ForceWifiNetworkPassword => "force_wifi_network_password",
             JourneyId::FreeDiskSpace => "free_disk_space",
             JourneyId::InspectDiskUsage => "inspect_disk_usage",
             JourneyId::InspectMavlinkMessagesInBrowser => "inspect_mavlink_messages_in_browser",
@@ -1115,6 +1137,8 @@ impl JourneyId {
             }
             JourneyId::PullBlueosVersionWithoutSwitch => "pull_blueos_version_without_switch",
             JourneyId::RebootOnboardComputer => "reboot_onboard_computer",
+            JourneyId::ReconnectToSavedWifiNetwork => "reconnect_to_saved_wifi_network",
+            JourneyId::RejectInvalidWifiCredentials => "reject_invalid_wifi_credentials",
             JourneyId::RemoveCameraStream => "remove_camera_stream",
             JourneyId::RemoveConfiguredNmeaSocket => "remove_configured_nmea_socket",
             JourneyId::RemoveCustomLogo => "remove_custom_logo",

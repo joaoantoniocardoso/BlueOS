@@ -19,6 +19,9 @@ pub const SMOKE_HOTSPOT_PSK: &str = "changeme1234";
 pub const CONNECT_SMOKE_BODY: &str = r#"{"ssid":"BlueOS-Hotspot","password":"changeme1234"}"#;
 pub const HOTSPOT_CREDENTIALS_SMOKE_BODY: &str =
     r#"{"ssid":"BlueOS-E2E-Hotspot","password":"changeme1234"}"#;
+pub const WRONG_PASSWORD_SMOKE_BODY: &str =
+    r#"{"ssid":"BlueOS-Hotspot","password":"definitely-wrong-password-xyz"}"#;
+pub const EMPTY_PASSWORD_SMOKE_BODY: &str = r#"{"ssid":"BlueOS-Hotspot","password":""}"#;
 
 static HARNESS_DIR: OnceLock<PathBuf> = OnceLock::new();
 
@@ -138,8 +141,14 @@ pub fn needs_host_ap(journey_id: JourneyId) -> bool {
     matches!(
         journey_id,
         JourneyId::ConnectToWifiNetwork
+            | JourneyId::ConnectToHiddenWifiNetwork
             | JourneyId::DisconnectFromWifiNetwork
             | JourneyId::ForgetSavedWifiNetwork
+            | JourneyId::ForceWifiNetworkPassword
+            | JourneyId::ReconnectToSavedWifiNetwork
+            | JourneyId::RejectInvalidWifiCredentials
+            | JourneyId::DetectWifiApLoss
+            | JourneyId::AutoconnectToSavedWifiNetwork
     )
 }
 
