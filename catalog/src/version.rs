@@ -25,6 +25,7 @@ pub struct FeatureAvailability {
     /// `git merge-base --is-ancestor intro_commit master` at seed time.
     pub present_on_master: bool,
     /// `git merge-base --is-ancestor intro_commit 1.4-dev` at seed time.
+    /// Also used for DUT tags like `1.4-dev-next` (patched 1.4-dev channel).
     pub present_on_1_4_dev: bool,
 }
 
@@ -80,14 +81,19 @@ pub fn parse_release_tag(tag: &str) -> BlueOsChannel {
     if tag == "master" {
         return BlueOsChannel::Master;
     }
-    if let Some((base, "dev")) = tag.rsplit_once('-') {
-        let mut parts = base.split('.');
-        if let (Some(major), Some(minor), None) = (
-            parts.next().and_then(|s| s.parse().ok()),
-            parts.next().and_then(|s| s.parse().ok()),
-            parts.next(),
-        ) {
-            return BlueOsChannel::Dev { major, minor };
+    // `1.4-dev`, `1.4-dev-next`, … — floating channel tip + optional suffix.
+    if let Some(dev_idx) = tag.find("-dev") {
+        let base = &tag[..dev_idx];
+        let after_dev = &tag[dev_idx + 4..];
+        if after_dev.is_empty() || after_dev.starts_with('-') {
+            let mut parts = base.split('.');
+            if let (Some(major), Some(minor), None) = (
+                parts.next().and_then(|s| s.parse().ok()),
+                parts.next().and_then(|s| s.parse().ok()),
+                parts.next(),
+            ) {
+                return BlueOsChannel::Dev { major, minor };
+            }
         }
     }
     if let Some((major, minor, patch)) = parse_numbered(tag) {
@@ -159,17 +165,15 @@ pub fn format_availability_skip_reason(skip: &AvailabilitySkip, dut_tag: &str) -
 /// Whether the feature is present on the DUT's reported version tag.
 ///
 /// - `master` → `present_on_master`
-/// - `1.4-dev` → `present_on_1_4_dev`
+/// - `1.4-dev` / `1.4-dev-*` (e.g. `1.4-dev-next`) → `present_on_1_4_dev`
 /// - any other tag → exact membership in `present_in_tags` (covers backports)
 pub fn feature_present_on(dut_tag: &str, availability: &FeatureAvailability) -> bool {
     let tag = dut_tag.strip_prefix('v').unwrap_or(dut_tag);
-    if tag == "master" {
-        return availability.present_on_master;
+    match parse_release_tag(tag) {
+        BlueOsChannel::Master => availability.present_on_master,
+        BlueOsChannel::Dev { major: 1, minor: 4 } => availability.present_on_1_4_dev,
+        _ => availability.present_in_tags.contains(&tag),
     }
-    if tag == "1.4-dev" {
-        return availability.present_on_1_4_dev;
-    }
-    availability.present_in_tags.contains(&tag)
 }
 
 pub fn availability_skip(
@@ -264,6 +268,10 @@ mod tests {
             parse_release_tag("1.4-dev"),
             BlueOsChannel::Dev { major: 1, minor: 4 }
         );
+        assert_eq!(
+            parse_release_tag("1.4-dev-next"),
+            BlueOsChannel::Dev { major: 1, minor: 4 }
+        );
     }
 
     #[test]
@@ -272,7 +280,21 @@ mod tests {
         assert!(feature_present_on("1.5.0-beta.2", &ZENOH_LIKE));
         assert!(feature_present_on("master", &ZENOH_LIKE));
         assert!(!feature_present_on("1.4-dev", &ZENOH_LIKE));
+        assert!(!feature_present_on("1.4-dev-next", &ZENOH_LIKE));
         assert!(!feature_present_on("1.4.0", &ZENOH_LIKE));
+    }
+
+    #[test]
+    fn presence_1_4_dev_next_follows_1_4_dev_tip() {
+        let wifi_like = FeatureAvailability {
+            intro_commit: "732b3ac2997b",
+            present_in_tags: &["1.0.0.beta1"],
+            present_on_master: true,
+            present_on_1_4_dev: true,
+        };
+        assert!(feature_present_on("1.4-dev", &wifi_like));
+        assert!(feature_present_on("1.4-dev-next", &wifi_like));
+        assert!(availability_skip("1.4-dev-next", &wifi_like).is_none());
     }
 
     #[test]
