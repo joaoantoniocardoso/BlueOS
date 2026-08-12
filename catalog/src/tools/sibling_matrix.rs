@@ -22,6 +22,10 @@ use crate::feature_trace::discovery_for_journey;
 pub const PAIRS: &[(&str, &str)] = &[
     ("ConfigureCameraStream", "ViewCameraStreams"),
     ("ConnectToWifiNetwork", "ForgetSavedWifiNetwork"),
+    ("ConnectToWifiNetwork", "DisconnectFromWifiNetwork"),
+    ("ConnectToWifiNetwork", "ConnectToHiddenWifiNetwork"),
+    ("DetectWifiApLoss", "AutoconnectToSavedWifiNetwork"),
+    ("ForceWifiNetworkPassword", "ReconnectToSavedWifiNetwork"),
     ("ConfigureHotspotCredentials", "ToggleSmartHotspot"),
     (
         "InspectRaspberryEepromBootloader",
@@ -125,8 +129,8 @@ mod tests {
 
     #[test]
     fn matrix_has_all_designed_pairs() {
-        assert_eq!(PAIRS.len(), 12);
-        assert_eq!(score_matrix().len(), 12);
+        assert_eq!(PAIRS.len(), 16);
+        assert_eq!(score_matrix().len(), 16);
     }
 
     #[test]

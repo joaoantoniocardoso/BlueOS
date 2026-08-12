@@ -141,11 +141,21 @@ pub const TRACKER_MAPPINGS: &[TrackerMapping] = &[
     // Networking
     mapping("Networking", "Internet connection", CoverageKind::Journey, &[JourneyId::VerifyInternetConnectivity], ""),
     // Networking
-    mapping("Networking", "Access BlueOS via Pi Hotspot", CoverageKind::Journey, &[JourneyId::ToggleHotspot, JourneyId::AccessBlueosWebInterface], ""),
+    mapping("Networking", "Access BlueOS via Pi Hotspot", CoverageKind::Journey, &[JourneyId::ToggleHotspot, JourneyId::ConfigureHotspotCredentials, JourneyId::ToggleSmartHotspot, JourneyId::AccessBlueosWebInterface], ""),
     // Networking
     mapping("Networking", "Change mDNS and try to access Pi with it", CoverageKind::Journey, &[JourneyId::ChangeMdnsHostname, JourneyId::DiscoverBlueosOnNetwork], ""),
     // Networking
-    mapping("Networking", "Connect to Wifi with internet via Pi Radio", CoverageKind::Journey, &[JourneyId::ConnectToWifiNetwork], ""),
+    mapping("Networking", "Connect to Wifi with internet via Pi Radio", CoverageKind::Journey, &[
+        JourneyId::ConnectToWifiNetwork,
+        JourneyId::ConnectToHiddenWifiNetwork,
+        JourneyId::ForceWifiNetworkPassword,
+        JourneyId::ReconnectToSavedWifiNetwork,
+        JourneyId::RejectInvalidWifiCredentials,
+        JourneyId::DisconnectFromWifiNetwork,
+        JourneyId::ForgetSavedWifiNetwork,
+        JourneyId::DetectWifiApLoss,
+        JourneyId::AutoconnectToSavedWifiNetwork,
+    ], ""),
     // Ping
     mapping("Ping", "HotPlug a Ping1D (USB)", CoverageKind::Journey, &[JourneyId::ViewDetectedSonarDevices], ""),
     // Ping
@@ -189,7 +199,20 @@ pub const TRACKER_MAPPINGS: &[TrackerMapping] = &[
     // UI
     mapping("UI", "Test functionality of all top bar utilities", CoverageKind::Unmodeled, &[], "Top bar composite check not modeled"),
     // UI
-    mapping("UI", "Test Wi-Fi manager functions and hotspot toggle", CoverageKind::Journey, &[JourneyId::ConnectToWifiNetwork, JourneyId::ToggleHotspot], ""),
+    mapping("UI", "Test Wi-Fi manager functions and hotspot toggle", CoverageKind::Journey, &[
+        JourneyId::ConnectToWifiNetwork,
+        JourneyId::ConnectToHiddenWifiNetwork,
+        JourneyId::DisconnectFromWifiNetwork,
+        JourneyId::ForgetSavedWifiNetwork,
+        JourneyId::ForceWifiNetworkPassword,
+        JourneyId::ReconnectToSavedWifiNetwork,
+        JourneyId::RejectInvalidWifiCredentials,
+        JourneyId::DetectWifiApLoss,
+        JourneyId::AutoconnectToSavedWifiNetwork,
+        JourneyId::ToggleHotspot,
+        JourneyId::ConfigureHotspotCredentials,
+        JourneyId::ToggleSmartHotspot,
+    ], ""),
     // UI
     mapping("UI", "Toggle pirate mode", CoverageKind::Unmodeled, &[], "Pirate mode toggle not modeled"),
     // UI
@@ -221,7 +244,11 @@ pub const TRACKER_MAPPINGS: &[TrackerMapping] = &[
     // Physical ROV
     mapping("Physical ROV", "Go through setup wizard to ROV Standard", CoverageKind::Unmodeled, &[], "Wizard end-to-end not modeled"),
     // Physical ROV
-    mapping("Physical ROV", "Connects to wifi", CoverageKind::Journey, &[JourneyId::ConnectToWifiNetwork], ""),
+    mapping("Physical ROV", "Connects to wifi", CoverageKind::Journey, &[
+        JourneyId::ConnectToWifiNetwork,
+        JourneyId::DisconnectFromWifiNetwork,
+        JourneyId::ForgetSavedWifiNetwork,
+    ], ""),
     // Physical ROV
     mapping("Physical ROV", "Confirm parameters are correct (output 1-6 are motor, Output 13 & 14 are lights, output 16 is Mount1Pitch)", CoverageKind::External, &[], "On-vehicle parameter verification"),
     // Physical ROV
@@ -289,7 +316,11 @@ pub const TRACKER_MAPPINGS: &[TrackerMapping] = &[
     // Physical Tests BB
     mapping("Physical Tests BB", "Connect to blueos.local after second boot", CoverageKind::Journey, &[JourneyId::DiscoverBlueosOnNetwork], ""),
     // Physical Tests BB
-    mapping("Physical Tests BB", "Connects to wifi", CoverageKind::Journey, &[JourneyId::ConnectToWifiNetwork], ""),
+    mapping("Physical Tests BB", "Connects to wifi", CoverageKind::Journey, &[
+        JourneyId::ConnectToWifiNetwork,
+        JourneyId::DisconnectFromWifiNetwork,
+        JourneyId::ForgetSavedWifiNetwork,
+    ], ""),
     // Physical Tests BB
     mapping("Physical Tests BB", "Confirm motor and NavLight functionality", CoverageKind::External, &[], "On-vehicle motor/navlight"),
     // Physical Tests BB

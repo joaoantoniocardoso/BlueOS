@@ -27,6 +27,10 @@ fi
 pairs=(
   "ConfigureCameraStream|ViewCameraStreams"
   "ConnectToWifiNetwork|ForgetSavedWifiNetwork"
+  "ConnectToWifiNetwork|DisconnectFromWifiNetwork"
+  "ConnectToWifiNetwork|ConnectToHiddenWifiNetwork"
+  "DetectWifiApLoss|AutoconnectToSavedWifiNetwork"
+  "ForceWifiNetworkPassword|ReconnectToSavedWifiNetwork"
   "ConfigureHotspotCredentials|ToggleSmartHotspot"
   "InspectRaspberryEepromBootloader|UpdateRaspberryEepromBootloader"
   "AcquireDynamicIpAddress|DisableOnboardDhcpServer"
@@ -35,6 +39,8 @@ pairs=(
   "VerifyInternetConnectivity|ProbeInterfaceInternetConnectivity"
   "UpdateBootstrapImage|DeleteLocalBlueosVersion"
   "StartAutopilot|UpdateFirmwareOnline"
+  "ConfigureVideoStream|ViewCameraStreams"
+  "ConfigureVideoStream|ConfigureCameraStream"
 )
 
 sibling_ratio() {
