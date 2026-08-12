@@ -14,6 +14,8 @@ pub enum SmokeRepair {
     ContainerRestart,
     HostReboot,
     ExternalProxy,
+    /// Runner-local NetworkManager AP/station (`catalog/harness/wifi`).
+    HostWifiRf,
     ManualDocumented,
 }
 
@@ -27,6 +29,7 @@ impl fmt::Display for SmokeRepair {
             SmokeRepair::ContainerRestart => "container_restart",
             SmokeRepair::HostReboot => "host_reboot",
             SmokeRepair::ExternalProxy => "external_proxy",
+            SmokeRepair::HostWifiRf => "host_wifi_rf",
             SmokeRepair::ManualDocumented => "manual_documented",
         };
         write!(f, "{label}")
@@ -121,9 +124,9 @@ pub const MUTATING_SMOKE_ENTRIES: &[MutatingSmokeEntry] = &[
     },
     MutatingSmokeEntry {
         journey_id: JourneyId::ConnectToWifiNetwork,
-        setup: SmokeRepair::HttpRoundTrip,
-        restore: SmokeRepair::HttpRoundTrip,
-        notes: "DEFERRED for Pi3 harness: tester AP ← DUT join; tester ← BlueOS emergency hotspot; CI-triggered. Local fake-SSID hangs on association.",
+        setup: SmokeRepair::HostWifiRf,
+        restore: SmokeRepair::HostWifiRf,
+        notes: "Runner host-ap.sh up wpa2; POST /connect to BlueOS-Hotspot; disconnect+remove; host-ap down",
     },
     MutatingSmokeEntry {
         journey_id: JourneyId::Delete3dModelOverride,
@@ -175,9 +178,9 @@ pub const MUTATING_SMOKE_ENTRIES: &[MutatingSmokeEntry] = &[
     },
     MutatingSmokeEntry {
         journey_id: JourneyId::ForgetSavedWifiNetwork,
-        setup: SmokeRepair::HttpRoundTrip,
-        restore: SmokeRepair::HttpRoundTrip,
-        notes: "setup saves test SSID; POST /remove mutate; POST /connect restore network from snapshot",
+        setup: SmokeRepair::HostWifiRf,
+        restore: SmokeRepair::HostWifiRf,
+        notes: "host AP up; connect+save BlueOS-Hotspot; POST /remove; host-ap down",
     },
     MutatingSmokeEntry {
         journey_id: JourneyId::FreeDiskSpace,
@@ -301,9 +304,9 @@ pub const MUTATING_SMOKE_ENTRIES: &[MutatingSmokeEntry] = &[
     },
     MutatingSmokeEntry {
         journey_id: JourneyId::ToggleHotspot,
-        setup: SmokeRepair::HttpRoundTrip,
-        restore: SmokeRepair::HttpRoundTrip,
-        notes: "GET hotspot state snapshot; POST /hotspot mutate; POST restore prior state",
+        setup: SmokeRepair::HostWifiRf,
+        restore: SmokeRepair::HostWifiRf,
+        notes: "set E2E hotspot credentials; POST enable=true; host-station join+lease; disable; restore credentials",
     },
     MutatingSmokeEntry {
         journey_id: JourneyId::ToggleSmartHotspot,

@@ -65,12 +65,9 @@ HttpRoundTrip setup now clears these former live skips: `remove_configured_nmea_
 
 **mDNS hostname:** allowlisted; POST `hostname=smoke-catalog`, restore `hostname=blueos`.
 
-**Wi-Fi connect (deferred — harness plan):** full suite will run from a Raspberry Pi 3 (tester/harness) against a Pi 4 (DUT), CI-triggered. Plan:
-1. Pi3 creates a controlled hotspot; Pi4 (BlueOS) connects to it (`connect_to_wifi_network`).
-2. Pi3 joins BlueOS emergency/smart hotspot (inverse direction).
-Until that harness exists, `connect_to_wifi_network` stays skipped (fake SSID association hangs).
+**Wi-Fi connect (host RF harness):** runner machine NetworkManager AP (`catalog/harness/wifi`); DUT joins via wifi-manager. Hotspot inverse: host station joins BlueOS soft-AP. See `.cursor/plans/wifi-catalog-rf-harness.md`.
 
-Remaining deferred: bootstrap image replace, UpdateBlueosVersion apply-switch, wifi connect (harness above).
+Remaining deferred: bootstrap image replace, UpdateBlueosVersion apply-switch.
 
 ## Not a RouteRef commit gate
 

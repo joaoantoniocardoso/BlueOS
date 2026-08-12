@@ -40,6 +40,7 @@ pub mod tools;
 pub mod trust;
 pub mod validate;
 pub mod version;
+pub mod wifi_rf;
 
 pub use capability::{Aggregate, CapabilityDef, CAPABILITIES};
 pub use capture_env::{

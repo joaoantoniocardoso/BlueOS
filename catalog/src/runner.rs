@@ -261,8 +261,9 @@ pub fn mutating_smoke_query(journey_id: JourneyId, route: &RouteRef) -> Option<&
         (JourneyId::EnableOnboardDhcpServer, "/dhcp", Post) => {
             Some("interface_name=eth0&ipv4_gateway=192.168.0.1&is_backup_server=false")
         }
-        (JourneyId::ForgetSavedWifiNetwork, "/remove", Post) => Some("ssid=__smoke_catalog__"),
-        (JourneyId::ToggleHotspot, "/hotspot", Post) => Some("enable=false"),
+        (JourneyId::ForgetSavedWifiNetwork, "/remove", Post) => Some("ssid=BlueOS-Hotspot"),
+        (JourneyId::ConnectToWifiNetwork, "/connect", Post) => Some("hidden=false"),
+        (JourneyId::ToggleHotspot, "/hotspot", Post) => Some("enable=true"),
         (JourneyId::ToggleSmartHotspot, "/smart_hotspot", Post) => Some("enable=false"),
         (JourneyId::RebootOnboardComputer, "/shutdown", Post) => {
             Some("shutdown_type=reboot&i_know_what_i_am_doing=true")
@@ -316,10 +317,10 @@ pub fn mutating_smoke_body(journey_id: JourneyId, route: &RouteRef) -> Option<&'
             r##"{"name":"SITL","manufacturer":"ArduPilot Team","platform":"SITL_arm_linux_gnueabihf","path":null,"flags":[]}"##,
         ),
         (JourneyId::ConnectToWifiNetwork, "/connect", Post) => {
-            Some(r##"{"ssid":"__smoke_nonexistent__","password":"invalidpass"}"##)
+            Some(crate::wifi_rf::CONNECT_SMOKE_BODY)
         }
         (JourneyId::ConfigureHotspotCredentials, "/hotspot_credentials", Post) => {
-            Some(r##"{"ssid":"BlueOS","password":"smoke-test"}"##)
+            Some(crate::wifi_rf::HOTSPOT_CREDENTIALS_SMOKE_BODY)
         }
         (JourneyId::RemoveConfiguredNmeaSocket, "/socks", Delete) => Some(SMOKE_NMEA_SOCK_JSON),
         (JourneyId::RemoveSerialBridge, "/bridges", Delete) => Some(SMOKE_BRIDGE_JSON),
@@ -384,7 +385,7 @@ pub fn mutating_smoke_form_file(journey_id: JourneyId, route: &RouteRef) -> Opti
 pub fn mutating_smoke_expected_status(journey_id: JourneyId, route: &RouteRef) -> Option<u16> {
     use HttpMethod::*;
     match (journey_id, route.path, &route.method) {
-        (JourneyId::ConnectToWifiNetwork, "/connect", Post) => Some(500),
+        (JourneyId::ConnectToWifiNetwork, "/connect", Post) => Some(200),
         _ => None,
     }
 }
@@ -405,13 +406,12 @@ pub fn mutating_smoke_skip_reason(
     journey_id: JourneyId,
     _fixtures: &crate::fixture::FixtureInventory,
 ) -> Option<&'static str> {
-    match journey_id {
-        // Association to a fake SSID hangs; full connect coverage waits on a Pi3 harness AP.
-        JourneyId::ConnectToWifiNetwork => Some(
-            "deferred: Pi3 harness hotspot plan — DUT joins tester AP; tester joins BlueOS emergency hotspot (CI)",
-        ),
-        _ => None,
+    if (crate::wifi_rf::needs_host_ap(journey_id) || crate::wifi_rf::needs_host_station(journey_id))
+        && !crate::wifi_rf::host_rf_available()
+    {
+        return Some("host WiFi RF unavailable (need nmcli + HOST_WIFI_IFACE on the runner)");
     }
+    None
 }
 
 const NAVIGATOR_BOARD_JSON: &str = r##"{"name":"Navigator","manufacturer":"Blue Robotics","platform":"navigator","path":null,"flags":[]}"##;
@@ -435,7 +435,6 @@ const SMOKE_DISK_DELETE_PATH: &str =
 const SMOKE_RECORDING_DELETE_PATH: &str = "/recorder/files/smoke_catalog%2Fsmoke-catalog.mp4";
 const SMOKE_DISK_SEED_QUERY: &str = "command=docker%20exec%20blueos-core%20sh%20-c%20%27mkdir%20-p%20/usr/blueos/userdata/smoke-catalog%20%26%26%20echo%20x%3E/usr/blueos/userdata/smoke-catalog/delete-me.txt%27&i_know_what_i_am_doing=true";
 const SMOKE_RECORDING_SEED_QUERY: &str = "command=docker%20exec%20blueos-core%20sh%20-c%20%27mkdir%20-p%20/usr/blueos/userdata/recorder/smoke_catalog%20%26%26%20printf%20mp4%3E/usr/blueos/userdata/recorder/smoke_catalog/smoke-catalog.mp4%27&i_know_what_i_am_doing=true";
-const SMOKE_WIFI_SAVE_QUERY: &str = "command=bash%20-lc%20%27id%3D%24%28sudo%20wpa_cli%20-i%20wlan0%20add_network%29%20%26%26%20sudo%20wpa_cli%20-i%20wlan0%20set_network%20%22%24id%22%20ssid%20%22%5C%22__smoke_catalog__%5C%22%22%20%26%26%20sudo%20wpa_cli%20-i%20wlan0%20set_network%20%22%24id%22%20key_mgmt%20NONE%20%26%26%20sudo%20wpa_cli%20-i%20wlan0%20disable_network%20%22%24id%22%20%26%26%20sudo%20wpa_cli%20-i%20wlan0%20save_config%27&i_know_what_i_am_doing=true";
 const SMOKE_ROUTE_FLUSH_QUERY: &str =
     "command=ip%20route%20flush%20proto%20static&i_know_what_i_am_doing=true";
 const SMOKE_ADDR_DEL_1_QUERY: &str = "command=bash%20-lc%20%27curl%20-s%20-m%2010%20-o%20%2Fdev%2Fnull%20-X%20DELETE%20%22http%3A%2F%2F127.0.0.1%2Fcable-guy%2Fv1.0%2Faddress%3Finterface_name%3Deth0%26ip_address%3D192.168.0.1%22%20%7C%7C%20true%3B%20ip%20addr%20del%20192.168.0.1%2F24%20dev%20eth0%202%3E%2Fdev%2Fnull%20%7C%7C%20true%27&i_know_what_i_am_doing=true";
@@ -607,18 +606,82 @@ pub fn mutating_smoke_setup_calls(journey_id: JourneyId) -> &'static [SmokeHttpC
             query: Some(SMOKE_RECORDING_SEED_QUERY),
             form_file: None,
         }],
-        JourneyId::ForgetSavedWifiNetwork => &[SmokeHttpCall {
+        JourneyId::ForgetSavedWifiNetwork => &[
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::Wifi,
+                    method: Post,
+                    path: "/hotspot",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: None,
+                query: Some("enable=false"),
+                form_file: None,
+            },
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::Wifi,
+                    method: Post,
+                    path: "/connect",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: Some(crate::wifi_rf::CONNECT_SMOKE_BODY),
+                query: Some("hidden=false"),
+                form_file: None,
+            },
+        ],
+        JourneyId::ConnectToWifiNetwork => &[SmokeHttpCall {
             route: RouteRef {
-                service: ServiceId::Commander,
+                service: ServiceId::Wifi,
                 method: Post,
-                path: "/command/host",
+                path: "/hotspot",
                 version: Some("v1.0"),
             },
             expected_status: 200,
             body: None,
-            query: Some(SMOKE_WIFI_SAVE_QUERY),
+            query: Some("enable=false"),
             form_file: None,
         }],
+        JourneyId::ToggleHotspot => &[
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::Wifi,
+                    method: Get,
+                    path: "/disconnect",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: None,
+                query: None,
+                form_file: None,
+            },
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::Wifi,
+                    method: Post,
+                    path: "/hotspot_credentials",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: Some(crate::wifi_rf::HOTSPOT_CREDENTIALS_SMOKE_BODY),
+                query: None,
+                form_file: None,
+            },
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::Wifi,
+                    method: Post,
+                    path: "/hotspot",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: None,
+                query: Some("enable=false"),
+                form_file: None,
+            },
+        ],
         JourneyId::DeleteLocalBlueosVersion => &[SmokeHttpCall {
             route: RouteRef {
                 service: ServiceId::Commander,
@@ -981,7 +1044,45 @@ pub fn mutating_smoke_teardown_calls(journey_id: JourneyId) -> &'static [SmokeHt
             },
             expected_status: 200,
             body: None,
-            query: Some("enable=true"),
+            query: Some("enable=false"),
+            form_file: None,
+        }],
+        JourneyId::ConnectToWifiNetwork => &[
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::Wifi,
+                    method: Get,
+                    path: "/disconnect",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: None,
+                query: None,
+                form_file: None,
+            },
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::Wifi,
+                    method: Post,
+                    path: "/remove",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: None,
+                query: Some("ssid=BlueOS-Hotspot"),
+                form_file: None,
+            },
+        ],
+        JourneyId::ForgetSavedWifiNetwork => &[SmokeHttpCall {
+            route: RouteRef {
+                service: ServiceId::Wifi,
+                method: Get,
+                path: "/disconnect",
+                version: Some("v1.0"),
+            },
+            expected_status: 200,
+            body: None,
+            query: None,
             form_file: None,
         }],
         JourneyId::ToggleSmartHotspot => &[SmokeHttpCall {

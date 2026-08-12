@@ -4,6 +4,7 @@
 // Offline plan: `journey_http --dry-run` (no --base).
 use std::process;
 
+use blueos_catalog::wifi_rf;
 use blueos_catalog::{
     evaluate_journey, fetch_dut_version, format_dry_run, format_http_fail, http_journeys,
     http_mutating_smoke_steps, http_smoke_steps, http_steps, is_mutating_smoke_journey, join_url,
@@ -319,6 +320,23 @@ fn main() {
         let mut step_results = Vec::new();
 
         if mutating_smoke {
+            if let Err(err) = wifi_rf::rf_setup(journey_id) {
+                eprintln!("FAIL {journey_id} wifi RF setup — {err}");
+                totals.failed += 1;
+                step_results.push(StepResult::Fail(format!("wifi RF setup — {err}")));
+                any_fail = true;
+                journey_lines.push(format!("Fail {journey_id}: wifi RF setup"));
+                if emit_report {
+                    report_journeys.push(JourneyReportEntry::from_run(
+                        journey_id,
+                        &journey.availability,
+                        JourneyResult::Fail,
+                        &step_results,
+                    ));
+                }
+                let _ = wifi_rf::rf_teardown(journey_id);
+                continue;
+            }
             for call in mutating_smoke_setup_calls(journey_id) {
                 let result = run_smoke_http_call(&catalog, base, call, allow_mutating);
                 if let StepResult::Fail(msg) = &result {
@@ -355,6 +373,24 @@ fn main() {
             }
             totals.record(&result);
             step_results.push(result);
+            if mutating_smoke
+                && journey_id == JourneyId::ToggleHotspot
+                && step.route.path == "/hotspot"
+                && matches!(step_results.last(), Some(StepResult::Pass))
+            {
+                match wifi_rf::rf_verify_hotspot_join() {
+                    Ok(lease) => {
+                        eprintln!("journey_http: host joined BlueOS hotspot lease={lease}");
+                        totals.passed += 1;
+                        step_results.push(StepResult::Pass);
+                    }
+                    Err(err) => {
+                        eprintln!("FAIL {journey_id} hotspot RF join — {err}");
+                        totals.failed += 1;
+                        step_results.push(StepResult::Fail(err));
+                    }
+                }
+            }
             if mutating_smoke
                 && journey_id == JourneyId::RebootOnboardComputer
                 && matches!(step_results.last(), Some(StepResult::Pass))
@@ -399,6 +435,11 @@ fn main() {
                 }
                 totals.record(&result);
                 step_results.push(result);
+            }
+            if let Err(err) = wifi_rf::rf_teardown(journey_id) {
+                eprintln!("FAIL {journey_id} wifi RF teardown — {err}");
+                totals.failed += 1;
+                step_results.push(StepResult::Fail(format!("wifi RF teardown — {err}")));
             }
         }
 
