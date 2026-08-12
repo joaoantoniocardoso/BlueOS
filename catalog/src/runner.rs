@@ -706,6 +706,18 @@ pub fn mutating_smoke_setup_calls(journey_id: JourneyId) -> &'static [SmokeHttpC
             query: Some("enable=false"),
             form_file: None,
         }],
+        JourneyId::ToggleSmartHotspot => &[SmokeHttpCall {
+            route: RouteRef {
+                service: ServiceId::Wifi,
+                method: Post,
+                path: "/smart_hotspot",
+                version: Some("v1.0"),
+            },
+            expected_status: 200,
+            body: None,
+            query: Some("enable=true"),
+            form_file: None,
+        }],
         JourneyId::ToggleHotspot => &[
             SmokeHttpCall {
                 route: RouteRef {

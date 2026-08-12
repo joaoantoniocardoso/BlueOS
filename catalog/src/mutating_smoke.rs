@@ -120,7 +120,7 @@ pub const MUTATING_SMOKE_ENTRIES: &[MutatingSmokeEntry] = &[
         journey_id: JourneyId::ConfigureHotspotCredentials,
         setup: SmokeRepair::HttpRoundTrip,
         restore: SmokeRepair::HttpRoundTrip,
-        notes: "GET hotspot credentials snapshot; POST /hotspot_credentials mutate; POST restore",
+        notes: "GET hotspot credentials snapshot; POST /hotspot_credentials mutate; verify GET; POST restore snapshot",
     },
     MutatingSmokeEntry {
         journey_id: JourneyId::ConfigureInstalledExtension,
@@ -354,7 +354,7 @@ pub const MUTATING_SMOKE_ENTRIES: &[MutatingSmokeEntry] = &[
         journey_id: JourneyId::ToggleSmartHotspot,
         setup: SmokeRepair::HttpRoundTrip,
         restore: SmokeRepair::HttpRoundTrip,
-        notes: "GET smart_hotspot setting snapshot; POST /smart_hotspot mutate; POST restore",
+        notes: "POST smart_hotspot enable=true; POST enable=false mutate; POST enable=true restore",
     },
     MutatingSmokeEntry {
         journey_id: JourneyId::UninstallExtension,

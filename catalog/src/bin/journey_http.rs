@@ -318,8 +318,31 @@ fn main() {
 
         let base = base.as_deref().expect("base checked above");
         let mut step_results = Vec::new();
+        let mut hotspot_creds_snapshot: Option<String> = None;
 
         if mutating_smoke {
+            if journey_id == JourneyId::ConfigureHotspotCredentials {
+                match wifi_rf::fetch_hotspot_credentials_json(base) {
+                    Ok(body) => hotspot_creds_snapshot = Some(body),
+                    Err(err) => {
+                        eprintln!("FAIL {journey_id} hotspot credentials snapshot — {err}");
+                        totals.failed += 1;
+                        step_results.push(StepResult::Fail(err));
+                        any_fail = true;
+                        journey_lines
+                            .push(format!("Fail {journey_id}: hotspot credentials snapshot"));
+                        if emit_report {
+                            report_journeys.push(JourneyReportEntry::from_run(
+                                journey_id,
+                                &journey.availability,
+                                JourneyResult::Fail,
+                                &step_results,
+                            ));
+                        }
+                        continue;
+                    }
+                }
+            }
             if let Err(err) = wifi_rf::rf_setup(journey_id) {
                 eprintln!("FAIL {journey_id} wifi RF setup — {err}");
                 totals.failed += 1;
@@ -406,6 +429,33 @@ fn main() {
                 }
                 totals.record(&result);
                 step_results.push(result);
+                if mutating_smoke
+                    && journey_id == JourneyId::ConfigureHotspotCredentials
+                    && step.route.path == "/hotspot_credentials"
+                    && matches!(step_results.last(), Some(StepResult::Pass))
+                {
+                    match wifi_rf::fetch_hotspot_credentials_json(base) {
+                        Ok(body) if body.contains(wifi_rf::SMOKE_HOTSPOT_SSID) => {
+                            eprintln!("journey_http: hotspot credentials mutate verified");
+                            totals.passed += 1;
+                            step_results.push(StepResult::Pass);
+                        }
+                        Ok(body) => {
+                            let err = format!(
+                                "expected ssid {} in credentials after mutate, got {body}",
+                                wifi_rf::SMOKE_HOTSPOT_SSID
+                            );
+                            eprintln!("FAIL {journey_id} credentials verify — {err}");
+                            totals.failed += 1;
+                            step_results.push(StepResult::Fail(err));
+                        }
+                        Err(err) => {
+                            eprintln!("FAIL {journey_id} credentials verify — {err}");
+                            totals.failed += 1;
+                            step_results.push(StepResult::Fail(err));
+                        }
+                    }
+                }
                 if mutating_smoke
                     && wifi_rf::wants_client_l3(journey_id)
                     && step.route.path == "/connect"
@@ -520,6 +570,20 @@ fn main() {
                 }
                 totals.record(&result);
                 step_results.push(result);
+            }
+            if let Some(body) = hotspot_creds_snapshot.as_deref() {
+                match wifi_rf::post_hotspot_credentials_json(base, body) {
+                    Ok(()) => {
+                        eprintln!("journey_http: restored hotspot credentials snapshot");
+                        totals.passed += 1;
+                        step_results.push(StepResult::Pass);
+                    }
+                    Err(err) => {
+                        eprintln!("FAIL {journey_id} hotspot credentials restore — {err}");
+                        totals.failed += 1;
+                        step_results.push(StepResult::Fail(err));
+                    }
+                }
             }
             if let Err(err) = wifi_rf::rf_teardown(journey_id) {
                 eprintln!("FAIL {journey_id} wifi RF teardown — {err}");

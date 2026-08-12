@@ -174,6 +174,71 @@ pub fn hotspot_credentials_smoke_body() -> &'static str {
     HOTSPOT_CREDENTIALS_SMOKE_BODY
 }
 
+/// GET /wifi-manager/v1.0/hotspot_credentials raw JSON body.
+pub fn fetch_hotspot_credentials_json(blueos_base: &str) -> Result<String, String> {
+    let base = blueos_base.trim_end_matches('/');
+    let url = format!("{base}/wifi-manager/v1.0/hotspot_credentials");
+    let output = Command::new("curl")
+        .args(["-sS", "-m", "15", "-w", "\n%{http_code}", url.as_str()])
+        .output()
+        .map_err(|err| format!("curl hotspot_credentials: {err}"))?;
+    let text = String::from_utf8_lossy(&output.stdout);
+    let (body, code) = text.rsplit_once('\n').unwrap_or((text.as_ref(), "000"));
+    if code.trim() != "200" {
+        return Err(format!("GET /hotspot_credentials HTTP {code}: {body}"));
+    }
+    Ok(body.trim().to_string())
+}
+
+/// POST /wifi-manager/v1.0/hotspot_credentials with a JSON body.
+pub fn post_hotspot_credentials_json(blueos_base: &str, body: &str) -> Result<(), String> {
+    let base = blueos_base.trim_end_matches('/');
+    let url = format!("{base}/wifi-manager/v1.0/hotspot_credentials");
+    // Compact so curl -d stays one line; wifi-manager can take >15s to apply.
+    let compact = serde_json::to_string(
+        &serde_json::from_str::<serde_json::Value>(body)
+            .map_err(|err| format!("hotspot credentials JSON: {err}"))?,
+    )
+    .map_err(|err| format!("serialize hotspot credentials: {err}"))?;
+    let want_ssid = serde_json::from_str::<serde_json::Value>(&compact)
+        .ok()
+        .and_then(|v| v.get("ssid")?.as_str().map(str::to_string));
+    let output = Command::new("curl")
+        .args([
+            "-sS",
+            "-m",
+            "120",
+            "-X",
+            "POST",
+            "-H",
+            "Content-Type: application/json",
+            "-d",
+            compact.as_str(),
+            "-w",
+            "\n%{http_code}",
+            url.as_str(),
+        ])
+        .output()
+        .map_err(|err| format!("curl POST hotspot_credentials: {err}"))?;
+    let text = String::from_utf8_lossy(&output.stdout);
+    let (resp, code) = text.rsplit_once('\n').unwrap_or((text.as_ref(), "000"));
+    if code.trim() == "200" {
+        return Ok(());
+    }
+    // Applying credentials can drop the HTTP connection (curl → 000); confirm via GET.
+    std::thread::sleep(std::time::Duration::from_secs(2));
+    let got = fetch_hotspot_credentials_json(blueos_base)?;
+    let got_ssid = serde_json::from_str::<serde_json::Value>(&got)
+        .ok()
+        .and_then(|v| v.get("ssid")?.as_str().map(str::to_string));
+    if want_ssid.is_some() && want_ssid == got_ssid {
+        return Ok(());
+    }
+    Err(format!(
+        "POST /hotspot_credentials HTTP {code}: {resp} (ssid now {got_ssid:?})"
+    ))
+}
+
 /// Bring up host RF required before a journey's HTTP mutate steps.
 pub fn rf_setup(journey_id: JourneyId) -> Result<(), String> {
     if needs_host_ap(journey_id) {
