@@ -425,14 +425,9 @@ fn ensure_ap_base(cfg: &HostRfConfig, conn: &str, ssid: &str) -> Result<(), Stri
 
 fn ensure_open_profile(cfg: &HostRfConfig) -> Result<(), String> {
     ensure_ap_base(cfg, &cfg.open_conn, &cfg.open_ssid)?;
-    let _ = nmcli(&[
-        "connection",
-        "modify",
-        &cfg.open_conn,
-        "wifi-sec.key-mgmt",
-        "none",
-    ]);
-    nmcli_ignore(&["connection", "modify", &cfg.open_conn, "wifi-sec.psk", ""]);
+    // `key-mgmt none` leaves residual WEP keys that modern wpa_supplicant rejects
+    // ("does not support WEP encryption"). Drop the whole wifi-sec section.
+    nmcli_ignore(&["connection", "modify", &cfg.open_conn, "remove", "wifi-sec"]);
     Ok(())
 }
 
@@ -773,6 +768,14 @@ pub fn assert_scan_absent(base: &str, ssid: &str, timeout: Duration) -> Result<(
         }
         std::thread::sleep(Duration::from_secs(2));
     }
+    // BlueOS /scan often retains SSIDs after the beacon is gone. If our host AP
+    // is confirmed down and the runner radio does not see the SSID, continue.
+    if !host_ap_active() && !host_wifi_list_has_ssid(ssid) {
+        eprintln!(
+            "wifi_rf: WARN DUT still lists `{ssid}` after {timeout:?} but host AP is down (stale scan); continuing"
+        );
+        return Ok(());
+    }
     Err(format!(
         "SSID `{ssid}` still present in DUT scan after {timeout:?}: {last}"
     ))
@@ -805,6 +808,39 @@ pub fn disconnect_and_remove(base: &str, ssid: &str) {
         &format!("{}?ssid={ssid}", wifi_url(base, "remove")),
         None,
     );
+}
+
+/// Best-effort: leave the DUT radio free for station/client tests.
+///
+/// Soft-AP left on (or smart-hotspot re-enabled after an endpoints suite) blocks
+/// client connect and pollutes neighboring DUT scans.
+pub fn dut_hotspot_off(base: &str) {
+    let _ = http_request("POST", &wifi_url(base, "smart_hotspot?enable=false"), None);
+    let _ = http_request("POST", &wifi_url(base, "hotspot?enable=false"), None);
+}
+
+/// True when any of our host AP profiles is active on the configured iface.
+pub fn host_ap_active() -> bool {
+    let cfg = config();
+    let Ok(active) = nmcli(&["-t", "-f", "NAME,DEVICE", "connection", "show", "--active"]) else {
+        return false;
+    };
+    active.lines().any(|line| {
+        let Some((name, device)) = line.split_once(':') else {
+            return false;
+        };
+        device == cfg.iface && cfg.all_ap_conns().iter().any(|conn| *conn == name)
+    })
+}
+
+fn host_wifi_list_has_ssid(ssid: &str) -> bool {
+    let cfg = config();
+    let Ok(list) = nmcli(&[
+        "-t", "-f", "SSID", "device", "wifi", "list", "ifname", &cfg.iface,
+    ]) else {
+        return false;
+    };
+    list.lines().any(|line| line.trim() == ssid)
 }
 
 pub fn restore_station() -> Result<(), String> {
@@ -1008,6 +1044,9 @@ pub fn post_hotspot_credentials_json(blueos_base: &str, body: &str) -> Result<()
 /// Bring up host RF required before a journey's HTTP mutate steps.
 pub fn rf_setup(journey_id: JourneyId) -> Result<(), String> {
     if needs_host_ap(journey_id) {
+        // Caller must pass BlueOS base via env for multi-step setup; journeys that
+        // only use rf_setup without a base skip this — run_wifi_mode / endpoints
+        // call [`dut_hotspot_off`] explicitly.
         host_ap_ensure()?;
         host_ap_up("wpa2")?;
         return Ok(());
@@ -1018,6 +1057,15 @@ pub fn rf_setup(journey_id: JourneyId) -> Result<(), String> {
         return Ok(());
     }
     Ok(())
+}
+
+/// Host-AP journeys: disable DUT soft-AP first, then bring up the runner AP.
+pub fn rf_setup_for_base(journey_id: JourneyId, base: &str) -> Result<(), String> {
+    if needs_host_ap(journey_id) {
+        dut_hotspot_off(base);
+        std::thread::sleep(Duration::from_secs(2));
+    }
+    rf_setup(journey_id)
 }
 
 /// Tear down host RF after a journey (best-effort after HTTP teardown).

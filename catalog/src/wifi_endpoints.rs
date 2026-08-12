@@ -1,8 +1,8 @@
 use crate::journey::HttpMethod;
 use crate::runner::execute_curl;
 use crate::wifi_rf::{
-    connect_body_for_mode, dut_status_ssid, host_ap_ensure, host_ap_up, l3_assert_associated,
-    mode_ssid, restore_station, rf_teardown, wait_dut_lease, ApMode,
+    connect_body_for_mode, dut_hotspot_off, dut_status_ssid, host_ap_ensure, host_ap_up,
+    l3_assert_associated, mode_ssid, restore_station, rf_teardown, wait_dut_lease, ApMode,
 };
 use crate::JourneyId;
 
@@ -38,10 +38,16 @@ fn record(
 
 /// Exercises the documented wifi-manager HTTP surface while the host provides a WPA2 AP.
 pub fn run_wifi_endpoints(base: &str) -> Result<Vec<(String, bool, String)>, String> {
+    dut_hotspot_off(base);
+    std::thread::sleep(std::time::Duration::from_secs(2));
     host_ap_ensure()?;
     host_ap_up("wpa2")?;
     let mut results = Vec::new();
     let snapshot = crate::wifi_rf::fetch_hotspot_credentials_json(base).ok();
+    let smart_before = call(base, HttpMethod::Get, "smart_hotspot", None)
+        .ok()
+        .and_then(|(status, body)| (status == 200).then_some(body.trim().to_ascii_lowercase()))
+        .filter(|body| body == "true" || body == "false");
 
     record(
         &mut results,
@@ -170,12 +176,21 @@ pub fn run_wifi_endpoints(base: &str) -> Result<Vec<(String, bool, String)>, Str
             |status| status == 200 || status == 0,
         );
     }
+    // Restore prior smart-hotspot flag (do not force enable=true — that leaves soft-AP
+    // up and breaks the next DUT's client RF). Always leave hotspot off for hygiene.
+    let smart_restore = smart_before.as_deref().unwrap_or("false");
     record(
         &mut results,
         "smart_hotspot_restore",
-        call(base, HttpMethod::Post, "smart_hotspot?enable=true", None),
+        call(
+            base,
+            HttpMethod::Post,
+            &format!("smart_hotspot?enable={smart_restore}"),
+            None,
+        ),
         |status| status == 200,
     );
+    dut_hotspot_off(base);
     let _ = call(
         base,
         HttpMethod::Post,

@@ -43,6 +43,14 @@ RF setup/teardown runs automatically when `wifi_rf` reports the host ready
 (`nmcli` present and `HOST_WIFI_IFACE` exists). Otherwise RF-backed journeys skip
 with an explicit reason.
 
+Before client RF, the harness POSTs `smart_hotspot?enable=false` and
+`hotspot?enable=false` on the DUT (soft-AP left on blocks station join and
+pollutes neighboring scans). `--wifi-endpoints` restores the prior smart-hotspot
+flag, then forces hotspot off again for multi-DUT hygiene.
+
+Scan-absent gating: if the DUT still lists our SSID after the host AP is
+confirmed down, the harness continues with a warning (stale `/scan` cache).
+
 The host keeps `HOST_STATION_CONNS` down during RF tests. Set `RESTORE_STATION=1`
 to re-enable them after teardown (can break ethernet routes to the DUT).
 `EXPECT_WPA3=yes|no` overrides WPA3 capability; `auto` uses the WPA3 scan

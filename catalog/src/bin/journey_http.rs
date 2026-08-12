@@ -386,9 +386,10 @@ fn main() {
                 }
             }
             let rf_setup = if journey_id == JourneyId::ConnectToWifiNetwork {
+                wifi_rf::dut_hotspot_off(base);
                 wifi_rf::host_ap_ensure()
             } else {
-                wifi_rf::rf_setup(journey_id)
+                wifi_rf::rf_setup_for_base(journey_id, base)
             };
             if let Err(err) = rf_setup {
                 eprintln!("FAIL {journey_id} wifi RF setup — {err}");
@@ -745,6 +746,7 @@ fn print_help() {
 
 fn run_wifi_mode(base: &str, mode: ApMode) -> Result<String, String> {
     let ssid = wifi_rf::mode_ssid(mode);
+    wifi_rf::dut_hotspot_off(base);
     let _ = wifi_rf::host_ap_down();
     wifi_rf::assert_scan_absent(base, &ssid, std::time::Duration::from_secs(30))?;
     wifi_rf::host_ap_up(mode.as_str())?;
