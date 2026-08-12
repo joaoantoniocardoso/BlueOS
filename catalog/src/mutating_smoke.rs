@@ -183,6 +183,12 @@ pub const MUTATING_SMOKE_ENTRIES: &[MutatingSmokeEntry] = &[
         notes: "host AP up; connect; host-ap down; poll GET /status until SSID clears",
     },
     MutatingSmokeEntry {
+        journey_id: JourneyId::DisconnectFromWifiNetwork,
+        setup: SmokeRepair::HostWifiRf,
+        restore: SmokeRepair::HostWifiRf,
+        notes: "host AP up; connect; GET /disconnect; remove saved SSID; host-ap down",
+    },
+    MutatingSmokeEntry {
         journey_id: JourneyId::DisableOnboardDhcpServer,
         setup: SmokeRepair::HttpRoundTrip,
         restore: SmokeRepair::HttpRoundTrip,
@@ -423,9 +429,17 @@ pub fn is_mutating_smoke_journey(journey_id: JourneyId) -> bool {
 }
 
 pub fn journey_has_mutating_http_route(journey: &UserJourney) -> bool {
-    http_steps(journey)
-        .iter()
-        .any(|step| !matches!(step.route.method, HttpMethod::Get))
+    http_steps(journey).iter().any(|step| {
+        !matches!(step.route.method, HttpMethod::Get)
+            || is_side_effecting_get_mutate(journey.id, &step.route)
+    })
+}
+
+/// wifi-manager `GET /disconnect` mutates association state (not a read).
+fn is_side_effecting_get_mutate(journey_id: JourneyId, route: &crate::journey::RouteRef) -> bool {
+    journey_id == JourneyId::DisconnectFromWifiNetwork
+        && matches!(route.method, HttpMethod::Get)
+        && route.path == "/disconnect"
 }
 
 pub fn is_tier2_mutating_eligible(journey: &UserJourney) -> bool {

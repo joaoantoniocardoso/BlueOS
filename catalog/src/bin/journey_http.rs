@@ -361,6 +361,20 @@ fn main() {
                     eprintln!("journey_http: wifi RF mid-journey ok for {journey_id}");
                     totals.passed += 1;
                     step_results.push(StepResult::Pass);
+                    if journey_id == JourneyId::AutoconnectToSavedWifiNetwork {
+                        match wifi_rf::l3_assert_client_lease(base) {
+                            Ok(ip) => {
+                                eprintln!("journey_http: L3 client lease+ping ok ip={ip}");
+                                totals.passed += 1;
+                                step_results.push(StepResult::Pass);
+                            }
+                            Err(err) => {
+                                eprintln!("FAIL {journey_id} L3 client — {err}");
+                                totals.failed += 1;
+                                step_results.push(StepResult::Fail(err));
+                            }
+                        }
+                    }
                 }
                 Err(err) => {
                     eprintln!("FAIL {journey_id} wifi RF mid-journey — {err}");
@@ -393,6 +407,42 @@ fn main() {
                 totals.record(&result);
                 step_results.push(result);
                 if mutating_smoke
+                    && wifi_rf::wants_client_l3(journey_id)
+                    && step.route.path == "/connect"
+                    && matches!(step_results.last(), Some(StepResult::Pass))
+                {
+                    match wifi_rf::l3_assert_client_lease(base) {
+                        Ok(ip) => {
+                            eprintln!("journey_http: L3 client lease+ping ok ip={ip}");
+                            totals.passed += 1;
+                            step_results.push(StepResult::Pass);
+                        }
+                        Err(err) => {
+                            eprintln!("FAIL {journey_id} L3 client — {err}");
+                            totals.failed += 1;
+                            step_results.push(StepResult::Fail(err));
+                        }
+                    }
+                }
+                if mutating_smoke
+                    && journey_id == JourneyId::DisconnectFromWifiNetwork
+                    && step.route.path == "/disconnect"
+                    && matches!(step_results.last(), Some(StepResult::Pass))
+                {
+                    match wifi_rf::run_assert_disconnected(base) {
+                        Ok(()) => {
+                            eprintln!("journey_http: disconnect confirmed via /status");
+                            totals.passed += 1;
+                            step_results.push(StepResult::Pass);
+                        }
+                        Err(err) => {
+                            eprintln!("FAIL {journey_id} disconnect status — {err}");
+                            totals.failed += 1;
+                            step_results.push(StepResult::Fail(err));
+                        }
+                    }
+                }
+                if mutating_smoke
                     && journey_id == JourneyId::ToggleHotspot
                     && step.route.path == "/hotspot"
                     && matches!(step_results.last(), Some(StepResult::Pass))
@@ -402,6 +452,21 @@ fn main() {
                             eprintln!("journey_http: host joined BlueOS hotspot lease={lease}");
                             totals.passed += 1;
                             step_results.push(StepResult::Pass);
+                            match wifi_rf::l3_assert_hotspot_gateway() {
+                                Ok(()) => {
+                                    eprintln!(
+                                        "journey_http: L3 hotspot ping {} ok",
+                                        wifi_rf::SMOKE_HOTSPOT_GATEWAY
+                                    );
+                                    totals.passed += 1;
+                                    step_results.push(StepResult::Pass);
+                                }
+                                Err(err) => {
+                                    eprintln!("FAIL {journey_id} L3 hotspot — {err}");
+                                    totals.failed += 1;
+                                    step_results.push(StepResult::Fail(err));
+                                }
+                            }
                         }
                         Err(err) => {
                             eprintln!("FAIL {journey_id} hotspot RF join — {err}");

@@ -203,6 +203,9 @@ pub fn rf_teardown(journey_id: JourneyId) -> Result<(), String> {
     Ok(())
 }
 
+/// Must match `HOTSPOT_GATEWAY` in `catalog/harness/wifi/config.example.env`.
+pub const SMOKE_HOTSPOT_GATEWAY: &str = "192.168.42.1";
+
 /// After ToggleHotspot enables the DUT AP: host scans, associates, waits for lease.
 pub fn rf_verify_hotspot_join() -> Result<String, String> {
     host_scan_has_ssid(SMOKE_HOTSPOT_SSID)?;
@@ -210,8 +213,14 @@ pub fn rf_verify_hotspot_join() -> Result<String, String> {
     host_station_wait_lease("45")
 }
 
-/// GET /wifi-manager/v1.0/status → associated SSID (None if idle / missing).
-pub fn dut_status_ssid(blueos_base: &str) -> Result<Option<String>, String> {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DutWifiStatus {
+    pub ssid: Option<String>,
+    pub ip_address: Option<String>,
+}
+
+/// GET /wifi-manager/v1.0/status → associated SSID + lease IP.
+pub fn dut_wifi_status(blueos_base: &str) -> Result<DutWifiStatus, String> {
     let base = blueos_base.trim_end_matches('/');
     let url = format!("{base}/wifi-manager/v1.0/status");
     let output = Command::new("curl")
@@ -225,12 +234,24 @@ pub fn dut_status_ssid(blueos_base: &str) -> Result<Option<String>, String> {
     }
     let value: serde_json::Value =
         serde_json::from_str(body).map_err(|err| format!("parse /status: {err}"))?;
-    Ok(value
+    let ssid = value
         .get("ssid")
         .and_then(|v| v.as_str())
         .map(str::trim)
         .filter(|s| !s.is_empty())
-        .map(str::to_string))
+        .map(str::to_string);
+    let ip_address = value
+        .get("ip_address")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string);
+    Ok(DutWifiStatus { ssid, ip_address })
+}
+
+/// GET /wifi-manager/v1.0/status → associated SSID (None if idle / missing).
+pub fn dut_status_ssid(blueos_base: &str) -> Result<Option<String>, String> {
+    Ok(dut_wifi_status(blueos_base)?.ssid)
 }
 
 fn wait_dut_ssid(
@@ -252,6 +273,63 @@ fn wait_dut_ssid(
     Err(format!(
         "timeout waiting for status ssid={want:?} (last={last:?})"
     ))
+}
+
+/// Poll until DUT reports `ssid` + non-empty `ip_address`.
+pub fn wait_dut_lease(blueos_base: &str, ssid: &str, timeout_sec: u64) -> Result<String, String> {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(timeout_sec);
+    let mut last = DutWifiStatus {
+        ssid: None,
+        ip_address: None,
+    };
+    while std::time::Instant::now() < deadline {
+        last = dut_wifi_status(blueos_base)?;
+        if last.ssid.as_deref() == Some(ssid) {
+            if let Some(ip) = last.ip_address.as_ref() {
+                return Ok(ip.clone());
+            }
+        }
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
+    Err(format!(
+        "timeout waiting for lease on {ssid} (last ssid={:?} ip={:?})",
+        last.ssid, last.ip_address
+    ))
+}
+
+pub fn host_ping(ip: &str) -> Result<(), String> {
+    let output = Command::new("ping")
+        .args(["-c", "3", "-W", "2", ip])
+        .output()
+        .map_err(|err| format!("ping {ip}: {err}"))?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("ping {ip} failed: {stderr}"));
+    }
+    Ok(())
+}
+
+/// Client L3: wait for DUT wlan lease on the smoke SSID, then ping it from the host.
+pub fn l3_assert_client_lease(blueos_base: &str) -> Result<String, String> {
+    let ip = wait_dut_lease(blueos_base, SMOKE_CLIENT_SSID, 45)?;
+    host_ping(&ip)?;
+    Ok(ip)
+}
+
+/// Hotspot L3: ping BlueOS soft-AP gateway from the host station.
+pub fn l3_assert_hotspot_gateway() -> Result<(), String> {
+    host_ping(SMOKE_HOTSPOT_GATEWAY)
+}
+
+pub fn wants_client_l3(journey_id: JourneyId) -> bool {
+    matches!(
+        journey_id,
+        JourneyId::ConnectToWifiNetwork
+            | JourneyId::ConnectToHiddenWifiNetwork
+            | JourneyId::ForceWifiNetworkPassword
+            | JourneyId::ReconnectToSavedWifiNetwork
+            | JourneyId::AutoconnectToSavedWifiNetwork
+    )
 }
 
 /// Setup already associated the DUT to [`SMOKE_CLIENT_SSID`]. Drop the host AP and
@@ -281,6 +359,12 @@ pub fn run_autoconnect(blueos_base: &str) -> Result<(), String> {
     wait_dut_ssid(blueos_base, None, 90)?;
     host_ap_up("wpa2")?;
     wait_dut_ssid(blueos_base, Some(SMOKE_CLIENT_SSID), 120)?;
+    Ok(())
+}
+
+/// After GET /disconnect: confirm status SSID clears.
+pub fn run_assert_disconnected(blueos_base: &str) -> Result<(), String> {
+    wait_dut_ssid(blueos_base, None, 30)?;
     Ok(())
 }
 

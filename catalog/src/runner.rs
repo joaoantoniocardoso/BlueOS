@@ -627,7 +627,8 @@ pub fn mutating_smoke_setup_calls(journey_id: JourneyId) -> &'static [SmokeHttpC
         JourneyId::ForgetSavedWifiNetwork
         | JourneyId::ForceWifiNetworkPassword
         | JourneyId::DetectWifiApLoss
-        | JourneyId::AutoconnectToSavedWifiNetwork => &[
+        | JourneyId::AutoconnectToSavedWifiNetwork
+        | JourneyId::DisconnectFromWifiNetwork => &[
             SmokeHttpCall {
                 route: RouteRef {
                     service: ServiceId::Wifi,
@@ -1138,8 +1139,10 @@ pub fn mutating_smoke_teardown_calls(journey_id: JourneyId) -> &'static [SmokeHt
                 form_file: None,
             },
         ],
-        // Wrong-password never associates; AP-loss leaves idle — GET /disconnect is 500.
-        JourneyId::RejectInvalidWifiCredentials | JourneyId::DetectWifiApLoss => &[SmokeHttpCall {
+        // Wrong-password never associates; AP-loss / disconnect leave idle — GET /disconnect is 500.
+        JourneyId::RejectInvalidWifiCredentials
+        | JourneyId::DetectWifiApLoss
+        | JourneyId::DisconnectFromWifiNetwork => &[SmokeHttpCall {
             route: RouteRef {
                 service: ServiceId::Wifi,
                 method: Post,
@@ -1221,7 +1224,10 @@ pub fn http_mutating_smoke_steps(journey: &UserJourney) -> Vec<RunnableStep> {
     http_steps(journey)
         .into_iter()
         .filter(|step| {
-            !matches!(step.route.method, HttpMethod::Get)
+            let side_effecting_get = journey.id == JourneyId::DisconnectFromWifiNetwork
+                && matches!(step.route.method, HttpMethod::Get)
+                && step.route.path == "/disconnect";
+            (!matches!(step.route.method, HttpMethod::Get) || side_effecting_get)
                 && step.expected_status.is_some()
                 && (!step.route.path.contains('{')
                     || mutating_smoke_path_bind(step.journey_id, step.route.path).is_some())
