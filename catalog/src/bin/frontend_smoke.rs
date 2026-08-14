@@ -1,9 +1,9 @@
-use blueos_catalog::{calibration_smoke_targets, Catalog};
+use blueos_catalog::{frontend_smoke_targets, Catalog};
 use std::io::{self, Write};
 
 fn main() {
     let catalog = Catalog::bootstrap();
-    let targets = calibration_smoke_targets(&catalog);
+    let targets = frontend_smoke_targets(&catalog);
     let json = serde_json::to_string_pretty(&targets).expect("serialize smoke targets");
     let mut stdout = io::stdout().lock();
     stdout

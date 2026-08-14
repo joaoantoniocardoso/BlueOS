@@ -88,7 +88,9 @@ pub use fixture::{
     evaluate_journey, evaluate_precondition, journey_fixtures_ready, journey_mutating_smoke_ready,
     parse_fixture_list, FixtureInventory, PreconditionStatus,
 };
-pub use frontend_smoke::{calibration_smoke_targets, concrete_page_path, FrontendSmokeTarget};
+pub use frontend_smoke::{
+    calibration_smoke_targets, concrete_page_path, frontend_smoke_targets, FrontendSmokeTarget,
+};
 pub use id::{CapabilityId, Entity, JourneyId, PathRef, Port, PortRef, ServiceId};
 pub use interface::{FileAccessMode, Interface, MavlinkRole};
 pub use journey::{
@@ -149,6 +151,7 @@ pub use state::StateMachine;
 pub use trust::{DangerousOperation, PrivilegeLevel, UserConfirmation};
 pub use ui::{
     ui_plan, ui_suite_plans, wizard_skip_plan, UiAction, UiJourneyPlan, UI_CALIBRATION_JOURNEYS,
+    UI_NO_HARDWARE_JOURNEYS,
 };
 pub use validate::{validate, ValidationError, COVERAGE_UNKNOWN_THRESHOLD};
 pub use version::{

@@ -6,6 +6,8 @@ interface SmokePage {
   page_id: string;
   path: string;
   name: string;
+  landmarks?: string[];
+  skip_reason?: string;
 }
 
 /**
@@ -31,7 +33,9 @@ function isBenign(urlOrText: string): boolean {
 
 for (const page of pages) {
   test(`page loads: ${page.name} (${page.page_id})`, async ({ page: browserPage, baseURL }) => {
+    test.skip(Boolean(page.skip_reason), page.skip_reason ?? '');
     const unexpected: string[] = [];
+    const serverErrors: string[] = [];
 
     browserPage.on('response', (res) => {
       const status = res.status();
@@ -43,6 +47,9 @@ for (const page of pages) {
         return;
       }
       unexpected.push(`${status} ${res.request().method()} ${url}`);
+      if (status >= 500) {
+        serverErrors.push(`${status} ${res.request().method()} ${url}`);
+      }
     });
 
     browserPage.on('requestfailed', (req) => {
@@ -74,6 +81,23 @@ for (const page of pages) {
     expect(rootResponse?.status(), `HTTP status for ${root}`).toBeLessThan(400);
     await expect(browserPage.locator('#app')).toBeVisible();
 
+    const skipWizard = browserPage.getByRole('button', { name: 'Skip Wizard', exact: true });
+    if (await skipWizard.isVisible().catch(() => false)) {
+      await skipWizard.click();
+      const abort = browserPage.getByRole('button', { name: 'Abort wizard', exact: true });
+      if (await abort.isVisible().catch(() => false)) {
+        await abort.click();
+      }
+      const close = browserPage.getByRole('button', { name: 'Close', exact: true });
+      if (await close.isVisible().catch(() => false)) {
+        await close.click();
+      }
+    }
+    const skipTour = browserPage.getByRole('button', { name: 'Skip tour', exact: true });
+    if (await skipTour.isVisible().catch(() => false)) {
+      await skipTour.click();
+    }
+
     // BlueOS nginx serves the SPA only at / (deep links 404); use client-side routing.
     await browserPage.evaluate((path) => {
       const rootEl = document.querySelector('#app') as HTMLElement & {
@@ -93,8 +117,21 @@ for (const page of pages) {
     // Brief settle so late bag/mavlink probes are classified, not missed as "unexpected".
     await browserPage.waitForTimeout(1500);
 
+    const landmarks = page.landmarks ?? [];
+    if (landmarks.length > 0) {
+      let loc = browserPage.getByText(landmarks[0], { exact: false });
+      for (const text of landmarks.slice(1)) {
+        loc = loc.or(browserPage.getByText(text, { exact: false }));
+      }
+      loc = loc.or(browserPage.locator('iframe'));
+      await expect(loc.first(), `landmark ${landmarks.join('|')} (or iframe) on ${page.page_id}`).toBeVisible({
+        timeout: 15_000,
+      });
+    }
+
+    expect(serverErrors, `[${page.page_id}] non-benign HTTP 5xx`).toEqual([]);
     if (unexpected.length > 0) {
-      console.log(`[${page.page_id}] unexpected network/console errors (soft):`, [...new Set(unexpected)]);
+      console.log(`[${page.page_id}] unexpected 4xx/console (soft):`, [...new Set(unexpected)]);
     }
   });
 }

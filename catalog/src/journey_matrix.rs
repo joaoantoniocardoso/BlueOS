@@ -217,7 +217,7 @@ fn collect_hits(path: &Path, hits: &mut Vec<ReportHit>) -> Result<(), String> {
     if parsed.journeys.is_empty() {
         return Ok(());
     }
-    let suite_is_ui = parsed.suite == "ui";
+    let suite_is_ui = parsed.suite == "ui" || parsed.suite == "page_load";
     let dut = dut_label(&parsed.base, parsed.dut.as_ref());
     let utc = if parsed.finished_at.is_empty() {
         None
@@ -540,14 +540,14 @@ mod tests {
                 assert_eq!(row.ui.state, CellState::Planned);
             }
         }
-        let apply = matrix
+        let video = matrix
             .rows
             .iter()
-            .find(|row| row.journey_id == JourneyId::ApplyParameterFile)
+            .find(|row| row.journey_id == JourneyId::ConfigureVideoStream)
             .unwrap();
-        assert!(apply.has_frontend_step);
-        assert!(!apply.has_ui_plan);
-        assert_eq!(apply.ui.state, CellState::Empty);
+        assert!(video.has_frontend_step);
+        assert!(!video.has_ui_plan);
+        assert_eq!(video.ui.state, CellState::Empty);
     }
 
     #[test]

@@ -15,6 +15,7 @@ type UiAction =
   | { op: 'click'; text: string }
   | { op: 'click_if_visible'; text: string }
   | { op: 'wait_text'; text: string; timeout_ms: number }
+  | { op: 'expect_iframe' }
   | SitlRcAction
   | { op: 'sleep'; ms: number };
 
@@ -395,8 +396,30 @@ async function runPlan(page: Page, plan: UiJourneyPlan): Promise<void> {
         case 'open':
           await spaGoto(page, action.path);
           break;
-        case 'expect':
-          await expect(page.getByText(action.text).first()).toBeVisible({ timeout: 30_000 });
+        case 'expect': {
+          const deadline = Date.now() + 30_000;
+          let found = false;
+          while (Date.now() < deadline) {
+            if (await page.getByText(action.text).first().isVisible().catch(() => false)) {
+              found = true;
+              break;
+            }
+            for (const frame of page.frames()) {
+              if (await frame.getByText(action.text).first().isVisible().catch(() => false)) {
+                found = true;
+                break;
+              }
+            }
+            if (found) {
+              break;
+            }
+            await page.waitForTimeout(250);
+          }
+          expect(found, `expect "${action.text}" in page or iframe`).toBe(true);
+          break;
+        }
+        case 'expect_iframe':
+          await expect(page.locator('iframe').first()).toBeVisible({ timeout: 30_000 });
           break;
         case 'click':
           await clickText(page, action.text);

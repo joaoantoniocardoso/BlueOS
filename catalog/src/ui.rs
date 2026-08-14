@@ -12,6 +12,13 @@ pub const UI_CALIBRATION_JOURNEYS: &[JourneyId] = &[
     JourneyId::DetectMotorDirections,
 ];
 
+pub const UI_NO_HARDWARE_JOURNEYS: &[JourneyId] = &[
+    JourneyId::AccessWebTerminal,
+    JourneyId::ManageBlueosFiles,
+    JourneyId::InspectMavlinkMessagesInBrowser,
+    JourneyId::ApplyParameterFile,
+];
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct UiJourneyPlan {
     pub journey_id: String,
@@ -38,6 +45,7 @@ pub enum UiAction {
         text: &'static str,
         timeout_ms: u64,
     },
+    ExpectIframe,
     SitlRc {
         chan5: u16,
         chan6: u16,
@@ -133,22 +141,57 @@ pub fn ui_plan(id: JourneyId) -> Option<UiJourneyPlan> {
                 timeout_ms: 120_000,
             },
         ],
+        JourneyId::AccessWebTerminal => vec![
+            UiAction::Open {
+                path: "/tools/web-terminal",
+            },
+            UiAction::ExpectIframe,
+        ],
+        JourneyId::ManageBlueosFiles => vec![
+            UiAction::Open {
+                path: "/tools/file-browser",
+            },
+            UiAction::Expect { text: "My files" },
+        ],
+        JourneyId::InspectMavlinkMessagesInBrowser => vec![
+            UiAction::Open {
+                path: "/tools/mavlink-inspector",
+            },
+            UiAction::Expect { text: "HEARTBEAT" },
+        ],
+        JourneyId::ApplyParameterFile => vec![
+            UiAction::Open {
+                path: "/vehicle/parameters",
+            },
+            UiAction::WaitText {
+                text: "Load",
+                timeout_ms: 60_000,
+            },
+            UiAction::Click { text: "Load" },
+            UiAction::WaitText {
+                text: "Load parameter file",
+                timeout_ms: 10_000,
+            },
+        ],
         _ => return None,
     };
     Some(UiJourneyPlan {
         journey_id: id.as_str().to_string(),
         sitl_frame: if matches!(id, JourneyId::DetectMotorDirections) {
             Some(SITL_FRAME_VECTORED)
-        } else {
+        } else if UI_CALIBRATION_JOURNEYS.contains(&id) {
             Some(SITL_FRAME_CALIBRATION)
+        } else {
+            None
         },
         actions,
     })
 }
 
 pub fn ui_suite_plans() -> Vec<UiJourneyPlan> {
-    UI_CALIBRATION_JOURNEYS
+    UI_NO_HARDWARE_JOURNEYS
         .iter()
+        .chain(UI_CALIBRATION_JOURNEYS.iter())
         .copied()
         .filter_map(ui_plan)
         .collect()
@@ -280,6 +323,15 @@ mod tests {
                 text: "Use GeoIP coordinates"
             }
         )));
+    }
+
+    #[test]
+    fn no_hardware_plans_have_no_sitl_frame() {
+        for id in UI_NO_HARDWARE_JOURNEYS {
+            let plan = ui_plan(*id).expect("plan");
+            assert!(plan.sitl_frame.is_none(), "{id}");
+            assert!(!plan.actions.is_empty());
+        }
     }
 
     #[test]

@@ -17,13 +17,13 @@ use blueos_catalog::{
     journey_mutating_smoke_ready, mutating_smoke_setup_calls, mutating_smoke_skip_reason,
     mutating_smoke_teardown_calls, negative_probe_url, parse_fixture_list, resolve_http_path,
     run_core_image_switch, run_http_step, run_negative_probe, run_smoke_http_call,
-    summarize_journey, ui_plan, utc_rfc3339_now, wait_for_blueos, wizard_skip_plan,
+    summarize_journey, ui_suite_plans, utc_rfc3339_now, wait_for_blueos, wizard_skip_plan,
     write_journey_http_report, Catalog, DutVersion, FixtureInventory, HttpMethod,
     JourneyHttpReport, JourneyId, JourneyReportEntry, JourneyResult, NegativeProbe,
     PreconditionStatus, ReportDut, RunCounts, StepResult, SuiteKind, UiJourneyPlan,
     MUTATING_SMOKE_DEFAULT_FIXTURES, NEGATIVE_PROBES, SCHEMA_VERSION, SMOKE_CORE_MASTER_JSON,
     SMOKE_CORE_MASTER_TAG, SMOKE_CORE_SWITCH_JSON, SMOKE_CORE_SWITCH_TAG, SMOKE_DEFAULT_FIXTURES,
-    TIER2_SMOKE_DUT_CORE_DIGEST, UI_CALIBRATION_JOURNEYS,
+    TIER2_SMOKE_DUT_CORE_DIGEST,
 };
 
 fn main() {
@@ -787,11 +787,9 @@ fn run_ui_suite(
     journey_filter: Option<JourneyId>,
     report_path: Option<&str>,
 ) {
-    let mut plans: Vec<UiJourneyPlan> = UI_CALIBRATION_JOURNEYS
-        .iter()
-        .copied()
-        .filter(|id| journey_filter.is_none_or(|filter| filter == *id))
-        .filter_map(ui_plan)
+    let mut plans: Vec<UiJourneyPlan> = ui_suite_plans()
+        .into_iter()
+        .filter(|plan| journey_filter.is_none_or(|filter| plan.journey_id == filter.as_str()))
         .collect();
     if let Some(filter) = journey_filter {
         if plans.is_empty() {
