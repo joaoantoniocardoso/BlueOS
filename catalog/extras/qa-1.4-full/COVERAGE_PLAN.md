@@ -13,13 +13,17 @@ Every `JourneyId` has two cells:
 
 Dual journeys (rename, bag, extensions, video, parameters) need **both** cells green.
 
-Oracle: `derive_automatable()` already classifies Frontend / Hardware / Http / Manual. Do **not** add a UI field to `JourneyStep`.
+Oracle: `journey_matrix` (`catalog/src/journey_matrix.rs`). Two independent booleans per id — `has_known_route` (any step, Frontend included) and `has_frontend_step` / `ui_plan` / page-load allowlist. `derive_automatable()` is a **hint only**: it returns a single class and would skip a real `RouteRef` on Hardware/Frontend journeys (`create_serial_to_udp_bridge`). Do **not** add a UI field to `JourneyStep`.
 
-A unit test / `journey_http --coverage` fails if any journey has both cells empty except `Deploy` and `shutdown_onboard_computer`.
+Every cell is `{state, dut, report_path, utc}`. States: `empty`, `planned` (plan exists, never ran), typed `skip`, `pass` / `pass_with_finding` / `fail` from `--merge-report`. Planned is not Pass.
+
+A unit test / `cargo run -q --bin journey_matrix -- --merge-report extras/qa-1.4-full/reports` fails if any present journey has both cells empty except `Deploy` and `shutdown_onboard_computer`.
+
+Page-load may satisfy the UI cell **only** for `view_configured_serial_bridges`, `browse_available_web_services`, `view_system_information`. Mutating journeys need `ui_plan`. `calibrate_compass` UI pass is `pass_with_finding(F-068)`.
 
 ## Layers
 
-1. **Coverage oracle** — emit `{class, http, ui, skip_reason}` for every id.
+1. **Coverage oracle** — `journey_matrix` emits `{backend, ui}` per id; merge live `reports/**/*.json`.
 2. **Backend** — fill `--smoke` / `--mutating-smoke` / `--negative` holes; provision fixtures instead of skip; W5/W6 disruptive with restore. EEPROM/firmware/settings-reset stay skip-with-reason unless explicitly in scope.
 3. **Page-load** — expand `frontend_smoke` from 3 pages to all 24 `PageId`s (SPA: `goto /` then `router.push`).
 4. **UI journeys** — grow `ui_plan()`; Playwright stays a dumb interpreter. Vehicle Setup leftovers (quick accel, large-vehicle mag, Compass Learn) as plans or page landmarks, not new ids without a doc/source anchor. Then parameters, video (DUT 87 camera), terminal, MAVLink inspector, file browser, bag, extensions, version chooser, records, zenoh, ping, bridges, NMEA.
