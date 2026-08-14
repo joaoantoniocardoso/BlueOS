@@ -172,9 +172,18 @@ pub fn format_dry_run(journey_id: JourneyId, step: &RunnableStep, resolved_path:
     )
 }
 
-pub fn journey_http_mode_conflict(smoke: bool, mutating_smoke: bool) -> Result<(), &'static str> {
-    if smoke && mutating_smoke {
-        return Err("--smoke and --mutating-smoke are mutually exclusive");
+pub fn journey_http_mode_conflict(
+    smoke: bool,
+    mutating_smoke: bool,
+    negative: bool,
+    ui: bool,
+) -> Result<(), &'static str> {
+    let modes = [smoke, mutating_smoke, negative, ui]
+        .into_iter()
+        .filter(|enabled| *enabled)
+        .count();
+    if modes > 1 {
+        return Err("--smoke, --mutating-smoke, --negative, and --ui are mutually exclusive");
     }
     Ok(())
 }
@@ -183,15 +192,112 @@ pub fn journey_http_requires_base(
     dry_run: bool,
     smoke: bool,
     mutating_smoke: bool,
+    negative: bool,
+    ui: bool,
     base: Option<&str>,
 ) -> Result<(), &'static str> {
-    if (smoke || mutating_smoke) && base.is_none() {
-        return Err("--base is required for --smoke and --mutating-smoke");
+    if (smoke || mutating_smoke || ui) && base.is_none() {
+        return Err("--base is required for --smoke, --mutating-smoke, and --ui");
+    }
+    if negative && !dry_run && base.is_none() {
+        return Err("--base is required for --negative");
     }
     if !dry_run && base.is_none() {
         return Err("--base is required unless --dry-run is set");
     }
     Ok(())
+}
+
+pub fn run_negative_probe(
+    base: &str,
+    probe: &crate::negative_probes::NegativeProbe,
+    allow_mutating: bool,
+    current_tag: Option<&str>,
+) -> StepResult {
+    if probe.id == "NP-38" {
+        return run_negative_probe_np38_concurrent_scan(base, allow_mutating, probe);
+    }
+
+    let body = negative_probe_body(probe, current_tag);
+    if probe.id == "NP-62" && body.is_none() {
+        return StepResult::Fail("NP-62 requires running tag from GET /version/current".into());
+    }
+
+    let url = crate::negative_probes::negative_probe_url(base, probe);
+    let (status_code, body_text) =
+        match execute_curl(&probe.method, &url, allow_mutating, body.as_deref(), None) {
+            Ok(response) => response,
+            Err(err) => return StepResult::Fail(err),
+        };
+
+    evaluate_negative_probe_response(probe, status_code, &body_text)
+}
+
+fn negative_probe_body(
+    probe: &crate::negative_probes::NegativeProbe,
+    current_tag: Option<&str>,
+) -> Option<String> {
+    if probe.id == "NP-62" {
+        let tag = current_tag?;
+        return Some(format!(
+            r#"{{"repository":"bluerobotics/blueos-core","tag":"{tag}"}}"#
+        ));
+    }
+    probe.body.map(|body| body.to_string())
+}
+
+fn evaluate_negative_probe_response(
+    probe: &crate::negative_probes::NegativeProbe,
+    status_code: u16,
+    body: &str,
+) -> StepResult {
+    let result = evaluate_http_response(status_code, body, probe.expected_status, None);
+    match &result {
+        StepResult::Pass => eprintln!("PASS {} HTTP {status_code}", probe.id),
+        StepResult::Fail(msg) => eprintln!("FAIL {} HTTP {status_code} — {msg}", probe.id),
+        StepResult::Unasserted => eprintln!("UNASSERTED {} HTTP {status_code}", probe.id),
+        _ => {}
+    }
+    result
+}
+
+fn run_negative_probe_np38_concurrent_scan(
+    base: &str,
+    allow_mutating: bool,
+    probe: &crate::negative_probes::NegativeProbe,
+) -> StepResult {
+    use std::sync::mpsc;
+    use std::thread;
+
+    let url = crate::negative_probes::negative_probe_url(base, probe);
+    let (tx, rx) = mpsc::channel();
+    for _ in 0..2 {
+        let tx = tx.clone();
+        let url = url.clone();
+        thread::spawn(move || {
+            let result = execute_curl(&HttpMethod::Get, &url, allow_mutating, None, None);
+            let _ = tx.send(result);
+        });
+    }
+    drop(tx);
+
+    let mut statuses = Vec::new();
+    for _ in 0..2 {
+        match rx.recv() {
+            Ok(Ok((status, _))) => statuses.push(status),
+            Ok(Err(err)) => return StepResult::Fail(err),
+            Err(_) => return StepResult::Fail("NP-38 concurrent scan thread failed".into()),
+        }
+    }
+
+    if statuses.contains(&425) {
+        return evaluate_negative_probe_response(probe, 425, "");
+    }
+
+    StepResult::Fail(format!(
+        "NP-38 expected 425 on at least one concurrent scan, got {:?}",
+        statuses
+    ))
 }
 
 pub fn http_steps(journey: &UserJourney) -> Vec<RunnableStep> {
@@ -1474,6 +1580,7 @@ pub fn execute_curl(
         || url.contains("/extension")
         || url.contains("install_firmware")
         || url.contains("restore_default")
+        || url.contains("/board")
     {
         "600"
     } else {
@@ -2001,20 +2108,38 @@ mod tests {
 
     #[test]
     fn journey_http_base_required_for_smoke() {
-        assert!(journey_http_requires_base(false, true, false, None).is_err());
-        assert!(journey_http_requires_base(false, false, true, None).is_err());
-        assert!(journey_http_requires_base(true, false, false, None).is_ok());
-        assert!(journey_http_requires_base(false, false, false, None).is_err());
-        assert!(journey_http_requires_base(false, true, false, Some("http://pi")).is_ok());
-        assert!(journey_http_requires_base(false, false, true, Some("http://pi")).is_ok());
+        assert!(journey_http_requires_base(false, true, false, false, false, None).is_err());
+        assert!(journey_http_requires_base(false, false, true, false, false, None).is_err());
+        assert!(journey_http_requires_base(false, false, false, true, false, None).is_err());
+        assert!(journey_http_requires_base(false, false, false, false, true, None).is_err());
+        assert!(journey_http_requires_base(true, false, false, true, false, None).is_ok());
+        assert!(journey_http_requires_base(true, false, false, false, false, None).is_ok());
+        assert!(journey_http_requires_base(false, false, false, false, false, None).is_err());
+        assert!(
+            journey_http_requires_base(false, true, false, false, false, Some("http://pi")).is_ok()
+        );
+        assert!(
+            journey_http_requires_base(false, false, true, false, false, Some("http://pi")).is_ok()
+        );
+        assert!(
+            journey_http_requires_base(false, false, false, true, false, Some("http://pi")).is_ok()
+        );
+        assert!(
+            journey_http_requires_base(false, false, false, false, true, Some("http://pi")).is_ok()
+        );
     }
 
     #[test]
     fn journey_http_smoke_modes_are_mutually_exclusive() {
-        assert!(journey_http_mode_conflict(true, true).is_err());
-        assert!(journey_http_mode_conflict(true, false).is_ok());
-        assert!(journey_http_mode_conflict(false, true).is_ok());
-        assert!(journey_http_mode_conflict(false, false).is_ok());
+        assert!(journey_http_mode_conflict(true, true, false, false).is_err());
+        assert!(journey_http_mode_conflict(true, false, true, false).is_err());
+        assert!(journey_http_mode_conflict(false, true, true, false).is_err());
+        assert!(journey_http_mode_conflict(true, false, false, true).is_err());
+        assert!(journey_http_mode_conflict(true, false, false, false).is_ok());
+        assert!(journey_http_mode_conflict(false, true, false, false).is_ok());
+        assert!(journey_http_mode_conflict(false, false, true, false).is_ok());
+        assert!(journey_http_mode_conflict(false, false, false, true).is_ok());
+        assert!(journey_http_mode_conflict(false, false, false, false).is_ok());
     }
 
     #[test]

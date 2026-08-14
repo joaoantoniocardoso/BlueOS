@@ -2,22 +2,28 @@
 // Tier-1 smoke (GET + known status only): `journey_http --base http://<pi> --smoke`.
 // Tier-2 mutating smoke (allowlisted reversible journeys): `journey_http --base http://<pi> --mutating-smoke`.
 // Offline plan: `journey_http --dry-run` (no --base).
+use std::io::Write;
+use std::path::Path;
 use std::process;
+use std::time::Duration;
 
+use blueos_catalog::sitl_cal::{self, BoardRestore};
 use blueos_catalog::wifi_rf::{self, ApMode};
 use blueos_catalog::{
     evaluate_journey, execute_curl, fetch_dut_version, format_dry_run, format_http_fail,
-    http_journeys, http_mutating_smoke_steps, http_smoke_steps, http_steps,
-    is_mutating_smoke_journey, join_url, journey_availability_skip, journey_fixtures_ready,
-    journey_http_mode_conflict, journey_http_requires_base, journey_mutating_smoke_ready,
-    mutating_smoke_setup_calls, mutating_smoke_skip_reason, mutating_smoke_teardown_calls,
-    parse_fixture_list, resolve_http_path, run_core_image_switch, run_http_step,
-    run_smoke_http_call, summarize_journey, utc_rfc3339_now, wait_for_blueos,
+    format_negative_dry_run, http_journeys, http_mutating_smoke_steps, http_smoke_steps,
+    http_steps, is_mutating_smoke_journey, join_url, journey_availability_skip,
+    journey_fixtures_ready, journey_http_mode_conflict, journey_http_requires_base,
+    journey_mutating_smoke_ready, mutating_smoke_setup_calls, mutating_smoke_skip_reason,
+    mutating_smoke_teardown_calls, negative_probe_url, parse_fixture_list, resolve_http_path,
+    run_core_image_switch, run_http_step, run_negative_probe, run_smoke_http_call,
+    summarize_journey, ui_plan, utc_rfc3339_now, wait_for_blueos, wizard_skip_plan,
     write_journey_http_report, Catalog, DutVersion, FixtureInventory, HttpMethod,
-    JourneyHttpReport, JourneyId, JourneyReportEntry, JourneyResult, PreconditionStatus, ReportDut,
-    RunCounts, StepResult, SuiteKind, MUTATING_SMOKE_DEFAULT_FIXTURES, SCHEMA_VERSION,
-    SMOKE_CORE_MASTER_JSON, SMOKE_CORE_MASTER_TAG, SMOKE_CORE_SWITCH_JSON, SMOKE_CORE_SWITCH_TAG,
-    SMOKE_DEFAULT_FIXTURES, TIER2_SMOKE_DUT_CORE_DIGEST,
+    JourneyHttpReport, JourneyId, JourneyReportEntry, JourneyResult, NegativeProbe,
+    PreconditionStatus, ReportDut, RunCounts, StepResult, SuiteKind, UiJourneyPlan,
+    MUTATING_SMOKE_DEFAULT_FIXTURES, NEGATIVE_PROBES, SCHEMA_VERSION, SMOKE_CORE_MASTER_JSON,
+    SMOKE_CORE_MASTER_TAG, SMOKE_CORE_SWITCH_JSON, SMOKE_CORE_SWITCH_TAG, SMOKE_DEFAULT_FIXTURES,
+    TIER2_SMOKE_DUT_CORE_DIGEST, UI_CALIBRATION_JOURNEYS,
 };
 
 fn main() {
@@ -28,6 +34,8 @@ fn main() {
     let mut allow_mutating = false;
     let mut smoke = false;
     let mut mutating_smoke = false;
+    let mut negative = false;
+    let mut ui = false;
     let mut journey_filter: Option<JourneyId> = None;
     let mut report_path: Option<String> = None;
     let mut wifi_modes_spec: Option<String> = None;
@@ -56,6 +64,8 @@ fn main() {
             "--allow-mutating" => allow_mutating = true,
             "--smoke" => smoke = true,
             "--mutating-smoke" => mutating_smoke = true,
+            "--negative" => negative = true,
+            "--ui" => ui = true,
             "--wifi-modes" => {
                 index += 1;
                 wifi_modes_spec = Some(
@@ -90,26 +100,53 @@ fn main() {
         index += 1;
     }
 
-    if let Err(message) = journey_http_mode_conflict(smoke, mutating_smoke) {
+    if let Err(message) = journey_http_mode_conflict(smoke, mutating_smoke, negative, ui) {
         usage_and_exit(message);
     }
-    if wifi_endpoints && (smoke || mutating_smoke) {
-        usage_and_exit("--wifi-endpoints is mutually exclusive with --smoke and --mutating-smoke");
+    if wifi_endpoints && (smoke || mutating_smoke || negative || ui) {
+        usage_and_exit(
+            "--wifi-endpoints is mutually exclusive with --smoke, --mutating-smoke, --negative, and --ui",
+        );
     }
     if wifi_endpoints && (dry_run || base.is_none()) {
         usage_and_exit("--wifi-endpoints requires --base and cannot use --dry-run");
     }
 
-    if let Err(message) =
-        journey_http_requires_base(dry_run, smoke, mutating_smoke, base.as_deref())
-    {
+    if let Err(message) = journey_http_requires_base(
+        dry_run,
+        smoke,
+        mutating_smoke,
+        negative,
+        ui,
+        base.as_deref(),
+    ) {
         usage_and_exit(message);
     }
 
     if smoke {
         allow_mutating = false;
-    } else if mutating_smoke {
+    } else if mutating_smoke || negative || ui {
         allow_mutating = true;
+    }
+
+    if ui {
+        run_ui_suite(
+            base.as_deref(),
+            dry_run,
+            journey_filter,
+            report_path.as_deref(),
+        );
+        return;
+    }
+
+    if negative {
+        run_negative_probes(
+            base.as_deref(),
+            dry_run,
+            journey_filter,
+            report_path.as_deref(),
+        );
+        return;
     }
 
     if wifi_endpoints {
@@ -740,8 +777,399 @@ fn usage_and_exit(message: &str) -> ! {
 
 fn print_help() {
     eprintln!(
-        "usage: journey_http --base <url> [--fixtures internet,pirate,advanced] [--smoke | --mutating-smoke | --wifi-endpoints] [--wifi-modes open,wpa,wpa2,transition,wpa3] [--dry-run] [--allow-mutating] [--journey <id>] [--report <path.json>]"
+        "usage: journey_http --base <url> [--fixtures internet,pirate,advanced] [--smoke | --mutating-smoke | --negative | --ui | --wifi-endpoints] [--wifi-modes open,wpa,wpa2,transition,wpa3] [--dry-run] [--allow-mutating] [--journey <id>] [--report <path.json>]"
     );
+}
+
+fn run_ui_suite(
+    base: Option<&str>,
+    dry_run: bool,
+    journey_filter: Option<JourneyId>,
+    report_path: Option<&str>,
+) {
+    let mut plans: Vec<UiJourneyPlan> = UI_CALIBRATION_JOURNEYS
+        .iter()
+        .copied()
+        .filter(|id| journey_filter.is_none_or(|filter| filter == *id))
+        .filter_map(ui_plan)
+        .collect();
+    if let Some(filter) = journey_filter {
+        if plans.is_empty() {
+            eprintln!("journey_http: no UI plan for journey {filter}");
+            process::exit(2);
+        }
+    }
+    plans.insert(0, wizard_skip_plan());
+
+    if dry_run {
+        println!("{}", serde_json::to_string_pretty(&plans).unwrap());
+        return;
+    }
+
+    let base = base.expect("--ui requires --base");
+    if base.contains("192.168.2.2") {
+        eprintln!("journey_http: --ui refuses 192.168.2.2 (physical USB vehicle)");
+        process::exit(2);
+    }
+
+    let catalog = Catalog::bootstrap();
+    let journeys: std::collections::HashMap<_, _> = catalog
+        .journeys()
+        .iter()
+        .map(|journey| (journey.id, journey))
+        .collect();
+    let dut_version = fetch_dut_version(base).ok();
+    let started_at = utc_rfc3339_now();
+    let mut totals = RunCounts::default();
+    let mut report_journeys: Vec<JourneyReportEntry> = Vec::new();
+    let mut any_fail = false;
+
+    println!("journey_http: ui — {} plan(s)", plans.len());
+    println!("base: {base}");
+    if let Some(dut) = &dut_version {
+        let digest = dut.digest.as_deref().unwrap_or("(none)");
+        println!("dut: tag={} digest={digest}", dut.tag);
+    }
+    println!();
+
+    let restore = match BoardRestore::snapshot(base) {
+        Ok(restore) => Some(restore),
+        Err(err) => {
+            eprintln!("journey_http: snapshot board: {err}");
+            process::exit(1);
+        }
+    };
+
+    let sitl_json = match sitl_cal::sitl_board_json(base) {
+        Ok(json) => json,
+        Err(err) => {
+            eprintln!("journey_http: SITL board: {err}");
+            drop(restore);
+            process::exit(1);
+        }
+    };
+
+    // Abort-wizard equivalent so Vehicle Setup is not under the first-boot dialog.
+    match execute_curl(
+        &HttpMethod::Post,
+        &join_url(base, "/bag/v1.0/set/wizard"),
+        true,
+        Some(r#"{"version":4}"#),
+        None,
+    ) {
+        Ok((200, _)) => {}
+        Ok((status, body)) => eprintln!("journey_http: persist wizard skip HTTP {status}: {body}"),
+        Err(err) => eprintln!("journey_http: persist wizard skip: {err}"),
+    }
+
+    let mut groups: Vec<(Option<&'static str>, Vec<UiJourneyPlan>)> = Vec::new();
+    for plan in plans {
+        match groups.last_mut() {
+            Some((frame, bucket)) if *frame == plan.sitl_frame => bucket.push(plan),
+            _ => groups.push((plan.sitl_frame, vec![plan])),
+        }
+    }
+
+    for (frame, group) in groups {
+        if let Some(frame) = frame {
+            println!("journey_http: SITL frame {frame}");
+            if let Err(err) = sitl_cal::set_board(base, &sitl_json, Some(frame)) {
+                eprintln!("FAIL sitl_frame {frame} — {err}");
+                any_fail = true;
+                totals.failed += group.len();
+                continue;
+            }
+            if let Err(err) = sitl_cal::wait_heartbeat(base, Duration::from_secs(90)) {
+                eprintln!("FAIL sitl heartbeat after {frame} — {err}");
+                any_fail = true;
+                totals.failed += group.len();
+                continue;
+            }
+            if frame == sitl_cal::SITL_FRAME_CALIBRATION {
+                if let Err(err) = sitl_cal::release_calibration_servos(base) {
+                    eprintln!("FAIL sitl calibration servos — {err}");
+                    any_fail = true;
+                    totals.failed += group.len();
+                    continue;
+                }
+                if let Err(err) = sitl_cal::wait_level_attitude(base, Duration::from_secs(30)) {
+                    eprintln!("FAIL sitl level attitude — {err}");
+                    any_fail = true;
+                    totals.failed += group.len();
+                    continue;
+                }
+            }
+            let _ = sitl_cal::post_rc_override(base, sitl_cal::SitlRc::stop());
+        }
+
+        match run_playwright_ui(base, &group) {
+            Ok(results) => {
+                for (id, pass, detail) in results {
+                    if pass {
+                        println!("PASS {id}");
+                        totals.passed += 1;
+                    } else {
+                        println!("FAIL {id} — {detail}");
+                        totals.failed += 1;
+                        any_fail = true;
+                    }
+                    emit_ui_report_entry(&id, pass, &detail, &journeys, &mut report_journeys);
+                }
+            }
+            Err(err) => {
+                eprintln!("FAIL playwright — {err}");
+                any_fail = true;
+                totals.failed += group.len();
+            }
+        }
+    }
+
+    drop(restore);
+
+    println!();
+    println!(
+        "summary: passed={} failed={} skipped={} unasserted={}",
+        totals.passed, totals.failed, totals.skipped, totals.unasserted
+    );
+
+    if let Some(path) = report_path {
+        let report = JourneyHttpReport {
+            schema_version: SCHEMA_VERSION,
+            suite: SuiteKind::Ui,
+            base: base.to_string(),
+            dut: dut_version.as_ref().map(ReportDut::from_dut),
+            started_at,
+            finished_at: utc_rfc3339_now(),
+            counts: totals.into(),
+            journeys: report_journeys,
+        };
+        if let Err(err) = write_journey_http_report(path, &report) {
+            eprintln!("journey_http: report: {err}");
+            process::exit(2);
+        }
+    }
+
+    if any_fail || totals.failed > 0 {
+        process::exit(1);
+    }
+}
+
+fn emit_ui_report_entry(
+    id: &str,
+    pass: bool,
+    detail: &str,
+    journeys: &std::collections::HashMap<JourneyId, &blueos_catalog::UserJourney>,
+    report_journeys: &mut Vec<JourneyReportEntry>,
+) -> bool {
+    let Some(journey_id) = JourneyId::ALL.iter().copied().find(|j| j.as_str() == id) else {
+        return false;
+    };
+    let Some(journey) = journeys.get(&journey_id) else {
+        return false;
+    };
+    let result = if pass {
+        StepResult::Pass
+    } else {
+        StepResult::Fail(detail.to_string())
+    };
+    report_journeys.push(JourneyReportEntry::from_run(
+        journey_id,
+        &journey.availability,
+        summarize_journey(&[result.clone()]),
+        &[result],
+    ));
+    true
+}
+
+fn run_playwright_ui(
+    base: &str,
+    plans: &[UiJourneyPlan],
+) -> Result<Vec<(String, bool, String)>, String> {
+    let e2e = Path::new(env!("CARGO_MANIFEST_DIR")).join("e2e");
+    let plan_path = std::env::temp_dir().join("blueos-catalog-ui-plan.json");
+    let json = serde_json::to_string_pretty(plans).map_err(|err| err.to_string())?;
+    std::fs::write(&plan_path, json).map_err(|err| format!("write UI_PLAN: {err}"))?;
+
+    let output = process::Command::new("npx")
+        .current_dir(&e2e)
+        .env("BLUEOS_BASE", base)
+        .env("UI_PLAN", &plan_path)
+        .args([
+            "playwright",
+            "test",
+            "tests/journey_ui.spec.ts",
+            "--reporter=list",
+        ])
+        .output()
+        .map_err(|err| format!("npx playwright: {err}"))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let combined = format!("{stdout}\n{stderr}");
+    let _ = std::io::stderr().write_all(combined.as_bytes());
+
+    let mut results = Vec::new();
+    for line in combined.lines() {
+        let Some(rest) = line.strip_prefix("UI_RESULT ") else {
+            continue;
+        };
+        let mut parts = rest.splitn(3, ' ');
+        let id = parts.next().unwrap_or("").to_string();
+        let status = parts.next().unwrap_or("");
+        let detail = parts.next().unwrap_or("").to_string();
+        results.push((id, status == "PASS", detail));
+    }
+    if results.is_empty() && !output.status.success() {
+        return Err(format!(
+            "playwright exited {} with no UI_RESULT lines",
+            output.status
+        ));
+    }
+    Ok(results)
+}
+
+fn run_negative_probes(
+    base: Option<&str>,
+    dry_run: bool,
+    journey_filter: Option<JourneyId>,
+    report_path: Option<&str>,
+) {
+    let catalog = Catalog::bootstrap();
+    let journeys: std::collections::HashMap<_, _> = catalog
+        .journeys()
+        .iter()
+        .map(|journey| (journey.id, journey))
+        .collect();
+
+    let mut probes: Vec<&NegativeProbe> = NEGATIVE_PROBES
+        .iter()
+        .filter(|probe| journey_filter.is_none_or(|filter| probe.journey_id == filter))
+        .collect();
+
+    if let Some(filter) = journey_filter {
+        if probes.is_empty() {
+            eprintln!("journey_http: no negative probes for journey {filter}");
+            process::exit(2);
+        }
+    }
+
+    // NP-62 guard probe first; NP-90 ordering-sensitive within pardal group.
+    probes.sort_by_key(|probe| match probe.id {
+        "NP-62" => (0, probe.id),
+        "NP-90" => (1, probe.id),
+        _ => (2, probe.id),
+    });
+
+    let mut totals = RunCounts::default();
+    let mut any_fail = false;
+    let emit_report = report_path.is_some() && !dry_run;
+    let started_at = if emit_report {
+        Some(utc_rfc3339_now())
+    } else {
+        None
+    };
+
+    println!(
+        "journey_http: negative — {} probes (dry_run={dry_run})",
+        probes.len()
+    );
+    if let Some(base) = base {
+        println!("base: {base}");
+    }
+    println!();
+
+    let dut_version = if dry_run {
+        None
+    } else if let Some(base_url) = base {
+        fetch_dut_version(base_url).ok()
+    } else {
+        None
+    };
+
+    let mut current_tag: Option<String> = dut_version.as_ref().map(|dut| dut.tag.clone());
+    let mut report_entries: Vec<JourneyReportEntry> = Vec::new();
+
+    for probe in probes {
+        if dry_run {
+            let url = if let Some(base) = base {
+                negative_probe_url(base, probe)
+            } else {
+                negative_probe_url("http://dry-run", probe)
+            };
+            println!("{}", format_negative_dry_run(probe, &url));
+            totals.skipped += 1;
+            continue;
+        }
+
+        let base = base.expect("base checked above");
+        if probe.id == "NP-62" && current_tag.is_none() {
+            match fetch_dut_version(base) {
+                Ok(dut) => current_tag = Some(dut.tag),
+                Err(err) => {
+                    let result = StepResult::Fail(format!("fetch running tag for NP-62: {err}"));
+                    eprintln!("FAIL {} — {err}", probe.id);
+                    totals.record(&result);
+                    any_fail = true;
+                    if emit_report {
+                        if let Some(journey) = journeys.get(&probe.journey_id) {
+                            report_entries.push(JourneyReportEntry::from_negative_probe(
+                                probe.id,
+                                probe.journey_id,
+                                &journey.availability,
+                                &result,
+                            ));
+                        }
+                    }
+                    continue;
+                }
+            }
+        }
+
+        let result = run_negative_probe(base, probe, true, current_tag.as_deref());
+        totals.record(&result);
+        if matches!(result, StepResult::Fail(_)) {
+            any_fail = true;
+        }
+        if emit_report {
+            if let Some(journey) = journeys.get(&probe.journey_id) {
+                report_entries.push(JourneyReportEntry::from_negative_probe(
+                    probe.id,
+                    probe.journey_id,
+                    &journey.availability,
+                    &result,
+                ));
+            }
+        }
+    }
+
+    println!();
+    println!(
+        "summary: passed={} failed={} skipped={} unasserted={}",
+        totals.passed, totals.failed, totals.skipped, totals.unasserted
+    );
+
+    if let Some(path) = report_path {
+        if !dry_run {
+            let report = JourneyHttpReport {
+                schema_version: SCHEMA_VERSION,
+                suite: SuiteKind::Negative,
+                base: base.unwrap_or("").to_string(),
+                dut: dut_version.as_ref().map(ReportDut::from_dut),
+                started_at: started_at.unwrap_or_else(utc_rfc3339_now),
+                finished_at: utc_rfc3339_now(),
+                counts: totals.into(),
+                journeys: report_entries,
+            };
+            if let Err(err) = write_journey_http_report(path, &report) {
+                eprintln!("journey_http: report: {err}");
+                process::exit(2);
+            }
+        }
+    }
+
+    if any_fail || totals.failed > 0 {
+        process::exit(1);
+    }
 }
 
 fn run_wifi_mode(base: &str, mode: ApMode) -> Result<String, String> {

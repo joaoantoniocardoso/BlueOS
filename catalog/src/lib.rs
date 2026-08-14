@@ -23,6 +23,7 @@ pub mod journey_presence;
 pub mod journeys;
 pub mod lifecycle;
 pub mod mutating_smoke;
+pub mod negative_probes;
 pub mod observed;
 pub mod page;
 pub mod pages;
@@ -34,10 +35,12 @@ pub mod runner;
 pub mod runtime;
 pub mod service;
 pub mod services;
+pub mod sitl_cal;
 pub mod split;
 pub mod state;
 pub mod tools;
 pub mod trust;
+pub mod ui;
 pub mod validate;
 pub mod version;
 pub mod wifi_endpoints;
@@ -101,6 +104,10 @@ pub use mutating_smoke::{
     journey_has_mutating_http_route, mutating_smoke_journey_ids, tier2_mutating_coverage,
     MutatingSmokeEntry, SmokeRepair, Tier2MutatingCoverage, MUTATING_SMOKE_ENTRIES,
 };
+pub use negative_probes::{
+    format_negative_dry_run, negative_probe_url, NegativeProbe, ProbeBlast, ProbeClass,
+    NEGATIVE_PROBES,
+};
 pub use observed::{ObservedFacts, ResourceLimits, ServiceKind, StartupTier};
 pub use page::{ClientState, ConsumeTarget, Page, PageId, PageServiceCall, StateOwnership};
 pub use provenance::{
@@ -120,18 +127,23 @@ pub use runner::{
     join_url, journey_availability_skip, journey_http_mode_conflict, journey_http_requires_base,
     mutating_smoke_body, mutating_smoke_path_bind, mutating_smoke_setup_calls,
     mutating_smoke_skip_reason, mutating_smoke_teardown_calls, resolve_http_path,
-    run_core_image_switch, run_http_step, run_smoke_http_call, summarize_journey,
-    tier1_get_coverage, wait_for_blueos, DutVersion, JourneyResult, RunCounts, RunnableStep,
-    StepResult, Tier1GetCoverage, MUTATING_SMOKE_DEFAULT_FIXTURES, SMOKE_CORE_MASTER_JSON,
-    SMOKE_CORE_MASTER_TAG, SMOKE_CORE_SWITCH_JSON, SMOKE_CORE_SWITCH_TAG, SMOKE_DEFAULT_FIXTURES,
+    run_core_image_switch, run_http_step, run_negative_probe, run_smoke_http_call,
+    summarize_journey, tier1_get_coverage, wait_for_blueos, DutVersion, JourneyResult, RunCounts,
+    RunnableStep, StepResult, Tier1GetCoverage, MUTATING_SMOKE_DEFAULT_FIXTURES,
+    SMOKE_CORE_MASTER_JSON, SMOKE_CORE_MASTER_TAG, SMOKE_CORE_SWITCH_JSON, SMOKE_CORE_SWITCH_TAG,
+    SMOKE_DEFAULT_FIXTURES,
 };
 pub use runtime::{
     Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts, SettingsMutation, SloBaseline,
     StateContract,
 };
 pub use service::{Authority, Service, ServiceDefinition};
+pub use sitl_cal::{needs_calibration_frame, needs_vectored_frame, SitlRc};
 pub use state::StateMachine;
 pub use trust::{DangerousOperation, PrivilegeLevel, UserConfirmation};
+pub use ui::{
+    ui_plan, ui_suite_plans, wizard_skip_plan, UiAction, UiJourneyPlan, UI_CALIBRATION_JOURNEYS,
+};
 pub use validate::{validate, ValidationError, COVERAGE_UNKNOWN_THRESHOLD};
 pub use version::{
     availability_is_valid, availability_skip, bound_tag, cmp_channels, feature_present_on,

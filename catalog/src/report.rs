@@ -37,6 +37,8 @@ pub const SCHEMA_VERSION: u32 = 1;
 pub enum SuiteKind {
     Smoke,
     MutatingSmoke,
+    Negative,
+    Ui,
     Full,
 }
 
@@ -156,6 +158,31 @@ impl JourneyReportEntry {
         let (steps_passed, steps_failed, steps_skipped) = count_journey_steps(step_results);
         Self {
             id: journey_id.as_str(),
+            result: outcome.into(),
+            skip_reason: None,
+            availability: availability.into(),
+            trace: ReportTrace::for_journey(journey_id.as_str()),
+            steps_passed,
+            steps_failed,
+            steps_skipped,
+        }
+    }
+
+    pub fn from_negative_probe(
+        probe_id: &'static str,
+        journey_id: JourneyId,
+        availability: &FeatureAvailability,
+        result: &StepResult,
+    ) -> Self {
+        let outcome = match result {
+            StepResult::Fail(_) => JourneyResult::Fail,
+            StepResult::Skip(_) | StepResult::Ignored => JourneyResult::Skip,
+            _ => JourneyResult::Pass,
+        };
+        let (steps_passed, steps_failed, steps_skipped) =
+            count_journey_steps(std::slice::from_ref(result));
+        Self {
+            id: probe_id,
             result: outcome.into(),
             skip_reason: None,
             availability: availability.into(),

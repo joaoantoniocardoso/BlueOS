@@ -829,7 +829,7 @@ pub fn host_ap_active() -> bool {
         let Some((name, device)) = line.split_once(':') else {
             return false;
         };
-        device == cfg.iface && cfg.all_ap_conns().iter().any(|conn| *conn == name)
+        device == cfg.iface && cfg.all_ap_conns().contains(&name)
     })
 }
 
