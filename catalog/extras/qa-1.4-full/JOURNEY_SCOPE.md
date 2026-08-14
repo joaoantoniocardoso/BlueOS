@@ -113,7 +113,7 @@ Target: `bluerobotics/blueos-core:1.4-dev` @ `sha256:f615d7caef4d3e99f1c068e0823
 - `free_disk_space` — intro `c29e24679e3d`; first tag `1.4.4-beta.16`
 - `inspect_disk_usage` — intro `c29e24679e3d`; first tag `1.4.4-beta.16`
 - `inspect_zenoh_network` — intro `127f885b2daf`; first tag `1.4.4-beta.16`
-- `level_horizon` — intro `06490f90ed01`; first tag `1.4.4-beta.100`
+- `level_horizon` — intro `06490f90ed01`; first tag `1.4.4-beta.100`. **Live pin `sha256:5b50dfaf…` includes it** (F-066/F-069); git presence bit stays false until regenerated against a 1.4-dev tip that contains the intro commit.
 - `reset_blueos_settings` — intro `ebd3a1cac363`; first tag `1.4.4-beta.16`
 - `run_internet_speed_test` — intro `757ce3c2f3dd`; first tag `1.4.4-beta.16`
 - `run_multi_size_disk_speed_test` — intro `f860312f8b13`; first tag `1.4.4-beta.16`

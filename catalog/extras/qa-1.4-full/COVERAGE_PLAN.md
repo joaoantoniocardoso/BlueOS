@@ -39,8 +39,8 @@ Page-load may satisfy the UI cell **only** for `view_configured_serial_bridges`,
 
 Do not invent ~80 JourneyIds for sad paths. Track B probes + page landmarks cover those.
 
-## Current hole (177 `--ui` 2026-08-14)
+## Current hole (177 2026-08-14)
 
-Green: wizard skip + gyro, baro, level horizon, full accel, onboard compass, motor detect. Navigator restored.
+Green: calibration `--ui` (F-066, compass `pass+F-068`); page-load 19/24 (F-070); no-hardware `--ui` terminal/files/mavlink/params (F-071); W5 autopilot/board/SITL (F-072). Navigator restored. `level_horizon` live-present vs git-absent (F-069).
 
-Still open: `--ui` only on 177; compass Dismiss product bug (F-068); Level Horizon presence map vs live image; other frontend journeys; W5; W6 version-switch 412; W4 RF on 87/2.2; Track A new ids; B6 service-down.
+Still open: camera UI on 87; `--ui` not replicated on 124; W6 version-switch 412 (F-063); W4 RF on 87/2.2; Track A new ids; B6 service-down; hostname left as `smoke-catalog` from W3.

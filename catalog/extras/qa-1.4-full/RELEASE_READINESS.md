@@ -1,6 +1,7 @@
 # 1.4-dev release readiness — catalog live QA
 
-**Pin:** `bluerobotics/blueos-core:1.4-dev @ sha256:f615d7caef4d3e99f1c068e082350c1af43d5fcc0f45379ed97ea27c6dc89805`  
+**Pin (W0):** `bluerobotics/blueos-core:1.4-dev @ sha256:f615d7caef4d3e99f1c068e082350c1af43d5fcc0f45379ed97ea27c6dc89805`  
+**Pin (177 live 2026-08-14):** `sha256:5b50dfafc3114651d459993c0c65639d7205634613fb62e0dea5ee04de8eebb1` (same tag, newer digest; F-069)  
 **DUTs:** 177 Navigator Pi4 (play), 87 Pixhawk1, 2.2 Navigator USB vehicle, 124 Navigator Pi5  
 **Date:** 2026-08-13  
 **Campaign:** `catalog/extras/qa-1.4-full/`
@@ -19,6 +20,9 @@
 | W3 reversible mutating | Pass: lan_speed, rename, bag, manifest, smart_hotspot, hotspot_creds, mdns (not 2.2). NMEA Pass after F-056 fixture fix |
 | W4 RF | **10/10 Pass** on 177 and 124 (connect, hidden, **reject invalid**, reconnect, force PSK, disconnect, AP loss, autoconnect, hotspot + L3) |
 | W6 reboot | **Pass** on 177; recovered same digest |
+| Page-load | **19 pass / 5 skip** on 177 (F-070) |
+| `--ui` no-hardware | **4 pass** on 177 (F-071) |
+| W5 autopilot/board/SITL | **5 pass** on 177; Navigator restored (F-072) |
 
 ## Product findings on this pin (keep)
 
@@ -43,9 +47,9 @@ Commander `i_know_what_i_am_doing=false` → 400 (NP-01..08) **Pass**. NP-62 del
 
 - `ShutdownOnboardComputer` — hard exclude
 - EEPROM update, firmware flash, settings reset — 177-only, not executed (brick / restore pin)
-- W5 autopilot start/stop/board/SITL — not in this continuation’s next_steps (177/2.2 had empty mavlink2rest heartbeat in W0)
 - RF on 87 / 2.2 — 87 optional; 2.2 USB strand risk
 - Network mutate on 2.2 — forbidden
+- Camera UI (`configure_video_stream`) — DUT 87, not this wave
 
 ## Harness shipped this campaign
 
