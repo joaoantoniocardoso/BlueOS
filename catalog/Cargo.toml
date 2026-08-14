@@ -82,3 +82,7 @@ path = "src/bin/feature_trace_diff.rs"
 [[bin]]
 name = "export_feature_provenance"
 path = "src/bin/export_feature_provenance.rs"
+
+[[bin]]
+name = "journey_matrix"
+path = "src/bin/journey_matrix.rs"

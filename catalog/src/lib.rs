@@ -19,6 +19,7 @@ pub mod id;
 pub mod interface;
 pub mod journey;
 pub mod journey_group;
+pub mod journey_matrix;
 pub mod journey_presence;
 pub mod journeys;
 pub mod lifecycle;
@@ -97,6 +98,11 @@ pub use journey::{
     Visibility,
 };
 pub use journey_group::{JourneyLens, JourneyPairAgreement, JourneySplitConsensus};
+pub use journey_matrix::{
+    blank_both_violations, build_journey_matrix, format_matrix, has_frontend_step, has_known_route,
+    load_report_hits, Cell, CellState, JourneyMatrix, JourneyMatrixRow, ReportHit, HARD_EXCLUDED,
+    PAGE_LOAD_UI,
+};
 pub use journey_presence::ALL_JOURNEY_PRESENCE;
 pub use lifecycle::{Lifecycle, ObservedLifecycle};
 pub use mutating_smoke::{
