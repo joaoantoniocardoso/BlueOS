@@ -1,0 +1,67 @@
+W3 base=http://192.168.2.2 iface=__qa_no_rf__
+===== run_lan_speed_test =====
+journey_http: mutating-smoke — 1 allowlisted journeys (fixtures=internet,pirate,advanced)
+base: http://192.168.2.2
+dut: tag=1.4-dev digest=sha256:f615d7caef4d3e99f1c068e082350c1af43d5fcc0f45379ed97ea27c6dc89805
+
+
+summary: passed=1 failed=0 skipped=0 unasserted=0
+  Pass run_lan_speed_test: 1 step(s)
+EXIT_run_lan_speed_test=0
+===== rename_vehicle =====
+journey_http: mutating-smoke — 1 allowlisted journeys (fixtures=internet,pirate,advanced)
+base: http://192.168.2.2
+dut: tag=1.4-dev digest=sha256:f615d7caef4d3e99f1c068e082350c1af43d5fcc0f45379ed97ea27c6dc89805
+
+
+summary: passed=1 failed=0 skipped=0 unasserted=0
+  Pass rename_vehicle: 1 step(s)
+EXIT_rename_vehicle=0
+===== modify_bag_database =====
+journey_http: mutating-smoke — 1 allowlisted journeys (fixtures=internet,pirate,advanced)
+base: http://192.168.2.2
+dut: tag=1.4-dev digest=sha256:f615d7caef4d3e99f1c068e082350c1af43d5fcc0f45379ed97ea27c6dc89805
+
+
+summary: passed=1 failed=0 skipped=0 unasserted=0
+  Pass modify_bag_database: 1 step(s)
+EXIT_modify_bag_database=0
+===== add_custom_manifest =====
+journey_http: mutating-smoke — 1 allowlisted journeys (fixtures=internet,pirate,advanced)
+base: http://192.168.2.2
+dut: tag=1.4-dev digest=sha256:f615d7caef4d3e99f1c068e082350c1af43d5fcc0f45379ed97ea27c6dc89805
+
+
+summary: passed=2 failed=0 skipped=0 unasserted=0
+  Pass add_custom_manifest: 1 step(s)
+EXIT_add_custom_manifest=0
+===== toggle_smart_hotspot =====
+journey_http: mutating-smoke — 1 allowlisted journeys (fixtures=internet,pirate,advanced)
+base: http://192.168.2.2
+dut: tag=1.4-dev digest=sha256:f615d7caef4d3e99f1c068e082350c1af43d5fcc0f45379ed97ea27c6dc89805
+
+
+summary: passed=3 failed=0 skipped=0 unasserted=0
+  Pass toggle_smart_hotspot: 1 step(s)
+EXIT_toggle_smart_hotspot=0
+===== configure_hotspot_credentials =====
+journey_http: mutating-smoke — 1 allowlisted journeys (fixtures=internet,pirate,advanced)
+base: http://192.168.2.2
+dut: tag=1.4-dev digest=sha256:f615d7caef4d3e99f1c068e082350c1af43d5fcc0f45379ed97ea27c6dc89805
+
+journey_http: hotspot credentials mutate verified
+journey_http: restored hotspot credentials snapshot
+
+summary: passed=3 failed=0 skipped=0 unasserted=0
+  Pass configure_hotspot_credentials: 1 step(s)
+EXIT_configure_hotspot_credentials=0
+===== remove_configured_nmea_socket =====
+journey_http: mutating-smoke — 1 allowlisted journeys (fixtures=internet,pirate,advanced)
+base: http://192.168.2.2
+dut: tag=1.4-dev digest=sha256:f615d7caef4d3e99f1c068e082350c1af43d5fcc0f45379ed97ea27c6dc89805
+
+
+summary: passed=0 failed=0 skipped=1 unasserted=0
+  SKIP remove_configured_nmea_socket: configured NMEA socket required
+EXIT_remove_configured_nmea_socket=0
+W3_DONE FAIL=0

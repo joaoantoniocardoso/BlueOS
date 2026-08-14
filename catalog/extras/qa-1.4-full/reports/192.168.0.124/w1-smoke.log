@@ -1,0 +1,88 @@
+journey_http: smoke — 81 Http journeys (fixtures=internet,pirate,advanced)
+base: http://192.168.0.124
+dut: tag=1.4-dev digest=sha256:f615d7caef4d3e99f1c068e082350c1af43d5fcc0f45379ed97ea27c6dc89805
+
+
+summary: passed=19 failed=0 skipped=72 unasserted=0
+  SKIP vehicle_first_boot: unevaluable: Other::Cold start after power-on; unevaluable: Other::BlueOS is newly installed and the configuration wizard is available
+  SKIP change_board: unevaluable: Other::At least one flight controller board is connected or SITL simulation is available
+  SKIP run_sitl_simulation: unevaluable: Other::Virtual SITL flight controller board is selected
+  SKIP start_autopilot: unevaluable: Other::A flight controller board is selected
+  SKIP stop_autopilot: unevaluable: Other::An autopilot is available to stop
+  SKIP restart_autopilot: unevaluable: Other::A flight controller board is selected
+  SKIP update_firmware_online: unevaluable: Other::A compatible flight controller board is connected
+  SKIP upload_custom_firmware: unevaluable: Other::A compatible flight controller board is connected
+  SKIP restore_default_firmware: unevaluable: Other::A flight controller board is connected
+  SKIP modify_bag_database: no smoke-eligible GET steps with expected_status
+  SKIP rename_vehicle: no smoke-eligible GET steps with expected_status
+  SKIP change_mdns_hostname: no smoke-eligible GET steps with expected_status
+  Pass view_configured_serial_bridges: 2 step(s)
+  SKIP remove_serial_bridge: configured serial bridge required
+  SKIP assign_static_ip_address: no smoke-eligible GET steps with expected_status
+  SKIP acquire_dynamic_ip_address: no smoke-eligible GET steps with expected_status
+  SKIP enable_onboard_dhcp_server: unevaluable: Other::The interface has at least one static IP address to use as the DHCP gateway
+  SKIP disable_onboard_dhcp_server: onboard DHCP server active required
+  SKIP set_network_interface_priority: no smoke-eligible GET steps with expected_status
+  SKIP configure_host_dns: no smoke-eligible GET steps with expected_status
+  SKIP reboot_onboard_computer: confirm dangerous operation required
+  SKIP shutdown_onboard_computer: confirm dangerous operation required
+  SKIP sync_system_time: confirm dangerous operation required
+  SKIP enable_legacy_camera_support: no smoke-eligible GET steps with expected_status
+  SKIP inspect_raspberry_eeprom_bootloader: confirm dangerous operation required
+  SKIP update_raspberry_eeprom_bootloader: confirm dangerous operation required
+  SKIP reset_blueos_settings: not present on 1.4-dev (intro ebd3a1cac363; first tag 1.4.4-beta.16)
+  SKIP run_host_command: confirm dangerous operation required
+  SKIP change_ui_theme_color: not present on 1.4-dev (intro 2d797c10c681; first tag 1.5.0-beta.38)
+  SKIP reset_ui_theme_color: not present on 1.4-dev (intro 2d797c10c681; first tag 1.5.0-beta.38)
+  SKIP upload_custom_logo: not present on 1.4-dev (intro 2d797c10c681; first tag 1.5.0-beta.38)
+  SKIP remove_custom_logo: not present on 1.4-dev (intro 2d797c10c681; first tag 1.5.0-beta.38)
+  SKIP upload_custom_vehicle_image: not present on 1.4-dev (intro 2d797c10c681; first tag 1.5.0-beta.38)
+  SKIP remove_custom_vehicle_image: not present on 1.4-dev (intro 2d797c10c681; first tag 1.5.0-beta.38)
+  SKIP upload_3d_model_override: not present on 1.4-dev (intro 2d797c10c681; first tag 1.5.0-beta.38)
+  SKIP delete_3d_model_override: not present on 1.4-dev (intro 2d797c10c681; first tag 1.5.0-beta.38)
+  SKIP inspect_disk_usage: not present on 1.4-dev (intro c29e24679e3d; first tag 1.4.4-beta.16)
+  SKIP free_disk_space: not present on 1.4-dev (intro c29e24679e3d; first tag 1.4.4-beta.16)
+  SKIP run_single_disk_speed_test: not present on 1.4-dev (intro f860312f8b13; first tag 1.4.4-beta.16)
+  SKIP run_multi_size_disk_speed_test: not present on 1.4-dev (intro f860312f8b13; first tag 1.4.4-beta.16)
+  Pass monitor_internet_connectivity: 1 step(s)
+  Pass verify_internet_connectivity: 1 step(s)
+  Pass browse_available_web_services: 1 step(s)
+  Pass probe_interface_internet_connectivity: 1 step(s)
+  SKIP add_custom_manifest: no smoke-eligible GET steps with expected_status
+  Pass browse_extension_store: 1 step(s)
+  SKIP configure_installed_extension: installed extension required
+  SKIP edit_extension_dev_version: installed extension required
+  SKIP install_custom_extension: no smoke-eligible GET steps with expected_status
+  SKIP install_extension: no smoke-eligible GET steps with expected_status
+  SKIP uninstall_extension: installed extension required
+  Pass view_system_information: 2 step(s)
+  Pass view_camera_streams: 2 step(s)
+  SKIP remove_camera_stream: unevaluable: Other::At least one configured stream is listed on a device card
+  Pass access_blueos_web_interface: 2 step(s)
+  Pass view_configured_nmea_sockets: 1 step(s)
+  SKIP remove_configured_nmea_socket: configured NMEA socket required
+  Pass run_lan_speed_test: 1 step(s)
+  SKIP run_internet_speed_test: not present on 1.4-dev (intro 757ce3c2f3dd; first tag 1.4.4-beta.16)
+  Pass view_detected_sonar_devices: 1 step(s)
+  SKIP browse_video_recordings: not present on 1.4-dev (intro 6df9fd85a378; first tag 1.4.4-beta.16)
+  SKIP download_video_recording: not present on 1.4-dev (intro 6df9fd85a378; first tag 1.4.4-beta.16)
+  SKIP delete_video_recording: not present on 1.4-dev (intro 6df9fd85a378; first tag 1.4.4-beta.16)
+  Pass update_blueos_version: 1 step(s)
+  SKIP switch_local_blueos_version: local BlueOS version required
+  SKIP pull_blueos_version_without_switch: no smoke-eligible GET steps with expected_status
+  SKIP delete_local_blueos_version: not present on 1.4-dev (intro 7d924e22376f; first tag 1.4.4-beta.16)
+  Pass docker_registry_login: 1 step(s)
+  SKIP update_bootstrap_image: not present on 1.4-dev (intro 7d924e22376f; first tag 1.4.4-beta.16)
+  Pass connect_to_wifi_network: 1 step(s)
+  SKIP connect_to_hidden_wifi_network: no smoke-eligible GET steps with expected_status
+  SKIP disconnect_from_wifi_network: active Wi-Fi connection required
+  SKIP forget_saved_wifi_network: saved Wi-Fi network required
+  SKIP force_wifi_network_password: saved Wi-Fi network required
+  SKIP reconnect_to_saved_wifi_network: saved Wi-Fi network required
+  SKIP reject_invalid_wifi_credentials: no smoke-eligible GET steps with expected_status
+  SKIP detect_wifi_ap_loss: active Wi-Fi connection required
+  SKIP autoconnect_to_saved_wifi_network: saved Wi-Fi network required
+  SKIP toggle_hotspot: no smoke-eligible GET steps with expected_status
+  SKIP configure_hotspot_credentials: no smoke-eligible GET steps with expected_status
+  SKIP toggle_smart_hotspot: no smoke-eligible GET steps with expected_status
+EXIT:0
