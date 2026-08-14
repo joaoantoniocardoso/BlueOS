@@ -22,24 +22,24 @@ Integrate `../BlueOS-docker/support/wifi-e2e` **coverage** into the catalog harn
 
 | e2e scenario | Catalog journey | Action |
 |---|---|---|
-| Connect (right password) | `ConnectToWifiNetwork` | Done — host AP RF |
-| Disconnect | `DisconnectFromWifiNetwork` | Exists |
+| Connect (right password) | `ConnectToWifiNetwork` | Done — host AP RF + L3 ping |
+| Disconnect | `DisconnectFromWifiNetwork` | Done — host AP RF |
 | Forget | `ForgetSavedWifiNetwork` | Done — host AP RF |
 | Wrong password | `RejectInvalidWifiCredentials` | Done |
-| Reconnect saved (empty PSK) | `ReconnectToSavedWifiNetwork` | Done |
-| Force new password | `ForceWifiNetworkPassword` | Done |
-| Hidden connect | `ConnectToHiddenWifiNetwork` | Done |
-| AP drop detected | `DetectWifiApLoss` | Done (GET /status; RF mid-journey TBD) |
-| AP restore autoconnect | `AutoconnectToSavedWifiNetwork` | Done (GET /status; RF mid-journey TBD) |
-| Toggle hotspot + RF join | `ToggleHotspot` | Done — host station join |
-| Credentials / smart | `ConfigureHotspotCredentials` / `ToggleSmartHotspot` | HTTP round-trip |
+| Reconnect saved (empty PSK) | `ReconnectToSavedWifiNetwork` | Done — + L3 ping |
+| Force new password | `ForceWifiNetworkPassword` | Done — + L3 ping |
+| Hidden connect | `ConnectToHiddenWifiNetwork` | Done — + L3 ping |
+| AP drop detected | `DetectWifiApLoss` | Done — RF mid-journey |
+| AP restore autoconnect | `AutoconnectToSavedWifiNetwork` | Done — RF mid-journey + L3 |
+| Toggle hotspot + RF join | `ToggleHotspot` | Done — host station join + L3 gateway ping |
+| Credentials / smart | `ConfigureHotspotCredentials` / `ToggleSmartHotspot` | Done — HTTP round-trip + credentials snapshot restore |
 
-L3 checks (ping/route/file xfer over wlan IP) become post-connect assertions on RF-backed journeys, not separate JourneyIds.
+L3 checks (ping over wlan IP / hotspot gateway) are post-connect assertions on RF-backed journeys, not separate JourneyIds.
 
 ## Ownership
 
-- Scripts live under `catalog/harness/wifi/` (catalog-owned, adapted from wifi-e2e helpers).
-- Rust `catalog/src/wifi_rf.rs` drives them from mutating-smoke setup/teardown.
+- Config lives under `catalog/harness/wifi/` (`config.env` / `config.example.env`).
+- Rust `catalog/src/wifi_rf.rs` drives NetworkManager via `nmcli` / `ip` (ported from the old host-ap/station shell helpers).
 - `SmokeRepair::HostWifiRf` documents the repair class.
 - Skip RF journeys when `nmcli` / `HOST_WIFI_IFACE` unavailable (not a hard Pi3 deferral).
 
@@ -47,5 +47,5 @@ L3 checks (ping/route/file xfer over wlan IP) become post-connect assertions on 
 
 1. Host RF harness + und defer existing six wifi journeys
 2. Add six missing JourneyIds + capabilities + presence + smoke allowlist
-3. RF assertions (lease, host scan/associate, AP drop/restore)
-4. Update feature_traces / sibling gates / coverage_mappings
+3. RF assertions (lease, host scan/associate, AP drop/restore) + L3 ping
+4. Update feature_traces / sibling gates / coverage_mappings — Done
