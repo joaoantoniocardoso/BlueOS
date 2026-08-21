@@ -119,16 +119,17 @@
 | iperf3 | listener_unavailable | — (no journey) | harness_gap | bind-conflict or firewall port 5201, then `iperf3 -c <dut>` | 177-only | Same as above — needs a non-HTTP probe path in the harness. |
 | iperf3 | active_test_link_saturation | — (no journey) | skipped | run a sustained `iperf3` while video/telemetry are live | not-2.2 | Deliberately saturates the link; unacceptable on the physical ROV and disruptive on the shared LAN. |
 
-## kraken (6)
+## kraken (7)
 
 | service | mode_id | mapped_journey_or_probe | status | how_to_exercise | dut | notes |
 |---|---|---|---|---|---|---|
 | kraken | docker_daemon_unavailable | `install_extension`, `configure_installed_extension` | skipped | stop the Docker daemon on the host | 177-only | Stopping Docker takes down `blueos-core` itself, so this is effectively a whole-DUT outage rather than a service-down probe. |
 | kraken | manifest_fetch_failure | `add_custom_manifest`, `browse_extension_store` / NP-56 | probed | `POST /kraken/v2.0/manifest/?validate_url=true` with an unreachable URL → `UNKNOWN_LIVE` (map says **502** at `manifest.py:37`) | all | Also occurs naturally under B8 (WAN blocked) — that variant must be a typed skip. |
-| kraken | image_pull_failure | `install_extension` | probed | install an extension with WAN blocked, or NP-51 for the not-found shape | all | The pull streams progress, so the failure may arrive in-band rather than as a status ⇒ body inspection needed for a firm assertion. |
+| kraken | image_pull_failure | `install_extension` | probed | install an extension with WAN blocked, or NP-51 for the not-found shape | all | The pull streams progress, so the failure may arrive in-band rather than as a status; `streamed_fragment_error` inspects the commonwealth fragment envelope and is wired into `evaluate_http_response`, so every suite fails on an in-band error. |
 | kraken | extension_crash_loop | `install_extension`, `configure_installed_extension` | limitation | install an extension whose entrypoint exits immediately | 177-only | Exponential-backoff retry loop; observable only over time via `GET /kraken/v2.0/container/{name}/log`. |
 | kraken | insufficient_storage | `install_extension` | harness_gap | install an extension whose `expanded_size` exceeds free disk → **507** (`extension.py:37`) | 177-only | Needs either a genuinely full disk or a crafted manifest with an inflated `expanded_size`. Filling the disk on purpose is a bad idea mid-campaign. |
 | kraken | incompatible_extension | `install_extension` | harness_gap | install an extension with no image digest for `linux/arm64` → **400** (`extension.py:39`) | all | Needs a crafted manifest entry; safe once the fixture exists. |
+| kraken | extension_lifecycle | `--extension-lifecycle` | probed | `journey_http --base <url> --extension-lifecycle --allow-mutating`: install of an absent extension, upgrade, same-version reinstall, downgrade, uninstall, each with effect reads against `GET /extension/` and `GET /container/` | all | Opt-in mutating; not part of `gate.sh`. A first-time install of a not-yet-installed extension was broken in `1.4.4-beta.19` and the previous harness scored it green. |
 
 ## linux2rest (3)
 
