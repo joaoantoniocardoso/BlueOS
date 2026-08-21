@@ -290,6 +290,7 @@ QA prompt: model `claude-opus-5-thinking-high`; skill `blueos-catalog-validate` 
 ## Invariants that must not move
 
 - A citation is re-grounded, never deleted, to make a gate pass.
+- **A pin is bumped deliberately, with the reason stated, or not at all.** The six citation pins (`FILE_CITATION_COUNT=2041`, `SOURCE_COUNT=512`, `ASSERTED_COUNT=214`, `UNANCHORED_COUNT=1`, `ANCHOR_EXEMPT_COUNT=26`, `NON_UNIQUE_IN_WINDOW_COUNT=171`) are exact equalities precisely so that adding or losing a citation cannot pass unnoticed. They will legitimately move whenever a phase adds citations -- P2 and P3 both will. That is the dangerous moment: a worker who treats a tripped pin as a failing test to be silenced, rather than a fact to be explained, reopens the hole the pin exists to close. A pin change must name what was added and why the new number is right. "Test failed, updated the number" is a BOUNCE.
 - Generated files are regenerated, never hand-edited: `journey_presence.rs`, `feature_traces.json`, `catalog/observed/**`.
 - Requirement **statements** are implementation-free; **criteria** carry the implementation detail. The split never collapses.
 - Requirements are derived. The only authored requirements are the <= 12 system-level overlay entries.
