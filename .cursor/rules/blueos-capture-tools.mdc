@@ -20,6 +20,7 @@ Any measurement against a live system (resource sampling, HTTP probing, latency,
 |------|---------|
 | `tools/sample_resource.sh` | Sample an in-container process CPU (top-style, 100 == 1 core) + RSS over a window → JSON distribution |
 | `tools/probe_http.sh` | Probe GET routes → status + body + latency p50/p95/p99 → JSON keyed by route |
+| `cargo run --bin boot_timeline -- monitor` | First-boot timing (ping -> nginx 200) + CPU/RSS/swap sampled on the device across reboots -> JSONL + summary JSON; cross-builds itself (musl static) and pushes the sampler over ssh |
 
 ## Tool contract
 
