@@ -1,0 +1,148 @@
+journey_http: ui — 11 plan(s)
+base: http://192.168.0.177
+
+
+Running 5 tests using 1 worker
+
+[wizard_skip] HTTP 500 http://192.168.0.177/ardupilot-manager/v1.0/vehicle_type
+[wizard_skip] HTTP 502 http://192.168.0.177/wifi-manager/v1.0/saved
+[wizard_skip] HTTP 502 http://192.168.0.177/wifi-manager/v1.0/status
+[wizard_skip] HTTP 502 http://192.168.0.177/wifi-manager/v1.0/hotspot_extended_status
+[wizard_skip] HTTP 502 http://192.168.0.177/wifi-manager/v1.0/scan
+[wizard_skip] HTTP 502 http://192.168.0.177/wifi-manager/v1.0/hotspot_credentials
+[wizard_skip] HTTP 500 http://192.168.0.177/ardupilot-manager/v1.0/firmware_info
+UI_RESULT wizard_skip PASS
+  ✓  1 [chromium] › tests/journey_ui.spec.ts:489:7 › ui: wizard_skip (4.0s)
+UI_RESULT access_web_terminal PASS
+  ✓  2 [chromium] › tests/journey_ui.spec.ts:489:7 › ui: access_web_terminal (2.4s)
+UI_RESULT manage_blueos_files PASS
+  ✓  3 [chromium] › tests/journey_ui.spec.ts:489:7 › ui: manage_blueos_files (3.6s)
+[inspect_mavlink_messages_in_browser] HTTP 500 http://192.168.0.177/ardupilot-manager/v1.0/vehicle_type
+UI_RESULT inspect_mavlink_messages_in_browser PASS
+  ✓  4 [chromium] › tests/journey_ui.spec.ts:489:7 › ui: inspect_mavlink_messages_in_browser (6.5s)
+[apply_parameter_file] HTTP 500 http://192.168.0.177/ardupilot-manager/v1.0/vehicle_type
+[apply_parameter_file] HTTP 500 http://192.168.0.177/ardupilot-manager/v1.0/vehicle_type
+[apply_parameter_file] HTTP 500 http://192.168.0.177/ardupilot-manager/v1.0/vehicle_type
+UI_RESULT apply_parameter_file PASS
+  ✓  5 [chromium] › tests/journey_ui.spec.ts:489:7 › ui: apply_parameter_file (10.3s)
+
+  5 passed (27.1s)
+
+npm warn cli npm v12.0.1 does not support Node.js v24.5.0. This version of npm supports the following node versions: `^22.22.2 || ^24.15.0 || >=26.0.0`. You can find the latest version at https://nodejs.org/.
+npm notice run npx
+npm notice run 'playwright' test tests/journey_ui.spec.ts --reporter=list
+(node:273003) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS wizard_skip
+PASS access_web_terminal
+PASS manage_blueos_files
+PASS inspect_mavlink_messages_in_browser
+PASS apply_parameter_file
+journey_http: SITL frame calibration
+
+Running 5 tests using 1 worker
+
+SERVO5=1150 want=1050
+UI_RESULT calibrate_gyroscope PASS
+  ✓  1 [chromium] › tests/journey_ui.spec.ts:489:7 › ui: calibrate_gyroscope (7.1s)
+SERVO5=1050 want=1050
+UI_RESULT calibrate_barometer PASS
+  ✓  2 [chromium] › tests/journey_ui.spec.ts:489:7 › ui: calibrate_barometer (7.3s)
+SERVO5=1050 want=1150
+UI_PAGE level_horizon Widgets CPU Disk usb0 Networking wlan0 Networking uap0 Networking eth0 Networking smoke-catalog Autopilot Firmware Autopilot Parameters BlueOS Version Extensions Beta Log Browser Network Test Ping Sonar Devices System Information Vehicle Setup Video Streams BlueOS Version: heads/1.4-dev-0-g025c82bd Bootstrap Version: 1.4.4-beta.15 Build: 8/13/2026, 9:19:32 PM By Blue Robotics OVERVIEW PWM OUTPUTS CONFIGURE PARAMETERS VEHICLE BODY GYROSCOPE ACCELEROMETER COMPASS BARO LIGHTS FAILSAFES POWER CAMERA GIMBAL IMU Calibration SITL Calibrated SITL Calibrated START FULL CALIBRATION QUICK CALIBRATION LEVEL HORIZON Accelerometer Calibration Horizon calibration trims the pitch and roll of the vehicle's inertial sensors to adjust for small deviations from level. Roll: 0.0° Pitch: -0.0° Calibration failed: Error: Unexpected result: MAV_RESULT_TEMPORARILY_REJECTED CALIBRATE
+UI_RESULT level_horizon FAIL Error: Calibration failed: Error: Unexpected result: MAV_RESULT_TEMPORARILY_REJECTED
+  ✘  3 [chromium] › tests/journey_ui.spec.ts:489:7 › ui: level_horizon (9.2s)
+  ✘  4 [chromium] › tests/journey_ui.spec.ts:489:7 › ui: calibrate_accelerometer (0ms)
+  ✘  5 [chromium] › tests/journey_ui.spec.ts:489:7 › ui: calibrate_compass (0ms)
+
+
+  1) [chromium] › tests/journey_ui.spec.ts:489:7 › ui: level_horizon ───────────────────────────────
+
+    Error: Calibration failed: Error: Unexpected result: MAV_RESULT_TEMPORARILY_REJECTED
+
+      271 |   }
+      272 |   if (first.kind === 'fail') {
+    > 273 |     throw new Error(first.text);
+          |           ^
+      274 |   }
+      275 |   const [wantedR, failedR] = await Promise.all([wantedP, failedP]);
+      276 |   if (wantedR.kind === 'ok') {
+        at waitText (/home/joaoantoniocardoso/BlueRobotics/BlueOS-docker-2.0-model/catalog/e2e/tests/journey_ui.spec.ts:273:11)
+        at runPlan (/home/joaoantoniocardoso/BlueRobotics/BlueOS-docker-2.0-model/catalog/e2e/tests/journey_ui.spec.ts:455:11)
+        at /home/joaoantoniocardoso/BlueRobotics/BlueOS-docker-2.0-model/catalog/e2e/tests/journey_ui.spec.ts:497:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/journey_ui-ui-level-horizon-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/journey_ui-ui-level-horizon-chromium/error-context.md
+
+  2) [chromium] › tests/journey_ui.spec.ts:489:7 › ui: calibrate_accelerometer ─────────────────────
+
+    Test not found in the worker process. Make sure test title does not change.
+
+  3) [chromium] › tests/journey_ui.spec.ts:489:7 › ui: calibrate_compass ───────────────────────────
+
+    Test not found in the worker process. Make sure test title does not change.
+
+  3 failed
+    [chromium] › tests/journey_ui.spec.ts:489:7 › ui: level_horizon ────────────────────────────────
+    [chromium] › tests/journey_ui.spec.ts:489:7 › ui: calibrate_accelerometer ──────────────────────
+    [chromium] › tests/journey_ui.spec.ts:489:7 › ui: calibrate_compass ────────────────────────────
+  2 passed (23.9s)
+
+npm warn cli npm v12.0.1 does not support Node.js v24.5.0. This version of npm supports the following node versions: `^22.22.2 || ^24.15.0 || >=26.0.0`. You can find the latest version at https://nodejs.org/.
+npm notice run npx
+npm notice run 'playwright' test tests/journey_ui.spec.ts --reporter=list
+(node:273870) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:274728) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS calibrate_gyroscope
+PASS calibrate_barometer
+FAIL level_horizon — Error: Calibration failed: Error: Unexpected result: MAV_RESULT_TEMPORARILY_REJECTED
+journey_http: SITL frame vectored
+
+Running 1 test using 1 worker
+
+[detect_motor_directions] HTTP 404 http://192.168.0.177/img/icons/motordetection.svg
+UI_PAGE detect_motor_directions Widgets CPU Disk usb0 Networking wlan0 Networking uap0 Networking eth0 Networking smoke-catalog Autopilot Firmware Autopilot Parameters BlueOS Version Extensions Beta Log Browser Network Test Ping Sonar Devices System Information Vehicle Setup Video Streams BlueOS Version: heads/1.4-dev-0-g025c82bd Bootstrap Version: 1.4.4-beta.15 Build: 8/13/2026, 9:19:32 PM By Blue Robotics OVERVIEW PWM OUTPUTS CONFIGURE Motor Test Disarmed DETECT REVERSED MOTORS Motor 1 Reversed 0% Motor 2 Reversed 0% Motor 3 Reversed 0% Motor 4 Reversed 0% Motor 5 Reversed 0% Motor 6 Reversed 0% Name Value Output Output 1 Motor1 1500 Output 2 Motor2 1500 Output 3 Motor3 1500 Output 4 Motor4 1500 Output 5 Motor5 1500 Output 6 Motor6 1500 Output 7 Disabled 0 Output 8 Disabled 0 Output 9 Lights1 1100 Output 10 Mount1Pitch 1754 Output 11 Disabled 0 Output 12 Disabled 0 Output 13 Disabled 0 Output 14 Disabled 0 Output 15 Disabled 0 Output 16 Disabled 0
+UI_RESULT detect_motor_directions FAIL TimeoutError: locator.waitFor: Timeout 120000ms exceeded.
+  ✘  1 [chromium] › tests/journey_ui.spec.ts:489:7 › ui: detect_motor_directions (2.2m)
+
+
+  1) [chromium] › tests/journey_ui.spec.ts:489:7 › ui: detect_motor_directions ─────────────────────
+
+    TimeoutError: locator.waitFor: Timeout 120000ms exceeded.
+    Call log:
+      - waiting for getByText('Motor direction detection is complete').first() to be visible
+
+
+      262 |     () => ({ kind: 'none' as const }),
+      263 |   );
+    > 264 |   const wantedP = wanted.waitFor({ state: 'visible', timeout: timeoutMs }).then(
+          |                          ^
+      265 |     () => ({ kind: 'ok' as const }),
+      266 |     (err: unknown) => ({ kind: 'timeout' as const, err }),
+      267 |   );
+        at waitText (/home/joaoantoniocardoso/BlueRobotics/BlueOS-docker-2.0-model/catalog/e2e/tests/journey_ui.spec.ts:264:26)
+        at runPlan (/home/joaoantoniocardoso/BlueRobotics/BlueOS-docker-2.0-model/catalog/e2e/tests/journey_ui.spec.ts:455:17)
+        at /home/joaoantoniocardoso/BlueRobotics/BlueOS-docker-2.0-model/catalog/e2e/tests/journey_ui.spec.ts:497:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/journey_ui-ui-detect-motor-directions-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/journey_ui-ui-detect-motor-directions-chromium/error-context.md
+
+  1 failed
+    [chromium] › tests/journey_ui.spec.ts:489:7 › ui: detect_motor_directions ──────────────────────
+
+npm warn cli npm v12.0.1 does not support Node.js v24.5.0. This version of npm supports the following node versions: `^22.22.2 || ^24.15.0 || >=26.0.0`. You can find the latest version at https://nodejs.org/.
+npm notice run npx
+npm notice run 'playwright' test tests/journey_ui.spec.ts --reporter=list
+(node:274967) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+FAIL detect_motor_directions — TimeoutError: locator.waitFor: Timeout 120000ms exceeded.
+
+summary: passed=7 failed=2 skipped=0 unasserted=0

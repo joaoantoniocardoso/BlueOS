@@ -1,0 +1,50 @@
+journey_http: ui — 11 plan(s)
+base: http://192.168.0.177
+dut: tag=1.4-dev digest=sha256:5b50dfafc3114651d459993c0c65639d7205634613fb62e0dea5ee04de8eebb1
+
+
+Running 5 tests using 1 worker
+
+UI_RESULT wizard_skip PASS
+  ✓  1 [chromium] › tests/journey_ui.spec.ts:489:7 › ui: wizard_skip (894ms)
+UI_RESULT access_web_terminal PASS
+  ✓  2 [chromium] › tests/journey_ui.spec.ts:489:7 › ui: access_web_terminal (1.4s)
+UI_RESULT manage_blueos_files PASS
+  ✓  3 [chromium] › tests/journey_ui.spec.ts:489:7 › ui: manage_blueos_files (1.7s)
+UI_RESULT inspect_mavlink_messages_in_browser PASS
+  ✓  4 [chromium] › tests/journey_ui.spec.ts:489:7 › ui: inspect_mavlink_messages_in_browser (2.3s)
+UI_RESULT apply_parameter_file PASS
+  ✓  5 [chromium] › tests/journey_ui.spec.ts:489:7 › ui: apply_parameter_file (4.5s)
+
+  5 passed (11.1s)
+
+npm warn cli npm v12.0.1 does not support Node.js v24.5.0. This version of npm supports the following node versions: `^22.22.2 || ^24.15.0 || >=26.0.0`. You can find the latest version at https://nodejs.org/.
+npm notice run npx
+npm notice run 'playwright' test tests/journey_ui.spec.ts --reporter=list
+(node:274112) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS wizard_skip
+PASS access_web_terminal
+PASS manage_blueos_files
+PASS inspect_mavlink_messages_in_browser
+PASS apply_parameter_file
+journey_http: SITL frame calibration
+FAIL sitl calibration servos — SERVO5 still not in stop band after disabling functions (servo5_raw=1500)
+journey_http: SITL frame vectored
+
+Running 1 test using 1 worker
+
+[detect_motor_directions] HTTP 404 http://192.168.0.177/img/icons/motordetection.svg
+UI_RESULT detect_motor_directions PASS
+  ✓  1 [chromium] › tests/journey_ui.spec.ts:489:7 › ui: detect_motor_directions (16.1s)
+
+  1 passed (16.3s)
+
+npm warn cli npm v12.0.1 does not support Node.js v24.5.0. This version of npm supports the following node versions: `^22.22.2 || ^24.15.0 || >=26.0.0`. You can find the latest version at https://nodejs.org/.
+npm notice run npx
+npm notice run 'playwright' test tests/journey_ui.spec.ts --reporter=list
+(node:275224) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS detect_motor_directions
+
+summary: passed=6 failed=5 skipped=0 unasserted=0

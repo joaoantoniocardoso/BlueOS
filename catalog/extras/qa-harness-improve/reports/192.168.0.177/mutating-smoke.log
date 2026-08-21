@@ -1,0 +1,136 @@
+journey_http: mutating-smoke — 62 allowlisted journeys (fixtures=internet,pirate,advanced,confirm-dangerous,board:any,wifi-radio,hotspot,nmea-socket,serial-bridge,dhcp-active,extension-installed,recording,local-version,wifi-saved,wifi-connected)
+base: http://192.168.0.177
+dut: tag=1.4-dev digest=sha256:5b50dfafc3114651d459993c0c65639d7205634613fb62e0dea5ee04de8eebb1
+
+wifi_rf: AP up on wlp8s0 10.42.0.1/24 (want SSID=BlueOS-Hotspot)
+FAIL install_extension teardown Delete /extension/williangalvani.example1/v1.0.1 — expected HTTP 202, got 0
+FAIL uninstall_extension setup Post /extension/williangalvani.example1/v1.0.1/install — expected HTTP 200, got 0
+FAIL uninstall_extension step 1 DELETE /extension/williangalvani.example1/v1.0.1 → http://192.168.0.177/kraken/v2.0/extension/williangalvani.example1/v1.0.1 — expected HTTP 202, got 0
+FAIL remove_camera_stream setup Post /streams — expected HTTP 200, got 0
+FAIL remove_camera_stream step 3 DELETE /delete_stream → http://192.168.0.177/mavlink-camera-manager/delete_stream — expected HTTP 200, got 0
+FAIL remove_configured_nmea_socket setup Post /socks — expected HTTP 201, got 0
+FAIL remove_configured_nmea_socket step 2 DELETE /socks → http://192.168.0.177/nmea-injector/v1.0/socks — expected HTTP 200, got 0
+FAIL run_lan_speed_test step 5 POST /post_file → http://192.168.0.177/network-test/post_file — expected HTTP 200, got 0
+FAIL update_blueos_version step 3 POST /version/pull → http://192.168.0.177/version-chooser/v1.0/version/pull — expected HTTP 200, got 0
+FAIL pull_blueos_version_without_switch step 2 POST /version/pull → http://192.168.0.177/version-chooser/v1.0/version/pull — expected HTTP 200, got 0
+FAIL docker_registry_login step 1 POST /docker/login → http://192.168.0.177/version-chooser/v1.0/docker/login — expected HTTP 200, got 0
+wifi_rf: AP up on wlp8s0 10.42.0.1/24 (want SSID=BlueOS-Hotspot)
+FAIL disconnect_from_wifi_network setup Post /hotspot — expected HTTP 200, got 0
+FAIL disconnect_from_wifi_network setup Post /connect — expected HTTP 200, got 0
+FAIL disconnect_from_wifi_network step 2 GET /disconnect → http://192.168.0.177/wifi-manager/v1.0/disconnect — expected HTTP 200, got 0
+FAIL disconnect_from_wifi_network teardown Post /remove — expected HTTP 200, got 0
+wifi_rf: AP up on wlp8s0 10.42.0.1/24
+summary: passed=123 failed=6 skipped=18 unasserted=0
+  Pass forget_saved_wifi_network: 1 step(s)
+  Pass vehicle_first_boot: 1 step(s)
+  Pass change_board: 1 step(s)
+  Pass run_sitl_simulation: 2 step(s)
+  Pass start_autopilot: 1 step(s)
+  Pass stop_autopilot: 1 step(s)
+  Pass restart_autopilot: 1 step(s)
+  Pass update_firmware_online: 1 step(s)
+  Pass upload_custom_firmware: 1 step(s)
+  Pass restore_default_firmware: 1 step(s)
+  Pass modify_bag_database: 1 step(s)
+  Pass rename_vehicle: 1 step(s)
+  Pass change_mdns_hostname: 1 step(s)
+  Pass remove_serial_bridge: 1 step(s)
+  Pass assign_static_ip_address: 1 step(s)
+  Pass acquire_dynamic_ip_address: 1 step(s)
+  Pass enable_onboard_dhcp_server: 1 step(s)
+  Pass disable_onboard_dhcp_server: 1 step(s)
+  Pass set_network_interface_priority: 1 step(s)
+  Pass configure_host_dns: 1 step(s)
+  Pass sync_system_time: 1 step(s)
+  Pass enable_legacy_camera_support: 1 step(s)
+  Pass update_raspberry_eeprom_bootloader: 1 step(s)
+  SKIP reset_blueos_settings: not present on 1.4-dev (intro ebd3a1cac363; first tag 1.4.4-beta.16)
+  Pass run_host_command: 1 step(s)
+  SKIP change_ui_theme_color: not present on 1.4-dev (intro 2d797c10c681; first tag 1.5.0-beta.38)
+  SKIP reset_ui_theme_color: not present on 1.4-dev (intro 2d797c10c681; first tag 1.5.0-beta.38)
+  SKIP upload_custom_logo: not present on 1.4-dev (intro 2d797c10c681; first tag 1.5.0-beta.38)
+  SKIP remove_custom_logo: not present on 1.4-dev (intro 2d797c10c681; first tag 1.5.0-beta.38)
+  SKIP upload_custom_vehicle_image: not present on 1.4-dev (intro 2d797c10c681; first tag 1.5.0-beta.38)
+  SKIP remove_custom_vehicle_image: not present on 1.4-dev (intro 2d797c10c681; first tag 1.5.0-beta.38)
+  SKIP upload_3d_model_override: not present on 1.4-dev (intro 2d797c10c681; first tag 1.5.0-beta.38)
+  SKIP delete_3d_model_override: not present on 1.4-dev (intro 2d797c10c681; first tag 1.5.0-beta.38)
+  SKIP free_disk_space: not present on 1.4-dev (intro c29e24679e3d; first tag 1.4.4-beta.16)
+  Pass add_custom_manifest: 1 step(s)
+  Pass configure_installed_extension: 2 step(s)
+  Pass edit_extension_dev_version: 1 step(s)
+  Pass install_custom_extension: 1 step(s)
+  Pass install_extension: 1 step(s)
+  Pass uninstall_extension: 1 step(s)
+  Pass remove_camera_stream: 1 step(s)
+  Pass remove_configured_nmea_socket: 1 step(s)
+  Pass run_lan_speed_test: 1 step(s)
+  SKIP delete_video_recording: not present on 1.4-dev (intro 6df9fd85a378; first tag 1.4.4-beta.16)
+  Fail update_blueos_version: 1 step(s)
+  Fail pull_blueos_version_without_switch: 1 step(s)
+  SKIP delete_local_blueos_version: not present on 1.4-dev (intro 7d924e22376f; first tag 1.4.4-beta.16)
+  Fail docker_registry_login: 1 step(s)
+  SKIP update_bootstrap_image: not present on 1.4-dev (intro 7d924e22376f; first tajourney_http: waiting for BlueOS after reboot…
+
+summary: passed=83 failed=39 skipped=18 unasserted=0
+  Pass forget_saved_wifi_network: 1 step(s)
+  Pass vehicle_first_boot: 1 step(s)
+  Pass change_board: 1 step(s)
+  Pass run_sitl_simulation: 2 step(s)
+  Pass start_autopilot: 1 step(s)
+  Pass stop_autopilot: 1 step(s)
+  Pass restart_autopilot: 1 step(s)
+  Pass update_firmware_online: 1 step(s)
+  Pass upload_custom_firmware: 1 step(s)
+  Pass restore_default_firmware: 1 step(s)
+  Pass modify_bag_database: 1 step(s)
+  Pass rename_vehicle: 1 step(s)
+  Pass change_mdns_hostname: 1 step(s)
+  Pass remove_serial_bridge: 1 step(s)
+  Pass assign_static_ip_address: 1 step(s)
+  Pass acquire_dynamic_ip_address: 1 step(s)
+  Pass enable_onboard_dhcp_server: 1 step(s)
+  Pass disable_onboard_dhcp_server: 1 step(s)
+  Pass set_network_interface_priority: 1 step(s)
+  Pass configure_host_dns: 1 step(s)
+  Pass sync_system_time: 1 step(s)
+  Pass enable_legacy_camera_support: 1 step(s)
+  Pass update_raspberry_eeprom_bootloader: 1 step(s)
+  SKIP reset_blueos_settings: not present on 1.4-dev (intro ebd3a1cac363; first tag 1.4.4-beta.16)
+  Pass run_host_command: 1 step(s)
+  SKIP change_ui_theme_color: not present on 1.4-dev (intro 2d797c10c681; first tag 1.5.0-beta.38)
+  SKIP reset_ui_theme_color: not present on 1.4-dev (intro 2d797c10c681; first tag 1.5.0-beta.38)
+  SKIP upload_custom_logo: not present on 1.4-dev (intro 2d797c10c681; first tag 1.5.0-beta.38)
+  SKIP remove_custom_logo: not present on 1.4-dev (intro 2d797c10c681; first tag 1.5.0-beta.38)
+  SKIP upload_custom_vehicle_image: not present on 1.4-dev (intro 2d797c10c681; first tag 1.5.0-beta.38)
+  SKIP remove_custom_vehicle_image: not present on 1.4-dev (intro 2d797c10c681; first tag 1.5.0-beta.38)
+  SKIP upload_3d_model_override: not present on 1.4-dev (intro 2d797c10c681; first tag 1.5.0-beta.38)
+  SKIP delete_3d_model_override: not present on 1.4-dev (intro 2d797c10c681; first tag 1.5.0-beta.38)
+  SKIP free_disk_space: not present on 1.4-dev (intro c29e24679e3d; first tag 1.4.4-beta.16)
+  Pass add_custom_manifest: 1 step(s)
+  Pass configure_installed_extension: 2 step(s)
+  Pass edit_extension_dev_version: 1 step(s)
+  Pass install_custom_extension: 1 step(s)
+  Fail install_extension: 1 step(s)
+  Fail uninstall_extension: 1 step(s)
+  Fail remove_camera_stream: 1 step(s)
+  Fail remove_configured_nmea_socket: 1 step(s)
+  Fail run_lan_speed_test: 1 step(s)
+  SKIP delete_video_recording: not present on 1.4-dev (intro 6df9fd85a378; first tag 1.4.4-beta.16)
+  Fail update_blueos_version: 1 step(s)
+  Fail pull_blueos_version_without_switch: 1 step(s)
+  SKIP delete_local_blueos_version: not present on 1.4-dev (intro 7d924e22376f; first tag 1.4.4-beta.16)
+  Fail docker_registry_login: 1 step(s)
+  SKIP update_bootstrap_image: not present on 1.4-dev (intro 7d924e22376f; first tag 1.4.4-beta.16)
+  SKIP connect_to_wifi_network: known Wi-Fi network required
+  SKIP connect_to_hidden_wifi_network: known Wi-Fi network required
+  Fail disconnect_from_wifi_network: 1 step(s)
+  Fail force_wifi_network_password: 1 step(s)
+  Fail reconnect_to_saved_wifi_network: 1 step(s)
+  SKIP reject_invalid_wifi_credentials: known Wi-Fi network required
+  SKIP detect_wifi_ap_loss: known Wi-Fi network required
+  SKIP autoconnect_to_saved_wifi_network: known Wi-Fi network required
+  Fail toggle_hotspot: 1 step(s)
+  Fail configure_hotspot_credentials: hotspot credentials snapshot
+  Fail toggle_smart_hotspot: 1 step(s)
+  Fail switch_local_blueos_version: 1 step(s)
+  Pass reboot_onboard_computer: 1 step(s)
