@@ -16,6 +16,11 @@ type UiAction =
   | { op: 'click_if_visible'; text: string }
   | { op: 'wait_text'; text: string; timeout_ms: number }
   | { op: 'expect_iframe' }
+  | { op: 'click_selector'; css: string }
+  | { op: 'click_selector_if_visible'; css: string }
+  | { op: 'hover_selector'; css: string }
+  | { op: 'expect_gone'; text: string; timeout_ms: number }
+  | { op: 'press_key'; key: string }
   | SitlRcAction
   | { op: 'sleep'; ms: number };
 
@@ -36,6 +41,53 @@ const BENIGN_FAILURE_PATTERNS: RegExp[] = [
 
 function isBenign(urlOrText: string): boolean {
   return BENIGN_FAILURE_PATTERNS.some((pattern) => pattern.test(urlOrText));
+}
+
+const DEFAULT_FIXTURES = 'internet,pirate,advanced';
+
+function fixtureSpec(): string {
+  return process.env.BLUEOS_FIXTURES ?? process.env.BLUEOS_SMOKE_FIXTURES ?? DEFAULT_FIXTURES;
+}
+
+function fixturesInclude(token: string): boolean {
+  return fixtureSpec().split(',').some((part) => part.trim() === token);
+}
+
+const PIRATE_BAG_SETTINGS = {
+  settings_version: 1,
+  is_dark_theme: true,
+  is_pirate_mode: true,
+  is_dev_mode_enabled: false,
+  last_version_update_notification_time: 0,
+  tour_version: 2,
+  user_top_widgets: [] as string[],
+};
+
+async function maybeSeedPirateMode(page: Page): Promise<void> {
+  if (!fixturesInclude('pirate')) {
+    return;
+  }
+  await page.route('**/bag/v1.0/get/settings**', async (route) => {
+    const url = route.request().url();
+    const subpath = url.split('/bag/v1.0/get/settings')[1]?.split(/[?#]/)[0] ?? '';
+    if (subpath.startsWith('/')) {
+      const key = subpath.slice(1);
+      const value = (PIRATE_BAG_SETTINGS as Record<string, unknown>)[key];
+      if (value !== undefined) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(value),
+        });
+        return;
+      }
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(PIRATE_BAG_SETTINGS),
+    });
+  });
 }
 
 function loadPlans(): UiJourneyPlan[] {
@@ -184,16 +236,26 @@ async function clickText(page: Page, text: string): Promise<void> {
     await dismissOverlays(page, 10_000);
   }
   const inDialog = page.getByRole('dialog').getByRole('button', { name: text, exact: true });
-  if (await inDialog.isVisible().catch(() => false)) {
-    await inDialog.scrollIntoViewIfNeeded();
-    await inDialog.click({ timeout: 30_000 });
-    return;
+  if (await inDialog.first().isVisible().catch(() => false)) {
+    const dialogCount = await inDialog.count();
+    for (let i = 0; i < dialogCount; i += 1) {
+      const candidate = inDialog.nth(i);
+      if (await candidate.isEnabled().catch(() => false)) {
+        await candidate.scrollIntoViewIfNeeded();
+        await candidate.click({ timeout: 30_000 });
+        return;
+      }
+    }
   }
   const button = page.getByRole('button', { name: text, exact: true });
-  if ((await button.count()) > 0) {
-    await button.first().scrollIntoViewIfNeeded();
-    await button.first().click({ timeout: 30_000 });
-    return;
+  const buttonCount = await button.count();
+  for (let i = 0; i < buttonCount; i += 1) {
+    const candidate = button.nth(i);
+    if (await candidate.isEnabled().catch(() => false)) {
+      await candidate.scrollIntoViewIfNeeded();
+      await candidate.click({ timeout: 30_000 });
+      return;
+    }
   }
   const byText = page.getByText(text, { exact: true }).last();
   await byText.scrollIntoViewIfNeeded();
@@ -201,9 +263,10 @@ async function clickText(page: Page, text: string): Promise<void> {
 }
 
 async function clickIfVisible(page: Page, text: string): Promise<void> {
-  const button = page.getByRole('button', { name: text, exact: true });
-  if (await button.first().isVisible().catch(() => false)) {
-    await button.first().click({ timeout: 10_000 });
+  const button = page.getByRole('button', { name: text, exact: true }).first();
+  await button.waitFor({ state: 'visible', timeout: 5_000 }).catch(() => {});
+  if (await button.isVisible().catch(() => false)) {
+    await button.click({ timeout: 10_000 });
   }
 }
 
@@ -366,6 +429,26 @@ async function waitSitlPose(page: Page, rc: SitlRcAction, timeoutMs = 25_000): P
   throw new Error(`SITL pose not settled (${last} want roll=${wantRoll.toFixed(2)} pitch=${wantPitch.toFixed(2)})`);
 }
 
+async function clickSelector(page: Page, css: string): Promise<void> {
+  const locator = page.locator(css).first();
+  await expect(locator).toBeVisible({ timeout: 30_000 });
+  await expect(locator).toBeEnabled({ timeout: 30_000 });
+  await locator.click({ timeout: 30_000 });
+}
+
+async function clickSelectorIfVisible(page: Page, css: string): Promise<void> {
+  const locator = page.locator(css).first();
+  await locator.waitFor({ state: 'visible', timeout: 5_000 }).catch(() => {});
+  if (await locator.isVisible().catch(() => false)) {
+    await locator.click({ timeout: 10_000 });
+  }
+}
+
+async function expectGone(page: Page, text: string, timeoutMs: number): Promise<void> {
+  const locator = page.getByText(text).first();
+  await expect(locator).not.toBeVisible({ timeout: timeoutMs });
+}
+
 async function runPlan(page: Page, plan: UiJourneyPlan): Promise<void> {
   let holdTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -436,6 +519,21 @@ async function runPlan(page: Page, plan: UiJourneyPlan): Promise<void> {
         case 'sleep':
           await page.waitForTimeout(action.ms);
           break;
+        case 'click_selector':
+          await clickSelector(page, action.css);
+          break;
+        case 'click_selector_if_visible':
+          await clickSelectorIfVisible(page, action.css);
+          break;
+        case 'hover_selector':
+          await page.locator(action.css).first().hover({ timeout: 30_000 });
+          break;
+        case 'expect_gone':
+          await expectGone(page, action.text, action.timeout_ms);
+          break;
+        case 'press_key':
+          await page.keyboard.press(action.key);
+          break;
         default:
           throw new Error(`unknown action: ${JSON.stringify(action)}`);
       }
@@ -458,6 +556,7 @@ if (plans.length === 0) {
 for (const plan of plans) {
   test(`ui: ${plan.journey_id}`, async ({ page }) => {
     test.setTimeout(360_000);
+    await maybeSeedPirateMode(page);
     page.on('response', (res) => {
       if (res.status() >= 400 && !isBenign(res.url())) {
         console.log(`[${plan.journey_id}] HTTP ${res.status()} ${res.url()}`);
