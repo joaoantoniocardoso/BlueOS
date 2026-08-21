@@ -26,3 +26,13 @@ thiserror = "1"
 
 - Registration starts as a plain slice/`Vec`; defer `inventory`/`linkme` and the `service!` macro.
 - After edits: `cargo fmt`, `cargo clippy -D warnings`, `cargo test`.
+
+## Checks that cannot fail (non-vacuity)
+
+- A check that cannot fail is worse than no check: it produces false confidence and hides the regression its name claims to cover.
+- Never derive a test's expected value from the function under test. Derive it independently, or pin a measured constant, or both.
+- A tool must not be the sole verifier of its own output. When a tool writes or rewrites something, verification must come from outside it.
+- Non-trivial logic needs one runnable check that fails when the logic breaks. Before claiming a check works: break the thing it guards, watch the check fail, restore -- report that you did.
+- A count pin catches loss; an independent derivation catches misclassification. Prefer both.
+- Illustration: `index_covers_every_indexable_source_path` compared the same `filter_map(citation_source_path)` on both sides -- a theorem, not a test; patching `citation_source_path` to drop `Runtime` removed 27 files and 206 citations while the test still printed `ok`.
+- Illustration: `provenance_lint` verifying its own anchors is circular; confirming anchors required an independent checker that parsed Rust sources directly. `--fix` panicked on the first relocation because its repair regex was never compiled in any test.
