@@ -1,0 +1,31 @@
+{
+  "service": "nmea_injector",
+  "environment": "BlueOS 1.4-dev (bluerobotics/blueos-core:1.4-dev @ sha256:5b50dfafc3114651d459993c0c65639d7205634613fb62e0dea5ee04de8eebb1), Raspberry Pi 4, Navigator",
+  "captured_at": "2026-08-14",
+  "capture_host": "192.168.0.177",
+  "notes": "Mutating transition capture on 1.4-dev (bluerobotics/blueos-core:1.4-dev @ sha256:5b50dfafc3114651d459993c0c65639d7205634613fb62e0dea5ee04de8eebb1). Smoke socket create/remove (UDP port 9999, component_id 220); restored to empty list after DELETE.",
+  "api_versions": [
+    "v1.0"
+  ],
+  "route_inventory": {
+    "mutating_exercised": [
+      "POST /nmea-injector/v1.0/socks",
+      "DELETE /nmea-injector/v1.0/socks"
+    ],
+    "note": "POST/DELETE captured for journey outcomes; host restored to [] after capture."
+  },
+  "transitions": {
+    "note": "Smoke socket create/remove (UDP port 9999, component_id 220); restored to empty list.",
+    "POST /nmea-injector/v1.0/socks": {
+      "status": 201,
+      "body_predicate": "null",
+      "request_body": "{\"kind\":\"UDP\",\"port\":9999,\"component_id\":220}"
+    },
+    "DELETE /nmea-injector/v1.0/socks": {
+      "status": 200,
+      "body_predicate": "null",
+      "request_body": "{\"kind\":\"UDP\",\"port\":9999,\"component_id\":220}"
+    }
+  },
+  "settings_mutations": "POST /socks appends to settings-1.json sockets[]; DELETE /socks removes the matching entry; restored to [] after transitions capture."
+}
