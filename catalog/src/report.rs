@@ -270,7 +270,7 @@ pub fn utc_rfc3339_now() -> String {
     format_unix_utc_rfc3339(secs)
 }
 
-fn format_unix_utc_rfc3339(secs: u64) -> String {
+pub fn format_unix_utc_rfc3339(secs: u64) -> String {
     const SECS_PER_DAY: u64 = 86_400;
     let days = (secs / SECS_PER_DAY) as i64;
     let day_secs = secs % SECS_PER_DAY;
