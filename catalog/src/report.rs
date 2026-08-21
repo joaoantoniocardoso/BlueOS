@@ -34,6 +34,24 @@ pub const SCHEMA_VERSION: u32 = 1;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
+pub enum ConflictKind {
+    ProductMissingReject,
+    CatalogWrongStatus,
+    NotApplicable,
+    HarnessGap,
+    Limitation,
+    EffectNotApplied,
+    ClientDesync,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ReportConflict {
+    pub kind: ConflictKind,
+    pub context: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum SuiteKind {
     Smoke,
     MutatingSmoke,
@@ -146,6 +164,8 @@ pub struct JourneyReportEntry {
     pub steps_passed: usize,
     pub steps_failed: usize,
     pub steps_skipped: usize,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub conflicts: Vec<ReportConflict>,
 }
 
 impl JourneyReportEntry {
@@ -165,6 +185,7 @@ impl JourneyReportEntry {
             steps_passed,
             steps_failed,
             steps_skipped,
+            conflicts: Vec::new(),
         }
     }
 
@@ -190,6 +211,7 @@ impl JourneyReportEntry {
             steps_passed,
             steps_failed,
             steps_skipped,
+            conflicts: Vec::new(),
         }
     }
 
@@ -208,6 +230,7 @@ impl JourneyReportEntry {
             steps_passed: 0,
             steps_failed: 0,
             steps_skipped,
+            conflicts: Vec::new(),
         }
     }
 }

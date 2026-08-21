@@ -301,6 +301,7 @@ mod tests {
 
     use crate::catalog::Catalog;
     use crate::id::{CapabilityId, JourneyId};
+    use crate::journey::BLAST_RADIUS_UNKNOWN;
     use crate::journey::{Actor, HttpMethod, JourneyStep, RouteRef, UserJourney, Visibility};
     use crate::provenance::{Grounded, GroundedItem, GroundedSet};
     use crate::runtime::RuntimeFacts;
@@ -372,6 +373,7 @@ mod tests {
             preconditions: GroundedSet::known(&[]),
             steps: GroundedSet::known(STEPS),
             availability: TEST_PRESENCE,
+            blast_radius: BLAST_RADIUS_UNKNOWN,
             chains_from: None,
         };
 

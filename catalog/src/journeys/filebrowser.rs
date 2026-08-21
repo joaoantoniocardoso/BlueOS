@@ -1,6 +1,6 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, JourneyStep, Precondition, SoftwareRequirement, UserJourney, Visibility,
+    Actor, BlastRadius, JourneyStep, Precondition, SoftwareRequirement, UserJourney, Visibility,
 };
 use crate::journey_presence::PRESENCE_MANAGE_BLUEOS_FILES;
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
@@ -69,7 +69,13 @@ const MANAGE_BLUEOS_FILES: UserJourney =
             ),
         ]),
         availability: PRESENCE_MANAGE_BLUEOS_FILES,
-    chains_from: None,
+        blast_radius: Grounded::known(
+            BlastRadius::Disruptive,
+            Provenance::asserted(
+                "embedded filebrowser SPA can edit, replace, or upload arbitrary host filesystem paths",
+            ),
+        ),
+        chains_from: None,
     };
 
 const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<CapabilityId> {

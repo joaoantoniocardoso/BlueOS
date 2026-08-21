@@ -1,0 +1,8 @@
+{
+  "unknown_blast_radius": 1,
+  "unknown_body_kind": 60,
+  "unprobed_failure_modes": 45,
+  "mutating_smoke_missing_effect_read": 60,
+  "client_orchestrated_missing_ui_plan": 17,
+  "open_harness_gap": 24
+}

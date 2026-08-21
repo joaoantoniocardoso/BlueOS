@@ -1,8 +1,8 @@
 use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR_ARDUSUB;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, HttpMethod, JourneyStep, NetworkState, Precondition, RouteRef, StateTransition,
-    StepOutcome, UserJourney, Visibility,
+    Actor, BlastRadius, BodyKind, HttpMethod, JourneyStep, NetworkState, Precondition, RouteRef,
+    StateTransition, StepOutcome, UserJourney, Visibility,
 };
 use crate::journey_presence::{
     PRESENCE_CHANGE_BOARD, PRESENCE_RESTART_AUTOPILOT, PRESENCE_RESTORE_DEFAULT_FIRMWARE,
@@ -16,6 +16,61 @@ const GS: &str = "content/usage/getting-started/index.md";
 const INSTALL: &str = "content/usage/installation.md";
 const APM_ROUTER: &str = "core/services/ardupilot_manager/api/v1/routers/index.py";
 const RUNTIME_ENV: &str = RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR_ARDUSUB;
+
+const BR_VEHICLE_FIRST_BOOT: Grounded<BlastRadius> = Grounded::known(
+    BlastRadius::Destructive,
+    Provenance::asserted(
+        "first-boot wizard downloads and flashes autopilot firmware onto the flight controller",
+    ),
+);
+const BR_CHANGE_BOARD: Grounded<BlastRadius> = Grounded::known(
+    BlastRadius::Disruptive,
+    Provenance::asserted(
+        "POST /board switches the active flight controller or SITL target and restarts autopilot",
+    ),
+);
+const BR_RUN_SITL: Grounded<BlastRadius> = Grounded::known(
+    BlastRadius::Disruptive,
+    Provenance::asserted(
+        "selecting SITL and setting /sitl_frame stops hardware FC and runs a simulated autopilot",
+    ),
+);
+const BR_START_AUTOPILOT: Grounded<BlastRadius> = Grounded::known(
+    BlastRadius::Disruptive,
+    Provenance::asserted(
+        "POST /start launches the flight-controller subprocess and restores MAVLink control",
+    ),
+);
+const BR_STOP_AUTOPILOT: Grounded<BlastRadius> = Grounded::known(
+    BlastRadius::Disruptive,
+    Provenance::asserted(
+        "POST /stop terminates the flight-controller subprocess and drops MAVLink vehicle control",
+    ),
+);
+const BR_RESTART_AUTOPILOT: Grounded<BlastRadius> = Grounded::known(
+    BlastRadius::Disruptive,
+    Provenance::asserted(
+        "POST /restart cycles the flight-controller subprocess and briefly interrupts MAVLink",
+    ),
+);
+const BR_UPDATE_FIRMWARE_ONLINE: Grounded<BlastRadius> = Grounded::known(
+    BlastRadius::Destructive,
+    Provenance::asserted(
+        "POST /install_firmware_from_url downloads and flashes firmware onto the flight controller",
+    ),
+);
+const BR_UPLOAD_CUSTOM_FIRMWARE: Grounded<BlastRadius> = Grounded::known(
+    BlastRadius::Destructive,
+    Provenance::asserted(
+        "POST /install_firmware_from_file flashes an uploaded image onto the flight controller",
+    ),
+);
+const BR_RESTORE_DEFAULT_FIRMWARE: Grounded<BlastRadius> = Grounded::known(
+    BlastRadius::Destructive,
+    Provenance::asserted(
+        "POST /restore_default_firmware re-flashes factory default firmware onto the flight controller",
+    ),
+);
 
 pub const JOURNEYS: &[UserJourney] = &[
     VEHICLE_FIRST_BOOT,
@@ -88,6 +143,7 @@ const VEHICLE_FIRST_BOOT: UserJourney =
             ),
         ]),
         availability: PRESENCE_VEHICLE_FIRST_BOOT,
+    blast_radius: BR_VEHICLE_FIRST_BOOT,
     chains_from: None,
     };
 
@@ -121,6 +177,7 @@ const CHANGE_BOARD: UserJourney = UserJourney {
         )),
     )]),
     availability: PRESENCE_CHANGE_BOARD,
+    blast_radius: BR_CHANGE_BOARD,
     chains_from: None,
 };
 
@@ -142,10 +199,12 @@ const RUN_SITL_SIMULATION: UserJourney =
                 "POST /sitl_frame sets simulated vehicle frame",
             ),
         ]),
-        preconditions: GroundedSet::known(&[GroundedItem::new(
-            Precondition::Other("Virtual SITL flight controller board is selected"),
-            Provenance::doc(ADV, 262),
-        )]),
+        preconditions: GroundedSet::known(&[
+            GroundedItem::new(
+                Precondition::Other("Virtual SITL flight controller board is selected"),
+                Provenance::doc(ADV, 262),
+            ),
+        ]),
         steps: GroundedSet::known(&[
             operator_step(
                 "Select the virtual SITL flight controller board",
@@ -161,6 +220,7 @@ const RUN_SITL_SIMULATION: UserJourney =
             ),
         ]),
         availability: PRESENCE_RUN_SITL_SIMULATION,
+    blast_radius: BR_RUN_SITL,
     chains_from: Some(JourneyId::ChangeBoard),
     };
 
@@ -189,6 +249,7 @@ const START_AUTOPILOT: UserJourney = UserJourney {
         )),
     )]),
     availability: PRESENCE_START_AUTOPILOT,
+    blast_radius: BR_START_AUTOPILOT,
     chains_from: Some(JourneyId::ChangeBoard),
 };
 
@@ -217,6 +278,7 @@ const STOP_AUTOPILOT: UserJourney = UserJourney {
         )),
     )]),
     availability: PRESENCE_STOP_AUTOPILOT,
+    blast_radius: BR_STOP_AUTOPILOT,
     chains_from: None,
 };
 
@@ -250,6 +312,7 @@ const RESTART_AUTOPILOT: UserJourney = UserJourney {
         )),
     )]),
     availability: PRESENCE_RESTART_AUTOPILOT,
+    blast_radius: BR_RESTART_AUTOPILOT,
     chains_from: None,
 };
 
@@ -306,6 +369,7 @@ const UPDATE_FIRMWARE_ONLINE: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_UPDATE_FIRMWARE_ONLINE,
+    blast_radius: BR_UPDATE_FIRMWARE_ONLINE,
     chains_from: Some(JourneyId::ChangeBoard),
 };
 
@@ -342,6 +406,7 @@ const UPLOAD_CUSTOM_FIRMWARE: UserJourney = UserJourney {
         )),
     )]),
     availability: PRESENCE_UPLOAD_CUSTOM_FIRMWARE,
+    blast_radius: BR_UPLOAD_CUSTOM_FIRMWARE,
     chains_from: Some(JourneyId::ChangeBoard),
 };
 
@@ -378,6 +443,7 @@ const RESTORE_DEFAULT_FIRMWARE: UserJourney = UserJourney {
         )),
     )]),
     availability: PRESENCE_RESTORE_DEFAULT_FIRMWARE,
+    blast_radius: BR_RESTORE_DEFAULT_FIRMWARE,
     chains_from: Some(JourneyId::ChangeBoard),
 };
 
@@ -451,6 +517,7 @@ const fn source_outcome(status: u16, file: &'static str, line: u32) -> Grounded<
         StepOutcome {
             expected_status: Some(status),
             body_predicate: None,
+            body_kind: BodyKind::Unknown,
             transition: None,
         },
         Provenance::source(file, line),
@@ -463,10 +530,16 @@ const fn runtime_outcome(
     transition: Option<StateTransition>,
     key: &'static str,
 ) -> Grounded<StepOutcome> {
+    let body_kind = if body.is_some() {
+        BodyKind::Payload
+    } else {
+        BodyKind::Unknown
+    };
     Grounded::known(
         StepOutcome {
             expected_status: Some(status),
             body_predicate: body,
+            body_kind,
             transition,
         },
         Provenance::runtime(key, RUNTIME_ENV),

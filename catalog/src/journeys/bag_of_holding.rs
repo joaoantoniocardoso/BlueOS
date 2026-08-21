@@ -3,8 +3,8 @@
 // The operator docs describe one first-class workflow — the advanced Bag Editor page.
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, HttpMethod, JourneyStep, Precondition, RouteRef, SoftwareRequirement, StepOutcome,
-    UserJourney, Visibility,
+    Actor, BlastRadius, BodyKind, HttpMethod, JourneyStep, Precondition, RouteRef,
+    SoftwareRequirement, StepOutcome, UserJourney, Visibility,
 };
 use crate::journey_presence::PRESENCE_MODIFY_BAG_DATABASE;
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
@@ -59,6 +59,12 @@ const MODIFY_BAG_DATABASE: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_MODIFY_BAG_DATABASE,
+    blast_radius: Grounded::known(
+        BlastRadius::Disruptive,
+        Provenance::asserted(
+            "POST /overwrite replaces the entire frontend JSON bag with no built-in undo",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -85,6 +91,7 @@ const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
         StepOutcome {
             expected_status: Some(status),
             body_predicate: None,
+            body_kind: BodyKind::Unknown,
             transition: None,
         },
         Provenance::source(BAG_MAIN, line),

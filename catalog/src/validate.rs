@@ -7,6 +7,7 @@ use thiserror::Error;
 use crate::capability::Aggregate;
 use crate::catalog::Catalog;
 use crate::domain::{ALL_AGGREGATES, DOMAINS};
+use crate::harness_ratchet::harness_ratchet_counts;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::UserJourney;
 use crate::page::{ConsumeTarget, PageId};
@@ -120,6 +121,7 @@ pub fn validate(catalog: &Catalog) -> Result<(), Vec<ValidationError>> {
     errors.extend(check_page_references(catalog));
     errors.extend(check_coverage_gate(catalog));
     errors.extend(check_domain_taxonomy());
+    errors.extend(check_harness_annotation_stubs(catalog));
 
     if errors.is_empty() {
         Ok(())
@@ -695,14 +697,20 @@ fn count_unknown_in_service(service: &ServiceDefinition) -> usize {
     count
 }
 
+fn check_harness_annotation_stubs(catalog: &Catalog) -> Vec<ValidationError> {
+    // H0 invariant: validate() stays green while Unknowns remain; ratchet is harness_ratchet bin.
+    let _ = harness_ratchet_counts(catalog);
+    Vec::new()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::edge::{Bus, Edge, FailureImpact, SyncMode};
     use crate::id::{CapabilityId, JourneyId, PathRef, ServiceId};
     use crate::journey::{
-        Actor, HttpMethod, JourneyStep, RouteRef, StateTransition, StepOutcome, UserJourney,
-        Visibility,
+        Actor, BodyKind, HttpMethod, JourneyStep, RouteRef, StateTransition, StepOutcome,
+        UserJourney, Visibility, BLAST_RADIUS_UNKNOWN,
     };
     use crate::lifecycle::Lifecycle;
     use crate::observed::ObservedFacts;
@@ -1016,6 +1024,7 @@ mod tests {
                                 StepOutcome {
                                     expected_status: Some(200),
                                     body_predicate: None,
+                                    body_kind: BodyKind::Unknown,
                                     transition: Some(StateTransition {
                                         machine: "lifecycle",
                                         from: "idle",
@@ -1030,6 +1039,7 @@ mod tests {
                 },
             ),
             availability: TEST_PRESENCE,
+            blast_radius: BLAST_RADIUS_UNKNOWN,
             chains_from: None,
         }
     }
@@ -1055,6 +1065,12 @@ mod tests {
         assert!(errors
             .iter()
             .any(|e| matches!(e, ValidationError::InvalidJourneyAvailability { .. })));
+    }
+
+    #[test]
+    fn bootstrap_catalog_harness_stubs_do_not_fail_validate() {
+        let catalog = Catalog::bootstrap();
+        assert!(catalog.validate().is_ok());
     }
 
     #[test]
@@ -1127,6 +1143,7 @@ mod tests {
                                 StepOutcome {
                                     expected_status: Some(200),
                                     body_predicate: None,
+                                    body_kind: BodyKind::Unknown,
                                     transition: Some(StateTransition {
                                         machine: "lifecycle",
                                         from: "idle",
@@ -1209,6 +1226,7 @@ mod tests {
                                 StepOutcome {
                                     expected_status: Some(200),
                                     body_predicate: None,
+                                    body_kind: BodyKind::Unknown,
                                     transition: Some(StateTransition {
                                         machine: "lifecycle",
                                         from: "idle",
@@ -1263,6 +1281,7 @@ mod tests {
                                 StepOutcome {
                                     expected_status: Some(200),
                                     body_predicate: None,
+                                    body_kind: BodyKind::Unknown,
                                     transition: Some(StateTransition {
                                         machine: "nonexistent",
                                         from: "idle",
@@ -1516,6 +1535,7 @@ mod tests {
                                 StepOutcome {
                                     expected_status: Some(200),
                                     body_predicate: Some("\"online\": true"),
+                                    body_kind: BodyKind::Unknown,
                                     transition: None,
                                 },
                                 Provenance::runtime(
@@ -1529,6 +1549,7 @@ mod tests {
                 },
             ),
             availability: TEST_PRESENCE,
+            blast_radius: BLAST_RADIUS_UNKNOWN,
             chains_from: None,
         };
         let catalog = Catalog::with_parts(

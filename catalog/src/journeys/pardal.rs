@@ -1,8 +1,8 @@
 use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, HttpMethod, JourneyStep, NetworkState, Precondition, RouteRef, StepOutcome, UserJourney,
-    Visibility,
+    Actor, BlastRadius, BodyKind, HttpMethod, JourneyStep, NetworkState, Precondition, RouteRef,
+    StepOutcome, UserJourney, Visibility,
 };
 use crate::journey_presence::{PRESENCE_RUN_INTERNET_SPEED_TEST, PRESENCE_RUN_LAN_SPEED_TEST};
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
@@ -68,6 +68,7 @@ const RUN_LAN_SPEED_TEST: UserJourney =
                     Some(
                         "1 MiB random byte stream (Content-Length: 1048576); not JSON",
                     ),
+                    BodyKind::Payload,
                     "runtime-captures/pardal__pi4_navigator_master.json#running_baseline",
                 )),
             ),
@@ -85,7 +86,13 @@ const RUN_LAN_SPEED_TEST: UserJourney =
             ),
         ]),
         availability: PRESENCE_RUN_LAN_SPEED_TEST,
-    chains_from: None,
+        blast_radius: Grounded::known(
+            BlastRadius::Safe,
+            Provenance::asserted(
+                "LAN throughput test exchanges transient test payloads without persisting vehicle configuration",
+            ),
+        ),
+        chains_from: None,
     };
 
 const RUN_INTERNET_SPEED_TEST: UserJourney = UserJourney {
@@ -129,6 +136,7 @@ const RUN_INTERNET_SPEED_TEST: UserJourney = UserJourney {
             Some(runtime_outcome(
                 200,
                 Some("\"download\":"),
+                BodyKind::Payload,
                 "runtime-captures/pardal__pi4_navigator_master.json#running_baseline",
             )),
         ),
@@ -173,6 +181,12 @@ const RUN_INTERNET_SPEED_TEST: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_RUN_INTERNET_SPEED_TEST,
+    blast_radius: Grounded::known(
+        BlastRadius::Safe,
+        Provenance::asserted(
+            "Internet speed test measures WAN throughput via speedtest-cli without altering vehicle settings",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -249,6 +263,7 @@ const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
         StepOutcome {
             expected_status: Some(status),
             body_predicate: None,
+            body_kind: BodyKind::Unknown,
             transition: None,
         },
         Provenance::source(PARDAL_MAIN, line),
@@ -258,12 +273,14 @@ const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
 const fn runtime_outcome(
     status: u16,
     body: Option<&'static str>,
+    body_kind: BodyKind,
     key: &'static str,
 ) -> Grounded<StepOutcome> {
     Grounded::known(
         StepOutcome {
             expected_status: Some(status),
             body_predicate: body,
+            body_kind,
             transition: None,
         },
         Provenance::runtime(key, RUNTIME_ENV),

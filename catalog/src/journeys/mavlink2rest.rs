@@ -1,7 +1,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, JourneyStep, Precondition, RouteRef, SoftwareRequirement, StepOutcome, UserJourney,
-    Visibility,
+    Actor, BlastRadius, JourneyStep, Precondition, RouteRef, SoftwareRequirement, StepOutcome,
+    UserJourney, Visibility,
 };
 use crate::journey_presence::PRESENCE_INSPECT_MAVLINK_MESSAGES_IN_BROWSER;
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
@@ -62,7 +62,13 @@ const INSPECT_MAVLINK_MESSAGES_IN_BROWSER: UserJourney =
             ),
         ]),
         availability: PRESENCE_INSPECT_MAVLINK_MESSAGES_IN_BROWSER,
-    chains_from: None,
+        blast_radius: Grounded::known(
+            BlastRadius::Safe,
+            Provenance::asserted(
+                "MAVLink Inspector only subscribes to and displays the live mavlink2rest message stream",
+            ),
+        ),
+        chains_from: None,
     };
 
 const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<CapabilityId> {

@@ -1,6 +1,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, HardwareRequirement, JourneyStep, Precondition, StepOutcome, UserJourney, Visibility,
+    Actor, BlastRadius, HardwareRequirement, JourneyStep, Precondition, StepOutcome, UserJourney,
+    Visibility,
 };
 use crate::journey_presence::PRESENCE_CONFIGURE_VIDEO_STREAM;
 use crate::page::PageId;
@@ -93,6 +94,12 @@ const CONFIGURE_VIDEO_STREAM: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_CONFIGURE_VIDEO_STREAM,
+    blast_radius: Grounded::known(
+        BlastRadius::Reversible,
+        Provenance::asserted(
+            "Frontend create/replace flow mutates mavlink-camera-manager stream records removable via delete stream",
+        ),
+    ),
     chains_from: None,
 };
 

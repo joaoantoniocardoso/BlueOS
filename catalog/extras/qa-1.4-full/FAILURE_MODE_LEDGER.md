@@ -1,7 +1,7 @@
 # FAILURE_MODE_LEDGER — every asserted `failure_modes` id, classified
 
 **Source of truth:** the `failure_modes` `AssertedSet::established` block of each of the 26 service cards in `catalog/src/services/*.rs` (exported via `cargo run --bin export | jq '.services[].definition.failure_modes'`).
-**Total:** 110 failure modes across 26 services. Every service card has an `established` set — none is `Asserted::unknown`.
+**Total:** 111 failure modes across 26 services. Every service card has an `established` set — none is `Asserted::unknown`.
 
 **Status is the PLAN, not a result.** Live outcomes go in `FINDINGS.md`; this file is append-only and its `status` column is what we intend to do:
 
@@ -47,7 +47,7 @@
 
 | service | mode_id | mapped_journey_or_probe | status | how_to_exercise | dut | notes |
 |---|---|---|---|---|---|---|
-| bridget | linux2rest_unreachable | `view_configured_serial_bridges` | harness_gap | stop the `linux2rest` tmux session, then `GET /bridget/v1.0/serial_ports` | 177-only | Classic B6. Excluded from `NEGATIVE_PROBES.md` by the plan; needs the tmux stop/start harness. |
+| bridget | linux2rest_unreachable | `view_configured_serial_bridges` | probed | stop the `linux2rest` tmux session, then `GET /bridget/v1.0/serial_ports` | 177-only | B6 177: `pkill -x linux2rest` → **200** `[]` (F-077); not 502. `/system-information/system` → 502 in a separate pkill cycle. |
 | bridget | bridge_subprocess_crash | `create_serial_to_udp_bridge` | skipped | kill the `bridges` child process for a configured bridge | 177-only | Needs a real serial device *and* process control; no USB serial fixture is guaranteed on any DUT this campaign. |
 | bridget | serial_port_contention | `create_serial_to_udp_bridge` | skipped | create a bridge on the autopilot's own serial device | 177-only | Deliberately breaks the autopilot link. Not worth the blast radius during a release campaign. |
 | bridget | udp_endpoint_conflict | `create_serial_to_udp_bridge` / NP-80 variant | harness_gap | `POST /bridget/v1.0/bridges` twice with the same `udp_listen_port` | 177-only | Automatable in principle, but bridget has no error mapping so the status is `UNKNOWN_LIVE`; needs a real serial path to get far enough. |
@@ -107,7 +107,7 @@
 |---|---|---|---|---|---|---|
 | helper | nginx_reload_failure | (extension install → `reload_nginx`) | limitation | make `nginx -s reload` fail while installing an extension | 177-only | `subprocess.run(check=False)` means the failure is invisible to the caller; the observable symptom is a stale extension route. Not a gate. |
 | helper | internet_probe_unreachable | `monitor_internet_connectivity`, `verify_internet_connectivity` / NP-50 | probed | `GET /helper/v1.0/check_internet_access` with WAN blocked → 200 with every site `offline` | all | Contract is a 200 with negative content. B8 skip must be typed. |
-| helper | service_scan_timeout | `browse_available_web_services` | harness_gap | stop a scanned backend, then `GET /helper/v1.0/web_services` and look for an invalid `ServiceInfo` | 177-only | B6-adjacent; needs body inspection plus tmux control. |
+| helper | service_scan_timeout | `browse_available_web_services` | harness_gap | stop a scanned backend, then `GET /helper/v1.0/web_services` and look for an invalid `ServiceInfo` | 177-only | B6-adjacent; needs body inspection plus tmux control. (B6 helper-down: `GET /helper/v1.0/web_services` → 502 when helper stopped — probed B6_177.) |
 | helper | factory_mode_notification_failure | — (startup path, no journey) | limitation | make version-chooser unreachable during helper startup | 177-only | Log-and-skip; no journey references it. |
 | helper | uuid_read_failure | — (`GET /hardware_id`, `GET /software_id`; no journey) | harness_gap | remove or corrupt `/etc/blueos/hardware-uuid`, then `GET /helper/v1.0/hardware_id` → **400** (`helper/main.py:558`, `:575`) | 177-only | **Coverage hole:** these two routes have an explicit 400 contract but no journey and no capability journey_ref reaches them. Worth a Track B probe once a snapshot/restore of the UUID files exists. |
 
@@ -134,9 +134,9 @@
 
 | service | mode_id | mapped_journey_or_probe | status | how_to_exercise | dut | notes |
 |---|---|---|---|---|---|---|
-| linux2rest | rest_listener_down | `view_system_information` | harness_gap | stop the `linux2rest` tmux session, then `GET /system-information/system` | 177-only | B6. One stop also proves `FM:bridget/linux2rest_unreachable` and `FM:linux2rest/serial_port_enumeration_stale` — bundle the three. |
+| linux2rest | rest_listener_down | `view_system_information` | probed | stop the `linux2rest` tmux session, then `GET /system-information/system` | 177-only | B6 177: `pkill -x linux2rest` → **502**; restore via `run-service`. See B6_177.md. |
 | linux2rest | privileged_proc_read_failure | `view_system_information` | limitation | run with reduced privileges so `/proc` queries return partial data | 177-only | Partial-data-with-200 shape; body completeness, not a status. |
-| linux2rest | serial_port_enumeration_stale | `view_configured_serial_bridges` | harness_gap | same tmux stop as `rest_listener_down`, then `GET /bridget/v1.0/serial_ports` | 177-only | Cross-service B6; the interesting question is whether bridget returns an error or an empty list. |
+| linux2rest | serial_port_enumeration_stale | `view_configured_serial_bridges` | probed | `pkill -x linux2rest` in its own stop cycle (C-c leaves listener up), then `GET /bridget/v1.0/serial_ports` | 177-only | B6 177: returns **200** `[]` (F-077), not error/502. |
 
 ## mavlink-camera-manager (4)
 
@@ -152,7 +152,7 @@
 | service | mode_id | mapped_journey_or_probe | status | how_to_exercise | dut | notes |
 |---|---|---|---|---|---|---|
 | mavlink2rest | mavlink_router_endpoint_unreachable | `inspect_mavlink_messages_in_browser` | harness_gap | `POST /ardupilot-manager/v1.0/stop`, then read `/mavlink2rest/` | 177-only | Same B7 disruptor as MCM; bundle them. |
-| mavlink2rest | rest_bridge_down | `inspect_mavlink_messages_in_browser`, all calibration journeys | harness_gap | stop the `mavlink2rest` tmux session, then load the calibration page | 177-only | B6. This also breaks every `Frontend` calibration journey, which makes it a good single test of Track D skip correctness. |
+| mavlink2rest | rest_bridge_down | `inspect_mavlink_messages_in_browser`, all calibration journeys | probed | stop the `mavlink2rest` tmux session, then load the calibration page | 177-only | B6 177: `GET /mavlink2rest/v1/mavlink` → **502** when stopped (HTTP proxy). Frontend cal journeys not re-run. |
 | mavlink2rest | websocket_stream_stale | `inspect_mavlink_messages_in_browser` | harness_gap | drop the WebSocket mid-view while REST still answers | 177-only | Needs a WebSocket client in the harness; `journey_http` is curl-only. |
 | mavlink2rest | mavlink_send_surface_abuse | `apply_parameter_file` | skipped | `POST` an arbitrary MAVLink message (param write / mode change) with no authentication | 177-only | This is a **security limitation to document, not to exercise** — sending arbitrary MAVLink to a real vehicle is exactly what we must not do. Record it as a finding of kind `limitation`. |
 
@@ -165,10 +165,11 @@
 | nginx | frontend_spa_unavailable | `access_blueos_web_interface` | harness_gap | move `/home/pi/frontend` aside, then `GET /` | 177-only | Reversible via `FilesystemReplace`, but needs a file snapshot; `GET /status` (204) stays up, which is itself the assertion. |
 | nginx | backend_proxy_unreachable | every proxied journey | harness_gap | stop any one backend tmux session, then hit its prefix; expect **502/504**, not a silent 200 | 177-only | The single highest-value B6 test: it validates that *all* B6 probes produce a real status. Run it once per backend in W5/W6. |
 
-## nmea_injector (5)
+## nmea_injector (6)
 
 | service | mode_id | mapped_journey_or_probe | status | how_to_exercise | dut | notes |
 |---|---|---|---|---|---|---|
+| nmea_injector | rest_listener_down | `view_configured_nmea_sockets` | probed | stop the `nmea_injector` tmux session, then `GET /nmea-injector/v1.0/socks` | 177-only | B6 177: tmux C-c → **502**; restore via `run-service`. See B6_177.md. |
 | nmea_injector | injecting_wrong_position_affects_navigation | `add_external_nmea_gps_socket` | skipped | send spoofed NMEA to a configured socket and watch `GPS_INPUT` reach the autopilot | never 2.2 | Deliberately corrupting the position estimate of a real ROV is out of bounds. Document as a `limitation`-class safety note. |
 | nmea_injector | mavlink2rest_unreachable | `add_external_nmea_gps_socket` | harness_gap | stop `mavlink2rest`, then feed the socket; NMEA is dropped silently | 177-only | B6; silent drop means the assertion must be on logs or on absent `GPS_INPUT`, not on a status. |
 | nmea_injector | invalid_nmea_parse_failure | `add_external_nmea_gps_socket` | harness_gap | send a non-NMEA datagram to the configured UDP port | 177-only | Needs a UDP sender in the harness; safe, and a good cheap addition. |
@@ -262,15 +263,15 @@
 
 | status | count | share |
 |---|---|---|
-| `probed` | 32 | 29% |
+| `probed` | 33 | 30% |
 | `harness_gap` | 45 | 41% |
 | `skipped` | 18 | 16% |
 | `limitation` | 15 | 14% |
-| **total** | **110** | 100% |
+| **total** | **111** | 100% |
 
 ### What the shape means
 
-- **`probed` (32)** is almost entirely Track B safe probes plus the wifi Track A journey. These are the modes with an explicit status in source, and they are the ones we can claim as tested for 1.4-dev.
+- **`probed` (33)** is almost entirely Track B safe probes plus the wifi Track A journey. These are the modes with an explicit status in source, and they are the ones we can claim as tested for 1.4-dev.
 - **`harness_gap` (45)** is dominated by two missing harness capabilities:
   1. **tmux service stop/start or port blocking** (B6) — 19 modes across `bridget`, `linux2rest`, `nginx`, `filebrowser`, `ttyd`, `user_terminal`, `zenohd`, `recorder`, `mavlink2rest`, `ping`, `nmea_injector`, `iperf3`. One harness feature unlocks all of them, 177-only.
   2. **non-curl transports and fixtures** — WebSocket probes (4 modes), a UDP sender (1), and three missing fixtures (oversize upload, corrupt MP4, crafted manifest).

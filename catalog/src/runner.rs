@@ -3,8 +3,12 @@ use std::process::Command;
 
 use crate::catalog::Catalog;
 use crate::id::{JourneyId, ServiceId};
-use crate::journey::{derive_automatable, Actor, Automatable, HttpMethod, RouteRef, UserJourney};
+use crate::journey::{
+    derive_automatable, Actor, Automatable, BlastRadius, BodyKind, HttpMethod, RouteRef,
+    UserJourney,
+};
 use crate::provenance::{Grounded, GroundedSet, ObservedSet};
+use crate::report::{ConflictKind, ReportConflict};
 use crate::version::{availability_skip, format_availability_skip_reason};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -46,6 +50,7 @@ pub struct RunnableStep {
     pub route: RouteRef,
     pub expected_status: Option<u16>,
     pub body_predicate: Option<&'static str>,
+    pub body_kind: BodyKind,
     pub body: Option<&'static str>,
     pub query: Option<&'static str>,
     pub form_file: Option<FormFilePart>,
@@ -316,12 +321,14 @@ pub fn http_steps(journey: &UserJourney) -> Vec<RunnableStep> {
         let Grounded::Known { value: route, .. } = route else {
             continue;
         };
-        let (expected_status, body_predicate) = match &step.value.outcome {
-            None => (None, None),
-            Some(Grounded::Unknown { .. }) => (None, None),
-            Some(Grounded::Known { value: outcome, .. }) => {
-                (outcome.expected_status, outcome.body_predicate)
-            }
+        let (expected_status, body_predicate, body_kind) = match &step.value.outcome {
+            None => (None, None, BodyKind::Unknown),
+            Some(Grounded::Unknown { .. }) => (None, None, BodyKind::Unknown),
+            Some(Grounded::Known { value: outcome, .. }) => (
+                outcome.expected_status,
+                outcome.body_predicate,
+                outcome.body_kind,
+            ),
         };
         runnable.push(RunnableStep {
             journey_id: journey.id,
@@ -329,6 +336,7 @@ pub fn http_steps(journey: &UserJourney) -> Vec<RunnableStep> {
             route: route.clone(),
             expected_status,
             body_predicate,
+            body_kind,
             body: None,
             query: None,
             form_file: None,
@@ -442,7 +450,8 @@ pub fn mutating_smoke_body(journey_id: JourneyId, route: &RouteRef) -> Option<&'
         (JourneyId::ConfigureHotspotCredentials, "/hotspot_credentials", Post) => {
             Some(crate::wifi_rf::HOTSPOT_CREDENTIALS_SMOKE_BODY)
         }
-        (JourneyId::RemoveConfiguredNmeaSocket, "/socks", Delete) => Some(SMOKE_NMEA_SOCK_JSON),
+        (JourneyId::AddExternalNmeaGpsSocket, "/socks", Post)
+        | (JourneyId::RemoveConfiguredNmeaSocket, "/socks", Delete) => Some(SMOKE_NMEA_SOCK_JSON),
         (JourneyId::RemoveSerialBridge, "/bridges", Delete) => Some(SMOKE_BRIDGE_JSON),
         (JourneyId::DockerRegistryLogin, "/docker/login", Post) => {
             Some(r##"{"username":"","password":"","registry":"","root":true}"##)
@@ -510,6 +519,7 @@ pub fn mutating_smoke_expected_status(journey_id: JourneyId, route: &RouteRef) -
         | (JourneyId::ForceWifiNetworkPassword, "/connect", Post)
         | (JourneyId::ReconnectToSavedWifiNetwork, "/connect", Post) => Some(200),
         (JourneyId::RejectInvalidWifiCredentials, "/connect", Post) => Some(500),
+        (JourneyId::AddExternalNmeaGpsSocket, "/socks", Post) => Some(201),
         _ => None,
     }
 }
@@ -564,24 +574,19 @@ const SMOKE_ROUTE_FLUSH_QUERY: &str =
 const SMOKE_ADDR_DEL_1_QUERY: &str = "command=bash%20-lc%20%27curl%20-s%20-m%2010%20-o%20%2Fdev%2Fnull%20-X%20DELETE%20%22http%3A%2F%2F127.0.0.1%2Fcable-guy%2Fv1.0%2Faddress%3Finterface_name%3Deth0%26ip_address%3D192.168.0.1%22%20%7C%7C%20true%3B%20ip%20addr%20del%20192.168.0.1%2F24%20dev%20eth0%202%3E%2Fdev%2Fnull%20%7C%7C%20true%27&i_know_what_i_am_doing=true";
 const SMOKE_ADDR_DEL_178_QUERY: &str = "command=bash%20-lc%20%27curl%20-s%20-m%2010%20-o%20%2Fdev%2Fnull%20-X%20DELETE%20%22http%3A%2F%2F127.0.0.1%2Fcable-guy%2Fv1.0%2Faddress%3Finterface_name%3Deth0%26ip_address%3D192.168.0.178%22%20%7C%7C%20true%3B%20ip%20addr%20del%20192.168.0.178%2F24%20dev%20eth0%202%3E%2Fdev%2Fnull%20%7C%7C%20true%27&i_know_what_i_am_doing=true";
 const SMOKE_RESOLV_FIX_QUERY: &str = "command=docker%20exec%20blueos-core%20sh%20-c%20%27printf%20%22nameserver%208.8.8.8%5Cnnameserver%201.1.1.1%5Cn%22%20%3E%20%2Fetc%2Fresolv.conf.host%27&i_know_what_i_am_doing=true";
-// Copies whatever digest `bluerobotics/blueos-core:master` currently points to on the DUT.
-const SMOKE_LOCAL_VERSION_TAG_QUERY: &str = "command=docker%20tag%20bluerobotics%2Fblueos-core%3Amaster%20bluerobotics%2Fblueos-core%3Asmoke-catalog-deleteme&i_know_what_i_am_doing=true";
-// Copies whatever digest `bluerobotics/blueos-core:master` currently points to on the DUT.
-const SMOKE_CORE_SWITCH_TAG_QUERY: &str = "command=docker%20tag%20bluerobotics%2Fblueos-core%3Amaster%20bluerobotics%2Fblueos-core%3Asmoke-catalog-switch&i_know_what_i_am_doing=true";
+// Retag the running `blueos-core` image (same digest, any channel) to a local alias.
+const SMOKE_LOCAL_VERSION_TAG_QUERY: &str = "command=docker%20tag%20%24%28docker%20inspect%20-f%20%27%7B%7B.Image%7D%7D%27%20blueos-core%29%20bluerobotics%2Fblueos-core%3Asmoke-catalog-deleteme&i_know_what_i_am_doing=true";
+const SMOKE_CORE_SWITCH_TAG_QUERY: &str = "command=docker%20tag%20%24%28docker%20inspect%20-f%20%27%7B%7B.Image%7D%7D%27%20blueos-core%29%20bluerobotics%2Fblueos-core%3Asmoke-catalog-switch&i_know_what_i_am_doing=true";
 pub const SMOKE_CORE_SWITCH_JSON: &str =
     r##"{"repository":"bluerobotics/blueos-core","tag":"smoke-catalog-switch"}"##;
-/// POST `/version/current` body to restore the pre-smoke core image by DUT tag name.
-///
-/// Floating tag name on DUT; pin identity via [`crate::capture_env::TIER2_SMOKE_DUT_CORE_DIGEST`]
-/// (play Pi) or [`crate::capture_env::RUNTIME_CAPTURE_CORE_DIGEST`] (historical captures).
-/// Not a content pin.
-pub const SMOKE_CORE_MASTER_JSON: &str =
-    r##"{"repository":"bluerobotics/blueos-core","tag":"master"}"##;
 pub const SMOKE_CORE_SWITCH_TAG: &str = "smoke-catalog-switch";
-/// Floating tag name on DUT restore target; pin identity via
-/// [`crate::capture_env::TIER2_SMOKE_DUT_CORE_DIGEST`] /
-/// [`crate::capture_env::RUNTIME_CAPTURE_CORE_DIGEST`]. Not a content pin.
-pub const SMOKE_CORE_MASTER_TAG: &str = "master";
+
+pub fn dut_version_current_json(dut: &DutVersion) -> String {
+    format!(
+        r#"{{"repository":"{}","tag":"{}"}}"#,
+        dut.repository, dut.tag
+    )
+}
 const SMOKE_KRAKEN_MANIFEST_CLEAN_QUERY: &str = "command=docker%20exec%20blueos-core%20python3%20-c%20%22import%20json%2Cpathlib%3Bp%3Dpathlib.Path%28%27%2Froot%2F.config%2Fkraken%2Fsettings-2.json%27%29%3Bd%3Djson.loads%28p.read_text%28%29%29%3Bd%5B%27manifests%27%5D%3D%5Bm%20for%20m%20in%20d.get%28%27manifests%27%2C%5B%5D%29%20if%20m.get%28%27name%27%29%21%3D%27smoke-catalog%27%5D%3Bp.write_text%28json.dumps%28d%2Cindent%3D4%29%2Bchr%2810%29%29%22&i_know_what_i_am_doing=true";
 const SMOKE_CABLE_GUY_SETTINGS_CLEAN_QUERY: &str = "command=docker%20exec%20blueos-core%20python3%20-c%20%22import%20json%2Cpathlib%3Bp%3Dpathlib.Path%28%27%2Froot%2F.config%2Fcable-guy%2Fsettings-2.json%27%29%3Bd%3Djson.loads%28p.read_text%28%29%29%3B%5Biface.update%28%7B%27addresses%27%3A%5B%7B%27ip%27%3A%270.0.0.0%27%2C%27mode%27%3A%27client%27%7D%5D%2C%27routes%27%3A%5Br%20for%20r%20in%20%28iface.get%28%27routes%27%29%20or%20%5B%5D%29%20if%20r.get%28%27managed%27%29%20and%20str%28r.get%28%27destination%27%2C%27%27%29%29.startswith%28%27224.%27%29%5D%7D%29%20for%20iface%20in%20d.get%28%27content%27%2C%5B%5D%29%20if%20iface.get%28%27name%27%29%3D%3D%27eth0%27%5D%3Bp.write_text%28json.dumps%28d%2Cindent%3D4%29%2Bchr%2810%29%29%22&i_know_what_i_am_doing=true";
 
@@ -1202,7 +1207,7 @@ pub fn mutating_smoke_teardown_calls(journey_id: JourneyId) -> &'static [SmokeHt
             query: Some("hostname=blueos"),
             form_file: None,
         }],
-        // Core restore (POST /version/current → tag `master`) runs in journey_http before these calls.
+        // Core restore (POST /version/current → original DUT tag) runs in journey_http before these calls.
         JourneyId::SwitchLocalBlueosVersion => &[SmokeHttpCall {
             route: RouteRef {
                 service: ServiceId::Versionchooser,
@@ -1284,6 +1289,18 @@ pub fn mutating_smoke_teardown_calls(journey_id: JourneyId) -> &'static [SmokeHt
             expected_status: 200,
             body: None,
             query: Some("enable=true"),
+            form_file: None,
+        }],
+        JourneyId::AddExternalNmeaGpsSocket => &[SmokeHttpCall {
+            route: RouteRef {
+                service: ServiceId::NmeaInjector,
+                method: Delete,
+                path: "/socks",
+                version: Some("v1.0"),
+            },
+            expected_status: 200,
+            body: Some(SMOKE_NMEA_SOCK_JSON),
+            query: None,
             form_file: None,
         }],
         JourneyId::InstallExtension => &[SmokeHttpCall {
@@ -1405,6 +1422,59 @@ fn parse_dut_version_json(body: &str) -> Result<DutVersion, String> {
 pub fn journey_availability_skip(journey: &UserJourney, dut: &DutVersion) -> Option<String> {
     availability_skip(&dut.tag, &journey.availability)
         .map(|skip| format_availability_skip_reason(&skip, &dut.tag))
+}
+
+const PLAY_SACRIFICIAL_HOST: &str = "192.168.0.177";
+const NEVER_STRAND_MGMT_HOST: &str = "192.168.2.2";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DutProfile {
+    pub sacrificial: bool,
+    pub never_strand_mgmt: bool,
+    pub rf_serial: bool,
+}
+
+pub fn dut_profile_for_host(host: &str) -> DutProfile {
+    let host = host.trim();
+    DutProfile {
+        sacrificial: host.contains(PLAY_SACRIFICIAL_HOST),
+        never_strand_mgmt: host.contains(NEVER_STRAND_MGMT_HOST),
+        rf_serial: true,
+    }
+}
+
+pub fn journey_profile_skip(journey: &UserJourney, profile: &DutProfile) -> Option<String> {
+    if profile.never_strand_mgmt {
+        match journey.id {
+            JourneyId::AssignStaticIpAddress
+            | JourneyId::AcquireDynamicIpAddress
+            | JourneyId::EnableOnboardDhcpServer
+            | JourneyId::DisableOnboardDhcpServer
+            | JourneyId::SetNetworkInterfacePriority
+            | JourneyId::ChangeMdnsHostname => {
+                return Some(format!(
+                    "strand-risk journey {journey_id} refused on never_strand_mgmt DUT",
+                    journey_id = journey.id
+                ));
+            }
+            _ => {}
+        }
+    }
+    if !profile.sacrificial
+        && matches!(
+            journey.blast_radius,
+            Grounded::Known {
+                value: BlastRadius::Destructive,
+                ..
+            }
+        )
+    {
+        return Some(format!(
+            "destructive journey {journey_id} refused on non-sacrificial DUT",
+            journey_id = journey.id
+        ));
+    }
+    None
 }
 
 pub fn join_url(base: &str, path: &str) -> String {
@@ -1670,6 +1740,7 @@ pub fn run_smoke_http_call(
         route: call.route.clone(),
         expected_status: Some(call.expected_status),
         body_predicate: None,
+        body_kind: BodyKind::Unknown,
         body: call.body,
         query: call.query,
         form_file: call.form_file.clone(),
@@ -1684,18 +1755,204 @@ pub fn run_smoke_http_call(
     result
 }
 
-pub fn run_http_step(
+pub fn effect_read_enabled(effect_step_index: Option<usize>, skip_rf: bool) -> bool {
+    effect_step_index.is_some() && !skip_rf
+}
+
+pub fn mutating_effect_read_phases(effect_read_active: bool) -> Vec<&'static str> {
+    let mut phases = Vec::new();
+    if effect_read_active {
+        phases.push("before");
+    }
+    phases.push("mutate");
+    if effect_read_active {
+        phases.push("after");
+    }
+    phases.push("restore");
+    phases
+}
+
+pub fn runnable_http_step_at(journey: &UserJourney, step_index: usize) -> Option<RunnableStep> {
+    http_steps(journey)
+        .into_iter()
+        .find(|step| step.step_index == step_index)
+}
+
+pub fn effect_observation_changed(before: &str, after: &str, body_predicate: Option<&str>) -> bool {
+    match body_predicate {
+        Some(predicate) if let Some(needle) = predicate.strip_prefix("contains:") => {
+            before.contains(needle) != after.contains(needle)
+        }
+        _ => before != after,
+    }
+}
+
+pub struct EffectReadBefore {
+    pub probe: RunnableStep,
+    pub before_body: String,
+}
+
+pub enum EffectReadBeforeResult {
+    Skipped,
+    Ready(EffectReadBefore),
+    Failed(StepResult),
+}
+
+pub struct EffectReadAfter {
+    pub conflict: Option<ReportConflict>,
+    pub result: StepResult,
+}
+
+pub fn effect_read_conflict(
+    journey_id: JourneyId,
+    probe: &RunnableStep,
+    body_predicate: Option<&str>,
+) -> ReportConflict {
+    ReportConflict {
+        kind: ConflictKind::EffectNotApplied,
+        context: format!(
+            "{journey_id} effect_read step {} GET {} unchanged after mutate (predicate={body_predicate:?})",
+            probe.step_index, probe.route.path
+        ),
+    }
+}
+
+fn fetch_http_step_body(
     catalog: &Catalog,
     base: &str,
     step: &RunnableStep,
     allow_mutating: bool,
-) -> StepResult {
+) -> Result<String, StepResult> {
+    let Some(path) = resolve_http_path(catalog, &step.route) else {
+        return Err(StepResult::Skip(
+            "unresolved or templated route path".into(),
+        ));
+    };
+    let url = join_url(base, &path);
+    let url = if let Some(query) = step.query {
+        format!("{url}?{query}")
+    } else {
+        url
+    };
+    let (status_code, body) = match execute_curl(
+        &step.route.method,
+        &url,
+        allow_mutating,
+        step.body,
+        step.form_file.as_ref(),
+    ) {
+        Ok(response) => response,
+        Err(err) => return Err(StepResult::Fail(err)),
+    };
+    match evaluate_http_response(status_code, &body, step.expected_status, None) {
+        StepResult::Pass | StepResult::Unasserted => Ok(body),
+        other => Err(other),
+    }
+}
+
+pub fn effect_read_before(
+    catalog: &Catalog,
+    base: &str,
+    journey: &UserJourney,
+    effect_step_index: usize,
+) -> EffectReadBeforeResult {
+    let Some(probe) = runnable_http_step_at(journey, effect_step_index) else {
+        return EffectReadBeforeResult::Failed(StepResult::Fail(format!(
+            "effect_read step_index {effect_step_index} not runnable for {}",
+            journey.id
+        )));
+    };
+    if !matches!(probe.route.method, HttpMethod::Get) {
+        return EffectReadBeforeResult::Failed(StepResult::Fail(format!(
+            "effect_read step {} {:?} {} is not GET",
+            probe.step_index, probe.route.method, probe.route.path
+        )));
+    }
+    match fetch_http_step_body(catalog, base, &probe, false) {
+        Ok(body) => EffectReadBeforeResult::Ready(EffectReadBefore {
+            probe,
+            before_body: body,
+        }),
+        Err(result) => EffectReadBeforeResult::Failed(result),
+    }
+}
+
+pub fn effect_read_after(
+    catalog: &Catalog,
+    base: &str,
+    journey_id: JourneyId,
+    before: &EffectReadBefore,
+) -> EffectReadAfter {
+    let after_body = match fetch_http_step_body(catalog, base, &before.probe, false) {
+        Ok(body) => body,
+        Err(result) => {
+            return EffectReadAfter {
+                conflict: None,
+                result,
+            };
+        }
+    };
+    effect_read_after_observed(journey_id, before, &after_body)
+}
+
+pub fn effect_read_after_observed(
+    journey_id: JourneyId,
+    before: &EffectReadBefore,
+    after_body: &str,
+) -> EffectReadAfter {
+    if effect_observation_changed(&before.before_body, after_body, before.probe.body_predicate) {
+        return EffectReadAfter {
+            conflict: None,
+            result: StepResult::Pass,
+        };
+    }
+    let conflict = effect_read_conflict(journey_id, &before.probe, before.probe.body_predicate);
+    EffectReadAfter {
+        result: StepResult::Fail(conflict.context.clone()),
+        conflict: Some(conflict),
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HttpStepRun {
+    pub result: StepResult,
+    pub conflict: Option<ReportConflict>,
+}
+
+pub fn product_missing_reject_conflict(
+    step: &RunnableStep,
+    status_code: u16,
+) -> Option<ReportConflict> {
+    if step.body_kind != BodyKind::ErrorEnvelope || !(200..300).contains(&status_code) {
+        return None;
+    }
+    Some(ReportConflict {
+        kind: ConflictKind::ProductMissingReject,
+        context: format!(
+            "{} step {} {:?} {} HTTP {status_code} with catalog ErrorEnvelope",
+            step.journey_id, step.step_index, step.route.method, step.route.path
+        ),
+    })
+}
+
+pub fn run_http_step_detailed(
+    catalog: &Catalog,
+    base: &str,
+    step: &RunnableStep,
+    allow_mutating: bool,
+) -> HttpStepRun {
     if !matches!(step.route.method, HttpMethod::Get) && !allow_mutating {
-        return StepResult::Skip(format!("{:?} requires --allow-mutating", step.route.method));
+        return HttpStepRun {
+            result: StepResult::Skip(format!("{:?} requires --allow-mutating", step.route.method)),
+            conflict: None,
+        };
     }
 
     let Some(path) = resolve_http_path(catalog, &step.route) else {
-        return StepResult::Skip("unresolved or templated route path".into());
+        return HttpStepRun {
+            result: StepResult::Skip("unresolved or templated route path".into()),
+            conflict: None,
+        };
     };
 
     let url = join_url(base, &path);
@@ -1712,15 +1969,31 @@ pub fn run_http_step(
         step.form_file.as_ref(),
     ) {
         Ok(response) => response,
-        Err(err) => return StepResult::Fail(err),
+        Err(err) => {
+            return HttpStepRun {
+                result: StepResult::Fail(err),
+                conflict: None,
+            }
+        }
     };
 
-    evaluate_http_response(
+    let result = evaluate_http_response(
         status_code,
         &body,
         step.expected_status,
         step.body_predicate,
-    )
+    );
+    let conflict = product_missing_reject_conflict(step, status_code);
+    HttpStepRun { result, conflict }
+}
+
+pub fn run_http_step(
+    catalog: &Catalog,
+    base: &str,
+    step: &RunnableStep,
+    allow_mutating: bool,
+) -> StepResult {
+    run_http_step_detailed(catalog, base, step, allow_mutating).result
 }
 
 pub fn summarize_journey(step_results: &[StepResult]) -> JourneyResult {
@@ -1786,6 +2059,7 @@ fn ensure_leading_slash(path: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::journey::{BodyKind, BLAST_RADIUS_UNKNOWN};
 
     const TEST_PRESENCE: crate::version::FeatureAvailability =
         crate::version::FeatureAvailability {
@@ -1818,6 +2092,7 @@ mod tests {
             preconditions: GroundedSet::known(&[]),
             steps: GroundedSet::known(&[]),
             availability,
+            blast_radius: BLAST_RADIUS_UNKNOWN,
             chains_from: None,
         }
     }
@@ -1949,6 +2224,7 @@ mod tests {
                         crate::journey::StepOutcome {
                             expected_status: Some(200),
                             body_predicate: None,
+                            body_kind: BodyKind::Unknown,
                             transition: None,
                         },
                         DOC,
@@ -1975,6 +2251,7 @@ mod tests {
             preconditions: GroundedSet::known(&[]),
             steps: GroundedSet::known(STEPS),
             availability: TEST_PRESENCE,
+            blast_radius: BLAST_RADIUS_UNKNOWN,
             chains_from: None,
         };
 
@@ -2016,6 +2293,25 @@ mod tests {
         assert_eq!(dut.repository, "bluerobotics/blueos-core");
         assert_eq!(dut.tag, "master");
         assert_eq!(dut.digest.as_deref(), Some("sha256:abc"));
+        let json = dut_version_current_json(&dut);
+        assert_eq!(
+            json,
+            r#"{"repository":"bluerobotics/blueos-core","tag":"master"}"#
+        );
+    }
+
+    #[test]
+    fn smoke_core_alias_tags_running_image_not_master() {
+        assert!(
+            !SMOKE_CORE_SWITCH_TAG_QUERY.contains("%3Amaster"),
+            "switch alias must not docker-tag from :master"
+        );
+        assert!(
+            !SMOKE_LOCAL_VERSION_TAG_QUERY.contains("%3Amaster"),
+            "delete alias must not docker-tag from :master"
+        );
+        assert!(SMOKE_CORE_SWITCH_TAG_QUERY.contains("smoke-catalog-switch"));
+        assert!(SMOKE_CORE_SWITCH_JSON.contains(SMOKE_CORE_SWITCH_TAG));
     }
 
     #[test]
@@ -2067,6 +2363,7 @@ mod tests {
             },
             expected_status: Some(200),
             body_predicate: None,
+            body_kind: BodyKind::Unknown,
             body: None,
             query: None,
             form_file: None,
@@ -2095,6 +2392,7 @@ mod tests {
             },
             expected_status: Some(200),
             body_predicate: None,
+            body_kind: BodyKind::Unknown,
             body: None,
             query: None,
             form_file: None,
@@ -2162,6 +2460,7 @@ mod tests {
                         crate::journey::StepOutcome {
                             expected_status: Some(200),
                             body_predicate: None,
+                            body_kind: BodyKind::Unknown,
                             transition: None,
                         },
                         DOC,
@@ -2186,6 +2485,7 @@ mod tests {
                         crate::journey::StepOutcome {
                             expected_status: Some(200),
                             body_predicate: None,
+                            body_kind: BodyKind::Unknown,
                             transition: None,
                         },
                         DOC,
@@ -2210,6 +2510,7 @@ mod tests {
                         crate::journey::StepOutcome {
                             expected_status: Some(204),
                             body_predicate: None,
+                            body_kind: BodyKind::Unknown,
                             transition: None,
                         },
                         DOC,
@@ -2227,6 +2528,7 @@ mod tests {
             preconditions: GroundedSet::known(&[]),
             steps: GroundedSet::known(STEPS),
             availability: TEST_PRESENCE,
+            blast_radius: BLAST_RADIUS_UNKNOWN,
             chains_from: None,
         };
 
@@ -2257,6 +2559,7 @@ mod tests {
                         crate::journey::StepOutcome {
                             expected_status: Some(200),
                             body_predicate: None,
+                            body_kind: BodyKind::Unknown,
                             transition: None,
                         },
                         DOC,
@@ -2281,6 +2584,7 @@ mod tests {
                         crate::journey::StepOutcome {
                             expected_status: Some(200),
                             body_predicate: None,
+                            body_kind: BodyKind::Unknown,
                             transition: None,
                         },
                         DOC,
@@ -2315,6 +2619,7 @@ mod tests {
             preconditions: GroundedSet::known(&[]),
             steps: GroundedSet::known(STEPS),
             availability: TEST_PRESENCE,
+            blast_radius: BLAST_RADIUS_UNKNOWN,
             chains_from: None,
         };
 
@@ -2336,5 +2641,204 @@ mod tests {
             resolve_http_path(&catalog, &route).as_deref(),
             Some("/wifi-manager/v1.0/scan")
         );
+    }
+
+    #[test]
+    fn dut_profile_for_host_maps_lab_ips() {
+        let play = dut_profile_for_host("http://192.168.0.177");
+        assert!(play.sacrificial);
+        assert!(!play.never_strand_mgmt);
+
+        let vehicle = dut_profile_for_host("192.168.2.2");
+        assert!(!vehicle.sacrificial);
+        assert!(vehicle.never_strand_mgmt);
+
+        let field87 = dut_profile_for_host("192.168.0.87");
+        assert!(!field87.sacrificial);
+        assert!(!field87.never_strand_mgmt);
+
+        let field124 = dut_profile_for_host("http://192.168.0.124/");
+        assert!(!field124.sacrificial);
+        assert!(!field124.never_strand_mgmt);
+    }
+
+    #[test]
+    fn journey_profile_skip_refuses_strand_and_destructive_by_host() {
+        use crate::catalog::Catalog;
+        use crate::provenance::Grounded;
+
+        let catalog = Catalog::bootstrap();
+        let strand = catalog
+            .journey_by_id(&JourneyId::AssignStaticIpAddress)
+            .expect("assign_static_ip_address");
+        let destructive = catalog
+            .journeys()
+            .iter()
+            .find(|journey| {
+                matches!(
+                    journey.blast_radius,
+                    Grounded::Known {
+                        value: BlastRadius::Destructive,
+                        ..
+                    }
+                )
+            })
+            .expect("destructive journey");
+        let safe = catalog
+            .journey_by_id(&JourneyId::ConnectToWifiNetwork)
+            .expect("connect_to_wifi_network");
+
+        let vehicle = dut_profile_for_host("192.168.2.2");
+        assert!(journey_profile_skip(strand, &vehicle).is_some());
+        assert!(journey_profile_skip(destructive, &vehicle).is_some());
+        assert!(journey_profile_skip(safe, &vehicle).is_none());
+
+        let play = dut_profile_for_host("192.168.0.177");
+        assert!(journey_profile_skip(destructive, &play).is_none());
+
+        let field87 = dut_profile_for_host("192.168.0.87");
+        assert!(journey_profile_skip(destructive, &field87).is_some());
+        assert!(journey_profile_skip(safe, &field87).is_none());
+    }
+
+    #[test]
+    fn effect_read_enabled_skips_none_and_wifi_rf() {
+        assert!(!effect_read_enabled(None, false));
+        assert!(effect_read_enabled(Some(0), false));
+        assert!(!effect_read_enabled(Some(0), true));
+    }
+
+    #[test]
+    fn effect_observation_changed_uses_raw_body_without_predicate() {
+        assert!(!effect_observation_changed("same", "same", None));
+        assert!(effect_observation_changed("before", "after", None));
+    }
+
+    #[test]
+    fn effect_observation_changed_uses_contains_predicate() {
+        let pred = Some(r#"contains:"online":true"#);
+        assert!(!effect_observation_changed(
+            r#"{"online":true}"#,
+            r#"{"online":true}"#,
+            pred
+        ));
+        assert!(effect_observation_changed(
+            r#"{"online":false}"#,
+            r#"{"online":true}"#,
+            pred
+        ));
+        assert!(effect_observation_changed(
+            r#"{"x":1}"#,
+            r#"{"online":true}"#,
+            pred
+        ));
+    }
+
+    struct EffectReadWiredTestFixture {
+        journey_id: JourneyId,
+        step_index: usize,
+        probe: RunnableStep,
+        before_body: String,
+        changed_after_body: String,
+    }
+
+    fn effect_read_wired_test_fixture() -> EffectReadWiredTestFixture {
+        let journey_id = JourneyId::ChangeUiThemeColor;
+        let probe = RunnableStep {
+            journey_id,
+            step_index: 1,
+            route: RouteRef {
+                service: ServiceId::Customization,
+                method: HttpMethod::Get,
+                path: "/theme",
+                version: Some("v1.0"),
+            },
+            expected_status: Some(200),
+            body_predicate: Some(r#"contains:"primary":"white""#),
+            body_kind: BodyKind::Unknown,
+            body: None,
+            query: None,
+            form_file: None,
+        };
+        EffectReadWiredTestFixture {
+            journey_id,
+            step_index: probe.step_index,
+            probe,
+            before_body: r#"{"primary":"black"}"#.into(),
+            changed_after_body: r#"{"primary":"white"}"#.into(),
+        }
+    }
+
+    #[test]
+    fn effect_read_wired_fixture_drives_before_mutate_after_restore() {
+        let fixture = effect_read_wired_test_fixture();
+        assert!(effect_read_enabled(Some(fixture.step_index), false));
+        assert_eq!(
+            mutating_effect_read_phases(effect_read_enabled(Some(fixture.step_index), false)),
+            &["before", "mutate", "after", "restore"]
+        );
+        let before = EffectReadBefore {
+            probe: fixture.probe.clone(),
+            before_body: fixture.before_body.clone(),
+        };
+        let changed =
+            effect_read_after_observed(fixture.journey_id, &before, &fixture.changed_after_body);
+        assert!(changed.conflict.is_none());
+        assert_eq!(changed.result, StepResult::Pass);
+    }
+
+    #[test]
+    fn effect_read_stale_identical_body_yields_effect_not_applied() {
+        let fixture = effect_read_wired_test_fixture();
+        let before = EffectReadBefore {
+            probe: fixture.probe,
+            before_body: fixture.before_body.clone(),
+        };
+        let after = effect_read_after_observed(fixture.journey_id, &before, &fixture.before_body);
+        assert_eq!(
+            after.conflict.as_ref().map(|conflict| conflict.kind),
+            Some(ConflictKind::EffectNotApplied)
+        );
+        assert!(matches!(after.result, StepResult::Fail(_)));
+    }
+
+    #[test]
+    fn effect_read_phase_order_none_skips_before_after() {
+        let phases = mutating_effect_read_phases(effect_read_enabled(None, false));
+        assert_eq!(phases, &["mutate", "restore"]);
+    }
+
+    #[test]
+    fn effect_read_phase_order_includes_before_after_when_enabled() {
+        let phases = mutating_effect_read_phases(effect_read_enabled(Some(0), false));
+        assert_eq!(phases, &["before", "mutate", "after", "restore"]);
+    }
+
+    #[test]
+    fn product_missing_reject_on_2xx_with_error_envelope_catalog() {
+        let step = RunnableStep {
+            journey_id: JourneyId::InspectDiskUsage,
+            step_index: 1,
+            route: RouteRef {
+                service: ServiceId::DiskUsage,
+                method: HttpMethod::Get,
+                path: "/disk/usage",
+                version: Some("v1.0"),
+            },
+            expected_status: Some(200),
+            body_predicate: Some("\"detail\""),
+            body_kind: BodyKind::ErrorEnvelope,
+            body: None,
+            query: None,
+            form_file: None,
+        };
+        let conflict = product_missing_reject_conflict(&step, 200).expect("conflict");
+        assert_eq!(conflict.kind, ConflictKind::ProductMissingReject);
+        assert!(conflict.context.contains("inspect_disk_usage"));
+        assert!(conflict.context.contains("ErrorEnvelope"));
+        assert!(product_missing_reject_conflict(&step, 404).is_none());
+        let mut payload_step = step;
+        payload_step.body_kind = BodyKind::Payload;
+        assert!(product_missing_reject_conflict(&payload_step, 200).is_none());
     }
 }

@@ -86,3 +86,7 @@ path = "src/bin/export_feature_provenance.rs"
 [[bin]]
 name = "journey_matrix"
 path = "src/bin/journey_matrix.rs"
+
+[[bin]]
+name = "harness_ratchet"
+path = "src/bin/harness_ratchet.rs"

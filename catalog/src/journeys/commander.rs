@@ -1,8 +1,8 @@
 use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, HttpMethod, JourneyStep, Precondition, RouteRef, SoftwareRequirement, StepOutcome,
-    UserJourney, Visibility,
+    Actor, BlastRadius, BodyKind, HttpMethod, JourneyStep, Precondition, RouteRef,
+    SoftwareRequirement, StepOutcome, UserJourney, Visibility,
 };
 use crate::journey_presence::{
     PRESENCE_ENABLE_LEGACY_CAMERA_SUPPORT, PRESENCE_INSPECT_RASPBERRY_EEPROM_BOOTLOADER,
@@ -24,6 +24,57 @@ const SYSINFO_VIEW: &str = "core/frontend/src/views/SystemInformationView.vue";
 const UPDATE_TIME: &str = "core/frontend/src/utils/update_time.ts";
 const VIDEO_MANAGER: &str = "core/frontend/src/components/video-manager/VideoManager.vue";
 const RUNTIME_ENV: &str = RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
+
+const BR_REBOOT_ONBOARD_COMPUTER: Grounded<BlastRadius> = Grounded::known(
+    BlastRadius::Destructive,
+    Provenance::asserted(
+        "POST /shutdown with reboot type restarts the onboard computer and drops all services",
+    ),
+);
+const BR_SHUTDOWN_ONBOARD_COMPUTER: Grounded<BlastRadius> = Grounded::known(
+    BlastRadius::Destructive,
+    Provenance::asserted(
+        "POST /shutdown with poweroff type halts the onboard computer until manual power cycle",
+    ),
+);
+const BR_SYNC_SYSTEM_TIME: Grounded<BlastRadius> = Grounded::known(
+    BlastRadius::Disruptive,
+    Provenance::asserted(
+        "POST /set_time sets the host system clock from the browser unix timestamp",
+    ),
+);
+const BR_ENABLE_LEGACY_CAMERA_SUPPORT: Grounded<BlastRadius> = Grounded::known(
+    BlastRadius::Disruptive,
+    Provenance::asserted(
+        "POST /raspi_config/camera_legacy toggles boot config and chains to an onboard reboot",
+    ),
+);
+const BR_INSPECT_RASPBERRY_EEPROM_BOOTLOADER: Grounded<BlastRadius> = Grounded::known(
+    BlastRadius::Safe,
+    Provenance::asserted(
+        "GET /raspi/vcgencmd and /raspi/eeprom_update only read Pi firmware and EEPROM state",
+    ),
+);
+const BR_UPDATE_RASPBERRY_EEPROM_BOOTLOADER: Grounded<BlastRadius> = Grounded::known(
+    BlastRadius::Destructive,
+    Provenance::asserted(
+        "POST /raspi/eeprom_update flashes Raspberry Pi bootloader and USB controller EEPROM",
+    ),
+);
+const BR_RESET_BLUEOS_SETTINGS: Grounded<BlastRadius> = Grounded::known(
+    BlastRadius::Destructive,
+    Provenance::asserted(
+        "POST /settings/reset deletes service configuration and restores BlueOS defaults",
+    ),
+);
+const BR_RUN_HOST_COMMAND: Grounded<BlastRadius> = Grounded::known(
+    BlastRadius::Unknown {
+        reason: "blast radius depends on the arbitrary privileged shell command posted",
+    },
+    Provenance::asserted(
+        "POST /command/host runs operator-supplied bash with no fixed side effect",
+    ),
+);
 
 pub const JOURNEYS: &[UserJourney] = &[
     REBOOT_ONBOARD_COMPUTER,
@@ -72,6 +123,7 @@ const REBOOT_ONBOARD_COMPUTER: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_REBOOT_ONBOARD_COMPUTER,
+    blast_radius: BR_REBOOT_ONBOARD_COMPUTER,
     chains_from: None,
 };
 
@@ -111,6 +163,7 @@ const SHUTDOWN_ONBOARD_COMPUTER: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_SHUTDOWN_ONBOARD_COMPUTER,
+    blast_radius: BR_SHUTDOWN_ONBOARD_COMPUTER,
     chains_from: None,
 };
 
@@ -142,6 +195,7 @@ const SYNC_SYSTEM_TIME: UserJourney = UserJourney {
         Some(source_outcome(200, 72)),
     )]),
     availability: PRESENCE_SYNC_SYSTEM_TIME,
+    blast_radius: BR_SYNC_SYSTEM_TIME,
     chains_from: None,
 };
 
@@ -184,6 +238,7 @@ const ENABLE_LEGACY_CAMERA_SUPPORT: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_ENABLE_LEGACY_CAMERA_SUPPORT,
+    blast_radius: BR_ENABLE_LEGACY_CAMERA_SUPPORT,
     chains_from: Some(JourneyId::RebootOnboardComputer),
 };
 
@@ -248,6 +303,7 @@ const INSPECT_RASPBERRY_EEPROM_BOOTLOADER: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_INSPECT_RASPBERRY_EEPROM_BOOTLOADER,
+    blast_radius: BR_INSPECT_RASPBERRY_EEPROM_BOOTLOADER,
     chains_from: None,
 };
 
@@ -293,6 +349,7 @@ const UPDATE_RASPBERRY_EEPROM_BOOTLOADER: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_UPDATE_RASPBERRY_EEPROM_BOOTLOADER,
+    blast_radius: BR_UPDATE_RASPBERRY_EEPROM_BOOTLOADER,
     chains_from: Some(JourneyId::InspectRaspberryEepromBootloader),
 };
 
@@ -332,6 +389,7 @@ const RESET_BLUEOS_SETTINGS: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_RESET_BLUEOS_SETTINGS,
+    blast_radius: BR_RESET_BLUEOS_SETTINGS,
     chains_from: None,
 };
 
@@ -363,6 +421,7 @@ const RUN_HOST_COMMAND: UserJourney = UserJourney {
         Some(source_outcome(200, 57)),
     )]),
     availability: PRESENCE_RUN_HOST_COMMAND,
+    blast_radius: BR_RUN_HOST_COMMAND,
     chains_from: None,
 };
 
@@ -435,10 +494,16 @@ const fn runtime_outcome(
     body: Option<&'static str>,
     key: &'static str,
 ) -> Grounded<StepOutcome> {
+    let body_kind = if body.is_some() {
+        BodyKind::Payload
+    } else {
+        BodyKind::Unknown
+    };
     Grounded::known(
         StepOutcome {
             expected_status: Some(status),
             body_predicate: body,
+            body_kind,
             transition: None,
         },
         Provenance::runtime(key, RUNTIME_ENV),
@@ -450,6 +515,7 @@ const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
         StepOutcome {
             expected_status: Some(status),
             body_predicate: None,
+            body_kind: BodyKind::Unknown,
             transition: None,
         },
         Provenance::source(COMMANDER_MAIN, line),

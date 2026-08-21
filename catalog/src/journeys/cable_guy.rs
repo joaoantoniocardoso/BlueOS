@@ -1,7 +1,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, DataRequirement, HttpMethod, JourneyStep, Precondition, RouteRef, SoftwareRequirement,
-    StepOutcome, UserJourney, Visibility,
+    Actor, BlastRadius, BodyKind, DataRequirement, HttpMethod, JourneyStep, Precondition, RouteRef,
+    SoftwareRequirement, StepOutcome, UserJourney, Visibility,
 };
 use crate::journey_presence::{
     PRESENCE_ACQUIRE_DYNAMIC_IP_ADDRESS, PRESENCE_ASSIGN_STATIC_IP_ADDRESS,
@@ -67,6 +67,12 @@ const ASSIGN_STATIC_IP_ADDRESS: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_ASSIGN_STATIC_IP_ADDRESS,
+    blast_radius: Grounded::known(
+        BlastRadius::Disruptive,
+        Provenance::asserted(
+            "Applying a static address to a live interface can move or break the management route",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -103,6 +109,12 @@ const ACQUIRE_DYNAMIC_IP_ADDRESS: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_ACQUIRE_DYNAMIC_IP_ADDRESS,
+    blast_radius: Grounded::known(
+        BlastRadius::Reversible,
+        Provenance::asserted(
+            "DHCP client acquisition on an interface is undoable by removing the lease or restoring prior addressing",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -145,6 +157,12 @@ const ENABLE_ONBOARD_DHCP_SERVER: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_ENABLE_ONBOARD_DHCP_SERVER,
+    blast_radius: Grounded::known(
+        BlastRadius::Disruptive,
+        Provenance::asserted(
+            "Starting an onboard DHCP server affects addressing for every client on that link segment",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -184,6 +202,12 @@ const DISABLE_ONBOARD_DHCP_SERVER: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_DISABLE_ONBOARD_DHCP_SERVER,
+    blast_radius: Grounded::known(
+        BlastRadius::Reversible,
+        Provenance::asserted(
+            "Stopping the onboard DHCP server can be undone by re-enabling it on the same gateway",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -235,6 +259,12 @@ const SET_NETWORK_INTERFACE_PRIORITY: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_SET_NETWORK_INTERFACE_PRIORITY,
+    blast_radius: Grounded::known(
+        BlastRadius::Disruptive,
+        Provenance::asserted(
+            "Reordering interface metrics can shift the default route off the link the operator uses",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -280,6 +310,12 @@ const CONFIGURE_HOST_DNS: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_CONFIGURE_HOST_DNS,
+    blast_radius: Grounded::known(
+        BlastRadius::Disruptive,
+        Provenance::asserted(
+            "Persisting host nameserver changes alters resolver behavior for all outbound connections",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -335,6 +371,7 @@ const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
         StepOutcome {
             expected_status: Some(status),
             body_predicate: None,
+            body_kind: BodyKind::Unknown,
             transition: None,
         },
         Provenance::source(CABLE_GUY_MAIN, line),

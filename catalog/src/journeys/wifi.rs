@@ -1,7 +1,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, DataRequirement, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome,
-    UserJourney, Visibility,
+    Actor, BlastRadius, BodyKind, DataRequirement, HttpMethod, JourneyStep, NetworkResource,
+    Precondition, RouteRef, StepOutcome, UserJourney, Visibility,
 };
 use crate::journey_presence::{
     PRESENCE_AUTOCONNECT_TO_SAVED_WIFI_NETWORK, PRESENCE_CONFIGURE_HOTSPOT_CREDENTIALS,
@@ -49,7 +49,10 @@ const CONNECT_TO_WIFI_NETWORK: UserJourney = UserJourney {
         CapabilityId::ConnectWifiNetwork,
         "wifi tray scans networks and submits credentials to join the selected SSID",
     )]),
-    preconditions: GroundedSet::known(&[]),
+    preconditions: GroundedSet::known(&[GroundedItem::new(
+        Precondition::NetworkResource(NetworkResource::KnownWifiNetwork),
+        Provenance::doc(GETTING, 81),
+    )]),
     steps: GroundedSet::known(&[
         operator_step(
             "Open the wifi tray menu from the header bar",
@@ -82,6 +85,12 @@ const CONNECT_TO_WIFI_NETWORK: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_CONNECT_TO_WIFI_NETWORK,
+    blast_radius: Grounded::known(
+        BlastRadius::Disruptive,
+        Provenance::asserted(
+            "POST /connect joins a WLAN and can change the active route to the web UI",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -97,7 +106,10 @@ const CONNECT_TO_HIDDEN_WIFI_NETWORK: UserJourney = UserJourney {
         CapabilityId::ConnectWifiNetwork,
         "connection dialog posts /connect with hidden=true for an operator-entered SSID",
     )]),
-    preconditions: GroundedSet::known(&[]),
+    preconditions: GroundedSet::known(&[GroundedItem::new(
+        Precondition::NetworkResource(NetworkResource::KnownWifiNetwork),
+        Provenance::doc("content/usage/overview/index.md", 117),
+    )]),
     steps: GroundedSet::known(&[
         operator_step(
             "Open the wifi tray menu from the header bar",
@@ -118,6 +130,12 @@ const CONNECT_TO_HIDDEN_WIFI_NETWORK: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_CONNECT_TO_HIDDEN_WIFI_NETWORK,
+    blast_radius: Grounded::known(
+        BlastRadius::Disruptive,
+        Provenance::asserted(
+            "POST /connect with hidden=true joins a WLAN and can change the active route to the web UI",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -163,6 +181,12 @@ const DISCONNECT_FROM_WIFI_NETWORK: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_DISCONNECT_FROM_WIFI_NETWORK,
+    blast_radius: Grounded::known(
+        BlastRadius::Disruptive,
+        Provenance::asserted(
+            "GET /disconnect drops the active wlan association and can block UI access until reconnect",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -203,6 +227,12 @@ const FORGET_SAVED_WIFI_NETWORK: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_FORGET_SAVED_WIFI_NETWORK,
+    blast_radius: Grounded::known(
+        BlastRadius::Reversible,
+        Provenance::asserted(
+            "POST /remove deletes saved SSID credentials restorable by reconnecting",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -248,6 +278,12 @@ const FORCE_WIFI_NETWORK_PASSWORD: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_FORCE_WIFI_NETWORK_PASSWORD,
+    blast_radius: Grounded::known(
+        BlastRadius::Reversible,
+        Provenance::asserted(
+            "POST /connect with Force updates the stored password restorable by forcing the prior value",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -287,6 +323,12 @@ const RECONNECT_TO_SAVED_WIFI_NETWORK: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_RECONNECT_TO_SAVED_WIFI_NETWORK,
+    blast_radius: Grounded::known(
+        BlastRadius::Disruptive,
+        Provenance::asserted(
+            "POST /connect re-establishes wlan association using saved credentials",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -302,7 +344,10 @@ const REJECT_INVALID_WIFI_CREDENTIALS: UserJourney = UserJourney {
         CapabilityId::ConnectWifiNetwork,
         "failed POST /connect surfaces a check-password error to the operator",
     )]),
-    preconditions: GroundedSet::known(&[]),
+    preconditions: GroundedSet::known(&[GroundedItem::new(
+        Precondition::NetworkResource(NetworkResource::KnownWifiNetwork),
+        Provenance::source(CONNECTION_DIALOG, 222),
+    )]),
     steps: GroundedSet::known(&[
         operator_step(
             "Open the wifi tray menu from the header bar",
@@ -323,6 +368,12 @@ const REJECT_INVALID_WIFI_CREDENTIALS: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_REJECT_INVALID_WIFI_CREDENTIALS,
+    blast_radius: Grounded::known(
+        BlastRadius::Safe,
+        Provenance::asserted(
+            "POST /connect with a wrong password rejects without persisting a saved association",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -338,10 +389,16 @@ const DETECT_WIFI_AP_LOSS: UserJourney = UserJourney {
         CapabilityId::GetWifiStatus,
         "wifi updater poll of GET /status reflects loss of the associated SSID",
     )]),
-    preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Data(DataRequirement::WifiCurrentlyConnected),
-        Provenance::source(WIFI_MANAGER, 47),
-    )]),
+    preconditions: GroundedSet::known(&[
+        GroundedItem::new(
+            Precondition::Data(DataRequirement::WifiCurrentlyConnected),
+            Provenance::source(WIFI_MANAGER, 47),
+        ),
+        GroundedItem::new(
+            Precondition::NetworkResource(NetworkResource::KnownWifiNetwork),
+            Provenance::source(WIFI_MANAGER, 47),
+        ),
+    ]),
     steps: GroundedSet::known(&[operator_step(
         "While connected, observe the wifi tray when the access point goes away",
         Some(sourced_route(HttpMethod::Get, "/status", Some("v1.0"), 53)),
@@ -349,6 +406,12 @@ const DETECT_WIFI_AP_LOSS: UserJourney = UserJourney {
         Some(source_outcome(200, 53)),
     )]),
     availability: PRESENCE_DETECT_WIFI_AP_LOSS,
+    blast_radius: Grounded::known(
+        BlastRadius::Safe,
+        Provenance::asserted(
+            "Operator polls GET /status to observe AP loss without issuing a mutating wifi request",
+        ),
+    ),
     chains_from: Some(JourneyId::ConnectToWifiNetwork),
 };
 
@@ -364,10 +427,16 @@ const AUTOCONNECT_TO_SAVED_WIFI_NETWORK: UserJourney = UserJourney {
         CapabilityId::ConnectWifiNetwork,
         "wpa_supplicant autoconnect rejoins the saved SSID without a new POST /connect",
     )]),
-    preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Data(DataRequirement::WifiNetworkSaved),
-        Provenance::source(CONNECTION_DIALOG, 76),
-    )]),
+    preconditions: GroundedSet::known(&[
+        GroundedItem::new(
+            Precondition::Data(DataRequirement::WifiNetworkSaved),
+            Provenance::source(CONNECTION_DIALOG, 76),
+        ),
+        GroundedItem::new(
+            Precondition::NetworkResource(NetworkResource::KnownWifiNetwork),
+            Provenance::doc(ADV, 123),
+        ),
+    ]),
     steps: GroundedSet::known(&[operator_step(
         "After the known access point returns, wait for BlueOS to reassociate",
         Some(sourced_route(HttpMethod::Get, "/status", Some("v1.0"), 53)),
@@ -375,6 +444,12 @@ const AUTOCONNECT_TO_SAVED_WIFI_NETWORK: UserJourney = UserJourney {
         Some(source_outcome(200, 53)),
     )]),
     availability: PRESENCE_AUTOCONNECT_TO_SAVED_WIFI_NETWORK,
+    blast_radius: Grounded::known(
+        BlastRadius::Disruptive,
+        Provenance::asserted(
+            "wpa_supplicant auto-reassociates when the saved AP returns, changing wlan state",
+        ),
+    ),
     chains_from: Some(JourneyId::DetectWifiApLoss),
 };
 
@@ -390,7 +465,10 @@ const TOGGLE_HOTSPOT: UserJourney = UserJourney {
         CapabilityId::ToggleHotspot,
         "wifi tray hotspot button enables or disables the onboard access point",
     )]),
-    preconditions: GroundedSet::known(&[]),
+    preconditions: GroundedSet::known(&[GroundedItem::new(
+        Precondition::NetworkResource(NetworkResource::HotspotCapable),
+        Provenance::doc(ADV, 127),
+    )]),
     steps: GroundedSet::known(&[
         operator_step(
             "Open the wifi tray menu from the header bar",
@@ -411,6 +489,12 @@ const TOGGLE_HOTSPOT: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_TOGGLE_HOTSPOT,
+    blast_radius: Grounded::known(
+        BlastRadius::Disruptive,
+        Provenance::asserted(
+            "POST /hotspot toggles onboard AP mode and changes how clients reach BlueOS",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -426,7 +510,10 @@ const CONFIGURE_HOTSPOT_CREDENTIALS: UserJourney = UserJourney {
         CapabilityId::SetHotspotCredentials,
         "wifi settings dialog persists hotspot SSID and password",
     )]),
-    preconditions: GroundedSet::known(&[]),
+    preconditions: GroundedSet::known(&[GroundedItem::new(
+        Precondition::NetworkResource(NetworkResource::HotspotCapable),
+        Provenance::doc(ADV, 127),
+    )]),
     steps: GroundedSet::known(&[
         operator_step(
             "Open the wifi tray menu from the header bar",
@@ -453,6 +540,12 @@ const CONFIGURE_HOTSPOT_CREDENTIALS: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_CONFIGURE_HOTSPOT_CREDENTIALS,
+    blast_radius: Grounded::known(
+        BlastRadius::Reversible,
+        Provenance::asserted(
+            "POST /hotspot_credentials changes hotspot SSID and password restorable by saving prior values",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -468,7 +561,10 @@ const TOGGLE_SMART_HOTSPOT: UserJourney = UserJourney {
         CapabilityId::ToggleSmartHotspot,
         "wifi settings dialog enables auto-hotspot when no known network is connected",
     )]),
-    preconditions: GroundedSet::known(&[]),
+    preconditions: GroundedSet::known(&[GroundedItem::new(
+        Precondition::NetworkResource(NetworkResource::HotspotCapable),
+        Provenance::doc(GETTING, 33),
+    )]),
     steps: GroundedSet::known(&[
         operator_step(
             "Open the wifi tray menu from the header bar",
@@ -495,6 +591,12 @@ const TOGGLE_SMART_HOTSPOT: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_TOGGLE_SMART_HOTSPOT,
+    blast_radius: Grounded::known(
+        BlastRadius::Reversible,
+        Provenance::asserted(
+            "POST /smart_hotspot toggles auto-hotspot preference restorable by saving the prior setting",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -550,6 +652,7 @@ const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
         StepOutcome {
             expected_status: Some(status),
             body_predicate: None,
+            body_kind: BodyKind::Unknown,
             transition: None,
         },
         Provenance::source(WIFI_MAIN, line),

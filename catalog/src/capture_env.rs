@@ -25,6 +25,13 @@ pub const RUNTIME_CAPTURE_ENV_PI4_SITL: &str = "BlueOS master (bluerobotics/blue
 
 pub const RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR_ARDUSUB: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4, Navigator, ArduSub 4.5.3 STABLE";
 
+pub const RUNTIME_CAPTURE_CORE_DIGEST_1_4_DEV: &str =
+    "sha256:5b50dfafc3114651d459993c0c65639d7205634613fb62e0dea5ee04de8eebb1";
+pub const RUNTIME_CAPTURE_CORE_TAG_1_4_DEV: &str = "1.4-dev";
+
+pub const RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR_1_4_DEV: &str =
+    "BlueOS 1.4-dev (bluerobotics/blueos-core:1.4-dev @ sha256:5b50dfafc3114651d459993c0c65639d7205634613fb62e0dea5ee04de8eebb1), Raspberry Pi 4, Navigator";
+
 pub fn format_runtime_env(board_notes: &str) -> String {
     format!(
         "BlueOS {} ({}:{} @ {}), Raspberry Pi 4, {}",

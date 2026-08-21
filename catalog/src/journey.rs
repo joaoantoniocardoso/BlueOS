@@ -1,10 +1,20 @@
+use std::collections::HashSet;
+
 use schemars::JsonSchema;
 use serde::Serialize;
 
+use crate::catalog::Catalog;
 use crate::id::{CapabilityId, JourneyId, PathRef, ServiceId};
-use crate::page::PageId;
-use crate::provenance::{Grounded, GroundedSet};
+use crate::page::{ConsumeTarget, Page, PageId, StateOwnership};
+use crate::provenance::{AssertedSet, Grounded, GroundedSet, ObservedSet};
 use crate::version::FeatureAvailability;
+
+pub const BLAST_RADIUS_UNKNOWN: Grounded<BlastRadius> = Grounded::known(
+    BlastRadius::Unknown {
+        reason: "not yet annotated",
+    },
+    crate::provenance::Provenance::doc("catalog/extras/qa-harness-improve", 0),
+);
 
 // Every journey must set `availability` from `journey_presence::PRESENCE_*`
 // (full git tag membership). `FeatureAvailability::unknown()` fails `validate()`.
@@ -19,7 +29,35 @@ pub struct UserJourney {
     pub preconditions: GroundedSet<Precondition>,
     pub steps: GroundedSet<JourneyStep>,
     pub availability: FeatureAvailability,
+    pub blast_radius: Grounded<BlastRadius>,
     pub chains_from: Option<JourneyId>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum BlastRadius {
+    Safe,
+    Reversible,
+    Disruptive,
+    Destructive,
+    Unknown { reason: &'static str },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum BodyKind {
+    Empty,
+    ErrorEnvelope,
+    Payload,
+    Unknown,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum OracleClass {
+    HttpPassthrough,
+    ClientComposed,
+    ClientOrchestrated,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
@@ -42,6 +80,7 @@ pub struct RouteRef {
 pub struct StepOutcome {
     pub expected_status: Option<u16>,
     pub body_predicate: Option<&'static str>,
+    pub body_kind: BodyKind,
     pub transition: Option<StateTransition>,
 }
 
@@ -222,12 +261,110 @@ pub fn derive_automatable(journey: &UserJourney) -> Automatable {
     Automatable::Manual
 }
 
+pub fn blast_radius_is_unknown(journey: &UserJourney) -> bool {
+    matches!(
+        journey.blast_radius,
+        Grounded::Known {
+            value: BlastRadius::Unknown { .. },
+            ..
+        }
+    )
+}
+
+pub fn derive_oracle_class(catalog: &Catalog, journey: &UserJourney) -> OracleClass {
+    if journey_has_frontend_actor(journey) {
+        return OracleClass::ClientOrchestrated;
+    }
+    let pages = pages_for_journey(catalog, journey);
+    if pages.iter().any(|page| page_has_frontend_features(page)) {
+        return OracleClass::ClientOrchestrated;
+    }
+    let total_consumes = pages
+        .iter()
+        .map(|page| page_consume_count(page))
+        .sum::<usize>();
+    if pages
+        .iter()
+        .any(|page| page_has_shared_or_frontend_owned_state(page))
+        || total_consumes > 1
+    {
+        return OracleClass::ClientComposed;
+    }
+    OracleClass::HttpPassthrough
+}
+
+fn journey_has_frontend_actor(journey: &UserJourney) -> bool {
+    match &journey.steps {
+        GroundedSet::Known { items } => items
+            .iter()
+            .any(|step| matches!(step.value.actor, Actor::Frontend(_))),
+        GroundedSet::Unknown { .. } => false,
+    }
+}
+
+fn pages_for_journey<'a>(catalog: &'a Catalog, journey: &UserJourney) -> Vec<&'a Page> {
+    let service_ids: HashSet<ServiceId> = match &journey.services {
+        GroundedSet::Known { items } => items.iter().map(|item| item.value).collect(),
+        GroundedSet::Unknown { .. } => return Vec::new(),
+    };
+    if service_ids.is_empty() {
+        return Vec::new();
+    }
+    catalog
+        .pages()
+        .iter()
+        .filter(|page| page_consumes_any_service(page, &service_ids))
+        .collect()
+}
+
+fn page_consumes_any_service(page: &Page, service_ids: &HashSet<ServiceId>) -> bool {
+    match &page.consumes {
+        ObservedSet::Known { items } => items.iter().any(|item| {
+            matches!(
+                item.value.service,
+                ConsumeTarget::Service(id) if service_ids.contains(&id)
+            )
+        }),
+        ObservedSet::Unknown { .. } => false,
+    }
+}
+
+fn page_consume_count(page: &Page) -> usize {
+    match &page.consumes {
+        ObservedSet::Known { items } => items.len(),
+        ObservedSet::Unknown { .. } => 0,
+    }
+}
+
+fn page_has_frontend_features(page: &Page) -> bool {
+    matches!(
+        &page.frontend_features,
+        AssertedSet::Established { items } if !items.is_empty()
+    )
+}
+
+fn page_has_shared_or_frontend_owned_state(page: &Page) -> bool {
+    match &page.client_state {
+        AssertedSet::Established { items } => items.iter().any(|item| {
+            matches!(
+                item.value.ownership,
+                StateOwnership::Shared | StateOwnership::FrontendOwned
+            )
+        }),
+        AssertedSet::Unknown { .. } => false,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::capability::frontend_capability_def;
+    use crate::catalog::Catalog;
     use crate::id::JourneyId;
+    use crate::journey_matrix::PAGE_LOAD_UI;
     use crate::page::PageId;
     use crate::provenance::{GroundedItem, Provenance};
+    use crate::ui::ui_plan;
 
     const DOC: Provenance = Provenance::doc("test.md", 1);
 
@@ -251,6 +388,7 @@ mod tests {
             preconditions,
             steps,
             availability: TEST_PRESENCE,
+            blast_radius: BLAST_RADIUS_UNKNOWN,
             chains_from: None,
         }
     }
@@ -364,5 +502,120 @@ mod tests {
             &[GroundedItem::new(operator_step("click connect", None), DOC)];
         let manual = empty_journey(GroundedSet::known(&[]), GroundedSet::known(OPERATOR_ONLY));
         assert_eq!(derive_automatable(&manual), Automatable::Manual);
+    }
+
+    #[test]
+    fn derive_oracle_class_frontend_actor_is_client_orchestrated() {
+        static STEPS: &[GroundedItem<JourneyStep>] = &[GroundedItem::new(
+            JourneyStep {
+                actor: Actor::Frontend(PageId::VehicleSetup),
+                description: "run wizard",
+                route: None,
+                outcome: None,
+            },
+            DOC,
+        )];
+        let journey = empty_journey(GroundedSet::known(&[]), GroundedSet::known(STEPS));
+        let catalog = Catalog::bootstrap();
+        assert_eq!(
+            derive_oracle_class(&catalog, &journey),
+            OracleClass::ClientOrchestrated
+        );
+    }
+
+    #[test]
+    fn frontend_capability_refs_subset_of_frontend_actor_journeys() {
+        let catalog = Catalog::bootstrap();
+        for journey in catalog.journeys() {
+            let has_frontend_cap = match &journey.capability_refs {
+                GroundedSet::Known { items } => items
+                    .iter()
+                    .any(|item| frontend_capability_def(item.value).is_some()),
+                GroundedSet::Unknown { .. } => false,
+            };
+            if has_frontend_cap {
+                assert!(
+                    journey_has_frontend_actor(journey),
+                    "{:?} has frontend capability_refs but no Actor::Frontend step — \
+                     classify via page frontend_features, not capability_refs",
+                    journey.id
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn derive_oracle_class_page_frontend_features_without_actor() {
+        let catalog = Catalog::bootstrap();
+        let journey = catalog
+            .journeys()
+            .iter()
+            .find(|j| {
+                !journey_has_frontend_actor(j)
+                    && derive_oracle_class(&catalog, j) == OracleClass::ClientOrchestrated
+            })
+            .expect("journey orchestrated via page frontend_features");
+        assert!(!journey_has_frontend_actor(journey));
+    }
+
+    #[test]
+    fn derive_oracle_class_client_composed_from_shared_state() {
+        let catalog = Catalog::bootstrap();
+        let journey = catalog
+            .journeys()
+            .iter()
+            .find(|j| derive_oracle_class(&catalog, j) == OracleClass::ClientComposed)
+            .expect("ClientComposed journey");
+        assert_ne!(
+            derive_oracle_class(&catalog, journey),
+            OracleClass::ClientOrchestrated
+        );
+    }
+
+    #[test]
+    fn derive_oracle_class_http_passthrough_backend_owned() {
+        let catalog = Catalog::bootstrap();
+        let journey = catalog
+            .journeys()
+            .iter()
+            .find(|j| derive_oracle_class(&catalog, j) == OracleClass::HttpPassthrough)
+            .expect("HttpPassthrough journey");
+        assert!(!journey_has_frontend_actor(journey));
+    }
+
+    #[test]
+    fn oracle_class_inventory_counts() {
+        let catalog = Catalog::bootstrap();
+        let mut orchestrated = 0;
+        let mut composed = 0;
+        let mut passthrough = 0;
+        let mut missing_ui_plan = Vec::new();
+        for journey in catalog.journeys() {
+            match derive_oracle_class(&catalog, journey) {
+                OracleClass::ClientOrchestrated => {
+                    orchestrated += 1;
+                    let has_plan =
+                        ui_plan(journey.id).is_some() || PAGE_LOAD_UI.contains(&journey.id);
+                    if !has_plan {
+                        missing_ui_plan.push(journey.id);
+                    }
+                }
+                OracleClass::ClientComposed => composed += 1,
+                OracleClass::HttpPassthrough => passthrough += 1,
+            }
+        }
+        println!(
+            "orchestrated={orchestrated} composed={composed} passthrough={passthrough} \
+             missing_ui_plan={missing_ui_plan:?}"
+        );
+        assert!(orchestrated > 0);
+        assert!(composed > 0);
+        assert!(passthrough > 0);
+    }
+
+    #[test]
+    fn blast_radius_unknown_counts_as_unannotated() {
+        let journey = empty_journey(GroundedSet::known(&[]), GroundedSet::known(&[]));
+        assert!(blast_radius_is_unknown(&journey));
     }
 }

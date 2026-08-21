@@ -1,6 +1,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome, UserJourney, Visibility,
+    Actor, BlastRadius, BodyKind, HttpMethod, JourneyStep, NetworkResource, Precondition, RouteRef,
+    StepOutcome, UserJourney, Visibility,
 };
 use crate::journey_presence::{
     PRESENCE_CHANGE_MDNS_HOSTNAME, PRESENCE_DISCOVER_BLUEOS_ON_NETWORK, PRESENCE_RENAME_VEHICLE,
@@ -48,7 +49,13 @@ const RENAME_VEHICLE: UserJourney =
             ),
         ]),
         availability: PRESENCE_RENAME_VEHICLE,
-    chains_from: None,
+        blast_radius: Grounded::known(
+            BlastRadius::Reversible,
+            Provenance::asserted(
+                "Vehicle display name is a userdata label restored by posting the prior name",
+            ),
+        ),
+        chains_from: None,
     };
 
 const CHANGE_MDNS_HOSTNAME: UserJourney = UserJourney {
@@ -84,6 +91,12 @@ const CHANGE_MDNS_HOSTNAME: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_CHANGE_MDNS_HOSTNAME,
+    blast_radius: Grounded::known(
+        BlastRadius::Disruptive,
+        Provenance::asserted(
+            "Changing the mDNS hostname breaks the prior blueos.local bookmark until DNS-SD catches up",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -99,12 +112,18 @@ const DISCOVER_BLUEOS_ON_NETWORK: UserJourney = UserJourney {
         CapabilityId::AdvertiseMdnsDomains,
         "beacon publishes mDNS records that make blueos.local resolvable on the LAN",
     )]),
-    preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Other(
-            "BlueOS is connected via a wired connection so blueos.local is reachable",
+    preconditions: GroundedSet::known(&[
+        GroundedItem::new(
+            Precondition::NetworkResource(NetworkResource::WiredEthernetPresent),
+            Provenance::doc(GETTING, 29),
         ),
-        Provenance::doc(GETTING, 29),
-    )]),
+        GroundedItem::new(
+            Precondition::Other(
+                "BlueOS is connected via a wired connection so blueos.local is reachable",
+            ),
+            Provenance::doc(GETTING, 29),
+        ),
+    ]),
     steps: GroundedSet::known(&[
         service_step(
             "Publish mDNS domain advertisements on available network interfaces",
@@ -120,6 +139,12 @@ const DISCOVER_BLUEOS_ON_NETWORK: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_DISCOVER_BLUEOS_ON_NETWORK,
+    blast_radius: Grounded::known(
+        BlastRadius::Safe,
+        Provenance::asserted(
+            "Operator opens the web UI via existing mDNS advertisement without mutating system state",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -158,6 +183,7 @@ const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
         StepOutcome {
             expected_status: Some(status),
             body_predicate: None,
+            body_kind: BodyKind::Unknown,
             transition: None,
         },
         Provenance::source(BEACON_MAIN, line),

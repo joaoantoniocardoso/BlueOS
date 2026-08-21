@@ -1,8 +1,10 @@
-use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
+use crate::capture_env::{
+    RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR, RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR_1_4_DEV,
+};
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, DataRequirement, HardwareRequirement, HttpMethod, JourneyStep, Precondition, RouteRef,
-    SoftwareRequirement, StepOutcome, UserJourney, Visibility,
+    Actor, BlastRadius, BodyKind, DataRequirement, HardwareRequirement, HttpMethod, JourneyStep,
+    Precondition, RouteRef, SoftwareRequirement, StepOutcome, UserJourney, Visibility,
 };
 use crate::journey_presence::{
     PRESENCE_ADD_EXTERNAL_NMEA_GPS_SOCKET, PRESENCE_REMOVE_CONFIGURED_NMEA_SOCKET,
@@ -18,6 +20,9 @@ const NMEA_CREATE_DIALOG: &str =
     "core/frontend/src/components/nmea-injector/NMEASocketCreationDialog.vue";
 const NMEA_SOCKET_CARD: &str = "core/frontend/src/components/nmea-injector/NMEASocketCard.vue";
 const RUNTIME_ENV: &str = RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
+const RUNTIME_ENV_1_4_DEV: &str = RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR_1_4_DEV;
+const NMEA_TRANSITIONS_1_4_DEV: &str =
+    "runtime-captures/nmea_injector__pi4_navigator_1_4_dev.json#transitions";
 
 pub const JOURNEYS: &[UserJourney] = &[
     VIEW_CONFIGURED_NMEA_SOCKETS,
@@ -55,11 +60,17 @@ const VIEW_CONFIGURED_NMEA_SOCKETS: UserJourney = UserJourney {
             Some(runtime_outcome(
                 200,
                 Some("[]"),
+                BodyKind::Payload,
                 "runtime-captures/nmea_injector__pi4_navigator_master.json#running_baseline",
+                RUNTIME_ENV,
             )),
         ),
     ]),
     availability: PRESENCE_VIEW_CONFIGURED_NMEA_SOCKETS,
+    blast_radius: Grounded::known(
+        BlastRadius::Safe,
+        Provenance::asserted("GET /socks only lists configured NMEA listeners without writes"),
+    ),
     chains_from: None,
 };
 
@@ -108,10 +119,22 @@ const ADD_EXTERNAL_NMEA_GPS_SOCKET: UserJourney = UserJourney {
             "Click Create to add the listening socket",
             Some(sourced_route(HttpMethod::Post, "/socks", Some("v1.0"), 48)),
             Provenance::source(NMEA_CREATE_DIALOG, 139),
-            None,
+            Some(runtime_outcome(
+                201,
+                Some("null"),
+                BodyKind::Payload,
+                NMEA_TRANSITIONS_1_4_DEV,
+                RUNTIME_ENV_1_4_DEV,
+            )),
         ),
     ]),
     availability: PRESENCE_ADD_EXTERNAL_NMEA_GPS_SOCKET,
+    blast_radius: Grounded::known(
+        BlastRadius::Reversible,
+        Provenance::asserted(
+            "POST /socks opens a listening NMEA socket removable via DELETE /socks",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -151,7 +174,9 @@ const REMOVE_CONFIGURED_NMEA_SOCKET: UserJourney = UserJourney {
             Some(runtime_outcome(
                 200,
                 Some("[]"),
+                BodyKind::Payload,
                 "runtime-captures/nmea_injector__pi4_navigator_master.json#running_baseline",
+                RUNTIME_ENV,
             )),
         ),
         operator_step(
@@ -163,10 +188,20 @@ const REMOVE_CONFIGURED_NMEA_SOCKET: UserJourney = UserJourney {
                 59,
             )),
             Provenance::source(NMEA_SOCKET_CARD, 55),
-            Some(source_outcome(200, 65)),
+            Some(runtime_outcome(
+                200,
+                Some("null"),
+                BodyKind::Payload,
+                NMEA_TRANSITIONS_1_4_DEV,
+                RUNTIME_ENV_1_4_DEV,
+            )),
         ),
     ]),
     availability: PRESENCE_REMOVE_CONFIGURED_NMEA_SOCKET,
+    blast_radius: Grounded::known(
+        BlastRadius::Reversible,
+        Provenance::asserted("DELETE /socks removes one NMEA listener recreatable via POST /socks"),
+    ),
     chains_from: None,
 };
 
@@ -220,25 +255,17 @@ const fn operator_step(
 const fn runtime_outcome(
     status: u16,
     body: Option<&'static str>,
+    body_kind: BodyKind,
     key: &'static str,
+    env: &'static str,
 ) -> Grounded<StepOutcome> {
     Grounded::known(
         StepOutcome {
             expected_status: Some(status),
             body_predicate: body,
+            body_kind,
             transition: None,
         },
-        Provenance::runtime(key, RUNTIME_ENV),
-    )
-}
-
-const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
-    Grounded::known(
-        StepOutcome {
-            expected_status: Some(status),
-            body_predicate: None,
-            transition: None,
-        },
-        Provenance::source(NMEA_MAIN, line),
+        Provenance::runtime(key, env),
     )
 }

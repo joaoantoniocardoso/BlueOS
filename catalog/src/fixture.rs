@@ -263,7 +263,7 @@ mod tests {
         };
 
     use crate::id::JourneyId;
-    use crate::journey::Visibility;
+    use crate::journey::{Visibility, BLAST_RADIUS_UNKNOWN};
     use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
 
     const DOC: Provenance = Provenance::doc("test.md", 1);
@@ -278,6 +278,7 @@ mod tests {
             preconditions,
             steps: GroundedSet::unknown("test"),
             availability: TEST_PRESENCE,
+            blast_radius: BLAST_RADIUS_UNKNOWN,
             chains_from: None,
         }
     }

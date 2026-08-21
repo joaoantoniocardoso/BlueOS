@@ -1,8 +1,8 @@
 use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, DataRequirement, HttpMethod, JourneyStep, NetworkState, Precondition, RouteRef,
-    StepOutcome, UserJourney, Visibility,
+    Actor, BlastRadius, BodyKind, DataRequirement, HttpMethod, JourneyStep, NetworkState,
+    Precondition, RouteRef, StepOutcome, UserJourney, Visibility,
 };
 use crate::journey_presence::{
     PRESENCE_ADD_CUSTOM_MANIFEST, PRESENCE_BROWSE_EXTENSION_STORE,
@@ -45,10 +45,21 @@ const ADD_CUSTOM_MANIFEST: UserJourney =
             "Specify your own external collection of extensions in the Extensions Manager store",
             Some(doc_route(HttpMethod::Post, "/manifest/", Some("v2.0"), ADV, 855)),
             Provenance::doc(ADV, 855),
-            Some(runtime_outcome(201, None, "runtime-captures/kraken__pi4_navigator_master.json#transitions")),
+            Some(runtime_outcome(
+                201,
+                None,
+                BodyKind::Payload,
+                "runtime-captures/kraken__pi4_navigator_master.json#transitions",
+            )),
         )]),
         availability: PRESENCE_ADD_CUSTOM_MANIFEST,
-    chains_from: Some(JourneyId::BrowseExtensionStore),
+        blast_radius: Grounded::known(
+            BlastRadius::Reversible,
+            Provenance::asserted(
+                "POST /manifest/ registers an external collection URL in Kraken store config",
+            ),
+        ),
+        chains_from: Some(JourneyId::BrowseExtensionStore),
     };
 
 const BROWSE_EXTENSION_STORE: UserJourney = UserJourney {
@@ -87,11 +98,18 @@ const BROWSE_EXTENSION_STORE: UserJourney = UserJourney {
             Some(runtime_outcome(
                 200,
                 Some("large consolidated manifest of all extensions across sources"),
+                BodyKind::Payload,
                 "runtime-captures/kraken__pi4_navigator_master.json#running_baseline",
             )),
         ),
     ]),
     availability: PRESENCE_BROWSE_EXTENSION_STORE,
+    blast_radius: Grounded::known(
+        BlastRadius::Safe,
+        Provenance::asserted(
+            "GET /manifest/consolidated lists store cards without mutating Kraken state",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -131,6 +149,7 @@ const CONFIGURE_INSTALLED_EXTENSION: UserJourney =
                 Some(runtime_outcome(
                     200,
                     Some("array of container descriptors {name,status,image}"),
+                    BodyKind::Payload,
                     "runtime-captures/kraken__pi4_navigator_master.json#running_baseline",
                 )),
             ),
@@ -159,6 +178,7 @@ const CONFIGURE_INSTALLED_EXTENSION: UserJourney =
                 Some(runtime_outcome(
                     200,
                     Some("base64-encoded log fragments"),
+                    BodyKind::Payload,
                     "runtime-captures/kraken__pi4_navigator_master.json#transitions",
                 )),
             ),
@@ -172,7 +192,12 @@ const CONFIGURE_INSTALLED_EXTENSION: UserJourney =
                     859,
                 )),
                 Provenance::doc(ADV, 859),
-                Some(runtime_outcome(202, None, "runtime-captures/kraken__pi4_navigator_master.json#transitions")),
+                Some(runtime_outcome(
+                    202,
+                    None,
+                    BodyKind::Empty,
+                    "runtime-captures/kraken__pi4_navigator_master.json#transitions",
+                )),
             ),
             operator_step(
                 "Disable an installed extension",
@@ -184,11 +209,22 @@ const CONFIGURE_INSTALLED_EXTENSION: UserJourney =
                     859,
                 )),
                 Provenance::doc(ADV, 859),
-                Some(runtime_outcome(204, None, "runtime-captures/kraken__pi4_navigator_master.json#transitions")),
+                Some(runtime_outcome(
+                    204,
+                    None,
+                    BodyKind::Empty,
+                    "runtime-captures/kraken__pi4_navigator_master.json#transitions",
+                )),
             ),
         ]),
         availability: PRESENCE_CONFIGURE_INSTALLED_EXTENSION,
-    chains_from: Some(JourneyId::InstallExtension),
+        blast_radius: Grounded::known(
+            BlastRadius::Disruptive,
+            Provenance::asserted(
+                "Installed-tab PUT/POST restart or disable stops or recreates extension containers",
+            ),
+        ),
+        chains_from: Some(JourneyId::InstallExtension),
     };
 
 const EDIT_EXTENSION_DEV_VERSION: UserJourney =
@@ -224,11 +260,22 @@ const EDIT_EXTENSION_DEV_VERSION: UserJourney =
                     866,
                 )),
                 Provenance::doc(ADV, 866),
-                Some(runtime_outcome(200, None, "runtime-captures/kraken__pi4_navigator_master.json#transitions")),
+                Some(runtime_outcome(
+                    200,
+                    None,
+                    BodyKind::Payload,
+                    "runtime-captures/kraken__pi4_navigator_master.json#transitions",
+                )),
             ),
         ]),
         availability: PRESENCE_EDIT_EXTENSION_DEV_VERSION,
-    chains_from: Some(JourneyId::ConfigureInstalledExtension),
+        blast_radius: Grounded::known(
+            BlastRadius::Disruptive,
+            Provenance::asserted(
+                "PUT /extension/{identifier}/{tag} recreates the container on a different image tag",
+            ),
+        ),
+        chains_from: Some(JourneyId::ConfigureInstalledExtension),
     };
 
 const INSTALL_CUSTOM_EXTENSION: UserJourney =
@@ -273,12 +320,19 @@ const INSTALL_CUSTOM_EXTENSION: UserJourney =
                 Some(runtime_outcome(
                     200,
                     Some("streams docker pull progress; container created"),
+                    BodyKind::Payload,
                     "runtime-captures/kraken__pi4_navigator_master.json#transitions",
                 )),
             ),
         ]),
         availability: PRESENCE_INSTALL_CUSTOM_EXTENSION,
-    chains_from: None,
+        blast_radius: Grounded::known(
+            BlastRadius::Disruptive,
+            Provenance::asserted(
+                "POST /extension/ pulls a Docker image and starts a new extension container",
+            ),
+        ),
+        chains_from: None,
     };
 
 const INSTALL_EXTENSION: UserJourney =
@@ -326,11 +380,22 @@ const INSTALL_EXTENSION: UserJourney =
                     848,
                 )),
                 Provenance::doc(ADV, 848),
-                Some(runtime_outcome(200, None, "runtime-captures/kraken__pi4_navigator_master.json#transitions")),
+                Some(runtime_outcome(
+                    200,
+                    None,
+                    BodyKind::Payload,
+                    "runtime-captures/kraken__pi4_navigator_master.json#transitions",
+                )),
             ),
         ]),
         availability: PRESENCE_INSTALL_EXTENSION,
-    chains_from: Some(JourneyId::BrowseExtensionStore),
+        blast_radius: Grounded::known(
+            BlastRadius::Disruptive,
+            Provenance::asserted(
+                "POST /extension/{identifier}/{tag}/install pulls and starts a store extension container",
+            ),
+        ),
+        chains_from: Some(JourneyId::BrowseExtensionStore),
     };
 
 const UNINSTALL_EXTENSION: UserJourney = UserJourney {
@@ -369,11 +434,18 @@ const UNINSTALL_EXTENSION: UserJourney = UserJourney {
             Some(runtime_outcome(
                 202,
                 None,
+                BodyKind::Empty,
                 "runtime-captures/kraken__pi4_navigator_master.json#transitions",
             )),
         ),
     ]),
     availability: PRESENCE_UNINSTALL_EXTENSION,
+    blast_radius: Grounded::known(
+        BlastRadius::Reversible,
+        Provenance::asserted(
+            "DELETE /extension/{identifier}/{tag} removes the container and can be restored from the store",
+        ),
+    ),
     chains_from: Some(JourneyId::InstallExtension),
 };
 
@@ -425,12 +497,14 @@ const fn operator_step(
 const fn runtime_outcome(
     status: u16,
     body: Option<&'static str>,
+    body_kind: BodyKind,
     key: &'static str,
 ) -> Grounded<StepOutcome> {
     Grounded::known(
         StepOutcome {
             expected_status: Some(status),
             body_predicate: body,
+            body_kind,
             transition: None,
         },
         Provenance::runtime(key, RUNTIME_ENV),

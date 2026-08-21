@@ -1,8 +1,8 @@
 use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, HardwareRequirement, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome,
-    UserJourney, Visibility,
+    Actor, BlastRadius, BodyKind, HardwareRequirement, HttpMethod, JourneyStep, Precondition,
+    RouteRef, StepOutcome, UserJourney, Visibility,
 };
 use crate::journey_presence::{
     PRESENCE_CONNECT_PING_VIEWER_TO_SONAR, PRESENCE_ENABLE_PING1D_RANGEFINDER_MAVLINK,
@@ -86,7 +86,11 @@ const VIEW_DETECTED_SONAR_DEVICES: UserJourney =
             ),
         ]),
         availability: PRESENCE_VIEW_DETECTED_SONAR_DEVICES,
-    chains_from: None,
+        blast_radius: Grounded::known(
+            BlastRadius::Safe,
+            Provenance::asserted("GET /sensors lists auto-detected Ping devices without operator writes"),
+        ),
+        chains_from: None,
     };
 
 const CONNECT_PING_VIEWER_TO_SONAR: UserJourney =
@@ -128,7 +132,13 @@ const CONNECT_PING_VIEWER_TO_SONAR: UserJourney =
             ),
         ]),
         availability: PRESENCE_CONNECT_PING_VIEWER_TO_SONAR,
-    chains_from: None,
+        blast_radius: Grounded::known(
+            BlastRadius::Safe,
+            Provenance::asserted(
+                "Operator reads the UDP bridge endpoint; Ping Viewer connects externally without vehicle API writes",
+            ),
+        ),
+        chains_from: None,
     };
 
 const ENABLE_PING1D_RANGEFINDER_MAVLINK: UserJourney =
@@ -176,7 +186,13 @@ const ENABLE_PING1D_RANGEFINDER_MAVLINK: UserJourney =
             ),
         ]),
         availability: PRESENCE_ENABLE_PING1D_RANGEFINDER_MAVLINK,
-    chains_from: None,
+        blast_radius: Grounded::known(
+            BlastRadius::Reversible,
+            Provenance::asserted(
+                "POST /sensors toggles Ping1D MAVLink distance forwarding restorable by another POST",
+            ),
+        ),
+        chains_from: None,
     };
 
 const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<CapabilityId> {
@@ -252,10 +268,16 @@ const fn runtime_outcome(
     body: Option<&'static str>,
     key: &'static str,
 ) -> Grounded<StepOutcome> {
+    let body_kind = if body.is_some() {
+        BodyKind::Payload
+    } else {
+        BodyKind::Unknown
+    };
     Grounded::known(
         StepOutcome {
             expected_status: Some(status),
             body_predicate: body,
+            body_kind,
             transition: None,
         },
         Provenance::runtime(key, RUNTIME_ENV),

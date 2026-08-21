@@ -16,6 +16,7 @@ pub mod fixture;
 pub mod frontend_cache;
 pub mod frontend_routes;
 pub mod frontend_smoke;
+pub mod harness_ratchet;
 pub mod id;
 pub mod interface;
 pub mod journey;
@@ -24,6 +25,7 @@ pub mod journey_matrix;
 pub mod journey_presence;
 pub mod journeys;
 pub mod lifecycle;
+pub mod mcm_restore;
 pub mod mutating_smoke;
 pub mod negative_probes;
 pub mod observed;
@@ -93,13 +95,20 @@ pub use frontend_cache::run_frontend_cache;
 pub use frontend_smoke::{
     calibration_smoke_targets, concrete_page_path, frontend_smoke_targets, FrontendSmokeTarget,
 };
+pub use harness_ratchet::{
+    compare_harness_ratchet, count_client_orchestrated_missing_ui_plan, count_open_harness_gap,
+    count_unknown_body_kinds, count_unprobed_failure_modes, harness_ratchet_counts,
+    load_harness_ratchet_baseline, write_harness_ratchet_baseline, HarnessRatchetCounts,
+    HarnessRatchetRegression, DEFAULT_BASELINE_PATH, FAILURE_MODE_LEDGER_PATH,
+};
 pub use id::{CapabilityId, Entity, JourneyId, PathRef, Port, PortRef, ServiceId};
 pub use interface::{FileAccessMode, Interface, MavlinkRole};
 pub use journey::{
-    derive_automatable, journey_requirements, precondition_is_typed, Actor, Automatable, BoardKind,
-    DataRequirement, HardwareRequirement, HttpMethod, JourneyStep, NetworkResource, NetworkState,
+    blast_radius_is_unknown, derive_automatable, derive_oracle_class, journey_requirements,
+    precondition_is_typed, Actor, Automatable, BlastRadius, BoardKind, BodyKind, DataRequirement,
+    HardwareRequirement, HttpMethod, JourneyStep, NetworkResource, NetworkState, OracleClass,
     Precondition, RouteRef, SoftwareRequirement, StateTransition, StepOutcome, UserJourney,
-    Visibility,
+    Visibility, BLAST_RADIUS_UNKNOWN,
 };
 pub use journey_group::{JourneyLens, JourneyPairAgreement, JourneySplitConsensus};
 pub use journey_matrix::{
@@ -109,10 +118,12 @@ pub use journey_matrix::{
 };
 pub use journey_presence::ALL_JOURNEY_PRESENCE;
 pub use lifecycle::{Lifecycle, ObservedLifecycle};
+pub use mcm_restore::{McmStreamRestore, McmV4lRestore, SMOKE_CATALOG_STREAM_JSON};
 pub use mutating_smoke::{
-    is_mutating_smoke_journey, is_tier2_mutating_eligible, is_tier2_mutating_hard_excluded,
-    journey_has_mutating_http_route, mutating_smoke_journey_ids, tier2_mutating_coverage,
-    MutatingSmokeEntry, SmokeRepair, Tier2MutatingCoverage, MUTATING_SMOKE_ENTRIES,
+    effect_read_probe_journey, is_camera_mutating_smoke_journey, is_mutating_smoke_journey,
+    is_tier2_mutating_eligible, is_tier2_mutating_hard_excluded, journey_has_mutating_http_route,
+    mutating_smoke_journey_ids, tier2_mutating_coverage, EffectReadRef, MutatingSmokeEntry,
+    SmokeRepair, Tier2MutatingCoverage, MUTATING_SMOKE_ENTRIES,
 };
 pub use negative_probes::{
     format_negative_dry_run, negative_probe_url, NegativeProbe, ProbeBlast, ProbeClass,
@@ -125,22 +136,25 @@ pub use provenance::{
     ObservedSet, Provenance, Rationaled,
 };
 pub use report::{
-    count_journey_steps, utc_rfc3339_now, write_journey_http_report, JourneyHttpReport,
-    JourneyReportEntry, JourneyReportResult, ReportAvailability, ReportCounts, ReportDut,
-    ReportTrace, SuiteKind, SCHEMA_VERSION,
+    count_journey_steps, utc_rfc3339_now, write_journey_http_report, ConflictKind,
+    JourneyHttpReport, JourneyReportEntry, JourneyReportResult, ReportAvailability, ReportConflict,
+    ReportCounts, ReportDut, ReportTrace, SuiteKind, SCHEMA_VERSION,
 };
 pub use resolve::{resolve, resolve_port_ref, resolve_service_ports, ResolveError, ResolvedPorts};
 pub use resource::{Resource, ResourceOwnership};
 pub use runner::{
-    evaluate_http_response, execute_curl, fetch_dut_version, format_dry_run, format_http_fail,
-    http_journeys, http_method_label, http_mutating_smoke_steps, http_smoke_steps, http_steps,
-    join_url, journey_availability_skip, journey_http_mode_conflict, journey_http_requires_base,
-    mutating_smoke_body, mutating_smoke_path_bind, mutating_smoke_setup_calls,
-    mutating_smoke_skip_reason, mutating_smoke_teardown_calls, resolve_http_path,
-    run_core_image_switch, run_http_step, run_negative_probe, run_smoke_http_call,
-    summarize_journey, tier1_get_coverage, wait_for_blueos, DutVersion, JourneyResult, RunCounts,
-    RunnableStep, StepResult, Tier1GetCoverage, MUTATING_SMOKE_DEFAULT_FIXTURES,
-    SMOKE_CORE_MASTER_JSON, SMOKE_CORE_MASTER_TAG, SMOKE_CORE_SWITCH_JSON, SMOKE_CORE_SWITCH_TAG,
+    dut_profile_for_host, dut_version_current_json, effect_observation_changed, effect_read_after,
+    effect_read_after_observed, effect_read_before, effect_read_enabled, evaluate_http_response,
+    execute_curl, fetch_dut_version, format_dry_run, format_http_fail, http_journeys,
+    http_method_label, http_mutating_smoke_steps, http_smoke_steps, http_steps, join_url,
+    journey_availability_skip, journey_http_mode_conflict, journey_http_requires_base,
+    journey_profile_skip, mutating_effect_read_phases, mutating_smoke_body,
+    mutating_smoke_path_bind, mutating_smoke_setup_calls, mutating_smoke_skip_reason,
+    mutating_smoke_teardown_calls, resolve_http_path, run_core_image_switch, run_http_step,
+    run_negative_probe, run_smoke_http_call, summarize_journey, tier1_get_coverage,
+    wait_for_blueos, DutProfile, DutVersion, EffectReadAfter, EffectReadBefore,
+    EffectReadBeforeResult, JourneyResult, RunCounts, RunnableStep, StepResult, Tier1GetCoverage,
+    MUTATING_SMOKE_DEFAULT_FIXTURES, SMOKE_CORE_SWITCH_JSON, SMOKE_CORE_SWITCH_TAG,
     SMOKE_DEFAULT_FIXTURES,
 };
 pub use runtime::{
@@ -152,8 +166,9 @@ pub use sitl_cal::{needs_calibration_frame, needs_vectored_frame, SitlRc};
 pub use state::StateMachine;
 pub use trust::{DangerousOperation, PrivilegeLevel, UserConfirmation};
 pub use ui::{
-    ui_plan, ui_suite_plans, wizard_skip_plan, UiAction, UiJourneyPlan, UI_CALIBRATION_JOURNEYS,
-    UI_NO_HARDWARE_JOURNEYS,
+    ui_fixture_skip_reason, ui_plan, ui_suite_plans, ui_typed_skip_reason, wizard_skip_plan,
+    UiAction, UiJourneyPlan, UI_CALIBRATION_JOURNEYS, UI_CAMERA_JOURNEYS, UI_EXTENSION_JOURNEYS,
+    UI_NO_HARDWARE_JOURNEYS, UI_TYPED_SKIP, UI_VERSION_SETTINGS_JOURNEYS,
 };
 pub use validate::{validate, ValidationError, COVERAGE_UNKNOWN_THRESHOLD};
 pub use version::{

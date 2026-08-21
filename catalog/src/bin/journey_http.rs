@@ -1,30 +1,37 @@
 // Live HTTP journey runner: `journey_http --base http://<pi> [--fixtures internet,pirate,advanced]`.
 // Tier-1 smoke (GET + known status only): `journey_http --base http://<pi> --smoke`.
 // Tier-2 mutating smoke (allowlisted reversible journeys): `journey_http --base http://<pi> --mutating-smoke`.
-// Frontend cache contract: `journey_http --base http://<pi> --frontend-cache`.
+// Frontend PWA/cache contract: `journey_http --base http://<pi> --frontend-cache`.
 // Offline plan: `journey_http --dry-run` (no --base).
 use std::io::Write;
 use std::path::Path;
 use std::process;
 use std::time::Duration;
 
+use blueos_catalog::provenance::Grounded;
+use blueos_catalog::runner::run_http_step_detailed;
 use blueos_catalog::sitl_cal::{self, BoardRestore};
 use blueos_catalog::wifi_rf::{self, ApMode};
 use blueos_catalog::{
-    evaluate_journey, execute_curl, fetch_dut_version, format_dry_run, format_http_fail,
-    format_negative_dry_run, http_journeys, http_mutating_smoke_steps, http_smoke_steps,
-    http_steps, is_mutating_smoke_journey, join_url, journey_availability_skip,
-    journey_fixtures_ready, journey_http_mode_conflict, journey_http_requires_base,
-    journey_mutating_smoke_ready, mutating_smoke_setup_calls, mutating_smoke_skip_reason,
+    dut_profile_for_host, dut_version_current_json, effect_read_after, effect_read_before,
+    effect_read_enabled, effect_read_probe_journey, evaluate_http_response, evaluate_journey,
+    execute_curl, fetch_dut_version, format_dry_run, format_http_fail, format_negative_dry_run,
+    http_journeys, http_mutating_smoke_steps, http_smoke_steps, http_steps,
+    is_camera_mutating_smoke_journey, is_mutating_smoke_journey, join_url,
+    journey_availability_skip, journey_fixtures_ready, journey_http_mode_conflict,
+    journey_http_requires_base, journey_mutating_smoke_ready, journey_profile_skip,
+    mutating_effect_read_phases, mutating_smoke_setup_calls, mutating_smoke_skip_reason,
     mutating_smoke_teardown_calls, negative_probe_url, parse_fixture_list, resolve_http_path,
-    run_core_image_switch, run_frontend_cache, run_http_step, run_negative_probe,
-    run_smoke_http_call, summarize_journey, ui_suite_plans, utc_rfc3339_now, wait_for_blueos,
-    wizard_skip_plan, write_journey_http_report, Catalog, DutVersion, FixtureInventory, HttpMethod,
-    JourneyHttpReport, JourneyId, JourneyReportEntry, JourneyResult, NegativeProbe,
-    PreconditionStatus, ReportDut, RunCounts, StepResult, SuiteKind, UiJourneyPlan,
-    MUTATING_SMOKE_DEFAULT_FIXTURES, NEGATIVE_PROBES, SCHEMA_VERSION, SMOKE_CORE_MASTER_JSON,
-    SMOKE_CORE_MASTER_TAG, SMOKE_CORE_SWITCH_JSON, SMOKE_CORE_SWITCH_TAG, SMOKE_DEFAULT_FIXTURES,
-    TIER2_SMOKE_DUT_CORE_DIGEST,
+    run_core_image_switch, run_frontend_cache, run_negative_probe, run_smoke_http_call,
+    summarize_journey, ui_fixture_skip_reason, ui_plan, ui_suite_plans, utc_rfc3339_now,
+    wait_for_blueos, wizard_skip_plan, write_journey_http_report, BlastRadius, Catalog,
+    ConflictKind, DutProfile, DutVersion, EffectReadBefore, EffectReadBeforeResult,
+    FixtureInventory, HttpMethod, JourneyHttpReport, JourneyId, JourneyReportEntry, JourneyResult,
+    McmStreamRestore, McmV4lRestore, NegativeProbe, PreconditionStatus, ReportConflict, ReportDut,
+    RunCounts, RunnableStep, StepResult, SuiteKind, UiJourneyPlan, UserJourney,
+    MUTATING_SMOKE_DEFAULT_FIXTURES, MUTATING_SMOKE_ENTRIES, NEGATIVE_PROBES, SCHEMA_VERSION,
+    SMOKE_CATALOG_STREAM_JSON, SMOKE_CORE_SWITCH_JSON, SMOKE_CORE_SWITCH_TAG,
+    SMOKE_DEFAULT_FIXTURES, UI_CAMERA_JOURNEYS,
 };
 
 fn main() {
@@ -141,11 +148,32 @@ fn main() {
     }
 
     if ui {
+        let fixtures_label = fixtures_spec
+            .clone()
+            .unwrap_or_else(|| SMOKE_DEFAULT_FIXTURES.to_string());
+        let fixtures = match fixtures_spec {
+            Some(spec) => match parse_fixture_list(&spec) {
+                Ok(fixtures) => fixtures,
+                Err(err) => {
+                    eprintln!("journey_http: fixtures: {err}");
+                    process::exit(2);
+                }
+            },
+            None => match parse_fixture_list(SMOKE_DEFAULT_FIXTURES) {
+                Ok(fixtures) => fixtures,
+                Err(err) => {
+                    eprintln!("journey_http: fixtures: {err}");
+                    process::exit(2);
+                }
+            },
+        };
         run_ui_suite(
             base.as_deref(),
             dry_run,
             journey_filter,
             report_path.as_deref(),
+            &fixtures_label,
+            &fixtures,
         );
         return;
     }
@@ -238,9 +266,16 @@ fn main() {
     };
 
     let catalog = Catalog::bootstrap();
-    let mut journeys: Vec<_> = http_journeys(&catalog);
+    let mut journeys: Vec<_> = if mutating_smoke {
+        catalog
+            .journeys()
+            .iter()
+            .filter(|journey| is_mutating_smoke_journey(journey.id))
+            .collect()
+    } else {
+        http_journeys(&catalog)
+    };
     if mutating_smoke {
-        journeys.retain(|journey| is_mutating_smoke_journey(journey.id));
         // Forget needs healthy wpa before late hotspot churn; core switch restarts mid-suite;
         // reboot must stay last.
         journeys.sort_by_key(|journey| match journey.id {
@@ -253,7 +288,14 @@ fn main() {
     if let Some(filter) = journey_filter {
         journeys.retain(|journey| journey.id == filter);
         if journeys.is_empty() {
-            eprintln!("journey_http: no Http journey with id {filter}");
+            eprintln!(
+                "journey_http: no {} journey with id {filter}",
+                if mutating_smoke {
+                    "mutating-smoke"
+                } else {
+                    "Http"
+                }
+            );
             process::exit(2);
         }
     }
@@ -314,6 +356,26 @@ fn main() {
     };
     println!();
 
+    let dut_profile = base.as_deref().map(dut_profile_for_host);
+
+    let needs_mcm_stream_restore = mutating_smoke
+        && !dry_run
+        && base.is_some()
+        && journeys
+            .iter()
+            .any(|journey| is_camera_mutating_smoke_journey(journey.id));
+    let mcm_stream_restore = if needs_mcm_stream_restore {
+        match McmStreamRestore::snapshot(base.as_deref().expect("base for MCM snapshot")) {
+            Ok(restore) => Some(restore),
+            Err(err) => {
+                eprintln!("journey_http: snapshot MCM streams: {err}");
+                process::exit(1);
+            }
+        }
+    } else {
+        None
+    };
+
     for journey in journeys {
         let journey_id = journey.id;
         if mutating_smoke {
@@ -332,21 +394,10 @@ fn main() {
                 continue;
             }
         }
-        let fixtures_ready = if mutating_smoke {
-            journey_mutating_smoke_ready(journey, &fixtures)
-        } else {
-            journey_fixtures_ready(journey, &fixtures)
-        };
 
-        if let Some(dut) = dut_version.as_ref() {
-            if let Some(reason) = journey_availability_skip(journey, dut) {
-                let step_count = if smoke {
-                    http_smoke_steps(journey).len().max(1)
-                } else if mutating_smoke {
-                    http_mutating_smoke_steps(journey).len().max(1)
-                } else {
-                    http_steps(journey).len().max(1)
-                };
+        if let Some(profile) = dut_profile.as_ref() {
+            if let Some(reason) = journey_profile_skip(journey, profile) {
+                let step_count = journey_step_count(journey, smoke, mutating_smoke);
                 totals.skipped += step_count;
                 journey_lines.push(format!("SKIP {journey_id}: {reason}"));
                 if emit_report {
@@ -361,15 +412,64 @@ fn main() {
             }
         }
 
+        let fixtures_ready = if mutating_smoke {
+            journey_mutating_smoke_ready(journey, &fixtures)
+        } else {
+            journey_fixtures_ready(journey, &fixtures)
+        };
+
+        let availability_skip_reason = dut_version
+            .as_ref()
+            .and_then(|dut| journey_availability_skip(journey, dut));
+
+        if let Some(reason) = availability_skip_reason.as_ref() {
+            if ghost_presence_eligible(smoke, dut_profile.as_ref(), journey) {
+                let steps = http_smoke_steps(journey);
+                let base = base.as_deref().expect("base checked above");
+                let (outcome, step_results, conflicts) =
+                    run_ghost_presence_probes(&catalog, base, reason, &steps);
+                for conflict in &conflicts {
+                    eprintln!(
+                        "ADVISORY {journey_id}: {:?} — {}",
+                        conflict.kind, conflict.context
+                    );
+                    journey_lines.push(format!(
+                        "ADVISORY {journey_id}: {:?} — {}",
+                        conflict.kind, conflict.context
+                    ));
+                }
+                for result in &step_results {
+                    totals.record(result);
+                }
+                if emit_report {
+                    let mut entry = JourneyReportEntry::from_run(
+                        journey_id,
+                        &journey.availability,
+                        outcome,
+                        &step_results,
+                    );
+                    entry.conflicts = conflicts;
+                    report_journeys.push(entry);
+                }
+                continue;
+            }
+
+            totals.skipped += journey_step_count(journey, smoke, mutating_smoke);
+            journey_lines.push(format!("SKIP {journey_id}: {reason}"));
+            if emit_report {
+                report_journeys.push(JourneyReportEntry::skipped(
+                    journey_id,
+                    &journey.availability,
+                    reason.clone(),
+                    journey_step_count(journey, smoke, mutating_smoke),
+                ));
+            }
+            continue;
+        }
+
         if !fixtures_ready {
             let reasons = skip_reasons(journey, &fixtures);
-            let step_count = if smoke {
-                http_smoke_steps(journey).len().max(1)
-            } else if mutating_smoke {
-                http_mutating_smoke_steps(journey).len().max(1)
-            } else {
-                http_steps(journey).len().max(1)
-            };
+            let step_count = journey_step_count(journey, smoke, mutating_smoke);
             totals.skipped += step_count;
             let reason = reasons.join("; ");
             journey_lines.push(format!("SKIP {journey_id}: {reason}"));
@@ -391,7 +491,11 @@ fn main() {
         } else {
             http_steps(journey)
         };
-        if steps.is_empty() && !(mutating_smoke && wifi_rf::is_rf_status_journey(journey_id)) {
+        if steps.is_empty()
+            && !(mutating_smoke
+                && (wifi_rf::is_rf_status_journey(journey_id)
+                    || is_camera_mutating_smoke_journey(journey_id)))
+        {
             let reason = if smoke {
                 "no smoke-eligible GET steps with expected_status"
             } else if mutating_smoke {
@@ -425,7 +529,25 @@ fn main() {
 
         let base = base.as_deref().expect("base checked above");
         let mut step_results = Vec::new();
+        let mut journey_conflicts: Vec<ReportConflict> = Vec::new();
         let mut hotspot_creds_snapshot: Option<String> = None;
+        let effect_step_index = mutating_smoke
+            .then(|| {
+                MUTATING_SMOKE_ENTRIES
+                    .iter()
+                    .find(|entry| entry.journey_id == journey_id)
+                    .and_then(|entry| entry.effect_read.as_ref())
+                    .map(|effect| effect.step_index)
+            })
+            .flatten();
+        let effect_read_active =
+            effect_read_enabled(effect_step_index, wifi_rf::is_rf_status_journey(journey_id));
+        let effect_phases = mutating_effect_read_phases(effect_read_active);
+        let mut effect_read_state: Option<EffectReadBefore> = None;
+        let effect_probe_journey = effect_read_probe_journey(journey_id)
+            .and_then(|probe_id| catalog.journeys().iter().find(|j| j.id == probe_id))
+            .unwrap_or(journey);
+        let mut v4l_restore: Option<McmV4lRestore> = None;
 
         if mutating_smoke {
             if journey_id == JourneyId::ConfigureHotspotCredentials {
@@ -473,6 +595,27 @@ fn main() {
                 let _ = wifi_rf::rf_teardown(journey_id);
                 continue;
             }
+            if journey_id == JourneyId::ConfigureUvcDeviceControls {
+                match McmV4lRestore::snapshot(base) {
+                    Ok(restore) => v4l_restore = Some(restore),
+                    Err(err) => {
+                        eprintln!("FAIL {journey_id} UVC snapshot — {err}");
+                        totals.failed += 1;
+                        step_results.push(StepResult::Fail(err));
+                        any_fail = true;
+                        journey_lines.push(format!("Fail {journey_id}: UVC snapshot"));
+                        if emit_report {
+                            report_journeys.push(JourneyReportEntry::from_run(
+                                journey_id,
+                                &journey.availability,
+                                JourneyResult::Fail,
+                                &step_results,
+                            ));
+                        }
+                        continue;
+                    }
+                }
+            }
             for call in mutating_smoke_setup_calls(journey_id) {
                 let result = run_smoke_http_call(&catalog, base, call, allow_mutating);
                 if let StepResult::Fail(msg) = &result {
@@ -483,6 +626,26 @@ fn main() {
                 }
                 totals.record(&result);
                 step_results.push(result);
+            }
+            if effect_phases.contains(&"before") {
+                let step_index = effect_step_index.expect("before phase implies step_index");
+                match effect_read_before(&catalog, base, effect_probe_journey, step_index) {
+                    EffectReadBeforeResult::Ready(state) => {
+                        eprintln!(
+                            "journey_http: effect_read before GET {} step {}",
+                            state.probe.route.path, state.probe.step_index
+                        );
+                        effect_read_state = Some(state);
+                    }
+                    EffectReadBeforeResult::Failed(result) => {
+                        if let StepResult::Fail(msg) = &result {
+                            eprintln!("FAIL {journey_id} effect_read before — {msg}");
+                        }
+                        totals.record(&result);
+                        step_results.push(result);
+                    }
+                    EffectReadBeforeResult::Skipped => {}
+                }
             }
         }
 
@@ -536,6 +699,42 @@ fn main() {
                     step_results.push(StepResult::Fail(err));
                 }
             }
+        } else if mutating_smoke && journey_id == JourneyId::ConfigureCameraStream {
+            let url = join_url(base, "/mavlink-camera-manager/streams");
+            let result = match execute_curl(
+                &HttpMethod::Post,
+                &url,
+                allow_mutating,
+                Some(SMOKE_CATALOG_STREAM_JSON),
+                None,
+            ) {
+                Ok((status, body)) => evaluate_http_response(status, &body, Some(200), None),
+                Err(err) => StepResult::Fail(err),
+            };
+            if let StepResult::Fail(msg) = &result {
+                eprintln!("FAIL {journey_id} POST /streams — {msg}");
+            }
+            totals.record(&result);
+            step_results.push(result);
+        } else if mutating_smoke && journey_id == JourneyId::ConfigureUvcDeviceControls {
+            let restore = v4l_restore.as_ref().expect("UVC snapshot");
+            let result = match restore.mutate_brightness_body() {
+                Ok(body) => {
+                    let url = join_url(base, "/mavlink-camera-manager/v4l");
+                    match execute_curl(&HttpMethod::Post, &url, allow_mutating, Some(&body), None) {
+                        Ok((status, resp)) => {
+                            evaluate_http_response(status, &resp, Some(200), None)
+                        }
+                        Err(err) => StepResult::Fail(err),
+                    }
+                }
+                Err(err) => StepResult::Fail(err),
+            };
+            if let StepResult::Fail(msg) = &result {
+                eprintln!("FAIL {journey_id} POST /v4l — {msg}");
+            }
+            totals.record(&result);
+            step_results.push(result);
         } else {
             for step in &steps {
                 let resolved_url = resolve_http_path(&catalog, &step.route)
@@ -553,7 +752,10 @@ fn main() {
                         allow_mutating,
                     )
                 } else {
-                    run_http_step(&catalog, base, step, allow_mutating)
+                    finalize_http_step_run(
+                        &mut journey_conflicts,
+                        run_http_step_detailed(&catalog, base, step, allow_mutating),
+                    )
                 };
                 if let StepResult::Fail(msg) = &result {
                     eprintln!("{}", format_http_fail(journey_id, step, &resolved_url, msg));
@@ -673,18 +875,43 @@ fn main() {
             }
         }
 
+        drop(v4l_restore);
+
+        if mutating_smoke && effect_phases.contains(&"after") {
+            if let Some(before) = effect_read_state {
+                let after = effect_read_after(&catalog, base, journey_id, &before);
+                if let Some(conflict) = &after.conflict {
+                    eprintln!("FAIL {journey_id} effect_read — {}", conflict.context);
+                    journey_conflicts.push(conflict.clone());
+                }
+                if let StepResult::Fail(msg) = &after.result {
+                    eprintln!("FAIL {journey_id} effect_read after — {msg}");
+                } else {
+                    eprintln!(
+                        "journey_http: effect_read after GET {} changed",
+                        before.probe.route.path
+                    );
+                }
+                totals.record(&after.result);
+                step_results.push(after.result);
+            }
+        }
+
         if mutating_smoke {
             if journey_id == JourneyId::SwitchLocalBlueosVersion {
-                eprintln!(
-                    "journey_http: restoring core image to tag `{SMOKE_CORE_MASTER_TAG}` (intended digest {TIER2_SMOKE_DUT_CORE_DIGEST})…"
-                );
-                let result = run_core_image_switch(
-                    &catalog,
-                    base,
-                    SMOKE_CORE_MASTER_JSON,
-                    SMOKE_CORE_MASTER_TAG,
-                    allow_mutating,
-                );
+                let result = if let Some(dut) = dut_version.as_ref() {
+                    let restore_json = dut_version_current_json(dut);
+                    eprintln!(
+                        "journey_http: restoring core image to tag `{}` (digest {})…",
+                        dut.tag,
+                        dut.digest.as_deref().unwrap_or("(none)")
+                    );
+                    run_core_image_switch(&catalog, base, &restore_json, &dut.tag, allow_mutating)
+                } else {
+                    StepResult::Fail(
+                        "core restore: no GET /version/current snapshot from before switch".into(),
+                    )
+                };
                 if let StepResult::Fail(msg) = &result {
                     eprintln!("FAIL {journey_id} teardown core restore — {msg}");
                 }
@@ -727,16 +954,23 @@ fn main() {
         if outcome == JourneyResult::Fail {
             any_fail = true;
         }
-        journey_lines.push(format!("{outcome:?} {journey_id}: {} step(s)", steps.len()));
+        journey_lines.push(format!(
+            "{outcome:?} {journey_id}: {} step(s)",
+            step_results.len().max(1)
+        ));
         if emit_report {
-            report_journeys.push(JourneyReportEntry::from_run(
+            let mut entry = JourneyReportEntry::from_run(
                 journey_id,
                 &journey.availability,
                 outcome,
                 &step_results,
-            ));
+            );
+            entry.conflicts = journey_conflicts;
+            report_journeys.push(entry);
         }
     }
+
+    drop(mcm_stream_restore);
 
     println!();
     println!(
@@ -778,7 +1012,84 @@ fn main() {
     }
 }
 
-fn skip_reasons(journey: &blueos_catalog::UserJourney, fixtures: &FixtureInventory) -> Vec<String> {
+fn journey_step_count(journey: &UserJourney, smoke: bool, mutating_smoke: bool) -> usize {
+    if smoke {
+        http_smoke_steps(journey).len().max(1)
+    } else if mutating_smoke {
+        http_mutating_smoke_steps(journey).len().max(1)
+    } else {
+        http_steps(journey).len().max(1)
+    }
+}
+
+fn ghost_presence_eligible(
+    smoke: bool,
+    profile: Option<&DutProfile>,
+    journey: &UserJourney,
+) -> bool {
+    smoke
+        && profile.is_some_and(|p| !p.never_strand_mgmt)
+        && matches!(
+            journey.blast_radius,
+            Grounded::Known {
+                value: BlastRadius::Safe,
+                ..
+            }
+        )
+}
+
+fn run_ghost_presence_probes(
+    catalog: &Catalog,
+    base: &str,
+    availability_reason: &str,
+    steps: &[RunnableStep],
+) -> (JourneyResult, Vec<StepResult>, Vec<ReportConflict>) {
+    let mut step_results = Vec::new();
+    let mut conflicts = Vec::new();
+
+    for step in steps {
+        let Some(path) = resolve_http_path(catalog, &step.route) else {
+            step_results.push(StepResult::Skip(
+                "unresolved or templated route path".into(),
+            ));
+            continue;
+        };
+        let url = join_url(base, &path);
+        let response = execute_curl(&HttpMethod::Get, &url, false, None, None);
+        match response {
+            Ok((status_code, _body)) if (200..300).contains(&status_code) => {
+                let context = format!(
+                    "presence: HTTP {status_code} on GET {} while {availability_reason}",
+                    step.route.path
+                );
+                conflicts.push(ReportConflict {
+                    kind: ConflictKind::CatalogWrongStatus,
+                    context,
+                });
+                step_results.push(StepResult::Ignored);
+            }
+            Ok((status_code, _body)) => {
+                step_results.push(StepResult::Pass);
+                eprintln!(
+                    "journey_http: ghost {:?} {} HTTP {status_code} (absent as expected)",
+                    step.route.method, step.route.path
+                );
+            }
+            Err(err) => {
+                step_results.push(StepResult::Pass);
+                eprintln!(
+                    "journey_http: ghost {:?} {} — {err} (absent as expected)",
+                    step.route.method, step.route.path
+                );
+            }
+        }
+    }
+
+    let outcome = summarize_journey(&step_results);
+    (outcome, step_results, conflicts)
+}
+
+fn skip_reasons(journey: &UserJourney, fixtures: &FixtureInventory) -> Vec<String> {
     evaluate_journey(journey, fixtures)
         .into_iter()
         .filter_map(|status| match status {
@@ -814,6 +1125,8 @@ fn run_ui_suite(
     dry_run: bool,
     journey_filter: Option<JourneyId>,
     report_path: Option<&str>,
+    fixtures_label: &str,
+    fixtures: &FixtureInventory,
 ) {
     let mut plans: Vec<UiJourneyPlan> = ui_suite_plans()
         .into_iter()
@@ -821,11 +1134,22 @@ fn run_ui_suite(
         .collect();
     if let Some(filter) = journey_filter {
         if plans.is_empty() {
-            eprintln!("journey_http: no UI plan for journey {filter}");
-            process::exit(2);
+            match ui_plan(filter) {
+                Some(plan) => plans.push(plan),
+                None => {
+                    eprintln!("journey_http: no UI plan for journey {filter}");
+                    process::exit(2);
+                }
+            }
         }
     }
     plans.insert(0, wizard_skip_plan());
+
+    let needs_mcm = plans.iter().any(|plan| {
+        UI_CAMERA_JOURNEYS
+            .iter()
+            .any(|id| plan.journey_id == id.as_str())
+    });
 
     if dry_run {
         println!("{}", serde_json::to_string_pretty(&plans).unwrap());
@@ -835,6 +1159,12 @@ fn run_ui_suite(
     let base = base.expect("--ui requires --base");
     if base.contains("192.168.2.2") {
         eprintln!("journey_http: --ui refuses 192.168.2.2 (physical USB vehicle)");
+        process::exit(2);
+    }
+
+    let needs_sitl = plans.iter().any(|p| p.sitl_frame.is_some());
+    if needs_sitl && !base.contains("192.168.0.177") {
+        eprintln!("journey_http: SITL --ui only on 192.168.0.177");
         process::exit(2);
     }
 
@@ -850,7 +1180,10 @@ fn run_ui_suite(
     let mut report_journeys: Vec<JourneyReportEntry> = Vec::new();
     let mut any_fail = false;
 
-    println!("journey_http: ui — {} plan(s)", plans.len());
+    println!(
+        "journey_http: ui — {} plan(s) (fixtures={fixtures_label})",
+        plans.len()
+    );
     println!("base: {base}");
     if let Some(dut) = &dut_version {
         let digest = dut.digest.as_deref().unwrap_or("(none)");
@@ -858,21 +1191,78 @@ fn run_ui_suite(
     }
     println!();
 
-    let restore = match BoardRestore::snapshot(base) {
-        Ok(restore) => Some(restore),
-        Err(err) => {
-            eprintln!("journey_http: snapshot board: {err}");
-            process::exit(1);
+    let mut fixture_skipped: Vec<(JourneyId, String)> = Vec::new();
+    plans.retain(|plan| {
+        if plan.journey_id == "wizard_skip" {
+            return true;
         }
+        let Some(journey_id) = JourneyId::ALL
+            .iter()
+            .copied()
+            .find(|id| id.as_str() == plan.journey_id)
+        else {
+            return true;
+        };
+        let Some(journey) = journeys.get(&journey_id) else {
+            return true;
+        };
+        if let Some(reason) = ui_fixture_skip_reason(journey, fixtures) {
+            fixture_skipped.push((journey_id, reason));
+            false
+        } else {
+            true
+        }
+    });
+    for (journey_id, reason) in fixture_skipped {
+        println!("SKIP {journey_id}: {reason}");
+        totals.skipped += 1;
+        report_journeys.push(JourneyReportEntry::skipped(
+            journey_id,
+            journeys
+                .get(&journey_id)
+                .map(|journey| &journey.availability)
+                .expect("skipped journey in catalog"),
+            reason,
+            1,
+        ));
+    }
+
+    let restore = if needs_sitl {
+        match BoardRestore::snapshot(base) {
+            Ok(restore) => Some(restore),
+            Err(err) => {
+                eprintln!("journey_http: snapshot board: {err}");
+                process::exit(1);
+            }
+        }
+    } else {
+        None
     };
 
-    let sitl_json = match sitl_cal::sitl_board_json(base) {
-        Ok(json) => json,
-        Err(err) => {
-            eprintln!("journey_http: SITL board: {err}");
-            drop(restore);
-            process::exit(1);
+    let sitl_json = if needs_sitl {
+        match sitl_cal::sitl_board_json(base) {
+            Ok(json) => Some(json),
+            Err(err) => {
+                eprintln!("journey_http: SITL board: {err}");
+                drop(restore);
+                process::exit(1);
+            }
         }
+    } else {
+        None
+    };
+
+    let mcm_restore = if needs_mcm {
+        match McmStreamRestore::snapshot(base) {
+            Ok(restore) => Some(restore),
+            Err(err) => {
+                eprintln!("journey_http: snapshot MCM streams: {err}");
+                drop(restore);
+                process::exit(1);
+            }
+        }
+    } else {
+        None
     };
 
     // Abort-wizard equivalent so Vehicle Setup is not under the first-boot dialog.
@@ -899,7 +1289,9 @@ fn run_ui_suite(
     for (frame, group) in groups {
         if let Some(frame) = frame {
             println!("journey_http: SITL frame {frame}");
-            if let Err(err) = sitl_cal::set_board(base, &sitl_json, Some(frame)) {
+            if let Err(err) =
+                sitl_cal::set_board(base, sitl_json.as_deref().expect("needs_sitl"), Some(frame))
+            {
                 eprintln!("FAIL sitl_frame {frame} — {err}");
                 any_fail = true;
                 totals.failed += group.len();
@@ -928,7 +1320,7 @@ fn run_ui_suite(
             let _ = sitl_cal::post_rc_override(base, sitl_cal::SitlRc::stop());
         }
 
-        match run_playwright_ui(base, &group) {
+        match run_playwright_ui(base, &group, fixtures_label) {
             Ok(results) => {
                 for (id, pass, detail) in results {
                     if pass {
@@ -951,6 +1343,7 @@ fn run_ui_suite(
     }
 
     drop(restore);
+    drop(mcm_restore);
 
     println!();
     println!(
@@ -1001,7 +1394,7 @@ fn emit_ui_report_entry(
     report_journeys.push(JourneyReportEntry::from_run(
         journey_id,
         &journey.availability,
-        summarize_journey(&[result.clone()]),
+        summarize_journey(std::slice::from_ref(&result)),
         &[result],
     ));
     true
@@ -1010,6 +1403,7 @@ fn emit_ui_report_entry(
 fn run_playwright_ui(
     base: &str,
     plans: &[UiJourneyPlan],
+    fixtures_label: &str,
 ) -> Result<Vec<(String, bool, String)>, String> {
     let e2e = Path::new(env!("CARGO_MANIFEST_DIR")).join("e2e");
     let plan_path = std::env::temp_dir().join("blueos-catalog-ui-plan.json");
@@ -1019,6 +1413,7 @@ fn run_playwright_ui(
     let output = process::Command::new("npx")
         .current_dir(&e2e)
         .env("BLUEOS_BASE", base)
+        .env("BLUEOS_FIXTURES", fixtures_label)
         .env("UI_PLAN", &plan_path)
         .args([
             "playwright",
@@ -1222,4 +1617,141 @@ fn run_wifi_mode(base: &str, mode: ApMode) -> Result<String, String> {
         return Err(format!("POST /connect HTTP {status}: {body}"));
     }
     wifi_rf::l3_assert_associated(base, mode)
+}
+
+fn finalize_http_step_run(
+    journey_conflicts: &mut Vec<ReportConflict>,
+    run: blueos_catalog::runner::HttpStepRun,
+) -> StepResult {
+    if let Some(conflict) = run.conflict {
+        journey_conflicts.push(conflict);
+    }
+    run.result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use blueos_catalog::journey::Visibility;
+    use blueos_catalog::provenance::{Grounded, GroundedSet, Provenance};
+    use blueos_catalog::runner::product_missing_reject_conflict;
+    use blueos_catalog::version::FeatureAvailability;
+    use blueos_catalog::{BodyKind, RouteRef, ServiceId};
+
+    const DOC: Provenance = Provenance::doc("journey_http_test", 1);
+
+    fn test_journey(blast_radius: BlastRadius) -> UserJourney {
+        UserJourney {
+            id: JourneyId::ConnectToWifiNetwork,
+            summary: Grounded::known("ghost test", DOC),
+            visibility: Grounded::known(Visibility::Default, DOC),
+            services: GroundedSet::unknown("test"),
+            capability_refs: GroundedSet::unknown("test"),
+            preconditions: GroundedSet::known(&[]),
+            steps: GroundedSet::known(&[]),
+            availability: FeatureAvailability::unknown(),
+            blast_radius: Grounded::known(blast_radius, DOC),
+            chains_from: None,
+        }
+    }
+
+    #[test]
+    fn ghost_presence_eligible_requires_smoke_safe_profile_and_not_2_2() {
+        let safe = test_journey(BlastRadius::Safe);
+        let play = dut_profile_for_host("http://192.168.0.177");
+        let vehicle = dut_profile_for_host("http://192.168.2.2");
+
+        assert!(ghost_presence_eligible(true, Some(&play), &safe));
+        assert!(!ghost_presence_eligible(false, Some(&play), &safe));
+        assert!(!ghost_presence_eligible(true, Some(&vehicle), &safe));
+        assert!(!ghost_presence_eligible(true, None, &safe));
+
+        let reversible = test_journey(BlastRadius::Reversible);
+        assert!(!ghost_presence_eligible(true, Some(&play), &reversible));
+        let destructive = test_journey(BlastRadius::Destructive);
+        assert!(!ghost_presence_eligible(true, Some(&play), &destructive));
+    }
+
+    #[test]
+    fn ghost_presence_probes_use_get_only_and_never_fail_wave() {
+        let catalog = Catalog::bootstrap();
+        let journey = catalog
+            .journey_by_id(&JourneyId::ConnectToWifiNetwork)
+            .expect("wifi journey");
+        let steps = http_smoke_steps(journey);
+        assert!(!steps.is_empty());
+        assert!(steps
+            .iter()
+            .all(|step| matches!(step.route.method, HttpMethod::Get)));
+
+        let (outcome, results, _) = run_ghost_presence_probes(
+            &catalog,
+            "http://127.0.0.1:1",
+            "not present on test tag",
+            &steps,
+        );
+        assert_ne!(outcome, JourneyResult::Fail);
+        assert!(!results.iter().any(|r| matches!(r, StepResult::Fail(_))));
+    }
+
+    #[test]
+    fn ghost_presence_probes_skip_unresolved_routes() {
+        let catalog = Catalog::bootstrap();
+        let steps = vec![RunnableStep {
+            journey_id: JourneyId::ConnectToWifiNetwork,
+            step_index: 0,
+            route: RouteRef {
+                service: ServiceId::Wifi,
+                method: HttpMethod::Post,
+                path: "/{iface}/missing",
+                version: Some("v1.0"),
+            },
+            expected_status: Some(200),
+            body_predicate: None,
+            body_kind: blueos_catalog::BodyKind::Unknown,
+            body: None,
+            query: None,
+            form_file: None,
+        }];
+
+        let (_, results, _) = run_ghost_presence_probes(
+            &catalog,
+            "http://127.0.0.1:1",
+            "not present on test tag",
+            &steps,
+        );
+        assert!(matches!(results[0], StepResult::Skip(_)));
+    }
+
+    #[test]
+    fn wave_path_attaches_product_missing_reject_conflict() {
+        let step = RunnableStep {
+            journey_id: JourneyId::InspectDiskUsage,
+            step_index: 1,
+            route: RouteRef {
+                service: ServiceId::DiskUsage,
+                method: HttpMethod::Get,
+                path: "/disk/usage",
+                version: Some("v1.0"),
+            },
+            expected_status: Some(200),
+            body_predicate: Some("\"detail\""),
+            body_kind: BodyKind::ErrorEnvelope,
+            body: None,
+            query: None,
+            form_file: None,
+        };
+        let run = blueos_catalog::runner::HttpStepRun {
+            result: StepResult::Pass,
+            conflict: product_missing_reject_conflict(&step, 200),
+        };
+        let mut journey_conflicts = Vec::new();
+        let result = finalize_http_step_run(&mut journey_conflicts, run);
+        assert!(matches!(result, StepResult::Pass));
+        assert_eq!(journey_conflicts.len(), 1);
+        assert_eq!(
+            journey_conflicts[0].kind,
+            ConflictKind::ProductMissingReject
+        );
+    }
 }

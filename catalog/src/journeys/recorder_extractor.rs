@@ -1,8 +1,8 @@
 use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, DataRequirement, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome,
-    UserJourney, Visibility,
+    Actor, BlastRadius, BodyKind, DataRequirement, HttpMethod, JourneyStep, Precondition, RouteRef,
+    StepOutcome, UserJourney, Visibility,
 };
 use crate::journey_presence::{
     PRESENCE_BROWSE_VIDEO_RECORDINGS, PRESENCE_DELETE_VIDEO_RECORDING,
@@ -95,7 +95,13 @@ const BROWSE_VIDEO_RECORDINGS: UserJourney =
             ),
         ]),
         availability: PRESENCE_BROWSE_VIDEO_RECORDINGS,
-    chains_from: None,
+        blast_radius: Grounded::known(
+            BlastRadius::Safe,
+            Provenance::asserted(
+                "GET /recorder/files and /recorder/status only list recordings and extraction progress",
+            ),
+        ),
+        chains_from: None,
     };
 
 const DOWNLOAD_VIDEO_RECORDING: UserJourney =
@@ -159,7 +165,13 @@ const DOWNLOAD_VIDEO_RECORDING: UserJourney =
             ),
         ]),
         availability: PRESENCE_DOWNLOAD_VIDEO_RECORDING,
-    chains_from: None,
+        blast_radius: Grounded::known(
+            BlastRadius::Safe,
+            Provenance::asserted(
+                "GET /recorder/files/{filename} streams or downloads without deleting or rewriting recordings",
+            ),
+        ),
+        chains_from: None,
     };
 
 const DELETE_VIDEO_RECORDING: UserJourney = UserJourney {
@@ -210,6 +222,12 @@ const DELETE_VIDEO_RECORDING: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_DELETE_VIDEO_RECORDING,
+    blast_radius: Grounded::known(
+        BlastRadius::Disruptive,
+        Provenance::asserted(
+            "DELETE /recorder/files/{filename} permanently removes the MP4 with no product undo",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -278,6 +296,14 @@ const fn service_step(
     )
 }
 
+const fn runtime_body_kind(status: u16, body: Option<&'static str>) -> BodyKind {
+    match body {
+        Some(_) => BodyKind::Payload,
+        None if status == 204 => BodyKind::Empty,
+        None => BodyKind::Unknown,
+    }
+}
+
 const fn pending_outcome(reason: &'static str) -> Grounded<StepOutcome> {
     Grounded::unknown(reason)
 }
@@ -287,6 +313,7 @@ const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
         StepOutcome {
             expected_status: Some(status),
             body_predicate: None,
+            body_kind: BodyKind::Unknown,
             transition: None,
         },
         Provenance::source(RECORDER_MAIN, line),
@@ -302,6 +329,7 @@ const fn runtime_outcome(
         StepOutcome {
             expected_status: Some(status),
             body_predicate: body,
+            body_kind: runtime_body_kind(status, body),
             transition: None,
         },
         Provenance::runtime(key, RUNTIME_ENV),

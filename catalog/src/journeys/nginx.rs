@@ -1,7 +1,8 @@
 use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR_REPODIGEST;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, HttpMethod, JourneyStep, RouteRef, StepOutcome, UserJourney, Visibility,
+    Actor, BlastRadius, BodyKind, HttpMethod, JourneyStep, RouteRef, StepOutcome, UserJourney,
+    Visibility,
 };
 use crate::journey_presence::PRESENCE_ACCESS_BLUEOS_WEB_INTERFACE;
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
@@ -56,6 +57,12 @@ const ACCESS_BLUEOS_WEB_INTERFACE: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_ACCESS_BLUEOS_WEB_INTERFACE,
+    blast_radius: Grounded::known(
+        BlastRadius::Safe,
+        Provenance::asserted(
+            "loads the frontend SPA and polls GET /status without mutating vehicle configuration or services",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -89,6 +96,14 @@ const fn sourced_route(
     )
 }
 
+const fn runtime_body_kind(status: u16, body: Option<&'static str>) -> BodyKind {
+    match body {
+        Some(_) => BodyKind::Payload,
+        None if status == 204 => BodyKind::Empty,
+        None => BodyKind::Unknown,
+    }
+}
+
 const fn runtime_outcome(
     status: u16,
     body: Option<&'static str>,
@@ -98,6 +113,7 @@ const fn runtime_outcome(
         StepOutcome {
             expected_status: Some(status),
             body_predicate: body,
+            body_kind: runtime_body_kind(status, body),
             transition: None,
         },
         Provenance::runtime(key, RUNTIME_ENV),

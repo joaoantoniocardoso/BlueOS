@@ -1,8 +1,8 @@
 use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, HardwareRequirement, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome,
-    UserJourney, Visibility,
+    Actor, BlastRadius, BodyKind, HardwareRequirement, HttpMethod, JourneyStep, Precondition,
+    RouteRef, StepOutcome, UserJourney, Visibility,
 };
 use crate::journey_presence::{
     PRESENCE_CONFIGURE_CAMERA_STREAM, PRESENCE_CONFIGURE_UVC_DEVICE_CONTROLS,
@@ -22,6 +22,29 @@ const VIDEO_STREAM_CREATION_DIALOG: &str =
 const VIDEO_CONTROLS_DIALOG: &str =
     "core/frontend/src/components/video-manager/VideoControlsDialog.vue";
 const RUNTIME_ENV: &str = RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
+
+const BR_VIEW_CAMERA_STREAMS: Grounded<BlastRadius> = Grounded::known(
+    BlastRadius::Safe,
+    Provenance::asserted("GET /v4l and GET /streams only enumerate devices and configured streams"),
+);
+const BR_CONFIGURE_CAMERA_STREAM: Grounded<BlastRadius> = Grounded::known(
+    BlastRadius::Reversible,
+    Provenance::asserted(
+        "POST /streams adds a stream configuration removable via DELETE /delete_stream",
+    ),
+);
+const BR_REMOVE_CAMERA_STREAM: Grounded<BlastRadius> = Grounded::known(
+    BlastRadius::Reversible,
+    Provenance::asserted(
+        "DELETE /delete_stream removes one configured stream without affecting the device",
+    ),
+);
+const BR_CONFIGURE_UVC_DEVICE_CONTROLS: Grounded<BlastRadius> = Grounded::known(
+    BlastRadius::Reversible,
+    Provenance::asserted(
+        "POST /v4l updates UVC control values adjustable again or reset on the camera",
+    ),
+);
 
 pub const JOURNEYS: &[UserJourney] = &[
     VIEW_CAMERA_STREAMS,
@@ -93,7 +116,8 @@ const VIEW_CAMERA_STREAMS: UserJourney =
             ),
         ]),
         availability: PRESENCE_VIEW_CAMERA_STREAMS,
-    chains_from: None,
+        blast_radius: BR_VIEW_CAMERA_STREAMS,
+        chains_from: None,
     };
 
 const CONFIGURE_CAMERA_STREAM: UserJourney =
@@ -171,7 +195,8 @@ const CONFIGURE_CAMERA_STREAM: UserJourney =
             ),
         ]),
         availability: PRESENCE_CONFIGURE_CAMERA_STREAM,
-    chains_from: Some(JourneyId::ViewCameraStreams),
+        blast_radius: BR_CONFIGURE_CAMERA_STREAM,
+        chains_from: Some(JourneyId::ViewCameraStreams),
     };
 
 const REMOVE_CAMERA_STREAM: UserJourney = UserJourney {
@@ -222,6 +247,7 @@ const REMOVE_CAMERA_STREAM: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_REMOVE_CAMERA_STREAM,
+    blast_radius: BR_REMOVE_CAMERA_STREAM,
     chains_from: Some(JourneyId::ViewCameraStreams),
 };
 
@@ -276,7 +302,8 @@ const CONFIGURE_UVC_DEVICE_CONTROLS: UserJourney =
             ),
         ]),
         availability: PRESENCE_CONFIGURE_UVC_DEVICE_CONTROLS,
-    chains_from: Some(JourneyId::ViewCameraStreams),
+        blast_radius: BR_CONFIGURE_UVC_DEVICE_CONTROLS,
+        chains_from: Some(JourneyId::ViewCameraStreams),
     };
 
 const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<CapabilityId> {
@@ -342,6 +369,7 @@ const fn source_outcome(status: u16, file: &'static str, line: u32) -> Grounded<
         StepOutcome {
             expected_status: Some(status),
             body_predicate: None,
+            body_kind: BodyKind::Unknown,
             transition: None,
         },
         Provenance::source(file, line),
@@ -353,10 +381,16 @@ const fn runtime_outcome(
     body: Option<&'static str>,
     key: &'static str,
 ) -> Grounded<StepOutcome> {
+    let body_kind = if body.is_some() {
+        BodyKind::Payload
+    } else {
+        BodyKind::Unknown
+    };
     Grounded::known(
         StepOutcome {
             expected_status: Some(status),
             body_predicate: body,
+            body_kind,
             transition: None,
         },
         Provenance::runtime(key, RUNTIME_ENV),

@@ -180,7 +180,8 @@ mod tests {
     fn journey_types_round_trip() {
         use crate::id::{JourneyId, ServiceId};
         use crate::journey::{
-            Actor, HttpMethod, JourneyStep, RouteRef, StepOutcome, UserJourney, Visibility,
+            Actor, BodyKind, HttpMethod, JourneyStep, RouteRef, StepOutcome, UserJourney,
+            Visibility, BLAST_RADIUS_UNKNOWN,
         };
         use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
 
@@ -220,6 +221,7 @@ mod tests {
                                 StepOutcome {
                                     expected_status: Some(404),
                                     body_predicate: Some("no default firmware available"),
+                                    body_kind: BodyKind::Unknown,
                                     transition: None,
                                 },
                                 Provenance::runtime(
@@ -233,6 +235,7 @@ mod tests {
                 },
             ),
             availability: TEST_PRESENCE,
+            blast_radius: BLAST_RADIUS_UNKNOWN,
             chains_from: None,
         };
 

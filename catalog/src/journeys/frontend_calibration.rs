@@ -1,5 +1,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
-use crate::journey::{Actor, JourneyStep, Precondition, StepOutcome, UserJourney, Visibility};
+use crate::journey::{
+    Actor, BlastRadius, JourneyStep, Precondition, StepOutcome, UserJourney, Visibility,
+};
 use crate::journey_presence::{
     PRESENCE_CALIBRATE_ACCELEROMETER, PRESENCE_CALIBRATE_BAROMETER, PRESENCE_CALIBRATE_COMPASS,
     PRESENCE_CALIBRATE_GYROSCOPE, PRESENCE_DETECT_MOTOR_DIRECTIONS, PRESENCE_LEVEL_HORIZON,
@@ -26,6 +28,19 @@ const STATUSTEXT: &str = "core/frontend/src/components/common/StatusTextWatcher.
 const SENSORS_STORE: &str = "core/frontend/src/store/ardupilot_sensors.ts";
 const MENUS: &str = "core/frontend/src/menus.ts";
 const VS_VIEW: &str = "core/frontend/src/views/VehicleSetupView.vue";
+
+const BR_PREFLIGHT_CALIBRATION: Grounded<BlastRadius> = Grounded::known(
+    BlastRadius::Reversible,
+    Provenance::asserted(
+        "Preflight and mag-cal commands write autopilot sensor calibration parameters restorable by recalibration",
+    ),
+);
+const BR_DETECT_MOTOR_DIRECTIONS: Grounded<BlastRadius> = Grounded::known(
+    BlastRadius::Disruptive,
+    Provenance::asserted(
+        "MOTOR_DETECT mode arms the vehicle and spins motors until directions are detected or reversed",
+    ),
+);
 
 pub const JOURNEYS: &[UserJourney] = &[
     CALIBRATE_GYROSCOPE,
@@ -73,6 +88,7 @@ const CALIBRATE_GYROSCOPE: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_CALIBRATE_GYROSCOPE,
+    blast_radius: BR_PREFLIGHT_CALIBRATION,
     chains_from: None,
 };
 
@@ -124,6 +140,7 @@ const CALIBRATE_ACCELEROMETER: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_CALIBRATE_ACCELEROMETER,
+    blast_radius: BR_PREFLIGHT_CALIBRATION,
     chains_from: None,
 };
 
@@ -165,6 +182,7 @@ const CALIBRATE_COMPASS: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_CALIBRATE_COMPASS,
+    blast_radius: BR_PREFLIGHT_CALIBRATION,
     chains_from: None,
 };
 
@@ -200,6 +218,7 @@ const CALIBRATE_BAROMETER: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_CALIBRATE_BAROMETER,
+    blast_radius: BR_PREFLIGHT_CALIBRATION,
     chains_from: None,
 };
 
@@ -231,6 +250,7 @@ const LEVEL_HORIZON: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_LEVEL_HORIZON,
+    blast_radius: BR_PREFLIGHT_CALIBRATION,
     chains_from: None,
 };
 
@@ -267,6 +287,7 @@ const DETECT_MOTOR_DIRECTIONS: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_DETECT_MOTOR_DIRECTIONS,
+    blast_radius: BR_DETECT_MOTOR_DIRECTIONS,
     chains_from: None,
 };
 

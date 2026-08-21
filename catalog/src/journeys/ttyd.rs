@@ -1,6 +1,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, JourneyStep, Precondition, SoftwareRequirement, StepOutcome, UserJourney, Visibility,
+    Actor, BlastRadius, JourneyStep, Precondition, SoftwareRequirement, StepOutcome, UserJourney,
+    Visibility,
 };
 use crate::journey_presence::PRESENCE_ACCESS_WEB_TERMINAL;
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
@@ -59,7 +60,13 @@ const ACCESS_WEB_TERMINAL: UserJourney =
             ),
         ]),
         availability: PRESENCE_ACCESS_WEB_TERMINAL,
-    chains_from: None,
+        blast_radius: Grounded::known(
+            BlastRadius::Disruptive,
+            Provenance::asserted(
+                "interactive shell into the core container can run arbitrary host commands that alter runtime state",
+            ),
+        ),
+        chains_from: None,
     };
 
 const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<CapabilityId> {

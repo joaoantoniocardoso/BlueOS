@@ -7,9 +7,21 @@ use crate::catalog::Catalog;
 use crate::id::JourneyId;
 use crate::journey::{derive_automatable, Actor, Automatable, UserJourney};
 use crate::provenance::{Grounded, GroundedSet};
-use crate::ui::ui_plan;
+use crate::ui::{ui_plan, ui_typed_skip_reason};
 
 pub const HARD_EXCLUDED: &[JourneyId] = &[JourneyId::Deploy, JourneyId::ShutdownOnboardComputer];
+
+const BACKEND_TYPED_SKIP: &[(JourneyId, &str)] = &[
+    (JourneyId::CreateSerialToUdpBridge, "usb_serial_device"),
+    (JourneyId::EnablePing1dRangefinderMavlink, "no_sonar"),
+];
+
+fn backend_typed_skip_reason(id: JourneyId) -> Option<&'static str> {
+    BACKEND_TYPED_SKIP
+        .iter()
+        .find(|(journey_id, _)| *journey_id == id)
+        .map(|(_, reason)| *reason)
+}
 
 /// Page-load may satisfy the UI cell only for journeys whose summary is "open/view this page".
 pub const PAGE_LOAD_UI: &[JourneyId] = &[
@@ -274,11 +286,7 @@ fn dut_label(base: &str, dut: Option<&RawDut>) -> Option<String> {
 }
 
 pub fn build_journey_matrix(catalog: &Catalog, hits: &[ReportHit]) -> JourneyMatrix {
-    let mut rows: Vec<JourneyMatrixRow> = catalog
-        .journeys()
-        .iter()
-        .map(|journey| catalog_row(journey))
-        .collect();
+    let mut rows: Vec<JourneyMatrixRow> = catalog.journeys().iter().map(catalog_row).collect();
     rows.sort_by_key(|row| row.journey_id.as_str());
 
     for hit in hits {
@@ -325,6 +333,8 @@ fn catalog_row(journey: &UserJourney) -> JourneyMatrixRow {
         Cell::skip("hard_exclude")
     } else if !present {
         Cell::skip("not_on_1.4-dev")
+    } else if let Some(reason) = backend_typed_skip_reason(journey.id) {
+        Cell::skip(reason)
     } else if route {
         Cell::planned()
     } else {
@@ -337,6 +347,8 @@ fn catalog_row(journey: &UserJourney) -> JourneyMatrixRow {
         Cell::skip("not_on_1.4-dev")
     } else if plan || page_load {
         Cell::planned()
+    } else if let Some(reason) = ui_typed_skip_reason(journey.id) {
+        Cell::skip(reason)
     } else if operator_ui {
         Cell::empty()
     } else {
@@ -526,8 +538,25 @@ mod tests {
             .iter()
             .find(|row| row.journey_id == JourneyId::CreateSerialToUdpBridge)
             .unwrap();
-        assert_eq!(row.backend.state, CellState::Planned);
+        assert_eq!(row.backend.state, CellState::Skip);
+        assert_eq!(row.backend.reason.as_deref(), Some("usb_serial_device"));
+        assert_eq!(row.ui.state, CellState::Planned);
         assert_eq!(row.automatable, Automatable::Hardware);
+    }
+
+    #[test]
+    fn enable_ping1d_backend_is_typed_no_sonar_skip() {
+        let catalog = Catalog::bootstrap();
+        let matrix = build_journey_matrix(&catalog, &[]);
+        let row = matrix
+            .rows
+            .iter()
+            .find(|row| row.journey_id == JourneyId::EnablePing1dRangefinderMavlink)
+            .unwrap();
+        assert_eq!(row.backend.state, CellState::Skip);
+        assert_eq!(row.backend.reason.as_deref(), Some("no_sonar"));
+        assert_eq!(row.ui.state, CellState::Skip);
+        assert_eq!(row.ui.reason.as_deref(), Some("no_sonar"));
     }
 
     #[test]
@@ -546,12 +575,12 @@ mod tests {
             .find(|row| row.journey_id == JourneyId::ConfigureVideoStream)
             .unwrap();
         assert!(video.has_frontend_step);
-        assert!(!video.has_ui_plan);
-        assert_eq!(video.ui.state, CellState::Empty);
+        assert!(video.has_ui_plan);
+        assert_eq!(video.ui.state, CellState::Planned);
     }
 
     #[test]
-    fn merge_ui_report_marks_compass_finding_and_level_horizon_contradiction() {
+    fn merge_ui_report_marks_compass_finding_and_level_horizon_present() {
         let dir = std::env::temp_dir().join("blueos-catalog-matrix-test");
         let _ = fs::create_dir_all(&dir);
         let path = dir.join("ui.json");
@@ -585,8 +614,8 @@ mod tests {
             .iter()
             .find(|row| row.journey_id == JourneyId::LevelHorizon)
             .unwrap();
-        assert!(!level.present_on_1_4_dev);
-        assert!(level.presence_contradiction);
+        assert!(level.present_on_1_4_dev);
+        assert!(!level.presence_contradiction);
         assert_eq!(level.ui.state, CellState::Pass);
         let _ = fs::remove_file(&path);
     }

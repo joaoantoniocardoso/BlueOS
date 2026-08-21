@@ -1,8 +1,8 @@
 use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, DataRequirement, HttpMethod, JourneyStep, NetworkState, Precondition, RouteRef,
-    SoftwareRequirement, StepOutcome, UserJourney, Visibility,
+    Actor, BlastRadius, BodyKind, DataRequirement, HttpMethod, JourneyStep, NetworkState,
+    Precondition, RouteRef, SoftwareRequirement, StepOutcome, UserJourney, Visibility,
 };
 use crate::journey_presence::{
     PRESENCE_DELETE_LOCAL_BLUEOS_VERSION, PRESENCE_DOCKER_REGISTRY_LOGIN,
@@ -21,6 +21,13 @@ const VC_COMPONENT: &str = "core/frontend/src/components/version-chooser/Version
 const VC_UTILS: &str = "core/frontend/src/utils/version_chooser.ts";
 const DOCKER_LOGIN: &str = "core/frontend/src/components/version-chooser/DockerLogin.vue";
 const RUNTIME_ENV: &str = RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
+
+const BR_CORE_SWITCH: Grounded<BlastRadius> = Grounded::known(
+    BlastRadius::Destructive,
+    Provenance::asserted(
+        "POST /version/current switches the running BlueOS core image and restarts the stack",
+    ),
+);
 
 pub const JOURNEYS: &[UserJourney] = &[
     UPDATE_BLUEOS_VERSION,
@@ -62,6 +69,7 @@ const UPDATE_BLUEOS_VERSION: UserJourney =
                 Some(runtime_outcome(
                     200,
                     None,
+                    BodyKind::Payload,
                     "runtime-captures/versionchooser__pi4_navigator_master.json#running_baseline",
                 )),
             ),
@@ -91,7 +99,8 @@ const UPDATE_BLUEOS_VERSION: UserJourney =
             ),
         ]),
         availability: PRESENCE_UPDATE_BLUEOS_VERSION,
-    chains_from: None,
+        blast_radius: BR_CORE_SWITCH,
+        chains_from: None,
     };
 
 const SWITCH_LOCAL_BLUEOS_VERSION: UserJourney =
@@ -137,6 +146,7 @@ const SWITCH_LOCAL_BLUEOS_VERSION: UserJourney =
                 Some(runtime_outcome(
                     200,
                     None,
+                    BodyKind::Payload,
                     "runtime-captures/versionchooser__pi4_navigator_master.json#running_baseline",
                 )),
             ),
@@ -148,7 +158,8 @@ const SWITCH_LOCAL_BLUEOS_VERSION: UserJourney =
             ),
         ]),
         availability: PRESENCE_SWITCH_LOCAL_BLUEOS_VERSION,
-    chains_from: Some(JourneyId::UpdateBlueosVersion),
+        blast_radius: BR_CORE_SWITCH,
+        chains_from: Some(JourneyId::UpdateBlueosVersion),
     };
 
 const PULL_BLUEOS_VERSION_WITHOUT_SWITCH: UserJourney =
@@ -201,7 +212,13 @@ const PULL_BLUEOS_VERSION_WITHOUT_SWITCH: UserJourney =
             ),
         ]),
         availability: PRESENCE_PULL_BLUEOS_VERSION_WITHOUT_SWITCH,
-    chains_from: None,
+        blast_radius: Grounded::known(
+            BlastRadius::Reversible,
+            Provenance::asserted(
+                "POST /version/pull downloads a core image tag to local storage without applying it",
+            ),
+        ),
+        chains_from: None,
     };
 
 const DELETE_LOCAL_BLUEOS_VERSION: UserJourney = UserJourney {
@@ -246,6 +263,7 @@ const DELETE_LOCAL_BLUEOS_VERSION: UserJourney = UserJourney {
             Some(runtime_outcome(
                 200,
                 None,
+                BodyKind::Payload,
                 "runtime-captures/versionchooser__pi4_navigator_master.json#running_baseline",
             )),
         ),
@@ -263,6 +281,12 @@ const DELETE_LOCAL_BLUEOS_VERSION: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_DELETE_LOCAL_BLUEOS_VERSION,
+    blast_radius: Grounded::known(
+        BlastRadius::Reversible,
+        Provenance::asserted(
+            "DELETE /version/delete removes a cached non-current core image from onboard storage",
+        ),
+    ),
     chains_from: Some(JourneyId::SwitchLocalBlueosVersion),
 };
 
@@ -303,12 +327,19 @@ const DOCKER_REGISTRY_LOGIN: UserJourney =
                 Some(runtime_outcome(
                     200,
                     None,
+                    BodyKind::Payload,
                     "runtime-captures/versionchooser__pi4_navigator_master.json#running_baseline",
                 )),
             ),
         ]),
         availability: PRESENCE_DOCKER_REGISTRY_LOGIN,
-    chains_from: None,
+        blast_radius: Grounded::known(
+            BlastRadius::Reversible,
+            Provenance::asserted(
+                "POST /docker/login stores registry credentials in the daemon config and can be replaced",
+            ),
+        ),
+        chains_from: None,
     };
 
 const UPDATE_BOOTSTRAP_IMAGE: UserJourney = UserJourney {
@@ -347,6 +378,7 @@ const UPDATE_BOOTSTRAP_IMAGE: UserJourney = UserJourney {
             Some(runtime_outcome(
                 200,
                 None,
+                BodyKind::Payload,
                 "runtime-captures/versionchooser__pi4_navigator_master.json#running_baseline",
             )),
         ),
@@ -376,6 +408,12 @@ const UPDATE_BOOTSTRAP_IMAGE: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_UPDATE_BOOTSTRAP_IMAGE,
+    blast_radius: Grounded::known(
+        BlastRadius::Disruptive,
+        Provenance::asserted(
+            "POST /bootstrap/current switches the bootstrap stack used for core recovery and updates",
+        ),
+    ),
     chains_from: Some(JourneyId::UpdateBlueosVersion),
 };
 
@@ -427,12 +465,14 @@ const fn operator_step(
 const fn runtime_outcome(
     status: u16,
     body: Option<&'static str>,
+    body_kind: BodyKind,
     key: &'static str,
 ) -> Grounded<StepOutcome> {
     Grounded::known(
         StepOutcome {
             expected_status: Some(status),
             body_predicate: body,
+            body_kind,
             transition: None,
         },
         Provenance::runtime(key, RUNTIME_ENV),
@@ -444,6 +484,7 @@ const fn source_outcome(status: u16, file: &'static str, line: u32) -> Grounded<
         StepOutcome {
             expected_status: Some(status),
             body_predicate: None,
+            body_kind: BodyKind::Unknown,
             transition: None,
         },
         Provenance::source(file, line),

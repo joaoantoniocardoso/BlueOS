@@ -574,7 +574,81 @@ fn resolve_commit(
     (None, None)
 }
 
-fn is_ancestor(root: &std::path::Path, commit: &str, git_ref: &str) -> bool {
+fn source_path_for(jid: &str, module: &str) -> Option<&'static str> {
+    if let Some((_, ov)) = OVERRIDES.iter().find(|(k, _)| *k == jid) {
+        return match ov {
+            Override::Path(path) => Some(*path),
+            Override::Pickaxe(_, path) => Some(*path),
+        };
+    }
+    if let Some((_, _, path)) = MODULE_S.iter().find(|(m, _, _)| *m == module) {
+        return Some(*path);
+    }
+    MODULE_DEFAULT_PATH
+        .iter()
+        .find(|(m, _)| *m == module)
+        .map(|(_, path)| *path)
+}
+
+fn path_exists_on(root: &std::path::Path, git_ref: &str, path: &str) -> bool {
+    run_git(
+        &["git", "cat-file", "-e", &format!("{git_ref}:{path}")],
+        root,
+    )
+    .is_ok()
+}
+
+fn first_existing_ref(root: &std::path::Path, names: &[&str]) -> String {
+    for name in names {
+        if run_git(&["git", "rev-parse", "--verify", name], root).is_ok() {
+            return (*name).to_string();
+        }
+    }
+    names[0].to_string()
+}
+
+/// Parse `git ls-remote --tags` stdout into (tag, commit sha). Prefers peeled `^{}` commits.
+pub(crate) fn parse_ls_remote_tags(stdout: &str) -> Vec<(String, String)> {
+    let version = Regex::new(r"^\d+\.\d+").expect("static regex");
+    let mut commits: BTreeMap<String, String> = BTreeMap::new();
+    let mut peeled: BTreeMap<String, String> = BTreeMap::new();
+    for line in stdout.lines() {
+        let Some((sha, rest)) = line.split_once('\t') else {
+            continue;
+        };
+        let Some(name) = rest.strip_prefix("refs/tags/") else {
+            continue;
+        };
+        if let Some(tag) = name.strip_suffix("^{}") {
+            if version.is_match(tag) {
+                peeled.insert(tag.to_string(), sha.to_string());
+            }
+            continue;
+        }
+        if version.is_match(name) {
+            commits.insert(name.to_string(), sha.to_string());
+        }
+    }
+    for (tag, sha) in peeled {
+        commits.insert(tag, sha);
+    }
+    let mut tags: Vec<(String, String)> = commits.into_iter().collect();
+    tags.sort_by(|a, b| tag_sort_key(&a.0).cmp(&tag_sort_key(&b.0)));
+    tags
+}
+
+fn origin_version_tags(root: &std::path::Path) -> Result<Vec<(String, String)>, String> {
+    let out = run_ok(&["git", "ls-remote", "--tags", "origin"], root).ok_or_else(|| {
+        "git ls-remote --tags origin failed (need the bluerobotics origin remote)".to_string()
+    })?;
+    let tags = parse_ls_remote_tags(&out);
+    if tags.is_empty() {
+        return Err("git ls-remote --tags origin returned no version tags".into());
+    }
+    Ok(tags)
+}
+
+fn commit_in_ref(root: &std::path::Path, commit: &str, git_ref: &str) -> bool {
     run_git(
         &["git", "merge-base", "--is-ancestor", commit, git_ref],
         root,
@@ -587,25 +661,35 @@ pub fn run() -> Result<(), String> {
     let out_rs = root.join("catalog/src/journey_presence.rs");
     let out_json = root.join("catalog/feature_presence_map.json");
 
-    let mut all_tags: Vec<String> = run_ok(&["git", "tag"], &root)
-        .unwrap_or_default()
-        .lines()
-        .filter(|t| Regex::new(r"^\d+\.\d+").expect("static regex").is_match(t))
-        .map(str::to_string)
-        .collect();
-    all_tags.sort_by_key(|t| tag_sort_key(t));
-    let tag_set: std::collections::HashSet<&str> = all_tags.iter().map(String::as_str).collect();
-
-    let tags_containing = |commit: &str| -> Vec<String> {
-        let mut tags: Vec<String> = run_ok(&["git", "tag", "--contains", commit], &root)
-            .unwrap_or_default()
-            .lines()
-            .filter(|t| tag_set.contains(*t))
-            .map(str::to_string)
-            .collect();
-        tags.sort_by_key(|t| tag_sort_key(t));
-        tags
-    };
+    let _ = run_git(
+        &[
+            "git",
+            "fetch",
+            "--no-tags",
+            "origin",
+            "refs/tags/*:refs/catalog-presence/*",
+            "refs/heads/1.4-dev:refs/catalog-presence-heads/1.4-dev",
+            "refs/heads/master:refs/catalog-presence-heads/master",
+        ],
+        &root,
+    );
+    let origin_tags = origin_version_tags(&root)?;
+    let master_tip = first_existing_ref(
+        &root,
+        &[
+            "refs/catalog-presence-heads/master",
+            "origin/master",
+            "master",
+        ],
+    );
+    let dev_14_tip = first_existing_ref(
+        &root,
+        &[
+            "refs/catalog-presence-heads/1.4-dev",
+            "origin/1.4-dev",
+            "1.4-dev",
+        ],
+    );
 
     let mut journey_files: Vec<std::path::PathBuf> =
         std::fs::read_dir(root.join("catalog/src/journeys"))
@@ -632,16 +716,30 @@ pub fn run() -> Result<(), String> {
                 return Err(format!("no commit for {jid}"));
             };
             let method = method.expect("method set alongside commit");
-            let tags = tags_containing(&commit);
+            let path = source_path_for(&jid, &module);
+            let mut tags: Vec<String> = origin_tags
+                .iter()
+                .filter(|(_, sha)| {
+                    commit_in_ref(&root, &commit, sha)
+                        || path.is_some_and(|p| path_exists_on(&root, sha, p))
+                })
+                .map(|(name, _)| name.clone())
+                .collect();
+            tags.sort_by_key(|t| tag_sort_key(t));
+            tags.dedup();
+            let present_on_master = commit_in_ref(&root, &commit, &master_tip)
+                || commit_in_ref(&root, &commit, "HEAD")
+                || path.is_some_and(|p| path_exists_on(&root, &master_tip, p));
+            let present_on_1_4_dev = commit_in_ref(&root, &commit, &dev_14_tip)
+                || path.is_some_and(|p| path_exists_on(&root, &dev_14_tip, p));
             journeys.push(JourneyPresence {
                 journey: jid,
                 module: module.clone(),
                 intro_commit: commit.clone(),
                 intro_commit_short: commit.chars().take(12).collect(),
                 method,
-                present_on_master: is_ancestor(&root, &commit, "master")
-                    || is_ancestor(&root, &commit, "HEAD"),
-                present_on_1_4_dev: is_ancestor(&root, &commit, "1.4-dev"),
+                present_on_master,
+                present_on_1_4_dev,
                 first_tag: tags.first().cloned(),
                 tag_count: tags.len(),
                 present_in_tags: tags,
@@ -717,13 +815,16 @@ pub fn run() -> Result<(), String> {
         "//!".to_string(),
         "//! Regenerated by `cargo run -p blueos-catalog --bin generate_feature_presence`."
             .to_string(),
-        "//! Do not edit by hand — re-run the binary after new releases/tags.".to_string(),
+        "//! Regenerated from origin tag SHAs (`git ls-remote --tags origin`) plus path"
+            .to_string(),
+        "//! existence on `origin/1.4-dev` / `1.4-dev`. Local-only tags are ignored.".to_string(),
         "//!".to_string(),
         "//! Each journey records:".to_string(),
         "//! - `intro_commit`: landing commit on master (features land on master first)"
             .to_string(),
-        "//! - `present_in_tags`: every version tag that contains that commit (incl. backports)"
+        "//! - `present_in_tags`: origin version tags whose SHA contains the intro commit"
             .to_string(),
+        "//!   or still has the tracked path (backports / cherry-picks).".to_string(),
         "//! - `present_on_master` / `present_on_1_4_dev`: floating channel tips".to_string(),
         String::new(),
         "use crate::version::FeatureAvailability;".to_string(),
@@ -803,4 +904,25 @@ pub fn run() -> Result<(), String> {
         shared.len()
     );
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_ls_remote_tags_prefers_peeled_commit() {
+        let stdout = "\
+aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\trefs/tags/1.4.4-beta.10
+bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\trefs/tags/1.4.4-beta.15
+cccccccccccccccccccccccccccccccccccccccc\trefs/tags/1.4.4-beta.15^{}
+dddddddddddddddddddddddddddddddddddddddd\trefs/tags/not-a-version
+";
+        let tags = parse_ls_remote_tags(stdout);
+        assert_eq!(tags.len(), 2);
+        assert_eq!(tags[0].0, "1.4.4-beta.10");
+        assert_eq!(tags[1].0, "1.4.4-beta.15");
+        assert_eq!(tags[1].1, "cccccccccccccccccccccccccccccccccccccccc");
+        assert!(!tags.iter().any(|(name, _)| name.contains("beta.100")));
+    }
 }

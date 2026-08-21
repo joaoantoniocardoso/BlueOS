@@ -1,6 +1,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, HttpMethod, JourneyStep, RouteRef, StepOutcome, UserJourney, Visibility,
+    Actor, BlastRadius, BodyKind, HttpMethod, JourneyStep, RouteRef, StepOutcome, UserJourney,
+    Visibility,
 };
 use crate::journey_presence::PRESENCE_VIEW_SYSTEM_INFORMATION;
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
@@ -73,7 +74,13 @@ const VIEW_SYSTEM_INFORMATION: UserJourney =
             ),
         ]),
         availability: PRESENCE_VIEW_SYSTEM_INFORMATION,
-    chains_from: None,
+        blast_radius: Grounded::known(
+            BlastRadius::Safe,
+            Provenance::asserted(
+                "System Information page only reads linux2rest /system and /system/cpu metrics",
+            ),
+        ),
+        chains_from: None,
     };
 
 const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<CapabilityId> {
@@ -106,6 +113,14 @@ const fn sourced_route(
     )
 }
 
+const fn runtime_body_kind(status: u16, body: Option<&'static str>) -> BodyKind {
+    match body {
+        Some(_) => BodyKind::Payload,
+        None if status == 204 => BodyKind::Empty,
+        None => BodyKind::Unknown,
+    }
+}
+
 const fn runtime_outcome(
     status: u16,
     body: Option<&'static str>,
@@ -115,6 +130,7 @@ const fn runtime_outcome(
         StepOutcome {
             expected_status: Some(status),
             body_predicate: body,
+            body_kind: runtime_body_kind(status, body),
             transition: None,
         },
         Provenance::runtime(key, RUNTIME_ENV),

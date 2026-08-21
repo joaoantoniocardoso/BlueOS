@@ -1,6 +1,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome, UserJourney, Visibility,
+    Actor, BlastRadius, BodyKind, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome,
+    UserJourney, Visibility,
 };
 use crate::journey_presence::{
     PRESENCE_CHANGE_UI_THEME_COLOR, PRESENCE_DELETE3D_MODEL_OVERRIDE, PRESENCE_REMOVE_CUSTOM_LOGO,
@@ -65,6 +66,12 @@ const CHANGE_UI_THEME_COLOR: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_CHANGE_UI_THEME_COLOR,
+    blast_radius: Grounded::known(
+        BlastRadius::Reversible,
+        Provenance::asserted(
+            "Primary theme color is userdata CSS restorable via reset or a prior GET /theme snapshot",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -105,6 +112,12 @@ const RESET_UI_THEME_COLOR: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_RESET_UI_THEME_COLOR,
+    blast_radius: Grounded::known(
+        BlastRadius::Reversible,
+        Provenance::asserted(
+            "DELETE /theme drops custom primary color and regenerates the default BlueOS theme CSS",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -150,6 +163,12 @@ const UPLOAD_CUSTOM_LOGO: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_UPLOAD_CUSTOM_LOGO,
+    blast_radius: Grounded::known(
+        BlastRadius::Reversible,
+        Provenance::asserted(
+            "Uploaded logo is a userdata branding file removable via DELETE /branding/logo",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -193,6 +212,12 @@ const REMOVE_CUSTOM_LOGO: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_REMOVE_CUSTOM_LOGO,
+    blast_radius: Grounded::known(
+        BlastRadius::Reversible,
+        Provenance::asserted(
+            "DELETE /branding/logo removes the custom logo and reverts to default branding",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -238,6 +263,12 @@ const UPLOAD_CUSTOM_VEHICLE_IMAGE: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_UPLOAD_CUSTOM_VEHICLE_IMAGE,
+    blast_radius: Grounded::known(
+        BlastRadius::Reversible,
+        Provenance::asserted(
+            "Uploaded vehicle image is a userdata branding file removable via DELETE /branding/vehicle-image",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -281,6 +312,12 @@ const REMOVE_CUSTOM_VEHICLE_IMAGE: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_REMOVE_CUSTOM_VEHICLE_IMAGE,
+    blast_radius: Grounded::known(
+        BlastRadius::Reversible,
+        Provenance::asserted(
+            "DELETE /branding/vehicle-image removes the custom image and reverts to default branding",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -326,6 +363,12 @@ const UPLOAD_3D_MODEL_OVERRIDE: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_UPLOAD3D_MODEL_OVERRIDE,
+    blast_radius: Grounded::known(
+        BlastRadius::Reversible,
+        Provenance::asserted(
+            "Custom glTF override is a userdata file deletable via DELETE /models/{name}",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -369,6 +412,12 @@ const DELETE_3D_MODEL_OVERRIDE: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_DELETE3D_MODEL_OVERRIDE,
+    blast_radius: Grounded::known(
+        BlastRadius::Reversible,
+        Provenance::asserted(
+            "DELETE /models/{name} removes one override; Vehicle Setup falls back to the stock model",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -420,10 +469,16 @@ const fn operator_step_with_outcome(
 }
 
 const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
+    let body_kind = if status == 204 {
+        BodyKind::Empty
+    } else {
+        BodyKind::Unknown
+    };
     Grounded::known(
         StepOutcome {
             expected_status: Some(status),
             body_predicate: None,
+            body_kind,
             transition: None,
         },
         Provenance::source(CUSTOMIZATION_MAIN, line),

@@ -1,6 +1,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, JourneyStep, Precondition, SoftwareRequirement, StepOutcome, UserJourney, Visibility,
+    Actor, BlastRadius, JourneyStep, Precondition, SoftwareRequirement, StepOutcome, UserJourney,
+    Visibility,
 };
 use crate::journey_presence::PRESENCE_INSPECT_ZENOH_NETWORK;
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
@@ -69,7 +70,13 @@ const INSPECT_ZENOH_NETWORK: UserJourney =
             ),
         ]),
         availability: PRESENCE_INSPECT_ZENOH_NETWORK,
-    chains_from: None,
+        blast_radius: Grounded::known(
+            BlastRadius::Safe,
+            Provenance::asserted(
+                "Zenoh Inspector only connects over WebSocket to read live pub/sub topics and network topology",
+            ),
+        ),
+        chains_from: None,
     };
 
 const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<CapabilityId> {

@@ -1,7 +1,8 @@
 use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome, UserJourney, Visibility,
+    Actor, BlastRadius, BodyKind, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome,
+    UserJourney, Visibility,
 };
 use crate::journey_presence::{
     PRESENCE_FREE_DISK_SPACE, PRESENCE_INSPECT_DISK_USAGE, PRESENCE_RUN_MULTI_SIZE_DISK_SPEED_TEST,
@@ -80,6 +81,10 @@ const INSPECT_DISK_USAGE: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_INSPECT_DISK_USAGE,
+    blast_radius: Grounded::known(
+        BlastRadius::Safe,
+        Provenance::asserted("GET /disk/usage only reports a du-backed storage tree; no writes"),
+    ),
     chains_from: None,
 };
 
@@ -161,6 +166,12 @@ const FREE_DISK_SPACE: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_FREE_DISK_SPACE,
+    blast_radius: Grounded::known(
+        BlastRadius::Disruptive,
+        Provenance::asserted(
+            "DELETE /disk/paths removes operator-selected files or folders recursively with no product undo",
+        ),
+    ),
     chains_from: Some(JourneyId::InspectDiskUsage),
 };
 
@@ -204,6 +215,12 @@ const RUN_SINGLE_DISK_SPEED_TEST: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_RUN_SINGLE_DISK_SPEED_TEST,
+    blast_radius: Grounded::known(
+        BlastRadius::Safe,
+        Provenance::asserted(
+            "disktest writes a temp file under the system temp dir and deletes it when the run finishes",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -243,6 +260,12 @@ const RUN_MULTI_SIZE_DISK_SPEED_TEST: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_RUN_MULTI_SIZE_DISK_SPEED_TEST,
+    blast_radius: Grounded::known(
+        BlastRadius::Safe,
+        Provenance::asserted(
+            "streaming disktest runs use ephemeral temp files that are unlinked after each size pass",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -293,11 +316,20 @@ const fn operator_step(
     )
 }
 
+const fn runtime_body_kind(status: u16, body: Option<&'static str>) -> BodyKind {
+    match body {
+        Some(_) => BodyKind::Payload,
+        None if status == 204 => BodyKind::Empty,
+        None => BodyKind::Unknown,
+    }
+}
+
 const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
     Grounded::known(
         StepOutcome {
             expected_status: Some(status),
             body_predicate: None,
+            body_kind: BodyKind::Unknown,
             transition: None,
         },
         Provenance::source(DISK_MAIN, line),
@@ -313,6 +345,7 @@ const fn runtime_outcome(
         StepOutcome {
             expected_status: Some(status),
             body_predicate: body,
+            body_kind: runtime_body_kind(status, body),
             transition: None,
         },
         Provenance::runtime(key, RUNTIME_ENV),

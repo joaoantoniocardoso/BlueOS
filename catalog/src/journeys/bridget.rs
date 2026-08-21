@@ -1,8 +1,8 @@
 use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, DataRequirement, HardwareRequirement, HttpMethod, JourneyStep, Precondition, RouteRef,
-    SoftwareRequirement, StepOutcome, UserJourney, Visibility,
+    Actor, BlastRadius, BodyKind, DataRequirement, HardwareRequirement, HttpMethod, JourneyStep,
+    Precondition, RouteRef, SoftwareRequirement, StepOutcome, UserJourney, Visibility,
 };
 use crate::journey_presence::{
     PRESENCE_CREATE_SERIAL_TO_UDP_BRIDGE, PRESENCE_REMOVE_SERIAL_BRIDGE,
@@ -57,6 +57,7 @@ const VIEW_CONFIGURED_SERIAL_BRIDGES: UserJourney =
                 Some(runtime_outcome(
                     200,
                     Some("[] (empty; no bridges configured)"),
+                    BodyKind::Payload,
                     "runtime-captures/bridget__pi4_navigator_master.json#running_baseline",
                 )),
             ),
@@ -72,6 +73,7 @@ const VIEW_CONFIGURED_SERIAL_BRIDGES: UserJourney =
                 Some(runtime_outcome(
                     200,
                     Some("[\"/dev/ttyAMA0\", \"/dev/ttyAMA1\", \"/dev/ttyAMA2\", \"/dev/ttyAMA3\", \"/dev/ttyS0\"] (proxied from linux2rest localhost:6030/serial)"),
+                    BodyKind::Payload,
                     "runtime-captures/bridget__pi4_navigator_master.json#running_baseline",
                 )),
             ),
@@ -83,7 +85,11 @@ const VIEW_CONFIGURED_SERIAL_BRIDGES: UserJourney =
             ),
         ]),
         availability: PRESENCE_VIEW_CONFIGURED_SERIAL_BRIDGES,
-    chains_from: None,
+        blast_radius: Grounded::known(
+            BlastRadius::Safe,
+            Provenance::asserted("Lists bridges and serial ports via read-only GET routes"),
+        ),
+        chains_from: None,
     };
 
 const CREATE_SERIAL_TO_UDP_BRIDGE: UserJourney =
@@ -170,7 +176,13 @@ const CREATE_SERIAL_TO_UDP_BRIDGE: UserJourney =
             ),
         ]),
         availability: PRESENCE_CREATE_SERIAL_TO_UDP_BRIDGE,
-    chains_from: None,
+        blast_radius: Grounded::known(
+            BlastRadius::Disruptive,
+            Provenance::asserted(
+                "Claims a serial device and spawns a bridges process that can contend with the autopilot link",
+            ),
+        ),
+        chains_from: None,
     };
 
 const REMOVE_SERIAL_BRIDGE: UserJourney = UserJourney {
@@ -209,6 +221,7 @@ const REMOVE_SERIAL_BRIDGE: UserJourney = UserJourney {
             Some(runtime_outcome(
                 200,
                 Some("[] (empty; no bridges configured)"),
+                BodyKind::Payload,
                 "runtime-captures/bridget__pi4_navigator_master.json#running_baseline",
             )),
         ),
@@ -225,6 +238,10 @@ const REMOVE_SERIAL_BRIDGE: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_REMOVE_SERIAL_BRIDGE,
+    blast_radius: Grounded::known(
+        BlastRadius::Reversible,
+        Provenance::asserted("Deleting a configured bridge stops the subprocess and can be recreated from the dialog"),
+    ),
     chains_from: None,
 };
 
@@ -301,6 +318,7 @@ const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
         StepOutcome {
             expected_status: Some(status),
             body_predicate: None,
+            body_kind: BodyKind::Unknown,
             transition: None,
         },
         Provenance::source(BRIDGET_MAIN, line),
@@ -310,12 +328,14 @@ const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
 const fn runtime_outcome(
     status: u16,
     body: Option<&'static str>,
+    body_kind: BodyKind,
     key: &'static str,
 ) -> Grounded<StepOutcome> {
     Grounded::known(
         StepOutcome {
             expected_status: Some(status),
             body_predicate: body,
+            body_kind,
             transition: None,
         },
         Provenance::runtime(key, RUNTIME_ENV),

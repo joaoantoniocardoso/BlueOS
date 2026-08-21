@@ -1,5 +1,5 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
-use crate::journey::{Actor, JourneyStep, StepOutcome, UserJourney, Visibility};
+use crate::journey::{Actor, BlastRadius, JourneyStep, StepOutcome, UserJourney, Visibility};
 use crate::journey_presence::PRESENCE_APPLY_PARAMETER_FILE;
 use crate::page::PageId;
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
@@ -58,6 +58,12 @@ const APPLY_PARAMETER_FILE: UserJourney = UserJourney {
         ),
     ]),
     availability: PRESENCE_APPLY_PARAMETER_FILE,
+    blast_radius: Grounded::known(
+        BlastRadius::Disruptive,
+        Provenance::asserted(
+            "Batch PARAM_SET writes autopilot EEPROM and may request ardupilot-manager restart for reboot-required parameters",
+        ),
+    ),
     chains_from: None,
 };
 

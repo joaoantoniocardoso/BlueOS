@@ -1,8 +1,8 @@
 use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, HttpMethod, JourneyStep, NetworkState, Precondition, RouteRef, SoftwareRequirement,
-    StepOutcome, UserJourney, Visibility,
+    Actor, BlastRadius, BodyKind, HttpMethod, JourneyStep, NetworkState, Precondition, RouteRef,
+    SoftwareRequirement, StepOutcome, UserJourney, Visibility,
 };
 use crate::journey_presence::{
     PRESENCE_BROWSE_AVAILABLE_WEB_SERVICES, PRESENCE_MONITOR_INTERNET_CONNECTIVITY,
@@ -59,11 +59,18 @@ const MONITOR_INTERNET_CONNECTIVITY: UserJourney = UserJourney {
             Some(runtime_outcome(
                 200,
                 Some("\"online\": true"),
+                BodyKind::Payload,
                 "runtime-captures/helper__pi4_navigator_master.json#running_baseline",
             )),
         ),
     ]),
     availability: PRESENCE_MONITOR_INTERNET_CONNECTIVITY,
+    blast_radius: Grounded::known(
+        BlastRadius::Safe,
+        Provenance::asserted(
+            "Polls /check_internet_access to refresh the header indicator without mutating network or vehicle settings",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -102,11 +109,18 @@ const VERIFY_INTERNET_CONNECTIVITY: UserJourney = UserJourney {
             Some(runtime_outcome(
                 200,
                 Some("\"online\": true"),
+                BodyKind::Payload,
                 "runtime-captures/helper__pi4_navigator_master.json#running_baseline",
             )),
         ),
     ]),
     availability: PRESENCE_VERIFY_INTERNET_CONNECTIVITY,
+    blast_radius: Grounded::known(
+        BlastRadius::Safe,
+        Provenance::asserted(
+            "Setup wizard confirms header connectivity via read-only probe without changing vehicle configuration",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -142,11 +156,18 @@ const BROWSE_AVAILABLE_WEB_SERVICES: UserJourney = UserJourney {
             Some(runtime_outcome(
                 200,
                 Some("\"valid\": true"),
+                BodyKind::Payload,
                 "runtime-captures/helper__pi4_navigator_master.json#running_baseline",
             )),
         ),
     ]),
     availability: PRESENCE_BROWSE_AVAILABLE_WEB_SERVICES,
+    blast_radius: Grounded::known(
+        BlastRadius::Safe,
+        Provenance::asserted(
+            "GET /web_services lists scanned HTTP endpoints without changing service state",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -185,11 +206,18 @@ const PROBE_INTERFACE_INTERNET_CONNECTIVITY: UserJourney = UserJourney {
             Some(runtime_outcome(
                 200,
                 Some("true"),
+                BodyKind::Payload,
                 "runtime-captures/helper__pi4_navigator_master.json#running_baseline",
             )),
         ),
     ]),
     availability: PRESENCE_PROBE_INTERFACE_INTERNET_CONNECTIVITY,
+    blast_radius: Grounded::known(
+        BlastRadius::Safe,
+        Provenance::asserted(
+            "GET /ping probes per-interface reachability without altering interface priority or addresses",
+        ),
+    ),
     chains_from: None,
 };
 
@@ -260,12 +288,14 @@ const fn service_step(
 const fn runtime_outcome(
     status: u16,
     body: Option<&'static str>,
+    body_kind: BodyKind,
     key: &'static str,
 ) -> Grounded<StepOutcome> {
     Grounded::known(
         StepOutcome {
             expected_status: Some(status),
             body_predicate: body,
+            body_kind,
             transition: None,
         },
         Provenance::runtime(key, RUNTIME_ENV),

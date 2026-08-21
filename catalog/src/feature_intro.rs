@@ -40,10 +40,21 @@ mod tests {
         let avail = presence_for_journey("InspectZenohNetwork").expect("seeded");
         assert!(avail.present_on_master);
         assert!(!avail.present_on_1_4_dev);
-        assert!(avail.present_in_tags.contains(&"1.4.4-beta.16"));
         assert!(avail.present_in_tags.contains(&"1.5.0-beta.2"));
-        assert!(feature_present_on("1.4.4-beta.16", &avail));
+        assert!(!avail.present_in_tags.contains(&"1.4.4-beta.16"));
+        assert!(feature_present_on("1.5.0-beta.2", &avail));
+        assert!(!feature_present_on("1.4.4-beta.16", &avail));
         assert!(!feature_present_on("1.4-dev", &avail));
+    }
+
+    #[test]
+    fn level_horizon_present_on_1_4_dev_without_local_only_tags() {
+        let avail = presence_for_journey("LevelHorizon").expect("seeded");
+        assert!(avail.present_on_1_4_dev);
+        assert!(avail.present_on_master);
+        assert!(avail.present_in_tags.contains(&"1.4.4-beta.10"));
+        assert!(!avail.present_in_tags.iter().any(|t| t.contains("beta.100")));
+        assert!(feature_present_on("1.4-dev", &avail));
     }
 
     #[test]
