@@ -36,6 +36,7 @@ pub mod provenance;
 pub mod provenance_anchor;
 pub mod provenance_walk;
 pub mod report;
+pub mod requirement;
 pub mod resolve;
 pub mod resource;
 pub mod runner;
@@ -144,6 +145,11 @@ pub use report::{
     count_journey_steps, utc_rfc3339_now, write_journey_http_report, ConflictKind,
     JourneyHttpReport, JourneyReportEntry, JourneyReportResult, ReportAvailability, ReportConflict,
     ReportCounts, ReportDut, ReportTrace, SuiteKind, SCHEMA_VERSION,
+};
+pub use requirement::{
+    find_contamination, AcceptanceCriterion, ContaminationFinding, ContaminationSource,
+    Requirement, RequirementCatalog, RequirementCriteria, RequirementId, RequirementKind,
+    RequirementStatement, RequirementValidationError,
 };
 pub use resolve::{resolve, resolve_port_ref, resolve_service_ports, ResolveError, ResolvedPorts};
 pub use resource::{Resource, ResourceOwnership};

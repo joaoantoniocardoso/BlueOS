@@ -1,0 +1,1389 @@
+use std::collections::{BTreeSet, HashMap, HashSet};
+
+use schemars::JsonSchema;
+use serde::Serialize;
+use thiserror::Error;
+
+use crate::capability::{capability_def, frontend_capability_def, Aggregate};
+use crate::catalog::Catalog;
+use crate::coverage::precondition_label;
+use crate::domain::domain_of;
+use crate::domain::Domain;
+use crate::feature::{FeatureCatalog, FeatureId};
+use crate::id::{CapabilityId, JourneyId, ServiceId};
+use crate::journey::{
+    derive_automatable, journey_requirements, Automatable, DataRequirement, HardwareRequirement,
+    HttpMethod, NetworkResource, NetworkState, Precondition, RouteRef, SoftwareRequirement,
+    StepOutcome, UserJourney,
+};
+use crate::negative_probes::{NegativeProbe, NEGATIVE_PROBES};
+use crate::provenance::{Grounded, GroundedSet, Provenance};
+use crate::runner::{http_method_label, resolve_http_path};
+use crate::runtime::SloBaseline;
+use crate::version::FeatureAvailability;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum RequirementKind {
+    System,
+    Functional,
+    Interface,
+    Performance,
+    Robustness,
+    Constraint,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
+pub struct RequirementId(pub String);
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum RequirementStatement {
+    Known { text: String },
+    Unknown { reason: String },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
+pub struct AcceptanceCriterion {
+    pub text: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum RequirementCriteria {
+    Known { items: Vec<AcceptanceCriterion> },
+    Unknown { reason: String },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(tag = "source", rename_all = "snake_case")]
+pub enum ContaminationSource {
+    Feature { id: FeatureId },
+    Journey { id: JourneyId },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
+pub struct ContaminationFinding {
+    pub source: ContaminationSource,
+    pub substring: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
+pub struct Requirement {
+    pub id: RequirementId,
+    pub kind: RequirementKind,
+    pub domain: Domain,
+    pub aggregate: Aggregate,
+    pub availability: FeatureAvailability,
+    pub statement: RequirementStatement,
+    pub criteria: RequirementCriteria,
+    pub feature_id: Option<FeatureId>,
+    pub journey_id: Option<JourneyId>,
+    pub functional_children: Vec<RequirementId>,
+    pub rationale: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
+pub struct RequirementCatalog {
+    requirements: Vec<Requirement>,
+    contamination_findings: Vec<ContaminationFinding>,
+}
+
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum RequirementValidationError {
+    #[error("feature {feature} has no system requirement")]
+    MissingSystemRequirement { feature: String },
+    #[error("system requirement {id} has no functional child and no Unknown coverage")]
+    SystemWithoutFunctional { id: String },
+    #[error("functional requirement {id} has no acceptance criterion and no Unknown coverage")]
+    FunctionalWithoutCriterion { id: String },
+    #[error("journey {journey} is Http-automatable but step {step} lacks runtime evidence")]
+    HttpAutomatableWithoutRuntime { journey: String, step: usize },
+    #[error("requirement {id} statement is contaminated: {substring}")]
+    ContaminatedStatementEmitted { id: String, substring: String },
+}
+
+impl RequirementCatalog {
+    pub fn bootstrap() -> Self {
+        Self::from_catalog(&Catalog::bootstrap())
+    }
+
+    pub fn from_catalog(catalog: &Catalog) -> Self {
+        let features = FeatureCatalog::from_catalog(catalog);
+        let mut contamination_findings = Vec::new();
+        let mut requirements = Vec::new();
+        let mut functional_by_journey: HashMap<JourneyId, RequirementId> = HashMap::new();
+        let mut functional_by_feature: HashMap<FeatureId, Vec<RequirementId>> = HashMap::new();
+
+        for feature in features.features() {
+            let id = system_requirement_id(feature);
+            let availability = availability_for_capability(catalog, feature.id.0);
+            requirements.push(Requirement {
+                id,
+                kind: RequirementKind::System,
+                domain: domain_of(feature.aggregate),
+                aggregate: feature.aggregate,
+                availability,
+                statement: RequirementStatement::Unknown {
+                    reason: "pending functional child composition".to_string(),
+                },
+                criteria: RequirementCriteria::Unknown {
+                    reason: "system requirements link to functional children".to_string(),
+                },
+                feature_id: Some(feature.id),
+                journey_id: None,
+                functional_children: Vec::new(),
+                rationale: Some(feature.rationale.clone()),
+            });
+        }
+
+        for journey in catalog.journeys() {
+            let aggregate = aggregate_for_journey(journey);
+            let domain = domain_of(aggregate);
+            let id = functional_requirement_id(domain, aggregate, journey.id);
+            let summary_text = grounded_text(&journey.summary);
+            let statement = derive_statement(
+                summary_text,
+                ContaminationSource::Journey { id: journey.id },
+                &mut contamination_findings,
+            );
+            let criteria = functional_criteria(catalog, journey);
+            requirements.push(Requirement {
+                id: id.clone(),
+                kind: RequirementKind::Functional,
+                domain,
+                aggregate,
+                availability: journey.availability,
+                statement,
+                criteria,
+                feature_id: primary_feature_for_journey(journey),
+                journey_id: Some(journey.id),
+                functional_children: Vec::new(),
+                rationale: None,
+            });
+            functional_by_journey.insert(journey.id, id.clone());
+            if let Some(feature_id) = primary_feature_for_journey(journey) {
+                functional_by_feature
+                    .entry(feature_id)
+                    .or_default()
+                    .push(id);
+            }
+        }
+
+        for feature in features.features() {
+            let system_id = system_requirement_id(feature);
+            let children = functional_by_feature
+                .get(&feature.id)
+                .cloned()
+                .unwrap_or_default();
+            let children_empty = children.is_empty();
+            let idx = requirements
+                .iter()
+                .position(|req| req.id == system_id)
+                .expect("system requirement exists");
+            requirements[idx].functional_children = children.clone();
+            if children_empty {
+                requirements[idx].statement = RequirementStatement::Unknown {
+                    reason: if features
+                        .journey_view(catalog)
+                        .unreferenced_features
+                        .contains(&feature.id)
+                    {
+                        "no journey references this capability".to_string()
+                    } else {
+                        "no functional requirement derived for this capability".to_string()
+                    },
+                };
+                requirements[idx].criteria = RequirementCriteria::Unknown {
+                    reason: if features
+                        .journey_view(catalog)
+                        .unreferenced_features
+                        .contains(&feature.id)
+                    {
+                        "no journey references this capability".to_string()
+                    } else {
+                        "no functional requirement derived for this capability".to_string()
+                    },
+                };
+            } else {
+                requirements[idx].statement = compose_system_statement(
+                    &children,
+                    &requirements,
+                    ContaminationSource::Feature { id: feature.id },
+                    &mut contamination_findings,
+                );
+                requirements[idx].criteria = RequirementCriteria::Known {
+                    items: children
+                        .iter()
+                        .map(|child_id| AcceptanceCriterion {
+                            text: format!("functional child {}", child_id.0),
+                        })
+                        .collect(),
+                };
+            }
+        }
+
+        let mut seen_routes: BTreeSet<String> = BTreeSet::new();
+        for journey in catalog.journeys() {
+            if let GroundedSet::Known { items: steps } = &journey.steps {
+                for step in steps.iter() {
+                    if let Some(Grounded::Known { value: route, .. }) = &step.value.route {
+                        if let Some(resolved) = resolve_http_path(catalog, route) {
+                            let key = format!("{} {}", http_method_label(&route.method), resolved);
+                            if seen_routes.insert(key.clone()) {
+                                add_interface_requirement(
+                                    catalog,
+                                    &mut requirements,
+                                    &mut contamination_findings,
+                                    journey,
+                                    route,
+                                    &resolved,
+                                    step.value.description,
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        for service in catalog.services() {
+            if let GroundedSet::Known { items } = &service.runtime.slo_baselines {
+                for item in items.iter() {
+                    add_performance_requirement(
+                        catalog,
+                        &mut requirements,
+                        service.id,
+                        &item.value,
+                    );
+                }
+            }
+        }
+
+        for probe in NEGATIVE_PROBES {
+            add_robustness_requirement(catalog, &mut requirements, probe);
+        }
+
+        let mut seen_preconditions: BTreeSet<String> = BTreeSet::new();
+        for journey in catalog.journeys() {
+            for precondition in journey_requirements(journey) {
+                let label = precondition_label(precondition);
+                if seen_preconditions.insert(label.clone()) {
+                    add_constraint_requirement(
+                        catalog,
+                        &mut requirements,
+                        journey,
+                        precondition,
+                        &label,
+                        &mut contamination_findings,
+                    );
+                }
+            }
+        }
+
+        Self {
+            requirements,
+            contamination_findings,
+        }
+    }
+
+    pub fn requirements(&self) -> &[Requirement] {
+        &self.requirements
+    }
+
+    pub fn contamination_findings(&self) -> &[ContaminationFinding] {
+        &self.contamination_findings
+    }
+
+    pub fn count_by_kind(&self) -> HashMap<RequirementKind, usize> {
+        let mut counts = HashMap::new();
+        for requirement in &self.requirements {
+            *counts.entry(requirement.kind).or_default() += 1;
+        }
+        counts
+    }
+
+    pub fn filter_by_version(&self, dut_tag: &str) -> RequirementCatalog {
+        let requirements = self
+            .requirements
+            .iter()
+            .filter(|req| req.availability.present_on_dut(dut_tag))
+            .cloned()
+            .collect();
+        RequirementCatalog {
+            requirements,
+            contamination_findings: self.contamination_findings.clone(),
+        }
+    }
+
+    pub fn validate_emitted_statements(&self) -> Result<(), Vec<RequirementValidationError>> {
+        let mut errors = Vec::new();
+        for requirement in &self.requirements {
+            if let RequirementStatement::Known { text } = &requirement.statement {
+                if let Some(substring) = find_contamination(text) {
+                    errors.push(RequirementValidationError::ContaminatedStatementEmitted {
+                        id: requirement.id.0.clone(),
+                        substring,
+                    });
+                }
+            }
+        }
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
+    }
+
+    pub fn validate_structure(
+        &self,
+        catalog: &Catalog,
+        features: &FeatureCatalog,
+    ) -> Result<(), Vec<RequirementValidationError>> {
+        let mut errors = Vec::new();
+        if let Err(stmt_errors) = self.validate_emitted_statements() {
+            errors.extend(stmt_errors);
+        }
+
+        let system_ids: HashSet<&str> = self
+            .requirements
+            .iter()
+            .filter(|req| req.kind == RequirementKind::System)
+            .map(|req| req.id.0.as_str())
+            .collect();
+
+        for feature in features.features() {
+            let expected = system_requirement_id(feature).0;
+            if !system_ids.contains(expected.as_str()) {
+                errors.push(RequirementValidationError::MissingSystemRequirement {
+                    feature: feature.id.0.as_str().to_string(),
+                });
+            }
+        }
+
+        for requirement in &self.requirements {
+            if requirement.kind == RequirementKind::System
+                && requirement.functional_children.is_empty()
+                && !matches!(requirement.criteria, RequirementCriteria::Unknown { .. })
+            {
+                errors.push(RequirementValidationError::SystemWithoutFunctional {
+                    id: requirement.id.0.clone(),
+                });
+            }
+            if requirement.kind == RequirementKind::Functional
+                && matches!(
+                    &requirement.criteria,
+                    RequirementCriteria::Known { items } if items.is_empty()
+                )
+            {
+                errors.push(RequirementValidationError::FunctionalWithoutCriterion {
+                    id: requirement.id.0.clone(),
+                });
+            }
+            if requirement.kind == RequirementKind::Functional {
+                let journey_id = requirement.journey_id.expect("functional journey");
+                let journey = catalog
+                    .journey_by_id(&journey_id)
+                    .expect("functional journey exists");
+                if derive_automatable(journey) == Automatable::Http
+                    && matches!(
+                        &requirement.criteria,
+                        RequirementCriteria::Known { items }
+                            if !items.is_empty()
+                                && !items.iter().any(|item| item.text.contains("capture="))
+                    )
+                {
+                    errors.push(RequirementValidationError::HttpAutomatableWithoutRuntime {
+                        journey: journey_id.to_string(),
+                        step: 0,
+                    });
+                }
+            }
+        }
+
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
+    }
+}
+
+fn add_interface_requirement(
+    catalog: &Catalog,
+    requirements: &mut Vec<Requirement>,
+    contamination_findings: &mut Vec<ContaminationFinding>,
+    journey: &UserJourney,
+    route: &RouteRef,
+    resolved: &str,
+    description: &str,
+) {
+    let aggregate = aggregate_for_journey(journey);
+    let domain = domain_of(aggregate);
+    let id = interface_requirement_id(domain, aggregate, &route.method, resolved);
+    let statement = derive_statement(
+        description,
+        ContaminationSource::Journey { id: journey.id },
+        contamination_findings,
+    );
+    let capture = runtime_capture_for_route(catalog, journey, route);
+    let criteria = interface_criteria(&route.method, resolved, capture);
+    requirements.push(Requirement {
+        id,
+        kind: RequirementKind::Interface,
+        domain,
+        aggregate,
+        availability: journey.availability,
+        statement,
+        criteria,
+        feature_id: primary_feature_for_journey(journey),
+        journey_id: Some(journey.id),
+        functional_children: Vec::new(),
+        rationale: None,
+    });
+}
+
+fn add_performance_requirement(
+    catalog: &Catalog,
+    requirements: &mut Vec<Requirement>,
+    service_id: ServiceId,
+    slo: &SloBaseline,
+) {
+    let aggregate = aggregate_for_service(catalog, service_id);
+    let domain = domain_of(aggregate);
+    let resolved =
+        resolve_http_path(catalog, &slo.route).unwrap_or_else(|| slo.route.path.to_string());
+    let id = performance_requirement_id(domain, aggregate, &slo.route.method, &resolved);
+    requirements.push(Requirement {
+        id,
+        kind: RequirementKind::Performance,
+        domain,
+        aggregate,
+        availability: availability_for_service(catalog, service_id),
+        statement: RequirementStatement::Known {
+            text: "Captured endpoint latency stays within measured baseline".to_string(),
+        },
+        criteria: RequirementCriteria::Known {
+            items: vec![AcceptanceCriterion {
+                text: format!(
+                    "{} {} p50={}ms p95={}ms p99={}ms n={}",
+                    http_method_label(&slo.route.method),
+                    resolved,
+                    slo.latency_p50_ms,
+                    slo.latency_p95_ms,
+                    slo.latency_p99_ms,
+                    slo.sample_size
+                ),
+            }],
+        },
+        feature_id: None,
+        journey_id: None,
+        functional_children: Vec::new(),
+        rationale: None,
+    });
+}
+
+fn add_robustness_requirement(
+    catalog: &Catalog,
+    requirements: &mut Vec<Requirement>,
+    probe: &NegativeProbe,
+) {
+    let journey = catalog
+        .journey_by_id(&probe.journey_id)
+        .expect("negative probe journey exists");
+    let aggregate = aggregate_for_journey(journey);
+    let domain = domain_of(aggregate);
+    let id = robustness_requirement_id(domain, aggregate, probe.id);
+    requirements.push(Requirement {
+        id,
+        kind: RequirementKind::Robustness,
+        domain,
+        aggregate,
+        availability: journey.availability,
+        statement: RequirementStatement::Known {
+            text: "Invalid or unsafe request is rejected safely".to_string(),
+        },
+        criteria: RequirementCriteria::Known {
+            items: vec![AcceptanceCriterion {
+                text: format_negative_probe_criterion(probe),
+            }],
+        },
+        feature_id: primary_feature_for_journey(journey),
+        journey_id: Some(probe.journey_id),
+        functional_children: Vec::new(),
+        rationale: None,
+    });
+}
+
+fn add_constraint_requirement(
+    _catalog: &Catalog,
+    requirements: &mut Vec<Requirement>,
+    journey: &UserJourney,
+    precondition: &Precondition,
+    label: &str,
+    contamination_findings: &mut Vec<ContaminationFinding>,
+) {
+    let aggregate = aggregate_for_journey(journey);
+    let domain = domain_of(aggregate);
+    let id = constraint_requirement_id(domain, aggregate, label);
+    let statement_text = precondition_statement(precondition);
+    let statement = derive_statement(
+        &statement_text,
+        ContaminationSource::Journey { id: journey.id },
+        contamination_findings,
+    );
+    requirements.push(Requirement {
+        id,
+        kind: RequirementKind::Constraint,
+        domain,
+        aggregate,
+        availability: journey.availability,
+        statement,
+        criteria: RequirementCriteria::Known {
+            items: vec![AcceptanceCriterion {
+                text: label.to_string(),
+            }],
+        },
+        feature_id: primary_feature_for_journey(journey),
+        journey_id: Some(journey.id),
+        functional_children: Vec::new(),
+        rationale: None,
+    });
+}
+
+fn functional_criteria(catalog: &Catalog, journey: &UserJourney) -> RequirementCriteria {
+    if let GroundedSet::Known { items: steps } = &journey.steps {
+        let mut items = Vec::new();
+        for (step_index, step) in steps.iter().enumerate() {
+            if let Some(criterion) = step_criterion(catalog, journey, step_index, step) {
+                items.push(criterion);
+            }
+        }
+        if items.is_empty() {
+            return RequirementCriteria::Unknown {
+                reason: "journey has no step-level acceptance criteria".to_string(),
+            };
+        }
+        if derive_automatable(journey) == Automatable::Http
+            && !items.iter().any(|item| item.text.contains("capture="))
+        {
+            return RequirementCriteria::Unknown {
+                reason: "http-automatable journey lacks runtime capture evidence".to_string(),
+            };
+        }
+        return RequirementCriteria::Known { items };
+    }
+    RequirementCriteria::Unknown {
+        reason: "journey steps are not grounded".to_string(),
+    }
+}
+
+fn step_criterion(
+    catalog: &Catalog,
+    _journey: &UserJourney,
+    step_index: usize,
+    step: &crate::provenance::GroundedItem<crate::journey::JourneyStep>,
+) -> Option<AcceptanceCriterion> {
+    let route = step.value.route.as_ref();
+    let outcome = step.value.outcome.as_ref();
+    match (route, outcome) {
+        (
+            Some(Grounded::Known { value: route, .. }),
+            Some(Grounded::Known {
+                value: outcome,
+                provenance,
+            }),
+        ) => {
+            let resolved =
+                resolve_http_path(catalog, route).unwrap_or_else(|| route.path.to_string());
+            let capture = match provenance {
+                Provenance::Runtime {
+                    capture,
+                    environment,
+                } => {
+                    format!("capture={capture} env={environment}")
+                }
+                other => format!("provenance={other:?}"),
+            };
+            Some(AcceptanceCriterion {
+                text: format_step_criterion(route, &resolved, outcome, &capture),
+            })
+        }
+        _ => {
+            if step.value.description.is_empty() {
+                None
+            } else {
+                Some(AcceptanceCriterion {
+                    text: format!("step {}: {}", step_index, step.value.description),
+                })
+            }
+        }
+    }
+}
+
+fn interface_criteria(
+    method: &HttpMethod,
+    resolved: &str,
+    capture: Option<String>,
+) -> RequirementCriteria {
+    let mut text = format!("{} {}", http_method_label(method), resolved);
+    if let Some(capture) = capture {
+        text.push_str(&format!(" ({capture})"));
+    }
+    RequirementCriteria::Known {
+        items: vec![AcceptanceCriterion { text }],
+    }
+}
+
+fn format_step_criterion(
+    route: &RouteRef,
+    resolved: &str,
+    outcome: &StepOutcome,
+    capture: &str,
+) -> String {
+    let mut text = format!("{} {}", http_method_label(&route.method), resolved);
+    if let Some(status) = outcome.expected_status {
+        text.push_str(&format!(" status={status}"));
+    }
+    if let Some(predicate) = outcome.body_predicate {
+        text.push_str(&format!(" body~={predicate}"));
+    }
+    if let Some(transition) = &outcome.transition {
+        text.push_str(&format!(
+            " transition {}:{}->{}",
+            transition.machine, transition.from, transition.to
+        ));
+    }
+    text.push_str(&format!(" ({capture})"));
+    text
+}
+
+fn format_negative_probe_criterion(probe: &NegativeProbe) -> String {
+    let mut text = format!("{} {}", http_method_label(&probe.method), probe.path);
+    if let Some(query) = probe.query {
+        text.push_str(&format!("?{query}"));
+    }
+    if let Some(status) = probe.expected_status {
+        text.push_str(&format!(" status={status}"));
+    }
+    text.push_str(&format!(" class={:?} blast={:?}", probe.class, probe.blast));
+    text
+}
+
+fn runtime_capture_for_route(
+    catalog: &Catalog,
+    journey: &UserJourney,
+    route: &RouteRef,
+) -> Option<String> {
+    if let GroundedSet::Known { items: steps } = &journey.steps {
+        for step in steps.iter() {
+            if let Some(Grounded::Known {
+                value: step_route, ..
+            }) = &step.value.route
+            {
+                if step_route == route {
+                    if let Some(Grounded::Known {
+                        provenance:
+                            Provenance::Runtime {
+                                capture,
+                                environment,
+                            },
+                        ..
+                    }) = &step.value.outcome
+                    {
+                        return Some(format!("capture={capture} env={environment}"));
+                    }
+                }
+            }
+        }
+    }
+    let _ = catalog;
+    None
+}
+
+fn derive_statement(
+    text: &str,
+    source: ContaminationSource,
+    findings: &mut Vec<ContaminationFinding>,
+) -> RequirementStatement {
+    if text.trim().is_empty() {
+        return RequirementStatement::Unknown {
+            reason: "source text is empty".to_string(),
+        };
+    }
+    if let Some(substring) = find_contamination(text) {
+        findings.push(ContaminationFinding { source, substring });
+        return RequirementStatement::Unknown {
+            reason: "source text is contaminated; awaiting re-grounding".to_string(),
+        };
+    }
+    RequirementStatement::Known {
+        text: text.trim().to_string(),
+    }
+}
+
+fn compose_system_statement(
+    functional_children: &[RequirementId],
+    requirements: &[Requirement],
+    source: ContaminationSource,
+    findings: &mut Vec<ContaminationFinding>,
+) -> RequirementStatement {
+    let mut texts = Vec::new();
+    let mut seen = HashSet::new();
+    for child_id in functional_children {
+        let child = requirements
+            .iter()
+            .find(|req| &req.id == child_id)
+            .expect("functional child requirement");
+        if let RequirementStatement::Known { text } = &child.statement {
+            if seen.insert(text.as_str()) {
+                texts.push(text.as_str());
+            }
+        }
+    }
+    if texts.is_empty() {
+        return RequirementStatement::Unknown {
+            reason: "all functional child statements are unknown".to_string(),
+        };
+    }
+    derive_statement(&texts.join("; "), source, findings)
+}
+
+fn precondition_statement(precondition: &Precondition) -> String {
+    match precondition {
+        Precondition::ServiceState { service, state } => {
+            format!("{} service is in the {} state", service.as_str(), state)
+        }
+        Precondition::Network(NetworkState::Online) => {
+            "network connectivity is available".to_string()
+        }
+        Precondition::Network(NetworkState::Offline) => {
+            "network connectivity is unavailable".to_string()
+        }
+        Precondition::HardwarePresent(label) => format!("{label} hardware is present"),
+        Precondition::ConfigClean(path) => format!("{} configuration is clean", path.0),
+        Precondition::Other(label) => (*label).to_string(),
+        Precondition::Hardware(hardware) => match hardware {
+            HardwareRequirement::FlightController(board) => {
+                format!("a {board:?} flight controller is connected")
+            }
+            HardwareRequirement::UsbCamera => "a USB camera is connected".to_string(),
+            HardwareRequirement::Ping1d => "a Ping1D sonar is connected".to_string(),
+            HardwareRequirement::Ping360 => "a Ping360 sonar is connected".to_string(),
+            HardwareRequirement::ExternalNmeaGps => "an external NMEA GPS is connected".to_string(),
+            HardwareRequirement::UsbSerialDevice => "a USB serial device is connected".to_string(),
+        },
+        Precondition::Software(software) => match software {
+            SoftwareRequirement::PirateMode => "pirate mode is enabled".to_string(),
+            SoftwareRequirement::AdvancedMode => "advanced mode is enabled".to_string(),
+            SoftwareRequirement::DevMode => "developer mode is enabled".to_string(),
+            SoftwareRequirement::ConfirmDangerousOp => {
+                "the operator confirmed a dangerous operation".to_string()
+            }
+        },
+        Precondition::NetworkResource(resource) => match resource {
+            NetworkResource::WifiRadioPresent => "a Wi-Fi radio is present".to_string(),
+            NetworkResource::KnownWifiNetwork => "a known Wi-Fi network is available".to_string(),
+            NetworkResource::HotspotCapable => "hotspot capability is available".to_string(),
+            NetworkResource::WiredEthernetPresent => "wired Ethernet is present".to_string(),
+            NetworkResource::UsbOtgPresent => "USB OTG is present".to_string(),
+        },
+        Precondition::Data(data) => match data {
+            DataRequirement::ExtensionInstalled => "an extension is installed".to_string(),
+            DataRequirement::LocalBlueosVersionAvailable => {
+                "a local BlueOS version image is available".to_string()
+            }
+            DataRequirement::SerialBridgeConfigured => "a serial bridge is configured".to_string(),
+            DataRequirement::NmeaSocketConfigured => "an NMEA socket is configured".to_string(),
+            DataRequirement::RecordingListed => "a video recording is listed".to_string(),
+            DataRequirement::WifiNetworkSaved => "a Wi-Fi network is saved".to_string(),
+            DataRequirement::WifiCurrentlyConnected => "Wi-Fi is currently connected".to_string(),
+            DataRequirement::OnboardDhcpServerActive => {
+                "the onboard DHCP server is active".to_string()
+            }
+        },
+    }
+}
+
+pub fn find_contamination(text: &str) -> Option<String> {
+    if let Some(verb) = find_http_verb_token(text) {
+        return Some(verb);
+    }
+    if let Some(path) = find_route_path_contamination(text) {
+        return Some(path);
+    }
+    if let Some(service) = find_multi_token_service_id(text) {
+        return Some(service);
+    }
+    if let Some(service) = find_single_token_service_id(text) {
+        return Some(service);
+    }
+    for token in text.split(|c: char| !c.is_ascii_digit()) {
+        if is_likely_port_token(token) {
+            return Some(token.to_string());
+        }
+    }
+    for token in text.split(|c: char| !c.is_ascii_digit()) {
+        if token.len() == 3
+            && token.chars().all(|ch| ch.is_ascii_digit())
+            && matches!(
+                token.parse::<u16>(),
+                Ok(400 | 401 | 403 | 404 | 405 | 409 | 422 | 500 | 502 | 503)
+            )
+        {
+            return Some(token.to_string());
+        }
+    }
+    None
+}
+
+const HTTP_VERBS: &[&str] = &["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"];
+
+const MULTI_TOKEN_SERVICE_IDS: &[&str] = &[
+    "ardupilot_manager",
+    "bag_of_holding",
+    "cable_guy",
+    "disk_usage",
+    "mavlink-camera-manager",
+    "nmea_injector",
+    "recorder_extractor",
+    "user_terminal",
+];
+
+const SINGLE_TOKEN_SERVICE_IDS: &[&str] = &[
+    "bridget",
+    "commander",
+    "filebrowser",
+    "iperf3",
+    "kraken",
+    "linux2rest",
+    "mavlink2rest",
+    "nginx",
+    "pardal",
+    "ttyd",
+    "versionchooser",
+    "zenohd",
+];
+
+fn find_single_token_service_id(text: &str) -> Option<String> {
+    let lower = text.to_ascii_lowercase();
+    for token in lower.split(|c: char| !c.is_ascii_alphanumeric()) {
+        if SINGLE_TOKEN_SERVICE_IDS.contains(&token) {
+            return Some(token.to_string());
+        }
+    }
+    None
+}
+
+fn find_http_verb_token(text: &str) -> Option<String> {
+    for token in text.split(|c: char| !c.is_ascii_alphabetic()) {
+        if HTTP_VERBS.contains(&token) {
+            return Some(token.to_string());
+        }
+    }
+    None
+}
+
+fn is_likely_port_token(token: &str) -> bool {
+    if token.len() < 4 || token.len() > 5 {
+        return false;
+    }
+    if !token.chars().all(|ch| ch.is_ascii_digit()) {
+        return false;
+    }
+    let Ok(port) = token.parse::<u32>() else {
+        return false;
+    };
+    if !(1024..=65535).contains(&port) {
+        return false;
+    }
+    !(token.len() == 4 && (1900..=2100).contains(&port))
+}
+
+fn find_route_path_contamination(text: &str) -> Option<String> {
+    for (idx, ch) in text.char_indices() {
+        if ch != '/' {
+            continue;
+        }
+        if idx > 0 {
+            let prev = text[..idx].chars().last();
+            if prev.is_some_and(|p| p.is_ascii_alphanumeric()) {
+                continue;
+            }
+        }
+        let rest = &text[idx..];
+        let end = rest
+            .find(|ch: char| ch.is_whitespace() || ch == ',' || ch == ';' || ch == ')')
+            .unwrap_or(rest.len());
+        let path = rest[..end].to_string();
+        if path.len() > 1 && !is_host_filesystem_path(&path) {
+            return Some(path);
+        }
+    }
+    None
+}
+
+fn is_host_filesystem_path(path: &str) -> bool {
+    path.starts_with("/etc/")
+        || path.starts_with("/home/")
+        || path.starts_with("/usr/")
+        || path.starts_with("/root/")
+        || path.starts_with("/dev/")
+        || path.starts_with("/var/")
+}
+
+fn find_multi_token_service_id(text: &str) -> Option<String> {
+    let lower = text.to_ascii_lowercase();
+    for id in MULTI_TOKEN_SERVICE_IDS {
+        if let Some(idx) = lower.find(id) {
+            let before_ok = idx == 0 || !is_service_id_char(lower.as_bytes()[idx - 1]);
+            let end = idx + id.len();
+            let after_ok = end == lower.len() || !is_service_id_char(lower.as_bytes()[end]);
+            if before_ok && after_ok {
+                return Some(id.to_string());
+            }
+        }
+    }
+    None
+}
+
+fn is_service_id_char(byte: u8) -> bool {
+    byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-'
+}
+
+fn grounded_text<T>(grounded: &Grounded<T>) -> &str
+where
+    T: AsRef<str>,
+{
+    match grounded {
+        Grounded::Known { value, .. } => value.as_ref(),
+        Grounded::Unknown { reason } => reason,
+    }
+}
+
+fn system_requirement_id(feature: &crate::feature::Feature) -> RequirementId {
+    let domain = domain_of(feature.aggregate);
+    RequirementId(format!(
+        "REQ/{}/{}/SYS/{}",
+        domain.as_str(),
+        feature.aggregate.as_str(),
+        feature.id.0.as_str()
+    ))
+}
+
+fn functional_requirement_id(
+    domain: Domain,
+    aggregate: Aggregate,
+    journey_id: JourneyId,
+) -> RequirementId {
+    RequirementId(format!(
+        "REQ/{}/{}/FUN/{}",
+        domain.as_str(),
+        aggregate.as_str(),
+        journey_id.as_str()
+    ))
+}
+
+fn interface_requirement_id(
+    domain: Domain,
+    aggregate: Aggregate,
+    method: &HttpMethod,
+    resolved: &str,
+) -> RequirementId {
+    RequirementId(format!(
+        "REQ/{}/{}/IF/{}/{}",
+        domain.as_str(),
+        aggregate.as_str(),
+        http_method_label(method),
+        sanitize_path_for_id(resolved)
+    ))
+}
+
+fn performance_requirement_id(
+    domain: Domain,
+    aggregate: Aggregate,
+    method: &HttpMethod,
+    resolved: &str,
+) -> RequirementId {
+    RequirementId(format!(
+        "REQ/{}/{}/PERF/{}/{}",
+        domain.as_str(),
+        aggregate.as_str(),
+        http_method_label(method),
+        sanitize_path_for_id(resolved)
+    ))
+}
+
+fn robustness_requirement_id(
+    domain: Domain,
+    aggregate: Aggregate,
+    probe_id: &str,
+) -> RequirementId {
+    RequirementId(format!(
+        "REQ/{}/{}/ROB/{}",
+        domain.as_str(),
+        aggregate.as_str(),
+        probe_id
+    ))
+}
+
+fn constraint_requirement_id(domain: Domain, aggregate: Aggregate, label: &str) -> RequirementId {
+    RequirementId(format!(
+        "REQ/{}/{}/CON/{}",
+        domain.as_str(),
+        aggregate.as_str(),
+        sanitize_path_for_id(label)
+    ))
+}
+
+fn sanitize_path_for_id(path: &str) -> String {
+    path.trim_start_matches('/')
+        .chars()
+        .map(|ch| match ch {
+            '/' | '?' | '&' | '=' => '_',
+            other => other,
+        })
+        .collect()
+}
+
+fn primary_feature_for_journey(journey: &UserJourney) -> Option<FeatureId> {
+    if let GroundedSet::Known { items } = &journey.capability_refs {
+        if let Some(first) = items.first() {
+            return Some(FeatureId(first.value));
+        }
+    }
+    None
+}
+
+fn aggregate_for_journey(journey: &UserJourney) -> Aggregate {
+    if let GroundedSet::Known { items } = &journey.capability_refs {
+        if let Some(first) = items.first() {
+            if let Some(def) = capability_def(first.value) {
+                return def.aggregate;
+            }
+            if let Some(def) = frontend_capability_def(first.value) {
+                return def.aggregate;
+            }
+        }
+    }
+    Aggregate::HostControl
+}
+
+fn aggregate_for_service(catalog: &Catalog, service_id: ServiceId) -> Aggregate {
+    if let Some(service) = catalog.service_by_id(&service_id) {
+        if let crate::provenance::AssertedSet::Established { items } =
+            &service.definition.capabilities
+        {
+            if let Some(first) = items.first() {
+                if let Some(def) = capability_def(first.value) {
+                    return def.aggregate;
+                }
+            }
+        }
+    }
+    Aggregate::HostControl
+}
+
+fn availability_for_capability(catalog: &Catalog, capability: CapabilityId) -> FeatureAvailability {
+    let journeys: Vec<&UserJourney> = catalog
+        .journeys()
+        .iter()
+        .filter(|journey| journey_references_capability(journey, capability))
+        .collect();
+    merge_journey_availabilities(journeys)
+}
+
+fn availability_for_service(catalog: &Catalog, service_id: ServiceId) -> FeatureAvailability {
+    let journeys: Vec<&UserJourney> = catalog
+        .journeys()
+        .iter()
+        .filter(|journey| journey_participates_service(journey, service_id))
+        .collect();
+    merge_journey_availabilities(journeys)
+}
+
+fn merge_journey_availabilities(journeys: Vec<&UserJourney>) -> FeatureAvailability {
+    if journeys.is_empty() {
+        return FeatureAvailability::unknown();
+    }
+    let anchor = journeys
+        .iter()
+        .min_by(|left, right| {
+            availability_first_tag_key(&left.availability)
+                .cmp(&availability_first_tag_key(&right.availability))
+                .then_with(|| {
+                    left.availability
+                        .intro_commit
+                        .cmp(right.availability.intro_commit)
+                })
+        })
+        .expect("non-empty journeys");
+    FeatureAvailability {
+        intro_commit: anchor.availability.intro_commit,
+        present_in_tags: anchor.availability.present_in_tags,
+        present_on_master: journeys
+            .iter()
+            .any(|journey| journey.availability.present_on_master),
+        present_on_1_4_dev: journeys
+            .iter()
+            .any(|journey| journey.availability.present_on_1_4_dev),
+    }
+}
+
+fn availability_first_tag_key(availability: &FeatureAvailability) -> (u32, u32, u32, u32) {
+    let Some(tag) = availability.first_tag() else {
+        return (u32::MAX, u32::MAX, u32::MAX, u32::MAX);
+    };
+    let base = tag.strip_prefix('v').unwrap_or(tag);
+    let mut parts = base.split('.');
+    let major = parts
+        .next()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(u32::MAX);
+    let minor = parts
+        .next()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(u32::MAX);
+    let patch = parts
+        .next()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(u32::MAX);
+    (major, minor, patch, 0)
+}
+
+fn journey_references_capability(journey: &UserJourney, capability: CapabilityId) -> bool {
+    matches!(
+        &journey.capability_refs,
+        GroundedSet::Known { items } if items.iter().any(|item| item.value == capability)
+    )
+}
+
+fn journey_participates_service(journey: &UserJourney, service_id: ServiceId) -> bool {
+    matches!(
+        &journey.services,
+        GroundedSet::Known { items } if items.iter().any(|item| item.value == service_id)
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::catalog::Catalog;
+    use crate::feature::FeatureCatalog;
+    use crate::id::JourneyId;
+    use crate::version::FeatureAvailability;
+
+    const EXPECTED_SYSTEM_COUNT: usize = 143;
+    const EXPECTED_FUNCTIONAL_COUNT: usize = 100;
+    const EXPECTED_INTERFACE_COUNT: usize = 87;
+    const EXPECTED_PERFORMANCE_COUNT: usize = 80;
+    const EXPECTED_ROBUSTNESS_COUNT: usize = 63;
+    const EXPECTED_CONSTRAINT_COUNT: usize = 42;
+
+    const TEST_PRESENCE: FeatureAvailability = FeatureAvailability {
+        intro_commit: "0000000000000000000000000000000000000001",
+        present_in_tags: &["1.0.0"],
+        present_on_master: true,
+        present_on_1_4_dev: true,
+    };
+
+    #[test]
+    fn bootstrap_requirement_counts_match_pins() {
+        let catalog = RequirementCatalog::bootstrap();
+        let counts = catalog.count_by_kind();
+        assert_eq!(
+            counts.get(&RequirementKind::System),
+            Some(&EXPECTED_SYSTEM_COUNT)
+        );
+        assert_eq!(
+            counts.get(&RequirementKind::Functional),
+            Some(&EXPECTED_FUNCTIONAL_COUNT)
+        );
+        assert_eq!(
+            counts.get(&RequirementKind::Interface),
+            Some(&EXPECTED_INTERFACE_COUNT)
+        );
+        assert_eq!(
+            counts.get(&RequirementKind::Performance),
+            Some(&EXPECTED_PERFORMANCE_COUNT)
+        );
+        assert_eq!(
+            counts.get(&RequirementKind::Robustness),
+            Some(&EXPECTED_ROBUSTNESS_COUNT)
+        );
+        assert_eq!(
+            counts.get(&RequirementKind::Constraint),
+            Some(&EXPECTED_CONSTRAINT_COUNT)
+        );
+    }
+
+    #[test]
+    fn independent_functional_count_from_journey_ids() {
+        let catalog = Catalog::bootstrap();
+        assert_eq!(catalog.journeys().len(), EXPECTED_FUNCTIONAL_COUNT);
+    }
+
+    #[test]
+    fn independent_robustness_count_from_negative_probes() {
+        assert_eq!(NEGATIVE_PROBES.len(), EXPECTED_ROBUSTNESS_COUNT);
+    }
+
+    #[test]
+    fn independent_performance_count_from_slo_baselines() {
+        let catalog = Catalog::bootstrap();
+        let mut count = 0usize;
+        for service in catalog.services() {
+            if let GroundedSet::Known { items } = &service.runtime.slo_baselines {
+                count += items.len();
+            }
+        }
+        assert_eq!(count, EXPECTED_PERFORMANCE_COUNT);
+    }
+
+    #[test]
+    fn bootstrap_requirements_validate_structure() {
+        let catalog = Catalog::bootstrap();
+        let features = FeatureCatalog::from_catalog(&catalog);
+        let requirements = RequirementCatalog::from_catalog(&catalog);
+        requirements
+            .validate_structure(&catalog, &features)
+            .expect("bootstrap requirements should validate");
+    }
+
+    #[test]
+    fn contamination_lint_catches_impl_notes_and_spares_english() {
+        assert_eq!(
+            find_contamination("POST /vehicle_name"),
+            Some("POST".to_string())
+        );
+        assert_eq!(
+            find_contamination("listen on port 8000"),
+            Some("8000".to_string())
+        );
+        assert!(find_contamination("Connect BlueOS to a wifi network").is_none());
+        assert!(find_contamination("Ping family sonar devices").is_none());
+        assert!(find_contamination("Delete a recording").is_none());
+        assert!(find_contamination("Get the disk usage tree").is_none());
+        assert_eq!(
+            find_contamination("reads from mavlink2rest and nginx on port 80"),
+            Some("mavlink2rest".to_string())
+        );
+        assert_eq!(
+            find_contamination("Run an arbitrary bash command on the host through commander"),
+            Some("commander".to_string())
+        );
+
+        let contaminated = "POST /vehicle_name";
+        let statement = derive_statement(
+            contaminated,
+            ContaminationSource::Journey {
+                id: JourneyId::MonitorInternetConnectivity,
+            },
+            &mut Vec::new(),
+        );
+        assert!(matches!(statement, RequirementStatement::Unknown { .. }));
+        let catalog = RequirementCatalog {
+            requirements: vec![Requirement {
+                id: RequirementId("REQ/test".to_string()),
+                kind: RequirementKind::Functional,
+                domain: Domain::OnboardComputer,
+                aggregate: Aggregate::HostControl,
+                availability: TEST_PRESENCE,
+                statement: RequirementStatement::Known {
+                    text: contaminated.to_string(),
+                },
+                criteria: RequirementCriteria::Unknown {
+                    reason: "test".to_string(),
+                },
+                feature_id: None,
+                journey_id: None,
+                functional_children: Vec::new(),
+                rationale: None,
+            }],
+            contamination_findings: Vec::new(),
+        };
+        let errors = catalog
+            .validate_emitted_statements()
+            .expect_err("contaminated emitted statement must fail");
+        assert!(errors.iter().any(|err| matches!(
+            err,
+            RequirementValidationError::ContaminatedStatementEmitted { .. }
+        )));
+    }
+
+    fn functional_id_for_journey(catalog: &Catalog, journey_id: JourneyId) -> String {
+        RequirementCatalog::from_catalog(catalog)
+            .requirements()
+            .iter()
+            .find(|req| req.journey_id == Some(journey_id))
+            .expect("functional requirement for journey")
+            .id
+            .0
+            .clone()
+    }
+
+    #[test]
+    fn requirement_ids_stable_when_journey_slice_reordered() {
+        let catalog_a = Catalog::bootstrap();
+        let journeys_a = catalog_a.journeys().to_vec();
+        let mut journeys_b = journeys_a.clone();
+        if journeys_b.len() >= 2 {
+            journeys_b.swap(0, 1);
+        }
+        let catalog_b = Catalog::with_parts(
+            catalog_a.services().to_vec(),
+            journeys_b,
+            catalog_a.pages().to_vec(),
+        );
+        let anchor = journeys_a[0].id;
+        assert_eq!(
+            functional_id_for_journey(&catalog_a, anchor),
+            functional_id_for_journey(&catalog_b, anchor)
+        );
+
+        for catalog in [&catalog_a, &catalog_b] {
+            let requirements = RequirementCatalog::from_catalog(catalog);
+            let functional_ids: Vec<&str> = requirements
+                .requirements()
+                .iter()
+                .filter(|req| req.kind == RequirementKind::Functional)
+                .map(|req| req.id.0.as_str())
+                .collect();
+            let unique: HashSet<&str> = functional_ids.iter().copied().collect();
+            assert_eq!(
+                functional_ids.len(),
+                unique.len(),
+                "functional requirement ids must be unique"
+            );
+        }
+
+        let ids_a: BTreeSet<String> = RequirementCatalog::from_catalog(&catalog_a)
+            .requirements()
+            .iter()
+            .map(|req| req.id.0.clone())
+            .collect();
+        let ids_b: BTreeSet<String> = RequirementCatalog::from_catalog(&catalog_b)
+            .requirements()
+            .iter()
+            .map(|req| req.id.0.clone())
+            .collect();
+        assert_eq!(ids_a, ids_b);
+    }
+
+    #[test]
+    fn missing_system_requirement_fails_validate() {
+        let catalog = Catalog::bootstrap();
+        let features = FeatureCatalog::from_catalog(&catalog);
+        let mut requirements = RequirementCatalog::from_catalog(&catalog);
+        requirements
+            .requirements
+            .retain(|req| req.kind != RequirementKind::System);
+        let errors = requirements
+            .validate_structure(&catalog, &features)
+            .expect_err("dropping system requirements must fail");
+        assert!(errors.iter().any(|err| matches!(
+            err,
+            RequirementValidationError::MissingSystemRequirement { .. }
+        )));
+    }
+}
