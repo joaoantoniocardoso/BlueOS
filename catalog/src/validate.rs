@@ -7,11 +7,13 @@ use thiserror::Error;
 use crate::capability::Aggregate;
 use crate::catalog::Catalog;
 use crate::domain::{ALL_AGGREGATES, DOMAINS};
+use crate::feature::FeatureCatalog;
 use crate::harness_ratchet::harness_ratchet_counts;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::UserJourney;
 use crate::page::{ConsumeTarget, PageId};
 use crate::provenance::{AssertedSet, Grounded, GroundedSet, ObservedSet, Provenance};
+use crate::requirement::RequirementCatalog;
 use crate::resource::ResourceOwnership;
 use crate::runner::{http_method_label, resolve_http_path};
 use crate::service::{Authority, Service, ServiceDefinition};
@@ -106,6 +108,8 @@ pub enum ValidationError {
     },
     #[error("aggregate {aggregate} is not assigned to any domain")]
     UnassignedAggregate { aggregate: String },
+    #[error("requirement validation failed: {detail}")]
+    RequirementStructure { detail: String },
 }
 
 pub fn validate(catalog: &Catalog) -> Result<(), Vec<ValidationError>> {
@@ -122,6 +126,7 @@ pub fn validate(catalog: &Catalog) -> Result<(), Vec<ValidationError>> {
     errors.extend(check_coverage_gate(catalog));
     errors.extend(check_domain_taxonomy());
     errors.extend(check_harness_annotation_stubs(catalog));
+    errors.extend(check_requirements(catalog));
 
     if errors.is_empty() {
         Ok(())
@@ -703,6 +708,29 @@ fn check_harness_annotation_stubs(catalog: &Catalog) -> Vec<ValidationError> {
     Vec::new()
 }
 
+fn check_requirements(catalog: &Catalog) -> Vec<ValidationError> {
+    if !requirements_check_applies(catalog) {
+        return Vec::new();
+    }
+    let features = FeatureCatalog::from_catalog(catalog);
+    let requirements = RequirementCatalog::from_catalog(catalog);
+    match requirements.validate_structure(catalog, &features) {
+        Ok(()) => Vec::new(),
+        Err(req_errors) => req_errors
+            .into_iter()
+            .map(|error| ValidationError::RequirementStructure {
+                detail: error.to_string(),
+            })
+            .collect(),
+    }
+}
+
+pub(crate) fn requirements_check_applies(catalog: &Catalog) -> bool {
+    catalog.services().len() == crate::services::all_services().len()
+        && catalog.journeys().len() == crate::journeys::all_journeys().len()
+        && catalog.pages().len() == crate::pages::all_pages().len()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -834,6 +862,12 @@ mod tests {
     fn bootstrap_catalog_passes_validate() {
         let catalog = Catalog::bootstrap();
         assert!(catalog.validate().is_ok());
+    }
+
+    #[test]
+    fn requirement_structure_check_applies_only_on_bootstrap_catalog() {
+        assert!(!requirements_check_applies(&Catalog::new()));
+        assert!(requirements_check_applies(&Catalog::bootstrap()));
     }
 
     #[test]
