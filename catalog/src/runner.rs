@@ -1705,6 +1705,42 @@ pub fn execute_curl(
     Ok((status_code, body.to_string()))
 }
 
+/// Commonwealth stream endpoints always return HTTP 200; failures are encoded in JSON fragments.
+pub fn streamed_fragment_error(body: &str) -> Option<String> {
+    let chunks: Vec<&str> = body
+        .split("|\n\n|")
+        .map(str::trim)
+        .filter(|chunk| !chunk.is_empty())
+        .collect();
+
+    for chunk in chunks {
+        let value: serde_json::Value = match serde_json::from_str(chunk) {
+            Ok(value) => value,
+            Err(_) => return None,
+        };
+        let fragment = value.get("fragment").and_then(serde_json::Value::as_i64)?;
+        let status = value
+            .get("status")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(0);
+        let error = value.get("error").and_then(|value| match value {
+            serde_json::Value::Null => None,
+            serde_json::Value::String(text) if text.is_empty() => None,
+            serde_json::Value::String(text) => Some(text.as_str()),
+            _ => None,
+        });
+
+        if status >= 400 || error.is_some() {
+            let error_text = error.unwrap_or("");
+            return Some(format!(
+                "fragment {fragment}: status {status}: {error_text}"
+            ));
+        }
+    }
+
+    None
+}
+
 pub fn evaluate_http_response(
     status_code: u16,
     body: &str,
@@ -1721,6 +1757,9 @@ pub fn evaluate_http_response(
                     return StepResult::Fail(format!("body missing expected substring: {needle}"));
                 }
             }
+        }
+        if let Some(message) = streamed_fragment_error(body) {
+            return StepResult::Fail(message);
         }
         StepResult::Pass
     } else {
@@ -2348,6 +2387,56 @@ mod tests {
             evaluate_http_response(404, "{}", Some(200), None),
             StepResult::Fail(_)
         ));
+    }
+
+    #[test]
+    fn evaluate_http_response_fails_on_streamed_fragment_error() {
+        let body = concat!(
+            r#"{"fragment": 0, "status": 500, "data": null, "error": "Extension williangalvani.example1 not found"}"#,
+            "|\n\n|",
+        );
+        let result = evaluate_http_response(200, body, Some(200), None);
+        assert!(
+            matches!(&result, StepResult::Fail(message) if message.contains("williangalvani.example1")),
+            "expected Fail with extension name, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn evaluate_http_response_passes_successful_fragment_stream() {
+        let body = concat!(
+            r#"{"fragment": 0, "status": 200, "data": "bG9n", "error": null}"#,
+            "|\n\n|",
+            r#"{"fragment": 1, "status": 200, "data": "ZG9uZQ==", "error": null}"#,
+            "|\n\n|",
+        );
+        assert_eq!(
+            evaluate_http_response(200, body, Some(200), None),
+            StepResult::Pass
+        );
+    }
+
+    #[test]
+    fn evaluate_http_response_passes_fragment_stream_with_heartbeats() {
+        let body = concat!(
+            r#"{"fragment": -1, "status": 200, "data": "aGVhcnRiZWF0", "error": null}"#,
+            "|\n\n|",
+            r#"{"fragment": 0, "status": 200, "data": "bG9n", "error": null}"#,
+            "|\n\n|",
+        );
+        assert_eq!(
+            evaluate_http_response(200, body, Some(200), None),
+            StepResult::Pass
+        );
+    }
+
+    #[test]
+    fn evaluate_http_response_passes_non_stream_json_negative_probe() {
+        let body = r#"{"detail":"Extension np.no.such.extension not found"}"#;
+        assert_eq!(
+            evaluate_http_response(404, body, Some(404), None),
+            StepResult::Pass
+        );
     }
 
     #[test]
