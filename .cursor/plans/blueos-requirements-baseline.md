@@ -8,7 +8,7 @@ todos:
     status: completed
   - id: p1
     content: "P1 Reverse index source path -> catalog entities; impact --since <tag> work orders"
-    status: pending
+    status: completed
   - id: p2
     content: "P2 Requirement layer: statement/criterion split, derived baseline, contamination lint, SRS + RTM exports"
     status: pending
@@ -155,6 +155,20 @@ New bin `catalog/src/bin/impact.rs`:
 - `--json` for agent consumption.
 
 **Gate:** every file cited anywhere appears in the index (index file-set == lint file-set). A test asserts a known path (`core/services/nmea_injector/main.py`) maps to the expected journeys. `impact --since` against a real prior tag produces a non-empty, correctly-grouped work order.
+
+**DONE (2026-08-21, ACCEPT).** `catalog/src/source_index.rs` + `catalog/src/bin/impact.rs`. Index built from the *same* `build_report()` traversal as `provenance_lint`, so the two cannot disagree about what is cited. 231 distinct cited files, verified identical to the linter's resolved file-set. Pinned per kind: 158 Observed / 104 Source / 7 Doc / 27 Runtime.
+
+`impact --since v1.4.2` -> 179 impacted indexed paths, 1528 entries across 77 modules. `--path` answers the reverse. Entries are `needs-review` by default and `confirmed-drifted` when the linter reports that citation as `Relocated` or worse.
+
+Attribution resolves the walk's `model_path` index back into `SERVICES` / `PAGES` / `all_journeys()`. That is only sound while `Catalog::bootstrap()` serializes those exact slices in that exact order, so `bootstrap_slices_match_attribution_index_sources` asserts it -- a filter or a reorder fails loudly instead of silently sending an agent to the wrong module.
+
+**Known blind spots, stated in the tool's own output:**
+
+- **Doc citations are not diffed.** They resolve against the sibling `../BlueOS-docs` checkout, which `--since` never looks at, so documentation drift produces an empty work order. P4 must re-check doc-grounded claims by another route.
+- **An intact anchor is not a guarantee.** It proves the cited line survived, not that the surrounding behaviour still supports the claim -- hence changed-file-means-review rather than trusting the anchor.
+- Between a pre-catalog tag and HEAD, ~14% of entries are the catalog's own birth (27 runtime captures + 3 path constants). Real evidence, but noise for this particular comparison; it shrinks to nothing once baselines are catalog-era.
+
+**Lesson.** The first completeness test was tautological -- both sides called the same `filter_map`, so it passed for every possible input. Dropping all `Runtime` citations removed 27 files and 206 citations from the index with the test still green. Any "the index covers everything" claim must derive its expected set *without* the function under test, and pin the counts.
 
 ### P2 -- Requirement layer (1 Requirements Engineer + Opus-5; parallel with P3)
 
