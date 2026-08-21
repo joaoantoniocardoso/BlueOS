@@ -27,12 +27,14 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 cargo run --bin extract      # observed layer vs core/start-blueos-core (source of truth)
 cargo run --bin drift        # asserted vs observed + asserted vs runtime reconciliation
+cargo run --bin provenance_lint  # every citation resolves AND anchor matches cited line; Relocated is fatal -- tree needing --fix does not pass
 # validate() runs inside tests; confirm it exercises the new service
 ```
 
 - **`validate()`** — invariants + coverage threshold (authority uniqueness, edge targets exist, journey/runtime cross-refs, frontend `FRONTEND_API_ENDPOINTS` / `API_URL` composition via `FrontendRoutePrefixDropped`, `Unknown` count ≤ threshold).
 - **`extract`** — the hand-authored observed layer (startup_tier/memory/cpu) matches `core/start-blueos-core`.
 - **`drift`** — no asserted field contradicts the observed layer; runtime StateContracts reference declared states.
+- **`provenance_lint`** — every `Evidence`/`Provenance::Doc` citation resolves and its `anchor` still matches the cited line; `Relocated`/`AmbiguousAnchor`/`AnchorLost` are fatal (a tree needing `--fix` does not pass).
 - **`journey_http` smoke (required when Pi reachable)** — blocking gate for journey/route/runtime work:
 
 ```bash
@@ -88,11 +90,15 @@ Aggregate: **4 routed steps, 4 Pass, 0 Fail, 0 Skip.**
 
 ## Provenance spot-check (manual, sample K fields)
 
+`provenance_lint` automates the mechanical half: a fabricated or stale `file:line` or mismatched anchor cannot survive the gate. The spot-check's job is harder -- an intact anchor proves the cited **line** survived, not that surrounding behaviour still supports the claim.
+
 For K randomly chosen observed fields on the card:
 
-1. Open the cited `file:line`.
-2. Confirm the value actually appears there.
-3. A single fabricated or stale citation **fails the card**.
+1. Open the cited `file:line` and read the anchored line in context.
+2. Ask: does this line actually support the value asserted, given what surrounds it?
+3. A single citation whose anchor matches but whose context no longer supports the value **fails the card**.
+
+Use `cargo run --bin impact -- --path <file>` to list every catalog entity citing a file -- the way to check whether an extraction missed an entity.
 
 Prioritize sampling: ports, nginx routes, MAVLink connect strings, outbound edges — the fields most prone to drift.
 
@@ -121,8 +127,10 @@ QA for <id>:
 - [ ] cargo test green (validate exercised)
 - [ ] extract green (observed matches source)
 - [ ] drift green
+- [ ] provenance_lint green (no Relocated; tree needs no --fix)
 - [ ] coverage threshold met
-- [ ] provenance spot-check: K/K citations verified
+- [ ] provenance spot-check: K/K citations verified in context (anchor match alone insufficient)
+- [ ] any new check demonstrated non-vacuous (break it, watch fail, restore)
 - [ ] judgment fields obey FROZEN RUBRIC v1.0
 - [ ] authorities/edges trace to observed capabilities
 - [ ] journey routes obey FROZEN JOURNEY ROUTE RUBRIC v1.0 (resolved URL + live proof; not Source line alone)
