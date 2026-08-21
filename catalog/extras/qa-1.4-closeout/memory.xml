@@ -1,0 +1,17 @@
+<working_memory last_updated="iteration 93 @ 2026-08-14T20:25:00Z">
+  <recovery prompt="catalog/extras/qa-1.4-closeout/ORCHESTRATOR_PROMPT.xml">
+    Closeout DONE.md+STOP. QA14CLOSE CONTINUE is a no-op.
+  </recovery>
+  <phase>DONE</phase>
+  <confirmed_findings>
+    - G0–G7 ACCEPT. G8 leftover --ui pass/skip. Matrix UI empty=0 backend planned=0.
+    - KEEP F-063/F-075. F-069 presence. F-077 bridget. Never 2.2. 0 new JourneyIds.
+  </confirmed_findings>
+  <active_hypothesis>Campaign finished.</active_hypothesis>
+  <in_flight>none</in_flight>
+  <last_results>G7 ACCEPT. DONE.md written. Pin sha256:5b50dfaf…ebb1.</last_results>
+  <next_steps>
+    STOP
+  </next_steps>
+  <blocked_on>Nothing — campaign done.</blocked_on>
+</working_memory>
