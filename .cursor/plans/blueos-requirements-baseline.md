@@ -176,14 +176,14 @@ New `catalog/src/requirement.rs`. **Derived, not authored** -- a pure function o
 
 **The statement/criterion split is mandatory.** Requirements-recovery literature calls the failure mode *contaminated requirements*: well-formed statements that encode implementation artifacts instead of system expectations. `"BlueOS shall return 200 from GET /nmea-injector/v1.0/socks"` is not a requirement; a 2.0 rewrite that renames the route would falsely appear to violate it.
 
-- **Statement** -- implementation-free, derived from the Doc-grounded `UserJourney.summary` and `Feature.rationale`. This is what 2.0 is held to.
+- **Statement** -- implementation-free, derived from the Doc-grounded `UserJourney.summary`. This is what 2.0 is held to. **Not from `Feature.rationale`** -- P2 wave 1 established empirically that a rationale is an as-built implementation note by construction, so no lint tuning can make one yield an implementation-free statement (22 of 22 emitted system statements were implementation-bound). System statements compose from their functional children instead; `Feature.rationale` is retained as traceability only.
 - **AcceptanceCriterion** -- implementation-bound, derived from `RouteRef` + `StepOutcome` + runtime capture. This is how 1.x is verified today, and it is *expected* to change in 2.0.
 
 Levels, all derived:
 
 | Kind | One per | Source |
 |---|---|---|
-| System | `Feature` | `Feature.rationale`, allocated to owning service/page |
+| System | `Feature` | composed from its functional children, allocated to owning service/page |
 | Functional | `UserJourney` | `summary`, refined by steps |
 | Interface | distinct resolved route | `resolve_http_path` + capture |
 | Performance | `SloBaseline` | `catalog/src/runtime.rs` |
@@ -203,6 +203,14 @@ New bin `catalog/src/bin/requirements.rs`: `--version <tag>`, `--json`, `--srs` 
 **Contamination lint:** statements must not contain route paths, HTTP verbs, status codes, port numbers, or service ids. Violations fail.
 
 **Gate:** `cargo run -q --bin requirements -- --version 1.4-dev --srs` renders; contamination lint = 0; `cargo test` green; `unreferenced_features` surface as typed `Unknown` rather than silently vanishing. Opus-5 reads 20 sampled statements and judges them implementation-free.
+
+**Wave 1 DONE (2026-08-21, ACCEPT after 2 bounces).** `catalog/src/requirement.rs`, derivation only. 515 requirements: 143 System (85 Known / 58 `Unknown`), 100 Functional, 87 Interface, 80 Performance, 63 Robustness, 42 Constraint. Ids are `REQ/{domain}/{aggregate}/{KIND}/{stable-key}`, all 515 unique, no ordinal or path component. 6 contamination findings, 0 emitted violations; QA independently classified all 455 emitted statements and found none carrying a route path, HTTP verb, status code or port, and judged the baseline fit as a 2.0 regression contract.
+
+**Lesson 1 -- a source can be structurally unfit, and no lint fixes that.** The plan assumed `Feature.rationale` could source a system statement. It cannot: a rationale is an as-built implementation note by construction, so every one of the 22 statements that passed the lint was still implementation-bound, and 121 more were voided as contaminated. The fix was to change the source, not the lint -- system statements now compose from their functional children. When a lint voids most of its input, suspect the source before tuning the matcher.
+
+**Lesson 2 -- a lint over English needs an explicit list, not a heuristic.** Matching statements against service ids by substring flagged `wifi`, `ping` and `nginx` in ordinary prose (21 false positives) while being structurally unable to match the 8 multi-token ids it most needed to catch, because it split tokens on `_`. Matching HTTP verbs with `contains("get ")` fired inside `target`, `forget` and `throughput`. Inverted precision in both directions. What works is an explicit hand-audited list of the ids that are not also English words, matched on whole-token boundaries.
+
+**Lesson 3 -- the non-vacuity rule earned its keep on first contact.** The predecessor's id-stability test compared a `BTreeSet` of all ids, so it stayed green even when every requirement shared one ordinal id. The worker caught it unprompted while following the new rule, and QA then confirmed the tightened version fails against both an ordinal break and a subtler per-aggregate collision.
 
 ### P3 -- Extraction expansion (1 Extractor Engineer + Opus-5; parallel with P2)
 
