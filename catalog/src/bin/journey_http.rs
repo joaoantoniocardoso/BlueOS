@@ -2,6 +2,7 @@
 // Tier-1 smoke (GET + known status only): `journey_http --base http://<pi> --smoke`.
 // Tier-2 mutating smoke (allowlisted reversible journeys): `journey_http --base http://<pi> --mutating-smoke`.
 // Frontend PWA/cache contract: `journey_http --base http://<pi> --frontend-cache`.
+// Extension install/upgrade/downgrade/uninstall: `journey_http --base http://<pi> --extension-lifecycle --allow-mutating`.
 // Offline plan: `journey_http --dry-run` (no --base).
 use std::io::Write;
 use std::path::Path;
@@ -22,16 +23,16 @@ use blueos_catalog::{
     journey_http_requires_base, journey_mutating_smoke_ready, journey_profile_skip,
     mutating_effect_read_phases, mutating_smoke_setup_calls, mutating_smoke_skip_reason,
     mutating_smoke_teardown_calls, negative_probe_url, parse_fixture_list, resolve_http_path,
-    run_core_image_switch, run_frontend_cache, run_negative_probe, run_smoke_http_call,
-    summarize_journey, ui_fixture_skip_reason, ui_plan, ui_suite_plans, utc_rfc3339_now,
-    wait_for_blueos, wizard_skip_plan, write_journey_http_report, BlastRadius, Catalog,
-    ConflictKind, DutProfile, DutVersion, EffectReadBefore, EffectReadBeforeResult,
-    FixtureInventory, HttpMethod, JourneyHttpReport, JourneyId, JourneyReportEntry, JourneyResult,
-    McmStreamRestore, McmV4lRestore, NegativeProbe, PreconditionStatus, ReportConflict, ReportDut,
-    RunCounts, RunnableStep, StepResult, SuiteKind, UiJourneyPlan, UserJourney,
-    MUTATING_SMOKE_DEFAULT_FIXTURES, MUTATING_SMOKE_ENTRIES, NEGATIVE_PROBES, SCHEMA_VERSION,
-    SMOKE_CATALOG_STREAM_JSON, SMOKE_CORE_SWITCH_JSON, SMOKE_CORE_SWITCH_TAG,
-    SMOKE_DEFAULT_FIXTURES, UI_CAMERA_JOURNEYS,
+    run_core_image_switch, run_extension_lifecycle, run_frontend_cache, run_negative_probe,
+    run_smoke_http_call, summarize_journey, ui_fixture_skip_reason, ui_plan, ui_suite_plans,
+    utc_rfc3339_now, wait_for_blueos, wizard_skip_plan, write_extension_lifecycle_report,
+    write_journey_http_report, BlastRadius, Catalog, ConflictKind, DutProfile, DutVersion,
+    EffectReadBefore, EffectReadBeforeResult, FixtureInventory, HttpMethod, JourneyHttpReport,
+    JourneyId, JourneyReportEntry, JourneyResult, McmStreamRestore, McmV4lRestore, NegativeProbe,
+    PreconditionStatus, ReportConflict, ReportDut, RunCounts, RunnableStep, StepResult, SuiteKind,
+    UiJourneyPlan, UserJourney, MUTATING_SMOKE_DEFAULT_FIXTURES, MUTATING_SMOKE_ENTRIES,
+    NEGATIVE_PROBES, SCHEMA_VERSION, SMOKE_CATALOG_STREAM_JSON, SMOKE_CORE_SWITCH_JSON,
+    SMOKE_CORE_SWITCH_TAG, SMOKE_DEFAULT_FIXTURES, UI_CAMERA_JOURNEYS,
 };
 
 fn main() {
@@ -49,6 +50,7 @@ fn main() {
     let mut wifi_modes_spec: Option<String> = None;
     let mut wifi_endpoints = false;
     let mut frontend_cache = false;
+    let mut extension_lifecycle = false;
 
     let mut index = 1;
     while index < args.len() {
@@ -85,6 +87,7 @@ fn main() {
             }
             "--wifi-endpoints" => wifi_endpoints = true,
             "--frontend-cache" => frontend_cache = true,
+            "--extension-lifecycle" => extension_lifecycle = true,
             "--journey" => {
                 index += 1;
                 let id = args
@@ -113,14 +116,21 @@ fn main() {
     if let Err(message) = journey_http_mode_conflict(smoke, mutating_smoke, negative, ui) {
         usage_and_exit(message);
     }
-    if wifi_endpoints && (smoke || mutating_smoke || negative || ui || frontend_cache) {
+    if wifi_endpoints
+        && (smoke || mutating_smoke || negative || ui || frontend_cache || extension_lifecycle)
+    {
         usage_and_exit(
-            "--wifi-endpoints is mutually exclusive with --smoke, --mutating-smoke, --negative, --ui, and --frontend-cache",
+            "--wifi-endpoints is mutually exclusive with --smoke, --mutating-smoke, --negative, --ui, --frontend-cache, and --extension-lifecycle",
         );
     }
-    if frontend_cache && (smoke || mutating_smoke || negative || ui) {
+    if frontend_cache && (smoke || mutating_smoke || negative || ui || extension_lifecycle) {
         usage_and_exit(
-            "--frontend-cache is mutually exclusive with --smoke, --mutating-smoke, --negative, and --ui",
+            "--frontend-cache is mutually exclusive with --smoke, --mutating-smoke, --negative, --ui, and --extension-lifecycle",
+        );
+    }
+    if extension_lifecycle && (smoke || mutating_smoke || negative || ui) {
+        usage_and_exit(
+            "--extension-lifecycle is mutually exclusive with --smoke, --mutating-smoke, --negative, and --ui",
         );
     }
     if wifi_endpoints && (dry_run || base.is_none()) {
@@ -128,6 +138,12 @@ fn main() {
     }
     if frontend_cache && (dry_run || base.is_none()) {
         usage_and_exit("--frontend-cache requires --base and cannot use --dry-run");
+    }
+    if extension_lifecycle && (dry_run || base.is_none()) {
+        usage_and_exit("--extension-lifecycle requires --base and cannot use --dry-run");
+    }
+    if extension_lifecycle && !allow_mutating {
+        usage_and_exit("--extension-lifecycle requires --allow-mutating");
     }
 
     if let Err(message) = journey_http_requires_base(
@@ -219,6 +235,35 @@ fn main() {
             println!("{} {name}: {detail}", if *ok { "PASS" } else { "FAIL" });
         }
         println!("frontend-cache: passed={passed} failed={failed}");
+        if failed > 0 {
+            process::exit(1);
+        }
+        return;
+    }
+
+    if extension_lifecycle {
+        let base = base.as_deref().expect("base checked above");
+        println!("journey_http: extension-lifecycle");
+        println!("base: {base}");
+        let started_at = utc_rfc3339_now();
+        let results = run_extension_lifecycle(base, allow_mutating);
+        let failed = results.iter().filter(|check| !check.ok).count();
+        let passed = results.len() - failed;
+        for check in &results {
+            println!(
+                "{} {}: {}",
+                if check.ok { "PASS" } else { "FAIL" },
+                check.name,
+                check.detail
+            );
+        }
+        println!("extension-lifecycle: passed={passed} failed={failed}");
+        if let Some(path) = report_path.as_deref() {
+            if let Err(err) = write_extension_lifecycle_report(path, base, &started_at, &results) {
+                eprintln!("journey_http: report: {err}");
+                process::exit(2);
+            }
+        }
         if failed > 0 {
             process::exit(1);
         }
@@ -1116,7 +1161,7 @@ fn usage_and_exit(message: &str) -> ! {
 
 fn print_help() {
     eprintln!(
-        "usage: journey_http --base <url> [--fixtures internet,pirate,advanced] [--smoke | --mutating-smoke | --negative | --ui | --wifi-endpoints | --frontend-cache] [--wifi-modes open,wpa,wpa2,transition,wpa3] [--dry-run] [--allow-mutating] [--journey <id>] [--report <path.json>]"
+        "usage: journey_http --base <url> [--fixtures internet,pirate,advanced] [--smoke | --mutating-smoke | --negative | --ui | --wifi-endpoints | --frontend-cache | --extension-lifecycle] [--wifi-modes open,wpa,wpa2,transition,wpa3] [--dry-run] [--allow-mutating] [--journey <id>] [--report <path.json>]"
     );
 }
 

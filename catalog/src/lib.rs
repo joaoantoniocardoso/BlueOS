@@ -8,6 +8,7 @@ pub mod domain;
 pub mod drift;
 pub mod edge;
 pub mod export;
+pub mod extension_lifecycle;
 pub mod extract;
 pub mod feature;
 pub mod feature_intro;
@@ -75,6 +76,7 @@ pub use drift::{
 };
 pub use edge::{Bus, Edge, FailureImpact, SyncMode};
 pub use export::{export_json, export_mermaid, export_proposals_json, export_schema};
+pub use extension_lifecycle::{run_extension_lifecycle, write_extension_lifecycle_report};
 pub use extract::{check_against_observed, extract_from_repo, ExtractedService};
 pub use feature::{
     AggregateGroup, Divergence, Feature, FeatureCatalog, FeatureCommunity, FeatureId, FeatureLens,
