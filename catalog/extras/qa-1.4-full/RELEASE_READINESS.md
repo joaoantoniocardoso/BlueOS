@@ -1,61 +1,80 @@
 # 1.4-dev release readiness — catalog live QA
 
-**Pin (W0):** `bluerobotics/blueos-core:1.4-dev @ sha256:f615d7caef4d3e99f1c068e082350c1af43d5fcc0f45379ed97ea27c6dc89805`  
-**Pin (177 live 2026-08-14):** `sha256:5b50dfafc3114651d459993c0c65639d7205634613fb62e0dea5ee04de8eebb1` (same tag, newer digest; F-069)  
+**Pin:** `bluerobotics/blueos-core:1.4-dev @ sha256:5b50dfafc3114651d459993c0c65639d7205634613fb62e0dea5ee04de8eebb1`  
 **DUTs:** 177 Navigator Pi4 (play), 87 Pixhawk1, 2.2 Navigator USB vehicle, 124 Navigator Pi5  
-**Date:** 2026-08-13  
-**Campaign:** `catalog/extras/qa-1.4-full/`
+**Date:** 2026-08-14  
+**Campaign:** `catalog/extras/qa-1.4-full/` (closeout G0–G8)
 
 ## Verdict
 
-**1.4-dev is exercisable on all four boards for HTTP smoke, Track B negatives that exist on this channel, reversible mutating, and wifi RF (two Navigators).** It is **not** a full catalog-coverage release: 21 catalog journeys are 1.4.4+/1.5.0+ only (F-022). Core-image switch smoke is **not** valid on this pin (F-063). Shutdown was never run (hard exclude).
+**Coverage bar met:** journey matrix oracle shows UI empty = 0, backend planned = 0, both-empty gate = 0 among 79 present journeys. **Not product-green:** five product findings remain open (F-063, F-075, F-069, F-077, F-068). Shutdown was never run (hard exclude).
 
-## What passed
+## Matrix oracle (2026-08-14)
 
-| Wave | Result |
+```
+Journeys: 100 (present on 1.4-dev: 79)
+Backend measured pass: 39   UI measured pass: 37
+UI empty (needs plan): 0   presence contradictions: 1
+Both cells empty (gate): 0
+```
+
+Backend fails: `switch_local_blueos_version` @177 (F-063), `connect_to_wifi_network` @87 (F-075). Presence contradiction: `level_horizon` (F-069; git `not_on_1.4-dev`, live UI Pass).
+
+## What passed (closeout)
+
+| Area | Result |
 |---|---|
-| W0 inventory | all 4 reachable; same digest |
-| W1 `--smoke` | **19 pass / 0 fail / 72 skip** ×4 (skips = presence + fixtures + GET-only) |
-| W2 `--negative` | **22 pass / 13 fail / 28 unasserted** ×4 (identical). 9 fails are absent routes (405/404). 4 are 1.4-dev contracts |
-| W3 reversible mutating | Pass: lan_speed, rename, bag, manifest, smart_hotspot, hotspot_creds, mdns (not 2.2). NMEA Pass after F-056 fixture fix |
-| W4 RF | **10/10 Pass** on 177 and 124 (connect, hidden, **reject invalid**, reconnect, force PSK, disconnect, AP loss, autoconnect, hotspot + L3) |
-| W6 reboot | **Pass** on 177; recovered same digest |
-| Page-load | **19 pass / 5 skip** on 177 (F-070) |
-| `--ui` no-hardware | **4 pass** on 177 (F-071) |
-| W5 autopilot/board/SITL | **5 pass** on 177; Navigator restored (F-072) |
+| W0–W4, W6 | unchanged from pre-closeout; W4 177/124 10/10; 87 9/10 (F-075) |
+| G1 typed UI skips | HttpPassthrough, no_sonar, would_reboot, fixture skips — UI empty → 0 |
+| G2/G8 ui_plans | cable_guy internet cluster PASS; bag/rename/extensions/NMEA/bridges/version chooser |
+| `install_custom_extension` | PASS via `ClickSelectorIfVisible` (1.4-dev beta.15 FAB vs later speed-dial) |
+| Page-load + landmarks | 19/24 on 177 (F-070); pirate prefix + scoped selectors for extension/version |
+| Calibration `--ui` | 177 SITL 7/7 (F-066); compass `pass+F-068` |
+| No-hardware `--ui` | 177 (F-071), 124 (F-074) |
+| Camera `--ui` | 87 5/5; UDP Stream 0 restored (F-073) |
+| W5 autopilot/board/SITL | 177 Pass (F-072) |
+| G3 backend planned | filled → planned = 0 (NMEA POST, camera POST, serial skip, ping skip) |
+| G5 B6 service-down | probed on 177; F-077 filed |
+| Cable-guy F-078–F-084 | harness plan fixes landed (not product regressions) |
 
-## Product findings on this pin (keep)
+## Product findings still open
 
-| id | issue |
-|---|---|
-| NP-31 / F-030 | `POST /wifi-manager/v1.0/remove` unknown SSID → **200** (catalog 400) |
-| NP-38 / F-046 | concurrent `GET /scan` → **200,200** not 425 `scan_busy` |
-| NP-53 | missing extension restart → **400** not 404 (still rejects) |
-| NP-54 | missing container log → **200** (false success) |
+| id | journey / probe | issue |
+|---|---|---|
+| F-063 | `switch_local_blueos_version` @177 | POST switch → 412; harness tags `:master`; pin unchanged (G4 re-run F-063.1) |
+| F-075 | `connect_to_wifi_network` @87 | POST connect → 500 timeout; first failure sticks |
+| F-069 | `level_horizon` presence | git absent on 1.4-dev; live bundle has Level Horizon UI Pass — do not hand-edit `journey_presence.rs` |
+| F-077 | `view_configured_serial_bridges` / B6 | linux2rest down → GET serial_ports **200** `[]` (expect 502/error, not silent empty) |
+| F-068 | `calibrate_compass` | MAG_CAL fitness 0; Dismiss never shown; UI `pass_with_finding` |
 
-Commander `i_know_what_i_am_doing=false` → 400 (NP-01..08) **Pass**. NP-62 delete-running-tag → 500 **Pass** (guard). Reject-invalid-wifi RF **Pass**.
+NP contract findings (F-030–F-034, F-045–F-048): wifi remove 200, scan_busy, kraken 400/200 shapes — unchanged from W2.
+
+## Typed skips (coverage, not product pass)
+
+- `switch_local_blueos_version` UI: `local BlueOS version required` (no fixture; backend F-063 kept)
+- `disable_onboard_dhcp_server` UI: `onboard DHCP server active required` (eth0 DHCP inactive on 177)
+- `connect_to_wifi_network` / hidden / saved-wifi UI: `known Wi-Fi network required` or `saved Wi-Fi network required` (177 fixture skips)
+- `create_serial_to_udp_bridge` backend: `usb_serial_device`
+- `enable_ping1d_rangefinder_mavlink` / sonar: `no_sonar` (ABSENT ×4)
+- `enable_legacy_camera_support`: `would_reboot`
+- `shutdown_onboard_computer`: `hard_exclude`
+- 21 ids `not_on_1.4-dev` (F-022)
 
 ## Harness / environment (not 1.4-dev regressions)
 
 - F-022 / W2 405s: theme, disk-usage, recorder not on 1.4-dev
-- F-056: W3 fixture override skipped NMEA; fixed; retry Pass
+- F-056–F-062: W3 NMEA fixture, RF stale scan, wlan0 name
+- F-078–F-084: cable_guy `--ui` plan navigation (eth0 widget text, Network page, overlay) — harness, landed
 - F-057/060: stale wifi scan after AP down
-- F-058/061: cable-guy static IP on `wlan0` → 500; DHCP still worked
-- F-063: version-switch smoke assumes local `master`; 412 on 1.4-dev (did **not** change the pin)
 
-## Not run (typed skip)
+## Not run
 
-- `ShutdownOnboardComputer` — hard exclude
-- EEPROM update, firmware flash, settings reset — 177-only, not executed (brick / restore pin)
-- RF on 87 / 2.2 — 87 optional; 2.2 USB strand risk
+- EEPROM update, firmware flash, settings reset — brick / restore pin
+- RF on 2.2 — USB strand risk
 - Network mutate on 2.2 — forbidden
-- Camera UI (`configure_video_stream`) — DUT 87, not this wave
-
-## Harness shipped this campaign
-
-- `catalog/src/negative_probes.rs` + `journey_http --negative` (63 probes)
-- `run_w3.sh` fixture fix, `run_w4.sh`, `run_w6.sh`
+- Track A new JourneyIds — Opus gated; none promoted
+- Extra B6 beyond G5 allowlist
 
 ## Stop
 
-All four DUTs `/status` 204. 2.2 WAN via 192.168.2.1. Image pin unchanged. Further CONTINUE must **halt**.
+All four DUTs `/status` 204. Pin unchanged at `sha256:5b50dfaf…ebb1`. Coverage oracle green; product findings above remain for a release sign-off.

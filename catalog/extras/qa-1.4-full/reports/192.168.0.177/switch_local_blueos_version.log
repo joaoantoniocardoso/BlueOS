@@ -1,0 +1,11 @@
+journey_http: mutating-smoke — 1 allowlisted journeys (fixtures=internet,pirate,advanced,confirm-dangerous,board:any,wifi-radio,hotspot,nmea-socket,serial-bridge,dhcp-active,extension-installed,recording,local-version,wifi-saved,wifi-connected)
+base: http://192.168.0.177
+dut: tag=1.4-dev digest=sha256:5b50dfafc3114651d459993c0c65639d7205634613fb62e0dea5ee04de8eebb1
+
+FAIL switch_local_blueos_version step 2 POST /version/current → http://192.168.0.177/version-chooser/v1.0/version/current — core switch: expected HTTP 200 or connection drop, got 412
+journey_http: restoring core image to tag `master` (intended digest sha256:ae50d2d1d5935db0d764e2f14837039ff498d78abf22eb3c8f3fd68aa3fe4b76)…
+FAIL switch_local_blueos_version teardown core restore — core switch: expected HTTP 200 or connection drop, got 412
+FAIL switch_local_blueos_version teardown Delete /version/delete — expected HTTP 200, got 404
+
+summary: passed=1 failed=3 skipped=0 unasserted=0
+  Fail switch_local_blueos_version: 4 step(s)

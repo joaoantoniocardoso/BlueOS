@@ -1,17 +1,16 @@
-<working_memory last_updated="iteration 5 @ 2026-08-13T21:45:00Z">
+<working_memory last_updated="iteration 9 @ 2026-08-14T04:38:00Z">
   <recovery prompt=".cursor/plans/qa-1.4-dev-full-feature-test.md"/>
   <confirmed_findings>
-    - Prior pin f615d7ca retired. Live pin 1.4-dev @ sha256:5b50dfafc3114651d459993c0c65639d7205634613fb62e0dea5ee04de8eebb1 (2026-08-13T21:23:50Z) ×4
-    - Bag empty on all four (GET /bag/v1.0/get/* → {}); wizard required
-    - W1 hardware skips were fixture gates: SITL, firmware flash, wizard are in-policy
-    - W2 PR traces in W2_PR_TRACE.md: NP-31 bug PR#1899; NP-38 tolerable PR#383+#1019; NP-53 minor bug PR#2641; NP-54 false-success bug PR#2640
-    - Theme/disk/recorder still 404 on this 1.4-dev
-    - firmware_info 4.7.0 STABLE on all four
+    - Poll shells/report JSON. Task callbacks and AwaitShell waiting_for_subagent do not work here.
+    - F-073 87 camera UI 5/5; stream restored. F-074 124 no-hw --ui 4/4; Navigator stayed.
+    - F-075/F-076: W4 87 9 pass / 1 fail (visible-SSID connect timeout). Hidden connect Pass. 2.2 RF skipped.
+    - F-063 version-switch 412. F-069 level_horizon. vehicle_name smoke-catalog is W3 restore.
   </confirmed_findings>
-  <active_hypothesis>W1 hardware-unevaluable journeys can run after wizard; W5 firmware/SITL now authorized</active_hypothesis>
-  <last_results>
-    All DUTs 204, same digest 5b50dfaf, empty bag, Navigator×3 + Pixhawk1/87.
-  </last_results>
-  <next_steps>Wizard on all four (or settings reset already done — bag empty). Then W1/W5 hardware journeys: SITL, firmware upload, first-boot. Do not STOP.</next_steps>
-  <blocked_on>Operator: complete or skip wizard before mutating firmware/SITL if vehicle identity matters</blocked_on>
+  <active_hypothesis>Remaining UI holes are bag/extensions/NMEA/bridges page plans, not RF on 2.2.</active_hypothesis>
+  <last_results>W4 87 done FAIL=1 (connect only). DUT 204, Pixhawk1, UDP Stream 0 running, wlp8s0 DOWN.</last_results>
+  <next_steps>
+    [Phase 4] More ui_plan for bag, NMEA, bridges, extension store (no new JourneyIds).
+    [Phase 4] F-063 1.4-dev-aware switch smoke on 177 only — do not guess tag.
+  </next_steps>
+  <blocked_on>Nothing — ready to grow remaining UI plans.</blocked_on>
 </working_memory>

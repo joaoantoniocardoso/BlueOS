@@ -1,0 +1,8 @@
+helper|browse_available_web_services|/helper/v1.0/web_services|200|502|200|204
+linux2rest|view_configured_serial_bridges|/bridget/v1.0/serial_ports|200|200|200|204
+mavlink2rest|inspect_mavlink_messages_in_browser|/mavlink2rest/v1/mavlink|200|502|200|204
+nmea_injector|view_configured_nmea_sockets|/nmea-injector/v1.0/socks|502|502|200|204
+linux2rest|view_system_information|/system-information/system|200|200|200|204
+linux2rest|view_configured_serial_bridges|/bridget/v1.0/serial_ports|200|200|200|204|pkill
+linux2rest|view_system_information|/system-information/system|200|502|200|204|pkill
+nmea_injector|view_configured_nmea_sockets|/nmea-injector/v1.0/socks|200|502|200|204|C-c

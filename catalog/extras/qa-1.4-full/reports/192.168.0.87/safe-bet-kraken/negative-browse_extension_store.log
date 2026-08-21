@@ -1,0 +1,5 @@
+journey_http: negative — 1 probes (dry_run=false)
+base: http://192.168.0.87
+
+
+summary: passed=0 failed=0 skipped=0 unasserted=1

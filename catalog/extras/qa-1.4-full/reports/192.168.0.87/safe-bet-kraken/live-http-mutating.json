@@ -1,0 +1,148 @@
+{
+  "passed": 11,
+  "failed": 0,
+  "results": [
+    {
+      "name": "extensions",
+      "method": "GET",
+      "path": "/kraken/v2.0/extension/",
+      "got": 200,
+      "expect": [
+        200
+      ],
+      "ok": true,
+      "ms": 24,
+      "body": "[{\"identifier\":\"bluerobotics.cockpit\",\"tag\":\"v1.19.0-beta.8\",\"name\":\"Cockpit Lite\",\"docker\":\"bluerobotics/cockpit\",\"enabled\":false,\"permissions\":\"{\\\"ExposedPorts\\\":{\\\"8000/tcp\\\":{}"
+    },
+    {
+      "name": "containers",
+      "method": "GET",
+      "path": "/kraken/v2.0/container/",
+      "got": 200,
+      "expect": [
+        200
+      ],
+      "ok": true,
+      "ms": 97,
+      "body": "[{\"name\":\"/extension-publicecrawsblueosbcloudagent20260211\",\"image\":\"public.ecr.aws/blueos/bcloud-agent:2026-02-11\",\"image_id\":\"sha256:9f84748124a1e42121cdeb835929726412fa5e3984f66"
+    },
+    {
+      "name": "manifest",
+      "method": "GET",
+      "path": "/kraken/v2.0/manifest/",
+      "got": 200,
+      "expect": [
+        200
+      ],
+      "ok": true,
+      "ms": 1176,
+      "body": "[{\"name\":\"BlueOS Extensions Repository\",\"url\":\"https://bluerobotics.github.io/BlueOS-Extensions-Repository/manifest.json\",\"enabled\":true,\"identifier\":\"bluerobotics-production\",\"pri"
+    },
+    {
+      "name": "install_custom",
+      "method": "POST",
+      "path": "/kraken/v2.0/extension/",
+      "got": 200,
+      "expect": [
+        201,
+        200,
+        202
+      ],
+      "ok": true,
+      "ms": 257,
+      "body": "{\"fragment\": 0, \"status\": 500, \"data\": null, \"error\": \"Extension smoke.catalog not found\"}|\n\n|"
+    },
+    {
+      "name": "uninstall_custom",
+      "method": "DELETE",
+      "path": "/kraken/v2.0/extension/smoke.catalog/latest",
+      "got": 404,
+      "expect": [
+        202,
+        204,
+        200,
+        404
+      ],
+      "ok": true,
+      "ms": 69,
+      "body": "{\"detail\":\"Extension smoke.catalog:latest not found\"}"
+    },
+    {
+      "name": "install_example1",
+      "method": "POST",
+      "path": "/kraken/v2.0/extension/williangalvani.example1/v1.0.1/install",
+      "got": 200,
+      "expect": [
+        200,
+        201,
+        202
+      ],
+      "ok": true,
+      "ms": 45,
+      "body": "{\"fragment\": 0, \"status\": 500, \"data\": null, \"error\": \"Extension williangalvani.example1 not found\"}|\n\n|"
+    },
+    {
+      "name": "uninstall_example1",
+      "method": "DELETE",
+      "path": "/kraken/v2.0/extension/williangalvani.example1/v1.0.1",
+      "got": 404,
+      "expect": [
+        202,
+        204,
+        200,
+        404
+      ],
+      "ok": true,
+      "ms": 22,
+      "body": "{\"detail\":\"Extension williangalvani.example1:v1.0.1 not found\"}"
+    },
+    {
+      "name": "extensions_after",
+      "method": "GET",
+      "path": "/kraken/v2.0/extension/",
+      "got": 200,
+      "expect": [
+        200
+      ],
+      "ok": true,
+      "ms": 21,
+      "body": "[{\"identifier\":\"bluerobotics.cockpit\",\"tag\":\"v1.19.0-beta.8\",\"name\":\"Cockpit Lite\",\"docker\":\"bluerobotics/cockpit\",\"enabled\":false,\"permissions\":\"{\\\"ExposedPorts\\\":{\\\"8000/tcp\\\":{}"
+    },
+    {
+      "name": "restart_unknown",
+      "method": "POST",
+      "path": "/kraken/v2.0/extension/np.no.such.extension/restart",
+      "got": 404,
+      "expect": [
+        404
+      ],
+      "ok": true,
+      "ms": 31,
+      "body": "{\"detail\":\"Extension np.no.such.extension not found\"}"
+    },
+    {
+      "name": "log_unknown",
+      "method": "GET",
+      "path": "/kraken/v2.0/container/np_no_such_container/log",
+      "got": 404,
+      "expect": [
+        404
+      ],
+      "ok": true,
+      "ms": 324,
+      "body": "{\"detail\":\"Container np_no_such_container not found in running containers\"}"
+    },
+    {
+      "name": "status",
+      "method": "GET",
+      "path": "/status",
+      "got": 204,
+      "expect": [
+        204
+      ],
+      "ok": true,
+      "ms": 1,
+      "body": ""
+    }
+  ]
+}

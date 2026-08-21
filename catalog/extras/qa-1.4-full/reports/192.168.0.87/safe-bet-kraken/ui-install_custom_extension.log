@@ -1,0 +1,8 @@
+journey_http: ui — 2 plan(s) (fixtures=internet,pirate,advanced)
+base: http://192.168.0.87
+dut: tag=recorder_wip digest=sha256:978c121c49948b3ca926cc8843950eb573000efa713f30a6d4161d7fa9c31734
+
+PASS wizard_skip
+PASS install_custom_extension
+
+summary: passed=2 failed=0 skipped=0 unasserted=0

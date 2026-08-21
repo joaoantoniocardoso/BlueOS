@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "suite": "b6_service_down",
+  "base": "http://192.168.0.177",
+  "finished_at": "2026-08-14T14:42:00Z",
+  "probes": [
+    {"service": "helper", "journey": "browse_available_web_services", "route": "/helper/v1.0/web_services", "up": 200, "down": 502, "route_after": 200, "status_after": 204},
+    {"service": "linux2rest", "journey": "view_configured_serial_bridges", "route": "/bridget/v1.0/serial_ports", "up": 200, "down": 200, "down_body": "[]", "route_after": 200, "status_after": 204, "finding": "F-077"},
+    {"service": "linux2rest", "journey": "view_system_information", "route": "/system-information/system", "up": 200, "down": 502, "route_after": 200, "status_after": 204},
+    {"service": "mavlink2rest", "journey": "inspect_mavlink_messages_in_browser", "route": "/mavlink2rest/v1/mavlink", "up": 200, "down": 502, "route_after": 200, "status_after": 204},
+    {"service": "nmea_injector", "journey": "view_configured_nmea_sockets", "route": "/nmea-injector/v1.0/socks", "up": 200, "down": 502, "route_after": 200, "status_after": 204}
+  ],
+  "final_status": 204
+}

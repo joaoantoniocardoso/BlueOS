@@ -1,0 +1,116 @@
+W4 base=http://192.168.0.87
+===== forget_saved_wifi_network =====
+journey_http: mutating-smoke — 1 allowlisted journeys (fixtures=internet,pirate,advanced,confirm-dangerous,board:any,wifi-radio,hotspot,nmea-socket,serial-bridge,dhcp-active,extension-installed,recording,local-version,wifi-saved,wifi-connected)
+base: http://192.168.0.87
+dut: tag=1.4-dev digest=sha256:5b50dfafc3114651d459993c0c65639d7205634613fb62e0dea5ee04de8eebb1
+
+wifi_rf: AP up on wlp8s0 10.42.0.1/24 (want SSID=BlueOS-Hotspot)
+
+summary: passed=3 failed=0 skipped=0 unasserted=0
+  Pass forget_saved_wifi_network: 1 step(s)
+EXIT_forget_saved_wifi_network=0
+===== connect_to_wifi_network =====
+journey_http: mutating-smoke — 1 allowlisted journeys (fixtures=internet,pirate,advanced,confirm-dangerous,board:any,wifi-radio,hotspot,nmea-socket,serial-bridge,dhcp-active,extension-installed,recording,local-version,wifi-saved,wifi-connected)
+base: http://192.168.0.87
+dut: tag=1.4-dev digest=sha256:5b50dfafc3114651d459993c0c65639d7205634613fb62e0dea5ee04de8eebb1
+
+wifi_rf: AP up on wlp8s0 10.42.0.1/24 (want SSID=BlueOS-Hotspot)
+FAIL connect_to_wifi_network WiFi wpa2 — POST /connect HTTP 500: {"detail":"Failed to connect to network. Could not stablish a wifi connection in time. Could not stablish a wifi connection in time."}
+
+summary: passed=3 failed=1 skipped=0 unasserted=0
+  Fail connect_to_wifi_network: 1 step(s)
+EXIT_connect_to_wifi_network=1
+===== connect_to_hidden_wifi_network =====
+journey_http: mutating-smoke — 1 allowlisted journeys (fixtures=internet,pirate,advanced,confirm-dangerous,board:any,wifi-radio,hotspot,nmea-socket,serial-bridge,dhcp-active,extension-installed,recording,local-version,wifi-saved,wifi-connected)
+base: http://192.168.0.87
+dut: tag=1.4-dev digest=sha256:5b50dfafc3114651d459993c0c65639d7205634613fb62e0dea5ee04de8eebb1
+
+wifi_rf: AP up on wlp8s0 10.42.0.1/24 (want SSID=BlueOS-Hotspot)
+wifi_rf: static_ip SKIP POST /address HTTP 500 for 10.42.0.50 on wlan0 ({"detail":"No interface with name 'wlan0' is present."})
+journey_http: L3 client lease+ping ok ip=10.42.0.121 (static_ip_skip=HTTP_500)
+
+summary: passed=5 failed=0 skipped=0 unasserted=0
+  Pass connect_to_hidden_wifi_network: 1 step(s)
+EXIT_connect_to_hidden_wifi_network=0
+===== reject_invalid_wifi_credentials =====
+journey_http: mutating-smoke — 1 allowlisted journeys (fixtures=internet,pirate,advanced,confirm-dangerous,board:any,wifi-radio,hotspot,nmea-socket,serial-bridge,dhcp-active,extension-installed,recording,local-version,wifi-saved,wifi-connected)
+base: http://192.168.0.87
+dut: tag=1.4-dev digest=sha256:5b50dfafc3114651d459993c0c65639d7205634613fb62e0dea5ee04de8eebb1
+
+wifi_rf: AP up on wlp8s0 10.42.0.1/24 (want SSID=BlueOS-Hotspot)
+
+summary: passed=3 failed=0 skipped=0 unasserted=0
+  Pass reject_invalid_wifi_credentials: 1 step(s)
+EXIT_reject_invalid_wifi_credentials=0
+===== reconnect_to_saved_wifi_network =====
+journey_http: mutating-smoke — 1 allowlisted journeys (fixtures=internet,pirate,advanced,confirm-dangerous,board:any,wifi-radio,hotspot,nmea-socket,serial-bridge,dhcp-active,extension-installed,recording,local-version,wifi-saved,wifi-connected)
+base: http://192.168.0.87
+dut: tag=1.4-dev digest=sha256:5b50dfafc3114651d459993c0c65639d7205634613fb62e0dea5ee04de8eebb1
+
+wifi_rf: AP up on wlp8s0 10.42.0.1/24 (want SSID=BlueOS-Hotspot)
+wifi_rf: static_ip SKIP POST /address HTTP 500 for 10.42.0.50 on wlan0 ({"detail":"No interface with name 'wlan0' is present."})
+journey_http: L3 client lease+ping ok ip=10.42.0.121 (static_ip_skip=HTTP_500)
+
+summary: passed=7 failed=0 skipped=0 unasserted=0
+  Pass reconnect_to_saved_wifi_network: 1 step(s)
+EXIT_reconnect_to_saved_wifi_network=0
+===== force_wifi_network_password =====
+journey_http: mutating-smoke — 1 allowlisted journeys (fixtures=internet,pirate,advanced,confirm-dangerous,board:any,wifi-radio,hotspot,nmea-socket,serial-bridge,dhcp-active,extension-installed,recording,local-version,wifi-saved,wifi-connected)
+base: http://192.168.0.87
+dut: tag=1.4-dev digest=sha256:5b50dfafc3114651d459993c0c65639d7205634613fb62e0dea5ee04de8eebb1
+
+wifi_rf: AP up on wlp8s0 10.42.0.1/24 (want SSID=BlueOS-Hotspot)
+wifi_rf: static_ip SKIP POST /address HTTP 500 for 10.42.0.50 on wlan0 ({"detail":"No interface with name 'wlan0' is present."})
+journey_http: L3 client lease+ping ok ip=10.42.0.121 (static_ip_skip=HTTP_500)
+
+summary: passed=6 failed=0 skipped=0 unasserted=0
+  Pass force_wifi_network_password: 1 step(s)
+EXIT_force_wifi_network_password=0
+===== disconnect_from_wifi_network =====
+journey_http: mutating-smoke — 1 allowlisted journeys (fixtures=internet,pirate,advanced,confirm-dangerous,board:any,wifi-radio,hotspot,nmea-socket,serial-bridge,dhcp-active,extension-installed,recording,local-version,wifi-saved,wifi-connected)
+base: http://192.168.0.87
+dut: tag=1.4-dev digest=sha256:5b50dfafc3114651d459993c0c65639d7205634613fb62e0dea5ee04de8eebb1
+
+wifi_rf: AP up on wlp8s0 10.42.0.1/24 (want SSID=BlueOS-Hotspot)
+journey_http: disconnect confirmed via /status
+
+summary: passed=5 failed=0 skipped=0 unasserted=0
+  Pass disconnect_from_wifi_network: 1 step(s)
+EXIT_disconnect_from_wifi_network=0
+===== detect_wifi_ap_loss =====
+journey_http: mutating-smoke — 1 allowlisted journeys (fixtures=internet,pirate,advanced,confirm-dangerous,board:any,wifi-radio,hotspot,nmea-socket,serial-bridge,dhcp-active,extension-installed,recording,local-version,wifi-saved,wifi-connected)
+base: http://192.168.0.87
+dut: tag=1.4-dev digest=sha256:5b50dfafc3114651d459993c0c65639d7205634613fb62e0dea5ee04de8eebb1
+
+wifi_rf: AP up on wlp8s0 10.42.0.1/24 (want SSID=BlueOS-Hotspot)
+journey_http: wifi RF mid-journey ok for detect_wifi_ap_loss
+
+summary: passed=4 failed=0 skipped=0 unasserted=0
+  Pass detect_wifi_ap_loss: 0 step(s)
+EXIT_detect_wifi_ap_loss=0
+===== autoconnect_to_saved_wifi_network =====
+journey_http: mutating-smoke — 1 allowlisted journeys (fixtures=internet,pirate,advanced,confirm-dangerous,board:any,wifi-radio,hotspot,nmea-socket,serial-bridge,dhcp-active,extension-installed,recording,local-version,wifi-saved,wifi-connected)
+base: http://192.168.0.87
+dut: tag=1.4-dev digest=sha256:5b50dfafc3114651d459993c0c65639d7205634613fb62e0dea5ee04de8eebb1
+
+wifi_rf: AP up on wlp8s0 10.42.0.1/24 (want SSID=BlueOS-Hotspot)
+wifi_rf: AP up on wlp8s0 10.42.0.1/24 (want SSID=BlueOS-Hotspot)
+journey_http: wifi RF mid-journey ok for autoconnect_to_saved_wifi_network
+wifi_rf: static_ip SKIP POST /address HTTP 500 for 10.42.0.50 on wlan0 ({"detail":"No interface with name 'wlan0' is present."})
+journey_http: L3 client lease+ping ok ip=10.42.0.121 (static_ip_skip=HTTP_500)
+
+summary: passed=6 failed=0 skipped=0 unasserted=0
+  Pass autoconnect_to_saved_wifi_network: 0 step(s)
+EXIT_autoconnect_to_saved_wifi_network=0
+===== toggle_hotspot =====
+journey_http: mutating-smoke — 1 allowlisted journeys (fixtures=internet,pirate,advanced,confirm-dangerous,board:any,wifi-radio,hotspot,nmea-socket,serial-bridge,dhcp-active,extension-installed,recording,local-version,wifi-saved,wifi-connected)
+base: http://192.168.0.87
+dut: tag=1.4-dev digest=sha256:5b50dfafc3114651d459993c0c65639d7205634613fb62e0dea5ee04de8eebb1
+
+journey_http: host joined BlueOS hotspot lease=192.168.42.133
+journey_http: L3 hotspot ping 192.168.42.1 ok
+
+summary: passed=7 failed=0 skipped=0 unasserted=0
+  Pass toggle_hotspot: 1 step(s)
+EXIT_toggle_hotspot=0
+W4_DONE FAIL=1

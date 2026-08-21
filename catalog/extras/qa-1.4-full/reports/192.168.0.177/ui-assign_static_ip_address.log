@@ -1,0 +1,24 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.01s
+     Running `target/debug/journey_http --ui --base 'http://192.168.0.177' --journey assign_static_ip_address --report extras/qa-1.4-full/reports/192.168.0.177/ui-assign_static_ip_address.json`
+journey_http: ui — 2 plan(s) (fixtures=internet,pirate,advanced)
+base: http://192.168.0.177
+dut: tag=1.4-dev digest=sha256:5b50dfafc3114651d459993c0c65639d7205634613fb62e0dea5ee04de8eebb1
+
+
+Running 2 tests using 1 worker
+
+UI_RESULT wizard_skip PASS
+  ✓  1 [chromium] › tests/journey_ui.spec.ts:544:7 › ui: wizard_skip (2.0s)
+UI_RESULT assign_static_ip_address PASS
+  ✓  2 [chromium] › tests/journey_ui.spec.ts:544:7 › ui: assign_static_ip_address (1.6s)
+
+  2 passed (4.0s)
+
+npm notice run npx
+npm notice run 'playwright' test tests/journey_ui.spec.ts --reporter=list
+(node:876062) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS wizard_skip
+PASS assign_static_ip_address
+
+summary: passed=2 failed=0 skipped=0 unasserted=0
