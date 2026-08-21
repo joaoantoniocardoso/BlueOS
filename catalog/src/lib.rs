@@ -43,6 +43,7 @@ pub mod runtime;
 pub mod service;
 pub mod services;
 pub mod sitl_cal;
+pub mod source_index;
 pub mod split;
 pub mod state;
 pub mod tools;
@@ -167,6 +168,14 @@ pub use runtime::{
 };
 pub use service::{Authority, Service, ServiceDefinition};
 pub use sitl_cal::{needs_calibration_frame, needs_vectored_frame, SitlRc};
+pub use source_index::{
+    build_source_index, build_source_index_from_walk, catalog_entity_for_citation,
+    catalog_module_for_entity, citation_source_path, index_git_diff_pathspecs,
+    index_key_to_repo_path, indexable_source_paths, is_confirmed_drift,
+    linter_source_paths_from_fields, repo_path_to_index_key, review_urgency,
+    work_order_for_changed_paths, CatalogEntity, ReviewUrgency, SourceIndex, SourceIndexEntry,
+    WorkOrder, WorkOrderEntry, DOC_SCOPE_NOTE, WORK_ORDER_NOTE,
+};
 pub use state::StateMachine;
 pub use trust::{DangerousOperation, PrivilegeLevel, UserConfirmation};
 pub use ui::{

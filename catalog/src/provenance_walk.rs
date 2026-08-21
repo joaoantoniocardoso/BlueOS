@@ -962,7 +962,7 @@ fn relocation_site_matches(rel_site: &Path, citation_site: &Path) -> bool {
     rel_site == citation_site
 }
 
-fn catalog_site_for_citation(citation: &Citation) -> Option<PathBuf> {
+pub fn catalog_site_for_citation(citation: &Citation) -> Option<PathBuf> {
     if citation.root != "catalog/bootstrap" {
         return None;
     }
