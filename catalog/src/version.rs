@@ -164,15 +164,23 @@ pub fn format_availability_skip_reason(skip: &AvailabilitySkip, dut_tag: &str) -
 
 /// Whether the feature is present on the DUT's reported version tag.
 ///
-/// - `master` → `present_on_master`
-/// - `1.4-dev` / `1.4-dev-*` (e.g. `1.4-dev-next`) → `present_on_1_4_dev`
-/// - any other tag → exact membership in `present_in_tags` (covers backports)
+/// - `master` -> `present_on_master`
+/// - `1.4-dev` / `1.4-dev-*` -> `present_on_1_4_dev`
+/// - other dev channels / unparsed custom tags -> present
+/// - exact membership in `present_in_tags` -> present
+/// - numbered tag newer than every same-line tag in `present_in_tags` -> present
+/// - numbered tag on a line absent from the table but newer than all table tags -> present
+/// - otherwise -> absent
 pub fn feature_present_on(dut_tag: &str, availability: &FeatureAvailability) -> bool {
     let tag = dut_tag.strip_prefix('v').unwrap_or(dut_tag);
     match parse_release_tag(tag) {
         BlueOsChannel::Master => availability.present_on_master,
         BlueOsChannel::Dev { major: 1, minor: 4 } => availability.present_on_1_4_dev,
-        _ => availability.present_in_tags.contains(&tag),
+        BlueOsChannel::Dev { .. } | BlueOsChannel::Other(_) => true,
+        BlueOsChannel::Numbered { .. } => {
+            availability.present_in_tags.contains(&tag)
+                || is_stale_table_present(tag, availability.present_in_tags)
+        }
     }
 }
 
@@ -235,6 +243,87 @@ fn cmp_numbered(a: (u32, u32, u32), b: (u32, u32, u32)) -> Ordering {
         .then_with(|| a.2.cmp(&b.2))
 }
 
+fn split_release_prerelease(tag: &str) -> Option<(&str, Option<u32>)> {
+    let tag = tag.strip_prefix('v').unwrap_or(tag);
+    if let Some(idx) = tag.find("-beta.") {
+        let base = &tag[..idx];
+        let rest = &tag[idx + 6..];
+        let num: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+        return Some((base, Some(num.parse().ok()?)));
+    }
+    if let Some(idx) = tag.find(".beta") {
+        let base = &tag[..idx];
+        let rest = &tag[idx + 5..];
+        let num: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+        return Some((base, Some(num.parse().ok()?)));
+    }
+    Some((tag, None))
+}
+
+fn release_tag_sort_key(tag: &str) -> Option<(u32, u32, u32, u32, u32)> {
+    let (semver, beta) = split_release_prerelease(tag)?;
+    let mut parts = semver.split('.');
+    let major = parts.next()?.parse().ok()?;
+    let minor = parts.next()?.parse().ok()?;
+    let patch = parts.next()?.parse().ok()?;
+    if parts.next().is_some() {
+        return None;
+    }
+    match beta {
+        Some(n) => Some((major, minor, patch, 0, n)),
+        None => Some((major, minor, patch, 1, 0)),
+    }
+}
+
+fn cmp_release_tags(a: &str, b: &str) -> Option<Ordering> {
+    Some(release_tag_sort_key(a)?.cmp(&release_tag_sort_key(b)?))
+}
+
+fn release_line(tag: &str) -> Option<(u32, u32)> {
+    let (major, minor, _) = parse_numbered(tag)?;
+    Some((major, minor))
+}
+
+fn is_stale_table_present(dut_tag: &str, present_in_tags: &[&str]) -> bool {
+    let Some(dut_line) = release_line(dut_tag) else {
+        return false;
+    };
+    if release_tag_sort_key(dut_tag).is_none() {
+        return false;
+    }
+    let mut same_line_newest: Option<&str> = None;
+    let mut global_newest: Option<&str> = None;
+    let mut has_same_line = false;
+    for &tag in present_in_tags {
+        if release_tag_sort_key(tag).is_none() {
+            continue;
+        }
+        global_newest = Some(match global_newest {
+            None => tag,
+            Some(current) if cmp_release_tags(tag, current) == Some(Ordering::Greater) => tag,
+            Some(current) => current,
+        });
+        if release_line(tag) == Some(dut_line) {
+            has_same_line = true;
+            same_line_newest = Some(match same_line_newest {
+                None => tag,
+                Some(current) if cmp_release_tags(tag, current) == Some(Ordering::Greater) => tag,
+                Some(current) => current,
+            });
+        }
+    }
+    if has_same_line {
+        let Some(newest) = same_line_newest else {
+            return false;
+        };
+        return cmp_release_tags(dut_tag, newest) == Some(Ordering::Greater);
+    }
+    let Some(newest) = global_newest else {
+        return false;
+    };
+    cmp_release_tags(dut_tag, newest) == Some(Ordering::Greater)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -251,6 +340,30 @@ mod tests {
         present_in_tags: SAMPLE_TAGS,
         present_on_master: true,
         present_on_1_4_dev: false,
+    };
+
+    const INSTALL_EXTENSION_TAGS: &[&str] = &["1.1.0-beta.10", "1.4.4-beta.15", "1.4.4-beta.16"];
+
+    const MULTI_LINE_INSTALL_EXTENSION_TAGS: &[&str] = &[
+        "1.1.0-beta.10",
+        "1.4.4-beta.15",
+        "1.4.4-beta.16",
+        "1.5.0-beta.38",
+        "1.5.0-beta.39",
+    ];
+
+    const INSTALL_EXTENSION_LIKE: FeatureAvailability = FeatureAvailability {
+        intro_commit: "ce9c65e18f0b3f333983bd8810b062c8fe60a6ee",
+        present_in_tags: INSTALL_EXTENSION_TAGS,
+        present_on_master: true,
+        present_on_1_4_dev: true,
+    };
+
+    const MULTI_LINE_INSTALL_EXTENSION_LIKE: FeatureAvailability = FeatureAvailability {
+        intro_commit: "ce9c65e18f0b3f333983bd8810b062c8fe60a6ee",
+        present_in_tags: MULTI_LINE_INSTALL_EXTENSION_TAGS,
+        present_on_master: true,
+        present_on_1_4_dev: true,
     };
 
     #[test]
@@ -320,5 +433,104 @@ mod tests {
         assert!(on_14dev.is_empty());
         let on_master = journeys_present_on("master", &table);
         assert_eq!(on_master.len(), 2);
+    }
+
+    #[test]
+    fn cmp_release_tags_prerelease_order() {
+        assert_eq!(
+            cmp_release_tags("1.4.4-beta.19", "1.4.4-beta.16"),
+            Some(Ordering::Greater)
+        );
+        assert_eq!(
+            cmp_release_tags("1.5.0-beta.1", "1.4.4"),
+            Some(Ordering::Greater)
+        );
+        assert_eq!(
+            cmp_release_tags("1.5.0-beta.40", "1.5.0-beta.39"),
+            Some(Ordering::Greater)
+        );
+    }
+
+    #[test]
+    fn presence_custom_tag_assumed_present() {
+        assert!(feature_present_on("recorder_wip", &INSTALL_EXTENSION_LIKE));
+        assert!(availability_skip("recorder_wip", &INSTALL_EXTENSION_LIKE).is_none());
+    }
+
+    #[test]
+    fn presence_stale_table_newer_beta_patch() {
+        assert!(feature_present_on(
+            "1.4.4-beta.19",
+            &MULTI_LINE_INSTALL_EXTENSION_LIKE
+        ));
+        assert!(availability_skip("1.4.4-beta.19", &MULTI_LINE_INSTALL_EXTENSION_LIKE).is_none());
+    }
+
+    #[test]
+    fn presence_stale_table_newer_beta_on_next_minor() {
+        assert!(feature_present_on(
+            "1.5.0-beta.40",
+            &MULTI_LINE_INSTALL_EXTENSION_LIKE
+        ));
+        assert!(availability_skip("1.5.0-beta.40", &MULTI_LINE_INSTALL_EXTENSION_LIKE).is_none());
+    }
+
+    #[test]
+    fn presence_stale_table_new_release_line() {
+        assert!(feature_present_on(
+            "2.0.0-beta.1",
+            &MULTI_LINE_INSTALL_EXTENSION_LIKE
+        ));
+        assert!(availability_skip("2.0.0-beta.1", &MULTI_LINE_INSTALL_EXTENSION_LIKE).is_none());
+    }
+
+    #[test]
+    fn presence_skips_when_same_line_absent_and_not_newer_than_table() {
+        let avail = FeatureAvailability {
+            intro_commit: "0000000000000000000000000000000000000002",
+            present_in_tags: &["1.5.0-beta.10", "1.5.0-beta.39"],
+            present_on_master: true,
+            present_on_1_4_dev: false,
+        };
+        assert!(!feature_present_on("1.4.4-beta.19", &avail));
+        assert!(availability_skip("1.4.4-beta.19", &avail).is_some());
+    }
+
+    #[test]
+    fn presence_other_dev_channels_assumed_present() {
+        assert!(feature_present_on("2.0-dev", &INSTALL_EXTENSION_LIKE));
+        assert!(feature_present_on("1.5-dev", &INSTALL_EXTENSION_LIKE));
+        assert!(availability_skip("2.0-dev", &INSTALL_EXTENSION_LIKE).is_none());
+        assert!(availability_skip("1.5-dev", &INSTALL_EXTENSION_LIKE).is_none());
+    }
+
+    #[test]
+    fn presence_stale_table_newer_minor_line() {
+        assert!(feature_present_on("1.5.0-beta.1", &INSTALL_EXTENSION_LIKE));
+    }
+
+    #[test]
+    fn presence_skips_older_numbered_release() {
+        let avail = FeatureAvailability {
+            intro_commit: "ce9c65e18f0b3f333983bd8810b062c8fe60a6ee",
+            present_in_tags: &["1.3.0-beta.7", "1.4.4-beta.16"],
+            present_on_master: true,
+            present_on_1_4_dev: true,
+        };
+        let skip = availability_skip("1.0.1", &avail).expect("skip");
+        assert_eq!(
+            format_availability_skip_reason(&skip, "1.0.1"),
+            "not present on 1.0.1 (intro ce9c65e18f0b; first tag 1.3.0-beta.7)"
+        );
+    }
+
+    #[test]
+    fn presence_master_and_1_4_dev_flags_unchanged() {
+        assert!(feature_present_on("master", &INSTALL_EXTENSION_LIKE));
+        assert!(feature_present_on("1.4-dev", &INSTALL_EXTENSION_LIKE));
+        assert!(feature_present_on("1.4-dev-next", &INSTALL_EXTENSION_LIKE));
+        assert!(feature_present_on("master", &ZENOH_LIKE));
+        assert!(!feature_present_on("1.4-dev", &ZENOH_LIKE));
+        assert!(!feature_present_on("1.4-dev-next", &ZENOH_LIKE));
     }
 }
