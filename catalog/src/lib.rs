@@ -33,6 +33,8 @@ pub mod observed;
 pub mod page;
 pub mod pages;
 pub mod provenance;
+pub mod provenance_anchor;
+pub mod provenance_walk;
 pub mod report;
 pub mod resolve;
 pub mod resource;
