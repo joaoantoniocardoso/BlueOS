@@ -110,5 +110,9 @@ name = "provenance_lint"
 path = "src/bin/provenance_lint.rs"
 
 [[bin]]
+name = "impact"
+path = "src/bin/impact.rs"
+
+[[bin]]
 name = "boot_timeline"
 path = "src/bin/boot_timeline.rs"
