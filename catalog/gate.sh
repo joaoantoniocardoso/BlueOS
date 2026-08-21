@@ -16,6 +16,8 @@ echo "== extract (observed layer vs core/start-blueos-core) =="
 cargo run -q --bin extract
 echo "== drift (asserted vs observed + runtime) =="
 cargo run -q --bin drift
+echo "== provenance (citations resolve) =="
+cargo run -q --bin provenance_lint
 echo "== export (schema/json build) =="
 cargo run -q --bin export >/dev/null
 # feature-traces local gate (NEXT15 P3): drift_check + sibling_matrix +
