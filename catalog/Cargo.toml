@@ -102,5 +102,13 @@ name = "harness_ratchet"
 path = "src/bin/harness_ratchet.rs"
 
 [[bin]]
+name = "provenance_anchor_migrate"
+path = "src/bin/provenance_anchor_migrate.rs"
+
+[[bin]]
+name = "provenance_lint"
+path = "src/bin/provenance_lint.rs"
+
+[[bin]]
 name = "boot_timeline"
 path = "src/bin/boot_timeline.rs"
