@@ -1,6 +1,7 @@
 // Live HTTP journey runner: `journey_http --base http://<pi> [--fixtures internet,pirate,advanced]`.
 // Tier-1 smoke (GET + known status only): `journey_http --base http://<pi> --smoke`.
 // Tier-2 mutating smoke (allowlisted reversible journeys): `journey_http --base http://<pi> --mutating-smoke`.
+// Frontend cache contract: `journey_http --base http://<pi> --frontend-cache`.
 // Offline plan: `journey_http --dry-run` (no --base).
 use std::io::Write;
 use std::path::Path;
@@ -16,9 +17,9 @@ use blueos_catalog::{
     journey_fixtures_ready, journey_http_mode_conflict, journey_http_requires_base,
     journey_mutating_smoke_ready, mutating_smoke_setup_calls, mutating_smoke_skip_reason,
     mutating_smoke_teardown_calls, negative_probe_url, parse_fixture_list, resolve_http_path,
-    run_core_image_switch, run_http_step, run_negative_probe, run_smoke_http_call,
-    summarize_journey, ui_suite_plans, utc_rfc3339_now, wait_for_blueos, wizard_skip_plan,
-    write_journey_http_report, Catalog, DutVersion, FixtureInventory, HttpMethod,
+    run_core_image_switch, run_frontend_cache, run_http_step, run_negative_probe,
+    run_smoke_http_call, summarize_journey, ui_suite_plans, utc_rfc3339_now, wait_for_blueos,
+    wizard_skip_plan, write_journey_http_report, Catalog, DutVersion, FixtureInventory, HttpMethod,
     JourneyHttpReport, JourneyId, JourneyReportEntry, JourneyResult, NegativeProbe,
     PreconditionStatus, ReportDut, RunCounts, StepResult, SuiteKind, UiJourneyPlan,
     MUTATING_SMOKE_DEFAULT_FIXTURES, NEGATIVE_PROBES, SCHEMA_VERSION, SMOKE_CORE_MASTER_JSON,
@@ -40,6 +41,7 @@ fn main() {
     let mut report_path: Option<String> = None;
     let mut wifi_modes_spec: Option<String> = None;
     let mut wifi_endpoints = false;
+    let mut frontend_cache = false;
 
     let mut index = 1;
     while index < args.len() {
@@ -75,6 +77,7 @@ fn main() {
                 );
             }
             "--wifi-endpoints" => wifi_endpoints = true,
+            "--frontend-cache" => frontend_cache = true,
             "--journey" => {
                 index += 1;
                 let id = args
@@ -103,13 +106,21 @@ fn main() {
     if let Err(message) = journey_http_mode_conflict(smoke, mutating_smoke, negative, ui) {
         usage_and_exit(message);
     }
-    if wifi_endpoints && (smoke || mutating_smoke || negative || ui) {
+    if wifi_endpoints && (smoke || mutating_smoke || negative || ui || frontend_cache) {
         usage_and_exit(
-            "--wifi-endpoints is mutually exclusive with --smoke, --mutating-smoke, --negative, and --ui",
+            "--wifi-endpoints is mutually exclusive with --smoke, --mutating-smoke, --negative, --ui, and --frontend-cache",
+        );
+    }
+    if frontend_cache && (smoke || mutating_smoke || negative || ui) {
+        usage_and_exit(
+            "--frontend-cache is mutually exclusive with --smoke, --mutating-smoke, --negative, and --ui",
         );
     }
     if wifi_endpoints && (dry_run || base.is_none()) {
         usage_and_exit("--wifi-endpoints requires --base and cannot use --dry-run");
+    }
+    if frontend_cache && (dry_run || base.is_none()) {
+        usage_and_exit("--frontend-cache requires --base and cannot use --dry-run");
     }
 
     if let Err(message) = journey_http_requires_base(
@@ -167,6 +178,23 @@ fn main() {
                 process::exit(1);
             }
         }
+    }
+
+    if frontend_cache {
+        let base = base.as_deref().expect("base checked above");
+        println!("journey_http: frontend-cache");
+        println!("base: {base}");
+        let results = run_frontend_cache(base);
+        let failed = results.iter().filter(|(_, ok, _)| !ok).count();
+        let passed = results.len() - failed;
+        for (name, ok, detail) in &results {
+            println!("{} {name}: {detail}", if *ok { "PASS" } else { "FAIL" });
+        }
+        println!("frontend-cache: passed={passed} failed={failed}");
+        if failed > 0 {
+            process::exit(1);
+        }
+        return;
     }
 
     let wifi_modes = match wifi_modes_spec.as_deref() {
@@ -777,7 +805,7 @@ fn usage_and_exit(message: &str) -> ! {
 
 fn print_help() {
     eprintln!(
-        "usage: journey_http --base <url> [--fixtures internet,pirate,advanced] [--smoke | --mutating-smoke | --negative | --ui | --wifi-endpoints] [--wifi-modes open,wpa,wpa2,transition,wpa3] [--dry-run] [--allow-mutating] [--journey <id>] [--report <path.json>]"
+        "usage: journey_http --base <url> [--fixtures internet,pirate,advanced] [--smoke | --mutating-smoke | --negative | --ui | --wifi-endpoints | --frontend-cache] [--wifi-modes open,wpa,wpa2,transition,wpa3] [--dry-run] [--allow-mutating] [--journey <id>] [--report <path.json>]"
     );
 }
 

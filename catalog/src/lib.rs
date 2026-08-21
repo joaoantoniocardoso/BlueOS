@@ -13,6 +13,7 @@ pub mod feature;
 pub mod feature_intro;
 pub mod feature_trace;
 pub mod fixture;
+pub mod frontend_cache;
 pub mod frontend_routes;
 pub mod frontend_smoke;
 pub mod id;
@@ -88,6 +89,7 @@ pub use fixture::{
     evaluate_journey, evaluate_precondition, journey_fixtures_ready, journey_mutating_smoke_ready,
     parse_fixture_list, FixtureInventory, PreconditionStatus,
 };
+pub use frontend_cache::run_frontend_cache;
 pub use frontend_smoke::{
     calibration_smoke_targets, concrete_page_path, frontend_smoke_targets, FrontendSmokeTarget,
 };
