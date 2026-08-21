@@ -10,6 +10,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 137,
+                anchor: "path: '/vehicle/parameters',",
             },
         ),
         name: Observed::known(
@@ -17,6 +18,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 138,
+                anchor: "name: 'Parameter Editor',",
             },
         ),
         component: Observed::known(
@@ -24,6 +26,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 139,
+                anchor: "component: defineAsyncComponent(() => import('../views/Param",
             },
         ),
         menu_title: Observed::known(
@@ -31,6 +34,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 142,
+                anchor: "title: 'Records',",
             },
         ),
         advanced_only: Observed::known(
@@ -38,6 +42,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 145,
+                anchor: "advanced: false,",
             },
         ),
         stores: ObservedSet::known(&[]),
@@ -51,6 +56,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/libs/zenoh/index.ts",
                     line: 35,
+                    anchor: "return `${protocol}://${window.location.host}/zenoh-api/`",
                 },
             ),
         ]),

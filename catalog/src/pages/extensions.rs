@@ -9,6 +9,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 107,
+                anchor: "path: '/tools/bag-editor',",
             },
         ),
         name: Observed::known(
@@ -16,6 +17,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 108,
+                anchor: "name: 'Bag editor',",
             },
         ),
         component: Observed::known(
@@ -23,6 +25,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 109,
+                anchor: "component: defineAsyncComponent(() => import('../views/BagEd",
             },
         ),
         menu_title: Observed::unknown("not in menu"),
@@ -33,6 +36,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/ExtensionView.vue",
                     line: 16,
+                    anchor: "import helper from '@/store/helper'",
                 },
             ),
         ]),
@@ -46,6 +50,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/ExtensionView.vue",
                     line: 57,
+                    anchor: "return `${window.location.protocol}//${window.location.hostn",
                 },
             ),
             Evidenced::new(
@@ -57,6 +62,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/ExtensionView.vue",
                     line: 55,
+                    anchor: "return `/extensionv2/${this.$route.params.name}`",
                 },
             ),
         ]),

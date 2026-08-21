@@ -169,6 +169,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 126,
+            anchor: "'kraken',0,0,0,0,\"nice -19 $BLUEOS_PYTHON_BIN_SECONDARY $SER",
         },
     )]),
     kind: Observed::known(
@@ -176,6 +177,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 126,
+            anchor: "'kraken',0,0,0,0,\"nice -19 $BLUEOS_PYTHON_BIN_SECONDARY $SER",
         },
     ),
     entrypoint: Observed::known(
@@ -183,6 +185,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 126,
+            anchor: "'kraken',0,0,0,0,\"nice -19 $BLUEOS_PYTHON_BIN_SECONDARY $SER",
         },
     ),
     tmux_name: Observed::known(
@@ -190,6 +193,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 126,
+            anchor: "'kraken',0,0,0,0,\"nice -19 $BLUEOS_PYTHON_BIN_SECONDARY $SER",
         },
     ),
     startup_tier: Observed::known(
@@ -197,6 +201,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 124,
+            anchor: "SERVICES=(",
         },
     ),
     resource_limits: Observed::known(
@@ -208,6 +213,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 126,
+            anchor: "'kraken',0,0,0,0,\"nice -19 $BLUEOS_PYTHON_BIN_SECONDARY $SER",
         },
     ),
     nice: Observed::known(
@@ -215,6 +221,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 126,
+            anchor: "'kraken',0,0,0,0,\"nice -19 $BLUEOS_PYTHON_BIN_SECONDARY $SER",
         },
     ),
     run_as: Observed::known(
@@ -222,6 +229,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 126,
+            anchor: "'kraken',0,0,0,0,\"nice -19 $BLUEOS_PYTHON_BIN_SECONDARY $SER",
         },
     ),
     nginx_prefixes: ObservedSet::known(&[Evidenced::new(
@@ -229,6 +237,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/tools/nginx/nginx.conf",
             line: 153,
+            anchor: "location /kraken/ {",
         },
     )]),
     listen: ObservedSet::known(&[Evidenced::new(
@@ -236,6 +245,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/kraken/args.py",
             line: 26,
+            anchor: "parser.add_argument(\"--port\", type=int, default=9134, help=\"",
         },
     )]),
     git_path: Observed::known(
@@ -243,6 +253,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/kraken/main.py",
             line: 1,
+            anchor: "#! /usr/bin/env python3",
         },
     ),
     interfaces: ObservedSet::known(&[
@@ -255,6 +266,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/kraken/api/app.py",
                 line: 53,
+                anchor: "application = VersionedFastAPI(application, prefix_format=\"/",
             },
         ),
         Evidenced::new(
@@ -264,6 +276,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/kraken/config.py",
                 line: 9,
+                anchor: "\"url\": \"https://bluerobotics.github.io/BlueOS-Extensions-Rep",
             },
         ),
         Evidenced::new(
@@ -273,6 +286,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/kraken/config.py",
                 line: 16,
+                anchor: "\"url\": \"https://blueos.cloud/major_tom/install\",",
             },
         ),
         Evidenced::new(
@@ -282,6 +296,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/kraken/main.py",
                 line: 39,
+                anchor: "jobs.set_base_host(f\"http://{args.host}:{args.port}\")",
             },
         ),
         Evidenced::new(
@@ -291,6 +306,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py",
                 line: 69,
+                anchor: "return self.config_folder.joinpath(f\"{PyksonManager.SETTINGS",
             },
         ),
         Evidenced::new(
@@ -301,6 +317,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/kraken/harbor/contexts.py",
                 line: 14,
+                anchor: "self._client: Docker = Docker()",
             },
         ),
         Evidenced::new(
@@ -311,6 +328,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py",
                 line: 27,
+                anchor: "else pathlib.Path(appdirs.user_config_dir(self.project_name)",
             },
         ),
         Evidenced::new(
@@ -321,6 +339,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                 line: 78,
+                anchor: "topic = f\"services/{service_name}/log\"",
             },
         ),
         Evidenced::new(
@@ -331,6 +350,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/kraken/extension_logs.py",
                 line: 153,
+                anchor: "return f\"extensions/logs/{safe_name}\"",
             },
         ),
         Evidenced::new(
@@ -341,6 +361,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/kraken/zenoh_handlers/extension_handler.py",
                 line: 53,
+                anchor: "self.router.add_queryable(\"extension/logs/request\", self.log",
             },
         ),
     ]),
@@ -353,6 +374,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/kraken/harbor/contexts.py",
                 line: 14,
+                anchor: "self._client: Docker = Docker()",
             },
         ),
         Evidenced::new(
@@ -363,6 +385,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py",
                 line: 27,
+                anchor: "else pathlib.Path(appdirs.user_config_dir(self.project_name)",
             },
         ),
         Evidenced::new(
@@ -373,6 +396,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py",
                 line: 69,
+                anchor: "return self.config_folder.joinpath(f\"{PyksonManager.SETTINGS",
             },
         ),
     ]),
@@ -412,6 +436,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 326,
+            anchor: "for TUPLE in \"${SERVICES[@]}\"; do",
         },
     ),
     logs_path: Observed::unknown(
@@ -422,6 +447,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
             line: 78,
+            anchor: "topic = f\"services/{service_name}/log\"",
         },
     ),
     sentry: Observed::known(
@@ -429,6 +455,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/kraken/main.py",
             line: 27,
+            anchor: "await init_sentry_async(SERVICE_NAME)",
         },
     ),
     openapi_refs: ObservedSet::unknown("not yet extracted"),

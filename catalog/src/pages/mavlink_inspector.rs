@@ -10,6 +10,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 92,
+                anchor: "path: '/tools/system-information',",
             },
         ),
         name: Observed::known(
@@ -17,6 +18,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 93,
+                anchor: "name: 'System Information',",
             },
         ),
         component: Observed::known(
@@ -24,6 +26,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 94,
+                anchor: "component: defineAsyncComponent(() => import('../views/Syste",
             },
         ),
         menu_title: Observed::known(
@@ -31,6 +34,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 70,
+                anchor: "icon: 'mdi-arrow-decision',",
             },
         ),
         advanced_only: Observed::known(
@@ -38,6 +42,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 73,
+                anchor: "text: 'Manage MAVLink endpoints for internal/external system",
             },
         ),
         stores: ObservedSet::known(&[]),
@@ -51,6 +56,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/MavlinkInspectorView.vue",
                     line: 19,
+                    anchor: "service_path: `${window.location.protocol}//${window.locatio",
                 },
             ),
         ]),

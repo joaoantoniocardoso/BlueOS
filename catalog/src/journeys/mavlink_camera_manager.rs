@@ -58,9 +58,9 @@ const VIEW_CAMERA_STREAMS: UserJourney =
         id: JourneyId::ViewCameraStreams,
         summary: Grounded::known(
             "Manage video devices and view configured camera streams",
-            Provenance::source(VIDEO_MENUS, 132),
+            Provenance::source(VIDEO_MENUS, 132, "text: 'Vehicle and Peripherals setup. Includes sensor calibr"),
         ),
-        visibility: Grounded::known(Visibility::Default, Provenance::source(VIDEO_MENUS, 131)),
+        visibility: Grounded::known(Visibility::Default, Provenance::source(VIDEO_MENUS, 131, "advanced: false,")),
         services: MCM_SERVICES,
         capability_refs: GroundedSet::known(&[cap(
             CapabilityId::ViewCameraStreams,
@@ -71,19 +71,19 @@ const VIEW_CAMERA_STREAMS: UserJourney =
             operator_step(
                 "Open the Video Streams page from the sidebar",
                 None,
-                Provenance::source(VIDEO_MENUS, 128),
+                Provenance::source(VIDEO_MENUS, 128, "title: 'Vehicle Setup',"),
                 None,
             ),
             operator_step(
                 "Load the Video Manager interface listing connected video devices",
                 None,
-                Provenance::source(VIDEO_MANAGER, 12),
+                Provenance::source(VIDEO_MANAGER, 12, "v-for=\"(device, index) in video_devices\""),
                 None,
             ),
             operator_step(
                 "Load detected video devices",
-                Some(sourced_route(HttpMethod::Get, "/v4l", None, 144)),
-                Provenance::source(VIDEO_STORE, 144),
+                Some(sourced_route(HttpMethod::Get, "/v4l", None, 144, "url: `${this.API_URL}/v4l`,")),
+                Provenance::source(VIDEO_STORE, 144, "url: `${this.API_URL}/v4l`,"),
                 Some(runtime_outcome(
                     200,
                     Some("\"name\":\"bcm2835-isp\""),
@@ -92,26 +92,26 @@ const VIEW_CAMERA_STREAMS: UserJourney =
             ),
             operator_step(
                 "Load configured video streams",
-                Some(sourced_route(HttpMethod::Get, "/streams", None, 168)),
-                Provenance::source(VIDEO_STORE, 168),
+                Some(sourced_route(HttpMethod::Get, "/streams", None, 168, "url: `${this.API_URL}/streams`,")),
+                Provenance::source(VIDEO_STORE, 168, "url: `${this.API_URL}/streams`,"),
                 Some(runtime_outcome(200, Some("[]"), "runtime-captures/mavlink_camera_manager__pi4_navigator_master.json#running_baseline")),
             ),
             operator_step(
                 "View each detected camera card with its name and source path",
                 None,
-                Provenance::source(VIDEO_DEVICE, 32),
+                Provenance::source(VIDEO_DEVICE, 32, "{{ device.name }}"),
                 None,
             ),
             operator_step(
                 "View stream cards showing name, encoding, endpoints, source, and status",
                 None,
-                Provenance::source(VIDEO_STREAM, 7),
+                Provenance::source(VIDEO_STREAM, 7, "Stream Name:"),
                 None,
             ),
             operator_step(
                 "BlueOS automatically detects H264-encoded video streams on startup",
                 None,
-                Provenance::doc(ADV, 766),
+                Provenance::doc(ADV, 766, "- BlueOS automatically detects H264-encoded video streams"),
                 None,
             ),
         ]),
@@ -125,70 +125,70 @@ const CONFIGURE_CAMERA_STREAM: UserJourney =
         id: JourneyId::ConfigureCameraStream,
         summary: Grounded::known(
             "Manually add and configure a new video stream (encoding, resolution, endpoint type)",
-            Provenance::doc(ADV, 780),
+            Provenance::doc(ADV, 780, "- New streams need to be manually added"),
         ),
-        visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 780)),
+        visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 780, "- New streams need to be manua")),
         services: MCM_SERVICES,
         capability_refs: GroundedSet::known(&[cap(CapabilityId::ConfigureCameraStream,
             "stream creation dialog submits encoding, resolution, framerate, and endpoints via POST /streams",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
             Precondition::Hardware(HardwareRequirement::UsbCamera),
-            Provenance::doc(GETTING_STARTED, 121),
+            Provenance::doc(GETTING_STARTED, 121, "BlueOS is capable of configuring and streaming multiple came"),
         )]),
         steps: GroundedSet::known(&[
             operator_step(
                 "Open the Video Streams page from the sidebar",
                 None,
-                Provenance::source(VIDEO_MENUS, 128),
+                Provenance::source(VIDEO_MENUS, 128, "title: 'Vehicle Setup',"),
                 None,
             ),
             operator_step(
                 "Click Add stream on a video device card",
                 None,
-                Provenance::source(VIDEO_DEVICE, 53),
+                Provenance::source(VIDEO_DEVICE, 53, "Add stream"),
                 None,
             ),
             operator_step(
                 "Enter a stream nickname",
                 None,
-                Provenance::source(VIDEO_STREAM_CREATION_DIALOG, 20),
+                Provenance::source(VIDEO_STREAM_CREATION_DIALOG, 20, "label=\"Stream nickname\""),
                 None,
             ),
             operator_step(
                 "Select the video encoding",
                 None,
-                Provenance::source(VIDEO_STREAM_CREATION_DIALOG, 27),
+                Provenance::source(VIDEO_STREAM_CREATION_DIALOG, 27, "label=\"Encoding\""),
                 None,
             ),
             operator_step(
                 "Select the video resolution",
                 None,
-                Provenance::source(VIDEO_STREAM_CREATION_DIALOG, 35),
+                Provenance::source(VIDEO_STREAM_CREATION_DIALOG, 35, ":label=\"size_selector_label\""),
                 None,
             ),
             operator_step(
                 "Select the framerate",
                 None,
-                Provenance::source(VIDEO_STREAM_CREATION_DIALOG, 42),
+                Provenance::source(VIDEO_STREAM_CREATION_DIALOG, 42, ":label=\"framerate_selector_label\""),
                 None,
             ),
             operator_step(
                 "Choose the stream endpoint type and address (UDP or RTSP)",
                 None,
-                Provenance::doc(ADV, 781),
+                Provenance::doc(ADV, 781, "- UDP stream endpoints should be set to `udp://<surface-IP>:"),
                 None,
             ),
             operator_step(
                 "Add additional endpoints of the same type with the blue + button",
                 None,
-                Provenance::doc(ADV, 784),
+                Provenance::doc(ADV, 784, "- One video input can have multiple output streams by clicki"),
                 None,
             ),
             operator_step(
                 "Click Create to add the configured stream",
-                Some(sourced_route(HttpMethod::Post, "/streams", None, 120)),
-                Provenance::source(VIDEO_STREAM_CREATION_DIALOG, 164),
+                Some(sourced_route(HttpMethod::Post, "/streams", None, 120, "url: `${this.API_URL}/streams`,")),
+                Provenance::source(VIDEO_STREAM_CREATION_DIALOG, 164, "@click=\"createStream\""),
                 Some(pending_outcome(
                     "POST /streams stream creation requires runtime capture with cameras attached (mutating; not exercised)",
                 )),
@@ -203,9 +203,12 @@ const REMOVE_CAMERA_STREAM: UserJourney = UserJourney {
     id: JourneyId::RemoveCameraStream,
     summary: Grounded::known(
         "Remove a configured video stream from a camera device",
-        Provenance::source(VIDEO_STREAM, 120),
+        Provenance::source(VIDEO_STREAM, 120, "v-tooltip=\"'Remove stream'\""),
     ),
-    visibility: Grounded::known(Visibility::Default, Provenance::source(VIDEO_MENUS, 131)),
+    visibility: Grounded::known(
+        Visibility::Default,
+        Provenance::source(VIDEO_MENUS, 131, "advanced: false,"),
+    ),
     services: MCM_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::RemoveCameraStream,
@@ -213,25 +216,29 @@ const REMOVE_CAMERA_STREAM: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
         Precondition::Other("At least one configured stream is listed on a device card"),
-        Provenance::source(VIDEO_DEVICE, 82),
+        Provenance::source(
+            VIDEO_DEVICE,
+            82,
+            "<v-container v-if=\"are_video_streams_available && !updating_",
+        ),
     )]),
     steps: GroundedSet::known(&[
         operator_step(
             "Open the Video Streams page from the sidebar",
             None,
-            Provenance::source(VIDEO_MENUS, 128),
+            Provenance::source(VIDEO_MENUS, 128, "title: 'Vehicle Setup',"),
             None,
         ),
         operator_step(
             "View the configured stream to remove on the device card",
             None,
-            Provenance::source(VIDEO_DEVICE, 88),
+            Provenance::source(VIDEO_DEVICE, 88, "<video-stream"),
             None,
         ),
         operator_step(
             "Click the Remove stream button on the stream card",
             None,
-            Provenance::source(VIDEO_STREAM, 120),
+            Provenance::source(VIDEO_STREAM, 120, "v-tooltip=\"'Remove stream'\""),
             None,
         ),
         operator_step(
@@ -241,9 +248,15 @@ const REMOVE_CAMERA_STREAM: UserJourney = UserJourney {
                 "/delete_stream",
                 None,
                 102,
+                "url: `${this.API_URL}/delete_stream`,",
             )),
-            Provenance::source(VIDEO_STORE, 102),
-            Some(source_outcome(200, VIDEO_STORE, 102)),
+            Provenance::source(VIDEO_STORE, 102, "url: `${this.API_URL}/delete_stream`,"),
+            Some(source_outcome(
+                200,
+                VIDEO_STORE,
+                102,
+                "url: `${this.API_URL}/delete_stream`,",
+            )),
         ),
     ]),
     availability: PRESENCE_REMOVE_CAMERA_STREAM,
@@ -256,34 +269,34 @@ const CONFIGURE_UVC_DEVICE_CONTROLS: UserJourney =
         id: JourneyId::ConfigureUvcDeviceControls,
         summary: Grounded::known(
             "Configure UVC camera settings such as brightness and exposure via Device Controls",
-            Provenance::doc(ADV, 803),
+            Provenance::doc(ADV, 803, "- Camera settings (brightness, exposure, etc) that are expos"),
         ),
-        visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 803)),
+        visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 803, "- Camera settings (brightness,")),
         services: MCM_SERVICES,
         capability_refs: GroundedSet::known(&[cap(CapabilityId::ConfigureUvcDeviceControls,
             "Device Controls dialog adjusts UVC sliders, menus, and booleans via POST /v4l",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
             Precondition::Hardware(HardwareRequirement::UsbCamera),
-            Provenance::doc(ADV, 803),
+            Provenance::doc(ADV, 803, "- Camera settings (brightness, exposure, etc) that are expos"),
         )]),
         steps: GroundedSet::known(&[
             operator_step(
                 "Open the Video Streams page from the sidebar",
                 None,
-                Provenance::source(VIDEO_MENUS, 128),
+                Provenance::source(VIDEO_MENUS, 128, "title: 'Vehicle Setup',"),
                 None,
             ),
             operator_step(
                 "Click Device Controls on a camera card",
                 None,
-                Provenance::source(VIDEO_DEVICE, 45),
+                Provenance::source(VIDEO_DEVICE, 45, "Device Controls"),
                 None,
             ),
             operator_step(
                 "Adjust slider, menu, or boolean camera controls",
                 None,
-                Provenance::source(VIDEO_CONTROLS_DIALOG, 24),
+                Provenance::source(VIDEO_CONTROLS_DIALOG, 24, "<v-slider"),
                 None,
             ),
             operator_step(
@@ -294,8 +307,9 @@ const CONFIGURE_UVC_DEVICE_CONTROLS: UserJourney =
                     "/v4l",
                     None,
                     189,
+                    "method: 'post',",
                 )),
-                Provenance::source(VIDEO_CONTROLS_DIALOG, 189),
+                Provenance::source(VIDEO_CONTROLS_DIALOG, 189, "method: 'post',"),
                 Some(pending_outcome(
                     "POST /v4l control update requires runtime capture with a UVC camera attached (mutating; not exercised)",
                 )),
@@ -312,7 +326,11 @@ const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<Capabili
 
 const MCM_SERVICES: GroundedSet<ServiceId> = GroundedSet::known(&[GroundedItem::new(
     ServiceId::MavlinkCameraManager,
-    Provenance::doc(ADV, 764),
+    Provenance::doc(
+        ADV,
+        764,
+        "{{ service(service=\"MAVLink Camera Manager\", link=\"https://g",
+    ),
 )]);
 
 const fn route(method: HttpMethod, path: &'static str, version: Option<&'static str>) -> RouteRef {
@@ -329,8 +347,9 @@ const fn sourced_route(
     path: &'static str,
     version: Option<&'static str>,
     line: u32,
+    anchor: &'static str,
 ) -> Grounded<RouteRef> {
-    sourced_route_in(VIDEO_STORE, method, path, version, line)
+    sourced_route_in(VIDEO_STORE, method, path, version, line, anchor)
 }
 
 const fn sourced_route_in(
@@ -339,8 +358,12 @@ const fn sourced_route_in(
     path: &'static str,
     version: Option<&'static str>,
     line: u32,
+    anchor: &'static str,
 ) -> Grounded<RouteRef> {
-    Grounded::known(route(method, path, version), Provenance::source(file, line))
+    Grounded::known(
+        route(method, path, version),
+        Provenance::source(file, line, anchor),
+    )
 }
 
 const fn operator_step(
@@ -364,7 +387,12 @@ const fn pending_outcome(reason: &'static str) -> Grounded<StepOutcome> {
     Grounded::unknown(reason)
 }
 
-const fn source_outcome(status: u16, file: &'static str, line: u32) -> Grounded<StepOutcome> {
+const fn source_outcome(
+    status: u16,
+    file: &'static str,
+    line: u32,
+    anchor: &'static str,
+) -> Grounded<StepOutcome> {
     Grounded::known(
         StepOutcome {
             expected_status: Some(status),
@@ -372,7 +400,7 @@ const fn source_outcome(status: u16, file: &'static str, line: u32) -> Grounded<
             body_kind: BodyKind::Unknown,
             transition: None,
         },
-        Provenance::source(file, line),
+        Provenance::source(file, line, anchor),
     )
 }
 

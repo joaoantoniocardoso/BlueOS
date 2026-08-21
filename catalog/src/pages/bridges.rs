@@ -10,6 +10,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 72,
+                anchor: "path: '/tools/records',",
             },
         ),
         name: Observed::known(
@@ -17,6 +18,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 73,
+                anchor: "name: 'Records',",
             },
         ),
         component: Observed::known(
@@ -24,6 +26,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 74,
+                anchor: "component: defineAsyncComponent(() => import('../views/Recor",
             },
         ),
         menu_title: Observed::known(
@@ -31,6 +34,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 99,
+                anchor: "icon: 'mdi-radar',",
             },
         ),
         advanced_only: Observed::known(
@@ -38,6 +42,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 102,
+                anchor: "text: 'Manage detected Ping family sonar devices, connected ",
             },
         ),
         stores: ObservedSet::known(&[
@@ -46,6 +51,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/bridges/Bridget.vue",
                     line: 68,
+                    anchor: "import bridget from '@/store/bridget'",
                 },
             ),
             Evidenced::new(
@@ -53,6 +59,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/bridges/Bridget.vue",
                     line: 69,
+                    anchor: "import system_information from '@/store/system-information'",
                 },
             ),
             Evidenced::new(
@@ -60,6 +67,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/bridges/BridgeCreationDialog.vue",
                     line: 165,
+                    anchor: "import autopilot from '@/store/autopilot_manager'",
                 },
             ),
         ]),
@@ -73,6 +81,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/bridget.ts",
                     line: 88,
+                    anchor: "url: `${this.API_URL}/bridges`,",
                 },
             ),
             Evidenced::new(
@@ -84,6 +93,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/bridget.ts",
                     line: 112,
+                    anchor: "url: `${this.API_URL}/serial_ports`,",
                 },
             ),
             Evidenced::new(
@@ -95,6 +105,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/bridges/BridgeCreationDialog.vue",
                     line: 312,
+                    anchor: "url: `${bridget.API_URL}/bridges`,",
                 },
             ),
             Evidenced::new(
@@ -106,6 +117,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/bridges/BridgeCard.vue",
                     line: 100,
+                    anchor: "method: 'delete',",
                 },
             ),
             Evidenced::new(
@@ -117,6 +129,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/system-information.ts",
                     line: 278,
+                    anchor: "url: `${this.API_URL}/${type}`,",
                 },
             ),
             Evidenced::new(
@@ -128,6 +141,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/autopilot/AutopilotManagerUpdater.ts",
                     line: 17,
+                    anchor: "url: `${autopilot.API_URL}/serials`,",
                 },
             ),
         ]),

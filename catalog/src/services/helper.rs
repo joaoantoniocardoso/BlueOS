@@ -124,6 +124,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/helper/main.py",
             line: 43,
+            anchor: "SERVICE_NAME = \"helper\"",
         },
     )]),
     kind: Observed::known(
@@ -131,6 +132,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 134,
+            anchor: "'helper',250,0,0,0,\"$BLUEOS_PYTHON_BIN_SECONDARY $SERVICES_P",
         },
     ),
     entrypoint: Observed::known(
@@ -138,6 +140,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 134,
+            anchor: "'helper',250,0,0,0,\"$BLUEOS_PYTHON_BIN_SECONDARY $SERVICES_P",
         },
     ),
     tmux_name: Observed::known(
@@ -145,6 +148,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 134,
+            anchor: "'helper',250,0,0,0,\"$BLUEOS_PYTHON_BIN_SECONDARY $SERVICES_P",
         },
     ),
     startup_tier: Observed::known(
@@ -152,6 +156,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 124,
+            anchor: "SERVICES=(",
         },
     ),
     resource_limits: Observed::known(
@@ -163,6 +168,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 134,
+            anchor: "'helper',250,0,0,0,\"$BLUEOS_PYTHON_BIN_SECONDARY $SERVICES_P",
         },
     ),
     nice: Observed::unknown("no nice prefix in start tuple"),
@@ -171,6 +177,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 134,
+            anchor: "'helper',250,0,0,0,\"$BLUEOS_PYTHON_BIN_SECONDARY $SERVICES_P",
         },
     ),
     nginx_prefixes: ObservedSet::known(&[Evidenced::new(
@@ -178,6 +185,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/tools/nginx/nginx.conf",
             line: 124,
+            anchor: "location /helper/ {",
         },
     )]),
     listen: ObservedSet::known(&[Evidenced::new(
@@ -185,6 +193,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/helper/main.py",
             line: 143,
+            anchor: "PORT = 81",
         },
     )]),
     git_path: Observed::known(
@@ -192,6 +201,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/helper/main.py",
             line: 1,
+            anchor: "#! /usr/bin/env python3",
         },
     ),
     interfaces: ObservedSet::known(&[
@@ -204,6 +214,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/helper/main.py",
                 line: 612,
+                anchor: "prefix_format=\"/v{major}.{minor}\",",
             },
         ),
         Evidenced::new(
@@ -214,6 +225,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/helper/main.py",
                 line: 629,
+                anchor: "port_to_service_map: Dict[int, str] = parse_nginx_file(\"/hom",
             },
         ),
         Evidenced::new(
@@ -224,6 +236,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/helper/main.py",
                 line: 491,
+                anchor: "Path.mkdir(Path(\"/home/pi/tools/nginx/extensions/\"), parents",
             },
         ),
         Evidenced::new(
@@ -234,6 +247,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/helper/main.py",
                 line: 453,
+                anchor: "with open(\"/var/run/nginx.pid\", \"r\", encoding=\"utf-8\") as f:",
             },
         ),
         Evidenced::new(
@@ -244,6 +258,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/helper/main.py",
                 line: 553,
+                anchor: "with open(\"/etc/blueos/hardware-uuid\", \"r\", encoding=\"utf-8\"",
             },
         ),
         Evidenced::new(
@@ -254,6 +269,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/helper/main.py",
                 line: 570,
+                anchor: "with open(\"/etc/blueos/uuid\", \"r\", encoding=\"utf-8\") as file",
             },
         ),
         Evidenced::new(
@@ -261,6 +277,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/helper/main.py",
                 line: 294,
+                anchor: "\"127.0.0.1\", port=port, path=\"/\", timeout=1.0, method=\"GET\",",
             },
         ),
         Evidenced::new(
@@ -270,6 +287,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/helper/main.py",
                 line: 507,
+                anchor: "response = requests.get(\"http://localhost/version-chooser/v1",
             },
         ),
         Evidenced::new(
@@ -279,6 +297,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/mavlink_comm/MavlinkComm.py",
                 line: 24,
+                anchor: "self.m2r_address = \"localhost:6040\"",
             },
         ),
         Evidenced::new(
@@ -288,6 +307,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/helper/main.py",
                 line: 56,
+                anchor: "\"hostname\": \"firmware.ardupilot.org\",",
             },
         ),
         Evidenced::new(
@@ -295,6 +315,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/helper/main.py",
                 line: 61,
+                anchor: "\"hostname\": \"amazon.com\",",
             },
         ),
         Evidenced::new(
@@ -304,6 +325,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/helper/main.py",
                 line: 66,
+                anchor: "\"hostname\": \"telemetry.blueos.cloud\",",
             },
         ),
         Evidenced::new(
@@ -311,6 +333,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/helper/main.py",
                 line: 74,
+                anchor: "\"hostname\": \"1.1.1.1\",",
             },
         ),
         Evidenced::new(
@@ -318,6 +341,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/helper/main.py",
                 line: 79,
+                anchor: "\"hostname\": \"github.com\",",
             },
         ),
         Evidenced::new(
@@ -325,6 +349,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/helper/main.py",
                 line: 586,
+                anchor: "\"ping\", \"-c\", \"1\", *iface, host, stdout=asyncio.subprocess.P",
             },
         ),
         Evidenced::new(
@@ -334,6 +359,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/helper/main.py",
                 line: 456,
+                anchor: "subprocess.run([\"kill\", \"-HUP\", f\"{pid}\"], check=False)",
             },
         ),
         Evidenced::new(
@@ -344,6 +370,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                 line: 78,
+                anchor: "topic = f\"services/{service_name}/log\"",
             },
         ),
     ]),
@@ -356,6 +383,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/helper/main.py",
                 line: 629,
+                anchor: "port_to_service_map: Dict[int, str] = parse_nginx_file(\"/hom",
             },
         ),
         Evidenced::new(
@@ -366,6 +394,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/helper/main.py",
                 line: 491,
+                anchor: "Path.mkdir(Path(\"/home/pi/tools/nginx/extensions/\"), parents",
             },
         ),
         Evidenced::new(
@@ -376,6 +405,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/helper/main.py",
                 line: 453,
+                anchor: "with open(\"/var/run/nginx.pid\", \"r\", encoding=\"utf-8\") as f:",
             },
         ),
         Evidenced::new(
@@ -386,6 +416,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/helper/main.py",
                 line: 553,
+                anchor: "with open(\"/etc/blueos/hardware-uuid\", \"r\", encoding=\"utf-8\"",
             },
         ),
         Evidenced::new(
@@ -396,6 +427,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/helper/main.py",
                 line: 570,
+                anchor: "with open(\"/etc/blueos/uuid\", \"r\", encoding=\"utf-8\") as file",
             },
         ),
     ]),
@@ -435,6 +467,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 326,
+            anchor: "for TUPLE in \"${SERVICES[@]}\"; do",
         },
     ),
     logs_path: Observed::unknown(
@@ -445,6 +478,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
             line: 78,
+            anchor: "topic = f\"services/{service_name}/log\"",
         },
     ),
     sentry: Observed::known(
@@ -452,6 +486,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/helper/main.py",
             line: 633,
+            anchor: "await init_sentry_async(SERVICE_NAME)",
         },
     ),
     openapi_refs: ObservedSet::unknown("not yet extracted"),

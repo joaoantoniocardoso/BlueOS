@@ -9,6 +9,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 82,
+                anchor: "path: '/tools/nmea-injector',",
             },
         ),
         name: Observed::known(
@@ -16,6 +17,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 83,
+                anchor: "name: 'NMEA Injector',",
             },
         ),
         component: Observed::known(
@@ -23,6 +25,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 84,
+                anchor: "component: defineAsyncComponent(() => import('../views/NMEAI",
             },
         ),
         menu_title: Observed::known(
@@ -30,6 +33,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 17,
+                anchor: "title: 'Available Services',",
             },
         ),
         advanced_only: Observed::known(
@@ -37,6 +41,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 20,
+                anchor: "advanced: true,",
             },
         ),
         stores: ObservedSet::known(&[
@@ -45,6 +50,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/scanner/availableServicesTable.vue",
                     line: 78,
+                    anchor: "import helper from '@/store/helper'",
                 },
             ),
         ]),

@@ -266,7 +266,7 @@ mod tests {
     use crate::journey::{Visibility, BLAST_RADIUS_UNKNOWN};
     use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
 
-    const DOC: Provenance = Provenance::doc("test.md", 1);
+    const DOC: Provenance = Provenance::doc("test.md", 1, "");
 
     fn empty_journey(preconditions: GroundedSet<Precondition>) -> UserJourney {
         UserJourney {

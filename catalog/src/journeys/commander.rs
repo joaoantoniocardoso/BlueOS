@@ -91,9 +91,12 @@ const REBOOT_ONBOARD_COMPUTER: UserJourney = UserJourney {
     id: JourneyId::RebootOnboardComputer,
     summary: Grounded::known(
         "Reboot the onboard computer from the power menu",
-        Provenance::doc(ADV, 219),
+        Provenance::doc(ADV, 219, "- Reboot onboard computer"),
     ),
-    visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 211)),
+    visibility: Grounded::known(
+        Visibility::Default,
+        Provenance::doc(ADV, 211, "##### Power"),
+    ),
     services: COMMANDER_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::RebootOnboardComputer,
@@ -101,13 +104,21 @@ const REBOOT_ONBOARD_COMPUTER: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
         Precondition::Software(SoftwareRequirement::ConfirmDangerousOp),
-        Provenance::source(COMMANDER_MAIN, 49),
+        Provenance::source(
+            COMMANDER_MAIN,
+            49,
+            "def check_what_i_am_doing(i_know_what_i_am_doing: bool = Fal",
+        ),
     )]),
     steps: GroundedSet::known(&[
         operator_step(
             "Open the power menu from the header bar",
             None,
-            Provenance::doc(ADV, 213),
+            Provenance::doc(
+                ADV,
+                213,
+                "{{ simple_pirate_image(src=\"power\", width=300, center=true) ",
+            ),
             None,
         ),
         operator_step(
@@ -117,9 +128,14 @@ const REBOOT_ONBOARD_COMPUTER: UserJourney = UserJourney {
                 "/shutdown",
                 Some("v1.0"),
                 88,
+                "@app.post(\"/shutdown\", status_code=status.HTTP_200_OK)",
             )),
-            Provenance::source(POWER_MENU, 173),
-            Some(source_outcome(200, 88)),
+            Provenance::source(POWER_MENU, 173, "async reboot(): Promise<void> {"),
+            Some(source_outcome(
+                200,
+                88,
+                "@app.post(\"/shutdown\", status_code=status.HTTP_200_OK)",
+            )),
         ),
     ]),
     availability: PRESENCE_REBOOT_ONBOARD_COMPUTER,
@@ -131,9 +147,12 @@ const SHUTDOWN_ONBOARD_COMPUTER: UserJourney = UserJourney {
     id: JourneyId::ShutdownOnboardComputer,
     summary: Grounded::known(
         "Shut down the onboard computer from the power menu before removing vehicle power",
-        Provenance::doc(ADV, 216),
+        Provenance::doc(ADV, 216, "- Shut down onboard computer"),
     ),
-    visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 211)),
+    visibility: Grounded::known(
+        Visibility::Default,
+        Provenance::doc(ADV, 211, "##### Power"),
+    ),
     services: COMMANDER_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::ShutdownOnboardComputer,
@@ -141,13 +160,21 @@ const SHUTDOWN_ONBOARD_COMPUTER: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
         Precondition::Software(SoftwareRequirement::ConfirmDangerousOp),
-        Provenance::source(COMMANDER_MAIN, 49),
+        Provenance::source(
+            COMMANDER_MAIN,
+            49,
+            "def check_what_i_am_doing(i_know_what_i_am_doing: bool = Fal",
+        ),
     )]),
     steps: GroundedSet::known(&[
         operator_step(
             "Open the power menu from the header bar",
             None,
-            Provenance::doc(ADV, 213),
+            Provenance::doc(
+                ADV,
+                213,
+                "{{ simple_pirate_image(src=\"power\", width=300, center=true) ",
+            ),
             None,
         ),
         operator_step(
@@ -157,8 +184,9 @@ const SHUTDOWN_ONBOARD_COMPUTER: UserJourney = UserJourney {
                 "/shutdown",
                 Some("v1.0"),
                 88,
+                "@app.post(\"/shutdown\", status_code=status.HTTP_200_OK)",
             )),
-            Provenance::source(POWER_MENU, 186),
+            Provenance::source(POWER_MENU, 186, "async poweroff(): Promise<void> {"),
             Some(Grounded::unknown("destructive; not exercised in capture")),
         ),
     ]),
@@ -171,9 +199,16 @@ const SYNC_SYSTEM_TIME: UserJourney = UserJourney {
     id: JourneyId::SyncSystemTime,
     summary: Grounded::known(
         "Sync the onboard computer clock with the browser when drift exceeds five minutes",
-        Provenance::source(COMMANDER_MAIN, 76),
+        Provenance::source(
+            COMMANDER_MAIN,
+            76,
+            "if abs(unix_time_seconds_now - unix_time_seconds) < 5 * 60:",
+        ),
     ),
-    visibility: Grounded::known(Visibility::Default, Provenance::source(APP_VUE, 798)),
+    visibility: Grounded::known(
+        Visibility::Default,
+        Provenance::source(APP_VUE, 798, "updateTime()"),
+    ),
     services: COMMANDER_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::SyncSystemTime,
@@ -181,7 +216,11 @@ const SYNC_SYSTEM_TIME: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
         Precondition::Software(SoftwareRequirement::ConfirmDangerousOp),
-        Provenance::source(COMMANDER_MAIN, 74),
+        Provenance::source(
+            COMMANDER_MAIN,
+            74,
+            "async def set_time(unix_time_seconds: int, i_know_what_i_am_",
+        ),
     )]),
     steps: GroundedSet::known(&[service_step(
         "On interface load, post the browser unix timestamp to commander",
@@ -190,9 +229,14 @@ const SYNC_SYSTEM_TIME: UserJourney = UserJourney {
             "/set_time",
             Some("v1.0"),
             72,
+            "@app.post(\"/set_time\", status_code=status.HTTP_200_OK)",
         )),
-        Provenance::source(UPDATE_TIME, 9),
-        Some(source_outcome(200, 72)),
+        Provenance::source(UPDATE_TIME, 9, "url: '/commander/v1.0/set_time',"),
+        Some(source_outcome(
+            200,
+            72,
+            "@app.post(\"/set_time\", status_code=status.HTTP_200_OK)",
+        )),
     )]),
     availability: PRESENCE_SYNC_SYSTEM_TIME,
     blast_radius: BR_SYNC_SYSTEM_TIME,
@@ -203,9 +247,20 @@ const ENABLE_LEGACY_CAMERA_SUPPORT: UserJourney = UserJourney {
     id: JourneyId::EnableLegacyCameraSupport,
     summary: Grounded::known(
         "Enable Raspberry Pi legacy camera support for Pi camera detection",
-        Provenance::doc(ADV, 823),
+        Provenance::doc(
+            ADV,
+            823,
+            "- Detection requires turning on legacy camera support:",
+        ),
     ),
-    visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 822)),
+    visibility: Grounded::known(
+        Visibility::Default,
+        Provenance::doc(
+            ADV,
+            822,
+            "- Raspberry Pi cameras are supported `(New in 1.1)`",
+        ),
+    ),
     services: COMMANDER_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::ConfigureLegacyCamera,
@@ -216,7 +271,11 @@ const ENABLE_LEGACY_CAMERA_SUPPORT: UserJourney = UserJourney {
         operator_step(
             "Open Video Manager settings from the gear button in the bottom right corner",
             None,
-            Provenance::doc(ADV, 824),
+            Provenance::doc(
+                ADV,
+                824,
+                "1. turn on via the settings button in the buttom right corne",
+            ),
             None,
         ),
         operator_step(
@@ -226,14 +285,19 @@ const ENABLE_LEGACY_CAMERA_SUPPORT: UserJourney = UserJourney {
                 "/raspi_config/camera_legacy",
                 Some("v1.0"),
                 117,
+                "@app.post(\"/raspi_config/camera_legacy\", status_code=status.",
             )),
-            Provenance::source(VIDEO_MANAGER, 66),
-            Some(source_outcome(200, 117)),
+            Provenance::source(VIDEO_MANAGER, 66, "<v-switch"),
+            Some(source_outcome(
+                200,
+                117,
+                "@app.post(\"/raspi_config/camera_legacy\", status_code=status.",
+            )),
         ),
         operator_step(
             "Reboot the onboard computer to apply legacy camera support",
             None,
-            Provenance::doc(ADV, 825),
+            Provenance::doc(ADV, 825, "2. reboot the onboard computer to enable"),
             None,
         ),
     ]),
@@ -246,9 +310,16 @@ const INSPECT_RASPBERRY_EEPROM_BOOTLOADER: UserJourney = UserJourney {
     id: JourneyId::InspectRaspberryEepromBootloader,
     summary: Grounded::known(
         "View Raspberry Pi firmware, bootloader, and EEPROM update availability",
-        Provenance::doc(ADV, 610),
+        Provenance::doc(
+            ADV,
+            610,
+            "{{ easy_image(src=\"system-info-firmware\", width=600, class=\"",
+        ),
     ),
-    visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 611)),
+    visibility: Grounded::known(
+        Visibility::Advanced,
+        Provenance::doc(ADV, 611, "{% pirate() %}"),
+    ),
     services: COMMANDER_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::InspectRaspberryEeprom,
@@ -257,18 +328,30 @@ const INSPECT_RASPBERRY_EEPROM_BOOTLOADER: UserJourney = UserJourney {
     preconditions: GroundedSet::known(&[
         GroundedItem::new(
             Precondition::Software(SoftwareRequirement::PirateMode),
-            Provenance::source(SYSINFO_VIEW, 85),
+            Provenance::source(
+                SYSINFO_VIEW,
+                85,
+                "title: 'Firmware', icon: 'mdi-raspberry-pi', value: 'firmwar",
+            ),
         ),
         GroundedItem::new(
             Precondition::Software(SoftwareRequirement::ConfirmDangerousOp),
-            Provenance::source(COMMANDER_MAIN, 49),
+            Provenance::source(
+                COMMANDER_MAIN,
+                49,
+                "def check_what_i_am_doing(i_know_what_i_am_doing: bool = Fal",
+            ),
         ),
     ]),
     steps: GroundedSet::known(&[
         operator_step(
             "Open the Firmware tab on the System Information page",
             None,
-            Provenance::doc(ADV, 610),
+            Provenance::doc(
+                ADV,
+                610,
+                "{{ easy_image(src=\"system-info-firmware\", width=600, class=\"",
+            ),
             None,
         ),
         operator_step(
@@ -278,8 +361,13 @@ const INSPECT_RASPBERRY_EEPROM_BOOTLOADER: UserJourney = UserJourney {
                 "/raspi/vcgencmd",
                 Some("v1.0"),
                 132,
+                "@app.get(\"/raspi/vcgencmd\", status_code=status.HTTP_200_OK)",
             )),
-            Provenance::source(FIRMWARE, 232),
+            Provenance::source(
+                FIRMWARE,
+                232,
+                "commander.getVcgencmd().then((vcgencmd) => { this.vcgencmd =",
+            ),
             Some(runtime_outcome(
                 200,
                 Some("\"vl085\""),
@@ -293,8 +381,13 @@ const INSPECT_RASPBERRY_EEPROM_BOOTLOADER: UserJourney = UserJourney {
                 "/raspi/eeprom_update",
                 Some("v1.0"),
                 150,
+                "@app.get(\"/raspi/eeprom_update\", status_code=status.HTTP_200",
             )),
-            Provenance::source(FIRMWARE, 233),
+            Provenance::source(
+                FIRMWARE,
+                233,
+                "commander.getRaspiEEPROM().then((eeprom_update) => { this.ee",
+            ),
             Some(runtime_outcome(
                 200,
                 Some("\"return_code\":0"),
@@ -311,9 +404,16 @@ const UPDATE_RASPBERRY_EEPROM_BOOTLOADER: UserJourney = UserJourney {
     id: JourneyId::UpdateRaspberryEepromBootloader,
     summary: Grounded::known(
         "Update Raspberry Pi firmware and USB controller EEPROM to the latest stable versions",
-        Provenance::doc(ADV, 612),
+        Provenance::doc(
+            ADV,
+            612,
+            "Update buttons are provided if the device is not running the",
+        ),
     ),
-    visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 611)),
+    visibility: Grounded::known(
+        Visibility::Advanced,
+        Provenance::doc(ADV, 611, "{% pirate() %}"),
+    ),
     services: COMMANDER_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::UpdateRaspberryEeprom,
@@ -322,18 +422,30 @@ const UPDATE_RASPBERRY_EEPROM_BOOTLOADER: UserJourney = UserJourney {
     preconditions: GroundedSet::known(&[
         GroundedItem::new(
             Precondition::Software(SoftwareRequirement::PirateMode),
-            Provenance::source(SYSINFO_VIEW, 85),
+            Provenance::source(
+                SYSINFO_VIEW,
+                85,
+                "title: 'Firmware', icon: 'mdi-raspberry-pi', value: 'firmwar",
+            ),
         ),
         GroundedItem::new(
             Precondition::Software(SoftwareRequirement::ConfirmDangerousOp),
-            Provenance::source(COMMANDER_MAIN, 49),
+            Provenance::source(
+                COMMANDER_MAIN,
+                49,
+                "def check_what_i_am_doing(i_know_what_i_am_doing: bool = Fal",
+            ),
         ),
     ]),
     steps: GroundedSet::known(&[
         operator_step(
             "Open the Firmware tab on the System Information page",
             None,
-            Provenance::doc(ADV, 610),
+            Provenance::doc(
+                ADV,
+                610,
+                "{{ easy_image(src=\"system-info-firmware\", width=600, class=\"",
+            ),
             None,
         ),
         operator_step(
@@ -343,9 +455,14 @@ const UPDATE_RASPBERRY_EEPROM_BOOTLOADER: UserJourney = UserJourney {
                 "/raspi/eeprom_update",
                 Some("v1.0"),
                 157,
+                "@app.post(\"/raspi/eeprom_update\", status_code=status.HTTP_20",
             )),
-            Provenance::source(FIRMWARE, 69),
-            Some(source_outcome(200, 157)),
+            Provenance::source(FIRMWARE, 69, "@click=\"doRaspiEEPROMUpdate\""),
+            Some(source_outcome(
+                200,
+                157,
+                "@app.post(\"/raspi/eeprom_update\", status_code=status.HTTP_20",
+            )),
         ),
     ]),
     availability: PRESENCE_UPDATE_RASPBERRY_EEPROM_BOOTLOADER,
@@ -357,9 +474,12 @@ const RESET_BLUEOS_SETTINGS: UserJourney = UserJourney {
     id: JourneyId::ResetBlueosSettings,
     summary: Grounded::known(
         "Reset BlueOS settings to remove camera, endpoint, and bridge configuration",
-        Provenance::doc(ADV, 204),
+        Provenance::doc(ADV, 204, "- Reset BlueOS settings"),
     ),
-    visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 200)),
+    visibility: Grounded::known(
+        Visibility::Default,
+        Provenance::doc(ADV, 200, "##### BlueOS Settings"),
+    ),
     services: COMMANDER_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::ResetBlueosSettings,
@@ -367,13 +487,21 @@ const RESET_BLUEOS_SETTINGS: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
         Precondition::Software(SoftwareRequirement::ConfirmDangerousOp),
-        Provenance::source(COMMANDER_MAIN, 49),
+        Provenance::source(
+            COMMANDER_MAIN,
+            49,
+            "def check_what_i_am_doing(i_know_what_i_am_doing: bool = Fal",
+        ),
     )]),
     steps: GroundedSet::known(&[
         operator_step(
             "Open BlueOS Settings from the header bar",
             None,
-            Provenance::doc(ADV, 202),
+            Provenance::doc(
+                ADV,
+                202,
+                "{{ easy_image(src=\"settings\", width=300, center=true) }}",
+            ),
             None,
         ),
         operator_step(
@@ -383,9 +511,14 @@ const RESET_BLUEOS_SETTINGS: UserJourney = UserJourney {
                 "/settings/reset",
                 Some("v1.0"),
                 164,
+                "@app.post(\"/settings/reset\", status_code=status.HTTP_200_OK)",
             )),
-            Provenance::source(SETTINGS_VIEW, 669),
-            Some(source_outcome(200, 164)),
+            Provenance::source(SETTINGS_VIEW, 669, "url: `${API_URL}/settings/reset`,"),
+            Some(source_outcome(
+                200,
+                164,
+                "@app.post(\"/settings/reset\", status_code=status.HTTP_200_OK)",
+            )),
         ),
     ]),
     availability: PRESENCE_RESET_BLUEOS_SETTINGS,
@@ -397,9 +530,20 @@ const RUN_HOST_COMMAND: UserJourney = UserJourney {
     id: JourneyId::RunHostCommand,
     summary: Grounded::known(
         "Run an arbitrary bash command on the host through commander",
-        Provenance::source(DEV_CORE, 74),
+        Provenance::doc(
+            DEV_CORE,
+            74,
+            "| [Commander](https://github.com/bluerobotics/BlueOS/tree/ma",
+        ),
     ),
-    visibility: Grounded::known(Visibility::Advanced, Provenance::source(DEV_CORE, 74)),
+    visibility: Grounded::known(
+        Visibility::Advanced,
+        Provenance::doc(
+            DEV_CORE,
+            74,
+            "| [Commander](https://github.com/bluerobotics/BlueOS/tree/ma",
+        ),
+    ),
     services: COMMANDER_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::RunHostCommand,
@@ -407,7 +551,11 @@ const RUN_HOST_COMMAND: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
         Precondition::Software(SoftwareRequirement::ConfirmDangerousOp),
-        Provenance::source(COMMANDER_MAIN, 49),
+        Provenance::source(
+            COMMANDER_MAIN,
+            49,
+            "def check_what_i_am_doing(i_know_what_i_am_doing: bool = Fal",
+        ),
     )]),
     steps: GroundedSet::known(&[operator_step(
         "Post a shell command to commander with i_know_what_i_am_doing acknowledged",
@@ -416,9 +564,14 @@ const RUN_HOST_COMMAND: UserJourney = UserJourney {
             "/command/host",
             Some("v1.0"),
             57,
+            "@app.post(\"/command/host\", status_code=status.HTTP_200_OK)",
         )),
-        Provenance::source(COMMANDER_STORE, 42),
-        Some(source_outcome(200, 57)),
+        Provenance::source(COMMANDER_STORE, 42, "url: `${this.API_URL}/command/host`,"),
+        Some(source_outcome(
+            200,
+            57,
+            "@app.post(\"/command/host\", status_code=status.HTTP_200_OK)",
+        )),
     )]),
     availability: PRESENCE_RUN_HOST_COMMAND,
     blast_radius: BR_RUN_HOST_COMMAND,
@@ -431,7 +584,11 @@ const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<Capabili
 
 const COMMANDER_SERVICES: GroundedSet<ServiceId> = GroundedSet::known(&[GroundedItem::new(
     ServiceId::Commander,
-    Provenance::source(DEV_CORE, 74),
+    Provenance::doc(
+        DEV_CORE,
+        74,
+        "| [Commander](https://github.com/bluerobotics/BlueOS/tree/ma",
+    ),
 )]);
 
 const fn route(method: HttpMethod, path: &'static str, version: Option<&'static str>) -> RouteRef {
@@ -448,10 +605,11 @@ const fn sourced_route(
     path: &'static str,
     version: Option<&'static str>,
     line: u32,
+    anchor: &'static str,
 ) -> Grounded<RouteRef> {
     Grounded::known(
         route(method, path, version),
-        Provenance::source(COMMANDER_MAIN, line),
+        Provenance::source(COMMANDER_MAIN, line, anchor),
     )
 }
 
@@ -510,7 +668,7 @@ const fn runtime_outcome(
     )
 }
 
-const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
+const fn source_outcome(status: u16, line: u32, anchor: &'static str) -> Grounded<StepOutcome> {
     Grounded::known(
         StepOutcome {
             expected_status: Some(status),
@@ -518,6 +676,6 @@ const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
             body_kind: BodyKind::Unknown,
             transition: None,
         },
-        Provenance::source(COMMANDER_MAIN, line),
+        Provenance::source(COMMANDER_MAIN, line, anchor),
     )
 }

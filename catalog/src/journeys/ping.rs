@@ -33,9 +33,9 @@ const VIEW_DETECTED_SONAR_DEVICES: UserJourney =
         id: JourneyId::ViewDetectedSonarDevices,
         summary: Grounded::known(
             "View Ping family sonar devices auto-detected on serial/USB and the local network",
-            Provenance::doc(ADV, 553),
+            Provenance::doc(ADV, 553, "The Ping Sonar Devices page shows any detected"),
         ),
-        visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 548)),
+        visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 548, "### Ping Sonar Devices")),
         services: PING_SERVICES,
         capability_refs: GroundedSet::known(&[cap(CapabilityId::ListDetectedPingSensors,
             "Ping Sonar Devices page lists auto-detected Ping1D and Ping360 sensors via GET /sensors",
@@ -45,19 +45,19 @@ const VIEW_DETECTED_SONAR_DEVICES: UserJourney =
             service_step(
                 "Probe serial ports for Ping-protocol devices",
                 None,
-                Provenance::source(PING_PROBER, 13),
+                Provenance::source(PING_PROBER, 13, "async def probe(self, port: SysFS) -> Optional[PingDeviceDes"),
                 None,
             ),
             service_step(
                 "Discover ethernet-configured Ping360 devices on the local network",
                 None,
-                Provenance::source(PING360_ETH_PROBER, 43),
+                Provenance::source(PING360_ETH_PROBER, 43, "async def find_ping360_ethernet() -> List[PingDeviceDes"),
                 None,
             ),
             service_step(
                 "Spawn a UDP bridge for each detected sonar device",
                 None,
-                Provenance::source(PING_MANAGER, 43),
+                Provenance::source(PING_MANAGER, 43, "async def launch_driver_instance(self, ping: PingDeviceDescr"),
                 Some(pending_outcome(
                     "UDP bridge port assignment requires runtime capture with Ping sonar hardware attached",
                 )),
@@ -65,13 +65,13 @@ const VIEW_DETECTED_SONAR_DEVICES: UserJourney =
             operator_step(
                 "Open the Ping Sonar Devices page from the sidebar",
                 None,
-                Provenance::source(PING_MENUS, 91),
+                Provenance::source(PING_MENUS, 91, "title: 'Network Test',"),
                 None,
             ),
             operator_step(
                 "Load the list of detected Ping sensors",
-                Some(sourced_route(HttpMethod::Get, "/sensors", Some("v1.0"), 38)),
-                Provenance::source(PING_STORE, 63),
+                Some(sourced_route(HttpMethod::Get, "/sensors", Some("v1.0"), 38, "@app.get(\"/sensors\", response_m")),
+                Provenance::source(PING_STORE, 63, "url: `${this.API_URL}/sensors`,"),
                 Some(runtime_outcome(
                     200,
                     Some("[] (empty; no Ping sonar hardware attached)"),
@@ -81,7 +81,7 @@ const VIEW_DETECTED_SONAR_DEVICES: UserJourney =
             operator_step(
                 "View the device card showing the sonar type and its UDP bridge endpoint",
                 None,
-                Provenance::source(PING1D_CARD, 15),
+                Provenance::source(PING1D_CARD, 15, "<tr><td>Bridge</td><td> UDP {{ device.driver_status.udp_port"),
                 None,
             ),
         ]),
@@ -98,34 +98,34 @@ const CONNECT_PING_VIEWER_TO_SONAR: UserJourney =
         id: JourneyId::ConnectPingViewerToSonar,
         summary: Grounded::known(
             "Connect Ping Viewer on the surface computer to a vehicle-exposed Ping sonar",
-            Provenance::doc(OVERVIEW, 131),
+            Provenance::doc(OVERVIEW, 131, "| [**Ping Sonar Devices**](../advanced/#ping-sonar-devices) "),
         ),
-        visibility: Grounded::known(Visibility::Default, Provenance::source(PING_MENUS, 94)),
+        visibility: Grounded::known(Visibility::Default, Provenance::source(PING_MENUS, 94, "show: true,")),
         services: PING_SERVICES,
         capability_refs: GroundedSet::known(&[cap(CapabilityId::ConnectPingViewerToSonar,
             "operator uses the UDP bridge port shown on the device card to reach the sonar from Ping Viewer",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
             Precondition::HardwarePresent("Ping family sonar device"),
-            Provenance::doc(ADV, 553),
+            Provenance::doc(ADV, 553, "The Ping Sonar Devices page shows any detected"),
         )]),
         steps: GroundedSet::known(&[
             operator_step(
                 "Open the Ping Sonar Devices page from the sidebar",
                 None,
-                Provenance::source(PING_MENUS, 91),
+                Provenance::source(PING_MENUS, 91, "title: 'Network Test',"),
                 None,
             ),
             operator_step(
                 "Note the connection endpoint shown on the device card (UDP bridge port or ethernet IP)",
                 None,
-                Provenance::source(PING360_CARD, 15),
+                Provenance::source(PING360_CARD, 15, "<tr><td>{{ is_ethernet() ? \"IP\" : \"Bridge\" }}</td><td> {{ i"),
                 None,
             ),
             operator_step(
                 "Connect Ping Viewer on the surface computer to the sonar",
                 None,
-                Provenance::doc(OVERVIEW, 131),
+                Provenance::doc(OVERVIEW, 131, "| [**Ping Sonar Devices**](../advanced/#ping-sonar-devices) "),
                 Some(pending_outcome(
                     "Ping Viewer sonar connection requires runtime capture with Ping sonar hardware attached",
                 )),
@@ -147,39 +147,34 @@ const ENABLE_PING1D_RANGEFINDER_MAVLINK: UserJourney =
         summary: Grounded::known(
             "Enable Ping1D distance estimates as MAVLink DISTANCE_SENSOR messages to the autopilot"
                 ,
-            Provenance::doc(ADV, 559),
+            Provenance::doc(ADV, 559, "- Allows configuring Ping Sonar distance estimates to send a"),
         ),
-        visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 548)),
+        visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 548, "### Ping Sonar Devices")),
         services: PING_SERVICES,
         capability_refs: GroundedSet::known(&[cap(CapabilityId::EnablePing1dMavlinkDistance,
             "Ping1D card MAVLink Distances switch posts sensor settings to toggle mavlink_driver",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
             Precondition::Hardware(HardwareRequirement::Ping1d),
-            Provenance::doc(ADV, 559),
+            Provenance::doc(ADV, 559, "- Allows configuring Ping Sonar distance estimates to send a"),
         )]),
         steps: GroundedSet::known(&[
             operator_step(
                 "Open the Ping Sonar Devices page from the sidebar",
                 None,
-                Provenance::source(PING_MENUS, 91),
+                Provenance::source(PING_MENUS, 91, "title: 'Network Test',"),
                 None,
             ),
             operator_step(
                 "Toggle the MAVLink Distances switch on the Ping1D device card",
                 None,
-                Provenance::source(PING1D_CARD, 21),
+                Provenance::source(PING1D_CARD, 21, "<v-switch"),
                 None,
             ),
             operator_step(
                 "Submit updated sensor settings to enable MAVLink distance forwarding",
-                Some(sourced_route(
-                    HttpMethod::Post,
-                    "/sensors",
-                    Some("v1.0"),
-                    46,
-                )),
-                Provenance::source(PING1D_CARD, 97),
+                Some(sourced_route(HttpMethod::Post, "/sensors", Some("v1.0"), 46, "@app.post(\"/sensors\", status_c")),
+                Provenance::source(PING1D_CARD, 97, "async update_mavlink_driver() {"),
                 Some(pending_outcome(
                     "MAVLink DISTANCE_SENSOR forwarding requires runtime capture with Ping1D hardware and POST /sensors (mutating; not exercised)",
                 )),
@@ -201,7 +196,11 @@ const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<Capabili
 
 const PING_SERVICES: GroundedSet<ServiceId> = GroundedSet::known(&[GroundedItem::new(
     ServiceId::Ping,
-    Provenance::doc(ADV, 549),
+    Provenance::doc(
+        ADV,
+        549,
+        "{{ service(service=\"Ping Service\", port=9110, link=\"/service",
+    ),
 )]);
 
 const fn route(method: HttpMethod, path: &'static str, version: Option<&'static str>) -> RouteRef {
@@ -218,10 +217,11 @@ const fn sourced_route(
     path: &'static str,
     version: Option<&'static str>,
     line: u32,
+    anchor: &'static str,
 ) -> Grounded<RouteRef> {
     Grounded::known(
         route(method, path, version),
-        Provenance::source(PING_MAIN, line),
+        Provenance::source(PING_MAIN, line, anchor),
     )
 }
 

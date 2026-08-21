@@ -10,6 +10,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 102,
+                anchor: "path: '/tools/network-test',",
             },
         ),
         name: Observed::known(
@@ -17,6 +18,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 103,
+                anchor: "name: 'Network Test',",
             },
         ),
         component: Observed::known(
@@ -24,6 +26,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 104,
+                anchor: "component: defineAsyncComponent(() => import('../views/Netwo",
             },
         ),
         menu_title: Observed::known(
@@ -31,6 +34,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 25,
+                anchor: "title: 'Bag Editor',",
             },
         ),
         advanced_only: Observed::known(
@@ -38,6 +42,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 28,
+                anchor: "advanced: true,",
             },
         ),
         stores: ObservedSet::known(&[Evidenced::new(
@@ -45,6 +50,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/views/BagEditorView.vue",
                 line: 13,
+                anchor: "import bag from '@/store/bag'",
             },
         )]),
         consumes: ObservedSet::known(&[
@@ -57,6 +63,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/bag.ts",
                     line: 64,
+                    anchor: "url: `${this.API_URL}/get/${path}`,",
                 },
             ),
             Evidenced::new(
@@ -68,6 +75,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/bag.ts",
                     line: 24,
+                    anchor: "url: `${this.API_URL}/overwrite`,",
                 },
             ),
         ]),

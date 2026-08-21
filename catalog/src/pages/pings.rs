@@ -10,6 +10,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 27,
+                anchor: "path: '/vehicle/pings',",
             },
         ),
         name: Observed::known(
@@ -17,6 +18,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 28,
+                anchor: "name: 'Pings',",
             },
         ),
         component: Observed::known(
@@ -24,6 +26,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 29,
+                anchor: "component: defineAsyncComponent(() => import('../views/Pings",
             },
         ),
         menu_title: Observed::known(
@@ -31,6 +34,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 91,
+                anchor: "title: 'Network Test',",
             },
         ),
         advanced_only: Observed::known(
@@ -38,6 +42,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 94,
+                anchor: "show: true,",
             },
         ),
         stores: ObservedSet::known(&[
@@ -46,6 +51,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/Pings.vue",
                     line: 37,
+                    anchor: "import ping from '@/store/ping'",
                 },
             ),
             Evidenced::new(
@@ -53,6 +59,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/Pings.vue",
                     line: 38,
+                    anchor: "import system_information from '@/store/system-information'",
                 },
             ),
         ]),
@@ -66,6 +73,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/ping.ts",
                     line: 61,
+                    anchor: "back_axios({",
                 },
             ),
             Evidenced::new(
@@ -77,6 +85,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/ping/ping1d.vue",
                     line: 98,
+                    anchor: "await back_axios({",
                 },
             ),
             Evidenced::new(
@@ -88,6 +97,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/system-information.ts",
                     line: 276,
+                    anchor: "await back_axios({",
                 },
             ),
         ]),

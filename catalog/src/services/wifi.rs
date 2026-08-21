@@ -125,6 +125,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/start-blueos-core",
                     line: 127,
+                    anchor: "'wifi',0,0,0,0,\"nice -19 $SERVICES_PATH/wifi/main.py --socke",
                 },
             ),
             Evidenced::new(
@@ -132,6 +133,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/wifi/main.py",
                     line: 34,
+                    anchor: "SERVICE_NAME = \"wifi-manager\"",
                 },
             ),
         ]),
@@ -140,6 +142,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 127,
+                anchor: "'wifi',0,0,0,0,\"nice -19 $SERVICES_PATH/wifi/main.py --socke",
             },
         ),
         entrypoint: Observed::known(
@@ -147,6 +150,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 127,
+                anchor: "'wifi',0,0,0,0,\"nice -19 $SERVICES_PATH/wifi/main.py --socke",
             },
         ),
         tmux_name: Observed::known(
@@ -154,6 +158,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 127,
+                anchor: "'wifi',0,0,0,0,\"nice -19 $SERVICES_PATH/wifi/main.py --socke",
             },
         ),
         startup_tier: Observed::known(
@@ -161,6 +166,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 124,
+                anchor: "SERVICES=(",
             },
         ),
         resource_limits: Observed::known(
@@ -172,6 +178,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 127,
+                anchor: "'wifi',0,0,0,0,\"nice -19 $SERVICES_PATH/wifi/main.py --socke",
             },
         ),
         nice: Observed::known(
@@ -179,6 +186,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 127,
+                anchor: "'wifi',0,0,0,0,\"nice -19 $SERVICES_PATH/wifi/main.py --socke",
             },
         ),
         run_as: Observed::known(
@@ -186,6 +194,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 127,
+                anchor: "'wifi',0,0,0,0,\"nice -19 $SERVICES_PATH/wifi/main.py --socke",
             },
         ),
         nginx_prefixes: ObservedSet::known(&[Evidenced::new(
@@ -193,6 +202,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 228,
+                anchor: "location /wifi-manager/ {",
             },
         )]),
         listen: ObservedSet::known(&[Evidenced::new(
@@ -200,6 +210,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/services/wifi/main.py",
                 line: 184,
+                anchor: "config = Config(app=app, host=\"0.0.0.0\", port=9000, log_conf",
             },
         )]),
         git_path: Observed::known(
@@ -207,6 +218,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/services/wifi/main.py",
                 line: 1,
+                anchor: "#! /usr/bin/env python3",
             },
         ),
         interfaces: ObservedSet::known(&[
@@ -219,6 +231,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/wifi/main.py",
                     line: 166,
+                    anchor: "app = VersionedFastAPI(app, version=\"1.0.0\", prefix_format=\"",
                 },
             ),
             Evidenced::new(
@@ -229,6 +242,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                     file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py"
                         ,
                     line: 69,
+                    anchor: "return self.config_folder.joinpath(f\"{PyksonManager.SETTINGS",
                 },
             ),
             Evidenced::new(
@@ -240,6 +254,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                     file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py"
                         ,
                     line: 27,
+                    anchor: "else pathlib.Path(appdirs.user_config_dir(self.project_name)",
                 },
             ),
             Evidenced::new(
@@ -250,6 +265,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/wifi/wifi_handlers/wpa_supplicant/WifiManager.py",
                     line: 530,
+                    anchor: "wpa_socket_folder = \"/var/run/wpa_supplicant/\"",
                 },
             ),
             Evidenced::new(
@@ -260,6 +276,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/wifi/wifi_handlers/wpa_supplicant/WifiManager.py",
                     line: 560,
+                    anchor: "WLAN_SOCKET = os.path.join(wpa_socket_folder, socket_name)",
                 },
             ),
             Evidenced::new(
@@ -270,6 +287,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/wifi/wifi_handlers/wpa_supplicant/wpa_supplicant.py",
                     line: 32,
+                    anchor: "wpa_playground_path = \"/tmp/wpa_playground\"",
                 },
             ),
             Evidenced::new(
@@ -280,6 +298,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/wifi/wifi_handlers/wpa_supplicant/wpa_supplicant.py",
                     line: 43,
+                    anchor: "socket_client = f\"{wpa_playground_path}/wpa_supplicant_servi",
                 },
             ),
             Evidenced::new(
@@ -290,6 +309,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/wifi/wifi_handlers/wpa_supplicant/Hotspot.py",
                     line: 250,
+                    anchor: "with open(\"/etc/dhcpcd.conf\", \"r\", encoding=\"utf-8\") as f:",
                 },
             ),
             Evidenced::new(
@@ -300,6 +320,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/wifi/wifi_handlers/wpa_supplicant/Hotspot.py",
                     line: 211,
+                    anchor: "return config_dir.joinpath(\"hostapd.conf\")",
                 },
             ),
             Evidenced::new(
@@ -310,6 +331,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/libs/commonwealth/src/commonwealth/utils/DHCPServerManager.py",
                     line: 50,
+                    anchor: "lease_dir: pathlib.Path = pathlib.Path(\"/var/lib/dnsmasq\"),",
                 },
             ),
             Evidenced::new(
@@ -319,6 +341,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/start-blueos-core",
                     line: 127,
+                    anchor: "'wifi',0,0,0,0,\"nice -19 $SERVICES_PATH/wifi/main.py --socke",
                 },
             ),
             Evidenced::new(
@@ -328,6 +351,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/wifi/wifi_handlers/wpa_supplicant/Hotspot.py",
                     line: 39,
+                    anchor: "ap_interface_name: str = \"uap0\",",
                 },
             ),
             Evidenced::new(
@@ -337,6 +361,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/wifi/wifi_handlers/wpa_supplicant/WifiManager.py",
                     line: 394,
+                    anchor: "subprocess.run([\"dhcpcd\", \"-n\", \"wlan0\"], check=False)",
                 },
             ),
             Evidenced::new(
@@ -346,6 +371,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/wifi/wifi_handlers/wpa_supplicant/Hotspot.py",
                     line: 98,
+                    anchor: "subprocess.check_output([self.binary(), \"-h\"])",
                 },
             ),
             Evidenced::new(
@@ -356,6 +382,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/wifi/wifi_handlers/wpa_supplicant/Hotspot.py",
                     line: 142,
+                    anchor: "shlex.split(f\"iw dev {self._base_interface} interface add {s",
                 },
             ),
             Evidenced::new(
@@ -365,6 +392,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/wifi/wifi_handlers/wpa_supplicant/Hotspot.py",
                     line: 154,
+                    anchor: "subprocess.Popen(shlex.split(f\"ifconfig {self._ap_interface_",
                 },
             ),
             Evidenced::new(
@@ -374,6 +402,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/wifi/wifi_handlers/wpa_supplicant/Hotspot.py",
                     line: 164,
+                    anchor: "return shlex.split(f\"{self.binary()} {self.config_path()}\")",
                 },
             ),
             Evidenced::new(
@@ -383,6 +412,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/libs/commonwealth/src/commonwealth/utils/DHCPServerManager.py",
                     line: 95,
+                    anchor: "return \"dnsmasq\"",
                 },
             ),
             Evidenced::new(
@@ -392,6 +422,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/wifi/wifi_handlers/networkmanager/networkmanager.py",
                     line: 60,
+                    anchor: "existing = subprocess.run([\"ip\", \"link\", \"show\", self._ap_in",
                 },
             ),
             Evidenced::new(
@@ -401,6 +432,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/wifi/wifi_handlers/networkmanager/networkmanager.py",
                     line: 71,
+                    anchor: "subprocess.run([\"iw\", \"dev\", phys_name, \"interface\", \"add\", ",
                 },
             ),
             Evidenced::new(
@@ -410,6 +442,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/wifi/wifi_handlers/networkmanager/networkmanager.py",
                     line: 75,
+                    anchor: "subprocess.run([\"ip\", \"link\", \"set\", self._ap_interface, \"up",
                 },
             ),
             Evidenced::new(
@@ -419,6 +452,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/wifi/wifi_handlers/networkmanager/networkmanager.py",
                     line: 78,
+                    anchor: "subprocess.run([\"iw\", phys_name, \"set\", \"power_save\", \"off\"]",
                 },
             ),
             Evidenced::new(
@@ -428,6 +462,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/wifi/wifi_handlers/networkmanager/networkmanager.py",
                     line: 79,
+                    anchor: "subprocess.run([\"iw\", self._ap_interface, \"set\", \"power_save",
                 },
             ),
             Evidenced::new(
@@ -437,6 +472,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/wifi/wifi_handlers/networkmanager/networkmanager.py",
                     line: 97,
+                    anchor: "subprocess.run([\"iw\", \"dev\", self._ap_interface, \"del\"], che",
                 },
             ),
             Evidenced::new(
@@ -447,6 +483,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/wifi/wifi_handlers/networkmanager/networkmanager.py",
                     line: 305,
+                    anchor: "cmd = [",
                 },
             ),
             Evidenced::new(
@@ -457,6 +494,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                     line: 78,
+                    anchor: "topic = f\"services/{service_name}/log\"",
                 },
             ),
         ]),
@@ -470,6 +508,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                     file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py"
                         ,
                     line: 27,
+                    anchor: "else pathlib.Path(appdirs.user_config_dir(self.project_name)",
                 },
             ),
             Evidenced::new(
@@ -481,6 +520,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                     file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py"
                         ,
                     line: 69,
+                    anchor: "return self.config_folder.joinpath(f\"{PyksonManager.SETTINGS",
                 },
             ),
             Evidenced::new(
@@ -491,6 +531,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/wifi/wifi_handlers/wpa_supplicant/WifiManager.py",
                     line: 560,
+                    anchor: "WLAN_SOCKET = os.path.join(wpa_socket_folder, socket_name)",
                 },
             ),
             Evidenced::new(
@@ -501,6 +542,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/wifi/wifi_handlers/wpa_supplicant/Hotspot.py",
                     line: 281,
+                    anchor: "with open(\"/etc/dhcpcd.conf\", \"w\", encoding=\"utf-8\") as f:",
                 },
             ),
             Evidenced::new(
@@ -511,6 +553,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/libs/commonwealth/src/commonwealth/utils/DHCPServerManager.py",
                     line: 50,
+                    anchor: "lease_dir: pathlib.Path = pathlib.Path(\"/var/lib/dnsmasq\"),",
                 },
             ),
             Evidenced::new(
@@ -521,6 +564,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/start-blueos-core",
                     line: 127,
+                    anchor: "'wifi',0,0,0,0,\"nice -19 $SERVICES_PATH/wifi/main.py --socke",
                 },
             ),
             Evidenced::new(
@@ -531,6 +575,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/wifi/wifi_handlers/wpa_supplicant/Hotspot.py",
                     line: 39,
+                    anchor: "ap_interface_name: str = \"uap0\",",
                 },
             ),
         ]),
@@ -570,6 +615,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 326,
+                anchor: "for TUPLE in \"${SERVICES[@]}\"; do",
             },
         ),
         logs_path: Observed::unknown(
@@ -580,6 +626,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                 line: 78,
+                anchor: "topic = f\"services/{service_name}/log\"",
             },
         ),
         sentry: Observed::known(
@@ -587,6 +634,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/services/wifi/main.py",
                 line: 171,
+                anchor: "await init_sentry_async(SERVICE_NAME)",
             },
         ),
         openapi_refs: ObservedSet::unknown("not yet extracted"),

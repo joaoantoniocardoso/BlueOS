@@ -94,6 +94,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 145,
+                anchor: "'recorder',250,0,0,0,\"blueos-recorder --recorder-path /usr/b",
             },
         ),
         entrypoint: Observed::known(
@@ -101,6 +102,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 145,
+                anchor: "'recorder',250,0,0,0,\"blueos-recorder --recorder-path /usr/b",
             },
         ),
         tmux_name: Observed::known(
@@ -108,6 +110,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 145,
+                anchor: "'recorder',250,0,0,0,\"blueos-recorder --recorder-path /usr/b",
             },
         ),
         startup_tier: Observed::known(
@@ -115,6 +118,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 124,
+                anchor: "SERVICES=(",
             },
         ),
         resource_limits: Observed::known(
@@ -126,6 +130,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 145,
+                anchor: "'recorder',250,0,0,0,\"blueos-recorder --recorder-path /usr/b",
             },
         ),
         nice: Observed::unknown("command line has no nice wrapper"),
@@ -134,6 +139,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 145,
+                anchor: "'recorder',250,0,0,0,\"blueos-recorder --recorder-path /usr/b",
             },
         ),
         nginx_prefixes: ObservedSet::known(&[]),
@@ -150,6 +156,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 145,
+                anchor: "'recorder',250,0,0,0,\"blueos-recorder --recorder-path /usr/b",
             },
         )]),
         lifecycle: Observed::known(
@@ -188,6 +195,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 326,
+                anchor: "for TUPLE in \"${SERVICES[@]}\"; do",
             },
         ),
         logs_path: Observed::unknown(

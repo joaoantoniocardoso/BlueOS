@@ -24,9 +24,9 @@ const RUN_LAN_SPEED_TEST: UserJourney =
         summary: Grounded::known(
             "Measure real-time latency and upload/download speeds between BlueOS and the surface computer"
                 ,
-            Provenance::doc(ADV, 521),
+            Provenance::doc(ADV, 521, "The Local Network Test measures real-time latency between Bl"),
         ),
-        visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 518)),
+        visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 518, "### Network Test")),
         services: PARDAL_SERVICES,
         capability_refs: GroundedSet::known(&[cap(CapabilityId::RunLanSpeedTest,
             "Local network test downloads and uploads a file while measuring latency over WebSocket echo",
@@ -36,19 +36,19 @@ const RUN_LAN_SPEED_TEST: UserJourney =
             operator_step(
                 "Open the Network Test page from the sidebar",
                 None,
-                Provenance::source(PARDAL_MENUS, 84),
+                Provenance::source(PARDAL_MENUS, 84, "title: 'NMEA Injector',"),
                 None,
             ),
             operator_step(
                 "Open the Local network test tab",
                 None,
-                Provenance::source(NETWORK_TEST_VIEW, 56),
+                Provenance::source(NETWORK_TEST_VIEW, 56, "{ title: 'Local network test', icon: 'mdi-speedometer', "),
                 None,
             ),
             service_step(
                 "Echo WebSocket messages back to the client for real-time latency measurement",
                 None,
-                Provenance::source(PARDAL_MAIN, 45),
+                Provenance::source(PARDAL_MAIN, 45, "async def websocket_echo(request: web.Request) -> web.WebSoc"),
                 Some(pending_outcome(
                     "latency measurement requires runtime capture",
                 )),
@@ -56,13 +56,13 @@ const RUN_LAN_SPEED_TEST: UserJourney =
             operator_step(
                 "Start the local network speed test",
                 None,
-                Provenance::source(NETWORK_SPEED_TEST, 165),
+                Provenance::source(NETWORK_SPEED_TEST, 165, "start(): void {"),
                 None,
             ),
             operator_step(
                 "Download a test file from the vehicle to measure download throughput",
-                Some(sourced_route(HttpMethod::Get, "/get_file", None, 149)),
-                Provenance::source(NETWORK_SPEED_TEST, 241),
+                Some(sourced_route(HttpMethod::Get, "/get_file", None, 149, "app.router.add_get(\"/get_file\", get_f")),
+                Provenance::source(NETWORK_SPEED_TEST, 241, "url: '/network-test/get_file',"),
                 Some(runtime_outcome(
                     200,
                     Some(
@@ -74,14 +74,14 @@ const RUN_LAN_SPEED_TEST: UserJourney =
             ),
             operator_step(
                 "Upload a test file to the vehicle to measure upload throughput",
-                Some(sourced_route(HttpMethod::Post, "/post_file", None, 150)),
-                Provenance::source(NETWORK_SPEED_TEST, 202),
-                Some(source_outcome(200, 70)),
+                Some(sourced_route(HttpMethod::Post, "/post_file", None, 150, "app.router.add_post(\"/post_file\", p")),
+                Provenance::source(NETWORK_SPEED_TEST, 202, "url: '/network-test/post_file',"),
+                Some(source_outcome(200, 70, "async def post_file(request: web.Request) -> web.Response:")),
             ),
             operator_step(
                 "View the speed plot for the test run",
                 None,
-                Provenance::doc(ADV, 524),
+                Provenance::doc(ADV, 524, "A plot is provided of each test, to help diagnose intermitte"),
                 None,
             ),
         ]),
@@ -99,9 +99,9 @@ const RUN_INTERNET_SPEED_TEST: UserJourney = UserJourney {
     id: JourneyId::RunInternetSpeedTest,
     summary: Grounded::known(
         "Measure latency and upload/download speeds between BlueOS and its internet connection",
-        Provenance::doc(ADV, 528),
+        Provenance::doc(ADV, 528, "The Internet Speed Test allows measuring the latency and upl"),
     ),
-    visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 518)),
+    visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 518, "### Network Test")),
     services: PARDAL_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::RunInternetSpeedTest,
@@ -109,30 +109,25 @@ const RUN_INTERNET_SPEED_TEST: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
         Precondition::Network(NetworkState::Online),
-        Provenance::doc(ADV, 529),
+        Provenance::doc(ADV, 529, "speeds between BlueOS and its internet connection (if one is"),
     )]),
     steps: GroundedSet::known(&[
         operator_step(
             "Open the Network Test page from the sidebar",
             None,
-            Provenance::source(PARDAL_MENUS, 84),
+            Provenance::source(PARDAL_MENUS, 84, "title: 'NMEA Injector',"),
             None,
         ),
         operator_step(
             "Open the Internet speed test tab",
             None,
-            Provenance::source(NETWORK_TEST_VIEW, 57),
+            Provenance::source(NETWORK_TEST_VIEW, 57, "{ title: 'Internet speed test', icon: 'mdi-web', value: 'int"),
             None,
         ),
         operator_step(
             "Load any previous internet speed test result shown on page open",
-            Some(sourced_route(
-                HttpMethod::Get,
-                "/internet_test_previous_result",
-                None,
-                119,
-            )),
-            Provenance::source(INTERNET_SPEED_TEST, 180),
+            Some(sourced_route(HttpMethod::Get, "/internet_test_previous_result", None, 119, "@routes.get(\"/intern")),
+            Provenance::source(INTERNET_SPEED_TEST, 180, "this.result = await pardal.checkPreviousInternetTestResul"),
             Some(runtime_outcome(
                 200,
                 Some("\"download\":"),
@@ -143,41 +138,26 @@ const RUN_INTERNET_SPEED_TEST: UserJourney = UserJourney {
         operator_step(
             "Start the internet speed test",
             None,
-            Provenance::source(INTERNET_SPEED_TEST, 194),
+            Provenance::source(INTERNET_SPEED_TEST, 194, "async start(): Promise<void> {"),
             None,
         ),
         operator_step(
             "Find the best speedtest server for the vehicle's internet connection",
-            Some(sourced_route(
-                HttpMethod::Get,
-                "/internet_best_server",
-                None,
-                78,
-            )),
-            Provenance::source(PARDAL_STORE, 29),
-            Some(source_outcome(200, 78)),
+            Some(sourced_route(HttpMethod::Get, "/internet_best_server", None, 78, "@routes.get(\"/internet_best_se")),
+            Provenance::source(PARDAL_STORE, 29, "url: `${this.API_URL}/internet_best_server`,"),
+            Some(source_outcome(200, 78, "@routes.get(\"/internet_best_server\")")),
         ),
         operator_step(
             "Measure internet download speed",
-            Some(sourced_route(
-                HttpMethod::Get,
-                "/internet_download_speed",
-                None,
-                95,
-            )),
-            Provenance::source(PARDAL_STORE, 42),
-            Some(source_outcome(200, 95)),
+            Some(sourced_route(HttpMethod::Get, "/internet_download_speed", None, 95, "@routes.get(\"/internet_down")),
+            Provenance::source(PARDAL_STORE, 42, "url: `${this.API_URL}/internet_download_speed`,"),
+            Some(source_outcome(200, 95, "@routes.get(\"/internet_download_speed\")")),
         ),
         operator_step(
             "Measure internet upload speed",
-            Some(sourced_route(
-                HttpMethod::Get,
-                "/internet_upload_speed",
-                None,
-                107,
-            )),
-            Provenance::source(PARDAL_STORE, 55),
-            Some(source_outcome(200, 107)),
+            Some(sourced_route(HttpMethod::Get, "/internet_upload_speed", None, 107, "@routes.get(\"/internet_uploa")),
+            Provenance::source(PARDAL_STORE, 55, "url: `${this.API_URL}/internet_upload_speed`,"),
+            Some(source_outcome(200, 107, "@routes.get(\"/internet_upload_speed\")")),
         ),
     ]),
     availability: PRESENCE_RUN_INTERNET_SPEED_TEST,
@@ -196,7 +176,11 @@ const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<Capabili
 
 const PARDAL_SERVICES: GroundedSet<ServiceId> = GroundedSet::known(&[GroundedItem::new(
     ServiceId::Pardal,
-    Provenance::doc(ADV, 519),
+    Provenance::doc(
+        ADV,
+        519,
+        "{{ service(service=\"Pardal\", port=9120, link=\"/services/pard",
+    ),
 )]);
 
 const fn route(method: HttpMethod, path: &'static str, version: Option<&'static str>) -> RouteRef {
@@ -213,10 +197,11 @@ const fn sourced_route(
     path: &'static str,
     version: Option<&'static str>,
     line: u32,
+    anchor: &'static str,
 ) -> Grounded<RouteRef> {
     Grounded::known(
         route(method, path, version),
-        Provenance::source(PARDAL_MAIN, line),
+        Provenance::source(PARDAL_MAIN, line, anchor),
     )
 }
 
@@ -258,7 +243,7 @@ const fn pending_outcome(reason: &'static str) -> Grounded<StepOutcome> {
     Grounded::unknown(reason)
 }
 
-const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
+const fn source_outcome(status: u16, line: u32, anchor: &'static str) -> Grounded<StepOutcome> {
     Grounded::known(
         StepOutcome {
             expected_status: Some(status),
@@ -266,7 +251,7 @@ const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
             body_kind: BodyKind::Unknown,
             transition: None,
         },
-        Provenance::source(PARDAL_MAIN, line),
+        Provenance::source(PARDAL_MAIN, line, anchor),
     )
 }
 

@@ -130,6 +130,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 136,
+                anchor: "'linux2rest',250,0,0,0,\"linux2rest --log-settings netstat=30",
             },
         ),
         entrypoint: Observed::known(
@@ -138,6 +139,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 136,
+                anchor: "'linux2rest',250,0,0,0,\"linux2rest --log-settings netstat=30",
             },
         ),
         tmux_name: Observed::known(
@@ -145,6 +147,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 136,
+                anchor: "'linux2rest',250,0,0,0,\"linux2rest --log-settings netstat=30",
             },
         ),
         startup_tier: Observed::known(
@@ -152,6 +155,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 124,
+                anchor: "SERVICES=(",
             },
         ),
         resource_limits: Observed::known(
@@ -163,6 +167,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 136,
+                anchor: "'linux2rest',250,0,0,0,\"linux2rest --log-settings netstat=30",
             },
         ),
         nice: Observed::unknown("command line has no nice wrapper"),
@@ -171,6 +176,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 136,
+                anchor: "'linux2rest',250,0,0,0,\"linux2rest --log-settings netstat=30",
             },
         ),
         nginx_prefixes: ObservedSet::known(&[Evidenced::new(
@@ -178,6 +184,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 205,
+                anchor: "location /system-information/ {",
             },
         )]),
         listen: ObservedSet::known(&[Evidenced::new(
@@ -185,6 +192,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 207,
+                anchor: "proxy_pass http://127.0.0.1:6030/;",
             },
         )]),
         git_path: Observed::unknown(
@@ -199,6 +207,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 207,
+                anchor: "proxy_pass http://127.0.0.1:6030/;",
             },
         )]),
         resources: ObservedSet::unknown(
@@ -240,6 +249,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 326,
+                anchor: "for TUPLE in \"${SERVICES[@]}\"; do",
             },
         ),
         logs_path: Observed::unknown(

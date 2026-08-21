@@ -89,9 +89,9 @@ const VEHICLE_FIRST_BOOT: UserJourney =
         id: JourneyId::VehicleFirstBoot,
         summary: Grounded::known(
             "On first boot the configuration wizard downloads and installs up-to-date autopilot firmware",
-            Provenance::doc(GS, 52),
+            Provenance::doc(GS, 52, "Progress is displayed for any selected configuration changes"),
         ),
-        visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 256)),
+        visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 256, "### Autopilot Firmware")),
         services: ARDUPILOT_MANAGER_SERVICES,
         capability_refs: GroundedSet::known(&[
             cap(CapabilityId::DetectFlightControllers,
@@ -110,30 +110,30 @@ const VEHICLE_FIRST_BOOT: UserJourney =
         preconditions: GroundedSet::known(&[
             GroundedItem::new(
                 Precondition::Other("Cold start after power-on"),
-                Provenance::doc(INSTALL, 59),
+                Provenance::doc(INSTALL, 59, "- The first boot may take a couple of minutes, as it expands"),
             ),
             GroundedItem::new(
                 Precondition::Other("BlueOS is newly installed and the configuration wizard is available"),
-                Provenance::doc(GS, 38),
+                Provenance::doc(GS, 38, "When BlueOS is newly installed the interface provides a conf"),
             ),
         ]),
         steps: GroundedSet::known(&[
             operator_step(
                 "Power on the vehicle and wait for the first boot to complete",
                 None,
-                Provenance::doc(INSTALL, 59),
+                Provenance::doc(INSTALL, 59, "- The first boot may take a couple of minutes, as it expands"),
                 None,
             ),
             service_step(
                 "Download and install up-to-date autopilot firmware for the selected vehicle type",
-                Some(sourced_route(HttpMethod::Post, "/install_firmware_from_url", Some("v1.0"), 163)),
-                Provenance::doc(GS, 52),
+                Some(sourced_route(HttpMethod::Post, "/install_firmware_from_url", Some("v1.0"), 163, "@index_router")),
+                Provenance::doc(GS, 52, "Progress is displayed for any selected configuration changes"),
                 Some(runtime_outcome(200, None, None, "runtime-captures/ardupilot_manager__pi4_navigator_master.json#firmware_operations")),
             ),
             operator_step(
                 "Open the Autopilot Firmware page to view basic information about the active autopilot",
-                Some(sourced_route(HttpMethod::Get, "/firmware_info", Some("v1.0"), 103)),
-                Provenance::doc(ADV, 259),
+                Some(sourced_route(HttpMethod::Get, "/firmware_info", Some("v1.0"), 103, "@index_router_v1.get(\"/f")),
+                Provenance::doc(ADV, 259, "The Autopilot Firmware page provides basic information about"),
                 Some(runtime_outcome(
                     200,
                     Some("\"version\": \"4.5.3\""),
@@ -151,9 +151,16 @@ const CHANGE_BOARD: UserJourney = UserJourney {
     id: JourneyId::ChangeBoard,
     summary: Grounded::known(
         "Select a connected flight controller board or switch to the virtual SITL board",
-        Provenance::doc(ADV, 262),
+        Provenance::doc(
+            ADV,
+            262,
+            "- Change board (select a connected board, or run a [SITL sim",
+        ),
     ),
-    visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 261)),
+    visibility: Grounded::known(
+        Visibility::Advanced,
+        Provenance::doc(ADV, 261, "{% pirate() %}"),
+    ),
     services: ARDUPILOT_MANAGER_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::SelectFlightControllerBoard,
@@ -163,12 +170,26 @@ const CHANGE_BOARD: UserJourney = UserJourney {
         Precondition::Other(
             "At least one flight controller board is connected or SITL simulation is available",
         ),
-        Provenance::doc(ADV, 262),
+        Provenance::doc(
+            ADV,
+            262,
+            "- Change board (select a connected board, or run a [SITL sim",
+        ),
     )]),
     steps: GroundedSet::known(&[operator_step(
         "Select a connected board or the SITL simulation board on the Autopilot Firmware page",
-        Some(sourced_route(HttpMethod::Post, "/board", Some("v1.0"), 226)),
-        Provenance::doc(ADV, 262),
+        Some(sourced_route(
+            HttpMethod::Post,
+            "/board",
+            Some("v1.0"),
+            226,
+            "@index_router_v1.post(\"/board\", summary=\"Set board to be use",
+        )),
+        Provenance::doc(
+            ADV,
+            262,
+            "- Change board (select a connected board, or run a [SITL sim",
+        ),
         Some(runtime_outcome(
             200,
             None,
@@ -187,9 +208,9 @@ const RUN_SITL_SIMULATION: UserJourney =
         summary: Grounded::known(
             "Run ArduPilot SITL simulation by selecting the virtual board and configuring the vehicle frame"
                 ,
-            Provenance::doc(ADV, 305),
+            Provenance::doc(ADV, 305, "If you want to do some testing without needing physical hard"),
         ),
-        visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 303)),
+        visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 303, "{% pirate() %}")),
         services: ARDUPILOT_MANAGER_SERVICES,
         capability_refs: GroundedSet::known(&[
             cap(CapabilityId::SelectFlightControllerBoard,
@@ -202,21 +223,21 @@ const RUN_SITL_SIMULATION: UserJourney =
         preconditions: GroundedSet::known(&[
             GroundedItem::new(
                 Precondition::Other("Virtual SITL flight controller board is selected"),
-                Provenance::doc(ADV, 262),
+                Provenance::doc(ADV, 262, "- Change board (select a connected board, or run a [SITL sim"),
             ),
         ]),
         steps: GroundedSet::known(&[
             operator_step(
                 "Select the virtual SITL flight controller board",
-                Some(sourced_route(HttpMethod::Post, "/board", Some("v1.0"), 226)),
-                Provenance::doc(ADV, 262),
+                Some(sourced_route(HttpMethod::Post, "/board", Some("v1.0"), 226, "@index_router_v1.post(\"/board\",")),
+                Provenance::doc(ADV, 262, "- Change board (select a connected board, or run a [SITL sim"),
                 Some(runtime_outcome(200, None, None, "runtime-captures/ardupilot_manager__pi4_navigator_master.json#transitions")),
             ),
             operator_step(
                 "Set the SITL vehicle frame in the POST /sitl_frame endpoint",
-                Some(sourced_route(HttpMethod::Post, "/sitl_frame", Some("v1.0"), 133)),
-                Provenance::doc(ADV, 319),
-                Some(source_outcome(200, APM_ROUTER, 135)),
+                Some(sourced_route(HttpMethod::Post, "/sitl_frame", Some("v1.0"), 133, "@index_router_v1.post(\"/si")),
+                Provenance::doc(ADV, 319, "\"Try it out\" in the `POST: /sitl_frame` endpoint, select the"),
+                Some(source_outcome(200, APM_ROUTER, 135, "async def set_sitl_frame(frame: SITLFrame) -> Any:")),
             ),
         ]),
         availability: PRESENCE_RUN_SITL_SIMULATION,
@@ -226,8 +247,14 @@ const RUN_SITL_SIMULATION: UserJourney =
 
 const START_AUTOPILOT: UserJourney = UserJourney {
     id: JourneyId::StartAutopilot,
-    summary: Grounded::known("Start the autopilot process", Provenance::doc(ADV, 263)),
-    visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 261)),
+    summary: Grounded::known(
+        "Start the autopilot process",
+        Provenance::doc(ADV, 263, "- Start the autopilot"),
+    ),
+    visibility: Grounded::known(
+        Visibility::Advanced,
+        Provenance::doc(ADV, 261, "{% pirate() %}"),
+    ),
     services: ARDUPILOT_MANAGER_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::ManageAutopilotLifecycle,
@@ -235,12 +262,22 @@ const START_AUTOPILOT: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
         Precondition::Other("A flight controller board is selected"),
-        Provenance::doc(ADV, 262),
+        Provenance::doc(
+            ADV,
+            262,
+            "- Change board (select a connected board, or run a [SITL sim",
+        ),
     )]),
     steps: GroundedSet::known(&[operator_step(
         "Start the autopilot from the Autopilot Firmware page",
-        Some(sourced_route(HttpMethod::Post, "/start", Some("v1.0"), 241)),
-        Provenance::doc(ADV, 263),
+        Some(sourced_route(
+            HttpMethod::Post,
+            "/start",
+            Some("v1.0"),
+            241,
+            "@index_router_v1.post(\"/start\", summary=\"Start the autopilot",
+        )),
+        Provenance::doc(ADV, 263, "- Start the autopilot"),
         Some(runtime_outcome(
             200,
             None,
@@ -255,8 +292,14 @@ const START_AUTOPILOT: UserJourney = UserJourney {
 
 const STOP_AUTOPILOT: UserJourney = UserJourney {
     id: JourneyId::StopAutopilot,
-    summary: Grounded::known("Stop the autopilot process", Provenance::doc(ADV, 264)),
-    visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 261)),
+    summary: Grounded::known(
+        "Stop the autopilot process",
+        Provenance::doc(ADV, 264, "- Stop the autopilot"),
+    ),
+    visibility: Grounded::known(
+        Visibility::Advanced,
+        Provenance::doc(ADV, 261, "{% pirate() %}"),
+    ),
     services: ARDUPILOT_MANAGER_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::ManageAutopilotLifecycle,
@@ -264,12 +307,18 @@ const STOP_AUTOPILOT: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
         Precondition::Other("An autopilot is available to stop"),
-        Provenance::doc(ADV, 264),
+        Provenance::doc(ADV, 264, "- Stop the autopilot"),
     )]),
     steps: GroundedSet::known(&[operator_step(
         "Stop the autopilot from the Autopilot Firmware page",
-        Some(sourced_route(HttpMethod::Post, "/stop", Some("v1.0"), 270)),
-        Provenance::doc(ADV, 264),
+        Some(sourced_route(
+            HttpMethod::Post,
+            "/stop",
+            Some("v1.0"),
+            270,
+            "@index_router_v1.post(\"/stop\", summary=\"Stop the autopilot.\"",
+        )),
+        Provenance::doc(ADV, 264, "- Stop the autopilot"),
         Some(runtime_outcome(
             200,
             None,
@@ -284,8 +333,14 @@ const STOP_AUTOPILOT: UserJourney = UserJourney {
 
 const RESTART_AUTOPILOT: UserJourney = UserJourney {
     id: JourneyId::RestartAutopilot,
-    summary: Grounded::known("Restart the autopilot", Provenance::doc(ADV, 267)),
-    visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 267)),
+    summary: Grounded::known(
+        "Restart the autopilot",
+        Provenance::doc(ADV, 267, "- Restart the autopilot"),
+    ),
+    visibility: Grounded::known(
+        Visibility::Default,
+        Provenance::doc(ADV, 267, "- Restart the autopilot"),
+    ),
     services: ARDUPILOT_MANAGER_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::ManageAutopilotLifecycle,
@@ -293,7 +348,7 @@ const RESTART_AUTOPILOT: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
         Precondition::Other("A flight controller board is selected"),
-        Provenance::doc(ADV, 283),
+        Provenance::doc(ADV, 283, "- Flash firmware onto a connected compatible"),
     )]),
     steps: GroundedSet::known(&[operator_step(
         "Restart the autopilot from the Autopilot Firmware page",
@@ -302,8 +357,9 @@ const RESTART_AUTOPILOT: UserJourney = UserJourney {
             "/restart",
             Some("v1.0"),
             233,
+            "@index_router_v1.post(\"/restart\", summary=\"Restart the autop",
         )),
-        Provenance::doc(ADV, 267),
+        Provenance::doc(ADV, 267, "- Restart the autopilot"),
         Some(runtime_outcome(
             200,
             None,
@@ -320,9 +376,12 @@ const UPDATE_FIRMWARE_ONLINE: UserJourney = UserJourney {
     id: JourneyId::UpdateFirmwareOnline,
     summary: Grounded::known(
         "Update flight-controller firmware from the online ArduPilot repository",
-        Provenance::doc(ADV, 268),
+        Provenance::doc(ADV, 268, "- Update the firmware"),
     ),
-    visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 268)),
+    visibility: Grounded::known(
+        Visibility::Default,
+        Provenance::doc(ADV, 268, "- Update the firmware"),
+    ),
     services: ARDUPILOT_MANAGER_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::FlashFirmware,
@@ -331,24 +390,28 @@ const UPDATE_FIRMWARE_ONLINE: UserJourney = UserJourney {
     preconditions: GroundedSet::known(&[
         GroundedItem::new(
             Precondition::Network(NetworkState::Online),
-            Provenance::doc(ADV, 271),
+            Provenance::doc(ADV, 271, "- Select from the online repository"),
         ),
         GroundedItem::new(
             Precondition::Other("A compatible flight controller board is connected"),
-            Provenance::doc(ADV, 283),
+            Provenance::doc(ADV, 283, "- Flash firmware onto a connected compatible"),
         ),
     ]),
     steps: GroundedSet::known(&[
         operator_step(
             "Select vehicle type (Sub, Rover, Plane, or Copter)",
             None,
-            Provenance::doc(ADV, 272),
+            Provenance::doc(
+                ADV,
+                272,
+                "- Select vehicle type (Sub / Rover / Plane / Copter)",
+            ),
             None,
         ),
         operator_step(
             "Select desired release and stability level (Stable, Beta, or Dev)",
             None,
-            Provenance::doc(ADV, 273),
+            Provenance::doc(ADV, 273, "- Select desired release and stability level"),
             None,
         ),
         operator_step(
@@ -358,8 +421,9 @@ const UPDATE_FIRMWARE_ONLINE: UserJourney = UserJourney {
                 "/install_firmware_from_url",
                 Some("v1.0"),
                 163,
+                "@index_router_v1.post(\"/install_firmware_from_url\", summary=",
             )),
-            Provenance::doc(ADV, 271),
+            Provenance::doc(ADV, 271, "- Select from the online repository"),
             Some(runtime_outcome(
                 200,
                 None,
@@ -377,9 +441,16 @@ const UPLOAD_CUSTOM_FIRMWARE: UserJourney = UserJourney {
     id: JourneyId::UploadCustomFirmware,
     summary: Grounded::known(
         "Upload and flash a custom ArduPilot firmware file from the surface computer",
-        Provenance::doc(ADV, 281),
+        Provenance::doc(
+            ADV,
+            281,
+            "- Upload a custom firmware file from the surface computer",
+        ),
     ),
-    visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 268)),
+    visibility: Grounded::known(
+        Visibility::Default,
+        Provenance::doc(ADV, 268, "- Update the firmware"),
+    ),
     services: ARDUPILOT_MANAGER_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::FlashFirmware,
@@ -387,7 +458,7 @@ const UPLOAD_CUSTOM_FIRMWARE: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
         Precondition::Other("A compatible flight controller board is connected"),
-        Provenance::doc(ADV, 283),
+        Provenance::doc(ADV, 283, "- Flash firmware onto a connected compatible"),
     )]),
     steps: GroundedSet::known(&[operator_step(
         "Upload a custom firmware file from the surface computer and flash it onto the board",
@@ -396,8 +467,13 @@ const UPLOAD_CUSTOM_FIRMWARE: UserJourney = UserJourney {
             "/install_firmware_from_file",
             Some("v1.0"),
             193,
+            "@index_router_v1.post(\"/install_firmware_from_file\", summary",
         )),
-        Provenance::doc(ADV, 281),
+        Provenance::doc(
+            ADV,
+            281,
+            "- Upload a custom firmware file from the surface computer",
+        ),
         Some(runtime_outcome(
             200,
             None,
@@ -414,9 +490,16 @@ const RESTORE_DEFAULT_FIRMWARE: UserJourney = UserJourney {
     id: JourneyId::RestoreDefaultFirmware,
     summary: Grounded::known(
         "Restore the default ArduSub firmware for the connected flight controller",
-        Provenance::doc(ADV, 282),
+        Provenance::doc(
+            ADV,
+            282,
+            "- Restore the default (ArduSub) firmware for the connected f",
+        ),
     ),
-    visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 268)),
+    visibility: Grounded::known(
+        Visibility::Default,
+        Provenance::doc(ADV, 268, "- Update the firmware"),
+    ),
     services: ARDUPILOT_MANAGER_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::FlashFirmware,
@@ -424,7 +507,11 @@ const RESTORE_DEFAULT_FIRMWARE: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
         Precondition::Other("A flight controller board is connected"),
-        Provenance::doc(ADV, 282),
+        Provenance::doc(
+            ADV,
+            282,
+            "- Restore the default (ArduSub) firmware for the connected f",
+        ),
     )]),
     steps: GroundedSet::known(&[operator_step(
         "Restore the default ArduSub firmware for the connected flight controller",
@@ -433,8 +520,13 @@ const RESTORE_DEFAULT_FIRMWARE: UserJourney = UserJourney {
             "/restore_default_firmware",
             Some("v1.0"),
             279,
+            "@index_router_v1.post(\"/restore_default_firmware\", summary=\"",
         )),
-        Provenance::doc(ADV, 282),
+        Provenance::doc(
+            ADV,
+            282,
+            "- Restore the default (ArduSub) firmware for the connected f",
+        ),
         Some(runtime_outcome(
             200,
             None,
@@ -454,7 +546,11 @@ const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<Capabili
 const ARDUPILOT_MANAGER_SERVICES: GroundedSet<ServiceId> =
     GroundedSet::known(&[GroundedItem::new(
         ServiceId::ArdupilotManager,
-        Provenance::doc(ADV, 257),
+        Provenance::doc(
+            ADV,
+            257,
+            "{{ service(service=\"ArduPilot Manager\", port=8000, link=\"/se",
+        ),
     )]);
 
 const fn route(method: HttpMethod, path: &'static str, version: Option<&'static str>) -> RouteRef {
@@ -471,10 +567,11 @@ const fn sourced_route(
     path: &'static str,
     version: Option<&'static str>,
     line: u32,
+    anchor: &'static str,
 ) -> Grounded<RouteRef> {
     Grounded::known(
         route(method, path, version),
-        Provenance::source(APM_ROUTER, line),
+        Provenance::source(APM_ROUTER, line, anchor),
     )
 }
 
@@ -512,7 +609,12 @@ const fn service_step(
     )
 }
 
-const fn source_outcome(status: u16, file: &'static str, line: u32) -> Grounded<StepOutcome> {
+const fn source_outcome(
+    status: u16,
+    file: &'static str,
+    line: u32,
+    anchor: &'static str,
+) -> Grounded<StepOutcome> {
     Grounded::known(
         StepOutcome {
             expected_status: Some(status),
@@ -520,7 +622,7 @@ const fn source_outcome(status: u16, file: &'static str, line: u32) -> Grounded<
             body_kind: BodyKind::Unknown,
             transition: None,
         },
-        Provenance::source(file, line),
+        Provenance::source(file, line, anchor),
     )
 }
 

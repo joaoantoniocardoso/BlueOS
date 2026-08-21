@@ -10,6 +10,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 12,
+                anchor: "path: '/',",
             },
         ),
         name: Observed::known(
@@ -17,6 +18,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 13,
+                anchor: "name: 'Main',",
             },
         ),
         component: Observed::known(
@@ -24,6 +26,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 14,
+                anchor: "component: Main,",
             },
         ),
         menu_title: Observed::unknown("not in menu"),
@@ -34,6 +37,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/MainView.vue",
                     line: 97,
+                    anchor: "import helper from '@/store/helper'",
                 },
             ),
             Evidenced::new(
@@ -41,6 +45,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/MainView.vue",
                     line: 98,
+                    anchor: "import mavlink from '@/store/mavlink'",
                 },
             ),
             Evidenced::new(
@@ -48,6 +53,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/MainView.vue",
                     line: 99,
+                    anchor: "import video from '@/store/video'",
                 },
             ),
             Evidenced::new(
@@ -55,6 +61,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/widgets/CpuPie.vue",
                     line: 51,
+                    anchor: "import system_information, { FetchType } from '@/store/syste",
                 },
             ),
             Evidenced::new(
@@ -62,6 +69,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/vehiclesetup/viewers/GenericViewer.vue",
                     line: 104,
+                    anchor: "import customization_store from '@/store/customization'",
                 },
             ),
             Evidenced::new(
@@ -69,6 +77,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/vehiclesetup/viewers/modelHelper.ts",
                     line: 3,
+                    anchor: "import autopilot from \"@/store/autopilot_manager\"",
                 },
             ),
             Evidenced::new(
@@ -76,6 +85,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/vehiclesetup/viewers/modelHelper.ts",
                     line: 2,
+                    anchor: "import autopilot_data from \"@/store/autopilot\"",
                 },
             ),
         ]),
@@ -89,6 +99,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/MainView.vue",
                     line: 266,
+                    anchor: "mavlink.setMessageRefreshRate({ messageName: 'ATTITUDE', ref",
                 },
             ),
             Evidenced::new(
@@ -100,6 +111,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/MainView.vue",
                     line: 267,
+                    anchor: "this.fetch_streams_task.setAction(video.fetchStreams)",
                 },
             ),
             Evidenced::new(
@@ -111,6 +123,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/health/SelfHealthTest.vue",
                     line: 46,
+                    anchor: "await VCU.loadCurrentVersion()",
                 },
             ),
             Evidenced::new(
@@ -122,6 +135,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/health/SelfHealthTest.vue",
                     line: 55,
+                    anchor: "const folder = await filebrowser.fetchFolder('system_logs')",
                 },
             ),
             Evidenced::new(
@@ -133,6 +147,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/widgets/CpuPie.vue",
                     line: 89,
+                    anchor: "system_information.fetchSystemInformation(FetchType.SystemCp",
                 },
             ),
             Evidenced::new(
@@ -144,6 +159,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/widgets/CpuPie.vue",
                     line: 90,
+                    anchor: "system_information.fetchSystemInformation(FetchType.SystemMe",
                 },
             ),
             Evidenced::new(
@@ -155,6 +171,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/widgets/CpuPie.vue",
                     line: 91,
+                    anchor: "system_information.fetchSystemInformation(FetchType.SystemDi",
                 },
             ),
             Evidenced::new(
@@ -166,6 +183,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/vehiclesetup/viewers/modelHelper.ts",
                     line: 69,
+                    anchor: "await axios.head(master_override)",
                 },
             ),
         ]),

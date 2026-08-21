@@ -126,6 +126,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 128,
+                anchor: "'zenohd',0,0,0,0,\"ZENOH_BACKEND_FS_ROOT=$TOOLS_PATH/zenoh ze",
             },
         ),
         entrypoint: Observed::known(
@@ -134,6 +135,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 128,
+                anchor: "'zenohd',0,0,0,0,\"ZENOH_BACKEND_FS_ROOT=$TOOLS_PATH/zenoh ze",
             },
         ),
         tmux_name: Observed::known(
@@ -141,6 +143,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 128,
+                anchor: "'zenohd',0,0,0,0,\"ZENOH_BACKEND_FS_ROOT=$TOOLS_PATH/zenoh ze",
             },
         ),
         startup_tier: Observed::known(
@@ -148,6 +151,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 124,
+                anchor: "SERVICES=(",
             },
         ),
         resource_limits: Observed::known(
@@ -159,6 +163,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 128,
+                anchor: "'zenohd',0,0,0,0,\"ZENOH_BACKEND_FS_ROOT=$TOOLS_PATH/zenoh ze",
             },
         ),
         nice: Observed::unknown("command line has no nice wrapper"),
@@ -167,6 +172,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 128,
+                anchor: "'zenohd',0,0,0,0,\"ZENOH_BACKEND_FS_ROOT=$TOOLS_PATH/zenoh ze",
             },
         ),
         nginx_prefixes: ObservedSet::known(&[
@@ -175,6 +181,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/tools/nginx/nginx.conf",
                     line: 238,
+                    anchor: "location /zenoh/ {",
                 },
             ),
             Evidenced::new(
@@ -182,6 +189,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/tools/nginx/nginx.conf",
                     line: 253,
+                    anchor: "location /zenoh-api/ {",
                 },
             ),
         ]),
@@ -191,6 +199,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/tools/zenoh/blueos-zenoh.json5",
                     line: 9,
+                    anchor: "rest: { http_port: 7117 },",
                 },
             ),
             Evidenced::new(
@@ -198,6 +207,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/tools/zenoh/blueos-zenoh.json5",
                     line: 10,
+                    anchor: "remote_api: { websocket_port: 7118 }",
                 },
             ),
         ]),
@@ -214,6 +224,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/tools/nginx/nginx.conf",
                     line: 246,
+                    anchor: "proxy_pass http://127.0.0.1:7117/;",
                 },
             ),
             Evidenced::new(
@@ -224,6 +235,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/tools/nginx/nginx.conf",
                     line: 261,
+                    anchor: "proxy_pass http://127.0.0.1:7118/;",
                 },
             ),
         ]),
@@ -236,6 +248,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/start-blueos-core",
                     line: 128,
+                    anchor: "'zenohd',0,0,0,0,\"ZENOH_BACKEND_FS_ROOT=$TOOLS_PATH/zenoh ze",
                 },
             ),
             Evidenced::new(
@@ -246,6 +259,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/start-blueos-core",
                     line: 128,
+                    anchor: "'zenohd',0,0,0,0,\"ZENOH_BACKEND_FS_ROOT=$TOOLS_PATH/zenoh ze",
                 },
             ),
         ]),
@@ -285,6 +299,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 326,
+                anchor: "for TUPLE in \"${SERVICES[@]}\"; do",
             },
         ),
         logs_path: Observed::unknown(

@@ -125,6 +125,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 120,
+                anchor: "'video',0,0,0,0,\"nice --19 mavlink-camera-manager --default-",
             },
         )]),
         kind: Observed::known(
@@ -132,6 +133,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 120,
+                anchor: "'video',0,0,0,0,\"nice --19 mavlink-camera-manager --default-",
             },
         ),
         entrypoint: Observed::known(
@@ -140,6 +142,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 120,
+                anchor: "'video',0,0,0,0,\"nice --19 mavlink-camera-manager --default-",
             },
         ),
         tmux_name: Observed::known(
@@ -147,6 +150,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 120,
+                anchor: "'video',0,0,0,0,\"nice --19 mavlink-camera-manager --default-",
             },
         ),
         startup_tier: Observed::known(
@@ -154,6 +158,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 117,
+                anchor: "PRIORITY_SERVICES=(",
             },
         ),
         resource_limits: Observed::known(
@@ -165,6 +170,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 120,
+                anchor: "'video',0,0,0,0,\"nice --19 mavlink-camera-manager --default-",
             },
         ),
         nice: Observed::known(
@@ -172,6 +178,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 120,
+                anchor: "'video',0,0,0,0,\"nice --19 mavlink-camera-manager --default-",
             },
         ),
         run_as: Observed::known(
@@ -179,6 +186,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 120,
+                anchor: "'video',0,0,0,0,\"nice --19 mavlink-camera-manager --default-",
             },
         ),
         nginx_prefixes: ObservedSet::known(&[Evidenced::new(
@@ -186,6 +194,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 192,
+                anchor: "location /mavlink-camera-manager/ {",
             },
         )]),
         listen: ObservedSet::known(&[Evidenced::new(
@@ -193,6 +202,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 194,
+                anchor: "proxy_pass http://127.0.0.1:6020/;",
             },
         )]),
         git_path: Observed::unknown(
@@ -208,6 +218,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/tools/nginx/nginx.conf",
                     line: 194,
+                    anchor: "proxy_pass http://127.0.0.1:6020/;",
                 },
             ),
             Evidenced::new(
@@ -218,6 +229,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/start-blueos-core",
                     line: 120,
+                    anchor: "'video',0,0,0,0,\"nice --19 mavlink-camera-manager --default-",
                 },
             ),
             Evidenced::new(
@@ -227,6 +239,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/start-blueos-core",
                     line: 120,
+                    anchor: "'video',0,0,0,0,\"nice --19 mavlink-camera-manager --default-",
                 },
             ),
         ]),
@@ -269,6 +282,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 318,
+                anchor: "for TUPLE in \"${PRIORITY_SERVICES[@]}\"; do",
             },
         ),
         logs_path: Observed::known(
@@ -276,6 +290,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 120,
+                anchor: "'video',0,0,0,0,\"nice --19 mavlink-camera-manager --default-",
             },
         ),
         zenoh_log_topic: Observed::unknown(

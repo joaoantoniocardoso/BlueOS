@@ -128,6 +128,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/nmea_injector/main.py",
             line: 17,
+            anchor: "SERVICE_NAME = \"nmea-injector\"",
         },
     )]),
     kind: Observed::known(
@@ -135,6 +136,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 133,
+            anchor: "'nmea_injector',250,0,0,0,\"nice -19 $SERVICES_PATH/nmea_inje",
         },
     ),
     entrypoint: Observed::known(
@@ -142,6 +144,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 133,
+            anchor: "'nmea_injector',250,0,0,0,\"nice -19 $SERVICES_PATH/nmea_inje",
         },
     ),
     tmux_name: Observed::known(
@@ -149,6 +152,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 133,
+            anchor: "'nmea_injector',250,0,0,0,\"nice -19 $SERVICES_PATH/nmea_inje",
         },
     ),
     startup_tier: Observed::known(
@@ -156,6 +160,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 124,
+            anchor: "SERVICES=(",
         },
     ),
     resource_limits: Observed::known(
@@ -167,6 +172,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 133,
+            anchor: "'nmea_injector',250,0,0,0,\"nice -19 $SERVICES_PATH/nmea_inje",
         },
     ),
     nice: Observed::known(
@@ -174,6 +180,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 133,
+            anchor: "'nmea_injector',250,0,0,0,\"nice -19 $SERVICES_PATH/nmea_inje",
         },
     ),
     run_as: Observed::known(
@@ -181,6 +188,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 133,
+            anchor: "'nmea_injector',250,0,0,0,\"nice -19 $SERVICES_PATH/nmea_inje",
         },
     ),
     nginx_prefixes: ObservedSet::known(&[Evidenced::new(
@@ -188,6 +196,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/tools/nginx/nginx.conf",
             line: 158,
+            anchor: "location /nmea-injector/ {",
         },
     )]),
     listen: ObservedSet::known(&[Evidenced::new(
@@ -195,6 +204,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/nmea_injector/main.py",
             line: 88,
+            anchor: "config = Config(app=app, host=\"0.0.0.0\", port=2748, log_conf",
         },
     )]),
     git_path: Observed::known(
@@ -202,6 +212,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/nmea_injector/main.py",
             line: 1,
+            anchor: "#! /usr/bin/env python3",
         },
     ),
     interfaces: ObservedSet::known(&[
@@ -214,6 +225,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/nmea_injector/main.py",
                 line: 69,
+                anchor: "app = VersionedFastAPI(app, version=\"1.0.0\", prefix_format=\"",
             },
         ),
         Evidenced::new(
@@ -223,6 +235,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/mavlink_comm/MavlinkComm.py",
                 line: 24,
+                anchor: "self.m2r_address = \"localhost:6040\"",
             },
         ),
         Evidenced::new(
@@ -232,6 +245,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py",
                 line: 69,
+                anchor: "return self.config_folder.joinpath(f\"{PyksonManager.SETTINGS",
             },
         ),
         Evidenced::new(
@@ -242,6 +256,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py",
                 line: 27,
+                anchor: "else pathlib.Path(appdirs.user_config_dir(self.project_name)",
             },
         ),
         Evidenced::new(
@@ -252,6 +267,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                 line: 78,
+                anchor: "topic = f\"services/{service_name}/log\"",
             },
         ),
     ]),
@@ -264,6 +280,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py",
                 line: 27,
+                anchor: "else pathlib.Path(appdirs.user_config_dir(self.project_name)",
             },
         ),
         Evidenced::new(
@@ -274,6 +291,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py",
                 line: 69,
+                anchor: "return self.config_folder.joinpath(f\"{PyksonManager.SETTINGS",
             },
         ),
     ]),
@@ -313,6 +331,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 326,
+            anchor: "for TUPLE in \"${SERVICES[@]}\"; do",
         },
     ),
     logs_path: Observed::unknown(
@@ -323,6 +342,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
             line: 78,
+            anchor: "topic = f\"services/{service_name}/log\"",
         },
     ),
     sentry: Observed::known(
@@ -330,6 +350,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/nmea_injector/main.py",
             line: 85,
+            anchor: "await init_sentry_async(SERVICE_NAME)",
         },
     ),
     openapi_refs: ObservedSet::unknown("not yet extracted"),

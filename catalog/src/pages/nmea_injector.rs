@@ -10,6 +10,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 77,
+                anchor: "path: '/tools/bridges',",
             },
         ),
         name: Observed::known(
@@ -17,6 +18,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 78,
+                anchor: "name: 'Bridges',",
             },
         ),
         component: Observed::known(
@@ -24,6 +26,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 79,
+                anchor: "component: defineAsyncComponent(() => import('../views/Bridg",
             },
         ),
         menu_title: Observed::known(
@@ -31,6 +34,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 77,
+                anchor: "title: 'MAVLink Inspector',",
             },
         ),
         advanced_only: Observed::known(
@@ -38,6 +42,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 80,
+                anchor: "advanced: true,",
             },
         ),
         stores: ObservedSet::known(&[Evidenced::new(
@@ -45,6 +50,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/components/nmea-injector/NMEAInjector.vue",
                 line: 102,
+                anchor: "import nmea_injector from '@/store/nmea-injector'",
             },
         )]),
         consumes: ObservedSet::known(&[
@@ -57,6 +63,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/nmea-injector.ts",
                     line: 42,
+                    anchor: "url: `${this.API_URL}/socks`,",
                 },
             ),
             Evidenced::new(
@@ -68,6 +75,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/nmea-injector.ts",
                     line: 80,
+                    anchor: "url: `${this.API_URL}/socks`,",
                 },
             ),
             Evidenced::new(
@@ -79,6 +87,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/nmea-injector.ts",
                     line: 63,
+                    anchor: "url: `${this.API_URL}/socks`,",
                 },
             ),
         ]),

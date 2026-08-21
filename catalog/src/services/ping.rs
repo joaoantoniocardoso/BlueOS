@@ -122,6 +122,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/services/ping/main.py",
                 line: 20,
+                anchor: "SERVICE_NAME = \"ping\"",
             },
         )]),
         kind: Observed::known(
@@ -129,6 +130,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 140,
+                anchor: "'ping',0,0,0,0,\"nice -19 $RUN_AS_REGULAR_USER_BEGIN $SERVICE",
             },
         ),
         entrypoint: Observed::known(
@@ -137,6 +139,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 140,
+                anchor: "'ping',0,0,0,0,\"nice -19 $RUN_AS_REGULAR_USER_BEGIN $SERVICE",
             },
         ),
         tmux_name: Observed::known(
@@ -144,6 +147,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 140,
+                anchor: "'ping',0,0,0,0,\"nice -19 $RUN_AS_REGULAR_USER_BEGIN $SERVICE",
             },
         ),
         startup_tier: Observed::known(
@@ -151,6 +155,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 124,
+                anchor: "SERVICES=(",
             },
         ),
         resource_limits: Observed::known(
@@ -162,6 +167,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 140,
+                anchor: "'ping',0,0,0,0,\"nice -19 $RUN_AS_REGULAR_USER_BEGIN $SERVICE",
             },
         ),
         nice: Observed::known(
@@ -169,6 +175,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 140,
+                anchor: "'ping',0,0,0,0,\"nice -19 $RUN_AS_REGULAR_USER_BEGIN $SERVICE",
             },
         ),
         run_as: Observed::known(
@@ -176,6 +183,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 22,
+                anchor: "RUN_AS_REGULAR_USER_BEGIN=\"sudo -u blueos bash -c \\\"source /",
             },
         ),
         nginx_prefixes: ObservedSet::known(&[Evidenced::new(
@@ -183,6 +191,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 233,
+                anchor: "location /ping/ {",
             },
         )]),
         listen: ObservedSet::known(&[Evidenced::new(
@@ -190,6 +199,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/services/ping/main.py",
                 line: 86,
+                anchor: "config = Config(app=app, host=\"0.0.0.0\", port=9110, log_conf",
             },
         )]),
         git_path: Observed::known(
@@ -197,6 +207,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/services/ping/main.py",
                 line: 1,
+                anchor: "#! /usr/bin/env python3",
             },
         ),
         interfaces: ObservedSet::known(&[
@@ -209,6 +220,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/ping/main.py",
                     line: 54,
+                    anchor: "app = VersionedFastAPI(app, version=\"1.0.0\", prefix_format=\"",
                 },
             ),
             Evidenced::new(
@@ -219,6 +231,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/libs/bridges/src/bridges/bridges.py",
                     line: 29,
+                    anchor: "command_line = f\"{bridges} -u {ip}:{port} -p {serial_port.de",
                 },
             ),
             Evidenced::new(
@@ -229,6 +242,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                     file: "core/libs/commonwealth/src/commonwealth/mavlink_comm/MavlinkComm.py"
                         ,
                     line: 24,
+                    anchor: "self.m2r_address = \"localhost:6040\"",
                 },
             ),
             Evidenced::new(
@@ -238,6 +252,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/ping/ping1d_driver.py",
                     line: 22,
+                    anchor: "self.manager = Manager(SERVICE_NAME, SettingsV1, USERDATA / ",
                 },
             ),
             Evidenced::new(
@@ -248,6 +263,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/ping/ping1d_driver.py",
                     line: 22,
+                    anchor: "self.manager = Manager(SERVICE_NAME, SettingsV1, USERDATA / ",
                 },
             ),
             Evidenced::new(
@@ -258,6 +274,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                     line: 78,
+                    anchor: "topic = f\"services/{service_name}/log\"",
                 },
             ),
         ]),
@@ -269,6 +286,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/services/ping/ping1d_driver.py",
                 line: 22,
+                anchor: "self.manager = Manager(SERVICE_NAME, SettingsV1, USERDATA / ",
             },
         )]),
         lifecycle: Observed::known(
@@ -307,6 +325,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 326,
+                anchor: "for TUPLE in \"${SERVICES[@]}\"; do",
             },
         ),
         logs_path: Observed::unknown(
@@ -317,6 +336,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                 line: 78,
+                anchor: "topic = f\"services/{service_name}/log\"",
             },
         ),
         sentry: Observed::known(
@@ -324,6 +344,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/services/ping/main.py",
                 line: 80,
+                anchor: "await init_sentry_async(SERVICE_NAME)",
             },
         ),
         openapi_refs: ObservedSet::unknown("not yet extracted"),

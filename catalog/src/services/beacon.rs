@@ -122,6 +122,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/beacon/main.py",
             line: 25,
+            anchor: "SERVICE_NAME = \"beacon\"",
         },
     )]),
     kind: Observed::known(
@@ -129,6 +130,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 130,
+            anchor: "'beacon',250,0,0,0,\"$SERVICES_PATH/beacon/main.py\"",
         },
     ),
     entrypoint: Observed::known(
@@ -136,6 +138,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 130,
+            anchor: "'beacon',250,0,0,0,\"$SERVICES_PATH/beacon/main.py\"",
         },
     ),
     tmux_name: Observed::known(
@@ -143,6 +146,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 130,
+            anchor: "'beacon',250,0,0,0,\"$SERVICES_PATH/beacon/main.py\"",
         },
     ),
     startup_tier: Observed::known(
@@ -150,6 +154,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 124,
+            anchor: "SERVICES=(",
         },
     ),
     resource_limits: Observed::known(
@@ -161,6 +166,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 130,
+            anchor: "'beacon',250,0,0,0,\"$SERVICES_PATH/beacon/main.py\"",
         },
     ),
     nice: Observed::unknown("no nice prefix in start tuple"),
@@ -169,6 +175,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 130,
+            anchor: "'beacon',250,0,0,0,\"$SERVICES_PATH/beacon/main.py\"",
         },
     ),
     nginx_prefixes: ObservedSet::known(&[Evidenced::new(
@@ -176,6 +183,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/tools/nginx/nginx.conf",
             line: 91,
+            anchor: "location /beacon/ {",
         },
     )]),
     listen: ObservedSet::known(&[Evidenced::new(
@@ -183,6 +191,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/beacon/main.py",
             line: 348,
+            anchor: "config = Config(app=app, host=\"0.0.0.0\", port=9111, log_conf",
         },
     )]),
     git_path: Observed::known(
@@ -190,6 +199,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/beacon/main.py",
             line: 1,
+            anchor: "#! /usr/bin/env python3",
         },
     ),
     interfaces: ObservedSet::known(&[
@@ -202,6 +212,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/beacon/main.py",
                 line: 321,
+                anchor: "app = VersionedFastAPI(app, version=\"1.0.0\", prefix_format=\"",
             },
         ),
         Evidenced::new(
@@ -211,6 +222,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py",
                 line: 69,
+                anchor: "return self.config_folder.joinpath(f\"{PyksonManager.SETTINGS",
             },
         ),
         Evidenced::new(
@@ -221,6 +233,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/beacon/main.py",
                 line: 96,
+                anchor: "default_settings_file = current_folder / \"default-settings.j",
             },
         ),
         Evidenced::new(
@@ -231,6 +244,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py",
                 line: 27,
+                anchor: "else pathlib.Path(appdirs.user_config_dir(self.project_name)",
             },
         ),
         Evidenced::new(
@@ -241,6 +255,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                 line: 78,
+                anchor: "topic = f\"services/{service_name}/log\"",
             },
         ),
     ]),
@@ -253,6 +268,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py",
                 line: 27,
+                anchor: "else pathlib.Path(appdirs.user_config_dir(self.project_name)",
             },
         ),
         Evidenced::new(
@@ -263,6 +279,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py",
                 line: 69,
+                anchor: "return self.config_folder.joinpath(f\"{PyksonManager.SETTINGS",
             },
         ),
         Evidenced::new(
@@ -273,6 +290,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/beacon/main.py",
                 line: 96,
+                anchor: "default_settings_file = current_folder / \"default-settings.j",
             },
         ),
     ]),
@@ -312,6 +330,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 326,
+            anchor: "for TUPLE in \"${SERVICES[@]}\"; do",
         },
     ),
     logs_path: Observed::unknown(
@@ -322,6 +341,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
             line: 78,
+            anchor: "topic = f\"services/{service_name}/log\"",
         },
     ),
     sentry: Observed::known(
@@ -329,6 +349,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/beacon/main.py",
             line: 337,
+            anchor: "await init_sentry_async(SERVICE_NAME)",
         },
     ),
     openapi_refs: ObservedSet::unknown("not yet extracted"),

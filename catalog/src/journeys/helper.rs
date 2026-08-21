@@ -31,9 +31,9 @@ const MONITOR_INTERNET_CONNECTIVITY: UserJourney = UserJourney {
     id: JourneyId::MonitorInternetConnectivity,
     summary: Grounded::known(
         "See whether the vehicle is connected to the internet",
-        Provenance::doc(ADV, 141),
+        Provenance::doc(ADV, 141, "- See whether the vehicle is connected to the internet (upda"),
     ),
-    visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 139)),
+    visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 139, "##### Internet Status and Management")),
     services: HELPER_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::CheckInternetConnectivity,
@@ -44,18 +44,13 @@ const MONITOR_INTERNET_CONNECTIVITY: UserJourney = UserJourney {
         operator_step(
             "View the internet connectivity indicator in the BlueOS header",
             None,
-            Provenance::doc(ADV, 141),
+            Provenance::doc(ADV, 141, "- See whether the vehicle is connected to the internet (upda"),
             None,
         ),
         service_step(
             "Poll configured websites to refresh internet connectivity state (every 20 seconds)",
-            Some(sourced_route(
-                HttpMethod::Get,
-                "/check_internet_access",
-                Some("v1.0"),
-                540,
-            )),
-            Provenance::source(HELPER_STORE, 45),
+            Some(sourced_route(HttpMethod::Get, "/check_internet_access", Some("v1.0"), 540, "def check_internet_a")),
+            Provenance::source(HELPER_STORE, 45, "{ delay: 20000 },"),
             Some(runtime_outcome(
                 200,
                 Some("\"online\": true"),
@@ -78,9 +73,9 @@ const VERIFY_INTERNET_CONNECTIVITY: UserJourney = UserJourney {
     id: JourneyId::VerifyInternetConnectivity,
     summary: Grounded::known(
         "Confirm the BlueOS header shows internet connectivity after network setup",
-        Provenance::doc(GETTING, 100),
+        Provenance::doc(GETTING, 100, "[show that it has internet connectivity](../advanced/#intern"),
     ),
-    visibility: Grounded::known(Visibility::Default, Provenance::doc(GETTING, 74)),
+    visibility: Grounded::known(Visibility::Default, Provenance::doc(GETTING, 74, "### Connect Internet")),
     services: HELPER_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::CheckInternetConnectivity,
@@ -88,24 +83,19 @@ const VERIFY_INTERNET_CONNECTIVITY: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
         Precondition::Network(NetworkState::Online),
-        Provenance::doc(GETTING, 76),
+        Provenance::doc(GETTING, 76, "When starting out, it's important to connect your vehicle to"),
     )]),
     steps: GroundedSet::known(&[
         operator_step(
             "Check that the BlueOS header shows internet connectivity",
             None,
-            Provenance::doc(GETTING, 100),
+            Provenance::doc(GETTING, 100, "[show that it has internet connectivity](../advanced/#intern"),
             None,
         ),
         operator_step(
             "Run the internet connectivity check used by the setup wizard",
-            Some(sourced_route(
-                HttpMethod::Get,
-                "/check_internet_access",
-                Some("v1.0"),
-                540,
-            )),
-            Provenance::source(REQUIRE_INTERNET, 94),
+            Some(sourced_route(HttpMethod::Get, "/check_internet_access", Some("v1.0"), 540, "def check_internet_a")),
+            Provenance::source(REQUIRE_INTERNET, 94, "url: '/helper/latest/check_internet_access',"),
             Some(runtime_outcome(
                 200,
                 Some("\"online\": true"),
@@ -128,9 +118,16 @@ const BROWSE_AVAILABLE_WEB_SERVICES: UserJourney = UserJourney {
     id: JourneyId::BrowseAvailableWebServices,
     summary: Grounded::known(
         "Browse HTTP services running on BlueOS with ports, names, and API documentation links",
-        Provenance::doc(ADV, 360),
+        Provenance::doc(
+            ADV,
+            360,
+            "The Available Services page provides developer access to the",
+        ),
     ),
-    visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 357)),
+    visibility: Grounded::known(
+        Visibility::Advanced,
+        Provenance::doc(ADV, 357, "{% pirate() %}"),
+    ),
     services: HELPER_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::DiscoverWebServices,
@@ -141,7 +138,7 @@ const BROWSE_AVAILABLE_WEB_SERVICES: UserJourney = UserJourney {
         operator_step(
             "Open the Available Services page from the sidebar",
             None,
-            Provenance::source(HELPER_MENUS, 17),
+            Provenance::source(HELPER_MENUS, 17, "title: 'Available Services',"),
             None,
         ),
         operator_step(
@@ -151,8 +148,9 @@ const BROWSE_AVAILABLE_WEB_SERVICES: UserJourney = UserJourney {
                 "/web_services",
                 Some("v1.0"),
                 529,
+                "def web_services() -> Any:",
             )),
-            Provenance::doc(ADV, 363),
+            Provenance::doc(ADV, 363, "- the port it is served at"),
             Some(runtime_outcome(
                 200,
                 Some("\"valid\": true"),
@@ -175,9 +173,9 @@ const PROBE_INTERFACE_INTERNET_CONNECTIVITY: UserJourney = UserJourney {
     id: JourneyId::ProbeInterfaceInternetConnectivity,
     summary: Grounded::known(
         "Display internet availability on each network interface while configuring priority",
-        Provenance::doc(ADV, 147),
+        Provenance::doc(ADV, 147, "- Displays internet availability on each network"),
     ),
-    visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 144)),
+    visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 144, "{% pirate() %}")),
     services: HELPER_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::ProbeInterfaceConnectivity,
@@ -185,24 +183,19 @@ const PROBE_INTERFACE_INTERNET_CONNECTIVITY: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
         Precondition::Software(SoftwareRequirement::PirateMode),
-        Provenance::doc(ADV, 144),
+        Provenance::doc(ADV, 144, "{% pirate() %}"),
     )]),
     steps: GroundedSet::known(&[
         operator_step(
             "Open the network interface priority menu from the internet tray",
             None,
-            Provenance::doc(ADV, 145),
+            Provenance::doc(ADV, 145, "- Configure network priority ordering"),
             None,
         ),
         operator_step(
             "View per-interface internet availability while reordering interfaces",
-            Some(sourced_route(
-                HttpMethod::Get,
-                "/ping?host=1.1.1.1",
-                Some("v1.0"),
-                583,
-            )),
-            Provenance::source(NETWORK_PRIORITY, 120),
+            Some(sourced_route(HttpMethod::Get, "/ping?host=1.1.1.1", Some("v1.0"), 583, "async def ping(host: str")),
+            Provenance::source(NETWORK_PRIORITY, 120, "const result = await helper.ping({ host, iface: iface.name }"),
             Some(runtime_outcome(
                 200,
                 Some("true"),
@@ -227,7 +220,11 @@ const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<Capabili
 
 const HELPER_SERVICES: GroundedSet<ServiceId> = GroundedSet::known(&[GroundedItem::new(
     ServiceId::Helper,
-    Provenance::doc(DEV_CORE, 76),
+    Provenance::doc(
+        DEV_CORE,
+        76,
+        "| [helper](https://github.com/bluerobotics/BlueOS/tree/maste",
+    ),
 )]);
 
 const fn route(method: HttpMethod, path: &'static str, version: Option<&'static str>) -> RouteRef {
@@ -244,10 +241,11 @@ const fn sourced_route(
     path: &'static str,
     version: Option<&'static str>,
     line: u32,
+    anchor: &'static str,
 ) -> Grounded<RouteRef> {
     Grounded::known(
         route(method, path, version),
-        Provenance::source(HELPER_MAIN, line),
+        Provenance::source(HELPER_MAIN, line, anchor),
     )
 }
 

@@ -123,6 +123,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/services/bridget/main.py",
                 line: 16,
+                anchor: "SERVICE_NAME = \"bridget\"",
             },
         )]),
         kind: Observed::known(
@@ -130,6 +131,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 131,
+                anchor: "'bridget',0,0,0,0,\"nice -19 $RUN_AS_REGULAR_USER_BEGIN $SERV",
             },
         ),
         entrypoint: Observed::known(
@@ -138,6 +140,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 131,
+                anchor: "'bridget',0,0,0,0,\"nice -19 $RUN_AS_REGULAR_USER_BEGIN $SERV",
             },
         ),
         tmux_name: Observed::known(
@@ -145,6 +148,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 131,
+                anchor: "'bridget',0,0,0,0,\"nice -19 $RUN_AS_REGULAR_USER_BEGIN $SERV",
             },
         ),
         startup_tier: Observed::known(
@@ -152,6 +156,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 124,
+                anchor: "SERVICES=(",
             },
         ),
         resource_limits: Observed::known(
@@ -163,6 +168,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 131,
+                anchor: "'bridget',0,0,0,0,\"nice -19 $RUN_AS_REGULAR_USER_BEGIN $SERV",
             },
         ),
         nice: Observed::known(
@@ -170,6 +176,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 131,
+                anchor: "'bridget',0,0,0,0,\"nice -19 $RUN_AS_REGULAR_USER_BEGIN $SERV",
             },
         ),
         run_as: Observed::known(
@@ -177,6 +184,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 22,
+                anchor: "RUN_AS_REGULAR_USER_BEGIN=\"sudo -u blueos bash -c \\\"source /",
             },
         ),
         nginx_prefixes: ObservedSet::known(&[Evidenced::new(
@@ -184,6 +192,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 98,
+                anchor: "location /bridget/ {",
             },
         )]),
         listen: ObservedSet::known(&[Evidenced::new(
@@ -191,6 +200,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/services/bridget/main.py",
                 line: 83,
+                anchor: "config = Config(app=app, host=\"0.0.0.0\", port=27353, log_con",
             },
         )]),
         git_path: Observed::known(
@@ -198,6 +208,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/services/bridget/main.py",
                 line: 1,
+                anchor: "#! /usr/bin/env python3",
             },
         ),
         interfaces: ObservedSet::known(&[
@@ -210,6 +221,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/bridget/main.py",
                     line: 64,
+                    anchor: "app = VersionedFastAPI(app, version=\"1.0.0\", prefix_format=\"",
                 },
             ),
             Evidenced::new(
@@ -220,6 +232,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/libs/bridges/src/bridges/bridges.py",
                     line: 29,
+                    anchor: "command_line = f\"{bridges} -u {ip}:{port} -p {serial_port.de",
                 },
             ),
             Evidenced::new(
@@ -229,6 +242,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/bridget/bridget.py",
                     line: 62,
+                    anchor: "response = requests.get(\"http://localhost:6030/serial\", time",
                 },
             ),
             Evidenced::new(
@@ -238,6 +252,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/bridget/bridget.py",
                     line: 51,
+                    anchor: "self._settings_manager = Manager(\"bridget\", SettingsV2, USER",
                 },
             ),
             Evidenced::new(
@@ -248,6 +263,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/bridget/bridget.py",
                     line: 51,
+                    anchor: "self._settings_manager = Manager(\"bridget\", SettingsV2, USER",
                 },
             ),
             Evidenced::new(
@@ -258,6 +274,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                     line: 78,
+                    anchor: "topic = f\"services/{service_name}/log\"",
                 },
             ),
         ]),
@@ -269,6 +286,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/services/bridget/bridget.py",
                 line: 51,
+                anchor: "self._settings_manager = Manager(\"bridget\", SettingsV2, USER",
             },
         )]),
         lifecycle: Observed::known(
@@ -307,6 +325,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 326,
+                anchor: "for TUPLE in \"${SERVICES[@]}\"; do",
             },
         ),
         logs_path: Observed::unknown(
@@ -317,6 +336,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                 line: 78,
+                anchor: "topic = f\"services/{service_name}/log\"",
             },
         ),
         sentry: Observed::known(
@@ -324,6 +344,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/services/bridget/main.py",
                 line: 80,
+                anchor: "await init_sentry_async(SERVICE_NAME)",
             },
         ),
         openapi_refs: ObservedSet::unknown("not yet extracted"),

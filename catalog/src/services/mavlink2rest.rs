@@ -128,6 +128,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 121,
+                anchor: "'mavlink2rest',0,0,0,0,\"mavlink2rest --connect=udpout:127.0.",
             },
         ),
         entrypoint: Observed::known(
@@ -136,6 +137,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 121,
+                anchor: "'mavlink2rest',0,0,0,0,\"mavlink2rest --connect=udpout:127.0.",
             },
         ),
         tmux_name: Observed::known(
@@ -143,6 +145,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 121,
+                anchor: "'mavlink2rest',0,0,0,0,\"mavlink2rest --connect=udpout:127.0.",
             },
         ),
         startup_tier: Observed::known(
@@ -150,6 +153,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 117,
+                anchor: "PRIORITY_SERVICES=(",
             },
         ),
         resource_limits: Observed::known(
@@ -161,6 +165,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 121,
+                anchor: "'mavlink2rest',0,0,0,0,\"mavlink2rest --connect=udpout:127.0.",
             },
         ),
         nice: Observed::unknown("command line has no nice wrapper"),
@@ -169,6 +174,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 121,
+                anchor: "'mavlink2rest',0,0,0,0,\"mavlink2rest --connect=udpout:127.0.",
             },
         ),
         nginx_prefixes: ObservedSet::known(&[Evidenced::new(
@@ -176,6 +182,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 169,
+                anchor: "location /mavlink2rest/ {",
             },
         )]),
         listen: ObservedSet::known(&[Evidenced::new(
@@ -183,6 +190,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 121,
+                anchor: "'mavlink2rest',0,0,0,0,\"mavlink2rest --connect=udpout:127.0.",
             },
         )]),
         git_path: Observed::unknown(
@@ -198,6 +206,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/tools/nginx/nginx.conf",
                     line: 174,
+                    anchor: "proxy_pass http://127.0.0.1:6040/;",
                 },
             ),
             Evidenced::new(
@@ -208,6 +217,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/start-blueos-core",
                     line: 121,
+                    anchor: "'mavlink2rest',0,0,0,0,\"mavlink2rest --connect=udpout:127.0.",
                 },
             ),
         ]),
@@ -250,6 +260,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 318,
+                anchor: "for TUPLE in \"${PRIORITY_SERVICES[@]}\"; do",
             },
         ),
         logs_path: Observed::unknown(

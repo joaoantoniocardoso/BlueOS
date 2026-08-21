@@ -633,7 +633,7 @@ pub(crate) fn parse_ls_remote_tags(stdout: &str) -> Vec<(String, String)> {
         commits.insert(tag, sha);
     }
     let mut tags: Vec<(String, String)> = commits.into_iter().collect();
-    tags.sort_by(|a, b| tag_sort_key(&a.0).cmp(&tag_sort_key(&b.0)));
+    tags.sort_by_key(|a| tag_sort_key(&a.0));
     tags
 }
 

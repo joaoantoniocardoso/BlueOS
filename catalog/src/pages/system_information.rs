@@ -10,6 +10,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 87,
+                anchor: "path: '/tools/available-services',",
             },
         ),
         name: Observed::known(
@@ -17,6 +18,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 88,
+                anchor: "name: 'Available Services',",
             },
         ),
         component: Observed::known(
@@ -24,6 +26,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 89,
+                anchor: "component: defineAsyncComponent(() => import('../views/Avail",
             },
         ),
         menu_title: Observed::known(
@@ -31,6 +34,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 107,
+                anchor: "icon: 'mdi-bridge',",
             },
         ),
         advanced_only: Observed::known(
@@ -38,6 +42,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 110,
+                anchor: "text: 'Allows creating UDP/TCP to Serial bridges, used for c",
             },
         ),
         stores: ObservedSet::known(&[
@@ -46,6 +51,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/system-information/Processes.vue",
                     line: 58,
+                    anchor: "import system_information, { FetchType } from '@/store/syste",
                 },
             ),
             Evidenced::new(
@@ -53,6 +59,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/system-information/Firmware.vue",
                     line: 88,
+                    anchor: "import commander from '@/store/commander'",
                 },
             ),
         ]),
@@ -66,6 +73,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/system-information/Processes.vue",
                     line: 102,
+                    anchor: "this.timer = setInterval(() => system_information.fetchSyste",
                 },
             ),
             Evidenced::new(
@@ -77,6 +85,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/system-information/SystemCondition.vue",
                     line: 135,
+                    anchor: "system_information.fetchSystemInformation(FetchType.SystemCp",
                 },
             ),
             Evidenced::new(
@@ -88,6 +97,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/system-information/SystemCondition.vue",
                     line: 136,
+                    anchor: "system_information.fetchSystemInformation(FetchType.SystemDi",
                 },
             ),
             Evidenced::new(
@@ -99,6 +109,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/system-information/SystemCondition.vue",
                     line: 137,
+                    anchor: "system_information.fetchSystemInformation(FetchType.SystemMe",
                 },
             ),
             Evidenced::new(
@@ -110,6 +121,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/system-information/AboutThisSystem.vue",
                     line: 86,
+                    anchor: "system_information.fetchSystemInformation(FetchType.SystemUn",
                 },
             ),
             Evidenced::new(
@@ -121,6 +133,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/system-information/AboutThisSystem.vue",
                     line: 88,
+                    anchor: "this.timer_model = setInterval(() => system_information.fetc",
                 },
             ),
             Evidenced::new(
@@ -132,6 +145,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/system-information/Journal.vue",
                     line: 52,
+                    anchor: "system_information.fetchSystemInformation(FetchType.JournalT",
                 },
             ),
             Evidenced::new(
@@ -143,6 +157,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/system-information/Usb.vue",
                     line: 177,
+                    anchor: "url: '/system-information/usb',",
                 },
             ),
             Evidenced::new(
@@ -154,6 +169,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/commander.ts",
                     line: 157,
+                    anchor: "url: `${this.API_URL}/raspi/vcgencmd`,",
                 },
             ),
             Evidenced::new(
@@ -165,6 +181,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/commander.ts",
                     line: 202,
+                    anchor: "url: `${this.API_URL}/raspi/eeprom_update`,",
                 },
             ),
             Evidenced::new(
@@ -176,6 +193,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/commander.ts",
                     line: 223,
+                    anchor: "url: `${this.API_URL}/raspi/eeprom_update`,",
                 },
             ),
         ]),

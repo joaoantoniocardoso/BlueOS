@@ -10,6 +10,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 127,
+                anchor: "path: '/extensionv2/:name',",
             },
         ),
         name: Observed::known(
@@ -17,6 +18,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 128,
+                anchor: "name: 'Named Extensions (v2)',",
             },
         ),
         component: Observed::known(
@@ -24,6 +26,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 129,
+                anchor: "component: ExtensionView,",
             },
         ),
         menu_title: Observed::unknown("not in menu"),
@@ -34,6 +37,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/ExtensionManagerView.vue",
                     line: 401,
+                    anchor: "import settings from '@/libs/settings'",
                 },
             ),
             Evidenced::new(
@@ -41,6 +45,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/kraken/BackAlleyTab.vue",
                     line: 286,
+                    anchor: "import helper from '@/store/helper'",
                 },
             ),
             Evidenced::new(
@@ -48,6 +53,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/kraken/BazaarTab.vue",
                     line: 57,
+                    anchor: "import bag from '@/store/bag'",
                 },
             ),
         ]),
@@ -61,6 +67,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/ExtensionManagerView.vue",
                     line: 906,
+                    anchor: "this.manifest = await kraken.fetchConsolidatedManifests()",
                 },
             ),
             Evidenced::new(
@@ -72,6 +79,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/ExtensionManagerView.vue",
                     line: 912,
+                    anchor: "kraken.getInstalledExtensions()",
                 },
             ),
             Evidenced::new(
@@ -83,6 +91,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/ExtensionManagerView.vue",
                     line: 871,
+                    anchor: "this.running_containers = await kraken.listContainers()",
                 },
             ),
             Evidenced::new(
@@ -94,6 +103,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/ExtensionManagerView.vue",
                     line: 891,
+                    anchor: "kraken.getContainersStats()",
                 },
             ),
             Evidenced::new(
@@ -105,6 +115,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/ExtensionManagerView.vue",
                     line: 943,
+                    anchor: "kraken.installExtension(",
                 },
             ),
             Evidenced::new(
@@ -116,6 +127,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/ExtensionManagerView.vue",
                     line: 804,
+                    anchor: "kraken.updateExtensionToVersion(",
                 },
             ),
             Evidenced::new(
@@ -127,6 +139,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/ExtensionManagerView.vue",
                     line: 994,
+                    anchor: "kraken.uninstallExtension(extension.identifier)",
                 },
             ),
             Evidenced::new(
@@ -138,6 +151,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/ExtensionManagerView.vue",
                     line: 1023,
+                    anchor: "kraken.disableExtension(extension.identifier)",
                 },
             ),
             Evidenced::new(
@@ -149,6 +163,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/ExtensionManagerView.vue",
                     line: 1034,
+                    anchor: "kraken.enableExtension(extension.identifier, extension.tag)",
                 },
             ),
             Evidenced::new(
@@ -160,6 +175,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/ExtensionManagerView.vue",
                     line: 1047,
+                    anchor: "kraken.restartExtension(extension.identifier)",
                 },
             ),
             Evidenced::new(
@@ -171,6 +187,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/ExtensionManagerView.vue",
                     line: 785,
+                    anchor: "const response = await kraken.uploadExtensionTarFile(",
                 },
             ),
             Evidenced::new(
@@ -182,6 +199,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/ExtensionManagerView.vue",
                     line: 733,
+                    anchor: "kraken.keepTemporaryExtensionAlive(this.upload_temp_tag).cat",
                 },
             ),
             Evidenced::new(
@@ -193,6 +211,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/ExtensionManagerView.vue",
                     line: 1137,
+                    anchor: "await kraken.finalizeExtension(",
                 },
             ),
             Evidenced::new(
@@ -204,6 +223,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/kraken/modals/ExtensionSettingsModal.vue",
                     line: 311,
+                    anchor: "this.manifests = await kraken.fetchManifestSources(false)",
                 },
             ),
             Evidenced::new(
@@ -215,6 +235,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/kraken/modals/ExtensionSettingsModal.vue",
                     line: 323,
+                    anchor: "await kraken.addManifestSource(source, !this.should_bypass_v",
                 },
             ),
             Evidenced::new(
@@ -226,6 +247,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/kraken/modals/ExtensionSettingsModal.vue",
                     line: 355,
+                    anchor: "await kraken.updateManifestSource(identifier, source, !this.",
                 },
             ),
             Evidenced::new(
@@ -237,6 +259,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/kraken/modals/ExtensionSettingsModal.vue",
                     line: 341,
+                    anchor: "await kraken.deleteManifestSource(identifier)",
                 },
             ),
             Evidenced::new(
@@ -248,6 +271,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/kraken/modals/ExtensionSettingsModal.vue",
                     line: 374,
+                    anchor: "await kraken.setManifestSourcesOrders(ids)",
                 },
             ),
             Evidenced::new(
@@ -259,6 +283,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/kraken/modals/ExtensionSettingsModal.vue",
                     line: 388,
+                    anchor: "await (enable ? kraken.enabledManifestSource(identifier) : k",
                 },
             ),
             Evidenced::new(
@@ -270,6 +295,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/kraken/modals/ExtensionSettingsModal.vue",
                     line: 388,
+                    anchor: "await (enable ? kraken.enabledManifestSource(identifier) : k",
                 },
             ),
             Evidenced::new(
@@ -281,6 +307,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/kraken/modals/ExtensionLogsModal.vue",
                     line: 243,
+                    anchor: "const response = await kraken.getHistoricalLogsForExtension(",
                 },
             ),
             Evidenced::new(
@@ -292,6 +319,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/kraken/modals/ExtensionLogsModal.vue",
                     line: 214,
+                    anchor: "this.modal_subscriber = await kraken.createExtensionLogsSubs",
                 },
             ),
             Evidenced::new(
@@ -303,6 +331,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/kraken/BazaarTab.vue",
                     line: 103,
+                    anchor: "const tomData = await bag.getData('major_tom')",
                 },
             ),
             Evidenced::new(
@@ -314,6 +343,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/kraken/BazaarTab.vue",
                     line: 45,
+                    anchor: ":source=\"bazaar_url\"",
                 },
             ),
             Evidenced::new(
@@ -325,6 +355,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/ExtensionManagerView.vue",
                     line: 639,
+                    anchor: "this.session = await zenoh.getSession()",
                 },
             ),
         ]),

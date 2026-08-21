@@ -10,6 +10,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 67,
+                anchor: "path: '/vehicle/video-manager',",
             },
         ),
         name: Observed::known(
@@ -17,6 +18,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 68,
+                anchor: "name: 'Video Manager',",
             },
         ),
         component: Observed::known(
@@ -24,6 +26,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 69,
+                anchor: "component: defineAsyncComponent(() => import('../views/Video",
             },
         ),
         menu_title: Observed::known(
@@ -31,6 +34,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 135,
+                anchor: "title: 'Video Streams',",
             },
         ),
         advanced_only: Observed::known(
@@ -38,6 +42,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 138,
+                anchor: "advanced: false,",
             },
         ),
         stores: ObservedSet::known(&[Evidenced::new(
@@ -45,6 +50,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/views/RecordsView.vue",
                 line: 207,
+                anchor: "import records_store from '@/store/records'",
             },
         )]),
         consumes: ObservedSet::known(&[
@@ -57,6 +63,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/records.ts",
                     line: 47,
+                    anchor: "url: `${this.API_URL}/files`,",
                 },
             ),
             Evidenced::new(
@@ -68,6 +75,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/records.ts",
                     line: 69,
+                    anchor: "url: `${this.API_URL}/files/${file.path}`,",
                 },
             ),
             Evidenced::new(
@@ -79,6 +87,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/records.ts",
                     line: 84,
+                    anchor: "url: `${this.API_URL}/status`,",
                 },
             ),
         ]),

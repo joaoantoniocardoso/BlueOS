@@ -21,9 +21,16 @@ const MODIFY_BAG_DATABASE: UserJourney = UserJourney {
     id: JourneyId::ModifyBagDatabase,
     summary: Grounded::known(
         "Modify the JSON database used to persist frontend interface state",
-        Provenance::doc(ADV, 382),
+        Provenance::doc(
+            ADV,
+            382,
+            "The Bag Editor is a helper service for advanced users, which",
+        ),
     ),
-    visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 376)),
+    visibility: Grounded::known(
+        Visibility::Advanced,
+        Provenance::doc(ADV, 376, "{% pirate() %}"),
+    ),
     services: BAG_OF_HOLDING_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::EditBagJsonStore,
@@ -31,19 +38,25 @@ const MODIFY_BAG_DATABASE: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
         Precondition::Software(SoftwareRequirement::PirateMode),
-        Provenance::doc(ADV, 376),
+        Provenance::doc(ADV, 376, "{% pirate() %}"),
     )]),
     steps: GroundedSet::known(&[
         operator_step(
             "Open the Bag Editor page from the sidebar",
             None,
-            Provenance::source(BAG_MENUS, 25),
+            Provenance::source(BAG_MENUS, 25, "title: 'Bag Editor',"),
             None,
         ),
         operator_step(
             "Load the full bag database into the JSON editor",
-            Some(sourced_route(HttpMethod::Get, "/get/*", Some("v1.0"), 64)),
-            Provenance::source(BAG_VIEW, 26),
+            Some(sourced_route(
+                HttpMethod::Get,
+                "/get/*",
+                Some("v1.0"),
+                64,
+                "url: `${this.API_URL}/get/${path}`,",
+            )),
+            Provenance::source(BAG_VIEW, 26, "this.json = await bag.getData('*')"),
             None,
         ),
         operator_step(
@@ -53,9 +66,14 @@ const MODIFY_BAG_DATABASE: UserJourney = UserJourney {
                 "/overwrite",
                 Some("v1.0"),
                 24,
+                "url: `${this.API_URL}/overwrite`,",
             )),
-            Provenance::source(BAG_VIEW, 30),
-            Some(source_outcome(200, 73)),
+            Provenance::source(BAG_VIEW, 30, "bag.overwrite(json)"),
+            Some(source_outcome(
+                200,
+                73,
+                "return JSONResponse(content={\"status\": \"success\"})",
+            )),
         ),
     ]),
     availability: PRESENCE_MODIFY_BAG_DATABASE,
@@ -74,7 +92,11 @@ const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<Capabili
 
 const BAG_OF_HOLDING_SERVICES: GroundedSet<ServiceId> = GroundedSet::known(&[GroundedItem::new(
     ServiceId::BagOfHolding,
-    Provenance::doc(ADV, 379),
+    Provenance::doc(
+        ADV,
+        379,
+        "{{ service(service=\"Bag of Holding\", port=9101, link=\"/servi",
+    ),
 )]);
 
 const fn route(method: HttpMethod, path: &'static str, version: Option<&'static str>) -> RouteRef {
@@ -86,7 +108,7 @@ const fn route(method: HttpMethod, path: &'static str, version: Option<&'static 
     }
 }
 
-const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
+const fn source_outcome(status: u16, line: u32, anchor: &'static str) -> Grounded<StepOutcome> {
     Grounded::known(
         StepOutcome {
             expected_status: Some(status),
@@ -94,7 +116,7 @@ const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
             body_kind: BodyKind::Unknown,
             transition: None,
         },
-        Provenance::source(BAG_MAIN, line),
+        Provenance::source(BAG_MAIN, line, anchor),
     )
 }
 
@@ -103,10 +125,11 @@ const fn sourced_route(
     path: &'static str,
     version: Option<&'static str>,
     line: u32,
+    anchor: &'static str,
 ) -> Grounded<RouteRef> {
     Grounded::known(
         route(method, path, version),
-        Provenance::source(BAG_STORE, line),
+        Provenance::source(BAG_STORE, line, anchor),
     )
 }
 

@@ -10,6 +10,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 22,
+                anchor: "path: '/vehicle/setup/:tab?/:subtab?',",
             },
         ),
         name: Observed::known(
@@ -17,6 +18,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 23,
+                anchor: "name: 'Vehicle Setup',",
             },
         ),
         component: Observed::known(
@@ -24,6 +26,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 24,
+                anchor: "component: defineAsyncComponent(() => import('../views/Vehic",
             },
         ),
         menu_title: Observed::known(
@@ -31,6 +34,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 121,
+                anchor: "title: 'Terminal',",
             },
         ),
         advanced_only: Observed::known(
@@ -38,6 +42,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 124,
+                anchor: "advanced: true,",
             },
         ),
         stores: ObservedSet::known(&[
@@ -46,6 +51,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/vehiclesetup/overview/OnboardSensors.vue",
                     line: 135,
+                    anchor: "import autopilot_data from '@/store/autopilot'",
                 },
             ),
             Evidenced::new(
@@ -53,6 +59,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/vehiclesetup/Configure.vue",
                     line: 40,
+                    anchor: "import autopilot from '@/store/autopilot_manager'",
                 },
             ),
             Evidenced::new(
@@ -60,6 +67,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/vehiclesetup/overview/OnboardSensors.vue",
                     line: 134,
+                    anchor: "import ardupilot_sensors, { ArdupilotSensorsStore } from '@/",
                 },
             ),
             Evidenced::new(
@@ -67,6 +75,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/vehiclesetup/overview/GyroCalib.vue",
                     line: 65,
+                    anchor: "import mavlink from '@/store/mavlink'",
                 },
             ),
             Evidenced::new(
@@ -74,6 +83,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/vehiclesetup/overview/PingInfo.vue",
                     line: 43,
+                    anchor: "import ping from '@/store/ping'",
                 },
             ),
             Evidenced::new(
@@ -81,6 +91,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/vehiclesetup/overview/VideoOverview.vue",
                     line: 57,
+                    anchor: "import video from '@/store/video'",
                 },
             ),
             Evidenced::new(
@@ -88,6 +99,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/vehiclesetup/overview/VehicleInfo.vue",
                     line: 41,
+                    anchor: "import system_information from '@/store/system-information'",
                 },
             ),
             Evidenced::new(
@@ -95,6 +107,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/vehiclesetup/viewers/GenericViewer.vue",
                     line: 104,
+                    anchor: "import customization_store from '@/store/customization'",
                 },
             ),
         ]),
@@ -108,6 +121,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/types/autopilot/parameter-fetcher.ts",
                     line: 12,
+                    anchor: "listener = mavlink2rest.startListening('PARAM_VALUE')",
                 },
             ),
             Evidenced::new(
@@ -119,6 +133,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/libs/MAVLink2Rest/index.ts",
                     line: 243,
+                    anchor: "setParam(name: string, value: number, sysid: number, type?: ",
                 },
             ),
             Evidenced::new(
@@ -130,6 +145,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/vehiclesetup/calibration.ts",
                     line: 33,
+                    anchor: "mavlink2rest.startListening(MAVLinkType.COMMAND_ACK).setCall",
                 },
             ),
             Evidenced::new(
@@ -141,6 +157,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/vehiclesetup/configuration/accelerometer/QuickAccelerometerCalibration.vue",
                     line: 75,
+                    anchor: "mavlink2rest.sendMessage({",
                 },
             ),
             Evidenced::new(
@@ -152,6 +169,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/vehiclesetup/configuration/accelerometer/FullAccelerometerCalibration.vue",
                     line: 170,
+                    anchor: "mavlink2rest.sendMessage({",
                 },
             ),
             Evidenced::new(
@@ -163,6 +181,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/vehiclesetup/configuration/compass/LevelHorizonCalibration.vue",
                     line: 159,
+                    anchor: "mavlink2rest.sendCommandLong(",
                 },
             ),
             Evidenced::new(
@@ -174,6 +193,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/vehiclesetup/configuration/compass/FullCompassCalibrator.vue",
                     line: 229,
+                    anchor: "mavlink2rest.sendCommandLong(",
                 },
             ),
             Evidenced::new(
@@ -185,6 +205,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/vehiclesetup/configuration/compass/FullCompassCalibrator.vue",
                     line: 214,
+                    anchor: "mavlink2rest.sendCommandLong(MavCmd.MAV_CMD_DO_CANCEL_MAG_CA",
                 },
             ),
             Evidenced::new(
@@ -196,6 +217,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/vehiclesetup/configuration/compass/LargeVehicleCompassCalibrator.vue",
                     line: 109,
+                    anchor: "mavlink2rest.sendCommandLong(",
                 },
             ),
             Evidenced::new(
@@ -207,6 +229,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/vehiclesetup/configuration/compass/AutoCoordinateDetector.vue",
                     line: 187,
+                    anchor: "type: 'SET_GPS_GLOBAL_ORIGIN',",
                 },
             ),
             Evidenced::new(
@@ -218,6 +241,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/vehiclesetup/overview/ParamSets.vue",
                     line: 178,
+                    anchor: "mavlink2rest.sendCommandLong(",
                 },
             ),
             Evidenced::new(
@@ -229,6 +253,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/vehiclesetup/MotorDetection.vue",
                     line: 210,
+                    anchor: "setMode(ArduSubMode.MOTOR_DETECT).then(() => {",
                 },
             ),
             Evidenced::new(
@@ -240,6 +265,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/utils/ardupilot_mavlink.ts",
                     line: 104,
+                    anchor: "mavlink2rest.sendMessageViaWebsocket(",
                 },
             ),
             Evidenced::new(
@@ -251,6 +277,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/common/StatusTextWatcher.vue",
                     line: 29,
+                    anchor: "this.listener = mavlink2rest.startListening('STATUSTEXT').se",
                 },
             ),
             Evidenced::new(
@@ -262,6 +289,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/mavlink.ts",
                     line: 38,
+                    anchor: "mavlink2rest.requestMessageRate(messageName, refreshRate, au",
                 },
             ),
             Evidenced::new(
@@ -273,6 +301,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/vehiclesetup/configuration/camera.vue",
                     line: 331,
+                    anchor: "mavlink2rest.sendCommandLong(",
                 },
             ),
             Evidenced::new(
@@ -284,6 +313,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/VehicleSetupView.vue",
                     line: 81,
+                    anchor: "this.fetch_vehicle_type_task.setAction(fetchVehicleType)",
                 },
             ),
             Evidenced::new(
@@ -295,6 +325,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/VehicleSetupView.vue",
                     line: 82,
+                    anchor: "this.fetch_firmware_vehicle_type_task.setAction(fetchFirmwar",
                 },
             ),
             Evidenced::new(
@@ -306,6 +337,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/vehiclesetup/overview/ParamSets.vue",
                     line: 155,
+                    anchor: "fetchCurrentBoard()",
                 },
             ),
             Evidenced::new(
@@ -317,6 +349,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/vehiclesetup/overview/VehicleInfo.vue",
                     line: 71,
+                    anchor: "this.fetch_current_board_task.setAction(fetchFirmwareInfo)",
                 },
             ),
             Evidenced::new(
@@ -328,6 +361,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/vehiclesetup/overview/ParamSets.vue",
                     line: 170,
+                    anchor: "await AutopilotManager.restart()",
                 },
             ),
             Evidenced::new(
@@ -339,6 +373,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/vehiclesetup/overview/VideoOverview.vue",
                     line: 102,
+                    anchor: "this.fetch_devices_task.setAction(video.fetchDevices)",
                 },
             ),
             Evidenced::new(
@@ -350,6 +385,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/vehiclesetup/overview/VideoOverview.vue",
                     line: 103,
+                    anchor: "this.fetch_streams_task.setAction(video.fetchStreams)",
                 },
             ),
             Evidenced::new(
@@ -361,6 +397,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/vehiclesetup/overview/ParamSets.vue",
                     line: 160,
+                    anchor: "const response = await fetch(REPOSITORY_URL)",
                 },
             ),
             Evidenced::new(
@@ -372,6 +409,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/vehiclesetup/configuration/compass/AutoCoordinateDetector.vue",
                     line: 162,
+                    anchor: "fetch('http://ip-api.com/json/')",
                 },
             ),
         ]),

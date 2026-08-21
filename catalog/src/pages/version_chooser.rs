@@ -10,6 +10,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 57,
+                anchor: "path: '/tools/web-terminal',",
             },
         ),
         name: Observed::known(
@@ -17,6 +18,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 58,
+                anchor: "name: 'Terminal',",
             },
         ),
         component: Observed::known(
@@ -24,6 +26,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 59,
+                anchor: "component: defineAsyncComponent(() => import('../views/Termi",
             },
         ),
         menu_title: Observed::known(
@@ -31,6 +34,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 32,
+                anchor: "title: 'BlueOS Version',",
             },
         ),
         advanced_only: Observed::known(
@@ -38,6 +42,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 35,
+                anchor: "advanced: false,",
             },
         ),
         stores: ObservedSet::known(&[
@@ -46,6 +51,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/version-chooser/VersionChooser.vue",
                     line: 251,
+                    anchor: "import helper from '@/store/helper'",
                 },
             ),
             Evidenced::new(
@@ -53,6 +59,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/version-chooser/VersionChooser.vue",
                     line: 250,
+                    anchor: "import settings from '@/libs/settings'",
                 },
             ),
         ]),
@@ -66,6 +73,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/utils/version_chooser.ts",
                     line: 157,
+                    anchor: "url: `${API_URL}/version/current/`,",
                 },
             ),
             Evidenced::new(
@@ -77,6 +85,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/utils/version_chooser.ts",
                     line: 164,
+                    anchor: "url: `${API_URL}/bootstrap/current/`,",
                 },
             ),
             Evidenced::new(
@@ -88,6 +97,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/utils/version_chooser.ts",
                     line: 135,
+                    anchor: "url: `${API_URL}/version/available/local`,",
                 },
             ),
             Evidenced::new(
@@ -99,6 +109,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/utils/version_chooser.ts",
                     line: 147,
+                    anchor: "url: `${API_URL}/version/available/${remote_image_name}`,",
                 },
             ),
             Evidenced::new(
@@ -110,6 +121,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/version-chooser/VersionChooser.vue",
                     line: 521,
+                    anchor: "url: '/version-chooser/v1.0/version/load',",
                 },
             ),
             Evidenced::new(
@@ -121,6 +133,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/version-chooser/VersionChooser.vue",
                     line: 573,
+                    anchor: "url: '/version-chooser/v1.0/version/pull/',",
                 },
             ),
             Evidenced::new(
@@ -132,6 +145,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/version-chooser/VersionChooser.vue",
                     line: 644,
+                    anchor: "url: '/version-chooser/v1.0/version/current',",
                 },
             ),
             Evidenced::new(
@@ -143,6 +157,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/version-chooser/VersionChooser.vue",
                     line: 660,
+                    anchor: "url: '/version-chooser/v1.0/version/delete',",
                 },
             ),
             Evidenced::new(
@@ -154,6 +169,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/version-chooser/VersionChooser.vue",
                     line: 617,
+                    anchor: "url: '/version-chooser/v1.0/bootstrap/current',",
                 },
             ),
             Evidenced::new(
@@ -165,6 +181,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/utils/version_chooser.ts",
                     line: 180,
+                    anchor: "url: `${API_URL}/docker/login/`,",
                 },
             ),
             Evidenced::new(
@@ -176,6 +193,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/utils/version_chooser.ts",
                     line: 188,
+                    anchor: "url: `${API_URL}/docker/logout/`,",
                 },
             ),
             Evidenced::new(
@@ -187,6 +205,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/utils/version_chooser.ts",
                     line: 196,
+                    anchor: "url: `${API_URL}/docker/accounts/`,",
                 },
             ),
         ]),

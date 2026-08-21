@@ -126,6 +126,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 143,
+            anchor: "'nginx',250,0,0,0,\"nice -18 nginx -g \\\"daemon off;\\\" -c $TOO",
         },
     ),
     entrypoint: Observed::known(
@@ -133,6 +134,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 143,
+            anchor: "'nginx',250,0,0,0,\"nice -18 nginx -g \\\"daemon off;\\\" -c $TOO",
         },
     ),
     tmux_name: Observed::known(
@@ -140,6 +142,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 143,
+            anchor: "'nginx',250,0,0,0,\"nice -18 nginx -g \\\"daemon off;\\\" -c $TOO",
         },
     ),
     startup_tier: Observed::known(
@@ -147,6 +150,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 124,
+            anchor: "SERVICES=(",
         },
     ),
     resource_limits: Observed::known(
@@ -158,6 +162,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 143,
+            anchor: "'nginx',250,0,0,0,\"nice -18 nginx -g \\\"daemon off;\\\" -c $TOO",
         },
     ),
     nice: Observed::known(
@@ -165,6 +170,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 143,
+            anchor: "'nginx',250,0,0,0,\"nice -18 nginx -g \\\"daemon off;\\\" -c $TOO",
         },
     ),
     run_as: Observed::known(
@@ -172,6 +178,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 143,
+            anchor: "'nginx',250,0,0,0,\"nice -18 nginx -g \\\"daemon off;\\\" -c $TOO",
         },
     ),
     nginx_prefixes: ObservedSet::known(&[
@@ -180,6 +187,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 268,
+                anchor: "location / {",
             },
         ),
         Evidenced::new(
@@ -187,6 +195,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 62,
+                anchor: "location = /status {",
             },
         ),
         Evidenced::new(
@@ -194,6 +203,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 282,
+                anchor: "location /assets/ {",
             },
         ),
         Evidenced::new(
@@ -201,6 +211,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 288,
+                anchor: "location /upload/ {",
             },
         ),
         Evidenced::new(
@@ -208,6 +219,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 300,
+                anchor: "location /userdata/ {",
             },
         ),
         Evidenced::new(
@@ -215,6 +227,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 66,
+                anchor: "location ~ ^/cache/(.*) {",
             },
         ),
     ]),
@@ -224,6 +237,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 51,
+                anchor: "listen 80; # IPv4",
             },
         ),
         Evidenced::new(
@@ -231,6 +245,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 42,
+                anchor: "listen 2770; # IPv4",
             },
         ),
     ]),
@@ -245,6 +260,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 51,
+                anchor: "listen 80; # IPv4",
             },
         ),
         Evidenced::new(
@@ -256,6 +272,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 42,
+                anchor: "listen 2770; # IPv4",
             },
         ),
         Evidenced::new(
@@ -265,6 +282,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 73,
+                anchor: "proxy_pass https://$target;",
             },
         ),
         Evidenced::new(
@@ -275,6 +293,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 290,
+                anchor: "alias /usr/blueos/;",
             },
         ),
         Evidenced::new(
@@ -285,6 +304,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 301,
+                anchor: "root /usr/blueos;",
             },
         ),
     ]),
@@ -297,6 +317,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/start-blueos-core",
                 line: 143,
+                anchor: "'nginx',250,0,0,0,\"nice -18 nginx -g \\\"daemon off;\\\" -c $TOO",
             },
         ),
         Evidenced::new(
@@ -307,6 +328,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 269,
+                anchor: "root /home/pi/frontend;",
             },
         ),
         Evidenced::new(
@@ -317,6 +339,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 290,
+                anchor: "alias /usr/blueos/;",
             },
         ),
         Evidenced::new(
@@ -327,6 +350,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 301,
+                anchor: "root /usr/blueos;",
             },
         ),
         Evidenced::new(
@@ -337,6 +361,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 31,
+                anchor: "proxy_cache_path /var/cache/nginx keys_zone=ourcache:10m lev",
             },
         ),
         Evidenced::new(
@@ -347,6 +372,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 37,
+                anchor: "access_log /var/log/nginx/access.log;",
             },
         ),
     ]),
@@ -386,6 +412,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 326,
+            anchor: "for TUPLE in \"${SERVICES[@]}\"; do",
         },
     ),
     logs_path: Observed::known(
@@ -393,6 +420,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/tools/nginx/nginx.conf",
             line: 37,
+            anchor: "access_log /var/log/nginx/access.log;",
         },
     ),
     zenoh_log_topic: Observed::unknown(

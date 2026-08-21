@@ -23,9 +23,9 @@ const CONFIGURE_VIDEO_STREAM: UserJourney = UserJourney {
     id: JourneyId::ConfigureVideoStream,
     summary: Grounded::known(
         "Operator adds or reconfigures a camera video stream on the Video Streams page; the browser builds and validates the endpoint and drives create/replace against mavlink-camera-manager",
-        Provenance::doc(ADV, 763),
+        Provenance::doc(ADV, 763, "### Video Streams"),
     ),
-    visibility: Grounded::known(Visibility::Default, Provenance::source(MENUS, 128)),
+    visibility: Grounded::known(Visibility::Default, Provenance::source(MENUS, 128, "title: 'Vehicle Setup',")),
     services: SERVICES,
     capability_refs: GroundedSet::known(&[
         cap(
@@ -51,45 +51,45 @@ const CONFIGURE_VIDEO_STREAM: UserJourney = UserJourney {
     ]),
     preconditions: GroundedSet::known(&[precond(
         Precondition::Hardware(HardwareRequirement::UsbCamera),
-        Provenance::doc(ADV, 766),
+        Provenance::doc(ADV, 766, "- BlueOS automatically detects H264-encoded video streams"),
     )]),
     steps: GroundedSet::known(&[
         operator_step(
             "Open the Video Streams page from the sidebar",
-            Provenance::source(MENUS, 128),
+            Provenance::source(MENUS, 128, "title: 'Vehicle Setup',"),
         ),
         frontend_step(
             "VideoManager filters the backend device list to displayable cameras before rendering",
-            Provenance::source(MANAGER, 123),
+            Provenance::source(MANAGER, 123, "video_devices(): Device[] {"),
             None,
         ),
         operator_step(
             "Open the stream creation dialog on a camera and confirm the endpoint",
-            Provenance::source(CREATION, 164),
+            Provenance::source(CREATION, 164, "@click=\"createStream\""),
         ),
         frontend_step(
             "createStream validates the endpoint and emits the stream configuration",
-            Provenance::source(CREATION, 405),
+            Provenance::source(CREATION, 405, "createStream(): boolean | string {"),
             None,
         ),
         frontend_step(
             "Store creates the stream via POST /mavlink-camera-manager/streams",
-            Provenance::source(VIDEO_STORE, 120),
+            Provenance::source(VIDEO_STORE, 120, "url: `${this.API_URL}/streams`,"),
             Some(mutation_outcome()),
         ),
         frontend_step(
             "editStream replaces an existing stream by deleting then re-creating it",
-            Provenance::source(STREAM, 302),
+            Provenance::source(STREAM, 302, "async editStream(edited_stream: CreatedStream): Promise<void"),
             None,
         ),
         frontend_step(
             "VideoDiagnosticHelper flags whether the endpoint is reachable from the client or vehicle IP",
-            Provenance::source(DIAG, 52),
+            Provenance::source(DIAG, 52, "route.startsWith(`rtsp://${this.vehicle_ip_address}`) || rou"),
             None,
         ),
         frontend_step(
             "VideoThumbnail previews the stream in snapshot or continuous (1s) mode",
-            Provenance::source(THUMB, 154),
+            Provenance::source(THUMB, 154, "&& (this.continuous_mode || this.snapshot_in_progress)"),
             None,
         ),
     ]),
@@ -114,13 +114,20 @@ const fn precond(value: Precondition, provenance: Provenance) -> GroundedItem<Pr
 const SERVICES: GroundedSet<ServiceId> = GroundedSet::known(&[
     GroundedItem::new(
         ServiceId::MavlinkCameraManager,
-        Provenance::source(VIDEO_STORE, 120),
+        Provenance::source(VIDEO_STORE, 120, "url: `${this.API_URL}/streams`,"),
     ),
     GroundedItem::new(
         ServiceId::Commander,
-        Provenance::source(COMMANDER_STORE, 115),
+        Provenance::source(
+            COMMANDER_STORE,
+            115,
+            "url: `${this.API_URL}/raspi_config/camera_legacy`,",
+        ),
     ),
-    GroundedItem::new(ServiceId::Beacon, Provenance::source(DIAG, 29)),
+    GroundedItem::new(
+        ServiceId::Beacon,
+        Provenance::source(DIAG, 29, "import beacon from '@/store/beacon'"),
+    ),
 ]);
 
 const fn operator_step(

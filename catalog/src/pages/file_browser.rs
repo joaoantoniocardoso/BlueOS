@@ -9,6 +9,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 42,
+                anchor: "path: '/tools/feature-provenance',",
             },
         ),
         name: Observed::known(
@@ -16,6 +17,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 43,
+                anchor: "name: 'Feature Provenance',",
             },
         ),
         component: Observed::known(
@@ -23,6 +25,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 44,
+                anchor: "component: defineAsyncComponent(() => import('../views/Featu",
             },
         ),
         menu_title: Observed::known(
@@ -30,6 +33,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 39,
+                anchor: "title: 'Feature Provenance',",
             },
         ),
         advanced_only: Observed::known(
@@ -37,6 +41,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 42,
+                anchor: "advanced: true,",
             },
         ),
         stores: ObservedSet::known(&[]),

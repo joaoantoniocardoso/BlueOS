@@ -125,6 +125,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/start-blueos-core",
                 line: 119,
+                anchor: "'cable_guy',0,0,0,0,\"$SERVICES_PATH/cable_guy/main.py\"",
             },
         ),
         Evidenced::new(
@@ -132,6 +133,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/cable_guy/config.py",
                 line: 6,
+                anchor: "SERVICE_NAME = \"cable-guy\"",
             },
         ),
     ]),
@@ -140,6 +142,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 119,
+            anchor: "'cable_guy',0,0,0,0,\"$SERVICES_PATH/cable_guy/main.py\"",
         },
     ),
     entrypoint: Observed::known(
@@ -147,6 +150,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 119,
+            anchor: "'cable_guy',0,0,0,0,\"$SERVICES_PATH/cable_guy/main.py\"",
         },
     ),
     tmux_name: Observed::known(
@@ -154,6 +158,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 119,
+            anchor: "'cable_guy',0,0,0,0,\"$SERVICES_PATH/cable_guy/main.py\"",
         },
     ),
     startup_tier: Observed::known(
@@ -161,6 +166,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 117,
+            anchor: "PRIORITY_SERVICES=(",
         },
     ),
     resource_limits: Observed::known(
@@ -172,6 +178,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 119,
+            anchor: "'cable_guy',0,0,0,0,\"$SERVICES_PATH/cable_guy/main.py\"",
         },
     ),
     nice: Observed::unknown("no nice prefix in start tuple"),
@@ -180,6 +187,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/cable_guy/main.py",
             line: 193,
+            anchor: "if os.geteuid() != 0:",
         },
     ),
     nginx_prefixes: ObservedSet::known(&[Evidenced::new(
@@ -187,6 +195,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/tools/nginx/nginx.conf",
             line: 103,
+            anchor: "location /cable-guy/ {",
         },
     )]),
     listen: ObservedSet::known(&[Evidenced::new(
@@ -194,6 +203,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/cable_guy/main.py",
             line: 183,
+            anchor: "config = Config(app=app, host=\"0.0.0.0\", port=9090, log_conf",
         },
     )]),
     git_path: Observed::known(
@@ -201,6 +211,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/cable_guy/main.py",
             line: 1,
+            anchor: "#! /usr/bin/env python3",
         },
     ),
     interfaces: ObservedSet::known(&[
@@ -213,6 +224,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/cable_guy/main.py",
                 line: 163,
+                anchor: "prefix_format=\"/v{major}.{minor}\",",
             },
         ),
         Evidenced::new(
@@ -223,6 +235,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
                 file:
                     "core/libs/commonwealth/src/commonwealth/settings/managers/pydantic_manager.py",
                 line: 73,
+                anchor: "return self.config_folder.joinpath(f\"{PydanticManager.SETTIN",
             },
         ),
         Evidenced::new(
@@ -234,6 +247,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
                 file:
                     "core/libs/commonwealth/src/commonwealth/settings/managers/pydantic_manager.py",
                 line: 27,
+                anchor: "else pathlib.Path(appdirs.user_config_dir(self.project_name)",
             },
         ),
         Evidenced::new(
@@ -244,6 +258,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/cable_guy/api/settings.py",
                 line: 40,
+                anchor: "settings_v1_file = file_path.parent / \"settings-1.json\"",
             },
         ),
         Evidenced::new(
@@ -254,6 +269,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/cable_guy/api/settings.py",
                 line: 47,
+                anchor: "old_settings_file_path = file_path.parent / \"settings.json\"",
             },
         ),
         Evidenced::new(
@@ -264,6 +280,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/cable_guy/api/dns.py",
                 line: 9,
+                anchor: "RESOLVCONF_FILE_PATH: str = \"/etc/resolv.conf\"",
             },
         ),
         Evidenced::new(
@@ -274,6 +291,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/cable_guy/networksetup.py",
                 line: 254,
+                anchor: "dhcpcd_conf_path = \"/etc/dhcpcd.conf\"",
             },
         ),
         Evidenced::new(
@@ -284,6 +302,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/utils/DHCPServerManager.py",
                 line: 50,
+                anchor: "lease_dir: pathlib.Path = pathlib.Path(\"/var/lib/dnsmasq\"),",
             },
         ),
         Evidenced::new(
@@ -293,6 +312,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/cable_guy/api/dns.py",
                 line: 56,
+                anchor: "output = run_command(f\"cat '{filename}'\")",
             },
         ),
         Evidenced::new(
@@ -302,6 +322,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/cable_guy/api/dns.py",
                 line: 64,
+                anchor: "output = run_command(f\"lsattr {filename}\")",
             },
         ),
         Evidenced::new(
@@ -311,6 +332,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/cable_guy/api/dns.py",
                 line: 80,
+                anchor: "output = run_command(f\"sudo chattr -i {filename}\")",
             },
         ),
         Evidenced::new(
@@ -320,6 +342,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/cable_guy/api/dns.py",
                 line: 86,
+                anchor: "output = run_command(f\"echo '{content}' | sudo tee {filename",
             },
         ),
         Evidenced::new(
@@ -329,6 +352,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/cable_guy/api/dns.py",
                 line: 74,
+                anchor: "output = run_command(f\"sudo chattr +i {filename}\")",
             },
         ),
         Evidenced::new(
@@ -338,6 +362,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/cable_guy/networksetup.py",
                 line: 124,
+                anchor: "command = f\"timeout 5 dhclient -d -v {interface_name} 2>&1 |",
             },
         ),
         Evidenced::new(
@@ -347,6 +372,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/cable_guy/api/manager.py",
                 line: 605,
+                anchor: "[\"ifmetric\", name, str(priority)],",
             },
         ),
         Evidenced::new(
@@ -354,6 +380,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/utils/DHCPServerManager.py",
                 line: 95,
+                anchor: "return \"dnsmasq\"",
             },
         ),
         Evidenced::new(
@@ -364,6 +391,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                 line: 78,
+                anchor: "topic = f\"services/{service_name}/log\"",
             },
         ),
     ]),
@@ -377,6 +405,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
                 file:
                     "core/libs/commonwealth/src/commonwealth/settings/managers/pydantic_manager.py",
                 line: 27,
+                anchor: "else pathlib.Path(appdirs.user_config_dir(self.project_name)",
             },
         ),
         Evidenced::new(
@@ -388,6 +417,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
                 file:
                     "core/libs/commonwealth/src/commonwealth/settings/managers/pydantic_manager.py",
                 line: 73,
+                anchor: "return self.config_folder.joinpath(f\"{PydanticManager.SETTIN",
             },
         ),
         Evidenced::new(
@@ -398,6 +428,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/cable_guy/api/dns.py",
                 line: 86,
+                anchor: "output = run_command(f\"echo '{content}' | sudo tee {filename",
             },
         ),
         Evidenced::new(
@@ -408,6 +439,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/cable_guy/networksetup.py",
                 line: 355,
+                anchor: "with open(\"/etc/dhcpcd.conf\", \"a+\", encoding=\"utf-8\") as f:",
             },
         ),
         Evidenced::new(
@@ -418,6 +450,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/utils/DHCPServerManager.py",
                 line: 79,
+                anchor: "lease_dir.mkdir(parents=True, exist_ok=True)",
             },
         ),
     ]),
@@ -455,6 +488,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 318,
+            anchor: "for TUPLE in \"${PRIORITY_SERVICES[@]}\"; do",
         },
     ),
     logs_path: Observed::unknown(
@@ -465,6 +499,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
             line: 78,
+            anchor: "topic = f\"services/{service_name}/log\"",
         },
     ),
     sentry: Observed::known(
@@ -472,6 +507,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/cable_guy/main.py",
             line: 181,
+            anchor: "await init_sentry_async(SERVICE_NAME)",
         },
     ),
     openapi_refs: ObservedSet::unknown("not yet extracted"),

@@ -125,6 +125,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 142,
+                anchor: "'ttyd',250,0,0,0,'nice -19 ttyd -p 8088 sh -c \"/usr/bin/tmux",
             },
         ),
         entrypoint: Observed::known(
@@ -133,6 +134,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 142,
+                anchor: "'ttyd',250,0,0,0,'nice -19 ttyd -p 8088 sh -c \"/usr/bin/tmux",
             },
         ),
         tmux_name: Observed::known(
@@ -140,6 +142,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 142,
+                anchor: "'ttyd',250,0,0,0,'nice -19 ttyd -p 8088 sh -c \"/usr/bin/tmux",
             },
         ),
         startup_tier: Observed::known(
@@ -147,6 +150,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 124,
+                anchor: "SERVICES=(",
             },
         ),
         resource_limits: Observed::known(
@@ -158,6 +162,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 142,
+                anchor: "'ttyd',250,0,0,0,'nice -19 ttyd -p 8088 sh -c \"/usr/bin/tmux",
             },
         ),
         nice: Observed::known(
@@ -165,6 +170,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 142,
+                anchor: "'ttyd',250,0,0,0,'nice -19 ttyd -p 8088 sh -c \"/usr/bin/tmux",
             },
         ),
         run_as: Observed::known(
@@ -172,6 +178,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 142,
+                anchor: "'ttyd',250,0,0,0,'nice -19 ttyd -p 8088 sh -c \"/usr/bin/tmux",
             },
         ),
         nginx_prefixes: ObservedSet::known(&[Evidenced::new(
@@ -179,6 +186,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 213,
+                anchor: "location /terminal/ {",
             },
         )]),
         listen: ObservedSet::known(&[Evidenced::new(
@@ -186,6 +194,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 142,
+                anchor: "'ttyd',250,0,0,0,'nice -19 ttyd -p 8088 sh -c \"/usr/bin/tmux",
             },
         )]),
         git_path: Observed::unknown("external ttyd binary; no source tree in this repository"),
@@ -198,6 +207,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/tools/nginx/nginx.conf",
                     line: 216,
+                    anchor: "proxy_set_header Upgrade $http_upgrade;",
                 },
             ),
             Evidenced::new(
@@ -208,6 +218,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/start-blueos-core",
                     line: 142,
+                    anchor: "'ttyd',250,0,0,0,'nice -19 ttyd -p 8088 sh -c \"/usr/bin/tmux",
                 },
             ),
         ]),
@@ -250,6 +261,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 326,
+                anchor: "for TUPLE in \"${SERVICES[@]}\"; do",
             },
         ),
         logs_path: Observed::unknown(

@@ -2119,7 +2119,7 @@ mod tests {
     use crate::journey::{JourneyStep, Visibility};
     use crate::provenance::{GroundedItem, Provenance};
 
-    const DOC: Provenance = Provenance::doc("test.md", 1);
+    const DOC: Provenance = Provenance::doc("test.md", 1, "");
 
     fn test_journey(availability: crate::version::FeatureAvailability) -> UserJourney {
         UserJourney {

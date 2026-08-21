@@ -26,9 +26,9 @@ const RENAME_VEHICLE: UserJourney =
         summary: Grounded::known(
             "Set the vehicle name shown in the sidebar so it is easier to tell which vehicle you are connected to"
                 ,
-            Provenance::doc(ADV, 894),
+            Provenance::doc(ADV, 894, "- the vehicle name makes it easier to determine which vehicl"),
         ),
-        visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 875)),
+        visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 875, "The vehicle identifier compone")),
         services: BEACON_SERVICES,
         capability_refs: GroundedSet::known(&[cap(CapabilityId::SetVehicleName,
             "sidebar edit dialog persists the vehicle name via the beacon API",
@@ -38,14 +38,14 @@ const RENAME_VEHICLE: UserJourney =
             operator_step(
                 "Click edit on the vehicle identifier in the sidebar",
                 None,
-                Provenance::doc(ADV, 875),
+                Provenance::doc(ADV, 875, "The vehicle identifier components in the sidebar can be modi"),
                 None,
             ),
             operator_step(
                 "Enter a vehicle name and save",
-                Some(sourced_route(HttpMethod::Post, "/vehicle_name", Some("v1.0"), 298)),
-                Provenance::source(VEHICLE_BANNER, 160),
-                Some(source_outcome(200, 298)),
+                Some(sourced_route(HttpMethod::Post, "/vehicle_name", Some("v1.0"), 298, "@app.post(\"/vehicle_name")),
+                Provenance::source(VEHICLE_BANNER, 160, "save_name() {"),
+                Some(source_outcome(200, 298, "@app.post(\"/vehicle_name\", summary=\"Set the vehicle name\")")),
             ),
         ]),
         availability: PRESENCE_RENAME_VEHICLE,
@@ -62,9 +62,9 @@ const CHANGE_MDNS_HOSTNAME: UserJourney = UserJourney {
     id: JourneyId::ChangeMdnsHostname,
     summary: Grounded::known(
         "Change the mDNS hostname used to reach the BlueOS web interface in a browser",
-        Provenance::doc(ADV, 895),
+        Provenance::doc(ADV, 895, "- changing the mDNS hostname changes the address you connect"),
     ),
-    visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 875)),
+    visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 875, "The vehicle identifier components ")),
     services: BEACON_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::SetMdnsHostname,
@@ -75,19 +75,14 @@ const CHANGE_MDNS_HOSTNAME: UserJourney = UserJourney {
         operator_step(
             "Click edit on the vehicle identifier in the sidebar",
             None,
-            Provenance::doc(ADV, 875),
+            Provenance::doc(ADV, 875, "The vehicle identifier components in the sidebar can be modi"),
             None,
         ),
         operator_step(
             "Enter an mDNS hostname and save",
-            Some(sourced_route(
-                HttpMethod::Post,
-                "/hostname",
-                Some("v1.0"),
-                286,
-            )),
-            Provenance::source(VEHICLE_BANNER, 163),
-            Some(source_outcome(200, 286)),
+            Some(sourced_route(HttpMethod::Post, "/hostname", Some("v1.0"), 286, "@app.post(\"/hostname\", summary=")),
+            Provenance::source(VEHICLE_BANNER, 163, "save_mdns() {"),
+            Some(source_outcome(200, 286, "@app.post(\"/hostname\", summary=\"Set the hostname for mDNS.\")")),
         ),
     ]),
     availability: PRESENCE_CHANGE_MDNS_HOSTNAME,
@@ -104,9 +99,9 @@ const DISCOVER_BLUEOS_ON_NETWORK: UserJourney = UserJourney {
     id: JourneyId::DiscoverBlueosOnNetwork,
     summary: Grounded::known(
         "Open the BlueOS web interface at blueos.local on the local network",
-        Provenance::doc(GETTING, 29),
+        Provenance::doc(GETTING, 29, "- When BlueOS is connected via a wired connection, it is als"),
     ),
-    visibility: Grounded::known(Visibility::Default, Provenance::doc(GETTING, 26)),
+    visibility: Grounded::known(Visibility::Default, Provenance::doc(GETTING, 26, "### Interface Access")),
     services: BEACON_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::AdvertiseMdnsDomains,
@@ -115,26 +110,26 @@ const DISCOVER_BLUEOS_ON_NETWORK: UserJourney = UserJourney {
     preconditions: GroundedSet::known(&[
         GroundedItem::new(
             Precondition::NetworkResource(NetworkResource::WiredEthernetPresent),
-            Provenance::doc(GETTING, 29),
+            Provenance::doc(GETTING, 29, "- When BlueOS is connected via a wired connection, it is als"),
         ),
         GroundedItem::new(
             Precondition::Other(
                 "BlueOS is connected via a wired connection so blueos.local is reachable",
             ),
-            Provenance::doc(GETTING, 29),
+            Provenance::doc(GETTING, 29, "- When BlueOS is connected via a wired connection, it is als"),
         ),
     ]),
     steps: GroundedSet::known(&[
         service_step(
             "Publish mDNS domain advertisements on available network interfaces",
             None,
-            Provenance::source(BEACON_MAIN, 230),
+            Provenance::source(BEACON_MAIN, 230, "async def run(self) -> None:"),
             None,
         ),
         operator_step(
             "Open http://blueos.local in a web browser",
             None,
-            Provenance::doc(GETTING, 29),
+            Provenance::doc(GETTING, 29, "- When BlueOS is connected via a wired connection, it is als"),
             None,
         ),
     ]),
@@ -154,7 +149,11 @@ const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<Capabili
 
 const BEACON_SERVICES: GroundedSet<ServiceId> = GroundedSet::known(&[GroundedItem::new(
     ServiceId::Beacon,
-    Provenance::doc(DEV_CORE, 70),
+    Provenance::doc(
+        DEV_CORE,
+        70,
+        "| [Beacon Service](https://github.com/bluerobotics/BlueOS/tr",
+    ),
 )]);
 
 const fn route(method: HttpMethod, path: &'static str, version: Option<&'static str>) -> RouteRef {
@@ -171,14 +170,15 @@ const fn sourced_route(
     path: &'static str,
     version: Option<&'static str>,
     line: u32,
+    anchor: &'static str,
 ) -> Grounded<RouteRef> {
     Grounded::known(
         route(method, path, version),
-        Provenance::source(BEACON_MAIN, line),
+        Provenance::source(BEACON_MAIN, line, anchor),
     )
 }
 
-const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
+const fn source_outcome(status: u16, line: u32, anchor: &'static str) -> Grounded<StepOutcome> {
     Grounded::known(
         StepOutcome {
             expected_status: Some(status),
@@ -186,7 +186,7 @@ const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
             body_kind: BodyKind::Unknown,
             transition: None,
         },
-        Provenance::source(BEACON_MAIN, line),
+        Provenance::source(BEACON_MAIN, line, anchor),
     )
 }
 

@@ -10,6 +10,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 97,
+                anchor: "path: '/tools/mavlink-inspector',",
             },
         ),
         name: Observed::known(
@@ -17,6 +18,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 98,
+                anchor: "name: 'Mavlink Inspector',",
             },
         ),
         component: Observed::known(
@@ -24,6 +26,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 99,
+                anchor: "component: defineAsyncComponent(() => import('../views/Mavli",
             },
         ),
         menu_title: Observed::known(
@@ -31,6 +34,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 84,
+                anchor: "title: 'NMEA Injector',",
             },
         ),
         advanced_only: Observed::unknown("menu entry has show:true but omits advanced field"),
@@ -40,6 +44,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/speedtest/InternetSpeedTest.vue",
                     line: 130,
+                    anchor: "import pardal from '@/store/pardal'",
                 },
             ),
             Evidenced::new(
@@ -47,6 +52,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/speedtest/InternetSpeedTest.vue",
                     line: 129,
+                    anchor: "import helper from '@/store/helper'",
                 },
             ),
         ]),
@@ -60,6 +66,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/speedtest/NetworkSpeedTest.vue",
                     line: 147,
+                    anchor: "this.websocket = new WebSocket(`${protocol}://${window.locat",
                 },
             ),
             Evidenced::new(
@@ -71,6 +78,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/speedtest/NetworkSpeedTest.vue",
                     line: 241,
+                    anchor: "url: '/network-test/get_file',",
                 },
             ),
             Evidenced::new(
@@ -82,6 +90,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/speedtest/NetworkSpeedTest.vue",
                     line: 202,
+                    anchor: "url: '/network-test/post_file',",
                 },
             ),
             Evidenced::new(
@@ -93,6 +102,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/pardal.ts",
                     line: 68,
+                    anchor: "url: `${this.API_URL}/internet_test_previous_result`,",
                 },
             ),
             Evidenced::new(
@@ -104,6 +114,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/pardal.ts",
                     line: 29,
+                    anchor: "url: `${this.API_URL}/internet_best_server`,",
                 },
             ),
             Evidenced::new(
@@ -115,6 +126,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/pardal.ts",
                     line: 42,
+                    anchor: "url: `${this.API_URL}/internet_download_speed`,",
                 },
             ),
             Evidenced::new(
@@ -126,6 +138,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/pardal.ts",
                     line: 55,
+                    anchor: "url: `${this.API_URL}/internet_upload_speed`,",
                 },
             ),
         ]),

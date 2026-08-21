@@ -4,7 +4,8 @@ use crate::journey::{JourneyStep, RouteRef};
 use crate::provenance::{Grounded, GroundedSet, Provenance};
 use crate::runner::resolve_http_path;
 use crate::validate::ValidationError;
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+use serde::Serialize;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct FrontendApiBase {
     pub store_file: &'static str,
     pub line: u32,
@@ -12,7 +13,7 @@ pub struct FrontendApiBase {
     pub service: ServiceId,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct FrontendEndpoint {
     pub base: &'static FrontendApiBase,
     pub relative_path: &'static str,
@@ -210,7 +211,7 @@ pub fn paths_equivalent(expected: &str, resolved: &str) -> bool {
 fn provenance_cites(provenance: &Provenance, call_file: &str, call_line: u32) -> bool {
     let (file, line) = match provenance {
         Provenance::Source(evidence) => (evidence.file, evidence.line),
-        Provenance::Doc { file, line } => (*file, *line),
+        Provenance::Doc { file, line, .. } => (*file, *line),
         Provenance::Runtime { .. } | Provenance::Asserted { .. } => return false,
     };
     file.ends_with(call_file) && line == call_line
@@ -340,7 +341,7 @@ mod tests {
     fn dropped_recorder_prefix_is_detected() {
         const SERVICES: GroundedSet<ServiceId> = GroundedSet::known(&[GroundedItem::new(
             ServiceId::RecorderExtractor,
-            Provenance::doc("test.md", 1),
+            Provenance::doc("test.md", 1, ""),
         )]);
         const CAPABILITIES: GroundedSet<CapabilityId> = GroundedSet::known(&[GroundedItem::new(
             CapabilityId::BrowseVideoRecordings,
@@ -357,17 +358,25 @@ mod tests {
                         path: "/files",
                         version: Some("v1.0"),
                     },
-                    Provenance::source("core/frontend/src/store/records.ts", 47),
+                    Provenance::source(
+                        "core/frontend/src/store/records.ts",
+                        47,
+                        "url: `${this.API_URL}/files`,",
+                    ),
                 )),
                 outcome: None,
             },
-            Provenance::source("core/frontend/src/store/records.ts", 47),
+            Provenance::source(
+                "core/frontend/src/store/records.ts",
+                47,
+                "url: `${this.API_URL}/files`,",
+            ),
         )];
 
         let journey = UserJourney {
             id: JourneyId::BrowseVideoRecordings,
-            summary: Grounded::known("test", Provenance::doc("test.md", 1)),
-            visibility: Grounded::known(Visibility::Default, Provenance::doc("test.md", 1)),
+            summary: Grounded::known("test", Provenance::doc("test.md", 1, "")),
+            visibility: Grounded::known(Visibility::Default, Provenance::doc("test.md", 1, "")),
             services: SERVICES,
             capability_refs: CAPABILITIES,
             preconditions: GroundedSet::known(&[]),

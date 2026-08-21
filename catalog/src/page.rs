@@ -191,6 +191,7 @@ mod tests {
                 Evidence {
                     file: "core/frontend/src/router/index.ts",
                     line: 42,
+                    anchor: "path: '/tools/feature-provenance',",
                 },
             ),
             name: Observed::known(
@@ -198,6 +199,7 @@ mod tests {
                 Evidence {
                     file: "core/frontend/src/router/index.ts",
                     line: 43,
+                    anchor: "name: 'Feature Provenance',",
                 },
             ),
             component: Observed::known(
@@ -205,6 +207,7 @@ mod tests {
                 Evidence {
                     file: "core/frontend/src/router/index.ts",
                     line: 44,
+                    anchor: "component: defineAsyncComponent(() => import('../views/Featu",
                 },
             ),
             menu_title: Observed::known(
@@ -212,6 +215,7 @@ mod tests {
                 Evidence {
                     file: "core/frontend/src/menus.ts",
                     line: 10,
+                    anchor: "{",
                 },
             ),
             advanced_only: Observed::known(
@@ -219,6 +223,7 @@ mod tests {
                 Evidence {
                     file: "core/frontend/src/menus.ts",
                     line: 11,
+                    anchor: "title: 'Autopilot Parameters',",
                 },
             ),
             stores: ObservedSet::known(
@@ -228,6 +233,7 @@ mod tests {
                         Evidence {
                             file: "core/frontend/src/views/VehicleSetupView.vue",
                             line: 5,
+                            anchor: "centered",
                         },
                     )]
                 },
@@ -243,6 +249,7 @@ mod tests {
                         Evidence {
                             file: "core/frontend/src/views/VehicleSetupView.vue",
                             line: 80,
+                            anchor: "mounted() {",
                         },
                     )]
                 },

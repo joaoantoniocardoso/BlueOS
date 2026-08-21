@@ -32,9 +32,16 @@ const ASSIGN_STATIC_IP_ADDRESS: UserJourney = UserJourney {
     id: JourneyId::AssignStaticIpAddress,
     summary: Grounded::known(
         "Assign a static IP address to a wired ethernet or USB-OTG interface",
-        Provenance::doc(ADV, 99),
+        Provenance::doc(ADV, 99, "- A static IP"),
     ),
-    visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 98)),
+    visibility: Grounded::known(
+        Visibility::Default,
+        Provenance::doc(
+            ADV,
+            98,
+            "When configuring a wired interface, choose between:",
+        ),
+    ),
     services: CABLE_GUY_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::AssignStaticIp,
@@ -45,13 +52,17 @@ const ASSIGN_STATIC_IP_ADDRESS: UserJourney = UserJourney {
         operator_step(
             "Open the ethernet tray menu from the header bar",
             None,
-            Provenance::doc(ADV, 98),
+            Provenance::doc(
+                ADV,
+                98,
+                "When configuring a wired interface, choose between:",
+            ),
             None,
         ),
         operator_step(
             "Click Add static IP on the target wired interface",
             None,
-            Provenance::source(INTERFACE_CARD, 44),
+            Provenance::source(INTERFACE_CARD, 44, "Add <br> static IP"),
             None,
         ),
         operator_step(
@@ -61,9 +72,18 @@ const ASSIGN_STATIC_IP_ADDRESS: UserJourney = UserJourney {
                 "/address",
                 Some("v1.0"),
                 69,
+                "@app.post(\"/address\", summary=\"Add IP address to interface.\"",
             )),
-            Provenance::source(ADDRESS_DIALOG, 87),
-            Some(source_outcome(200, 71)),
+            Provenance::source(
+                ADDRESS_DIALOG,
+                87,
+                "await ethernet.addAddress({ interface_name: this.interfaceNa",
+            ),
+            Some(source_outcome(
+                200,
+                71,
+                "def add_address(interface_name: str, ip_address: str) -> Any",
+            )),
         ),
     ]),
     availability: PRESENCE_ASSIGN_STATIC_IP_ADDRESS,
@@ -80,9 +100,9 @@ const ACQUIRE_DYNAMIC_IP_ADDRESS: UserJourney = UserJourney {
     id: JourneyId::AcquireDynamicIpAddress,
     summary: Grounded::known(
         "Request a dynamic IP address on a wired ethernet or USB-OTG interface",
-        Provenance::doc(ADV, 100),
+        Provenance::doc(ADV, 100, "- A dynamic IP"),
     ),
-    visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 98)),
+    visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 98, "When configuring a wired interface,")),
     services: CABLE_GUY_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::AcquireDynamicIp,
@@ -93,19 +113,14 @@ const ACQUIRE_DYNAMIC_IP_ADDRESS: UserJourney = UserJourney {
         operator_step(
             "Open the ethernet tray menu from the header bar",
             None,
-            Provenance::doc(ADV, 98),
+            Provenance::doc(ADV, 98, "When configuring a wired interface, choose between:"),
             None,
         ),
         operator_step(
             "Click Ask for dynamic IP on the target wired interface",
-            Some(sourced_route(
-                HttpMethod::Post,
-                "/dynamic_ip",
-                Some("v1.0"),
-                115,
-            )),
-            Provenance::source(INTERFACE_CARD, 324),
-            Some(source_outcome(200, 117)),
+            Some(sourced_route(HttpMethod::Post, "/dynamic_ip", Some("v1.0"), 115, "@app.post(\"/dynamic_ip\", summa")),
+            Provenance::source(INTERFACE_CARD, 324, "await ethernet.triggerDynamicIP(this.adapter.name)"),
+            Some(source_outcome(200, 117, "def trigger_dynamic_ip_acquisition(interface_name: str) -> A")),
         ),
     ]),
     availability: PRESENCE_ACQUIRE_DYNAMIC_IP_ADDRESS,
@@ -122,9 +137,9 @@ const ENABLE_ONBOARD_DHCP_SERVER: UserJourney = UserJourney {
     id: JourneyId::EnableOnboardDhcpServer,
     summary: Grounded::known(
         "Enable the onboard DHCP server on a wired interface, optionally as a backup server",
-        Provenance::doc(ADV, 101),
+        Provenance::doc(ADV, 101, "- A DHCP server"),
     ),
-    visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 98)),
+    visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 98, "When configuring a wired interface,")),
     services: CABLE_GUY_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::EnableDhcpServer,
@@ -134,26 +149,26 @@ const ENABLE_ONBOARD_DHCP_SERVER: UserJourney = UserJourney {
         Precondition::Other(
             "The interface has at least one static IP address to use as the DHCP gateway",
         ),
-        Provenance::source(INTERFACE_CARD, 72),
+        Provenance::source(INTERFACE_CARD, 72, "v-tooltip=\"!is_static_ip_present ? 'A static IP address is r"),
     )]),
     steps: GroundedSet::known(&[
         operator_step(
             "Open the ethernet tray menu from the header bar",
             None,
-            Provenance::doc(ADV, 98),
+            Provenance::doc(ADV, 98, "When configuring a wired interface, choose between:"),
             None,
         ),
         operator_step(
             "Click Enable DHCP server on an interface that already has a static IP",
             None,
-            Provenance::source(INTERFACE_CARD, 80),
+            Provenance::source(INTERFACE_CARD, 80, "Enable <br> DHCP server"),
             None,
         ),
         operator_step(
             "Select the server gateway, optionally enable backup mode, and confirm",
-            Some(sourced_route(HttpMethod::Post, "/dhcp", Some("v1.0"), 99)),
-            Provenance::source(DHCP_DIALOG, 141),
-            Some(source_outcome(200, 101)),
+            Some(sourced_route(HttpMethod::Post, "/dhcp", Some("v1.0"), 99, "@app.post(\"/dhcp\", summary=\"Add loca")),
+            Provenance::source(DHCP_DIALOG, 141, "await ethernet.addDHCPServer({"),
+            Some(source_outcome(200, 101, "async def add_dhcp_server(interface_name: str, ipv4_gateway:")),
         ),
     ]),
     availability: PRESENCE_ENABLE_ONBOARD_DHCP_SERVER,
@@ -170,9 +185,16 @@ const DISABLE_ONBOARD_DHCP_SERVER: UserJourney = UserJourney {
     id: JourneyId::DisableOnboardDhcpServer,
     summary: Grounded::known(
         "Disable the onboard DHCP server on a wired interface",
-        Provenance::source(INTERFACE_CARD, 68),
+        Provenance::source(INTERFACE_CARD, 68, "Disable <br> DHCP server"),
     ),
-    visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 98)),
+    visibility: Grounded::known(
+        Visibility::Default,
+        Provenance::doc(
+            ADV,
+            98,
+            "When configuring a wired interface, choose between:",
+        ),
+    ),
     services: CABLE_GUY_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::DisableDhcpServer,
@@ -180,13 +202,17 @@ const DISABLE_ONBOARD_DHCP_SERVER: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
         Precondition::Data(DataRequirement::OnboardDhcpServerActive),
-        Provenance::source(INTERFACE_CARD, 63),
+        Provenance::source(INTERFACE_CARD, 63, "v-if=\"is_there_dhcp_server_already\""),
     )]),
     steps: GroundedSet::known(&[
         operator_step(
             "Open the ethernet tray menu from the header bar",
             None,
-            Provenance::doc(ADV, 98),
+            Provenance::doc(
+                ADV,
+                98,
+                "When configuring a wired interface, choose between:",
+            ),
             None,
         ),
         operator_step(
@@ -196,9 +222,18 @@ const DISABLE_ONBOARD_DHCP_SERVER: UserJourney = UserJourney {
                 "/dhcp",
                 Some("v1.0"),
                 107,
+                "@app.delete(\"/dhcp\", summary=\"Remove local DHCP server from ",
             )),
-            Provenance::source(INTERFACE_CARD, 332),
-            Some(source_outcome(200, 109)),
+            Provenance::source(
+                INTERFACE_CARD,
+                332,
+                "await ethernet.RemoveDHCPServer(this.adapter.name)",
+            ),
+            Some(source_outcome(
+                200,
+                109,
+                "def remove_dhcp_server(interface_name: str) -> Any:",
+            )),
         ),
     ]),
     availability: PRESENCE_DISABLE_ONBOARD_DHCP_SERVER,
@@ -215,9 +250,9 @@ const SET_NETWORK_INTERFACE_PRIORITY: UserJourney = UserJourney {
     id: JourneyId::SetNetworkInterfacePriority,
     summary: Grounded::known(
         "Reorder network interfaces to choose which connection is preferred for internet access",
-        Provenance::doc(ADV, 145),
+        Provenance::doc(ADV, 145, "- Configure network priority ordering"),
     ),
-    visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 144)),
+    visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 144, "{% pirate() %}")),
     services: CABLE_GUY_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::SetInterfacePriority,
@@ -225,37 +260,32 @@ const SET_NETWORK_INTERFACE_PRIORITY: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
         Precondition::Software(SoftwareRequirement::PirateMode),
-        Provenance::doc(ADV, 144),
+        Provenance::doc(ADV, 144, "{% pirate() %}"),
     )]),
     steps: GroundedSet::known(&[
         operator_step(
             "Open the internet indicator menu from the header bar",
             None,
-            Provenance::doc(ADV, 145),
+            Provenance::doc(ADV, 145, "- Configure network priority ordering"),
             None,
         ),
         operator_step(
             "Open the Network Interface Priority tab",
             None,
-            Provenance::source(NETWORK_MENU, 54),
+            Provenance::source(NETWORK_MENU, 54, "{ title: 'Network Interface Priority', icon: 'mdi-sort', val"),
             None,
         ),
         operator_step(
             "Drag interfaces into the desired priority order",
             None,
-            Provenance::source(NETWORK_PRIORITY, 5),
+            Provenance::source(NETWORK_PRIORITY, 5, "Drag the network interfaces to move the highest priority to "),
             None,
         ),
         operator_step(
             "Apply the new interface priority ordering",
-            Some(sourced_route(
-                HttpMethod::Post,
-                "/set_interfaces_priority",
-                Some("v1.0"),
-                62,
-            )),
-            Provenance::source(NETWORK_PRIORITY, 141),
-            Some(source_outcome(200, 64)),
+            Some(sourced_route(HttpMethod::Post, "/set_interfaces_priority", Some("v1.0"), 62, "@app.post(\"/set_in")),
+            Provenance::source(NETWORK_PRIORITY, 141, "await ethernet.setInterfacesPriority(interface_priorities)"),
+            Some(source_outcome(200, 64, "def set_interfaces_priority(interfaces: List[NetworkInterfac")),
         ),
     ]),
     availability: PRESENCE_SET_NETWORK_INTERFACE_PRIORITY,
@@ -272,9 +302,9 @@ const CONFIGURE_HOST_DNS: UserJourney = UserJourney {
     id: JourneyId::ConfigureHostDns,
     summary: Grounded::known(
         "View and configure host DNS nameservers applied to /etc/resolv.conf",
-        Provenance::doc(ADV, 153),
+        Provenance::doc(ADV, 153, "- View and configure DNS name servers"),
     ),
-    visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 152)),
+    visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 152, "{% pirate() %}")),
     services: CABLE_GUY_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::ConfigureHostDns,
@@ -282,31 +312,26 @@ const CONFIGURE_HOST_DNS: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
         Precondition::Software(SoftwareRequirement::PirateMode),
-        Provenance::doc(ADV, 152),
+        Provenance::doc(ADV, 152, "{% pirate() %}"),
     )]),
     steps: GroundedSet::known(&[
         operator_step(
             "Open the internet indicator menu from the header bar",
             None,
-            Provenance::doc(ADV, 153),
+            Provenance::doc(ADV, 153, "- View and configure DNS name servers"),
             None,
         ),
         operator_step(
             "Switch to the Dns Configuration tab",
             None,
-            Provenance::source(NETWORK_MENU, 55),
+            Provenance::source(NETWORK_MENU, 55, "{ title: 'Dns Configuration', icon: 'mdi-dns', value: 'dns_c"),
             None,
         ),
         operator_step(
             "Edit nameserver entries and optional lock setting, then apply",
-            Some(sourced_route(
-                HttpMethod::Post,
-                "/host_dns",
-                Some("v1.0"),
-                130,
-            )),
-            Provenance::source(DNS_MENU, 171),
-            Some(source_outcome(200, 132)),
+            Some(sourced_route(HttpMethod::Post, "/host_dns", Some("v1.0"), 130, "@app.post(\"/host_dns\", summary=")),
+            Provenance::source(DNS_MENU, 171, "await ethernet.updateHostDNS({ host_nameservers: this.host_n"),
+            Some(source_outcome(200, 132, "def update_host_dns(dns_data: DnsData) -> Any:")),
         ),
     ]),
     availability: PRESENCE_CONFIGURE_HOST_DNS,
@@ -325,7 +350,11 @@ const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<Capabili
 
 const CABLE_GUY_SERVICES: GroundedSet<ServiceId> = GroundedSet::known(&[GroundedItem::new(
     ServiceId::CableGuy,
-    Provenance::doc(ADV, 93),
+    Provenance::doc(
+        ADV,
+        93,
+        "{{ service(service=\"Cable Guy\", port=9090, link=\"/services/c",
+    ),
 )]);
 
 const fn route(method: HttpMethod, path: &'static str, version: Option<&'static str>) -> RouteRef {
@@ -342,10 +371,11 @@ const fn sourced_route(
     path: &'static str,
     version: Option<&'static str>,
     line: u32,
+    anchor: &'static str,
 ) -> Grounded<RouteRef> {
     Grounded::known(
         route(method, path, version),
-        Provenance::source(CABLE_GUY_MAIN, line),
+        Provenance::source(CABLE_GUY_MAIN, line, anchor),
     )
 }
 
@@ -366,7 +396,7 @@ const fn operator_step(
     )
 }
 
-const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
+const fn source_outcome(status: u16, line: u32, anchor: &'static str) -> Grounded<StepOutcome> {
     Grounded::known(
         StepOutcome {
             expected_status: Some(status),
@@ -374,6 +404,6 @@ const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
             body_kind: BodyKind::Unknown,
             transition: None,
         },
-        Provenance::source(CABLE_GUY_MAIN, line),
+        Provenance::source(CABLE_GUY_MAIN, line, anchor),
     )
 }

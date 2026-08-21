@@ -32,28 +32,28 @@ const VIEW_CONFIGURED_SERIAL_BRIDGES: UserJourney =
         id: JourneyId::ViewConfiguredSerialBridges,
         summary: Grounded::known(
             "View and manage configured bridges between serial and UDP/TCP endpoints",
-            Provenance::doc(OVERVIEW, 132),
+            Provenance::doc(OVERVIEW, 132, "| [**Serial Bridges**](../advanced/#serial-bridges) | &rarr;"),
         ),
-        visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 568)),
+        visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 568, "{% pirate() %}")),
         services: BRIDGET_SERVICES,
         capability_refs: GroundedSet::known(&[cap(CapabilityId::ListConfiguredSerialBridges,
             "Serial Bridges page lists configured bridges and available serial ports",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
             Precondition::Software(SoftwareRequirement::AdvancedMode),
-            Provenance::source(BRIDGET_MENUS, 102),
+            Provenance::source(BRIDGET_MENUS, 102, "text: 'Manage detected Ping family sonar devices, connected "),
         )]),
         steps: GroundedSet::known(&[
             operator_step(
                 "Open the Serial Bridges page from the sidebar",
                 None,
-                Provenance::source(BRIDGET_MENUS, 99),
+                Provenance::source(BRIDGET_MENUS, 99, "icon: 'mdi-radar',"),
                 None,
             ),
             operator_step(
                 "Load the list of configured serial bridges",
-                Some(sourced_route(HttpMethod::Get, "/bridges", Some("v1.0"), 40)),
-                Provenance::source(BRIDGET_STORE, 88),
+                Some(sourced_route(HttpMethod::Get, "/bridges", Some("v1.0"), 40, "@app.get(\"/bridges\", response_m")),
+                Provenance::source(BRIDGET_STORE, 88, "url: `${this.API_URL}/bridges`,"),
                 Some(runtime_outcome(
                     200,
                     Some("[] (empty; no bridges configured)"),
@@ -63,13 +63,8 @@ const VIEW_CONFIGURED_SERIAL_BRIDGES: UserJourney =
             ),
             operator_step(
                 "Load available serial ports for bridge creation",
-                Some(sourced_route(
-                    HttpMethod::Get,
-                    "/serial_ports",
-                    Some("v1.0"),
-                    32,
-                )),
-                Provenance::source(BRIDGET_STORE, 112),
+                Some(sourced_route(HttpMethod::Get, "/serial_ports", Some("v1.0"), 32, "@app.get(\"/serial_ports\", ")),
+                Provenance::source(BRIDGET_STORE, 112, "url: `${this.API_URL}/serial_ports`,"),
                 Some(runtime_outcome(
                     200,
                     Some("[\"/dev/ttyAMA0\", \"/dev/ttyAMA1\", \"/dev/ttyAMA2\", \"/dev/ttyAMA3\", \"/dev/ttyS0\"] (proxied from linux2rest localhost:6030/serial)"),
@@ -80,7 +75,7 @@ const VIEW_CONFIGURED_SERIAL_BRIDGES: UserJourney =
             operator_step(
                 "View the bridge card showing the serial device name and baud rate",
                 None,
-                Provenance::source(BRIDGET_CARD, 22),
+                Provenance::source(BRIDGET_CARD, 22, "{{ get_display_name(bridgeSerialInfo) }}:{{ bridgeSerialInfo"),
                 None,
             ),
         ]),
@@ -98,9 +93,9 @@ const CREATE_SERIAL_TO_UDP_BRIDGE: UserJourney =
         summary: Grounded::known(
             "Create a high-performance link between a serial device connected to the onboard computer and a UDP port"
                 ,
-            Provenance::doc(ADV, 574),
+            Provenance::doc(ADV, 574, "The Serial Bridges page allows creating high performance lin"),
         ),
-        visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 572)),
+        visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 572, "{% pirate() %}")),
         services: BRIDGET_SERVICES,
         capability_refs: GroundedSet::known(&[cap(CapabilityId::CreateSerialToUdpBridge,
             "creation dialog submits serial path, baud, IP, and UDP ports to start a bridge",
@@ -108,54 +103,54 @@ const CREATE_SERIAL_TO_UDP_BRIDGE: UserJourney =
         preconditions: GroundedSet::known(&[
             GroundedItem::new(
                 Precondition::Software(SoftwareRequirement::AdvancedMode),
-                Provenance::source(BRIDGET_MENUS, 102),
+                Provenance::source(BRIDGET_MENUS, 102, "text: 'Manage detected Ping family sonar devices, connected "),
             ),
             GroundedItem::new(
                 Precondition::Hardware(HardwareRequirement::UsbSerialDevice),
-                Provenance::doc(ADV, 574),
+                Provenance::doc(ADV, 574, "The Serial Bridges page allows creating high performance lin"),
             ),
         ]),
         steps: GroundedSet::known(&[
             operator_step(
                 "Open the Serial Bridges page from the sidebar",
                 None,
-                Provenance::source(BRIDGET_MENUS, 99),
+                Provenance::source(BRIDGET_MENUS, 99, "icon: 'mdi-radar',"),
                 None,
             ),
             operator_step(
                 "Click the + button to open the new bridge dialog",
                 None,
-                Provenance::source(BRIDGET_VIEW, 52),
+                Provenance::source(BRIDGET_VIEW, 52, "@click=\"openCreationDialog\""),
                 None,
             ),
             operator_step(
                 "Select the serial port for the bridge",
                 None,
-                Provenance::source(BRIDGET_CREATE_DIALOG, 17),
+                Provenance::source(BRIDGET_CREATE_DIALOG, 17, "<v-select"),
                 None,
             ),
             operator_step(
                 "Select the serial baudrate",
                 None,
-                Provenance::source(BRIDGET_CREATE_DIALOG, 81),
+                Provenance::source(BRIDGET_CREATE_DIALOG, 81, "<v-select"),
                 None,
             ),
             operator_step(
                 "Choose the UDP endpoint mode (server or client)",
                 None,
-                Provenance::source(BRIDGET_CREATE_DIALOG, 87),
+                Provenance::source(BRIDGET_CREATE_DIALOG, 87, "<v-tabs"),
                 None,
             ),
             operator_step(
                 "Enter the UDP endpoint IP address and port",
                 None,
-                Provenance::source(BRIDGET_CREATE_DIALOG, 111),
+                Provenance::source(BRIDGET_CREATE_DIALOG, 111, "<v-text-field"),
                 None,
             ),
             operator_step(
                 "Click Create to add the serial-to-UDP bridge",
-                Some(sourced_route(HttpMethod::Post, "/bridges", Some("v1.0"), 48)),
-                Provenance::source(BRIDGET_CREATE_DIALOG, 149),
+                Some(sourced_route(HttpMethod::Post, "/bridges", Some("v1.0"), 48, "@app.post(\"/bridges\", status_c")),
+                Provenance::source(BRIDGET_CREATE_DIALOG, 149, "@click=\"createBridge\""),
                 Some(pending_outcome(
                     "POST /bridges bridge creation requires runtime capture with serial hardware attached (mutating; not exercised)",
                 )),
@@ -163,7 +158,7 @@ const CREATE_SERIAL_TO_UDP_BRIDGE: UserJourney =
             service_step(
                 "Spawn a bridges process for the serial-to-UDP link",
                 None,
-                Provenance::source(BRIDGET_CORE, 75),
+                Provenance::source(BRIDGET_CORE, 75, "new_bridge = Bridge("),
                 Some(pending_outcome(
                     "bridges subprocess startup and UDP endpoint assignment require runtime capture with serial hardware attached",
                 )),
@@ -171,7 +166,7 @@ const CREATE_SERIAL_TO_UDP_BRIDGE: UserJourney =
             service_step(
                 "Persist bridge configuration to userdata settings",
                 None,
-                Provenance::source(BRIDGET_CORE, 85),
+                Provenance::source(BRIDGET_CORE, 85, "if settings_spec not in self._settings_manager.settings.spec"),
                 None,
             ),
         ]),
@@ -189,9 +184,9 @@ const REMOVE_SERIAL_BRIDGE: UserJourney = UserJourney {
     id: JourneyId::RemoveSerialBridge,
     summary: Grounded::known(
         "Remove a configured serial bridge from the Serial Bridges page",
-        Provenance::source(BRIDGET_CARD, 60),
+        Provenance::source(BRIDGET_CARD, 60, "@click=\"removeBridge\""),
     ),
-    visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 568)),
+    visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 568, "{% pirate() %}")),
     services: BRIDGET_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::RemoveSerialBridge,
@@ -200,24 +195,24 @@ const REMOVE_SERIAL_BRIDGE: UserJourney = UserJourney {
     preconditions: GroundedSet::known(&[
         GroundedItem::new(
             Precondition::Software(SoftwareRequirement::AdvancedMode),
-            Provenance::source(BRIDGET_MENUS, 102),
+            Provenance::source(BRIDGET_MENUS, 102, "text: 'Manage detected Ping family sonar devices, connected "),
         ),
         GroundedItem::new(
             Precondition::Data(DataRequirement::SerialBridgeConfigured),
-            Provenance::source(BRIDGET_VIEW, 8),
+            Provenance::source(BRIDGET_VIEW, 8, "v-if=\"are_bridges_available && !updating_bridges\""),
         ),
     ]),
     steps: GroundedSet::known(&[
         operator_step(
             "Open the Serial Bridges page from the sidebar",
             None,
-            Provenance::source(BRIDGET_MENUS, 99),
+            Provenance::source(BRIDGET_MENUS, 99, "icon: 'mdi-radar',"),
             None,
         ),
         operator_step(
             "View the configured bridge to remove",
-            Some(sourced_route(HttpMethod::Get, "/bridges", Some("v1.0"), 40)),
-            Provenance::source(BRIDGET_VIEW, 21),
+            Some(sourced_route(HttpMethod::Get, "/bridges", Some("v1.0"), 40, "@app.get(\"/bridges\", response_model")),
+            Provenance::source(BRIDGET_VIEW, 21, "<bridge-card :bridge-serial-info=\"info\" />"),
             Some(runtime_outcome(
                 200,
                 Some("[] (empty; no bridges configured)"),
@@ -227,14 +222,9 @@ const REMOVE_SERIAL_BRIDGE: UserJourney = UserJourney {
         ),
         operator_step(
             "Click the remove button on the bridge card",
-            Some(sourced_route(
-                HttpMethod::Delete,
-                "/bridges",
-                Some("v1.0"),
-                56,
-            )),
-            Provenance::source(BRIDGET_CARD, 60),
-            Some(source_outcome(200, 56)),
+            Some(sourced_route(HttpMethod::Delete, "/bridges", Some("v1.0"), 56, "@app.delete(\"/bridges\", status_c")),
+            Provenance::source(BRIDGET_CARD, 60, "@click=\"removeBridge\""),
+            Some(source_outcome(200, 56, "@app.delete(\"/bridges\", status_code=status.HTTP_200_OK)")),
         ),
     ]),
     availability: PRESENCE_REMOVE_SERIAL_BRIDGE,
@@ -251,7 +241,11 @@ const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<Capabili
 
 const BRIDGET_SERVICES: GroundedSet<ServiceId> = GroundedSet::known(&[GroundedItem::new(
     ServiceId::Bridget,
-    Provenance::doc(ADV, 571),
+    Provenance::doc(
+        ADV,
+        571,
+        "{{ service(service=\"Bridget\", port=27353, link=\"/services/br",
+    ),
 )]);
 
 const fn route(method: HttpMethod, path: &'static str, version: Option<&'static str>) -> RouteRef {
@@ -268,10 +262,11 @@ const fn sourced_route(
     path: &'static str,
     version: Option<&'static str>,
     line: u32,
+    anchor: &'static str,
 ) -> Grounded<RouteRef> {
     Grounded::known(
         route(method, path, version),
-        Provenance::source(BRIDGET_MAIN, line),
+        Provenance::source(BRIDGET_MAIN, line, anchor),
     )
 }
 
@@ -313,7 +308,7 @@ const fn pending_outcome(reason: &'static str) -> Grounded<StepOutcome> {
     Grounded::unknown(reason)
 }
 
-const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
+const fn source_outcome(status: u16, line: u32, anchor: &'static str) -> Grounded<StepOutcome> {
     Grounded::known(
         StepOutcome {
             expected_status: Some(status),
@@ -321,7 +316,7 @@ const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
             body_kind: BodyKind::Unknown,
             transition: None,
         },
-        Provenance::source(BRIDGET_MAIN, line),
+        Provenance::source(BRIDGET_MAIN, line, anchor),
     )
 }
 

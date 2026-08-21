@@ -34,9 +34,16 @@ const VIEW_CONFIGURED_NMEA_SOCKETS: UserJourney = UserJourney {
     id: JourneyId::ViewConfiguredNmeaSockets,
     summary: Grounded::known(
         "View configured NMEA input sockets and their MAVLink component mappings",
-        Provenance::doc(ADV, 543),
+        Provenance::doc(
+            ADV,
+            543,
+            "- Setup requires a UDP or TCP socket for the NMEA device to ",
+        ),
     ),
-    visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 533)),
+    visibility: Grounded::known(
+        Visibility::Advanced,
+        Provenance::doc(ADV, 533, "{% pirate() %}"),
+    ),
     services: NMEA_INJECTOR_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::ListNmeaSockets,
@@ -44,19 +51,29 @@ const VIEW_CONFIGURED_NMEA_SOCKETS: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
         Precondition::Software(SoftwareRequirement::AdvancedMode),
-        Provenance::source(NMEA_MENUS, 80),
+        Provenance::source(NMEA_MENUS, 80, "advanced: true,"),
     )]),
     steps: GroundedSet::known(&[
         operator_step(
             "Open the NMEA Injector page from the sidebar",
             None,
-            Provenance::source(NMEA_MENUS, 77),
+            Provenance::source(NMEA_MENUS, 77, "title: 'MAVLink Inspector',"),
             None,
         ),
         operator_step(
             "View configured NMEA sockets with transport kind, port, and MAVLink component ID",
-            Some(sourced_route(HttpMethod::Get, "/socks", Some("v1.0"), 40)),
-            Provenance::source(NMEA_INJECTOR, 138),
+            Some(sourced_route(
+                HttpMethod::Get,
+                "/socks",
+                Some("v1.0"),
+                40,
+                "@app.get(\"/socks\", response_model=List[NMEASocket])",
+            )),
+            Provenance::source(
+                NMEA_INJECTOR,
+                138,
+                "async fetchAvailableNMEASockets(): Promise<void> {",
+            ),
             Some(runtime_outcome(
                 200,
                 Some("[]"),
@@ -78,9 +95,16 @@ const ADD_EXTERNAL_NMEA_GPS_SOCKET: UserJourney = UserJourney {
     id: JourneyId::AddExternalNmeaGpsSocket,
     summary: Grounded::known(
         "Add a UDP or TCP socket so an external NMEA GPS device can inject positions as MAVLink",
-        Provenance::doc(ADV, 539),
+        Provenance::doc(
+            ADV,
+            539,
+            "- Conveys GPS positions (from an NMEA device) to the vehicle",
+        ),
     ),
-    visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 533)),
+    visibility: Grounded::known(
+        Visibility::Advanced,
+        Provenance::doc(ADV, 533, "{% pirate() %}"),
+    ),
     services: NMEA_INJECTOR_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::CreateNmeaSocket,
@@ -89,36 +113,54 @@ const ADD_EXTERNAL_NMEA_GPS_SOCKET: UserJourney = UserJourney {
     preconditions: GroundedSet::known(&[
         GroundedItem::new(
             Precondition::Software(SoftwareRequirement::AdvancedMode),
-            Provenance::source(NMEA_MENUS, 80),
+            Provenance::source(NMEA_MENUS, 80, "advanced: true,"),
         ),
         GroundedItem::new(
             Precondition::Hardware(HardwareRequirement::ExternalNmeaGps),
-            Provenance::doc(ADV, 539),
+            Provenance::doc(
+                ADV,
+                539,
+                "- Conveys GPS positions (from an NMEA device) to the vehicle",
+            ),
         ),
     ]),
     steps: GroundedSet::known(&[
         operator_step(
             "Open the NMEA Injector page from the sidebar",
             None,
-            Provenance::source(NMEA_MENUS, 77),
+            Provenance::source(NMEA_MENUS, 77, "title: 'MAVLink Inspector',"),
             None,
         ),
         operator_step(
             "Click the + button to open the new NMEA socket dialog",
             None,
-            Provenance::source(NMEA_INJECTOR, 86),
+            Provenance::source(NMEA_INJECTOR, 86, "@click=\"openCreationDialog\""),
             None,
         ),
         operator_step(
             "Choose socket kind (UDP or TCP), port, and MAVLink component ID",
             None,
-            Provenance::doc(ADV, 543),
+            Provenance::doc(
+                ADV,
+                543,
+                "- Setup requires a UDP or TCP socket for the NMEA device to ",
+            ),
             None,
         ),
         operator_step(
             "Click Create to add the listening socket",
-            Some(sourced_route(HttpMethod::Post, "/socks", Some("v1.0"), 48)),
-            Provenance::source(NMEA_CREATE_DIALOG, 139),
+            Some(sourced_route(
+                HttpMethod::Post,
+                "/socks",
+                Some("v1.0"),
+                48,
+                "@app.post(",
+            )),
+            Provenance::source(
+                NMEA_CREATE_DIALOG,
+                139,
+                "nmea_injector.createNMEASocket(this.nmea_socket)",
+            ),
             Some(runtime_outcome(
                 201,
                 Some("null"),
@@ -142,9 +184,16 @@ const REMOVE_CONFIGURED_NMEA_SOCKET: UserJourney = UserJourney {
     id: JourneyId::RemoveConfiguredNmeaSocket,
     summary: Grounded::known(
         "Remove a configured NMEA input socket from the NMEA Injector",
-        Provenance::source(NMEA_SOCKET_CARD, 55),
+        Provenance::source(
+            NMEA_SOCKET_CARD,
+            55,
+            "nmea_injector.removeNMEASocket(this.nmeaSocket)",
+        ),
     ),
-    visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 533)),
+    visibility: Grounded::known(
+        Visibility::Advanced,
+        Provenance::doc(ADV, 533, "{% pirate() %}"),
+    ),
     services: NMEA_INJECTOR_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::RemoveNmeaSocket,
@@ -153,24 +202,38 @@ const REMOVE_CONFIGURED_NMEA_SOCKET: UserJourney = UserJourney {
     preconditions: GroundedSet::known(&[
         GroundedItem::new(
             Precondition::Software(SoftwareRequirement::AdvancedMode),
-            Provenance::source(NMEA_MENUS, 80),
+            Provenance::source(NMEA_MENUS, 80, "advanced: true,"),
         ),
         GroundedItem::new(
             Precondition::Data(DataRequirement::NmeaSocketConfigured),
-            Provenance::source(NMEA_INJECTOR, 71),
+            Provenance::source(
+                NMEA_INJECTOR,
+                71,
+                "No NMEA sockets available. You can add a connection by click",
+            ),
         ),
     ]),
     steps: GroundedSet::known(&[
         operator_step(
             "Open the NMEA Injector page from the sidebar",
             None,
-            Provenance::source(NMEA_MENUS, 77),
+            Provenance::source(NMEA_MENUS, 77, "title: 'MAVLink Inspector',"),
             None,
         ),
         operator_step(
             "View the configured NMEA socket to remove",
-            Some(sourced_route(HttpMethod::Get, "/socks", Some("v1.0"), 40)),
-            Provenance::source(NMEA_INJECTOR, 138),
+            Some(sourced_route(
+                HttpMethod::Get,
+                "/socks",
+                Some("v1.0"),
+                40,
+                "@app.get(\"/socks\", response_model=List[NMEASocket])",
+            )),
+            Provenance::source(
+                NMEA_INJECTOR,
+                138,
+                "async fetchAvailableNMEASockets(): Promise<void> {",
+            ),
             Some(runtime_outcome(
                 200,
                 Some("[]"),
@@ -186,8 +249,13 @@ const REMOVE_CONFIGURED_NMEA_SOCKET: UserJourney = UserJourney {
                 "/socks",
                 Some("v1.0"),
                 59,
+                "@app.delete(",
             )),
-            Provenance::source(NMEA_SOCKET_CARD, 55),
+            Provenance::source(
+                NMEA_SOCKET_CARD,
+                55,
+                "nmea_injector.removeNMEASocket(this.nmeaSocket)",
+            ),
             Some(runtime_outcome(
                 200,
                 Some("null"),
@@ -211,7 +279,11 @@ const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<Capabili
 
 const NMEA_INJECTOR_SERVICES: GroundedSet<ServiceId> = GroundedSet::known(&[GroundedItem::new(
     ServiceId::NmeaInjector,
-    Provenance::doc(ADV, 536),
+    Provenance::doc(
+        ADV,
+        536,
+        "{{ service(service=\"NMEA Injector\", port=2748, link=\"/servic",
+    ),
 )]);
 
 const fn route(method: HttpMethod, path: &'static str, version: Option<&'static str>) -> RouteRef {
@@ -228,10 +300,11 @@ const fn sourced_route(
     path: &'static str,
     version: Option<&'static str>,
     line: u32,
+    anchor: &'static str,
 ) -> Grounded<RouteRef> {
     Grounded::known(
         route(method, path, version),
-        Provenance::source(NMEA_MAIN, line),
+        Provenance::source(NMEA_MAIN, line, anchor),
     )
 }
 

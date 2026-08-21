@@ -736,6 +736,7 @@ mod tests {
         Evidence {
             file: "test.rs",
             line: 1,
+            anchor: "",
         }
     }
 
@@ -986,13 +987,16 @@ mod tests {
     fn valid_journey() -> UserJourney {
         UserJourney {
             id: JourneyId::Deploy,
-            summary: Grounded::known("deploy vehicle", Provenance::doc("docs/deploy.md", 1)),
-            visibility: Grounded::known(Visibility::Default, Provenance::doc("docs/deploy.md", 2)),
+            summary: Grounded::known("deploy vehicle", Provenance::doc("docs/deploy.md", 1, "")),
+            visibility: Grounded::known(
+                Visibility::Default,
+                Provenance::doc("docs/deploy.md", 2, ""),
+            ),
             services: GroundedSet::known(
                 const {
                     &[GroundedItem::new(
                         ServiceId::Helper,
-                        Provenance::doc("docs/deploy.md", 3),
+                        Provenance::doc("docs/deploy.md", 3, ""),
                     )]
                 },
             ),
@@ -1000,7 +1004,7 @@ mod tests {
                 const {
                     &[GroundedItem::new(
                         CapabilityId::Deploy,
-                        Provenance::doc("docs/deploy.md", 4),
+                        Provenance::doc("docs/deploy.md", 4, ""),
                     )]
                 },
             ),
@@ -1018,7 +1022,7 @@ mod tests {
                                     path: "/deploy",
                                     version: Some("v1"),
                                 },
-                                Provenance::doc("docs/deploy.md", 5),
+                                Provenance::doc("docs/deploy.md", 5, ""),
                             )),
                             outcome: Some(Grounded::known(
                                 StepOutcome {
@@ -1034,7 +1038,7 @@ mod tests {
                                 Provenance::runtime("tests/baselines/helper.json", "lab"),
                             )),
                         },
-                        Provenance::source("helper/main.py", 10),
+                        Provenance::source("helper/main.py", 10, ""),
                     )]
                 },
             ),
@@ -1098,7 +1102,7 @@ mod tests {
                 const {
                     &[GroundedItem::new(
                         ServiceId::Zenohd,
-                        Provenance::doc("docs/deploy.md", 1),
+                        Provenance::doc("docs/deploy.md", 1, ""),
                     )]
                 },
             ),
@@ -1137,7 +1141,7 @@ mod tests {
                                     path: "/deploy",
                                     version: Some("v1"),
                                 },
-                                Provenance::doc("docs/deploy.md", 5),
+                                Provenance::doc("docs/deploy.md", 5, ""),
                             )),
                             outcome: Some(Grounded::known(
                                 StepOutcome {
@@ -1153,7 +1157,7 @@ mod tests {
                                 Provenance::runtime("tests/baselines/helper.json", "lab"),
                             )),
                         },
-                        Provenance::source("helper/main.py", 10),
+                        Provenance::source("helper/main.py", 10, ""),
                     )]
                 },
             ),
@@ -1183,7 +1187,7 @@ mod tests {
             const {
                 &[GroundedItem::new(
                     CapabilityId::FlashFirmware,
-                    Provenance::doc("docs/deploy.md", 1),
+                    Provenance::doc("docs/deploy.md", 1, ""),
                 )]
             },
         );
@@ -1220,7 +1224,7 @@ mod tests {
                                     path: "/deploy",
                                     version: Some("v1"),
                                 },
-                                Provenance::doc("docs/deploy.md", 5),
+                                Provenance::doc("docs/deploy.md", 5, ""),
                             )),
                             outcome: Some(Grounded::known(
                                 StepOutcome {
@@ -1236,7 +1240,7 @@ mod tests {
                                 Provenance::runtime("tests/baselines/helper.json", "lab"),
                             )),
                         },
-                        Provenance::source("helper/main.py", 10),
+                        Provenance::source("helper/main.py", 10, ""),
                     )]
                 },
             ),
@@ -1275,7 +1279,7 @@ mod tests {
                                     path: "/deploy",
                                     version: Some("v1"),
                                 },
-                                Provenance::doc("docs/deploy.md", 5),
+                                Provenance::doc("docs/deploy.md", 5, ""),
                             )),
                             outcome: Some(Grounded::known(
                                 StepOutcome {
@@ -1291,7 +1295,7 @@ mod tests {
                                 Provenance::runtime("tests/baselines/helper.json", "lab"),
                             )),
                         },
-                        Provenance::source("helper/main.py", 10),
+                        Provenance::source("helper/main.py", 10, ""),
                     )]
                 },
             ),
@@ -1504,13 +1508,13 @@ mod tests {
         let service = empty_service(ServiceId::Helper);
         let journey = UserJourney {
             id: JourneyId::MonitorInternetConnectivity,
-            summary: Grounded::known("test", Provenance::doc("test.md", 1)),
-            visibility: Grounded::known(Visibility::Default, Provenance::doc("test.md", 1)),
+            summary: Grounded::known("test", Provenance::doc("test.md", 1, "")),
+            visibility: Grounded::known(Visibility::Default, Provenance::doc("test.md", 1, "")),
             services: GroundedSet::known(
                 const {
                     &[GroundedItem::new(
                         ServiceId::Helper,
-                        Provenance::doc("test.md", 1),
+                        Provenance::doc("test.md", 1, ""),
                     )]
                 },
             ),
@@ -1529,7 +1533,7 @@ mod tests {
                                     path: "/check_internet_access",
                                     version: Some("v1.0"),
                                 },
-                                Provenance::source("helper/main.py", 1),
+                                Provenance::source("helper/main.py", 1, ""),
                             )),
                             outcome: Some(Grounded::known(
                                 StepOutcome {
@@ -1544,7 +1548,7 @@ mod tests {
                                 ),
                             )),
                         },
-                        Provenance::source("helper/main.py", 1),
+                        Provenance::source("helper/main.py", 1, ""),
                     )]
                 },
             ),

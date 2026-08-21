@@ -126,6 +126,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/bag_of_holding/main.py",
             line: 21,
+            anchor: "SERVICE_NAME = \"bag-of-holding\"",
         },
     )]),
     kind: Observed::known(
@@ -133,6 +134,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 144,
+            anchor: "'bag_of_holding',250,0,0,0,\"$SERVICES_PATH/bag_of_holding/ma",
         },
     ),
     entrypoint: Observed::known(
@@ -140,6 +142,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 144,
+            anchor: "'bag_of_holding',250,0,0,0,\"$SERVICES_PATH/bag_of_holding/ma",
         },
     ),
     tmux_name: Observed::known(
@@ -147,6 +150,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 144,
+            anchor: "'bag_of_holding',250,0,0,0,\"$SERVICES_PATH/bag_of_holding/ma",
         },
     ),
     startup_tier: Observed::known(
@@ -154,6 +158,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 124,
+            anchor: "SERVICES=(",
         },
     ),
     resource_limits: Observed::known(
@@ -165,6 +170,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 144,
+            anchor: "'bag_of_holding',250,0,0,0,\"$SERVICES_PATH/bag_of_holding/ma",
         },
     ),
     nice: Observed::unknown("no nice prefix in start tuple"),
@@ -173,6 +179,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 144,
+            anchor: "'bag_of_holding',250,0,0,0,\"$SERVICES_PATH/bag_of_holding/ma",
         },
     ),
     nginx_prefixes: ObservedSet::known(&[Evidenced::new(
@@ -180,6 +187,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/tools/nginx/nginx.conf",
             line: 86,
+            anchor: "location /bag/ {",
         },
     )]),
     listen: ObservedSet::known(&[Evidenced::new(
@@ -187,6 +195,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/bag_of_holding/main.py",
             line: 124,
+            anchor: "config = Config(app=app, host=\"0.0.0.0\", port=9101, log_conf",
         },
     )]),
     git_path: Observed::known(
@@ -194,6 +203,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/bag_of_holding/main.py",
             line: 1,
+            anchor: "#! /usr/bin/env python3",
         },
     ),
     interfaces: ObservedSet::known(&[
@@ -206,6 +216,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/bag_of_holding/main.py",
                 line: 105,
+                anchor: "app = VersionedFastAPI(app, version=\"1.0.0\", prefix_format=\"",
             },
         ),
         Evidenced::new(
@@ -216,6 +227,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/bag_of_holding/main.py",
                 line: 22,
+                anchor: "FILE_PATH = Path(appdirs.user_config_dir(SERVICE_NAME, \"db.j",
             },
         ),
         Evidenced::new(
@@ -226,6 +238,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                 line: 78,
+                anchor: "topic = f\"services/{service_name}/log\"",
             },
         ),
     ]),
@@ -237,6 +250,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/bag_of_holding/main.py",
             line: 61,
+            anchor: "with open(FILE_PATH, \"w\", encoding=\"utf-8\") as f:",
         },
     )]),
     lifecycle: Observed::known(
@@ -275,6 +289,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 326,
+            anchor: "for TUPLE in \"${SERVICES[@]}\"; do",
         },
     ),
     logs_path: Observed::unknown(
@@ -285,6 +300,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
             line: 78,
+            anchor: "topic = f\"services/{service_name}/log\"",
         },
     ),
     sentry: Observed::known(
@@ -292,6 +308,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/bag_of_holding/main.py",
             line: 121,
+            anchor: "await init_sentry_async(SERVICE_NAME)",
         },
     ),
     openapi_refs: ObservedSet::unknown("not yet extracted"),

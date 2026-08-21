@@ -10,6 +10,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 132,
+                anchor: "path: '/tools/extensions-manager',",
             },
         ),
         name: Observed::known(
@@ -17,6 +18,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 133,
+                anchor: "name: 'Extension Manager',",
             },
         ),
         component: Observed::known(
@@ -24,6 +26,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 134,
+                anchor: "component: defineAsyncComponent(() => import('../views/Exten",
             },
         ),
         menu_title: Observed::known(
@@ -31,6 +34,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 11,
+                anchor: "title: 'Autopilot Parameters',",
             },
         ),
         advanced_only: Observed::unknown("menus.ts entry has no advanced field"),
@@ -40,6 +44,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/parameter-editor/ParameterEditor.vue",
                     line: 162,
+                    anchor: "import autopilot_data from '@/store/autopilot'",
                 },
             ),
             Evidenced::new(
@@ -47,6 +52,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/parameter-editor/ParameterEditor.vue",
                     line: 163,
+                    anchor: "import autopilot from '@/store/autopilot_manager'",
                 },
             ),
         ]),
@@ -60,6 +66,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/libs/MAVLink2Rest/index.ts",
                     line: 243,
+                    anchor: "setParam(name: string, value: number, sysid: number, type?: ",
                 },
             ),
             Evidenced::new(
@@ -71,6 +78,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/parameter-editor/ParameterEditorDialog.vue",
                     line: 119,
+                    anchor: "await AutopilotManager.restart()",
                 },
             ),
         ]),

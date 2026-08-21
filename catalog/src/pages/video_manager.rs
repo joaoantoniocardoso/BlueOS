@@ -10,6 +10,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 62,
+                anchor: "path: '/tools/version-chooser',",
             },
         ),
         name: Observed::known(
@@ -17,6 +18,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 63,
+                anchor: "name: 'Version Chooser',",
             },
         ),
         component: Observed::known(
@@ -24,6 +26,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 64,
+                anchor: "component: defineAsyncComponent(() => import('../views/Versi",
             },
         ),
         menu_title: Observed::known(
@@ -31,6 +34,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 128,
+                anchor: "title: 'Vehicle Setup',",
             },
         ),
         advanced_only: Observed::known(
@@ -38,6 +42,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 131,
+                anchor: "advanced: false,",
             },
         ),
         stores: ObservedSet::known(&[
@@ -46,6 +51,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/video-manager/VideoManager.vue",
                     line: 92,
+                    anchor: "import video from '@/store/video'",
                 },
             ),
             Evidenced::new(
@@ -53,6 +59,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/video-manager/VideoManager.vue",
                     line: 91,
+                    anchor: "import commander from '@/store/commander'",
                 },
             ),
             Evidenced::new(
@@ -60,6 +67,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/video-manager/VideoDiagnosticHelper.vue",
                     line: 29,
+                    anchor: "import beacon from '@/store/beacon'",
                 },
             ),
         ]),
@@ -73,6 +81,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/video.ts",
                     line: 144,
+                    anchor: "url: `${this.API_URL}/v4l`,",
                 },
             ),
             Evidenced::new(
@@ -84,6 +93,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/video.ts",
                     line: 168,
+                    anchor: "url: `${this.API_URL}/streams`,",
                 },
             ),
             Evidenced::new(
@@ -95,6 +105,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/video.ts",
                     line: 120,
+                    anchor: "url: `${this.API_URL}/streams`,",
                 },
             ),
             Evidenced::new(
@@ -106,6 +117,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/video.ts",
                     line: 102,
+                    anchor: "url: `${this.API_URL}/delete_stream`,",
                 },
             ),
             Evidenced::new(
@@ -117,6 +129,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/video.ts",
                     line: 204,
+                    anchor: "url: `${this.API_URL}/thumbnail?source=${source}&quality=${q",
                 },
             ),
             Evidenced::new(
@@ -128,6 +141,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/video-manager/VideoControlsDialog.vue",
                     line: 190,
+                    anchor: "url: `${video.API_URL}/v4l`,",
                 },
             ),
             Evidenced::new(
@@ -139,6 +153,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/video.ts",
                     line: 252,
+                    anchor: "url: `${this.API_URL}/block_source`,",
                 },
             ),
             Evidenced::new(
@@ -150,6 +165,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/video.ts",
                     line: 270,
+                    anchor: "url: `${this.API_URL}/unblock_source`,",
                 },
             ),
             Evidenced::new(
@@ -161,6 +177,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/video.ts",
                     line: 287,
+                    anchor: "url: `${this.API_URL}/reset_settings`,",
                 },
             ),
             Evidenced::new(
@@ -172,6 +189,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/video-manager/VideoStream.vue",
                     line: 311,
+                    anchor: "back_axios({",
                 },
             ),
             Evidenced::new(
@@ -183,6 +201,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/commander.ts",
                     line: 115,
+                    anchor: "url: `${this.API_URL}/raspi_config/camera_legacy`,",
                 },
             ),
             Evidenced::new(
@@ -194,6 +213,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/commander.ts",
                     line: 134,
+                    anchor: "url: `${this.API_URL}/raspi_config/camera_legacy`,",
                 },
             ),
         ]),

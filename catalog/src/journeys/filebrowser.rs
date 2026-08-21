@@ -16,11 +16,11 @@ const MANAGE_BLUEOS_FILES: UserJourney =
         id: JourneyId::ManageBlueosFiles,
         summary: Grounded::known(
             "View, edit, download, and upload BlueOS files using the web File Browser",
-            Provenance::doc(ADV, 431),
+            Provenance::doc(ADV, 431, "The File Browser allows viewing, editing, downloading, and u"),
         ),
         visibility: Grounded::known(
             Visibility::Advanced,
-            Provenance::source(FILE_BROWSER_MENUS, 42),
+            Provenance::source(FILE_BROWSER_MENUS, 42, "advanced: true,"),
         ),
         services: FILEBROWSER_SERVICES,
         capability_refs: GroundedSet::known(&[cap(CapabilityId::ManageBlueosFiles,
@@ -28,43 +28,43 @@ const MANAGE_BLUEOS_FILES: UserJourney =
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
             Precondition::Software(SoftwareRequirement::AdvancedMode),
-            Provenance::source(FILE_BROWSER_MENUS, 42),
+            Provenance::source(FILE_BROWSER_MENUS, 42, "advanced: true,"),
         )]),
         steps: GroundedSet::known(&[
             operator_step(
                 "Open the File Browser page from the sidebar",
                 None,
-                Provenance::source(FILE_BROWSER_MENUS, 39),
+                Provenance::source(FILE_BROWSER_MENUS, 39, "title: 'Feature Provenance',"),
                 None,
             ),
             operator_step(
                 "Load the embedded filebrowser web app at /file-browser/",
                 None,
-                Provenance::source(FILE_BROWSER_VIEW, 19),
+                Provenance::source(FILE_BROWSER_VIEW, 19, "service_path: '/file-browser/',"),
                 None,
             ),
             operator_step(
                 "View BlueOS files in the browser",
                 None,
-                Provenance::doc(ADV, 431),
+                Provenance::doc(ADV, 431, "The File Browser allows viewing, editing, downloading, and u"),
                 None,
             ),
             operator_step(
                 "Edit BlueOS files in the browser",
                 None,
-                Provenance::doc(ADV, 431),
+                Provenance::doc(ADV, 431, "The File Browser allows viewing, editing, downloading, and u"),
                 None,
             ),
             operator_step(
                 "Download BlueOS files from the browser",
                 None,
-                Provenance::doc(ADV, 431),
+                Provenance::doc(ADV, 431, "The File Browser allows viewing, editing, downloading, and u"),
                 None,
             ),
             operator_step(
                 "Upload files to BlueOS from the browser",
                 None,
-                Provenance::doc(ADV, 431),
+                Provenance::doc(ADV, 431, "The File Browser allows viewing, editing, downloading, and u"),
                 None,
             ),
         ]),
@@ -84,7 +84,11 @@ const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<Capabili
 
 const FILEBROWSER_SERVICES: GroundedSet<ServiceId> = GroundedSet::known(&[GroundedItem::new(
     ServiceId::Filebrowser,
-    Provenance::doc(ADV, 429),
+    Provenance::doc(
+        ADV,
+        429,
+        "{{ service(service=\"File Browser\", port=7777, link=\"https://",
+    ),
 )]);
 
 const fn operator_step(

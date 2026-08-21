@@ -1683,7 +1683,7 @@ mod tests {
     use blueos_catalog::version::FeatureAvailability;
     use blueos_catalog::{BodyKind, RouteRef, ServiceId};
 
-    const DOC: Provenance = Provenance::doc("journey_http_test", 1);
+    const DOC: Provenance = Provenance::doc("journey_http_test", 1, "test");
 
     fn test_journey(blast_radius: BlastRadius) -> UserJourney {
         UserJourney {

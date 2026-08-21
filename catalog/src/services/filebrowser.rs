@@ -126,6 +126,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 137,
+            anchor: "'filebrowser',250,0,0,0,\"nice -19 filebrowser --database /et",
         },
     ),
     entrypoint: Observed::known(
@@ -133,6 +134,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 137,
+            anchor: "'filebrowser',250,0,0,0,\"nice -19 filebrowser --database /et",
         },
     ),
     tmux_name: Observed::known(
@@ -140,6 +142,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 137,
+            anchor: "'filebrowser',250,0,0,0,\"nice -19 filebrowser --database /et",
         },
     ),
     startup_tier: Observed::known(
@@ -147,6 +150,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 124,
+            anchor: "SERVICES=(",
         },
     ),
     resource_limits: Observed::known(
@@ -158,6 +162,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 137,
+            anchor: "'filebrowser',250,0,0,0,\"nice -19 filebrowser --database /et",
         },
     ),
     nice: Observed::known(
@@ -165,6 +170,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 137,
+            anchor: "'filebrowser',250,0,0,0,\"nice -19 filebrowser --database /et",
         },
     ),
     run_as: Observed::known(
@@ -172,6 +178,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 137,
+            anchor: "'filebrowser',250,0,0,0,\"nice -19 filebrowser --database /et",
         },
     ),
     nginx_prefixes: ObservedSet::known(&[Evidenced::new(
@@ -179,6 +186,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/tools/nginx/nginx.conf",
             line: 120,
+            anchor: "location /file-browser/ {",
         },
     )]),
     listen: ObservedSet::known(&[Evidenced::new(
@@ -186,6 +194,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/tools/nginx/nginx.conf",
             line: 121,
+            anchor: "proxy_pass http://127.0.0.1:7777/;",
         },
     )]),
     git_path: Observed::unknown("external filebrowser binary; no source tree in this repository"),
@@ -198,6 +207,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/tools/nginx/nginx.conf",
             line: 121,
+            anchor: "proxy_pass http://127.0.0.1:7777/;",
         },
     )]),
     resources: ObservedSet::known(&[Evidenced::new(
@@ -208,6 +218,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 137,
+            anchor: "'filebrowser',250,0,0,0,\"nice -19 filebrowser --database /et",
         },
     )]),
     lifecycle: Observed::known(
@@ -246,6 +257,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 326,
+            anchor: "for TUPLE in \"${SERVICES[@]}\"; do",
         },
     ),
     logs_path: Observed::unknown(

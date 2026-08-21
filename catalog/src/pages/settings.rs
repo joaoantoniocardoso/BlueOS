@@ -10,6 +10,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 142,
+                anchor: "path: '/tools/zenoh-inspector',",
             },
         ),
         name: Observed::known(
@@ -17,6 +18,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 143,
+                anchor: "name: 'Zenoh Inspector',",
             },
         ),
         component: Observed::known(
@@ -24,6 +26,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 144,
+                anchor: "component: defineAsyncComponent(() => import('../views/Zenoh",
             },
         ),
         menu_title: Observed::unknown("not in menu"),
@@ -34,6 +37,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/SettingsView.vue",
                     line: 503,
+                    anchor: "import settings from '@/libs/settings'",
                 },
             ),
             Evidenced::new(
@@ -41,6 +45,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/customization/ThemeCustomization.vue",
                     line: 245,
+                    anchor: "import customization_store from '@/store/customization'",
                 },
             ),
             Evidenced::new(
@@ -48,6 +53,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/SettingsView.vue",
                     line: 506,
+                    anchor: "import commander from '@/store/commander'",
                 },
             ),
         ]),
@@ -61,6 +67,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/settings.ts",
                     line: 106,
+                    anchor: "await bag.setData('settings', SettingsStore.state)",
                 },
             ),
             Evidenced::new(
@@ -72,6 +79,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/SettingsView.vue",
                     line: 773,
+                    anchor: "await bag.setData('wizard', payload)",
                 },
             ),
             Evidenced::new(
@@ -83,6 +91,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/SettingsView.vue",
                     line: 614,
+                    anchor: "url: `${API_URL}/services/check_log_folder_size`,",
                 },
             ),
             Evidenced::new(
@@ -94,6 +103,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/SettingsView.vue",
                     line: 632,
+                    anchor: "url: `${API_URL}/services/check_mavlink_log_folder_size`,",
                 },
             ),
             Evidenced::new(
@@ -105,6 +115,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/SettingsView.vue",
                     line: 701,
+                    anchor: "url: `${API_URL}/services/remove_log_stream`,",
                 },
             ),
             Evidenced::new(
@@ -116,6 +127,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/SettingsView.vue",
                     line: 749,
+                    anchor: "url: `${API_URL}/services/remove_mavlink_log`,",
                 },
             ),
             Evidenced::new(
@@ -127,6 +139,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/SettingsView.vue",
                     line: 669,
+                    anchor: "url: `${API_URL}/settings/reset`,",
                 },
             ),
             Evidenced::new(
@@ -138,6 +151,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/SettingsView.vue",
                     line: 688,
+                    anchor: "commander.shutdown(ShutdownType.Reboot)",
                 },
             ),
             Evidenced::new(
@@ -149,6 +163,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/SettingsView.vue",
                     line: 600,
+                    anchor: "const folder = await filebrowser.fetchFolder('system_logs')",
                 },
             ),
             Evidenced::new(
@@ -160,6 +175,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/SettingsView.vue",
                     line: 608,
+                    anchor: "const folder = await filebrowser.fetchFolder('ardupilot_logs",
                 },
             ),
             Evidenced::new(
@@ -171,6 +187,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/customization.ts",
                     line: 124,
+                    anchor: "const response = await back_axios({ method: 'get', url: `${A",
                 },
             ),
             Evidenced::new(
@@ -182,6 +199,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/customization.ts",
                     line: 137,
+                    anchor: "url: `${API_URL}/theme`,",
                 },
             ),
             Evidenced::new(
@@ -193,6 +211,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/customization.ts",
                     line: 154,
+                    anchor: "await back_axios({ method: 'delete', url: `${API_URL}/theme`",
                 },
             ),
             Evidenced::new(
@@ -204,6 +223,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/customization.ts",
                     line: 167,
+                    anchor: "const response = await back_axios({ method: 'get', url: `${A",
                 },
             ),
             Evidenced::new(
@@ -215,6 +235,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/customization.ts",
                     line: 182,
+                    anchor: "url: `${API_URL}/models`,",
                 },
             ),
             Evidenced::new(
@@ -226,6 +247,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/customization.ts",
                     line: 203,
+                    anchor: "url: `${API_URL}/models/${encoded_name}`,",
                 },
             ),
             Evidenced::new(
@@ -237,6 +259,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/customization.ts",
                     line: 215,
+                    anchor: "const response = await back_axios({ method: 'get', url: `${A",
                 },
             ),
             Evidenced::new(
@@ -248,6 +271,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/customization.ts",
                     line: 230,
+                    anchor: "url: `${API_URL}/branding/logo`,",
                 },
             ),
             Evidenced::new(
@@ -259,6 +283,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/customization.ts",
                     line: 246,
+                    anchor: "await back_axios({ method: 'delete', url: `${API_URL}/brandi",
                 },
             ),
             Evidenced::new(
@@ -270,6 +295,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/customization.ts",
                     line: 258,
+                    anchor: "url: `${API_URL}/branding/vehicle-image`,",
                 },
             ),
             Evidenced::new(
@@ -281,6 +307,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/customization.ts",
                     line: 275,
+                    anchor: "url: `${API_URL}/branding/vehicle-image`,",
                 },
             ),
             Evidenced::new(
@@ -292,6 +319,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/customization.ts",
                     line: 293,
+                    anchor: "url: `${API_URL}/branding/vehicle-image`,",
                 },
             ),
         ]),

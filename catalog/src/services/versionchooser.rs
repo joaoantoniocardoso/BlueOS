@@ -126,6 +126,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/start-blueos-core",
                 line: 138,
+                anchor: "'versionchooser',0,0,0,0,\"$BLUEOS_PYTHON_BIN_SECONDARY $SERV",
             },
         ),
         Evidenced::new(
@@ -133,6 +134,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/versionchooser/main.py",
                 line: 12,
+                anchor: "SERVICE_NAME = \"version-chooser\"",
             },
         ),
     ]),
@@ -141,6 +143,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 138,
+            anchor: "'versionchooser',0,0,0,0,\"$BLUEOS_PYTHON_BIN_SECONDARY $SERV",
         },
     ),
     entrypoint: Observed::known(
@@ -148,6 +151,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 138,
+            anchor: "'versionchooser',0,0,0,0,\"$BLUEOS_PYTHON_BIN_SECONDARY $SERV",
         },
     ),
     tmux_name: Observed::known(
@@ -155,6 +159,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 138,
+            anchor: "'versionchooser',0,0,0,0,\"$BLUEOS_PYTHON_BIN_SECONDARY $SERV",
         },
     ),
     startup_tier: Observed::known(
@@ -162,6 +167,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 124,
+            anchor: "SERVICES=(",
         },
     ),
     resource_limits: Observed::known(
@@ -173,6 +179,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 138,
+            anchor: "'versionchooser',0,0,0,0,\"$BLUEOS_PYTHON_BIN_SECONDARY $SERV",
         },
     ),
     nice: Observed::unknown("no nice prefix in start tuple"),
@@ -181,6 +188,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 138,
+            anchor: "'versionchooser',0,0,0,0,\"$BLUEOS_PYTHON_BIN_SECONDARY $SERV",
         },
     ),
     nginx_prefixes: ObservedSet::known(&[Evidenced::new(
@@ -188,6 +196,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/tools/nginx/nginx.conf",
             line: 220,
+            anchor: "location /version-chooser/ {",
         },
     )]),
     listen: ObservedSet::known(&[Evidenced::new(
@@ -195,6 +204,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/versionchooser/args.py",
             line: 26,
+            anchor: "parser.add_argument(\"--port\", type=int, default=8081, help=\"",
         },
     )]),
     git_path: Observed::known(
@@ -202,6 +212,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/versionchooser/main.py",
             line: 1,
+            anchor: "#! /usr/bin/env python3",
         },
     ),
     interfaces: ObservedSet::known(&[
@@ -214,6 +225,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/versionchooser/api/app.py",
                 line: 30,
+                anchor: "application = VersionedFastAPI(application, prefix_format=\"/",
             },
         ),
         Evidenced::new(
@@ -223,6 +235,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/versionchooser/utils/dockerhub.py",
                 line: 49,
+                anchor: "index_url: str = \"https://index.docker.io\"",
             },
         ),
         Evidenced::new(
@@ -232,6 +245,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/versionchooser/utils/dockerhub.py",
                 line: 50,
+                anchor: "docker_url: str = \"https://hub.docker.com/\"",
             },
         ),
         Evidenced::new(
@@ -241,6 +255,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/versionchooser/utils/dockerhub.py",
                 line: 99,
+                anchor: "self.last_token = await self._get_token(auth_url=\"https://au",
             },
         ),
         Evidenced::new(
@@ -250,6 +265,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/versionchooser/utils/chooser.py",
                 line: 16,
+                anchor: "DOCKER_CONFIG_PATH = pathlib.Path(appdirs.user_config_dir(\"b",
             },
         ),
         Evidenced::new(
@@ -260,6 +276,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/versionchooser/api/v1/routers/version.py",
                 line: 23,
+                anchor: "async with aiodocker.Docker() as docker_client:",
             },
         ),
         Evidenced::new(
@@ -270,6 +287,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/versionchooser/docker_login.py",
                 line: 14,
+                anchor: "DOCKER_ROOT_CONFIG_FILE = os.path.join(DOCKER_ROOT_CONFIG_DI",
             },
         ),
         Evidenced::new(
@@ -280,6 +298,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/versionchooser/docker_login.py",
                 line: 13,
+                anchor: "DOCKER_USER_CONFIG_FILE = os.path.join(DOCKER_USER_CONFIG_DI",
             },
         ),
         Evidenced::new(
@@ -290,6 +309,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                 line: 78,
+                anchor: "topic = f\"services/{service_name}/log\"",
             },
         ),
     ]),
@@ -302,6 +322,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/versionchooser/api/v1/routers/version.py",
                 line: 23,
+                anchor: "async with aiodocker.Docker() as docker_client:",
             },
         ),
         Evidenced::new(
@@ -312,6 +333,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/versionchooser/utils/chooser.py",
                 line: 16,
+                anchor: "DOCKER_CONFIG_PATH = pathlib.Path(appdirs.user_config_dir(\"b",
             },
         ),
         Evidenced::new(
@@ -322,6 +344,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/versionchooser/docker_login.py",
                 line: 14,
+                anchor: "DOCKER_ROOT_CONFIG_FILE = os.path.join(DOCKER_ROOT_CONFIG_DI",
             },
         ),
         Evidenced::new(
@@ -332,6 +355,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/versionchooser/docker_login.py",
                 line: 13,
+                anchor: "DOCKER_USER_CONFIG_FILE = os.path.join(DOCKER_USER_CONFIG_DI",
             },
         ),
     ]),
@@ -371,6 +395,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 326,
+            anchor: "for TUPLE in \"${SERVICES[@]}\"; do",
         },
     ),
     logs_path: Observed::unknown(
@@ -381,6 +406,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
             line: 78,
+            anchor: "topic = f\"services/{service_name}/log\"",
         },
     ),
     sentry: Observed::known(
@@ -388,6 +414,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/versionchooser/main.py",
             line: 21,
+            anchor: "await init_sentry_async(SERVICE_NAME)",
         },
     ),
     openapi_refs: ObservedSet::unknown("not yet extracted"),

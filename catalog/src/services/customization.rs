@@ -124,6 +124,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/customization/main.py",
             line: 34,
+            anchor: "SERVICE_NAME = \"customization\"",
         },
     )]),
     kind: Observed::known(
@@ -131,6 +132,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 148,
+            anchor: "'customization',250,0,0,0,\"$SERVICES_PATH/customization/main",
         },
     ),
     entrypoint: Observed::known(
@@ -138,6 +140,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 148,
+            anchor: "'customization',250,0,0,0,\"$SERVICES_PATH/customization/main",
         },
     ),
     tmux_name: Observed::known(
@@ -145,6 +148,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 148,
+            anchor: "'customization',250,0,0,0,\"$SERVICES_PATH/customization/main",
         },
     ),
     startup_tier: Observed::known(
@@ -152,6 +156,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 124,
+            anchor: "SERVICES=(",
         },
     ),
     resource_limits: Observed::known(
@@ -163,6 +168,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 148,
+            anchor: "'customization',250,0,0,0,\"$SERVICES_PATH/customization/main",
         },
     ),
     nice: Observed::unknown("no nice prefix in start tuple"),
@@ -171,6 +177,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 148,
+            anchor: "'customization',250,0,0,0,\"$SERVICES_PATH/customization/main",
         },
     ),
     nginx_prefixes: ObservedSet::known(&[Evidenced::new(
@@ -178,6 +185,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/tools/nginx/nginx.conf",
             line: 145,
+            anchor: "location /customization/ {",
         },
     )]),
     listen: ObservedSet::known(&[Evidenced::new(
@@ -185,6 +193,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/customization/main.py",
             line: 35,
+            anchor: "PORT = 9152",
         },
     )]),
     git_path: Observed::known(
@@ -192,6 +201,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/customization/main.py",
             line: 1,
+            anchor: "#! /usr/bin/env python3",
         },
     ),
     interfaces: ObservedSet::known(&[
@@ -204,6 +214,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/customization/main.py",
                 line: 328,
+                anchor: "prefix_format=\"/v{major}.{minor}\",",
             },
         ),
         Evidenced::new(
@@ -213,6 +224,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/customization/storage.py",
                 line: 10,
+                anchor: "THEME_CONFIG_FILE = STYLES_DIR / \"theme_config.json\"",
             },
         ),
         Evidenced::new(
@@ -223,6 +235,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/customization/storage.py",
                 line: 9,
+                anchor: "THEME_FILE = STYLES_DIR / \"theme_style.css\"",
             },
         ),
         Evidenced::new(
@@ -233,6 +246,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/customization/storage.py",
                 line: 6,
+                anchor: "MODELS_DIR = USERDATA / \"modeloverrides\"",
             },
         ),
         Evidenced::new(
@@ -243,6 +257,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/customization/storage.py",
                 line: 7,
+                anchor: "BRANDING_DIR = USERDATA / \"branding\"",
             },
         ),
         Evidenced::new(
@@ -253,6 +268,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                 line: 78,
+                anchor: "topic = f\"services/{service_name}/log\"",
             },
         ),
     ]),
@@ -265,6 +281,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/customization/main.py",
                 line: 97,
+                anchor: "THEME_CONFIG_FILE.write_text(json.dumps(config.dict(), inden",
             },
         ),
         Evidenced::new(
@@ -275,6 +292,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/customization/main.py",
                 line: 102,
+                anchor: "THEME_FILE.write_text(render_css(primary), encoding=\"utf-8\")",
             },
         ),
         Evidenced::new(
@@ -285,6 +303,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/customization/storage.py",
                 line: 20,
+                anchor: "for directory in (STYLES_DIR, MODELS_DIR, BRANDING_DIR):",
             },
         ),
         Evidenced::new(
@@ -295,6 +314,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/customization/storage.py",
                 line: 20,
+                anchor: "for directory in (STYLES_DIR, MODELS_DIR, BRANDING_DIR):",
             },
         ),
     ]),
@@ -333,6 +353,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 326,
+            anchor: "for TUPLE in \"${SERVICES[@]}\"; do",
         },
     ),
     logs_path: Observed::unknown(
@@ -343,6 +364,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
             line: 78,
+            anchor: "topic = f\"services/{service_name}/log\"",
         },
     ),
     sentry: Observed::known(
@@ -350,6 +372,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/customization/main.py",
             line: 340,
+            anchor: "await init_sentry_async(SERVICE_NAME)",
         },
     ),
     openapi_refs: ObservedSet::unknown("not yet extracted"),

@@ -10,6 +10,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 37,
+                anchor: "path: '/vehicle/endpoints',",
             },
         ),
         name: Observed::known(
@@ -17,6 +18,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 38,
+                anchor: "name: 'Endpoints',",
             },
         ),
         component: Observed::known(
@@ -24,6 +26,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 39,
+                anchor: "component: defineAsyncComponent(() => import('../views/Endpo",
             },
         ),
         menu_title: Observed::known(
@@ -31,6 +34,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 62,
+                anchor: "icon: 'mdi-math-log',",
             },
         ),
         advanced_only: Observed::known(
@@ -38,6 +42,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 65,
+                anchor: "text: 'Allow browsing the Telemetry (.tlog) and Binary (.bin",
             },
         ),
         stores: ObservedSet::known(&[
@@ -46,6 +51,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/autopilot/EndpointManager.vue",
                     line: 129,
+                    anchor: "import autopilot_data from '@/store/autopilot'",
                 },
             ),
             Evidenced::new(
@@ -53,6 +59,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/autopilot/EndpointManager.vue",
                     line: 130,
+                    anchor: "import autopilot from '@/store/autopilot_manager'",
                 },
             ),
         ]),
@@ -66,6 +73,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/autopilot/AutopilotManagerUpdater.ts",
                     line: 32,
+                    anchor: "const response = await back_axios({",
                 },
             ),
             Evidenced::new(
@@ -77,6 +85,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/autopilot/AutopilotManagerUpdater.ts",
                     line: 59,
+                    anchor: "await back_axios({",
                 },
             ),
             Evidenced::new(
@@ -88,6 +97,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/autopilot/EndpointManager.vue",
                     line: 202,
+                    anchor: "back_axios({",
                 },
             ),
             Evidenced::new(
@@ -99,6 +109,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/autopilot/EndpointManager.vue",
                     line: 215,
+                    anchor: "back_axios({",
                 },
             ),
             Evidenced::new(
@@ -110,6 +121,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/autopilot/EndpointManager.vue",
                     line: 229,
+                    anchor: "await back_axios({",
                 },
             ),
             Evidenced::new(
@@ -121,6 +133,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/autopilot/EndpointManager.vue",
                     line: 246,
+                    anchor: "await back_axios({",
                 },
             ),
             Evidenced::new(
@@ -132,6 +145,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/autopilot/EndpointCard.vue",
                     line: 188,
+                    anchor: "await back_axios({",
                 },
             ),
             Evidenced::new(
@@ -143,6 +157,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/autopilot/EndpointCard.vue",
                     line: 167,
+                    anchor: "await back_axios({",
                 },
             ),
         ]),

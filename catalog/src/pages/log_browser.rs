@@ -10,6 +10,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 32,
+                anchor: "path: '/vehicle/logs',",
             },
         ),
         name: Observed::known(
@@ -17,6 +18,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 33,
+                anchor: "name: 'Log Browser',",
             },
         ),
         component: Observed::known(
@@ -24,6 +26,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 34,
+                anchor: "component: defineAsyncComponent(() => import('../views/LogVi",
             },
         ),
         menu_title: Observed::known(
@@ -31,6 +34,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 54,
+                anchor: "title: 'Disk',",
             },
         ),
         advanced_only: Observed::known(
@@ -38,6 +42,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 57,
+                anchor: "advanced: true,",
             },
         ),
         stores: ObservedSet::known(&[]),
@@ -51,6 +56,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/libs/filebrowser.ts",
                     line: 22,
+                    anchor: "await back_axios({",
                 },
             ),
             Evidenced::new(
@@ -62,6 +68,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/libs/filebrowser.ts",
                     line: 55,
+                    anchor: "return back_axios({",
                 },
             ),
             Evidenced::new(
@@ -73,6 +80,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/libs/filebrowser.ts",
                     line: 111,
+                    anchor: "await back_axios({",
                 },
             ),
             Evidenced::new(
@@ -84,6 +92,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/libs/filebrowser.ts",
                     line: 161,
+                    anchor: "url = await this.singleFileRelativeURL(files[0])",
                 },
             ),
         ]),

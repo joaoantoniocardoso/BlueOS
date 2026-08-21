@@ -20,40 +20,40 @@ const ACCESS_WEB_TERMINAL: UserJourney =
         summary: Grounded::known(
             "Access a web-based terminal with tmux session and direct access into the core BlueOS docker container"
                 ,
-            Provenance::doc(ADV, 623),
+            Provenance::doc(ADV, 623, "The Terminal provides"),
         ),
-        visibility: Grounded::known(Visibility::Advanced, Provenance::source(TERMINAL_MENUS, 117)),
+        visibility: Grounded::known(Visibility::Advanced, Provenance::source(TERMINAL_MENUS, 117, "advanced: false,")),
         services: TTYD_SERVICES,
         capability_refs: GroundedSet::known(&[cap(CapabilityId::AccessWebTerminal,
             "Terminal page embeds ttyd web terminal over WebSocket at /terminal/ attached to user_terminal tmux",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
             Precondition::Software(SoftwareRequirement::AdvancedMode),
-            Provenance::source(TERMINAL_MENUS, 117),
+            Provenance::source(TERMINAL_MENUS, 117, "advanced: false,"),
         )]),
         steps: GroundedSet::known(&[
             operator_step(
                 "Open the Terminal page from the sidebar",
                 None,
-                Provenance::source(TERMINAL_MENUS, 114),
+                Provenance::source(TERMINAL_MENUS, 114, "title: 'System Information',"),
                 None,
             ),
             operator_step(
                 "Load the embedded web terminal connecting to /terminal/",
                 None,
-                Provenance::source(TERMINAL_VIEW, 19),
+                Provenance::source(TERMINAL_VIEW, 19, "service_path: '/terminal/',"),
                 None,
             ),
             operator_step(
                 "Connect over WebSocket to /terminal/ proxied to ttyd on port 8088",
                 None,
-                Provenance::source(NGINX, 216),
+                Provenance::source(NGINX, 216, "proxy_set_header Upgrade $http_upgrade;"),
                 None,
             ),
             operator_step(
                 "Use the interactive Linux shell attached to the persistent user_terminal tmux session",
                 None,
-                Provenance::doc(OVERVIEW, 125),
+                Provenance::doc(OVERVIEW, 125, "| [**Web Terminal**](../advanced/#terminal) | &rarr; | &rarr"),
                 Some(live_outcome(
                     "interactive terminal session cannot be captured by a simple HTTP probe",
                 )),
@@ -75,7 +75,11 @@ const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<Capabili
 
 const TTYD_SERVICES: GroundedSet<ServiceId> = GroundedSet::known(&[GroundedItem::new(
     ServiceId::Ttyd,
-    Provenance::doc(ADV, 620),
+    Provenance::doc(
+        ADV,
+        620,
+        "{{ service(service=\"ttyd\" link=\"https://tsl0922.github.io/tt",
+    ),
 )]);
 
 const fn live_outcome(reason: &'static str) -> Grounded<StepOutcome> {

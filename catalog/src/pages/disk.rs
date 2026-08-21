@@ -10,6 +10,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 47,
+                anchor: "path: '/tools/file-browser/:path*',",
             },
         ),
         name: Observed::known(
@@ -17,6 +18,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 48,
+                anchor: "name: 'File Browser',",
             },
         ),
         component: Observed::known(
@@ -24,6 +26,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 49,
+                anchor: "component: defineAsyncComponent(() => import('../views/FileB",
             },
         ),
         menu_title: Observed::known(
@@ -31,6 +34,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 47,
+                anchor: "icon: 'mdi-file-tree',",
             },
         ),
         advanced_only: Observed::known(
@@ -38,6 +42,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 50,
+                anchor: "text: 'Browse all the files in BlueOS. Useful for fetching l",
             },
         ),
         stores: ObservedSet::known(&[
@@ -46,6 +51,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/Disk.vue",
                     line: 240,
+                    anchor: "import disk_store from '@/store/disk'",
                 },
             ),
             Evidenced::new(
@@ -53,6 +59,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/disk/DiskSpeedGraph.vue",
                     line: 13,
+                    anchor: "import settingsStore from '@/store/settings'",
                 },
             ),
         ]),
@@ -66,6 +73,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/disk.ts",
                     line: 87,
+                    anchor: "await back_axios({",
                 },
             ),
             Evidenced::new(
@@ -77,6 +85,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/disk.ts",
                     line: 115,
+                    anchor: "await back_axios({",
                 },
             ),
             Evidenced::new(
@@ -88,6 +97,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/disk.ts",
                     line: 192,
+                    anchor: "await back_axios({",
                 },
             ),
         ]),

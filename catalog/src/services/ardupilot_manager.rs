@@ -274,6 +274,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/start-blueos-core",
                 line: 118,
+                anchor: "'autopilot',0,0,0,0,\"nice --19 $SERVICES_PATH/ardupilot_mana",
             },
         ),
         Evidenced::new(
@@ -281,6 +282,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/ardupilot_manager/settings.py",
                 line: 10,
+                anchor: "SERVICE_NAME = \"ardupilot-manager\"",
             },
         ),
     ]),
@@ -289,6 +291,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 118,
+            anchor: "'autopilot',0,0,0,0,\"nice --19 $SERVICES_PATH/ardupilot_mana",
         },
     ),
     entrypoint: Observed::known(
@@ -296,6 +299,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 118,
+            anchor: "'autopilot',0,0,0,0,\"nice --19 $SERVICES_PATH/ardupilot_mana",
         },
     ),
     tmux_name: Observed::known(
@@ -303,6 +307,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 118,
+            anchor: "'autopilot',0,0,0,0,\"nice --19 $SERVICES_PATH/ardupilot_mana",
         },
     ),
     startup_tier: Observed::known(
@@ -310,6 +315,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 117,
+            anchor: "PRIORITY_SERVICES=(",
         },
     ),
     resource_limits: Observed::known(
@@ -321,6 +327,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 118,
+            anchor: "'autopilot',0,0,0,0,\"nice --19 $SERVICES_PATH/ardupilot_mana",
         },
     ),
     nice: Observed::known(
@@ -328,6 +335,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 118,
+            anchor: "'autopilot',0,0,0,0,\"nice --19 $SERVICES_PATH/ardupilot_mana",
         },
     ),
     run_as: Observed::known(
@@ -335,6 +343,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 118,
+            anchor: "'autopilot',0,0,0,0,\"nice --19 $SERVICES_PATH/ardupilot_mana",
         },
     ),
     nginx_prefixes: ObservedSet::known(&[
@@ -343,6 +352,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 76,
+                anchor: "location /ardupilot-manager/ {",
             },
         ),
         Evidenced::new(
@@ -350,6 +360,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 81,
+                anchor: "location /autopilot-manager/ {",
             },
         ),
     ]),
@@ -358,6 +369,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/ardupilot_manager/args.py",
             line: 28,
+            anchor: "parser.add_argument(\"--port\", type=int, default=8000, help=\"",
         },
     )]),
     git_path: Observed::known(
@@ -365,6 +377,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/ardupilot_manager/main.py",
             line: 1,
+            anchor: "#! /usr/bin/env python3",
         },
     ),
     interfaces: ObservedSet::known(&[
@@ -377,6 +390,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 76,
+                anchor: "location /ardupilot-manager/ {",
             },
         ),
         Evidenced::new(
@@ -388,6 +402,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 81,
+                anchor: "location /autopilot-manager/ {",
             },
         ),
         Evidenced::new(
@@ -398,6 +413,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/ardupilot_manager/autopilot_manager.py",
                 line: 56,
+                anchor: "Endpoint(",
             },
         ),
         Evidenced::new(
@@ -408,6 +424,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/ardupilot_manager/autopilot_manager.py",
                 line: 65,
+                anchor: "Endpoint(",
             },
         ),
         Evidenced::new(
@@ -418,6 +435,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/ardupilot_manager/autopilot_manager.py",
                 line: 74,
+                anchor: "Endpoint(",
             },
         ),
         Evidenced::new(
@@ -428,6 +446,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/ardupilot_manager/autopilot_manager.py",
                 line: 83,
+                anchor: "Endpoint(",
             },
         ),
         Evidenced::new(
@@ -438,6 +457,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/ardupilot_manager/autopilot_manager.py",
                 line: 93,
+                anchor: "Endpoint(",
             },
         ),
         Evidenced::new(
@@ -448,6 +468,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/ardupilot_manager/autopilot_manager.py",
                 line: 102,
+                anchor: "Endpoint(",
             },
         ),
         Evidenced::new(
@@ -458,6 +479,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/ardupilot_manager/autopilot_manager.py",
                 line: 111,
+                anchor: "Endpoint(",
             },
         ),
         Evidenced::new(
@@ -468,6 +490,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/ardupilot_manager/autopilot_manager.py",
                 line: 121,
+                anchor: "Endpoint(",
             },
         ),
         Evidenced::new(
@@ -478,6 +501,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/ardupilot_manager/autopilot_manager.py",
                 line: 331,
+                anchor: "master_endpoint = Endpoint(",
             },
         ),
         Evidenced::new(
@@ -488,6 +512,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/ardupilot_manager/autopilot_manager.py",
                 line: 464,
+                anchor: "master_endpoint = Endpoint(",
             },
         ),
         Evidenced::new(
@@ -497,6 +522,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/ardupilot_manager/mavlink_proxy/MAVLinkRouter.py",
                 line: 74,
+                anchor: "return \"mavlink-routerd\"",
             },
         ),
         Evidenced::new(
@@ -506,6 +532,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/ardupilot_manager/mavlink_proxy/MAVLinkServer.py",
                 line: 65,
+                anchor: "return \"mavlink-server\"",
             },
         ),
         Evidenced::new(
@@ -515,6 +542,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/ardupilot_manager/mavlink_proxy/MAVProxy.py",
                 line: 54,
+                anchor: "return \"mavproxy.py\"",
             },
         ),
         Evidenced::new(
@@ -522,6 +550,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/ardupilot_manager/mavlink_proxy/MAVP2P.py",
                 line: 49,
+                anchor: "return \"mavp2p\"",
             },
         ),
         Evidenced::new(
@@ -531,6 +560,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/ardupilot_manager/firmware/FirmwareUpload.py",
                 line: 25,
+                anchor: "return \"ardupilot_fw_uploader.py\"",
             },
         ),
         Evidenced::new(
@@ -540,6 +570,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/ardupilot_manager/firmware/FirmwareDownload.py",
                 line: 26,
+                anchor: "_manifest_remote = \"https://firmware.ardupilot.org/manifest.",
             },
         ),
         Evidenced::new(
@@ -549,6 +580,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/ardupilot_manager/settings.py",
                 line: 16,
+                anchor: "settings_file = Path.joinpath(settings_path, \"settings.json\"",
             },
         ),
         Evidenced::new(
@@ -559,6 +591,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/ardupilot_manager/settings.py",
                 line: 18,
+                anchor: "user_firmware_folder = Path(\"/usr/blueos/userdata/firmware\")",
             },
         ),
         Evidenced::new(
@@ -568,6 +601,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/ardupilot_manager/firmware/FirmwareUpload.py",
                 line: 12,
+                anchor: "self._autopilot_port: pathlib.Path = pathlib.Path(\"/dev/auto",
             },
         ),
         Evidenced::new(
@@ -578,6 +612,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                 line: 78,
+                anchor: "topic = f\"services/{service_name}/log\"",
             },
         ),
     ]),
@@ -590,6 +625,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/ardupilot_manager/firmware/FirmwareUpload.py",
                 line: 12,
+                anchor: "self._autopilot_port: pathlib.Path = pathlib.Path(\"/dev/auto",
             },
         ),
         Evidenced::new(
@@ -600,6 +636,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/ardupilot_manager/settings.py",
                 line: 18,
+                anchor: "user_firmware_folder = Path(\"/usr/blueos/userdata/firmware\")",
             },
         ),
         Evidenced::new(
@@ -610,6 +647,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/ardupilot_manager/settings.py",
                 line: 15,
+                anchor: "settings_path = Path(appdirs.user_config_dir(app_name))",
             },
         ),
     ]),
@@ -626,6 +664,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 318,
+            anchor: "for TUPLE in \"${PRIORITY_SERVICES[@]}\"; do",
         },
     ),
     logs_path: Observed::unknown(
@@ -636,6 +675,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
             line: 78,
+            anchor: "topic = f\"services/{service_name}/log\"",
         },
     ),
     sentry: Observed::known(
@@ -643,6 +683,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/ardupilot_manager/main.py",
             line: 28,
+            anchor: "await init_sentry_async(SERVICE_NAME)",
         },
     ),
     openapi_refs: ObservedSet::unknown("not yet extracted"),

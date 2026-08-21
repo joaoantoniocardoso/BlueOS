@@ -91,6 +91,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 135,
+            anchor: "'iperf3',250,0,0,0,\" iperf3 --server --port 5201\"",
         },
     ),
     entrypoint: Observed::known(
@@ -98,6 +99,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 135,
+            anchor: "'iperf3',250,0,0,0,\" iperf3 --server --port 5201\"",
         },
     ),
     tmux_name: Observed::known(
@@ -105,6 +107,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 135,
+            anchor: "'iperf3',250,0,0,0,\" iperf3 --server --port 5201\"",
         },
     ),
     startup_tier: Observed::known(
@@ -112,6 +115,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 124,
+            anchor: "SERVICES=(",
         },
     ),
     resource_limits: Observed::known(
@@ -123,6 +127,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 135,
+            anchor: "'iperf3',250,0,0,0,\" iperf3 --server --port 5201\"",
         },
     ),
     nice: Observed::unknown("command line has no nice wrapper"),
@@ -131,6 +136,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 135,
+            anchor: "'iperf3',250,0,0,0,\" iperf3 --server --port 5201\"",
         },
     ),
     nginx_prefixes: ObservedSet::known(&[]),
@@ -139,6 +145,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 135,
+            anchor: "'iperf3',250,0,0,0,\" iperf3 --server --port 5201\"",
         },
     )]),
     git_path: Observed::unknown("external iperf3 binary; no source tree in this repository"),
@@ -182,6 +189,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 326,
+            anchor: "for TUPLE in \"${SERVICES[@]}\"; do",
         },
     ),
     logs_path: Observed::unknown(

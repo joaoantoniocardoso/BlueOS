@@ -13,7 +13,7 @@ pub const BLAST_RADIUS_UNKNOWN: Grounded<BlastRadius> = Grounded::known(
     BlastRadius::Unknown {
         reason: "not yet annotated",
     },
-    crate::provenance::Provenance::doc("catalog/extras/qa-harness-improve", 0),
+    crate::provenance::Provenance::asserted("not yet annotated"),
 );
 
 // Every journey must set `availability` from `journey_presence::PRESENCE_*`
@@ -366,7 +366,7 @@ mod tests {
     use crate::provenance::{GroundedItem, Provenance};
     use crate::ui::ui_plan;
 
-    const DOC: Provenance = Provenance::doc("test.md", 1);
+    const DOC: Provenance = Provenance::doc("test.md", 1, "");
 
     const TEST_PRESENCE: FeatureAvailability = FeatureAvailability {
         intro_commit: "0000000000000000000000000000000000000001",

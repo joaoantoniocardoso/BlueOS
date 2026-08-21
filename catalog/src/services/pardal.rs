@@ -140,6 +140,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/pardal/main.py",
             line: 16,
+            anchor: "SERVICE_NAME = \"pardal\"",
         },
     )]),
     kind: Observed::known(
@@ -147,6 +148,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 139,
+            anchor: "'pardal',250,0,0,0,\"nice -19 $SERVICES_PATH/pardal/main.py\"",
         },
     ),
     entrypoint: Observed::known(
@@ -154,6 +156,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 139,
+            anchor: "'pardal',250,0,0,0,\"nice -19 $SERVICES_PATH/pardal/main.py\"",
         },
     ),
     tmux_name: Observed::known(
@@ -161,6 +164,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 139,
+            anchor: "'pardal',250,0,0,0,\"nice -19 $SERVICES_PATH/pardal/main.py\"",
         },
     ),
     startup_tier: Observed::known(
@@ -168,6 +172,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 124,
+            anchor: "SERVICES=(",
         },
     ),
     resource_limits: Observed::known(
@@ -179,6 +184,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 139,
+            anchor: "'pardal',250,0,0,0,\"nice -19 $SERVICES_PATH/pardal/main.py\"",
         },
     ),
     nice: Observed::known(
@@ -186,6 +192,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 139,
+            anchor: "'pardal',250,0,0,0,\"nice -19 $SERVICES_PATH/pardal/main.py\"",
         },
     ),
     run_as: Observed::known(
@@ -193,6 +200,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 139,
+            anchor: "'pardal',250,0,0,0,\"nice -19 $SERVICES_PATH/pardal/main.py\"",
         },
     ),
     nginx_prefixes: ObservedSet::known(&[Evidenced::new(
@@ -200,6 +208,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/tools/nginx/nginx.conf",
             line: 197,
+            anchor: "location /network-test/ {",
         },
     )]),
     listen: ObservedSet::known(&[Evidenced::new(
@@ -207,6 +216,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/pardal/main.py",
             line: 20,
+            anchor: "parser.add_argument(\"-p\", \"--port\", help=\"Port to run web se",
         },
     )]),
     git_path: Observed::known(
@@ -214,6 +224,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/pardal/main.py",
             line: 1,
+            anchor: "#!/usr/bin/env python",
         },
     ),
     interfaces: ObservedSet::known(&[
@@ -226,6 +237,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/pardal/main.py",
                 line: 155,
+                anchor: "site = web.TCPSite(runner, host=\"0.0.0.0\", port=args.port)",
             },
         ),
         Evidenced::new(
@@ -236,6 +248,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/pardal/main.py",
                 line: 147,
+                anchor: "app.add_routes([web.get(\"/ws\", websocket_echo), *routes])",
             },
         ),
         Evidenced::new(
@@ -246,6 +259,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                 line: 78,
+                anchor: "topic = f\"services/{service_name}/log\"",
             },
         ),
     ]),
@@ -286,6 +300,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 326,
+            anchor: "for TUPLE in \"${SERVICES[@]}\"; do",
         },
     ),
     logs_path: Observed::unknown(
@@ -296,6 +311,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
             line: 78,
+            anchor: "topic = f\"services/{service_name}/log\"",
         },
     ),
     sentry: Observed::known(
@@ -303,6 +319,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/pardal/main.py",
             line: 142,
+            anchor: "await init_sentry_async(SERVICE_NAME)",
         },
     ),
     openapi_refs: ObservedSet::unknown("aiohttp service; no OpenAPI or VersionedFastAPI in source"),

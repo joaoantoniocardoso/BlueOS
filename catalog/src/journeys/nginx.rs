@@ -19,9 +19,9 @@ const ACCESS_BLUEOS_WEB_INTERFACE: UserJourney = UserJourney {
     id: JourneyId::AccessBlueosWebInterface,
     summary: Grounded::known(
         "Open the BlueOS web interface in a browser to access and configure vehicle services",
-        Provenance::doc(GETTING, 22),
+        Provenance::doc(GETTING, 22, "BlueOS is designed as a modular collection of services, whic"),
     ),
-    visibility: Grounded::known(Visibility::Default, Provenance::doc(GETTING, 26)),
+    visibility: Grounded::known(Visibility::Default, Provenance::doc(GETTING, 26, "### Interface Access")),
     services: NGINX_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::AccessBlueosWebInterface,
@@ -32,13 +32,13 @@ const ACCESS_BLUEOS_WEB_INTERFACE: UserJourney = UserJourney {
         operator_step(
             "Open the BlueOS web interface in a browser (e.g. http://blueos.local)",
             None,
-            Provenance::doc(GETTING, 29),
+            Provenance::doc(GETTING, 29, "- When BlueOS is connected via a wired connection, it is als"),
             None,
         ),
         service_step(
             "Serve the frontend SPA from /",
-            Some(sourced_route(HttpMethod::Get, "/", None, 268)),
-            Provenance::source(NGINX_CONF, 269),
+            Some(sourced_route(HttpMethod::Get, "/", None, 268, "location / {")),
+            Provenance::source(NGINX_CONF, 269, "root /home/pi/frontend;"),
             Some(runtime_outcome(
                 200,
                 Some("<!DOCTYPE html>"),
@@ -47,8 +47,8 @@ const ACCESS_BLUEOS_WEB_INTERFACE: UserJourney = UserJourney {
         ),
         service_step(
             "Verify the backend is online via GET /status (expects HTTP 204)",
-            Some(sourced_route(HttpMethod::Get, "/status", None, 62)),
-            Provenance::source(API_TS, 23),
+            Some(sourced_route(HttpMethod::Get, "/status", None, 62, "location = /status {")),
+            Provenance::source(API_TS, 23, "// Backend status verification through /status endpoint shou"),
             Some(runtime_outcome(
                 204,
                 None,
@@ -72,7 +72,11 @@ const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<Capabili
 
 const NGINX_SERVICES: GroundedSet<ServiceId> = GroundedSet::known(&[GroundedItem::new(
     ServiceId::Nginx,
-    Provenance::doc(DEV_CORE, 71),
+    Provenance::doc(
+        DEV_CORE,
+        71,
+        "| BlueOS | The main BlueOS interface | - [Dashboard](../../u",
+    ),
 )]);
 
 const fn route(method: HttpMethod, path: &'static str, version: Option<&'static str>) -> RouteRef {
@@ -89,10 +93,11 @@ const fn sourced_route(
     path: &'static str,
     version: Option<&'static str>,
     line: u32,
+    anchor: &'static str,
 ) -> Grounded<RouteRef> {
     Grounded::known(
         route(method, path, version),
-        Provenance::source(NGINX_CONF, line),
+        Provenance::source(NGINX_CONF, line, anchor),
     )
 }
 

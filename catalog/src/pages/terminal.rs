@@ -8,6 +8,7 @@ pub const PAGE: Page = Page {
         Evidence {
             file: "core/frontend/src/router/index.ts",
             line: 52,
+            anchor: "path: '/tools/disk',",
         },
     ),
     name: Observed::known(
@@ -15,6 +16,7 @@ pub const PAGE: Page = Page {
         Evidence {
             file: "core/frontend/src/router/index.ts",
             line: 53,
+            anchor: "name: 'Disk',",
         },
     ),
     component: Observed::known(
@@ -22,6 +24,7 @@ pub const PAGE: Page = Page {
         Evidence {
             file: "core/frontend/src/router/index.ts",
             line: 54,
+            anchor: "component: defineAsyncComponent(() => import('../views/Disk.",
         },
     ),
     menu_title: Observed::known(
@@ -29,6 +32,7 @@ pub const PAGE: Page = Page {
         Evidence {
             file: "core/frontend/src/menus.ts",
             line: 114,
+            anchor: "title: 'System Information',",
         },
     ),
     advanced_only: Observed::known(
@@ -36,6 +40,7 @@ pub const PAGE: Page = Page {
         Evidence {
             file: "core/frontend/src/menus.ts",
             line: 117,
+            anchor: "advanced: false,",
         },
     ),
     stores: ObservedSet::known(&[]),

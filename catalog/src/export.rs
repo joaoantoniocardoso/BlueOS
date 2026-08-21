@@ -136,6 +136,7 @@ mod tests {
                         crate::provenance::Evidence {
                             file: "test.rs",
                             line: 1,
+                            anchor: "",
                         },
                     )]
                 },
@@ -187,8 +188,11 @@ mod tests {
 
         let journey = UserJourney {
             id: JourneyId::Deploy,
-            summary: Grounded::known("deploy vehicle", Provenance::doc("docs/deploy.md", 1)),
-            visibility: Grounded::known(Visibility::Default, Provenance::doc("docs/deploy.md", 2)),
+            summary: Grounded::known("deploy vehicle", Provenance::doc("docs/deploy.md", 1, "")),
+            visibility: Grounded::known(
+                Visibility::Default,
+                Provenance::doc("docs/deploy.md", 2, ""),
+            ),
             services: GroundedSet::known(
                 const {
                     &[GroundedItem::new(
@@ -215,6 +219,7 @@ mod tests {
                                 Provenance::source(
                                     "core/services/ardupilot_manager/api/v1/routers/index.py",
                                     42,
+                                    "",
                                 ),
                             )),
                             outcome: Some(Grounded::known(
@@ -230,7 +235,7 @@ mod tests {
                                 ),
                             )),
                         },
-                        Provenance::source("helper/main.py", 10),
+                        Provenance::source("helper/main.py", 10, ""),
                     )]
                 },
             ),

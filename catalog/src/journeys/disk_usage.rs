@@ -27,9 +27,20 @@ const INSPECT_DISK_USAGE: UserJourney = UserJourney {
     id: JourneyId::InspectDiskUsage,
     summary: Grounded::known(
         "Get the disk usage tree for a given path",
-        Provenance::source(DISK_MAIN, 251),
+        Provenance::source(
+            DISK_MAIN,
+            251,
+            "summary=\"Get disk usage tree for a given path using du.\",",
+        ),
     ),
-    visibility: Grounded::known(Visibility::Advanced, Provenance::source(DISK_MENUS, 50)),
+    visibility: Grounded::known(
+        Visibility::Advanced,
+        Provenance::source(
+            DISK_MENUS,
+            50,
+            "text: 'Browse all the files in BlueOS. Useful for fetching l",
+        ),
+    ),
     services: DISK_USAGE_SERVICES,
     capability_refs: GroundedSet::known(&[
         cap(
@@ -46,7 +57,7 @@ const INSPECT_DISK_USAGE: UserJourney = UserJourney {
         operator_step(
             "Open the Disk page from the sidebar",
             None,
-            Provenance::source(DISK_MENUS, 49),
+            Provenance::source(DISK_MENUS, 49, "advanced: true,"),
             None,
         ),
         operator_step(
@@ -56,8 +67,13 @@ const INSPECT_DISK_USAGE: UserJourney = UserJourney {
                 "/disk/usage",
                 Some("v1.0"),
                 248,
+                "@disk_router.get(",
             )),
-            Provenance::source(DISK_MAIN, 251),
+            Provenance::source(
+                DISK_MAIN,
+                251,
+                "summary=\"Get disk usage tree for a given path using du.\",",
+            ),
             Some(runtime_outcome(
                 200,
                 Some("\"root\": {\"name\": \"/\""),
@@ -71,8 +87,13 @@ const INSPECT_DISK_USAGE: UserJourney = UserJourney {
                 "/disk/usage",
                 Some("v1.0"),
                 248,
+                "@disk_router.get(",
             )),
-            Provenance::source(DISK_MAIN, 255),
+            Provenance::source(
+                DISK_MAIN,
+                255,
+                "path: str = Query(\"/\", description=\"Path to inspect, default",
+            ),
             Some(runtime_outcome(
                 200,
                 Some("\"root\": {\"name\": \"/\""),
@@ -92,9 +113,9 @@ const FREE_DISK_SPACE: UserJourney = UserJourney {
     id: JourneyId::FreeDiskSpace,
     summary: Grounded::known(
         "Delete files/folders from the Disk tool",
-        Provenance::source(DISK_MENUS, 51),
+        Provenance::source(DISK_MENUS, 51, "+ ' tweaking configurations, and development.',"),
     ),
-    visibility: Grounded::known(Visibility::Advanced, Provenance::source(DISK_MENUS, 50)),
+    visibility: Grounded::known(Visibility::Advanced, Provenance::source(DISK_MENUS, 50, "text: 'Browse all the fi")),
     services: DISK_USAGE_SERVICES,
     capability_refs: GroundedSet::known(&[
         cap(
@@ -108,24 +129,19 @@ const FREE_DISK_SPACE: UserJourney = UserJourney {
     ]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
         Precondition::Other("Onboard storage is low or the high disk usage warning is shown"),
-        Provenance::doc(ADV, 179),
+        Provenance::doc(ADV, 179, "- High disk usage"),
     )]),
     steps: GroundedSet::known(&[
         operator_step(
             "Open the Disk page from the sidebar",
             None,
-            Provenance::source(DISK_MENUS, 49),
+            Provenance::source(DISK_MENUS, 49, "advanced: true,"),
             None,
         ),
         operator_step(
             "Browse the disk usage tree to identify files or folders to remove",
-            Some(sourced_route(
-                HttpMethod::Get,
-                "/disk/usage",
-                Some("v1.0"),
-                248,
-            )),
-            Provenance::source(DISK_MAIN, 251),
+            Some(sourced_route(HttpMethod::Get, "/disk/usage", Some("v1.0"), 248, "@disk_router.get(")),
+            Provenance::source(DISK_MAIN, 251, "summary=\"Get disk usage tree for a given path using du.\","),
             Some(runtime_outcome(
                 200,
                 Some("\"root\": {\"name\": \"/\""),
@@ -135,29 +151,19 @@ const FREE_DISK_SPACE: UserJourney = UserJourney {
         operator_step(
             "Select one or more paths to delete",
             None,
-            Provenance::source(DISK_VIEW, 109),
+            Provenance::source(DISK_VIEW, 109, "@click.stop=\"toggleSelection(child.path)\""),
             None,
         ),
         operator_step(
             "Delete the selected paths",
-            Some(sourced_route(
-                HttpMethod::Delete,
-                "/disk/paths/{target_path}",
-                Some("v1.0"),
-                268,
-            )),
-            Provenance::source(DISK_MAIN, 270),
-            Some(source_outcome(204, 270)),
+            Some(sourced_route(HttpMethod::Delete, "/disk/paths/{target_path}", Some("v1.0"), 268, "@disk_router.d")),
+            Provenance::source(DISK_MAIN, 270, "summary=\"Delete a file or folder recursively.\","),
+            Some(source_outcome(204, 270, "summary=\"Delete a file or folder recursively.\",")),
         ),
         operator_step(
             "Refresh the disk usage tree to confirm reclaimed space",
-            Some(sourced_route(
-                HttpMethod::Get,
-                "/disk/usage",
-                Some("v1.0"),
-                248,
-            )),
-            Provenance::source(DISK_MAIN, 251),
+            Some(sourced_route(HttpMethod::Get, "/disk/usage", Some("v1.0"), 248, "@disk_router.get(")),
+            Provenance::source(DISK_MAIN, 251, "summary=\"Get disk usage tree for a given path using du.\","),
             Some(runtime_outcome(
                 200,
                 Some("\"root\": {\"name\": \"/\""),
@@ -179,9 +185,9 @@ const RUN_SINGLE_DISK_SPEED_TEST: UserJourney = UserJourney {
     id: JourneyId::RunSingleDiskSpeedTest,
     summary: Grounded::known(
         "Run a single-size disk read/write speed benchmark using the disktest binary",
-        Provenance::source(DISK_MAIN, 413),
+        Provenance::source(DISK_MAIN, 413, "summary=\"Run disk speed test using disktest binary.\","),
     ),
-    visibility: Grounded::known(Visibility::Advanced, Provenance::source(DISK_MENUS, 50)),
+    visibility: Grounded::known(Visibility::Advanced, Provenance::source(DISK_MENUS, 50, "text: 'Browse all the fi")),
     services: DISK_USAGE_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::RunDiskSpeedTest,
@@ -189,24 +195,19 @@ const RUN_SINGLE_DISK_SPEED_TEST: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
         Precondition::Other("disktest binary is available on PATH"),
-        Provenance::source(DISK_MAIN, 323),
+        Provenance::source(DISK_MAIN, 323, "if not shutil.which(disktest_binary):"),
     )]),
     steps: GroundedSet::known(&[
         operator_step(
             "Switch to the Speed Test tab",
             None,
-            Provenance::source(DISK_VIEW, 15),
+            Provenance::source(DISK_VIEW, 15, "Speed Test"),
             None,
         ),
         operator_step(
             "Start a disk speed test at the chosen test size",
-            Some(sourced_route(
-                HttpMethod::Get,
-                "/disk/speed",
-                Some("v1.0"),
-                410,
-            )),
-            Provenance::source(DISK_MAIN, 413),
+            Some(sourced_route(HttpMethod::Get, "/disk/speed", Some("v1.0"), 410, "@disk_router.get(")),
+            Provenance::source(DISK_MAIN, 413, "summary=\"Run disk speed test using disktest binary.\","),
             Some(runtime_outcome(
                 200,
                 Some("\"success\": true"),
@@ -228,9 +229,9 @@ const RUN_MULTI_SIZE_DISK_SPEED_TEST: UserJourney = UserJourney {
     id: JourneyId::RunMultiSizeDiskSpeedTest,
     summary: Grounded::known(
         "Run a progressive multi-size disk speed benchmark with streaming results",
-        Provenance::source(DISK_MAIN, 446),
+        Provenance::source(DISK_MAIN, 446, "summary=\"Run multi-size disk speed test with streaming resul"),
     ),
-    visibility: Grounded::known(Visibility::Advanced, Provenance::source(DISK_MENUS, 50)),
+    visibility: Grounded::known(Visibility::Advanced, Provenance::source(DISK_MENUS, 50, "text: 'Browse all the fi")),
     services: DISK_USAGE_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::RunMultiSizeDiskSpeedTest,
@@ -238,25 +239,20 @@ const RUN_MULTI_SIZE_DISK_SPEED_TEST: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
         Precondition::Other("disktest binary is available on PATH"),
-        Provenance::source(DISK_MAIN, 323),
+        Provenance::source(DISK_MAIN, 323, "if not shutil.which(disktest_binary):"),
     )]),
     steps: GroundedSet::known(&[
         operator_step(
             "Switch to the Speed Test tab",
             None,
-            Provenance::source(DISK_VIEW, 15),
+            Provenance::source(DISK_VIEW, 15, "Speed Test"),
             None,
         ),
         operator_step(
             "Start the multi-size disk speed benchmark",
-            Some(sourced_route(
-                HttpMethod::Get,
-                "/disk/speed/stream",
-                Some("v1.0"),
-                444,
-            )),
-            Provenance::source(DISK_MAIN, 446),
-            Some(source_outcome(200, 448)),
+            Some(sourced_route(HttpMethod::Get, "/disk/speed/stream", Some("v1.0"), 444, "@disk_router.get(")),
+            Provenance::source(DISK_MAIN, 446, "summary=\"Run multi-size disk speed test with streaming resul"),
+            Some(source_outcome(200, 448, "async def disk_speed_stream() -> StreamingResponse:")),
         ),
     ]),
     availability: PRESENCE_RUN_MULTI_SIZE_DISK_SPEED_TEST,
@@ -275,7 +271,7 @@ const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<Capabili
 
 const DISK_USAGE_SERVICES: GroundedSet<ServiceId> = GroundedSet::known(&[GroundedItem::new(
     ServiceId::DiskUsage,
-    Provenance::source(DISK_MAIN, 26),
+    Provenance::source(DISK_MAIN, 26, "SERVICE_NAME = \"disk-usage\""),
 )]);
 
 const fn route(method: HttpMethod, path: &'static str, version: Option<&'static str>) -> RouteRef {
@@ -292,10 +288,11 @@ const fn sourced_route(
     path: &'static str,
     version: Option<&'static str>,
     line: u32,
+    anchor: &'static str,
 ) -> Grounded<RouteRef> {
     Grounded::known(
         route(method, path, version),
-        Provenance::source(DISK_MAIN, line),
+        Provenance::source(DISK_MAIN, line, anchor),
     )
 }
 
@@ -324,7 +321,7 @@ const fn runtime_body_kind(status: u16, body: Option<&'static str>) -> BodyKind 
     }
 }
 
-const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
+const fn source_outcome(status: u16, line: u32, anchor: &'static str) -> Grounded<StepOutcome> {
     Grounded::known(
         StepOutcome {
             expected_status: Some(status),
@@ -332,7 +329,7 @@ const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
             body_kind: BodyKind::Unknown,
             transition: None,
         },
-        Provenance::source(DISK_MAIN, line),
+        Provenance::source(DISK_MAIN, line, anchor),
     )
 }
 

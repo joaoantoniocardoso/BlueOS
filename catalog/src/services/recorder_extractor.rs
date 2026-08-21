@@ -126,6 +126,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/services/recorder_extractor/main.py",
                 line: 26,
+                anchor: "SERVICE_NAME = \"recorder-extractor\"",
             },
         )]),
         kind: Observed::known(
@@ -133,6 +134,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 146,
+                anchor: "'recorder_extractor',250,0,0,0,\"$SERVICES_PATH/recorder_extr",
             },
         ),
         entrypoint: Observed::known(
@@ -140,6 +142,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 146,
+                anchor: "'recorder_extractor',250,0,0,0,\"$SERVICES_PATH/recorder_extr",
             },
         ),
         tmux_name: Observed::known(
@@ -147,6 +150,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 146,
+                anchor: "'recorder_extractor',250,0,0,0,\"$SERVICES_PATH/recorder_extr",
             },
         ),
         startup_tier: Observed::known(
@@ -154,6 +158,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 124,
+                anchor: "SERVICES=(",
             },
         ),
         resource_limits: Observed::known(
@@ -165,6 +170,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 146,
+                anchor: "'recorder_extractor',250,0,0,0,\"$SERVICES_PATH/recorder_extr",
             },
         ),
         nice: Observed::unknown("no nice prefix in start tuple"),
@@ -173,6 +179,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 146,
+                anchor: "'recorder_extractor',250,0,0,0,\"$SERVICES_PATH/recorder_extr",
             },
         ),
         nginx_prefixes: ObservedSet::known(&[Evidenced::new(
@@ -180,6 +187,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 129,
+                anchor: "location /recorder-extractor/ {",
             },
         )]),
         listen: ObservedSet::known(&[Evidenced::new(
@@ -187,6 +195,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/services/recorder_extractor/main.py",
                 line: 28,
+                anchor: "PORT = 9150",
             },
         )]),
         git_path: Observed::known(
@@ -194,6 +203,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/services/recorder_extractor/main.py",
                 line: 1,
+                anchor: "#! /usr/bin/env python3",
             },
         ),
         interfaces: ObservedSet::known(&[
@@ -206,6 +216,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/recorder_extractor/main.py",
                     line: 434,
+                    anchor: "prefix_format=\"/v{major}.{minor}\",",
                 },
             ),
             Evidenced::new(
@@ -216,6 +227,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/recorder_extractor/main.py",
                     line: 27,
+                    anchor: "RECORDER_DIR = Path(\"/usr/blueos/userdata/recorder\")",
                 },
             ),
             Evidenced::new(
@@ -225,6 +237,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/recorder_extractor/main.py",
                     line: 124,
+                    anchor: "doctor_cmd = [mcap_binary, \"doctor\", str(mcap_path)]",
                 },
             ),
             Evidenced::new(
@@ -234,6 +247,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/recorder_extractor/main.py",
                     line: 149,
+                    anchor: "recover_cmd = [mcap_binary, \"recover\", str(mcap_path), \"-o\",",
                 },
             ),
             Evidenced::new(
@@ -243,6 +257,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/recorder_extractor/main.py",
                     line: 281,
+                    anchor: "command = [",
                 },
             ),
             Evidenced::new(
@@ -252,6 +267,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/recorder_extractor/main.py",
                     line: 201,
+                    anchor: "discover_cmd = [\"gst-discoverer-1.0\", f\"file://{path}\"]",
                 },
             ),
             Evidenced::new(
@@ -262,6 +278,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/recorder_extractor/main.py",
                     line: 230,
+                    anchor: "play_cmd = [",
                 },
             ),
             Evidenced::new(
@@ -272,6 +289,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                     line: 78,
+                    anchor: "topic = f\"services/{service_name}/log\"",
                 },
             ),
         ]),
@@ -283,6 +301,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/services/recorder_extractor/main.py",
                 line: 27,
+                anchor: "RECORDER_DIR = Path(\"/usr/blueos/userdata/recorder\")",
             },
         )]),
         lifecycle: Observed::known(
@@ -321,6 +340,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 326,
+                anchor: "for TUPLE in \"${SERVICES[@]}\"; do",
             },
         ),
         logs_path: Observed::unknown(
@@ -331,6 +351,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                 line: 78,
+                anchor: "topic = f\"services/{service_name}/log\"",
             },
         ),
         sentry: Observed::known(
@@ -338,6 +359,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/services/recorder_extractor/main.py",
                 line: 454,
+                anchor: "await init_sentry_async(SERVICE_NAME)",
             },
         ),
         openapi_refs: ObservedSet::unknown("not yet extracted"),

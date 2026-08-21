@@ -44,28 +44,28 @@ const UPDATE_BLUEOS_VERSION: UserJourney =
         summary: Grounded::known(
             "Update BlueOS to the latest available release that is as stable or more stable than the current install"
                 ,
-            Provenance::doc(ADV, 397),
+            Provenance::doc(ADV, 397, "- The simplified interface provides an easy way to update to"),
         ),
-        visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 397)),
+        visibility: Grounded::known(Visibility::Default, Provenance::doc(ADV, 397, "- The simplified interface pro")),
         services: VERSIONCHOOSER_SERVICES,
         capability_refs: GroundedSet::known(&[cap(CapabilityId::UpdateBlueosVersion,
             "simplified Version Chooser pulls and applies a newer stable or beta release",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
             Precondition::Network(NetworkState::Online),
-            Provenance::doc(GETTING, 104),
+            Provenance::doc(GETTING, 104, "Now that your BlueOS has an internet connection, you can per"),
         )]),
         steps: GroundedSet::known(&[
             operator_step(
                 "Open Settings and select BlueOS Version",
                 None,
-                Provenance::doc(GETTING, 109),
+                Provenance::doc(GETTING, 109, "1. Under **Settings**, select [**BlueOS Version**](../advanc"),
                 None,
             ),
             operator_step(
                 "Review the current running version and whether an update button is shown",
-                Some(sourced_route(HttpMethod::Get, "/version/current", Some("v1.0"), VERSION_ROUTER, 26)),
-                Provenance::doc(GETTING, 112),
+                Some(sourced_route(HttpMethod::Get, "/version/current", Some("v1.0"), VERSION_ROUTER, 26, "")),
+                Provenance::doc(GETTING, 112, "1. If you're already on the latest version, the right side o"),
                 Some(runtime_outcome(
                     200,
                     None,
@@ -81,21 +81,22 @@ const UPDATE_BLUEOS_VERSION: UserJourney =
                     Some("v1.0"),
                     VERSION_ROUTER,
                     60,
+                    "@version_router_v1.get(",
                 )),
-                Provenance::doc(ADV, 397),
+                Provenance::doc(ADV, 397, "- The simplified interface provides an easy way to update to"),
                 None,
             ),
             operator_step(
                 "Click the update button to download the newer BlueOS core image",
-                Some(sourced_route(HttpMethod::Post, "/version/pull", Some("v1.0"), VERSION_ROUTER, 41)),
-                Provenance::doc(GETTING, 116),
-                Some(source_outcome(200, VERSION_ROUTER, 41)),
+                Some(sourced_route(HttpMethod::Post, "/version/pull", Some("v1.0"), VERSION_ROUTER, 41, "@version_rou")),
+                Provenance::doc(GETTING, 116, "1. Once the update button is clicked the update process will"),
+                Some(source_outcome(200, VERSION_ROUTER, 41, "@version_router_v1.post(\"/pull\", summary=\"Pulls a v")),
             ),
             operator_step(
                 "Switch BlueOS core to the downloaded version and restart",
-                Some(sourced_route(HttpMethod::Post, "/version/current", Some("v1.0"), VERSION_ROUTER, 34)),
-                Provenance::source(VC_COMPONENT, 639),
-                Some(source_outcome(200, VERSION_ROUTER, 34)),
+                Some(sourced_route(HttpMethod::Post, "/version/current", Some("v1.0"), VERSION_ROUTER, 34, "@version_rou")),
+                Provenance::source(VC_COMPONENT, 639, "async setVersion(args: string | string[]) {"),
+                Some(source_outcome(200, VERSION_ROUTER, 34, "@version_router_v1.post(\"/current\", summary=\"Sets t")),
             ),
         ]),
         availability: PRESENCE_UPDATE_BLUEOS_VERSION,
@@ -109,9 +110,9 @@ const SWITCH_LOCAL_BLUEOS_VERSION: UserJourney =
         summary: Grounded::known(
             "Switch forwards or backwards between locally installed BlueOS versions, including roll-back after undesired changes"
                 ,
-            Provenance::doc(ADV, 400),
+            Provenance::doc(ADV, 400, "- The full interface supports easily changing forwards _and "),
         ),
-        visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 399)),
+        visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 399, "{% pirate() %}")),
         services: VERSIONCHOOSER_SERVICES,
         capability_refs: GroundedSet::known(&[cap(CapabilityId::SwitchBlueosVersion,
             "pirate-mode local version cards apply a previously installed image without re-downloading",
@@ -119,18 +120,18 @@ const SWITCH_LOCAL_BLUEOS_VERSION: UserJourney =
         preconditions: GroundedSet::known(&[
             GroundedItem::new(
                 Precondition::Software(SoftwareRequirement::PirateMode),
-                Provenance::doc(ADV, 399),
+                Provenance::doc(ADV, 399, "{% pirate() %}"),
             ),
             GroundedItem::new(
                 Precondition::Data(DataRequirement::LocalBlueosVersionAvailable),
-                Provenance::doc(ADV, 402),
+                Provenance::doc(ADV, 402, "- Previously-installed versions are kept locally on the devi"),
             ),
         ]),
         steps: GroundedSet::known(&[
             operator_step(
                 "Open BlueOS Version with pirate mode enabled to view locally stored installs",
                 None,
-                Provenance::source(VC_COMPONENT, 26),
+                Provenance::source(VC_COMPONENT, 26, "Turn on Pirate mode to view all available BlueOS versions, i"),
                 None,
             ),
             operator_step(
@@ -141,8 +142,9 @@ const SWITCH_LOCAL_BLUEOS_VERSION: UserJourney =
                     Some("v1.0"),
                     VERSION_ROUTER,
                     55,
+                    "@version_router_v1.get(\"/available/local\", summary=\"Returns ",
                 )),
-                Provenance::doc(ADV, 402),
+                Provenance::doc(ADV, 402, "- Previously-installed versions are kept locally on the devi"),
                 Some(runtime_outcome(
                     200,
                     None,
@@ -152,9 +154,9 @@ const SWITCH_LOCAL_BLUEOS_VERSION: UserJourney =
             ),
             operator_step(
                 "Apply the chosen local version",
-                Some(sourced_route(HttpMethod::Post, "/version/current", Some("v1.0"), VERSION_ROUTER, 34)),
-                Provenance::source(VC_COMPONENT, 639),
-                Some(source_outcome(200, VERSION_ROUTER, 34)),
+                Some(sourced_route(HttpMethod::Post, "/version/current", Some("v1.0"), VERSION_ROUTER, 34, "@version_rou")),
+                Provenance::source(VC_COMPONENT, 639, "async setVersion(args: string | string[]) {"),
+                Some(source_outcome(200, VERSION_ROUTER, 34, "@version_router_v1.post(\"/current\", summary=\"Sets t")),
             ),
         ]),
         availability: PRESENCE_SWITCH_LOCAL_BLUEOS_VERSION,
@@ -168,9 +170,9 @@ const PULL_BLUEOS_VERSION_WITHOUT_SWITCH: UserJourney =
         summary: Grounded::known(
             "Download a remote BlueOS core image, including from a custom Docker registry repository, without switching the running version"
                 ,
-            Provenance::doc(ADV, 406),
+            Provenance::doc(ADV, 406, "- Allows loading remote versions (including from custom dock"),
         ),
-        visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 399)),
+        visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 399, "{% pirate() %}")),
         services: VERSIONCHOOSER_SERVICES,
         capability_refs: GroundedSet::known(&[cap(CapabilityId::PullBlueosVersion,
             "remote Versions section can fetch an image tag to local storage before apply",
@@ -178,18 +180,18 @@ const PULL_BLUEOS_VERSION_WITHOUT_SWITCH: UserJourney =
         preconditions: GroundedSet::known(&[
             GroundedItem::new(
                 Precondition::Network(NetworkState::Online),
-                Provenance::doc(ADV, 406),
+                Provenance::doc(ADV, 406, "- Allows loading remote versions (including from custom dock"),
             ),
             GroundedItem::new(
                 Precondition::Software(SoftwareRequirement::PirateMode),
-                Provenance::doc(ADV, 399),
+                Provenance::doc(ADV, 399, "{% pirate() %}"),
             ),
         ]),
         steps: GroundedSet::known(&[
             operator_step(
                 "Open the Remote Versions section and optionally change the repository name",
                 None,
-                Provenance::source(VC_COMPONENT, 89),
+                Provenance::source(VC_COMPONENT, 89, "<div class=\"d-flex justify-space-between pb-3\">"),
                 None,
             ),
             operator_step(
@@ -200,15 +202,16 @@ const PULL_BLUEOS_VERSION_WITHOUT_SWITCH: UserJourney =
                     Some("v1.0"),
                     VERSION_ROUTER,
                     60,
+                    "@version_router_v1.get(",
                 )),
-                Provenance::doc(ADV, 406),
+                Provenance::doc(ADV, 406, "- Allows loading remote versions (including from custom dock"),
                 None,
             ),
             operator_step(
                 "Pull the selected remote tag to local storage",
-                Some(sourced_route(HttpMethod::Post, "/version/pull", Some("v1.0"), VERSION_ROUTER, 41)),
-                Provenance::source(VC_COMPONENT, 553),
-                Some(source_outcome(200, VERSION_ROUTER, 41)),
+                Some(sourced_route(HttpMethod::Post, "/version/pull", Some("v1.0"), VERSION_ROUTER, 41, "@version_rou")),
+                Provenance::source(VC_COMPONENT, 553, "async pullVersion(image: string) {"),
+                Some(source_outcome(200, VERSION_ROUTER, 41, "@version_router_v1.post(\"/pull\", summary=\"Pulls a v")),
             ),
         ]),
         availability: PRESENCE_PULL_BLUEOS_VERSION_WITHOUT_SWITCH,
@@ -225,9 +228,16 @@ const DELETE_LOCAL_BLUEOS_VERSION: UserJourney = UserJourney {
     id: JourneyId::DeleteLocalBlueosVersion,
     summary: Grounded::known(
         "Delete a previously installed local BlueOS version to free onboard storage",
-        Provenance::doc(ADV, 402),
+        Provenance::doc(
+            ADV,
+            402,
+            "- Previously-installed versions are kept locally on the devi",
+        ),
     ),
-    visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 399)),
+    visibility: Grounded::known(
+        Visibility::Advanced,
+        Provenance::doc(ADV, 399, "{% pirate() %}"),
+    ),
     services: VERSIONCHOOSER_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::DeleteLocalBlueosVersion,
@@ -236,18 +246,22 @@ const DELETE_LOCAL_BLUEOS_VERSION: UserJourney = UserJourney {
     preconditions: GroundedSet::known(&[
         GroundedItem::new(
             Precondition::Software(SoftwareRequirement::PirateMode),
-            Provenance::doc(ADV, 399),
+            Provenance::doc(ADV, 399, "{% pirate() %}"),
         ),
         GroundedItem::new(
             Precondition::Data(DataRequirement::LocalBlueosVersionAvailable),
-            Provenance::source(VC_COMPONENT, 72),
+            Provenance::source(
+                VC_COMPONENT,
+                72,
+                ":enable-delete=\"local_versions.result.local.length > 2\"",
+            ),
         ),
     ]),
     steps: GroundedSet::known(&[
         operator_step(
             "Open the Local Versions section in pirate mode",
             None,
-            Provenance::source(VC_COMPONENT, 61),
+            Provenance::source(VC_COMPONENT, 61, "<h2>Local Versions</h2>"),
             None,
         ),
         operator_step(
@@ -258,8 +272,13 @@ const DELETE_LOCAL_BLUEOS_VERSION: UserJourney = UserJourney {
                 Some("v1.0"),
                 VERSION_ROUTER,
                 55,
+                "@version_router_v1.get(\"/available/local\", summary=\"Returns ",
             )),
-            Provenance::doc(ADV, 402),
+            Provenance::doc(
+                ADV,
+                402,
+                "- Previously-installed versions are kept locally on the devi",
+            ),
             Some(runtime_outcome(
                 200,
                 None,
@@ -275,9 +294,19 @@ const DELETE_LOCAL_BLUEOS_VERSION: UserJourney = UserJourney {
                 Some("v1.0"),
                 VERSION_ROUTER,
                 48,
+                "@version_router_v1.delete(\"/delete\", summary=\"Delete the sel",
             )),
-            Provenance::source(VC_COMPONENT, 651),
-            Some(source_outcome(200, VERSION_ROUTER, 48)),
+            Provenance::source(
+                VC_COMPONENT,
+                651,
+                "async deleteVersion(args: string | string[]) {",
+            ),
+            Some(source_outcome(
+                200,
+                VERSION_ROUTER,
+                48,
+                "@version_router_v1.delete(\"/delete\", summary=\"Delete the sel",
+            )),
         ),
     ]),
     availability: PRESENCE_DELETE_LOCAL_BLUEOS_VERSION,
@@ -296,34 +325,34 @@ const DOCKER_REGISTRY_LOGIN: UserJourney =
         summary: Grounded::known(
             "Log in to Docker Hub or a custom registry to access private images and reduce rate limiting"
                 ,
-            Provenance::doc(ADV, 407),
+            Provenance::doc(ADV, 407, "- Allows logging in to one or more docker registries, to acc"),
         ),
-        visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 399)),
+        visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 399, "{% pirate() %}")),
         services: VERSIONCHOOSER_SERVICES,
         capability_refs: GroundedSet::known(&[cap(CapabilityId::DockerRegistryLogin,
             "Docker Login dialog authenticates the daemon and lists connected accounts",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
             Precondition::Software(SoftwareRequirement::PirateMode),
-            Provenance::doc(ADV, 399),
+            Provenance::doc(ADV, 399, "{% pirate() %}"),
         )]),
         steps: GroundedSet::known(&[
             operator_step(
                 "Open the Docker Login dialog from the Remote Versions section",
                 None,
-                Provenance::source(VC_COMPONENT, 93),
+                Provenance::source(VC_COMPONENT, 93, "@click=\"show_docker_login_dialog = true\""),
                 None,
             ),
             operator_step(
                 "Submit registry credentials, optionally for the root user or a custom registry index",
-                Some(sourced_route(HttpMethod::Post, "/docker/login", Some("v1.0"), DOCKER_ROUTER, 20)),
-                Provenance::doc(ADV, 407),
-                Some(source_outcome(200, DOCKER_ROUTER, 20)),
+                Some(sourced_route(HttpMethod::Post, "/docker/login", Some("v1.0"), DOCKER_ROUTER, 20, "@docker_rout")),
+                Provenance::doc(ADV, 407, "- Allows logging in to one or more docker registries, to acc"),
+                Some(source_outcome(200, DOCKER_ROUTER, 20, "@docker_router_v1.post(\"/login\", summary=\"Login Dock")),
             ),
             operator_step(
                 "Review connected Docker accounts",
-                Some(sourced_route(HttpMethod::Get, "/docker/accounts/", Some("v1.0"), DOCKER_ROUTER, 30)),
-                Provenance::source(DOCKER_LOGIN, 253),
+                Some(sourced_route(HttpMethod::Get, "/docker/accounts/", Some("v1.0"), DOCKER_ROUTER, 30, "@docker_rout")),
+                Provenance::source(DOCKER_LOGIN, 253, "async fetchAccounts() {"),
                 Some(runtime_outcome(
                     200,
                     None,
@@ -346,9 +375,9 @@ const UPDATE_BOOTSTRAP_IMAGE: UserJourney = UserJourney {
     id: JourneyId::UpdateBootstrapImage,
     summary: Grounded::known(
         "Update the BlueOS-bootstrap image to match the currently running BlueOS core release",
-        Provenance::doc(ADV, 405),
+        Provenance::doc(ADV, 405, "- Allows updating the [bootstrap image](@/development/bootst"),
     ),
-    visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 399)),
+    visibility: Grounded::known(Visibility::Advanced, Provenance::doc(ADV, 399, "{% pirate() %}")),
     services: VERSIONCHOOSER_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::UpdateBootstrapImage,
@@ -357,24 +386,18 @@ const UPDATE_BOOTSTRAP_IMAGE: UserJourney = UserJourney {
     preconditions: GroundedSet::known(&[
         GroundedItem::new(
             Precondition::Network(NetworkState::Online),
-            Provenance::doc(BOOTSTRAP, 73),
+            Provenance::doc(BOOTSTRAP, 73, "BlueOS-bootstrap versions are built at the same time as Blue"),
         ),
         GroundedItem::new(
             Precondition::Software(SoftwareRequirement::PirateMode),
-            Provenance::doc(ADV, 399),
+            Provenance::doc(ADV, 399, "{% pirate() %}"),
         ),
     ]),
     steps: GroundedSet::known(&[
         operator_step(
             "Review the running bootstrap version shown on the current core card",
-            Some(sourced_route(
-                HttpMethod::Get,
-                "/bootstrap/current",
-                Some("v1.0"),
-                BOOTSTRAP_ROUTER,
-                26,
-            )),
-            Provenance::source(VC_UTILS, 161),
+            Some(sourced_route(HttpMethod::Get, "/bootstrap/current", Some("v1.0"), BOOTSTRAP_ROUTER, 26, "@bootstrap_r")),
+            Provenance::source(VC_UTILS, 161, "async function loadBootstrapCurrentVersion(): Promise<string"),
             Some(runtime_outcome(
                 200,
                 None,
@@ -384,27 +407,15 @@ const UPDATE_BOOTSTRAP_IMAGE: UserJourney = UserJourney {
         ),
         operator_step(
             "Download the bootstrap image tag that matches the running core version",
-            Some(sourced_route(
-                HttpMethod::Post,
-                "/version/pull",
-                Some("v1.0"),
-                VERSION_ROUTER,
-                41,
-            )),
-            Provenance::source(VC_COMPONENT, 596),
-            Some(source_outcome(200, VERSION_ROUTER, 41)),
+            Some(sourced_route(HttpMethod::Post, "/version/pull", Some("v1.0"), VERSION_ROUTER, 41, "@version_rout")),
+            Provenance::source(VC_COMPONENT, 596, "async updateBootstrap(image: string) {"),
+            Some(source_outcome(200, VERSION_ROUTER, 41, "@version_router_v1.post(\"/pull\", summary=\"Pulls a versi")),
         ),
         operator_step(
             "Set BlueOS-bootstrap to the downloaded tag",
-            Some(sourced_route(
-                HttpMethod::Post,
-                "/bootstrap/current",
-                Some("v1.0"),
-                BOOTSTRAP_ROUTER,
-                31,
-            )),
-            Provenance::source(VC_COMPONENT, 614),
-            Some(source_outcome(200, BOOTSTRAP_ROUTER, 31)),
+            Some(sourced_route(HttpMethod::Post, "/bootstrap/current", Some("v1.0"), BOOTSTRAP_ROUTER, 31, "@bootstrap_r")),
+            Provenance::source(VC_COMPONENT, 614, "async setBootstrapVersion(version: string) {"),
+            Some(source_outcome(200, BOOTSTRAP_ROUTER, 31, "@bootstrap_router_v1.post(\"/current\", summary=\"Sets t")),
         ),
     ]),
     availability: PRESENCE_UPDATE_BOOTSTRAP_IMAGE,
@@ -423,7 +434,11 @@ const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<Capabili
 
 const VERSIONCHOOSER_SERVICES: GroundedSet<ServiceId> = GroundedSet::known(&[GroundedItem::new(
     ServiceId::Versionchooser,
-    Provenance::doc(ADV, 389),
+    Provenance::doc(
+        ADV,
+        389,
+        "{{ service(service=\"Version Chooser\", port=8081, link=\"/serv",
+    ),
 )]);
 
 const fn route(method: HttpMethod, path: &'static str, version: Option<&'static str>) -> RouteRef {
@@ -441,8 +456,12 @@ const fn sourced_route(
     version: Option<&'static str>,
     file: &'static str,
     line: u32,
+    anchor: &'static str,
 ) -> Grounded<RouteRef> {
-    Grounded::known(route(method, path, version), Provenance::source(file, line))
+    Grounded::known(
+        route(method, path, version),
+        Provenance::source(file, line, anchor),
+    )
 }
 
 const fn operator_step(
@@ -479,7 +498,12 @@ const fn runtime_outcome(
     )
 }
 
-const fn source_outcome(status: u16, file: &'static str, line: u32) -> Grounded<StepOutcome> {
+const fn source_outcome(
+    status: u16,
+    file: &'static str,
+    line: u32,
+    anchor: &'static str,
+) -> Grounded<StepOutcome> {
     Grounded::known(
         StepOutcome {
             expected_status: Some(status),
@@ -487,6 +511,6 @@ const fn source_outcome(status: u16, file: &'static str, line: u32) -> Grounded<
             body_kind: BodyKind::Unknown,
             transition: None,
         },
-        Provenance::source(file, line),
+        Provenance::source(file, line, anchor),
     )
 }

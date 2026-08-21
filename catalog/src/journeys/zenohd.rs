@@ -20,52 +20,52 @@ const INSPECT_ZENOH_NETWORK: UserJourney =
         id: JourneyId::InspectZenohNetwork,
         summary: Grounded::known(
             "View detailed Zenoh traffic coming from your vehicle",
-            Provenance::source(ZENOH_MENUS, 146),
+            Provenance::source(ZENOH_MENUS, 146, "text: 'Browse, preview, and download recorded MP4 sessions.'"),
         ),
-        visibility: Grounded::known(Visibility::Advanced, Provenance::source(ZENOH_MENUS, 145)),
+        visibility: Grounded::known(Visibility::Advanced, Provenance::source(ZENOH_MENUS, 145, "advanced: false,")),
         services: ZENOHD_SERVICES,
         capability_refs: GroundedSet::known(&[cap(CapabilityId::InspectZenohNetwork,
             "Zenoh Inspector connects over WebSocket to inspect live pub/sub topics and network topology",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
             Precondition::Software(SoftwareRequirement::AdvancedMode),
-            Provenance::source(ZENOH_MENUS, 145),
+            Provenance::source(ZENOH_MENUS, 145, "advanced: false,"),
         )]),
         steps: GroundedSet::known(&[
             operator_step(
                 "Open the Zenoh Inspector page from the sidebar",
                 None,
-                Provenance::source(ZENOH_MENUS, 142),
+                Provenance::source(ZENOH_MENUS, 142, "title: 'Records',"),
                 None,
             ),
             operator_step(
                 "Load the Zenoh Inspector with Topics and Network tabs",
                 None,
-                Provenance::source(ZENOH_VIEW, 53),
+                Provenance::source(ZENOH_VIEW, 53, "{ title: 'Topics', icon: 'mdi-message-text', value: 'topics'"),
                 None,
             ),
             operator_step(
                 "Open a Zenoh session over WebSocket to /zenoh-api/",
                 None,
-                Provenance::source(ZENOH_LIB, 35),
+                Provenance::source(ZENOH_LIB, 35, "return `${protocol}://${window.location.host}/zenoh-api/`"),
                 None,
             ),
             operator_step(
                 "Switch to the Network tab and view the live topology graph of clients, routers, and peers",
                 None,
-                Provenance::source(ZENOH_NETWORK, 21),
+                Provenance::source(ZENOH_NETWORK, 21, "Node Types:"),
                 Some(live_outcome("live Zenoh network topology depends on connected nodes at runtime")),
             ),
             operator_step(
                 "Switch to the Topics tab and browse the searchable live pub/sub topic list",
                 None,
-                Provenance::source(ZENOH_INSPECTOR, 18),
+                Provenance::source(ZENOH_INSPECTOR, 18, ":label=\"`Search Topics (${filtered_topics.length})`\""),
                 Some(live_outcome("live topic list depends on active Zenoh publishers at runtime")),
             ),
             operator_step(
                 "Select a topic to inspect its latest message payload",
                 None,
-                Provenance::source(ZENOH_INSPECTOR, 114),
+                Provenance::source(ZENOH_INSPECTOR, 114, "Select a topic to view its messages."),
                 Some(live_outcome("topic message payload depends on live Zenoh traffic at runtime")),
             ),
         ]),
@@ -85,7 +85,7 @@ const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<Capabili
 
 const ZENOHD_SERVICES: GroundedSet<ServiceId> = GroundedSet::known(&[GroundedItem::new(
     ServiceId::Zenohd,
-    Provenance::source(NGINX, 261),
+    Provenance::source(NGINX, 261, "proxy_pass http://127.0.0.1:7118/;"),
 )]);
 
 const fn live_outcome(reason: &'static str) -> Grounded<StepOutcome> {

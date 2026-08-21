@@ -128,6 +128,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/disk_usage/main.py",
             line: 26,
+            anchor: "SERVICE_NAME = \"disk-usage\"",
         },
     )]),
     kind: Observed::known(
@@ -135,6 +136,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 147,
+            anchor: "'disk_usage',250,0,0,0,\"$SERVICES_PATH/disk_usage/main.py\"",
         },
     ),
     entrypoint: Observed::known(
@@ -142,6 +144,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 147,
+            anchor: "'disk_usage',250,0,0,0,\"$SERVICES_PATH/disk_usage/main.py\"",
         },
     ),
     tmux_name: Observed::known(
@@ -149,6 +152,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 147,
+            anchor: "'disk_usage',250,0,0,0,\"$SERVICES_PATH/disk_usage/main.py\"",
         },
     ),
     startup_tier: Observed::known(
@@ -156,6 +160,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 124,
+            anchor: "SERVICES=(",
         },
     ),
     resource_limits: Observed::known(
@@ -167,6 +172,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 147,
+            anchor: "'disk_usage',250,0,0,0,\"$SERVICES_PATH/disk_usage/main.py\"",
         },
     ),
     nice: Observed::unknown("no nice prefix in start tuple"),
@@ -175,6 +181,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 147,
+            anchor: "'disk_usage',250,0,0,0,\"$SERVICES_PATH/disk_usage/main.py\"",
         },
     ),
     nginx_prefixes: ObservedSet::known(&[Evidenced::new(
@@ -182,6 +189,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/tools/nginx/nginx.conf",
             line: 139,
+            anchor: "location /disk-usage/ {",
         },
     )]),
     listen: ObservedSet::known(&[Evidenced::new(
@@ -189,6 +197,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/disk_usage/main.py",
             line: 28,
+            anchor: "PORT = 9151",
         },
     )]),
     git_path: Observed::known(
@@ -196,6 +205,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/disk_usage/main.py",
             line: 1,
+            anchor: "#! /usr/bin/env python3",
         },
     ),
     interfaces: ObservedSet::known(&[
@@ -208,6 +218,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/disk_usage/main.py",
                 line: 469,
+                anchor: "app = VersionedFastAPI(",
             },
         ),
         Evidenced::new(
@@ -218,6 +229,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/disk_usage/main.py",
                 line: 27,
+                anchor: "FILESYSTEM_ROOT = Path(\"/\")",
             },
         ),
         Evidenced::new(
@@ -225,6 +237,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/disk_usage/main.py",
                 line: 211,
+                anchor: "args = [\"du\", \"-b\", str(path)]",
             },
         ),
         Evidenced::new(
@@ -234,6 +247,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/services/disk_usage/main.py",
                 line: 319,
+                anchor: "disktest_binary = \"disktest\"",
             },
         ),
         Evidenced::new(
@@ -244,6 +258,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                 line: 78,
+                anchor: "topic = f\"services/{service_name}/log\"",
             },
         ),
     ]),
@@ -255,6 +270,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/disk_usage/main.py",
             line: 281,
+            anchor: "shutil.rmtree(resolved_path)",
         },
     )]),
     lifecycle: Observed::known(
@@ -291,6 +307,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 326,
+            anchor: "for TUPLE in \"${SERVICES[@]}\"; do",
         },
     ),
     logs_path: Observed::unknown(
@@ -301,6 +318,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
             line: 78,
+            anchor: "topic = f\"services/{service_name}/log\"",
         },
     ),
     sentry: Observed::known(
@@ -308,6 +326,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/disk_usage/main.py",
             line: 484,
+            anchor: "await init_sentry_async(SERVICE_NAME)",
         },
     ),
     openapi_refs: ObservedSet::unknown("not yet extracted"),

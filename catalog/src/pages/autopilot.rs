@@ -10,6 +10,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 17,
+                anchor: "path: '/vehicle/autopilot',",
             },
         ),
         name: Observed::known(
@@ -17,6 +18,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 18,
+                anchor: "name: 'Autopilot',",
             },
         ),
         component: Observed::known(
@@ -24,6 +26,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/router/index.ts",
                 line: 19,
+                anchor: "component: defineAsyncComponent(() => import('../views/Autop",
             },
         ),
         menu_title: Observed::known(
@@ -31,6 +34,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 3,
+                anchor: "title: 'Autopilot Firmware',",
             },
         ),
         advanced_only: Observed::known(
@@ -38,6 +42,7 @@ pub const PAGE: Page =
             Evidence {
                 file: "core/frontend/src/menus.ts",
                 line: 6,
+                anchor: "advanced: false,",
             },
         ),
         stores: ObservedSet::known(&[
@@ -46,6 +51,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/Autopilot.vue",
                     line: 158,
+                    anchor: "import autopilot_data from '@/store/autopilot'",
                 },
             ),
             Evidenced::new(
@@ -53,6 +59,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/Autopilot.vue",
                     line: 159,
+                    anchor: "import autopilot from '@/store/autopilot_manager'",
                 },
             ),
             Evidenced::new(
@@ -60,6 +67,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/autopilot/FirmwareManager.vue",
                     line: 231,
+                    anchor: "import commander from '@/store/commander'",
                 },
             ),
             Evidenced::new(
@@ -67,6 +75,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/autopilot/MasterEndpointManager.vue",
                     line: 74,
+                    anchor: "import beacon from '@/store/beacon'",
                 },
             ),
             Evidenced::new(
@@ -74,6 +83,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/autopilot/AutopilotSerialConfiguration.vue",
                     line: 95,
+                    anchor: "import system_information from '@/store/system-information'",
                 },
             ),
         ]),
@@ -87,6 +97,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/autopilot/AutopilotManagerUpdater.ts",
                     line: 46,
+                    anchor: "const response: AxiosResponse = await back_axios({",
                 },
             ),
             Evidenced::new(
@@ -98,6 +109,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/autopilot/AutopilotManagerUpdater.ts",
                     line: 59,
+                    anchor: "await back_axios({",
                 },
             ),
             Evidenced::new(
@@ -109,6 +121,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/autopilot/BoardChangeDialog.vue",
                     line: 94,
+                    anchor: "await back_axios({",
                 },
             ),
             Evidenced::new(
@@ -120,6 +133,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/autopilot/AutopilotManagerUpdater.ts",
                     line: 75,
+                    anchor: "const response: AxiosResponse = await back_axios({",
                 },
             ),
             Evidenced::new(
@@ -131,6 +145,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/autopilot/AutopilotManagerUpdater.ts",
                     line: 91,
+                    anchor: "const response: AxiosResponse = await back_axios({",
                 },
             ),
             Evidenced::new(
@@ -142,6 +157,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/autopilot/AutopilotManagerUpdater.ts",
                     line: 105,
+                    anchor: "const response: AxiosResponse = await back_axios({",
                 },
             ),
             Evidenced::new(
@@ -153,6 +169,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/Autopilot.vue",
                     line: 284,
+                    anchor: "await back_axios({",
                 },
             ),
             Evidenced::new(
@@ -164,6 +181,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/views/Autopilot.vue",
                     line: 298,
+                    anchor: "await back_axios({",
                 },
             ),
             Evidenced::new(
@@ -175,6 +193,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/autopilot/AutopilotManagerUpdater.ts",
                     line: 177,
+                    anchor: "return back_axios({",
                 },
             ),
             Evidenced::new(
@@ -186,6 +205,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/autopilot/FirmwareManager.vue",
                     line: 412,
+                    anchor: "await back_axios({",
                 },
             ),
             Evidenced::new(
@@ -197,6 +217,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/autopilot/FirmwareManager.vue",
                     line: 441,
+                    anchor: "url: `${autopilot.API_URL}/install_firmware_from_url`,",
                 },
             ),
             Evidenced::new(
@@ -208,6 +229,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/autopilot/FirmwareManager.vue",
                     line: 447,
+                    anchor: "url: `${autopilot.API_URL}/restore_default_firmware`,",
                 },
             ),
             Evidenced::new(
@@ -219,6 +241,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/autopilot/FirmwareManager.vue",
                     line: 460,
+                    anchor: "url: `${autopilot.API_URL}/install_firmware_from_file`,",
                 },
             ),
             Evidenced::new(
@@ -230,6 +253,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/autopilot/MasterEndpointManager.vue",
                     line: 171,
+                    anchor: "const response = await back_axios({",
                 },
             ),
             Evidenced::new(
@@ -241,6 +265,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/autopilot/MasterEndpointManager.vue",
                     line: 193,
+                    anchor: "await back_axios({",
                 },
             ),
             Evidenced::new(
@@ -252,6 +277,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/autopilot/AutopilotManagerUpdater.ts",
                     line: 119,
+                    anchor: "const response: AxiosResponse = await back_axios({",
                 },
             ),
             Evidenced::new(
@@ -263,6 +289,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/autopilot/SitlConfiguration.vue",
                     line: 75,
+                    anchor: "await back_axios({",
                 },
             ),
             Evidenced::new(
@@ -274,6 +301,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/autopilot/AutopilotManagerUpdater.ts",
                     line: 15,
+                    anchor: "await back_axios({",
                 },
             ),
             Evidenced::new(
@@ -285,6 +313,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/components/autopilot/AutopilotSerialConfiguration.vue",
                     line: 180,
+                    anchor: "await back_axios({",
                 },
             ),
             Evidenced::new(
@@ -296,6 +325,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/bag.ts",
                     line: 40,
+                    anchor: "return back_axios({",
                 },
             ),
             Evidenced::new(
@@ -307,6 +337,7 @@ pub const PAGE: Page =
                 Evidence {
                     file: "core/frontend/src/store/system-information.ts",
                     line: 276,
+                    anchor: "await back_axios({",
                 },
             ),
         ]),

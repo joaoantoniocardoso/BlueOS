@@ -27,9 +27,9 @@ const BROWSE_VIDEO_RECORDINGS: UserJourney =
         id: JourneyId::BrowseVideoRecordings,
         summary: Grounded::known(
             "Browse, preview, and download recorded MP4 sessions",
-            Provenance::source(RECORDER_MENUS, 139),
+            Provenance::source(RECORDER_MENUS, 139, "text: 'Manage your video devices and video streams.',"),
         ),
-        visibility: Grounded::known(Visibility::Default, Provenance::source(RECORDER_MENUS, 138)),
+        visibility: Grounded::known(Visibility::Default, Provenance::source(RECORDER_MENUS, 138, "advanced: false,")),
         services: RECORDER_EXTRACTOR_SERVICES,
         capability_refs: GroundedSet::known(&[cap(CapabilityId::BrowseVideoRecordings,
             "Records page lists MP4 recordings with thumbnails and MCAP extraction processing status",
@@ -39,13 +39,13 @@ const BROWSE_VIDEO_RECORDINGS: UserJourney =
             operator_step(
                 "Open the Records page from the sidebar",
                 None,
-                Provenance::source(RECORDER_MENUS, 135),
+                Provenance::source(RECORDER_MENUS, 135, "title: 'Video Streams',"),
                 None,
             ),
             operator_step(
                 "Load the list of available MP4 recordings",
-                Some(sourced_route(HttpMethod::Get, "/recorder/files", Some("v1.0"), 340)),
-                Provenance::source(RECORDER_STORE, 47),
+                Some(sourced_route(HttpMethod::Get, "/recorder/files", Some("v1.0"), 340, "@recorder_router.get(")),
+                Provenance::source(RECORDER_STORE, 47, "url: `${this.API_URL}/files`,"),
                 Some(runtime_outcome(
                     200,
                     Some("[] (empty; no MP4 recordings present)"),
@@ -54,8 +54,8 @@ const BROWSE_VIDEO_RECORDINGS: UserJourney =
             ),
             operator_step(
                 "Load MCAP extraction processing status",
-                Some(sourced_route(HttpMethod::Get, "/recorder/status", Some("v1.0"), 370)),
-                Provenance::source(RECORDER_STORE, 84),
+                Some(sourced_route(HttpMethod::Get, "/recorder/status", Some("v1.0"), 370, "@recorder_router.get(")),
+                Provenance::source(RECORDER_STORE, 84, "url: `${this.API_URL}/status`,"),
                 Some(runtime_outcome(
                     200,
                     Some("\"processing\": [] (empty; no MCAP extraction active)"),
@@ -65,24 +65,19 @@ const BROWSE_VIDEO_RECORDINGS: UserJourney =
             operator_step(
                 "View processing cards for recordings still being extracted from MCAP",
                 None,
-                Provenance::source(RECORDS_VIEW, 39),
+                Provenance::source(RECORDS_VIEW, 39, "Extracting video..."),
                 None,
             ),
             operator_step(
                 "View recording cards showing name, size, modified date, and thumbnail",
                 None,
-                Provenance::source(RECORDS_VIEW, 111),
+                Provenance::source(RECORDS_VIEW, 111, "<div class=\"text-truncate\" :title=\"file.name\">"),
                 None,
             ),
             operator_step(
                 "Load a JPEG thumbnail for each recording card",
-                Some(sourced_route(
-                    HttpMethod::Get,
-                    "/recorder/files/{filename}/thumbnail",
-                    Some("v1.0"),
-                    383,
-                )),
-                Provenance::source(RECORDS_VIEW, 279),
+                Some(sourced_route(HttpMethod::Get, "/recorder/files/{filename}/thumbnail", Some("v1.0"), 383, "@recorder_ro")),
+                Provenance::source(RECORDS_VIEW, 279, "return this.brokenThumbnails[file.path] ? '' : file.thumbnai"),
                 Some(pending_outcome(
                     "GET /files/{filename}/thumbnail requires runtime capture with an existing MP4 recording (none present on capture host)",
                 )),
@@ -90,7 +85,7 @@ const BROWSE_VIDEO_RECORDINGS: UserJourney =
             service_step(
                 "Periodically extract MP4 files from MCAP recordings in the background",
                 None,
-                Provenance::source(RECORDER_MAIN, 261),
+                Provenance::source(RECORDER_MAIN, 261, "async def extract_mcap_recordings() -> None:"),
                 None,
             ),
         ]),
@@ -109,28 +104,28 @@ const DOWNLOAD_VIDEO_RECORDING: UserJourney =
         id: JourneyId::DownloadVideoRecording,
         summary: Grounded::known(
             "Download or stream an MP4 recording from the Records gallery",
-            Provenance::source(RECORDER_MENUS, 139),
+            Provenance::source(RECORDER_MENUS, 139, "text: 'Manage your video devices and video streams.',"),
         ),
-        visibility: Grounded::known(Visibility::Default, Provenance::source(RECORDER_MENUS, 138)),
+        visibility: Grounded::known(Visibility::Default, Provenance::source(RECORDER_MENUS, 138, "advanced: false,")),
         services: RECORDER_EXTRACTOR_SERVICES,
         capability_refs: GroundedSet::known(&[cap(CapabilityId::DownloadVideoRecording,
             "download button or in-dialog player streams the MP4 via GET /files/{filename}",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
             Precondition::Data(DataRequirement::RecordingListed),
-            Provenance::source(RECORDS_VIEW, 57),
+            Provenance::source(RECORDS_VIEW, 57, "v-for=\"file in recordings\""),
         )]),
         steps: GroundedSet::known(&[
             operator_step(
                 "Open the Records page from the sidebar",
                 None,
-                Provenance::source(RECORDER_MENUS, 135),
+                Provenance::source(RECORDER_MENUS, 135, "title: 'Video Streams',"),
                 None,
             ),
             operator_step(
                 "Load the list of available MP4 recordings",
-                Some(sourced_route(HttpMethod::Get, "/recorder/files", Some("v1.0"), 340)),
-                Provenance::source(RECORDER_STORE, 47),
+                Some(sourced_route(HttpMethod::Get, "/recorder/files", Some("v1.0"), 340, "@recorder_router.get(")),
+                Provenance::source(RECORDER_STORE, 47, "url: `${this.API_URL}/files`,"),
                 Some(runtime_outcome(
                     200,
                     Some("[] (empty; no MP4 recordings present)"),
@@ -139,26 +134,16 @@ const DOWNLOAD_VIDEO_RECORDING: UserJourney =
             ),
             operator_step(
                 "Click the download button on a recording card",
-                Some(sourced_route(
-                    HttpMethod::Get,
-                    "/recorder/files/{filename}",
-                    Some("v1.0"),
-                    413,
-                )),
-                Provenance::source(RECORDS_VIEW, 136),
+                Some(sourced_route(HttpMethod::Get, "/recorder/files/{filename}", Some("v1.0"), 413, "@recorder_ro")),
+                Provenance::source(RECORDS_VIEW, 136, ":href=\"file.download_url\""),
                 Some(pending_outcome(
                     "GET /files/{filename} download requires runtime capture with an existing MP4 recording (none present on capture host)",
                 )),
             ),
             operator_step(
                 "Open the playback dialog and stream the recording",
-                Some(sourced_route(
-                    HttpMethod::Get,
-                    "/recorder/files/{filename}",
-                    Some("v1.0"),
-                    413,
-                )),
-                Provenance::source(RECORDS_VIEW, 173),
+                Some(sourced_route(HttpMethod::Get, "/recorder/files/{filename}", Some("v1.0"), 413, "@recorder_ro")),
+                Provenance::source(RECORDS_VIEW, 173, ":src=\"activeRecord.stream_url\""),
                 Some(pending_outcome(
                     "GET /files/{filename} stream playback requires runtime capture with an existing MP4 recording (none present on capture host)",
                 )),
@@ -176,8 +161,14 @@ const DOWNLOAD_VIDEO_RECORDING: UserJourney =
 
 const DELETE_VIDEO_RECORDING: UserJourney = UserJourney {
     id: JourneyId::DeleteVideoRecording,
-    summary: Grounded::known("Delete a recording", Provenance::source(RECORDER_MAIN, 397)),
-    visibility: Grounded::known(Visibility::Default, Provenance::source(RECORDER_MENUS, 138)),
+    summary: Grounded::known(
+        "Delete a recording",
+        Provenance::source(RECORDER_MAIN, 397, "summary=\"Delete a recording.\","),
+    ),
+    visibility: Grounded::known(
+        Visibility::Default,
+        Provenance::source(RECORDER_MENUS, 138, "advanced: false,"),
+    ),
     services: RECORDER_EXTRACTOR_SERVICES,
     capability_refs: GroundedSet::known(&[cap(
         CapabilityId::DeleteVideoRecording,
@@ -185,13 +176,13 @@ const DELETE_VIDEO_RECORDING: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
         Precondition::Data(DataRequirement::RecordingListed),
-        Provenance::source(RECORDS_VIEW, 57),
+        Provenance::source(RECORDS_VIEW, 57, "v-for=\"file in recordings\""),
     )]),
     steps: GroundedSet::known(&[
         operator_step(
             "Open the Records page from the sidebar",
             None,
-            Provenance::source(RECORDER_MENUS, 135),
+            Provenance::source(RECORDER_MENUS, 135, "title: 'Video Streams',"),
             None,
         ),
         operator_step(
@@ -201,8 +192,9 @@ const DELETE_VIDEO_RECORDING: UserJourney = UserJourney {
                 "/recorder/files",
                 Some("v1.0"),
                 340,
+                "@recorder_router.get(",
             )),
-            Provenance::source(RECORDER_STORE, 47),
+            Provenance::source(RECORDER_STORE, 47, "url: `${this.API_URL}/files`,"),
             Some(runtime_outcome(
                 200,
                 Some("[] (empty; no MP4 recordings present)"),
@@ -216,9 +208,10 @@ const DELETE_VIDEO_RECORDING: UserJourney = UserJourney {
                 "/recorder/files/{filename}",
                 Some("v1.0"),
                 395,
+                "@recorder_router.delete(",
             )),
-            Provenance::source(RECORDS_VIEW, 126),
-            Some(source_outcome(204, 395)),
+            Provenance::source(RECORDS_VIEW, 126, "@click=\"deleteRecording(file)\""),
+            Some(source_outcome(204, 395, "@recorder_router.delete(")),
         ),
     ]),
     availability: PRESENCE_DELETE_VIDEO_RECORDING,
@@ -238,7 +231,7 @@ const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<Capabili
 const RECORDER_EXTRACTOR_SERVICES: GroundedSet<ServiceId> =
     GroundedSet::known(&[GroundedItem::new(
         ServiceId::RecorderExtractor,
-        Provenance::source(RECORDER_MAIN, 26),
+        Provenance::source(RECORDER_MAIN, 26, "SERVICE_NAME = \"recorder-extractor\""),
     )]);
 
 const fn route(method: HttpMethod, path: &'static str, version: Option<&'static str>) -> RouteRef {
@@ -255,10 +248,11 @@ const fn sourced_route(
     path: &'static str,
     version: Option<&'static str>,
     line: u32,
+    anchor: &'static str,
 ) -> Grounded<RouteRef> {
     Grounded::known(
         route(method, path, version),
-        Provenance::source(RECORDER_MAIN, line),
+        Provenance::source(RECORDER_MAIN, line, anchor),
     )
 }
 
@@ -308,7 +302,7 @@ const fn pending_outcome(reason: &'static str) -> Grounded<StepOutcome> {
     Grounded::unknown(reason)
 }
 
-const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
+const fn source_outcome(status: u16, line: u32, anchor: &'static str) -> Grounded<StepOutcome> {
     Grounded::known(
         StepOutcome {
             expected_status: Some(status),
@@ -316,7 +310,7 @@ const fn source_outcome(status: u16, line: u32) -> Grounded<StepOutcome> {
             body_kind: BodyKind::Unknown,
             transition: None,
         },
-        Provenance::source(RECORDER_MAIN, line),
+        Provenance::source(RECORDER_MAIN, line, anchor),
     )
 }
 

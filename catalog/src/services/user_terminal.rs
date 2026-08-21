@@ -91,6 +91,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 141,
+            anchor: "'user_terminal',0,0,0,0,\"cat /etc/motd\"",
         },
     ),
     entrypoint: Observed::known(
@@ -98,6 +99,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 141,
+            anchor: "'user_terminal',0,0,0,0,\"cat /etc/motd\"",
         },
     ),
     tmux_name: Observed::known(
@@ -105,6 +107,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 141,
+            anchor: "'user_terminal',0,0,0,0,\"cat /etc/motd\"",
         },
     ),
     startup_tier: Observed::known(
@@ -112,6 +115,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 124,
+            anchor: "SERVICES=(",
         },
     ),
     resource_limits: Observed::known(
@@ -123,6 +127,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 141,
+            anchor: "'user_terminal',0,0,0,0,\"cat /etc/motd\"",
         },
     ),
     nice: Observed::unknown("command line has no nice wrapper"),
@@ -131,6 +136,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 141,
+            anchor: "'user_terminal',0,0,0,0,\"cat /etc/motd\"",
         },
     ),
     nginx_prefixes: ObservedSet::known(&[]),
@@ -172,6 +178,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/start-blueos-core",
             line: 326,
+            anchor: "for TUPLE in \"${SERVICES[@]}\"; do",
         },
     ),
     logs_path: Observed::unknown(

@@ -140,6 +140,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/services/commander/main.py",
                 line: 25,
+                anchor: "SERVICE_NAME = \"commander\"",
             },
         )]),
         kind: Observed::known(
@@ -147,6 +148,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 132,
+                anchor: "'commander',250,0,0,0,\"$SERVICES_PATH/commander/main.py\"",
             },
         ),
         entrypoint: Observed::known(
@@ -154,6 +156,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 132,
+                anchor: "'commander',250,0,0,0,\"$SERVICES_PATH/commander/main.py\"",
             },
         ),
         tmux_name: Observed::known(
@@ -161,6 +164,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 132,
+                anchor: "'commander',250,0,0,0,\"$SERVICES_PATH/commander/main.py\"",
             },
         ),
         startup_tier: Observed::known(
@@ -168,6 +172,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 124,
+                anchor: "SERVICES=(",
             },
         ),
         resource_limits: Observed::known(
@@ -179,6 +184,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 132,
+                anchor: "'commander',250,0,0,0,\"$SERVICES_PATH/commander/main.py\"",
             },
         ),
         nice: Observed::unknown("no nice prefix in start tuple"),
@@ -187,6 +193,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 132,
+                anchor: "'commander',250,0,0,0,\"$SERVICES_PATH/commander/main.py\"",
             },
         ),
         nginx_prefixes: ObservedSet::known(&[Evidenced::new(
@@ -194,6 +201,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/tools/nginx/nginx.conf",
                 line: 108,
+                anchor: "location /commander/ {",
             },
         )]),
         listen: ObservedSet::known(&[Evidenced::new(
@@ -201,6 +209,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/services/commander/main.py",
                 line: 299,
+                anchor: "config = Config(app=app, host=\"0.0.0.0\", port=9100, log_conf",
             },
         )]),
         git_path: Observed::known(
@@ -208,6 +217,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/services/commander/main.py",
                 line: 1,
+                anchor: "#! /usr/bin/env python3",
             },
         ),
         interfaces: ObservedSet::known(&[
@@ -220,6 +230,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/commander/main.py",
                     line: 240,
+                    anchor: "app = VersionedFastAPI(app, version=\"1.0.0\", prefix_format=\"",
                 },
             ),
             Evidenced::new(
@@ -230,6 +241,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/commander/main.py",
                     line: 26,
+                    anchor: "LOG_FOLDER_PATH = os.environ.get(\"BLUEOS_LOG_FOLDER_PATH\", \"",
                 },
             ),
             Evidenced::new(
@@ -240,6 +252,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/commander/main.py",
                     line: 27,
+                    anchor: "MAVLINK_LOG_FOLDER_PATH = os.environ.get(\"BLUEOS_MAVLINK_LOG",
                 },
             ),
             Evidenced::new(
@@ -250,6 +263,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/commander/main.py",
                     line: 257,
+                    anchor: "key_path = Path(\"/root/.config/.ssh\")",
                 },
             ),
             Evidenced::new(
@@ -260,6 +274,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/commander/main.py",
                     line: 263,
+                    anchor: "authorized_keys = Path(f\"/home/{user}/.ssh/authorized_keys\")",
                 },
             ),
             Evidenced::new(
@@ -269,6 +284,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/commander/main.py",
                     line: 62,
+                    anchor: "output = run_command(command, False)",
                 },
             ),
             Evidenced::new(
@@ -278,6 +294,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/libs/commonwealth/src/commonwealth/utils/commands.py",
                     line: 47,
+                    anchor: "\"ssh\",",
                 },
             ),
             Evidenced::new(
@@ -287,6 +304,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/libs/commonwealth/src/commonwealth/utils/commands.py",
                     line: 21,
+                    anchor: "\"sshpass\",",
                 },
             ),
             Evidenced::new(
@@ -296,6 +314,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/commander/main.py",
                     line: 269,
+                    anchor: "subprocess.run([\"ssh-keygen\", \"-t\", \"rsa\", \"-f\", private_key",
                 },
             ),
             Evidenced::new(
@@ -305,6 +324,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/commander/main.py",
                     line: 296,
+                    anchor: "run_command(\"ls\")",
                 },
             ),
             Evidenced::new(
@@ -314,6 +334,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/commander/main.py",
                     line: 83,
+                    anchor: "command = f\"sudo timedatectl set-ntp false; sudo date -s '@{",
                 },
             ),
             Evidenced::new(
@@ -323,6 +344,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/commander/main.py",
                     line: 94,
+                    anchor: "output = run_command(f\"(sleep {hold_time_seconds}; sudo rebo",
                 },
             ),
             Evidenced::new(
@@ -332,6 +354,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/commander/main.py",
                     line: 97,
+                    anchor: "output = run_command(f\"(sleep {hold_time_seconds}; sudo shut",
                 },
             ),
             Evidenced::new(
@@ -341,6 +364,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/commander/main.py",
                     line: 104,
+                    anchor: "output = await command_host(\"raspi-config nonint get_legacy\"",
                 },
             ),
             Evidenced::new(
@@ -350,6 +374,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/commander/main.py",
                     line: 121,
+                    anchor: "output = await command_host(f\"sudo raspi-config nonint do_le",
                 },
             ),
             Evidenced::new(
@@ -359,6 +384,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/commander/main.py",
                     line: 136,
+                    anchor: "output_vl085_firmware_version = await command_host(\"sudo vcg",
                 },
             ),
             Evidenced::new(
@@ -368,6 +394,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/commander/main.py",
                     line: 138,
+                    anchor: "output_bootloader_version = await command_host(\"sudo vcgencm",
                 },
             ),
             Evidenced::new(
@@ -377,6 +404,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/commander/main.py",
                     line: 140,
+                    anchor: "output_raspberry_firmware_version = await command_host(\"sudo",
                 },
             ),
             Evidenced::new(
@@ -386,6 +414,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/commander/main.py",
                     line: 154,
+                    anchor: "return await command_host(\"sudo rpi-eeprom-update\", True)",
                 },
             ),
             Evidenced::new(
@@ -395,6 +424,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/commander/main.py",
                     line: 161,
+                    anchor: "return await command_host(\"sudo rpi-eeprom-update -a -d\", Tr",
                 },
             ),
             Evidenced::new(
@@ -405,6 +435,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                     line: 78,
+                    anchor: "topic = f\"services/{service_name}/log\"",
                 },
             ),
         ]),
@@ -417,6 +448,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/commander/main.py",
                     line: 182,
+                    anchor: "delete_everything(Path(LOG_FOLDER_PATH))",
                 },
             ),
             Evidenced::new(
@@ -427,6 +459,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/commander/main.py",
                     line: 215,
+                    anchor: "delete_everything(Path(MAVLINK_LOG_FOLDER_PATH))",
                 },
             ),
             Evidenced::new(
@@ -437,6 +470,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/commander/main.py",
                     line: 257,
+                    anchor: "key_path = Path(\"/root/.config/.ssh\")",
                 },
             ),
             Evidenced::new(
@@ -447,6 +481,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 Evidence {
                     file: "core/services/commander/main.py",
                     line: 282,
+                    anchor: "authorized_keys.write_text(authorized_keys_text, \"utf-8\")",
                 },
             ),
         ]),
@@ -486,6 +521,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/start-blueos-core",
                 line: 326,
+                anchor: "for TUPLE in \"${SERVICES[@]}\"; do",
             },
         ),
         logs_path: Observed::unknown(
@@ -496,6 +532,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
                 line: 78,
+                anchor: "topic = f\"services/{service_name}/log\"",
             },
         ),
         sentry: Observed::known(
@@ -503,6 +540,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             Evidence {
                 file: "core/services/commander/main.py",
                 line: 292,
+                anchor: "await init_sentry_async(SERVICE_NAME)",
             },
         ),
         openapi_refs: ObservedSet::unknown("not yet extracted"),
