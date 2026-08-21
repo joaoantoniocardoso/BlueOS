@@ -5,6 +5,7 @@ use serde::Serialize;
 pub struct Evidence {
     pub file: &'static str,
     pub line: u32,
+    pub anchor: &'static str,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
@@ -124,6 +125,7 @@ pub enum Provenance {
     Doc {
         file: &'static str,
         line: u32,
+        anchor: &'static str,
     },
     Runtime {
         capture: &'static str,
@@ -135,12 +137,12 @@ pub enum Provenance {
 }
 
 impl Provenance {
-    pub const fn source(file: &'static str, line: u32) -> Self {
-        Self::Source(Evidence { file, line })
+    pub const fn source(file: &'static str, line: u32, anchor: &'static str) -> Self {
+        Self::Source(Evidence { file, line, anchor })
     }
 
-    pub const fn doc(file: &'static str, line: u32) -> Self {
-        Self::Doc { file, line }
+    pub const fn doc(file: &'static str, line: u32, anchor: &'static str) -> Self {
+        Self::Doc { file, line, anchor }
     }
 
     pub const fn runtime(capture: &'static str, environment: &'static str) -> Self {
