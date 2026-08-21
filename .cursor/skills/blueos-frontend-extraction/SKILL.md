@@ -125,7 +125,7 @@ held unchanged across all three. Apply these conventions verbatim when scaling:
 
 `catalog/src/pages/<id>.rs` exposing `pub const PAGE: Page`, registered in
 `pages/mod.rs`. `route`/`name`/`component`/`menu_title`/`advanced_only`/`stores`/
-`consumes` use `Observed`/`ObservedSet` with `Evidence`; `frontend_features`/
+`consumes` use `Observed`/`ObservedSet` with `Evidence` (file, line, anchor); `frontend_features`/
 `client_state` use `AssertedSet` with rationale. Unset -> `Unknown{reason}`.
 
 ## Done-criteria (gate)

@@ -12,7 +12,7 @@ User journeys are the **spine** of the model: routes, state transitions, error s
 
 Every journey fact carries a `Provenance`, not a bare `Evidence`. Provenance is **per-facet**: a step is a `GroundedItem<JourneyStep>` (Doc-anchored action) whose `route: Option<Grounded<RouteRef>>` and `outcome: Option<Grounded<StepOutcome>>` each carry their own provenance:
 
-- `Provenance::Doc { file, line }` — operator intent/visibility/preconditions/step description, anchored in `../BlueOS-docs`.
+- `Provenance::Doc { file, line, anchor }` — operator intent/visibility/preconditions/step description, anchored in `../BlueOS-docs`.
 - `Provenance::Source(Evidence)` — a step's `route` confirmed to exist in BlueOS repo code (starts as a Doc hint, re-grounded to Source).
 - `Provenance::Runtime { capture, environment }` — a step's `outcome` (`expected_status`, `body_predicate`, `transition`, latency) captured by running the service (parity baselines).
 

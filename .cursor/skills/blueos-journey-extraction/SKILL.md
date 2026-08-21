@@ -19,7 +19,7 @@ A journey is triangulated across three sources; you own exactly one of them:
 
 | Source | Owner | Provenance | You produce |
 |--------|-------|------------|-------------|
-| `../BlueOS-docs` | **you** | `Provenance::Doc { file, line }` | intent, visibility, services, preconditions, step descriptions + route hints |
+| `../BlueOS-docs` | **you** | `Provenance::Doc { file, line, anchor }` | intent, visibility, services, preconditions, step descriptions + route hints |
 | BlueOS repo source | Fact Extractor | `Provenance::Source(Evidence)` | confirms each step route exists in code |
 | runtime baselines | capture | `Provenance::Runtime { capture, environment }` | `expected_status`, `body_predicate`, `transition` |
 
@@ -77,20 +77,21 @@ Journey extraction for <service/flow>:
 
 ## Output contract
 
-Each journey module exposes `pub const JOURNEYS: &[UserJourney]` in `catalog/src/journeys/<id>.rs` (not `pub fn journeys()`). Every field is `Grounded::known(value, Provenance::Doc { file, line })` / `GroundedSet::known(items)` or `…::unknown(reason)`. Runtime fields on steps stay `None`.
+Each journey module exposes `pub const JOURNEYS: &[UserJourney]` in `catalog/src/journeys/<id>.rs` (not `pub fn journeys()`). Every field is `Grounded::known(value, Provenance::Doc { file, line, anchor })` / `GroundedSet::known(items)` or `…::unknown(reason)`. Runtime fields on steps stay `None`.
 
 ```rust
 // doc-grounded scalar
 summary: Grounded::known(
     "Update the flight-controller firmware from the online ArduPilot repository",
-    Provenance::doc("content/usage/advanced/index.md", 268)),
+    Provenance::doc("content/usage/advanced/index.md", 268, "- Update the firmware")),
 visibility: Grounded::known(Visibility::Default,
-    Provenance::doc("content/usage/advanced/index.md", 256)),
+    Provenance::doc("content/usage/advanced/index.md", 256, "### Autopilot Firmware")),
 
 // participating services (cross-service journeys allowed)
 services: GroundedSet::known(&[
     GroundedItem::new(ServiceId::ArdupilotManager,
-        Provenance::doc("content/usage/advanced/index.md", 257)),
+        Provenance::doc("content/usage/advanced/index.md", 257,
+            "{{ service(service=\"ArduPilot Manager\", port=8000, link=\"/services/ardupilot_manager\", based=true) }}")),
 ]),
 
 // step with a Doc-grounded ROUTE HINT (Fact Extractor re-grounds to Source); outcome None
@@ -100,7 +101,8 @@ JourneyStep {
     route: Some(Grounded::known(
         RouteRef { service: ServiceId::ArdupilotManager,
             method: HttpMethod::Post, path: "/install_firmware_from_url", version: None },
-        Provenance::doc("content/usage/advanced/index.md", 271))),
+        Provenance::doc("content/usage/advanced/index.md", 271,
+            "- Select from the online repository"))),
     outcome: None,
 }
 ```

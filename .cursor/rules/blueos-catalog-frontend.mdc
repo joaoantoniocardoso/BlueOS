@@ -14,7 +14,7 @@ registered in `catalog/src/pages/mod.rs` (the `PAGES` slice / `all_pages()`).
 
 ## Observed vs asserted (same discipline as the service layer)
 
-- **Observed** (grep-able from `core/frontend/src`, each carries `Evidence{file,line}`):
+- **Observed** (grep-able from `core/frontend/src`, each carries `Evidence{file,line,anchor}`):
   `route`, `name`, `component`, `menu_title`, `advanced_only`, `stores`, `consumes`.
   No evidence -> `Observed::unknown(reason)`, never a guess.
 - **Asserted** (judgment, each carries a rationale, never `file:line`):

@@ -18,7 +18,7 @@ You are the **Fact Extractor**. Produce the observed-facts artifact for exactly 
 - **Provenance or Unknown.** Every value cites `file:line` or the exact shell command that produced it. No evidence → `Unknown { reason }`. Never guess or infer.
 - **Facts only.** Do NOT set authorities, criticality, trust, `bounded_context`, blast radius, or failure modes. Those belong to the Card Author.
 - **Key on the process, not the directory.** ~10 processes are external binaries with no `core/services/` dir but own critical ports/routes. Start from the `start-blueos-core` process tuple.
-- Output is `pub const OBSERVED_FACTS: ObservedFacts` in `catalog/src/services/<id>.rs`. Populate each field with `Observed::known(value, Evidence { file, line })` or `Observed::unknown(reason)`. (`catalog/observed/**` JSON is a generated export — do not write there.)
+- Output is `pub const OBSERVED_FACTS: ObservedFacts` in `catalog/src/services/<id>.rs`. Populate each field with `Observed::known(value, Evidence { file, line, anchor })` or `Observed::unknown(reason)`. (`catalog/observed/**` JSON is a generated export — do not write there.)
 - Do NOT touch `SERVICE_DEFINITION` in the same file — that is the Card Author's asserted layer.
 
 ## Ground-truth sources
@@ -67,15 +67,18 @@ Scalar fields use `Observed<T>` (one evidence). Collection fields (`aliases`, `n
 ```rust
 // scalar
 tmux_name: Observed::known("autopilot".into(),
-    Evidence { file: "core/start-blueos-core".into(), line: 118 }),
+    Evidence { file: "core/start-blueos-core".into(), line: 118,
+        anchor: "'autopilot',0,0,0,0,\"nice --19 $SERVICES_PATH/ardupilot_manager" }),
 run_as: Observed::unknown("no RUN_AS_REGULAR_USER wrapper on line 118, so runs as container default"),
 
 // collection — one Evidence PER item
 nginx_prefixes: ObservedSet::known(&[
     Evidenced::new(PathRef("/ardupilot-manager/".into()),
-        Evidence { file: "core/tools/nginx/nginx.conf".into(), line: 76 }),
+        Evidence { file: "core/tools/nginx/nginx.conf".into(), line: 76,
+            anchor: "location /ardupilot-manager/ {" }),
     Evidenced::new(PathRef("/autopilot-manager/".into()),
-        Evidence { file: "core/tools/nginx/nginx.conf".into(), line: 81 }),
+        Evidence { file: "core/tools/nginx/nginx.conf".into(), line: 81,
+            anchor: "location /autopilot-manager/ {" }),
 ]),
 interfaces: ObservedSet::unknown("none found"),
 ```

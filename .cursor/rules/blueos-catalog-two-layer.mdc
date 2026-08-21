@@ -11,7 +11,8 @@ The catalog has two layers that must never be mixed. Mixing them is the root cau
 ## Observed layer — `ObservedFacts`, wrapped in `Observed<T>`
 
 - Facts extractable from the repo: ports, tmux/nginx names, limits, subprocess/MAVLink/Zenoh interfaces.
-- Every observed field carries provenance: `Observed::known(value, Evidence { file, line })`.
+- Every observed field carries provenance: `Observed::known(value, Evidence { file, line, anchor })`.
+  `anchor` is the cited line's text (trimmed, whitespace-collapsed, <=60 chars); it distinguishes a moved line (`Relocated`, auto-repaired by `provenance_lint --fix`) from a vanished target (`AnchorLost`).
 - No evidence → `Observed::unknown(reason)`, never a guess.
 - The JSON in `catalog/observed/**` is a **generated export** (`extract`/`export` output). **Never hand-edit it**; regenerate.
 
@@ -20,7 +21,7 @@ The catalog has two layers that must never be mixed. Mixing them is the root cau
 - Human/LLM judgment only: authorities, criticality, trust, `bounded_context`, failure modes, capabilities.
 - **Never restate an observed fact here** (ports, tmux/nginx names, limits). Those live in `observed_facts()`.
 - Wrap fields in `Asserted<T>` (`Established { value, rationale } | Unknown { reason }`), never `Observed<T>`.
-  Asserted judgment carries a `rationale`, never `file:line` `Evidence`.
+  Asserted judgment carries a `rationale`, never `file:line` `Evidence`. Downgrading `Provenance::source(..)` to `Provenance::asserted(..)` silences a failing citation -- source and asserted counts are pinned; a downgrade trips them.
 - Unestablished fields are `Asserted::unknown(reason)`, not blank.
 
 ## Before marking any catalog task done
@@ -38,7 +39,8 @@ fn service_definition() -> ServiceDefinition {
 fn observed_facts() -> ObservedFacts {
     ObservedFacts {
         listen: ObservedSet::known(&[Evidenced::new(PortRef::Literal(8000),
-            Evidence { file: "core/tools/nginx/nginx.conf", line: 78 })]),
+            Evidence { file: "core/tools/nginx/nginx.conf", line: 78,
+                anchor: "proxy_pass http://127.0.0.1:8000/;" })]),
         ..
     }
 }

@@ -20,7 +20,7 @@ You are the **Crate Engineer**. Build the `blueos-catalog` crate: the type syste
 - **Definition vs resolved:** `PortRef::Literal(14001)` vs `PortRef::Env("MAV_SYSTEM_ID")`; a `resolve()` pass turns env refs into literals for tooling.
 - **Two layers are distinct types AND distinct wrappers:** `ObservedFacts` (generated) uses `Observed<T>`; `ServiceDefinition` (authored) uses `Asserted<T>`. `drift.rs` reconciles them. Never merge them.
 - **Two provenance wrappers, no silent blanks:**
-  - Observed: `Observed<T> = Known { value: T, evidence: Evidence } | Unknown { reason }` — carries `file:line`.
+  - Observed: `Observed<T> = Known { value: T, evidence: Evidence } | Unknown { reason }` — carries `file:line:anchor`.
   - Asserted: `Asserted<T> = Established { value: T, rationale } | Unknown { reason }` — carries judgment rationale, never `file:line`.
 
 ## Typed const-catalog invariants (read before authoring)
