@@ -255,6 +255,7 @@ Do not edit: [paths]
 Invariants: derived requirements only (no hand-authored per-feature prose);
   statement stays implementation-free, criterion carries the route/status;
   never delete a citation to silence provenance_lint -- re-ground it;
+  new check must be non-vacuous (break it, watch fail, restore);
   never hand-edit journey_presence.rs, feature_traces.json, or catalog/observed/**;
   Unknown { reason } over a guess; requirement ids never encode line/path/ordinal;
   baseline is a named tag, never HEAD; local only, no commit/PR unless asked HERE.
