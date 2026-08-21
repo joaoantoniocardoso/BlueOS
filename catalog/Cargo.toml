@@ -3,6 +3,16 @@ name = "blueos-catalog"
 version = "0.1.0"
 edition = "2021"
 
+# Only for the sampler binary pushed to a device by boot_timeline: it is scp'd during a boot we
+# are measuring, so size beats build time and runtime speed there. Host tools keep [profile.release].
+[profile.release-device]
+inherits = "release"
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
 [dependencies]
 regex = "1"
 schemars = "0.8"
@@ -90,3 +100,7 @@ path = "src/bin/journey_matrix.rs"
 [[bin]]
 name = "harness_ratchet"
 path = "src/bin/harness_ratchet.rs"
+
+[[bin]]
+name = "boot_timeline"
+path = "src/bin/boot_timeline.rs"
