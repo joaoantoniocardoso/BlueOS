@@ -99,6 +99,8 @@ pub enum RequirementValidationError {
     SystemWithoutFunctional { id: String },
     #[error("functional requirement {id} has no acceptance criterion and no Unknown coverage")]
     FunctionalWithoutCriterion { id: String },
+    #[error("overlay system requirement {id} has no acceptance criterion")]
+    SystemOverlayWithoutCriterion { id: String },
     #[error("journey {journey} is Http-automatable but step {step} lacks runtime evidence")]
     HttpAutomatableWithoutRuntime { journey: String, step: usize },
     #[error("requirement {id} statement is contaminated: {substring}")]
@@ -371,6 +373,16 @@ impl RequirementCatalog {
                 )
             {
                 errors.push(RequirementValidationError::FunctionalWithoutCriterion {
+                    id: requirement.id.0.clone(),
+                });
+            }
+            if requirement.id.0.contains("/SYS-OVR/")
+                && matches!(
+                    &requirement.criteria,
+                    RequirementCriteria::Known { items } if items.is_empty()
+                )
+            {
+                errors.push(RequirementValidationError::SystemOverlayWithoutCriterion {
                     id: requirement.id.0.clone(),
                 });
             }
@@ -1176,9 +1188,10 @@ fn append_overlay_requirements(
     contamination_findings: &mut Vec<ContaminationFinding>,
 ) {
     for entry in SYSTEM_OVERLAY_ENTRIES {
+        let domain = domain_of(entry.aggregate);
         let id = RequirementId(format!(
             "REQ/{}/{}/SYS-OVR/{}",
-            entry.domain.as_str(),
+            domain.as_str(),
             entry.aggregate.as_str(),
             entry.suffix
         ));
@@ -1205,7 +1218,7 @@ fn append_overlay_requirements(
         requirements.push(Requirement {
             id,
             kind: RequirementKind::System,
-            domain: entry.domain,
+            domain,
             aggregate: entry.aggregate,
             availability: overlay_availability_from_ids(catalog, entry.journey_ids),
             statement,

@@ -1,14 +1,14 @@
 {
   "version_tag": "1.4-dev",
-  "total": 380,
+  "total": 381,
   "unknown_statement_count": 19,
   "unknown_criteria_count": 64,
   "by_kind": {
-    "robustness": 44,
-    "constraint": 36,
-    "performance": 69,
-    "system": 79,
     "functional": 81,
+    "constraint": 36,
+    "system": 80,
+    "performance": 69,
+    "robustness": 44,
     "interface": 71
   },
   "requirements": [
@@ -8148,9 +8148,9 @@
       "availability_present": true
     },
     {
-      "id": "REQ/presentation/web_ingress/SYS-OVR/boot_to_usable_web_ui",
+      "id": "REQ/blueos_platform/web_ingress/SYS-OVR/boot_to_usable_web_ui",
       "kind": "system",
-      "domain": "presentation",
+      "domain": "blueos_platform",
       "statement": {
         "status": "known",
         "text": "After power-on the operator can reach the vehicle web interface without manual service recovery"
@@ -8159,7 +8159,10 @@
         "status": "known",
         "items": [
           {
-            "text": "boot_timeline monitor records nginx HTTP 200 on port 80 after first boot"
+            "text": "boot_timeline recorded HTTP 200 on port 80 at phase2 on 2 of 3 monitored hosts, each only after one automatic reboot (catalog/boot-timeline-192.168.0.124/summary.json:55 at 73.4s, catalog/boot-timeline-192.168.0.177/summary.json:65 at 121.9s)"
+          },
+          {
+            "text": "the third host reached no HTTP response and no reboot before the monitor gave up (catalog/boot-timeline-192.168.0.87/summary.json:16 max_wait)"
           },
           {
             "text": "content/usage/installation.md documents first-boot expansion may take minutes"
@@ -8182,10 +8185,36 @@
         "status": "known",
         "items": [
           {
-            "text": "journey:DiscoverBlueosOnNetwork uses wired Ethernet precondition only"
+            "text": "journey:DiscoverBlueosOnNetwork declares two wired-connection preconditions and no Network::Online (catalog/src/journeys/beacon.rs:110-121)"
           },
           {
             "text": "RenameVehicle (catalog/src/journeys/beacon.rs:36) and InspectDiskUsage (catalog/src/journeys/disk_usage.rs:55) declare empty preconditions, so neither requires Network::Online"
+          }
+        ]
+      },
+      "feature_id": null,
+      "journey_id": null,
+      "availability_present": true
+    },
+    {
+      "id": "REQ/onboard_computer/host_control/SYS-OVR/essential_service_supervision",
+      "kind": "system",
+      "domain": "onboard_computer",
+      "statement": {
+        "status": "known",
+        "text": "Essential platform services are supervised and restarted when they exit unexpectedly"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "core/run-service.sh:142-154 restarts the service command in a while-true loop after unexpected exit"
+          },
+          {
+            "text": "core/start-blueos-core:200 invokes run-service for each launched service"
+          },
+          {
+            "text": "journey:RebootOnboardComputer returns the platform to service without operator intervention, so every service it lost is relaunched by that supervisor"
           }
         ]
       },

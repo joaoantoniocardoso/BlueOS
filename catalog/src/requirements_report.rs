@@ -1,6 +1,7 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use serde::{Deserialize, Serialize};
 
@@ -230,6 +231,79 @@ pub fn validate_rtm_completeness(
     } else {
         Err(errors)
     }
+}
+
+/// Every overlay trace must resolve and live in a committed file: an overlay claim grounded in an
+/// artifact a reader cannot open is indistinguishable from an invented one.
+pub fn overlay_trace_failures() -> Vec<String> {
+    let mut failures = Vec::new();
+    let repo = match tracked_paths(&crate::provenance_walk::repo_root()) {
+        Ok(paths) => paths,
+        Err(err) => {
+            failures.push(err);
+            return failures;
+        }
+    };
+    let docs_root = crate::provenance_walk::docs_root();
+    let docs = if docs_root.is_dir() {
+        match tracked_paths(&docs_root) {
+            Ok(paths) => Some(paths),
+            Err(err) => {
+                failures.push(err);
+                return failures;
+            }
+        }
+    } else {
+        None
+    };
+
+    for entry in SYSTEM_OVERLAY_ENTRIES {
+        if entry.traces.is_empty() {
+            failures.push(format!("{}: cites no trace", entry.suffix));
+        }
+        for trace in entry.traces {
+            if !evidence_resolves(trace) {
+                failures.push(format!("{}: trace does not resolve: {trace}", entry.suffix));
+                continue;
+            }
+            let Some((file, _)) = split_file_line(trace) else {
+                continue;
+            };
+            let tracked = if file.starts_with("content/") {
+                match &docs {
+                    Some(docs) => docs.contains(file),
+                    None => continue,
+                }
+            } else {
+                repo.contains(file)
+            };
+            if !tracked {
+                failures.push(format!("{}: trace is not committed: {trace}", entry.suffix));
+            }
+        }
+    }
+    failures
+}
+
+fn tracked_paths(dir: &Path) -> Result<HashSet<String>, String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(dir)
+        .args(["ls-files", "-z"])
+        .output()
+        .map_err(|err| format!("git ls-files in {} failed: {err}", dir.display()))?;
+    if !output.status.success() {
+        return Err(format!(
+            "git ls-files in {} exited with {}",
+            dir.display(),
+            output.status
+        ));
+    }
+    Ok(String::from_utf8_lossy(&output.stdout)
+        .split('\0')
+        .filter(|path| !path.is_empty())
+        .map(str::to_string)
+        .collect())
 }
 
 pub fn requirements_baseline_path(tag: &str) -> PathBuf {
@@ -585,8 +659,11 @@ mod tests {
     use crate::catalog::Catalog;
     use crate::requirement::{RequirementCatalog, RequirementStatement};
 
-    const FILTERED_COUNT_1_0_0: usize = 263;
-    const FILTERED_COUNT_1_4_0: usize = 377;
+    const FILTERED_COUNT_1_0_0: usize = 264;
+    const FILTERED_COUNT_1_4_0: usize = 378;
+    const UNKNOWN_STATEMENTS_1_4_DEV: usize = 19;
+    const UNKNOWN_CRITERIA_1_4_DEV: usize = 64;
+    const UNKNOWN_STATEMENTS_UNFILTERED: usize = 66;
 
     #[test]
     fn version_filter_counts_match_pins() {
@@ -599,6 +676,22 @@ mod tests {
             catalog.filter_by_version("1.4.0").requirements().len(),
             FILTERED_COUNT_1_4_0
         );
+    }
+
+    /// Pins the escape hatch shut: downgrading a statement to `Unknown` to dodge a missing RTM
+    /// trace changes these counts even though every per-kind count stays put.
+    #[test]
+    fn unknown_counts_match_pins() {
+        let requirements = RequirementCatalog::bootstrap();
+        let unfiltered = requirements
+            .requirements()
+            .iter()
+            .filter(|req| matches!(req.statement, RequirementStatement::Unknown { .. }))
+            .count();
+        assert_eq!(unfiltered, UNKNOWN_STATEMENTS_UNFILTERED);
+        let json = crate::requirements_report::requirements_json(&requirements, "1.4-dev");
+        assert_eq!(json.unknown_statement_count, UNKNOWN_STATEMENTS_1_4_DEV);
+        assert_eq!(json.unknown_criteria_count, UNKNOWN_CRITERIA_1_4_DEV);
     }
 
     #[test]
@@ -637,7 +730,14 @@ mod tests {
         let baseline = crate::requirements_report::load_requirements_baseline("1.4-dev")
             .expect("committed 1.4-dev baseline");
         let identical = crate::requirements_report::diff_requirement_reports(&baseline, &current);
+        assert!(identical.added.is_empty(), "{:?}", identical.added);
+        assert!(identical.removed.is_empty(), "{:?}", identical.removed);
         assert!(identical.changed_statement.is_empty());
+        assert!(
+            identical.changed_criteria.is_empty(),
+            "{:?}",
+            identical.changed_criteria
+        );
         assert!(identical.changed_availability.is_empty());
 
         let mut statement_changed = current.clone();

@@ -154,8 +154,8 @@ pub use requirement::{
     RequirementStatement, RequirementValidationError,
 };
 pub use requirements_report::{
-    build_rtm_rows, diff_requirement_reports, load_requirements_baseline, render_diff_report,
-    render_rtm_csv, render_srs, requirements_json, validate_rtm_completeness,
+    build_rtm_rows, diff_requirement_reports, load_requirements_baseline, overlay_trace_failures,
+    render_diff_report, render_rtm_csv, render_srs, requirements_json, validate_rtm_completeness,
     RequirementDiffReport, RequirementsJson, RtmRow,
 };
 pub use resolve::{resolve, resolve_port_ref, resolve_service_ports, ResolveError, ResolvedPorts};

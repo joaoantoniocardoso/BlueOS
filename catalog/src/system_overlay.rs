@@ -1,11 +1,9 @@
 use crate::capability::Aggregate;
-use crate::domain::Domain;
 use crate::id::JourneyId;
 use crate::provenance::Provenance;
 
 pub struct SystemOverlayEntry {
     pub suffix: &'static str,
-    pub domain: Domain,
     pub aggregate: Aggregate,
     pub statement: &'static str,
     pub criteria: &'static [&'static str],
@@ -17,14 +15,21 @@ pub struct SystemOverlayEntry {
 pub const SYSTEM_OVERLAY_ENTRIES: &[SystemOverlayEntry] = &[
     SystemOverlayEntry {
         suffix: "boot_to_usable_web_ui",
-        domain: Domain::Presentation,
         aggregate: Aggregate::WebIngress,
         statement: concat!(
             "After power-on the operator can reach the vehicle web interface ",
             "without manual service recovery"
         ),
         criteria: &[
-            "boot_timeline monitor records nginx HTTP 200 on port 80 after first boot",
+            concat!(
+                "boot_timeline recorded HTTP 200 on port 80 at phase2 on 2 of 3 monitored hosts, each ",
+                "only after one automatic reboot (catalog/boot-timeline-192.168.0.124/summary.json:55 at ",
+                "73.4s, catalog/boot-timeline-192.168.0.177/summary.json:65 at 121.9s)"
+            ),
+            concat!(
+                "the third host reached no HTTP response and no reboot before the monitor gave up ",
+                "(catalog/boot-timeline-192.168.0.87/summary.json:16 max_wait)"
+            ),
             "content/usage/installation.md documents first-boot expansion may take minutes",
         ],
         provenance: Provenance::asserted(concat!(
@@ -32,18 +37,25 @@ pub const SYSTEM_OVERLAY_ENTRIES: &[SystemOverlayEntry] = &[
             "without ssh intervention; boot_timeline captures this on real hardware",
         )),
         journey_ids: &[JourneyId::DiscoverBlueosOnNetwork],
-        traces: &["content/usage/installation.md:59"],
+        traces: &[
+            "content/usage/installation.md:59",
+            "catalog/boot-timeline-192.168.0.124/summary.json:55",
+            "catalog/boot-timeline-192.168.0.177/summary.json:65",
+            "catalog/boot-timeline-192.168.0.87/summary.json:16",
+        ],
     },
     SystemOverlayEntry {
         suffix: "local_network_without_internet",
-        domain: Domain::Network,
         aggregate: Aggregate::WiredNetwork,
         statement: concat!(
             "Core vehicle configuration remains available on the local network when ",
             "wide-area internet is unavailable"
         ),
         criteria: &[
-            "journey:DiscoverBlueosOnNetwork uses wired Ethernet precondition only",
+            concat!(
+                "journey:DiscoverBlueosOnNetwork declares two wired-connection preconditions and no ",
+                "Network::Online (catalog/src/journeys/beacon.rs:110-121)"
+            ),
             concat!(
                 "RenameVehicle (catalog/src/journeys/beacon.rs:36) and InspectDiskUsage ",
                 "(catalog/src/journeys/disk_usage.rs:55) declare empty preconditions, so neither ",
@@ -62,12 +74,12 @@ pub const SYSTEM_OVERLAY_ENTRIES: &[SystemOverlayEntry] = &[
         traces: &[
             "content/usage/getting-started/index.md:29",
             "catalog/src/journeys/beacon.rs:36",
+            "catalog/src/journeys/beacon.rs:110",
             "catalog/src/journeys/disk_usage.rs:55",
         ],
     },
     SystemOverlayEntry {
         suffix: "storage_pressure_visibility",
-        domain: Domain::OnboardComputer,
         aggregate: Aggregate::Storage,
         statement: concat!(
             "The operator can inspect storage consumption before userdata exhaustion ",
@@ -86,7 +98,6 @@ pub const SYSTEM_OVERLAY_ENTRIES: &[SystemOverlayEntry] = &[
     },
     SystemOverlayEntry {
         suffix: "essential_service_supervision",
-        domain: Domain::BlueOsPlatform,
         aggregate: Aggregate::HostControl,
         statement: concat!(
             "Essential platform services are supervised and restarted when they exit ",
@@ -94,17 +105,21 @@ pub const SYSTEM_OVERLAY_ENTRIES: &[SystemOverlayEntry] = &[
         ),
         criteria: &[
             concat!(
-                "core/run-service.sh:141-154 restarts the service command in a while-true loop ",
+                "core/run-service.sh:142-154 restarts the service command in a while-true loop ",
                 "after unexpected exit"
             ),
             "core/start-blueos-core:200 invokes run-service for each launched service",
+            concat!(
+                "journey:RebootOnboardComputer returns the platform to service without operator ",
+                "intervention, so every service it lost is relaunched by that supervisor"
+            ),
         ],
         provenance: Provenance::asserted(concat!(
             "BlueOS 1.x restarts essential services via the run-service while-true loop, ",
             "not via tmux itself",
         )),
-        journey_ids: &[],
-        traces: &["core/run-service.sh:141"],
+        journey_ids: &[JourneyId::RebootOnboardComputer],
+        traces: &["core/run-service.sh:142", "core/start-blueos-core:200"],
     },
 ];
 
@@ -112,7 +127,12 @@ pub const SYSTEM_OVERLAY_ENTRIES: &[SystemOverlayEntry] = &[
 mod tests {
     use super::*;
 
-    use crate::requirement::find_contamination;
+    use crate::catalog::Catalog;
+    use crate::requirement::{find_contamination, overlay_availability_from_ids};
+    use crate::requirements_report::overlay_trace_failures;
+    use crate::version::availability_is_valid;
+
+    const REVIEWED_TAGS: &[&str] = &["1.0.0", "1.4.0", "1.4-dev", "master"];
 
     #[test]
     fn overlay_entry_count_within_cap() {
@@ -146,5 +166,46 @@ mod tests {
                 entry.suffix
             );
         }
+    }
+
+    #[test]
+    fn overlay_entries_have_at_least_one_criterion() {
+        for entry in SYSTEM_OVERLAY_ENTRIES {
+            assert!(
+                !entry.criteria.is_empty(),
+                "overlay entry states no acceptance criterion: {}",
+                entry.suffix
+            );
+        }
+    }
+
+    #[test]
+    fn overlay_entries_are_present_on_at_least_one_tag() {
+        let catalog = Catalog::bootstrap();
+        for entry in SYSTEM_OVERLAY_ENTRIES {
+            let availability = overlay_availability_from_ids(&catalog, entry.journey_ids);
+            availability_is_valid(&availability).unwrap_or_else(|err| {
+                panic!(
+                    "overlay entry {} has invalid availability: {err}",
+                    entry.suffix
+                )
+            });
+            assert!(
+                REVIEWED_TAGS
+                    .iter()
+                    .any(|tag| availability.present_on_dut(tag)),
+                "overlay entry {} is present on no release tag, so it renders in no output",
+                entry.suffix
+            );
+        }
+    }
+
+    #[test]
+    fn overlay_traces_resolve_and_are_committed() {
+        let failures = overlay_trace_failures();
+        assert!(
+            failures.is_empty(),
+            "overlay traces must all resolve and be committed: {failures:#?}"
+        );
     }
 }
