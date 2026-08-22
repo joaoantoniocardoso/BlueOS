@@ -189,22 +189,42 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 anchor: "'video',0,0,0,0,\"nice --19 mavlink-camera-manager --default-",
             },
         ),
-        nginx_prefixes: ObservedSet::known(&[Evidenced::new(
-            PathRef("/mavlink-camera-manager/"),
-            Evidence {
-                file: "core/tools/nginx/nginx.conf",
-                line: 192,
-                anchor: "location /mavlink-camera-manager/ {",
-            },
-        )]),
-        listen: ObservedSet::known(&[Evidenced::new(
-            PortRef::Literal(6020),
-            Evidence {
-                file: "core/tools/nginx/nginx.conf",
-                line: 194,
-                anchor: "proxy_pass http://127.0.0.1:6020/;",
-            },
-        )]),
+        nginx_prefixes: ObservedSet::known(&[
+            Evidenced::new(
+                PathRef("/mavlink-camera-manager/"),
+                Evidence {
+                    file: "core/tools/nginx/nginx.conf",
+                    line: 192,
+                    anchor: "location /mavlink-camera-manager/ {",
+                },
+            ),
+            Evidenced::new(
+                PathRef("/webrtc/ws/"),
+                Evidence {
+                    file: "core/tools/nginx/nginx.conf",
+                    line: 180,
+                    anchor: "location /webrtc/ws/ {",
+                },
+            ),
+        ]),
+        listen: ObservedSet::known(&[
+            Evidenced::new(
+                PortRef::Literal(6020),
+                Evidence {
+                    file: "core/tools/nginx/nginx.conf",
+                    line: 194,
+                    anchor: "proxy_pass http://127.0.0.1:6020/;",
+                },
+            ),
+            Evidenced::new(
+                PortRef::Literal(6021),
+                Evidence {
+                    file: "core/tools/nginx/nginx.conf",
+                    line: 185,
+                    anchor: "proxy_pass http://127.0.0.1:6021/;",
+                },
+            ),
+        ]),
         git_path: Observed::unknown(
             "external Rust binary (upstream github.com/bluerobotics/mavlink-camera-manager); no source tree in this repository",
         ),
@@ -219,6 +239,17 @@ pub const OBSERVED_FACTS: ObservedFacts =
                     file: "core/tools/nginx/nginx.conf",
                     line: 194,
                     anchor: "proxy_pass http://127.0.0.1:6020/;",
+                },
+            ),
+            Evidenced::new(
+                Interface::Websocket {
+                    path: PathRef("/webrtc/ws/"),
+                    port: PortRef::Literal(6021),
+                },
+                Evidence {
+                    file: "core/tools/nginx/nginx.conf",
+                    line: 185,
+                    anchor: "proxy_pass http://127.0.0.1:6021/;",
                 },
             ),
             Evidenced::new(

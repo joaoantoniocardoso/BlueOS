@@ -1208,7 +1208,7 @@ mod tests {
 
     #[test]
     fn source_to_asserted_downgrade_trips_citation_pins() {
-        const FILE_CITATION_COUNT: usize = 2041;
+        const FILE_CITATION_COUNT: usize = 2044;
         const SOURCE_COUNT: usize = 512;
         const ASSERTED_COUNT: usize = 214;
 
