@@ -37,6 +37,7 @@ pub mod provenance_anchor;
 pub mod provenance_walk;
 pub mod report;
 pub mod requirement;
+pub mod requirements_report;
 pub mod resolve;
 pub mod resource;
 pub mod runner;
@@ -151,6 +152,11 @@ pub use requirement::{
     find_contamination, AcceptanceCriterion, ContaminationFinding, ContaminationSource,
     Requirement, RequirementCatalog, RequirementCriteria, RequirementId, RequirementKind,
     RequirementStatement, RequirementValidationError,
+};
+pub use requirements_report::{
+    build_rtm_rows, diff_requirement_reports, load_requirements_baseline, render_diff_report,
+    render_rtm_csv, render_srs, requirements_json, validate_rtm_completeness,
+    RequirementDiffReport, RequirementsJson, RtmRow,
 };
 pub use resolve::{resolve, resolve_port_ref, resolve_service_ports, ResolveError, ResolvedPorts};
 pub use resource::{Resource, ResourceOwnership};

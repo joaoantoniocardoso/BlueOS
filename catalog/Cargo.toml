@@ -22,6 +22,10 @@ sha1 = "0.10"
 thiserror = "1"
 
 [[bin]]
+name = "requirements"
+path = "src/bin/requirements.rs"
+
+[[bin]]
 name = "route_lint"
 path = "src/bin/route_lint.rs"
 
