@@ -68,13 +68,16 @@ fn main() -> ExitCode {
 fn print_counts(label: &str, counts: HarnessRatchetCounts) {
     println!(
         "{label}: blast_radius_unknown={} body_kind_unknown={} unprobed_failure_modes={} \
-         mutating_missing_effect_read={} orchestrated_missing_ui_plan={} open_harness_gap={}",
+         mutating_missing_effect_read={} orchestrated_missing_ui_plan={} open_harness_gap={} \
+         unverified_observed_evidence={} extractor_coverage_lapses={}",
         counts.unknown_blast_radius,
         counts.unknown_body_kind,
         counts.unprobed_failure_modes,
         counts.mutating_smoke_missing_effect_read,
         counts.client_orchestrated_missing_ui_plan,
         counts.open_harness_gap,
+        counts.unverified_observed_evidence,
+        counts.extractor_coverage_lapses,
     );
 }
 

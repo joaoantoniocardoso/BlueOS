@@ -7,6 +7,9 @@ use crate::catalog::Catalog;
 use crate::journey::{blast_radius_is_unknown, derive_oracle_class, BodyKind, OracleClass};
 use crate::journey_matrix::PAGE_LOAD_UI;
 use crate::mutating_smoke::MUTATING_SMOKE_ENTRIES;
+use crate::observed_verification::{
+    count_extractor_coverage_lapses, count_unverified_observed_evidence,
+};
 use crate::provenance::{Grounded, GroundedSet};
 use crate::ui::ui_plan;
 
@@ -21,6 +24,8 @@ pub struct HarnessRatchetCounts {
     pub mutating_smoke_missing_effect_read: usize,
     pub client_orchestrated_missing_ui_plan: usize,
     pub open_harness_gap: usize,
+    pub unverified_observed_evidence: usize,
+    pub extractor_coverage_lapses: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,6 +36,7 @@ pub struct HarnessRatchetRegression {
 }
 
 pub fn harness_ratchet_counts(catalog: &Catalog) -> HarnessRatchetCounts {
+    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     HarnessRatchetCounts {
         unknown_blast_radius: catalog
             .journeys()
@@ -45,6 +51,11 @@ pub fn harness_ratchet_counts(catalog: &Catalog) -> HarnessRatchetCounts {
             .count(),
         client_orchestrated_missing_ui_plan: count_client_orchestrated_missing_ui_plan(catalog),
         open_harness_gap: count_open_harness_gap(),
+        unverified_observed_evidence: count_unverified_observed_evidence(
+            repo_root,
+            catalog.services(),
+        ),
+        extractor_coverage_lapses: count_extractor_coverage_lapses(repo_root, catalog.services()),
     }
 }
 
@@ -157,6 +168,16 @@ pub fn compare_harness_ratchet(
             baseline.open_harness_gap,
             current.open_harness_gap,
         ),
+        (
+            "unverified_observed_evidence",
+            baseline.unverified_observed_evidence,
+            current.unverified_observed_evidence,
+        ),
+        (
+            "extractor_coverage_lapses",
+            baseline.extractor_coverage_lapses,
+            current.extractor_coverage_lapses,
+        ),
     ];
     fields
         .into_iter()
@@ -222,6 +243,8 @@ mod tests {
             mutating_smoke_missing_effect_read: 60,
             client_orchestrated_missing_ui_plan: 17,
             open_harness_gap: 60,
+            unverified_observed_evidence: 454,
+            extractor_coverage_lapses: 0,
         };
         let equal = baseline;
         assert!(compare_harness_ratchet(baseline, equal).is_empty());
@@ -242,6 +265,8 @@ mod tests {
             mutating_smoke_missing_effect_read: 60,
             client_orchestrated_missing_ui_plan: 17,
             open_harness_gap: 60,
+            unverified_observed_evidence: 454,
+            extractor_coverage_lapses: 0,
         };
         let worse = HarnessRatchetCounts {
             mutating_smoke_missing_effect_read: 61,
