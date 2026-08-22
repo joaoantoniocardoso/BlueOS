@@ -47,6 +47,7 @@ pub mod sitl_cal;
 pub mod source_index;
 pub mod split;
 pub mod state;
+pub mod system_overlay;
 pub mod tools;
 pub mod trust;
 pub mod ui;

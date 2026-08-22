@@ -229,6 +229,10 @@ fn excluded_registries() -> Vec<RegistryCoverage> {
         "JourneyId list only; no Evidence or Provenance fields",
     ));
     rows.push(excluded_registry(
+        "requirement/RequirementCatalog",
+        "overlay is Asserted-only; Source/Doc/Runtime on overlay fails overlay_citation_kind_is_asserted",
+    ));
+    rows.push(excluded_registry(
         "mcm_restore/SMOKE_CATALOG_STREAM_JSON",
         "JSON request body, not a repo path",
     ));
@@ -1188,6 +1192,7 @@ mod tests {
             "tools/sibling_matrix/PAIRS",
             "journey_matrix/HARD_EXCLUDED",
             "journey_matrix/PAGE_LOAD_UI",
+            "requirement/RequirementCatalog",
             "mcm_restore/SMOKE_CATALOG_STREAM_JSON",
             "runner/SMOKE_CORE_SWITCH_JSON",
             "capture_env/*",

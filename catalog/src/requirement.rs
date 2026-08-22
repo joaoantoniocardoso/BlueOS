@@ -1,7 +1,7 @@
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 use schemars::JsonSchema;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::capability::{capability_def, frontend_capability_def, Aggregate};
@@ -20,9 +20,10 @@ use crate::negative_probes::{NegativeProbe, NEGATIVE_PROBES};
 use crate::provenance::{Grounded, GroundedSet, Provenance};
 use crate::runner::{http_method_label, resolve_http_path};
 use crate::runtime::SloBaseline;
+use crate::system_overlay::SYSTEM_OVERLAY_ENTRIES;
 use crate::version::FeatureAvailability;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum RequirementKind {
     System,
@@ -36,19 +37,19 @@ pub enum RequirementKind {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct RequirementId(pub String);
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum RequirementStatement {
     Known { text: String },
     Unknown { reason: String },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct AcceptanceCriterion {
     pub text: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum RequirementCriteria {
     Known { items: Vec<AcceptanceCriterion> },
@@ -60,6 +61,7 @@ pub enum RequirementCriteria {
 pub enum ContaminationSource {
     Feature { id: FeatureId },
     Journey { id: JourneyId },
+    Overlay { suffix: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
@@ -85,7 +87,7 @@ pub struct Requirement {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct RequirementCatalog {
-    requirements: Vec<Requirement>,
+    pub(crate) requirements: Vec<Requirement>,
     contamination_findings: Vec<ContaminationFinding>,
 }
 
@@ -162,11 +164,11 @@ impl RequirementCatalog {
                 rationale: None,
             });
             functional_by_journey.insert(journey.id, id.clone());
-            if let Some(feature_id) = primary_feature_for_journey(journey) {
+            for feature_id in feature_attributions_for_journey(journey) {
                 functional_by_feature
                     .entry(feature_id)
                     .or_default()
-                    .push(id);
+                    .push(id.clone());
             }
         }
 
@@ -212,14 +214,7 @@ impl RequirementCatalog {
                     ContaminationSource::Feature { id: feature.id },
                     &mut contamination_findings,
                 );
-                requirements[idx].criteria = RequirementCriteria::Known {
-                    items: children
-                        .iter()
-                        .map(|child_id| AcceptanceCriterion {
-                            text: format!("functional child {}", child_id.0),
-                        })
-                        .collect(),
-                };
+                requirements[idx].criteria = compose_system_criteria(&children, &requirements);
             }
         }
 
@@ -250,12 +245,7 @@ impl RequirementCatalog {
         for service in catalog.services() {
             if let GroundedSet::Known { items } = &service.runtime.slo_baselines {
                 for item in items.iter() {
-                    add_performance_requirement(
-                        catalog,
-                        &mut requirements,
-                        service.id,
-                        &item.value,
-                    );
+                    add_performance_requirement(catalog, &mut requirements, service.id, item);
                 }
             }
         }
@@ -280,6 +270,8 @@ impl RequirementCatalog {
                 }
             }
         }
+
+        append_overlay_requirements(catalog, &mut requirements, &mut contamination_findings);
 
         Self {
             requirements,
@@ -362,8 +354,10 @@ impl RequirementCatalog {
         }
 
         for requirement in &self.requirements {
+            // Overlay system claims are not composed from journeys, so they have no functional children.
             if requirement.kind == RequirementKind::System
                 && requirement.functional_children.is_empty()
+                && !requirement.id.0.contains("/SYS-OVR/")
                 && !matches!(requirement.criteria, RequirementCriteria::Unknown { .. })
             {
                 errors.push(RequirementValidationError::SystemWithoutFunctional {
@@ -447,13 +441,24 @@ fn add_performance_requirement(
     catalog: &Catalog,
     requirements: &mut Vec<Requirement>,
     service_id: ServiceId,
-    slo: &SloBaseline,
+    item: &crate::provenance::GroundedItem<SloBaseline>,
 ) {
+    let slo = &item.value;
     let aggregate = aggregate_for_service(catalog, service_id);
     let domain = domain_of(aggregate);
     let resolved =
         resolve_http_path(catalog, &slo.route).unwrap_or_else(|| slo.route.path.to_string());
     let id = performance_requirement_id(domain, aggregate, &slo.route.method, &resolved);
+    let statement_text = match capability_phrase_for_service(catalog, service_id) {
+        Some(phrase) => {
+            format!("Captured {phrase} endpoint latency stays within measured baseline")
+        }
+        None => "Captured endpoint latency stays within measured baseline".to_string(),
+    };
+    let capture = match &item.provenance {
+        Provenance::Runtime { capture, .. } => Some((*capture).to_string()),
+        other => Some(format!("{other:?}")),
+    };
     requirements.push(Requirement {
         id,
         kind: RequirementKind::Performance,
@@ -461,7 +466,7 @@ fn add_performance_requirement(
         aggregate,
         availability: availability_for_service(catalog, service_id),
         statement: RequirementStatement::Known {
-            text: "Captured endpoint latency stays within measured baseline".to_string(),
+            text: statement_text,
         },
         criteria: RequirementCriteria::Known {
             items: vec![AcceptanceCriterion {
@@ -479,7 +484,7 @@ fn add_performance_requirement(
         feature_id: None,
         journey_id: None,
         functional_children: Vec::new(),
-        rationale: None,
+        rationale: capture,
     });
 }
 
@@ -494,6 +499,13 @@ fn add_robustness_requirement(
     let aggregate = aggregate_for_journey(journey);
     let domain = domain_of(aggregate);
     let id = robustness_requirement_id(domain, aggregate, probe.id);
+    let statement_text = match primary_feature_for_journey(journey) {
+        Some(feature) => format!(
+            "Invalid or unsafe {} request is rejected safely",
+            feature.0.as_str().replace('_', " ")
+        ),
+        None => "Invalid or unsafe request is rejected safely".to_string(),
+    };
     requirements.push(Requirement {
         id,
         kind: RequirementKind::Robustness,
@@ -501,7 +513,7 @@ fn add_robustness_requirement(
         aggregate,
         availability: journey.availability,
         statement: RequirementStatement::Known {
-            text: "Invalid or unsafe request is rejected safely".to_string(),
+            text: statement_text,
         },
         criteria: RequirementCriteria::Known {
             items: vec![AcceptanceCriterion {
@@ -541,7 +553,7 @@ fn add_constraint_requirement(
         statement,
         criteria: RequirementCriteria::Known {
             items: vec![AcceptanceCriterion {
-                text: label.to_string(),
+                text: precondition_criterion(precondition),
             }],
         },
         feature_id: primary_feature_for_journey(journey),
@@ -1047,12 +1059,188 @@ fn sanitize_path_for_id(path: &str) -> String {
 }
 
 fn primary_feature_for_journey(journey: &UserJourney) -> Option<FeatureId> {
-    if let GroundedSet::Known { items } = &journey.capability_refs {
-        if let Some(first) = items.first() {
-            return Some(FeatureId(first.value));
+    feature_attributions_for_journey(journey).into_iter().next()
+}
+
+fn feature_attributions_for_journey(journey: &UserJourney) -> Vec<FeatureId> {
+    let GroundedSet::Known { items } = &journey.capability_refs else {
+        return Vec::new();
+    };
+    if items.is_empty() {
+        return Vec::new();
+    }
+    if items.len() == 1 {
+        let capability = items[0].value;
+        if journey_summary_fits_capability(journey, capability) {
+            return vec![FeatureId(capability)];
+        }
+        return Vec::new();
+    }
+    let Some(primary) = select_primary_capability(journey, items) else {
+        return Vec::new();
+    };
+    if journey_summary_fits_capability(journey, primary) {
+        vec![FeatureId(primary)]
+    } else {
+        Vec::new()
+    }
+}
+
+fn select_primary_capability(
+    journey: &UserJourney,
+    items: &[crate::provenance::GroundedItem<CapabilityId>],
+) -> Option<CapabilityId> {
+    let summary = grounded_text(&journey.summary).to_ascii_lowercase();
+    items
+        .iter()
+        .map(|item| item.value)
+        .max_by_key(|capability| capability_summary_overlap(*capability, &summary))
+        .filter(|capability| capability_summary_overlap(*capability, &summary) > 0)
+}
+
+fn capability_summary_overlap(capability: CapabilityId, summary: &str) -> usize {
+    let id = capability.as_str();
+    let mut score = 0usize;
+    for token in id.split('_') {
+        if token.len() >= 4 && summary.contains(token) {
+            score += 1;
         }
     }
-    None
+    if summary.contains("firmware") && id.contains("firmware") {
+        score += 2;
+    }
+    if summary.contains("install") && id.contains("flash") {
+        score += 2;
+    }
+    score
+}
+
+fn journey_summary_fits_capability(journey: &UserJourney, capability: CapabilityId) -> bool {
+    let summary = grounded_text(&journey.summary).to_ascii_lowercase();
+    match capability {
+        CapabilityId::AdvertiseMdnsDomains => {
+            summary.contains("mdns")
+                || summary.contains("advertis")
+                || summary.contains("hostname")
+                || summary.contains("discover")
+        }
+        CapabilityId::DetectFlightControllers => {
+            summary.contains("detect")
+                || summary.contains("discover")
+                || summary.contains("connected board")
+        }
+        _ => capability_summary_overlap(capability, &summary) > 0,
+    }
+}
+
+fn compose_system_criteria(
+    functional_children: &[RequirementId],
+    requirements: &[Requirement],
+) -> RequirementCriteria {
+    let mut items = Vec::new();
+    for child_id in functional_children {
+        let child = requirements
+            .iter()
+            .find(|req| &req.id == child_id)
+            .expect("functional child requirement");
+        match &child.criteria {
+            RequirementCriteria::Known { items: child_items } => {
+                items.extend(child_items.iter().cloned());
+            }
+            RequirementCriteria::Unknown { reason } => {
+                return RequirementCriteria::Unknown {
+                    reason: format!(
+                        "functional child {} has unknown criteria: {}",
+                        child_id.0, reason
+                    ),
+                };
+            }
+        }
+    }
+    if items.is_empty() {
+        RequirementCriteria::Unknown {
+            reason: "functional children have no acceptance criteria".to_string(),
+        }
+    } else {
+        RequirementCriteria::Known { items }
+    }
+}
+
+fn precondition_criterion(precondition: &Precondition) -> String {
+    format!("precondition: {}", precondition_statement(precondition))
+}
+
+fn append_overlay_requirements(
+    catalog: &Catalog,
+    requirements: &mut Vec<Requirement>,
+    contamination_findings: &mut Vec<ContaminationFinding>,
+) {
+    for entry in SYSTEM_OVERLAY_ENTRIES {
+        let id = RequirementId(format!(
+            "REQ/{}/{}/SYS-OVR/{}",
+            entry.domain.as_str(),
+            entry.aggregate.as_str(),
+            entry.suffix
+        ));
+        let statement = derive_statement(
+            entry.statement,
+            ContaminationSource::Overlay {
+                suffix: entry.suffix.to_string(),
+            },
+            contamination_findings,
+        );
+        let criteria = RequirementCriteria::Known {
+            items: entry
+                .criteria
+                .iter()
+                .map(|text| AcceptanceCriterion {
+                    text: (*text).to_string(),
+                })
+                .collect(),
+        };
+        let rationale = match entry.provenance {
+            Provenance::Asserted { rationale } => Some(rationale.to_string()),
+            _ => None,
+        };
+        requirements.push(Requirement {
+            id,
+            kind: RequirementKind::System,
+            domain: entry.domain,
+            aggregate: entry.aggregate,
+            availability: overlay_availability_from_ids(catalog, entry.journey_ids),
+            statement,
+            criteria,
+            feature_id: None,
+            journey_id: None,
+            functional_children: Vec::new(),
+            rationale,
+        });
+    }
+}
+
+pub(crate) fn overlay_availability_from_ids(
+    catalog: &Catalog,
+    journey_ids: &[JourneyId],
+) -> FeatureAvailability {
+    let journeys: Vec<&UserJourney> = journey_ids
+        .iter()
+        .map(|id| {
+            catalog
+                .journey_by_id(id)
+                .unwrap_or_else(|| panic!("overlay cites unknown journey {id}"))
+        })
+        .collect();
+    merge_journey_availabilities(journeys)
+}
+
+fn capability_phrase_for_service(catalog: &Catalog, service_id: ServiceId) -> Option<String> {
+    let service = catalog.service_by_id(&service_id)?;
+    match &service.definition.capabilities {
+        crate::provenance::AssertedSet::Established { items } => items
+            .first()
+            .map(|item| item.value.as_str().replace('_', " ")),
+        crate::provenance::AssertedSet::Unknown { .. } => None,
+    }
 }
 
 fn aggregate_for_journey(journey: &UserJourney) -> Aggregate {
@@ -1171,9 +1359,13 @@ mod tests {
     use crate::catalog::Catalog;
     use crate::feature::FeatureCatalog;
     use crate::id::JourneyId;
+    use crate::system_overlay::SYSTEM_OVERLAY_ENTRIES;
     use crate::version::FeatureAvailability;
 
-    const EXPECTED_SYSTEM_COUNT: usize = 143;
+    const EXPECTED_DERIVED_SYSTEM_COUNT: usize = 143;
+    const EXPECTED_OVERLAY_SYSTEM_COUNT: usize = 4;
+
+    const EXPECTED_SYSTEM_COUNT: usize = 147;
     const EXPECTED_FUNCTIONAL_COUNT: usize = 100;
     const EXPECTED_INTERFACE_COUNT: usize = 87;
     const EXPECTED_PERFORMANCE_COUNT: usize = 80;
@@ -1186,6 +1378,24 @@ mod tests {
         present_on_master: true,
         present_on_1_4_dev: true,
     };
+
+    #[test]
+    fn derived_and_overlay_system_counts_match_pins() {
+        let catalog = RequirementCatalog::bootstrap();
+        let derived = catalog
+            .requirements()
+            .iter()
+            .filter(|req| req.kind == RequirementKind::System && !req.id.0.contains("/SYS-OVR/"))
+            .count();
+        let overlay = catalog
+            .requirements()
+            .iter()
+            .filter(|req| req.id.0.contains("/SYS-OVR/"))
+            .count();
+        assert_eq!(derived, EXPECTED_DERIVED_SYSTEM_COUNT);
+        assert_eq!(overlay, EXPECTED_OVERLAY_SYSTEM_COUNT);
+        assert_eq!(overlay, SYSTEM_OVERLAY_ENTRIES.len());
+    }
 
     #[test]
     fn bootstrap_requirement_counts_match_pins() {
@@ -1368,6 +1578,88 @@ mod tests {
             .map(|req| req.id.0.clone())
             .collect();
         assert_eq!(ids_a, ids_b);
+    }
+
+    #[test]
+    fn rtm_completeness_fails_when_real_traces_dropped() {
+        use crate::requirements_report::validate_rtm_completeness;
+
+        let catalog = Catalog::bootstrap();
+        let mut requirements = RequirementCatalog::from_catalog(&catalog);
+        let mut dropped = 0usize;
+        for requirement in &mut requirements.requirements {
+            if requirement.journey_id.is_some()
+                && matches!(requirement.statement, RequirementStatement::Known { .. })
+            {
+                requirement.journey_id = None;
+                requirement.feature_id = None;
+                dropped += 1;
+            }
+        }
+        assert!(dropped > 100, "must drop real traces on many requirements");
+        let errors = validate_rtm_completeness(&catalog, &requirements)
+            .expect_err("dropping journey traces must fail RTM completeness");
+        assert!(
+            errors.len() >= 100,
+            "expected many unresolved RTM rows, got {}",
+            errors.len()
+        );
+        assert!(
+            errors[0].contains("lacks a resolvable RTM citation"),
+            "{}",
+            errors[0]
+        );
+    }
+
+    #[test]
+    fn overlay_availability_rejects_unrelated_journey() {
+        let catalog = Catalog::bootstrap();
+        let disk = overlay_availability_from_ids(&catalog, &[JourneyId::InspectDiskUsage]);
+        let discover =
+            overlay_availability_from_ids(&catalog, &[JourneyId::DiscoverBlueosOnNetwork]);
+        assert_ne!(
+            disk.present_on_dut("1.4-dev"),
+            discover.present_on_dut("1.4-dev"),
+            "InspectDiskUsage and DiscoverBlueosOnNetwork must differ on 1.4-dev"
+        );
+        let requirements = RequirementCatalog::from_catalog(&catalog);
+        let storage = requirements
+            .requirements()
+            .iter()
+            .find(|req| req.id.0.ends_with("/storage_pressure_visibility"))
+            .expect("storage overlay");
+        assert_eq!(
+            storage.availability.present_on_dut("1.4-dev"),
+            disk.present_on_dut("1.4-dev")
+        );
+        assert_ne!(
+            overlay_availability_from_ids(&catalog, &[JourneyId::InspectDiskUsage]),
+            overlay_availability_from_ids(&catalog, &[JourneyId::DiscoverBlueosOnNetwork])
+        );
+    }
+
+    #[test]
+    fn overlay_contamination_injected_route_fails_validation() {
+        let catalog = Catalog::bootstrap();
+        let features = FeatureCatalog::from_catalog(&catalog);
+        let mut requirements = RequirementCatalog::from_catalog(&catalog);
+        let idx = requirements
+            .requirements
+            .iter()
+            .position(|req| req.id.0.contains("/SYS-OVR/"))
+            .expect("overlay requirement");
+        requirements.requirements[idx].statement = RequirementStatement::Known {
+            text: "GET /injected overlay route".to_string(),
+        };
+        let errors = requirements
+            .validate_emitted_statements()
+            .expect_err("contaminated overlay");
+        assert!(errors.iter().any(|err| matches!(
+            err,
+            RequirementValidationError::ContaminatedStatementEmitted { .. }
+        )));
+        let _ = features;
+        let _ = catalog;
     }
 
     #[test]
