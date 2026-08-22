@@ -4,6 +4,10 @@ use std::path::Path;
 use schemars::JsonSchema;
 use serde::Serialize;
 
+pub use crate::extract_nginx::{
+    check_nginx_against_observed, extract_nginx_from_repo, ExtractedNginxLocation,
+};
+
 use crate::drift::{DriftFinding, DriftReport};
 use crate::observed::{ObservedFacts, StartupTier};
 use crate::provenance::Observed;
@@ -207,6 +211,13 @@ pub fn check_against_observed(
     }
 
     DriftReport { findings }
+}
+
+pub(crate) fn find_extracted_for_verification<'a>(
+    extracted: &'a [ExtractedService],
+    facts: &ObservedFacts,
+) -> Option<&'a ExtractedService> {
+    find_extracted(extracted, facts)
 }
 
 fn find_extracted<'a>(

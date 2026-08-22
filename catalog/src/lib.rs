@@ -10,6 +10,7 @@ pub mod edge;
 pub mod export;
 pub mod extension_lifecycle;
 pub mod extract;
+pub mod extract_nginx;
 pub mod feature;
 pub mod feature_intro;
 pub mod feature_trace;
@@ -30,6 +31,7 @@ pub mod mcm_restore;
 pub mod mutating_smoke;
 pub mod negative_probes;
 pub mod observed;
+pub mod observed_verification;
 pub mod page;
 pub mod pages;
 pub mod provenance;
@@ -83,7 +85,10 @@ pub use drift::{
 pub use edge::{Bus, Edge, FailureImpact, SyncMode};
 pub use export::{export_json, export_mermaid, export_proposals_json, export_schema};
 pub use extension_lifecycle::{run_extension_lifecycle, write_extension_lifecycle_report};
-pub use extract::{check_against_observed, extract_from_repo, ExtractedService};
+pub use extract::{
+    check_against_observed, check_nginx_against_observed, extract_from_repo,
+    extract_nginx_from_repo, ExtractedNginxLocation, ExtractedService,
+};
 pub use feature::{
     AggregateGroup, Divergence, Feature, FeatureCatalog, FeatureCommunity, FeatureId, FeatureLens,
     FeaturePairAgreement, FeatureSplitConsensus, JourneyView, Origin,
@@ -138,6 +143,9 @@ pub use negative_probes::{
     NEGATIVE_PROBES,
 };
 pub use observed::{ObservedFacts, ResourceLimits, ServiceKind, StartupTier};
+pub use observed_verification::{
+    count_extractor_coverage_lapses, count_unverified_observed_evidence,
+};
 pub use page::{ClientState, ConsumeTarget, Page, PageId, PageServiceCall, StateOwnership};
 pub use provenance::{
     Asserted, AssertedSet, Evidence, Evidenced, Grounded, GroundedItem, GroundedSet, Observed,

@@ -12,7 +12,7 @@ echo "== test (validate() exercised here) =="
 cargo test
 echo "== harness ratchet (committed baseline, no BLUEOS_BASE) =="
 cargo run -q --bin harness_ratchet
-echo "== extract (observed layer vs core/start-blueos-core) =="
+echo "== extract (observed layer vs core/start-blueos-core and nginx.conf) =="
 cargo run -q --bin extract
 echo "== drift (asserted vs observed + runtime) =="
 cargo run -q --bin drift
