@@ -1,0 +1,291 @@
+{
+  "boot_seconds_phase1_to_phase2": 73.4,
+  "events": [
+    {
+      "detail": "",
+      "ev": "monitor_start",
+      "offset_s": -36.0
+    },
+    {
+      "detail": "",
+      "ev": "ping_down",
+      "offset_s": -34.0
+    },
+    {
+      "detail": "",
+      "ev": "ping_up",
+      "offset_s": -0.0
+    },
+    {
+      "detail": "",
+      "ev": "phase1",
+      "offset_s": 0.0
+    },
+    {
+      "detail": "ok=true",
+      "ev": "agent_install",
+      "offset_s": 3.1
+    },
+    {
+      "detail": "err:no response (000)",
+      "ev": "http",
+      "offset_s": 3.1
+    },
+    {
+      "detail": "",
+      "ev": "health_fail",
+      "offset_s": 33.3
+    },
+    {
+      "detail": "",
+      "ev": "ping_down",
+      "offset_s": 41.2
+    },
+    {
+      "detail": "",
+      "ev": "ping_up",
+      "offset_s": 57.9
+    },
+    {
+      "detail": "#1 down=17.1s boot_id=dec3b59f",
+      "ev": "reboot",
+      "offset_s": 58.3
+    },
+    {
+      "detail": "200",
+      "ev": "http",
+      "offset_s": 73.4
+    },
+    {
+      "detail": "",
+      "ev": "phase2",
+      "offset_s": 73.4
+    },
+    {
+      "detail": "reason=settled",
+      "ev": "monitor_stop",
+      "offset_s": 193.9
+    }
+  ],
+  "phase1": 1787346993.8067317,
+  "phase2": 1787347067.2167463,
+  "reboots": 1,
+  "sessions": [
+    {
+      "boot_id": "8e475027-8eee-4fa4-bf6a-78aeb26b80e5",
+      "cpu_percent": {
+        "max": 26.1,
+        "mean": 9.0,
+        "p95": 22.6
+      },
+      "kernel_boot": 1720052044.9347942,
+      "mem_mb": {
+        "max": 323.0,
+        "mean": 306.3,
+        "total": 4045.1
+      },
+      "samples": 26,
+      "swap_mb": {
+        "max": 0.0,
+        "mean": 0.0,
+        "total": 200.0
+      },
+      "top_cpu_s": [
+        {
+          "cpu_s": 1.0,
+          "proc": "ssh-keygen -t rsa -f /root/.config/.ssh/id_rsa -(1642)"
+        },
+        {
+          "cpu_s": 0.7,
+          "proc": "python /usr/bin/blueos_startup_update.py(1641)"
+        },
+        {
+          "cpu_s": 0.3,
+          "proc": "apt-get check -qq(2050)"
+        },
+        {
+          "cpu_s": 0.2,
+          "proc": "/usr/bin/dbus-daemon --system --address=systemd:(776)"
+        },
+        {
+          "cpu_s": 0.2,
+          "proc": "/sbin/init(1)"
+        },
+        {
+          "cpu_s": 0.1,
+          "proc": "/lib/systemd/systemd-journald(306)"
+        },
+        {
+          "cpu_s": 0.1,
+          "proc": "python3 /main.py(1401)"
+        },
+        {
+          "cpu_s": 0.1,
+          "proc": "/lib/systemd/systemd-logind(784)"
+        },
+        {
+          "cpu_s": 0.1,
+          "proc": "/home/pi/boot-monitor/boot_sampler sample --out (1577)"
+        },
+        {
+          "cpu_s": 0.1,
+          "proc": "/usr/bin/dockerd -H fd:// --containerd=/run/cont(1113)"
+        }
+      ],
+      "top_rss_mb": [
+        {
+          "peak_mb": 85.5,
+          "proc": "/usr/bin/dockerd -H fd:// --containerd=/run/cont(1113)"
+        },
+        {
+          "peak_mb": 77.0,
+          "proc": "apt-get check -qq(2050)"
+        },
+        {
+          "peak_mb": 44.2,
+          "proc": "python3 /main.py(1401)"
+        },
+        {
+          "peak_mb": 42.0,
+          "proc": "/usr/bin/containerd(1087)"
+        },
+        {
+          "peak_mb": 30.5,
+          "proc": "python /usr/bin/blueos_startup_update.py(1641)"
+        },
+        {
+          "peak_mb": 17.5,
+          "proc": "/usr/sbin/NetworkManager --no-daemon(1070)"
+        },
+        {
+          "peak_mb": 12.0,
+          "proc": "/usr/sbin/ModemManager(1072)"
+        },
+        {
+          "peak_mb": 11.8,
+          "proc": "/sbin/init(1)"
+        },
+        {
+          "peak_mb": 10.5,
+          "proc": "sshd: pi [priv](1522)"
+        },
+        {
+          "peak_mb": 10.5,
+          "proc": "sshd: pi [priv](1838)"
+        }
+      ],
+      "window": [
+        1720052056.3886044,
+        1787347020.8551114
+      ]
+    },
+    {
+      "boot_id": "dec3b59f-2a95-4289-84a1-31319bbc5ad1",
+      "cpu_percent": {
+        "max": 99.8,
+        "mean": 9.4,
+        "p95": 43.2
+      },
+      "kernel_boot": 1787347043.1309702,
+      "mem_mb": {
+        "max": 1073.2,
+        "mean": 909.7,
+        "total": 4045.1
+      },
+      "samples": 143,
+      "swap_mb": {
+        "max": 0.0,
+        "mean": 0.0,
+        "total": 0.0
+      },
+      "top_cpu_s": [
+        {
+          "cpu_s": 9.7,
+          "proc": "/root/.config/ardupilot-manager/firmware/ardupil(1700)"
+        },
+        {
+          "cpu_s": 7.6,
+          "proc": "/usr/bin/dockerd -H fd:// --containerd=/run/cont(937)"
+        },
+        {
+          "cpu_s": 3.4,
+          "proc": "python3 /home/pi/services/ardupilot_manager/main(1491)"
+        },
+        {
+          "cpu_s": 2.2,
+          "proc": "python3 /home/pi/services/cable_guy/main.py(1514)"
+        },
+        {
+          "cpu_s": 1.9,
+          "proc": "python3 /home/pi/services/versionchooser/main.py(2170)"
+        },
+        {
+          "cpu_s": 1.9,
+          "proc": "python3 /home/pi/services/kraken/main.py(1793)"
+        },
+        {
+          "cpu_s": 1.6,
+          "proc": "python major_tom.py cloud(3651)"
+        },
+        {
+          "cpu_s": 1.6,
+          "proc": "python api.py(3652)"
+        },
+        {
+          "cpu_s": 1.2,
+          "proc": "python major_tom.py telemetry(3650)"
+        },
+        {
+          "cpu_s": 1.2,
+          "proc": "python3 /home/pi/services/helper/main.py(2018)"
+        }
+      ],
+      "top_rss_mb": [
+        {
+          "peak_mb": 100.4,
+          "proc": "/usr/bin/dockerd -H fd:// --containerd=/run/cont(937)"
+        },
+        {
+          "peak_mb": 93.0,
+          "proc": "python3 /home/pi/services/kraken/main.py(1793)"
+        },
+        {
+          "peak_mb": 79.9,
+          "proc": "/usr/local/lib/aarch64-linux-gnu/../../libexec/g(1622)"
+        },
+        {
+          "peak_mb": 65.8,
+          "proc": "python major_tom.py cloud(3651)"
+        },
+        {
+          "peak_mb": 57.7,
+          "proc": "python3 /home/pi/services/cable_guy/main.py(1514)"
+        },
+        {
+          "peak_mb": 56.9,
+          "proc": "python3 /home/pi/services/versionchooser/main.py(2170)"
+        },
+        {
+          "peak_mb": 56.1,
+          "proc": "python major_tom.py telemetry(3650)"
+        },
+        {
+          "peak_mb": 52.4,
+          "proc": "python api.py(3652)"
+        },
+        {
+          "peak_mb": 50.1,
+          "proc": "python3 /home/pi/services/ardupilot_manager/main(1491)"
+        },
+        {
+          "peak_mb": 49.0,
+          "proc": "python3 /home/pi/services/wifi/main.py --socket (1815)"
+        }
+      ],
+      "window": [
+        1787347046.2355428,
+        1787347188.2351344
+      ]
+    }
+  ]
+}

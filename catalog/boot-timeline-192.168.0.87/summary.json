@@ -1,0 +1,29 @@
+{
+  "boot_seconds_phase1_to_phase2": null,
+  "events": [
+    {
+      "detail": "",
+      "ev": "monitor_start",
+      "offset_s": null
+    },
+    {
+      "detail": "",
+      "ev": "ping_down",
+      "offset_s": null
+    },
+    {
+      "detail": "",
+      "ev": "max_wait",
+      "offset_s": null
+    },
+    {
+      "detail": "reason=max_wait",
+      "ev": "monitor_stop",
+      "offset_s": null
+    }
+  ],
+  "phase1": null,
+  "phase2": null,
+  "reboots": 0,
+  "sessions": []
+}

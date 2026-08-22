@@ -1,0 +1,301 @@
+{
+  "boot_seconds_phase1_to_phase2": 121.9,
+  "events": [
+    {
+      "detail": "",
+      "ev": "monitor_start",
+      "offset_s": -57.7
+    },
+    {
+      "detail": "",
+      "ev": "ping_down",
+      "offset_s": -55.7
+    },
+    {
+      "detail": "",
+      "ev": "ping_up",
+      "offset_s": -0.0
+    },
+    {
+      "detail": "",
+      "ev": "phase1",
+      "offset_s": 0.0
+    },
+    {
+      "detail": "ok=true",
+      "ev": "agent_install",
+      "offset_s": 7.7
+    },
+    {
+      "detail": "err:no response (000)",
+      "ev": "http",
+      "offset_s": 7.7
+    },
+    {
+      "detail": "",
+      "ev": "health_fail",
+      "offset_s": 68.1
+    },
+    {
+      "detail": "",
+      "ev": "ping_down",
+      "offset_s": 74.1
+    },
+    {
+      "detail": "",
+      "ev": "ping_up",
+      "offset_s": 96.7
+    },
+    {
+      "detail": "#1 down=24.0s boot_id=ca680a6f",
+      "ev": "reboot",
+      "offset_s": 98.1
+    },
+    {
+      "detail": "",
+      "ev": "ping_down",
+      "offset_s": 121.1
+    },
+    {
+      "detail": "",
+      "ev": "ping_up",
+      "offset_s": 121.1
+    },
+    {
+      "detail": "200",
+      "ev": "http",
+      "offset_s": 121.9
+    },
+    {
+      "detail": "",
+      "ev": "phase2",
+      "offset_s": 121.9
+    },
+    {
+      "detail": "reason=settled",
+      "ev": "monitor_stop",
+      "offset_s": 242.2
+    }
+  ],
+  "phase1": 1787347015.5155718,
+  "phase2": 1787347137.465346,
+  "reboots": 1,
+  "sessions": [
+    {
+      "boot_id": "af1926c9-f570-43aa-ab9d-9b0be8a7cc5f",
+      "cpu_percent": {
+        "max": 34.4,
+        "mean": 18.4,
+        "p95": 26.6
+      },
+      "kernel_boot": 1720052263.863429,
+      "mem_mb": {
+        "max": 222.8,
+        "mean": 217.8,
+        "total": 3792.1
+      },
+      "samples": 54,
+      "swap_mb": {
+        "max": 0.0,
+        "mean": 0.0,
+        "total": 200.0
+      },
+      "top_cpu_s": [
+        {
+          "cpu_s": 1.3,
+          "proc": "python /usr/bin/blueos_startup_update.py(1475)"
+        },
+        {
+          "cpu_s": 1.1,
+          "proc": "/usr/bin/dbus-daemon --system --address=systemd:(569)"
+        },
+        {
+          "cpu_s": 1.0,
+          "proc": "ssh-keygen -t rsa -f /root/.config/.ssh/id_rsa -(1477)"
+        },
+        {
+          "cpu_s": 0.6,
+          "proc": "/sbin/init(1)"
+        },
+        {
+          "cpu_s": 0.5,
+          "proc": "/home/pi/boot-monitor/boot_sampler sample --out (1411)"
+        },
+        {
+          "cpu_s": 0.3,
+          "proc": "python3 /main.py(1318)"
+        },
+        {
+          "cpu_s": 0.3,
+          "proc": "/lib/systemd/systemd-journald(245)"
+        },
+        {
+          "cpu_s": 0.3,
+          "proc": "/lib/systemd/systemd-logind(583)"
+        },
+        {
+          "cpu_s": 0.3,
+          "proc": "/usr/bin/dockerd -H fd:// --containerd=/run/cont(927)"
+        },
+        {
+          "cpu_s": 0.2,
+          "proc": "/usr/lib/polkit-1/polkitd --no-debug(572)"
+        }
+      ],
+      "top_rss_mb": [
+        {
+          "peak_mb": 65.5,
+          "proc": "/usr/bin/dockerd -H fd:// --containerd=/run/cont(927)"
+        },
+        {
+          "peak_mb": 37.5,
+          "proc": "/usr/bin/containerd(900)"
+        },
+        {
+          "peak_mb": 29.6,
+          "proc": "python3 /main.py(1318)"
+        },
+        {
+          "peak_mb": 19.7,
+          "proc": "python /usr/bin/blueos_startup_update.py(1475)"
+        },
+        {
+          "peak_mb": 17.0,
+          "proc": "/usr/sbin/NetworkManager --no-daemon(646)"
+        },
+        {
+          "peak_mb": 10.9,
+          "proc": "/sbin/init(1)"
+        },
+        {
+          "peak_mb": 10.5,
+          "proc": "/usr/sbin/ModemManager(889)"
+        },
+        {
+          "peak_mb": 9.5,
+          "proc": "/sbin/wpa_supplicant -u -s -O DIR=/run/wpa_suppl(652)"
+        },
+        {
+          "peak_mb": 8.6,
+          "proc": "/usr/bin/containerd-shim-runc-v2 -namespace moby(1295)"
+        },
+        {
+          "peak_mb": 8.6,
+          "proc": "sshd: pi [priv](1340)"
+        }
+      ],
+      "window": [
+        1720052287.1842856,
+        1787347075.187354
+      ]
+    },
+    {
+      "boot_id": "ca680a6f-df8e-4306-a944-9089e615bd0e",
+      "cpu_percent": {
+        "max": 100.0,
+        "mean": 21.9,
+        "p95": 90.7
+      },
+      "kernel_boot": 1787347081.8985715,
+      "mem_mb": {
+        "max": 690.4,
+        "mean": 559.6,
+        "total": 3792.1
+      },
+      "samples": 155,
+      "swap_mb": {
+        "max": 0.0,
+        "mean": 0.0,
+        "total": 0.0
+      },
+      "top_cpu_s": [
+        {
+          "cpu_s": 31.4,
+          "proc": "/usr/bin/dockerd -H fd:// --containerd=/run/cont(764)"
+        },
+        {
+          "cpu_s": 6.6,
+          "proc": "python3 /home/pi/services/ardupilot_manager/main(1337)"
+        },
+        {
+          "cpu_s": 6.6,
+          "proc": "python3 /home/pi/services/cable_guy/main.py(1365)"
+        },
+        {
+          "cpu_s": 4.4,
+          "proc": "python3 /home/pi/services/kraken/main.py(1518)"
+        },
+        {
+          "cpu_s": 4.2,
+          "proc": "python3 /home/pi/services/versionchooser/main.py(2012)"
+        },
+        {
+          "cpu_s": 3.4,
+          "proc": "python api.py(3958)"
+        },
+        {
+          "cpu_s": 2.9,
+          "proc": "python major_tom.py cloud(3957)"
+        },
+        {
+          "cpu_s": 2.8,
+          "proc": "python3 /home/pi/services/helper/main.py(1811)"
+        },
+        {
+          "cpu_s": 2.4,
+          "proc": "python major_tom.py telemetry(3956)"
+        },
+        {
+          "cpu_s": 2.4,
+          "proc": "python3 /home/pi/services/wifi/main.py --socket (1552)"
+        }
+      ],
+      "top_rss_mb": [
+        {
+          "peak_mb": 74.2,
+          "proc": "/usr/bin/dockerd -H fd:// --containerd=/run/cont(764)"
+        },
+        {
+          "peak_mb": 74.2,
+          "proc": "python3 /home/pi/services/kraken/main.py(1518)"
+        },
+        {
+          "peak_mb": 54.2,
+          "proc": "/usr/local/lib/arm-linux-gnueabihf/../../libexec(1466)"
+        },
+        {
+          "peak_mb": 46.1,
+          "proc": "python major_tom.py cloud(3957)"
+        },
+        {
+          "peak_mb": 40.6,
+          "proc": "python major_tom.py telemetry(3956)"
+        },
+        {
+          "peak_mb": 39.5,
+          "proc": "/usr/bin/containerd(735)"
+        },
+        {
+          "peak_mb": 39.4,
+          "proc": "python3 /home/pi/services/cable_guy/main.py(1365)"
+        },
+        {
+          "peak_mb": 37.0,
+          "proc": "python3 /home/pi/services/versionchooser/main.py(2012)"
+        },
+        {
+          "peak_mb": 34.6,
+          "proc": "python api.py(3958)"
+        },
+        {
+          "peak_mb": 32.4,
+          "proc": "python3 /home/pi/services/wifi/main.py --socket (1552)"
+        }
+      ],
+      "window": [
+        1787347090.8909557,
+        1787347259.576233
+      ]
+    }
+  ]
+}
