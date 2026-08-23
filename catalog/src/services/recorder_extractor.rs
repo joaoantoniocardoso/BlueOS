@@ -24,8 +24,8 @@ pub const RUNTIME_FACTS: RuntimeFacts =
             "recorder_extractor has no service-level state machine (card states Unknown); background MCAP extraction and REST handlers are runtime-managed",
         ),
         slo_baselines: GroundedSet::known(&[
-            runtime_slo(HttpMethod::Get, "/files", 5.8, 9.7, 11.0, 60),
-            runtime_slo(HttpMethod::Get, "/status", 5.5, 8.0, 15.1, 60),
+            runtime_slo(HttpMethod::Get, "/recorder/files", 5.8, 9.7, 11.0, 60),
+            runtime_slo(HttpMethod::Get, "/recorder/status", 5.5, 8.0, 15.1, 60),
             runtime_slo(HttpMethod::Get, "/", 4.6, 6.6, 9.7, 60),
         ]),
         resource_usage: GroundedSet::known(&[runtime_resource(
