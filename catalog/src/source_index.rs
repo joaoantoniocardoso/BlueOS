@@ -195,6 +195,7 @@ pub fn catalog_entity_for_citation(citation: &Citation) -> CatalogEntity {
     if matches!(
         citation.root.as_str(),
         "coverage/TRACKER_CSV_PATH"
+            | "api_contract/DEFAULT_API_CONTRACT_BASELINE"
             | "harness_ratchet/DEFAULT_BASELINE_PATH"
             | "harness_ratchet/FAILURE_MODE_LEDGER_PATH"
     ) {
@@ -476,14 +477,14 @@ mod tests {
         let expected = linter_source_paths_from_fields(&report);
         let indexed: HashSet<_> = index.entries.keys().cloned().collect();
 
-        assert_eq!(indexed.len(), 231, "index key count drifted");
+        assert_eq!(indexed.len(), 232, "index key count drifted");
         assert_eq!(
             indexed,
             expected,
             "index missing {} paths",
             expected.difference(&indexed).count()
         );
-        const OBSERVED_PATH_COUNT: usize = 158;
+        const OBSERVED_PATH_COUNT: usize = 159;
         const SOURCE_PATH_COUNT: usize = 104;
         const DOC_PATH_COUNT: usize = 7;
         const RUNTIME_PATH_COUNT: usize = 27;
