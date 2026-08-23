@@ -11,10 +11,13 @@ use crate::observed_verification::{
     count_extractor_coverage_lapses, count_unverified_observed_evidence,
 };
 use crate::provenance::{Grounded, GroundedSet};
+use crate::requirement::RequirementCatalog;
+use crate::requirements_report::requirements_json;
 use crate::ui::ui_plan;
 
 pub const DEFAULT_BASELINE_PATH: &str = "extras/qa-harness-improve/ratchet_baseline.json";
 pub const FAILURE_MODE_LEDGER_PATH: &str = "extras/qa-1.4-full/FAILURE_MODE_LEDGER.md";
+const RATCHET_REQUIREMENTS_TAG: &str = "1.4-dev";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HarnessRatchetCounts {
@@ -26,6 +29,9 @@ pub struct HarnessRatchetCounts {
     pub open_harness_gap: usize,
     pub unverified_observed_evidence: usize,
     pub extractor_coverage_lapses: usize,
+    pub unknown_requirement_statements: usize,
+    pub unknown_requirement_criteria: usize,
+    pub requirement_contamination_findings: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -37,6 +43,15 @@ pub struct HarnessRatchetRegression {
 
 pub fn harness_ratchet_counts(catalog: &Catalog) -> HarnessRatchetCounts {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    let (
+        unknown_requirement_statements,
+        unknown_requirement_criteria,
+        requirement_contamination_findings,
+    ) = if catalog_supports_requirement_derivation(catalog) {
+        requirement_coverage_counts(&RequirementCatalog::from_catalog(catalog))
+    } else {
+        (0, 0, 0)
+    };
     HarnessRatchetCounts {
         unknown_blast_radius: catalog
             .journeys()
@@ -53,7 +68,25 @@ pub fn harness_ratchet_counts(catalog: &Catalog) -> HarnessRatchetCounts {
         open_harness_gap: count_open_harness_gap(),
         unverified_observed_evidence: count_unverified_observed_evidence(repo_root, catalog),
         extractor_coverage_lapses: count_extractor_coverage_lapses(repo_root, catalog),
+        unknown_requirement_statements,
+        unknown_requirement_criteria,
+        requirement_contamination_findings,
     }
+}
+
+fn requirement_coverage_counts(requirements: &RequirementCatalog) -> (usize, usize, usize) {
+    let report = requirements_json(requirements, RATCHET_REQUIREMENTS_TAG);
+    (
+        report.unknown_statement_count,
+        report.unknown_criteria_count,
+        report.contamination_findings,
+    )
+}
+
+fn catalog_supports_requirement_derivation(catalog: &Catalog) -> bool {
+    catalog.services().len() == crate::services::all_services().len()
+        && catalog.journeys().len() == crate::journeys::all_journeys().len()
+        && catalog.pages().len() == crate::pages::all_pages().len()
 }
 
 pub fn count_unknown_body_kinds(catalog: &Catalog) -> usize {
@@ -175,6 +208,21 @@ pub fn compare_harness_ratchet(
             baseline.extractor_coverage_lapses,
             current.extractor_coverage_lapses,
         ),
+        (
+            "unknown_requirement_statements",
+            baseline.unknown_requirement_statements,
+            current.unknown_requirement_statements,
+        ),
+        (
+            "unknown_requirement_criteria",
+            baseline.unknown_requirement_criteria,
+            current.unknown_requirement_criteria,
+        ),
+        (
+            "requirement_contamination_findings",
+            baseline.requirement_contamination_findings,
+            current.requirement_contamination_findings,
+        ),
     ];
     fields
         .into_iter()
@@ -211,6 +259,7 @@ pub fn write_harness_ratchet_baseline(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::requirement::RequirementStatement;
 
     #[test]
     fn failure_mode_ledger_parses_harness_gap_rows() {
@@ -242,6 +291,9 @@ mod tests {
             open_harness_gap: 60,
             unverified_observed_evidence: 1129,
             extractor_coverage_lapses: 0,
+            unknown_requirement_statements: 19,
+            unknown_requirement_criteria: 64,
+            requirement_contamination_findings: 6,
         };
         let equal = baseline;
         assert!(compare_harness_ratchet(baseline, equal).is_empty());
@@ -264,6 +316,9 @@ mod tests {
             open_harness_gap: 60,
             unverified_observed_evidence: 1129,
             extractor_coverage_lapses: 0,
+            unknown_requirement_statements: 19,
+            unknown_requirement_criteria: 64,
+            requirement_contamination_findings: 6,
         };
         let worse = HarnessRatchetCounts {
             mutating_smoke_missing_effect_read: 61,
@@ -272,5 +327,79 @@ mod tests {
         let regressions = compare_harness_ratchet(baseline, worse);
         assert_eq!(regressions.len(), 1);
         assert_eq!(regressions[0].field, "mutating_smoke_missing_effect_read");
+    }
+
+    #[test]
+    fn requirement_coverage_counts_match_measured_pins() {
+        let catalog = Catalog::bootstrap();
+        let current = harness_ratchet_counts(&catalog);
+        assert_eq!(current.unknown_requirement_statements, 19);
+        assert_eq!(current.unknown_requirement_criteria, 64);
+        assert_eq!(current.requirement_contamination_findings, 6);
+        assert!(catalog_supports_requirement_derivation(&catalog));
+    }
+
+    #[test]
+    fn flipping_known_statement_to_unknown_raises_unknown_requirement_statements() {
+        let catalog = Catalog::bootstrap();
+        let baseline = harness_ratchet_counts(&catalog);
+        let mut requirements = RequirementCatalog::from_catalog(&catalog);
+        let requirement = requirements
+            .requirements
+            .iter_mut()
+            .find(|req| {
+                matches!(req.statement, RequirementStatement::Known { .. })
+                    && req.availability.present_on_dut(RATCHET_REQUIREMENTS_TAG)
+            })
+            .expect("known statement present on ratchet tag");
+        requirement.statement = RequirementStatement::Unknown {
+            reason: "ratchet mutation probe".to_string(),
+        };
+        let (statements, criteria, contamination) = requirement_coverage_counts(&requirements);
+        assert_eq!(statements, baseline.unknown_requirement_statements + 1);
+        let mutated = HarnessRatchetCounts {
+            unknown_requirement_statements: statements,
+            unknown_requirement_criteria: criteria,
+            requirement_contamination_findings: contamination,
+            ..baseline
+        };
+        let regressions = compare_harness_ratchet(baseline, mutated);
+        assert_eq!(regressions.len(), 1);
+        assert_eq!(regressions[0].field, "unknown_requirement_statements");
+    }
+
+    #[test]
+    fn compare_fails_on_each_requirement_coverage_field() {
+        let catalog = Catalog::bootstrap();
+        let baseline = harness_ratchet_counts(&catalog);
+        let cases = [
+            (
+                "unknown_requirement_statements",
+                HarnessRatchetCounts {
+                    unknown_requirement_statements: baseline.unknown_requirement_statements + 1,
+                    ..baseline
+                },
+            ),
+            (
+                "unknown_requirement_criteria",
+                HarnessRatchetCounts {
+                    unknown_requirement_criteria: baseline.unknown_requirement_criteria + 1,
+                    ..baseline
+                },
+            ),
+            (
+                "requirement_contamination_findings",
+                HarnessRatchetCounts {
+                    requirement_contamination_findings: baseline.requirement_contamination_findings
+                        + 1,
+                    ..baseline
+                },
+            ),
+        ];
+        for (field, worse) in cases {
+            let regressions = compare_harness_ratchet(baseline, worse);
+            assert_eq!(regressions.len(), 1, "{field}");
+            assert_eq!(regressions[0].field, field);
+        }
     }
 }

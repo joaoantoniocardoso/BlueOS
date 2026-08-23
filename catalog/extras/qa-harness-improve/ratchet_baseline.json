@@ -6,5 +6,8 @@
   "client_orchestrated_missing_ui_plan": 17,
   "open_harness_gap": 24,
   "unverified_observed_evidence": 1129,
-  "extractor_coverage_lapses": 2
+  "extractor_coverage_lapses": 2,
+  "unknown_requirement_statements": 19,
+  "unknown_requirement_criteria": 64,
+  "requirement_contamination_findings": 6
 }
