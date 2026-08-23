@@ -9,40 +9,40 @@ pub const PAGE: Page =
             "/tools/zenoh-inspector",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 137,
-                anchor: "path: '/vehicle/parameters',",
+                line: 142,
+                anchor: "path: '/tools/zenoh-inspector',",
             },
         ),
         name: Observed::known(
             "Zenoh Inspector",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 138,
-                anchor: "name: 'Parameter Editor',",
+                line: 143,
+                anchor: "name: 'Zenoh Inspector',",
             },
         ),
         component: Observed::known(
             "core/frontend/src/views/ZenohInspectorView.vue",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 139,
-                anchor: "component: defineAsyncComponent(() => import('../views/Param",
+                line: 144,
+                anchor: "component: defineAsyncComponent(() => import('../views/Zenoh",
             },
         ),
         menu_title: Observed::known(
             "Zenoh Inspector",
             Evidence {
                 file: "core/frontend/src/menus.ts",
-                line: 142,
-                anchor: "title: 'Records',",
+                line: 149,
+                anchor: "title: 'Zenoh Inspector',",
             },
         ),
         advanced_only: Observed::known(
             true,
             Evidence {
                 file: "core/frontend/src/menus.ts",
-                line: 145,
-                anchor: "advanced: false,",
+                line: 152,
+                anchor: "advanced: true,",
             },
         ),
         stores: ObservedSet::known(&[]),

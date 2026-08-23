@@ -33,16 +33,16 @@ pub const PAGE: Page =
             "Vehicle Setup",
             Evidence {
                 file: "core/frontend/src/menus.ts",
-                line: 121,
-                anchor: "title: 'Terminal',",
+                line: 128,
+                anchor: "title: 'Vehicle Setup',",
             },
         ),
         advanced_only: Observed::known(
             false,
             Evidence {
                 file: "core/frontend/src/menus.ts",
-                line: 124,
-                anchor: "advanced: true,",
+                line: 131,
+                anchor: "advanced: false,",
             },
         ),
         stores: ObservedSet::known(&[

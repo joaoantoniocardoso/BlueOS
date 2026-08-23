@@ -33,16 +33,16 @@ pub const PAGE: Page =
             "MAVLink Endpoints",
             Evidence {
                 file: "core/frontend/src/menus.ts",
-                line: 62,
-                anchor: "icon: 'mdi-math-log',",
+                line: 69,
+                anchor: "title: 'MAVLink Endpoints',",
             },
         ),
         advanced_only: Observed::known(
             true,
             Evidence {
                 file: "core/frontend/src/menus.ts",
-                line: 65,
-                anchor: "text: 'Allow browsing the Telemetry (.tlog) and Binary (.bin",
+                line: 72,
+                anchor: "advanced: true,",
             },
         ),
         stores: ObservedSet::known(&[

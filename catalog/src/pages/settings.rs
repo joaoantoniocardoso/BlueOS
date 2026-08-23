@@ -9,24 +9,24 @@ pub const PAGE: Page =
             "/settings",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 142,
-                anchor: "path: '/tools/zenoh-inspector',",
+                line: 147,
+                anchor: "path: '/settings',",
             },
         ),
         name: Observed::known(
             "Settings",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 143,
-                anchor: "name: 'Zenoh Inspector',",
+                line: 148,
+                anchor: "name: 'Settings',",
             },
         ),
         component: Observed::known(
             "core/frontend/src/views/SettingsView.vue",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 144,
-                anchor: "component: defineAsyncComponent(() => import('../views/Zenoh",
+                line: 149,
+                anchor: "component: defineAsyncComponent(() => import('../views/Setti",
             },
         ),
         menu_title: Observed::unknown("not in menu"),

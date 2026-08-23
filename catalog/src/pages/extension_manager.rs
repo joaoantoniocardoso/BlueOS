@@ -9,24 +9,24 @@ pub const PAGE: Page =
             "/tools/extensions-manager",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 127,
-                anchor: "path: '/extensionv2/:name',",
+                line: 132,
+                anchor: "path: '/tools/extensions-manager',",
             },
         ),
         name: Observed::known(
             "Extension Manager",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 128,
-                anchor: "name: 'Named Extensions (v2)',",
+                line: 133,
+                anchor: "name: 'Extension Manager',",
             },
         ),
         component: Observed::known(
             "core/frontend/src/views/ExtensionManagerView.vue",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 129,
-                anchor: "component: ExtensionView,",
+                line: 134,
+                anchor: "component: defineAsyncComponent(() => import('../views/Exten",
             },
         ),
         menu_title: Observed::unknown("not in menu"),

@@ -9,40 +9,40 @@ pub const PAGE: Page =
             "/tools/bridges",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 72,
-                anchor: "path: '/tools/records',",
+                line: 77,
+                anchor: "path: '/tools/bridges',",
             },
         ),
         name: Observed::known(
             "Bridges",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 73,
-                anchor: "name: 'Records',",
+                line: 78,
+                anchor: "name: 'Bridges',",
             },
         ),
         component: Observed::known(
             "core/frontend/src/views/BridgesView.vue",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 74,
-                anchor: "component: defineAsyncComponent(() => import('../views/Recor",
+                line: 79,
+                anchor: "component: defineAsyncComponent(() => import('../views/Bridg",
             },
         ),
         menu_title: Observed::known(
             "Serial Bridges",
             Evidence {
                 file: "core/frontend/src/menus.ts",
-                line: 99,
-                anchor: "icon: 'mdi-radar',",
+                line: 106,
+                anchor: "title: 'Serial Bridges',",
             },
         ),
         advanced_only: Observed::known(
             true,
             Evidence {
                 file: "core/frontend/src/menus.ts",
-                line: 102,
-                anchor: "text: 'Manage detected Ping family sonar devices, connected ",
+                line: 109,
+                anchor: "advanced: true,",
             },
         ),
         stores: ObservedSet::known(&[

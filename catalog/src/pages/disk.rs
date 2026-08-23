@@ -9,40 +9,40 @@ pub const PAGE: Page =
             "/tools/disk",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 47,
-                anchor: "path: '/tools/file-browser/:path*',",
+                line: 52,
+                anchor: "path: '/tools/disk',",
             },
         ),
         name: Observed::known(
             "Disk",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 48,
-                anchor: "name: 'File Browser',",
+                line: 53,
+                anchor: "name: 'Disk',",
             },
         ),
         component: Observed::known(
             "core/frontend/src/views/Disk.vue",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 49,
-                anchor: "component: defineAsyncComponent(() => import('../views/FileB",
+                line: 54,
+                anchor: "component: defineAsyncComponent(() => import('../views/Disk.",
             },
         ),
         menu_title: Observed::known(
             "Disk",
             Evidence {
                 file: "core/frontend/src/menus.ts",
-                line: 47,
-                anchor: "icon: 'mdi-file-tree',",
+                line: 54,
+                anchor: "title: 'Disk',",
             },
         ),
         advanced_only: Observed::known(
             true,
             Evidence {
                 file: "core/frontend/src/menus.ts",
-                line: 50,
-                anchor: "text: 'Browse all the files in BlueOS. Useful for fetching l",
+                line: 57,
+                anchor: "advanced: true,",
             },
         ),
         stores: ObservedSet::known(&[

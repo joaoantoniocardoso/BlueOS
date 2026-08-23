@@ -33,16 +33,16 @@ pub const PAGE: Page =
             "Ping Sonar Devices",
             Evidence {
                 file: "core/frontend/src/menus.ts",
-                line: 91,
-                anchor: "title: 'Network Test',",
+                line: 98,
+                anchor: "title: 'Ping Sonar Devices',",
             },
         ),
         advanced_only: Observed::known(
             false,
             Evidence {
                 file: "core/frontend/src/menus.ts",
-                line: 94,
-                anchor: "show: true,",
+                line: 101,
+                anchor: "advanced: false,",
             },
         ),
         stores: ObservedSet::known(&[

@@ -8,39 +8,39 @@ pub const PAGE: Page =
             "/tools/file-browser/:path*",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 42,
-                anchor: "path: '/tools/feature-provenance',",
+                line: 47,
+                anchor: "path: '/tools/file-browser/:path*',",
             },
         ),
         name: Observed::known(
             "File Browser",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 43,
-                anchor: "name: 'Feature Provenance',",
+                line: 48,
+                anchor: "name: 'File Browser',",
             },
         ),
         component: Observed::known(
             "core/frontend/src/views/FileBrowserView.vue",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 44,
-                anchor: "component: defineAsyncComponent(() => import('../views/Featu",
+                line: 49,
+                anchor: "component: defineAsyncComponent(() => import('../views/FileB",
             },
         ),
         menu_title: Observed::known(
             "File Browser",
             Evidence {
                 file: "core/frontend/src/menus.ts",
-                line: 39,
-                anchor: "title: 'Feature Provenance',",
+                line: 46,
+                anchor: "title: 'File Browser',",
             },
         ),
         advanced_only: Observed::known(
             true,
             Evidence {
                 file: "core/frontend/src/menus.ts",
-                line: 42,
+                line: 49,
                 anchor: "advanced: true,",
             },
         ),

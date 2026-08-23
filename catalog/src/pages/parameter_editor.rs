@@ -9,24 +9,24 @@ pub const PAGE: Page =
             "/vehicle/parameters",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 132,
-                anchor: "path: '/tools/extensions-manager',",
+                line: 137,
+                anchor: "path: '/vehicle/parameters',",
             },
         ),
         name: Observed::known(
             "Parameter Editor",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 133,
-                anchor: "name: 'Extension Manager',",
+                line: 138,
+                anchor: "name: 'Parameter Editor',",
             },
         ),
         component: Observed::known(
             "core/frontend/src/views/ParameterEditorView.vue",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 134,
-                anchor: "component: defineAsyncComponent(() => import('../views/Exten",
+                line: 139,
+                anchor: "component: defineAsyncComponent(() => import('../views/Param",
             },
         ),
         menu_title: Observed::known(

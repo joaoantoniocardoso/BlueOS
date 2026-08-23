@@ -7,40 +7,40 @@ pub const PAGE: Page = Page {
         "/tools/web-terminal",
         Evidence {
             file: "core/frontend/src/router/index.ts",
-            line: 52,
-            anchor: "path: '/tools/disk',",
+            line: 57,
+            anchor: "path: '/tools/web-terminal',",
         },
     ),
     name: Observed::known(
         "Terminal",
         Evidence {
             file: "core/frontend/src/router/index.ts",
-            line: 53,
-            anchor: "name: 'Disk',",
+            line: 58,
+            anchor: "name: 'Terminal',",
         },
     ),
     component: Observed::known(
         "core/frontend/src/views/TerminalView.vue",
         Evidence {
             file: "core/frontend/src/router/index.ts",
-            line: 54,
-            anchor: "component: defineAsyncComponent(() => import('../views/Disk.",
+            line: 59,
+            anchor: "component: defineAsyncComponent(() => import('../views/Termi",
         },
     ),
     menu_title: Observed::known(
         "Terminal",
         Evidence {
             file: "core/frontend/src/menus.ts",
-            line: 114,
-            anchor: "title: 'System Information',",
+            line: 121,
+            anchor: "title: 'Terminal',",
         },
     ),
     advanced_only: Observed::known(
         true,
         Evidence {
             file: "core/frontend/src/menus.ts",
-            line: 117,
-            anchor: "advanced: false,",
+            line: 124,
+            anchor: "advanced: true,",
         },
     ),
     stores: ObservedSet::known(&[]),

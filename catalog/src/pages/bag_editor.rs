@@ -9,24 +9,24 @@ pub const PAGE: Page =
             "/tools/bag-editor",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 102,
-                anchor: "path: '/tools/network-test',",
+                line: 107,
+                anchor: "path: '/tools/bag-editor',",
             },
         ),
         name: Observed::known(
             "Bag editor",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 103,
-                anchor: "name: 'Network Test',",
+                line: 108,
+                anchor: "name: 'Bag editor',",
             },
         ),
         component: Observed::known(
             "core/frontend/src/views/BagEditorView.vue",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 104,
-                anchor: "component: defineAsyncComponent(() => import('../views/Netwo",
+                line: 109,
+                anchor: "component: defineAsyncComponent(() => import('../views/BagEd",
             },
         ),
         menu_title: Observed::known(

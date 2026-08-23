@@ -9,40 +9,40 @@ pub const PAGE: Page =
             "/tools/mavlink-inspector",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 92,
-                anchor: "path: '/tools/system-information',",
+                line: 97,
+                anchor: "path: '/tools/mavlink-inspector',",
             },
         ),
         name: Observed::known(
             "Mavlink Inspector",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 93,
-                anchor: "name: 'System Information',",
+                line: 98,
+                anchor: "name: 'Mavlink Inspector',",
             },
         ),
         component: Observed::known(
             "core/frontend/src/views/MavlinkInspectorView.vue",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 94,
-                anchor: "component: defineAsyncComponent(() => import('../views/Syste",
+                line: 99,
+                anchor: "component: defineAsyncComponent(() => import('../views/Mavli",
             },
         ),
         menu_title: Observed::known(
             "MAVLink Inspector",
             Evidence {
                 file: "core/frontend/src/menus.ts",
-                line: 70,
-                anchor: "icon: 'mdi-arrow-decision',",
+                line: 77,
+                anchor: "title: 'MAVLink Inspector',",
             },
         ),
         advanced_only: Observed::known(
             true,
             Evidence {
                 file: "core/frontend/src/menus.ts",
-                line: 73,
-                anchor: "text: 'Manage MAVLink endpoints for internal/external system",
+                line: 80,
+                anchor: "advanced: true,",
             },
         ),
         stores: ObservedSet::known(&[]),

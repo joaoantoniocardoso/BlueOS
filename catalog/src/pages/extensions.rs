@@ -8,24 +8,24 @@ pub const PAGE: Page =
             "/extensions/:port",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 107,
-                anchor: "path: '/tools/bag-editor',",
+                line: 112,
+                anchor: "path: '/extensions/:port',",
             },
         ),
         name: Observed::known(
             "Extensions",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 108,
-                anchor: "name: 'Bag editor',",
+                line: 113,
+                anchor: "name: 'Extensions',",
             },
         ),
         component: Observed::known(
             "core/frontend/src/views/ExtensionView.vue",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 109,
-                anchor: "component: defineAsyncComponent(() => import('../views/BagEd",
+                line: 114,
+                anchor: "component: ExtensionView,",
             },
         ),
         menu_title: Observed::unknown("not in menu"),

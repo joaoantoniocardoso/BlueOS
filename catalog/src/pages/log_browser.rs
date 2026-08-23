@@ -33,16 +33,16 @@ pub const PAGE: Page =
             "Log Browser",
             Evidence {
                 file: "core/frontend/src/menus.ts",
-                line: 54,
-                anchor: "title: 'Disk',",
+                line: 61,
+                anchor: "title: 'Log Browser',",
             },
         ),
         advanced_only: Observed::known(
             false,
             Evidence {
                 file: "core/frontend/src/menus.ts",
-                line: 57,
-                anchor: "advanced: true,",
+                line: 64,
+                anchor: "advanced: false,",
             },
         ),
         stores: ObservedSet::known(&[]),

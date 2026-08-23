@@ -9,39 +9,39 @@ pub const PAGE: Page =
             "/tools/nmea-injector",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 77,
-                anchor: "path: '/tools/bridges',",
+                line: 82,
+                anchor: "path: '/tools/nmea-injector',",
             },
         ),
         name: Observed::known(
             "NMEA Injector",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 78,
-                anchor: "name: 'Bridges',",
+                line: 83,
+                anchor: "name: 'NMEA Injector',",
             },
         ),
         component: Observed::known(
             "core/frontend/src/views/NMEAInjectorView.vue",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 79,
-                anchor: "component: defineAsyncComponent(() => import('../views/Bridg",
+                line: 84,
+                anchor: "component: defineAsyncComponent(() => import('../views/NMEAI",
             },
         ),
         menu_title: Observed::known(
             "NMEA Injector",
             Evidence {
                 file: "core/frontend/src/menus.ts",
-                line: 77,
-                anchor: "title: 'MAVLink Inspector',",
+                line: 84,
+                anchor: "title: 'NMEA Injector',",
             },
         ),
         advanced_only: Observed::known(
             true,
             Evidence {
                 file: "core/frontend/src/menus.ts",
-                line: 80,
+                line: 87,
                 anchor: "advanced: true,",
             },
         ),

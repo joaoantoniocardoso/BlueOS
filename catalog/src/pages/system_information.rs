@@ -9,40 +9,40 @@ pub const PAGE: Page =
             "/tools/system-information",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 87,
-                anchor: "path: '/tools/available-services',",
+                line: 92,
+                anchor: "path: '/tools/system-information',",
             },
         ),
         name: Observed::known(
             "System Information",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 88,
-                anchor: "name: 'Available Services',",
+                line: 93,
+                anchor: "name: 'System Information',",
             },
         ),
         component: Observed::known(
             "core/frontend/src/views/SystemInformationView.vue",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 89,
-                anchor: "component: defineAsyncComponent(() => import('../views/Avail",
+                line: 94,
+                anchor: "component: defineAsyncComponent(() => import('../views/Syste",
             },
         ),
         menu_title: Observed::known(
             "System Information",
             Evidence {
                 file: "core/frontend/src/menus.ts",
-                line: 107,
-                anchor: "icon: 'mdi-bridge',",
+                line: 114,
+                anchor: "title: 'System Information',",
             },
         ),
         advanced_only: Observed::known(
             false,
             Evidence {
                 file: "core/frontend/src/menus.ts",
-                line: 110,
-                anchor: "text: 'Allows creating UDP/TCP to Serial bridges, used for c",
+                line: 117,
+                anchor: "advanced: false,",
             },
         ),
         stores: ObservedSet::known(&[

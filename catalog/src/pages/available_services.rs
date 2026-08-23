@@ -8,24 +8,24 @@ pub const PAGE: Page =
             "/tools/available-services",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 82,
-                anchor: "path: '/tools/nmea-injector',",
+                line: 87,
+                anchor: "path: '/tools/available-services',",
             },
         ),
         name: Observed::known(
             "Available Services",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 83,
-                anchor: "name: 'NMEA Injector',",
+                line: 88,
+                anchor: "name: 'Available Services',",
             },
         ),
         component: Observed::known(
             "core/frontend/src/views/AvailableServicesView.vue",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 84,
-                anchor: "component: defineAsyncComponent(() => import('../views/NMEAI",
+                line: 89,
+                anchor: "component: defineAsyncComponent(() => import('../views/Avail",
             },
         ),
         menu_title: Observed::known(

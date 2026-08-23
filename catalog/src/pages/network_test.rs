@@ -9,32 +9,32 @@ pub const PAGE: Page =
             "/tools/network-test",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 97,
-                anchor: "path: '/tools/mavlink-inspector',",
+                line: 102,
+                anchor: "path: '/tools/network-test',",
             },
         ),
         name: Observed::known(
             "Network Test",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 98,
-                anchor: "name: 'Mavlink Inspector',",
+                line: 103,
+                anchor: "name: 'Network Test',",
             },
         ),
         component: Observed::known(
             "core/frontend/src/views/NetworkTestView.vue",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 99,
-                anchor: "component: defineAsyncComponent(() => import('../views/Mavli",
+                line: 104,
+                anchor: "component: defineAsyncComponent(() => import('../views/Netwo",
             },
         ),
         menu_title: Observed::known(
             "Network Test",
             Evidence {
                 file: "core/frontend/src/menus.ts",
-                line: 84,
-                anchor: "title: 'NMEA Injector',",
+                line: 91,
+                anchor: "title: 'Network Test',",
             },
         ),
         advanced_only: Observed::unknown("menu entry has show:true but omits advanced field"),

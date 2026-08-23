@@ -9,24 +9,24 @@ pub const PAGE: Page =
             "/tools/version-chooser",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 57,
-                anchor: "path: '/tools/web-terminal',",
+                line: 62,
+                anchor: "path: '/tools/version-chooser',",
             },
         ),
         name: Observed::known(
             "Version Chooser",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 58,
-                anchor: "name: 'Terminal',",
+                line: 63,
+                anchor: "name: 'Version Chooser',",
             },
         ),
         component: Observed::known(
             "core/frontend/src/views/VersionChooser.vue",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 59,
-                anchor: "component: defineAsyncComponent(() => import('../views/Termi",
+                line: 64,
+                anchor: "component: defineAsyncComponent(() => import('../views/Versi",
             },
         ),
         menu_title: Observed::known(

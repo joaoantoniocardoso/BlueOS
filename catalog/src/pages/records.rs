@@ -9,39 +9,39 @@ pub const PAGE: Page =
             "/tools/records",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 67,
-                anchor: "path: '/vehicle/video-manager',",
+                line: 72,
+                anchor: "path: '/tools/records',",
             },
         ),
         name: Observed::known(
             "Records",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 68,
-                anchor: "name: 'Video Manager',",
+                line: 73,
+                anchor: "name: 'Records',",
             },
         ),
         component: Observed::known(
             "core/frontend/src/views/RecordsView.vue",
             Evidence {
                 file: "core/frontend/src/router/index.ts",
-                line: 69,
-                anchor: "component: defineAsyncComponent(() => import('../views/Video",
+                line: 74,
+                anchor: "component: defineAsyncComponent(() => import('../views/Recor",
             },
         ),
         menu_title: Observed::known(
             "Records",
             Evidence {
                 file: "core/frontend/src/menus.ts",
-                line: 135,
-                anchor: "title: 'Video Streams',",
+                line: 142,
+                anchor: "title: 'Records',",
             },
         ),
         advanced_only: Observed::known(
             false,
             Evidence {
                 file: "core/frontend/src/menus.ts",
-                line: 138,
+                line: 145,
                 anchor: "advanced: false,",
             },
         ),
