@@ -1424,7 +1424,9 @@ pub fn journey_availability_skip(journey: &UserJourney, dut: &DutVersion) -> Opt
         .map(|skip| format_availability_skip_reason(&skip, &dut.tag))
 }
 
-const PLAY_SACRIFICIAL_HOST: &str = "192.168.0.177";
+/// Hosts whose state may be destroyed: image switches, firmware flashes, settings resets. Both are
+/// lab devices whose owner has signed off on losing their configuration.
+const PLAY_SACRIFICIAL_HOSTS: [&str; 2] = ["192.168.0.177", "192.168.0.88"];
 
 /// Hosts whose management link is the only way back in. `192.168.0.88` is the same physical vehicle
 /// as `192.168.2.2`, reached through the lab router instead of the direct tether, so the
@@ -1441,7 +1443,9 @@ pub struct DutProfile {
 pub fn dut_profile_for_host(host: &str) -> DutProfile {
     let host = host.trim();
     DutProfile {
-        sacrificial: host.contains(PLAY_SACRIFICIAL_HOST),
+        sacrificial: PLAY_SACRIFICIAL_HOSTS
+            .iter()
+            .any(|play| host.contains(play)),
         never_strand_mgmt: NEVER_STRAND_MGMT_HOSTS
             .iter()
             .any(|mgmt| host.contains(mgmt)),
@@ -2756,9 +2760,10 @@ mod tests {
         assert!(!field124.sacrificial);
         assert!(!field124.never_strand_mgmt);
 
-        // Same vehicle as 192.168.2.2, routed instead of tethered.
+        // Same vehicle as 192.168.2.2, routed instead of tethered: its state is expendable, but
+        // the management link it is reached over is not.
         let routed_vehicle = dut_profile_for_host("http://192.168.0.88");
-        assert!(!routed_vehicle.sacrificial);
+        assert!(routed_vehicle.sacrificial);
         assert!(routed_vehicle.never_strand_mgmt);
     }
 
