@@ -20,6 +20,7 @@ pub mod fixture;
 pub mod frontend_cache;
 pub mod frontend_routes;
 pub mod frontend_smoke;
+pub mod function;
 pub mod harness_ratchet;
 pub mod id;
 pub mod interface;
@@ -117,6 +118,7 @@ pub use frontend_cache::run_frontend_cache;
 pub use frontend_smoke::{
     calibration_smoke_targets, concrete_page_path, frontend_smoke_targets, FrontendSmokeTarget,
 };
+pub use function::{Function, FunctionCatalog, FunctionId, FunctionIo, FUNCTION_COUNT};
 pub use harness_ratchet::{
     compare_harness_ratchet, count_client_orchestrated_missing_ui_plan, count_open_harness_gap,
     count_unknown_body_kinds, count_unprobed_failure_modes, harness_ratchet_counts,
