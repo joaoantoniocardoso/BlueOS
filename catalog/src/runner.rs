@@ -1425,7 +1425,11 @@ pub fn journey_availability_skip(journey: &UserJourney, dut: &DutVersion) -> Opt
 }
 
 const PLAY_SACRIFICIAL_HOST: &str = "192.168.0.177";
-const NEVER_STRAND_MGMT_HOST: &str = "192.168.2.2";
+
+/// Hosts whose management link is the only way back in. `192.168.0.88` is the same physical vehicle
+/// as `192.168.2.2`, reached through the lab router instead of the direct tether, so the
+/// reconfiguration journeys that could strand it are exactly as dangerous there.
+const NEVER_STRAND_MGMT_HOSTS: [&str; 2] = ["192.168.2.2", "192.168.0.88"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DutProfile {
@@ -1438,7 +1442,9 @@ pub fn dut_profile_for_host(host: &str) -> DutProfile {
     let host = host.trim();
     DutProfile {
         sacrificial: host.contains(PLAY_SACRIFICIAL_HOST),
-        never_strand_mgmt: host.contains(NEVER_STRAND_MGMT_HOST),
+        never_strand_mgmt: NEVER_STRAND_MGMT_HOSTS
+            .iter()
+            .any(|mgmt| host.contains(mgmt)),
         rf_serial: true,
     }
 }
@@ -2749,6 +2755,11 @@ mod tests {
         let field124 = dut_profile_for_host("http://192.168.0.124/");
         assert!(!field124.sacrificial);
         assert!(!field124.never_strand_mgmt);
+
+        // Same vehicle as 192.168.2.2, routed instead of tethered.
+        let routed_vehicle = dut_profile_for_host("http://192.168.0.88");
+        assert!(!routed_vehicle.sacrificial);
+        assert!(routed_vehicle.never_strand_mgmt);
     }
 
     #[test]
