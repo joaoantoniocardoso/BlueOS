@@ -1,0 +1,2014 @@
+{
+  "routes": [
+    {
+      "service": "ardupilot_manager",
+      "method": "DELETE",
+      "path": "/endpoints",
+      "version": "v1.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/ardupilot_manager/api/v1/routers/endpoints.py",
+      "line": 28
+    },
+    {
+      "service": "ardupilot_manager",
+      "method": "GET",
+      "path": "/",
+      "version": null,
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/ardupilot_manager/api/app.py",
+      "line": 30
+    },
+    {
+      "service": "ardupilot_manager",
+      "method": "GET",
+      "path": "/",
+      "version": "v2.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/ardupilot_manager/api/v2/routers/index.py",
+      "line": 12
+    },
+    {
+      "service": "ardupilot_manager",
+      "method": "GET",
+      "path": "/available_boards",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "List[FlightController]",
+      "file": "core/services/ardupilot_manager/api/v1/routers/index.py",
+      "line": 291
+    },
+    {
+      "service": "ardupilot_manager",
+      "method": "GET",
+      "path": "/available_firmwares",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "List[Firmware]",
+      "file": "core/services/ardupilot_manager/api/v1/routers/index.py",
+      "line": 153
+    },
+    {
+      "service": "ardupilot_manager",
+      "method": "GET",
+      "path": "/available_routers",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/ardupilot_manager/api/v1/routers/index.py",
+      "line": 264
+    },
+    {
+      "service": "ardupilot_manager",
+      "method": "GET",
+      "path": "/board",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "Optional[FlightController]",
+      "file": "core/services/ardupilot_manager/api/v1/routers/index.py",
+      "line": 218
+    },
+    {
+      "service": "ardupilot_manager",
+      "method": "GET",
+      "path": "/endpoints",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "List[Dict[str, Any]]",
+      "file": "core/services/ardupilot_manager/api/v1/routers/endpoints.py",
+      "line": 18
+    },
+    {
+      "service": "ardupilot_manager",
+      "method": "GET",
+      "path": "/endpoints/manual_board_master_endpoint",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/ardupilot_manager/api/v1/routers/endpoints.py",
+      "line": 43
+    },
+    {
+      "service": "ardupilot_manager",
+      "method": "GET",
+      "path": "/firmware_info",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "FirmwareInfo",
+      "file": "core/services/ardupilot_manager/api/v1/routers/index.py",
+      "line": 103
+    },
+    {
+      "service": "ardupilot_manager",
+      "method": "GET",
+      "path": "/firmware_vehicle_type",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "str",
+      "file": "core/services/ardupilot_manager/api/v1/routers/index.py",
+      "line": 145
+    },
+    {
+      "service": "ardupilot_manager",
+      "method": "GET",
+      "path": "/preferred_router",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/ardupilot_manager/api/v1/routers/index.py",
+      "line": 258
+    },
+    {
+      "service": "ardupilot_manager",
+      "method": "GET",
+      "path": "/serials",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "List[Serial]",
+      "file": "core/services/ardupilot_manager/api/v1/routers/index.py",
+      "line": 97
+    },
+    {
+      "service": "ardupilot_manager",
+      "method": "GET",
+      "path": "/sitl_frame",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "SITLFrame",
+      "file": "core/services/ardupilot_manager/api/v1/routers/index.py",
+      "line": 139
+    },
+    {
+      "service": "ardupilot_manager",
+      "method": "GET",
+      "path": "/vehicle_type",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "MavlinkVehicleType",
+      "file": "core/services/ardupilot_manager/api/v1/routers/index.py",
+      "line": 118
+    },
+    {
+      "service": "ardupilot_manager",
+      "method": "POST",
+      "path": "/board",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/ardupilot_manager/api/v1/routers/index.py",
+      "line": 226
+    },
+    {
+      "service": "ardupilot_manager",
+      "method": "POST",
+      "path": "/endpoints",
+      "version": "v1.0",
+      "status_code": 201,
+      "response_model": null,
+      "file": "core/services/ardupilot_manager/api/v1/routers/endpoints.py",
+      "line": 23
+    },
+    {
+      "service": "ardupilot_manager",
+      "method": "POST",
+      "path": "/endpoints/manual_board_master_endpoint",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/ardupilot_manager/api/v1/routers/endpoints.py",
+      "line": 38
+    },
+    {
+      "service": "ardupilot_manager",
+      "method": "POST",
+      "path": "/install_firmware_from_file",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/ardupilot_manager/api/v1/routers/index.py",
+      "line": 193
+    },
+    {
+      "service": "ardupilot_manager",
+      "method": "POST",
+      "path": "/install_firmware_from_url",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/ardupilot_manager/api/v1/routers/index.py",
+      "line": 163
+    },
+    {
+      "service": "ardupilot_manager",
+      "method": "POST",
+      "path": "/preferred_router",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/ardupilot_manager/api/v1/routers/index.py",
+      "line": 250
+    },
+    {
+      "service": "ardupilot_manager",
+      "method": "POST",
+      "path": "/restart",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/ardupilot_manager/api/v1/routers/index.py",
+      "line": 233
+    },
+    {
+      "service": "ardupilot_manager",
+      "method": "POST",
+      "path": "/restore_default_firmware",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/ardupilot_manager/api/v1/routers/index.py",
+      "line": 279
+    },
+    {
+      "service": "ardupilot_manager",
+      "method": "POST",
+      "path": "/sitl_frame",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/ardupilot_manager/api/v1/routers/index.py",
+      "line": 133
+    },
+    {
+      "service": "ardupilot_manager",
+      "method": "POST",
+      "path": "/start",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/ardupilot_manager/api/v1/routers/index.py",
+      "line": 241
+    },
+    {
+      "service": "ardupilot_manager",
+      "method": "POST",
+      "path": "/stop",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/ardupilot_manager/api/v1/routers/index.py",
+      "line": 270
+    },
+    {
+      "service": "ardupilot_manager",
+      "method": "PUT",
+      "path": "/endpoints",
+      "version": "v1.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/ardupilot_manager/api/v1/routers/endpoints.py",
+      "line": 33
+    },
+    {
+      "service": "ardupilot_manager",
+      "method": "PUT",
+      "path": "/serials",
+      "version": "v1.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/ardupilot_manager/api/v1/routers/index.py",
+      "line": 91
+    },
+    {
+      "service": "bag_of_holding",
+      "method": "GET",
+      "path": "/",
+      "version": null,
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/bag_of_holding/main.py",
+      "line": 108
+    },
+    {
+      "service": "bag_of_holding",
+      "method": "GET",
+      "path": "/get/{path}",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/bag_of_holding/main.py",
+      "line": 89
+    },
+    {
+      "service": "bag_of_holding",
+      "method": "POST",
+      "path": "/overwrite",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/bag_of_holding/main.py",
+      "line": 69
+    },
+    {
+      "service": "bag_of_holding",
+      "method": "POST",
+      "path": "/set/{path}",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/bag_of_holding/main.py",
+      "line": 76
+    },
+    {
+      "service": "beacon",
+      "method": "GET",
+      "path": "/",
+      "version": null,
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/beacon/main.py",
+      "line": 324
+    },
+    {
+      "service": "beacon",
+      "method": "GET",
+      "path": "/hostname",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/beacon/main.py",
+      "line": 292
+    },
+    {
+      "service": "beacon",
+      "method": "GET",
+      "path": "/ip",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "IpInfo",
+      "file": "core/services/beacon/main.py",
+      "line": 310
+    },
+    {
+      "service": "beacon",
+      "method": "GET",
+      "path": "/services",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "List[MdnsEntry]",
+      "file": "core/services/beacon/main.py",
+      "line": 280
+    },
+    {
+      "service": "beacon",
+      "method": "GET",
+      "path": "/vehicle_name",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "str",
+      "file": "core/services/beacon/main.py",
+      "line": 304
+    },
+    {
+      "service": "beacon",
+      "method": "POST",
+      "path": "/hostname",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/beacon/main.py",
+      "line": 286
+    },
+    {
+      "service": "beacon",
+      "method": "POST",
+      "path": "/vehicle_name",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/beacon/main.py",
+      "line": 298
+    },
+    {
+      "service": "bridget",
+      "method": "DELETE",
+      "path": "/bridges",
+      "version": "v1.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/bridget/main.py",
+      "line": 56
+    },
+    {
+      "service": "bridget",
+      "method": "GET",
+      "path": "/",
+      "version": null,
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/bridget/main.py",
+      "line": 67
+    },
+    {
+      "service": "bridget",
+      "method": "GET",
+      "path": "/bridges",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "List[BridgeFrontendSpec]",
+      "file": "core/services/bridget/main.py",
+      "line": 40
+    },
+    {
+      "service": "bridget",
+      "method": "GET",
+      "path": "/serial_ports",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "List[str]",
+      "file": "core/services/bridget/main.py",
+      "line": 32
+    },
+    {
+      "service": "bridget",
+      "method": "POST",
+      "path": "/bridges",
+      "version": "v1.0",
+      "status_code": 201,
+      "response_model": null,
+      "file": "core/services/bridget/main.py",
+      "line": 48
+    },
+    {
+      "service": "cable_guy",
+      "method": "DELETE",
+      "path": "/address",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/cable_guy/main.py",
+      "line": 77
+    },
+    {
+      "service": "cable_guy",
+      "method": "DELETE",
+      "path": "/dhcp",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/cable_guy/main.py",
+      "line": 107
+    },
+    {
+      "service": "cable_guy",
+      "method": "DELETE",
+      "path": "/route",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/cable_guy/main.py",
+      "line": 145
+    },
+    {
+      "service": "cable_guy",
+      "method": "GET",
+      "path": "/",
+      "version": null,
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/cable_guy/main.py",
+      "line": 168
+    },
+    {
+      "service": "cable_guy",
+      "method": "GET",
+      "path": "/dhcp/details/{interface_name}",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/cable_guy/main.py",
+      "line": 85
+    },
+    {
+      "service": "cable_guy",
+      "method": "GET",
+      "path": "/dhcp/leases/{interface_name}",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/cable_guy/main.py",
+      "line": 92
+    },
+    {
+      "service": "cable_guy",
+      "method": "GET",
+      "path": "/ethernet",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "List[NetworkInterface]",
+      "file": "core/services/cable_guy/main.py",
+      "line": 37
+    },
+    {
+      "service": "cable_guy",
+      "method": "GET",
+      "path": "/host_dns",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/cable_guy/main.py",
+      "line": 123
+    },
+    {
+      "service": "cable_guy",
+      "method": "GET",
+      "path": "/interfaces",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "List[NetworkInterface]",
+      "file": "core/services/cable_guy/main.py",
+      "line": 54
+    },
+    {
+      "service": "cable_guy",
+      "method": "GET",
+      "path": "/route",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/cable_guy/main.py",
+      "line": 153
+    },
+    {
+      "service": "cable_guy",
+      "method": "POST",
+      "path": "/address",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/cable_guy/main.py",
+      "line": 69
+    },
+    {
+      "service": "cable_guy",
+      "method": "POST",
+      "path": "/dhcp",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/cable_guy/main.py",
+      "line": 99
+    },
+    {
+      "service": "cable_guy",
+      "method": "POST",
+      "path": "/dynamic_ip",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/cable_guy/main.py",
+      "line": 115
+    },
+    {
+      "service": "cable_guy",
+      "method": "POST",
+      "path": "/ethernet",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "NetworkInterface",
+      "file": "core/services/cable_guy/main.py",
+      "line": 45
+    },
+    {
+      "service": "cable_guy",
+      "method": "POST",
+      "path": "/host_dns",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/cable_guy/main.py",
+      "line": 130
+    },
+    {
+      "service": "cable_guy",
+      "method": "POST",
+      "path": "/route",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/cable_guy/main.py",
+      "line": 137
+    },
+    {
+      "service": "cable_guy",
+      "method": "POST",
+      "path": "/set_interfaces_priority",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/cable_guy/main.py",
+      "line": 62
+    },
+    {
+      "service": "commander",
+      "method": "GET",
+      "path": "/",
+      "version": null,
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/commander/main.py",
+      "line": 243
+    },
+    {
+      "service": "commander",
+      "method": "GET",
+      "path": "/environment_variables",
+      "version": "v1.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/commander/main.py",
+      "line": 234
+    },
+    {
+      "service": "commander",
+      "method": "GET",
+      "path": "/raspi/eeprom_update",
+      "version": "v1.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/commander/main.py",
+      "line": 150
+    },
+    {
+      "service": "commander",
+      "method": "GET",
+      "path": "/raspi/vcgencmd",
+      "version": "v1.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/commander/main.py",
+      "line": 132
+    },
+    {
+      "service": "commander",
+      "method": "GET",
+      "path": "/raspi_config/camera_legacy",
+      "version": "v1.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/commander/main.py",
+      "line": 101
+    },
+    {
+      "service": "commander",
+      "method": "GET",
+      "path": "/services/check_log_folder_size",
+      "version": "v1.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/commander/main.py",
+      "line": 218
+    },
+    {
+      "service": "commander",
+      "method": "GET",
+      "path": "/services/check_mavlink_log_folder_size",
+      "version": "v1.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/commander/main.py",
+      "line": 226
+    },
+    {
+      "service": "commander",
+      "method": "POST",
+      "path": "/command/host",
+      "version": "v1.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/commander/main.py",
+      "line": 57
+    },
+    {
+      "service": "commander",
+      "method": "POST",
+      "path": "/raspi/eeprom_update",
+      "version": "v1.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/commander/main.py",
+      "line": 157
+    },
+    {
+      "service": "commander",
+      "method": "POST",
+      "path": "/raspi_config/camera_legacy",
+      "version": "v1.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/commander/main.py",
+      "line": 117
+    },
+    {
+      "service": "commander",
+      "method": "POST",
+      "path": "/services/remove_log",
+      "version": "v1.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/commander/main.py",
+      "line": 178
+    },
+    {
+      "service": "commander",
+      "method": "POST",
+      "path": "/services/remove_log_stream",
+      "version": "v1.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/commander/main.py",
+      "line": 185
+    },
+    {
+      "service": "commander",
+      "method": "POST",
+      "path": "/services/remove_mavlink_log",
+      "version": "v1.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/commander/main.py",
+      "line": 211
+    },
+    {
+      "service": "commander",
+      "method": "POST",
+      "path": "/set_time",
+      "version": "v1.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/commander/main.py",
+      "line": 72
+    },
+    {
+      "service": "commander",
+      "method": "POST",
+      "path": "/settings/reset",
+      "version": "v1.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/commander/main.py",
+      "line": 164
+    },
+    {
+      "service": "commander",
+      "method": "POST",
+      "path": "/shutdown",
+      "version": "v1.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/commander/main.py",
+      "line": 88
+    },
+    {
+      "service": "customization",
+      "method": "DELETE",
+      "path": "/branding/logo",
+      "version": "v1.0",
+      "status_code": 204,
+      "response_model": null,
+      "file": "core/services/customization/main.py",
+      "line": 279
+    },
+    {
+      "service": "customization",
+      "method": "DELETE",
+      "path": "/branding/vehicle-image",
+      "version": "v1.0",
+      "status_code": 204,
+      "response_model": null,
+      "file": "core/services/customization/main.py",
+      "line": 305
+    },
+    {
+      "service": "customization",
+      "method": "DELETE",
+      "path": "/models/{name}",
+      "version": "v1.0",
+      "status_code": 204,
+      "response_model": null,
+      "file": "core/services/customization/main.py",
+      "line": 215
+    },
+    {
+      "service": "customization",
+      "method": "DELETE",
+      "path": "/theme",
+      "version": "v1.0",
+      "status_code": 204,
+      "response_model": null,
+      "file": "core/services/customization/main.py",
+      "line": 156
+    },
+    {
+      "service": "customization",
+      "method": "GET",
+      "path": "/",
+      "version": null,
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/customization/main.py",
+      "line": 333
+    },
+    {
+      "service": "customization",
+      "method": "GET",
+      "path": "/branding/logo",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "BrandingAsset",
+      "file": "core/services/customization/main.py",
+      "line": 267
+    },
+    {
+      "service": "customization",
+      "method": "GET",
+      "path": "/branding/vehicle-image",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "BrandingAsset",
+      "file": "core/services/customization/main.py",
+      "line": 285
+    },
+    {
+      "service": "customization",
+      "method": "GET",
+      "path": "/models",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "List[ModelEntry]",
+      "file": "core/services/customization/main.py",
+      "line": 190
+    },
+    {
+      "service": "customization",
+      "method": "GET",
+      "path": "/theme",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "ThemeStatus",
+      "file": "core/services/customization/main.py",
+      "line": 134
+    },
+    {
+      "service": "customization",
+      "method": "POST",
+      "path": "/branding/logo",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "BrandingAsset",
+      "file": "core/services/customization/main.py",
+      "line": 273
+    },
+    {
+      "service": "customization",
+      "method": "POST",
+      "path": "/branding/vehicle-image",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "BrandingAsset",
+      "file": "core/services/customization/main.py",
+      "line": 295
+    },
+    {
+      "service": "customization",
+      "method": "POST",
+      "path": "/models",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "ModelEntry",
+      "file": "core/services/customization/main.py",
+      "line": 197
+    },
+    {
+      "service": "customization",
+      "method": "PUT",
+      "path": "/theme",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "ThemeStatus",
+      "file": "core/services/customization/main.py",
+      "line": 144
+    },
+    {
+      "service": "disk_usage",
+      "method": "DELETE",
+      "path": "/disk/paths/{target_path}",
+      "version": "v1.0",
+      "status_code": 204,
+      "response_model": null,
+      "file": "core/services/disk_usage/main.py",
+      "line": 268
+    },
+    {
+      "service": "disk_usage",
+      "method": "GET",
+      "path": "/",
+      "version": null,
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/disk_usage/main.py",
+      "line": 477
+    },
+    {
+      "service": "disk_usage",
+      "method": "GET",
+      "path": "/disk/speed",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "DiskSpeedResult",
+      "file": "core/services/disk_usage/main.py",
+      "line": 410
+    },
+    {
+      "service": "disk_usage",
+      "method": "GET",
+      "path": "/disk/speed/stream",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/disk_usage/main.py",
+      "line": 444
+    },
+    {
+      "service": "disk_usage",
+      "method": "GET",
+      "path": "/disk/usage",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "DiskUsageResponse",
+      "file": "core/services/disk_usage/main.py",
+      "line": 248
+    },
+    {
+      "service": "helper",
+      "method": "GET",
+      "path": "/",
+      "version": null,
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/helper/main.py",
+      "line": 617
+    },
+    {
+      "service": "helper",
+      "method": "GET",
+      "path": "/check_internet_access",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "Dict[str, WebsiteStatus]",
+      "file": "core/services/helper/main.py",
+      "line": 534
+    },
+    {
+      "service": "helper",
+      "method": "GET",
+      "path": "/hardware_id",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "str",
+      "file": "core/services/helper/main.py",
+      "line": 544
+    },
+    {
+      "service": "helper",
+      "method": "GET",
+      "path": "/ping",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/helper/main.py",
+      "line": 578
+    },
+    {
+      "service": "helper",
+      "method": "GET",
+      "path": "/software_id",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "str",
+      "file": "core/services/helper/main.py",
+      "line": 561
+    },
+    {
+      "service": "helper",
+      "method": "GET",
+      "path": "/web_services",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "List[ServiceInfo]",
+      "file": "core/services/helper/main.py",
+      "line": 523
+    },
+    {
+      "service": "kraken",
+      "method": "DELETE",
+      "path": "/extension/{identifier}",
+      "version": "v2.0",
+      "status_code": 202,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/extension.py",
+      "line": 161
+    },
+    {
+      "service": "kraken",
+      "method": "DELETE",
+      "path": "/extension/{identifier}/{tag}",
+      "version": "v2.0",
+      "status_code": 202,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/extension.py",
+      "line": 171
+    },
+    {
+      "service": "kraken",
+      "method": "DELETE",
+      "path": "/jobs/{identifier}",
+      "version": "v2.0",
+      "status_code": 204,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/jobs.py",
+      "line": 54
+    },
+    {
+      "service": "kraken",
+      "method": "DELETE",
+      "path": "/manifest/{identifier}",
+      "version": "v2.0",
+      "status_code": 204,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/manifest.py",
+      "line": 155
+    },
+    {
+      "service": "kraken",
+      "method": "GET",
+      "path": "/",
+      "version": null,
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/kraken/api/app.py",
+      "line": 56
+    },
+    {
+      "service": "kraken",
+      "method": "GET",
+      "path": "/",
+      "version": "v1.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/kraken/api/v1/routers/index.py",
+      "line": 57
+    },
+    {
+      "service": "kraken",
+      "method": "GET",
+      "path": "/",
+      "version": "v2.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/index.py",
+      "line": 12
+    },
+    {
+      "service": "kraken",
+      "method": "GET",
+      "path": "/container",
+      "version": "v2.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/container.py",
+      "line": 33
+    },
+    {
+      "service": "kraken",
+      "method": "GET",
+      "path": "/container/stats",
+      "version": "v2.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/container.py",
+      "line": 66
+    },
+    {
+      "service": "kraken",
+      "method": "GET",
+      "path": "/container/{container_name}/details",
+      "version": "v2.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/container.py",
+      "line": 42
+    },
+    {
+      "service": "kraken",
+      "method": "GET",
+      "path": "/container/{container_name}/log",
+      "version": "v2.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/container.py",
+      "line": 51
+    },
+    {
+      "service": "kraken",
+      "method": "GET",
+      "path": "/container/{container_name}/stats",
+      "version": "v2.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/container.py",
+      "line": 75
+    },
+    {
+      "service": "kraken",
+      "method": "GET",
+      "path": "/extension",
+      "version": "v2.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/extension.py",
+      "line": 48
+    },
+    {
+      "service": "kraken",
+      "method": "GET",
+      "path": "/extension/{identifier}/details",
+      "version": "v2.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/extension.py",
+      "line": 58
+    },
+    {
+      "service": "kraken",
+      "method": "GET",
+      "path": "/extension/{identifier}/{tag}/details",
+      "version": "v2.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/extension.py",
+      "line": 68
+    },
+    {
+      "service": "kraken",
+      "method": "GET",
+      "path": "/extensions_manifest",
+      "version": "v1.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/kraken/api/v1/routers/index.py",
+      "line": 22
+    },
+    {
+      "service": "kraken",
+      "method": "GET",
+      "path": "/installed_extensions",
+      "version": "v1.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/kraken/api/v1/routers/index.py",
+      "line": 27
+    },
+    {
+      "service": "kraken",
+      "method": "GET",
+      "path": "/jobs",
+      "version": "v2.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/jobs.py",
+      "line": 42
+    },
+    {
+      "service": "kraken",
+      "method": "GET",
+      "path": "/jobs/{identifier}",
+      "version": "v2.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/jobs.py",
+      "line": 48
+    },
+    {
+      "service": "kraken",
+      "method": "GET",
+      "path": "/list_containers",
+      "version": "v1.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/kraken/api/v1/routers/index.py",
+      "line": 33
+    },
+    {
+      "service": "kraken",
+      "method": "GET",
+      "path": "/log",
+      "version": "v1.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/kraken/api/v1/routers/index.py",
+      "line": 38
+    },
+    {
+      "service": "kraken",
+      "method": "GET",
+      "path": "/manifest",
+      "version": "v2.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/manifest.py",
+      "line": 48
+    },
+    {
+      "service": "kraken",
+      "method": "GET",
+      "path": "/manifest/consolidated",
+      "version": "v2.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/manifest.py",
+      "line": 67
+    },
+    {
+      "service": "kraken",
+      "method": "GET",
+      "path": "/manifest/tags/{extension_identifier}",
+      "version": "v2.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/manifest.py",
+      "line": 90
+    },
+    {
+      "service": "kraken",
+      "method": "GET",
+      "path": "/manifest/tags/{manifest_identifier}/{extension_identifier}",
+      "version": "v2.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/manifest.py",
+      "line": 77
+    },
+    {
+      "service": "kraken",
+      "method": "GET",
+      "path": "/manifest/{identifier}/details",
+      "version": "v2.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/manifest.py",
+      "line": 58
+    },
+    {
+      "service": "kraken",
+      "method": "GET",
+      "path": "/stats",
+      "version": "v1.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/kraken/api/v1/routers/index.py",
+      "line": 52
+    },
+    {
+      "service": "kraken",
+      "method": "POST",
+      "path": "/extension",
+      "version": "v2.0",
+      "status_code": 201,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/extension.py",
+      "line": 78
+    },
+    {
+      "service": "kraken",
+      "method": "POST",
+      "path": "/extension/disable",
+      "version": "v1.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/kraken/api/v1/routers/extension.py",
+      "line": 48
+    },
+    {
+      "service": "kraken",
+      "method": "POST",
+      "path": "/extension/enable",
+      "version": "v1.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/kraken/api/v1/routers/extension.py",
+      "line": 41
+    },
+    {
+      "service": "kraken",
+      "method": "POST",
+      "path": "/extension/install",
+      "version": "v1.0",
+      "status_code": 201,
+      "response_model": null,
+      "file": "core/services/kraken/api/v1/routers/extension.py",
+      "line": 20
+    },
+    {
+      "service": "kraken",
+      "method": "POST",
+      "path": "/extension/restart",
+      "version": "v1.0",
+      "status_code": 202,
+      "response_model": null,
+      "file": "core/services/kraken/api/v1/routers/extension.py",
+      "line": 55
+    },
+    {
+      "service": "kraken",
+      "method": "POST",
+      "path": "/extension/uninstall",
+      "version": "v1.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/kraken/api/v1/routers/extension.py",
+      "line": 27
+    },
+    {
+      "service": "kraken",
+      "method": "POST",
+      "path": "/extension/update_to_version",
+      "version": "v1.0",
+      "status_code": 201,
+      "response_model": null,
+      "file": "core/services/kraken/api/v1/routers/extension.py",
+      "line": 34
+    },
+    {
+      "service": "kraken",
+      "method": "POST",
+      "path": "/extension/upload",
+      "version": "v2.0",
+      "status_code": 201,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/extension.py",
+      "line": 181
+    },
+    {
+      "service": "kraken",
+      "method": "POST",
+      "path": "/extension/upload/finalize",
+      "version": "v2.0",
+      "status_code": 201,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/extension.py",
+      "line": 229
+    },
+    {
+      "service": "kraken",
+      "method": "POST",
+      "path": "/extension/upload/keep-alive",
+      "version": "v2.0",
+      "status_code": 204,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/extension.py",
+      "line": 218
+    },
+    {
+      "service": "kraken",
+      "method": "POST",
+      "path": "/extension/{identifier}/disable",
+      "version": "v2.0",
+      "status_code": 204,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/extension.py",
+      "line": 119
+    },
+    {
+      "service": "kraken",
+      "method": "POST",
+      "path": "/extension/{identifier}/install",
+      "version": "v2.0",
+      "status_code": 201,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/extension.py",
+      "line": 89
+    },
+    {
+      "service": "kraken",
+      "method": "POST",
+      "path": "/extension/{identifier}/restart",
+      "version": "v2.0",
+      "status_code": 202,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/extension.py",
+      "line": 129
+    },
+    {
+      "service": "kraken",
+      "method": "POST",
+      "path": "/extension/{identifier}/{tag}/enable",
+      "version": "v2.0",
+      "status_code": 204,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/extension.py",
+      "line": 109
+    },
+    {
+      "service": "kraken",
+      "method": "POST",
+      "path": "/extension/{identifier}/{tag}/install",
+      "version": "v2.0",
+      "status_code": 201,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/extension.py",
+      "line": 99
+    },
+    {
+      "service": "kraken",
+      "method": "POST",
+      "path": "/jobs/{route}",
+      "version": "v2.0",
+      "status_code": 202,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/jobs.py",
+      "line": 32
+    },
+    {
+      "service": "kraken",
+      "method": "POST",
+      "path": "/manifest",
+      "version": "v2.0",
+      "status_code": 201,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/manifest.py",
+      "line": 101
+    },
+    {
+      "service": "kraken",
+      "method": "POST",
+      "path": "/manifest/{identifier}/disable",
+      "version": "v2.0",
+      "status_code": 204,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/manifest.py",
+      "line": 119
+    },
+    {
+      "service": "kraken",
+      "method": "POST",
+      "path": "/manifest/{identifier}/enable",
+      "version": "v2.0",
+      "status_code": 204,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/manifest.py",
+      "line": 110
+    },
+    {
+      "service": "kraken",
+      "method": "PUT",
+      "path": "/extension/{identifier}",
+      "version": "v2.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/extension.py",
+      "line": 139
+    },
+    {
+      "service": "kraken",
+      "method": "PUT",
+      "path": "/extension/{identifier}/{tag}",
+      "version": "v2.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/extension.py",
+      "line": 150
+    },
+    {
+      "service": "kraken",
+      "method": "PUT",
+      "path": "/manifest/orders",
+      "version": "v2.0",
+      "status_code": 204,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/manifest.py",
+      "line": 137
+    },
+    {
+      "service": "kraken",
+      "method": "PUT",
+      "path": "/manifest/{identifier}/details",
+      "version": "v2.0",
+      "status_code": 204,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/manifest.py",
+      "line": 128
+    },
+    {
+      "service": "kraken",
+      "method": "PUT",
+      "path": "/manifest/{identifier}/order/{order}",
+      "version": "v2.0",
+      "status_code": 204,
+      "response_model": null,
+      "file": "core/services/kraken/api/v2/routers/manifest.py",
+      "line": 146
+    },
+    {
+      "service": "nmea_injector",
+      "method": "DELETE",
+      "path": "/socks",
+      "version": "v1.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/nmea_injector/main.py",
+      "line": 59
+    },
+    {
+      "service": "nmea_injector",
+      "method": "GET",
+      "path": "/",
+      "version": null,
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/nmea_injector/main.py",
+      "line": 72
+    },
+    {
+      "service": "nmea_injector",
+      "method": "GET",
+      "path": "/socks",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "List[NMEASocket]",
+      "file": "core/services/nmea_injector/main.py",
+      "line": 40
+    },
+    {
+      "service": "nmea_injector",
+      "method": "POST",
+      "path": "/socks",
+      "version": "v1.0",
+      "status_code": 201,
+      "response_model": null,
+      "file": "core/services/nmea_injector/main.py",
+      "line": 48
+    },
+    {
+      "service": "pardal",
+      "method": "GET",
+      "path": "/",
+      "version": null,
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/pardal/main.py",
+      "line": 148
+    },
+    {
+      "service": "pardal",
+      "method": "GET",
+      "path": "/get_file",
+      "version": null,
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/pardal/main.py",
+      "line": 149
+    },
+    {
+      "service": "pardal",
+      "method": "GET",
+      "path": "/internet_best_server",
+      "version": null,
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/pardal/main.py",
+      "line": 78
+    },
+    {
+      "service": "pardal",
+      "method": "GET",
+      "path": "/internet_download_speed",
+      "version": null,
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/pardal/main.py",
+      "line": 95
+    },
+    {
+      "service": "pardal",
+      "method": "GET",
+      "path": "/internet_test_previous_result",
+      "version": null,
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/pardal/main.py",
+      "line": 119
+    },
+    {
+      "service": "pardal",
+      "method": "GET",
+      "path": "/internet_upload_speed",
+      "version": null,
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/pardal/main.py",
+      "line": 107
+    },
+    {
+      "service": "pardal",
+      "method": "POST",
+      "path": "/post_file",
+      "version": null,
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/pardal/main.py",
+      "line": 150
+    },
+    {
+      "service": "ping",
+      "method": "GET",
+      "path": "/",
+      "version": null,
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/ping/main.py",
+      "line": 57
+    },
+    {
+      "service": "ping",
+      "method": "GET",
+      "path": "/sensors",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "List[PingDeviceDescriptorModel]",
+      "file": "core/services/ping/main.py",
+      "line": 38
+    },
+    {
+      "service": "ping",
+      "method": "POST",
+      "path": "/sensors",
+      "version": "v1.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/ping/main.py",
+      "line": 46
+    },
+    {
+      "service": "recorder_extractor",
+      "method": "DELETE",
+      "path": "/recorder/files/{filename}",
+      "version": "v1.0",
+      "status_code": 204,
+      "response_model": null,
+      "file": "core/services/recorder_extractor/main.py",
+      "line": 395
+    },
+    {
+      "service": "recorder_extractor",
+      "method": "GET",
+      "path": "/",
+      "version": null,
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/recorder_extractor/main.py",
+      "line": 439
+    },
+    {
+      "service": "recorder_extractor",
+      "method": "GET",
+      "path": "/recorder/files",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "List[RecordingFile]",
+      "file": "core/services/recorder_extractor/main.py",
+      "line": 340
+    },
+    {
+      "service": "recorder_extractor",
+      "method": "GET",
+      "path": "/recorder/files/{filename}",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/recorder_extractor/main.py",
+      "line": 413
+    },
+    {
+      "service": "recorder_extractor",
+      "method": "GET",
+      "path": "/recorder/files/{filename}/thumbnail",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/recorder_extractor/main.py",
+      "line": 383
+    },
+    {
+      "service": "recorder_extractor",
+      "method": "GET",
+      "path": "/recorder/status",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "ProcessingStatus",
+      "file": "core/services/recorder_extractor/main.py",
+      "line": 370
+    },
+    {
+      "service": "versionchooser",
+      "method": "DELETE",
+      "path": "/version/delete",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/versionchooser/api/v1/routers/version.py",
+      "line": 48
+    },
+    {
+      "service": "versionchooser",
+      "method": "GET",
+      "path": "/",
+      "version": null,
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/versionchooser/api/app.py",
+      "line": 33
+    },
+    {
+      "service": "versionchooser",
+      "method": "GET",
+      "path": "/",
+      "version": "v1.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/versionchooser/api/v1/routers/index.py",
+      "line": 12
+    },
+    {
+      "service": "versionchooser",
+      "method": "GET",
+      "path": "/bootstrap/current",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/versionchooser/api/v1/routers/bootstrap.py",
+      "line": 26
+    },
+    {
+      "service": "versionchooser",
+      "method": "GET",
+      "path": "/docker/accounts",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/versionchooser/api/v1/routers/docker.py",
+      "line": 30
+    },
+    {
+      "service": "versionchooser",
+      "method": "GET",
+      "path": "/version/available/local",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/versionchooser/api/v1/routers/version.py",
+      "line": 55
+    },
+    {
+      "service": "versionchooser",
+      "method": "GET",
+      "path": "/version/available/{repository}/{image}",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/versionchooser/api/v1/routers/version.py",
+      "line": 60
+    },
+    {
+      "service": "versionchooser",
+      "method": "GET",
+      "path": "/version/current",
+      "version": "v1.0",
+      "status_code": 200,
+      "response_model": null,
+      "file": "core/services/versionchooser/api/v1/routers/version.py",
+      "line": 27
+    },
+    {
+      "service": "versionchooser",
+      "method": "GET",
+      "path": "/version/factory",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/versionchooser/api/v1/routers/version.py",
+      "line": 80
+    },
+    {
+      "service": "versionchooser",
+      "method": "POST",
+      "path": "/bootstrap/current",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/versionchooser/api/v1/routers/bootstrap.py",
+      "line": 31
+    },
+    {
+      "service": "versionchooser",
+      "method": "POST",
+      "path": "/docker/login",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/versionchooser/api/v1/routers/docker.py",
+      "line": 20
+    },
+    {
+      "service": "versionchooser",
+      "method": "POST",
+      "path": "/docker/logout",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/versionchooser/api/v1/routers/docker.py",
+      "line": 25
+    },
+    {
+      "service": "versionchooser",
+      "method": "POST",
+      "path": "/version/current",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/versionchooser/api/v1/routers/version.py",
+      "line": 34
+    },
+    {
+      "service": "versionchooser",
+      "method": "POST",
+      "path": "/version/load",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/versionchooser/api/v1/routers/version.py",
+      "line": 69
+    },
+    {
+      "service": "versionchooser",
+      "method": "POST",
+      "path": "/version/pull",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/versionchooser/api/v1/routers/version.py",
+      "line": 41
+    },
+    {
+      "service": "versionchooser",
+      "method": "POST",
+      "path": "/version/restart",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/versionchooser/api/v1/routers/version.py",
+      "line": 75
+    },
+    {
+      "service": "wifi",
+      "method": "GET",
+      "path": "/disconnect",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/wifi/main.py",
+      "line": 102
+    },
+    {
+      "service": "wifi",
+      "method": "GET",
+      "path": "/hotspot",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/wifi/main.py",
+      "line": 110
+    },
+    {
+      "service": "wifi",
+      "method": "GET",
+      "path": "/hotspot_credentials",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/wifi/main.py",
+      "line": 159
+    },
+    {
+      "service": "wifi",
+      "method": "GET",
+      "path": "/hotspot_extended_status",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/wifi/main.py",
+      "line": 117
+    },
+    {
+      "service": "wifi",
+      "method": "GET",
+      "path": "/saved",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "List[SavedWifiNetwork]",
+      "file": "core/services/wifi/main.py",
+      "line": 74
+    },
+    {
+      "service": "wifi",
+      "method": "GET",
+      "path": "/scan",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": "List[ScannedWifiNetwork]",
+      "file": "core/services/wifi/main.py",
+      "line": 63
+    },
+    {
+      "service": "wifi",
+      "method": "GET",
+      "path": "/smart_hotspot",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/wifi/main.py",
+      "line": 145
+    },
+    {
+      "service": "wifi",
+      "method": "GET",
+      "path": "/status",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/wifi/main.py",
+      "line": 53
+    },
+    {
+      "service": "wifi",
+      "method": "POST",
+      "path": "/connect",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/wifi/main.py",
+      "line": 82
+    },
+    {
+      "service": "wifi",
+      "method": "POST",
+      "path": "/hotspot",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/wifi/main.py",
+      "line": 126
+    },
+    {
+      "service": "wifi",
+      "method": "POST",
+      "path": "/hotspot_credentials",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/wifi/main.py",
+      "line": 152
+    },
+    {
+      "service": "wifi",
+      "method": "POST",
+      "path": "/remove",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/wifi/main.py",
+      "line": 89
+    },
+    {
+      "service": "wifi",
+      "method": "POST",
+      "path": "/smart_hotspot",
+      "version": "v1.0",
+      "status_code": null,
+      "response_model": null,
+      "file": "core/services/wifi/main.py",
+      "line": 135
+    }
+  ]
+}
