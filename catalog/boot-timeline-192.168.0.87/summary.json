@@ -20,6 +20,26 @@
       "detail": "reason=max_wait",
       "ev": "monitor_stop",
       "offset_s": null
+    },
+    {
+      "detail": "",
+      "ev": "monitor_start",
+      "offset_s": null
+    },
+    {
+      "detail": "",
+      "ev": "ping_down",
+      "offset_s": null
+    },
+    {
+      "detail": "",
+      "ev": "max_wait",
+      "offset_s": null
+    },
+    {
+      "detail": "reason=max_wait",
+      "ev": "monitor_stop",
+      "offset_s": null
     }
   ],
   "phase1": null,
