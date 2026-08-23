@@ -12,8 +12,8 @@ You are the Orchestrator. Load:
 
 Read catalog/extras/requirements-baseline/memory.xml if present (<= 60 lines).
 
-Current phase: P5 COMPLETE (harness gate). P0-P5 dry-run campaign ACCEPTed.
-Do not start a new numbered phase unless the user asks.
+Current phase: P6 (function layer). P0-P5 COMPLETE.
+P5 harness gate ACCEPTed. Next work is P6a unless the user says otherwise.
 
 Latest ACCEPTed artifacts:
 - impact: `cargo run -q --bin impact -- --since 1.5.0-beta.39 --until 1.5.0-beta.40 --json`
@@ -38,14 +38,15 @@ Key lessons (enforce in every spawn):
 - TMPDIR/SCCACHE_DIR/CARGO_TARGET_DIR under $HOME (never /tmp). Do not write contrast JSON to /tmp.
 - Record provenance_lint unresolved=0 explicitly, not only "ran".
 - Write HEAD contrast JSON under $HOME, never /tmp.
+- P6: do not rename UserJourney; do not 1:1 clone journeys as functions; FUN ids are function keys;
+  I/O stays Unknown unless an extractor yields a type; Feature.rationale is not a function spec.
 
-Uncommitted (do not commit unless the user asks): skill, PROMPTS, CONTINUE, ratchet,
-by_kind BTreeMap, regenerated 1.4 snapshots, 1.5.0-beta.40 snapshot + extras.
+P5 is committed (tip 560dcfcdf). P6 plan is in the runbook; types have not moved.
 
-Optional follow-ups (only if the user asks):
-- Real run: presence regen, --fix, DUT, step 10 re-ground from 54 module keys.
-- DRY catalog_supports_requirement_derivation; Index Engineer prompt duplicate.
-- HEAD contrast path under $HOME in the runner template.
+Next work (P6a):
+1. Spawn Requirements Engineer for `catalog/src/function.rs` + `FunctionCatalog::from_catalog`.
+2. No `requirement.rs` re-hang in P6a.
+3. QA with fresh Opus-5 + blueos-catalog-validate.
 
 Hard rules: composer-2.5 workers; Opus-5 QA only; merge ACCEPT only;
 commit/push/PR only if the user asks (personal fork only if push ever requested);
