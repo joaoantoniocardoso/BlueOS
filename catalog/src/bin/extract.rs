@@ -2,8 +2,9 @@ use std::path::Path;
 use std::process;
 
 use blueos_catalog::{
-    check_against_observed, check_nginx_against_observed, extract_from_repo,
-    extract_nginx_from_repo, Catalog,
+    check_against_observed, check_fastapi_against_observed, check_frontend_router_against_observed,
+    check_nginx_against_observed, extract_fastapi_from_repo, extract_from_repo,
+    extract_frontend_router_from_repo, extract_nginx_from_repo, Catalog,
 };
 
 fn main() {
@@ -26,6 +27,22 @@ fn main() {
         }
     };
 
+    let fastapi_extracted = match extract_fastapi_from_repo(repo_root) {
+        Ok(routes) => routes,
+        Err(err) => {
+            eprintln!("extract-fastapi: {err:?}");
+            process::exit(2);
+        }
+    };
+
+    let (frontend_routes, frontend_menus) = match extract_frontend_router_from_repo(repo_root) {
+        Ok(parts) => parts,
+        Err(err) => {
+            eprintln!("extract-frontend-router: {err:?}");
+            process::exit(2);
+        }
+    };
+
     if json_mode {
         match serde_json::to_string_pretty(&extracted) {
             Ok(json) => println!("{json}"),
@@ -41,8 +58,21 @@ fn main() {
     let services = catalog.services();
     let report = check_against_observed(&extracted, services);
     let nginx_report = check_nginx_against_observed(&nginx_extracted, services);
-    if report.has_drift() || nginx_report.has_drift() {
-        for finding in report.findings.iter().chain(nginx_report.findings.iter()) {
+    let fastapi_report = check_fastapi_against_observed(&fastapi_extracted, catalog.journeys());
+    let frontend_report =
+        check_frontend_router_against_observed(&frontend_routes, &frontend_menus, catalog.pages());
+    if report.has_drift()
+        || nginx_report.has_drift()
+        || fastapi_report.has_drift()
+        || frontend_report.has_drift()
+    {
+        for finding in report
+            .findings
+            .iter()
+            .chain(nginx_report.findings.iter())
+            .chain(fastapi_report.findings.iter())
+            .chain(frontend_report.findings.iter())
+        {
             eprintln!("extract-drift: {} — {}", finding.field, finding.message);
         }
         process::exit(1);
