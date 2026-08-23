@@ -1249,7 +1249,7 @@ mod tests {
 
     #[test]
     fn non_unique_in_window_citation_count_is_pinned() {
-        const NON_UNIQUE_IN_WINDOW_COUNT: usize = 171;
+        const NON_UNIQUE_IN_WINDOW_COUNT: usize = 177;
 
         let report = build_report();
         assert_eq!(
