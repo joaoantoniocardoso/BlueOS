@@ -1,0 +1,89 @@
+{
+  "label": "destructive journey suite on a sacrificial DUT: 9 journeys unlocked by the sacrificial flag",
+  "host": "192.168.0.88",
+  "environment": {
+    "board": "Raspberry Pi 4 Model B",
+    "os": "Debian GNU/Linux 11 (bullseye)",
+    "core_tag": "266584936d6abd5da30742870660a377e1adcc8d",
+    "core_digest": "sha256:306df59f838acec50fb42bc3389f170038427de66eaa3435a3d24f67e60ff81f",
+    "also_tagged": "hotspot-4233-live",
+    "flight_controller": "Navigator",
+    "vehicle_type": "Submarine",
+    "firmware": "ArduSub 4.7.0 STABLE",
+    "note": "branch derived from 1.4-dev; the modelled tree is 2.0-dev, so absent routes are version skew unless stated otherwise"
+  },
+  "profile": {
+    "sacrificial": true,
+    "never_strand_mgmt": true,
+    "comment": "sacrificial permits image switches, firmware flashes and settings resets; never_strand_mgmt still refuses the 6 network journeys that could move the management address"
+  },
+  "restore_point": {
+    "config_backup": "/home/pi/preflight-config-backup.tgz (175243784 bytes, /root/.config)",
+    "local_images": [
+      "266584936d6abd5da30742870660a377e1adcc8d",
+      "hotspot-4233-live",
+      "1.4-dev",
+      "factory"
+    ],
+    "eth0_mac": "dc:a6:32:c6:02:37",
+    "eth0_addresses": ["192.168.0.88/24 (dhcp lease)", "192.168.2.2/24 (static)"],
+    "mdns": "blueos.local",
+    "why": "the reset wipes cable-guy's config, so the management address had to be recoverable by MAC/ARP and mDNS before running it"
+  },
+  "results": [
+    { "journey": "update_raspberry_eeprom_bootloader", "steps": 1, "verdict": "pass", "note": "no-op flash: see eeprom_precheck" },
+    { "journey": "vehicle_first_boot", "steps": 4, "verdict": "pass" },
+    { "journey": "update_firmware_online", "steps": 4, "verdict": "pass" },
+    { "journey": "upload_custom_firmware", "steps": 4, "verdict": "pass" },
+    { "journey": "restore_default_firmware", "steps": 4, "verdict": "pass" },
+    { "journey": "delete_local_blueos_version", "steps": 2, "verdict": "pass" },
+    { "journey": "switch_local_blueos_version", "steps": 4, "verdict": "pass", "note": "full core restart; harness restored the original tag unprompted (the F-063.2 fix working on a real switch)" },
+    { "journey": "reboot_onboard_computer", "steps": 2, "verdict": "pass", "note": "real reboot confirmed by uptime; back in ~35s" },
+    { "journey": "reset_blueos_settings", "steps": 1, "verdict": "pass", "note": "confirmed destructive reset; closes the ledger's settings_reset_partial_failure skip" },
+    { "journey": "pull_blueos_version_without_switch", "steps": 1, "verdict": "fail", "got": 308, "note": "known version skew: versionchooser on 1.4-dev is connexion, which 308-redirects POST /version/pull" },
+    { "journey": "update_blueos_version", "steps": 1, "verdict": "fail", "got": 308, "note": "same 308 as above; its only mutating-smoke step is the pull" }
+  ],
+  "eeprom_precheck": {
+    "route": "GET /commander/v1.0/raspi/eeprom_update?i_know_what_i_am_doing=true",
+    "bootloader": "up to date",
+    "current": "Mon 15 Apr 13:12:14 UTC 2024 (1713186734)",
+    "latest": "Thu 29 Apr 16:11:25 UTC 2021 (1619712685)",
+    "vl805": "up to date",
+    "conclusion": "installed bootloader is newer than the packaged one, so `rpi-eeprom-update -a -d` had nothing to write. The journey exercised the route and the gate, NOT a real EEPROM write. The bricking half of this mode stays unprobed by construction"
+  },
+  "verification_after": {
+    "uptime_confirms_reboot": "up 2 minutes (boot 2026-08-23 21:35:48)",
+    "core_tag_restored": "266584936d6abd5da30742870660a377e1adcc8d",
+    "leftover_image_tags": "none — exactly the 4 pre-existing tags",
+    "eth0_after_default_config": "192.168.0.88/24 dhcp (fresh lease) + 192.168.2.2/24 static — lease reclaimed by MAC",
+    "firmware": "ArduSub 4.7.0 STABLE (unchanged; ardupilot-manager is in the reset ignore list)",
+    "mavlink_endpoints": 6,
+    "extensions": ["major_tom"],
+    "mavlink_flowing": true,
+    "service_sweep": {
+      "/ardupilot-manager/v1.0/vehicle_type": 200,
+      "/ardupilot-manager/v1.0/endpoints/": 200,
+      "/cable-guy/v1.0/interfaces": 200,
+      "/kraken/v1.0/installed_extensions": 200,
+      "/wifi-manager/v1.0/status": 200,
+      "/commander/v1.0/raspi/vcgencmd": 200,
+      "/helper/v1.0/web_services": 200,
+      "/beacon/v1.0/services": 200
+    }
+  },
+  "regression_check": {
+    "negative": "passed=24 failed=11 unasserted=28 (baseline on this device was 22/13 — 2 more pass, 2 fewer fail; the newer image serves more routes)",
+    "smoke": "passed=19 failed=6 skipped=66",
+    "smoke_failures": "3 journeys x 2 steps, all 404: disk-usage and recorder-extractor are absent from this image's nginx.conf; network-test resolves to pardal, whose speed-test routes this version does not register (see findings)",
+    "frontend-cache": "passed=10 failed=0",
+    "ui": "host-gated to the SITL box at .0.177 (expected skip)",
+    "conclusion": "no failure attributable to the destructive run; a settings wipe cannot produce an nginx-level 404"
+  },
+  "firmware_info_cold_boot_race": {
+    "route": "GET /ardupilot-manager/v1.0/firmware_info",
+    "observed": "500 at ~2 min uptime, twice, once with a non-JSON body",
+    "then": "20/20 HTTP 200 after the MAVLink link settled",
+    "mechanism": "index.py:104-108 requests AUTOPILOT_VERSION over MAVLink and returns PlainTextResponse(...500) on ValueError or MavlinkMessageSendFail",
+    "implication": "probing this route immediately after a reboot yields a spurious 500, and the 500 body is text/plain from a route declaring response_model=FirmwareInfo"
+  }
+}
