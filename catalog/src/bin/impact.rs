@@ -5,7 +5,7 @@ use std::process::{Command, ExitCode};
 
 use blueos_catalog::provenance_walk::repo_root;
 use blueos_catalog::source_index::{
-    build_source_index_from_walk, index_git_diff_pathspecs, repo_path_to_index_key,
+    build_source_index_from_walk, git_diff_repo_paths, index_git_diff_pathspecs,
     work_order_for_changed_paths, CatalogEntity, ReviewUrgency, SourceIndexEntry, DOC_SCOPE_NOTE,
     WORK_ORDER_NOTE,
 };
@@ -20,10 +20,23 @@ fn main() -> ExitCode {
     let json_output = args.iter().any(|arg| arg == "--json");
     let path = flag_value(&args, "--path");
     let since = flag_value(&args, "--since");
+    let until = flag_value(&args, "--until");
+
+    if until.is_some() && since.is_none() {
+        eprintln!("error: --until requires --since");
+        return ExitCode::from(2);
+    }
+    if path.is_some() && (since.is_some() || until.is_some()) {
+        eprintln!("error: specify exactly one of --path or --since");
+        return ExitCode::from(2);
+    }
 
     match (path.as_deref(), since.as_deref()) {
         (Some(path), None) => run_path(path, json_output),
-        (None, Some(since)) => run_since(since, json_output),
+        (None, Some(since)) => {
+            let until_ref = until.as_deref().unwrap_or("HEAD");
+            run_since(since, until_ref, json_output)
+        }
         (Some(_), Some(_)) => {
             eprintln!("error: specify exactly one of --path or --since");
             ExitCode::from(2)
@@ -54,40 +67,41 @@ fn run_path(path: &str, json_output: bool) -> ExitCode {
     ExitCode::SUCCESS
 }
 
-fn run_since(since: &str, json_output: bool) -> ExitCode {
+fn run_since(since: &str, until: &str, json_output: bool) -> ExitCode {
     let repo = repo_root();
-    let head = git_output(&repo, &["rev-parse", "HEAD"]).unwrap_or_else(|err| {
-        eprintln!("{err}");
-        std::process::exit(2);
-    });
     if git_output(&repo, &["rev-parse", "--verify", since]).is_err() {
         eprintln!("error: unknown git ref {since:?}");
         return ExitCode::from(2);
     }
-
-    let index = build_source_index_from_walk();
-    let pathspecs = index_git_diff_pathspecs(&index);
-    let mut diff_cmd = vec!["diff", "--name-only", since, "HEAD", "--"];
-    for pathspec in &pathspecs {
-        diff_cmd.push(pathspec.as_str());
+    if git_output(&repo, &["rev-parse", "--verify", until]).is_err() {
+        eprintln!("error: unknown git ref {until:?}");
+        return ExitCode::from(2);
     }
-    let diff = git_output(&repo, &diff_cmd).unwrap_or_else(|err| {
+    let until_resolved = git_output(&repo, &["rev-parse", until]).unwrap_or_else(|err| {
         eprintln!("{err}");
         std::process::exit(2);
     });
-    let repo_diff_paths: Vec<String> = diff
-        .lines()
-        .filter(|line| !line.is_empty())
-        .map(repo_path_to_index_key)
-        .collect();
+
+    let index = build_source_index_from_walk();
+    let pathspecs = index_git_diff_pathspecs(&index);
+    let repo_diff_paths =
+        git_diff_repo_paths(&repo, since, until, &pathspecs).unwrap_or_else(|err| {
+            eprintln!("{err}");
+            std::process::exit(2);
+        });
     let repo_diff_path_count = repo_diff_paths.len();
     let impacted_paths: Vec<String> = repo_diff_paths
         .into_iter()
         .filter(|path| index.entries.contains_key(path))
         .collect();
 
-    let order =
-        work_order_for_changed_paths(&index, since, &head, &impacted_paths, repo_diff_path_count);
+    let order = work_order_for_changed_paths(
+        &index,
+        since,
+        &until_resolved,
+        &impacted_paths,
+        repo_diff_path_count,
+    );
     if json_output {
         println!(
             "{}",
@@ -136,7 +150,7 @@ fn print_work_order(order: &blueos_catalog::source_index::WorkOrder, pathspecs: 
     println!(
         "impact --since {}..{} ({} impacted indexed paths of {} repo diff paths across {})",
         order.since,
-        order.head,
+        order.until,
         order.impacted_paths.len(),
         order.repo_diff_path_count,
         pathspecs.join(", ")
@@ -211,10 +225,11 @@ fn print_help() {
     eprintln!(
         "usage:\n\
          \x20 impact --path <file> [--json]\n\
-         \x20 impact --since <tag|sha> [--json]\n\
+         \x20 impact --since <tag|sha> [--until <tag|sha|HEAD>] [--json]\n\
          \n\
          --path  list catalog entities that cite a source file\n\
-         --since diff repo-local indexed path prefixes from ref to HEAD and emit a work order\n\
+         --since left end of the diff range (required for work orders)\n\
+         --until right end of the diff range (default: HEAD)\n\
          \n\
          {DOC_SCOPE_NOTE}"
     );
