@@ -20,6 +20,7 @@ Any measurement against a live system (resource sampling, HTTP probing, latency,
 |------|---------|
 | `tools/sample_resource.sh` | Sample an in-container process CPU (top-style, 100 == 1 core) + RSS over a window → JSON distribution |
 | `tools/probe_http.sh` | Probe GET routes → status + body + latency p50/p95/p99 → JSON keyed by route |
+| `tools/fault_injection.sh` | Kill a tmux session or process in the core container, then measure the outage through a timed window → stall duration, self-recovery, and whether dependents kept answering 200 over stale data |
 | `cargo run --bin boot_timeline -- monitor` | First-boot timing (ping -> nginx 200) + CPU/RSS/swap sampled on the device across reboots -> JSONL + summary JSON; cross-builds itself (musl static) and pushes the sampler over ssh |
 
 ## Tool contract
