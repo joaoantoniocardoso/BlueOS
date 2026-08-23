@@ -11,15 +11,18 @@ todos:
     status: completed
   - id: p2
     content: "P2 Requirement layer: statement/criterion split, derived baseline, contamination lint, SRS + RTM exports"
-    status: pending
+    status: completed
   - id: p3
     content: "P3 Extraction expansion: nginx routes/ports, FastAPI decorators, frontend router; shrink hand-authored observed"
-    status: pending
+    status: completed
   - id: p4
     content: "P4 Re-baseline loop: per beta/release campaign producing a requirements delta report"
-    status: pending
+    status: completed
   - id: p5
     content: "P5 Agent harness hardening: roles, skills, QA protocol, requirements ratchet"
+    status: completed
+  - id: p6
+    content: "P6 Function layer: derived functions between capability and journey; re-hang FUN; journeys become verification"
     status: pending
 isProject: true
 ---
@@ -28,7 +31,7 @@ isProject: true
 
 **Audience:** Orchestrator spawning **composer-2.5** workers and an independent **Opus-5** QA Reviewer. Local branch only. No PR. Commits only if the user asks.
 
-**Goal.** Project an **as-built requirements baseline** out of the catalog, and keep it true by re-baselining at **every BlueOS beta and release**. The requirements are the deliverable; per-release sync is how they stay true; the agent harness is what makes it affordable.
+**Goal.** Build an **MBSE construction model** of BlueOS from the 1.x as-built catalog, then implement 2.0 against it. P0-P5 produced a typed, triangulated as-built (ops + allocation + verification) and a replayable requirements baseline. That is **use-case recovery**. P6 adds the missing **function** layer so SYS/FUN hang off behavior with I/O, not operator procedures. Re-baselining at every beta/release is how the as-built stays true; the agent harness is what makes that affordable.
 
 **Campaign root:** `catalog/extras/requirements-baseline/` (create in P0).
 **Memory:** overwrite `catalog/extras/requirements-baseline/memory.xml` (<= 60 lines). Archive: append `memory_archive.md`.
@@ -43,6 +46,7 @@ flowchart LR
   p2 --> p4[P4 rebaseline loop]
   p3 --> p4
   p4 --> p5[P5 agent harness]
+  p5 --> p6[P6 function layer]
   p4 -->|drift found| p2
 ```
 
@@ -99,7 +103,7 @@ flowchart LR
 | **Orchestrator** | Opus | Phase gates, spawn, ACCEPT/BOUNCE, memory | Code, cargo, QA of the artifact |
 | **Provenance Engineer** | composer-2.5 | P0 `provenance_lint`, `Evidence.anchor`, bulk anchor migration | Editing journeys/services semantics; deleting a citation to silence a failure |
 | **Index Engineer** | composer-2.5 | P1 reverse index + `impact` bin | Changing model types |
-| **Requirements Engineer** | composer-2.5 | P2 `requirement.rs`, derivation, exports, contamination lint | Hand-writing per-feature requirement prose |
+| **Requirements Engineer** | composer-2.5 | P2 `requirement.rs`, derivation, exports, contamination lint; P6 function catalog + FUN re-hang | Hand-writing per-feature or per-function requirement prose |
 | **Extractor Engineer** | composer-2.5 | P3 nginx / FastAPI / frontend-router extractors | Hand-editing `catalog/observed/**` (generated) |
 | **Rebaseline Runner** | composer-2.5 | P4 one tag: presence + traces regen, impact, delta report | Hand-editing `journey_presence.rs` or `feature_traces.json` |
 | **Runtime Capture Runner** | composer-2.5 | Live DUT capture + `--smoke` for one cluster | Guessing a status code; stranding a DUT |
@@ -110,7 +114,7 @@ flowchart LR
 
 ## What we will not build (bounce on sight)
 
-ReqIF / SysML / XMI exporters. A requirements-management tool integration. A new crate. Hand-authored requirement prose per feature (the ~12-entry system-level overlay in P2 is the **only** exception). Gherkin. A DOORS-style GUI. Chasing `master` continuously. Rewriting journeys so they fit a requirement template. Deleting or loosening a citation to make `provenance_lint` pass. Requirement IDs derived from line numbers, file paths, or anything else that moves.
+ReqIF / SysML / XMI exporters. A requirements-management tool integration. A new crate. Hand-authored requirement prose per feature or per function (the ~12-entry system-level overlay in P2 is the **only** exception). Hand-authored function trees. Renaming `UserJourney` to `Function`. Cloning one function per journey (that hides the gap). Gherkin. A DOORS-style GUI. Chasing `master` continuously. Rewriting journeys so they fit a requirement template. Deleting or loosening a citation to make `provenance_lint` pass. Requirement IDs derived from line numbers, file paths, journey ids (for FUN), or anything else that moves.
 
 ---
 
@@ -296,6 +300,67 @@ Only after P4 has run once, so we automate what actually happened rather than wh
 
 **P5 COMPLETE** for the harness gate (second tag from skill + PROMPTS.md alone). Remaining holes (DUT, step 10 re-ground, presence regen, `--fix`, two-tree `--diff`) are real-run work, not unfinished P5.
 
+### P6 -- Function layer (Requirements Engineer + Opus-5)
+
+P0-P5 recovered **use cases**. Building 2.0 from MBSE needs **functions**. The gap is not missing journeys; it is that `FUN` ids are journey ids, `CapabilityDef` is a tag plus owner, and `FeatureId` is `CapabilityId` in a newtype.
+
+Target stack (do not collapse layers):
+
+| Layer | Type | 2.0 uses it for |
+|---|---|---|
+| Capability | existing `CapabilityId` / `Feature` | product scope; SYS parent |
+| **Function** | new, derived | what to implement (behavior + I/O slots) |
+| Journey | existing `UserJourney` | verification scenario / RTM row |
+| 1.x realization | routes, Vue, `file:line` | as-built trace; INT/PERF/ROB stay here |
+
+SYS hangs off capability/feature. FUN hangs off **function**. Journeys become `verifying_journeys` on the function and acceptance criteria on FUN, not the FUN identity.
+
+**Honesty bound.** First functions are **logical-boundary operations** (the cheapest triangulable stand-in): capability + distinct route cluster. That is not a marine-domain activity tree (sense / command / payload). Domain structure stays `Domain` / `Aggregate`. Do not invent that tree. A function with empty I/O and a capability-shaped name is a tag with ceremony -- prefer fewer functions with `Unknown { reason }` I/O.
+
+**Do not:** rename `UserJourney`; author function prose; 1:1 clone journeys as functions; source statements from `Feature.rationale` (P2 Lesson 1); put HTTP paths in FUN statements (contamination lint still applies); encode journey ids, file paths, or ordinals in `FunctionId` / FUN requirement ids.
+
+#### Derivation rule (mechanical)
+
+`FunctionCatalog::from_catalog`, same spirit as `FeatureCatalog::from_catalog`.
+
+1. For each capability, collect journeys whose `capability_refs` include it (Unknown refs do not mint functions).
+2. Cluster those journeys by a **route signature set**: sorted unique `(service, method, path, version)` from `JourneyStep.route` that resolve. Steps without a route do not split clusters.
+3. One function per non-empty cluster. Two journeys that share a capability and the same signature set **must** yield one function (non-vacuous test: duplicate a journey in a fixture, function count stays 1).
+4. A capability with journeys but no resolved routes: one function, I/O `Unknown { "no resolved route signature" }`.
+5. A capability with no journeys: no function (existing SYS `Unknown` for unreferenced features stays).
+6. `FunctionId` is stable: `{capability.as_str()}` when that capability has one cluster; `{capability.as_str()}/{cluster_key}` when it has more than one. `cluster_key` is a short hash or canonical join of the signature set, **not** a journey id and **not** a file path. Pin the id scheme with a test that renaming a journey does not change `FunctionId`.
+7. I/O: both `Unknown { reason }` in P6 unless an extractor already yields a typed body (today FastAPI extract is method+path only -- do not parse Python signatures in this phase). Slots exist so a later wave can fill them.
+8. `children: Vec<FunctionId>` empty unless a later wave has evidence to decompose. No authored decomposition.
+
+#### Requirement re-hang
+
+- `REQ/{domain}/{aggregate}/SYS/{capability}` unchanged identity.
+- `REQ/{domain}/{aggregate}/FUN/{function_id}` -- **new key**. Persisted snapshots will show mass FUN remove+add. That is a re-key, not a lost capability. DELTA.md must say so. Optional one-shot `replaces` / `verifying_journeys` on the JSON row so RTM still traces old scenarios.
+- FUN statement: compose implementation-free text from verifying journey summaries (same `derive_statement` / contamination path as today's SYS compose). One verifying journey => the statement will still look like that scenario; the architecture win is the id, the merge, and the I/O slots.
+- FUN criteria: verifying journeys (operational scenario) plus existing step/route criteria as 1.x verification, not as the shall.
+- INT/PERF/ROB/CON unchanged sources; INT rows gain `function_id` when the route sits in a function's signature set.
+- `Requirement.journey_id` on FUN goes away. Add `function_id: Option<FunctionId>` and `verifying_journeys: Vec<JourneyId>`.
+- `validate()`: every function has a FUN requirement; every FUN has >= 1 verifying journey or typed `Unknown`; SYS children are FUN ids (function-keyed), not journey-keyed; no FUN id contains a `JourneyId` string.
+- Overlay untouched.
+
+WBS becomes `domain -> aggregate -> capability -> function`. `catalog/src/bin/wbs.rs` plus SRS headings. Clustering in `feature.rs` stays a lens, not this tree.
+
+#### Pins and ratchet (measure, then pin; never invent the number)
+
+After wave 1, pin `FUNCTION_COUNT`. After wave 3, pin FUN count at `--version 1.4-dev` and add ratchet fields if Unknown FUN I/O should only improve. Bump existing requirement Unknown pins only with named justification (re-key will move totals). A test fails if `functions.len() == catalog.journeys().len()` on bootstrap -- coincidental equality is the 1:1 clone smell; if it ever holds for a real reason, the test must be replaced by the duplicate-journey fixture, not deleted.
+
+#### Waves
+
+**P6a -- type + catalog, no requirement re-hang.** New `catalog/src/function.rs` (`Function`, `FunctionId`, `FunctionIo`, `FunctionCatalog`). Wire `lib.rs`. `validate()`: every function's capability exists; every function has >= 1 verifying journey; `FunctionId` is not a journey id. Do not change `requirement.rs` derivation yet. Gate: `cargo test` + a printed count; Opus samples 15 functions and rejects 1:1 journey clones and HTTP in `FunctionId`.
+
+**P6b -- prove the cluster rule.** Fixture tests only, plus any derivation bugfix. Required non-vacuous tests: (1) two journeys, same capability, same route signatures -> one function; (2) two journeys, same capability, different signatures -> two functions with suffix ids; (3) rename journey id -> `FunctionId` unchanged; (4) HTTP path in a would-be id -> refuse. Break each check, watch fail, restore.
+
+**P6c -- re-hang FUN, regen snapshots, WBS/SRS/RTM.** `requirement.rs` + `requirements_report.rs` + `validate.rs` + `bin/wbs.rs` + `bin/requirements.rs`. Regen `catalog/requirements-baselines/{1.4-dev,1.4.4-beta.21,1.5.0-beta.40}.json` with justification "FUN re-keyed from journey to function". `--diff` vs pre-rehang snapshot is expected mass FUN churn; do not treat as loss. Update `harness_ratchet` pins. Update rebaseline skill/PROMPTS: FUN identity is function-keyed; journeys are verification. Gate: `bash gate.sh`; SRS shows functions not journeys as FUN headings; RTM has function -> journeys; Opus reads 20 FUN statements (implementation-free) and 20 FUN ids (no journey id substrings).
+
+**Out of P6 (later, only if evidence exists):** FastAPI/Pydantic I/O fill; MAVLink/Zenoh as additional signatures; function decomposition; domain activity model. Do not schedule them here.
+
+**Gate (phase):** P6a-c ACCEPTed; `FUNCTION_COUNT` pinned; bootstrap is not 1:1 with journeys; FUN requirement ids are function-keyed; journeys still exist and appear only as verification; no new crate; no SysML exporter; no hand-authored functions.
+
 ---
 
 ## Worker prompt skeleton (orchestrator MUST use)
@@ -329,7 +394,7 @@ QA prompt: model `claude-opus-5-thinking-high`; skill `blueos-catalog-validate` 
 ```xml
 <working_memory last_updated="iteration N @ ISO-8601">
   <recovery>Read .cursor/plans/blueos-requirements-baseline.md -- ORCHESTRATOR only.</recovery>
-  <phase>P0a|P0b|P1|P2|P3|P4|P5</phase>
+  <phase>P0a|P0b|P1|P2|P3|P4|P5|P6</phase>
   <baseline_tag>e.g. 1.4-dev</baseline_tag>
   <ratchets>unresolved_citations=N anchors_missing=N handauthored_observed=N reqs_without_criterion=N</ratchets>
   <in_flight>agent -> cluster -> status</in_flight>
@@ -349,7 +414,8 @@ QA prompt: model `claude-opus-5-thinking-high`; skill `blueos-catalog-validate` 
 - Requirement **statements** are implementation-free; **criteria** carry the implementation detail. The split never collapses.
 - Requirements are derived. The only authored requirements are the <= 12 system-level overlay entries.
 - `Unknown { reason }` beats a plausible guess, everywhere.
-- Requirement IDs are stable across refactors.
+- Requirement IDs are stable across refactors. FUN ids are **function** keys, never journey ids, file paths, or ordinals. Re-keying FUN in P6 is a one-time, named snapshot regen -- not a license to churn ids afterwards.
+- A function is derived. Never 1:1-cloned from a journey. I/O is `Unknown { reason }` until an extractor yields a type.
 - The baseline is a named tag. The catalog is never claimed to be true of `master`.
 - Findings never stop a wave.
 
