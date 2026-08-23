@@ -291,9 +291,9 @@ mod tests {
             open_harness_gap: 60,
             unverified_observed_evidence: 1129,
             extractor_coverage_lapses: 0,
-            unknown_requirement_statements: 19,
-            unknown_requirement_criteria: 64,
-            requirement_contamination_findings: 6,
+            unknown_requirement_statements: 16,
+            unknown_requirement_criteria: 50,
+            requirement_contamination_findings: 10,
         };
         let equal = baseline;
         assert!(compare_harness_ratchet(baseline, equal).is_empty());
@@ -316,9 +316,9 @@ mod tests {
             open_harness_gap: 60,
             unverified_observed_evidence: 1129,
             extractor_coverage_lapses: 0,
-            unknown_requirement_statements: 19,
-            unknown_requirement_criteria: 64,
-            requirement_contamination_findings: 6,
+            unknown_requirement_statements: 16,
+            unknown_requirement_criteria: 50,
+            requirement_contamination_findings: 10,
         };
         let worse = HarnessRatchetCounts {
             mutating_smoke_missing_effect_read: 61,
@@ -333,9 +333,9 @@ mod tests {
     fn requirement_coverage_counts_match_measured_pins() {
         let catalog = Catalog::bootstrap();
         let current = harness_ratchet_counts(&catalog);
-        assert_eq!(current.unknown_requirement_statements, 19);
-        assert_eq!(current.unknown_requirement_criteria, 64);
-        assert_eq!(current.requirement_contamination_findings, 6);
+        assert_eq!(current.unknown_requirement_statements, 16);
+        assert_eq!(current.unknown_requirement_criteria, 50);
+        assert_eq!(current.requirement_contamination_findings, 10);
         assert!(catalog_supports_requirement_derivation(&catalog));
     }
 
