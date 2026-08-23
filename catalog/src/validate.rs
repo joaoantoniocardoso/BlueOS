@@ -582,7 +582,8 @@ fn check_runtime_references(catalog: &Catalog, errors: &mut Vec<ValidationError>
             }
         }
 
-        // Route refs in state_contracts and slo_baselines are not cross-checked until a route inventory exists.
+        // Route refs in state_contracts and slo_baselines are covered by api_contracts coverage
+        // (SLO/journey/page/probe vs extracted inventory). Missing inventory routes do not fail validate().
         // resource_usage carries no catalog references and needs no cross-ref check.
     }
 }
