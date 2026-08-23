@@ -10,6 +10,8 @@ pub mod edge;
 pub mod export;
 pub mod extension_lifecycle;
 pub mod extract;
+pub mod extract_fastapi;
+pub mod extract_frontend_router;
 pub mod extract_nginx;
 pub mod feature;
 pub mod feature_intro;
@@ -88,6 +90,13 @@ pub use extension_lifecycle::{run_extension_lifecycle, write_extension_lifecycle
 pub use extract::{
     check_against_observed, check_nginx_against_observed, extract_from_repo,
     extract_nginx_from_repo, ExtractedNginxLocation, ExtractedService,
+};
+pub use extract_fastapi::{
+    check_fastapi_against_observed, extract_fastapi_from_repo, ExtractedFastApiRoute,
+};
+pub use extract_frontend_router::{
+    check_frontend_router_against_observed, extract_frontend_router_from_repo,
+    ExtractedFrontendMenu, ExtractedFrontendRoute,
 };
 pub use feature::{
     AggregateGroup, Divergence, Feature, FeatureCatalog, FeatureCommunity, FeatureId, FeatureLens,
