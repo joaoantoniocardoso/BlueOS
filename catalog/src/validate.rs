@@ -8,6 +8,7 @@ use crate::capability::Aggregate;
 use crate::catalog::Catalog;
 use crate::domain::{ALL_AGGREGATES, DOMAINS};
 use crate::feature::FeatureCatalog;
+use crate::function::{capability_exists, function_id_looks_like_http_path, FunctionCatalog};
 use crate::harness_ratchet::harness_ratchet_counts;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::UserJourney;
@@ -110,6 +111,17 @@ pub enum ValidationError {
     UnassignedAggregate { aggregate: String },
     #[error("requirement validation failed: {detail}")]
     RequirementStructure { detail: String },
+    #[error("function {function} references unknown capability {capability}")]
+    UnknownFunctionCapability {
+        function: String,
+        capability: String,
+    },
+    #[error("function {function} has no verifying journeys")]
+    FunctionNoVerifyingJourneys { function: String },
+    #[error("function id {function} equals journey id")]
+    FunctionIdEqualsJourneyId { function: String },
+    #[error("function id {function} looks like an http path")]
+    FunctionIdContainsHttpPath { function: String },
 }
 
 pub fn validate(catalog: &Catalog) -> Result<(), Vec<ValidationError>> {
@@ -127,6 +139,7 @@ pub fn validate(catalog: &Catalog) -> Result<(), Vec<ValidationError>> {
     errors.extend(check_domain_taxonomy());
     errors.extend(check_harness_annotation_stubs(catalog));
     errors.extend(check_requirements(catalog));
+    errors.extend(check_functions(catalog));
 
     if errors.is_empty() {
         Ok(())
@@ -729,6 +742,55 @@ pub(crate) fn requirements_check_applies(catalog: &Catalog) -> bool {
     catalog.services().len() == crate::services::all_services().len()
         && catalog.journeys().len() == crate::journeys::all_journeys().len()
         && catalog.pages().len() == crate::pages::all_pages().len()
+}
+
+pub(crate) fn functions_check_applies(catalog: &Catalog) -> bool {
+    requirements_check_applies(catalog)
+}
+
+fn check_functions(catalog: &Catalog) -> Vec<ValidationError> {
+    if !functions_check_applies(catalog) {
+        return Vec::new();
+    }
+
+    let functions = FunctionCatalog::from_catalog(catalog);
+    let journey_ids: HashSet<&str> = catalog
+        .journeys()
+        .iter()
+        .map(|journey| journey.id.as_str())
+        .collect();
+    let mut errors = Vec::new();
+
+    for function in functions.functions() {
+        let function_id = function.id.as_str().to_string();
+        if !capability_exists(function.capability) {
+            errors.push(ValidationError::UnknownFunctionCapability {
+                function: function_id.clone(),
+                capability: function.capability.as_str().to_string(),
+            });
+        }
+        if function.verifying_journeys.is_empty() {
+            errors.push(ValidationError::FunctionNoVerifyingJourneys {
+                function: function_id.clone(),
+            });
+        }
+        // Capability and JourneyId share snake_case for the same ability (e.g. access_blueos_web_interface).
+        let capability_key = function.capability.as_str();
+        let capability_keyed =
+            function_id == capability_key || function_id.starts_with(&format!("{capability_key}/"));
+        if journey_ids.contains(function.id.as_str()) && !capability_keyed {
+            errors.push(ValidationError::FunctionIdEqualsJourneyId {
+                function: function_id.clone(),
+            });
+        }
+        if function_id_looks_like_http_path(function.id.as_str()) {
+            errors.push(ValidationError::FunctionIdContainsHttpPath {
+                function: function_id,
+            });
+        }
+    }
+
+    errors
 }
 
 #[cfg(test)]
