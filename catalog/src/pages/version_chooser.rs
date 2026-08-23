@@ -103,7 +103,7 @@ pub const PAGE: Page =
             Evidenced::new(
                 PageServiceCall {
                     service: ConsumeTarget::Service(ServiceId::Versionchooser),
-                    endpoint: "GET /version-chooser/v1.0/version/available/{repository}",
+                    endpoint: "GET /version-chooser/v1.0/version/available/{repository}/{image}",
                     purpose: "list remote registry tags when internet is available",
                 },
                 Evidence {
