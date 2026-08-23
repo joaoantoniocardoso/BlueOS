@@ -1,13 +1,15 @@
 {
   "unknown_blast_radius": 1,
-  "unknown_body_kind": 60,
-  "unprobed_failure_modes": 45,
+  "unknown_body_kind": 59,
+  "unprobed_failure_modes": 41,
   "mutating_smoke_missing_effect_read": 60,
   "client_orchestrated_missing_ui_plan": 17,
   "open_harness_gap": 24,
-  "unverified_observed_evidence": 1129,
+  "unverified_observed_evidence": 1113,
   "extractor_coverage_lapses": 2,
   "unknown_requirement_statements": 16,
   "unknown_requirement_criteria": 50,
-  "requirement_contamination_findings": 10
+  "requirement_contamination_findings": 10,
+  "unmapped_api_routes": 46,
+  "orphan_api_hits": 1
 }
