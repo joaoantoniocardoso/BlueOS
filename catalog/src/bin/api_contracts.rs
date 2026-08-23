@@ -26,7 +26,9 @@ fn main() -> ExitCode {
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(DEFAULT_API_CONTRACT_BASELINE)
         });
 
-    let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    let repo_root = flag_value(&args, "--repo-root")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(".."));
     let routes = match extract_fastapi_from_repo(&repo_root) {
         Ok(routes) => routes,
         Err(error) => {
@@ -184,6 +186,9 @@ fn print_help() {
     eprintln!(
         "usage:\n\
          \x20 api_contracts [--check|--diff] [--coverage] [--json] [--snapshot] [--baseline <path>]\n\
+         \x20               [--repo-root <path>]\n\
+         \n\
+         --repo-root     extract from another checkout, to compare a device's image against HEAD\n\
          \n\
          --check/--diff  fail on any baseline drift (added, removed, or status/response_model)\n\
          --coverage      report inventory routes with no journey/page/SLO/probe, plus orphan hits\n\
