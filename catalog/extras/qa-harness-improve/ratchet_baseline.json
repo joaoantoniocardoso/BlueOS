@@ -7,7 +7,7 @@
   "open_harness_gap": 24,
   "unverified_observed_evidence": 1129,
   "extractor_coverage_lapses": 2,
-  "unknown_requirement_statements": 19,
-  "unknown_requirement_criteria": 64,
-  "requirement_contamination_findings": 6
+  "unknown_requirement_statements": 16,
+  "unknown_requirement_criteria": 50,
+  "requirement_contamination_findings": 10
 }
