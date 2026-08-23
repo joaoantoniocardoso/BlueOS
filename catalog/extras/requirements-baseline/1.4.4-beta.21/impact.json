@@ -1,0 +1,324 @@
+{
+  "since": "1.4.4-beta.20",
+  "until": "2853762783633f82b7ab242acb9822807f73bcd3",
+  "impacted_paths": [
+    "core/services/helper/main.py"
+  ],
+  "repo_diff_path_count": 1,
+  "note": "A cited file changing is enough to require re-examination even when the anchor still matches. Anchor match proves the cited LINE is intact, not that surrounding behaviour still supports the claim.",
+  "doc_scope_note": "--since..--until covers repo-local citation paths only. Doc citations (content/* under ../BlueOS-docs) are not diffed; re-check those separately when docs change.",
+  "modules": {
+    "journeys/helper.rs": [
+      {
+        "path": "core/services/helper/main.py",
+        "entity": {
+          "kind": "journey",
+          "id": "monitor_internet_connectivity"
+        },
+        "model_path": "/journeys/51/steps/items/1/value/route/provenance/source",
+        "line": 540,
+        "resolve_status": "resolved",
+        "urgency": "needs_review"
+      },
+      {
+        "path": "core/services/helper/main.py",
+        "entity": {
+          "kind": "journey",
+          "id": "verify_internet_connectivity"
+        },
+        "model_path": "/journeys/52/steps/items/1/value/route/provenance/source",
+        "line": 540,
+        "resolve_status": "resolved",
+        "urgency": "needs_review"
+      },
+      {
+        "path": "core/services/helper/main.py",
+        "entity": {
+          "kind": "journey",
+          "id": "browse_available_web_services"
+        },
+        "model_path": "/journeys/53/steps/items/1/value/route/provenance/source",
+        "line": 529,
+        "resolve_status": "resolved",
+        "urgency": "needs_review"
+      },
+      {
+        "path": "core/services/helper/main.py",
+        "entity": {
+          "kind": "journey",
+          "id": "probe_interface_internet_connectivity"
+        },
+        "model_path": "/journeys/54/steps/items/1/value/route/provenance/source",
+        "line": 583,
+        "resolve_status": "resolved",
+        "urgency": "needs_review"
+      }
+    ],
+    "services/helper.rs": [
+      {
+        "path": "core/services/helper/main.py",
+        "entity": {
+          "kind": "service",
+          "id": "helper"
+        },
+        "model_path": "/services/9/observed/aliases/items/0/evidence",
+        "line": 43,
+        "resolve_status": "resolved",
+        "urgency": "needs_review"
+      },
+      {
+        "path": "core/services/helper/main.py",
+        "entity": {
+          "kind": "service",
+          "id": "helper"
+        },
+        "model_path": "/services/9/observed/git_path/evidence",
+        "line": 1,
+        "resolve_status": "resolved",
+        "urgency": "needs_review"
+      },
+      {
+        "path": "core/services/helper/main.py",
+        "entity": {
+          "kind": "service",
+          "id": "helper"
+        },
+        "model_path": "/services/9/observed/interfaces/items/0/evidence",
+        "line": 612,
+        "resolve_status": "resolved",
+        "urgency": "needs_review"
+      },
+      {
+        "path": "core/services/helper/main.py",
+        "entity": {
+          "kind": "service",
+          "id": "helper"
+        },
+        "model_path": "/services/9/observed/interfaces/items/1/evidence",
+        "line": 629,
+        "resolve_status": "resolved",
+        "urgency": "needs_review"
+      },
+      {
+        "path": "core/services/helper/main.py",
+        "entity": {
+          "kind": "service",
+          "id": "helper"
+        },
+        "model_path": "/services/9/observed/interfaces/items/2/evidence",
+        "line": 491,
+        "resolve_status": "resolved",
+        "urgency": "needs_review"
+      },
+      {
+        "path": "core/services/helper/main.py",
+        "entity": {
+          "kind": "service",
+          "id": "helper"
+        },
+        "model_path": "/services/9/observed/interfaces/items/3/evidence",
+        "line": 453,
+        "resolve_status": "resolved",
+        "urgency": "needs_review"
+      },
+      {
+        "path": "core/services/helper/main.py",
+        "entity": {
+          "kind": "service",
+          "id": "helper"
+        },
+        "model_path": "/services/9/observed/interfaces/items/4/evidence",
+        "line": 553,
+        "resolve_status": "resolved",
+        "urgency": "needs_review"
+      },
+      {
+        "path": "core/services/helper/main.py",
+        "entity": {
+          "kind": "service",
+          "id": "helper"
+        },
+        "model_path": "/services/9/observed/interfaces/items/5/evidence",
+        "line": 570,
+        "resolve_status": "resolved",
+        "urgency": "needs_review"
+      },
+      {
+        "path": "core/services/helper/main.py",
+        "entity": {
+          "kind": "service",
+          "id": "helper"
+        },
+        "model_path": "/services/9/observed/interfaces/items/6/evidence",
+        "line": 294,
+        "resolve_status": "resolved",
+        "urgency": "needs_review"
+      },
+      {
+        "path": "core/services/helper/main.py",
+        "entity": {
+          "kind": "service",
+          "id": "helper"
+        },
+        "model_path": "/services/9/observed/interfaces/items/7/evidence",
+        "line": 507,
+        "resolve_status": "resolved",
+        "urgency": "needs_review"
+      },
+      {
+        "path": "core/services/helper/main.py",
+        "entity": {
+          "kind": "service",
+          "id": "helper"
+        },
+        "model_path": "/services/9/observed/interfaces/items/9/evidence",
+        "line": 56,
+        "resolve_status": "resolved",
+        "urgency": "needs_review"
+      },
+      {
+        "path": "core/services/helper/main.py",
+        "entity": {
+          "kind": "service",
+          "id": "helper"
+        },
+        "model_path": "/services/9/observed/interfaces/items/10/evidence",
+        "line": 61,
+        "resolve_status": "resolved",
+        "urgency": "needs_review"
+      },
+      {
+        "path": "core/services/helper/main.py",
+        "entity": {
+          "kind": "service",
+          "id": "helper"
+        },
+        "model_path": "/services/9/observed/interfaces/items/11/evidence",
+        "line": 66,
+        "resolve_status": "resolved",
+        "urgency": "needs_review"
+      },
+      {
+        "path": "core/services/helper/main.py",
+        "entity": {
+          "kind": "service",
+          "id": "helper"
+        },
+        "model_path": "/services/9/observed/interfaces/items/12/evidence",
+        "line": 74,
+        "resolve_status": "resolved",
+        "urgency": "needs_review"
+      },
+      {
+        "path": "core/services/helper/main.py",
+        "entity": {
+          "kind": "service",
+          "id": "helper"
+        },
+        "model_path": "/services/9/observed/interfaces/items/13/evidence",
+        "line": 79,
+        "resolve_status": "resolved",
+        "urgency": "needs_review"
+      },
+      {
+        "path": "core/services/helper/main.py",
+        "entity": {
+          "kind": "service",
+          "id": "helper"
+        },
+        "model_path": "/services/9/observed/interfaces/items/14/evidence",
+        "line": 586,
+        "resolve_status": "resolved",
+        "urgency": "needs_review"
+      },
+      {
+        "path": "core/services/helper/main.py",
+        "entity": {
+          "kind": "service",
+          "id": "helper"
+        },
+        "model_path": "/services/9/observed/interfaces/items/15/evidence",
+        "line": 456,
+        "resolve_status": "resolved",
+        "urgency": "needs_review"
+      },
+      {
+        "path": "core/services/helper/main.py",
+        "entity": {
+          "kind": "service",
+          "id": "helper"
+        },
+        "model_path": "/services/9/observed/listen/items/0/evidence",
+        "line": 143,
+        "resolve_status": "resolved",
+        "urgency": "needs_review"
+      },
+      {
+        "path": "core/services/helper/main.py",
+        "entity": {
+          "kind": "service",
+          "id": "helper"
+        },
+        "model_path": "/services/9/observed/resources/items/0/evidence",
+        "line": 629,
+        "resolve_status": "resolved",
+        "urgency": "needs_review"
+      },
+      {
+        "path": "core/services/helper/main.py",
+        "entity": {
+          "kind": "service",
+          "id": "helper"
+        },
+        "model_path": "/services/9/observed/resources/items/1/evidence",
+        "line": 491,
+        "resolve_status": "resolved",
+        "urgency": "needs_review"
+      },
+      {
+        "path": "core/services/helper/main.py",
+        "entity": {
+          "kind": "service",
+          "id": "helper"
+        },
+        "model_path": "/services/9/observed/resources/items/2/evidence",
+        "line": 453,
+        "resolve_status": "resolved",
+        "urgency": "needs_review"
+      },
+      {
+        "path": "core/services/helper/main.py",
+        "entity": {
+          "kind": "service",
+          "id": "helper"
+        },
+        "model_path": "/services/9/observed/resources/items/3/evidence",
+        "line": 553,
+        "resolve_status": "resolved",
+        "urgency": "needs_review"
+      },
+      {
+        "path": "core/services/helper/main.py",
+        "entity": {
+          "kind": "service",
+          "id": "helper"
+        },
+        "model_path": "/services/9/observed/resources/items/4/evidence",
+        "line": 570,
+        "resolve_status": "resolved",
+        "urgency": "needs_review"
+      },
+      {
+        "path": "core/services/helper/main.py",
+        "entity": {
+          "kind": "service",
+          "id": "helper"
+        },
+        "model_path": "/services/9/observed/sentry/evidence",
+        "line": 633,
+        "resolve_status": "resolved",
+        "urgency": "needs_review"
+      }
+    ]
+  }
+}
