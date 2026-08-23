@@ -14,7 +14,7 @@ use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::UserJourney;
 use crate::page::{ConsumeTarget, PageId};
 use crate::provenance::{AssertedSet, Grounded, GroundedSet, ObservedSet, Provenance};
-use crate::requirement::RequirementCatalog;
+use crate::requirement::{RequirementCatalog, RequirementKind};
 use crate::resource::ResourceOwnership;
 use crate::runner::{http_method_label, resolve_http_path};
 use crate::service::{Authority, Service, ServiceDefinition};
@@ -122,6 +122,14 @@ pub enum ValidationError {
     FunctionIdEqualsJourneyId { function: String },
     #[error("function id {function} looks like an http path")]
     FunctionIdContainsHttpPath { function: String },
+    #[error("function {function} has no FUN requirement")]
+    MissingFunRequirement { function: String },
+    #[error("FUN requirement {id} missing function_id")]
+    FunRequirementMissingFunctionId { id: String },
+    #[error("FUN requirement {id} has no verifying journeys")]
+    FunRequirementNoVerifyingJourneys { id: String },
+    #[error("system requirement {id} child {child} is not a FUN requirement id")]
+    SystemChildNotFunId { id: String, child: String },
 }
 
 pub fn validate(catalog: &Catalog) -> Result<(), Vec<ValidationError>> {
@@ -754,6 +762,15 @@ fn check_functions(catalog: &Catalog) -> Vec<ValidationError> {
     }
 
     let functions = FunctionCatalog::from_catalog(catalog);
+    let requirements = RequirementCatalog::from_catalog(catalog);
+    check_function_integrity(catalog, &functions, &requirements)
+}
+
+fn check_function_integrity(
+    catalog: &Catalog,
+    functions: &FunctionCatalog,
+    requirements: &RequirementCatalog,
+) -> Vec<ValidationError> {
     let journey_ids: HashSet<&str> = catalog
         .journeys()
         .iter()
@@ -785,8 +802,45 @@ fn check_functions(catalog: &Catalog) -> Vec<ValidationError> {
         }
         if function_id_looks_like_http_path(function.id.as_str()) {
             errors.push(ValidationError::FunctionIdContainsHttpPath {
+                function: function_id.clone(),
+            });
+        }
+        let fun_suffix = format!("/FUN/{}", function.id.as_str());
+        let has_fun = requirements
+            .requirements()
+            .iter()
+            .any(|req| req.kind == RequirementKind::Functional && req.id.0.ends_with(&fun_suffix));
+        if !has_fun {
+            errors.push(ValidationError::MissingFunRequirement {
                 function: function_id,
             });
+        }
+    }
+
+    for requirement in requirements.requirements() {
+        if requirement.kind != RequirementKind::Functional {
+            continue;
+        }
+        let id = requirement.id.0.clone();
+        if requirement.function_id.is_none() {
+            errors.push(ValidationError::FunRequirementMissingFunctionId { id: id.clone() });
+        }
+        if requirement.verifying_journeys.is_empty() {
+            errors.push(ValidationError::FunRequirementNoVerifyingJourneys { id });
+        }
+    }
+
+    for requirement in requirements.requirements() {
+        if requirement.kind != RequirementKind::System || requirement.id.0.contains("/SYS-OVR/") {
+            continue;
+        }
+        for child in &requirement.functional_children {
+            if !child.0.contains("/FUN/") {
+                errors.push(ValidationError::SystemChildNotFunId {
+                    id: requirement.id.0.clone(),
+                    child: child.0.clone(),
+                });
+            }
         }
     }
 
@@ -809,6 +863,7 @@ mod tests {
         Asserted, AssertedSet, Evidence, Evidenced, Grounded, GroundedItem, GroundedSet, Observed,
         ObservedSet, Provenance, Rationaled,
     };
+    use crate::requirement::RequirementId;
     use crate::resource::{Resource, ResourceOwnership};
     use crate::runtime::{RuntimeFacts, StateContract};
     use crate::service::Service;
@@ -1675,5 +1730,63 @@ mod tests {
                     && resolved == "/helper/v1.0/check_internet_access"
             )
         }));
+    }
+
+    #[test]
+    fn function_integrity_checks_fail_when_fun_rows_are_broken() {
+        let catalog = Catalog::bootstrap();
+        let functions = FunctionCatalog::from_catalog(&catalog);
+
+        let mut missing_fun = RequirementCatalog::from_catalog(&catalog);
+        missing_fun
+            .requirements
+            .retain(|req| req.kind != RequirementKind::Functional);
+        assert!(check_function_integrity(&catalog, &functions, &missing_fun)
+            .iter()
+            .any(|error| matches!(error, ValidationError::MissingFunRequirement { .. })));
+
+        let mut no_id = RequirementCatalog::from_catalog(&catalog);
+        for req in &mut no_id.requirements {
+            if req.kind == RequirementKind::Functional {
+                req.function_id = None;
+            }
+        }
+        assert!(check_function_integrity(&catalog, &functions, &no_id)
+            .iter()
+            .any(|error| matches!(
+                error,
+                ValidationError::FunRequirementMissingFunctionId { .. }
+            )));
+
+        let mut no_journeys = RequirementCatalog::from_catalog(&catalog);
+        for req in &mut no_journeys.requirements {
+            if req.kind == RequirementKind::Functional {
+                req.verifying_journeys.clear();
+            }
+        }
+        assert!(check_function_integrity(&catalog, &functions, &no_journeys)
+            .iter()
+            .any(|error| {
+                matches!(
+                    error,
+                    ValidationError::FunRequirementNoVerifyingJourneys { .. }
+                )
+            }));
+
+        let mut bad_child = RequirementCatalog::from_catalog(&catalog);
+        let child = RequirementId("REQ/test/test/SYS/not_a_fun".to_string());
+        let sys = bad_child
+            .requirements
+            .iter_mut()
+            .find(|req| {
+                req.kind == RequirementKind::System
+                    && !req.id.0.contains("/SYS-OVR/")
+                    && !req.functional_children.is_empty()
+            })
+            .expect("system requirement with FUN children");
+        sys.functional_children[0] = child;
+        assert!(check_function_integrity(&catalog, &functions, &bad_child)
+            .iter()
+            .any(|error| matches!(error, ValidationError::SystemChildNotFunId { .. })));
     }
 }
