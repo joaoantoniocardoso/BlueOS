@@ -1,4 +1,6 @@
 use std::collections::{BTreeMap, HashSet};
+use std::path::Path;
+use std::process::Command;
 
 use serde::Serialize;
 
@@ -55,7 +57,7 @@ pub struct WorkOrderEntry {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct WorkOrder {
     pub since: String,
-    pub head: String,
+    pub until: String,
     /// Indexed citation paths that changed in this repo and appear in the work order.
     pub impacted_paths: Vec<String>,
     /// Paths returned by `git diff` over repo-local index prefixes (includes non-cited files).
@@ -69,8 +71,9 @@ pub const WORK_ORDER_NOTE: &str = "A cited file changing is enough to require re
     when the anchor still matches. Anchor match proves the cited LINE is intact, not that \
     surrounding behaviour still supports the claim.";
 
-pub const DOC_SCOPE_NOTE: &str = "--since covers repo-local citation paths only. Doc citations \
-    (content/* under ../BlueOS-docs) are not diffed; re-check those separately when docs change.";
+pub const DOC_SCOPE_NOTE: &str = "--since..--until covers repo-local citation paths only. Doc \
+    citations (content/* under ../BlueOS-docs) are not diffed; re-check those separately when \
+    docs change.";
 
 pub fn build_source_index(report: &ProvenanceWalkReport) -> SourceIndex {
     let mut entries: BTreeMap<String, Vec<SourceIndexEntry>> = BTreeMap::new();
@@ -218,10 +221,39 @@ pub fn catalog_module_for_entity(entity: &CatalogEntity, citation: &Citation) ->
     }
 }
 
+pub fn git_diff_repo_paths(
+    repo: &Path,
+    since: &str,
+    until: &str,
+    pathspecs: &[String],
+) -> Result<Vec<String>, String> {
+    let mut cmd = vec!["diff", "--name-only", since, until, "--"];
+    for pathspec in pathspecs {
+        cmd.push(pathspec.as_str());
+    }
+    let output = Command::new("git")
+        .args(&cmd)
+        .current_dir(repo)
+        .output()
+        .map_err(|err| format!("failed to spawn git: {err}"))?;
+    if !output.status.success() {
+        return Err(format!(
+            "git {} failed: {}",
+            cmd.join(" "),
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+    Ok(String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter(|line| !line.is_empty())
+        .map(repo_path_to_index_key)
+        .collect())
+}
+
 pub fn work_order_for_changed_paths(
     index: &SourceIndex,
     since: &str,
-    head: &str,
+    until: &str,
     impacted_paths: &[String],
     repo_diff_path_count: usize,
 ) -> WorkOrder {
@@ -246,7 +278,7 @@ pub fn work_order_for_changed_paths(
     }
     WorkOrder {
         since: since.to_string(),
-        head: head.to_string(),
+        until: until.to_string(),
         impacted_paths: impacted_paths.to_vec(),
         repo_diff_path_count,
         note: WORK_ORDER_NOTE,
@@ -508,5 +540,48 @@ mod tests {
         assert!(!index
             .entries
             .contains_key("core/services/nonexistent_probe/main.py"));
+    }
+
+    #[test]
+    fn git_diff_until_ref_limits_range_not_head() {
+        use crate::provenance_walk::repo_root;
+
+        let repo = repo_root();
+        let index = build_source_index_from_walk();
+        let pathspecs = index_git_diff_pathspecs(&index);
+        let since = "1.4.4-beta.14";
+        let until = "1.4.4-beta.20";
+        for reference in [since, until, "HEAD"] {
+            assert!(
+                Command::new("git")
+                    .args(["rev-parse", "--verify", reference])
+                    .current_dir(&repo)
+                    .status()
+                    .expect("spawn git")
+                    .success(),
+                "missing git ref {reference}"
+            );
+        }
+
+        let to_head = git_diff_repo_paths(&repo, since, "HEAD", &pathspecs).expect("diff to HEAD");
+        let to_until = git_diff_repo_paths(&repo, since, until, &pathspecs).expect("diff to until");
+        let to_head_again =
+            git_diff_repo_paths(&repo, since, "HEAD", &pathspecs).expect("diff to HEAD again");
+
+        assert_ne!(
+            to_head.len(),
+            to_until.len(),
+            "--until must change repo_diff_path_count (HEAD={}, until={})",
+            to_head.len(),
+            to_until.len()
+        );
+        assert!(
+            to_until.len() < to_head.len(),
+            "tag-to-tag range should be narrower than tag-to-HEAD"
+        );
+        assert_eq!(
+            to_head, to_head_again,
+            "explicit HEAD must match implicit default"
+        );
     }
 }
