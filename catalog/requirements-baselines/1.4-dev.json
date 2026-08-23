@@ -4,12 +4,12 @@
   "unknown_statement_count": 19,
   "unknown_criteria_count": 64,
   "by_kind": {
-    "functional": 81,
     "constraint": 36,
-    "system": 80,
+    "functional": 81,
+    "interface": 71,
     "performance": 69,
     "robustness": 44,
-    "interface": 71
+    "system": 80
   },
   "requirements": [
     {

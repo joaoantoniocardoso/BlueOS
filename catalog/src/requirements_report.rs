@@ -21,7 +21,7 @@ pub struct RequirementsJson {
     pub total: usize,
     pub unknown_statement_count: usize,
     pub unknown_criteria_count: usize,
-    pub by_kind: HashMap<String, usize>,
+    pub by_kind: BTreeMap<String, usize>,
     pub requirements: Vec<RequirementJsonRow>,
     pub contamination_findings: usize,
 }
@@ -74,7 +74,7 @@ pub struct RtmRow {
 
 pub fn requirements_json(catalog: &RequirementCatalog, version_tag: &str) -> RequirementsJson {
     let filtered = catalog.filter_by_version(version_tag);
-    let mut by_kind: HashMap<String, usize> = HashMap::new();
+    let mut by_kind: BTreeMap<String, usize> = BTreeMap::new();
     let mut unknown_statement_count = 0usize;
     let mut unknown_criteria_count = 0usize;
     let mut requirements = Vec::new();
