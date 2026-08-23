@@ -225,14 +225,17 @@ pub fn run_negative_probe(
 
     let body = negative_probe_body(probe, current_tag);
     if probe.id == "NP-62" && body.is_none() {
-        return StepResult::Fail("NP-62 requires running tag from GET /version/current".into());
+        return fail_negative_probe(
+            probe,
+            "NP-62 requires running tag from GET /version/current".into(),
+        );
     }
 
     let url = crate::negative_probes::negative_probe_url(base, probe);
     let (status_code, body_text) =
         match execute_curl(&probe.method, &url, allow_mutating, body.as_deref(), None) {
             Ok(response) => response,
-            Err(err) => return StepResult::Fail(err),
+            Err(err) => return fail_negative_probe(probe, err),
         };
 
     evaluate_negative_probe_response(probe, status_code, &body_text)
@@ -266,6 +269,17 @@ fn evaluate_negative_probe_response(
     result
 }
 
+/// Report a probe that failed before any status code came back. `evaluate_negative_probe_response`
+/// is the only other place that prints, so a `Fail` returned around it is counted in the summary
+/// but never shown.
+fn fail_negative_probe(
+    probe: &crate::negative_probes::NegativeProbe,
+    message: String,
+) -> StepResult {
+    eprintln!("FAIL {} — {message}", probe.id);
+    StepResult::Fail(message)
+}
+
 fn run_negative_probe_np38_concurrent_scan(
     base: &str,
     allow_mutating: bool,
@@ -290,8 +304,10 @@ fn run_negative_probe_np38_concurrent_scan(
     for _ in 0..2 {
         match rx.recv() {
             Ok(Ok((status, _))) => statuses.push(status),
-            Ok(Err(err)) => return StepResult::Fail(err),
-            Err(_) => return StepResult::Fail("NP-38 concurrent scan thread failed".into()),
+            Ok(Err(err)) => return fail_negative_probe(probe, err),
+            Err(_) => {
+                return fail_negative_probe(probe, "NP-38 concurrent scan thread failed".into())
+            }
         }
     }
 
@@ -299,10 +315,13 @@ fn run_negative_probe_np38_concurrent_scan(
         return evaluate_negative_probe_response(probe, 425, "");
     }
 
-    StepResult::Fail(format!(
-        "NP-38 expected 425 on at least one concurrent scan, got {:?}",
-        statuses
-    ))
+    fail_negative_probe(
+        probe,
+        format!(
+            "NP-38 expected 425 on at least one concurrent scan, got {:?}",
+            statuses
+        ),
+    )
 }
 
 pub fn http_steps(journey: &UserJourney) -> Vec<RunnableStep> {
