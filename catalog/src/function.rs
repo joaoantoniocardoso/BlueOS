@@ -10,6 +10,7 @@ use crate::journey::{RouteRef, UserJourney};
 use crate::provenance::{Grounded, GroundedSet};
 use crate::runner::{http_method_label, resolve_http_path};
 
+// Measured: bootstrap clusters 100 journeys into 108 functions (not 1:1).
 pub const FUNCTION_COUNT: usize = 108;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
@@ -334,6 +335,60 @@ mod tests {
     }
 
     #[test]
+    fn same_capability_same_route_signatures_yield_one_function() {
+        let catalog = Catalog::with_parts(
+            vec![helper_from_bootstrap()],
+            vec![
+                test_journey(JourneyId::MonitorInternetConnectivity, STEPS_CHECK),
+                test_journey(JourneyId::VerifyInternetConnectivity, STEPS_CHECK),
+            ],
+            vec![],
+        );
+        let functions = FunctionCatalog::from_catalog(&catalog);
+        assert_eq!(functions.functions().len(), 1);
+        let function = &functions.functions()[0];
+        assert_eq!(function.id.as_str(), "check_internet_connectivity");
+        assert_eq!(function.verifying_journeys.len(), 2);
+        assert!(!function_id_looks_like_http_path(function.id.as_str()));
+        assert!(!function.id.as_str().contains("/check_internet_access"));
+    }
+
+    #[test]
+    fn unknown_capability_refs_do_not_mint_functions() {
+        let mut journey = test_journey(JourneyId::MonitorInternetConnectivity, STEPS_CHECK);
+        journey.capability_refs = GroundedSet::unknown("unmapped");
+        let catalog = Catalog::with_parts(vec![helper_from_bootstrap()], vec![journey], vec![]);
+        assert!(FunctionCatalog::from_catalog(&catalog)
+            .functions()
+            .is_empty());
+    }
+
+    #[test]
+    fn no_resolved_routes_yields_unknown_io_and_one_function() {
+        let catalog = Catalog::with_parts(
+            vec![helper_from_bootstrap()],
+            vec![test_journey(JourneyId::MonitorInternetConnectivity, &[])],
+            vec![],
+        );
+        let functions = FunctionCatalog::from_catalog(&catalog);
+        assert_eq!(functions.functions().len(), 1);
+        let function = &functions.functions()[0];
+        assert_eq!(function.id.as_str(), "check_internet_connectivity");
+        assert_eq!(
+            function.input,
+            FunctionIo::Unknown {
+                reason: "no resolved route signature"
+            }
+        );
+        assert_eq!(
+            function.output,
+            FunctionIo::Unknown {
+                reason: "no resolved route signature"
+            }
+        );
+    }
+
+    #[test]
     fn same_capability_different_route_signatures_yield_suffixed_ids() {
         let catalog = Catalog::with_parts(
             vec![helper_from_bootstrap()],
@@ -355,9 +410,11 @@ mod tests {
             .as_str()
             .starts_with("check_internet_connectivity/")));
         assert_ne!(matching[0].id, matching[1].id);
-        assert!(matching
-            .iter()
-            .all(|function| !function_id_looks_like_http_path(function.id.as_str())));
+        assert!(matching.iter().all(|function| {
+            !function_id_looks_like_http_path(function.id.as_str())
+                && !function.id.as_str().contains("/check_internet_access")
+                && !function.id.as_str().contains("/ping")
+        }));
     }
 
     #[test]
