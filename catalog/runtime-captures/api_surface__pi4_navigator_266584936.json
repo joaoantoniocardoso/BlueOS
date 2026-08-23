@@ -1,0 +1,368 @@
+{
+  "environment": "BlueOS 266584936d6abd5da30742870660a377e1adcc8d (bluerobotics/blueos-core:266584936d6abd5da30742870660a377e1adcc8d, image id sha256:306df59f838acec50fb42bc3389f170038427de66eaa3435a3d24f67e60ff81f, RepoDigests empty: built locally from git 266584936), Raspberry Pi 4 (armv7l, Raspbian 11 bullseye, kernel 5.10.33-v7l+), Navigator, ArduSub 4.7.0 STABLE",
+  "captured_at": "2026-08-23",
+  "host": "192.168.0.88",
+  "method": "GET {nginx-prefix}/{version}/openapi.json through nginx for every FastAPI service, compared against `api_contracts --repo-root` run on the device's own source commit",
+  "version_inheritance": {
+    "finding": "VersionedFastAPI serves a route under its declared version prefix and every later one; `latest` aliases the highest version",
+    "evidence": {
+      "ardupilot_manager": {
+        "versions": [
+          "v1.0",
+          "v2.0"
+        ],
+        "v1_subset_of_v2": true,
+        "latest_equals_highest": true
+      },
+      "bag_of_holding": {
+        "versions": [
+          "v1.0"
+        ],
+        "v1_subset_of_v2": null,
+        "latest_equals_highest": true
+      },
+      "beacon": {
+        "versions": [
+          "v1.0"
+        ],
+        "v1_subset_of_v2": null,
+        "latest_equals_highest": true
+      },
+      "bridget": {
+        "versions": [
+          "v1.0"
+        ],
+        "v1_subset_of_v2": null,
+        "latest_equals_highest": true
+      },
+      "cable_guy": {
+        "versions": [
+          "v1.0"
+        ],
+        "v1_subset_of_v2": null,
+        "latest_equals_highest": true
+      },
+      "commander": {
+        "versions": [
+          "v1.0"
+        ],
+        "v1_subset_of_v2": null,
+        "latest_equals_highest": true
+      },
+      "helper": {
+        "versions": [
+          "v1.0"
+        ],
+        "v1_subset_of_v2": null,
+        "latest_equals_highest": true
+      },
+      "kraken": {
+        "versions": [
+          "v1.0",
+          "v2.0"
+        ],
+        "v1_subset_of_v2": true,
+        "latest_equals_highest": true
+      },
+      "nmea_injector": {
+        "versions": [
+          "v1.0"
+        ],
+        "v1_subset_of_v2": null,
+        "latest_equals_highest": true
+      },
+      "ping": {
+        "versions": [
+          "v1.0"
+        ],
+        "v1_subset_of_v2": null,
+        "latest_equals_highest": true
+      },
+      "versionchooser": {
+        "versions": [
+          "v1.0"
+        ],
+        "v1_subset_of_v2": null,
+        "latest_equals_highest": null
+      },
+      "wifi": {
+        "versions": [
+          "v1.0"
+        ],
+        "v1_subset_of_v2": null,
+        "latest_equals_highest": true
+      }
+    }
+  },
+  "served_surface": {
+    "ardupilot_manager root": [
+      "GET /"
+    ],
+    "ardupilot_manager v1.0": [
+      "DELETE /endpoints",
+      "GET /available_boards",
+      "GET /available_firmwares",
+      "GET /available_routers",
+      "GET /board",
+      "GET /endpoints",
+      "GET /firmware_info",
+      "GET /firmware_vehicle_type",
+      "GET /preferred_router",
+      "GET /serials",
+      "GET /vehicle_type",
+      "POST /board",
+      "POST /endpoints",
+      "POST /install_firmware_from_file",
+      "POST /install_firmware_from_url",
+      "POST /preferred_router",
+      "POST /restart",
+      "POST /restore_default_firmware",
+      "POST /sitl_frame",
+      "POST /start",
+      "POST /stop",
+      "PUT /endpoints",
+      "PUT /serials"
+    ],
+    "ardupilot_manager v2.0": [
+      "DELETE /endpoints",
+      "GET /",
+      "GET /available_boards",
+      "GET /available_firmwares",
+      "GET /available_routers",
+      "GET /board",
+      "GET /endpoints",
+      "GET /firmware_info",
+      "GET /firmware_vehicle_type",
+      "GET /preferred_router",
+      "GET /serials",
+      "GET /vehicle_type",
+      "POST /board",
+      "POST /endpoints",
+      "POST /install_firmware_from_file",
+      "POST /install_firmware_from_url",
+      "POST /preferred_router",
+      "POST /restart",
+      "POST /restore_default_firmware",
+      "POST /sitl_frame",
+      "POST /start",
+      "POST /stop",
+      "PUT /endpoints",
+      "PUT /serials"
+    ],
+    "bag_of_holding root": [
+      "GET /"
+    ],
+    "bag_of_holding v1.0": [
+      "GET /get/{path}",
+      "POST /overwrite",
+      "POST /set/{path}"
+    ],
+    "beacon root": [
+      "GET /"
+    ],
+    "beacon v1.0": [
+      "GET /hostname",
+      "GET /ip",
+      "GET /services",
+      "GET /vehicle_name",
+      "POST /hostname",
+      "POST /vehicle_name"
+    ],
+    "bridget root": [
+      "GET /"
+    ],
+    "bridget v1.0": [
+      "DELETE /bridges",
+      "GET /bridges",
+      "GET /serial_ports",
+      "POST /bridges"
+    ],
+    "cable_guy root": [
+      "GET /"
+    ],
+    "cable_guy v1.0": [
+      "DELETE /address",
+      "DELETE /dhcp",
+      "DELETE /route",
+      "GET /ethernet",
+      "GET /host_dns",
+      "GET /interfaces",
+      "GET /route",
+      "POST /address",
+      "POST /dhcp",
+      "POST /dynamic_ip",
+      "POST /ethernet",
+      "POST /host_dns",
+      "POST /route",
+      "POST /set_interfaces_priority"
+    ],
+    "commander root": [
+      "GET /"
+    ],
+    "commander v1.0": [
+      "GET /environment_variables",
+      "GET /raspi/eeprom_update",
+      "GET /raspi/vcgencmd",
+      "GET /raspi_config/camera_legacy",
+      "GET /services/check_log_folder_size",
+      "GET /services/check_mavlink_log_folder_size",
+      "GET /services/download_system_logs",
+      "POST /command/host",
+      "POST /raspi/eeprom_update",
+      "POST /raspi_config/camera_legacy",
+      "POST /services/remove_log",
+      "POST /services/remove_log_stream",
+      "POST /services/remove_mavlink_log",
+      "POST /services/remove_mavlink_log_stream",
+      "POST /set_time",
+      "POST /settings/reset",
+      "POST /shutdown"
+    ],
+    "helper root": [
+      "GET /"
+    ],
+    "helper v1.0": [
+      "GET /check_internet_access",
+      "GET /hardware_id",
+      "GET /internet_best_server",
+      "GET /internet_download_speed",
+      "GET /internet_test_previous_result",
+      "GET /internet_upload_speed",
+      "GET /ping",
+      "GET /software_id",
+      "GET /web_services"
+    ],
+    "kraken root": [
+      "GET /"
+    ],
+    "kraken v1.0": [
+      "GET /",
+      "GET /extensions_manifest",
+      "GET /installed_extensions",
+      "GET /list_containers",
+      "GET /log",
+      "GET /stats",
+      "POST /extension/disable",
+      "POST /extension/enable",
+      "POST /extension/install",
+      "POST /extension/restart",
+      "POST /extension/uninstall",
+      "POST /extension/update_to_version"
+    ],
+    "kraken v2.0": [
+      "DELETE /extension/{identifier}",
+      "DELETE /extension/{identifier}/{tag}",
+      "DELETE /jobs/{identifier}",
+      "DELETE /manifest/{identifier}",
+      "GET /",
+      "GET /container",
+      "GET /container/stats",
+      "GET /container/{container_name}/details",
+      "GET /container/{container_name}/log",
+      "GET /container/{container_name}/stats",
+      "GET /extension",
+      "GET /extension/{identifier}/details",
+      "GET /extension/{identifier}/{tag}/details",
+      "GET /extensions_manifest",
+      "GET /installed_extensions",
+      "GET /jobs",
+      "GET /jobs/{identifier}",
+      "GET /list_containers",
+      "GET /log",
+      "GET /manifest",
+      "GET /manifest/consolidated",
+      "GET /manifest/tags/{extension_identifier}",
+      "GET /manifest/tags/{manifest_identifier}/{extension_identifier}",
+      "GET /manifest/{identifier}/details",
+      "GET /stats",
+      "POST /extension",
+      "POST /extension/disable",
+      "POST /extension/enable",
+      "POST /extension/install",
+      "POST /extension/restart",
+      "POST /extension/uninstall",
+      "POST /extension/update_to_version",
+      "POST /extension/{identifier}/disable",
+      "POST /extension/{identifier}/install",
+      "POST /extension/{identifier}/restart",
+      "POST /extension/{identifier}/{tag}/enable",
+      "POST /extension/{identifier}/{tag}/install",
+      "POST /jobs/{route}",
+      "POST /manifest",
+      "POST /manifest/{identifier}/disable",
+      "POST /manifest/{identifier}/enable",
+      "PUT /extension/{identifier}",
+      "PUT /extension/{identifier}/{tag}",
+      "PUT /manifest/orders",
+      "PUT /manifest/{identifier}/details",
+      "PUT /manifest/{identifier}/order/{order}"
+    ],
+    "nmea_injector root": [
+      "GET /"
+    ],
+    "nmea_injector v1.0": [
+      "DELETE /socks",
+      "GET /socks",
+      "POST /socks"
+    ],
+    "ping root": [
+      "GET /"
+    ],
+    "ping v1.0": [
+      "GET /sensors",
+      "POST /sensors"
+    ],
+    "versionchooser v1.0": [
+      "DELETE /version/delete",
+      "GET /bootstrap/current",
+      "GET /docker/accounts",
+      "GET /version/available/local",
+      "GET /version/available/{repository}/{image}",
+      "GET /version/current",
+      "POST /bootstrap/current",
+      "POST /docker/login",
+      "POST /docker/logout",
+      "POST /version/current",
+      "POST /version/load",
+      "POST /version/pull",
+      "POST /version/restart"
+    ],
+    "wifi v1.0": [
+      "GET /disconnect",
+      "GET /hotspot",
+      "GET /hotspot_credentials",
+      "GET /hotspot_extended_status",
+      "GET /saved",
+      "GET /scan",
+      "GET /smart_hotspot",
+      "GET /status",
+      "POST /connect",
+      "POST /hotspot",
+      "POST /hotspot_credentials",
+      "POST /remove",
+      "POST /smart_hotspot"
+    ]
+  },
+  "comparison_vs_extracted_from_device_commit": {
+    "expected_served_pairs": 186,
+    "live_served_pairs": 199,
+    "agreement": 186,
+    "extracted_but_not_served": [],
+    "served_but_not_extracted": [
+      "versionchooser v1.0 DELETE /version/delete",
+      "versionchooser v1.0 GET /bootstrap/current",
+      "versionchooser v1.0 GET /docker/accounts",
+      "versionchooser v1.0 GET /version/available/local",
+      "versionchooser v1.0 GET /version/available/{repository}/{image}",
+      "versionchooser v1.0 GET /version/current",
+      "versionchooser v1.0 POST /bootstrap/current",
+      "versionchooser v1.0 POST /docker/login",
+      "versionchooser v1.0 POST /docker/logout",
+      "versionchooser v1.0 POST /version/current",
+      "versionchooser v1.0 POST /version/load",
+      "versionchooser v1.0 POST /version/pull",
+      "versionchooser v1.0 POST /version/restart"
+    ],
+    "known_gap": "versionchooser on this image is a connexion.AioHttpApp whose 13 operations are declared in core/services/versionchooser/openapi/versionchooser.yaml, invisible to a Python-source extractor. connexion is absent from the modelled 2.0 tree, where versionchooser is FastAPI."
+  }
+}
