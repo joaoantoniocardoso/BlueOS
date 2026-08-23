@@ -35,6 +35,10 @@ pub struct RequirementJsonRow {
     pub criteria: RequirementCriteria,
     pub feature_id: Option<String>,
     pub journey_id: Option<String>,
+    #[serde(default)]
+    pub function_id: Option<String>,
+    #[serde(default)]
+    pub verifying_journeys: Vec<String>,
     pub availability_present: bool,
 }
 
@@ -68,6 +72,7 @@ pub struct RtmRow {
     pub requirement_id: String,
     pub kind: RequirementKind,
     pub feature: String,
+    pub function: String,
     pub journey: String,
     pub evidence: String,
 }
@@ -99,6 +104,15 @@ pub fn requirements_json(catalog: &RequirementCatalog, version_tag: &str) -> Req
                 .as_ref()
                 .map(|feature| feature.0.as_str().to_string()),
             journey_id: requirement.journey_id.map(|journey| journey.to_string()),
+            function_id: requirement
+                .function_id
+                .as_ref()
+                .map(|function| function.as_str().to_string()),
+            verifying_journeys: requirement
+                .verifying_journeys
+                .iter()
+                .map(|journey| journey.to_string())
+                .collect(),
             availability_present: requirement.availability.present_on_dut(version_tag),
         });
     }
@@ -195,13 +209,14 @@ pub fn build_rtm_rows(catalog: &Catalog, requirements: &RequirementCatalog) -> V
 }
 
 pub fn render_rtm_csv(catalog: &Catalog, requirements: &RequirementCatalog) -> String {
-    let mut output = String::from("requirement_id,kind,feature,journey,evidence\n");
+    let mut output = String::from("requirement_id,kind,feature,function,journey,evidence\n");
     for row in build_rtm_rows(catalog, requirements) {
         output.push_str(&format!(
-            "{},{:?},{},{},{}\n",
+            "{},{:?},{},{},{},{}\n",
             csv_escape(&row.requirement_id),
             row.kind,
             csv_escape(&row.feature),
+            csv_escape(&row.function),
             csv_escape(&row.journey),
             csv_escape(&row.evidence),
         ));
@@ -449,15 +464,30 @@ fn rtm_row_for_requirement(
         .as_ref()
         .map(|id| id.0.as_str().to_string())
         .unwrap_or_else(|| "-".to_string());
-    let journey = requirement
-        .journey_id
-        .map(|id| id.to_string())
+    let function = requirement
+        .function_id
+        .as_ref()
+        .map(|id| id.as_str().to_string())
         .unwrap_or_else(|| "-".to_string());
+    let journey = if requirement.kind == RequirementKind::Functional {
+        requirement
+            .verifying_journeys
+            .iter()
+            .map(|id| id.to_string())
+            .collect::<Vec<_>>()
+            .join("; ")
+    } else {
+        requirement
+            .journey_id
+            .map(|id| id.to_string())
+            .unwrap_or_else(|| "-".to_string())
+    };
     let evidence = trace_evidence(catalog, requirements, requirement);
     RtmRow {
         requirement_id: requirement.id.0.clone(),
         kind: requirement.kind,
         feature,
+        function,
         journey,
         evidence,
     }
@@ -492,6 +522,12 @@ fn trace_evidence(
     }
     if let Some(journey_id) = requirement.journey_id {
         let evidence = journey_resolvable_evidence(catalog, journey_id);
+        if evidence_resolves(&evidence) {
+            return evidence;
+        }
+    }
+    for journey_id in &requirement.verifying_journeys {
+        let evidence = journey_resolvable_evidence(catalog, *journey_id);
         if evidence_resolves(&evidence) {
             return evidence;
         }
@@ -659,11 +695,11 @@ mod tests {
     use crate::catalog::Catalog;
     use crate::requirement::{RequirementCatalog, RequirementStatement};
 
-    const FILTERED_COUNT_1_0_0: usize = 264;
-    const FILTERED_COUNT_1_4_0: usize = 378;
-    const UNKNOWN_STATEMENTS_1_4_DEV: usize = 19;
-    const UNKNOWN_CRITERIA_1_4_DEV: usize = 64;
-    const UNKNOWN_STATEMENTS_UNFILTERED: usize = 66;
+    const FILTERED_COUNT_1_0_0: usize = 265;
+    const FILTERED_COUNT_1_4_0: usize = 385;
+    const UNKNOWN_STATEMENTS_1_4_DEV: usize = 16;
+    const UNKNOWN_CRITERIA_1_4_DEV: usize = 50;
+    const UNKNOWN_STATEMENTS_UNFILTERED: usize = 62;
 
     #[test]
     fn version_filter_counts_match_pins() {
