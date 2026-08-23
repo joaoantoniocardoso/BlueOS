@@ -1,7 +1,7 @@
 {
   "unknown_blast_radius": 1,
   "unknown_body_kind": 59,
-  "unprobed_failure_modes": 41,
+  "unprobed_failure_modes": 40,
   "mutating_smoke_missing_effect_read": 60,
   "client_orchestrated_missing_ui_plan": 17,
   "open_harness_gap": 24,
@@ -10,6 +10,6 @@
   "unknown_requirement_statements": 16,
   "unknown_requirement_criteria": 50,
   "requirement_contamination_findings": 10,
-  "unmapped_api_routes": 46,
-  "orphan_api_hits": 1
+  "unmapped_api_routes": 45,
+  "orphan_api_hits": 0
 }
