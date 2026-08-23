@@ -51,11 +51,8 @@ pub fn harness_ratchet_counts(catalog: &Catalog) -> HarnessRatchetCounts {
             .count(),
         client_orchestrated_missing_ui_plan: count_client_orchestrated_missing_ui_plan(catalog),
         open_harness_gap: count_open_harness_gap(),
-        unverified_observed_evidence: count_unverified_observed_evidence(
-            repo_root,
-            catalog.services(),
-        ),
-        extractor_coverage_lapses: count_extractor_coverage_lapses(repo_root, catalog.services()),
+        unverified_observed_evidence: count_unverified_observed_evidence(repo_root, catalog),
+        extractor_coverage_lapses: count_extractor_coverage_lapses(repo_root, catalog),
     }
 }
 
@@ -243,7 +240,7 @@ mod tests {
             mutating_smoke_missing_effect_read: 60,
             client_orchestrated_missing_ui_plan: 17,
             open_harness_gap: 60,
-            unverified_observed_evidence: 454,
+            unverified_observed_evidence: 1129,
             extractor_coverage_lapses: 0,
         };
         let equal = baseline;
@@ -265,7 +262,7 @@ mod tests {
             mutating_smoke_missing_effect_read: 60,
             client_orchestrated_missing_ui_plan: 17,
             open_harness_gap: 60,
-            unverified_observed_evidence: 454,
+            unverified_observed_evidence: 1129,
             extractor_coverage_lapses: 0,
         };
         let worse = HarnessRatchetCounts {

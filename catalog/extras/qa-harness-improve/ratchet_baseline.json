@@ -5,6 +5,6 @@
   "mutating_smoke_missing_effect_read": 60,
   "client_orchestrated_missing_ui_plan": 17,
   "open_harness_gap": 24,
-  "unverified_observed_evidence": 454,
-  "extractor_coverage_lapses": 0
+  "unverified_observed_evidence": 1129,
+  "extractor_coverage_lapses": 2
 }
