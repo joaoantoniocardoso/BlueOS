@@ -53,7 +53,7 @@ Never use `/tmp` (quota). TMPDIR and CARGO_TARGET_DIR must be under `$HOME`. Use
 - Target: tag, SHA, commit message, `<prev>` git ref, previous snapshot path (`requirements-baselines/<stem>.json`).
 - Impact: `--since <prev> --until <target>` counts **and** a measured contrast with implicit `HEAD` (same command without `--until`); report the observed ratio. Do not assume a fixed overshoot.
 - Requirements snapshot table (totals, Unknown counts, contamination).
-- Diff vs snapshot `<stem>`: added/removed/changed; **identity warning** when applicable.
+- Diff vs snapshot `<stem>`: added/removed/changed; **identity warning** when applicable. FUN ids are function-keyed; journeys appear as verification only. Mass FUN churn vs pre-rehang snapshot is FUN re-key, not loss.
 - Extract/lint: extract exit, bare `provenance_lint`, whether `--fix` ran.
 - Gate: `gate.sh`, `harness_ratchet`, feature-traces gate.
 - Holes: DUT, skipped regen, doc citations not diffed by `impact`, untested two-tree diff, **HashMap `by_kind` byte-stability** (required line whenever a snapshot is written).
@@ -71,6 +71,7 @@ Never use `/tmp` (quota). TMPDIR and CARGO_TARGET_DIR must be under `$HOME`. Use
 - Invent runtime status codes or `Known` journey outcomes without DUT capture.
 - Silently bump citation pins; every pin change must name what was added and why.
 - Subtract disjoint populations to claim a ratchet improved (metrics that improve are not evidence).
+- Treat mass FUN churn in `--diff` vs pre-rehang snapshots as capability loss (FUN re-key from journey to function is expected once).
 - TMPDIR or CARGO_TARGET_DIR under `/tmp` (must be under `$HOME`).
 - Commit, push, or open a PR unless the user asks.
 - GitHub comments (issues, reviews, discussions) even if the user asks -- draft in chat instead.

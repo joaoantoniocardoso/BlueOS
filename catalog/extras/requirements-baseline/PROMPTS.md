@@ -15,7 +15,7 @@ May edit: catalog/requirements-baselines/<target>.json; catalog/extras/requireme
 
 Do not edit: catalog/src/** (runner does not edit Rust). Hand-edit of journey_presence.rs / feature_traces.json is forbidden; on a full run regenerate them via generate_feature_presence / enrich_feature_traces. Do not edit catalog/observed/**.
 
-Invariants: --until <target> mandatory; provenance_lint --fix then extract then bare lint on a full run; dry run may skip steps 3-4 and --fix; values are facts, line/anchor are pointers; TMPDIR/SCCACHE_DIR/CARGO_TARGET_DIR under $HOME (never /tmp). One cd catalog, then relative commands. --diff <stem> is the persisted snapshot file requirements-baselines/<stem>.json; if missing, stop (do not pass a git tag with no snapshot). <prev> for impact --since is a git ref and may differ from <stem>.
+Invariants: --until <target> mandatory; provenance_lint --fix then extract then bare lint on a full run; dry run may skip steps 3-4 and --fix; values are facts, line/anchor are pointers; TMPDIR/SCCACHE_DIR/CARGO_TARGET_DIR under $HOME (never /tmp). One cd catalog, then relative commands. --diff <stem> is the persisted snapshot file requirements-baselines/<stem>.json; if missing, stop (do not pass a git tag with no snapshot). <prev> for impact --since is a git ref and may differ from <stem>. FUN requirement ids are function-keyed; journeys are verification only. Mass FUN remove+add in --diff vs pre-rehang snapshots is FUN re-key, not capability loss.
 
 Done:
   export TMPDIR="$HOME/.cache/reqbase-tmp" SCCACHE_DIR="$HOME/.cache/sccache" CARGO_TARGET_DIR="$HOME/.cache/reqbase-target-$(date +%s)"

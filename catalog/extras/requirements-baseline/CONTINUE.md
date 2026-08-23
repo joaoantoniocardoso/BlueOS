@@ -12,41 +12,39 @@ You are the Orchestrator. Load:
 
 Read catalog/extras/requirements-baseline/memory.xml if present (<= 60 lines).
 
-Current phase: P6 (function layer). P0-P5 COMPLETE.
-P5 harness gate ACCEPTed. Next work is P6a unless the user says otherwise.
+Current phase: P6 COMPLETE (function layer). P0-P6 COMPLETE.
+P6a-c ACCEPTed. FUNCTION_COUNT=108 vs 100 journeys. FUN ids are function-keyed; journeys are verification.
 
 Latest ACCEPTed artifacts:
-- impact: `cargo run -q --bin impact -- --since 1.5.0-beta.39 --until 1.5.0-beta.40 --json`
-  -> catalog/extras/requirements-baseline/1.5.0-beta.40/impact.json
-  (139 repo paths; 54 module keys; 631 entries = jq '[.modules[] | length] | add')
-  implicit HEAD contrast: 608 / 41 / 74 / 729; measured ratio 1.15
-- snapshot: catalog/requirements-baselines/1.5.0-beta.40.json (473 requirements)
-- diff: catalog/extras/requirements-baseline/1.5.0-beta.40/diff.json
-  (added 92 / removed 0 / changed 0 vs stem 1.4.4-beta.21; same-HEAD filter gap)
-- report: catalog/extras/requirements-baseline/1.5.0-beta.40/DELTA.md
-- persisted snapshot stems on disk: 1.4-dev, 1.4.4-beta.21, 1.5.0-beta.40
+- FunctionCatalog: catalog/src/function.rs (FUNCTION_COUNT=108; not 1:1 with journeys)
+- FUN re-hang: catalog/src/requirement.rs (function_id + verifying_journeys; FUN journey_id is None)
+- snapshots: catalog/requirements-baselines/{1.4-dev,1.4.4-beta.21,1.5.0-beta.40}.json
+  1.4-dev / 1.4.4-beta.21: 388 total (88 FUN); 1.5.0-beta.40: 481 total (108 FUN)
+  unknown statements/criteria at 1.4-dev: 16/50; contamination 10 (FUN re-key, not loss)
+- WBS: domain -> aggregate -> capability -> function
+- RTM: function -> verifying journeys (check_internet_connectivity verifies
+  monitor_internet_connectivity; verify_internet_connectivity)
+- impact: catalog/extras/requirements-baseline/1.5.0-beta.40/impact.json
+  (139 repo paths; 54 module keys; 631 entries)
+- persisted snapshot stems: 1.4-dev, 1.4.4-beta.21, 1.5.0-beta.40
 
 Key lessons (enforce in every spawn):
 - Named `--until <tag>`; never HEAD; measure --until vs implicit HEAD; report observed ratio.
 - Stay on model branch; never checkout target tag.
 - `provenance_lint --fix` then `extract` then bare lint (full run; dry run may skip --fix).
 - 0/0/0 `--diff` vs an older stem can be identity on HEAD, not a loss check.
-  added 92 vs 1.4.4-beta.21 is a version-filter gap on the same HEAD catalog, not two-tree.
+- Mass FUN remove+add vs pre-rehang snapshots is FUN re-key from journey to function, not capability loss.
 - Git `--since <prev>` may differ from `--diff` snapshot stem.
 - Dispatch only impact.json `modules` object keys (not a numeric count).
 - No DUT in dry run.
-- TMPDIR/SCCACHE_DIR/CARGO_TARGET_DIR under $HOME (never /tmp). Do not write contrast JSON to /tmp.
-- Record provenance_lint unresolved=0 explicitly, not only "ran".
-- Write HEAD contrast JSON under $HOME, never /tmp.
+- TMPDIR/SCCACHE_DIR/CARGO_TARGET_DIR under $HOME (never /tmp).
+- A check that cannot fail is worse than no check.
 - P6: do not rename UserJourney; do not 1:1 clone journeys as functions; FUN ids are function keys;
-  I/O stays Unknown unless an extractor yields a type; Feature.rationale is not a function spec.
+  journeys are verification only; I/O stays Unknown unless an extractor yields a type;
+  Feature.rationale is not a function spec.
 
-P5 is committed (tip 560dcfcdf). P6 plan is in the runbook; types have not moved.
-
-Next work (P6a):
-1. Spawn Requirements Engineer for `catalog/src/function.rs` + `FunctionCatalog::from_catalog`.
-2. No `requirement.rs` re-hang in P6a.
-3. QA with fresh Opus-5 + blueos-catalog-validate.
+Next work: STOP unless the user schedules out-of-P6 work (typed I/O, MAVLink/Zenoh signatures,
+function decomposition, domain activity model). Do not start those without evidence and a new plan wave.
 
 Hard rules: composer-2.5 workers; Opus-5 QA only; merge ACCEPT only;
 commit/push/PR only if the user asks (personal fork only if push ever requested);

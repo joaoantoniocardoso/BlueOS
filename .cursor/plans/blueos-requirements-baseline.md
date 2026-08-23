@@ -23,7 +23,7 @@ todos:
     status: completed
   - id: p6
     content: "P6 Function layer: derived functions between capability and journey; re-hang FUN; journeys become verification"
-    status: pending
+    status: completed
 isProject: true
 ---
 
@@ -355,11 +355,11 @@ After wave 1, pin `FUNCTION_COUNT`. After wave 3, pin FUN count at `--version 1.
 
 **P6b -- prove the cluster rule.** Fixture tests only, plus any derivation bugfix. Required non-vacuous tests: (1) two journeys, same capability, same route signatures -> one function; (2) two journeys, same capability, different signatures -> two functions with suffix ids; (3) rename journey id -> `FunctionId` unchanged; (4) HTTP path in a would-be id -> refuse. Break each check, watch fail, restore.
 
-**P6c -- re-hang FUN, regen snapshots, WBS/SRS/RTM.** `requirement.rs` + `requirements_report.rs` + `validate.rs` + `bin/wbs.rs` + `bin/requirements.rs`. Regen `catalog/requirements-baselines/{1.4-dev,1.4.4-beta.21,1.5.0-beta.40}.json` with justification "FUN re-keyed from journey to function". `--diff` vs pre-rehang snapshot is expected mass FUN churn; do not treat as loss. Update `harness_ratchet` pins. Update rebaseline skill/PROMPTS: FUN identity is function-keyed; journeys are verification. Gate: `bash gate.sh`; SRS shows functions not journeys as FUN headings; RTM has function -> journeys; Opus reads 20 FUN statements (implementation-free) and 20 FUN ids (no journey id substrings).
+**P6c -- re-hang FUN, regen snapshots, WBS/SRS/RTM (COMPLETE).** `requirement.rs` + `requirements_report.rs` + `validate.rs` + `bin/wbs.rs` + `bin/requirements.rs`. Regen `catalog/requirements-baselines/{1.4-dev,1.4.4-beta.21,1.5.0-beta.40}.json` with justification "FUN re-keyed from journey to function". `--diff` vs pre-rehang snapshot is expected mass FUN churn; do not treat as loss. Update `harness_ratchet` pins. Update rebaseline skill/PROMPTS: FUN identity is function-keyed; journeys are verification. Gate: `bash gate.sh`; SRS shows functions not journeys as FUN headings; RTM has function -> journeys; Opus reads 20 FUN statements (implementation-free) and 20 FUN ids (no journey id substrings).
 
 **Out of P6 (later, only if evidence exists):** FastAPI/Pydantic I/O fill; MAVLink/Zenoh as additional signatures; function decomposition; domain activity model. Do not schedule them here.
 
-**Gate (phase):** P6a-c ACCEPTed; `FUNCTION_COUNT` pinned; bootstrap is not 1:1 with journeys; FUN requirement ids are function-keyed; journeys still exist and appear only as verification; no new crate; no SysML exporter; no hand-authored functions.
+**Gate (phase): COMPLETE.** P6a-c ACCEPTed; `FUNCTION_COUNT` pinned at 108; bootstrap is not 1:1 with journeys (100); FUN requirement ids are function-keyed; journeys still exist and appear only as verification; no new crate; no SysML exporter; no hand-authored functions.
 
 ---
 
