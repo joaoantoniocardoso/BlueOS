@@ -232,15 +232,43 @@ Extracted facts cross-check the observed layer via `check_against_observed`, exa
 
 **Gate:** `cargo run -q --bin extract` exits 0 with the new checks active; `drift` still 0; count of hand-authored observed fields **decreases**, recorded in memory as a ratchet.
 
+**Wave 1 DONE (2026-08-21, ACCEPT).** `catalog/src/extract_nginx.rs` parses location blocks, `proxy_pass` targets and ports, cross-checking `nginx_prefixes` and `listen` across 77 comparisons. `catalog/src/observed_verification.rs` introduces the ratchet metric `unverified_observed_evidence` -- observed fields no extractor re-checks -- deliberately starting large (454) so it can only fall.
+
+**Wave 2 BOUNCED (2026-08-22, 8 blocking items).** `extract_fastapi.rs` (method/path/version from decorators) and `extract_frontend_router.rs` (routes and menu entries). The re-grounding of `route`/`name`/`component` is real -- QA confirmed the router-insertion scenario is now caught end to end -- but three of the wave's own checks turned out to be incapable of failing:
+
+- **The headline ratchet drop 454 -> 282 was arithmetic, not tightening.** The population still contained only service sites; the change subtracted 172 *page and journey* verified sites from a service-only count. QA's probe showed the two sets are disjoint (`off-catalog verified sites that are members of ALL = 0`), so not one service site actually became verified.
+- **The new page/journey verification was unconditional** -- it discarded the lookup result and counted the site verified regardless. Repointing every `bridges.rs` citation to line 99999 moved nothing, and `extractor_coverage_lapses = 0` held by construction because verifiable and verified were the same set.
+- **The guard resolved the wrong value and regressed repair.** Trying the string-valued pattern first meant a boolean field inherited a neighbouring string's value, so all six repairable `advanced_only` citations were refused where HEAD had repaired them correctly.
+
+The rest was fail-open extraction: `name`/`component` returned silently when no block covered the cited line, and comparing a bare boolean cannot identify anything -- 7 of 17 mis-anchored `advanced_only` citations landed on a *different* menu block whose boolean happened to match and passed silently. That is the original defect class, still live.
+
+**The lesson is the one this campaign keeps relearning, now in its sharpest form: a metric that improves is not evidence of improvement.** Three checks here reported success while structurally unable to report anything else, and the wave's own headline number was the most confident-looking of them. The rule that catches this is mechanical, not attitudinal -- break the thing the check guards and watch the check fail -- and it must be applied to metrics, not only to tests.
+
+Wave 2 found the defect this campaign existed to catch, and the anchor mechanism's known blind spot turned out to be real rather than theoretical. A route inserted into `router/index.ts` shifted every later entry down; anchor repair then re-fitted each stale citation onto whatever text now occupied its recorded line, silently re-pointing **21 page citations at their neighbouring route**. Every downstream check stayed green: `provenance_lint` reported 0 unresolved because the anchors did resolve -- onto the wrong entity. **An intact anchor proves the cited line survived, not that it still identifies the right thing.**
+
+Only the extractor caught it, by comparing what the model claims is at a line against what is actually there. That is the argument for extraction as a class: hand-authored citations drift silently, and the only durable defence is a second, independent derivation that disagrees out loud.
+
+The repair was to correct 165 `line`/`anchor` fields, never a value. **The distinction is the campaign's load-bearing rule:** the value is the fact, the citation is the pointer to where it came from. Correcting a pointer is re-grounding; changing a fact so a broken pointer looks right is falsifying the model, and would make the baseline worthless as a 2.0 contract. `provenance_anchor.rs` now refuses a repair whose target line does not support the asserted value, reporting it as drift needing human re-grounding instead of rewriting it silently.
+
+**Waves 3-6 DONE (2026-08-22, ACCEPT after 4 more bounces).** Honest population is 1398 observed sites (553 service / 339 page / 506 journey); 269 verified by extractors; `unverified_observed_evidence=1129`; `extractor_coverage_lapses=2` (nginx Rest `/` listen 80 and 2770 have no `proxy_port` -- genuine, not tuned away). The 454 -> 282 "drop" was discarded; 1129 is larger because the denominator now includes the sites that are actually being credited.
+
+Each of the 13 crediting comparisons in `observed_verification.rs` is now caught by a named behavioural test that mutates the extracted value and asserts those specific sites leave `verified`. QA mutated all 13 to a permissive constant, one at a time; each failed a named test, not a count pin. The last hole was a second consumer: `menu.title` mutation asserted `menu_title` but not `advanced_only`.
+
+**P3 COMPLETE.** Extractors: nginx, FastAPI, frontend router/menus. 21 pages re-grounded (line/anchor only). Guard refuses repairs whose target line does not support the asserted value. Follow-ups, not blocking: re-anchor `advanced_only` on the menu block's unique `title:` line (18 hand-edits on a `menus.ts` shift); the 26 `ANCHOR_EXEMPT` `frontend_routes.rs` sites; blast-radius pin on the `menus_title` test block.
+
 ### P4 -- Re-baseline loop (Rebaseline Runner + Runtime Capture Runners + Opus-5)
 
 The per-beta/per-release campaign. Ordered, and each step is a gate:
 
 1. Pick the target tag. **Do not chase HEAD** -- the catalog is true of a *named baseline*, never of a moving branch.
+
+**The existing baseline does not yet satisfy this rule.** The catalog's default version is `1.4-dev`, which `version.rs` itself documents as a floating channel tip recorded at seed time, and the only committed snapshot is `requirements-baselines/1.4-dev.json`. So today's baseline names a branch that has since moved, and a diff against it cannot be reproduced. The first re-baseline should therefore pin to an immutable tag (`1.4.4-beta.21` is the newest on that line) and commit its snapshot; only from the second run onward does step 7 compare two reproducible points. Note this is a property of the *baseline*, not of `requirements --diff`, which compares the current derivation against a committed JSON snapshot rather than a git ref and so needs no change.
 2. Regenerate presence: `cargo run --bin generate_feature_presence`. Never hand-edit `journey_presence.rs`.
 3. Regenerate traces: `cargo run --bin enrich_feature_traces`.
-4. `provenance_lint --fix` -- absorb line shifts; escalate real drift.
+4. `provenance_lint --fix` -- absorb line shifts; escalate real drift. **Then run the extractors before trusting the result.** P3 wave 2 showed a repair pass can leave every citation resolving and still have re-pointed it at the wrong entity; a green linter after a `--fix` is not evidence the citations are right.
 5. `impact --since <previous tag> --json` -- the work order. **Only** the listed clusters get agents.
+
+**Prerequisite, found while scoping P4 (2026-08-22): `impact` cannot express a re-baseline yet.** `--since <ref>` diffs `<ref>..HEAD`, but a re-baseline compares two *named baselines*, and HEAD is the model working branch. Measured on this tree: the real `1.4.4-beta.14 -> beta.20` delta is 111 files under `core/`, while `--since` reports 377 against beta.14 and 373 against beta.20 -- nearly the same number for tags six betas apart, because both are swamped by the 234 commits between the tags and HEAD. The resulting work orders (1467 and 1480 entries over 77 modules) are therefore ~3.4x oversized and almost independent of the tag chosen, which defeats step 5's purpose of narrowing what gets an agent. P4 wave 1 must give `impact` a two-ended range (`--since <old> --until <new>`, defaulting `--until` to HEAD) before any dry run; otherwise the loop's first gate measures the distance to the working branch rather than the release delta.
 6. Per affected cluster: re-ground citations, refresh runtime captures on a live DUT, re-run `journey_http --smoke`.
 7. `requirements --diff <previous tag>` -- requirements gained, lost, and changed.
 8. Write `catalog/extras/requirements-baseline/<tag>/DELTA.md` and refresh the ratchet baseline.
