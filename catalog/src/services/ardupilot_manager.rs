@@ -935,7 +935,7 @@ pub const SERVICE_DEFINITION: ServiceDefinition =
         failure_modes: AssertedSet::established(&[
             Rationaled::new(
                 "mavlink_router_crash",
-                "router subprocess exit breaks all MAVLink fan-out until auto_restart_router recovers",
+                "router subprocess exit breaks all MAVLink fan-out; auto_restart_router did not recover it on a live Navigator, and every dependent route kept answering 200 over stale data",
             ),
             Rationaled::new(
                 "flight_controller_heartbeat_loss",
