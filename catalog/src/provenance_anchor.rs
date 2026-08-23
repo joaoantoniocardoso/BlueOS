@@ -267,17 +267,137 @@ fn line_has_citation_anchor(line: &str) -> bool {
         || line.contains("source_outcome")
 }
 
+pub(crate) fn source_line_supports_asserted_value(source_line: &str, asserted: &str) -> bool {
+    if asserted.is_empty() {
+        return true;
+    }
+    let line = extract_anchor_text_with_max(source_line, 10_000);
+    if line.contains(asserted) {
+        return true;
+    }
+    if let Some(name) = asserted.rsplit('/').next() {
+        if name.contains('.') && line.contains(name) {
+            return true;
+        }
+    }
+    false
+}
+
+fn nearby_asserted_value(lines: &[String], anchor_index: usize) -> Option<String> {
+    let evidence_idx = lines[..=anchor_index]
+        .iter()
+        .enumerate()
+        .rev()
+        .find(|(_, line)| line.contains("Evidence {"))
+        .map(|(idx, _)| idx)?;
+    let mut prefix = lines[..evidence_idx].join("\n");
+    if !prefix.is_empty() {
+        prefix.push('\n');
+    }
+    prefix.push_str(&lines[evidence_idx]);
+    let cut = prefix.rfind("Evidence {")?;
+    first_arg_immediately_before(&prefix[..cut])
+}
+
+fn first_arg_immediately_before(before: &str) -> Option<String> {
+    let before = before.trim_end().strip_suffix(',')?.trim_end();
+    if let Some(value) = trailing_bool_token(before) {
+        return Some(value.to_string());
+    }
+    let re = Regex::new(r#""((?:\\.|[^"\\])*)"\s*$"#).ok()?;
+    let caps = re.captures(before)?;
+    Some(unescape_rust_string_literal(&caps[1]))
+}
+
+fn trailing_bool_token(input: &str) -> Option<&'static str> {
+    for token in ["true", "false"] {
+        if let Some(rest) = input.strip_suffix(token) {
+            let prev_is_ident = rest
+                .chars()
+                .last()
+                .map(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+                .unwrap_or(false);
+            if !prev_is_ident {
+                return Some(token);
+            }
+        }
+    }
+    None
+}
+
+fn citation_line_field_matches(text: &str, line_number: u32) -> bool {
+    let needle = format!("line: {line_number}");
+    let bytes = text.as_bytes();
+    let mut start = 0;
+    while let Some(rel) = text[start..].find(&needle) {
+        let idx = start + rel;
+        let before_ok = idx == 0 || {
+            let prev = bytes[idx - 1];
+            !prev.is_ascii_alphanumeric() && prev != b'_'
+        };
+        let after = idx + needle.len();
+        let after_ok = bytes.get(after).is_none_or(|b| !b.is_ascii_digit());
+        if before_ok && after_ok {
+            return true;
+        }
+        start = idx + 1;
+    }
+    false
+}
+
+fn asserted_value_near_citation(content: &str, old_line: u32, anchor: &str) -> Option<String> {
+    let lines: Vec<String> = content.lines().map(String::from).collect();
+    for (index, line) in lines.iter().enumerate() {
+        if !citation_line_field_matches(line, old_line) {
+            continue;
+        }
+        let window_end = (index + 3).min(lines.len().saturating_sub(1));
+        let Some(anchor_idx) = lines[index..=window_end]
+            .iter()
+            .position(|row| row.contains("anchor:") && row.contains(anchor))
+            .map(|offset| index + offset)
+        else {
+            continue;
+        };
+        if let Some(value) = nearby_asserted_value(&lines, anchor_idx) {
+            return Some(value);
+        }
+    }
+    None
+}
+
+fn relocation_preserves_identity(
+    rel: &LineRelocation,
+    catalog_content: &str,
+    target_root: &Path,
+) -> bool {
+    let Some(asserted) = asserted_value_near_citation(catalog_content, rel.old_line, &rel.anchor)
+    else {
+        return true;
+    };
+    let Some(raw) = read_file_line(&target_root.join(&rel.file), rel.new_line) else {
+        return true;
+    };
+    source_line_supports_asserted_value(&raw, &asserted)
+}
+
 fn refit_anchor(
     target: &Path,
     cited_line: u32,
     current_escaped: &str,
     line_len: usize,
+    asserted: Option<&str>,
 ) -> Option<String> {
     let current = unescape_rust_string_literal(current_escaped);
     if current.is_empty() {
         return None;
     }
     let raw = read_file_line(target, cited_line)?;
+    if let Some(value) = asserted {
+        if !source_line_supports_asserted_value(&raw, value) {
+            return None;
+        }
+    }
     let full = extract_anchor_text_with_max(&raw, 10_000);
     if full.is_empty() {
         return None;
@@ -327,7 +447,14 @@ fn try_fit_evidence_anchor_line(
     } else {
         repo_root().join(&resolved)
     };
-    let escaped = refit_anchor(&target, cited_line, old_escaped, line.len())?;
+    let asserted = nearby_asserted_value(lines, index);
+    let escaped = refit_anchor(
+        &target,
+        cited_line,
+        old_escaped,
+        line.len(),
+        asserted.as_deref(),
+    )?;
     Some(format!("{field_indent}anchor: \"{escaped}\","))
 }
 
@@ -368,7 +495,8 @@ fn try_fit_embedded_provenance(
         } else {
             repo_root().join(&resolved)
         };
-        let Some(escaped) = refit_anchor(&target, cited_line, &old_escaped, updated.len()) else {
+        let Some(escaped) = refit_anchor(&target, cited_line, &old_escaped, updated.len(), None)
+        else {
             continue;
         };
         let replacement = format!("Provenance::{kind}({file_expr}, {cited_line}, \"{escaped}\")");
@@ -454,7 +582,14 @@ fn try_fit_route_call_line(
     } else {
         repo_root().join(&resolved)
     };
-    let escaped = refit_anchor(&target, cited_line, &old_escaped, line.len())?;
+    let asserted = route_call_asserted_path(line);
+    let escaped = refit_anchor(
+        &target,
+        cited_line,
+        &old_escaped,
+        line.len(),
+        asserted.as_deref(),
+    )?;
     let replacement = if let Some(file_part) = file_part {
         format!("{prefix}{file_part}, {cited_line}, \"{escaped}\")")
     } else {
@@ -463,6 +598,11 @@ fn try_fit_route_call_line(
     let mut updated = line.to_string();
     updated.replace_range(start..end, &replacement);
     Some(updated)
+}
+
+fn route_call_asserted_path(line: &str) -> Option<String> {
+    let re = Regex::new(r#"(?:sourced_route|doc_route)\([^,]+,\s*"((?:\\.|[^"\\])*)""#).ok()?;
+    Some(unescape_rust_string_literal(&re.captures(line)?[1]))
 }
 
 fn nearby_evidence_fields(lines: &[String], anchor_index: usize) -> Option<(String, u32)> {
@@ -537,6 +677,14 @@ pub fn apply_relocated_line_fixes_in(
     catalog_src: &Path,
     relocations: &[LineRelocation],
 ) -> std::io::Result<Vec<LineRelocation>> {
+    apply_relocated_line_fixes_with_root(catalog_src, relocations, &repo_root())
+}
+
+pub(crate) fn apply_relocated_line_fixes_with_root(
+    catalog_src: &Path,
+    relocations: &[LineRelocation],
+    target_root: &Path,
+) -> std::io::Result<Vec<LineRelocation>> {
     let mut by_site: BTreeMap<PathBuf, Vec<&LineRelocation>> = BTreeMap::new();
     for rel in relocations {
         let path = if rel.site.is_absolute() {
@@ -555,6 +703,9 @@ pub fn apply_relocated_line_fixes_in(
         let aliases = collect_const_aliases(&content);
         let mut changed = false;
         for rel in rels {
+            if !relocation_preserves_identity(rel, &content, target_root) {
+                continue;
+            }
             if apply_line_fix(
                 &mut content,
                 &aliases,
@@ -1422,6 +1573,330 @@ mod tests {
         std::fs::write(&path, lines.join("\n") + "\n").expect("write");
         let status = verify_anchor(&path, 6, "unique_verify_anchor_token_alpha");
         assert_eq!(status, AnchorMatchStatus::AnchorMovedFar { found_line: 73 });
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn source_line_supports_asserted_route_and_component() {
+        assert!(source_line_supports_asserted_value(
+            "    path: '/tools/file-browser/:path*',",
+            "/tools/file-browser/:path*",
+        ));
+        assert!(!source_line_supports_asserted_value(
+            "    path: '/tools/feature-provenance',",
+            "/tools/file-browser/:path*",
+        ));
+        assert!(source_line_supports_asserted_value(
+            "    component: defineAsyncComponent(() => import('../views/FileBrowserView.vue')),",
+            "core/frontend/src/views/FileBrowserView.vue",
+        ));
+        assert!(!source_line_supports_asserted_value(
+            "    component: defineAsyncComponent(() => import('../views/FeatureProvenanceView.vue')),",
+            "core/frontend/src/views/FileBrowserView.vue",
+        ));
+    }
+
+    #[test]
+    fn inserted_router_route_refit_refuses_neighbor_anchor() {
+        let dir = test_scratch_dir("refit-identity");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("mkdir");
+        let repo = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+        let original = std::fs::read_to_string(repo.join("core/frontend/src/router/index.ts"))
+            .expect("read router");
+        let src_lines: Vec<&str> = original.lines().collect();
+        let mut without = Vec::new();
+        let mut idx = 0usize;
+        while idx < src_lines.len() {
+            if src_lines[idx].contains("path: '/tools/feature-provenance'") {
+                if without
+                    .last()
+                    .map(|row: &String| row.trim() == "{")
+                    .unwrap_or(false)
+                {
+                    without.pop();
+                }
+                while idx < src_lines.len() && !src_lines[idx].trim().starts_with("},") {
+                    idx += 1;
+                }
+                idx += 1;
+                continue;
+            }
+            without.push(src_lines[idx].to_string());
+            idx += 1;
+        }
+        let file_browser_idx = without
+            .iter()
+            .position(|line| line.contains("path: '/tools/file-browser/:path*'"))
+            .expect("file-browser path");
+        without.insert(file_browser_idx, "  },".to_string());
+        without.insert(
+            file_browser_idx,
+            "    component: defineAsyncComponent(() => import('../views/InsertedView.vue')),"
+                .to_string(),
+        );
+        without.insert(file_browser_idx, "    name: 'Inserted',".to_string());
+        without.insert(
+            file_browser_idx,
+            "    path: '/tools/inserted-neighbor',".to_string(),
+        );
+        without.insert(file_browser_idx, "  {".to_string());
+        let router = dir.join("router.ts");
+        std::fs::write(&router, without.join("\n") + "\n").expect("write router");
+        let cited = without
+            .iter()
+            .position(|line| line.contains("path: '/tools/inserted-neighbor'"))
+            .expect("inserted path")
+            + 1;
+        let short = "path: '/too";
+        let stolen = refit_anchor(&router, cited as u32, short, 40, None)
+            .expect("unguarded refit unique-ifies the occupant");
+        println!("reconstructed unguarded refit: {stolen}");
+        assert!(
+            stolen.contains("inserted-neighbor"),
+            "unguarded refit should steal neighbor, got {stolen}"
+        );
+        let refused = refit_anchor(
+            &router,
+            cited as u32,
+            short,
+            40,
+            Some("/tools/file-browser/:path*"),
+        );
+        println!("reconstructed guarded refit: {refused:?}");
+        assert!(
+            refused.is_none(),
+            "guard must refuse neighbor refit, got {refused:?}"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn relocated_line_fix_refuses_when_new_line_is_a_different_entity() {
+        let dir = test_scratch_dir("reloc-identity");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("core/frontend/src/router")).expect("mkdir");
+        let router = dir.join("core/frontend/src/router/index.ts");
+        std::fs::write(
+            &router,
+            concat!(
+                "const routes = [\n",
+                "  {\n",
+                "    path: '/tools/feature-provenance',\n",
+                "    name: 'Feature Provenance',\n",
+                "  },\n",
+                "  {\n",
+                "    path: '/tools/file-browser/:path*',\n",
+                "    name: 'File Browser',\n",
+                "  },\n",
+                "]\n",
+            ),
+        )
+        .expect("write router");
+        let site = dir.join("page.rs");
+        std::fs::write(
+            &site,
+            concat!(
+                "route: Observed::known(\n",
+                "    \"/tools/file-browser/:path*\",\n",
+                "    Evidence {\n",
+                "        file: \"core/frontend/src/router/index.ts\",\n",
+                "        line: 10,\n",
+                "        anchor: \"path: '/tools/feature-provenance',\",\n",
+                "    },\n",
+                "),\n",
+            ),
+        )
+        .expect("write site");
+        let applied = apply_relocated_line_fixes_with_root(
+            &dir,
+            &[LineRelocation {
+                site: site.clone(),
+                file: "core/frontend/src/router/index.ts".to_string(),
+                old_line: 10,
+                new_line: 3,
+                anchor: "path: '/tools/feature-provenance',".to_string(),
+            }],
+            &dir,
+        )
+        .expect("apply");
+        assert!(
+            applied.is_empty(),
+            "identity guard must refuse, applied={applied:?}"
+        );
+        let body = std::fs::read_to_string(&site).expect("read site");
+        assert!(body.contains("line: 10"), "{body}");
+        assert!(body.contains("/tools/file-browser/:path*"), "{body}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn nearby_asserted_value_uses_enclosing_known_not_preceding_string() {
+        let lines: Vec<String> = [
+            r#"        menu_title: Observed::known("#,
+            r#"            "Serial Bridges","#,
+            r#"            Evidence {"#,
+            r#"                file: "core/frontend/src/menus.ts","#,
+            r#"                line: 106,"#,
+            r#"                anchor: "title: 'Serial Bridges',","#,
+            r#"            },"#,
+            r#"        ),"#,
+            r#"        advanced_only: Observed::known("#,
+            r#"            true,"#,
+            r#"            Evidence {"#,
+            r#"                file: "core/frontend/src/menus.ts","#,
+            r#"                line: 109,"#,
+            r#"                anchor: "advanced: true,","#,
+            r#"            },"#,
+            r#"        ),"#,
+        ]
+        .into_iter()
+        .map(str::to_string)
+        .collect();
+        assert_eq!(
+            nearby_asserted_value(&lines, 5).as_deref(),
+            Some("Serial Bridges")
+        );
+        assert_eq!(nearby_asserted_value(&lines, 13).as_deref(), Some("true"));
+    }
+
+    #[test]
+    fn asserted_value_near_citation_respects_line_number_field_boundary() {
+        let content = concat!(
+            "        menu_title: Observed::known(\n",
+            "            \"Serial Bridges\",\n",
+            "            Evidence {\n",
+            "                file: \"core/frontend/src/menus.ts\",\n",
+            "                line: 109,\n",
+            "                anchor: \"title: 'Serial Bridges',\",\n",
+            "            },\n",
+            "        ),\n",
+        );
+        assert!(
+            asserted_value_near_citation(content, 10, "title: 'Serial Bridges',").is_none(),
+            "line: 10 must not match line: 109"
+        );
+        assert_eq!(
+            asserted_value_near_citation(content, 109, "title: 'Serial Bridges',").as_deref(),
+            Some("Serial Bridges")
+        );
+    }
+
+    #[test]
+    fn nearby_asserted_value_uses_evidenced_new_not_preceding_bool() {
+        let lines: Vec<String> = [
+            r#"        advanced_only: Observed::known("#,
+            r#"            false,"#,
+            r#"            Evidence {"#,
+            r#"                file: "core/frontend/src/menus.ts","#,
+            r#"                line: 6,"#,
+            r#"                anchor: "advanced: false,","#,
+            r#"            },"#,
+            r#"        ),"#,
+            r#"        stores: ObservedSet::known(&["#,
+            r#"            Evidenced::new("#,
+            r#"                "autopilot_data","#,
+            r#"                Evidence {"#,
+            r#"                    file: "core/frontend/src/views/Autopilot.vue","#,
+            r#"                    line: 158,"#,
+            r#"                    anchor: "import autopilot_data from '@/store/autopilot'","#,
+            r#"                },"#,
+            r#"            ),"#,
+        ]
+        .into_iter()
+        .map(str::to_string)
+        .collect();
+        assert_eq!(nearby_asserted_value(&lines, 5).as_deref(), Some("false"));
+        assert_eq!(
+            nearby_asserted_value(&lines, 14).as_deref(),
+            Some("autopilot_data")
+        );
+    }
+
+    #[test]
+    fn relocated_advanced_only_repairs_when_new_line_has_bool() {
+        let dir = test_scratch_dir("reloc-bool");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("core/frontend/src")).expect("mkdir");
+        let menus = dir.join("core/frontend/src/menus.ts");
+        std::fs::write(
+            &menus,
+            concat!(
+                "const menus = [\n",
+                "  {\n",
+                "    title: 'Inserted',\n",
+                "    route: '/tools/inserted',\n",
+                "    advanced: false,\n",
+                "    text: 'inserted description padding.',\n",
+                "  },\n",
+                "  {\n",
+                "    title: 'Serial Bridges',\n",
+                "    route: '/tools/bridges',\n",
+                "    advanced: true,\n",
+                "    text: 'Allows creating unique UDP/TCP to Serial bridges here.',\n",
+                "  },\n",
+                "]\n",
+            ),
+        )
+        .expect("write menus");
+        let site = dir.join("page.rs");
+        std::fs::write(
+            &site,
+            concat!(
+                "menu_title: Observed::known(\n",
+                "    \"Serial Bridges\",\n",
+                "    Evidence {\n",
+                "        file: \"core/frontend/src/menus.ts\",\n",
+                "        line: 9,\n",
+                "        anchor: \"title: 'Serial Bridges',\",\n",
+                "    },\n",
+                "),\n",
+                "advanced_only: Observed::known(\n",
+                "    true,\n",
+                "    Evidence {\n",
+                "        file: \"core/frontend/src/menus.ts\",\n",
+                "        line: 4,\n",
+                "        anchor: \"advanced: true,\",\n",
+                "    },\n",
+                "),\n",
+            ),
+        )
+        .expect("write site");
+        let applied = apply_relocated_line_fixes_with_root(
+            &dir,
+            &[LineRelocation {
+                site: site.clone(),
+                file: "core/frontend/src/menus.ts".to_string(),
+                old_line: 4,
+                new_line: 11,
+                anchor: "advanced: true,".to_string(),
+            }],
+            &dir,
+        )
+        .expect("apply");
+        assert_eq!(
+            applied.len(),
+            1,
+            "bool identity must allow, applied={applied:?}"
+        );
+        let body = std::fs::read_to_string(&site).expect("read site");
+        assert!(body.contains("line: 11"), "{body}");
+        let refused = apply_relocated_line_fixes_with_root(
+            &dir,
+            &[LineRelocation {
+                site: site.clone(),
+                file: "core/frontend/src/menus.ts".to_string(),
+                old_line: 11,
+                new_line: 3,
+                anchor: "advanced: true,".to_string(),
+            }],
+            &dir,
+        )
+        .expect("apply refuse");
+        assert!(
+            refused.is_empty(),
+            "must refuse neighbour title, applied={refused:?}"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
