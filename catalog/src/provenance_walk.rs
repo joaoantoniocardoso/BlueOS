@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 use serde_json::Value;
 
+use crate::api_contract::DEFAULT_API_CONTRACT_BASELINE;
 use crate::catalog::Catalog;
 use crate::coverage::TRACKER_CSV_PATH;
 use crate::frontend_routes::FRONTEND_API_ENDPOINTS;
@@ -137,6 +138,12 @@ pub fn collect_citations() -> (Vec<Citation>, Vec<RegistryCoverage>) {
     push_catalog_path(
         "coverage/TRACKER_CSV_PATH",
         TRACKER_CSV_PATH,
+        &mut citations,
+        &mut registries,
+    );
+    push_catalog_path(
+        "api_contract/DEFAULT_API_CONTRACT_BASELINE",
+        DEFAULT_API_CONTRACT_BASELINE,
         &mut citations,
         &mut registries,
     );
@@ -1184,6 +1191,7 @@ mod tests {
             "catalog/bootstrap",
             "frontend_routes/FRONTEND_API_ENDPOINTS",
             "coverage/TRACKER_CSV_PATH",
+            "api_contract/DEFAULT_API_CONTRACT_BASELINE",
             "harness_ratchet/DEFAULT_BASELINE_PATH",
             "harness_ratchet/FAILURE_MODE_LEDGER_PATH",
             "domain/ALL_AGGREGATES",
@@ -1208,7 +1216,7 @@ mod tests {
 
     #[test]
     fn source_to_asserted_downgrade_trips_citation_pins() {
-        const FILE_CITATION_COUNT: usize = 2044;
+        const FILE_CITATION_COUNT: usize = 2045;
         const SOURCE_COUNT: usize = 512;
         const ASSERTED_COUNT: usize = 214;
 
@@ -1260,7 +1268,7 @@ mod tests {
 
     #[test]
     fn anchor_exempt_citation_count_is_pinned() {
-        const ANCHOR_EXEMPT_COUNT: usize = 26;
+        const ANCHOR_EXEMPT_COUNT: usize = 27;
 
         let report = build_report();
         assert_eq!(anchor_exempt_citation_count(&report), ANCHOR_EXEMPT_COUNT);
@@ -1879,6 +1887,7 @@ mod tests {
         let report = build_report();
         for name in [
             "coverage/TRACKER_CSV_PATH",
+            "api_contract/DEFAULT_API_CONTRACT_BASELINE",
             "harness_ratchet/DEFAULT_BASELINE_PATH",
             "harness_ratchet/FAILURE_MODE_LEDGER_PATH",
         ] {
