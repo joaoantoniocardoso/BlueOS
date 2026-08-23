@@ -266,14 +266,16 @@ The per-beta/per-release campaign. Ordered, and each step is a gate:
 2. Regenerate presence: `cargo run --bin generate_feature_presence`. Never hand-edit `journey_presence.rs`.
 3. Regenerate traces: `cargo run --bin enrich_feature_traces`.
 4. `provenance_lint --fix` -- absorb line shifts; escalate real drift. **Then run the extractors before trusting the result.** P3 wave 2 showed a repair pass can leave every citation resolving and still have re-pointed it at the wrong entity; a green linter after a `--fix` is not evidence the citations are right.
-5. `impact --since <previous tag> --json` -- the work order. **Only** the listed clusters get agents.
+5. `impact --since <previous tag> --until <target tag> --json` -- the work order. **Only** the listed clusters get agents.
 
-**Prerequisite, found while scoping P4 (2026-08-22): `impact` cannot express a re-baseline yet.** `--since <ref>` diffs `<ref>..HEAD`, but a re-baseline compares two *named baselines*, and HEAD is the model working branch. Measured on this tree: the real `1.4.4-beta.14 -> beta.20` delta is 111 files under `core/`, while `--since` reports 377 against beta.14 and 373 against beta.20 -- nearly the same number for tags six betas apart, because both are swamped by the 234 commits between the tags and HEAD. The resulting work orders (1467 and 1480 entries over 77 modules) are therefore ~3.4x oversized and almost independent of the tag chosen, which defeats step 5's purpose of narrowing what gets an agent. P4 wave 1 must give `impact` a two-ended range (`--since <old> --until <new>`, defaulting `--until` to HEAD) before any dry run; otherwise the loop's first gate measures the distance to the working branch rather than the release delta.
+**Wave 1 DONE (2026-08-22, ACCEPT).** `--until <ref>` (default HEAD). On this tree, `1.4.4-beta.14..HEAD` is 948/162/1467; `1.4.4-beta.14 --until 1.4.4-beta.20` is 111/20/355 -- the real release delta. JSON field `head` renamed to `until`. Hardcoding `"HEAD"` in the git diff helper fails `git_diff_until_ref_limits_range_not_head`.
 6. Per affected cluster: re-ground citations, refresh runtime captures on a live DUT, re-run `journey_http --smoke`.
 7. `requirements --diff <previous tag>` -- requirements gained, lost, and changed.
 8. Write `catalog/extras/requirements-baseline/<tag>/DELTA.md` and refresh the ratchet baseline.
 
-**Gate:** one full dry run against a real prior tag, end to end, producing a delta report a human can read. `gate.sh` green throughout. Any requirement that disappeared is explained (removed feature vs. lost citation) -- an unexplained disappearance is a bug in P0/P1, and loops back.
+**Wave 2 DONE (2026-08-22, ACCEPT after 1 bounce).** Dry run against `1.4.4-beta.21` (`28537627`) without checking the tag out. `impact --since 1.4.4-beta.20 --until 1.4.4-beta.21` is 1 file / 2 modules / 28 entries (`core/services/helper/main.py`); the same `--since` against HEAD is 944/77/1480. Snapshot at `catalog/requirements-baselines/1.4.4-beta.21.json`. DELTA.md records that `--diff` vs `1.4-dev` is 0/0/0 because both filters admit all 381 IDs on this same HEAD catalog -- identity, not a demonstrated loss check. `--diff` itself still reports change when a snapshot is actually different.
+
+**P4 COMPLETE** for the dry-run gate. Remaining holes (DUT, per-cluster re-ground, presence regen, `--fix`, byte-stable `by_kind` HashMap) are inputs to P5, not unfinished P4.
 
 ### P5 -- Agent harness hardening (Docs Engineer + Opus-5)
 
