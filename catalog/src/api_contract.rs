@@ -462,11 +462,43 @@ fn route_matches_hit(key: &ApiContractKey, greedy_tail: bool, hit: &ApiContractK
     if key.service != hit.service || key.method != hit.method {
         return false;
     }
-    if hit.version.is_some() && hit.version != key.version {
+    if !hit_version_reaches_route(hit.version.as_deref(), key.version.as_deref()) {
         return false;
     }
     key.path == hit.path
         || (key.path.contains('{') && path_matches_template(&key.path, &hit.path, greedy_tail))
+}
+
+/// `VersionedFastAPI` mounts a route under its declared version prefix *and every later one*, plus
+/// `/latest`, so a reference to `/v2.0/extension/install` legitimately exercises a route declared at
+/// `v1.0`. Confirmed on a live device: for both multi-version services the `v1.0` route set was an
+/// exact subset of `v2.0`, and `latest` was byte-identical to the highest version.
+///
+/// Unversioned routes live on the root app, outside every version prefix, so a versioned hit never
+/// reaches them.
+fn hit_version_reaches_route(hit: Option<&str>, route: Option<&str>) -> bool {
+    let Some(hit) = hit else {
+        return true;
+    };
+    if hit == "latest" {
+        return route.is_some();
+    }
+    let Some(route) = route else {
+        return false;
+    };
+    if hit == route {
+        return true;
+    }
+    match (parse_api_version(hit), parse_api_version(route)) {
+        (Some(hit), Some(route)) => hit >= route,
+        _ => false,
+    }
+}
+
+/// `v1.0` -> `(1, 0)`. Parsed rather than string-compared so `v10.0` outranks `v2.0`.
+fn parse_api_version(version: &str) -> Option<(u32, u32)> {
+    let (major, minor) = version.strip_prefix('v')?.split_once('.')?;
+    Some((major.parse().ok()?, minor.parse().ok()?))
 }
 
 /// Matches a concrete path (`/dhcp/details/eth0`) against a route template
@@ -736,15 +768,33 @@ mod tests {
                 "{orphan:?} belongs to a service with no extracted routes"
             );
         }
-        // The frontend posts to `${KRAKEN_API_V2_URL}/extension/install`, but kraken v2 only exposes
-        // `POST /extension/` and `POST /extension/{identifier}/install`. Keeping this asserted
-        // documents a real 404 rather than letting it drift back into silence.
-        assert!(report.orphan_hits.iter().any(|key| {
+        // The frontend posts to `${KRAKEN_API_V2_URL}/extension/install`, which kraken declares on
+        // its v1 router. That is not a 404: version prefixes inherit, and a live device answered
+        // `POST /kraken/v2.0/extension/install` with 200.
+        assert!(!report.orphan_hits.iter().any(|key| {
             key.service == "kraken"
                 && key.method == "POST"
                 && key.path == "/extension/install"
                 && key.version.as_deref() == Some("v2.0")
         }));
+    }
+
+    #[test]
+    fn later_version_prefixes_inherit_earlier_routes() {
+        // A v2.0 reference reaches a v1.0 route, but not the reverse.
+        assert!(hit_version_reaches_route(Some("v2.0"), Some("v1.0")));
+        assert!(!hit_version_reaches_route(Some("v1.0"), Some("v2.0")));
+        assert!(hit_version_reaches_route(Some("v1.0"), Some("v1.0")));
+        // Parsed, not string-compared.
+        assert!(hit_version_reaches_route(Some("v10.0"), Some("v2.0")));
+        assert!(!hit_version_reaches_route(Some("v2.0"), Some("v10.0")));
+        // `latest` aliases the highest version prefix; unversioned root-app routes sit outside it.
+        assert!(hit_version_reaches_route(Some("latest"), Some("v2.0")));
+        assert!(!hit_version_reaches_route(Some("latest"), None));
+        assert!(!hit_version_reaches_route(Some("v1.0"), None));
+        // A versionless reference still credits any version.
+        assert!(hit_version_reaches_route(None, Some("v1.0")));
+        assert!(hit_version_reaches_route(None, None));
     }
 
     #[test]
