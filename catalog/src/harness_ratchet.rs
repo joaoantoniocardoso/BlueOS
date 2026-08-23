@@ -3,6 +3,7 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
+use crate::api_contract::api_coverage_counts;
 use crate::catalog::Catalog;
 use crate::journey::{blast_radius_is_unknown, derive_oracle_class, BodyKind, OracleClass};
 use crate::journey_matrix::PAGE_LOAD_UI;
@@ -32,6 +33,8 @@ pub struct HarnessRatchetCounts {
     pub unknown_requirement_statements: usize,
     pub unknown_requirement_criteria: usize,
     pub requirement_contamination_findings: usize,
+    pub unmapped_api_routes: usize,
+    pub orphan_api_hits: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -39,6 +42,44 @@ pub struct HarnessRatchetRegression {
     pub field: &'static str,
     pub baseline: usize,
     pub current: usize,
+}
+
+impl HarnessRatchetCounts {
+    pub fn named_fields(&self) -> [(&'static str, usize); 13] {
+        [
+            ("unknown_blast_radius", self.unknown_blast_radius),
+            ("unknown_body_kind", self.unknown_body_kind),
+            ("unprobed_failure_modes", self.unprobed_failure_modes),
+            (
+                "mutating_smoke_missing_effect_read",
+                self.mutating_smoke_missing_effect_read,
+            ),
+            (
+                "client_orchestrated_missing_ui_plan",
+                self.client_orchestrated_missing_ui_plan,
+            ),
+            ("open_harness_gap", self.open_harness_gap),
+            (
+                "unverified_observed_evidence",
+                self.unverified_observed_evidence,
+            ),
+            ("extractor_coverage_lapses", self.extractor_coverage_lapses),
+            (
+                "unknown_requirement_statements",
+                self.unknown_requirement_statements,
+            ),
+            (
+                "unknown_requirement_criteria",
+                self.unknown_requirement_criteria,
+            ),
+            (
+                "requirement_contamination_findings",
+                self.requirement_contamination_findings,
+            ),
+            ("unmapped_api_routes", self.unmapped_api_routes),
+            ("orphan_api_hits", self.orphan_api_hits),
+        ]
+    }
 }
 
 pub fn harness_ratchet_counts(catalog: &Catalog) -> HarnessRatchetCounts {
@@ -52,6 +93,7 @@ pub fn harness_ratchet_counts(catalog: &Catalog) -> HarnessRatchetCounts {
     } else {
         (0, 0, 0)
     };
+    let api_coverage = api_coverage_counts(repo_root, catalog);
     HarnessRatchetCounts {
         unknown_blast_radius: catalog
             .journeys()
@@ -59,7 +101,9 @@ pub fn harness_ratchet_counts(catalog: &Catalog) -> HarnessRatchetCounts {
             .filter(|journey| blast_radius_is_unknown(journey))
             .count(),
         unknown_body_kind: count_unknown_body_kinds(catalog),
-        unprobed_failure_modes: count_unprobed_failure_modes(FAILURE_MODE_LEDGER_PATH),
+        unprobed_failure_modes: count_unprobed_failure_modes(
+            &Path::new(env!("CARGO_MANIFEST_DIR")).join(FAILURE_MODE_LEDGER_PATH),
+        ),
         mutating_smoke_missing_effect_read: MUTATING_SMOKE_ENTRIES
             .iter()
             .filter(|entry| entry.effect_read.is_none())
@@ -71,6 +115,12 @@ pub fn harness_ratchet_counts(catalog: &Catalog) -> HarnessRatchetCounts {
         unknown_requirement_statements,
         unknown_requirement_criteria,
         requirement_contamination_findings,
+        unmapped_api_routes: api_coverage
+            .as_ref()
+            .map_or(usize::MAX, |report| report.unmapped),
+        orphan_api_hits: api_coverage
+            .as_ref()
+            .map_or(usize::MAX, |report| report.orphan_hits.len()),
     }
 }
 
@@ -124,9 +174,13 @@ pub fn count_open_harness_gap() -> usize {
         .count()
 }
 
-pub fn count_unprobed_failure_modes(ledger_path: &str) -> usize {
-    parse_failure_mode_ledger(ledger_path)
-        .into_iter()
+/// `usize::MAX` when the ledger cannot be read, so an unreadable ledger trips the ratchet instead
+/// of counting zero gaps and inviting a snapshot that erases the dimension.
+pub fn count_unprobed_failure_modes(ledger_path: &Path) -> usize {
+    let Some(rows) = parse_failure_mode_ledger(ledger_path) else {
+        return usize::MAX;
+    };
+    rows.into_iter()
         .filter(|row| row.status == "harness_gap")
         .count()
 }
@@ -136,11 +190,8 @@ struct FailureModeLedgerRow {
     status: String,
 }
 
-fn parse_failure_mode_ledger(path: &str) -> Vec<FailureModeLedgerRow> {
-    let content = match fs::read_to_string(path) {
-        Ok(content) => content,
-        Err(_) => return Vec::new(),
-    };
+fn parse_failure_mode_ledger(path: &Path) -> Option<Vec<FailureModeLedgerRow>> {
+    let content = fs::read_to_string(path).ok()?;
     let mut rows = Vec::new();
     for line in content.lines() {
         let line = line.trim();
@@ -160,78 +211,25 @@ fn parse_failure_mode_ledger(path: &str) -> Vec<FailureModeLedgerRow> {
             status: cells[4].to_string(),
         });
     }
-    rows
+    Some(rows)
 }
 
 pub fn compare_harness_ratchet(
     baseline: HarnessRatchetCounts,
     current: HarnessRatchetCounts,
 ) -> Vec<HarnessRatchetRegression> {
-    let fields = [
-        (
-            "unknown_blast_radius",
-            baseline.unknown_blast_radius,
-            current.unknown_blast_radius,
-        ),
-        (
-            "unknown_body_kind",
-            baseline.unknown_body_kind,
-            current.unknown_body_kind,
-        ),
-        (
-            "unprobed_failure_modes",
-            baseline.unprobed_failure_modes,
-            current.unprobed_failure_modes,
-        ),
-        (
-            "mutating_smoke_missing_effect_read",
-            baseline.mutating_smoke_missing_effect_read,
-            current.mutating_smoke_missing_effect_read,
-        ),
-        (
-            "client_orchestrated_missing_ui_plan",
-            baseline.client_orchestrated_missing_ui_plan,
-            current.client_orchestrated_missing_ui_plan,
-        ),
-        (
-            "open_harness_gap",
-            baseline.open_harness_gap,
-            current.open_harness_gap,
-        ),
-        (
-            "unverified_observed_evidence",
-            baseline.unverified_observed_evidence,
-            current.unverified_observed_evidence,
-        ),
-        (
-            "extractor_coverage_lapses",
-            baseline.extractor_coverage_lapses,
-            current.extractor_coverage_lapses,
-        ),
-        (
-            "unknown_requirement_statements",
-            baseline.unknown_requirement_statements,
-            current.unknown_requirement_statements,
-        ),
-        (
-            "unknown_requirement_criteria",
-            baseline.unknown_requirement_criteria,
-            current.unknown_requirement_criteria,
-        ),
-        (
-            "requirement_contamination_findings",
-            baseline.requirement_contamination_findings,
-            current.requirement_contamination_findings,
-        ),
-    ];
-    fields
+    baseline
+        .named_fields()
         .into_iter()
-        .filter(|(_, base, cur)| *cur > *base)
-        .map(|(field, baseline, current)| HarnessRatchetRegression {
-            field,
-            baseline,
-            current,
-        })
+        .zip(current.named_fields())
+        .filter(|((_, base), (_, cur))| cur > base)
+        .map(
+            |((field, baseline), (_, current))| HarnessRatchetRegression {
+                field,
+                baseline,
+                current,
+            },
+        )
         .collect()
 }
 
@@ -246,6 +244,15 @@ pub fn write_harness_ratchet_baseline(
     path: &Path,
     counts: HarnessRatchetCounts,
 ) -> Result<(), String> {
+    if let Some((field, _)) = counts
+        .named_fields()
+        .into_iter()
+        .find(|(_, value)| *value == usize::MAX)
+    {
+        return Err(format!(
+            "refusing to snapshot {field}=MAX (its input could not be read)"
+        ));
+    }
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)
             .map_err(|err| format!("create baseline dir {}: {err}", parent.display()))?;
@@ -261,28 +268,8 @@ mod tests {
     use super::*;
     use crate::requirement::RequirementStatement;
 
-    #[test]
-    fn failure_mode_ledger_parses_harness_gap_rows() {
-        let rows = parse_failure_mode_ledger(FAILURE_MODE_LEDGER_PATH);
-        assert!(
-            rows.len() >= 100,
-            "expected full ledger, got {}",
-            rows.len()
-        );
-        let harness_gap = rows
-            .iter()
-            .filter(|row| row.status == "harness_gap")
-            .count();
-        assert!(harness_gap > 0);
-        assert_eq!(
-            harness_gap,
-            count_unprobed_failure_modes(FAILURE_MODE_LEDGER_PATH)
-        );
-    }
-
-    #[test]
-    fn compare_allows_equal_and_improvement() {
-        let baseline = HarnessRatchetCounts {
+    fn sample_counts() -> HarnessRatchetCounts {
+        HarnessRatchetCounts {
             unknown_blast_radius: 5,
             unknown_body_kind: 10,
             unprobed_failure_modes: 49,
@@ -294,7 +281,47 @@ mod tests {
             unknown_requirement_statements: 16,
             unknown_requirement_criteria: 50,
             requirement_contamination_findings: 10,
+            unmapped_api_routes: 80,
+            orphan_api_hits: 4,
+        }
+    }
+
+    #[test]
+    fn failure_mode_ledger_parses_harness_gap_rows() {
+        let ledger = Path::new(env!("CARGO_MANIFEST_DIR")).join(FAILURE_MODE_LEDGER_PATH);
+        let rows = parse_failure_mode_ledger(&ledger).expect("read ledger");
+        assert!(
+            rows.len() >= 100,
+            "expected full ledger, got {}",
+            rows.len()
+        );
+        let harness_gap = rows
+            .iter()
+            .filter(|row| row.status == "harness_gap")
+            .count();
+        assert!(harness_gap > 0);
+        assert_eq!(harness_gap, count_unprobed_failure_modes(&ledger));
+        assert_eq!(
+            count_unprobed_failure_modes(Path::new("no/such/ledger.md")),
+            usize::MAX,
+            "an unreadable ledger must not read as zero gaps"
+        );
+    }
+
+    #[test]
+    fn snapshot_refuses_a_sentinel_counter() {
+        let counts = HarnessRatchetCounts {
+            unprobed_failure_modes: usize::MAX,
+            ..sample_counts()
         };
+        let error = write_harness_ratchet_baseline(Path::new("/dev/null"), counts)
+            .expect_err("sentinel must be refused");
+        assert!(error.contains("unprobed_failure_modes"), "{error}");
+    }
+
+    #[test]
+    fn compare_allows_equal_and_improvement() {
+        let baseline = sample_counts();
         let equal = baseline;
         assert!(compare_harness_ratchet(baseline, equal).is_empty());
 
@@ -307,19 +334,7 @@ mod tests {
 
     #[test]
     fn compare_fails_on_worsening_only() {
-        let baseline = HarnessRatchetCounts {
-            unknown_blast_radius: 0,
-            unknown_body_kind: 10,
-            unprobed_failure_modes: 49,
-            mutating_smoke_missing_effect_read: 60,
-            client_orchestrated_missing_ui_plan: 17,
-            open_harness_gap: 60,
-            unverified_observed_evidence: 1129,
-            extractor_coverage_lapses: 0,
-            unknown_requirement_statements: 16,
-            unknown_requirement_criteria: 50,
-            requirement_contamination_findings: 10,
-        };
+        let baseline = sample_counts();
         let worse = HarnessRatchetCounts {
             mutating_smoke_missing_effect_read: 61,
             ..baseline
