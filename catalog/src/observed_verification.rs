@@ -4,7 +4,7 @@ use std::path::Path;
 use crate::catalog::Catalog;
 use crate::extract::{extract_from_repo, find_extracted_for_verification, ExtractedService};
 use crate::extract_fastapi::{
-    evidence_from_main_py, extract_fastapi_from_repo, extracted_fastapi_matches_observed,
+    evidence_from_fastapi_source, extract_fastapi_from_repo, extracted_fastapi_matches_observed,
     find_fastapi_route_for_observed, ExtractedFastApiRoute,
 };
 use crate::extract_frontend_router::{
@@ -128,7 +128,7 @@ fn add_journey_fastapi_verifiable(
         else {
             continue;
         };
-        if evidence_from_main_py(evidence) {
+        if evidence_from_fastapi_source(evidence) {
             sites.insert(ObservedEvidenceSite::new(
                 "journey",
                 journey.id.as_str(),
@@ -579,7 +579,7 @@ fn fastapi_verified_sites(
             else {
                 continue;
             };
-            if !evidence_from_main_py(evidence) {
+            if !evidence_from_fastapi_source(evidence) {
                 continue;
             }
             let Some(extracted_route) = find_fastapi_route_for_observed(extracted, evidence, route)
@@ -738,7 +738,7 @@ mod tests {
 
     #[test]
     fn extractor_verifiable_observed_evidence_count_is_pinned() {
-        const EXTRACTOR_VERIFIABLE_OBSERVED_EVIDENCE: usize = 271;
+        const EXTRACTOR_VERIFIABLE_OBSERVED_EVIDENCE: usize = 287;
 
         let catalog = Catalog::bootstrap();
         let count = collect_extractor_verifiable_sites(&catalog).len();
@@ -747,7 +747,7 @@ mod tests {
 
     #[test]
     fn unverified_observed_evidence_count_is_pinned() {
-        const UNVERIFIED_OBSERVED_EVIDENCE: usize = 1129;
+        const UNVERIFIED_OBSERVED_EVIDENCE: usize = 1113;
 
         let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
         let catalog = Catalog::bootstrap();
@@ -1051,7 +1051,7 @@ mod tests {
 
     #[test]
     fn fastapi_extracted_value_mismatch_uncredits_step_route() {
-        const STEP_ROUTE_SITES: usize = 62;
+        const STEP_ROUTE_SITES: usize = 78;
         let (catalog, extracts, verifiable, _, lapses_full) = extracts_and_verifiable();
         let Extracts {
             nginx,
