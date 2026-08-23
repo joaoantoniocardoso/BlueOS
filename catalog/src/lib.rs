@@ -1,3 +1,4 @@
+pub mod api_contract;
 pub mod capability;
 pub mod capture_env;
 pub mod catalog;
@@ -62,6 +63,12 @@ pub mod version;
 pub mod wifi_endpoints;
 pub mod wifi_rf;
 
+pub use api_contract::{
+    api_coverage_counts, api_coverage_report, diff_snapshots, load_api_contract_baseline,
+    write_api_contract_baseline, ApiContractDiff, ApiContractFieldChange, ApiContractKey,
+    ApiContractSnapshot, ApiCoverageReport, ApiCoverageSource, ApiRouteContract,
+    DEFAULT_API_CONTRACT_BASELINE,
+};
 pub use capability::{Aggregate, CapabilityDef, CAPABILITIES};
 pub use capture_env::{
     format_runtime_env, RUNTIME_CAPTURE_CORE_DIGEST, RUNTIME_CAPTURE_CORE_REPO,
