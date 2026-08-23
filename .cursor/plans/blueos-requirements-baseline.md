@@ -281,12 +281,20 @@ The per-beta/per-release campaign. Ordered, and each step is a gate:
 
 Only after P4 has run once, so we automate what actually happened rather than what we imagined.
 
+**Wave 1 started (2026-08-23):** `blueos-rebaseline` skill, `PROMPTS.md`, `CONTINUE.md` written from P4 dry-run lessons.
+
 - Skill `blueos-rebaseline` under `.cursor/skills/`, matching the existing skill conventions.
 - Worker prompt templates per role, self-contained, in the campaign root.
 - Extend `catalog/src/harness_ratchet.rs` with requirements-coverage counts so they can only improve.
 - `CONTINUE.md` + memory template so a dead session resumes cleanly.
 
 **Gate:** a second re-baseline against a different tag completes with the orchestrator spawning agents from the skill and prompts alone, no ad-hoc instructions.
+
+**Wave 3 DONE (2026-08-23, ACCEPT).** `by_kind` is `BTreeMap` (snapshots byte-stable). Ratchet: `unknown_requirement_statements=19`, `unknown_requirement_criteria=64`, `requirement_contamination_findings=6` on the 1.4-dev derivation. Dropping a compare field hides a Known→Unknown flip; restoring catches it.
+
+**Wave 4 DONE (2026-08-23, ACCEPT).** Skill-driven dry run of `1.5.0-beta.40` (`c1327ee9`) without checkout. `--since 1.5.0-beta.39 --until 1.5.0-beta.40` is 139/43/54/631; implicit HEAD is 608/41/74/729 (ratio 1.15). Snapshot `catalog/requirements-baselines/1.5.0-beta.40.json` (473 reqs). `--diff 1.4.4-beta.21` is added 92 / removed 0 / changed 0: same-HEAD version-filter gap, not a two-tree loss check. Non-blocking: runner wrote HEAD contrast under `/tmp`; DELTA `provenance_lint` said only "ran" (actual unresolved=0).
+
+**P5 COMPLETE** for the harness gate (second tag from skill + PROMPTS.md alone). Remaining holes (DUT, step 10 re-ground, presence regen, `--fix`, two-tree `--diff`) are real-run work, not unfinished P5.
 
 ---
 
