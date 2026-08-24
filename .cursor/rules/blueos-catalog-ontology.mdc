@@ -1,0 +1,30 @@
+---
+description: Catalog SysML v2 ontology naming authority (vocabulary, not behavior)
+globs: catalog/**
+alwaysApply: false
+---
+
+# Catalog Ontology Naming
+
+`catalog/extras/sysmlv2-ontology/MAPPING.md` is the **naming authority** for catalog types vs SysML v2 / KerML concepts. When a rule, doc, or export name disagrees with Rust source, trust `catalog/src` and reconcile prose against `MAPPING.md`.
+
+Current vocabulary (post P0-P3; wire-format names in committed JSON may still differ -- see `WIRE_SURFACE.md`):
+
+| Rust type | Replaces (historical) |
+|---|---|
+| `UseCase` | `UserJourney` |
+| `Connection` | `Edge` |
+| `TcpPort` | `Port(u16)` |
+| `PortKind` | `Interface` enum |
+| `Action`, `ActionId`, `ActionCatalog` | `Function`, `FunctionId`, `FunctionCatalog` |
+| `ServiceJudgment` | `ServiceDefinition` |
+| `RequirementClass` | `RequirementKind` |
+| `Assumption` on `Requirement` | `RequirementKind::Constraint` |
+| `Availability` | `FeatureAvailability` |
+| `IntroTraces` | `FeatureTraces` |
+| `CapabilityId` | requirement subject (deleted `Feature` types) |
+| `VerificationRecord`, `Verdict` | harness step / journey outcomes |
+
+Frozen by wire format: `JourneyId` variant names (see `WIRE_SURFACE.md`). `Action` has no I/O fields or child actions.
+
+Rework plan and phase status: `catalog/extras/sysmlv2-ontology/PLAN.md`.

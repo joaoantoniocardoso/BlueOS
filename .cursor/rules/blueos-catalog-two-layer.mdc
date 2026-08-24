@@ -6,20 +6,20 @@ alwaysApply: false
 
 # Catalog Two-Layer Discipline
 
-The catalog has two layers that must never be mixed. Mixing them is the root cause of quality drift. Each service is one module `catalog/src/services/<id>.rs` exposing two builder functions: `observed_facts() -> ObservedFacts` and `service_definition() -> ServiceDefinition`. The separation is enforced by distinct types AND distinct wrappers, not by directory.
+The catalog has two layers that must never be mixed. Mixing them is the root cause of quality drift. Each service is one module `catalog/src/services/<id>.rs` exposing two consts: `OBSERVED_FACTS: ObservedFacts` and `SERVICE_DEFINITION: ServiceJudgment`, assembled into `SERVICE: Service`. The separation is enforced by distinct types AND distinct wrappers, not by directory.
 
-## Observed layer — `ObservedFacts`, wrapped in `Observed<T>`
+## Observed layer -- `ObservedFacts`, wrapped in `Observed<T>`
 
-- Facts extractable from the repo: ports, tmux/nginx names, limits, subprocess/MAVLink/Zenoh interfaces.
+- Facts extractable from the repo: ports, tmux/nginx names, limits, subprocess/MAVLink/Zenoh `PortKind` values.
 - Every observed field carries provenance: `Observed::known(value, Evidence { file, line, anchor })`.
   `anchor` is the cited line's text (trimmed, whitespace-collapsed, <=60 chars); it distinguishes a moved line (`Relocated`, auto-repaired by `provenance_lint --fix`) from a vanished target (`AnchorLost`).
-- No evidence → `Observed::unknown(reason)`, never a guess.
-- The JSON in `catalog/observed/**` is a **generated export** (`extract`/`export` output). **Never hand-edit it**; regenerate.
+- No evidence -> `Observed::unknown(reason)`, never a guess.
+- Observed facts live in Rust source consts. `catalog/observed/` is a placeholder (`.gitkeep` only); there is no committed generated export tree. `export` may emit JSON at runtime, but do not hand-edit paths under `catalog/observed/`.
 
-## Asserted layer — `ServiceDefinition`, wrapped in `Asserted<T>`
+## Asserted layer -- `ServiceJudgment`, wrapped in `Asserted<T>`
 
 - Human/LLM judgment only: authorities, criticality, trust, `bounded_context`, failure modes, capabilities.
-- **Never restate an observed fact here** (ports, tmux/nginx names, limits). Those live in `observed_facts()`.
+- **Never restate an observed fact here** (ports, tmux/nginx names, limits). Those live in `OBSERVED_FACTS`.
 - Wrap fields in `Asserted<T>` (`Established { value, rationale } | Unknown { reason }`), never `Observed<T>`.
   Asserted judgment carries a `rationale`, never `file:line` `Evidence`. Downgrading `Provenance::source(..)` to `Provenance::asserted(..)` silences a failing citation -- source and asserted counts are pinned; a downgrade trips them.
 - Unestablished fields are `Asserted::unknown(reason)`, not blank.
@@ -30,26 +30,23 @@ The catalog has two layers that must never be mixed. Mixing them is the root cau
 2. `drift` binary passes: no asserted field contradicts the observed layer.
 
 ```rust
-// BAD — observed fact restated in the asserted card
-fn service_definition() -> ServiceDefinition {
-    ServiceDefinition { listen: Port(8000), .. } // listen is an OBSERVED field; wrong layer
-}
+// BAD -- observed fact restated in the asserted card
+pub const SERVICE_DEFINITION: ServiceJudgment = ServiceJudgment {
+    listen: Asserted::established(TcpPort(8000), "..."), // listen is OBSERVED; wrong layer
+    ..
+};
 
-// GOOD — observed facts carry evidence; asserted facts carry rationale
-fn observed_facts() -> ObservedFacts {
-    ObservedFacts {
-        listen: ObservedSet::known(&[Evidenced::new(PortRef::Literal(8000),
-            Evidence { file: "core/tools/nginx/nginx.conf", line: 78,
-                anchor: "proxy_pass http://127.0.0.1:8000/;" })]),
-        ..
-    }
-}
-fn service_definition() -> ServiceDefinition {
-    ServiceDefinition {
-        authorities: AssertedSet::established(&[Rationaled::new(Authority::MavlinkRouterOwner,
-            "owns the MAVLink router; sole udpout:14001 producer")]),
-        tier: Asserted::established(CriticalityTier::VehicleCritical, "vehicle uncontrollable if down"),
-        ..
-    }
-}
+// GOOD -- observed facts carry evidence; asserted facts carry rationale
+pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
+    listen: ObservedSet::known(&[Evidenced::new(PortRef::Literal(8000),
+        Evidence { file: "core/tools/nginx/nginx.conf", line: 78,
+            anchor: "proxy_pass http://127.0.0.1:8000/;" })]),
+    ..
+};
+pub const SERVICE_DEFINITION: ServiceJudgment = ServiceJudgment {
+    authorities: AssertedSet::established(&[Rationaled::new(Authority::MavlinkRouterOwner,
+        "owns the MAVLink router; sole udpout:14001 producer")]),
+    tier: Asserted::established(CriticalityTier::VehicleCritical, "vehicle uncontrollable if down"),
+    ..
+};
 ```

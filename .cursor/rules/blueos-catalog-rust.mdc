@@ -9,12 +9,12 @@ alwaysApply: false
 Complements the global Rust rules (top-down ordering, `cargo fmt`, minimal diff). Crate-specific only.
 
 - **Parse, don't validate.** Encode invariants in types so illegal states don't compile
-  (e.g. `Bus::Mavlink` cannot appear under a REST interface). Prefer newtypes over primitives:
-  `ServiceId`, `Port`, `PathRef`, `PortRef`.
+  (e.g. `Bus::Mavlink` cannot appear under a REST `PortKind`). Prefer newtypes over primitives:
+  `ServiceId`, `TcpPort`, `PathRef`, `PortRef`.
 - **Definition vs resolved.** Use `PortRef::Literal(14001)` vs `PortRef::Env("MAV_SYSTEM_ID")`;
   resolution happens in a `resolve()` pass, not at declaration.
 - **`Unknown { reason }` is first-class.** No silent blanks; it drives the coverage gate.
-- **Approved dependencies only** — do not add others without orchestrator sign-off:
+- **Approved dependencies only** -- do not add others without orchestrator sign-off:
 
 ```toml
 schemars = "0.8"

@@ -1,22 +1,22 @@
 ---
-description: BlueOS catalog user-journey spine — top-level, triangulated, cross-referenced
+description: BlueOS catalog use-case spine -- top-level, triangulated, cross-referenced
 globs: catalog/src/journeys/**,catalog/src/journey.rs
 alwaysApply: false
 ---
 
-# Catalog Journey Spine
+# Catalog Use-Case Spine
 
-User journeys are the **spine** of the model: routes, state transitions, error semantics, and platform behavior are projections of the journey set. They are a **top-level** artifact (`catalog/src/journeys/<id>.rs`), never a per-service field, because a journey may cross several services.
+Use cases (`UseCase`, keyed by `JourneyId`) are the **spine** of the model: routes, state transitions, error semantics, and platform behavior are projections of the use-case set. They are a **top-level** artifact (`catalog/src/journeys/<id>.rs`), never a per-service field, because a use case may cross several services.
 
 ## Three-source triangulation (one struct, three provenance kinds)
 
-Every journey fact carries a `Provenance`, not a bare `Evidence`. Provenance is **per-facet**: a step is a `GroundedItem<JourneyStep>` (Doc-anchored action) whose `route: Option<Grounded<RouteRef>>` and `outcome: Option<Grounded<StepOutcome>>` each carry their own provenance:
+Every use-case fact carries a `Provenance`, not a bare `Evidence`. Provenance is **per-facet**: a step is a `GroundedItem<JourneyStep>` (Doc-anchored action) whose `route: Option<Grounded<RouteRef>>` and `outcome: Option<Grounded<StepOutcome>>` each carry their own provenance:
 
-- `Provenance::Doc { file, line, anchor }` — operator intent/visibility/preconditions/step description, anchored in `../BlueOS-docs`.
-- `Provenance::Source(Evidence)` — a step's `route` confirmed to exist in BlueOS repo code (starts as a Doc hint, re-grounded to Source).
-- `Provenance::Runtime { capture, environment }` — a step's `outcome` (`expected_status`, `body_predicate`, `transition`, latency) captured by running the service (parity baselines).
+- `Provenance::Doc { file, line, anchor }` -- operator intent/visibility/preconditions/step description, anchored in `../BlueOS-docs`.
+- `Provenance::Source(Evidence)` -- a step's `route` confirmed to exist in BlueOS repo code (starts as a Doc hint, re-grounded to Source).
+- `Provenance::Runtime { capture, environment }` -- a step's `outcome` (`expected_status`, `body_predicate`, `transition`, latency) captured by running the service (parity baselines).
 
-Do not put a doc claim under `Source`, a source fact under `Doc`, or assert a runtime outcome from prose. A journey is **fully grounded** only when its intent (Doc), its routes (Source), and its outcomes (Runtime) agree — disagreement is drift and must surface, not be smoothed over.
+Do not put a doc claim under `Source`, a source fact under `Doc`, or assert a runtime outcome from prose. A use case is **fully grounded** only when its intent (Doc), its routes (Source), and its outcomes (Runtime) agree -- disagreement is drift and must surface, not be smoothed over.
 
 ## Layer ownership
 
@@ -27,32 +27,37 @@ Do not put a doc claim under `Source`, a source fact under `Doc`, or assert a ru
 
 ## Cross-reference invariants (enforced by `validate()`)
 
-A journey is a join table; `Catalog::validate()` must reject dangling references:
+A use case is a join table; `Catalog::validate()` must reject dangling references:
 
 - Every `RouteRef.service` and every `services` item is a known `ServiceId`.
 - Every `capability_refs` item exists in a participating service's `capabilities` **or** is a registered frontend-origin capability (`capability::FRONTEND_CAPABILITIES`).
 - Every `transition.{from,to}` state exists in a `StateMachine` of a participating service.
 - Every `chains_from` is a known `JourneyId`.
 
-Adding a journey field that references services/routes/states/capabilities **requires** a matching `validate()` check; a reference with no check is not allowed.
+Adding a use-case field that references services/routes/states/capabilities **requires** a matching `validate()` check; a reference with no check is not allowed.
 
-## Frontend (client-driven) journeys
+## Frontend (client-driven) use cases
 
-BlueOS 1.x implements whole flows in the browser (calibration wizards, parameter-file apply, video-stream configuration). Model these as first-class `UserJourney`s, not just as `Page.frontend_features`:
+BlueOS 1.x implements whole flows in the browser (calibration wizards, parameter-file apply, video-stream configuration). Model these as first-class `UseCase`s, not just as `Page.frontend_features`:
 
 - Use `Actor::Frontend(PageId)` for steps executed by client-side logic (a wizard sending a MAVLink command via mavlink2rest, deriving status from cached params, sequencing orientations). Keep `Actor::Operator` for physical/UI actions and `Actor::Service(_)` for backend/autopilot execution.
 - `capability_refs` point at the frontend-origin capabilities (owned by a `PageId` in `FRONTEND_CAPABILITIES`); `services` still lists the real backend services the wizard talks to, each `Source`-grounded to the Vue `file:line` that makes the call.
 - Ground steps by **triangulation**: `Doc` (operator intent in `../BlueOS-docs`) + `Source` (the Vue component `file:line`). A wizard step's `outcome` stays `Grounded::unknown(...)` unless a live run on the Pi captured it (mutating flows are not fabricated).
-- The journey's home page is implicit in its `Actor::Frontend(PageId)` steps — no separate page field is added (parse-don't-validate: the `PageId` enum already guarantees a real page).
+- The use case's home page is implicit in its `Actor::Frontend(PageId)` steps -- no separate page field is added (parse-don't-validate: the `PageId` enum already guarantees a real page).
+
+## Verification vs use case
+
+- `UseCase` is the operator goal and step chain. Harness runs produce `VerificationRecord` rows with a `Verdict` (`Pass`, `Fail`, `Inconclusive`, `Error`); they are not a second use-case type.
+- `Requirement.requirement_verifications` links requirements to verifying `JourneyId`s. `Action.verifying_journeys` links actions to the same ids.
 
 ## Live URL contract
 
 - Every `RouteRef` MUST be nginx-resolvable: `version`, nested router prefix, and `query` all participate in `resolve_http_path`.
-- QA: each routed step MUST have a resolved URL and either a live GET against it or explicit `UnverifiedLive` — `Source` line provenance alone is insufficient.
+- QA: each routed step MUST have a resolved URL and either a live GET against it or explicit `UnverifiedLive` -- `Source` line provenance alone is insufficient.
 - **MUST smoke before commit (Pi reachable).** Run `BLUEOS_BASE=http://192.168.0.177 bash catalog/gate.sh` (or `cargo run -q --bin journey_http -- --base http://192.168.0.177 --smoke --fixtures internet,pirate,advanced`); require **`failed=0`**. Orchestrator MUST refuse commit without smoke green or a ledger/QA `UnverifiedLive` note per affected step.
 
 ## Never
 
-- Trap a cross-service journey inside one service module.
-- Enumerate API endpoints as "journeys" — a journey is one operator goal, an ordered chain.
-- Invent a journey with no `../BlueOS-docs` anchor.
+- Trap a cross-service use case inside one service module.
+- Enumerate API endpoints as "use cases" -- a use case is one operator goal, an ordered chain.
+- Invent a use case with no `../BlueOS-docs` anchor.

@@ -6,13 +6,13 @@ alwaysApply: false
 
 # Catalog Runtime Layer
 
-`RuntimeFacts` is a **third layer**, parallel to `ObservedFacts` (source-observed) and `ServiceDefinition` (asserted). It holds facts that only exist when the service **runs**: per-state HTTP status/body, latency/CPU/memory, settings mutations, board-dependent behavior. Every value is grounded in `Provenance::Runtime { capture, environment }`.
+`RuntimeFacts` is a **third layer**, parallel to `ObservedFacts` (source-observed) and `ServiceJudgment` (asserted). It holds facts that only exist when the service **runs**: per-state HTTP status/body, latency/CPU/memory, settings mutations, board-dependent behavior. Every value is grounded in `Provenance::Runtime { capture, environment }`.
 
 ## The only trusted runtime source is a live BlueOS
 
 - Runtime values come from **capturing a live BlueOS instance** (the Raspberry Pi 4 on `master`), saved under `catalog/runtime-captures/`.
-- The `microservices_core_prototype` POC (or any reimplementation) is **design-reference only** — it may inform *which* dimensions exist, **never their values**. A runtime value citing the prototype is drift and must be rejected.
-- No live capture for a field → `GroundedSet::unknown(reason)` / `Grounded::unknown(reason)`. Never guess a status code, latency, or transition.
+- The `microservices_core_prototype` POC (or any reimplementation) is **design-reference only** -- it may inform *which* dimensions exist, **never their values**. A runtime value citing the prototype is drift and must be rejected.
+- No live capture for a field -> `GroundedSet::unknown(reason)` / `Grounded::unknown(reason)`. Never guess a status code, latency, or transition.
 
 ## Provenance is specific
 
@@ -22,15 +22,15 @@ alwaysApply: false
 
 ## Layer ownership
 
-- **Runtime Specialist** fills `RuntimeFacts` and re-grounds journey step `outcome`s from the same capture.
-- Runtime facts never live in the asserted `ServiceDefinition` — they must be able to **diff against** it (e.g. a captured `500`-when-stopped falsifies an asserted `api_stable: true`).
+- **Runtime Specialist** fills `RuntimeFacts` and re-grounds use-case step `outcome`s from the same capture.
+- Runtime facts never live in the asserted `ServiceJudgment` -- they must be able to **diff against** it (e.g. a captured `500`-when-stopped falsifies an asserted `api_stable: true`).
 
 ## Live URL contract
 
-- Capture keys MUST be the exact nginx front-door `METHOD + path` (version, router prefix, query) — e.g. `GET /helper/v1.0/ping?host=1.1.1.1`, never bare service-relative paths.
-- Probe through nginx (`http://<pi>/{nginx-prefix}/…`), not only `localhost:<servicePort>`.
-- Journey step `outcome`s MUST key-match: `RouteRef` + `version` via `resolve_http_path` must equal the stored capture key.
-- **MUST smoke before commit (Pi reachable).** Re-grounded outcomes require `BLUEOS_BASE=http://192.168.0.177 bash catalog/gate.sh` (or `journey_http --smoke --fixtures internet,pirate,advanced`) with **`failed=0`**. Orchestrator MUST refuse commit without smoke green or `UnverifiedLive` ledger note — never commit `Known` `expected_status` on an unverified route.
+- Capture keys MUST be the exact nginx front-door `METHOD + path` (version, router prefix, query) -- e.g. `GET /helper/v1.0/ping?host=1.1.1.1`, never bare service-relative paths.
+- Probe through nginx (`http://<pi>/{nginx-prefix}/...`), not only `localhost:<servicePort>`.
+- Use-case step `outcome`s MUST key-match: `RouteRef` + `version` via `resolve_http_path` must equal the stored capture key.
+- **MUST smoke before commit (Pi reachable).** Re-grounded outcomes require `BLUEOS_BASE=http://192.168.0.177 bash catalog/gate.sh` (or `journey_http --smoke --fixtures internet,pirate,advanced`) with **`failed=0`**. Orchestrator MUST refuse commit without smoke green or `UnverifiedLive` ledger note -- never commit `Known` `expected_status` on an unverified route.
 
 ## Never
 

@@ -7,7 +7,7 @@ alwaysApply: false
 # Catalog Frontend Page Layer
 
 The Vue frontend (`core/frontend/src`) is a first-class modeled subject. A **Page**
-(a router route) is the user-facing feature unit — it does NOT map 1:1 to a backend
+(a router route) is the user-facing feature unit -- it does NOT map 1:1 to a backend
 service, it usually consumes several, and it frequently holds domain state in the
 browser. Each page is one module `catalog/src/pages/<id>.rs` exposing `pub const PAGE: Page`,
 registered in `catalog/src/pages/mod.rs` (the `PAGES` slice / `all_pages()`).
@@ -20,12 +20,12 @@ registered in `catalog/src/pages/mod.rs` (the `PAGES` slice / `all_pages()`).
 - **Asserted** (judgment, each carries a rationale, never `file:line`):
   `frontend_features`, `client_state`. Unset -> `Asserted::unknown(reason)`.
 
-## Edges to the backend
+## Connections to the backend
 
 - Every `PageServiceCall.service` MUST be `ConsumeTarget::Service(ServiceId::X)` for a
   cataloged service (the 26) or `ConsumeTarget::External` for the public internet.
   `Catalog::validate()` enforces this.
-- A call to a backend route is a `consumes` edge, NOT a `frontend_feature`.
+- A call to a backend route is a `consumes` `Connection`, NOT a `frontend_feature`.
 
 ## frontend_features: the registry test (mechanical, no judgment)
 
@@ -33,23 +33,22 @@ registered in `catalog/src/pages/mod.rs` (the `PAGES` slice / `all_pages()`).
   `catalog/src/capability.rs::CAPABILITIES`. Such capabilities are *frontend-origin*:
   the client implements the orchestration/logic (calibration wizard, motor-direction
   detection, param-file apply) and no backend service declares the capability.
-- If a `CapabilityId` **is** in `CAPABILITIES`, it is backend-owned — the page merely
+- If a `CapabilityId` **is** in `CAPABILITIES`, it is backend-owned -- the page merely
   calls it, so it belongs in `consumes`, never in `frontend_features`. (E.g.
   `FlashFirmware`, `ManageExtensionLifecycle`, `InspectZenohNetwork` are backend-owned;
   `CalibrateAccelerometer`, `EditAutopilotParameters` are frontend-origin.)
-- QA check: `rg "id: CapabilityId::<Name>," catalog/src/capability.rs` — a hit in a
+- QA check: `rg "id: CapabilityId::<Name>," catalog/src/capability.rs` -- a hit in a
   `CapabilityDef` (backend `CAPABILITIES`) means REMOVE it from `frontend_features`.
 - Every legitimate frontend feature MUST be registered once in
   `capability.rs::FRONTEND_CAPABILITIES` as a `FrontendCapabilityDef { id, aggregate,
-  owner: PageId }` (the `owner` is the page that most centrally implements it). It then
-  becomes a `Feature` with `origin: Origin::FrontendPage(owner)`. `FeatureCatalog::
-  validate()` enforces both directions: a page feature not in the registry, or a
+  owner: PageId }` (the `owner` is the page that most centrally implements it).
+  `Catalog::validate()` enforces both directions: a page feature not in the registry, or a
   registry id that collides with backend `CAPABILITIES`, fails the build.
 
 ## State ownership (a 2.0 decision input)
 
 - Classify every piece of held domain state: `FrontendOwned` (lives only in the
-  client — the 1.x anti-pattern 2.0 must re-home), `Shared` (cached from a backend
+  client -- the 1.x anti-pattern 2.0 must re-home), `Shared` (cached from a backend
   but derived/mutated client-side), or `BackendOwned` (client only mirrors it).
 - `frontend_features` are capabilities IMPLEMENTED client-side (wizards, calibration
   sequences, param-derived computations) with no single backend capability.
