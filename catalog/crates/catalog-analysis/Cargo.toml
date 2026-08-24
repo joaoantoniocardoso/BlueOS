@@ -1,0 +1,16 @@
+[package]
+name = "catalog-analysis"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+catalog-core = { path = "../catalog-core" }
+catalog-data = { path = "../catalog-data" }
+catalog-extract = { path = "../catalog-extract" }
+catalog-harness = { path = "../catalog-harness" }
+catalog-kernel = { path = "../catalog-kernel" }
+catalog-paths = { path = "../catalog-paths" }
+catalog-model = { path = "../catalog-model" }
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true

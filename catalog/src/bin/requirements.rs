@@ -2,8 +2,9 @@ use std::env;
 use std::process::ExitCode;
 
 use blueos_catalog::catalog::Catalog;
-use blueos_catalog::requirement::RequirementCatalog;
-use blueos_catalog::requirements_report::{
+use blueos_catalog::cli::flag_value;
+use catalog_derive::requirement::RequirementCatalog;
+use catalog_derive::requirements_report::{
     diff_requirement_reports, load_requirements_baseline, render_diff_report, render_rtm_csv,
     render_srs, requirements_json, validate_rtm_completeness, write_requirements_baseline,
 };
@@ -88,16 +89,6 @@ fn main() -> ExitCode {
     }
 
     ExitCode::SUCCESS
-}
-
-fn flag_value(args: &[String], name: &str) -> Option<String> {
-    args.windows(2).find_map(|pair| {
-        if pair[0] == name {
-            Some(pair[1].clone())
-        } else {
-            None
-        }
-    })
 }
 
 fn print_help() {

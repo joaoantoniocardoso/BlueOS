@@ -1,10 +1,20 @@
-[package]
-name = "blueos-catalog"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+resolver = "2"
+members = [
+    "crates/boot-timeline",
+    "crates/catalog-analysis",
+    "crates/catalog-core",
+    "crates/catalog-data",
+    "crates/catalog-derive",
+    "crates/catalog-extract",
+    "crates/catalog-git",
+    "crates/catalog-harness",
+    "crates/catalog-kernel",
+    "crates/catalog-model",
+    "crates/catalog-paths",
+    "crates/catalog-provenance",
+]
 
-# Only for the sampler binary pushed to a device by boot_timeline: it is scp'd during a boot we
-# are measuring, so size beats build time and runtime speed there. Host tools keep [profile.release].
 [profile.release-device]
 inherits = "release"
 opt-level = "z"
@@ -13,13 +23,41 @@ codegen-units = 1
 panic = "abort"
 strip = true
 
-[dependencies]
+[workspace.dependencies]
 regex = "1"
 schemars = "0.8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha1 = "0.10"
 thiserror = "1"
+
+[package]
+name = "blueos-catalog"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+boot-timeline = { path = "crates/boot-timeline" }
+catalog-analysis = { path = "crates/catalog-analysis" }
+catalog-core = { path = "crates/catalog-core" }
+catalog-data = { path = "crates/catalog-data" }
+catalog-derive = { path = "crates/catalog-derive" }
+catalog-extract = { path = "crates/catalog-extract" }
+catalog-git = { path = "crates/catalog-git" }
+catalog-harness = { path = "crates/catalog-harness" }
+catalog-kernel = { path = "crates/catalog-kernel" }
+catalog-model = { path = "crates/catalog-model" }
+catalog-paths = { path = "crates/catalog-paths" }
+catalog-provenance = { path = "crates/catalog-provenance" }
+regex.workspace = true
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha1.workspace = true
+thiserror.workspace = true
 
 [[bin]]
 name = "api_contracts"

@@ -1,7 +1,9 @@
-use blueos_catalog::{
+use catalog_derive::feature::{
     capability_aggregate_view, capability_journey_view, capability_view_divergence,
-    declared_capabilities, Catalog,
+    declared_capabilities,
 };
+
+use blueos_catalog::catalog::Catalog;
 
 fn main() {
     let catalog = Catalog::bootstrap();

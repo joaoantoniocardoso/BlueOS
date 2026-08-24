@@ -4,8 +4,10 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use blueos_catalog::provenance_anchor::{apply_relocated_line_fixes, fit_overlong_citation_lines};
-use blueos_catalog::provenance_walk::{
+use catalog_provenance::provenance_anchor::{
+    apply_relocated_line_fixes, fit_overlong_citation_lines,
+};
+use catalog_provenance::provenance_walk::{
     anchor_exempt_citation_count, build_report, file_citation_count, format_unrepaired_fix,
     gate_failed, kind_status_counts, mark_applied_relocations_resolved, relocated_citations,
     source_facing_unresolved, unanchored_citation_count, unrepaired_relocations,

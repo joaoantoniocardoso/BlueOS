@@ -1,0 +1,647 @@
+use catalog_kernel::criticality::CriticalityTier;
+use catalog_kernel::id::capability::CapabilityId;
+use catalog_kernel::id::journey::JourneyId;
+use catalog_kernel::id::refs::{PathRef, PortRef};
+use catalog_kernel::id::service::ServiceId;
+use catalog_kernel::provenance::{
+    Asserted, AssertedSet, Evidence, Evidenced, GroundedItem, GroundedSet, Observed, ObservedSet,
+    Provenance, Rationaled,
+};
+use catalog_model::interface::{FileAccessMode, PortKind};
+use catalog_model::journey::{HttpMethod, RouteRef};
+use catalog_model::lifecycle::{Lifecycle, ObservedLifecycle};
+use catalog_model::observed::{ObservedFacts, ResourceLimits, ServiceKind, StartupTier};
+use catalog_model::resource::{Resource, ResourceOwnership};
+use catalog_model::runtime::{
+    Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts, SloBaseline,
+};
+use catalog_model::service::{Authority, Service, ServiceJudgment};
+use catalog_model::trust::{DangerousOperation, PrivilegeLevel, UserConfirmation};
+
+use catalog_kernel::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR_REPODIGEST;
+
+const RUNTIME_ENV: &str = RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR_REPODIGEST;
+
+pub const RUNTIME_FACTS: RuntimeFacts =
+    RuntimeFacts {
+        service: ServiceId::Nginx,
+        state_contracts: GroundedSet::unknown(
+            "nginx has no service-level state machine (card states Unknown); external C binary with no traced lifecycle states; running_baseline GET contracts captured in artifact only",
+        ),
+        slo_baselines: GroundedSet::known(&[
+            runtime_slo(HttpMethod::Get, "/status", 0.5, 0.7, 0.9, 60),
+            runtime_slo(HttpMethod::Get, "/", 0.8, 1.3, 2.0, 60),
+            runtime_slo(HttpMethod::Get, "/userdata/", 0.8, 1.1, 1.7, 60),
+            runtime_slo(HttpMethod::Get, "/assets/", 3.9, 5.6, 6.9, 60),
+        ]),
+        resource_usage: GroundedSet::known(&[runtime_resource(
+            "running_baseline",
+            Distribution {
+                mean: 0.0,
+                median: 0.0,
+                p95: 0.0,
+                min: 0.0,
+                max: 0.0,
+                sd: 0.0,
+            },
+            Distribution {
+                mean: 5.5,
+                median: 5.5,
+                p95: 5.5,
+                min: 5.5,
+                max: 5.5,
+                sd: 0.0,
+            },
+            90,
+        )]),
+        platform_matrix: GroundedSet::known(&[GroundedItem::new(
+            PlatformBehavior {
+                platform: "navigator",
+                firmware: None,
+                notes: &[
+                    "nginx is the platform-independent HTTP ingress reverse proxy",
+                    "multi-process: master PID 1178 RSS ~5.5 MB + 5 www-data workers aggregate RSS ~16.5 MB (total ~22.0 MB at snapshot)",
+                    "GET /status is unconditional 204 liveness only, not backend-reachability",
+                ],
+            },
+            runtime_prov("runtime-captures/nginx__pi4_navigator_master.json#platform_matrix"),
+        )]),
+        settings_mutations: GroundedSet::unknown(
+            "Tier-1 GET-only capture; /upload/ WebDAV mutations not exercised",
+        ),
+    };
+
+const fn runtime_prov(key: &'static str) -> Provenance {
+    Provenance::runtime(key, RUNTIME_ENV)
+}
+
+const fn runtime_route(method: HttpMethod, path: &'static str) -> RouteRef {
+    RouteRef {
+        service: ServiceId::Nginx,
+        method,
+        path,
+        version: None,
+    }
+}
+
+const fn runtime_slo(
+    method: HttpMethod,
+    path: &'static str,
+    p50: f64,
+    p95: f64,
+    p99: f64,
+    sample_size: u32,
+) -> GroundedItem<SloBaseline> {
+    GroundedItem::new(
+        SloBaseline {
+            route: runtime_route(method, path),
+            latency_p50_ms: p50,
+            latency_p95_ms: p95,
+            latency_p99_ms: p99,
+            sample_size,
+        },
+        runtime_prov("runtime-captures/nginx__pi4_navigator_master.json#slo_running_baseline"),
+    )
+}
+
+const fn runtime_resource(
+    condition: &'static str,
+    cpu_pct: Distribution,
+    rss_mb: Distribution,
+    samples: u32,
+) -> GroundedItem<ResourceUsage> {
+    GroundedItem::new(
+        ResourceUsage {
+            condition,
+            cpu_pct,
+            rss_mb,
+            samples,
+        },
+        runtime_prov("runtime-captures/nginx__pi4_navigator_master.json#resource_usage"),
+    )
+}
+
+pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
+    id: ServiceId::Nginx,
+    aliases: ObservedSet::unknown(
+        "external binary; no in-repo alias declarations in this repository",
+    ),
+    kind: Observed::known(
+        ServiceKind::Binary,
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 143,
+            anchor: "'nginx',250,0,0,0,\"nice -18 nginx -g \\\"daemon off;\\\" -c $TOO",
+        },
+    ),
+    entrypoint: Observed::known(
+        "nice -18 nginx -g \"daemon off;\" -c $TOOLS_PATH/nginx/nginx.conf",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 143,
+            anchor: "'nginx',250,0,0,0,\"nice -18 nginx -g \\\"daemon off;\\\" -c $TOO",
+        },
+    ),
+    tmux_name: Observed::known(
+        "nginx",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 143,
+            anchor: "'nginx',250,0,0,0,\"nice -18 nginx -g \\\"daemon off;\\\" -c $TOO",
+        },
+    ),
+    startup_tier: Observed::known(
+        StartupTier::Normal,
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 124,
+            anchor: "SERVICES=(",
+        },
+    ),
+    resource_limits: Observed::known(
+        ResourceLimits {
+            memory_mb: Some(250),
+            cpu_percent: Some(0),
+            io_weight: None,
+        },
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 143,
+            anchor: "'nginx',250,0,0,0,\"nice -18 nginx -g \\\"daemon off;\\\" -c $TOO",
+        },
+    ),
+    nice: Observed::known(
+        -18,
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 143,
+            anchor: "'nginx',250,0,0,0,\"nice -18 nginx -g \\\"daemon off;\\\" -c $TOO",
+        },
+    ),
+    run_as: Observed::known(
+        "root",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 143,
+            anchor: "'nginx',250,0,0,0,\"nice -18 nginx -g \\\"daemon off;\\\" -c $TOO",
+        },
+    ),
+    nginx_prefixes: ObservedSet::known(&[
+        Evidenced::new(
+            PathRef("/"),
+            Evidence {
+                file: "core/tools/nginx/nginx.conf",
+                line: 268,
+                anchor: "location / {",
+            },
+        ),
+        Evidenced::new(
+            PathRef("/status"),
+            Evidence {
+                file: "core/tools/nginx/nginx.conf",
+                line: 62,
+                anchor: "location = /status {",
+            },
+        ),
+        Evidenced::new(
+            PathRef("/assets/"),
+            Evidence {
+                file: "core/tools/nginx/nginx.conf",
+                line: 282,
+                anchor: "location /assets/ {",
+            },
+        ),
+        Evidenced::new(
+            PathRef("/upload/"),
+            Evidence {
+                file: "core/tools/nginx/nginx.conf",
+                line: 288,
+                anchor: "location /upload/ {",
+            },
+        ),
+        Evidenced::new(
+            PathRef("/userdata/"),
+            Evidence {
+                file: "core/tools/nginx/nginx.conf",
+                line: 300,
+                anchor: "location /userdata/ {",
+            },
+        ),
+        Evidenced::new(
+            PathRef("/cache/"),
+            Evidence {
+                file: "core/tools/nginx/nginx.conf",
+                line: 66,
+                anchor: "location ~ ^/cache/(.*) {",
+            },
+        ),
+    ]),
+    listen: ObservedSet::known(&[
+        Evidenced::new(
+            PortRef::Literal(80),
+            Evidence {
+                file: "core/tools/nginx/nginx.conf",
+                line: 51,
+                anchor: "listen 80; # IPv4",
+            },
+        ),
+        Evidenced::new(
+            PortRef::Literal(2770),
+            Evidence {
+                file: "core/tools/nginx/nginx.conf",
+                line: 42,
+                anchor: "listen 2770; # IPv4",
+            },
+        ),
+    ]),
+    git_path: Observed::unknown("external nginx binary; no source tree in this repository"),
+    interfaces: ObservedSet::known(&[
+        Evidenced::new(
+            PortKind::Rest {
+                path_prefix: PathRef("/"),
+                port: PortRef::Literal(80),
+                versions: &[],
+            },
+            Evidence {
+                file: "core/tools/nginx/nginx.conf",
+                line: 51,
+                anchor: "listen 80; # IPv4",
+            },
+        ),
+        Evidenced::new(
+            PortKind::Rest {
+                path_prefix: PathRef("/"),
+                port: PortRef::Literal(2770),
+                versions: &[],
+            },
+            Evidence {
+                file: "core/tools/nginx/nginx.conf",
+                line: 42,
+                anchor: "listen 2770; # IPv4",
+            },
+        ),
+        Evidenced::new(
+            PortKind::OutboundHttp {
+                url: "https://$target",
+            },
+            Evidence {
+                file: "core/tools/nginx/nginx.conf",
+                line: 73,
+                anchor: "proxy_pass https://$target;",
+            },
+        ),
+        Evidenced::new(
+            PortKind::File {
+                path: PathRef("/usr/blueos/"),
+                mode: FileAccessMode::Write,
+            },
+            Evidence {
+                file: "core/tools/nginx/nginx.conf",
+                line: 290,
+                anchor: "alias /usr/blueos/;",
+            },
+        ),
+        Evidenced::new(
+            PortKind::File {
+                path: PathRef("/usr/blueos"),
+                mode: FileAccessMode::Read,
+            },
+            Evidence {
+                file: "core/tools/nginx/nginx.conf",
+                line: 301,
+                anchor: "root /usr/blueos;",
+            },
+        ),
+    ]),
+    resources: ObservedSet::known(&[
+        Evidenced::new(
+            Resource {
+                path: PathRef("$TOOLS_PATH/nginx/nginx.conf"),
+                ownership: ResourceOwnership::SharedRead,
+            },
+            Evidence {
+                file: "core/start-blueos-core",
+                line: 143,
+                anchor: "'nginx',250,0,0,0,\"nice -18 nginx -g \\\"daemon off;\\\" -c $TOO",
+            },
+        ),
+        Evidenced::new(
+            Resource {
+                path: PathRef("/home/pi/frontend"),
+                ownership: ResourceOwnership::SharedRead,
+            },
+            Evidence {
+                file: "core/tools/nginx/nginx.conf",
+                line: 269,
+                anchor: "root /home/pi/frontend;",
+            },
+        ),
+        Evidenced::new(
+            Resource {
+                path: PathRef("/usr/blueos/"),
+                ownership: ResourceOwnership::SharedWrite,
+            },
+            Evidence {
+                file: "core/tools/nginx/nginx.conf",
+                line: 290,
+                anchor: "alias /usr/blueos/;",
+            },
+        ),
+        Evidenced::new(
+            Resource {
+                path: PathRef("/usr/blueos"),
+                ownership: ResourceOwnership::SharedRead,
+            },
+            Evidence {
+                file: "core/tools/nginx/nginx.conf",
+                line: 301,
+                anchor: "root /usr/blueos;",
+            },
+        ),
+        Evidenced::new(
+            Resource {
+                path: PathRef("/var/cache/nginx"),
+                ownership: ResourceOwnership::SharedWrite,
+            },
+            Evidence {
+                file: "core/tools/nginx/nginx.conf",
+                line: 31,
+                anchor: "proxy_cache_path /var/cache/nginx keys_zone=ourcache:10m lev",
+            },
+        ),
+        Evidenced::new(
+            Resource {
+                path: PathRef("/var/log/nginx"),
+                ownership: ResourceOwnership::SharedWrite,
+            },
+            Evidence {
+                file: "core/tools/nginx/nginx.conf",
+                line: 37,
+                anchor: "access_log /var/log/nginx/access.log;",
+            },
+        ),
+    ]),
+    lifecycle: Observed::known(
+        ObservedLifecycle {
+            triggers: &["start-blueos-core create_service"],
+            ordered_after: &[
+                ServiceId::ArdupilotManager,
+                ServiceId::CableGuy,
+                ServiceId::MavlinkCameraManager,
+                ServiceId::Mavlink2rest,
+                ServiceId::Kraken,
+                ServiceId::Wifi,
+                ServiceId::Zenohd,
+                ServiceId::Beacon,
+                ServiceId::Bridget,
+                ServiceId::Commander,
+                ServiceId::NmeaInjector,
+                ServiceId::Helper,
+                ServiceId::Iperf3,
+                ServiceId::Linux2rest,
+                ServiceId::Filebrowser,
+                ServiceId::Versionchooser,
+                ServiceId::Pardal,
+                ServiceId::Ping,
+                ServiceId::UserTerminal,
+                ServiceId::Ttyd,
+            ],
+            ordered_before: &[
+                ServiceId::BagOfHolding,
+                ServiceId::Recorder,
+                ServiceId::RecorderExtractor,
+                ServiceId::DiskUsage,
+                ServiceId::Customization,
+            ],
+        },
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 326,
+            anchor: "for TUPLE in \"${SERVICES[@]}\"; do",
+        },
+    ),
+    logs_path: Observed::known(
+        PathRef("/var/log/nginx"),
+        Evidence {
+            file: "core/tools/nginx/nginx.conf",
+            line: 37,
+            anchor: "access_log /var/log/nginx/access.log;",
+        },
+    ),
+    zenoh_log_topic: Observed::unknown(
+        "external nginx binary; does not use commonwealth init_logger zenoh publisher",
+    ),
+    sentry: Observed::unknown(
+        "external nginx binary; no init_sentry or equivalent traced in this repository",
+    ),
+    openapi_refs: ObservedSet::unknown("not yet extracted"),
+};
+
+pub const SERVICE_DEFINITION: ServiceJudgment =
+    ServiceJudgment {
+        id: ServiceId::Nginx,
+        singleton: Asserted::established(
+            true,
+            "single Normal-tier tmux instance; one nginx master process is the sole HTTP ingress on port 80",
+        ),
+        bounded_context: Asserted::established(
+            "http-ingress",
+            "provisional 2.0 domain: HTTP reverse proxy and frontend server — the vehicle's web front door",
+        ),
+        journey_refs: AssertedSet::established(&[Rationaled::new(
+            JourneyId::AccessBlueosWebInterface,
+            "operator opens the BlueOS web interface in a browser via nginx port 80",
+        )]),
+        tier: Asserted::established(
+            CriticalityTier::Important,
+            "Normal-tier sole HTTP ingress; all browser UI and nginx-proxied REST APIs are unreachable when down, but autopilot MAVLink control via ardupilot_manager and GCS does not route through nginx and the vehicle remains controllable",
+        ),
+        offline_required: Asserted::established(
+            true,
+            "frontend SPA serving, reverse proxy to localhost backends, WebDAV /upload/, and /userdata/ reads are fully local; only /cache/ outbound HTTPS proxy is an optional online enhancement",
+        ),
+        privilege_level: Asserted::established(
+            PrivilegeLevel::Root,
+            "observed run_as root in start-blueos-core Normal-tier launch line; master binds port 80 and spawns www-data worker processes",
+        ),
+        dangerous_operations: AssertedSet::established(&[Rationaled::new(
+            DangerousOperation::Other("webdav_file_mutation"),
+            "observed /upload/ WebDAV dav_methods PUT DELETE MKCOL COPY MOVE on /usr/blueos/ alias; DELETE and MOVE can irreversibly remove or relocate files over unauthenticated LAN HTTP",
+        )]),
+        user_confirmation: Asserted::established(
+            UserConfirmation::Required,
+            "rubric requires Required when dangerous_operations is non-empty; nginx does not prompt today — /upload/ DAV DELETE/MOVE is an unauthenticated LAN endpoint comparable to recorder_extractor delete_recording",
+        ),
+        capabilities: AssertedSet::established(&[
+            Rationaled::new(
+                CapabilityId::AccessBlueosWebInterface,
+                "journey capability: nginx listens on port 80 and serves the frontend SPA at / for browser access to configure vehicle services",
+            ),
+            Rationaled::new(
+                CapabilityId::ServeFrontendSpa,
+                "observed Rest / on port 80 serves static frontend from /home/pi/frontend at location /",
+            ),
+            Rationaled::new(
+                CapabilityId::ReverseProxyBackendServices,
+                "observed nginx.conf location blocks proxy_pass every catalog backend; sole HTTP ingress routing operator and frontend traffic to localhost services",
+            ),
+            Rationaled::new(
+                CapabilityId::ServeWebdavUploads,
+                "observed /upload/ WebDAV alias to /usr/blueos/ with dav_methods PUT DELETE MKCOL COPY MOVE and File write interface",
+            ),
+            Rationaled::new(
+                CapabilityId::CacheExternalHttp,
+                "observed /cache/ OutboundHttp proxy to https://$target with resolver 8.8.8.8 for outbound HTTPS caching",
+            ),
+        ]),
+        authorities: AssertedSet::established(&[Rationaled::new(
+            Authority::NginxProxy,
+            "sole catalog HTTP reverse proxy and frontend server; every browser and LAN REST consumer reaches backend services exclusively through nginx on port 80",
+        )]),
+        states: AssertedSet::unknown(
+            "external nginx binary; no in-repo state machine or lifecycle states traced",
+        ),
+        edges: AssertedSet::established(&[]),
+        resources: AssertedSet::established(&[
+            Rationaled::new(
+                Resource {
+                    path: PathRef("$TOOLS_PATH/nginx/nginx.conf"),
+                    ownership: ResourceOwnership::SharedRead,
+                },
+                "nginx master configuration defining listen ports, proxy routes, WebDAV, and cache locations",
+            ),
+            Rationaled::new(
+                Resource {
+                    path: PathRef("/home/pi/frontend"),
+                    ownership: ResourceOwnership::SharedRead,
+                },
+                "frontend SPA static assets served at / for operator browser access",
+            ),
+            Rationaled::new(
+                Resource {
+                    path: PathRef("/usr/blueos/"),
+                    ownership: ResourceOwnership::SharedWrite,
+                },
+                "WebDAV /upload/ alias target; nginx workers write uploaded files under /usr/blueos/",
+            ),
+            Rationaled::new(
+                Resource {
+                    path: PathRef("/usr/blueos"),
+                    ownership: ResourceOwnership::SharedRead,
+                },
+                "/userdata/ read serve root exposing /usr/blueos tree to operators",
+            ),
+            Rationaled::new(
+                Resource {
+                    path: PathRef("/var/cache/nginx"),
+                    ownership: ResourceOwnership::SharedWrite,
+                },
+                "on-disk cache for /cache/ outbound HTTPS proxy responses",
+            ),
+            Rationaled::new(
+                Resource {
+                    path: PathRef("/var/log/nginx"),
+                    ownership: ResourceOwnership::SharedWrite,
+                },
+                "nginx access and error logs",
+            ),
+        ]),
+        lifecycle: Lifecycle {
+            triggers: Asserted::established(
+                &["start-blueos-core create_service"],
+                "observed lifecycle trigger: tmux creation at boot in Normal tier",
+            ),
+            ordered_after: Asserted::established(
+                &[
+                    ServiceId::ArdupilotManager,
+                    ServiceId::CableGuy,
+                    ServiceId::MavlinkCameraManager,
+                    ServiceId::Mavlink2rest,
+                    ServiceId::Kraken,
+                    ServiceId::Wifi,
+                    ServiceId::Zenohd,
+                    ServiceId::Beacon,
+                    ServiceId::Bridget,
+                    ServiceId::Commander,
+                    ServiceId::NmeaInjector,
+                    ServiceId::Helper,
+                    ServiceId::Iperf3,
+                    ServiceId::Linux2rest,
+                    ServiceId::Filebrowser,
+                    ServiceId::Versionchooser,
+                    ServiceId::Pardal,
+                    ServiceId::Ping,
+                    ServiceId::UserTerminal,
+                    ServiceId::Ttyd,
+                ],
+                "observed ordered_after in start-blueos-core Normal block; nginx starts after proxied backends are up",
+            ),
+            ordered_before: Asserted::established(
+                &[
+                    ServiceId::BagOfHolding,
+                    ServiceId::Recorder,
+                    ServiceId::RecorderExtractor,
+                    ServiceId::DiskUsage,
+                    ServiceId::Customization,
+                ],
+                "observed ordered_before lists nginx before remaining SERVICES-tier peers",
+            ),
+            shutdown: Asserted::unknown(
+                "external nginx binary; no explicit shutdown handler traced in this repository",
+            ),
+            upgrade_behavior: Asserted::unknown(
+                "BlueOS upgrade restart semantics for the external nginx binary not traced in this repository",
+            ),
+        },
+        health: Asserted::established(
+            "GET /status returns HTTP 204 when nginx is online",
+            "observed /status location is an unconditional return 204 (nginx.conf:60-63); it signals nginx liveness only, not proxied-backend reachability; frontend api.ts polls it as the backend-online signal",
+        ),
+        is_platform: Asserted::established(
+            false,
+            "core infrastructure HTTP ingress; does not install or host third-party extensions",
+        ),
+        api_stable: Asserted::unknown(
+            "external binary with empty observed REST versions list; upstream nginx API stability not established from this repository",
+        ),
+        permissions_model: Asserted::established(
+            "no auth middleware traced; port 80 REST, WebDAV /upload/, and /userdata/ are unauthenticated on the LAN"
+                ,
+            "external binary without observed permission checks; LAN trust model — WebDAV DELETE/MOVE is exposed without nginx-layer confirmation",
+        ),
+        failure_modes: AssertedSet::established(&[
+            Rationaled::new(
+                "master_process_down",
+                "nginx master exit or tmux session loss removes the sole port 80 HTTP ingress",
+            ),
+            Rationaled::new(
+                "port_80_bind_failure",
+                "cannot bind port 80 blocks all browser and LAN REST access to BlueOS",
+            ),
+            Rationaled::new(
+                "frontend_spa_unavailable",
+                "/home/pi/frontend missing or unreadable prevents serving the operator web UI at /",
+            ),
+            Rationaled::new(
+                "backend_proxy_unreachable",
+                "upstream localhost backend down causes 502/504 on proxied service routes while nginx itself may still serve /status and static assets",
+            ),
+        ]),
+        blast_radius: Asserted::established(
+            "all browser web UI and nginx-proxied REST APIs become unreachable; operator cannot configure or monitor via HTTP; autopilot MAVLink routing and direct GCS vehicle control remain intact"
+                ,
+            "sole HTTP ingress outage isolates web-based operations but does not remove ardupilot_manager MAVLink control paths",
+        ),
+        compatibility_policy: Asserted::unknown(
+            "upstream nginx deprecation policy not established from this repository",
+        ),
+        team: Asserted::unknown("no CODEOWNERS or team metadata in observed artifact"),
+        adr_refs: AssertedSet::unknown("no ADR references found for external binary"),
+    };
+
+pub const SERVICE: Service = Service {
+    id: ServiceId::Nginx,
+    observed: OBSERVED_FACTS,
+    definition: SERVICE_DEFINITION,
+    runtime: RUNTIME_FACTS,
+};

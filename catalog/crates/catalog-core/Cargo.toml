@@ -1,0 +1,13 @@
+[package]
+name = "catalog-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+catalog-data = { path = "../catalog-data" }
+catalog-kernel = { path = "../catalog-kernel" }
+catalog-model = { path = "../catalog-model" }
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true

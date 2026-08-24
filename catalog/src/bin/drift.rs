@@ -1,4 +1,6 @@
-use blueos_catalog::{diff_catalog, diff_catalog_runtime, Catalog};
+use catalog_extract::drift::{diff_catalog, diff_catalog_runtime};
+
+use blueos_catalog::catalog::Catalog;
 
 fn main() {
     let catalog = Catalog::bootstrap();

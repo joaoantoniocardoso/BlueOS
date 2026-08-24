@@ -1,4 +1,6 @@
-use blueos_catalog::{export_mermaid, Catalog, ClusterPolicy};
+use blueos_catalog::catalog::Catalog;
+use blueos_catalog::export::export_mermaid;
+use catalog_analysis::cluster::{CatalogClustering, ClusterPolicy};
 
 fn main() {
     let catalog = Catalog::bootstrap();

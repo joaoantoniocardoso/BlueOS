@@ -1,0 +1,708 @@
+use catalog_kernel::criticality::CriticalityTier;
+use catalog_kernel::id::capability::CapabilityId;
+use catalog_kernel::id::journey::JourneyId;
+use catalog_kernel::id::refs::{PathRef, PortRef};
+use catalog_kernel::id::service::ServiceId;
+use catalog_kernel::provenance::GroundedSet;
+use catalog_kernel::provenance::{
+    Asserted, AssertedSet, Evidence, Evidenced, GroundedItem, Observed, ObservedSet, Provenance,
+    Rationaled,
+};
+use catalog_model::interface::{FileAccessMode, PortKind};
+use catalog_model::journey::{HttpMethod, RouteRef};
+use catalog_model::lifecycle::{Lifecycle, ObservedLifecycle};
+use catalog_model::observed::{ObservedFacts, ResourceLimits, ServiceKind, StartupTier};
+use catalog_model::resource::{Resource, ResourceOwnership};
+use catalog_model::runtime::{
+    Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts, SettingsMutation, SloBaseline,
+};
+use catalog_model::service::{Authority, Service, ServiceJudgment};
+use catalog_model::trust::{DangerousOperation, PrivilegeLevel, UserConfirmation};
+
+use catalog_kernel::capture_env::RUNTIME_CAPTURE_ENV_PI4;
+
+const RUNTIME_ENV: &str = RUNTIME_CAPTURE_ENV_PI4;
+
+pub const RUNTIME_FACTS: RuntimeFacts =
+    RuntimeFacts {
+        service: ServiceId::Kraken,
+        state_contracts: GroundedSet::unknown(
+            "kraken has no service-level state machine (service_definition states: Unknown); \
+             per-extension enabled/running state lives in settings + Docker, not modeled as kraken states",
+        ),
+        slo_baselines: GroundedSet::known(&[
+            runtime_slo(HttpMethod::Get, "/installed_extensions", 6.6, 12.6, 14.9),
+            runtime_slo(HttpMethod::Get, "/list_containers", 41.7, 56.2, 61.7),
+            runtime_slo(HttpMethod::Get, "/stats", 2026.7, 2046.7, 2052.4),
+            runtime_slo(HttpMethod::Get, "/container/", 43.1, 58.3, 60.1),
+            runtime_slo(HttpMethod::Get, "/manifest/consolidated", 846.2, 929.2, 939.1),
+        ]),
+        resource_usage: GroundedSet::known(&[
+            runtime_resource(
+                "running_baseline",
+                Distribution {
+                    mean: 1.12,
+                    median: 1.06,
+                    p95: 3.10,
+                    min: 0.0,
+                    max: 3.27,
+                    sd: 0.92,
+                },
+                flat_rss(91.8),
+                60,
+            ),
+            runtime_resource(
+                "with_extension_installed",
+                Distribution {
+                    mean: 1.11,
+                    median: 0.99,
+                    p95: 2.04,
+                    min: 0.0,
+                    max: 2.98,
+                    sd: 0.77,
+                },
+                flat_rss(91.8),
+                40,
+            ),
+        ]),
+        platform_matrix: GroundedSet::known(&[GroundedItem::new(
+            PlatformBehavior {
+                platform: "navigator",
+                firmware: None,
+                notes: &[
+                    "kraken behavior is platform-independent (Docker/extension management does not depend on the flight-controller board); not captured across boards",
+                    "runtime captured on Navigator only; RSS ~91.8 MB, CPU ~1.12% mean",
+                ],
+            },
+            runtime_prov("runtime-captures/kraken__pi4_navigator_master.json#platform_matrix"),
+        )]),
+        settings_mutations: GroundedSet::known(&[
+            runtime_settings_mutation(
+                "POST /extension/install (v1.0)",
+                &["extensions[]"],
+            ),
+            runtime_settings_mutation(
+                "POST /extension/{identifier}/disable or POST /extension/{identifier}/{tag}/enable (v2.0)",
+                &["extensions[].enabled"],
+            ),
+            runtime_settings_mutation(
+                "DELETE /extension/{identifier} (v2.0)",
+                &["extensions[]"],
+            ),
+        ]),
+    };
+
+const fn runtime_prov(key: &'static str) -> Provenance {
+    Provenance::runtime(key, RUNTIME_ENV)
+}
+
+const fn runtime_route(method: HttpMethod, path: &'static str) -> RouteRef {
+    RouteRef {
+        service: ServiceId::Kraken,
+        method,
+        path,
+        version: None,
+    }
+}
+
+const fn runtime_slo(
+    method: HttpMethod,
+    path: &'static str,
+    p50: f64,
+    p95: f64,
+    p99: f64,
+) -> GroundedItem<SloBaseline> {
+    GroundedItem::new(
+        SloBaseline {
+            route: runtime_route(method, path),
+            latency_p50_ms: p50,
+            latency_p95_ms: p95,
+            latency_p99_ms: p99,
+            sample_size: 40,
+        },
+        runtime_prov("runtime-captures/kraken__pi4_navigator_master.json#slo_running_baseline"),
+    )
+}
+
+const fn flat_rss(mb: f64) -> Distribution {
+    Distribution {
+        mean: mb,
+        median: mb,
+        p95: mb,
+        min: mb,
+        max: mb,
+        sd: 0.0,
+    }
+}
+
+const fn runtime_resource(
+    condition: &'static str,
+    cpu_pct: Distribution,
+    rss_mb: Distribution,
+    samples: u32,
+) -> GroundedItem<ResourceUsage> {
+    GroundedItem::new(
+        ResourceUsage {
+            condition,
+            cpu_pct,
+            rss_mb,
+            samples,
+        },
+        runtime_prov("runtime-captures/kraken__pi4_navigator_master.json#resource_usage"),
+    )
+}
+
+const fn runtime_settings_mutation(
+    trigger: &'static str,
+    keys_changed: &'static [&'static str],
+) -> GroundedItem<SettingsMutation> {
+    GroundedItem::new(
+        SettingsMutation {
+            trigger,
+            keys_changed,
+        },
+        runtime_prov("runtime-captures/kraken__pi4_navigator_master.json#settings_mutations"),
+    )
+}
+
+pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
+    id: ServiceId::Kraken,
+    aliases: ObservedSet::known(&[Evidenced::new(
+        "kraken",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 126,
+            anchor: "'kraken',0,0,0,0,\"nice -19 $BLUEOS_PYTHON_BIN_SECONDARY $SER",
+        },
+    )]),
+    kind: Observed::known(
+        ServiceKind::PythonService,
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 126,
+            anchor: "'kraken',0,0,0,0,\"nice -19 $BLUEOS_PYTHON_BIN_SECONDARY $SER",
+        },
+    ),
+    entrypoint: Observed::known(
+        "nice -19 $BLUEOS_PYTHON_BIN_SECONDARY $SERVICES_PATH/kraken/main.py",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 126,
+            anchor: "'kraken',0,0,0,0,\"nice -19 $BLUEOS_PYTHON_BIN_SECONDARY $SER",
+        },
+    ),
+    tmux_name: Observed::known(
+        "kraken",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 126,
+            anchor: "'kraken',0,0,0,0,\"nice -19 $BLUEOS_PYTHON_BIN_SECONDARY $SER",
+        },
+    ),
+    startup_tier: Observed::known(
+        StartupTier::Normal,
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 124,
+            anchor: "SERVICES=(",
+        },
+    ),
+    resource_limits: Observed::known(
+        ResourceLimits {
+            memory_mb: Some(0),
+            cpu_percent: Some(0),
+            io_weight: None,
+        },
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 126,
+            anchor: "'kraken',0,0,0,0,\"nice -19 $BLUEOS_PYTHON_BIN_SECONDARY $SER",
+        },
+    ),
+    nice: Observed::known(
+        -19,
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 126,
+            anchor: "'kraken',0,0,0,0,\"nice -19 $BLUEOS_PYTHON_BIN_SECONDARY $SER",
+        },
+    ),
+    run_as: Observed::known(
+        "root",
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 126,
+            anchor: "'kraken',0,0,0,0,\"nice -19 $BLUEOS_PYTHON_BIN_SECONDARY $SER",
+        },
+    ),
+    nginx_prefixes: ObservedSet::known(&[Evidenced::new(
+        PathRef("/kraken/"),
+        Evidence {
+            file: "core/tools/nginx/nginx.conf",
+            line: 153,
+            anchor: "location /kraken/ {",
+        },
+    )]),
+    listen: ObservedSet::known(&[Evidenced::new(
+        PortRef::Literal(9134),
+        Evidence {
+            file: "core/services/kraken/args.py",
+            line: 26,
+            anchor: "parser.add_argument(\"--port\", type=int, default=9134, help=\"",
+        },
+    )]),
+    git_path: Observed::known(
+        PathRef("core/services/kraken"),
+        Evidence {
+            file: "core/services/kraken/main.py",
+            line: 1,
+            anchor: "#! /usr/bin/env python3",
+        },
+    ),
+    interfaces: ObservedSet::known(&[
+        Evidenced::new(
+            PortKind::Rest {
+                path_prefix: PathRef("/kraken/"),
+                port: PortRef::Literal(9134),
+                versions: &["v1.0", "v2.0"],
+            },
+            Evidence {
+                file: "core/services/kraken/api/app.py",
+                line: 53,
+                anchor: "application = VersionedFastAPI(application, prefix_format=\"/",
+            },
+        ),
+        Evidenced::new(
+            PortKind::OutboundHttp {
+                url: "https://bluerobotics.github.io/BlueOS-Extensions-Repository/manifest.json",
+            },
+            Evidence {
+                file: "core/services/kraken/config.py",
+                line: 9,
+                anchor: "\"url\": \"https://bluerobotics.github.io/BlueOS-Extensions-Rep",
+            },
+        ),
+        Evidenced::new(
+            PortKind::OutboundHttp {
+                url: "https://blueos.cloud/major_tom/install",
+            },
+            Evidence {
+                file: "core/services/kraken/config.py",
+                line: 16,
+                anchor: "\"url\": \"https://blueos.cloud/major_tom/install\",",
+            },
+        ),
+        Evidenced::new(
+            PortKind::OutboundHttp {
+                url: "http://0.0.0.0:9134",
+            },
+            Evidence {
+                file: "core/services/kraken/main.py",
+                line: 39,
+                anchor: "jobs.set_base_host(f\"http://{args.host}:{args.port}\")",
+            },
+        ),
+        Evidenced::new(
+            PortKind::Settings {
+                path: PathRef("/root/.config/kraken/settings-2.json"),
+            },
+            Evidence {
+                file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py",
+                line: 69,
+                anchor: "return self.config_folder.joinpath(f\"{PyksonManager.SETTINGS",
+            },
+        ),
+        Evidenced::new(
+            PortKind::File {
+                path: PathRef("/var/run/docker.sock"),
+                mode: FileAccessMode::ReadWrite,
+            },
+            Evidence {
+                file: "core/services/kraken/harbor/contexts.py",
+                line: 14,
+                anchor: "self._client: Docker = Docker()",
+            },
+        ),
+        Evidenced::new(
+            PortKind::File {
+                path: PathRef("/root/.config/kraken"),
+                mode: FileAccessMode::ReadWrite,
+            },
+            Evidence {
+                file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py",
+                line: 27,
+                anchor: "else pathlib.Path(appdirs.user_config_dir(self.project_name)",
+            },
+        ),
+        Evidenced::new(
+            PortKind::Zenoh {
+                topics_produced: &["services/kraken/log"],
+                topics_consumed: &[],
+            },
+            Evidence {
+                file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
+                line: 78,
+                anchor: "topic = f\"services/{service_name}/log\"",
+            },
+        ),
+        Evidenced::new(
+            PortKind::Zenoh {
+                topics_produced: &["extensions/logs/{safe_name}"],
+                topics_consumed: &[],
+            },
+            Evidence {
+                file: "core/services/kraken/extension_logs.py",
+                line: 153,
+                anchor: "return f\"extensions/logs/{safe_name}\"",
+            },
+        ),
+        Evidenced::new(
+            PortKind::Zenoh {
+                topics_produced: &["kraken/extension/logs/request"],
+                topics_consumed: &[],
+            },
+            Evidence {
+                file: "core/services/kraken/zenoh_handlers/extension_handler.py",
+                line: 53,
+                anchor: "self.router.add_queryable(\"extension/logs/request\", self.log",
+            },
+        ),
+    ]),
+    resources: ObservedSet::known(&[
+        Evidenced::new(
+            Resource {
+                path: PathRef("/var/run/docker.sock"),
+                ownership: ResourceOwnership::SharedWrite,
+            },
+            Evidence {
+                file: "core/services/kraken/harbor/contexts.py",
+                line: 14,
+                anchor: "self._client: Docker = Docker()",
+            },
+        ),
+        Evidenced::new(
+            Resource {
+                path: PathRef("/root/.config/kraken"),
+                ownership: ResourceOwnership::SharedWrite,
+            },
+            Evidence {
+                file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py",
+                line: 27,
+                anchor: "else pathlib.Path(appdirs.user_config_dir(self.project_name)",
+            },
+        ),
+        Evidenced::new(
+            Resource {
+                path: PathRef("/root/.config/kraken/settings-2.json"),
+                ownership: ResourceOwnership::SharedWrite,
+            },
+            Evidence {
+                file: "core/libs/commonwealth/src/commonwealth/settings/managers/pykson_manager.py",
+                line: 69,
+                anchor: "return self.config_folder.joinpath(f\"{PyksonManager.SETTINGS",
+            },
+        ),
+    ]),
+    lifecycle: Observed::known(
+        ObservedLifecycle {
+            triggers: &["start-blueos-core create_service"],
+            ordered_after: &[
+                ServiceId::ArdupilotManager,
+                ServiceId::CableGuy,
+                ServiceId::MavlinkCameraManager,
+                ServiceId::Mavlink2rest,
+            ],
+            ordered_before: &[
+                ServiceId::Wifi,
+                ServiceId::Zenohd,
+                ServiceId::Beacon,
+                ServiceId::Bridget,
+                ServiceId::Commander,
+                ServiceId::NmeaInjector,
+                ServiceId::Helper,
+                ServiceId::Iperf3,
+                ServiceId::Linux2rest,
+                ServiceId::Filebrowser,
+                ServiceId::Versionchooser,
+                ServiceId::Pardal,
+                ServiceId::Ping,
+                ServiceId::UserTerminal,
+                ServiceId::Ttyd,
+                ServiceId::Nginx,
+                ServiceId::BagOfHolding,
+                ServiceId::Recorder,
+                ServiceId::RecorderExtractor,
+                ServiceId::DiskUsage,
+                ServiceId::Customization,
+            ],
+        },
+        Evidence {
+            file: "core/start-blueos-core",
+            line: 326,
+            anchor: "for TUPLE in \"${SERVICES[@]}\"; do",
+        },
+    ),
+    logs_path: Observed::unknown(
+        "init_logger publishes to zenoh only; no on-disk log path set in kraken source",
+    ),
+    zenoh_log_topic: Observed::known(
+        "services/kraken/log",
+        Evidence {
+            file: "core/libs/commonwealth/src/commonwealth/utils/logs.py",
+            line: 78,
+            anchor: "topic = f\"services/{service_name}/log\"",
+        },
+    ),
+    sentry: Observed::known(
+        true,
+        Evidence {
+            file: "core/services/kraken/main.py",
+            line: 27,
+            anchor: "await init_sentry_async(SERVICE_NAME)",
+        },
+    ),
+    openapi_refs: ObservedSet::unknown("not yet extracted"),
+};
+
+pub const SERVICE_DEFINITION: ServiceJudgment =
+    ServiceJudgment {
+        id: ServiceId::Kraken,
+        singleton: Asserted::established(
+            true,
+            "single SERVICES-tier tmux instance; ManifestManager singleton and one Kraken process",
+        ),
+        bounded_context: Asserted::established(
+            "extension-lifecycle-management",
+            "provisional 2.0 domain: Docker-based extension platform — manifests, install, configure, lifecycle",
+        ),
+        journey_refs: AssertedSet::established(&[
+            Rationaled::new(
+                JourneyId::AddCustomManifest,
+                "POST /manifest/ registers external extension collection sources",
+            ),
+            Rationaled::new(
+                JourneyId::BrowseExtensionStore,
+                "Store tab lists extensions from consolidated manifests",
+            ),
+            Rationaled::new(
+                JourneyId::ConfigureInstalledExtension,
+                "Installed tab permissions, logs, restart, and disable routes",
+            ),
+            Rationaled::new(
+                JourneyId::EditExtensionDevVersion,
+                "PUT /extension/{identifier}/{tag} switches docker tag for dev versions",
+            ),
+            Rationaled::new(
+                JourneyId::InstallCustomExtension,
+                "POST /extension/ registers a custom Docker image via the blue plus flow",
+            ),
+            Rationaled::new(
+                JourneyId::InstallExtension,
+                "POST /extension/{identifier}/{tag}/install pulls and enables store extensions",
+            ),
+            Rationaled::new(
+                JourneyId::UninstallExtension,
+                "DELETE /extension/{identifier}/{tag} removes an installed extension version",
+            ),
+        ]),
+        tier: Asserted::established(
+            CriticalityTier::Auxiliary,
+            "SERVICES startup tier; core vehicle operation does not depend on Kraken, though individual extensions may be critical",
+        ),
+        offline_required: Asserted::established(
+            false,
+            "manifest fetch, store browse, and image pull require network; installed extensions continue under Docker offline",
+        ),
+        privilege_level: Asserted::established(
+            PrivilegeLevel::Root,
+            "observed run_as root; read-write /var/run/docker.sock can start arbitrary containers",
+        ),
+        dangerous_operations: AssertedSet::established(&[
+            Rationaled::new(
+                DangerousOperation::Other("install_arbitrary_docker_image"),
+                "POST /extension/ and install routes pull and register user-supplied Docker images",
+            ),
+            Rationaled::new(
+                DangerousOperation::Other("run_privileged_containers"),
+                "Extension.start creates containers from manifest HostConfig via the Docker API",
+            ),
+            Rationaled::new(
+                DangerousOperation::Upgrade,
+                "PUT /extension/{identifier}/{tag} and install update replace running extension images",
+            ),
+        ]),
+        user_confirmation: Asserted::established(
+            UserConfirmation::Required,
+            "installing and running third-party Docker images can affect vehicle networking, storage, and MAVLink consumers",
+        ),
+        capabilities: AssertedSet::established(&[
+            Rationaled::new(
+                CapabilityId::BrowseExtensionStore,
+                "GET /manifest/consolidated and manifest-backed store listing",
+            ),
+            Rationaled::new(
+                CapabilityId::ConfigureExtension,
+                "PUT /extension/{identifier} edits permissions and user_permissions settings",
+            ),
+            Rationaled::new(
+                CapabilityId::InstallExtension,
+                "POST /extension/ and POST /extension/{identifier}/{tag}/install pull and register images",
+            ),
+            Rationaled::new(
+                CapabilityId::ManageExtensionLifecycle,
+                "restart/disable routes, starter task, and ContainerManager orchestration",
+            ),
+            Rationaled::new(
+                CapabilityId::ManageManifests,
+                "ManifestManager CRUD and POST /manifest/ for external collection sources",
+            ),
+            Rationaled::new(
+                CapabilityId::UninstallExtension,
+                "DELETE /extension/{identifier}/{tag} and Extension.uninstall container/image removal",
+            ),
+        ]),
+        authorities: AssertedSet::established(&[
+            Rationaled::new(
+                Authority::Other("docker_extension_orchestrator"),
+                "sole BlueOS service that creates, starts, stops, and removes extension-* Docker containers",
+            ),
+            Rationaled::new(
+                Authority::UserdataWriter(PathRef("/root/.config/kraken")),
+                "owns extension and manifest settings under the kraken config directory",
+            ),
+        ]),
+        states: AssertedSet::unknown(
+            "no cataloged state machine; per-extension enabled/running is implicit in settings and Docker, not modeled as service states",
+        ),
+        edges: AssertedSet::established(&[]),
+        resources: AssertedSet::established(&[
+            Rationaled::new(
+                Resource {
+                    path: PathRef("/var/run/docker.sock"),
+                    ownership: ResourceOwnership::SharedWrite,
+                },
+                "primary Docker API client; other processes may share the socket but Kraken is the extension orchestrator",
+            ),
+            Rationaled::new(
+                Resource {
+                    path: PathRef("/root/.config/kraken"),
+                    ownership: ResourceOwnership::SharedWrite,
+                },
+                "service-owned settings tree for extensions and manifests",
+            ),
+            Rationaled::new(
+                Resource {
+                    path: PathRef("/root/.config/kraken/settings-2.json"),
+                    ownership: ResourceOwnership::SharedWrite,
+                },
+                "SettingsV2 persistence file written by Manager save",
+            ),
+        ]),
+        lifecycle: Lifecycle {
+            triggers: Asserted::established(
+                &["start-blueos-core create_service"],
+                "observed lifecycle trigger: tmux creation at boot in SERVICES tier",
+            ),
+            ordered_after: Asserted::established(
+                &[
+                    ServiceId::ArdupilotManager,
+                    ServiceId::CableGuy,
+                    ServiceId::MavlinkCameraManager,
+                    ServiceId::Mavlink2rest,
+                ],
+                "observed ordered_after in start-blueos-core SERVICES block",
+            ),
+            ordered_before: Asserted::established(
+                &[
+                    ServiceId::Wifi,
+                    ServiceId::Zenohd,
+                    ServiceId::Beacon,
+                    ServiceId::Bridget,
+                    ServiceId::Commander,
+                    ServiceId::NmeaInjector,
+                    ServiceId::Helper,
+                    ServiceId::Iperf3,
+                    ServiceId::Linux2rest,
+                    ServiceId::Filebrowser,
+                    ServiceId::Versionchooser,
+                    ServiceId::Pardal,
+                    ServiceId::Ping,
+                    ServiceId::UserTerminal,
+                    ServiceId::Ttyd,
+                    ServiceId::Nginx,
+                    ServiceId::BagOfHolding,
+                    ServiceId::Recorder,
+                    ServiceId::RecorderExtractor,
+                    ServiceId::DiskUsage,
+                    ServiceId::Customization,
+                ],
+                "observed ordered_before lists Kraken before remaining SERVICES-tier peers",
+            ),
+            shutdown: Asserted::established(
+                "jobs.stop and extension_log_publisher.shutdown on uvicorn server exit",
+                "main.py awaits server shutdown then stops JobsManager and Kraken background tasks",
+            ),
+            upgrade_behavior: Asserted::unknown(
+                "BlueOS upgrade semantics for in-flight extension containers and image cache not traced in service source",
+            ),
+        },
+        health: Asserted::established(
+            "implicit: process liveness via tmux; REST root redirects; starter and cleaner background tasks",
+            "no dedicated /health route; background tasks and REST availability serve as health signals",
+        ),
+        is_platform: Asserted::established(
+            true,
+            "installs and runs third-party Docker containers as BlueOS extensions via harbor/ and extension/extension.py",
+        ),
+        api_stable: Asserted::established(
+            true,
+            "versioned FastAPI v1.0 and v2.0 routers exposed under /kraken/; v2 is the active extension API surface",
+        ),
+        permissions_model: Asserted::established(
+            "extension manifest permissions JSON with optional user_permissions override in settings",
+            "permissions from Docker image labels; PUT /extension/{identifier} persists user_permissions overrides",
+        ),
+        failure_modes: AssertedSet::established(&[
+            Rationaled::new(
+                "docker_daemon_unavailable",
+                "init_dead_extensions and kill_dangling_containers abort when ContainerManager cannot list containers",
+            ),
+            Rationaled::new(
+                "manifest_fetch_failure",
+                "ManifestBackendOffline and ManifestDataFetchFailed block store browse and version resolution",
+            ),
+            Rationaled::new(
+                "image_pull_failure",
+                "ExtensionPullFailed on install/start when registry is unreachable or image incompatible",
+            ),
+            Rationaled::new(
+                "extension_crash_loop",
+                "starter task retries with exponential backoff via Extension.start_attempts",
+            ),
+            Rationaled::new(
+                "insufficient_storage",
+                "ExtensionInsufficientStorage when expanded_size exceeds available disk",
+            ),
+            Rationaled::new(
+                "incompatible_extension",
+                "IncompatibleExtension when manifest has no compatible image digest for the platform",
+            ),
+        ]),
+        blast_radius: Asserted::established(
+            "extension install/configure unavailable; already-running extension containers may persist under Docker; core vehicle services unaffected"
+                ,
+            "Kraken outage blocks extension management but not autopilot, MAVLink, or nginx core paths",
+        ),
+        compatibility_policy: Asserted::unknown(
+            "extension image compatibility matrix and API deprecation policy between v1 and v2 not established from source",
+        ),
+        team: Asserted::unknown("no CODEOWNERS or team metadata in observed artifact"),
+        adr_refs: AssertedSet::unknown("no ADR references found in service source tree"),
+    };
+
+pub const SERVICE: Service = Service {
+    id: ServiceId::Kraken,
+    observed: OBSERVED_FACTS,
+    definition: SERVICE_DEFINITION,
+    runtime: RUNTIME_FACTS,
+};

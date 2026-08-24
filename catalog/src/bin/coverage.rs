@@ -1,7 +1,9 @@
-use blueos_catalog::coverage::{
-    coverage_report, CoverageKind, CoverageReport, KindCounts, TRACKER_CSV_PATH, TRACKER_MAPPINGS,
+use blueos_catalog::catalog::Catalog;
+use blueos_catalog::cli::percent;
+use catalog_analysis::coverage::{
+    coverage_report, CoverageKind, CoverageReport, KindCounts, TRACKER_CSV_PATH,
 };
-use blueos_catalog::Catalog;
+use catalog_analysis::coverage_mappings::TRACKER_MAPPINGS;
 
 fn main() {
     let catalog = Catalog::bootstrap();
@@ -77,12 +79,4 @@ fn print_kind_counts(counts: &KindCounts) {
     println!("  Unmodeled: {}", counts.unmodeled);
     println!("  External:  {}", counts.external);
     println!("  Ignore:    {}", counts.ignore);
-}
-
-fn percent(part: usize, total: usize) -> f64 {
-    if total == 0 {
-        0.0
-    } else {
-        (part as f64) * 100.0 / (total as f64)
-    }
 }

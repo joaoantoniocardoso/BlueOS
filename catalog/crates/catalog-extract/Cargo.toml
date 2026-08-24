@@ -1,0 +1,12 @@
+[package]
+name = "catalog-extract"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+catalog-core = { path = "../catalog-core" }
+catalog-kernel = { path = "../catalog-kernel" }
+catalog-model = { path = "../catalog-model" }
+catalog-paths = { path = "../catalog-paths" }
+schemars.workspace = true
+serde.workspace = true

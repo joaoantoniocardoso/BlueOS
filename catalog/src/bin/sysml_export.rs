@@ -3,8 +3,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
+use blueos_catalog::catalog::Catalog;
+use blueos_catalog::cli::flag_value;
 use blueos_catalog::export_sysml::{export_sysml, SysmlExportFilter, DEFAULT_SYSML_SUBSET_GOLDEN};
-use blueos_catalog::Catalog;
 
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().collect();
@@ -83,13 +84,6 @@ fn write_output(path: &Path, output: &str) -> ExitCode {
             ExitCode::FAILURE
         }
     }
-}
-
-fn flag_value(args: &[String], flag: &str) -> Option<String> {
-    args.iter()
-        .position(|arg| arg == flag)
-        .and_then(|index| args.get(index + 1))
-        .cloned()
 }
 
 fn print_help() {

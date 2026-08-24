@@ -1,98 +1,43 @@
-use std::collections::HashMap;
+use std::ops::Deref;
 
-use schemars::JsonSchema;
-use serde::Serialize;
+#[derive(Debug, Clone, PartialEq, serde::Serialize, schemars::JsonSchema)]
+#[serde(transparent)]
+pub struct Catalog(pub catalog_core::catalog::Catalog);
 
-use crate::id::{JourneyId, ServiceId};
-use crate::journey::UseCase;
-use crate::observed::ObservedFacts;
-use crate::page::{Page, PageId};
-use crate::runtime::RuntimeFacts;
-use crate::service::{Service, ServiceJudgment};
-use crate::validate::ValidationError;
+impl Deref for Catalog {
+    type Target = catalog_core::catalog::Catalog;
 
-#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
-pub struct Catalog {
-    services: Vec<Service>,
-    journeys: Vec<UseCase>,
-    pages: Vec<Page>,
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
-pub struct CouplingMatrix {
-    pub service_ids: Vec<ServiceId>,
-    pub weights: Vec<Vec<f64>>,
+impl AsRef<catalog_core::catalog::Catalog> for Catalog {
+    fn as_ref(&self) -> &catalog_core::catalog::Catalog {
+        &self.0
+    }
 }
 
 impl Catalog {
     pub fn new() -> Self {
-        Self {
-            services: Vec::new(),
-            journeys: Vec::new(),
-            pages: Vec::new(),
-        }
+        Self(catalog_core::catalog::Catalog::new())
     }
 
-    pub fn with_parts(services: Vec<Service>, journeys: Vec<UseCase>, pages: Vec<Page>) -> Self {
-        Self {
-            services,
-            journeys,
-            pages,
-        }
+    pub fn with_parts(
+        services: Vec<catalog_model::service::Service>,
+        journeys: Vec<catalog_model::journey::UseCase>,
+        pages: Vec<catalog_model::page::Page>,
+    ) -> Self {
+        Self(catalog_core::catalog::Catalog::with_parts(
+            services, journeys, pages,
+        ))
     }
 
     pub fn bootstrap() -> Self {
-        Self::with_parts(
-            crate::services::all_services(),
-            crate::journeys::all_journeys(),
-            crate::pages::all_pages(),
-        )
+        Self(catalog_core::catalog::Catalog::bootstrap())
     }
 
-    pub fn services(&self) -> &[Service] {
-        &self.services
-    }
-
-    pub fn service_by_id(&self, id: &ServiceId) -> Option<&Service> {
-        self.services.iter().find(|service| &service.id == id)
-    }
-
-    pub fn definition_by_id(&self, id: &ServiceId) -> Option<&ServiceJudgment> {
-        self.service_by_id(id).map(|service| &service.definition)
-    }
-
-    pub fn observed_by_id(&self, id: &ServiceId) -> Option<&ObservedFacts> {
-        self.service_by_id(id).map(|service| &service.observed)
-    }
-
-    pub fn runtime_by_id(&self, id: &ServiceId) -> Option<&RuntimeFacts> {
-        self.service_by_id(id).map(|service| &service.runtime)
-    }
-
-    pub fn journeys(&self) -> &[UseCase] {
-        &self.journeys
-    }
-
-    pub fn journey_by_id(&self, id: &JourneyId) -> Option<&UseCase> {
-        self.journeys.iter().find(|journey| &journey.id == id)
-    }
-
-    pub fn pages(&self) -> &[Page] {
-        &self.pages
-    }
-
-    pub fn page_by_id(&self, id: &PageId) -> Option<&Page> {
-        self.pages.iter().find(|page| &page.id == id)
-    }
-
-    pub fn service_index(&self) -> HashMap<&ServiceId, &Service> {
-        self.services
-            .iter()
-            .map(|service| (&service.id, service))
-            .collect()
-    }
-
-    pub fn validate(&self) -> Result<(), Vec<ValidationError>> {
+    pub fn validate(&self) -> Result<(), Vec<catalog_core::validate::ValidationError>> {
         crate::validate::validate(self)
     }
 }

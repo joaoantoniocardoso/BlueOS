@@ -1,0 +1,18 @@
+[package]
+name = "catalog-derive"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+catalog-analysis = { path = "../catalog-analysis" }
+catalog-core = { path = "../catalog-core" }
+catalog-data = { path = "../catalog-data" }
+catalog-harness = { path = "../catalog-harness" }
+catalog-kernel = { path = "../catalog-kernel" }
+catalog-model = { path = "../catalog-model" }
+catalog-paths = { path = "../catalog-paths" }
+catalog-provenance = { path = "../catalog-provenance" }
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true

@@ -1,5 +1,6 @@
-use blueos_catalog::Catalog;
-use blueos_catalog::{tier2_mutating_coverage, Tier2MutatingCoverage};
+use blueos_catalog::catalog::Catalog;
+use blueos_catalog::cli::percent;
+use catalog_harness::mutating_smoke::{tier2_mutating_coverage, Tier2MutatingCoverage};
 
 fn main() {
     let catalog = Catalog::bootstrap();
@@ -40,13 +41,5 @@ fn print_report(coverage: &Tier2MutatingCoverage) {
         for journey_id in &coverage.excluded {
             println!("  {journey_id}");
         }
-    }
-}
-
-fn percent(part: usize, total: usize) -> f64 {
-    if total == 0 {
-        0.0
-    } else {
-        (part as f64) * 100.0 / (total as f64)
     }
 }

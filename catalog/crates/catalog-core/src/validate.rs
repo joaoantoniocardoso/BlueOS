@@ -1,0 +1,1634 @@
+use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
+
+use serde_json::Value;
+use thiserror::Error;
+
+use crate::catalog::Catalog;
+use crate::http::resolve_http_path;
+use catalog_kernel::aggregate::Aggregate;
+use catalog_kernel::domain::ALL_AGGREGATES;
+use catalog_kernel::domain::DOMAINS;
+use catalog_kernel::id::capability::CapabilityId;
+use catalog_kernel::id::journey::JourneyId;
+use catalog_kernel::id::page::PageId;
+use catalog_kernel::id::service::ServiceId;
+use catalog_kernel::provenance::AssertedSet;
+use catalog_kernel::provenance::Grounded;
+use catalog_kernel::provenance::GroundedSet;
+use catalog_kernel::provenance::ObservedSet;
+use catalog_kernel::provenance::Provenance;
+use catalog_kernel::version::availability_is_valid;
+use catalog_model::http::http_method_label;
+use catalog_model::journey::UseCase;
+use catalog_model::page::ConsumeTarget;
+use catalog_model::resource::ResourceOwnership;
+use catalog_model::service::{Authority, Service, ServiceJudgment};
+use catalog_model::state::StateMachine;
+
+// M1 will calibrate this against reference service cards.
+pub const COVERAGE_UNKNOWN_THRESHOLD: usize = 10_000;
+
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum ValidationError {
+    #[error("exclusive resource {resource} claimed by {first} and {second}")]
+    DuplicateExclusiveResource {
+        resource: String,
+        first: String,
+        second: String,
+    },
+    #[error("authority {authority} claimed by {first} and {second}")]
+    ConflictingAuthority {
+        authority: String,
+        first: String,
+        second: String,
+    },
+    #[error("edge from {from} targets unknown service {to}")]
+    UnknownEdgeTarget { from: String, to: String },
+    #[error("coverage gate failed: {unknown_count} unknown required fields exceeds threshold {threshold}")]
+    CoverageGateFailed {
+        unknown_count: usize,
+        threshold: usize,
+    },
+    #[error("journey {journey} references unknown service {service}")]
+    UnknownJourneyService { journey: String, service: String },
+    #[error("journey {journey} references unknown capability {capability}")]
+    UnknownJourneyCapability { journey: String, capability: String },
+    #[error("journey {journey} references unknown state {state} in machine {machine}")]
+    UnknownJourneyState {
+        journey: String,
+        machine: String,
+        state: String,
+    },
+    #[error("journey {journey} chains from unknown journey {chains_from}")]
+    UnknownJourneyChain {
+        journey: String,
+        chains_from: String,
+    },
+    #[error("journey {journey} has invalid availability: {reason}")]
+    InvalidJourneyAvailability {
+        journey: String,
+        reason: &'static str,
+    },
+    #[error("service {service} references unknown journey {journey}")]
+    UnknownServiceJourneyRef { service: String, journey: String },
+    #[error(
+        "runtime facts reference unknown state {state} in machine {machine} for service {service}"
+    )]
+    UnknownRuntimeState {
+        service: String,
+        machine: String,
+        state: String,
+    },
+    #[error("page {page} consumes unknown service {service}")]
+    UnknownPageService { page: String, service: String },
+    #[error("page {page} has empty frontend feature capability id")]
+    EmptyPageFrontendFeature { page: String },
+    #[error("duplicate page id {page}")]
+    DuplicatePageId { page: String },
+    #[error(
+        "journey {journey} step {step} route resolves to {resolved} but capture {capture} has no matching GET key ({hint})"
+    )]
+    JourneyRuntimeRouteMismatch {
+        journey: String,
+        step: usize,
+        resolved: String,
+        capture: String,
+        hint: String,
+    },
+    #[error(
+        "journey {journey} step {step} route resolves to {resolved} but frontend {store_file} expects {expected}"
+    )]
+    FrontendRoutePrefixDropped {
+        journey: String,
+        step: usize,
+        resolved: String,
+        expected: String,
+        store_file: &'static str,
+    },
+    #[error("aggregate {aggregate} assigned to domains {first} and {second}")]
+    DuplicateAggregateDomain {
+        aggregate: String,
+        first: String,
+        second: String,
+    },
+    #[error("aggregate {aggregate} is not assigned to any domain")]
+    UnassignedAggregate { aggregate: String },
+    #[error("requirement validation failed: {detail}")]
+    RequirementStructure { detail: String },
+    #[error("function {function} references unknown capability {capability}")]
+    UnknownFunctionCapability {
+        function: String,
+        capability: String,
+    },
+    #[error("function {function} has no verifying journeys")]
+    FunctionNoVerifyingJourneys { function: String },
+    #[error("function id {function} equals journey id")]
+    FunctionIdEqualsJourneyId { function: String },
+    #[error("function id {function} looks like an http path")]
+    FunctionIdContainsHttpPath { function: String },
+    #[error("function {function} has no FUN requirement")]
+    MissingFunRequirement { function: String },
+    #[error("FUN requirement {id} missing function_id")]
+    FunRequirementMissingFunctionId { id: String },
+    #[error("FUN requirement {id} has no verifying journeys")]
+    FunRequirementNoVerifyingJourneys { id: String },
+    #[error("system requirement {id} child {child} is not a FUN requirement id")]
+    SystemChildNotFunId { id: String, child: String },
+}
+
+pub fn validate(catalog: &Catalog) -> Result<(), Vec<ValidationError>> {
+    let mut errors = Vec::new();
+    errors.extend(check_exclusive_resources(catalog));
+    errors.extend(check_conflicting_authorities(catalog));
+    errors.extend(check_edge_targets(catalog));
+    errors.extend(check_service_journey_refs(catalog));
+    errors.extend(check_journey_references(catalog));
+    errors.extend(check_journey_runtime_route_consistency(catalog));
+    errors.extend(crate::frontend_routes::check_frontend_route_refs(catalog));
+    check_runtime_references(catalog, &mut errors);
+    errors.extend(check_page_references(catalog));
+    errors.extend(check_coverage_gate(catalog));
+    errors.extend(check_domain_taxonomy());
+
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors)
+    }
+}
+
+fn check_exclusive_resources(catalog: &Catalog) -> Vec<ValidationError> {
+    let mut claims: HashMap<String, ServiceId> = HashMap::new();
+    let mut errors = Vec::new();
+
+    for service in catalog.services() {
+        if let ObservedSet::Known { items } = &service.observed.listen {
+            for port_ref in items.iter().map(|e| &e.value) {
+                if let catalog_kernel::id::refs::PortRef::Literal(port) = port_ref {
+                    let key = format!("port:{port}");
+                    track_exclusive_claim(&mut claims, &mut errors, &service.id, key);
+                }
+            }
+        }
+
+        if let AssertedSet::Established { items } = &service.definition.resources {
+            for resource in items.iter().map(|r| &r.value) {
+                if resource.ownership == ResourceOwnership::Exclusive {
+                    let key = format!("resource:{}", resource.path.0);
+                    track_exclusive_claim(&mut claims, &mut errors, &service.id, key);
+                }
+            }
+        }
+    }
+
+    errors
+}
+
+fn track_exclusive_claim(
+    claims: &mut HashMap<String, ServiceId>,
+    errors: &mut Vec<ValidationError>,
+    service_id: &ServiceId,
+    key: String,
+) {
+    if let Some(existing) = claims.get(&key) {
+        if existing != service_id {
+            errors.push(ValidationError::DuplicateExclusiveResource {
+                resource: key,
+                first: existing.to_string(),
+                second: service_id.to_string(),
+            });
+        }
+    } else {
+        claims.insert(key, *service_id);
+    }
+}
+
+fn check_conflicting_authorities(catalog: &Catalog) -> Vec<ValidationError> {
+    let mut claims: HashMap<String, ServiceId> = HashMap::new();
+    let mut errors = Vec::new();
+
+    for service in catalog.services() {
+        if let AssertedSet::Established { items } = &service.definition.authorities {
+            for authority in items.iter().map(|a| &a.value) {
+                let key = authority_key(authority);
+                if let Some(existing) = claims.get(&key) {
+                    if existing != &service.id {
+                        errors.push(ValidationError::ConflictingAuthority {
+                            authority: key,
+                            first: existing.to_string(),
+                            second: service.id.to_string(),
+                        });
+                    }
+                } else {
+                    claims.insert(key, service.id);
+                }
+            }
+        }
+    }
+
+    errors
+}
+
+fn authority_key(authority: &Authority) -> String {
+    match authority {
+        Authority::MavlinkRouterOwner => "mavlink_router_owner".to_string(),
+        Authority::NginxProxy => "nginx_proxy".to_string(),
+        Authority::ZenohBroker => "zenoh_broker".to_string(),
+        Authority::UserdataWriter(path) => format!("userdata_writer:{}", path.0),
+        Authority::HardwareExclusive(path) => format!("hardware_exclusive:{}", path.0),
+        Authority::Other(name) => format!("other:{name}"),
+    }
+}
+
+fn check_edge_targets(catalog: &Catalog) -> Vec<ValidationError> {
+    let known_ids: HashSet<&ServiceId> = catalog.services().iter().map(|s| &s.id).collect();
+    let mut errors = Vec::new();
+
+    for service in catalog.services() {
+        if let AssertedSet::Established { items } = &service.definition.edges {
+            for edge in items.iter().map(|e| &e.value) {
+                if !known_ids.contains(&edge.to) {
+                    errors.push(ValidationError::UnknownEdgeTarget {
+                        from: service.id.to_string(),
+                        to: edge.to.to_string(),
+                    });
+                }
+            }
+        }
+    }
+
+    errors
+}
+
+fn check_service_journey_refs(catalog: &Catalog) -> Vec<ValidationError> {
+    let known_journey_ids: HashSet<&JourneyId> = catalog.journeys().iter().map(|j| &j.id).collect();
+    let mut errors = Vec::new();
+
+    for service in catalog.services() {
+        if let AssertedSet::Established { items } = &service.definition.journey_refs {
+            for journey_ref in items.iter().map(|j| &j.value) {
+                if !known_journey_ids.contains(journey_ref) {
+                    errors.push(ValidationError::UnknownServiceJourneyRef {
+                        service: service.id.to_string(),
+                        journey: journey_ref.to_string(),
+                    });
+                }
+            }
+        }
+    }
+
+    errors
+}
+
+fn check_journey_references(catalog: &Catalog) -> Vec<ValidationError> {
+    let known_service_ids: HashSet<&ServiceId> = catalog.services().iter().map(|s| &s.id).collect();
+    let known_journey_ids: HashSet<&JourneyId> = catalog.journeys().iter().map(|j| &j.id).collect();
+    let service_index = catalog.service_index();
+    let mut errors = Vec::new();
+
+    for journey in catalog.journeys() {
+        let journey_id = journey.id.to_string();
+        let participating = participating_service_ids(journey);
+
+        if let Err(reason) = availability_is_valid(&journey.availability) {
+            errors.push(ValidationError::InvalidJourneyAvailability {
+                journey: journey_id.clone(),
+                reason,
+            });
+        }
+
+        if let Some(chains_from) = &journey.chains_from {
+            if !known_journey_ids.contains(chains_from) {
+                errors.push(ValidationError::UnknownJourneyChain {
+                    journey: journey_id.clone(),
+                    chains_from: chains_from.to_string(),
+                });
+            }
+        }
+
+        if let GroundedSet::Known { items } = &journey.services {
+            for item in items.iter() {
+                if !known_service_ids.contains(&item.value) {
+                    errors.push(ValidationError::UnknownJourneyService {
+                        journey: journey_id.clone(),
+                        service: item.value.to_string(),
+                    });
+                }
+            }
+        }
+
+        if let GroundedSet::Known { items } = &journey.capability_refs {
+            for item in items.iter() {
+                if !capability_in_participating_services(
+                    &item.value,
+                    &participating,
+                    &service_index,
+                ) && !is_frontend_capability(&item.value)
+                {
+                    errors.push(ValidationError::UnknownJourneyCapability {
+                        journey: journey_id.clone(),
+                        capability: item.value.to_string(),
+                    });
+                }
+            }
+        }
+
+        if let GroundedSet::Known { items } = &journey.steps {
+            for item in items.iter() {
+                if let Some(catalog_kernel::provenance::Grounded::Known { value: route, .. }) =
+                    &item.value.route
+                {
+                    if !known_service_ids.contains(&route.service) {
+                        errors.push(ValidationError::UnknownJourneyService {
+                            journey: journey_id.clone(),
+                            service: route.service.to_string(),
+                        });
+                    }
+                }
+                if let Some(catalog_kernel::provenance::Grounded::Known {
+                    value: outcome, ..
+                }) = &item.value.outcome
+                {
+                    if let Some(transition) = &outcome.transition {
+                        for state in [&transition.from, &transition.to] {
+                            if !state_in_participating_services(
+                                transition.machine,
+                                state,
+                                &participating,
+                                &service_index,
+                            ) {
+                                errors.push(ValidationError::UnknownJourneyState {
+                                    journey: journey_id.clone(),
+                                    machine: transition.machine.to_string(),
+                                    state: state.to_string(),
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    errors
+}
+
+fn check_journey_runtime_route_consistency(catalog: &Catalog) -> Vec<ValidationError> {
+    let crate_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../");
+    let mut capture_cache: HashMap<&'static str, Value> = HashMap::new();
+    let mut errors = Vec::new();
+
+    for journey in catalog.journeys() {
+        let GroundedSet::Known { items: steps } = &journey.steps else {
+            continue;
+        };
+        let journey_id = journey.id.to_string();
+
+        for (step_index, step) in steps.iter().enumerate() {
+            let Some(Grounded::Known {
+                value: route_ref, ..
+            }) = &step.value.route
+            else {
+                continue;
+            };
+            let Some(Grounded::Known {
+                value: outcome,
+                provenance,
+            }) = &step.value.outcome
+            else {
+                continue;
+            };
+            let Provenance::Runtime { capture, .. } = provenance else {
+                continue;
+            };
+            if outcome.expected_status.is_none() {
+                continue;
+            }
+            let Some(resolved) = resolve_http_path(catalog, route_ref) else {
+                continue;
+            };
+
+            let Some((file, section_name)) = capture.split_once('#') else {
+                continue;
+            };
+            let doc = match load_runtime_capture(&crate_dir, file, &mut capture_cache) {
+                Some(doc) => doc,
+                None => continue,
+            };
+            let Some(section) = doc.get(section_name).and_then(Value::as_object) else {
+                errors.push(ValidationError::JourneyRuntimeRouteMismatch {
+                    journey: journey_id.clone(),
+                    step: step_index,
+                    resolved: resolved.clone(),
+                    capture: capture.to_string(),
+                    hint: format!("section '{section_name}' not found in {file}"),
+                });
+                continue;
+            };
+
+            let method_label = http_method_label(&route_ref.method);
+            let method_prefix = format!("{method_label} ");
+            let route_keys: Vec<&str> = section
+                .keys()
+                .filter(|key| key.starts_with(method_prefix.as_str()))
+                .map(String::as_str)
+                .collect();
+            let matched = route_keys.iter().any(|key| {
+                capture_route_path(key, method_label)
+                    .is_some_and(|capture_path| paths_match(&resolved, capture_path))
+            });
+            if !matched {
+                errors.push(ValidationError::JourneyRuntimeRouteMismatch {
+                    journey: journey_id.clone(),
+                    step: step_index,
+                    resolved,
+                    capture: capture.to_string(),
+                    hint: format_available_route_keys(method_label, &route_keys),
+                });
+            }
+        }
+    }
+
+    errors
+}
+
+fn load_runtime_capture<'a>(
+    crate_dir: &Path,
+    file: &'static str,
+    cache: &'a mut HashMap<&'static str, Value>,
+) -> Option<&'a Value> {
+    if !cache.contains_key(file) {
+        let path = crate_dir.join(file);
+        let content = std::fs::read_to_string(path).ok()?;
+        let doc: Value = serde_json::from_str(&content).ok()?;
+        cache.insert(file, doc);
+    }
+    cache.get(file)
+}
+
+fn capture_route_path<'a>(key: &'a str, method_label: &str) -> Option<&'a str> {
+    key.strip_prefix(&format!("{method_label} "))
+}
+
+fn normalize_http_path(path: &str) -> String {
+    if path.len() > 1 && path.ends_with('/') {
+        path.trim_end_matches('/').to_string()
+    } else {
+        path.to_string()
+    }
+}
+
+fn paths_match(resolved: &str, capture_path: &str) -> bool {
+    if resolved == capture_path {
+        return true;
+    }
+    if normalize_http_path(resolved) == normalize_http_path(capture_path) {
+        return true;
+    }
+    capture_path
+        .strip_prefix(resolved)
+        .is_some_and(|suffix| suffix.is_empty() || suffix.starts_with('?'))
+}
+
+fn format_available_route_keys(method_label: &str, keys: &[&str]) -> String {
+    const MAX_KEYS: usize = 8;
+    let preview: Vec<&str> = keys.iter().copied().take(MAX_KEYS).collect();
+    let mut hint = preview.join(", ");
+    if keys.len() > MAX_KEYS {
+        hint.push_str(&format!(", … (+{} more)", keys.len() - MAX_KEYS));
+    }
+    if hint.is_empty() {
+        hint = format!("(no {method_label} keys in section)");
+    }
+    hint
+}
+
+fn participating_service_ids(journey: &UseCase) -> Vec<&ServiceId> {
+    match &journey.services {
+        GroundedSet::Known { items } => items.iter().map(|item| &item.value).collect(),
+        GroundedSet::Unknown { .. } => Vec::new(),
+    }
+}
+
+fn is_frontend_capability(capability: &CapabilityId) -> bool {
+    catalog_data::capability_registry::is_frontend_capability(capability)
+}
+
+fn capability_in_participating_services(
+    capability: &CapabilityId,
+    participating: &[&ServiceId],
+    service_index: &HashMap<&ServiceId, &Service>,
+) -> bool {
+    participating.iter().any(|service_id| {
+        service_index
+            .get(service_id)
+            .and_then(|service| match &service.definition.capabilities {
+                AssertedSet::Established { items } => {
+                    Some(items.iter().any(|item| &item.value == capability))
+                }
+                AssertedSet::Unknown { .. } => None,
+            })
+            .unwrap_or(false)
+    })
+}
+
+fn state_in_participating_services(
+    machine: &str,
+    state: &str,
+    participating: &[&ServiceId],
+    service_index: &HashMap<&ServiceId, &Service>,
+) -> bool {
+    participating.iter().any(|service_id| {
+        service_index
+            .get(service_id)
+            .and_then(|service| match &service.definition.states {
+                AssertedSet::Established { items } => {
+                    Some(state_in_machines(machine, state, items))
+                }
+                AssertedSet::Unknown { .. } => None,
+            })
+            .unwrap_or(false)
+    })
+}
+
+fn state_in_machines(
+    machine: &str,
+    state: &str,
+    machines: &[catalog_kernel::provenance::Rationaled<StateMachine>],
+) -> bool {
+    machines
+        .iter()
+        .any(|item| item.value.name == machine && item.value.states.contains(&state))
+}
+
+fn check_runtime_references(catalog: &Catalog, errors: &mut Vec<ValidationError>) {
+    let service_index = catalog.service_index();
+
+    for service in catalog.services() {
+        let service_id = service.id.to_string();
+        if let GroundedSet::Known { items } = &service.runtime.state_contracts {
+            for item in items.iter() {
+                let contract = &item.value;
+                if !state_in_service(
+                    &service.id,
+                    contract.machine,
+                    contract.state,
+                    &service_index,
+                ) {
+                    errors.push(ValidationError::UnknownRuntimeState {
+                        service: service_id.clone(),
+                        machine: contract.machine.to_string(),
+                        state: contract.state.to_string(),
+                    });
+                }
+            }
+        }
+
+        // Route refs in state_contracts and slo_baselines are covered by api_contracts coverage
+        // (SLO/journey/page/probe vs extracted inventory). Missing inventory routes do not fail validate().
+        // resource_usage carries no catalog references and needs no cross-ref check.
+    }
+}
+
+fn state_in_service(
+    service_id: &ServiceId,
+    machine: &str,
+    state: &str,
+    service_index: &HashMap<&ServiceId, &Service>,
+) -> bool {
+    service_index
+        .get(service_id)
+        .and_then(|service| match &service.definition.states {
+            AssertedSet::Established { items } => Some(state_in_machines(machine, state, items)),
+            AssertedSet::Unknown { .. } => None,
+        })
+        .unwrap_or(false)
+}
+
+fn check_page_references(catalog: &Catalog) -> Vec<ValidationError> {
+    if catalog.pages().is_empty() {
+        return Vec::new();
+    }
+
+    let known_service_ids: HashSet<&ServiceId> = catalog.services().iter().map(|s| &s.id).collect();
+    let mut seen_page_ids: HashSet<&PageId> = HashSet::new();
+    let mut errors = Vec::new();
+
+    for page in catalog.pages() {
+        let page_id = page.id.to_string();
+
+        if !seen_page_ids.insert(&page.id) {
+            errors.push(ValidationError::DuplicatePageId {
+                page: page_id.clone(),
+            });
+        }
+
+        if let ObservedSet::Known { items } = &page.consumes {
+            for item in items.iter() {
+                if let ConsumeTarget::Service(id) = &item.value.service {
+                    if !known_service_ids.contains(id) {
+                        errors.push(ValidationError::UnknownPageService {
+                            page: page_id.clone(),
+                            service: id.to_string(),
+                        });
+                    }
+                }
+            }
+        }
+
+        if let AssertedSet::Established { items } = &page.frontend_features {
+            for item in items.iter() {
+                if item.value.as_str().is_empty() {
+                    errors.push(ValidationError::EmptyPageFrontendFeature {
+                        page: page_id.clone(),
+                    });
+                }
+            }
+        }
+    }
+
+    errors
+}
+
+fn check_coverage_gate(catalog: &Catalog) -> Vec<ValidationError> {
+    let unknown_count: usize = catalog
+        .services()
+        .iter()
+        .map(|service| count_unknown_in_service(&service.definition))
+        .sum();
+
+    if unknown_count > COVERAGE_UNKNOWN_THRESHOLD {
+        vec![ValidationError::CoverageGateFailed {
+            unknown_count,
+            threshold: COVERAGE_UNKNOWN_THRESHOLD,
+        }]
+    } else {
+        Vec::new()
+    }
+}
+
+fn check_domain_taxonomy() -> Vec<ValidationError> {
+    let mut errors = Vec::new();
+    let mut owner: HashMap<Aggregate, &'static str> = HashMap::new();
+
+    for def in DOMAINS {
+        for &aggregate in def.aggregates {
+            if let Some(first) = owner.insert(aggregate, def.id.as_str()) {
+                errors.push(ValidationError::DuplicateAggregateDomain {
+                    aggregate: aggregate.to_string(),
+                    first: first.to_owned(),
+                    second: def.id.as_str().to_owned(),
+                });
+            }
+        }
+    }
+
+    for &aggregate in ALL_AGGREGATES {
+        if !owner.contains_key(&aggregate) {
+            errors.push(ValidationError::UnassignedAggregate {
+                aggregate: aggregate.to_string(),
+            });
+        }
+    }
+
+    errors
+}
+
+fn count_unknown_in_service(service: &ServiceJudgment) -> usize {
+    let mut count = 0;
+    count += service.singleton.is_unknown() as usize;
+    count += service.bounded_context.is_unknown() as usize;
+    count += service.journey_refs.is_unknown() as usize;
+    count += service.tier.is_unknown() as usize;
+    count += service.offline_required.is_unknown() as usize;
+    count += service.privilege_level.is_unknown() as usize;
+    count += service.dangerous_operations.is_unknown() as usize;
+    count += service.user_confirmation.is_unknown() as usize;
+    count += service.capabilities.is_unknown() as usize;
+    count += service.authorities.is_unknown() as usize;
+    count += service.states.is_unknown() as usize;
+    count += service.edges.is_unknown() as usize;
+    count += service.resources.is_unknown() as usize;
+    count += service.lifecycle.triggers.is_unknown() as usize;
+    count += service.lifecycle.ordered_after.is_unknown() as usize;
+    count += service.lifecycle.ordered_before.is_unknown() as usize;
+    count += service.lifecycle.shutdown.is_unknown() as usize;
+    count += service.lifecycle.upgrade_behavior.is_unknown() as usize;
+    count += service.health.is_unknown() as usize;
+    count += service.is_platform.is_unknown() as usize;
+    count += service.api_stable.is_unknown() as usize;
+    count += service.permissions_model.is_unknown() as usize;
+    count += service.failure_modes.is_unknown() as usize;
+    count += service.blast_radius.is_unknown() as usize;
+    count += service.compatibility_policy.is_unknown() as usize;
+    count += service.team.is_unknown() as usize;
+    count += service.adr_refs.is_unknown() as usize;
+    count
+}
+
+pub fn requirements_check_applies(catalog: &Catalog) -> bool {
+    catalog.services().len() == catalog_data::all_services().len()
+        && catalog.journeys().len() == catalog_data::all_journeys().len()
+        && catalog.pages().len() == catalog_data::all_pages().len()
+}
+
+pub fn functions_check_applies(catalog: &Catalog) -> bool {
+    requirements_check_applies(catalog)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use catalog_kernel::id::capability::CapabilityId;
+    use catalog_kernel::id::journey::JourneyId;
+    use catalog_kernel::id::page::PageId;
+    use catalog_kernel::id::refs::PathRef;
+    use catalog_kernel::id::service::ServiceId;
+    use catalog_kernel::provenance::Asserted;
+    use catalog_kernel::provenance::AssertedSet;
+    use catalog_kernel::provenance::Evidence;
+    use catalog_kernel::provenance::Evidenced;
+    use catalog_kernel::provenance::Grounded;
+    use catalog_kernel::provenance::GroundedItem;
+    use catalog_kernel::provenance::GroundedSet;
+    use catalog_kernel::provenance::Observed;
+    use catalog_kernel::provenance::ObservedSet;
+    use catalog_kernel::provenance::Provenance;
+    use catalog_kernel::provenance::Rationaled;
+    use catalog_kernel::version::Availability;
+    use catalog_model::edge::{Bus, Connection, FailureImpact, SyncMode};
+    use catalog_model::journey::{
+        Actor, BodyKind, HttpMethod, JourneyStep, RouteRef, StateTransition, StepOutcome, UseCase,
+        Visibility, BLAST_RADIUS_UNKNOWN,
+    };
+    use catalog_model::lifecycle::Lifecycle;
+    use catalog_model::observed::ObservedFacts;
+    use catalog_model::page::{ConsumeTarget, Page, PageServiceCall};
+    use catalog_model::resource::{Resource, ResourceOwnership};
+    use catalog_model::runtime::{RuntimeFacts, StateContract};
+    use catalog_model::service::Service;
+    use catalog_model::state::StateMachine;
+
+    const TEST_PRESENCE: Availability = Availability {
+        intro_commit: "0000000000000000000000000000000000000001",
+        present_in_tags: &["1.0.0"],
+        present_on_master: true,
+        present_on_1_4_dev: true,
+    };
+
+    const fn evidence() -> Evidence {
+        Evidence {
+            file: "test.rs",
+            line: 1,
+            anchor: "",
+        }
+    }
+
+    fn empty_service(id: ServiceId) -> ServiceJudgment {
+        ServiceJudgment {
+            id,
+            singleton: Asserted::unknown("not established"),
+            bounded_context: Asserted::unknown("not established"),
+            journey_refs: AssertedSet::unknown("not established"),
+            tier: Asserted::unknown("not established"),
+            offline_required: Asserted::unknown("not established"),
+            privilege_level: Asserted::unknown("not established"),
+            dangerous_operations: AssertedSet::unknown("not established"),
+            user_confirmation: Asserted::unknown("not established"),
+            capabilities: AssertedSet::unknown("not established"),
+            authorities: AssertedSet::unknown("not established"),
+            states: AssertedSet::unknown("not established"),
+            edges: AssertedSet::unknown("not established"),
+            resources: AssertedSet::unknown("not established"),
+            lifecycle: Lifecycle {
+                triggers: Asserted::unknown("not established"),
+                ordered_after: Asserted::unknown("not established"),
+                ordered_before: Asserted::unknown("not established"),
+                shutdown: Asserted::unknown("not established"),
+                upgrade_behavior: Asserted::unknown("not established"),
+            },
+            health: Asserted::unknown("not established"),
+            is_platform: Asserted::unknown("not established"),
+            api_stable: Asserted::unknown("not established"),
+            permissions_model: Asserted::unknown("not established"),
+            failure_modes: AssertedSet::unknown("not established"),
+            blast_radius: Asserted::unknown("not established"),
+            compatibility_policy: Asserted::unknown("not established"),
+            team: Asserted::unknown("not established"),
+            adr_refs: AssertedSet::unknown("not established"),
+        }
+    }
+
+    fn empty_observed(id: ServiceId) -> ObservedFacts {
+        ObservedFacts {
+            id,
+            aliases: ObservedSet::unknown("not extracted"),
+            kind: Observed::unknown("not extracted"),
+            entrypoint: Observed::unknown("not extracted"),
+            tmux_name: Observed::unknown("not extracted"),
+            startup_tier: Observed::unknown("not extracted"),
+            resource_limits: Observed::unknown("not extracted"),
+            nice: Observed::unknown("not extracted"),
+            run_as: Observed::unknown("not extracted"),
+            nginx_prefixes: ObservedSet::unknown("not extracted"),
+            listen: ObservedSet::unknown("not extracted"),
+            git_path: Observed::unknown("not extracted"),
+            interfaces: ObservedSet::unknown("not extracted"),
+            resources: ObservedSet::unknown("not extracted"),
+            lifecycle: Observed::unknown("not extracted"),
+            logs_path: Observed::unknown("not extracted"),
+            zenoh_log_topic: Observed::unknown("not extracted"),
+            sentry: Observed::unknown("not extracted"),
+            openapi_refs: ObservedSet::unknown("not extracted"),
+        }
+    }
+
+    fn empty_runtime(id: ServiceId) -> RuntimeFacts {
+        RuntimeFacts {
+            service: id,
+            state_contracts: GroundedSet::unknown("not captured"),
+            slo_baselines: GroundedSet::unknown("not captured"),
+            resource_usage: GroundedSet::unknown("not captured"),
+            platform_matrix: GroundedSet::unknown("not captured"),
+            settings_mutations: GroundedSet::unknown("not captured"),
+        }
+    }
+
+    fn svc(
+        id: ServiceId,
+        observed: ObservedFacts,
+        definition: ServiceJudgment,
+        runtime: RuntimeFacts,
+    ) -> Service {
+        Service {
+            id,
+            observed,
+            definition,
+            runtime,
+        }
+    }
+
+    #[test]
+    fn empty_catalog_passes_validate() {
+        let catalog = Catalog::new();
+        assert!(catalog.validate().is_ok());
+    }
+
+    #[test]
+    fn bootstrap_catalog_passes_validate() {
+        let catalog = Catalog::bootstrap();
+        assert!(catalog.validate().is_ok());
+    }
+
+    #[test]
+    fn requirement_structure_check_applies_only_on_bootstrap_catalog() {
+        assert!(!requirements_check_applies(&Catalog::new()));
+        assert!(requirements_check_applies(&Catalog::bootstrap()));
+    }
+
+    #[test]
+    fn minimal_catalog_with_unknown_fields_passes() {
+        let service = empty_service(ServiceId::Helper);
+        let observed = empty_observed(ServiceId::Helper);
+        let catalog = Catalog::with_parts(
+            vec![svc(
+                ServiceId::Helper,
+                observed,
+                service,
+                empty_runtime(ServiceId::Helper),
+            )],
+            vec![],
+            vec![],
+        );
+        assert!(catalog.validate().is_ok());
+    }
+
+    #[test]
+    fn duplicate_exclusive_port_fails() {
+        let mut service_a = empty_service(ServiceId::Ping);
+        service_a.resources = AssertedSet::established(
+            const {
+                &[Rationaled::new(
+                    Resource {
+                        path: PathRef("/dev/ttyUSB0"),
+                        ownership: ResourceOwnership::Exclusive,
+                    },
+                    "test",
+                )]
+            },
+        );
+        let mut service_b = empty_service(ServiceId::Beacon);
+        service_b.resources = AssertedSet::established(
+            const {
+                &[Rationaled::new(
+                    Resource {
+                        path: PathRef("/dev/ttyUSB0"),
+                        ownership: ResourceOwnership::Exclusive,
+                    },
+                    "test",
+                )]
+            },
+        );
+
+        let mut observed_a = empty_observed(ServiceId::Ping);
+        observed_a.listen = ObservedSet::known(
+            const {
+                &[Evidenced::new(
+                    catalog_kernel::id::refs::PortRef::Literal(8000),
+                    evidence(),
+                )]
+            },
+        );
+        let mut observed_b = empty_observed(ServiceId::Beacon);
+        observed_b.listen = ObservedSet::known(
+            const {
+                &[Evidenced::new(
+                    catalog_kernel::id::refs::PortRef::Literal(8000),
+                    evidence(),
+                )]
+            },
+        );
+
+        let catalog = Catalog::with_parts(
+            vec![
+                svc(
+                    ServiceId::Ping,
+                    observed_a,
+                    service_a,
+                    empty_runtime(ServiceId::Ping),
+                ),
+                svc(
+                    ServiceId::Beacon,
+                    observed_b,
+                    service_b,
+                    empty_runtime(ServiceId::Beacon),
+                ),
+            ],
+            vec![],
+            vec![],
+        );
+        let result = catalog.validate();
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::DuplicateExclusiveResource { .. })));
+    }
+
+    #[test]
+    fn unknown_edge_target_fails() {
+        let mut service_a = empty_service(ServiceId::Ping);
+        service_a.edges = AssertedSet::established(
+            const {
+                &[Rationaled::new(
+                    Connection {
+                        from: ServiceId::Ping,
+                        to: ServiceId::Zenohd,
+                        via: Bus::Rest,
+                        sync: SyncMode::Sync,
+                        endpoint: "/helper/",
+                        purpose: "call helper",
+                        required_at_boot: false,
+                        failure_impact: FailureImpact::Degraded,
+                    },
+                    "test",
+                )]
+            },
+        );
+
+        let catalog = Catalog::with_parts(
+            vec![svc(
+                ServiceId::Ping,
+                empty_observed(ServiceId::Ping),
+                service_a,
+                empty_runtime(ServiceId::Ping),
+            )],
+            vec![],
+            vec![],
+        );
+        let result = catalog.validate();
+        assert!(result.is_err());
+        let errors = result.unwrap_err();
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::UnknownEdgeTarget { .. })));
+    }
+
+    fn valid_journey_service(id: ServiceId) -> ServiceJudgment {
+        let mut service = empty_service(id);
+        service.capabilities =
+            AssertedSet::established(const { &[Rationaled::new(CapabilityId::Deploy, "test")] });
+        service.states = AssertedSet::established(
+            const {
+                &[Rationaled::new(
+                    StateMachine {
+                        name: "lifecycle",
+                        states: &["idle", "running"],
+                        boot_state: "idle",
+                        degraded_when: &[],
+                    },
+                    "test",
+                )]
+            },
+        );
+        service
+    }
+
+    fn valid_journey() -> UseCase {
+        UseCase {
+            id: JourneyId::Deploy,
+            summary: Grounded::known("deploy vehicle", Provenance::doc("docs/deploy.md", 1, "")),
+            visibility: Grounded::known(
+                Visibility::Default,
+                Provenance::doc("docs/deploy.md", 2, ""),
+            ),
+            services: GroundedSet::known(
+                const {
+                    &[GroundedItem::new(
+                        ServiceId::Helper,
+                        Provenance::doc("docs/deploy.md", 3, ""),
+                    )]
+                },
+            ),
+            capability_refs: GroundedSet::known(
+                const {
+                    &[GroundedItem::new(
+                        CapabilityId::Deploy,
+                        Provenance::doc("docs/deploy.md", 4, ""),
+                    )]
+                },
+            ),
+            preconditions: GroundedSet::unknown("not grounded"),
+            steps: GroundedSet::known(
+                const {
+                    &[GroundedItem::new(
+                        JourneyStep {
+                            actor: Actor::Operator,
+                            description: "call deploy endpoint",
+                            route: Some(Grounded::known(
+                                RouteRef {
+                                    service: ServiceId::Helper,
+                                    method: HttpMethod::Post,
+                                    path: "/deploy",
+                                    version: Some("v1"),
+                                },
+                                Provenance::doc("docs/deploy.md", 5, ""),
+                            )),
+                            outcome: Some(Grounded::known(
+                                StepOutcome {
+                                    expected_status: Some(200),
+                                    body_predicate: None,
+                                    body_kind: BodyKind::Unknown,
+                                    transition: Some(StateTransition {
+                                        machine: "lifecycle",
+                                        from: "idle",
+                                        to: "running",
+                                    }),
+                                },
+                                Provenance::runtime("tests/baselines/helper.json", "lab"),
+                            )),
+                        },
+                        Provenance::source("helper/main.py", 10, ""),
+                    )]
+                },
+            ),
+            availability: TEST_PRESENCE,
+            blast_radius: BLAST_RADIUS_UNKNOWN,
+            chains_from: None,
+        }
+    }
+
+    #[test]
+    fn invalid_journey_availability_fails_validate() {
+        let service = valid_journey_service(ServiceId::Helper);
+        let journey = UseCase {
+            availability: Availability::unknown(),
+            ..valid_journey()
+        };
+        let catalog = Catalog::with_parts(
+            vec![svc(
+                ServiceId::Helper,
+                empty_observed(ServiceId::Helper),
+                service,
+                empty_runtime(ServiceId::Helper),
+            )],
+            vec![journey],
+            vec![],
+        );
+        let errors = catalog.validate().unwrap_err();
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::InvalidJourneyAvailability { .. })));
+    }
+
+    #[test]
+    fn bootstrap_catalog_harness_stubs_do_not_fail_validate() {
+        let catalog = Catalog::bootstrap();
+        assert!(catalog.validate().is_ok());
+    }
+
+    #[test]
+    fn valid_journey_passes_validate() {
+        let service = valid_journey_service(ServiceId::Helper);
+        let observed = empty_observed(ServiceId::Helper);
+        let catalog = Catalog::with_parts(
+            vec![svc(
+                ServiceId::Helper,
+                observed,
+                service,
+                empty_runtime(ServiceId::Helper),
+            )],
+            vec![valid_journey()],
+            vec![],
+        );
+        assert!(catalog.validate().is_ok());
+    }
+
+    #[test]
+    fn unknown_journey_service_ref_fails() {
+        let service = valid_journey_service(ServiceId::Helper);
+        let journey = UseCase {
+            services: GroundedSet::known(
+                const {
+                    &[GroundedItem::new(
+                        ServiceId::Zenohd,
+                        Provenance::doc("docs/deploy.md", 1, ""),
+                    )]
+                },
+            ),
+            ..valid_journey()
+        };
+        let catalog = Catalog::with_parts(
+            vec![svc(
+                ServiceId::Helper,
+                empty_observed(ServiceId::Helper),
+                service,
+                empty_runtime(ServiceId::Helper),
+            )],
+            vec![journey],
+            vec![],
+        );
+        let errors = catalog.validate().unwrap_err();
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::UnknownJourneyService { .. })));
+    }
+
+    #[test]
+    fn unknown_journey_route_service_fails() {
+        let service = valid_journey_service(ServiceId::Helper);
+        let journey = UseCase {
+            steps: GroundedSet::known(
+                const {
+                    &[GroundedItem::new(
+                        JourneyStep {
+                            actor: Actor::Operator,
+                            description: "call deploy endpoint",
+                            route: Some(Grounded::known(
+                                RouteRef {
+                                    service: ServiceId::Zenohd,
+                                    method: HttpMethod::Post,
+                                    path: "/deploy",
+                                    version: Some("v1"),
+                                },
+                                Provenance::doc("docs/deploy.md", 5, ""),
+                            )),
+                            outcome: Some(Grounded::known(
+                                StepOutcome {
+                                    expected_status: Some(200),
+                                    body_predicate: None,
+                                    body_kind: BodyKind::Unknown,
+                                    transition: Some(StateTransition {
+                                        machine: "lifecycle",
+                                        from: "idle",
+                                        to: "running",
+                                    }),
+                                },
+                                Provenance::runtime("tests/baselines/helper.json", "lab"),
+                            )),
+                        },
+                        Provenance::source("helper/main.py", 10, ""),
+                    )]
+                },
+            ),
+            ..valid_journey()
+        };
+        let catalog = Catalog::with_parts(
+            vec![svc(
+                ServiceId::Helper,
+                empty_observed(ServiceId::Helper),
+                service,
+                empty_runtime(ServiceId::Helper),
+            )],
+            vec![journey],
+            vec![],
+        );
+        let errors = catalog.validate().unwrap_err();
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::UnknownJourneyService { .. })));
+    }
+
+    #[test]
+    fn unknown_journey_capability_fails() {
+        let service = valid_journey_service(ServiceId::Helper);
+        let mut journey = valid_journey();
+        journey.capability_refs = GroundedSet::known(
+            const {
+                &[GroundedItem::new(
+                    CapabilityId::FlashFirmware,
+                    Provenance::doc("docs/deploy.md", 1, ""),
+                )]
+            },
+        );
+        let catalog = Catalog::with_parts(
+            vec![svc(
+                ServiceId::Helper,
+                empty_observed(ServiceId::Helper),
+                service,
+                empty_runtime(ServiceId::Helper),
+            )],
+            vec![journey],
+            vec![],
+        );
+        let errors = catalog.validate().unwrap_err();
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::UnknownJourneyCapability { .. })));
+    }
+
+    #[test]
+    fn unknown_journey_state_fails() {
+        let service = valid_journey_service(ServiceId::Helper);
+        let journey = UseCase {
+            steps: GroundedSet::known(
+                const {
+                    &[GroundedItem::new(
+                        JourneyStep {
+                            actor: Actor::Operator,
+                            description: "call deploy endpoint",
+                            route: Some(Grounded::known(
+                                RouteRef {
+                                    service: ServiceId::Helper,
+                                    method: HttpMethod::Post,
+                                    path: "/deploy",
+                                    version: Some("v1"),
+                                },
+                                Provenance::doc("docs/deploy.md", 5, ""),
+                            )),
+                            outcome: Some(Grounded::known(
+                                StepOutcome {
+                                    expected_status: Some(200),
+                                    body_predicate: None,
+                                    body_kind: BodyKind::Unknown,
+                                    transition: Some(StateTransition {
+                                        machine: "lifecycle",
+                                        from: "idle",
+                                        to: "missing",
+                                    }),
+                                },
+                                Provenance::runtime("tests/baselines/helper.json", "lab"),
+                            )),
+                        },
+                        Provenance::source("helper/main.py", 10, ""),
+                    )]
+                },
+            ),
+            ..valid_journey()
+        };
+        let catalog = Catalog::with_parts(
+            vec![svc(
+                ServiceId::Helper,
+                empty_observed(ServiceId::Helper),
+                service,
+                empty_runtime(ServiceId::Helper),
+            )],
+            vec![journey],
+            vec![],
+        );
+        let errors = catalog.validate().unwrap_err();
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::UnknownJourneyState { .. })));
+    }
+
+    #[test]
+    fn unknown_journey_state_machine_name_fails() {
+        let service = valid_journey_service(ServiceId::Helper);
+        let journey = UseCase {
+            steps: GroundedSet::known(
+                const {
+                    &[GroundedItem::new(
+                        JourneyStep {
+                            actor: Actor::Operator,
+                            description: "call deploy endpoint",
+                            route: Some(Grounded::known(
+                                RouteRef {
+                                    service: ServiceId::Helper,
+                                    method: HttpMethod::Post,
+                                    path: "/deploy",
+                                    version: Some("v1"),
+                                },
+                                Provenance::doc("docs/deploy.md", 5, ""),
+                            )),
+                            outcome: Some(Grounded::known(
+                                StepOutcome {
+                                    expected_status: Some(200),
+                                    body_predicate: None,
+                                    body_kind: BodyKind::Unknown,
+                                    transition: Some(StateTransition {
+                                        machine: "nonexistent",
+                                        from: "idle",
+                                        to: "running",
+                                    }),
+                                },
+                                Provenance::runtime("tests/baselines/helper.json", "lab"),
+                            )),
+                        },
+                        Provenance::source("helper/main.py", 10, ""),
+                    )]
+                },
+            ),
+            ..valid_journey()
+        };
+        let catalog = Catalog::with_parts(
+            vec![svc(
+                ServiceId::Helper,
+                empty_observed(ServiceId::Helper),
+                service,
+                empty_runtime(ServiceId::Helper),
+            )],
+            vec![journey],
+            vec![],
+        );
+        let errors = catalog.validate().unwrap_err();
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::UnknownJourneyState { .. })));
+    }
+
+    #[test]
+    fn unknown_journey_chain_fails() {
+        let service = valid_journey_service(ServiceId::Helper);
+        let mut journey = valid_journey();
+        journey.chains_from = Some(JourneyId::RebootOnboardComputer);
+        let catalog = Catalog::with_parts(
+            vec![svc(
+                ServiceId::Helper,
+                empty_observed(ServiceId::Helper),
+                service,
+                empty_runtime(ServiceId::Helper),
+            )],
+            vec![journey],
+            vec![],
+        );
+        let errors = catalog.validate().unwrap_err();
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::UnknownJourneyChain { .. })));
+    }
+
+    #[test]
+    fn unknown_service_journey_ref_fails() {
+        let mut service = empty_service(ServiceId::Helper);
+        service.journey_refs = AssertedSet::established(
+            const { &[Rationaled::new(JourneyId::RebootOnboardComputer, "test")] },
+        );
+        let catalog = Catalog::with_parts(
+            vec![svc(
+                ServiceId::Helper,
+                empty_observed(ServiceId::Helper),
+                service,
+                empty_runtime(ServiceId::Helper),
+            )],
+            vec![],
+            vec![],
+        );
+        let errors = catalog.validate().unwrap_err();
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::UnknownServiceJourneyRef { .. })));
+    }
+
+    #[test]
+    fn unknown_runtime_state_fails() {
+        let service = valid_journey_service(ServiceId::Helper);
+        let runtime = RuntimeFacts {
+            service: ServiceId::Helper,
+            state_contracts: GroundedSet::known(
+                const {
+                    &[GroundedItem::new(
+                        StateContract {
+                            machine: "lifecycle",
+                            state: "missing",
+                            route: RouteRef {
+                                service: ServiceId::Helper,
+                                method: HttpMethod::Get,
+                                path: "/status",
+                                version: None,
+                            },
+                            status: 200,
+                            body_predicate: None,
+                        },
+                        Provenance::runtime("runtime-captures/sample.json#k", "lab"),
+                    )]
+                },
+            ),
+            slo_baselines: GroundedSet::unknown("not captured"),
+            resource_usage: GroundedSet::unknown("not captured"),
+            platform_matrix: GroundedSet::unknown("not captured"),
+            settings_mutations: GroundedSet::unknown("not captured"),
+        };
+        let catalog = Catalog::with_parts(
+            vec![svc(
+                ServiceId::Helper,
+                empty_observed(ServiceId::Helper),
+                service,
+                runtime,
+            )],
+            vec![],
+            vec![],
+        );
+        let errors = catalog.validate().unwrap_err();
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::UnknownRuntimeState { .. })));
+    }
+
+    const fn consume(target: ConsumeTarget) -> Evidenced<PageServiceCall> {
+        Evidenced::new(
+            PageServiceCall {
+                service: target,
+                endpoint: "GET /status",
+                purpose: "load page data",
+            },
+            evidence(),
+        )
+    }
+
+    fn sample_page(consumes: ObservedSet<PageServiceCall>) -> Page {
+        Page {
+            id: PageId::VehicleSetup,
+            route: Observed::known("/vehicle/setup", evidence()),
+            name: Observed::known("Vehicle Setup", evidence()),
+            component: Observed::known("core/frontend/src/views/VehicleSetupView.vue", evidence()),
+            menu_title: Observed::unknown("not in menu"),
+            advanced_only: Observed::unknown("not in menu"),
+            stores: ObservedSet::unknown("not extracted"),
+            consumes,
+            frontend_features: AssertedSet::established(
+                const {
+                    &[Rationaled::new(
+                        CapabilityId::CalibrateAccelerometer,
+                        "client-side only",
+                    )]
+                },
+            ),
+            client_state: AssertedSet::unknown("not established"),
+        }
+    }
+
+    #[test]
+    fn valid_page_passes_validate() {
+        let service = empty_service(ServiceId::Helper);
+        let observed = empty_observed(ServiceId::Helper);
+        let page = sample_page(ObservedSet::known(
+            const { &[consume(ConsumeTarget::Service(ServiceId::Helper))] },
+        ));
+        let catalog = Catalog::with_parts(
+            vec![svc(
+                ServiceId::Helper,
+                observed,
+                service,
+                empty_runtime(ServiceId::Helper),
+            )],
+            vec![],
+            vec![page],
+        );
+        assert!(catalog.validate().is_ok());
+    }
+
+    #[test]
+    fn unknown_page_service_call_fails() {
+        let service = empty_service(ServiceId::Helper);
+        let observed = empty_observed(ServiceId::Helper);
+        let page = sample_page(ObservedSet::known(
+            const { &[consume(ConsumeTarget::Service(ServiceId::Zenohd))] },
+        ));
+        let catalog = Catalog::with_parts(
+            vec![svc(
+                ServiceId::Helper,
+                observed,
+                service,
+                empty_runtime(ServiceId::Helper),
+            )],
+            vec![],
+            vec![page],
+        );
+        let errors = catalog.validate().unwrap_err();
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::UnknownPageService { .. })));
+    }
+
+    #[test]
+    fn external_page_service_call_passes() {
+        let service = empty_service(ServiceId::Helper);
+        let observed = empty_observed(ServiceId::Helper);
+        let page = sample_page(ObservedSet::known(
+            const { &[consume(ConsumeTarget::External)] },
+        ));
+        let catalog = Catalog::with_parts(
+            vec![svc(
+                ServiceId::Helper,
+                observed,
+                service,
+                empty_runtime(ServiceId::Helper),
+            )],
+            vec![],
+            vec![page],
+        );
+        assert!(catalog.validate().is_ok());
+    }
+
+    #[test]
+    fn journey_runtime_route_mismatch_detected() {
+        use catalog_data::backend::services::helper::OBSERVED_FACTS;
+
+        let service = empty_service(ServiceId::Helper);
+        let journey = UseCase {
+            id: JourneyId::MonitorInternetConnectivity,
+            summary: Grounded::known("test", Provenance::doc("test.md", 1, "")),
+            visibility: Grounded::known(Visibility::Default, Provenance::doc("test.md", 1, "")),
+            services: GroundedSet::known(
+                const {
+                    &[GroundedItem::new(
+                        ServiceId::Helper,
+                        Provenance::doc("test.md", 1, ""),
+                    )]
+                },
+            ),
+            capability_refs: GroundedSet::known(&[]),
+            preconditions: GroundedSet::known(&[]),
+            steps: GroundedSet::known(
+                const {
+                    &[GroundedItem::new(
+                        JourneyStep {
+                            actor: Actor::Service(ServiceId::Helper),
+                            description: "probe",
+                            route: Some(Grounded::known(
+                                RouteRef {
+                                    service: ServiceId::Helper,
+                                    method: HttpMethod::Get,
+                                    path: "/check_internet_access",
+                                    version: Some("v1.0"),
+                                },
+                                Provenance::source("helper/main.py", 1, ""),
+                            )),
+                            outcome: Some(Grounded::known(
+                                StepOutcome {
+                                    expected_status: Some(200),
+                                    body_predicate: Some("\"online\": true"),
+                                    body_kind: BodyKind::Unknown,
+                                    transition: None,
+                                },
+                                Provenance::runtime(
+                                    "runtime-captures/validate_test__fixture.json#running_baseline",
+                                    "test",
+                                ),
+                            )),
+                        },
+                        Provenance::source("helper/main.py", 1, ""),
+                    )]
+                },
+            ),
+            availability: TEST_PRESENCE,
+            blast_radius: BLAST_RADIUS_UNKNOWN,
+            chains_from: None,
+        };
+        let catalog = Catalog::with_parts(
+            vec![svc(
+                ServiceId::Helper,
+                OBSERVED_FACTS,
+                service,
+                empty_runtime(ServiceId::Helper),
+            )],
+            vec![journey],
+            vec![],
+        );
+        let errors = catalog.validate().unwrap_err();
+        assert!(errors.iter().any(|error| {
+            matches!(
+                error,
+                ValidationError::JourneyRuntimeRouteMismatch {
+                    journey,
+                    step: 0,
+                    resolved,
+                    ..
+                } if journey == "monitor_internet_connectivity"
+                    && resolved == "/helper/v1.0/check_internet_access"
+            )
+        }));
+    }
+}

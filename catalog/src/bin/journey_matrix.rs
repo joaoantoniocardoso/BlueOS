@@ -1,9 +1,11 @@
 use std::path::PathBuf;
 use std::process;
 
-use blueos_catalog::{
-    blank_both_violations, build_journey_matrix, format_matrix, load_report_hits, Catalog,
+use catalog_analysis::journey_matrix::{
+    blank_both_violations, build_journey_matrix, format_matrix, load_report_hits,
 };
+
+use blueos_catalog::catalog::Catalog;
 
 fn main() {
     let mut merge_paths: Vec<PathBuf> = Vec::new();

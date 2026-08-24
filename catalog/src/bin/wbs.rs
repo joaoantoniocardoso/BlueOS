@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 
-use blueos_catalog::domain::{ALL_AGGREGATES, DOMAINS};
-use blueos_catalog::function::ActionCatalog;
-use blueos_catalog::id::CapabilityId;
-use blueos_catalog::{declared_capabilities, Aggregate, Catalog, Domain};
+use catalog_derive::feature::{declared_capabilities, DeclaredCapability};
+use catalog_derive::function::ActionCatalog;
+use catalog_kernel::aggregate::Aggregate;
+use catalog_kernel::domain::{Domain, ALL_AGGREGATES, DOMAINS};
+use catalog_kernel::id::capability::CapabilityId;
+
+use blueos_catalog::catalog::Catalog;
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
@@ -52,10 +55,7 @@ fn main() {
     print_text(&report);
 }
 
-fn build_report(
-    capabilities: &[blueos_catalog::DeclaredCapability],
-    functions: &ActionCatalog,
-) -> WbsReport {
+fn build_report(capabilities: &[DeclaredCapability], functions: &ActionCatalog) -> WbsReport {
     let mut by_aggregate: HashMap<Aggregate, Vec<CapabilityId>> = HashMap::new();
     for capability in capabilities {
         by_aggregate

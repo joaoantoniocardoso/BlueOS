@@ -1,8 +1,11 @@
 use thiserror::Error;
 
+use catalog_kernel::id::refs::{PortRef, TcpPort};
+use catalog_kernel::id::service::ServiceId;
+use catalog_kernel::provenance::ObservedSet;
+use catalog_model::observed::ObservedFacts;
+
 use crate::catalog::Catalog;
-use crate::id::{PortRef, ServiceId, TcpPort};
-use crate::observed::ObservedFacts;
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum ResolveError {
@@ -51,10 +54,10 @@ pub fn resolve_service_ports(
     env: &EnvLookup,
 ) -> Result<Vec<TcpPort>, ResolveError> {
     match &facts.listen {
-        crate::provenance::ObservedSet::Known { items } => items
+        ObservedSet::Known { items } => items
             .iter()
             .map(|evidenced| resolve_port_ref(&evidenced.value, env))
             .collect(),
-        crate::provenance::ObservedSet::Unknown { .. } => Ok(Vec::new()),
+        ObservedSet::Unknown { .. } => Ok(Vec::new()),
     }
 }

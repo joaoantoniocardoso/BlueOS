@@ -1,8 +1,11 @@
-use blueos_catalog::catalog::Catalog;
-use blueos_catalog::frontend_routes::{
+use catalog_core::frontend_routes::{
     check_frontend_route_refs, expected_resolved_path, FRONTEND_API_ENDPOINTS,
 };
-use blueos_catalog::runner::{http_method_label, resolve_http_path};
+use catalog_core::http::resolve_http_path;
+use catalog_kernel::provenance::{Grounded, GroundedSet};
+use catalog_model::http::http_method_label;
+
+use blueos_catalog::catalog::Catalog;
 
 fn main() {
     let catalog = Catalog::bootstrap();
@@ -35,13 +38,11 @@ fn main() {
     }
 
     for journey in catalog.journeys() {
-        let blueos_catalog::provenance::GroundedSet::Known { items: steps } = &journey.steps else {
+        let GroundedSet::Known { items: steps } = &journey.steps else {
             continue;
         };
         for (step_index, step) in steps.iter().enumerate() {
-            let Some(blueos_catalog::provenance::Grounded::Known { value: route, .. }) =
-                &step.value.route
-            else {
+            let Some(Grounded::Known { value: route, .. }) = &step.value.route else {
                 continue;
             };
             let Some(resolved) = resolve_http_path(&catalog, route) else {

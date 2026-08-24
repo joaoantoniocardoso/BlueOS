@@ -1,11 +1,14 @@
 use std::path::Path;
 use std::process;
 
-use blueos_catalog::{
-    check_against_observed, check_fastapi_against_observed, check_frontend_router_against_observed,
-    check_nginx_against_observed, extract_fastapi_from_repo, extract_from_repo,
-    extract_frontend_router_from_repo, extract_nginx_from_repo, Catalog,
+use catalog_extract::extract::{check_against_observed, extract_from_repo};
+use catalog_extract::extract_fastapi::{check_fastapi_against_observed, extract_fastapi_from_repo};
+use catalog_extract::extract_frontend_router::{
+    check_frontend_router_against_observed, extract_frontend_router_from_repo,
 };
+use catalog_extract::extract_nginx::{check_nginx_against_observed, extract_nginx_from_repo};
+
+use blueos_catalog::catalog::Catalog;
 
 fn main() {
     let repo_root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();

@@ -3,18 +3,20 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-use crate::api_contract::api_coverage_counts;
-use crate::catalog::Catalog;
-use crate::journey::{blast_radius_is_unknown, derive_oracle_class, BodyKind, OracleClass};
-use crate::journey_matrix::PAGE_LOAD_UI;
-use crate::mutating_smoke::MUTATING_SMOKE_ENTRIES;
-use crate::observed_verification::{
+use catalog_analysis::api_contract::api_coverage_counts;
+use catalog_analysis::journey_matrix::PAGE_LOAD_UI;
+use catalog_derive::requirement::RequirementCatalog;
+use catalog_derive::requirements_report::requirements_json;
+use catalog_harness::mutating_smoke::MUTATING_SMOKE_ENTRIES;
+use catalog_harness::oracle::derive_oracle_class;
+use catalog_harness::ui::ui_plan;
+use catalog_kernel::provenance::{Grounded, GroundedSet};
+use catalog_model::journey::{blast_radius_is_unknown, BodyKind, OracleClass};
+use catalog_provenance::observed_verification::{
     count_extractor_coverage_lapses, count_unverified_observed_evidence,
 };
-use crate::provenance::{Grounded, GroundedSet};
-use crate::requirement::RequirementCatalog;
-use crate::requirements_report::requirements_json;
-use crate::ui::ui_plan;
+
+use crate::catalog::Catalog;
 
 pub const DEFAULT_BASELINE_PATH: &str = "extras/qa-harness-improve/ratchet_baseline.json";
 pub const FAILURE_MODE_LEDGER_PATH: &str = "extras/qa-1.4-full/FAILURE_MODE_LEDGER.md";
@@ -134,9 +136,9 @@ fn requirement_coverage_counts(requirements: &RequirementCatalog) -> (usize, usi
 }
 
 fn catalog_supports_requirement_derivation(catalog: &Catalog) -> bool {
-    catalog.services().len() == crate::services::all_services().len()
-        && catalog.journeys().len() == crate::journeys::all_journeys().len()
-        && catalog.pages().len() == crate::pages::all_pages().len()
+    catalog.services().len() == catalog_data::all_services().len()
+        && catalog.journeys().len() == catalog_data::all_journeys().len()
+        && catalog.pages().len() == catalog_data::all_pages().len()
 }
 
 pub fn count_unknown_body_kinds(catalog: &Catalog) -> usize {
@@ -266,7 +268,7 @@ pub fn write_harness_ratchet_baseline(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::requirement::RequirementStatement;
+    use catalog_derive::requirement::RequirementStatement;
 
     fn sample_counts() -> HarnessRatchetCounts {
         HarnessRatchetCounts {
@@ -360,7 +362,7 @@ mod tests {
         let baseline = harness_ratchet_counts(&catalog);
         let mut requirements = RequirementCatalog::from_catalog(&catalog);
         let requirement = requirements
-            .requirements
+            .requirements_mut()
             .iter_mut()
             .find(|req| {
                 matches!(req.statement, RequirementStatement::Known { .. })

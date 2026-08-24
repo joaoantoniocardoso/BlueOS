@@ -1,4 +1,5 @@
-use blueos_catalog::{export_json, Catalog};
+use blueos_catalog::catalog::Catalog;
+use blueos_catalog::export::export_json;
 
 fn main() {
     let catalog = Catalog::bootstrap();

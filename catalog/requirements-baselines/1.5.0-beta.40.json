@@ -12502,10 +12502,10 @@
         "status": "known",
         "items": [
           {
-            "text": "journey:DiscoverBlueosOnNetwork declares two wired-connection preconditions and no Network::Online (catalog/src/journeys/beacon.rs:110-121)"
+            "text": "journey:DiscoverBlueosOnNetwork declares two wired-connection preconditions and no Network::Online (catalog/crates/catalog-data/src/journeys/beacon.rs:110-121)"
           },
           {
-            "text": "RenameVehicle (catalog/src/journeys/beacon.rs:36) and InspectDiskUsage (catalog/src/journeys/disk_usage.rs:55) declare empty preconditions, so neither requires Network::Online"
+            "text": "RenameVehicle (catalog/crates/catalog-data/src/journeys/beacon.rs:36) and InspectDiskUsage (catalog/crates/catalog-data/src/journeys/disk_usage.rs:55) declare empty preconditions, so neither requires Network::Online"
           }
         ]
       },

@@ -3,8 +3,9 @@ use std::env;
 use std::path::Path;
 use std::process::{Command, ExitCode};
 
-use blueos_catalog::provenance_walk::repo_root;
-use blueos_catalog::source_index::{
+use blueos_catalog::cli::flag_value;
+use catalog_paths::repo_root;
+use catalog_provenance::source_index::{
     build_source_index_from_walk, git_diff_repo_paths, index_git_diff_pathspecs,
     work_order_for_changed_paths, CatalogEntity, ReviewUrgency, SourceIndexEntry, DOC_SCOPE_NOTE,
     WORK_ORDER_NOTE,
@@ -145,7 +146,7 @@ fn print_path_impact(path: &str, entries: &[SourceIndexEntry]) {
     }
 }
 
-fn print_work_order(order: &blueos_catalog::source_index::WorkOrder, pathspecs: &[String]) {
+fn print_work_order(order: &catalog_provenance::source_index::WorkOrder, pathspecs: &[String]) {
     let entry_count: usize = order.modules.values().map(Vec::len).sum();
     println!(
         "impact --since {}..{} ({} impacted indexed paths of {} repo diff paths across {})",
@@ -193,16 +194,6 @@ fn format_entity(entity: &CatalogEntity) -> String {
         CatalogEntity::Page { id } => format!("Page({id})"),
         CatalogEntity::Unknown { reason } => format!("Unknown({reason})"),
     }
-}
-
-fn flag_value(args: &[String], name: &str) -> Option<String> {
-    args.windows(2).find_map(|pair| {
-        if pair[0] == name {
-            Some(pair[1].clone())
-        } else {
-            None
-        }
-    })
 }
 
 fn git_output(repo: &Path, cmd: &[&str]) -> Result<String, String> {

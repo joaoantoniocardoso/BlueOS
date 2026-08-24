@@ -1,17 +1,27 @@
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
-use crate::capability::{capability_def, Aggregate};
+use catalog_data::capability_registry::capability_def;
+use catalog_derive::function::{Action, ActionCatalog};
+use catalog_derive::requirement::{
+    Requirement, RequirementCatalog, RequirementClass, RequirementCriteria,
+};
+use catalog_kernel::aggregate::Aggregate;
+use catalog_kernel::criticality::CriticalityTier;
+use catalog_kernel::domain::domain_of;
+use catalog_kernel::id::capability::CapabilityId;
+use catalog_kernel::id::journey::JourneyId;
+use catalog_kernel::id::refs::{PathRef, PortRef};
+use catalog_kernel::id::service::ServiceId;
+use catalog_kernel::provenance::{
+    Asserted, AssertedSet, Evidence, GroundedSet, Observed, ObservedSet,
+};
+use catalog_kernel::version::Availability;
+use catalog_model::edge::{Bus, Connection};
+use catalog_model::interface::PortKind;
+use catalog_model::journey::{Actor, Precondition, UseCase};
+use catalog_model::service::Service;
+
 use crate::catalog::Catalog;
-use crate::domain::domain_of;
-use crate::edge::{Bus, Connection};
-use crate::function::{Action, ActionCatalog};
-use crate::id::{CapabilityId, JourneyId, PathRef, PortRef, ServiceId};
-use crate::interface::PortKind;
-use crate::journey::{Actor, Precondition, UseCase};
-use crate::provenance::{Asserted, AssertedSet, Evidence, GroundedSet, Observed, ObservedSet};
-use crate::requirement::{Requirement, RequirementCatalog, RequirementClass, RequirementCriteria};
-use crate::service::Service;
-use crate::version::Availability;
 
 pub const DEFAULT_SYSML_SUBSET_GOLDEN: &str = "goldens/sysml/catalog_subset.sysml";
 
@@ -721,11 +731,7 @@ fn emit_observed_path(name: &str, field: &Observed<PathRef>, writer: &mut SysmlW
     }
 }
 
-fn emit_asserted_tier(
-    name: &str,
-    field: &Asserted<crate::criticality::CriticalityTier>,
-    writer: &mut SysmlWriter,
-) {
+fn emit_asserted_tier(name: &str, field: &Asserted<CriticalityTier>, writer: &mut SysmlWriter) {
     match field {
         Asserted::Established { value, rationale } => {
             writer.line(&format!(

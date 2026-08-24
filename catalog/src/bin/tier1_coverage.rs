@@ -1,5 +1,6 @@
-use blueos_catalog::Catalog;
-use blueos_catalog::{tier1_get_coverage, Tier1GetCoverage};
+use blueos_catalog::catalog::Catalog;
+use blueos_catalog::cli::percent;
+use catalog_harness::runner::{tier1_get_coverage, Tier1GetCoverage};
 
 fn main() {
     let catalog = Catalog::bootstrap();
@@ -44,13 +45,5 @@ fn print_report(coverage: &Tier1GetCoverage) {
         for (journey_id, step_index, path) in &coverage.unasserted {
             println!("  {journey_id} step {step_index} GET {path}");
         }
-    }
-}
-
-fn percent(part: usize, total: usize) -> f64 {
-    if total == 0 {
-        0.0
-    } else {
-        (part as f64) * 100.0 / (total as f64)
     }
 }

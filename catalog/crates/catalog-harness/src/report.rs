@@ -1,0 +1,336 @@
+use serde::Serialize;
+
+use crate::runner::{DutVersion, JourneyResult, RunCounts, Verdict};
+use catalog_kernel::id::journey::JourneyId;
+use catalog_kernel::version::Availability;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ReportDut {
+    pub repository: String,
+    pub tag: String,
+    pub digest: String,
+}
+
+impl ReportDut {
+    pub fn from_dut(dut: &DutVersion) -> Self {
+        Self {
+            repository: dut.repository.clone(),
+            tag: dut.tag.clone(),
+            digest: normalize_digest(dut.digest.as_deref()),
+        }
+    }
+}
+
+fn normalize_digest(digest: Option<&str>) -> String {
+    match digest {
+        Some(sha) if sha.starts_with("sha256:") => sha.to_string(),
+        Some(sha) => format!("sha256:{sha}"),
+        None => "sha256:unknown".to_string(),
+    }
+}
+
+pub const SCHEMA_VERSION: u32 = 1;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConflictKind {
+    ProductMissingReject,
+    CatalogWrongStatus,
+    NotApplicable,
+    HarnessGap,
+    Limitation,
+    EffectNotApplied,
+    ClientDesync,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ReportConflict {
+    pub kind: ConflictKind,
+    pub context: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SuiteKind {
+    Smoke,
+    MutatingSmoke,
+    Negative,
+    Ui,
+    Full,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct ReportCounts {
+    pub passed: usize,
+    pub failed: usize,
+    pub skipped: usize,
+    pub unasserted: usize,
+}
+
+impl From<RunCounts> for ReportCounts {
+    fn from(counts: RunCounts) -> Self {
+        Self {
+            passed: counts.passed,
+            failed: counts.failed,
+            skipped: counts.skipped,
+            unasserted: counts.unasserted,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ReportAvailability {
+    pub intro_commit: &'static str,
+    pub first_tag: Option<&'static str>,
+    pub tag_count: usize,
+    pub present_on_master: bool,
+    pub present_on_1_4_dev: bool,
+    /// Full tag list (includes backports). May be large for early features.
+    pub present_in_tags: &'static [&'static str],
+}
+
+impl From<&Availability> for ReportAvailability {
+    fn from(availability: &Availability) -> Self {
+        Self {
+            intro_commit: availability.intro_commit,
+            first_tag: availability.first_tag(),
+            tag_count: availability.present_in_tags.len(),
+            present_on_master: availability.present_on_master,
+            present_on_1_4_dev: availability.present_on_1_4_dev,
+            present_in_tags: availability.present_in_tags,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ReportTrace {
+    pub landing_prs: Vec<u64>,
+    pub backport_prs: Vec<u64>,
+    pub follow_up_prs: Vec<u64>,
+    pub squash_merge: bool,
+    pub merge_method: String,
+    pub intro_sha_in_pr_commits: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub merge_commit_sha: Option<String>,
+    pub issue_numbers: Vec<u64>,
+}
+
+impl ReportTrace {
+    pub fn for_journey(journey_id: &str) -> Option<Self> {
+        let trace = catalog_data::feature_trace::journey_report_trace(journey_id)?;
+        Some(Self {
+            landing_prs: trace.landing_prs,
+            backport_prs: trace.backport_prs,
+            follow_up_prs: trace.follow_up_prs,
+            squash_merge: trace.squash_merge,
+            merge_method: trace.merge_method,
+            intro_sha_in_pr_commits: trace.intro_sha_in_pr_commits,
+            merge_commit_sha: trace.merge_commit_sha,
+            issue_numbers: trace.issue_numbers,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct VerificationRecord {
+    pub use_case: &'static str,
+    pub verdict: Verdict,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub skip_reason: Option<String>,
+    pub availability: ReportAvailability,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trace: Option<ReportTrace>,
+    pub steps_passed: usize,
+    pub steps_failed: usize,
+    pub steps_skipped: usize,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub conflicts: Vec<ReportConflict>,
+}
+
+impl VerificationRecord {
+    pub fn from_run(
+        journey_id: JourneyId,
+        availability: &Availability,
+        outcome: JourneyResult,
+        step_results: &[Verdict],
+    ) -> Self {
+        let (steps_passed, steps_failed, steps_skipped) = count_journey_steps(step_results);
+        Self {
+            use_case: journey_id.as_str(),
+            verdict: Verdict::from_journey_result(outcome),
+            skip_reason: None,
+            availability: availability.into(),
+            trace: ReportTrace::for_journey(journey_id.as_str()),
+            steps_passed,
+            steps_failed,
+            steps_skipped,
+            conflicts: Vec::new(),
+        }
+    }
+
+    pub fn from_negative_probe(
+        journey_id: JourneyId,
+        availability: &Availability,
+        result: &Verdict,
+    ) -> Self {
+        let (steps_passed, steps_failed, steps_skipped) =
+            count_journey_steps(std::slice::from_ref(result));
+        Self {
+            use_case: journey_id.as_str(),
+            verdict: result.clone(),
+            skip_reason: None,
+            availability: availability.into(),
+            trace: ReportTrace::for_journey(journey_id.as_str()),
+            steps_passed,
+            steps_failed,
+            steps_skipped,
+            conflicts: Vec::new(),
+        }
+    }
+
+    pub fn skipped(
+        journey_id: JourneyId,
+        availability: &Availability,
+        reason: impl Into<String>,
+        steps_skipped: usize,
+    ) -> Self {
+        Self {
+            use_case: journey_id.as_str(),
+            verdict: Verdict::Inconclusive(String::new()),
+            skip_reason: Some(reason.into()),
+            availability: availability.into(),
+            trace: ReportTrace::for_journey(journey_id.as_str()),
+            steps_passed: 0,
+            steps_failed: 0,
+            steps_skipped,
+            conflicts: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct VerificationHttpReport {
+    pub schema_version: u32,
+    pub suite: SuiteKind,
+    pub base: String,
+    pub dut: Option<ReportDut>,
+    pub started_at: String,
+    pub finished_at: String,
+    pub counts: ReportCounts,
+    pub verifications: Vec<VerificationRecord>,
+}
+
+pub fn count_journey_steps(step_results: &[Verdict]) -> (usize, usize, usize) {
+    let mut passed = 0;
+    let mut failed = 0;
+    let mut skipped = 0;
+    for result in step_results {
+        match result {
+            Verdict::Pass | Verdict::Error => passed += 1,
+            Verdict::Fail(_) => failed += 1,
+            Verdict::Inconclusive(_) => skipped += 1,
+        }
+    }
+    (passed, failed, skipped)
+}
+
+pub fn utc_rfc3339_now() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("clock before epoch")
+        .as_secs();
+    format_unix_utc_rfc3339(secs)
+}
+
+pub fn format_unix_utc_rfc3339(secs: u64) -> String {
+    const SECS_PER_DAY: u64 = 86_400;
+    let days = (secs / SECS_PER_DAY) as i64;
+    let day_secs = secs % SECS_PER_DAY;
+    let (year, month, day) = days_to_ymd(days);
+    format!(
+        "{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}Z",
+        day_secs / 3600,
+        (day_secs % 3600) / 60,
+        day_secs % 60
+    )
+}
+
+fn days_to_ymd(mut z: i64) -> (i32, u32, u32) {
+    z += 719_468;
+    let era = (if z >= 0 { z } else { z - 146_096 }) / 146_097;
+    let doe = (z - era * 146_097) as u32;
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let year = yoe as i32 + (era * 400) as i32;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mut month = (5 * doy + 2) / 153;
+    let day = doy - (153 * month + 2) / 5 + 1;
+    if month < 10 {
+        month += 3;
+    } else {
+        month -= 9;
+    }
+    let year = if month <= 2 { year + 1 } else { year };
+    (year, month, day)
+}
+
+pub fn write_journey_http_report(
+    path: &str,
+    report: &VerificationHttpReport,
+) -> Result<(), String> {
+    let json = serde_json::to_string_pretty(report).map_err(|err| err.to_string())?;
+    std::fs::write(path, json).map_err(|err| err.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        format_unix_utc_rfc3339, ReportCounts, SuiteKind, VerificationHttpReport,
+        VerificationRecord, SCHEMA_VERSION,
+    };
+    use catalog_kernel::id::journey::JourneyId;
+    use catalog_kernel::version::Availability;
+
+    const SAMPLE: Availability = Availability {
+        intro_commit: "abc123",
+        present_in_tags: &["1.5.0-beta.2"],
+        present_on_master: true,
+        present_on_1_4_dev: false,
+    };
+
+    #[test]
+    fn minimal_report_json_contains_schema_version() {
+        let report = VerificationHttpReport {
+            schema_version: SCHEMA_VERSION,
+            suite: SuiteKind::Smoke,
+            base: "http://test".into(),
+            dut: None,
+            started_at: "2026-01-01T00:00:00Z".into(),
+            finished_at: "2026-01-01T00:00:01Z".into(),
+            counts: ReportCounts {
+                passed: 1,
+                failed: 0,
+                skipped: 0,
+                unasserted: 0,
+            },
+            verifications: vec![VerificationRecord::skipped(
+                JourneyId::MonitorInternetConnectivity,
+                &SAMPLE,
+                "offline",
+                1,
+            )],
+        };
+        let json = serde_json::to_string(&report).expect("serialize report");
+        assert!(json.contains("\"schema_version\":1"));
+        assert!(json.contains("\"use_case\":\"monitor_internet_connectivity\""));
+        assert!(json.contains("\"verdict\":\"inconclusive\""));
+        assert!(json.contains("\"intro_commit\":\"abc123\""));
+        assert!(json.contains("\"present_on_master\":true"));
+        assert!(json.contains("\"landing_prs\"") || !json.contains("\"trace\""));
+    }
+
+    #[test]
+    fn utc_rfc3339_epoch() {
+        assert_eq!(format_unix_utc_rfc3339(0), "1970-01-01T00:00:00Z");
+    }
+}

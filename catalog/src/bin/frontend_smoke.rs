@@ -1,5 +1,7 @@
-use blueos_catalog::{frontend_smoke_targets, Catalog};
+use catalog_harness::frontend_smoke::frontend_smoke_targets;
 use std::io::{self, Write};
+
+use blueos_catalog::catalog::Catalog;
 
 fn main() {
     let catalog = Catalog::bootstrap();

@@ -1,4 +1,7 @@
-use blueos_catalog::{capability_split_consensus, declared_capabilities, Catalog};
+use catalog_analysis::journey_group::CatalogJourneyGrouping;
+use catalog_derive::feature::{capability_split_consensus, declared_capabilities};
+
+use blueos_catalog::catalog::Catalog;
 
 fn main() {
     let catalog = Catalog::bootstrap();

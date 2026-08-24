@@ -1,0 +1,9 @@
+[package]
+name = "catalog-model"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+catalog-kernel = { path = "../catalog-kernel" }
+schemars.workspace = true
+serde.workspace = true

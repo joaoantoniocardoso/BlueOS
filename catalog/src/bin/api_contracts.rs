@@ -2,12 +2,13 @@ use std::env;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use blueos_catalog::api_contract::{
+use blueos_catalog::catalog::Catalog;
+use blueos_catalog::cli::flag_value;
+use catalog_analysis::api_contract::{
     api_coverage_report, diff_snapshots, load_api_contract_baseline, write_api_contract_baseline,
     ApiContractSnapshot, DEFAULT_API_CONTRACT_BASELINE,
 };
-use blueos_catalog::extract_fastapi::extract_fastapi_from_repo;
-use blueos_catalog::Catalog;
+use catalog_extract::extract_fastapi::extract_fastapi_from_repo;
 
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().collect();
@@ -170,16 +171,6 @@ fn main() -> ExitCode {
         eprintln!("api contracts: FAIL (added vs baseline; --snapshot to accept)");
         ExitCode::FAILURE
     }
-}
-
-fn flag_value(args: &[String], name: &str) -> Option<String> {
-    args.windows(2).find_map(|pair| {
-        if pair[0] == name {
-            Some(pair[1].clone())
-        } else {
-            None
-        }
-    })
 }
 
 fn print_help() {

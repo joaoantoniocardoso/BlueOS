@@ -1,6 +1,6 @@
 use std::process;
 
-use blueos_catalog::tools::feature_provenance_export;
+use catalog_git::feature_provenance_export;
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();

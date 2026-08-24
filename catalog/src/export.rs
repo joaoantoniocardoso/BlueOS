@@ -1,8 +1,12 @@
 use schemars::schema_for;
 
+use catalog_analysis::cluster::{
+    bus_label, CatalogClustering, ClusterPolicy, ClusterResult, StabilityReport,
+};
+use catalog_core::catalog::CouplingMatrix;
+use catalog_kernel::provenance::AssertedSet;
+
 use crate::catalog::Catalog;
-use crate::cluster::{bus_label, ClusterPolicy};
-use crate::provenance::AssertedSet;
 pub fn export_json(catalog: &Catalog) -> Result<String, serde_json::Error> {
     serde_json::to_string_pretty(catalog)
 }
@@ -14,9 +18,9 @@ pub fn export_schema() -> Result<String, serde_json::Error> {
 
 #[derive(serde::Serialize)]
 struct ProposalsExport {
-    proposals: Vec<crate::cluster::ClusterResult>,
-    coupling_matrix: crate::catalog::CouplingMatrix,
-    stability: crate::cluster::StabilityReport,
+    proposals: Vec<ClusterResult>,
+    coupling_matrix: CouplingMatrix,
+    stability: StabilityReport,
 }
 
 pub fn export_proposals_json(catalog: &Catalog) -> Result<String, serde_json::Error> {
@@ -65,21 +69,35 @@ pub fn export_mermaid(catalog: &Catalog) -> String {
 mod tests {
     use super::*;
 
-    const TEST_PRESENCE: crate::version::Availability = crate::version::Availability {
-        intro_commit: "0000000000000000000000000000000000000001",
-        present_in_tags: &["1.0.0"],
-        present_on_master: true,
-        present_on_1_4_dev: true,
+    const TEST_PRESENCE: catalog_kernel::version::Availability =
+        catalog_kernel::version::Availability {
+            intro_commit: "0000000000000000000000000000000000000001",
+            present_in_tags: &["1.0.0"],
+            present_on_master: true,
+            present_on_1_4_dev: true,
+        };
+
+    use catalog_kernel::capture_env::RUNTIME_CAPTURE_ENV_PI4_SITL;
+    use catalog_kernel::criticality::CriticalityTier;
+    use catalog_kernel::id::journey::JourneyId;
+    use catalog_kernel::id::refs::PortRef;
+    use catalog_kernel::id::service::ServiceId;
+    use catalog_kernel::provenance::{
+        Asserted, AssertedSet, Evidence, Evidenced, Grounded, GroundedItem, GroundedSet, Observed,
+        ObservedSet, Provenance,
     };
+    use catalog_model::journey::{
+        Actor, BodyKind, HttpMethod, JourneyStep, RouteRef, StepOutcome, UseCase, Visibility,
+        BLAST_RADIUS_UNKNOWN,
+    };
+    use catalog_model::lifecycle::Lifecycle;
+    use catalog_model::observed::ObservedFacts;
+    use catalog_model::runtime::{
+        Distribution, ResourceUsage, RuntimeFacts, SloBaseline, StateContract,
+    };
+    use catalog_model::service::{Service, ServiceJudgment};
 
     use crate::catalog::Catalog;
-    use crate::criticality::CriticalityTier;
-    use crate::id::ServiceId;
-    use crate::lifecycle::Lifecycle;
-    use crate::observed::ObservedFacts;
-    use crate::provenance::{Asserted, AssertedSet, Evidenced, GroundedSet, Observed, ObservedSet};
-    use crate::runtime::RuntimeFacts;
-    use crate::service::{Service, ServiceJudgment};
 
     fn sample_service() -> ServiceJudgment {
         ServiceJudgment {
@@ -131,8 +149,8 @@ mod tests {
             listen: ObservedSet::known(
                 const {
                     &[Evidenced::new(
-                        crate::id::PortRef::Literal(8000),
-                        crate::provenance::Evidence {
+                        PortRef::Literal(8000),
+                        Evidence {
                             file: "test.rs",
                             line: 1,
                             anchor: "",
@@ -178,13 +196,6 @@ mod tests {
 
     #[test]
     fn journey_types_round_trip() {
-        use crate::id::{JourneyId, ServiceId};
-        use crate::journey::{
-            Actor, BodyKind, HttpMethod, JourneyStep, RouteRef, StepOutcome, UseCase, Visibility,
-            BLAST_RADIUS_UNKNOWN,
-        };
-        use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
-
         let journey = UseCase {
             id: JourneyId::Deploy,
             summary: Grounded::known("deploy vehicle", Provenance::doc("docs/deploy.md", 1, "")),
@@ -250,14 +261,6 @@ mod tests {
 
     #[test]
     fn runtime_types_round_trip() {
-        use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_SITL;
-        use crate::id::ServiceId;
-        use crate::journey::{HttpMethod, RouteRef};
-        use crate::provenance::{GroundedItem, GroundedSet, Provenance};
-        use crate::runtime::{
-            Distribution, ResourceUsage, RuntimeFacts, SloBaseline, StateContract,
-        };
-
         let facts = RuntimeFacts {
             service: ServiceId::ArdupilotManager,
             state_contracts: GroundedSet::known(

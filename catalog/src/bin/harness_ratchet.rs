@@ -2,24 +2,18 @@ use std::env;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
+use blueos_catalog::catalog::Catalog;
+use blueos_catalog::cli::{flag_value, has_flag};
 use blueos_catalog::harness_ratchet::{
     compare_harness_ratchet, harness_ratchet_counts, load_harness_ratchet_baseline,
     write_harness_ratchet_baseline, HarnessRatchetCounts, DEFAULT_BASELINE_PATH,
 };
-use blueos_catalog::Catalog;
 
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().collect();
-    let snapshot = args.iter().any(|arg| arg == "--snapshot");
-    let baseline_path = args
-        .windows(2)
-        .find_map(|window| {
-            if window[0] == "--baseline" {
-                Some(PathBuf::from(&window[1]))
-            } else {
-                None
-            }
-        })
+    let snapshot = has_flag(&args, "--snapshot");
+    let baseline_path = flag_value(&args, "--baseline")
+        .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(DEFAULT_BASELINE_PATH));
 
     let catalog = Catalog::bootstrap();
@@ -79,11 +73,11 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
 
+    use blueos_catalog::catalog::Catalog;
     use blueos_catalog::harness_ratchet::{
         compare_harness_ratchet, harness_ratchet_counts, HarnessRatchetCounts,
         DEFAULT_BASELINE_PATH,
     };
-    use blueos_catalog::Catalog;
 
     #[test]
     fn bootstrap_counts_match_committed_baseline() {

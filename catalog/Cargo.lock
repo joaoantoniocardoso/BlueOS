@@ -24,12 +24,163 @@ dependencies = [
 name = "blueos-catalog"
 version = "0.1.0"
 dependencies = [
+ "boot-timeline",
+ "catalog-analysis",
+ "catalog-core",
+ "catalog-data",
+ "catalog-derive",
+ "catalog-extract",
+ "catalog-git",
+ "catalog-harness",
+ "catalog-kernel",
+ "catalog-model",
+ "catalog-paths",
+ "catalog-provenance",
  "regex",
  "schemars",
  "serde",
  "serde_json",
  "sha1",
  "thiserror",
+]
+
+[[package]]
+name = "boot-timeline"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "catalog-analysis"
+version = "0.1.0"
+dependencies = [
+ "catalog-core",
+ "catalog-data",
+ "catalog-extract",
+ "catalog-harness",
+ "catalog-kernel",
+ "catalog-model",
+ "catalog-paths",
+ "schemars",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "catalog-core"
+version = "0.1.0"
+dependencies = [
+ "catalog-data",
+ "catalog-kernel",
+ "catalog-model",
+ "schemars",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "catalog-data"
+version = "0.1.0"
+dependencies = [
+ "catalog-kernel",
+ "catalog-model",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "catalog-derive"
+version = "0.1.0"
+dependencies = [
+ "catalog-analysis",
+ "catalog-core",
+ "catalog-data",
+ "catalog-harness",
+ "catalog-kernel",
+ "catalog-model",
+ "catalog-paths",
+ "catalog-provenance",
+ "schemars",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "catalog-extract"
+version = "0.1.0"
+dependencies = [
+ "catalog-core",
+ "catalog-kernel",
+ "catalog-model",
+ "catalog-paths",
+ "schemars",
+ "serde",
+]
+
+[[package]]
+name = "catalog-git"
+version = "0.1.0"
+dependencies = [
+ "catalog-data",
+ "catalog-kernel",
+ "regex",
+ "serde",
+ "serde_json",
+ "sha1",
+]
+
+[[package]]
+name = "catalog-harness"
+version = "0.1.0"
+dependencies = [
+ "catalog-core",
+ "catalog-data",
+ "catalog-kernel",
+ "catalog-model",
+ "catalog-paths",
+ "regex",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "catalog-kernel"
+version = "0.1.0"
+dependencies = [
+ "schemars",
+ "serde",
+]
+
+[[package]]
+name = "catalog-model"
+version = "0.1.0"
+dependencies = [
+ "catalog-kernel",
+ "schemars",
+ "serde",
+]
+
+[[package]]
+name = "catalog-paths"
+version = "0.1.0"
+
+[[package]]
+name = "catalog-provenance"
+version = "0.1.0"
+dependencies = [
+ "catalog-core",
+ "catalog-data",
+ "catalog-extract",
+ "catalog-kernel",
+ "catalog-model",
+ "catalog-paths",
+ "regex",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
