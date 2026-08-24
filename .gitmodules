@@ -10,3 +10,7 @@
 [submodule "core/frontend/src/PX4-parameters"]
 	path = core/frontend/src/PX4-parameters
 	url = https://github.com/patrickelectric/PX4-parameters.git
+[submodule "sysml-v2-release"]
+	path = catalog/spec/sysml-v2-release
+	url = https://github.com/Systems-Modeling/SysML-v2-Release.git
+	shallow = true
