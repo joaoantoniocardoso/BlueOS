@@ -8,7 +8,7 @@
 //! `cargo run -p blueos-catalog --bin enrich_feature_traces`
 
 use crate::journey_presence::ALL_JOURNEY_PRESENCE;
-use crate::version::{feature_present_on, journeys_present_on, FeatureAvailability};
+use crate::version::{feature_present_on, journeys_present_on, Availability};
 
 /// Feature map for one DUT tag / channel tip: journey id → present?
 pub fn feature_map_for_version(dut_tag: &str) -> Vec<(&'static str, bool)> {
@@ -23,8 +23,8 @@ pub fn journeys_for_version(dut_tag: &str) -> Vec<&'static str> {
     journeys_present_on(dut_tag, ALL_JOURNEY_PRESENCE)
 }
 
-/// Look up generated presence for a journey id string (e.g. `"InspectZenohNetwork"`).
-pub fn presence_for_journey(journey_id: &str) -> Option<FeatureAvailability> {
+/// Look up generated presence for a journey id string (e.g. `"inspect_zenoh_network"`).
+pub fn presence_for_journey(journey_id: &str) -> Option<Availability> {
     ALL_JOURNEY_PRESENCE
         .iter()
         .find(|(id, _)| *id == journey_id)
@@ -34,10 +34,11 @@ pub fn presence_for_journey(journey_id: &str) -> Option<FeatureAvailability> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::id::JourneyId;
 
     #[test]
     fn zenoh_inspector_present_on_backport_and_master_not_1_4_dev() {
-        let avail = presence_for_journey("InspectZenohNetwork").expect("seeded");
+        let avail = presence_for_journey(JourneyId::InspectZenohNetwork.as_str()).expect("seeded");
         assert!(avail.present_on_master);
         assert!(!avail.present_on_1_4_dev);
         assert!(avail.present_in_tags.contains(&"1.5.0-beta.2"));
@@ -49,7 +50,7 @@ mod tests {
 
     #[test]
     fn level_horizon_present_on_1_4_dev_without_local_only_tags() {
-        let avail = presence_for_journey("LevelHorizon").expect("seeded");
+        let avail = presence_for_journey(JourneyId::LevelHorizon.as_str()).expect("seeded");
         assert!(avail.present_on_1_4_dev);
         assert!(avail.present_on_master);
         assert!(avail.present_in_tags.contains(&"1.4.4-beta.10"));
@@ -62,7 +63,7 @@ mod tests {
         let on_14 = journeys_for_version("1.4-dev");
         let on_master = journeys_for_version("master");
         assert!(on_14.len() < on_master.len());
-        assert!(!on_14.contains(&"InspectZenohNetwork"));
-        assert!(on_master.contains(&"InspectZenohNetwork"));
+        assert!(!on_14.contains(&JourneyId::InspectZenohNetwork.as_str()));
+        assert!(on_master.contains(&JourneyId::InspectZenohNetwork.as_str()));
     }
 }

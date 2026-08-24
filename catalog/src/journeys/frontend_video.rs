@@ -1,6 +1,6 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, BlastRadius, HardwareRequirement, JourneyStep, Precondition, StepOutcome, UserJourney,
+    Actor, BlastRadius, HardwareAssumption, JourneyStep, Precondition, StepOutcome, UseCase,
     Visibility,
 };
 use crate::journey_presence::PRESENCE_CONFIGURE_VIDEO_STREAM;
@@ -17,9 +17,9 @@ const THUMB: &str = "core/frontend/src/components/video-manager/VideoThumbnail.v
 const VIDEO_STORE: &str = "core/frontend/src/store/video.ts";
 const COMMANDER_STORE: &str = "core/frontend/src/store/commander.ts";
 
-pub const JOURNEYS: &[UserJourney] = &[CONFIGURE_VIDEO_STREAM];
+pub const JOURNEYS: &[UseCase] = &[CONFIGURE_VIDEO_STREAM];
 
-const CONFIGURE_VIDEO_STREAM: UserJourney = UserJourney {
+const CONFIGURE_VIDEO_STREAM: UseCase = UseCase {
     id: JourneyId::ConfigureVideoStream,
     summary: Grounded::known(
         "Operator adds or reconfigures a camera video stream on the Video Streams page; the browser builds and validates the endpoint and drives create/replace against mavlink-camera-manager",
@@ -50,7 +50,7 @@ const CONFIGURE_VIDEO_STREAM: UserJourney = UserJourney {
         ),
     ]),
     preconditions: GroundedSet::known(&[precond(
-        Precondition::Hardware(HardwareRequirement::UsbCamera),
+        Precondition::Hardware(HardwareAssumption::UsbCamera),
         Provenance::doc(ADV, 766, "- BlueOS automatically detects H264-encoded video streams"),
     )]),
     steps: GroundedSet::known(&[

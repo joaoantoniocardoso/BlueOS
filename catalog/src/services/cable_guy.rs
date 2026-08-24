@@ -1,6 +1,6 @@
 use crate::criticality::CriticalityTier;
 use crate::id::{CapabilityId, JourneyId, PathRef, PortRef, ServiceId};
-use crate::interface::{FileAccessMode, Interface};
+use crate::interface::{FileAccessMode, PortKind};
 use crate::journey::{HttpMethod, RouteRef};
 use crate::lifecycle::{Lifecycle, ObservedLifecycle};
 use crate::observed::{ObservedFacts, ResourceLimits, ServiceKind, StartupTier};
@@ -10,7 +10,7 @@ use crate::provenance::{
 };
 use crate::resource::{Resource, ResourceOwnership};
 use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts, SloBaseline};
-use crate::service::{Authority, Service, ServiceDefinition};
+use crate::service::{Authority, Service, ServiceJudgment};
 use crate::trust::{PrivilegeLevel, UserConfirmation};
 
 use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
@@ -216,7 +216,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
     ),
     interfaces: ObservedSet::known(&[
         Evidenced::new(
-            Interface::Rest {
+            PortKind::Rest {
                 path_prefix: PathRef("/cable-guy/"),
                 port: PortRef::Literal(9090),
                 versions: &["v1.0"],
@@ -228,7 +228,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Settings {
+            PortKind::Settings {
                 path: PathRef("/root/.config/cable-guy/settings-2.json"),
             },
             Evidence {
@@ -239,7 +239,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::File {
+            PortKind::File {
                 path: PathRef("/root/.config/cable-guy"),
                 mode: FileAccessMode::ReadWrite,
             },
@@ -251,7 +251,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::File {
+            PortKind::File {
                 path: PathRef("/root/.config/cable-guy/settings-1.json"),
                 mode: FileAccessMode::ReadWrite,
             },
@@ -262,7 +262,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::File {
+            PortKind::File {
                 path: PathRef("/root/.config/cable-guy/settings.json"),
                 mode: FileAccessMode::ReadWrite,
             },
@@ -273,7 +273,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::File {
+            PortKind::File {
                 path: PathRef("/etc/resolv.conf"),
                 mode: FileAccessMode::ReadWrite,
             },
@@ -284,7 +284,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::File {
+            PortKind::File {
                 path: PathRef("/etc/dhcpcd.conf"),
                 mode: FileAccessMode::ReadWrite,
             },
@@ -295,7 +295,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::File {
+            PortKind::File {
                 path: PathRef("/var/lib/dnsmasq"),
                 mode: FileAccessMode::ReadWrite,
             },
@@ -306,7 +306,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Subprocess {
+            PortKind::Subprocess {
                 command: "cat '{filename}'",
             },
             Evidence {
@@ -316,7 +316,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Subprocess {
+            PortKind::Subprocess {
                 command: "lsattr {filename}",
             },
             Evidence {
@@ -326,7 +326,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Subprocess {
+            PortKind::Subprocess {
                 command: "sudo chattr -i {filename}",
             },
             Evidence {
@@ -336,7 +336,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Subprocess {
+            PortKind::Subprocess {
                 command: "echo '{content}' | sudo tee {filename}",
             },
             Evidence {
@@ -346,7 +346,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Subprocess {
+            PortKind::Subprocess {
                 command: "sudo chattr +i {filename}",
             },
             Evidence {
@@ -356,7 +356,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Subprocess {
+            PortKind::Subprocess {
                 command: "timeout 5 dhclient -d -v {interface_name} 2>&1 || echo 'timeout'",
             },
             Evidence {
@@ -366,7 +366,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Subprocess {
+            PortKind::Subprocess {
                 command: "ifmetric",
             },
             Evidence {
@@ -376,7 +376,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Subprocess { command: "dnsmasq" },
+            PortKind::Subprocess { command: "dnsmasq" },
             Evidence {
                 file: "core/libs/commonwealth/src/commonwealth/utils/DHCPServerManager.py",
                 line: 95,
@@ -384,7 +384,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Zenoh {
+            PortKind::Zenoh {
                 topics_produced: &["services/cable-guy/log"],
                 topics_consumed: &[],
             },
@@ -513,8 +513,8 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
     openapi_refs: ObservedSet::unknown("not yet extracted"),
 };
 
-pub const SERVICE_DEFINITION: ServiceDefinition =
-    ServiceDefinition {
+pub const SERVICE_DEFINITION: ServiceJudgment =
+    ServiceJudgment {
         id: ServiceId::CableGuy,
         singleton: Asserted::established(
             true,

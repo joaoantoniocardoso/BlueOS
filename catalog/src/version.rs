@@ -17,7 +17,7 @@ pub struct VersionBound {
 /// backports). Presence is the full `git tag --contains <intro_commit>` set plus
 /// floating channel tips (`master`, `1.4-dev`) recorded at seed time.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
-pub struct FeatureAvailability {
+pub struct Availability {
     /// Commit that introduced the feature (usually first landed on master).
     pub intro_commit: &'static str,
     /// Every version tag that contains `intro_commit` (includes backports).
@@ -29,7 +29,7 @@ pub struct FeatureAvailability {
     pub present_on_1_4_dev: bool,
 }
 
-impl FeatureAvailability {
+impl Availability {
     /// Empty / unset — **not valid** on catalog journeys.
     pub const fn unknown() -> Self {
         Self {
@@ -171,7 +171,7 @@ pub fn format_availability_skip_reason(skip: &AvailabilitySkip, dut_tag: &str) -
 /// - numbered tag newer than every same-line tag in `present_in_tags` -> present
 /// - numbered tag on a line absent from the table but newer than all table tags -> present
 /// - otherwise -> absent
-pub fn feature_present_on(dut_tag: &str, availability: &FeatureAvailability) -> bool {
+pub fn feature_present_on(dut_tag: &str, availability: &Availability) -> bool {
     let tag = dut_tag.strip_prefix('v').unwrap_or(dut_tag);
     match parse_release_tag(tag) {
         BlueOsChannel::Master => availability.present_on_master,
@@ -184,10 +184,7 @@ pub fn feature_present_on(dut_tag: &str, availability: &FeatureAvailability) -> 
     }
 }
 
-pub fn availability_skip(
-    dut_tag: &str,
-    availability: &FeatureAvailability,
-) -> Option<AvailabilitySkip> {
+pub fn availability_skip(dut_tag: &str, availability: &Availability) -> Option<AvailabilitySkip> {
     if feature_present_on(dut_tag, availability) {
         return None;
     }
@@ -198,7 +195,7 @@ pub fn availability_skip(
     })
 }
 
-pub fn availability_is_valid(a: &FeatureAvailability) -> Result<(), &'static str> {
+pub fn availability_is_valid(a: &Availability) -> Result<(), &'static str> {
     if a.intro_commit.is_empty() {
         return Err("intro_commit is required (unknown availability is not allowed)");
     }
@@ -211,7 +208,7 @@ pub fn availability_is_valid(a: &FeatureAvailability) -> Result<(), &'static str
 /// Journey ids (as strings) present on a given DUT tag / channel tip.
 pub fn journeys_present_on(
     dut_tag: &str,
-    presence: &[(&'static str, FeatureAvailability)],
+    presence: &[(&'static str, Availability)],
 ) -> Vec<&'static str> {
     presence
         .iter()
@@ -335,7 +332,7 @@ mod tests {
         "1.5.0-beta.22",
     ];
 
-    const ZENOH_LIKE: FeatureAvailability = FeatureAvailability {
+    const ZENOH_LIKE: Availability = Availability {
         intro_commit: "127f885b2daf",
         present_in_tags: SAMPLE_TAGS,
         present_on_master: true,
@@ -352,14 +349,14 @@ mod tests {
         "1.5.0-beta.39",
     ];
 
-    const INSTALL_EXTENSION_LIKE: FeatureAvailability = FeatureAvailability {
+    const INSTALL_EXTENSION_LIKE: Availability = Availability {
         intro_commit: "ce9c65e18f0b3f333983bd8810b062c8fe60a6ee",
         present_in_tags: INSTALL_EXTENSION_TAGS,
         present_on_master: true,
         present_on_1_4_dev: true,
     };
 
-    const MULTI_LINE_INSTALL_EXTENSION_LIKE: FeatureAvailability = FeatureAvailability {
+    const MULTI_LINE_INSTALL_EXTENSION_LIKE: Availability = Availability {
         intro_commit: "ce9c65e18f0b3f333983bd8810b062c8fe60a6ee",
         present_in_tags: MULTI_LINE_INSTALL_EXTENSION_TAGS,
         present_on_master: true,
@@ -399,7 +396,7 @@ mod tests {
 
     #[test]
     fn presence_1_4_dev_next_follows_1_4_dev_tip() {
-        let wifi_like = FeatureAvailability {
+        let wifi_like = Availability {
             intro_commit: "732b3ac2997b",
             present_in_tags: &["1.0.0.beta1"],
             present_on_master: true,
@@ -422,7 +419,7 @@ mod tests {
 
     #[test]
     fn availability_is_valid_rejects_unknown() {
-        assert!(availability_is_valid(&FeatureAvailability::unknown()).is_err());
+        assert!(availability_is_valid(&Availability::unknown()).is_err());
         assert!(availability_is_valid(&ZENOH_LIKE).is_ok());
     }
 
@@ -486,7 +483,7 @@ mod tests {
 
     #[test]
     fn presence_skips_when_same_line_absent_and_not_newer_than_table() {
-        let avail = FeatureAvailability {
+        let avail = Availability {
             intro_commit: "0000000000000000000000000000000000000002",
             present_in_tags: &["1.5.0-beta.10", "1.5.0-beta.39"],
             present_on_master: true,
@@ -511,7 +508,7 @@ mod tests {
 
     #[test]
     fn presence_skips_older_numbered_release() {
-        let avail = FeatureAvailability {
+        let avail = Availability {
             intro_commit: "ce9c65e18f0b3f333983bd8810b062c8fe60a6ee",
             present_in_tags: &["1.3.0-beta.7", "1.4.4-beta.16"],
             present_on_master: true,

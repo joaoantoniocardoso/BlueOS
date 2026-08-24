@@ -7,8 +7,8 @@
 
 use crate::coverage::precondition_label;
 use crate::journey::{
-    journey_requirements, BoardKind, DataRequirement, HardwareRequirement, NetworkResource,
-    NetworkState, Precondition, SoftwareRequirement, UserJourney,
+    journey_requirements, BoardKind, DataAssumption, HardwareAssumption, NetworkResource,
+    NetworkState, Precondition, SoftwareAssumption, UseCase,
 };
 /// Declared test-bed resources. Absent/false means "not available";
 /// evaluation returns Missing → runner SKIPS the journey (not fail).
@@ -66,35 +66,35 @@ pub fn evaluate_precondition(
                 PreconditionStatus::Satisfied
             }
         }
-        Precondition::Software(SoftwareRequirement::PirateMode) => {
+        Precondition::Software(SoftwareAssumption::PirateMode) => {
             require_bool(fixtures.pirate_mode, "pirate mode required")
         }
-        Precondition::Software(SoftwareRequirement::AdvancedMode) => {
+        Precondition::Software(SoftwareAssumption::AdvancedMode) => {
             require_bool(fixtures.advanced_mode, "advanced mode required")
         }
-        Precondition::Software(SoftwareRequirement::DevMode) => {
+        Precondition::Software(SoftwareAssumption::DevMode) => {
             require_bool(fixtures.dev_mode, "dev mode required")
         }
-        Precondition::Software(SoftwareRequirement::ConfirmDangerousOp) => require_bool(
+        Precondition::Software(SoftwareAssumption::ConfirmDangerousOp) => require_bool(
             fixtures.confirm_dangerous_op,
             "confirm dangerous operation required",
         ),
-        Precondition::Hardware(HardwareRequirement::UsbCamera) => {
+        Precondition::Hardware(HardwareAssumption::UsbCamera) => {
             require_bool(fixtures.usb_camera, "USB camera required")
         }
-        Precondition::Hardware(HardwareRequirement::Ping1d) => {
+        Precondition::Hardware(HardwareAssumption::Ping1d) => {
             require_bool(fixtures.ping1d, "Ping1D sonar required")
         }
-        Precondition::Hardware(HardwareRequirement::Ping360) => {
+        Precondition::Hardware(HardwareAssumption::Ping360) => {
             require_bool(fixtures.ping360, "Ping360 sonar required")
         }
-        Precondition::Hardware(HardwareRequirement::ExternalNmeaGps) => {
+        Precondition::Hardware(HardwareAssumption::ExternalNmeaGps) => {
             require_bool(fixtures.external_nmea_gps, "external NMEA GPS required")
         }
-        Precondition::Hardware(HardwareRequirement::UsbSerialDevice) => {
+        Precondition::Hardware(HardwareAssumption::UsbSerialDevice) => {
             require_bool(fixtures.usb_serial_device, "USB serial device required")
         }
-        Precondition::Hardware(HardwareRequirement::FlightController(kind)) => {
+        Precondition::Hardware(HardwareAssumption::FlightController(kind)) => {
             evaluate_flight_controller(*kind, fixtures.flight_controller)
         }
         Precondition::NetworkResource(NetworkResource::WifiRadioPresent) => {
@@ -112,32 +112,32 @@ pub fn evaluate_precondition(
         Precondition::NetworkResource(NetworkResource::UsbOtgPresent) => {
             require_bool(fixtures.usb_otg, "USB OTG required")
         }
-        Precondition::Data(DataRequirement::ExtensionInstalled) => {
+        Precondition::Data(DataAssumption::ExtensionInstalled) => {
             require_bool(fixtures.extension_installed, "installed extension required")
         }
-        Precondition::Data(DataRequirement::LocalBlueosVersionAvailable) => require_bool(
+        Precondition::Data(DataAssumption::LocalBlueosVersionAvailable) => require_bool(
             fixtures.local_blueos_version_available,
             "local BlueOS version required",
         ),
-        Precondition::Data(DataRequirement::SerialBridgeConfigured) => require_bool(
+        Precondition::Data(DataAssumption::SerialBridgeConfigured) => require_bool(
             fixtures.serial_bridge_configured,
             "configured serial bridge required",
         ),
-        Precondition::Data(DataRequirement::NmeaSocketConfigured) => require_bool(
+        Precondition::Data(DataAssumption::NmeaSocketConfigured) => require_bool(
             fixtures.nmea_socket_configured,
             "configured NMEA socket required",
         ),
-        Precondition::Data(DataRequirement::RecordingListed) => {
+        Precondition::Data(DataAssumption::RecordingListed) => {
             require_bool(fixtures.recording_listed, "listed recording required")
         }
-        Precondition::Data(DataRequirement::WifiNetworkSaved) => {
+        Precondition::Data(DataAssumption::WifiNetworkSaved) => {
             require_bool(fixtures.wifi_network_saved, "saved Wi-Fi network required")
         }
-        Precondition::Data(DataRequirement::WifiCurrentlyConnected) => require_bool(
+        Precondition::Data(DataAssumption::WifiCurrentlyConnected) => require_bool(
             fixtures.wifi_currently_connected,
             "active Wi-Fi connection required",
         ),
-        Precondition::Data(DataRequirement::OnboardDhcpServerActive) => require_bool(
+        Precondition::Data(DataAssumption::OnboardDhcpServerActive) => require_bool(
             fixtures.onboard_dhcp_server_active,
             "onboard DHCP server active required",
         ),
@@ -150,17 +150,14 @@ pub fn evaluate_precondition(
     }
 }
 
-pub fn evaluate_journey(
-    journey: &UserJourney,
-    fixtures: &FixtureInventory,
-) -> Vec<PreconditionStatus> {
+pub fn evaluate_journey(journey: &UseCase, fixtures: &FixtureInventory) -> Vec<PreconditionStatus> {
     journey_requirements(journey)
         .into_iter()
         .map(|precondition| evaluate_precondition(precondition, fixtures))
         .collect()
 }
 
-pub fn journey_fixtures_ready(journey: &UserJourney, fixtures: &FixtureInventory) -> bool {
+pub fn journey_fixtures_ready(journey: &UseCase, fixtures: &FixtureInventory) -> bool {
     evaluate_journey(journey, fixtures)
         .iter()
         .all(|status| matches!(status, PreconditionStatus::Satisfied))
@@ -168,7 +165,7 @@ pub fn journey_fixtures_ready(journey: &UserJourney, fixtures: &FixtureInventory
 
 /// Like [`journey_fixtures_ready`], but treats `Precondition::Other` as satisfied for allowlisted
 /// idempotent mutating-smoke journeys (e.g. DELETE branding assets when none are uploaded).
-pub fn journey_mutating_smoke_ready(journey: &UserJourney, fixtures: &FixtureInventory) -> bool {
+pub fn journey_mutating_smoke_ready(journey: &UseCase, fixtures: &FixtureInventory) -> bool {
     evaluate_journey(journey, fixtures).iter().all(|status| {
         matches!(
             status,
@@ -254,13 +251,12 @@ fn evaluate_flight_controller(
 mod tests {
     use super::*;
 
-    const TEST_PRESENCE: crate::version::FeatureAvailability =
-        crate::version::FeatureAvailability {
-            intro_commit: "0000000000000000000000000000000000000001",
-            present_in_tags: &["1.0.0"],
-            present_on_master: true,
-            present_on_1_4_dev: true,
-        };
+    const TEST_PRESENCE: crate::version::Availability = crate::version::Availability {
+        intro_commit: "0000000000000000000000000000000000000001",
+        present_in_tags: &["1.0.0"],
+        present_on_master: true,
+        present_on_1_4_dev: true,
+    };
 
     use crate::id::JourneyId;
     use crate::journey::{Visibility, BLAST_RADIUS_UNKNOWN};
@@ -268,8 +264,8 @@ mod tests {
 
     const DOC: Provenance = Provenance::doc("test.md", 1, "");
 
-    fn empty_journey(preconditions: GroundedSet<Precondition>) -> UserJourney {
-        UserJourney {
+    fn empty_journey(preconditions: GroundedSet<Precondition>) -> UseCase {
+        UseCase {
             id: JourneyId::ConnectToWifiNetwork,
             summary: Grounded::known("test", DOC),
             visibility: Grounded::known(Visibility::Default, DOC),
@@ -303,7 +299,7 @@ mod tests {
     #[test]
     fn pirate_mode_precondition() {
         let satisfied = evaluate_precondition(
-            &Precondition::Software(SoftwareRequirement::PirateMode),
+            &Precondition::Software(SoftwareAssumption::PirateMode),
             &FixtureInventory {
                 pirate_mode: true,
                 ..FixtureInventory::default()
@@ -312,7 +308,7 @@ mod tests {
         assert_eq!(satisfied, PreconditionStatus::Satisfied);
 
         let missing = evaluate_precondition(
-            &Precondition::Software(SoftwareRequirement::PirateMode),
+            &Precondition::Software(SoftwareAssumption::PirateMode),
             &FixtureInventory::default(),
         );
         assert!(matches!(missing, PreconditionStatus::Missing(_)));
@@ -321,7 +317,7 @@ mod tests {
     #[test]
     fn flight_controller_any_vs_specific_board() {
         let any = evaluate_precondition(
-            &Precondition::Hardware(HardwareRequirement::FlightController(BoardKind::Any)),
+            &Precondition::Hardware(HardwareAssumption::FlightController(BoardKind::Any)),
             &FixtureInventory {
                 flight_controller: Some(BoardKind::Navigator),
                 ..FixtureInventory::default()
@@ -330,7 +326,7 @@ mod tests {
         assert_eq!(any, PreconditionStatus::Satisfied);
 
         let navigator = evaluate_precondition(
-            &Precondition::Hardware(HardwareRequirement::FlightController(BoardKind::Navigator)),
+            &Precondition::Hardware(HardwareAssumption::FlightController(BoardKind::Navigator)),
             &FixtureInventory {
                 flight_controller: Some(BoardKind::Navigator),
                 ..FixtureInventory::default()
@@ -339,7 +335,7 @@ mod tests {
         assert_eq!(navigator, PreconditionStatus::Satisfied);
 
         let mismatch = evaluate_precondition(
-            &Precondition::Hardware(HardwareRequirement::FlightController(BoardKind::Navigator)),
+            &Precondition::Hardware(HardwareAssumption::FlightController(BoardKind::Navigator)),
             &FixtureInventory {
                 flight_controller: Some(BoardKind::Pixhawk),
                 ..FixtureInventory::default()

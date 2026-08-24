@@ -1,6 +1,6 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, BlastRadius, JourneyStep, Precondition, SoftwareRequirement, StepOutcome, UserJourney,
+    Actor, BlastRadius, JourneyStep, Precondition, SoftwareAssumption, StepOutcome, UseCase,
     Visibility,
 };
 use crate::journey_presence::PRESENCE_INSPECT_ZENOH_NETWORK;
@@ -13,10 +13,10 @@ const ZENOH_INSPECTOR: &str = "core/frontend/src/components/zenoh-inspector/Zeno
 const ZENOH_LIB: &str = "core/frontend/src/libs/zenoh/index.ts";
 const NGINX: &str = "core/tools/nginx/nginx.conf";
 
-pub const JOURNEYS: &[UserJourney] = &[INSPECT_ZENOH_NETWORK];
+pub const JOURNEYS: &[UseCase] = &[INSPECT_ZENOH_NETWORK];
 
-const INSPECT_ZENOH_NETWORK: UserJourney =
-    UserJourney {
+const INSPECT_ZENOH_NETWORK: UseCase =
+    UseCase {
         id: JourneyId::InspectZenohNetwork,
         summary: Grounded::known(
             "View detailed Zenoh traffic coming from your vehicle",
@@ -28,7 +28,7 @@ const INSPECT_ZENOH_NETWORK: UserJourney =
             "Zenoh Inspector connects over WebSocket to inspect live pub/sub topics and network topology",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
-            Precondition::Software(SoftwareRequirement::AdvancedMode),
+            Precondition::Software(SoftwareAssumption::AdvancedMode),
             Provenance::source(ZENOH_MENUS, 145, "advanced: false,"),
         )]),
         steps: GroundedSet::known(&[

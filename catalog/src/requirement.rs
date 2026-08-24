@@ -9,39 +9,61 @@ use crate::catalog::Catalog;
 use crate::coverage::precondition_label;
 use crate::domain::domain_of;
 use crate::domain::Domain;
-use crate::feature::{FeatureCatalog, FeatureId};
-use crate::function::{Function, FunctionCatalog, FunctionId};
+use crate::feature::{capability_journey_view, declared_capabilities, DeclaredCapability};
+use crate::function::{Action, ActionCatalog, ActionId};
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    derive_automatable, journey_requirements, Automatable, DataRequirement, HardwareRequirement,
-    HttpMethod, NetworkResource, NetworkState, Precondition, RouteRef, SoftwareRequirement,
-    StepOutcome, UserJourney,
+    http_automatable, journey_requirements, DataAssumption, HardwareAssumption, HttpMethod,
+    NetworkResource, NetworkState, Precondition, RouteRef, SoftwareAssumption, StepOutcome,
+    UseCase,
 };
 use crate::negative_probes::{NegativeProbe, NEGATIVE_PROBES};
 use crate::provenance::{Grounded, GroundedSet, Provenance};
 use crate::runner::{http_method_label, resolve_http_path};
 use crate::runtime::SloBaseline;
 use crate::system_overlay::SYSTEM_OVERLAY_ENTRIES;
-use crate::version::FeatureAvailability;
+use crate::version::Availability;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+pub enum RequirementClass {
+    #[serde(rename = "system")]
+    System,
+    #[serde(rename = "functional")]
+    Functional,
+    #[serde(rename = "interface")]
+    Interface,
+    #[serde(rename = "performance")]
+    Performance,
+    #[serde(rename = "robustness")]
+    Robustness,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum RequirementKind {
-    System,
-    Functional,
-    Interface,
-    Performance,
-    Robustness,
-    Constraint,
+pub enum AssumptionKind {
+    Hardware,
+    Software,
+    Data,
+    Network,
+    Other,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct Assumption {
+    pub statement: String,
+    pub source_use_case: String,
+    pub kind: AssumptionKind,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct RequirementId(pub String);
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(tag = "status", rename_all = "snake_case")]
+#[serde(tag = "status")]
 pub enum RequirementStatement {
+    #[serde(rename = "known")]
     Known { text: String },
+    #[serde(rename = "unknown")]
     Unknown { reason: String },
 }
 
@@ -51,16 +73,18 @@ pub struct AcceptanceCriterion {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
-#[serde(tag = "status", rename_all = "snake_case")]
+#[serde(tag = "status")]
 pub enum RequirementCriteria {
+    #[serde(rename = "known")]
     Known { items: Vec<AcceptanceCriterion> },
+    #[serde(rename = "unknown")]
     Unknown { reason: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(tag = "source", rename_all = "snake_case")]
 pub enum ContaminationSource {
-    Feature { id: FeatureId },
+    Capability { id: CapabilityId },
     Journey { id: JourneyId },
     Overlay { suffix: String },
 }
@@ -74,17 +98,18 @@ pub struct ContaminationFinding {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct Requirement {
     pub id: RequirementId,
-    pub kind: RequirementKind,
+    pub kind: RequirementClass,
     pub domain: Domain,
     pub aggregate: Aggregate,
-    pub availability: FeatureAvailability,
+    pub availability: Availability,
     pub statement: RequirementStatement,
     pub criteria: RequirementCriteria,
-    pub feature_id: Option<FeatureId>,
+    pub feature_id: Option<CapabilityId>,
     pub journey_id: Option<JourneyId>,
-    pub function_id: Option<FunctionId>,
-    pub verifying_journeys: Vec<JourneyId>,
-    pub functional_children: Vec<RequirementId>,
+    pub function_id: Option<ActionId>,
+    pub requirement_verifications: Vec<JourneyId>,
+    pub subrequirements: Vec<RequirementId>,
+    pub assumptions: Vec<Assumption>,
     pub rationale: Option<String>,
 }
 
@@ -116,20 +141,21 @@ impl RequirementCatalog {
     }
 
     pub fn from_catalog(catalog: &Catalog) -> Self {
-        let features = FeatureCatalog::from_catalog(catalog);
+        let capabilities = declared_capabilities(catalog);
         let mut contamination_findings = Vec::new();
         let mut requirements = Vec::new();
-        let functions = FunctionCatalog::from_catalog(catalog);
-        let mut functional_by_feature: HashMap<FeatureId, Vec<RequirementId>> = HashMap::new();
+        let functions = ActionCatalog::from_catalog(catalog);
+        let mut functional_by_capability: HashMap<CapabilityId, Vec<RequirementId>> =
+            HashMap::new();
 
-        for feature in features.features() {
-            let id = system_requirement_id(feature);
-            let availability = availability_for_capability(catalog, feature.id.0);
+        for capability in &capabilities {
+            let id = system_requirement_id(capability);
+            let availability = availability_for_capability(catalog, capability.id);
             requirements.push(Requirement {
                 id,
-                kind: RequirementKind::System,
-                domain: domain_of(feature.aggregate),
-                aggregate: feature.aggregate,
+                kind: RequirementClass::System,
+                domain: domain_of(capability.aggregate),
+                aggregate: capability.aggregate,
                 availability,
                 statement: RequirementStatement::Unknown {
                     reason: "pending functional child composition".to_string(),
@@ -137,12 +163,13 @@ impl RequirementCatalog {
                 criteria: RequirementCriteria::Unknown {
                     reason: "system requirements link to functional children".to_string(),
                 },
-                feature_id: Some(feature.id),
+                feature_id: Some(capability.id),
                 journey_id: None,
                 function_id: None,
-                verifying_journeys: Vec::new(),
-                functional_children: Vec::new(),
-                rationale: Some(feature.rationale.clone()),
+                requirement_verifications: Vec::new(),
+                subrequirements: Vec::new(),
+                assumptions: Vec::new(),
+                rationale: Some(capability.rationale.clone()),
             });
         }
 
@@ -156,29 +183,31 @@ impl RequirementCatalog {
             let availability = availability_for_capability(catalog, function.capability);
             requirements.push(Requirement {
                 id: id.clone(),
-                kind: RequirementKind::Functional,
+                kind: RequirementClass::Functional,
                 domain,
                 aggregate,
                 availability,
                 statement,
                 criteria,
-                feature_id: Some(FeatureId(function.capability)),
+                feature_id: Some(function.capability),
                 journey_id: None,
                 function_id: Some(function.id.clone()),
-                verifying_journeys: function.verifying_journeys.clone(),
-                functional_children: Vec::new(),
+                requirement_verifications: function.verifying_journeys.clone(),
+                subrequirements: Vec::new(),
+                assumptions: Vec::new(),
                 rationale: None,
             });
-            functional_by_feature
-                .entry(FeatureId(function.capability))
+            functional_by_capability
+                .entry(function.capability)
                 .or_default()
                 .push(id);
         }
 
-        for feature in features.features() {
-            let system_id = system_requirement_id(feature);
-            let children = functional_by_feature
-                .get(&feature.id)
+        let journey_view = capability_journey_view(catalog);
+        for capability in &capabilities {
+            let system_id = system_requirement_id(capability);
+            let children = functional_by_capability
+                .get(&capability.id)
                 .cloned()
                 .unwrap_or_default();
             let children_empty = children.is_empty();
@@ -186,13 +215,12 @@ impl RequirementCatalog {
                 .iter()
                 .position(|req| req.id == system_id)
                 .expect("system requirement exists");
-            requirements[idx].functional_children = children.clone();
+            requirements[idx].subrequirements = children.clone();
             if children_empty {
                 requirements[idx].statement = RequirementStatement::Unknown {
-                    reason: if features
-                        .journey_view(catalog)
-                        .unreferenced_features
-                        .contains(&feature.id)
+                    reason: if journey_view
+                        .unreferenced_capabilities
+                        .contains(&capability.id)
                     {
                         "no journey references this capability".to_string()
                     } else {
@@ -200,10 +228,9 @@ impl RequirementCatalog {
                     },
                 };
                 requirements[idx].criteria = RequirementCriteria::Unknown {
-                    reason: if features
-                        .journey_view(catalog)
-                        .unreferenced_features
-                        .contains(&feature.id)
+                    reason: if journey_view
+                        .unreferenced_capabilities
+                        .contains(&capability.id)
                     {
                         "no journey references this capability".to_string()
                     } else {
@@ -214,7 +241,7 @@ impl RequirementCatalog {
                 requirements[idx].statement = compose_system_statement(
                     &children,
                     &requirements,
-                    ContaminationSource::Feature { id: feature.id },
+                    ContaminationSource::Capability { id: capability.id },
                     &mut contamination_findings,
                 );
                 requirements[idx].criteria = compose_system_criteria(&children, &requirements);
@@ -258,24 +285,8 @@ impl RequirementCatalog {
             add_robustness_requirement(catalog, &mut requirements, probe);
         }
 
-        let mut seen_preconditions: BTreeSet<String> = BTreeSet::new();
-        for journey in catalog.journeys() {
-            for precondition in journey_requirements(journey) {
-                let label = precondition_label(precondition);
-                if seen_preconditions.insert(label.clone()) {
-                    add_constraint_requirement(
-                        catalog,
-                        &mut requirements,
-                        journey,
-                        precondition,
-                        &label,
-                        &mut contamination_findings,
-                    );
-                }
-            }
-        }
-
         append_overlay_requirements(catalog, &mut requirements, &mut contamination_findings);
+        attach_assumptions(catalog, &mut requirements);
 
         Self {
             requirements,
@@ -291,7 +302,7 @@ impl RequirementCatalog {
         &self.contamination_findings
     }
 
-    pub fn count_by_kind(&self) -> HashMap<RequirementKind, usize> {
+    pub fn count_by_kind(&self) -> HashMap<RequirementClass, usize> {
         let mut counts = HashMap::new();
         for requirement in &self.requirements {
             *counts.entry(requirement.kind).or_default() += 1;
@@ -334,7 +345,6 @@ impl RequirementCatalog {
     pub fn validate_structure(
         &self,
         catalog: &Catalog,
-        features: &FeatureCatalog,
     ) -> Result<(), Vec<RequirementValidationError>> {
         let mut errors = Vec::new();
         if let Err(stmt_errors) = self.validate_emitted_statements() {
@@ -344,23 +354,23 @@ impl RequirementCatalog {
         let system_ids: HashSet<&str> = self
             .requirements
             .iter()
-            .filter(|req| req.kind == RequirementKind::System)
+            .filter(|req| req.kind == RequirementClass::System)
             .map(|req| req.id.0.as_str())
             .collect();
 
-        for feature in features.features() {
-            let expected = system_requirement_id(feature).0;
+        for capability in declared_capabilities(catalog) {
+            let expected = system_requirement_id(&capability).0;
             if !system_ids.contains(expected.as_str()) {
                 errors.push(RequirementValidationError::MissingSystemRequirement {
-                    feature: feature.id.0.as_str().to_string(),
+                    feature: capability.id.as_str().to_string(),
                 });
             }
         }
 
         for requirement in &self.requirements {
             // Overlay system claims are not composed from journeys, so they have no functional children.
-            if requirement.kind == RequirementKind::System
-                && requirement.functional_children.is_empty()
+            if requirement.kind == RequirementClass::System
+                && requirement.subrequirements.is_empty()
                 && !requirement.id.0.contains("/SYS-OVR/")
                 && !matches!(requirement.criteria, RequirementCriteria::Unknown { .. })
             {
@@ -368,7 +378,7 @@ impl RequirementCatalog {
                     id: requirement.id.0.clone(),
                 });
             }
-            if requirement.kind == RequirementKind::Functional
+            if requirement.kind == RequirementClass::Functional
                 && matches!(
                     &requirement.criteria,
                     RequirementCriteria::Known { items } if items.is_empty()
@@ -388,17 +398,17 @@ impl RequirementCatalog {
                     id: requirement.id.0.clone(),
                 });
             }
-            if requirement.kind == RequirementKind::Functional {
-                if requirement.verifying_journeys.is_empty() {
+            if requirement.kind == RequirementClass::Functional {
+                if requirement.requirement_verifications.is_empty() {
                     errors.push(RequirementValidationError::FunctionalWithoutCriterion {
                         id: requirement.id.0.clone(),
                     });
                 }
-                for journey_id in &requirement.verifying_journeys {
+                for journey_id in &requirement.requirement_verifications {
                     let journey = catalog
                         .journey_by_id(journey_id)
                         .expect("functional verifying journey exists");
-                    if derive_automatable(journey) == Automatable::Http
+                    if http_automatable(journey)
                         && matches!(
                             &requirement.criteria,
                             RequirementCriteria::Known { items }
@@ -426,10 +436,10 @@ impl RequirementCatalog {
 #[allow(clippy::too_many_arguments)]
 fn add_interface_requirement(
     catalog: &Catalog,
-    functions: &FunctionCatalog,
+    functions: &ActionCatalog,
     requirements: &mut Vec<Requirement>,
     contamination_findings: &mut Vec<ContaminationFinding>,
-    journey: &UserJourney,
+    journey: &UseCase,
     route: &RouteRef,
     resolved: &str,
     description: &str,
@@ -447,17 +457,18 @@ fn add_interface_requirement(
     let function_id = resolve_function_id_for_interface(catalog, functions, journey, route);
     requirements.push(Requirement {
         id,
-        kind: RequirementKind::Interface,
+        kind: RequirementClass::Interface,
         domain,
         aggregate,
         availability: journey.availability,
         statement,
         criteria,
-        feature_id: primary_feature_for_journey(journey),
+        feature_id: primary_capability_for_journey(journey),
         journey_id: Some(journey.id),
         function_id,
-        verifying_journeys: Vec::new(),
-        functional_children: Vec::new(),
+        requirement_verifications: Vec::new(),
+        subrequirements: Vec::new(),
+        assumptions: Vec::new(),
         rationale: None,
     });
 }
@@ -486,7 +497,7 @@ fn add_performance_requirement(
     };
     requirements.push(Requirement {
         id,
-        kind: RequirementKind::Performance,
+        kind: RequirementClass::Performance,
         domain,
         aggregate,
         availability: availability_for_service(catalog, service_id),
@@ -509,8 +520,9 @@ fn add_performance_requirement(
         feature_id: None,
         journey_id: None,
         function_id: None,
-        verifying_journeys: Vec::new(),
-        functional_children: Vec::new(),
+        requirement_verifications: Vec::new(),
+        subrequirements: Vec::new(),
+        assumptions: Vec::new(),
         rationale: capture,
     });
 }
@@ -526,16 +538,16 @@ fn add_robustness_requirement(
     let aggregate = aggregate_for_journey(journey);
     let domain = domain_of(aggregate);
     let id = robustness_requirement_id(domain, aggregate, probe.id);
-    let statement_text = match primary_feature_for_journey(journey) {
-        Some(feature) => format!(
+    let statement_text = match primary_capability_for_journey(journey) {
+        Some(capability) => format!(
             "Invalid or unsafe {} request is rejected safely",
-            feature.0.as_str().replace('_', " ")
+            capability.as_str().replace('_', " ")
         ),
         None => "Invalid or unsafe request is rejected safely".to_string(),
     };
     requirements.push(Requirement {
         id,
-        kind: RequirementKind::Robustness,
+        kind: RequirementClass::Robustness,
         domain,
         aggregate,
         availability: journey.availability,
@@ -547,56 +559,94 @@ fn add_robustness_requirement(
                 text: format_negative_probe_criterion(probe),
             }],
         },
-        feature_id: primary_feature_for_journey(journey),
+        feature_id: primary_capability_for_journey(journey),
         journey_id: Some(probe.journey_id),
         function_id: None,
-        verifying_journeys: Vec::new(),
-        functional_children: Vec::new(),
+        requirement_verifications: Vec::new(),
+        subrequirements: Vec::new(),
+        assumptions: Vec::new(),
         rationale: None,
     });
 }
 
-fn add_constraint_requirement(
-    _catalog: &Catalog,
-    requirements: &mut Vec<Requirement>,
-    journey: &UserJourney,
-    precondition: &Precondition,
-    label: &str,
-    contamination_findings: &mut Vec<ContaminationFinding>,
-) {
-    let aggregate = aggregate_for_journey(journey);
-    let domain = domain_of(aggregate);
-    let id = constraint_requirement_id(domain, aggregate, label);
-    let statement_text = precondition_statement(precondition);
-    let statement = derive_statement(
-        &statement_text,
-        ContaminationSource::Journey { id: journey.id },
-        contamination_findings,
-    );
-    requirements.push(Requirement {
-        id,
-        kind: RequirementKind::Constraint,
-        domain,
-        aggregate,
-        availability: journey.availability,
-        statement,
-        criteria: RequirementCriteria::Known {
-            items: vec![AcceptanceCriterion {
-                text: precondition_criterion(precondition),
-            }],
-        },
-        feature_id: primary_feature_for_journey(journey),
-        journey_id: Some(journey.id),
-        function_id: None,
-        verifying_journeys: Vec::new(),
-        functional_children: Vec::new(),
-        rationale: None,
-    });
+fn attach_assumptions(catalog: &Catalog, requirements: &mut [Requirement]) {
+    for requirement in requirements.iter_mut() {
+        if requirement.kind == RequirementClass::Functional {
+            requirement.assumptions =
+                assumptions_for_journeys(catalog, &requirement.requirement_verifications);
+        }
+    }
+
+    let system_journeys: Vec<Vec<JourneyId>> = requirements
+        .iter()
+        .map(|requirement| {
+            if requirement.kind != RequirementClass::System {
+                return Vec::new();
+            }
+            let mut journey_ids = BTreeSet::new();
+            for child_id in &requirement.subrequirements {
+                if let Some(child) = requirements.iter().find(|req| &req.id == child_id) {
+                    journey_ids.extend(child.requirement_verifications.iter().copied());
+                }
+            }
+            if let Some(entry) = overlay_entry_for_requirement_id(&requirement.id.0) {
+                journey_ids.extend(entry.journey_ids.iter().copied());
+            }
+            journey_ids.into_iter().collect()
+        })
+        .collect();
+
+    for (requirement, journey_ids) in requirements.iter_mut().zip(system_journeys) {
+        if requirement.kind == RequirementClass::System {
+            requirement.assumptions = assumptions_for_journeys(catalog, &journey_ids);
+        }
+    }
+}
+
+fn assumptions_for_journeys(catalog: &Catalog, journey_ids: &[JourneyId]) -> Vec<Assumption> {
+    let mut seen = BTreeSet::new();
+    let mut assumptions = Vec::new();
+    for journey_id in journey_ids {
+        let journey = catalog
+            .journey_by_id(journey_id)
+            .unwrap_or_else(|| panic!("assumption cites unknown journey {journey_id}"));
+        for precondition in journey_requirements(journey) {
+            let label = precondition_label(precondition);
+            if seen.insert(label) {
+                assumptions.push(Assumption {
+                    statement: precondition_statement(precondition),
+                    source_use_case: journey.id.to_string(),
+                    kind: assumption_kind(precondition),
+                });
+            }
+        }
+    }
+    assumptions
+}
+
+fn assumption_kind(precondition: &Precondition) -> AssumptionKind {
+    match precondition {
+        Precondition::Hardware(_) | Precondition::HardwarePresent(_) => AssumptionKind::Hardware,
+        Precondition::Software(_) => AssumptionKind::Software,
+        Precondition::Data(_) => AssumptionKind::Data,
+        Precondition::Network(_) | Precondition::NetworkResource(_) => AssumptionKind::Network,
+        Precondition::Other(_)
+        | Precondition::ServiceState { .. }
+        | Precondition::ConfigClean(_) => AssumptionKind::Other,
+    }
+}
+
+fn overlay_entry_for_requirement_id(
+    id: &str,
+) -> Option<&'static crate::system_overlay::SystemOverlayEntry> {
+    SYSTEM_OVERLAY_ENTRIES
+        .iter()
+        .find(|entry| id.ends_with(&format!("/SYS-OVR/{}", entry.suffix)))
 }
 
 fn compose_function_statement(
     catalog: &Catalog,
-    function: &Function,
+    function: &Action,
     findings: &mut Vec<ContaminationFinding>,
 ) -> RequirementStatement {
     let mut texts = Vec::new();
@@ -621,7 +671,7 @@ fn compose_function_statement(
     derive_statement(&texts.join("; "), source, findings)
 }
 
-fn compose_function_criteria(catalog: &Catalog, function: &Function) -> RequirementCriteria {
+fn compose_function_criteria(catalog: &Catalog, function: &Action) -> RequirementCriteria {
     let mut items = Vec::new();
     let mut seen = HashSet::new();
     for journey_id in &function.verifying_journeys {
@@ -657,9 +707,7 @@ fn compose_function_criteria(catalog: &Catalog, function: &Function) -> Requirem
         let journey = catalog
             .journey_by_id(journey_id)
             .expect("verifying journey exists");
-        if derive_automatable(journey) == Automatable::Http
-            && !items.iter().any(|item| item.text.contains("capture="))
-        {
+        if http_automatable(journey) && !items.iter().any(|item| item.text.contains("capture=")) {
             return RequirementCriteria::Unknown {
                 reason: "http-automatable verifying journey lacks runtime capture evidence"
                     .to_string(),
@@ -669,7 +717,7 @@ fn compose_function_criteria(catalog: &Catalog, function: &Function) -> Requirem
     RequirementCriteria::Known { items }
 }
 
-fn functional_criteria(catalog: &Catalog, journey: &UserJourney) -> RequirementCriteria {
+fn functional_criteria(catalog: &Catalog, journey: &UseCase) -> RequirementCriteria {
     if let GroundedSet::Known { items: steps } = &journey.steps {
         let mut items = Vec::new();
         for (step_index, step) in steps.iter().enumerate() {
@@ -682,9 +730,7 @@ fn functional_criteria(catalog: &Catalog, journey: &UserJourney) -> RequirementC
                 reason: "journey has no step-level acceptance criteria".to_string(),
             };
         }
-        if derive_automatable(journey) == Automatable::Http
-            && !items.iter().any(|item| item.text.contains("capture="))
-        {
+        if http_automatable(journey) && !items.iter().any(|item| item.text.contains("capture=")) {
             return RequirementCriteria::Unknown {
                 reason: "http-automatable journey lacks runtime capture evidence".to_string(),
             };
@@ -698,7 +744,7 @@ fn functional_criteria(catalog: &Catalog, journey: &UserJourney) -> RequirementC
 
 fn step_criterion(
     catalog: &Catalog,
-    _journey: &UserJourney,
+    _journey: &UseCase,
     step_index: usize,
     step: &crate::provenance::GroundedItem<crate::journey::JourneyStep>,
 ) -> Option<AcceptanceCriterion> {
@@ -790,7 +836,7 @@ fn format_negative_probe_criterion(probe: &NegativeProbe) -> String {
 
 fn runtime_capture_for_route(
     catalog: &Catalog,
-    journey: &UserJourney,
+    journey: &UseCase,
     route: &RouteRef,
 ) -> Option<String> {
     if let GroundedSet::Known { items: steps } = &journey.steps {
@@ -841,14 +887,14 @@ fn derive_statement(
 }
 
 fn compose_system_statement(
-    functional_children: &[RequirementId],
+    subrequirements: &[RequirementId],
     requirements: &[Requirement],
     source: ContaminationSource,
     findings: &mut Vec<ContaminationFinding>,
 ) -> RequirementStatement {
     let mut texts = Vec::new();
     let mut seen = HashSet::new();
-    for child_id in functional_children {
+    for child_id in subrequirements {
         let child = requirements
             .iter()
             .find(|req| &req.id == child_id)
@@ -882,20 +928,20 @@ fn precondition_statement(precondition: &Precondition) -> String {
         Precondition::ConfigClean(path) => format!("{} configuration is clean", path.0),
         Precondition::Other(label) => (*label).to_string(),
         Precondition::Hardware(hardware) => match hardware {
-            HardwareRequirement::FlightController(board) => {
+            HardwareAssumption::FlightController(board) => {
                 format!("a {board:?} flight controller is connected")
             }
-            HardwareRequirement::UsbCamera => "a USB camera is connected".to_string(),
-            HardwareRequirement::Ping1d => "a Ping1D sonar is connected".to_string(),
-            HardwareRequirement::Ping360 => "a Ping360 sonar is connected".to_string(),
-            HardwareRequirement::ExternalNmeaGps => "an external NMEA GPS is connected".to_string(),
-            HardwareRequirement::UsbSerialDevice => "a USB serial device is connected".to_string(),
+            HardwareAssumption::UsbCamera => "a USB camera is connected".to_string(),
+            HardwareAssumption::Ping1d => "a Ping1D sonar is connected".to_string(),
+            HardwareAssumption::Ping360 => "a Ping360 sonar is connected".to_string(),
+            HardwareAssumption::ExternalNmeaGps => "an external NMEA GPS is connected".to_string(),
+            HardwareAssumption::UsbSerialDevice => "a USB serial device is connected".to_string(),
         },
         Precondition::Software(software) => match software {
-            SoftwareRequirement::PirateMode => "pirate mode is enabled".to_string(),
-            SoftwareRequirement::AdvancedMode => "advanced mode is enabled".to_string(),
-            SoftwareRequirement::DevMode => "developer mode is enabled".to_string(),
-            SoftwareRequirement::ConfirmDangerousOp => {
+            SoftwareAssumption::PirateMode => "pirate mode is enabled".to_string(),
+            SoftwareAssumption::AdvancedMode => "advanced mode is enabled".to_string(),
+            SoftwareAssumption::DevMode => "developer mode is enabled".to_string(),
+            SoftwareAssumption::ConfirmDangerousOp => {
                 "the operator confirmed a dangerous operation".to_string()
             }
         },
@@ -907,16 +953,16 @@ fn precondition_statement(precondition: &Precondition) -> String {
             NetworkResource::UsbOtgPresent => "USB OTG is present".to_string(),
         },
         Precondition::Data(data) => match data {
-            DataRequirement::ExtensionInstalled => "an extension is installed".to_string(),
-            DataRequirement::LocalBlueosVersionAvailable => {
+            DataAssumption::ExtensionInstalled => "an extension is installed".to_string(),
+            DataAssumption::LocalBlueosVersionAvailable => {
                 "a local BlueOS version image is available".to_string()
             }
-            DataRequirement::SerialBridgeConfigured => "a serial bridge is configured".to_string(),
-            DataRequirement::NmeaSocketConfigured => "an NMEA socket is configured".to_string(),
-            DataRequirement::RecordingListed => "a video recording is listed".to_string(),
-            DataRequirement::WifiNetworkSaved => "a Wi-Fi network is saved".to_string(),
-            DataRequirement::WifiCurrentlyConnected => "Wi-Fi is currently connected".to_string(),
-            DataRequirement::OnboardDhcpServerActive => {
+            DataAssumption::SerialBridgeConfigured => "a serial bridge is configured".to_string(),
+            DataAssumption::NmeaSocketConfigured => "an NMEA socket is configured".to_string(),
+            DataAssumption::RecordingListed => "a video recording is listed".to_string(),
+            DataAssumption::WifiNetworkSaved => "a Wi-Fi network is saved".to_string(),
+            DataAssumption::WifiCurrentlyConnected => "Wi-Fi is currently connected".to_string(),
+            DataAssumption::OnboardDhcpServerActive => {
                 "the onboard DHCP server is active".to_string()
             }
         },
@@ -1079,20 +1125,20 @@ where
     }
 }
 
-fn system_requirement_id(feature: &crate::feature::Feature) -> RequirementId {
-    let domain = domain_of(feature.aggregate);
+fn system_requirement_id(capability: &DeclaredCapability) -> RequirementId {
+    let domain = domain_of(capability.aggregate);
     RequirementId(format!(
         "REQ/{}/{}/SYS/{}",
         domain.as_str(),
-        feature.aggregate.as_str(),
-        feature.id.0.as_str()
+        capability.aggregate.as_str(),
+        capability.id.as_str()
     ))
 }
 
 fn functional_requirement_id_for_function(
     domain: Domain,
     aggregate: Aggregate,
-    function_id: &FunctionId,
+    function_id: &ActionId,
 ) -> RequirementId {
     RequirementId(format!(
         "REQ/{}/{}/FUN/{}",
@@ -1125,7 +1171,7 @@ fn route_signature_key(catalog: &Catalog, route: &RouteRef) -> Option<String> {
 
 fn function_contains_route_signature(
     catalog: &Catalog,
-    function: &Function,
+    function: &Action,
     route: &RouteRef,
 ) -> bool {
     let Some(target) = route_signature_key(catalog, route) else {
@@ -1155,11 +1201,11 @@ fn function_contains_route_signature(
 
 fn resolve_function_id_for_interface(
     catalog: &Catalog,
-    functions: &FunctionCatalog,
-    journey: &UserJourney,
+    functions: &ActionCatalog,
+    journey: &UseCase,
     route: &RouteRef,
-) -> Option<FunctionId> {
-    let mut candidates: Vec<FunctionId> = functions
+) -> Option<ActionId> {
+    let mut candidates: Vec<ActionId> = functions
         .functions()
         .iter()
         .filter(|function| function_contains_route_signature(catalog, function, route))
@@ -1221,15 +1267,6 @@ fn robustness_requirement_id(
     ))
 }
 
-fn constraint_requirement_id(domain: Domain, aggregate: Aggregate, label: &str) -> RequirementId {
-    RequirementId(format!(
-        "REQ/{}/{}/CON/{}",
-        domain.as_str(),
-        aggregate.as_str(),
-        sanitize_path_for_id(label)
-    ))
-}
-
 fn sanitize_path_for_id(path: &str) -> String {
     path.trim_start_matches('/')
         .chars()
@@ -1240,11 +1277,13 @@ fn sanitize_path_for_id(path: &str) -> String {
         .collect()
 }
 
-fn primary_feature_for_journey(journey: &UserJourney) -> Option<FeatureId> {
-    feature_attributions_for_journey(journey).into_iter().next()
+fn primary_capability_for_journey(journey: &UseCase) -> Option<CapabilityId> {
+    capability_attributions_for_journey(journey)
+        .into_iter()
+        .next()
 }
 
-fn feature_attributions_for_journey(journey: &UserJourney) -> Vec<FeatureId> {
+fn capability_attributions_for_journey(journey: &UseCase) -> Vec<CapabilityId> {
     let GroundedSet::Known { items } = &journey.capability_refs else {
         return Vec::new();
     };
@@ -1254,7 +1293,7 @@ fn feature_attributions_for_journey(journey: &UserJourney) -> Vec<FeatureId> {
     if items.len() == 1 {
         let capability = items[0].value;
         if journey_summary_fits_capability(journey, capability) {
-            return vec![FeatureId(capability)];
+            return vec![capability];
         }
         return Vec::new();
     }
@@ -1262,14 +1301,14 @@ fn feature_attributions_for_journey(journey: &UserJourney) -> Vec<FeatureId> {
         return Vec::new();
     };
     if journey_summary_fits_capability(journey, primary) {
-        vec![FeatureId(primary)]
+        vec![primary]
     } else {
         Vec::new()
     }
 }
 
 fn select_primary_capability(
-    journey: &UserJourney,
+    journey: &UseCase,
     items: &[crate::provenance::GroundedItem<CapabilityId>],
 ) -> Option<CapabilityId> {
     let summary = grounded_text(&journey.summary).to_ascii_lowercase();
@@ -1297,7 +1336,7 @@ fn capability_summary_overlap(capability: CapabilityId, summary: &str) -> usize 
     score
 }
 
-fn journey_summary_fits_capability(journey: &UserJourney, capability: CapabilityId) -> bool {
+fn journey_summary_fits_capability(journey: &UseCase, capability: CapabilityId) -> bool {
     let summary = grounded_text(&journey.summary).to_ascii_lowercase();
     match capability {
         CapabilityId::AdvertiseMdnsDomains => {
@@ -1316,11 +1355,11 @@ fn journey_summary_fits_capability(journey: &UserJourney, capability: Capability
 }
 
 fn compose_system_criteria(
-    functional_children: &[RequirementId],
+    subrequirements: &[RequirementId],
     requirements: &[Requirement],
 ) -> RequirementCriteria {
     let mut items = Vec::new();
-    for child_id in functional_children {
+    for child_id in subrequirements {
         let child = requirements
             .iter()
             .find(|req| &req.id == child_id)
@@ -1346,10 +1385,6 @@ fn compose_system_criteria(
     } else {
         RequirementCriteria::Known { items }
     }
-}
-
-fn precondition_criterion(precondition: &Precondition) -> String {
-    format!("precondition: {}", precondition_statement(precondition))
 }
 
 fn append_overlay_requirements(
@@ -1387,7 +1422,7 @@ fn append_overlay_requirements(
         };
         requirements.push(Requirement {
             id,
-            kind: RequirementKind::System,
+            kind: RequirementClass::System,
             domain,
             aggregate: entry.aggregate,
             availability: overlay_availability_from_ids(catalog, entry.journey_ids),
@@ -1396,8 +1431,9 @@ fn append_overlay_requirements(
             feature_id: None,
             journey_id: None,
             function_id: None,
-            verifying_journeys: Vec::new(),
-            functional_children: Vec::new(),
+            requirement_verifications: Vec::new(),
+            subrequirements: Vec::new(),
+            assumptions: Vec::new(),
             rationale,
         });
     }
@@ -1406,8 +1442,8 @@ fn append_overlay_requirements(
 pub(crate) fn overlay_availability_from_ids(
     catalog: &Catalog,
     journey_ids: &[JourneyId],
-) -> FeatureAvailability {
-    let journeys: Vec<&UserJourney> = journey_ids
+) -> Availability {
+    let journeys: Vec<&UseCase> = journey_ids
         .iter()
         .map(|id| {
             catalog
@@ -1428,7 +1464,7 @@ fn capability_phrase_for_service(catalog: &Catalog, service_id: ServiceId) -> Op
     }
 }
 
-fn aggregate_for_journey(journey: &UserJourney) -> Aggregate {
+fn aggregate_for_journey(journey: &UseCase) -> Aggregate {
     if let GroundedSet::Known { items } = &journey.capability_refs {
         if let Some(first) = items.first() {
             if let Some(def) = capability_def(first.value) {
@@ -1457,8 +1493,8 @@ fn aggregate_for_service(catalog: &Catalog, service_id: ServiceId) -> Aggregate 
     Aggregate::HostControl
 }
 
-fn availability_for_capability(catalog: &Catalog, capability: CapabilityId) -> FeatureAvailability {
-    let journeys: Vec<&UserJourney> = catalog
+fn availability_for_capability(catalog: &Catalog, capability: CapabilityId) -> Availability {
+    let journeys: Vec<&UseCase> = catalog
         .journeys()
         .iter()
         .filter(|journey| journey_references_capability(journey, capability))
@@ -1466,8 +1502,8 @@ fn availability_for_capability(catalog: &Catalog, capability: CapabilityId) -> F
     merge_journey_availabilities(journeys)
 }
 
-fn availability_for_service(catalog: &Catalog, service_id: ServiceId) -> FeatureAvailability {
-    let journeys: Vec<&UserJourney> = catalog
+fn availability_for_service(catalog: &Catalog, service_id: ServiceId) -> Availability {
+    let journeys: Vec<&UseCase> = catalog
         .journeys()
         .iter()
         .filter(|journey| journey_participates_service(journey, service_id))
@@ -1475,9 +1511,9 @@ fn availability_for_service(catalog: &Catalog, service_id: ServiceId) -> Feature
     merge_journey_availabilities(journeys)
 }
 
-fn merge_journey_availabilities(journeys: Vec<&UserJourney>) -> FeatureAvailability {
+fn merge_journey_availabilities(journeys: Vec<&UseCase>) -> Availability {
     if journeys.is_empty() {
-        return FeatureAvailability::unknown();
+        return Availability::unknown();
     }
     let anchor = journeys
         .iter()
@@ -1491,7 +1527,7 @@ fn merge_journey_availabilities(journeys: Vec<&UserJourney>) -> FeatureAvailabil
                 })
         })
         .expect("non-empty journeys");
-    FeatureAvailability {
+    Availability {
         intro_commit: anchor.availability.intro_commit,
         present_in_tags: anchor.availability.present_in_tags,
         present_on_master: journeys
@@ -1503,7 +1539,7 @@ fn merge_journey_availabilities(journeys: Vec<&UserJourney>) -> FeatureAvailabil
     }
 }
 
-fn availability_first_tag_key(availability: &FeatureAvailability) -> (u32, u32, u32, u32) {
+fn availability_first_tag_key(availability: &Availability) -> (u32, u32, u32, u32) {
     let Some(tag) = availability.first_tag() else {
         return (u32::MAX, u32::MAX, u32::MAX, u32::MAX);
     };
@@ -1524,14 +1560,14 @@ fn availability_first_tag_key(availability: &FeatureAvailability) -> (u32, u32, 
     (major, minor, patch, 0)
 }
 
-fn journey_references_capability(journey: &UserJourney, capability: CapabilityId) -> bool {
+fn journey_references_capability(journey: &UseCase, capability: CapabilityId) -> bool {
     matches!(
         &journey.capability_refs,
         GroundedSet::Known { items } if items.iter().any(|item| item.value == capability)
     )
 }
 
-fn journey_participates_service(journey: &UserJourney, service_id: ServiceId) -> bool {
+fn journey_participates_service(journey: &UseCase, service_id: ServiceId) -> bool {
     matches!(
         &journey.services,
         GroundedSet::Known { items } if items.iter().any(|item| item.value == service_id)
@@ -1542,23 +1578,21 @@ fn journey_participates_service(journey: &UserJourney, service_id: ServiceId) ->
 mod tests {
     use super::*;
     use crate::catalog::Catalog;
-    use crate::feature::FeatureCatalog;
-    use crate::function::{FunctionCatalog, FUNCTION_COUNT};
+    use crate::function::{ActionCatalog, ACTION_COUNT};
     use crate::id::JourneyId;
     use crate::system_overlay::SYSTEM_OVERLAY_ENTRIES;
-    use crate::version::FeatureAvailability;
+    use crate::version::Availability;
 
     const EXPECTED_DERIVED_SYSTEM_COUNT: usize = 143;
     const EXPECTED_OVERLAY_SYSTEM_COUNT: usize = 4;
 
     const EXPECTED_SYSTEM_COUNT: usize = 147;
-    const EXPECTED_FUNCTIONAL_COUNT: usize = FUNCTION_COUNT;
+    const EXPECTED_FUNCTIONAL_COUNT: usize = ACTION_COUNT;
     const EXPECTED_INTERFACE_COUNT: usize = 87;
     const EXPECTED_PERFORMANCE_COUNT: usize = 80;
     const EXPECTED_ROBUSTNESS_COUNT: usize = 63;
-    const EXPECTED_CONSTRAINT_COUNT: usize = 42;
 
-    const TEST_PRESENCE: FeatureAvailability = FeatureAvailability {
+    const TEST_PRESENCE: Availability = Availability {
         intro_commit: "0000000000000000000000000000000000000001",
         present_in_tags: &["1.0.0"],
         present_on_master: true,
@@ -1571,7 +1605,7 @@ mod tests {
         let derived = catalog
             .requirements()
             .iter()
-            .filter(|req| req.kind == RequirementKind::System && !req.id.0.contains("/SYS-OVR/"))
+            .filter(|req| req.kind == RequirementClass::System && !req.id.0.contains("/SYS-OVR/"))
             .count();
         let overlay = catalog
             .requirements()
@@ -1588,40 +1622,87 @@ mod tests {
         let catalog = RequirementCatalog::bootstrap();
         let counts = catalog.count_by_kind();
         assert_eq!(
-            counts.get(&RequirementKind::System),
+            counts.get(&RequirementClass::System),
             Some(&EXPECTED_SYSTEM_COUNT)
         );
         assert_eq!(
-            counts.get(&RequirementKind::Functional),
+            counts.get(&RequirementClass::Functional),
             Some(&EXPECTED_FUNCTIONAL_COUNT)
         );
         assert_eq!(
-            counts.get(&RequirementKind::Interface),
+            counts.get(&RequirementClass::Interface),
             Some(&EXPECTED_INTERFACE_COUNT)
         );
         assert_eq!(
-            counts.get(&RequirementKind::Performance),
+            counts.get(&RequirementClass::Performance),
             Some(&EXPECTED_PERFORMANCE_COUNT)
         );
         assert_eq!(
-            counts.get(&RequirementKind::Robustness),
+            counts.get(&RequirementClass::Robustness),
             Some(&EXPECTED_ROBUSTNESS_COUNT)
         );
-        assert_eq!(
-            counts.get(&RequirementKind::Constraint),
-            Some(&EXPECTED_CONSTRAINT_COUNT)
+    }
+
+    #[test]
+    fn assumptions_replace_constraint_requirements() {
+        let catalog = Catalog::bootstrap();
+        let requirements = RequirementCatalog::from_catalog(&catalog);
+        assert!(
+            requirements
+                .requirements()
+                .iter()
+                .all(|req| !req.id.0.contains("/CON/")),
+            "journey preconditions must not be emitted as CON requirement rows"
         );
+
+        let unique_preconditions: BTreeSet<String> = catalog
+            .journeys()
+            .iter()
+            .flat_map(|journey| {
+                journey_requirements(journey)
+                    .into_iter()
+                    .map(precondition_label)
+            })
+            .collect();
+        let covered: BTreeSet<String> = requirements
+            .requirements()
+            .iter()
+            .flat_map(|req| req.assumptions.iter())
+            .map(|assumption| {
+                let journey_id = JourneyId::from_str_id(&assumption.source_use_case)
+                    .unwrap_or_else(|| {
+                        panic!("unknown assumption journey {}", assumption.source_use_case)
+                    });
+                catalog
+                    .journey_by_id(&journey_id)
+                    .and_then(|journey| {
+                        journey_requirements(journey)
+                            .into_iter()
+                            .find_map(|precondition| {
+                                let statement = precondition_statement(precondition);
+                                if statement == assumption.statement {
+                                    Some(precondition_label(precondition))
+                                } else {
+                                    None
+                                }
+                            })
+                    })
+                    .expect("assumption maps to a journey precondition")
+            })
+            .collect();
+        assert_eq!(covered.len(), unique_preconditions.len());
+        assert_eq!(covered, unique_preconditions);
     }
 
     #[test]
     fn independent_functional_count_from_function_catalog() {
         let catalog = Catalog::bootstrap();
-        let functions = FunctionCatalog::from_catalog(&catalog);
+        let functions = ActionCatalog::from_catalog(&catalog);
         let requirements = RequirementCatalog::from_catalog(&catalog);
         let fun_count = requirements
             .requirements()
             .iter()
-            .filter(|req| req.kind == RequirementKind::Functional)
+            .filter(|req| req.kind == RequirementClass::Functional)
             .count();
         assert_eq!(catalog.journeys().len(), 100);
         assert_eq!(functions.functions().len(), EXPECTED_FUNCTIONAL_COUNT);
@@ -1631,21 +1712,20 @@ mod tests {
     #[test]
     fn bootstrap_fun_count_differs_from_journey_count() {
         let catalog = Catalog::bootstrap();
-        let functions = FunctionCatalog::from_catalog(&catalog);
+        let functions = ActionCatalog::from_catalog(&catalog);
         assert_ne!(functions.functions().len(), catalog.journeys().len());
     }
 
     #[test]
     fn empty_verifying_journeys_fails_structure_even_when_unknown() {
         let catalog = Catalog::bootstrap();
-        let features = FeatureCatalog::from_catalog(&catalog);
         let mut requirements = RequirementCatalog::from_catalog(&catalog);
         let fun = requirements
             .requirements
             .iter_mut()
-            .find(|req| req.kind == RequirementKind::Functional)
+            .find(|req| req.kind == RequirementClass::Functional)
             .expect("functional requirement");
-        fun.verifying_journeys.clear();
+        fun.requirement_verifications.clear();
         fun.statement = RequirementStatement::Unknown {
             reason: "no verifying journey summaries".to_string(),
         };
@@ -1653,7 +1733,7 @@ mod tests {
             reason: "test".to_string(),
         };
         let errors = requirements
-            .validate_structure(&catalog, &features)
+            .validate_structure(&catalog)
             .expect_err("empty verifying journeys must fail");
         assert!(errors.iter().any(|err| matches!(
             err,
@@ -1681,10 +1761,9 @@ mod tests {
     #[test]
     fn bootstrap_requirements_validate_structure() {
         let catalog = Catalog::bootstrap();
-        let features = FeatureCatalog::from_catalog(&catalog);
         let requirements = RequirementCatalog::from_catalog(&catalog);
         requirements
-            .validate_structure(&catalog, &features)
+            .validate_structure(&catalog)
             .expect("bootstrap requirements should validate");
     }
 
@@ -1723,7 +1802,7 @@ mod tests {
         let catalog = RequirementCatalog {
             requirements: vec![Requirement {
                 id: RequirementId("REQ/test".to_string()),
-                kind: RequirementKind::Functional,
+                kind: RequirementClass::Functional,
                 domain: Domain::OnboardComputer,
                 aggregate: Aggregate::HostControl,
                 availability: TEST_PRESENCE,
@@ -1736,8 +1815,9 @@ mod tests {
                 feature_id: None,
                 journey_id: None,
                 function_id: None,
-                verifying_journeys: Vec::new(),
-                functional_children: Vec::new(),
+                requirement_verifications: Vec::new(),
+                subrequirements: Vec::new(),
+                assumptions: Vec::new(),
                 rationale: None,
             }],
             contamination_findings: Vec::new(),
@@ -1755,8 +1835,8 @@ mod tests {
         RequirementCatalog::from_catalog(catalog)
             .requirements()
             .iter()
-            .filter(|req| req.kind == RequirementKind::Functional)
-            .filter(|req| req.verifying_journeys.contains(&journey_id))
+            .filter(|req| req.kind == RequirementClass::Functional)
+            .filter(|req| req.requirement_verifications.contains(&journey_id))
             .min_by_key(|req| req.id.0.as_str())
             .expect("functional requirement for journey")
             .id
@@ -1788,7 +1868,7 @@ mod tests {
             let functional_ids: Vec<&str> = requirements
                 .requirements()
                 .iter()
-                .filter(|req| req.kind == RequirementKind::Functional)
+                .filter(|req| req.kind == RequirementClass::Functional)
                 .map(|req| req.id.0.as_str())
                 .collect();
             let unique: HashSet<&str> = functional_ids.iter().copied().collect();
@@ -1826,13 +1906,13 @@ mod tests {
                 requirement.journey_id = None;
                 requirement.feature_id = None;
                 requirement.function_id = None;
-                requirement.verifying_journeys.clear();
+                requirement.requirement_verifications.clear();
                 dropped += 1;
-            } else if requirement.kind == RequirementKind::Functional
+            } else if requirement.kind == RequirementClass::Functional
                 && matches!(requirement.statement, RequirementStatement::Known { .. })
             {
                 requirement.function_id = None;
-                requirement.verifying_journeys.clear();
+                requirement.requirement_verifications.clear();
                 dropped += 1;
             }
         }
@@ -1881,7 +1961,6 @@ mod tests {
     #[test]
     fn overlay_contamination_injected_route_fails_validation() {
         let catalog = Catalog::bootstrap();
-        let features = FeatureCatalog::from_catalog(&catalog);
         let mut requirements = RequirementCatalog::from_catalog(&catalog);
         let idx = requirements
             .requirements
@@ -1898,20 +1977,18 @@ mod tests {
             err,
             RequirementValidationError::ContaminatedStatementEmitted { .. }
         )));
-        let _ = features;
         let _ = catalog;
     }
 
     #[test]
     fn missing_system_requirement_fails_validate() {
         let catalog = Catalog::bootstrap();
-        let features = FeatureCatalog::from_catalog(&catalog);
         let mut requirements = RequirementCatalog::from_catalog(&catalog);
         requirements
             .requirements
-            .retain(|req| req.kind != RequirementKind::System);
+            .retain(|req| req.kind != RequirementClass::System);
         let errors = requirements
-            .validate_structure(&catalog, &features)
+            .validate_structure(&catalog)
             .expect_err("dropping system requirements must fail");
         assert!(errors.iter().any(|err| matches!(
             err,

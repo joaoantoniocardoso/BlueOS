@@ -1,7 +1,7 @@
 use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR_REPODIGEST;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, BlastRadius, BodyKind, HttpMethod, JourneyStep, RouteRef, StepOutcome, UserJourney,
+    Actor, BlastRadius, BodyKind, HttpMethod, JourneyStep, RouteRef, StepOutcome, UseCase,
     Visibility,
 };
 use crate::journey_presence::PRESENCE_ACCESS_BLUEOS_WEB_INTERFACE;
@@ -13,9 +13,9 @@ const NGINX_CONF: &str = "core/tools/nginx/nginx.conf";
 const API_TS: &str = "core/frontend/src/utils/api.ts";
 const RUNTIME_ENV: &str = RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR_REPODIGEST;
 
-pub const JOURNEYS: &[UserJourney] = &[ACCESS_BLUEOS_WEB_INTERFACE];
+pub const JOURNEYS: &[UseCase] = &[ACCESS_BLUEOS_WEB_INTERFACE];
 
-const ACCESS_BLUEOS_WEB_INTERFACE: UserJourney = UserJourney {
+const ACCESS_BLUEOS_WEB_INTERFACE: UseCase = UseCase {
     id: JourneyId::AccessBlueosWebInterface,
     summary: Grounded::known(
         "Open the BlueOS web interface in a browser to access and configure vehicle services",

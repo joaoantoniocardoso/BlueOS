@@ -1,7 +1,7 @@
 use crate::criticality::CriticalityTier;
-use crate::edge::{Bus, Edge, FailureImpact, SyncMode};
+use crate::edge::{Bus, Connection, FailureImpact, SyncMode};
 use crate::id::{CapabilityId, JourneyId, PathRef, PortRef, ServiceId};
-use crate::interface::{FileAccessMode, Interface};
+use crate::interface::{FileAccessMode, PortKind};
 use crate::journey::{HttpMethod, RouteRef};
 use crate::lifecycle::{Lifecycle, ObservedLifecycle};
 use crate::observed::{ObservedFacts, ResourceLimits, ServiceKind, StartupTier};
@@ -11,7 +11,7 @@ use crate::provenance::{
 };
 use crate::resource::{Resource, ResourceOwnership};
 use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts, SloBaseline};
-use crate::service::{Authority, Service, ServiceDefinition};
+use crate::service::{Authority, Service, ServiceJudgment};
 use crate::trust::{PrivilegeLevel, UserConfirmation};
 
 use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
@@ -213,7 +213,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
         ),
         interfaces: ObservedSet::known(&[
             Evidenced::new(
-                Interface::Rest {
+                PortKind::Rest {
                     path_prefix: PathRef("/bridget/"),
                     port: PortRef::Literal(27353),
                     versions: &["v1.0"],
@@ -225,7 +225,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Subprocess {
+                PortKind::Subprocess {
                     command: "{bridges} -u {ip}:{port} -p {serial_port.device}:{baud} {automatic_disconnect_clients}"
                         ,
                 },
@@ -236,7 +236,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::OutboundHttp {
+                PortKind::OutboundHttp {
                     url: "http://localhost:6030/serial",
                 },
                 Evidence {
@@ -246,7 +246,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Settings {
+                PortKind::Settings {
                     path: PathRef("/usr/blueos/userdata/settings/bridget"),
                 },
                 Evidence {
@@ -256,7 +256,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::File {
+                PortKind::File {
                     path: PathRef("/usr/blueos/userdata/settings/bridget"),
                     mode: FileAccessMode::ReadWrite,
                 },
@@ -267,7 +267,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Zenoh {
+                PortKind::Zenoh {
                     topics_produced: &["services/bridget/log"],
                     topics_consumed: &[],
                 },
@@ -350,8 +350,8 @@ pub const OBSERVED_FACTS: ObservedFacts =
         openapi_refs: ObservedSet::unknown("not yet extracted"),
     };
 
-pub const SERVICE_DEFINITION: ServiceDefinition =
-    ServiceDefinition {
+pub const SERVICE_DEFINITION: ServiceJudgment =
+    ServiceJudgment {
         id: ServiceId::Bridget,
         singleton: Asserted::established(
             true,
@@ -414,7 +414,7 @@ pub const SERVICE_DEFINITION: ServiceDefinition =
             "no cataloged state machine; per-bridge bridges subprocess lifecycle is runtime-managed",
         ),
         edges: AssertedSet::established(&[Rationaled::new(
-            Edge {
+            Connection {
                 from: ServiceId::Bridget,
                 to: ServiceId::Linux2rest,
                 via: Bus::Rest,

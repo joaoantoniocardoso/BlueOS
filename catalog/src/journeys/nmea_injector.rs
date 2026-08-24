@@ -3,8 +3,8 @@ use crate::capture_env::{
 };
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, BlastRadius, BodyKind, DataRequirement, HardwareRequirement, HttpMethod, JourneyStep,
-    Precondition, RouteRef, SoftwareRequirement, StepOutcome, UserJourney, Visibility,
+    Actor, BlastRadius, BodyKind, DataAssumption, HardwareAssumption, HttpMethod, JourneyStep,
+    Precondition, RouteRef, SoftwareAssumption, StepOutcome, UseCase, Visibility,
 };
 use crate::journey_presence::{
     PRESENCE_ADD_EXTERNAL_NMEA_GPS_SOCKET, PRESENCE_REMOVE_CONFIGURED_NMEA_SOCKET,
@@ -24,13 +24,13 @@ const RUNTIME_ENV_1_4_DEV: &str = RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR_1_4_DEV;
 const NMEA_TRANSITIONS_1_4_DEV: &str =
     "runtime-captures/nmea_injector__pi4_navigator_1_4_dev.json#transitions";
 
-pub const JOURNEYS: &[UserJourney] = &[
+pub const JOURNEYS: &[UseCase] = &[
     VIEW_CONFIGURED_NMEA_SOCKETS,
     ADD_EXTERNAL_NMEA_GPS_SOCKET,
     REMOVE_CONFIGURED_NMEA_SOCKET,
 ];
 
-const VIEW_CONFIGURED_NMEA_SOCKETS: UserJourney = UserJourney {
+const VIEW_CONFIGURED_NMEA_SOCKETS: UseCase = UseCase {
     id: JourneyId::ViewConfiguredNmeaSockets,
     summary: Grounded::known(
         "View configured NMEA input sockets and their MAVLink component mappings",
@@ -50,7 +50,7 @@ const VIEW_CONFIGURED_NMEA_SOCKETS: UserJourney = UserJourney {
         "NMEA Injector page lists sockets with kind, port, and MAVLink component ID",
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Software(SoftwareRequirement::AdvancedMode),
+        Precondition::Software(SoftwareAssumption::AdvancedMode),
         Provenance::source(NMEA_MENUS, 80, "advanced: true,"),
     )]),
     steps: GroundedSet::known(&[
@@ -91,7 +91,7 @@ const VIEW_CONFIGURED_NMEA_SOCKETS: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const ADD_EXTERNAL_NMEA_GPS_SOCKET: UserJourney = UserJourney {
+const ADD_EXTERNAL_NMEA_GPS_SOCKET: UseCase = UseCase {
     id: JourneyId::AddExternalNmeaGpsSocket,
     summary: Grounded::known(
         "Add a UDP or TCP socket so an external NMEA GPS device can inject positions as MAVLink",
@@ -112,11 +112,11 @@ const ADD_EXTERNAL_NMEA_GPS_SOCKET: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[
         GroundedItem::new(
-            Precondition::Software(SoftwareRequirement::AdvancedMode),
+            Precondition::Software(SoftwareAssumption::AdvancedMode),
             Provenance::source(NMEA_MENUS, 80, "advanced: true,"),
         ),
         GroundedItem::new(
-            Precondition::Hardware(HardwareRequirement::ExternalNmeaGps),
+            Precondition::Hardware(HardwareAssumption::ExternalNmeaGps),
             Provenance::doc(
                 ADV,
                 539,
@@ -180,7 +180,7 @@ const ADD_EXTERNAL_NMEA_GPS_SOCKET: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const REMOVE_CONFIGURED_NMEA_SOCKET: UserJourney = UserJourney {
+const REMOVE_CONFIGURED_NMEA_SOCKET: UseCase = UseCase {
     id: JourneyId::RemoveConfiguredNmeaSocket,
     summary: Grounded::known(
         "Remove a configured NMEA input socket from the NMEA Injector",
@@ -201,11 +201,11 @@ const REMOVE_CONFIGURED_NMEA_SOCKET: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[
         GroundedItem::new(
-            Precondition::Software(SoftwareRequirement::AdvancedMode),
+            Precondition::Software(SoftwareAssumption::AdvancedMode),
             Provenance::source(NMEA_MENUS, 80, "advanced: true,"),
         ),
         GroundedItem::new(
-            Precondition::Data(DataRequirement::NmeaSocketConfigured),
+            Precondition::Data(DataAssumption::NmeaSocketConfigured),
             Provenance::source(
                 NMEA_INJECTOR,
                 71,

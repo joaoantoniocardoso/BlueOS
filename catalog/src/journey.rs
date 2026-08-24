@@ -7,7 +7,7 @@ use crate::catalog::Catalog;
 use crate::id::{CapabilityId, JourneyId, PathRef, ServiceId};
 use crate::page::{ConsumeTarget, Page, PageId, StateOwnership};
 use crate::provenance::{AssertedSet, Grounded, GroundedSet, ObservedSet};
-use crate::version::FeatureAvailability;
+use crate::version::Availability;
 
 pub const BLAST_RADIUS_UNKNOWN: Grounded<BlastRadius> = Grounded::known(
     BlastRadius::Unknown {
@@ -17,10 +17,10 @@ pub const BLAST_RADIUS_UNKNOWN: Grounded<BlastRadius> = Grounded::known(
 );
 
 // Every journey must set `availability` from `journey_presence::PRESENCE_*`
-// (full git tag membership). `FeatureAvailability::unknown()` fails `validate()`.
+// (full git tag membership). `Availability::unknown()` fails `validate()`.
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
-pub struct UserJourney {
+pub struct UseCase {
     pub id: JourneyId,
     pub summary: Grounded<&'static str>,
     pub visibility: Grounded<Visibility>,
@@ -28,7 +28,7 @@ pub struct UserJourney {
     pub capability_refs: GroundedSet<CapabilityId>,
     pub preconditions: GroundedSet<Precondition>,
     pub steps: GroundedSet<JourneyStep>,
-    pub availability: FeatureAvailability,
+    pub availability: Availability,
     pub blast_radius: Grounded<BlastRadius>,
     pub chains_from: Option<JourneyId>,
 }
@@ -123,15 +123,15 @@ pub enum Precondition {
     HardwarePresent(&'static str),
     ConfigClean(PathRef),
     Other(&'static str),
-    Hardware(HardwareRequirement),
-    Software(SoftwareRequirement),
+    Hardware(HardwareAssumption),
+    Software(SoftwareAssumption),
     NetworkResource(NetworkResource),
-    Data(DataRequirement),
+    Data(DataAssumption),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum HardwareRequirement {
+pub enum HardwareAssumption {
     FlightController(BoardKind),
     UsbCamera,
     Ping1d,
@@ -151,7 +151,7 @@ pub enum BoardKind {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum SoftwareRequirement {
+pub enum SoftwareAssumption {
     PirateMode,
     AdvancedMode,
     DevMode,
@@ -170,7 +170,7 @@ pub enum NetworkResource {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum DataRequirement {
+pub enum DataAssumption {
     ExtensionInstalled,
     LocalBlueosVersionAvailable,
     SerialBridgeConfigured,
@@ -190,12 +190,11 @@ pub enum NetworkState {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum Automatable {
-    Http,
-    Frontend,
-    Hardware,
-    ExternalGcs,
-    Manual,
+pub enum VerificationMethod {
+    Inspect,
+    Analyze,
+    Demo,
+    Test,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
@@ -205,26 +204,97 @@ pub struct StateTransition {
     pub to: &'static str,
 }
 
+impl BoardKind {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Any => "Any",
+            Self::Navigator => "Navigator",
+            Self::Pixhawk => "Pixhawk",
+            Self::Sitl => "Sitl",
+        }
+    }
+}
+
+impl HardwareAssumption {
+    pub fn as_str(self) -> String {
+        match self {
+            Self::FlightController(board) => format!("FlightController({})", board.as_str()),
+            Self::UsbCamera => "UsbCamera".to_string(),
+            Self::Ping1d => "Ping1d".to_string(),
+            Self::Ping360 => "Ping360".to_string(),
+            Self::ExternalNmeaGps => "ExternalNmeaGps".to_string(),
+            Self::UsbSerialDevice => "UsbSerialDevice".to_string(),
+        }
+    }
+}
+
+impl SoftwareAssumption {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::PirateMode => "PirateMode",
+            Self::AdvancedMode => "AdvancedMode",
+            Self::DevMode => "DevMode",
+            Self::ConfirmDangerousOp => "ConfirmDangerousOp",
+        }
+    }
+}
+
+impl NetworkResource {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::WifiRadioPresent => "WifiRadioPresent",
+            Self::KnownWifiNetwork => "KnownWifiNetwork",
+            Self::HotspotCapable => "HotspotCapable",
+            Self::WiredEthernetPresent => "WiredEthernetPresent",
+            Self::UsbOtgPresent => "UsbOtgPresent",
+        }
+    }
+}
+
+impl DataAssumption {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ExtensionInstalled => "ExtensionInstalled",
+            Self::LocalBlueosVersionAvailable => "LocalBlueosVersionAvailable",
+            Self::SerialBridgeConfigured => "SerialBridgeConfigured",
+            Self::NmeaSocketConfigured => "NmeaSocketConfigured",
+            Self::RecordingListed => "RecordingListed",
+            Self::WifiNetworkSaved => "WifiNetworkSaved",
+            Self::WifiCurrentlyConnected => "WifiCurrentlyConnected",
+            Self::OnboardDhcpServerActive => "OnboardDhcpServerActive",
+        }
+    }
+}
+
+impl NetworkState {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Online => "Online",
+            Self::Offline => "Offline",
+        }
+    }
+}
+
 pub fn precondition_is_typed(p: &Precondition) -> bool {
     !matches!(p, Precondition::Other(_) | Precondition::HardwarePresent(_))
 }
 
-pub fn journey_requirements(journey: &UserJourney) -> Vec<&Precondition> {
+pub fn journey_requirements(journey: &UseCase) -> Vec<&Precondition> {
     match &journey.preconditions {
         GroundedSet::Known { items } => items.iter().map(|item| &item.value).collect(),
         GroundedSet::Unknown { .. } => Vec::new(),
     }
 }
 
-/// Tier-0 mechanical classification; not stored on [`UserJourney`] until all journeys carry an
+/// Tier-0 mechanical classification; not stored on [`UseCase`] until all journeys carry an
 /// explicit field (const structs have no `..` default).
-pub fn derive_automatable(journey: &UserJourney) -> Automatable {
+pub fn derive_automatable(journey: &UseCase) -> VerificationMethod {
     if let GroundedSet::Known { items: steps } = &journey.steps {
         if steps
             .iter()
             .any(|step| matches!(step.value.actor, Actor::Frontend(_)))
         {
-            return Automatable::Frontend;
+            return VerificationMethod::Test;
         }
     }
 
@@ -234,12 +304,12 @@ pub fn derive_automatable(journey: &UserJourney) -> Automatable {
             Precondition::Hardware(_) | Precondition::HardwarePresent(_)
         )
     }) {
-        return Automatable::Hardware;
+        return VerificationMethod::Demo;
     }
 
     if let GroundedSet::Known { items: steps } = &journey.steps {
         if steps.is_empty() {
-            return Automatable::Manual;
+            return VerificationMethod::Inspect;
         }
 
         let mut has_known_route = false;
@@ -247,21 +317,31 @@ pub fn derive_automatable(journey: &UserJourney) -> Automatable {
             match &step.value.route {
                 None => {}
                 Some(Grounded::Known { .. }) => has_known_route = true,
-                Some(Grounded::Unknown { .. }) => return Automatable::Manual,
+                Some(Grounded::Unknown { .. }) => return VerificationMethod::Inspect,
             }
         }
 
         if has_known_route {
-            return Automatable::Http;
+            return VerificationMethod::Test;
         }
 
-        return Automatable::Manual;
+        return VerificationMethod::Inspect;
     }
 
-    Automatable::Manual
+    VerificationMethod::Inspect
 }
 
-pub fn blast_radius_is_unknown(journey: &UserJourney) -> bool {
+pub fn http_automatable(journey: &UseCase) -> bool {
+    derive_automatable(journey) == VerificationMethod::Test && !journey_has_frontend_step(journey)
+}
+
+fn journey_has_frontend_step(journey: &UseCase) -> bool {
+    matches!(&journey.steps, GroundedSet::Known { items: steps } if steps
+        .iter()
+        .any(|step| matches!(step.value.actor, Actor::Frontend(_))))
+}
+
+pub fn blast_radius_is_unknown(journey: &UseCase) -> bool {
     matches!(
         journey.blast_radius,
         Grounded::Known {
@@ -271,7 +351,7 @@ pub fn blast_radius_is_unknown(journey: &UserJourney) -> bool {
     )
 }
 
-pub fn derive_oracle_class(catalog: &Catalog, journey: &UserJourney) -> OracleClass {
+pub fn derive_oracle_class(catalog: &Catalog, journey: &UseCase) -> OracleClass {
     if journey_has_frontend_actor(journey) {
         return OracleClass::ClientOrchestrated;
     }
@@ -293,7 +373,7 @@ pub fn derive_oracle_class(catalog: &Catalog, journey: &UserJourney) -> OracleCl
     OracleClass::HttpPassthrough
 }
 
-fn journey_has_frontend_actor(journey: &UserJourney) -> bool {
+fn journey_has_frontend_actor(journey: &UseCase) -> bool {
     match &journey.steps {
         GroundedSet::Known { items } => items
             .iter()
@@ -302,7 +382,7 @@ fn journey_has_frontend_actor(journey: &UserJourney) -> bool {
     }
 }
 
-fn pages_for_journey<'a>(catalog: &'a Catalog, journey: &UserJourney) -> Vec<&'a Page> {
+fn pages_for_journey<'a>(catalog: &'a Catalog, journey: &UseCase) -> Vec<&'a Page> {
     let service_ids: HashSet<ServiceId> = match &journey.services {
         GroundedSet::Known { items } => items.iter().map(|item| item.value).collect(),
         GroundedSet::Unknown { .. } => return Vec::new(),
@@ -368,7 +448,7 @@ mod tests {
 
     const DOC: Provenance = Provenance::doc("test.md", 1, "");
 
-    const TEST_PRESENCE: FeatureAvailability = FeatureAvailability {
+    const TEST_PRESENCE: Availability = Availability {
         intro_commit: "0000000000000000000000000000000000000001",
         present_in_tags: &["1.0.0"],
         present_on_master: true,
@@ -378,8 +458,8 @@ mod tests {
     const fn empty_journey(
         preconditions: GroundedSet<Precondition>,
         steps: GroundedSet<JourneyStep>,
-    ) -> UserJourney {
-        UserJourney {
+    ) -> UseCase {
+        UseCase {
             id: JourneyId::ConnectToWifiNetwork,
             summary: Grounded::known("test", DOC),
             visibility: Grounded::known(Visibility::Default, DOC),
@@ -418,7 +498,7 @@ mod tests {
             NetworkState::Online
         )));
         assert!(precondition_is_typed(&Precondition::Hardware(
-            HardwareRequirement::UsbCamera
+            HardwareAssumption::UsbCamera
         )));
         assert!(!precondition_is_typed(&Precondition::Other("legacy")));
         assert!(!precondition_is_typed(&Precondition::HardwarePresent(
@@ -429,7 +509,7 @@ mod tests {
     #[test]
     fn journey_requirements_flattens_known_preconditions() {
         static PRECONDITIONS: &[GroundedItem<Precondition>] = &[GroundedItem::new(
-            Precondition::Software(SoftwareRequirement::PirateMode),
+            Precondition::Software(SoftwareAssumption::PirateMode),
             DOC,
         )];
         let journey = empty_journey(
@@ -440,7 +520,7 @@ mod tests {
         assert_eq!(reqs.len(), 1);
         assert!(matches!(
             reqs[0],
-            Precondition::Software(SoftwareRequirement::PirateMode)
+            Precondition::Software(SoftwareAssumption::PirateMode)
         ));
     }
 
@@ -456,7 +536,7 @@ mod tests {
             DOC,
         )];
         let journey = empty_journey(GroundedSet::known(&[]), GroundedSet::known(STEPS));
-        assert_eq!(derive_automatable(&journey), Automatable::Frontend);
+        assert_eq!(derive_automatable(&journey), VerificationMethod::Test);
     }
 
     #[test]
@@ -466,14 +546,14 @@ mod tests {
             DOC,
         )];
         let legacy = empty_journey(GroundedSet::known(LEGACY), GroundedSet::known(&[]));
-        assert_eq!(derive_automatable(&legacy), Automatable::Hardware);
+        assert_eq!(derive_automatable(&legacy), VerificationMethod::Demo);
 
         static TYPED: &[GroundedItem<Precondition>] = &[GroundedItem::new(
-            Precondition::Hardware(HardwareRequirement::Ping1d),
+            Precondition::Hardware(HardwareAssumption::Ping1d),
             DOC,
         )];
         let typed = empty_journey(GroundedSet::known(TYPED), GroundedSet::known(&[]));
-        assert_eq!(derive_automatable(&typed), Automatable::Hardware);
+        assert_eq!(derive_automatable(&typed), VerificationMethod::Demo);
     }
 
     #[test]
@@ -486,7 +566,8 @@ mod tests {
             ),
         ];
         let journey = empty_journey(GroundedSet::known(&[]), GroundedSet::known(STEPS));
-        assert_eq!(derive_automatable(&journey), Automatable::Http);
+        assert_eq!(derive_automatable(&journey), VerificationMethod::Test);
+        assert!(http_automatable(&journey));
     }
 
     #[test]
@@ -496,12 +577,12 @@ mod tests {
             DOC,
         )];
         let unknown = empty_journey(GroundedSet::known(&[]), GroundedSet::known(UNKNOWN_ROUTE));
-        assert_eq!(derive_automatable(&unknown), Automatable::Manual);
+        assert_eq!(derive_automatable(&unknown), VerificationMethod::Inspect);
 
         static OPERATOR_ONLY: &[GroundedItem<JourneyStep>] =
             &[GroundedItem::new(operator_step("click connect", None), DOC)];
         let manual = empty_journey(GroundedSet::known(&[]), GroundedSet::known(OPERATOR_ONLY));
-        assert_eq!(derive_automatable(&manual), Automatable::Manual);
+        assert_eq!(derive_automatable(&manual), VerificationMethod::Inspect);
     }
 
     #[test]

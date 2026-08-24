@@ -201,7 +201,7 @@ fn excluded_registries() -> Vec<RegistryCoverage> {
     ));
     rows.push(excluded_registry(
         "journey_presence/ALL_JOURNEY_PRESENCE",
-        "FeatureAvailability uses intro_commit tags, not file:line provenance",
+        "Availability uses intro_commit tags, not file:line provenance",
     ));
     rows.push(excluded_registry(
         "domain/DOMAINS",

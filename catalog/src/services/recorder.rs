@@ -1,5 +1,5 @@
 use crate::criticality::CriticalityTier;
-use crate::edge::{Bus, Edge, FailureImpact, SyncMode};
+use crate::edge::{Bus, Connection, FailureImpact, SyncMode};
 use crate::id::{CapabilityId, PathRef, ServiceId};
 use crate::lifecycle::{Lifecycle, ObservedLifecycle};
 use crate::observed::{ObservedFacts, ResourceLimits, ServiceKind, StartupTier};
@@ -9,7 +9,7 @@ use crate::provenance::{
 };
 use crate::resource::{Resource, ResourceOwnership};
 use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts};
-use crate::service::{Authority, Service, ServiceDefinition};
+use crate::service::{Authority, Service, ServiceJudgment};
 use crate::trust::{PrivilegeLevel, UserConfirmation};
 
 use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR_REPODIGEST;
@@ -210,8 +210,8 @@ pub const OBSERVED_FACTS: ObservedFacts =
         openapi_refs: ObservedSet::unknown("not yet extracted"),
     };
 
-pub const SERVICE_DEFINITION: ServiceDefinition =
-    ServiceDefinition {
+pub const SERVICE_DEFINITION: ServiceJudgment =
+    ServiceJudgment {
         id: ServiceId::Recorder,
         singleton: Asserted::established(
             true,
@@ -251,7 +251,7 @@ pub const SERVICE_DEFINITION: ServiceDefinition =
             "external blueos-recorder binary; no in-repo state machine or lifecycle states traced",
         ),
         edges: AssertedSet::established(&[Rationaled::new(
-            Edge {
+            Connection {
                 from: ServiceId::Recorder,
                 to: ServiceId::RecorderExtractor,
                 via: Bus::File,

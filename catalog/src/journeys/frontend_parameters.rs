@@ -1,5 +1,5 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
-use crate::journey::{Actor, BlastRadius, JourneyStep, StepOutcome, UserJourney, Visibility};
+use crate::journey::{Actor, BlastRadius, JourneyStep, StepOutcome, UseCase, Visibility};
 use crate::journey_presence::PRESENCE_APPLY_PARAMETER_FILE;
 use crate::page::PageId;
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
@@ -11,9 +11,9 @@ const LOADER: &str = "core/frontend/src/components/parameter-editor/ParameterLoa
 const DIALOG: &str = "core/frontend/src/components/parameter-editor/ParameterEditorDialog.vue";
 const M2R_LIB: &str = "core/frontend/src/libs/MAVLink2Rest/index.ts";
 
-pub const JOURNEYS: &[UserJourney] = &[APPLY_PARAMETER_FILE];
+pub const JOURNEYS: &[UseCase] = &[APPLY_PARAMETER_FILE];
 
-const APPLY_PARAMETER_FILE: UserJourney = UserJourney {
+const APPLY_PARAMETER_FILE: UseCase = UseCase {
     id: JourneyId::ApplyParameterFile,
     summary: Grounded::known(
         "Operator loads a parameter file on the Autopilot Parameters page; the browser parses it and batch-writes the selected parameters to the autopilot",

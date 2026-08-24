@@ -6,36 +6,27 @@ use serde::Serialize;
 use crate::capability::{capability_def, frontend_capability_def};
 use crate::catalog::Catalog;
 use crate::id::{CapabilityId, JourneyId};
-use crate::journey::{RouteRef, UserJourney};
+use crate::journey::{RouteRef, UseCase};
 use crate::provenance::{Grounded, GroundedSet};
 use crate::runner::{http_method_label, resolve_http_path};
 
 // Measured: bootstrap clusters 100 journeys into 108 functions (not 1:1).
-pub const FUNCTION_COUNT: usize = 108;
+pub const ACTION_COUNT: usize = 108;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(transparent)]
-pub struct FunctionId(pub String);
+pub struct ActionId(pub String);
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum FunctionIo {
-    Unknown { reason: &'static str },
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
-pub struct Function {
-    pub id: FunctionId,
+pub struct Action {
+    pub id: ActionId,
     pub capability: CapabilityId,
     pub verifying_journeys: Vec<JourneyId>,
-    pub input: FunctionIo,
-    pub output: FunctionIo,
-    pub children: Vec<FunctionId>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
-pub struct FunctionCatalog {
-    functions: Vec<Function>,
+pub struct ActionCatalog {
+    functions: Vec<Action>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -46,13 +37,13 @@ struct RouteSignature {
     version: String,
 }
 
-impl FunctionId {
+impl ActionId {
     pub fn as_str(&self) -> &str {
         &self.0
     }
 }
 
-impl FunctionCatalog {
+impl ActionCatalog {
     pub fn bootstrap() -> Self {
         Self::from_catalog(&Catalog::bootstrap())
     }
@@ -96,18 +87,14 @@ impl FunctionCatalog {
             for (signatures, mut verifying_journeys) in clusters {
                 verifying_journeys.sort_by_key(|id| id.as_str());
                 let id = if multi_cluster || base_collides {
-                    FunctionId(format!("{}/{}", base_id, cluster_key(&signatures)))
+                    ActionId(format!("{}/{}", base_id, cluster_key(&signatures)))
                 } else {
-                    FunctionId(base_id.to_string())
+                    ActionId(base_id.to_string())
                 };
-                let (input, output) = io_for_signatures(&signatures);
-                functions.push(Function {
+                functions.push(Action {
                     id,
                     capability,
                     verifying_journeys,
-                    input,
-                    output,
-                    children: Vec::new(),
                 });
             }
         }
@@ -116,7 +103,7 @@ impl FunctionCatalog {
         Self { functions }
     }
 
-    pub fn functions(&self) -> &[Function] {
+    pub fn functions(&self) -> &[Action] {
         &self.functions
     }
 }
@@ -139,7 +126,7 @@ impl RouteSignature {
     }
 }
 
-fn journey_route_signatures(catalog: &Catalog, journey: &UserJourney) -> BTreeSet<RouteSignature> {
+fn journey_route_signatures(catalog: &Catalog, journey: &UseCase) -> BTreeSet<RouteSignature> {
     let GroundedSet::Known { items } = &journey.steps else {
         return BTreeSet::new();
     };
@@ -153,18 +140,6 @@ fn journey_route_signatures(catalog: &Catalog, journey: &UserJourney) -> BTreeSe
         }
     }
     signatures
-}
-
-fn io_for_signatures(signatures: &BTreeSet<RouteSignature>) -> (FunctionIo, FunctionIo) {
-    let reason = if signatures.is_empty() {
-        "no resolved route signature"
-    } else {
-        "fastapi extract is method+path only"
-    };
-    (
-        FunctionIo::Unknown { reason },
-        FunctionIo::Unknown { reason },
-    )
 }
 
 fn cluster_key(signatures: &BTreeSet<RouteSignature>) -> String {
@@ -202,9 +177,9 @@ mod tests {
     };
     use crate::provenance::{GroundedItem, Provenance};
     use crate::service::Service;
-    use crate::version::FeatureAvailability;
+    use crate::version::Availability;
 
-    const TEST_PRESENCE: FeatureAvailability = FeatureAvailability {
+    const TEST_PRESENCE: Availability = Availability {
         intro_commit: "0000000000000000000000000000000000000001",
         present_in_tags: &["1.0.0"],
         present_on_master: true,
@@ -275,11 +250,8 @@ mod tests {
         Provenance::source("core/services/helper/main.py", 583, "async def ping(host:"),
     )];
 
-    const fn test_journey(
-        id: JourneyId,
-        steps: &'static [GroundedItem<JourneyStep>],
-    ) -> UserJourney {
-        UserJourney {
+    const fn test_journey(id: JourneyId, steps: &'static [GroundedItem<JourneyStep>]) -> UseCase {
+        UseCase {
             id,
             summary: Grounded::known(
                 "test journey",
@@ -305,20 +277,20 @@ mod tests {
 
     #[test]
     fn bootstrap_function_count_is_pinned() {
-        let functions = FunctionCatalog::bootstrap();
-        assert_eq!(functions.functions().len(), FUNCTION_COUNT);
+        let functions = ActionCatalog::bootstrap();
+        assert_eq!(functions.functions().len(), ACTION_COUNT);
     }
 
     #[test]
     fn bootstrap_functions_are_not_one_per_journey() {
         let catalog = Catalog::bootstrap();
-        let functions = FunctionCatalog::from_catalog(&catalog);
+        let functions = ActionCatalog::from_catalog(&catalog);
         assert_ne!(functions.functions().len(), catalog.journeys().len());
     }
 
     #[test]
     fn bootstrap_merges_same_route_cluster_journeys() {
-        let functions = FunctionCatalog::bootstrap();
+        let functions = ActionCatalog::bootstrap();
         let function = functions
             .functions()
             .iter()
@@ -344,7 +316,7 @@ mod tests {
             ],
             vec![],
         );
-        let functions = FunctionCatalog::from_catalog(&catalog);
+        let functions = ActionCatalog::from_catalog(&catalog);
         assert_eq!(functions.functions().len(), 1);
         let function = &functions.functions()[0];
         assert_eq!(function.id.as_str(), "check_internet_connectivity");
@@ -358,33 +330,21 @@ mod tests {
         let mut journey = test_journey(JourneyId::MonitorInternetConnectivity, STEPS_CHECK);
         journey.capability_refs = GroundedSet::unknown("unmapped");
         let catalog = Catalog::with_parts(vec![helper_from_bootstrap()], vec![journey], vec![]);
-        assert!(FunctionCatalog::from_catalog(&catalog)
-            .functions()
-            .is_empty());
+        assert!(ActionCatalog::from_catalog(&catalog).functions().is_empty());
     }
 
     #[test]
-    fn no_resolved_routes_yields_unknown_io_and_one_function() {
+    fn no_resolved_routes_yields_one_function() {
         let catalog = Catalog::with_parts(
             vec![helper_from_bootstrap()],
             vec![test_journey(JourneyId::MonitorInternetConnectivity, &[])],
             vec![],
         );
-        let functions = FunctionCatalog::from_catalog(&catalog);
+        let functions = ActionCatalog::from_catalog(&catalog);
         assert_eq!(functions.functions().len(), 1);
-        let function = &functions.functions()[0];
-        assert_eq!(function.id.as_str(), "check_internet_connectivity");
         assert_eq!(
-            function.input,
-            FunctionIo::Unknown {
-                reason: "no resolved route signature"
-            }
-        );
-        assert_eq!(
-            function.output,
-            FunctionIo::Unknown {
-                reason: "no resolved route signature"
-            }
+            functions.functions()[0].id.as_str(),
+            "check_internet_connectivity"
         );
     }
 
@@ -398,7 +358,7 @@ mod tests {
             ],
             vec![],
         );
-        let functions = FunctionCatalog::from_catalog(&catalog);
+        let functions = ActionCatalog::from_catalog(&catalog);
         let matching: Vec<_> = functions
             .functions()
             .iter()
@@ -435,10 +395,10 @@ mod tests {
             )],
             vec![],
         );
-        let id_original = FunctionCatalog::from_catalog(&original).functions()[0]
+        let id_original = ActionCatalog::from_catalog(&original).functions()[0]
             .id
             .clone();
-        let id_renamed = FunctionCatalog::from_catalog(&renamed).functions()[0]
+        let id_renamed = ActionCatalog::from_catalog(&renamed).functions()[0]
             .id
             .clone();
         assert_eq!(id_original, id_renamed);

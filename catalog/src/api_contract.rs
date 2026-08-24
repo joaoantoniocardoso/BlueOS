@@ -10,7 +10,7 @@ use crate::extract_fastapi::{
     ExtractedFastApiRoute,
 };
 use crate::id::ServiceId;
-use crate::journey::{HttpMethod, RouteRef, UserJourney};
+use crate::journey::{HttpMethod, RouteRef, UseCase};
 use crate::page::{ConsumeTarget, Page};
 use crate::provenance::{Grounded, GroundedSet, ObservedSet};
 
@@ -327,7 +327,7 @@ fn coverage_hits(catalog: &Catalog) -> BTreeMap<ApiContractKey, BTreeSet<ApiCove
 
 fn insert_journey_hits(
     catalog: &Catalog,
-    journey: &UserJourney,
+    journey: &UseCase,
     hits: &mut BTreeMap<ApiContractKey, BTreeSet<ApiCoverageSource>>,
 ) {
     let GroundedSet::Known { items } = &journey.steps else {
@@ -611,7 +611,7 @@ fn is_version_token(token: &str) -> bool {
         && parts.next().is_none()
 }
 
-fn primary_service(journey: &UserJourney) -> Option<ServiceId> {
+fn primary_service(journey: &UseCase) -> Option<ServiceId> {
     match &journey.services {
         GroundedSet::Known { items } => items.first().map(|item| item.value),
         GroundedSet::Unknown { .. } => None,

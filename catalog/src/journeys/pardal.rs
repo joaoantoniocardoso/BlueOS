@@ -2,7 +2,7 @@ use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
     Actor, BlastRadius, BodyKind, HttpMethod, JourneyStep, NetworkState, Precondition, RouteRef,
-    StepOutcome, UserJourney, Visibility,
+    StepOutcome, UseCase, Visibility,
 };
 use crate::journey_presence::{PRESENCE_RUN_INTERNET_SPEED_TEST, PRESENCE_RUN_LAN_SPEED_TEST};
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
@@ -16,10 +16,10 @@ const NETWORK_SPEED_TEST: &str = "core/frontend/src/components/speedtest/Network
 const INTERNET_SPEED_TEST: &str = "core/frontend/src/components/speedtest/InternetSpeedTest.vue";
 const RUNTIME_ENV: &str = RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 
-pub const JOURNEYS: &[UserJourney] = &[RUN_LAN_SPEED_TEST, RUN_INTERNET_SPEED_TEST];
+pub const JOURNEYS: &[UseCase] = &[RUN_LAN_SPEED_TEST, RUN_INTERNET_SPEED_TEST];
 
-const RUN_LAN_SPEED_TEST: UserJourney =
-    UserJourney {
+const RUN_LAN_SPEED_TEST: UseCase =
+    UseCase {
         id: JourneyId::RunLanSpeedTest,
         summary: Grounded::known(
             "Measure real-time latency and upload/download speeds between BlueOS and the surface computer"
@@ -95,7 +95,7 @@ const RUN_LAN_SPEED_TEST: UserJourney =
         chains_from: None,
     };
 
-const RUN_INTERNET_SPEED_TEST: UserJourney = UserJourney {
+const RUN_INTERNET_SPEED_TEST: UseCase = UseCase {
     id: JourneyId::RunInternetSpeedTest,
     summary: Grounded::known(
         "Measure latency and upload/download speeds between BlueOS and its internet connection",

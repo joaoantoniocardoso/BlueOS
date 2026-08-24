@@ -7,7 +7,7 @@ use serde::Serialize;
 
 use crate::drift::{DriftFinding, DriftReport};
 use crate::id::ServiceId;
-use crate::journey::{HttpMethod, RouteRef, UserJourney};
+use crate::journey::{HttpMethod, RouteRef, UseCase};
 use crate::provenance::{Evidence, Grounded, GroundedItem, GroundedSet, Provenance};
 
 // Counts cover every Python HTTP route in core/services, which includes pardal's aiohttp handlers
@@ -510,7 +510,7 @@ pub(crate) fn extracted_fastapi_matches_observed(
 
 pub fn check_fastapi_against_observed(
     extracted: &[ExtractedFastApiRoute],
-    journeys: &[UserJourney],
+    journeys: &[UseCase],
 ) -> DriftReport {
     let mut findings = Vec::new();
     check_journey_fastapi_routes(extracted, journeys, &mut findings);
@@ -519,7 +519,7 @@ pub fn check_fastapi_against_observed(
 
 fn check_journey_fastapi_routes(
     extracted: &[ExtractedFastApiRoute],
-    journeys: &[UserJourney],
+    journeys: &[UseCase],
     findings: &mut Vec<DriftFinding>,
 ) {
     for journey in journeys {
@@ -707,7 +707,7 @@ fn http_method_label(method: &HttpMethod) -> &'static str {
     }
 }
 
-fn journey_steps(journey: &UserJourney) -> Option<&[GroundedItem<crate::journey::JourneyStep>]> {
+fn journey_steps(journey: &UseCase) -> Option<&[GroundedItem<crate::journey::JourneyStep>]> {
     match &journey.steps {
         GroundedSet::Known { items } => Some(items),
         GroundedSet::Unknown { .. } => None,

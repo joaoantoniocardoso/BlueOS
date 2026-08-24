@@ -4,7 +4,7 @@ use serde::Serialize;
 use crate::id::ServiceId;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
-pub struct Edge {
+pub struct Connection {
     pub from: ServiceId,
     pub to: ServiceId,
     pub via: Bus,

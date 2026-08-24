@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use crate::observed::ObservedFacts;
 use crate::provenance::{AssertedSet, GroundedSet, ObservedSet};
 use crate::runtime::RuntimeFacts;
-use crate::service::{Service, ServiceDefinition};
+use crate::service::{Service, ServiceJudgment};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
 pub struct DriftReport {
@@ -30,7 +30,7 @@ impl DriftReport {
     }
 }
 
-pub fn diff(asserted: &ServiceDefinition, observed: &ObservedFacts) -> DriftReport {
+pub fn diff(asserted: &ServiceJudgment, observed: &ObservedFacts) -> DriftReport {
     let mut report = DriftReport::no_drift();
     if let (
         AssertedSet::Established {
@@ -59,7 +59,7 @@ pub fn diff(asserted: &ServiceDefinition, observed: &ObservedFacts) -> DriftRepo
     report
 }
 
-pub fn diff_runtime(asserted: &ServiceDefinition, runtime: &RuntimeFacts) -> DriftReport {
+pub fn diff_runtime(asserted: &ServiceJudgment, runtime: &RuntimeFacts) -> DriftReport {
     let mut report = DriftReport::no_drift();
 
     // Status codes are not a sound falsifier of api_stable, which is about versioned API surface;

@@ -9,7 +9,8 @@ use crate::catalog::Catalog;
 use crate::domain::Domain;
 use crate::provenance::{Grounded, GroundedSet, Provenance};
 use crate::requirement::{
-    Requirement, RequirementCatalog, RequirementCriteria, RequirementKind, RequirementStatement,
+    Assumption, Requirement, RequirementCatalog, RequirementClass, RequirementCriteria,
+    RequirementStatement,
 };
 use crate::system_overlay::SYSTEM_OVERLAY_ENTRIES;
 
@@ -29,7 +30,7 @@ pub struct RequirementsJson {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RequirementJsonRow {
     pub id: String,
-    pub kind: RequirementKind,
+    pub kind: RequirementClass,
     pub domain: Domain,
     pub statement: RequirementStatement,
     pub criteria: RequirementCriteria,
@@ -39,6 +40,8 @@ pub struct RequirementJsonRow {
     pub function_id: Option<String>,
     #[serde(default)]
     pub verifying_journeys: Vec<String>,
+    #[serde(default)]
+    pub assumptions: Vec<Assumption>,
     pub availability_present: bool,
 }
 
@@ -70,7 +73,7 @@ pub struct RequirementAvailabilityChange {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RtmRow {
     pub requirement_id: String,
-    pub kind: RequirementKind,
+    pub kind: RequirementClass,
     pub feature: String,
     pub function: String,
     pub journey: String,
@@ -102,17 +105,18 @@ pub fn requirements_json(catalog: &RequirementCatalog, version_tag: &str) -> Req
             feature_id: requirement
                 .feature_id
                 .as_ref()
-                .map(|feature| feature.0.as_str().to_string()),
+                .map(|capability| capability.as_str().to_string()),
             journey_id: requirement.journey_id.map(|journey| journey.to_string()),
             function_id: requirement
                 .function_id
                 .as_ref()
                 .map(|function| function.as_str().to_string()),
             verifying_journeys: requirement
-                .verifying_journeys
+                .requirement_verifications
                 .iter()
                 .map(|journey| journey.to_string())
                 .collect(),
+            assumptions: requirement.assumptions.clone(),
             availability_present: requirement.availability.present_on_dut(version_tag),
         });
     }
@@ -187,6 +191,17 @@ pub fn render_srs(catalog: &RequirementCatalog, version_tag: &str) -> String {
                     }
                     RequirementCriteria::Unknown { reason } => {
                         output.push_str(&format!("- **Unknown criteria:** {reason}\n"));
+                    }
+                }
+                if !requirement.assumptions.is_empty() {
+                    output.push_str("\nAssumptions:\n");
+                    for assumption in &requirement.assumptions {
+                        output.push_str(&format!(
+                            "- [{kind:?}] {statement} (use case: {journey})\n",
+                            kind = assumption.kind,
+                            statement = assumption.statement,
+                            journey = assumption.source_use_case
+                        ));
                     }
                 }
                 output.push('\n');
@@ -335,6 +350,20 @@ pub fn load_requirements_baseline(tag: &str) -> Result<RequirementsJson, String>
         .map_err(|err| format!("invalid requirements baseline {}: {err}", path.display()))
 }
 
+pub fn write_requirements_baseline(tag: &str, catalog: &RequirementCatalog) -> Result<(), String> {
+    let path = requirements_baseline_path(tag);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|err| format!("create baseline dir {}: {err}", parent.display()))?;
+    }
+    let snapshot = requirements_json(catalog, tag);
+    let content = serde_json::to_string_pretty(&snapshot)
+        .map_err(|err| format!("serialize requirements baseline: {err}"))?;
+    let display = path.display().to_string();
+    fs::write(&path, format!("{content}\n"))
+        .map_err(|err| format!("write requirements baseline {display}: {err}"))
+}
+
 pub fn diff_requirement_reports(
     baseline: &RequirementsJson,
     current: &RequirementsJson,
@@ -462,16 +491,16 @@ fn rtm_row_for_requirement(
     let feature = requirement
         .feature_id
         .as_ref()
-        .map(|id| id.0.as_str().to_string())
+        .map(|id| id.as_str().to_string())
         .unwrap_or_else(|| "-".to_string());
     let function = requirement
         .function_id
         .as_ref()
         .map(|id| id.as_str().to_string())
         .unwrap_or_else(|| "-".to_string());
-    let journey = if requirement.kind == RequirementKind::Functional {
+    let journey = if requirement.kind == RequirementClass::Functional {
         requirement
-            .verifying_journeys
+            .requirement_verifications
             .iter()
             .map(|id| id.to_string())
             .collect::<Vec<_>>()
@@ -503,15 +532,15 @@ fn trace_evidence(
             return trace.to_string();
         }
     }
-    if requirement.kind == RequirementKind::Performance {
+    if requirement.kind == RequirementClass::Performance {
         if let Some(capture) = requirement.rationale.as_deref() {
             if evidence_resolves(capture) {
                 return capture.to_string();
             }
         }
     }
-    if !requirement.functional_children.is_empty() {
-        for child_id in &requirement.functional_children {
+    if !requirement.subrequirements.is_empty() {
+        for child_id in &requirement.subrequirements {
             if let Some(child) = requirements.iter().find(|req| &req.id == child_id) {
                 let child_evidence = trace_evidence(catalog, requirements, child);
                 if evidence_resolves(&child_evidence) {
@@ -526,7 +555,7 @@ fn trace_evidence(
             return evidence;
         }
     }
-    for journey_id in &requirement.verifying_journeys {
+    for journey_id in &requirement.requirement_verifications {
         let evidence = journey_resolvable_evidence(catalog, *journey_id);
         if evidence_resolves(&evidence) {
             return evidence;
@@ -695,8 +724,8 @@ mod tests {
     use crate::catalog::Catalog;
     use crate::requirement::{RequirementCatalog, RequirementStatement};
 
-    const FILTERED_COUNT_1_0_0: usize = 265;
-    const FILTERED_COUNT_1_4_0: usize = 385;
+    const FILTERED_COUNT_1_0_0: usize = 239;
+    const FILTERED_COUNT_1_4_0: usize = 350;
     const UNKNOWN_STATEMENTS_1_4_DEV: usize = 16;
     const UNKNOWN_CRITERIA_1_4_DEV: usize = 50;
     const UNKNOWN_STATEMENTS_UNFILTERED: usize = 62;
@@ -745,7 +774,7 @@ mod tests {
         let rows = crate::requirements_report::build_rtm_rows(&catalog, &requirements);
         let performance: Vec<_> = rows
             .iter()
-            .filter(|row| matches!(row.kind, crate::requirement::RequirementKind::Performance))
+            .filter(|row| matches!(row.kind, crate::requirement::RequirementClass::Performance))
             .collect();
         assert_eq!(performance.len(), 80);
         assert!(

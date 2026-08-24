@@ -16,8 +16,8 @@ use crate::extract_nginx::{
     extract_nginx_from_repo, find_location_for_prefix, ExtractedNginxLocation,
 };
 use crate::id::PortRef;
-use crate::interface::Interface;
-use crate::journey::UserJourney;
+use crate::interface::PortKind;
+use crate::journey::UseCase;
 use crate::observed::ObservedFacts;
 use crate::page::Page;
 use crate::provenance::{Evidence, Grounded, GroundedSet, Observed, ObservedSet, Provenance};
@@ -113,10 +113,7 @@ pub fn collect_verified_observed_sites(
     verified
 }
 
-fn add_journey_fastapi_verifiable(
-    journey: &UserJourney,
-    sites: &mut HashSet<ObservedEvidenceSite>,
-) {
+fn add_journey_fastapi_verifiable(journey: &UseCase, sites: &mut HashSet<ObservedEvidenceSite>) {
     let Some(steps) = journey_steps(journey) else {
         return;
     };
@@ -246,7 +243,7 @@ fn add_all_page_observed_sites(page: &Page, sites: &mut HashSet<ObservedEvidence
     insert_observed_set("page", id, "consumes", &page.consumes, sites);
 }
 
-fn add_all_journey_source_sites(journey: &UserJourney, sites: &mut HashSet<ObservedEvidenceSite>) {
+fn add_all_journey_source_sites(journey: &UseCase, sites: &mut HashSet<ObservedEvidenceSite>) {
     let id = journey.id.as_str();
     insert_grounded_source("journey", id, "summary", &journey.summary, sites);
     insert_grounded_source("journey", id, "visibility", &journey.visibility, sites);
@@ -483,15 +480,15 @@ fn nginx_verified_sites(
                 }
                 let prefix = interface_route_prefix(&item.value);
                 let expected_port = match &item.value {
-                    Interface::Rest {
+                    PortKind::Rest {
                         port: PortRef::Literal(port),
                         ..
                     }
-                    | Interface::Websocket {
+                    | PortKind::Websocket {
                         port: PortRef::Literal(port),
                         ..
                     }
-                    | Interface::HttpStream {
+                    | PortKind::HttpStream {
                         port: PortRef::Literal(port),
                         ..
                     } => *port,
@@ -561,7 +558,7 @@ fn start_blueos_verified_sites(
 
 fn fastapi_verified_sites(
     extracted: &[ExtractedFastApiRoute],
-    journeys: &[UserJourney],
+    journeys: &[UseCase],
     verified: &mut HashSet<ObservedEvidenceSite>,
 ) {
     if extracted.is_empty() {
@@ -679,7 +676,7 @@ fn frontend_verified_sites(
 }
 
 fn journey_steps(
-    journey: &UserJourney,
+    journey: &UseCase,
 ) -> Option<&[crate::provenance::GroundedItem<crate::journey::JourneyStep>]> {
     match &journey.steps {
         GroundedSet::Known { items } => Some(items),
@@ -695,18 +692,18 @@ fn nginx_proxy_pass_listen(evidence: &Evidence) -> bool {
     evidence_from_file(evidence, NGINX_CONF) && evidence.anchor.contains("proxy_pass")
 }
 
-fn interface_has_http_route(interface: &Interface) -> bool {
+fn interface_has_http_route(interface: &PortKind) -> bool {
     matches!(
         interface,
-        Interface::Rest { .. } | Interface::Websocket { .. } | Interface::HttpStream { .. }
+        PortKind::Rest { .. } | PortKind::Websocket { .. } | PortKind::HttpStream { .. }
     )
 }
 
-fn interface_route_prefix(interface: &Interface) -> &'static str {
+fn interface_route_prefix(interface: &PortKind) -> &'static str {
     match interface {
-        Interface::Rest { path_prefix, .. } => path_prefix.0,
-        Interface::Websocket { path, .. } => path.0,
-        Interface::HttpStream { path, .. } => path.0,
+        PortKind::Rest { path_prefix, .. } => path_prefix.0,
+        PortKind::Websocket { path, .. } => path.0,
+        PortKind::HttpStream { path, .. } => path.0,
         _ => "",
     }
 }

@@ -5,8 +5,9 @@ use serde::Deserialize;
 
 use crate::catalog::Catalog;
 use crate::id::JourneyId;
-use crate::journey::{derive_automatable, Actor, Automatable, UserJourney};
+use crate::journey::{derive_automatable, Actor, UseCase, VerificationMethod};
 use crate::provenance::{Grounded, GroundedSet};
+use crate::runner::Verdict;
 use crate::ui::{ui_plan, ui_typed_skip_reason};
 
 pub const HARD_EXCLUDED: &[JourneyId] = &[JourneyId::Deploy, JourneyId::ShutdownOnboardComputer];
@@ -32,19 +33,9 @@ pub const PAGE_LOAD_UI: &[JourneyId] = &[
 
 const COMPASS_FINDING: &str = "F-068";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CellState {
-    Empty,
-    Planned,
-    Skip,
-    Pass,
-    PassWithFinding,
-    Fail,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Cell {
-    pub state: CellState,
+    pub state: Verdict,
     pub reason: Option<String>,
     pub dut: Option<String>,
     pub report_path: Option<String>,
@@ -55,7 +46,7 @@ pub struct Cell {
 pub struct JourneyMatrixRow {
     pub journey_id: JourneyId,
     pub present_on_1_4_dev: bool,
-    pub automatable: Automatable,
+    pub automatable: VerificationMethod,
     pub has_known_route: bool,
     pub has_frontend_step: bool,
     pub has_ui_plan: bool,
@@ -74,7 +65,7 @@ pub struct JourneyMatrix {
 pub struct ReportHit {
     pub journey_id: JourneyId,
     pub suite_is_ui: bool,
-    pub state: CellState,
+    pub state: Verdict,
     pub reason: Option<String>,
     pub dut: Option<String>,
     pub report_path: String,
@@ -91,7 +82,9 @@ struct RawReport {
     #[serde(default)]
     finished_at: String,
     #[serde(default)]
-    journeys: Vec<RawJourney>,
+    journeys: Vec<RawVerification>,
+    #[serde(default)]
+    verifications: Vec<RawVerification>,
 }
 
 #[derive(Deserialize)]
@@ -101,20 +94,32 @@ struct RawDut {
 }
 
 #[derive(Deserialize)]
-struct RawJourney {
+struct RawVerification {
+    #[serde(default)]
     id: String,
+    #[serde(default)]
+    use_case: String,
+    #[serde(default)]
     result: String,
+    #[serde(default)]
+    verdict: String,
     skip_reason: Option<String>,
 }
 
-impl CellState {
-    fn rank(self) -> u8 {
-        match self {
-            Self::Empty => 0,
-            Self::Planned | Self::Skip => 1,
-            Self::Pass => 3,
-            Self::PassWithFinding => 4,
-            Self::Fail => 5,
+impl RawVerification {
+    fn journey_key(&self) -> &str {
+        if !self.use_case.is_empty() {
+            &self.use_case
+        } else {
+            &self.id
+        }
+    }
+
+    fn verdict_key(&self) -> &str {
+        if !self.verdict.is_empty() {
+            &self.verdict
+        } else {
+            &self.result
         }
     }
 }
@@ -122,7 +127,7 @@ impl CellState {
 impl Cell {
     fn empty() -> Self {
         Self {
-            state: CellState::Empty,
+            state: Verdict::Error,
             reason: None,
             dut: None,
             report_path: None,
@@ -132,7 +137,7 @@ impl Cell {
 
     fn planned() -> Self {
         Self {
-            state: CellState::Planned,
+            state: Verdict::Inconclusive(String::new()),
             reason: None,
             dut: None,
             report_path: None,
@@ -142,7 +147,7 @@ impl Cell {
 
     fn skip(reason: &str) -> Self {
         Self {
-            state: CellState::Skip,
+            state: Verdict::Inconclusive(String::new()),
             reason: Some(reason.to_string()),
             dut: None,
             report_path: None,
@@ -154,8 +159,8 @@ impl Cell {
         if self.reason.as_deref() == Some("hard_exclude") {
             return;
         }
-        let incoming_rank = incoming.state.rank();
-        let current_rank = self.state.rank();
+        let incoming_rank = incoming.state.matrix_rank(incoming.reason.as_deref());
+        let current_rank = self.state.matrix_rank(self.reason.as_deref());
         if incoming_rank > current_rank {
             *self = incoming;
             return;
@@ -178,7 +183,7 @@ impl Cell {
     }
 }
 
-pub fn has_known_route(journey: &UserJourney) -> bool {
+pub fn has_known_route(journey: &UseCase) -> bool {
     let GroundedSet::Known { items: steps } = &journey.steps else {
         return false;
     };
@@ -187,7 +192,7 @@ pub fn has_known_route(journey: &UserJourney) -> bool {
         .any(|step| matches!(&step.value.route, Some(Grounded::Known { .. })))
 }
 
-pub fn has_frontend_step(journey: &UserJourney) -> bool {
+pub fn has_frontend_step(journey: &UseCase) -> bool {
     let GroundedSet::Known { items: steps } = &journey.steps else {
         return false;
     };
@@ -226,9 +231,14 @@ fn collect_hits(path: &Path, hits: &mut Vec<ReportHit>) -> Result<(), String> {
         Ok(parsed) => parsed,
         Err(_) => return Ok(()),
     };
-    if parsed.journeys.is_empty() {
+    if parsed.journeys.is_empty() && parsed.verifications.is_empty() {
         return Ok(());
     }
+    let entries = if parsed.verifications.is_empty() {
+        &parsed.journeys
+    } else {
+        &parsed.verifications
+    };
     let suite_is_ui = parsed.suite == "ui" || parsed.suite == "page_load";
     let dut = dut_label(&parsed.base, parsed.dut.as_ref());
     let utc = if parsed.finished_at.is_empty() {
@@ -236,19 +246,19 @@ fn collect_hits(path: &Path, hits: &mut Vec<ReportHit>) -> Result<(), String> {
     } else {
         Some(parsed.finished_at)
     };
-    for journey in parsed.journeys {
-        let Some(journey_id) = JourneyId::from_str_id(&journey.id) else {
+    for journey in entries {
+        let journey_key = journey.journey_key();
+        if journey_key.is_empty() {
+            continue;
+        }
+        let Some(journey_id) = JourneyId::from_str_id(journey_key) else {
             continue;
         };
-        let mut state = match journey.result.as_str() {
-            "pass" => CellState::Pass,
-            "fail" => CellState::Fail,
-            "skip" => CellState::Skip,
-            _ => continue,
+        let Some(state) = Verdict::from_report_str(journey.verdict_key()) else {
+            continue;
         };
-        let mut reason = journey.skip_reason;
-        if suite_is_ui && journey_id == JourneyId::CalibrateCompass && state == CellState::Pass {
-            state = CellState::PassWithFinding;
+        let mut reason = journey.skip_reason.clone();
+        if suite_is_ui && journey_id == JourneyId::CalibrateCompass && state == Verdict::Pass {
             reason = Some(COMPASS_FINDING.to_string());
         }
         hits.push(ReportHit {
@@ -294,7 +304,7 @@ pub fn build_journey_matrix(catalog: &Catalog, hits: &[ReportHit]) -> JourneyMat
             continue;
         };
         let incoming = Cell {
-            state: hit.state,
+            state: hit.state.clone(),
             reason: hit.reason.clone(),
             dut: hit.dut.clone(),
             report_path: Some(hit.report_path.clone()),
@@ -305,12 +315,7 @@ pub fn build_journey_matrix(catalog: &Catalog, hits: &[ReportHit]) -> JourneyMat
         } else {
             row.backend.overlay(incoming);
         }
-        if !row.present_on_1_4_dev
-            && matches!(
-                hit.state,
-                CellState::Pass | CellState::PassWithFinding | CellState::Fail
-            )
-        {
+        if !row.present_on_1_4_dev && matches!(hit.state, Verdict::Pass | Verdict::Fail(_)) {
             row.presence_contradiction = true;
         }
     }
@@ -318,7 +323,7 @@ pub fn build_journey_matrix(catalog: &Catalog, hits: &[ReportHit]) -> JourneyMat
     JourneyMatrix { rows }
 }
 
-fn catalog_row(journey: &UserJourney) -> JourneyMatrixRow {
+fn catalog_row(journey: &UseCase) -> JourneyMatrixRow {
     let present = journey.availability.present_on_1_4_dev;
     let excluded = is_hard_excluded(journey.id);
     let route = has_known_route(journey);
@@ -376,8 +381,8 @@ pub fn blank_both_violations(matrix: &JourneyMatrix) -> Vec<JourneyId> {
         .filter(|row| {
             row.present_on_1_4_dev
                 && !is_hard_excluded(row.journey_id)
-                && row.backend.state == CellState::Empty
-                && row.ui.state == CellState::Empty
+                && row.backend.state == Verdict::Error
+                && row.ui.state == Verdict::Error
         })
         .map(|row| row.journey_id)
         .collect()
@@ -386,14 +391,12 @@ pub fn blank_both_violations(matrix: &JourneyMatrix) -> Vec<JourneyId> {
 pub fn format_matrix(matrix: &JourneyMatrix) -> String {
     let mut out = String::new();
     let present = matrix.rows.iter().filter(|r| r.present_on_1_4_dev).count();
-    let backend_pass = count_state(matrix, true, CellState::Pass)
-        + count_state(matrix, true, CellState::PassWithFinding);
-    let ui_pass = count_state(matrix, false, CellState::Pass)
-        + count_state(matrix, false, CellState::PassWithFinding);
+    let backend_pass = count_pass(matrix, true);
+    let ui_pass = count_pass(matrix, false);
     let ui_empty: Vec<_> = matrix
         .rows
         .iter()
-        .filter(|r| r.present_on_1_4_dev && r.ui.state == CellState::Empty)
+        .filter(|r| r.present_on_1_4_dev && r.ui.state == Verdict::Error)
         .map(|r| r.journey_id.as_str())
         .collect();
     let contradictions: Vec<_> = matrix
@@ -463,13 +466,13 @@ pub fn format_matrix(matrix: &JourneyMatrix) -> String {
     out
 }
 
-fn count_state(matrix: &JourneyMatrix, backend: bool, state: CellState) -> usize {
+fn count_pass(matrix: &JourneyMatrix, backend: bool) -> usize {
     matrix
         .rows
         .iter()
         .filter(|row| {
             let cell = if backend { &row.backend } else { &row.ui };
-            cell.state == state
+            matches!(cell.state, Verdict::Pass)
         })
         .count()
 }
@@ -483,25 +486,24 @@ fn yn(value: bool) -> &'static str {
 }
 
 fn format_cell(cell: &Cell) -> String {
-    let mut label = match cell.state {
-        CellState::Empty => "empty".to_string(),
-        CellState::Planned => "planned".to_string(),
-        CellState::Skip => match &cell.reason {
+    let mut label = match &cell.state {
+        Verdict::Error => "empty".to_string(),
+        Verdict::Inconclusive(_) if cell.reason.is_none() => "planned".to_string(),
+        Verdict::Inconclusive(_) => match &cell.reason {
             Some(reason) => format!("skip:{reason}"),
             None => "skip".to_string(),
         },
-        CellState::Pass => "pass".to_string(),
-        CellState::PassWithFinding => match &cell.reason {
-            Some(reason) => format!("pass+{reason}"),
-            None => "pass+finding".to_string(),
-        },
-        CellState::Fail => "fail".to_string(),
+        Verdict::Pass if cell.reason.as_deref().is_some_and(|r| !r.is_empty()) => {
+            match &cell.reason {
+                Some(reason) => format!("pass+{reason}"),
+                None => "pass+finding".to_string(),
+            }
+        }
+        Verdict::Pass => "pass".to_string(),
+        Verdict::Fail(_) => "fail".to_string(),
     };
     if let Some(dut) = &cell.dut {
-        if matches!(
-            cell.state,
-            CellState::Pass | CellState::PassWithFinding | CellState::Fail
-        ) {
+        if matches!(cell.state, Verdict::Pass | Verdict::Fail(_)) {
             label.push('@');
             label.push_str(dut);
         }
@@ -530,7 +532,7 @@ mod tests {
         let journey = catalog
             .journey_by_id(&JourneyId::CreateSerialToUdpBridge)
             .expect("create_serial_to_udp_bridge");
-        assert_eq!(derive_automatable(journey), Automatable::Hardware);
+        assert_eq!(derive_automatable(journey), VerificationMethod::Demo);
         assert!(has_known_route(journey));
         let matrix = build_journey_matrix(&catalog, &[]);
         let row = matrix
@@ -538,10 +540,11 @@ mod tests {
             .iter()
             .find(|row| row.journey_id == JourneyId::CreateSerialToUdpBridge)
             .unwrap();
-        assert_eq!(row.backend.state, CellState::Skip);
+        assert!(matches!(row.backend.state, Verdict::Inconclusive(_)));
         assert_eq!(row.backend.reason.as_deref(), Some("usb_serial_device"));
-        assert_eq!(row.ui.state, CellState::Planned);
-        assert_eq!(row.automatable, Automatable::Hardware);
+        assert!(matches!(row.ui.state, Verdict::Inconclusive(_)));
+        assert!(row.ui.reason.is_none());
+        assert_eq!(row.automatable, VerificationMethod::Demo);
     }
 
     #[test]
@@ -553,9 +556,9 @@ mod tests {
             .iter()
             .find(|row| row.journey_id == JourneyId::EnablePing1dRangefinderMavlink)
             .unwrap();
-        assert_eq!(row.backend.state, CellState::Skip);
+        assert!(matches!(row.backend.state, Verdict::Inconclusive(_)));
         assert_eq!(row.backend.reason.as_deref(), Some("no_sonar"));
-        assert_eq!(row.ui.state, CellState::Skip);
+        assert!(matches!(row.ui.state, Verdict::Inconclusive(_)));
         assert_eq!(row.ui.reason.as_deref(), Some("no_sonar"));
     }
 
@@ -566,7 +569,8 @@ mod tests {
         let matrix = build_journey_matrix(&catalog, &[]);
         for row in &matrix.rows {
             if PAGE_LOAD_UI.contains(&row.journey_id) && row.present_on_1_4_dev {
-                assert_eq!(row.ui.state, CellState::Planned);
+                assert!(matches!(row.ui.state, Verdict::Inconclusive(_)));
+                assert!(row.ui.reason.is_none());
             }
         }
         let video = matrix
@@ -576,7 +580,8 @@ mod tests {
             .unwrap();
         assert!(video.has_frontend_step);
         assert!(video.has_ui_plan);
-        assert_eq!(video.ui.state, CellState::Planned);
+        assert!(matches!(video.ui.state, Verdict::Inconclusive(_)));
+        assert!(video.ui.reason.is_none());
     }
 
     #[test]
@@ -591,9 +596,9 @@ mod tests {
               "suite": "ui",
               "base": "http://192.168.0.177",
               "finished_at": "2026-08-14T03:18:29Z",
-              "journeys": [
-                {"id": "calibrate_compass", "result": "pass"},
-                {"id": "level_horizon", "result": "pass"}
+              "verifications": [
+                {"use_case": "calibrate_compass", "verdict": "pass"},
+                {"use_case": "level_horizon", "verdict": "pass"}
               ]
             }"#,
         )
@@ -606,7 +611,7 @@ mod tests {
             .iter()
             .find(|row| row.journey_id == JourneyId::CalibrateCompass)
             .unwrap();
-        assert_eq!(compass.ui.state, CellState::PassWithFinding);
+        assert_eq!(compass.ui.state, Verdict::Pass);
         assert_eq!(compass.ui.reason.as_deref(), Some(COMPASS_FINDING));
         assert_eq!(compass.ui.dut.as_deref(), Some("192.168.0.177"));
         let level = matrix
@@ -616,7 +621,36 @@ mod tests {
             .unwrap();
         assert!(level.present_on_1_4_dev);
         assert!(!level.presence_contradiction);
-        assert_eq!(level.ui.state, CellState::Pass);
+        assert_eq!(level.ui.state, Verdict::Pass);
+        let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn merge_legacy_report_id_and_result() {
+        let dir = std::env::temp_dir().join("blueos-catalog-matrix-legacy-test");
+        let _ = fs::create_dir_all(&dir);
+        let path = dir.join("legacy.json");
+        fs::write(
+            &path,
+            r#"{
+              "suite": "smoke",
+              "base": "http://192.168.0.1",
+              "finished_at": "2026-08-14T03:18:29Z",
+              "journeys": [
+                {"id": "browse_available_web_services", "result": "pass"}
+              ]
+            }"#,
+        )
+        .unwrap();
+        let hits = load_report_hits(&[path.as_path()]).unwrap();
+        let catalog = Catalog::bootstrap();
+        let matrix = build_journey_matrix(&catalog, &hits);
+        let row = matrix
+            .rows
+            .iter()
+            .find(|row| row.journey_id == JourneyId::BrowseAvailableWebServices)
+            .unwrap();
+        assert_eq!(row.backend.state, Verdict::Pass);
         let _ = fs::remove_file(&path);
     }
 }

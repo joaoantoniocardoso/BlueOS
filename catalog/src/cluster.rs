@@ -5,12 +5,12 @@ use serde::Serialize;
 
 use crate::catalog::Catalog;
 use crate::catalog::CouplingMatrix;
-use crate::edge::{Bus, Edge, FailureImpact};
+use crate::edge::{Bus, Connection, FailureImpact};
 use crate::id::{PathRef, ServiceId};
 use crate::page::ConsumeTarget;
 use crate::provenance::{Asserted, AssertedSet, Grounded, GroundedSet, ObservedSet};
 use crate::resource::ResourceOwnership;
-use crate::service::ServiceDefinition;
+use crate::service::ServiceJudgment;
 
 pub const WEIGHTS_VERSION: &str = "v1";
 
@@ -529,7 +529,7 @@ fn build_coupling_matrix(
     }
 }
 
-fn edge_coupling_weight(edge: &Edge, weights: &CouplingWeights) -> f64 {
+fn edge_coupling_weight(edge: &Connection, weights: &CouplingWeights) -> f64 {
     let bus_weight = weights.bus.get(&edge.via).copied().unwrap_or(0.0);
     let failure_mult = weights
         .failure_impact
@@ -634,11 +634,7 @@ fn add_policy_affinity(
     }
 }
 
-fn policy_matches(
-    left: &ServiceDefinition,
-    right: &ServiceDefinition,
-    policy: ClusterPolicy,
-) -> bool {
+fn policy_matches(left: &ServiceJudgment, right: &ServiceJudgment, policy: ClusterPolicy) -> bool {
     match policy {
         ClusterPolicy::CouplingOnly => false,
         ClusterPolicy::CouplingTrust => match (&left.privilege_level, &right.privilege_level) {

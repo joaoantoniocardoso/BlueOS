@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
 use blueos_catalog::domain::{ALL_AGGREGATES, DOMAINS};
-use blueos_catalog::function::FunctionCatalog;
-use blueos_catalog::{Aggregate, Catalog, Domain, FeatureCatalog, FeatureId};
+use blueos_catalog::function::ActionCatalog;
+use blueos_catalog::id::CapabilityId;
+use blueos_catalog::{declared_capabilities, Aggregate, Catalog, Domain};
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
@@ -36,9 +37,9 @@ struct CapabilityNode {
 fn main() {
     let json = std::env::args().any(|arg| arg == "--json");
     let catalog = Catalog::bootstrap();
-    let features = FeatureCatalog::from_catalog(&catalog);
-    let functions = FunctionCatalog::from_catalog(&catalog);
-    let report = build_report(&features, &functions);
+    let capabilities = declared_capabilities(&catalog);
+    let functions = ActionCatalog::from_catalog(&catalog);
+    let report = build_report(&capabilities, &functions);
 
     if json {
         println!(
@@ -51,16 +52,19 @@ fn main() {
     print_text(&report);
 }
 
-fn build_report(features: &FeatureCatalog, functions: &FunctionCatalog) -> WbsReport {
-    let mut by_aggregate: HashMap<Aggregate, Vec<FeatureId>> = HashMap::new();
-    for feature in features.features() {
+fn build_report(
+    capabilities: &[blueos_catalog::DeclaredCapability],
+    functions: &ActionCatalog,
+) -> WbsReport {
+    let mut by_aggregate: HashMap<Aggregate, Vec<CapabilityId>> = HashMap::new();
+    for capability in capabilities {
         by_aggregate
-            .entry(feature.aggregate)
+            .entry(capability.aggregate)
             .or_default()
-            .push(feature.id);
+            .push(capability.id);
     }
     for ids in by_aggregate.values_mut() {
-        ids.sort();
+        ids.sort_by_key(|id| id.as_str());
     }
 
     let mut functions_by_capability: HashMap<String, Vec<String>> = HashMap::new();
@@ -83,16 +87,17 @@ fn build_report(features: &FeatureCatalog, functions: &FunctionCatalog) -> WbsRe
                 .aggregates
                 .iter()
                 .map(|aggregate| {
-                    let mut feature_ids = by_aggregate.get(aggregate).cloned().unwrap_or_default();
-                    feature_ids.sort();
+                    let mut capability_ids =
+                        by_aggregate.get(aggregate).cloned().unwrap_or_default();
+                    capability_ids.sort_by_key(|id| id.as_str());
                     AggregateNode {
                         id: *aggregate,
-                        capabilities: feature_ids
+                        capabilities: capability_ids
                             .iter()
-                            .map(|feature| CapabilityNode {
-                                id: feature.0.as_str().to_string(),
+                            .map(|capability| CapabilityNode {
+                                id: capability.as_str().to_string(),
                                 functions: functions_by_capability
-                                    .get(feature.0.as_str())
+                                    .get(capability.as_str())
                                     .cloned()
                                     .unwrap_or_default(),
                             })
@@ -106,7 +111,7 @@ fn build_report(features: &FeatureCatalog, functions: &FunctionCatalog) -> WbsRe
     WbsReport {
         domains: DOMAINS.len(),
         aggregates: ALL_AGGREGATES.len(),
-        features: features.features().len(),
+        features: capabilities.len(),
         functions: functions.functions().len(),
         tree,
     }
@@ -117,7 +122,7 @@ fn print_text(report: &WbsReport) {
     println!("=================================");
     println!();
     println!(
-        "Summary: {} domains, {} aggregates, {} features, {} functions",
+        "Summary: {} domains, {} aggregates, {} capabilities, {} functions",
         report.domains, report.aggregates, report.features, report.functions
     );
     println!();

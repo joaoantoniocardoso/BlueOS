@@ -1,6 +1,6 @@
 use crate::criticality::CriticalityTier;
 use crate::id::{CapabilityId, JourneyId, PathRef, PortRef, ServiceId};
-use crate::interface::{FileAccessMode, Interface};
+use crate::interface::{FileAccessMode, PortKind};
 use crate::journey::{HttpMethod, RouteRef};
 use crate::lifecycle::{Lifecycle, ObservedLifecycle};
 use crate::observed::{ObservedFacts, ResourceLimits, ServiceKind, StartupTier};
@@ -10,7 +10,7 @@ use crate::provenance::{
 };
 use crate::resource::{Resource, ResourceOwnership};
 use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts, SloBaseline};
-use crate::service::{Authority, Service, ServiceDefinition};
+use crate::service::{Authority, Service, ServiceJudgment};
 use crate::trust::{PrivilegeLevel, UserConfirmation};
 
 use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
@@ -204,7 +204,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
     ),
     interfaces: ObservedSet::known(&[
         Evidenced::new(
-            Interface::Rest {
+            PortKind::Rest {
                 path_prefix: PathRef("/beacon/"),
                 port: PortRef::Literal(9111),
                 versions: &["v1.0"],
@@ -216,7 +216,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Settings {
+            PortKind::Settings {
                 path: PathRef("/root/.config/beacon/settings-4.json"),
             },
             Evidence {
@@ -226,7 +226,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::File {
+            PortKind::File {
                 path: PathRef("core/services/beacon/default-settings.json"),
                 mode: FileAccessMode::Read,
             },
@@ -237,7 +237,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::File {
+            PortKind::File {
                 path: PathRef("/root/.config/beacon"),
                 mode: FileAccessMode::ReadWrite,
             },
@@ -248,7 +248,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Zenoh {
+            PortKind::Zenoh {
                 topics_produced: &["services/beacon/log"],
                 topics_consumed: &[],
             },
@@ -355,8 +355,8 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
     openapi_refs: ObservedSet::unknown("not yet extracted"),
 };
 
-pub const SERVICE_DEFINITION: ServiceDefinition =
-    ServiceDefinition {
+pub const SERVICE_DEFINITION: ServiceJudgment =
+    ServiceJudgment {
         id: ServiceId::Beacon,
         singleton: Asserted::established(
             true,

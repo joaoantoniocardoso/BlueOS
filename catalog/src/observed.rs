@@ -2,7 +2,7 @@ use schemars::JsonSchema;
 use serde::Serialize;
 
 use crate::id::{PathRef, PortRef, ServiceId};
-use crate::interface::Interface;
+use crate::interface::PortKind;
 use crate::lifecycle::ObservedLifecycle;
 use crate::provenance::{Observed, ObservedSet};
 use crate::resource::Resource;
@@ -21,7 +21,7 @@ pub struct ObservedFacts {
     pub nginx_prefixes: ObservedSet<PathRef>,
     pub listen: ObservedSet<PortRef>,
     pub git_path: Observed<PathRef>,
-    pub interfaces: ObservedSet<Interface>,
+    pub interfaces: ObservedSet<PortKind>,
     pub resources: ObservedSet<Resource>,
     pub lifecycle: Observed<ObservedLifecycle>,
     pub logs_path: Observed<PathRef>,

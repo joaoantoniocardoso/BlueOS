@@ -1,23 +1,73 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
 use crate::catalog::Catalog;
 use crate::id::{JourneyId, ServiceId};
 use crate::journey::{
-    derive_automatable, Actor, Automatable, BlastRadius, BodyKind, HttpMethod, RouteRef,
-    UserJourney,
+    http_automatable, Actor, BlastRadius, BodyKind, HttpMethod, RouteRef, UseCase,
 };
 use crate::provenance::{Grounded, GroundedSet, ObservedSet};
 use crate::report::{ConflictKind, ReportConflict};
 use crate::version::{availability_skip, format_availability_skip_reason};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum StepResult {
+pub enum Verdict {
     Pass,
     Fail(String),
-    Skip(String),
-    Unasserted,
-    Ignored,
+    Inconclusive(String),
+    Error,
+}
+
+impl Verdict {
+    pub fn from_report_str(s: &str) -> Option<Self> {
+        match s {
+            "pass" => Some(Self::Pass),
+            "fail" => Some(Self::Fail(String::new())),
+            "skip" | "inconclusive" => Some(Self::Inconclusive(String::new())),
+            "error" => Some(Self::Error),
+            _ => None,
+        }
+    }
+
+    fn report_str(&self) -> &'static str {
+        match self {
+            Self::Pass => "pass",
+            Self::Fail(_) => "fail",
+            Self::Inconclusive(_) => "inconclusive",
+            Self::Error => "error",
+        }
+    }
+
+    pub fn matrix_rank(&self, reason: Option<&str>) -> u8 {
+        match self {
+            Self::Error => 0,
+            Self::Inconclusive(_) => 1,
+            Self::Pass => {
+                if reason.is_some_and(|r| !r.is_empty()) {
+                    4
+                } else {
+                    3
+                }
+            }
+            Self::Fail(_) => 5,
+        }
+    }
+}
+
+impl Serialize for Verdict {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.report_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for Verdict {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Self::from_report_str(&s)
+            .ok_or_else(|| serde::de::Error::custom(format!("unknown verdict: {s}")))
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -26,6 +76,16 @@ pub enum JourneyResult {
     Fail,
     Skip,
     Partial,
+}
+
+impl Verdict {
+    pub fn from_journey_result(outcome: JourneyResult) -> Self {
+        match outcome {
+            JourneyResult::Pass | JourneyResult::Partial => Self::Pass,
+            JourneyResult::Fail => Self::Fail(String::new()),
+            JourneyResult::Skip => Self::Inconclusive(String::new()),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -65,22 +125,21 @@ pub struct RunCounts {
 }
 
 impl RunCounts {
-    pub fn record(&mut self, result: &StepResult) {
+    pub fn record(&mut self, result: &Verdict) {
         match result {
-            StepResult::Pass => self.passed += 1,
-            StepResult::Fail(_) => self.failed += 1,
-            StepResult::Skip(_) => self.skipped += 1,
-            StepResult::Unasserted => self.unasserted += 1,
-            StepResult::Ignored => self.skipped += 1,
+            Verdict::Pass => self.passed += 1,
+            Verdict::Fail(_) => self.failed += 1,
+            Verdict::Inconclusive(_) => self.skipped += 1,
+            Verdict::Error => self.unasserted += 1,
         }
     }
 }
 
-pub fn http_journeys(catalog: &Catalog) -> Vec<&UserJourney> {
+pub fn http_journeys(catalog: &Catalog) -> Vec<&UseCase> {
     catalog
         .journeys()
         .iter()
-        .filter(|journey| derive_automatable(journey) == Automatable::Http)
+        .filter(|journey| http_automatable(journey))
         .collect()
 }
 
@@ -218,7 +277,7 @@ pub fn run_negative_probe(
     probe: &crate::negative_probes::NegativeProbe,
     allow_mutating: bool,
     current_tag: Option<&str>,
-) -> StepResult {
+) -> Verdict {
     if probe.id == "NP-38" {
         return run_negative_probe_np38_concurrent_scan(base, allow_mutating, probe);
     }
@@ -258,12 +317,12 @@ fn evaluate_negative_probe_response(
     probe: &crate::negative_probes::NegativeProbe,
     status_code: u16,
     body: &str,
-) -> StepResult {
+) -> Verdict {
     let result = evaluate_http_response(status_code, body, probe.expected_status, None);
     match &result {
-        StepResult::Pass => eprintln!("PASS {} HTTP {status_code}", probe.id),
-        StepResult::Fail(msg) => eprintln!("FAIL {} HTTP {status_code} — {msg}", probe.id),
-        StepResult::Unasserted => eprintln!("UNASSERTED {} HTTP {status_code}", probe.id),
+        Verdict::Pass => eprintln!("PASS {} HTTP {status_code}", probe.id),
+        Verdict::Fail(msg) => eprintln!("FAIL {} HTTP {status_code} — {msg}", probe.id),
+        Verdict::Error => eprintln!("UNASSERTED {} HTTP {status_code}", probe.id),
         _ => {}
     }
     result
@@ -272,19 +331,16 @@ fn evaluate_negative_probe_response(
 /// Report a probe that failed before any status code came back. `evaluate_negative_probe_response`
 /// is the only other place that prints, so a `Fail` returned around it is counted in the summary
 /// but never shown.
-fn fail_negative_probe(
-    probe: &crate::negative_probes::NegativeProbe,
-    message: String,
-) -> StepResult {
+fn fail_negative_probe(probe: &crate::negative_probes::NegativeProbe, message: String) -> Verdict {
     eprintln!("FAIL {} — {message}", probe.id);
-    StepResult::Fail(message)
+    Verdict::Fail(message)
 }
 
 fn run_negative_probe_np38_concurrent_scan(
     base: &str,
     allow_mutating: bool,
     probe: &crate::negative_probes::NegativeProbe,
-) -> StepResult {
+) -> Verdict {
     use std::sync::mpsc;
     use std::thread;
 
@@ -324,7 +380,7 @@ fn run_negative_probe_np38_concurrent_scan(
     )
 }
 
-pub fn http_steps(journey: &UserJourney) -> Vec<RunnableStep> {
+pub fn http_steps(journey: &UseCase) -> Vec<RunnableStep> {
     let GroundedSet::Known { items: steps } = &journey.steps else {
         return Vec::new();
     };
@@ -370,7 +426,7 @@ pub fn fixture_path(relative: &str) -> PathBuf {
         .join(relative)
 }
 
-pub fn http_smoke_steps(journey: &UserJourney) -> Vec<RunnableStep> {
+pub fn http_smoke_steps(journey: &UseCase) -> Vec<RunnableStep> {
     http_steps(journey)
         .into_iter()
         .filter(|step| {
@@ -1374,7 +1430,7 @@ pub fn mutating_smoke_teardown_calls(journey_id: JourneyId) -> &'static [SmokeHt
     }
 }
 
-pub fn http_mutating_smoke_steps(journey: &UserJourney) -> Vec<RunnableStep> {
+pub fn http_mutating_smoke_steps(journey: &UseCase) -> Vec<RunnableStep> {
     http_steps(journey)
         .into_iter()
         .filter(|step| {
@@ -1438,7 +1494,7 @@ fn parse_dut_version_json(body: &str) -> Result<DutVersion, String> {
     })
 }
 
-pub fn journey_availability_skip(journey: &UserJourney, dut: &DutVersion) -> Option<String> {
+pub fn journey_availability_skip(journey: &UseCase, dut: &DutVersion) -> Option<String> {
     availability_skip(&dut.tag, &journey.availability)
         .map(|skip| format_availability_skip_reason(&skip, &dut.tag))
 }
@@ -1472,7 +1528,7 @@ pub fn dut_profile_for_host(host: &str) -> DutProfile {
     }
 }
 
-pub fn journey_profile_skip(journey: &UserJourney, profile: &DutProfile) -> Option<String> {
+pub fn journey_profile_skip(journey: &UseCase, profile: &DutProfile) -> Option<String> {
     if profile.never_strand_mgmt {
         match journey.id {
             JourneyId::AssignStaticIpAddress
@@ -1587,7 +1643,7 @@ pub fn run_core_image_switch(
     body: &str,
     expected_tag: &str,
     allow_mutating: bool,
-) -> StepResult {
+) -> Verdict {
     use HttpMethod::*;
     let post = RouteRef {
         service: ServiceId::Versionchooser,
@@ -1596,20 +1652,20 @@ pub fn run_core_image_switch(
         version: Some("v1.0"),
     };
     let Some(path) = resolve_http_path(catalog, &post) else {
-        return StepResult::Skip("unresolved /version/current".into());
+        return Verdict::Inconclusive("unresolved /version/current".into());
     };
     let url = join_url(base, &path);
     match execute_curl(&Post, &url, allow_mutating, Some(body), None) {
         Ok((200, _)) | Ok((0, _)) => {}
         Ok((code, _)) => {
-            return StepResult::Fail(format!(
+            return Verdict::Fail(format!(
                 "core switch: expected HTTP 200 or connection drop, got {code}"
             ));
         }
         Err(_) => {}
     }
     if let Err(err) = wait_for_blueos(base, 600) {
-        return StepResult::Fail(format!("core switch recovery: {err}"));
+        return Verdict::Fail(format!("core switch recovery: {err}"));
     }
     let get = RouteRef {
         service: ServiceId::Versionchooser,
@@ -1618,7 +1674,7 @@ pub fn run_core_image_switch(
         version: Some("v1.0"),
     };
     let Some(get_path) = resolve_http_path(catalog, &get) else {
-        return StepResult::Fail("unresolved GET /version/current after switch".into());
+        return Verdict::Fail("unresolved GET /version/current after switch".into());
     };
     let get_url = join_url(base, &get_path);
     match execute_curl(&Get, &get_url, false, None, None) {
@@ -1626,15 +1682,15 @@ pub fn run_core_image_switch(
             if body.contains(&format!("\"tag\":\"{expected_tag}\""))
                 || body.contains(&format!("\"tag\": \"{expected_tag}\"")) =>
         {
-            StepResult::Pass
+            Verdict::Pass
         }
-        Ok((200, body)) => StepResult::Fail(format!(
+        Ok((200, body)) => Verdict::Fail(format!(
             "core switch: expected tag {expected_tag}, body={body}"
         )),
-        Ok((code, _)) => StepResult::Fail(format!(
+        Ok((code, _)) => Verdict::Fail(format!(
             "core switch: GET /version/current expected 200, got {code}"
         )),
-        Err(err) => StepResult::Fail(format!("core switch: GET /version/current: {err}")),
+        Err(err) => Verdict::Fail(format!("core switch: GET /version/current: {err}")),
     }
 }
 
@@ -1775,24 +1831,24 @@ pub fn evaluate_http_response(
     body: &str,
     expected_status: Option<u16>,
     body_predicate: Option<&str>,
-) -> StepResult {
+) -> Verdict {
     if let Some(expected) = expected_status {
         if status_code != expected {
-            return StepResult::Fail(format!("expected HTTP {expected}, got {status_code}"));
+            return Verdict::Fail(format!("expected HTTP {expected}, got {status_code}"));
         }
         if let Some(predicate) = body_predicate {
             if let Some(needle) = predicate.strip_prefix("contains:") {
                 if !body.contains(needle) {
-                    return StepResult::Fail(format!("body missing expected substring: {needle}"));
+                    return Verdict::Fail(format!("body missing expected substring: {needle}"));
                 }
             }
         }
         if let Some(message) = streamed_fragment_error(body) {
-            return StepResult::Fail(message);
+            return Verdict::Fail(message);
         }
-        StepResult::Pass
+        Verdict::Pass
     } else {
-        StepResult::Unasserted
+        Verdict::Error
     }
 }
 
@@ -1801,7 +1857,7 @@ pub fn run_smoke_http_call(
     base: &str,
     call: &SmokeHttpCall,
     allow_mutating: bool,
-) -> StepResult {
+) -> Verdict {
     let step = RunnableStep {
         journey_id: JourneyId::ConnectToWifiNetwork,
         step_index: 0,
@@ -1816,9 +1872,9 @@ pub fn run_smoke_http_call(
     let result = run_http_step(catalog, base, &step, allow_mutating);
     // wifi-manager returns 500 when already idle; treat as success for setup/teardown.
     if call.route.path == "/disconnect"
-        && matches!(&result, StepResult::Fail(msg) if msg.contains("got 500"))
+        && matches!(&result, Verdict::Fail(msg) if msg.contains("got 500"))
     {
-        return StepResult::Pass;
+        return Verdict::Pass;
     }
     result
 }
@@ -1840,7 +1896,7 @@ pub fn mutating_effect_read_phases(effect_read_active: bool) -> Vec<&'static str
     phases
 }
 
-pub fn runnable_http_step_at(journey: &UserJourney, step_index: usize) -> Option<RunnableStep> {
+pub fn runnable_http_step_at(journey: &UseCase, step_index: usize) -> Option<RunnableStep> {
     http_steps(journey)
         .into_iter()
         .find(|step| step.step_index == step_index)
@@ -1863,12 +1919,12 @@ pub struct EffectReadBefore {
 pub enum EffectReadBeforeResult {
     Skipped,
     Ready(EffectReadBefore),
-    Failed(StepResult),
+    Failed(Verdict),
 }
 
 pub struct EffectReadAfter {
     pub conflict: Option<ReportConflict>,
-    pub result: StepResult,
+    pub result: Verdict,
 }
 
 pub fn effect_read_conflict(
@@ -1890,9 +1946,9 @@ fn fetch_http_step_body(
     base: &str,
     step: &RunnableStep,
     allow_mutating: bool,
-) -> Result<String, StepResult> {
+) -> Result<String, Verdict> {
     let Some(path) = resolve_http_path(catalog, &step.route) else {
-        return Err(StepResult::Skip(
+        return Err(Verdict::Inconclusive(
             "unresolved or templated route path".into(),
         ));
     };
@@ -1910,10 +1966,10 @@ fn fetch_http_step_body(
         step.form_file.as_ref(),
     ) {
         Ok(response) => response,
-        Err(err) => return Err(StepResult::Fail(err)),
+        Err(err) => return Err(Verdict::Fail(err)),
     };
     match evaluate_http_response(status_code, &body, step.expected_status, None) {
-        StepResult::Pass | StepResult::Unasserted => Ok(body),
+        Verdict::Pass | Verdict::Error => Ok(body),
         other => Err(other),
     }
 }
@@ -1921,17 +1977,17 @@ fn fetch_http_step_body(
 pub fn effect_read_before(
     catalog: &Catalog,
     base: &str,
-    journey: &UserJourney,
+    journey: &UseCase,
     effect_step_index: usize,
 ) -> EffectReadBeforeResult {
     let Some(probe) = runnable_http_step_at(journey, effect_step_index) else {
-        return EffectReadBeforeResult::Failed(StepResult::Fail(format!(
+        return EffectReadBeforeResult::Failed(Verdict::Fail(format!(
             "effect_read step_index {effect_step_index} not runnable for {}",
             journey.id
         )));
     };
     if !matches!(probe.route.method, HttpMethod::Get) {
-        return EffectReadBeforeResult::Failed(StepResult::Fail(format!(
+        return EffectReadBeforeResult::Failed(Verdict::Fail(format!(
             "effect_read step {} {:?} {} is not GET",
             probe.step_index, probe.route.method, probe.route.path
         )));
@@ -1971,19 +2027,19 @@ pub fn effect_read_after_observed(
     if effect_observation_changed(&before.before_body, after_body, before.probe.body_predicate) {
         return EffectReadAfter {
             conflict: None,
-            result: StepResult::Pass,
+            result: Verdict::Pass,
         };
     }
     let conflict = effect_read_conflict(journey_id, &before.probe, before.probe.body_predicate);
     EffectReadAfter {
-        result: StepResult::Fail(conflict.context.clone()),
+        result: Verdict::Fail(conflict.context.clone()),
         conflict: Some(conflict),
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HttpStepRun {
-    pub result: StepResult,
+    pub result: Verdict,
     pub conflict: Option<ReportConflict>,
 }
 
@@ -2011,14 +2067,17 @@ pub fn run_http_step_detailed(
 ) -> HttpStepRun {
     if !matches!(step.route.method, HttpMethod::Get) && !allow_mutating {
         return HttpStepRun {
-            result: StepResult::Skip(format!("{:?} requires --allow-mutating", step.route.method)),
+            result: Verdict::Inconclusive(format!(
+                "{:?} requires --allow-mutating",
+                step.route.method
+            )),
             conflict: None,
         };
     }
 
     let Some(path) = resolve_http_path(catalog, &step.route) else {
         return HttpStepRun {
-            result: StepResult::Skip("unresolved or templated route path".into()),
+            result: Verdict::Inconclusive("unresolved or templated route path".into()),
             conflict: None,
         };
     };
@@ -2039,7 +2098,7 @@ pub fn run_http_step_detailed(
         Ok(response) => response,
         Err(err) => {
             return HttpStepRun {
-                result: StepResult::Fail(err),
+                result: Verdict::Fail(err),
                 conflict: None,
             }
         }
@@ -2060,11 +2119,11 @@ pub fn run_http_step(
     base: &str,
     step: &RunnableStep,
     allow_mutating: bool,
-) -> StepResult {
+) -> Verdict {
     run_http_step_detailed(catalog, base, step, allow_mutating).result
 }
 
-pub fn summarize_journey(step_results: &[StepResult]) -> JourneyResult {
+pub fn summarize_journey(step_results: &[Verdict]) -> JourneyResult {
     if step_results.is_empty() {
         return JourneyResult::Skip;
     }
@@ -2075,10 +2134,10 @@ pub fn summarize_journey(step_results: &[StepResult]) -> JourneyResult {
 
     for result in step_results {
         match result {
-            StepResult::Fail(_) => has_fail = true,
-            StepResult::Pass => has_pass = true,
-            StepResult::Skip(_) | StepResult::Ignored => has_skip = true,
-            StepResult::Unasserted => has_unasserted = true,
+            Verdict::Fail(_) => has_fail = true,
+            Verdict::Pass => has_pass = true,
+            Verdict::Inconclusive(_) => has_skip = true,
+            Verdict::Error => has_unasserted = true,
         }
     }
 
@@ -2129,15 +2188,14 @@ mod tests {
     use super::*;
     use crate::journey::{BodyKind, BLAST_RADIUS_UNKNOWN};
 
-    const TEST_PRESENCE: crate::version::FeatureAvailability =
-        crate::version::FeatureAvailability {
-            intro_commit: "0000000000000000000000000000000000000001",
-            present_in_tags: &["1.0.0"],
-            present_on_master: true,
-            present_on_1_4_dev: true,
-        };
+    const TEST_PRESENCE: crate::version::Availability = crate::version::Availability {
+        intro_commit: "0000000000000000000000000000000000000001",
+        present_in_tags: &["1.0.0"],
+        present_on_master: true,
+        present_on_1_4_dev: true,
+    };
 
-    const TEST_ABSENCE: crate::version::FeatureAvailability = crate::version::FeatureAvailability {
+    const TEST_ABSENCE: crate::version::Availability = crate::version::Availability {
         intro_commit: "0000000000000000000000000000000000000002",
         present_in_tags: &["1.5.0"],
         present_on_master: true,
@@ -2150,8 +2208,8 @@ mod tests {
 
     const DOC: Provenance = Provenance::doc("test.md", 1, "");
 
-    fn test_journey(availability: crate::version::FeatureAvailability) -> UserJourney {
-        UserJourney {
+    fn test_journey(availability: crate::version::Availability) -> UseCase {
+        UseCase {
             id: JourneyId::ConnectToWifiNetwork,
             summary: Grounded::known("test", DOC),
             visibility: Grounded::known(Visibility::Default, DOC),
@@ -2209,7 +2267,7 @@ mod tests {
     fn http_journeys_are_http_automatable() {
         let catalog = Catalog::bootstrap();
         for journey in http_journeys(&catalog) {
-            assert_eq!(derive_automatable(journey), Automatable::Http);
+            assert!(http_automatable(journey));
         }
     }
 
@@ -2310,7 +2368,7 @@ mod tests {
                 DOC,
             ),
         ];
-        let journey = UserJourney {
+        let journey = UseCase {
             id: JourneyId::ConnectToWifiNetwork,
             summary: Grounded::known("test", DOC),
             visibility: Grounded::known(Visibility::Default, DOC),
@@ -2402,7 +2460,7 @@ mod tests {
     fn evaluate_http_response_unasserted_without_expected_status() {
         assert_eq!(
             evaluate_http_response(200, "{}", None, None),
-            StepResult::Unasserted
+            Verdict::Error
         );
     }
 
@@ -2410,11 +2468,11 @@ mod tests {
     fn evaluate_http_response_passes_known_status_and_contains_predicate() {
         assert_eq!(
             evaluate_http_response(200, r#"{"online": true}"#, Some(200), Some("contains:true")),
-            StepResult::Pass
+            Verdict::Pass
         );
         assert!(matches!(
             evaluate_http_response(404, "{}", Some(200), None),
-            StepResult::Fail(_)
+            Verdict::Fail(_)
         ));
     }
 
@@ -2426,7 +2484,7 @@ mod tests {
         );
         let result = evaluate_http_response(200, body, Some(200), None);
         assert!(
-            matches!(&result, StepResult::Fail(message) if message.contains("williangalvani.example1")),
+            matches!(&result, Verdict::Fail(message) if message.contains("williangalvani.example1")),
             "expected Fail with extension name, got {result:?}"
         );
     }
@@ -2441,7 +2499,7 @@ mod tests {
         );
         assert_eq!(
             evaluate_http_response(200, body, Some(200), None),
-            StepResult::Pass
+            Verdict::Pass
         );
     }
 
@@ -2455,7 +2513,7 @@ mod tests {
         );
         assert_eq!(
             evaluate_http_response(200, body, Some(200), None),
-            StepResult::Pass
+            Verdict::Pass
         );
     }
 
@@ -2464,7 +2522,7 @@ mod tests {
         let body = r#"{"detail":"Extension np.no.such.extension not found"}"#;
         assert_eq!(
             evaluate_http_response(404, body, Some(404), None),
-            StepResult::Pass
+            Verdict::Pass
         );
     }
 
@@ -2637,7 +2695,7 @@ mod tests {
                 DOC,
             ),
         ];
-        let journey = UserJourney {
+        let journey = UseCase {
             id: JourneyId::ChangeUiThemeColor,
             summary: Grounded::known("test", DOC),
             visibility: Grounded::known(Visibility::Default, DOC),
@@ -2728,7 +2786,7 @@ mod tests {
                 DOC,
             ),
         ];
-        let journey = UserJourney {
+        let journey = UseCase {
             id: JourneyId::ConnectToWifiNetwork,
             summary: Grounded::known("test", DOC),
             visibility: Grounded::known(Visibility::Default, DOC),
@@ -2908,7 +2966,7 @@ mod tests {
         let changed =
             effect_read_after_observed(fixture.journey_id, &before, &fixture.changed_after_body);
         assert!(changed.conflict.is_none());
-        assert_eq!(changed.result, StepResult::Pass);
+        assert_eq!(changed.result, Verdict::Pass);
     }
 
     #[test]
@@ -2923,7 +2981,7 @@ mod tests {
             after.conflict.as_ref().map(|conflict| conflict.kind),
             Some(ConflictKind::EffectNotApplied)
         );
-        assert!(matches!(after.result, StepResult::Fail(_)));
+        assert!(matches!(after.result, Verdict::Fail(_)));
     }
 
     #[test]

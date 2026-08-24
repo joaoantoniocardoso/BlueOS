@@ -155,7 +155,7 @@ impl Catalog {
 
 /// Participating services of a journey: the declared `services` set augmented with the
 /// services targeted by any grounded step route.
-fn journey_services(journey: &crate::journey::UserJourney) -> Vec<ServiceId> {
+fn journey_services(journey: &crate::journey::UseCase) -> Vec<ServiceId> {
     let mut seen: HashSet<ServiceId> = HashSet::new();
     let mut out: Vec<ServiceId> = Vec::new();
     if let GroundedSet::Known { items } = &journey.services {
@@ -177,7 +177,7 @@ fn journey_services(journey: &crate::journey::UserJourney) -> Vec<ServiceId> {
     out
 }
 
-fn dominant_aggregate_key(journey: &crate::journey::UserJourney) -> String {
+fn dominant_aggregate_key(journey: &crate::journey::UseCase) -> String {
     let mut counts: BTreeMap<&'static str, usize> = BTreeMap::new();
     if let GroundedSet::Known { items } = &journey.capability_refs {
         for item in items.iter() {

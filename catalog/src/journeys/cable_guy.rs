@@ -1,7 +1,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, BlastRadius, BodyKind, DataRequirement, HttpMethod, JourneyStep, Precondition, RouteRef,
-    SoftwareRequirement, StepOutcome, UserJourney, Visibility,
+    Actor, BlastRadius, BodyKind, DataAssumption, HttpMethod, JourneyStep, Precondition, RouteRef,
+    SoftwareAssumption, StepOutcome, UseCase, Visibility,
 };
 use crate::journey_presence::{
     PRESENCE_ACQUIRE_DYNAMIC_IP_ADDRESS, PRESENCE_ASSIGN_STATIC_IP_ADDRESS,
@@ -19,7 +19,7 @@ const INTERFACE_CARD: &str = "core/frontend/src/components/ethernet/InterfaceCar
 const NETWORK_MENU: &str = "core/frontend/src/components/app/NetworkInterfaceMenu.vue";
 const NETWORK_PRIORITY: &str = "core/frontend/src/components/app/NetworkInterfacePriorityMenu.vue";
 
-pub const JOURNEYS: &[UserJourney] = &[
+pub const JOURNEYS: &[UseCase] = &[
     ASSIGN_STATIC_IP_ADDRESS,
     ACQUIRE_DYNAMIC_IP_ADDRESS,
     ENABLE_ONBOARD_DHCP_SERVER,
@@ -28,7 +28,7 @@ pub const JOURNEYS: &[UserJourney] = &[
     CONFIGURE_HOST_DNS,
 ];
 
-const ASSIGN_STATIC_IP_ADDRESS: UserJourney = UserJourney {
+const ASSIGN_STATIC_IP_ADDRESS: UseCase = UseCase {
     id: JourneyId::AssignStaticIpAddress,
     summary: Grounded::known(
         "Assign a static IP address to a wired ethernet or USB-OTG interface",
@@ -96,7 +96,7 @@ const ASSIGN_STATIC_IP_ADDRESS: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const ACQUIRE_DYNAMIC_IP_ADDRESS: UserJourney = UserJourney {
+const ACQUIRE_DYNAMIC_IP_ADDRESS: UseCase = UseCase {
     id: JourneyId::AcquireDynamicIpAddress,
     summary: Grounded::known(
         "Request a dynamic IP address on a wired ethernet or USB-OTG interface",
@@ -133,7 +133,7 @@ const ACQUIRE_DYNAMIC_IP_ADDRESS: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const ENABLE_ONBOARD_DHCP_SERVER: UserJourney = UserJourney {
+const ENABLE_ONBOARD_DHCP_SERVER: UseCase = UseCase {
     id: JourneyId::EnableOnboardDhcpServer,
     summary: Grounded::known(
         "Enable the onboard DHCP server on a wired interface, optionally as a backup server",
@@ -181,7 +181,7 @@ const ENABLE_ONBOARD_DHCP_SERVER: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const DISABLE_ONBOARD_DHCP_SERVER: UserJourney = UserJourney {
+const DISABLE_ONBOARD_DHCP_SERVER: UseCase = UseCase {
     id: JourneyId::DisableOnboardDhcpServer,
     summary: Grounded::known(
         "Disable the onboard DHCP server on a wired interface",
@@ -201,7 +201,7 @@ const DISABLE_ONBOARD_DHCP_SERVER: UserJourney = UserJourney {
         "ethernet tray removes the local DHCP server from the selected interface",
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Data(DataRequirement::OnboardDhcpServerActive),
+        Precondition::Data(DataAssumption::OnboardDhcpServerActive),
         Provenance::source(INTERFACE_CARD, 63, "v-if=\"is_there_dhcp_server_already\""),
     )]),
     steps: GroundedSet::known(&[
@@ -246,7 +246,7 @@ const DISABLE_ONBOARD_DHCP_SERVER: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const SET_NETWORK_INTERFACE_PRIORITY: UserJourney = UserJourney {
+const SET_NETWORK_INTERFACE_PRIORITY: UseCase = UseCase {
     id: JourneyId::SetNetworkInterfacePriority,
     summary: Grounded::known(
         "Reorder network interfaces to choose which connection is preferred for internet access",
@@ -259,7 +259,7 @@ const SET_NETWORK_INTERFACE_PRIORITY: UserJourney = UserJourney {
         "internet tray persists interface metric ordering used for default routes",
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Software(SoftwareRequirement::PirateMode),
+        Precondition::Software(SoftwareAssumption::PirateMode),
         Provenance::doc(ADV, 144, "{% pirate() %}"),
     )]),
     steps: GroundedSet::known(&[
@@ -272,7 +272,11 @@ const SET_NETWORK_INTERFACE_PRIORITY: UserJourney = UserJourney {
         operator_step(
             "Open the Network Interface Priority tab",
             None,
-            Provenance::source(NETWORK_MENU, 54, "{ title: 'Network Interface Priority', icon: 'mdi-sort', val"),
+            Provenance::source(
+                NETWORK_MENU,
+                54,
+                "{ title: 'Network Interface Priority', icon: 'mdi-sort', value: 'network_interface_priority'",
+            ),
             None,
         ),
         operator_step(
@@ -298,7 +302,7 @@ const SET_NETWORK_INTERFACE_PRIORITY: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const CONFIGURE_HOST_DNS: UserJourney = UserJourney {
+const CONFIGURE_HOST_DNS: UseCase = UseCase {
     id: JourneyId::ConfigureHostDns,
     summary: Grounded::known(
         "View and configure host DNS nameservers applied to /etc/resolv.conf",
@@ -311,7 +315,7 @@ const CONFIGURE_HOST_DNS: UserJourney = UserJourney {
         "internet tray updates locked host nameserver entries via cable_guy",
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Software(SoftwareRequirement::PirateMode),
+        Precondition::Software(SoftwareAssumption::PirateMode),
         Provenance::doc(ADV, 152, "{% pirate() %}"),
     )]),
     steps: GroundedSet::known(&[

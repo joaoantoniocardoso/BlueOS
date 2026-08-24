@@ -7,7 +7,10 @@ pub use coverage_mappings::TRACKER_MAPPINGS;
 
 use crate::catalog::Catalog;
 use crate::id::JourneyId;
-use crate::journey::{derive_automatable, journey_requirements, Automatable, Precondition};
+use crate::journey::{
+    derive_automatable, journey_requirements, Precondition, UseCase, VerificationMethod,
+};
+use crate::journey_matrix::has_frontend_step;
 
 /// Path to the release testing tracker CSV, relative to the `catalog` crate root.
 pub const TRACKER_CSV_PATH: &str =
@@ -59,7 +62,7 @@ pub struct AutomatableCounts {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct JourneyCoverage {
     pub journey_id: JourneyId,
-    pub automatable: Automatable,
+    pub automatable: VerificationMethod,
     pub requirements: Vec<String>,
 }
 
@@ -116,7 +119,7 @@ pub fn clean_tracker_task(raw: &str) -> String {
 }
 
 pub fn coverage_report(catalog: &Catalog) -> CoverageReport {
-    let journey_index: HashMap<JourneyId, &crate::journey::UserJourney> = catalog
+    let journey_index: HashMap<JourneyId, &crate::journey::UseCase> = catalog
         .journeys()
         .iter()
         .map(|journey| (journey.id, journey))
@@ -151,7 +154,7 @@ pub fn coverage_report(catalog: &Catalog) -> CoverageReport {
         for &journey_id in entry.journeys {
             if let Some(journey) = journey_index.get(&journey_id) {
                 let automatable = derive_automatable(journey);
-                bump_automatable(&mut by_automatable, automatable);
+                bump_automatable(&mut by_automatable, journey, automatable);
                 let requirements: Vec<String> = journey_requirements(journey)
                     .iter()
                     .map(|precondition| precondition_label(precondition))
@@ -190,13 +193,18 @@ pub fn coverage_report(catalog: &Catalog) -> CoverageReport {
     }
 }
 
-fn bump_automatable(counts: &mut AutomatableCounts, automatable: Automatable) {
-    match automatable {
-        Automatable::Http => counts.http += 1,
-        Automatable::Frontend => counts.frontend += 1,
-        Automatable::Hardware => counts.hardware += 1,
-        Automatable::ExternalGcs => counts.external_gcs += 1,
-        Automatable::Manual => counts.manual += 1,
+fn bump_automatable(counts: &mut AutomatableCounts, journey: &UseCase, method: VerificationMethod) {
+    match method {
+        VerificationMethod::Test => {
+            if has_frontend_step(journey) {
+                counts.frontend += 1;
+            } else {
+                counts.http += 1;
+            }
+        }
+        VerificationMethod::Demo => counts.hardware += 1,
+        VerificationMethod::Inspect => counts.manual += 1,
+        VerificationMethod::Analyze => counts.external_gcs += 1,
     }
 }
 
@@ -205,14 +213,16 @@ pub fn precondition_label(precondition: &Precondition) -> String {
         Precondition::ServiceState { service, state } => {
             format!("ServiceState::{}({})", service.as_str(), state)
         }
-        Precondition::Network(network) => format!("Network::{network:?}"),
+        Precondition::Network(network) => format!("Network::{}", network.as_str()),
         Precondition::HardwarePresent(label) => format!("HardwarePresent::{label}"),
         Precondition::ConfigClean(path) => format!("ConfigClean::{}", path.0),
         Precondition::Other(label) => format!("Other::{label}"),
-        Precondition::Hardware(hardware) => format!("Hardware::{hardware:?}"),
-        Precondition::Software(software) => format!("Software::{software:?}"),
-        Precondition::NetworkResource(resource) => format!("NetworkResource::{resource:?}"),
-        Precondition::Data(data) => format!("Data::{data:?}"),
+        Precondition::Hardware(hardware) => format!("Hardware::{}", hardware.as_str()),
+        Precondition::Software(software) => format!("Software::{}", software.as_str()),
+        Precondition::NetworkResource(resource) => {
+            format!("NetworkResource::{}", resource.as_str())
+        }
+        Precondition::Data(data) => format!("Data::{}", data.as_str()),
     }
 }
 
@@ -224,8 +234,87 @@ mod tests {
 
     use crate::catalog::Catalog;
     use crate::id::JourneyId;
+    use crate::journey::{
+        BoardKind, DataAssumption, HardwareAssumption, NetworkResource, NetworkState, Precondition,
+        SoftwareAssumption,
+    };
 
     use super::*;
+
+    #[test]
+    fn precondition_label_matches_debug_for_inner_enums() {
+        for network in [NetworkState::Online, NetworkState::Offline] {
+            assert_eq!(network.as_str(), format!("{network:?}"));
+            let pre = Precondition::Network(network);
+            assert_eq!(precondition_label(&pre), format!("Network::{network:?}"));
+        }
+
+        for software in [
+            SoftwareAssumption::PirateMode,
+            SoftwareAssumption::AdvancedMode,
+            SoftwareAssumption::DevMode,
+            SoftwareAssumption::ConfirmDangerousOp,
+        ] {
+            assert_eq!(software.as_str(), format!("{software:?}"));
+            let pre = Precondition::Software(software);
+            assert_eq!(precondition_label(&pre), format!("Software::{software:?}"));
+        }
+
+        for resource in [
+            NetworkResource::WifiRadioPresent,
+            NetworkResource::KnownWifiNetwork,
+            NetworkResource::HotspotCapable,
+            NetworkResource::WiredEthernetPresent,
+            NetworkResource::UsbOtgPresent,
+        ] {
+            assert_eq!(resource.as_str(), format!("{resource:?}"));
+            let pre = Precondition::NetworkResource(resource);
+            assert_eq!(
+                precondition_label(&pre),
+                format!("NetworkResource::{resource:?}")
+            );
+        }
+
+        for data in [
+            DataAssumption::ExtensionInstalled,
+            DataAssumption::LocalBlueosVersionAvailable,
+            DataAssumption::SerialBridgeConfigured,
+            DataAssumption::NmeaSocketConfigured,
+            DataAssumption::RecordingListed,
+            DataAssumption::WifiNetworkSaved,
+            DataAssumption::WifiCurrentlyConnected,
+            DataAssumption::OnboardDhcpServerActive,
+        ] {
+            assert_eq!(data.as_str(), format!("{data:?}"));
+            let pre = Precondition::Data(data);
+            assert_eq!(precondition_label(&pre), format!("Data::{data:?}"));
+        }
+
+        for hardware in [
+            HardwareAssumption::UsbCamera,
+            HardwareAssumption::Ping1d,
+            HardwareAssumption::Ping360,
+            HardwareAssumption::ExternalNmeaGps,
+            HardwareAssumption::UsbSerialDevice,
+        ] {
+            assert_eq!(hardware.as_str(), format!("{hardware:?}"));
+            let pre = Precondition::Hardware(hardware);
+            assert_eq!(precondition_label(&pre), format!("Hardware::{hardware:?}"));
+        }
+
+        for board in [
+            BoardKind::Any,
+            BoardKind::Navigator,
+            BoardKind::Pixhawk,
+            BoardKind::Sitl,
+        ] {
+            assert_eq!(board.as_str(), format!("{board:?}"));
+            let hardware = HardwareAssumption::FlightController(board);
+            assert_eq!(hardware.as_str(), format!("{hardware:?}"));
+            let pre = Precondition::Hardware(hardware);
+            assert_eq!(precondition_label(&pre), format!("Hardware::{hardware:?}"));
+        }
+    }
 
     #[test]
     fn tracker_mappings_task_refs_are_unique() {

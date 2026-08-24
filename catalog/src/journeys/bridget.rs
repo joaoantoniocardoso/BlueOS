@@ -1,8 +1,8 @@
 use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, BlastRadius, BodyKind, DataRequirement, HardwareRequirement, HttpMethod, JourneyStep,
-    Precondition, RouteRef, SoftwareRequirement, StepOutcome, UserJourney, Visibility,
+    Actor, BlastRadius, BodyKind, DataAssumption, HardwareAssumption, HttpMethod, JourneyStep,
+    Precondition, RouteRef, SoftwareAssumption, StepOutcome, UseCase, Visibility,
 };
 use crate::journey_presence::{
     PRESENCE_CREATE_SERIAL_TO_UDP_BRIDGE, PRESENCE_REMOVE_SERIAL_BRIDGE,
@@ -21,14 +21,14 @@ const BRIDGET_CREATE_DIALOG: &str = "core/frontend/src/components/bridges/Bridge
 const BRIDGET_CARD: &str = "core/frontend/src/components/bridges/BridgeCard.vue";
 const RUNTIME_ENV: &str = RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 
-pub const JOURNEYS: &[UserJourney] = &[
+pub const JOURNEYS: &[UseCase] = &[
     VIEW_CONFIGURED_SERIAL_BRIDGES,
     CREATE_SERIAL_TO_UDP_BRIDGE,
     REMOVE_SERIAL_BRIDGE,
 ];
 
-const VIEW_CONFIGURED_SERIAL_BRIDGES: UserJourney =
-    UserJourney {
+const VIEW_CONFIGURED_SERIAL_BRIDGES: UseCase =
+    UseCase {
         id: JourneyId::ViewConfiguredSerialBridges,
         summary: Grounded::known(
             "View and manage configured bridges between serial and UDP/TCP endpoints",
@@ -40,7 +40,7 @@ const VIEW_CONFIGURED_SERIAL_BRIDGES: UserJourney =
             "Serial Bridges page lists configured bridges and available serial ports",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
-            Precondition::Software(SoftwareRequirement::AdvancedMode),
+            Precondition::Software(SoftwareAssumption::AdvancedMode),
             Provenance::source(BRIDGET_MENUS, 102, "text: 'Manage detected Ping family sonar devices, connected "),
         )]),
         steps: GroundedSet::known(&[
@@ -87,8 +87,8 @@ const VIEW_CONFIGURED_SERIAL_BRIDGES: UserJourney =
         chains_from: None,
     };
 
-const CREATE_SERIAL_TO_UDP_BRIDGE: UserJourney =
-    UserJourney {
+const CREATE_SERIAL_TO_UDP_BRIDGE: UseCase =
+    UseCase {
         id: JourneyId::CreateSerialToUdpBridge,
         summary: Grounded::known(
             "Create a high-performance link between a serial device connected to the onboard computer and a UDP port"
@@ -102,11 +102,11 @@ const CREATE_SERIAL_TO_UDP_BRIDGE: UserJourney =
         )]),
         preconditions: GroundedSet::known(&[
             GroundedItem::new(
-                Precondition::Software(SoftwareRequirement::AdvancedMode),
+                Precondition::Software(SoftwareAssumption::AdvancedMode),
                 Provenance::source(BRIDGET_MENUS, 102, "text: 'Manage detected Ping family sonar devices, connected "),
             ),
             GroundedItem::new(
-                Precondition::Hardware(HardwareRequirement::UsbSerialDevice),
+                Precondition::Hardware(HardwareAssumption::UsbSerialDevice),
                 Provenance::doc(ADV, 574, "The Serial Bridges page allows creating high performance lin"),
             ),
         ]),
@@ -180,7 +180,7 @@ const CREATE_SERIAL_TO_UDP_BRIDGE: UserJourney =
         chains_from: None,
     };
 
-const REMOVE_SERIAL_BRIDGE: UserJourney = UserJourney {
+const REMOVE_SERIAL_BRIDGE: UseCase = UseCase {
     id: JourneyId::RemoveSerialBridge,
     summary: Grounded::known(
         "Remove a configured serial bridge from the Serial Bridges page",
@@ -194,11 +194,11 @@ const REMOVE_SERIAL_BRIDGE: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[
         GroundedItem::new(
-            Precondition::Software(SoftwareRequirement::AdvancedMode),
+            Precondition::Software(SoftwareAssumption::AdvancedMode),
             Provenance::source(BRIDGET_MENUS, 102, "text: 'Manage detected Ping family sonar devices, connected "),
         ),
         GroundedItem::new(
-            Precondition::Data(DataRequirement::SerialBridgeConfigured),
+            Precondition::Data(DataAssumption::SerialBridgeConfigured),
             Provenance::source(BRIDGET_VIEW, 8, "v-if=\"are_bridges_available && !updating_bridges\""),
         ),
     ]),

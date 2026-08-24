@@ -1,6 +1,6 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, BlastRadius, BodyKind, HttpMethod, JourneyStep, RouteRef, StepOutcome, UserJourney,
+    Actor, BlastRadius, BodyKind, HttpMethod, JourneyStep, RouteRef, StepOutcome, UseCase,
     Visibility,
 };
 use crate::journey_presence::PRESENCE_VIEW_SYSTEM_INFORMATION;
@@ -16,10 +16,10 @@ const SYSTEM_CONDITION: &str =
 // capture used RepoDigest as primary
 const RUNTIME_ENV: &str = "BlueOS master (bluerobotics/blueos-core:master @ sha256:0406983a568a66df2a56f682b52161858f30ac87ab273f15309e52f5ab87e22a), Raspberry Pi 4, Navigator";
 
-pub const JOURNEYS: &[UserJourney] = &[VIEW_SYSTEM_INFORMATION];
+pub const JOURNEYS: &[UseCase] = &[VIEW_SYSTEM_INFORMATION];
 
-const VIEW_SYSTEM_INFORMATION: UserJourney =
-    UserJourney {
+const VIEW_SYSTEM_INFORMATION: UseCase =
+    UseCase {
         id: JourneyId::ViewSystemInformation,
         summary: Grounded::known(
             "View live hardware and system status (CPU, memory, disk, network, processes)",

@@ -1,7 +1,7 @@
 use crate::criticality::CriticalityTier;
-use crate::edge::{Bus, Edge, FailureImpact, SyncMode};
+use crate::edge::{Bus, Connection, FailureImpact, SyncMode};
 use crate::id::{CapabilityId, JourneyId, PathRef, PortRef, ServiceId};
-use crate::interface::{FileAccessMode, Interface};
+use crate::interface::{FileAccessMode, PortKind};
 use crate::journey::{HttpMethod, RouteRef};
 use crate::lifecycle::{Lifecycle, ObservedLifecycle};
 use crate::observed::{ObservedFacts, ResourceLimits, ServiceKind, StartupTier};
@@ -12,7 +12,7 @@ use crate::provenance::{
 };
 use crate::resource::{Resource, ResourceOwnership};
 use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts, SloBaseline};
-use crate::service::{Authority, Service, ServiceDefinition};
+use crate::service::{Authority, Service, ServiceJudgment};
 use crate::trust::{PrivilegeLevel, UserConfirmation};
 
 use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
@@ -206,7 +206,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
     ),
     interfaces: ObservedSet::known(&[
         Evidenced::new(
-            Interface::Rest {
+            PortKind::Rest {
                 path_prefix: PathRef("/helper/"),
                 port: PortRef::Literal(81),
                 versions: &["v1.0"],
@@ -218,7 +218,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::File {
+            PortKind::File {
                 path: PathRef("/home/pi/tools/nginx/nginx.conf"),
                 mode: FileAccessMode::Read,
             },
@@ -229,7 +229,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::File {
+            PortKind::File {
                 path: PathRef("/home/pi/tools/nginx/extensions/"),
                 mode: FileAccessMode::ReadWrite,
             },
@@ -240,7 +240,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::File {
+            PortKind::File {
                 path: PathRef("/var/run/nginx.pid"),
                 mode: FileAccessMode::Read,
             },
@@ -251,7 +251,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::File {
+            PortKind::File {
                 path: PathRef("/etc/blueos/hardware-uuid"),
                 mode: FileAccessMode::Read,
             },
@@ -262,7 +262,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::File {
+            PortKind::File {
                 path: PathRef("/etc/blueos/uuid"),
                 mode: FileAccessMode::Read,
             },
@@ -273,7 +273,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::OutboundHttp { url: "127.0.0.1" },
+            PortKind::OutboundHttp { url: "127.0.0.1" },
             Evidence {
                 file: "core/services/helper/main.py",
                 line: 294,
@@ -281,7 +281,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::OutboundHttp {
+            PortKind::OutboundHttp {
                 url: "http://localhost/version-chooser/v1.0/version/current",
             },
             Evidence {
@@ -291,7 +291,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::OutboundHttp {
+            PortKind::OutboundHttp {
                 url: "localhost:6040",
             },
             Evidence {
@@ -301,7 +301,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::OutboundHttp {
+            PortKind::OutboundHttp {
                 url: "firmware.ardupilot.org",
             },
             Evidence {
@@ -311,7 +311,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::OutboundHttp { url: "amazon.com" },
+            PortKind::OutboundHttp { url: "amazon.com" },
             Evidence {
                 file: "core/services/helper/main.py",
                 line: 61,
@@ -319,7 +319,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::OutboundHttp {
+            PortKind::OutboundHttp {
                 url: "telemetry.blueos.cloud",
             },
             Evidence {
@@ -329,7 +329,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::OutboundHttp { url: "1.1.1.1" },
+            PortKind::OutboundHttp { url: "1.1.1.1" },
             Evidence {
                 file: "core/services/helper/main.py",
                 line: 74,
@@ -337,7 +337,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::OutboundHttp { url: "github.com" },
+            PortKind::OutboundHttp { url: "github.com" },
             Evidence {
                 file: "core/services/helper/main.py",
                 line: 79,
@@ -345,7 +345,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Subprocess { command: "ping" },
+            PortKind::Subprocess { command: "ping" },
             Evidence {
                 file: "core/services/helper/main.py",
                 line: 586,
@@ -353,7 +353,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Subprocess {
+            PortKind::Subprocess {
                 command: "kill -HUP",
             },
             Evidence {
@@ -363,7 +363,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Zenoh {
+            PortKind::Zenoh {
                 topics_produced: &["services/helper/log"],
                 topics_consumed: &[],
             },
@@ -492,8 +492,8 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
     openapi_refs: ObservedSet::unknown("not yet extracted"),
 };
 
-pub const SERVICE_DEFINITION: ServiceDefinition =
-    ServiceDefinition {
+pub const SERVICE_DEFINITION: ServiceJudgment =
+    ServiceJudgment {
         id: ServiceId::Helper,
         singleton: Asserted::established(
             true,
@@ -583,7 +583,7 @@ pub const SERVICE_DEFINITION: ServiceDefinition =
         ),
         edges: AssertedSet::established(&[
             Rationaled::new(
-                Edge {
+                Connection {
                     from: ServiceId::Helper,
                     to: ServiceId::Versionchooser,
                     via: Bus::Rest,
@@ -596,7 +596,7 @@ pub const SERVICE_DEFINITION: ServiceDefinition =
                 "observed OutboundHttp http://localhost/version-chooser/v1.0/version/current (helper/main.py:507) pairs with versionchooser listen 8081 and nginx prefix /version-chooser/; external connectivity probe URLs intentionally excluded",
             ),
             Rationaled::new(
-                Edge {
+                Connection {
                     from: ServiceId::Helper,
                     to: ServiceId::Mavlink2rest,
                     via: Bus::Rest,

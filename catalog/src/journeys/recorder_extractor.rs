@@ -1,8 +1,8 @@
 use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, BlastRadius, BodyKind, DataRequirement, HttpMethod, JourneyStep, Precondition, RouteRef,
-    StepOutcome, UserJourney, Visibility,
+    Actor, BlastRadius, BodyKind, DataAssumption, HttpMethod, JourneyStep, Precondition, RouteRef,
+    StepOutcome, UseCase, Visibility,
 };
 use crate::journey_presence::{
     PRESENCE_BROWSE_VIDEO_RECORDINGS, PRESENCE_DELETE_VIDEO_RECORDING,
@@ -16,14 +16,14 @@ const RECORDER_STORE: &str = "core/frontend/src/store/records.ts";
 const RECORDS_VIEW: &str = "core/frontend/src/views/RecordsView.vue";
 const RUNTIME_ENV: &str = RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 
-pub const JOURNEYS: &[UserJourney] = &[
+pub const JOURNEYS: &[UseCase] = &[
     BROWSE_VIDEO_RECORDINGS,
     DOWNLOAD_VIDEO_RECORDING,
     DELETE_VIDEO_RECORDING,
 ];
 
-const BROWSE_VIDEO_RECORDINGS: UserJourney =
-    UserJourney {
+const BROWSE_VIDEO_RECORDINGS: UseCase =
+    UseCase {
         id: JourneyId::BrowseVideoRecordings,
         summary: Grounded::known(
             "Browse, preview, and download recorded MP4 sessions",
@@ -99,8 +99,8 @@ const BROWSE_VIDEO_RECORDINGS: UserJourney =
         chains_from: None,
     };
 
-const DOWNLOAD_VIDEO_RECORDING: UserJourney =
-    UserJourney {
+const DOWNLOAD_VIDEO_RECORDING: UseCase =
+    UseCase {
         id: JourneyId::DownloadVideoRecording,
         summary: Grounded::known(
             "Download or stream an MP4 recording from the Records gallery",
@@ -112,7 +112,7 @@ const DOWNLOAD_VIDEO_RECORDING: UserJourney =
             "download button or in-dialog player streams the MP4 via GET /files/{filename}",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
-            Precondition::Data(DataRequirement::RecordingListed),
+            Precondition::Data(DataAssumption::RecordingListed),
             Provenance::source(RECORDS_VIEW, 57, "v-for=\"file in recordings\""),
         )]),
         steps: GroundedSet::known(&[
@@ -159,7 +159,7 @@ const DOWNLOAD_VIDEO_RECORDING: UserJourney =
         chains_from: None,
     };
 
-const DELETE_VIDEO_RECORDING: UserJourney = UserJourney {
+const DELETE_VIDEO_RECORDING: UseCase = UseCase {
     id: JourneyId::DeleteVideoRecording,
     summary: Grounded::known(
         "Delete a recording",
@@ -175,7 +175,7 @@ const DELETE_VIDEO_RECORDING: UserJourney = UserJourney {
         "recording card delete button removes the MP4 file via DELETE /files/{filename}",
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Data(DataRequirement::RecordingListed),
+        Precondition::Data(DataAssumption::RecordingListed),
         Provenance::source(RECORDS_VIEW, 57, "v-for=\"file in recordings\""),
     )]),
     steps: GroundedSet::known(&[

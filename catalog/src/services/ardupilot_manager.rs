@@ -1,7 +1,7 @@
 use crate::criticality::CriticalityTier;
-use crate::edge::{Bus, Edge, FailureImpact, SyncMode};
+use crate::edge::{Bus, Connection, FailureImpact, SyncMode};
 use crate::id::{CapabilityId, JourneyId, PathRef, PortRef, ServiceId};
-use crate::interface::{FileAccessMode, Interface, MavlinkRole};
+use crate::interface::{FileAccessMode, MavlinkRole, PortKind};
 use crate::journey::{HttpMethod, RouteRef};
 use crate::lifecycle::{Lifecycle, ObservedLifecycle};
 use crate::observed::{ObservedFacts, ResourceLimits, ServiceKind, StartupTier};
@@ -15,7 +15,7 @@ use crate::runtime::{
     Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts, SettingsMutation, SloBaseline,
     StateContract,
 };
-use crate::service::{Authority, Service, ServiceDefinition};
+use crate::service::{Authority, Service, ServiceJudgment};
 use crate::state::StateMachine;
 use crate::trust::{DangerousOperation, PrivilegeLevel, UserConfirmation};
 
@@ -382,7 +382,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
     ),
     interfaces: ObservedSet::known(&[
         Evidenced::new(
-            Interface::Rest {
+            PortKind::Rest {
                 path_prefix: PathRef("/ardupilot-manager/"),
                 port: PortRef::Literal(8000),
                 versions: &["v1.0", "v2.0"],
@@ -394,7 +394,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Rest {
+            PortKind::Rest {
                 path_prefix: PathRef("/autopilot-manager/"),
                 port: PortRef::Literal(8000),
                 versions: &["v1.0", "v2.0"],
@@ -406,7 +406,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Mavlink {
+            PortKind::Mavlink {
                 role: MavlinkRole::Endpoint,
                 connect: "udpin:0.0.0.0:14550",
             },
@@ -417,7 +417,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Mavlink {
+            PortKind::Mavlink {
                 role: MavlinkRole::Consumer,
                 connect: "udpout:192.168.2.1:14550",
             },
@@ -428,7 +428,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Mavlink {
+            PortKind::Mavlink {
                 role: MavlinkRole::Endpoint,
                 connect: "udpin:127.0.0.1:14001",
             },
@@ -439,7 +439,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Mavlink {
+            PortKind::Mavlink {
                 role: MavlinkRole::Consumer,
                 connect: "udpout:127.0.0.1:14000",
             },
@@ -450,7 +450,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Mavlink {
+            PortKind::Mavlink {
                 role: MavlinkRole::Bridge,
                 connect: "zenoh:0.0.0.0:7117",
             },
@@ -461,7 +461,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Mavlink {
+            PortKind::Mavlink {
                 role: MavlinkRole::Bridge,
                 connect: "zenohraw:0.0.0.0:7117",
             },
@@ -472,7 +472,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Mavlink {
+            PortKind::Mavlink {
                 role: MavlinkRole::Endpoint,
                 connect: "tcpin:127.0.0.1:5777",
             },
@@ -483,7 +483,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Mavlink {
+            PortKind::Mavlink {
                 role: MavlinkRole::Endpoint,
                 connect: "udpin:0.0.0.0:14660",
             },
@@ -494,7 +494,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Mavlink {
+            PortKind::Mavlink {
                 role: MavlinkRole::Endpoint,
                 connect: "udpin:127.0.0.1:8852",
             },
@@ -505,7 +505,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Mavlink {
+            PortKind::Mavlink {
                 role: MavlinkRole::Consumer,
                 connect: "tcpout:127.0.0.1:5760",
             },
@@ -516,7 +516,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Subprocess {
+            PortKind::Subprocess {
                 command: "mavlink-routerd",
             },
             Evidence {
@@ -526,7 +526,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Subprocess {
+            PortKind::Subprocess {
                 command: "mavlink-server",
             },
             Evidence {
@@ -536,7 +536,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Subprocess {
+            PortKind::Subprocess {
                 command: "mavproxy.py",
             },
             Evidence {
@@ -546,7 +546,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Subprocess { command: "mavp2p" },
+            PortKind::Subprocess { command: "mavp2p" },
             Evidence {
                 file: "core/services/ardupilot_manager/mavlink_proxy/MAVP2P.py",
                 line: 49,
@@ -554,7 +554,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Subprocess {
+            PortKind::Subprocess {
                 command: "ardupilot_fw_uploader.py",
             },
             Evidence {
@@ -564,7 +564,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::OutboundHttp {
+            PortKind::OutboundHttp {
                 url: "https://firmware.ardupilot.org/manifest.json.gz",
             },
             Evidence {
@@ -574,7 +574,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Settings {
+            PortKind::Settings {
                 path: PathRef("/root/.config/ardupilot-manager/settings.json"),
             },
             Evidence {
@@ -584,7 +584,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::File {
+            PortKind::File {
                 path: PathRef("/usr/blueos/userdata/firmware"),
                 mode: FileAccessMode::ReadWrite,
             },
@@ -595,7 +595,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Hardware {
+            PortKind::Hardware {
                 device: PathRef("/dev/autopilot"),
             },
             Evidence {
@@ -605,7 +605,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Zenoh {
+            PortKind::Zenoh {
                 topics_produced: &["services/ardupilot-manager/log"],
                 topics_consumed: &[],
             },
@@ -689,8 +689,8 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
     openapi_refs: ObservedSet::unknown("not yet extracted"),
 };
 
-pub const SERVICE_DEFINITION: ServiceDefinition =
-    ServiceDefinition {
+pub const SERVICE_DEFINITION: ServiceJudgment =
+    ServiceJudgment {
         id: ServiceId::ArdupilotManager,
         singleton: Asserted::established(
             true,
@@ -852,7 +852,7 @@ pub const SERVICE_DEFINITION: ServiceDefinition =
             ),
         ]),
         edges: AssertedSet::established(&[Rationaled::new(
-            Edge {
+            Connection {
                 from: ServiceId::ArdupilotManager,
                 to: ServiceId::Zenohd,
                 via: Bus::Zenoh,

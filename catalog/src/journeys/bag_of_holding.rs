@@ -4,7 +4,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
     Actor, BlastRadius, BodyKind, HttpMethod, JourneyStep, Precondition, RouteRef,
-    SoftwareRequirement, StepOutcome, UserJourney, Visibility,
+    SoftwareAssumption, StepOutcome, UseCase, Visibility,
 };
 use crate::journey_presence::PRESENCE_MODIFY_BAG_DATABASE;
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
@@ -15,9 +15,9 @@ const BAG_STORE: &str = "core/frontend/src/store/bag.ts";
 const BAG_VIEW: &str = "core/frontend/src/views/BagEditorView.vue";
 const BAG_MENUS: &str = "core/frontend/src/menus.ts";
 
-pub const JOURNEYS: &[UserJourney] = &[MODIFY_BAG_DATABASE];
+pub const JOURNEYS: &[UseCase] = &[MODIFY_BAG_DATABASE];
 
-const MODIFY_BAG_DATABASE: UserJourney = UserJourney {
+const MODIFY_BAG_DATABASE: UseCase = UseCase {
     id: JourneyId::ModifyBagDatabase,
     summary: Grounded::known(
         "Modify the JSON database used to persist frontend interface state",
@@ -37,7 +37,7 @@ const MODIFY_BAG_DATABASE: UserJourney = UserJourney {
         "Bag Editor loads the full document tree and overwrites it on save",
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Software(SoftwareRequirement::PirateMode),
+        Precondition::Software(SoftwareAssumption::PirateMode),
         Provenance::doc(ADV, 376, "{% pirate() %}"),
     )]),
     steps: GroundedSet::known(&[

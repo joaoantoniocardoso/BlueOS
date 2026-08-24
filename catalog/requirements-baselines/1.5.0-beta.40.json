@@ -1,10 +1,9 @@
 {
   "version_tag": "1.5.0-beta.40",
-  "total": 481,
+  "total": 439,
   "unknown_statement_count": 16,
   "unknown_criteria_count": 70,
   "by_kind": {
-    "constraint": 42,
     "functional": 108,
     "interface": 87,
     "performance": 80,
@@ -47,6 +46,28 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "A flight controller board is selected",
+          "source_use_case": "restart_autopilot",
+          "kind": "other"
+        },
+        {
+          "statement": "An autopilot is available to stop",
+          "source_use_case": "stop_autopilot",
+          "kind": "other"
+        },
+        {
+          "statement": "Cold start after power-on",
+          "source_use_case": "vehicle_first_boot",
+          "kind": "other"
+        },
+        {
+          "statement": "BlueOS is newly installed and the configuration wizard is available",
+          "source_use_case": "vehicle_first_boot",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -90,6 +111,33 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "A flight controller board is connected",
+          "source_use_case": "restore_default_firmware",
+          "kind": "other"
+        },
+        {
+          "statement": "network connectivity is available",
+          "source_use_case": "update_firmware_online",
+          "kind": "network"
+        },
+        {
+          "statement": "A compatible flight controller board is connected",
+          "source_use_case": "update_firmware_online",
+          "kind": "other"
+        },
+        {
+          "statement": "Cold start after power-on",
+          "source_use_case": "vehicle_first_boot",
+          "kind": "other"
+        },
+        {
+          "statement": "BlueOS is newly installed and the configuration wizard is available",
+          "source_use_case": "vehicle_first_boot",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -118,6 +166,18 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "At least one flight controller board is connected or SITL simulation is available",
+          "source_use_case": "change_board",
+          "kind": "other"
+        },
+        {
+          "statement": "Virtual SITL flight controller board is selected",
+          "source_use_case": "run_sitl_simulation",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -146,6 +206,18 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "Cold start after power-on",
+          "source_use_case": "vehicle_first_boot",
+          "kind": "other"
+        },
+        {
+          "statement": "BlueOS is newly installed and the configuration wizard is available",
+          "source_use_case": "vehicle_first_boot",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -174,6 +246,18 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "Cold start after power-on",
+          "source_use_case": "vehicle_first_boot",
+          "kind": "other"
+        },
+        {
+          "statement": "BlueOS is newly installed and the configuration wizard is available",
+          "source_use_case": "vehicle_first_boot",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -199,6 +283,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "Virtual SITL flight controller board is selected",
+          "source_use_case": "run_sitl_simulation",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -217,6 +308,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "pirate mode is enabled",
+          "source_use_case": "modify_bag_database",
+          "kind": "software"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -235,6 +333,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -253,6 +352,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -278,6 +378,18 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "wired Ethernet is present",
+          "source_use_case": "discover_blueos_on_network",
+          "kind": "network"
+        },
+        {
+          "statement": "BlueOS is connected via a wired connection so blueos.local is reachable",
+          "source_use_case": "discover_blueos_on_network",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -309,6 +421,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "advanced mode is enabled",
+          "source_use_case": "view_configured_serial_bridges",
+          "kind": "software"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -355,6 +474,18 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "advanced mode is enabled",
+          "source_use_case": "create_serial_to_udp_bridge",
+          "kind": "software"
+        },
+        {
+          "statement": "a USB serial device is connected",
+          "source_use_case": "create_serial_to_udp_bridge",
+          "kind": "hardware"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -383,6 +514,18 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "advanced mode is enabled",
+          "source_use_case": "remove_serial_bridge",
+          "kind": "software"
+        },
+        {
+          "statement": "a serial bridge is configured",
+          "source_use_case": "remove_serial_bridge",
+          "kind": "data"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -401,6 +544,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -419,6 +563,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -437,6 +582,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "The interface has at least one static IP address to use as the DHCP gateway",
+          "source_use_case": "enable_onboard_dhcp_server",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -455,6 +607,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "the onboard DHCP server is active",
+          "source_use_case": "disable_onboard_dhcp_server",
+          "kind": "data"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -473,6 +632,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "pirate mode is enabled",
+          "source_use_case": "set_network_interface_priority",
+          "kind": "software"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -491,6 +657,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "pirate mode is enabled",
+          "source_use_case": "configure_host_dns",
+          "kind": "software"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -509,6 +682,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "the operator confirmed a dangerous operation",
+          "source_use_case": "reboot_onboard_computer",
+          "kind": "software"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -527,6 +707,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "the operator confirmed a dangerous operation",
+          "source_use_case": "shutdown_onboard_computer",
+          "kind": "software"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -545,6 +732,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "the operator confirmed a dangerous operation",
+          "source_use_case": "sync_system_time",
+          "kind": "software"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -563,6 +757,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -591,6 +786,18 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "pirate mode is enabled",
+          "source_use_case": "inspect_raspberry_eeprom_bootloader",
+          "kind": "software"
+        },
+        {
+          "statement": "the operator confirmed a dangerous operation",
+          "source_use_case": "inspect_raspberry_eeprom_bootloader",
+          "kind": "software"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -609,6 +816,18 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "pirate mode is enabled",
+          "source_use_case": "update_raspberry_eeprom_bootloader",
+          "kind": "software"
+        },
+        {
+          "statement": "the operator confirmed a dangerous operation",
+          "source_use_case": "update_raspberry_eeprom_bootloader",
+          "kind": "software"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -627,6 +846,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "the operator confirmed a dangerous operation",
+          "source_use_case": "reset_blueos_settings",
+          "kind": "software"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -645,6 +871,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "the operator confirmed a dangerous operation",
+          "source_use_case": "run_host_command",
+          "kind": "software"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -663,6 +896,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -681,6 +915,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -699,6 +934,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -717,6 +953,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "A custom logo has been uploaded",
+          "source_use_case": "remove_custom_logo",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -735,6 +978,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -753,6 +997,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "A custom vehicle image has been uploaded",
+          "source_use_case": "remove_custom_vehicle_image",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -771,6 +1022,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -789,6 +1041,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "At least one model override has been uploaded",
+          "source_use_case": "delete_3d_model_override",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -820,6 +1079,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "Onboard storage is low or the high disk usage warning is shown",
+          "source_use_case": "free_disk_space",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -845,6 +1111,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -876,6 +1143,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "Onboard storage is low or the high disk usage warning is shown",
+          "source_use_case": "free_disk_space",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -901,6 +1175,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "disktest binary is available on PATH",
+          "source_use_case": "run_single_disk_speed_test",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -919,6 +1200,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "disktest binary is available on PATH",
+          "source_use_case": "run_multi_size_disk_speed_test",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -956,6 +1244,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "advanced mode is enabled",
+          "source_use_case": "manage_blueos_files",
+          "kind": "software"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -984,6 +1279,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "network connectivity is available",
+          "source_use_case": "verify_internet_connectivity",
+          "kind": "network"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -1009,6 +1311,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -1034,6 +1337,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "pirate mode is enabled",
+          "source_use_case": "probe_interface_internet_connectivity",
+          "kind": "software"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -1059,6 +1369,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "network connectivity is available",
+          "source_use_case": "browse_extension_store",
+          "kind": "network"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -1096,6 +1413,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "an extension is installed",
+          "source_use_case": "configure_installed_extension",
+          "kind": "data"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -1136,6 +1460,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "network connectivity is available",
+          "source_use_case": "install_custom_extension",
+          "kind": "network"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -1179,6 +1510,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "an extension is installed",
+          "source_use_case": "configure_installed_extension",
+          "kind": "data"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -1201,6 +1539,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "network connectivity is available",
+          "source_use_case": "add_custom_manifest",
+          "kind": "network"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -1226,6 +1571,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "an extension is installed",
+          "source_use_case": "uninstall_extension",
+          "kind": "data"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -1263,6 +1615,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -1303,6 +1656,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -1349,6 +1703,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "a USB camera is connected",
+          "source_use_case": "configure_camera_stream",
+          "kind": "hardware"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -1367,6 +1728,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "At least one configured stream is listed on a device card",
+          "source_use_case": "remove_camera_stream",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -1398,6 +1766,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "a USB camera is connected",
+          "source_use_case": "configure_uvc_device_controls",
+          "kind": "hardware"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -1432,6 +1807,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "advanced mode is enabled",
+          "source_use_case": "inspect_mavlink_messages_in_browser",
+          "kind": "software"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -1457,6 +1839,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "advanced mode is enabled",
+          "source_use_case": "view_configured_nmea_sockets",
+          "kind": "software"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -1488,6 +1877,18 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "advanced mode is enabled",
+          "source_use_case": "add_external_nmea_gps_socket",
+          "kind": "software"
+        },
+        {
+          "statement": "an external NMEA GPS is connected",
+          "source_use_case": "add_external_nmea_gps_socket",
+          "kind": "hardware"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -1516,6 +1917,18 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "advanced mode is enabled",
+          "source_use_case": "remove_configured_nmea_socket",
+          "kind": "software"
+        },
+        {
+          "statement": "an NMEA socket is configured",
+          "source_use_case": "remove_configured_nmea_socket",
+          "kind": "data"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -1544,6 +1957,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -1584,6 +1998,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -1624,6 +2039,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "network connectivity is available",
+          "source_use_case": "run_internet_speed_test",
+          "kind": "network"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -1661,6 +2083,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -1689,6 +2112,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "Ping family sonar device hardware is present",
+          "source_use_case": "connect_ping_viewer_to_sonar",
+          "kind": "hardware"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -1717,6 +2147,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "a Ping1D sonar is connected",
+          "source_use_case": "enable_ping1d_rangefinder_mavlink",
+          "kind": "hardware"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -1757,6 +2194,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -1788,6 +2226,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "a video recording is listed",
+          "source_use_case": "download_video_recording",
+          "kind": "data"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -1816,6 +2261,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "a video recording is listed",
+          "source_use_case": "delete_video_recording",
+          "kind": "data"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -1847,6 +2299,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "advanced mode is enabled",
+          "source_use_case": "access_web_terminal",
+          "kind": "software"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -1881,6 +2340,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "network connectivity is available",
+          "source_use_case": "update_blueos_version",
+          "kind": "network"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -1909,6 +2375,18 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "pirate mode is enabled",
+          "source_use_case": "switch_local_blueos_version",
+          "kind": "software"
+        },
+        {
+          "statement": "a local BlueOS version image is available",
+          "source_use_case": "switch_local_blueos_version",
+          "kind": "data"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -1927,6 +2405,18 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "network connectivity is available",
+          "source_use_case": "pull_blueos_version_without_switch",
+          "kind": "network"
+        },
+        {
+          "statement": "pirate mode is enabled",
+          "source_use_case": "pull_blueos_version_without_switch",
+          "kind": "software"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -1955,6 +2445,18 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "pirate mode is enabled",
+          "source_use_case": "delete_local_blueos_version",
+          "kind": "software"
+        },
+        {
+          "statement": "a local BlueOS version image is available",
+          "source_use_case": "delete_local_blueos_version",
+          "kind": "data"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -1983,6 +2485,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "pirate mode is enabled",
+          "source_use_case": "docker_registry_login",
+          "kind": "software"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -2011,6 +2520,18 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "network connectivity is available",
+          "source_use_case": "update_bootstrap_image",
+          "kind": "network"
+        },
+        {
+          "statement": "pirate mode is enabled",
+          "source_use_case": "update_bootstrap_image",
+          "kind": "software"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -2029,6 +2550,18 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "a Wi-Fi network is saved",
+          "source_use_case": "autoconnect_to_saved_wifi_network",
+          "kind": "data"
+        },
+        {
+          "statement": "a known Wi-Fi network is available",
+          "source_use_case": "autoconnect_to_saved_wifi_network",
+          "kind": "network"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -2047,6 +2580,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "Wi-Fi is currently connected",
+          "source_use_case": "disconnect_from_wifi_network",
+          "kind": "data"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -2065,6 +2605,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "a Wi-Fi network is saved",
+          "source_use_case": "forget_saved_wifi_network",
+          "kind": "data"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -2083,6 +2630,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "hotspot capability is available",
+          "source_use_case": "toggle_hotspot",
+          "kind": "network"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -2101,6 +2655,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "hotspot capability is available",
+          "source_use_case": "configure_hotspot_credentials",
+          "kind": "network"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -2119,6 +2680,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "hotspot capability is available",
+          "source_use_case": "toggle_smart_hotspot",
+          "kind": "network"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -2137,6 +2705,18 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "Wi-Fi is currently connected",
+          "source_use_case": "detect_wifi_ap_loss",
+          "kind": "data"
+        },
+        {
+          "statement": "a known Wi-Fi network is available",
+          "source_use_case": "detect_wifi_ap_loss",
+          "kind": "network"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -2174,6 +2754,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "advanced mode is enabled",
+          "source_use_case": "inspect_zenoh_network",
+          "kind": "software"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -2208,6 +2795,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "vehicle can be physically rotated through six orientations for full calibration",
+          "source_use_case": "calibrate_accelerometer",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -2236,6 +2830,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "barometer calibration is performed at the start of each dive/flight",
+          "source_use_case": "calibrate_barometer",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -2267,6 +2868,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "vehicle can be rotated about all axes for full onboard compass calibration",
+          "source_use_case": "calibrate_compass",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -2298,6 +2906,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "vehicle is stationary while the gyro is calibrated",
+          "source_use_case": "calibrate_gyroscope",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -2332,6 +2947,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "vehicle can be physically rotated through six orientations for full calibration",
+          "source_use_case": "calibrate_accelerometer",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -2360,6 +2982,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "vehicle is safe to arm and briefly spin its motors",
+          "source_use_case": "detect_motor_directions",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -2385,6 +3014,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "vehicle rests on a level surface in its normal operating orientation",
+          "source_use_case": "level_horizon",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -2419,6 +3055,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -2453,6 +3090,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -2496,6 +3134,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "a USB camera is connected",
+          "source_use_case": "configure_video_stream",
+          "kind": "hardware"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -2539,6 +3184,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "a USB camera is connected",
+          "source_use_case": "configure_video_stream",
+          "kind": "hardware"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -2582,6 +3234,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "a USB camera is connected",
+          "source_use_case": "configure_video_stream",
+          "kind": "hardware"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -2625,6 +3284,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "a USB camera is connected",
+          "source_use_case": "configure_video_stream",
+          "kind": "hardware"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -2668,6 +3334,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "a USB camera is connected",
+          "source_use_case": "configure_video_stream",
+          "kind": "hardware"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -2698,6 +3371,7 @@
       "verifying_journeys": [
         "access_blueos_web_interface"
       ],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -2731,6 +3405,13 @@
       "verifying_journeys": [
         "access_web_terminal"
       ],
+      "assumptions": [
+        {
+          "statement": "advanced mode is enabled",
+          "source_use_case": "access_web_terminal",
+          "kind": "software"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -2751,6 +3432,7 @@
       "verifying_journeys": [
         "acquire_dynamic_ip_address"
       ],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -2777,6 +3459,18 @@
       "function_id": "advertise_mdns_domains",
       "verifying_journeys": [
         "discover_blueos_on_network"
+      ],
+      "assumptions": [
+        {
+          "statement": "wired Ethernet is present",
+          "source_use_case": "discover_blueos_on_network",
+          "kind": "network"
+        },
+        {
+          "statement": "BlueOS is connected via a wired connection so blueos.local is reachable",
+          "source_use_case": "discover_blueos_on_network",
+          "kind": "other"
+        }
       ],
       "availability_present": true
     },
@@ -2814,6 +3508,7 @@
       "verifying_journeys": [
         "apply_parameter_file"
       ],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -2834,6 +3529,7 @@
       "verifying_journeys": [
         "assign_static_ip_address"
       ],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -2860,6 +3556,13 @@
       "function_id": "browse_extension_store/378bb78142b6540d",
       "verifying_journeys": [
         "browse_extension_store"
+      ],
+      "assumptions": [
+        {
+          "statement": "network connectivity is available",
+          "source_use_case": "browse_extension_store",
+          "kind": "network"
+        }
       ],
       "availability_present": true
     },
@@ -2903,6 +3606,7 @@
       "verifying_journeys": [
         "browse_video_recordings"
       ],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -2939,6 +3643,13 @@
       "verifying_journeys": [
         "calibrate_accelerometer"
       ],
+      "assumptions": [
+        {
+          "statement": "vehicle can be physically rotated through six orientations for full calibration",
+          "source_use_case": "calibrate_accelerometer",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -2968,6 +3679,13 @@
       "function_id": "calibrate_barometer/cbf29ce484222325",
       "verifying_journeys": [
         "calibrate_barometer"
+      ],
+      "assumptions": [
+        {
+          "statement": "barometer calibration is performed at the start of each dive/flight",
+          "source_use_case": "calibrate_barometer",
+          "kind": "other"
+        }
       ],
       "availability_present": true
     },
@@ -3002,6 +3720,13 @@
       "verifying_journeys": [
         "calibrate_compass"
       ],
+      "assumptions": [
+        {
+          "statement": "vehicle can be rotated about all axes for full onboard compass calibration",
+          "source_use_case": "calibrate_compass",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -3035,6 +3760,13 @@
       "verifying_journeys": [
         "calibrate_gyroscope"
       ],
+      "assumptions": [
+        {
+          "statement": "vehicle is stationary while the gyro is calibrated",
+          "source_use_case": "calibrate_gyroscope",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -3065,6 +3797,13 @@
       "verifying_journeys": [
         "monitor_internet_connectivity",
         "verify_internet_connectivity"
+      ],
+      "assumptions": [
+        {
+          "statement": "network connectivity is available",
+          "source_use_case": "verify_internet_connectivity",
+          "kind": "network"
+        }
       ],
       "availability_present": true
     },
@@ -3114,6 +3853,13 @@
       "verifying_journeys": [
         "configure_camera_stream"
       ],
+      "assumptions": [
+        {
+          "statement": "a USB camera is connected",
+          "source_use_case": "configure_camera_stream",
+          "kind": "hardware"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -3153,6 +3899,13 @@
       "verifying_journeys": [
         "configure_installed_extension"
       ],
+      "assumptions": [
+        {
+          "statement": "an extension is installed",
+          "source_use_case": "configure_installed_extension",
+          "kind": "data"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -3172,6 +3925,13 @@
       "function_id": "configure_host_dns/7de3fb98efd28e6c",
       "verifying_journeys": [
         "configure_host_dns"
+      ],
+      "assumptions": [
+        {
+          "statement": "pirate mode is enabled",
+          "source_use_case": "configure_host_dns",
+          "kind": "software"
+        }
       ],
       "availability_present": true
     },
@@ -3193,6 +3953,7 @@
       "verifying_journeys": [
         "enable_legacy_camera_support"
       ],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -3219,6 +3980,13 @@
       "function_id": "configure_sitl_frame",
       "verifying_journeys": [
         "run_sitl_simulation"
+      ],
+      "assumptions": [
+        {
+          "statement": "Virtual SITL flight controller board is selected",
+          "source_use_case": "run_sitl_simulation",
+          "kind": "other"
+        }
       ],
       "availability_present": true
     },
@@ -3265,6 +4033,13 @@
       "verifying_journeys": [
         "configure_video_stream"
       ],
+      "assumptions": [
+        {
+          "statement": "a USB camera is connected",
+          "source_use_case": "configure_video_stream",
+          "kind": "hardware"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -3298,6 +4073,13 @@
       "verifying_journeys": [
         "configure_uvc_device_controls"
       ],
+      "assumptions": [
+        {
+          "statement": "a USB camera is connected",
+          "source_use_case": "configure_uvc_device_controls",
+          "kind": "hardware"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -3328,6 +4110,13 @@
       "verifying_journeys": [
         "connect_ping_viewer_to_sonar"
       ],
+      "assumptions": [
+        {
+          "statement": "Ping family sonar device hardware is present",
+          "source_use_case": "connect_ping_viewer_to_sonar",
+          "kind": "hardware"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -3351,6 +4140,18 @@
         "reconnect_to_saved_wifi_network",
         "reject_invalid_wifi_credentials"
       ],
+      "assumptions": [
+        {
+          "statement": "a known Wi-Fi network is available",
+          "source_use_case": "connect_to_hidden_wifi_network",
+          "kind": "network"
+        },
+        {
+          "statement": "a Wi-Fi network is saved",
+          "source_use_case": "force_wifi_network_password",
+          "kind": "data"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -3371,6 +4172,13 @@
       "verifying_journeys": [
         "connect_to_wifi_network"
       ],
+      "assumptions": [
+        {
+          "statement": "a known Wi-Fi network is available",
+          "source_use_case": "connect_to_wifi_network",
+          "kind": "network"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -3390,6 +4198,18 @@
       "function_id": "connect_wifi_network/fe32fd8f3924a250",
       "verifying_journeys": [
         "autoconnect_to_saved_wifi_network"
+      ],
+      "assumptions": [
+        {
+          "statement": "a Wi-Fi network is saved",
+          "source_use_case": "autoconnect_to_saved_wifi_network",
+          "kind": "data"
+        },
+        {
+          "statement": "a known Wi-Fi network is available",
+          "source_use_case": "autoconnect_to_saved_wifi_network",
+          "kind": "network"
+        }
       ],
       "availability_present": true
     },
@@ -3423,6 +4243,18 @@
       "function_id": "create_nmea_socket",
       "verifying_journeys": [
         "add_external_nmea_gps_socket"
+      ],
+      "assumptions": [
+        {
+          "statement": "advanced mode is enabled",
+          "source_use_case": "add_external_nmea_gps_socket",
+          "kind": "software"
+        },
+        {
+          "statement": "an external NMEA GPS is connected",
+          "source_use_case": "add_external_nmea_gps_socket",
+          "kind": "hardware"
+        }
       ],
       "availability_present": true
     },
@@ -3472,6 +4304,18 @@
       "verifying_journeys": [
         "create_serial_to_udp_bridge"
       ],
+      "assumptions": [
+        {
+          "statement": "advanced mode is enabled",
+          "source_use_case": "create_serial_to_udp_bridge",
+          "kind": "software"
+        },
+        {
+          "statement": "a USB serial device is connected",
+          "source_use_case": "create_serial_to_udp_bridge",
+          "kind": "hardware"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -3505,6 +4349,13 @@
       "verifying_journeys": [
         "free_disk_space"
       ],
+      "assumptions": [
+        {
+          "statement": "Onboard storage is low or the high disk usage warning is shown",
+          "source_use_case": "free_disk_space",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -3535,6 +4386,18 @@
       "verifying_journeys": [
         "delete_local_blueos_version"
       ],
+      "assumptions": [
+        {
+          "statement": "pirate mode is enabled",
+          "source_use_case": "delete_local_blueos_version",
+          "kind": "software"
+        },
+        {
+          "statement": "a local BlueOS version image is available",
+          "source_use_case": "delete_local_blueos_version",
+          "kind": "data"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -3554,6 +4417,13 @@
       "function_id": "delete_model_override",
       "verifying_journeys": [
         "delete_3d_model_override"
+      ],
+      "assumptions": [
+        {
+          "statement": "At least one model override has been uploaded",
+          "source_use_case": "delete_3d_model_override",
+          "kind": "other"
+        }
       ],
       "availability_present": true
     },
@@ -3584,6 +4454,13 @@
       "function_id": "delete_video_recording/6e06c4b5bcae5a00",
       "verifying_journeys": [
         "delete_video_recording"
+      ],
+      "assumptions": [
+        {
+          "statement": "a video recording is listed",
+          "source_use_case": "delete_video_recording",
+          "kind": "data"
+        }
       ],
       "availability_present": true
     },
@@ -3621,6 +4498,13 @@
       "verifying_journeys": [
         "calibrate_accelerometer"
       ],
+      "assumptions": [
+        {
+          "statement": "vehicle can be physically rotated through six orientations for full calibration",
+          "source_use_case": "calibrate_accelerometer",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -3651,6 +4535,18 @@
       "verifying_journeys": [
         "vehicle_first_boot"
       ],
+      "assumptions": [
+        {
+          "statement": "Cold start after power-on",
+          "source_use_case": "vehicle_first_boot",
+          "kind": "other"
+        },
+        {
+          "statement": "BlueOS is newly installed and the configuration wizard is available",
+          "source_use_case": "vehicle_first_boot",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -3680,6 +4576,13 @@
       "function_id": "detect_motor_directions/cbf29ce484222325",
       "verifying_journeys": [
         "detect_motor_directions"
+      ],
+      "assumptions": [
+        {
+          "statement": "vehicle is safe to arm and briefly spin its motors",
+          "source_use_case": "detect_motor_directions",
+          "kind": "other"
+        }
       ],
       "availability_present": true
     },
@@ -3726,6 +4629,13 @@
       "verifying_journeys": [
         "configure_video_stream"
       ],
+      "assumptions": [
+        {
+          "statement": "a USB camera is connected",
+          "source_use_case": "configure_video_stream",
+          "kind": "hardware"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -3746,6 +4656,13 @@
       "verifying_journeys": [
         "disable_onboard_dhcp_server"
       ],
+      "assumptions": [
+        {
+          "statement": "the onboard DHCP server is active",
+          "source_use_case": "disable_onboard_dhcp_server",
+          "kind": "data"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -3765,6 +4682,13 @@
       "function_id": "disconnect_wifi_network",
       "verifying_journeys": [
         "disconnect_from_wifi_network"
+      ],
+      "assumptions": [
+        {
+          "statement": "Wi-Fi is currently connected",
+          "source_use_case": "disconnect_from_wifi_network",
+          "kind": "data"
+        }
       ],
       "availability_present": true
     },
@@ -3793,6 +4717,7 @@
       "verifying_journeys": [
         "browse_available_web_services"
       ],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -3822,6 +4747,13 @@
       "function_id": "docker_registry_login/686f87ab30367c63",
       "verifying_journeys": [
         "docker_registry_login"
+      ],
+      "assumptions": [
+        {
+          "statement": "pirate mode is enabled",
+          "source_use_case": "docker_registry_login",
+          "kind": "software"
+        }
       ],
       "availability_present": true
     },
@@ -3855,6 +4787,13 @@
       "function_id": "download_video_recording/6e06c4b5bcae5a00",
       "verifying_journeys": [
         "download_video_recording"
+      ],
+      "assumptions": [
+        {
+          "statement": "a video recording is listed",
+          "source_use_case": "download_video_recording",
+          "kind": "data"
+        }
       ],
       "availability_present": true
     },
@@ -3892,6 +4831,7 @@
       "verifying_journeys": [
         "apply_parameter_file"
       ],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -3912,6 +4852,13 @@
       "verifying_journeys": [
         "modify_bag_database"
       ],
+      "assumptions": [
+        {
+          "statement": "pirate mode is enabled",
+          "source_use_case": "modify_bag_database",
+          "kind": "software"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -3931,6 +4878,13 @@
       "function_id": "enable_dhcp_server",
       "verifying_journeys": [
         "enable_onboard_dhcp_server"
+      ],
+      "assumptions": [
+        {
+          "statement": "The interface has at least one static IP address to use as the DHCP gateway",
+          "source_use_case": "enable_onboard_dhcp_server",
+          "kind": "other"
+        }
       ],
       "availability_present": true
     },
@@ -3961,6 +4915,13 @@
       "function_id": "enable_ping1d_mavlink_distance",
       "verifying_journeys": [
         "enable_ping1d_rangefinder_mavlink"
+      ],
+      "assumptions": [
+        {
+          "statement": "a Ping1D sonar is connected",
+          "source_use_case": "enable_ping1d_rangefinder_mavlink",
+          "kind": "hardware"
+        }
       ],
       "availability_present": true
     },
@@ -4007,6 +4968,13 @@
       "verifying_journeys": [
         "configure_video_stream"
       ],
+      "assumptions": [
+        {
+          "statement": "a USB camera is connected",
+          "source_use_case": "configure_video_stream",
+          "kind": "hardware"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -4036,6 +5004,18 @@
       "function_id": "flash_firmware/13c9f3fda89402d1",
       "verifying_journeys": [
         "update_firmware_online"
+      ],
+      "assumptions": [
+        {
+          "statement": "network connectivity is available",
+          "source_use_case": "update_firmware_online",
+          "kind": "network"
+        },
+        {
+          "statement": "A compatible flight controller board is connected",
+          "source_use_case": "update_firmware_online",
+          "kind": "other"
+        }
       ],
       "availability_present": true
     },
@@ -4067,6 +5047,18 @@
       "verifying_journeys": [
         "vehicle_first_boot"
       ],
+      "assumptions": [
+        {
+          "statement": "Cold start after power-on",
+          "source_use_case": "vehicle_first_boot",
+          "kind": "other"
+        },
+        {
+          "statement": "BlueOS is newly installed and the configuration wizard is available",
+          "source_use_case": "vehicle_first_boot",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -4090,6 +5082,13 @@
       "function_id": "flash_firmware/a3abeda316f19cee",
       "verifying_journeys": [
         "upload_custom_firmware"
+      ],
+      "assumptions": [
+        {
+          "statement": "A compatible flight controller board is connected",
+          "source_use_case": "upload_custom_firmware",
+          "kind": "other"
+        }
       ],
       "availability_present": true
     },
@@ -4115,6 +5114,13 @@
       "verifying_journeys": [
         "restore_default_firmware"
       ],
+      "assumptions": [
+        {
+          "statement": "A flight controller board is connected",
+          "source_use_case": "restore_default_firmware",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -4134,6 +5140,18 @@
       "function_id": "get_wifi_status",
       "verifying_journeys": [
         "detect_wifi_ap_loss"
+      ],
+      "assumptions": [
+        {
+          "statement": "Wi-Fi is currently connected",
+          "source_use_case": "detect_wifi_ap_loss",
+          "kind": "data"
+        },
+        {
+          "statement": "a known Wi-Fi network is available",
+          "source_use_case": "detect_wifi_ap_loss",
+          "kind": "network"
+        }
       ],
       "availability_present": true
     },
@@ -4168,6 +5186,13 @@
       "verifying_journeys": [
         "free_disk_space",
         "inspect_disk_usage"
+      ],
+      "assumptions": [
+        {
+          "statement": "Onboard storage is low or the high disk usage warning is shown",
+          "source_use_case": "free_disk_space",
+          "kind": "other"
+        }
       ],
       "availability_present": true
     },
@@ -4205,6 +5230,13 @@
       "verifying_journeys": [
         "inspect_mavlink_messages_in_browser"
       ],
+      "assumptions": [
+        {
+          "statement": "advanced mode is enabled",
+          "source_use_case": "inspect_mavlink_messages_in_browser",
+          "kind": "software"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -4234,6 +5266,18 @@
       "function_id": "inspect_raspberry_eeprom",
       "verifying_journeys": [
         "inspect_raspberry_eeprom_bootloader"
+      ],
+      "assumptions": [
+        {
+          "statement": "pirate mode is enabled",
+          "source_use_case": "inspect_raspberry_eeprom_bootloader",
+          "kind": "software"
+        },
+        {
+          "statement": "the operator confirmed a dangerous operation",
+          "source_use_case": "inspect_raspberry_eeprom_bootloader",
+          "kind": "software"
+        }
       ],
       "availability_present": true
     },
@@ -4274,6 +5318,13 @@
       "verifying_journeys": [
         "inspect_zenoh_network"
       ],
+      "assumptions": [
+        {
+          "statement": "advanced mode is enabled",
+          "source_use_case": "inspect_zenoh_network",
+          "kind": "software"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -4307,6 +5358,13 @@
       "verifying_journeys": [
         "install_custom_extension"
       ],
+      "assumptions": [
+        {
+          "statement": "network connectivity is available",
+          "source_use_case": "install_custom_extension",
+          "kind": "network"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -4337,6 +5395,13 @@
       "verifying_journeys": [
         "install_extension"
       ],
+      "assumptions": [
+        {
+          "statement": "network connectivity is available",
+          "source_use_case": "install_extension",
+          "kind": "network"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -4363,6 +5428,13 @@
       "function_id": "level_horizon/cbf29ce484222325",
       "verifying_journeys": [
         "level_horizon"
+      ],
+      "assumptions": [
+        {
+          "statement": "vehicle rests on a level surface in its normal operating orientation",
+          "source_use_case": "level_horizon",
+          "kind": "other"
+        }
       ],
       "availability_present": true
     },
@@ -4396,6 +5468,13 @@
       "function_id": "list_configured_serial_bridges",
       "verifying_journeys": [
         "view_configured_serial_bridges"
+      ],
+      "assumptions": [
+        {
+          "statement": "advanced mode is enabled",
+          "source_use_case": "view_configured_serial_bridges",
+          "kind": "software"
+        }
       ],
       "availability_present": true
     },
@@ -4436,6 +5515,7 @@
       "verifying_journeys": [
         "view_detected_sonar_devices"
       ],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -4462,6 +5542,13 @@
       "function_id": "list_nmea_sockets",
       "verifying_journeys": [
         "view_configured_nmea_sockets"
+      ],
+      "assumptions": [
+        {
+          "statement": "advanced mode is enabled",
+          "source_use_case": "view_configured_nmea_sockets",
+          "kind": "software"
+        }
       ],
       "availability_present": true
     },
@@ -4493,6 +5580,18 @@
       "verifying_journeys": [
         "vehicle_first_boot"
       ],
+      "assumptions": [
+        {
+          "statement": "Cold start after power-on",
+          "source_use_case": "vehicle_first_boot",
+          "kind": "other"
+        },
+        {
+          "statement": "BlueOS is newly installed and the configuration wizard is available",
+          "source_use_case": "vehicle_first_boot",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -4516,6 +5615,13 @@
       "function_id": "manage_autopilot_lifecycle/53792b73640cce05",
       "verifying_journeys": [
         "start_autopilot"
+      ],
+      "assumptions": [
+        {
+          "statement": "A flight controller board is selected",
+          "source_use_case": "start_autopilot",
+          "kind": "other"
+        }
       ],
       "availability_present": true
     },
@@ -4541,6 +5647,13 @@
       "verifying_journeys": [
         "stop_autopilot"
       ],
+      "assumptions": [
+        {
+          "statement": "An autopilot is available to stop",
+          "source_use_case": "stop_autopilot",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -4564,6 +5677,13 @@
       "function_id": "manage_autopilot_lifecycle/b38135bdcbc02d50",
       "verifying_journeys": [
         "restart_autopilot"
+      ],
+      "assumptions": [
+        {
+          "statement": "A flight controller board is selected",
+          "source_use_case": "restart_autopilot",
+          "kind": "other"
+        }
       ],
       "availability_present": true
     },
@@ -4604,6 +5724,13 @@
       "verifying_journeys": [
         "manage_blueos_files"
       ],
+      "assumptions": [
+        {
+          "statement": "advanced mode is enabled",
+          "source_use_case": "manage_blueos_files",
+          "kind": "software"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -4643,6 +5770,13 @@
       "verifying_journeys": [
         "configure_installed_extension"
       ],
+      "assumptions": [
+        {
+          "statement": "an extension is installed",
+          "source_use_case": "configure_installed_extension",
+          "kind": "data"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -4670,6 +5804,13 @@
       "verifying_journeys": [
         "edit_extension_dev_version"
       ],
+      "assumptions": [
+        {
+          "statement": "an extension is installed",
+          "source_use_case": "edit_extension_dev_version",
+          "kind": "data"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -4693,6 +5834,13 @@
       "function_id": "manage_manifests",
       "verifying_journeys": [
         "add_custom_manifest"
+      ],
+      "assumptions": [
+        {
+          "statement": "network connectivity is available",
+          "source_use_case": "add_custom_manifest",
+          "kind": "network"
+        }
       ],
       "availability_present": true
     },
@@ -4739,6 +5887,13 @@
       "verifying_journeys": [
         "configure_video_stream"
       ],
+      "assumptions": [
+        {
+          "statement": "a USB camera is connected",
+          "source_use_case": "configure_video_stream",
+          "kind": "hardware"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -4766,6 +5921,7 @@
       "verifying_journeys": [
         "inspect_disk_usage"
       ],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -4793,6 +5949,13 @@
       "verifying_journeys": [
         "probe_interface_internet_connectivity"
       ],
+      "assumptions": [
+        {
+          "statement": "pirate mode is enabled",
+          "source_use_case": "probe_interface_internet_connectivity",
+          "kind": "software"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -4812,6 +5975,18 @@
       "function_id": "pull_blueos_version",
       "verifying_journeys": [
         "pull_blueos_version_without_switch"
+      ],
+      "assumptions": [
+        {
+          "statement": "network connectivity is available",
+          "source_use_case": "pull_blueos_version_without_switch",
+          "kind": "network"
+        },
+        {
+          "statement": "pirate mode is enabled",
+          "source_use_case": "pull_blueos_version_without_switch",
+          "kind": "software"
+        }
       ],
       "availability_present": true
     },
@@ -4843,6 +6018,18 @@
       "verifying_journeys": [
         "vehicle_first_boot"
       ],
+      "assumptions": [
+        {
+          "statement": "Cold start after power-on",
+          "source_use_case": "vehicle_first_boot",
+          "kind": "other"
+        },
+        {
+          "statement": "BlueOS is newly installed and the configuration wizard is available",
+          "source_use_case": "vehicle_first_boot",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -4862,6 +6049,13 @@
       "function_id": "reboot_onboard_computer/e33cf7244daf6faf",
       "verifying_journeys": [
         "reboot_onboard_computer"
+      ],
+      "assumptions": [
+        {
+          "statement": "the operator confirmed a dangerous operation",
+          "source_use_case": "reboot_onboard_computer",
+          "kind": "software"
+        }
       ],
       "availability_present": true
     },
@@ -4883,6 +6077,13 @@
       "verifying_journeys": [
         "remove_custom_logo"
       ],
+      "assumptions": [
+        {
+          "statement": "A custom logo has been uploaded",
+          "source_use_case": "remove_custom_logo",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -4903,6 +6104,13 @@
       "verifying_journeys": [
         "remove_custom_vehicle_image"
       ],
+      "assumptions": [
+        {
+          "statement": "A custom vehicle image has been uploaded",
+          "source_use_case": "remove_custom_vehicle_image",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -4922,6 +6130,13 @@
       "function_id": "remove_camera_stream/b118e18f770e55b5",
       "verifying_journeys": [
         "remove_camera_stream"
+      ],
+      "assumptions": [
+        {
+          "statement": "At least one configured stream is listed on a device card",
+          "source_use_case": "remove_camera_stream",
+          "kind": "other"
+        }
       ],
       "availability_present": true
     },
@@ -4953,6 +6168,18 @@
       "verifying_journeys": [
         "remove_configured_nmea_socket"
       ],
+      "assumptions": [
+        {
+          "statement": "advanced mode is enabled",
+          "source_use_case": "remove_configured_nmea_socket",
+          "kind": "software"
+        },
+        {
+          "statement": "an NMEA socket is configured",
+          "source_use_case": "remove_configured_nmea_socket",
+          "kind": "data"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -4972,6 +6199,13 @@
       "function_id": "remove_saved_wifi_network",
       "verifying_journeys": [
         "forget_saved_wifi_network"
+      ],
+      "assumptions": [
+        {
+          "statement": "a Wi-Fi network is saved",
+          "source_use_case": "forget_saved_wifi_network",
+          "kind": "data"
+        }
       ],
       "availability_present": true
     },
@@ -5002,6 +6236,18 @@
       "function_id": "remove_serial_bridge/b96ea186b74f5bc4",
       "verifying_journeys": [
         "remove_serial_bridge"
+      ],
+      "assumptions": [
+        {
+          "statement": "advanced mode is enabled",
+          "source_use_case": "remove_serial_bridge",
+          "kind": "software"
+        },
+        {
+          "statement": "a serial bridge is configured",
+          "source_use_case": "remove_serial_bridge",
+          "kind": "data"
+        }
       ],
       "availability_present": true
     },
@@ -5048,6 +6294,13 @@
       "verifying_journeys": [
         "configure_video_stream"
       ],
+      "assumptions": [
+        {
+          "statement": "a USB camera is connected",
+          "source_use_case": "configure_video_stream",
+          "kind": "hardware"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -5067,6 +6320,13 @@
       "function_id": "reset_blueos_settings/54288da215af898a",
       "verifying_journeys": [
         "reset_blueos_settings"
+      ],
+      "assumptions": [
+        {
+          "statement": "the operator confirmed a dangerous operation",
+          "source_use_case": "reset_blueos_settings",
+          "kind": "software"
+        }
       ],
       "availability_present": true
     },
@@ -5088,6 +6348,7 @@
       "verifying_journeys": [
         "reset_ui_theme_color"
       ],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -5115,6 +6376,13 @@
       "verifying_journeys": [
         "run_single_disk_speed_test"
       ],
+      "assumptions": [
+        {
+          "statement": "disktest binary is available on PATH",
+          "source_use_case": "run_single_disk_speed_test",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -5134,6 +6402,13 @@
       "function_id": "run_host_command/5837bd0e345b2df1",
       "verifying_journeys": [
         "run_host_command"
+      ],
+      "assumptions": [
+        {
+          "statement": "the operator confirmed a dangerous operation",
+          "source_use_case": "run_host_command",
+          "kind": "software"
+        }
       ],
       "availability_present": true
     },
@@ -5177,6 +6452,13 @@
       "verifying_journeys": [
         "run_internet_speed_test"
       ],
+      "assumptions": [
+        {
+          "statement": "network connectivity is available",
+          "source_use_case": "run_internet_speed_test",
+          "kind": "network"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -5219,6 +6501,7 @@
       "verifying_journeys": [
         "run_lan_speed_test"
       ],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -5238,6 +6521,13 @@
       "function_id": "run_multi_size_disk_speed_test/9638e1657f9e12b6",
       "verifying_journeys": [
         "run_multi_size_disk_speed_test"
+      ],
+      "assumptions": [
+        {
+          "statement": "disktest binary is available on PATH",
+          "source_use_case": "run_multi_size_disk_speed_test",
+          "kind": "other"
+        }
       ],
       "availability_present": true
     },
@@ -5266,6 +6556,13 @@
       "verifying_journeys": [
         "run_sitl_simulation"
       ],
+      "assumptions": [
+        {
+          "statement": "Virtual SITL flight controller board is selected",
+          "source_use_case": "run_sitl_simulation",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -5290,6 +6587,13 @@
       "verifying_journeys": [
         "change_board"
       ],
+      "assumptions": [
+        {
+          "statement": "At least one flight controller board is connected or SITL simulation is available",
+          "source_use_case": "change_board",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -5309,6 +6613,13 @@
       "function_id": "set_hotspot_credentials",
       "verifying_journeys": [
         "configure_hotspot_credentials"
+      ],
+      "assumptions": [
+        {
+          "statement": "hotspot capability is available",
+          "source_use_case": "configure_hotspot_credentials",
+          "kind": "network"
+        }
       ],
       "availability_present": true
     },
@@ -5330,6 +6641,13 @@
       "verifying_journeys": [
         "set_network_interface_priority"
       ],
+      "assumptions": [
+        {
+          "statement": "pirate mode is enabled",
+          "source_use_case": "set_network_interface_priority",
+          "kind": "software"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -5350,6 +6668,7 @@
       "verifying_journeys": [
         "change_mdns_hostname"
       ],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -5370,6 +6689,7 @@
       "verifying_journeys": [
         "change_ui_theme_color"
       ],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -5390,6 +6710,7 @@
       "verifying_journeys": [
         "rename_vehicle"
       ],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -5409,6 +6730,13 @@
       "function_id": "shutdown_onboard_computer/e33cf7244daf6faf",
       "verifying_journeys": [
         "shutdown_onboard_computer"
+      ],
+      "assumptions": [
+        {
+          "statement": "the operator confirmed a dangerous operation",
+          "source_use_case": "shutdown_onboard_computer",
+          "kind": "software"
+        }
       ],
       "availability_present": true
     },
@@ -5440,6 +6768,18 @@
       "verifying_journeys": [
         "switch_local_blueos_version"
       ],
+      "assumptions": [
+        {
+          "statement": "pirate mode is enabled",
+          "source_use_case": "switch_local_blueos_version",
+          "kind": "software"
+        },
+        {
+          "statement": "a local BlueOS version image is available",
+          "source_use_case": "switch_local_blueos_version",
+          "kind": "data"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -5459,6 +6799,13 @@
       "function_id": "sync_system_time/daddcbcb37963611",
       "verifying_journeys": [
         "sync_system_time"
+      ],
+      "assumptions": [
+        {
+          "statement": "the operator confirmed a dangerous operation",
+          "source_use_case": "sync_system_time",
+          "kind": "software"
+        }
       ],
       "availability_present": true
     },
@@ -5480,6 +6827,13 @@
       "verifying_journeys": [
         "toggle_hotspot"
       ],
+      "assumptions": [
+        {
+          "statement": "hotspot capability is available",
+          "source_use_case": "toggle_hotspot",
+          "kind": "network"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -5499,6 +6853,13 @@
       "function_id": "toggle_smart_hotspot/3a85265752f5437d",
       "verifying_journeys": [
         "toggle_smart_hotspot"
+      ],
+      "assumptions": [
+        {
+          "statement": "hotspot capability is available",
+          "source_use_case": "toggle_smart_hotspot",
+          "kind": "network"
+        }
       ],
       "availability_present": true
     },
@@ -5526,6 +6887,13 @@
       "function_id": "uninstall_extension/cbf29ce484222325",
       "verifying_journeys": [
         "uninstall_extension"
+      ],
+      "assumptions": [
+        {
+          "statement": "an extension is installed",
+          "source_use_case": "uninstall_extension",
+          "kind": "data"
+        }
       ],
       "availability_present": true
     },
@@ -5563,6 +6931,13 @@
       "verifying_journeys": [
         "update_blueos_version"
       ],
+      "assumptions": [
+        {
+          "statement": "network connectivity is available",
+          "source_use_case": "update_blueos_version",
+          "kind": "network"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -5593,6 +6968,18 @@
       "verifying_journeys": [
         "update_bootstrap_image"
       ],
+      "assumptions": [
+        {
+          "statement": "network connectivity is available",
+          "source_use_case": "update_bootstrap_image",
+          "kind": "network"
+        },
+        {
+          "statement": "pirate mode is enabled",
+          "source_use_case": "update_bootstrap_image",
+          "kind": "software"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -5612,6 +6999,18 @@
       "function_id": "update_raspberry_eeprom",
       "verifying_journeys": [
         "update_raspberry_eeprom_bootloader"
+      ],
+      "assumptions": [
+        {
+          "statement": "pirate mode is enabled",
+          "source_use_case": "update_raspberry_eeprom_bootloader",
+          "kind": "software"
+        },
+        {
+          "statement": "the operator confirmed a dangerous operation",
+          "source_use_case": "update_raspberry_eeprom_bootloader",
+          "kind": "software"
+        }
       ],
       "availability_present": true
     },
@@ -5633,6 +7032,7 @@
       "verifying_journeys": [
         "upload_custom_logo"
       ],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -5653,6 +7053,7 @@
       "verifying_journeys": [
         "upload_custom_vehicle_image"
       ],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -5673,6 +7074,7 @@
       "verifying_journeys": [
         "upload_3d_model_override"
       ],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -5715,6 +7117,7 @@
       "verifying_journeys": [
         "view_camera_streams"
       ],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -5754,6 +7157,7 @@
       "verifying_journeys": [
         "view_system_information"
       ],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -5776,6 +7180,7 @@
       "journey_id": "vehicle_first_boot",
       "function_id": "detect_flight_controllers",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -5798,6 +7203,7 @@
       "journey_id": "vehicle_first_boot",
       "function_id": "detect_flight_controllers",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -5820,6 +7226,7 @@
       "journey_id": "change_board",
       "function_id": "select_flight_controller_board/b77acddbed8334b1",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -5842,6 +7249,7 @@
       "journey_id": "run_sitl_simulation",
       "function_id": "configure_sitl_frame",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -5864,6 +7272,7 @@
       "journey_id": "start_autopilot",
       "function_id": "manage_autopilot_lifecycle/53792b73640cce05",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -5886,6 +7295,7 @@
       "journey_id": "stop_autopilot",
       "function_id": "manage_autopilot_lifecycle/916f100705fc6fb1",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -5908,6 +7318,7 @@
       "journey_id": "restart_autopilot",
       "function_id": "manage_autopilot_lifecycle/b38135bdcbc02d50",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -5930,6 +7341,7 @@
       "journey_id": "upload_custom_firmware",
       "function_id": "flash_firmware/a3abeda316f19cee",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -5952,6 +7364,7 @@
       "journey_id": "restore_default_firmware",
       "function_id": "flash_firmware/e95de8262df51fe5",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -5974,6 +7387,7 @@
       "journey_id": "modify_bag_database",
       "function_id": "edit_bag_json_store",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -5996,6 +7410,7 @@
       "journey_id": "modify_bag_database",
       "function_id": "edit_bag_json_store",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6018,6 +7433,7 @@
       "journey_id": "rename_vehicle",
       "function_id": "set_vehicle_name",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6040,6 +7456,7 @@
       "journey_id": "change_mdns_hostname",
       "function_id": "set_mdns_hostname",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6062,6 +7479,7 @@
       "journey_id": "view_configured_serial_bridges",
       "function_id": "list_configured_serial_bridges",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6084,6 +7502,7 @@
       "journey_id": "view_configured_serial_bridges",
       "function_id": "list_configured_serial_bridges",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6106,6 +7525,7 @@
       "journey_id": "create_serial_to_udp_bridge",
       "function_id": "create_serial_to_udp_bridge/55107ebd78b5d698",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6128,6 +7548,7 @@
       "journey_id": "remove_serial_bridge",
       "function_id": "remove_serial_bridge/b96ea186b74f5bc4",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6150,6 +7571,7 @@
       "journey_id": "assign_static_ip_address",
       "function_id": "assign_static_ip",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6172,6 +7594,7 @@
       "journey_id": "acquire_dynamic_ip_address",
       "function_id": "acquire_dynamic_ip",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6194,6 +7617,7 @@
       "journey_id": "enable_onboard_dhcp_server",
       "function_id": "enable_dhcp_server",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6216,6 +7640,7 @@
       "journey_id": "disable_onboard_dhcp_server",
       "function_id": "disable_dhcp_server",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6238,6 +7663,7 @@
       "journey_id": "set_network_interface_priority",
       "function_id": "set_interface_priority",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6260,6 +7686,7 @@
       "journey_id": "configure_host_dns",
       "function_id": "configure_host_dns/7de3fb98efd28e6c",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6282,6 +7709,7 @@
       "journey_id": "reboot_onboard_computer",
       "function_id": "reboot_onboard_computer/e33cf7244daf6faf",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6304,6 +7732,7 @@
       "journey_id": "sync_system_time",
       "function_id": "sync_system_time/daddcbcb37963611",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6326,6 +7755,7 @@
       "journey_id": "enable_legacy_camera_support",
       "function_id": "configure_legacy_camera",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6348,6 +7778,7 @@
       "journey_id": "inspect_raspberry_eeprom_bootloader",
       "function_id": "inspect_raspberry_eeprom",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6370,6 +7801,7 @@
       "journey_id": "inspect_raspberry_eeprom_bootloader",
       "function_id": "inspect_raspberry_eeprom",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6392,6 +7824,7 @@
       "journey_id": "update_raspberry_eeprom_bootloader",
       "function_id": "update_raspberry_eeprom",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6414,6 +7847,7 @@
       "journey_id": "reset_blueos_settings",
       "function_id": "reset_blueos_settings/54288da215af898a",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6436,6 +7870,7 @@
       "journey_id": "run_host_command",
       "function_id": "run_host_command/5837bd0e345b2df1",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6458,6 +7893,7 @@
       "journey_id": "change_ui_theme_color",
       "function_id": "set_theme_color",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6480,6 +7916,7 @@
       "journey_id": "reset_ui_theme_color",
       "function_id": "reset_theme_color",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6502,6 +7939,7 @@
       "journey_id": "upload_custom_logo",
       "function_id": "upload_branding_logo",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6524,6 +7962,7 @@
       "journey_id": "remove_custom_logo",
       "function_id": "remove_branding_logo",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6546,6 +7985,7 @@
       "journey_id": "upload_custom_vehicle_image",
       "function_id": "upload_branding_vehicle_image",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6568,6 +8008,7 @@
       "journey_id": "remove_custom_vehicle_image",
       "function_id": "remove_branding_vehicle_image",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6590,6 +8031,7 @@
       "journey_id": "upload_3d_model_override",
       "function_id": "upload_model_override",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6612,6 +8054,7 @@
       "journey_id": "inspect_disk_usage",
       "function_id": "inspect_disk_usage/66077bb16c8f3165",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6634,6 +8077,7 @@
       "journey_id": "run_single_disk_speed_test",
       "function_id": "run_disk_speed_test",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6656,6 +8100,7 @@
       "journey_id": "run_multi_size_disk_speed_test",
       "function_id": "run_multi_size_disk_speed_test/9638e1657f9e12b6",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6678,6 +8123,7 @@
       "journey_id": "monitor_internet_connectivity",
       "function_id": "check_internet_connectivity",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6700,6 +8146,7 @@
       "journey_id": "browse_available_web_services",
       "function_id": "discover_web_services",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6722,6 +8169,7 @@
       "journey_id": "probe_interface_internet_connectivity",
       "function_id": "probe_interface_connectivity",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6744,6 +8192,7 @@
       "journey_id": "add_custom_manifest",
       "function_id": "manage_manifests",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6766,6 +8215,7 @@
       "journey_id": "browse_extension_store",
       "function_id": "browse_extension_store/378bb78142b6540d",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6788,6 +8238,7 @@
       "journey_id": "configure_installed_extension",
       "function_id": "configure_extension",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6810,6 +8261,7 @@
       "journey_id": "install_custom_extension",
       "function_id": "install_extension/a543ccde867eb588",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6832,6 +8284,7 @@
       "journey_id": "view_system_information",
       "function_id": "view_system_information/6c6e6171ac58949c",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6854,6 +8307,7 @@
       "journey_id": "view_system_information",
       "function_id": "view_system_information/6c6e6171ac58949c",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6876,6 +8330,7 @@
       "journey_id": "view_camera_streams",
       "function_id": "view_camera_streams/2402e4e7e00766ea",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6898,6 +8353,7 @@
       "journey_id": "view_camera_streams",
       "function_id": "view_camera_streams/2402e4e7e00766ea",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6920,6 +8376,7 @@
       "journey_id": "configure_camera_stream",
       "function_id": "configure_camera_stream/f796bf0b5f1bb25f",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6942,6 +8399,7 @@
       "journey_id": "remove_camera_stream",
       "function_id": "remove_camera_stream/b118e18f770e55b5",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6964,6 +8422,7 @@
       "journey_id": "configure_uvc_device_controls",
       "function_id": "configure_uvc_device_controls/ab84473ae51404ce",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6986,6 +8445,7 @@
       "journey_id": "access_blueos_web_interface",
       "function_id": "access_blueos_web_interface/2b48524cfdb0b4bf",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7008,6 +8468,7 @@
       "journey_id": "access_blueos_web_interface",
       "function_id": "access_blueos_web_interface/2b48524cfdb0b4bf",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7030,6 +8491,7 @@
       "journey_id": "view_configured_nmea_sockets",
       "function_id": "list_nmea_sockets",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7052,6 +8514,7 @@
       "journey_id": "add_external_nmea_gps_socket",
       "function_id": "create_nmea_socket",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7074,6 +8537,7 @@
       "journey_id": "remove_configured_nmea_socket",
       "function_id": "remove_nmea_socket",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7096,6 +8560,7 @@
       "journey_id": "run_lan_speed_test",
       "function_id": "run_lan_speed_test/b5909e085a42ba5d",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7118,6 +8583,7 @@
       "journey_id": "run_lan_speed_test",
       "function_id": "run_lan_speed_test/b5909e085a42ba5d",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7140,6 +8606,7 @@
       "journey_id": "run_internet_speed_test",
       "function_id": "run_internet_speed_test/982ed3887e514988",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7162,6 +8629,7 @@
       "journey_id": "run_internet_speed_test",
       "function_id": "run_internet_speed_test/982ed3887e514988",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7184,6 +8652,7 @@
       "journey_id": "run_internet_speed_test",
       "function_id": "run_internet_speed_test/982ed3887e514988",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7206,6 +8675,7 @@
       "journey_id": "run_internet_speed_test",
       "function_id": "run_internet_speed_test/982ed3887e514988",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7228,6 +8698,7 @@
       "journey_id": "view_detected_sonar_devices",
       "function_id": "list_detected_ping_sensors",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7250,6 +8721,7 @@
       "journey_id": "enable_ping1d_rangefinder_mavlink",
       "function_id": "enable_ping1d_mavlink_distance",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7272,6 +8744,7 @@
       "journey_id": "browse_video_recordings",
       "function_id": "browse_video_recordings/ab18b05457a69ba2",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7294,6 +8767,7 @@
       "journey_id": "browse_video_recordings",
       "function_id": "browse_video_recordings/ab18b05457a69ba2",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7316,6 +8790,7 @@
       "journey_id": "update_blueos_version",
       "function_id": "update_blueos_version/5ad29b7853c20bc",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7338,6 +8813,7 @@
       "journey_id": "update_blueos_version",
       "function_id": "update_blueos_version/5ad29b7853c20bc",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7360,6 +8836,7 @@
       "journey_id": "update_blueos_version",
       "function_id": "update_blueos_version/5ad29b7853c20bc",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7382,6 +8859,7 @@
       "journey_id": "switch_local_blueos_version",
       "function_id": "switch_blueos_version",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7404,6 +8882,7 @@
       "journey_id": "delete_local_blueos_version",
       "function_id": "delete_local_blueos_version/b6a758e879c27c5e",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7426,6 +8905,7 @@
       "journey_id": "docker_registry_login",
       "function_id": "docker_registry_login/686f87ab30367c63",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7448,6 +8928,7 @@
       "journey_id": "docker_registry_login",
       "function_id": "docker_registry_login/686f87ab30367c63",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7470,6 +8951,7 @@
       "journey_id": "update_bootstrap_image",
       "function_id": "update_bootstrap_image/d7a8583bc58eea88",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7492,6 +8974,7 @@
       "journey_id": "update_bootstrap_image",
       "function_id": "update_bootstrap_image/d7a8583bc58eea88",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7514,6 +8997,7 @@
       "journey_id": "connect_to_wifi_network",
       "function_id": "connect_wifi_network/f5ede9392599d57e",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7536,6 +9020,7 @@
       "journey_id": "connect_to_wifi_network",
       "function_id": "connect_wifi_network/f5ede9392599d57e",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7558,6 +9043,7 @@
       "journey_id": "disconnect_from_wifi_network",
       "function_id": "disconnect_wifi_network",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7580,6 +9066,7 @@
       "journey_id": "forget_saved_wifi_network",
       "function_id": "remove_saved_wifi_network",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7602,6 +9089,7 @@
       "journey_id": "detect_wifi_ap_loss",
       "function_id": "get_wifi_status",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7624,6 +9112,7 @@
       "journey_id": "toggle_hotspot",
       "function_id": "toggle_hotspot/ccb1aebda17ac9d7",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7646,6 +9135,7 @@
       "journey_id": "configure_hotspot_credentials",
       "function_id": "set_hotspot_credentials",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7668,6 +9158,7 @@
       "journey_id": "toggle_smart_hotspot",
       "function_id": "toggle_smart_hotspot/3a85265752f5437d",
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7690,6 +9181,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7712,6 +9204,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7734,6 +9227,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7756,6 +9250,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7778,6 +9273,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7800,6 +9296,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7822,6 +9319,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7844,6 +9342,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7866,6 +9365,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7888,6 +9388,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7910,6 +9411,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7932,6 +9434,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7954,6 +9457,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7976,6 +9480,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -7998,6 +9503,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8020,6 +9526,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8042,6 +9549,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8064,6 +9572,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8086,6 +9595,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8108,6 +9618,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8130,6 +9641,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8152,6 +9664,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8174,6 +9687,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8196,6 +9710,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8218,6 +9733,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8240,6 +9756,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8262,6 +9779,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8284,6 +9802,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8306,6 +9825,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8328,6 +9848,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8350,6 +9871,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8372,6 +9894,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8394,6 +9917,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8416,6 +9940,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8438,6 +9963,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8460,6 +9986,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8482,6 +10009,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8504,6 +10032,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8526,6 +10055,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8548,6 +10078,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8570,6 +10101,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8592,6 +10124,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8614,6 +10147,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8636,6 +10170,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8658,6 +10193,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8680,6 +10216,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8702,6 +10239,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8724,6 +10262,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8746,6 +10285,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8768,6 +10308,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8790,6 +10331,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8812,6 +10354,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8834,6 +10377,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8856,6 +10400,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8878,6 +10423,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8900,6 +10446,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8922,6 +10469,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8944,6 +10492,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8966,6 +10515,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -8988,6 +10538,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9010,6 +10561,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9032,6 +10584,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9054,6 +10607,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9076,10 +10630,11 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
-      "id": "REQ/vehicle/recording/PERF/GET/recorder-extractor_files",
+      "id": "REQ/vehicle/recording/PERF/GET/recorder-extractor_recorder_files",
       "kind": "performance",
       "domain": "vehicle",
       "statement": {
@@ -9090,7 +10645,7 @@
         "status": "known",
         "items": [
           {
-            "text": "GET /recorder-extractor/files p50=5.8ms p95=9.7ms p99=11ms n=60"
+            "text": "GET /recorder-extractor/recorder/files p50=5.8ms p95=9.7ms p99=11ms n=60"
           }
         ]
       },
@@ -9098,10 +10653,11 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
-      "id": "REQ/vehicle/recording/PERF/GET/recorder-extractor_status",
+      "id": "REQ/vehicle/recording/PERF/GET/recorder-extractor_recorder_status",
       "kind": "performance",
       "domain": "vehicle",
       "statement": {
@@ -9112,7 +10668,7 @@
         "status": "known",
         "items": [
           {
-            "text": "GET /recorder-extractor/status p50=5.5ms p95=8ms p99=15.1ms n=60"
+            "text": "GET /recorder-extractor/recorder/status p50=5.5ms p95=8ms p99=15.1ms n=60"
           }
         ]
       },
@@ -9120,6 +10676,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9142,6 +10699,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9164,6 +10722,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9186,6 +10745,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9208,6 +10768,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9230,6 +10791,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9252,6 +10814,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9274,6 +10837,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9296,6 +10860,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9318,6 +10883,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9340,6 +10906,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9362,6 +10929,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9384,6 +10952,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9406,6 +10975,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9428,6 +10998,7 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9450,6 +11021,7 @@
       "journey_id": "run_host_command",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9472,6 +11044,7 @@
       "journey_id": "reboot_onboard_computer",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9494,6 +11067,7 @@
       "journey_id": "shutdown_onboard_computer",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9516,6 +11090,7 @@
       "journey_id": "sync_system_time",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9538,6 +11113,7 @@
       "journey_id": "reset_blueos_settings",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9560,6 +11136,7 @@
       "journey_id": "inspect_raspberry_eeprom_bootloader",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9582,6 +11159,7 @@
       "journey_id": "inspect_raspberry_eeprom_bootloader",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9604,6 +11182,7 @@
       "journey_id": "update_raspberry_eeprom_bootloader",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9626,6 +11205,7 @@
       "journey_id": "run_host_command",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9648,6 +11228,7 @@
       "journey_id": "reboot_onboard_computer",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9670,6 +11251,7 @@
       "journey_id": "change_ui_theme_color",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9692,6 +11274,7 @@
       "journey_id": "change_ui_theme_color",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9714,6 +11297,7 @@
       "journey_id": "change_ui_theme_color",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9736,6 +11320,7 @@
       "journey_id": "delete_3d_model_override",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9758,6 +11343,7 @@
       "journey_id": "modify_bag_database",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9780,6 +11366,7 @@
       "journey_id": "modify_bag_database",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9802,6 +11389,7 @@
       "journey_id": "inspect_disk_usage",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9824,6 +11412,7 @@
       "journey_id": "inspect_disk_usage",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9846,6 +11435,7 @@
       "journey_id": "free_disk_space",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9868,6 +11458,7 @@
       "journey_id": "free_disk_space",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9890,6 +11481,7 @@
       "journey_id": "run_single_disk_speed_test",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9912,6 +11504,7 @@
       "journey_id": "forget_saved_wifi_network",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9934,6 +11527,7 @@
       "journey_id": "connect_to_wifi_network",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9956,6 +11550,7 @@
       "journey_id": "toggle_hotspot",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -9978,6 +11573,7 @@
       "journey_id": "toggle_smart_hotspot",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10000,6 +11596,7 @@
       "journey_id": "connect_to_wifi_network",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10022,6 +11619,7 @@
       "journey_id": "rename_vehicle",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10044,6 +11642,7 @@
       "journey_id": "assign_static_ip_address",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10066,6 +11665,7 @@
       "journey_id": "assign_static_ip_address",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10088,6 +11688,7 @@
       "journey_id": "acquire_dynamic_ip_address",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10110,6 +11711,7 @@
       "journey_id": "disable_onboard_dhcp_server",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10132,6 +11734,7 @@
       "journey_id": "configure_host_dns",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10154,6 +11757,7 @@
       "journey_id": "set_network_interface_priority",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10176,6 +11780,7 @@
       "journey_id": "probe_interface_internet_connectivity",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10198,6 +11803,7 @@
       "journey_id": "probe_interface_internet_connectivity",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10220,6 +11826,7 @@
       "journey_id": "install_extension",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10242,6 +11849,7 @@
       "journey_id": "uninstall_extension",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10264,6 +11872,7 @@
       "journey_id": "configure_installed_extension",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10286,6 +11895,7 @@
       "journey_id": "configure_installed_extension",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10308,6 +11918,7 @@
       "journey_id": "edit_extension_dev_version",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10330,6 +11941,7 @@
       "journey_id": "browse_extension_store",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10352,6 +11964,7 @@
       "journey_id": "switch_local_blueos_version",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10374,6 +11987,7 @@
       "journey_id": "delete_local_blueos_version",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10396,6 +12010,7 @@
       "journey_id": "delete_local_blueos_version",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10418,6 +12033,7 @@
       "journey_id": "update_bootstrap_image",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10440,6 +12056,7 @@
       "journey_id": "update_blueos_version",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10462,6 +12079,7 @@
       "journey_id": "download_video_recording",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10484,6 +12102,7 @@
       "journey_id": "download_video_recording",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10506,6 +12125,7 @@
       "journey_id": "delete_video_recording",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10528,6 +12148,7 @@
       "journey_id": "delete_video_recording",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10550,6 +12171,7 @@
       "journey_id": "browse_video_recordings",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10572,6 +12194,7 @@
       "journey_id": "run_sitl_simulation",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10594,6 +12217,7 @@
       "journey_id": "remove_serial_bridge",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10616,6 +12240,7 @@
       "journey_id": "create_serial_to_udp_bridge",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10638,6 +12263,7 @@
       "journey_id": "remove_configured_nmea_socket",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10660,6 +12286,7 @@
       "journey_id": "add_external_nmea_gps_socket",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10682,6 +12309,7 @@
       "journey_id": "remove_camera_stream",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10704,6 +12332,7 @@
       "journey_id": "run_lan_speed_test",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10726,6 +12355,7 @@
       "journey_id": "run_internet_speed_test",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10748,6 +12378,7 @@
       "journey_id": "modify_bag_database",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10770,6 +12401,7 @@
       "journey_id": "inspect_disk_usage",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10792,6 +12424,7 @@
       "journey_id": "enable_legacy_camera_support",
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -10814,930 +12447,7 @@
       "journey_id": "view_camera_streams",
       "function_id": null,
       "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/vehicle/autopilot/CON/Other::Cold start after power-on",
-      "kind": "constraint",
-      "domain": "vehicle",
-      "statement": {
-        "status": "known",
-        "text": "Cold start after power-on"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: Cold start after power-on"
-          }
-        ]
-      },
-      "feature_id": "flash_firmware",
-      "journey_id": "vehicle_first_boot",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/vehicle/autopilot/CON/Other::BlueOS is newly installed and the configuration wizard is available",
-      "kind": "constraint",
-      "domain": "vehicle",
-      "statement": {
-        "status": "known",
-        "text": "BlueOS is newly installed and the configuration wizard is available"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: BlueOS is newly installed and the configuration wizard is available"
-          }
-        ]
-      },
-      "feature_id": "flash_firmware",
-      "journey_id": "vehicle_first_boot",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/vehicle/autopilot/CON/Other::At least one flight controller board is connected or SITL simulation is available",
-      "kind": "constraint",
-      "domain": "vehicle",
-      "statement": {
-        "status": "known",
-        "text": "At least one flight controller board is connected or SITL simulation is available"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: At least one flight controller board is connected or SITL simulation is available"
-          }
-        ]
-      },
-      "feature_id": "select_flight_controller_board",
-      "journey_id": "change_board",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/vehicle/autopilot/CON/Other::Virtual SITL flight controller board is selected",
-      "kind": "constraint",
-      "domain": "vehicle",
-      "statement": {
-        "status": "known",
-        "text": "Virtual SITL flight controller board is selected"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: Virtual SITL flight controller board is selected"
-          }
-        ]
-      },
-      "feature_id": "configure_sitl_frame",
-      "journey_id": "run_sitl_simulation",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/vehicle/autopilot/CON/Other::A flight controller board is selected",
-      "kind": "constraint",
-      "domain": "vehicle",
-      "statement": {
-        "status": "known",
-        "text": "A flight controller board is selected"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: A flight controller board is selected"
-          }
-        ]
-      },
-      "feature_id": "manage_autopilot_lifecycle",
-      "journey_id": "start_autopilot",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/vehicle/autopilot/CON/Other::An autopilot is available to stop",
-      "kind": "constraint",
-      "domain": "vehicle",
-      "statement": {
-        "status": "known",
-        "text": "An autopilot is available to stop"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: An autopilot is available to stop"
-          }
-        ]
-      },
-      "feature_id": "manage_autopilot_lifecycle",
-      "journey_id": "stop_autopilot",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/vehicle/autopilot/CON/Network::Online",
-      "kind": "constraint",
-      "domain": "vehicle",
-      "statement": {
-        "status": "known",
-        "text": "network connectivity is available"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: network connectivity is available"
-          }
-        ]
-      },
-      "feature_id": "flash_firmware",
-      "journey_id": "update_firmware_online",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/vehicle/autopilot/CON/Other::A compatible flight controller board is connected",
-      "kind": "constraint",
-      "domain": "vehicle",
-      "statement": {
-        "status": "known",
-        "text": "A compatible flight controller board is connected"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: A compatible flight controller board is connected"
-          }
-        ]
-      },
-      "feature_id": "flash_firmware",
-      "journey_id": "update_firmware_online",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/vehicle/autopilot/CON/Other::A flight controller board is connected",
-      "kind": "constraint",
-      "domain": "vehicle",
-      "statement": {
-        "status": "known",
-        "text": "A flight controller board is connected"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: A flight controller board is connected"
-          }
-        ]
-      },
-      "feature_id": "flash_firmware",
-      "journey_id": "restore_default_firmware",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/onboard_computer/files_kv/CON/Software::PirateMode",
-      "kind": "constraint",
-      "domain": "onboard_computer",
-      "statement": {
-        "status": "known",
-        "text": "pirate mode is enabled"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: pirate mode is enabled"
-          }
-        ]
-      },
-      "feature_id": "edit_bag_json_store",
-      "journey_id": "modify_bag_database",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/network/identity_discovery/CON/NetworkResource::WiredEthernetPresent",
-      "kind": "constraint",
-      "domain": "network",
-      "statement": {
-        "status": "known",
-        "text": "wired Ethernet is present"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: wired Ethernet is present"
-          }
-        ]
-      },
-      "feature_id": null,
-      "journey_id": "discover_blueos_on_network",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/network/identity_discovery/CON/Other::BlueOS is connected via a wired connection so blueos.local is reachable",
-      "kind": "constraint",
-      "domain": "network",
-      "statement": {
-        "status": "known",
-        "text": "BlueOS is connected via a wired connection so blueos.local is reachable"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: BlueOS is connected via a wired connection so blueos.local is reachable"
-          }
-        ]
-      },
-      "feature_id": null,
-      "journey_id": "discover_blueos_on_network",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/peripherals/serial_bridge/CON/Software::AdvancedMode",
-      "kind": "constraint",
-      "domain": "peripherals",
-      "statement": {
-        "status": "known",
-        "text": "advanced mode is enabled"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: advanced mode is enabled"
-          }
-        ]
-      },
-      "feature_id": "list_configured_serial_bridges",
-      "journey_id": "view_configured_serial_bridges",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/peripherals/serial_bridge/CON/Hardware::UsbSerialDevice",
-      "kind": "constraint",
-      "domain": "peripherals",
-      "statement": {
-        "status": "known",
-        "text": "a USB serial device is connected"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: a USB serial device is connected"
-          }
-        ]
-      },
-      "feature_id": "create_serial_to_udp_bridge",
-      "journey_id": "create_serial_to_udp_bridge",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/peripherals/serial_bridge/CON/Data::SerialBridgeConfigured",
-      "kind": "constraint",
-      "domain": "peripherals",
-      "statement": {
-        "status": "known",
-        "text": "a serial bridge is configured"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: a serial bridge is configured"
-          }
-        ]
-      },
-      "feature_id": "remove_serial_bridge",
-      "journey_id": "remove_serial_bridge",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/network/wired_network/CON/Other::The interface has at least one static IP address to use as the DHCP gateway",
-      "kind": "constraint",
-      "domain": "network",
-      "statement": {
-        "status": "known",
-        "text": "The interface has at least one static IP address to use as the DHCP gateway"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: The interface has at least one static IP address to use as the DHCP gateway"
-          }
-        ]
-      },
-      "feature_id": "enable_dhcp_server",
-      "journey_id": "enable_onboard_dhcp_server",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/network/wired_network/CON/Data::OnboardDhcpServerActive",
-      "kind": "constraint",
-      "domain": "network",
-      "statement": {
-        "status": "known",
-        "text": "the onboard DHCP server is active"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: the onboard DHCP server is active"
-          }
-        ]
-      },
-      "feature_id": "disable_dhcp_server",
-      "journey_id": "disable_onboard_dhcp_server",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/onboard_computer/host_control/CON/Software::ConfirmDangerousOp",
-      "kind": "constraint",
-      "domain": "onboard_computer",
-      "statement": {
-        "status": "known",
-        "text": "the operator confirmed a dangerous operation"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: the operator confirmed a dangerous operation"
-          }
-        ]
-      },
-      "feature_id": "reboot_onboard_computer",
-      "journey_id": "reboot_onboard_computer",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/presentation/branding_ui/CON/Other::A custom logo has been uploaded",
-      "kind": "constraint",
-      "domain": "presentation",
-      "statement": {
-        "status": "known",
-        "text": "A custom logo has been uploaded"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: A custom logo has been uploaded"
-          }
-        ]
-      },
-      "feature_id": "remove_branding_logo",
-      "journey_id": "remove_custom_logo",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/presentation/branding_ui/CON/Other::A custom vehicle image has been uploaded",
-      "kind": "constraint",
-      "domain": "presentation",
-      "statement": {
-        "status": "known",
-        "text": "A custom vehicle image has been uploaded"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: A custom vehicle image has been uploaded"
-          }
-        ]
-      },
-      "feature_id": "remove_branding_vehicle_image",
-      "journey_id": "remove_custom_vehicle_image",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/presentation/branding_ui/CON/Other::At least one model override has been uploaded",
-      "kind": "constraint",
-      "domain": "presentation",
-      "statement": {
-        "status": "known",
-        "text": "At least one model override has been uploaded"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: At least one model override has been uploaded"
-          }
-        ]
-      },
-      "feature_id": "delete_model_override",
-      "journey_id": "delete_3d_model_override",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/onboard_computer/storage/CON/Other::Onboard storage is low or the high disk usage warning is shown",
-      "kind": "constraint",
-      "domain": "onboard_computer",
-      "statement": {
-        "status": "known",
-        "text": "Onboard storage is low or the high disk usage warning is shown"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: Onboard storage is low or the high disk usage warning is shown"
-          }
-        ]
-      },
-      "feature_id": "delete_disk_paths",
-      "journey_id": "free_disk_space",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/onboard_computer/storage/CON/Other::disktest binary is available on PATH",
-      "kind": "constraint",
-      "domain": "onboard_computer",
-      "statement": {
-        "status": "known",
-        "text": "disktest binary is available on PATH"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: disktest binary is available on PATH"
-          }
-        ]
-      },
-      "feature_id": "run_disk_speed_test",
-      "journey_id": "run_single_disk_speed_test",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/vehicle/autopilot/CON/Other::vehicle is stationary while the gyro is calibrated",
-      "kind": "constraint",
-      "domain": "vehicle",
-      "statement": {
-        "status": "known",
-        "text": "vehicle is stationary while the gyro is calibrated"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: vehicle is stationary while the gyro is calibrated"
-          }
-        ]
-      },
-      "feature_id": "calibrate_gyroscope",
-      "journey_id": "calibrate_gyroscope",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/vehicle/autopilot/CON/Other::vehicle can be physically rotated through six orientations for full calibration",
-      "kind": "constraint",
-      "domain": "vehicle",
-      "statement": {
-        "status": "known",
-        "text": "vehicle can be physically rotated through six orientations for full calibration"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: vehicle can be physically rotated through six orientations for full calibration"
-          }
-        ]
-      },
-      "feature_id": "derive_sensor_calibration_status",
-      "journey_id": "calibrate_accelerometer",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/vehicle/autopilot/CON/Other::vehicle can be rotated about all axes for full onboard compass calibration",
-      "kind": "constraint",
-      "domain": "vehicle",
-      "statement": {
-        "status": "known",
-        "text": "vehicle can be rotated about all axes for full onboard compass calibration"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: vehicle can be rotated about all axes for full onboard compass calibration"
-          }
-        ]
-      },
-      "feature_id": "calibrate_compass",
-      "journey_id": "calibrate_compass",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/vehicle/autopilot/CON/Other::barometer calibration is performed at the start of each dive_flight",
-      "kind": "constraint",
-      "domain": "vehicle",
-      "statement": {
-        "status": "known",
-        "text": "barometer calibration is performed at the start of each dive/flight"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: barometer calibration is performed at the start of each dive/flight"
-          }
-        ]
-      },
-      "feature_id": "calibrate_barometer",
-      "journey_id": "calibrate_barometer",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/vehicle/autopilot/CON/Other::vehicle rests on a level surface in its normal operating orientation",
-      "kind": "constraint",
-      "domain": "vehicle",
-      "statement": {
-        "status": "known",
-        "text": "vehicle rests on a level surface in its normal operating orientation"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: vehicle rests on a level surface in its normal operating orientation"
-          }
-        ]
-      },
-      "feature_id": "level_horizon",
-      "journey_id": "level_horizon",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/vehicle/autopilot/CON/Other::vehicle is safe to arm and briefly spin its motors",
-      "kind": "constraint",
-      "domain": "vehicle",
-      "statement": {
-        "status": "known",
-        "text": "vehicle is safe to arm and briefly spin its motors"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: vehicle is safe to arm and briefly spin its motors"
-          }
-        ]
-      },
-      "feature_id": "detect_motor_directions",
-      "journey_id": "detect_motor_directions",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/peripherals/camera/CON/Hardware::UsbCamera",
-      "kind": "constraint",
-      "domain": "peripherals",
-      "statement": {
-        "status": "known",
-        "text": "a USB camera is connected"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: a USB camera is connected"
-          }
-        ]
-      },
-      "feature_id": "replace_stream_configuration",
-      "journey_id": "configure_video_stream",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/blueos_platform/extensions/CON/Data::ExtensionInstalled",
-      "kind": "constraint",
-      "domain": "blueos_platform",
-      "statement": {
-        "status": "known",
-        "text": "an extension is installed"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: an extension is installed"
-          }
-        ]
-      },
-      "feature_id": "manage_extension_lifecycle",
-      "journey_id": "configure_installed_extension",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/peripherals/camera/CON/Other::At least one configured stream is listed on a device card",
-      "kind": "constraint",
-      "domain": "peripherals",
-      "statement": {
-        "status": "known",
-        "text": "At least one configured stream is listed on a device card"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: At least one configured stream is listed on a device card"
-          }
-        ]
-      },
-      "feature_id": "remove_camera_stream",
-      "journey_id": "remove_camera_stream",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/peripherals/gps_nmea/CON/Hardware::ExternalNmeaGps",
-      "kind": "constraint",
-      "domain": "peripherals",
-      "statement": {
-        "status": "known",
-        "text": "an external NMEA GPS is connected"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: an external NMEA GPS is connected"
-          }
-        ]
-      },
-      "feature_id": "create_nmea_socket",
-      "journey_id": "add_external_nmea_gps_socket",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/peripherals/gps_nmea/CON/Data::NmeaSocketConfigured",
-      "kind": "constraint",
-      "domain": "peripherals",
-      "statement": {
-        "status": "known",
-        "text": "an NMEA socket is configured"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: an NMEA socket is configured"
-          }
-        ]
-      },
-      "feature_id": "remove_nmea_socket",
-      "journey_id": "remove_configured_nmea_socket",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/peripherals/sonar/CON/HardwarePresent::Ping family sonar device",
-      "kind": "constraint",
-      "domain": "peripherals",
-      "statement": {
-        "status": "known",
-        "text": "Ping family sonar device hardware is present"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: Ping family sonar device hardware is present"
-          }
-        ]
-      },
-      "feature_id": "connect_ping_viewer_to_sonar",
-      "journey_id": "connect_ping_viewer_to_sonar",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/peripherals/sonar/CON/Hardware::Ping1d",
-      "kind": "constraint",
-      "domain": "peripherals",
-      "statement": {
-        "status": "known",
-        "text": "a Ping1D sonar is connected"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: a Ping1D sonar is connected"
-          }
-        ]
-      },
-      "feature_id": "enable_ping1d_mavlink_distance",
-      "journey_id": "enable_ping1d_rangefinder_mavlink",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/vehicle/recording/CON/Data::RecordingListed",
-      "kind": "constraint",
-      "domain": "vehicle",
-      "statement": {
-        "status": "known",
-        "text": "a video recording is listed"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: a video recording is listed"
-          }
-        ]
-      },
-      "feature_id": "download_video_recording",
-      "journey_id": "download_video_recording",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/blueos_platform/versioning/CON/Data::LocalBlueosVersionAvailable",
-      "kind": "constraint",
-      "domain": "blueos_platform",
-      "statement": {
-        "status": "known",
-        "text": "a local BlueOS version image is available"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: a local BlueOS version image is available"
-          }
-        ]
-      },
-      "feature_id": "switch_blueos_version",
-      "journey_id": "switch_local_blueos_version",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/network/wireless_network/CON/NetworkResource::KnownWifiNetwork",
-      "kind": "constraint",
-      "domain": "network",
-      "statement": {
-        "status": "known",
-        "text": "a known Wi-Fi network is available"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: a known Wi-Fi network is available"
-          }
-        ]
-      },
-      "feature_id": "connect_wifi_network",
-      "journey_id": "connect_to_wifi_network",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/network/wireless_network/CON/Data::WifiCurrentlyConnected",
-      "kind": "constraint",
-      "domain": "network",
-      "statement": {
-        "status": "known",
-        "text": "Wi-Fi is currently connected"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: Wi-Fi is currently connected"
-          }
-        ]
-      },
-      "feature_id": "disconnect_wifi_network",
-      "journey_id": "disconnect_from_wifi_network",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/network/wireless_network/CON/Data::WifiNetworkSaved",
-      "kind": "constraint",
-      "domain": "network",
-      "statement": {
-        "status": "known",
-        "text": "a Wi-Fi network is saved"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: a Wi-Fi network is saved"
-          }
-        ]
-      },
-      "feature_id": "remove_saved_wifi_network",
-      "journey_id": "forget_saved_wifi_network",
-      "function_id": null,
-      "verifying_journeys": [],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/network/wireless_network/CON/NetworkResource::HotspotCapable",
-      "kind": "constraint",
-      "domain": "network",
-      "statement": {
-        "status": "known",
-        "text": "hotspot capability is available"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "precondition: hotspot capability is available"
-          }
-        ]
-      },
-      "feature_id": "toggle_hotspot",
-      "journey_id": "toggle_hotspot",
-      "function_id": null,
-      "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -11766,6 +12476,18 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "wired Ethernet is present",
+          "source_use_case": "discover_blueos_on_network",
+          "kind": "network"
+        },
+        {
+          "statement": "BlueOS is connected via a wired connection so blueos.local is reachable",
+          "source_use_case": "discover_blueos_on_network",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -11791,6 +12513,18 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "wired Ethernet is present",
+          "source_use_case": "discover_blueos_on_network",
+          "kind": "network"
+        },
+        {
+          "statement": "BlueOS is connected via a wired connection so blueos.local is reachable",
+          "source_use_case": "discover_blueos_on_network",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -11816,6 +12550,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "Onboard storage is low or the high disk usage warning is shown",
+          "source_use_case": "free_disk_space",
+          "kind": "other"
+        }
+      ],
       "availability_present": true
     },
     {
@@ -11844,6 +12585,13 @@
       "journey_id": null,
       "function_id": null,
       "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "the operator confirmed a dangerous operation",
+          "source_use_case": "reboot_onboard_computer",
+          "kind": "software"
+        }
+      ],
       "availability_present": true
     }
   ],

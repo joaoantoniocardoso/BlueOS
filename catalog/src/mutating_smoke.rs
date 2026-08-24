@@ -2,7 +2,9 @@ use std::fmt;
 
 use crate::catalog::Catalog;
 use crate::id::JourneyId;
-use crate::journey::{derive_automatable, Automatable, HttpMethod, UserJourney};
+use crate::journey::{
+    derive_automatable, http_automatable, HttpMethod, UseCase, VerificationMethod,
+};
 use crate::runner::http_steps;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -555,7 +557,7 @@ pub fn is_mutating_smoke_journey(journey_id: JourneyId) -> bool {
         .any(|entry| entry.journey_id == journey_id)
 }
 
-pub fn journey_has_mutating_http_route(journey: &UserJourney) -> bool {
+pub fn journey_has_mutating_http_route(journey: &UseCase) -> bool {
     http_steps(journey).iter().any(|step| {
         !matches!(step.route.method, HttpMethod::Get)
             || is_side_effecting_get_mutate(journey.id, &step.route)
@@ -569,13 +571,13 @@ fn is_side_effecting_get_mutate(journey_id: JourneyId, route: &crate::journey::R
         && route.path == "/disconnect"
 }
 
-pub fn is_tier2_mutating_eligible(journey: &UserJourney) -> bool {
+pub fn is_tier2_mutating_eligible(journey: &UseCase) -> bool {
     if journey.id == JourneyId::ShutdownOnboardComputer {
         return false;
     }
     let automatable = derive_automatable(journey);
-    if automatable != Automatable::Http && automatable != Automatable::Hardware
-        || (automatable == Automatable::Hardware
+    if !http_automatable(journey) && automatable != VerificationMethod::Demo
+        || (automatable == VerificationMethod::Demo
             && !HARDWARE_MUTATING_EXCEPTIONS.contains(&journey.id))
     {
         return false;
@@ -603,9 +605,7 @@ pub fn tier2_mutating_coverage(catalog: &Catalog) -> Tier2MutatingCoverage {
 
     for journey in catalog.journeys() {
         if is_tier2_mutating_hard_excluded(journey.id) {
-            if journey_has_mutating_http_route(journey)
-                && derive_automatable(journey) == Automatable::Http
-            {
+            if journey_has_mutating_http_route(journey) && http_automatable(journey) {
                 excluded.push(journey.id);
             }
             continue;

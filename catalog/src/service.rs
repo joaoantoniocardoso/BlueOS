@@ -2,7 +2,7 @@ use schemars::JsonSchema;
 use serde::Serialize;
 
 use crate::criticality::CriticalityTier;
-use crate::edge::Edge;
+use crate::edge::Connection;
 use crate::id::{CapabilityId, JourneyId, PathRef, ServiceId};
 use crate::lifecycle::Lifecycle;
 use crate::observed::ObservedFacts;
@@ -16,12 +16,12 @@ use crate::trust::{DangerousOperation, PrivilegeLevel, UserConfirmation};
 pub struct Service {
     pub id: ServiceId,
     pub observed: ObservedFacts,
-    pub definition: ServiceDefinition,
+    pub definition: ServiceJudgment,
     pub runtime: RuntimeFacts,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
-pub struct ServiceDefinition {
+pub struct ServiceJudgment {
     pub id: ServiceId,
     pub singleton: Asserted<bool>,
     pub bounded_context: Asserted<&'static str>,
@@ -34,7 +34,7 @@ pub struct ServiceDefinition {
     pub capabilities: AssertedSet<CapabilityId>,
     pub authorities: AssertedSet<Authority>,
     pub states: AssertedSet<StateMachine>,
-    pub edges: AssertedSet<Edge>,
+    pub edges: AssertedSet<Connection>,
     pub resources: AssertedSet<Resource>,
     pub lifecycle: Lifecycle,
     pub health: Asserted<&'static str>,

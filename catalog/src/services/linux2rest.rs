@@ -1,6 +1,6 @@
 use crate::criticality::CriticalityTier;
 use crate::id::{CapabilityId, JourneyId, PathRef, PortRef, ServiceId};
-use crate::interface::Interface;
+use crate::interface::PortKind;
 use crate::journey::{HttpMethod, RouteRef};
 use crate::lifecycle::{Lifecycle, ObservedLifecycle};
 use crate::observed::{ObservedFacts, ResourceLimits, ServiceKind, StartupTier};
@@ -9,7 +9,7 @@ use crate::provenance::{
     Provenance, Rationaled,
 };
 use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts, SloBaseline};
-use crate::service::{Authority, Service, ServiceDefinition};
+use crate::service::{Authority, Service, ServiceJudgment};
 use crate::trust::{PrivilegeLevel, UserConfirmation};
 
 // capture used RepoDigest as primary
@@ -199,7 +199,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
             "external Rust binary (upstream github.com/bluerobotics/linux2rest); no source tree in this repository",
         ),
         interfaces: ObservedSet::known(&[Evidenced::new(
-            Interface::Rest {
+            PortKind::Rest {
                 path_prefix: PathRef("/system-information/"),
                 port: PortRef::Literal(6030),
                 versions: &[],
@@ -264,8 +264,8 @@ pub const OBSERVED_FACTS: ObservedFacts =
         openapi_refs: ObservedSet::unknown("not yet extracted"),
     };
 
-pub const SERVICE_DEFINITION: ServiceDefinition =
-    ServiceDefinition {
+pub const SERVICE_DEFINITION: ServiceJudgment =
+    ServiceJudgment {
         id: ServiceId::Linux2rest,
         singleton: Asserted::established(
             true,

@@ -22,6 +22,8 @@ echo "== provenance (citations resolve) =="
 cargo run -q --bin provenance_lint
 echo "== export (schema/json build) =="
 cargo run -q --bin export >/dev/null
+echo "== sysml export (subset golden) =="
+cargo run -q --bin sysml_export -- --check
 # feature-traces local gate (NEXT15 P3): drift_check + sibling_matrix +
 # --check-goldens, all offline/no-`gh` (mirrors N3's --strict-goldens opt-out,
 # which stays a separate manual step). Skipped if the script isn't present

@@ -1,6 +1,6 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, BlastRadius, JourneyStep, Precondition, SoftwareRequirement, StepOutcome, UserJourney,
+    Actor, BlastRadius, JourneyStep, Precondition, SoftwareAssumption, StepOutcome, UseCase,
     Visibility,
 };
 use crate::journey_presence::PRESENCE_ACCESS_WEB_TERMINAL;
@@ -12,10 +12,10 @@ const TERMINAL_MENUS: &str = "core/frontend/src/menus.ts";
 const TERMINAL_VIEW: &str = "core/frontend/src/views/TerminalView.vue";
 const NGINX: &str = "core/tools/nginx/nginx.conf";
 
-pub const JOURNEYS: &[UserJourney] = &[ACCESS_WEB_TERMINAL];
+pub const JOURNEYS: &[UseCase] = &[ACCESS_WEB_TERMINAL];
 
-const ACCESS_WEB_TERMINAL: UserJourney =
-    UserJourney {
+const ACCESS_WEB_TERMINAL: UseCase =
+    UseCase {
         id: JourneyId::AccessWebTerminal,
         summary: Grounded::known(
             "Access a web-based terminal with tmux session and direct access into the core BlueOS docker container"
@@ -28,7 +28,7 @@ const ACCESS_WEB_TERMINAL: UserJourney =
             "Terminal page embeds ttyd web terminal over WebSocket at /terminal/ attached to user_terminal tmux",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
-            Precondition::Software(SoftwareRequirement::AdvancedMode),
+            Precondition::Software(SoftwareAssumption::AdvancedMode),
             Provenance::source(TERMINAL_MENUS, 117, "advanced: false,"),
         )]),
         steps: GroundedSet::known(&[

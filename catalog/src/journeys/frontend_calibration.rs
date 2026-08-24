@@ -1,6 +1,6 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, BlastRadius, JourneyStep, Precondition, StepOutcome, UserJourney, Visibility,
+    Actor, BlastRadius, JourneyStep, Precondition, StepOutcome, UseCase, Visibility,
 };
 use crate::journey_presence::{
     PRESENCE_CALIBRATE_ACCELEROMETER, PRESENCE_CALIBRATE_BAROMETER, PRESENCE_CALIBRATE_COMPASS,
@@ -42,7 +42,7 @@ const BR_DETECT_MOTOR_DIRECTIONS: Grounded<BlastRadius> = Grounded::known(
     ),
 );
 
-pub const JOURNEYS: &[UserJourney] = &[
+pub const JOURNEYS: &[UseCase] = &[
     CALIBRATE_GYROSCOPE,
     CALIBRATE_ACCELEROMETER,
     CALIBRATE_COMPASS,
@@ -51,7 +51,7 @@ pub const JOURNEYS: &[UserJourney] = &[
     DETECT_MOTOR_DIRECTIONS,
 ];
 
-const CALIBRATE_GYROSCOPE: UserJourney = UserJourney {
+const CALIBRATE_GYROSCOPE: UseCase = UseCase {
     id: JourneyId::CalibrateGyroscope,
     summary: Grounded::known(
         "Operator calibrates the gyroscope from the Vehicle Setup > Configure tab; the browser drives the preflight calibration and shows live gyro offsets",
@@ -92,7 +92,7 @@ const CALIBRATE_GYROSCOPE: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const CALIBRATE_ACCELEROMETER: UserJourney = UserJourney {
+const CALIBRATE_ACCELEROMETER: UseCase = UseCase {
     id: JourneyId::CalibrateAccelerometer,
     summary: Grounded::known(
         "Operator runs a full six-position or quick accelerometer calibration from the Configure tab; the browser sequences the orientation steps",
@@ -144,7 +144,7 @@ const CALIBRATE_ACCELEROMETER: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const CALIBRATE_COMPASS: UserJourney = UserJourney {
+const CALIBRATE_COMPASS: UseCase = UseCase {
     id: JourneyId::CalibrateCompass,
     summary: Grounded::known(
         "Operator calibrates the compass with the full onboard rotation wizard or the large-vehicle single-heading method",
@@ -186,7 +186,7 @@ const CALIBRATE_COMPASS: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const CALIBRATE_BAROMETER: UserJourney = UserJourney {
+const CALIBRATE_BAROMETER: UseCase = UseCase {
     id: JourneyId::CalibrateBarometer,
     summary: Grounded::known(
         "Operator sets the reference pressure by calibrating the barometer at the start of a dive/flight",
@@ -222,7 +222,7 @@ const CALIBRATE_BAROMETER: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const LEVEL_HORIZON: UserJourney = UserJourney {
+const LEVEL_HORIZON: UseCase = UseCase {
     id: JourneyId::LevelHorizon,
     summary: Grounded::known(
         "Operator levels the horizon by placing the vehicle on a level surface and running board-level calibration",
@@ -254,7 +254,7 @@ const LEVEL_HORIZON: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const DETECT_MOTOR_DIRECTIONS: UserJourney = UserJourney {
+const DETECT_MOTOR_DIRECTIONS: UseCase = UseCase {
     id: JourneyId::DetectMotorDirections,
     summary: Grounded::known(
         "Operator runs the automated check that detects motors spinning backwards and lets them be reversed",

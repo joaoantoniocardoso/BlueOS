@@ -7,17 +7,17 @@ use thiserror::Error;
 use crate::capability::Aggregate;
 use crate::catalog::Catalog;
 use crate::domain::{ALL_AGGREGATES, DOMAINS};
-use crate::feature::FeatureCatalog;
-use crate::function::{capability_exists, function_id_looks_like_http_path, FunctionCatalog};
+use crate::feature::validate_capabilities;
+use crate::function::{capability_exists, function_id_looks_like_http_path, ActionCatalog};
 use crate::harness_ratchet::harness_ratchet_counts;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
-use crate::journey::UserJourney;
+use crate::journey::UseCase;
 use crate::page::{ConsumeTarget, PageId};
 use crate::provenance::{AssertedSet, Grounded, GroundedSet, ObservedSet, Provenance};
-use crate::requirement::{RequirementCatalog, RequirementKind};
+use crate::requirement::{RequirementCatalog, RequirementClass};
 use crate::resource::ResourceOwnership;
 use crate::runner::{http_method_label, resolve_http_path};
-use crate::service::{Authority, Service, ServiceDefinition};
+use crate::service::{Authority, Service, ServiceJudgment};
 use crate::state::StateMachine;
 use crate::version::availability_is_valid;
 
@@ -501,7 +501,7 @@ fn format_available_route_keys(method_label: &str, keys: &[&str]) -> String {
     hint
 }
 
-fn participating_service_ids(journey: &UserJourney) -> Vec<&ServiceId> {
+fn participating_service_ids(journey: &UseCase) -> Vec<&ServiceId> {
     match &journey.services {
         GroundedSet::Known { items } => items.iter().map(|item| &item.value).collect(),
         GroundedSet::Unknown { .. } => Vec::new(),
@@ -692,7 +692,7 @@ fn check_domain_taxonomy() -> Vec<ValidationError> {
     errors
 }
 
-fn count_unknown_in_service(service: &ServiceDefinition) -> usize {
+fn count_unknown_in_service(service: &ServiceJudgment) -> usize {
     let mut count = 0;
     count += service.singleton.is_unknown() as usize;
     count += service.bounded_context.is_unknown() as usize;
@@ -734,9 +734,14 @@ fn check_requirements(catalog: &Catalog) -> Vec<ValidationError> {
     if !requirements_check_applies(catalog) {
         return Vec::new();
     }
-    let features = FeatureCatalog::from_catalog(catalog);
+    if let Err(capability_errors) = validate_capabilities(catalog) {
+        return capability_errors
+            .into_iter()
+            .map(|detail| ValidationError::RequirementStructure { detail })
+            .collect();
+    }
     let requirements = RequirementCatalog::from_catalog(catalog);
-    match requirements.validate_structure(catalog, &features) {
+    match requirements.validate_structure(catalog) {
         Ok(()) => Vec::new(),
         Err(req_errors) => req_errors
             .into_iter()
@@ -762,14 +767,14 @@ fn check_functions(catalog: &Catalog) -> Vec<ValidationError> {
         return Vec::new();
     }
 
-    let functions = FunctionCatalog::from_catalog(catalog);
+    let functions = ActionCatalog::from_catalog(catalog);
     let requirements = RequirementCatalog::from_catalog(catalog);
     check_function_integrity(catalog, &functions, &requirements)
 }
 
 fn check_function_integrity(
     catalog: &Catalog,
-    functions: &FunctionCatalog,
+    functions: &ActionCatalog,
     requirements: &RequirementCatalog,
 ) -> Vec<ValidationError> {
     let journey_ids: HashSet<&str> = catalog
@@ -810,7 +815,7 @@ fn check_function_integrity(
         let has_fun = requirements
             .requirements()
             .iter()
-            .any(|req| req.kind == RequirementKind::Functional && req.id.0.ends_with(&fun_suffix));
+            .any(|req| req.kind == RequirementClass::Functional && req.id.0.ends_with(&fun_suffix));
         if !has_fun {
             errors.push(ValidationError::MissingFunRequirement {
                 function: function_id,
@@ -819,23 +824,23 @@ fn check_function_integrity(
     }
 
     for requirement in requirements.requirements() {
-        if requirement.kind != RequirementKind::Functional {
+        if requirement.kind != RequirementClass::Functional {
             continue;
         }
         let id = requirement.id.0.clone();
         if requirement.function_id.is_none() {
             errors.push(ValidationError::FunRequirementMissingFunctionId { id: id.clone() });
         }
-        if requirement.verifying_journeys.is_empty() {
+        if requirement.requirement_verifications.is_empty() {
             errors.push(ValidationError::FunRequirementNoVerifyingJourneys { id });
         }
     }
 
     for requirement in requirements.requirements() {
-        if requirement.kind != RequirementKind::System || requirement.id.0.contains("/SYS-OVR/") {
+        if requirement.kind != RequirementClass::System || requirement.id.0.contains("/SYS-OVR/") {
             continue;
         }
-        for child in &requirement.functional_children {
+        for child in &requirement.subrequirements {
             if !child.0.contains("/FUN/") {
                 errors.push(ValidationError::SystemChildNotFunId {
                     id: requirement.id.0.clone(),
@@ -851,11 +856,11 @@ fn check_function_integrity(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::edge::{Bus, Edge, FailureImpact, SyncMode};
+    use crate::edge::{Bus, Connection, FailureImpact, SyncMode};
     use crate::id::{CapabilityId, JourneyId, PathRef, ServiceId};
     use crate::journey::{
-        Actor, BodyKind, HttpMethod, JourneyStep, RouteRef, StateTransition, StepOutcome,
-        UserJourney, Visibility, BLAST_RADIUS_UNKNOWN,
+        Actor, BodyKind, HttpMethod, JourneyStep, RouteRef, StateTransition, StepOutcome, UseCase,
+        Visibility, BLAST_RADIUS_UNKNOWN,
     };
     use crate::lifecycle::Lifecycle;
     use crate::observed::ObservedFacts;
@@ -869,9 +874,9 @@ mod tests {
     use crate::runtime::{RuntimeFacts, StateContract};
     use crate::service::Service;
     use crate::state::StateMachine;
-    use crate::version::FeatureAvailability;
+    use crate::version::Availability;
 
-    const TEST_PRESENCE: FeatureAvailability = FeatureAvailability {
+    const TEST_PRESENCE: Availability = Availability {
         intro_commit: "0000000000000000000000000000000000000001",
         present_in_tags: &["1.0.0"],
         present_on_master: true,
@@ -886,8 +891,8 @@ mod tests {
         }
     }
 
-    fn empty_service(id: ServiceId) -> ServiceDefinition {
-        ServiceDefinition {
+    fn empty_service(id: ServiceId) -> ServiceJudgment {
+        ServiceJudgment {
             id,
             singleton: Asserted::unknown("not established"),
             bounded_context: Asserted::unknown("not established"),
@@ -959,7 +964,7 @@ mod tests {
     fn svc(
         id: ServiceId,
         observed: ObservedFacts,
-        definition: ServiceDefinition,
+        definition: ServiceJudgment,
         runtime: RuntimeFacts,
     ) -> Service {
         Service {
@@ -1083,7 +1088,7 @@ mod tests {
         service_a.edges = AssertedSet::established(
             const {
                 &[Rationaled::new(
-                    Edge {
+                    Connection {
                         from: ServiceId::Ping,
                         to: ServiceId::Zenohd,
                         via: Bus::Rest,
@@ -1116,7 +1121,7 @@ mod tests {
             .any(|e| matches!(e, ValidationError::UnknownEdgeTarget { .. })));
     }
 
-    fn valid_journey_service(id: ServiceId) -> ServiceDefinition {
+    fn valid_journey_service(id: ServiceId) -> ServiceJudgment {
         let mut service = empty_service(id);
         service.capabilities =
             AssertedSet::established(const { &[Rationaled::new(CapabilityId::Deploy, "test")] });
@@ -1136,8 +1141,8 @@ mod tests {
         service
     }
 
-    fn valid_journey() -> UserJourney {
-        UserJourney {
+    fn valid_journey() -> UseCase {
+        UseCase {
             id: JourneyId::Deploy,
             summary: Grounded::known("deploy vehicle", Provenance::doc("docs/deploy.md", 1, "")),
             visibility: Grounded::known(
@@ -1203,8 +1208,8 @@ mod tests {
     #[test]
     fn invalid_journey_availability_fails_validate() {
         let service = valid_journey_service(ServiceId::Helper);
-        let journey = UserJourney {
-            availability: FeatureAvailability::unknown(),
+        let journey = UseCase {
+            availability: Availability::unknown(),
             ..valid_journey()
         };
         let catalog = Catalog::with_parts(
@@ -1249,7 +1254,7 @@ mod tests {
     #[test]
     fn unknown_journey_service_ref_fails() {
         let service = valid_journey_service(ServiceId::Helper);
-        let journey = UserJourney {
+        let journey = UseCase {
             services: GroundedSet::known(
                 const {
                     &[GroundedItem::new(
@@ -1279,7 +1284,7 @@ mod tests {
     #[test]
     fn unknown_journey_route_service_fails() {
         let service = valid_journey_service(ServiceId::Helper);
-        let journey = UserJourney {
+        let journey = UseCase {
             steps: GroundedSet::known(
                 const {
                     &[GroundedItem::new(
@@ -1362,7 +1367,7 @@ mod tests {
     #[test]
     fn unknown_journey_state_fails() {
         let service = valid_journey_service(ServiceId::Helper);
-        let journey = UserJourney {
+        let journey = UseCase {
             steps: GroundedSet::known(
                 const {
                     &[GroundedItem::new(
@@ -1417,7 +1422,7 @@ mod tests {
     #[test]
     fn unknown_journey_state_machine_name_fails() {
         let service = valid_journey_service(ServiceId::Helper);
-        let journey = UserJourney {
+        let journey = UseCase {
             steps: GroundedSet::known(
                 const {
                     &[GroundedItem::new(
@@ -1658,7 +1663,7 @@ mod tests {
         use crate::services::helper::OBSERVED_FACTS;
 
         let service = empty_service(ServiceId::Helper);
-        let journey = UserJourney {
+        let journey = UseCase {
             id: JourneyId::MonitorInternetConnectivity,
             summary: Grounded::known("test", Provenance::doc("test.md", 1, "")),
             visibility: Grounded::known(Visibility::Default, Provenance::doc("test.md", 1, "")),
@@ -1736,19 +1741,19 @@ mod tests {
     #[test]
     fn function_integrity_checks_fail_when_fun_rows_are_broken() {
         let catalog = Catalog::bootstrap();
-        let functions = FunctionCatalog::from_catalog(&catalog);
+        let functions = ActionCatalog::from_catalog(&catalog);
 
         let mut missing_fun = RequirementCatalog::from_catalog(&catalog);
         missing_fun
             .requirements
-            .retain(|req| req.kind != RequirementKind::Functional);
+            .retain(|req| req.kind != RequirementClass::Functional);
         assert!(check_function_integrity(&catalog, &functions, &missing_fun)
             .iter()
             .any(|error| matches!(error, ValidationError::MissingFunRequirement { .. })));
 
         let mut no_id = RequirementCatalog::from_catalog(&catalog);
         for req in &mut no_id.requirements {
-            if req.kind == RequirementKind::Functional {
+            if req.kind == RequirementClass::Functional {
                 req.function_id = None;
             }
         }
@@ -1761,8 +1766,8 @@ mod tests {
 
         let mut no_journeys = RequirementCatalog::from_catalog(&catalog);
         for req in &mut no_journeys.requirements {
-            if req.kind == RequirementKind::Functional {
-                req.verifying_journeys.clear();
+            if req.kind == RequirementClass::Functional {
+                req.requirement_verifications.clear();
             }
         }
         assert!(check_function_integrity(&catalog, &functions, &no_journeys)
@@ -1780,12 +1785,12 @@ mod tests {
             .requirements
             .iter_mut()
             .find(|req| {
-                req.kind == RequirementKind::System
+                req.kind == RequirementClass::System
                     && !req.id.0.contains("/SYS-OVR/")
-                    && !req.functional_children.is_empty()
+                    && !req.subrequirements.is_empty()
             })
             .expect("system requirement with FUN children");
-        sys.functional_children[0] = child;
+        sys.subrequirements[0] = child;
         assert!(check_function_integrity(&catalog, &functions, &bad_child)
             .iter()
             .any(|error| matches!(error, ValidationError::SystemChildNotFunId { .. })));

@@ -1,6 +1,6 @@
 use crate::criticality::CriticalityTier;
 use crate::id::{CapabilityId, JourneyId, PathRef, PortRef, ServiceId};
-use crate::interface::{FileAccessMode, Interface};
+use crate::interface::{FileAccessMode, PortKind};
 use crate::journey::{HttpMethod, RouteRef};
 use crate::lifecycle::{Lifecycle, ObservedLifecycle};
 use crate::observed::{ObservedFacts, ResourceLimits, ServiceKind, StartupTier};
@@ -10,7 +10,7 @@ use crate::provenance::{
 };
 use crate::resource::{Resource, ResourceOwnership};
 use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts, SloBaseline};
-use crate::service::{Authority, Service, ServiceDefinition};
+use crate::service::{Authority, Service, ServiceJudgment};
 use crate::trust::{DangerousOperation, PrivilegeLevel, UserConfirmation};
 
 use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
@@ -217,7 +217,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
     ),
     interfaces: ObservedSet::known(&[
         Evidenced::new(
-            Interface::Rest {
+            PortKind::Rest {
                 path_prefix: PathRef("/version-chooser/"),
                 port: PortRef::Literal(8081),
                 versions: &["v1.0"],
@@ -229,7 +229,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::OutboundHttp {
+            PortKind::OutboundHttp {
                 url: "https://index.docker.io",
             },
             Evidence {
@@ -239,7 +239,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::OutboundHttp {
+            PortKind::OutboundHttp {
                 url: "https://hub.docker.com/",
             },
             Evidence {
@@ -249,7 +249,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::OutboundHttp {
+            PortKind::OutboundHttp {
                 url: "https://auth.docker.io",
             },
             Evidence {
@@ -259,7 +259,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Settings {
+            PortKind::Settings {
                 path: PathRef("/root/.config/bootstrap/startup.json"),
             },
             Evidence {
@@ -269,7 +269,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::File {
+            PortKind::File {
                 path: PathRef("/var/run/docker.sock"),
                 mode: FileAccessMode::ReadWrite,
             },
@@ -280,7 +280,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::File {
+            PortKind::File {
                 path: PathRef("/root/.docker/config.json"),
                 mode: FileAccessMode::ReadWrite,
             },
@@ -291,7 +291,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::File {
+            PortKind::File {
                 path: PathRef("/home/pi/.docker/config.json"),
                 mode: FileAccessMode::ReadWrite,
             },
@@ -302,7 +302,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Zenoh {
+            PortKind::Zenoh {
                 topics_produced: &["services/version-chooser/log"],
                 topics_consumed: &[],
             },
@@ -420,8 +420,8 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
     openapi_refs: ObservedSet::unknown("not yet extracted"),
 };
 
-pub const SERVICE_DEFINITION: ServiceDefinition =
-    ServiceDefinition {
+pub const SERVICE_DEFINITION: ServiceJudgment =
+    ServiceJudgment {
         id: ServiceId::Versionchooser,
         singleton: Asserted::established(
             true,

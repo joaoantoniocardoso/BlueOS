@@ -27,12 +27,12 @@ use blueos_catalog::{
     run_smoke_http_call, summarize_journey, ui_fixture_skip_reason, ui_plan, ui_suite_plans,
     utc_rfc3339_now, wait_for_blueos, wizard_skip_plan, write_extension_lifecycle_report,
     write_journey_http_report, BlastRadius, Catalog, ConflictKind, DutProfile, DutVersion,
-    EffectReadBefore, EffectReadBeforeResult, FixtureInventory, HttpMethod, JourneyHttpReport,
-    JourneyId, JourneyReportEntry, JourneyResult, McmStreamRestore, McmV4lRestore, NegativeProbe,
-    PreconditionStatus, ReportConflict, ReportDut, RunCounts, RunnableStep, StepResult, SuiteKind,
-    UiJourneyPlan, UserJourney, MUTATING_SMOKE_DEFAULT_FIXTURES, MUTATING_SMOKE_ENTRIES,
-    NEGATIVE_PROBES, SCHEMA_VERSION, SMOKE_CATALOG_STREAM_JSON, SMOKE_CORE_SWITCH_JSON,
-    SMOKE_CORE_SWITCH_TAG, SMOKE_DEFAULT_FIXTURES, UI_CAMERA_JOURNEYS,
+    EffectReadBefore, EffectReadBeforeResult, FixtureInventory, HttpMethod, JourneyId,
+    JourneyResult, McmStreamRestore, McmV4lRestore, NegativeProbe, PreconditionStatus,
+    ReportConflict, ReportDut, RunCounts, RunnableStep, SuiteKind, UiJourneyPlan, UseCase, Verdict,
+    VerificationHttpReport, VerificationRecord, MUTATING_SMOKE_DEFAULT_FIXTURES,
+    MUTATING_SMOKE_ENTRIES, NEGATIVE_PROBES, SCHEMA_VERSION, SMOKE_CATALOG_STREAM_JSON,
+    SMOKE_CORE_SWITCH_JSON, SMOKE_CORE_SWITCH_TAG, SMOKE_DEFAULT_FIXTURES, UI_CAMERA_JOURNEYS,
 };
 
 fn main() {
@@ -347,7 +347,7 @@ fn main() {
 
     let mut totals = RunCounts::default();
     let mut journey_lines: Vec<String> = Vec::new();
-    let mut report_journeys: Vec<JourneyReportEntry> = Vec::new();
+    let mut report_journeys: Vec<VerificationRecord> = Vec::new();
     let mut any_fail = false;
     let emit_report = report_path.is_some() && !dry_run;
     let started_at = if emit_report {
@@ -429,7 +429,7 @@ fn main() {
                 totals.skipped += step_count;
                 journey_lines.push(format!("SKIP {journey_id}: {reason}"));
                 if emit_report {
-                    report_journeys.push(JourneyReportEntry::skipped(
+                    report_journeys.push(VerificationRecord::skipped(
                         journey_id,
                         &journey.availability,
                         reason,
@@ -446,7 +446,7 @@ fn main() {
                 totals.skipped += step_count;
                 journey_lines.push(format!("SKIP {journey_id}: {reason}"));
                 if emit_report {
-                    report_journeys.push(JourneyReportEntry::skipped(
+                    report_journeys.push(VerificationRecord::skipped(
                         journey_id,
                         &journey.availability,
                         reason,
@@ -487,7 +487,7 @@ fn main() {
                     totals.record(result);
                 }
                 if emit_report {
-                    let mut entry = JourneyReportEntry::from_run(
+                    let mut entry = VerificationRecord::from_run(
                         journey_id,
                         &journey.availability,
                         outcome,
@@ -502,7 +502,7 @@ fn main() {
             totals.skipped += journey_step_count(journey, smoke, mutating_smoke);
             journey_lines.push(format!("SKIP {journey_id}: {reason}"));
             if emit_report {
-                report_journeys.push(JourneyReportEntry::skipped(
+                report_journeys.push(VerificationRecord::skipped(
                     journey_id,
                     &journey.availability,
                     reason.clone(),
@@ -519,7 +519,7 @@ fn main() {
             let reason = reasons.join("; ");
             journey_lines.push(format!("SKIP {journey_id}: {reason}"));
             if emit_report {
-                report_journeys.push(JourneyReportEntry::skipped(
+                report_journeys.push(VerificationRecord::skipped(
                     journey_id,
                     &journey.availability,
                     reason,
@@ -551,7 +551,7 @@ fn main() {
             journey_lines.push(format!("SKIP {journey_id}: {reason}"));
             totals.skipped += 1;
             if emit_report {
-                report_journeys.push(JourneyReportEntry::skipped(
+                report_journeys.push(VerificationRecord::skipped(
                     journey_id,
                     &journey.availability,
                     reason,
@@ -601,12 +601,12 @@ fn main() {
                     Err(err) => {
                         eprintln!("FAIL {journey_id} hotspot credentials snapshot — {err}");
                         totals.failed += 1;
-                        step_results.push(StepResult::Fail(err));
+                        step_results.push(Verdict::Fail(err));
                         any_fail = true;
                         journey_lines
                             .push(format!("Fail {journey_id}: hotspot credentials snapshot"));
                         if emit_report {
-                            report_journeys.push(JourneyReportEntry::from_run(
+                            report_journeys.push(VerificationRecord::from_run(
                                 journey_id,
                                 &journey.availability,
                                 JourneyResult::Fail,
@@ -626,11 +626,11 @@ fn main() {
             if let Err(err) = rf_setup {
                 eprintln!("FAIL {journey_id} wifi RF setup — {err}");
                 totals.failed += 1;
-                step_results.push(StepResult::Fail(format!("wifi RF setup — {err}")));
+                step_results.push(Verdict::Fail(format!("wifi RF setup — {err}")));
                 any_fail = true;
                 journey_lines.push(format!("Fail {journey_id}: wifi RF setup"));
                 if emit_report {
-                    report_journeys.push(JourneyReportEntry::from_run(
+                    report_journeys.push(VerificationRecord::from_run(
                         journey_id,
                         &journey.availability,
                         JourneyResult::Fail,
@@ -646,11 +646,11 @@ fn main() {
                     Err(err) => {
                         eprintln!("FAIL {journey_id} UVC snapshot — {err}");
                         totals.failed += 1;
-                        step_results.push(StepResult::Fail(err));
+                        step_results.push(Verdict::Fail(err));
                         any_fail = true;
                         journey_lines.push(format!("Fail {journey_id}: UVC snapshot"));
                         if emit_report {
-                            report_journeys.push(JourneyReportEntry::from_run(
+                            report_journeys.push(VerificationRecord::from_run(
                                 journey_id,
                                 &journey.availability,
                                 JourneyResult::Fail,
@@ -663,7 +663,7 @@ fn main() {
             }
             for call in mutating_smoke_setup_calls(journey_id) {
                 let result = run_smoke_http_call(&catalog, base, call, allow_mutating);
-                if let StepResult::Fail(msg) = &result {
+                if let Verdict::Fail(msg) = &result {
                     eprintln!(
                         "FAIL {journey_id} setup {:?} {} — {msg}",
                         call.route.method, call.route.path
@@ -683,7 +683,7 @@ fn main() {
                         effect_read_state = Some(state);
                     }
                     EffectReadBeforeResult::Failed(result) => {
-                        if let StepResult::Fail(msg) = &result {
+                        if let Verdict::Fail(msg) = &result {
                             eprintln!("FAIL {journey_id} effect_read before — {msg}");
                         }
                         totals.record(&result);
@@ -702,12 +702,12 @@ fn main() {
                     Ok(ip) => {
                         eprintln!("journey_http: WiFi {mode} connect+L3 ok ip={ip}");
                         totals.passed += 1;
-                        step_results.push(StepResult::Pass);
+                        step_results.push(Verdict::Pass);
                     }
                     Err(err) => {
                         eprintln!("FAIL {journey_id} WiFi {mode} — {err}");
                         totals.failed += 1;
-                        step_results.push(StepResult::Fail(err));
+                        step_results.push(Verdict::Fail(err));
                     }
                 }
                 wifi_rf::disconnect_and_remove(base, &ssid);
@@ -722,18 +722,18 @@ fn main() {
                 Ok(()) => {
                     eprintln!("journey_http: wifi RF mid-journey ok for {journey_id}");
                     totals.passed += 1;
-                    step_results.push(StepResult::Pass);
+                    step_results.push(Verdict::Pass);
                     if journey_id == JourneyId::AutoconnectToSavedWifiNetwork {
                         match wifi_rf::l3_assert_client_lease(base) {
                             Ok(ip) => {
                                 eprintln!("journey_http: L3 client lease+ping ok ip={ip}");
                                 totals.passed += 1;
-                                step_results.push(StepResult::Pass);
+                                step_results.push(Verdict::Pass);
                             }
                             Err(err) => {
                                 eprintln!("FAIL {journey_id} L3 client — {err}");
                                 totals.failed += 1;
-                                step_results.push(StepResult::Fail(err));
+                                step_results.push(Verdict::Fail(err));
                             }
                         }
                     }
@@ -741,7 +741,7 @@ fn main() {
                 Err(err) => {
                     eprintln!("FAIL {journey_id} wifi RF mid-journey — {err}");
                     totals.failed += 1;
-                    step_results.push(StepResult::Fail(err));
+                    step_results.push(Verdict::Fail(err));
                 }
             }
         } else if mutating_smoke && journey_id == JourneyId::ConfigureCameraStream {
@@ -754,9 +754,9 @@ fn main() {
                 None,
             ) {
                 Ok((status, body)) => evaluate_http_response(status, &body, Some(200), None),
-                Err(err) => StepResult::Fail(err),
+                Err(err) => Verdict::Fail(err),
             };
-            if let StepResult::Fail(msg) = &result {
+            if let Verdict::Fail(msg) = &result {
                 eprintln!("FAIL {journey_id} POST /streams — {msg}");
             }
             totals.record(&result);
@@ -770,12 +770,12 @@ fn main() {
                         Ok((status, resp)) => {
                             evaluate_http_response(status, &resp, Some(200), None)
                         }
-                        Err(err) => StepResult::Fail(err),
+                        Err(err) => Verdict::Fail(err),
                     }
                 }
-                Err(err) => StepResult::Fail(err),
+                Err(err) => Verdict::Fail(err),
             };
-            if let StepResult::Fail(msg) = &result {
+            if let Verdict::Fail(msg) = &result {
                 eprintln!("FAIL {journey_id} POST /v4l — {msg}");
             }
             totals.record(&result);
@@ -802,7 +802,7 @@ fn main() {
                         run_http_step_detailed(&catalog, base, step, allow_mutating),
                     )
                 };
-                if let StepResult::Fail(msg) = &result {
+                if let Verdict::Fail(msg) = &result {
                     eprintln!("{}", format_http_fail(journey_id, step, &resolved_url, msg));
                 }
                 totals.record(&result);
@@ -810,13 +810,13 @@ fn main() {
                 if mutating_smoke
                     && journey_id == JourneyId::ConfigureHotspotCredentials
                     && step.route.path == "/hotspot_credentials"
-                    && matches!(step_results.last(), Some(StepResult::Pass))
+                    && matches!(step_results.last(), Some(Verdict::Pass))
                 {
                     match wifi_rf::fetch_hotspot_credentials_json(base) {
                         Ok(body) if body.contains(wifi_rf::SMOKE_HOTSPOT_SSID) => {
                             eprintln!("journey_http: hotspot credentials mutate verified");
                             totals.passed += 1;
-                            step_results.push(StepResult::Pass);
+                            step_results.push(Verdict::Pass);
                         }
                         Ok(body) => {
                             let err = format!(
@@ -825,61 +825,61 @@ fn main() {
                             );
                             eprintln!("FAIL {journey_id} credentials verify — {err}");
                             totals.failed += 1;
-                            step_results.push(StepResult::Fail(err));
+                            step_results.push(Verdict::Fail(err));
                         }
                         Err(err) => {
                             eprintln!("FAIL {journey_id} credentials verify — {err}");
                             totals.failed += 1;
-                            step_results.push(StepResult::Fail(err));
+                            step_results.push(Verdict::Fail(err));
                         }
                     }
                 }
                 if mutating_smoke
                     && wifi_rf::wants_client_l3(journey_id)
                     && step.route.path == "/connect"
-                    && matches!(step_results.last(), Some(StepResult::Pass))
+                    && matches!(step_results.last(), Some(Verdict::Pass))
                 {
                     match wifi_rf::l3_assert_client_lease(base) {
                         Ok(ip) => {
                             eprintln!("journey_http: L3 client lease+ping ok ip={ip}");
                             totals.passed += 1;
-                            step_results.push(StepResult::Pass);
+                            step_results.push(Verdict::Pass);
                         }
                         Err(err) => {
                             eprintln!("FAIL {journey_id} L3 client — {err}");
                             totals.failed += 1;
-                            step_results.push(StepResult::Fail(err));
+                            step_results.push(Verdict::Fail(err));
                         }
                     }
                 }
                 if mutating_smoke
                     && journey_id == JourneyId::DisconnectFromWifiNetwork
                     && step.route.path == "/disconnect"
-                    && matches!(step_results.last(), Some(StepResult::Pass))
+                    && matches!(step_results.last(), Some(Verdict::Pass))
                 {
                     match wifi_rf::run_assert_disconnected(base) {
                         Ok(()) => {
                             eprintln!("journey_http: disconnect confirmed via /status");
                             totals.passed += 1;
-                            step_results.push(StepResult::Pass);
+                            step_results.push(Verdict::Pass);
                         }
                         Err(err) => {
                             eprintln!("FAIL {journey_id} disconnect status — {err}");
                             totals.failed += 1;
-                            step_results.push(StepResult::Fail(err));
+                            step_results.push(Verdict::Fail(err));
                         }
                     }
                 }
                 if mutating_smoke
                     && journey_id == JourneyId::ToggleHotspot
                     && step.route.path == "/hotspot"
-                    && matches!(step_results.last(), Some(StepResult::Pass))
+                    && matches!(step_results.last(), Some(Verdict::Pass))
                 {
                     match wifi_rf::rf_verify_hotspot_join() {
                         Ok(lease) => {
                             eprintln!("journey_http: host joined BlueOS hotspot lease={lease}");
                             totals.passed += 1;
-                            step_results.push(StepResult::Pass);
+                            step_results.push(Verdict::Pass);
                             match wifi_rf::l3_assert_hotspot_gateway() {
                                 Ok(()) => {
                                     eprintln!(
@@ -887,34 +887,34 @@ fn main() {
                                         wifi_rf::SMOKE_HOTSPOT_GATEWAY
                                     );
                                     totals.passed += 1;
-                                    step_results.push(StepResult::Pass);
+                                    step_results.push(Verdict::Pass);
                                 }
                                 Err(err) => {
                                     eprintln!("FAIL {journey_id} L3 hotspot — {err}");
                                     totals.failed += 1;
-                                    step_results.push(StepResult::Fail(err));
+                                    step_results.push(Verdict::Fail(err));
                                 }
                             }
                         }
                         Err(err) => {
                             eprintln!("FAIL {journey_id} hotspot RF join — {err}");
                             totals.failed += 1;
-                            step_results.push(StepResult::Fail(err));
+                            step_results.push(Verdict::Fail(err));
                         }
                     }
                 }
                 if mutating_smoke
                     && journey_id == JourneyId::RebootOnboardComputer
-                    && matches!(step_results.last(), Some(StepResult::Pass))
+                    && matches!(step_results.last(), Some(Verdict::Pass))
                 {
                     eprintln!("journey_http: waiting for BlueOS after reboot…");
                     if let Err(err) = wait_for_blueos(base, 600) {
                         eprintln!("FAIL {journey_id} recovery — {err}");
                         totals.failed += 1;
-                        step_results.push(StepResult::Fail(err));
+                        step_results.push(Verdict::Fail(err));
                     } else {
                         totals.passed += 1;
-                        step_results.push(StepResult::Pass);
+                        step_results.push(Verdict::Pass);
                     }
                 }
             }
@@ -929,7 +929,7 @@ fn main() {
                     eprintln!("FAIL {journey_id} effect_read — {}", conflict.context);
                     journey_conflicts.push(conflict.clone());
                 }
-                if let StepResult::Fail(msg) = &after.result {
+                if let Verdict::Fail(msg) = &after.result {
                     eprintln!("FAIL {journey_id} effect_read after — {msg}");
                 } else {
                     eprintln!(
@@ -953,11 +953,11 @@ fn main() {
                     );
                     run_core_image_switch(&catalog, base, &restore_json, &dut.tag, allow_mutating)
                 } else {
-                    StepResult::Fail(
+                    Verdict::Fail(
                         "core restore: no GET /version/current snapshot from before switch".into(),
                     )
                 };
-                if let StepResult::Fail(msg) = &result {
+                if let Verdict::Fail(msg) = &result {
                     eprintln!("FAIL {journey_id} teardown core restore — {msg}");
                 }
                 totals.record(&result);
@@ -965,7 +965,7 @@ fn main() {
             }
             for call in mutating_smoke_teardown_calls(journey_id) {
                 let result = run_smoke_http_call(&catalog, base, call, allow_mutating);
-                if let StepResult::Fail(msg) = &result {
+                if let Verdict::Fail(msg) = &result {
                     eprintln!(
                         "FAIL {journey_id} teardown {:?} {} — {msg}",
                         call.route.method, call.route.path
@@ -979,19 +979,19 @@ fn main() {
                     Ok(()) => {
                         eprintln!("journey_http: restored hotspot credentials snapshot");
                         totals.passed += 1;
-                        step_results.push(StepResult::Pass);
+                        step_results.push(Verdict::Pass);
                     }
                     Err(err) => {
                         eprintln!("FAIL {journey_id} hotspot credentials restore — {err}");
                         totals.failed += 1;
-                        step_results.push(StepResult::Fail(err));
+                        step_results.push(Verdict::Fail(err));
                     }
                 }
             }
             if let Err(err) = wifi_rf::rf_teardown(journey_id) {
                 eprintln!("FAIL {journey_id} wifi RF teardown — {err}");
                 totals.failed += 1;
-                step_results.push(StepResult::Fail(format!("wifi RF teardown — {err}")));
+                step_results.push(Verdict::Fail(format!("wifi RF teardown — {err}")));
             }
         }
 
@@ -1004,7 +1004,7 @@ fn main() {
             step_results.len().max(1)
         ));
         if emit_report {
-            let mut entry = JourneyReportEntry::from_run(
+            let mut entry = VerificationRecord::from_run(
                 journey_id,
                 &journey.availability,
                 outcome,
@@ -1035,7 +1035,7 @@ fn main() {
             } else {
                 SuiteKind::Full
             };
-            let report = JourneyHttpReport {
+            let report = VerificationHttpReport {
                 schema_version: SCHEMA_VERSION,
                 suite,
                 base: base.clone().unwrap_or_default(),
@@ -1043,7 +1043,7 @@ fn main() {
                 started_at: started_at.unwrap_or_else(utc_rfc3339_now),
                 finished_at: utc_rfc3339_now(),
                 counts: totals.into(),
-                journeys: report_journeys,
+                verifications: report_journeys,
             };
             if let Err(err) = write_journey_http_report(&path, &report) {
                 eprintln!("journey_http: report: {err}");
@@ -1057,7 +1057,7 @@ fn main() {
     }
 }
 
-fn journey_step_count(journey: &UserJourney, smoke: bool, mutating_smoke: bool) -> usize {
+fn journey_step_count(journey: &UseCase, smoke: bool, mutating_smoke: bool) -> usize {
     if smoke {
         http_smoke_steps(journey).len().max(1)
     } else if mutating_smoke {
@@ -1067,11 +1067,7 @@ fn journey_step_count(journey: &UserJourney, smoke: bool, mutating_smoke: bool) 
     }
 }
 
-fn ghost_presence_eligible(
-    smoke: bool,
-    profile: Option<&DutProfile>,
-    journey: &UserJourney,
-) -> bool {
+fn ghost_presence_eligible(smoke: bool, profile: Option<&DutProfile>, journey: &UseCase) -> bool {
     smoke
         && profile.is_some_and(|p| !p.never_strand_mgmt)
         && matches!(
@@ -1088,13 +1084,13 @@ fn run_ghost_presence_probes(
     base: &str,
     availability_reason: &str,
     steps: &[RunnableStep],
-) -> (JourneyResult, Vec<StepResult>, Vec<ReportConflict>) {
+) -> (JourneyResult, Vec<Verdict>, Vec<ReportConflict>) {
     let mut step_results = Vec::new();
     let mut conflicts = Vec::new();
 
     for step in steps {
         let Some(path) = resolve_http_path(catalog, &step.route) else {
-            step_results.push(StepResult::Skip(
+            step_results.push(Verdict::Inconclusive(
                 "unresolved or templated route path".into(),
             ));
             continue;
@@ -1111,17 +1107,17 @@ fn run_ghost_presence_probes(
                     kind: ConflictKind::CatalogWrongStatus,
                     context,
                 });
-                step_results.push(StepResult::Ignored);
+                step_results.push(Verdict::Inconclusive(String::new()));
             }
             Ok((status_code, _body)) => {
-                step_results.push(StepResult::Pass);
+                step_results.push(Verdict::Pass);
                 eprintln!(
                     "journey_http: ghost {:?} {} HTTP {status_code} (absent as expected)",
                     step.route.method, step.route.path
                 );
             }
             Err(err) => {
-                step_results.push(StepResult::Pass);
+                step_results.push(Verdict::Pass);
                 eprintln!(
                     "journey_http: ghost {:?} {} — {err} (absent as expected)",
                     step.route.method, step.route.path
@@ -1134,7 +1130,7 @@ fn run_ghost_presence_probes(
     (outcome, step_results, conflicts)
 }
 
-fn skip_reasons(journey: &UserJourney, fixtures: &FixtureInventory) -> Vec<String> {
+fn skip_reasons(journey: &UseCase, fixtures: &FixtureInventory) -> Vec<String> {
     evaluate_journey(journey, fixtures)
         .into_iter()
         .filter_map(|status| match status {
@@ -1222,7 +1218,7 @@ fn run_ui_suite(
     let dut_version = fetch_dut_version(base).ok();
     let started_at = utc_rfc3339_now();
     let mut totals = RunCounts::default();
-    let mut report_journeys: Vec<JourneyReportEntry> = Vec::new();
+    let mut report_journeys: Vec<VerificationRecord> = Vec::new();
     let mut any_fail = false;
 
     println!(
@@ -1261,7 +1257,7 @@ fn run_ui_suite(
     for (journey_id, reason) in fixture_skipped {
         println!("SKIP {journey_id}: {reason}");
         totals.skipped += 1;
-        report_journeys.push(JourneyReportEntry::skipped(
+        report_journeys.push(VerificationRecord::skipped(
             journey_id,
             journeys
                 .get(&journey_id)
@@ -1397,7 +1393,7 @@ fn run_ui_suite(
     );
 
     if let Some(path) = report_path {
-        let report = JourneyHttpReport {
+        let report = VerificationHttpReport {
             schema_version: SCHEMA_VERSION,
             suite: SuiteKind::Ui,
             base: base.to_string(),
@@ -1405,7 +1401,7 @@ fn run_ui_suite(
             started_at,
             finished_at: utc_rfc3339_now(),
             counts: totals.into(),
-            journeys: report_journeys,
+            verifications: report_journeys,
         };
         if let Err(err) = write_journey_http_report(path, &report) {
             eprintln!("journey_http: report: {err}");
@@ -1422,8 +1418,8 @@ fn emit_ui_report_entry(
     id: &str,
     pass: bool,
     detail: &str,
-    journeys: &std::collections::HashMap<JourneyId, &blueos_catalog::UserJourney>,
-    report_journeys: &mut Vec<JourneyReportEntry>,
+    journeys: &std::collections::HashMap<JourneyId, &blueos_catalog::UseCase>,
+    report_journeys: &mut Vec<VerificationRecord>,
 ) -> bool {
     let Some(journey_id) = JourneyId::ALL.iter().copied().find(|j| j.as_str() == id) else {
         return false;
@@ -1432,11 +1428,11 @@ fn emit_ui_report_entry(
         return false;
     };
     let result = if pass {
-        StepResult::Pass
+        Verdict::Pass
     } else {
-        StepResult::Fail(detail.to_string())
+        Verdict::Fail(detail.to_string())
     };
-    report_journeys.push(JourneyReportEntry::from_run(
+    report_journeys.push(VerificationRecord::from_run(
         journey_id,
         &journey.availability,
         summarize_journey(std::slice::from_ref(&result)),
@@ -1553,7 +1549,7 @@ fn run_negative_probes(
     };
 
     let mut current_tag: Option<String> = dut_version.as_ref().map(|dut| dut.tag.clone());
-    let mut report_entries: Vec<JourneyReportEntry> = Vec::new();
+    let mut report_entries: Vec<VerificationRecord> = Vec::new();
 
     for probe in probes {
         if dry_run {
@@ -1572,14 +1568,13 @@ fn run_negative_probes(
             match fetch_dut_version(base) {
                 Ok(dut) => current_tag = Some(dut.tag),
                 Err(err) => {
-                    let result = StepResult::Fail(format!("fetch running tag for NP-62: {err}"));
+                    let result = Verdict::Fail(format!("fetch running tag for NP-62: {err}"));
                     eprintln!("FAIL {} — {err}", probe.id);
                     totals.record(&result);
                     any_fail = true;
                     if emit_report {
                         if let Some(journey) = journeys.get(&probe.journey_id) {
-                            report_entries.push(JourneyReportEntry::from_negative_probe(
-                                probe.id,
+                            report_entries.push(VerificationRecord::from_negative_probe(
                                 probe.journey_id,
                                 &journey.availability,
                                 &result,
@@ -1593,13 +1588,12 @@ fn run_negative_probes(
 
         let result = run_negative_probe(base, probe, true, current_tag.as_deref());
         totals.record(&result);
-        if matches!(result, StepResult::Fail(_)) {
+        if matches!(result, Verdict::Fail(_)) {
             any_fail = true;
         }
         if emit_report {
             if let Some(journey) = journeys.get(&probe.journey_id) {
-                report_entries.push(JourneyReportEntry::from_negative_probe(
-                    probe.id,
+                report_entries.push(VerificationRecord::from_negative_probe(
                     probe.journey_id,
                     &journey.availability,
                     &result,
@@ -1616,7 +1610,7 @@ fn run_negative_probes(
 
     if let Some(path) = report_path {
         if !dry_run {
-            let report = JourneyHttpReport {
+            let report = VerificationHttpReport {
                 schema_version: SCHEMA_VERSION,
                 suite: SuiteKind::Negative,
                 base: base.unwrap_or("").to_string(),
@@ -1624,7 +1618,7 @@ fn run_negative_probes(
                 started_at: started_at.unwrap_or_else(utc_rfc3339_now),
                 finished_at: utc_rfc3339_now(),
                 counts: totals.into(),
-                journeys: report_entries,
+                verifications: report_entries,
             };
             if let Err(err) = write_journey_http_report(path, &report) {
                 eprintln!("journey_http: report: {err}");
@@ -1667,7 +1661,7 @@ fn run_wifi_mode(base: &str, mode: ApMode) -> Result<String, String> {
 fn finalize_http_step_run(
     journey_conflicts: &mut Vec<ReportConflict>,
     run: blueos_catalog::runner::HttpStepRun,
-) -> StepResult {
+) -> Verdict {
     if let Some(conflict) = run.conflict {
         journey_conflicts.push(conflict);
     }
@@ -1680,13 +1674,13 @@ mod tests {
     use blueos_catalog::journey::Visibility;
     use blueos_catalog::provenance::{Grounded, GroundedSet, Provenance};
     use blueos_catalog::runner::product_missing_reject_conflict;
-    use blueos_catalog::version::FeatureAvailability;
+    use blueos_catalog::version::Availability;
     use blueos_catalog::{BodyKind, RouteRef, ServiceId};
 
     const DOC: Provenance = Provenance::doc("journey_http_test", 1, "test");
 
-    fn test_journey(blast_radius: BlastRadius) -> UserJourney {
-        UserJourney {
+    fn test_journey(blast_radius: BlastRadius) -> UseCase {
+        UseCase {
             id: JourneyId::ConnectToWifiNetwork,
             summary: Grounded::known("ghost test", DOC),
             visibility: Grounded::known(Visibility::Default, DOC),
@@ -1694,7 +1688,7 @@ mod tests {
             capability_refs: GroundedSet::unknown("test"),
             preconditions: GroundedSet::known(&[]),
             steps: GroundedSet::known(&[]),
-            availability: FeatureAvailability::unknown(),
+            availability: Availability::unknown(),
             blast_radius: Grounded::known(blast_radius, DOC),
             chains_from: None,
         }
@@ -1736,7 +1730,7 @@ mod tests {
             &steps,
         );
         assert_ne!(outcome, JourneyResult::Fail);
-        assert!(!results.iter().any(|r| matches!(r, StepResult::Fail(_))));
+        assert!(!results.iter().any(|r| matches!(r, Verdict::Fail(_))));
     }
 
     #[test]
@@ -1765,7 +1759,7 @@ mod tests {
             "not present on test tag",
             &steps,
         );
-        assert!(matches!(results[0], StepResult::Skip(_)));
+        assert!(matches!(results[0], Verdict::Inconclusive(_)));
     }
 
     #[test]
@@ -1787,12 +1781,12 @@ mod tests {
             form_file: None,
         };
         let run = blueos_catalog::runner::HttpStepRun {
-            result: StepResult::Pass,
+            result: Verdict::Pass,
             conflict: product_missing_reject_conflict(&step, 200),
         };
         let mut journey_conflicts = Vec::new();
         let result = finalize_http_step_run(&mut journey_conflicts, run);
-        assert!(matches!(result, StepResult::Pass));
+        assert!(matches!(result, Verdict::Pass));
         assert_eq!(journey_conflicts.len(), 1);
         assert_eq!(
             journey_conflicts[0].kind,

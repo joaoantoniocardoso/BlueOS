@@ -9,6 +9,7 @@ pub mod domain;
 pub mod drift;
 pub mod edge;
 pub mod export;
+pub mod export_sysml;
 pub mod extension_lifecycle;
 pub mod extract;
 pub mod extract_fastapi;
@@ -92,7 +93,7 @@ pub use domain::{domain_of, Domain, DomainDef, DOMAINS};
 pub use drift::{
     diff, diff_catalog, diff_catalog_runtime, diff_runtime, DriftFinding, DriftReport,
 };
-pub use edge::{Bus, Edge, FailureImpact, SyncMode};
+pub use edge::{Bus, Connection, FailureImpact, SyncMode};
 pub use export::{export_json, export_mermaid, export_proposals_json, export_schema};
 pub use extension_lifecycle::{run_extension_lifecycle, write_extension_lifecycle_report};
 pub use extract::{
@@ -107,13 +108,15 @@ pub use extract_frontend_router::{
     ExtractedFrontendMenu, ExtractedFrontendRoute,
 };
 pub use feature::{
-    AggregateGroup, Divergence, Feature, FeatureCatalog, FeatureCommunity, FeatureId, FeatureLens,
-    FeaturePairAgreement, FeatureSplitConsensus, JourneyView, Origin,
+    capability_aggregate_view, capability_journey_view, capability_split_consensus,
+    capability_view_divergence, declared_capabilities, validate_capabilities, AggregateGroup,
+    CapabilityCommunity, CapabilityJourneyView, CapabilityLens, CapabilityPairAgreement,
+    CapabilitySplitConsensus, DeclaredCapability, Divergence, Origin,
 };
 pub use feature_intro::{feature_map_for_version, journeys_for_version, presence_for_journey};
 pub use feature_trace::{
     cluster_for_journey, commit, discovery_for_journey, feature_traces, intro_commit_for_journey,
-    issue, landing_pr_for_journey, pull_request, ClusterIssueRef, FeatureTraces, IntroCluster,
+    issue, landing_pr_for_journey, pull_request, ClusterIssueRef, IntroCluster, IntroTraces,
     IssueSource, IssueSourceKind, JourneyDiscovery, TraceCommit, TraceIssue, TraceJourneyRef,
     TracePullRequest,
 };
@@ -125,26 +128,26 @@ pub use frontend_cache::run_frontend_cache;
 pub use frontend_smoke::{
     calibration_smoke_targets, concrete_page_path, frontend_smoke_targets, FrontendSmokeTarget,
 };
-pub use function::{Function, FunctionCatalog, FunctionId, FunctionIo, FUNCTION_COUNT};
+pub use function::{Action, ActionCatalog, ActionId, ACTION_COUNT};
 pub use harness_ratchet::{
     compare_harness_ratchet, count_client_orchestrated_missing_ui_plan, count_open_harness_gap,
     count_unknown_body_kinds, count_unprobed_failure_modes, harness_ratchet_counts,
     load_harness_ratchet_baseline, write_harness_ratchet_baseline, HarnessRatchetCounts,
     HarnessRatchetRegression, DEFAULT_BASELINE_PATH, FAILURE_MODE_LEDGER_PATH,
 };
-pub use id::{CapabilityId, Entity, JourneyId, PathRef, Port, PortRef, ServiceId};
-pub use interface::{FileAccessMode, Interface, MavlinkRole};
+pub use id::{CapabilityId, Entity, JourneyId, PathRef, PortRef, ServiceId, TcpPort};
+pub use interface::{FileAccessMode, MavlinkRole, PortKind};
 pub use journey::{
-    blast_radius_is_unknown, derive_automatable, derive_oracle_class, journey_requirements,
-    precondition_is_typed, Actor, Automatable, BlastRadius, BoardKind, BodyKind, DataRequirement,
-    HardwareRequirement, HttpMethod, JourneyStep, NetworkResource, NetworkState, OracleClass,
-    Precondition, RouteRef, SoftwareRequirement, StateTransition, StepOutcome, UserJourney,
-    Visibility, BLAST_RADIUS_UNKNOWN,
+    blast_radius_is_unknown, derive_automatable, derive_oracle_class, http_automatable,
+    journey_requirements, precondition_is_typed, Actor, BlastRadius, BoardKind, BodyKind,
+    DataAssumption, HardwareAssumption, HttpMethod, JourneyStep, NetworkResource, NetworkState,
+    OracleClass, Precondition, RouteRef, SoftwareAssumption, StateTransition, StepOutcome, UseCase,
+    VerificationMethod, Visibility, BLAST_RADIUS_UNKNOWN,
 };
 pub use journey_group::{JourneyLens, JourneyPairAgreement, JourneySplitConsensus};
 pub use journey_matrix::{
     blank_both_violations, build_journey_matrix, format_matrix, has_frontend_step, has_known_route,
-    load_report_hits, Cell, CellState, JourneyMatrix, JourneyMatrixRow, ReportHit, HARD_EXCLUDED,
+    load_report_hits, Cell, JourneyMatrix, JourneyMatrixRow, ReportHit, HARD_EXCLUDED,
     PAGE_LOAD_UI,
 };
 pub use journey_presence::ALL_JOURNEY_PRESENCE;
@@ -171,18 +174,18 @@ pub use provenance::{
 };
 pub use report::{
     count_journey_steps, utc_rfc3339_now, write_journey_http_report, ConflictKind,
-    JourneyHttpReport, JourneyReportEntry, JourneyReportResult, ReportAvailability, ReportConflict,
-    ReportCounts, ReportDut, ReportTrace, SuiteKind, SCHEMA_VERSION,
+    ReportAvailability, ReportConflict, ReportCounts, ReportDut, ReportTrace, SuiteKind,
+    VerificationHttpReport, VerificationRecord, SCHEMA_VERSION,
 };
 pub use requirement::{
-    find_contamination, AcceptanceCriterion, ContaminationFinding, ContaminationSource,
-    Requirement, RequirementCatalog, RequirementCriteria, RequirementId, RequirementKind,
-    RequirementStatement, RequirementValidationError,
+    find_contamination, AcceptanceCriterion, Assumption, AssumptionKind, ContaminationFinding,
+    ContaminationSource, Requirement, RequirementCatalog, RequirementClass, RequirementCriteria,
+    RequirementId, RequirementStatement, RequirementValidationError,
 };
 pub use requirements_report::{
     build_rtm_rows, diff_requirement_reports, load_requirements_baseline, overlay_trace_failures,
     render_diff_report, render_rtm_csv, render_srs, requirements_json, validate_rtm_completeness,
-    RequirementDiffReport, RequirementsJson, RtmRow,
+    write_requirements_baseline, RequirementDiffReport, RequirementsJson, RtmRow,
 };
 pub use resolve::{resolve, resolve_port_ref, resolve_service_ports, ResolveError, ResolvedPorts};
 pub use resource::{Resource, ResourceOwnership};
@@ -197,7 +200,7 @@ pub use runner::{
     mutating_smoke_teardown_calls, resolve_http_path, run_core_image_switch, run_http_step,
     run_negative_probe, run_smoke_http_call, summarize_journey, tier1_get_coverage,
     wait_for_blueos, DutProfile, DutVersion, EffectReadAfter, EffectReadBefore,
-    EffectReadBeforeResult, JourneyResult, RunCounts, RunnableStep, StepResult, Tier1GetCoverage,
+    EffectReadBeforeResult, JourneyResult, RunCounts, RunnableStep, Tier1GetCoverage, Verdict,
     MUTATING_SMOKE_DEFAULT_FIXTURES, SMOKE_CORE_SWITCH_JSON, SMOKE_CORE_SWITCH_TAG,
     SMOKE_DEFAULT_FIXTURES,
 };
@@ -205,7 +208,7 @@ pub use runtime::{
     Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts, SettingsMutation, SloBaseline,
     StateContract,
 };
-pub use service::{Authority, Service, ServiceDefinition};
+pub use service::{Authority, Service, ServiceJudgment};
 pub use sitl_cal::{needs_calibration_frame, needs_vectored_frame, SitlRc};
 pub use source_index::{
     build_source_index, build_source_index_from_walk, catalog_entity_for_citation,
@@ -225,7 +228,7 @@ pub use ui::{
 pub use validate::{validate, ValidationError, COVERAGE_UNKNOWN_THRESHOLD};
 pub use version::{
     availability_is_valid, availability_skip, bound_tag, cmp_channels, feature_present_on,
-    format_availability_skip_reason, journeys_present_on, parse_release_tag, AvailabilitySkip,
-    BlueOsChannel, FeatureAvailability, VersionBound,
+    format_availability_skip_reason, journeys_present_on, parse_release_tag, Availability,
+    AvailabilitySkip, BlueOsChannel, VersionBound,
 };
 pub use wifi_endpoints::run_wifi_endpoints;

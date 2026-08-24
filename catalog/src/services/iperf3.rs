@@ -7,7 +7,7 @@ use crate::provenance::{
     Provenance, Rationaled,
 };
 use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts};
-use crate::service::{Service, ServiceDefinition};
+use crate::service::{Service, ServiceJudgment};
 use crate::trust::{PrivilegeLevel, UserConfirmation};
 
 use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR_REPODIGEST;
@@ -204,8 +204,8 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
     openapi_refs: ObservedSet::unknown("not yet extracted"),
 };
 
-pub const SERVICE_DEFINITION: ServiceDefinition =
-    ServiceDefinition {
+pub const SERVICE_DEFINITION: ServiceJudgment =
+    ServiceJudgment {
         id: ServiceId::Iperf3,
         singleton: Asserted::established(
             true,

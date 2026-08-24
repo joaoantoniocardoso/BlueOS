@@ -1,8 +1,8 @@
 use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, BlastRadius, BodyKind, HardwareRequirement, HttpMethod, JourneyStep, Precondition,
-    RouteRef, StepOutcome, UserJourney, Visibility,
+    Actor, BlastRadius, BodyKind, HardwareAssumption, HttpMethod, JourneyStep, Precondition,
+    RouteRef, StepOutcome, UseCase, Visibility,
 };
 use crate::journey_presence::{
     PRESENCE_CONFIGURE_CAMERA_STREAM, PRESENCE_CONFIGURE_UVC_DEVICE_CONTROLS,
@@ -46,15 +46,15 @@ const BR_CONFIGURE_UVC_DEVICE_CONTROLS: Grounded<BlastRadius> = Grounded::known(
     ),
 );
 
-pub const JOURNEYS: &[UserJourney] = &[
+pub const JOURNEYS: &[UseCase] = &[
     VIEW_CAMERA_STREAMS,
     CONFIGURE_CAMERA_STREAM,
     REMOVE_CAMERA_STREAM,
     CONFIGURE_UVC_DEVICE_CONTROLS,
 ];
 
-const VIEW_CAMERA_STREAMS: UserJourney =
-    UserJourney {
+const VIEW_CAMERA_STREAMS: UseCase =
+    UseCase {
         id: JourneyId::ViewCameraStreams,
         summary: Grounded::known(
             "Manage video devices and view configured camera streams",
@@ -120,8 +120,8 @@ const VIEW_CAMERA_STREAMS: UserJourney =
         chains_from: None,
     };
 
-const CONFIGURE_CAMERA_STREAM: UserJourney =
-    UserJourney {
+const CONFIGURE_CAMERA_STREAM: UseCase =
+    UseCase {
         id: JourneyId::ConfigureCameraStream,
         summary: Grounded::known(
             "Manually add and configure a new video stream (encoding, resolution, endpoint type)",
@@ -133,7 +133,7 @@ const CONFIGURE_CAMERA_STREAM: UserJourney =
             "stream creation dialog submits encoding, resolution, framerate, and endpoints via POST /streams",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
-            Precondition::Hardware(HardwareRequirement::UsbCamera),
+            Precondition::Hardware(HardwareAssumption::UsbCamera),
             Provenance::doc(GETTING_STARTED, 121, "BlueOS is capable of configuring and streaming multiple came"),
         )]),
         steps: GroundedSet::known(&[
@@ -199,7 +199,7 @@ const CONFIGURE_CAMERA_STREAM: UserJourney =
         chains_from: Some(JourneyId::ViewCameraStreams),
     };
 
-const REMOVE_CAMERA_STREAM: UserJourney = UserJourney {
+const REMOVE_CAMERA_STREAM: UseCase = UseCase {
     id: JourneyId::RemoveCameraStream,
     summary: Grounded::known(
         "Remove a configured video stream from a camera device",
@@ -264,8 +264,8 @@ const REMOVE_CAMERA_STREAM: UserJourney = UserJourney {
     chains_from: Some(JourneyId::ViewCameraStreams),
 };
 
-const CONFIGURE_UVC_DEVICE_CONTROLS: UserJourney =
-    UserJourney {
+const CONFIGURE_UVC_DEVICE_CONTROLS: UseCase =
+    UseCase {
         id: JourneyId::ConfigureUvcDeviceControls,
         summary: Grounded::known(
             "Configure UVC camera settings such as brightness and exposure via Device Controls",
@@ -277,7 +277,7 @@ const CONFIGURE_UVC_DEVICE_CONTROLS: UserJourney =
             "Device Controls dialog adjusts UVC sliders, menus, and booleans via POST /v4l",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
-            Precondition::Hardware(HardwareRequirement::UsbCamera),
+            Precondition::Hardware(HardwareAssumption::UsbCamera),
             Provenance::doc(ADV, 803, "- Camera settings (brightness, exposure, etc) that are expos"),
         )]),
         steps: GroundedSet::known(&[

@@ -2,7 +2,7 @@ use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
     Actor, BlastRadius, BodyKind, HttpMethod, JourneyStep, Precondition, RouteRef,
-    SoftwareRequirement, StepOutcome, UserJourney, Visibility,
+    SoftwareAssumption, StepOutcome, UseCase, Visibility,
 };
 use crate::journey_presence::{
     PRESENCE_ENABLE_LEGACY_CAMERA_SUPPORT, PRESENCE_INSPECT_RASPBERRY_EEPROM_BOOTLOADER,
@@ -76,7 +76,7 @@ const BR_RUN_HOST_COMMAND: Grounded<BlastRadius> = Grounded::known(
     ),
 );
 
-pub const JOURNEYS: &[UserJourney] = &[
+pub const JOURNEYS: &[UseCase] = &[
     REBOOT_ONBOARD_COMPUTER,
     SHUTDOWN_ONBOARD_COMPUTER,
     SYNC_SYSTEM_TIME,
@@ -87,7 +87,7 @@ pub const JOURNEYS: &[UserJourney] = &[
     RUN_HOST_COMMAND,
 ];
 
-const REBOOT_ONBOARD_COMPUTER: UserJourney = UserJourney {
+const REBOOT_ONBOARD_COMPUTER: UseCase = UseCase {
     id: JourneyId::RebootOnboardComputer,
     summary: Grounded::known(
         "Reboot the onboard computer from the power menu",
@@ -103,7 +103,7 @@ const REBOOT_ONBOARD_COMPUTER: UserJourney = UserJourney {
         "power menu triggers commander shutdown with reboot type",
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Software(SoftwareRequirement::ConfirmDangerousOp),
+        Precondition::Software(SoftwareAssumption::ConfirmDangerousOp),
         Provenance::source(
             COMMANDER_MAIN,
             49,
@@ -143,7 +143,7 @@ const REBOOT_ONBOARD_COMPUTER: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const SHUTDOWN_ONBOARD_COMPUTER: UserJourney = UserJourney {
+const SHUTDOWN_ONBOARD_COMPUTER: UseCase = UseCase {
     id: JourneyId::ShutdownOnboardComputer,
     summary: Grounded::known(
         "Shut down the onboard computer from the power menu before removing vehicle power",
@@ -159,7 +159,7 @@ const SHUTDOWN_ONBOARD_COMPUTER: UserJourney = UserJourney {
         "power menu triggers commander shutdown with poweroff type",
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Software(SoftwareRequirement::ConfirmDangerousOp),
+        Precondition::Software(SoftwareAssumption::ConfirmDangerousOp),
         Provenance::source(
             COMMANDER_MAIN,
             49,
@@ -195,7 +195,7 @@ const SHUTDOWN_ONBOARD_COMPUTER: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const SYNC_SYSTEM_TIME: UserJourney = UserJourney {
+const SYNC_SYSTEM_TIME: UseCase = UseCase {
     id: JourneyId::SyncSystemTime,
     summary: Grounded::known(
         "Sync the onboard computer clock with the browser when drift exceeds five minutes",
@@ -215,7 +215,7 @@ const SYNC_SYSTEM_TIME: UserJourney = UserJourney {
         "frontend posts browser unix time to commander set_time on load",
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Software(SoftwareRequirement::ConfirmDangerousOp),
+        Precondition::Software(SoftwareAssumption::ConfirmDangerousOp),
         Provenance::source(
             COMMANDER_MAIN,
             74,
@@ -243,7 +243,7 @@ const SYNC_SYSTEM_TIME: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const ENABLE_LEGACY_CAMERA_SUPPORT: UserJourney = UserJourney {
+const ENABLE_LEGACY_CAMERA_SUPPORT: UseCase = UseCase {
     id: JourneyId::EnableLegacyCameraSupport,
     summary: Grounded::known(
         "Enable Raspberry Pi legacy camera support for Pi camera detection",
@@ -306,7 +306,7 @@ const ENABLE_LEGACY_CAMERA_SUPPORT: UserJourney = UserJourney {
     chains_from: Some(JourneyId::RebootOnboardComputer),
 };
 
-const INSPECT_RASPBERRY_EEPROM_BOOTLOADER: UserJourney = UserJourney {
+const INSPECT_RASPBERRY_EEPROM_BOOTLOADER: UseCase = UseCase {
     id: JourneyId::InspectRaspberryEepromBootloader,
     summary: Grounded::known(
         "View Raspberry Pi firmware, bootloader, and EEPROM update availability",
@@ -327,7 +327,7 @@ const INSPECT_RASPBERRY_EEPROM_BOOTLOADER: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[
         GroundedItem::new(
-            Precondition::Software(SoftwareRequirement::PirateMode),
+            Precondition::Software(SoftwareAssumption::PirateMode),
             Provenance::source(
                 SYSINFO_VIEW,
                 85,
@@ -335,7 +335,7 @@ const INSPECT_RASPBERRY_EEPROM_BOOTLOADER: UserJourney = UserJourney {
             ),
         ),
         GroundedItem::new(
-            Precondition::Software(SoftwareRequirement::ConfirmDangerousOp),
+            Precondition::Software(SoftwareAssumption::ConfirmDangerousOp),
             Provenance::source(
                 COMMANDER_MAIN,
                 49,
@@ -400,7 +400,7 @@ const INSPECT_RASPBERRY_EEPROM_BOOTLOADER: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const UPDATE_RASPBERRY_EEPROM_BOOTLOADER: UserJourney = UserJourney {
+const UPDATE_RASPBERRY_EEPROM_BOOTLOADER: UseCase = UseCase {
     id: JourneyId::UpdateRaspberryEepromBootloader,
     summary: Grounded::known(
         "Update Raspberry Pi firmware and USB controller EEPROM to the latest stable versions",
@@ -421,7 +421,7 @@ const UPDATE_RASPBERRY_EEPROM_BOOTLOADER: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[
         GroundedItem::new(
-            Precondition::Software(SoftwareRequirement::PirateMode),
+            Precondition::Software(SoftwareAssumption::PirateMode),
             Provenance::source(
                 SYSINFO_VIEW,
                 85,
@@ -429,7 +429,7 @@ const UPDATE_RASPBERRY_EEPROM_BOOTLOADER: UserJourney = UserJourney {
             ),
         ),
         GroundedItem::new(
-            Precondition::Software(SoftwareRequirement::ConfirmDangerousOp),
+            Precondition::Software(SoftwareAssumption::ConfirmDangerousOp),
             Provenance::source(
                 COMMANDER_MAIN,
                 49,
@@ -470,7 +470,7 @@ const UPDATE_RASPBERRY_EEPROM_BOOTLOADER: UserJourney = UserJourney {
     chains_from: Some(JourneyId::InspectRaspberryEepromBootloader),
 };
 
-const RESET_BLUEOS_SETTINGS: UserJourney = UserJourney {
+const RESET_BLUEOS_SETTINGS: UseCase = UseCase {
     id: JourneyId::ResetBlueosSettings,
     summary: Grounded::known(
         "Reset BlueOS settings to remove camera, endpoint, and bridge configuration",
@@ -486,7 +486,7 @@ const RESET_BLUEOS_SETTINGS: UserJourney = UserJourney {
         "settings page deletes service config while preserving bootstrap state",
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Software(SoftwareRequirement::ConfirmDangerousOp),
+        Precondition::Software(SoftwareAssumption::ConfirmDangerousOp),
         Provenance::source(
             COMMANDER_MAIN,
             49,
@@ -526,7 +526,7 @@ const RESET_BLUEOS_SETTINGS: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const RUN_HOST_COMMAND: UserJourney = UserJourney {
+const RUN_HOST_COMMAND: UseCase = UseCase {
     id: JourneyId::RunHostCommand,
     summary: Grounded::known(
         "Run an arbitrary bash command on the host through commander",
@@ -550,7 +550,7 @@ const RUN_HOST_COMMAND: UserJourney = UserJourney {
         "commander executes privileged shell commands when explicitly acknowledged",
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Software(SoftwareRequirement::ConfirmDangerousOp),
+        Precondition::Software(SoftwareAssumption::ConfirmDangerousOp),
         Provenance::source(
             COMMANDER_MAIN,
             49,

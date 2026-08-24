@@ -14,7 +14,7 @@ const FEATURE_TRACES_JSON: &str =
     include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/feature_traces.json"));
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct FeatureTraces {
+pub struct IntroTraces {
     pub schema_version: u32,
     pub repo: String,
     pub source_presence: String,
@@ -88,12 +88,16 @@ pub struct TraceIssue {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "snake_case")]
 pub enum IssueSourceKind {
+    #[serde(rename = "closing")]
     Closing,
+    #[serde(rename = "body")]
     Body,
+    #[serde(rename = "commit")]
     Commit,
+    #[serde(rename = "timeline")]
     Timeline,
+    #[serde(rename = "search")]
     Search,
 }
 
@@ -158,10 +162,10 @@ pub struct TraceJourneyRef {
     pub present_in_tags: Vec<String>,
 }
 
-static FEATURE_TRACES: OnceLock<FeatureTraces> = OnceLock::new();
+static FEATURE_TRACES: OnceLock<IntroTraces> = OnceLock::new();
 
 /// Parsed `feature_traces.json` (loaded once).
-pub fn feature_traces() -> &'static FeatureTraces {
+pub fn feature_traces() -> &'static IntroTraces {
     FEATURE_TRACES.get_or_init(|| {
         serde_json::from_str(FEATURE_TRACES_JSON).unwrap_or_else(|error| {
             panic!(
@@ -171,7 +175,7 @@ pub fn feature_traces() -> &'static FeatureTraces {
     })
 }
 
-/// Intro-commit cluster for a journey id (e.g. `"InspectZenohNetwork"`).
+/// Intro-commit cluster for a journey id (e.g. `"inspect_zenoh_network"`).
 pub fn cluster_for_journey(journey_id: &str) -> Option<&'static IntroCluster> {
     let traces = feature_traces();
     let journey = traces.journeys.iter().find(|j| j.journey == journey_id)?;
@@ -248,6 +252,7 @@ pub fn sibling_ratio(journey_a: &str, journey_b: &str) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::id::JourneyId;
 
     #[test]
     fn loads_schema_v2() {
@@ -261,14 +266,15 @@ mod tests {
 
     #[test]
     fn zenoh_landing_and_follow_ups() {
-        let cluster = cluster_for_journey("InspectZenohNetwork").expect("zenoh cluster");
+        let journey = JourneyId::InspectZenohNetwork.as_str();
+        let cluster = cluster_for_journey(journey).expect("zenoh cluster");
         assert_eq!(cluster.landing_prs, vec![3300]);
-        let discovery = discovery_for_journey("InspectZenohNetwork").expect("zenoh discovery");
+        let discovery = discovery_for_journey(journey).expect("zenoh discovery");
         assert!(discovery.backport_prs.is_empty());
         assert!(discovery.follow_up_prs.contains(&3313));
         assert!(discovery.follow_up_prs.contains(&3953));
         assert!(!cluster.intro_sha_in_pr_commits);
-        let pr = landing_pr_for_journey("InspectZenohNetwork").expect("landing pr");
+        let pr = landing_pr_for_journey(journey).expect("landing pr");
         assert!(pr.title.as_deref().unwrap_or("").contains("zenoh"));
         assert!(!pr.body.is_empty());
         assert!(!pr.files_changed.is_empty());
@@ -276,19 +282,20 @@ mod tests {
 
     #[test]
     fn customization_has_no_backport() {
-        let cluster = cluster_for_journey("ChangeUiThemeColor").expect("customization");
+        let journey = JourneyId::ChangeUiThemeColor.as_str();
+        let cluster = cluster_for_journey(journey).expect("customization");
         assert_eq!(cluster.landing_prs, vec![3930]);
-        let discovery =
-            discovery_for_journey("ChangeUiThemeColor").expect("customization discovery");
+        let discovery = discovery_for_journey(journey).expect("customization discovery");
         assert!(discovery.backport_prs.is_empty());
         assert!(discovery.follow_up_prs.is_empty());
     }
 
     #[test]
     fn internet_speed_links_closing_issue() {
-        let cluster = cluster_for_journey("RunInternetSpeedTest").expect("pardal cluster");
+        let journey = JourneyId::RunInternetSpeedTest.as_str();
+        let cluster = cluster_for_journey(journey).expect("pardal cluster");
         assert_eq!(cluster.landing_prs, vec![3602]);
-        let discovery = discovery_for_journey("RunInternetSpeedTest").expect("pardal discovery");
+        let discovery = discovery_for_journey(journey).expect("pardal discovery");
         assert!(discovery.issues.iter().any(|i| i.number == 2146));
         assert!(!discovery.follow_up_prs.contains(&3686));
         let issue = issue(2146).expect("issue 2146");
@@ -302,14 +309,16 @@ mod tests {
 
     #[test]
     fn disk_usage_follow_ups_exact_set() {
-        let discovery = discovery_for_journey("InspectDiskUsage").expect("disk usage discovery");
+        let discovery = discovery_for_journey(JourneyId::InspectDiskUsage.as_str())
+            .expect("disk usage discovery");
         let follow_ups: HashSet<u64> = discovery.follow_up_prs.iter().copied().collect();
         assert_eq!(follow_ups, HashSet::from([3681, 3691, 3743]));
     }
 
     #[test]
     fn level_horizon_backport_no_customization_leak() {
-        let discovery = discovery_for_journey("LevelHorizon").expect("level horizon discovery");
+        let discovery = discovery_for_journey(JourneyId::LevelHorizon.as_str())
+            .expect("level horizon discovery");
         assert!(discovery.backport_prs.contains(&3867));
         assert!(!discovery.follow_up_prs.contains(&3930));
         assert!(!discovery.backport_prs.contains(&3930));
@@ -317,25 +326,37 @@ mod tests {
 
     #[test]
     fn camera_pair_sibling_ratio_below_gate() {
-        let ratio = sibling_ratio("ConfigureCameraStream", "ViewCameraStreams");
+        let ratio = sibling_ratio(
+            JourneyId::ConfigureCameraStream.as_str(),
+            JourneyId::ViewCameraStreams.as_str(),
+        );
         assert!(ratio < 0.40, "camera sibling ratio {ratio} >= 0.40 gate");
     }
 
     #[test]
     fn autopilot_pair_sibling_ratio_below_gate() {
-        let ratio = sibling_ratio("StartAutopilot", "UpdateFirmwareOnline");
+        let ratio = sibling_ratio(
+            JourneyId::StartAutopilot.as_str(),
+            JourneyId::UpdateFirmwareOnline.as_str(),
+        );
         assert!(ratio < 0.20, "autopilot sibling ratio {ratio} >= 0.20 gate");
     }
 
     #[test]
     fn helper_pair_sibling_ratio_below_gate() {
-        let ratio = sibling_ratio("BrowseAvailableWebServices", "MonitorInternetConnectivity");
+        let ratio = sibling_ratio(
+            JourneyId::BrowseAvailableWebServices.as_str(),
+            JourneyId::MonitorInternetConnectivity.as_str(),
+        );
         assert!(ratio < 0.40, "helper sibling ratio {ratio} >= 0.40 gate");
     }
 
     #[test]
     fn configure_video_stream_vs_view_camera_streams_sibling_ratio_below_gate() {
-        let ratio = sibling_ratio("ConfigureVideoStream", "ViewCameraStreams");
+        let ratio = sibling_ratio(
+            JourneyId::ConfigureVideoStream.as_str(),
+            JourneyId::ViewCameraStreams.as_str(),
+        );
         assert!(
             ratio < 0.40,
             "video/view-camera sibling ratio {ratio} >= 0.40 gate"
@@ -350,7 +371,10 @@ mod tests {
     /// separation (e.g. an override added to only one sibling).
     #[test]
     fn commander_reboot_shutdown_is_pinned_shared_cluster() {
-        let ratio = sibling_ratio("RebootOnboardComputer", "ShutdownOnboardComputer");
+        let ratio = sibling_ratio(
+            JourneyId::RebootOnboardComputer.as_str(),
+            JourneyId::ShutdownOnboardComputer.as_str(),
+        );
         assert!(
             ratio >= 0.99,
             "commander shared-cluster ratio {ratio} < 0.99 pin"
@@ -360,9 +384,18 @@ mod tests {
     #[test]
     fn versionchooser_trio_is_pinned_shared_cluster() {
         let pairs = [
-            ("UpdateBlueosVersion", "SwitchLocalBlueosVersion"),
-            ("UpdateBlueosVersion", "PullBlueosVersionWithoutSwitch"),
-            ("SwitchLocalBlueosVersion", "PullBlueosVersionWithoutSwitch"),
+            (
+                JourneyId::UpdateBlueosVersion.as_str(),
+                JourneyId::SwitchLocalBlueosVersion.as_str(),
+            ),
+            (
+                JourneyId::UpdateBlueosVersion.as_str(),
+                JourneyId::PullBlueosVersionWithoutSwitch.as_str(),
+            ),
+            (
+                JourneyId::SwitchLocalBlueosVersion.as_str(),
+                JourneyId::PullBlueosVersionWithoutSwitch.as_str(),
+            ),
         ];
         for (a, b) in pairs {
             let ratio = sibling_ratio(a, b);
@@ -375,7 +408,10 @@ mod tests {
 
     #[test]
     fn kraken_install_uninstall_is_pinned_shared_cluster() {
-        let ratio = sibling_ratio("InstallExtension", "UninstallExtension");
+        let ratio = sibling_ratio(
+            JourneyId::InstallExtension.as_str(),
+            JourneyId::UninstallExtension.as_str(),
+        );
         assert!(
             ratio >= 0.99,
             "kraken shared-cluster ratio {ratio} < 0.99 pin"
@@ -384,7 +420,10 @@ mod tests {
 
     #[test]
     fn configure_video_stream_vs_configure_camera_stream_sibling_ratio_below_gate() {
-        let ratio = sibling_ratio("ConfigureVideoStream", "ConfigureCameraStream");
+        let ratio = sibling_ratio(
+            JourneyId::ConfigureVideoStream.as_str(),
+            JourneyId::ConfigureCameraStream.as_str(),
+        );
         assert!(
             ratio < 0.40,
             "video/configure-camera sibling ratio {ratio} >= 0.40 gate"
@@ -393,29 +432,33 @@ mod tests {
 
     #[test]
     fn wifi_pair_sibling_ratio_below_gate() {
-        let ratio = sibling_ratio("ConnectToWifiNetwork", "ForgetSavedWifiNetwork");
+        let ratio = sibling_ratio(
+            JourneyId::ConnectToWifiNetwork.as_str(),
+            JourneyId::ForgetSavedWifiNetwork.as_str(),
+        );
         assert!(ratio < 0.40, "wifi sibling ratio {ratio} >= 0.40 gate");
     }
 
     #[test]
     fn eeprom_pair_sibling_ratio_below_gate() {
         let ratio = sibling_ratio(
-            "InspectRaspberryEepromBootloader",
-            "UpdateRaspberryEepromBootloader",
+            JourneyId::InspectRaspberryEepromBootloader.as_str(),
+            JourneyId::UpdateRaspberryEepromBootloader.as_str(),
         );
         assert!(ratio < 0.40, "eeprom sibling ratio {ratio} >= 0.40 gate");
     }
 
     #[test]
     fn access_web_terminal_follow_ups_exact_set() {
-        let discovery = discovery_for_journey("AccessWebTerminal").expect("web terminal discovery");
+        let discovery = discovery_for_journey(JourneyId::AccessWebTerminal.as_str())
+            .expect("web terminal discovery");
         let follow_ups: HashSet<u64> = discovery.follow_up_prs.iter().copied().collect();
         assert_eq!(follow_ups, HashSet::from([659, 2279]));
     }
 
     #[test]
     fn inspect_mavlink_messages_in_browser_follow_ups_exact_set() {
-        let discovery = discovery_for_journey("InspectMavlinkMessagesInBrowser")
+        let discovery = discovery_for_journey(JourneyId::InspectMavlinkMessagesInBrowser.as_str())
             .expect("mavlink browser discovery");
         let follow_ups: HashSet<u64> = discovery.follow_up_prs.iter().copied().collect();
         assert_eq!(follow_ups, HashSet::from([3310]));
@@ -423,7 +466,8 @@ mod tests {
 
     #[test]
     fn calibrate_gyroscope_follow_ups_and_backport_exact_set() {
-        let discovery = discovery_for_journey("CalibrateGyroscope").expect("gyroscope discovery");
+        let discovery = discovery_for_journey(JourneyId::CalibrateGyroscope.as_str())
+            .expect("gyroscope discovery");
         let follow_ups: HashSet<u64> = discovery.follow_up_prs.iter().copied().collect();
         assert_eq!(follow_ups, HashSet::from([3443]));
         assert!(discovery.backport_prs.contains(&3867));
@@ -434,12 +478,13 @@ mod tests {
         use crate::feature_intro::presence_for_journey;
 
         for journey_id in [
-            "InspectZenohNetwork",
-            "InspectDiskUsage",
-            "LevelHorizon",
-            "ViewCameraStreams",
-            "AccessWebTerminal",
+            JourneyId::InspectZenohNetwork,
+            JourneyId::InspectDiskUsage,
+            JourneyId::LevelHorizon,
+            JourneyId::ViewCameraStreams,
+            JourneyId::AccessWebTerminal,
         ] {
+            let journey_id = journey_id.as_str();
             let presence = presence_for_journey(journey_id).expect("presence");
             let intro = intro_commit_for_journey(journey_id).expect("trace intro");
             assert_eq!(presence.intro_commit, intro);

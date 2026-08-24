@@ -1,8 +1,8 @@
 use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, BlastRadius, BodyKind, DataRequirement, HttpMethod, JourneyStep, NetworkState,
-    Precondition, RouteRef, StepOutcome, UserJourney, Visibility,
+    Actor, BlastRadius, BodyKind, DataAssumption, HttpMethod, JourneyStep, NetworkState,
+    Precondition, RouteRef, StepOutcome, UseCase, Visibility,
 };
 use crate::journey_presence::{
     PRESENCE_ADD_CUSTOM_MANIFEST, PRESENCE_BROWSE_EXTENSION_STORE,
@@ -15,7 +15,7 @@ const ADV: &str = "content/usage/advanced/index.md";
 const DEV: &str = "content/development/extensions/index.md";
 const RUNTIME_ENV: &str = RUNTIME_CAPTURE_ENV_PI4;
 
-pub const JOURNEYS: &[UserJourney] = &[
+pub const JOURNEYS: &[UseCase] = &[
     ADD_CUSTOM_MANIFEST,
     BROWSE_EXTENSION_STORE,
     CONFIGURE_INSTALLED_EXTENSION,
@@ -25,8 +25,8 @@ pub const JOURNEYS: &[UserJourney] = &[
     UNINSTALL_EXTENSION,
 ];
 
-const ADD_CUSTOM_MANIFEST: UserJourney =
-    UserJourney {
+const ADD_CUSTOM_MANIFEST: UseCase =
+    UseCase {
         id: JourneyId::AddCustomManifest,
         summary: Grounded::known(
             "Add an external extension collection manifest beyond the default BlueOS Extensions Repository",
@@ -62,7 +62,7 @@ const ADD_CUSTOM_MANIFEST: UserJourney =
         chains_from: Some(JourneyId::BrowseExtensionStore),
     };
 
-const BROWSE_EXTENSION_STORE: UserJourney = UserJourney {
+const BROWSE_EXTENSION_STORE: UseCase = UseCase {
     id: JourneyId::BrowseExtensionStore,
     summary: Grounded::known(
         "Browse available extensions in the Store tab, including beta-marked releases",
@@ -137,8 +137,8 @@ const BROWSE_EXTENSION_STORE: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const CONFIGURE_INSTALLED_EXTENSION: UserJourney =
-    UserJourney {
+const CONFIGURE_INSTALLED_EXTENSION: UseCase =
+    UseCase {
         id: JourneyId::ConfigureInstalledExtension,
         summary: Grounded::known(
             "Manage installed extensions: view resource usage, configure permissions, read logs, restart, or disable"
@@ -156,7 +156,7 @@ const CONFIGURE_INSTALLED_EXTENSION: UserJourney =
             ),
         ]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
-            Precondition::Data(DataRequirement::ExtensionInstalled),
+            Precondition::Data(DataAssumption::ExtensionInstalled),
             Provenance::doc(DEV, 347, "Once installed on the [Onboard Computer](@/integrations/hard"),
         )]),
         steps: GroundedSet::known(&[
@@ -227,8 +227,8 @@ const CONFIGURE_INSTALLED_EXTENSION: UserJourney =
         chains_from: Some(JourneyId::InstallExtension),
     };
 
-const EDIT_EXTENSION_DEV_VERSION: UserJourney =
-    UserJourney {
+const EDIT_EXTENSION_DEV_VERSION: UseCase =
+    UseCase {
         id: JourneyId::EditExtensionDevVersion,
         summary: Grounded::known(
             "Switch an installed extension to an alternative or development version by editing its docker tag",
@@ -240,7 +240,7 @@ const EDIT_EXTENSION_DEV_VERSION: UserJourney =
             "Edit button changes the docker tag to an alternative development version",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
-            Precondition::Data(DataRequirement::ExtensionInstalled),
+            Precondition::Data(DataAssumption::ExtensionInstalled),
             Provenance::doc(ADV, 865, "The \"Edit\" button on installed extension listings allows cha"),
         )]),
         steps: GroundedSet::known(&[
@@ -272,8 +272,8 @@ const EDIT_EXTENSION_DEV_VERSION: UserJourney =
         chains_from: Some(JourneyId::ConfigureInstalledExtension),
     };
 
-const INSTALL_CUSTOM_EXTENSION: UserJourney =
-    UserJourney {
+const INSTALL_CUSTOM_EXTENSION: UseCase =
+    UseCase {
         id: JourneyId::InstallCustomExtension,
         summary: Grounded::known(
             "Install a custom extension by registering a Docker image through the blue plus button",
@@ -329,8 +329,8 @@ const INSTALL_CUSTOM_EXTENSION: UserJourney =
         chains_from: None,
     };
 
-const INSTALL_EXTENSION: UserJourney =
-    UserJourney {
+const INSTALL_EXTENSION: UseCase =
+    UseCase {
         id: JourneyId::InstallExtension,
         summary: Grounded::known(
             "Install an extension from the store by selecting a version from its card dropdown",
@@ -387,7 +387,7 @@ const INSTALL_EXTENSION: UserJourney =
         chains_from: Some(JourneyId::BrowseExtensionStore),
     };
 
-const UNINSTALL_EXTENSION: UserJourney = UserJourney {
+const UNINSTALL_EXTENSION: UseCase = UseCase {
     id: JourneyId::UninstallExtension,
     summary: Grounded::known(
         "Uninstall an extension version from the store card version dropdown",
@@ -400,7 +400,7 @@ const UNINSTALL_EXTENSION: UserJourney = UserJourney {
         "version dropdown on a store card uninstalls the selected extension release",
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Data(DataRequirement::ExtensionInstalled),
+        Precondition::Data(DataAssumption::ExtensionInstalled),
         Provenance::doc(DEV, 359, "- Uninstall Extensions that are no longer wanted"),
     )]),
     steps: GroundedSet::known(&[

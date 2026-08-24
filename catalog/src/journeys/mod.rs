@@ -29,9 +29,9 @@ mod wifi;
 mod zenohd;
 
 use crate::id::JourneyId;
-use crate::journey::UserJourney;
+use crate::journey::UseCase;
 
-pub fn all_journeys() -> Vec<UserJourney> {
+pub fn all_journeys() -> Vec<UseCase> {
     [
         ardupilot_manager::JOURNEYS,
         bag_of_holding::JOURNEYS,
@@ -67,7 +67,7 @@ pub fn all_journeys() -> Vec<UserJourney> {
 }
 
 pub(crate) fn source_file_for_journey(id: JourneyId) -> Option<&'static str> {
-    let modules: &[(&str, &[UserJourney])] = &[
+    let modules: &[(&str, &[UseCase])] = &[
         ("journeys/ardupilot_manager.rs", ardupilot_manager::JOURNEYS),
         ("journeys/bag_of_holding.rs", bag_of_holding::JOURNEYS),
         ("journeys/beacon.rs", beacon::JOURNEYS),

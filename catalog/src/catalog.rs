@@ -4,17 +4,17 @@ use schemars::JsonSchema;
 use serde::Serialize;
 
 use crate::id::{JourneyId, ServiceId};
-use crate::journey::UserJourney;
+use crate::journey::UseCase;
 use crate::observed::ObservedFacts;
 use crate::page::{Page, PageId};
 use crate::runtime::RuntimeFacts;
-use crate::service::{Service, ServiceDefinition};
+use crate::service::{Service, ServiceJudgment};
 use crate::validate::ValidationError;
 
 #[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
 pub struct Catalog {
     services: Vec<Service>,
-    journeys: Vec<UserJourney>,
+    journeys: Vec<UseCase>,
     pages: Vec<Page>,
 }
 
@@ -33,11 +33,7 @@ impl Catalog {
         }
     }
 
-    pub fn with_parts(
-        services: Vec<Service>,
-        journeys: Vec<UserJourney>,
-        pages: Vec<Page>,
-    ) -> Self {
+    pub fn with_parts(services: Vec<Service>, journeys: Vec<UseCase>, pages: Vec<Page>) -> Self {
         Self {
             services,
             journeys,
@@ -61,7 +57,7 @@ impl Catalog {
         self.services.iter().find(|service| &service.id == id)
     }
 
-    pub fn definition_by_id(&self, id: &ServiceId) -> Option<&ServiceDefinition> {
+    pub fn definition_by_id(&self, id: &ServiceId) -> Option<&ServiceJudgment> {
         self.service_by_id(id).map(|service| &service.definition)
     }
 
@@ -73,11 +69,11 @@ impl Catalog {
         self.service_by_id(id).map(|service| &service.runtime)
     }
 
-    pub fn journeys(&self) -> &[UserJourney] {
+    pub fn journeys(&self) -> &[UseCase] {
         &self.journeys
     }
 
-    pub fn journey_by_id(&self, id: &JourneyId) -> Option<&UserJourney> {
+    pub fn journey_by_id(&self, id: &JourneyId) -> Option<&UseCase> {
         self.journeys.iter().find(|journey| &journey.id == id)
     }
 

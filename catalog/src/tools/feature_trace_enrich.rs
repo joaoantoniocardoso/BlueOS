@@ -45,6 +45,7 @@ use serde::Serialize;
 use serde_json::{json, Value};
 
 use super::shell;
+use crate::id::JourneyId;
 
 const REPO: &str = "bluerobotics/BlueOS";
 const FILES_CAP: usize = 400;
@@ -759,11 +760,12 @@ fn entry_mentions_token(entry: &PrEntry, token: &str) -> bool {
 /// journey. Multi-row journeys (e.g. `ViewCameraStreams`) get every row, not
 /// just the first match — see `PRECISION_DESIGN.md` §2.
 fn journey_override_paths(journey_id: &str) -> Vec<String> {
-    use super::feature_presence::{Override, OVERRIDES};
+    use super::feature_presence::{overrides_lookup_key, Override, OVERRIDES};
 
+    let lookup = overrides_lookup_key(journey_id);
     OVERRIDES
         .iter()
-        .filter(|(k, _)| *k == journey_id)
+        .filter(|(k, _)| *k == lookup)
         .map(|(_, ov)| match ov {
             Override::Path(path) => (*path).to_string(),
             Override::Pickaxe(_, path) => (*path).to_string(),
@@ -779,10 +781,11 @@ fn journey_override_paths(journey_id: &str) -> Vec<String> {
 /// recompute the pickaxe hit straight from `feature_traces.json`, without
 /// requiring a re-enrich.
 pub(crate) fn journey_pickaxe_term(journey_id: &str) -> Option<&'static str> {
-    use super::feature_presence::{Override, OVERRIDES};
+    use super::feature_presence::{overrides_lookup_key, Override, OVERRIDES};
 
+    let lookup = overrides_lookup_key(journey_id);
     OVERRIDES.iter().find_map(|(k, ov)| {
-        if *k != journey_id {
+        if *k != lookup {
             return None;
         }
         match ov {
@@ -1422,10 +1425,14 @@ mod journey_override_tests {
             "core/start-blueos-core".to_string(),
         ];
 
-        let zenoh_paths =
-            resolve_journey_discovery_paths("InspectZenohNetwork", "zenohd", &candidate_paths, &[]);
+        let zenoh_paths = resolve_journey_discovery_paths(
+            "inspect_zenoh_network",
+            "zenohd",
+            &candidate_paths,
+            &[],
+        );
         let pardal_paths =
-            resolve_journey_discovery_paths("RunLanSpeedTest", "pardal", &candidate_paths, &[]);
+            resolve_journey_discovery_paths("run_lan_speed_test", "pardal", &candidate_paths, &[]);
 
         assert!(zenoh_paths
             .iter()
@@ -1450,10 +1457,10 @@ mod journey_override_tests {
         ];
 
         let paths = resolve_journey_discovery_paths(
-            "ViewCameraStreams",
+            "view_camera_streams",
             "mavlink_camera_manager",
             &candidate_paths,
-            &module_hint_paths("ViewCameraStreams", "mavlink_camera_manager"),
+            &module_hint_paths("view_camera_streams", "mavlink_camera_manager"),
         );
 
         assert!(paths.iter().any(|p| p.contains("store/video.ts")));
@@ -1472,16 +1479,16 @@ mod journey_override_tests {
         ];
 
         let configure_paths = resolve_journey_discovery_paths(
-            "ConfigureCameraStream",
+            "configure_camera_stream",
             "mavlink_camera_manager",
             &candidate_paths,
-            &module_hint_paths("ConfigureCameraStream", "mavlink_camera_manager"),
+            &module_hint_paths("configure_camera_stream", "mavlink_camera_manager"),
         );
         let view_paths = resolve_journey_discovery_paths(
-            "ViewCameraStreams",
+            "view_camera_streams",
             "mavlink_camera_manager",
             &candidate_paths,
-            &module_hint_paths("ViewCameraStreams", "mavlink_camera_manager"),
+            &module_hint_paths("view_camera_streams", "mavlink_camera_manager"),
         );
 
         assert_ne!(configure_paths, view_paths);
@@ -1509,10 +1516,10 @@ mod journey_override_tests {
         ];
 
         let paths = resolve_journey_discovery_paths(
-            "ConfigureVideoStream",
+            "configure_video_stream",
             "frontend_video",
             &candidate_paths,
-            &module_hint_paths("ConfigureVideoStream", "frontend_video"),
+            &module_hint_paths("configure_video_stream", "frontend_video"),
         );
 
         assert!(paths
@@ -1776,14 +1783,14 @@ fn generated_at_now(root: &Path) -> String {
 }
 
 const GOLDEN_JOURNEY_IDS: &[&str] = &[
-    "InspectZenohNetwork",
-    "ChangeUiThemeColor",
-    "InspectDiskUsage",
-    "RunInternetSpeedTest",
-    "LevelHorizon",
-    "AccessWebTerminal",
-    "InspectMavlinkMessagesInBrowser",
-    "CalibrateGyroscope",
+    JourneyId::InspectZenohNetwork.as_str(),
+    JourneyId::ChangeUiThemeColor.as_str(),
+    JourneyId::InspectDiskUsage.as_str(),
+    JourneyId::RunInternetSpeedTest.as_str(),
+    JourneyId::LevelHorizon.as_str(),
+    JourneyId::AccessWebTerminal.as_str(),
+    JourneyId::InspectMavlinkMessagesInBrowser.as_str(),
+    JourneyId::CalibrateGyroscope.as_str(),
 ];
 
 /// `journeys[].intro_commit` + `intro_clusters[sha]` for one journey: the
@@ -1826,10 +1833,10 @@ fn issue_numbers(by_journey: &Value) -> BTreeSet<u64> {
 fn check_strict_goldens(output: &Value, journeys: &[&str]) -> Result<(), String> {
     let mut violations: Vec<String> = vec![];
 
-    if journeys.contains(&"InspectZenohNetwork") {
-        match journey_cluster_view(output, "InspectZenohNetwork") {
+    if journeys.contains(&"inspect_zenoh_network") {
+        match journey_cluster_view(output, "inspect_zenoh_network") {
             None => violations
-                .push("InspectZenohNetwork: journey/cluster not found in output".to_string()),
+                .push("inspect_zenoh_network: journey/cluster not found in output".to_string()),
             Some((cluster, by_journey)) => {
                 let seen: BTreeSet<u64> = u64_set(cluster, "landing_prs")
                     .union(&u64_set(by_journey, "follow_up_prs"))
@@ -1838,7 +1845,7 @@ fn check_strict_goldens(output: &Value, journeys: &[&str]) -> Result<(), String>
                 for pr in [3300, 3313, 3953] {
                     if !seen.contains(&pr) {
                         violations.push(format!(
-                            "InspectZenohNetwork: golden PR #{pr} missing from landing/follow-up set"
+                            "inspect_zenoh_network: golden PR #{pr} missing from landing/follow-up set"
                         ));
                     }
                 }
@@ -1846,138 +1853,141 @@ fn check_strict_goldens(output: &Value, journeys: &[&str]) -> Result<(), String>
         }
     }
 
-    if journeys.contains(&"ChangeUiThemeColor") {
-        match journey_cluster_view(output, "ChangeUiThemeColor") {
+    if journeys.contains(&"change_ui_theme_color") {
+        match journey_cluster_view(output, "change_ui_theme_color") {
             None => violations
-                .push("ChangeUiThemeColor: journey/cluster not found in output".to_string()),
+                .push("change_ui_theme_color: journey/cluster not found in output".to_string()),
             Some((_cluster, by_journey)) => {
                 let follow = u64_set(by_journey, "follow_up_prs");
                 let backport = u64_set(by_journey, "backport_prs");
                 if !follow.is_empty() {
                     violations.push(format!(
-                        "ChangeUiThemeColor: expected empty follow_up_prs, got {follow:?}"
+                        "change_ui_theme_color: expected empty follow_up_prs, got {follow:?}"
                     ));
                 }
                 if !backport.is_empty() {
                     violations.push(format!(
-                        "ChangeUiThemeColor: expected empty backport_prs, got {backport:?}"
+                        "change_ui_theme_color: expected empty backport_prs, got {backport:?}"
                     ));
                 }
             }
         }
     }
 
-    if journeys.contains(&"InspectDiskUsage") {
-        match journey_cluster_view(output, "InspectDiskUsage") {
-            None => {
-                violations.push("InspectDiskUsage: journey/cluster not found in output".to_string())
-            }
+    if journeys.contains(&"inspect_disk_usage") {
+        match journey_cluster_view(output, "inspect_disk_usage") {
+            None => violations
+                .push("inspect_disk_usage: journey/cluster not found in output".to_string()),
             Some((_cluster, by_journey)) => {
                 let follow = u64_set(by_journey, "follow_up_prs");
                 let expected: BTreeSet<u64> = [3681, 3691, 3743].into_iter().collect();
                 if follow != expected {
                     violations.push(format!(
-                        "InspectDiskUsage: expected follow_up_prs == {expected:?}, got {follow:?}"
+                        "inspect_disk_usage: expected follow_up_prs == {expected:?}, got {follow:?}"
                     ));
                 }
             }
         }
     }
 
-    if journeys.contains(&"RunInternetSpeedTest") {
-        match journey_cluster_view(output, "RunInternetSpeedTest") {
+    if journeys.contains(&"run_internet_speed_test") {
+        match journey_cluster_view(output, "run_internet_speed_test") {
             None => violations
-                .push("RunInternetSpeedTest: journey/cluster not found in output".to_string()),
+                .push("run_internet_speed_test: journey/cluster not found in output".to_string()),
             Some((cluster, by_journey)) => {
                 let landing = u64_set(cluster, "landing_prs");
                 let follow = u64_set(by_journey, "follow_up_prs");
                 let backport = u64_set(by_journey, "backport_prs");
                 if !landing.contains(&3602) {
-                    violations
-                        .push("RunInternetSpeedTest: golden landing PR #3602 missing".to_string());
+                    violations.push(
+                        "run_internet_speed_test: golden landing PR #3602 missing".to_string(),
+                    );
                 }
                 if follow.contains(&3686) || backport.contains(&3686) {
                     violations.push(
-                        "RunInternetSpeedTest: PR #3686 must be absent from follow_up/backport"
+                        "run_internet_speed_test: PR #3686 must be absent from follow_up/backport"
                             .to_string(),
                     );
                 }
                 if !issue_numbers(by_journey).contains(&2146) {
-                    violations.push("RunInternetSpeedTest: golden issue #2146 missing".to_string());
+                    violations
+                        .push("run_internet_speed_test: golden issue #2146 missing".to_string());
                 }
             }
         }
     }
 
-    if journeys.contains(&"LevelHorizon") {
-        match journey_cluster_view(output, "LevelHorizon") {
+    if journeys.contains(&"level_horizon") {
+        match journey_cluster_view(output, "level_horizon") {
             None => {
-                violations.push("LevelHorizon: journey/cluster not found in output".to_string())
+                violations.push("level_horizon: journey/cluster not found in output".to_string())
             }
             Some((_cluster, by_journey)) => {
                 let follow = u64_set(by_journey, "follow_up_prs");
                 let backport = u64_set(by_journey, "backport_prs");
                 if !backport.contains(&3867) {
-                    violations.push("LevelHorizon: golden backport PR #3867 missing".to_string());
+                    violations.push("level_horizon: golden backport PR #3867 missing".to_string());
                 }
                 if follow.contains(&3930) || backport.contains(&3930) {
                     violations.push(
-                        "LevelHorizon: PR #3930 must be absent from follow_up/backport".to_string(),
+                        "level_horizon: PR #3930 must be absent from follow_up/backport"
+                            .to_string(),
                     );
                 }
             }
         }
     }
 
-    if journeys.contains(&"AccessWebTerminal") {
-        match journey_cluster_view(output, "AccessWebTerminal") {
+    if journeys.contains(&"access_web_terminal") {
+        match journey_cluster_view(output, "access_web_terminal") {
             None => violations
-                .push("AccessWebTerminal: journey/cluster not found in output".to_string()),
+                .push("access_web_terminal: journey/cluster not found in output".to_string()),
             Some((_cluster, by_journey)) => {
                 let follow = u64_set(by_journey, "follow_up_prs");
                 let expected: BTreeSet<u64> = [659, 2279].into_iter().collect();
                 if follow != expected {
                     violations.push(format!(
-                        "AccessWebTerminal: expected follow_up_prs == {expected:?}, got {follow:?}"
+                        "access_web_terminal: expected follow_up_prs == {expected:?}, got {follow:?}"
                     ));
                 }
             }
         }
     }
 
-    if journeys.contains(&"InspectMavlinkMessagesInBrowser") {
-        match journey_cluster_view(output, "InspectMavlinkMessagesInBrowser") {
+    if journeys.contains(&"inspect_mavlink_messages_in_browser") {
+        match journey_cluster_view(output, "inspect_mavlink_messages_in_browser") {
             None => violations.push(
-                "InspectMavlinkMessagesInBrowser: journey/cluster not found in output".to_string(),
+                "inspect_mavlink_messages_in_browser: journey/cluster not found in output"
+                    .to_string(),
             ),
             Some((_cluster, by_journey)) => {
                 let follow = u64_set(by_journey, "follow_up_prs");
                 let expected: BTreeSet<u64> = [3310].into_iter().collect();
                 if follow != expected {
                     violations.push(format!(
-                    "InspectMavlinkMessagesInBrowser: expected follow_up_prs == {expected:?}, got {follow:?}"
+                    "inspect_mavlink_messages_in_browser: expected follow_up_prs == {expected:?}, got {follow:?}"
                 ));
                 }
             }
         }
     }
 
-    if journeys.contains(&"CalibrateGyroscope") {
-        match journey_cluster_view(output, "CalibrateGyroscope") {
+    if journeys.contains(&"calibrate_gyroscope") {
+        match journey_cluster_view(output, "calibrate_gyroscope") {
             None => violations
-                .push("CalibrateGyroscope: journey/cluster not found in output".to_string()),
+                .push("calibrate_gyroscope: journey/cluster not found in output".to_string()),
             Some((_cluster, by_journey)) => {
                 let follow = u64_set(by_journey, "follow_up_prs");
                 let backport = u64_set(by_journey, "backport_prs");
                 let expected: BTreeSet<u64> = [3443].into_iter().collect();
                 if follow != expected {
                     violations.push(format!(
-                    "CalibrateGyroscope: expected follow_up_prs == {expected:?}, got {follow:?}"
+                    "calibrate_gyroscope: expected follow_up_prs == {expected:?}, got {follow:?}"
                 ));
                 }
                 if !backport.contains(&3867) {
                     violations.push(
-                    "CalibrateGyroscope: golden backport PR #3867 missing (shared calibration-family backport)"
+                    "calibrate_gyroscope: golden backport PR #3867 missing (shared calibration-family backport)"
                         .to_string(),
                 );
                 }
@@ -2155,20 +2165,20 @@ mod merge_and_resume_tests {
 
     #[test]
     fn journey_filter_merges_not_overwrites() {
-        let existing = merge_output(None, &fixture("CalibrateGyroscope", "sha_gyro", &[100]));
+        let existing = merge_output(None, &fixture("calibrate_gyroscope", "sha_gyro", &[100]));
         let existing = merge_output(
             Some(existing),
-            &fixture("LevelHorizon", "sha_horizon", &[200]),
+            &fixture("level_horizon", "sha_horizon", &[200]),
         );
 
         let refreshed = merge_output(
             Some(existing.clone()),
-            &fixture("CalibrateGyroscope", "sha_gyro", &[999]),
+            &fixture("calibrate_gyroscope", "sha_gyro", &[999]),
         );
 
         // Refreshed journey's own data changed.
         assert_eq!(
-            journey_cluster_view(&refreshed, "CalibrateGyroscope")
+            journey_cluster_view(&refreshed, "calibrate_gyroscope")
                 .map(|(_, by_journey)| u64_set(by_journey, "follow_up_prs")),
             Some([999].into_iter().collect())
         );
@@ -2178,8 +2188,8 @@ mod merge_and_resume_tests {
             refreshed.get("intro_clusters").unwrap().get("sha_horizon"),
         );
         assert_eq!(
-            journey_cluster_view(&refreshed, "LevelHorizon"),
-            journey_cluster_view(&existing, "LevelHorizon"),
+            journey_cluster_view(&refreshed, "level_horizon"),
+            journey_cluster_view(&existing, "level_horizon"),
         );
         // Both journeys present in the merged journeys array.
         let ids: BTreeSet<String> = refreshed["journeys"]
@@ -2190,7 +2200,7 @@ mod merge_and_resume_tests {
             .collect();
         assert_eq!(
             ids,
-            ["CalibrateGyroscope", "LevelHorizon"]
+            ["calibrate_gyroscope", "level_horizon"]
                 .into_iter()
                 .map(String::from)
                 .collect()
@@ -2213,7 +2223,7 @@ mod merge_and_resume_tests {
 
     #[test]
     fn merge_with_no_existing_file_returns_new_output_unchanged() {
-        let new_output = fixture("CalibrateGyroscope", "sha_gyro", &[1]);
+        let new_output = fixture("calibrate_gyroscope", "sha_gyro", &[1]);
         assert_eq!(merge_output(None, &new_output), new_output);
     }
 
@@ -2348,16 +2358,16 @@ mod strict_goldens_tests {
     fn all_golden_fixture() -> Value {
         merge(vec![
             cluster_fixture(
-                "InspectZenohNetwork",
+                "inspect_zenoh_network",
                 "sha_zenoh",
                 &[3300],
                 &[3313, 3953, 3386],
                 &[],
                 &[],
             ),
-            cluster_fixture("ChangeUiThemeColor", "sha_theme", &[9001], &[], &[], &[]),
+            cluster_fixture("change_ui_theme_color", "sha_theme", &[9001], &[], &[], &[]),
             cluster_fixture(
-                "InspectDiskUsage",
+                "inspect_disk_usage",
                 "sha_disk",
                 &[9002],
                 &[3681, 3691, 3743],
@@ -2365,16 +2375,16 @@ mod strict_goldens_tests {
                 &[],
             ),
             cluster_fixture(
-                "RunInternetSpeedTest",
+                "run_internet_speed_test",
                 "sha_speed",
                 &[3602],
                 &[],
                 &[],
                 &[2146],
             ),
-            cluster_fixture("LevelHorizon", "sha_horizon", &[9003], &[], &[3867], &[]),
+            cluster_fixture("level_horizon", "sha_horizon", &[9003], &[], &[3867], &[]),
             cluster_fixture(
-                "AccessWebTerminal",
+                "access_web_terminal",
                 "sha_webterm",
                 &[9004],
                 &[659, 2279],
@@ -2382,7 +2392,7 @@ mod strict_goldens_tests {
                 &[],
             ),
             cluster_fixture(
-                "InspectMavlinkMessagesInBrowser",
+                "inspect_mavlink_messages_in_browser",
                 "sha_mavlink",
                 &[9005],
                 &[3310],
@@ -2390,7 +2400,7 @@ mod strict_goldens_tests {
                 &[],
             ),
             cluster_fixture(
-                "CalibrateGyroscope",
+                "calibrate_gyroscope",
                 "sha_gyro",
                 &[9006],
                 &[3443],
@@ -2412,16 +2422,16 @@ mod strict_goldens_tests {
     fn fails_when_zenoh_landing_pr_missing() {
         let output = merge(vec![
             cluster_fixture(
-                "InspectZenohNetwork",
+                "inspect_zenoh_network",
                 "sha_zenoh",
                 &[3300],
                 &[3953],
                 &[],
                 &[],
             ),
-            cluster_fixture("ChangeUiThemeColor", "sha_theme", &[9001], &[], &[], &[]),
+            cluster_fixture("change_ui_theme_color", "sha_theme", &[9001], &[], &[], &[]),
             cluster_fixture(
-                "InspectDiskUsage",
+                "inspect_disk_usage",
                 "sha_disk",
                 &[9002],
                 &[3681, 3691, 3743],
@@ -2429,17 +2439,17 @@ mod strict_goldens_tests {
                 &[],
             ),
             cluster_fixture(
-                "RunInternetSpeedTest",
+                "run_internet_speed_test",
                 "sha_speed",
                 &[3602],
                 &[],
                 &[],
                 &[2146],
             ),
-            cluster_fixture("LevelHorizon", "sha_horizon", &[9003], &[], &[3867], &[]),
+            cluster_fixture("level_horizon", "sha_horizon", &[9003], &[], &[3867], &[]),
         ]);
         let err = check_strict_goldens(&output, GOLDEN_JOURNEY_IDS).unwrap_err();
-        assert!(err.contains("InspectZenohNetwork"));
+        assert!(err.contains("inspect_zenoh_network"));
         assert!(err.contains("3313"));
     }
 
@@ -2447,7 +2457,7 @@ mod strict_goldens_tests {
     fn fails_when_ui_theme_has_unexpected_follow_up() {
         let output = merge(vec![
             cluster_fixture(
-                "InspectZenohNetwork",
+                "inspect_zenoh_network",
                 "sha_zenoh",
                 &[3300],
                 &[3313, 3953],
@@ -2455,7 +2465,7 @@ mod strict_goldens_tests {
                 &[],
             ),
             cluster_fixture(
-                "ChangeUiThemeColor",
+                "change_ui_theme_color",
                 "sha_theme",
                 &[9001],
                 &[4242],
@@ -2463,7 +2473,7 @@ mod strict_goldens_tests {
                 &[],
             ),
             cluster_fixture(
-                "InspectDiskUsage",
+                "inspect_disk_usage",
                 "sha_disk",
                 &[9002],
                 &[3681, 3691, 3743],
@@ -2471,33 +2481,33 @@ mod strict_goldens_tests {
                 &[],
             ),
             cluster_fixture(
-                "RunInternetSpeedTest",
+                "run_internet_speed_test",
                 "sha_speed",
                 &[3602],
                 &[],
                 &[],
                 &[2146],
             ),
-            cluster_fixture("LevelHorizon", "sha_horizon", &[9003], &[], &[3867], &[]),
+            cluster_fixture("level_horizon", "sha_horizon", &[9003], &[], &[3867], &[]),
         ]);
         let err = check_strict_goldens(&output, GOLDEN_JOURNEY_IDS).unwrap_err();
-        assert!(err.contains("ChangeUiThemeColor"));
+        assert!(err.contains("change_ui_theme_color"));
     }
 
     #[test]
     fn fails_when_disk_usage_follow_ups_not_exact() {
         let output = merge(vec![
             cluster_fixture(
-                "InspectZenohNetwork",
+                "inspect_zenoh_network",
                 "sha_zenoh",
                 &[3300],
                 &[3313, 3953],
                 &[],
                 &[],
             ),
-            cluster_fixture("ChangeUiThemeColor", "sha_theme", &[9001], &[], &[], &[]),
+            cluster_fixture("change_ui_theme_color", "sha_theme", &[9001], &[], &[], &[]),
             cluster_fixture(
-                "InspectDiskUsage",
+                "inspect_disk_usage",
                 "sha_disk",
                 &[9002],
                 &[3681, 3691],
@@ -2505,33 +2515,33 @@ mod strict_goldens_tests {
                 &[],
             ),
             cluster_fixture(
-                "RunInternetSpeedTest",
+                "run_internet_speed_test",
                 "sha_speed",
                 &[3602],
                 &[],
                 &[],
                 &[2146],
             ),
-            cluster_fixture("LevelHorizon", "sha_horizon", &[9003], &[], &[3867], &[]),
+            cluster_fixture("level_horizon", "sha_horizon", &[9003], &[], &[3867], &[]),
         ]);
         let err = check_strict_goldens(&output, GOLDEN_JOURNEY_IDS).unwrap_err();
-        assert!(err.contains("InspectDiskUsage"));
+        assert!(err.contains("inspect_disk_usage"));
     }
 
     #[test]
     fn fails_when_speed_test_has_denied_pr_or_missing_issue() {
         let output = merge(vec![
             cluster_fixture(
-                "InspectZenohNetwork",
+                "inspect_zenoh_network",
                 "sha_zenoh",
                 &[3300],
                 &[3313, 3953],
                 &[],
                 &[],
             ),
-            cluster_fixture("ChangeUiThemeColor", "sha_theme", &[9001], &[], &[], &[]),
+            cluster_fixture("change_ui_theme_color", "sha_theme", &[9001], &[], &[], &[]),
             cluster_fixture(
-                "InspectDiskUsage",
+                "inspect_disk_usage",
                 "sha_disk",
                 &[9002],
                 &[3681, 3691, 3743],
@@ -2539,17 +2549,17 @@ mod strict_goldens_tests {
                 &[],
             ),
             cluster_fixture(
-                "RunInternetSpeedTest",
+                "run_internet_speed_test",
                 "sha_speed",
                 &[3602],
                 &[3686],
                 &[],
                 &[],
             ),
-            cluster_fixture("LevelHorizon", "sha_horizon", &[9003], &[], &[3867], &[]),
+            cluster_fixture("level_horizon", "sha_horizon", &[9003], &[], &[3867], &[]),
         ]);
         let err = check_strict_goldens(&output, GOLDEN_JOURNEY_IDS).unwrap_err();
-        assert!(err.contains("RunInternetSpeedTest"));
+        assert!(err.contains("run_internet_speed_test"));
         assert!(err.contains("3686"));
         assert!(err.contains("2146"));
     }
@@ -2558,16 +2568,16 @@ mod strict_goldens_tests {
     fn fails_when_level_horizon_missing_backport_or_has_denied_pr() {
         let output = merge(vec![
             cluster_fixture(
-                "InspectZenohNetwork",
+                "inspect_zenoh_network",
                 "sha_zenoh",
                 &[3300],
                 &[3313, 3953],
                 &[],
                 &[],
             ),
-            cluster_fixture("ChangeUiThemeColor", "sha_theme", &[9001], &[], &[], &[]),
+            cluster_fixture("change_ui_theme_color", "sha_theme", &[9001], &[], &[], &[]),
             cluster_fixture(
-                "InspectDiskUsage",
+                "inspect_disk_usage",
                 "sha_disk",
                 &[9002],
                 &[3681, 3691, 3743],
@@ -2575,17 +2585,17 @@ mod strict_goldens_tests {
                 &[],
             ),
             cluster_fixture(
-                "RunInternetSpeedTest",
+                "run_internet_speed_test",
                 "sha_speed",
                 &[3602],
                 &[],
                 &[],
                 &[2146],
             ),
-            cluster_fixture("LevelHorizon", "sha_horizon", &[9003], &[], &[3930], &[]),
+            cluster_fixture("level_horizon", "sha_horizon", &[9003], &[], &[3930], &[]),
         ]);
         let err = check_strict_goldens(&output, GOLDEN_JOURNEY_IDS).unwrap_err();
-        assert!(err.contains("LevelHorizon"));
+        assert!(err.contains("level_horizon"));
         assert!(err.contains("3867"));
         assert!(err.contains("3930"));
     }
@@ -2593,7 +2603,7 @@ mod strict_goldens_tests {
     #[test]
     fn fails_when_journey_missing_from_output_entirely() {
         let output = merge(vec![cluster_fixture(
-            "InspectZenohNetwork",
+            "inspect_zenoh_network",
             "sha_zenoh",
             &[3300],
             &[3313, 3953],
@@ -2603,7 +2613,7 @@ mod strict_goldens_tests {
         let err = check_strict_goldens(&output, GOLDEN_JOURNEY_IDS).unwrap_err();
         assert!(GOLDEN_JOURNEY_IDS
             .iter()
-            .filter(|j| **j != "InspectZenohNetwork")
+            .filter(|j| **j != "inspect_zenoh_network")
             .all(|j| err.contains(j)));
     }
 
@@ -2612,7 +2622,7 @@ mod strict_goldens_tests {
         // Only InspectDiskUsage was enriched (as with a `--journey`-scoped
         // run); the other 7 goldens are absent from the output entirely.
         let output = merge(vec![cluster_fixture(
-            "InspectDiskUsage",
+            "inspect_disk_usage",
             "sha_disk",
             &[9002],
             &[3681, 3691, 3743],
@@ -2620,10 +2630,13 @@ mod strict_goldens_tests {
             &[],
         )]);
 
-        assert_eq!(check_strict_goldens(&output, &["InspectDiskUsage"]), Ok(()));
+        assert_eq!(
+            check_strict_goldens(&output, &["inspect_disk_usage"]),
+            Ok(())
+        );
         assert!(check_strict_goldens(&output, GOLDEN_JOURNEY_IDS)
             .unwrap_err()
-            .contains("InspectZenohNetwork"));
+            .contains("inspect_zenoh_network"));
     }
 }
 

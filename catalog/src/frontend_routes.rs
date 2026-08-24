@@ -292,18 +292,17 @@ pub fn check_frontend_route_refs(catalog: &Catalog) -> Vec<ValidationError> {
 mod tests {
     use super::*;
 
-    const TEST_PRESENCE: crate::version::FeatureAvailability =
-        crate::version::FeatureAvailability {
-            intro_commit: "0000000000000000000000000000000000000001",
-            present_in_tags: &["1.0.0"],
-            present_on_master: true,
-            present_on_1_4_dev: true,
-        };
+    const TEST_PRESENCE: crate::version::Availability = crate::version::Availability {
+        intro_commit: "0000000000000000000000000000000000000001",
+        present_in_tags: &["1.0.0"],
+        present_on_master: true,
+        present_on_1_4_dev: true,
+    };
 
     use crate::catalog::Catalog;
     use crate::id::{CapabilityId, JourneyId};
     use crate::journey::BLAST_RADIUS_UNKNOWN;
-    use crate::journey::{Actor, HttpMethod, JourneyStep, RouteRef, UserJourney, Visibility};
+    use crate::journey::{Actor, HttpMethod, JourneyStep, RouteRef, UseCase, Visibility};
     use crate::provenance::{Grounded, GroundedItem, GroundedSet};
     use crate::runtime::RuntimeFacts;
     use crate::service::Service;
@@ -373,7 +372,7 @@ mod tests {
             ),
         )];
 
-        let journey = UserJourney {
+        let journey = UseCase {
             id: JourneyId::BrowseVideoRecordings,
             summary: Grounded::known("test", Provenance::doc("test.md", 1, "")),
             visibility: Grounded::known(Visibility::Default, Provenance::doc("test.md", 1, "")),

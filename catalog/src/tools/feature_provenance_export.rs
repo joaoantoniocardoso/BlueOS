@@ -11,7 +11,7 @@ use serde::Serialize;
 use crate::feature_intro::presence_for_journey;
 use crate::feature_trace::feature_traces;
 use crate::tools::feature_trace_report::{build_timeline, IssueRef, PrRef, GOLDEN_JOURNEY_IDS};
-use crate::version::{availability_skip, format_availability_skip_reason, FeatureAvailability};
+use crate::version::{availability_skip, format_availability_skip_reason, Availability};
 
 pub const SCHEMA_VERSION: u32 = 1;
 pub const DEFAULT_REFERENCE_TAGS: &[&str] = &["master", "1.4-dev"];
@@ -62,7 +62,7 @@ pub struct JourneyProvenance {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct FeatureProvenanceSnapshot {
+pub struct ProvenanceSnapshot {
     pub schema_version: u32,
     pub generated_at: String,
     pub reference_dut_tags: Vec<String>,
@@ -113,7 +113,7 @@ fn compact_issue(issue: &IssueRef) -> CompactIssue {
 }
 
 pub fn skip_reasons_for_tags(
-    availability: FeatureAvailability,
+    availability: Availability,
     reference_tags: &[String],
 ) -> BTreeMap<String, Option<String>> {
     reference_tags
@@ -156,14 +156,14 @@ pub fn journey_provenance(
     })
 }
 
-pub fn build_snapshot_for_journeys(journey_ids: &[&str]) -> FeatureProvenanceSnapshot {
+pub fn build_snapshot_for_journeys(journey_ids: &[&str]) -> ProvenanceSnapshot {
     let reference_dut_tags = collect_reference_dut_tags();
     let mut journeys: Vec<JourneyProvenance> = journey_ids
         .iter()
         .filter_map(|id| journey_provenance(id, &reference_dut_tags))
         .collect();
     journeys.sort_by(|a, b| a.id.cmp(&b.id));
-    FeatureProvenanceSnapshot {
+    ProvenanceSnapshot {
         schema_version: SCHEMA_VERSION,
         generated_at: feature_traces().generated_at.clone(),
         reference_dut_tags,
@@ -171,7 +171,7 @@ pub fn build_snapshot_for_journeys(journey_ids: &[&str]) -> FeatureProvenanceSna
     }
 }
 
-pub fn build_snapshot() -> FeatureProvenanceSnapshot {
+pub fn build_snapshot() -> ProvenanceSnapshot {
     let journey_ids: Vec<&str> = feature_traces()
         .journeys
         .iter()
@@ -180,11 +180,11 @@ pub fn build_snapshot() -> FeatureProvenanceSnapshot {
     build_snapshot_for_journeys(&journey_ids)
 }
 
-pub fn build_golden_snapshot() -> FeatureProvenanceSnapshot {
+pub fn build_golden_snapshot() -> ProvenanceSnapshot {
     build_snapshot_for_journeys(GOLDEN_JOURNEY_IDS)
 }
 
-pub fn write_snapshot(path: &Path, snapshot: &FeatureProvenanceSnapshot) -> Result<(), String> {
+pub fn write_snapshot(path: &Path, snapshot: &ProvenanceSnapshot) -> Result<(), String> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|err| format!("create {}: {err}", parent.display()))?;
     }
@@ -265,6 +265,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
 mod tests {
     use super::*;
     use crate::feature_trace::feature_traces;
+    use crate::id::JourneyId;
 
     #[test]
     fn build_snapshot_has_nonempty_journeys() {
@@ -287,8 +288,8 @@ mod tests {
         let journey = snapshot
             .journeys
             .iter()
-            .find(|entry| entry.id == "InspectDiskUsage")
-            .expect("InspectDiskUsage");
+            .find(|entry| entry.id == JourneyId::InspectDiskUsage.as_str())
+            .expect("inspect_disk_usage");
         assert_eq!(
             journey.intro_commit,
             "c29e24679e3dbe083ab6a3f21bb1459e66bb4dd5"

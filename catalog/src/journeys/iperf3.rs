@@ -1,3 +1,3 @@
-use crate::journey::UserJourney;
+use crate::journey::UseCase;
 
-pub const JOURNEYS: &[UserJourney] = &[];
+pub const JOURNEYS: &[UseCase] = &[];

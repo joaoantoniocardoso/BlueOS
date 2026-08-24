@@ -10,7 +10,7 @@
 use std::collections::{BTreeSet, HashMap};
 use std::fs;
 
-use crate::feature_trace::FeatureTraces;
+use crate::feature_trace::IntroTraces;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct JourneyChange {
@@ -45,9 +45,9 @@ pub struct TraceDiff {
 /// cluster, looked up by `(traces, journey_id, intro_commit)` rather than
 /// `crate::feature_trace::discovery_for_journey` since that helper only
 /// reads the process-wide static `feature_traces()`, not an arbitrary parsed
-/// snapshot (old/new here are both ad hoc `FeatureTraces` values).
+/// snapshot (old/new here are both ad hoc `IntroTraces` values).
 fn discovery_sets(
-    traces: &FeatureTraces,
+    traces: &IntroTraces,
     journey_id: &str,
     intro_commit: &str,
 ) -> (BTreeSet<u64>, BTreeSet<u64>) {
@@ -65,7 +65,7 @@ fn discovery_sets(
 }
 
 /// Pure diff of two parsed snapshots — no I/O, safe to unit test directly.
-pub fn diff(old: &FeatureTraces, new: &FeatureTraces) -> TraceDiff {
+pub fn diff(old: &IntroTraces, new: &IntroTraces) -> TraceDiff {
     let old_journeys: HashMap<&str, &str> = old
         .journeys
         .iter()
@@ -212,7 +212,7 @@ pub fn format_diff(trace_diff: &TraceDiff) -> String {
     out
 }
 
-fn load(path: &str) -> Result<FeatureTraces, String> {
+fn load(path: &str) -> Result<IntroTraces, String> {
     let text = fs::read_to_string(path).map_err(|e| format!("{path}: {e}"))?;
     serde_json::from_str(&text).map_err(|e| format!("{path}: failed to parse: {e}"))
 }
@@ -231,7 +231,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
 mod tests {
     use super::*;
 
-    fn fixture(journeys_and_shas: &[(&str, &str)], clusters: &[&str]) -> FeatureTraces {
+    fn fixture(journeys_and_shas: &[(&str, &str)], clusters: &[&str]) -> IntroTraces {
         let json = serde_json::json!({
             "schema_version": 2,
             "repo": "bluerobotics/BlueOS",
@@ -260,7 +260,7 @@ mod tests {
                 "present_in_tags": [],
             })).collect::<Vec<_>>(),
         });
-        serde_json::from_value(json).expect("valid fixture FeatureTraces")
+        serde_json::from_value(json).expect("valid fixture IntroTraces")
     }
 
     fn fixture_with_discovery(
@@ -268,7 +268,7 @@ mod tests {
         intro_commit: &str,
         follow_up_prs: &[u64],
         backport_prs: &[u64],
-    ) -> FeatureTraces {
+    ) -> IntroTraces {
         let json = serde_json::json!({
             "schema_version": 2,
             "repo": "bluerobotics/BlueOS",
@@ -306,7 +306,7 @@ mod tests {
                 "present_in_tags": [],
             }],
         });
-        serde_json::from_value(json).expect("valid fixture FeatureTraces")
+        serde_json::from_value(json).expect("valid fixture IntroTraces")
     }
 
     #[test]

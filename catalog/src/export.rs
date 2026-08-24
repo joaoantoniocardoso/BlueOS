@@ -65,13 +65,12 @@ pub fn export_mermaid(catalog: &Catalog) -> String {
 mod tests {
     use super::*;
 
-    const TEST_PRESENCE: crate::version::FeatureAvailability =
-        crate::version::FeatureAvailability {
-            intro_commit: "0000000000000000000000000000000000000001",
-            present_in_tags: &["1.0.0"],
-            present_on_master: true,
-            present_on_1_4_dev: true,
-        };
+    const TEST_PRESENCE: crate::version::Availability = crate::version::Availability {
+        intro_commit: "0000000000000000000000000000000000000001",
+        present_in_tags: &["1.0.0"],
+        present_on_master: true,
+        present_on_1_4_dev: true,
+    };
 
     use crate::catalog::Catalog;
     use crate::criticality::CriticalityTier;
@@ -80,10 +79,10 @@ mod tests {
     use crate::observed::ObservedFacts;
     use crate::provenance::{Asserted, AssertedSet, Evidenced, GroundedSet, Observed, ObservedSet};
     use crate::runtime::RuntimeFacts;
-    use crate::service::{Service, ServiceDefinition};
+    use crate::service::{Service, ServiceJudgment};
 
-    fn sample_service() -> ServiceDefinition {
-        ServiceDefinition {
+    fn sample_service() -> ServiceJudgment {
+        ServiceJudgment {
             id: ServiceId::Ping,
             singleton: Asserted::established(true, "test"),
             bounded_context: Asserted::established("platform", "test"),
@@ -181,12 +180,12 @@ mod tests {
     fn journey_types_round_trip() {
         use crate::id::{JourneyId, ServiceId};
         use crate::journey::{
-            Actor, BodyKind, HttpMethod, JourneyStep, RouteRef, StepOutcome, UserJourney,
-            Visibility, BLAST_RADIUS_UNKNOWN,
+            Actor, BodyKind, HttpMethod, JourneyStep, RouteRef, StepOutcome, UseCase, Visibility,
+            BLAST_RADIUS_UNKNOWN,
         };
         use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
 
-        let journey = UserJourney {
+        let journey = UseCase {
             id: JourneyId::Deploy,
             summary: Grounded::known("deploy vehicle", Provenance::doc("docs/deploy.md", 1, "")),
             visibility: Grounded::known(

@@ -1,8 +1,8 @@
 use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, BlastRadius, BodyKind, DataRequirement, HttpMethod, JourneyStep, NetworkState,
-    Precondition, RouteRef, SoftwareRequirement, StepOutcome, UserJourney, Visibility,
+    Actor, BlastRadius, BodyKind, DataAssumption, HttpMethod, JourneyStep, NetworkState,
+    Precondition, RouteRef, SoftwareAssumption, StepOutcome, UseCase, Visibility,
 };
 use crate::journey_presence::{
     PRESENCE_DELETE_LOCAL_BLUEOS_VERSION, PRESENCE_DOCKER_REGISTRY_LOGIN,
@@ -29,7 +29,7 @@ const BR_CORE_SWITCH: Grounded<BlastRadius> = Grounded::known(
     ),
 );
 
-pub const JOURNEYS: &[UserJourney] = &[
+pub const JOURNEYS: &[UseCase] = &[
     UPDATE_BLUEOS_VERSION,
     SWITCH_LOCAL_BLUEOS_VERSION,
     PULL_BLUEOS_VERSION_WITHOUT_SWITCH,
@@ -38,8 +38,8 @@ pub const JOURNEYS: &[UserJourney] = &[
     UPDATE_BOOTSTRAP_IMAGE,
 ];
 
-const UPDATE_BLUEOS_VERSION: UserJourney =
-    UserJourney {
+const UPDATE_BLUEOS_VERSION: UseCase =
+    UseCase {
         id: JourneyId::UpdateBlueosVersion,
         summary: Grounded::known(
             "Update BlueOS to the latest available release that is as stable or more stable than the current install"
@@ -104,8 +104,8 @@ const UPDATE_BLUEOS_VERSION: UserJourney =
         chains_from: None,
     };
 
-const SWITCH_LOCAL_BLUEOS_VERSION: UserJourney =
-    UserJourney {
+const SWITCH_LOCAL_BLUEOS_VERSION: UseCase =
+    UseCase {
         id: JourneyId::SwitchLocalBlueosVersion,
         summary: Grounded::known(
             "Switch forwards or backwards between locally installed BlueOS versions, including roll-back after undesired changes"
@@ -119,11 +119,11 @@ const SWITCH_LOCAL_BLUEOS_VERSION: UserJourney =
         )]),
         preconditions: GroundedSet::known(&[
             GroundedItem::new(
-                Precondition::Software(SoftwareRequirement::PirateMode),
+                Precondition::Software(SoftwareAssumption::PirateMode),
                 Provenance::doc(ADV, 399, "{% pirate() %}"),
             ),
             GroundedItem::new(
-                Precondition::Data(DataRequirement::LocalBlueosVersionAvailable),
+                Precondition::Data(DataAssumption::LocalBlueosVersionAvailable),
                 Provenance::doc(ADV, 402, "- Previously-installed versions are kept locally on the devi"),
             ),
         ]),
@@ -164,8 +164,8 @@ const SWITCH_LOCAL_BLUEOS_VERSION: UserJourney =
         chains_from: Some(JourneyId::UpdateBlueosVersion),
     };
 
-const PULL_BLUEOS_VERSION_WITHOUT_SWITCH: UserJourney =
-    UserJourney {
+const PULL_BLUEOS_VERSION_WITHOUT_SWITCH: UseCase =
+    UseCase {
         id: JourneyId::PullBlueosVersionWithoutSwitch,
         summary: Grounded::known(
             "Download a remote BlueOS core image, including from a custom Docker registry repository, without switching the running version"
@@ -183,7 +183,7 @@ const PULL_BLUEOS_VERSION_WITHOUT_SWITCH: UserJourney =
                 Provenance::doc(ADV, 406, "- Allows loading remote versions (including from custom dock"),
             ),
             GroundedItem::new(
-                Precondition::Software(SoftwareRequirement::PirateMode),
+                Precondition::Software(SoftwareAssumption::PirateMode),
                 Provenance::doc(ADV, 399, "{% pirate() %}"),
             ),
         ]),
@@ -224,7 +224,7 @@ const PULL_BLUEOS_VERSION_WITHOUT_SWITCH: UserJourney =
         chains_from: None,
     };
 
-const DELETE_LOCAL_BLUEOS_VERSION: UserJourney = UserJourney {
+const DELETE_LOCAL_BLUEOS_VERSION: UseCase = UseCase {
     id: JourneyId::DeleteLocalBlueosVersion,
     summary: Grounded::known(
         "Delete a previously installed local BlueOS version to free onboard storage",
@@ -245,11 +245,11 @@ const DELETE_LOCAL_BLUEOS_VERSION: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[
         GroundedItem::new(
-            Precondition::Software(SoftwareRequirement::PirateMode),
+            Precondition::Software(SoftwareAssumption::PirateMode),
             Provenance::doc(ADV, 399, "{% pirate() %}"),
         ),
         GroundedItem::new(
-            Precondition::Data(DataRequirement::LocalBlueosVersionAvailable),
+            Precondition::Data(DataAssumption::LocalBlueosVersionAvailable),
             Provenance::source(
                 VC_COMPONENT,
                 72,
@@ -319,8 +319,8 @@ const DELETE_LOCAL_BLUEOS_VERSION: UserJourney = UserJourney {
     chains_from: Some(JourneyId::SwitchLocalBlueosVersion),
 };
 
-const DOCKER_REGISTRY_LOGIN: UserJourney =
-    UserJourney {
+const DOCKER_REGISTRY_LOGIN: UseCase =
+    UseCase {
         id: JourneyId::DockerRegistryLogin,
         summary: Grounded::known(
             "Log in to Docker Hub or a custom registry to access private images and reduce rate limiting"
@@ -333,7 +333,7 @@ const DOCKER_REGISTRY_LOGIN: UserJourney =
             "Docker Login dialog authenticates the daemon and lists connected accounts",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
-            Precondition::Software(SoftwareRequirement::PirateMode),
+            Precondition::Software(SoftwareAssumption::PirateMode),
             Provenance::doc(ADV, 399, "{% pirate() %}"),
         )]),
         steps: GroundedSet::known(&[
@@ -371,7 +371,7 @@ const DOCKER_REGISTRY_LOGIN: UserJourney =
         chains_from: None,
     };
 
-const UPDATE_BOOTSTRAP_IMAGE: UserJourney = UserJourney {
+const UPDATE_BOOTSTRAP_IMAGE: UseCase = UseCase {
     id: JourneyId::UpdateBootstrapImage,
     summary: Grounded::known(
         "Update the BlueOS-bootstrap image to match the currently running BlueOS core release",
@@ -389,7 +389,7 @@ const UPDATE_BOOTSTRAP_IMAGE: UserJourney = UserJourney {
             Provenance::doc(BOOTSTRAP, 73, "BlueOS-bootstrap versions are built at the same time as Blue"),
         ),
         GroundedItem::new(
-            Precondition::Software(SoftwareRequirement::PirateMode),
+            Precondition::Software(SoftwareAssumption::PirateMode),
             Provenance::doc(ADV, 399, "{% pirate() %}"),
         ),
     ]),

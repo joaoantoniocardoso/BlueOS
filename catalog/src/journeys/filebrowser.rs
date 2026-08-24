@@ -1,6 +1,6 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, BlastRadius, JourneyStep, Precondition, SoftwareRequirement, UserJourney, Visibility,
+    Actor, BlastRadius, JourneyStep, Precondition, SoftwareAssumption, UseCase, Visibility,
 };
 use crate::journey_presence::PRESENCE_MANAGE_BLUEOS_FILES;
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
@@ -9,10 +9,10 @@ const ADV: &str = "content/usage/advanced/index.md";
 const FILE_BROWSER_MENUS: &str = "core/frontend/src/menus.ts";
 const FILE_BROWSER_VIEW: &str = "core/frontend/src/views/FileBrowserView.vue";
 
-pub const JOURNEYS: &[UserJourney] = &[MANAGE_BLUEOS_FILES];
+pub const JOURNEYS: &[UseCase] = &[MANAGE_BLUEOS_FILES];
 
-const MANAGE_BLUEOS_FILES: UserJourney =
-    UserJourney {
+const MANAGE_BLUEOS_FILES: UseCase =
+    UseCase {
         id: JourneyId::ManageBlueosFiles,
         summary: Grounded::known(
             "View, edit, download, and upload BlueOS files using the web File Browser",
@@ -27,7 +27,7 @@ const MANAGE_BLUEOS_FILES: UserJourney =
             "File Browser page embeds the upstream filebrowser SPA at /file-browser/ for viewing, editing, downloading, and uploading files",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
-            Precondition::Software(SoftwareRequirement::AdvancedMode),
+            Precondition::Software(SoftwareAssumption::AdvancedMode),
             Provenance::source(FILE_BROWSER_MENUS, 42, "advanced: true,"),
         )]),
         steps: GroundedSet::known(&[

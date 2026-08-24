@@ -17,6 +17,7 @@ use crate::feature_trace::{
     commit, discovery_for_journey, feature_traces, intro_commit_for_journey, issue, journey_ref,
     pull_request, TracePullRequest,
 };
+use crate::id::JourneyId;
 use crate::report::ReportTrace;
 use crate::tools::feature_trace_enrich::journey_pickaxe_term;
 use crate::version::{parse_release_tag, BlueOsChannel};
@@ -25,14 +26,14 @@ use crate::version::{parse_release_tag, BlueOsChannel};
 /// §1, plus `NEXT11_DESIGN.md` N11's 3 additions); default journey selection
 /// when `--journey` is not given.
 pub const GOLDEN_JOURNEY_IDS: &[&str] = &[
-    "InspectZenohNetwork",
-    "ChangeUiThemeColor",
-    "InspectDiskUsage",
-    "RunInternetSpeedTest",
-    "LevelHorizon",
-    "AccessWebTerminal",
-    "InspectMavlinkMessagesInBrowser",
-    "CalibrateGyroscope",
+    JourneyId::InspectZenohNetwork.as_str(),
+    JourneyId::ChangeUiThemeColor.as_str(),
+    JourneyId::InspectDiskUsage.as_str(),
+    JourneyId::RunInternetSpeedTest.as_str(),
+    JourneyId::LevelHorizon.as_str(),
+    JourneyId::AccessWebTerminal.as_str(),
+    JourneyId::InspectMavlinkMessagesInBrowser.as_str(),
+    JourneyId::CalibrateGyroscope.as_str(),
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -554,124 +555,129 @@ section {{ margin-bottom:2.5rem; }}\n\
 pub fn check_goldens() -> Result<(), String> {
     let mut violations: Vec<String> = vec![];
 
-    match build_timeline("InspectZenohNetwork") {
-        None => violations.push("InspectZenohNetwork: journey not found".to_string()),
+    match build_timeline(JourneyId::InspectZenohNetwork.as_str()) {
+        None => violations.push("inspect_zenoh_network: journey not found".to_string()),
         Some(t) => {
             let landing: Vec<u64> = t.landing_prs.iter().map(|p| p.number).collect();
             if landing != [3300] {
                 violations.push(format!(
-                    "InspectZenohNetwork: expected landing_prs == [3300], got {landing:?}"
+                    "inspect_zenoh_network: expected landing_prs == [3300], got {landing:?}"
                 ));
             }
             let follow: Vec<u64> = t.follow_up_prs.iter().map(|p| p.number).collect();
             for pr in [3313, 3953] {
                 if !follow.contains(&pr) {
-                    violations.push(format!("InspectZenohNetwork: follow_up_prs missing #{pr}"));
+                    violations.push(format!(
+                        "inspect_zenoh_network: follow_up_prs missing #{pr}"
+                    ));
                 }
             }
         }
     }
 
-    match build_timeline("ChangeUiThemeColor") {
-        None => violations.push("ChangeUiThemeColor: journey not found".to_string()),
+    match build_timeline(JourneyId::ChangeUiThemeColor.as_str()) {
+        None => violations.push("change_ui_theme_color: journey not found".to_string()),
         Some(t) => {
             if !t.follow_up_prs.is_empty() || !t.backport_prs.is_empty() {
                 violations.push(
-                    "ChangeUiThemeColor: expected empty follow_up_prs and backport_prs".to_string(),
+                    "change_ui_theme_color: expected empty follow_up_prs and backport_prs"
+                        .to_string(),
                 );
             }
         }
     }
 
-    match build_timeline("InspectDiskUsage") {
-        None => violations.push("InspectDiskUsage: journey not found".to_string()),
+    match build_timeline(JourneyId::InspectDiskUsage.as_str()) {
+        None => violations.push("inspect_disk_usage: journey not found".to_string()),
         Some(t) => {
             let mut follow: Vec<u64> = t.follow_up_prs.iter().map(|p| p.number).collect();
             follow.sort_unstable();
             if follow != [3681, 3691, 3743] {
                 violations.push(format!(
-                    "InspectDiskUsage: expected follow_up_prs == [3681, 3691, 3743], got {follow:?}"
+                    "inspect_disk_usage: expected follow_up_prs == [3681, 3691, 3743], got {follow:?}"
                 ));
             }
         }
     }
 
-    match build_timeline("RunInternetSpeedTest") {
-        None => violations.push("RunInternetSpeedTest: journey not found".to_string()),
+    match build_timeline(JourneyId::RunInternetSpeedTest.as_str()) {
+        None => violations.push("run_internet_speed_test: journey not found".to_string()),
         Some(t) => {
             let landing: Vec<u64> = t.landing_prs.iter().map(|p| p.number).collect();
             let follow: Vec<u64> = t.follow_up_prs.iter().map(|p| p.number).collect();
             let backport: Vec<u64> = t.backport_prs.iter().map(|p| p.number).collect();
             let issues: Vec<u64> = t.issues.iter().map(|p| p.number).collect();
             if !landing.contains(&3602) {
-                violations.push("RunInternetSpeedTest: landing PR #3602 missing".to_string());
+                violations.push("run_internet_speed_test: landing PR #3602 missing".to_string());
             }
             if follow.contains(&3686) || backport.contains(&3686) {
                 violations.push(
-                    "RunInternetSpeedTest: PR #3686 must be absent from follow_up/backport"
+                    "run_internet_speed_test: PR #3686 must be absent from follow_up/backport"
                         .to_string(),
                 );
             }
             if !issues.contains(&2146) {
-                violations.push("RunInternetSpeedTest: issue #2146 missing".to_string());
+                violations.push("run_internet_speed_test: issue #2146 missing".to_string());
             }
         }
     }
 
-    match build_timeline("LevelHorizon") {
-        None => violations.push("LevelHorizon: journey not found".to_string()),
+    match build_timeline(JourneyId::LevelHorizon.as_str()) {
+        None => violations.push("level_horizon: journey not found".to_string()),
         Some(t) => {
             let follow: Vec<u64> = t.follow_up_prs.iter().map(|p| p.number).collect();
             let backport: Vec<u64> = t.backport_prs.iter().map(|p| p.number).collect();
             if !backport.contains(&3867) {
-                violations.push("LevelHorizon: backport PR #3867 missing".to_string());
+                violations.push("level_horizon: backport PR #3867 missing".to_string());
             }
             if follow.contains(&3930) || backport.contains(&3930) {
                 violations.push(
-                    "LevelHorizon: PR #3930 must be absent from follow_up/backport".to_string(),
+                    "level_horizon: PR #3930 must be absent from follow_up/backport".to_string(),
                 );
             }
         }
     }
 
-    match build_timeline("AccessWebTerminal") {
-        None => violations.push("AccessWebTerminal: journey not found".to_string()),
+    match build_timeline(JourneyId::AccessWebTerminal.as_str()) {
+        None => violations.push("access_web_terminal: journey not found".to_string()),
         Some(t) => {
             let mut follow: Vec<u64> = t.follow_up_prs.iter().map(|p| p.number).collect();
             follow.sort_unstable();
             if follow != [659, 2279] {
                 violations.push(format!(
-                    "AccessWebTerminal: expected follow_up_prs == [659, 2279], got {follow:?}"
+                    "access_web_terminal: expected follow_up_prs == [659, 2279], got {follow:?}"
                 ));
             }
         }
     }
 
-    match build_timeline("InspectMavlinkMessagesInBrowser") {
-        None => violations.push("InspectMavlinkMessagesInBrowser: journey not found".to_string()),
+    match build_timeline(JourneyId::InspectMavlinkMessagesInBrowser.as_str()) {
+        None => {
+            violations.push("inspect_mavlink_messages_in_browser: journey not found".to_string())
+        }
         Some(t) => {
             let follow: Vec<u64> = t.follow_up_prs.iter().map(|p| p.number).collect();
             if follow != [3310] {
                 violations.push(format!(
-                    "InspectMavlinkMessagesInBrowser: expected follow_up_prs == [3310], got {follow:?}"
+                    "inspect_mavlink_messages_in_browser: expected follow_up_prs == [3310], got {follow:?}"
                 ));
             }
         }
     }
 
-    match build_timeline("CalibrateGyroscope") {
-        None => violations.push("CalibrateGyroscope: journey not found".to_string()),
+    match build_timeline(JourneyId::CalibrateGyroscope.as_str()) {
+        None => violations.push("calibrate_gyroscope: journey not found".to_string()),
         Some(t) => {
             let follow: Vec<u64> = t.follow_up_prs.iter().map(|p| p.number).collect();
             let backport: Vec<u64> = t.backport_prs.iter().map(|p| p.number).collect();
             if follow != [3443] {
                 violations.push(format!(
-                    "CalibrateGyroscope: expected follow_up_prs == [3443], got {follow:?}"
+                    "calibrate_gyroscope: expected follow_up_prs == [3443], got {follow:?}"
                 ));
             }
             if !backport.contains(&3867) {
                 violations.push(
-                    "CalibrateGyroscope: backport PR #3867 missing (shared calibration-family backport)"
+                    "calibrate_gyroscope: backport PR #3867 missing (shared calibration-family backport)"
                         .to_string(),
                 );
             }
@@ -937,7 +943,8 @@ mod tests {
     fn disk_usage_follow_ups_have_no_pickaxe_term_hit() {
         // InspectDiskUsage carries only `Override::Path` rows (no Pickaxe),
         // so term_hit must stay `None` — see feature_presence.rs OVERRIDES.
-        let timeline = build_timeline("InspectDiskUsage").expect("disk usage timeline");
+        let timeline =
+            build_timeline(JourneyId::InspectDiskUsage.as_str()).expect("disk usage timeline");
         assert!(!timeline.follow_up_prs.is_empty());
         assert!(timeline
             .follow_up_prs
@@ -1075,7 +1082,8 @@ mod tests {
 
     #[test]
     fn calibrate_gyroscope_landing_pr_has_merge_method_from_cluster() {
-        let timeline = build_timeline("CalibrateGyroscope").expect("calibrate gyroscope timeline");
+        let timeline = build_timeline(JourneyId::CalibrateGyroscope.as_str())
+            .expect("calibrate gyroscope timeline");
         assert!(timeline
             .landing_prs
             .iter()

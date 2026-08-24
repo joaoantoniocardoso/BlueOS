@@ -1,7 +1,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, BlastRadius, JourneyStep, Precondition, RouteRef, SoftwareRequirement, StepOutcome,
-    UserJourney, Visibility,
+    Actor, BlastRadius, JourneyStep, Precondition, RouteRef, SoftwareAssumption, StepOutcome,
+    UseCase, Visibility,
 };
 use crate::journey_presence::PRESENCE_INSPECT_MAVLINK_MESSAGES_IN_BROWSER;
 use crate::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
@@ -11,10 +11,10 @@ const OVERVIEW: &str = "content/usage/overview/index.md";
 const MAVLINK_INSPECTOR_MENUS: &str = "core/frontend/src/menus.ts";
 const MAVLINK_INSPECTOR_VIEW: &str = "core/frontend/src/views/MavlinkInspectorView.vue";
 
-pub const JOURNEYS: &[UserJourney] = &[INSPECT_MAVLINK_MESSAGES_IN_BROWSER];
+pub const JOURNEYS: &[UseCase] = &[INSPECT_MAVLINK_MESSAGES_IN_BROWSER];
 
-const INSPECT_MAVLINK_MESSAGES_IN_BROWSER: UserJourney =
-    UserJourney {
+const INSPECT_MAVLINK_MESSAGES_IN_BROWSER: UseCase =
+    UseCase {
         id: JourneyId::InspectMavlinkMessagesInBrowser,
         summary: Grounded::known(
             "See and inspect MAVLink messages in real time from the browser",
@@ -26,7 +26,7 @@ const INSPECT_MAVLINK_MESSAGES_IN_BROWSER: UserJourney =
             "MAVLink Inspector filters, lists, and expands live MAVLink messages from the vehicle stream",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
-            Precondition::Software(SoftwareRequirement::AdvancedMode),
+            Precondition::Software(SoftwareAssumption::AdvancedMode),
             Provenance::source(MAVLINK_INSPECTOR_MENUS, 73, "text: 'Manage MAVLink endpoints for internal/external "),
         )]),
         steps: GroundedSet::known(&[

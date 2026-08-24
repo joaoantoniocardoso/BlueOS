@@ -1,6 +1,6 @@
 use crate::criticality::CriticalityTier;
 use crate::id::{CapabilityId, JourneyId, PathRef, PortRef, ServiceId};
-use crate::interface::{FileAccessMode, Interface};
+use crate::interface::{FileAccessMode, PortKind};
 use crate::journey::{HttpMethod, RouteRef};
 use crate::lifecycle::{Lifecycle, ObservedLifecycle};
 use crate::observed::{ObservedFacts, ResourceLimits, ServiceKind, StartupTier};
@@ -10,7 +10,7 @@ use crate::provenance::{
 };
 use crate::resource::{Resource, ResourceOwnership};
 use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts, SloBaseline};
-use crate::service::{Authority, Service, ServiceDefinition};
+use crate::service::{Authority, Service, ServiceJudgment};
 use crate::trust::{PrivilegeLevel, UserConfirmation};
 
 use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
@@ -223,7 +223,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
         ),
         interfaces: ObservedSet::known(&[
             Evidenced::new(
-                Interface::Rest {
+                PortKind::Rest {
                     path_prefix: PathRef("/wifi-manager/"),
                     port: PortRef::Literal(9000),
                     versions: &["v1.0"],
@@ -235,7 +235,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Settings {
+                PortKind::Settings {
                     path: PathRef("/root/.config/wifi-manager/settings-1.json"),
                 },
                 Evidence {
@@ -246,7 +246,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::File {
+                PortKind::File {
                     path: PathRef("/root/.config/wifi-manager"),
                     mode: FileAccessMode::ReadWrite,
                 },
@@ -258,7 +258,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::File {
+                PortKind::File {
                     path: PathRef("/var/run/wpa_supplicant/"),
                     mode: FileAccessMode::Read,
                 },
@@ -269,7 +269,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::File {
+                PortKind::File {
                     path: PathRef("/var/run/wpa_supplicant/wlan0"),
                     mode: FileAccessMode::ReadWrite,
                 },
@@ -280,7 +280,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::File {
+                PortKind::File {
                     path: PathRef("/tmp/wpa_playground"),
                     mode: FileAccessMode::ReadWrite,
                 },
@@ -291,7 +291,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::File {
+                PortKind::File {
                     path: PathRef("/tmp/wpa_playground/wpa_supplicant_service_{os.getpid()}"),
                     mode: FileAccessMode::ReadWrite,
                 },
@@ -302,7 +302,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::File {
+                PortKind::File {
                     path: PathRef("/etc/dhcpcd.conf"),
                     mode: FileAccessMode::ReadWrite,
                 },
@@ -313,7 +313,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::File {
+                PortKind::File {
                     path: PathRef("/tmp/hostapd.conf"),
                     mode: FileAccessMode::ReadWrite,
                 },
@@ -324,7 +324,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::File {
+                PortKind::File {
                     path: PathRef("/var/lib/dnsmasq"),
                     mode: FileAccessMode::ReadWrite,
                 },
@@ -335,7 +335,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Hardware {
+                PortKind::Hardware {
                     device: PathRef("wlan0"),
                 },
                 Evidence {
@@ -345,7 +345,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Hardware {
+                PortKind::Hardware {
                     device: PathRef("uap0"),
                 },
                 Evidence {
@@ -355,7 +355,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Subprocess {
+                PortKind::Subprocess {
                     command: "dhcpcd -n wlan0",
                 },
                 Evidence {
@@ -365,7 +365,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Subprocess {
+                PortKind::Subprocess {
                     command: "hostapd -h",
                 },
                 Evidence {
@@ -375,7 +375,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Subprocess {
+                PortKind::Subprocess {
                     command: "iw dev {self._base_interface} interface add {self._ap_interface_name} type __ap"
                         ,
                 },
@@ -386,7 +386,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Subprocess {
+                PortKind::Subprocess {
                     command: "ifconfig {self._ap_interface_name} up",
                 },
                 Evidence {
@@ -396,7 +396,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Subprocess {
+                PortKind::Subprocess {
                     command: "hostapd {self.config_path()}",
                 },
                 Evidence {
@@ -406,7 +406,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Subprocess {
+                PortKind::Subprocess {
                     command: "dnsmasq",
                 },
                 Evidence {
@@ -416,7 +416,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Subprocess {
+                PortKind::Subprocess {
                     command: "ip link show {self._ap_interface}",
                 },
                 Evidence {
@@ -426,7 +426,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Subprocess {
+                PortKind::Subprocess {
                     command: "iw dev {phys_name} interface add {self._ap_interface} type __ap",
                 },
                 Evidence {
@@ -436,7 +436,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Subprocess {
+                PortKind::Subprocess {
                     command: "ip link set {self._ap_interface} up",
                 },
                 Evidence {
@@ -446,7 +446,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Subprocess {
+                PortKind::Subprocess {
                     command: "iw {phys_name} set power_save off",
                 },
                 Evidence {
@@ -456,7 +456,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Subprocess {
+                PortKind::Subprocess {
                     command: "iw {self._ap_interface} set power_save off",
                 },
                 Evidence {
@@ -466,7 +466,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Subprocess {
+                PortKind::Subprocess {
                     command: "iw dev {self._ap_interface} del",
                 },
                 Evidence {
@@ -476,7 +476,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Subprocess {
+                PortKind::Subprocess {
                     command: "create_ap -n uap0 -g 192.168.42.1 --redirect-to-localhost {credentials.ssid} {credentials.password}"
                         ,
                 },
@@ -487,7 +487,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Zenoh {
+                PortKind::Zenoh {
                     topics_produced: &["services/wifi-manager/log"],
                     topics_consumed: &[],
                 },
@@ -640,8 +640,8 @@ pub const OBSERVED_FACTS: ObservedFacts =
         openapi_refs: ObservedSet::unknown("not yet extracted"),
     };
 
-pub const SERVICE_DEFINITION: ServiceDefinition =
-    ServiceDefinition {
+pub const SERVICE_DEFINITION: ServiceJudgment =
+    ServiceJudgment {
         id: ServiceId::Wifi,
         singleton: Asserted::established(
             true,

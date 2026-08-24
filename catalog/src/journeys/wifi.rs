@@ -1,7 +1,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, BlastRadius, BodyKind, DataRequirement, HttpMethod, JourneyStep, NetworkResource,
-    Precondition, RouteRef, StepOutcome, UserJourney, Visibility,
+    Actor, BlastRadius, BodyKind, DataAssumption, HttpMethod, JourneyStep, NetworkResource,
+    Precondition, RouteRef, StepOutcome, UseCase, Visibility,
 };
 use crate::journey_presence::{
     PRESENCE_AUTOCONNECT_TO_SAVED_WIFI_NETWORK, PRESENCE_CONFIGURE_HOTSPOT_CREDENTIALS,
@@ -22,7 +22,7 @@ const WIFI_MANAGER: &str = "core/frontend/src/components/wifi/WifiManager.vue";
 const WIFI_SETTINGS: &str = "core/frontend/src/components/wifi/WifiSettingsDialog.vue";
 const WIFI_TRAY: &str = "core/frontend/src/components/wifi/WifiTrayMenu.vue";
 
-pub const JOURNEYS: &[UserJourney] = &[
+pub const JOURNEYS: &[UseCase] = &[
     CONNECT_TO_WIFI_NETWORK,
     CONNECT_TO_HIDDEN_WIFI_NETWORK,
     DISCONNECT_FROM_WIFI_NETWORK,
@@ -37,7 +37,7 @@ pub const JOURNEYS: &[UserJourney] = &[
     TOGGLE_SMART_HOTSPOT,
 ];
 
-const CONNECT_TO_WIFI_NETWORK: UserJourney = UserJourney {
+const CONNECT_TO_WIFI_NETWORK: UseCase = UseCase {
     id: JourneyId::ConnectToWifiNetwork,
     summary: Grounded::known(
         "Connect BlueOS to a wifi network so the web interface is reachable on the LAN",
@@ -132,7 +132,7 @@ const CONNECT_TO_WIFI_NETWORK: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const CONNECT_TO_HIDDEN_WIFI_NETWORK: UserJourney = UserJourney {
+const CONNECT_TO_HIDDEN_WIFI_NETWORK: UseCase = UseCase {
     id: JourneyId::ConnectToHiddenWifiNetwork,
     summary: Grounded::known(
         "Connect BlueOS to a hidden wifi network by entering its SSID and password",
@@ -172,7 +172,7 @@ const CONNECT_TO_HIDDEN_WIFI_NETWORK: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const DISCONNECT_FROM_WIFI_NETWORK: UserJourney = UserJourney {
+const DISCONNECT_FROM_WIFI_NETWORK: UseCase = UseCase {
     id: JourneyId::DisconnectFromWifiNetwork,
     summary: Grounded::known(
         "Disconnect BlueOS from the currently connected wifi network",
@@ -185,7 +185,7 @@ const DISCONNECT_FROM_WIFI_NETWORK: UserJourney = UserJourney {
         "wifi tray disconnects the active wlan association from the current-network card",
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Data(DataRequirement::WifiCurrentlyConnected),
+        Precondition::Data(DataAssumption::WifiCurrentlyConnected),
         Provenance::source(WIFI_MANAGER, 47, "v-if=\"current_network\""),
     )]),
     steps: GroundedSet::known(&[
@@ -218,7 +218,7 @@ const DISCONNECT_FROM_WIFI_NETWORK: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const FORGET_SAVED_WIFI_NETWORK: UserJourney = UserJourney {
+const FORGET_SAVED_WIFI_NETWORK: UseCase = UseCase {
     id: JourneyId::ForgetSavedWifiNetwork,
     summary: Grounded::known(
         "Forget a saved wifi network so BlueOS no longer auto-connects to it",
@@ -238,7 +238,7 @@ const FORGET_SAVED_WIFI_NETWORK: UserJourney = UserJourney {
         "connection dialog removes a stored SSID from saved networks",
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Data(DataRequirement::WifiNetworkSaved),
+        Precondition::Data(DataAssumption::WifiNetworkSaved),
         Provenance::source(CONNECTION_DIALOG, 76, "v-if=\"network.saved\""),
     )]),
     steps: GroundedSet::known(&[
@@ -289,7 +289,7 @@ const FORGET_SAVED_WIFI_NETWORK: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const FORCE_WIFI_NETWORK_PASSWORD: UserJourney = UserJourney {
+const FORCE_WIFI_NETWORK_PASSWORD: UseCase = UseCase {
     id: JourneyId::ForceWifiNetworkPassword,
     summary: Grounded::known(
         "Force a new password when reconnecting to a saved wifi network",
@@ -302,7 +302,7 @@ const FORCE_WIFI_NETWORK_PASSWORD: UserJourney = UserJourney {
         "connection dialog Force new password re-submits credentials via POST /connect",
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Data(DataRequirement::WifiNetworkSaved),
+        Precondition::Data(DataAssumption::WifiNetworkSaved),
         Provenance::source(CONNECTION_DIALOG, 76, "v-if=\"network.saved\""),
     )]),
     steps: GroundedSet::known(&[
@@ -335,7 +335,7 @@ const FORCE_WIFI_NETWORK_PASSWORD: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const RECONNECT_TO_SAVED_WIFI_NETWORK: UserJourney = UserJourney {
+const RECONNECT_TO_SAVED_WIFI_NETWORK: UseCase = UseCase {
     id: JourneyId::ReconnectToSavedWifiNetwork,
     summary: Grounded::known(
         "Reconnect to a saved wifi network using the stored password",
@@ -355,7 +355,7 @@ const RECONNECT_TO_SAVED_WIFI_NETWORK: UserJourney = UserJourney {
         "connection dialog connects to a saved SSID without re-entering the password",
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Data(DataRequirement::WifiNetworkSaved),
+        Precondition::Data(DataAssumption::WifiNetworkSaved),
         Provenance::source(CONNECTION_DIALOG, 76, "v-if=\"network.saved\""),
     )]),
     steps: GroundedSet::known(&[
@@ -396,7 +396,7 @@ const RECONNECT_TO_SAVED_WIFI_NETWORK: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const REJECT_INVALID_WIFI_CREDENTIALS: UserJourney = UserJourney {
+const REJECT_INVALID_WIFI_CREDENTIALS: UseCase = UseCase {
     id: JourneyId::RejectInvalidWifiCredentials,
     summary: Grounded::known(
         "Attempt to join a wifi network with the wrong password and see the connection fail",
@@ -461,7 +461,7 @@ const REJECT_INVALID_WIFI_CREDENTIALS: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const DETECT_WIFI_AP_LOSS: UserJourney = UserJourney {
+const DETECT_WIFI_AP_LOSS: UseCase = UseCase {
     id: JourneyId::DetectWifiApLoss,
     summary: Grounded::known(
         "Notice when the associated wifi access point disappears while BlueOS is connected",
@@ -478,7 +478,7 @@ const DETECT_WIFI_AP_LOSS: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[
         GroundedItem::new(
-            Precondition::Data(DataRequirement::WifiCurrentlyConnected),
+            Precondition::Data(DataAssumption::WifiCurrentlyConnected),
             Provenance::source(WIFI_MANAGER, 47, "v-if=\"current_network\""),
         ),
         GroundedItem::new(
@@ -516,7 +516,7 @@ const DETECT_WIFI_AP_LOSS: UserJourney = UserJourney {
     chains_from: Some(JourneyId::ConnectToWifiNetwork),
 };
 
-const AUTOCONNECT_TO_SAVED_WIFI_NETWORK: UserJourney = UserJourney {
+const AUTOCONNECT_TO_SAVED_WIFI_NETWORK: UseCase = UseCase {
     id: JourneyId::AutoconnectToSavedWifiNetwork,
     summary: Grounded::known(
         "Automatically reconnect to a saved wifi network when its access point returns",
@@ -537,7 +537,7 @@ const AUTOCONNECT_TO_SAVED_WIFI_NETWORK: UserJourney = UserJourney {
     )]),
     preconditions: GroundedSet::known(&[
         GroundedItem::new(
-            Precondition::Data(DataRequirement::WifiNetworkSaved),
+            Precondition::Data(DataAssumption::WifiNetworkSaved),
             Provenance::source(CONNECTION_DIALOG, 76, "v-if=\"network.saved\""),
         ),
         GroundedItem::new(
@@ -579,7 +579,7 @@ const AUTOCONNECT_TO_SAVED_WIFI_NETWORK: UserJourney = UserJourney {
     chains_from: Some(JourneyId::DetectWifiApLoss),
 };
 
-const TOGGLE_HOTSPOT: UserJourney = UserJourney {
+const TOGGLE_HOTSPOT: UseCase = UseCase {
     id: JourneyId::ToggleHotspot,
     summary: Grounded::known(
         "Turn the BlueOS wireless hotspot on or off from the wifi tray",
@@ -640,7 +640,7 @@ const TOGGLE_HOTSPOT: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const CONFIGURE_HOTSPOT_CREDENTIALS: UserJourney = UserJourney {
+const CONFIGURE_HOTSPOT_CREDENTIALS: UseCase = UseCase {
     id: JourneyId::ConfigureHotspotCredentials,
     summary: Grounded::known(
         "Set the BlueOS hotspot SSID and password shown to connecting devices",
@@ -686,7 +686,7 @@ const CONFIGURE_HOTSPOT_CREDENTIALS: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const TOGGLE_SMART_HOTSPOT: UserJourney = UserJourney {
+const TOGGLE_SMART_HOTSPOT: UseCase = UseCase {
     id: JourneyId::ToggleSmartHotspot,
     summary: Grounded::known(
         "Enable or disable smart-hotspot so BlueOS auto-starts its hotspot when not on wifi",

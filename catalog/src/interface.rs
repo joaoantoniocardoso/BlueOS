@@ -5,7 +5,7 @@ use crate::id::{PathRef, PortRef};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(tag = "bus", rename_all = "snake_case")]
-pub enum Interface {
+pub enum PortKind {
     Rest {
         path_prefix: PathRef,
         port: PortRef,

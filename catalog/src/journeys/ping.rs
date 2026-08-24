@@ -1,8 +1,8 @@
 use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
-    Actor, BlastRadius, BodyKind, HardwareRequirement, HttpMethod, JourneyStep, Precondition,
-    RouteRef, StepOutcome, UserJourney, Visibility,
+    Actor, BlastRadius, BodyKind, HardwareAssumption, HttpMethod, JourneyStep, Precondition,
+    RouteRef, StepOutcome, UseCase, Visibility,
 };
 use crate::journey_presence::{
     PRESENCE_CONNECT_PING_VIEWER_TO_SONAR, PRESENCE_ENABLE_PING1D_RANGEFINDER_MAVLINK,
@@ -22,14 +22,14 @@ const PING1D_CARD: &str = "core/frontend/src/components/ping/ping1d.vue";
 const PING360_CARD: &str = "core/frontend/src/components/ping/ping360.vue";
 const RUNTIME_ENV: &str = RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 
-pub const JOURNEYS: &[UserJourney] = &[
+pub const JOURNEYS: &[UseCase] = &[
     VIEW_DETECTED_SONAR_DEVICES,
     CONNECT_PING_VIEWER_TO_SONAR,
     ENABLE_PING1D_RANGEFINDER_MAVLINK,
 ];
 
-const VIEW_DETECTED_SONAR_DEVICES: UserJourney =
-    UserJourney {
+const VIEW_DETECTED_SONAR_DEVICES: UseCase =
+    UseCase {
         id: JourneyId::ViewDetectedSonarDevices,
         summary: Grounded::known(
             "View Ping family sonar devices auto-detected on serial/USB and the local network",
@@ -93,8 +93,8 @@ const VIEW_DETECTED_SONAR_DEVICES: UserJourney =
         chains_from: None,
     };
 
-const CONNECT_PING_VIEWER_TO_SONAR: UserJourney =
-    UserJourney {
+const CONNECT_PING_VIEWER_TO_SONAR: UseCase =
+    UseCase {
         id: JourneyId::ConnectPingViewerToSonar,
         summary: Grounded::known(
             "Connect Ping Viewer on the surface computer to a vehicle-exposed Ping sonar",
@@ -141,8 +141,8 @@ const CONNECT_PING_VIEWER_TO_SONAR: UserJourney =
         chains_from: None,
     };
 
-const ENABLE_PING1D_RANGEFINDER_MAVLINK: UserJourney =
-    UserJourney {
+const ENABLE_PING1D_RANGEFINDER_MAVLINK: UseCase =
+    UseCase {
         id: JourneyId::EnablePing1dRangefinderMavlink,
         summary: Grounded::known(
             "Enable Ping1D distance estimates as MAVLink DISTANCE_SENSOR messages to the autopilot"
@@ -155,7 +155,7 @@ const ENABLE_PING1D_RANGEFINDER_MAVLINK: UserJourney =
             "Ping1D card MAVLink Distances switch posts sensor settings to toggle mavlink_driver",
         )]),
         preconditions: GroundedSet::known(&[GroundedItem::new(
-            Precondition::Hardware(HardwareRequirement::Ping1d),
+            Precondition::Hardware(HardwareAssumption::Ping1d),
             Provenance::doc(ADV, 559, "- Allows configuring Ping Sonar distance estimates to send a"),
         )]),
         steps: GroundedSet::known(&[

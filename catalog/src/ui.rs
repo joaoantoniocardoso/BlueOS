@@ -2,7 +2,7 @@ use serde::Serialize;
 
 use crate::fixture::{evaluate_journey, FixtureInventory, PreconditionStatus};
 use crate::id::JourneyId;
-use crate::journey::UserJourney;
+use crate::journey::UseCase;
 use crate::sitl_cal::{SitlRc, SITL_FRAME_CALIBRATION, SITL_FRAME_VECTORED};
 
 pub const UI_CALIBRATION_JOURNEYS: &[JourneyId] = &[
@@ -196,10 +196,7 @@ pub fn ui_typed_skip_reason(id: JourneyId) -> Option<&'static str> {
         .map(|(_, reason)| *reason)
 }
 
-pub fn ui_fixture_skip_reason(
-    journey: &UserJourney,
-    fixtures: &FixtureInventory,
-) -> Option<String> {
+pub fn ui_fixture_skip_reason(journey: &UseCase, fixtures: &FixtureInventory) -> Option<String> {
     evaluate_journey(journey, fixtures)
         .into_iter()
         .find_map(|status| match status {

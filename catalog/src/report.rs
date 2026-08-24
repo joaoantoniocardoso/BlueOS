@@ -2,8 +2,8 @@ use serde::Serialize;
 
 use crate::feature_trace::{cluster_for_journey, discovery_for_journey};
 use crate::id::JourneyId;
-use crate::runner::{DutVersion, JourneyResult, RunCounts, StepResult};
-use crate::version::FeatureAvailability;
+use crate::runner::{DutVersion, JourneyResult, RunCounts, Verdict};
+use crate::version::Availability;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ReportDut {
@@ -79,24 +79,6 @@ impl From<RunCounts> for ReportCounts {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum JourneyReportResult {
-    Pass,
-    Fail,
-    Skip,
-}
-
-impl From<JourneyResult> for JourneyReportResult {
-    fn from(result: JourneyResult) -> Self {
-        match result {
-            JourneyResult::Pass | JourneyResult::Partial => Self::Pass,
-            JourneyResult::Fail => Self::Fail,
-            JourneyResult::Skip => Self::Skip,
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ReportAvailability {
     pub intro_commit: &'static str,
@@ -108,8 +90,8 @@ pub struct ReportAvailability {
     pub present_in_tags: &'static [&'static str],
 }
 
-impl From<&FeatureAvailability> for ReportAvailability {
-    fn from(availability: &FeatureAvailability) -> Self {
+impl From<&Availability> for ReportAvailability {
+    fn from(availability: &Availability) -> Self {
         Self {
             intro_commit: availability.intro_commit,
             first_tag: availability.first_tag(),
@@ -153,9 +135,9 @@ impl ReportTrace {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct JourneyReportEntry {
-    pub id: &'static str,
-    pub result: JourneyReportResult,
+pub struct VerificationRecord {
+    pub use_case: &'static str,
+    pub verdict: Verdict,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub skip_reason: Option<String>,
     pub availability: ReportAvailability,
@@ -168,17 +150,17 @@ pub struct JourneyReportEntry {
     pub conflicts: Vec<ReportConflict>,
 }
 
-impl JourneyReportEntry {
+impl VerificationRecord {
     pub fn from_run(
         journey_id: JourneyId,
-        availability: &FeatureAvailability,
+        availability: &Availability,
         outcome: JourneyResult,
-        step_results: &[StepResult],
+        step_results: &[Verdict],
     ) -> Self {
         let (steps_passed, steps_failed, steps_skipped) = count_journey_steps(step_results);
         Self {
-            id: journey_id.as_str(),
-            result: outcome.into(),
+            use_case: journey_id.as_str(),
+            verdict: Verdict::from_journey_result(outcome),
             skip_reason: None,
             availability: availability.into(),
             trace: ReportTrace::for_journey(journey_id.as_str()),
@@ -190,21 +172,15 @@ impl JourneyReportEntry {
     }
 
     pub fn from_negative_probe(
-        probe_id: &'static str,
         journey_id: JourneyId,
-        availability: &FeatureAvailability,
-        result: &StepResult,
+        availability: &Availability,
+        result: &Verdict,
     ) -> Self {
-        let outcome = match result {
-            StepResult::Fail(_) => JourneyResult::Fail,
-            StepResult::Skip(_) | StepResult::Ignored => JourneyResult::Skip,
-            _ => JourneyResult::Pass,
-        };
         let (steps_passed, steps_failed, steps_skipped) =
             count_journey_steps(std::slice::from_ref(result));
         Self {
-            id: probe_id,
-            result: outcome.into(),
+            use_case: journey_id.as_str(),
+            verdict: result.clone(),
             skip_reason: None,
             availability: availability.into(),
             trace: ReportTrace::for_journey(journey_id.as_str()),
@@ -217,13 +193,13 @@ impl JourneyReportEntry {
 
     pub fn skipped(
         journey_id: JourneyId,
-        availability: &FeatureAvailability,
+        availability: &Availability,
         reason: impl Into<String>,
         steps_skipped: usize,
     ) -> Self {
         Self {
-            id: journey_id.as_str(),
-            result: JourneyReportResult::Skip,
+            use_case: journey_id.as_str(),
+            verdict: Verdict::Inconclusive(String::new()),
             skip_reason: Some(reason.into()),
             availability: availability.into(),
             trace: ReportTrace::for_journey(journey_id.as_str()),
@@ -236,7 +212,7 @@ impl JourneyReportEntry {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct JourneyHttpReport {
+pub struct VerificationHttpReport {
     pub schema_version: u32,
     pub suite: SuiteKind,
     pub base: String,
@@ -244,18 +220,18 @@ pub struct JourneyHttpReport {
     pub started_at: String,
     pub finished_at: String,
     pub counts: ReportCounts,
-    pub journeys: Vec<JourneyReportEntry>,
+    pub verifications: Vec<VerificationRecord>,
 }
 
-pub fn count_journey_steps(step_results: &[StepResult]) -> (usize, usize, usize) {
+pub fn count_journey_steps(step_results: &[Verdict]) -> (usize, usize, usize) {
     let mut passed = 0;
     let mut failed = 0;
     let mut skipped = 0;
     for result in step_results {
         match result {
-            StepResult::Pass | StepResult::Unasserted => passed += 1,
-            StepResult::Fail(_) => failed += 1,
-            StepResult::Skip(_) | StepResult::Ignored => skipped += 1,
+            Verdict::Pass | Verdict::Error => passed += 1,
+            Verdict::Fail(_) => failed += 1,
+            Verdict::Inconclusive(_) => skipped += 1,
         }
     }
     (passed, failed, skipped)
@@ -301,7 +277,10 @@ fn days_to_ymd(mut z: i64) -> (i32, u32, u32) {
     (year, month, day)
 }
 
-pub fn write_journey_http_report(path: &str, report: &JourneyHttpReport) -> Result<(), String> {
+pub fn write_journey_http_report(
+    path: &str,
+    report: &VerificationHttpReport,
+) -> Result<(), String> {
     let json = serde_json::to_string_pretty(report).map_err(|err| err.to_string())?;
     std::fs::write(path, json).map_err(|err| err.to_string())
 }
@@ -309,13 +288,13 @@ pub fn write_journey_http_report(path: &str, report: &JourneyHttpReport) -> Resu
 #[cfg(test)]
 mod tests {
     use super::{
-        format_unix_utc_rfc3339, JourneyHttpReport, JourneyReportEntry, ReportCounts, SuiteKind,
-        SCHEMA_VERSION,
+        format_unix_utc_rfc3339, ReportCounts, SuiteKind, VerificationHttpReport,
+        VerificationRecord, SCHEMA_VERSION,
     };
     use crate::id::JourneyId;
-    use crate::version::FeatureAvailability;
+    use crate::version::Availability;
 
-    const SAMPLE: FeatureAvailability = FeatureAvailability {
+    const SAMPLE: Availability = Availability {
         intro_commit: "abc123",
         present_in_tags: &["1.5.0-beta.2"],
         present_on_master: true,
@@ -324,7 +303,7 @@ mod tests {
 
     #[test]
     fn minimal_report_json_contains_schema_version() {
-        let report = JourneyHttpReport {
+        let report = VerificationHttpReport {
             schema_version: SCHEMA_VERSION,
             suite: SuiteKind::Smoke,
             base: "http://test".into(),
@@ -337,7 +316,7 @@ mod tests {
                 skipped: 0,
                 unasserted: 0,
             },
-            journeys: vec![JourneyReportEntry::skipped(
+            verifications: vec![VerificationRecord::skipped(
                 JourneyId::MonitorInternetConnectivity,
                 &SAMPLE,
                 "offline",
@@ -346,9 +325,10 @@ mod tests {
         };
         let json = serde_json::to_string(&report).expect("serialize report");
         assert!(json.contains("\"schema_version\":1"));
+        assert!(json.contains("\"use_case\":\"monitor_internet_connectivity\""));
+        assert!(json.contains("\"verdict\":\"inconclusive\""));
         assert!(json.contains("\"intro_commit\":\"abc123\""));
         assert!(json.contains("\"present_on_master\":true"));
-        // Real journeys get a compact GitHub provenance summary when traces are loaded.
         assert!(json.contains("\"landing_prs\"") || !json.contains("\"trace\""));
     }
 

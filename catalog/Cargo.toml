@@ -38,6 +38,10 @@ name = "export"
 path = "src/bin/export.rs"
 
 [[bin]]
+name = "sysml_export"
+path = "src/bin/sysml_export.rs"
+
+[[bin]]
 name = "extract"
 path = "src/bin/extract.rs"
 

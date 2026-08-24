@@ -1,6 +1,6 @@
 use crate::criticality::CriticalityTier;
 use crate::id::{CapabilityId, JourneyId, PathRef, PortRef, ServiceId};
-use crate::interface::{FileAccessMode, Interface};
+use crate::interface::{FileAccessMode, PortKind};
 use crate::journey::{HttpMethod, RouteRef};
 use crate::lifecycle::{Lifecycle, ObservedLifecycle};
 use crate::observed::{ObservedFacts, ResourceLimits, ServiceKind, StartupTier};
@@ -11,7 +11,7 @@ use crate::provenance::{
 };
 use crate::resource::{Resource, ResourceOwnership};
 use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts, SloBaseline};
-use crate::service::{Authority, Service, ServiceDefinition};
+use crate::service::{Authority, Service, ServiceJudgment};
 use crate::trust::{DangerousOperation, PrivilegeLevel, UserConfirmation};
 
 use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
@@ -222,7 +222,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
         ),
         interfaces: ObservedSet::known(&[
             Evidenced::new(
-                Interface::Rest {
+                PortKind::Rest {
                     path_prefix: PathRef("/commander/"),
                     port: PortRef::Literal(9100),
                     versions: &["v1.0"],
@@ -234,7 +234,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::File {
+                PortKind::File {
                     path: PathRef("/var/logs/blueos"),
                     mode: FileAccessMode::ReadWrite,
                 },
@@ -245,7 +245,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::File {
+                PortKind::File {
                     path: PathRef("/shortcuts/ardupilot_logs/logs/"),
                     mode: FileAccessMode::ReadWrite,
                 },
@@ -256,7 +256,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::File {
+                PortKind::File {
                     path: PathRef("/root/.config/.ssh"),
                     mode: FileAccessMode::ReadWrite,
                 },
@@ -267,7 +267,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::File {
+                PortKind::File {
                     path: PathRef("/home/{user}/.ssh/authorized_keys"),
                     mode: FileAccessMode::ReadWrite,
                 },
@@ -278,7 +278,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Subprocess {
+                PortKind::Subprocess {
                     command: "<caller-supplied host shell command>",
                 },
                 Evidence {
@@ -288,7 +288,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Subprocess {
+                PortKind::Subprocess {
                     command: "ssh",
                 },
                 Evidence {
@@ -298,7 +298,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Subprocess {
+                PortKind::Subprocess {
                     command: "sshpass",
                 },
                 Evidence {
@@ -308,7 +308,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Subprocess {
+                PortKind::Subprocess {
                     command: "ssh-keygen",
                 },
                 Evidence {
@@ -318,7 +318,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Subprocess {
+                PortKind::Subprocess {
                     command: "ls",
                 },
                 Evidence {
@@ -328,7 +328,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Subprocess {
+                PortKind::Subprocess {
                     command: "sudo timedatectl set-ntp false; sudo date -s '@{unix_time_seconds}'; sudo timedatectl set-ntp true",
                 },
                 Evidence {
@@ -338,7 +338,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Subprocess {
+                PortKind::Subprocess {
                     command: "sudo reboot",
                 },
                 Evidence {
@@ -348,7 +348,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Subprocess {
+                PortKind::Subprocess {
                     command: "sudo shutdown --poweroff -h now",
                 },
                 Evidence {
@@ -358,7 +358,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Subprocess {
+                PortKind::Subprocess {
                     command: "raspi-config nonint get_legacy",
                 },
                 Evidence {
@@ -368,7 +368,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Subprocess {
+                PortKind::Subprocess {
                     command: "sudo raspi-config nonint do_legacy {argument}",
                 },
                 Evidence {
@@ -378,7 +378,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Subprocess {
+                PortKind::Subprocess {
                     command: "sudo vcgencmd otp_dump",
                 },
                 Evidence {
@@ -388,7 +388,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Subprocess {
+                PortKind::Subprocess {
                     command: "sudo vcgencmd bootloader_version",
                 },
                 Evidence {
@@ -398,7 +398,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Subprocess {
+                PortKind::Subprocess {
                     command: "sudo vcgencmd version",
                 },
                 Evidence {
@@ -408,7 +408,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Subprocess {
+                PortKind::Subprocess {
                     command: "sudo rpi-eeprom-update",
                 },
                 Evidence {
@@ -418,7 +418,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Subprocess {
+                PortKind::Subprocess {
                     command: "sudo rpi-eeprom-update -a -d",
                 },
                 Evidence {
@@ -428,7 +428,7 @@ pub const OBSERVED_FACTS: ObservedFacts =
                 },
             ),
             Evidenced::new(
-                Interface::Zenoh {
+                PortKind::Zenoh {
                     topics_produced: &["services/commander/log"],
                     topics_consumed: &[],
                 },
@@ -546,8 +546,8 @@ pub const OBSERVED_FACTS: ObservedFacts =
         openapi_refs: ObservedSet::unknown("not yet extracted"),
     };
 
-pub const SERVICE_DEFINITION: ServiceDefinition =
-    ServiceDefinition {
+pub const SERVICE_DEFINITION: ServiceJudgment =
+    ServiceJudgment {
         id: ServiceId::Commander,
         singleton: Asserted::established(
             true,

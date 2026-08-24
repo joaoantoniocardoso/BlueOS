@@ -2,7 +2,7 @@ use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR_ARDUSUB;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
     Actor, BlastRadius, BodyKind, HttpMethod, JourneyStep, NetworkState, Precondition, RouteRef,
-    StateTransition, StepOutcome, UserJourney, Visibility,
+    StateTransition, StepOutcome, UseCase, Visibility,
 };
 use crate::journey_presence::{
     PRESENCE_CHANGE_BOARD, PRESENCE_RESTART_AUTOPILOT, PRESENCE_RESTORE_DEFAULT_FIRMWARE,
@@ -72,7 +72,7 @@ const BR_RESTORE_DEFAULT_FIRMWARE: Grounded<BlastRadius> = Grounded::known(
     ),
 );
 
-pub const JOURNEYS: &[UserJourney] = &[
+pub const JOURNEYS: &[UseCase] = &[
     VEHICLE_FIRST_BOOT,
     CHANGE_BOARD,
     RUN_SITL_SIMULATION,
@@ -84,8 +84,8 @@ pub const JOURNEYS: &[UserJourney] = &[
     RESTORE_DEFAULT_FIRMWARE,
 ];
 
-const VEHICLE_FIRST_BOOT: UserJourney =
-    UserJourney {
+const VEHICLE_FIRST_BOOT: UseCase =
+    UseCase {
         id: JourneyId::VehicleFirstBoot,
         summary: Grounded::known(
             "On first boot the configuration wizard downloads and installs up-to-date autopilot firmware",
@@ -147,7 +147,7 @@ const VEHICLE_FIRST_BOOT: UserJourney =
     chains_from: None,
     };
 
-const CHANGE_BOARD: UserJourney = UserJourney {
+const CHANGE_BOARD: UseCase = UseCase {
     id: JourneyId::ChangeBoard,
     summary: Grounded::known(
         "Select a connected flight controller board or switch to the virtual SITL board",
@@ -202,8 +202,8 @@ const CHANGE_BOARD: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const RUN_SITL_SIMULATION: UserJourney =
-    UserJourney {
+const RUN_SITL_SIMULATION: UseCase =
+    UseCase {
         id: JourneyId::RunSitlSimulation,
         summary: Grounded::known(
             "Run ArduPilot SITL simulation by selecting the virtual board and configuring the vehicle frame"
@@ -245,7 +245,7 @@ const RUN_SITL_SIMULATION: UserJourney =
     chains_from: Some(JourneyId::ChangeBoard),
     };
 
-const START_AUTOPILOT: UserJourney = UserJourney {
+const START_AUTOPILOT: UseCase = UseCase {
     id: JourneyId::StartAutopilot,
     summary: Grounded::known(
         "Start the autopilot process",
@@ -290,7 +290,7 @@ const START_AUTOPILOT: UserJourney = UserJourney {
     chains_from: Some(JourneyId::ChangeBoard),
 };
 
-const STOP_AUTOPILOT: UserJourney = UserJourney {
+const STOP_AUTOPILOT: UseCase = UseCase {
     id: JourneyId::StopAutopilot,
     summary: Grounded::known(
         "Stop the autopilot process",
@@ -331,7 +331,7 @@ const STOP_AUTOPILOT: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const RESTART_AUTOPILOT: UserJourney = UserJourney {
+const RESTART_AUTOPILOT: UseCase = UseCase {
     id: JourneyId::RestartAutopilot,
     summary: Grounded::known(
         "Restart the autopilot",
@@ -372,7 +372,7 @@ const RESTART_AUTOPILOT: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const UPDATE_FIRMWARE_ONLINE: UserJourney = UserJourney {
+const UPDATE_FIRMWARE_ONLINE: UseCase = UseCase {
     id: JourneyId::UpdateFirmwareOnline,
     summary: Grounded::known(
         "Update flight-controller firmware from the online ArduPilot repository",
@@ -437,7 +437,7 @@ const UPDATE_FIRMWARE_ONLINE: UserJourney = UserJourney {
     chains_from: Some(JourneyId::ChangeBoard),
 };
 
-const UPLOAD_CUSTOM_FIRMWARE: UserJourney = UserJourney {
+const UPLOAD_CUSTOM_FIRMWARE: UseCase = UseCase {
     id: JourneyId::UploadCustomFirmware,
     summary: Grounded::known(
         "Upload and flash a custom ArduPilot firmware file from the surface computer",
@@ -486,7 +486,7 @@ const UPLOAD_CUSTOM_FIRMWARE: UserJourney = UserJourney {
     chains_from: Some(JourneyId::ChangeBoard),
 };
 
-const RESTORE_DEFAULT_FIRMWARE: UserJourney = UserJourney {
+const RESTORE_DEFAULT_FIRMWARE: UseCase = UseCase {
     id: JourneyId::RestoreDefaultFirmware,
     summary: Grounded::known(
         "Restore the default ArduSub firmware for the connected flight controller",

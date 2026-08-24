@@ -1,6 +1,6 @@
 use crate::criticality::CriticalityTier;
 use crate::id::{CapabilityId, JourneyId, PathRef, PortRef, ServiceId};
-use crate::interface::{FileAccessMode, Interface};
+use crate::interface::{FileAccessMode, PortKind};
 use crate::journey::{HttpMethod, RouteRef};
 use crate::lifecycle::{Lifecycle, ObservedLifecycle};
 use crate::observed::{ObservedFacts, ResourceLimits, ServiceKind, StartupTier};
@@ -13,7 +13,7 @@ use crate::resource::{Resource, ResourceOwnership};
 use crate::runtime::{
     Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts, SettingsMutation, SloBaseline,
 };
-use crate::service::{Authority, Service, ServiceDefinition};
+use crate::service::{Authority, Service, ServiceJudgment};
 use crate::trust::{DangerousOperation, PrivilegeLevel, UserConfirmation};
 
 use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4;
@@ -258,7 +258,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
     ),
     interfaces: ObservedSet::known(&[
         Evidenced::new(
-            Interface::Rest {
+            PortKind::Rest {
                 path_prefix: PathRef("/kraken/"),
                 port: PortRef::Literal(9134),
                 versions: &["v1.0", "v2.0"],
@@ -270,7 +270,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::OutboundHttp {
+            PortKind::OutboundHttp {
                 url: "https://bluerobotics.github.io/BlueOS-Extensions-Repository/manifest.json",
             },
             Evidence {
@@ -280,7 +280,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::OutboundHttp {
+            PortKind::OutboundHttp {
                 url: "https://blueos.cloud/major_tom/install",
             },
             Evidence {
@@ -290,7 +290,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::OutboundHttp {
+            PortKind::OutboundHttp {
                 url: "http://0.0.0.0:9134",
             },
             Evidence {
@@ -300,7 +300,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Settings {
+            PortKind::Settings {
                 path: PathRef("/root/.config/kraken/settings-2.json"),
             },
             Evidence {
@@ -310,7 +310,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::File {
+            PortKind::File {
                 path: PathRef("/var/run/docker.sock"),
                 mode: FileAccessMode::ReadWrite,
             },
@@ -321,7 +321,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::File {
+            PortKind::File {
                 path: PathRef("/root/.config/kraken"),
                 mode: FileAccessMode::ReadWrite,
             },
@@ -332,7 +332,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Zenoh {
+            PortKind::Zenoh {
                 topics_produced: &["services/kraken/log"],
                 topics_consumed: &[],
             },
@@ -343,7 +343,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Zenoh {
+            PortKind::Zenoh {
                 topics_produced: &["extensions/logs/{safe_name}"],
                 topics_consumed: &[],
             },
@@ -354,7 +354,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Zenoh {
+            PortKind::Zenoh {
                 topics_produced: &["kraken/extension/logs/request"],
                 topics_consumed: &[],
             },
@@ -461,8 +461,8 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
     openapi_refs: ObservedSet::unknown("not yet extracted"),
 };
 
-pub const SERVICE_DEFINITION: ServiceDefinition =
-    ServiceDefinition {
+pub const SERVICE_DEFINITION: ServiceJudgment =
+    ServiceJudgment {
         id: ServiceId::Kraken,
         singleton: Asserted::established(
             true,

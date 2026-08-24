@@ -10,7 +10,7 @@
 //!   or still has the tracked path (backports / cherry-picks).
 //! - `present_on_master` / `present_on_1_4_dev`: floating channel tips
 
-use crate::version::FeatureAvailability;
+use crate::version::Availability;
 
 // 25 shared tag-list constants, 100 journeys
 
@@ -2758,7 +2758,7 @@ const TAGS_96EE7F77FD: &[&str] = &[
 // --- per-journey presence ---
 
 /// AccessBlueosWebInterface: intro `c4fe82a264d4` via S:nginx; 159 tags; master=true; 1.4-dev=true
-pub const PRESENCE_ACCESS_BLUEOS_WEB_INTERFACE: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_ACCESS_BLUEOS_WEB_INTERFACE: Availability = Availability {
     intro_commit: "c4fe82a264d4e5d8cccd40364d69a432560f7807",
     present_in_tags: TAGS_08052ECEA8,
     present_on_master: true,
@@ -2766,7 +2766,7 @@ pub const PRESENCE_ACCESS_BLUEOS_WEB_INTERFACE: FeatureAvailability = FeatureAva
 };
 
 /// AccessWebTerminal: intro `05fb99f125e2` via path:core/frontend/src/views/TerminalView.vue; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_ACCESS_WEB_TERMINAL: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_ACCESS_WEB_TERMINAL: Availability = Availability {
     intro_commit: "05fb99f125e2b4f8ad53a886317db2abbda063b3",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -2774,7 +2774,7 @@ pub const PRESENCE_ACCESS_WEB_TERMINAL: FeatureAvailability = FeatureAvailabilit
 };
 
 /// AcquireDynamicIpAddress: intro `c97922ef9ea8` via S:triggerForDynamicIP; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_ACQUIRE_DYNAMIC_IP_ADDRESS: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_ACQUIRE_DYNAMIC_IP_ADDRESS: Availability = Availability {
     intro_commit: "c97922ef9ea8c49e75cebd45043dfabe7e095b6c",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -2782,7 +2782,7 @@ pub const PRESENCE_ACQUIRE_DYNAMIC_IP_ADDRESS: FeatureAvailability = FeatureAvai
 };
 
 /// AddCustomManifest: intro `faf80cfccf23` via path:core/frontend/src/components/kraken/BackAlleyTab.vue; 98 tags; master=true; 1.4-dev=true
-pub const PRESENCE_ADD_CUSTOM_MANIFEST: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_ADD_CUSTOM_MANIFEST: Availability = Availability {
     intro_commit: "faf80cfccf23ea31d012f6d500296093587bf317",
     present_in_tags: TAGS_D50CCD26E2,
     present_on_master: true,
@@ -2790,7 +2790,7 @@ pub const PRESENCE_ADD_CUSTOM_MANIFEST: FeatureAvailability = FeatureAvailabilit
 };
 
 /// AddExternalNmeaGpsSocket: intro `34e7a1a1d79b` via path:core/frontend/src/components/nmea-injector/NMEASocketCreationDialog.vue; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_ADD_EXTERNAL_NMEA_GPS_SOCKET: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_ADD_EXTERNAL_NMEA_GPS_SOCKET: Availability = Availability {
     intro_commit: "34e7a1a1d79b7927ba2a73a3946d2af537ad91b2",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -2798,7 +2798,7 @@ pub const PRESENCE_ADD_EXTERNAL_NMEA_GPS_SOCKET: FeatureAvailability = FeatureAv
 };
 
 /// ApplyParameterFile: intro `40c0bac44abd` via path:core/frontend/src/components/parameter-editor/ParameterEditor.vue; 145 tags; master=true; 1.4-dev=true
-pub const PRESENCE_APPLY_PARAMETER_FILE: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_APPLY_PARAMETER_FILE: Availability = Availability {
     intro_commit: "40c0bac44abdf6c36a59269335dabb0a27082af0",
     present_in_tags: TAGS_2242B9AFE8,
     present_on_master: true,
@@ -2806,7 +2806,7 @@ pub const PRESENCE_APPLY_PARAMETER_FILE: FeatureAvailability = FeatureAvailabili
 };
 
 /// AssignStaticIpAddress: intro `e742dea54f98` via path:core/frontend/src/components/ethernet/AddressCreationDialog.vue; 161 tags; master=true; 1.4-dev=true
-pub const PRESENCE_ASSIGN_STATIC_IP_ADDRESS: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_ASSIGN_STATIC_IP_ADDRESS: Availability = Availability {
     intro_commit: "e742dea54f98b00d883fcfed76b587f35ddb7647",
     present_in_tags: TAGS_A01F83B3AF,
     present_on_master: true,
@@ -2814,7 +2814,7 @@ pub const PRESENCE_ASSIGN_STATIC_IP_ADDRESS: FeatureAvailability = FeatureAvaila
 };
 
 /// AutoconnectToSavedWifiNetwork: intro `732b3ac2997b` via S:/connect; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_AUTOCONNECT_TO_SAVED_WIFI_NETWORK: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_AUTOCONNECT_TO_SAVED_WIFI_NETWORK: Availability = Availability {
     intro_commit: "732b3ac2997bf03b95837926446486820f2a8dbe",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -2822,7 +2822,7 @@ pub const PRESENCE_AUTOCONNECT_TO_SAVED_WIFI_NETWORK: FeatureAvailability = Feat
 };
 
 /// BrowseAvailableWebServices: intro `15998b11035e` via path:core/frontend/src/views/AvailableServicesView.vue; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_BROWSE_AVAILABLE_WEB_SERVICES: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_BROWSE_AVAILABLE_WEB_SERVICES: Availability = Availability {
     intro_commit: "15998b11035ea3e5d2c886964cc29dad9fda4e2c",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -2830,7 +2830,7 @@ pub const PRESENCE_BROWSE_AVAILABLE_WEB_SERVICES: FeatureAvailability = FeatureA
 };
 
 /// BrowseExtensionStore: intro `faf80cfccf23` via path:core/frontend/src/components/kraken/BazaarTab.vue; 98 tags; master=true; 1.4-dev=true
-pub const PRESENCE_BROWSE_EXTENSION_STORE: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_BROWSE_EXTENSION_STORE: Availability = Availability {
     intro_commit: "faf80cfccf23ea31d012f6d500296093587bf317",
     present_in_tags: TAGS_D50CCD26E2,
     present_on_master: true,
@@ -2838,7 +2838,7 @@ pub const PRESENCE_BROWSE_EXTENSION_STORE: FeatureAvailability = FeatureAvailabi
 };
 
 /// BrowseVideoRecordings: intro `6df9fd85a378` via path:core/services/recorder_extractor; 18 tags; master=true; 1.4-dev=false
-pub const PRESENCE_BROWSE_VIDEO_RECORDINGS: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_BROWSE_VIDEO_RECORDINGS: Availability = Availability {
     intro_commit: "6df9fd85a378b4c2ba6c5eee80c837ef30a8340b",
     present_in_tags: TAGS_3060E7E5EC,
     present_on_master: true,
@@ -2846,7 +2846,7 @@ pub const PRESENCE_BROWSE_VIDEO_RECORDINGS: FeatureAvailability = FeatureAvailab
 };
 
 /// CalibrateAccelerometer: intro `dc388cef20f9` via path:core/frontend/src/components/vehiclesetup/configuration/accelerometer/FullAccelerometerCalibration.vue; 104 tags; master=true; 1.4-dev=true
-pub const PRESENCE_CALIBRATE_ACCELEROMETER: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_CALIBRATE_ACCELEROMETER: Availability = Availability {
     intro_commit: "dc388cef20f9e68c60d8253539f22e257aa15c35",
     present_in_tags: TAGS_D04F1AD8BC,
     present_on_master: true,
@@ -2854,7 +2854,7 @@ pub const PRESENCE_CALIBRATE_ACCELEROMETER: FeatureAvailability = FeatureAvailab
 };
 
 /// CalibrateBarometer: intro `81fddcf87fdd` via path:core/frontend/src/components/vehiclesetup/overview/BaroCalib.vue; 104 tags; master=true; 1.4-dev=true
-pub const PRESENCE_CALIBRATE_BAROMETER: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_CALIBRATE_BAROMETER: Availability = Availability {
     intro_commit: "81fddcf87fdd5f55c424224e10fb4ed8b06f69ff",
     present_in_tags: TAGS_D04F1AD8BC,
     present_on_master: true,
@@ -2862,7 +2862,7 @@ pub const PRESENCE_CALIBRATE_BAROMETER: FeatureAvailability = FeatureAvailabilit
 };
 
 /// CalibrateCompass: intro `2f8d657c6cd4` via path:core/frontend/src/components/vehiclesetup/configuration/compass/FullCompassCalibrator.vue; 104 tags; master=true; 1.4-dev=true
-pub const PRESENCE_CALIBRATE_COMPASS: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_CALIBRATE_COMPASS: Availability = Availability {
     intro_commit: "2f8d657c6cd4fa860ceb03fd9cc2880b887168d3",
     present_in_tags: TAGS_D04F1AD8BC,
     present_on_master: true,
@@ -2870,7 +2870,7 @@ pub const PRESENCE_CALIBRATE_COMPASS: FeatureAvailability = FeatureAvailability 
 };
 
 /// CalibrateGyroscope: intro `22025de9a5d7` via path:core/frontend/src/components/vehiclesetup/overview/GyroCalib.vue; 97 tags; master=true; 1.4-dev=true
-pub const PRESENCE_CALIBRATE_GYROSCOPE: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_CALIBRATE_GYROSCOPE: Availability = Availability {
     intro_commit: "22025de9a5d75336a7b45f742d471f6c78284abf",
     present_in_tags: TAGS_E6A3ED55B9,
     present_on_master: true,
@@ -2878,7 +2878,7 @@ pub const PRESENCE_CALIBRATE_GYROSCOPE: FeatureAvailability = FeatureAvailabilit
 };
 
 /// ChangeBoard: intro `7032d305c733` via path:core/services/ardupilot_manager/flight_controller_detector; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_CHANGE_BOARD: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_CHANGE_BOARD: Availability = Availability {
     intro_commit: "7032d305c73374b3c06b9b3d0eb1436a8da8d14d",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -2886,7 +2886,7 @@ pub const PRESENCE_CHANGE_BOARD: FeatureAvailability = FeatureAvailability {
 };
 
 /// ChangeMdnsHostname: intro `29473db71ff8` via S:/hostname; 137 tags; master=true; 1.4-dev=true
-pub const PRESENCE_CHANGE_MDNS_HOSTNAME: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_CHANGE_MDNS_HOSTNAME: Availability = Availability {
     intro_commit: "29473db71ff8b51b3e38ac1b00649cb5e6c8e03a",
     present_in_tags: TAGS_5494C12600,
     present_on_master: true,
@@ -2894,7 +2894,7 @@ pub const PRESENCE_CHANGE_MDNS_HOSTNAME: FeatureAvailability = FeatureAvailabili
 };
 
 /// ChangeUiThemeColor: intro `2d797c10c681` via path:core/services/customization; 2 tags; master=true; 1.4-dev=false
-pub const PRESENCE_CHANGE_UI_THEME_COLOR: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_CHANGE_UI_THEME_COLOR: Availability = Availability {
     intro_commit: "2d797c10c6814221789a5a3ef77e7f54292af155",
     present_in_tags: TAGS_221686E153,
     present_on_master: true,
@@ -2902,7 +2902,7 @@ pub const PRESENCE_CHANGE_UI_THEME_COLOR: FeatureAvailability = FeatureAvailabil
 };
 
 /// ConfigureCameraStream: intro `8da1baa6c56a` via path:core/frontend/src/components/video-manager/VideoStreamCreationDialog.vue; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_CONFIGURE_CAMERA_STREAM: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_CONFIGURE_CAMERA_STREAM: Availability = Availability {
     intro_commit: "8da1baa6c56aee23c4706858451c226b64c6653c",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -2910,7 +2910,7 @@ pub const PRESENCE_CONFIGURE_CAMERA_STREAM: FeatureAvailability = FeatureAvailab
 };
 
 /// ConfigureHostDns: intro `a1d5ea2c99e4` via path:core/frontend/src/components/app/DnsConfigurationMenu.vue; 129 tags; master=true; 1.4-dev=true
-pub const PRESENCE_CONFIGURE_HOST_DNS: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_CONFIGURE_HOST_DNS: Availability = Availability {
     intro_commit: "a1d5ea2c99e424e495fe02dc2fae0ce3a91346b6",
     present_in_tags: TAGS_44098DB211,
     present_on_master: true,
@@ -2918,7 +2918,7 @@ pub const PRESENCE_CONFIGURE_HOST_DNS: FeatureAvailability = FeatureAvailability
 };
 
 /// ConfigureHotspotCredentials: intro `5745cb8b4add` via S:hotspot_credentials; 151 tags; master=true; 1.4-dev=true
-pub const PRESENCE_CONFIGURE_HOTSPOT_CREDENTIALS: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_CONFIGURE_HOTSPOT_CREDENTIALS: Availability = Availability {
     intro_commit: "5745cb8b4add5541a8bb5d95661b4bce53d168bc",
     present_in_tags: TAGS_001F49C2C9,
     present_on_master: true,
@@ -2926,7 +2926,7 @@ pub const PRESENCE_CONFIGURE_HOTSPOT_CREDENTIALS: FeatureAvailability = FeatureA
 };
 
 /// ConfigureInstalledExtension: intro `d3ef9f239b2c` via path:core/frontend/src/components/kraken/cards/InstalledExtensionCard.vue; 98 tags; master=true; 1.4-dev=true
-pub const PRESENCE_CONFIGURE_INSTALLED_EXTENSION: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_CONFIGURE_INSTALLED_EXTENSION: Availability = Availability {
     intro_commit: "d3ef9f239b2ca40d462c923a8ada2dbd8408aa45",
     present_in_tags: TAGS_D50CCD26E2,
     present_on_master: true,
@@ -2934,7 +2934,7 @@ pub const PRESENCE_CONFIGURE_INSTALLED_EXTENSION: FeatureAvailability = FeatureA
 };
 
 /// ConfigureUvcDeviceControls: intro `8da1baa6c56a` via path:core/frontend/src/components/video-manager/VideoControlsDialog.vue; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_CONFIGURE_UVC_DEVICE_CONTROLS: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_CONFIGURE_UVC_DEVICE_CONTROLS: Availability = Availability {
     intro_commit: "8da1baa6c56aee23c4706858451c226b64c6653c",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -2942,7 +2942,7 @@ pub const PRESENCE_CONFIGURE_UVC_DEVICE_CONTROLS: FeatureAvailability = FeatureA
 };
 
 /// ConfigureVideoStream: intro `11b310ea575a` via path:core/frontend/src/components/video-manager/VideoDiagnosticHelper.vue; 147 tags; master=true; 1.4-dev=true
-pub const PRESENCE_CONFIGURE_VIDEO_STREAM: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_CONFIGURE_VIDEO_STREAM: Availability = Availability {
     intro_commit: "11b310ea575a33fe8f173a167eb2db7a8611687d",
     present_in_tags: TAGS_BC1021B55A,
     present_on_master: true,
@@ -2950,7 +2950,7 @@ pub const PRESENCE_CONFIGURE_VIDEO_STREAM: FeatureAvailability = FeatureAvailabi
 };
 
 /// ConnectPingViewerToSonar: intro `5de1feb47221` via path:core/services/ping; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_CONNECT_PING_VIEWER_TO_SONAR: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_CONNECT_PING_VIEWER_TO_SONAR: Availability = Availability {
     intro_commit: "5de1feb47221db3c88d2ed669ae91de43aeefd6d",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -2958,7 +2958,7 @@ pub const PRESENCE_CONNECT_PING_VIEWER_TO_SONAR: FeatureAvailability = FeatureAv
 };
 
 /// ConnectToHiddenWifiNetwork: intro `732b3ac2997b` via S:/connect; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_CONNECT_TO_HIDDEN_WIFI_NETWORK: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_CONNECT_TO_HIDDEN_WIFI_NETWORK: Availability = Availability {
     intro_commit: "732b3ac2997bf03b95837926446486820f2a8dbe",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -2966,7 +2966,7 @@ pub const PRESENCE_CONNECT_TO_HIDDEN_WIFI_NETWORK: FeatureAvailability = Feature
 };
 
 /// ConnectToWifiNetwork: intro `732b3ac2997b` via S:/connect; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_CONNECT_TO_WIFI_NETWORK: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_CONNECT_TO_WIFI_NETWORK: Availability = Availability {
     intro_commit: "732b3ac2997bf03b95837926446486820f2a8dbe",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -2974,7 +2974,7 @@ pub const PRESENCE_CONNECT_TO_WIFI_NETWORK: FeatureAvailability = FeatureAvailab
 };
 
 /// CreateSerialToUdpBridge: intro `c0cdf06cefdb` via path:core/frontend/src/components/bridges/BridgeCreationDialog.vue; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_CREATE_SERIAL_TO_UDP_BRIDGE: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_CREATE_SERIAL_TO_UDP_BRIDGE: Availability = Availability {
     intro_commit: "c0cdf06cefdb1767a4f234d20b7461ec4d135273",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -2982,7 +2982,7 @@ pub const PRESENCE_CREATE_SERIAL_TO_UDP_BRIDGE: FeatureAvailability = FeatureAva
 };
 
 /// Delete3dModelOverride: intro `2d797c10c681` via path:core/services/customization; 2 tags; master=true; 1.4-dev=false
-pub const PRESENCE_DELETE3D_MODEL_OVERRIDE: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_DELETE3D_MODEL_OVERRIDE: Availability = Availability {
     intro_commit: "2d797c10c6814221789a5a3ef77e7f54292af155",
     present_in_tags: TAGS_221686E153,
     present_on_master: true,
@@ -2990,7 +2990,7 @@ pub const PRESENCE_DELETE3D_MODEL_OVERRIDE: FeatureAvailability = FeatureAvailab
 };
 
 /// DeleteLocalBlueosVersion: intro `7d924e22376f` via S:/delete; 31 tags; master=true; 1.4-dev=false
-pub const PRESENCE_DELETE_LOCAL_BLUEOS_VERSION: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_DELETE_LOCAL_BLUEOS_VERSION: Availability = Availability {
     intro_commit: "7d924e22376fe43ed5420672b849e9e8fdee7b52",
     present_in_tags: TAGS_3878FA9EEF,
     present_on_master: true,
@@ -2998,7 +2998,7 @@ pub const PRESENCE_DELETE_LOCAL_BLUEOS_VERSION: FeatureAvailability = FeatureAva
 };
 
 /// DeleteVideoRecording: intro `6df9fd85a378` via path:core/services/recorder_extractor; 18 tags; master=true; 1.4-dev=false
-pub const PRESENCE_DELETE_VIDEO_RECORDING: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_DELETE_VIDEO_RECORDING: Availability = Availability {
     intro_commit: "6df9fd85a378b4c2ba6c5eee80c837ef30a8340b",
     present_in_tags: TAGS_3060E7E5EC,
     present_on_master: true,
@@ -3006,7 +3006,7 @@ pub const PRESENCE_DELETE_VIDEO_RECORDING: FeatureAvailability = FeatureAvailabi
 };
 
 /// DetectMotorDirections: intro `11088c7b8afe` via path:core/frontend/src/components/vehiclesetup/MotorDetection.vue; 98 tags; master=true; 1.4-dev=true
-pub const PRESENCE_DETECT_MOTOR_DIRECTIONS: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_DETECT_MOTOR_DIRECTIONS: Availability = Availability {
     intro_commit: "11088c7b8afe328e40a7104b149c782cac101b51",
     present_in_tags: TAGS_D50CCD26E2,
     present_on_master: true,
@@ -3014,7 +3014,7 @@ pub const PRESENCE_DETECT_MOTOR_DIRECTIONS: FeatureAvailability = FeatureAvailab
 };
 
 /// DetectWifiApLoss: intro `732b3ac2997b` via path:core/frontend/src/components/wifi/WifiUpdater.vue; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_DETECT_WIFI_AP_LOSS: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_DETECT_WIFI_AP_LOSS: Availability = Availability {
     intro_commit: "732b3ac2997bf03b95837926446486820f2a8dbe",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -3022,7 +3022,7 @@ pub const PRESENCE_DETECT_WIFI_AP_LOSS: FeatureAvailability = FeatureAvailabilit
 };
 
 /// DisableOnboardDhcpServer: intro `c97922ef9ea8` via S:removeDHCPServer; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_DISABLE_ONBOARD_DHCP_SERVER: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_DISABLE_ONBOARD_DHCP_SERVER: Availability = Availability {
     intro_commit: "c97922ef9ea8c49e75cebd45043dfabe7e095b6c",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -3030,7 +3030,7 @@ pub const PRESENCE_DISABLE_ONBOARD_DHCP_SERVER: FeatureAvailability = FeatureAva
 };
 
 /// DisconnectFromWifiNetwork: intro `732b3ac2997b` via path:core/frontend/src/components/wifi/DisconnectionDialog.vue; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_DISCONNECT_FROM_WIFI_NETWORK: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_DISCONNECT_FROM_WIFI_NETWORK: Availability = Availability {
     intro_commit: "732b3ac2997bf03b95837926446486820f2a8dbe",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -3038,7 +3038,7 @@ pub const PRESENCE_DISCONNECT_FROM_WIFI_NETWORK: FeatureAvailability = FeatureAv
 };
 
 /// DiscoverBlueosOnNetwork: intro `f5958d484bf1` via path:core/services/beacon; 159 tags; master=true; 1.4-dev=true
-pub const PRESENCE_DISCOVER_BLUEOS_ON_NETWORK: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_DISCOVER_BLUEOS_ON_NETWORK: Availability = Availability {
     intro_commit: "f5958d484bf1a283104cd79b0be3abc16effc26a",
     present_in_tags: TAGS_08052ECEA8,
     present_on_master: true,
@@ -3046,7 +3046,7 @@ pub const PRESENCE_DISCOVER_BLUEOS_ON_NETWORK: FeatureAvailability = FeatureAvai
 };
 
 /// DockerRegistryLogin: intro `a7e47b06d4d8` via S:docker/login; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_DOCKER_REGISTRY_LOGIN: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_DOCKER_REGISTRY_LOGIN: Availability = Availability {
     intro_commit: "a7e47b06d4d811e099de7df5ee53f142745d7da2",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -3054,7 +3054,7 @@ pub const PRESENCE_DOCKER_REGISTRY_LOGIN: FeatureAvailability = FeatureAvailabil
 };
 
 /// DownloadVideoRecording: intro `6df9fd85a378` via path:core/services/recorder_extractor; 18 tags; master=true; 1.4-dev=false
-pub const PRESENCE_DOWNLOAD_VIDEO_RECORDING: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_DOWNLOAD_VIDEO_RECORDING: Availability = Availability {
     intro_commit: "6df9fd85a378b4c2ba6c5eee80c837ef30a8340b",
     present_in_tags: TAGS_3060E7E5EC,
     present_on_master: true,
@@ -3062,7 +3062,7 @@ pub const PRESENCE_DOWNLOAD_VIDEO_RECORDING: FeatureAvailability = FeatureAvaila
 };
 
 /// EditExtensionDevVersion: intro `ce9c65e18f0b` via path:core/services/kraken; 146 tags; master=true; 1.4-dev=true
-pub const PRESENCE_EDIT_EXTENSION_DEV_VERSION: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_EDIT_EXTENSION_DEV_VERSION: Availability = Availability {
     intro_commit: "ce9c65e18f0b3f333983bd8810b062c8fe60a6ee",
     present_in_tags: TAGS_8DA851F05D,
     present_on_master: true,
@@ -3070,7 +3070,7 @@ pub const PRESENCE_EDIT_EXTENSION_DEV_VERSION: FeatureAvailability = FeatureAvai
 };
 
 /// EnableLegacyCameraSupport: intro `8da1baa6c56a` via path:core/frontend/src/components/video-manager/VideoManager.vue; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_ENABLE_LEGACY_CAMERA_SUPPORT: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_ENABLE_LEGACY_CAMERA_SUPPORT: Availability = Availability {
     intro_commit: "8da1baa6c56aee23c4706858451c226b64c6653c",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -3078,7 +3078,7 @@ pub const PRESENCE_ENABLE_LEGACY_CAMERA_SUPPORT: FeatureAvailability = FeatureAv
 };
 
 /// EnableOnboardDhcpServer: intro `c97922ef9ea8` via path:core/frontend/src/components/ethernet/DHCPServerDialog.vue; 155 tags; master=true; 1.4-dev=true
-pub const PRESENCE_ENABLE_ONBOARD_DHCP_SERVER: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_ENABLE_ONBOARD_DHCP_SERVER: Availability = Availability {
     intro_commit: "c97922ef9ea8c49e75cebd45043dfabe7e095b6c",
     present_in_tags: TAGS_8063AE8E79,
     present_on_master: true,
@@ -3086,7 +3086,7 @@ pub const PRESENCE_ENABLE_ONBOARD_DHCP_SERVER: FeatureAvailability = FeatureAvai
 };
 
 /// EnablePing1dRangefinderMavlink: intro `5de1feb47221` via path:core/services/ping; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_ENABLE_PING1D_RANGEFINDER_MAVLINK: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_ENABLE_PING1D_RANGEFINDER_MAVLINK: Availability = Availability {
     intro_commit: "5de1feb47221db3c88d2ed669ae91de43aeefd6d",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -3094,7 +3094,7 @@ pub const PRESENCE_ENABLE_PING1D_RANGEFINDER_MAVLINK: FeatureAvailability = Feat
 };
 
 /// ForceWifiNetworkPassword: intro `732b3ac2997b` via S:/connect; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_FORCE_WIFI_NETWORK_PASSWORD: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_FORCE_WIFI_NETWORK_PASSWORD: Availability = Availability {
     intro_commit: "732b3ac2997bf03b95837926446486820f2a8dbe",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -3102,7 +3102,7 @@ pub const PRESENCE_FORCE_WIFI_NETWORK_PASSWORD: FeatureAvailability = FeatureAva
 };
 
 /// ForgetSavedWifiNetwork: intro `732b3ac2997b` via S:/remove; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_FORGET_SAVED_WIFI_NETWORK: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_FORGET_SAVED_WIFI_NETWORK: Availability = Availability {
     intro_commit: "732b3ac2997bf03b95837926446486820f2a8dbe",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -3110,7 +3110,7 @@ pub const PRESENCE_FORGET_SAVED_WIFI_NETWORK: FeatureAvailability = FeatureAvail
 };
 
 /// FreeDiskSpace: intro `c29e24679e3d` via path:core/services/disk_usage; 17 tags; master=true; 1.4-dev=false
-pub const PRESENCE_FREE_DISK_SPACE: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_FREE_DISK_SPACE: Availability = Availability {
     intro_commit: "c29e24679e3dbe083ab6a3f21bb1459e66bb4dd5",
     present_in_tags: TAGS_D3EFDBB951,
     present_on_master: true,
@@ -3118,7 +3118,7 @@ pub const PRESENCE_FREE_DISK_SPACE: FeatureAvailability = FeatureAvailability {
 };
 
 /// InspectDiskUsage: intro `c29e24679e3d` via path:core/services/disk_usage; 17 tags; master=true; 1.4-dev=false
-pub const PRESENCE_INSPECT_DISK_USAGE: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_INSPECT_DISK_USAGE: Availability = Availability {
     intro_commit: "c29e24679e3dbe083ab6a3f21bb1459e66bb4dd5",
     present_in_tags: TAGS_D3EFDBB951,
     present_on_master: true,
@@ -3126,7 +3126,7 @@ pub const PRESENCE_INSPECT_DISK_USAGE: FeatureAvailability = FeatureAvailability
 };
 
 /// InspectMavlinkMessagesInBrowser: intro `79d8c8200755` via path:core/frontend/src/views/MavlinkInspectorView.vue; 162 tags; master=true; 1.4-dev=true
-pub const PRESENCE_INSPECT_MAVLINK_MESSAGES_IN_BROWSER: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_INSPECT_MAVLINK_MESSAGES_IN_BROWSER: Availability = Availability {
     intro_commit: "79d8c8200755ae732e06a3637e0d21766cdb1d05",
     present_in_tags: TAGS_7EF64F4A36,
     present_on_master: true,
@@ -3134,7 +3134,7 @@ pub const PRESENCE_INSPECT_MAVLINK_MESSAGES_IN_BROWSER: FeatureAvailability = Fe
 };
 
 /// InspectRaspberryEepromBootloader: intro `cab2ce2ab790` via S:getVcgencmd; 139 tags; master=true; 1.4-dev=true
-pub const PRESENCE_INSPECT_RASPBERRY_EEPROM_BOOTLOADER: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_INSPECT_RASPBERRY_EEPROM_BOOTLOADER: Availability = Availability {
     intro_commit: "cab2ce2ab7906b0c896131dd802bcf26ff86aef1",
     present_in_tags: TAGS_65FC698A44,
     present_on_master: true,
@@ -3142,7 +3142,7 @@ pub const PRESENCE_INSPECT_RASPBERRY_EEPROM_BOOTLOADER: FeatureAvailability = Fe
 };
 
 /// InspectZenohNetwork: intro `127f885b2daf` via path:core/frontend/src/views/ZenohInspectorView.vue; 38 tags; master=true; 1.4-dev=false
-pub const PRESENCE_INSPECT_ZENOH_NETWORK: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_INSPECT_ZENOH_NETWORK: Availability = Availability {
     intro_commit: "127f885b2dafa5a2c4ac39420fb1f5a6bc38bbab",
     present_in_tags: TAGS_96EE7F77FD,
     present_on_master: true,
@@ -3150,7 +3150,7 @@ pub const PRESENCE_INSPECT_ZENOH_NETWORK: FeatureAvailability = FeatureAvailabil
 };
 
 /// InstallCustomExtension: intro `d3ef9f239b2c` via path:core/frontend/src/components/kraken/modals/ExtensionCreationModal.vue; 98 tags; master=true; 1.4-dev=true
-pub const PRESENCE_INSTALL_CUSTOM_EXTENSION: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_INSTALL_CUSTOM_EXTENSION: Availability = Availability {
     intro_commit: "d3ef9f239b2ca40d462c923a8ada2dbd8408aa45",
     present_in_tags: TAGS_D50CCD26E2,
     present_on_master: true,
@@ -3158,7 +3158,7 @@ pub const PRESENCE_INSTALL_CUSTOM_EXTENSION: FeatureAvailability = FeatureAvaila
 };
 
 /// InstallExtension: intro `ce9c65e18f0b` via path:core/services/kraken; 146 tags; master=true; 1.4-dev=true
-pub const PRESENCE_INSTALL_EXTENSION: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_INSTALL_EXTENSION: Availability = Availability {
     intro_commit: "ce9c65e18f0b3f333983bd8810b062c8fe60a6ee",
     present_in_tags: TAGS_8DA851F05D,
     present_on_master: true,
@@ -3166,7 +3166,7 @@ pub const PRESENCE_INSTALL_EXTENSION: FeatureAvailability = FeatureAvailability 
 };
 
 /// LevelHorizon: intro `06490f90ed01` via path:core/frontend/src/components/vehiclesetup/configuration/compass/LevelHorizonCalibration.vue; 19 tags; master=true; 1.4-dev=true
-pub const PRESENCE_LEVEL_HORIZON: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_LEVEL_HORIZON: Availability = Availability {
     intro_commit: "06490f90ed01f7038c693549b6dd15d8bf4b8ca3",
     present_in_tags: TAGS_75CCF89E65,
     present_on_master: true,
@@ -3174,7 +3174,7 @@ pub const PRESENCE_LEVEL_HORIZON: FeatureAvailability = FeatureAvailability {
 };
 
 /// ManageBlueosFiles: intro `c38dc6db3ae2` via path:core/tools/filebrowser; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_MANAGE_BLUEOS_FILES: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_MANAGE_BLUEOS_FILES: Availability = Availability {
     intro_commit: "c38dc6db3ae28059b2879d1db6070aa8bdc15bbe",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -3182,7 +3182,7 @@ pub const PRESENCE_MANAGE_BLUEOS_FILES: FeatureAvailability = FeatureAvailabilit
 };
 
 /// ModifyBagDatabase: intro `dfa491d60eab` via path:core/services/bag_of_holding; 137 tags; master=true; 1.4-dev=true
-pub const PRESENCE_MODIFY_BAG_DATABASE: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_MODIFY_BAG_DATABASE: Availability = Availability {
     intro_commit: "dfa491d60eabc5c41b20444df6f354abcbfa3338",
     present_in_tags: TAGS_5494C12600,
     present_on_master: true,
@@ -3190,7 +3190,7 @@ pub const PRESENCE_MODIFY_BAG_DATABASE: FeatureAvailability = FeatureAvailabilit
 };
 
 /// MonitorInternetConnectivity: intro `be3909cf3205` via path:core/frontend/src/store/helper.ts; 132 tags; master=true; 1.4-dev=true
-pub const PRESENCE_MONITOR_INTERNET_CONNECTIVITY: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_MONITOR_INTERNET_CONNECTIVITY: Availability = Availability {
     intro_commit: "be3909cf32050e6db628ed54e9ce4900fe1d6cb1",
     present_in_tags: TAGS_427855555C,
     present_on_master: true,
@@ -3198,16 +3198,15 @@ pub const PRESENCE_MONITOR_INTERNET_CONNECTIVITY: FeatureAvailability = FeatureA
 };
 
 /// ProbeInterfaceInternetConnectivity: intro `27862ec2d86f` via path:core/frontend/src/components/app/NetworkInterfacePriorityMenu.vue; 132 tags; master=true; 1.4-dev=true
-pub const PRESENCE_PROBE_INTERFACE_INTERNET_CONNECTIVITY: FeatureAvailability =
-    FeatureAvailability {
-        intro_commit: "27862ec2d86fbbd133a75549895e3ff0bce85c06",
-        present_in_tags: TAGS_427855555C,
-        present_on_master: true,
-        present_on_1_4_dev: true,
-    };
+pub const PRESENCE_PROBE_INTERFACE_INTERNET_CONNECTIVITY: Availability = Availability {
+    intro_commit: "27862ec2d86fbbd133a75549895e3ff0bce85c06",
+    present_in_tags: TAGS_427855555C,
+    present_on_master: true,
+    present_on_1_4_dev: true,
+};
 
 /// PullBlueosVersionWithoutSwitch: intro `7c62889397a3` via path:core/services/versionchooser; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_PULL_BLUEOS_VERSION_WITHOUT_SWITCH: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_PULL_BLUEOS_VERSION_WITHOUT_SWITCH: Availability = Availability {
     intro_commit: "7c62889397a36191deb01bbffffaf68b109b477d",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -3215,7 +3214,7 @@ pub const PRESENCE_PULL_BLUEOS_VERSION_WITHOUT_SWITCH: FeatureAvailability = Fea
 };
 
 /// RebootOnboardComputer: intro `d1c0ee626e36` via path:core/services/commander; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_REBOOT_ONBOARD_COMPUTER: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_REBOOT_ONBOARD_COMPUTER: Availability = Availability {
     intro_commit: "d1c0ee626e362a93d77fbc1209122458af5daead",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -3223,7 +3222,7 @@ pub const PRESENCE_REBOOT_ONBOARD_COMPUTER: FeatureAvailability = FeatureAvailab
 };
 
 /// ReconnectToSavedWifiNetwork: intro `732b3ac2997b` via S:/connect; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_RECONNECT_TO_SAVED_WIFI_NETWORK: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_RECONNECT_TO_SAVED_WIFI_NETWORK: Availability = Availability {
     intro_commit: "732b3ac2997bf03b95837926446486820f2a8dbe",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -3231,7 +3230,7 @@ pub const PRESENCE_RECONNECT_TO_SAVED_WIFI_NETWORK: FeatureAvailability = Featur
 };
 
 /// RejectInvalidWifiCredentials: intro `732b3ac2997b` via S:/connect; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_REJECT_INVALID_WIFI_CREDENTIALS: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_REJECT_INVALID_WIFI_CREDENTIALS: Availability = Availability {
     intro_commit: "732b3ac2997bf03b95837926446486820f2a8dbe",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -3239,7 +3238,7 @@ pub const PRESENCE_REJECT_INVALID_WIFI_CREDENTIALS: FeatureAvailability = Featur
 };
 
 /// RemoveCameraStream: intro `8da1baa6c56a` via path:core/frontend/src/components/video-manager/VideoStream.vue; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_REMOVE_CAMERA_STREAM: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_REMOVE_CAMERA_STREAM: Availability = Availability {
     intro_commit: "8da1baa6c56aee23c4706858451c226b64c6653c",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -3247,7 +3246,7 @@ pub const PRESENCE_REMOVE_CAMERA_STREAM: FeatureAvailability = FeatureAvailabili
 };
 
 /// RemoveConfiguredNmeaSocket: intro `34e7a1a1d79b` via path:core/frontend/src/components/nmea-injector/NMEASocketCard.vue; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_REMOVE_CONFIGURED_NMEA_SOCKET: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_REMOVE_CONFIGURED_NMEA_SOCKET: Availability = Availability {
     intro_commit: "34e7a1a1d79b7927ba2a73a3946d2af537ad91b2",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -3255,7 +3254,7 @@ pub const PRESENCE_REMOVE_CONFIGURED_NMEA_SOCKET: FeatureAvailability = FeatureA
 };
 
 /// RemoveCustomLogo: intro `2d797c10c681` via path:core/services/customization; 2 tags; master=true; 1.4-dev=false
-pub const PRESENCE_REMOVE_CUSTOM_LOGO: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_REMOVE_CUSTOM_LOGO: Availability = Availability {
     intro_commit: "2d797c10c6814221789a5a3ef77e7f54292af155",
     present_in_tags: TAGS_221686E153,
     present_on_master: true,
@@ -3263,7 +3262,7 @@ pub const PRESENCE_REMOVE_CUSTOM_LOGO: FeatureAvailability = FeatureAvailability
 };
 
 /// RemoveCustomVehicleImage: intro `2d797c10c681` via path:core/services/customization; 2 tags; master=true; 1.4-dev=false
-pub const PRESENCE_REMOVE_CUSTOM_VEHICLE_IMAGE: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_REMOVE_CUSTOM_VEHICLE_IMAGE: Availability = Availability {
     intro_commit: "2d797c10c6814221789a5a3ef77e7f54292af155",
     present_in_tags: TAGS_221686E153,
     present_on_master: true,
@@ -3271,7 +3270,7 @@ pub const PRESENCE_REMOVE_CUSTOM_VEHICLE_IMAGE: FeatureAvailability = FeatureAva
 };
 
 /// RemoveSerialBridge: intro `c0cdf06cefdb` via S:removeBridge; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_REMOVE_SERIAL_BRIDGE: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_REMOVE_SERIAL_BRIDGE: Availability = Availability {
     intro_commit: "c0cdf06cefdb1767a4f234d20b7461ec4d135273",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -3279,7 +3278,7 @@ pub const PRESENCE_REMOVE_SERIAL_BRIDGE: FeatureAvailability = FeatureAvailabili
 };
 
 /// RenameVehicle: intro `29473db71ff8` via S:/vehicle_name; 137 tags; master=true; 1.4-dev=true
-pub const PRESENCE_RENAME_VEHICLE: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_RENAME_VEHICLE: Availability = Availability {
     intro_commit: "29473db71ff8b51b3e38ac1b00649cb5e6c8e03a",
     present_in_tags: TAGS_5494C12600,
     present_on_master: true,
@@ -3287,7 +3286,7 @@ pub const PRESENCE_RENAME_VEHICLE: FeatureAvailability = FeatureAvailability {
 };
 
 /// ResetBlueosSettings: intro `ebd3a1cac363` via path:core/frontend/src/views/SettingsView.vue; 10 tags; master=true; 1.4-dev=false
-pub const PRESENCE_RESET_BLUEOS_SETTINGS: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_RESET_BLUEOS_SETTINGS: Availability = Availability {
     intro_commit: "ebd3a1cac363095e0cb6975d3dfa17a16c164460",
     present_in_tags: TAGS_70909BD354,
     present_on_master: true,
@@ -3295,7 +3294,7 @@ pub const PRESENCE_RESET_BLUEOS_SETTINGS: FeatureAvailability = FeatureAvailabil
 };
 
 /// ResetUiThemeColor: intro `2d797c10c681` via path:core/services/customization; 2 tags; master=true; 1.4-dev=false
-pub const PRESENCE_RESET_UI_THEME_COLOR: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_RESET_UI_THEME_COLOR: Availability = Availability {
     intro_commit: "2d797c10c6814221789a5a3ef77e7f54292af155",
     present_in_tags: TAGS_221686E153,
     present_on_master: true,
@@ -3303,7 +3302,7 @@ pub const PRESENCE_RESET_UI_THEME_COLOR: FeatureAvailability = FeatureAvailabili
 };
 
 /// RestartAutopilot: intro `d7c9eee7fbcb` via S:restart_ardupilot; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_RESTART_AUTOPILOT: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_RESTART_AUTOPILOT: Availability = Availability {
     intro_commit: "d7c9eee7fbcb35e949c698b0a70f23a834136c2b",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -3311,7 +3310,7 @@ pub const PRESENCE_RESTART_AUTOPILOT: FeatureAvailability = FeatureAvailability 
 };
 
 /// RestoreDefaultFirmware: intro `0bec1d64d9b1` via path:core/services/ardupilot_manager/firmware/FirmwareInstall.py; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_RESTORE_DEFAULT_FIRMWARE: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_RESTORE_DEFAULT_FIRMWARE: Availability = Availability {
     intro_commit: "0bec1d64d9b1bb420db55c118960c3cf5e789725",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -3319,7 +3318,7 @@ pub const PRESENCE_RESTORE_DEFAULT_FIRMWARE: FeatureAvailability = FeatureAvaila
 };
 
 /// RunHostCommand: intro `54b07104d1e1` via path:core/frontend/src/store/commander.ts; 137 tags; master=true; 1.4-dev=true
-pub const PRESENCE_RUN_HOST_COMMAND: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_RUN_HOST_COMMAND: Availability = Availability {
     intro_commit: "54b07104d1e106ff631c1ef8a976e7f500244735",
     present_in_tags: TAGS_5494C12600,
     present_on_master: true,
@@ -3327,7 +3326,7 @@ pub const PRESENCE_RUN_HOST_COMMAND: FeatureAvailability = FeatureAvailability {
 };
 
 /// RunInternetSpeedTest: intro `757ce3c2f3dd` via S:internet_best_server; 161 tags; master=true; 1.4-dev=true
-pub const PRESENCE_RUN_INTERNET_SPEED_TEST: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_RUN_INTERNET_SPEED_TEST: Availability = Availability {
     intro_commit: "757ce3c2f3dd4c5702e1c8d2260bf6f31fa53ab3",
     present_in_tags: TAGS_A01F83B3AF,
     present_on_master: true,
@@ -3335,7 +3334,7 @@ pub const PRESENCE_RUN_INTERNET_SPEED_TEST: FeatureAvailability = FeatureAvailab
 };
 
 /// RunLanSpeedTest: intro `508d760392b5` via path:core/services/pardal; 161 tags; master=true; 1.4-dev=true
-pub const PRESENCE_RUN_LAN_SPEED_TEST: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_RUN_LAN_SPEED_TEST: Availability = Availability {
     intro_commit: "508d760392b52dc3f0a30ab0e4df1dd0b2e7bd44",
     present_in_tags: TAGS_A01F83B3AF,
     present_on_master: true,
@@ -3343,7 +3342,7 @@ pub const PRESENCE_RUN_LAN_SPEED_TEST: FeatureAvailability = FeatureAvailability
 };
 
 /// RunMultiSizeDiskSpeedTest: intro `f860312f8b13` via S:disktest; 17 tags; master=true; 1.4-dev=false
-pub const PRESENCE_RUN_MULTI_SIZE_DISK_SPEED_TEST: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_RUN_MULTI_SIZE_DISK_SPEED_TEST: Availability = Availability {
     intro_commit: "f860312f8b1396d3339cadadee6ab994ef57ecde",
     present_in_tags: TAGS_D3EFDBB951,
     present_on_master: true,
@@ -3351,7 +3350,7 @@ pub const PRESENCE_RUN_MULTI_SIZE_DISK_SPEED_TEST: FeatureAvailability = Feature
 };
 
 /// RunSingleDiskSpeedTest: intro `f860312f8b13` via S:disktest; 17 tags; master=true; 1.4-dev=false
-pub const PRESENCE_RUN_SINGLE_DISK_SPEED_TEST: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_RUN_SINGLE_DISK_SPEED_TEST: Availability = Availability {
     intro_commit: "f860312f8b1396d3339cadadee6ab994ef57ecde",
     present_in_tags: TAGS_D3EFDBB951,
     present_on_master: true,
@@ -3359,7 +3358,7 @@ pub const PRESENCE_RUN_SINGLE_DISK_SPEED_TEST: FeatureAvailability = FeatureAvai
 };
 
 /// RunSitlSimulation: intro `0efc22001a40` via path:core/services/ardupilot_manager/typedefs.py; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_RUN_SITL_SIMULATION: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_RUN_SITL_SIMULATION: Availability = Availability {
     intro_commit: "0efc22001a40569fe3080ebcfe071066f212bc7b",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -3367,7 +3366,7 @@ pub const PRESENCE_RUN_SITL_SIMULATION: FeatureAvailability = FeatureAvailabilit
 };
 
 /// SetNetworkInterfacePriority: intro `27862ec2d86f` via path:core/frontend/src/components/app/NetworkInterfacePriorityMenu.vue; 132 tags; master=true; 1.4-dev=true
-pub const PRESENCE_SET_NETWORK_INTERFACE_PRIORITY: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_SET_NETWORK_INTERFACE_PRIORITY: Availability = Availability {
     intro_commit: "27862ec2d86fbbd133a75549895e3ff0bce85c06",
     present_in_tags: TAGS_427855555C,
     present_on_master: true,
@@ -3375,7 +3374,7 @@ pub const PRESENCE_SET_NETWORK_INTERFACE_PRIORITY: FeatureAvailability = Feature
 };
 
 /// ShutdownOnboardComputer: intro `d1c0ee626e36` via path:core/services/commander; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_SHUTDOWN_ONBOARD_COMPUTER: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_SHUTDOWN_ONBOARD_COMPUTER: Availability = Availability {
     intro_commit: "d1c0ee626e362a93d77fbc1209122458af5daead",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -3383,7 +3382,7 @@ pub const PRESENCE_SHUTDOWN_ONBOARD_COMPUTER: FeatureAvailability = FeatureAvail
 };
 
 /// StartAutopilot: intro `d7c9eee7fbcb` via S:start_ardupilot; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_START_AUTOPILOT: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_START_AUTOPILOT: Availability = Availability {
     intro_commit: "d7c9eee7fbcb35e949c698b0a70f23a834136c2b",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -3391,7 +3390,7 @@ pub const PRESENCE_START_AUTOPILOT: FeatureAvailability = FeatureAvailability {
 };
 
 /// StopAutopilot: intro `d7c9eee7fbcb` via S:kill_ardupilot; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_STOP_AUTOPILOT: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_STOP_AUTOPILOT: Availability = Availability {
     intro_commit: "d7c9eee7fbcb35e949c698b0a70f23a834136c2b",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -3399,7 +3398,7 @@ pub const PRESENCE_STOP_AUTOPILOT: FeatureAvailability = FeatureAvailability {
 };
 
 /// SwitchLocalBlueosVersion: intro `7c62889397a3` via path:core/services/versionchooser; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_SWITCH_LOCAL_BLUEOS_VERSION: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_SWITCH_LOCAL_BLUEOS_VERSION: Availability = Availability {
     intro_commit: "7c62889397a36191deb01bbffffaf68b109b477d",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -3407,7 +3406,7 @@ pub const PRESENCE_SWITCH_LOCAL_BLUEOS_VERSION: FeatureAvailability = FeatureAva
 };
 
 /// SyncSystemTime: intro `f172ee7dd1d2` via path:core/frontend/src/utils/update_time.ts; 159 tags; master=true; 1.4-dev=true
-pub const PRESENCE_SYNC_SYSTEM_TIME: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_SYNC_SYSTEM_TIME: Availability = Availability {
     intro_commit: "f172ee7dd1d2c27a78f697f80facdd48d7d7df3f",
     present_in_tags: TAGS_08052ECEA8,
     present_on_master: true,
@@ -3415,7 +3414,7 @@ pub const PRESENCE_SYNC_SYSTEM_TIME: FeatureAvailability = FeatureAvailability {
 };
 
 /// ToggleHotspot: intro `732b3ac2997b` via path:core/frontend/src/components/wifi/WifiManager.vue; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_TOGGLE_HOTSPOT: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_TOGGLE_HOTSPOT: Availability = Availability {
     intro_commit: "732b3ac2997bf03b95837926446486820f2a8dbe",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -3423,7 +3422,7 @@ pub const PRESENCE_TOGGLE_HOTSPOT: FeatureAvailability = FeatureAvailability {
 };
 
 /// ToggleSmartHotspot: intro `5745cb8b4add` via S:smart_hotspot; 151 tags; master=true; 1.4-dev=true
-pub const PRESENCE_TOGGLE_SMART_HOTSPOT: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_TOGGLE_SMART_HOTSPOT: Availability = Availability {
     intro_commit: "5745cb8b4add5541a8bb5d95661b4bce53d168bc",
     present_in_tags: TAGS_001F49C2C9,
     present_on_master: true,
@@ -3431,7 +3430,7 @@ pub const PRESENCE_TOGGLE_SMART_HOTSPOT: FeatureAvailability = FeatureAvailabili
 };
 
 /// UninstallExtension: intro `ce9c65e18f0b` via path:core/services/kraken; 146 tags; master=true; 1.4-dev=true
-pub const PRESENCE_UNINSTALL_EXTENSION: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_UNINSTALL_EXTENSION: Availability = Availability {
     intro_commit: "ce9c65e18f0b3f333983bd8810b062c8fe60a6ee",
     present_in_tags: TAGS_8DA851F05D,
     present_on_master: true,
@@ -3439,7 +3438,7 @@ pub const PRESENCE_UNINSTALL_EXTENSION: FeatureAvailability = FeatureAvailabilit
 };
 
 /// UpdateBlueosVersion: intro `7c62889397a3` via path:core/services/versionchooser; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_UPDATE_BLUEOS_VERSION: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_UPDATE_BLUEOS_VERSION: Availability = Availability {
     intro_commit: "7c62889397a36191deb01bbffffaf68b109b477d",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -3447,7 +3446,7 @@ pub const PRESENCE_UPDATE_BLUEOS_VERSION: FeatureAvailability = FeatureAvailabil
 };
 
 /// UpdateBootstrapImage: intro `7d924e22376f` via path:core/services/versionchooser/api/v1/routers/bootstrap.py; 31 tags; master=true; 1.4-dev=false
-pub const PRESENCE_UPDATE_BOOTSTRAP_IMAGE: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_UPDATE_BOOTSTRAP_IMAGE: Availability = Availability {
     intro_commit: "7d924e22376fe43ed5420672b849e9e8fdee7b52",
     present_in_tags: TAGS_3878FA9EEF,
     present_on_master: true,
@@ -3455,7 +3454,7 @@ pub const PRESENCE_UPDATE_BOOTSTRAP_IMAGE: FeatureAvailability = FeatureAvailabi
 };
 
 /// UpdateFirmwareOnline: intro `5330c79c6aa9` via path:core/services/ardupilot_manager/firmware/FirmwareDownload.py; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_UPDATE_FIRMWARE_ONLINE: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_UPDATE_FIRMWARE_ONLINE: Availability = Availability {
     intro_commit: "5330c79c6aa9b68829b14fcdfeaf2c9584d626cf",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -3463,7 +3462,7 @@ pub const PRESENCE_UPDATE_FIRMWARE_ONLINE: FeatureAvailability = FeatureAvailabi
 };
 
 /// UpdateRaspberryEepromBootloader: intro `120af6bfee7e` via S:doRaspiEEPROMUpdate; 139 tags; master=true; 1.4-dev=true
-pub const PRESENCE_UPDATE_RASPBERRY_EEPROM_BOOTLOADER: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_UPDATE_RASPBERRY_EEPROM_BOOTLOADER: Availability = Availability {
     intro_commit: "120af6bfee7e2cedd933ef6221078d1b7d5ae084",
     present_in_tags: TAGS_65FC698A44,
     present_on_master: true,
@@ -3471,7 +3470,7 @@ pub const PRESENCE_UPDATE_RASPBERRY_EEPROM_BOOTLOADER: FeatureAvailability = Fea
 };
 
 /// Upload3dModelOverride: intro `2d797c10c681` via path:core/services/customization; 2 tags; master=true; 1.4-dev=false
-pub const PRESENCE_UPLOAD3D_MODEL_OVERRIDE: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_UPLOAD3D_MODEL_OVERRIDE: Availability = Availability {
     intro_commit: "2d797c10c6814221789a5a3ef77e7f54292af155",
     present_in_tags: TAGS_221686E153,
     present_on_master: true,
@@ -3479,7 +3478,7 @@ pub const PRESENCE_UPLOAD3D_MODEL_OVERRIDE: FeatureAvailability = FeatureAvailab
 };
 
 /// UploadCustomFirmware: intro `fcaffebc15b0` via path:core/services/ardupilot_manager/firmware/FirmwareUpload.py; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_UPLOAD_CUSTOM_FIRMWARE: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_UPLOAD_CUSTOM_FIRMWARE: Availability = Availability {
     intro_commit: "fcaffebc15b07d9c2513bc19a9a338143bacbe53",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -3487,7 +3486,7 @@ pub const PRESENCE_UPLOAD_CUSTOM_FIRMWARE: FeatureAvailability = FeatureAvailabi
 };
 
 /// UploadCustomLogo: intro `2d797c10c681` via path:core/services/customization; 2 tags; master=true; 1.4-dev=false
-pub const PRESENCE_UPLOAD_CUSTOM_LOGO: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_UPLOAD_CUSTOM_LOGO: Availability = Availability {
     intro_commit: "2d797c10c6814221789a5a3ef77e7f54292af155",
     present_in_tags: TAGS_221686E153,
     present_on_master: true,
@@ -3495,7 +3494,7 @@ pub const PRESENCE_UPLOAD_CUSTOM_LOGO: FeatureAvailability = FeatureAvailability
 };
 
 /// UploadCustomVehicleImage: intro `2d797c10c681` via path:core/services/customization; 2 tags; master=true; 1.4-dev=false
-pub const PRESENCE_UPLOAD_CUSTOM_VEHICLE_IMAGE: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_UPLOAD_CUSTOM_VEHICLE_IMAGE: Availability = Availability {
     intro_commit: "2d797c10c6814221789a5a3ef77e7f54292af155",
     present_in_tags: TAGS_221686E153,
     present_on_master: true,
@@ -3503,7 +3502,7 @@ pub const PRESENCE_UPLOAD_CUSTOM_VEHICLE_IMAGE: FeatureAvailability = FeatureAva
 };
 
 /// VehicleFirstBoot: intro `5330c79c6aa9` via path:core/services/ardupilot_manager/firmware; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_VEHICLE_FIRST_BOOT: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_VEHICLE_FIRST_BOOT: Availability = Availability {
     intro_commit: "5330c79c6aa9b68829b14fcdfeaf2c9584d626cf",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -3511,7 +3510,7 @@ pub const PRESENCE_VEHICLE_FIRST_BOOT: FeatureAvailability = FeatureAvailability
 };
 
 /// VerifyInternetConnectivity: intro `fab22bd4e87e` via path:core/frontend/src/components/wizard/RequireInternet.vue; 134 tags; master=true; 1.4-dev=true
-pub const PRESENCE_VERIFY_INTERNET_CONNECTIVITY: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_VERIFY_INTERNET_CONNECTIVITY: Availability = Availability {
     intro_commit: "fab22bd4e87eb6265e05487cd0961585fb341d3d",
     present_in_tags: TAGS_72B0A48DC2,
     present_on_master: true,
@@ -3519,7 +3518,7 @@ pub const PRESENCE_VERIFY_INTERNET_CONNECTIVITY: FeatureAvailability = FeatureAv
 };
 
 /// ViewCameraStreams: intro `de04a21a8023` via path:core/frontend/src/store/video.ts; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_VIEW_CAMERA_STREAMS: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_VIEW_CAMERA_STREAMS: Availability = Availability {
     intro_commit: "de04a21a802347eaa48cb31bc335732dac309f18",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -3527,7 +3526,7 @@ pub const PRESENCE_VIEW_CAMERA_STREAMS: FeatureAvailability = FeatureAvailabilit
 };
 
 /// ViewConfiguredNmeaSockets: intro `34e7a1a1d79b` via path:core/frontend/src/components/nmea-injector/NMEAInjector.vue; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_VIEW_CONFIGURED_NMEA_SOCKETS: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_VIEW_CONFIGURED_NMEA_SOCKETS: Availability = Availability {
     intro_commit: "34e7a1a1d79b7927ba2a73a3946d2af537ad91b2",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -3535,7 +3534,7 @@ pub const PRESENCE_VIEW_CONFIGURED_NMEA_SOCKETS: FeatureAvailability = FeatureAv
 };
 
 /// ViewConfiguredSerialBridges: intro `797c0dde39f1` via path:core/frontend/src/store/bridget.ts; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_VIEW_CONFIGURED_SERIAL_BRIDGES: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_VIEW_CONFIGURED_SERIAL_BRIDGES: Availability = Availability {
     intro_commit: "797c0dde39f1c6f3ef14b25a3131554be43ad9d5",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -3543,7 +3542,7 @@ pub const PRESENCE_VIEW_CONFIGURED_SERIAL_BRIDGES: FeatureAvailability = Feature
 };
 
 /// ViewDetectedSonarDevices: intro `5de1feb47221` via path:core/services/ping; 174 tags; master=true; 1.4-dev=true
-pub const PRESENCE_VIEW_DETECTED_SONAR_DEVICES: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_VIEW_DETECTED_SONAR_DEVICES: Availability = Availability {
     intro_commit: "5de1feb47221db3c88d2ed669ae91de43aeefd6d",
     present_in_tags: TAGS_42FA086CDD,
     present_on_master: true,
@@ -3551,7 +3550,7 @@ pub const PRESENCE_VIEW_DETECTED_SONAR_DEVICES: FeatureAvailability = FeatureAva
 };
 
 /// ViewSystemInformation: intro `882fa2728afe` via path:core/frontend/src/views/SystemInformationView.vue; 164 tags; master=true; 1.4-dev=true
-pub const PRESENCE_VIEW_SYSTEM_INFORMATION: FeatureAvailability = FeatureAvailability {
+pub const PRESENCE_VIEW_SYSTEM_INFORMATION: Availability = Availability {
     intro_commit: "882fa2728afed5a49c898a49254ac265922870c7",
     present_in_tags: TAGS_3336C34F8D,
     present_on_master: true,
@@ -3559,225 +3558,240 @@ pub const PRESENCE_VIEW_SYSTEM_INFORMATION: FeatureAvailability = FeatureAvailab
 };
 
 /// All journey presence records (for version→feature maps).
-pub const ALL_JOURNEY_PRESENCE: &[(&str, FeatureAvailability)] = &[
+pub const ALL_JOURNEY_PRESENCE: &[(&str, Availability)] = &[
     (
-        "AccessBlueosWebInterface",
+        "access_blueos_web_interface",
         PRESENCE_ACCESS_BLUEOS_WEB_INTERFACE,
     ),
-    ("AccessWebTerminal", PRESENCE_ACCESS_WEB_TERMINAL),
+    ("access_web_terminal", PRESENCE_ACCESS_WEB_TERMINAL),
     (
-        "AcquireDynamicIpAddress",
+        "acquire_dynamic_ip_address",
         PRESENCE_ACQUIRE_DYNAMIC_IP_ADDRESS,
     ),
-    ("AddCustomManifest", PRESENCE_ADD_CUSTOM_MANIFEST),
+    ("add_custom_manifest", PRESENCE_ADD_CUSTOM_MANIFEST),
     (
-        "AddExternalNmeaGpsSocket",
+        "add_external_nmea_gps_socket",
         PRESENCE_ADD_EXTERNAL_NMEA_GPS_SOCKET,
     ),
-    ("ApplyParameterFile", PRESENCE_APPLY_PARAMETER_FILE),
-    ("AssignStaticIpAddress", PRESENCE_ASSIGN_STATIC_IP_ADDRESS),
+    ("apply_parameter_file", PRESENCE_APPLY_PARAMETER_FILE),
     (
-        "AutoconnectToSavedWifiNetwork",
+        "assign_static_ip_address",
+        PRESENCE_ASSIGN_STATIC_IP_ADDRESS,
+    ),
+    (
+        "autoconnect_to_saved_wifi_network",
         PRESENCE_AUTOCONNECT_TO_SAVED_WIFI_NETWORK,
     ),
     (
-        "BrowseAvailableWebServices",
+        "browse_available_web_services",
         PRESENCE_BROWSE_AVAILABLE_WEB_SERVICES,
     ),
-    ("BrowseExtensionStore", PRESENCE_BROWSE_EXTENSION_STORE),
-    ("BrowseVideoRecordings", PRESENCE_BROWSE_VIDEO_RECORDINGS),
-    ("CalibrateAccelerometer", PRESENCE_CALIBRATE_ACCELEROMETER),
-    ("CalibrateBarometer", PRESENCE_CALIBRATE_BAROMETER),
-    ("CalibrateCompass", PRESENCE_CALIBRATE_COMPASS),
-    ("CalibrateGyroscope", PRESENCE_CALIBRATE_GYROSCOPE),
-    ("ChangeBoard", PRESENCE_CHANGE_BOARD),
-    ("ChangeMdnsHostname", PRESENCE_CHANGE_MDNS_HOSTNAME),
-    ("ChangeUiThemeColor", PRESENCE_CHANGE_UI_THEME_COLOR),
-    ("ConfigureCameraStream", PRESENCE_CONFIGURE_CAMERA_STREAM),
-    ("ConfigureHostDns", PRESENCE_CONFIGURE_HOST_DNS),
+    ("browse_extension_store", PRESENCE_BROWSE_EXTENSION_STORE),
+    ("browse_video_recordings", PRESENCE_BROWSE_VIDEO_RECORDINGS),
+    ("calibrate_accelerometer", PRESENCE_CALIBRATE_ACCELEROMETER),
+    ("calibrate_barometer", PRESENCE_CALIBRATE_BAROMETER),
+    ("calibrate_compass", PRESENCE_CALIBRATE_COMPASS),
+    ("calibrate_gyroscope", PRESENCE_CALIBRATE_GYROSCOPE),
+    ("change_board", PRESENCE_CHANGE_BOARD),
+    ("change_mdns_hostname", PRESENCE_CHANGE_MDNS_HOSTNAME),
+    ("change_ui_theme_color", PRESENCE_CHANGE_UI_THEME_COLOR),
+    ("configure_camera_stream", PRESENCE_CONFIGURE_CAMERA_STREAM),
+    ("configure_host_dns", PRESENCE_CONFIGURE_HOST_DNS),
     (
-        "ConfigureHotspotCredentials",
+        "configure_hotspot_credentials",
         PRESENCE_CONFIGURE_HOTSPOT_CREDENTIALS,
     ),
     (
-        "ConfigureInstalledExtension",
+        "configure_installed_extension",
         PRESENCE_CONFIGURE_INSTALLED_EXTENSION,
     ),
     (
-        "ConfigureUvcDeviceControls",
+        "configure_uvc_device_controls",
         PRESENCE_CONFIGURE_UVC_DEVICE_CONTROLS,
     ),
-    ("ConfigureVideoStream", PRESENCE_CONFIGURE_VIDEO_STREAM),
+    ("configure_video_stream", PRESENCE_CONFIGURE_VIDEO_STREAM),
     (
-        "ConnectPingViewerToSonar",
+        "connect_ping_viewer_to_sonar",
         PRESENCE_CONNECT_PING_VIEWER_TO_SONAR,
     ),
     (
-        "ConnectToHiddenWifiNetwork",
+        "connect_to_hidden_wifi_network",
         PRESENCE_CONNECT_TO_HIDDEN_WIFI_NETWORK,
     ),
-    ("ConnectToWifiNetwork", PRESENCE_CONNECT_TO_WIFI_NETWORK),
+    ("connect_to_wifi_network", PRESENCE_CONNECT_TO_WIFI_NETWORK),
     (
-        "CreateSerialToUdpBridge",
+        "create_serial_to_udp_bridge",
         PRESENCE_CREATE_SERIAL_TO_UDP_BRIDGE,
     ),
-    ("Delete3dModelOverride", PRESENCE_DELETE3D_MODEL_OVERRIDE),
+    ("delete_3d_model_override", PRESENCE_DELETE3D_MODEL_OVERRIDE),
     (
-        "DeleteLocalBlueosVersion",
+        "delete_local_blueos_version",
         PRESENCE_DELETE_LOCAL_BLUEOS_VERSION,
     ),
-    ("DeleteVideoRecording", PRESENCE_DELETE_VIDEO_RECORDING),
-    ("DetectMotorDirections", PRESENCE_DETECT_MOTOR_DIRECTIONS),
-    ("DetectWifiApLoss", PRESENCE_DETECT_WIFI_AP_LOSS),
+    ("delete_video_recording", PRESENCE_DELETE_VIDEO_RECORDING),
+    ("detect_motor_directions", PRESENCE_DETECT_MOTOR_DIRECTIONS),
+    ("detect_wifi_ap_loss", PRESENCE_DETECT_WIFI_AP_LOSS),
     (
-        "DisableOnboardDhcpServer",
+        "disable_onboard_dhcp_server",
         PRESENCE_DISABLE_ONBOARD_DHCP_SERVER,
     ),
     (
-        "DisconnectFromWifiNetwork",
+        "disconnect_from_wifi_network",
         PRESENCE_DISCONNECT_FROM_WIFI_NETWORK,
     ),
     (
-        "DiscoverBlueosOnNetwork",
+        "discover_blueos_on_network",
         PRESENCE_DISCOVER_BLUEOS_ON_NETWORK,
     ),
-    ("DockerRegistryLogin", PRESENCE_DOCKER_REGISTRY_LOGIN),
-    ("DownloadVideoRecording", PRESENCE_DOWNLOAD_VIDEO_RECORDING),
+    ("docker_registry_login", PRESENCE_DOCKER_REGISTRY_LOGIN),
     (
-        "EditExtensionDevVersion",
+        "download_video_recording",
+        PRESENCE_DOWNLOAD_VIDEO_RECORDING,
+    ),
+    (
+        "edit_extension_dev_version",
         PRESENCE_EDIT_EXTENSION_DEV_VERSION,
     ),
     (
-        "EnableLegacyCameraSupport",
+        "enable_legacy_camera_support",
         PRESENCE_ENABLE_LEGACY_CAMERA_SUPPORT,
     ),
     (
-        "EnableOnboardDhcpServer",
+        "enable_onboard_dhcp_server",
         PRESENCE_ENABLE_ONBOARD_DHCP_SERVER,
     ),
     (
-        "EnablePing1dRangefinderMavlink",
+        "enable_ping1d_rangefinder_mavlink",
         PRESENCE_ENABLE_PING1D_RANGEFINDER_MAVLINK,
     ),
     (
-        "ForceWifiNetworkPassword",
+        "force_wifi_network_password",
         PRESENCE_FORCE_WIFI_NETWORK_PASSWORD,
     ),
-    ("ForgetSavedWifiNetwork", PRESENCE_FORGET_SAVED_WIFI_NETWORK),
-    ("FreeDiskSpace", PRESENCE_FREE_DISK_SPACE),
-    ("InspectDiskUsage", PRESENCE_INSPECT_DISK_USAGE),
     (
-        "InspectMavlinkMessagesInBrowser",
+        "forget_saved_wifi_network",
+        PRESENCE_FORGET_SAVED_WIFI_NETWORK,
+    ),
+    ("free_disk_space", PRESENCE_FREE_DISK_SPACE),
+    ("inspect_disk_usage", PRESENCE_INSPECT_DISK_USAGE),
+    (
+        "inspect_mavlink_messages_in_browser",
         PRESENCE_INSPECT_MAVLINK_MESSAGES_IN_BROWSER,
     ),
     (
-        "InspectRaspberryEepromBootloader",
+        "inspect_raspberry_eeprom_bootloader",
         PRESENCE_INSPECT_RASPBERRY_EEPROM_BOOTLOADER,
     ),
-    ("InspectZenohNetwork", PRESENCE_INSPECT_ZENOH_NETWORK),
-    ("InstallCustomExtension", PRESENCE_INSTALL_CUSTOM_EXTENSION),
-    ("InstallExtension", PRESENCE_INSTALL_EXTENSION),
-    ("LevelHorizon", PRESENCE_LEVEL_HORIZON),
-    ("ManageBlueosFiles", PRESENCE_MANAGE_BLUEOS_FILES),
-    ("ModifyBagDatabase", PRESENCE_MODIFY_BAG_DATABASE),
+    ("inspect_zenoh_network", PRESENCE_INSPECT_ZENOH_NETWORK),
     (
-        "MonitorInternetConnectivity",
+        "install_custom_extension",
+        PRESENCE_INSTALL_CUSTOM_EXTENSION,
+    ),
+    ("install_extension", PRESENCE_INSTALL_EXTENSION),
+    ("level_horizon", PRESENCE_LEVEL_HORIZON),
+    ("manage_blueos_files", PRESENCE_MANAGE_BLUEOS_FILES),
+    ("modify_bag_database", PRESENCE_MODIFY_BAG_DATABASE),
+    (
+        "monitor_internet_connectivity",
         PRESENCE_MONITOR_INTERNET_CONNECTIVITY,
     ),
     (
-        "ProbeInterfaceInternetConnectivity",
+        "probe_interface_internet_connectivity",
         PRESENCE_PROBE_INTERFACE_INTERNET_CONNECTIVITY,
     ),
     (
-        "PullBlueosVersionWithoutSwitch",
+        "pull_blueos_version_without_switch",
         PRESENCE_PULL_BLUEOS_VERSION_WITHOUT_SWITCH,
     ),
-    ("RebootOnboardComputer", PRESENCE_REBOOT_ONBOARD_COMPUTER),
+    ("reboot_onboard_computer", PRESENCE_REBOOT_ONBOARD_COMPUTER),
     (
-        "ReconnectToSavedWifiNetwork",
+        "reconnect_to_saved_wifi_network",
         PRESENCE_RECONNECT_TO_SAVED_WIFI_NETWORK,
     ),
     (
-        "RejectInvalidWifiCredentials",
+        "reject_invalid_wifi_credentials",
         PRESENCE_REJECT_INVALID_WIFI_CREDENTIALS,
     ),
-    ("RemoveCameraStream", PRESENCE_REMOVE_CAMERA_STREAM),
+    ("remove_camera_stream", PRESENCE_REMOVE_CAMERA_STREAM),
     (
-        "RemoveConfiguredNmeaSocket",
+        "remove_configured_nmea_socket",
         PRESENCE_REMOVE_CONFIGURED_NMEA_SOCKET,
     ),
-    ("RemoveCustomLogo", PRESENCE_REMOVE_CUSTOM_LOGO),
+    ("remove_custom_logo", PRESENCE_REMOVE_CUSTOM_LOGO),
     (
-        "RemoveCustomVehicleImage",
+        "remove_custom_vehicle_image",
         PRESENCE_REMOVE_CUSTOM_VEHICLE_IMAGE,
     ),
-    ("RemoveSerialBridge", PRESENCE_REMOVE_SERIAL_BRIDGE),
-    ("RenameVehicle", PRESENCE_RENAME_VEHICLE),
-    ("ResetBlueosSettings", PRESENCE_RESET_BLUEOS_SETTINGS),
-    ("ResetUiThemeColor", PRESENCE_RESET_UI_THEME_COLOR),
-    ("RestartAutopilot", PRESENCE_RESTART_AUTOPILOT),
-    ("RestoreDefaultFirmware", PRESENCE_RESTORE_DEFAULT_FIRMWARE),
-    ("RunHostCommand", PRESENCE_RUN_HOST_COMMAND),
-    ("RunInternetSpeedTest", PRESENCE_RUN_INTERNET_SPEED_TEST),
-    ("RunLanSpeedTest", PRESENCE_RUN_LAN_SPEED_TEST),
+    ("remove_serial_bridge", PRESENCE_REMOVE_SERIAL_BRIDGE),
+    ("rename_vehicle", PRESENCE_RENAME_VEHICLE),
+    ("reset_blueos_settings", PRESENCE_RESET_BLUEOS_SETTINGS),
+    ("reset_ui_theme_color", PRESENCE_RESET_UI_THEME_COLOR),
+    ("restart_autopilot", PRESENCE_RESTART_AUTOPILOT),
     (
-        "RunMultiSizeDiskSpeedTest",
+        "restore_default_firmware",
+        PRESENCE_RESTORE_DEFAULT_FIRMWARE,
+    ),
+    ("run_host_command", PRESENCE_RUN_HOST_COMMAND),
+    ("run_internet_speed_test", PRESENCE_RUN_INTERNET_SPEED_TEST),
+    ("run_lan_speed_test", PRESENCE_RUN_LAN_SPEED_TEST),
+    (
+        "run_multi_size_disk_speed_test",
         PRESENCE_RUN_MULTI_SIZE_DISK_SPEED_TEST,
     ),
     (
-        "RunSingleDiskSpeedTest",
+        "run_single_disk_speed_test",
         PRESENCE_RUN_SINGLE_DISK_SPEED_TEST,
     ),
-    ("RunSitlSimulation", PRESENCE_RUN_SITL_SIMULATION),
+    ("run_sitl_simulation", PRESENCE_RUN_SITL_SIMULATION),
     (
-        "SetNetworkInterfacePriority",
+        "set_network_interface_priority",
         PRESENCE_SET_NETWORK_INTERFACE_PRIORITY,
     ),
     (
-        "ShutdownOnboardComputer",
+        "shutdown_onboard_computer",
         PRESENCE_SHUTDOWN_ONBOARD_COMPUTER,
     ),
-    ("StartAutopilot", PRESENCE_START_AUTOPILOT),
-    ("StopAutopilot", PRESENCE_STOP_AUTOPILOT),
+    ("start_autopilot", PRESENCE_START_AUTOPILOT),
+    ("stop_autopilot", PRESENCE_STOP_AUTOPILOT),
     (
-        "SwitchLocalBlueosVersion",
+        "switch_local_blueos_version",
         PRESENCE_SWITCH_LOCAL_BLUEOS_VERSION,
     ),
-    ("SyncSystemTime", PRESENCE_SYNC_SYSTEM_TIME),
-    ("ToggleHotspot", PRESENCE_TOGGLE_HOTSPOT),
-    ("ToggleSmartHotspot", PRESENCE_TOGGLE_SMART_HOTSPOT),
-    ("UninstallExtension", PRESENCE_UNINSTALL_EXTENSION),
-    ("UpdateBlueosVersion", PRESENCE_UPDATE_BLUEOS_VERSION),
-    ("UpdateBootstrapImage", PRESENCE_UPDATE_BOOTSTRAP_IMAGE),
-    ("UpdateFirmwareOnline", PRESENCE_UPDATE_FIRMWARE_ONLINE),
+    ("sync_system_time", PRESENCE_SYNC_SYSTEM_TIME),
+    ("toggle_hotspot", PRESENCE_TOGGLE_HOTSPOT),
+    ("toggle_smart_hotspot", PRESENCE_TOGGLE_SMART_HOTSPOT),
+    ("uninstall_extension", PRESENCE_UNINSTALL_EXTENSION),
+    ("update_blueos_version", PRESENCE_UPDATE_BLUEOS_VERSION),
+    ("update_bootstrap_image", PRESENCE_UPDATE_BOOTSTRAP_IMAGE),
+    ("update_firmware_online", PRESENCE_UPDATE_FIRMWARE_ONLINE),
     (
-        "UpdateRaspberryEepromBootloader",
+        "update_raspberry_eeprom_bootloader",
         PRESENCE_UPDATE_RASPBERRY_EEPROM_BOOTLOADER,
     ),
-    ("Upload3dModelOverride", PRESENCE_UPLOAD3D_MODEL_OVERRIDE),
-    ("UploadCustomFirmware", PRESENCE_UPLOAD_CUSTOM_FIRMWARE),
-    ("UploadCustomLogo", PRESENCE_UPLOAD_CUSTOM_LOGO),
+    ("upload_3d_model_override", PRESENCE_UPLOAD3D_MODEL_OVERRIDE),
+    ("upload_custom_firmware", PRESENCE_UPLOAD_CUSTOM_FIRMWARE),
+    ("upload_custom_logo", PRESENCE_UPLOAD_CUSTOM_LOGO),
     (
-        "UploadCustomVehicleImage",
+        "upload_custom_vehicle_image",
         PRESENCE_UPLOAD_CUSTOM_VEHICLE_IMAGE,
     ),
-    ("VehicleFirstBoot", PRESENCE_VEHICLE_FIRST_BOOT),
+    ("vehicle_first_boot", PRESENCE_VEHICLE_FIRST_BOOT),
     (
-        "VerifyInternetConnectivity",
+        "verify_internet_connectivity",
         PRESENCE_VERIFY_INTERNET_CONNECTIVITY,
     ),
-    ("ViewCameraStreams", PRESENCE_VIEW_CAMERA_STREAMS),
+    ("view_camera_streams", PRESENCE_VIEW_CAMERA_STREAMS),
     (
-        "ViewConfiguredNmeaSockets",
+        "view_configured_nmea_sockets",
         PRESENCE_VIEW_CONFIGURED_NMEA_SOCKETS,
     ),
     (
-        "ViewConfiguredSerialBridges",
+        "view_configured_serial_bridges",
         PRESENCE_VIEW_CONFIGURED_SERIAL_BRIDGES,
     ),
     (
-        "ViewDetectedSonarDevices",
+        "view_detected_sonar_devices",
         PRESENCE_VIEW_DETECTED_SONAR_DEVICES,
     ),
-    ("ViewSystemInformation", PRESENCE_VIEW_SYSTEM_INFORMATION),
+    ("view_system_information", PRESENCE_VIEW_SYSTEM_INFORMATION),
 ];

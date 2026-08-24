@@ -2,7 +2,7 @@ use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
     Actor, BlastRadius, BodyKind, HttpMethod, JourneyStep, NetworkState, Precondition, RouteRef,
-    SoftwareRequirement, StepOutcome, UserJourney, Visibility,
+    SoftwareAssumption, StepOutcome, UseCase, Visibility,
 };
 use crate::journey_presence::{
     PRESENCE_BROWSE_AVAILABLE_WEB_SERVICES, PRESENCE_MONITOR_INTERNET_CONNECTIVITY,
@@ -20,14 +20,14 @@ const NETWORK_PRIORITY: &str = "core/frontend/src/components/app/NetworkInterfac
 const REQUIRE_INTERNET: &str = "core/frontend/src/components/wizard/RequireInternet.vue";
 const RUNTIME_ENV: &str = RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 
-pub const JOURNEYS: &[UserJourney] = &[
+pub const JOURNEYS: &[UseCase] = &[
     MONITOR_INTERNET_CONNECTIVITY,
     VERIFY_INTERNET_CONNECTIVITY,
     BROWSE_AVAILABLE_WEB_SERVICES,
     PROBE_INTERFACE_INTERNET_CONNECTIVITY,
 ];
 
-const MONITOR_INTERNET_CONNECTIVITY: UserJourney = UserJourney {
+const MONITOR_INTERNET_CONNECTIVITY: UseCase = UseCase {
     id: JourneyId::MonitorInternetConnectivity,
     summary: Grounded::known(
         "See whether the vehicle is connected to the internet",
@@ -69,7 +69,7 @@ const MONITOR_INTERNET_CONNECTIVITY: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const VERIFY_INTERNET_CONNECTIVITY: UserJourney = UserJourney {
+const VERIFY_INTERNET_CONNECTIVITY: UseCase = UseCase {
     id: JourneyId::VerifyInternetConnectivity,
     summary: Grounded::known(
         "Confirm the BlueOS header shows internet connectivity after network setup",
@@ -114,7 +114,7 @@ const VERIFY_INTERNET_CONNECTIVITY: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const BROWSE_AVAILABLE_WEB_SERVICES: UserJourney = UserJourney {
+const BROWSE_AVAILABLE_WEB_SERVICES: UseCase = UseCase {
     id: JourneyId::BrowseAvailableWebServices,
     summary: Grounded::known(
         "Browse HTTP services running on BlueOS with ports, names, and API documentation links",
@@ -169,7 +169,7 @@ const BROWSE_AVAILABLE_WEB_SERVICES: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const PROBE_INTERFACE_INTERNET_CONNECTIVITY: UserJourney = UserJourney {
+const PROBE_INTERFACE_INTERNET_CONNECTIVITY: UseCase = UseCase {
     id: JourneyId::ProbeInterfaceInternetConnectivity,
     summary: Grounded::known(
         "Display internet availability on each network interface while configuring priority",
@@ -182,7 +182,7 @@ const PROBE_INTERFACE_INTERNET_CONNECTIVITY: UserJourney = UserJourney {
         "network priority menu pings a reachable host through each interface",
     )]),
     preconditions: GroundedSet::known(&[GroundedItem::new(
-        Precondition::Software(SoftwareRequirement::PirateMode),
+        Precondition::Software(SoftwareAssumption::PirateMode),
         Provenance::doc(ADV, 144, "{% pirate() %}"),
     )]),
     steps: GroundedSet::known(&[

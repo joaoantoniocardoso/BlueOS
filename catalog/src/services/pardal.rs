@@ -1,6 +1,6 @@
 use crate::criticality::CriticalityTier;
 use crate::id::{CapabilityId, JourneyId, PathRef, PortRef, ServiceId};
-use crate::interface::Interface;
+use crate::interface::PortKind;
 use crate::journey::{HttpMethod, RouteRef};
 use crate::lifecycle::{Lifecycle, ObservedLifecycle};
 use crate::observed::{ObservedFacts, ResourceLimits, ServiceKind, StartupTier};
@@ -9,7 +9,7 @@ use crate::provenance::{
     Provenance, Rationaled,
 };
 use crate::runtime::{Distribution, PlatformBehavior, ResourceUsage, RuntimeFacts, SloBaseline};
-use crate::service::{Service, ServiceDefinition};
+use crate::service::{Service, ServiceJudgment};
 use crate::trust::{PrivilegeLevel, UserConfirmation};
 
 use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
@@ -216,7 +216,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
         Evidence {
             file: "core/services/pardal/main.py",
             line: 20,
-            anchor: "parser.add_argument(\"-p\", \"--port\", help=\"Port to run web se",
+            anchor: "parser.add_argument(\"-p\", \"--port\", help=\"Port to run web server\"",
         },
     )]),
     git_path: Observed::known(
@@ -229,7 +229,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
     ),
     interfaces: ObservedSet::known(&[
         Evidenced::new(
-            Interface::Rest {
+            PortKind::Rest {
                 path_prefix: PathRef("/network-test/"),
                 port: PortRef::Literal(9120),
                 versions: &[],
@@ -241,7 +241,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Websocket {
+            PortKind::Websocket {
                 path: PathRef("/ws"),
                 port: PortRef::Literal(9120),
             },
@@ -252,7 +252,7 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
             },
         ),
         Evidenced::new(
-            Interface::Zenoh {
+            PortKind::Zenoh {
                 topics_produced: &["services/pardal/log"],
                 topics_consumed: &[],
             },
@@ -325,8 +325,8 @@ pub const OBSERVED_FACTS: ObservedFacts = ObservedFacts {
     openapi_refs: ObservedSet::unknown("aiohttp service; no OpenAPI or VersionedFastAPI in source"),
 };
 
-pub const SERVICE_DEFINITION: ServiceDefinition =
-    ServiceDefinition {
+pub const SERVICE_DEFINITION: ServiceJudgment =
+    ServiceJudgment {
         id: ServiceId::Pardal,
         singleton: Asserted::established(
             true,

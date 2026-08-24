@@ -2,7 +2,7 @@ use crate::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
     Actor, BlastRadius, BodyKind, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome,
-    UserJourney, Visibility,
+    UseCase, Visibility,
 };
 use crate::journey_presence::{
     PRESENCE_FREE_DISK_SPACE, PRESENCE_INSPECT_DISK_USAGE, PRESENCE_RUN_MULTI_SIZE_DISK_SPEED_TEST,
@@ -16,14 +16,14 @@ const DISK_MENUS: &str = "core/frontend/src/menus.ts";
 const DISK_VIEW: &str = "core/frontend/src/views/Disk.vue";
 const RUNTIME_ENV: &str = RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 
-pub const JOURNEYS: &[UserJourney] = &[
+pub const JOURNEYS: &[UseCase] = &[
     INSPECT_DISK_USAGE,
     FREE_DISK_SPACE,
     RUN_SINGLE_DISK_SPEED_TEST,
     RUN_MULTI_SIZE_DISK_SPEED_TEST,
 ];
 
-const INSPECT_DISK_USAGE: UserJourney = UserJourney {
+const INSPECT_DISK_USAGE: UseCase = UseCase {
     id: JourneyId::InspectDiskUsage,
     summary: Grounded::known(
         "Get the disk usage tree for a given path",
@@ -109,7 +109,7 @@ const INSPECT_DISK_USAGE: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const FREE_DISK_SPACE: UserJourney = UserJourney {
+const FREE_DISK_SPACE: UseCase = UseCase {
     id: JourneyId::FreeDiskSpace,
     summary: Grounded::known(
         "Delete files/folders from the Disk tool",
@@ -181,7 +181,7 @@ const FREE_DISK_SPACE: UserJourney = UserJourney {
     chains_from: Some(JourneyId::InspectDiskUsage),
 };
 
-const RUN_SINGLE_DISK_SPEED_TEST: UserJourney = UserJourney {
+const RUN_SINGLE_DISK_SPEED_TEST: UseCase = UseCase {
     id: JourneyId::RunSingleDiskSpeedTest,
     summary: Grounded::known(
         "Run a single-size disk read/write speed benchmark using the disktest binary",
@@ -225,7 +225,7 @@ const RUN_SINGLE_DISK_SPEED_TEST: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const RUN_MULTI_SIZE_DISK_SPEED_TEST: UserJourney = UserJourney {
+const RUN_MULTI_SIZE_DISK_SPEED_TEST: UseCase = UseCase {
     id: JourneyId::RunMultiSizeDiskSpeedTest,
     summary: Grounded::known(
         "Run a progressive multi-size disk speed benchmark with streaming results",

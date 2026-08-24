@@ -1,7 +1,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
     Actor, BlastRadius, BodyKind, HttpMethod, JourneyStep, Precondition, RouteRef, StepOutcome,
-    UserJourney, Visibility,
+    UseCase, Visibility,
 };
 use crate::journey_presence::{
     PRESENCE_CHANGE_UI_THEME_COLOR, PRESENCE_DELETE3D_MODEL_OVERRIDE, PRESENCE_REMOVE_CUSTOM_LOGO,
@@ -18,7 +18,7 @@ const CUSTOMIZATION_STORE: &str = "core/frontend/src/store/customization.ts";
 const THEME_CUSTOMIZATION: &str =
     "core/frontend/src/components/customization/ThemeCustomization.vue";
 
-pub const JOURNEYS: &[UserJourney] = &[
+pub const JOURNEYS: &[UseCase] = &[
     CHANGE_UI_THEME_COLOR,
     RESET_UI_THEME_COLOR,
     UPLOAD_CUSTOM_LOGO,
@@ -29,7 +29,7 @@ pub const JOURNEYS: &[UserJourney] = &[
     DELETE_3D_MODEL_OVERRIDE,
 ];
 
-const CHANGE_UI_THEME_COLOR: UserJourney = UserJourney {
+const CHANGE_UI_THEME_COLOR: UseCase = UseCase {
     id: JourneyId::ChangeUiThemeColor,
     summary: Grounded::known(
         "Customise the primary color that drives the BlueOS interface gradient and scrollbar",
@@ -75,7 +75,7 @@ const CHANGE_UI_THEME_COLOR: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const RESET_UI_THEME_COLOR: UserJourney = UserJourney {
+const RESET_UI_THEME_COLOR: UseCase = UseCase {
     id: JourneyId::ResetUiThemeColor,
     summary: Grounded::known(
         "Restore the default BlueOS primary theme color",
@@ -137,7 +137,7 @@ const RESET_UI_THEME_COLOR: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const UPLOAD_CUSTOM_LOGO: UserJourney = UserJourney {
+const UPLOAD_CUSTOM_LOGO: UseCase = UseCase {
     id: JourneyId::UploadCustomLogo,
     summary: Grounded::known(
         "Upload a custom company logo for BlueOS branding",
@@ -204,7 +204,7 @@ const UPLOAD_CUSTOM_LOGO: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const REMOVE_CUSTOM_LOGO: UserJourney = UserJourney {
+const REMOVE_CUSTOM_LOGO: UseCase = UseCase {
     id: JourneyId::RemoveCustomLogo,
     summary: Grounded::known(
         "Remove the custom company logo and revert to default branding",
@@ -273,7 +273,7 @@ const REMOVE_CUSTOM_LOGO: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const UPLOAD_CUSTOM_VEHICLE_IMAGE: UserJourney = UserJourney {
+const UPLOAD_CUSTOM_VEHICLE_IMAGE: UseCase = UseCase {
     id: JourneyId::UploadCustomVehicleImage,
     summary: Grounded::known(
         "Upload a custom vehicle image shown in the interface",
@@ -319,7 +319,7 @@ const UPLOAD_CUSTOM_VEHICLE_IMAGE: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const REMOVE_CUSTOM_VEHICLE_IMAGE: UserJourney = UserJourney {
+const REMOVE_CUSTOM_VEHICLE_IMAGE: UseCase = UseCase {
     id: JourneyId::RemoveCustomVehicleImage,
     summary: Grounded::known(
         "Remove the custom vehicle image and revert to default branding",
@@ -363,7 +363,7 @@ const REMOVE_CUSTOM_VEHICLE_IMAGE: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const UPLOAD_3D_MODEL_OVERRIDE: UserJourney = UserJourney {
+const UPLOAD_3D_MODEL_OVERRIDE: UseCase = UseCase {
     id: JourneyId::Upload3dModelOverride,
     summary: Grounded::known(
         "Replace the Vehicle Setup 3D model with a custom glTF (.glb) file",
@@ -430,7 +430,7 @@ const UPLOAD_3D_MODEL_OVERRIDE: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const DELETE_3D_MODEL_OVERRIDE: UserJourney = UserJourney {
+const DELETE_3D_MODEL_OVERRIDE: UseCase = UseCase {
     id: JourneyId::Delete3dModelOverride,
     summary: Grounded::known(
         "Delete an uploaded 3D model override",

@@ -6,7 +6,7 @@ use serde::Serialize;
 
 use crate::drift::{DriftFinding, DriftReport};
 use crate::id::PortRef;
-use crate::interface::Interface;
+use crate::interface::PortKind;
 use crate::observed::ObservedFacts;
 use crate::provenance::{Evidence, ObservedSet};
 
@@ -271,11 +271,11 @@ fn check_service_nginx_interfaces(
             continue;
         }
         let (prefix, port) = match &item.value {
-            Interface::Rest {
+            PortKind::Rest {
                 path_prefix, port, ..
             } => (path_prefix.0, port),
-            Interface::Websocket { path, port } => (path.0, port),
-            Interface::HttpStream { path, port } => (path.0, port),
+            PortKind::Websocket { path, port } => (path.0, port),
+            PortKind::HttpStream { path, port } => (path.0, port),
             _ => continue,
         };
         let PortRef::Literal(expected_port) = *port else {

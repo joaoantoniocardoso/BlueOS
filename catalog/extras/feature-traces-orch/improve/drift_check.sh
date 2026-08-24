@@ -63,12 +63,35 @@ if [[ ${#journeys[@]} -eq 0 ]]; then
 fi
 
 fail=0
+wire_journey() {
+  python3 - "$1" "${catalog_dir}/src/id.rs" <<'PY'
+import re, sys
+from pathlib import Path
+variant, id_rs = sys.argv[1], Path(sys.argv[2]).read_text()
+block = id_rs[id_rs.index("pub enum JourneyId") : id_rs.index("impl JourneyId")]
+lines = block.splitlines()
+for i, line in enumerate(lines):
+    m = re.search(r'rename\s*=\s*"([^"]+)"', line)
+    if m and i + 1 < len(lines):
+        name = lines[i + 1].strip().rstrip(",")
+        if name == variant:
+            print(m.group(1))
+            break
+PY
+}
+
 for journey in "${journeys[@]}"; do
-  presence_intro=$(jq -r --arg j "$journey" '.journeys[] | select(.journey == $j) | .intro_commit' "$presence_json")
-  traces_intro=$(jq -r --arg j "$journey" '.journeys[] | select(.journey == $j) | .intro_commit' "$traces_json")
+  wire=$(wire_journey "$journey" "${catalog_dir}/src/id.rs")
+  if [[ -z "$wire" ]]; then
+    echo "drift_check: no JourneyId wire id for OVERRIDES key ${journey}" >&2
+    fail=1
+    continue
+  fi
+  presence_intro=$(jq -r --arg j "$wire" '.journeys[] | select(.journey == $j) | .intro_commit' "$presence_json")
+  traces_intro=$(jq -r --arg j "$wire" '.journeys[] | select(.journey == $j) | .intro_commit' "$traces_json")
 
   if [[ -z "$presence_intro" || -z "$traces_intro" ]]; then
-    echo "DRIFT: ${journey} missing from one of the two JSON files (presence='${presence_intro}' traces='${traces_intro}')" >&2
+    echo "DRIFT: ${journey} (${wire}) missing from one of the two JSON files (presence='${presence_intro}' traces='${traces_intro}')" >&2
     fail=1
     continue
   fi

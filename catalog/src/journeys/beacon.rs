@@ -1,7 +1,7 @@
 use crate::id::{CapabilityId, JourneyId, ServiceId};
 use crate::journey::{
     Actor, BlastRadius, BodyKind, HttpMethod, JourneyStep, NetworkResource, Precondition, RouteRef,
-    StepOutcome, UserJourney, Visibility,
+    StepOutcome, UseCase, Visibility,
 };
 use crate::journey_presence::{
     PRESENCE_CHANGE_MDNS_HOSTNAME, PRESENCE_DISCOVER_BLUEOS_ON_NETWORK, PRESENCE_RENAME_VEHICLE,
@@ -14,14 +14,14 @@ const DEV_CORE: &str = "content/development/core/index.md";
 const GETTING: &str = "content/usage/getting-started/index.md";
 const VEHICLE_BANNER: &str = "core/frontend/src/components/app/VehicleBanner.vue";
 
-pub const JOURNEYS: &[UserJourney] = &[
+pub const JOURNEYS: &[UseCase] = &[
     RENAME_VEHICLE,
     CHANGE_MDNS_HOSTNAME,
     DISCOVER_BLUEOS_ON_NETWORK,
 ];
 
-const RENAME_VEHICLE: UserJourney =
-    UserJourney {
+const RENAME_VEHICLE: UseCase =
+    UseCase {
         id: JourneyId::RenameVehicle,
         summary: Grounded::known(
             "Set the vehicle name shown in the sidebar so it is easier to tell which vehicle you are connected to"
@@ -58,7 +58,7 @@ const RENAME_VEHICLE: UserJourney =
         chains_from: None,
     };
 
-const CHANGE_MDNS_HOSTNAME: UserJourney = UserJourney {
+const CHANGE_MDNS_HOSTNAME: UseCase = UseCase {
     id: JourneyId::ChangeMdnsHostname,
     summary: Grounded::known(
         "Change the mDNS hostname used to reach the BlueOS web interface in a browser",
@@ -95,7 +95,7 @@ const CHANGE_MDNS_HOSTNAME: UserJourney = UserJourney {
     chains_from: None,
 };
 
-const DISCOVER_BLUEOS_ON_NETWORK: UserJourney = UserJourney {
+const DISCOVER_BLUEOS_ON_NETWORK: UseCase = UseCase {
     id: JourneyId::DiscoverBlueosOnNetwork,
     summary: Grounded::known(
         "Open the BlueOS web interface at blueos.local on the local network",

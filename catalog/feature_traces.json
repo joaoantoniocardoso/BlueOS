@@ -42232,7 +42232,7 @@
   "intro_clusters": {
     "05fb99f125e2b4f8ad53a886317db2abbda063b3": {
       "by_journey": {
-        "AccessWebTerminal": {
+        "access_web_terminal": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/views/TerminalView.vue"
@@ -42265,7 +42265,7 @@
     },
     "06490f90ed01f7038c693549b6dd15d8bf4b8ca3": {
       "by_journey": {
-        "LevelHorizon": {
+        "level_horizon": {
           "backport_prs": [
             3867
           ],
@@ -42310,7 +42310,7 @@
     },
     "0bec1d64d9b1bb420db55c118960c3cf5e789725": {
       "by_journey": {
-        "RestoreDefaultFirmware": {
+        "restore_default_firmware": {
           "backport_prs": [
             3577,
             3895
@@ -42629,7 +42629,7 @@
     },
     "0efc22001a40569fe3080ebcfe071066f212bc7b": {
       "by_journey": {
-        "RunSitlSimulation": {
+        "run_sitl_simulation": {
           "backport_prs": [
             3331,
             3467,
@@ -42825,7 +42825,7 @@
     },
     "11088c7b8afe328e40a7104b149c782cac101b51": {
       "by_journey": {
-        "DetectMotorDirections": {
+        "detect_motor_directions": {
           "backport_prs": [
             3330,
             3473,
@@ -43044,7 +43044,7 @@
     },
     "11b310ea575a33fe8f173a167eb2db7a8611687d": {
       "by_journey": {
-        "ConfigureVideoStream": {
+        "configure_video_stream": {
           "backport_prs": [
             3850,
             3854,
@@ -43107,7 +43107,7 @@
     },
     "120af6bfee7e2cedd933ef6221078d1b7d5ae084": {
       "by_journey": {
-        "UpdateRaspberryEepromBootloader": {
+        "update_raspberry_eeprom_bootloader": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/components/system-information",
@@ -43128,7 +43128,7 @@
     },
     "127f885b2dafa5a2c4ac39420fb1f5a6bc38bbab": {
       "by_journey": {
-        "InspectZenohNetwork": {
+        "inspect_zenoh_network": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/components/zenoh-inspector",
@@ -43163,7 +43163,7 @@
     },
     "15998b11035ea3e5d2c886964cc29dad9fda4e2c": {
       "by_journey": {
-        "BrowseAvailableWebServices": {
+        "browse_available_web_services": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/components/scanner",
@@ -43244,7 +43244,7 @@
     },
     "22025de9a5d75336a7b45f742d471f6c78284abf": {
       "by_journey": {
-        "CalibrateGyroscope": {
+        "calibrate_gyroscope": {
           "backport_prs": [
             3867
           ],
@@ -43278,7 +43278,7 @@
     },
     "27862ec2d86fbbd133a75549895e3ff0bce85c06": {
       "by_journey": {
-        "ProbeInterfaceInternetConnectivity": {
+        "probe_interface_internet_connectivity": {
           "backport_prs": [
             3806,
             3867
@@ -43522,7 +43522,7 @@
             }
           ]
         },
-        "SetNetworkInterfacePriority": {
+        "set_network_interface_priority": {
           "backport_prs": [
             3806,
             3867
@@ -43778,7 +43778,7 @@
     },
     "29473db71ff8b51b3e38ac1b00649cb5e6c8e03a": {
       "by_journey": {
-        "ChangeMdnsHostname": {
+        "change_mdns_hostname": {
           "backport_prs": [
             3806,
             3867
@@ -43800,7 +43800,7 @@
             }
           ]
         },
-        "RenameVehicle": {
+        "rename_vehicle": {
           "backport_prs": [
             3806,
             3867
@@ -43834,7 +43834,7 @@
     },
     "2d797c10c6814221789a5a3ef77e7f54292af155": {
       "by_journey": {
-        "ChangeUiThemeColor": {
+        "change_ui_theme_color": {
           "backport_prs": [],
           "discovery_paths": [
             "core/services/customization"
@@ -43842,7 +43842,7 @@
           "follow_up_prs": [],
           "issues": []
         },
-        "Delete3dModelOverride": {
+        "delete_3d_model_override": {
           "backport_prs": [],
           "discovery_paths": [
             "core/services/customization"
@@ -43850,7 +43850,7 @@
           "follow_up_prs": [],
           "issues": []
         },
-        "RemoveCustomLogo": {
+        "remove_custom_logo": {
           "backport_prs": [],
           "discovery_paths": [
             "core/services/customization"
@@ -43858,7 +43858,7 @@
           "follow_up_prs": [],
           "issues": []
         },
-        "RemoveCustomVehicleImage": {
+        "remove_custom_vehicle_image": {
           "backport_prs": [],
           "discovery_paths": [
             "core/services/customization"
@@ -43866,7 +43866,7 @@
           "follow_up_prs": [],
           "issues": []
         },
-        "ResetUiThemeColor": {
+        "reset_ui_theme_color": {
           "backport_prs": [],
           "discovery_paths": [
             "core/services/customization"
@@ -43874,7 +43874,7 @@
           "follow_up_prs": [],
           "issues": []
         },
-        "Upload3dModelOverride": {
+        "upload_3d_model_override": {
           "backport_prs": [],
           "discovery_paths": [
             "core/services/customization"
@@ -43882,7 +43882,7 @@
           "follow_up_prs": [],
           "issues": []
         },
-        "UploadCustomLogo": {
+        "upload_custom_logo": {
           "backport_prs": [],
           "discovery_paths": [
             "core/services/customization"
@@ -43890,7 +43890,7 @@
           "follow_up_prs": [],
           "issues": []
         },
-        "UploadCustomVehicleImage": {
+        "upload_custom_vehicle_image": {
           "backport_prs": [],
           "discovery_paths": [
             "core/services/customization"
@@ -43910,7 +43910,7 @@
     },
     "2f8d657c6cd4fa860ceb03fd9cc2880b887168d3": {
       "by_journey": {
-        "CalibrateCompass": {
+        "calibrate_compass": {
           "backport_prs": [
             3867
           ],
@@ -43988,7 +43988,7 @@
     },
     "34e7a1a1d79b7927ba2a73a3946d2af537ad91b2": {
       "by_journey": {
-        "AddExternalNmeaGpsSocket": {
+        "add_external_nmea_gps_socket": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/components/nmea-injector",
@@ -44096,7 +44096,7 @@
             }
           ]
         },
-        "RemoveConfiguredNmeaSocket": {
+        "remove_configured_nmea_socket": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/components/nmea-injector",
@@ -44204,7 +44204,7 @@
             }
           ]
         },
-        "ViewConfiguredNmeaSockets": {
+        "view_configured_nmea_sockets": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/components/nmea-injector",
@@ -44324,7 +44324,7 @@
     },
     "40c0bac44abdf6c36a59269335dabb0a27082af0": {
       "by_journey": {
-        "ApplyParameterFile": {
+        "apply_parameter_file": {
           "backport_prs": [
             3867,
             3959
@@ -44660,7 +44660,7 @@
     },
     "508d760392b52dc3f0a30ab0e4df1dd0b2e7bd44": {
       "by_journey": {
-        "RunLanSpeedTest": {
+        "run_lan_speed_test": {
           "backport_prs": [],
           "discovery_paths": [
             "core/services/pardal"
@@ -44717,7 +44717,7 @@
     },
     "5330c79c6aa9b68829b14fcdfeaf2c9584d626cf": {
       "by_journey": {
-        "UpdateFirmwareOnline": {
+        "update_firmware_online": {
           "backport_prs": [
             3577,
             3895
@@ -45024,7 +45024,7 @@
             }
           ]
         },
-        "VehicleFirstBoot": {
+        "vehicle_first_boot": {
           "backport_prs": [
             3331,
             3467,
@@ -45080,7 +45080,7 @@
     },
     "54b07104d1e106ff631c1ef8a976e7f500244735": {
       "by_journey": {
-        "RunHostCommand": {
+        "run_host_command": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/store/commander.ts"
@@ -45125,7 +45125,7 @@
     },
     "5745cb8b4add5541a8bb5d95661b4bce53d168bc": {
       "by_journey": {
-        "ConfigureHotspotCredentials": {
+        "configure_hotspot_credentials": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/components/wifi/WifiSettingsDialog.vue"
@@ -45156,7 +45156,7 @@
             }
           ]
         },
-        "ToggleSmartHotspot": {
+        "toggle_smart_hotspot": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/components/wifi/WifiSettingsDialog.vue"
@@ -45210,7 +45210,7 @@
     },
     "5de1feb47221db3c88d2ed669ae91de43aeefd6d": {
       "by_journey": {
-        "ConnectPingViewerToSonar": {
+        "connect_ping_viewer_to_sonar": {
           "backport_prs": [
             3434
           ],
@@ -45384,7 +45384,7 @@
             }
           ]
         },
-        "EnablePing1dRangefinderMavlink": {
+        "enable_ping1d_rangefinder_mavlink": {
           "backport_prs": [
             3434
           ],
@@ -45558,7 +45558,7 @@
             }
           ]
         },
-        "ViewDetectedSonarDevices": {
+        "view_detected_sonar_devices": {
           "backport_prs": [
             3434
           ],
@@ -45744,7 +45744,7 @@
     },
     "6df9fd85a378b4c2ba6c5eee80c837ef30a8340b": {
       "by_journey": {
-        "BrowseVideoRecordings": {
+        "browse_video_recordings": {
           "backport_prs": [],
           "discovery_paths": [
             "core/services/recorder_extractor"
@@ -45755,7 +45755,7 @@
           ],
           "issues": []
         },
-        "DeleteVideoRecording": {
+        "delete_video_recording": {
           "backport_prs": [],
           "discovery_paths": [
             "core/services/recorder_extractor"
@@ -45766,7 +45766,7 @@
           ],
           "issues": []
         },
-        "DownloadVideoRecording": {
+        "download_video_recording": {
           "backport_prs": [],
           "discovery_paths": [
             "core/services/recorder_extractor"
@@ -45789,7 +45789,7 @@
     },
     "7032d305c73374b3c06b9b3d0eb1436a8da8d14d": {
       "by_journey": {
-        "ChangeBoard": {
+        "change_board": {
           "backport_prs": [
             3331,
             3467,
@@ -45967,7 +45967,7 @@
     },
     "732b3ac2997bf03b95837926446486820f2a8dbe": {
       "by_journey": {
-        "ConnectToWifiNetwork": {
+        "connect_to_wifi_network": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/components/wifi/ConnectionDialog.vue"
@@ -45985,7 +45985,7 @@
             }
           ]
         },
-        "DisconnectFromWifiNetwork": {
+        "disconnect_from_wifi_network": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/components/wifi/DisconnectionDialog.vue"
@@ -46044,7 +46044,7 @@
             }
           ]
         },
-        "ForgetSavedWifiNetwork": {
+        "forget_saved_wifi_network": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/components/wifi/ConnectionDialog.vue"
@@ -46062,7 +46062,7 @@
             }
           ]
         },
-        "ToggleHotspot": {
+        "toggle_hotspot": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/components/wifi/WifiManager.vue"
@@ -46172,7 +46172,7 @@
             }
           ]
         },
-        "AutoconnectToSavedWifiNetwork": {
+        "autoconnect_to_saved_wifi_network": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/components/wifi/ConnectionDialog.vue"
@@ -46190,7 +46190,7 @@
             }
           ]
         },
-        "ConnectToHiddenWifiNetwork": {
+        "connect_to_hidden_wifi_network": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/components/wifi/ConnectionDialog.vue"
@@ -46208,7 +46208,7 @@
             }
           ]
         },
-        "DetectWifiApLoss": {
+        "detect_wifi_ap_loss": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/components/wifi/WifiUpdater.vue"
@@ -46226,7 +46226,7 @@
             }
           ]
         },
-        "ForceWifiNetworkPassword": {
+        "force_wifi_network_password": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/components/wifi/ConnectionDialog.vue"
@@ -46244,7 +46244,7 @@
             }
           ]
         },
-        "ReconnectToSavedWifiNetwork": {
+        "reconnect_to_saved_wifi_network": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/components/wifi/ConnectionDialog.vue"
@@ -46262,7 +46262,7 @@
             }
           ]
         },
-        "RejectInvalidWifiCredentials": {
+        "reject_invalid_wifi_credentials": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/components/wifi/ConnectionDialog.vue"
@@ -46292,7 +46292,7 @@
     },
     "757ce3c2f3dd4c5702e1c8d2260bf6f31fa53ab3": {
       "by_journey": {
-        "RunInternetSpeedTest": {
+        "run_internet_speed_test": {
           "backport_prs": [],
           "discovery_paths": [
             "core/services/pardal"
@@ -46326,7 +46326,7 @@
     },
     "797c0dde39f1c6f3ef14b25a3131554be43ad9d5": {
       "by_journey": {
-        "ViewConfiguredSerialBridges": {
+        "view_configured_serial_bridges": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/store/bridget.ts"
@@ -46372,7 +46372,7 @@
     },
     "79d8c8200755ae732e06a3637e0d21766cdb1d05": {
       "by_journey": {
-        "InspectMavlinkMessagesInBrowser": {
+        "inspect_mavlink_messages_in_browser": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/views/MavlinkInspectorView.vue"
@@ -46394,7 +46394,7 @@
     },
     "7c62889397a36191deb01bbffffaf68b109b477d": {
       "by_journey": {
-        "PullBlueosVersionWithoutSwitch": {
+        "pull_blueos_version_without_switch": {
           "backport_prs": [
             2534,
             3495
@@ -46622,7 +46622,7 @@
             }
           ]
         },
-        "SwitchLocalBlueosVersion": {
+        "switch_local_blueos_version": {
           "backport_prs": [
             2534,
             3495
@@ -46850,7 +46850,7 @@
             }
           ]
         },
-        "UpdateBlueosVersion": {
+        "update_blueos_version": {
           "backport_prs": [
             2534,
             3495
@@ -47090,7 +47090,7 @@
     },
     "7d924e22376fe43ed5420672b849e9e8fdee7b52": {
       "by_journey": {
-        "DeleteLocalBlueosVersion": {
+        "delete_local_blueos_version": {
           "backport_prs": [],
           "discovery_paths": [
             "core/services/versionchooser/api/v1/routers",
@@ -47131,7 +47131,7 @@
             }
           ]
         },
-        "UpdateBootstrapImage": {
+        "update_bootstrap_image": {
           "backport_prs": [],
           "discovery_paths": [
             "core/services/versionchooser/api/v1/routers",
@@ -47195,7 +47195,7 @@
     },
     "81fddcf87fdd5f55c424224e10fb4ed8b06f69ff": {
       "by_journey": {
-        "CalibrateBarometer": {
+        "calibrate_barometer": {
           "backport_prs": [
             3867
           ],
@@ -47241,7 +47241,7 @@
     },
     "882fa2728afed5a49c898a49254ac265922870c7": {
       "by_journey": {
-        "ViewSystemInformation": {
+        "view_system_information": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/store/system-information.ts",
@@ -47366,7 +47366,7 @@
     },
     "8da1baa6c56aee23c4706858451c226b64c6653c": {
       "by_journey": {
-        "ConfigureCameraStream": {
+        "configure_camera_stream": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/components/video-manager/VideoStreamCreationDialog.vue"
@@ -47530,7 +47530,7 @@
             }
           ]
         },
-        "ConfigureUvcDeviceControls": {
+        "configure_uvc_device_controls": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/components/video-manager/VideoControlsDialog.vue"
@@ -47584,7 +47584,7 @@
             }
           ]
         },
-        "ConfigureVideoStream": {
+        "configure_video_stream": {
           "backport_prs": [
             3610,
             3747,
@@ -47791,7 +47791,7 @@
             }
           ]
         },
-        "EnableLegacyCameraSupport": {
+        "enable_legacy_camera_support": {
           "backport_prs": [
             3747
           ],
@@ -47923,7 +47923,7 @@
             }
           ]
         },
-        "RemoveCameraStream": {
+        "remove_camera_stream": {
           "backport_prs": [
             3610
           ],
@@ -48093,7 +48093,7 @@
     },
     "a1d5ea2c99e424e495fe02dc2fae0ce3a91346b6": {
       "by_journey": {
-        "ConfigureHostDns": {
+        "configure_host_dns": {
           "backport_prs": [
             3806,
             3867
@@ -48329,7 +48329,7 @@
     },
     "a7e47b06d4d811e099de7df5ee53f142745d7da2": {
       "by_journey": {
-        "DockerRegistryLogin": {
+        "docker_registry_login": {
           "backport_prs": [
             2534,
             3495
@@ -48373,7 +48373,7 @@
     },
     "be3909cf32050e6db628ed54e9ce4900fe1d6cb1": {
       "by_journey": {
-        "MonitorInternetConnectivity": {
+        "monitor_internet_connectivity": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/store/helper.ts"
@@ -48464,7 +48464,7 @@
     },
     "c0cdf06cefdb1767a4f234d20b7461ec4d135273": {
       "by_journey": {
-        "CreateSerialToUdpBridge": {
+        "create_serial_to_udp_bridge": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/components/bridges",
@@ -48639,7 +48639,7 @@
             }
           ]
         },
-        "RemoveSerialBridge": {
+        "remove_serial_bridge": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/components/bridges",
@@ -48683,7 +48683,7 @@
     },
     "c29e24679e3dbe083ab6a3f21bb1459e66bb4dd5": {
       "by_journey": {
-        "FreeDiskSpace": {
+        "free_disk_space": {
           "backport_prs": [],
           "discovery_paths": [
             "core/services/disk_usage"
@@ -48704,7 +48704,7 @@
             }
           ]
         },
-        "InspectDiskUsage": {
+        "inspect_disk_usage": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/store/disk.ts",
@@ -48740,7 +48740,7 @@
     },
     "c38dc6db3ae28059b2879d1db6070aa8bdc15bbe": {
       "by_journey": {
-        "ManageBlueosFiles": {
+        "manage_blueos_files": {
           "backport_prs": [],
           "discovery_paths": [
             "core/tools/filebrowser",
@@ -48808,7 +48808,7 @@
     },
     "c4fe82a264d4e5d8cccd40364d69a432560f7807": {
       "by_journey": {
-        "AccessBlueosWebInterface": {
+        "access_blueos_web_interface": {
           "backport_prs": [
             3808,
             3908
@@ -48974,7 +48974,7 @@
     },
     "c97922ef9ea8c49e75cebd45043dfabe7e095b6c": {
       "by_journey": {
-        "AcquireDynamicIpAddress": {
+        "acquire_dynamic_ip_address": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/components/ethernet",
@@ -49006,7 +49006,7 @@
             }
           ]
         },
-        "DisableOnboardDhcpServer": {
+        "disable_onboard_dhcp_server": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/components/ethernet",
@@ -49038,7 +49038,7 @@
             }
           ]
         },
-        "EnableOnboardDhcpServer": {
+        "enable_onboard_dhcp_server": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/components/ethernet",
@@ -49180,7 +49180,7 @@
     },
     "cab2ce2ab7906b0c896131dd802bcf26ff86aef1": {
       "by_journey": {
-        "InspectRaspberryEepromBootloader": {
+        "inspect_raspberry_eeprom_bootloader": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/components/system-information",
@@ -49204,7 +49204,7 @@
     },
     "ce9c65e18f0b3f333983bd8810b062c8fe60a6ee": {
       "by_journey": {
-        "EditExtensionDevVersion": {
+        "edit_extension_dev_version": {
           "backport_prs": [
             2496
           ],
@@ -49369,7 +49369,7 @@
             }
           ]
         },
-        "InstallExtension": {
+        "install_extension": {
           "backport_prs": [
             2496
           ],
@@ -49534,7 +49534,7 @@
             }
           ]
         },
-        "UninstallExtension": {
+        "uninstall_extension": {
           "backport_prs": [
             2496
           ],
@@ -49711,7 +49711,7 @@
     },
     "d1c0ee626e362a93d77fbc1209122458af5daead": {
       "by_journey": {
-        "RebootOnboardComputer": {
+        "reboot_onboard_computer": {
           "backport_prs": [
             3806
           ],
@@ -49860,7 +49860,7 @@
             }
           ]
         },
-        "ShutdownOnboardComputer": {
+        "shutdown_onboard_computer": {
           "backport_prs": [
             3806
           ],
@@ -50021,7 +50021,7 @@
     },
     "d3ef9f239b2ca40d462c923a8ada2dbd8408aa45": {
       "by_journey": {
-        "ConfigureInstalledExtension": {
+        "configure_installed_extension": {
           "backport_prs": [
             3610
           ],
@@ -50153,7 +50153,7 @@
             }
           ]
         },
-        "InstallCustomExtension": {
+        "install_custom_extension": {
           "backport_prs": [
             3610
           ],
@@ -50261,7 +50261,7 @@
     },
     "d7c9eee7fbcb35e949c698b0a70f23a834136c2b": {
       "by_journey": {
-        "RestartAutopilot": {
+        "restart_autopilot": {
           "backport_prs": [
             3331,
             3467,
@@ -50318,7 +50318,7 @@
             }
           ]
         },
-        "StartAutopilot": {
+        "start_autopilot": {
           "backport_prs": [
             3331,
             3467,
@@ -50432,7 +50432,7 @@
             }
           ]
         },
-        "StopAutopilot": {
+        "stop_autopilot": {
           "backport_prs": [
             3331,
             3467,
@@ -50547,7 +50547,7 @@
     },
     "dc388cef20f9e68c60d8253539f22e257aa15c35": {
       "by_journey": {
-        "CalibrateAccelerometer": {
+        "calibrate_accelerometer": {
           "backport_prs": [
             3867
           ],
@@ -50615,7 +50615,7 @@
     },
     "de04a21a802347eaa48cb31bc335732dac309f18": {
       "by_journey": {
-        "ViewCameraStreams": {
+        "view_camera_streams": {
           "backport_prs": [
             3747
           ],
@@ -50855,7 +50855,7 @@
     },
     "dfa491d60eabc5c41b20444df6f354abcbfa3338": {
       "by_journey": {
-        "ModifyBagDatabase": {
+        "modify_bag_database": {
           "backport_prs": [],
           "discovery_paths": [
             "core/services/bag_of_holding",
@@ -50917,7 +50917,7 @@
     },
     "e742dea54f98b00d883fcfed76b587f35ddb7647": {
       "by_journey": {
-        "AssignStaticIpAddress": {
+        "assign_static_ip_address": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/components/ethernet",
@@ -51079,7 +51079,7 @@
     },
     "ebd3a1cac363095e0cb6975d3dfa17a16c164460": {
       "by_journey": {
-        "ResetBlueosSettings": {
+        "reset_blueos_settings": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/views/SettingsView.vue"
@@ -51131,7 +51131,7 @@
     },
     "f172ee7dd1d2c27a78f697f80facdd48d7d7df3f": {
       "by_journey": {
-        "SyncSystemTime": {
+        "sync_system_time": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/utils/update_time.ts"
@@ -51153,7 +51153,7 @@
     },
     "f5958d484bf1a283104cd79b0be3abc16effc26a": {
       "by_journey": {
-        "DiscoverBlueosOnNetwork": {
+        "discover_blueos_on_network": {
           "backport_prs": [],
           "discovery_paths": [
             "core/services/beacon",
@@ -51285,7 +51285,7 @@
     },
     "f860312f8b1396d3339cadadee6ab994ef57ecde": {
       "by_journey": {
-        "RunMultiSizeDiskSpeedTest": {
+        "run_multi_size_disk_speed_test": {
           "backport_prs": [],
           "discovery_paths": [
             "core/services/disk_usage"
@@ -51303,7 +51303,7 @@
             }
           ]
         },
-        "RunSingleDiskSpeedTest": {
+        "run_single_disk_speed_test": {
           "backport_prs": [],
           "discovery_paths": [
             "core/services/disk_usage"
@@ -51333,7 +51333,7 @@
     },
     "fab22bd4e87eb6265e05487cd0961585fb341d3d": {
       "by_journey": {
-        "VerifyInternetConnectivity": {
+        "verify_internet_connectivity": {
           "backport_prs": [
             2589,
             2991,
@@ -51668,7 +51668,7 @@
     },
     "faf80cfccf23ea31d012f6d500296093587bf317": {
       "by_journey": {
-        "AddCustomManifest": {
+        "add_custom_manifest": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/components/kraken/BackAlleyTab.vue"
@@ -51715,7 +51715,7 @@
             }
           ]
         },
-        "BrowseExtensionStore": {
+        "browse_extension_store": {
           "backport_prs": [],
           "discovery_paths": [
             "core/frontend/src/components/kraken/BazaarTab.vue"
@@ -51752,7 +51752,7 @@
     },
     "fcaffebc15b07d9c2513bc19a9a338143bacbe53": {
       "by_journey": {
-        "UploadCustomFirmware": {
+        "upload_custom_firmware": {
           "backport_prs": [
             3577,
             3895
@@ -56306,7 +56306,7 @@
       "first_tag": "1.0.0-beta.16",
       "intro_commit": "c4fe82a264d4e5d8cccd40364d69a432560f7807",
       "intro_commit_short": "c4fe82a264d4",
-      "journey": "AccessBlueosWebInterface",
+      "journey": "access_blueos_web_interface",
       "method": "S:nginx",
       "module": "nginx",
       "present_in_tags": [
@@ -56477,7 +56477,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "05fb99f125e2b4f8ad53a886317db2abbda063b3",
       "intro_commit_short": "05fb99f125e2",
-      "journey": "AccessWebTerminal",
+      "journey": "access_web_terminal",
       "method": "path:core/frontend/src/views/TerminalView.vue",
       "module": "ttyd",
       "present_in_tags": [
@@ -56663,7 +56663,7 @@
       "first_tag": "1.1.0-beta.1",
       "intro_commit": "c97922ef9ea8c49e75cebd45043dfabe7e095b6c",
       "intro_commit_short": "c97922ef9ea8",
-      "journey": "AcquireDynamicIpAddress",
+      "journey": "acquire_dynamic_ip_address",
       "method": "S:triggerForDynamicIP",
       "module": "cable_guy",
       "present_in_tags": [
@@ -56830,7 +56830,7 @@
       "first_tag": "1.3.0-beta.7",
       "intro_commit": "faf80cfccf23ea31d012f6d500296093587bf317",
       "intro_commit_short": "faf80cfccf23",
-      "journey": "AddCustomManifest",
+      "journey": "add_custom_manifest",
       "method": "path:core/frontend/src/components/kraken/BackAlleyTab.vue",
       "module": "kraken",
       "present_in_tags": [
@@ -56941,7 +56941,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "34e7a1a1d79b7927ba2a73a3946d2af537ad91b2",
       "intro_commit_short": "34e7a1a1d79b",
-      "journey": "AddExternalNmeaGpsSocket",
+      "journey": "add_external_nmea_gps_socket",
       "method": "path:core/frontend/src/components/nmea-injector/NMEASocketCreationDialog.vue",
       "module": "nmea_injector",
       "present_in_tags": [
@@ -57127,7 +57127,7 @@
       "first_tag": "1.1.0-beta.11",
       "intro_commit": "40c0bac44abdf6c36a59269335dabb0a27082af0",
       "intro_commit_short": "40c0bac44abd",
-      "journey": "ApplyParameterFile",
+      "journey": "apply_parameter_file",
       "method": "path:core/frontend/src/components/parameter-editor/ParameterEditor.vue",
       "module": "frontend_parameters",
       "present_in_tags": [
@@ -57284,7 +57284,7 @@
       "first_tag": "1.0.0-beta.14",
       "intro_commit": "e742dea54f98b00d883fcfed76b587f35ddb7647",
       "intro_commit_short": "e742dea54f98",
-      "journey": "AssignStaticIpAddress",
+      "journey": "assign_static_ip_address",
       "method": "path:core/frontend/src/components/ethernet/AddressCreationDialog.vue",
       "module": "cable_guy",
       "present_in_tags": [
@@ -57457,7 +57457,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "732b3ac2997bf03b95837926446486820f2a8dbe",
       "intro_commit_short": "732b3ac2997b",
-      "journey": "AutoconnectToSavedWifiNetwork",
+      "journey": "autoconnect_to_saved_wifi_network",
       "method": "S:/connect",
       "module": "wifi",
       "present_in_tags": [
@@ -57643,7 +57643,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "15998b11035ea3e5d2c886964cc29dad9fda4e2c",
       "intro_commit_short": "15998b11035e",
-      "journey": "BrowseAvailableWebServices",
+      "journey": "browse_available_web_services",
       "method": "path:core/frontend/src/views/AvailableServicesView.vue",
       "module": "helper",
       "present_in_tags": [
@@ -57829,7 +57829,7 @@
       "first_tag": "1.3.0-beta.7",
       "intro_commit": "faf80cfccf23ea31d012f6d500296093587bf317",
       "intro_commit_short": "faf80cfccf23",
-      "journey": "BrowseExtensionStore",
+      "journey": "browse_extension_store",
       "method": "path:core/frontend/src/components/kraken/BazaarTab.vue",
       "module": "kraken",
       "present_in_tags": [
@@ -57940,7 +57940,7 @@
       "first_tag": "1.4.4-beta.16",
       "intro_commit": "6df9fd85a378b4c2ba6c5eee80c837ef30a8340b",
       "intro_commit_short": "6df9fd85a378",
-      "journey": "BrowseVideoRecordings",
+      "journey": "browse_video_recordings",
       "method": "path:core/services/recorder_extractor",
       "module": "recorder_extractor",
       "present_in_tags": [
@@ -57977,7 +57977,7 @@
       "first_tag": "1.3.0-beta.1",
       "intro_commit": "dc388cef20f9e68c60d8253539f22e257aa15c35",
       "intro_commit_short": "dc388cef20f9",
-      "journey": "CalibrateAccelerometer",
+      "journey": "calibrate_accelerometer",
       "method": "path:core/frontend/src/components/vehiclesetup/configuration/accelerometer/FullAccelerometerCalibration.vue",
       "module": "frontend_calibration",
       "present_in_tags": [
@@ -58094,7 +58094,7 @@
       "first_tag": "1.3.0-beta.1",
       "intro_commit": "81fddcf87fdd5f55c424224e10fb4ed8b06f69ff",
       "intro_commit_short": "81fddcf87fdd",
-      "journey": "CalibrateBarometer",
+      "journey": "calibrate_barometer",
       "method": "path:core/frontend/src/components/vehiclesetup/overview/BaroCalib.vue",
       "module": "frontend_calibration",
       "present_in_tags": [
@@ -58211,7 +58211,7 @@
       "first_tag": "1.3.0-beta.1",
       "intro_commit": "2f8d657c6cd4fa860ceb03fd9cc2880b887168d3",
       "intro_commit_short": "2f8d657c6cd4",
-      "journey": "CalibrateCompass",
+      "journey": "calibrate_compass",
       "method": "path:core/frontend/src/components/vehiclesetup/configuration/compass/FullCompassCalibrator.vue",
       "module": "frontend_calibration",
       "present_in_tags": [
@@ -58328,7 +58328,7 @@
       "first_tag": "1.3.0-beta.8",
       "intro_commit": "22025de9a5d75336a7b45f742d471f6c78284abf",
       "intro_commit_short": "22025de9a5d7",
-      "journey": "CalibrateGyroscope",
+      "journey": "calibrate_gyroscope",
       "method": "path:core/frontend/src/components/vehiclesetup/overview/GyroCalib.vue",
       "module": "frontend_calibration",
       "present_in_tags": [
@@ -58438,7 +58438,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "7032d305c73374b3c06b9b3d0eb1436a8da8d14d",
       "intro_commit_short": "7032d305c733",
-      "journey": "ChangeBoard",
+      "journey": "change_board",
       "method": "path:core/services/ardupilot_manager/flight_controller_detector",
       "module": "ardupilot_manager",
       "present_in_tags": [
@@ -58624,7 +58624,7 @@
       "first_tag": "1.1.0-beta.19",
       "intro_commit": "29473db71ff8b51b3e38ac1b00649cb5e6c8e03a",
       "intro_commit_short": "29473db71ff8",
-      "journey": "ChangeMdnsHostname",
+      "journey": "change_mdns_hostname",
       "method": "S:/hostname",
       "module": "beacon",
       "present_in_tags": [
@@ -58774,7 +58774,7 @@
       "first_tag": "1.5.0-beta.38",
       "intro_commit": "2d797c10c6814221789a5a3ef77e7f54292af155",
       "intro_commit_short": "2d797c10c681",
-      "journey": "ChangeUiThemeColor",
+      "journey": "change_ui_theme_color",
       "method": "path:core/services/customization",
       "module": "customization",
       "present_in_tags": [
@@ -58788,7 +58788,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "8da1baa6c56aee23c4706858451c226b64c6653c",
       "intro_commit_short": "8da1baa6c56a",
-      "journey": "ConfigureCameraStream",
+      "journey": "configure_camera_stream",
       "method": "path:core/frontend/src/components/video-manager/VideoStreamCreationDialog.vue",
       "module": "mavlink_camera_manager",
       "present_in_tags": [
@@ -58974,7 +58974,7 @@
       "first_tag": "1.1.0-beta.27",
       "intro_commit": "a1d5ea2c99e424e495fe02dc2fae0ce3a91346b6",
       "intro_commit_short": "a1d5ea2c99e4",
-      "journey": "ConfigureHostDns",
+      "journey": "configure_host_dns",
       "method": "path:core/frontend/src/components/app/DnsConfigurationMenu.vue",
       "module": "cable_guy",
       "present_in_tags": [
@@ -59116,7 +59116,7 @@
       "first_tag": "1.1.0-beta5",
       "intro_commit": "5745cb8b4add5541a8bb5d95661b4bce53d168bc",
       "intro_commit_short": "5745cb8b4add",
-      "journey": "ConfigureHotspotCredentials",
+      "journey": "configure_hotspot_credentials",
       "method": "S:hotspot_credentials",
       "module": "wifi",
       "present_in_tags": [
@@ -59279,7 +59279,7 @@
       "first_tag": "1.3.0-beta.7",
       "intro_commit": "d3ef9f239b2ca40d462c923a8ada2dbd8408aa45",
       "intro_commit_short": "d3ef9f239b2c",
-      "journey": "ConfigureInstalledExtension",
+      "journey": "configure_installed_extension",
       "method": "path:core/frontend/src/components/kraken/cards/InstalledExtensionCard.vue",
       "module": "kraken",
       "present_in_tags": [
@@ -59390,7 +59390,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "8da1baa6c56aee23c4706858451c226b64c6653c",
       "intro_commit_short": "8da1baa6c56a",
-      "journey": "ConfigureUvcDeviceControls",
+      "journey": "configure_uvc_device_controls",
       "method": "path:core/frontend/src/components/video-manager/VideoControlsDialog.vue",
       "module": "mavlink_camera_manager",
       "present_in_tags": [
@@ -59576,7 +59576,7 @@
       "first_tag": "1.1.0-beta.9",
       "intro_commit": "11b310ea575a33fe8f173a167eb2db7a8611687d",
       "intro_commit_short": "11b310ea575a",
-      "journey": "ConfigureVideoStream",
+      "journey": "configure_video_stream",
       "method": "path:core/frontend/src/components/video-manager/VideoDiagnosticHelper.vue",
       "module": "frontend_video",
       "present_in_tags": [
@@ -59735,7 +59735,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "5de1feb47221db3c88d2ed669ae91de43aeefd6d",
       "intro_commit_short": "5de1feb47221",
-      "journey": "ConnectPingViewerToSonar",
+      "journey": "connect_ping_viewer_to_sonar",
       "method": "path:core/services/ping",
       "module": "ping",
       "present_in_tags": [
@@ -59921,7 +59921,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "732b3ac2997bf03b95837926446486820f2a8dbe",
       "intro_commit_short": "732b3ac2997b",
-      "journey": "ConnectToHiddenWifiNetwork",
+      "journey": "connect_to_hidden_wifi_network",
       "method": "S:/connect",
       "module": "wifi",
       "present_in_tags": [
@@ -60107,7 +60107,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "732b3ac2997bf03b95837926446486820f2a8dbe",
       "intro_commit_short": "732b3ac2997b",
-      "journey": "ConnectToWifiNetwork",
+      "journey": "connect_to_wifi_network",
       "method": "S:/connect",
       "module": "wifi",
       "present_in_tags": [
@@ -60293,7 +60293,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "c0cdf06cefdb1767a4f234d20b7461ec4d135273",
       "intro_commit_short": "c0cdf06cefdb",
-      "journey": "CreateSerialToUdpBridge",
+      "journey": "create_serial_to_udp_bridge",
       "method": "path:core/frontend/src/components/bridges/BridgeCreationDialog.vue",
       "module": "bridget",
       "present_in_tags": [
@@ -60479,7 +60479,7 @@
       "first_tag": "1.5.0-beta.38",
       "intro_commit": "2d797c10c6814221789a5a3ef77e7f54292af155",
       "intro_commit_short": "2d797c10c681",
-      "journey": "Delete3dModelOverride",
+      "journey": "delete_3d_model_override",
       "method": "path:core/services/customization",
       "module": "customization",
       "present_in_tags": [
@@ -60493,7 +60493,7 @@
       "first_tag": "1.4.4-beta.16",
       "intro_commit": "7d924e22376fe43ed5420672b849e9e8fdee7b52",
       "intro_commit_short": "7d924e22376f",
-      "journey": "DeleteLocalBlueosVersion",
+      "journey": "delete_local_blueos_version",
       "method": "S:/delete",
       "module": "versionchooser",
       "present_in_tags": [
@@ -60543,7 +60543,7 @@
       "first_tag": "1.4.4-beta.16",
       "intro_commit": "6df9fd85a378b4c2ba6c5eee80c837ef30a8340b",
       "intro_commit_short": "6df9fd85a378",
-      "journey": "DeleteVideoRecording",
+      "journey": "delete_video_recording",
       "method": "path:core/services/recorder_extractor",
       "module": "recorder_extractor",
       "present_in_tags": [
@@ -60580,7 +60580,7 @@
       "first_tag": "1.3.0-beta.7",
       "intro_commit": "11088c7b8afe328e40a7104b149c782cac101b51",
       "intro_commit_short": "11088c7b8afe",
-      "journey": "DetectMotorDirections",
+      "journey": "detect_motor_directions",
       "method": "path:core/frontend/src/components/vehiclesetup/MotorDetection.vue",
       "module": "frontend_calibration",
       "present_in_tags": [
@@ -60691,7 +60691,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "732b3ac2997bf03b95837926446486820f2a8dbe",
       "intro_commit_short": "732b3ac2997b",
-      "journey": "DetectWifiApLoss",
+      "journey": "detect_wifi_ap_loss",
       "method": "path:core/frontend/src/components/wifi/WifiUpdater.vue",
       "module": "wifi",
       "present_in_tags": [
@@ -60877,7 +60877,7 @@
       "first_tag": "1.1.0-beta.1",
       "intro_commit": "c97922ef9ea8c49e75cebd45043dfabe7e095b6c",
       "intro_commit_short": "c97922ef9ea8",
-      "journey": "DisableOnboardDhcpServer",
+      "journey": "disable_onboard_dhcp_server",
       "method": "S:removeDHCPServer",
       "module": "cable_guy",
       "present_in_tags": [
@@ -61044,7 +61044,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "732b3ac2997bf03b95837926446486820f2a8dbe",
       "intro_commit_short": "732b3ac2997b",
-      "journey": "DisconnectFromWifiNetwork",
+      "journey": "disconnect_from_wifi_network",
       "method": "path:core/frontend/src/components/wifi/DisconnectionDialog.vue",
       "module": "wifi",
       "present_in_tags": [
@@ -61230,7 +61230,7 @@
       "first_tag": "1.0.0-beta.16",
       "intro_commit": "f5958d484bf1a283104cd79b0be3abc16effc26a",
       "intro_commit_short": "f5958d484bf1",
-      "journey": "DiscoverBlueosOnNetwork",
+      "journey": "discover_blueos_on_network",
       "method": "path:core/services/beacon",
       "module": "beacon",
       "present_in_tags": [
@@ -61401,7 +61401,7 @@
       "first_tag": "1.4.0-beta.12",
       "intro_commit": "a7e47b06d4d811e099de7df5ee53f142745d7da2",
       "intro_commit_short": "a7e47b06d4d8",
-      "journey": "DockerRegistryLogin",
+      "journey": "docker_registry_login",
       "method": "S:docker/login",
       "module": "versionchooser",
       "present_in_tags": [
@@ -61495,7 +61495,7 @@
       "first_tag": "1.4.4-beta.16",
       "intro_commit": "6df9fd85a378b4c2ba6c5eee80c837ef30a8340b",
       "intro_commit_short": "6df9fd85a378",
-      "journey": "DownloadVideoRecording",
+      "journey": "download_video_recording",
       "method": "path:core/services/recorder_extractor",
       "module": "recorder_extractor",
       "present_in_tags": [
@@ -61532,7 +61532,7 @@
       "first_tag": "1.1.0-beta.10",
       "intro_commit": "ce9c65e18f0b3f333983bd8810b062c8fe60a6ee",
       "intro_commit_short": "ce9c65e18f0b",
-      "journey": "EditExtensionDevVersion",
+      "journey": "edit_extension_dev_version",
       "method": "path:core/services/kraken",
       "module": "kraken",
       "present_in_tags": [
@@ -61690,7 +61690,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "8da1baa6c56aee23c4706858451c226b64c6653c",
       "intro_commit_short": "8da1baa6c56a",
-      "journey": "EnableLegacyCameraSupport",
+      "journey": "enable_legacy_camera_support",
       "method": "path:core/frontend/src/components/video-manager/VideoManager.vue",
       "module": "commander",
       "present_in_tags": [
@@ -61876,7 +61876,7 @@
       "first_tag": "1.1.0-beta.1",
       "intro_commit": "c97922ef9ea8c49e75cebd45043dfabe7e095b6c",
       "intro_commit_short": "c97922ef9ea8",
-      "journey": "EnableOnboardDhcpServer",
+      "journey": "enable_onboard_dhcp_server",
       "method": "path:core/frontend/src/components/ethernet/DHCPServerDialog.vue",
       "module": "cable_guy",
       "present_in_tags": [
@@ -62043,7 +62043,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "5de1feb47221db3c88d2ed669ae91de43aeefd6d",
       "intro_commit_short": "5de1feb47221",
-      "journey": "EnablePing1dRangefinderMavlink",
+      "journey": "enable_ping1d_rangefinder_mavlink",
       "method": "path:core/services/ping",
       "module": "ping",
       "present_in_tags": [
@@ -62229,7 +62229,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "732b3ac2997bf03b95837926446486820f2a8dbe",
       "intro_commit_short": "732b3ac2997b",
-      "journey": "ForceWifiNetworkPassword",
+      "journey": "force_wifi_network_password",
       "method": "S:/connect",
       "module": "wifi",
       "present_in_tags": [
@@ -62415,7 +62415,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "732b3ac2997bf03b95837926446486820f2a8dbe",
       "intro_commit_short": "732b3ac2997b",
-      "journey": "ForgetSavedWifiNetwork",
+      "journey": "forget_saved_wifi_network",
       "method": "S:/remove",
       "module": "wifi",
       "present_in_tags": [
@@ -62601,7 +62601,7 @@
       "first_tag": "1.4.4-beta.16",
       "intro_commit": "c29e24679e3dbe083ab6a3f21bb1459e66bb4dd5",
       "intro_commit_short": "c29e24679e3d",
-      "journey": "FreeDiskSpace",
+      "journey": "free_disk_space",
       "method": "path:core/services/disk_usage",
       "module": "disk_usage",
       "present_in_tags": [
@@ -62637,7 +62637,7 @@
       "first_tag": "1.4.4-beta.16",
       "intro_commit": "c29e24679e3dbe083ab6a3f21bb1459e66bb4dd5",
       "intro_commit_short": "c29e24679e3d",
-      "journey": "InspectDiskUsage",
+      "journey": "inspect_disk_usage",
       "method": "path:core/services/disk_usage",
       "module": "disk_usage",
       "present_in_tags": [
@@ -62673,7 +62673,7 @@
       "first_tag": "1.0.0-beta.13",
       "intro_commit": "79d8c8200755ae732e06a3637e0d21766cdb1d05",
       "intro_commit_short": "79d8c8200755",
-      "journey": "InspectMavlinkMessagesInBrowser",
+      "journey": "inspect_mavlink_messages_in_browser",
       "method": "path:core/frontend/src/views/MavlinkInspectorView.vue",
       "module": "mavlink2rest",
       "present_in_tags": [
@@ -62847,7 +62847,7 @@
       "first_tag": "1.1.0-beta.18",
       "intro_commit": "cab2ce2ab7906b0c896131dd802bcf26ff86aef1",
       "intro_commit_short": "cab2ce2ab790",
-      "journey": "InspectRaspberryEepromBootloader",
+      "journey": "inspect_raspberry_eeprom_bootloader",
       "method": "S:getVcgencmd",
       "module": "commander",
       "present_in_tags": [
@@ -62998,7 +62998,7 @@
       "first_tag": "1.4.4-beta.16",
       "intro_commit": "127f885b2dafa5a2c4ac39420fb1f5a6bc38bbab",
       "intro_commit_short": "127f885b2daf",
-      "journey": "InspectZenohNetwork",
+      "journey": "inspect_zenoh_network",
       "method": "path:core/frontend/src/views/ZenohInspectorView.vue",
       "module": "zenohd",
       "present_in_tags": [
@@ -63055,7 +63055,7 @@
       "first_tag": "1.3.0-beta.7",
       "intro_commit": "d3ef9f239b2ca40d462c923a8ada2dbd8408aa45",
       "intro_commit_short": "d3ef9f239b2c",
-      "journey": "InstallCustomExtension",
+      "journey": "install_custom_extension",
       "method": "path:core/frontend/src/components/kraken/modals/ExtensionCreationModal.vue",
       "module": "kraken",
       "present_in_tags": [
@@ -63166,7 +63166,7 @@
       "first_tag": "1.1.0-beta.10",
       "intro_commit": "ce9c65e18f0b3f333983bd8810b062c8fe60a6ee",
       "intro_commit_short": "ce9c65e18f0b",
-      "journey": "InstallExtension",
+      "journey": "install_extension",
       "method": "path:core/services/kraken",
       "module": "kraken",
       "present_in_tags": [
@@ -63324,7 +63324,7 @@
       "first_tag": "1.4.4-beta.100",
       "intro_commit": "06490f90ed01f7038c693549b6dd15d8bf4b8ca3",
       "intro_commit_short": "06490f90ed01",
-      "journey": "LevelHorizon",
+      "journey": "level_horizon",
       "method": "path:core/frontend/src/components/vehiclesetup/configuration/compass/LevelHorizonCalibration.vue",
       "module": "frontend_calibration",
       "present_in_tags": [
@@ -63348,7 +63348,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "c38dc6db3ae28059b2879d1db6070aa8bdc15bbe",
       "intro_commit_short": "c38dc6db3ae2",
-      "journey": "ManageBlueosFiles",
+      "journey": "manage_blueos_files",
       "method": "path:core/tools/filebrowser",
       "module": "filebrowser",
       "present_in_tags": [
@@ -63534,7 +63534,7 @@
       "first_tag": "1.1.0-beta.19",
       "intro_commit": "dfa491d60eabc5c41b20444df6f354abcbfa3338",
       "intro_commit_short": "dfa491d60eab",
-      "journey": "ModifyBagDatabase",
+      "journey": "modify_bag_database",
       "method": "path:core/services/bag_of_holding",
       "module": "bag_of_holding",
       "present_in_tags": [
@@ -63684,7 +63684,7 @@
       "first_tag": "1.1.0-beta.24",
       "intro_commit": "be3909cf32050e6db628ed54e9ce4900fe1d6cb1",
       "intro_commit_short": "be3909cf3205",
-      "journey": "MonitorInternetConnectivity",
+      "journey": "monitor_internet_connectivity",
       "method": "path:core/frontend/src/store/helper.ts",
       "module": "helper",
       "present_in_tags": [
@@ -63829,7 +63829,7 @@
       "first_tag": "1.1.0-beta.24",
       "intro_commit": "27862ec2d86fbbd133a75549895e3ff0bce85c06",
       "intro_commit_short": "27862ec2d86f",
-      "journey": "ProbeInterfaceInternetConnectivity",
+      "journey": "probe_interface_internet_connectivity",
       "method": "path:core/frontend/src/components/app/NetworkInterfacePriorityMenu.vue",
       "module": "helper",
       "present_in_tags": [
@@ -63974,7 +63974,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "7c62889397a36191deb01bbffffaf68b109b477d",
       "intro_commit_short": "7c62889397a3",
-      "journey": "PullBlueosVersionWithoutSwitch",
+      "journey": "pull_blueos_version_without_switch",
       "method": "path:core/services/versionchooser",
       "module": "versionchooser",
       "present_in_tags": [
@@ -64160,7 +64160,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "d1c0ee626e362a93d77fbc1209122458af5daead",
       "intro_commit_short": "d1c0ee626e36",
-      "journey": "RebootOnboardComputer",
+      "journey": "reboot_onboard_computer",
       "method": "path:core/services/commander",
       "module": "commander",
       "present_in_tags": [
@@ -64346,7 +64346,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "732b3ac2997bf03b95837926446486820f2a8dbe",
       "intro_commit_short": "732b3ac2997b",
-      "journey": "ReconnectToSavedWifiNetwork",
+      "journey": "reconnect_to_saved_wifi_network",
       "method": "S:/connect",
       "module": "wifi",
       "present_in_tags": [
@@ -64532,7 +64532,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "732b3ac2997bf03b95837926446486820f2a8dbe",
       "intro_commit_short": "732b3ac2997b",
-      "journey": "RejectInvalidWifiCredentials",
+      "journey": "reject_invalid_wifi_credentials",
       "method": "S:/connect",
       "module": "wifi",
       "present_in_tags": [
@@ -64718,7 +64718,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "8da1baa6c56aee23c4706858451c226b64c6653c",
       "intro_commit_short": "8da1baa6c56a",
-      "journey": "RemoveCameraStream",
+      "journey": "remove_camera_stream",
       "method": "path:core/frontend/src/components/video-manager/VideoStream.vue",
       "module": "mavlink_camera_manager",
       "present_in_tags": [
@@ -64904,7 +64904,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "34e7a1a1d79b7927ba2a73a3946d2af537ad91b2",
       "intro_commit_short": "34e7a1a1d79b",
-      "journey": "RemoveConfiguredNmeaSocket",
+      "journey": "remove_configured_nmea_socket",
       "method": "path:core/frontend/src/components/nmea-injector/NMEASocketCard.vue",
       "module": "nmea_injector",
       "present_in_tags": [
@@ -65090,7 +65090,7 @@
       "first_tag": "1.5.0-beta.38",
       "intro_commit": "2d797c10c6814221789a5a3ef77e7f54292af155",
       "intro_commit_short": "2d797c10c681",
-      "journey": "RemoveCustomLogo",
+      "journey": "remove_custom_logo",
       "method": "path:core/services/customization",
       "module": "customization",
       "present_in_tags": [
@@ -65104,7 +65104,7 @@
       "first_tag": "1.5.0-beta.38",
       "intro_commit": "2d797c10c6814221789a5a3ef77e7f54292af155",
       "intro_commit_short": "2d797c10c681",
-      "journey": "RemoveCustomVehicleImage",
+      "journey": "remove_custom_vehicle_image",
       "method": "path:core/services/customization",
       "module": "customization",
       "present_in_tags": [
@@ -65118,7 +65118,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "c0cdf06cefdb1767a4f234d20b7461ec4d135273",
       "intro_commit_short": "c0cdf06cefdb",
-      "journey": "RemoveSerialBridge",
+      "journey": "remove_serial_bridge",
       "method": "S:removeBridge",
       "module": "bridget",
       "present_in_tags": [
@@ -65304,7 +65304,7 @@
       "first_tag": "1.1.0-beta.19",
       "intro_commit": "29473db71ff8b51b3e38ac1b00649cb5e6c8e03a",
       "intro_commit_short": "29473db71ff8",
-      "journey": "RenameVehicle",
+      "journey": "rename_vehicle",
       "method": "S:/vehicle_name",
       "module": "beacon",
       "present_in_tags": [
@@ -65454,7 +65454,7 @@
       "first_tag": "1.4.4-beta.16",
       "intro_commit": "ebd3a1cac363095e0cb6975d3dfa17a16c164460",
       "intro_commit_short": "ebd3a1cac363",
-      "journey": "ResetBlueosSettings",
+      "journey": "reset_blueos_settings",
       "method": "path:core/frontend/src/views/SettingsView.vue",
       "module": "commander",
       "present_in_tags": [
@@ -65483,7 +65483,7 @@
       "first_tag": "1.5.0-beta.38",
       "intro_commit": "2d797c10c6814221789a5a3ef77e7f54292af155",
       "intro_commit_short": "2d797c10c681",
-      "journey": "ResetUiThemeColor",
+      "journey": "reset_ui_theme_color",
       "method": "path:core/services/customization",
       "module": "customization",
       "present_in_tags": [
@@ -65497,7 +65497,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "d7c9eee7fbcb35e949c698b0a70f23a834136c2b",
       "intro_commit_short": "d7c9eee7fbcb",
-      "journey": "RestartAutopilot",
+      "journey": "restart_autopilot",
       "method": "S:restart_ardupilot",
       "module": "ardupilot_manager",
       "present_in_tags": [
@@ -65683,7 +65683,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "0bec1d64d9b1bb420db55c118960c3cf5e789725",
       "intro_commit_short": "0bec1d64d9b1",
-      "journey": "RestoreDefaultFirmware",
+      "journey": "restore_default_firmware",
       "method": "path:core/services/ardupilot_manager/firmware/FirmwareInstall.py",
       "module": "ardupilot_manager",
       "present_in_tags": [
@@ -65869,7 +65869,7 @@
       "first_tag": "1.1.0-beta.19",
       "intro_commit": "54b07104d1e106ff631c1ef8a976e7f500244735",
       "intro_commit_short": "54b07104d1e1",
-      "journey": "RunHostCommand",
+      "journey": "run_host_command",
       "method": "path:core/frontend/src/store/commander.ts",
       "module": "commander",
       "present_in_tags": [
@@ -66019,7 +66019,7 @@
       "first_tag": "1.4.4-beta.16",
       "intro_commit": "757ce3c2f3dd4c5702e1c8d2260bf6f31fa53ab3",
       "intro_commit_short": "757ce3c2f3dd",
-      "journey": "RunInternetSpeedTest",
+      "journey": "run_internet_speed_test",
       "method": "S:internet_best_server",
       "module": "pardal",
       "present_in_tags": [
@@ -66062,7 +66062,7 @@
       "first_tag": "1.0.0-beta.14",
       "intro_commit": "508d760392b52dc3f0a30ab0e4df1dd0b2e7bd44",
       "intro_commit_short": "508d760392b5",
-      "journey": "RunLanSpeedTest",
+      "journey": "run_lan_speed_test",
       "method": "path:core/services/pardal",
       "module": "pardal",
       "present_in_tags": [
@@ -66235,7 +66235,7 @@
       "first_tag": "1.4.4-beta.16",
       "intro_commit": "f860312f8b1396d3339cadadee6ab994ef57ecde",
       "intro_commit_short": "f860312f8b13",
-      "journey": "RunMultiSizeDiskSpeedTest",
+      "journey": "run_multi_size_disk_speed_test",
       "method": "S:disktest",
       "module": "disk_usage",
       "present_in_tags": [
@@ -66268,7 +66268,7 @@
       "first_tag": "1.4.4-beta.16",
       "intro_commit": "f860312f8b1396d3339cadadee6ab994ef57ecde",
       "intro_commit_short": "f860312f8b13",
-      "journey": "RunSingleDiskSpeedTest",
+      "journey": "run_single_disk_speed_test",
       "method": "S:disktest",
       "module": "disk_usage",
       "present_in_tags": [
@@ -66301,7 +66301,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "0efc22001a40569fe3080ebcfe071066f212bc7b",
       "intro_commit_short": "0efc22001a40",
-      "journey": "RunSitlSimulation",
+      "journey": "run_sitl_simulation",
       "method": "path:core/services/ardupilot_manager/typedefs.py",
       "module": "ardupilot_manager",
       "present_in_tags": [
@@ -66487,7 +66487,7 @@
       "first_tag": "1.1.0-beta.24",
       "intro_commit": "27862ec2d86fbbd133a75549895e3ff0bce85c06",
       "intro_commit_short": "27862ec2d86f",
-      "journey": "SetNetworkInterfacePriority",
+      "journey": "set_network_interface_priority",
       "method": "path:core/frontend/src/components/app/NetworkInterfacePriorityMenu.vue",
       "module": "cable_guy",
       "present_in_tags": [
@@ -66632,7 +66632,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "d1c0ee626e362a93d77fbc1209122458af5daead",
       "intro_commit_short": "d1c0ee626e36",
-      "journey": "ShutdownOnboardComputer",
+      "journey": "shutdown_onboard_computer",
       "method": "path:core/services/commander",
       "module": "commander",
       "present_in_tags": [
@@ -66818,7 +66818,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "d7c9eee7fbcb35e949c698b0a70f23a834136c2b",
       "intro_commit_short": "d7c9eee7fbcb",
-      "journey": "StartAutopilot",
+      "journey": "start_autopilot",
       "method": "S:start_ardupilot",
       "module": "ardupilot_manager",
       "present_in_tags": [
@@ -67004,7 +67004,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "d7c9eee7fbcb35e949c698b0a70f23a834136c2b",
       "intro_commit_short": "d7c9eee7fbcb",
-      "journey": "StopAutopilot",
+      "journey": "stop_autopilot",
       "method": "S:kill_ardupilot",
       "module": "ardupilot_manager",
       "present_in_tags": [
@@ -67190,7 +67190,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "7c62889397a36191deb01bbffffaf68b109b477d",
       "intro_commit_short": "7c62889397a3",
-      "journey": "SwitchLocalBlueosVersion",
+      "journey": "switch_local_blueos_version",
       "method": "path:core/services/versionchooser",
       "module": "versionchooser",
       "present_in_tags": [
@@ -67376,7 +67376,7 @@
       "first_tag": "1.0.0-beta.16",
       "intro_commit": "f172ee7dd1d2c27a78f697f80facdd48d7d7df3f",
       "intro_commit_short": "f172ee7dd1d2",
-      "journey": "SyncSystemTime",
+      "journey": "sync_system_time",
       "method": "path:core/frontend/src/utils/update_time.ts",
       "module": "commander",
       "present_in_tags": [
@@ -67547,7 +67547,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "732b3ac2997bf03b95837926446486820f2a8dbe",
       "intro_commit_short": "732b3ac2997b",
-      "journey": "ToggleHotspot",
+      "journey": "toggle_hotspot",
       "method": "path:core/frontend/src/components/wifi/WifiManager.vue",
       "module": "wifi",
       "present_in_tags": [
@@ -67733,7 +67733,7 @@
       "first_tag": "1.1.0-beta5",
       "intro_commit": "5745cb8b4add5541a8bb5d95661b4bce53d168bc",
       "intro_commit_short": "5745cb8b4add",
-      "journey": "ToggleSmartHotspot",
+      "journey": "toggle_smart_hotspot",
       "method": "S:smart_hotspot",
       "module": "wifi",
       "present_in_tags": [
@@ -67896,7 +67896,7 @@
       "first_tag": "1.1.0-beta.10",
       "intro_commit": "ce9c65e18f0b3f333983bd8810b062c8fe60a6ee",
       "intro_commit_short": "ce9c65e18f0b",
-      "journey": "UninstallExtension",
+      "journey": "uninstall_extension",
       "method": "path:core/services/kraken",
       "module": "kraken",
       "present_in_tags": [
@@ -68054,7 +68054,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "7c62889397a36191deb01bbffffaf68b109b477d",
       "intro_commit_short": "7c62889397a3",
-      "journey": "UpdateBlueosVersion",
+      "journey": "update_blueos_version",
       "method": "path:core/services/versionchooser",
       "module": "versionchooser",
       "present_in_tags": [
@@ -68240,7 +68240,7 @@
       "first_tag": "1.4.4-beta.16",
       "intro_commit": "7d924e22376fe43ed5420672b849e9e8fdee7b52",
       "intro_commit_short": "7d924e22376f",
-      "journey": "UpdateBootstrapImage",
+      "journey": "update_bootstrap_image",
       "method": "path:core/services/versionchooser/api/v1/routers/bootstrap.py",
       "module": "versionchooser",
       "present_in_tags": [
@@ -68290,7 +68290,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "5330c79c6aa9b68829b14fcdfeaf2c9584d626cf",
       "intro_commit_short": "5330c79c6aa9",
-      "journey": "UpdateFirmwareOnline",
+      "journey": "update_firmware_online",
       "method": "path:core/services/ardupilot_manager/firmware/FirmwareDownload.py",
       "module": "ardupilot_manager",
       "present_in_tags": [
@@ -68476,7 +68476,7 @@
       "first_tag": "1.1.0-beta.22",
       "intro_commit": "120af6bfee7e2cedd933ef6221078d1b7d5ae084",
       "intro_commit_short": "120af6bfee7e",
-      "journey": "UpdateRaspberryEepromBootloader",
+      "journey": "update_raspberry_eeprom_bootloader",
       "method": "S:doRaspiEEPROMUpdate",
       "module": "commander",
       "present_in_tags": [
@@ -68623,7 +68623,7 @@
       "first_tag": "1.5.0-beta.38",
       "intro_commit": "2d797c10c6814221789a5a3ef77e7f54292af155",
       "intro_commit_short": "2d797c10c681",
-      "journey": "Upload3dModelOverride",
+      "journey": "upload_3d_model_override",
       "method": "path:core/services/customization",
       "module": "customization",
       "present_in_tags": [
@@ -68637,7 +68637,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "fcaffebc15b07d9c2513bc19a9a338143bacbe53",
       "intro_commit_short": "fcaffebc15b0",
-      "journey": "UploadCustomFirmware",
+      "journey": "upload_custom_firmware",
       "method": "path:core/services/ardupilot_manager/firmware/FirmwareUpload.py",
       "module": "ardupilot_manager",
       "present_in_tags": [
@@ -68823,7 +68823,7 @@
       "first_tag": "1.5.0-beta.38",
       "intro_commit": "2d797c10c6814221789a5a3ef77e7f54292af155",
       "intro_commit_short": "2d797c10c681",
-      "journey": "UploadCustomLogo",
+      "journey": "upload_custom_logo",
       "method": "path:core/services/customization",
       "module": "customization",
       "present_in_tags": [
@@ -68837,7 +68837,7 @@
       "first_tag": "1.5.0-beta.38",
       "intro_commit": "2d797c10c6814221789a5a3ef77e7f54292af155",
       "intro_commit_short": "2d797c10c681",
-      "journey": "UploadCustomVehicleImage",
+      "journey": "upload_custom_vehicle_image",
       "method": "path:core/services/customization",
       "module": "customization",
       "present_in_tags": [
@@ -68851,7 +68851,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "5330c79c6aa9b68829b14fcdfeaf2c9584d626cf",
       "intro_commit_short": "5330c79c6aa9",
-      "journey": "VehicleFirstBoot",
+      "journey": "vehicle_first_boot",
       "method": "path:core/services/ardupilot_manager/firmware",
       "module": "ardupilot_manager",
       "present_in_tags": [
@@ -69037,7 +69037,7 @@
       "first_tag": "1.1.0-beta.22",
       "intro_commit": "fab22bd4e87eb6265e05487cd0961585fb341d3d",
       "intro_commit_short": "fab22bd4e87e",
-      "journey": "VerifyInternetConnectivity",
+      "journey": "verify_internet_connectivity",
       "method": "path:core/frontend/src/components/wizard/RequireInternet.vue",
       "module": "helper",
       "present_in_tags": [
@@ -69184,7 +69184,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "de04a21a802347eaa48cb31bc335732dac309f18",
       "intro_commit_short": "de04a21a8023",
-      "journey": "ViewCameraStreams",
+      "journey": "view_camera_streams",
       "method": "path:core/frontend/src/store/video.ts",
       "module": "mavlink_camera_manager",
       "present_in_tags": [
@@ -69370,7 +69370,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "34e7a1a1d79b7927ba2a73a3946d2af537ad91b2",
       "intro_commit_short": "34e7a1a1d79b",
-      "journey": "ViewConfiguredNmeaSockets",
+      "journey": "view_configured_nmea_sockets",
       "method": "path:core/frontend/src/components/nmea-injector/NMEAInjector.vue",
       "module": "nmea_injector",
       "present_in_tags": [
@@ -69556,7 +69556,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "797c0dde39f1c6f3ef14b25a3131554be43ad9d5",
       "intro_commit_short": "797c0dde39f1",
-      "journey": "ViewConfiguredSerialBridges",
+      "journey": "view_configured_serial_bridges",
       "method": "path:core/frontend/src/store/bridget.ts",
       "module": "bridget",
       "present_in_tags": [
@@ -69742,7 +69742,7 @@
       "first_tag": "1.0.0.beta1",
       "intro_commit": "5de1feb47221db3c88d2ed669ae91de43aeefd6d",
       "intro_commit_short": "5de1feb47221",
-      "journey": "ViewDetectedSonarDevices",
+      "journey": "view_detected_sonar_devices",
       "method": "path:core/services/ping",
       "module": "ping",
       "present_in_tags": [
@@ -69928,7 +69928,7 @@
       "first_tag": "1.0.0.beta11",
       "intro_commit": "882fa2728afed5a49c898a49254ac265922870c7",
       "intro_commit_short": "882fa2728afe",
-      "journey": "ViewSystemInformation",
+      "journey": "view_system_information",
       "method": "path:core/frontend/src/views/SystemInformationView.vue",
       "module": "linux2rest",
       "present_in_tags": [

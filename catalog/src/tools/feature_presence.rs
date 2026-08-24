@@ -8,7 +8,14 @@ use regex::Regex;
 use serde::Serialize;
 use sha1::{Digest, Sha1};
 
+use crate::id::JourneyId;
 use crate::tools::shell::{repo_root, run as run_git, run_ok};
+
+pub(crate) fn overrides_lookup_key(journey_id: &str) -> &str {
+    JourneyId::from_str_id(journey_id)
+        .map(|id| id.rust_variant_name())
+        .unwrap_or(journey_id)
+}
 
 pub(crate) enum Override {
     Path(&'static str),
@@ -466,7 +473,7 @@ struct JourneyPresence {
 }
 
 #[derive(Serialize)]
-struct FeaturePresenceMap {
+struct PresenceMap {
     schema_version: u32,
     note: &'static str,
     journeys: Vec<JourneyPresence>,
@@ -557,7 +564,10 @@ fn resolve_commit(
     jid: &str,
     module: &str,
 ) -> (Option<String>, Option<String>) {
-    if let Some((_, ov)) = OVERRIDES.iter().find(|(k, _)| *k == jid) {
+    if let Some((_, ov)) = OVERRIDES
+        .iter()
+        .find(|(k, _)| *k == overrides_lookup_key(jid))
+    {
         return match ov {
             Override::Path(path) => (first_add(root, path), Some(format!("path:{path}"))),
             Override::Pickaxe(term, path) => {
@@ -575,7 +585,10 @@ fn resolve_commit(
 }
 
 fn source_path_for(jid: &str, module: &str) -> Option<&'static str> {
-    if let Some((_, ov)) = OVERRIDES.iter().find(|(k, _)| *k == jid) {
+    if let Some((_, ov)) = OVERRIDES
+        .iter()
+        .find(|(k, _)| *k == overrides_lookup_key(jid))
+    {
         return match ov {
             Override::Path(path) => Some(*path),
             Override::Pickaxe(_, path) => Some(*path),
@@ -710,13 +723,16 @@ pub fn run() -> Result<(), String> {
             .unwrap_or_default()
             .to_string();
         for caps in id_re.captures_iter(&text) {
-            let jid = caps[1].to_string();
-            let (commit, method) = resolve_commit(&root, &jid, &module);
+            let variant = caps[1].to_string();
+            let journey_id = JourneyId::from_rust_variant_name(&variant)
+                .ok_or_else(|| format!("unknown journey variant {variant}"))?;
+            let wire_id = journey_id.as_str();
+            let (commit, method) = resolve_commit(&root, &variant, &module);
             let Some(commit) = commit else {
-                return Err(format!("no commit for {jid}"));
+                return Err(format!("no commit for {variant}"));
             };
             let method = method.expect("method set alongside commit");
-            let path = source_path_for(&jid, &module);
+            let path = source_path_for(&variant, &module);
             let mut tags: Vec<String> = origin_tags
                 .iter()
                 .filter(|(_, sha)| {
@@ -733,7 +749,7 @@ pub fn run() -> Result<(), String> {
             let present_on_1_4_dev = commit_in_ref(&root, &commit, &dev_14_tip)
                 || path.is_some_and(|p| path_exists_on(&root, &dev_14_tip, p));
             journeys.push(JourneyPresence {
-                journey: jid,
+                journey: wire_id.to_string(),
                 module: module.clone(),
                 intro_commit: commit.clone(),
                 intro_commit_short: commit.chars().take(12).collect(),
@@ -797,7 +813,7 @@ pub fn run() -> Result<(), String> {
 
     journeys.sort_by(|a, b| a.journey.cmp(&b.journey));
 
-    let map = FeaturePresenceMap {
+    let map = PresenceMap {
         schema_version: 1,
         note: "git tag --contains intro_commit; channel tips via merge-base --is-ancestor",
         journeys,
@@ -827,7 +843,7 @@ pub fn run() -> Result<(), String> {
         "//!   or still has the tracked path (backports / cherry-picks).".to_string(),
         "//! - `present_on_master` / `present_on_1_4_dev`: floating channel tips".to_string(),
         String::new(),
-        "use crate::version::FeatureAvailability;".to_string(),
+        "use crate::version::Availability;".to_string(),
         String::new(),
         format!(
             "// {} shared tag-list constants, {} journeys",
@@ -858,7 +874,7 @@ pub fn run() -> Result<(), String> {
             journey.present_on_1_4_dev
         ));
         lines.push(format!(
-            "pub const {}: FeatureAvailability = FeatureAvailability {{",
+            "pub const {}: Availability = Availability {{",
             journey.const_name
         ));
         lines.push(format!("    intro_commit: \"{}\",", journey.intro_commit));
@@ -876,7 +892,7 @@ pub fn run() -> Result<(), String> {
     }
 
     lines.push("/// All journey presence records (for version→feature maps).".to_string());
-    lines.push("pub const ALL_JOURNEY_PRESENCE: &[(&str, FeatureAvailability)] = &[".to_string());
+    lines.push("pub const ALL_JOURNEY_PRESENCE: &[(&str, Availability)] = &[".to_string());
     for journey in &journeys {
         lines.push(format!(
             "    (\"{}\", {}),",
