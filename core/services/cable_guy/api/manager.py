@@ -658,13 +658,14 @@ class EthernetManager:
             interface_index = self._get_interface_index(interface_name)
             gateway = self.__class__._normalize_gateway(route.destination_parsed, route.next_hop_parsed)
 
-            self.ipr.route(
-                action,
-                oif=interface_index,
-                dst=str(route.destination_parsed),
-                gateway=str(gateway) if gateway else None,
-                metrics={"metric": route.priority} if route.priority else None,
-            )
+            route_kwargs: dict[str, Any] = {
+                "oif": interface_index,
+                "dst": str(route.destination_parsed),
+                "gateway": str(gateway) if gateway else None,
+            }
+            if action == "add" and route.priority is not None:
+                route_kwargs["priority"] = route.priority
+            self.ipr.route(action, **route_kwargs)
 
             act = "Removed" if action == "del" else "Added" if action == "add" else action
             logger.info(f"{act} route to {route.destination_parsed} via {gateway} on {interface_name}")
@@ -713,6 +714,8 @@ class EthernetManager:
             for saved_route in saved_routes:
                 if saved_route == route:
                     route.managed = saved_route.managed
+                    if route.priority is None and saved_route.priority is not None:
+                        route.priority = saved_route.priority
 
             if ignore_unmanaged and not route.managed:
                 continue
