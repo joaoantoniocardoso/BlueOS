@@ -1511,7 +1511,8 @@ pub fn dut_profile_for_host(host: &str) -> DutProfile {
     DutProfile {
         sacrificial: PLAY_SACRIFICIAL_HOSTS
             .iter()
-            .any(|play| host.contains(play)),
+            .any(|play| host.contains(play))
+            || std::env::var("BLUEOS_DUT_SACRIFICIAL").ok().as_deref() == Some("1"),
         never_strand_mgmt: NEVER_STRAND_MGMT_HOSTS
             .iter()
             .any(|mgmt| host.contains(mgmt)),

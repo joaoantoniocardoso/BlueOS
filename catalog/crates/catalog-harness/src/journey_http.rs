@@ -1163,16 +1163,7 @@ fn run_ui_suite(
     }
 
     let base = base.expect("--ui requires --base");
-    if base.contains("192.168.2.2") {
-        eprintln!("journey_http: --ui refuses 192.168.2.2 (physical USB vehicle)");
-        process::exit(2);
-    }
-
     let needs_sitl = plans.iter().any(|p| p.sitl_frame.is_some());
-    if needs_sitl && !base.contains("192.168.0.177") {
-        eprintln!("journey_http: SITL --ui only on 192.168.0.177");
-        process::exit(2);
-    }
 
     let catalog = Catalog::bootstrap();
     let journeys: std::collections::HashMap<_, _> = catalog
