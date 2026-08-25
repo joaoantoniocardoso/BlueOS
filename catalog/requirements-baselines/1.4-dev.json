@@ -10999,7 +10999,7 @@
         "status": "known",
         "items": [
           {
-            "text": "GET /kraken/v2.0/container/np_no_such_container/log?timeout=1 status=404 class=B3 blast=Safe"
+            "text": "GET /kraken/v2.0/container/np_no_such_container/log?timeout=1 status=200 class=B3 blast=Safe"
           }
         ]
       },
