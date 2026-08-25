@@ -23,6 +23,8 @@ pub enum CapabilityId {
     ApplyParameterSet,
     #[serde(rename = "assign_static_ip")]
     AssignStaticIp,
+    #[serde(rename = "block_video_source")]
+    BlockVideoSource,
     #[serde(rename = "browse_extension_store")]
     BrowseExtensionStore,
     #[serde(rename = "browse_video_recordings")]
@@ -39,6 +41,8 @@ pub enum CapabilityId {
     CalibrateGyroscope,
     #[serde(rename = "check_internet_connectivity")]
     CheckInternetConnectivity,
+    #[serde(rename = "configure_battery_monitor")]
+    ConfigureBatteryMonitor,
     #[serde(rename = "configure_camera_stream")]
     ConfigureCameraStream,
     #[serde(rename = "configure_extension")]
@@ -53,6 +57,8 @@ pub enum CapabilityId {
     ConfigureStreamEndpoints,
     #[serde(rename = "configure_uvc_device_controls")]
     ConfigureUvcDeviceControls,
+    #[serde(rename = "configure_vehicle_body")]
+    ConfigureVehicleBody,
     #[serde(rename = "connect_ping_viewer_to_sonar")]
     ConnectPingViewerToSonar,
     #[serde(rename = "connect_wifi_network")]
@@ -129,6 +135,8 @@ pub enum CapabilityId {
     GetWifiStatus,
     #[serde(rename = "inspect_disk_usage")]
     InspectDiskUsage,
+    #[serde(rename = "inspect_gst_pipeline_dot")]
+    InspectGstPipelineDot,
     #[serde(rename = "inspect_live_mavlink_messages")]
     InspectLiveMavlinkMessages,
     #[serde(rename = "inspect_raspberry_eeprom")]
@@ -167,6 +175,8 @@ pub enum CapabilityId {
     ManageBlueosFiles,
     #[serde(rename = "manage_extension_lifecycle")]
     ManageExtensionLifecycle,
+    #[serde(rename = "manage_interface_routes")]
+    ManageInterfaceRoutes,
     #[serde(rename = "manage_manifests")]
     ManageManifests,
     #[serde(rename = "manage_mavlink_endpoints")]
@@ -191,10 +201,14 @@ pub enum CapabilityId {
     ProvideSystemInformationOverRest,
     #[serde(rename = "provide_webrtc_signalling")]
     ProvideWebrtcSignalling,
+    #[serde(rename = "publish_zenoh_video")]
+    PublishZenohVideo,
     #[serde(rename = "pull_blueos_version")]
     PullBlueosVersion,
     #[serde(rename = "query_vehicle_firmware_info")]
     QueryVehicleFirmwareInfo,
+    #[serde(rename = "read_camera_mavlink_ids")]
+    ReadCameraMavlinkIds,
     #[serde(rename = "reboot_onboard_computer")]
     RebootOnboardComputer,
     #[serde(rename = "record_vehicle_data_stream")]
@@ -267,6 +281,8 @@ pub enum CapabilityId {
     SetVehicleName,
     #[serde(rename = "setup_ssh")]
     SetupSsh,
+    #[serde(rename = "support_navigator_pi5")]
+    SupportNavigatorPi5,
     #[serde(rename = "shutdown_onboard_computer")]
     ShutdownOnboardComputer,
     #[serde(rename = "switch_blueos_version")]
@@ -291,6 +307,8 @@ pub enum CapabilityId {
     UploadBrandingVehicleImage,
     #[serde(rename = "upload_model_override")]
     UploadModelOverride,
+    #[serde(rename = "use_external_video_recorder")]
+    UseExternalVideoRecorder,
     #[serde(rename = "view_camera_streams")]
     ViewCameraStreams,
     #[serde(rename = "view_system_information")]
@@ -298,7 +316,7 @@ pub enum CapabilityId {
 }
 
 impl CapabilityId {
-    pub const ALL: [CapabilityId; 144] = [
+    pub const ALL: [CapabilityId; 153] = [
         CapabilityId::AccessBlueosWebInterface,
         CapabilityId::AccessMavlinkOverRest,
         CapabilityId::AccessWebTerminal,
@@ -307,6 +325,7 @@ impl CapabilityId {
         CapabilityId::AdvertiseMdnsDomains,
         CapabilityId::ApplyParameterSet,
         CapabilityId::AssignStaticIp,
+        CapabilityId::BlockVideoSource,
         CapabilityId::BrowseExtensionStore,
         CapabilityId::BrowseVideoRecordings,
         CapabilityId::CacheExternalHttp,
@@ -315,6 +334,7 @@ impl CapabilityId {
         CapabilityId::CalibrateCompass,
         CapabilityId::CalibrateGyroscope,
         CapabilityId::CheckInternetConnectivity,
+        CapabilityId::ConfigureBatteryMonitor,
         CapabilityId::ConfigureCameraStream,
         CapabilityId::ConfigureExtension,
         CapabilityId::ConfigureHostDns,
@@ -322,6 +342,7 @@ impl CapabilityId {
         CapabilityId::ConfigureSitlFrame,
         CapabilityId::ConfigureStreamEndpoints,
         CapabilityId::ConfigureUvcDeviceControls,
+        CapabilityId::ConfigureVehicleBody,
         CapabilityId::ConnectPingViewerToSonar,
         CapabilityId::ConnectWifiNetwork,
         CapabilityId::CreateNmeaSocket,
@@ -360,6 +381,7 @@ impl CapabilityId {
         CapabilityId::GetVehicleName,
         CapabilityId::GetWifiStatus,
         CapabilityId::InspectDiskUsage,
+        CapabilityId::InspectGstPipelineDot,
         CapabilityId::InspectLiveMavlinkMessages,
         CapabilityId::InspectRaspberryEeprom,
         CapabilityId::InspectZenohNetwork,
@@ -379,6 +401,7 @@ impl CapabilityId {
         CapabilityId::ManageAutopilotLifecycle,
         CapabilityId::ManageBlueosFiles,
         CapabilityId::ManageExtensionLifecycle,
+        CapabilityId::ManageInterfaceRoutes,
         CapabilityId::ManageManifests,
         CapabilityId::ManageMavlinkEndpoints,
         CapabilityId::ManageMavlinkRouter,
@@ -391,8 +414,10 @@ impl CapabilityId {
         CapabilityId::ProvideShellOverWebsocket,
         CapabilityId::ProvideSystemInformationOverRest,
         CapabilityId::ProvideWebrtcSignalling,
+        CapabilityId::PublishZenohVideo,
         CapabilityId::PullBlueosVersion,
         CapabilityId::QueryVehicleFirmwareInfo,
+        CapabilityId::ReadCameraMavlinkIds,
         CapabilityId::RebootOnboardComputer,
         CapabilityId::RecordVehicleDataStream,
         CapabilityId::RegisterWebService,
@@ -429,6 +454,7 @@ impl CapabilityId {
         CapabilityId::SetThemeColor,
         CapabilityId::SetVehicleName,
         CapabilityId::SetupSsh,
+        CapabilityId::SupportNavigatorPi5,
         CapabilityId::ShutdownOnboardComputer,
         CapabilityId::SwitchBlueosVersion,
         CapabilityId::SyncSystemTime,
@@ -441,6 +467,7 @@ impl CapabilityId {
         CapabilityId::UploadBrandingLogo,
         CapabilityId::UploadBrandingVehicleImage,
         CapabilityId::UploadModelOverride,
+        CapabilityId::UseExternalVideoRecorder,
         CapabilityId::ViewCameraStreams,
         CapabilityId::ViewSystemInformation,
     ];
@@ -455,6 +482,7 @@ impl CapabilityId {
             CapabilityId::AdvertiseMdnsDomains => "advertise_mdns_domains",
             CapabilityId::ApplyParameterSet => "apply_parameter_set",
             CapabilityId::AssignStaticIp => "assign_static_ip",
+            CapabilityId::BlockVideoSource => "block_video_source",
             CapabilityId::BrowseExtensionStore => "browse_extension_store",
             CapabilityId::BrowseVideoRecordings => "browse_video_recordings",
             CapabilityId::CacheExternalHttp => "cache_external_http",
@@ -463,6 +491,7 @@ impl CapabilityId {
             CapabilityId::CalibrateCompass => "calibrate_compass",
             CapabilityId::CalibrateGyroscope => "calibrate_gyroscope",
             CapabilityId::CheckInternetConnectivity => "check_internet_connectivity",
+            CapabilityId::ConfigureBatteryMonitor => "configure_battery_monitor",
             CapabilityId::ConfigureCameraStream => "configure_camera_stream",
             CapabilityId::ConfigureExtension => "configure_extension",
             CapabilityId::ConfigureHostDns => "configure_host_dns",
@@ -470,6 +499,7 @@ impl CapabilityId {
             CapabilityId::ConfigureSitlFrame => "configure_sitl_frame",
             CapabilityId::ConfigureStreamEndpoints => "configure_stream_endpoints",
             CapabilityId::ConfigureUvcDeviceControls => "configure_uvc_device_controls",
+            CapabilityId::ConfigureVehicleBody => "configure_vehicle_body",
             CapabilityId::ConnectPingViewerToSonar => "connect_ping_viewer_to_sonar",
             CapabilityId::ConnectWifiNetwork => "connect_wifi_network",
             CapabilityId::CreateNmeaSocket => "create_nmea_socket",
@@ -508,6 +538,7 @@ impl CapabilityId {
             CapabilityId::GetVehicleName => "get_vehicle_name",
             CapabilityId::GetWifiStatus => "get_wifi_status",
             CapabilityId::InspectDiskUsage => "inspect_disk_usage",
+            CapabilityId::InspectGstPipelineDot => "inspect_gst_pipeline_dot",
             CapabilityId::InspectLiveMavlinkMessages => "inspect_live_mavlink_messages",
             CapabilityId::InspectRaspberryEeprom => "inspect_raspberry_eeprom",
             CapabilityId::InspectZenohNetwork => "inspect_zenoh_network",
@@ -527,6 +558,7 @@ impl CapabilityId {
             CapabilityId::ManageAutopilotLifecycle => "manage_autopilot_lifecycle",
             CapabilityId::ManageBlueosFiles => "manage_blueos_files",
             CapabilityId::ManageExtensionLifecycle => "manage_extension_lifecycle",
+            CapabilityId::ManageInterfaceRoutes => "manage_interface_routes",
             CapabilityId::ManageManifests => "manage_manifests",
             CapabilityId::ManageMavlinkEndpoints => "manage_mavlink_endpoints",
             CapabilityId::ManageMavlinkRouter => "manage_mavlink_router",
@@ -541,8 +573,10 @@ impl CapabilityId {
                 "provide_system_information_over_rest"
             }
             CapabilityId::ProvideWebrtcSignalling => "provide_webrtc_signalling",
+            CapabilityId::PublishZenohVideo => "publish_zenoh_video",
             CapabilityId::PullBlueosVersion => "pull_blueos_version",
             CapabilityId::QueryVehicleFirmwareInfo => "query_vehicle_firmware_info",
+            CapabilityId::ReadCameraMavlinkIds => "read_camera_mavlink_ids",
             CapabilityId::RebootOnboardComputer => "reboot_onboard_computer",
             CapabilityId::RecordVehicleDataStream => "record_vehicle_data_stream",
             CapabilityId::RegisterWebService => "register_web_service",
@@ -579,6 +613,7 @@ impl CapabilityId {
             CapabilityId::SetThemeColor => "set_theme_color",
             CapabilityId::SetVehicleName => "set_vehicle_name",
             CapabilityId::SetupSsh => "setup_ssh",
+            CapabilityId::SupportNavigatorPi5 => "support_navigator_pi5",
             CapabilityId::ShutdownOnboardComputer => "shutdown_onboard_computer",
             CapabilityId::SwitchBlueosVersion => "switch_blueos_version",
             CapabilityId::SyncSystemTime => "sync_system_time",
@@ -591,6 +626,7 @@ impl CapabilityId {
             CapabilityId::UploadBrandingLogo => "upload_branding_logo",
             CapabilityId::UploadBrandingVehicleImage => "upload_branding_vehicle_image",
             CapabilityId::UploadModelOverride => "upload_model_override",
+            CapabilityId::UseExternalVideoRecorder => "use_external_video_recorder",
             CapabilityId::ViewCameraStreams => "view_camera_streams",
             CapabilityId::ViewSystemInformation => "view_system_information",
         }

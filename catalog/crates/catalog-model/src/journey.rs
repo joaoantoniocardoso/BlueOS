@@ -139,6 +139,7 @@ pub enum HardwareAssumption {
     Ping360,
     ExternalNmeaGps,
     UsbSerialDevice,
+    RaspberryPi5,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, JsonSchema)]
@@ -225,6 +226,7 @@ impl HardwareAssumption {
             Self::Ping360 => "Ping360".to_string(),
             Self::ExternalNmeaGps => "ExternalNmeaGps".to_string(),
             Self::UsbSerialDevice => "UsbSerialDevice".to_string(),
+            Self::RaspberryPi5 => "RaspberryPi5".to_string(),
         }
     }
 }

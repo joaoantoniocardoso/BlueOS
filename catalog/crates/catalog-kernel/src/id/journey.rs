@@ -23,6 +23,8 @@ pub enum JourneyId {
     AssignStaticIpAddress,
     #[serde(rename = "autoconnect_to_saved_wifi_network")]
     AutoconnectToSavedWifiNetwork,
+    #[serde(rename = "block_video_source")]
+    BlockVideoSource,
     #[serde(rename = "browse_available_web_services")]
     BrowseAvailableWebServices,
     #[serde(rename = "browse_extension_store")]
@@ -43,6 +45,8 @@ pub enum JourneyId {
     ChangeMdnsHostname,
     #[serde(rename = "change_ui_theme_color")]
     ChangeUiThemeColor,
+    #[serde(rename = "configure_battery_monitor")]
+    ConfigureBatteryMonitor,
     #[serde(rename = "configure_camera_stream")]
     ConfigureCameraStream,
     #[serde(rename = "configure_host_dns")]
@@ -53,6 +57,8 @@ pub enum JourneyId {
     ConfigureInstalledExtension,
     #[serde(rename = "configure_uvc_device_controls")]
     ConfigureUvcDeviceControls,
+    #[serde(rename = "configure_vehicle_body")]
+    ConfigureVehicleBody,
     #[serde(rename = "configure_video_stream")]
     ConfigureVideoStream,
     #[serde(rename = "connect_ping_viewer_to_sonar")]
@@ -101,6 +107,8 @@ pub enum JourneyId {
     FreeDiskSpace,
     #[serde(rename = "inspect_disk_usage")]
     InspectDiskUsage,
+    #[serde(rename = "inspect_gst_pipeline_dot")]
+    InspectGstPipelineDot,
     #[serde(rename = "inspect_mavlink_messages_in_browser")]
     InspectMavlinkMessagesInBrowser,
     #[serde(rename = "inspect_raspberry_eeprom_bootloader")]
@@ -115,14 +123,20 @@ pub enum JourneyId {
     LevelHorizon,
     #[serde(rename = "manage_blueos_files")]
     ManageBlueosFiles,
+    #[serde(rename = "manage_interface_routes")]
+    ManageInterfaceRoutes,
     #[serde(rename = "modify_bag_database")]
     ModifyBagDatabase,
     #[serde(rename = "monitor_internet_connectivity")]
     MonitorInternetConnectivity,
     #[serde(rename = "probe_interface_internet_connectivity")]
     ProbeInterfaceInternetConnectivity,
+    #[serde(rename = "publish_zenoh_video")]
+    PublishZenohVideo,
     #[serde(rename = "pull_blueos_version_without_switch")]
     PullBlueosVersionWithoutSwitch,
+    #[serde(rename = "read_camera_mavlink_ids")]
+    ReadCameraMavlinkIds,
     #[serde(rename = "reboot_onboard_computer")]
     RebootOnboardComputer,
     #[serde(rename = "reconnect_to_saved_wifi_network")]
@@ -169,6 +183,8 @@ pub enum JourneyId {
     StartAutopilot,
     #[serde(rename = "stop_autopilot")]
     StopAutopilot,
+    #[serde(rename = "support_navigator_pi5")]
+    SupportNavigatorPi5,
     #[serde(rename = "switch_local_blueos_version")]
     SwitchLocalBlueosVersion,
     #[serde(rename = "sync_system_time")]
@@ -195,6 +211,8 @@ pub enum JourneyId {
     UploadCustomLogo,
     #[serde(rename = "upload_custom_vehicle_image")]
     UploadCustomVehicleImage,
+    #[serde(rename = "use_external_video_recorder")]
+    UseExternalVideoRecorder,
     #[serde(rename = "vehicle_first_boot")]
     VehicleFirstBoot,
     #[serde(rename = "verify_internet_connectivity")]
@@ -212,7 +230,7 @@ pub enum JourneyId {
 }
 
 impl JourneyId {
-    pub const ALL: [JourneyId; 101] = [
+    pub const ALL: [JourneyId; 110] = [
         JourneyId::AccessBlueosWebInterface,
         JourneyId::AccessWebTerminal,
         JourneyId::AcquireDynamicIpAddress,
@@ -221,6 +239,7 @@ impl JourneyId {
         JourneyId::ApplyParameterFile,
         JourneyId::AssignStaticIpAddress,
         JourneyId::AutoconnectToSavedWifiNetwork,
+        JourneyId::BlockVideoSource,
         JourneyId::BrowseAvailableWebServices,
         JourneyId::BrowseExtensionStore,
         JourneyId::BrowseVideoRecordings,
@@ -231,11 +250,13 @@ impl JourneyId {
         JourneyId::ChangeBoard,
         JourneyId::ChangeMdnsHostname,
         JourneyId::ChangeUiThemeColor,
+        JourneyId::ConfigureBatteryMonitor,
         JourneyId::ConfigureCameraStream,
         JourneyId::ConfigureHostDns,
         JourneyId::ConfigureHotspotCredentials,
         JourneyId::ConfigureInstalledExtension,
         JourneyId::ConfigureUvcDeviceControls,
+        JourneyId::ConfigureVehicleBody,
         JourneyId::ConfigureVideoStream,
         JourneyId::ConnectPingViewerToSonar,
         JourneyId::ConnectToWifiNetwork,
@@ -260,6 +281,7 @@ impl JourneyId {
         JourneyId::ForceWifiNetworkPassword,
         JourneyId::FreeDiskSpace,
         JourneyId::InspectDiskUsage,
+        JourneyId::InspectGstPipelineDot,
         JourneyId::InspectMavlinkMessagesInBrowser,
         JourneyId::InspectRaspberryEepromBootloader,
         JourneyId::InspectZenohNetwork,
@@ -267,10 +289,13 @@ impl JourneyId {
         JourneyId::InstallExtension,
         JourneyId::LevelHorizon,
         JourneyId::ManageBlueosFiles,
+        JourneyId::ManageInterfaceRoutes,
         JourneyId::ModifyBagDatabase,
         JourneyId::MonitorInternetConnectivity,
         JourneyId::ProbeInterfaceInternetConnectivity,
+        JourneyId::PublishZenohVideo,
         JourneyId::PullBlueosVersionWithoutSwitch,
+        JourneyId::ReadCameraMavlinkIds,
         JourneyId::RebootOnboardComputer,
         JourneyId::ReconnectToSavedWifiNetwork,
         JourneyId::RejectInvalidWifiCredentials,
@@ -294,6 +319,7 @@ impl JourneyId {
         JourneyId::ShutdownOnboardComputer,
         JourneyId::StartAutopilot,
         JourneyId::StopAutopilot,
+        JourneyId::SupportNavigatorPi5,
         JourneyId::SwitchLocalBlueosVersion,
         JourneyId::SyncSystemTime,
         JourneyId::ToggleHotspot,
@@ -307,6 +333,7 @@ impl JourneyId {
         JourneyId::UploadCustomFirmware,
         JourneyId::UploadCustomLogo,
         JourneyId::UploadCustomVehicleImage,
+        JourneyId::UseExternalVideoRecorder,
         JourneyId::VehicleFirstBoot,
         JourneyId::VerifyInternetConnectivity,
         JourneyId::ViewCameraStreams,
@@ -326,6 +353,7 @@ impl JourneyId {
             JourneyId::ApplyParameterFile => "apply_parameter_file",
             JourneyId::AssignStaticIpAddress => "assign_static_ip_address",
             JourneyId::AutoconnectToSavedWifiNetwork => "autoconnect_to_saved_wifi_network",
+            JourneyId::BlockVideoSource => "block_video_source",
             JourneyId::BrowseAvailableWebServices => "browse_available_web_services",
             JourneyId::BrowseExtensionStore => "browse_extension_store",
             JourneyId::BrowseVideoRecordings => "browse_video_recordings",
@@ -336,11 +364,13 @@ impl JourneyId {
             JourneyId::ChangeBoard => "change_board",
             JourneyId::ChangeMdnsHostname => "change_mdns_hostname",
             JourneyId::ChangeUiThemeColor => "change_ui_theme_color",
+            JourneyId::ConfigureBatteryMonitor => "configure_battery_monitor",
             JourneyId::ConfigureCameraStream => "configure_camera_stream",
             JourneyId::ConfigureHostDns => "configure_host_dns",
             JourneyId::ConfigureHotspotCredentials => "configure_hotspot_credentials",
             JourneyId::ConfigureInstalledExtension => "configure_installed_extension",
             JourneyId::ConfigureUvcDeviceControls => "configure_uvc_device_controls",
+            JourneyId::ConfigureVehicleBody => "configure_vehicle_body",
             JourneyId::ConfigureVideoStream => "configure_video_stream",
             JourneyId::ConnectPingViewerToSonar => "connect_ping_viewer_to_sonar",
             JourneyId::ConnectToWifiNetwork => "connect_to_wifi_network",
@@ -365,6 +395,7 @@ impl JourneyId {
             JourneyId::ForceWifiNetworkPassword => "force_wifi_network_password",
             JourneyId::FreeDiskSpace => "free_disk_space",
             JourneyId::InspectDiskUsage => "inspect_disk_usage",
+            JourneyId::InspectGstPipelineDot => "inspect_gst_pipeline_dot",
             JourneyId::InspectMavlinkMessagesInBrowser => "inspect_mavlink_messages_in_browser",
             JourneyId::InspectRaspberryEepromBootloader => "inspect_raspberry_eeprom_bootloader",
             JourneyId::InspectZenohNetwork => "inspect_zenoh_network",
@@ -372,12 +403,15 @@ impl JourneyId {
             JourneyId::InstallExtension => "install_extension",
             JourneyId::LevelHorizon => "level_horizon",
             JourneyId::ManageBlueosFiles => "manage_blueos_files",
+            JourneyId::ManageInterfaceRoutes => "manage_interface_routes",
             JourneyId::ModifyBagDatabase => "modify_bag_database",
             JourneyId::MonitorInternetConnectivity => "monitor_internet_connectivity",
             JourneyId::ProbeInterfaceInternetConnectivity => {
                 "probe_interface_internet_connectivity"
             }
+            JourneyId::PublishZenohVideo => "publish_zenoh_video",
             JourneyId::PullBlueosVersionWithoutSwitch => "pull_blueos_version_without_switch",
+            JourneyId::ReadCameraMavlinkIds => "read_camera_mavlink_ids",
             JourneyId::RebootOnboardComputer => "reboot_onboard_computer",
             JourneyId::ReconnectToSavedWifiNetwork => "reconnect_to_saved_wifi_network",
             JourneyId::RejectInvalidWifiCredentials => "reject_invalid_wifi_credentials",
@@ -401,6 +435,7 @@ impl JourneyId {
             JourneyId::ShutdownOnboardComputer => "shutdown_onboard_computer",
             JourneyId::StartAutopilot => "start_autopilot",
             JourneyId::StopAutopilot => "stop_autopilot",
+            JourneyId::SupportNavigatorPi5 => "support_navigator_pi5",
             JourneyId::SwitchLocalBlueosVersion => "switch_local_blueos_version",
             JourneyId::SyncSystemTime => "sync_system_time",
             JourneyId::ToggleHotspot => "toggle_hotspot",
@@ -414,6 +449,7 @@ impl JourneyId {
             JourneyId::UploadCustomFirmware => "upload_custom_firmware",
             JourneyId::UploadCustomLogo => "upload_custom_logo",
             JourneyId::UploadCustomVehicleImage => "upload_custom_vehicle_image",
+            JourneyId::UseExternalVideoRecorder => "use_external_video_recorder",
             JourneyId::VehicleFirstBoot => "vehicle_first_boot",
             JourneyId::VerifyInternetConnectivity => "verify_internet_connectivity",
             JourneyId::ViewCameraStreams => "view_camera_streams",
@@ -438,6 +474,7 @@ impl JourneyId {
             JourneyId::ApplyParameterFile => "ApplyParameterFile",
             JourneyId::AssignStaticIpAddress => "AssignStaticIpAddress",
             JourneyId::AutoconnectToSavedWifiNetwork => "AutoconnectToSavedWifiNetwork",
+            JourneyId::BlockVideoSource => "BlockVideoSource",
             JourneyId::BrowseAvailableWebServices => "BrowseAvailableWebServices",
             JourneyId::BrowseExtensionStore => "BrowseExtensionStore",
             JourneyId::BrowseVideoRecordings => "BrowseVideoRecordings",
@@ -448,11 +485,13 @@ impl JourneyId {
             JourneyId::ChangeBoard => "ChangeBoard",
             JourneyId::ChangeMdnsHostname => "ChangeMdnsHostname",
             JourneyId::ChangeUiThemeColor => "ChangeUiThemeColor",
+            JourneyId::ConfigureBatteryMonitor => "ConfigureBatteryMonitor",
             JourneyId::ConfigureCameraStream => "ConfigureCameraStream",
             JourneyId::ConfigureHostDns => "ConfigureHostDns",
             JourneyId::ConfigureHotspotCredentials => "ConfigureHotspotCredentials",
             JourneyId::ConfigureInstalledExtension => "ConfigureInstalledExtension",
             JourneyId::ConfigureUvcDeviceControls => "ConfigureUvcDeviceControls",
+            JourneyId::ConfigureVehicleBody => "ConfigureVehicleBody",
             JourneyId::ConfigureVideoStream => "ConfigureVideoStream",
             JourneyId::ConnectPingViewerToSonar => "ConnectPingViewerToSonar",
             JourneyId::ConnectToWifiNetwork => "ConnectToWifiNetwork",
@@ -477,6 +516,7 @@ impl JourneyId {
             JourneyId::ForceWifiNetworkPassword => "ForceWifiNetworkPassword",
             JourneyId::FreeDiskSpace => "FreeDiskSpace",
             JourneyId::InspectDiskUsage => "InspectDiskUsage",
+            JourneyId::InspectGstPipelineDot => "InspectGstPipelineDot",
             JourneyId::InspectMavlinkMessagesInBrowser => "InspectMavlinkMessagesInBrowser",
             JourneyId::InspectRaspberryEepromBootloader => "InspectRaspberryEepromBootloader",
             JourneyId::InspectZenohNetwork => "InspectZenohNetwork",
@@ -484,10 +524,13 @@ impl JourneyId {
             JourneyId::InstallExtension => "InstallExtension",
             JourneyId::LevelHorizon => "LevelHorizon",
             JourneyId::ManageBlueosFiles => "ManageBlueosFiles",
+            JourneyId::ManageInterfaceRoutes => "ManageInterfaceRoutes",
             JourneyId::ModifyBagDatabase => "ModifyBagDatabase",
             JourneyId::MonitorInternetConnectivity => "MonitorInternetConnectivity",
             JourneyId::ProbeInterfaceInternetConnectivity => "ProbeInterfaceInternetConnectivity",
+            JourneyId::PublishZenohVideo => "PublishZenohVideo",
             JourneyId::PullBlueosVersionWithoutSwitch => "PullBlueosVersionWithoutSwitch",
+            JourneyId::ReadCameraMavlinkIds => "ReadCameraMavlinkIds",
             JourneyId::RebootOnboardComputer => "RebootOnboardComputer",
             JourneyId::ReconnectToSavedWifiNetwork => "ReconnectToSavedWifiNetwork",
             JourneyId::RejectInvalidWifiCredentials => "RejectInvalidWifiCredentials",
@@ -511,6 +554,7 @@ impl JourneyId {
             JourneyId::ShutdownOnboardComputer => "ShutdownOnboardComputer",
             JourneyId::StartAutopilot => "StartAutopilot",
             JourneyId::StopAutopilot => "StopAutopilot",
+            JourneyId::SupportNavigatorPi5 => "SupportNavigatorPi5",
             JourneyId::SwitchLocalBlueosVersion => "SwitchLocalBlueosVersion",
             JourneyId::SyncSystemTime => "SyncSystemTime",
             JourneyId::ToggleHotspot => "ToggleHotspot",
@@ -524,6 +568,7 @@ impl JourneyId {
             JourneyId::UploadCustomFirmware => "UploadCustomFirmware",
             JourneyId::UploadCustomLogo => "UploadCustomLogo",
             JourneyId::UploadCustomVehicleImage => "UploadCustomVehicleImage",
+            JourneyId::UseExternalVideoRecorder => "UseExternalVideoRecorder",
             JourneyId::VehicleFirstBoot => "VehicleFirstBoot",
             JourneyId::VerifyInternetConnectivity => "VerifyInternetConnectivity",
             JourneyId::ViewCameraStreams => "ViewCameraStreams",
@@ -543,6 +588,7 @@ impl JourneyId {
             "ApplyParameterFile" => Some(JourneyId::ApplyParameterFile),
             "AssignStaticIpAddress" => Some(JourneyId::AssignStaticIpAddress),
             "AutoconnectToSavedWifiNetwork" => Some(JourneyId::AutoconnectToSavedWifiNetwork),
+            "BlockVideoSource" => Some(JourneyId::BlockVideoSource),
             "BrowseAvailableWebServices" => Some(JourneyId::BrowseAvailableWebServices),
             "BrowseExtensionStore" => Some(JourneyId::BrowseExtensionStore),
             "BrowseVideoRecordings" => Some(JourneyId::BrowseVideoRecordings),
@@ -553,11 +599,13 @@ impl JourneyId {
             "ChangeBoard" => Some(JourneyId::ChangeBoard),
             "ChangeMdnsHostname" => Some(JourneyId::ChangeMdnsHostname),
             "ChangeUiThemeColor" => Some(JourneyId::ChangeUiThemeColor),
+            "ConfigureBatteryMonitor" => Some(JourneyId::ConfigureBatteryMonitor),
             "ConfigureCameraStream" => Some(JourneyId::ConfigureCameraStream),
             "ConfigureHostDns" => Some(JourneyId::ConfigureHostDns),
             "ConfigureHotspotCredentials" => Some(JourneyId::ConfigureHotspotCredentials),
             "ConfigureInstalledExtension" => Some(JourneyId::ConfigureInstalledExtension),
             "ConfigureUvcDeviceControls" => Some(JourneyId::ConfigureUvcDeviceControls),
+            "ConfigureVehicleBody" => Some(JourneyId::ConfigureVehicleBody),
             "ConfigureVideoStream" => Some(JourneyId::ConfigureVideoStream),
             "ConnectPingViewerToSonar" => Some(JourneyId::ConnectPingViewerToSonar),
             "ConnectToWifiNetwork" => Some(JourneyId::ConnectToWifiNetwork),
@@ -582,6 +630,7 @@ impl JourneyId {
             "ForceWifiNetworkPassword" => Some(JourneyId::ForceWifiNetworkPassword),
             "FreeDiskSpace" => Some(JourneyId::FreeDiskSpace),
             "InspectDiskUsage" => Some(JourneyId::InspectDiskUsage),
+            "InspectGstPipelineDot" => Some(JourneyId::InspectGstPipelineDot),
             "InspectMavlinkMessagesInBrowser" => Some(JourneyId::InspectMavlinkMessagesInBrowser),
             "InspectRaspberryEepromBootloader" => Some(JourneyId::InspectRaspberryEepromBootloader),
             "InspectZenohNetwork" => Some(JourneyId::InspectZenohNetwork),
@@ -589,12 +638,15 @@ impl JourneyId {
             "InstallExtension" => Some(JourneyId::InstallExtension),
             "LevelHorizon" => Some(JourneyId::LevelHorizon),
             "ManageBlueosFiles" => Some(JourneyId::ManageBlueosFiles),
+            "ManageInterfaceRoutes" => Some(JourneyId::ManageInterfaceRoutes),
             "ModifyBagDatabase" => Some(JourneyId::ModifyBagDatabase),
             "MonitorInternetConnectivity" => Some(JourneyId::MonitorInternetConnectivity),
             "ProbeInterfaceInternetConnectivity" => {
                 Some(JourneyId::ProbeInterfaceInternetConnectivity)
             }
+            "PublishZenohVideo" => Some(JourneyId::PublishZenohVideo),
             "PullBlueosVersionWithoutSwitch" => Some(JourneyId::PullBlueosVersionWithoutSwitch),
+            "ReadCameraMavlinkIds" => Some(JourneyId::ReadCameraMavlinkIds),
             "RebootOnboardComputer" => Some(JourneyId::RebootOnboardComputer),
             "ReconnectToSavedWifiNetwork" => Some(JourneyId::ReconnectToSavedWifiNetwork),
             "RejectInvalidWifiCredentials" => Some(JourneyId::RejectInvalidWifiCredentials),
@@ -618,6 +670,7 @@ impl JourneyId {
             "ShutdownOnboardComputer" => Some(JourneyId::ShutdownOnboardComputer),
             "StartAutopilot" => Some(JourneyId::StartAutopilot),
             "StopAutopilot" => Some(JourneyId::StopAutopilot),
+            "SupportNavigatorPi5" => Some(JourneyId::SupportNavigatorPi5),
             "SwitchLocalBlueosVersion" => Some(JourneyId::SwitchLocalBlueosVersion),
             "SyncSystemTime" => Some(JourneyId::SyncSystemTime),
             "ToggleHotspot" => Some(JourneyId::ToggleHotspot),
@@ -631,6 +684,7 @@ impl JourneyId {
             "UploadCustomFirmware" => Some(JourneyId::UploadCustomFirmware),
             "UploadCustomLogo" => Some(JourneyId::UploadCustomLogo),
             "UploadCustomVehicleImage" => Some(JourneyId::UploadCustomVehicleImage),
+            "UseExternalVideoRecorder" => Some(JourneyId::UseExternalVideoRecorder),
             "VehicleFirstBoot" => Some(JourneyId::VehicleFirstBoot),
             "VerifyInternetConnectivity" => Some(JourneyId::VerifyInternetConnectivity),
             "ViewCameraStreams" => Some(JourneyId::ViewCameraStreams),
