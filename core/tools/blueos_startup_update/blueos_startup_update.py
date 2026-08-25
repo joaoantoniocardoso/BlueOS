@@ -326,6 +326,9 @@ def revert_update_dwc2() -> bool:
     Removes dwc2 configuration from cmdline.txt
     This was being wrongly applied on Pi3 due to a bad host_cpu check.
     """
+    if cmdline_file is None:
+        logging.warning("cmdline.txt not found. skipping dwc2 revert")
+        return False
 
     # Remove dwc2 module configuration from cmdline
     unpatched_cmdline_content = load_file(cmdline_file).replace("\n", "").split(" ")
@@ -348,6 +351,9 @@ def clean_config_pi3() -> bool:
     Removes any tagged configurations from config.txt on Pi3
     This was being wrongly applied due to a bad host_cpu check.
     """
+    if config_file is None:
+        logging.warning("config.txt not found. skipping pi3 config cleanup")
+        return False
     config_content = load_file(config_file).splitlines()
     unpatched_config_content = config_content.copy()
 
@@ -851,7 +857,13 @@ def main() -> int:
 
     enabled_patches = [(name, patch) for name, patch in patches_to_apply if name not in disabled_patches]
 
-    patches_requiring_restart = [name for name, patch in enabled_patches if patch()]
+    patches_requiring_restart = []
+    for name, patch in enabled_patches:
+        try:
+            if patch():
+                patches_requiring_restart.append(name)
+        except Exception as patch_error:
+            logger.error(f"Patch {name} failed: {patch_error}")
     if patches_requiring_restart:
         logger.warning("The system will restart in 10 seconds because the following applied patches required restart:")
         for patch in patches_requiring_restart:
