@@ -1,15 +1,18 @@
 use crate::journey_presence::{
-    PRESENCE_CONFIGURE_CAMERA_STREAM, PRESENCE_CONFIGURE_UVC_DEVICE_CONTROLS,
-    PRESENCE_REMOVE_CAMERA_STREAM, PRESENCE_VIEW_CAMERA_STREAMS,
+    PRESENCE_BLOCK_VIDEO_SOURCE, PRESENCE_CONFIGURE_CAMERA_STREAM,
+    PRESENCE_CONFIGURE_UVC_DEVICE_CONTROLS, PRESENCE_INSPECT_GST_PIPELINE_DOT,
+    PRESENCE_PUBLISH_ZENOH_VIDEO, PRESENCE_READ_CAMERA_MAVLINK_IDS, PRESENCE_REMOVE_CAMERA_STREAM,
+    PRESENCE_USE_EXTERNAL_VIDEO_RECORDER, PRESENCE_VIEW_CAMERA_STREAMS,
 };
 use catalog_kernel::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 use catalog_kernel::id::capability::CapabilityId;
 use catalog_kernel::id::journey::JourneyId;
+use catalog_kernel::id::page::PageId;
 use catalog_kernel::id::service::ServiceId;
 use catalog_kernel::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
 use catalog_model::journey::{
     Actor, BlastRadius, BodyKind, HardwareAssumption, HttpMethod, JourneyStep, Precondition,
-    RouteRef, StepOutcome, UseCase, Visibility,
+    RouteRef, SoftwareAssumption, StepOutcome, UseCase, Visibility,
 };
 
 const ADV: &str = "content/usage/advanced/index.md";
@@ -23,6 +26,8 @@ const VIDEO_STREAM_CREATION_DIALOG: &str =
     "core/frontend/src/components/video-manager/VideoStreamCreationDialog.vue";
 const VIDEO_CONTROLS_DIALOG: &str =
     "core/frontend/src/components/video-manager/VideoControlsDialog.vue";
+const START_CORE: &str = "core/start-blueos-core";
+const NGINX: &str = "core/tools/nginx/nginx.conf";
 const RUNTIME_ENV: &str = RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 
 const BR_VIEW_CAMERA_STREAMS: Grounded<BlastRadius> = Grounded::known(
@@ -47,12 +52,47 @@ const BR_CONFIGURE_UVC_DEVICE_CONTROLS: Grounded<BlastRadius> = Grounded::known(
         "POST /v4l updates UVC control values adjustable again or reset on the camera",
     ),
 );
+const BR_BLOCK_VIDEO_SOURCE: Grounded<BlastRadius> = Grounded::known(
+    BlastRadius::Reversible,
+    Provenance::asserted(
+        "POST /unblock_source restores a blocked camera to the device list and streaming",
+    ),
+);
+const BR_USE_EXTERNAL_VIDEO_RECORDER: Grounded<BlastRadius> = Grounded::known(
+    BlastRadius::Safe,
+    Provenance::asserted(
+        "MCM --recorder=external delegates recording to the recorder service without changing live streams",
+    ),
+);
+const BR_INSPECT_GST_PIPELINE_DOT: Grounded<BlastRadius> = Grounded::known(
+    BlastRadius::Safe,
+    Provenance::asserted(
+        "Opening /mavlink-camera-manager/ only loads the bundled MCM UI and DOT debug graphs",
+    ),
+);
+const BR_PUBLISH_ZENOH_VIDEO: Grounded<BlastRadius> = Grounded::known(
+    BlastRadius::Reversible,
+    Provenance::asserted(
+        "Pirate Extra Disable Zenoh opts a stream out of Zenoh publish; MCM --zenoh can be left on",
+    ),
+);
+const BR_READ_CAMERA_MAVLINK_IDS: Grounded<BlastRadius> = Grounded::known(
+    BlastRadius::Safe,
+    Provenance::asserted(
+        "MCM launch args and status REST only report mavlink system and camera component IDs",
+    ),
+);
 
 pub const JOURNEYS: &[UseCase] = &[
     VIEW_CAMERA_STREAMS,
     CONFIGURE_CAMERA_STREAM,
     REMOVE_CAMERA_STREAM,
     CONFIGURE_UVC_DEVICE_CONTROLS,
+    BLOCK_VIDEO_SOURCE,
+    PUBLISH_ZENOH_VIDEO,
+    USE_EXTERNAL_VIDEO_RECORDER,
+    INSPECT_GST_PIPELINE_DOT,
+    READ_CAMERA_MAVLINK_IDS,
 ];
 
 const VIEW_CAMERA_STREAMS: UseCase =
@@ -322,6 +362,247 @@ const CONFIGURE_UVC_DEVICE_CONTROLS: UseCase =
         chains_from: Some(JourneyId::ViewCameraStreams),
     };
 
+const BLOCK_VIDEO_SOURCE: UseCase = UseCase {
+    id: JourneyId::BlockVideoSource,
+    summary: Grounded::known(
+        "Operator blocks or unblocks a camera video source from Video Streams (pirate mode)",
+        Provenance::doc(ADV, 763, "### Video Streams"),
+    ),
+    visibility: Grounded::known(
+        Visibility::Advanced,
+        Provenance::source(VIDEO_DEVICE, 56, "v-if=\"is_pirate_mode\""),
+    ),
+    services: MCM_SERVICES,
+    capability_refs: GroundedSet::known(&[cap(
+        CapabilityId::BlockVideoSource,
+        "VideoDevice Block source switch POSTs /block_source or /unblock_source",
+    )]),
+    preconditions: GroundedSet::known(&[GroundedItem::new(
+        Precondition::Software(SoftwareAssumption::PirateMode),
+        Provenance::source(VIDEO_DEVICE, 177, "return settings.is_pirate_mode"),
+    )]),
+    steps: GroundedSet::known(&[
+        operator_step(
+            "Open the Video Streams page from the sidebar",
+            None,
+            Provenance::doc(ADV, 763, "### Video Streams"),
+            None,
+        ),
+        GroundedItem::new(
+            JourneyStep {
+                actor: Actor::Frontend(PageId::VideoManager),
+                description: "Toggle Block source on a video device card",
+                route: None,
+                outcome: None,
+            },
+            Provenance::source(VIDEO_DEVICE, 61, "label=\"Block source\""),
+        ),
+        operator_step(
+            "Block the source so it is omitted from streaming",
+            Some(sourced_route(
+                HttpMethod::Post,
+                "/block_source",
+                None,
+                252,
+                "url: `${this.API_URL}/block_source`,",
+            )),
+            Provenance::source(VIDEO_STORE, 252, "url: `${this.API_URL}/block_source`,"),
+            Some(pending_outcome(
+                "POST /block_source requires a live camera and pirate mode (mutating; not exercised)",
+            )),
+        ),
+        operator_step(
+            "Unblock the source to restore it",
+            Some(sourced_route(
+                HttpMethod::Post,
+                "/unblock_source",
+                None,
+                270,
+                "url: `${this.API_URL}/unblock_source`,",
+            )),
+            Provenance::source(VIDEO_STORE, 270, "url: `${this.API_URL}/unblock_source`,"),
+            Some(pending_outcome(
+                "POST /unblock_source requires a previously blocked camera (mutating; not exercised)",
+            )),
+        ),
+    ]),
+    availability: PRESENCE_BLOCK_VIDEO_SOURCE,
+    blast_radius: BR_BLOCK_VIDEO_SOURCE,
+    chains_from: Some(JourneyId::ViewCameraStreams),
+};
+
+const PUBLISH_ZENOH_VIDEO: UseCase = UseCase {
+    id: JourneyId::PublishZenohVideo,
+    summary: Grounded::known(
+        "Publish per-stream H264/H265 video on Zenoh when mavlink-camera-manager is launched with --zenoh",
+        Provenance::doc(
+            ADV,
+            764,
+            "{{ service(service=\"MAVLink Camera Manager\", link=\"https://g",
+        ),
+    ),
+    visibility: Grounded::known(
+        Visibility::Advanced,
+        Provenance::source(VIDEO_STREAM_CREATION_DIALOG, 108, "v-if=\"settings.is_pirate_mode\""),
+    ),
+    services: MCM_SERVICES,
+    capability_refs: GroundedSet::known(&[cap(
+        CapabilityId::PublishZenohVideo,
+        "MCM --zenoh publishes CompressedVideo on Zenoh; pirate Extra Disable Zenoh opts a stream out",
+    )]),
+    preconditions: GroundedSet::known(&[GroundedItem::new(
+        Precondition::Software(SoftwareAssumption::PirateMode),
+        Provenance::source(VIDEO_STREAM_CREATION_DIALOG, 108, "v-if=\"settings.is_pirate_mode\""),
+    )]),
+    steps: GroundedSet::known(&[
+        service_step(
+            "Launch mavlink-camera-manager with --zenoh so streams publish on Zenoh",
+            None,
+            Provenance::source(
+                START_CORE,
+                120,
+                "'video',0,0,0,0,\"nice --19 mavlink-camera-manager --default-",
+            ),
+            None,
+        ),
+        operator_step(
+            "Open the Video Streams page and create or edit a stream",
+            None,
+            Provenance::doc(ADV, 763, "### Video Streams"),
+            None,
+        ),
+        GroundedItem::new(
+            JourneyStep {
+                actor: Actor::Frontend(PageId::VideoManager),
+                description: "Open Extra configuration and use Disable Zenoh to opt a stream out of Zenoh publish",
+                route: None,
+                outcome: None,
+            },
+            Provenance::source(VIDEO_STREAM_CREATION_DIALOG, 133, "label=\"Disable Zenoh\""),
+        ),
+    ]),
+    availability: PRESENCE_PUBLISH_ZENOH_VIDEO,
+    blast_radius: BR_PUBLISH_ZENOH_VIDEO,
+    chains_from: Some(JourneyId::ViewCameraStreams),
+};
+
+const USE_EXTERNAL_VIDEO_RECORDER: UseCase = UseCase {
+    id: JourneyId::UseExternalVideoRecorder,
+    summary: Grounded::known(
+        "Delegate camera recording to the external recorder service via MCM --recorder=external",
+        Provenance::doc(
+            ADV,
+            764,
+            "{{ service(service=\"MAVLink Camera Manager\", link=\"https://g",
+        ),
+    ),
+    visibility: Grounded::known(
+        Visibility::Default,
+        Provenance::source(VIDEO_MENUS, 138, "advanced: false,"),
+    ),
+    services: MCM_SERVICES,
+    capability_refs: GroundedSet::known(&[cap(
+        CapabilityId::UseExternalVideoRecorder,
+        "start-blueos-core passes --recorder=external so MCM writes through the recorder service",
+    )]),
+    preconditions: GroundedSet::known(&[]),
+    steps: GroundedSet::known(&[
+        service_step(
+            "Launch mavlink-camera-manager with --recorder=external",
+            None,
+            Provenance::source(
+                START_CORE,
+                120,
+                "'video',0,0,0,0,\"nice --19 mavlink-camera-manager --default-",
+            ),
+            None,
+        ),
+        operator_step(
+            "Browse extracted recordings produced by the external recorder on the Records page",
+            None,
+            Provenance::source(
+                VIDEO_MENUS,
+                146,
+                "text: 'Browse, preview, and download recorded MP4 sessions.'",
+            ),
+            Some(pending_outcome(
+                "external recorder output requires a live camera stream writing MP4s (not on capture host)",
+            )),
+        ),
+    ]),
+    availability: PRESENCE_USE_EXTERNAL_VIDEO_RECORDER,
+    blast_radius: BR_USE_EXTERNAL_VIDEO_RECORDER,
+    chains_from: Some(JourneyId::BrowseVideoRecordings),
+};
+
+const INSPECT_GST_PIPELINE_DOT: UseCase = UseCase {
+    id: JourneyId::InspectGstPipelineDot,
+    summary: Grounded::known(
+        "Open the bundled mavlink-camera-manager UI proxied at /mavlink-camera-manager/",
+        Provenance::doc(
+            ADV,
+            764,
+            "{{ service(service=\"MAVLink Camera Manager\", link=\"https://g",
+        ),
+    ),
+    visibility: Grounded::known(
+        Visibility::Default,
+        Provenance::doc(ADV, 763, "### Video Streams"),
+    ),
+    services: MCM_SERVICES,
+    capability_refs: GroundedSet::known(&[cap(
+        CapabilityId::InspectGstPipelineDot,
+        "nginx location /mavlink-camera-manager/ proxies the bundled MCM UI",
+    )]),
+    preconditions: GroundedSet::known(&[]),
+    steps: GroundedSet::known(&[operator_step(
+        "Open the bundled mavlink-camera-manager UI under /mavlink-camera-manager/",
+        None,
+        Provenance::source(NGINX, 192, "location /mavlink-camera-manager/ {"),
+        Some(pending_outcome(
+            "bundled MCM UI is an nginx prefix, not a REST contract to pin",
+        )),
+    )]),
+    availability: PRESENCE_INSPECT_GST_PIPELINE_DOT,
+    blast_radius: BR_INSPECT_GST_PIPELINE_DOT,
+    chains_from: None,
+};
+
+const READ_CAMERA_MAVLINK_IDS: UseCase = UseCase {
+    id: JourneyId::ReadCameraMavlinkIds,
+    summary: Grounded::known(
+        "Launch mavlink-camera-manager with a MAVLink system id and camera component-id range",
+        Provenance::doc(
+            ADV,
+            764,
+            "{{ service(service=\"MAVLink Camera Manager\", link=\"https://g",
+        ),
+    ),
+    visibility: Grounded::known(
+        Visibility::Default,
+        Provenance::doc(ADV, 763, "### Video Streams"),
+    ),
+    services: MCM_SERVICES,
+    capability_refs: GroundedSet::known(&[cap(
+        CapabilityId::ReadCameraMavlinkIds,
+        "start-blueos-core passes --mavlink-system-id and --mavlink-camera-component-id-range; no in-repo status REST path",
+    )]),
+    preconditions: GroundedSet::known(&[]),
+    steps: GroundedSet::known(&[service_step(
+        "Launch mavlink-camera-manager with --mavlink-system-id and --mavlink-camera-component-id-range",
+        None,
+        Provenance::source(
+            START_CORE,
+            120,
+            "'video',0,0,0,0,\"nice --19 mavlink-camera-manager --default-",
+        ),
+        None,
+    )]),
+    availability: PRESENCE_READ_CAMERA_MAVLINK_IDS,
+    blast_radius: BR_READ_CAMERA_MAVLINK_IDS,
+    chains_from: None,
+};
+
 const fn cap(id: CapabilityId, rationale: &'static str) -> GroundedItem<CapabilityId> {
     GroundedItem::new(id, Provenance::asserted(rationale))
 }
@@ -377,6 +658,23 @@ const fn operator_step(
     GroundedItem::new(
         JourneyStep {
             actor: Actor::Operator,
+            description,
+            route,
+            outcome,
+        },
+        provenance,
+    )
+}
+
+const fn service_step(
+    description: &'static str,
+    route: Option<Grounded<RouteRef>>,
+    provenance: Provenance,
+    outcome: Option<Grounded<StepOutcome>>,
+) -> GroundedItem<JourneyStep> {
+    GroundedItem::new(
+        JourneyStep {
+            actor: Actor::Service(ServiceId::MavlinkCameraManager),
             description,
             route,
             outcome,

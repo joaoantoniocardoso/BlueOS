@@ -439,6 +439,14 @@ pub const PAGE: Page =
                 "LevelHorizonCalibration.vue sends MAV_CMD_PREFLIGHT_CALIBRATION board-level and tracks local wizard state",
             ),
             Rationaled::new(
+                CapabilityId::ConfigureVehicleBody,
+                "ArdupilotVehicleBodySetup.vue plus FrameSelector.vue and OrientationPicker.vue write FRAME_* and AHRS_ORIENTATION via mavlink2rest.setParam with 3D previews",
+            ),
+            Rationaled::new(
+                CapabilityId::ConfigureBatteryMonitor,
+                "PowerConfiguration.vue BatteryCard applies BATT_MONITOR presets and scaling params via mavlink2rest.setParam",
+            ),
+            Rationaled::new(
                 CapabilityId::DetectMotorDirections,
                 "MotorDetection.vue arms vehicle into MOTOR_DETECT mode and parses STATUSTEXT for completion",
             ),

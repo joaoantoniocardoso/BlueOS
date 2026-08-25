@@ -8,6 +8,7 @@ mod customization;
 mod disk_usage;
 mod filebrowser;
 mod frontend_calibration;
+mod frontend_configure;
 mod frontend_parameters;
 mod frontend_video;
 mod helper;
@@ -43,6 +44,7 @@ pub fn all_journeys() -> Vec<UseCase> {
         disk_usage::JOURNEYS,
         filebrowser::JOURNEYS,
         frontend_calibration::JOURNEYS,
+        frontend_configure::JOURNEYS,
         frontend_parameters::JOURNEYS,
         frontend_video::JOURNEYS,
         helper::JOURNEYS,
@@ -80,6 +82,10 @@ pub fn source_file_for_journey(id: JourneyId) -> Option<&'static str> {
         (
             "journeys/frontend_calibration.rs",
             frontend_calibration::JOURNEYS,
+        ),
+        (
+            "journeys/frontend_configure.rs",
+            frontend_configure::JOURNEYS,
         ),
         (
             "journeys/frontend_parameters.rs",

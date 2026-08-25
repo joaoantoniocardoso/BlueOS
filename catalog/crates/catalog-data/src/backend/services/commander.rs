@@ -671,6 +671,10 @@ pub const SERVICE_DEFINITION: ServiceJudgment =
                 CapabilityId::SetupSsh,
                 "startup setup_ssh generates /root/.config/.ssh keys and appends the public key to the SSH user's authorized_keys",
             ),
+            Rationaled::new(
+                CapabilityId::SupportNavigatorPi5,
+                "bcm_2712.sh and blueos_startup_update apply uart0-pi5 and [pi5] dwc2 overlays so Navigator runs on Raspberry Pi 5",
+            ),
         ]),
         authorities: AssertedSet::established(&[
             Rationaled::new(

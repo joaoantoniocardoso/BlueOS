@@ -1,7 +1,7 @@
 use crate::journey_presence::{
     PRESENCE_ENABLE_LEGACY_CAMERA_SUPPORT, PRESENCE_INSPECT_RASPBERRY_EEPROM_BOOTLOADER,
     PRESENCE_REBOOT_ONBOARD_COMPUTER, PRESENCE_RESET_BLUEOS_SETTINGS, PRESENCE_RUN_HOST_COMMAND,
-    PRESENCE_SHUTDOWN_ONBOARD_COMPUTER, PRESENCE_SYNC_SYSTEM_TIME,
+    PRESENCE_SHUTDOWN_ONBOARD_COMPUTER, PRESENCE_SUPPORT_NAVIGATOR_PI5, PRESENCE_SYNC_SYSTEM_TIME,
     PRESENCE_UPDATE_RASPBERRY_EEPROM_BOOTLOADER,
 };
 use catalog_kernel::capture_env::RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
@@ -10,12 +10,14 @@ use catalog_kernel::id::journey::JourneyId;
 use catalog_kernel::id::service::ServiceId;
 use catalog_kernel::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
 use catalog_model::journey::{
-    Actor, BlastRadius, BodyKind, HttpMethod, JourneyStep, Precondition, RouteRef,
-    SoftwareAssumption, StepOutcome, UseCase, Visibility,
+    Actor, BlastRadius, BoardKind, BodyKind, HardwareAssumption, HttpMethod, JourneyStep,
+    Precondition, RouteRef, SoftwareAssumption, StepOutcome, UseCase, Visibility,
 };
 
 const ADV: &str = "content/usage/advanced/index.md";
 const DEV_CORE: &str = "content/development/core/index.md";
+const INSTALL: &str = "content/usage/installation.md";
+const OVERVIEW: &str = "content/usage/overview/index.md";
 const APP_VUE: &str = "core/frontend/src/App.vue";
 const COMMANDER_MAIN: &str = "core/services/commander/main.py";
 const COMMANDER_STORE: &str = "core/frontend/src/store/commander.ts";
@@ -25,6 +27,8 @@ const SETTINGS_VIEW: &str = "core/frontend/src/views/SettingsView.vue";
 const SYSINFO_VIEW: &str = "core/frontend/src/views/SystemInformationView.vue";
 const UPDATE_TIME: &str = "core/frontend/src/utils/update_time.ts";
 const VIDEO_MANAGER: &str = "core/frontend/src/components/video-manager/VideoManager.vue";
+const BCM_2712: &str = "install/boards/bcm_2712.sh";
+const STARTUP_UPDATE: &str = "core/tools/blueos_startup_update/blueos_startup_update.py";
 const RUNTIME_ENV: &str = RUNTIME_CAPTURE_ENV_PI4_NAVIGATOR;
 
 const BR_REBOOT_ONBOARD_COMPUTER: Grounded<BlastRadius> = Grounded::known(
@@ -77,6 +81,12 @@ const BR_RUN_HOST_COMMAND: Grounded<BlastRadius> = Grounded::known(
         "POST /command/host runs operator-supplied bash with no fixed side effect",
     ),
 );
+const BR_SUPPORT_NAVIGATOR_PI5: Grounded<BlastRadius> = Grounded::known(
+    BlastRadius::Disruptive,
+    Provenance::asserted(
+        "Pi5 Navigator overlays rewrite boot config.txt and take effect after reboot",
+    ),
+);
 
 pub const JOURNEYS: &[UseCase] = &[
     REBOOT_ONBOARD_COMPUTER,
@@ -87,6 +97,7 @@ pub const JOURNEYS: &[UseCase] = &[
     UPDATE_RASPBERRY_EEPROM_BOOTLOADER,
     RESET_BLUEOS_SETTINGS,
     RUN_HOST_COMMAND,
+    SUPPORT_NAVIGATOR_PI5,
 ];
 
 const REBOOT_ONBOARD_COMPUTER: UseCase = UseCase {
@@ -577,6 +588,65 @@ const RUN_HOST_COMMAND: UseCase = UseCase {
     )]),
     availability: PRESENCE_RUN_HOST_COMMAND,
     blast_radius: BR_RUN_HOST_COMMAND,
+    chains_from: None,
+};
+
+const SUPPORT_NAVIGATOR_PI5: UseCase = UseCase {
+    id: JourneyId::SupportNavigatorPi5,
+    summary: Grounded::known(
+        "Run BlueOS Navigator on Raspberry Pi 5 with Pi5 device-tree overlays at install and startup",
+        Provenance::doc(OVERVIEW, 96, "- Added Raspberry Pi 5 support"),
+    ),
+    visibility: Grounded::known(
+        Visibility::Default,
+        Provenance::doc(
+            INSTALL,
+            34,
+            "| Raspberry Pi 5 | <a id=\"v8-bookworm\">ARMv8 (64-bit) Bookworm</a>[^2] | Limited testing |",
+        ),
+    ),
+    services: COMMANDER_SERVICES,
+    capability_refs: GroundedSet::known(&[cap(
+        CapabilityId::SupportNavigatorPi5,
+        "bcm_2712.sh and blueos_startup_update apply uart0-pi5 and [pi5] dwc2 overlays for Navigator",
+    )]),
+    preconditions: GroundedSet::known(&[
+        GroundedItem::new(
+            Precondition::Hardware(HardwareAssumption::RaspberryPi5),
+            Provenance::doc(OVERVIEW, 96, "- Added Raspberry Pi 5 support"),
+        ),
+        GroundedItem::new(
+            Precondition::Hardware(HardwareAssumption::FlightController(BoardKind::Navigator)),
+            Provenance::doc(
+                OVERVIEW,
+                95,
+                "- Added support for running the Navigator [flight controller](@/integrations/hardware/required/flight-controller/index.md) with 64-bit operating systems",
+            ),
+        ),
+    ]),
+    steps: GroundedSet::known(&[
+        operator_step(
+            "Install BlueOS on Raspberry Pi 5 so bcm_2712.sh writes Navigator uart0-pi5 overlays",
+            None,
+            Provenance::source(BCM_2712, 50, "\"dtoverlay=uart0-pi5\" \\"),
+            None,
+        ),
+        GroundedItem::new(
+            JourneyStep {
+                actor: Actor::Subprocess("blueos_startup_update"),
+                description: "Apply Pi5 dwc2 overlay in the [pi5] section of config.txt on boot",
+                route: None,
+                outcome: None,
+            },
+            Provenance::source(
+                STARTUP_UPDATE,
+                352,
+                "section_name = \"pi4\" if get_cpu_type() == CpuType.PI4 el",
+            ),
+        ),
+    ]),
+    availability: PRESENCE_SUPPORT_NAVIGATOR_PI5,
+    blast_radius: BR_SUPPORT_NAVIGATOR_PI5,
     chains_from: None,
 };
 

@@ -409,6 +409,26 @@ pub const SERVICE_DEFINITION: ServiceJudgment =
                 CapabilityId::AdvertiseCamerasOverMavlink,
                 "observed Mavlink Consumer tcpout:127.0.0.1:5777 with --mavlink-camera-component-id-range=100-105 advertises camera streams to the MAVLink router",
             ),
+            Rationaled::new(
+                CapabilityId::BlockVideoSource,
+                "POST /block_source and POST /unblock_source omit a camera from streaming until unblocked; Video Streams switch is pirate-only",
+            ),
+            Rationaled::new(
+                CapabilityId::PublishZenohVideo,
+                "start-blueos-core passes --zenoh so MCM publishes per-stream CompressedVideo on Zenoh; pirate Extra Disable Zenoh opts a stream out",
+            ),
+            Rationaled::new(
+                CapabilityId::UseExternalVideoRecorder,
+                "start-blueos-core passes --recorder=external so MCM delegates recording to the recorder service",
+            ),
+            Rationaled::new(
+                CapabilityId::InspectGstPipelineDot,
+                "nginx location /mavlink-camera-manager/ proxies the bundled MCM UI",
+            ),
+            Rationaled::new(
+                CapabilityId::ReadCameraMavlinkIds,
+                "MCM launch --mavlink-system-id and --mavlink-camera-component-id-range; no in-repo status REST path",
+            ),
         ]),
         authorities: AssertedSet::established(&[Rationaled::new(
             Authority::Other("camera_stream_manager"),

@@ -171,6 +171,11 @@ pub const CAPABILITIES: &[CapabilityDef] = &[
         owner: ServiceId::CableGuy,
     },
     CapabilityDef {
+        id: CapabilityId::ManageInterfaceRoutes,
+        aggregate: Aggregate::WiredNetwork,
+        owner: ServiceId::CableGuy,
+    },
+    CapabilityDef {
         id: CapabilityId::GetDhcpServerDetails,
         aggregate: Aggregate::WiredNetwork,
         owner: ServiceId::CableGuy,
@@ -222,6 +227,11 @@ pub const CAPABILITIES: &[CapabilityDef] = &[
     },
     CapabilityDef {
         id: CapabilityId::SetupSsh,
+        aggregate: Aggregate::HostControl,
+        owner: ServiceId::Commander,
+    },
+    CapabilityDef {
+        id: CapabilityId::SupportNavigatorPi5,
         aggregate: Aggregate::HostControl,
         owner: ServiceId::Commander,
     },
@@ -408,6 +418,31 @@ pub const CAPABILITIES: &[CapabilityDef] = &[
     CapabilityDef {
         id: CapabilityId::RemoveCameraStream,
         aggregate: Aggregate::Camera,
+        owner: ServiceId::MavlinkCameraManager,
+    },
+    CapabilityDef {
+        id: CapabilityId::BlockVideoSource,
+        aggregate: Aggregate::Camera,
+        owner: ServiceId::MavlinkCameraManager,
+    },
+    CapabilityDef {
+        id: CapabilityId::PublishZenohVideo,
+        aggregate: Aggregate::Camera,
+        owner: ServiceId::MavlinkCameraManager,
+    },
+    CapabilityDef {
+        id: CapabilityId::InspectGstPipelineDot,
+        aggregate: Aggregate::Camera,
+        owner: ServiceId::MavlinkCameraManager,
+    },
+    CapabilityDef {
+        id: CapabilityId::ReadCameraMavlinkIds,
+        aggregate: Aggregate::Camera,
+        owner: ServiceId::MavlinkCameraManager,
+    },
+    CapabilityDef {
+        id: CapabilityId::UseExternalVideoRecorder,
+        aggregate: Aggregate::Recording,
         owner: ServiceId::MavlinkCameraManager,
     },
     CapabilityDef {
@@ -689,6 +724,16 @@ pub const FRONTEND_CAPABILITIES: &[FrontendCapabilityDef] = &[
     },
     FrontendCapabilityDef {
         id: CapabilityId::LevelHorizon,
+        aggregate: Aggregate::Autopilot,
+        owner: PageId::VehicleSetup,
+    },
+    FrontendCapabilityDef {
+        id: CapabilityId::ConfigureVehicleBody,
+        aggregate: Aggregate::Autopilot,
+        owner: PageId::VehicleSetup,
+    },
+    FrontendCapabilityDef {
+        id: CapabilityId::ConfigureBatteryMonitor,
         aggregate: Aggregate::Autopilot,
         owner: PageId::VehicleSetup,
     },

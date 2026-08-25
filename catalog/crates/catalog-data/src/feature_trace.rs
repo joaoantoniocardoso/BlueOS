@@ -295,8 +295,8 @@ mod tests {
         assert_eq!(traces.schema_version, 2);
         assert_eq!(traces.repo, "bluerobotics/BlueOS");
         assert!(!traces.generated_at.is_empty());
-        assert_eq!(traces.journeys.len(), 100);
-        assert_eq!(traces.intro_clusters.len(), 56);
+        assert_eq!(traces.journeys.len(), 109);
+        assert_eq!(traces.intro_clusters.len(), 65);
     }
 
     #[test]

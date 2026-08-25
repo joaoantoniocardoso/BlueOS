@@ -614,6 +614,10 @@ pub const SERVICE_DEFINITION: ServiceJudgment =
                 "GET /route returns routing table entries for the named interface",
             ),
             Rationaled::new(
+                CapabilityId::ManageInterfaceRoutes,
+                "POST /route and DELETE /route add or remove a static route on a wired interface; no Networking UI",
+            ),
+            Rationaled::new(
                 CapabilityId::GetDhcpServerDetails,
                 "GET /dhcp/details/{interface_name} returns onboard DHCP server configuration per interface",
             ),

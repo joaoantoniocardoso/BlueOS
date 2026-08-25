@@ -1,15 +1,16 @@
 use crate::journey_presence::{
     PRESENCE_ACQUIRE_DYNAMIC_IP_ADDRESS, PRESENCE_ASSIGN_STATIC_IP_ADDRESS,
     PRESENCE_CONFIGURE_HOST_DNS, PRESENCE_DISABLE_ONBOARD_DHCP_SERVER,
-    PRESENCE_ENABLE_ONBOARD_DHCP_SERVER, PRESENCE_SET_NETWORK_INTERFACE_PRIORITY,
+    PRESENCE_ENABLE_ONBOARD_DHCP_SERVER, PRESENCE_MANAGE_INTERFACE_ROUTES,
+    PRESENCE_SET_NETWORK_INTERFACE_PRIORITY,
 };
 use catalog_kernel::id::capability::CapabilityId;
 use catalog_kernel::id::journey::JourneyId;
 use catalog_kernel::id::service::ServiceId;
 use catalog_kernel::provenance::{Grounded, GroundedItem, GroundedSet, Provenance};
 use catalog_model::journey::{
-    Actor, BlastRadius, BodyKind, DataAssumption, HttpMethod, JourneyStep, Precondition, RouteRef,
-    SoftwareAssumption, StepOutcome, UseCase, Visibility,
+    Actor, BlastRadius, BodyKind, DataAssumption, HttpMethod, JourneyStep, NetworkResource,
+    Precondition, RouteRef, SoftwareAssumption, StepOutcome, UseCase, Visibility,
 };
 
 const ADV: &str = "content/usage/advanced/index.md";
@@ -28,6 +29,7 @@ pub const JOURNEYS: &[UseCase] = &[
     DISABLE_ONBOARD_DHCP_SERVER,
     SET_NETWORK_INTERFACE_PRIORITY,
     CONFIGURE_HOST_DNS,
+    MANAGE_INTERFACE_ROUTES,
 ];
 
 const ASSIGN_STATIC_IP_ADDRESS: UseCase = UseCase {
@@ -345,6 +347,77 @@ const CONFIGURE_HOST_DNS: UseCase = UseCase {
         BlastRadius::Disruptive,
         Provenance::asserted(
             "Persisting host nameserver changes alters resolver behavior for all outbound connections",
+        ),
+    ),
+    chains_from: None,
+};
+
+const MANAGE_INTERFACE_ROUTES: UseCase = UseCase {
+    id: JourneyId::ManageInterfaceRoutes,
+    summary: Grounded::known(
+        "Add a static IP route on a wired interface through cable-guy REST",
+        Provenance::doc(ADV, 92, "##### Wired network management (ethernet / USB-OTG)"),
+    ),
+    visibility: Grounded::known(
+        Visibility::Advanced,
+        Provenance::doc(ADV, 92, "##### Wired network management (ethernet / USB-OTG)"),
+    ),
+    services: CABLE_GUY_SERVICES,
+    capability_refs: GroundedSet::known(&[cap(
+        CapabilityId::ManageInterfaceRoutes,
+        "cable_guy POST /route persists a static route; GET /route is the effect read; no Networking UI",
+    )]),
+    preconditions: GroundedSet::known(&[GroundedItem::new(
+        Precondition::NetworkResource(NetworkResource::WiredEthernetPresent),
+        Provenance::doc(ADV, 95, "An ethernet connection can generally be accessed through the"),
+    )]),
+    steps: GroundedSet::known(&[
+        operator_step(
+            "Add a static route to a named wired interface",
+            Some(sourced_route(
+                HttpMethod::Post,
+                "/route",
+                Some("v1.0"),
+                137,
+                "@app.post(\"/route\", summary=\"Add route to interface.\"",
+            )),
+            Provenance::source(
+                CABLE_GUY_MAIN,
+                137,
+                "@app.post(\"/route\", summary=\"Add route to interface.\"",
+            ),
+            Some(source_outcome(
+                200,
+                139,
+                "def add_route(interface_name: str, route: Route) -> Any:",
+            )),
+        ),
+        operator_step(
+            "List routes on that interface to confirm the add",
+            Some(sourced_route(
+                HttpMethod::Get,
+                "/route",
+                Some("v1.0"),
+                153,
+                "@app.get(\"/route\", summary=\"Get the interface routes.\"",
+            )),
+            Provenance::source(
+                CABLE_GUY_MAIN,
+                153,
+                "@app.get(\"/route\", summary=\"Get the interface routes.\"",
+            ),
+            Some(source_outcome(
+                200,
+                155,
+                "def get_route(interface_name: str) -> List[Route]:",
+            )),
+        ),
+    ]),
+    availability: PRESENCE_MANAGE_INTERFACE_ROUTES,
+    blast_radius: Grounded::known(
+        BlastRadius::Reversible,
+        Provenance::asserted(
+            "DELETE /route removes the added route; no separate operator journey for delete",
         ),
     ),
     chains_from: None,

@@ -1,7 +1,7 @@
 use crate::journey_presence::{
-    PRESENCE_CHANGE_UI_THEME_COLOR, PRESENCE_DELETE3D_MODEL_OVERRIDE, PRESENCE_REMOVE_CUSTOM_LOGO,
+    PRESENCE_CHANGE_UI_THEME_COLOR, PRESENCE_DELETE_3D_MODEL_OVERRIDE, PRESENCE_REMOVE_CUSTOM_LOGO,
     PRESENCE_REMOVE_CUSTOM_VEHICLE_IMAGE, PRESENCE_RESET_UI_THEME_COLOR,
-    PRESENCE_UPLOAD3D_MODEL_OVERRIDE, PRESENCE_UPLOAD_CUSTOM_LOGO,
+    PRESENCE_UPLOAD_3D_MODEL_OVERRIDE, PRESENCE_UPLOAD_CUSTOM_LOGO,
     PRESENCE_UPLOAD_CUSTOM_VEHICLE_IMAGE,
 };
 use catalog_kernel::id::capability::CapabilityId;
@@ -422,7 +422,7 @@ const UPLOAD_3D_MODEL_OVERRIDE: UseCase = UseCase {
             Some(source_outcome(200, 199, "async def upload_model(")),
         ),
     ]),
-    availability: PRESENCE_UPLOAD3D_MODEL_OVERRIDE,
+    availability: PRESENCE_UPLOAD_3D_MODEL_OVERRIDE,
     blast_radius: Grounded::known(
         BlastRadius::Reversible,
         Provenance::asserted(
@@ -466,7 +466,7 @@ const DELETE_3D_MODEL_OVERRIDE: UseCase = UseCase {
             Some(source_outcome(204, 215, "@models_router.delete(")),
         ),
     ]),
-    availability: PRESENCE_DELETE3D_MODEL_OVERRIDE,
+    availability: PRESENCE_DELETE_3D_MODEL_OVERRIDE,
     blast_radius: Grounded::known(
         BlastRadius::Reversible,
         Provenance::asserted(
