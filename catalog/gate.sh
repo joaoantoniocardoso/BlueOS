@@ -24,6 +24,11 @@ echo "== export (schema/json build) =="
 cargo run -q --bin export >/dev/null
 echo "== sysml export (subset golden) =="
 cargo run -q --bin sysml_export -- --check
+if [ -n "${SYSIDE_CLI:-}" ]; then
+  echo "== syside dump (subset AST) =="
+  ast=$(node "$SYSIDE_CLI" dump -l none goldens/sysml/catalog_subset.sysml)
+  echo "$ast" | python3 -c 'import sys; t=sys.stdin.read(); n=t.count("\"$type\": \"PartDefinition\""); assert n>=2, n'
+fi
 # feature-traces local gate (NEXT15 P3): drift_check + sibling_matrix +
 # --check-goldens, all offline/no-`gh` (mirrors N3's --strict-goldens opt-out,
 # which stays a separate manual step). Skipped if the script isn't present

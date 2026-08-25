@@ -70,7 +70,13 @@ pub fn export_sysml(catalog: &Catalog, filter: Option<&SysmlExportFilter>) -> St
     writer.emit_local_metadata();
     writer.emit_local_requirement_defs();
     emit_domain_tree(catalog, &requirements, &actions, filter, &mut writer);
-    emit_cross_connections(catalog, filter, &mut writer);
+    let connections = collect_connections(catalog, filter);
+    let trace_services = traceability_services(catalog, &requirements, filter);
+    let mut part_usages = connection_services(&connections);
+    part_usages.extend(trace_services);
+    emit_part_usages(catalog, &part_usages, &mut writer);
+    emit_connection_interfaces(&connections, &mut writer);
+    emit_traceability(catalog, &requirements, filter, &mut writer);
     writer.dedent();
     writer.line("}");
     writer.finish()
@@ -149,7 +155,7 @@ fn emit_domain_tree(
                 emit_use_case_def(journey, writer);
             }
             for requirement in &bucket.requirements {
-                emit_requirement_def(requirement, writer);
+                emit_requirement_def(catalog, requirement, writer);
             }
             writer.dedent();
             writer.line("}");
@@ -209,6 +215,7 @@ impl SysmlWriter {
     }
 
     fn emit_imports(&mut self) {
+        self.line("private import ScalarValues::*;");
         self.line("private import Requirements::*;");
         self.line("private import VerificationCases::*;");
         self.line("private import ModelingMetadata::*;");
@@ -400,7 +407,7 @@ fn emit_port_kind_def(name: &str, port_kind: &PortKind, writer: &mut SysmlWriter
                 sysml_string(path_ref_label(path_prefix))
             ));
             writer.line(&format!(
-                "attribute port : String = {};",
+                "attribute tcp_port : String = {};",
                 sysml_string(&port_ref_label(port))
             ));
             writer.line(&format!(
@@ -427,7 +434,7 @@ fn emit_port_kind_def(name: &str, port_kind: &PortKind, writer: &mut SysmlWriter
                 sysml_string(&format!("{role:?}"))
             ));
             writer.line(&format!(
-                "attribute connect : String = {};",
+                "attribute connect_string : String = {};",
                 sysml_string(connect)
             ));
         }
@@ -437,7 +444,7 @@ fn emit_port_kind_def(name: &str, port_kind: &PortKind, writer: &mut SysmlWriter
                 sysml_string(path_ref_label(path))
             ));
             writer.line(&format!(
-                "attribute port : String = {};",
+                "attribute tcp_port : String = {};",
                 sysml_string(&port_ref_label(port))
             ));
         }
@@ -484,67 +491,31 @@ fn emit_port_kind_def(name: &str, port_kind: &PortKind, writer: &mut SysmlWriter
     writer.line("");
 }
 
-fn emit_cross_connections(
-    catalog: &Catalog,
-    filter: Option<&SysmlExportFilter>,
-    writer: &mut SysmlWriter,
-) {
-    let selected_services = selected_services(catalog, filter);
-    let selected: BTreeSet<ServiceId> =
-        selected_services.iter().map(|service| service.id).collect();
-    let mut emitted: BTreeSet<String> = BTreeSet::new();
-    for service in selected_services {
-        let AssertedSet::Established { items } = &service.definition.edges else {
-            continue;
-        };
-        for rationaled in items.iter() {
-            let edge = &rationaled.value;
-            if !selected.contains(&edge.from) || !selected.contains(&edge.to) {
-                continue;
-            }
-            let key = format!(
-                "{}:{}:{}",
-                edge.from.as_str(),
-                bus_ident(edge.via),
-                edge.to.as_str()
-            );
-            if !emitted.insert(key) {
-                continue;
-            }
-            emit_connection(edge, rationaled.rationale, writer);
-        }
-    }
-}
-
 fn emit_connection(connection: &Connection, rationale: &str, writer: &mut SysmlWriter) {
     let bus = bus_ident(connection.via);
-    writer.line(&format!("interface def {bus} {{}}"));
-    writer.line(&format!(
-        "@Rationale {{ text = {}; }}",
-        sysml_string(rationale)
+    let usage = sysml_ident(&format!(
+        "{}_{}_{}",
+        connection.from.as_str(),
+        connection.to.as_str(),
+        bus
     ));
     writer.line(&format!(
-        "connect {} to {} via {bus};",
+        "interface {usage} : {bus} connect {} to {} {{",
         sysml_ident(connection.from.as_str()),
         sysml_ident(connection.to.as_str())
     ));
+    writer.indent_level();
+    emit_doc(rationale, writer);
+    writer.dedent();
+    writer.line("}");
     writer.line("");
 }
 
 fn emit_action_def(action: &Action, writer: &mut SysmlWriter) {
     let name = sysml_ident(action.id.as_str());
-    writer.line(&format!("action def {name} :> Action {{"));
+    writer.line(&format!("action def {name} {{"));
     writer.indent_level();
-    writer.line(&format!(
-        "subject subj = {};",
-        sysml_ident(action.capability.as_str())
-    ));
-    for journey_id in &action.verifying_journeys {
-        writer.line(&format!(
-            "ref verification {} : VerificationCase;",
-            sysml_ident(journey_id.as_str())
-        ));
-    }
+    emit_doc(action.id.as_str(), writer);
     writer.dedent();
     writer.line("}");
     writer.line("");
@@ -552,20 +523,19 @@ fn emit_action_def(action: &Action, writer: &mut SysmlWriter) {
 
 fn emit_use_case_def(journey: &UseCase, writer: &mut SysmlWriter) {
     let name = sysml_ident(journey.id.as_str());
-    writer.line(&format!("use case def {name} :> UseCase {{"));
+    writer.line(&format!("use case def {name} {{"));
     writer.indent_level();
     emit_availability_on_element(&journey.availability, writer);
     if let GroundedSet::Known { items } = &journey.services {
         if let Some(first) = items.first() {
             writer.line(&format!(
-                "subject subj = {};",
+                "subject subj : {};",
                 sysml_ident(first.value.as_str())
             ));
         }
     }
     emit_use_case_actors(journey, writer);
-    emit_use_case_preconditions(journey, writer);
-    emit_use_case_steps(journey, writer);
+    emit_use_case_objective(journey, writer);
     writer.dedent();
     writer.line("}");
     writer.line("");
@@ -584,75 +554,325 @@ fn emit_use_case_actors(journey: &UseCase, writer: &mut SysmlWriter) {
     }
 }
 
-fn emit_use_case_preconditions(journey: &UseCase, writer: &mut SysmlWriter) {
-    let GroundedSet::Known { items } = &journey.preconditions else {
-        return;
-    };
-    for item in items.iter() {
-        writer.line(&format!(
-            "assume constraint {{ doc /* {} */; }}",
-            escape_comment(&precondition_text(&item.value))
-        ));
+fn emit_use_case_objective(journey: &UseCase, writer: &mut SysmlWriter) {
+    let mut lines: Vec<String> = Vec::new();
+    if let GroundedSet::Known { items } = &journey.preconditions {
+        for item in items.iter() {
+            lines.push(format!("assume: {}", precondition_text(&item.value)));
+        }
     }
+    if let GroundedSet::Known { items } = &journey.steps {
+        for (index, item) in items.iter().enumerate() {
+            lines.push(format!("step {index}: {}", item.value.description));
+        }
+    }
+    if lines.is_empty() {
+        return;
+    }
+    writer.line("objective {");
+    writer.indent_level();
+    emit_doc(&lines.join("\n"), writer);
+    writer.dedent();
+    writer.line("}");
 }
 
-fn emit_use_case_steps(journey: &UseCase, writer: &mut SysmlWriter) {
-    let GroundedSet::Known { items } = &journey.steps else {
-        return;
-    };
-    for (index, item) in items.iter().enumerate() {
-        let step_name = format!("step_{index}");
-        writer.line(&format!(
-            "action {step_name} {{ doc /* {} */; }}",
-            escape_comment(item.value.description)
-        ));
-    }
-}
-
-fn emit_requirement_def(requirement: &Requirement, writer: &mut SysmlWriter) {
+fn emit_requirement_def(catalog: &Catalog, requirement: &Requirement, writer: &mut SysmlWriter) {
     let name = sysml_ident(&requirement.id.0);
     let base = requirement_base_type(requirement.kind);
     writer.line(&format!("requirement def {name} :> {base} {{"));
     writer.indent_level();
     emit_availability_on_element(&requirement.availability, writer);
-    if let Some(subject) = requirement_subject(requirement) {
-        writer.line(&format!("subject subj = {subject};"));
+    if let Some(subject) = requirement_subject_def(catalog, requirement) {
+        writer.line(&format!("subject subj : {subject};"));
     }
     if let Some(rationale) = &requirement.rationale {
-        writer.line(&format!(
-            "@Rationale {{ text = {}; }}",
-            sysml_string(rationale)
-        ));
+        emit_doc(rationale, writer);
     }
     for assumption in &requirement.assumptions {
-        writer.line(&format!(
-            "assume constraint {{ doc /* {} */; }}",
-            escape_comment(&assumption.statement)
-        ));
+        writer.line("assume constraint {");
+        writer.indent_level();
+        emit_doc(&assumption.statement, writer);
+        writer.dedent();
+        writer.line("}");
     }
     if let RequirementCriteria::Known { items } = &requirement.criteria {
         for item in items.iter() {
+            writer.line("require constraint {");
+            writer.indent_level();
+            emit_doc(&item.text, writer);
+            writer.dedent();
+            writer.line("}");
+        }
+    }
+    writer.dedent();
+    writer.line("}");
+    writer.line("");
+}
+
+fn collect_connections<'a>(
+    catalog: &'a Catalog,
+    filter: Option<&SysmlExportFilter>,
+) -> Vec<(&'a Connection, &'a str)> {
+    let selected_services = selected_services(catalog, filter);
+    let selected: BTreeSet<ServiceId> =
+        selected_services.iter().map(|service| service.id).collect();
+    let mut connections: Vec<(&Connection, &str)> = Vec::new();
+    let mut emitted: BTreeSet<String> = BTreeSet::new();
+    for service in &selected_services {
+        let AssertedSet::Established { items } = &service.definition.edges else {
+            continue;
+        };
+        for rationaled in items.iter() {
+            let edge = &rationaled.value;
+            if !selected.contains(&edge.from) || !selected.contains(&edge.to) {
+                continue;
+            }
+            let key = format!(
+                "{}:{}:{}",
+                edge.from.as_str(),
+                bus_ident(edge.via),
+                edge.to.as_str()
+            );
+            if !emitted.insert(key) {
+                continue;
+            }
+            connections.push((edge, rationaled.rationale));
+        }
+    }
+    connections
+}
+
+fn connection_services(connections: &[(&Connection, &str)]) -> BTreeSet<ServiceId> {
+    let mut services = BTreeSet::new();
+    for (connection, _) in connections {
+        services.insert(connection.from);
+        services.insert(connection.to);
+    }
+    services
+}
+
+fn traceability_services(
+    catalog: &Catalog,
+    requirements: &RequirementCatalog,
+    filter: Option<&SysmlExportFilter>,
+) -> BTreeSet<ServiceId> {
+    let mut services = BTreeSet::new();
+    for requirement in selected_requirements(requirements, filter) {
+        if let Some(service_id) = requirement_subject_service(catalog, requirement) {
+            services.insert(service_id);
+        }
+        for journey_id in &requirement.requirement_verifications {
+            services.extend(journey_services(catalog, *journey_id));
+        }
+        if let Some(journey_id) = requirement.journey_id {
+            services.extend(journey_services(catalog, journey_id));
+        }
+    }
+    services
+}
+
+fn journey_services(catalog: &Catalog, journey_id: JourneyId) -> BTreeSet<ServiceId> {
+    let mut services = BTreeSet::new();
+    let Some(journey) = catalog.journey_by_id(&journey_id) else {
+        return services;
+    };
+    if let GroundedSet::Known { items } = &journey.services {
+        for item in items.iter() {
+            services.insert(item.value);
+        }
+    }
+    services
+}
+
+fn emit_part_usages(catalog: &Catalog, services: &BTreeSet<ServiceId>, writer: &mut SysmlWriter) {
+    for service_id in services {
+        writer.line(&format!(
+            "part {} : {};",
+            sysml_ident(service_id.as_str()),
+            service_qualified_type(catalog, *service_id)
+        ));
+    }
+    if !services.is_empty() {
+        writer.line("");
+    }
+}
+
+fn emit_connection_interfaces(connections: &[(&Connection, &str)], writer: &mut SysmlWriter) {
+    if connections.is_empty() {
+        return;
+    }
+    let mut buses: BTreeSet<String> = BTreeSet::new();
+    for (connection, _) in connections {
+        buses.insert(bus_ident(connection.via));
+    }
+    for name in buses {
+        writer.line(&format!("interface def {name} {{"));
+        writer.indent_level();
+        writer.line("end a;");
+        writer.line("end b;");
+        writer.dedent();
+        writer.line("}");
+    }
+    for (connection, rationale) in connections {
+        emit_connection(connection, rationale, writer);
+    }
+}
+
+fn emit_traceability(
+    catalog: &Catalog,
+    requirements: &RequirementCatalog,
+    filter: Option<&SysmlExportFilter>,
+    writer: &mut SysmlWriter,
+) {
+    let requirements = selected_requirements(requirements, filter);
+    if requirements.is_empty() {
+        return;
+    }
+
+    let mut journeys: BTreeSet<JourneyId> = BTreeSet::new();
+    for requirement in &requirements {
+        for journey_id in &requirement.requirement_verifications {
+            journeys.insert(*journey_id);
+        }
+    }
+
+    if !journeys.is_empty() {
+        writer.line("requirement blueosVerification {");
+        writer.indent_level();
+        for journey_id in &journeys {
+            emit_journey_use_case_usage(catalog, *journey_id, writer);
+        }
+        writer.dedent();
+        writer.line("}");
+        writer.line("");
+    }
+
+    let mut sorted = requirements;
+    sorted.sort_by(|left, right| {
+        let left_rank = requirement_trace_order(left.kind);
+        let right_rank = requirement_trace_order(right.kind);
+        left_rank
+            .cmp(&right_rank)
+            .then_with(|| left.id.0.cmp(&right.id.0))
+    });
+    for requirement in sorted {
+        emit_requirement_usage(catalog, requirement, writer);
+    }
+}
+
+fn requirement_trace_order(kind: RequirementClass) -> u8 {
+    match kind {
+        RequirementClass::Functional | RequirementClass::Interface => 0,
+        RequirementClass::Performance => 1,
+        RequirementClass::Robustness => 2,
+        RequirementClass::System => 3,
+    }
+}
+
+fn emit_journey_use_case_usage(catalog: &Catalog, journey_id: JourneyId, writer: &mut SysmlWriter) {
+    let Some(journey) = catalog.journey_by_id(&journey_id) else {
+        return;
+    };
+    let usage = journey_use_case_usage_ident(journey_id);
+    let def_name = sysml_ident(journey_id.as_str());
+    writer.line(&format!("use case {usage} : {def_name} {{"));
+    writer.indent_level();
+    if let GroundedSet::Known { items } = &journey.services {
+        if let Some(first) = items.first() {
             writer.line(&format!(
-                "require constraint {{ doc /* {} */; }}",
-                escape_comment(&item.text)
+                "subject subj : {};",
+                sysml_ident(first.value.as_str())
             ));
         }
     }
-    for child in &requirement.subrequirements {
+    writer.dedent();
+    writer.line("}");
+    writer.line("");
+}
+
+fn emit_requirement_usage(catalog: &Catalog, requirement: &Requirement, writer: &mut SysmlWriter) {
+    let usage = requirement_usage_ident(&requirement.id.0);
+    let def_name = sysml_ident(&requirement.id.0);
+    let req_id = requirement_req_short_name(&requirement.id.0);
+    writer.line(&format!("requirement <{req_id}> {usage} : {def_name} {{"));
+    writer.indent_level();
+    if let Some(rationale) = &requirement.rationale {
+        emit_doc(rationale, writer);
+    }
+    if let Some(subject) = requirement_subject_usage(catalog, requirement) {
+        writer.line(&format!("subject subj : {subject};"));
+    }
+    for child_id in &requirement.subrequirements {
         writer.line(&format!(
             "requirement subrequirements :> {};",
-            sysml_ident(&child.0)
+            requirement_usage_ident(&child_id.0)
         ));
     }
     for journey_id in &requirement.requirement_verifications {
         writer.line(&format!(
             "verify requirement {};",
-            sysml_ident(journey_id.as_str())
+            journey_use_case_usage_ident(*journey_id)
         ));
     }
     writer.dedent();
     writer.line("}");
     writer.line("");
+}
+
+fn requirement_req_short_name(requirement_id: &str) -> String {
+    sysml_ident(requirement_id)
+}
+
+fn journey_use_case_usage_ident(journey_id: JourneyId) -> String {
+    format!("{}_uc", sysml_ident(journey_id.as_str()))
+}
+
+fn requirement_usage_ident(requirement_id: &str) -> String {
+    format!("{}_u", sysml_ident(requirement_id))
+}
+
+fn requirement_subject_def(catalog: &Catalog, requirement: &Requirement) -> Option<String> {
+    if let Some(function_id) = &requirement.function_id {
+        return Some(sysml_ident(function_id.as_str()));
+    }
+    if let Some(service_id) = requirement_subject_service(catalog, requirement) {
+        return Some(service_qualified_type(catalog, service_id));
+    }
+    if let Some(journey_id) = requirement.journey_id {
+        return Some(sysml_ident(journey_id.as_str()));
+    }
+    if let Some(capability) = requirement.feature_id {
+        return Some(sysml_ident(capability.as_str()));
+    }
+    None
+}
+
+fn requirement_subject_usage(catalog: &Catalog, requirement: &Requirement) -> Option<String> {
+    if let Some(function_id) = &requirement.function_id {
+        return Some(sysml_ident(function_id.as_str()));
+    }
+    if let Some(service_id) = requirement_subject_service(catalog, requirement) {
+        return Some(sysml_ident(service_id.as_str()));
+    }
+    if let Some(journey_id) = requirement.journey_id {
+        return Some(journey_use_case_usage_ident(journey_id));
+    }
+    if let Some(capability) = requirement.feature_id {
+        return Some(sysml_ident(capability.as_str()));
+    }
+    None
+}
+
+fn requirement_subject_service(catalog: &Catalog, requirement: &Requirement) -> Option<ServiceId> {
+    if matches!(
+        requirement.kind,
+        RequirementClass::System | RequirementClass::Interface | RequirementClass::Performance
+    ) {
+        if let Some(journey_id) = requirement.journey_id {
+            return journey_services(catalog, journey_id).into_iter().next();
+        }
+    }
+    None
 }
 
 fn requirement_base_type(kind: RequirementClass) -> &'static str {
@@ -664,20 +884,6 @@ fn requirement_base_type(kind: RequirementClass) -> &'static str {
         RequirementClass::Robustness => "RobustnessRequirementCheck",
     }
 }
-
-fn requirement_subject(requirement: &Requirement) -> Option<String> {
-    if let Some(function_id) = &requirement.function_id {
-        return Some(sysml_ident(function_id.as_str()));
-    }
-    if let Some(capability) = requirement.feature_id {
-        return Some(sysml_ident(capability.as_str()));
-    }
-    if let Some(journey_id) = requirement.journey_id {
-        return Some(sysml_ident(journey_id.as_str()));
-    }
-    None
-}
-
 fn emit_observed_scalar<T: std::fmt::Display>(
     name: &str,
     field: &Observed<T>,
@@ -823,6 +1029,36 @@ fn bus_ident(bus: Bus) -> String {
     }
 }
 
+fn service_qualified_type(catalog: &Catalog, service_id: ServiceId) -> String {
+    let aggregate = aggregate_for_service(catalog, service_id);
+    format!(
+        "{}::{}::{}",
+        domain_of(aggregate).as_str(),
+        aggregate.as_str(),
+        sysml_ident(service_id.as_str())
+    )
+}
+
+fn emit_doc(text: &str, writer: &mut SysmlWriter) {
+    writer.line("doc");
+    writer.line("/*");
+    let cleaned = escape_comment(text).replace('\r', "");
+    let mut wrote = false;
+    for line in cleaned.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            writer.line(" *");
+        } else {
+            writer.line(&format!(" * {line}"));
+        }
+        wrote = true;
+    }
+    if !wrote {
+        writer.line(" *");
+    }
+    writer.line(" */");
+}
+
 fn aggregate_for_service(catalog: &Catalog, service_id: ServiceId) -> Aggregate {
     if let Some(service) = catalog.service_by_id(&service_id) {
         if let AssertedSet::Established { items } = &service.definition.capabilities {
@@ -897,11 +1133,21 @@ fn path_ref_label(path: &PathRef) -> &str {
 pub fn sysml_ident(raw: &str) -> String {
     let mut ident = raw
         .chars()
-        .map(|ch| match ch {
-            '/' | '-' | '.' => '_',
-            _ => ch,
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '_' {
+                ch
+            } else {
+                '_'
+            }
         })
         .collect::<String>();
+    while ident.contains("__") {
+        ident = ident.replace("__", "_");
+    }
+    ident = ident.trim_matches('_').to_string();
+    if ident.is_empty() {
+        ident = "n".to_string();
+    }
     if ident.chars().next().is_some_and(|ch| ch.is_ascii_digit()) {
         ident.insert(0, '_');
     }
@@ -909,10 +1155,8 @@ pub fn sysml_ident(raw: &str) -> String {
 }
 
 fn sysml_string(value: &str) -> String {
-    let escaped = value
-        .replace('\\', "\\\\")
-        .replace('"', "\\\"")
-        .replace('\n', "\\n");
+    // SysIDE STRING_VALUE is `"[^"]*"`: no escapes, no embedded double quotes.
+    let escaped = value.replace(['\n', '\r', '\t'], " ").replace('"', "'");
     format!("\"{escaped}\"")
 }
 
@@ -938,7 +1182,29 @@ mod tests {
         assert!(output.contains("@Rationale"));
         assert!(output.contains("@Evidence"));
         assert!(output.contains("@StatusInfo"));
-        assert!(output.contains("connect"));
+        assert!(output.contains("interface "));
+        assert!(!output.contains("attribute port "));
+        assert!(!output.contains("attribute connect "));
+        assert!(!output.contains("\\\""));
+        assert!(!output.lines().any(|line| {
+            let line = line.trim_start();
+            line.starts_with("connect ") && line.contains(" via ")
+        }));
+        assert!(output.contains("attribute tcp_port"));
+        assert!(output.contains("private import ScalarValues::*"));
+        assert!(output.contains("requirement blueosVerification"));
+        assert!(output.contains("_uc"));
+        assert!(output
+            .contains("<REQ_peripherals_sonar_FUN_connect_ping_viewer_to_sonar_cbf29ce484222325>"));
+        assert!(output.contains("_u : REQ_"));
+        assert!(output.contains("verify requirement connect_ping_viewer_to_sonar_uc"));
+    }
+
+    #[test]
+    fn sysml_string_never_embeds_double_quotes() {
+        assert_eq!(sysml_string(r#"foo "bar""#), r#""foo 'bar'""#);
+        assert!(!sysml_string("a\nb\"c").contains('\\'));
+        assert!(!sysml_string("a\nb\"c").contains('\n'));
     }
 
     #[test]
@@ -952,6 +1218,10 @@ mod tests {
             sysml_ident("mavlink-camera-manager"),
             "mavlink_camera_manager"
         );
+        assert_eq!(
+            sysml_ident("REQ/blueos_platform/message_bus/PERF/GET_zenoh_@_**"),
+            "REQ_blueos_platform_message_bus_PERF_GET_zenoh"
+        );
     }
 
     #[test]
@@ -961,5 +1231,43 @@ mod tests {
         let first = export_sysml(&catalog, Some(&filter));
         let second = export_sysml(&catalog, Some(&filter));
         assert_eq!(first, second);
+    }
+
+    #[test]
+    fn exported_definition_names_are_basic_idents() {
+        let catalog = Catalog::bootstrap();
+        let output = export_sysml(&catalog, None);
+        for line in output.lines() {
+            let Some(name) = definition_name(line) else {
+                continue;
+            };
+            assert!(
+                name.chars()
+                    .all(|ch| ch.is_ascii_alphanumeric() || ch == '_'),
+                "illegal ident on line: {line}"
+            );
+        }
+        assert!(output.matches("part def ").count() >= 26);
+    }
+
+    fn definition_name(line: &str) -> Option<&str> {
+        let line = line.trim();
+        for prefix in [
+            "part def ",
+            "requirement def ",
+            "use case def ",
+            "action def ",
+            "port def ",
+            "interface def ",
+            "metadata def ",
+        ] {
+            if let Some(rest) = line.strip_prefix(prefix) {
+                return rest
+                    .split([' ', '{', ':'])
+                    .next()
+                    .filter(|name| !name.is_empty());
+            }
+        }
+        None
     }
 }
