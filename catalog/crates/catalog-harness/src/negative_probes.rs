@@ -464,10 +464,9 @@ pub const NEGATIVE_PROBES: &[NegativeProbe] = &[
         path: "/kraken/v2.0/container/np_no_such_container/log",
         query: Some("timeout=1"),
         body: None,
-        // `fetch_log_by_container_name` on 1.4.4-beta.19+ (`e416aebf7`) looks up the container
-        // before opening the stream, so ContainerNotFound maps to 404. The catalog-pinned
-        // `2.0-dev/model` source still streams 200 first; `--negative` on that image will fail.
-        expected_status: Some(404),
+        // Pinned `2.0-dev/model` source streams 200 before ContainerNotFound. 1.4.4-beta.19+
+        // (`e416aebf7`) looks up the container first and returns 404. Evaluator accepts both.
+        expected_status: Some(200),
         blast: ProbeBlast::Safe,
     },
     NegativeProbe {

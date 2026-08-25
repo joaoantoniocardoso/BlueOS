@@ -251,17 +251,26 @@ pub fn run(cli: JourneyHttpCli) {
                 skip_manifest_mutate: cli.skip_manifest_mutate,
             },
         );
-        let failed = results.iter().filter(|check| !check.ok).count();
-        let passed = results.len() - failed;
+        let failed = results
+            .iter()
+            .filter(|check| !check.ok && !check.skipped)
+            .count();
+        let skipped = results.iter().filter(|check| check.skipped).count();
+        let passed = results
+            .iter()
+            .filter(|check| check.ok && !check.skipped)
+            .count();
         for check in &results {
-            println!(
-                "{} {}: {}",
-                if check.ok { "PASS" } else { "FAIL" },
-                check.name,
-                check.detail
-            );
+            let label = if check.skipped {
+                "SKIP"
+            } else if check.ok {
+                "PASS"
+            } else {
+                "FAIL"
+            };
+            println!("{label} {}: {}", check.name, check.detail);
         }
-        println!("extension-lifecycle: passed={passed} failed={failed}");
+        println!("extension-lifecycle: passed={passed} failed={failed} skipped={skipped}");
         if let Some(path) = report_path.as_deref() {
             if let Err(err) = write_extension_lifecycle_report(path, base, &started_at, &results) {
                 eprintln!("journey_http: report: {err}");

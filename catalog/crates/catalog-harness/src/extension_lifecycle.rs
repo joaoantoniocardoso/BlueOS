@@ -276,15 +276,18 @@ pub struct ExtensionLifecycleOpts {
     pub skip_manifest_mutate: bool,
 }
 
-/// One PASS/FAIL row printed by `--extension-lifecycle`.
+/// One PASS/FAIL/SKIP row printed by `--extension-lifecycle`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Check {
-    /// Check label (`v1 install never-installed 2xx`, `NP-54`, …).
+    /// Check label (`v1 install never-installed 2xx`, `NP-54`, ...).
     pub name: String,
-    /// Lifecycle phase (`baseline`, `v1`, `v2`, `restore`, …).
+    /// Lifecycle phase (`baseline`, `v1`, `v2`, `restore`, ...).
     pub phase: String,
-    /// True when the row is a pass or an explicit skip.
+    /// True when the row is a pass. Skips also set this so old counters stay non-failing.
     pub ok: bool,
+    /// True when the row is an explicit skip, not a verified pass.
+    #[serde(default)]
+    pub skipped: bool,
     /// HTTP snippet or skip reason.
     pub detail: String,
 }
@@ -303,6 +306,7 @@ struct LifecycleReport {
 struct LifecycleCounts {
     passed: usize,
     failed: usize,
+    skipped: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -329,10 +333,12 @@ struct Vehicle {
 
 impl Check {
     fn new(name: &str, phase: &str, ok: bool, detail: impl Into<String>) -> Self {
+        let skipped = name.starts_with("skip:");
         Self {
             name: name.to_string(),
             phase: phase.to_string(),
-            ok,
+            ok: ok || skipped,
+            skipped,
             detail: detail.into(),
         }
     }
@@ -373,14 +379,25 @@ pub fn write_extension_lifecycle_report(
     started_at: &str,
     checks: &[Check],
 ) -> Result<(), String> {
-    let passed = checks.iter().filter(|check| check.ok).count();
-    let failed = checks.len() - passed;
+    let skipped = checks.iter().filter(|check| check.skipped).count();
+    let failed = checks
+        .iter()
+        .filter(|check| !check.ok && !check.skipped)
+        .count();
+    let passed = checks
+        .iter()
+        .filter(|check| check.ok && !check.skipped)
+        .count();
     let report = LifecycleReport {
         schema_version: SCHEMA_VERSION,
         base: base.to_string(),
         started_at: started_at.to_string(),
         finished_at: utc_rfc3339_now(),
-        counts: LifecycleCounts { passed, failed },
+        counts: LifecycleCounts {
+            passed,
+            failed,
+            skipped,
+        },
         checks: checks.to_vec(),
     };
     let json = serde_json::to_string_pretty(&report).map_err(|error| error.to_string())?;
@@ -680,6 +697,36 @@ impl Harness {
         }
     }
 
+    fn assert_factory_manifest(&mut self, phase: &str) {
+        let (status, body) = self
+            .call(
+                JourneyId::BrowseExtensionStore,
+                HttpMethod::Get,
+                "/manifest/",
+                "/manifest/",
+                Some("data=false"),
+                None,
+            )
+            .unwrap_or((0, String::new()));
+        let present = status == 200
+            && serde_json::from_str::<serde_json::Value>(&body)
+                .ok()
+                .and_then(|value| value.as_array().cloned())
+                .unwrap_or_default()
+                .iter()
+                .any(|item| {
+                    item.get("identifier").and_then(|value| value.as_str())
+                        == Some(FACTORY_MANIFEST)
+                        && item.get("factory").and_then(|value| value.as_bool()) == Some(true)
+                });
+        self.rec(
+            "factory manifest still present",
+            phase,
+            present,
+            format!("HTTP {status}"),
+        );
+    }
+
     fn run(&mut self) {
         let result: Result<(), String> = (|| {
             self.phase_baseline()?;
@@ -745,6 +792,7 @@ impl Harness {
             leftover.is_empty(),
             format!("{leftover:?}"),
         );
+        self.assert_factory_manifest("restore");
         self.rec("mgmt ping after", "restore", mgmt_ping(&self.base), "");
     }
 
@@ -758,6 +806,7 @@ impl Harness {
             .collect::<std::collections::HashSet<_>>()
             .into_iter()
             .collect();
+        self.drop_dummy_manifest();
         let (status, body) = self.call(
             JourneyId::BrowseExtensionStore,
             HttpMethod::Get,
@@ -785,7 +834,6 @@ impl Harness {
                     .collect();
             }
         }
-        self.drop_dummy_manifest();
 
         let (mut vehicle, alt) = pick_vehicle(
             &self.catalog,
@@ -992,32 +1040,6 @@ impl Harness {
 
     fn phase_unknown(&mut self) {
         for probe in kraken_lifecycle_probes() {
-            if probe.id == "NP-53" {
-                if self.opts.assert_unknown {
-                    self.rec(
-                        "skip: NP-53",
-                        "unknown",
-                        true,
-                        "assert-unknown requires 404; NP-53 pins unpatched from_running 400",
-                    );
-                    continue;
-                }
-                let url = join_url(&self.base, probe.path);
-                let (status, body) =
-                    execute_curl(&probe.method, &url, self.allow_mutating, None, None)
-                        .unwrap_or((0, String::new()));
-                let ok = status == 400 || status == 404;
-                self.rec(
-                    probe.id,
-                    "unknown",
-                    ok,
-                    format!(
-                        "HTTP {status} {} (unpatched 400 / patched 404)",
-                        snippet(&body, 80)
-                    ),
-                );
-                continue;
-            }
             if probe.expected_status.is_none() {
                 self.rec(
                     &format!("skip: {} unasserted", probe.id),
@@ -1036,30 +1058,31 @@ impl Harness {
             };
             self.rec(probe.id, "unknown", ok, detail);
         }
+        self.assert_factory_manifest("unknown");
         if !self.opts.assert_unknown {
             return;
         }
         let pairs = [
             (
-                "unknown v2 restart → 404",
+                "unknown v2 restart -> 404",
                 HttpMethod::Post,
                 format!("/kraken/v2.0/extension/{UNKNOWN}/restart"),
                 None,
             ),
             (
-                "unknown v1 restart → 404",
+                "unknown v1 restart -> 404",
                 HttpMethod::Post,
                 "/kraken/v1.0/extension/restart".to_string(),
                 Some(format!("extension_identifier={UNKNOWN}")),
             ),
             (
-                "unknown v2 disable → 404",
+                "unknown v2 disable -> 404",
                 HttpMethod::Post,
                 format!("/kraken/v2.0/extension/{UNKNOWN}/disable"),
                 None,
             ),
             (
-                "unknown v1 disable → 404",
+                "unknown v1 disable -> 404",
                 HttpMethod::Post,
                 "/kraken/v1.0/extension/disable".to_string(),
                 Some(format!("extension_identifier={UNKNOWN}")),
@@ -1093,7 +1116,7 @@ impl Harness {
             )
             .unwrap_or((0, String::new()));
         self.rec(
-            "v2 jobs enqueue GET list → 202",
+            "v2 jobs enqueue GET list -> 202",
             "jobs",
             status == 202,
             format!("HTTP {status} {}", snippet(&body, 80)),
@@ -1130,7 +1153,7 @@ impl Harness {
                     )
                     .unwrap_or((0, String::new()));
                 self.rec(
-                    "v2 jobs delete queued → 204",
+                    "v2 jobs delete queued -> 204",
                     "jobs",
                     status == 204 || status == 404,
                     format!("HTTP {status}"),
@@ -1183,7 +1206,7 @@ impl Harness {
             )
             .unwrap_or((0, String::new()));
         self.rec(
-            "v2 dummy manifest create → 201",
+            "v2 dummy manifest create -> 201",
             "manifest",
             status == 201,
             format!("HTTP {status} {}", snippet(&raw, 80)),
@@ -1232,7 +1255,7 @@ impl Harness {
             )
             .unwrap_or((0, String::new()));
         self.rec(
-            "v2 dummy manifest enable → 204",
+            "v2 dummy manifest enable -> 204",
             "manifest",
             status == 204,
             format!("HTTP {status}"),
@@ -1248,7 +1271,7 @@ impl Harness {
             )
             .unwrap_or((0, String::new()));
         self.rec(
-            "v2 dummy manifest disable → 204",
+            "v2 dummy manifest disable -> 204",
             "manifest",
             status == 204,
             format!("HTTP {status}"),
@@ -1265,7 +1288,7 @@ impl Harness {
             )
             .unwrap_or((0, String::new()));
         self.rec(
-            "v2 dummy manifest PUT details → 204",
+            "v2 dummy manifest PUT details -> 204",
             "manifest",
             status == 204,
             format!("HTTP {status}"),
@@ -1281,7 +1304,7 @@ impl Harness {
             )
             .unwrap_or((0, String::new()));
         self.rec(
-            "v2 dummy manifest PUT order → 204",
+            "v2 dummy manifest PUT order -> 204",
             "manifest",
             status == 204,
             format!("HTTP {status}"),
@@ -1300,7 +1323,7 @@ impl Harness {
                 )
                 .unwrap_or((0, String::new()));
             self.rec(
-                "v2 manifest PUT orders restore → 204",
+                "v2 manifest PUT orders restore -> 204",
                 "manifest",
                 status == 204,
                 format!("HTTP {status}"),
@@ -1317,7 +1340,7 @@ impl Harness {
             )
             .unwrap_or((0, String::new()));
         self.rec(
-            "v2 dummy manifest DELETE → 204",
+            "v2 dummy manifest DELETE -> 204",
             "manifest",
             status == 204,
             format!("HTTP {status}"),
@@ -1500,7 +1523,7 @@ impl Harness {
             )
             .unwrap_or((0, String::new()));
         self.rec(
-            "v2 restart running → 202",
+            "v2 restart running -> 202",
             "v1",
             status == 202,
             format!("HTTP {status} {}", snippet(&raw, 80)),
@@ -1523,7 +1546,7 @@ impl Harness {
             )
             .unwrap_or((0, String::new()));
         self.rec(
-            "v1 restart running → 202",
+            "v1 restart running -> 202",
             "v1",
             status == 202,
             format!("HTTP {status} {}", snippet(&raw, 80)),
@@ -1548,7 +1571,7 @@ impl Harness {
             )
             .unwrap_or((0, String::new()));
         self.rec(
-            "v2 disable running → 204",
+            "v2 disable running -> 204",
             "v1",
             status == 204,
             format!("HTTP {status} {}", snippet(&raw, 80)),
@@ -1579,7 +1602,7 @@ impl Harness {
             )
             .unwrap_or((0, String::new()));
         self.rec(
-            "v2 restart disabled → 400",
+            "v2 restart disabled -> 400",
             "v1",
             status == 400 && raw.contains("no running versions"),
             format!("HTTP {status} {}", snippet(&raw, 80)),
@@ -1595,7 +1618,7 @@ impl Harness {
             )
             .unwrap_or((0, String::new()));
         self.rec(
-            "v2 enable → 204",
+            "v2 enable -> 204",
             "v1",
             status == 204,
             format!("HTTP {status} {}", snippet(&raw, 80)),
@@ -1619,7 +1642,7 @@ impl Harness {
             )
             .unwrap_or((0, String::new()));
         self.rec(
-            "v1 disable running → 200",
+            "v1 disable running -> 200",
             "v1",
             status == 200,
             format!("HTTP {status} {}", snippet(&raw, 80)),
@@ -1642,7 +1665,7 @@ impl Harness {
             )
             .unwrap_or((0, String::new()));
         self.rec(
-            "v1 enable installed → 200",
+            "v1 enable installed -> 200",
             "v1",
             status == 200,
             format!("HTTP {status} {}", snippet(&raw, 80)),
@@ -1666,7 +1689,7 @@ impl Harness {
             )
             .unwrap_or((0, String::new()));
         self.rec(
-            "v1 uninstall → 200",
+            "v1 uninstall -> 200",
             "v1",
             status == 200,
             format!("HTTP {status} {}", snippet(&raw, 80)),
@@ -1704,7 +1727,7 @@ impl Harness {
         };
         self.rec(
             if self.opts.assert_unknown {
-                "restart after uninstall → 404"
+                "restart after uninstall -> 404"
             } else {
                 "restart after uninstall leftover (400 or 404)"
             },
@@ -1748,7 +1771,7 @@ impl Harness {
             )
             .unwrap_or((0, String::new()));
         self.rec(
-            "v2 tagged uninstall → 202",
+            "v2 tagged uninstall -> 202",
             "v2",
             status == 202,
             format!("HTTP {status} {}", snippet(&raw, 80)),
@@ -1913,7 +1936,7 @@ impl Harness {
             )
             .unwrap_or((0, String::new()));
         self.rec(
-            "v2 uninstall identifier → 202",
+            "v2 uninstall identifier -> 202",
             "v2",
             status == 202,
             format!("HTTP {status} {}", snippet(&raw, 80)),
@@ -2052,7 +2075,7 @@ impl Harness {
             )
             .unwrap_or((0, String::new()));
         self.rec(
-            "cleanup after latest → 202",
+            "cleanup after latest -> 202",
             "v2",
             status == 202,
             format!("HTTP {status} {}", snippet(&raw, 80)),
@@ -2348,7 +2371,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_live_extension_list_into_triples() {
+    fn parse_live_extension_list() {
         let exts = parse_installed_extensions(LIVE_LIST).expect("parse");
         assert_eq!(
             exts.iter()

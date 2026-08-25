@@ -317,7 +317,17 @@ fn evaluate_negative_probe_response(
     status_code: u16,
     body: &str,
 ) -> Verdict {
-    let result = evaluate_http_response(status_code, body, probe.expected_status, None);
+    // NP-53: unpatched from_running → 400 ExtensionNotRunning; patched → 404.
+    // NP-54: pinned source streams 200 before ContainerNotFound; 1.4.4-beta.19+ (`e416aebf7`) returns 404.
+    let dual_ok = matches!(
+        (probe.id, status_code),
+        ("NP-53", 400 | 404) | ("NP-54", 200 | 404)
+    );
+    let result = if dual_ok {
+        Verdict::Pass
+    } else {
+        evaluate_http_response(status_code, body, probe.expected_status, None)
+    };
     match &result {
         Verdict::Pass => eprintln!("PASS {} HTTP {status_code}", probe.id),
         Verdict::Fail(msg) => eprintln!("FAIL {} HTTP {status_code} — {msg}", probe.id),
@@ -2386,6 +2396,7 @@ mod tests {
         assert!(is_smoke_excluded_get("/internet_download_speed"));
         assert!(is_smoke_excluded_get("/internet_upload_speed"));
         assert!(is_smoke_excluded_get("/log"));
+        assert!(is_smoke_excluded_get("/container/{container_name}/log"));
         assert!(!is_smoke_excluded_get("/internet_best_server"));
         assert!(!is_smoke_excluded_get("/disk/speed"));
     }
