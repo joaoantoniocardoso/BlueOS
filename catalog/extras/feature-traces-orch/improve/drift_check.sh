@@ -27,9 +27,10 @@ set -euo pipefail
 catalog_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 presence_json="${catalog_dir}/feature_presence_map.json"
 traces_json="${catalog_dir}/feature_traces.json"
-overrides_rs="${catalog_dir}/src/tools/feature_presence.rs"
+overrides_rs="${catalog_dir}/crates/catalog-git/src/feature_presence.rs"
+id_rs="${catalog_dir}/crates/catalog-kernel/src/id/journey.rs"
 
-for f in "$presence_json" "$traces_json" "$overrides_rs"; do
+for f in "$presence_json" "$traces_json" "$overrides_rs" "$id_rs"; do
   if [[ ! -f "$f" ]]; then
     echo "drift_check: missing ${f}" >&2
     exit 1
@@ -64,7 +65,7 @@ fi
 
 fail=0
 wire_journey() {
-  python3 - "$1" "${catalog_dir}/src/id.rs" <<'PY'
+  python3 - "$1" "$id_rs" <<'PY'
 import re, sys
 from pathlib import Path
 variant, id_rs = sys.argv[1], Path(sys.argv[2]).read_text()
@@ -81,7 +82,7 @@ PY
 }
 
 for journey in "${journeys[@]}"; do
-  wire=$(wire_journey "$journey" "${catalog_dir}/src/id.rs")
+  wire=$(wire_journey "$journey" "$id_rs")
   if [[ -z "$wire" ]]; then
     echo "drift_check: no JourneyId wire id for OVERRIDES key ${journey}" >&2
     fail=1
