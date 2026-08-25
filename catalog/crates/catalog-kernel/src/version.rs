@@ -461,6 +461,27 @@ mod tests {
             &MULTI_LINE_INSTALL_EXTENSION_LIKE
         ));
         assert!(availability_skip("1.4.4-beta.19", &MULTI_LINE_INSTALL_EXTENSION_LIKE).is_none());
+        assert!(feature_present_on(
+            "1.4.4-beta.23",
+            &MULTI_LINE_INSTALL_EXTENSION_LIKE
+        ));
+        assert!(availability_skip("1.4.4-beta.23", &MULTI_LINE_INSTALL_EXTENSION_LIKE).is_none());
+    }
+
+    #[test]
+    fn presence_same_line_gap_is_absent_until_listed() {
+        let avail = Availability {
+            intro_commit: "508d760392b52dc3f0a30ab0e4df1dd0b2e7bd44",
+            present_in_tags: &["1.4.4-beta.16", "1.4.4-beta.100", "1.5.0-beta.38"],
+            present_on_master: true,
+            present_on_1_4_dev: true,
+        };
+        assert!(!feature_present_on("1.4.4-beta.23", &avail));
+        assert!(availability_skip("1.4.4-beta.23", &avail).is_some());
+        assert!(!feature_present_on("1.4.4-beta.10", &avail));
+        assert!(availability_skip("1.4.4-beta.10", &avail).is_some());
+        assert!(feature_present_on("1.4.4-beta.101", &avail));
+        assert!(availability_skip("1.4.4-beta.101", &avail).is_none());
     }
 
     #[test]
