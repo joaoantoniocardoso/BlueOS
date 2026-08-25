@@ -51,7 +51,7 @@ flag, then forces hotspot off again for multi-DUT hygiene.
 Scan-absent gating: if the DUT still lists our SSID after the host AP is
 confirmed down, the harness continues with a warning (stale `/scan` cache).
 
-The host keeps `HOST_STATION_CONNS` down during RF tests. Set `RESTORE_STATION=1`
-to re-enable them after teardown (can break ethernet routes to the DUT).
+The host keeps `HOST_STATION_CONNS` down during RF tests and never brings them
+back (those are home/other SSIDs, not test networks).
 `EXPECT_WPA3=yes|no` overrides WPA3 capability; `auto` uses the WPA3 scan
 entry's `supported` field.

@@ -1,7 +1,7 @@
 use crate::runner::execute_curl;
 use crate::wifi_rf::{
     connect_body_for_mode, dut_hotspot_off, dut_status_ssid, host_ap_ensure, host_ap_up,
-    l3_assert_associated, mode_ssid, restore_station, rf_teardown, wait_dut_lease, ApMode,
+    l3_assert_associated, mode_ssid, rf_teardown, wait_dut_lease, ApMode,
 };
 use catalog_kernel::id::journey::JourneyId;
 use catalog_model::journey::HttpMethod;
@@ -199,11 +199,5 @@ pub fn run_wifi_endpoints(base: &str) -> Result<Vec<(String, bool, String)>, Str
     );
 
     let _ = rf_teardown(JourneyId::ConnectToWifiNetwork);
-    if std::env::var("RESTORE_STATION")
-        .map(|v| matches!(v.to_ascii_lowercase().as_str(), "1" | "yes" | "true"))
-        .unwrap_or(false)
-    {
-        let _ = restore_station();
-    }
     Ok(results)
 }

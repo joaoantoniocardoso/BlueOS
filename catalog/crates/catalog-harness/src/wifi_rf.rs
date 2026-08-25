@@ -1,8 +1,10 @@
 //! Host WiFi RF control for catalog Tier-2 wifi/hotspot smoke.
 //!
-//! Drives NetworkManager on the runner machine (AP for client journeys, station
-//! for hotspot journeys) via `nmcli` / `ip` — logic ported from
-//! `catalog/harness/wifi/{lib,host-ap,host-station}.sh`.
+//! WPA2 client journeys use a hostapd AP (docker + `nmcli device set managed no`)
+//! so the beacon is `WPA2-PSK-CCMP`. NetworkManager 1.58 still injects
+//! `WPA-PSK-SHA256` into `key-mgmt=wpa-psk` APs even with PMF disabled, and
+//! BlueOS bullseye clients time out associating to that IE mix. Other AP modes
+//! and host-station (DUT hotspot) still go through `nmcli`.
 
 use std::net::Ipv4Addr;
 use std::path::{Path, PathBuf};
@@ -29,6 +31,7 @@ pub const HOTSPOT_CREDENTIALS_SMOKE_BODY: &str =
 pub const WRONG_PASSWORD_SMOKE_BODY: &str =
     r#"{"ssid":"BlueOS-Hotspot","password":"definitely-wrong-password-xyz"}"#;
 pub const EMPTY_PASSWORD_SMOKE_BODY: &str = r#"{"ssid":"BlueOS-Hotspot","password":""}"#;
+const HOSTAPD_CONTAINER: &str = "catalog-wifi-hostapd";
 
 #[derive(Debug, Clone)]
 struct HostRfConfig {
@@ -345,6 +348,7 @@ fn iface_ipv4s(iface: &str) -> Vec<Ipv4Addr> {
 }
 
 fn disable_station_autoconnect(cfg: &HostRfConfig) {
+    // Home/other SSIDs in HOST_STATION_CONNS: keep off this radio, never restore.
     for conn in &cfg.station_conns {
         if !connection_exists(conn) {
             continue;
@@ -470,6 +474,8 @@ fn ensure_wpa2_profile(cfg: &HostRfConfig) -> Result<(), String> {
         "1",
         "wifi-sec.psk",
         &cfg.wpa2_psk,
+        "wifi-sec.wps-method",
+        "disabled",
     ])
 }
 
@@ -521,31 +527,134 @@ fn down_ap_conns(cfg: &HostRfConfig) {
     }
 }
 
+fn iface_is_ap(iface: &str) -> bool {
+    let output = Command::new("iw").args(["dev", iface, "info"]).output();
+    let Ok(output) = output else {
+        return false;
+    };
+    String::from_utf8_lossy(&output.stdout).contains("type AP")
+}
+
+fn docker(args: &[&str]) -> Result<String, String> {
+    let output = Command::new("docker")
+        .args(args)
+        .output()
+        .map_err(|err| format!("docker {}: {err}", args.join(" ")))?;
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    let combined = format!("{stdout}{stderr}");
+    if output.status.success() {
+        return Ok(combined);
+    }
+    Err(format!(
+        "docker {} failed (status {:?}): {combined}",
+        args.join(" "),
+        output.status.code()
+    ))
+}
+
+fn stop_hostapd_container() {
+    let _ = Command::new("docker")
+        .args(["rm", "-f", HOSTAPD_CONTAINER])
+        .output();
+}
+
+fn hostapd_container_running() -> bool {
+    docker(&["inspect", "-f", "{{.State.Running}}", HOSTAPD_CONTAINER])
+        .ok()
+        .is_some_and(|state| state.trim() == "true")
+}
+
+fn remanage_wifi(cfg: &HostRfConfig) {
+    nmcli_ignore(&["device", "set", &cfg.iface, "managed", "yes"]);
+}
+
+fn hostapd_conf(cfg: &HostRfConfig) -> String {
+    format!(
+        "interface={}\n\
+         driver=nl80211\n\
+         ssid={}\n\
+         hw_mode=g\n\
+         channel={}\n\
+         ieee80211n=0\n\
+         auth_algs=1\n\
+         ignore_broadcast_ssid=0\n\
+         wpa=2\n\
+         wpa_key_mgmt=WPA-PSK\n\
+         rsn_pairwise=CCMP\n\
+         wpa_passphrase={}\n\
+         ieee80211w=0\n",
+        cfg.iface, cfg.wpa2_ssid, cfg.ap_channel, cfg.wpa2_psk
+    )
+}
+
+fn start_classic_wpa2_ap(cfg: &HostRfConfig) -> Result<(), String> {
+    // ponytail: alpine apk on every up (~8s). Cache a local image with hostapd+dnsmasq if that gets old.
+    stop_hostapd_container();
+    let conf_path = std::env::temp_dir().join("catalog-wifi-hostapd.conf");
+    std::fs::write(&conf_path, hostapd_conf(cfg))
+        .map_err(|err| format!("write {}: {err}", conf_path.display()))?;
+    down_ap_conns(cfg);
+    nmcli_ok(&["device", "set", &cfg.iface, "managed", "no"])?;
+    let conf_mount = format!("{}:/hostapd.conf:ro", conf_path.display());
+    let script = format!(
+        "apk add --no-cache hostapd iproute2 dnsmasq >/dev/null && \
+         ip link set {iface} up && \
+         ip addr add {gw}/{pfx} dev {iface} || true && \
+         (dnsmasq --interface={iface} --bind-interfaces --except-interface=lo \
+           --dhcp-range={range},1h --no-resolv --pid-file=/run/dnsmasq.pid || true) && \
+         exec hostapd /hostapd.conf",
+        iface = cfg.iface,
+        gw = cfg.ap_gateway,
+        pfx = cfg.ap_prefix,
+        range = cfg.dhcp_range,
+    );
+    docker(&[
+        "run",
+        "-d",
+        "--name",
+        HOSTAPD_CONTAINER,
+        "--network",
+        "host",
+        "--cap-add",
+        "NET_ADMIN",
+        "--cap-add",
+        "NET_RAW",
+        "-v",
+        &conf_mount,
+        "alpine:latest",
+        "sh",
+        "-c",
+        &script,
+    ])?;
+    let deadline = Instant::now() + Duration::from_secs(25);
+    while Instant::now() < deadline {
+        if let Ok(logs) = docker(&["logs", HOSTAPD_CONTAINER]) {
+            if logs.contains("AP-ENABLED") {
+                return Ok(());
+            }
+            if logs.contains("Failed to initialize") || logs.contains("errors found") {
+                stop_hostapd_container();
+                remanage_wifi(cfg);
+                return Err(logs);
+            }
+        }
+        std::thread::sleep(Duration::from_millis(400));
+    }
+    stop_hostapd_container();
+    remanage_wifi(cfg);
+    Err("hostapd AP-ENABLED timeout".into())
+}
+
 fn wait_ap(cfg: &HostRfConfig, ssid: &str) -> Result<(), String> {
     let deadline = Instant::now() + Duration::from_secs(10);
     while Instant::now() < deadline {
-        if iface_has_gateway(&cfg.iface, cfg.ap_gateway, cfg.ap_prefix) {
-            if let Ok(active) =
-                nmcli(&["-t", "-f", "DEVICE,STATE", "connection", "show", "--active"])
-            {
-                let needle = format!("{}:activated", cfg.iface);
-                if active.lines().any(|line| line == needle) {
-                    eprintln!(
-                        "wifi_rf: AP up on {} {}/{} (want SSID={ssid})",
-                        cfg.iface, cfg.ap_gateway, cfg.ap_prefix
-                    );
-                    return Ok(());
-                }
-            }
-            if let Ok(state) = nmcli(&["-g", "GENERAL.STATE", "device", "show", &cfg.iface]) {
-                if state.to_lowercase().contains("connected") {
-                    eprintln!(
-                        "wifi_rf: AP up on {} {}/{} (want SSID={ssid})",
-                        cfg.iface, cfg.ap_gateway, cfg.ap_prefix
-                    );
-                    return Ok(());
-                }
-            }
+        if iface_has_gateway(&cfg.iface, cfg.ap_gateway, cfg.ap_prefix) && iface_is_ap(&cfg.iface) {
+            eprintln!(
+                "wifi_rf: AP up on {} {}/{} (want SSID={ssid})",
+                cfg.iface, cfg.ap_gateway, cfg.ap_prefix
+            );
+            return Ok(());
         }
         std::thread::sleep(Duration::from_millis(400));
     }
@@ -822,6 +931,9 @@ pub fn dut_hotspot_off(base: &str) {
 /// True when any of our host AP profiles is active on the configured iface.
 pub fn host_ap_active() -> bool {
     let cfg = config();
+    if hostapd_container_running() && iface_is_ap(&cfg.iface) {
+        return true;
+    }
     let Ok(active) = nmcli(&["-t", "-f", "NAME,DEVICE", "connection", "show", "--active"]) else {
         return false;
     };
@@ -841,33 +953,6 @@ fn host_wifi_list_has_ssid(ssid: &str) -> bool {
         return false;
     };
     list.lines().any(|line| line.trim() == ssid)
-}
-
-pub fn restore_station() -> Result<(), String> {
-    let cfg = config();
-    let mut errors = Vec::new();
-    for conn in &cfg.station_conns {
-        if !connection_exists(conn) {
-            continue;
-        }
-        if let Err(err) = nmcli_ok(&[
-            "connection",
-            "modify",
-            conn,
-            "connection.autoconnect",
-            "yes",
-        ]) {
-            errors.push(err);
-        }
-        if let Err(err) = nmcli_ok(&["connection", "up", conn]) {
-            errors.push(err);
-        }
-    }
-    if errors.is_empty() {
-        Ok(())
-    } else {
-        Err(errors.join("; "))
-    }
 }
 
 /// True when this runner can drive host RF (nmcli + configured wifi iface).
@@ -896,7 +981,23 @@ pub fn host_ap_ensure() -> Result<(), String> {
 pub fn host_ap_up(mode: &str) -> Result<(), String> {
     let cfg = config();
     let mode = ApMode::parse(mode)?;
+    stop_hostapd_container();
+    remanage_wifi(cfg);
     disable_station_autoconnect(cfg);
+    if mode == ApMode::Wpa2 {
+        match start_classic_wpa2_ap(cfg) {
+            Ok(()) => {
+                wait_ap(cfg, cfg.mode_ssid(mode))?;
+                return Ok(());
+            }
+            Err(err) => {
+                eprintln!(
+                    "wifi_rf: classic hostapd AP failed ({err}); falling back to NetworkManager"
+                );
+                remanage_wifi(cfg);
+            }
+        }
+    }
     match mode {
         ApMode::Open => ensure_open_profile(cfg)?,
         ApMode::Wpa => ensure_wpa_profile(cfg)?,
@@ -911,7 +1012,11 @@ pub fn host_ap_up(mode: &str) -> Result<(), String> {
 }
 
 pub fn host_ap_down() -> Result<(), String> {
-    down_ap_conns(config());
+    let cfg = config();
+    stop_hostapd_container();
+    remanage_wifi(cfg);
+    down_ap_conns(cfg);
+    disable_station_autoconnect(cfg);
     Ok(())
 }
 
@@ -1069,10 +1174,7 @@ pub fn rf_setup_for_base(journey_id: JourneyId, base: &str) -> Result<(), String
 }
 
 /// Tear down host RF after a journey (best-effort after HTTP teardown).
-///
-/// Does **not** call [`restore_station`] by default: bringing a competing home
-/// WiFi profile back up can black-hole ethernet routes to the DUT mid-suite.
-/// Opt in with `RESTORE_STATION=1` (or call [`restore_station`] explicitly).
+/// Competing `HOST_STATION_CONNS` (home SSIDs) stay down and are never re-enabled.
 pub fn rf_teardown(journey_id: JourneyId) -> Result<(), String> {
     let result = if needs_host_ap(journey_id) {
         host_ap_down()
@@ -1082,12 +1184,7 @@ pub fn rf_teardown(journey_id: JourneyId) -> Result<(), String> {
     } else {
         Ok(())
     };
-    if std::env::var("RESTORE_STATION")
-        .map(|v| matches!(v.to_ascii_lowercase().as_str(), "1" | "yes" | "true"))
-        .unwrap_or(false)
-    {
-        let _ = restore_station();
-    }
+    disable_station_autoconnect(config());
     result
 }
 
