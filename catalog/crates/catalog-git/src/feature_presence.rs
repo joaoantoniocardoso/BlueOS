@@ -36,12 +36,60 @@ pub(crate) const OVERRIDES: &[(&str, Override)] = &[
         "RunInternetSpeedTest",
         Override::Pickaxe("internet_best_server", "core/services/pardal"),
     ),
+    (
+        "RunInternetSpeedTest",
+        Override::Pickaxe("internet_best_server", "core/services/helper"),
+    ),
     ("RunLanSpeedTest", Override::Path("core/services/pardal")),
     (
         "LevelHorizon",
         Override::Path(
             "core/frontend/src/components/vehiclesetup/configuration/compass/LevelHorizonCalibration.vue",
         ),
+    ),
+    (
+        "ConfigureVehicleBody",
+        Override::Path(
+            "core/frontend/src/components/vehiclesetup/configuration/ArdupilotVehicleBodySetup.vue",
+        ),
+    ),
+    (
+        "ConfigureVehicleBody",
+        Override::Path("core/frontend/src/components/vehiclesetup/configuration/FrameSelector.vue"),
+    ),
+    (
+        "ConfigureBatteryMonitor",
+        Override::Path(
+            "core/frontend/src/components/vehiclesetup/configuration/power/PowerConfiguration.vue",
+        ),
+    ),
+    (
+        "ManageInterfaceRoutes",
+        Override::Pickaxe("@app.post(\"/route\"", "core/services/cable_guy/main.py"),
+    ),
+    (
+        "BlockVideoSource",
+        Override::Pickaxe("block_source", "core/frontend/src/store/video.ts"),
+    ),
+    (
+        "PublishZenohVideo",
+        Override::Pickaxe("--zenoh", "core/start-blueos-core"),
+    ),
+    (
+        "UseExternalVideoRecorder",
+        Override::Pickaxe("--recorder=external", "core/start-blueos-core"),
+    ),
+    (
+        "InspectGstPipelineDot",
+        Override::Pickaxe("location /mavlink-camera-manager/", "core/tools/nginx/nginx.conf"),
+    ),
+    (
+        "ReadCameraMavlinkIds",
+        Override::Pickaxe("--mavlink-camera-component-id-range", "core/start-blueos-core"),
+    ),
+    (
+        "SupportNavigatorPi5",
+        Override::Path("install/boards/bcm_2712.sh"),
     ),
     ("InspectDiskUsage", Override::Path("core/services/disk_usage")),
     (
@@ -584,31 +632,45 @@ fn resolve_commit(
     (None, None)
 }
 
-fn source_path_for(jid: &str, module: &str) -> Option<&'static str> {
-    if let Some((_, ov)) = OVERRIDES
-        .iter()
-        .find(|(k, _)| *k == overrides_lookup_key(jid))
-    {
-        return match ov {
-            Override::Path(path) => Some(*path),
-            Override::Pickaxe(_, path) => Some(*path),
-        };
-    }
-    if let Some((_, _, path)) = MODULE_S.iter().find(|(m, _, _)| *m == module) {
-        return Some(*path);
-    }
-    MODULE_DEFAULT_PATH
-        .iter()
-        .find(|(m, _)| *m == module)
-        .map(|(_, path)| *path)
-}
-
 fn path_exists_on(root: &std::path::Path, git_ref: &str, path: &str) -> bool {
     run_git(
         &["git", "cat-file", "-e", &format!("{git_ref}:{path}")],
         root,
     )
     .is_ok()
+}
+
+fn term_exists_on(root: &std::path::Path, git_ref: &str, term: &str, path: &str) -> bool {
+    run_git(
+        &["git", "grep", "-F", "-q", "-e", term, git_ref, "--", path],
+        root,
+    )
+    .is_ok()
+}
+
+fn feature_on_ref(root: &std::path::Path, git_ref: &str, jid: &str, module: &str) -> bool {
+    let key = overrides_lookup_key(jid);
+    let mut saw_override = false;
+    for (_, ov) in OVERRIDES.iter().filter(|(k, _)| *k == key) {
+        saw_override = true;
+        let hit = match ov {
+            Override::Path(path) => path_exists_on(root, git_ref, path),
+            Override::Pickaxe(term, path) => term_exists_on(root, git_ref, term, path),
+        };
+        if hit {
+            return true;
+        }
+    }
+    if saw_override {
+        return false;
+    }
+    if let Some((_, term, path)) = MODULE_S.iter().find(|(m, _, _)| *m == module) {
+        return term_exists_on(root, git_ref, term, path);
+    }
+    if let Some((_, path)) = MODULE_DEFAULT_PATH.iter().find(|(m, _)| *m == module) {
+        return path_exists_on(root, git_ref, path);
+    }
+    false
 }
 
 fn first_existing_ref(root: &std::path::Path, names: &[&str]) -> String {
@@ -705,7 +767,7 @@ pub fn run() -> Result<(), String> {
     );
 
     let mut journey_files: Vec<std::path::PathBuf> =
-        std::fs::read_dir(root.join("catalog/src/journeys"))
+        std::fs::read_dir(root.join("catalog/crates/catalog-data/src/journeys"))
             .map_err(|err| format!("failed to read journeys dir: {err}"))?
             .filter_map(|entry| entry.ok().map(|e| e.path()))
             .filter(|p| p.extension().is_some_and(|ext| ext == "rs"))
@@ -732,12 +794,11 @@ pub fn run() -> Result<(), String> {
                 return Err(format!("no commit for {variant}"));
             };
             let method = method.expect("method set alongside commit");
-            let path = source_path_for(&variant, &module);
             let mut tags: Vec<String> = origin_tags
                 .iter()
                 .filter(|(_, sha)| {
                     commit_in_ref(&root, &commit, sha)
-                        || path.is_some_and(|p| path_exists_on(&root, sha, p))
+                        || feature_on_ref(&root, sha, &variant, &module)
                 })
                 .map(|(name, _)| name.clone())
                 .collect();
@@ -745,9 +806,9 @@ pub fn run() -> Result<(), String> {
             tags.dedup();
             let present_on_master = commit_in_ref(&root, &commit, &master_tip)
                 || commit_in_ref(&root, &commit, "HEAD")
-                || path.is_some_and(|p| path_exists_on(&root, &master_tip, p));
+                || feature_on_ref(&root, &master_tip, &variant, &module);
             let present_on_1_4_dev = commit_in_ref(&root, &commit, &dev_14_tip)
-                || path.is_some_and(|p| path_exists_on(&root, &dev_14_tip, p));
+                || feature_on_ref(&root, &dev_14_tip, &variant, &module);
             journeys.push(JourneyPresence {
                 journey: wire_id.to_string(),
                 module: module.clone(),
