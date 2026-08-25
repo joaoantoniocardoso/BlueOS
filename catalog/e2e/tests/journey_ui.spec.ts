@@ -58,10 +58,41 @@ const PIRATE_BAG_SETTINGS = {
   is_dark_theme: true,
   is_pirate_mode: true,
   is_dev_mode_enabled: false,
-  last_version_update_notification_time: 0,
+  last_version_update_notification_time: Date.now(),
   tour_version: 2,
   user_top_widgets: [] as string[],
 };
+
+async function suppressNewVersionDialog(page: Page): Promise<void> {
+  await page.route('**/version-chooser/v1.0/version/available/**', async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.continue();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ local: [], remote: [], error: null }),
+    });
+  });
+}
+
+async function hideVersionDialog(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    for (const el of document.querySelectorAll('.v-dialog__content--active')) {
+      if (!el.textContent?.includes('A new version is available!')) {
+        continue;
+      }
+      (el as HTMLElement).style.display = 'none';
+      el.classList.remove('v-dialog__content--active');
+    }
+    if (!document.querySelector('.v-dialog__content--active')) {
+      for (const overlay of document.querySelectorAll('.v-overlay--active')) {
+        overlay.remove();
+      }
+    }
+  });
+}
 
 async function maybeSeedPirateMode(page: Page): Promise<void> {
   if (!fixturesInclude('pirate')) {
@@ -98,7 +129,7 @@ function loadPlans(): UiJourneyPlan[] {
   return JSON.parse(readFileSync(path, 'utf8')) as UiJourneyPlan[];
 }
 
-async function overlayKind(page: Page): Promise<'wizard' | 'tour' | null> {
+async function overlayKind(page: Page): Promise<'wizard' | 'tour' | 'version' | null> {
   if (await page.getByRole('button', { name: 'Skip Wizard', exact: true }).isVisible().catch(() => false)) {
     return 'wizard';
   }
@@ -110,6 +141,9 @@ async function overlayKind(page: Page): Promise<'wizard' | 'tour' | null> {
   }
   if (await page.locator('.v-tour .v-step').isVisible().catch(() => false)) {
     return 'tour';
+  }
+  if (await page.getByText('A new version is available!').first().isVisible().catch(() => false)) {
+    return 'version';
   }
   return null;
 }
@@ -136,6 +170,13 @@ async function dismissOverlays(page: Page, waitMs = 15_000): Promise<void> {
       await page.waitForTimeout(300);
       continue;
     }
+    if (kind === 'version') {
+      await hideVersionDialog(page);
+      if (await overlayKind(page) === 'version') {
+        return;
+      }
+      continue;
+    }
     return;
   }
   if (await overlayKind(page)) {
@@ -148,6 +189,7 @@ async function waitAndDismiss(page: Page, appearMs = 12_000): Promise<void> {
     page.getByRole('button', { name: 'Skip tour', exact: true }).waitFor({ state: 'visible', timeout: appearMs }),
     page.getByRole('button', { name: 'Skip Wizard', exact: true }).waitFor({ state: 'visible', timeout: appearMs }),
     page.getByText('Skip Wizard', { exact: true }).waitFor({ state: 'visible', timeout: appearMs }),
+    page.getByText('A new version is available!').first().waitFor({ state: 'visible', timeout: appearMs }),
   ]).catch(() => {});
   await dismissOverlays(page);
 }
@@ -232,9 +274,7 @@ async function postSitlRc(page: Page, rc: SitlRcAction): Promise<void> {
 }
 
 async function clickText(page: Page, text: string): Promise<void> {
-  if (await overlayKind(page)) {
-    await dismissOverlays(page, 10_000);
-  }
+  await dismissOverlays(page, 10_000);
   const inDialog = page.getByRole('dialog').getByRole('button', { name: text, exact: true });
   if (await inDialog.first().isVisible().catch(() => false)) {
     const dialogCount = await inDialog.count();
@@ -556,6 +596,7 @@ if (plans.length === 0) {
 for (const plan of plans) {
   test(`ui: ${plan.journey_id}`, async ({ page }) => {
     test.setTimeout(360_000);
+    await suppressNewVersionDialog(page);
     await maybeSeedPirateMode(page);
     page.on('response', (res) => {
       if (res.status() >= 400 && !isBenign(res.url())) {
