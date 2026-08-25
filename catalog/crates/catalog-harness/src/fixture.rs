@@ -42,6 +42,7 @@ pub struct FixtureInventory {
     pub ping360: bool,
     pub external_nmea_gps: bool,
     pub usb_serial_device: bool,
+    pub raspberry_pi5: bool,
     pub wifi_radio: bool,
     pub known_wifi_network: bool,
     pub hotspot_capable: bool,
@@ -110,6 +111,9 @@ pub fn evaluate_precondition(
         }
         Precondition::Hardware(HardwareAssumption::UsbSerialDevice) => {
             require_bool(fixtures.usb_serial_device, "USB serial device required")
+        }
+        Precondition::Hardware(HardwareAssumption::RaspberryPi5) => {
+            require_bool(fixtures.raspberry_pi5, "Raspberry Pi 5 host required")
         }
         Precondition::Hardware(HardwareAssumption::FlightController(kind)) => {
             evaluate_flight_controller(*kind, fixtures.flight_controller)
@@ -217,6 +221,7 @@ pub fn parse_fixture_list(spec: &str) -> Result<FixtureInventory, String> {
             "ping360" => fixtures.ping360 = true,
             "nmea-gps" => fixtures.external_nmea_gps = true,
             "usb-serial" => fixtures.usb_serial_device = true,
+            "pi5" => fixtures.raspberry_pi5 = true,
             "wifi-radio" => fixtures.wifi_radio = true,
             "known-wifi" => fixtures.known_wifi_network = true,
             "hotspot" => fixtures.hotspot_capable = true,
@@ -391,7 +396,7 @@ mod tests {
     fn parse_fixture_list_sets_expected_flags() {
         let fixtures = parse_fixture_list(
             "internet,pirate,advanced,dev,confirm-dangerous,usb-camera,ping1d,ping360,\
-             nmea-gps,usb-serial,wifi-radio,known-wifi,hotspot,wired,usb-otg,\
+             nmea-gps,usb-serial,pi5,wifi-radio,known-wifi,hotspot,wired,usb-otg,\
              extension-installed,local-version,serial-bridge,nmea-socket,recording,\
              wifi-saved,wifi-connected,dhcp-active,board:navigator",
         )
@@ -411,6 +416,7 @@ mod tests {
                 ping360: true,
                 external_nmea_gps: true,
                 usb_serial_device: true,
+                raspberry_pi5: true,
                 wifi_radio: true,
                 known_wifi_network: true,
                 hotspot_capable: true,

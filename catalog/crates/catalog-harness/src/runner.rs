@@ -9,7 +9,9 @@ use catalog_core::http::resolve_http_path;
 use catalog_kernel::id::journey::JourneyId;
 use catalog_kernel::id::service::ServiceId;
 use catalog_kernel::provenance::{Grounded, GroundedSet};
-use catalog_kernel::version::{availability_skip, format_availability_skip_reason};
+use catalog_kernel::version::{
+    availability_skip, format_availability_skip_reason, parse_release_tag, BlueOsChannel,
+};
 use catalog_model::http::http_method_label;
 use catalog_model::journey::{
     http_automatable, Actor, BlastRadius, BodyKind, HttpMethod, RouteRef, UseCase,
@@ -425,7 +427,44 @@ pub fn http_smoke_steps(journey: &UseCase) -> Vec<RunnableStep> {
                 && step.expected_status.is_some()
                 && !is_smoke_excluded_get(step.route.path)
         })
+        .map(|mut step| {
+            step.query = mutating_smoke_query(step.journey_id, &step.route);
+            step
+        })
         .collect()
+}
+
+/// On 1.4 the internet speed-test GETs live on helper, not pardal `/network-test/`.
+pub fn rewrite_smoke_steps_for_dut(steps: &mut [RunnableStep], dut: &DutVersion) {
+    if !internet_speed_test_on_helper(&dut.tag) {
+        return;
+    }
+    for step in steps.iter_mut() {
+        if step.journey_id != JourneyId::RunInternetSpeedTest {
+            continue;
+        }
+        match step.route.path {
+            "/internet_best_server"
+            | "/internet_test_previous_result"
+            | "/internet_download_speed"
+            | "/internet_upload_speed" => {
+                step.route.service = ServiceId::Helper;
+                step.route.version = Some("v1.0");
+            }
+            _ => {}
+        }
+    }
+}
+
+fn internet_speed_test_on_helper(dut_tag: &str) -> bool {
+    matches!(
+        parse_release_tag(dut_tag),
+        BlueOsChannel::Numbered {
+            major: 1,
+            minor: 4,
+            ..
+        } | BlueOsChannel::Dev { major: 1, minor: 4 }
+    )
 }
 
 pub fn mutating_smoke_query(journey_id: JourneyId, route: &RouteRef) -> Option<&'static str> {
@@ -481,6 +520,9 @@ pub fn mutating_smoke_query(journey_id: JourneyId, route: &RouteRef) -> Option<&
         (JourneyId::RemoveCameraStream, "/delete_stream", Delete) => Some("name=__smoke_catalog__"),
         (JourneyId::Upload3dModelOverride, "/models", Post) => Some("name=smoke-catalog.glb"),
         (JourneyId::AddCustomManifest, "/manifest/", Post) => Some("validate_url=false"),
+        (JourneyId::ManageInterfaceRoutes, "/route", Get)
+        | (JourneyId::ManageInterfaceRoutes, "/route", Post)
+        | (JourneyId::ManageInterfaceRoutes, "/route", Delete) => Some("interface_name=eth0"),
         _ => None,
     }
 }
@@ -546,6 +588,8 @@ pub fn mutating_smoke_body(journey_id: JourneyId, route: &RouteRef) -> Option<&'
             r##"{"name":"smoke-catalog","url":"https://example.com/smoke-catalog.json","enabled":false}"##,
         ),
         (JourneyId::InstallCustomExtension, "/extension/", Post) => Some(SMOKE_CUSTOM_EXT_JSON),
+        (JourneyId::ManageInterfaceRoutes, "/route", Post)
+        | (JourneyId::ManageInterfaceRoutes, "/route", Delete) => Some(SMOKE_ROUTE_JSON),
         _ => None,
     }
 }
@@ -637,6 +681,9 @@ const SMOKE_DISK_SEED_QUERY: &str = "command=docker%20exec%20blueos-core%20sh%20
 const SMOKE_RECORDING_SEED_QUERY: &str = "command=docker%20exec%20blueos-core%20sh%20-c%20%27mkdir%20-p%20/usr/blueos/userdata/recorder/smoke_catalog%20%26%26%20printf%20mp4%3E/usr/blueos/userdata/recorder/smoke_catalog/smoke-catalog.mp4%27&i_know_what_i_am_doing=true";
 const SMOKE_ROUTE_FLUSH_QUERY: &str =
     "command=ip%20route%20flush%20proto%20static&i_know_what_i_am_doing=true";
+/// TEST-NET-3 /32 so mutating-smoke cannot steal a real prefix.
+const SMOKE_ROUTE_JSON: &str =
+    r##"{"destination":"203.0.113.99/32","gateway":null,"managed":true}"##;
 const SMOKE_ADDR_DEL_1_QUERY: &str = "command=bash%20-lc%20%27curl%20-s%20-m%2010%20-o%20%2Fdev%2Fnull%20-X%20DELETE%20%22http%3A%2F%2F127.0.0.1%2Fcable-guy%2Fv1.0%2Faddress%3Finterface_name%3Deth0%26ip_address%3D192.168.0.1%22%20%7C%7C%20true%3B%20ip%20addr%20del%20192.168.0.1%2F24%20dev%20eth0%202%3E%2Fdev%2Fnull%20%7C%7C%20true%27&i_know_what_i_am_doing=true";
 const SMOKE_ADDR_DEL_178_QUERY: &str = "command=bash%20-lc%20%27curl%20-s%20-m%2010%20-o%20%2Fdev%2Fnull%20-X%20DELETE%20%22http%3A%2F%2F127.0.0.1%2Fcable-guy%2Fv1.0%2Faddress%3Finterface_name%3Deth0%26ip_address%3D192.168.0.178%22%20%7C%7C%20true%3B%20ip%20addr%20del%20192.168.0.178%2F24%20dev%20eth0%202%3E%2Fdev%2Fnull%20%7C%7C%20true%27&i_know_what_i_am_doing=true";
 const SMOKE_RESOLV_FIX_QUERY: &str = "command=docker%20exec%20blueos-core%20sh%20-c%20%27printf%20%22nameserver%208.8.8.8%5Cnnameserver%201.1.1.1%5Cn%22%20%3E%20%2Fetc%2Fresolv.conf.host%27&i_know_what_i_am_doing=true";
@@ -1417,6 +1464,44 @@ pub fn mutating_smoke_teardown_calls(journey_id: JourneyId) -> &'static [SmokeHt
             query: None,
             form_file: None,
         }],
+        JourneyId::ManageInterfaceRoutes => &[
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::CableGuy,
+                    method: Delete,
+                    path: "/route",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: Some(SMOKE_ROUTE_JSON),
+                query: Some("interface_name=eth0"),
+                form_file: None,
+            },
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::Commander,
+                    method: Post,
+                    path: "/command/host",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: None,
+                query: Some(SMOKE_ROUTE_FLUSH_QUERY),
+                form_file: None,
+            },
+            SmokeHttpCall {
+                route: RouteRef {
+                    service: ServiceId::Commander,
+                    method: Post,
+                    path: "/command/host",
+                    version: Some("v1.0"),
+                },
+                expected_status: 200,
+                body: None,
+                query: Some(SMOKE_CABLE_GUY_SETTINGS_CLEAN_QUERY),
+                form_file: None,
+            },
+        ],
         _ => &[],
     }
 }
@@ -2201,6 +2286,27 @@ mod tests {
     }
 
     #[test]
+    fn rename_vehicle_present_on_1_4_4_beta23() {
+        let catalog = Catalog::bootstrap();
+        let journey = catalog
+            .journey_by_id(&JourneyId::RenameVehicle)
+            .expect("rename_vehicle");
+        let skip = journey_availability_skip(journey, &test_dut("1.4.4-beta.23"));
+        let tags_14: Vec<_> = journey
+            .availability
+            .present_in_tags
+            .iter()
+            .filter(|tag| tag.starts_with("1.4.4"))
+            .copied()
+            .collect();
+        assert!(
+            skip.is_none(),
+            "skip={skip:?} 1.4.4 tags={tags_14:?} present={}",
+            catalog_kernel::version::feature_present_on("1.4.4-beta.23", &journey.availability)
+        );
+    }
+
+    #[test]
     fn http_journeys_are_http_automatable() {
         let catalog = Catalog::bootstrap();
         for journey in http_journeys(&catalog) {
@@ -2739,6 +2845,60 @@ mod tests {
         let steps = http_smoke_steps(&journey);
         assert_eq!(steps.len(), 1);
         assert_eq!(steps[0].route.path, "/scan");
+    }
+
+    #[test]
+    fn manage_interface_routes_smoke_binds_eth0_query() {
+        let catalog = Catalog::bootstrap();
+        let journey = catalog
+            .journey_by_id(&JourneyId::ManageInterfaceRoutes)
+            .expect("manage_interface_routes");
+        let get_steps = http_smoke_steps(journey);
+        assert_eq!(get_steps.len(), 1);
+        assert_eq!(get_steps[0].route.path, "/route");
+        assert_eq!(get_steps[0].query, Some("interface_name=eth0"));
+        let post_steps = http_mutating_smoke_steps(journey);
+        assert_eq!(post_steps.len(), 1);
+        assert_eq!(post_steps[0].route.method, HttpMethod::Post);
+        assert_eq!(post_steps[0].query, Some("interface_name=eth0"));
+        assert_eq!(post_steps[0].body, Some(SMOKE_ROUTE_JSON));
+    }
+
+    #[test]
+    fn internet_speed_test_rewrites_to_helper_on_1_4() {
+        let catalog = Catalog::bootstrap();
+        let journey = catalog
+            .journey_by_id(&JourneyId::RunInternetSpeedTest)
+            .expect("run_internet_speed_test");
+        let mut steps = http_smoke_steps(journey);
+        let dut = DutVersion {
+            repository: "bluerobotics/blueos-core".into(),
+            tag: "1.4.5".into(),
+            digest: None,
+        };
+        rewrite_smoke_steps_for_dut(&mut steps, &dut);
+        assert!(
+            steps.iter().any(|step| {
+                step.route.path == "/internet_best_server"
+                    && step.route.service == ServiceId::Helper
+                    && step.route.version == Some("v1.0")
+            }),
+            "1.4.5 should resolve internet_best_server via helper"
+        );
+        let mut master_steps = http_smoke_steps(journey);
+        let master = DutVersion {
+            repository: "bluerobotics/blueos-core".into(),
+            tag: "master".into(),
+            digest: None,
+        };
+        rewrite_smoke_steps_for_dut(&mut master_steps, &master);
+        assert!(
+            master_steps.iter().any(|step| {
+                step.route.path == "/internet_best_server"
+                    && step.route.service == ServiceId::Pardal
+            }),
+            "master should keep pardal /network-test/"
+        );
     }
 
     #[test]

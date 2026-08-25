@@ -411,6 +411,16 @@ pub const MUTATING_SMOKE_ENTRIES: &[MutatingSmokeEntry] = &[
         notes: "HarnessGap: no GET priority step on journey; GET interface priority snapshot; POST /set_interfaces_priority mutate; POST restore ordering",
     },
     MutatingSmokeEntry {
+        journey_id: JourneyId::ManageInterfaceRoutes,
+        setup: SmokeRepair::HttpRoundTrip,
+        restore: SmokeRepair::HttpRoundTrip,
+        effect_read: Some(EffectReadRef {
+            step_index: 1,
+            notes: "GET /route after POST",
+        }),
+        notes: "POST /route mutate; GET /route effect read; DELETE restore is harness-side not a journey step",
+    },
+    MutatingSmokeEntry {
         journey_id: JourneyId::StartAutopilot,
         setup: SmokeRepair::HttpRoundTrip,
         restore: SmokeRepair::HttpRoundTrip,

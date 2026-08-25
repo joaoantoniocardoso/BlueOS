@@ -39,11 +39,12 @@ use crate::runner::{
     format_http_fail, http_journeys, http_mutating_smoke_steps, http_smoke_steps, http_steps,
     join_url, journey_availability_skip, journey_http_mode_conflict, journey_http_requires_base,
     journey_profile_skip, mutating_effect_read_phases, mutating_smoke_setup_calls,
-    mutating_smoke_skip_reason, mutating_smoke_teardown_calls, run_core_image_switch,
-    run_http_step_detailed, run_negative_probe, run_smoke_http_call, summarize_journey,
-    wait_for_blueos, DutProfile, DutVersion, EffectReadBefore, EffectReadBeforeResult, HttpStepRun,
-    JourneyResult, RunCounts, RunnableStep, Verdict, MUTATING_SMOKE_DEFAULT_FIXTURES,
-    SMOKE_CORE_SWITCH_JSON, SMOKE_CORE_SWITCH_TAG, SMOKE_DEFAULT_FIXTURES,
+    mutating_smoke_skip_reason, mutating_smoke_teardown_calls, rewrite_smoke_steps_for_dut,
+    run_core_image_switch, run_http_step_detailed, run_negative_probe, run_smoke_http_call,
+    summarize_journey, wait_for_blueos, DutProfile, DutVersion, EffectReadBefore,
+    EffectReadBeforeResult, HttpStepRun, JourneyResult, RunCounts, RunnableStep, Verdict,
+    MUTATING_SMOKE_DEFAULT_FIXTURES, SMOKE_CORE_SWITCH_JSON, SMOKE_CORE_SWITCH_TAG,
+    SMOKE_DEFAULT_FIXTURES,
 };
 use crate::sitl_cal::{self, BoardRestore};
 use crate::ui::{
@@ -502,13 +503,16 @@ pub fn run(cli: JourneyHttpCli) {
             continue;
         }
 
-        let steps = if smoke {
+        let mut steps = if smoke {
             http_smoke_steps(journey)
         } else if mutating_smoke {
             http_mutating_smoke_steps(journey)
         } else {
             http_steps(journey)
         };
+        if let Some(dut) = dut_version.as_ref() {
+            rewrite_smoke_steps_for_dut(&mut steps, dut);
+        }
         if steps.is_empty()
             && !(mutating_smoke
                 && (wifi_rf::is_rf_status_journey(journey_id)

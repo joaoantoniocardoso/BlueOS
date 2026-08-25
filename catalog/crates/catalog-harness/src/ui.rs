@@ -27,6 +27,14 @@ pub const UI_CAMERA_JOURNEYS: &[JourneyId] = &[
     JourneyId::ConfigureVideoStream,
     JourneyId::ConfigureUvcDeviceControls,
     JourneyId::RemoveCameraStream,
+    JourneyId::BlockVideoSource,
+    JourneyId::PublishZenohVideo,
+    JourneyId::InspectGstPipelineDot,
+];
+
+pub const UI_CONFIGURE_JOURNEYS: &[JourneyId] = &[
+    JourneyId::ConfigureVehicleBody,
+    JourneyId::ConfigureBatteryMonitor,
 ];
 
 pub const UI_EXTENSION_JOURNEYS: &[JourneyId] = &[
@@ -133,6 +141,9 @@ pub const UI_TYPED_SKIP: &[(JourneyId, &str)] = &[
     (JourneyId::DeleteLocalBlueosVersion, "not_on_1.4-dev"),
     (JourneyId::UpdateBootstrapImage, "not_on_1.4-dev"),
     (JourneyId::RemoveSerialBridge, "usb_serial_device"),
+    (JourneyId::SupportNavigatorPi5, "pi5_navigator_overlays"),
+    (JourneyId::UseExternalVideoRecorder, "launch_flag_no_ui"),
+    (JourneyId::ReadCameraMavlinkIds, "no_frontend_actor_step"),
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -399,6 +410,40 @@ pub fn ui_plan(id: JourneyId) -> Option<UiJourneyPlan> {
                 timeout_ms: 10_000,
             },
         ],
+        JourneyId::BlockVideoSource => {
+            let mut actions = enable_pirate_mode_if_needed();
+            actions.push(UiAction::Open {
+                path: "/vehicle/video-manager",
+            });
+            actions.push(UiAction::WaitText {
+                text: "Add stream",
+                timeout_ms: 60_000,
+            });
+            actions.push(UiAction::Expect {
+                text: "Block source",
+            });
+            actions
+        }
+        JourneyId::ConfigureVehicleBody => vec![
+            open_configure("vehiclebody"),
+            UiAction::WaitText {
+                text: "Vehicle Body",
+                timeout_ms: 60_000,
+            },
+            UiAction::Expect {
+                text: "Vehicle Body",
+            },
+        ],
+        JourneyId::ConfigureBatteryMonitor => vec![
+            open_configure("power"),
+            UiAction::WaitText {
+                text: "Power",
+                timeout_ms: 60_000,
+            },
+            UiAction::Expect {
+                text: "Battery Monitor",
+            },
+        ],
         JourneyId::BrowseExtensionStore => {
             let mut actions = open_extension_manager();
             actions.push(UiAction::ClickIfVisible { text: "Store" });
@@ -466,7 +511,8 @@ pub fn ui_plan(id: JourneyId) -> Option<UiJourneyPlan> {
             actions
         }
         JourneyId::EditExtensionDevVersion => {
-            let mut actions = open_extension_manager_installed_tab();
+            let mut actions = enable_pirate_mode_if_needed();
+            actions.extend(open_extension_manager_installed_tab());
             actions.push(UiAction::WaitText {
                 text: "Edit",
                 timeout_ms: 60_000,
@@ -490,15 +536,17 @@ pub fn ui_plan(id: JourneyId) -> Option<UiJourneyPlan> {
                 text: "Pirate mode",
             },
         ],
-        JourneyId::SwitchLocalBlueosVersion => vec![
-            UiAction::Open {
+        JourneyId::SwitchLocalBlueosVersion => {
+            let mut actions = enable_pirate_mode_if_needed();
+            actions.push(UiAction::Open {
                 path: "/tools/version-chooser",
-            },
-            UiAction::WaitText {
+            });
+            actions.push(UiAction::WaitText {
                 text: "Local Versions",
                 timeout_ms: 60_000,
-            },
-        ],
+            });
+            actions
+        }
         JourneyId::PullBlueosVersionWithoutSwitch => {
             let mut actions = enable_pirate_mode_if_needed();
             actions.push(UiAction::Open {
@@ -797,13 +845,39 @@ pub fn ui_plan(id: JourneyId) -> Option<UiJourneyPlan> {
                 text: "Local Network Speed and Latency Test",
             },
         ],
+        JourneyId::PublishZenohVideo => {
+            let mut actions = enable_pirate_mode_if_needed();
+            actions.push(UiAction::Open {
+                path: "/vehicle/video-manager",
+            });
+            actions.push(UiAction::WaitText {
+                text: "Add stream",
+                timeout_ms: 60_000,
+            });
+            actions.push(UiAction::Click { text: "Add stream" });
+            actions.push(UiAction::WaitText {
+                text: "Stream creation",
+                timeout_ms: 10_000,
+            });
+            actions.push(UiAction::Click {
+                text: "Extra configuration",
+            });
+            actions.push(UiAction::Expect {
+                text: "Disable Zenoh",
+            });
+            actions.push(UiAction::Click { text: "Cancel" });
+            actions
+        }
+        JourneyId::InspectGstPipelineDot => vec![UiAction::Open {
+            path: "/mavlink-camera-manager/",
+        }],
         _ => return None,
     };
     Some(UiJourneyPlan {
         journey_id: id.as_str().to_string(),
         sitl_frame: if matches!(id, JourneyId::DetectMotorDirections) {
             Some(SITL_FRAME_VECTORED)
-        } else if UI_CALIBRATION_JOURNEYS.contains(&id) {
+        } else if UI_CALIBRATION_JOURNEYS.contains(&id) || UI_CONFIGURE_JOURNEYS.contains(&id) {
             Some(SITL_FRAME_CALIBRATION)
         } else {
             None
@@ -816,6 +890,16 @@ pub fn ui_suite_plans() -> Vec<UiJourneyPlan> {
     UI_NO_HARDWARE_JOURNEYS
         .iter()
         .chain(UI_CALIBRATION_JOURNEYS.iter())
+        .chain(UI_CONFIGURE_JOURNEYS.iter())
+        .chain(UI_CAMERA_JOURNEYS.iter())
+        .chain(UI_EXTENSION_JOURNEYS.iter())
+        .chain(UI_BAG_JOURNEYS.iter())
+        .chain(UI_VERSION_SETTINGS_JOURNEYS.iter())
+        .chain(UI_NMEA_JOURNEYS.iter())
+        .chain(UI_BRIDGET_JOURNEYS.iter())
+        .chain(UI_CABLE_GUY_JOURNEYS.iter())
+        .chain(UI_WIFI_JOURNEYS.iter())
+        .chain(std::iter::once(&JourneyId::RunLanSpeedTest))
         .copied()
         .filter_map(ui_plan)
         .collect()
@@ -1086,6 +1170,12 @@ fn open_configure(subtab: &'static str) -> UiAction {
         "compass" => UiAction::Open {
             path: "/vehicle/setup/configure/compass",
         },
+        "vehiclebody" => UiAction::Open {
+            path: "/vehicle/setup/configure/vehiclebody",
+        },
+        "power" => UiAction::Open {
+            path: "/vehicle/setup/configure/power",
+        },
         _ => UiAction::Open {
             path: "/vehicle/setup/configure",
         },
@@ -1328,6 +1418,30 @@ mod tests {
             assert!(plan.sitl_frame.is_none(), "{id}");
             assert!(!plan.actions.is_empty());
         }
+    }
+
+    #[test]
+    fn configure_plans_open_vehicle_setup_tabs() {
+        for id in UI_CONFIGURE_JOURNEYS {
+            let plan = ui_plan(*id).expect("plan");
+            assert_eq!(plan.journey_id, id.as_str());
+            assert_eq!(plan.sitl_frame, Some(SITL_FRAME_CALIBRATION), "{id}");
+            assert!(!plan.actions.is_empty());
+        }
+        let body = ui_plan(JourneyId::ConfigureVehicleBody).unwrap();
+        assert!(body.actions.iter().any(|a| matches!(
+            a,
+            UiAction::Open {
+                path: "/vehicle/setup/configure/vehiclebody"
+            }
+        )));
+        let power = ui_plan(JourneyId::ConfigureBatteryMonitor).unwrap();
+        assert!(power.actions.iter().any(|a| matches!(
+            a,
+            UiAction::Expect {
+                text: "Battery Monitor"
+            }
+        )));
     }
 
     #[test]
@@ -1635,6 +1749,8 @@ mod tests {
         let cases = [
             (JourneyId::PullBlueosVersionWithoutSwitch, "Remote Versions"),
             (JourneyId::DockerRegistryLogin, "Docker Login"),
+            (JourneyId::SwitchLocalBlueosVersion, "Local Versions"),
+            (JourneyId::EditExtensionDevVersion, "Edit"),
         ];
         for (id, landmark) in cases {
             let plan = ui_plan(id).unwrap();
