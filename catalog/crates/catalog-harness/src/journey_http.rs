@@ -68,7 +68,24 @@ pub struct JourneyHttpCli {
     pub wifi_modes_spec: Option<String>,
     pub wifi_endpoints: bool,
     pub frontend_cache: bool,
+    /// Run the catalog-driven Kraken v1+v2 lifecycle instead of GET smoke.
     pub extension_lifecycle: bool,
+    /// Override the unused compatible identifier the lifecycle would pick.
+    pub extension_identifier: Option<String>,
+    /// Override the smallest compatible tag the lifecycle would pick.
+    pub extension_tag: Option<String>,
+    /// Display name for the custom-source install body.
+    pub extension_name: Option<String>,
+    /// Image repository for the custom-source install body.
+    pub extension_docker: Option<String>,
+    /// Require unknown restart/disable to return 404 (patched `from_running`).
+    pub assert_unknown: bool,
+    /// Skip `POST /{id}/install` (`from_latest`).
+    pub skip_latest: bool,
+    /// Skip the second-tag `PUT` while a sibling is running.
+    pub skip_alt: bool,
+    /// Skip dummy (non-factory) manifest create/delete.
+    pub skip_manifest_mutate: bool,
 }
 
 pub fn run(cli: JourneyHttpCli) {
@@ -220,7 +237,20 @@ pub fn run(cli: JourneyHttpCli) {
         println!("journey_http: extension-lifecycle");
         println!("base: {base}");
         let started_at = utc_rfc3339_now();
-        let results = run_extension_lifecycle(base, allow_mutating);
+        let results = run_extension_lifecycle(
+            base,
+            allow_mutating,
+            crate::extension_lifecycle::ExtensionLifecycleOpts {
+                identifier: cli.extension_identifier.clone(),
+                tag: cli.extension_tag.clone(),
+                name: cli.extension_name.clone(),
+                docker: cli.extension_docker.clone(),
+                assert_unknown: cli.assert_unknown,
+                skip_latest: cli.skip_latest,
+                skip_alt: cli.skip_alt,
+                skip_manifest_mutate: cli.skip_manifest_mutate,
+            },
+        );
         let failed = results.iter().filter(|check| !check.ok).count();
         let passed = results.len() - failed;
         for check in &results {
@@ -1126,7 +1156,7 @@ fn usage_and_exit(message: &str) -> ! {
 
 pub fn print_help() {
     eprintln!(
-        "usage: journey_http --base <url> [--fixtures internet,pirate,advanced] [--smoke | --mutating-smoke | --negative | --ui | --wifi-endpoints | --frontend-cache | --extension-lifecycle] [--wifi-modes open,wpa,wpa2,transition,wpa3] [--dry-run] [--allow-mutating] [--journey <id>] [--report <path.json>]"
+        "usage: journey_http --base <url> [--fixtures internet,pirate,advanced] [--smoke | --mutating-smoke | --negative | --ui | --wifi-endpoints | --frontend-cache | --extension-lifecycle] [--identifier <id>] [--tag <tag>] [--name <name>] [--docker <image>] [--assert-unknown] [--skip-latest] [--skip-alt] [--skip-manifest-mutate] [--wifi-modes open,wpa,wpa2,transition,wpa3] [--dry-run] [--allow-mutating] [--journey <id>] [--report <path.json>]"
     );
 }
 

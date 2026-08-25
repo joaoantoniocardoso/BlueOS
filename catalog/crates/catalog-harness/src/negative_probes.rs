@@ -462,11 +462,12 @@ pub const NEGATIVE_PROBES: &[NegativeProbe] = &[
         class: ProbeClass::B3,
         method: HttpMethod::Get,
         path: "/kraken/v2.0/container/np_no_such_container/log",
-        query: None,
+        query: Some("timeout=1"),
         body: None,
-        // StreamingResponse commits 200 before the generator runs, so the ContainerNotFound 404
-        // never reaches the client.
-        expected_status: Some(200),
+        // `fetch_log_by_container_name` on 1.4.4-beta.19+ (`e416aebf7`) looks up the container
+        // before opening the stream, so ContainerNotFound maps to 404. The catalog-pinned
+        // `2.0-dev/model` source still streams 200 first; `--negative` on that image will fail.
+        expected_status: Some(404),
         blast: ProbeBlast::Safe,
     },
     NegativeProbe {
@@ -477,7 +478,29 @@ pub const NEGATIVE_PROBES: &[NegativeProbe] = &[
         path: "/kraken/v2.0/extension/np.no.such.extension/v0.0.0",
         query: None,
         body: None,
-        expected_status: None,
+        expected_status: Some(404),
+        blast: ProbeBlast::Safe,
+    },
+    NegativeProbe {
+        id: "NP-56",
+        journey_id: JourneyId::InstallExtension,
+        class: ProbeClass::B3,
+        method: HttpMethod::Post,
+        path: "/kraken/v2.0/extension/np.no.such.extension/install",
+        query: None,
+        body: None,
+        expected_status: Some(404),
+        blast: ProbeBlast::Safe,
+    },
+    NegativeProbe {
+        id: "NP-57",
+        journey_id: JourneyId::EditExtensionDevVersion,
+        class: ProbeClass::B3,
+        method: HttpMethod::Put,
+        path: "/kraken/v2.0/extension/np.no.such.extension",
+        query: None,
+        body: None,
+        expected_status: Some(404),
         blast: ProbeBlast::Safe,
     },
     NegativeProbe {
@@ -488,7 +511,62 @@ pub const NEGATIVE_PROBES: &[NegativeProbe] = &[
         path: "/kraken/v2.0/manifest/np.no.such.manifest/details",
         query: None,
         body: None,
-        expected_status: None,
+        expected_status: Some(404),
+        blast: ProbeBlast::Safe,
+    },
+    NegativeProbe {
+        id: "NP-50",
+        journey_id: JourneyId::InstallExtension,
+        class: ProbeClass::B3,
+        method: HttpMethod::Get,
+        path: "/kraken/v2.0/extension/np.no.such.extension/v0.0.0/details",
+        query: None,
+        body: None,
+        expected_status: Some(404),
+        blast: ProbeBlast::Safe,
+    },
+    NegativeProbe {
+        id: "NP-59",
+        journey_id: JourneyId::ConfigureInstalledExtension,
+        class: ProbeClass::B3,
+        method: HttpMethod::Get,
+        path: "/kraken/v2.0/container/extension-nosuchcontainerlifecycle/details",
+        query: None,
+        body: None,
+        expected_status: Some(404),
+        blast: ProbeBlast::Safe,
+    },
+    NegativeProbe {
+        id: "NP-64",
+        journey_id: JourneyId::ConfigureInstalledExtension,
+        class: ProbeClass::B3,
+        method: HttpMethod::Get,
+        path: "/kraken/v2.0/container/extension-nosuchcontainerlifecycle/stats",
+        query: None,
+        body: None,
+        expected_status: Some(404),
+        blast: ProbeBlast::Safe,
+    },
+    NegativeProbe {
+        id: "NP-65",
+        journey_id: JourneyId::ConfigureInstalledExtension,
+        class: ProbeClass::B3,
+        method: HttpMethod::Get,
+        path: "/kraken/v2.0/jobs/00000000-0000-4000-8000-000000000000",
+        query: None,
+        body: None,
+        expected_status: Some(404),
+        blast: ProbeBlast::Safe,
+    },
+    NegativeProbe {
+        id: "NP-72",
+        journey_id: JourneyId::AddCustomManifest,
+        class: ProbeClass::B3,
+        method: HttpMethod::Delete,
+        path: "/kraken/v2.0/manifest/bluerobotics-production",
+        query: None,
+        body: None,
+        expected_status: Some(409),
         blast: ProbeBlast::Safe,
     },
     NegativeProbe {
@@ -743,6 +821,13 @@ pub fn negative_probe_url(base: &str, probe: &NegativeProbe) -> String {
         Some(query) => format!("{url}?{query}"),
         None => url,
     }
+}
+
+/// Kraken nginx probes used by `--extension-lifecycle` (skips unasserted rows at the call site).
+pub fn kraken_lifecycle_probes() -> impl Iterator<Item = &'static NegativeProbe> {
+    NEGATIVE_PROBES
+        .iter()
+        .filter(|probe| probe.path.starts_with("/kraken/"))
 }
 
 pub fn format_negative_dry_run(probe: &NegativeProbe, url: &str) -> String {

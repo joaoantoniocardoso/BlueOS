@@ -165,7 +165,11 @@ fn is_templated_http_path(path: &str) -> bool {
 pub fn is_smoke_excluded_get(path: &str) -> bool {
     matches!(
         path,
-        "/disk/speed/stream" | "/internet_download_speed" | "/internet_upload_speed"
+        "/disk/speed/stream"
+            | "/internet_download_speed"
+            | "/internet_upload_speed"
+            | "/log"
+            | "/container/{container_name}/log"
     )
 }
 
@@ -520,6 +524,7 @@ pub fn mutating_smoke_query(journey_id: JourneyId, route: &RouteRef) -> Option<&
         (JourneyId::RemoveCameraStream, "/delete_stream", Delete) => Some("name=__smoke_catalog__"),
         (JourneyId::Upload3dModelOverride, "/models", Post) => Some("name=smoke-catalog.glb"),
         (JourneyId::AddCustomManifest, "/manifest/", Post) => Some("validate_url=false"),
+        (JourneyId::BrowseExtensionStore, "/manifest/", Get) => Some("data=false"),
         (JourneyId::ManageInterfaceRoutes, "/route", Get)
         | (JourneyId::ManageInterfaceRoutes, "/route", Post)
         | (JourneyId::ManageInterfaceRoutes, "/route", Delete) => Some("interface_name=eth0"),
@@ -642,6 +647,23 @@ pub fn is_mutating_smoke_step_deferred(journey_id: JourneyId, path: &str) -> Opt
         (JourneyId::UpdateBootstrapImage, "/bootstrap/current") => {
             Some("deferred: POST /bootstrap/current replaces bootstrap container")
         }
+        (JourneyId::InstallExtension, "/extension/install") => {
+            Some("deferred: v1 install belongs to --extension-lifecycle")
+        }
+        (JourneyId::UninstallExtension, "/extension/uninstall") => {
+            Some("deferred: v1 uninstall belongs to --extension-lifecycle")
+        }
+        (JourneyId::ConfigureInstalledExtension, "/extension/restart")
+        | (JourneyId::ConfigureInstalledExtension, "/extension/disable")
+        | (JourneyId::ConfigureInstalledExtension, "/extension/enable") => {
+            Some("deferred: v1 lifecycle belongs to --extension-lifecycle")
+        }
+        (JourneyId::EditExtensionDevVersion, "/extension/update_to_version") => {
+            Some("deferred: v1 update_to_version belongs to --extension-lifecycle")
+        }
+        (JourneyId::AddCustomManifest, "/manifest/orders") => {
+            Some("deferred: factory-order restore belongs to --extension-lifecycle")
+        }
         _ => None,
     }
 }
@@ -718,6 +740,9 @@ pub fn mutating_smoke_path_bind(journey_id: JourneyId, path: &str) -> Option<&'s
         }
         (JourneyId::ConfigureInstalledExtension, "/extension/{identifier}/disable") => {
             Some(SMOKE_EXT_LIFECYCLE_DISABLE_PATH)
+        }
+        (JourneyId::ConfigureInstalledExtension, "/extension/{identifier}/{tag}/enable") => {
+            Some(SMOKE_EXT_LIFECYCLE_ENABLE_PATH)
         }
         (JourneyId::EditExtensionDevVersion, "/extension/{identifier}/{tag}") => {
             Some(SMOKE_EXT_EDIT_PATH)
@@ -2360,6 +2385,7 @@ mod tests {
         assert!(is_smoke_excluded_get("/disk/speed/stream"));
         assert!(is_smoke_excluded_get("/internet_download_speed"));
         assert!(is_smoke_excluded_get("/internet_upload_speed"));
+        assert!(is_smoke_excluded_get("/log"));
         assert!(!is_smoke_excluded_get("/internet_best_server"));
         assert!(!is_smoke_excluded_get("/disk/speed"));
     }

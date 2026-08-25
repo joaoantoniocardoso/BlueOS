@@ -31,6 +31,14 @@ fn main() {
         wifi_endpoints: false,
         frontend_cache: false,
         extension_lifecycle: false,
+        extension_identifier: None,
+        extension_tag: None,
+        extension_name: None,
+        extension_docker: None,
+        assert_unknown: false,
+        skip_latest: false,
+        skip_alt: false,
+        skip_manifest_mutate: false,
     };
 
     let mut index = 1;
@@ -69,6 +77,42 @@ fn main() {
             "--wifi-endpoints" => cli.wifi_endpoints = true,
             "--frontend-cache" => cli.frontend_cache = true,
             "--extension-lifecycle" => cli.extension_lifecycle = true,
+            "--identifier" => {
+                index += 1;
+                cli.extension_identifier = Some(
+                    args.get(index)
+                        .cloned()
+                        .unwrap_or_else(|| usage_and_exit("--identifier requires an id")),
+                );
+            }
+            "--tag" => {
+                index += 1;
+                cli.extension_tag = Some(
+                    args.get(index)
+                        .cloned()
+                        .unwrap_or_else(|| usage_and_exit("--tag requires a tag")),
+                );
+            }
+            "--name" => {
+                index += 1;
+                cli.extension_name = Some(
+                    args.get(index)
+                        .cloned()
+                        .unwrap_or_else(|| usage_and_exit("--name requires a name")),
+                );
+            }
+            "--docker" => {
+                index += 1;
+                cli.extension_docker = Some(
+                    args.get(index)
+                        .cloned()
+                        .unwrap_or_else(|| usage_and_exit("--docker requires an image")),
+                );
+            }
+            "--assert-unknown" => cli.assert_unknown = true,
+            "--skip-latest" => cli.skip_latest = true,
+            "--skip-alt" => cli.skip_alt = true,
+            "--skip-manifest-mutate" => cli.skip_manifest_mutate = true,
             "--journey" => {
                 index += 1;
                 let id = args
