@@ -730,7 +730,7 @@ mod tests {
 
     #[test]
     fn all_observed_evidence_count_is_pinned() {
-        const ALL_OBSERVED_EVIDENCE: usize = 1398;
+        const ALL_OBSERVED_EVIDENCE: usize = 1430;
 
         let catalog = Catalog::bootstrap();
         let count = collect_all_observed_evidence_sites(&catalog).len();
@@ -739,7 +739,7 @@ mod tests {
 
     #[test]
     fn extractor_verifiable_observed_evidence_count_is_pinned() {
-        const EXTRACTOR_VERIFIABLE_OBSERVED_EVIDENCE: usize = 287;
+        const EXTRACTOR_VERIFIABLE_OBSERVED_EVIDENCE: usize = 289;
 
         let catalog = Catalog::bootstrap();
         let count = collect_extractor_verifiable_sites(&catalog).len();
@@ -748,7 +748,7 @@ mod tests {
 
     #[test]
     fn unverified_observed_evidence_count_is_pinned() {
-        const UNVERIFIED_OBSERVED_EVIDENCE: usize = 1113;
+        const UNVERIFIED_OBSERVED_EVIDENCE: usize = 1143;
 
         let repo_root = catalog_paths::repo_root();
         let catalog = Catalog::bootstrap();
@@ -1054,7 +1054,7 @@ mod tests {
 
     #[test]
     fn fastapi_extracted_value_mismatch_uncredits_step_route() {
-        const STEP_ROUTE_SITES: usize = 78;
+        const STEP_ROUTE_SITES: usize = 80;
         let (catalog, extracts, verifiable, _, lapses_full) = extracts_and_verifiable();
         let Extracts {
             nginx,

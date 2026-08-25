@@ -12,8 +12,8 @@ use catalog_kernel::provenance::{Grounded, GroundedSet};
 use catalog_model::http::http_method_label;
 use catalog_model::journey::{RouteRef, UseCase};
 
-// Measured: bootstrap clusters 100 journeys into 108 functions (not 1:1).
-pub const ACTION_COUNT: usize = 108;
+// Measured: bootstrap clusters 109 journeys into 117 functions (not 1:1).
+pub const ACTION_COUNT: usize = 117;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(transparent)]

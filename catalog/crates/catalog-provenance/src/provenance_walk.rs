@@ -304,6 +304,7 @@ fn ui_const_registry_names() -> &'static [&'static str] {
         "ui/UI_CALIBRATION_JOURNEYS",
         "ui/UI_NO_HARDWARE_JOURNEYS",
         "ui/UI_CAMERA_JOURNEYS",
+        "ui/UI_CONFIGURE_JOURNEYS",
         "ui/UI_EXTENSION_JOURNEYS",
         "ui/UI_BAG_JOURNEYS",
         "ui/UI_VERSION_SETTINGS_JOURNEYS",
@@ -1205,9 +1206,9 @@ mod tests {
 
     #[test]
     fn source_to_asserted_downgrade_trips_citation_pins() {
-        const FILE_CITATION_COUNT: usize = 2045;
-        const SOURCE_COUNT: usize = 512;
-        const ASSERTED_COUNT: usize = 214;
+        const FILE_CITATION_COUNT: usize = 2106;
+        const SOURCE_COUNT: usize = 544;
+        const ASSERTED_COUNT: usize = 232;
 
         let (citations, _) = collect_citations();
         let source_count = citations
@@ -1246,7 +1247,7 @@ mod tests {
 
     #[test]
     fn non_unique_in_window_citation_count_is_pinned() {
-        const NON_UNIQUE_IN_WINDOW_COUNT: usize = 177;
+        const NON_UNIQUE_IN_WINDOW_COUNT: usize = 178;
 
         let report = build_report();
         assert_eq!(

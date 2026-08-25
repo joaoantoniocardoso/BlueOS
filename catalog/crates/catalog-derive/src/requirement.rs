@@ -944,6 +944,7 @@ fn precondition_statement(precondition: &Precondition) -> String {
             HardwareAssumption::Ping360 => "a Ping360 sonar is connected".to_string(),
             HardwareAssumption::ExternalNmeaGps => "an external NMEA GPS is connected".to_string(),
             HardwareAssumption::UsbSerialDevice => "a USB serial device is connected".to_string(),
+            HardwareAssumption::RaspberryPi5 => "a Raspberry Pi 5 host is in use".to_string(),
         },
         Precondition::Software(software) => match software {
             SoftwareAssumption::PirateMode => "pirate mode is enabled".to_string(),
@@ -1591,12 +1592,12 @@ mod tests {
     use catalog_kernel::id::journey::JourneyId;
     use catalog_kernel::version::Availability;
 
-    const EXPECTED_DERIVED_SYSTEM_COUNT: usize = 143;
+    const EXPECTED_DERIVED_SYSTEM_COUNT: usize = 152;
     const EXPECTED_OVERLAY_SYSTEM_COUNT: usize = 4;
 
-    const EXPECTED_SYSTEM_COUNT: usize = 147;
+    const EXPECTED_SYSTEM_COUNT: usize = 156;
     const EXPECTED_FUNCTIONAL_COUNT: usize = ACTION_COUNT;
-    const EXPECTED_INTERFACE_COUNT: usize = 87;
+    const EXPECTED_INTERFACE_COUNT: usize = 91;
     const EXPECTED_PERFORMANCE_COUNT: usize = 80;
     const EXPECTED_ROBUSTNESS_COUNT: usize = 63;
 
@@ -1712,7 +1713,7 @@ mod tests {
             .iter()
             .filter(|req| req.kind == RequirementClass::Functional)
             .count();
-        assert_eq!(catalog.journeys().len(), 100);
+        assert_eq!(catalog.journeys().len(), 109);
         assert_eq!(functions.functions().len(), EXPECTED_FUNCTIONAL_COUNT);
         assert_eq!(fun_count, EXPECTED_FUNCTIONAL_COUNT);
     }

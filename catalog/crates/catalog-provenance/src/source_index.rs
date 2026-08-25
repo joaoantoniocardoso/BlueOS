@@ -478,7 +478,7 @@ mod tests {
         let expected = linter_source_paths_from_fields(&report);
         let indexed: HashSet<_> = index.entries.keys().cloned().collect();
 
-        assert_eq!(indexed.len(), 232, "index key count drifted");
+        assert_eq!(indexed.len(), 239, "index key count drifted");
         assert_eq!(
             indexed,
             expected,
@@ -486,8 +486,8 @@ mod tests {
             expected.difference(&indexed).count()
         );
         const OBSERVED_PATH_COUNT: usize = 159;
-        const SOURCE_PATH_COUNT: usize = 104;
-        const DOC_PATH_COUNT: usize = 7;
+        const SOURCE_PATH_COUNT: usize = 111;
+        const DOC_PATH_COUNT: usize = 8;
         const RUNTIME_PATH_COUNT: usize = 27;
 
         assert_eq!(

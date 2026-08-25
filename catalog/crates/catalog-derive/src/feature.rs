@@ -671,7 +671,7 @@ mod tests {
     use catalog_kernel::domain::DOMAINS;
     use catalog_kernel::provenance::AssertedSet;
 
-    const EXPECTED_CAPABILITY_COUNT: usize = 143;
+    const EXPECTED_CAPABILITY_COUNT: usize = 152;
     const EXPECTED_AGGREGATE_COUNT: usize = 20;
 
     #[test]
@@ -695,7 +695,7 @@ mod tests {
             .count();
         assert_eq!(frontend, FRONTEND_CAPABILITIES.len());
         assert_eq!(backend + frontend, EXPECTED_CAPABILITY_COUNT);
-        assert_eq!(frontend, 14);
+        assert_eq!(frontend, 16);
     }
 
     #[test]

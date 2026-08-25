@@ -292,6 +292,7 @@ mod tests {
             HardwareAssumption::Ping360,
             HardwareAssumption::ExternalNmeaGps,
             HardwareAssumption::UsbSerialDevice,
+            HardwareAssumption::RaspberryPi5,
         ] {
             assert_eq!(hardware.as_str(), format!("{hardware:?}"));
             let pre = Precondition::Hardware(hardware);

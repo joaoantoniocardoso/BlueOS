@@ -9,7 +9,7 @@ use catalog_derive::requirement::RequirementCatalog;
 use catalog_derive::requirements_report::requirements_json;
 use catalog_harness::mutating_smoke::MUTATING_SMOKE_ENTRIES;
 use catalog_harness::oracle::derive_oracle_class;
-use catalog_harness::ui::ui_plan;
+use catalog_harness::ui::{ui_plan, ui_typed_skip_reason};
 use catalog_kernel::provenance::{Grounded, GroundedSet};
 use catalog_model::journey::{blast_radius_is_unknown, BodyKind, OracleClass};
 use catalog_provenance::observed_verification::{
@@ -164,6 +164,7 @@ pub fn count_client_orchestrated_missing_ui_plan(catalog: &Catalog) -> usize {
         .filter(|journey| {
             derive_oracle_class(catalog, journey) == OracleClass::ClientOrchestrated
                 && ui_plan(journey.id).is_none()
+                && ui_typed_skip_reason(journey.id).is_none()
                 && !PAGE_LOAD_UI.contains(&journey.id)
         })
         .count()
@@ -350,9 +351,9 @@ mod tests {
     fn requirement_coverage_counts_match_measured_pins() {
         let catalog = Catalog::bootstrap();
         let current = harness_ratchet_counts(&catalog);
-        assert_eq!(current.unknown_requirement_statements, 16);
-        assert_eq!(current.unknown_requirement_criteria, 50);
-        assert_eq!(current.requirement_contamination_findings, 10);
+        assert_eq!(current.unknown_requirement_statements, 20);
+        assert_eq!(current.unknown_requirement_criteria, 52);
+        assert_eq!(current.requirement_contamination_findings, 13);
         assert!(catalog_supports_requirement_derivation(&catalog));
     }
 

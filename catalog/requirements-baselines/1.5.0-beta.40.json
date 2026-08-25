@@ -1,14 +1,14 @@
 {
   "version_tag": "1.5.0-beta.40",
-  "total": 439,
-  "unknown_statement_count": 16,
-  "unknown_criteria_count": 70,
+  "total": 461,
+  "unknown_statement_count": 22,
+  "unknown_criteria_count": 72,
   "by_kind": {
-    "functional": 108,
-    "interface": 87,
+    "functional": 117,
+    "interface": 91,
     "performance": 80,
     "robustness": 63,
-    "system": 101
+    "system": 110
   },
   "requirements": [
     {
@@ -667,6 +667,31 @@
       "availability_present": true
     },
     {
+      "id": "REQ/network/wired_network/SYS/manage_interface_routes",
+      "kind": "system",
+      "domain": "network",
+      "statement": {
+        "status": "known",
+        "text": "Add a static IP route on a wired interface through cable-guy REST"
+      },
+      "criteria": {
+        "status": "unknown",
+        "reason": "functional child REQ/network/wired_network/FUN/manage_interface_routes/aca859ede97216d5 has unknown criteria: verifying journey manage_interface_routes has unknown criteria: http-automatable journey lacks runtime capture evidence"
+      },
+      "feature_id": "manage_interface_routes",
+      "journey_id": null,
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "wired Ethernet is present",
+          "source_use_case": "manage_interface_routes",
+          "kind": "network"
+        }
+      ],
+      "availability_present": true
+    },
+    {
       "id": "REQ/onboard_computer/host_control/SYS/reboot_onboard_computer",
       "kind": "system",
       "domain": "onboard_computer",
@@ -876,6 +901,43 @@
           "statement": "the operator confirmed a dangerous operation",
           "source_use_case": "run_host_command",
           "kind": "software"
+        }
+      ],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/onboard_computer/host_control/SYS/support_navigator_pi5",
+      "kind": "system",
+      "domain": "onboard_computer",
+      "statement": {
+        "status": "known",
+        "text": "Run BlueOS Navigator on Raspberry Pi 5 with Pi5 device-tree overlays at install and startup"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "step 0: Install BlueOS on Raspberry Pi 5 so bcm_2712.sh writes Navigator uart0-pi5 overlays"
+          },
+          {
+            "text": "step 1: Apply Pi5 dwc2 overlay in the [pi5] section of config.txt on boot"
+          }
+        ]
+      },
+      "feature_id": "support_navigator_pi5",
+      "journey_id": null,
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "a Raspberry Pi 5 host is in use",
+          "source_use_case": "support_navigator_pi5",
+          "kind": "hardware"
+        },
+        {
+          "statement": "a Navigator flight controller is connected",
+          "source_use_case": "support_navigator_pi5",
+          "kind": "hardware"
         }
       ],
       "availability_present": true
@@ -1773,6 +1835,151 @@
           "kind": "hardware"
         }
       ],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/peripherals/camera/SYS/block_video_source",
+      "kind": "system",
+      "domain": "peripherals",
+      "statement": {
+        "status": "known",
+        "text": "Operator blocks or unblocks a camera video source from Video Streams (pirate mode)"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "step 0: Open the Video Streams page from the sidebar"
+          },
+          {
+            "text": "step 1: Toggle Block source on a video device card"
+          },
+          {
+            "text": "step 2: Block the source so it is omitted from streaming"
+          },
+          {
+            "text": "step 3: Unblock the source to restore it"
+          }
+        ]
+      },
+      "feature_id": "block_video_source",
+      "journey_id": null,
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "pirate mode is enabled",
+          "source_use_case": "block_video_source",
+          "kind": "software"
+        }
+      ],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/peripherals/camera/SYS/publish_zenoh_video",
+      "kind": "system",
+      "domain": "peripherals",
+      "statement": {
+        "status": "unknown",
+        "reason": "all functional child statements are unknown"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "step 0: Launch mavlink-camera-manager with --zenoh so streams publish on Zenoh"
+          },
+          {
+            "text": "step 1: Open the Video Streams page and create or edit a stream"
+          },
+          {
+            "text": "step 2: Open Extra configuration and use Disable Zenoh to opt a stream out of Zenoh publish"
+          }
+        ]
+      },
+      "feature_id": "publish_zenoh_video",
+      "journey_id": null,
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "pirate mode is enabled",
+          "source_use_case": "publish_zenoh_video",
+          "kind": "software"
+        }
+      ],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/vehicle/recording/SYS/use_external_video_recorder",
+      "kind": "system",
+      "domain": "vehicle",
+      "statement": {
+        "status": "known",
+        "text": "Delegate camera recording to the external recorder service via MCM --recorder=external"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "step 0: Launch mavlink-camera-manager with --recorder=external"
+          },
+          {
+            "text": "step 1: Browse extracted recordings produced by the external recorder on the Records page"
+          }
+        ]
+      },
+      "feature_id": "use_external_video_recorder",
+      "journey_id": null,
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/peripherals/camera/SYS/inspect_gst_pipeline_dot",
+      "kind": "system",
+      "domain": "peripherals",
+      "statement": {
+        "status": "unknown",
+        "reason": "all functional child statements are unknown"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "step 0: Open the bundled mavlink-camera-manager UI under /mavlink-camera-manager/"
+          }
+        ]
+      },
+      "feature_id": "inspect_gst_pipeline_dot",
+      "journey_id": null,
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/peripherals/camera/SYS/read_camera_mavlink_ids",
+      "kind": "system",
+      "domain": "peripherals",
+      "statement": {
+        "status": "unknown",
+        "reason": "all functional child statements are unknown"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "step 0: Launch mavlink-camera-manager with --mavlink-system-id and --mavlink-camera-component-id-range"
+          }
+        ]
+      },
+      "feature_id": "read_camera_mavlink_ids",
+      "journey_id": null,
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -3024,6 +3231,76 @@
       "availability_present": true
     },
     {
+      "id": "REQ/vehicle/autopilot/SYS/configure_vehicle_body",
+      "kind": "system",
+      "domain": "vehicle",
+      "statement": {
+        "status": "known",
+        "text": "Operator selects vehicle frame and board orientation with 3D previews in Vehicle Setup Configure"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "step 0: Open Vehicle Setup and select the Configure tab, then Vehicle Body"
+          },
+          {
+            "text": "step 1: FrameSelector emits the chosen FRAME_CONFIG/FRAME_CLASS; ArdupilotVehicleBodySetup writes it via mavlink2rest.setParam"
+          },
+          {
+            "text": "step 2: OrientationPicker writes AHRS_ORIENTATION via mavlink2rest.setParam and marks reboot required"
+          }
+        ]
+      },
+      "feature_id": "configure_vehicle_body",
+      "journey_id": null,
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "autopilot parameters have finished loading",
+          "source_use_case": "configure_vehicle_body",
+          "kind": "other"
+        }
+      ],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/vehicle/autopilot/SYS/configure_battery_monitor",
+      "kind": "system",
+      "domain": "vehicle",
+      "statement": {
+        "status": "known",
+        "text": "Operator configures battery monitor presets, scaling, and dual-battery params on the Power Configure tab"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "step 0: Open Vehicle Setup > Configure and select the Power tab"
+          },
+          {
+            "text": "step 1: Choose a Battery Monitor type and optional power-sensor preset on Battery 1 (and Battery 2 when BATT2_MONITOR exists)"
+          },
+          {
+            "text": "step 2: BatteryCard.applySensorPreset writes voltage/current pin and scaling parameters via mavlink2rest.setParam"
+          }
+        ]
+      },
+      "feature_id": "configure_battery_monitor",
+      "journey_id": null,
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [
+        {
+          "statement": "autopilot parameters have finished loading",
+          "source_use_case": "configure_battery_monitor",
+          "kind": "other"
+        }
+      ],
+      "availability_present": true
+    },
+    {
       "id": "REQ/vehicle/autopilot/SYS/edit_autopilot_parameters",
       "kind": "system",
       "domain": "vehicle",
@@ -3533,6 +3810,46 @@
       "availability_present": true
     },
     {
+      "id": "REQ/peripherals/camera/FUN/block_video_source/838dc8b432041c42",
+      "kind": "functional",
+      "domain": "peripherals",
+      "statement": {
+        "status": "known",
+        "text": "Operator blocks or unblocks a camera video source from Video Streams (pirate mode)"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "step 0: Open the Video Streams page from the sidebar"
+          },
+          {
+            "text": "step 1: Toggle Block source on a video device card"
+          },
+          {
+            "text": "step 2: Block the source so it is omitted from streaming"
+          },
+          {
+            "text": "step 3: Unblock the source to restore it"
+          }
+        ]
+      },
+      "feature_id": "block_video_source",
+      "journey_id": null,
+      "function_id": "block_video_source/838dc8b432041c42",
+      "verifying_journeys": [
+        "block_video_source"
+      ],
+      "assumptions": [
+        {
+          "statement": "pirate mode is enabled",
+          "source_use_case": "block_video_source",
+          "kind": "software"
+        }
+      ],
+      "availability_present": true
+    },
+    {
       "id": "REQ/blueos_platform/extensions/FUN/browse_extension_store/378bb78142b6540d",
       "kind": "functional",
       "domain": "blueos_platform",
@@ -3808,6 +4125,43 @@
       "availability_present": true
     },
     {
+      "id": "REQ/vehicle/autopilot/FUN/configure_battery_monitor/cbf29ce484222325",
+      "kind": "functional",
+      "domain": "vehicle",
+      "statement": {
+        "status": "known",
+        "text": "Operator configures battery monitor presets, scaling, and dual-battery params on the Power Configure tab"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "step 0: Open Vehicle Setup > Configure and select the Power tab"
+          },
+          {
+            "text": "step 1: Choose a Battery Monitor type and optional power-sensor preset on Battery 1 (and Battery 2 when BATT2_MONITOR exists)"
+          },
+          {
+            "text": "step 2: BatteryCard.applySensorPreset writes voltage/current pin and scaling parameters via mavlink2rest.setParam"
+          }
+        ]
+      },
+      "feature_id": "configure_battery_monitor",
+      "journey_id": null,
+      "function_id": "configure_battery_monitor/cbf29ce484222325",
+      "verifying_journeys": [
+        "configure_battery_monitor"
+      ],
+      "assumptions": [
+        {
+          "statement": "autopilot parameters have finished loading",
+          "source_use_case": "configure_battery_monitor",
+          "kind": "other"
+        }
+      ],
+      "availability_present": true
+    },
+    {
       "id": "REQ/peripherals/camera/FUN/configure_camera_stream/f796bf0b5f1bb25f",
       "kind": "functional",
       "domain": "peripherals",
@@ -4078,6 +4432,43 @@
           "statement": "a USB camera is connected",
           "source_use_case": "configure_uvc_device_controls",
           "kind": "hardware"
+        }
+      ],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/vehicle/autopilot/FUN/configure_vehicle_body/cbf29ce484222325",
+      "kind": "functional",
+      "domain": "vehicle",
+      "statement": {
+        "status": "known",
+        "text": "Operator selects vehicle frame and board orientation with 3D previews in Vehicle Setup Configure"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "step 0: Open Vehicle Setup and select the Configure tab, then Vehicle Body"
+          },
+          {
+            "text": "step 1: FrameSelector emits the chosen FRAME_CONFIG/FRAME_CLASS; ArdupilotVehicleBodySetup writes it via mavlink2rest.setParam"
+          },
+          {
+            "text": "step 2: OrientationPicker writes AHRS_ORIENTATION via mavlink2rest.setParam and marks reboot required"
+          }
+        ]
+      },
+      "feature_id": "configure_vehicle_body",
+      "journey_id": null,
+      "function_id": "configure_vehicle_body/cbf29ce484222325",
+      "verifying_journeys": [
+        "configure_vehicle_body"
+      ],
+      "assumptions": [
+        {
+          "statement": "autopilot parameters have finished loading",
+          "source_use_case": "configure_vehicle_body",
+          "kind": "other"
         }
       ],
       "availability_present": true
@@ -5197,6 +5588,31 @@
       "availability_present": true
     },
     {
+      "id": "REQ/peripherals/camera/FUN/inspect_gst_pipeline_dot/cbf29ce484222325",
+      "kind": "functional",
+      "domain": "peripherals",
+      "statement": {
+        "status": "unknown",
+        "reason": "source text is contaminated; awaiting re-grounding"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "step 0: Open the bundled mavlink-camera-manager UI under /mavlink-camera-manager/"
+          }
+        ]
+      },
+      "feature_id": "inspect_gst_pipeline_dot",
+      "journey_id": null,
+      "function_id": "inspect_gst_pipeline_dot/cbf29ce484222325",
+      "verifying_journeys": [
+        "inspect_gst_pipeline_dot"
+      ],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
       "id": "REQ/vehicle/mavlink/FUN/inspect_live_mavlink_messages",
       "kind": "functional",
       "domain": "vehicle",
@@ -5814,6 +6230,33 @@
       "availability_present": true
     },
     {
+      "id": "REQ/network/wired_network/FUN/manage_interface_routes/aca859ede97216d5",
+      "kind": "functional",
+      "domain": "network",
+      "statement": {
+        "status": "known",
+        "text": "Add a static IP route on a wired interface through cable-guy REST"
+      },
+      "criteria": {
+        "status": "unknown",
+        "reason": "verifying journey manage_interface_routes has unknown criteria: http-automatable journey lacks runtime capture evidence"
+      },
+      "feature_id": "manage_interface_routes",
+      "journey_id": null,
+      "function_id": "manage_interface_routes/aca859ede97216d5",
+      "verifying_journeys": [
+        "manage_interface_routes"
+      ],
+      "assumptions": [
+        {
+          "statement": "wired Ethernet is present",
+          "source_use_case": "manage_interface_routes",
+          "kind": "network"
+        }
+      ],
+      "availability_present": true
+    },
+    {
       "id": "REQ/blueos_platform/extensions/FUN/manage_manifests",
       "kind": "functional",
       "domain": "blueos_platform",
@@ -5959,6 +6402,43 @@
       "availability_present": true
     },
     {
+      "id": "REQ/peripherals/camera/FUN/publish_zenoh_video/cbf29ce484222325",
+      "kind": "functional",
+      "domain": "peripherals",
+      "statement": {
+        "status": "unknown",
+        "reason": "source text is contaminated; awaiting re-grounding"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "step 0: Launch mavlink-camera-manager with --zenoh so streams publish on Zenoh"
+          },
+          {
+            "text": "step 1: Open the Video Streams page and create or edit a stream"
+          },
+          {
+            "text": "step 2: Open Extra configuration and use Disable Zenoh to opt a stream out of Zenoh publish"
+          }
+        ]
+      },
+      "feature_id": "publish_zenoh_video",
+      "journey_id": null,
+      "function_id": "publish_zenoh_video/cbf29ce484222325",
+      "verifying_journeys": [
+        "publish_zenoh_video"
+      ],
+      "assumptions": [
+        {
+          "statement": "pirate mode is enabled",
+          "source_use_case": "publish_zenoh_video",
+          "kind": "software"
+        }
+      ],
+      "availability_present": true
+    },
+    {
       "id": "REQ/blueos_platform/versioning/FUN/pull_blueos_version",
       "kind": "functional",
       "domain": "blueos_platform",
@@ -6030,6 +6510,31 @@
           "kind": "other"
         }
       ],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/peripherals/camera/FUN/read_camera_mavlink_ids/cbf29ce484222325",
+      "kind": "functional",
+      "domain": "peripherals",
+      "statement": {
+        "status": "unknown",
+        "reason": "source text is contaminated; awaiting re-grounding"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "step 0: Launch mavlink-camera-manager with --mavlink-system-id and --mavlink-camera-component-id-range"
+          }
+        ]
+      },
+      "feature_id": "read_camera_mavlink_ids",
+      "journey_id": null,
+      "function_id": "read_camera_mavlink_ids/cbf29ce484222325",
+      "verifying_journeys": [
+        "read_camera_mavlink_ids"
+      ],
+      "assumptions": [],
       "availability_present": true
     },
     {
@@ -6741,6 +7246,45 @@
       "availability_present": true
     },
     {
+      "id": "REQ/onboard_computer/host_control/FUN/support_navigator_pi5/cbf29ce484222325",
+      "kind": "functional",
+      "domain": "onboard_computer",
+      "statement": {
+        "status": "known",
+        "text": "Run BlueOS Navigator on Raspberry Pi 5 with Pi5 device-tree overlays at install and startup"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "step 0: Install BlueOS on Raspberry Pi 5 so bcm_2712.sh writes Navigator uart0-pi5 overlays"
+          },
+          {
+            "text": "step 1: Apply Pi5 dwc2 overlay in the [pi5] section of config.txt on boot"
+          }
+        ]
+      },
+      "feature_id": "support_navigator_pi5",
+      "journey_id": null,
+      "function_id": "support_navigator_pi5/cbf29ce484222325",
+      "verifying_journeys": [
+        "support_navigator_pi5"
+      ],
+      "assumptions": [
+        {
+          "statement": "a Raspberry Pi 5 host is in use",
+          "source_use_case": "support_navigator_pi5",
+          "kind": "hardware"
+        },
+        {
+          "statement": "a Navigator flight controller is connected",
+          "source_use_case": "support_navigator_pi5",
+          "kind": "hardware"
+        }
+      ],
+      "availability_present": true
+    },
+    {
       "id": "REQ/blueos_platform/versioning/FUN/switch_blueos_version",
       "kind": "functional",
       "domain": "blueos_platform",
@@ -7073,6 +7617,34 @@
       "function_id": "upload_model_override",
       "verifying_journeys": [
         "upload_3d_model_override"
+      ],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/vehicle/recording/FUN/use_external_video_recorder/cbf29ce484222325",
+      "kind": "functional",
+      "domain": "vehicle",
+      "statement": {
+        "status": "known",
+        "text": "Delegate camera recording to the external recorder service via MCM --recorder=external"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "step 0: Launch mavlink-camera-manager with --recorder=external"
+          },
+          {
+            "text": "step 1: Browse extracted recordings produced by the external recorder on the Records page"
+          }
+        ]
+      },
+      "feature_id": "use_external_video_recorder",
+      "journey_id": null,
+      "function_id": "use_external_video_recorder/cbf29ce484222325",
+      "verifying_journeys": [
+        "use_external_video_recorder"
       ],
       "assumptions": [],
       "availability_present": true
@@ -7685,6 +8257,52 @@
       "feature_id": "configure_host_dns",
       "journey_id": "configure_host_dns",
       "function_id": "configure_host_dns/7de3fb98efd28e6c",
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/network/wired_network/IF/POST/cable-guy_v1.0_route",
+      "kind": "interface",
+      "domain": "network",
+      "statement": {
+        "status": "known",
+        "text": "Add a static route to a named wired interface"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "POST /cable-guy/v1.0/route"
+          }
+        ]
+      },
+      "feature_id": "manage_interface_routes",
+      "journey_id": "manage_interface_routes",
+      "function_id": "manage_interface_routes/aca859ede97216d5",
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/network/wired_network/IF/GET/cable-guy_v1.0_route",
+      "kind": "interface",
+      "domain": "network",
+      "statement": {
+        "status": "known",
+        "text": "List routes on that interface to confirm the add"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "GET /cable-guy/v1.0/route"
+          }
+        ]
+      },
+      "feature_id": "manage_interface_routes",
+      "journey_id": "manage_interface_routes",
+      "function_id": "manage_interface_routes/aca859ede97216d5",
       "verifying_journeys": [],
       "assumptions": [],
       "availability_present": true
@@ -8421,6 +9039,52 @@
       "feature_id": "configure_uvc_device_controls",
       "journey_id": "configure_uvc_device_controls",
       "function_id": "configure_uvc_device_controls/ab84473ae51404ce",
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/peripherals/camera/IF/POST/mavlink-camera-manager_block_source",
+      "kind": "interface",
+      "domain": "peripherals",
+      "statement": {
+        "status": "known",
+        "text": "Block the source so it is omitted from streaming"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "POST /mavlink-camera-manager/block_source"
+          }
+        ]
+      },
+      "feature_id": "block_video_source",
+      "journey_id": "block_video_source",
+      "function_id": "block_video_source/838dc8b432041c42",
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/peripherals/camera/IF/POST/mavlink-camera-manager_unblock_source",
+      "kind": "interface",
+      "domain": "peripherals",
+      "statement": {
+        "status": "known",
+        "text": "Unblock the source to restore it"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "POST /mavlink-camera-manager/unblock_source"
+          }
+        ]
+      },
+      "feature_id": "block_video_source",
+      "journey_id": "block_video_source",
+      "function_id": "block_video_source/838dc8b432041c42",
       "verifying_journeys": [],
       "assumptions": [],
       "availability_present": true
@@ -12595,5 +13259,5 @@
       "availability_present": true
     }
   ],
-  "contamination_findings": 10
+  "contamination_findings": 13
 }

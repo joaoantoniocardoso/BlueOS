@@ -728,11 +728,11 @@ mod tests {
     use crate::requirement::{RequirementCatalog, RequirementStatement};
     use catalog_core::catalog::Catalog;
 
-    const FILTERED_COUNT_1_0_0: usize = 239;
-    const FILTERED_COUNT_1_4_0: usize = 350;
-    const UNKNOWN_STATEMENTS_1_4_DEV: usize = 16;
-    const UNKNOWN_CRITERIA_1_4_DEV: usize = 50;
-    const UNKNOWN_STATEMENTS_UNFILTERED: usize = 62;
+    const FILTERED_COUNT_1_0_0: usize = 220;
+    const FILTERED_COUNT_1_4_0: usize = 354;
+    const UNKNOWN_STATEMENTS_1_4_DEV: usize = 20;
+    const UNKNOWN_CRITERIA_1_4_DEV: usize = 52;
+    const UNKNOWN_STATEMENTS_UNFILTERED: usize = 68;
 
     #[test]
     fn version_filter_counts_match_pins() {

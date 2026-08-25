@@ -1,15 +1,15 @@
 {
   "unknown_blast_radius": 1,
-  "unknown_body_kind": 59,
+  "unknown_body_kind": 61,
   "unprobed_failure_modes": 40,
   "mutating_smoke_missing_effect_read": 60,
-  "client_orchestrated_missing_ui_plan": 17,
+  "client_orchestrated_missing_ui_plan": 0,
   "open_harness_gap": 24,
-  "unverified_observed_evidence": 1113,
+  "unverified_observed_evidence": 1143,
   "extractor_coverage_lapses": 2,
-  "unknown_requirement_statements": 16,
-  "unknown_requirement_criteria": 50,
-  "requirement_contamination_findings": 10,
-  "unmapped_api_routes": 45,
+  "unknown_requirement_statements": 20,
+  "unknown_requirement_criteria": 52,
+  "requirement_contamination_findings": 13,
+  "unmapped_api_routes": 44,
   "orphan_api_hits": 0
 }
