@@ -729,7 +729,7 @@ mod tests {
     use catalog_core::catalog::Catalog;
 
     const FILTERED_COUNT_1_0_0: usize = 220;
-    const FILTERED_COUNT_1_4_0: usize = 354;
+    const FILTERED_COUNT_1_4_0: usize = 377;
     const UNKNOWN_STATEMENTS_1_4_DEV: usize = 20;
     const UNKNOWN_CRITERIA_1_4_DEV: usize = 52;
     const UNKNOWN_STATEMENTS_UNFILTERED: usize = 68;

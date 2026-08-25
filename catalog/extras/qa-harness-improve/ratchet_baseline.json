@@ -5,11 +5,11 @@
   "mutating_smoke_missing_effect_read": 60,
   "client_orchestrated_missing_ui_plan": 0,
   "open_harness_gap": 24,
-  "unverified_observed_evidence": 1143,
+  "unverified_observed_evidence": 1163,
   "extractor_coverage_lapses": 2,
   "unknown_requirement_statements": 20,
   "unknown_requirement_criteria": 52,
   "requirement_contamination_findings": 13,
-  "unmapped_api_routes": 44,
+  "unmapped_api_routes": 26,
   "orphan_api_hits": 0
 }

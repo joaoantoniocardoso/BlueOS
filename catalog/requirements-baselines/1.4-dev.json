@@ -1,13 +1,13 @@
 {
   "version_tag": "1.4-dev",
-  "total": 370,
+  "total": 393,
   "unknown_statement_count": 20,
   "unknown_criteria_count": 52,
   "by_kind": {
     "functional": 95,
-    "interface": 75,
+    "interface": 91,
     "performance": 69,
-    "robustness": 44,
+    "robustness": 51,
     "system": 87
   },
   "requirements": [
@@ -1070,6 +1070,27 @@
           },
           {
             "text": "GET /kraken/v2.0/manifest/consolidated status=200 body~=large consolidated manifest of all extensions across sources (capture=runtime-captures/kraken__pi4_navigator_master.json#running_baseline env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
+          },
+          {
+            "text": "GET /kraken/v2.0/extension/ status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v2/routers/extension.py\", line: 48, anchor: \"@extension_router_v2.get(\\\"/\\\", status_code=status.HTTP_200_OK\" }))"
+          },
+          {
+            "text": "GET /kraken/v1.0/installed_extensions status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/index.py\", line: 27, anchor: \"@index_router_v1.get(\\\"/installed_extensions\\\", status_code=st\" }))"
+          },
+          {
+            "text": "GET /kraken/v1.0/extensions_manifest status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/index.py\", line: 22, anchor: \"@index_router_v1.get(\\\"/extensions_manifest\\\", status_code=sta\" }))"
+          },
+          {
+            "text": "GET /kraken/v2.0/manifest/ status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v2/routers/manifest.py\", line: 48, anchor: \"@manifest_router_v2.get(\\\"/\\\", status_code=status.HTTP_200_OK)\" }))"
+          },
+          {
+            "text": "step 6: Open the default BlueOS Extensions Repository collection details"
+          },
+          {
+            "text": "step 7: See available versions for an extension across collections"
+          },
+          {
+            "text": "step 8: See available versions for an extension in a specific collection"
           }
         ]
       },
@@ -1092,7 +1113,7 @@
       "domain": "blueos_platform",
       "statement": {
         "status": "known",
-        "text": "Manage installed extensions: view resource usage, configure permissions, read logs, restart, or disable"
+        "text": "Manage installed extensions: view resource usage, configure permissions, read logs, restart, disable, or enable"
       },
       "criteria": {
         "status": "known",
@@ -1104,16 +1125,55 @@
             "text": "GET /kraken/v2.0/container/ status=200 body~=array of container descriptors {name,status,image} (capture=runtime-captures/kraken__pi4_navigator_master.json#running_baseline env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
           },
           {
-            "text": "step 2: Configure extension permissions and custom settings"
+            "text": "GET /kraken/v2.0/container/stats status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v2/routers/container.py\", line: 66, anchor: \"@container_router_v2.get(\\\"/stats\\\", status_code=status.HTTP_2\" }))"
+          },
+          {
+            "text": "GET /kraken/v1.0/stats status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/index.py\", line: 52, anchor: \"@index_router_v1.get(\\\"/stats\\\", status_code=status.HTTP_200_O\" }))"
+          },
+          {
+            "text": "GET /kraken/v1.0/list_containers status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/index.py\", line: 33, anchor: \"@index_router_v1.get(\\\"/list_containers\\\", status_code=status.\" }))"
+          },
+          {
+            "text": "step 5: Inspect a single running extension container"
+          },
+          {
+            "text": "step 6: View CPU and memory stats for a single running extension container"
           },
           {
             "text": "GET /container/{container_name}/log status=200 body~=base64-encoded log fragments (capture=runtime-captures/kraken__pi4_navigator_master.json#transitions env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
           },
           {
+            "text": "GET /kraken/v1.0/log status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/index.py\", line: 38, anchor: \"@index_router_v1.get(\\\"/log\\\", status_code=status.HTTP_200_OK,\" }))"
+          },
+          {
             "text": "POST /extension/{identifier}/restart status=202 (capture=runtime-captures/kraken__pi4_navigator_master.json#transitions env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
           },
           {
+            "text": "POST /kraken/v1.0/extension/restart status=202 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/extension.py\", line: 55, anchor: \"@extension_router_v1.post(\\\"/restart\\\", status_code=status.HTT\" }))"
+          },
+          {
             "text": "POST /extension/{identifier}/disable status=204 (capture=runtime-captures/kraken__pi4_navigator_master.json#transitions env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
+          },
+          {
+            "text": "POST /kraken/v1.0/extension/disable status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/extension.py\", line: 48, anchor: \"@extension_router_v1.post(\\\"/disable\\\", status_code=status.HTT\" }))"
+          },
+          {
+            "text": "POST /extension/{identifier}/{tag}/enable status=204 (provenance=Source(Evidence { file: \"core/services/kraken/api/v2/routers/extension.py\", line: 109, anchor: \"@extension_router_v2.post(\\\"/{identifier}/{tag}/enable\\\", stat\" }))"
+          },
+          {
+            "text": "POST /kraken/v1.0/extension/enable status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/extension.py\", line: 41, anchor: \"@extension_router_v1.post(\\\"/enable\\\", status_code=status.HTTP\" }))"
+          },
+          {
+            "text": "GET /kraken/v2.0/jobs/ status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v2/routers/jobs.py\", line: 42, anchor: \"@jobs_router_v2.get(\\\"/\\\", status_code=status.HTTP_200_OK)\" }))"
+          },
+          {
+            "text": "step 16: Enqueue a background job for a safe GET (never an install)"
+          },
+          {
+            "text": "step 17: Inspect a background job by id"
+          },
+          {
+            "text": "step 18: Cancel a queued background job"
           }
         ]
       },
@@ -1136,11 +1196,29 @@
       "domain": "blueos_platform",
       "statement": {
         "status": "known",
-        "text": "Install a custom extension by registering a Docker image through the blue plus button; Install an extension from the store by selecting a version from its card dropdown"
+        "text": "Install an extension from the store by selecting a version from its card dropdown; Install a custom extension by registering a Docker image through the blue plus button"
       },
       "criteria": {
         "status": "known",
         "items": [
+          {
+            "text": "step 0: Click an extension card to view developer information, default settings, permissions, and usage instructions"
+          },
+          {
+            "text": "step 1: Confirm the selected version details before installing"
+          },
+          {
+            "text": "step 2: Select the extension version to install from the dropdown"
+          },
+          {
+            "text": "POST /extension/{identifier}/{tag}/install status=200 (capture=runtime-captures/kraken__pi4_navigator_master.json#transitions env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
+          },
+          {
+            "text": "step 4: Install the latest compatible version from the store without picking a tag"
+          },
+          {
+            "text": "POST /kraken/v1.0/extension/install status=201 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/extension.py\", line: 20, anchor: \"@extension_router_v1.post(\\\"/install\\\", status_code=status.HTT\" }))"
+          },
           {
             "text": "step 0: Open the Extensions Manager"
           },
@@ -1152,15 +1230,6 @@
           },
           {
             "text": "POST /kraken/v2.0/extension/ status=200 body~=streams docker pull progress; container created (capture=runtime-captures/kraken__pi4_navigator_master.json#transitions env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
-          },
-          {
-            "text": "step 0: Click an extension card to view developer information, default settings, permissions, and usage instructions"
-          },
-          {
-            "text": "step 1: Select the extension version to install from the dropdown"
-          },
-          {
-            "text": "POST /extension/{identifier}/{tag}/install status=200 (capture=runtime-captures/kraken__pi4_navigator_master.json#transitions env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
           }
         ]
       },
@@ -1183,11 +1252,23 @@
       "domain": "blueos_platform",
       "statement": {
         "status": "known",
-        "text": "Manage installed extensions: view resource usage, configure permissions, read logs, restart, or disable; Switch an installed extension to an alternative or development version by editing its docker tag"
+        "text": "Switch an installed extension to an alternative or development version by editing its docker tag; Manage installed extensions: view resource usage, configure permissions, read logs, restart, disable, or enable"
       },
       "criteria": {
         "status": "known",
         "items": [
+          {
+            "text": "step 0: Click the Edit button on an installed extension listing"
+          },
+          {
+            "text": "PUT /extension/{identifier}/{tag} status=200 (capture=runtime-captures/kraken__pi4_navigator_master.json#transitions env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
+          },
+          {
+            "text": "POST /kraken/v1.0/extension/update_to_version status=201 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/extension.py\", line: 34, anchor: \"@extension_router_v1.post(\\\"/update_to_version\\\", status_code=\" }))"
+          },
+          {
+            "text": "step 3: Update the installed extension to the latest compatible store version"
+          },
           {
             "text": "step 0: Open the Extensions Manager Installed tab"
           },
@@ -1195,22 +1276,55 @@
             "text": "GET /kraken/v2.0/container/ status=200 body~=array of container descriptors {name,status,image} (capture=runtime-captures/kraken__pi4_navigator_master.json#running_baseline env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
           },
           {
-            "text": "step 2: Configure extension permissions and custom settings"
+            "text": "GET /kraken/v2.0/container/stats status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v2/routers/container.py\", line: 66, anchor: \"@container_router_v2.get(\\\"/stats\\\", status_code=status.HTTP_2\" }))"
+          },
+          {
+            "text": "GET /kraken/v1.0/stats status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/index.py\", line: 52, anchor: \"@index_router_v1.get(\\\"/stats\\\", status_code=status.HTTP_200_O\" }))"
+          },
+          {
+            "text": "GET /kraken/v1.0/list_containers status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/index.py\", line: 33, anchor: \"@index_router_v1.get(\\\"/list_containers\\\", status_code=status.\" }))"
+          },
+          {
+            "text": "step 5: Inspect a single running extension container"
+          },
+          {
+            "text": "step 6: View CPU and memory stats for a single running extension container"
           },
           {
             "text": "GET /container/{container_name}/log status=200 body~=base64-encoded log fragments (capture=runtime-captures/kraken__pi4_navigator_master.json#transitions env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
           },
           {
+            "text": "GET /kraken/v1.0/log status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/index.py\", line: 38, anchor: \"@index_router_v1.get(\\\"/log\\\", status_code=status.HTTP_200_OK,\" }))"
+          },
+          {
             "text": "POST /extension/{identifier}/restart status=202 (capture=runtime-captures/kraken__pi4_navigator_master.json#transitions env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
+          },
+          {
+            "text": "POST /kraken/v1.0/extension/restart status=202 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/extension.py\", line: 55, anchor: \"@extension_router_v1.post(\\\"/restart\\\", status_code=status.HTT\" }))"
           },
           {
             "text": "POST /extension/{identifier}/disable status=204 (capture=runtime-captures/kraken__pi4_navigator_master.json#transitions env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
           },
           {
-            "text": "step 0: Click the Edit button on an installed extension listing"
+            "text": "POST /kraken/v1.0/extension/disable status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/extension.py\", line: 48, anchor: \"@extension_router_v1.post(\\\"/disable\\\", status_code=status.HTT\" }))"
           },
           {
-            "text": "PUT /extension/{identifier}/{tag} status=200 (capture=runtime-captures/kraken__pi4_navigator_master.json#transitions env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
+            "text": "POST /extension/{identifier}/{tag}/enable status=204 (provenance=Source(Evidence { file: \"core/services/kraken/api/v2/routers/extension.py\", line: 109, anchor: \"@extension_router_v2.post(\\\"/{identifier}/{tag}/enable\\\", stat\" }))"
+          },
+          {
+            "text": "POST /kraken/v1.0/extension/enable status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/extension.py\", line: 41, anchor: \"@extension_router_v1.post(\\\"/enable\\\", status_code=status.HTTP\" }))"
+          },
+          {
+            "text": "GET /kraken/v2.0/jobs/ status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v2/routers/jobs.py\", line: 42, anchor: \"@jobs_router_v2.get(\\\"/\\\", status_code=status.HTTP_200_OK)\" }))"
+          },
+          {
+            "text": "step 16: Enqueue a background job for a safe GET (never an install)"
+          },
+          {
+            "text": "step 17: Inspect a background job by id"
+          },
+          {
+            "text": "step 18: Cancel a queued background job"
           }
         ]
       },
@@ -1240,6 +1354,27 @@
         "items": [
           {
             "text": "POST /kraken/v2.0/manifest/ status=201 (capture=runtime-captures/kraken__pi4_navigator_master.json#transitions env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
+          },
+          {
+            "text": "step 1: Open the newly added collection to confirm it registered"
+          },
+          {
+            "text": "step 2: Enable the custom collection so its extensions appear in the store"
+          },
+          {
+            "text": "step 3: Disable the custom collection without deleting it"
+          },
+          {
+            "text": "step 4: Rename or retarget the custom collection URL"
+          },
+          {
+            "text": "step 5: Change the custom collection's search priority"
+          },
+          {
+            "text": "PUT /kraken/v2.0/manifest/orders status=204 (provenance=Source(Evidence { file: \"core/services/kraken/api/v2/routers/manifest.py\", line: 137, anchor: \"@manifest_router_v2.put(\\\"/orders\\\", status_code=status.HTTP_2\" }))"
+          },
+          {
+            "text": "step 7: Remove the custom collection when it is no longer wanted"
           }
         ]
       },
@@ -1272,6 +1407,12 @@
           },
           {
             "text": "DELETE /extension/{identifier}/{tag} status=202 (capture=runtime-captures/kraken__pi4_navigator_master.json#transitions env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
+          },
+          {
+            "text": "step 2: Uninstall every installed version of the extension"
+          },
+          {
+            "text": "POST /kraken/v1.0/extension/uninstall status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/extension.py\", line: 27, anchor: \"@extension_router_v1.post(\\\"/uninstall\\\", status_code=status.H\" }))"
           }
         ]
       },
@@ -3197,7 +3338,7 @@
       "availability_present": true
     },
     {
-      "id": "REQ/blueos_platform/extensions/FUN/browse_extension_store/378bb78142b6540d",
+      "id": "REQ/blueos_platform/extensions/FUN/browse_extension_store/f12556db239307f0",
       "kind": "functional",
       "domain": "blueos_platform",
       "statement": {
@@ -3212,12 +3353,33 @@
           },
           {
             "text": "GET /kraken/v2.0/manifest/consolidated status=200 body~=large consolidated manifest of all extensions across sources (capture=runtime-captures/kraken__pi4_navigator_master.json#running_baseline env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
+          },
+          {
+            "text": "GET /kraken/v2.0/extension/ status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v2/routers/extension.py\", line: 48, anchor: \"@extension_router_v2.get(\\\"/\\\", status_code=status.HTTP_200_OK\" }))"
+          },
+          {
+            "text": "GET /kraken/v1.0/installed_extensions status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/index.py\", line: 27, anchor: \"@index_router_v1.get(\\\"/installed_extensions\\\", status_code=st\" }))"
+          },
+          {
+            "text": "GET /kraken/v1.0/extensions_manifest status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/index.py\", line: 22, anchor: \"@index_router_v1.get(\\\"/extensions_manifest\\\", status_code=sta\" }))"
+          },
+          {
+            "text": "GET /kraken/v2.0/manifest/ status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v2/routers/manifest.py\", line: 48, anchor: \"@manifest_router_v2.get(\\\"/\\\", status_code=status.HTTP_200_OK)\" }))"
+          },
+          {
+            "text": "step 6: Open the default BlueOS Extensions Repository collection details"
+          },
+          {
+            "text": "step 7: See available versions for an extension across collections"
+          },
+          {
+            "text": "step 8: See available versions for an extension in a specific collection"
           }
         ]
       },
       "feature_id": "browse_extension_store",
       "journey_id": null,
-      "function_id": "browse_extension_store/378bb78142b6540d",
+      "function_id": "browse_extension_store/f12556db239307f0",
       "verifying_journeys": [
         "browse_extension_store"
       ],
@@ -3526,7 +3688,7 @@
       "domain": "blueos_platform",
       "statement": {
         "status": "known",
-        "text": "Manage installed extensions: view resource usage, configure permissions, read logs, restart, or disable"
+        "text": "Manage installed extensions: view resource usage, configure permissions, read logs, restart, disable, or enable"
       },
       "criteria": {
         "status": "known",
@@ -3538,16 +3700,55 @@
             "text": "GET /kraken/v2.0/container/ status=200 body~=array of container descriptors {name,status,image} (capture=runtime-captures/kraken__pi4_navigator_master.json#running_baseline env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
           },
           {
-            "text": "step 2: Configure extension permissions and custom settings"
+            "text": "GET /kraken/v2.0/container/stats status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v2/routers/container.py\", line: 66, anchor: \"@container_router_v2.get(\\\"/stats\\\", status_code=status.HTTP_2\" }))"
+          },
+          {
+            "text": "GET /kraken/v1.0/stats status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/index.py\", line: 52, anchor: \"@index_router_v1.get(\\\"/stats\\\", status_code=status.HTTP_200_O\" }))"
+          },
+          {
+            "text": "GET /kraken/v1.0/list_containers status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/index.py\", line: 33, anchor: \"@index_router_v1.get(\\\"/list_containers\\\", status_code=status.\" }))"
+          },
+          {
+            "text": "step 5: Inspect a single running extension container"
+          },
+          {
+            "text": "step 6: View CPU and memory stats for a single running extension container"
           },
           {
             "text": "GET /container/{container_name}/log status=200 body~=base64-encoded log fragments (capture=runtime-captures/kraken__pi4_navigator_master.json#transitions env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
           },
           {
+            "text": "GET /kraken/v1.0/log status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/index.py\", line: 38, anchor: \"@index_router_v1.get(\\\"/log\\\", status_code=status.HTTP_200_OK,\" }))"
+          },
+          {
             "text": "POST /extension/{identifier}/restart status=202 (capture=runtime-captures/kraken__pi4_navigator_master.json#transitions env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
           },
           {
+            "text": "POST /kraken/v1.0/extension/restart status=202 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/extension.py\", line: 55, anchor: \"@extension_router_v1.post(\\\"/restart\\\", status_code=status.HTT\" }))"
+          },
+          {
             "text": "POST /extension/{identifier}/disable status=204 (capture=runtime-captures/kraken__pi4_navigator_master.json#transitions env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
+          },
+          {
+            "text": "POST /kraken/v1.0/extension/disable status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/extension.py\", line: 48, anchor: \"@extension_router_v1.post(\\\"/disable\\\", status_code=status.HTT\" }))"
+          },
+          {
+            "text": "POST /extension/{identifier}/{tag}/enable status=204 (provenance=Source(Evidence { file: \"core/services/kraken/api/v2/routers/extension.py\", line: 109, anchor: \"@extension_router_v2.post(\\\"/{identifier}/{tag}/enable\\\", stat\" }))"
+          },
+          {
+            "text": "POST /kraken/v1.0/extension/enable status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/extension.py\", line: 41, anchor: \"@extension_router_v1.post(\\\"/enable\\\", status_code=status.HTTP\" }))"
+          },
+          {
+            "text": "GET /kraken/v2.0/jobs/ status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v2/routers/jobs.py\", line: 42, anchor: \"@jobs_router_v2.get(\\\"/\\\", status_code=status.HTTP_200_OK)\" }))"
+          },
+          {
+            "text": "step 16: Enqueue a background job for a safe GET (never an install)"
+          },
+          {
+            "text": "step 17: Inspect a background job by id"
+          },
+          {
+            "text": "step 18: Cancel a queued background job"
           }
         ]
       },
@@ -4775,6 +4976,52 @@
       "availability_present": true
     },
     {
+      "id": "REQ/blueos_platform/extensions/FUN/install_extension/951b380493d23b74",
+      "kind": "functional",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Install an extension from the store by selecting a version from its card dropdown"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "step 0: Click an extension card to view developer information, default settings, permissions, and usage instructions"
+          },
+          {
+            "text": "step 1: Confirm the selected version details before installing"
+          },
+          {
+            "text": "step 2: Select the extension version to install from the dropdown"
+          },
+          {
+            "text": "POST /extension/{identifier}/{tag}/install status=200 (capture=runtime-captures/kraken__pi4_navigator_master.json#transitions env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
+          },
+          {
+            "text": "step 4: Install the latest compatible version from the store without picking a tag"
+          },
+          {
+            "text": "POST /kraken/v1.0/extension/install status=201 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/extension.py\", line: 20, anchor: \"@extension_router_v1.post(\\\"/install\\\", status_code=status.HTT\" }))"
+          }
+        ]
+      },
+      "feature_id": "install_extension",
+      "journey_id": null,
+      "function_id": "install_extension/951b380493d23b74",
+      "verifying_journeys": [
+        "install_extension"
+      ],
+      "assumptions": [
+        {
+          "statement": "network connectivity is available",
+          "source_use_case": "install_extension",
+          "kind": "network"
+        }
+      ],
+      "availability_present": true
+    },
+    {
       "id": "REQ/blueos_platform/extensions/FUN/install_extension/a543ccde867eb588",
       "kind": "functional",
       "domain": "blueos_platform",
@@ -4809,43 +5056,6 @@
         {
           "statement": "network connectivity is available",
           "source_use_case": "install_custom_extension",
-          "kind": "network"
-        }
-      ],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/blueos_platform/extensions/FUN/install_extension/cbf29ce484222325",
-      "kind": "functional",
-      "domain": "blueos_platform",
-      "statement": {
-        "status": "known",
-        "text": "Install an extension from the store by selecting a version from its card dropdown"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "step 0: Click an extension card to view developer information, default settings, permissions, and usage instructions"
-          },
-          {
-            "text": "step 1: Select the extension version to install from the dropdown"
-          },
-          {
-            "text": "POST /extension/{identifier}/{tag}/install status=200 (capture=runtime-captures/kraken__pi4_navigator_master.json#transitions env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
-          }
-        ]
-      },
-      "feature_id": "install_extension",
-      "journey_id": null,
-      "function_id": "install_extension/cbf29ce484222325",
-      "verifying_journeys": [
-        "install_extension"
-      ],
-      "assumptions": [
-        {
-          "statement": "network connectivity is available",
-          "source_use_case": "install_extension",
           "kind": "network"
         }
       ],
@@ -5181,53 +5391,7 @@
       "availability_present": true
     },
     {
-      "id": "REQ/blueos_platform/extensions/FUN/manage_extension_lifecycle/3d3721a1d56b76ca",
-      "kind": "functional",
-      "domain": "blueos_platform",
-      "statement": {
-        "status": "known",
-        "text": "Manage installed extensions: view resource usage, configure permissions, read logs, restart, or disable"
-      },
-      "criteria": {
-        "status": "known",
-        "items": [
-          {
-            "text": "step 0: Open the Extensions Manager Installed tab"
-          },
-          {
-            "text": "GET /kraken/v2.0/container/ status=200 body~=array of container descriptors {name,status,image} (capture=runtime-captures/kraken__pi4_navigator_master.json#running_baseline env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
-          },
-          {
-            "text": "step 2: Configure extension permissions and custom settings"
-          },
-          {
-            "text": "GET /container/{container_name}/log status=200 body~=base64-encoded log fragments (capture=runtime-captures/kraken__pi4_navigator_master.json#transitions env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
-          },
-          {
-            "text": "POST /extension/{identifier}/restart status=202 (capture=runtime-captures/kraken__pi4_navigator_master.json#transitions env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
-          },
-          {
-            "text": "POST /extension/{identifier}/disable status=204 (capture=runtime-captures/kraken__pi4_navigator_master.json#transitions env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
-          }
-        ]
-      },
-      "feature_id": "manage_extension_lifecycle",
-      "journey_id": null,
-      "function_id": "manage_extension_lifecycle/3d3721a1d56b76ca",
-      "verifying_journeys": [
-        "configure_installed_extension"
-      ],
-      "assumptions": [
-        {
-          "statement": "an extension is installed",
-          "source_use_case": "configure_installed_extension",
-          "kind": "data"
-        }
-      ],
-      "availability_present": true
-    },
-    {
-      "id": "REQ/blueos_platform/extensions/FUN/manage_extension_lifecycle/cbf29ce484222325",
+      "id": "REQ/blueos_platform/extensions/FUN/manage_extension_lifecycle/7ae2870e1d928f9",
       "kind": "functional",
       "domain": "blueos_platform",
       "statement": {
@@ -5242,12 +5406,18 @@
           },
           {
             "text": "PUT /extension/{identifier}/{tag} status=200 (capture=runtime-captures/kraken__pi4_navigator_master.json#transitions env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
+          },
+          {
+            "text": "POST /kraken/v1.0/extension/update_to_version status=201 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/extension.py\", line: 34, anchor: \"@extension_router_v1.post(\\\"/update_to_version\\\", status_code=\" }))"
+          },
+          {
+            "text": "step 3: Update the installed extension to the latest compatible store version"
           }
         ]
       },
       "feature_id": "manage_extension_lifecycle",
       "journey_id": null,
-      "function_id": "manage_extension_lifecycle/cbf29ce484222325",
+      "function_id": "manage_extension_lifecycle/7ae2870e1d928f9",
       "verifying_journeys": [
         "edit_extension_dev_version"
       ],
@@ -5255,6 +5425,91 @@
         {
           "statement": "an extension is installed",
           "source_use_case": "edit_extension_dev_version",
+          "kind": "data"
+        }
+      ],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/FUN/manage_extension_lifecycle/d270c7e395cec132",
+      "kind": "functional",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Manage installed extensions: view resource usage, configure permissions, read logs, restart, disable, or enable"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "step 0: Open the Extensions Manager Installed tab"
+          },
+          {
+            "text": "GET /kraken/v2.0/container/ status=200 body~=array of container descriptors {name,status,image} (capture=runtime-captures/kraken__pi4_navigator_master.json#running_baseline env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
+          },
+          {
+            "text": "GET /kraken/v2.0/container/stats status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v2/routers/container.py\", line: 66, anchor: \"@container_router_v2.get(\\\"/stats\\\", status_code=status.HTTP_2\" }))"
+          },
+          {
+            "text": "GET /kraken/v1.0/stats status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/index.py\", line: 52, anchor: \"@index_router_v1.get(\\\"/stats\\\", status_code=status.HTTP_200_O\" }))"
+          },
+          {
+            "text": "GET /kraken/v1.0/list_containers status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/index.py\", line: 33, anchor: \"@index_router_v1.get(\\\"/list_containers\\\", status_code=status.\" }))"
+          },
+          {
+            "text": "step 5: Inspect a single running extension container"
+          },
+          {
+            "text": "step 6: View CPU and memory stats for a single running extension container"
+          },
+          {
+            "text": "GET /container/{container_name}/log status=200 body~=base64-encoded log fragments (capture=runtime-captures/kraken__pi4_navigator_master.json#transitions env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
+          },
+          {
+            "text": "GET /kraken/v1.0/log status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/index.py\", line: 38, anchor: \"@index_router_v1.get(\\\"/log\\\", status_code=status.HTTP_200_OK,\" }))"
+          },
+          {
+            "text": "POST /extension/{identifier}/restart status=202 (capture=runtime-captures/kraken__pi4_navigator_master.json#transitions env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
+          },
+          {
+            "text": "POST /kraken/v1.0/extension/restart status=202 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/extension.py\", line: 55, anchor: \"@extension_router_v1.post(\\\"/restart\\\", status_code=status.HTT\" }))"
+          },
+          {
+            "text": "POST /extension/{identifier}/disable status=204 (capture=runtime-captures/kraken__pi4_navigator_master.json#transitions env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
+          },
+          {
+            "text": "POST /kraken/v1.0/extension/disable status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/extension.py\", line: 48, anchor: \"@extension_router_v1.post(\\\"/disable\\\", status_code=status.HTT\" }))"
+          },
+          {
+            "text": "POST /extension/{identifier}/{tag}/enable status=204 (provenance=Source(Evidence { file: \"core/services/kraken/api/v2/routers/extension.py\", line: 109, anchor: \"@extension_router_v2.post(\\\"/{identifier}/{tag}/enable\\\", stat\" }))"
+          },
+          {
+            "text": "POST /kraken/v1.0/extension/enable status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/extension.py\", line: 41, anchor: \"@extension_router_v1.post(\\\"/enable\\\", status_code=status.HTTP\" }))"
+          },
+          {
+            "text": "GET /kraken/v2.0/jobs/ status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v2/routers/jobs.py\", line: 42, anchor: \"@jobs_router_v2.get(\\\"/\\\", status_code=status.HTTP_200_OK)\" }))"
+          },
+          {
+            "text": "step 16: Enqueue a background job for a safe GET (never an install)"
+          },
+          {
+            "text": "step 17: Inspect a background job by id"
+          },
+          {
+            "text": "step 18: Cancel a queued background job"
+          }
+        ]
+      },
+      "feature_id": "manage_extension_lifecycle",
+      "journey_id": null,
+      "function_id": "manage_extension_lifecycle/d270c7e395cec132",
+      "verifying_journeys": [
+        "configure_installed_extension"
+      ],
+      "assumptions": [
+        {
+          "statement": "an extension is installed",
+          "source_use_case": "configure_installed_extension",
           "kind": "data"
         }
       ],
@@ -5300,6 +5555,27 @@
         "items": [
           {
             "text": "POST /kraken/v2.0/manifest/ status=201 (capture=runtime-captures/kraken__pi4_navigator_master.json#transitions env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
+          },
+          {
+            "text": "step 1: Open the newly added collection to confirm it registered"
+          },
+          {
+            "text": "step 2: Enable the custom collection so its extensions appear in the store"
+          },
+          {
+            "text": "step 3: Disable the custom collection without deleting it"
+          },
+          {
+            "text": "step 4: Rename or retarget the custom collection URL"
+          },
+          {
+            "text": "step 5: Change the custom collection's search priority"
+          },
+          {
+            "text": "PUT /kraken/v2.0/manifest/orders status=204 (provenance=Source(Evidence { file: \"core/services/kraken/api/v2/routers/manifest.py\", line: 137, anchor: \"@manifest_router_v2.put(\\\"/orders\\\", status_code=status.HTTP_2\" }))"
+          },
+          {
+            "text": "step 7: Remove the custom collection when it is no longer wanted"
           }
         ]
       },
@@ -6190,7 +6466,7 @@
       "availability_present": true
     },
     {
-      "id": "REQ/blueos_platform/extensions/FUN/uninstall_extension/cbf29ce484222325",
+      "id": "REQ/blueos_platform/extensions/FUN/uninstall_extension/1214d2086885363f",
       "kind": "functional",
       "domain": "blueos_platform",
       "statement": {
@@ -6205,12 +6481,18 @@
           },
           {
             "text": "DELETE /extension/{identifier}/{tag} status=202 (capture=runtime-captures/kraken__pi4_navigator_master.json#transitions env=BlueOS master (bluerobotics/blueos-core:master @ sha256:cdccc74464076e7fa8b5dc8a85c83db0ec95c27cb77130cb1e180d481320674e), Raspberry Pi 4)"
+          },
+          {
+            "text": "step 2: Uninstall every installed version of the extension"
+          },
+          {
+            "text": "POST /kraken/v1.0/extension/uninstall status=200 (provenance=Source(Evidence { file: \"core/services/kraken/api/v1/routers/extension.py\", line: 27, anchor: \"@extension_router_v1.post(\\\"/uninstall\\\", status_code=status.H\" }))"
           }
         ]
       },
       "feature_id": "uninstall_extension",
       "journey_id": null,
-      "function_id": "uninstall_extension/cbf29ce484222325",
+      "function_id": "uninstall_extension/1214d2086885363f",
       "verifying_journeys": [
         "uninstall_extension"
       ],
@@ -7210,6 +7492,29 @@
       "availability_present": true
     },
     {
+      "id": "REQ/blueos_platform/extensions/IF/PUT/kraken_v2.0_manifest_orders",
+      "kind": "interface",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Restore factory-first collection order after experimenting with priority"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "PUT /kraken/v2.0/manifest/orders"
+          }
+        ]
+      },
+      "feature_id": null,
+      "journey_id": "add_custom_manifest",
+      "function_id": "manage_manifests",
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
       "id": "REQ/blueos_platform/extensions/IF/GET/kraken_v2.0_manifest_consolidated",
       "kind": "interface",
       "domain": "blueos_platform",
@@ -7227,7 +7532,99 @@
       },
       "feature_id": "browse_extension_store",
       "journey_id": "browse_extension_store",
-      "function_id": "browse_extension_store/378bb78142b6540d",
+      "function_id": "browse_extension_store/f12556db239307f0",
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/IF/GET/kraken_v2.0_extension_",
+      "kind": "interface",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "See which extensions are already installed while browsing the store"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "GET /kraken/v2.0/extension/"
+          }
+        ]
+      },
+      "feature_id": "browse_extension_store",
+      "journey_id": "browse_extension_store",
+      "function_id": "browse_extension_store/f12556db239307f0",
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/IF/GET/kraken_v1.0_installed_extensions",
+      "kind": "interface",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "List installed extensions through the v1 store door still served for the same store"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "GET /kraken/v1.0/installed_extensions"
+          }
+        ]
+      },
+      "feature_id": "browse_extension_store",
+      "journey_id": "browse_extension_store",
+      "function_id": "browse_extension_store/f12556db239307f0",
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/IF/GET/kraken_v1.0_extensions_manifest",
+      "kind": "interface",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Load the store catalog through the v1 store door still served for the same store"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "GET /kraken/v1.0/extensions_manifest"
+          }
+        ]
+      },
+      "feature_id": "browse_extension_store",
+      "journey_id": "browse_extension_store",
+      "function_id": "browse_extension_store/f12556db239307f0",
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/IF/GET/kraken_v2.0_manifest_",
+      "kind": "interface",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "See which extension collections the store is searching"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "GET /kraken/v2.0/manifest/"
+          }
+        ]
+      },
+      "feature_id": "browse_extension_store",
+      "journey_id": "browse_extension_store",
+      "function_id": "browse_extension_store/f12556db239307f0",
       "verifying_journeys": [],
       "assumptions": [],
       "availability_present": true
@@ -7256,6 +7653,213 @@
       "availability_present": true
     },
     {
+      "id": "REQ/blueos_platform/extensions/IF/GET/kraken_v2.0_container_stats",
+      "kind": "interface",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "View CPU and memory stats for all running extension containers"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "GET /kraken/v2.0/container/stats"
+          }
+        ]
+      },
+      "feature_id": "manage_extension_lifecycle",
+      "journey_id": "configure_installed_extension",
+      "function_id": "configure_extension",
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/IF/GET/kraken_v1.0_stats",
+      "kind": "interface",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "View CPU and memory stats through the v1 store door still served for the Installed tab"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "GET /kraken/v1.0/stats"
+          }
+        ]
+      },
+      "feature_id": "manage_extension_lifecycle",
+      "journey_id": "configure_installed_extension",
+      "function_id": "configure_extension",
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/IF/GET/kraken_v1.0_list_containers",
+      "kind": "interface",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "List running extension containers through the v1 store door still served for the Installed tab"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "GET /kraken/v1.0/list_containers"
+          }
+        ]
+      },
+      "feature_id": "manage_extension_lifecycle",
+      "journey_id": "configure_installed_extension",
+      "function_id": "configure_extension",
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/IF/GET/kraken_v1.0_log",
+      "kind": "interface",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "View extension logs through the v1 store door still served for the Installed tab"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "GET /kraken/v1.0/log"
+          }
+        ]
+      },
+      "feature_id": "manage_extension_lifecycle",
+      "journey_id": "configure_installed_extension",
+      "function_id": "configure_extension",
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/IF/POST/kraken_v1.0_extension_restart",
+      "kind": "interface",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Restart an installed extension through the v1 store door still served for the Installed tab"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "POST /kraken/v1.0/extension/restart"
+          }
+        ]
+      },
+      "feature_id": "manage_extension_lifecycle",
+      "journey_id": "configure_installed_extension",
+      "function_id": "configure_extension",
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/IF/POST/kraken_v1.0_extension_disable",
+      "kind": "interface",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Disable an installed extension through the v1 store door still served for the Installed tab"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "POST /kraken/v1.0/extension/disable"
+          }
+        ]
+      },
+      "feature_id": "manage_extension_lifecycle",
+      "journey_id": "configure_installed_extension",
+      "function_id": "configure_extension",
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/IF/POST/kraken_v1.0_extension_enable",
+      "kind": "interface",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Enable a disabled extension through the v1 store door still served for the Installed tab"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "POST /kraken/v1.0/extension/enable"
+          }
+        ]
+      },
+      "feature_id": "manage_extension_lifecycle",
+      "journey_id": "configure_installed_extension",
+      "function_id": "configure_extension",
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/IF/GET/kraken_v2.0_jobs_",
+      "kind": "interface",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "List background jobs used to queue extension API work"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "GET /kraken/v2.0/jobs/"
+          }
+        ]
+      },
+      "feature_id": "manage_extension_lifecycle",
+      "journey_id": "configure_installed_extension",
+      "function_id": "configure_extension",
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/IF/POST/kraken_v1.0_extension_update_to_version",
+      "kind": "interface",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Switch version through the v1 store door still served for the same Edit flow"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "POST /kraken/v1.0/extension/update_to_version"
+          }
+        ]
+      },
+      "feature_id": "manage_extension_lifecycle",
+      "journey_id": "edit_extension_dev_version",
+      "function_id": "manage_extension_lifecycle/7ae2870e1d928f9",
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
       "id": "REQ/blueos_platform/extensions/IF/POST/kraken_v2.0_extension_",
       "kind": "interface",
       "domain": "blueos_platform",
@@ -7274,6 +7878,52 @@
       "feature_id": "install_extension",
       "journey_id": "install_custom_extension",
       "function_id": "install_extension/a543ccde867eb588",
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/IF/POST/kraken_v1.0_extension_install",
+      "kind": "interface",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Install the selected extension through the v1 store door still served for the store card"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "POST /kraken/v1.0/extension/install"
+          }
+        ]
+      },
+      "feature_id": "install_extension",
+      "journey_id": "install_extension",
+      "function_id": "install_extension/951b380493d23b74",
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/IF/POST/kraken_v1.0_extension_uninstall",
+      "kind": "interface",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Uninstall the extension through the v1 store door still served for the store card"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "POST /kraken/v1.0/extension/uninstall"
+          }
+        ]
+      },
+      "feature_id": "uninstall_extension",
+      "journey_id": "uninstall_extension",
+      "function_id": "uninstall_extension/1214d2086885363f",
       "verifying_journeys": [],
       "assumptions": [],
       "availability_present": true
@@ -10349,7 +10999,7 @@
         "status": "known",
         "items": [
           {
-            "text": "GET /kraken/v2.0/container/np_no_such_container/log status=200 class=B3 blast=Safe"
+            "text": "GET /kraken/v2.0/container/np_no_such_container/log?timeout=1 status=404 class=B3 blast=Safe"
           }
         ]
       },
@@ -10372,7 +11022,53 @@
         "status": "known",
         "items": [
           {
-            "text": "PUT /kraken/v2.0/extension/np.no.such.extension/v0.0.0 class=B3 blast=Safe"
+            "text": "PUT /kraken/v2.0/extension/np.no.such.extension/v0.0.0 status=404 class=B3 blast=Safe"
+          }
+        ]
+      },
+      "feature_id": "manage_extension_lifecycle",
+      "journey_id": "edit_extension_dev_version",
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/ROB/NP-56",
+      "kind": "robustness",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Invalid or unsafe install extension request is rejected safely"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "POST /kraken/v2.0/extension/np.no.such.extension/install status=404 class=B3 blast=Safe"
+          }
+        ]
+      },
+      "feature_id": "install_extension",
+      "journey_id": "install_extension",
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/ROB/NP-57",
+      "kind": "robustness",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Invalid or unsafe manage extension lifecycle request is rejected safely"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "PUT /kraken/v2.0/extension/np.no.such.extension status=404 class=B3 blast=Safe"
           }
         ]
       },
@@ -10395,12 +11091,127 @@
         "status": "known",
         "items": [
           {
-            "text": "GET /kraken/v2.0/manifest/np.no.such.manifest/details class=B3 blast=Safe"
+            "text": "GET /kraken/v2.0/manifest/np.no.such.manifest/details status=404 class=B3 blast=Safe"
           }
         ]
       },
       "feature_id": "browse_extension_store",
       "journey_id": "browse_extension_store",
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/ROB/NP-50",
+      "kind": "robustness",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Invalid or unsafe install extension request is rejected safely"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "GET /kraken/v2.0/extension/np.no.such.extension/v0.0.0/details status=404 class=B3 blast=Safe"
+          }
+        ]
+      },
+      "feature_id": "install_extension",
+      "journey_id": "install_extension",
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/ROB/NP-59",
+      "kind": "robustness",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Invalid or unsafe manage extension lifecycle request is rejected safely"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "GET /kraken/v2.0/container/extension-nosuchcontainerlifecycle/details status=404 class=B3 blast=Safe"
+          }
+        ]
+      },
+      "feature_id": "manage_extension_lifecycle",
+      "journey_id": "configure_installed_extension",
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/ROB/NP-64",
+      "kind": "robustness",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Invalid or unsafe manage extension lifecycle request is rejected safely"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "GET /kraken/v2.0/container/extension-nosuchcontainerlifecycle/stats status=404 class=B3 blast=Safe"
+          }
+        ]
+      },
+      "feature_id": "manage_extension_lifecycle",
+      "journey_id": "configure_installed_extension",
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/ROB/NP-65",
+      "kind": "robustness",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Invalid or unsafe manage extension lifecycle request is rejected safely"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "GET /kraken/v2.0/jobs/00000000-0000-4000-8000-000000000000 status=404 class=B3 blast=Safe"
+          }
+        ]
+      },
+      "feature_id": "manage_extension_lifecycle",
+      "journey_id": "configure_installed_extension",
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/ROB/NP-72",
+      "kind": "robustness",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Invalid or unsafe request is rejected safely"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "DELETE /kraken/v2.0/manifest/bluerobotics-production status=409 class=B3 blast=Safe"
+          }
+        ]
+      },
+      "feature_id": null,
+      "journey_id": "add_custom_manifest",
       "function_id": null,
       "verifying_journeys": [],
       "assumptions": [],
