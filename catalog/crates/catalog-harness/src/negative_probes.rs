@@ -960,7 +960,7 @@ pub const NEGATIVE_PROBES: &[NegativeProbe] = &[
         journey_id: JourneyId::AddCustomManifest,
         class: ProbeClass::B3,
         method: HttpMethod::Put,
-        // Unknown id must 404 even at order/0. Next 409s here (factory-first before lookup).
+        // Unknown id 404s at any order index. Factory disable/reorder are allowed (204).
         path: "/kraken/v2.0/manifest/np-no-such-manifest/order/0",
         query: None,
         body: None,

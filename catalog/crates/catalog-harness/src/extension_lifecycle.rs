@@ -788,8 +788,32 @@ impl Harness {
             .unwrap_or((0, String::new()))
     }
 
+    fn factory_enabled(&mut self) -> Option<bool> {
+        let (status, body) = self
+            .call(
+                JourneyId::BrowseExtensionStore,
+                HttpMethod::Get,
+                "/manifest/",
+                "/manifest/",
+                Some("data=false"),
+                None,
+            )
+            .ok()?;
+        if status != 200 {
+            return None;
+        }
+        serde_json::from_str::<serde_json::Value>(&body)
+            .ok()?
+            .as_array()?
+            .iter()
+            .find(|item| {
+                item.get("identifier").and_then(|value| value.as_str()) == Some(FACTORY_MANIFEST)
+            })
+            .and_then(|item| item.get("enabled").and_then(|value| value.as_bool()))
+    }
+
     fn ensure_factory_enabled(&mut self) {
-        // Best-effort restore: factory disable on unpatched trees is 204.
+        // Restore after a 204 factory-disable probe.
         let _ = self.call(
             JourneyId::AddCustomManifest,
             HttpMethod::Post,
@@ -827,8 +851,8 @@ impl Harness {
             "v1 extensions_manifest with dead extra source -> 200",
             "vehicle tags with dead extra source -> 200",
             "PUT unknown with dead extra source -> 404",
-            "PUT orders dummy-first -> 409",
-            "PUT dummy order/0 -> 409",
+            "PUT orders dummy-first -> 204",
+            "PUT dummy order/0 -> 204",
             "GET /manifest/ with dead extra source -> 200",
         ] {
             self.skip_contract(name, reason);
@@ -1251,12 +1275,18 @@ impl Harness {
             )
             .unwrap_or((0, String::new()));
         self.rec(
-            "factory disable -> 409",
+            "factory disable -> 204",
             "contract",
-            status == 409,
+            status == 204,
             format!("HTTP {status} {}", snippet(&body, 80)),
         );
-        self.ensure_factory_enabled();
+        let listed_disabled = self.factory_enabled();
+        self.rec(
+            "factory listed disabled",
+            "contract",
+            listed_disabled == Some(false),
+            format!("{listed_disabled:?}"),
+        );
 
         let (status, body) = self
             .call(
@@ -1269,10 +1299,17 @@ impl Harness {
             )
             .unwrap_or((0, String::new()));
         self.rec(
-            "factory enable -> 409",
+            "factory enable -> 204",
             "contract",
-            status == 409,
+            status == 204,
             format!("HTTP {status} {}", snippet(&body, 80)),
+        );
+        let listed_enabled = self.factory_enabled();
+        self.rec(
+            "factory enabled after enable",
+            "contract",
+            listed_enabled == Some(true),
+            format!("{listed_enabled:?}"),
         );
 
         let (status, body) = self
@@ -1286,9 +1323,9 @@ impl Harness {
             )
             .unwrap_or((0, String::new()));
         self.rec(
-            "factory PUT order -> 409",
+            "factory PUT order -> 204",
             "contract",
-            status == 409,
+            status == 204,
             format!("HTTP {status} {}", snippet(&body, 80)),
         );
         self.restore_manifest_order();
@@ -1850,9 +1887,9 @@ impl Harness {
             )
             .unwrap_or((0, String::new()));
         self.rec(
-            "PUT orders dummy-first -> 409",
+            "PUT orders dummy-first -> 204",
             "contract",
-            status == 409,
+            status == 204,
             format!("HTTP {status} {}", snippet(&body, 80)),
         );
         self.restore_manifest_order();
@@ -1867,9 +1904,9 @@ impl Harness {
             )
             .unwrap_or((0, String::new()));
         self.rec(
-            "PUT dummy order/0 -> 409",
+            "PUT dummy order/0 -> 204",
             "contract",
-            status == 409,
+            status == 204,
             format!("HTTP {status} {}", snippet(&body, 80)),
         );
         self.restore_manifest_order();
