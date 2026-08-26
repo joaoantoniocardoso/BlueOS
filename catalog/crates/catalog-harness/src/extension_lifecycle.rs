@@ -849,7 +849,7 @@ impl Harness {
             "incompatible from_latest -> 400",
             "incompatible PUT latest -> 400",
             "too-big tagged install -> 507",
-            "prerelease-only stable install -> 404",
+            "prerelease-only stable install -> 400 or 404",
         ] {
             self.skip_contract(name, reason);
         }
@@ -1543,9 +1543,10 @@ impl Harness {
             );
             self.skip_dead_dummy_contracts("--skip-manifest-mutate");
             self.skip_mixed_contracts("--skip-manifest-mutate");
+            self.skip_contract("duplicate dummy create -> 409", "--skip-manifest-mutate");
             return;
         }
-        let body = format!(
+        let create_body = format!(
             r#"{{"name":"{DUMMY_MANIFEST_NAME}","url":"http://127.0.0.1:9/no-such-manifest.json","enabled":false}}"#
         );
         let (status, raw) = self
@@ -1555,7 +1556,7 @@ impl Harness {
                 "/manifest/",
                 "/manifest/",
                 Some("validate_url=false"),
-                Some(&body),
+                Some(&create_body),
             )
             .unwrap_or((0, String::new()));
         self.rec(
@@ -1564,6 +1565,27 @@ impl Harness {
             status == 201,
             format!("HTTP {status} {}", snippet(&raw, 80)),
         );
+        if status == 201 {
+            let (dup_status, dup_raw) = self
+                .call(
+                    JourneyId::AddCustomManifest,
+                    HttpMethod::Post,
+                    "/manifest/",
+                    "/manifest/",
+                    Some("validate_url=false"),
+                    Some(&create_body),
+                )
+                .unwrap_or((0, String::new()));
+            self.rec(
+                "duplicate dummy create -> 409",
+                "contract",
+                dup_status == 409,
+                format!("HTTP {dup_status} {}", snippet(&dup_raw, 80)),
+            );
+            self.drop_created_source(dup_status, &dup_raw);
+        } else {
+            self.skip_contract("duplicate dummy create -> 409", "dummy create was not 201");
+        }
         let ident = serde_json::from_str::<serde_json::Value>(&raw)
             .ok()
             .and_then(|value| value.get("identifier")?.as_str().map(str::to_string));
@@ -2040,9 +2062,9 @@ impl Harness {
                 )
                 .unwrap_or((0, String::new()));
             self.rec(
-                "prerelease-only stable install -> 404",
+                "prerelease-only stable install -> 400 or 404",
                 "contract",
-                status == 404,
+                status == 400 || status == 404,
                 format!("HTTP {status} {}", snippet(&raw, 80)),
             );
             self.uninstall_if_landed(

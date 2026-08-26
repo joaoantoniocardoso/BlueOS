@@ -960,8 +960,8 @@ pub const NEGATIVE_PROBES: &[NegativeProbe] = &[
         journey_id: JourneyId::AddCustomManifest,
         class: ProbeClass::B3,
         method: HttpMethod::Put,
-        // order/0 is 409 on next (factory-first slot) before the unknown-id lookup.
-        path: "/kraken/v2.0/manifest/np-no-such-manifest/order/99",
+        // Unknown id must 404 even at order/0. Next 409s here (factory-first before lookup).
+        path: "/kraken/v2.0/manifest/np-no-such-manifest/order/0",
         query: None,
         body: None,
         expected_status: Some(404),
@@ -1033,7 +1033,7 @@ pub fn negative_probe_url(base: &str, probe: &NegativeProbe) -> String {
 }
 
 /// Kraken nginx probes used by `--extension-lifecycle` (skips unasserted rows at the call site).
-/// NP-101/NP-102/NP-108 are dual-accepted in `--negative`; lifecycle asserts the next-image status.
+/// NP-101/NP-102/NP-108 have named recs in phase_issue_contracts; omit them here to avoid doubles.
 pub fn kraken_lifecycle_probes() -> impl Iterator<Item = &'static NegativeProbe> {
     NEGATIVE_PROBES.iter().filter(|probe| {
         probe.path.starts_with("/kraken/") && !matches!(probe.id, "NP-101" | "NP-102" | "NP-108")

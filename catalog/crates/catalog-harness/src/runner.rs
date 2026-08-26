@@ -329,15 +329,9 @@ fn evaluate_negative_probe_response(
 ) -> Verdict {
     // NP-53: unpatched from_running → 400 ExtensionNotRunning; patched → 404.
     // NP-54: pinned source streams 200 before ContainerNotFound; 1.4.4-beta.19+ (`e416aebf7`) returns 404.
-    // NP-101/NP-102: stock unknown tags → 200 []; patched → 404. Strict 404 is in --extension-lifecycle.
-    // NP-108: stock ManifestBackendOffline → 500; patched → 502. NP-109 is 502 on both (InvalidURL).
     let dual_ok = matches!(
         (probe.id, status_code),
-        ("NP-53", 400 | 404)
-            | ("NP-54", 200 | 404)
-            | ("NP-101", 200 | 404)
-            | ("NP-102", 200 | 404)
-            | ("NP-108", 500 | 502)
+        ("NP-53", 400 | 404) | ("NP-54", 200 | 404)
     );
     let result = if dual_ok {
         Verdict::Pass
