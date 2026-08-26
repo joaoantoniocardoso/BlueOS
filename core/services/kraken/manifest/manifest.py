@@ -256,12 +256,12 @@ class ManifestManager:
 
     @not_on_default_manifest
     async def order_source(self, identifier: str, order: int) -> None:
+        manifest = self._get_settings_by_identifier(identifier)
         manifests = self._get_settings()
-        proposed = [manifest.identifier for manifest in manifests if manifest.identifier != identifier]
+        proposed = [item.identifier for item in manifests if item.identifier != identifier]
         proposed.insert(min(order, len(proposed)), identifier)
         self._raise_if_default_manifests_demoted(proposed)
 
-        manifest = self._get_settings_by_identifier(identifier)
         manifest.priority = order
 
         if manifest in manifests:
