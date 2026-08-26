@@ -11827,7 +11827,7 @@
         "status": "known",
         "items": [
           {
-            "text": "PUT /kraken/v2.0/manifest/np-no-such-manifest/order/99 status=404 class=B3 blast=Safe"
+            "text": "PUT /kraken/v2.0/manifest/np-no-such-manifest/order/0 status=404 class=B3 blast=Safe"
           }
         ]
       },
