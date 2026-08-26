@@ -16,17 +16,24 @@ use serde::Serialize;
 
 use crate::negative_probes::kraken_lifecycle_probes;
 use crate::report::{utc_rfc3339_now, SCHEMA_VERSION};
-use crate::runner::{execute_curl, join_url, run_negative_probe, streamed_fragment_error, Verdict};
+use crate::runner::{
+    execute_curl, execute_curl_timed, join_url, run_negative_probe, streamed_fragment_error,
+    Verdict,
+};
 
 const FORBIDDEN_EXT: &str = "blueos.major_tom";
 const FACTORY_MANIFEST: &str = "bluerobotics-production";
 const DUMMY_MANIFEST_NAME: &str = "kraken-lifecycle-dummy";
 const DUMMY_SEMVER_NAME: &str = "kraken-lifecycle-semver";
 const UNKNOWN: &str = "np.no.such.extension";
+const BOGUS_TAG: &str = "v9.9.9";
 const MIXED_TAG_PORT: u16 = 8765;
 const MIXED_TAG_IDENT: &str = "harness.semver-skip";
 const INCOMPATIBLE_IDENT: &str = "harness.incompatible";
-const MIXED_TAG_MANIFEST: &str = r#"[{"identifier":"harness.semver-skip","name":"Harness semver skip","website":"http://example.invalid","docker":"harness/semver-skip","description":"mixed tags","versions":{"v1.0.0":{"type":"other","tag":"v1.0.0","images":[{"expanded_size":1,"platform":{"architecture":"arm64"},"digest":"sha256:00"}],"authors":[{"name":"h","email":"h@h.h"}],"filter_tags":[],"extra_links":{}},"latest":{"type":"other","tag":"latest","images":[{"expanded_size":1,"platform":{"architecture":"arm64"},"digest":"sha256:00"}],"authors":[{"name":"h","email":"h@h.h"}],"filter_tags":[],"extra_links":{}}}},{"identifier":"harness.incompatible","name":"Harness incompatible","website":"http://example.invalid","docker":"harness/incompatible","description":"riscv only","versions":{"v1.0.0":{"type":"other","tag":"v1.0.0","images":[{"expanded_size":1,"platform":{"architecture":"riscv64"},"digest":"sha256:00"}],"authors":[{"name":"h","email":"h@h.h"}],"filter_tags":[],"extra_links":{}}}}]"#;
+const TOO_BIG_IDENT: &str = "harness.too-big";
+const PRERELEASE_IDENT: &str = "harness.prerelease-only";
+const PULL_FAIL_IDENT: &str = "harness.pull-fail";
+const MIXED_TAG_MANIFEST: &str = r#"[{"identifier":"harness.semver-skip","name":"Harness semver skip","website":"http://example.invalid","docker":"harness/semver-skip","description":"mixed tags","versions":{"v1.0.0":{"type":"other","tag":"v1.0.0","images":[{"expanded_size":1,"platform":{"architecture":"arm64"},"digest":"sha256:00"}],"authors":[{"name":"h","email":"h@h.h"}],"filter_tags":[],"extra_links":{}},"latest":{"type":"other","tag":"latest","images":[{"expanded_size":1,"platform":{"architecture":"arm64"},"digest":"sha256:00"}],"authors":[{"name":"h","email":"h@h.h"}],"filter_tags":[],"extra_links":{}}}},{"identifier":"harness.incompatible","name":"Harness incompatible","website":"http://example.invalid","docker":"harness/incompatible","description":"riscv only","versions":{"v1.0.0":{"type":"other","tag":"v1.0.0","images":[{"expanded_size":1,"platform":{"architecture":"riscv64"},"digest":"sha256:00"}],"authors":[{"name":"h","email":"h@h.h"}],"filter_tags":[],"extra_links":{}}}},{"identifier":"harness.too-big","name":"Harness too big","website":"http://example.invalid","docker":"harness/too-big","description":"inflated size","versions":{"v1.0.0":{"type":"other","tag":"v1.0.0","images":[{"expanded_size":1125899906842624,"platform":{"architecture":"arm64"},"digest":"sha256:00"}],"authors":[{"name":"h","email":"h@h.h"}],"filter_tags":[],"extra_links":{}}}},{"identifier":"harness.prerelease-only","name":"Harness prerelease only","website":"http://example.invalid","docker":"harness/prerelease","description":"prerelease only","versions":{"v1.0.0-beta.1":{"type":"other","tag":"v1.0.0-beta.1","images":[{"expanded_size":1,"platform":{"architecture":"arm64"},"digest":"sha256:00"}],"authors":[{"name":"h","email":"h@h.h"}],"filter_tags":[],"extra_links":{}}}}]"#;
 const POLL_TIMEOUT: Duration = Duration::from_secs(45);
 const POLL_SLEEP: Duration = Duration::from_millis(1500);
 
@@ -620,6 +627,42 @@ impl Harness {
         );
     }
 
+    fn uninstall_if_landed(&mut self, ident: &str, status: u16, docker: &str, tag: &str) {
+        if !(200..300).contains(&status) {
+            return;
+        }
+        let _ = self.call(
+            JourneyId::UninstallExtension,
+            HttpMethod::Delete,
+            "/extension/{identifier}",
+            &format!("/extension/{ident}"),
+            None,
+            None,
+        );
+        let cname = container_name(docker, tag);
+        let (_gone, _names) = self.wait_container(&cname, false, Duration::from_secs(20));
+    }
+
+    fn drop_created_source(&mut self, status: u16, body: &str) {
+        if !(200..300).contains(&status) {
+            return;
+        }
+        let Some(ident) = serde_json::from_str::<serde_json::Value>(body)
+            .ok()
+            .and_then(|value| value.get("identifier")?.as_str().map(str::to_string))
+        else {
+            return;
+        };
+        let _ = self.call(
+            JourneyId::AddCustomManifest,
+            HttpMethod::Delete,
+            "/manifest/{identifier}",
+            &format!("/manifest/{ident}"),
+            None,
+            None,
+        );
+    }
+
     fn uninstall_vehicle(&mut self) {
         let Some(vehicle) = self.vehicle.clone() else {
             return;
@@ -786,17 +829,27 @@ impl Harness {
             "PUT unknown with dead extra source -> 404",
             "PUT orders dummy-first -> 409",
             "PUT dummy order/0 -> 409",
+            "GET /manifest/ with dead extra source -> 200",
         ] {
             self.skip_contract(name, reason);
         }
     }
 
     fn skip_mixed_contracts(&mut self, reason: &str) {
+        self.skip_contract("mixed-tag dummy create -> 201", reason);
+        self.skip_contract("mixed-tag dummy enable -> 204", reason);
+        self.skip_mixed_extras(reason);
+    }
+
+    fn skip_mixed_extras(&mut self, reason: &str) {
         for name in [
-            "mixed-tag dummy create -> 201",
-            "mixed-tag dummy enable -> 204",
             "mixed semver tags skip latest -> 200",
             "incompatible tagged install -> 400",
+            "dead garbage POST validate_url=true -> 502",
+            "incompatible from_latest -> 400",
+            "incompatible PUT latest -> 400",
+            "too-big tagged install -> 507",
+            "prerelease-only stable install -> 404",
         ] {
             self.skip_contract(name, reason);
         }
@@ -819,7 +872,7 @@ impl Harness {
             .map(|b| format!("{b:02x}"))
             .collect();
         let write = format!(
-            "docker exec blueos-core python3 -c \"import pathlib; pathlib.Path('/tmp/harness-manifest.json').write_bytes(bytes.fromhex('{hex}'))\""
+            "docker exec blueos-core python3 -c \"import pathlib; pathlib.Path('/tmp/harness-manifest.json').write_bytes(bytes.fromhex('{hex}')); pathlib.Path('/tmp/harness-garbage.json').write_bytes(b'{{not json}}')\""
         );
         let (status, body) = self.commander_host(&write);
         if !commander_succeeded(status, &body) {
@@ -855,6 +908,7 @@ impl Harness {
             self.phase_unknown();
             self.phase_jobs();
             self.phase_manifest_mutate();
+            self.phase_pull_fail();
             self.phase_v1_install_lifecycle();
             self.phase_v2_installs();
             Ok(())
@@ -1238,6 +1292,62 @@ impl Harness {
             format!("HTTP {status} {}", snippet(&body, 80)),
         );
         self.restore_manifest_order();
+
+        let (status, body) = self
+            .call(
+                JourneyId::AddCustomManifest,
+                HttpMethod::Put,
+                "/manifest/{identifier}/details",
+                &format!("/manifest/{FACTORY_MANIFEST}/details"),
+                None,
+                Some(r#"{"name":"nope"}"#),
+            )
+            .unwrap_or((0, String::new()));
+        self.rec(
+            "factory PUT details -> 409",
+            "contract",
+            status == 409,
+            format!("HTTP {status} {}", snippet(&body, 80)),
+        );
+
+        let unreachable =
+            r#"{"name":"np-probe","url":"http://127.0.0.1:1/no.json","enabled":false}"#;
+        let (status, body) = self
+            .call(
+                JourneyId::AddCustomManifest,
+                HttpMethod::Post,
+                "/manifest/",
+                "/manifest/",
+                Some("validate_url=true"),
+                Some(unreachable),
+            )
+            .unwrap_or((0, String::new()));
+        self.rec(
+            "validate_url=true unreachable -> 502",
+            "contract",
+            status == 502,
+            format!("HTTP {status} {}", snippet(&body, 80)),
+        );
+        self.drop_created_source(status, &body);
+
+        let invalid = r#"{"name":"np-probe","url":"not-a-url","enabled":false}"#;
+        let (status, body) = self
+            .call(
+                JourneyId::AddCustomManifest,
+                HttpMethod::Post,
+                "/manifest/",
+                "/manifest/",
+                Some("validate_url=true"),
+                Some(invalid),
+            )
+            .unwrap_or((0, String::new()));
+        self.rec(
+            "validate_url=true invalid URL -> 502",
+            "contract",
+            status == 502,
+            format!("HTTP {status} {}", snippet(&body, 80)),
+        );
+        self.drop_created_source(status, &body);
     }
 
     fn phase_unknown(&mut self) {
@@ -1622,6 +1732,27 @@ impl Harness {
         );
         let (status, body) = self
             .call(
+                JourneyId::BrowseExtensionStore,
+                HttpMethod::Get,
+                "/manifest/",
+                "/manifest/",
+                Some("data=true"),
+                None,
+            )
+            .unwrap_or((0, String::new()));
+        let list_ok = status == 200
+            && serde_json::from_str::<serde_json::Value>(&body)
+                .ok()
+                .and_then(|value| value.as_array().map(|items| !items.is_empty()))
+                .unwrap_or(false);
+        self.rec(
+            "GET /manifest/ with dead extra source -> 200",
+            "contract",
+            list_ok,
+            format!("HTTP {status} {}", snippet(&body, 80)),
+        );
+        let (status, body) = self
+            .call(
                 JourneyId::AddCustomManifest,
                 HttpMethod::Get,
                 "/manifest/{identifier}/details",
@@ -1758,14 +1889,7 @@ impl Harness {
                 "mixed-tag dummy enable -> 204",
                 "mixed-tag dummy create had no identifier",
             );
-            self.skip_contract(
-                "mixed semver tags skip latest -> 200",
-                "mixed-tag dummy create had no identifier",
-            );
-            self.skip_contract(
-                "incompatible tagged install -> 400",
-                "mixed-tag dummy create had no identifier",
-            );
+            self.skip_mixed_extras("mixed-tag dummy create had no identifier");
             self.stop_mixed_tag_server();
             return;
         };
@@ -1787,14 +1911,7 @@ impl Harness {
             format!("HTTP {status}"),
         );
         if status != 204 {
-            self.skip_contract(
-                "mixed semver tags skip latest -> 200",
-                "mixed-tag dummy enable was not 204",
-            );
-            self.skip_contract(
-                "incompatible tagged install -> 400",
-                "mixed-tag dummy enable was not 204",
-            );
+            self.skip_mixed_extras("mixed-tag dummy enable was not 204");
         } else {
             let (status, body) = self
                 .call(
@@ -1835,19 +1952,105 @@ impl Harness {
                     snippet(&raw, 80)
                 ),
             );
-            if (200..300).contains(&status) {
-                // Best-effort restore: dummy incompatible install should never succeed.
-                let _ = self.call(
-                    JourneyId::UninstallExtension,
-                    HttpMethod::Delete,
+            self.uninstall_if_landed(INCOMPATIBLE_IDENT, status, "harness/incompatible", "v1.0.0");
+
+            let garbage = format!(
+                r#"{{"name":"np-garbage","url":"http://127.0.0.1:{MIXED_TAG_PORT}/harness-garbage.json?n={nonce}","enabled":false}}"#
+            );
+            let (status, raw) = self
+                .call(
+                    JourneyId::AddCustomManifest,
+                    HttpMethod::Post,
+                    "/manifest/",
+                    "/manifest/",
+                    Some("validate_url=true"),
+                    Some(&garbage),
+                )
+                .unwrap_or((0, String::new()));
+            self.rec(
+                "dead garbage POST validate_url=true -> 502",
+                "contract",
+                status == 502,
+                format!("HTTP {status} {}", snippet(&raw, 80)),
+            );
+            self.drop_created_source(status, &raw);
+
+            let (status, raw) = self
+                .call(
+                    JourneyId::InstallExtension,
+                    HttpMethod::Post,
+                    "/extension/{identifier}/install",
+                    &format!("/extension/{INCOMPATIBLE_IDENT}/install"),
+                    None,
+                    None,
+                )
+                .unwrap_or((0, String::new()));
+            self.rec(
+                "incompatible from_latest -> 400",
+                "contract",
+                status == 400,
+                format!("HTTP {status} {}", snippet(&raw, 80)),
+            );
+            self.uninstall_if_landed(INCOMPATIBLE_IDENT, status, "harness/incompatible", "v1.0.0");
+
+            let (status, raw) = self
+                .call(
+                    JourneyId::EditExtensionDevVersion,
+                    HttpMethod::Put,
                     "/extension/{identifier}",
                     &format!("/extension/{INCOMPATIBLE_IDENT}"),
+                    Some("purge=true"),
+                    None,
+                )
+                .unwrap_or((0, String::new()));
+            self.rec(
+                "incompatible PUT latest -> 400",
+                "contract",
+                status == 400,
+                format!("HTTP {status} {}", snippet(&raw, 80)),
+            );
+            self.uninstall_if_landed(INCOMPATIBLE_IDENT, status, "harness/incompatible", "v1.0.0");
+
+            let (status, raw) = self
+                .call(
+                    JourneyId::InstallExtension,
+                    HttpMethod::Post,
+                    "/extension/{identifier}/{tag}/install",
+                    &format!("/extension/{TOO_BIG_IDENT}/v1.0.0/install"),
                     None,
                     None,
-                );
-                let cname = container_name("harness/incompatible", "v1.0.0");
-                let (_gone, _names) = self.wait_container(&cname, false, Duration::from_secs(20));
-            }
+                )
+                .unwrap_or((0, String::new()));
+            self.rec(
+                "too-big tagged install -> 507",
+                "contract",
+                status == 507,
+                format!("HTTP {status} {}", snippet(&raw, 80)),
+            );
+            self.uninstall_if_landed(TOO_BIG_IDENT, status, "harness/too-big", "v1.0.0");
+
+            let (status, raw) = self
+                .call(
+                    JourneyId::InstallExtension,
+                    HttpMethod::Post,
+                    "/extension/{identifier}/install",
+                    &format!("/extension/{PRERELEASE_IDENT}/install"),
+                    Some("stable=true"),
+                    None,
+                )
+                .unwrap_or((0, String::new()));
+            self.rec(
+                "prerelease-only stable install -> 404",
+                "contract",
+                status == 404,
+                format!("HTTP {status} {}", snippet(&raw, 80)),
+            );
+            self.uninstall_if_landed(
+                PRERELEASE_IDENT,
+                status,
+                "harness/prerelease",
+                "v1.0.0-beta.1",
+            );
         }
         // Best-effort restore: mixed-tag dummy is not part of baseline.
         let _ = self.call(
@@ -1860,6 +2063,54 @@ impl Harness {
         );
         self.dummy_manifest_id = None;
         self.stop_mixed_tag_server();
+    }
+
+    fn phase_pull_fail(&mut self) {
+        let payload = format!(
+            r#"{{"identifier":"{PULL_FAIL_IDENT}","name":"pull-fail","docker":"127.0.0.1:1/nope","tag":"v1.0.0","enabled":true,"permissions":"{{}}","user_permissions":""}}"#
+        );
+        let url = match find_route(
+            &self.catalog,
+            JourneyId::InstallCustomExtension,
+            &HttpMethod::Post,
+            "/extension/",
+        ) {
+            Ok(route) => kraken_url(&self.base, route.version, "/extension/", None),
+            Err(error) => {
+                self.rec("custom pull-fail fragment error", "contract", false, error);
+                return;
+            }
+        };
+        let (status, raw) = execute_curl_timed(
+            &HttpMethod::Post,
+            &url,
+            self.allow_mutating,
+            Some(&payload),
+            None,
+            Some(30),
+        )
+        .unwrap_or((0, String::new()));
+        let fragment = streamed_fragment_error(&raw);
+        let pull_failed = fragment
+            .as_deref()
+            .is_some_and(|text| text.contains("Failed to pull"));
+        self.rec(
+            "custom pull-fail fragment error",
+            "contract",
+            (200..300).contains(&status) && pull_failed,
+            format!(
+                "HTTP {status} {}",
+                fragment.as_deref().unwrap_or(&snippet(&raw, 80))
+            ),
+        );
+        let _ = self.call(
+            JourneyId::UninstallExtension,
+            HttpMethod::Delete,
+            "/extension/{identifier}",
+            &format!("/extension/{PULL_FAIL_IDENT}"),
+            None,
+            None,
+        );
     }
 
     fn phase_v1_install_lifecycle(&mut self) {
@@ -1934,6 +2185,55 @@ impl Harness {
             "v1",
             tagged_ok,
             format!("HTTP {status}"),
+        );
+
+        let (status, raw) = self
+            .call(
+                JourneyId::InstallExtension,
+                HttpMethod::Get,
+                "/extension/{identifier}/{tag}/details",
+                &format!("/extension/{ident}/{BOGUS_TAG}/details"),
+                None,
+                None,
+            )
+            .unwrap_or((0, String::new()));
+        self.rec(
+            "installed bogus tag details -> 404",
+            "v1",
+            status == 404,
+            format!("HTTP {status} {}", snippet(&raw, 80)),
+        );
+        let (status, raw) = self
+            .call(
+                JourneyId::ConfigureInstalledExtension,
+                HttpMethod::Post,
+                "/extension/{identifier}/{tag}/enable",
+                &format!("/extension/{ident}/{BOGUS_TAG}/enable"),
+                None,
+                None,
+            )
+            .unwrap_or((0, String::new()));
+        self.rec(
+            "installed bogus tag enable -> 404",
+            "v1",
+            status == 404,
+            format!("HTTP {status} {}", snippet(&raw, 80)),
+        );
+        let (status, raw) = self
+            .call(
+                JourneyId::EditExtensionDevVersion,
+                HttpMethod::Put,
+                "/extension/{identifier}/{tag}",
+                &format!("/extension/{ident}/{BOGUS_TAG}"),
+                Some("purge=true"),
+                None,
+            )
+            .unwrap_or((0, String::new()));
+        self.rec(
+            "installed bogus tag PUT -> 404",
+            "v1",
+            status == 404,
+            format!("HTTP {status} {}", snippet(&raw, 80)),
         );
 
         let (status, body) = self
@@ -2105,6 +2405,56 @@ impl Harness {
                 .any(|ext| ext.identifier == ident && !ext.enabled),
             format!("{:?}", self.installed()),
         );
+        let (status, raw) = self
+            .call(
+                JourneyId::ConfigureInstalledExtension,
+                HttpMethod::Post,
+                "/extension/{identifier}/disable",
+                &format!("/extension/{ident}/disable"),
+                None,
+                None,
+            )
+            .unwrap_or((0, String::new()));
+        self.rec(
+            "v2 disable already-disabled -> 400",
+            "v1",
+            status == 400 && raw.contains("no running versions"),
+            format!("HTTP {status} {}", snippet(&raw, 80)),
+        );
+        for (name, path, bound) in [
+            (
+                "container details after disable -> 404",
+                "/container/{container_name}/details",
+                format!("/container/{cname}/details"),
+            ),
+            (
+                "container stats after disable -> 404",
+                "/container/{container_name}/stats",
+                format!("/container/{cname}/stats"),
+            ),
+            (
+                "container log after disable -> 404",
+                "/container/{container_name}/log",
+                format!("/container/{cname}/log"),
+            ),
+        ] {
+            let (status, raw) = self
+                .call(
+                    JourneyId::ConfigureInstalledExtension,
+                    HttpMethod::Get,
+                    path,
+                    &bound,
+                    None,
+                    None,
+                )
+                .unwrap_or((0, String::new()));
+            self.rec(
+                name,
+                "v1",
+                status == 404,
+                format!("HTTP {status} {}", snippet(&raw, 80)),
+            );
+        }
         let (status, raw) = self
             .call(
                 JourneyId::ConfigureInstalledExtension,
@@ -2881,7 +3231,10 @@ fn first_incompatible_tag(consolidated: &str, baseline_ids: &[String]) -> Option
 }
 
 fn is_lifecycle_dummy_name(name: &str) -> bool {
-    name.starts_with(DUMMY_MANIFEST_NAME) || name.starts_with(DUMMY_SEMVER_NAME)
+    name.starts_with(DUMMY_MANIFEST_NAME)
+        || name.starts_with(DUMMY_SEMVER_NAME)
+        || name == "np-probe"
+        || name == "np-garbage"
 }
 
 fn escape_json(text: &str) -> String {
