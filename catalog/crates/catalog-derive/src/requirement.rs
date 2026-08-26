@@ -1599,7 +1599,7 @@ mod tests {
     const EXPECTED_FUNCTIONAL_COUNT: usize = ACTION_COUNT;
     const EXPECTED_INTERFACE_COUNT: usize = 107;
     const EXPECTED_PERFORMANCE_COUNT: usize = 80;
-    const EXPECTED_ROBUSTNESS_COUNT: usize = 70;
+    const EXPECTED_ROBUSTNESS_COUNT: usize = 72;
 
     const TEST_PRESENCE: Availability = Availability {
         intro_commit: "0000000000000000000000000000000000000001",

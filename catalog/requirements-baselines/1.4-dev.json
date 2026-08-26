@@ -1,13 +1,13 @@
 {
   "version_tag": "1.4-dev",
-  "total": 393,
+  "total": 395,
   "unknown_statement_count": 20,
   "unknown_criteria_count": 52,
   "by_kind": {
     "functional": 95,
     "interface": 91,
     "performance": 69,
-    "robustness": 51,
+    "robustness": 53,
     "system": 87
   },
   "requirements": [
@@ -11511,6 +11511,52 @@
       },
       "feature_id": "view_camera_streams",
       "journey_id": "view_camera_streams",
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/ROB/NP-101",
+      "kind": "robustness",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Invalid or unsafe browse extension store request is rejected safely"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "GET /kraken/v2.0/manifest/tags/np.no.such.extension status=404 class=B3 blast=Safe"
+          }
+        ]
+      },
+      "feature_id": "browse_extension_store",
+      "journey_id": "browse_extension_store",
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/ROB/NP-102",
+      "kind": "robustness",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Invalid or unsafe browse extension store request is rejected safely"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "GET /kraken/v2.0/manifest/tags/bluerobotics-production/np.no.such.extension/ status=404 class=B3 blast=Safe"
+          }
+        ]
+      },
+      "feature_id": "browse_extension_store",
+      "journey_id": "browse_extension_store",
       "function_id": null,
       "verifying_journeys": [],
       "assumptions": [],
