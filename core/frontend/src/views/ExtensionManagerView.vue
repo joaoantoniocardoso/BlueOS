@@ -367,20 +367,19 @@ export default Vue.extend({
       const name = this.getContainerName(extension)?.replace('/', '')
       return name ? this.metrics[name] ?? {} : {}
     },
-    async createOrUpdateExtension(
-      extension: (InstalledExtensionData & { editing: boolean }) | null,
-    ): Promise<void> {
-      if (!extension) {
+    async createOrUpdateExtension(): Promise<void> {
+      if (!this.edited_extension) {
+        // TODO: error
         return
       }
       await this.install(
-        extension.identifier,
-        extension.name,
-        extension.docker,
-        extension.tag,
+        this.edited_extension.identifier,
+        this.edited_extension.name,
+        this.edited_extension.docker,
+        this.edited_extension.tag,
         true,
-        extension.permissions ?? '',
-        extension.user_permissions ?? '',
+        this.edited_extension?.permissions ?? '',
+        this.edited_extension?.user_permissions ?? '',
       )
       this.show_dialog = false
       this.edited_extension = null
