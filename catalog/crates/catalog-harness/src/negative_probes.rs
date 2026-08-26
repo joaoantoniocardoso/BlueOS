@@ -812,6 +812,28 @@ pub const NEGATIVE_PROBES: &[NegativeProbe] = &[
         expected_status: Some(200),
         blast: ProbeBlast::Safe,
     },
+    NegativeProbe {
+        id: "NP-101",
+        journey_id: JourneyId::BrowseExtensionStore,
+        class: ProbeClass::B3,
+        method: HttpMethod::Get,
+        path: "/kraken/v2.0/manifest/tags/np.no.such.extension",
+        query: None,
+        body: None,
+        expected_status: Some(404),
+        blast: ProbeBlast::Safe,
+    },
+    NegativeProbe {
+        id: "NP-102",
+        journey_id: JourneyId::BrowseExtensionStore,
+        class: ProbeClass::B3,
+        method: HttpMethod::Get,
+        path: "/kraken/v2.0/manifest/tags/bluerobotics-production/np.no.such.extension/",
+        query: None,
+        body: None,
+        expected_status: Some(404),
+        blast: ProbeBlast::Safe,
+    },
 ];
 
 pub fn negative_probe_url(base: &str, probe: &NegativeProbe) -> String {
@@ -823,10 +845,11 @@ pub fn negative_probe_url(base: &str, probe: &NegativeProbe) -> String {
 }
 
 /// Kraken nginx probes used by `--extension-lifecycle` (skips unasserted rows at the call site).
+/// NP-101/NP-102 are dual-accepted in `--negative`; the lifecycle asserts unknown-tag 404 itself.
 pub fn kraken_lifecycle_probes() -> impl Iterator<Item = &'static NegativeProbe> {
-    NEGATIVE_PROBES
-        .iter()
-        .filter(|probe| probe.path.starts_with("/kraken/"))
+    NEGATIVE_PROBES.iter().filter(|probe| {
+        probe.path.starts_with("/kraken/") && probe.id != "NP-101" && probe.id != "NP-102"
+    })
 }
 
 pub fn format_negative_dry_run(probe: &NegativeProbe, url: &str) -> String {

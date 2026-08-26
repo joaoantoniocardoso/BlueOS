@@ -21,7 +21,12 @@ use crate::runner::{execute_curl, join_url, run_negative_probe, streamed_fragmen
 const FORBIDDEN_EXT: &str = "blueos.major_tom";
 const FACTORY_MANIFEST: &str = "bluerobotics-production";
 const DUMMY_MANIFEST_NAME: &str = "kraken-lifecycle-dummy";
+const DUMMY_SEMVER_NAME: &str = "kraken-lifecycle-semver";
 const UNKNOWN: &str = "np.no.such.extension";
+const MIXED_TAG_PORT: u16 = 8765;
+const MIXED_TAG_IDENT: &str = "harness.semver-skip";
+const INCOMPATIBLE_IDENT: &str = "harness.incompatible";
+const MIXED_TAG_MANIFEST: &str = r#"[{"identifier":"harness.semver-skip","name":"Harness semver skip","website":"http://example.invalid","docker":"harness/semver-skip","description":"mixed tags","versions":{"v1.0.0":{"type":"other","tag":"v1.0.0","images":[{"expanded_size":1,"platform":{"architecture":"arm64"},"digest":"sha256:00"}],"authors":[{"name":"h","email":"h@h.h"}],"filter_tags":[],"extra_links":{}},"latest":{"type":"other","tag":"latest","images":[{"expanded_size":1,"platform":{"architecture":"arm64"},"digest":"sha256:00"}],"authors":[{"name":"h","email":"h@h.h"}],"filter_tags":[],"extra_links":{}}}},{"identifier":"harness.incompatible","name":"Harness incompatible","website":"http://example.invalid","docker":"harness/incompatible","description":"riscv only","versions":{"v1.0.0":{"type":"other","tag":"v1.0.0","images":[{"expanded_size":1,"platform":{"architecture":"riscv64"},"digest":"sha256:00"}],"authors":[{"name":"h","email":"h@h.h"}],"filter_tags":[],"extra_links":{}}}}]"#;
 const POLL_TIMEOUT: Duration = Duration::from_secs(45);
 const POLL_SLEEP: Duration = Duration::from_millis(1500);
 
@@ -363,6 +368,7 @@ pub fn run_extension_lifecycle(
         vehicle: None,
         alt_tag: None,
         dummy_manifest_id: None,
+        mixed_tag_server: false,
         baseline: Vec::new(),
         baseline_ids: Vec::new(),
         baseline_manifests: Vec::new(),
@@ -466,6 +472,7 @@ struct Harness {
     vehicle: Option<Vehicle>,
     alt_tag: Option<String>,
     dummy_manifest_id: Option<String>,
+    mixed_tag_server: bool,
     baseline: Vec<InstalledExtension>,
     baseline_ids: Vec<String>,
     baseline_manifests: Vec<String>,
@@ -718,6 +725,7 @@ impl Harness {
                     item.get("identifier").and_then(|value| value.as_str())
                         == Some(FACTORY_MANIFEST)
                         && item.get("factory").and_then(|value| value.as_bool()) == Some(true)
+                        && item.get("enabled").and_then(|value| value.as_bool()) != Some(false)
                 });
         self.rec(
             "factory manifest still present",
@@ -727,10 +735,123 @@ impl Harness {
         );
     }
 
+    fn commander_host(&self, command: &str) -> (u16, String) {
+        let url = format!(
+            "{}/commander/v1.0/command/host?command={}&i_know_what_i_am_doing=true",
+            self.base.trim_end_matches('/'),
+            query_escape(command)
+        );
+        execute_curl(&HttpMethod::Post, &url, self.allow_mutating, None, None)
+            .unwrap_or((0, String::new()))
+    }
+
+    fn ensure_factory_enabled(&mut self) {
+        // Best-effort restore: factory disable on unpatched trees is 204.
+        let _ = self.call(
+            JourneyId::AddCustomManifest,
+            HttpMethod::Post,
+            "/manifest/{identifier}/enable",
+            &format!("/manifest/{FACTORY_MANIFEST}/enable"),
+            None,
+            None,
+        );
+    }
+
+    fn restore_manifest_order(&mut self) {
+        if self.baseline_manifests.is_empty() {
+            return;
+        }
+        let body = serde_json::to_string(&self.baseline_manifests).unwrap_or_else(|_| "[]".into());
+        // Best-effort restore: factory-first order even if PUT fails.
+        let _ = self.call(
+            JourneyId::AddCustomManifest,
+            HttpMethod::Put,
+            "/manifest/orders",
+            "/manifest/orders",
+            None,
+            Some(&body),
+        );
+    }
+
+    fn skip_contract(&mut self, name: &str, reason: &str) {
+        self.rec(&format!("skip: {name}"), "contract", true, reason);
+    }
+
+    fn skip_dead_dummy_contracts(&mut self, reason: &str) {
+        for name in [
+            "consolidated with dead extra source -> 200",
+            "dead dummy details -> 502",
+            "v1 extensions_manifest with dead extra source -> 200",
+            "vehicle tags with dead extra source -> 200",
+            "PUT unknown with dead extra source -> 404",
+            "PUT orders dummy-first -> 409",
+            "PUT dummy order/0 -> 409",
+        ] {
+            self.skip_contract(name, reason);
+        }
+    }
+
+    fn skip_mixed_contracts(&mut self, reason: &str) {
+        for name in [
+            "mixed-tag dummy create -> 201",
+            "mixed-tag dummy enable -> 204",
+            "mixed semver tags skip latest -> 200",
+            "incompatible tagged install -> 400",
+        ] {
+            self.skip_contract(name, reason);
+        }
+    }
+
+    fn stop_mixed_tag_server(&mut self) {
+        if !self.mixed_tag_server {
+            return;
+        }
+        // Best-effort restore: leftover python http.server from a prior run.
+        let _ = self.commander_host(&format!(
+            "docker exec blueos-core sh -c 'pkill -f \"python3 -m http[.]server {MIXED_TAG_PORT}\" || true'"
+        ));
+        self.mixed_tag_server = false;
+    }
+
+    fn start_mixed_tag_server(&mut self) -> bool {
+        let hex: String = MIXED_TAG_MANIFEST
+            .bytes()
+            .map(|b| format!("{b:02x}"))
+            .collect();
+        let write = format!(
+            "docker exec blueos-core python3 -c \"import pathlib; pathlib.Path('/tmp/harness-manifest.json').write_bytes(bytes.fromhex('{hex}'))\""
+        );
+        let (status, body) = self.commander_host(&write);
+        if !commander_succeeded(status, &body) {
+            return false;
+        }
+        let start = format!(
+            "docker exec -d blueos-core python3 -m http.server {MIXED_TAG_PORT} --bind 127.0.0.1 --directory /tmp"
+        );
+        let (status, body) = self.commander_host(&start);
+        if !commander_succeeded(status, &body) {
+            return false;
+        }
+        self.mixed_tag_server = true;
+        let probe = format!(
+            "docker exec blueos-core python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:{MIXED_TAG_PORT}/harness-manifest.json', timeout=1).read()\""
+        );
+        for _ in 0..10 {
+            let (status, body) = self.commander_host(&probe);
+            if commander_succeeded(status, &body) {
+                return true;
+            }
+            thread::sleep(Duration::from_millis(300));
+        }
+        self.stop_mixed_tag_server();
+        false
+    }
+
     fn run(&mut self) {
         let result: Result<(), String> = (|| {
             self.phase_baseline()?;
             self.phase_reads();
+            self.phase_issue_contracts();
             self.phase_unknown();
             self.phase_jobs();
             self.phase_manifest_mutate();
@@ -743,19 +864,9 @@ impl Harness {
         }
         self.uninstall_vehicle();
         self.drop_dummy_manifest();
-        if !self.baseline_manifests.is_empty() {
-            let body =
-                serde_json::to_string(&self.baseline_manifests).unwrap_or_else(|_| "[]".into());
-            // Best-effort restore: factory-first order even if PUT fails.
-            let _ = self.call(
-                JourneyId::AddCustomManifest,
-                HttpMethod::Put,
-                "/manifest/orders",
-                "/manifest/orders",
-                None,
-                Some(&body),
-            );
-        }
+        self.stop_mixed_tag_server();
+        self.ensure_factory_enabled();
+        self.restore_manifest_order();
         let final_ids: std::collections::HashSet<_> = self
             .installed()
             .into_iter()
@@ -1009,16 +1120,19 @@ impl Harness {
                 None,
             )
             .unwrap_or((0, String::new()));
-        let tags_ok = status == 200
-            && serde_json::from_str::<serde_json::Value>(&body)
-                .ok()
-                .and_then(|value| value.as_array().map(|items| !items.is_empty()))
-                .unwrap_or(false);
+        let tags = serde_json::from_str::<Vec<String>>(&body).unwrap_or_default();
+        let tags_ok = status == 200 && !tags.is_empty();
         self.rec(
             "v2 tags from consolidated",
             "reads",
             tags_ok,
             format!("HTTP {status} {}", snippet(&body, 80)),
+        );
+        self.rec(
+            "v2 tags keep v-prefix",
+            "contract",
+            tags_ok && tags.iter().all(|tag| tag.starts_with('v')),
+            format!("{tags:?}"),
         );
         let (status, _) = self
             .call(
@@ -1036,6 +1150,94 @@ impl Harness {
             status == 200,
             format!("HTTP {status}"),
         );
+    }
+
+    fn phase_issue_contracts(&mut self) {
+        let (status, body) = self
+            .call(
+                JourneyId::BrowseExtensionStore,
+                HttpMethod::Get,
+                "/manifest/tags/{extension_identifier}",
+                &format!("/manifest/tags/{UNKNOWN}"),
+                None,
+                None,
+            )
+            .unwrap_or((0, String::new()));
+        self.rec(
+            "unknown tags from consolidated -> 404",
+            "contract",
+            status == 404,
+            format!("HTTP {status} {}", snippet(&body, 80)),
+        );
+        let (status, body) = self
+            .call(
+                JourneyId::BrowseExtensionStore,
+                HttpMethod::Get,
+                "/manifest/tags/{manifest_identifier}/{extension_identifier}/",
+                &format!("/manifest/tags/{FACTORY_MANIFEST}/{UNKNOWN}/"),
+                None,
+                None,
+            )
+            .unwrap_or((0, String::new()));
+        self.rec(
+            "unknown tags from factory manifest -> 404",
+            "contract",
+            status == 404,
+            format!("HTTP {status} {}", snippet(&body, 80)),
+        );
+
+        let (status, body) = self
+            .call(
+                JourneyId::AddCustomManifest,
+                HttpMethod::Post,
+                "/manifest/{identifier}/disable",
+                &format!("/manifest/{FACTORY_MANIFEST}/disable"),
+                None,
+                None,
+            )
+            .unwrap_or((0, String::new()));
+        self.rec(
+            "factory disable -> 409",
+            "contract",
+            status == 409,
+            format!("HTTP {status} {}", snippet(&body, 80)),
+        );
+        self.ensure_factory_enabled();
+
+        let (status, body) = self
+            .call(
+                JourneyId::AddCustomManifest,
+                HttpMethod::Post,
+                "/manifest/{identifier}/enable",
+                &format!("/manifest/{FACTORY_MANIFEST}/enable"),
+                None,
+                None,
+            )
+            .unwrap_or((0, String::new()));
+        self.rec(
+            "factory enable -> 409",
+            "contract",
+            status == 409,
+            format!("HTTP {status} {}", snippet(&body, 80)),
+        );
+
+        let (status, body) = self
+            .call(
+                JourneyId::AddCustomManifest,
+                HttpMethod::Put,
+                "/manifest/{identifier}/order/{order}",
+                &format!("/manifest/{FACTORY_MANIFEST}/order/99"),
+                None,
+                None,
+            )
+            .unwrap_or((0, String::new()));
+        self.rec(
+            "factory PUT order -> 409",
+            "contract",
+            status == 409,
+            format!("HTTP {status} {}", snippet(&body, 80)),
+        );
+        self.restore_manifest_order();
     }
 
     fn phase_unknown(&mut self) {
@@ -1180,6 +1382,45 @@ impl Harness {
                 );
             }
         }
+
+        let (status, body) = self
+            .call(
+                JourneyId::ConfigureInstalledExtension,
+                HttpMethod::Post,
+                "/jobs/{route}",
+                &format!("/jobs/v2.0/extension/{UNKNOWN}/details"),
+                Some("method=GET&retries=8"),
+                Some("{}"),
+            )
+            .unwrap_or((0, String::new()));
+        self.rec(
+            "v2 jobs enqueue failing GET -> 202",
+            "jobs",
+            status == 202,
+            format!("HTTP {status} {}", snippet(&body, 80)),
+        );
+        if let Some(job_id) = serde_json::from_str::<serde_json::Value>(&body)
+            .ok()
+            .and_then(|value| value.get("id")?.as_str().map(str::to_string))
+        {
+            thread::sleep(Duration::from_secs(2));
+            let (status, raw) = self
+                .call(
+                    JourneyId::ConfigureInstalledExtension,
+                    HttpMethod::Delete,
+                    "/jobs/{identifier}",
+                    &format!("/jobs/{job_id}"),
+                    None,
+                    None,
+                )
+                .unwrap_or((0, String::new()));
+            self.rec(
+                "v2 jobs delete executing -> 409",
+                "jobs",
+                status == 409,
+                format!("HTTP {status} {}", snippet(&raw, 80)),
+            );
+        }
     }
 
     fn phase_manifest_mutate(&mut self) {
@@ -1190,6 +1431,8 @@ impl Harness {
                 true,
                 "--skip-manifest-mutate",
             );
+            self.skip_dead_dummy_contracts("--skip-manifest-mutate");
+            self.skip_mixed_contracts("--skip-manifest-mutate");
             return;
         }
         let body = format!(
@@ -1260,6 +1503,11 @@ impl Harness {
             status == 204,
             format!("HTTP {status}"),
         );
+        if status == 204 {
+            self.assert_dead_dummy_contracts(&ident);
+        } else {
+            self.skip_dead_dummy_contracts("dummy enable was not 204");
+        }
         let (status, _) = self
             .call(
                 JourneyId::AddCustomManifest,
@@ -1346,6 +1594,272 @@ impl Harness {
             format!("HTTP {status}"),
         );
         self.dummy_manifest_id = None;
+        self.phase_mixed_semver_tags();
+    }
+
+    fn assert_dead_dummy_contracts(&mut self, dummy_id: &str) {
+        let ident = self.vehicle.as_ref().expect("vehicle").identifier.clone();
+        let (status, body) = self
+            .call(
+                JourneyId::BrowseExtensionStore,
+                HttpMethod::Get,
+                "/manifest/consolidated",
+                "/manifest/consolidated",
+                None,
+                None,
+            )
+            .unwrap_or((0, String::new()));
+        let consolidated_ok = status == 200
+            && serde_json::from_str::<serde_json::Value>(&body)
+                .ok()
+                .and_then(|value| value.as_array().map(|items| !items.is_empty()))
+                .unwrap_or(false);
+        self.rec(
+            "consolidated with dead extra source -> 200",
+            "contract",
+            consolidated_ok,
+            format!("HTTP {status} {}", snippet(&body, 80)),
+        );
+        let (status, body) = self
+            .call(
+                JourneyId::AddCustomManifest,
+                HttpMethod::Get,
+                "/manifest/{identifier}/details",
+                &format!("/manifest/{dummy_id}/details"),
+                None,
+                None,
+            )
+            .unwrap_or((0, String::new()));
+        self.rec(
+            "dead dummy details -> 502",
+            "contract",
+            status == 502,
+            format!("HTTP {status} {}", snippet(&body, 80)),
+        );
+        let (status, body) = self
+            .call(
+                JourneyId::BrowseExtensionStore,
+                HttpMethod::Get,
+                "/extensions_manifest",
+                "/extensions_manifest",
+                None,
+                None,
+            )
+            .unwrap_or((0, String::new()));
+        self.rec(
+            "v1 extensions_manifest with dead extra source -> 200",
+            "contract",
+            status == 200,
+            format!("HTTP {status} {}", snippet(&body, 80)),
+        );
+        let (status, body) = self
+            .call(
+                JourneyId::BrowseExtensionStore,
+                HttpMethod::Get,
+                "/manifest/tags/{extension_identifier}",
+                &format!("/manifest/tags/{ident}"),
+                None,
+                None,
+            )
+            .unwrap_or((0, String::new()));
+        self.rec(
+            "vehicle tags with dead extra source -> 200",
+            "contract",
+            status == 200,
+            format!("HTTP {status} {}", snippet(&body, 80)),
+        );
+        let (status, body) = self
+            .call(
+                JourneyId::EditExtensionDevVersion,
+                HttpMethod::Put,
+                "/extension/{identifier}",
+                &format!("/extension/{UNKNOWN}"),
+                Some("purge=true"),
+                None,
+            )
+            .unwrap_or((0, String::new()));
+        self.rec(
+            "PUT unknown with dead extra source -> 404",
+            "contract",
+            status == 404,
+            format!("HTTP {status} {}", snippet(&body, 80)),
+        );
+        let orders =
+            serde_json::to_string(&[dummy_id, FACTORY_MANIFEST]).unwrap_or_else(|_| "[]".into());
+        let (status, body) = self
+            .call(
+                JourneyId::AddCustomManifest,
+                HttpMethod::Put,
+                "/manifest/orders",
+                "/manifest/orders",
+                None,
+                Some(&orders),
+            )
+            .unwrap_or((0, String::new()));
+        self.rec(
+            "PUT orders dummy-first -> 409",
+            "contract",
+            status == 409,
+            format!("HTTP {status} {}", snippet(&body, 80)),
+        );
+        self.restore_manifest_order();
+        let (status, body) = self
+            .call(
+                JourneyId::AddCustomManifest,
+                HttpMethod::Put,
+                "/manifest/{identifier}/order/{order}",
+                &format!("/manifest/{dummy_id}/order/0"),
+                None,
+                None,
+            )
+            .unwrap_or((0, String::new()));
+        self.rec(
+            "PUT dummy order/0 -> 409",
+            "contract",
+            status == 409,
+            format!("HTTP {status} {}", snippet(&body, 80)),
+        );
+        self.restore_manifest_order();
+    }
+
+    fn phase_mixed_semver_tags(&mut self) {
+        if !self.start_mixed_tag_server() {
+            self.skip_mixed_contracts("mixed-tag manifest server not ready");
+            return;
+        }
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_secs())
+            .unwrap_or(0);
+        let body = format!(
+            r#"{{"name":"{DUMMY_SEMVER_NAME}","url":"http://127.0.0.1:{MIXED_TAG_PORT}/harness-manifest.json?n={nonce}","enabled":false}}"#
+        );
+        let (status, raw) = self
+            .call(
+                JourneyId::AddCustomManifest,
+                HttpMethod::Post,
+                "/manifest/",
+                "/manifest/",
+                Some("validate_url=false"),
+                Some(&body),
+            )
+            .unwrap_or((0, String::new()));
+        self.rec(
+            "mixed-tag dummy create -> 201",
+            "contract",
+            status == 201,
+            format!("HTTP {status} {}", snippet(&raw, 80)),
+        );
+        let Some(ident) = serde_json::from_str::<serde_json::Value>(&raw)
+            .ok()
+            .and_then(|value| value.get("identifier")?.as_str().map(str::to_string))
+        else {
+            self.skip_contract(
+                "mixed-tag dummy enable -> 204",
+                "mixed-tag dummy create had no identifier",
+            );
+            self.skip_contract(
+                "mixed semver tags skip latest -> 200",
+                "mixed-tag dummy create had no identifier",
+            );
+            self.skip_contract(
+                "incompatible tagged install -> 400",
+                "mixed-tag dummy create had no identifier",
+            );
+            self.stop_mixed_tag_server();
+            return;
+        };
+        self.dummy_manifest_id = Some(ident.clone());
+        let (status, _) = self
+            .call(
+                JourneyId::AddCustomManifest,
+                HttpMethod::Post,
+                "/manifest/{identifier}/enable",
+                &format!("/manifest/{ident}/enable"),
+                None,
+                None,
+            )
+            .unwrap_or((0, String::new()));
+        self.rec(
+            "mixed-tag dummy enable -> 204",
+            "contract",
+            status == 204,
+            format!("HTTP {status}"),
+        );
+        if status != 204 {
+            self.skip_contract(
+                "mixed semver tags skip latest -> 200",
+                "mixed-tag dummy enable was not 204",
+            );
+            self.skip_contract(
+                "incompatible tagged install -> 400",
+                "mixed-tag dummy enable was not 204",
+            );
+        } else {
+            let (status, body) = self
+                .call(
+                    JourneyId::BrowseExtensionStore,
+                    HttpMethod::Get,
+                    "/manifest/tags/{extension_identifier}",
+                    &format!("/manifest/tags/{MIXED_TAG_IDENT}"),
+                    None,
+                    None,
+                )
+                .unwrap_or((0, String::new()));
+            let tags = serde_json::from_str::<Vec<String>>(&body).unwrap_or_default();
+            let ok = status == 200
+                && tags.iter().any(|tag| tag == "v1.0.0")
+                && !tags.iter().any(|tag| tag == "latest");
+            self.rec(
+                "mixed semver tags skip latest -> 200",
+                "contract",
+                ok,
+                format!("HTTP {status} {tags:?}"),
+            );
+            let (status, raw) = self
+                .call(
+                    JourneyId::InstallExtension,
+                    HttpMethod::Post,
+                    "/extension/{identifier}/{tag}/install",
+                    &format!("/extension/{INCOMPATIBLE_IDENT}/v1.0.0/install"),
+                    None,
+                    None,
+                )
+                .unwrap_or((0, String::new()));
+            self.rec(
+                "incompatible tagged install -> 400",
+                "contract",
+                status == 400,
+                format!(
+                    "{INCOMPATIBLE_IDENT}:v1.0.0 HTTP {status} {}",
+                    snippet(&raw, 80)
+                ),
+            );
+            if (200..300).contains(&status) {
+                // Best-effort restore: dummy incompatible install should never succeed.
+                let _ = self.call(
+                    JourneyId::UninstallExtension,
+                    HttpMethod::Delete,
+                    "/extension/{identifier}",
+                    &format!("/extension/{INCOMPATIBLE_IDENT}"),
+                    None,
+                    None,
+                );
+                let cname = container_name("harness/incompatible", "v1.0.0");
+                let (_gone, _names) = self.wait_container(&cname, false, Duration::from_secs(20));
+            }
+        }
+        // Best-effort restore: mixed-tag dummy is not part of baseline.
+        let _ = self.call(
+            JourneyId::AddCustomManifest,
+            HttpMethod::Delete,
+            "/manifest/{identifier}",
+            &format!("/manifest/{ident}"),
+            None,
+            None,
+        );
+        self.dummy_manifest_id = None;
+        self.stop_mixed_tag_server();
     }
 
     fn phase_v1_install_lifecycle(&mut self) {
@@ -1842,6 +2356,35 @@ impl Harness {
             format!("{names:?}"),
         );
 
+        let unprefixed = strip_v_prefix(&tag);
+        if unprefixed != tag {
+            let (status, raw) = self
+                .call(
+                    JourneyId::EditExtensionDevVersion,
+                    HttpMethod::Put,
+                    "/extension/{identifier}/{tag}",
+                    &format!("/extension/{ident}/{unprefixed}"),
+                    Some("purge=true"),
+                    None,
+                )
+                .unwrap_or((0, String::new()));
+            self.expect_install("v2 PUT unprefixed tag", status, &raw, &ident);
+            let (ok, names) = self.wait_container(&cname, true, POLL_TIMEOUT);
+            self.rec(
+                "running after v2 PUT unprefixed tag",
+                "v2",
+                ok,
+                format!("{names:?}"),
+            );
+        } else {
+            self.rec(
+                "skip: v2 PUT unprefixed tag",
+                "v2",
+                true,
+                format!("primary tag {tag} has no v-prefix"),
+            );
+        }
+
         let (status, raw) = self
             .call(
                 JourneyId::EditExtensionDevVersion,
@@ -2267,8 +2810,78 @@ fn snippet(body: &str, limit: usize) -> String {
     body.chars().take(limit).collect()
 }
 
+fn query_escape(text: &str) -> String {
+    let mut out = String::new();
+    for b in text.bytes() {
+        match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => {
+                out.push(b as char)
+            }
+            _ => out.push_str(&format!("%{b:02X}")),
+        }
+    }
+    out
+}
+
+fn commander_succeeded(status: u16, body: &str) -> bool {
+    status == 200
+        && serde_json::from_str::<serde_json::Value>(body)
+            .ok()
+            .and_then(|value| value.get("return_code")?.as_i64())
+            == Some(0)
+}
+
+fn strip_v_prefix(tag: &str) -> String {
+    tag.strip_prefix('v').unwrap_or(tag).to_string()
+}
+
+#[cfg(test)]
+fn first_incompatible_tag(consolidated: &str, baseline_ids: &[String]) -> Option<(String, String)> {
+    let items = serde_json::from_str::<serde_json::Value>(consolidated)
+        .ok()?
+        .as_array()?
+        .clone();
+    for entry in items {
+        let Some(identifier) = entry
+            .get("identifier")
+            .and_then(|value| value.as_str())
+            .map(str::to_string)
+        else {
+            continue;
+        };
+        if identifier == FORBIDDEN_EXT || baseline_ids.contains(&identifier) {
+            continue;
+        }
+        let Some(versions) = entry.get("versions").and_then(|value| value.as_object()) else {
+            continue;
+        };
+        for (tag, version) in versions {
+            let Some(images) = version.get("images").and_then(|value| value.as_array()) else {
+                continue;
+            };
+            if images.is_empty() {
+                continue;
+            }
+            if images.iter().any(|img| {
+                img.get("compatible")
+                    .and_then(|value| value.as_bool())
+                    .is_none()
+            }) {
+                continue;
+            }
+            let any_ok = images
+                .iter()
+                .any(|img| img.get("compatible").and_then(|value| value.as_bool()) == Some(true));
+            if !any_ok {
+                return Some((identifier, tag.clone()));
+            }
+        }
+    }
+    None
+}
+
 fn is_lifecycle_dummy_name(name: &str) -> bool {
-    name.starts_with(DUMMY_MANIFEST_NAME)
+    name.starts_with(DUMMY_MANIFEST_NAME) || name.starts_with(DUMMY_SEMVER_NAME)
 }
 
 fn escape_json(text: &str) -> String {
@@ -2417,5 +3030,34 @@ mod tests {
     fn host_from_base_strips_scheme_and_port() {
         assert_eq!(host_from_base("http://192.168.0.177"), "192.168.0.177");
         assert_eq!(host_from_base("http://192.168.0.177:80/"), "192.168.0.177");
+    }
+
+    #[test]
+    fn strip_v_prefix_only_leading_v() {
+        assert_eq!(strip_v_prefix("v1.18.2"), "1.18.2");
+        assert_eq!(strip_v_prefix("1.18.2"), "1.18.2");
+        assert_eq!(strip_v_prefix("v1.19.0-beta.9"), "1.19.0-beta.9");
+    }
+
+    #[test]
+    fn query_escape_percent_encodes_spaces_and_quotes() {
+        assert_eq!(query_escape("true"), "true");
+        assert_eq!(query_escape("a b"), "a%20b");
+        assert_eq!(query_escape("echo \"x\""), "echo%20%22x%22");
+    }
+
+    #[test]
+    fn first_incompatible_tag_skips_baseline_and_compatible() {
+        let body = r#"[
+          {"identifier":"blueos.major_tom","versions":{"v1":{"images":[{"compatible":false}]}}},
+          {"identifier":"keep.me","versions":{"v1.0.0":{"images":[{"compatible":true}]}}},
+          {"versions":{"v1":{"images":[{"compatible":false}]}}},
+          {"identifier":"no.field","versions":{"v1":{"images":[{}]}}},
+          {"identifier":"waterlinked.ugps","versions":{"v1.0.7":{"images":[{"compatible":false}]}}}
+        ]"#;
+        assert_eq!(
+            first_incompatible_tag(body, &["keep.me".into()]),
+            Some(("waterlinked.ugps".into(), "v1.0.7".into()))
+        );
     }
 }
