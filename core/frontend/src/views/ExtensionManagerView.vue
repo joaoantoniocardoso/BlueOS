@@ -120,7 +120,7 @@
         <div class="installed-extensions-container">
           <InstalledExtensionCard
             v-for="extension in installed_extensions"
-            :key="extension.docker"
+            :key="extension.identifier"
             :extension="extension"
             :loading="extension.loading"
             :metrics="metricsFor(extension)"
@@ -367,19 +367,20 @@ export default Vue.extend({
       const name = this.getContainerName(extension)?.replace('/', '')
       return name ? this.metrics[name] ?? {} : {}
     },
-    async createOrUpdateExtension(): Promise<void> {
-      if (!this.edited_extension) {
-        // TODO: error
+    async createOrUpdateExtension(
+      extension: (InstalledExtensionData & { editing: boolean }) | null,
+    ): Promise<void> {
+      if (!extension) {
         return
       }
       await this.install(
-        this.edited_extension.identifier,
-        this.edited_extension.name,
-        this.edited_extension.docker,
-        this.edited_extension.tag,
+        extension.identifier,
+        extension.name,
+        extension.docker,
+        extension.tag,
         true,
-        this.edited_extension?.permissions ?? '',
-        this.edited_extension?.user_permissions ?? '',
+        extension.permissions ?? '',
+        extension.user_permissions ?? '',
       )
       this.show_dialog = false
       this.edited_extension = null
@@ -389,7 +390,7 @@ export default Vue.extend({
     },
     openCreationDialog() : void {
       this.edited_extension = {
-        identifier: 'yourorganization.yourextension',
+        identifier: '',
         name: '',
         docker: '',
         enabled: true,
