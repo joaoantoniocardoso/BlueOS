@@ -296,6 +296,16 @@ pub fn run_negative_probe(
             Err(err) => return fail_negative_probe(probe, err),
         };
 
+    if matches!(probe.id, "NP-108" | "NP-109") && (200..300).contains(&status_code) {
+        if let Some(ident) = serde_json::from_str::<serde_json::Value>(&body_text)
+            .ok()
+            .and_then(|value| value.get("identifier")?.as_str().map(str::to_string))
+        {
+            let restore = join_url(base, &format!("/kraken/v2.0/manifest/{ident}"));
+            let _ = execute_curl(&HttpMethod::Delete, &restore, allow_mutating, None, None);
+        }
+    }
+
     evaluate_negative_probe_response(probe, status_code, &body_text)
 }
 
@@ -320,9 +330,14 @@ fn evaluate_negative_probe_response(
     // NP-53: unpatched from_running → 400 ExtensionNotRunning; patched → 404.
     // NP-54: pinned source streams 200 before ContainerNotFound; 1.4.4-beta.19+ (`e416aebf7`) returns 404.
     // NP-101/NP-102: stock unknown tags → 200 []; patched → 404. Strict 404 is in --extension-lifecycle.
+    // NP-108: stock ManifestBackendOffline → 500; patched → 502. NP-109 is 502 on both (InvalidURL).
     let dual_ok = matches!(
         (probe.id, status_code),
-        ("NP-53", 400 | 404) | ("NP-54", 200 | 404) | ("NP-101", 200 | 404) | ("NP-102", 200 | 404)
+        ("NP-53", 400 | 404)
+            | ("NP-54", 200 | 404)
+            | ("NP-101", 200 | 404)
+            | ("NP-102", 200 | 404)
+            | ("NP-108", 500 | 502)
     );
     let result = if dual_ok {
         Verdict::Pass
@@ -1814,23 +1829,38 @@ pub fn execute_curl(
     body: Option<&str>,
     form_file: Option<&FormFilePart>,
 ) -> Result<(u16, String), String> {
+    execute_curl_timed(method, url, allow_mutating, body, form_file, None)
+}
+
+pub fn execute_curl_timed(
+    method: &HttpMethod,
+    url: &str,
+    allow_mutating: bool,
+    body: Option<&str>,
+    form_file: Option<&FormFilePart>,
+    timeout_secs: Option<u64>,
+) -> Result<(u16, String), String> {
     if !matches!(method, HttpMethod::Get) && !allow_mutating {
         return Err("mutating HTTP method blocked (pass --allow-mutating)".into());
     }
 
-    let timeout_secs = if url.contains("firmware")
-        || url.contains("/extension")
-        || url.contains("install_firmware")
-        || url.contains("restore_default")
-        || url.contains("/board")
-    {
-        "600"
-    } else {
-        "120"
-    };
+    let timeout_secs = timeout_secs
+        .map(|secs| secs.to_string())
+        .unwrap_or_else(|| {
+            if url.contains("firmware")
+                || url.contains("/extension")
+                || url.contains("install_firmware")
+                || url.contains("restore_default")
+                || url.contains("/board")
+            {
+                "600".into()
+            } else {
+                "120".into()
+            }
+        });
 
     let mut command = Command::new("curl");
-    command.args(["-s", "-m", timeout_secs, "-w", "\n%{http_code}"]);
+    command.args(["-s", "-m", &timeout_secs, "-w", "\n%{http_code}"]);
     match method {
         HttpMethod::Get => {}
         HttpMethod::Post => {
