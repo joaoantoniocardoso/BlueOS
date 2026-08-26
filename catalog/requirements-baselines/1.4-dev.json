@@ -1,13 +1,13 @@
 {
   "version_tag": "1.4-dev",
-  "total": 395,
+  "total": 412,
   "unknown_statement_count": 20,
   "unknown_criteria_count": 52,
   "by_kind": {
     "functional": 95,
     "interface": 91,
     "performance": 69,
-    "robustness": 53,
+    "robustness": 70,
     "system": 87
   },
   "requirements": [
@@ -11557,6 +11557,397 @@
       },
       "feature_id": "browse_extension_store",
       "journey_id": "browse_extension_store",
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/ROB/NP-103",
+      "kind": "robustness",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Invalid or unsafe install extension request is rejected safely"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "POST /kraken/v2.0/extension/ status=422 class=B1 blast=Safe"
+          }
+        ]
+      },
+      "feature_id": "install_extension",
+      "journey_id": "install_custom_extension",
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/ROB/NP-104",
+      "kind": "robustness",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Invalid or unsafe install extension request is rejected safely"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "GET /kraken/v2.0/extension/np.no.such.extension/details status=404 class=B3 blast=Safe"
+          }
+        ]
+      },
+      "feature_id": "install_extension",
+      "journey_id": "install_extension",
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/ROB/NP-105",
+      "kind": "robustness",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Invalid or unsafe uninstall extension request is rejected safely"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "DELETE /kraken/v2.0/extension/np.no.such.extension status=404 class=B3 blast=Safe"
+          }
+        ]
+      },
+      "feature_id": "uninstall_extension",
+      "journey_id": "uninstall_extension",
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/ROB/NP-106",
+      "kind": "robustness",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Invalid or unsafe manage extension lifecycle request is rejected safely"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "DELETE /kraken/v2.0/jobs/00000000-0000-4000-8000-000000000001 status=404 class=B3 blast=Safe"
+          }
+        ]
+      },
+      "feature_id": "manage_extension_lifecycle",
+      "journey_id": "configure_installed_extension",
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/ROB/NP-107",
+      "kind": "robustness",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Invalid or unsafe manage extension lifecycle request is rejected safely"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "POST /kraken/v2.0/jobs/v2.0/extension/ status=422 class=B1 blast=Safe"
+          }
+        ]
+      },
+      "feature_id": "manage_extension_lifecycle",
+      "journey_id": "configure_installed_extension",
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/ROB/NP-108",
+      "kind": "robustness",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Invalid or unsafe request is rejected safely"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "POST /kraken/v2.0/manifest/?validate_url=true status=502 class=B1 blast=Safe"
+          }
+        ]
+      },
+      "feature_id": null,
+      "journey_id": "add_custom_manifest",
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/ROB/NP-109",
+      "kind": "robustness",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Invalid or unsafe request is rejected safely"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "POST /kraken/v2.0/manifest/?validate_url=true status=502 class=B1 blast=Safe"
+          }
+        ]
+      },
+      "feature_id": null,
+      "journey_id": "add_custom_manifest",
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/ROB/NP-110",
+      "kind": "robustness",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Invalid or unsafe request is rejected safely"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "PUT /kraken/v2.0/manifest/bluerobotics-production/details status=409 class=B4 blast=Safe"
+          }
+        ]
+      },
+      "feature_id": null,
+      "journey_id": "add_custom_manifest",
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/ROB/NP-111",
+      "kind": "robustness",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Invalid or unsafe request is rejected safely"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "POST /kraken/v2.0/manifest/np-no-such-manifest/enable status=404 class=B3 blast=Safe"
+          }
+        ]
+      },
+      "feature_id": null,
+      "journey_id": "add_custom_manifest",
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/ROB/NP-112",
+      "kind": "robustness",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Invalid or unsafe request is rejected safely"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "POST /kraken/v2.0/manifest/np-no-such-manifest/disable status=404 class=B3 blast=Safe"
+          }
+        ]
+      },
+      "feature_id": null,
+      "journey_id": "add_custom_manifest",
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/ROB/NP-113",
+      "kind": "robustness",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Invalid or unsafe request is rejected safely"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "PUT /kraken/v2.0/manifest/np-no-such-manifest/details status=404 class=B3 blast=Safe"
+          }
+        ]
+      },
+      "feature_id": null,
+      "journey_id": "add_custom_manifest",
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/ROB/NP-114",
+      "kind": "robustness",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Invalid or unsafe request is rejected safely"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "PUT /kraken/v2.0/manifest/np-no-such-manifest/order/99 status=404 class=B3 blast=Safe"
+          }
+        ]
+      },
+      "feature_id": null,
+      "journey_id": "add_custom_manifest",
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/ROB/NP-115",
+      "kind": "robustness",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Invalid or unsafe request is rejected safely"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "DELETE /kraken/v2.0/manifest/np-no-such-manifest status=404 class=B3 blast=Safe"
+          }
+        ]
+      },
+      "feature_id": null,
+      "journey_id": "add_custom_manifest",
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/ROB/NP-116",
+      "kind": "robustness",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Invalid or unsafe request is rejected safely"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "PUT /kraken/v2.0/manifest/orders status=404 class=B3 blast=Safe"
+          }
+        ]
+      },
+      "feature_id": null,
+      "journey_id": "add_custom_manifest",
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/ROB/NP-117",
+      "kind": "robustness",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Invalid or unsafe uninstall extension request is rejected safely"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "POST /kraken/v1.0/extension/uninstall?extension_identifier=np.no.such.extension status=404 class=B3 blast=Safe"
+          }
+        ]
+      },
+      "feature_id": "uninstall_extension",
+      "journey_id": "uninstall_extension",
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/ROB/NP-118",
+      "kind": "robustness",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Invalid or unsafe manage extension lifecycle request is rejected safely"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "POST /kraken/v1.0/extension/enable?extension_identifier=np.no.such.extension status=404 class=B3 blast=Safe"
+          }
+        ]
+      },
+      "feature_id": "manage_extension_lifecycle",
+      "journey_id": "configure_installed_extension",
+      "function_id": null,
+      "verifying_journeys": [],
+      "assumptions": [],
+      "availability_present": true
+    },
+    {
+      "id": "REQ/blueos_platform/extensions/ROB/NP-119",
+      "kind": "robustness",
+      "domain": "blueos_platform",
+      "statement": {
+        "status": "known",
+        "text": "Invalid or unsafe manage extension lifecycle request is rejected safely"
+      },
+      "criteria": {
+        "status": "known",
+        "items": [
+          {
+            "text": "POST /kraken/v1.0/extension/update_to_version?extension_identifier=np.no.such.extension&new_version=v0.0.0 status=404 class=B3 blast=Safe"
+          }
+        ]
+      },
+      "feature_id": "manage_extension_lifecycle",
+      "journey_id": "edit_extension_dev_version",
       "function_id": null,
       "verifying_journeys": [],
       "assumptions": [],
