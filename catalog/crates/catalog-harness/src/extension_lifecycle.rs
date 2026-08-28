@@ -2162,6 +2162,13 @@ impl Harness {
                 fragment.as_deref().unwrap_or(&snippet(&raw, 80))
             ),
         );
+        let after = self.installed();
+        self.rec(
+            "custom pull-fail not listed",
+            "contract",
+            after.iter().all(|ext| ext.identifier != PULL_FAIL_IDENT),
+            format!("{after:?}"),
+        );
         let _ = self.call(
             JourneyId::UninstallExtension,
             HttpMethod::Delete,
