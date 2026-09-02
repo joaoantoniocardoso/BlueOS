@@ -1,5 +1,0 @@
-# Orchestrator working memory — local handoff state, not committed history.
-# Gitignored (not deleted) per IMPROVE_DESIGN.md decision: these files back
-# the orchestrator's <handoff> contract across interrupted sessions.
-**/memory.xml
-**/memory_archive.md

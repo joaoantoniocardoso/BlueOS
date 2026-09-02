@@ -1,38 +1,0 @@
-=== helper | browse_available_web_services | /helper/v1.0/web_services ===
-baseline_up: HTTP 200
-down: HTTP 502 body=<html> <head><title>502 Bad Gateway</title></head> <body> <center><h1>502 Bad Gateway</h1></center> <hr><center>ngin
-after_restore: route=200 /status=204
-
-=== linux2rest | view_configured_serial_bridges | /bridget/v1.0/serial_ports ===
-baseline_up: HTTP 200
-down: HTTP 200 body=[   "/dev/ttyAMA3",    "/dev/ttyAMA4",    "/dev/ttyAMA5",    "/dev/ttyS0" ]
-after_restore: route=200 /status=204
-
-=== mavlink2rest | inspect_mavlink_messages_in_browser | /mavlink2rest/v1/mavlink ===
-baseline_up: HTTP 200
-=== nmea_injector | view_configured_nmea_sockets | /nmea-injector/v1.0/socks ===
-baseline_up: HTTP 502
-down: HTTP 502 body=<html> <head><title>502 Bad Gateway</title></head> <body> <center><h1>502 Bad Gateway</h1></cente
-down: HTTP 502 body=<html> <head><title>502 Bad Gateway</title></head> <body> <center><h1>502 Bad Gateway</h1></cente
-after_restore: route=200 /status=204
-
-after_restore: route=200 /status=204
-
-=== linux2rest | view_system_information | /system-information/system ===
-baseline_up: HTTP 200
-down: HTTP 200 body={"cpu":[{"name":"cpu0","usage":6.4444447,"frequency":1800,"vendor_id":"ARM","brand":"Cortex-A72"},{"
-after_restore: route=200 /status=204
-=== linux2rest | view_configured_serial_bridges | /bridget/v1.0/serial_ports (pkill stop) ===
-baseline_up: HTTP 200
-down: HTTP 200 body=[]
-after_restore: route=200 /status=204
-
-=== linux2rest | view_system_information | /system-information/system (pkill stop) ===
-baseline_up: HTTP 200
-down: HTTP 502 body=<html> <head><title>502 Bad Gateway</title></head> <body> <center><h1>502 Bad
-after_restore: route=200 /status=204
-
-=== nmea_injector | view_configured_nmea_sockets | /nmea-injector/v1.0/socks (retry) ===
-baseline_up: HTTP 200
-down: HTTP 502 body=<html> <head><title>502 Bad Gateway</title></head> <body> <center><h1>502 Bad
-after_restore: route=200 /status=204

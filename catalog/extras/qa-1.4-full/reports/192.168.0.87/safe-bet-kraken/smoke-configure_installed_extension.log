@@ -1,7 +1,0 @@
-journey_http: smoke — 1 Http journeys (fixtures=internet,pirate,advanced)
-base: http://192.168.0.87
-dut: tag=recorder_wip digest=sha256:978c121c49948b3ca926cc8843950eb573000efa713f30a6d4161d7fa9c31734
-
-
-summary: passed=0 failed=0 skipped=2 unasserted=0
-  SKIP configure_installed_extension: not present on recorder_wip (intro d3ef9f239b2c; first tag 1.3.0-beta.7)

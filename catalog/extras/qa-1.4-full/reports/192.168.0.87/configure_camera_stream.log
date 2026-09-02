@@ -1,9 +1,0 @@
-journey_http: mutating-smoke — 1 allowlisted journeys (fixtures=internet,pirate,advanced,confirm-dangerous,board:any,wifi-radio,hotspot,nmea-socket,serial-bridge,dhcp-active,extension-installed,recording,local-version,wifi-saved,wifi-connected,usb-camera)
-base: http://192.168.0.87
-dut: tag=1.4-dev digest=sha256:5b50dfafc3114651d459993c0c65639d7205634613fb62e0dea5ee04de8eebb1
-
-journey_http: effect_read before GET /streams step 3
-journey_http: effect_read after GET /streams changed
-
-summary: passed=2 failed=0 skipped=0 unasserted=0
-  Pass configure_camera_stream: 2 step(s)

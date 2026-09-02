@@ -1,8 +1,0 @@
-journey_http: mutating-smoke — 1 allowlisted journeys (fixtures=internet,pirate,advanced,confirm-dangerous,board:any,wifi-radio,hotspot,nmea-socket,serial-bridge,dhcp-active,extension-installed,recording,local-version,wifi-saved,wifi-connected)
-base: http://192.168.0.177
-dut: tag=1.4-dev digest=sha256:f615d7caef4d3e99f1c068e082350c1af43d5fcc0f45379ed97ea27c6dc89805
-
-
-summary: passed=2 failed=0 skipped=0 unasserted=0
-  Pass remove_configured_nmea_socket: 1 step(s)
-EXIT_0

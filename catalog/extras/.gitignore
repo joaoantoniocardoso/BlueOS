@@ -1,0 +1,24 @@
+# Campaign workspace: track prompts, conclusions, scripts, and gate baselines.
+# Keep the rest on disk for local handoff; do not commit it.
+
+# Orchestrator session state (IMPROVE_DESIGN.md: gitignore, don't delete)
+**/memory.xml
+**/memory_archive.md
+
+# Raw harness / HTML output. Summaries live in FINDINGS.md, FEATURES.md, etc.
+**/reports/*
+!**/reports/.gitignore
+
+# Regenerable feature-trace snapshots
+**/snapshots/*.json
+
+# DUT locks and locally built harness binaries
+**/locks/
+**/bin/
+
+# Git-history dumps from feature-presence campaigns (narratives stay tracked)
+features-*/inventory/
+features-*/inventory.json
+
+# Personal notes
+nicole/

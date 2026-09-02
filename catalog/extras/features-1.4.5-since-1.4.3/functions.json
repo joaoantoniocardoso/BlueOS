@@ -1,0 +1,145 @@
+{
+  "counts": {
+    "total_functions": 108,
+    "present_1_4_3": 87,
+    "present_1_4_5": 88,
+    "added": 1,
+    "not_in_1_4_5": 20
+  },
+  "added": [
+    {
+      "function_id": "level_horizon/cbf29ce484222325",
+      "statement_text": "Operator levels the horizon by placing the vehicle on a level surface and running board-level calibration",
+      "feature_id": "level_horizon",
+      "verifying_journeys": [
+        "level_horizon"
+      ],
+      "why": "level_horizon: path (06490f90ed01, frontend_calibration, core/frontend/src/components/vehiclesetup/configuration/compass/LevelHorizonCalibration.vue; 1.4.3=absent)"
+    }
+  ],
+  "not_in_1_4_5": [
+    {
+      "function_id": "browse_video_recordings/ab18b05457a69ba2",
+      "verifying_journeys": [
+        "browse_video_recordings"
+      ]
+    },
+    {
+      "function_id": "delete_disk_paths",
+      "verifying_journeys": [
+        "free_disk_space"
+      ]
+    },
+    {
+      "function_id": "delete_local_blueos_version/b6a758e879c27c5e",
+      "verifying_journeys": [
+        "delete_local_blueos_version"
+      ]
+    },
+    {
+      "function_id": "delete_model_override",
+      "verifying_journeys": [
+        "delete_3d_model_override"
+      ]
+    },
+    {
+      "function_id": "delete_video_recording/6e06c4b5bcae5a00",
+      "verifying_journeys": [
+        "delete_video_recording"
+      ]
+    },
+    {
+      "function_id": "download_video_recording/6e06c4b5bcae5a00",
+      "verifying_journeys": [
+        "download_video_recording"
+      ]
+    },
+    {
+      "function_id": "inspect_disk_usage/66077bb16c8f3165",
+      "verifying_journeys": [
+        "free_disk_space",
+        "inspect_disk_usage"
+      ]
+    },
+    {
+      "function_id": "inspect_zenoh_network/cbf29ce484222325",
+      "verifying_journeys": [
+        "inspect_zenoh_network"
+      ]
+    },
+    {
+      "function_id": "navigate_disk_usage",
+      "verifying_journeys": [
+        "inspect_disk_usage"
+      ]
+    },
+    {
+      "function_id": "remove_branding_logo",
+      "verifying_journeys": [
+        "remove_custom_logo"
+      ]
+    },
+    {
+      "function_id": "remove_branding_vehicle_image",
+      "verifying_journeys": [
+        "remove_custom_vehicle_image"
+      ]
+    },
+    {
+      "function_id": "reset_blueos_settings/54288da215af898a",
+      "verifying_journeys": [
+        "reset_blueos_settings"
+      ]
+    },
+    {
+      "function_id": "reset_theme_color",
+      "verifying_journeys": [
+        "reset_ui_theme_color"
+      ]
+    },
+    {
+      "function_id": "run_disk_speed_test",
+      "verifying_journeys": [
+        "run_single_disk_speed_test"
+      ]
+    },
+    {
+      "function_id": "run_multi_size_disk_speed_test/9638e1657f9e12b6",
+      "verifying_journeys": [
+        "run_multi_size_disk_speed_test"
+      ]
+    },
+    {
+      "function_id": "set_theme_color",
+      "verifying_journeys": [
+        "change_ui_theme_color"
+      ]
+    },
+    {
+      "function_id": "update_bootstrap_image/d7a8583bc58eea88",
+      "verifying_journeys": [
+        "update_bootstrap_image"
+      ]
+    },
+    {
+      "function_id": "upload_branding_logo",
+      "verifying_journeys": [
+        "upload_custom_logo"
+      ]
+    },
+    {
+      "function_id": "upload_branding_vehicle_image",
+      "verifying_journeys": [
+        "upload_custom_vehicle_image"
+      ]
+    },
+    {
+      "function_id": "upload_model_override",
+      "verifying_journeys": [
+        "upload_3d_model_override"
+      ]
+    }
+  ],
+  "sets_equal": true,
+  "warnings": []
+}

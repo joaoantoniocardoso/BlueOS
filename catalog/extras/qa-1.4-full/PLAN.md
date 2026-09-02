@@ -18,7 +18,7 @@
 | Firmware flash / EEPROM / core switch / settings reset / host reboot | **177 only**, one at a time, with declared restore |
 | RF wifi | **Serial, one DUT at a time** — one host radio (`HOST_WIFI_IFACE`) |
 | Credentials | ssh `pi` / `raspberry`; HTTP via nginx (`http://<ip>/…`) |
-| Keep all data | every run writes `--report` JSON + stdout under `catalog/extras/qa-1.4-full/reports/` |
+| Keep all data | every run writes `--report` JSON + stdout under `catalog/extras/qa-1.4-full/reports/` (on disk; gitignored) |
 
 ---
 
