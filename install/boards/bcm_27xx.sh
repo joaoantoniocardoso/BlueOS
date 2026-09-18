@@ -33,6 +33,8 @@ dtc -@ -Hepapr -I dts -O dtb -o "$BOOT_PATH/overlays/$DTS_NAME.dtbo" /tmp/$DTS_N
 
 # Remove any configuration related to i2c and spi/spi1 and do the necessary changes for navigator
 echo "- Enable I2C, SPI and UART."
+# This loop deletes. The loop below writes. Deleting first keeps a second install from
+# stacking a copy of every line.
 for STRING in \
     "enable_uart=" \
     "dtoverlay=uart" \

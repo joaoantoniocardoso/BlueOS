@@ -20,6 +20,8 @@ CONFIG_FILE="$BOOT_PATH/config.txt"
 
 # Remove any configuration related to i2c and spi/spi1 and do the necessary changes for navigator
 echo "- Enable I2C, SPI and UART."
+# This loop deletes. The loop below writes. Deleting first keeps a second install from
+# stacking a copy of every line.
 for STRING in "dtparam=i2c_arm=" "dtparam=spi=" "dtoverlay=spi1" "dtoverlay=uart1" "^dtoverlay=$"; do
     sudo sed -i "/$STRING/d" $CONFIG_FILE
 done
