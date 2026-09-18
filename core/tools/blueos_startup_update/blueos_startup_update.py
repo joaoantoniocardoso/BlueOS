@@ -54,8 +54,9 @@ DELTA_JSON = {
 # However, it is important to note that conflicting configurations can happen, potentially impacting the kernel's loading process or causing harm to BlueOS.
 CONFIG_USER_PROTECTION_WORD = "custom"
 
-# A board filter the firmware does not know is applied instead of ignored, so a [pi5]
-# section would reach the pins of every board older than the Pi5
+# This map also says which boards are supported. A board we do not know has to be refused,
+# because a board filter the firmware does not know is applied instead of ignored, so a [pi5]
+# section would reach the pins of every board older than the Pi5.
 BOARD_SECTION_BY_CPU = {CpuType.PI4: "pi4", CpuType.PI5: "pi5"}
 
 BOOT_CONFIG_END_OVERLAY_SCOPE = "dtoverlay="
