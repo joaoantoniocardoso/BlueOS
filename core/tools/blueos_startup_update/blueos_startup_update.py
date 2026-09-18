@@ -497,9 +497,11 @@ def update_dwc2() -> bool:
     section_name = BOARD_SECTION_BY_CPU[host_cpu]
     managed_entries = navigator_managed_entries(host_cpu)
     # Add dwc2 overlay in pi4 or pi5 section if it doesn't exist
-    (dwc2_overlay_config, dwc2_overlay_match_pattern) = next(
-        entry for entry in managed_entries if entry[0].startswith("dtoverlay=dwc2")
-    )
+    dwc2_entry = next((entry for entry in managed_entries if entry[0].startswith("dtoverlay=dwc2")), None)
+    if dwc2_entry is None:
+        logger.error(f"No dwc2 entry in the board list of {host_cpu}")
+        return False
+    (dwc2_overlay_config, dwc2_overlay_match_pattern) = dwc2_entry
 
     boot_config_merge_duplicated_sections(config_content, section_name)
 
