@@ -632,6 +632,8 @@ def test_bcm28xx_enables_the_peripherals_a_pi3_needs() -> None:
     deletions, insertions = install_script_configuration("install/boards/bcm_28xx.sh")
 
     assert sorted(insertions) == [
+        # one empty dtoverlay= opens the block and one closes it
+        blueos_startup_update.BOOT_CONFIG_END_OVERLAY_SCOPE,
         blueos_startup_update.BOOT_CONFIG_END_OVERLAY_SCOPE,
         "dtoverlay=spi1-3cs",
         "dtoverlay=uart1",

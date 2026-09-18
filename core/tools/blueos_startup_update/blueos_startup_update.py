@@ -219,6 +219,17 @@ def boot_config_line_is_protected(line: str) -> bool:
     return bool(re.match(f"^.*#.*{CONFIG_USER_PROTECTION_WORD}.*$", line, regex_flags))
 
 
+def boot_config_overlay_is_open(lines: List[str]) -> bool:
+    regex_flags = re.IGNORECASE | re.DOTALL | re.MULTILINE
+    overlay_is_open = False
+    for line in lines:
+        if re.match(r"^dtoverlay=\s*(#|$)", line, regex_flags):
+            overlay_is_open = False
+        elif re.match(r"^dtoverlay=", line, regex_flags):
+            overlay_is_open = True
+    return overlay_is_open
+
+
 def boot_config_normalize_section_order(
     config_content: List[str], section_name: str, managed_entries: List[Tuple[str, str]]
 ) -> None:
@@ -234,15 +245,13 @@ def boot_config_normalize_section_order(
 
     user_lines = [line for line in section_body if line and not is_managed(line)]
 
-    # Write the empty dtoverlay= only when a dtparam or a dtoverlay comes before the board section.
-    # When config.txt starts with dtoverlay=, the firmware skips the HAT overlay.
-    earlier_directive_present = any(
-        re.match(r"^dt(param|overlay)=", line, regex_flags) for line in config_content[:section_start]
-    )
-
-    board_lines = []
+    board_lines: List[str] = []
     for board_line, pattern in managed_entries:
-        if board_line == BOOT_CONFIG_END_OVERLAY_SCOPE and not earlier_directive_present:
+        # Write the empty dtoverlay= only when an overlay above it is still open. It closes nothing
+        # otherwise, and when config.txt starts with one the firmware skips the HAT overlay.
+        if board_line == BOOT_CONFIG_END_OVERLAY_SCOPE and not boot_config_overlay_is_open(
+            config_content[:section_start] + board_lines
+        ):
             continue
         if any(boot_config_line_is_protected(line) and re.match(pattern, line, regex_flags) for line in section_body):
             continue
@@ -255,6 +264,8 @@ def navigator_managed_entries(cpu_type: CpuType) -> List[Tuple[str, str]]:
     # Keep in sync with install/boards/bcm_27xx.sh (Pi4) and bcm_2712.sh (Pi5).
     # All dtparam lines come first. A dtparam below a dtoverlay changes that overlay, not the board.
     # An empty dtoverlay= closes the overlay above it. The dtparam lines below it then go to the board.
+    # The list starts and ends with one. The last one closes dtoverlay=dwc2, so a dtparam written
+    # below this block goes to the board and not to dwc2.
     if cpu_type == CpuType.PI4:
         return [
             (BOOT_CONFIG_END_OVERLAY_SCOPE, "^dtoverlay=$"),
@@ -274,6 +285,7 @@ def navigator_managed_entries(cpu_type: CpuType) -> List[Tuple[str, str]]:
             ("enable_uart=1", "^enable_uart=.*"),
             ("gpio=11,24,25=op,pu,dh", "^gpio=.*((11|24|25),?)+.*"),
             ("gpio=37=op,pd,dl", "^gpio=.*37.*"),
+            (BOOT_CONFIG_END_OVERLAY_SCOPE, "^dtoverlay=$"),
         ]
     if cpu_type == CpuType.PI5:
         return [
@@ -297,6 +309,7 @@ def navigator_managed_entries(cpu_type: CpuType) -> List[Tuple[str, str]]:
             ("enable_uart=1", "^enable_uart=.*"),
             ("gpio=11,24,25=op,pu,dh", "^gpio=.*((11|24|25),?)+.*"),
             ("gpio=37=op,pd,dl", "^gpio=.*37.*"),
+            (BOOT_CONFIG_END_OVERLAY_SCOPE, "^dtoverlay=$"),
         ]
     raise ValueError(f"No Navigator configuration for {cpu_type}")
 
