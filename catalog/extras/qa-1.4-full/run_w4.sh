@@ -4,7 +4,7 @@
 set -u
 BASE="${1:?base url}"
 OUT="${2:?report dir}"
-BIN="${3:-$(dirname "$0")/bin/journey_http-w2}"
+BIN="${3:-$(dirname "$0")/bin/journey_http}"
 LOCK="$(dirname "$0")/locks/host-wifi"
 mkdir -p "$OUT" "$(dirname "$LOCK")"
 if [ -e "$LOCK" ]; then

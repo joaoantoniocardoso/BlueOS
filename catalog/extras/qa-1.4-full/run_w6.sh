@@ -4,7 +4,7 @@
 set -u
 BASE="${1:?base url}"
 OUT="${2:?report dir}"
-BIN="${3:-$(dirname "$0")/bin/journey_http-w2}"
+BIN="${3:-$(dirname "$0")/bin/journey_http}"
 mkdir -p "$OUT"
 export HOST_WIFI_IFACE="${HOST_WIFI_IFACE:-__qa_no_rf__}"
 
