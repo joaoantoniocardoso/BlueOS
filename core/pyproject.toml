@@ -76,8 +76,25 @@ wifi = { workspace = true }
 
 [tool.uv.workspace]
 members = [
-  "libs/*",
-  "services/*",
+  "libs/bridges",
+  "libs/commonwealth",
+  "libs/filebrowser",
+  "services/ardupilot_manager",
+  "services/bag_of_holding",
+  "services/beacon",
+  "services/bridget",
+  "services/cable_guy",
+  "services/commander",
+  "services/customization",
+  "services/disk_usage",
+  "services/helper",
+  "services/kraken",
+  "services/nmea_injector",
+  "services/pardal",
+  "services/ping",
+  "services/recorder_extractor",
+  "services/versionchooser",
+  "services/wifi",
 ]
 
 # ------------------ Tooling Configurations ------------------
