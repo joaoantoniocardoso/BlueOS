@@ -8,7 +8,6 @@ members = [
     "libs/adapters/comms/channel",
     "libs/adapters/comms/driver",
     "libs/adapters/comms/zenoh",
-    "libs/adapters/configs",
     "libs/adapters/logging",
     "libs/adapters/settings",
     "libs/app/service",
