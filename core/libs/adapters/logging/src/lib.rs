@@ -1,7 +1,18 @@
-use thiserror::Error;
-use tracing_subscriber::EnvFilter;
+//! Tracing subscriber with optional Zenoh log publishing (D-13).
+//!
+//! Call [`init`] once per process. Attach [`ZenohLogGuard`] when the comms session is ready;
+//! records are encoded by your closure (CDR foxglove `Log` once `blueos-idl` is wired).
 
-pub use log::{debug, error, info, trace, warn};
+mod zenoh_layer;
+
+use std::sync::Once;
+
+use thiserror::Error;
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
+
+pub use tracing::{debug, error, info, trace, warn};
+
+pub use zenoh_layer::{LogRecord, ZenohLogGuard, attach_zenoh_publisher, log_key_for_service};
 
 #[derive(Debug, Error)]
 pub enum LogError {
@@ -9,16 +20,23 @@ pub enum LogError {
     Message(String),
 }
 
-pub fn init(verbose: u8) -> Result<(), LogError> {
-    let default = match verbose {
-        0 => "info",
-        1 => "debug",
-        _ => "trace",
-    };
-    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(default));
-    let _ = tracing_log::LogTracer::init(); // already-initialized is success
-    tracing_subscriber::fmt()
-        .with_env_filter(filter)
-        .try_init()
-        .map_err(|error| LogError::Message(error.to_string()))
+pub fn init(service_name: &str, verbosity: u8) -> Result<(), LogError> {
+    static INIT: Once = Once::new();
+    INIT.call_once(|| {
+        let default = match verbosity {
+            0 => "info",
+            1 => "debug",
+            _ => "trace",
+        };
+        let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(default));
+        let _ = tracing_log::LogTracer::init();
+        tracing_subscriber::registry()
+            .with(filter)
+            .with(tracing_subscriber::fmt::layer().with_target(true))
+            .with(zenoh_layer::ZenohLogLayer::new())
+            .try_init()
+            .expect("tracing subscriber");
+    });
+    info!("Starting {service_name}");
+    Ok(())
 }
