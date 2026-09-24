@@ -12,7 +12,8 @@ path = "src/main.rs"
 [features]
 default = []
 example = ["dep:example"]
-# recorder = ["dep:recorder"]  # added by the Recorder workstream in ../wt-3b-recorder
+recorder = ["dep:recorder"]
 
 [dependencies]
 example = { package = "example_service", path = "../../services/example/app", optional = true }
+recorder = { package = "blueos-recorder", path = "../../services/recorder/app", optional = true }
