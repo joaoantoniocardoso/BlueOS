@@ -87,6 +87,12 @@ gh issue list --repo bluerobotics/BlueOS
 
 ### 4. Use `jq` to parse json
 
+## Writing a Rust service
+
+Read `doc/architecture/decisions.md` (especially D-02, D-03, D-10, D-11, D-12). The teaching example is
+`core/services/example/` — follow its README for folder layout, sans-IO commands/effects/jobs, IDL + `api.lock`,
+settings, multicall binary, tests, and the pirate-mode frontend view.
+
 ## Creating a New Service
 
 **Reference implementation:** [PR #3669](https://github.com/bluerobotics/BlueOS/pull/3669) (disk_usage service)
