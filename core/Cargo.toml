@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "libs/adapters/cli",
     "libs/adapters/comms",
     "libs/adapters/comms/channel",
     "libs/adapters/comms/driver",
@@ -25,5 +26,6 @@ panic = "unwind"
 strip = true
 
 [workspace.dependencies]
+clap = { version = "4", features = ["derive"] }
 thiserror = { version = "2", default-features = false }
 zenoh = { version = "=1.9.0", default-features = false, features = ["transport_tcp"] }
