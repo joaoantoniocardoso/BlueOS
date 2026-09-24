@@ -8,6 +8,8 @@ members = [
     "libs/adapters/comms/zenoh",
     "libs/adapters/configs",
     "libs/adapters/logging",
+    "libs/logic/cqrs",
+    "libs/logic/jobs",
 ]
 
 [workspace.package]

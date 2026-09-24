@@ -225,6 +225,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "blueos_cqrs"
+version = "0.1.0"
+dependencies = [
+ "blueos_jobs",
+ "thiserror",
+]
+
+[[package]]
+name = "blueos_jobs"
+version = "0.1.0"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
 name = "blueos_logging"
 version = "0.1.0"
 dependencies = [
