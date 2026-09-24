@@ -20,14 +20,18 @@ use blueos_logging::{LogRecord, attach_zenoh_publisher, log_key_for_service};
 use blueos_settings::{SettingsManager, SettingsSchema, serialize_settings_document};
 use bytes::Bytes;
 use futures::StreamExt;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{mpsc, oneshot, watch};
+use tracing::{error, instrument, warn};
+
+use crate::error::ServiceError;
+use crate::shutdown::IoInflight;
+
+const SHUTDOWN_IO_DRAIN_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+
 struct TimerRegistration {
     cancelled: Arc<AtomicBool>,
     task: tokio::task::JoinHandle<()>,
 }
-use tracing::error;
-
-use crate::error::ServiceError;
 
 pub type CommandDecode<D> =
     Arc<dyn Fn(&[u8]) -> Result<<D as Domain>::Command, String> + Send + Sync>;
@@ -140,7 +144,7 @@ enum InboxMessage<D: Domain> {
     },
     Query {
         query_index: usize,
-        payload: Vec<u8>,
+        payload: Payload,
         reply: oneshot::Sender<Result<(Payload, String), String>>,
     },
 }
@@ -165,6 +169,7 @@ struct KernelState<D: Domain> {
 }
 
 #[allow(clippy::too_many_arguments)]
+#[instrument(skip_all, fields(service = %service_name))]
 pub async fn run<D: Domain + 'static>(
     service_name: String,
     service_info: ServiceInfo,
@@ -180,6 +185,8 @@ pub async fn run<D: Domain + 'static>(
     settings_slot: SettingsSlot<D>,
     io_executor: Option<IoExecutor<D>>,
     cli_command: Option<CliCommandMapper<D>>,
+    shutdown_command: Option<D::Command>,
+    mut shutdown_receiver: Option<watch::Receiver<bool>>,
 ) -> Result<(), ServiceError>
 where
     D::Command: Send + Clone + 'static,
@@ -267,6 +274,33 @@ where
 
     let (inbox_sender, mut inbox_receiver) = mpsc::channel::<InboxMessage<D>>(256);
 
+    let (persist_sender, mut persist_receiver) = mpsc::channel::<App<D>>(64);
+    let persist_worker = settings_runtime.clone().map(|settings| {
+        tokio::spawn(async move {
+            while let Some(application) = persist_receiver.recv().await {
+                let settings = Arc::clone(&settings);
+                let persist_result =
+                    tokio::task::spawn_blocking(move || settings.persist_blocking(&application))
+                        .await;
+                match persist_result {
+                    Ok(Ok(())) => {}
+                    Ok(Err(error)) => error!("settings persist failed: {error}"),
+                    Err(error) => error!("settings persist task join failed: {error}"),
+                }
+            }
+        })
+    });
+
+    let io_inflight = IoInflight::new();
+    let dispatch_context = DispatchContext {
+        persist_sender: if settings_runtime.is_some() {
+            Some(persist_sender)
+        } else {
+            None
+        },
+        io_inflight: io_inflight.clone(),
+    };
+
     let mut kernel = KernelState {
         service_name: service_name.clone(),
         application,
@@ -308,37 +342,110 @@ where
 
     if let Some(mapper) = cli_command
         && let Ok(command) = mapper(&cli.args)
-    {
-        let _ = inbox_sender
+        && let Err(error) = inbox_sender
             .send(InboxMessage::Command {
                 command,
                 reply: None,
             })
-            .await;
+            .await
+    {
+        error!("cli command inbox send failed: {error}");
     }
 
-    while let Some(message) = inbox_receiver.recv().await {
+    let mut shutting_down = false;
+    let mut shutdown_deadline: Option<tokio::time::Instant> = None;
+    // Created once: a signal arriving while no listener exists would be lost, since tokio replaces the default
+    // disposition on first registration.
+    let shutdown_signal = wait_for_shutdown_signal(&mut shutdown_receiver);
+    tokio::pin!(shutdown_signal);
+
+    while !shutting_down || io_inflight.count() > 0 {
+        if shutting_down
+            && let Some(deadline) = shutdown_deadline
+            && tokio::time::Instant::now() >= deadline
+        {
+            warn!(
+                "shutdown io drain timed out after {:?}",
+                SHUTDOWN_IO_DRAIN_TIMEOUT
+            );
+            break;
+        }
+
+        let message = if shutting_down {
+            let remaining = shutdown_deadline
+                .map(|deadline| deadline.saturating_duration_since(tokio::time::Instant::now()))
+                .unwrap_or(SHUTDOWN_IO_DRAIN_TIMEOUT);
+            match tokio::time::timeout(remaining, inbox_receiver.recv()).await {
+                Ok(message) => message,
+                Err(_) => break,
+            }
+        } else {
+            tokio::select! {
+                message = inbox_receiver.recv() => message,
+                _ = &mut shutdown_signal => {
+                    begin_shutdown(
+                        &mut kernel,
+                        &inbox_sender,
+                        &dispatch_context,
+                        shutdown_command.clone(),
+                    )
+                    .await?;
+                    shutting_down = true;
+                    shutdown_deadline =
+                        Some(tokio::time::Instant::now() + SHUTDOWN_IO_DRAIN_TIMEOUT);
+                    continue;
+                }
+            }
+        };
+
         match message {
-            InboxMessage::Command { command, reply } => {
-                match dispatch_command(&mut kernel, command, inbox_sender.clone()).await {
+            None => break,
+            Some(InboxMessage::Command { command, reply }) => {
+                if shutting_down {
+                    if let Some(sender) = reply
+                        && sender
+                            .send(rejected_ack("service shutting down".into()))
+                            .is_err()
+                    {
+                        error!("shutdown reject ack dropped");
+                    }
+                    continue;
+                }
+                match dispatch_command(
+                    &mut kernel,
+                    command,
+                    inbox_sender.clone(),
+                    &dispatch_context,
+                )
+                .await
+                {
                     Ok(()) => {
-                        if let Some(sender) = reply {
-                            let _ = sender.send(accepted_ack(&kernel.application));
+                        if let Some(sender) = reply
+                            && sender.send(accepted_ack(&kernel.application)).is_err()
+                        {
+                            error!("command ack dropped");
                         }
                         publish_all_states(&mut kernel).await?;
                         publish_pending_events(&mut kernel).await?;
                     }
                     Err(error) => {
                         error!("command handling failed: {error}");
-                        if let Some(sender) = reply {
-                            let _ = sender.send(rejected_ack(error.to_string()));
+                        if let Some(sender) = reply
+                            && sender.send(rejected_ack(error.to_string())).is_err()
+                        {
+                            error!("command reject ack dropped");
                         }
                     }
                 }
             }
-            InboxMessage::IoComplete { command } => {
-                if let Err(error) =
-                    dispatch_command(&mut kernel, command, inbox_sender.clone()).await
+            Some(InboxMessage::IoComplete { command }) => {
+                if let Err(error) = dispatch_command(
+                    &mut kernel,
+                    command,
+                    inbox_sender.clone(),
+                    &dispatch_context,
+                )
+                .await
                 {
                     error!("io completion failed: {error}");
                 } else {
@@ -346,21 +453,106 @@ where
                     publish_pending_events(&mut kernel).await?;
                 }
             }
-            InboxMessage::Query {
+            Some(InboxMessage::Query {
                 query_index,
                 payload,
                 reply,
-            } => {
+            }) => {
+                if shutting_down {
+                    if reply.send(Err("service shutting down".into())).is_err() {
+                        error!("shutdown query reject dropped");
+                    }
+                    continue;
+                }
+                let payload_bytes = payload.to_vec();
                 let response = kernel
                     .query_handlers
                     .get(query_index)
                     .ok_or_else(|| "unknown query".to_string())
-                    .and_then(|handler| handler(payload.as_slice(), &kernel.application));
-                let _ = reply.send(response);
+                    .and_then(|handler| handler(&payload_bytes, &kernel.application));
+                if reply.send(response).is_err() {
+                    error!("query reply dropped");
+                }
             }
+        }
+
+        if shutting_down && io_inflight.count() == 0 {
+            break;
         }
     }
 
+    // Closing the persist queue lets the worker flush pending settings writes before the process exits.
+    drop(dispatch_context);
+    if let Some(worker) = persist_worker
+        && tokio::time::timeout(SHUTDOWN_IO_DRAIN_TIMEOUT, worker)
+            .await
+            .is_err()
+    {
+        warn!("settings persist drain timed out after {SHUTDOWN_IO_DRAIN_TIMEOUT:?}");
+    }
+
+    Ok(())
+}
+
+struct DispatchContext<D: Domain> {
+    persist_sender: Option<mpsc::Sender<App<D>>>,
+    io_inflight: IoInflight,
+}
+
+async fn wait_for_shutdown_signal(shutdown_receiver: &mut Option<watch::Receiver<bool>>) {
+    let ctrl_c = tokio::signal::ctrl_c();
+    tokio::pin!(ctrl_c);
+
+    #[cfg(unix)]
+    let mut sigterm =
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).ok();
+
+    // A failed signal listener (e.g. its driver's runtime is gone) must never read as a shutdown request.
+    tokio::select! {
+        _ = async {
+            if let Err(error) = ctrl_c.as_mut().await {
+                warn!("SIGINT listener failed: {error}");
+                std::future::pending::<()>().await;
+            }
+        } => {}
+        _ = async {
+            if let Some(ref mut sigterm) = sigterm
+                && sigterm.recv().await.is_some()
+            {
+                return;
+            }
+            std::future::pending::<()>().await;
+        }, if sigterm.is_some() => {}
+        _ = async {
+            if let Some(receiver) = shutdown_receiver {
+                while !*receiver.borrow_and_update() {
+                    if receiver.changed().await.is_err() {
+                        std::future::pending::<()>().await;
+                    }
+                }
+            } else {
+                std::future::pending::<()>().await;
+            }
+        }, if shutdown_receiver.is_some() => {}
+    }
+}
+
+async fn begin_shutdown<D: Domain + 'static>(
+    kernel: &mut KernelState<D>,
+    inbox_sender: &mpsc::Sender<InboxMessage<D>>,
+    dispatch_context: &DispatchContext<D>,
+    shutdown_command: Option<D::Command>,
+) -> Result<(), ServiceError>
+where
+    D::Command: Clone,
+    D::Snapshot: Clone,
+    D::JobSpec: Clone,
+{
+    if let Some(command) = shutdown_command {
+        dispatch_command(kernel, command, inbox_sender.clone(), dispatch_context).await?;
+        publish_all_states(kernel).await?;
+        publish_pending_events(kernel).await?;
+    }
     Ok(())
 }
 
@@ -383,10 +575,14 @@ fn spawn_command_adapter<D: Domain + 'static>(
                 Err(reason) => {
                     let ack = rejected_ack(reason);
                     let Ok((payload, encoding)) = command_ack_payload(&ack) else {
-                        let _ = query.reply_error("ack encode failed").await;
+                        if let Err(error) = query.reply_error("ack encode failed").await {
+                            error!("command reply_error failed: {error}");
+                        }
                         continue;
                     };
-                    let _ = query.reply(payload, &encoding).await;
+                    if let Err(error) = query.reply(payload, &encoding).await {
+                        error!("command reply failed: {error}");
+                    }
                     continue;
                 }
             };
@@ -399,20 +595,28 @@ fn spawn_command_adapter<D: Domain + 'static>(
                 .await
                 .is_err()
             {
-                let _ = query.reply_error("inbox closed").await;
+                if let Err(error) = query.reply_error("inbox closed").await {
+                    error!("command reply_error failed: {error}");
+                }
                 continue;
             }
             match reply_receiver.await {
                 Ok(ack) => match command_ack_payload(&ack) {
                     Ok((payload, encoding)) => {
-                        let _ = query.reply(payload, &encoding).await;
+                        if let Err(error) = query.reply(payload, &encoding).await {
+                            error!("command reply failed: {error}");
+                        }
                     }
                     Err(message) => {
-                        let _ = query.reply_error(&message).await;
+                        if let Err(error) = query.reply_error(&message).await {
+                            error!("command reply_error failed: {error}");
+                        }
                     }
                 },
                 Err(_) => {
-                    let _ = query.reply_error("inbox dropped ack").await;
+                    if let Err(error) = query.reply_error("inbox dropped ack").await {
+                        error!("command reply_error failed: {error}");
+                    }
                 }
             }
         }
@@ -434,34 +638,44 @@ fn spawn_query_adapter<D: Domain + 'static>(
             if inbox_sender
                 .send(InboxMessage::Query {
                     query_index,
-                    payload: query.payload.as_slice().to_vec(),
+                    payload: query.payload.clone(),
                     reply: reply_sender,
                 })
                 .await
                 .is_err()
             {
-                let _ = query.reply_error("inbox closed").await;
+                if let Err(error) = query.reply_error("inbox closed").await {
+                    error!("query reply_error failed: {error}");
+                }
                 continue;
             }
             match reply_receiver.await {
                 Ok(Ok((payload, encoding))) => {
-                    let _ = query.reply(payload, &encoding).await;
+                    if let Err(error) = query.reply(payload, &encoding).await {
+                        error!("query reply failed: {error}");
+                    }
                 }
                 Ok(Err(message)) => {
-                    let _ = query.reply_error(&message).await;
+                    if let Err(error) = query.reply_error(&message).await {
+                        error!("query reply_error failed: {error}");
+                    }
                 }
                 Err(_) => {
-                    let _ = query.reply_error("inbox dropped query").await;
+                    if let Err(error) = query.reply_error("inbox dropped query").await {
+                        error!("query reply_error failed: {error}");
+                    }
                 }
             }
         }
     });
 }
 
+#[instrument(skip_all, fields(service = %kernel.service_name))]
 async fn dispatch_command<D: Domain + 'static>(
     kernel: &mut KernelState<D>,
     command: D::Command,
     inbox_sender: mpsc::Sender<InboxMessage<D>>,
+    dispatch_context: &DispatchContext<D>,
 ) -> Result<(), ServiceError>
 where
     D::Command: Clone,
@@ -482,11 +696,16 @@ where
                     };
                     let application = kernel.application.clone();
                     let sender = inbox_sender.clone();
+                    let io_guard = dispatch_context.io_inflight.track();
                     tokio::spawn(async move {
+                        let _io_guard = io_guard;
                         let command = match executor(application, request).await {
                             Ok(command) | Err(command) => command,
                         };
-                        let _ = sender.send(InboxMessage::IoComplete { command }).await;
+                        if let Err(error) = sender.send(InboxMessage::IoComplete { command }).await
+                        {
+                            error!("io complete inbox send failed: {error}");
+                        }
                     });
                 }
                 Effect::Schedule {
@@ -505,12 +724,15 @@ where
                         if cancelled_for_task.load(Ordering::SeqCst) {
                             return;
                         }
-                        let _ = sender
+                        if let Err(error) = sender
                             .send(InboxMessage::Command {
                                 command,
                                 reply: None,
                             })
-                            .await;
+                            .await
+                        {
+                            error!("scheduled command inbox send failed: {error}");
+                        }
                     });
                     kernel
                         .timers
@@ -523,15 +745,15 @@ where
                     }
                 }
                 Effect::Persist => {
-                    let Some(settings) = kernel.settings.clone() else {
+                    let Some(sender) = dispatch_context.persist_sender.as_ref() else {
                         return Err(ServiceError::Message(
                             "Effect::Persist without settings".into(),
                         ));
                     };
                     let application = kernel.application.clone();
-                    tokio::task::spawn_blocking(move || settings.persist_blocking(&application))
-                        .await
-                        .map_err(|error| ServiceError::Message(error.to_string()))??;
+                    if let Err(error) = sender.try_send(application) {
+                        error!("persist queue full or closed: {error}");
+                    }
                 }
             }
         }
