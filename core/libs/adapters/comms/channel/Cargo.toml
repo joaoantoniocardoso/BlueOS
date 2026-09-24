@@ -6,7 +6,9 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+async-trait.workspace = true
+bytes.workspace = true
+futures.workspace = true
 blueos_comms_driver = { path = "../driver" }
+tokio.workspace = true
 
-[dev-dependencies]
-blueos_comms = { path = "..", default-features = false }
