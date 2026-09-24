@@ -27,5 +27,38 @@ MCAP without sending payloads through the inbox (D-03, D-09).
 
 ## Zero-copy and SHM
 
-Samples are passed as `blueos_comms::Payload` clones to the MCAP writer thread. For shared-memory Zenoh
-between MCM and the recorder, use host IPC (`IpcMode: host` or `/dev/shm` bind) as documented in D-09.
+Samples are passed as `blueos_comms::Payload` clones to the MCAP writer thread. Zenoh uses shared memory
+when both peers are on the same host and payloads are large enough; without host IPC, traffic falls back
+to TCP silently.
+
+The core container already bind-mounts `/dev/` (see `bootstrap/startup.json.default`), so `/dev/shm` is
+shared with the host. **Extension images** must set Kraken permissions accordingly, for example:
+
+```json
+"HostConfig": {
+  "IpcMode": "host"
+}
+```
+
+The narrower alternative is a bind mount of `/dev/shm`. See also `core/libs/api/README.md` and
+`doc/architecture/decisions.md` (D-09). External extension developer docs should repeat this requirement.
+
+## Docker image binary (local builds)
+
+CI cross-builds the multicall `blueos` binary with the `recorder` feature. To build the core image
+locally, produce musl binaries under `core/target/build/` first:
+
+```bash
+cd core
+./build_cross.sh
+```
+
+One target only (matches your machine or the platform you build with buildx):
+
+```bash
+cd core
+TARGETS='x86_64-unknown-linux-musl' ./build_cross.sh
+```
+
+Binaries land at `core/target/build/<target>/<target>/release/blueos`. The Dockerfile copies the file
+matching `TARGETARCH` into `/usr/bin/blueos` and adds `/usr/bin/recorder` as a symlink to it.
