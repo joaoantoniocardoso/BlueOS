@@ -1,5 +1,41 @@
 // @generated
 export const SCHEMAS: Record<string, string> = {
+  "blueos_example_msgs/msg/EmptyRequest": `MSG: blueos_example_msgs/msg/EmptyRequest
+# blueos_example_msgs/msg/EmptyRequest
+# Command payload with no semantics (StartSelfTest, CancelSelfTest). Padding keeps CDR codegen happy.
+
+uint8 padding`,
+  "blueos_example_msgs/msg/LevelQueryResponse": `MSG: blueos_example_msgs/msg/LevelQueryResponse
+# blueos_example_msgs/msg/LevelQueryResponse
+# Reply for blueos/v1/example/query/Level.
+
+uint8 level
+uint8 max_level`,
+  "blueos_example_msgs/msg/PumpState": `MSG: blueos_example_msgs/msg/PumpState
+# blueos_example_msgs/msg/PumpState
+# Published on blueos/v1/example/state/pump (teaching example, D-20).
+
+uint8 SELF_TEST_IDLE=0
+uint8 SELF_TEST_RUNNING=1
+uint8 SELF_TEST_PASSED=2
+uint8 SELF_TEST_FAILED=3
+uint8 SELF_TEST_CANCELLED=4
+
+uint8 level
+uint8 max_level
+uint8 self_test_phase
+bool self_test_active`,
+  "blueos_example_msgs/msg/SelfTestCompleted": `MSG: blueos_example_msgs/msg/SelfTestCompleted
+# blueos_example_msgs/msg/SelfTestCompleted
+# Event on blueos/v1/example/event/SelfTestCompleted.
+
+bool passed
+string detail`,
+  "blueos_example_msgs/msg/SetLevelRequest": `MSG: blueos_example_msgs/msg/SetLevelRequest
+# blueos_example_msgs/msg/SetLevelRequest
+# Payload for blueos/v1/example/command/SetLevel.
+
+uint8 level`,
   "blueos_msgs/msg/CommandAck": `MSG: blueos_msgs/msg/CommandAck
 # blueos_msgs/msg/CommandAck
 # Reply to a Zenoh command query (D-10).
