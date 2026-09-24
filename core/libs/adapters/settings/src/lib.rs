@@ -14,7 +14,7 @@ pub use manager::{
     SETTINGS_NAME_PREFIX, SettingsManager, resolve_config_folder, settings_file_name,
 };
 pub use restart::{SettingsFieldChanges, diff_top_level_settings};
-pub use schema::{SettingsSchema, read_version};
+pub use schema::{SettingsSchema, read_version, serialize_settings_document};
 
 #[cfg(test)]
 mod tests;

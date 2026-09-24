@@ -81,7 +81,12 @@ where
     EncoderFn: Fn(&LogRecord) -> (Payload, String) + Send + Sync + 'static,
 {
     if PUBLISH_SENDER.get().is_some() {
-        return Err("zenoh log publisher already attached".into());
+        return Ok(ZenohLogGuard {
+            _task: tokio::spawn(async {}),
+        });
+    }
+    if ENCODER.get().is_some() {
+        return Err("zenoh log encoder already attached".into());
     }
     let _ = ENCODER.set(Arc::new(encoder));
     let (sender, mut receiver) = mpsc::channel(LOG_CHANNEL_CAPACITY);
