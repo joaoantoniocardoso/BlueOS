@@ -6,6 +6,7 @@ members = [
     "libs/adapters/comms/channel",
     "libs/adapters/comms/driver",
     "libs/adapters/comms/zenoh",
+    "libs/adapters/configs",
 ]
 
 [workspace.package]
@@ -27,5 +28,8 @@ strip = true
 
 [workspace.dependencies]
 clap = { version = "4", features = ["derive"] }
+json5 = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 thiserror = { version = "2", default-features = false }
 zenoh = { version = "=1.9.0", default-features = false, features = ["transport_tcp"] }

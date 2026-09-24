@@ -215,6 +215,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "blueos_configs"
+version = "0.1.0"
+dependencies = [
+ "json5",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "bs58"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
