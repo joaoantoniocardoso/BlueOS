@@ -16,7 +16,6 @@ TOOLS=(
     mavlink_server
     mcap
     mcap-extractor
-    recorder
     ttyd
     zenoh
 )
