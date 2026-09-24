@@ -1,0 +1,20 @@
+[package]
+name = "autopilot"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+autopilot_preflight = { path = "../logic/preflight" }
+blueos_cli = { path = "../../../../../core/libs/adapters/cli" }
+blueos_comms = { path = "../../../../../core/libs/adapters/comms" }
+blueos_configs = { path = "../../../../../core/libs/adapters/configs" }
+blueos_cqrs = { path = "../../../../../core/libs/logic/cqrs" }
+blueos_jobs = { path = "../../../../../core/libs/logic/jobs" }
+blueos_logging = { path = "../../../../../core/libs/adapters/logging" }
+blueos_service = { path = "../../../../../core/libs/app/service" }
+clap.workspace = true
+
+[dev-dependencies]
+blueos_comms = { path = "../../../../../core/libs/adapters/comms", features = ["channel"] }
