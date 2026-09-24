@@ -8,6 +8,7 @@ members = [
     "libs/adapters/comms/zenoh",
     "libs/adapters/configs",
     "libs/adapters/logging",
+    "libs/app/service",
     "libs/logic/cqrs",
     "libs/logic/jobs",
 ]

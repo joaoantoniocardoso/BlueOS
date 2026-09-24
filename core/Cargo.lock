@@ -250,6 +250,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "blueos_service"
+version = "0.1.0"
+dependencies = [
+ "blueos_cli",
+ "blueos_comms",
+ "blueos_configs",
+ "blueos_cqrs",
+ "blueos_jobs",
+ "blueos_logging",
+ "thiserror",
+]
+
+[[package]]
 name = "bs58"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
