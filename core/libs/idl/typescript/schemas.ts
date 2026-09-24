@@ -123,6 +123,42 @@ MSG: blueos_msgs/msg/SettingsEnvelope
 
 string document_json
 blueos_msgs/SettingField[] fields`,
+  "blueos_recorder_msgs/msg/RecordingPolicy": `MSG: blueos_recorder_msgs/msg/RecordingPolicy
+# blueos_recorder_msgs/msg/RecordingPolicy
+# Persisted recorder settings (D-11).
+
+bool record_mavlink_only_when_armed
+bool auto_start_recording`,
+  "blueos_recorder_msgs/msg/RecordingState": `MSG: blueos_recorder_msgs/msg/RecordingState
+# blueos_recorder_msgs/msg/RecordingState
+# Published on blueos/v1/recorder/state/recording.
+
+bool armed
+bool session_active
+string current_file
+uint64 session_bytes_written
+string[] recording_video_topics`,
+  "blueos_recorder_msgs/msg/SetPolicyCommand": `MSG: blueos_recorder_msgs/msg/RecordingPolicy
+# blueos_recorder_msgs/msg/RecordingPolicy
+# Persisted recorder settings (D-11).
+
+bool record_mavlink_only_when_armed
+bool auto_start_recording
+================================================================================
+MSG: blueos_recorder_msgs/msg/SetPolicyCommand
+# blueos_recorder_msgs/msg/SetPolicyCommand
+
+blueos_recorder_msgs/RecordingPolicy policy`,
+  "blueos_recorder_msgs/msg/StartRecordingCommand": `MSG: blueos_recorder_msgs/msg/StartRecordingCommand
+# blueos_recorder_msgs/msg/StartRecordingCommand
+# Opens a new MCAP session (rotate if one is already active).
+
+bool rotate_if_active`,
+  "blueos_recorder_msgs/msg/StopRecordingCommand": `MSG: blueos_recorder_msgs/msg/StopRecordingCommand
+# blueos_recorder_msgs/msg/StopRecordingCommand
+# Finishes the current MCAP session; samples are dropped until StartRecording.
+
+uint8 reserved`,
   "builtin_interfaces/msg/Duration": `MSG: builtin_interfaces/msg/Duration
 # This message communicates ROS Duration.
 
