@@ -6,5 +6,12 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+async-trait.workspace = true
+bytes.workspace = true
 blueos_comms_driver = { path = "../driver" }
+futures.workspace = true
+tokio.workspace = true
 zenoh.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
