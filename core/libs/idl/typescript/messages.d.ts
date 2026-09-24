@@ -1,5 +1,30 @@
 // @generated
 
+export interface EmptyRequest {
+  padding: number;
+}
+
+export interface LevelQueryResponse {
+  level: number;
+  max_level: number;
+}
+
+export interface PumpState {
+  level: number;
+  max_level: number;
+  self_test_phase: number;
+  self_test_active: boolean;
+}
+
+export interface SelfTestCompleted {
+  passed: boolean;
+  detail: string;
+}
+
+export interface SetLevelRequest {
+  level: number;
+}
+
 export interface CommandAck {
   accepted: boolean;
   job_id: number;
