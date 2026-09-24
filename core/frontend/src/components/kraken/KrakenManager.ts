@@ -1,3 +1,6 @@
+import { QueryTarget, Sample, Subscriber } from '@eclipse-zenoh/zenoh-ts'
+
+import { extensionLogKey, httpGatewayPrefix } from '@/libs/blueos-api'
 import zenoh from '@/libs/zenoh'
 import {
   ExtensionData,
@@ -9,7 +12,6 @@ import {
   UploadProgressEvent,
 } from '@/types/kraken'
 import back_axios from '@/utils/api'
-import { QueryTarget, Sample, Subscriber } from '@eclipse-zenoh/zenoh-ts'
 
 const KRAKEN_BASE_URL = '/kraken'
 const KRAKEN_API_V2_URL = `${KRAKEN_BASE_URL}/v2.0`
@@ -394,9 +396,13 @@ export async function finalizeExtension(
  * @param {number} timeout The timeout for the query
  * @returns {Promise<any | null>}
  */
+export function extensionLogsTopic(identifier: string): string {
+  return extensionLogKey('kraken', identifier)
+}
+
 export async function getHistoricalLogsForExtension(identifier: string, timeout: number): Promise<any | null> {
-  const queryKey = `kraken/extension/logs/request?extension_name=${identifier}`
-  return await zenoh.query(queryKey, QueryTarget.BestMatching, timeout)
+  const queryKey = `${httpGatewayPrefix('kraken')}/extension/logs/request?extension_name=${identifier}`
+  return zenoh.query(queryKey, QueryTarget.BestMatching, timeout)
 }
 
 /**
@@ -409,7 +415,7 @@ export async function createExtensionLogsSubscriber(
   topic: string,
   subscriberHandler: (sample: Sample) => Promise<void>,
 ) : Promise<Subscriber | null> {
-  return await zenoh.subscriber(topic, subscriberHandler)
+  return zenoh.subscriber(topic, subscriberHandler)
 }
 
 export default {
@@ -438,4 +444,5 @@ export default {
   finalizeExtension,
   getHistoricalLogsForExtension,
   createExtensionLogsSubscriber,
+  extensionLogsTopic,
 }
