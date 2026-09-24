@@ -125,6 +125,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "blueos_comms"
+version = "0.1.0"
+dependencies = [
+ "blueos_comms_channel",
+ "blueos_comms_driver",
+ "blueos_comms_zenoh",
+]
+
+[[package]]
+name = "blueos_comms_channel"
+version = "0.1.0"
+dependencies = [
+ "blueos_comms",
+ "blueos_comms_driver",
+]
+
+[[package]]
 name = "blueos_comms_driver"
 version = "0.1.0"
 dependencies = [
