@@ -14,6 +14,8 @@ fn main() {
         eprint!("usage: blueos <service> [args...]\n\nservices:");
         #[cfg(feature = "example")]
         eprint!(" example");
+        #[cfg(feature = "recorder")]
+        eprint!(" recorder");
         eprintln!();
         process::exit(2);
     }
@@ -22,6 +24,7 @@ fn main() {
 fn run(name: Option<&std::ffi::OsStr>, arguments: Vec<OsString>) -> bool {
     match name.and_then(|name| name.to_str()) {
         Some("example") => dispatch_example(arguments),
+        Some("recorder") => dispatch_recorder(arguments),
         _ => false,
     }
 }
@@ -36,5 +39,18 @@ fn dispatch_example(arguments: Vec<OsString>) -> bool {
 fn dispatch_example(arguments: Vec<OsString>) -> bool {
     let _ = arguments;
     eprintln!("blueos: rebuild with --features example");
+    false
+}
+
+#[cfg(feature = "recorder")]
+fn dispatch_recorder(arguments: Vec<OsString>) -> bool {
+    recorder::run(arguments);
+    true
+}
+
+#[cfg(not(feature = "recorder"))]
+fn dispatch_recorder(arguments: Vec<OsString>) -> bool {
+    let _ = arguments;
+    eprintln!("blueos: rebuild with --features recorder");
     false
 }
