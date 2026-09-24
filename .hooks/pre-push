@@ -11,6 +11,7 @@ declare -a EMPTY_PATHS=()
 
 source "$ROOT_DIR/.hooks/lib/common.sh"
 source "$ROOT_DIR/.hooks/lib/python_checks.sh"
+source "$ROOT_DIR/.hooks/lib/rust_checks.sh"
 
 declare -a ISORT_CONFIG_ARGS=(--settings-path "$CORE_DIR/pyproject.toml")
 declare -a BLACK_CONFIG_ARGS=(--config "$CORE_DIR/pyproject.toml")
@@ -45,7 +46,7 @@ for arg in "$@"; do
 done
 
 if [ "$fixing" = true ]; then
-    echo "Fix mode enabled. Running isort/black only."
+    echo "Fix mode enabled. Running isort/black/cargo fmt only."
 fi
 
 check_no_fixup_commits
@@ -86,6 +87,8 @@ run_bootstrap_checks() {
     echo "Running mypy (bootstrap).."
     mypy --config-file "$CORE_DIR/pyproject.toml" "$bootstrap_dir"
 }
+
+run_rust_checks "$CORE_DIR"
 
 run_environment_phase "core" "$CORE_DIR" EMPTY_PATHS EMPTY_PATHS true
 # Bootstrap checks reuse the venv (run_environment_phase runs in a subshell so we re-activate)
