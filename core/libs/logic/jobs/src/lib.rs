@@ -77,6 +77,7 @@ pub enum JobsError {
 }
 
 /// In-memory job graph executor. Pure scheduling: no IO, clocks, or interpretation of `Spec`.
+#[derive(Clone)]
 pub struct Jobs<Spec> {
     // ponytail: completed nodes stay in the vec for snapshot identity; compact if JobId space matters.
     nodes: Vec<Node<Spec>>,
@@ -89,6 +90,7 @@ enum Kind {
     Parallel,
 }
 
+#[derive(Clone)]
 struct Node<Spec> {
     parent: Option<JobId>,
     job_spec: Option<Spec>,

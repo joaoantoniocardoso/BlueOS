@@ -105,13 +105,13 @@ where
 
 /// Pure domain: command and query handlers plus job-to-IO mapping.
 pub trait Domain: Sized {
-    type Command: Clone;
+    type Command: Clone + Send + 'static;
     type Event;
     type Query;
     type View;
-    type Snapshot;
-    type IoRequest: Clone;
-    type JobSpec: Clone;
+    type Snapshot: Clone + Send;
+    type IoRequest: Clone + Send;
+    type JobSpec: Clone + Send;
 
     /// Mutate state and describe what the kernel should do next. Must not block or touch the outside world.
     fn handle_command(
@@ -142,6 +142,15 @@ pub enum AppError {
 pub struct App<D: Domain> {
     pub snapshot: D::Snapshot,
     pub jobs: Jobs<D::JobSpec>,
+}
+
+impl<D: Domain> Clone for App<D> {
+    fn clone(&self) -> Self {
+        Self {
+            snapshot: self.snapshot.clone(),
+            jobs: self.jobs.clone(),
+        }
+    }
 }
 
 impl<D: Domain> App<D> {
