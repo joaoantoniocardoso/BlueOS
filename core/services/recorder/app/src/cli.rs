@@ -47,11 +47,7 @@ pub fn parse_cli(arguments: &[String]) -> RecorderCli {
 }
 
 pub fn recorder_directory(cli: &RecorderCli) -> PathBuf {
-    let path = PathBuf::from(&cli.recorder_path);
-    if !path.exists() {
-        std::fs::create_dir_all(&path).expect("recorder path");
-    }
-    path
+    PathBuf::from(&cli.recorder_path)
 }
 
 pub fn schema_directory(cli: &RecorderCli) -> Option<PathBuf> {
