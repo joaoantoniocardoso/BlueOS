@@ -80,33 +80,33 @@ class ConsoleLogger {
   }
 
   private interceptConsole(): void {
-    console.log = (...args: any[]) => {
+    console.log = (...args: unknown[]) => {
       this.originalConsole.log(...args)
       this.publishMessage(LogLevel.INFO, args)
     }
 
-    console.info = (...args: any[]) => {
+    console.info = (...args: unknown[]) => {
       this.originalConsole.info(...args)
       this.publishMessage(LogLevel.INFO, args)
     }
 
-    console.warn = (...args: any[]) => {
+    console.warn = (...args: unknown[]) => {
       this.originalConsole.warn(...args)
       this.publishMessage(LogLevel.WARNING, args)
     }
 
-    console.error = (...args: any[]) => {
+    console.error = (...args: unknown[]) => {
       this.originalConsole.error(...args)
       this.publishMessage(LogLevel.ERROR, args)
     }
 
-    console.debug = (...args: any[]) => {
+    console.debug = (...args: unknown[]) => {
       this.originalConsole.debug(...args)
       this.publishMessage(LogLevel.DEBUG, args)
     }
   }
 
-  private publishMessage(level: LogLevel, args: any[], file?: string, line?: number): void {
+  private publishMessage(level: LogLevel, args: unknown[], file?: string, line?: number): void {
     if (!this.session) {
       return
     }
@@ -147,7 +147,7 @@ class ConsoleLogger {
     }
   }
 
-  private static extractErrorLocation(args: any[]): { file: string | undefined; line: number | undefined } {
+  private static extractErrorLocation(args: unknown[]): { file: string | undefined; line: number | undefined } {
     for (const arg of args) {
       try {
         if (arg instanceof Error && typeof arg.stack === 'string') {
@@ -170,7 +170,7 @@ class ConsoleLogger {
     return { file: undefined, line: undefined }
   }
 
-  private static stringifyArgument(arg: any): string {
+  private static stringifyArgument(arg: unknown): string {
     if (arg === null) {
       return 'null'
     }
