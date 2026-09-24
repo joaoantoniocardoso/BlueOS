@@ -1,0 +1,18 @@
+[package]
+name = "blueos_service"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+blueos_cli = { path = "../../adapters/cli" }
+blueos_comms = { path = "../../adapters/comms" }
+blueos_configs = { path = "../../adapters/configs" }
+blueos_cqrs = { path = "../../logic/cqrs" }
+blueos_jobs = { path = "../../logic/jobs" }
+blueos_logging = { path = "../../adapters/logging" }
+thiserror.workspace = true
+
+[dev-dependencies]
+blueos_comms = { path = "../../adapters/comms", features = ["channel"] }
