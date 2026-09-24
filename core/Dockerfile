@@ -113,7 +113,6 @@ COPY ./.vscode /home/pi/.vscode
 # Copy binaries and necessary folders from download-binaries to this stage
 COPY --from=download-binaries \
     /usr/bin/blueos_startup_update.py \
-    /usr/bin/blueos-recorder \
     /usr/bin/bridges \
     /usr/bin/disktest \
     /usr/bin/linux2rest \
@@ -166,6 +165,38 @@ set -e
     # on top of the existing file inside the docker.
     # This allows docker to actually create a folder, which we handle in networksetup.py
     rm -f /etc/dhcpcd.conf
+
+EOF
+
+# Multicall binary (last layer: small incremental image updates when only Rust services change)
+COPY target/build /tmp/target/build
+RUN <<-EOF
+set -e
+
+    if [ "${TARGETARCH}" = "amd64" ]; then
+        TARGET="x86_64-unknown-linux-musl"
+    elif [ "${TARGETARCH}" = "arm64" ]; then
+        TARGET="aarch64-unknown-linux-musl"
+    elif [ "${TARGETARCH}" = "arm" ]; then
+        TARGET="armv7-unknown-linux-musleabihf"
+    else
+        echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2
+        exit 1
+    fi
+
+    BIN="/tmp/target/build/${TARGET}/${TARGET}/release/blueos"
+    if [ ! -f "${BIN}" ]; then
+        echo "Missing blueos binary at ${BIN}" >&2
+        echo "From the repository root, run:" >&2
+        echo "  cd core && ./build_cross.sh" >&2
+        echo "Or for one target:" >&2
+        echo "  cd core && TARGETS='x86_64-unknown-linux-musl' ./build_cross.sh" >&2
+        exit 1
+    fi
+
+    install -m 0755 "${BIN}" /usr/bin/blueos
+    ln -sf blueos /usr/bin/recorder
+    rm -rf /tmp/target/build
 
 EOF
 
