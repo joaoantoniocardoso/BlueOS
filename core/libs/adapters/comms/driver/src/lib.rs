@@ -23,10 +23,15 @@ pub enum Endpoint {
 
 #[derive(Clone, Debug)]
 pub struct Sample {
+    /// Zenoh key expression for this sample.
     pub key: String,
+    /// Sample body (may copy on read when backed by shared memory).
     pub payload: Payload,
+    /// Wire encoding string (for example `application/cdr;...`).
     pub encoding: String,
+    /// Optional publisher timestamp in nanoseconds since the Unix epoch.
     pub timestamp: Option<u64>,
+    /// Optional attachment payload (type hash or side-band metadata).
     pub attachment: Option<Payload>,
 }
 

@@ -48,6 +48,7 @@ impl Payload {
         Self { inner: storage }
     }
 
+    /// Returns a contiguous copy of the payload bytes (always allocates).
     pub fn as_slice(&self) -> Vec<u8> {
         match self.inner.contiguous() {
             Some(slice) => slice.to_vec(),
