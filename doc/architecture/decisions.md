@@ -323,6 +323,8 @@ Decision:
   JSON fallback.
 - Frontend reworked on `blueos-api` (D-14).
 - radcam-manager stays in its own repository.
+- Runs as `recorder --recorder-path /usr/blueos/userdata/recorder` (symlink to the `blueos` multicall binary),
+  same arguments and slot as the retired binary in `core/start-blueos-core`.
 
 ## D-16 CI and deploy
 
@@ -330,8 +332,13 @@ Decision (radcam-manager model):
 
 - A matrix CI job cross-builds with `cross` for `aarch64-unknown-linux-musl`,
   `armv7-unknown-linux-musleabihf`, `x86_64-unknown-linux-musl`, in parallel with the Python pipeline.
-- The Docker image copies the single `blueos` binary (selected by `TARGETARCH`) plus service symlinks in the
-  **last layer**, for cache reuse and small incremental updates.
+- The Docker image installs the single `blueos` binary (selected by `TARGETARCH`) plus service symlinks in the
+  **last layer**, for cache reuse and small incremental updates. The per-target binaries are bind-mounted
+  (`RUN --mount=type=bind,source=target/build`), not copied, so the other architectures' binaries never land
+  in a layer; `core/.dockerignore` re-includes only `target/build/*/*/release/blueos`.
+- Shipped features: `recorder` only. The teaching example is never shipped.
+- Release binaries are about 14 MB per target (musl, stripped, thin LTO).
+- Local builds: `cd core && ./build_cross.sh` (see `core/services/recorder/README.md`).
 - Rust checks (fmt, clippy, tests, deny, folder rules, no_std build, API-break gates) run in `.hooks/pre-push`
   and CI.
 
@@ -341,8 +348,14 @@ Decision:
 
 - Python producers/consumers (commonwealth zenoh helper and logs, kraken zenoh handlers) switch to
   `blueos/v1/` keys and CDR IDL payloads.
-- Python uses **runtime `.msg` parsing** plus CDR (e.g. `rosbags`; license and fit to verify) instead of a
-  third codegen target, since Python is being phased out.
+- Python uses **runtime `.msg` parsing** plus CDR instead of a third codegen target, since Python is being
+  phased out. It is a small pure-Python parser and codec in `commonwealth/utils/blueos_idl.py` (stdlib
+  `struct` only), tested against bytes produced by the Rust codec for every message.
+- `rosbags` was evaluated and rejected: it pulls `numpy`, `apsw`, `lz4`, `zstandard` and `ruamel-yaml` into
+  the image (none present before), `numpy`/`apsw` have no armv7 wheels, and it needed workarounds to get the
+  D-06 trailing-field defaults.
+- The `.msg` files reach the image through the existing `COPY libs` (`/home/pi/libs/idl/interfaces`);
+  `BLUEOS_IDL_INTERFACES` overrides the path.
 - Frontend consumers of those keys (Zenoh inspector, console logger, extension logs) are updated together.
 
 ## D-18 REST gateways for migrated services
