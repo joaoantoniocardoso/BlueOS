@@ -29,6 +29,7 @@ pub fn init(service_name: &str, verbosity: u8) -> Result<(), LogError> {
             _ => "trace",
         };
         let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(default));
+        // Init once per process; ignore errors when another subscriber already owns logging.
         let _ = tracing_log::LogTracer::init();
         let _ = tracing_subscriber::registry()
             .with(filter)
