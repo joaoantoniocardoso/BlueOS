@@ -169,8 +169,7 @@ set -e
 EOF
 
 # Multicall binary (last layer: small incremental image updates when only Rust services change)
-COPY target/build /tmp/target/build
-RUN <<-EOF
+RUN --mount=type=bind,source=target/build,target=/tmp/target/build <<-EOF
 set -e
 
     if [ "${TARGETARCH}" = "amd64" ]; then
@@ -196,7 +195,6 @@ set -e
 
     install -m 0755 "${BIN}" /usr/bin/blueos
     ln -sf blueos /usr/bin/recorder
-    rm -rf /tmp/target/build
 
 EOF
 

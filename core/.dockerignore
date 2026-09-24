@@ -9,3 +9,4 @@
 !/frontend/src/components/vue-tour/dist
 **/build
 /target
+!/target/build/*/*/release/blueos
