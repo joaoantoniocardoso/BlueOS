@@ -44,6 +44,10 @@ describe('blueos-api CDR codec', () => {
     })
   })
 
+  it('throws on corrupt CDR payload', () => {
+    expect(() => decodeCdr(COMMAND_ACK_SCHEMA, new Uint8Array(0))).toThrow()
+  })
+
   it('decodes numeric sequences as arrays (RecordingIndex)', () => {
     const message = {
       size: 4096,
