@@ -1,10 +1,10 @@
 import asyncio
-import json
 import time
-from typing import Callable, Dict, Optional, Tuple
+from typing import Callable, Dict, Optional
 
 import zenoh
-from commonwealth.utils.logs import LOG_PUBLISHER_OPTIONS
+from commonwealth.utils import blueos_idl
+from commonwealth.utils.logs import LOG_SCHEMA, log_publisher_options
 from commonwealth.utils.zenoh_helper import ZenohRouter
 from config import SERVICE_NAME
 from harbor import ContainerManager
@@ -114,9 +114,9 @@ class ExtensionLogPublisher:
         finally:
             self._undeclare_publisher(container_name)
 
-    def _publish(self, publisher: zenoh.Publisher, topic: str, log_line: str) -> None:
+    def _publish(self, publisher: zenoh.Publisher, topic: str, log_payload: bytes) -> None:
         try:
-            publisher.put(log_line)
+            publisher.put(log_payload)
         except Exception as error:
             logger.debug(f"Failed to publish extension log to {topic}: {error}")
 
@@ -127,7 +127,7 @@ class ExtensionLogPublisher:
         publisher = self._zenoh_router.add_publisher(
             self._topic_for(extension),
             absolute=True,
-            publisher_options=LOG_PUBLISHER_OPTIONS,
+            publisher_options=log_publisher_options(),
         )
         if publisher is not None:
             self._publishers[container_name] = publisher
@@ -149,14 +149,13 @@ class ExtensionLogPublisher:
     @staticmethod
     def _topic_for(extension: ExtensionSettings) -> str:
         name = extension.identifier or extension.name or extension.container_name()
-        safe_name = name.replace("/", "_").replace(" ", "_")
-        return f"extensions/logs/{safe_name}"
+        return blueos_idl.extension_log_key(SERVICE_NAME, name)
 
     @classmethod
-    def _format_log_payload(cls, container_name: str, message: str) -> str:
+    def _format_log_payload(cls, container_name: str, message: str) -> bytes:
         level, normalized_message = cls._extract_level(message)
         seconds, nanos = divmod(time.time_ns(), 1_000_000_000)
-        payload = {
+        foxglove_log = {
             "timestamp": {"sec": seconds, "nsec": nanos},
             "level": level,
             "message": normalized_message,
@@ -164,10 +163,10 @@ class ExtensionLogPublisher:
             "file": "",
             "line": 0,
         }
-        return json.dumps(payload)
+        return blueos_idl.encode(LOG_SCHEMA, foxglove_log)
 
     @classmethod
-    def _extract_level(cls, message: str) -> Tuple[int, str]:
+    def _extract_level(cls, message: str) -> tuple[int, str]:
         stripped = message.lstrip()
         upper = stripped.upper()
         for name, level in cls._LEVEL_MAP.items():
