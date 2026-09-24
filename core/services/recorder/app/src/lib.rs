@@ -17,6 +17,7 @@ mod schema;
 mod tap;
 
 use std::collections::BTreeSet;
+use std::ffi::OsString;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -97,7 +98,21 @@ fn generate_filename() -> String {
     format!("recorder_{}.mcap", datetime.format("%Y%m%d_%H%M%S"))
 }
 
-pub async fn run(arguments: Vec<String>) -> Result<(), anyhow::Error> {
+pub fn run(arguments: impl IntoIterator<Item = OsString>) {
+    let arguments: Vec<String> = arguments
+        .into_iter()
+        .map(|argument| argument.to_string_lossy().into_owned())
+        .collect();
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("tokio runtime");
+    if let Err(error) = runtime.block_on(run_async(arguments)) {
+        error!("recorder: {error}");
+    }
+}
+
+async fn run_async(arguments: Vec<String>) -> Result<(), anyhow::Error> {
     let cli = parse_cli(&arguments);
     let verbosity = if cli.verbose { 1 } else { 0 };
     let recorder_path = recorder_directory(&cli);
