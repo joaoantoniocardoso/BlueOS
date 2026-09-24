@@ -96,6 +96,13 @@ const menus = [
       + ' or its local network.',
   },
   {
+    title: 'Recorder',
+    icon: 'mdi-record-circle-outline',
+    route: '/tools/recorder',
+    advanced: false,
+    text: 'Control MCAP recording of the Zenoh backbone, recording policy, and service logs.',
+  },
+  {
     title: 'Serial Bridges',
     icon: 'mdi-bridge',
     route: '/tools/bridges',

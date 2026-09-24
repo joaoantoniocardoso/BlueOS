@@ -69,6 +69,11 @@ const routes: Array<RouteConfig> = [
     component: defineAsyncComponent(() => import('../views/RecordsView.vue')),
   },
   {
+    path: '/tools/recorder',
+    name: 'Recorder',
+    component: defineAsyncComponent(() => import('../views/RecorderView.vue')),
+  },
+  {
     path: '/tools/bridges',
     name: 'Bridges',
     component: defineAsyncComponent(() => import('../views/BridgesView.vue')),
