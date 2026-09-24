@@ -17,6 +17,10 @@ members = [
     "services/example/adapters/simulated_pump",
     "services/example/app",
     "services/example/logic/pump",
+    "services/recorder/adapters/mavlink",
+    "services/recorder/adapters/mcap",
+    "services/recorder/app",
+    "services/recorder/logic/policy",
 ]
 
 [workspace.package]
@@ -37,6 +41,7 @@ panic = "unwind"
 strip = true
 
 [workspace.dependencies]
+anyhow = "1.0.98"
 async-trait = "0.1"
 blueos-api = { path = "libs/api" }
 blueos_cli = { path = "libs/adapters/cli" }
@@ -48,10 +53,14 @@ blueos_logging = { path = "libs/adapters/logging" }
 blueos_service = { path = "libs/app/service" }
 blueos_settings = { path = "libs/adapters/settings" }
 bytes = "1"
+chrono = "0.4.41"
 clap = { version = "4", features = ["derive"] }
 futures = "0.3"
 json5 = "0.4"
 log = "0.4"
+mavlink = { version = "0.18.0", default-features = false, features = ["std", "dialect-ardupilotmega"] }
+mavlink-codec = { git = "https://github.com/joaoantoniocardoso/rust-mavlink-codec", rev = "577d04e1a60638b6ccab6729444cdb2e8201d8d8" }
+mcap = "0.25.0"
 serde = { version = "1", features = ["derive"] }
 serde_arrays = { version = "0.2", default-features = false }
 serde_json = "1"
