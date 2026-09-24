@@ -5,13 +5,13 @@
 RUST_NO_STD_TARGET=thumbv7em-none-eabihf
 
 # Prints "<unit> <folder>" for a crate directory: "libs logic" for libs/logic/jobs, "calibration app" for
-# services/calibration/app, "multicall app" for POCs/blueos-service/app.
+# services/calibration/app, "multicall app" for core/app/blueos.
 crate_place() {
     if [[ $1 =~ /services/([^/]+)/([^/]+) ]]; then
         echo "${BASH_REMATCH[1]} ${BASH_REMATCH[2]}"
     elif [[ $1 =~ /libs/([^/]+) ]]; then
         echo "libs ${BASH_REMATCH[1]}"
-    elif [[ $1 =~ /blueos-service/app$ ]]; then
+    elif [[ $1 =~ /app/blueos$ ]]; then
         echo "multicall app"
     else
         echo "none none"
