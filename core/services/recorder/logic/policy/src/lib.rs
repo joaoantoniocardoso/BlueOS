@@ -11,7 +11,9 @@ use alloc::vec::Vec;
 use blueos_cqrs::{Decision, Domain, Effect, TimerId};
 use blueos_jobs::Jobs;
 
-pub const RAW_MAVLINK_OUT_TOPIC_PREFIX: &str = "mavlink_raw/out";
+pub const RAW_MAVLINK_OUT_TOPIC: &str = "mavlink_raw/out";
+pub const RAW_MAVLINK_IN_TOPIC: &str = "mavlink_raw/in";
+pub const RAW_MAVLINK_OUT_TOPIC_PREFIX: &str = RAW_MAVLINK_OUT_TOPIC;
 pub const MAVLINK_TOPIC_PREFIX: &str = "mavlink/";
 pub const MAVLINK_RAW_TOPIC_PREFIX: &str = "mavlink_raw/";
 pub const VIDEO_TOPIC_PREFIX: &str = "video/";
@@ -95,6 +97,7 @@ pub enum RecorderCommand {
     SessionFinished,
     SessionBytesWritten(u64),
     Ack,
+    IoFailed,
     CaptureStatusTick {
         topic: String,
         now_millis: u64,
@@ -303,6 +306,7 @@ impl Domain for RecorderDomain {
                 Decision::new()
             }
             RecorderCommand::Ack => Decision::new(),
+            RecorderCommand::IoFailed => Decision::new(),
             RecorderCommand::CaptureStatusTick { topic, now_millis } => {
                 let Some(stream) = snapshot.video_streams.get(&topic) else {
                     return Decision::new();
