@@ -129,6 +129,8 @@ import { MessageReader } from '@foxglove/rosmsg2-serialization'
 import axios from 'axios'
 import Vue, { markRaw } from 'vue'
 
+import { decodeCdr, type SchemaName } from '@/libs/blueos-api'
+import { ENCODING_APPLICATION_CDR } from '@/libs/blueos-api/keys'
 import zenoh from '@/libs/zenoh'
 
 import RawVideoPlayer from './RawVideoPlayer.vue'
@@ -236,6 +238,18 @@ export default Vue.extend({
         } catch (exception) {
           // Keep the raw payload if it's not valid JSON
           formattedMessage.payload = message.payload.toString()
+        }
+      } else if (
+        message.encoding === ENCODING_APPLICATION_CDR
+        || message.encoding === Encoding.APPLICATION_CDR.toString()
+      ) {
+        const schemaName = message.schema
+        if (schemaName) {
+          try {
+            formattedMessage.payload = decodeCdr(schemaName as SchemaName, message.payload.toBytes())
+          } catch (exception) {
+            formattedMessage.payload = message.payload.toString()
+          }
         }
       }
       return JSON.stringify(formattedMessage, null, 2)

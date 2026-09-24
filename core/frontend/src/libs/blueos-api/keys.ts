@@ -42,6 +42,15 @@ export function logKey(service: string): string {
   return `${KEY_PREFIX}/${service}/log`
 }
 
+export function extensionLogKey(service: string, extensionIdentifier: string): string {
+  const safeIdentifier = extensionIdentifier.replace(/\//g, '_').replace(/ /g, '_')
+  return `${logKey(service)}/extension/${safeIdentifier}`
+}
+
+export function httpGatewayPrefix(service: string): string {
+  return `${KEY_PREFIX}/${service}/http`
+}
+
 export function statusStateKey(service: string): string {
   return stateKey(service, 'status')
 }

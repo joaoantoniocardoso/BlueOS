@@ -97,6 +97,12 @@ import { saveAs } from 'file-saver'
 import Vue from 'vue'
 
 import kraken from '@/components/kraken/KrakenManager'
+import {
+  decodeCdr,
+  ENCODING_APPLICATION_CDR,
+  LOG_SCHEMA,
+  schemaNameFromEncoding,
+} from '@/libs/blueos-api'
 
 interface LogMessage {
   message: string
@@ -162,8 +168,7 @@ export default Vue.extend({
       await this.requestHistoricalLogsForExtension(this.extensionIdentifier)
 
       if (!this.current_modal_topic) {
-        const topic = this.extensionIdentifier.replace(/\//g, '_').replace(/ /g, '_')
-        await this.setupModalSubscriber(`extensions/logs/${topic}`)
+        await this.setupModalSubscriber(kraken.extensionLogsTopic(this.extensionIdentifier))
       }
     },
     closeModal() {
@@ -214,18 +219,26 @@ export default Vue.extend({
       this.modal_subscriber = await kraken.createExtensionLogsSubscriber(topic, this.handleSubscriber)
     },
     async handleSubscriber(sample: Sample) {
-      const payloadString = sample.payload().toString()
+      const encoding = sample.encoding().toString()
+      let message = sample.payload().toString()
 
-      let message = payloadString
-      try {
-        const parsed = JSON.parse(payloadString)
-        if (parsed.message != null) {
-          message = parsed.message
-        } else if (parsed.data != null) {
-          message = parsed.data
+      if (encoding.startsWith(`${ENCODING_APPLICATION_CDR};`)) {
+        const schemaName = schemaNameFromEncoding(encoding)
+        if (schemaName === LOG_SCHEMA) {
+          const decoded = decodeCdr(LOG_SCHEMA, sample.payload().toBytes())
+          message = decoded.message
         }
-      } catch {
-        // Do nothing
+      } else if (encoding.includes('json') || encoding.includes('JSON')) {
+        try {
+          const parsed = JSON.parse(message)
+          if (parsed.message != null) {
+            message = parsed.message
+          } else if (parsed.data != null) {
+            message = parsed.data
+          }
+        } catch {
+          // Keep raw payload
+        }
       }
 
       this.message_buffer.push({ message })

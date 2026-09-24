@@ -9,6 +9,8 @@ export {
   commandKey,
   ENCODING_APPLICATION_CDR,
   eventKey,
+  extensionLogKey,
+  httpGatewayPrefix,
   infoQueryKey,
   jobsKey,
   KEY_PREFIX,

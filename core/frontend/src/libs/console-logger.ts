@@ -1,7 +1,13 @@
-import { Encoding, Session } from '@eclipse-zenoh/zenoh-ts'
+import type { Log } from '@blueos-idl/messages'
+import { Encoding } from '@eclipse-zenoh/zenoh-ts'
 
-import frontend from '@/store/frontend'
+import {
+  encodeCdr,
+  LOG_SCHEMA,
+  logKey,
+} from '@/libs/blueos-api'
 import zenoh from '@/libs/zenoh'
+import frontend from '@/store/frontend'
 
 /**
  * Compliant with FoxGlove LogLevel
@@ -16,27 +22,12 @@ enum LogLevel {
   FATAL = 5,
 }
 
-/**
- * Compliant with FoxGlove Log
- * https://docs.foxglove.dev/docs/visualization/message-schemas/log
- */
-interface Log {
-  timestamp: { sec: number; nsec: number }
-  level: LogLevel
-  message: string
-  name: string
-  file: string
-  line: number
-}
-
 class ConsoleLogger {
-  private session: Session | null = null
+  private session: Awaited<ReturnType<typeof zenoh.getSession>> | null = null
 
   private static readonly STACK_LINE_REGEX = /\(?([^\s()]+):(\d+):\d+\)?/
 
-  private static readonly LOG_ENCODING = Encoding.fromString(
-    Encoding.APPLICATION_JSON.toString(),
-  ).withSchema('foxglove.Log')
+  private static readonly LOG_ENCODING = Encoding.APPLICATION_CDR.withSchema(LOG_SCHEMA)
 
   readonly originalConsole: {
     log: typeof console.log
@@ -142,8 +133,8 @@ class ConsoleLogger {
         line: line ?? 0,
       }
 
-      const topic = `frontend/${frontend.frontend_id}/logs`
-      const payload = JSON.stringify(message)
+      const topic = logKey('frontend')
+      const payload = encodeCdr(LOG_SCHEMA, message)
 
       // put() is async in zenoh 1.9; swallow rejections via `originalConsole` so a failed publish
       // cannot surface as an `unhandledrejection` and re-enter `publishMessage` (infinite feedback loop).
@@ -161,8 +152,8 @@ class ConsoleLogger {
       try {
         if (arg instanceof Error && typeof arg.stack === 'string') {
           const lines = arg.stack.split('\n')
-          for (const l of lines) {
-            const match = ConsoleLogger.STACK_LINE_REGEX.exec(l)
+          for (const lineText of lines) {
+            const match = ConsoleLogger.STACK_LINE_REGEX.exec(lineText)
             if (match) {
               return {
                 file: match[1],
