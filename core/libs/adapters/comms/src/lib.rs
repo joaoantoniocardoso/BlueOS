@@ -43,7 +43,6 @@ use async_trait::async_trait;
 use blueos_comms_driver::{
     CommsBackend, LivelinessStream, LivelinessToken, QueryStream, Result, SampleStream,
 };
-use state::StateHandle;
 
 #[cfg(feature = "channel")]
 pub use blueos_comms_channel::ChannelBackend;
