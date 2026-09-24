@@ -11,4 +11,5 @@ bytes.workspace = true
 futures.workspace = true
 blueos_comms_driver = { path = "../driver" }
 tokio.workspace = true
+tracing.workspace = true
 

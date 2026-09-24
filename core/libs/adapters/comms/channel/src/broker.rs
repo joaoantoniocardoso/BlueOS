@@ -8,6 +8,7 @@ use blueos_comms_driver::{
     Reply, Result, Sample, key_matches,
 };
 use tokio::sync::mpsc;
+use tracing::debug;
 
 const CHANNEL_CAPACITY: usize = 64;
 
@@ -41,7 +42,7 @@ struct LivelinessSubscriberEntry {
 }
 
 impl ChannelBroker {
-    pub fn shared() -> SharedBroker {
+    pub fn new() -> SharedBroker {
         Arc::new(Self {
             state: Arc::new(Mutex::new(BrokerState {
                 subscribers: Vec::new(),
@@ -77,7 +78,10 @@ impl ChannelBroker {
             .map_err(|error| CommsError::Message(error.to_string()))?;
         for subscriber in &guard.subscribers {
             if key_matches(&subscriber.key_expression, key) {
-                let _ = subscriber.sender.try_send(sample.clone());
+                // ponytail: drop sample when subscriber queue is full (test driver backpressure)
+                if let Err(error) = subscriber.sender.try_send(sample.clone()) {
+                    debug!("channel publish dropped sample for {key}: {error}");
+                }
             }
         }
         Ok(())
@@ -216,7 +220,10 @@ impl ChannelBroker {
             });
         for key in guard.liveliness_keys.keys() {
             if key_matches(&key_expression_owned, key) {
-                let _ = sender.try_send(LivelinessEvent::Put { key: key.clone() });
+                // ponytail: drop historical liveliness when subscriber queue is full
+                if let Err(error) = sender.try_send(LivelinessEvent::Put { key: key.clone() }) {
+                    debug!("channel liveliness replay dropped for {key}: {error}");
+                }
             }
         }
         Ok(receiver)
@@ -225,7 +232,10 @@ impl ChannelBroker {
     fn notify_liveliness_locked(state: &BrokerState, key: &str, event: LivelinessEvent) {
         for subscriber in &state.liveliness_subscribers {
             if key_matches(&subscriber.key_expression, key) {
-                let _ = subscriber.sender.try_send(event.clone());
+                // ponytail: drop liveliness event when subscriber queue is full
+                if let Err(error) = subscriber.sender.try_send(event.clone()) {
+                    debug!("channel liveliness notify dropped for {key}: {error}");
+                }
             }
         }
     }
