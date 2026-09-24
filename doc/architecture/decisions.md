@@ -46,6 +46,8 @@ Related repositories (author machine, `~/BlueRobotics/`):
 - D-18 REST gateways for migrated services
 - D-19 Findings on the first POC and their resolution
 - D-20 Process: examples first, PR split later
+- D-21 Breaking changes for users and extension developers
+- D-22 Branch review outcomes
 
 ---
 
@@ -91,6 +93,12 @@ Decision: every Rust crate lives in exactly one of three folders, in shared libs
 | `app/blueos` (workspace) | Multicall binary | `libs/`, service `app/` crates via cargo features |
 
 - Single Cargo workspace at `core/Cargo.toml` with a single `core/Cargo.lock`. No per-service lock files.
+- Naming: every Rust package is hyphenated, `blueos-<name>` for libs (`blueos-service`, `blueos-comms-zenoh`)
+  and `blueos-<service>[-<block>]` for services (`blueos-recorder`, `blueos-recorder-policy`). Every
+  workspace crate is listed in `[workspace.dependencies]` and members depend on it with `workspace = true`,
+  never a relative `path`. Python packages keep their names.
+- Test-only backends (the comms `channel` feature) are enabled in `[dev-dependencies]` only, so they never
+  reach the shipped binary through feature unification.
 - Layout: `core/libs/{logic,adapters,app}/...`, `core/services/<name>/{logic/<block>,adapters/<thing>,app}`,
   `core/interfaces/` (`.msg` sources), `core/app/blueos` (multicall binary).
 - One multicall binary `blueos`; each service is invoked as `blueos <service>` or via a symlink named after
@@ -117,7 +125,7 @@ returns effects. The kernel (D-04) performs the waiting.
 | Wait for an IO result (RPC, MAVLink command, file) | Handler returns `Effect::Io(request)`; the kernel runs it and feeds the result back as a `Command` (e.g. `JobProgress`). |
 | Timeouts, delays, retries | Handler returns `Effect::Schedule { after, command }`; the kernel arms a timer and delivers `command` later. Cancel by job id. |
 | Current time, random ids | Passed in with the command (`now`, ids allocated by the caller or deterministic counters). Never read inside logic. |
-| Multi-step flows (wizard, calibration) | Explicit state machines and `blueos_jobs` graphs (`Sequence`, `Parallel`, cancellation) instead of `await` chains. |
+| Multi-step flows (wizard, calibration) | Explicit state machines and `blueos-jobs` graphs (`Sequence`, `Parallel`, cancellation) instead of `await` chains. |
 | Heavy CPU (e.g. compass ellipsoid fit) | A pure function in `logic/`, executed by the kernel as a job on a blocking thread so the inbox stays responsive. |
 | High-rate data (MCAP writing, video, sonar) | **Control plane vs data plane**: logic owns the policy (which topics to record, when), adapters apply it on the hot path. Payloads never go through the inbox, which also preserves zero-copy (D-09). |
 
@@ -281,10 +289,10 @@ Runtime vs restart-required settings:
 Decision: the kernel gives every service, for free:
 
 - Liveliness token `blueos/v1/services/<name>` (alive/dead).
-- `info` queryable (name, version, build, capabilities).
+- `info` queryable at `blueos/v1/<name>/query/info` (name, version, build, capabilities).
 - `status` state.
 - `settings` state + `UpdateSettings` command (D-11).
-- `jobs` state (job graph status from `blueos_jobs`).
+- `jobs` state (job graph status from `blueos-jobs`).
 - `log` stream (D-13).
 
 The future system-wide service manager (settings, command-line arguments, start/stop/restart/enable/disable)
@@ -394,3 +402,74 @@ Decision:
   restart, frontend view), linked from `AGENTS.md`.
 - Only then decide the stacked-PR split. The setup wizard is not part of this branch.
 - The POC under `POCs/blueos-service/` is removed once the example replaces it.
+
+## D-21 Breaking changes for users and extension developers
+
+Decision: no legacy bridge (D-07). These changes go into the release notes and the extension developer docs.
+Anything still using the old keys (Cockpit, Foxglove bridges, extensions) gets no data and no error.
+
+| Before | After |
+|---|---|
+| `services/<service>/log`, JSON `foxglove.Log` | `blueos/v1/<service>/log`, `application/cdr;foxglove_msgs/msg/Log` |
+| `extensions/logs/<identifier>`, plain text | `blueos/v1/kraken/log/extension/<sanitized identifier>`, CDR `foxglove_msgs/msg/Log` |
+| Python REST-over-Zenoh `<service>/<path>` | `blueos/v1/<service>/http/<path>` (still JSON) |
+| `kraken/extension/logs/request` | `blueos/v1/kraken/http/extension/logs/request` |
+| No discovery | Liveliness `blueos/v1/services/<service>`, CDR `ServiceInfo` at `blueos/v1/<service>/query/info` |
+| `blueos-recorder` release binary | `recorder` symlink to the in-image `blueos` multicall binary |
+
+Native ROS2 subscribers get plain CDR without XTypes: they cannot read messages from an older writer that
+lacks trailing fields (D-06).
+Extensions publishing to the recorder must follow the `IpcMode` note in D-09.
+
+## D-22 Branch review outcomes
+
+Two reviews ran over the branch: a Rust review against the team rules, and a BlueOS blast-radius review that
+walked every change up to its FastAPI, nginx, frontend and `start-blueos-core` entry points.
+
+Fixed:
+
+| Finding | Resolution |
+|---|---|
+| No SIGTERM/SIGINT handling: stopping the container left the MCAP file unfinished. | Kernel `ServiceBuilder::on_shutdown(command)`: on signal (or `ShutdownHandle::trigger()`) it dispatches the command, drains in-flight IO and pending settings writes for up to 5 s, then returns. Recorder dispatches `StopRecording`; `McapSession` also finishes on `Drop`. |
+| `Effect::Persist` awaited disk inside the inbox (D-04). | One FIFO persist worker; the inbox never waits on disk; last write wins. |
+| Zenoh query replies called `.wait()` on runtime threads. | Awaited. |
+| In-process test broker was a process-wide singleton; kernel tests needed a global mutex. | One broker per `ChannelBackend::pair()`; mutex removed. That exposed a real race: two services attaching the Zenoh log publisher at once, the loser failed to start. The publisher is now one atomic `OnceLock` (one service per process; later ones reuse it). |
+| Zenoh network tests silently passed without a router. | `#[ignore]`, and they fail loudly when run. |
+| Recorder shipped the `channel` test backend, used `anyhow`, `.expect` on startup, magic `status: 2`, swallowed IO errors, blocking MCAP open/finish and a blocking tap send on tokio workers. | Zenoh-only prod features, `thiserror`, exit code on failure, `STATUS_READY`, `IoFailed` + logs, `spawn_blocking`, `try_send` with drop counting, supervised background loops, subscribe retry. |
+| Duplicated MAVLink topic constants. | Single copy in `logic/policy`. |
+| `blueos-api` had no tests. | Exact-string tests for every helper. |
+| Python services died at startup without the `.msg` files. | Log once and skip liveliness/info. |
+| `cargo semver-checks` never ran in CI. | Installed in the pre-push job. |
+| Mixed crate naming and relative `path` dependencies; `blueos-service` and `blueos-logging` enabled the comms `channel` test backend in normal dependencies, so it still shipped. | Hyphenated names and `workspace = true` everywhere (D-02); `channel` only in dev-dependencies. |
+| D-12 did not name the `info` key. | `blueos/v1/<name>/query/info`. |
+
+Kept as is, with the reason:
+
+- `Clone + Send` on the `Domain` associated types: the kernel clones `App` into IO tasks and stores commands
+  in timers. Removing them needs `Arc<App>` in the kernel; not worth it now.
+- The frontend `lint` script still ignores `.ts`: including it reports 447 errors and 23 warnings, almost all in
+  existing code (354 auto-fixable) or unresolved imports from the uninitialized `MAVLink2Rest` submodule. The
+  new TypeScript under `libs/blueos-api/`, `components/recorder/` and `tests/` lints clean. Fix the backlog in
+  its own PR.
+
+Open:
+
+- `mavlink-codec` is a git dependency. It does not block merging; publish or vendor it only when a crate that
+  depends on it has to be published.
+- Comms fan-out clones key/encoding strings per subscriber (`Arc<str>` would avoid it); the Recorder tap still
+  copies MAVLink payloads before the policy gate because `Payload` has no borrowed slice accessor.
+- Document the `IpcMode` note (D-09) in the external extension docs and the extension template.
+- Not proven on a vehicle: MCM `--recorder=external`, armed gating, video over SHM, MAVLink capture replies,
+  `docker stop` mid-recording, and an `linux/arm/v7` image built from CI artifacts. Run these on a DUT before
+  merging the Recorder PR.
+
+Proposed stacked-PR split (each rebuilt as clean history, without the POC add/remove churn):
+
+1. Rust foundation: Cargo workspace, Rust checks in `.hooks/pre-push` and CI, `logic/{jobs,cqrs}`,
+   `blueos-idl` + `api.lock` gate, `blueos-api`, comms, logging, settings, kernel, this decision record.
+2. Teaching example: `core/services/example`, the `blueos` multicall binary, the frontend `blueos-api` library,
+   the example developer view, the `AGENTS.md` walkthrough.
+3. Python and frontend on the versioned IDL keys (the D-21 breaking changes). Depends only on PR 1.
+4. Recorder backend and delivery: recorder crates, cross-build CI job, Dockerfile last layer,
+   `start-blueos-core`, removal of the external recorder bootstrap.
+5. Recorder frontend.
