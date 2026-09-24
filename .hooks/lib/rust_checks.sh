@@ -55,13 +55,14 @@ run_rust_checks() {
         # logic uses only libs/logic, adapters use only adapters, and apps use anything in libs/ or in their
         # own service. No crate reaches into another service, and a crate nested in another crate's folder
         # is private to that crate and its siblings.
-        local violations=() package_args=()
+        local violations=() package_args=() idl_package_args=()
         local name directory unit folder
         while IFS=$'\t' read -r name directory; do
             read -r unit folder <<<"$(crate_place "$directory")"
             case "$folder" in
                 logic) package_args+=(-p "$name") ;;
-                idl) package_args+=(-p "$name") ;;
+                # The codegen crate runs on the build host, so only the generated crate must build without std.
+                idl) [[ $directory == */codegen ]] || idl_package_args+=(-p "$name") ;;
                 adapters | app | api) ;;
                 *) violations+=("$name is not in logic/, adapters/, app/, idl/, or api/ under libs/ or services/<name>/") ;;
             esac
@@ -96,6 +97,9 @@ run_rust_checks() {
         # A target without std rejects any dependency, direct or transitive, that can do I/O.
         if [ ${#package_args[@]} -gt 0 ]; then
             cargo check --locked --target "$RUST_NO_STD_TARGET" "${package_args[@]}"
+        fi
+        if [ ${#idl_package_args[@]} -gt 0 ]; then
+            cargo check --locked --target "$RUST_NO_STD_TARGET" --no-default-features "${idl_package_args[@]}"
         fi
 
         if command -v cargo-semver-checks >/dev/null 2>&1; then
