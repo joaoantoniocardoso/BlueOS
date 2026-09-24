@@ -61,8 +61,9 @@ run_rust_checks() {
             read -r unit folder <<<"$(crate_place "$directory")"
             case "$folder" in
                 logic) package_args+=(-p "$name") ;;
-                adapters | app) ;;
-                *) violations+=("$name is not in logic/, adapters/ or app/ under libs/ or services/<name>/") ;;
+                idl) package_args+=(-p "$name") ;;
+                adapters | app | api) ;;
+                *) violations+=("$name is not in logic/, adapters/, app/, idl/, or api/ under libs/ or services/<name>/") ;;
             esac
         done < <(jq -r '.packages[] | [.name, (.manifest_path | rtrimstr("/Cargo.toml"))] | @tsv' <<<"$metadata")
         local dependency dependency_directory dependency_unit dependency_folder parent
@@ -95,6 +96,25 @@ run_rust_checks() {
         # A target without std rejects any dependency, direct or transitive, that can do I/O.
         if [ ${#package_args[@]} -gt 0 ]; then
             cargo check --locked --target "$RUST_NO_STD_TARGET" "${package_args[@]}"
+        fi
+
+        if command -v cargo-semver-checks >/dev/null 2>&1; then
+            # A crate with no release on crates.io has no baseline to compare against yet.
+            local crate status released_args=()
+            for crate in blueos-idl blueos-api; do
+                status=$(curl -sS -o /dev/null -w '%{http_code}' "https://index.crates.io/${crate:0:2}/${crate:2:2}/${crate}")
+                case "$status" in
+                    200) released_args+=(-p "$crate") ;;
+                    404) echo "Skipping cargo semver-checks for $crate (not released on crates.io yet)" ;;
+                    *) echo "Could not ask crates.io whether $crate is released (HTTP $status)" >&2; exit 1 ;;
+                esac
+            done
+            if [ ${#released_args[@]} -gt 0 ]; then
+                echo "Running cargo semver-checks on published API crates.."
+                cargo semver-checks check-release "${released_args[@]}"
+            fi
+        else
+            echo "Skipping cargo semver-checks (install cargo-semver-checks to enable the API-break gate)"
         fi
     )
 }
