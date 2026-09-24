@@ -42,7 +42,14 @@ class ZenohSession(metaclass=Singleton):
     def _register_standard_service_keys(self, service_name: str) -> None:
         if self.session is None:
             return
-        blueos_idl.ensure_idl_loaded()
+        try:
+            blueos_idl.ensure_idl_loaded()
+        except FileNotFoundError as error:
+            logger.warning(
+                "IDL interfaces missing; skipping Zenoh liveliness and info registration: {}",
+                error,
+            )
+            return
         liveliness_key = blueos_idl.service_liveliness_key(service_name)
         self._liveliness_token = self.session.liveliness().declare_token(liveliness_key)
 
