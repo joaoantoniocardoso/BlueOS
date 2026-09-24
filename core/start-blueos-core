@@ -116,7 +116,7 @@ find /usr/blueos/userdata -type f -exec chmod a+rw {} \;
 #   - IO_WRITE_MBPS: I/O write limit in MB/s (0 = no limit)
 INFRA_SERVICES=(
     'zenohd',0,0,0,0,"ZENOH_BACKEND_FS_ROOT=$TOOLS_PATH/zenoh zenohd -c $TOOLS_PATH/zenoh/blueos-zenoh.json5"
-    'recorder',250,0,0,0,"blueos-recorder --recorder-path /usr/blueos/userdata/recorder"
+    'recorder',250,0,0,0,"recorder --recorder-path /usr/blueos/userdata/recorder"
 )
 
 PRIORITY_SERVICES=(
