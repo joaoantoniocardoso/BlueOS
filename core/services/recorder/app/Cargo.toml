@@ -9,9 +9,8 @@ publish = false
 path = "src/lib.rs"
 
 [dependencies]
-anyhow.workspace = true
 blueos-api.workspace = true
-blueos_comms = { path = "../../../libs/adapters/comms", features = ["channel", "zenoh"] }
+blueos_comms = { path = "../../../libs/adapters/comms", default-features = false, features = ["zenoh"] }
 blueos_cqrs = { path = "../../../libs/logic/cqrs" }
 blueos-idl.workspace = true
 blueos_logging = { path = "../../../libs/adapters/logging" }
@@ -29,10 +28,11 @@ mavlink-codec.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 shellexpand = "3.1"
+thiserror.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync", "time", "fs"] }
 tracing.workspace = true
 
 [dev-dependencies]
-blueos_comms = { path = "../../../libs/adapters/comms", features = ["channel"] }
+blueos_comms = { path = "../../../libs/adapters/comms", default-features = false, features = ["channel"] }
 tempfile = "3"
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync", "time"] }

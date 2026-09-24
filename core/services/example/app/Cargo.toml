@@ -12,7 +12,7 @@ path = "src/lib.rs"
 [dependencies]
 blueos-api.workspace = true
 blueos_cli.workspace = true
-blueos_comms = { path = "../../../libs/adapters/comms", default-features = false, features = ["channel", "zenoh"] }
+blueos_comms = { path = "../../../libs/adapters/comms", default-features = false, features = ["zenoh"] }
 blueos_cqrs.workspace = true
 blueos-idl.workspace = true
 blueos_jobs.workspace = true
