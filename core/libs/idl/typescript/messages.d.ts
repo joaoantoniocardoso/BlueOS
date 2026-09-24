@@ -68,6 +68,31 @@ export interface SettingsEnvelope {
   fields: SettingField[];
 }
 
+export interface RecordingPolicy {
+  record_mavlink_only_when_armed: boolean;
+  auto_start_recording: boolean;
+}
+
+export interface RecordingState {
+  armed: boolean;
+  session_active: boolean;
+  current_file: string;
+  session_bytes_written: number;
+  recording_video_topics: string[];
+}
+
+export interface SetPolicyCommand {
+  policy: RecordingPolicy;
+}
+
+export interface StartRecordingCommand {
+  rotate_if_active: boolean;
+}
+
+export interface StopRecordingCommand {
+  reserved: number;
+}
+
 export interface Duration {
   sec: number;
   nanosec: number;
