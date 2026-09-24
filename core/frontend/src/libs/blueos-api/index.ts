@@ -24,6 +24,7 @@ export {
 export { watchServiceAlive } from './liveliness'
 export { watchLogs } from './logs'
 export { query } from './query'
+export { watchSettings } from './settings'
 export { watchState } from './state'
 export type { MessageBySchema, MessageForSchema, SchemaName } from './types'
 export {

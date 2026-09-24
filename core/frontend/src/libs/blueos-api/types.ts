@@ -1,13 +1,18 @@
 /* eslint-disable import/no-extraneous-dependencies */
 import type {
   CommandAck,
+  EmptyRequest,
   Header,
   JobList,
   JobStatus,
+  LevelQueryResponse,
   Log,
+  PumpState,
   RestartRequired,
+  SelfTestCompleted,
   ServiceInfo,
   ServiceStatus,
+  SetLevelRequest,
   SettingField,
   SettingsEnvelope,
   Time,
@@ -17,6 +22,11 @@ import { SCHEMAS } from '@blueos-idl/schemas'
 export type SchemaName = keyof typeof SCHEMAS
 
 export interface MessageBySchema {
+  'blueos_example_msgs/msg/EmptyRequest': EmptyRequest
+  'blueos_example_msgs/msg/LevelQueryResponse': LevelQueryResponse
+  'blueos_example_msgs/msg/PumpState': PumpState
+  'blueos_example_msgs/msg/SelfTestCompleted': SelfTestCompleted
+  'blueos_example_msgs/msg/SetLevelRequest': SetLevelRequest
   'blueos_msgs/msg/CommandAck': CommandAck
   'blueos_msgs/msg/JobList': JobList
   'blueos_msgs/msg/JobStatus': JobStatus
