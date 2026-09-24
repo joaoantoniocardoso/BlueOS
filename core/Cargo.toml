@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "libs/adapters/comms/channel",
     "libs/adapters/comms/driver",
     "libs/adapters/comms/zenoh",
 ]
