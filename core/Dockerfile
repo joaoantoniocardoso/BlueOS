@@ -72,7 +72,6 @@ FROM base
 # Define arguments for target platform
 # These arguments are defined automatically by buildx when using `--platform`
 ARG TARGETARCH
-ARG TARGETVARIANT
 
 # Ensure that the git describe exists and also is in valid format as well
 # The format can be invalid if someone is build BlueOS without a tag as reference
@@ -90,7 +89,6 @@ EOF
 
 # Set these arguments as environment variables
 ENV TARGETARCH=${TARGETARCH}
-ENV TARGETVARIANT=${TARGETVARIANT}
 
 # Install necessary tools
 COPY tools /home/pi/tools
