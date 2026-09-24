@@ -10,7 +10,20 @@ default = ["zenoh"]
 zenoh = ["dep:blueos_comms_zenoh"]
 channel = ["dep:blueos_comms_channel"]
 
+[[test]]
+name = "channel_driver"
+required-features = ["channel"]
+
 [dependencies]
+async-trait.workspace = true
 blueos_comms_channel = { path = "channel", optional = true }
 blueos_comms_driver = { path = "driver" }
 blueos_comms_zenoh = { path = "zenoh", optional = true }
+bytes.workspace = true
+futures.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+bytes.workspace = true
+futures.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }

@@ -1,103 +1,202 @@
-//! Comms façade. Services depend on this crate only.
+//! Async comms facade (D-10).
 //!
-//! `Session::open` selects the Zenoh driver. Tests inject `ChannelDriver` via `Session::with_driver`.
-//! Driver crates are never named from apps.
+//! Services open a [`Session`] as a Zenoh **client** to the local router (`tcp/127.0.0.1:7447` by default).
+//! Payloads are not framed; use Zenoh attachments for extra metadata. [`Payload`] clones are cheap; with
+//! shared memory enabled (default Zenoh config) large samples may use SHM when both peers support it.
+//! Extensions need Docker `IpcMode: host` or a `/dev/shm` bind mount or SHM falls back to TCP (D-09).
+//!
+//! ## Example
+//!
+//! ```no_run
+//! use std::time::Duration;
+//!
+//! use blueos_comms::{Endpoint, Payload, Session};
+//! use bytes::Bytes;
+//!
+//! #[tokio::main]
+//! async fn main() -> Result<(), blueos_comms::CommsError> {
+//!     let session = Session::open("my_service", Endpoint::Local).await?;
+//!     let mut stream = session.subscribe("blueos/v1/my_service/**").await?;
+//!     session
+//!         .publish(
+//!             "blueos/v1/my_service/events/ping",
+//!             Payload::from_bytes(Bytes::from_static(b"hello")),
+//!             "text/plain",
+//!             None,
+//!         )
+//!         .await?;
+//!     let _sample = tokio::time::timeout(Duration::from_secs(1), async {
+//!         use futures::StreamExt;
+//!         stream.next().await
+//!     })
+//!     .await;
+//!     Ok(())
+//! }
+//! ```
 
-pub use blueos_comms_driver::{CommsError, Endpoint, PutClient, Result, RpcClient, Sample};
-use blueos_comms_driver::{Dispatcher, Driver, Kind};
+mod state;
+
+use std::sync::Arc;
+use std::time::Duration;
+
+use async_trait::async_trait;
+use blueos_comms_driver::{
+    CommsBackend, LivelinessStream, LivelinessToken, QueryStream, Result, SampleStream,
+};
+use state::StateHandle;
 
 #[cfg(feature = "channel")]
-pub use blueos_comms_channel::ChannelDriver;
+pub use blueos_comms_channel::ChannelBackend;
 
-#[cfg(feature = "zenoh")]
-use blueos_comms_zenoh::ZenohDriver;
+pub use blueos_comms_driver::{
+    CommsError, Endpoint, IncomingQuery, LivelinessEvent, Payload, Reply, Sample,
+};
+pub use state::StateHandle;
 
-pub struct Session {
-    driver: Box<dyn Driver>,
-    dispatcher: Dispatcher,
+enum Backend {
+    #[cfg(feature = "zenoh")]
+    Zenoh(blueos_comms_zenoh::ZenohBackend),
+    #[cfg(feature = "channel")]
+    Channel(blueos_comms_channel::ChannelBackend),
 }
 
-impl Session {
-    pub fn with_driver(driver: Box<dyn Driver>) -> Self {
-        Self {
-            driver,
-            dispatcher: Dispatcher::new(),
+#[async_trait]
+impl CommsBackend for Backend {
+    async fn publish(
+        &self,
+        key: &str,
+        payload: Payload,
+        encoding: &str,
+        attachment: Option<Payload>,
+    ) -> Result<()> {
+        match self {
+            #[cfg(feature = "zenoh")]
+            Backend::Zenoh(backend) => backend.publish(key, payload, encoding, attachment).await,
+            #[cfg(feature = "channel")]
+            Backend::Channel(backend) => backend.publish(key, payload, encoding, attachment).await,
         }
     }
 
-    pub fn open(endpoint: Endpoint) -> Result<Self> {
+    async fn subscribe(&self, key_expression: &str) -> Result<SampleStream> {
+        match self {
+            #[cfg(feature = "zenoh")]
+            Backend::Zenoh(backend) => backend.subscribe(key_expression).await,
+            #[cfg(feature = "channel")]
+            Backend::Channel(backend) => backend.subscribe(key_expression).await,
+        }
+    }
+
+    async fn declare_queryable(&self, key_expression: &str) -> Result<QueryStream> {
+        match self {
+            #[cfg(feature = "zenoh")]
+            Backend::Zenoh(backend) => backend.declare_queryable(key_expression).await,
+            #[cfg(feature = "channel")]
+            Backend::Channel(backend) => backend.declare_queryable(key_expression).await,
+        }
+    }
+
+    async fn query(
+        &self,
+        key: &str,
+        payload: Payload,
+        encoding: &str,
+        timeout: Duration,
+    ) -> Result<Reply> {
+        match self {
+            #[cfg(feature = "zenoh")]
+            Backend::Zenoh(backend) => backend.query(key, payload, encoding, timeout).await,
+            #[cfg(feature = "channel")]
+            Backend::Channel(backend) => backend.query(key, payload, encoding, timeout).await,
+        }
+    }
+
+    async fn declare_liveliness(&self, key: &str) -> Result<LivelinessToken> {
+        match self {
+            #[cfg(feature = "zenoh")]
+            Backend::Zenoh(backend) => backend.declare_liveliness(key).await,
+            #[cfg(feature = "channel")]
+            Backend::Channel(backend) => backend.declare_liveliness(key).await,
+        }
+    }
+
+    async fn subscribe_liveliness(&self, key_expression: &str) -> Result<LivelinessStream> {
+        match self {
+            #[cfg(feature = "zenoh")]
+            Backend::Zenoh(backend) => backend.subscribe_liveliness(key_expression).await,
+            #[cfg(feature = "channel")]
+            Backend::Channel(backend) => backend.subscribe_liveliness(key_expression).await,
+        }
+    }
+}
+
+pub struct Session {
+    backend: Arc<Backend>,
+}
+
+impl Session {
+    pub async fn open(service_name: &str, endpoint: blueos_comms_driver::Endpoint) -> Result<Self> {
         #[cfg(feature = "zenoh")]
         {
-            Ok(Self::with_driver(Box::new(ZenohDriver::connect(endpoint)?)))
+            let backend = blueos_comms_zenoh::ZenohBackend::open(service_name, endpoint).await?;
+            Ok(Self {
+                backend: Arc::new(Backend::Zenoh(backend)),
+            })
         }
         #[cfg(not(feature = "zenoh"))]
         {
-            let _ = endpoint; // zenoh driver is compiled out
-            Err(CommsError::Message(
+            let _ = (service_name, endpoint);
+            Err(blueos_comms_driver::CommsError::Message(
                 "blueos_comms built without feature zenoh".into(),
             ))
         }
     }
 
-    pub fn watch(&mut self, key: &str, callback: impl Fn(Sample) + Send + 'static) -> Result<()> {
-        self.dispatcher.register_watch(key, Box::new(callback));
-        self.driver.declare(key, Kind::Stream)
+    #[cfg(feature = "channel")]
+    pub fn with_channel(backend: blueos_comms_channel::ChannelBackend) -> Self {
+        Self {
+            backend: Arc::new(Backend::Channel(backend)),
+        }
     }
 
-    pub fn on_rpc(
-        &mut self,
+    pub async fn publish(
+        &self,
         key: &str,
-        callback: impl Fn(&[u8]) -> Result<Vec<u8>> + Send + 'static,
+        payload: Payload,
+        encoding: &str,
+        attachment: Option<Payload>,
     ) -> Result<()> {
-        self.dispatcher.register_rpc(key, Box::new(callback));
-        self.driver.declare(key, Kind::Rpc)
+        self.backend
+            .publish(key, payload, encoding, attachment)
+            .await
     }
 
-    pub fn rpc_client(&self, key: &str) -> RpcClient {
-        self.driver.rpc_client(key)
+    pub async fn subscribe(&self, key_expression: &str) -> Result<SampleStream> {
+        self.backend.subscribe(key_expression).await
     }
 
-    pub fn put_client(&self) -> PutClient {
-        self.driver.put_client()
+    pub async fn declare_queryable(&self, key_expression: &str) -> Result<QueryStream> {
+        self.backend.declare_queryable(key_expression).await
     }
 
-    pub fn send(&self, key: &str, payload: &[u8], correlation: u32) -> Result<()> {
-        self.driver.send(key, payload, correlation)
+    pub async fn query(
+        &self,
+        key: &str,
+        payload: Payload,
+        encoding: &str,
+        timeout: Duration,
+    ) -> Result<Reply> {
+        self.backend.query(key, payload, encoding, timeout).await
     }
 
-    pub fn run(&mut self) -> Result<()> {
-        self.driver.run(&mut self.dispatcher)
+    pub async fn declare_liveliness(&self, key: &str) -> Result<LivelinessToken> {
+        self.backend.declare_liveliness(key).await
     }
-}
 
-#[cfg(all(test, feature = "zenoh"))]
-mod tests {
-    use super::{Endpoint, Session};
+    pub async fn subscribe_liveliness(&self, key_expression: &str) -> Result<LivelinessStream> {
+        self.backend.subscribe_liveliness(key_expression).await
+    }
 
-    #[test]
-    fn zenoh_two_local_sessions_watch_send() {
-        let mut subscriber = Session::open(Endpoint::Local).unwrap();
-        let publisher = Session::open(Endpoint::Local).unwrap();
-        let (sample_sender, sample_receiver) = std::sync::mpsc::channel();
-        subscriber
-            .watch("zenoh/two-session/stream", move |sample| {
-                let _ = sample_sender.send(sample); // drop if the test already timed out
-            })
-            .unwrap();
-        let _run = std::thread::spawn(move || subscriber.run());
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
-        let sample = loop {
-            publisher
-                .send("zenoh/two-session/stream", b"hello", 9)
-                .unwrap();
-            match sample_receiver.recv_timeout(std::time::Duration::from_millis(200)) {
-                Ok(sample) => break sample,
-                Err(_) if std::time::Instant::now() < deadline => continue,
-                Err(_) => panic!("timed out waiting for zenoh sample"),
-            }
-        };
-        assert_eq!(sample.key, "zenoh/two-session/stream");
-        assert_eq!(sample.payload, b"hello");
-        assert_eq!(sample.correlation, 9);
+    pub async fn declare_state(&self, key: &str) -> Result<StateHandle> {
+        state::declare_state(self.backend.clone(), key).await
     }
 }
