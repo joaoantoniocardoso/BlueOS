@@ -1,6 +1,8 @@
 [workspace]
 resolver = "2"
 members = [
+    "libs/api",
+    "libs/idl",
     "libs/adapters/cli",
     "libs/adapters/comms",
     "libs/adapters/comms/channel",
@@ -8,6 +10,7 @@ members = [
     "libs/adapters/comms/zenoh",
     "libs/adapters/configs",
     "libs/adapters/logging",
+    "libs/adapters/settings",
     "libs/app/service",
     "libs/logic/cqrs",
     "libs/logic/jobs",
@@ -31,12 +34,20 @@ panic = "unwind"
 strip = true
 
 [workspace.dependencies]
+async-trait = "0.1"
+blueos-api = { path = "libs/api" }
+blueos-idl = { path = "libs/idl" }
+bytes = "1"
 clap = { version = "4", features = ["derive"] }
+futures = "0.3"
 json5 = "0.4"
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
+serde_arrays = { version = "0.2", default-features = false }
 serde_json = "1"
 thiserror = { version = "2", default-features = false }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"] }
+tracing = "0.1"
 tracing-log = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-zenoh = { version = "=1.9.0", default-features = false, features = ["transport_tcp"] }
+zenoh = { version = "=1.9.0", default-features = false, features = ["shared-memory", "transport_tcp"] }
