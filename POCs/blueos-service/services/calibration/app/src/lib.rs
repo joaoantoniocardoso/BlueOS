@@ -3,6 +3,8 @@ mod io;
 mod local;
 mod wire;
 
+use std::ffi::OsString;
+
 use blueos_cli::Argv;
 use blueos_comms::{Endpoint, Session};
 use blueos_cqrs::App;
@@ -18,8 +20,8 @@ use io::execute_io;
 use local::run_local;
 use wire::{parse_ack, parse_offsets};
 
-fn main() {
-    let cli = Cli::parse();
+pub fn run(args: impl IntoIterator<Item = OsString>) {
+    let cli = Cli::parse_from(args);
     let _ = blueos_logging::init(cli.common.verbose); // already-initialized is success
     let configs = cli::load_configs(cli.common.config.as_deref());
     let args = tokens(cli.command);
