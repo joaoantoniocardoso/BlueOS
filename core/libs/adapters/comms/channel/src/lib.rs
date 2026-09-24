@@ -28,12 +28,12 @@ impl Default for ChannelBackend {
 impl ChannelBackend {
     pub fn new() -> Self {
         Self {
-            broker: ChannelBroker::shared(),
+            broker: ChannelBroker::new(),
         }
     }
 
     pub fn pair() -> (Self, Self) {
-        let broker = ChannelBroker::shared();
+        let broker = ChannelBroker::new();
         (
             Self {
                 broker: broker.clone(),
