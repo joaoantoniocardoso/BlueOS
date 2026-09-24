@@ -28,10 +28,10 @@ Type hash attachment key: `blueos.type_hash` (`TYPE_HASH_ATTACHMENT_KEY`).
 ## Schema evolution (D-06)
 
 Within a major version, `.msg` fields are append-only. New writers with extra trailing fields decode on
-older readers (extra bytes are ignored). Old writers missing trailing fields are supported by zero-padding
-short payloads before decode (see `decodeCdr` in `cdr.ts`). This matches the Rust `blueos-idl` policy for
-strings and other trailing primitives; it is not a full ROS 2 XTypes implementation. Native ROS 2 nodes
-without padding still fail on short payloads.
+older readers (extra bytes are ignored). Old writers missing trailing **top-level** fields are decoded by
+`decodeCdr` using progressively shorter readers and ROS 2 default values for the omitted fields (see
+`cdr.ts`). Nested messages are not partially defaulted. This is not a full ROS 2 XTypes implementation.
+Native ROS 2 nodes still fail on short payloads.
 
 ## Shared memory (D-09)
 

@@ -1,16 +1,15 @@
 /* eslint-disable import/no-extraneous-dependencies */
 import { SCHEMAS } from '@blueos-idl/schemas'
+import type { MessageDefinition, MessageDefinitionField } from '@foxglove/message-definition'
 import { parse } from '@foxglove/rosmsg'
 import { MessageReader, MessageWriter } from '@foxglove/rosmsg2-serialization'
 
 import type { MessageForSchema, SchemaName } from './types'
 
-const DECODE_PADDING_BYTES = 256
-
 type ParsedDefinitions = ReturnType<typeof parse>
 
 const definitionCache = new Map<SchemaName, ParsedDefinitions>()
-const readerCache = new Map<SchemaName, MessageReader>()
+const readerCache = new Map<string, MessageReader>()
 const writerCache = new Map<SchemaName, MessageWriter>()
 
 function orderDefinitionsForSchema(
@@ -40,11 +39,56 @@ function getDefinitions(schemaName: SchemaName): ParsedDefinitions {
   return definitions
 }
 
-function getReader(schemaName: SchemaName): MessageReader {
-  let reader = readerCache.get(schemaName)
+function rootMessageDefinition(
+  definitions: ParsedDefinitions,
+  schemaName: SchemaName,
+): MessageDefinition {
+  const root = definitions.find((definition) => definition.name === schemaName)
+  if (root === undefined) {
+    throw new Error(`Schema ${schemaName} has no root message definition`)
+  }
+  return root
+}
+
+function dataFields(definition: MessageDefinition): MessageDefinitionField[] {
+  return definition.definitions.filter((field) => field.isConstant !== true)
+}
+
+function definitionsMap(definitions: ParsedDefinitions): Map<string, MessageDefinitionField[]> {
+  return new Map(definitions.map((definition) => [definition.name ?? '', definition.definitions]))
+}
+
+function truncatedDefinitions(
+  definitions: ParsedDefinitions,
+  schemaName: SchemaName,
+  fieldCount: number,
+): ParsedDefinitions {
+  const ordered = orderDefinitionsForSchema(schemaName, definitions)
+  const root = ordered[0]
+  const constants = root.definitions.filter((field) => field.isConstant === true)
+  const fields = dataFields(root).slice(0, fieldCount)
+  const truncatedRoot: MessageDefinition = {
+    ...root,
+    definitions: [...constants, ...fields],
+  }
+  return [truncatedRoot, ...ordered.slice(1)]
+}
+
+function readerCacheKey(schemaName: SchemaName, fieldCount: number): string {
+  return `${schemaName}:${fieldCount}`
+}
+
+function getReaderForFieldCount(schemaName: SchemaName, fieldCount: number): MessageReader {
+  const cacheKey = readerCacheKey(schemaName, fieldCount)
+  let reader = readerCache.get(cacheKey)
   if (reader === undefined) {
-    reader = new MessageReader(getDefinitions(schemaName))
-    readerCache.set(schemaName, reader)
+    const definitions = getDefinitions(schemaName)
+    const fullCount = dataFields(rootMessageDefinition(definitions, schemaName)).length
+    const definitionsForReader = fieldCount >= fullCount
+      ? orderDefinitionsForSchema(schemaName, definitions)
+      : truncatedDefinitions(definitions, schemaName, fieldCount)
+    reader = new MessageReader(definitionsForReader)
+    readerCache.set(cacheKey, reader)
   }
   return reader
 }
@@ -56,6 +100,64 @@ function getWriter(schemaName: SchemaName): MessageWriter {
     writerCache.set(schemaName, writer)
   }
   return writer
+}
+
+function ros2TimeDefault(): { sec: number; nanosec: number } {
+  return { sec: 0, nanosec: 0 }
+}
+
+function fieldDefault(
+  field: MessageDefinitionField,
+  definitionsByName: Map<string, MessageDefinitionField[]>,
+): unknown {
+  if (field.isArray === true) {
+    if (field.arrayLength !== undefined) {
+      return Array.from({ length: field.arrayLength }, () => fieldDefault(
+        { ...field, isArray: false, arrayLength: undefined },
+        definitionsByName,
+      ))
+    }
+    return []
+  }
+  if (field.isComplex === true) {
+    const nestedFields = definitionsByName.get(field.type)
+    if (nestedFields === undefined) {
+      throw new Error(`Unrecognized complex type ${field.type}`)
+    }
+    return messageDefaults(nestedFields, definitionsByName)
+  }
+  if (field.type === 'bool') {
+    return false
+  }
+  if (field.type === 'string') {
+    return ''
+  }
+  if (field.type === 'time' || field.type === 'duration') {
+    return ros2TimeDefault()
+  }
+  return 0
+}
+
+function messageDefaults(
+  fields: MessageDefinitionField[],
+  definitionsByName: Map<string, MessageDefinitionField[]>,
+): Record<string, unknown> {
+  const message: Record<string, unknown> = {}
+  for (const field of fields) {
+    if (field.isConstant === true) {
+      continue
+    }
+    message[field.name] = fieldDefault(field, definitionsByName)
+  }
+  return message
+}
+
+function isOutOfBoundsDecodeError(error: unknown): boolean {
+  if (error instanceof RangeError) {
+    return true
+  }
+  const message = error instanceof Error ? error.message : String(error)
+  return /out of bounds|outside the bounds/i.test(message)
 }
 
 function normalizeDecodedValue(value: unknown): unknown {
@@ -82,24 +184,42 @@ function normalizeDecodedValue(value: unknown): unknown {
 
 /**
  * D-06: new writers may include trailing fields; @foxglove/rosmsg2-serialization ignores extra bytes.
- * Old writers missing trailing fields need zero padding before decode (see README).
+ * Old writers missing trailing top-level fields are decoded with progressively shorter readers, then
+ * missing fields are filled from ROS 2 defaults. Nested message fields are not partially defaulted.
  */
 export function decodeCdr<Schema extends SchemaName>(
   schemaName: Schema,
   payload: Uint8Array,
 ): MessageForSchema<Schema> {
-  const reader = getReader(schemaName)
-  try {
-    return normalizeDecodedValue(reader.readMessage(payload)) as MessageForSchema<Schema>
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    if (!message.includes('Out of bounds') && !message.includes('out of bounds')) {
-      throw error
+  const definitions = getDefinitions(schemaName)
+  const root = rootMessageDefinition(definitions, schemaName)
+  const rootFields = dataFields(root)
+  const definitionsByName = definitionsMap(definitions)
+  let lastBoundsError: unknown
+
+  for (let fieldCount = rootFields.length; fieldCount >= 1; fieldCount -= 1) {
+    try {
+      const reader = getReaderForFieldCount(schemaName, fieldCount)
+      const decoded = normalizeDecodedValue(reader.readMessage(payload)) as Record<string, unknown>
+      if (fieldCount < rootFields.length) {
+        for (let index = fieldCount; index < rootFields.length; index += 1) {
+          const field = rootFields[index]
+          decoded[field.name] = fieldDefault(field, definitionsByName)
+        }
+      }
+      return decoded as MessageForSchema<Schema>
+    } catch (error) {
+      if (!isOutOfBoundsDecodeError(error)) {
+        throw error
+      }
+      lastBoundsError = error
     }
-    const padded = new Uint8Array(payload.length + DECODE_PADDING_BYTES)
-    padded.set(payload)
-    return normalizeDecodedValue(reader.readMessage(padded)) as MessageForSchema<Schema>
   }
+
+  if (lastBoundsError !== undefined) {
+    throw lastBoundsError
+  }
+  throw new Error(`Failed to decode CDR for schema ${schemaName}`)
 }
 
 export function encodeCdr<Schema extends SchemaName>(
