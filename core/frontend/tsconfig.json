@@ -21,6 +21,12 @@
     "paths": {
       "@/*": [
         "src/*"
+      ],
+      "@blueos-idl": [
+        "../libs/idl/typescript/index.ts"
+      ],
+      "@blueos-idl/*": [
+        "../libs/idl/typescript/*"
       ]
     },
     "lib": [

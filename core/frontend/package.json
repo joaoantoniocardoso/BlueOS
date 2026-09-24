@@ -15,7 +15,8 @@
     "type-check": "vue-tsc --noEmit --pretty false | tsc-baseline --ignoreMessages check",
     "type-check:baseline": "vue-tsc --noEmit --pretty false | tsc-baseline --ignoreMessages save",
     "lint:css": "stylelint 'src/**/*.{vue,css,scss}'",
-    "lint:css:fix": "stylelint 'src/**/*.{vue,css,scss}' --fix"
+    "lint:css:fix": "stylelint 'src/**/*.{vue,css,scss}' --fix",
+    "test": "vitest run"
   },
   "dependencies": {
     "@eclipse-zenoh/zenoh-ts": "1.9.0",
@@ -107,6 +108,7 @@
     "vite-plugin-wasm": "^3.4.1",
     "vue-cli-plugin-vuetify": "~2.4.1",
     "vue-template-babel-compiler": "^2.0.0",
+    "vitest": "^3.2.4",
     "vue-tsc": "2.0.29",
     "vuetify-loader": "^1.7.0",
     "workbox-build": "7.0.0"

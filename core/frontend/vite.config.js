@@ -204,6 +204,7 @@ export default defineConfig(({ command, mode }) => {
       extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json', '.vue'],
       alias: {
         '@': path.resolve(__dirname, './src'),
+        '@blueos-idl': path.resolve(__dirname, '../libs/idl/typescript'),
       },
     },
     build: {
