@@ -16,6 +16,10 @@ pub const MAVLINK_TOPIC_PREFIX: &str = "mavlink/";
 pub const MAVLINK_RAW_TOPIC_PREFIX: &str = "mavlink_raw/";
 pub const VIDEO_TOPIC_PREFIX: &str = "video/";
 
+pub const MAV_CMD_VIDEO_START_CAPTURE: u32 = 2500;
+pub const MAV_CMD_VIDEO_STOP_CAPTURE: u32 = 2501;
+pub const MAV_CMD_REQUEST_CAMERA_CAPTURE_STATUS: u32 = 522;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct SystemAndComponent {
     pub system_id: u8,
@@ -430,9 +434,9 @@ fn handle_camera_capture_command(
 
 fn capture_command_id(command: CaptureCommandKind) -> u32 {
     match command {
-        CaptureCommandKind::StartCapture => 2500,
-        CaptureCommandKind::StopCapture => 2501,
-        CaptureCommandKind::RequestCaptureStatus => 522,
+        CaptureCommandKind::StartCapture => MAV_CMD_VIDEO_START_CAPTURE,
+        CaptureCommandKind::StopCapture => MAV_CMD_VIDEO_STOP_CAPTURE,
+        CaptureCommandKind::RequestCaptureStatus => MAV_CMD_REQUEST_CAMERA_CAPTURE_STATUS,
     }
 }
 
