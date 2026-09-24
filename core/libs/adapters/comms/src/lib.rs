@@ -132,6 +132,14 @@ pub struct Session {
     backend: Arc<Backend>,
 }
 
+impl Clone for Session {
+    fn clone(&self) -> Self {
+        Self {
+            backend: Arc::clone(&self.backend),
+        }
+    }
+}
+
 impl Session {
     pub async fn open(service_name: &str, endpoint: blueos_comms_driver::Endpoint) -> Result<Self> {
         #[cfg(feature = "zenoh")]

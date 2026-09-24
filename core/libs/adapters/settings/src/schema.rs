@@ -108,9 +108,7 @@ pub fn read_version(data: &serde_json::Value) -> Result<NonZeroU32, SettingsErro
     NonZeroU32::new(version).ok_or(SettingsError::BadAttributes)
 }
 
-pub(crate) fn serialize_settings_document<T: Serialize>(
-    value: &T,
-) -> Result<Vec<u8>, SettingsError> {
+pub fn serialize_settings_document<T: Serialize>(value: &T) -> Result<Vec<u8>, SettingsError> {
     let mut buffer = Vec::new();
     let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");
     let mut serializer = Serializer::with_formatter(&mut buffer, formatter);

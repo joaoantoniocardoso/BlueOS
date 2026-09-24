@@ -30,12 +30,11 @@ pub fn init(service_name: &str, verbosity: u8) -> Result<(), LogError> {
         };
         let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(default));
         let _ = tracing_log::LogTracer::init();
-        tracing_subscriber::registry()
+        let _ = tracing_subscriber::registry()
             .with(filter)
             .with(tracing_subscriber::fmt::layer().with_target(true))
             .with(zenoh_layer::ZenohLogLayer::new())
-            .try_init()
-            .expect("tracing subscriber");
+            .try_init();
     });
     info!("Starting {service_name}");
     Ok(())
