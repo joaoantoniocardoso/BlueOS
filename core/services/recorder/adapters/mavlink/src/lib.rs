@@ -20,9 +20,6 @@ pub use encode::{
 };
 pub use vehicle::ArmState;
 
-pub const RAW_MAVLINK_OUT_TOPIC: &str = "mavlink_raw/out";
-pub const RAW_MAVLINK_IN_TOPIC: &str = "mavlink_raw/in";
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct SystemAndComponent {
     pub system_id: u8,
