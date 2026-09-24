@@ -41,6 +41,11 @@ jobs:
         rustup target add thumbv7em-none-eabihf
         cargo install --locked cargo-deny@0.20.2
 
+    - name: Install cargo-semver-checks
+      uses: taiki-e/install-action@v2
+      with:
+        tool: cargo-semver-checks
+
     - name: Run tests
       env:
         BASE_SHA: ${{ github.event.pull_request.base.sha }}
