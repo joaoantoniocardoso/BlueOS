@@ -10,8 +10,12 @@ const LOG_CHANNEL_CAPACITY: usize = 1024;
 
 type Encoder = Arc<dyn Fn(&LogRecord) -> (Payload, String) + Send + Sync>;
 
-static ENCODER: OnceLock<Encoder> = OnceLock::new();
-static PUBLISH_SENDER: OnceLock<mpsc::Sender<PublishMessage>> = OnceLock::new();
+static PUBLISHER: OnceLock<Publisher> = OnceLock::new();
+
+struct Publisher {
+    encoder: Encoder,
+    sender: mpsc::Sender<PublishMessage>,
+}
 
 struct PublishMessage {
     payload: Payload,
@@ -48,17 +52,15 @@ where
     S: tracing::Subscriber + for<'lookup> LookupSpan<'lookup>,
 {
     fn on_event(&self, event: &tracing::Event<'_>, _context: Context<'_, S>) {
-        let encoder = match ENCODER.get() {
-            Some(encoder) => encoder,
-            None => return,
-        };
-        let sender = match PUBLISH_SENDER.get() {
-            Some(sender) => sender,
-            None => return,
+        let Some(publisher) = PUBLISHER.get() else {
+            return;
         };
         let record = event_to_record(event);
-        let (payload, encoding) = encoder(&record);
-        match sender.try_send(PublishMessage { payload, encoding }) {
+        let (payload, encoding) = (publisher.encoder)(&record);
+        match publisher
+            .sender
+            .try_send(PublishMessage { payload, encoding })
+        {
             Ok(()) => {}
             Err(mpsc::error::TrySendError::Full(_)) => {
                 self.dropped.fetch_add(1, Ordering::Relaxed);
@@ -80,17 +82,18 @@ pub async fn attach_zenoh_publisher<EncoderFn>(
 where
     EncoderFn: Fn(&LogRecord) -> (Payload, String) + Send + Sync + 'static,
 {
-    if PUBLISH_SENDER.get().is_some() {
+    let (sender, mut receiver) = mpsc::channel(LOG_CHANNEL_CAPACITY);
+    let publisher = Publisher {
+        encoder: Arc::new(encoder),
+        sender,
+    };
+    // ponytail: one log publisher per process (one service per process in production); later services in the
+    // same process, as in tests, log through the first one's key. Make it per-session if that ever matters.
+    if PUBLISHER.set(publisher).is_err() {
         return Ok(ZenohLogGuard {
             _task: tokio::spawn(async {}),
         });
     }
-    if ENCODER.get().is_some() {
-        return Err("zenoh log encoder already attached".into());
-    }
-    let _ = ENCODER.set(Arc::new(encoder));
-    let (sender, mut receiver) = mpsc::channel(LOG_CHANNEL_CAPACITY);
-    let _ = PUBLISH_SENDER.set(sender);
     let task = tokio::spawn(async move {
         while let Some(message) = receiver.recv().await {
             let _ = session
