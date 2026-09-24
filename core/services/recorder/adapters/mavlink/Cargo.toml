@@ -1,0 +1,14 @@
+[package]
+name = "blueos-recorder-mavlink"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+mavlink.workspace = true
+mavlink-codec.workspace = true
+tracing.workspace = true
