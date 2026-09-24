@@ -44,7 +44,9 @@ fn dispatch_example(arguments: Vec<OsString>) -> bool {
 
 #[cfg(feature = "recorder")]
 fn dispatch_recorder(arguments: Vec<OsString>) -> bool {
-    recorder::run(arguments);
+    if recorder::run(arguments) != std::process::ExitCode::SUCCESS {
+        process::exit(1);
+    }
     true
 }
 
