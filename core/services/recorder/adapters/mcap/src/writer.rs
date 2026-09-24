@@ -6,7 +6,8 @@ use std::num::{NonZeroU64, NonZeroUsize};
 use std::path::Path;
 use std::sync::{
     Arc, Mutex,
-    mpsc::{self, SyncSender},
+    atomic::{AtomicU64, Ordering},
+    mpsc::{self, SyncSender, TrySendError},
 };
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
@@ -24,6 +25,7 @@ const IO_BUFFER_BYTES: NonZeroUsize = NonZeroUsize::new(4 * 1024 * 1024).unwrap(
 pub const DEFAULT_CHUNK_BYTES: NonZeroU64 = NonZeroU64::new(10 * 1024 * 1024).unwrap();
 pub const DEFAULT_FLUSH_INTERVAL_SECS: NonZeroU64 = NonZeroU64::new(30).unwrap();
 const WRITER_QUEUE_CAPACITY: NonZeroUsize = NonZeroUsize::new(4096).unwrap();
+const DROP_LOG_EVERY: u64 = 256;
 
 #[derive(Clone, Copy, Debug)]
 pub struct McapWriteConfig {
@@ -45,11 +47,13 @@ pub struct McapSession {
     writer_thread: Option<JoinHandle<Result<()>>>,
     flush_interval: Duration,
     last_flush: Instant,
+    finished: bool,
 }
 
 pub struct McapWriterHandle {
     sender: SyncSender<WriterCommand>,
     known_topics: Mutex<HashSet<Arc<str>>>,
+    dropped_writes: AtomicU64,
 }
 
 enum WriterCommand {
@@ -131,10 +135,12 @@ impl McapSession {
             writer: Arc::new(McapWriterHandle {
                 sender,
                 known_topics: Mutex::new(HashSet::new()),
+                dropped_writes: AtomicU64::new(0),
             }),
             writer_thread: Some(writer_thread),
             flush_interval: Duration::from_secs(config.flush_interval_secs.get()),
             last_flush: Instant::now(),
+            finished: false,
         })
     }
 
@@ -152,6 +158,14 @@ impl McapSession {
     }
 
     pub fn finish(mut self) -> Result<()> {
+        self.finish_inner()?;
+        Ok(())
+    }
+
+    fn finish_inner(&mut self) -> Result<()> {
+        if self.finished {
+            return Ok(());
+        }
         self.writer.flush()?;
         self.writer.send_finish()?;
         if let Some(handle) = self.writer_thread.take() {
@@ -161,7 +175,16 @@ impl McapSession {
                 Err(_) => return Err(anyhow!("MCAP writer thread panicked")),
             }
         }
+        self.finished = true;
         Ok(())
+    }
+}
+
+impl Drop for McapSession {
+    fn drop(&mut self) {
+        if let Err(error) = self.finish_inner() {
+            error!(%error, "Failed to finish MCAP session on drop");
+        }
     }
 }
 
@@ -206,9 +229,20 @@ impl McapWriterHandle {
             payload,
             new_channel,
         };
-        self.sender
-            .send(command)
-            .map_err(|_| anyhow!("MCAP writer thread stopped"))
+        match self.sender.try_send(command) {
+            Ok(()) => Ok(()),
+            Err(TrySendError::Full(_)) => {
+                let dropped = self.dropped_writes.fetch_add(1, Ordering::Relaxed) + 1;
+                if dropped == 1 || dropped.is_multiple_of(DROP_LOG_EVERY) {
+                    error!(
+                        dropped,
+                        "MCAP writer queue full, dropping message (backpressure)"
+                    );
+                }
+                Ok(())
+            }
+            Err(TrySendError::Disconnected(_)) => Err(anyhow!("MCAP writer thread stopped")),
+        }
     }
 
     pub fn flush(&self) -> Result<()> {
