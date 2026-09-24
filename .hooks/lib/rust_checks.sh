@@ -5,12 +5,14 @@
 RUST_NO_STD_TARGET=thumbv7em-none-eabihf
 
 # Prints "<unit> <folder>" for a crate directory: "libs logic" for libs/logic/jobs, "calibration app" for
-# services/calibration/app.
+# services/calibration/app, "multicall app" for POCs/blueos-service/app.
 crate_place() {
     if [[ $1 =~ /services/([^/]+)/([^/]+) ]]; then
         echo "${BASH_REMATCH[1]} ${BASH_REMATCH[2]}"
     elif [[ $1 =~ /libs/([^/]+) ]]; then
         echo "libs ${BASH_REMATCH[1]}"
+    elif [[ $1 =~ /blueos-service/app$ ]]; then
+        echo "multicall app"
     else
         echo "none none"
     fi
@@ -68,6 +70,9 @@ run_rust_checks() {
             read -r unit folder <<<"$(crate_place "$directory")"
             read -r dependency_unit dependency_folder <<<"$(crate_place "$dependency_directory")"
             if [ "$dependency_unit" != libs ] && [ "$dependency_unit" != "$unit" ]; then
+                if [ "$unit" = multicall ] && [ "$dependency_folder" = app ]; then
+                    continue
+                fi
                 violations+=("$name depends on $dependency, which belongs to another service")
             elif [ "$folder" = logic ] && [ "$dependency_unit/$dependency_folder" != libs/logic ]; then
                 violations+=("$name is logic, so it may only depend on libs/logic, not on $dependency")
