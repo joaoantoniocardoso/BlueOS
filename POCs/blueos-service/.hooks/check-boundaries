@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Rust checks for POCs/blueos-service, using the same library as BlueOS's pre-push.
+set -e
+
+ROOT_DIR=$(git rev-parse --show-toplevel)
+
+# shellcheck disable=SC1091
+source "$ROOT_DIR/.hooks/lib/rust_checks.sh"
+
+run_rust_checks "$ROOT_DIR/POCs/blueos-service"
