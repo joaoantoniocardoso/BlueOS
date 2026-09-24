@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "libs/adapters/comms/driver",
 ]
 
 [workspace.package]
@@ -19,3 +20,6 @@ debug = false
 lto = "thin"
 panic = "unwind"
 strip = true
+
+[workspace.dependencies]
+thiserror = { version = "2", default-features = false }
