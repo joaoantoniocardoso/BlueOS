@@ -154,6 +154,7 @@ impl CommsBackend for ZenohBackend {
             .await
             .map_err(|error| CommsError::Zenoh(error.to_string()))?;
         Ok(LivelinessToken::new(Box::new(move || {
+            // Drop runs synchronously; Zenoh undeclare blocks the dropping thread.
             let _ = token.undeclare().wait();
         })))
     }
@@ -273,20 +274,12 @@ mod tests {
     use bytes::Bytes;
     use futures::StreamExt;
 
-    fn networking_tests_enabled() -> bool {
-        std::env::var("BLUEOS_SKIP_NETWORK_TESTS").is_err()
-    }
-
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[ignore = "needs a local zenohd router"]
     async fn zenoh_publish_subscribe_round_trip() {
-        if !networking_tests_enabled() {
-            return;
-        }
-        let result = test_support::open_test_router().await;
-        if result.is_err() {
-            return;
-        }
-        let harness = result.unwrap();
+        let harness = test_support::open_test_router()
+            .await
+            .expect("open test router");
         let publisher = harness.client;
         let subscriber_backend = ZenohBackend::open(
             "test_subscriber",
@@ -318,15 +311,11 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[ignore = "needs a local zenohd router"]
     async fn zenoh_large_payload_round_trip() {
-        if !networking_tests_enabled() {
-            return;
-        }
-        let result = test_support::open_test_router().await;
-        if result.is_err() {
-            return;
-        }
-        let harness = result.unwrap();
+        let harness = test_support::open_test_router()
+            .await
+            .expect("open test router");
         let publisher = harness.client;
         let subscriber_backend = ZenohBackend::open(
             "test_subscriber_large",
