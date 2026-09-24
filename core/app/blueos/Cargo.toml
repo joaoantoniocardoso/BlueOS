@@ -1,0 +1,18 @@
+[package]
+name = "blueos"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "blueos"
+path = "src/main.rs"
+
+[features]
+default = []
+example = ["dep:example"]
+# recorder = ["dep:recorder"]  # added by the Recorder workstream in ../wt-3b-recorder
+
+[dependencies]
+example = { package = "example_service", path = "../../services/example/app", optional = true }

@@ -194,6 +194,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "blueos"
+version = "0.1.0"
+dependencies = [
+ "example_service",
+]
+
+[[package]]
 name = "blueos-api"
 version = "0.1.0"
 
@@ -742,6 +749,46 @@ checksum = "5a23add41df1562121a9393cb065eab5146a1242410f23a644851e90cfd669d2"
 dependencies = [
  "parking",
  "pin-project-lite",
+]
+
+[[package]]
+name = "example_pump_logic"
+version = "0.1.0"
+dependencies = [
+ "blueos_cqrs",
+ "blueos_jobs",
+]
+
+[[package]]
+name = "example_service"
+version = "0.1.0"
+dependencies = [
+ "blueos-api",
+ "blueos-idl",
+ "blueos_cli",
+ "blueos_comms",
+ "blueos_cqrs",
+ "blueos_jobs",
+ "blueos_logging",
+ "blueos_service",
+ "blueos_settings",
+ "bytes",
+ "clap",
+ "example_pump_logic",
+ "example_simulated_pump",
+ "futures",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "example_simulated_pump"
+version = "0.1.0"
+dependencies = [
+ "tokio",
 ]
 
 [[package]]

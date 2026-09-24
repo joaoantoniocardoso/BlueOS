@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "app/blueos",
     "libs/api",
     "libs/idl",
     "libs/adapters/cli",
@@ -13,6 +14,9 @@ members = [
     "libs/app/service",
     "libs/logic/cqrs",
     "libs/logic/jobs",
+    "services/example/adapters/simulated_pump",
+    "services/example/app",
+    "services/example/logic/pump",
 ]
 
 [workspace.package]
@@ -35,7 +39,14 @@ strip = true
 [workspace.dependencies]
 async-trait = "0.1"
 blueos-api = { path = "libs/api" }
+blueos_cli = { path = "libs/adapters/cli" }
+blueos_comms = { path = "libs/adapters/comms" }
+blueos_cqrs = { path = "libs/logic/cqrs" }
 blueos-idl = { path = "libs/idl" }
+blueos_jobs = { path = "libs/logic/jobs" }
+blueos_logging = { path = "libs/adapters/logging" }
+blueos_service = { path = "libs/app/service" }
+blueos_settings = { path = "libs/adapters/settings" }
 bytes = "1"
 clap = { version = "4", features = ["derive"] }
 futures = "0.3"
