@@ -24,6 +24,8 @@ When identifying issues or problems, if you discover a possible root cause, expl
 
 **If you don't know something:** Search the codebase, check existing services for patterns, or read `core/tools/nginx/nginx.conf` for service endpoints. Say "I don't know" rather than guessing.
 
+**Rust services and the event-driven architecture:** read `doc/architecture/decisions.md` before touching `core/Cargo.toml`, `core/libs/{logic,adapters,app}/`, `core/interfaces/`, any Rust service, or `core/frontend/src/libs/blueos-api/`.
+
 ## Directory Structure
 
 ```
