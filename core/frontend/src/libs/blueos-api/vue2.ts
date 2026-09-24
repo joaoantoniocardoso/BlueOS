@@ -8,6 +8,7 @@ import {
   watchJobs,
   watchLogs,
   watchServiceAlive,
+  watchSettings,
   watchState,
 } from './index'
 import type { MessageForSchema, SchemaName } from './types'
@@ -45,6 +46,14 @@ export const blueosApiMixin = {
 
     blueosWatchJobs(service: string, onJobs: (jobs: JobList) => void): Unsubscribe {
       return this.blueosTrackUnsubscribe(watchJobs(service, onJobs))
+    },
+
+    blueosWatchSettings<Schema extends SchemaName>(
+      service: string,
+      onSettings: (envelope: MessageForSchema<Schema>) => void,
+      schemaName?: Schema,
+    ): Unsubscribe {
+      return this.blueosTrackUnsubscribe(watchSettings(service, onSettings, schemaName))
     },
 
     blueosWatchServiceAlive(service: string, onAlive: (alive: boolean) => void): Unsubscribe {
