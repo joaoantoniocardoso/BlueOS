@@ -193,6 +193,7 @@ async fn run_async(arguments: Vec<String>) -> Result<(), RecorderRunError> {
         })
         .verbosity(verbosity)
         .session(session)
+        .on_shutdown(RecorderCommand::StopRecording)
         .status(|application| ServiceStatus {
             status: service_status_constants::STATUS_READY,
             detail: application
