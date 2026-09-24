@@ -12,7 +12,7 @@ Every Rust crate lives in one of three folders, in the shared libraries and in e
 
 - `logic/`: pure code with no I/O (`#![no_std]`).
 - `adapters/`: code that touches the outside world.
-- `app/`: code that connects logic to adapters and builds the binary.
+- `app/`: code that connects logic to adapters (service `app/` crates are libraries; the workspace `app/` crate builds the `blueos` multicall binary).
 
 The shared crates live in BlueOS core under [`core/libs/`](../../core/libs), in the `core/` Cargo workspace. This POC keeps only the two example services, laid out as `services/<name>/{logic/<block>,adapters/<thing>,app}`, and depends on core by path. Neither service needs its own adapter.
 
@@ -28,11 +28,13 @@ core/libs/
   adapters/configs           blueos_configs -- JSON5 via serde
   adapters/logging           blueos_logging -- tracing
   app/service                blueos_service -- owns App + Adapters, runs the loop
-POCs/blueos-service/services/
-  calibration/logic/sensors  calibration_sensors -- gyro/baro/stationary handlers
-  calibration/app            calibration -- calibration binary
-  autopilot/logic/preflight  autopilot_preflight -- preflight stub handlers
-  autopilot/app              autopilot -- autopilot binary
+POCs/blueos-service/
+  app                        blueos -- multicall binary (cargo features select services)
+  services/
+    calibration/logic/sensors  calibration_sensors -- gyro/baro/stationary handlers
+    calibration/app            calibration -- calibration entry (library)
+    autopilot/logic/preflight  autopilot_preflight -- preflight stub handlers
+    autopilot/app              autopilot -- autopilot entry (library)
 ```
 
 A crate's folder decides who it may depend on (dev-dependencies excluded):
@@ -41,11 +43,28 @@ A crate's folder decides who it may depend on (dev-dependencies excluded):
 |---|---|
 | `logic/` | `libs/logic/` |
 | `adapters/` | `libs/adapters/` and its own service's `adapters/` |
-| `app/` | anything in `libs/` and its own service |
+| `app/` (under `services/<name>/`) | anything in `libs/` and its own service |
+| `app/` (workspace root) | anything in `libs/` and any service `app/` crate enabled via cargo features |
 
 No crate depends on another service's crates. A crate nested in another crate's folder, like the comms drivers, is private to that crate and its siblings. [`deny.toml`](deny.toml) only covers crates.io crates: `zenoh` stays behind `blueos_comms_zenoh`.
 
 Every `logic/` crate is built for a target without `std`, so a dependency on `tokio`, `zenoh` or any other I/O crate fails to compile.
+
+## Run
+
+Build the multicall binary (all services by default):
+
+```sh
+cargo build --release -p blueos
+```
+
+Invoke a service by name or via a symlink to `blueos` named after the service:
+
+```sh
+target/release/blueos calibration snapshot
+ln -s blueos target/release/calibration
+target/release/calibration --help
+```
 
 ## Check
 
