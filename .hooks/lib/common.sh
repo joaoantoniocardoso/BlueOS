@@ -5,7 +5,7 @@ print_usage() {
 Usage: .hooks/pre-push [options]
 
 Options:
-  --fix                   Run formatters (isort/black) and skip other checks.
+  --fix                   Run formatters (isort/black/cargo fmt) and skip other checks.
   -h, --help              Show this help message.
 EOF
 }
@@ -20,7 +20,11 @@ require_commands() {
 }
 
 check_required_tools() {
-  require_commands docker lsof python3 parallel uv shellcheck
+  local tools=(docker lsof python3 parallel uv shellcheck)
+  if [ "${SKIP_RUST_CHECKS:-}" != "1" ]; then
+    tools+=(cargo cargo-deny jq rustup)
+  fi
+  require_commands "${tools[@]}"
 }
 
 run_nginx_validation() {
