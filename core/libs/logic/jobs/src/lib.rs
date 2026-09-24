@@ -1,15 +1,39 @@
+//! Deterministic job graphs for multi-step sans-IO workflows.
+//!
+//! A service models long-running work as a tree of jobs: leaves are units the kernel runs (IO, blocking
+//! CPU); `Sequence` runs children one after another; `Parallel` runs children concurrently. Cancellation
+//! propagates to queued descendants; a running leaf moves to `Cancelling` until `complete` finishes it.
+//!
+//! The specification type `Spec` is defined by your domain (MAVLink steps, file paths, and so on), not by
+//! this crate. The kernel only schedules and tracks status; it never interprets `Spec`.
+//!
+//! ## Example shape (domain-defined `Spec`)
+//!
+//! ```ignore
+//! jobs.enqueue(JobGraph::Sequence(vec![
+//!     JobGraph::Leaf(Spec::ReadOffsets),
+//!     JobGraph::Leaf(Spec::FitEllipsoid),
+//! ]));
+//! ```
+//!
+//! Time limits are not handled here: the domain arms a timer via `Effect::Schedule` in `blueos_cqrs` when a
+//! step needs a deadline.
+
 #![no_std]
 
 extern crate alloc;
 
-use alloc::string::String;
 use alloc::vec::Vec;
+use core::fmt;
 
 use thiserror::Error;
 
+/// Opaque identifier for a node in the job graph. Allocated sequentially from zero (`JobId(0)` is the first
+/// enqueued root). Indices are never reused even when jobs finish.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct JobId(pub u64);
 
+/// Lifecycle state of one node in the graph (leaf or composite).
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum JobStatus {
     Queued,
@@ -20,32 +44,30 @@ pub enum JobStatus {
     Cancelled,
 }
 
+/// Tree of work to enqueue. Composite nodes have no `Spec`; only leaves carry the domain payload.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct JobSpec {
-    pub name: String,
-    pub payload: Vec<u8>,
+pub enum JobGraph<Spec> {
+    Leaf(Spec),
+    Sequence(Vec<JobGraph<Spec>>),
+    Parallel(Vec<JobGraph<Spec>>),
 }
 
+/// One row in [`JobsSnapshot`]: identity, optional leaf spec, parent link, and status.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum JobGraph {
-    Leaf(JobSpec),
-    Sequence(Vec<JobGraph>),
-    Parallel(Vec<JobGraph>),
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct JobView {
+pub struct JobView<Spec> {
     pub job_id: JobId,
     pub parent: Option<JobId>,
-    pub job_spec: Option<JobSpec>,
+    pub job_spec: Option<Spec>,
     pub status: JobStatus,
 }
 
+/// Point-in-time view of every node ever allocated in this [`Jobs`] instance (including finished jobs).
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct JobsSnapshot {
-    pub jobs: Vec<JobView>,
+pub struct JobsSnapshot<Spec> {
+    pub jobs: Vec<JobView<Spec>>,
 }
 
+/// Errors from invalid job identifiers or cancel requests on terminal jobs.
 #[derive(Debug, Error)]
 pub enum JobsError {
     #[error("unknown job {0:?}")]
@@ -54,10 +76,10 @@ pub enum JobsError {
     NotCancellable(JobId, JobStatus),
 }
 
-#[derive(Debug, Default)]
-pub struct Jobs {
+/// In-memory job graph executor. Pure scheduling: no IO, clocks, or interpretation of `Spec`.
+pub struct Jobs<Spec> {
     // ponytail: completed nodes stay in the vec for snapshot identity; compact if JobId space matters.
-    nodes: Vec<Node>,
+    nodes: Vec<Node<Spec>>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -67,27 +89,49 @@ enum Kind {
     Parallel,
 }
 
-#[derive(Debug)]
-struct Node {
+struct Node<Spec> {
     parent: Option<JobId>,
-    job_spec: Option<JobSpec>,
+    job_spec: Option<Spec>,
     children: Vec<JobId>,
     kind: Kind,
     status: JobStatus,
     sequence_next: usize,
 }
 
-impl Jobs {
+impl<Spec> Default for Jobs<Spec> {
+    fn default() -> Self {
+        Self { nodes: Vec::new() }
+    }
+}
+
+impl<Spec> fmt::Debug for Jobs<Spec> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("Jobs")
+            .field("nodes", &self.nodes.len())
+            .finish()
+    }
+}
+
+impl<Spec> Jobs<Spec>
+where
+    Spec: Clone,
+{
+    /// Empty graph with no allocated job ids.
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn enqueue(&mut self, graph: JobGraph) -> JobId {
+    /// Inserts `graph` and returns the root job id. Runnable leaves become eligible for
+    /// [`poll_runnable`] immediately (subject to sequence ordering).
+    pub fn enqueue(&mut self, graph: JobGraph<Spec>) -> JobId {
         let job_id = self.insert(graph, None);
         self.settle_from(job_id);
         job_id
     }
 
+    /// Requests cancellation. Queued descendants are marked cancelled; a running leaf enters
+    /// [`JobStatus::Cancelling`] until [`complete`].
     pub fn cancel(&mut self, job_id: JobId) -> Result<(), JobsError> {
         let status = self.get(job_id).ok_or(JobsError::Unknown(job_id))?.status;
         match status {
@@ -107,11 +151,13 @@ impl Jobs {
         }
     }
 
+    /// Current status of `job_id`, if it was ever allocated on this instance.
     pub fn status(&self, job_id: JobId) -> Option<JobStatus> {
         self.get(job_id).map(|node| node.status)
     }
 
-    pub fn snapshot(&self) -> JobsSnapshot {
+    /// Snapshot suitable for publishing to clients (see D-12 `jobs` state).
+    pub fn snapshot(&self) -> JobsSnapshot<Spec> {
         JobsSnapshot {
             jobs: self
                 .nodes
@@ -127,7 +173,9 @@ impl Jobs {
         }
     }
 
-    pub fn poll_runnable(&mut self) -> Vec<(JobId, JobSpec)> {
+    /// Marks every currently runnable leaf as [`JobStatus::Running`] and returns its id and spec.
+    /// Call once per scheduling round; the kernel turns each pair into an IO effect.
+    pub fn poll_runnable(&mut self) -> Vec<(JobId, Spec)> {
         let job_ids: Vec<JobId> = (0..self.nodes.len())
             .map(|index| JobId(index as u64))
             .collect();
@@ -148,6 +196,8 @@ impl Jobs {
         runnable
     }
 
+    /// Reports completion of a leaf started by [`poll_runnable`]. `succeeded == false` fails a sequence
+    /// parent and can fail a parallel parent once all siblings finish.
     pub fn complete(&mut self, job_id: JobId, succeeded: bool) -> Result<(), JobsError> {
         let node = self.get(job_id).ok_or(JobsError::Unknown(job_id))?;
         if node.kind != Kind::Leaf {
@@ -171,7 +221,7 @@ impl Jobs {
         Ok(())
     }
 
-    fn insert(&mut self, graph: JobGraph, parent: Option<JobId>) -> JobId {
+    fn insert(&mut self, graph: JobGraph<Spec>, parent: Option<JobId>) -> JobId {
         let (kind, items) = match graph {
             JobGraph::Leaf(job_spec) => {
                 return self.alloc(Node {
@@ -202,21 +252,21 @@ impl Jobs {
         job_id
     }
 
-    fn alloc(&mut self, node: Node) -> JobId {
+    fn alloc(&mut self, node: Node<Spec>) -> JobId {
         let job_id = JobId(self.nodes.len() as u64);
         self.nodes.push(node);
         job_id
     }
 
-    fn get(&self, job_id: JobId) -> Option<&Node> {
+    fn get(&self, job_id: JobId) -> Option<&Node<Spec>> {
         self.nodes.get(job_id.0 as usize)
     }
 
-    fn node(&self, job_id: JobId) -> &Node {
+    fn node(&self, job_id: JobId) -> &Node<Spec> {
         &self.nodes[job_id.0 as usize]
     }
 
-    fn node_mut(&mut self, job_id: JobId) -> &mut Node {
+    fn node_mut(&mut self, job_id: JobId) -> &mut Node<Spec> {
         &mut self.nodes[job_id.0 as usize]
     }
 
@@ -389,28 +439,32 @@ mod tests {
     use alloc::string::ToString;
     use alloc::vec;
 
-    fn job_spec(name: &str) -> JobSpec {
-        JobSpec {
-            name: name.to_string(),
-            payload: Vec::new(),
-        }
+    #[derive(Clone, Debug, Eq, PartialEq)]
+    enum TestJobSpec {
+        Step(alloc::string::String),
     }
 
-    fn leaf(name: &str) -> JobGraph {
-        JobGraph::Leaf(job_spec(name))
+    fn leaf(name: &str) -> JobGraph<TestJobSpec> {
+        JobGraph::Leaf(TestJobSpec::Step(name.to_string()))
     }
 
-    fn names(jobs: &[(JobId, JobSpec)]) -> Vec<&str> {
+    fn names(jobs: &[(JobId, TestJobSpec)]) -> Vec<&str> {
         jobs.iter()
-            .map(|(_job_id, job_spec)| job_spec.name.as_str())
+            .map(|(_job_id, job_spec)| match job_spec {
+                TestJobSpec::Step(name) => name.as_str(),
+            })
             .collect()
     }
 
-    fn view(jobs: &Jobs, name: &str) -> JobView {
+    fn view(jobs: &Jobs<TestJobSpec>, name: &str) -> JobView<TestJobSpec> {
         jobs.snapshot()
             .jobs
             .into_iter()
-            .find(|job| job.job_spec.as_ref().map(|job_spec| job_spec.name.as_str()) == Some(name))
+            .find(|job| {
+                job.job_spec.as_ref().map(|job_spec| match job_spec {
+                    TestJobSpec::Step(step_name) => step_name.as_str(),
+                }) == Some(name)
+            })
             .unwrap()
     }
 
@@ -493,17 +547,29 @@ mod tests {
                 break;
             }
             for (job_id, job_spec) in runnable {
-                seen.push(job_spec.name);
+                seen.push(match job_spec {
+                    TestJobSpec::Step(name) => name,
+                });
                 jobs.complete(job_id, true).unwrap();
             }
         }
-        assert_eq!(seen, ["start", "ack", "read", "start", "ack", "read"]);
+        assert_eq!(
+            seen,
+            [
+                "start".to_string(),
+                "ack".to_string(),
+                "read".to_string(),
+                "start".to_string(),
+                "ack".to_string(),
+                "read".to_string(),
+            ]
+        );
         assert_eq!(jobs.status(root), Some(JobStatus::Succeeded));
     }
 
     #[test]
     fn unknown_job_errors() {
-        let mut jobs = Jobs::new();
+        let mut jobs = Jobs::<TestJobSpec>::new();
         let missing = JobId(9);
         assert!(matches!(jobs.cancel(missing), Err(JobsError::Unknown(_))));
         assert!(matches!(
