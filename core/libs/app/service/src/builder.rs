@@ -17,6 +17,7 @@ use crate::runtime::{
     CliCommandMapper, CommandRegistration, EventRegistration, IoExecutor, QueryRegistration,
     SettingsSlot, StatePublish, build_settings_runtime, run,
 };
+use crate::shutdown::{ShutdownHandle, new_shutdown_channel};
 
 /// Builder for a BlueOS service kernel (D-04, D-12).
 pub struct ServiceBuilder<D: Domain> {
@@ -35,6 +36,9 @@ pub struct ServiceBuilder<D: Domain> {
     settings: SettingsSlot<D>,
     io_executor: Option<IoExecutor<D>>,
     cli_command: Option<CliCommandMapper<D>>,
+    shutdown_command: Option<D::Command>,
+    shutdown_sender: Option<tokio::sync::watch::Sender<bool>>,
+    shutdown_receiver: Option<tokio::sync::watch::Receiver<bool>>,
 }
 
 impl<D: Domain + 'static> ServiceBuilder<D> {
@@ -56,7 +60,27 @@ impl<D: Domain + 'static> ServiceBuilder<D> {
             settings: SettingsSlot::None,
             io_executor: None,
             cli_command: None,
+            shutdown_command: None,
+            shutdown_sender: None,
+            shutdown_receiver: None,
         }
+    }
+
+    /// Domain command dispatched on `SIGINT`, `SIGTERM`, or [`ShutdownHandle::trigger`].
+    pub fn on_shutdown(mut self, command: D::Command) -> Self {
+        self.shutdown_command = Some(command);
+        self
+    }
+
+    /// Handle for requesting graceful shutdown in tests (no real signals).
+    pub fn shutdown_handle(&mut self) -> ShutdownHandle {
+        if let Some(sender) = &self.shutdown_sender {
+            return ShutdownHandle::new(sender.clone());
+        }
+        let (handle, receiver) = new_shutdown_channel();
+        self.shutdown_sender = Some(handle.sender());
+        self.shutdown_receiver = Some(receiver);
+        handle
     }
 
     /// Initial domain state (including settings copied from disk when applicable).
@@ -243,6 +267,8 @@ impl<D: Domain + 'static> ServiceBuilder<D> {
             self.settings,
             self.io_executor,
             self.cli_command,
+            self.shutdown_command,
+            self.shutdown_receiver,
         )
         .await
     }

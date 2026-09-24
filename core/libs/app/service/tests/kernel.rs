@@ -1,28 +1,35 @@
 use std::num::NonZeroU32;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
-use blueos_api::{cdr_encoding, command_key, info_query_key, query_key, status_state_key};
+use blueos_api::{
+    cdr_encoding, command_key, event_key, info_query_key, query_key, status_state_key,
+};
 use blueos_comms::{ChannelBackend, Payload, Session};
 use blueos_cqrs::{App, Decision, Domain, Effect, TimerId};
 use blueos_idl::Message;
 use blueos_idl::msg::blueos_msgs::{
     CommandAck, JobList, RestartRequired, ServiceInfo, ServiceStatus, SettingsEnvelope,
+    constants_service_status as service_status_constants,
 };
 use blueos_jobs::{JobId, Jobs};
 use blueos_service::ServiceBuilder;
+use blueos_service::ShutdownHandle;
 use blueos_settings::{SettingsError, SettingsSchema};
 use bytes::Bytes;
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use tempfile::TempDir;
-use tokio::sync::Mutex;
 use tokio::time;
 
-static KERNEL_TEST_LOCK: Mutex<()> = Mutex::const_new(());
+static KERNEL_TEST_SERVICE_ID: AtomicU64 = AtomicU64::new(0);
 
-async fn kernel_test_guard() -> tokio::sync::MutexGuard<'static, ()> {
-    KERNEL_TEST_LOCK.lock().await
+fn unique_service_name() -> String {
+    format!(
+        "kernel_test_{}",
+        KERNEL_TEST_SERVICE_ID.fetch_add(1, Ordering::Relaxed)
+    )
 }
 
 struct KernelTestDomain;
@@ -63,6 +70,7 @@ enum KernelTestCommand {
     CancelTimer,
     UpdateSettings(SettingsEnvelope),
     IoDone,
+    ShutdownMarker,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -157,6 +165,10 @@ impl Domain for KernelTestDomain {
                 snapshot.counter += 10;
                 Decision::new()
             }
+            KernelTestCommand::ShutdownMarker => {
+                snapshot.status_detail = "shutdown".into();
+                Decision::new()
+            }
         }
     }
 
@@ -175,15 +187,6 @@ impl Domain for KernelTestDomain {
     }
 }
 
-fn test_service_info() -> ServiceInfo {
-    ServiceInfo {
-        name: "kernel_test".into(),
-        version: "0.1.0".into(),
-        build: String::new(),
-        capabilities: Vec::new(),
-    }
-}
-
 fn test_app() -> App<KernelTestDomain> {
     App::new(KernelTestSnapshot {
         settings: KernelTestSettings {
@@ -198,18 +201,26 @@ fn test_app() -> App<KernelTestDomain> {
 async fn spawn_test_service(
     temp_dir: Option<PathBuf>,
 ) -> (
+    String,
     Session,
     tokio::task::JoinHandle<Result<(), blueos_service::ServiceError>>,
+    Option<ShutdownHandle>,
 ) {
+    let service_name = unique_service_name();
     let (service_backend, client_backend) = ChannelBackend::pair();
     let service_session = Session::with_channel(service_backend);
     let client_session = Session::with_channel(client_backend);
 
-    let mut builder = ServiceBuilder::<KernelTestDomain>::new("kernel_test")
+    let mut builder = ServiceBuilder::<KernelTestDomain>::new(&service_name)
         .app(test_app())
-        .service_info(test_service_info())
+        .service_info(ServiceInfo {
+            name: service_name.clone(),
+            version: "0.1.0".into(),
+            build: String::new(),
+            capabilities: Vec::new(),
+        })
         .status(|application| ServiceStatus {
-            status: 2,
+            status: service_status_constants::STATUS_READY,
             detail: application.snapshot.status_detail.clone(),
         })
         .jobs(|_application| JobList { jobs: Vec::new() })
@@ -251,27 +262,33 @@ async fn spawn_test_service(
             .expect("settings");
     }
 
+    builder = builder.on_shutdown(KernelTestCommand::ShutdownMarker);
+    let shutdown = builder.shutdown_handle();
+
     let handle = tokio::spawn(async move { builder.run_with_session(service_session).await });
 
-    time::sleep(Duration::from_millis(20)).await;
+    time::sleep(Duration::from_millis(50)).await;
 
-    for _ in 0..100 {
+    for _ in 0..200 {
         if client_session
             .query(
-                &info_query_key("kernel_test"),
+                &info_query_key(&service_name),
                 Payload::empty(),
                 "",
-                Duration::from_millis(50),
+                Duration::from_millis(100),
             )
             .await
             .is_ok()
         {
             break;
         }
-        time::sleep(Duration::from_millis(10)).await;
+        time::sleep(Duration::from_millis(20)).await;
+    }
+    if handle.is_finished() {
+        panic!("service exited during startup: {:?}", handle.await);
     }
 
-    (client_session, handle)
+    (service_name, client_session, handle, Some(shutdown))
 }
 
 async fn query_text(session: &Session, key: &str) -> Vec<u8> {
@@ -296,13 +313,13 @@ async fn command_ack(
     command: &str,
     payload: &[u8],
 ) -> CommandAck {
-    for _ in 0..50 {
+    for _ in 0..100 {
         match session
             .query(
                 &command_key(service, command),
                 Payload::from_bytes(Bytes::copy_from_slice(payload)),
                 "",
-                Duration::from_millis(200),
+                Duration::from_millis(300),
             )
             .await
         {
@@ -320,14 +337,13 @@ async fn command_ack(
 
 #[tokio::test]
 async fn command_returns_ack_and_publishes_status_state() {
-    let _guard = kernel_test_guard().await;
-    let (client, service_handle) = spawn_test_service(None).await;
-    let ack = command_ack(&client, "kernel_test", "Increment", &[]).await;
+    let (service_name, client, service_handle, _) = spawn_test_service(None).await;
+    let ack = command_ack(&client, &service_name, "Increment", &[]).await;
     assert!(ack.accepted);
 
     let reply = client
         .query(
-            &status_state_key("kernel_test"),
+            &status_state_key(&service_name),
             Payload::empty(),
             "",
             Duration::from_secs(1),
@@ -335,19 +351,18 @@ async fn command_returns_ack_and_publishes_status_state() {
         .await
         .expect("state query");
     let status = ServiceStatus::decode(reply.payload.as_slice().as_slice()).expect("status");
-    assert_eq!(status.status, 2);
+    assert_eq!(status.status, service_status_constants::STATUS_READY);
 
     service_handle.abort();
 }
 
 #[tokio::test]
 async fn query_answered_from_inbox_snapshot() {
-    let _guard = kernel_test_guard().await;
-    let (client, service_handle) = spawn_test_service(None).await;
-    command_ack(&client, "kernel_test", "Increment", &[]).await;
-    command_ack(&client, "kernel_test", "Increment", &[]).await;
+    let (service_name, client, service_handle, _) = spawn_test_service(None).await;
+    command_ack(&client, &service_name, "Increment", &[]).await;
+    command_ack(&client, &service_name, "Increment", &[]).await;
 
-    let payload = query_text(&client, &query_key("kernel_test", "Counter")).await;
+    let payload = query_text(&client, &query_key(&service_name, "Counter")).await;
     assert_eq!(payload, b"2");
 
     service_handle.abort();
@@ -355,13 +370,12 @@ async fn query_answered_from_inbox_snapshot() {
 
 #[tokio::test]
 async fn io_effect_round_trip() {
-    let _guard = kernel_test_guard().await;
-    let (client, service_handle) = spawn_test_service(None).await;
-    command_ack(&client, "kernel_test", "SlowIo", &[]).await;
+    let (service_name, client, service_handle, _) = spawn_test_service(None).await;
+    command_ack(&client, &service_name, "SlowIo", &[]).await;
     time::sleep(Duration::from_millis(100)).await;
 
     assert_eq!(
-        query_text(&client, &query_key("kernel_test", "Counter")).await,
+        query_text(&client, &query_key(&service_name, "Counter")).await,
         b"10"
     );
 
@@ -370,14 +384,13 @@ async fn io_effect_round_trip() {
 
 #[tokio::test]
 async fn schedule_fires_when_not_cancelled() {
-    let _guard = kernel_test_guard().await;
-    let (client, service_handle) = spawn_test_service(None).await;
+    let (service_name, client, service_handle, _) = spawn_test_service(None).await;
 
-    command_ack(&client, "kernel_test", "ArmTimer", &[]).await;
+    command_ack(&client, &service_name, "ArmTimer", &[]).await;
     time::sleep(Duration::from_millis(200)).await;
 
     assert_eq!(
-        query_text(&client, &query_key("kernel_test", "Counter")).await,
+        query_text(&client, &query_key(&service_name, "Counter")).await,
         b"1"
     );
 
@@ -386,14 +399,13 @@ async fn schedule_fires_when_not_cancelled() {
 
 #[tokio::test]
 async fn schedule_fires_and_cancel_prevents() {
-    let _guard = kernel_test_guard().await;
-    let (client, service_handle) = spawn_test_service(None).await;
+    let (service_name, client, service_handle, _) = spawn_test_service(None).await;
 
-    command_ack(&client, "kernel_test", "ArmThenCancel", &[]).await;
+    command_ack(&client, &service_name, "ArmThenCancel", &[]).await;
     time::sleep(Duration::from_millis(100)).await;
 
     assert_eq!(
-        query_text(&client, &query_key("kernel_test", "Counter")).await,
+        query_text(&client, &query_key(&service_name, "Counter")).await,
         b"0"
     );
 
@@ -402,15 +414,14 @@ async fn schedule_fires_and_cancel_prevents() {
 
 #[tokio::test]
 async fn schedule_cancel_via_separate_command() {
-    let _guard = kernel_test_guard().await;
-    let (client, service_handle) = spawn_test_service(None).await;
+    let (service_name, client, service_handle, _) = spawn_test_service(None).await;
 
-    command_ack(&client, "kernel_test", "ArmTimer", &[]).await;
-    command_ack(&client, "kernel_test", "CancelTimer", &[]).await;
+    command_ack(&client, &service_name, "ArmTimer", &[]).await;
+    command_ack(&client, &service_name, "CancelTimer", &[]).await;
     time::sleep(Duration::from_millis(100)).await;
 
     assert_eq!(
-        query_text(&client, &query_key("kernel_test", "Counter")).await,
+        query_text(&client, &query_key(&service_name, "Counter")).await,
         b"0"
     );
 
@@ -419,9 +430,9 @@ async fn schedule_cancel_via_separate_command() {
 
 #[tokio::test]
 async fn persist_writes_settings_file() {
-    let _guard = kernel_test_guard().await;
     let temp_dir = TempDir::new().expect("tempdir");
-    let (client, service_handle) = spawn_test_service(Some(temp_dir.path().to_path_buf())).await;
+    let (service_name, client, service_handle, _) =
+        spawn_test_service(Some(temp_dir.path().to_path_buf())).await;
 
     let new_settings = KernelTestSettings {
         VERSION: 1,
@@ -433,11 +444,13 @@ async fn persist_writes_settings_file() {
         fields: Vec::new(),
     };
     let payload = envelope.encode().unwrap();
-    let ack = command_ack(&client, "kernel_test", "UpdateSettings", &payload).await;
+    let ack = command_ack(&client, &service_name, "UpdateSettings", &payload).await;
     assert!(ack.accepted);
     time::sleep(Duration::from_millis(50)).await;
 
-    let settings_path = temp_dir.path().join("kernel_test/settings-1.json");
+    let settings_path = temp_dir
+        .path()
+        .join(format!("{service_name}/settings-1.json"));
     assert!(settings_path.is_file());
     let on_disk: KernelTestSettings =
         serde_json::from_str(&std::fs::read_to_string(&settings_path).unwrap()).unwrap();
@@ -448,12 +461,12 @@ async fn persist_writes_settings_file() {
 
 #[tokio::test]
 async fn update_settings_emits_restart_required_event() {
-    let _guard = kernel_test_guard().await;
     let temp_dir = TempDir::new().expect("tempdir");
-    let (client, service_handle) = spawn_test_service(Some(temp_dir.path().to_path_buf())).await;
+    let (service_name, client, service_handle, _) =
+        spawn_test_service(Some(temp_dir.path().to_path_buf())).await;
 
     let mut stream = client
-        .subscribe("blueos/v1/kernel_test/event/RestartRequired")
+        .subscribe(&event_key(&service_name, "RestartRequired"))
         .await
         .expect("subscribe");
 
@@ -468,7 +481,7 @@ async fn update_settings_emits_restart_required_event() {
     };
     command_ack(
         &client,
-        "kernel_test",
+        &service_name,
         "UpdateSettings",
         &envelope.encode().unwrap(),
     )
@@ -487,13 +500,12 @@ async fn update_settings_emits_restart_required_event() {
 
 #[tokio::test]
 async fn late_joiner_reads_state_via_query() {
-    let _guard = kernel_test_guard().await;
-    let (client, service_handle) = spawn_test_service(None).await;
-    command_ack(&client, "kernel_test", "Increment", &[]).await;
+    let (service_name, client, service_handle, _) = spawn_test_service(None).await;
+    command_ack(&client, &service_name, "Increment", &[]).await;
 
     let reply = client
         .query(
-            &status_state_key("kernel_test"),
+            &status_state_key(&service_name),
             Payload::empty(),
             "",
             Duration::from_secs(1),
@@ -501,22 +513,57 @@ async fn late_joiner_reads_state_via_query() {
         .await
         .expect("late joiner");
     let status = ServiceStatus::decode(reply.payload.as_slice().as_slice()).expect("status");
-    assert_eq!(status.status, 2);
+    assert_eq!(status.status, service_status_constants::STATUS_READY);
 
     service_handle.abort();
 }
 
 #[tokio::test]
+async fn graceful_shutdown_via_handle() {
+    let (service_name, client, service_handle, shutdown) = spawn_test_service(None).await;
+    let shutdown = shutdown.expect("shutdown handle");
+    shutdown.trigger();
+
+    let mut saw_shutdown_detail = false;
+    for _ in 0..50 {
+        if let Ok(reply) = client
+            .query(
+                &status_state_key(&service_name),
+                Payload::empty(),
+                "",
+                Duration::from_millis(200),
+            )
+            .await
+        {
+            let status =
+                ServiceStatus::decode(reply.payload.as_slice().as_slice()).expect("status");
+            if status.detail == "shutdown" {
+                saw_shutdown_detail = true;
+                break;
+            }
+        }
+        time::sleep(Duration::from_millis(10)).await;
+    }
+    assert!(saw_shutdown_detail);
+
+    let join_result = time::timeout(Duration::from_secs(2), service_handle)
+        .await
+        .expect("shutdown should finish")
+        .expect("join");
+    assert!(join_result.is_ok());
+}
+
+#[tokio::test]
 async fn slow_io_does_not_block_other_commands() {
-    let _guard = kernel_test_guard().await;
-    let (client, service_handle) = spawn_test_service(None).await;
+    let (service_name, client, service_handle, _) = spawn_test_service(None).await;
 
     let slow = tokio::spawn({
         let client = client.clone();
-        async move { command_ack(&client, "kernel_test", "SlowIo", &[]).await }
+        let service_name = service_name.clone();
+        async move { command_ack(&client, &service_name, "SlowIo", &[]).await }
     });
     time::sleep(Duration::from_millis(10)).await;
-    let fast_ack = command_ack(&client, "kernel_test", "Increment", &[]).await;
+    let fast_ack = command_ack(&client, &service_name, "Increment", &[]).await;
     assert!(fast_ack.accepted);
 
     let _ = slow.await;

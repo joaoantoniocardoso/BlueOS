@@ -3,6 +3,13 @@
 //! Each service owns one tokio inbox task that holds [`App`] and applies [`Effect`]s. Adapters decode
 //! Zenoh queries and samples into domain commands and never call [`App::handle`] directly.
 //!
+//! ## Graceful shutdown
+//!
+//! Register a domain command with [`ServiceBuilder::on_shutdown`]. The kernel listens for `SIGINT` and
+//! `SIGTERM`, dispatches that command through the normal inbox path, waits up to five seconds for
+//! in-flight [`Effect::Io`] tasks, then exits. In tests, call [`ShutdownHandle::trigger`] from
+//! [`ServiceBuilder::shutdown_handle`] instead of sending real signals.
+//!
 //! ## Minimal example
 //!
 //! ```no_run
@@ -10,7 +17,9 @@
 //!
 //! use blueos_comms::{Endpoint, Session};
 //! use blueos_cqrs::{App, Decision, Domain, Effect, TimerId};
-//! use blueos_idl::msg::blueos_msgs::{JobList, ServiceInfo, ServiceStatus};
+//! use blueos_idl::msg::blueos_msgs::{
+//!     JobList, ServiceInfo, ServiceStatus, constants_service_status as service_status_constants,
+//! };
 //! use blueos_jobs::{JobGraph, Jobs};
 //! use blueos_service::ServiceBuilder;
 //!
@@ -84,9 +93,12 @@
 //!             build: String::new(),
 //!             capabilities: Vec::new(),
 //!         })
-//!         .status(|application| ServiceStatus {
-//!             status: 2,
-//!             detail: format!("counter={}", application.snapshot.counter),
+//!         .status(|application| {
+//!             let counter = application.snapshot.counter;
+//!             ServiceStatus {
+//!                 status: service_status_constants::STATUS_READY,
+//!                 detail: format!("counter={counter}"),
+//!             }
 //!         })
 //!         .jobs(|application| JobList { jobs: Vec::new() })
 //!         .command("Increment", |_| Ok(ExampleCommand::Increment))
@@ -104,6 +116,8 @@
 mod builder;
 mod error;
 mod runtime;
+mod shutdown;
 
 pub use builder::ServiceBuilder;
 pub use error::ServiceError;
+pub use shutdown::ShutdownHandle;
