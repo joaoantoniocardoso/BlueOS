@@ -198,6 +198,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "blueos"
+version = "0.1.0"
+dependencies = [
+ "autopilot",
+ "calibration",
+]
+
+[[package]]
 name = "blueos_cli"
 version = "0.1.0"
 dependencies = [
