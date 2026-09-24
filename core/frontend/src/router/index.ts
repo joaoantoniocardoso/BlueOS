@@ -139,6 +139,11 @@ const routes: Array<RouteConfig> = [
     component: defineAsyncComponent(() => import('../views/ZenohInspectorView.vue')),
   },
   {
+    path: '/tools/example-service',
+    name: 'Example Rust service',
+    component: defineAsyncComponent(() => import('../views/ExampleServiceView.vue')),
+  },
+  {
     path: '/settings',
     name: 'Settings',
     component: defineAsyncComponent(() => import('../views/SettingsView.vue')),

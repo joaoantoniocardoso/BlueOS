@@ -138,6 +138,13 @@ const menus = [
     advanced: true,
     text: 'View detailed Zenoh traffic coming from your vehicle.',
   },
+  {
+    title: 'Example Rust service',
+    icon: 'mdi-school-outline',
+    route: '/tools/example-service',
+    advanced: true,
+    text: 'Developer walkthrough for the BlueOS Rust teaching example (blueos-api, jobs, settings).',
+  },
 ] as menuItem[]
 
 export interface menuItem {
