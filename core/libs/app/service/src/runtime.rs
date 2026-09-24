@@ -512,13 +512,9 @@ where
                             })
                             .await;
                     });
-                    kernel.timers.insert(
-                        timer,
-                        TimerRegistration {
-                            cancelled,
-                            task,
-                        },
-                    );
+                    kernel
+                        .timers
+                        .insert(timer, TimerRegistration { cancelled, task });
                 }
                 Effect::CancelSchedule(timer) => {
                     if let Some(registration) = kernel.timers.remove(&timer) {
