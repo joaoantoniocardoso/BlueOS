@@ -245,7 +245,6 @@ name = "blueos_comms_channel"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "blueos_comms",
  "blueos_comms_driver",
  "bytes",
  "futures",
@@ -276,16 +275,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "blueos_configs"
-version = "0.1.0"
-dependencies = [
- "json5",
- "serde",
- "serde_json",
- "thiserror 2.0.20",
-]
-
-[[package]]
 name = "blueos_cqrs"
 version = "0.1.0"
 dependencies = [
@@ -310,19 +299,6 @@ dependencies = [
  "tracing",
  "tracing-log",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "blueos_service"
-version = "0.1.0"
-dependencies = [
- "blueos_cli",
- "blueos_comms",
- "blueos_configs",
- "blueos_cqrs",
- "blueos_jobs",
- "blueos_logging",
- "thiserror 2.0.20",
 ]
 
 [[package]]
