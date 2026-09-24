@@ -1,0 +1,38 @@
+[package]
+name = "blueos-recorder"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+anyhow.workspace = true
+blueos-api.workspace = true
+blueos_comms = { path = "../../../libs/adapters/comms", features = ["channel", "zenoh"] }
+blueos_cqrs = { path = "../../../libs/logic/cqrs" }
+blueos-idl.workspace = true
+blueos_logging = { path = "../../../libs/adapters/logging" }
+blueos-recorder-mcap = { path = "../adapters/mcap" }
+blueos-recorder-mavlink = { path = "../adapters/mavlink" }
+blueos-recorder-policy = { path = "../logic/policy" }
+blueos_service = { path = "../../../libs/app/service" }
+blueos_settings = { path = "../../../libs/adapters/settings" }
+bytes.workspace = true
+chrono.workspace = true
+clap.workspace = true
+futures.workspace = true
+mavlink = { workspace = true, default-features = false, features = ["std", "dialect-ardupilotmega"] }
+mavlink-codec.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+shellexpand = "3.1"
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync", "time", "fs"] }
+tracing.workspace = true
+
+[dev-dependencies]
+blueos_comms = { path = "../../../libs/adapters/comms", features = ["channel"] }
+tempfile = "3"
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync", "time"] }
