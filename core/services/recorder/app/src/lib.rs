@@ -12,6 +12,7 @@
 //! the background writer thread only. Extensions need Docker `IpcMode: host` (or `/dev/shm`) for SHM.
 
 mod cli;
+mod error;
 mod inject;
 mod schema;
 mod tap;
@@ -26,17 +27,21 @@ use blueos_api::{cdr_encoding, command_key};
 use blueos_comms::{Endpoint, Payload, Session};
 use blueos_cqrs::App;
 use blueos_idl::Message;
-use blueos_idl::msg::blueos_msgs::{JobList, ServiceInfo, ServiceStatus, SettingsEnvelope};
+use blueos_idl::msg::blueos_msgs::{
+    JobList, ServiceInfo, ServiceStatus, SettingsEnvelope,
+    constants_service_status as service_status_constants,
+};
 use blueos_idl::msg::blueos_recorder_msgs::{
     RecordingState, SetPolicyCommand, StartRecordingCommand,
 };
 use blueos_recorder_mavlink::{
-    MavlinkFact, RAW_MAVLINK_IN_TOPIC, SystemAndComponent, build_camera_capture_status,
-    build_command_ack, default_discovery_source, discovery_requests_for_camera,
+    MavlinkFact, SystemAndComponent, build_camera_capture_status, build_command_ack,
+    default_discovery_source, discovery_requests_for_camera,
 };
 use blueos_recorder_mcap::{McapSession, McapWriteConfig, McapWriterHandle};
 use blueos_recorder_policy::{
-    RecorderCommand, RecorderDomain, RecorderIo, RecorderSnapshot, RecordingPolicy, TapPolicy,
+    RAW_MAVLINK_IN_TOPIC, RecorderCommand, RecorderDomain, RecorderIo, RecorderSnapshot,
+    RecordingPolicy, TapPolicy,
 };
 use blueos_service::ServiceBuilder;
 use blueos_settings::{SettingsError, SettingsSchema};
@@ -45,6 +50,7 @@ use tokio::sync::{mpsc, watch};
 use tracing::{error, info};
 
 use crate::cli::{mcap_write_config, parse_cli, recorder_directory, schema_directory};
+use crate::error::RecorderRunError;
 use crate::inject::{decode_injected, encode_injected, fact_to_injected_command};
 
 const SERVICE_NAME: &str = "recorder";
@@ -88,6 +94,20 @@ struct IoContext {
     publish_session: Session,
 }
 
+impl Drop for IoContext {
+    fn drop(&mut self) {
+        let mut guard = match self.session.lock() {
+            Ok(guard) => guard,
+            Err(_) => return,
+        };
+        if let Some(session) = guard.take()
+            && let Err(error) = session.finish()
+        {
+            error!(%error, "Failed to finish MCAP session on recorder shutdown");
+        }
+    }
+}
+
 fn generate_filename() -> String {
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -98,24 +118,35 @@ fn generate_filename() -> String {
     format!("recorder_{}.mcap", datetime.format("%Y%m%d_%H%M%S"))
 }
 
-pub fn run(arguments: impl IntoIterator<Item = OsString>) {
+pub fn run(arguments: impl IntoIterator<Item = OsString>) -> std::process::ExitCode {
     let arguments: Vec<String> = arguments
         .into_iter()
         .map(|argument| argument.to_string_lossy().into_owned())
         .collect();
-    let runtime = tokio::runtime::Builder::new_multi_thread()
+    let runtime = match tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
-        .expect("tokio runtime");
-    if let Err(error) = runtime.block_on(run_async(arguments)) {
-        error!("recorder: {error}");
+    {
+        Ok(runtime) => runtime,
+        Err(error) => {
+            error!(%error, "Failed to build tokio runtime");
+            return std::process::ExitCode::FAILURE;
+        }
+    };
+    match runtime.block_on(run_async(arguments)) {
+        Ok(()) => std::process::ExitCode::SUCCESS,
+        Err(error) => {
+            error!("recorder: {error}");
+            std::process::ExitCode::FAILURE
+        }
     }
 }
 
-async fn run_async(arguments: Vec<String>) -> Result<(), anyhow::Error> {
+async fn run_async(arguments: Vec<String>) -> Result<(), RecorderRunError> {
     let cli = parse_cli(&arguments);
     let verbosity = if cli.verbose { 1 } else { 0 };
     let recorder_path = recorder_directory(&cli);
+    tokio::fs::create_dir_all(&recorder_path).await?;
     let schema_path = schema_directory(&cli);
     let mcap_config = mcap_write_config(&cli);
 
@@ -163,7 +194,7 @@ async fn run_async(arguments: Vec<String>) -> Result<(), anyhow::Error> {
         .verbosity(verbosity)
         .session(session)
         .status(|application| ServiceStatus {
-            status: 2,
+            status: service_status_constants::STATUS_READY,
             detail: application
                 .snapshot
                 .session
@@ -196,7 +227,9 @@ async fn run_async(arguments: Vec<String>) -> Result<(), anyhow::Error> {
                 let policy_watch_for_state = policy_watch_for_state.clone();
                 move |application| {
                     let policy = TapPolicy::from_snapshot(&application.snapshot);
-                    let _ = policy_watch_for_state.send(policy);
+                    if let Err(error) = policy_watch_for_state.send(policy) {
+                        error!(%error, "Tap policy watch channel closed");
+                    }
                     recording_state_from_snapshot(&application.snapshot)
                 }
             },
@@ -216,31 +249,56 @@ async fn run_async(arguments: Vec<String>) -> Result<(), anyhow::Error> {
                     match request {
                         RecorderIo::OpenSession => {
                             let path = io_context.recorder_path.join(generate_filename());
-                            info!(path = %path.display(), "Opening recording session");
-                            let session = McapSession::open(&path, io_context.mcap_config)
-                                .map_err(|_error| RecorderCommand::Ack)?;
-                            let writer = session.writer();
-                            let _ = io_context.writer_watch.send(Some(writer));
-                            *io_context.session.lock().expect("session lock") = Some(session);
-                            Ok(RecorderCommand::SessionOpened {
-                                file_name: path
-                                    .file_name()
-                                    .map(|name| name.to_string_lossy().into_owned())
-                                    .unwrap_or_default(),
+                            let path_for_log = path.display().to_string();
+                            let file_name = path
+                                .file_name()
+                                .map(|name| name.to_string_lossy().into_owned())
+                                .unwrap_or_default();
+                            let config = io_context.mcap_config;
+                            info!(path = %path_for_log, "Opening recording session");
+                            let session = tokio::task::spawn_blocking(move || {
+                                McapSession::open(&path, config)
                             })
+                            .await
+                            .map_err(|error| {
+                                error!(%error, "MCAP open task join failed");
+                                RecorderCommand::IoFailed
+                            })?
+                            .map_err(|error| {
+                                error!(%error, path = %path_for_log, "Failed to open MCAP session");
+                                RecorderCommand::IoFailed
+                            })?;
+                            let writer = session.writer();
+                            if let Err(error) = io_context.writer_watch.send(Some(writer)) {
+                                error!(%error, "Recorder writer watch channel closed");
+                            }
+                            *io_context.session.lock().expect("session lock") = Some(session);
+                            Ok(RecorderCommand::SessionOpened { file_name })
                         }
                         RecorderIo::FinishSession => {
-                            let mut guard = io_context.session.lock().expect("session lock");
-                            if let Some(session) = guard.take() {
-                                session.finish().map_err(|_error| RecorderCommand::Ack)?;
+                            let session = io_context.session.lock().expect("session lock").take();
+                            if let Some(session) = session {
+                                tokio::task::spawn_blocking(move || session.finish())
+                                    .await
+                                    .map_err(|error| {
+                                        error!(%error, "MCAP finish task join failed");
+                                        RecorderCommand::IoFailed
+                                    })?
+                                    .map_err(|error| {
+                                        error!(%error, "Failed to finish MCAP session");
+                                        RecorderCommand::IoFailed
+                                    })?;
                             }
-                            let _ = io_context.writer_watch.send(None);
+                            if let Err(error) = io_context.writer_watch.send(None) {
+                                error!(%error, "Recorder writer watch channel closed");
+                            }
                             Ok(RecorderCommand::SessionFinished)
                         }
                         RecorderIo::PublishMavlink(frame) => {
-                            publish_mavlink(&io_context, frame)
-                                .await
-                                .map_err(|_error| RecorderCommand::Ack)?;
+                            publish_mavlink(&io_context, frame).await.map_err(|error| {
+                                error!(%error, "MAVLink publish failed");
+                                RecorderCommand::IoFailed
+                            })?;
                             Ok(RecorderCommand::Ack)
                         }
                         RecorderIo::MavlinkCommandAck {
@@ -255,9 +313,10 @@ async fn run_async(arguments: Vec<String>) -> Result<(), anyhow::Error> {
                                 command,
                                 accepted,
                             );
-                            publish_mavlink(&io_context, frame)
-                                .await
-                                .map_err(|_error| RecorderCommand::Ack)?;
+                            publish_mavlink(&io_context, frame).await.map_err(|error| {
+                                error!(%error, "MAVLink command ack publish failed");
+                                RecorderCommand::IoFailed
+                            })?;
                             Ok(RecorderCommand::Ack)
                         }
                         RecorderIo::MavlinkCaptureStatus {
@@ -272,9 +331,10 @@ async fn run_async(arguments: Vec<String>) -> Result<(), anyhow::Error> {
                                 video_status,
                                 recording_time_ms,
                             );
-                            publish_mavlink(&io_context, frame)
-                                .await
-                                .map_err(|_error| RecorderCommand::Ack)?;
+                            publish_mavlink(&io_context, frame).await.map_err(|error| {
+                                error!(%error, "MAVLink capture status publish failed");
+                                RecorderCommand::IoFailed
+                            })?;
                             Ok(RecorderCommand::Ack)
                         }
                     }
@@ -282,13 +342,11 @@ async fn run_async(arguments: Vec<String>) -> Result<(), anyhow::Error> {
             }
         });
 
-    builder = builder
-        .settings(
-            None,
-            |envelope| Ok(RecorderCommand::SetPolicy(settings_policy(&envelope)?)),
-            |application| settings_from_snapshot(&application.snapshot),
-        )
-        .map_err(anyhow::Error::from)?;
+    builder = builder.settings(
+        None,
+        |envelope| Ok(RecorderCommand::SetPolicy(settings_policy(&envelope)?)),
+        |application| settings_from_snapshot(&application.snapshot),
+    )?;
 
     let tap_session = fact_session.clone();
     let tap_schema = schema_path.clone();
@@ -297,7 +355,10 @@ async fn run_async(arguments: Vec<String>) -> Result<(), anyhow::Error> {
 
     tokio::spawn(async move {
         loop {
-            tap_writer_watch.changed().await.ok();
+            if tap_writer_watch.changed().await.is_err() {
+                error!("Recorder tap writer watch closed");
+                break;
+            }
             let writer = tap_writer_watch.borrow_and_update().clone();
             if let Some(writer) = writer {
                 tap::run_data_plane(
@@ -308,8 +369,10 @@ async fn run_async(arguments: Vec<String>) -> Result<(), anyhow::Error> {
                     fact_sender.clone(),
                 )
                 .await;
+                error!("Recorder data-plane tap ended unexpectedly");
             }
         }
+        error!("Recorder tap supervisor exited");
     });
 
     let discovery_session = fact_session.clone();
@@ -347,11 +410,15 @@ async fn run_async(arguments: Vec<String>) -> Result<(), anyhow::Error> {
                                 }
                             }
                         }
-                        None => break,
+                        None => {
+                            error!("Recorder discovery fact channel closed");
+                            break;
+                        }
                     }
                 }
             }
         }
+        error!("Recorder discovery loop exited");
     });
 
     if auto_start_recording {
@@ -362,7 +429,8 @@ async fn run_async(arguments: Vec<String>) -> Result<(), anyhow::Error> {
         });
     }
 
-    builder.run().await.map_err(anyhow::Error::from)
+    builder.run().await?;
+    Ok(())
 }
 
 async fn publish_mavlink(io_context: &IoContext, frame: Vec<u8>) -> Result<(), String> {

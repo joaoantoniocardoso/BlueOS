@@ -9,7 +9,7 @@ use blueos_recorder_policy::{RAW_MAVLINK_OUT_TOPIC_PREFIX, TapPolicy};
 use futures::StreamExt;
 use mavlink_codec::PacketRef;
 use tokio::sync::{mpsc, watch};
-use tracing::error;
+use tracing::{error, warn};
 
 use crate::schema::embedded_ros_schema;
 
@@ -23,7 +23,23 @@ pub async fn run_data_plane(
     fact_sender: mpsc::Sender<Vec<blueos_recorder_mavlink::MavlinkFact>>,
 ) {
     let mut ingress_state = MavlinkIngressState::default();
-    let mut subscription = session.subscribe("**").await.expect("global subscribe");
+    let mut subscription = {
+        let mut backoff_secs = 1u64;
+        loop {
+            match session.subscribe("**").await {
+                Ok(subscription) => break subscription,
+                Err(error) => {
+                    error!(
+                        %error,
+                        retry_secs = backoff_secs,
+                        "Global Zenoh subscribe failed, retrying"
+                    );
+                    tokio::time::sleep(std::time::Duration::from_secs(backoff_secs)).await;
+                    backoff_secs = backoff_secs.saturating_mul(2).min(30);
+                }
+            }
+        }
+    };
 
     let mut flush_interval =
         tokio::time::interval(std::time::Duration::from_secs(FLUSH_POLL_SECONDS));
@@ -51,6 +67,7 @@ pub async fn run_data_plane(
             }
         }
     }
+    error!("Recorder data-plane tap exited");
 }
 
 fn handle_sample(
@@ -63,19 +80,22 @@ fn handle_sample(
 ) {
     let topic = sample.key.as_str();
 
+    let policy = policy_watch.borrow().clone();
+
     if topic.starts_with(RAW_MAVLINK_OUT_TOPIC_PREFIX) {
         let bytes = sample.payload.to_vec();
         if let Some(packet) = PacketRef::new(bytes.as_slice())
             && is_handled_message(packet.message_id())
         {
             let facts = facts_from_frame(ingress_state, bytes.as_slice());
-            if !facts.is_empty() {
-                let _ = fact_sender.try_send(facts);
+            if !facts.is_empty()
+                && let Err(error) = fact_sender.try_send(facts)
+            {
+                warn!(%error, "Dropped MAVLink facts (fact channel full)");
             }
         }
     }
 
-    let policy = policy_watch.borrow().clone();
     if !policy.should_record_topic(topic) {
         return;
     }
