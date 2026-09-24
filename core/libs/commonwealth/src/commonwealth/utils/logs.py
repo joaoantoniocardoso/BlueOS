@@ -1,5 +1,3 @@
-import json
-import logging
 import sys
 import traceback
 from logging import LogRecord
@@ -7,6 +5,7 @@ from types import FrameType
 from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 import zenoh
+from commonwealth.utils import blueos_idl
 from commonwealth.utils.zenoh_helper import ZenohRouter
 from loguru import logger
 
@@ -20,11 +19,18 @@ ISO8601_LOG_FORMAT = (
     "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
 )
 
-LOG_PUBLISHER_OPTIONS: dict[str, Any] = {
-    "encoding": zenoh.Encoding.APPLICATION_JSON.with_schema("foxglove.Log"),
-    "congestion_control": zenoh.CongestionControl.BLOCK,
-    "priority": zenoh.Priority.DATA,
-}
+LOG_SCHEMA = "foxglove_msgs/msg/Log"
+
+
+def log_publisher_options() -> dict[str, Any]:
+    return {
+        "encoding": zenoh.Encoding.APPLICATION_CDR.with_schema(LOG_SCHEMA),
+        "congestion_control": zenoh.CongestionControl.BLOCK,
+        "priority": zenoh.Priority.DATA,
+    }
+
+
+LOG_PUBLISHER_OPTIONS = log_publisher_options()
 
 
 class InterceptHandler(logging.Handler):
@@ -62,8 +68,8 @@ def init_logger(service_name: str) -> None:
         logger.remove()
         logger.add(sys.stderr, format=ISO8601_LOG_FORMAT)
         logger.add(create_log_sink(service_name), serialize=True)
-    except Exception as e:
-        print(f"Error: unable to set logging path: {e}")
+    except Exception as error:
+        print(f"Error: unable to set logging path: {error}")
 
 
 def stack_trace_message(error: BaseException) -> str:
@@ -86,11 +92,11 @@ def create_log_sink(service_name: str) -> Callable[["Message"], None]:
         A function that can be used as a loguru sink
     """
     zenoh_router = ZenohRouter(service_name)
-    topic = f"services/{service_name}/log"
+    topic = blueos_idl.log_key(service_name)
     publisher = zenoh_router.add_publisher(
         topic,
         absolute=True,
-        publisher_options=LOG_PUBLISHER_OPTIONS,
+        publisher_options=log_publisher_options(),
     )
 
     def sink(message: "Message") -> None:
@@ -124,8 +130,8 @@ def create_log_sink(service_name: str) -> Callable[["Message"], None]:
 
         foxglove_log = {
             "timestamp": {
-                "sec": total_ns // 1_000_000_000,
-                "nsec": total_ns % 1_000_000_000
+                "sec": int(total_ns // 1_000_000_000),
+                "nanosec": int(total_ns % 1_000_000_000),
             },
             "level": LEVEL_MAP.get(record["level"].name.upper(), LEVEL_MAP["UNKNOWN"]),
             "message": log_message,
@@ -136,9 +142,10 @@ def create_log_sink(service_name: str) -> Callable[["Message"], None]:
 
         try:
             if publisher is not None:
-                publisher.put(json.dumps(foxglove_log))
-        except Exception as e:
-            logger.debug(f"Failed to publish log to {topic}: {e}")
+                payload = blueos_idl.encode(LOG_SCHEMA, foxglove_log)
+                publisher.put(payload)
+        except Exception as error:
+            logger.debug(f"Failed to publish log to {topic}: {error}")
         # fmt: on
 
     return sink
