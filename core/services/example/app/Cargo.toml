@@ -1,0 +1,39 @@
+[package]
+name = "example_service"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "example"
+path = "src/lib.rs"
+
+[dependencies]
+blueos-api.workspace = true
+blueos_cli.workspace = true
+blueos_comms = { path = "../../../libs/adapters/comms", default-features = false, features = ["channel", "zenoh"] }
+blueos_cqrs.workspace = true
+blueos-idl.workspace = true
+blueos_jobs.workspace = true
+blueos_logging.workspace = true
+blueos_service.workspace = true
+blueos_settings.workspace = true
+bytes.workspace = true
+clap.workspace = true
+example_pump_logic = { path = "../logic/pump" }
+example_simulated_pump = { path = "../adapters/simulated_pump" }
+serde.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
+tracing.workspace = true
+
+[dev-dependencies]
+blueos_comms = { path = "../../../libs/adapters/comms", default-features = false, features = ["channel"] }
+futures.workspace = true
+tempfile = "3"
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
+
+[[test]]
+name = "kernel_integration"
+path = "tests/kernel_integration.rs"
