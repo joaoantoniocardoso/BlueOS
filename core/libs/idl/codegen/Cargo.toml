@@ -1,0 +1,17 @@
+[package]
+name = "blueos-idl-codegen"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+convert_case = "0.8"
+proc-macro2 = "1"
+quote = "1"
+ros2_message = "0.0.5"
+sha2 = "0.10"
+walkdir = "2"
+
+[[bin]]
+name = "blueos-idl-print-lock"
+path = "src/bin/print_lock.rs"

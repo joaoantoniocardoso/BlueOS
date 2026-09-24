@@ -1,0 +1,32 @@
+[package]
+name = "blueos-idl"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "BlueOS ROS 2 message definitions with CDR codec and embedded schemas"
+readme = "README.md"
+repository = "https://github.com/bluerobotics/BlueOS"
+publish = true
+include = [
+    "/Cargo.toml",
+    "/README.md",
+    "/build.rs",
+    "/src/**/*",
+    "/interfaces/**/*.msg",
+    "/codegen/**/*",
+]
+
+[features]
+default = ["std"]
+std = []
+
+[dependencies]
+serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
+serde_arrays = { version = "0.2", default-features = false }
+
+[build-dependencies]
+blueos-idl-codegen = { path = "codegen" }
+
+[dev-dependencies]
+blueos-idl-codegen = { path = "codegen" }
+sha2 = "0.10"
