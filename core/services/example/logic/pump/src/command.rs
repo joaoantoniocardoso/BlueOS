@@ -85,7 +85,7 @@ fn handle_cancel_self_test(
     jobs: &mut Jobs<PumpJobSpec>,
 ) -> Decision<crate::domain::PumpDomain> {
     if !snapshot.self_test_active {
-        return Decision::new();
+        return Decision::reject("no self-test is running");
     }
     cancel_self_test_jobs(snapshot, jobs);
     snapshot.self_test_phase = phase::SELF_TEST_CANCELLED;
