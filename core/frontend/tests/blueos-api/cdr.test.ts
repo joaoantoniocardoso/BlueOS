@@ -1,3 +1,6 @@
+/* eslint-disable import/no-extraneous-dependencies */
+import { SCHEMAS } from '@blueos-idl/schemas'
+import { parse } from '@foxglove/rosmsg'
 import { describe, expect, it } from 'vitest'
 
 import { decodeCdr, encodeCdr } from '@/libs/blueos-api/cdr'
@@ -46,6 +49,31 @@ describe('blueos-api CDR codec', () => {
 
   it('throws on corrupt CDR payload', () => {
     expect(() => decodeCdr(COMMAND_ACK_SCHEMA, new Uint8Array(0))).toThrow()
+  })
+
+  it('parses every generated schema with its root definition first', () => {
+    for (const [schemaName, schemaText] of Object.entries(SCHEMAS)) {
+      const [root] = parse(schemaText, { ros2: true })
+      expect(root.name, schemaName).toBeUndefined()
+    }
+  })
+
+  it('round-trips a nested same-package message (RecordingLibrary)', () => {
+    const message = {
+      files: [{
+        path: 'recorder_20260925_031534.mcap',
+        name: 'recorder_20260925_031534.mcap',
+        size_bytes: 187315,
+        created: { sec: 1790306134, nanosec: 0 },
+        state: 1,
+        repair_bytes_processed: 0,
+        repair_total_bytes: 0,
+        repair_bytes_per_second: 0,
+        repair_error: '',
+      }],
+    }
+    const schemaName = 'blueos_recorder_msgs/msg/RecordingLibrary'
+    expect(decodeCdr(schemaName, encodeCdr(schemaName, message))).toEqual(message)
   })
 
   it('decodes numeric sequences as arrays (RecordingIndex)', () => {
