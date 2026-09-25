@@ -123,6 +123,170 @@ MSG: blueos_msgs/msg/SettingsEnvelope
 
 string document_json
 blueos_msgs/SettingField[] fields`,
+  "blueos_recorder_msgs/msg/CancelRepairCommand": `MSG: blueos_recorder_msgs/msg/CancelRepairCommand
+# blueos_recorder_msgs/msg/CancelRepairCommand
+# Stops a running repair; the recording is left exactly as it was.
+
+string path`,
+  "blueos_recorder_msgs/msg/ChannelMessageCount": `MSG: blueos_recorder_msgs/msg/ChannelMessageCount
+# blueos_recorder_msgs/msg/ChannelMessageCount
+
+uint16 channel_id
+uint64 count`,
+  "blueos_recorder_msgs/msg/ChunkIndexEntry": `MSG: blueos_recorder_msgs/msg/ChunkIndexEntry
+# blueos_recorder_msgs/msg/ChunkIndexEntry
+
+uint64 start_time
+uint64 end_time
+# Offset and length of the whole Chunk record, header included.
+uint64 offset
+uint64 length
+string compression
+uint64 compressed_size
+uint64 uncompressed_size
+uint16[] channel_ids
+# Bytes of the MessageIndex records that follow the chunk.
+uint64 message_index_length`,
+  "blueos_recorder_msgs/msg/DeleteRecordingCommand": `MSG: blueos_recorder_msgs/msg/DeleteRecordingCommand
+# blueos_recorder_msgs/msg/DeleteRecordingCommand
+# Rejected while the recording is being written or repaired.
+
+string path`,
+  "blueos_recorder_msgs/msg/RecordingFile": `MSG: builtin_interfaces/msg/Time
+# This message communicates ROS Time defined here:
+# https://design.ros2.org/articles/clock_and_time.html
+
+# The seconds component, valid over all int32 values.
+int32 sec
+
+# The nanoseconds component, valid in the range [0, 1e9).
+uint32 nanosec
+================================================================================
+MSG: blueos_recorder_msgs/msg/RecordingFile
+# blueos_recorder_msgs/msg/RecordingFile
+# One MCAP recording in the recorder folder, as listed in RecordingLibrary.
+
+# Being written by the recorder; bytes are readable but the file has no summary yet.
+uint8 STATE_RECORDING=0
+# Finished and indexed; seekable through HTTP ranges on /userdata/recorder/<path>.
+uint8 STATE_READY=1
+# Finished without a summary (power loss, crash); RepairRecording gives it back.
+uint8 STATE_NEEDS_REPAIR=2
+uint8 STATE_REPAIRING=3
+
+# Relative to the recorder folder, forward slashes. Identifies the recording in every command.
+string path
+string name
+uint64 size_bytes
+# From the timestamp embedded in the file name, falling back to the file time.
+builtin_interfaces/Time created
+uint8 state
+# Repair progress while STATE_REPAIRING; zero otherwise.
+uint64 repair_bytes_processed
+uint64 repair_total_bytes
+float64 repair_bytes_per_second
+# Reason the last repair failed; empty when it did not fail. Cleared by the next repair.
+string repair_error`,
+  "blueos_recorder_msgs/msg/RecordingIndex": `MSG: blueos_recorder_msgs/msg/ChannelMessageCount
+# blueos_recorder_msgs/msg/ChannelMessageCount
+
+uint16 channel_id
+uint64 count
+================================================================================
+MSG: blueos_recorder_msgs/msg/ChunkIndexEntry
+# blueos_recorder_msgs/msg/ChunkIndexEntry
+
+uint64 start_time
+uint64 end_time
+# Offset and length of the whole Chunk record, header included.
+uint64 offset
+uint64 length
+string compression
+uint64 compressed_size
+uint64 uncompressed_size
+uint16[] channel_ids
+# Bytes of the MessageIndex records that follow the chunk.
+uint64 message_index_length
+================================================================================
+MSG: blueos_recorder_msgs/msg/RecordingIndex
+# blueos_recorder_msgs/msg/RecordingIndex
+# Reply of the index query: one page of a walk over record headers, so the browser can fetch chunk
+# bodies with HTTP ranges even when the file has no summary yet (still recording, needs repair).
+
+uint64 size
+# Where the next page starts.
+uint64 offset
+# A DataEnd or Footer record was reached: the walk is complete.
+bool closed
+blueos_recorder_msgs/ChunkIndexEntry[] chunks
+blueos_recorder_msgs/ChannelMessageCount[] message_counts
+# Raw Header, Schema, Channel and Metadata records met in this page, in file order.
+uint8[] records`,
+  "blueos_recorder_msgs/msg/RecordingIndexRequest": `MSG: blueos_recorder_msgs/msg/RecordingIndexRequest
+# blueos_recorder_msgs/msg/RecordingIndexRequest
+# Payload of the blueos/v1/recorder/query/index query.
+
+string path
+# 0 starts at the file magic; otherwise the \`offset\` of a previous RecordingIndex reply.
+uint64 from_offset
+# Maximum chunks in the reply (1..=20000).
+uint32 limit`,
+  "blueos_recorder_msgs/msg/RecordingLibrary": `MSG: builtin_interfaces/msg/Time
+# This message communicates ROS Time defined here:
+# https://design.ros2.org/articles/clock_and_time.html
+
+# The seconds component, valid over all int32 values.
+int32 sec
+
+# The nanoseconds component, valid in the range [0, 1e9).
+uint32 nanosec
+================================================================================
+MSG: blueos_recorder_msgs/msg/RecordingFile
+# blueos_recorder_msgs/msg/RecordingFile
+# One MCAP recording in the recorder folder, as listed in RecordingLibrary.
+
+# Being written by the recorder; bytes are readable but the file has no summary yet.
+uint8 STATE_RECORDING=0
+# Finished and indexed; seekable through HTTP ranges on /userdata/recorder/<path>.
+uint8 STATE_READY=1
+# Finished without a summary (power loss, crash); RepairRecording gives it back.
+uint8 STATE_NEEDS_REPAIR=2
+uint8 STATE_REPAIRING=3
+
+# Relative to the recorder folder, forward slashes. Identifies the recording in every command.
+string path
+string name
+uint64 size_bytes
+# From the timestamp embedded in the file name, falling back to the file time.
+builtin_interfaces/Time created
+uint8 state
+# Repair progress while STATE_REPAIRING; zero otherwise.
+uint64 repair_bytes_processed
+uint64 repair_total_bytes
+float64 repair_bytes_per_second
+# Reason the last repair failed; empty when it did not fail. Cleared by the next repair.
+string repair_error
+================================================================================
+MSG: blueos_recorder_msgs/msg/RecordingLibrary
+# blueos_recorder_msgs/msg/RecordingLibrary
+# Published on blueos/v1/recorder/state/library, newest recording first.
+
+blueos_recorder_msgs/RecordingFile[] files`,
+  "blueos_recorder_msgs/msg/RecordingOperation": `MSG: blueos_recorder_msgs/msg/RecordingOperation
+# blueos_recorder_msgs/msg/RecordingOperation
+# Published on blueos/v1/recorder/event/operation when a repair, snapshot or delete ends.
+
+uint8 OPERATION_REPAIR=0
+uint8 OPERATION_SNAPSHOT=1
+uint8 OPERATION_DELETE=2
+
+uint8 operation
+string path
+# The snapshot copy; empty for other operations.
+string output_path
+bool succeeded
+bool cancelled
+string error`,
   "blueos_recorder_msgs/msg/RecordingPolicy": `MSG: blueos_recorder_msgs/msg/RecordingPolicy
 # blueos_recorder_msgs/msg/RecordingPolicy
 # Persisted recorder settings (D-11).
@@ -138,6 +302,11 @@ bool session_active
 string current_file
 uint64 session_bytes_written
 string[] recording_video_topics`,
+  "blueos_recorder_msgs/msg/RepairRecordingCommand": `MSG: blueos_recorder_msgs/msg/RepairRecordingCommand
+# blueos_recorder_msgs/msg/RepairRecordingCommand
+# Rewrites a STATE_NEEDS_REPAIR recording so it has a summary again. Progress is on the library state.
+
+string path`,
   "blueos_recorder_msgs/msg/SetPolicyCommand": `MSG: blueos_recorder_msgs/msg/RecordingPolicy
 # blueos_recorder_msgs/msg/RecordingPolicy
 # Persisted recorder settings (D-11).
@@ -149,6 +318,12 @@ MSG: blueos_recorder_msgs/msg/SetPolicyCommand
 # blueos_recorder_msgs/msg/SetPolicyCommand
 
 blueos_recorder_msgs/RecordingPolicy policy`,
+  "blueos_recorder_msgs/msg/SnapshotRecordingCommand": `MSG: blueos_recorder_msgs/msg/SnapshotRecordingCommand
+# blueos_recorder_msgs/msg/SnapshotRecordingCommand
+# Writes an indexed copy of a recording (typically the one being written) next to it, named
+# <stem>.snapshot-<UTC ISO time>Z.mcap. The copy is announced by a RecordingOperation event.
+
+string path`,
   "blueos_recorder_msgs/msg/StartRecordingCommand": `MSG: blueos_recorder_msgs/msg/StartRecordingCommand
 # blueos_recorder_msgs/msg/StartRecordingCommand
 # Opens a new MCAP session (rotate if one is already active).

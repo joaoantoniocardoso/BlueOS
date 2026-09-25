@@ -68,6 +68,71 @@ export interface SettingsEnvelope {
   fields: SettingField[];
 }
 
+export interface CancelRepairCommand {
+  path: string;
+}
+
+export interface ChannelMessageCount {
+  channel_id: number;
+  count: number;
+}
+
+export interface ChunkIndexEntry {
+  start_time: number;
+  end_time: number;
+  offset: number;
+  length: number;
+  compression: string;
+  compressed_size: number;
+  uncompressed_size: number;
+  channel_ids: number[];
+  message_index_length: number;
+}
+
+export interface DeleteRecordingCommand {
+  path: string;
+}
+
+export interface RecordingFile {
+  path: string;
+  name: string;
+  size_bytes: number;
+  created: Time;
+  state: number;
+  repair_bytes_processed: number;
+  repair_total_bytes: number;
+  repair_bytes_per_second: number;
+  repair_error: string;
+}
+
+export interface RecordingIndex {
+  size: number;
+  offset: number;
+  closed: boolean;
+  chunks: ChunkIndexEntry[];
+  message_counts: ChannelMessageCount[];
+  records: number[];
+}
+
+export interface RecordingIndexRequest {
+  path: string;
+  from_offset: number;
+  limit: number;
+}
+
+export interface RecordingLibrary {
+  files: RecordingFile[];
+}
+
+export interface RecordingOperation {
+  operation: number;
+  path: string;
+  output_path: string;
+  succeeded: boolean;
+  cancelled: boolean;
+  error: string;
+}
+
 export interface RecordingPolicy {
   record_mavlink_only_when_armed: boolean;
   auto_start_recording: boolean;
@@ -81,8 +146,16 @@ export interface RecordingState {
   recording_video_topics: string[];
 }
 
+export interface RepairRecordingCommand {
+  path: string;
+}
+
 export interface SetPolicyCommand {
   policy: RecordingPolicy;
+}
+
+export interface SnapshotRecordingCommand {
+  path: string;
 }
 
 export interface StartRecordingCommand {
