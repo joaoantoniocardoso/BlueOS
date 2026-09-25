@@ -41,6 +41,16 @@ Vue (ExampleServiceView) -> blueos-api sendCommand
 Queries use `blueos/v1/example/query/Level` (read model from snapshot). Standard keys (`status`, `jobs`, `settings`,
 `UpdateSettings`, liveliness, `info`, `log`) come from the kernel (D-12).
 
+## Command rejection vs decode errors
+
+If a command payload fails CDR decode, the comms adapter rejects the Zenoh query before the inbox runs; the
+client still gets `CommandAck { accepted: false, reason }` but domain logic never ran.
+
+If the payload decodes but the command is invalid for the current snapshot (for example `CancelSelfTest` while
+no self-test is running), the handler returns [`Decision::reject`](../../libs/logic/cqrs/src/lib.rs) **without**
+mutating state. The kernel mirrors decode failures: `accepted = false`, no effects, no state or event publish.
+See `logic/pump/src/command.rs` (`handle_cancel_self_test`) and `logic/pump/src/tests.rs`.
+
 ## IDL messages
 
 Sources: `core/libs/idl/interfaces/blueos_example_msgs/msg/`. After editing:

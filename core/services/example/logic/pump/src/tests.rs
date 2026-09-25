@@ -125,6 +125,18 @@ fn self_test_timeout_fails_and_cancels_timer() {
 }
 
 #[test]
+fn cancel_self_test_without_active_run_is_rejected() {
+    let mut application = test_app();
+    let decision = application.handle(PumpCommand::CancelSelfTest);
+    assert_eq!(
+        decision.rejection.as_deref(),
+        Some("no self-test is running")
+    );
+    assert!(decision.events.is_empty());
+    assert!(decision.effects.is_empty());
+}
+
+#[test]
 fn cancel_self_test_emits_cancelled_event() {
     let mut application = test_app();
     application.handle(PumpCommand::StartSelfTest);
