@@ -70,8 +70,8 @@ Frontend (pirate mode): **Example Rust service** under `/tools/example-service`.
 ## Tests
 
 ```bash
-RUSTC_WRAPPER= cargo test -p example_pump_logic
-RUSTC_WRAPPER= cargo test -p example_service
+RUSTC_WRAPPER= cargo test -p blueos-example-pump
+RUSTC_WRAPPER= cargo test -p blueos-example
 ```
 
 Logic tests cover every command path without a runtime. `app/tests/kernel_integration.rs` exercises the channel

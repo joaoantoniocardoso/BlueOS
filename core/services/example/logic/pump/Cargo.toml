@@ -1,10 +1,10 @@
 [package]
-name = "example_pump_logic"
+name = "blueos-example-pump"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
 
 [dependencies]
-blueos_cqrs = { path = "../../../../libs/logic/cqrs", default-features = false }
-blueos_jobs = { path = "../../../../libs/logic/jobs", default-features = false }
+blueos-cqrs.workspace = true
+blueos-jobs.workspace = true

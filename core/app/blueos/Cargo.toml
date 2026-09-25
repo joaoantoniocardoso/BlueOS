@@ -11,9 +11,9 @@ path = "src/main.rs"
 
 [features]
 default = []
-example = ["dep:example"]
-recorder = ["dep:recorder"]
+example = ["dep:blueos-example"]
+recorder = ["dep:blueos-recorder"]
 
 [dependencies]
-example = { package = "example_service", path = "../../services/example/app", optional = true }
-recorder = { package = "blueos-recorder", path = "../../services/recorder/app", optional = true }
+blueos-example = { workspace = true, optional = true }
+blueos-recorder = { workspace = true, optional = true }

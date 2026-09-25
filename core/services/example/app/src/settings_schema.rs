@@ -1,5 +1,5 @@
+use blueos_example_pump::{ExampleSettings, restart_required_field_names};
 use blueos_settings::{SettingsError, SettingsSchema};
-use example_pump_logic::{ExampleSettings, restart_required_field_names};
 use serde::{Deserialize, Serialize};
 
 /// JSON on-disk view (`VERSION` key) of [`ExampleSettings`].

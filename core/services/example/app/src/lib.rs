@@ -4,6 +4,11 @@ use blueos_api::cdr_encoding;
 use blueos_cli::{Argv, Common};
 use blueos_comms::Payload;
 use blueos_cqrs::App;
+use blueos_example_pump::PumpIoRequest;
+use blueos_example_pump::{
+    ExampleSettings, PumpCommand, PumpDomain, PumpEvent, PumpQuery, PumpSnapshot, job_spec_name,
+};
+use blueos_example_simulated_pump::{SimulatedPumpStep, run_step};
 use blueos_idl::Message;
 use blueos_idl::msg::blueos_example_msgs::{
     EmptyRequest, LevelQueryResponse, PumpState, SelfTestCompleted, SetLevelRequest,
@@ -17,11 +22,6 @@ use blueos_logging::error;
 use blueos_service::ServiceBuilder;
 use bytes::Bytes;
 use clap::Parser;
-use example_pump_logic::PumpIoRequest;
-use example_pump_logic::{
-    ExampleSettings, PumpCommand, PumpDomain, PumpEvent, PumpQuery, PumpSnapshot, job_spec_name,
-};
-use example_simulated_pump::{SimulatedPumpStep, run_step};
 use std::ffi::OsString;
 use std::path::PathBuf;
 use tracing::info;
@@ -217,9 +217,9 @@ fn encode_pump_state(state: PumpState) -> Result<(Payload, String), String> {
 async fn io_to_command(request: PumpIoRequest) -> PumpCommand {
     let PumpIoRequest::RunStep { job_id, step } = request;
     let simulated_step = match step {
-        example_pump_logic::PumpJobSpec::VerifyOff => SimulatedPumpStep::VerifyOff,
-        example_pump_logic::PumpJobSpec::RampUp => SimulatedPumpStep::RampUp,
-        example_pump_logic::PumpJobSpec::VerifyOn => SimulatedPumpStep::VerifyOn,
+        blueos_example_pump::PumpJobSpec::VerifyOff => SimulatedPumpStep::VerifyOff,
+        blueos_example_pump::PumpJobSpec::RampUp => SimulatedPumpStep::RampUp,
+        blueos_example_pump::PumpJobSpec::VerifyOn => SimulatedPumpStep::VerifyOn,
     };
     let succeeded = run_step(simulated_step).await;
     PumpCommand::JobIoFinished { job_id, succeeded }

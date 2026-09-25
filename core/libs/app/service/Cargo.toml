@@ -1,5 +1,5 @@
 [package]
-name = "blueos_service"
+name = "blueos-service"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,13 +8,13 @@ publish.workspace = true
 [dependencies]
 async-trait.workspace = true
 blueos-api.workspace = true
-blueos_cli = { path = "../../adapters/cli" }
-blueos_comms = { path = "../../adapters/comms", default-features = false, features = ["zenoh", "channel"] }
-blueos_cqrs = { path = "../../logic/cqrs" }
+blueos-cli.workspace = true
+blueos-comms = { workspace = true, features = ["zenoh"] }
+blueos-cqrs.workspace = true
 blueos-idl.workspace = true
-blueos_jobs = { path = "../../logic/jobs" }
-blueos_logging = { path = "../../adapters/logging" }
-blueos_settings = { path = "../../adapters/settings" }
+blueos-jobs.workspace = true
+blueos-logging.workspace = true
+blueos-settings.workspace = true
 bytes.workspace = true
 futures.workspace = true
 serde_json.workspace = true
@@ -23,6 +23,7 @@ tokio = { workspace = true, features = ["rt-multi-thread", "sync", "time", "macr
 tracing.workspace = true
 
 [dev-dependencies]
+blueos-comms = { workspace = true, features = ["channel"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 tempfile = "3"

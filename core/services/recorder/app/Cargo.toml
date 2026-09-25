@@ -10,15 +10,15 @@ path = "src/lib.rs"
 
 [dependencies]
 blueos-api.workspace = true
-blueos_comms = { path = "../../../libs/adapters/comms", default-features = false, features = ["zenoh"] }
-blueos_cqrs = { path = "../../../libs/logic/cqrs" }
+blueos-comms = { workspace = true, features = ["zenoh"] }
+blueos-cqrs.workspace = true
 blueos-idl.workspace = true
-blueos_logging = { path = "../../../libs/adapters/logging" }
-blueos-recorder-mcap = { path = "../adapters/mcap" }
-blueos-recorder-mavlink = { path = "../adapters/mavlink" }
-blueos-recorder-policy = { path = "../logic/policy" }
-blueos_service = { path = "../../../libs/app/service" }
-blueos_settings = { path = "../../../libs/adapters/settings" }
+blueos-logging.workspace = true
+blueos-recorder-mcap.workspace = true
+blueos-recorder-mavlink.workspace = true
+blueos-recorder-policy.workspace = true
+blueos-service.workspace = true
+blueos-settings.workspace = true
 bytes.workspace = true
 chrono.workspace = true
 clap.workspace = true
@@ -33,6 +33,6 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync", "ti
 tracing.workspace = true
 
 [dev-dependencies]
-blueos_comms = { path = "../../../libs/adapters/comms", default-features = false, features = ["channel"] }
+blueos-comms = { workspace = true, features = ["channel"] }
 tempfile = "3"
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync", "time"] }

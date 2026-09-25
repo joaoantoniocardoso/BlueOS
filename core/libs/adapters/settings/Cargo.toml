@@ -1,5 +1,5 @@
 [package]
-name = "blueos_settings"
+name = "blueos-settings"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

@@ -9,5 +9,5 @@ publish = false
 path = "src/lib.rs"
 
 [dependencies]
-blueos_cqrs = { path = "../../../../libs/logic/cqrs" }
-blueos_jobs = { path = "../../../../libs/logic/jobs" }
+blueos-cqrs.workspace = true
+blueos-jobs.workspace = true

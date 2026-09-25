@@ -1,5 +1,5 @@
 [package]
-name = "blueos_cli"
+name = "blueos-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
