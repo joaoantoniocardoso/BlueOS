@@ -10,6 +10,12 @@ use alloc::vec::Vec;
 
 use blueos_cqrs::{Decision, Domain, Effect, TimerId};
 use blueos_jobs::Jobs;
+pub use blueos_recorder_library::{
+    LibraryCommand, LibraryEvent, LibraryIo, LibrarySnapshot,
+    OperationKind as RecordingOperationKind, RecordingEntry, RecordingOperationEvent,
+    RecordingState as LibraryRecordingState, ScannedRecording, handle_library_command,
+    initial_rescan_effects,
+};
 
 pub const RAW_MAVLINK_OUT_TOPIC: &str = "mavlink_raw/out";
 pub const RAW_MAVLINK_IN_TOPIC: &str = "mavlink_raw/in";
@@ -66,6 +72,7 @@ pub struct RecorderSnapshot {
     pub session: Option<RecordingSession>,
     pub video_streams: BTreeMap<String, VideoStreamState>,
     pub recording_cameras: BTreeSet<SystemAndComponent>,
+    pub library: LibrarySnapshot,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -102,6 +109,22 @@ pub enum RecorderCommand {
         topic: String,
         now_millis: u64,
     },
+    InitializeLibrary,
+    RepairRecording {
+        path: String,
+        now_unix_seconds: i64,
+    },
+    CancelRepair {
+        path: String,
+    },
+    DeleteRecording {
+        path: String,
+    },
+    SnapshotRecording {
+        path: String,
+        now_unix_seconds: i64,
+    },
+    Library(LibraryCommand),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -111,10 +134,11 @@ pub enum CaptureCommandKind {
     RequestCaptureStatus,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum RecorderEvent {
     SessionRotated { file_name: String },
     SessionStopped,
+    RecordingOperation(RecordingOperationEvent),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -177,6 +201,7 @@ pub enum RecorderIo {
         video_status: u8,
         recording_time_ms: u32,
     },
+    Library(LibraryIo),
 }
 
 pub enum RecorderQuery {
@@ -309,6 +334,38 @@ impl Domain for RecorderDomain {
             }
             RecorderCommand::Ack => Decision::new(),
             RecorderCommand::IoFailed => Decision::new(),
+            RecorderCommand::InitializeLibrary => Decision {
+                events: Vec::new(),
+                effects: map_library_effects(initial_rescan_effects()),
+                rejection: None,
+            },
+            RecorderCommand::RepairRecording {
+                path,
+                now_unix_seconds,
+            } => dispatch_library(
+                snapshot,
+                LibraryCommand::RepairRecording {
+                    path,
+                    now_unix_seconds,
+                },
+            ),
+            RecorderCommand::CancelRepair { path } => {
+                dispatch_library(snapshot, LibraryCommand::CancelRepair { path })
+            }
+            RecorderCommand::DeleteRecording { path } => {
+                dispatch_library(snapshot, LibraryCommand::DeleteRecording { path })
+            }
+            RecorderCommand::SnapshotRecording {
+                path,
+                now_unix_seconds,
+            } => dispatch_library(
+                snapshot,
+                LibraryCommand::SnapshotRecording {
+                    path,
+                    now_unix_seconds,
+                },
+            ),
+            RecorderCommand::Library(command) => dispatch_library(snapshot, command),
             RecorderCommand::CaptureStatusTick { topic, now_millis } => {
                 let Some(stream) = snapshot.video_streams.get(&topic) else {
                     return Decision::new();
@@ -441,6 +498,60 @@ fn handle_camera_capture_command(
         effects,
         rejection: None,
     }
+}
+
+fn dispatch_library(
+    snapshot: &mut RecorderSnapshot,
+    command: LibraryCommand,
+) -> Decision<RecorderDomain> {
+    let active = snapshot
+        .session
+        .as_ref()
+        .map(|session| session.file_name.clone());
+    let active = active.as_deref();
+    let decision = handle_library_command(&mut snapshot.library, command, active);
+    map_library_decision(decision)
+}
+
+fn map_library_decision(
+    decision: Decision<blueos_recorder_library::LibraryDomain>,
+) -> Decision<RecorderDomain> {
+    if let Some(reason) = decision.rejection {
+        return Decision::reject(reason);
+    }
+    Decision {
+        events: decision.events.into_iter().map(map_library_event).collect(),
+        effects: map_library_effects(decision.effects),
+        rejection: None,
+    }
+}
+
+fn map_library_event(event: LibraryEvent) -> RecorderEvent {
+    match event {
+        LibraryEvent::Operation(operation) => RecorderEvent::RecordingOperation(operation),
+    }
+}
+
+fn map_library_effects(
+    effects: Vec<Effect<LibraryCommand, LibraryIo>>,
+) -> Vec<Effect<RecorderCommand, RecorderIo>> {
+    effects
+        .into_iter()
+        .map(|effect| match effect {
+            Effect::Io(request) => Effect::Io(RecorderIo::Library(request)),
+            Effect::Schedule {
+                after,
+                timer,
+                command,
+            } => Effect::Schedule {
+                after,
+                timer,
+                command: RecorderCommand::Library(command),
+            },
+            Effect::CancelSchedule(timer) => Effect::CancelSchedule(timer),
+            Effect::Persist => Effect::Persist,
+        })
+        .collect()
 }
 
 fn capture_command_id(command: CaptureCommandKind) -> u32 {

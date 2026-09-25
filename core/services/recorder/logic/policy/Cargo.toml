@@ -11,3 +11,4 @@ path = "src/lib.rs"
 [dependencies]
 blueos-cqrs.workspace = true
 blueos-jobs.workspace = true
+blueos-recorder-library.workspace = true
