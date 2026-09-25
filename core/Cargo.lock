@@ -236,13 +236,117 @@ dependencies = [
 name = "blueos"
 version = "0.1.0"
 dependencies = [
+ "blueos-example",
  "blueos-recorder",
- "example_service",
 ]
 
 [[package]]
 name = "blueos-api"
 version = "0.1.0"
+
+[[package]]
+name = "blueos-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "thiserror 2.0.20",
+]
+
+[[package]]
+name = "blueos-comms"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "blueos-comms-channel",
+ "blueos-comms-driver",
+ "blueos-comms-zenoh",
+ "bytes",
+ "futures",
+ "tokio",
+]
+
+[[package]]
+name = "blueos-comms-channel"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "blueos-comms-driver",
+ "bytes",
+ "futures",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "blueos-comms-driver"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "futures",
+ "thiserror 2.0.20",
+ "tokio",
+]
+
+[[package]]
+name = "blueos-comms-zenoh"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "blueos-comms-driver",
+ "bytes",
+ "futures",
+ "tokio",
+ "zenoh",
+]
+
+[[package]]
+name = "blueos-cqrs"
+version = "0.1.0"
+dependencies = [
+ "blueos-jobs",
+ "thiserror 2.0.20",
+]
+
+[[package]]
+name = "blueos-example"
+version = "0.1.0"
+dependencies = [
+ "blueos-api",
+ "blueos-cli",
+ "blueos-comms",
+ "blueos-cqrs",
+ "blueos-example-pump",
+ "blueos-example-simulated-pump",
+ "blueos-idl",
+ "blueos-jobs",
+ "blueos-logging",
+ "blueos-service",
+ "blueos-settings",
+ "bytes",
+ "clap",
+ "futures",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "blueos-example-pump"
+version = "0.1.0"
+dependencies = [
+ "blueos-cqrs",
+ "blueos-jobs",
+]
+
+[[package]]
+name = "blueos-example-simulated-pump"
+version = "0.1.0"
+dependencies = [
+ "tokio",
+]
 
 [[package]]
 name = "blueos-idl"
@@ -267,19 +371,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "blueos-jobs"
+version = "0.1.0"
+dependencies = [
+ "thiserror 2.0.20",
+]
+
+[[package]]
+name = "blueos-logging"
+version = "0.1.0"
+dependencies = [
+ "blueos-comms",
+ "thiserror 2.0.20",
+ "tokio",
+ "tracing",
+ "tracing-log",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "blueos-recorder"
 version = "0.1.0"
 dependencies = [
  "blueos-api",
+ "blueos-comms",
+ "blueos-cqrs",
  "blueos-idl",
+ "blueos-logging",
  "blueos-recorder-mavlink",
  "blueos-recorder-mcap",
  "blueos-recorder-policy",
- "blueos_comms",
- "blueos_cqrs",
- "blueos_logging",
- "blueos_service",
- "blueos_settings",
+ "blueos-service",
+ "blueos-settings",
  "bytes",
  "chrono",
  "clap",
@@ -309,7 +432,7 @@ name = "blueos-recorder-mcap"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "blueos_comms",
+ "blueos-comms",
  "bytes",
  "clap",
  "json5",
@@ -323,106 +446,23 @@ dependencies = [
 name = "blueos-recorder-policy"
 version = "0.1.0"
 dependencies = [
- "blueos_cqrs",
- "blueos_jobs",
+ "blueos-cqrs",
+ "blueos-jobs",
 ]
 
 [[package]]
-name = "blueos_cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "thiserror 2.0.20",
-]
-
-[[package]]
-name = "blueos_comms"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "blueos_comms_channel",
- "blueos_comms_driver",
- "blueos_comms_zenoh",
- "bytes",
- "futures",
- "tokio",
-]
-
-[[package]]
-name = "blueos_comms_channel"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "blueos_comms_driver",
- "bytes",
- "futures",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "blueos_comms_driver"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "bytes",
- "futures",
- "thiserror 2.0.20",
- "tokio",
-]
-
-[[package]]
-name = "blueos_comms_zenoh"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "blueos_comms_driver",
- "bytes",
- "futures",
- "tokio",
- "zenoh",
-]
-
-[[package]]
-name = "blueos_cqrs"
-version = "0.1.0"
-dependencies = [
- "blueos_jobs",
- "thiserror 2.0.20",
-]
-
-[[package]]
-name = "blueos_jobs"
-version = "0.1.0"
-dependencies = [
- "thiserror 2.0.20",
-]
-
-[[package]]
-name = "blueos_logging"
-version = "0.1.0"
-dependencies = [
- "blueos_comms",
- "thiserror 2.0.20",
- "tokio",
- "tracing",
- "tracing-log",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "blueos_service"
+name = "blueos-service"
 version = "0.1.0"
 dependencies = [
  "async-trait",
  "blueos-api",
+ "blueos-cli",
+ "blueos-comms",
+ "blueos-cqrs",
  "blueos-idl",
- "blueos_cli",
- "blueos_comms",
- "blueos_cqrs",
- "blueos_jobs",
- "blueos_logging",
- "blueos_settings",
+ "blueos-jobs",
+ "blueos-logging",
+ "blueos-settings",
  "bytes",
  "futures",
  "serde",
@@ -434,7 +474,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "blueos_settings"
+name = "blueos-settings"
 version = "0.1.0"
 dependencies = [
  "serde",
@@ -957,46 +997,6 @@ checksum = "5a23add41df1562121a9393cb065eab5146a1242410f23a644851e90cfd669d2"
 dependencies = [
  "parking",
  "pin-project-lite",
-]
-
-[[package]]
-name = "example_pump_logic"
-version = "0.1.0"
-dependencies = [
- "blueos_cqrs",
- "blueos_jobs",
-]
-
-[[package]]
-name = "example_service"
-version = "0.1.0"
-dependencies = [
- "blueos-api",
- "blueos-idl",
- "blueos_cli",
- "blueos_comms",
- "blueos_cqrs",
- "blueos_jobs",
- "blueos_logging",
- "blueos_service",
- "blueos_settings",
- "bytes",
- "clap",
- "example_pump_logic",
- "example_simulated_pump",
- "futures",
- "serde",
- "serde_json",
- "tempfile",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "example_simulated_pump"
-version = "0.1.0"
-dependencies = [
- "tokio",
 ]
 
 [[package]]

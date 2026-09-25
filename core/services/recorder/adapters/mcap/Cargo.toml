@@ -10,7 +10,7 @@ path = "src/lib.rs"
 
 [dependencies]
 anyhow.workspace = true
-blueos_comms = { path = "../../../../libs/adapters/comms", features = ["channel"] }
+blueos-comms = { workspace = true, features = ["zenoh"] }
 clap = { workspace = true, features = ["derive"] }
 json5.workspace = true
 mcap.workspace = true

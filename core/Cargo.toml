@@ -44,14 +44,25 @@ strip = true
 anyhow = "1.0.98"
 async-trait = "0.1"
 blueos-api = { path = "libs/api" }
-blueos_cli = { path = "libs/adapters/cli" }
-blueos_comms = { path = "libs/adapters/comms" }
-blueos_cqrs = { path = "libs/logic/cqrs" }
+blueos-cli = { path = "libs/adapters/cli" }
+blueos-comms = { path = "libs/adapters/comms", default-features = false }
+blueos-comms-channel = { path = "libs/adapters/comms/channel" }
+blueos-comms-driver = { path = "libs/adapters/comms/driver" }
+blueos-comms-zenoh = { path = "libs/adapters/comms/zenoh" }
+blueos-cqrs = { path = "libs/logic/cqrs" }
+blueos-example = { path = "services/example/app" }
+blueos-example-pump = { path = "services/example/logic/pump" }
+blueos-example-simulated-pump = { path = "services/example/adapters/simulated_pump" }
 blueos-idl = { path = "libs/idl" }
-blueos_jobs = { path = "libs/logic/jobs" }
-blueos_logging = { path = "libs/adapters/logging" }
-blueos_service = { path = "libs/app/service" }
-blueos_settings = { path = "libs/adapters/settings" }
+blueos-idl-codegen = { path = "libs/idl/codegen" }
+blueos-jobs = { path = "libs/logic/jobs" }
+blueos-logging = { path = "libs/adapters/logging" }
+blueos-recorder = { path = "services/recorder/app" }
+blueos-recorder-mavlink = { path = "services/recorder/adapters/mavlink" }
+blueos-recorder-mcap = { path = "services/recorder/adapters/mcap" }
+blueos-recorder-policy = { path = "services/recorder/logic/policy" }
+blueos-service = { path = "libs/app/service" }
+blueos-settings = { path = "libs/adapters/settings" }
 bytes = "1"
 chrono = "0.4.41"
 clap = { version = "4", features = ["derive"] }

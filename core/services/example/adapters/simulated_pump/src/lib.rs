@@ -4,7 +4,7 @@ use tokio::time;
 
 const STEP_DELAY_MILLIS: u64 = 5;
 
-/// Steps mirrored from the domain job graph. The app maps [`example_pump_logic::PumpJobSpec`] here.
+/// Steps mirrored from the domain job graph. The app maps [`blueos_example_pump::PumpJobSpec`] here.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SimulatedPumpStep {
     VerifyOff,

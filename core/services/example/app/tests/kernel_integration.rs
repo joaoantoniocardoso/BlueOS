@@ -3,15 +3,15 @@ use std::time::Duration;
 use blueos_api::{cdr_encoding, command_key, event_key, jobs_key};
 use blueos_comms::{ChannelBackend, Payload, Session};
 use blueos_cqrs::App;
+use blueos_example_pump::{
+    PumpCommand, PumpDomain, PumpEvent, PumpIoRequest, PumpJobSpec, PumpSnapshot, job_spec_name,
+};
+use blueos_example_simulated_pump::{SimulatedPumpStep, run_step};
 use blueos_idl::Message;
 use blueos_idl::msg::blueos_example_msgs::{PumpState, SelfTestCompleted};
 use blueos_idl::msg::blueos_msgs::{CommandAck, JobList};
 use blueos_service::ServiceBuilder;
 use bytes::Bytes;
-use example_pump_logic::{
-    PumpCommand, PumpDomain, PumpEvent, PumpIoRequest, PumpJobSpec, PumpSnapshot, job_spec_name,
-};
-use example_simulated_pump::{SimulatedPumpStep, run_step};
 use futures::StreamExt;
 use tokio::time;
 

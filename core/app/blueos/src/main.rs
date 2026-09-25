@@ -31,7 +31,7 @@ fn run(name: Option<&std::ffi::OsStr>, arguments: Vec<OsString>) -> bool {
 
 #[cfg(feature = "example")]
 fn dispatch_example(arguments: Vec<OsString>) -> bool {
-    example::run(arguments);
+    blueos_example::run(arguments);
     true
 }
 
@@ -44,7 +44,7 @@ fn dispatch_example(arguments: Vec<OsString>) -> bool {
 
 #[cfg(feature = "recorder")]
 fn dispatch_recorder(arguments: Vec<OsString>) -> bool {
-    if recorder::run(arguments) != std::process::ExitCode::SUCCESS {
+    if blueos_recorder::run(arguments) != std::process::ExitCode::SUCCESS {
         process::exit(1);
     }
     true
