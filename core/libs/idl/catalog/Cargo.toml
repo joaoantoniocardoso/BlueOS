@@ -1,0 +1,10 @@
+[package]
+name = "blueos-idl-catalog"
+description = "ROS 2 Jazzy and Foxglove message schemas for recording topics outside the BlueOS IDL"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[build-dependencies]
+blueos-idl-codegen.workspace = true
