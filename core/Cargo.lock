@@ -433,12 +433,14 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "blueos-comms",
+ "blueos-idl",
  "bytes",
  "clap",
  "json5",
  "mcap",
  "serde_json",
  "tempfile",
+ "thiserror 2.0.20",
  "tracing",
 ]
 
@@ -448,6 +450,15 @@ version = "0.1.0"
 dependencies = [
  "blueos-cqrs",
  "blueos-jobs",
+]
+
+[[package]]
+name = "blueos-recorder-storage"
+version = "0.1.0"
+dependencies = [
+ "blueos-recorder-mcap",
+ "tempfile",
+ "thiserror 2.0.20",
 ]
 
 [[package]]

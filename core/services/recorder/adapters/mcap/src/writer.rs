@@ -84,7 +84,7 @@ impl Default for McapWriteConfig {
 }
 
 impl McapWriteConfig {
-    fn open_writer(path: &Path, config: Self) -> Result<Writer<BufWriter<File>>> {
+    pub(crate) fn open_writer(path: &Path, config: Self) -> Result<Writer<BufWriter<File>>> {
         let file = File::create(path).context("Failed to create MCAP file")?;
         let io_buffer_bytes = IO_BUFFER_BYTES.get().max(config.chunk_size.get() as usize);
         Writer::with_options(
