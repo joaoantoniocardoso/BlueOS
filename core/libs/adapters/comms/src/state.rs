@@ -29,12 +29,17 @@ pub async fn declare_state(backend: Arc<Backend>, key: &str) -> Result<StateHand
             let stored: Option<StateSnapshot> = snapshot_for_query.lock().await.clone();
             match stored {
                 Some(value) => {
-                    let _ = query.reply(value.payload, &value.encoding).await;
+                    if query.reply(value.payload, &value.encoding).await.is_err() {
+                        // The querier disconnected before the reply was delivered.
+                    }
                 }
                 None => {
-                    let _ = query.reply_error("state not initialized").await;
+                    if query.reply_error("state not initialized").await.is_err() {
+                        // The querier disconnected before the reply was delivered.
+                    }
                 }
             }
+            // Keeps the query key owned until this task exits.
             let _ = key_for_query;
         }
     });
@@ -49,6 +54,12 @@ impl StateHandle {
     pub async fn publish(&self, payload: Payload, encoding: &str) -> Result<()> {
         {
             let mut guard = self.snapshot.lock().await;
+            if let Some(existing) = guard.as_ref()
+                && existing.encoding == encoding
+                && existing.payload.as_slice() == payload.as_slice()
+            {
+                return Ok(());
+            }
             *guard = Some(StateSnapshot {
                 payload: payload.clone(),
                 encoding: encoding.to_string(),
