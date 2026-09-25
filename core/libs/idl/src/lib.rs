@@ -2,6 +2,8 @@
 
 extern crate alloc;
 
+#[cfg(feature = "catalog")]
+pub mod catalog;
 pub mod cdr;
 pub mod error;
 pub mod message;
