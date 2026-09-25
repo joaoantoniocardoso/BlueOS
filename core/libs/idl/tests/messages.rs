@@ -1,5 +1,25 @@
+use std::path::PathBuf;
+
 use blueos_idl::Message;
 use blueos_idl::msg::blueos_msgs::CommandAck;
+use blueos_idl_codegen::collect_messages_for_test;
+
+#[test]
+fn schema_lookup_covers_every_interface() {
+    let interfaces_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("interfaces");
+    for record in collect_messages_for_test(&interfaces_root) {
+        assert!(
+            blueos_idl::schema(&record.schema_name).is_some(),
+            "{} has no schema",
+            record.schema_name
+        );
+    }
+    assert_eq!(
+        blueos_idl::schema(CommandAck::SCHEMA_NAME),
+        Some(CommandAck::SCHEMA)
+    );
+    assert_eq!(blueos_idl::schema("unknown/msg/Missing"), None);
+}
 
 #[test]
 fn command_ack_matches_the_frontend_codec_bytes() {
