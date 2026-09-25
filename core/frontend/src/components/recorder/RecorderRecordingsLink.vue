@@ -5,8 +5,8 @@
     </v-card-title>
     <v-card-text>
       <p class="text-body-2 mb-3">
-        Finished MCAP files and extracted video previews are managed by the existing Records tool
-        (recorder_extractor). Use it to browse, download, and delete recordings on disk.
+        Finished MCAP recordings are listed on the Records page. Use it to play, download, repair,
+        and delete recordings on the vehicle.
       </p>
       <v-btn color="primary" :to="{ path: '/tools/records' }">
         <v-icon left>

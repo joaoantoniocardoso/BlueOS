@@ -45,7 +45,7 @@ const CHUNK_INDEX_WINDOW_SIZE = 256 * 1024
  * to cover the lag between the stream that is furthest ahead and the one furthest behind.
  */
 const CHUNK_CACHE_LIMIT_BYTES = 32 * 1024 * 1024
-/** Chunk index entries per vehicle index request; matches the recorder-extractor default. */
+/** Chunk index entries per vehicle index request; matches the recorder service default. */
 const SERVER_INDEX_PAGE_LIMIT = 2000
 /**
  * Chunk bytes to spend naming channels while opening a recording. A channel is only described in the
