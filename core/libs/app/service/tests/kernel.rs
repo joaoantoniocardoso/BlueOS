@@ -242,6 +242,13 @@ async fn spawn_test_service(
             let payload = Payload::from_bytes(Bytes::from(view.counter.to_string()));
             Ok((payload, "text/plain".into()))
         })
+        .io_query("Echo", |payload| async move {
+            Ok((payload, "text/plain".into()))
+        })
+        .io_query("SlowEcho", |payload| async move {
+            time::sleep(Duration::from_millis(300)).await;
+            Ok((payload, "text/plain".into()))
+        })
         .event(
             "RestartRequired",
             |event| matches!(event, KernelTestEvent::RestartRequired(_)),
@@ -358,6 +365,51 @@ async fn rejected_command_returns_reason_without_publishing_state() {
         b"1"
     );
 
+    service_handle.abort();
+}
+
+#[tokio::test]
+async fn io_query_round_trip_outside_inbox() {
+    let (service_name, client, service_handle, _) = spawn_test_service(None).await;
+    let payload = Payload::from_bytes(Bytes::from("hello"));
+    let reply = client
+        .query(
+            &query_key(&service_name, "Echo"),
+            payload,
+            "",
+            Duration::from_secs(1),
+        )
+        .await
+        .expect("io_query");
+    assert_eq!(reply.payload.as_slice(), b"hello");
+
+    service_handle.abort();
+}
+
+#[tokio::test]
+async fn slow_io_query_does_not_block_command_ack() {
+    let (service_name, client, service_handle, _) = spawn_test_service(None).await;
+
+    let slow = tokio::spawn({
+        let client = client.clone();
+        let service_name = service_name.clone();
+        async move {
+            client
+                .query(
+                    &query_key(&service_name, "SlowEcho"),
+                    Payload::from_bytes(Bytes::from("slow")),
+                    "",
+                    Duration::from_secs(2),
+                )
+                .await
+                .expect("slow io_query");
+        }
+    });
+    time::sleep(Duration::from_millis(10)).await;
+    let fast_ack = command_ack(&client, &service_name, "Increment", &[]).await;
+    assert!(fast_ack.accepted);
+
+    let _ = slow.await;
     service_handle.abort();
 }
 

@@ -37,6 +37,11 @@ pub type CommandDecode<D> =
     Arc<dyn Fn(&[u8]) -> Result<<D as Domain>::Command, String> + Send + Sync>;
 pub type QueryHandler<D> =
     Arc<dyn Fn(&[u8], &App<D>) -> Result<(Payload, String), String> + Send + Sync>;
+pub type IoQueryHandler = Arc<
+    dyn Fn(Payload) -> Pin<Box<dyn Future<Output = Result<(Payload, String), String>> + Send>>
+        + Send
+        + Sync,
+>;
 pub type StatePublish<D> = Arc<dyn Fn(&App<D>) -> Result<(Payload, String), String> + Send + Sync>;
 pub type EventPublish<D> =
     Arc<dyn Fn(&<D as Domain>::Event) -> Result<(Payload, String), String> + Send + Sync>;
@@ -62,6 +67,11 @@ pub struct CommandRegistration<D: Domain> {
 pub struct QueryRegistration<D: Domain> {
     pub name: String,
     pub handler: QueryHandler<D>,
+}
+
+pub struct IoQueryRegistration {
+    pub name: String,
+    pub handler: IoQueryHandler,
 }
 
 pub struct EventRegistration<D: Domain> {
@@ -178,6 +188,7 @@ pub async fn run<D: Domain + 'static>(
     cli: Argv,
     mut commands: Vec<CommandRegistration<D>>,
     queries: Vec<QueryRegistration<D>>,
+    io_queries: Vec<IoQueryRegistration>,
     extra_states: Vec<(String, StatePublish<D>)>,
     events: Vec<EventRegistration<D>>,
     status: Option<StatePublish<D>>,
@@ -328,6 +339,16 @@ where
             session.clone(),
             query_key(&service_name, name),
             index,
+        );
+    }
+
+    let io_query_shutdown = shutdown_receiver.clone();
+    for registration in io_queries {
+        spawn_io_query_adapter(
+            session.clone(),
+            query_key(&service_name, &registration.name),
+            registration.handler,
+            io_query_shutdown.clone(),
         );
     }
 
@@ -649,6 +670,49 @@ fn spawn_command_adapter<D: Domain + 'static>(
             }
         }
     });
+}
+
+fn spawn_io_query_adapter(
+    session: Session,
+    key: String,
+    handler: IoQueryHandler,
+    mut shutdown_receiver: Option<watch::Receiver<bool>>,
+) {
+    // ponytail: one io_query request at a time per name; upgrade with a bounded concurrency pool if needed.
+    tokio::spawn(async move {
+        let Ok(mut queries) = session.declare_queryable(&key).await else {
+            return;
+        };
+        while let Some(query) = queries.next().await {
+            if io_query_shutting_down(&mut shutdown_receiver) {
+                if let Err(error) = query.reply_error("service shutting down").await {
+                    error!("io_query reply_error failed: {error}");
+                }
+                continue;
+            }
+            let payload = query.payload.clone();
+            let response = handler(payload).await;
+            match response {
+                Ok((payload, encoding)) => {
+                    if let Err(error) = query.reply(payload, &encoding).await {
+                        error!("io_query reply failed: {error}");
+                    }
+                }
+                Err(message) => {
+                    if let Err(error) = query.reply_error(&message).await {
+                        error!("io_query reply_error failed: {error}");
+                    }
+                }
+            }
+        }
+    });
+}
+
+fn io_query_shutting_down(shutdown_receiver: &mut Option<watch::Receiver<bool>>) -> bool {
+    match shutdown_receiver {
+        Some(receiver) => *receiver.borrow(),
+        None => false,
+    }
 }
 
 fn spawn_query_adapter<D: Domain + 'static>(
