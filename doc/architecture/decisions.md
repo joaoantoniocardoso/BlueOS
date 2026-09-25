@@ -542,3 +542,36 @@ Orchestration (Composer 2.5 agents, one git worktree each, merged by cherry-pick
 3. In parallel: library logic + recorder wiring + retirement of the Python service; recorder client and
    Records frontend.
 4. Blast-radius and Rust reviews, a fix pass, and the outcome recorded here.
+
+Outcome of step 4:
+
+- Fixed from the reviews: a panicking repair/snapshot/delete task now ends the operation as failed instead of
+  leaving it in flight; a second delete of the same path is rejected; nested `.recover` leftovers are
+  discarded; a missed `operation` event no longer hangs a snapshot download (it also completes from the
+  `library` state and times out); Records shows an explicit empty state when the Recorder is not running.
+- Kept: the index walk reports the size seen at the start of the walk (pages continue from the last offset
+  and the frontend asks again when `library` reports a new size); the first repair progress arrives after
+  1 s; a repair running at shutdown is not cancelled (the 5 s drain applies, leftovers are discarded next
+  start); `/recorder-extractor/v1.0/*` is gone for extensions (D-21 break).
+- Found on a Raspberry Pi 4 (the `video_player_tidy2` core image with the Recorder and nginx config swapped in,
+  the frontend served by the Vite dev server), none of which the
+  channel-backend tests exercised, all fixed:
+  - Commands that a service sends to its own keys at startup raced the declaration of those queryables over
+    Zenoh; the library never initialized and auto-start relied on a 500 ms sleep. `ServiceBuilder::on_start`
+    dispatches startup commands straight into the inbox.
+  - The Rust CDR codec padded every string to 4 bytes and required that padding when reading, unlike
+    standard CDR (TypeScript, Python, Foxglove): commands from the browser ending in a string were
+    rejected, and a `bool`/`uint8`/`uint16` after a string was misplaced for other readers.
+  - Generated schema text listed dependencies first with `MSG: package/msg/Name` headers, which
+    `@foxglove/rosmsg` cannot resolve; every nested same-package message (`RecordingLibrary`, `JobList`,
+    `SettingsEnvelope`, ...) failed to decode in the browser, and MCAP readers took the first dependency
+    as the root. The root definition now comes first, dependencies under `MSG: package/Name`.
+  - The Recorder embedded schemas from a hand-kept list, so newer messages were recorded without one.
+    `blueos_idl::schema(name)` is generated for every message.
+- Verified on the device: library state lists every file with the right state and updates live; repair of a
+  64 MB recording on the Pi takes about 7 s with progress and remaining time at 1 Hz; rejections return
+  their reasons; snapshot of the recording being written produces an indexed copy served by nginx with
+  ranges and the exposed CORS headers; delete from the page; the player opens a repaired recording from
+  its index; SIGINT finalizes the active recording.
+- Still unproven: repair cancel by hand on the device (repairs finished before a click), the 5 s rescan with
+  hundreds of recordings, and a snapshot/repair under heavy write load.
