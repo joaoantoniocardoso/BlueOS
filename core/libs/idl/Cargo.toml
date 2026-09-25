@@ -13,12 +13,15 @@ include = [
     "/build.rs",
     "/src/**/*",
     "/interfaces/**/*.msg",
+    "/catalog/**/*",
     "/codegen/**/*",
 ]
 
 [features]
 default = ["std"]
 std = []
+# Schema text of the ROS 2 and Foxglove messages in catalog/ (see its README), without message types.
+catalog = []
 
 [dependencies]
 serde = { version = "1", default-features = false, features = ["derive", "alloc"] }
