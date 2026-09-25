@@ -1,7 +1,27 @@
 use blueos_recorder_policy::{
-    CaptureCommandKind, RecorderCommand, SystemAndComponent as PolicySystem,
+    CaptureCommandKind, RecorderCommand, RecordingOperationKind, ScannedRecording,
+    SystemAndComponent as PolicySystem,
 };
 use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Deserialize, Serialize)]
+pub(crate) struct InjectedScannedRecording {
+    relative_path: String,
+    name: String,
+    size_bytes: u64,
+    modified_unix_seconds: i64,
+    indexed: bool,
+}
+
+fn to_scanned_recording(recording: InjectedScannedRecording) -> ScannedRecording {
+    ScannedRecording {
+        relative_path: recording.relative_path,
+        name: recording.name,
+        size_bytes: recording.size_bytes,
+        modified_unix_seconds: recording.modified_unix_seconds,
+        indexed: recording.indexed,
+    }
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -24,6 +44,25 @@ pub enum InjectedCommand {
         status_interval_hertz: f32,
         now_millis: u64,
     },
+    LibraryScanCompleted {
+        recordings: Vec<InjectedScannedRecording>,
+        now_unix_seconds: i64,
+    },
+    LibraryRepairProgress {
+        path: String,
+        bytes_processed: u64,
+        total_bytes: u64,
+        now_unix_seconds: i64,
+    },
+    LibraryOperationFinished {
+        operation: String,
+        path: String,
+        output_path: String,
+        succeeded: bool,
+        cancelled: bool,
+        error: String,
+    },
+    InitializeLibrary,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -50,6 +89,44 @@ pub fn decode_injected(payload: &[u8]) -> Result<RecorderCommand, String> {
                 camera: to_policy(camera),
             }
         }
+        InjectedCommand::LibraryScanCompleted {
+            recordings,
+            now_unix_seconds,
+        } => RecorderCommand::Library(blueos_recorder_policy::LibraryCommand::ScanCompleted {
+            recordings: recordings.into_iter().map(to_scanned_recording).collect(),
+            now_unix_seconds,
+        }),
+        InjectedCommand::LibraryRepairProgress {
+            path,
+            bytes_processed,
+            total_bytes,
+            now_unix_seconds,
+        } => RecorderCommand::Library(blueos_recorder_policy::LibraryCommand::RepairProgress {
+            path,
+            bytes_processed,
+            total_bytes,
+            now_unix_seconds,
+        }),
+        InjectedCommand::LibraryOperationFinished {
+            operation,
+            path,
+            output_path,
+            succeeded,
+            cancelled,
+            error,
+        } => RecorderCommand::Library(blueos_recorder_policy::LibraryCommand::OperationFinished {
+            operation: match operation.as_str() {
+                "repair" => RecordingOperationKind::Repair,
+                "snapshot" => RecordingOperationKind::Snapshot,
+                _ => RecordingOperationKind::Delete,
+            },
+            path,
+            output_path,
+            succeeded,
+            cancelled,
+            error,
+        }),
+        InjectedCommand::InitializeLibrary => RecorderCommand::InitializeLibrary,
         InjectedCommand::CameraCaptureCommand {
             command,
             target_system,
@@ -86,6 +163,57 @@ pub fn encode_injected(command: RecorderCommand) -> Result<Vec<u8>, String> {
                 camera: from_policy(camera),
             }
         }
+        RecorderCommand::Library(command) => match command {
+            blueos_recorder_policy::LibraryCommand::ScanCompleted {
+                recordings,
+                now_unix_seconds,
+            } => InjectedCommand::LibraryScanCompleted {
+                recordings: recordings
+                    .into_iter()
+                    .map(|recording| InjectedScannedRecording {
+                        relative_path: recording.relative_path,
+                        name: recording.name,
+                        size_bytes: recording.size_bytes,
+                        modified_unix_seconds: recording.modified_unix_seconds,
+                        indexed: recording.indexed,
+                    })
+                    .collect(),
+                now_unix_seconds,
+            },
+            blueos_recorder_policy::LibraryCommand::RepairProgress {
+                path,
+                bytes_processed,
+                total_bytes,
+                now_unix_seconds,
+            } => InjectedCommand::LibraryRepairProgress {
+                path,
+                bytes_processed,
+                total_bytes,
+                now_unix_seconds,
+            },
+            blueos_recorder_policy::LibraryCommand::OperationFinished {
+                operation,
+                path,
+                output_path,
+                succeeded,
+                cancelled,
+                error,
+            } => InjectedCommand::LibraryOperationFinished {
+                operation: match operation {
+                    RecordingOperationKind::Repair => "repair",
+                    RecordingOperationKind::Snapshot => "snapshot",
+                    RecordingOperationKind::Delete => "delete",
+                }
+                .into(),
+                path,
+                output_path,
+                succeeded,
+                cancelled,
+                error,
+            },
+            _ => return Err("not an injectable library command".into()),
+        },
+        RecorderCommand::InitializeLibrary => InjectedCommand::InitializeLibrary,
         RecorderCommand::CameraCaptureCommand {
             command,
             target_system,

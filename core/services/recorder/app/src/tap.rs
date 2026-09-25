@@ -11,8 +11,6 @@ use mavlink_codec::PacketRef;
 use tokio::sync::{mpsc, watch};
 use tracing::{error, warn};
 
-use crate::schema::embedded_ros_schema;
-
 const FLUSH_POLL_SECONDS: u64 = 1;
 
 pub async fn run_data_plane(
@@ -107,7 +105,7 @@ fn handle_sample(
         .as_nanos() as u64;
     let publish_time = sample.timestamp.unwrap_or(log_time);
 
-    let lookup = |name: &str| embedded_ros_schema(name);
+    let lookup = |name: &str| blueos_idl::schema(name).map(str::to_string);
     let descriptor = channel_descriptor_for_sample(
         topic,
         &sample.encoding,

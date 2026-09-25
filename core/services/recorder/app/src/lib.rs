@@ -14,7 +14,7 @@
 mod cli;
 mod error;
 mod inject;
-mod schema;
+pub mod library_io;
 mod tap;
 
 use std::collections::BTreeSet;
@@ -32,16 +32,21 @@ use blueos_idl::msg::blueos_msgs::{
     constants_service_status as service_status_constants,
 };
 use blueos_idl::msg::blueos_recorder_msgs::{
-    RecordingState, SetPolicyCommand, StartRecordingCommand,
+    CancelRepairCommand, DeleteRecordingCommand, RecordingFile, RecordingLibrary,
+    RecordingOperation, RecordingState, RepairRecordingCommand, SetPolicyCommand,
+    SnapshotRecordingCommand, StartRecordingCommand,
+    constants_recording_file as recording_file_constants,
+    constants_recording_operation as recording_operation_constants,
 };
+use blueos_idl::msg::builtin_interfaces::Time;
 use blueos_recorder_mavlink::{
     MavlinkFact, SystemAndComponent, build_camera_capture_status, build_command_ack,
     default_discovery_source, discovery_requests_for_camera,
 };
 use blueos_recorder_mcap::{McapSession, McapWriteConfig, McapWriterHandle};
 use blueos_recorder_policy::{
-    RAW_MAVLINK_IN_TOPIC, RecorderCommand, RecorderDomain, RecorderIo, RecorderSnapshot,
-    RecordingPolicy, TapPolicy,
+    LibraryRecordingState, RAW_MAVLINK_IN_TOPIC, RecorderCommand, RecorderDomain, RecorderEvent,
+    RecorderIo, RecorderSnapshot, RecordingPolicy, TapPolicy,
 };
 use blueos_service::ServiceBuilder;
 use blueos_settings::{SettingsError, SettingsSchema};
@@ -52,6 +57,7 @@ use tracing::{error, info};
 use crate::cli::{mcap_write_config, parse_cli, recorder_directory, schema_directory};
 use crate::error::RecorderRunError;
 use crate::inject::{decode_injected, encode_injected, fact_to_injected_command};
+use crate::library_io::{LibraryIoContext, run_index_query};
 
 const SERVICE_NAME: &str = "recorder";
 
@@ -92,6 +98,7 @@ struct IoContext {
     writer_watch: watch::Sender<Option<Arc<McapWriterHandle>>>,
     mavlink_sequence: Mutex<u8>,
     publish_session: Session,
+    library: Arc<LibraryIoContext>,
 }
 
 impl Drop for IoContext {
@@ -162,6 +169,14 @@ async fn run_async(arguments: Vec<String>) -> Result<(), RecorderRunError> {
 
     let (writer_watch_sender, writer_watch_receiver) = watch::channel(None);
 
+    let (library_progress_sender, mut library_progress_receiver) = mpsc::channel(256);
+
+    let library_io_context = Arc::new(
+        LibraryIoContext::new(recorder_path.clone(), library_progress_sender)
+            .map_err(RecorderRunError::RecorderPath)?,
+    );
+    library_io_context.discard_leftovers();
+
     let io_context = Arc::new(IoContext {
         recorder_path,
         mcap_config,
@@ -169,6 +184,7 @@ async fn run_async(arguments: Vec<String>) -> Result<(), RecorderRunError> {
         writer_watch: writer_watch_sender,
         mavlink_sequence: Mutex::new(0),
         publish_session,
+        library: library_io_context.clone(),
     });
 
     let (fact_sender, mut fact_receiver) = mpsc::channel(256);
@@ -193,6 +209,7 @@ async fn run_async(arguments: Vec<String>) -> Result<(), RecorderRunError> {
         })
         .verbosity(verbosity)
         .session(session)
+        .on_start(RecorderCommand::InitializeLibrary)
         .on_shutdown(RecorderCommand::StopRecording)
         .status(|application| ServiceStatus {
             status: service_status_constants::STATUS_READY,
@@ -221,6 +238,32 @@ async fn run_async(arguments: Vec<String>) -> Result<(), RecorderRunError> {
         .command("StopRecording", |_payload| {
             Ok(RecorderCommand::StopRecording)
         })
+        .command("RepairRecording", |payload| {
+            let message =
+                RepairRecordingCommand::decode(payload).map_err(|error| error.to_string())?;
+            Ok(RecorderCommand::RepairRecording {
+                path: message.path,
+                now_unix_seconds: unix_time_now(),
+            })
+        })
+        .command("CancelRepair", |payload| {
+            let message =
+                CancelRepairCommand::decode(payload).map_err(|error| error.to_string())?;
+            Ok(RecorderCommand::CancelRepair { path: message.path })
+        })
+        .command("DeleteRecording", |payload| {
+            let message =
+                DeleteRecordingCommand::decode(payload).map_err(|error| error.to_string())?;
+            Ok(RecorderCommand::DeleteRecording { path: message.path })
+        })
+        .command("SnapshotRecording", |payload| {
+            let message =
+                SnapshotRecordingCommand::decode(payload).map_err(|error| error.to_string())?;
+            Ok(RecorderCommand::SnapshotRecording {
+                path: message.path,
+                now_unix_seconds: unix_time_now(),
+            })
+        })
         .command("Internal", decode_injected)
         .state(
             "recording",
@@ -242,10 +285,49 @@ async fn run_async(arguments: Vec<String>) -> Result<(), RecorderRunError> {
                 ))
             },
         )
+        .state(
+            "library",
+            |application| recording_library_from_snapshot(&application.snapshot),
+            |state| {
+                let bytes = state.encode().map_err(|error| error.to_string())?;
+                Ok((
+                    Payload::from_bytes(Bytes::from(bytes)),
+                    cdr_encoding(RecordingLibrary::SCHEMA_NAME),
+                ))
+            },
+        )
+        .event(
+            "operation",
+            |event| matches!(event, RecorderEvent::RecordingOperation(_)),
+            |event| {
+                let RecorderEvent::RecordingOperation(operation) = event else {
+                    return Err("event filter mismatch".into());
+                };
+                let message = recording_operation_from_event(operation.clone());
+                let bytes = message.encode().map_err(|error| error.to_string())?;
+                Ok((
+                    Payload::from_bytes(Bytes::from(bytes)),
+                    cdr_encoding(RecordingOperation::SCHEMA_NAME),
+                ))
+            },
+        )
+        .io_query("index", {
+            let folder = library_io_context.folder();
+            move |payload| {
+                let folder = folder.clone();
+                let bytes = payload.to_vec();
+                async move { run_index_query(folder, &bytes).await }
+            }
+        })
         .io({
             let io_context = io_context.clone();
-            move |_application, request| {
+            move |application, request| {
                 let io_context = io_context.clone();
+                let active_session = application
+                    .snapshot
+                    .session
+                    .as_ref()
+                    .map(|session| session.file_name.clone());
                 async move {
                     match request {
                         RecorderIo::OpenSession => {
@@ -338,6 +420,9 @@ async fn run_async(arguments: Vec<String>) -> Result<(), RecorderRunError> {
                             })?;
                             Ok(RecorderCommand::Ack)
                         }
+                        RecorderIo::Library(request) => {
+                            Ok(io_context.library.handle(request, active_session).await)
+                        }
                     }
                 }
             }
@@ -422,11 +507,16 @@ async fn run_async(arguments: Vec<String>) -> Result<(), RecorderRunError> {
         error!("Recorder discovery loop exited");
     });
 
+    let library_progress_session = fact_session.clone();
+    tokio::spawn(async move {
+        while let Some(command) = library_progress_receiver.recv().await {
+            inject_internal_command(&library_progress_session, command).await;
+        }
+    });
+
     if auto_start_recording {
-        let start_session = fact_session.clone();
-        tokio::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(500)).await;
-            inject_start_recording(&start_session).await;
+        builder = builder.on_start(RecorderCommand::StartRecording {
+            rotate_if_active: false,
         });
     }
 
@@ -469,24 +559,6 @@ async fn inject_internal_command(session: &Session, command: RecorderCommand) {
         .await
     {
         error!(%error, "Failed to inject internal recorder command");
-    }
-}
-
-async fn inject_start_recording(session: &Session) {
-    let message = StartRecordingCommand {
-        rotate_if_active: false,
-    };
-    let bytes = message.encode().expect("cdr");
-    if let Err(error) = session
-        .query(
-            &command_key(SERVICE_NAME, "StartRecording"),
-            Payload::from_bytes(Bytes::from(bytes)),
-            &cdr_encoding(StartRecordingCommand::SCHEMA_NAME),
-            Duration::from_secs(2),
-        )
-        .await
-    {
-        error!(%error, "Failed to auto-start recording");
     }
 }
 
@@ -548,6 +620,68 @@ fn settings_policy(envelope: &SettingsEnvelope) -> Result<RecordingPolicy, Strin
         record_mavlink_only_when_armed: parsed.record_mavlink_only_when_armed,
         auto_start_recording: parsed.auto_start_recording,
     })
+}
+
+fn unix_time_now() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64
+}
+
+fn time_from_unix_seconds(seconds: i64) -> Time {
+    Time {
+        sec: seconds as i32,
+        nanosec: 0,
+    }
+}
+
+fn recording_library_from_snapshot(snapshot: &RecorderSnapshot) -> RecordingLibrary {
+    RecordingLibrary {
+        files: snapshot
+            .library
+            .entries
+            .iter()
+            .map(|entry| RecordingFile {
+                path: entry.path.clone(),
+                name: entry.name.clone(),
+                size_bytes: entry.size_bytes,
+                created: time_from_unix_seconds(entry.created_unix_seconds),
+                state: library_state_to_idl(entry.state),
+                repair_bytes_processed: entry.repair_bytes_processed,
+                repair_total_bytes: entry.repair_total_bytes,
+                repair_bytes_per_second: entry.repair_bytes_per_second,
+                repair_error: entry.repair_error.clone(),
+            })
+            .collect(),
+    }
+}
+
+fn library_state_to_idl(state: LibraryRecordingState) -> u8 {
+    match state {
+        LibraryRecordingState::Recording => recording_file_constants::STATE_RECORDING,
+        LibraryRecordingState::Ready => recording_file_constants::STATE_READY,
+        LibraryRecordingState::NeedsRepair => recording_file_constants::STATE_NEEDS_REPAIR,
+        LibraryRecordingState::Repairing => recording_file_constants::STATE_REPAIRING,
+    }
+}
+
+fn recording_operation_from_event(
+    operation: blueos_recorder_policy::RecordingOperationEvent,
+) -> RecordingOperation {
+    use blueos_recorder_policy::RecordingOperationKind;
+    RecordingOperation {
+        operation: match operation.operation {
+            RecordingOperationKind::Repair => recording_operation_constants::OPERATION_REPAIR,
+            RecordingOperationKind::Snapshot => recording_operation_constants::OPERATION_SNAPSHOT,
+            RecordingOperationKind::Delete => recording_operation_constants::OPERATION_DELETE,
+        },
+        path: operation.path,
+        output_path: operation.output_path,
+        succeeded: operation.succeeded,
+        cancelled: operation.cancelled,
+        error: operation.error,
+    }
 }
 
 fn settings_from_snapshot(snapshot: &RecorderSnapshot) -> RecorderSettings {
