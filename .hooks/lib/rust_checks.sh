@@ -39,7 +39,7 @@ run_rust_checks() {
         cargo fmt --all --check
 
         echo "Running cargo clippy.."
-        cargo clippy --workspace --all-targets --locked -- -D warnings
+        cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 
         echo "Running cargo test.."
         cargo test --workspace --locked
