@@ -211,13 +211,20 @@ fn schema_text(record: &MessageRecord, records: &BTreeMap<String, MessageRecord>
         &mut visited,
     );
 
-    let mut blocks = Vec::new();
+    // ROS 2 message definition layout (as in MCAP `ros2msg` schemas): the root definition first, then each
+    // dependency under `MSG: package/Name`, the form `@foxglove/rosmsg` resolves (it rejects `package/msg/Name`).
+    let mut blocks = vec![record.source.trim_end().to_string()];
     for schema_name in ordered {
         let Some(message_record) = records.get(&schema_name) else {
             continue;
         };
+        if schema_name == record.schema_name {
+            continue;
+        }
         blocks.push(format!(
-            "MSG: {schema_name}\n{}",
+            "MSG: {}/{}\n{}",
+            message_record.package,
+            message_record.name,
             message_record.source.trim_end()
         ));
     }
