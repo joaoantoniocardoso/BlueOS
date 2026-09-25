@@ -1,6 +1,9 @@
 //! MCAP recording adapter: background writer thread, periodic flush, channel registration.
 
 mod channel_descriptor;
+pub mod footer;
+pub mod index;
+pub mod rewrite;
 mod writer;
 
 pub use channel_descriptor::{

@@ -11,10 +11,12 @@ path = "src/lib.rs"
 [dependencies]
 anyhow.workspace = true
 blueos-comms = { workspace = true, features = ["zenoh"] }
+blueos-idl.workspace = true
 clap = { workspace = true, features = ["derive"] }
 json5.workspace = true
 mcap.workspace = true
 serde_json.workspace = true
+thiserror.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
