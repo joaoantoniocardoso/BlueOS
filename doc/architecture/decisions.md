@@ -14,6 +14,7 @@ The decisions below were made in a design conversation. For exact wording, retri
 - Transcript id: `11effae0-a983-42fb-ad8c-d8f350be2bf0`
 - Path (author machine):
   `~/.cursor/projects/home-joaoantoniocardoso-BlueRobotics-worktrees-BlueOS-docker-quartz-geyser-BlueOS-docker/agent-transcripts/11effae0-a983-42fb-ad8c-d8f350be2bf0/11effae0-a983-42fb-ad8c-d8f350be2bf0.jsonl`
+- Implementation, reviews, D-21 to D-23: transcript `52237482-724f-4979-85b6-d6325dab8126`, same folder.
 
 Related repositories (author machine, `~/BlueRobotics/`):
 
@@ -48,6 +49,7 @@ Related repositories (author machine, `~/BlueRobotics/`):
 - D-20 Process: examples first, PR split later
 - D-21 Breaking changes for users and extension developers
 - D-22 Branch review outcomes
+- D-23 Recording library: retire `recorder_extractor`, rebuild the Records frontend
 
 ---
 
@@ -473,3 +475,70 @@ Proposed stacked-PR split (each rebuilt as clean history, without the POC add/re
 4. Recorder backend and delivery: recorder crates, cross-build CI job, Dockerfile last layer,
    `start-blueos-core`, removal of the external recorder bootstrap.
 5. Recorder frontend.
+
+## D-23 Recording library: retire `recorder_extractor`, rebuild the Records frontend
+
+Context: on `~/BlueRobotics/BlueOS-docker` branch `video_player_tidy2`, commit `614d2a67a` ("WIP: backend")
+turns the Python `recorder_extractor` into an MCAP catalog (states `recording/ready/needs_repair/repairing`,
+a paged chunk-index walk, repair through `mcap recover` with progress read from `/proc`, cancel, a recovered
+download of a recording still being written, delete), and `43d273355` ("WIP: frontend") replaces the
+Records page with an in-browser MCAP player, CSV export and thumbnails that read chunk bodies with HTTP
+ranges from nginx (`libs/mcap/*`, `components/records/*`, `RecordsView.vue`), and drops the ffmpeg/Broadway
+decoders from the Zenoh inspector. Both talk REST (`/recorder-extractor/v1.0/...`) and poll.
+
+Decision:
+
+- The Recorder service owns its recordings. The library is a new sans-IO block,
+  `core/services/recorder/logic/library` (`blueos-recorder-library`), composed into the recorder domain.
+  `recorder_extractor` is deleted with its uv workspace entries, nginx location and `start-blueos-core` line.
+- **Bytes stay on nginx.** `/userdata/recorder/<path>` serves files with HTTP ranges (CORS exposes
+  `Accept-Ranges` and `Content-Range`); browsers need ranges and downloads, which Zenoh does not give them.
+  This is the one exception to D-08: the IDL API carries the catalog and control, never recording bytes.
+- **Event-driven, no polling.** The library is a state; outcomes are events; the frontend watches both.
+- Native repair: the `mcap` crate rewrites a recording in-process (no `mcap` CLI subprocess, no `/proc` offset
+  hack; progress is the exact read offset). Output goes to a `.recover` temp file renamed over the original;
+  cancel removes the temp and leaves the original untouched; leftovers are discarded at startup.
+- A recording still being written is downloaded through `SnapshotRecording`: the same rewrite writes an
+  indexed copy `<stem>.snapshot-<UTC>Z.mcap` next to it (the naming the Python service already parsed), and the
+  browser downloads it from nginx once the `operation` event names it.
+- The recorder knows which file it is writing, so `STATE_RECORDING` needs no `lsof`/open-file scan. Other
+  files are rescanned on a timer and after each operation; the state is republished only when it changes.
+  ponytail: timer rescan (5 s); switch to inotify if external writers or large folders make it costly.
+- Kernel additions needed by this and reusable by every service:
+  - `Decision::reject(reason)`: a domain refuses a command synchronously; the `CommandAck` carries
+    `accepted = false` and the reason (Python's 409s). A rejecting decision has no events or effects.
+  - `ServiceBuilder::io_query(name, handler)`: an async query answered by an adapter outside the inbox, for
+    reads that need disk but no domain state (the index walk). One request at a time per query name.
+- Frontend layering mirrors the backend (D-02, D-14):
+  - `src/libs/mcap/logic/`: pure TypeScript, no DOM, no network (record parsing, keyframe index, frames,
+    codec parameters, CSV, muxing). Unit-tested with vitest in Node.
+  - `src/libs/mcap/adapters/`: IO behind small interfaces (`ByteSource` over `fetch` ranges, WebCodecs/MSE
+    players, canvas thumbnails, thumbnail cache). The index source is an interface; the recorder client
+    implements it with the `index` query.
+  - `src/libs/recorder/`: framework-agnostic recorder client on `blueos-api` (library state, operation events,
+    commands, index source, `/userdata/recorder` URLs). No Vue imports.
+  - Vue 2 components (`components/records/*`, `RecordsView.vue`) only bind these to templates, so the Vue 3
+    move replaces them without touching the libraries. `store/records.ts` and REST types are removed.
+- `.mcap-harness/` probes become vitest tests where they check behavior; the rest is dropped.
+
+API (keys under `blueos/v1/recorder/`, messages in `blueos_recorder_msgs`):
+
+| Kind | Name | Message |
+|---|---|---|
+| state | `library` | `RecordingLibrary` (`RecordingFile[]`, newest first) |
+| command | `RepairRecording` / `CancelRepair` / `DeleteRecording` / `SnapshotRecording` | `...Command { path }` |
+| event | `operation` | `RecordingOperation` (repair, snapshot, delete; succeeded, cancelled, error, output path) |
+| io query | `index` | `RecordingIndexRequest` -> `RecordingIndex` (paged chunk index + raw metadata records) |
+
+Rejections (from the Python rules): repair when already repairing, already indexed, being written or written
+less than 10 s ago; cancel when not repairing; delete while being written or repaired; snapshot of a
+missing file; any path that is absolute, contains `..`, is not `.mcap`, or is not in the library.
+
+Orchestration (Composer 2.5 agents, one git worktree each, merged by cherry-pick):
+
+1. Contract (done by the orchestrator): the messages above, the codegen fix for primitive arrays, this entry.
+2. In parallel: kernel additions; recorder adapters (index walk, footer, native rewrite, storage scan);
+   frontend `libs/mcap` port and Zenoh inspector player.
+3. In parallel: library logic + recorder wiring + retirement of the Python service; recorder client and
+   Records frontend.
+4. Blast-radius and Rust reviews, a fix pass, and the outcome recorded here.
