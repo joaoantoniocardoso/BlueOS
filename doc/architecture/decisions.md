@@ -165,6 +165,11 @@ Decision:
 - Names `blueos-idl`, `blueos-api` (and `blueos`, to reserve) were free on crates.io on 2026-09-24.
 - No zBlueberry branding anywhere.
 - Published crates never depend on unpublished workspace crates.
+- The Recorder must record every ROS 2 and Foxglove message, not only BlueOS ones. The upstream definitions
+  (ROS 2 Jazzy interface packages and the Foxglove SDK's `schemas/ros2`) are vendored unmodified in
+  `core/libs/idl/catalog/` and exposed as schema text only, by the `blueos-idl` `catalog` feature. They get no
+  types and no `api.lock` entries, since they are not BlueOS API. `foxglove.Name`, the name the Foxglove SDK
+  and mavlink-camera-manager publish, resolves to `foxglove_msgs/msg/Name`.
 
 Rationale: `.msg` + CDR gives native ROS2 interop and Foxglove/MCAP support out of the box; embedding the
 schema removes the need for Recorder to find `.msg` files on disk.
