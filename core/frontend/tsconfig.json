@@ -27,6 +27,9 @@
       ],
       "@blueos-idl/*": [
         "../libs/idl/typescript/*"
+      ],
+      "mediabunny/codec-data": [
+        "node_modules/mediabunny/dist/modules/src/codec-data.js"
       ]
     },
     "lib": [
