@@ -25,7 +25,6 @@ members = [
     "nmea-injector",
     "pardal",
     "ping",
-    "recorder-extractor",
     "versionchooser",
     "wifi",
 ]
@@ -377,7 +376,6 @@ dependencies = [
     { name = "nmea-injector" },
     { name = "pardal" },
     { name = "ping" },
-    { name = "recorder-extractor" },
     { name = "versionchooser" },
     { name = "wifi" },
 ]
@@ -425,7 +423,6 @@ requires-dist = [
     { name = "nmea-injector", virtual = "services/nmea_injector" },
     { name = "pardal", virtual = "services/pardal" },
     { name = "ping", virtual = "services/ping" },
-    { name = "recorder-extractor", virtual = "services/recorder_extractor" },
     { name = "versionchooser", virtual = "services/versionchooser" },
     { name = "wifi", virtual = "services/wifi" },
 ]
@@ -1848,31 +1845,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/eb/61/caa39686032d2ebdd04ff0ab5cbe163126c0066d98e00c9018646e42393b/pywin32-312-cp315-cp315-win32.whl", hash = "sha256:5c1fbe4a937a73ae9297384a3da38518cbc694c68ad8a809b2e19acd350f03ed", size = 6471159, upload-time = "2026-06-04T07:49:50.035Z" },
     { url = "https://files.pythonhosted.org/packages/0f/cd/7e1de64a4a6f69c04214169657ccab0d93a670ea50e35eb8f489d7378249/pywin32-312-cp315-cp315-win_amd64.whl", hash = "sha256:c2f03a0f73f804a13c2735b99392b0cd426bb4f2c4d0178e5ac966a0f21618d5", size = 7025293, upload-time = "2026-06-04T07:49:54.857Z" },
     { url = "https://files.pythonhosted.org/packages/23/ed/4532e9388e65fa16b46776ef47ad631a64eda1631884488af707666350ed/pywin32-312-cp315-cp315-win_arm64.whl", hash = "sha256:a8597d28f267b39074aef51fa593530082b39cbe5a074226096857b1fed2dfb9", size = 6840337, upload-time = "2026-06-04T07:49:57.531Z" },
-]
-
-[[package]]
-name = "recorder-extractor"
-version = "0.1.0"
-source = { virtual = "services/recorder_extractor" }
-dependencies = [
-    { name = "aiocache" },
-    { name = "commonwealth" },
-    { name = "fastapi" },
-    { name = "fastapi-versioning" },
-    { name = "loguru" },
-    { name = "pydantic" },
-    { name = "uvicorn" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "aiocache", specifier = "==0.12.3" },
-    { name = "commonwealth", editable = "libs/commonwealth" },
-    { name = "fastapi", specifier = "==0.125.0" },
-    { name = "fastapi-versioning", specifier = "==0.10.0" },
-    { name = "loguru", specifier = "==0.7.3" },
-    { name = "pydantic", specifier = "==2.12.5" },
-    { name = "uvicorn", specifier = "==0.38.0" },
 ]
 
 [[package]]
