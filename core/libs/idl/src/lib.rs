@@ -13,4 +13,4 @@ mod generated {
     include!(concat!(env!("OUT_DIR"), "/generated_mod.rs"));
 }
 
-pub use generated::msg;
+pub use generated::{msg, schema};

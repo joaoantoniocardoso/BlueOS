@@ -306,9 +306,21 @@ fn write_rust_messages(records: &BTreeMap<String, MessageRecord>, out_dir: &Path
     let root_mod = format!("// @generated\n{}\n", package_mods.join("\n"));
     fs::create_dir_all(out_dir.join("msg")).expect("create msg dir");
     fs::write(out_dir.join("msg/mod.rs"), root_mod).expect("write msg mod");
+    let schema_arms: Vec<String> = records
+        .values()
+        .map(|record| {
+            format!(
+                "        \"{}\" => Some(msg::{}::{}::SCHEMA),",
+                record.schema_name, record.package, record.name
+            )
+        })
+        .collect();
     fs::write(
         out_dir.join("generated_mod.rs"),
-        "// @generated\npub mod msg;\n",
+        format!(
+            "// @generated\npub mod msg;\n\nuse crate::message::Message;\n\n/// ROS 2 `.msg` text of any IDL message, keyed by its `SCHEMA_NAME`.\npub fn schema(schema_name: &str) -> Option<&'static str> {{\n    match schema_name {{\n{}\n        _ => None,\n    }}\n}}\n",
+            schema_arms.join("\n")
+        ),
     )
     .expect("write generated mod");
 }
