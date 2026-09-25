@@ -41,6 +41,33 @@ pub fn generate(interfaces_root: &Path, out_dir: &Path, typescript_dir: &Path) {
     write_typescript(&records, typescript_dir);
 }
 
+/// Writes `schema_catalog.rs`, a `schema` lookup of the text of every message under `interfaces_root`, with no
+/// message types, for third-party definitions that are not part of the BlueOS API.
+pub fn generate_schema_catalog(interfaces_root: &Path, out_dir: &Path) {
+    let records: BTreeMap<String, MessageRecord> = collect_messages(interfaces_root)
+        .into_iter()
+        .map(|record| (record.schema_name.clone(), record))
+        .collect();
+    let schema_arms: Vec<String> = records
+        .values()
+        .map(|record| {
+            format!(
+                "        {:?} => Some({:?}),",
+                record.schema_name,
+                schema_text(record, &records)
+            )
+        })
+        .collect();
+    fs::write(
+        out_dir.join("schema_catalog.rs"),
+        format!(
+            "// @generated\npub fn schema(schema_name: &str) -> Option<&'static str> {{\n    match schema_name {{\n{}\n        _ => None,\n    }}\n}}\n",
+            schema_arms.join("\n")
+        ),
+    )
+    .expect("write schema catalog");
+}
+
 pub fn collect_messages_for_test(interfaces_root: &Path) -> Vec<MessageRecord> {
     collect_messages(interfaces_root)
 }
