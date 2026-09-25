@@ -105,7 +105,11 @@ fn handle_sample(
         .as_nanos() as u64;
     let publish_time = sample.timestamp.unwrap_or(log_time);
 
-    let lookup = |name: &str| blueos_idl::schema(name).map(str::to_string);
+    let lookup = |name: &str| {
+        blueos_idl::schema(name)
+            .or_else(|| blueos_idl::catalog::schema(name))
+            .map(str::to_string)
+    };
     let descriptor = channel_descriptor_for_sample(
         topic,
         &sample.encoding,
