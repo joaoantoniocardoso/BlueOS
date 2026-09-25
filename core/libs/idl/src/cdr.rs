@@ -96,11 +96,6 @@ impl Writer {
         self.write_u32(length)?;
         self.buffer.extend_from_slice(bytes);
         self.buffer.push(0);
-        let total = 4 + bytes.len() + 1;
-        let padding = (4 - (total % 4)) % 4;
-        for _index in 0..padding {
-            self.buffer.push(0);
-        }
         Ok(())
     }
 }
@@ -218,11 +213,6 @@ impl Reader {
             return Err(Error::Utf8);
         }
         let text = core::str::from_utf8(&bytes[..length - 1]).map_err(|_| Error::Utf8)?;
-        let total = 4 + length;
-        let padding = (4 - (total % 4)) % 4;
-        if padding > 0 {
-            let _padding_bytes = self.read_exact(padding)?;
-        }
         Ok(text.into())
     }
 }
@@ -242,6 +232,19 @@ mod tests {
         assert!(reader.read_bool().expect("read bool"));
         assert_eq!(reader.read_u32().expect("read u32"), 42);
         assert_eq!(reader.read_string().expect("read string"), "hello");
+    }
+
+    #[test]
+    fn string_is_not_padded_before_a_byte_field() {
+        let mut writer = Writer::new();
+        writer.write_string("ab").expect("write string");
+        writer.write_bool(true).expect("write bool");
+        let payload = writer.finish_with_encapsulation();
+        assert_eq!(payload, [0, 1, 0, 0, 3, 0, 0, 0, b'a', b'b', 0, 1]);
+        let mut reader = Reader::new_with_encapsulation(&payload).expect("reader");
+        assert_eq!(reader.read_string().expect("read string"), "ab");
+        assert!(reader.read_bool().expect("read bool"));
+        assert!(reader.is_exhausted());
     }
 
     #[test]
