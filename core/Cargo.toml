@@ -19,6 +19,7 @@ members = [
     "services/example/logic/pump",
     "services/recorder/adapters/mavlink",
     "services/recorder/adapters/mcap",
+    "services/recorder/adapters/storage",
     "services/recorder/app",
     "services/recorder/logic/policy",
 ]
@@ -61,6 +62,7 @@ blueos-recorder = { path = "services/recorder/app" }
 blueos-recorder-mavlink = { path = "services/recorder/adapters/mavlink" }
 blueos-recorder-mcap = { path = "services/recorder/adapters/mcap" }
 blueos-recorder-policy = { path = "services/recorder/logic/policy" }
+blueos-recorder-storage = { path = "services/recorder/adapters/storage" }
 blueos-service = { path = "libs/app/service" }
 blueos-settings = { path = "libs/adapters/settings" }
 bytes = "1"
