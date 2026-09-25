@@ -398,9 +398,11 @@ dependencies = [
  "blueos-cqrs",
  "blueos-idl",
  "blueos-logging",
+ "blueos-recorder-library",
  "blueos-recorder-mavlink",
  "blueos-recorder-mcap",
  "blueos-recorder-policy",
+ "blueos-recorder-storage",
  "blueos-service",
  "blueos-settings",
  "bytes",
@@ -409,6 +411,7 @@ dependencies = [
  "futures",
  "mavlink",
  "mavlink-codec",
+ "mcap",
  "serde",
  "serde_json",
  "shellexpand",
@@ -416,6 +419,14 @@ dependencies = [
  "thiserror 2.0.20",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "blueos-recorder-library"
+version = "0.1.0"
+dependencies = [
+ "blueos-cqrs",
+ "blueos-jobs",
 ]
 
 [[package]]
@@ -450,6 +461,7 @@ version = "0.1.0"
 dependencies = [
  "blueos-cqrs",
  "blueos-jobs",
+ "blueos-recorder-library",
 ]
 
 [[package]]

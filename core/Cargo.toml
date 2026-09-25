@@ -21,6 +21,7 @@ members = [
     "services/recorder/adapters/mcap",
     "services/recorder/adapters/storage",
     "services/recorder/app",
+    "services/recorder/logic/library",
     "services/recorder/logic/policy",
 ]
 
@@ -61,6 +62,7 @@ blueos-logging = { path = "libs/adapters/logging" }
 blueos-recorder = { path = "services/recorder/app" }
 blueos-recorder-mavlink = { path = "services/recorder/adapters/mavlink" }
 blueos-recorder-mcap = { path = "services/recorder/adapters/mcap" }
+blueos-recorder-library = { path = "services/recorder/logic/library" }
 blueos-recorder-policy = { path = "services/recorder/logic/policy" }
 blueos-recorder-storage = { path = "services/recorder/adapters/storage" }
 blueos-service = { path = "libs/app/service" }
