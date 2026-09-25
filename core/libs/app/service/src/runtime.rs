@@ -419,7 +419,7 @@ where
                 )
                 .await
                 {
-                    Ok(()) => {
+                    Ok(CommandDispatch::Applied) => {
                         if let Some(sender) = reply
                             && sender.send(accepted_ack(&kernel.application)).is_err()
                         {
@@ -427,6 +427,18 @@ where
                         }
                         publish_all_states(&mut kernel).await?;
                         publish_pending_events(&mut kernel).await?;
+                    }
+                    Ok(CommandDispatch::Rejected(reason)) => {
+                        if let Some(sender) = reply {
+                            if sender.send(rejected_ack(reason)).is_err() {
+                                error!("command reject ack dropped");
+                            }
+                        } else {
+                            warn!(
+                                service = %kernel.service_name,
+                                "domain rejected internal command: {reason}"
+                            );
+                        }
                     }
                     Err(error) => {
                         error!("command handling failed: {error}");
@@ -439,7 +451,7 @@ where
                 }
             }
             Some(InboxMessage::IoComplete { command }) => {
-                if let Err(error) = dispatch_command(
+                match dispatch_command(
                     &mut kernel,
                     command,
                     inbox_sender.clone(),
@@ -447,10 +459,17 @@ where
                 )
                 .await
                 {
-                    error!("io completion failed: {error}");
-                } else {
-                    publish_all_states(&mut kernel).await?;
-                    publish_pending_events(&mut kernel).await?;
+                    Ok(CommandDispatch::Applied) => {
+                        publish_all_states(&mut kernel).await?;
+                        publish_pending_events(&mut kernel).await?;
+                    }
+                    Ok(CommandDispatch::Rejected(reason)) => {
+                        warn!(
+                            service = %kernel.service_name,
+                            "domain rejected internal command: {reason}"
+                        );
+                    }
+                    Err(error) => error!("io completion failed: {error}"),
                 }
             }
             Some(InboxMessage::Query {
@@ -549,9 +568,18 @@ where
     D::JobSpec: Clone,
 {
     if let Some(command) = shutdown_command {
-        dispatch_command(kernel, command, inbox_sender.clone(), dispatch_context).await?;
-        publish_all_states(kernel).await?;
-        publish_pending_events(kernel).await?;
+        match dispatch_command(kernel, command, inbox_sender.clone(), dispatch_context).await? {
+            CommandDispatch::Applied => {
+                publish_all_states(kernel).await?;
+                publish_pending_events(kernel).await?;
+            }
+            CommandDispatch::Rejected(reason) => {
+                warn!(
+                    service = %kernel.service_name,
+                    "domain rejected shutdown command: {reason}"
+                );
+            }
+        }
     }
     Ok(())
 }
@@ -670,13 +698,18 @@ fn spawn_query_adapter<D: Domain + 'static>(
     });
 }
 
+enum CommandDispatch {
+    Applied,
+    Rejected(String),
+}
+
 #[instrument(skip_all, fields(service = %kernel.service_name))]
 async fn dispatch_command<D: Domain + 'static>(
     kernel: &mut KernelState<D>,
     command: D::Command,
     inbox_sender: mpsc::Sender<InboxMessage<D>>,
     dispatch_context: &DispatchContext<D>,
-) -> Result<(), ServiceError>
+) -> Result<CommandDispatch, ServiceError>
 where
     D::Command: Clone,
     D::Snapshot: Clone,
@@ -685,6 +718,11 @@ where
     let mut pending = vec![command];
     while let Some(command) = pending.pop() {
         let decision = kernel.application.handle(command);
+        if let Some(reason) = decision.rejection {
+            debug_assert!(decision.events.is_empty());
+            debug_assert!(decision.effects.is_empty());
+            return Ok(CommandDispatch::Rejected(reason));
+        }
         kernel.pending_events.extend(decision.events);
         for effect in decision.effects {
             match effect {
@@ -758,7 +796,7 @@ where
             }
         }
     }
-    Ok(())
+    Ok(CommandDispatch::Applied)
 }
 
 async fn publish_all_states<D: Domain>(kernel: &mut KernelState<D>) -> Result<(), ServiceError> {
