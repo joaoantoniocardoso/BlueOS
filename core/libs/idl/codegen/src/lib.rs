@@ -79,7 +79,8 @@ fn collect_messages(interfaces_root: &Path) -> Vec<MessageRecord> {
         let dynamic_key = format!("{package}/{name}");
         let schema_name = format!("{package}/msg/{name}");
         let source = fs::read_to_string(path).expect("read message source");
-        let dynamic_message = DynamicMsg::new(&dynamic_key, &source).expect("parse message source");
+        let dynamic_message = DynamicMsg::new(&dynamic_key, &parseable_source(&source))
+            .expect("parse message source");
         let message = dynamic_message.msg();
         let field_signature = field_signature(message);
         let type_hash = hash_hex(&format!("{schema_name}\n{field_signature}"));
@@ -102,17 +103,41 @@ fn collect_messages(interfaces_root: &Path) -> Vec<MessageRecord> {
     messages
 }
 
-fn dependency_schema_names(message: &ros2_message::Msg) -> BTreeSet<String> {
-    let mut dependencies = BTreeSet::new();
-    for field in message.fields() {
-        if let FieldCase::Const(_) = field.case() {
-            continue;
-        }
-        if let DataType::GlobalMessage(path) = field.datatype() {
-            dependencies.insert(format!("{}/msg/{}", path.package(), path.name()));
-        }
+/// `ros2_message` rejects bounded strings and sequences (`string<=255`, `float64[<=3]`) and field defaults
+/// (`bool read_only false`). Neither changes the CDR encoding, so they are dropped for parsing while the schema text
+/// keeps them.
+fn parseable_source(source: &str) -> String {
+    let mut unbounded = String::with_capacity(source.len());
+    let mut rest = source;
+    while let Some(start) = rest.find("<=") {
+        unbounded.push_str(&rest[..start]);
+        rest = rest[start + 2..].trim_start_matches(|character: char| character.is_ascii_digit());
     }
-    dependencies
+    unbounded.push_str(rest);
+    unbounded
+        .lines()
+        .map(|line| {
+            let definition = line.split('#').next().unwrap_or_default();
+            if definition.contains('=') {
+                line.to_string()
+            } else {
+                definition
+                    .split_whitespace()
+                    .take(2)
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn dependency_schema_names(message: &ros2_message::Msg) -> BTreeSet<String> {
+    message
+        .dependencies()
+        .iter()
+        .map(|path| format!("{}/msg/{}", path.package(), path.name()))
+        .collect()
 }
 
 fn field_signature(message: &ros2_message::Msg) -> String {
