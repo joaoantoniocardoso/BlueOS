@@ -3,6 +3,10 @@
 //! Each service owns one tokio inbox task that holds [`App`] and applies [`Effect`]s. Adapters decode
 //! Zenoh queries and samples into domain commands and never call [`App::handle`] directly.
 //!
+//! Use [`ServiceBuilder::query`] for read models from the domain snapshot (inbox-serialized with commands).
+//! Use [`ServiceBuilder::io_query`] for reads that need async IO but no domain state (disk walks, HTTP
+//! fetches); those run outside the inbox so they do not block command handling.
+//!
 //! ## Graceful shutdown
 //!
 //! Register a domain command with [`ServiceBuilder::on_shutdown`]. The kernel listens for `SIGINT` and

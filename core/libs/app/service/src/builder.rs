@@ -14,8 +14,8 @@ use bytes::Bytes;
 
 use crate::error::ServiceError;
 use crate::runtime::{
-    CliCommandMapper, CommandRegistration, EventRegistration, IoExecutor, QueryRegistration,
-    SettingsSlot, StatePublish, build_settings_runtime, run,
+    CliCommandMapper, CommandRegistration, EventRegistration, IoExecutor, IoQueryRegistration,
+    QueryRegistration, SettingsSlot, StatePublish, build_settings_runtime, run,
 };
 use crate::shutdown::{ShutdownHandle, new_shutdown_channel};
 
@@ -29,6 +29,7 @@ pub struct ServiceBuilder<D: Domain> {
     cli: Argv,
     commands: Vec<CommandRegistration<D>>,
     queries: Vec<QueryRegistration<D>>,
+    io_queries: Vec<IoQueryRegistration>,
     extra_states: Vec<(String, StatePublish<D>)>,
     events: Vec<EventRegistration<D>>,
     status: Option<StatePublish<D>>,
@@ -53,6 +54,7 @@ impl<D: Domain + 'static> ServiceBuilder<D> {
             cli: Argv::default(),
             commands: Vec::new(),
             queries: Vec::new(),
+            io_queries: Vec::new(),
             extra_states: Vec::new(),
             events: Vec::new(),
             status: None,
@@ -170,6 +172,19 @@ impl<D: Domain + 'static> ServiceBuilder<D> {
         self
     }
 
+    /// Registers an async read at `blueos/v1/<service>/query/<name>` handled outside the inbox (D-23).
+    pub fn io_query<F, Fut>(mut self, name: &str, handler: F) -> Self
+    where
+        F: Fn(Payload) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = Result<(Payload, String), String>> + Send + 'static,
+    {
+        self.io_queries.push(IoQueryRegistration {
+            name: name.to_string(),
+            handler: Arc::new(move |payload| Box::pin(handler(payload))),
+        });
+        self
+    }
+
     /// Publishes state after each handled command (D-10 state + stream).
     pub fn state<S, Select, Encode>(mut self, name: &str, select: Select, encode: Encode) -> Self
     where
@@ -260,6 +275,7 @@ impl<D: Domain + 'static> ServiceBuilder<D> {
             self.cli,
             self.commands,
             self.queries,
+            self.io_queries,
             self.extra_states,
             self.events,
             self.status,
