@@ -12,20 +12,6 @@ const definitionCache = new Map<SchemaName, ParsedDefinitions>()
 const readerCache = new Map<string, MessageReader>()
 const writerCache = new Map<SchemaName, MessageWriter>()
 
-function orderDefinitionsForSchema(
-  schemaName: SchemaName,
-  definitions: ParsedDefinitions,
-): ParsedDefinitions {
-  const rootIndex = definitions.findIndex((definition) => definition.name === schemaName)
-  if (rootIndex <= 0) {
-    return definitions
-  }
-  const reordered = [...definitions]
-  const [root] = reordered.splice(rootIndex, 1)
-  reordered.unshift(root)
-  return reordered
-}
-
 function getDefinitions(schemaName: SchemaName): ParsedDefinitions {
   let definitions = definitionCache.get(schemaName)
   if (definitions === undefined) {
@@ -33,21 +19,10 @@ function getDefinitions(schemaName: SchemaName): ParsedDefinitions {
     if (schemaText === undefined) {
       throw new Error(`Unknown schema: ${schemaName}`)
     }
-    definitions = orderDefinitionsForSchema(schemaName, parse(schemaText, { ros2: true }))
+    definitions = parse(schemaText, { ros2: true })
     definitionCache.set(schemaName, definitions)
   }
   return definitions
-}
-
-function rootMessageDefinition(
-  definitions: ParsedDefinitions,
-  schemaName: SchemaName,
-): MessageDefinition {
-  const root = definitions.find((definition) => definition.name === schemaName)
-  if (root === undefined) {
-    throw new Error(`Schema ${schemaName} has no root message definition`)
-  }
-  return root
 }
 
 function dataFields(definition: MessageDefinition): MessageDefinitionField[] {
@@ -58,20 +33,16 @@ function definitionsMap(definitions: ParsedDefinitions): Map<string, MessageDefi
   return new Map(definitions.map((definition) => [definition.name ?? '', definition.definitions]))
 }
 
-function truncatedDefinitions(
-  definitions: ParsedDefinitions,
-  schemaName: SchemaName,
-  fieldCount: number,
-): ParsedDefinitions {
-  const ordered = orderDefinitionsForSchema(schemaName, definitions)
-  const root = ordered[0]
+// The generated schema text puts the root definition first, as MessageReader and MessageWriter expect.
+function truncatedDefinitions(definitions: ParsedDefinitions, fieldCount: number): ParsedDefinitions {
+  const [root, ...dependencies] = definitions
   const constants = root.definitions.filter((field) => field.isConstant === true)
   const fields = dataFields(root).slice(0, fieldCount)
   const truncatedRoot: MessageDefinition = {
     ...root,
     definitions: [...constants, ...fields],
   }
-  return [truncatedRoot, ...ordered.slice(1)]
+  return [truncatedRoot, ...dependencies]
 }
 
 function readerCacheKey(schemaName: SchemaName, fieldCount: number): string {
@@ -83,10 +54,10 @@ function getReaderForFieldCount(schemaName: SchemaName, fieldCount: number): Mes
   let reader = readerCache.get(cacheKey)
   if (reader === undefined) {
     const definitions = getDefinitions(schemaName)
-    const fullCount = dataFields(rootMessageDefinition(definitions, schemaName)).length
+    const fullCount = dataFields(definitions[0]).length
     const definitionsForReader = fieldCount >= fullCount
-      ? orderDefinitionsForSchema(schemaName, definitions)
-      : truncatedDefinitions(definitions, schemaName, fieldCount)
+      ? definitions
+      : truncatedDefinitions(definitions, fieldCount)
     reader = new MessageReader(definitionsForReader)
     readerCache.set(cacheKey, reader)
   }
@@ -192,8 +163,7 @@ export function decodeCdr<Schema extends SchemaName>(
   payload: Uint8Array,
 ): MessageForSchema<Schema> {
   const definitions = getDefinitions(schemaName)
-  const root = rootMessageDefinition(definitions, schemaName)
-  const rootFields = dataFields(root)
+  const rootFields = dataFields(definitions[0])
   const definitionsByName = definitionsMap(definitions)
   let lastBoundsError: unknown
 
