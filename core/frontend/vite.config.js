@@ -25,6 +25,16 @@ export default defineConfig(({ command, mode }) => {
     plugins: [
       vue(),
       wasm(),
+      {
+        name: 'mediabunny-codec-data',
+        enforce: 'pre',
+        resolveId(id) {
+          if (id === 'mediabunny/codec-data') {
+            return path.resolve(__dirname, 'node_modules/mediabunny/dist/modules/src/codec-data.js')
+          }
+          return null
+        },
+      },
       VitePWA({
         // Operators use plain HTTP (not a secure context), so Workbox never
         // installs. registerType still injects registerSW.js so localhost /
@@ -205,6 +215,7 @@ export default defineConfig(({ command, mode }) => {
       alias: {
         '@': path.resolve(__dirname, './src'),
         '@blueos-idl': path.resolve(__dirname, '../libs/idl/typescript'),
+        'mediabunny/codec-data': path.resolve(__dirname, 'node_modules/mediabunny/dist/modules/src/codec-data.js'),
       },
     },
     build: {
@@ -241,7 +252,7 @@ export default defineConfig(({ command, mode }) => {
       __APP_ENV__: env.APP_ENV,
     },
     optimizeDeps: {
-      exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util']
+      exclude: ['mediabunny'],
     },
     server: {
       port: 8080,
