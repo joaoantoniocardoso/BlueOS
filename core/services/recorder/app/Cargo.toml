@@ -17,6 +17,7 @@ blueos-logging.workspace = true
 blueos-recorder-mcap.workspace = true
 blueos-recorder-mavlink.workspace = true
 blueos-recorder-policy.workspace = true
+blueos-recorder-storage.workspace = true
 blueos-service.workspace = true
 blueos-settings.workspace = true
 bytes.workspace = true
@@ -34,5 +35,8 @@ tracing.workspace = true
 
 [dev-dependencies]
 blueos-comms = { workspace = true, features = ["channel"] }
+blueos-recorder-library.workspace = true
+blueos-recorder-mcap.workspace = true
+mcap.workspace = true
 tempfile = "3"
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync", "time"] }
