@@ -12,7 +12,7 @@ path = "src/lib.rs"
 blueos-api.workspace = true
 blueos-comms = { workspace = true, features = ["zenoh"] }
 blueos-cqrs.workspace = true
-blueos-idl.workspace = true
+blueos-idl = { workspace = true, features = ["catalog"] }
 blueos-logging.workspace = true
 blueos-recorder-mcap.workspace = true
 blueos-recorder-mavlink.workspace = true
