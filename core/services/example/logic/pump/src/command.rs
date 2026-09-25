@@ -53,6 +53,7 @@ fn handle_set_level(snapshot: &mut PumpSnapshot, level: u8) -> Decision<crate::d
     Decision {
         events: vec![PumpEvent::LevelChanged { level: clamped }],
         effects: Vec::new(),
+        rejection: None,
     }
 }
 
@@ -75,6 +76,7 @@ fn handle_start_self_test(
             timer: SELF_TEST_TIMEOUT_TIMER,
             command: PumpCommand::SelfTestTimedOut,
         }],
+        rejection: None,
     }
 }
 
@@ -95,6 +97,7 @@ fn handle_cancel_self_test(
             detail: "cancelled".into(),
         }],
         effects: vec![Effect::CancelSchedule(SELF_TEST_TIMEOUT_TIMER)],
+        rejection: None,
     }
 }
 
@@ -114,6 +117,7 @@ fn handle_update_settings(
     Decision {
         events,
         effects: vec![Effect::Persist],
+        rejection: None,
     }
 }
 
@@ -174,6 +178,7 @@ fn finish_self_test(
             detail: detail.into(),
         }],
         effects: vec![Effect::CancelSchedule(SELF_TEST_TIMEOUT_TIMER)],
+        rejection: None,
     }
 }
 

@@ -8,8 +8,11 @@
 //! **Time:** If a handler needs "now" or a deadline, the command must carry it (or the kernel injects it when
 //! delivering a scheduled command). Handlers must not call into wall-clock APIs.
 //!
-//! **Replies:** Commands are acknowledged by the kernel (accepted/rejected with a reason). Queries return a
-//! [`Domain::View`] from [`App::query`]. Effects do not carry RPC reply bytes.
+//! **Replies:** Commands are acknowledged by the kernel (accepted/rejected with a reason). A handler that
+//! refuses a command returns [`Decision::reject`] **before** mutating [`Domain::Snapshot`] or [`Jobs`]; the
+//! kernel sends `accepted = false` and does not apply effects or publish. Decode failures are separate
+//! (the adapter rejects before the inbox). Queries return a [`Domain::View`] from [`App::query`]. Effects
+//! do not carry RPC reply bytes.
 //!
 //! **Publishing:** Adapters derive what to publish from events and snapshot state. Effects do not carry
 //! opaque `Vec<u8>` publish payloads.
@@ -62,6 +65,8 @@ pub struct TimerId(pub u64);
 pub struct Decision<D: Domain> {
     pub events: Vec<D::Event>,
     pub effects: Vec<Effect<D::Command, D::IoRequest>>,
+    /// When set, the kernel rejects the command with this reason and must not apply events or effects.
+    pub rejection: Option<alloc::string::String>,
 }
 
 impl<D: Domain> Default for Decision<D> {
@@ -69,6 +74,7 @@ impl<D: Domain> Default for Decision<D> {
         Self {
             events: Vec::new(),
             effects: Vec::new(),
+            rejection: None,
         }
     }
 }
@@ -77,6 +83,15 @@ impl<D: Domain> Decision<D> {
     /// Empty decision (no events, no effects).
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Refuse a command synchronously (no events, no effects). Decide before mutating snapshot or jobs.
+    pub fn reject(reason: impl Into<alloc::string::String>) -> Self {
+        Self {
+            events: Vec::new(),
+            effects: Vec::new(),
+            rejection: Some(reason.into()),
+        }
     }
 }
 
@@ -165,6 +180,9 @@ impl<D: Domain> App<D> {
     /// Runs the domain handler, then promotes every newly runnable job leaf to [`Effect::Io`].
     pub fn handle(&mut self, command: D::Command) -> Decision<D> {
         let mut decision = D::handle_command(&mut self.snapshot, &mut self.jobs, command);
+        if decision.rejection.is_some() {
+            return decision;
+        }
         for (job_id, job_spec) in self.jobs.poll_runnable() {
             decision
                 .effects
@@ -257,6 +275,7 @@ mod tests {
                             timer: TimerId(1),
                             command: TestCommand::Timeout,
                         }],
+                        rejection: None,
                     }
                 }
                 TestCommand::Timeout => {
@@ -264,11 +283,13 @@ mod tests {
                     Decision {
                         events: vec![TestEvent::TimedOut],
                         effects: Vec::new(),
+                        rejection: None,
                     }
                 }
                 TestCommand::CancelTimer => Decision {
                     events: Vec::new(),
                     effects: vec![Effect::CancelSchedule(TimerId(1))],
+                    rejection: None,
                 },
             }
         }

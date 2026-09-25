@@ -226,6 +226,7 @@ impl Domain for RecorderDomain {
                 Decision {
                     events: Vec::new(),
                     effects,
+                    rejection: None,
                 }
             }
             RecorderCommand::StopRecording => {
@@ -240,6 +241,7 @@ impl Domain for RecorderDomain {
                 Decision {
                     events: vec![RecorderEvent::SessionStopped],
                     effects: vec![Effect::Io(RecorderIo::FinishSession)],
+                    rejection: None,
                 }
             }
             RecorderCommand::ArmedChanged(armed) => {
@@ -334,6 +336,7 @@ impl Domain for RecorderDomain {
                             command: RecorderCommand::CaptureStatusTick { topic, now_millis },
                         },
                     ],
+                    rejection: None,
                 }
             }
         }
@@ -433,7 +436,11 @@ fn handle_camera_capture_command(
         }
     }
 
-    Decision { events, effects }
+    Decision {
+        events,
+        effects,
+        rejection: None,
+    }
 }
 
 fn capture_command_id(command: CaptureCommandKind) -> u32 {
