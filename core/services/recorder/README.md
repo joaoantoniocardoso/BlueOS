@@ -1,7 +1,27 @@
 # Recorder (Rust)
 
 Records the Zenoh backbone into MCAP files under `--recorder-path` (default legacy layout:
-`recorder_YYYYMMDD_HHMMSS.mcap` in that directory). Python `recorder_extractor` reads the same path.
+`recorder_YYYYMMDD_HHMMSS.mcap` in that directory). The service also owns the recording library:
+catalog state, repair, snapshot copies, delete, and a paged chunk index query.
+
+## Recording library API (Zenoh / IDL)
+
+| Kind | Key | Message |
+|---|---|---|
+| state | `library` | `RecordingLibrary` (newest first) |
+| command | `RepairRecording` / `CancelRepair` / `DeleteRecording` / `SnapshotRecording` | `...Command { path }` |
+| event | `operation` | `RecordingOperation` |
+| io query | `index` | `RecordingIndexRequest` -> `RecordingIndex` |
+
+Repair rewrites a broken file in-process into a `.recover` temporary file and replaces the original.
+`snapshot` writes `<stem>.snapshot-<UTC>Z.mcap` next to the source so a recording still being written
+can be downloaded from nginx once the `operation` event names the copy.
+
+## Bytes on nginx
+
+Recording bytes are served at `/userdata/recorder/<path>` with HTTP range support. CORS exposes
+`Accept-Ranges` and `Content-Range` so browser clients can read chunks without pulling files through
+Zenoh.
 
 ## What gets recorded
 
