@@ -64,6 +64,7 @@ struct KernelTestSnapshot {
 #[derive(Clone, Debug, PartialEq)]
 enum KernelTestCommand {
     Increment,
+    DomainReject,
     SlowIo,
     ArmTimer,
     ArmThenCancel,
@@ -114,9 +115,11 @@ impl Domain for KernelTestDomain {
                 snapshot.counter += 1;
                 Decision::new()
             }
+            KernelTestCommand::DomainReject => Decision::reject("not allowed in tests"),
             KernelTestCommand::SlowIo => Decision {
                 events: Vec::new(),
                 effects: vec![Effect::Io(KernelTestIo::Sleep(Duration::from_millis(50)))],
+                rejection: None,
             },
             KernelTestCommand::ArmTimer => Decision {
                 events: Vec::new(),
@@ -125,6 +128,7 @@ impl Domain for KernelTestDomain {
                     timer: TimerId(1),
                     command: KernelTestCommand::Increment,
                 }],
+                rejection: None,
             },
             KernelTestCommand::ArmThenCancel => Decision {
                 events: Vec::new(),
@@ -136,10 +140,12 @@ impl Domain for KernelTestDomain {
                     },
                     Effect::CancelSchedule(TimerId(1)),
                 ],
+                rejection: None,
             },
             KernelTestCommand::CancelTimer => Decision {
                 events: Vec::new(),
                 effects: vec![Effect::CancelSchedule(TimerId(1))],
+                rejection: None,
             },
             KernelTestCommand::UpdateSettings(envelope) => {
                 let parsed: KernelTestSettings =
@@ -159,6 +165,7 @@ impl Domain for KernelTestDomain {
                 Decision {
                     events,
                     effects: vec![Effect::Persist],
+                    rejection: None,
                 }
             }
             KernelTestCommand::IoDone => {
@@ -225,6 +232,7 @@ async fn spawn_test_service(
         })
         .jobs(|_application| JobList { jobs: Vec::new() })
         .command("Increment", |_| Ok(KernelTestCommand::Increment))
+        .command("DomainReject", |_| Ok(KernelTestCommand::DomainReject))
         .command("SlowIo", |_| Ok(KernelTestCommand::SlowIo))
         .command("ArmThenCancel", |_| Ok(KernelTestCommand::ArmThenCancel))
         .command("ArmTimer", |_| Ok(KernelTestCommand::ArmTimer))
@@ -333,6 +341,24 @@ async fn command_ack(
         }
     }
     panic!("command query: no replier after retries");
+}
+
+#[tokio::test]
+async fn rejected_command_returns_reason_without_publishing_state() {
+    let (service_name, client, service_handle, _) = spawn_test_service(None).await;
+    command_ack(&client, &service_name, "Increment", &[]).await;
+
+    let ack = command_ack(&client, &service_name, "DomainReject", &[]).await;
+    assert!(!ack.accepted);
+    assert_eq!(ack.reason, "not allowed in tests");
+    assert_eq!(ack.job_id, 0);
+
+    assert_eq!(
+        query_text(&client, &query_key(&service_name, "Counter")).await,
+        b"1"
+    );
+
+    service_handle.abort();
 }
 
 #[tokio::test]
