@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use blueos_api::{
-    cdr_encoding, command_key, event_key, info_query_key, query_key, status_state_key,
+    cdr_encoding, command_key, event_key, info_query_key, query_key, state_key, status_state_key,
 };
 use blueos_comms::{ChannelBackend, Payload, Session};
 use blueos_cqrs::{App, Decision, Domain, Effect, TimerId};
@@ -64,6 +64,7 @@ struct KernelTestSnapshot {
 #[derive(Clone, Debug, PartialEq)]
 enum KernelTestCommand {
     Increment,
+    NoOp,
     DomainReject,
     SlowIo,
     ArmTimer,
@@ -115,6 +116,7 @@ impl Domain for KernelTestDomain {
                 snapshot.counter += 1;
                 Decision::new()
             }
+            KernelTestCommand::NoOp => Decision::new(),
             KernelTestCommand::DomainReject => Decision::reject("not allowed in tests"),
             KernelTestCommand::SlowIo => Decision {
                 events: Vec::new(),
@@ -230,8 +232,14 @@ async fn spawn_test_service(
             status: service_status_constants::STATUS_READY,
             detail: application.snapshot.status_detail.clone(),
         })
+        .state(
+            "mirror",
+            |application| application.snapshot.counter.to_string(),
+            |value| Ok((Payload::from_bytes(Bytes::from(value)), "text/plain".into())),
+        )
         .jobs(|_application| JobList { jobs: Vec::new() })
         .command("Increment", |_| Ok(KernelTestCommand::Increment))
+        .command("NoOp", |_| Ok(KernelTestCommand::NoOp))
         .command("DomainReject", |_| Ok(KernelTestCommand::DomainReject))
         .command("SlowIo", |_| Ok(KernelTestCommand::SlowIo))
         .command("ArmThenCancel", |_| Ok(KernelTestCommand::ArmThenCancel))
@@ -430,6 +438,31 @@ async fn command_returns_ack_and_publishes_status_state() {
         .expect("state query");
     let status = ServiceStatus::decode(reply.payload.as_slice().as_slice()).expect("status");
     assert_eq!(status.status, service_status_constants::STATUS_READY);
+
+    service_handle.abort();
+}
+
+#[tokio::test]
+async fn unchanged_extra_state_skips_zenoh_publish() {
+    let (service_name, client, service_handle, _) = spawn_test_service(None).await;
+    let mirror_key = state_key(&service_name, "mirror");
+    let mut stream = client.subscribe(&mirror_key).await.expect("subscribe");
+    command_ack(&client, &service_name, "Increment", &[]).await;
+    let _first = time::timeout(Duration::from_secs(1), stream.next())
+        .await
+        .expect("first publish")
+        .expect("sample");
+    command_ack(&client, &service_name, "NoOp", &[]).await;
+    assert!(
+        time::timeout(Duration::from_millis(200), stream.next())
+            .await
+            .is_err()
+    );
+    let reply = client
+        .query(&mirror_key, Payload::empty(), "", Duration::from_secs(1))
+        .await
+        .expect("state query");
+    assert_eq!(reply.payload.as_slice(), b"1");
 
     service_handle.abort();
 }
