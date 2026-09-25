@@ -37,6 +37,7 @@ pub struct ServiceBuilder<D: Domain> {
     settings: SettingsSlot<D>,
     io_executor: Option<IoExecutor<D>>,
     cli_command: Option<CliCommandMapper<D>>,
+    startup_commands: Vec<D::Command>,
     shutdown_command: Option<D::Command>,
     shutdown_sender: Option<tokio::sync::watch::Sender<bool>>,
     shutdown_receiver: Option<tokio::sync::watch::Receiver<bool>>,
@@ -62,10 +63,20 @@ impl<D: Domain + 'static> ServiceBuilder<D> {
             settings: SettingsSlot::None,
             io_executor: None,
             cli_command: None,
+            startup_commands: Vec::new(),
             shutdown_command: None,
             shutdown_sender: None,
             shutdown_receiver: None,
         }
+    }
+
+    /// Domain command dispatched through the inbox once the service starts, in registration order.
+    ///
+    /// Use this instead of querying the service's own command keys at startup: those queryables are declared
+    /// asynchronously, so a self-query can arrive before they exist and be lost.
+    pub fn on_start(mut self, command: D::Command) -> Self {
+        self.startup_commands.push(command);
+        self
     }
 
     /// Domain command dispatched on `SIGINT`, `SIGTERM`, or [`ShutdownHandle::trigger`].
@@ -283,6 +294,7 @@ impl<D: Domain + 'static> ServiceBuilder<D> {
             self.settings,
             self.io_executor,
             self.cli_command,
+            self.startup_commands,
             self.shutdown_command,
             self.shutdown_receiver,
         )

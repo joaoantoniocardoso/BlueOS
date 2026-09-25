@@ -468,6 +468,56 @@ async fn unchanged_extra_state_skips_zenoh_publish() {
 }
 
 #[tokio::test]
+async fn startup_command_is_dispatched_without_any_client() {
+    let service_name = unique_service_name();
+    let (service_backend, client_backend) = ChannelBackend::pair();
+    let client = Session::with_channel(client_backend);
+    let builder = ServiceBuilder::<KernelTestDomain>::new(&service_name)
+        .app(test_app())
+        .service_info(ServiceInfo {
+            name: service_name.clone(),
+            version: "0.1.0".into(),
+            build: String::new(),
+            capabilities: Vec::new(),
+        })
+        .state(
+            "mirror",
+            |application| application.snapshot.counter.to_string(),
+            |value| Ok((Payload::from_bytes(Bytes::from(value)), "text/plain".into())),
+        )
+        .on_start(KernelTestCommand::Increment)
+        .on_start(KernelTestCommand::Increment);
+    let service_handle = tokio::spawn(async move {
+        builder
+            .run_with_session(Session::with_channel(service_backend))
+            .await
+    });
+
+    let mirror_key = state_key(&service_name, "mirror");
+    let mut counter = Vec::new();
+    for _ in 0..100 {
+        if let Ok(reply) = client
+            .query(
+                &mirror_key,
+                Payload::empty(),
+                "",
+                Duration::from_millis(100),
+            )
+            .await
+        {
+            counter = reply.payload.as_slice().to_vec();
+            if counter == b"2" {
+                break;
+            }
+        }
+        time::sleep(Duration::from_millis(20)).await;
+    }
+    assert_eq!(counter, b"2");
+
+    service_handle.abort();
+}
+
+#[tokio::test]
 async fn query_answered_from_inbox_snapshot() {
     let (service_name, client, service_handle, _) = spawn_test_service(None).await;
     command_ack(&client, &service_name, "Increment", &[]).await;

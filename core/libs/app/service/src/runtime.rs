@@ -196,6 +196,7 @@ pub async fn run<D: Domain + 'static>(
     settings_slot: SettingsSlot<D>,
     io_executor: Option<IoExecutor<D>>,
     cli_command: Option<CliCommandMapper<D>>,
+    startup_commands: Vec<D::Command>,
     shutdown_command: Option<D::Command>,
     mut shutdown_receiver: Option<watch::Receiver<bool>>,
 ) -> Result<(), ServiceError>
@@ -371,6 +372,18 @@ where
             .await
     {
         error!("cli command inbox send failed: {error}");
+    }
+
+    for command in startup_commands {
+        if let Err(error) = inbox_sender
+            .send(InboxMessage::Command {
+                command,
+                reply: None,
+            })
+            .await
+        {
+            error!("startup command inbox send failed: {error}");
+        }
     }
 
     let mut shutting_down = false;
