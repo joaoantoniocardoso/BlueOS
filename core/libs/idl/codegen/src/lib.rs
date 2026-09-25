@@ -520,7 +520,7 @@ fn encode_field_tokens(message: &ros2_message::Msg) -> Vec<TokenStream> {
 fn write_field_tokens(field: &FieldInfo, value: TokenStream) -> TokenStream {
     match field.case() {
         FieldCase::Vector => {
-            let element_write = write_scalar_or_message(field, quote! { element });
+            let element_write = write_vector_element(field);
             quote! {
                 writer.write_u32(#value.len() as u32)?;
                 for element in #value.iter() {
@@ -529,7 +529,7 @@ fn write_field_tokens(field: &FieldInfo, value: TokenStream) -> TokenStream {
             }
         }
         FieldCase::Array(_) => {
-            let element_write = write_scalar_or_message(field, quote! { element });
+            let element_write = write_vector_element(field);
             quote! {
                 for element in #value.iter() {
                     #element_write
@@ -537,6 +537,20 @@ fn write_field_tokens(field: &FieldInfo, value: TokenStream) -> TokenStream {
             }
         }
         _ => write_scalar_or_message(field, value),
+    }
+}
+
+fn write_vector_element(field: &FieldInfo) -> TokenStream {
+    match field.datatype() {
+        DataType::GlobalMessage(path) => {
+            let package = format_ident!("{}", path.package());
+            let name = format_ident!("{}", path.name());
+            quote! {
+                <crate::msg::#package::#name>::cdr_encode_fields(element, writer)?;
+            }
+        }
+        DataType::String => quote! { writer.write_string(element.as_str())?; },
+        _ => write_scalar_or_message(field, quote! { *element }),
     }
 }
 
