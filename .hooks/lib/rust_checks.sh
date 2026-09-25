@@ -78,7 +78,7 @@ run_rust_checks() {
                 violations+=("$name depends on $dependency, which belongs to another service")
             elif [ "$folder" = logic ] && [ "$dependency_unit/$dependency_folder" != libs/logic ]; then
                 violations+=("$name is logic, so it may only depend on libs/logic, not on $dependency")
-            elif [ "$folder" = adapters ] && [ "$dependency_folder" != adapters ]; then
+            elif [ "$folder" = adapters ] && [ "$dependency_folder" != adapters ] && [ "$dependency_unit/$dependency_folder" != libs/idl ]; then
                 violations+=("$name is an adapter, so it may only depend on adapters, not on $dependency")
             fi
             parent=$(dirname "$dependency_directory")
