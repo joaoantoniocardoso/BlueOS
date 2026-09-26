@@ -25,6 +25,14 @@ export {
   ros2ddsTopicFromDataKey,
 } from './ros2-names'
 export { resolveSchemaName, schemaNameFromEncoding, transportTypeName } from './schema-resolution'
+export type { TopicListRow } from './topic-list'
+export {
+  flattenTopicGroups,
+  serviceAliveFromBlueosGroup,
+  topicCountInGroups,
+  topicPrimaryLabel,
+  visibleTopicsInGroup,
+} from './topic-list'
 export type {
   BlueosKeyInfo,
   BlueosKeyKind,
