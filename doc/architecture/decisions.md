@@ -50,6 +50,7 @@ Related repositories (author machine, `~/BlueRobotics/`):
 - D-21 Breaking changes for users and extension developers
 - D-22 Branch review outcomes
 - D-23 Recording library: retire `recorder_extractor`, rebuild the Records frontend
+- D-24 Zenoh inspector: BlueOS API, ROS 2 and Foxglove in one tool
 
 ---
 
@@ -584,3 +585,60 @@ Outcome of step 4:
   its index; SIGINT finalizes the active recording.
 - Still unproven: repair cancel by hand on the device (repairs finished before a click), the 5 s rescan with
   hundreds of recordings, and a snapshot/repair under heavy write load.
+
+## D-24 Zenoh inspector: BlueOS API, ROS 2 and Foxglove in one tool
+
+Context: the Zenoh inspector is one Vue 2 component that subscribes to `**`, parses `zenoh-plugin-ros2dds`
+liveliness tokens and decodes only BlueOS CDR schemas. It is meant to become the default tool to interact with
+Zenoh: discover services, read state, send commands, and show ROS 2 and Foxglove traffic. Specialized views
+(video now; table, plot, vehicle frame later) must plug into compatible data.
+
+Decision:
+
+- Layering mirrors D-23: `src/libs/zenoh-inspector/logic/` (pure TypeScript, vitest), `adapters/` (zenoh-ts,
+  `blueos-api`, `requestAnimationFrame`), a framework-agnostic controller, and Vue 2 components that only bind.
+  Ports live in `logic/types.ts`.
+- **Views are a registry** of `{ id, label, supports(topic), priority }`. JSON is always available; the video
+  player is the default for `CompressedVideo` and `video/` topics. New views are registry entries.
+- **Services describe their API.** `ServiceInfo` gains `EndpointInfo[] endpoints` (append-only, D-06): kind,
+  name, key, request and response schema. The kernel fills it from registrations, so the inspector can list
+  every command, query, state and event and build a command form from the request schema. Python services
+  publish an empty list.
+- The inspector sends commands and queries to BlueOS services, plus raw JSON/text queries to any key (the
+  Python `http/` gateway). Requests to ROS 2 services are not sent (rmw_zenoh needs its request attachment).
+- **Schema resolution**, in this order, in TypeScript and in the Recorder:
+  1. the encoding suffix `application/cdr;<pkg>/msg/<Name>`;
+  2. the transport: the rmw_zenoh data key `<domain>/<topic>/<pkg>::msg::dds_::<Name>_/<RIHS01 hash>`, or the
+     `@ros2_lv` liveliness token of rmw_zenoh or `zenoh-plugin-ros2dds`;
+  3. BlueOS IDL, then the vendored ROS 2 and Foxglove catalog (D-05), now also emitted to TypeScript;
+  4. otherwise raw bytes (inspector: size and hex preview, decoded again when the type arrives).
+- Decoding by reflection stays on `@foxglove/rosmsg` and `@foxglove/rosmsg2-serialization`. No new codec.
+- Recorder, for a `ros2dds` sample that arrives before its token (extensions and external systems do not share
+  the BlueOS lifecycle): a liveliness `get` on the router for that topic, a bounded per-topic queue (2 s or 64
+  samples, payloads held by reference, D-09) flushed with the resolved schema, and on timeout a schema-less
+  channel followed by a second channel with the schema once it resolves (MCAP allows several channels per
+  topic).
+- ROS 2 name parsing is a pure crate, `core/libs/logic/ros2-names` (`blueos-ros2-names`), mirrored in
+  TypeScript.
+- **Shared test vectors instead of WebAssembly** for logic that exists in more than one language: one JSON
+  fixture per concern, checked by `cargo test`, vitest and pytest where applicable. ROS 2 names
+  (`core/libs/logic/ros2-names/tests/vectors/names.json`), BlueOS keys (`core/libs/api/tests/vectors/keys.json`)
+  and CDR with D-06 defaults (`core/libs/idl/tests/vectors/cdr.json`).
+- WebAssembly is adopted for `logic/` crates when the browser first needs domain rules that a query cannot
+  replace (wizard or calibration steps offline, settings validation). D-02 keeps those crates `no_std` without
+  IO; `.hooks/lib/rust_checks.sh` also builds them for `wasm32-unknown-unknown` so the door stays open.
+
+Rejected or deferred:
+
+- **Rerun, Foxglove and RViz become BlueOS extensions**, not core. Each needs its own data layout or a gateway on
+  the vehicle (Rerun needs data in its own format through its Rust SDK; its viewer cannot send commands), and
+  Foxglove needed a gateway reshaping `linux2rest` for a process table. Publishing standard ROS 2 messages
+  (`sensor_msgs`, `geometry_msgs`, `diagnostic_msgs`, `foxglove_msgs`) at the producers serves all of them.
+- **Hiroz** (ZettaScale, pure-Rust ROS 2 on Zenoh: rmw_zenoh keys, graph, `get_type_description`, dynamic
+  messages) is deferred to an experiment branch. It is 0.2.0, experimental, mostly one author, turns on zenoh
+  `unstable`/`internal`, opens its own session, and its hash-in-key matching conflicts with D-06. dora-rs and
+  copper-rs replace the process model and are not ROS 2 over Zenoh.
+- Open: `get_type_description` queries for types outside the catalog, a `blueos/v1/schemas/**` queryable for
+  extension schemas, ROS 2 service requests, and the table, plot and vehicle-frame views.
+- Open: `RecordingFile.allowed_operations`, published by the Recorder from the same rules that reject commands,
+  replaces the duplicated `can*` rules in `src/libs/recorder/view-logic.ts`.
