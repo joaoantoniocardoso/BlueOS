@@ -31,6 +31,14 @@ export interface CommandAck {
   reason: string;
 }
 
+export interface EndpointInfo {
+  kind: string;
+  name: string;
+  key: string;
+  request_schema: string;
+  response_schema: string;
+}
+
 export interface JobList {
   jobs: JobStatus[];
 }
@@ -51,6 +59,7 @@ export interface ServiceInfo {
   version: string;
   build: string;
   capabilities: string[];
+  endpoints: EndpointInfo[];
 }
 
 export interface ServiceStatus {

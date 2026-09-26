@@ -5,3 +5,4 @@ string name
 string version
 string build
 string[] capabilities
+blueos_msgs/EndpointInfo[] endpoints
