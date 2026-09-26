@@ -642,3 +642,21 @@ Rejected or deferred:
   extension schemas, ROS 2 service requests, and the table, plot and vehicle-frame views.
 - Open: `RecordingFile.allowed_operations`, published by the Recorder from the same rules that reject commands,
   replaces the duplicated `can*` rules in `src/libs/recorder/view-logic.ts`.
+
+Outcome:
+
+- ROS 2 publishers (both transports) set no Zenoh encoding, so samples arrive as `zenoh/bytes`. The inspector
+  and the Recorder treat `zenoh/bytes`, an empty encoding and bare `application/cdr` as ROS 2 candidates only
+  when the payload starts with a CDR encapsulation header.
+- ROS 2 liveliness is joined per topic from the set of alive publisher tokens; subscriber, service and node
+  tokens are listed as entities without data.
+- The shared CDR vectors caught the Python codec padding after strings; it was removed.
+- The Recorder writes every ROS 2 sample: the current sample is always queued before the late-schema gate runs,
+  and a type with no known schema lands on the schema-less CDR fallback channel instead of being dropped.
+- States publish only on change, so the inspector queries `*/state/*`, `*/settings` and `*/jobs` once on start
+  (never wider: a `get` on a command key runs the command). Queryables reply with their declared key, not the
+  query's, so a wildcard `get` tells replies apart.
+- Only a ros2dds publisher token marks a key as ROS 2; other keys outside `blueos/v1` (MAVLink, video) are "Other".
+  The camera manager sends `application/cdr` without a schema, so the video view is chosen by the `video/` prefix.
+- The lazy catalog chunk is about 480 KiB (51 KiB gzipped). The frontend build needs
+  `NODE_OPTIONS=--max-old-space-size=8192`.
