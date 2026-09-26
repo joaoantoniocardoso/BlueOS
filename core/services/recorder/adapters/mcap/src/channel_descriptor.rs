@@ -103,11 +103,48 @@ pub fn channel_descriptor_for_sample(
             schema: None,
             message_encoding: MessageEncoding::OctetStream,
         }),
+        ("zenoh/bytes", _) | ("", _) => None,
         _ => {
             warn!(encoding, "Received unknown encoding");
             None
         }
     }
+}
+
+/// CDR channel without an MCAP schema (ros2dds late-schema fallback).
+pub fn channel_descriptor_cdr_fallback(topic: &str) -> ChannelDescriptor {
+    ChannelDescriptor {
+        topic: topic.to_owned(),
+        schema: None,
+        message_encoding: MessageEncoding::Cdr,
+    }
+}
+
+/// Builds a CDR channel descriptor from a resolved ROS 2 type name (`pkg/msg/Name`).
+pub fn channel_descriptor_for_ros2_type(
+    topic: &str,
+    type_name: &str,
+    schema_lookup: &dyn Fn(&str) -> Option<String>,
+    schema_path: Option<&Path>,
+) -> Option<ChannelDescriptor> {
+    let schema_data = match load_cdr_schema(type_name, schema_lookup, schema_path) {
+        Ok(schema_data) => schema_data,
+        Err(error) => {
+            error!(%error, "Failed to load ROS 2 schema");
+            return None;
+        }
+    };
+    Some(ChannelDescriptor {
+        topic: topic.to_owned(),
+        schema: Some(SchemaDescriptor {
+            encoding: SchemaEncoding::Ros2Msg,
+            content: Some(SchemaDescriptorContent {
+                name: type_name.to_owned(),
+                data: schema_data,
+            }),
+        }),
+        message_encoding: MessageEncoding::Cdr,
+    })
 }
 
 fn json5_parse(string: &str) -> Option<Value> {

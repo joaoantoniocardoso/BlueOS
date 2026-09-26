@@ -7,7 +7,8 @@ pub mod rewrite;
 mod writer;
 
 pub use channel_descriptor::{
-    ChannelDescriptor, MessageEncoding, SchemaEncoding, channel_descriptor_for_sample,
+    ChannelDescriptor, MessageEncoding, SchemaEncoding, channel_descriptor_cdr_fallback,
+    channel_descriptor_for_ros2_type, channel_descriptor_for_sample,
 };
 pub use writer::{
     DEFAULT_CHUNK_BYTES, DEFAULT_FLUSH_INTERVAL_SECS, McapCompression, McapSession,
@@ -43,6 +44,7 @@ mod tests {
         writer
             .write_message(
                 "test/topic",
+                None,
                 1,
                 1,
                 Payload::from_bytes(Bytes::from_static(b"abcd")),
@@ -77,6 +79,7 @@ mod tests {
             writer
                 .write_message(
                     "test/topic",
+                    None,
                     1,
                     1,
                     Payload::from_bytes(Bytes::from_static(b"abcd")),
@@ -95,5 +98,47 @@ mod tests {
             .expect("message stream")
             .count();
         assert_eq!(message_count, 1);
+    }
+
+    #[test]
+    fn two_channels_same_topic_different_schema_lanes() {
+        let directory = tempdir().expect("tempdir");
+        let path = directory.path().join("dual.mcap");
+        let session = McapSession::open(&path, McapWriteConfig::default()).expect("open");
+        let writer = session.writer();
+        let lookup = |_name: &str| Some("string data\n".to_string());
+
+        let fallback = channel_descriptor_cdr_fallback("robot/chatter");
+        writer
+            .write_message(
+                "robot/chatter",
+                None,
+                1,
+                1,
+                Payload::from_bytes(Bytes::from_static(b"a")),
+                Some(fallback),
+            )
+            .expect("fallback write");
+
+        let typed =
+            channel_descriptor_for_ros2_type("robot/chatter", "std_msgs/msg/String", &lookup, None)
+                .expect("typed descriptor");
+        writer
+            .write_message(
+                "robot/chatter",
+                Some("std_msgs/msg/String"),
+                2,
+                2,
+                Payload::from_bytes(Bytes::from_static(b"b")),
+                Some(typed),
+            )
+            .expect("typed write");
+
+        session.finish().expect("finish");
+        let summary = mcap::read::Summary::read(&std::fs::read(&path).expect("read"))
+            .expect("summary")
+            .expect("summary present");
+        assert_eq!(summary.channels.len(), 2);
+        assert_eq!(summary.schemas.len(), 1);
     }
 }

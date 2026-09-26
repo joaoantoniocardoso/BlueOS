@@ -58,7 +58,7 @@ pub struct McapWriterHandle {
 
 enum WriterCommand {
     Write {
-        topic: Arc<str>,
+        route_key: Arc<str>,
         log_time: u64,
         publish_time: u64,
         payload: Payload,
@@ -188,21 +188,30 @@ impl Drop for McapSession {
     }
 }
 
+fn writer_route_key(topic: &str, schema_lane: Option<&str>) -> Arc<str> {
+    match schema_lane {
+        None => Arc::from(topic),
+        Some(lane) => Arc::from(format!("{topic}\0{lane}")),
+    }
+}
+
 impl McapWriterHandle {
     pub fn write_message(
         &self,
         topic: &str,
+        schema_lane: Option<&str>,
         log_time: u64,
         publish_time: u64,
         payload: Payload,
         new_channel: Option<ChannelDescriptor>,
     ) -> Result<()> {
+        let route_key = writer_route_key(topic, schema_lane);
         let known = self
             .known_topics
             .lock()
             .expect("mcap known_topics poisoned");
-        let (topic, new_channel) = if let Some(existing) = known.get(topic) {
-            (existing.clone(), None)
+        let (route_key, new_channel) = if known.contains(route_key.as_ref()) {
+            (route_key, None)
         } else {
             drop(known);
             let Some(descriptor) = new_channel else {
@@ -214,16 +223,15 @@ impl McapWriterHandle {
                     descriptor.topic
                 ));
             }
-            let topic_arc: Arc<str> = Arc::from(topic);
             self.known_topics
                 .lock()
                 .expect("mcap known_topics poisoned")
-                .insert(topic_arc.clone());
-            (topic_arc, Some(descriptor))
+                .insert(route_key.clone());
+            (route_key, Some(descriptor))
         };
 
         let command = WriterCommand::Write {
-            topic,
+            route_key,
             log_time,
             publish_time,
             payload,
@@ -276,19 +284,19 @@ fn writer_loop(
     for command in receiver {
         match command {
             WriterCommand::Write {
-                topic,
+                route_key,
                 log_time,
                 publish_time,
                 payload,
                 new_channel,
             } => {
                 if let Some(descriptor) = new_channel {
-                    register_channel(&mut writer, &mut channels, descriptor)?;
+                    register_channel(&mut writer, &mut channels, &route_key, descriptor)?;
                 }
 
                 let channel = channels
-                    .get_mut(&topic)
-                    .ok_or_else(|| anyhow!("Channel not registered for topic {topic}"))?;
+                    .get_mut(&route_key)
+                    .ok_or_else(|| anyhow!("Channel not registered for route {route_key}"))?;
 
                 let header = mcap::records::MessageHeader {
                     channel_id: channel.channel_id,
@@ -299,7 +307,7 @@ fn writer_loop(
 
                 let data = payload_bytes(&payload);
                 if let Err(error) = writer.write_to_known_channel(&header, data.as_ref()) {
-                    error!(%error, topic = %topic, "Failed to write message to MCAP channel");
+                    error!(%error, route = %route_key, "Failed to write message to MCAP channel");
                 } else {
                     channel.sequence += 1;
                 }
@@ -326,10 +334,11 @@ fn payload_bytes(payload: &Payload) -> Cow<'_, [u8]> {
 fn register_channel(
     writer: &mut Writer<BufWriter<File>>,
     channels: &mut HashMap<Arc<str>, Channel>,
+    route_key: &Arc<str>,
     descriptor: ChannelDescriptor,
 ) -> Result<()> {
-    if channels.contains_key(descriptor.topic.as_str()) {
-        return Err(anyhow!("Channel already registered"));
+    if channels.contains_key(route_key) {
+        return Ok(());
     }
 
     let schema_id = match &descriptor.schema {
@@ -355,7 +364,7 @@ fn register_channel(
         )
         .context("Failed to add MCAP channel")?;
 
-    info!(topic = %descriptor.topic, "Adding channel");
-    channels.insert(Arc::from(descriptor.topic), Channel::new(channel_id));
+    info!(topic = %descriptor.topic, route = %route_key, "Adding channel");
+    channels.insert(route_key.clone(), Channel::new(channel_id));
     Ok(())
 }
