@@ -23,7 +23,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use blueos_api::{cdr_encoding, command_key};
+use blueos_api::command_key;
 use blueos_comms::{Endpoint, Payload, Session};
 use blueos_cqrs::App;
 use blueos_idl::Message;
@@ -32,10 +32,10 @@ use blueos_idl::msg::blueos_msgs::{
     constants_service_status as service_status_constants,
 };
 use blueos_idl::msg::blueos_recorder_msgs::{
-    CancelRepairCommand, DeleteRecordingCommand, RecordingFile, RecordingLibrary,
-    RecordingOperation, RecordingState, RepairRecordingCommand, SetPolicyCommand,
-    SnapshotRecordingCommand, StartRecordingCommand,
-    constants_recording_file as recording_file_constants,
+    CancelRepairCommand, DeleteRecordingCommand, RecordingFile, RecordingIndex,
+    RecordingIndexRequest, RecordingLibrary, RecordingOperation, RecordingState,
+    RepairRecordingCommand, SetPolicyCommand, SnapshotRecordingCommand, StartRecordingCommand,
+    StopRecordingCommand, constants_recording_file as recording_file_constants,
     constants_recording_operation as recording_operation_constants,
 };
 use blueos_idl::msg::builtin_interfaces::Time;
@@ -222,102 +222,72 @@ async fn run_async(arguments: Vec<String>) -> Result<(), RecorderRunError> {
                 .unwrap_or_default(),
         })
         .jobs(|_application| JobList { jobs: Vec::new() })
-        .command("SetPolicy", |payload| {
-            let message = SetPolicyCommand::decode(payload).map_err(|error| error.to_string())?;
+        .command::<SetPolicyCommand, _>("SetPolicy", |message| {
             Ok(RecorderCommand::SetPolicy(RecordingPolicy {
                 record_mavlink_only_when_armed: message.policy.record_mavlink_only_when_armed,
                 auto_start_recording: message.policy.auto_start_recording,
             }))
         })
-        .command("StartRecording", |payload| {
-            let message =
-                StartRecordingCommand::decode(payload).map_err(|error| error.to_string())?;
+        .command::<StartRecordingCommand, _>("StartRecording", |message| {
             Ok(RecorderCommand::StartRecording {
                 rotate_if_active: message.rotate_if_active,
             })
         })
-        .command("StopRecording", |_payload| {
+        .command_allow_empty::<StopRecordingCommand, _>("StopRecording", |_| {
             Ok(RecorderCommand::StopRecording)
         })
-        .command("RepairRecording", |payload| {
-            let message =
-                RepairRecordingCommand::decode(payload).map_err(|error| error.to_string())?;
+        .command::<RepairRecordingCommand, _>("RepairRecording", |message| {
             Ok(RecorderCommand::RepairRecording {
                 path: message.path,
                 now_unix_seconds: unix_time_now(),
             })
         })
-        .command("CancelRepair", |payload| {
-            let message =
-                CancelRepairCommand::decode(payload).map_err(|error| error.to_string())?;
+        .command::<CancelRepairCommand, _>("CancelRepair", |message| {
             Ok(RecorderCommand::CancelRepair { path: message.path })
         })
-        .command("DeleteRecording", |payload| {
-            let message =
-                DeleteRecordingCommand::decode(payload).map_err(|error| error.to_string())?;
+        .command::<DeleteRecordingCommand, _>("DeleteRecording", |message| {
             Ok(RecorderCommand::DeleteRecording { path: message.path })
         })
-        .command("SnapshotRecording", |payload| {
-            let message =
-                SnapshotRecordingCommand::decode(payload).map_err(|error| error.to_string())?;
+        .command::<SnapshotRecordingCommand, _>("SnapshotRecording", |message| {
             Ok(RecorderCommand::SnapshotRecording {
                 path: message.path,
                 now_unix_seconds: unix_time_now(),
             })
         })
-        .command("Internal", decode_injected)
-        .state(
-            "recording",
-            {
-                let policy_watch_for_state = policy_watch_for_state.clone();
-                move |application| {
-                    let policy = TapPolicy::from_snapshot(&application.snapshot);
-                    if let Err(error) = policy_watch_for_state.send(policy) {
-                        error!(%error, "Tap policy watch channel closed");
-                    }
-                    recording_state_from_snapshot(&application.snapshot)
+        .command_opaque("Internal", decode_injected)
+        .state::<RecordingState, _>("recording", {
+            let policy_watch_for_state = policy_watch_for_state.clone();
+            move |application| {
+                let policy = TapPolicy::from_snapshot(&application.snapshot);
+                if let Err(error) = policy_watch_for_state.send(policy) {
+                    error!(%error, "Tap policy watch channel closed");
                 }
-            },
-            |state| {
-                let bytes = state.encode().map_err(|error| error.to_string())?;
-                Ok((
-                    Payload::from_bytes(Bytes::from(bytes)),
-                    cdr_encoding(RecordingState::SCHEMA_NAME),
-                ))
-            },
-        )
-        .state(
-            "library",
-            |application| recording_library_from_snapshot(&application.snapshot),
-            |state| {
-                let bytes = state.encode().map_err(|error| error.to_string())?;
-                Ok((
-                    Payload::from_bytes(Bytes::from(bytes)),
-                    cdr_encoding(RecordingLibrary::SCHEMA_NAME),
-                ))
-            },
-        )
-        .event(
+                recording_state_from_snapshot(&application.snapshot)
+            }
+        })
+        .state::<RecordingLibrary, _>("library", |application| {
+            recording_library_from_snapshot(&application.snapshot)
+        })
+        .event::<RecordingOperation, _, _>(
             "operation",
             |event| matches!(event, RecorderEvent::RecordingOperation(_)),
             |event| {
                 let RecorderEvent::RecordingOperation(operation) = event else {
                     return Err("event filter mismatch".into());
                 };
-                let message = recording_operation_from_event(operation.clone());
-                let bytes = message.encode().map_err(|error| error.to_string())?;
-                Ok((
-                    Payload::from_bytes(Bytes::from(bytes)),
-                    cdr_encoding(RecordingOperation::SCHEMA_NAME),
-                ))
+                Ok(recording_operation_from_event(operation.clone()))
             },
         )
-        .io_query("index", {
+        .io_query::<RecordingIndexRequest, RecordingIndex, _, _>("index", {
             let folder = library_io_context.folder();
-            move |payload| {
+            move |request| {
                 let folder = folder.clone();
-                let bytes = payload.to_vec();
-                async move { run_index_query(folder, &bytes).await }
+                async move {
+                    let bytes = request.encode().map_err(|error| error.to_string())?;
+                    let (payload, _encoding) = run_index_query(folder, &bytes).await?;
+                    let bytes = payload.as_slice();
+                    RecordingIndex::decode(&bytes).map_err(|error| error.to_string())
+                }
             }
         })
         .io({
