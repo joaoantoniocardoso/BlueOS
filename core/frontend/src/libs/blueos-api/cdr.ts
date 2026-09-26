@@ -8,19 +8,20 @@ import type { MessageForSchema, SchemaName } from './types'
 
 type ParsedDefinitions = ReturnType<typeof parse>
 
-const definitionCache = new Map<SchemaName, ParsedDefinitions>()
+const definitionCache = new Map<string, ParsedDefinitions>()
 const readerCache = new Map<string, MessageReader>()
-const writerCache = new Map<SchemaName, MessageWriter>()
+const writerCache = new Map<string, MessageWriter>()
 
-function getDefinitions(schemaName: SchemaName): ParsedDefinitions {
-  let definitions = definitionCache.get(schemaName)
+function schemaCacheKey(schemaName: string, schemaText: string): string {
+  return `${schemaName}\0${schemaText}`
+}
+
+function getDefinitions(schemaName: string, schemaText: string): ParsedDefinitions {
+  const cacheKey = schemaCacheKey(schemaName, schemaText)
+  let definitions = definitionCache.get(cacheKey)
   if (definitions === undefined) {
-    const schemaText = SCHEMAS[schemaName]
-    if (schemaText === undefined) {
-      throw new Error(`Unknown schema: ${schemaName}`)
-    }
     definitions = parse(schemaText, { ros2: true })
-    definitionCache.set(schemaName, definitions)
+    definitionCache.set(cacheKey, definitions)
   }
   return definitions
 }
@@ -45,15 +46,19 @@ function truncatedDefinitions(definitions: ParsedDefinitions, fieldCount: number
   return [truncatedRoot, ...dependencies]
 }
 
-function readerCacheKey(schemaName: SchemaName, fieldCount: number): string {
-  return `${schemaName}:${fieldCount}`
+function readerCacheKey(schemaName: string, schemaText: string, fieldCount: number): string {
+  return `${schemaCacheKey(schemaName, schemaText)}:${fieldCount}`
 }
 
-function getReaderForFieldCount(schemaName: SchemaName, fieldCount: number): MessageReader {
-  const cacheKey = readerCacheKey(schemaName, fieldCount)
+function getReaderForFieldCount(
+  schemaName: string,
+  schemaText: string,
+  fieldCount: number,
+): MessageReader {
+  const cacheKey = readerCacheKey(schemaName, schemaText, fieldCount)
   let reader = readerCache.get(cacheKey)
   if (reader === undefined) {
-    const definitions = getDefinitions(schemaName)
+    const definitions = getDefinitions(schemaName, schemaText)
     const fullCount = dataFields(definitions[0]).length
     const definitionsForReader = fieldCount >= fullCount
       ? definitions
@@ -64,11 +69,12 @@ function getReaderForFieldCount(schemaName: SchemaName, fieldCount: number): Mes
   return reader
 }
 
-function getWriter(schemaName: SchemaName): MessageWriter {
-  let writer = writerCache.get(schemaName)
+function getWriter(schemaName: string, schemaText: string): MessageWriter {
+  const cacheKey = schemaCacheKey(schemaName, schemaText)
+  let writer = writerCache.get(cacheKey)
   if (writer === undefined) {
-    writer = new MessageWriter(getDefinitions(schemaName))
-    writerCache.set(schemaName, writer)
+    writer = new MessageWriter(getDefinitions(schemaName, schemaText))
+    writerCache.set(cacheKey, writer)
   }
   return writer
 }
@@ -158,18 +164,19 @@ function normalizeDecodedValue(value: unknown): unknown {
  * Old writers missing trailing top-level fields are decoded with progressively shorter readers, then
  * missing fields are filled from ROS 2 defaults. Nested message fields are not partially defaulted.
  */
-export function decodeCdr<Schema extends SchemaName>(
-  schemaName: Schema,
+export function decodeCdrWithSchema(
+  schemaName: string,
+  schemaText: string,
   payload: Uint8Array,
-): MessageForSchema<Schema> {
-  const definitions = getDefinitions(schemaName)
+): Record<string, unknown> {
+  const definitions = getDefinitions(schemaName, schemaText)
   const rootFields = dataFields(definitions[0])
   const definitionsByName = definitionsMap(definitions)
   let lastBoundsError: unknown
 
   for (let fieldCount = rootFields.length; fieldCount >= 1; fieldCount -= 1) {
     try {
-      const reader = getReaderForFieldCount(schemaName, fieldCount)
+      const reader = getReaderForFieldCount(schemaName, schemaText, fieldCount)
       const decoded = normalizeDecodedValue(reader.readMessage(payload)) as Record<string, unknown>
       if (fieldCount < rootFields.length) {
         for (let index = fieldCount; index < rootFields.length; index += 1) {
@@ -177,7 +184,7 @@ export function decodeCdr<Schema extends SchemaName>(
           decoded[field.name] = fieldDefault(field, definitionsByName)
         }
       }
-      return decoded as MessageForSchema<Schema>
+      return decoded
     } catch (error) {
       if (!isOutOfBoundsDecodeError(error)) {
         throw error
@@ -192,12 +199,44 @@ export function decodeCdr<Schema extends SchemaName>(
   throw new Error(`Failed to decode CDR for schema ${schemaName}`)
 }
 
+export function encodeCdrWithSchema(
+  schemaName: string,
+  schemaText: string,
+  message: Record<string, unknown>,
+): Uint8Array {
+  const writer = getWriter(schemaName, schemaText)
+  return writer.writeMessage(message)
+}
+
+export function defaultMessageForSchema(
+  schemaName: string,
+  schemaText: string,
+): Record<string, unknown> {
+  const definitions = getDefinitions(schemaName, schemaText)
+  const definitionsByName = definitionsMap(definitions)
+  return messageDefaults(dataFields(definitions[0]), definitionsByName)
+}
+
+export function decodeCdr<Schema extends SchemaName>(
+  schemaName: Schema,
+  payload: Uint8Array,
+): MessageForSchema<Schema> {
+  const schemaText = SCHEMAS[schemaName]
+  if (schemaText === undefined) {
+    throw new Error(`Unknown schema: ${schemaName}`)
+  }
+  return decodeCdrWithSchema(schemaName, schemaText, payload) as MessageForSchema<Schema>
+}
+
 export function encodeCdr<Schema extends SchemaName>(
   schemaName: Schema,
   message: MessageForSchema<Schema>,
 ): Uint8Array {
-  const writer = getWriter(schemaName)
-  return writer.writeMessage(message)
+  const schemaText = SCHEMAS[schemaName]
+  if (schemaText === undefined) {
+    throw new Error(`Unknown schema: ${schemaName}`)
+  }
+  return encodeCdrWithSchema(schemaName, schemaText, message as Record<string, unknown>)
 }
 
 export function schemaNameFromEncoding(encoding: string): string | undefined {

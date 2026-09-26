@@ -1,4 +1,11 @@
-export { decodeCdr, encodeCdr, schemaNameFromEncoding } from './cdr'
+export {
+  decodeCdr,
+  decodeCdrWithSchema,
+  defaultMessageForSchema,
+  encodeCdr,
+  encodeCdrWithSchema,
+  schemaNameFromEncoding,
+} from './cdr'
 export { sendCommand } from './command'
 export { BlueosApiError } from './errors'
 export { getServiceInfo } from './info'
