@@ -23,6 +23,14 @@ Recording bytes are served at `/userdata/recorder/<path>` with HTTP range suppor
 `Accept-Ranges` and `Content-Range` so browser clients can read chunks without pulling files through
 Zenoh.
 
+## ROS 2 schema resolution (D-24)
+
+MCAP channel descriptors are chosen in order: encoding suffix (`application/cdr;<pkg>/msg/<Name>`),
+rmw_zenoh data-key type, ros2dds liveliness type map, then a CDR fallback without schema. ros2dds
+topics that arrive before their token trigger a liveliness `get`, a bounded hold (2 s or 64 samples,
+refcounted payloads), and on timeout a schema-less channel; a later token opens a second MCAP channel
+with the ROS 2 schema for subsequent samples.
+
 ## What gets recorded
 
 | Topic prefix | When |

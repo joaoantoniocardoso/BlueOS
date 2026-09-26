@@ -15,7 +15,7 @@ mod cli;
 mod error;
 mod inject;
 pub mod library_io;
-mod tap;
+pub mod tap;
 
 use std::collections::BTreeSet;
 use std::ffi::OsString;
