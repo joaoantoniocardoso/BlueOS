@@ -315,9 +315,6 @@ class CdrWriter:
         self.write_u32(length)
         self._buffer.extend(encoded)
         self._buffer.append(0)
-        total = 4 + len(encoded) + 1
-        padding = (4 - (total % 4)) % 4
-        self._buffer.extend(b"\x00" * padding)
 
     def finish_with_encapsulation(self) -> bytes:
         return ENCAPSULATION_CDR_LE + bytes(self._buffer)
@@ -402,12 +399,7 @@ class CdrReader:
         data = self._read_exact(length)
         if data[-1] != 0:
             raise IdlCodecError("Invalid string encoding in CDR payload")
-        text = data[:-1].decode("utf-8")
-        total = 4 + length
-        padding = (4 - (total % 4)) % 4
-        if padding:
-            self._read_exact(padding)
-        return text
+        return data[:-1].decode("utf-8")
 
 
 def _default_for_field(field_type: FieldType) -> Any:  # pylint: disable=too-many-return-statements
