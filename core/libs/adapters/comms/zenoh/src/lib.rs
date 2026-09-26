@@ -186,6 +186,29 @@ impl CommsBackend for ZenohBackend {
         });
         Ok(Box::pin(ReceiverStream { receiver }))
     }
+
+    async fn get_liveliness(&self, key_expression: &str, timeout: Duration) -> Result<Vec<String>> {
+        let replies = self
+            .session
+            .liveliness()
+            .get(key_expression)
+            .await
+            .map_err(|error| CommsError::Zenoh(error.to_string()))?;
+        let mut keys = Vec::new();
+        let deadline = tokio::time::Instant::now() + timeout;
+        while tokio::time::Instant::now() < deadline {
+            let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+            match tokio::time::timeout(remaining, replies.recv_async()).await {
+                Ok(Ok(reply)) => {
+                    if let Ok(sample) = reply.into_result() {
+                        keys.push(sample.key_expr().as_str().to_string());
+                    }
+                }
+                _ => break,
+            }
+        }
+        Ok(keys)
+    }
 }
 
 struct ReceiverStream<T> {

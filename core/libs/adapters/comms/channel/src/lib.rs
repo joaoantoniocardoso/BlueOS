@@ -85,6 +85,10 @@ impl CommsBackend for ChannelBackend {
         let receiver = self.broker.subscribe_liveliness(key_expression).await?;
         Ok(Box::pin(ReceiverStream::new(receiver)))
     }
+
+    async fn get_liveliness(&self, key_expression: &str, timeout: Duration) -> Result<Vec<String>> {
+        self.broker.get_liveliness(key_expression, timeout).await
+    }
 }
 
 struct ReceiverStream<T> {

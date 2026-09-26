@@ -202,6 +202,24 @@ impl ChannelBroker {
         })))
     }
 
+    pub async fn get_liveliness(
+        &self,
+        key_expression: &str,
+        _timeout: Duration,
+    ) -> Result<Vec<String>> {
+        let guard = self
+            .state
+            .lock()
+            .map_err(|error| CommsError::Message(error.to_string()))?;
+        let keys = guard
+            .liveliness_keys
+            .keys()
+            .filter(|key| key_matches(key_expression, key))
+            .cloned()
+            .collect();
+        Ok(keys)
+    }
+
     pub async fn subscribe_liveliness(
         &self,
         key_expression: &str,

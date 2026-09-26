@@ -131,6 +131,27 @@ async fn channel_liveliness() {
 }
 
 #[tokio::test]
+async fn channel_get_liveliness() {
+    let (left, right) = ChannelBackend::pair();
+    let publisher = Session::with_channel(left);
+    let subscriber = Session::with_channel(right);
+    let _token = publisher
+        .declare_liveliness("blueos/v1/services/recorder")
+        .await
+        .expect("token");
+    let keys = subscriber
+        .get_liveliness("blueos/v1/services/*", Duration::from_millis(100))
+        .await
+        .expect("get");
+    assert_eq!(keys, vec!["blueos/v1/services/recorder".to_string()]);
+    let empty = subscriber
+        .get_liveliness("blueos/v1/missing/**", Duration::from_millis(50))
+        .await
+        .expect("get");
+    assert!(empty.is_empty());
+}
+
+#[tokio::test]
 async fn channel_large_payload() {
     let (left, right) = ChannelBackend::pair();
     let publisher = Session::with_channel(left);

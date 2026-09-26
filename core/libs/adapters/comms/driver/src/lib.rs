@@ -166,6 +166,9 @@ pub trait CommsBackend: Send + Sync {
     async fn declare_liveliness(&self, key: &str) -> Result<LivelinessToken>;
 
     async fn subscribe_liveliness(&self, key_expression: &str) -> Result<LivelinessStream>;
+
+    /// Returns keys of liveliness tokens alive at query time (within `timeout`).
+    async fn get_liveliness(&self, key_expression: &str, timeout: Duration) -> Result<Vec<String>>;
 }
 
 pub struct LivelinessToken {

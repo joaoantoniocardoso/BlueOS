@@ -126,6 +126,15 @@ impl CommsBackend for Backend {
             Backend::Channel(backend) => backend.subscribe_liveliness(key_expression).await,
         }
     }
+
+    async fn get_liveliness(&self, key_expression: &str, timeout: Duration) -> Result<Vec<String>> {
+        match self {
+            #[cfg(feature = "zenoh")]
+            Backend::Zenoh(backend) => backend.get_liveliness(key_expression, timeout).await,
+            #[cfg(feature = "channel")]
+            Backend::Channel(backend) => backend.get_liveliness(key_expression, timeout).await,
+        }
+    }
 }
 
 pub struct Session {
@@ -201,6 +210,15 @@ impl Session {
 
     pub async fn subscribe_liveliness(&self, key_expression: &str) -> Result<LivelinessStream> {
         self.backend.subscribe_liveliness(key_expression).await
+    }
+
+    /// Returns keys of alive liveliness tokens matching `key_expression` (collected until `timeout`).
+    pub async fn get_liveliness(
+        &self,
+        key_expression: &str,
+        timeout: Duration,
+    ) -> Result<Vec<String>> {
+        self.backend.get_liveliness(key_expression, timeout).await
     }
 
     pub async fn declare_state(&self, key: &str) -> Result<StateHandle> {
