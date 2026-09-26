@@ -1,17 +1,16 @@
 use std::time::Duration;
 
-use blueos_api::{cdr_encoding, command_key, event_key, jobs_key};
-use blueos_comms::{ChannelBackend, Payload, Session};
+use blueos_api::{command_key, event_key, jobs_key};
+use blueos_comms::{ChannelBackend, Session};
 use blueos_cqrs::App;
 use blueos_example_pump::{
     PumpCommand, PumpDomain, PumpEvent, PumpIoRequest, PumpJobSpec, PumpSnapshot, job_spec_name,
 };
 use blueos_example_simulated_pump::{SimulatedPumpStep, run_step};
 use blueos_idl::Message;
-use blueos_idl::msg::blueos_example_msgs::{PumpState, SelfTestCompleted};
+use blueos_idl::msg::blueos_example_msgs::{EmptyRequest, PumpState, SelfTestCompleted};
 use blueos_idl::msg::blueos_msgs::{CommandAck, JobList};
 use blueos_service::ServiceBuilder;
-use bytes::Bytes;
 use futures::StreamExt;
 use tokio::time;
 
@@ -52,39 +51,28 @@ async fn spawn_example_service() -> (
                         .collect(),
                 }
             })
-            .command("StartSelfTest", |_| Ok(PumpCommand::StartSelfTest))
-            .state(
-                "pump",
-                |application| blueos_idl::msg::blueos_example_msgs::PumpState {
+            .command_allow_empty::<EmptyRequest, _>("StartSelfTest", |_| {
+                Ok(PumpCommand::StartSelfTest)
+            })
+            .state::<PumpState, _>("pump", |application| {
+                blueos_idl::msg::blueos_example_msgs::PumpState {
                     level: application.snapshot.level,
                     max_level: application.snapshot.effective_max_level(),
                     self_test_phase: application.snapshot.self_test_phase,
                     self_test_active: application.snapshot.self_test_active,
-                },
-                |state| {
-                    let bytes = state.encode().map_err(|error| error.to_string())?;
-                    Ok((
-                        Payload::from_bytes(Bytes::from(bytes)),
-                        cdr_encoding(PumpState::SCHEMA_NAME),
-                    ))
-                },
-            )
-            .event(
+                }
+            })
+            .event::<SelfTestCompleted, _, _>(
                 "SelfTestCompleted",
                 |event| matches!(event, PumpEvent::SelfTestCompleted { .. }),
                 |event| {
                     let PumpEvent::SelfTestCompleted { passed, detail } = event else {
                         return Err("filter".into());
                     };
-                    let message = SelfTestCompleted {
+                    Ok(SelfTestCompleted {
                         passed: *passed,
                         detail: detail.clone(),
-                    };
-                    let bytes = message.encode().map_err(|error| error.to_string())?;
-                    Ok((
-                        Payload::from_bytes(Bytes::from(bytes)),
-                        cdr_encoding(SelfTestCompleted::SCHEMA_NAME),
-                    ))
+                    })
                 },
             )
             .io(|_application, request| async move {
@@ -109,7 +97,7 @@ async fn command_ack(session: &Session, command: &str) -> CommandAck {
     let reply = session
         .query(
             &command_key("example", command),
-            Payload::empty(),
+            blueos_comms::Payload::empty(),
             "",
             Duration::from_secs(1),
         )
@@ -133,7 +121,7 @@ async fn start_self_test_completes_and_emits_event() {
         let reply = client
             .query(
                 &jobs_key("example"),
-                Payload::empty(),
+                blueos_comms::Payload::empty(),
                 "",
                 Duration::from_secs(1),
             )

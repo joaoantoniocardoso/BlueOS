@@ -1,15 +1,12 @@
 mod settings_schema;
 
-use blueos_api::cdr_encoding;
 use blueos_cli::{Argv, Common};
-use blueos_comms::Payload;
 use blueos_cqrs::App;
 use blueos_example_pump::PumpIoRequest;
 use blueos_example_pump::{
     ExampleSettings, PumpCommand, PumpDomain, PumpEvent, PumpQuery, PumpSnapshot, job_spec_name,
 };
 use blueos_example_simulated_pump::{SimulatedPumpStep, run_step};
-use blueos_idl::Message;
 use blueos_idl::msg::blueos_example_msgs::{
     EmptyRequest, LevelQueryResponse, PumpState, SelfTestCompleted, SetLevelRequest,
 };
@@ -20,7 +17,6 @@ use blueos_idl::msg::blueos_msgs::{
 use blueos_jobs::JobStatus as InternalJobStatus;
 use blueos_logging::error;
 use blueos_service::ServiceBuilder;
-use bytes::Bytes;
 use clap::Parser;
 use std::ffi::OsString;
 use std::path::PathBuf;
@@ -69,45 +65,44 @@ async fn run_async(cli: Cli) -> Result<(), String> {
         .cli(Argv::default())
         .status(service_status)
         .jobs(job_list)
-        .command("SetLevel", decode_set_level)
-        .command(
-            "StartSelfTest",
-            decode_empty_command(PumpCommand::StartSelfTest),
-        )
-        .command(
-            "CancelSelfTest",
-            decode_empty_command(PumpCommand::CancelSelfTest),
-        )
-        .query("Level", |_, application| {
+        .command::<SetLevelRequest, _>("SetLevel", |request| {
+            Ok(PumpCommand::SetLevel {
+                level: request.level,
+            })
+        })
+        .command_allow_empty::<EmptyRequest, _>("StartSelfTest", |_| Ok(PumpCommand::StartSelfTest))
+        .command_allow_empty::<EmptyRequest, _>("CancelSelfTest", |_| {
+            Ok(PumpCommand::CancelSelfTest)
+        })
+        .query::<EmptyRequest, LevelQueryResponse, _>("Level", |_, application| {
             let view = application.query(PumpQuery::Level);
-            let message = LevelQueryResponse {
+            Ok(LevelQueryResponse {
                 level: view.level,
                 max_level: view.max_level,
-            };
-            encode_message(&message)
+            })
         })
-        .state("pump", pump_state, encode_pump_state)
-        .event(
+        .state::<PumpState, _>("pump", pump_state)
+        .event::<SelfTestCompleted, _, _>(
             "SelfTestCompleted",
             |event| matches!(event, PumpEvent::SelfTestCompleted { .. }),
             |event| {
                 let PumpEvent::SelfTestCompleted { passed, detail } = event else {
                     return Err("event filter mismatch".into());
                 };
-                encode_message(&SelfTestCompleted {
+                Ok(SelfTestCompleted {
                     passed: *passed,
                     detail: detail.clone(),
                 })
             },
         )
-        .event(
+        .event::<blueos_idl::msg::blueos_msgs::RestartRequired, _, _>(
             "RestartRequired",
             |event| matches!(event, PumpEvent::RestartRequired { .. }),
             |event| {
                 let PumpEvent::RestartRequired { fields } = event else {
                     return Err("event filter mismatch".into());
                 };
-                encode_message(&blueos_idl::msg::blueos_msgs::RestartRequired {
+                Ok(blueos_idl::msg::blueos_msgs::RestartRequired {
                     fields: fields.clone(),
                 })
             },
@@ -141,23 +136,6 @@ fn load_initial_settings(config_folder: &Option<PathBuf>) -> Result<ExampleSetti
     )
     .map_err(|error| error.to_string())?;
     Ok(manager.settings().inner().clone())
-}
-
-fn decode_empty_command(command: PumpCommand) -> impl Fn(&[u8]) -> Result<PumpCommand, String> {
-    move |payload| {
-        if payload.is_empty() {
-            return Ok(command.clone());
-        }
-        EmptyRequest::decode(payload).map_err(|error| error.to_string())?;
-        Ok(command.clone())
-    }
-}
-
-fn decode_set_level(payload: &[u8]) -> Result<PumpCommand, String> {
-    let request = SetLevelRequest::decode(payload).map_err(|error| error.to_string())?;
-    Ok(PumpCommand::SetLevel {
-        level: request.level,
-    })
 }
 
 fn service_status(application: &App<PumpDomain>) -> ServiceStatus {
@@ -211,10 +189,6 @@ fn internal_status_to_idl(status: InternalJobStatus) -> u8 {
     }
 }
 
-fn encode_pump_state(state: PumpState) -> Result<(Payload, String), String> {
-    encode_message(&state)
-}
-
 async fn io_to_command(request: PumpIoRequest) -> PumpCommand {
     let PumpIoRequest::RunStep { job_id, step } = request;
     let simulated_step = match step {
@@ -224,14 +198,4 @@ async fn io_to_command(request: PumpIoRequest) -> PumpCommand {
     };
     let succeeded = run_step(simulated_step).await;
     PumpCommand::JobIoFinished { job_id, succeeded }
-}
-
-fn encode_message<MessageType: Message>(
-    message: &MessageType,
-) -> Result<(Payload, String), String> {
-    let bytes = message.encode().map_err(|error| error.to_string())?;
-    Ok((
-        Payload::from_bytes(Bytes::from(bytes)),
-        cdr_encoding(MessageType::SCHEMA_NAME),
-    ))
 }
