@@ -12,3 +12,4 @@ path = "src/lib.rs"
 blueos-cqrs.workspace = true
 blueos-jobs.workspace = true
 blueos-recorder-library.workspace = true
+blueos-ros2-names.workspace = true

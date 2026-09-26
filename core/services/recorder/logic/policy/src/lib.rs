@@ -17,6 +17,13 @@ pub use blueos_recorder_library::{
     initial_rescan_effects,
 };
 
+mod ros2dds_gate;
+
+pub use ros2dds_gate::{
+    ROS2DDS_HOLD_MAX_SAMPLES, ROS2DDS_HOLD_TIMEOUT_MS, Ros2ddsGate, Ros2ddsGateInput,
+    Ros2ddsGateOutput, is_ros2_schema_candidate, ros2dds_liveliness_query_pattern,
+};
+
 pub const RAW_MAVLINK_OUT_TOPIC: &str = "mavlink_raw/out";
 pub const RAW_MAVLINK_IN_TOPIC: &str = "mavlink_raw/in";
 pub const RAW_MAVLINK_OUT_TOPIC_PREFIX: &str = RAW_MAVLINK_OUT_TOPIC;
