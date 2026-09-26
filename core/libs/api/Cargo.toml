@@ -11,3 +11,7 @@ publish = true
 [features]
 default = ["std"]
 std = []
+
+[dev-dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

@@ -1,0 +1,79 @@
+{
+  "constants": {
+    "api_version": "v1",
+    "key_prefix": "blueos/v1",
+    "encoding_application_cdr": "application/cdr",
+    "type_hash_attachment_key": "blueos.type_hash"
+  },
+  "service_liveliness_key": [
+    { "service": "recorder", "expected": "blueos/v1/services/recorder" },
+    { "service": "kraken", "expected": "blueos/v1/services/kraken" }
+  ],
+  "service_info_key": [
+    { "service": "recorder", "expected": "blueos/v1/services/recorder/info" }
+  ],
+  "command_key": [
+    {
+      "service": "recorder",
+      "name": "Start",
+      "expected": "blueos/v1/recorder/command/Start"
+    }
+  ],
+  "state_key": [
+    {
+      "service": "recorder",
+      "name": "status",
+      "expected": "blueos/v1/recorder/state/status"
+    }
+  ],
+  "event_key": [
+    {
+      "service": "recorder",
+      "name": "SessionOpened",
+      "expected": "blueos/v1/recorder/event/SessionOpened"
+    }
+  ],
+  "query_key": [
+    {
+      "service": "recorder",
+      "name": "info",
+      "expected": "blueos/v1/recorder/query/info"
+    }
+  ],
+  "jobs_key": [
+    { "service": "recorder", "expected": "blueos/v1/recorder/jobs" }
+  ],
+  "settings_key": [
+    { "service": "recorder", "expected": "blueos/v1/recorder/settings" }
+  ],
+  "log_key": [
+    { "service": "kraken", "expected": "blueos/v1/kraken/log" }
+  ],
+  "extension_log_key": [
+    {
+      "service": "kraken",
+      "extension_identifier": "my/extension",
+      "expected": "blueos/v1/kraken/log/extension/my_extension"
+    },
+    {
+      "service": "kraken",
+      "extension_identifier": "name with spaces",
+      "expected": "blueos/v1/kraken/log/extension/name_with_spaces"
+    }
+  ],
+  "http_gateway_prefix": [
+    { "service": "recorder", "expected": "blueos/v1/recorder/http" }
+  ],
+  "status_state_key": [
+    { "service": "recorder", "expected": "blueos/v1/recorder/state/status" }
+  ],
+  "info_query_key": [
+    { "service": "recorder", "expected": "blueos/v1/recorder/query/info" }
+  ],
+  "cdr_encoding": [
+    {
+      "schema_name": "blueos_msgs/ServiceStatus",
+      "expected": "application/cdr;blueos_msgs/ServiceStatus"
+    }
+  ]
+}

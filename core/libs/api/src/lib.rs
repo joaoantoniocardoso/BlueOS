@@ -47,6 +47,15 @@ pub fn log_key(service: &str) -> String {
     format!("{KEY_PREFIX}/{service}/log")
 }
 
+pub fn extension_log_key(service: &str, extension_identifier: &str) -> String {
+    let safe_identifier = extension_identifier.replace(['/', ' '], "_");
+    format!("{}/extension/{safe_identifier}", log_key(service))
+}
+
+pub fn http_gateway_prefix(service: &str) -> String {
+    format!("{KEY_PREFIX}/{service}/http")
+}
+
 pub fn status_state_key(service: &str) -> String {
     state_key(service, "status")
 }
