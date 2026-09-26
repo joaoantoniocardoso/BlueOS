@@ -71,6 +71,10 @@ export interface TopicInfo {
   ros2?: Ros2Info
   lastSample?: SampleRecord
   sampleCount: number
+  /** rmw_zenoh liveliness placeholder until a matching data key is seen. */
+  entityOnly?: boolean
+  /** Liveliness keys of publisher tokens currently alive on this data topic. */
+  publisherTokens?: string[]
 }
 
 export type DecodedPayload =
@@ -85,6 +89,26 @@ export type DecodedPayload =
 export interface SchemaProvider {
   schemaText(schemaName: string): string | undefined
 }
+
+/** Injected CDR encode/decode (blueos-api in adapters; not imported from logic). */
+export interface CdrCodec {
+  decode(schemaName: string, schemaText: string, payload: Uint8Array): Record<string, unknown>
+  encode(schemaName: string, schemaText: string, message: Record<string, unknown>): Uint8Array
+  defaults(schemaName: string, schemaText: string): Record<string, unknown>
+}
+
+export interface FrameScheduler {
+  schedule(callback: () => void): unknown
+  cancel(handle: unknown): void
+}
+
+export interface InspectorState {
+  topics: Record<string, TopicInfo>
+}
+
+export type TopicGroup =
+  | { source: 'blueos', service: string, topics: TopicInfo[] }
+  | { source: 'rmw_zenoh' | 'ros2dds' | 'raw', topics: TopicInfo[] }
 
 /** A view that can render a topic; the highest-priority supported view is the default. */
 export interface ViewDescriptor {
