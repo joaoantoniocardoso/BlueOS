@@ -7,10 +7,9 @@ fn main() {
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").expect("OUT_DIR"));
     let typescript = manifest_dir.join("typescript");
     blueos_idl_codegen::generate(&interfaces, &out_dir, &typescript);
+    let catalog_interfaces = manifest_dir.join("catalog/interfaces");
+    blueos_idl_codegen::generate_catalog_typescript(&catalog_interfaces, &typescript);
     if std::env::var_os("CARGO_FEATURE_CATALOG").is_some() {
-        blueos_idl_codegen::generate_schema_catalog(
-            &manifest_dir.join("catalog/interfaces"),
-            &out_dir,
-        );
+        blueos_idl_codegen::generate_schema_catalog(&catalog_interfaces, &out_dir);
     }
 }

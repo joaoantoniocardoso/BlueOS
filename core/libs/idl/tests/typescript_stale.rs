@@ -8,6 +8,7 @@ fn typescript_outputs_are_fresh() {
     }
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let schemas = manifest.join("typescript/schemas.ts");
+    let catalog = manifest.join("typescript/catalog.ts");
     let messages = manifest.join("typescript/messages.d.ts");
     assert!(
         schemas.is_file(),
@@ -22,7 +23,11 @@ fn typescript_outputs_are_fresh() {
     let build_mtime = fs::metadata(build_rs)
         .and_then(|meta| meta.modified())
         .expect("build.rs mtime");
-    for path in [schemas, messages] {
+    assert!(
+        catalog.is_file(),
+        "missing typescript/catalog.ts; run cargo build -p blueos-idl"
+    );
+    for path in [schemas, catalog, messages] {
         let generated_mtime = fs::metadata(&path)
             .and_then(|meta| meta.modified())
             .expect("typescript mtime");

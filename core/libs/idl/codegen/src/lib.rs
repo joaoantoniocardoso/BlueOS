@@ -39,6 +39,7 @@ pub fn generate(interfaces_root: &Path, out_dir: &Path, typescript_dir: &Path) {
     write_rust_messages(&records, out_dir);
     write_signatures(&records, out_dir);
     write_typescript(&records, typescript_dir);
+    write_cdr_codec_dispatch(&records, out_dir);
 }
 
 /// Writes `schema_catalog.rs`, a `schema` lookup of the text of every message under `interfaces_root`, with no
@@ -66,6 +67,15 @@ pub fn generate_schema_catalog(interfaces_root: &Path, out_dir: &Path) {
         ),
     )
     .expect("write schema catalog");
+}
+
+/// Writes `catalog.ts` with schema text for every vendored catalog message (ROS 2 and Foxglove).
+pub fn generate_catalog_typescript(interfaces_root: &Path, typescript_dir: &Path) {
+    let records: BTreeMap<String, MessageRecord> = collect_messages(interfaces_root)
+        .into_iter()
+        .map(|record| (record.schema_name.clone(), record))
+        .collect();
+    write_catalog_typescript(&records, typescript_dir);
 }
 
 pub fn collect_messages_for_test(interfaces_root: &Path) -> Vec<MessageRecord> {
@@ -778,6 +788,51 @@ fn write_typescript(records: &BTreeMap<String, MessageRecord>, typescript_dir: &
         "// @generated\nexport * from \"./schemas\";\n",
     )
     .expect("write index.ts");
+}
+
+fn write_catalog_typescript(records: &BTreeMap<String, MessageRecord>, typescript_dir: &Path) {
+    let mut schema_entries = Vec::new();
+    for record in records.values() {
+        let schema = schema_text(record, records);
+        schema_entries.push(format!(
+            "  \"{}\": `{}`,",
+            record.schema_name,
+            schema.replace('`', "\\`")
+        ));
+    }
+    fs::write(
+        typescript_dir.join("catalog.ts"),
+        format!(
+            "// @generated\nexport const CATALOG_SCHEMAS: Record<string, string> = {{\n{}\n}};\n",
+            schema_entries.join("\n")
+        ),
+    )
+    .expect("write catalog.ts");
+}
+
+fn write_cdr_codec_dispatch(records: &BTreeMap<String, MessageRecord>, out_dir: &Path) {
+    let mut encode_arms = Vec::new();
+    let mut decode_arms = Vec::new();
+    for record in records.values() {
+        let type_path = format!("blueos_idl::msg::{}::{}", record.package, record.name);
+        encode_arms.push(format!(
+            "        \"{}\" => {}::default().encode().ok(),",
+            record.schema_name, type_path
+        ));
+        decode_arms.push(format!(
+            "        \"{}\" => {}::decode(payload).ok().and_then(|message| serde_json::to_value(message).ok()),",
+            record.schema_name, type_path
+        ));
+    }
+    fs::write(
+        out_dir.join("cdr_codec_dispatch.rs"),
+        format!(
+            "use blueos_idl::Message;\n\npub fn encode_default(schema_name: &str) -> Option<Vec<u8>> {{\n    match schema_name {{\n{}\n        _ => None,\n    }}\n}}\n\npub fn decode_to_json(schema_name: &str, payload: &[u8]) -> Option<serde_json::Value> {{\n    match schema_name {{\n{}\n        _ => None,\n    }}\n}}\n",
+            encode_arms.join("\n"),
+            decode_arms.join("\n")
+        ),
+    )
+    .expect("write cdr_codec_dispatch.rs");
 }
 
 fn typescript_type(field: &FieldInfo) -> String {
