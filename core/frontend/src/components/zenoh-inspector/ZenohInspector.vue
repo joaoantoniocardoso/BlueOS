@@ -1,120 +1,58 @@
 <template>
   <v-container fluid>
+    <v-alert
+      v-if="inspector.sourceError"
+      type="error"
+      dense
+      class="mb-4"
+    >
+      {{ inspector.sourceError }}
+    </v-alert>
     <v-row>
-      <v-col
-        sm="4"
-      >
+      <v-col sm="4">
         <v-sheet
           rounded="lg"
           min-height="268"
         >
-          <v-card
-            class="mx-auto height-limited"
-            max-height="700px"
-          >
-            <v-card-title>
-              <v-text-field
-                v-model="topic_filter"
-                :label="`Search Topics (${filtered_topics.length})`"
-                clearable
-                prepend-inner-icon="mdi-magnify"
-                single-line
-                hide-details
-                class="mt-0 pt-0"
-              />
-            </v-card-title>
-            <v-divider />
-            <v-list shaped>
-              <v-list-item-group
-                v-model="selected_topic"
-              >
-                <template v-for="(item, i) in filtered_topics">
-                  <v-list-item
-                    :key="i"
-                    :value="item"
-                    active-class="deep-purple--text text--accent-4"
-                  >
-                    <template #default="{ active }">
-                      <v-list-item-content>
-                        <v-list-item-title>
-                          {{ item }}
-                        </v-list-item-title>
-                      </v-list-item-content>
-
-                      <v-list-item-action>
-                        <v-radio
-                          :input-value="active"
-                          color="deep-purple accent-4"
-                        />
-                      </v-list-item-action>
-                    </template>
-                  </v-list-item>
-                </template>
-              </v-list-item-group>
-            </v-list>
-          </v-card>
+          <inspector-topic-list
+            :filter="inspector.filter"
+            :topic-groups="inspector.topicGroups"
+            :selected-key="inspector.selectedKey"
+            @filter="onFilter"
+            @select="onSelectTopic"
+          />
         </v-sheet>
       </v-col>
-
-      <v-col
-        sm="8"
-      >
+      <v-col sm="8">
         <v-card
           outlined
           width="100%"
-          height="700px"
-          class="d-flex flex-column"
+          min-height="700"
+          class="d-flex flex-column pa-0"
         >
-          <template
-            v-if="selected_topic"
-          >
-            <v-card-title>
-              {{ selected_topic }}
-              <v-chip
-                v-tooltip="'Topic liveliness status'"
-                :color="topic_liveliness[selected_topic] === undefined ? 'grey'
-                  : (topic_liveliness[selected_topic] ? 'green' : 'red')"
-                class="ml-2"
-              >
-                {{ topic_liveliness[selected_topic] === undefined ? 'Unknown'
-                  : (topic_liveliness[selected_topic] ? 'Alive' : 'Dead') }}
-              </v-chip>
-              <v-chip
-                v-tooltip="'Topic type'"
-                color="blue"
-                class="ml-2"
-              >
-                {{ topic_types[selected_topic] || 'Unknown' }}
-              </v-chip>
-              <v-chip
-                v-tooltip="'Topic message serialization type'"
-                color="purple"
-                class="ml-2"
-              >
-                {{ topic_message_types[selected_topic] || 'Unknown' }}
-              </v-chip>
-            </v-card-title>
-
-            <v-card-text class="flex-grow-1 overflow-auto">
-              <template v-if="isVideoTopic">
-                <raw-video-player
-                  :key="selected_topic || ''"
-                  ref="video_player"
-                />
-              </template>
-              <template v-else>
-                <pre>{{ formatMessage(current_message) }}</pre>
-              </template>
-            </v-card-text>
-          </template>
-          <div
-            v-else
-            class="select-topic d-flex align-center justify-center fill-height"
-          >
-            <span style="font-size: 1.5rem; font-weight: 500;">
-              Select a topic to view its messages.
-            </span>
-          </div>
+          <inspector-topic-detail
+            :controller="inspectorController"
+            :selected-topic="inspector.selectedTopic"
+            :available-views="inspector.availableViews"
+            :selected-view-id="inspector.selectedViewId"
+            :selected-decoded="inspector.selectedDecoded"
+            :catalog-loaded="inspector.catalogLoaded"
+            @select-view="onSelectView"
+          />
+          <v-card-text v-if="inspector.selectedService">
+            <inspector-service-panel
+              :selected-service="inspector.selectedService"
+              :service-info="inspector.serviceInfo"
+              :service-endpoints="inspector.serviceEndpoints"
+              :request-text="inspector.requestText"
+              :last-request-result="inspector.lastRequestResult"
+              :sending="requestInFlight"
+              @request-text="onRequestText"
+              @fill-default="onFillDefault"
+              @send-request="onSendRequest"
+              @raw-query="onRawQuery"
+            />
+          </v-card-text>
         </v-card>
       </v-col>
     </v-row>
@@ -122,282 +60,125 @@
 </template>
 
 <script lang="ts">
+import type { EndpointInfo } from '@blueos-idl/messages'
+import Vue from 'vue'
+
 import {
-  Encoding, Sample, SampleKind, Session, Subscriber, ZBytes,
-} from '@eclipse-zenoh/zenoh-ts'
-import { parse as parseMessageDefinition } from '@foxglove/rosmsg'
-import { MessageReader } from '@foxglove/rosmsg2-serialization'
-import axios from 'axios'
-import Vue, { markRaw } from 'vue'
+  createInspectorController,
+  type InspectorController,
+  type InspectorViewState,
+} from '@/libs/zenoh-inspector'
+import type { TopicInfo } from '@/libs/zenoh-inspector/logic/types'
 
-import { decodeCdr, type SchemaName } from '@/libs/blueos-api'
-import { ENCODING_APPLICATION_CDR } from '@/libs/blueos-api/keys'
-import { VideoFormat } from '@/libs/mcap'
-import { parseCompressedVideo } from '@/libs/mcap/logic/video-track'
-import zenoh from '@/libs/zenoh'
+import InspectorServicePanel from './InspectorServicePanel.vue'
+import InspectorTopicDetail from './InspectorTopicDetail.vue'
+import InspectorTopicList from './InspectorTopicList.vue'
 
-import RawVideoPlayer from './RawVideoPlayer.vue'
+interface ZenohInspectorBindings {
+  controller: InspectorController
+}
 
-interface ZenohMessage {
-  topic: string
-  payload: ZBytes
-  encoding: string
-  schema: string | undefined
-  timestamp: Date
+function emptyInspectorViewState(): InspectorViewState {
+  return {
+    filter: '',
+    topicGroups: [],
+    selectedKey: null,
+    selectedTopic: null,
+    availableViews: [],
+    selectedViewId: 'json',
+    selectedDecoded: null,
+    selectedService: null,
+    serviceInfo: null,
+    serviceEndpoints: null,
+    requestText: '',
+    lastRequestResult: null,
+    catalogLoaded: false,
+    sourceError: null,
+  }
+}
+
+function inspectorBindings(component: Vue): ZenohInspectorBindings {
+  return component as unknown as ZenohInspectorBindings
 }
 
 export default Vue.extend({
   name: 'ZenohInspector',
   components: {
-    RawVideoPlayer,
+    InspectorServicePanel,
+    InspectorTopicDetail,
+    InspectorTopicList,
   },
   data() {
     return {
-      topics: [] as string[],
-      messages: {} as { [key: string]: ZenohMessage },
-      topic_liveliness: {} as { [key: string]: boolean },
-      topic_types: {} as { [key: string]: string },
-      topic_message_types: {} as { [key: string]: string },
-      selected_topic: null as string | null,
-      topic_filter: '',
-      session: null as Session | null,
-      subscriber: null as Subscriber | null,
-      liveliness_subscriber: null as Subscriber | null,
-      video_reader: null as MessageReader | null,
-      // markRaw: written once per arriving sample, must not be observed or we just move the cost here.
-      // Keyed by topic, so it stays bounded by topic count even when requestAnimationFrame is throttled.
-      // Null-prototype because zenoh key expressions can collide with Object.prototype keys.
-      staging: markRaw({
-        messages: Object.create(null) as { [key: string]: ZenohMessage },
-        frame_request: null as number | null,
-      }),
+      inspector: Object.freeze(emptyInspectorViewState()),
+      requestInFlight: false,
     }
   },
   computed: {
-    filtered_topics(): string[] {
-      try {
-        return this.topics.filter(
-          (name: string) => name.toLowerCase().includes(this.topic_filter.toLowerCase().trim()),
-        )
-      } catch {
-        return this.topics
-      }
-    },
-    current_message(): ZenohMessage | null {
-      if (!this.selected_topic) return null
-      return this.messages[this.selected_topic] || null
-    },
-    isVideoTopic(): boolean {
-      return this.selected_topic !== null && this.isLiveVideoTopic(this.selected_topic)
+    inspectorController(): InspectorController {
+      return inspectorBindings(this).controller
     },
   },
-  async mounted() {
-    await this.setupVideoReader()
-    await this.setupZenoh()
+  created() {
+    inspectorBindings(this).controller = createInspectorController({
+      onState: (state: InspectorViewState) => {
+        this.inspector = Object.freeze(state)
+      },
+    })
+  },
+  mounted() {
+    inspectorBindings(this).controller.start()
   },
   beforeDestroy() {
-    this.disconnectZenoh()
+    inspectorBindings(this).controller.stop()
   },
   methods: {
-    async setupVideoReader() {
-      const CompressedVideo = await axios.get('/msgs/CompressedVideo.msg').then((response) => response.data as string)
-      const definition = parseMessageDefinition(CompressedVideo, { ros2: true })
-      this.video_reader = new MessageReader(definition)
+    onFilter(text: string | null): void {
+      inspectorBindings(this).controller.setFilter(text ?? '')
     },
-    formatMessage(message: ZenohMessage | null): string {
-      if (!message) return 'No messages received yet'
-
-      // Create the base message object
-      const formattedMessage = {
-        topic: message.topic,
-        timestamp: message.timestamp.toLocaleString(),
-        // eslint-disable-next-line no-nested-ternary
-        liveliness: this.topic_liveliness[message.topic] === undefined ? 'Unknown'
-          : this.topic_liveliness[message.topic] ? 'Alive' : 'Dead',
-        topic_type: this.topic_types[message.topic] || 'Unknown',
-        message_type: this.topic_message_types[message.topic] || 'Unknown',
-        payload: message.payload.toString(),
-      }
-
-      if (message.encoding === Encoding.TEXT_PLAIN.toString()) {
-        formattedMessage.payload = message.payload.toString()
-      } else if (message.encoding === Encoding.APPLICATION_JSON.toString()) {
-        try {
-          formattedMessage.payload = JSON.parse(message.payload.toString())
-        } catch (exception) {
-          // Keep the raw payload if it's not valid JSON
-          formattedMessage.payload = message.payload.toString()
-        }
-      } else if (message.encoding === Encoding.ZENOH_BYTES.toString()) {
-        try {
-          formattedMessage.payload = JSON.parse(message.payload.toString())
-        } catch (exception) {
-          // Keep the raw payload if it's not valid JSON
-          formattedMessage.payload = message.payload.toString()
-        }
-      } else if (
-        message.encoding === ENCODING_APPLICATION_CDR
-        || message.encoding === Encoding.APPLICATION_CDR.toString()
-      ) {
-        const schemaName = message.schema
-        if (schemaName) {
-          try {
-            formattedMessage.payload = decodeCdr(schemaName as SchemaName, message.payload.toBytes())
-          } catch (exception) {
-            formattedMessage.payload = message.payload.toString()
-          }
+    onSelectTopic(key: string): void {
+      const { controller } = inspectorBindings(this)
+      controller.selectTopic(key)
+      let topic: TopicInfo | undefined
+      for (const group of this.inspector.topicGroups) {
+        topic = group.topics.find((entry) => entry.key === key)
+        if (topic) {
+          break
         }
       }
-      return JSON.stringify(formattedMessage, null, 2)
+      const service = topic?.blueos?.service ?? null
+      controller.selectService(service)
     },
-
-    // `topics` is the union of both keyed maps, so membership is a constant time lookup instead of a scan.
-    // Own properties only, otherwise a key expression named after an Object.prototype member reads as known.
-    isKnownTopic(topic: string): boolean {
-      return Object.prototype.hasOwnProperty.call(this.messages, topic)
-        || Object.prototype.hasOwnProperty.call(this.topic_liveliness, topic)
+    onSelectView(viewId: string): void {
+      inspectorBindings(this).controller.selectView(viewId)
     },
-
-    isLiveVideoTopic(topic: string): boolean {
-      const messageType = this.topic_message_types[topic] ?? ''
-      return messageType.includes('CompressedVideo') || topic.startsWith('video/')
+    onRequestText(text: string): void {
+      inspectorBindings(this).controller.setRequestText(text)
     },
-
-    forwardLiveFrame(payload: ZBytes): void {
-      if (!this.video_reader) {
-        return
-      }
-      const player = this.$refs.video_player as {
-        pushFrame?: (data: Uint8Array, format: VideoFormat, timestamp?: number) => void
-      } | undefined
-      if (!player?.pushFrame) {
-        return
-      }
+    onFillDefault(schemaName: string): void {
+      inspectorBindings(this).controller.fillDefaultRequestText(schemaName)
+    },
+    async onSendRequest(endpoint: EndpointInfo): Promise<void> {
+      this.requestInFlight = true
       try {
-        const frame = parseCompressedVideo(this.video_reader, payload.toBytes())
-        player.pushFrame(frame.data, frame.format, frame.timestampSeconds)
-      } catch {
-        // Stay on the last good frame; a bad payload should not tear down the player.
+        await inspectorBindings(this).controller.sendRequest(endpoint)
+      } finally {
+        this.requestInFlight = false
       }
     },
-
-    flushStagedMessages() {
-      this.staging.frame_request = null
-      const batch = this.staging.messages
-      this.staging.messages = Object.create(null)
-
-      const new_topics: string[] = []
-      for (const topic of Object.keys(batch)) {
-        if (!this.isKnownTopic(topic)) {
-          new_topics.push(topic)
-        }
-        this.$set(this.messages, topic, batch[topic])
-      }
-
-      if (new_topics.length > 0) {
-        this.topics = [...this.topics, ...new_topics].sort()
-      }
-    },
-
-    async setupZenoh() {
+    async onRawQuery(key: string, text: string): Promise<void> {
+      this.requestInFlight = true
       try {
-        this.session = await zenoh.getSession()
-
-        // Setup regular message subscriber
-        this.subscriber = await this.session.declareSubscriber('**', {
-          handler: async (sample: Sample) => {
-            const topic = sample.keyexpr().toString()
-            const payload = sample.payload()
-            const [encoding, schema] = sample.encoding().toString().split(';')
-
-            const message: ZenohMessage = {
-              topic,
-              payload,
-              encoding,
-              schema,
-              timestamp: new Date(),
-            }
-
-            // Live video is pushed through $refs so Vue's tick does not collapse 30 fps into one frame.
-            if (topic === this.selected_topic && this.isLiveVideoTopic(topic)) {
-              delete this.staging.messages[topic]
-              this.forwardLiveFrame(payload)
-              return Promise.resolve()
-            }
-            if (topic === this.selected_topic) {
-              delete this.staging.messages[topic]
-              this.$set(this.messages, topic, message)
-            } else {
-              this.staging.messages[topic] = message
-              if (this.staging.frame_request === null) {
-                this.staging.frame_request = requestAnimationFrame(this.flushStagedMessages)
-              }
-            }
-
-            return Promise.resolve()
-          },
-        })
-
-        // Setup liveliness subscriber
-        const lv_ke = '@/**/@ros2_lv/**'
-
-        this.liveliness_subscriber = await this.session.liveliness().declareSubscriber(lv_ke, {
-          handler: (sample: Sample) => {
-            // Parse the liveliness token using regex
-            // eslint-disable-next-line max-len
-            // https://github.com/eclipse-zenoh/zenoh-plugin-ros2dds/blob/865d3db009d0d2635826700a35483e88a077967d/zenoh-plugin-ros2dds/src/liveliness_mgt.rs#L202
-            const keyexpr = sample.keyexpr().toString()
-            // eslint-disable-next-line max-len
-            const match = keyexpr.match(/@\/(?<zenoh_id>[^/]+)\/@ros2_lv\/(?<type>MP|MS|SS|SC|AS|AC)\/(?<ke>[^/]+)\/(?<typ>[^/]+)(?:\/(?<qos_ke>[^/]+))?/)
-
-            if (!match) {
-              return Promise.resolve()
-            }
-
-            const { type, ke, typ } = match.groups || {}
-            const topic = ke.replace(/§/g, '/')
-            const messageTyp = typ.replace(/§/g, '/')
-
-            const isAlive = sample.kind() === SampleKind.PUT
-
-            // Add to topics if not already present, before $set fills the map isKnownTopic reads
-            if (!this.isKnownTopic(topic)) {
-              this.topics = [...this.topics, topic].sort()
-            }
-
-            // Update liveliness state and type
-            this.$set(this.topic_liveliness, topic, isAlive)
-            this.$set(this.topic_types, topic, type)
-            this.$set(this.topic_message_types, topic, messageTyp)
-
-            return Promise.resolve()
-          },
-          history: true, // Enable history to get initial state
-        })
-      } catch (error) {
-        console.error('[Zenoh] Connection error:', error)
+        await inspectorBindings(this).controller.rawQuery(key, text)
+      } finally {
+        this.requestInFlight = false
       }
-    },
-    async disconnectZenoh() {
-      if (this.staging.frame_request !== null) {
-        cancelAnimationFrame(this.staging.frame_request)
-        this.staging.frame_request = null
-      }
-      this.subscriber?.undeclare()
-      this.liveliness_subscriber?.undeclare()
-      this.session = null
-      this.subscriber = null
-      this.liveliness_subscriber = null
     },
   },
 })
 </script>
-<style>
-.height-limited {
-  overflow-y: auto;
-  max-height: 700px;
-}
 
+<style scoped>
 .select-topic {
   display: flex;
   justify-content: center;
