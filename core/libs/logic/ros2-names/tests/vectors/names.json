@@ -125,5 +125,15 @@
   "ros2dds_data_key_topics": [
     { "key": "chatter", "topic": "/chatter" },
     { "key": "robot1/camera/image_raw", "topic": "/robot1/camera/image_raw" }
+  ],
+  "ros2dds_token_data_keys": [
+    {
+      "key": "@/aac3178e146ba6f1fc6e6a4085e77f21/@ros2_lv/MP/chatter/std_msgs\u00a7msg\u00a7String",
+      "dataKey": "chatter"
+    },
+    {
+      "key": "@/aac3178e146ba6f1fc6e6a4085e77f21/@ros2_lv/MS/robot1\u00a7camera\u00a7image_raw/sensor_msgs\u00a7msg\u00a7Image/1:2:",
+      "dataKey": "robot1/camera/image_raw"
+    }
   ]
 }
