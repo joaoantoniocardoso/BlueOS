@@ -4,15 +4,18 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use blueos_api::{
-    cdr_encoding, command_key, event_key, info_query_key, query_key, state_key, status_state_key,
+    command_key, event_key, info_query_key, jobs_key, log_key, query_key, settings_key, state_key,
+    status_state_key,
 };
 use blueos_comms::{ChannelBackend, Payload, Session};
 use blueos_cqrs::{App, Decision, Domain, Effect, TimerId};
 use blueos_idl::Message;
+use blueos_idl::msg::blueos_example_msgs::{EmptyRequest, LevelQueryResponse};
 use blueos_idl::msg::blueos_msgs::{
-    CommandAck, JobList, RestartRequired, ServiceInfo, ServiceStatus, SettingsEnvelope,
-    constants_service_status as service_status_constants,
+    CommandAck, EndpointInfo, JobList, RestartRequired, ServiceInfo, ServiceStatus,
+    SettingsEnvelope, constants_service_status as service_status_constants,
 };
+use blueos_idl::msg::foxglove_msgs::Log as FoxgloveLog;
 use blueos_jobs::{JobId, Jobs};
 use blueos_service::ServiceBuilder;
 use blueos_service::ShutdownHandle;
@@ -233,41 +236,47 @@ async fn spawn_test_service(
             status: service_status_constants::STATUS_READY,
             detail: application.snapshot.status_detail.clone(),
         })
-        .state(
-            "mirror",
-            |application| application.snapshot.counter.to_string(),
-            |value| Ok((Payload::from_bytes(Bytes::from(value)), "text/plain".into())),
-        )
+        .state::<LevelQueryResponse, _>("mirror", |application| {
+            let counter = application.snapshot.counter;
+            LevelQueryResponse {
+                level: counter as u8,
+                max_level: 0,
+            }
+        })
         .jobs(|_application| JobList { jobs: Vec::new() })
-        .command("Increment", |_| Ok(KernelTestCommand::Increment))
-        .command("NoOp", |_| Ok(KernelTestCommand::NoOp))
-        .command("DomainReject", |_| Ok(KernelTestCommand::DomainReject))
-        .command("SlowIo", |_| Ok(KernelTestCommand::SlowIo))
-        .command("ArmThenCancel", |_| Ok(KernelTestCommand::ArmThenCancel))
-        .command("ArmTimer", |_| Ok(KernelTestCommand::ArmTimer))
-        .command("CancelTimer", |_| Ok(KernelTestCommand::CancelTimer))
-        .query("Counter", |_, application| {
+        .command_allow_empty::<EmptyRequest, _>("Increment", |_| Ok(KernelTestCommand::Increment))
+        .command_allow_empty::<EmptyRequest, _>("NoOp", |_| Ok(KernelTestCommand::NoOp))
+        .command_allow_empty::<EmptyRequest, _>("DomainReject", |_| {
+            Ok(KernelTestCommand::DomainReject)
+        })
+        .command_allow_empty::<EmptyRequest, _>("SlowIo", |_| Ok(KernelTestCommand::SlowIo))
+        .command_allow_empty::<EmptyRequest, _>("ArmThenCancel", |_| {
+            Ok(KernelTestCommand::ArmThenCancel)
+        })
+        .command_allow_empty::<EmptyRequest, _>("ArmTimer", |_| Ok(KernelTestCommand::ArmTimer))
+        .command_allow_empty::<EmptyRequest, _>("CancelTimer", |_| {
+            Ok(KernelTestCommand::CancelTimer)
+        })
+        .query::<EmptyRequest, LevelQueryResponse, _>("Counter", |_, application| {
             let view = application.query(KernelTestQuery::Counter);
-            let payload = Payload::from_bytes(Bytes::from(view.counter.to_string()));
-            Ok((payload, "text/plain".into()))
+            Ok(LevelQueryResponse {
+                level: view.counter as u8,
+                max_level: 0,
+            })
         })
-        .io_query("Echo", |payload| async move {
-            Ok((payload, "text/plain".into()))
+        .io_query::<SettingsEnvelope, SettingsEnvelope, _, _>("Echo", |request| async move {
+            Ok(request)
         })
-        .io_query("SlowEcho", |payload| async move {
+        .io_query::<SettingsEnvelope, SettingsEnvelope, _, _>("SlowEcho", |request| async move {
             time::sleep(Duration::from_millis(300)).await;
-            Ok((payload, "text/plain".into()))
+            Ok(request)
         })
-        .event(
+        .event::<RestartRequired, _, _>(
             "RestartRequired",
             |event| matches!(event, KernelTestEvent::RestartRequired(_)),
             |event| {
                 let KernelTestEvent::RestartRequired(message) = event;
-                let bytes = message.encode().map_err(|error| error.to_string())?;
-                Ok((
-                    Payload::from_bytes(Bytes::from(bytes)),
-                    cdr_encoding(RestartRequired::SCHEMA_NAME),
-                ))
+                Ok(message.clone())
             },
         )
         .io(|_application, request| async move {
@@ -315,13 +324,22 @@ async fn spawn_test_service(
     (service_name, client_session, handle, Some(shutdown))
 }
 
-async fn query_text(session: &Session, key: &str) -> Vec<u8> {
+async fn query_counter(session: &Session, service_name: &str) -> u32 {
     for _ in 0..50 {
         match session
-            .query(key, Payload::empty(), "", Duration::from_millis(200))
+            .query(
+                &query_key(service_name, "Counter"),
+                Payload::empty(),
+                "",
+                Duration::from_millis(200),
+            )
             .await
         {
-            Ok(reply) => return reply.payload.as_slice(),
+            Ok(reply) => {
+                let bytes = reply.payload.as_slice();
+                let response = LevelQueryResponse::decode(&bytes).expect("counter cdr");
+                return response.level as u32;
+            }
             Err(blueos_comms::CommsError::NoReplier) => {
                 time::sleep(Duration::from_millis(10)).await;
             }
@@ -329,6 +347,32 @@ async fn query_text(session: &Session, key: &str) -> Vec<u8> {
         }
     }
     panic!("query: no replier after retries");
+}
+
+async fn query_mirror_level(session: &Session, service_name: &str) -> u32 {
+    for _ in 0..50 {
+        match session
+            .query(
+                &state_key(service_name, "mirror"),
+                Payload::empty(),
+                "",
+                Duration::from_millis(200),
+            )
+            .await
+        {
+            Ok(reply) => {
+                let bytes = reply.payload.as_slice();
+                return LevelQueryResponse::decode(&bytes)
+                    .expect("mirror cdr")
+                    .level as u32;
+            }
+            Err(blueos_comms::CommsError::NoReplier) => {
+                time::sleep(Duration::from_millis(10)).await;
+            }
+            Err(error) => panic!("state query: {error}"),
+        }
+    }
+    panic!("state query: no replier after retries");
 }
 
 async fn command_ack(
@@ -369,28 +413,34 @@ async fn rejected_command_returns_reason_without_publishing_state() {
     assert_eq!(ack.reason, "not allowed in tests");
     assert_eq!(ack.job_id, 0);
 
-    assert_eq!(
-        query_text(&client, &query_key(&service_name, "Counter")).await,
-        b"1"
-    );
+    assert_eq!(query_counter(&client, &service_name).await, 1);
 
     service_handle.abort();
+}
+
+fn settings_query_payload(document_json: &str) -> Payload {
+    let envelope = SettingsEnvelope {
+        document_json: document_json.into(),
+        fields: Vec::new(),
+    };
+    Payload::from_bytes(Bytes::from(envelope.encode().expect("envelope cdr")))
 }
 
 #[tokio::test]
 async fn io_query_round_trip_outside_inbox() {
     let (service_name, client, service_handle, _) = spawn_test_service(None).await;
-    let payload = Payload::from_bytes(Bytes::from("hello"));
     let reply = client
         .query(
             &query_key(&service_name, "Echo"),
-            payload,
+            settings_query_payload("hello"),
             "",
             Duration::from_secs(1),
         )
         .await
         .expect("io_query");
-    assert_eq!(reply.payload.as_slice(), b"hello");
+    let echo_bytes = reply.payload.as_slice();
+    let echoed = SettingsEnvelope::decode(&echo_bytes).expect("echo cdr");
+    assert_eq!(echoed.document_json, "hello");
 
     service_handle.abort();
 }
@@ -406,7 +456,7 @@ async fn slow_io_query_does_not_block_command_ack() {
             client
                 .query(
                     &query_key(&service_name, "SlowEcho"),
-                    Payload::from_bytes(Bytes::from("slow")),
+                    settings_query_payload("slow"),
                     "",
                     Duration::from_secs(2),
                 )
@@ -459,11 +509,7 @@ async fn unchanged_extra_state_skips_zenoh_publish() {
             .await
             .is_err()
     );
-    let reply = client
-        .query(&mirror_key, Payload::empty(), "", Duration::from_secs(1))
-        .await
-        .expect("state query");
-    assert_eq!(reply.payload.as_slice(), b"1");
+    assert_eq!(query_mirror_level(&client, &service_name).await, 1);
 
     service_handle.abort();
 }
@@ -482,11 +528,10 @@ async fn startup_command_is_dispatched_without_any_client() {
             capabilities: Vec::new(),
             endpoints: Vec::new(),
         })
-        .state(
-            "mirror",
-            |application| application.snapshot.counter.to_string(),
-            |value| Ok((Payload::from_bytes(Bytes::from(value)), "text/plain".into())),
-        )
+        .state::<LevelQueryResponse, _>("mirror", |application| LevelQueryResponse {
+            level: application.snapshot.counter as u8,
+            max_level: 0,
+        })
         .on_start(KernelTestCommand::Increment)
         .on_start(KernelTestCommand::Increment);
     let service_handle = tokio::spawn(async move {
@@ -495,26 +540,15 @@ async fn startup_command_is_dispatched_without_any_client() {
             .await
     });
 
-    let mirror_key = state_key(&service_name, "mirror");
-    let mut counter = Vec::new();
+    let mut level = 0;
     for _ in 0..100 {
-        if let Ok(reply) = client
-            .query(
-                &mirror_key,
-                Payload::empty(),
-                "",
-                Duration::from_millis(100),
-            )
-            .await
-        {
-            counter = reply.payload.as_slice().to_vec();
-            if counter == b"2" {
-                break;
-            }
+        level = query_mirror_level(&client, &service_name).await;
+        if level == 2 {
+            break;
         }
         time::sleep(Duration::from_millis(20)).await;
     }
-    assert_eq!(counter, b"2");
+    assert_eq!(level, 2);
 
     service_handle.abort();
 }
@@ -525,8 +559,7 @@ async fn query_answered_from_inbox_snapshot() {
     command_ack(&client, &service_name, "Increment", &[]).await;
     command_ack(&client, &service_name, "Increment", &[]).await;
 
-    let payload = query_text(&client, &query_key(&service_name, "Counter")).await;
-    assert_eq!(payload, b"2");
+    assert_eq!(query_counter(&client, &service_name).await, 2);
 
     service_handle.abort();
 }
@@ -537,10 +570,7 @@ async fn io_effect_round_trip() {
     command_ack(&client, &service_name, "SlowIo", &[]).await;
     time::sleep(Duration::from_millis(100)).await;
 
-    assert_eq!(
-        query_text(&client, &query_key(&service_name, "Counter")).await,
-        b"10"
-    );
+    assert_eq!(query_counter(&client, &service_name).await, 10);
 
     service_handle.abort();
 }
@@ -552,10 +582,7 @@ async fn schedule_fires_when_not_cancelled() {
     command_ack(&client, &service_name, "ArmTimer", &[]).await;
     time::sleep(Duration::from_millis(200)).await;
 
-    assert_eq!(
-        query_text(&client, &query_key(&service_name, "Counter")).await,
-        b"1"
-    );
+    assert_eq!(query_counter(&client, &service_name).await, 1);
 
     service_handle.abort();
 }
@@ -567,10 +594,7 @@ async fn schedule_fires_and_cancel_prevents() {
     command_ack(&client, &service_name, "ArmThenCancel", &[]).await;
     time::sleep(Duration::from_millis(100)).await;
 
-    assert_eq!(
-        query_text(&client, &query_key(&service_name, "Counter")).await,
-        b"0"
-    );
+    assert_eq!(query_counter(&client, &service_name).await, 0);
 
     service_handle.abort();
 }
@@ -583,10 +607,7 @@ async fn schedule_cancel_via_separate_command() {
     command_ack(&client, &service_name, "CancelTimer", &[]).await;
     time::sleep(Duration::from_millis(100)).await;
 
-    assert_eq!(
-        query_text(&client, &query_key(&service_name, "Counter")).await,
-        b"0"
-    );
+    assert_eq!(query_counter(&client, &service_name).await, 0);
 
     service_handle.abort();
 }
@@ -730,5 +751,142 @@ async fn slow_io_does_not_block_other_commands() {
     assert!(fast_ack.accepted);
 
     let _ = slow.await;
+    service_handle.abort();
+}
+
+fn endpoint_row(
+    kind: &str,
+    name: &str,
+    key: &str,
+    request_schema: &str,
+    response_schema: &str,
+) -> EndpointInfo {
+    EndpointInfo {
+        kind: kind.into(),
+        name: name.into(),
+        key: key.into(),
+        request_schema: request_schema.into(),
+        response_schema: response_schema.into(),
+    }
+}
+
+fn expected_kernel_test_endpoints(service_name: &str) -> Vec<EndpointInfo> {
+    let command_names = [
+        "Increment",
+        "NoOp",
+        "DomainReject",
+        "SlowIo",
+        "ArmThenCancel",
+        "ArmTimer",
+        "CancelTimer",
+    ];
+    let mut endpoints = vec![
+        endpoint_row(
+            "query",
+            "info",
+            &info_query_key(service_name),
+            "",
+            ServiceInfo::SCHEMA_NAME,
+        ),
+        endpoint_row(
+            "state",
+            "status",
+            &status_state_key(service_name),
+            "",
+            ServiceStatus::SCHEMA_NAME,
+        ),
+        endpoint_row(
+            "state",
+            "jobs",
+            &jobs_key(service_name),
+            "",
+            JobList::SCHEMA_NAME,
+        ),
+        endpoint_row(
+            "state",
+            "settings",
+            &settings_key(service_name),
+            "",
+            SettingsEnvelope::SCHEMA_NAME,
+        ),
+        endpoint_row(
+            "command",
+            "UpdateSettings",
+            &command_key(service_name, "UpdateSettings"),
+            SettingsEnvelope::SCHEMA_NAME,
+            CommandAck::SCHEMA_NAME,
+        ),
+        endpoint_row(
+            "event",
+            "log",
+            &log_key(service_name),
+            "",
+            FoxgloveLog::SCHEMA_NAME,
+        ),
+    ];
+    for name in command_names {
+        endpoints.push(endpoint_row(
+            "command",
+            name,
+            &command_key(service_name, name),
+            EmptyRequest::SCHEMA_NAME,
+            CommandAck::SCHEMA_NAME,
+        ));
+    }
+    endpoints.push(endpoint_row(
+        "query",
+        "Counter",
+        &query_key(service_name, "Counter"),
+        EmptyRequest::SCHEMA_NAME,
+        LevelQueryResponse::SCHEMA_NAME,
+    ));
+    for name in ["Echo", "SlowEcho"] {
+        endpoints.push(endpoint_row(
+            "io_query",
+            name,
+            &query_key(service_name, name),
+            SettingsEnvelope::SCHEMA_NAME,
+            SettingsEnvelope::SCHEMA_NAME,
+        ));
+    }
+    endpoints.push(endpoint_row(
+        "state",
+        "mirror",
+        &state_key(service_name, "mirror"),
+        "",
+        LevelQueryResponse::SCHEMA_NAME,
+    ));
+    endpoints.push(endpoint_row(
+        "event",
+        "RestartRequired",
+        &event_key(service_name, "RestartRequired"),
+        "",
+        RestartRequired::SCHEMA_NAME,
+    ));
+    endpoints
+}
+
+#[tokio::test]
+async fn info_query_lists_registered_endpoints() {
+    let temp_dir = TempDir::new().expect("tempdir");
+    let (service_name, client, service_handle, _) =
+        spawn_test_service(Some(temp_dir.path().to_path_buf())).await;
+
+    let reply = client
+        .query(
+            &info_query_key(&service_name),
+            Payload::empty(),
+            "",
+            Duration::from_secs(1),
+        )
+        .await
+        .expect("info");
+    let bytes = reply.payload.as_slice();
+    let info = ServiceInfo::decode(&bytes).expect("service info");
+    assert_eq!(
+        info.endpoints,
+        expected_kernel_test_endpoints(&service_name)
+    );
+
     service_handle.abort();
 }

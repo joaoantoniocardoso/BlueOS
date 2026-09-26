@@ -13,9 +13,11 @@ use blueos_settings::SettingsSchema;
 use bytes::Bytes;
 
 use crate::error::ServiceError;
+use crate::request::{decode_allow_empty_body, decode_strict};
 use crate::runtime::{
     CliCommandMapper, CommandRegistration, EventRegistration, IoExecutor, IoQueryRegistration,
-    QueryRegistration, SettingsSlot, StatePublish, build_settings_runtime, run,
+    QueryRegistration, SettingsSlot, StatePublish, build_service_endpoints, build_settings_runtime,
+    run,
 };
 use crate::shutdown::{ShutdownHandle, new_shutdown_channel};
 
@@ -30,7 +32,7 @@ pub struct ServiceBuilder<D: Domain> {
     commands: Vec<CommandRegistration<D>>,
     queries: Vec<QueryRegistration<D>>,
     io_queries: Vec<IoQueryRegistration>,
-    extra_states: Vec<(String, StatePublish<D>)>,
+    extra_states: Vec<(String, String, StatePublish<D>)>,
     events: Vec<EventRegistration<D>>,
     status: Option<StatePublish<D>>,
     jobs: Option<StatePublish<D>>,
@@ -160,66 +162,132 @@ impl<D: Domain + 'static> ServiceBuilder<D> {
     }
 
     /// Registers a command queryable at `blueos/v1/<service>/command/<name>` (D-10).
-    pub fn command<F>(mut self, name: &str, decode: F) -> Self
+    pub fn command<Request, F>(mut self, name: &str, to_command: F) -> Self
+    where
+        Request: Message,
+        F: Fn(Request) -> Result<D::Command, String> + Send + Sync + 'static,
+    {
+        self.commands.push(CommandRegistration {
+            name: name.to_string(),
+            key: command_key(&self.service_name, name),
+            request_schema: Request::SCHEMA_NAME.into(),
+            decode: Arc::new(move |payload| {
+                let request = decode_strict::<Request>(payload)?;
+                to_command(request)
+            }),
+        });
+        self
+    }
+
+    /// Like [`Self::command`] but accepts an empty payload as the request default (no-body commands).
+    pub fn command_allow_empty<Request, F>(mut self, name: &str, to_command: F) -> Self
+    where
+        Request: Message + Default,
+        F: Fn(Request) -> Result<D::Command, String> + Send + Sync + 'static,
+    {
+        self.commands.push(CommandRegistration {
+            name: name.to_string(),
+            key: command_key(&self.service_name, name),
+            request_schema: Request::SCHEMA_NAME.into(),
+            decode: Arc::new(move |payload| {
+                let request = decode_allow_empty_body::<Request>(payload)?;
+                to_command(request)
+            }),
+        });
+        self
+    }
+
+    /// Registers a command whose request body is not IDL CDR (empty `request_schema` in `ServiceInfo`).
+    pub fn command_opaque<F>(mut self, name: &str, decode: F) -> Self
     where
         F: Fn(&[u8]) -> Result<D::Command, String> + Send + Sync + 'static,
     {
         self.commands.push(CommandRegistration {
+            name: name.to_string(),
             key: command_key(&self.service_name, name),
+            request_schema: String::new(),
             decode: Arc::new(decode),
         });
         self
     }
 
     /// Registers a read-side queryable at `blueos/v1/<service>/query/<name>` (D-10).
-    pub fn query<F>(mut self, name: &str, handler: F) -> Self
+    pub fn query<Request, Response, F>(mut self, name: &str, handler: F) -> Self
     where
-        F: Fn(&[u8], &App<D>) -> Result<(Payload, String), String> + Send + Sync + 'static,
+        Request: Message + Default,
+        Response: Message,
+        F: Fn(Request, &App<D>) -> Result<Response, String> + Send + Sync + 'static,
     {
         self.queries.push(QueryRegistration {
             name: name.to_string(),
-            handler: Arc::new(handler),
+            request_schema: Request::SCHEMA_NAME.into(),
+            response_schema: Response::SCHEMA_NAME.into(),
+            handler: Arc::new(move |payload, application| {
+                let request = decode_allow_empty_body::<Request>(payload)?;
+                let response = handler(request, application)?;
+                message_to_payload(&response)
+            }),
         });
         self
     }
 
     /// Registers an async read at `blueos/v1/<service>/query/<name>` handled outside the inbox (D-23).
-    pub fn io_query<F, Fut>(mut self, name: &str, handler: F) -> Self
+    pub fn io_query<Request, Response, F, Fut>(mut self, name: &str, handler: F) -> Self
     where
-        F: Fn(Payload) -> Fut + Send + Sync + 'static,
-        Fut: Future<Output = Result<(Payload, String), String>> + Send + 'static,
+        Request: Message + Default,
+        Response: Message,
+        F: Fn(Request) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = Result<Response, String>> + Send + 'static,
     {
+        let handler = Arc::new(handler);
         self.io_queries.push(IoQueryRegistration {
             name: name.to_string(),
-            handler: Arc::new(move |payload| Box::pin(handler(payload))),
+            request_schema: Request::SCHEMA_NAME.into(),
+            response_schema: Response::SCHEMA_NAME.into(),
+            handler: Arc::new(move |payload| {
+                let handler = Arc::clone(&handler);
+                let bytes = payload.to_vec();
+                Box::pin(async move {
+                    let request = decode_allow_empty_body::<Request>(&bytes)?;
+                    let response = handler(request).await?;
+                    message_to_payload(&response)
+                })
+            }),
         });
         self
     }
 
     /// Publishes state after each handled command (D-10 state + stream).
-    pub fn state<S, Select, Encode>(mut self, name: &str, select: Select, encode: Encode) -> Self
+    pub fn state<MessageType, Select>(mut self, name: &str, select: Select) -> Self
     where
-        Select: Fn(&App<D>) -> S + Send + Sync + 'static,
-        Encode: Fn(S) -> Result<(Payload, String), String> + Send + Sync + 'static,
+        MessageType: Message,
+        Select: Fn(&App<D>) -> MessageType + Send + Sync + 'static,
     {
+        let schema = MessageType::SCHEMA_NAME;
         let publish: StatePublish<D> = Arc::new(move |application| {
             let selected = select(application);
-            encode(selected)
+            message_to_payload(&selected)
         });
-        self.extra_states.push((name.to_string(), publish));
+        self.extra_states
+            .push((name.to_string(), schema.into(), publish));
         self
     }
 
     /// Publishes matching domain events on `blueos/v1/<service>/event/<name>`.
-    pub fn event<F, Encode>(mut self, name: &str, filter: F, encode: Encode) -> Self
+    pub fn event<MessageType, F, Encode>(mut self, name: &str, filter: F, encode: Encode) -> Self
     where
+        MessageType: Message,
         F: Fn(&D::Event) -> bool + Send + Sync + 'static,
-        Encode: Fn(&D::Event) -> Result<(Payload, String), String> + Send + Sync + 'static,
+        Encode: Fn(&D::Event) -> Result<MessageType, String> + Send + Sync + 'static,
     {
         self.events.push(EventRegistration {
             name: name.to_string(),
+            response_schema: MessageType::SCHEMA_NAME.into(),
             filter: Arc::new(filter),
-            publish: Arc::new(encode),
+            publish: Arc::new(move |event| {
+                let message = encode(event)?;
+                message_to_payload(&message)
+            }),
         });
         self
     }
@@ -269,10 +337,27 @@ impl<D: Domain + 'static> ServiceBuilder<D> {
 
     /// Runs the kernel on an existing session (hermetic tests).
     pub async fn run_with_session(mut self, session: Session) -> Result<(), ServiceError> {
-        let service_info = self
+        let mut service_info = self
             .service_info
             .take()
             .ok_or_else(|| ServiceError::Message("service_info is required".into()))?;
+        let settings_configured = matches!(self.settings, SettingsSlot::Ready(_));
+        let extra_state_schemas = self
+            .extra_states
+            .iter()
+            .map(|(name, schema, _)| (name.clone(), schema.clone()))
+            .collect::<Vec<_>>();
+        service_info.endpoints = build_service_endpoints(
+            &self.service_name,
+            &self.commands,
+            &self.queries,
+            &self.io_queries,
+            &extra_state_schemas,
+            &self.events,
+            self.status.is_some(),
+            self.jobs.is_some(),
+            settings_configured,
+        );
         let application = self
             .application
             .take()

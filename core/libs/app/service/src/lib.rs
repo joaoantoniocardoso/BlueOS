@@ -106,7 +106,10 @@
 //!             }
 //!         })
 //!         .jobs(|application| JobList { jobs: Vec::new() })
-//!         .command("Increment", |_| Ok(ExampleCommand::Increment))
+//!         .command_allow_empty::<blueos_idl::msg::blueos_example_msgs::EmptyRequest, _>(
+//!             "Increment",
+//!             |_| Ok(ExampleCommand::Increment),
+//!         )
 //!         .io(|_application, request| async move {
 //!             let ExampleIo::Delay(duration) = request;
 //!             tokio::time::sleep(duration).await;
@@ -120,6 +123,7 @@
 
 mod builder;
 mod error;
+mod request;
 mod runtime;
 mod shutdown;
 

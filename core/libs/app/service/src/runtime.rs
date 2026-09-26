@@ -6,14 +6,16 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use blueos_api::{
-    cdr_encoding, command_key, event_key, info_query_key, jobs_key, query_key, settings_key,
-    status_state_key,
+    cdr_encoding, command_key, event_key, info_query_key, jobs_key, log_key, query_key,
+    settings_key, status_state_key,
 };
 use blueos_cli::Argv;
 use blueos_comms::{Payload, Session, StateHandle};
 use blueos_cqrs::{App, Domain, Effect, TimerId};
 use blueos_idl::Message;
-use blueos_idl::msg::blueos_msgs::{CommandAck, ServiceInfo, SettingField, SettingsEnvelope};
+use blueos_idl::msg::blueos_msgs::{
+    CommandAck, EndpointInfo, JobList, ServiceInfo, ServiceStatus, SettingField, SettingsEnvelope,
+};
 use blueos_idl::msg::foxglove_msgs::Log as FoxgloveLog;
 use blueos_jobs::JobId;
 use blueos_logging::{LogRecord, attach_zenoh_publisher, log_key_for_service};
@@ -27,6 +29,11 @@ use crate::error::ServiceError;
 use crate::shutdown::IoInflight;
 
 const SHUTDOWN_IO_DRAIN_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+const ENDPOINT_KIND_COMMAND: &str = "command";
+const ENDPOINT_KIND_QUERY: &str = "query";
+const ENDPOINT_KIND_IO_QUERY: &str = "io_query";
+const ENDPOINT_KIND_STATE: &str = "state";
+const ENDPOINT_KIND_EVENT: &str = "event";
 
 struct TimerRegistration {
     cancelled: Arc<AtomicBool>,
@@ -60,22 +67,29 @@ pub type CliCommandMapper<D> =
     Arc<dyn Fn(&[String]) -> Result<<D as Domain>::Command, String> + Send + Sync>;
 
 pub struct CommandRegistration<D: Domain> {
+    pub name: String,
     pub key: String,
+    pub request_schema: String,
     pub decode: CommandDecode<D>,
 }
 
 pub struct QueryRegistration<D: Domain> {
     pub name: String,
+    pub request_schema: String,
+    pub response_schema: String,
     pub handler: QueryHandler<D>,
 }
 
 pub struct IoQueryRegistration {
     pub name: String,
+    pub request_schema: String,
+    pub response_schema: String,
     pub handler: IoQueryHandler,
 }
 
 pub struct EventRegistration<D: Domain> {
     pub name: String,
+    pub response_schema: String,
     pub filter: EventFilter<D>,
     pub publish: EventPublish<D>,
 }
@@ -144,6 +158,140 @@ where
     }
 }
 
+fn endpoint(
+    kind: &str,
+    name: &str,
+    key: &str,
+    request_schema: &str,
+    response_schema: &str,
+) -> EndpointInfo {
+    EndpointInfo {
+        kind: kind.into(),
+        name: name.into(),
+        key: key.into(),
+        request_schema: request_schema.into(),
+        response_schema: response_schema.into(),
+    }
+}
+
+/// Fills `ServiceInfo.endpoints` from kernel registrations (D-24).
+#[allow(clippy::too_many_arguments)]
+pub fn build_service_endpoints<D: Domain>(
+    service_name: &str,
+    commands: &[CommandRegistration<D>],
+    queries: &[QueryRegistration<D>],
+    io_queries: &[IoQueryRegistration],
+    extra_states: &[(String, String)],
+    events: &[EventRegistration<D>],
+    status: bool,
+    jobs: bool,
+    settings: bool,
+) -> Vec<EndpointInfo> {
+    let mut endpoints = Vec::new();
+    endpoints.push(endpoint(
+        ENDPOINT_KIND_QUERY,
+        "info",
+        &info_query_key(service_name),
+        "",
+        ServiceInfo::SCHEMA_NAME,
+    ));
+    if status {
+        endpoints.push(endpoint(
+            ENDPOINT_KIND_STATE,
+            "status",
+            &status_state_key(service_name),
+            "",
+            ServiceStatus::SCHEMA_NAME,
+        ));
+    }
+    if jobs {
+        endpoints.push(endpoint(
+            ENDPOINT_KIND_STATE,
+            "jobs",
+            &jobs_key(service_name),
+            "",
+            JobList::SCHEMA_NAME,
+        ));
+    }
+    if settings {
+        endpoints.push(endpoint(
+            ENDPOINT_KIND_STATE,
+            "settings",
+            &settings_key(service_name),
+            "",
+            SettingsEnvelope::SCHEMA_NAME,
+        ));
+        endpoints.push(endpoint(
+            ENDPOINT_KIND_COMMAND,
+            "UpdateSettings",
+            &command_key(service_name, "UpdateSettings"),
+            SettingsEnvelope::SCHEMA_NAME,
+            CommandAck::SCHEMA_NAME,
+        ));
+    }
+    endpoints.push(endpoint(
+        ENDPOINT_KIND_EVENT,
+        "log",
+        &log_key(service_name),
+        "",
+        FoxgloveLog::SCHEMA_NAME,
+    ));
+    for registration in commands {
+        if settings && registration.name == "UpdateSettings" {
+            continue;
+        }
+        endpoints.push(endpoint(
+            ENDPOINT_KIND_COMMAND,
+            &registration.name,
+            &registration.key,
+            &registration.request_schema,
+            CommandAck::SCHEMA_NAME,
+        ));
+    }
+    for registration in queries {
+        endpoints.push(endpoint(
+            ENDPOINT_KIND_QUERY,
+            &registration.name,
+            &query_key(service_name, &registration.name),
+            &registration.request_schema,
+            &registration.response_schema,
+        ));
+    }
+    for registration in io_queries {
+        endpoints.push(endpoint(
+            ENDPOINT_KIND_IO_QUERY,
+            &registration.name,
+            &query_key(service_name, &registration.name),
+            &registration.request_schema,
+            &registration.response_schema,
+        ));
+    }
+    for (name, schema) in extra_states {
+        endpoints.push(endpoint(
+            ENDPOINT_KIND_STATE,
+            name,
+            &blueos_api::state_key(service_name, name),
+            "",
+            schema,
+        ));
+    }
+    for registration in events {
+        endpoints.push(endpoint(
+            ENDPOINT_KIND_EVENT,
+            &registration.name,
+            &event_key(service_name, &registration.name),
+            "",
+            &registration.response_schema,
+        ));
+    }
+    endpoints
+}
+
+struct PersistJob<D: Domain> {
+    application: App<D>,
+    done: oneshot::Sender<Result<(), ServiceError>>,
+}
+
 enum InboxMessage<D: Domain> {
     Command {
         command: D::Command,
@@ -189,7 +337,7 @@ pub async fn run<D: Domain + 'static>(
     mut commands: Vec<CommandRegistration<D>>,
     queries: Vec<QueryRegistration<D>>,
     io_queries: Vec<IoQueryRegistration>,
-    extra_states: Vec<(String, StatePublish<D>)>,
+    extra_states: Vec<(String, String, StatePublish<D>)>,
     events: Vec<EventRegistration<D>>,
     status: Option<StatePublish<D>>,
     jobs: Option<StatePublish<D>>,
@@ -244,14 +392,16 @@ where
                 as CommandDecode<D>
         };
         commands.push(CommandRegistration {
+            name: "UpdateSettings".into(),
             key: command_key(&service_name, "UpdateSettings"),
+            request_schema: SettingsEnvelope::SCHEMA_NAME.into(),
             decode,
         });
     }
 
     let mut extra_handles = Vec::new();
     let mut extra_publishers = Vec::new();
-    for (name, publish) in extra_states {
+    for (name, _schema, publish) in extra_states {
         let handle = session
             .declare_state(&blueos_api::state_key(&service_name, &name))
             .await?;
