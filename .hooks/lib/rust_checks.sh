@@ -3,6 +3,7 @@
 : "${fixing:=false}"
 
 RUST_NO_STD_TARGET=thumbv7em-none-eabihf
+RUST_WASM32_TARGET=wasm32-unknown-unknown
 
 # Prints "<unit> <folder>" for a crate directory: "libs logic" for libs/logic/jobs, "calibration app" for
 # services/calibration/app, "multicall app" for core/app/blueos.
@@ -24,6 +25,10 @@ run_rust_checks() {
 
     if ! rustup target list --installed | grep -qx "$RUST_NO_STD_TARGET"; then
         printf 'Rust target not installed, run: rustup target add %s\n' "$RUST_NO_STD_TARGET" >&2
+        exit 1
+    fi
+    if ! rustup target list --installed | grep -qx "$RUST_WASM32_TARGET"; then
+        printf 'Rust target not installed, run: rustup target add %s\n' "$RUST_WASM32_TARGET" >&2
         exit 1
     fi
 
@@ -97,10 +102,12 @@ run_rust_checks() {
             exit 1
         fi
 
-        echo "Building logic crates for ${RUST_NO_STD_TARGET}.."
+        echo "Building logic crates for ${RUST_NO_STD_TARGET} and ${RUST_WASM32_TARGET}.."
         # A target without std rejects any dependency, direct or transitive, that can do I/O.
         if [ ${#package_args[@]} -gt 0 ]; then
-            cargo check --locked --target "$RUST_NO_STD_TARGET" "${package_args[@]}"
+            for no_std_target in "$RUST_NO_STD_TARGET" "$RUST_WASM32_TARGET"; do
+                cargo check --locked --target "$no_std_target" "${package_args[@]}"
+            done
         fi
         if [ ${#idl_package_args[@]} -gt 0 ]; then
             cargo check --locked --target "$RUST_NO_STD_TARGET" --no-default-features "${idl_package_args[@]}"
