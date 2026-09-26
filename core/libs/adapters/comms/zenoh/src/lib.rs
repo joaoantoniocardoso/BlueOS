@@ -90,6 +90,7 @@ impl CommsBackend for ZenohBackend {
             .with(FifoChannel::new(HANDLER_CAPACITY))
             .await
             .map_err(|error| CommsError::Zenoh(error.to_string()))?;
+        let declared_key = key_expression.to_string();
         tokio::spawn(async move {
             while let Ok(query) = queryable.recv_async().await {
                 let key = query.key_expr().as_str().to_string();
@@ -109,8 +110,9 @@ impl CommsBackend for ZenohBackend {
                     payload,
                     encoding,
                     attachment,
+                    // Wildcard queries must see the concrete key this queryable owns.
                     Box::new(ZenohQueryResponder {
-                        key,
+                        key: declared_key.clone(),
                         query: Mutex::new(Some(query)),
                     }),
                 );
@@ -368,5 +370,39 @@ mod tests {
             .expect("timeout")
             .expect("stream ended");
         assert_eq!(sample.payload.as_slice(), large.as_slice());
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[ignore = "needs a local zenohd router"]
+    async fn zenoh_wildcard_query_reply_uses_declared_key() {
+        let harness = test_support::open_test_router()
+            .await
+            .expect("open test router");
+        let mut queries = harness
+            .client
+            .declare_queryable("test/state/status")
+            .await
+            .expect("declare queryable");
+        tokio::spawn(async move {
+            while let Some(query) = queries.next().await {
+                let _ = query
+                    .reply(Payload::from_bytes(Bytes::from_static(b"ok")), "text/plain")
+                    .await;
+            }
+        });
+        let configuration = zenoh::Config::from_json5(&format!(
+            r#"{{ mode: "client", connect: {{ endpoints: ["{}"] }}, scouting: {{ multicast: {{ enabled: false }} }} }}"#,
+            harness.endpoint
+        ))
+        .expect("client config");
+        let client = zenoh::open(configuration).await.expect("client session");
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let replies = client.get("test/state/*").await.expect("get");
+        let reply = tokio::time::timeout(Duration::from_secs(5), replies.recv_async())
+            .await
+            .expect("timeout")
+            .expect("reply");
+        let sample = reply.into_result().expect("ok reply");
+        assert_eq!(sample.key_expr().as_str(), "test/state/status");
     }
 }
