@@ -206,6 +206,7 @@ async fn run_async(arguments: Vec<String>) -> Result<(), RecorderRunError> {
             version: env!("CARGO_PKG_VERSION").into(),
             build: String::new(),
             capabilities: Vec::new(),
+            endpoints: Vec::new(),
         })
         .verbosity(verbosity)
         .session(session)

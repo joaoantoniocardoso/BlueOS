@@ -31,6 +31,7 @@ async fn spawn_example_service() -> (
                 version: "0.0.0".into(),
                 build: String::new(),
                 capabilities: Vec::new(),
+                endpoints: Vec::new(),
             })
             .jobs(|application| {
                 let snapshot = application.jobs.snapshot();

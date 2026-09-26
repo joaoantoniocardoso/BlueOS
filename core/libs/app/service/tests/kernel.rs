@@ -227,6 +227,7 @@ async fn spawn_test_service(
             version: "0.1.0".into(),
             build: String::new(),
             capabilities: Vec::new(),
+            endpoints: Vec::new(),
         })
         .status(|application| ServiceStatus {
             status: service_status_constants::STATUS_READY,
@@ -479,6 +480,7 @@ async fn startup_command_is_dispatched_without_any_client() {
             version: "0.1.0".into(),
             build: String::new(),
             capabilities: Vec::new(),
+            endpoints: Vec::new(),
         })
         .state(
             "mirror",

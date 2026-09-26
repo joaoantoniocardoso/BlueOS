@@ -96,6 +96,7 @@
 //!             version: env!("CARGO_PKG_VERSION").into(),
 //!             build: String::new(),
 //!             capabilities: Vec::new(),
+//!             endpoints: Vec::new(),
 //!         })
 //!         .status(|application| {
 //!             let counter = application.snapshot.counter;

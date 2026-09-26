@@ -60,6 +60,7 @@ class ZenohSession(metaclass=Singleton):
             "version": version,
             "build": build,
             "capabilities": [],
+            "endpoints": [],
         }
         info_key = blueos_idl.info_query_key(service_name)
         info_payload = blueos_idl.encode("blueos_msgs/msg/ServiceInfo", service_info)

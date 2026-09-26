@@ -60,6 +60,7 @@ async fn run_async(cli: Cli) -> Result<(), String> {
         version: env!("CARGO_PKG_VERSION").into(),
         build: String::new(),
         capabilities: vec!["pump".into(), "self-test".into()],
+        endpoints: Vec::new(),
     };
     let mut builder = ServiceBuilder::<PumpDomain>::new(SERVICE_NAME)
         .app(application)
