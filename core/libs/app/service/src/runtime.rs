@@ -1034,16 +1034,12 @@ where
                             done: done_sender,
                         })
                         .await
-                        .map_err(|_| {
-                            ServiceError::Message("persist queue closed".into())
-                        })?;
+                        .map_err(|_| ServiceError::Message("persist queue closed".into()))?;
                     match done_receiver.await {
                         Ok(Ok(())) => {}
                         Ok(Err(error)) => return Err(error),
                         Err(_) => {
-                            return Err(ServiceError::Message(
-                                "persist worker dropped".into(),
-                            ));
+                            return Err(ServiceError::Message("persist worker dropped".into()));
                         }
                     }
                 }
