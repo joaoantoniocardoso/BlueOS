@@ -10,7 +10,7 @@ name = "blueos"
 path = "src/main.rs"
 
 [features]
-default = []
+default = ["recorder"]
 example = ["dep:blueos-example"]
 recorder = ["dep:blueos-recorder"]
 
