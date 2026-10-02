@@ -29,6 +29,7 @@ pub enum JobGraph<Step> {
 
 /// The Jobs of a Domain: every root Job that has not finished, and the last few that have.
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Jobs<Step> {
     next_id: JobId,
     latest_root: Option<JobId>,
@@ -83,6 +84,7 @@ pub enum JobKind<'jobs, Step> {
 
 /// Where a Job is in its life. The status of a Sequence or a Parallel follows from the Jobs in it.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum JobStatus {
     /// Waiting for an earlier Job of a Sequence.
     Queued,
@@ -90,6 +92,8 @@ pub enum JobStatus {
     Running,
     /// It was cancelled while a step was running, and that step has not reported how it ended yet.
     Cancelling,
+    /// Its step was running when the Service restarted; the Domain decides what to do next.
+    Interrupted,
     /// It has ended and never changes again.
     Finished(JobEnd),
 }
@@ -97,6 +101,7 @@ pub enum JobStatus {
 /// How a finished Job ended. A Sequence or a Parallel failed when any Job in it failed, else was cancelled when any
 /// was cancelled, else succeeded.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum JobEnd {
     /// It did all its work.
     Succeeded,
@@ -122,6 +127,7 @@ pub enum JobsError {
 
 /// Identifies a Job. Ids start at 1 and are never reused, so 0 means "no Job" on the wire.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct JobId(NonZeroU64);
 
 /// A Domain whose Commands start Jobs. It keeps its [`Jobs`] in its Snapshot, and the Kernel publishes them as the
@@ -133,15 +139,20 @@ pub trait DomainJobs: Domain {
 
     /// The Jobs in the Snapshot.
     fn jobs(snapshot: &Self::Snapshot) -> &Jobs<Self::Step>;
+
+    /// The Jobs in the Snapshot, for restore after a restart.
+    fn jobs_mut(snapshot: &mut Self::Snapshot) -> &mut Jobs<Self::Step>;
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 struct Node<Step> {
     job_id: JobId,
     work: Work<Step>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 enum Work<Step> {
     Leaf { step: Step, status: JobStatus },
     Sequence(Vec<Node<Step>>),
@@ -168,12 +179,12 @@ impl<Step: Clone> Jobs<Step> {
         Started { job_id, leaves }
     }
 
-    /// Records how a running or cancelling leaf ended and returns the leaves that this starts.
+    /// Records how a running, cancelling, or interrupted leaf ended and returns the leaves that this starts.
     ///
     /// # Errors
     ///
     /// [`JobsError::Unknown`] when no Job has this id, and [`JobsError::NotRunning`] when the Job is not a leaf
-    /// that is running or cancelling.
+    /// that is running, cancelling, or interrupted.
     pub fn finish(&mut self, job_id: JobId, end: JobEnd) -> Result<Vec<LeafJob<Step>>, JobsError> {
         let Some(index) = self
             .live
@@ -188,7 +199,8 @@ impl<Step: Clone> Jobs<Step> {
         let root = &mut self.live[index];
         match root.find_mut(job_id).map(|job| &mut job.work) {
             Some(Work::Leaf {
-                status: status @ (JobStatus::Running | JobStatus::Cancelling),
+                status:
+                    status @ (JobStatus::Running | JobStatus::Cancelling | JobStatus::Interrupted),
                 ..
             }) => *status = JobStatus::Finished(end),
             _ => return Err(JobsError::NotRunning(job_id)),
@@ -197,6 +209,39 @@ impl<Step: Clone> Jobs<Step> {
         root.run(&mut leaves);
         self.settle(index);
         Ok(leaves)
+    }
+
+    /// Turns an interrupted leaf back into a running one and returns it for the Domain to run again.
+    ///
+    /// # Errors
+    ///
+    /// [`JobsError::Unknown`] when no Job has this id, and [`JobsError::NotRunning`] when the Job is not an
+    /// interrupted leaf.
+    pub fn retry(&mut self, job_id: JobId) -> Result<LeafJob<Step>, JobsError> {
+        let Some(index) = self
+            .live
+            .iter()
+            .position(|root| root.find(job_id).is_some())
+        else {
+            return Err(match self.status(job_id) {
+                Some(_) => JobsError::NotRunning(job_id),
+                None => JobsError::Unknown(job_id),
+            });
+        };
+        let root = &mut self.live[index];
+        match root.find_mut(job_id).map(|job| &mut job.work) {
+            Some(Work::Leaf {
+                status: status @ JobStatus::Interrupted,
+                step,
+            }) => {
+                *status = JobStatus::Running;
+                Ok(LeafJob {
+                    job_id,
+                    step: step.clone(),
+                })
+            }
+            _ => Err(JobsError::NotRunning(job_id)),
+        }
     }
 
     /// Cancels a Job and every Job in it. A queued leaf is cancelled at once; a running leaf becomes Cancelling
@@ -265,6 +310,13 @@ impl<Step> Jobs<Step> {
             .map(Node::status)
     }
 
+    /// Marks every running or cancelling leaf Interrupted, for restore after a restart (D-28).
+    pub fn interrupt_running_leaves(&mut self) {
+        for root in &mut self.live {
+            root.interrupt_running_leaves();
+        }
+    }
+
     /// Every Job, as the Kernel publishes them in the `jobs` State: the root Jobs that have not finished in the
     /// order they started, then the finished ones in the order they finished, each followed by the Jobs in it.
     pub fn list(&self) -> Vec<JobView<'_, Step>> {
@@ -323,6 +375,8 @@ impl<Step> Node<Step> {
             JobStatus::Finished(end)
         } else if statuses.contains(&JobStatus::Cancelling) {
             JobStatus::Cancelling
+        } else if statuses.contains(&JobStatus::Interrupted) {
+            JobStatus::Interrupted
         } else if statuses.iter().all(|status| *status == JobStatus::Queued) {
             JobStatus::Queued
         } else {
@@ -372,6 +426,21 @@ impl<Step> Node<Step> {
             child.view(Some(self.job_id), views);
         }
     }
+
+    fn interrupt_running_leaves(&mut self) {
+        match &mut self.work {
+            Work::Leaf { status, .. } => {
+                if matches!(*status, JobStatus::Running | JobStatus::Cancelling) {
+                    *status = JobStatus::Interrupted;
+                }
+            }
+            Work::Sequence(children) | Work::Parallel(children) => {
+                for child in children {
+                    child.interrupt_running_leaves();
+                }
+            }
+        }
+    }
 }
 
 impl<Step: Clone> Node<Step> {
@@ -403,7 +472,10 @@ impl<Step: Clone> Node<Step> {
                             rest.for_each(|later| later.cancel(&mut Vec::new()));
                             break;
                         }
-                        JobStatus::Queued | JobStatus::Running | JobStatus::Cancelling => break,
+                        JobStatus::Queued
+                        | JobStatus::Running
+                        | JobStatus::Cancelling
+                        | JobStatus::Interrupted => break,
                     }
                 }
             }
@@ -422,7 +494,7 @@ impl<Step: Clone> Node<Step> {
                         step: step.clone(),
                     });
                 }
-                JobStatus::Cancelling | JobStatus::Finished(_) => {}
+                JobStatus::Cancelling | JobStatus::Interrupted | JobStatus::Finished(_) => {}
             },
             Work::Sequence(children) | Work::Parallel(children) => {
                 for child in children {

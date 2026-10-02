@@ -331,6 +331,37 @@ fn the_list_shows_each_root_job_followed_by_the_jobs_in_it() {
 }
 
 #[test]
+fn an_interrupted_leaf_can_finish_as_failed_or_cancelled() {
+    let mut jobs = Jobs::default();
+    let started = jobs.start(JobGraph::Leaf(Step::Fill));
+    let leaf_id = started.leaves[0].job_id;
+    jobs.interrupt_running_leaves();
+    assert_eq!(jobs.status(leaf_id), Some(JobStatus::Interrupted));
+
+    let nothing = jobs
+        .finish(leaf_id, JobEnd::Failed)
+        .expect("Interrupted is finishable");
+    assert!(nothing.is_empty());
+    assert_eq!(
+        jobs.status(started.job_id),
+        Some(JobStatus::Finished(JobEnd::Failed))
+    );
+}
+
+#[test]
+fn retry_turns_an_interrupted_leaf_back_into_a_running_leaf_job() {
+    let mut jobs = Jobs::default();
+    let started = jobs.start(JobGraph::Leaf(Step::Heat));
+    let leaf_id = started.leaves[0].job_id;
+    jobs.interrupt_running_leaves();
+
+    let leaf = jobs.retry(leaf_id).expect("Heat is interrupted");
+    assert_eq!(leaf.job_id, leaf_id);
+    assert_eq!(leaf.step, Step::Heat);
+    assert_eq!(jobs.status(leaf_id), Some(JobStatus::Running));
+}
+
+#[test]
 fn the_latest_root_job_is_the_one_started_last_even_once_dropped() {
     let mut jobs = Jobs::with_retention(0);
     assert_eq!(jobs.latest_root(), None);
