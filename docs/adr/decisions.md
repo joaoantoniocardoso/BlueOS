@@ -170,17 +170,21 @@ returns Effects. The Kernel (D-04) performs the waiting.
 Shape of the logic:
 
 - A **Domain** is what the Kernel runs. A **Block** is a reusable sans-IO reducer that a Domain composes; it does
-  not implement the `Domain` trait. Both return an `Outcome<Event, Command, IoRequest>` (domain events, Effects, or
-  a rejection); the Domain's own Outcome is its `Decision`. `Outcome::map` lifts a Block's Outcome into the
-  Domain's types, so composing a Block needs no fake Domain and no hand-written mapping functions.
-- The `Domain` trait is split: `Domain` (Snapshot, Command, Event, IoRequest, timer key, `handle`), plus
-  separate traits for Domains that have queries and for Domains that have jobs. A Domain without one of them
-  does not mention it. Associated type defaults are unstable Rust, so the split is the only way. A Domain or Block
-  with no IO requests, no domain events or no timers sets that associated type to an uninhabited type
-  (`core::convert::Infallible` or an empty enum), never a placeholder.
-- A Command enum is grouped by origin: **Request** (from a Command endpoint), **IO result**, **Tick**, and
-  **Observed fact** (from a Task). Only Requests can come from outside the process (D-26), so a client can never
-  forge an IO result or an observed fact. The grouping is also what documents the enum.
+  not implement the `Domain` trait. Both return an `Outcome<Event, Tick, IoRequest, TimerKey>` (domain events and
+  Effects, or a rejection with a typed reason); the Domain's own Outcome is its `Decision`. The only Command an
+  Outcome carries is the Tick of a `Schedule` Effect. `Outcome::map` lifts a Block's Outcome into the Domain's types
+  with the Domain's enum constructors, so composing a Block needs no fake Domain and no hand-written mapping
+  functions.
+- The `Domain` trait is split: `Domain` (Snapshot, one type per Command origin, Event, IoRequest, timer key,
+  `handle`), plus `DomainQueries` and `DomainJobs`. A Domain without queries or jobs does not mention them.
+  Associated type defaults are unstable Rust, so the split is the only way. A Domain or Block with no IO requests,
+  no domain events, no timers or no Commands of one origin sets that type to an uninhabited type
+  (`core::convert::Infallible` or an empty enum), never a placeholder; a `match` then needs no arm for it.
+- A Command is grouped by origin: **Request** (from a Command endpoint), **IO result**, **Tick**, and
+  **Observed fact** (from a Task). The Domain declares one type per origin and `handle` receives
+  `Command<Request, IoResult, Tick, ObservedFact>`, so the grouping is checked by the compiler: wire code can build
+  only a Request (D-26), a timer delivers only a Tick, and an IO executor returns only an IO result. A client can
+  never forge an IO result or an observed fact. The grouping is also what documents the Commands.
 - A Command that is invalid for the current Snapshot is rejected, never accepted and ignored.
 - Domain state that must stay consistent is one enum, not several fields that can disagree: an enum for state
   that is stored, type-state for builders and resource handles (D-30).

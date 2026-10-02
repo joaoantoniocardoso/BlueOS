@@ -1,0 +1,13 @@
+# Spell check for the Rust workspace (D-30). Legacy Python and frontend paths are out of scope until migrated.
+
+[files]
+extend-exclude = [
+    "core/frontend/**",
+    "core/services/**",
+    "core/libs/commonwealth/**",
+    "core/tools/**",
+    "core/uv.lock",
+    "deploy/**",
+    "bootstrap/**",
+    "docs/architecture/draft-1/**",
+]

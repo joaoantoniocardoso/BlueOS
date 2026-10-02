@@ -1,0 +1,4 @@
+# Per-layer line coverage floors (percent). Never decrease these values (D-30).
+[lines]
+workspace = 100
+libs_logic = 100

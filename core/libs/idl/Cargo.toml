@@ -1,0 +1,32 @@
+[package]
+name = "blueos-idl"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "BlueOS ROS 2 message definitions with CDR codec and embedded schemas"
+readme = "README.md"
+repository = "https://github.com/bluerobotics/BlueOS"
+publish = true
+include = [
+    "/Cargo.toml",
+    "/README.md",
+    "/api.lock",
+    "/src/**/*",
+    "/interfaces/**/*.msg",
+    "/interfaces/**/package.xml",
+    "/tests/vectors/cdr.json",
+]
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { version = "1", default-features = false, features = ["alloc", "derive"] }
+serde_arrays = { version = "0.2", default-features = false }
+
+[dev-dependencies]
+blueos-idl-codegen = { path = "codegen" }
+serde_json = "1"
+
+[package.metadata.cargo-machete]
+ignored = ["serde_arrays"]

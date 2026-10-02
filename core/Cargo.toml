@@ -1,6 +1,12 @@
 [workspace]
 resolver = "2"
-members = ["libs/adapters/comms", "libs/logic/smoke"]
+members = [
+    "libs/adapters/comms",
+    "libs/logic/domain",
+    "libs/idl",
+    "libs/idl/codegen",
+    "libs/tools/rust-style-check",
+]
 
 [workspace.package]
 version = "0.1.0"
@@ -21,11 +27,22 @@ strip = true
 
 [workspace.dependencies]
 blueos-comms = { path = "libs/adapters/comms" }
-blueos-smoke = { path = "libs/logic/smoke" }
+blueos-domain = { path = "libs/logic/domain" }
+blueos-idl = { path = "libs/idl" }
+blueos-idl-codegen = { path = "libs/idl/codegen" }
+blueos-rust-style-check = { path = "libs/tools/rust-style-check" }
 bytes = { version = "1.12", default-features = false }
+convert_case = "0.8"
 futures-util = { version = "0.3.32", default-features = false }
+prettyplease = "0.2"
+proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
+quote = "1"
+roslibrust_codegen = { version = "0.26.0", default-features = false }
+sha2 = "0.10"
+syn = { version = "2", default-features = false, features = ["full", "parsing", "printing", "clone-impls", "visit"] }
 thiserror = { version = "2.0.18", default-features = false }
 tokio = { version = "1.53", default-features = false }
+walkdir = { version = "2", default-features = false }
 zenoh-keyexpr = { version = "=1.9.0", default-features = false }
 
 [workspace.lints.rust]
