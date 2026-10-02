@@ -49,7 +49,7 @@ assert_style_drift() {
 
 test_crate_place() {
     local unit folder
-    read -r unit folder <<<"$(crate_place "$ROOT_DIR/core/libs/logic/smoke")"
+    read -r unit folder <<<"$(crate_place "$ROOT_DIR/core/libs/logic/domain")"
     [ "$unit" = libs ] && [ "$folder" = logic ] || fail "crate_place for libs/logic"
 
     read -r unit folder <<<"$(crate_place "$ROOT_DIR/core/services/recorder/adapters/mcap")"
@@ -111,14 +111,14 @@ test_workspace_metadata_is_clean() {
     local workspace_dir="$ROOT_DIR/core"
     local metadata
     metadata=$(cargo metadata --format-version 1 --no-deps --locked --manifest-path "$workspace_dir/Cargo.toml")
-    assert_clean_metadata "smoke workspace" "$metadata"
+    assert_clean_metadata "workspace" "$metadata"
 }
 
 test_fmt_check_fails_on_unformatted_source() {
     local temporary
     temporary=$(mktemp -d)
     cp -a "$ROOT_DIR/core/." "$temporary/"
-    printf '\n\npub const UNFORMATTED:()=();\n' >>"$temporary/libs/logic/smoke/src/lib.rs"
+    printf '\n\npub const UNFORMATTED:()=();\n' >>"$temporary/libs/logic/domain/src/lib.rs"
     if (
         cd "$temporary"
         cargo fmt --all --check >/dev/null 2>&1
@@ -132,10 +132,10 @@ test_clippy_fails_on_allow_attributes() {
     local temporary
     temporary=$(mktemp -d)
     cp -a "$ROOT_DIR/core/." "$temporary/"
-    cat >>"$temporary/libs/logic/smoke/src/lib.rs" <<'EOF'
+    cat >>"$temporary/libs/logic/domain/src/lib.rs" <<'EOF'
 
 #[allow(dead_code)]
-const PLANTED: u8 = 0;
+fn planted() {}
 EOF
     if (
         cd "$temporary"
@@ -150,8 +150,8 @@ test_no_std_build_fails_on_io_dependency() {
     local temporary
     temporary=$(mktemp -d)
     cp -a "$ROOT_DIR/core/." "$temporary/"
-    sed -i '/blueos-smoke = /a socket2 = "0.5"' "$temporary/Cargo.toml"
-    cat >>"$temporary/libs/logic/smoke/Cargo.toml" <<'EOF'
+    sed -i '/blueos-domain = /a socket2 = "0.5"' "$temporary/Cargo.toml"
+    cat >>"$temporary/libs/logic/domain/Cargo.toml" <<'EOF'
 
 [dependencies]
 socket2.workspace = true
@@ -159,7 +159,7 @@ EOF
     cargo generate-lockfile --manifest-path "$temporary/Cargo.toml" >/dev/null
     if (
         cd "$temporary"
-        cargo check --locked --target "$RUST_NO_STD_TARGET" -p blueos-smoke 2>/dev/null
+        cargo check --locked --target "$RUST_NO_STD_TARGET" -p blueos-domain 2>/dev/null
     ); then
         fail "thumbv7em build should fail when logic depends on socket2"
     fi
@@ -170,8 +170,8 @@ test_machete_fails_on_unused_dependency() {
     local temporary
     temporary=$(mktemp -d)
     cp -a "$ROOT_DIR/core/." "$temporary/"
-    sed -i '/blueos-smoke = /a libc = "0.2"' "$temporary/Cargo.toml"
-    cat >>"$temporary/libs/logic/smoke/Cargo.toml" <<'EOF'
+    sed -i '/blueos-domain = /a libc = "0.2"' "$temporary/Cargo.toml"
+    cat >>"$temporary/libs/logic/domain/Cargo.toml" <<'EOF'
 
 [dependencies]
 libc.workspace = true
@@ -189,7 +189,7 @@ EOF
 test_typos_fails_on_misspelling() {
     local temporary
     temporary=$(mktemp -d)
-    cp -a "$ROOT_DIR/core/libs/logic/smoke/." "$temporary/"
+    cp -a "$ROOT_DIR/core/libs/logic/domain/." "$temporary/"
     printf '\nconst PLANTED_TYPO: &str = "teh";\n' >>"$temporary/src/lib.rs"
     if typos --config "$ROOT_DIR/typos.toml" "$temporary" >/dev/null 2>&1; then
         fail "typos should reject a misspelling"
@@ -206,16 +206,14 @@ test_nextest_fails_on_hanging_test() {
 [profile.default]
 slow-timeout = { period = "2s", terminate-after = 1 }
 EOF
-    cat >>"$temporary/libs/logic/smoke/src/lib.rs" <<'EOF'
+    cat >"$temporary/libs/logic/domain/tests/hanging.rs" <<'EOF'
+//! Planted test that never finishes.
 
-#[cfg(test)]
-mod hanging {
-    use core::time::Duration;
+use core::time::Duration;
 
-    #[test]
-    fn sleeps_forever() {
-        std::thread::sleep(Duration::from_secs(30));
-    }
+#[test]
+fn sleeps_forever() {
+    std::thread::sleep(Duration::from_secs(30));
 }
 EOF
     if (
@@ -287,8 +285,8 @@ test_deny_bans_direct_zenoh() {
     local temporary
     temporary=$(mktemp -d)
     cp -a "$ROOT_DIR/core/." "$temporary/"
-    sed -i '/blueos-smoke = /a zenoh = { version = "=1.9.0", default-features = false }' "$temporary/Cargo.toml"
-    cat >>"$temporary/libs/logic/smoke/Cargo.toml" <<'EOF'
+    sed -i '/blueos-domain = /a zenoh = { version = "=1.9.0", default-features = false }' "$temporary/Cargo.toml"
+    cat >>"$temporary/libs/logic/domain/Cargo.toml" <<'EOF'
 
 [dependencies]
 zenoh.workspace = true
