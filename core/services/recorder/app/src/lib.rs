@@ -9,6 +9,8 @@ mod cli;
 mod context;
 mod data_plane;
 pub mod endpoints;
+mod handlers;
+mod library_io;
 mod service;
 mod settings;
 

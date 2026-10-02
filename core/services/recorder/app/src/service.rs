@@ -1,6 +1,9 @@
 //! The Recorder Service wiring.
 
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 use blueos_recorder_domain::{RecorderDomain, RecorderRequest, RecorderSnapshot};
 use blueos_recorder_storage::RecordingsFolder;
@@ -8,7 +11,7 @@ use blueos_service::{RestartPolicy, Service, ServiceBuilder, ServiceContext, Ser
 
 use crate::{
     cli::RecorderArguments, context::RecorderContext, data_plane::run_data_plane, endpoints,
-    settings::RecorderSettings,
+    handlers::RecorderHandlers, library_io::run_library_io, settings::RecorderSettings,
 };
 
 /// The Recorder Service.
@@ -37,10 +40,16 @@ impl Service for RecorderService {
                 .context(RecorderContext {
                     record_gate,
                     recordings_folder,
+                    library_footer_cache: Arc::new(Mutex::new(
+                        blueos_recorder_storage::LibraryFooterCache::default(),
+                    )),
                     mcap_writer_queue_capacity: context
                         .arguments()
                         .mcap_writer_queue_capacity
                         .unwrap_or(4096),
+                })
+                .blocking_io(|context: &RecorderContext, snapshot, request| {
+                    run_library_io(context, snapshot, request)
                 })
                 .settings(
                     Self::NAME,
@@ -65,6 +74,7 @@ impl Service for RecorderService {
                     RestartPolicy::Always,
                     |task_context| async move { run_data_plane(task_context).await },
                 ),
+            RecorderHandlers,
         )
         .service_metadata(Self::VERSION, Self::BUILD, Self::CAPABILITIES))
     }
