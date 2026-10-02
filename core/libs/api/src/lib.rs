@@ -44,14 +44,14 @@ pub fn command_key(service: &str, name: &str) -> String {
     format!("{KEY_PREFIX}/{service}/command/{name}")
 }
 
-/// State sample key (`blueos/v1/<service>/state/<name>`).
-pub fn state_key(service: &str, name: &str) -> String {
-    format!("{KEY_PREFIX}/{service}/state/{name}")
-}
-
 /// Standard service status state (`blueos/v1/<service>/state/status`).
 pub fn status_state_key(service: &str) -> String {
     state_key(service, "status")
+}
+
+/// State sample key (`blueos/v1/<service>/state/<name>`).
+pub fn state_key(service: &str, name: &str) -> String {
+    format!("{KEY_PREFIX}/{service}/state/{name}")
 }
 
 /// Event sample key (`blueos/v1/<service>/event/<name>`).
@@ -59,14 +59,14 @@ pub fn event_key(service: &str, name: &str) -> String {
     format!("{KEY_PREFIX}/{service}/event/{name}")
 }
 
-/// Ad-hoc query queryable (`blueos/v1/<service>/query/<name>`).
-pub fn query_key(service: &str, name: &str) -> String {
-    format!("{KEY_PREFIX}/{service}/query/{name}")
-}
-
 /// Standard service info query (`blueos/v1/<service>/query/info`).
 pub fn info_query_key(service: &str) -> String {
     query_key(service, "info")
+}
+
+/// Ad-hoc query queryable (`blueos/v1/<service>/query/<name>`).
+pub fn query_key(service: &str, name: &str) -> String {
+    format!("{KEY_PREFIX}/{service}/query/{name}")
 }
 
 /// Jobs projection stream (`blueos/v1/<service>/jobs`).
