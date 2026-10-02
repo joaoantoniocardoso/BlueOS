@@ -782,3 +782,53 @@ async fn shutdown_abandons_in_flight_io_after_five_seconds() {
     );
     assert_eq!(outcome.expect("join"), RunOutcome::Stopped);
 }
+
+#[tokio::test(start_paused = true)]
+async fn shutdown_waits_for_in_flight_blocking_io_before_returning() {
+    let (started_sender, started_receiver) = mpsc::sync_channel(0);
+    let (release_sender, release_receiver) = mpsc::channel();
+    let (io_applied_sender, io_applied_receiver) = mpsc::sync_channel(0);
+    let latch = Arc::new(BlockingHoldLatch {
+        started: started_sender,
+        release: Mutex::new(release_receiver),
+        io_applied: io_applied_sender,
+    });
+    let (backend, shutdown, run) = start_effects_kernel_with_shutdown(EffectsArguments {
+        blocking_hold: Some(Arc::clone(&latch)),
+        ..EffectsArguments::default()
+    })
+    .await;
+    let command = tokio::spawn(async move {
+        let body = blueos_comms::QueryBody::new(
+            EmptyRequest::default().encode().unwrap(),
+            cdr_encoding(EmptyRequest::SCHEMA_NAME),
+        );
+        backend
+            .get(
+                &command_key(EffectsService::NAME, "RunBlockingHold"),
+                Some(body),
+                Duration::from_secs(10),
+            )
+            .await
+            .unwrap();
+    });
+    tokio::task::spawn_blocking(move || started_receiver.recv())
+        .await
+        .expect("join")
+        .expect("blocking IO starts");
+    shutdown.trigger();
+    advance(Duration::from_millis(1)).await;
+    release_sender
+        .send(())
+        .expect("the test releases blocking IO");
+    tokio::task::spawn_blocking(move || io_applied_receiver.recv())
+        .await
+        .expect("join")
+        .expect("IO result reaches the Domain");
+    command.await.expect("RunBlockingHold finishes");
+    let outcome = timeout(Duration::from_secs(1), run)
+        .await
+        .expect("shutdown finishes without waiting the full drain budget")
+        .expect("join");
+    assert_eq!(outcome, RunOutcome::Stopped);
+}
