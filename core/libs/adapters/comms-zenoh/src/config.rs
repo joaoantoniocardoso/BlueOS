@@ -14,15 +14,6 @@ pub struct ZenohConnectOptions<'a> {
     pub zenoh_sets: &'a [String],
 }
 
-/// Builds a client-only session configuration that connects to `endpoint` (for example `tcp/127.0.0.1:7447`).
-pub(crate) fn client_config(endpoint: &str) -> Result<zenoh::Config, CommsError> {
-    client_config_from_options(&ZenohConnectOptions {
-        endpoint,
-        config_file: None,
-        zenoh_sets: &[],
-    })
-}
-
 /// Builds a client configuration from [`ZenohConnectOptions`].
 pub fn client_config_from_options(
     options: &ZenohConnectOptions<'_>,

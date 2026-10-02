@@ -4,7 +4,11 @@ mod effects;
 pub(crate) mod io;
 mod timers;
 
-use core::{error::Error, panic::AssertUnwindSafe};
+use core::{error::Error, panic::AssertUnwindSafe, time::Duration};
+use core::{
+    future::pending,
+    sync::atomic::{AtomicBool, Ordering},
+};
 use std::{
     panic,
     sync::{Arc, Mutex},
@@ -20,7 +24,7 @@ use tracing::{error, warn};
 
 use blueos_api::{
     CommandAck, JOB_ID_NONE, Message, cdr_encoding, command_key, event_key, info_query_key,
-    jobs_key, query_key, settings_key, state_key, status_state_key,
+    jobs_key, query_key, service_liveliness_key, settings_key, state_key, status_state_key,
 };
 use blueos_comms::{CommsBackend, CommsError, Query, Queryable, Sample};
 use blueos_domain::{Command, Domain, Effect, Now, Outcome};
@@ -37,8 +41,10 @@ use crate::{
         AnswerQuery, Decode, EventEndpoint, LatestRoot, Refusal, Respond, ServiceBuilder,
         StateEndpoint,
     },
+    run_outcome::RunOutcome,
     service::ServiceError,
     settings::{SettingsDriver, settings_encoding},
+    shutdown::{IoInflight, SHUTDOWN_IO_DRAIN_TIMEOUT, wait_for_shutdown_signal},
 };
 
 use effects::{apply_sync_effects, io_requests};
@@ -80,6 +86,11 @@ pub struct Kernel<D: Domain, Context = ()> {
     #[cfg(feature = "testing")]
     effect_log: Option<EffectLogStorage<D>>,
     endpoints: JoinSet<()>,
+    shutdown_request: tokio::sync::Mutex<Option<D::Request>>,
+    shutdown_receiver: Option<watch::Receiver<bool>>,
+    io_inflight: IoInflight,
+    shutting_down: bool,
+    liveliness_task: Option<tokio::task::JoinHandle<()>>,
 }
 
 /// One Command in the Inbox, with an optional query to acknowledge once it is handled.
@@ -121,6 +132,9 @@ pub(crate) enum Rejection {
     /// `handle` or a Projection panicked.
     #[error("the Command panicked, so nothing changed")]
     Panicked,
+    /// A client Command arrived after shutdown started.
+    #[error("the service is shutting down")]
+    ShuttingDown,
     /// The body is not the Command endpoint's Message.
     #[error("the Request does not decode: {0}")]
     InvalidBody(IdlError),
@@ -200,9 +214,11 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         clock: Arc<dyn Clock>,
         #[cfg(feature = "testing")] effect_log: Option<EffectLogStorage<D>>,
     ) -> Result<Self, ServiceError> {
+        let startup_commands = builder.startup_commands;
+        let shutdown_request = tokio::sync::Mutex::new(builder.shutdown_request);
+        let shutdown_receiver = builder.shutdown_receiver;
         let (inbox_sender, inbox) = mpsc::channel(INBOX_CAPACITY);
         let snapshot_for_queries = Arc::new(tokio::sync::RwLock::new(builder.snapshot.clone()));
-        let mut endpoints = JoinSet::new();
         let service_info = ServiceInfo {
             name: service.to_owned(),
             version: builder.metadata.version.to_owned(),
@@ -234,22 +250,11 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 .map_err(|error| ServiceError::Build(Box::new(error)))?,
         );
         let info_queryable = declare(&*backend, info_key.clone()).await?;
-        endpoints.spawn(serve_fixed_reply(
-            info_queryable,
-            info_key,
-            info_payload,
-            info_encoding,
-        ));
         let status_key = status_state_key(service);
         let status_encoding = cdr_encoding(ServiceStatus::SCHEMA_NAME);
         let status_latest = watch::Sender::new(None);
         let status_queryable = declare(&*backend, status_key.clone()).await?;
-        endpoints.spawn(serve_state(
-            status_queryable,
-            status_key.clone(),
-            status_encoding.clone(),
-            status_latest.subscribe(),
-        ));
+        let mut pending_settings_serve = None;
         let mut settings = None;
         if let Some(registration) = builder.settings {
             let mut driver = (registration.start)()?;
@@ -259,18 +264,14 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             let queryable = declare(&*backend, key.clone()).await?;
             let encoding = settings_encoding();
             let latest = watch::Sender::new(None);
-            endpoints.spawn(serve_settings(
+            let update_key = command_key(service, "UpdateSettings");
+            let update_queryable = declare(&*backend, update_key).await?;
+            pending_settings_serve = Some((
                 queryable,
+                update_queryable,
                 key.clone(),
                 encoding.clone(),
                 latest.subscribe(),
-            ));
-            let update_key = command_key(service, "UpdateSettings");
-            let update_queryable = declare(&*backend, update_key).await?;
-            endpoints.spawn(serve_update_settings(
-                update_queryable,
-                Arc::clone(&driver),
-                mpsc::Sender::clone(&inbox_sender),
             ));
             settings = Some(SettingsEndpoint {
                 key,
@@ -279,13 +280,10 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 latest,
             });
         }
+        let mut pending_commands = Vec::new();
         for command in builder.commands {
             let queryable = declare(&*backend, command_key(service, &command.name)).await?;
-            endpoints.spawn(serve_command(
-                queryable,
-                command.decode,
-                mpsc::Sender::clone(&inbox_sender),
-            ));
+            pending_commands.push((queryable, command.decode));
         }
         let latest_root = builder.jobs.as_ref().map(|jobs| jobs.latest_root);
         let state_endpoints = builder
@@ -294,10 +292,11 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             .map(|endpoint| (state_key(service, &endpoint.name), endpoint))
             .chain(builder.jobs.map(|jobs| (jobs_key(service), jobs.state)));
         let mut states = Vec::new();
+        let mut pending_states = Vec::new();
         for (key, endpoint) in state_endpoints {
             let queryable = declare(&*backend, key.clone()).await?;
             let latest = watch::Sender::new(None);
-            endpoints.spawn(serve_state(
+            pending_states.push((
                 queryable,
                 key.clone(),
                 endpoint.encoding.clone(),
@@ -309,24 +308,17 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 latest,
             });
         }
+        let mut pending_queries = Vec::new();
         for (name, answer) in builder.queries {
             let queryable = declare(&*backend, query_key(service, &name)).await?;
-            endpoints.spawn(serve_query::<D>(
-                queryable,
-                answer,
-                Arc::clone(&snapshot_for_queries),
-                Arc::clone(&clock),
-            ));
+            pending_queries.push((queryable, answer));
         }
+        let mut pending_io_queries = Vec::new();
         for endpoint in builder.io_queries {
             let queryable = declare(&*backend, query_key(service, &endpoint.name)).await?;
-            endpoints.spawn(serve_io_query(
-                queryable,
-                endpoint.respond,
-                endpoint.encoding,
-            ));
+            pending_io_queries.push((queryable, endpoint.respond, endpoint.encoding));
         }
-        let kernel = Self {
+        let mut kernel = Self {
             service,
             snapshot: builder.snapshot,
             inbox,
@@ -343,8 +335,22 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             snapshot_for_queries,
             #[cfg(feature = "testing")]
             effect_log,
-            endpoints,
+            endpoints: JoinSet::new(),
+            shutdown_request,
+            shutdown_receiver,
+            io_inflight: IoInflight::new(),
+            shutting_down: false,
+            liveliness_task: None,
         };
+        for command in startup_commands {
+            kernel
+                .dispatch(Delivery {
+                    command,
+                    reply: None,
+                    persist_settings: false,
+                })
+                .await;
+        }
         let initial_states = kernel
             .states
             .iter()
@@ -359,16 +365,174 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             &status_latest,
         )
         .await;
+        kernel.endpoints.spawn(serve_fixed_reply(
+            info_queryable,
+            info_key,
+            info_payload,
+            info_encoding,
+        ));
+        kernel.endpoints.spawn(serve_state(
+            status_queryable,
+            status_key,
+            status_encoding,
+            status_latest.subscribe(),
+        ));
+        if let Some((queryable, update_queryable, key, encoding, latest)) = pending_settings_serve {
+            let driver = Arc::clone(
+                &kernel
+                    .settings
+                    .as_ref()
+                    .expect("settings exist when their queryables were declared")
+                    .driver,
+            );
+            kernel
+                .endpoints
+                .spawn(serve_settings(queryable, key, encoding, latest));
+            kernel.endpoints.spawn(serve_update_settings(
+                update_queryable,
+                driver,
+                mpsc::Sender::clone(
+                    kernel
+                        .inbox_sender
+                        .as_ref()
+                        .expect("the inbox sender exists during startup"),
+                ),
+            ));
+        }
+        for (queryable, decode) in pending_commands {
+            kernel.endpoints.spawn(serve_command(
+                queryable,
+                decode,
+                mpsc::Sender::clone(
+                    kernel
+                        .inbox_sender
+                        .as_ref()
+                        .expect("the inbox sender exists during startup"),
+                ),
+            ));
+        }
+        for (queryable, key, encoding, latest) in pending_states {
+            kernel
+                .endpoints
+                .spawn(serve_state(queryable, key, encoding, latest));
+        }
+        for (queryable, answer) in pending_queries {
+            kernel.endpoints.spawn(serve_query::<D>(
+                queryable,
+                answer,
+                Arc::clone(&kernel.snapshot_for_queries),
+                Arc::clone(&kernel.clock),
+            ));
+        }
+        for (queryable, respond, encoding) in pending_io_queries {
+            kernel
+                .endpoints
+                .spawn(serve_io_query(queryable, respond, encoding));
+        }
+        let liveliness_key = service_liveliness_key(service);
+        let liveliness = kernel
+            .backend
+            .declare_liveliness(&liveliness_key)
+            .await
+            .map_err(|source| ServiceError::DeclareEndpoint {
+                key: liveliness_key,
+                source,
+            })?;
+        kernel.liveliness_task = Some(tokio::spawn(async move {
+            let _liveliness = liveliness;
+            pending::<()>().await;
+        }));
         Ok(kernel)
     }
 
-    /// Handles the Commands in the Inbox one at a time, until every endpoint has stopped.
-    pub async fn run(mut self) {
-        while !self.endpoints.is_empty() {
+    /// Handles the Commands in the Inbox one at a time, until shutdown finishes or every endpoint has stopped.
+    pub async fn run(mut self) -> RunOutcome {
+        let mut shutdown_monotonic_deadline = None;
+        let mut shutdown_receiver = None;
+        core::mem::swap(&mut self.shutdown_receiver, &mut shutdown_receiver);
+        let stop_requested = Arc::new(AtomicBool::new(false));
+        let stop_flag_for_signals = Arc::clone(&stop_requested);
+        let mut signal_shutdown_receiver = shutdown_receiver.clone();
+        tokio::spawn(async move {
+            wait_for_shutdown_signal(&mut signal_shutdown_receiver).await;
+            stop_flag_for_signals.store(true, Ordering::SeqCst);
+        });
+
+        loop {
+            if let Some(receiver) = &mut shutdown_receiver
+                && *receiver.borrow_and_update()
+            {
+                stop_requested.store(true, Ordering::SeqCst);
+            }
+            if stop_requested.load(Ordering::SeqCst) && !self.shutting_down {
+                self.begin_shutdown().await;
+                shutdown_monotonic_deadline =
+                    Some(self.clock.now().monotonic + SHUTDOWN_IO_DRAIN_TIMEOUT);
+            }
+
+            if self.shutting_down {
+                let remaining = shutdown_monotonic_deadline
+                    .map(|deadline| deadline.saturating_sub(self.clock.now().monotonic))
+                    .unwrap_or(SHUTDOWN_IO_DRAIN_TIMEOUT);
+                while let Ok(Some(delivery)) =
+                    tokio::time::timeout(Duration::ZERO, self.inbox.recv()).await
+                {
+                    self.dispatch(delivery).await;
+                }
+                if self.io_inflight.count() == 0 {
+                    break;
+                }
+                if remaining == Duration::ZERO {
+                    warn!(
+                        timeout = ?SHUTDOWN_IO_DRAIN_TIMEOUT,
+                        "shutdown io drain timed out"
+                    );
+                    break;
+                }
+                tokio::select! {
+                    biased;
+                    () = tokio::time::sleep(remaining) => {
+                        warn!(
+                            timeout = ?SHUTDOWN_IO_DRAIN_TIMEOUT,
+                            "shutdown io drain timed out"
+                        );
+                        break;
+                    }
+                    delivery = self.inbox.recv() => {
+                        if let Some(delivery) = delivery {
+                            self.dispatch(delivery).await;
+                        } else {
+                            break;
+                        }
+                    }
+                }
+                continue;
+            }
+
+            if self.endpoints.is_empty() {
+                break;
+            }
+
             tokio::select! {
+                biased;
+                _ = async {
+                    let Some(receiver) = &mut shutdown_receiver else {
+                        pending::<()>().await;
+                        return;
+                    };
+                    while !*receiver.borrow_and_update() {
+                        if receiver.changed().await.is_err() {
+                            pending::<()>().await;
+                        }
+                    }
+                }, if shutdown_receiver.is_some() => {
+                    stop_requested.store(true, Ordering::SeqCst);
+                }
                 delivery = self.inbox.recv() => {
                     if let Some(delivery) = delivery {
                         self.dispatch(delivery).await;
+                    } else if self.endpoints.is_empty() {
+                        break;
                     }
                 }
                 tick = self.timers.next_tick(), if self.timers.waiting() => {
@@ -381,12 +545,36 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                         .await;
                     }
                 }
-                _ = self.endpoints.join_next() => {}
+                _ = self.endpoints.join_next(), if !self.endpoints.is_empty() => {}
             }
         }
+
         self.inbox_sender.take();
-        while let Some(delivery) = self.inbox.recv().await {
+        if let Some(task) = self.liveliness_task.take() {
+            task.abort();
+        }
+        self.endpoints.abort_all();
+        while let Ok(Some(delivery)) = tokio::time::timeout(Duration::ZERO, self.inbox.recv()).await
+        {
             self.dispatch(delivery).await;
+        }
+        RunOutcome::Stopped
+    }
+
+    async fn begin_shutdown(&mut self) {
+        if self.shutting_down {
+            return;
+        }
+        self.shutting_down = true;
+        if let Some(request) = self.shutdown_request.lock().await.take() {
+            let delivery = Delivery {
+                command: Command::Request(request),
+                reply: None,
+                persist_settings: false,
+            };
+            if let Some(sender) = &self.inbox_sender {
+                drop(sender.send(delivery).await);
+            }
         }
     }
 
@@ -398,6 +586,12 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             reply,
             persist_settings,
         } = delivery;
+        if self.shutting_down && reply.is_some() {
+            if let Some(query) = reply {
+                acknowledge(query, Err(Rejection::ShuttingDown)).await;
+            }
+            return;
+        }
         let now = self.clock.now();
         let backup = self.snapshot.clone();
         let snapshot = &mut self.snapshot;
@@ -485,6 +679,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                             self.snapshot.clone(),
                             requests,
                             mpsc::Sender::clone(inbox_sender),
+                            self.io_inflight.clone(),
                         );
                     }
                 }

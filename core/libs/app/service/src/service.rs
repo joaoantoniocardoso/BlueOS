@@ -65,6 +65,9 @@ pub enum ServiceError {
     /// The service's `build` refused its Context.
     #[error("the service could not be built")]
     Build(#[source] Box<dyn Error + Send + Sync>),
+    /// The Zenoh session could not open.
+    #[error("the Zenoh session could not open")]
+    Session(#[source] CommsError),
     /// The backbone refused an endpoint. Startup stops, so a Service never runs with an endpoint missing.
     #[error("the endpoint {key:?} could not be declared")]
     DeclareEndpoint {

@@ -157,7 +157,9 @@ impl<S: Service> Harness<S> {
         )
         .await?;
         let mut tasks = JoinSet::new();
-        tasks.spawn(kernel.run());
+        tasks.spawn(async move {
+            kernel.run().await;
+        });
         Ok(Self {
             backend,
             kernel: tasks,

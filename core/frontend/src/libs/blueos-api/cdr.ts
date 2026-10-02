@@ -4,6 +4,9 @@ import type { MessageDefinition, MessageDefinitionField } from '@foxglove/messag
 import { parse } from '@foxglove/rosmsg'
 import { MessageReader, MessageWriter } from '@foxglove/rosmsg2-serialization'
 
+import { UnexpectedEncodingError } from './errors'
+import { cdrEncoding } from './keys'
+import type { Sample } from './transport'
 import type { MessageForSchema, SchemaName } from './types'
 
 type ParsedDefinitions = ReturnType<typeof parse>
@@ -195,7 +198,7 @@ export function decodeCdrWithSchema(
 export function encodeCdrWithSchema(
   schemaName: string,
   schemaText: string,
-  message: Record<string, unknown>,
+  message: object,
 ): Uint8Array {
   const writer = getWriter(schemaName, schemaText)
   return writer.writeMessage(message)
@@ -209,7 +212,7 @@ export function decodeCdr<Schema extends SchemaName>(
   if (schemaText === undefined) {
     throw new Error(`Unknown schema: ${schemaName}`)
   }
-  return decodeCdrWithSchema(schemaName, schemaText, payload) as MessageForSchema<Schema>
+  return decodeCdrWithSchema(schemaName, schemaText, payload) as unknown as MessageForSchema<Schema>
 }
 
 export function encodeCdr<Schema extends SchemaName>(
@@ -220,5 +223,17 @@ export function encodeCdr<Schema extends SchemaName>(
   if (schemaText === undefined) {
     throw new Error(`Unknown schema: ${schemaName}`)
   }
-  return encodeCdrWithSchema(schemaName, schemaText, message as Record<string, unknown>)
+  return encodeCdrWithSchema(schemaName, schemaText, message)
+}
+
+/** Decodes a sample as `schemaName`, refusing one whose encoding is not `application/cdr;<schemaName>`. */
+export function decodeSample<Schema extends SchemaName>(
+  sample: Sample,
+  schemaName: Schema,
+): MessageForSchema<Schema> {
+  const expected = cdrEncoding(schemaName)
+  if (sample.encoding !== expected) {
+    throw new UnexpectedEncodingError(sample.key, expected, sample.encoding)
+  }
+  return decodeCdr(schemaName, sample.payload)
 }
