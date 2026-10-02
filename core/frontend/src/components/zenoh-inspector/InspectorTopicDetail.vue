@@ -10,8 +10,13 @@
     </v-card-title>
     <v-divider />
     <v-card-text class="flex-grow-1 overflow-auto pt-4">
+      <inspector-view-switcher
+        :views="availableViews"
+        :selected-view-id="selectedViewId"
+        @select-view="$emit('select-view', $event)"
+      />
       <raw-video-player
-        v-if="isVideoTopic"
+        v-if="selectedViewId === 'video'"
         :video-data="videoData"
       />
       <inspector-json-view
@@ -39,11 +44,13 @@ import axios from 'axios'
 import Vue, { PropType } from 'vue'
 
 import type { InspectorController } from '@/libs/zenoh-inspector/inspector-controller'
-import { isVideoTopicKey } from '@/libs/zenoh-inspector/logic/topic-list'
-import type { DecodedPayload, SampleRecord, TopicInfo } from '@/libs/zenoh-inspector/logic/types'
+import type {
+  DecodedPayload, SampleRecord, TopicInfo, ViewDescriptor,
+} from '@/libs/zenoh-inspector/logic/types'
 
 import InspectorJsonView from './InspectorJsonView.vue'
 import InspectorTopicHeader from './InspectorTopicHeader.vue'
+import InspectorViewSwitcher from './InspectorViewSwitcher.vue'
 import RawVideoPlayer from './RawVideoPlayer.vue'
 
 interface InspectorTopicDetailBindings {
@@ -61,6 +68,7 @@ export default Vue.extend({
   components: {
     InspectorJsonView,
     InspectorTopicHeader,
+    InspectorViewSwitcher,
     RawVideoPlayer,
   },
   props: {
@@ -72,15 +80,20 @@ export default Vue.extend({
       type: Object as PropType<TopicInfo | null>,
       default: null,
     },
+    availableViews: {
+      type: Array as PropType<ViewDescriptor[]>,
+      required: true,
+    },
+    selectedViewId: {
+      type: String,
+      required: true,
+    },
     selectedDecoded: {
       type: Object as PropType<DecodedPayload | null>,
       default: null,
     },
   },
   computed: {
-    isVideoTopic(): boolean {
-      return this.selectedTopic !== null && isVideoTopicKey(this.selectedTopic.key)
-    },
     videoData(): Uint8Array {
       const sample = detailBindings(this).latestSample
       const reader = detailBindings(this).videoReader
@@ -93,30 +106,43 @@ export default Vue.extend({
   },
   watch: {
     selectedTopic: {
-      immediate: true,
-      handler(topic: TopicInfo | null): void {
-        detailBindings(this).sampleUnsubscribe?.()
-        detailBindings(this).sampleUnsubscribe = null
-        detailBindings(this).latestSample = null
-        if (topic === null || !isVideoTopicKey(topic.key)) {
-          return
-        }
-        detailBindings(this).sampleUnsubscribe = this.controller.subscribeSelectedSample((sample) => {
-          detailBindings(this).latestSample = sample
-        })
-        if (topic.lastSample) {
-          detailBindings(this).latestSample = topic.lastSample
-        }
+      handler(): void {
+        this.syncVideoSampleSubscription()
+      },
+    },
+    selectedViewId: {
+      handler(): void {
+        this.syncVideoSampleSubscription()
       },
     },
   },
-  async mounted() {
+  async created() {
     const CompressedVideo = await axios.get('/msgs/CompressedVideo.msg').then((response) => response.data as string)
     detailBindings(this).videoReader = new MessageReader(parseMessageDefinition(CompressedVideo))
+  },
+  mounted() {
+    this.syncVideoSampleSubscription()
   },
   beforeDestroy() {
     detailBindings(this).sampleUnsubscribe?.()
     detailBindings(this).sampleUnsubscribe = null
+  },
+  methods: {
+    syncVideoSampleSubscription(): void {
+      detailBindings(this).sampleUnsubscribe?.()
+      detailBindings(this).sampleUnsubscribe = null
+      detailBindings(this).latestSample = null
+      const topic = this.selectedTopic
+      if (topic === null || this.selectedViewId !== 'video') {
+        return
+      }
+      detailBindings(this).sampleUnsubscribe = this.controller.subscribeSelectedSample((sample) => {
+        detailBindings(this).latestSample = sample
+      })
+      if (topic.lastSample) {
+        detailBindings(this).latestSample = topic.lastSample
+      }
+    },
   },
 })
 </script>
