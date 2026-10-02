@@ -12,6 +12,10 @@ export function sortRecordingsNewestFirst(files: LibraryRecording[]): LibraryRec
   })
 }
 
+export function canPlayRecording(file: LibraryRecording): boolean {
+  return file.state === 'ready' || file.state === 'recording'
+}
+
 export function isSnapshotOperationForPath(
   event: RecordingOperationEvent,
   path: string,

@@ -1,5 +1,11 @@
 <template>
   <v-card class="records-row d-flex flex-column" outlined>
+    <records-recording-preview
+      :file="file"
+      :download-url="downloadUrl"
+      :disabled="disabled"
+      @play="$emit('play', file)"
+    />
     <v-card-title class="py-2 text-truncate">
       {{ file.name }}
     </v-card-title>
@@ -63,6 +69,7 @@
 <script lang="ts">
 import Vue, { PropType } from 'vue'
 
+import RecordsRecordingPreview from '@/components/records/RecordsRecordingPreview.vue'
 import {
   CANCEL_REPAIR,
   DELETE_RECORDING,
@@ -74,6 +81,7 @@ import { prettifySize } from '@/utils/helper_functions'
 
 export default Vue.extend({
   name: 'RecordsRecordingRow',
+  components: { RecordsRecordingPreview },
   props: {
     file: {
       type: Object as PropType<LibraryRecording>,
