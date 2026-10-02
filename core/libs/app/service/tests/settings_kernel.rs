@@ -1,15 +1,21 @@
 //! Kernel settings: load, `UpdateSettings`, persist rollback, and pending restart fields.
 
-use core::{convert::Infallible, num::NonZeroU32};
-use std::{path::PathBuf, sync::Arc};
+use core::{convert::Infallible, num::NonZeroU32, time::Duration};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use serde::{Deserialize, Serialize};
+use tokio::time;
 
 use blueos_comms::channel::ChannelBackend;
-use blueos_domain::{Command, Decision, Domain, IoError, Now, Outcome};
+use blueos_domain::{Command, Decision, Domain, DomainDurable, IoError, Now, Outcome};
 use blueos_idl::{msg::blueos_example_msgs::SetLevelRequest, msg::blueos_msgs::SettingsEnvelope};
 use blueos_service::{Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness};
-use blueos_settings::{SettingsError, SettingsSchema, settings_file_name};
+use blueos_settings::{SettingsError, SettingsSchema, settings_file_name, state_file_name};
+
+const DURABLE_STATE_VERSION: NonZeroU32 = NonZeroU32::MIN;
 
 #[derive(clap::Args, Default)]
 struct SettingsTankArguments;
@@ -47,15 +53,26 @@ impl SettingsSchema for SettingsTankDocument {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+struct SettingsTankDurable {
+    live_field: u32,
+}
+
 #[derive(Clone)]
 struct SettingsTankSnapshot {
     level: u8,
     settings: SettingsTankDocument,
+    durable: SettingsTankDurable,
 }
 
 enum SettingsTankRequest {
     SetLevel(u8),
     UpdateSettings(SettingsTankDocument),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum SettingsTankTick {
+    Restored,
 }
 
 struct SettingsTank;
@@ -75,10 +92,12 @@ impl Service for SettingsTankService {
         Ok(ServiceBuilder::new(SettingsTankSnapshot {
             level: 0,
             settings: SettingsTankDocument::default(),
+            durable: SettingsTankDurable { live_field: 1 },
         })
         .command("SetLevel", |request: SetLevelRequest| {
             Ok(SettingsTankRequest::SetLevel(request.level))
         })
+        .durable_state(Self::NAME, config_parent.clone(), DURABLE_STATE_VERSION)
         .settings(
             Self::NAME,
             config_parent,
@@ -96,7 +115,7 @@ impl Domain for SettingsTank {
     type Snapshot = SettingsTankSnapshot;
     type Request = SettingsTankRequest;
     type IoResult = Infallible;
-    type Tick = Infallible;
+    type Tick = SettingsTankTick;
     type ObservedFact = Infallible;
     type Event = Infallible;
     type IoRequest = Infallible;
@@ -104,7 +123,7 @@ impl Domain for SettingsTank {
 
     fn handle(
         snapshot: &mut SettingsTankSnapshot,
-        command: Command<SettingsTankRequest, Infallible, Infallible, Infallible>,
+        command: Command<SettingsTankRequest, Infallible, SettingsTankTick, Infallible>,
         _now: Now,
     ) -> Decision<Self> {
         match command {
@@ -116,6 +135,7 @@ impl Domain for SettingsTank {
                 }
             }
             Command::Request(SettingsTankRequest::UpdateSettings(settings)) => {
+                snapshot.durable.live_field = settings.live_field;
                 snapshot.settings = settings;
                 Outcome::Applied {
                     events: Vec::new(),
@@ -123,7 +143,10 @@ impl Domain for SettingsTank {
                 }
             }
             Command::IoResult(never) => match never {},
-            Command::Tick(never) => match never {},
+            Command::Tick(SettingsTankTick::Restored) => Outcome::Applied {
+                events: Vec::new(),
+                effects: Vec::new(),
+            },
             Command::ObservedFact(never) => match never {},
         }
     }
@@ -133,6 +156,23 @@ impl Domain for SettingsTank {
         _error: IoError,
     ) -> Command<Self::Request, Self::IoResult, Self::Tick, Self::ObservedFact> {
         match request {}
+    }
+}
+
+impl DomainDurable for SettingsTank {
+    type DurableState = SettingsTankDurable;
+
+    fn durable_state(snapshot: &Self::Snapshot) -> &Self::DurableState {
+        &snapshot.durable
+    }
+
+    fn set_durable_state(snapshot: &mut Self::Snapshot, state: Self::DurableState) {
+        snapshot.settings.live_field = state.live_field;
+        snapshot.durable = state;
+    }
+
+    fn restored_tick() -> Self::Tick {
+        SettingsTankTick::Restored
     }
 }
 
@@ -164,6 +204,40 @@ fn envelope_for(document: &SettingsTankDocument) -> SettingsEnvelope {
         document_json: serde_json::to_string(document).unwrap(),
         fields: Vec::new(),
     }
+}
+
+fn durable_state_path(parent: &Path) -> PathBuf {
+    parent.join(format!(
+        "{}/{}",
+        SettingsTankService::NAME,
+        state_file_name(DURABLE_STATE_VERSION)
+    ))
+}
+
+fn durable_live_field_on_disk(parent: &Path) -> Option<u32> {
+    let raw = std::fs::read_to_string(durable_state_path(parent)).ok()?;
+    let value: serde_json::Value = serde_json::from_str(&raw).ok()?;
+    value["domain"]["live_field"]
+        .as_u64()
+        .map(|number| number as u32)
+}
+
+async fn wait_for_durable_live_field(parent: &Path, expected: u32) {
+    let parent = parent.to_path_buf();
+    tokio::task::spawn_blocking(move || {
+        for _ in 0..200 {
+            if durable_live_field_on_disk(&parent) == Some(expected) {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        panic!(
+            "expected durable live_field {expected}, got {:?}",
+            durable_live_field_on_disk(&parent)
+        );
+    })
+    .await
+    .expect("durable live_field wait");
 }
 
 #[tokio::test(start_paused = true)]
@@ -235,6 +309,54 @@ async fn write_failure_restores_snapshot_and_rejects() {
     let envelope = harness.settings::<SettingsEnvelope>().await;
     let running: SettingsTankDocument = serde_json::from_str(&envelope.document_json).unwrap();
     assert_eq!(running.live_field, 1);
+
+    let _ = std::fs::remove_dir_all(parent);
+}
+
+#[tokio::test(start_paused = true)]
+async fn settings_write_failure_does_not_queue_durable_snapshot() {
+    let parent = temp_settings_parent("durable-rollback");
+    let harness = start_with_settings_folder(parent.clone()).await;
+
+    let accepted = SettingsTankDocument {
+        version: SettingsTankDocument::VERSION,
+        live_field: 2,
+        restart_field: "ok".into(),
+    };
+    let ack = harness
+        .send("UpdateSettings", &envelope_for(&accepted))
+        .await;
+    assert!(ack.accepted);
+    time::advance(Duration::from_secs(1)).await;
+    wait_for_durable_live_field(&parent, 2).await;
+
+    let settings_path = parent.join(format!(
+        "{}/{}",
+        SettingsTankService::NAME,
+        settings_file_name(SettingsTankDocument::VERSION)
+    ));
+    std::fs::remove_file(&settings_path).unwrap();
+    std::fs::create_dir(&settings_path).unwrap();
+
+    let blocked = SettingsTankDocument {
+        version: SettingsTankDocument::VERSION,
+        live_field: 99,
+        restart_field: "blocked".into(),
+    };
+    let blocked_ack = harness
+        .send("UpdateSettings", &envelope_for(&blocked))
+        .await;
+    assert!(!blocked_ack.accepted);
+
+    time::advance(Duration::from_secs(1)).await;
+    tokio::task::spawn_blocking(|| std::thread::sleep(Duration::from_millis(500)))
+        .await
+        .expect("debounce settle");
+    assert_eq!(
+        durable_live_field_on_disk(&parent),
+        Some(2),
+        "durable file must match the rolled-back snapshot, not the rejected update"
+    );
 
     let _ = std::fs::remove_dir_all(parent);
 }
