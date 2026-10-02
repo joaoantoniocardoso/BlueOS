@@ -195,7 +195,7 @@ export function decodeCdrWithSchema(
 export function encodeCdrWithSchema(
   schemaName: string,
   schemaText: string,
-  message: Record<string, unknown>,
+  message: object,
 ): Uint8Array {
   const writer = getWriter(schemaName, schemaText)
   return writer.writeMessage(message)
@@ -209,7 +209,7 @@ export function decodeCdr<Schema extends SchemaName>(
   if (schemaText === undefined) {
     throw new Error(`Unknown schema: ${schemaName}`)
   }
-  return decodeCdrWithSchema(schemaName, schemaText, payload) as MessageForSchema<Schema>
+  return decodeCdrWithSchema(schemaName, schemaText, payload) as unknown as MessageForSchema<Schema>
 }
 
 export function encodeCdr<Schema extends SchemaName>(
@@ -220,5 +220,5 @@ export function encodeCdr<Schema extends SchemaName>(
   if (schemaText === undefined) {
     throw new Error(`Unknown schema: ${schemaName}`)
   }
-  return encodeCdrWithSchema(schemaName, schemaText, message as Record<string, unknown>)
+  return encodeCdrWithSchema(schemaName, schemaText, message)
 }

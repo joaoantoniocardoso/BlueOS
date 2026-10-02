@@ -1,7 +1,7 @@
-import { SCHEMAS } from '@blueos-idl/schemas'
+import type { MessageBySchema } from '@blueos-idl/messages'
 
-export type SchemaName = keyof typeof SCHEMAS
+export type SchemaName = keyof MessageBySchema
 
-export type MessageForSchema<Schema extends SchemaName> = Record<string, unknown>
+export type MessageForSchema<Schema extends SchemaName> = MessageBySchema[Schema]
 
-export const COMMAND_ACK_SCHEMA: SchemaName = 'blueos_msgs/msg/CommandAck'
+export const COMMAND_ACK_SCHEMA = 'blueos_msgs/msg/CommandAck' as const
