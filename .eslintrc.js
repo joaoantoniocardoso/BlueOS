@@ -92,8 +92,23 @@ module.exports = {
     'vuejs-accessibility/anchor-has-content': 'off',
     'vuejs-accessibility/mouse-events-have-key-events': 'off',
     'no-await-in-loop': 'off',
+    // `void promise` as a statement marks a deliberately floating promise.
+    'no-void': ['error', { allowAsStatement: true }],
+    // Vite virtual modules are not files on disk.
+    'import/no-unresolved': ['error', { ignore: ['^virtual:'] }],
   },
+  overrides: [
+    {
+      files: ['tests/**/*.ts'],
+      rules: {
+        // A test file mounts several local components.
+        'vue/one-component-per-file': 'off',
+      },
+    },
+  ],
   settings: {
+    // Path alias into the IDL package, not an npm dependency.
+    'import/internal-regex': '^@blueos-idl(/|$)',
     'import/resolver': {
       typescript: {
         alwaysTryTypes: true,
