@@ -260,12 +260,12 @@ fn extra_vectors() -> Vec<CdrVector> {
 fn build_vectors_file() -> CdrVectorsFile {
     let mut vectors = Vec::new();
     for record in collect_messages_for_test(&interfaces_root()) {
-        let payload =
-            cdr_codec_dispatch::encode_default(&record.schema_name).expect("encode default");
-        let decoded = cdr_codec_dispatch::decode_to_json(&record.schema_name, &payload)
-            .expect("decode default");
+        let schema_name = record.schema_name;
+        let payload = cdr_codec_dispatch::encode_default(&schema_name).expect("encode default");
+        let decoded =
+            cdr_codec_dispatch::decode_to_json(&schema_name, &payload).expect("decode default");
         vectors.push(CdrVector {
-            schema_name: record.schema_name.clone(),
+            schema_name,
             hex: encode_hex(&payload),
             decoded,
             category: "default".to_string(),

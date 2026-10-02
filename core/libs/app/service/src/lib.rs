@@ -14,6 +14,7 @@
 mod builder;
 pub mod entry;
 mod kernel;
+mod logging;
 #[cfg(feature = "probe")]
 pub mod probe;
 mod run_outcome;
