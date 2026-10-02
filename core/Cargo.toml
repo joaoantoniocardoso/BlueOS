@@ -4,6 +4,7 @@ members = [
     "libs/adapters/comms",
     "libs/adapters/comms-zenoh",
     "libs/api",
+    "libs/app/service",
     "libs/logic/domain",
     "libs/logic/ros2-names",
     "libs/idl",
@@ -36,12 +37,14 @@ blueos-comms = { path = "libs/adapters/comms" }
 blueos-comms-zenoh = { path = "libs/adapters/comms-zenoh" }
 blueos-domain = { path = "libs/logic/domain" }
 blueos-ros2-names = { path = "libs/logic/ros2-names" }
+blueos-service = { path = "libs/app/service" }
 blueos-recorder-capture = { path = "services/recorder/logic/capture" }
 blueos-recorder-domain = { path = "services/recorder/logic/recorder" }
 blueos-idl = { path = "libs/idl" }
 blueos-idl-codegen = { path = "libs/idl/codegen" }
 blueos-rust-style-check = { path = "libs/tools/rust-style-check" }
 bytes = { version = "1.12", default-features = false }
+clap = { version = "4.5", default-features = false }
 convert_case = "0.8"
 futures-util = { version = "0.3.32", default-features = false }
 prettyplease = "0.2"
@@ -52,6 +55,7 @@ sha2 = "0.10"
 syn = { version = "2", default-features = false, features = ["full", "parsing", "printing", "clone-impls", "visit"] }
 thiserror = { version = "2.0.18", default-features = false }
 tokio = { version = "1.53", default-features = false }
+tracing = { version = "0.1.41", default-features = false }
 walkdir = { version = "2", default-features = false }
 zenoh = { version = "=1.9.0", default-features = false, features = ["shared-memory", "transport_tcp"] }
 zenoh-keyexpr = { version = "=1.9.0", default-features = false }

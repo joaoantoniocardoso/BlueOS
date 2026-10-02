@@ -83,24 +83,27 @@ pub struct Now {
 ///
 /// A type the Domain has no use for is an uninhabited type ([`core::convert::Infallible`] or an empty enum), never
 /// a placeholder, so a `match` needs no arm for it.
-pub trait Domain {
+///
+/// Every type is `Send + 'static`, because the Kernel moves Commands between tasks and runs the Inbox loop in its
+/// own task.
+pub trait Domain: 'static {
     /// The data the Domain keeps between Commands. The Kernel clones it before every Command and restores the clone
     /// if the Command fails, so keep large, rarely changed parts behind an `Arc`.
-    type Snapshot: Clone;
+    type Snapshot: Clone + Send + Sync + 'static;
     /// The Commands a client can send.
-    type Request;
+    type Request: Send + 'static;
     /// The Commands that report how an IO request ended.
-    type IoResult;
+    type IoResult: Send + 'static;
     /// The Commands that a timer delivers.
-    type Tick;
+    type Tick: Send + 'static;
     /// The Commands that report what a Task saw.
-    type ObservedFact;
+    type ObservedFact: Send + 'static;
     /// The domain events, published as Events after the Command is acknowledged.
-    type Event;
+    type Event: Send + 'static;
     /// The IO the Domain asks the Kernel to run.
-    type IoRequest;
+    type IoRequest: Send + 'static;
     /// The names of the Domain's timers.
-    type TimerKey;
+    type TimerKey: Send + 'static;
 
     /// Applies one Command to the Snapshot and decides what happens next. A Command that is invalid for the
     /// Snapshot is rejected, never accepted and ignored.

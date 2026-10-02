@@ -127,8 +127,8 @@ Decision: every Rust crate lives in exactly one of three folders, in shared libs
   and `blueos-<service>-<part>` for services (`blueos-recorder-domain`, `blueos-recorder-library`,
   `blueos-recorder-api`). Every workspace crate is listed in `[workspace.dependencies]` and members depend on it
   with `workspace = true`, never a relative `path`. Python packages keep their names.
-- Test-only backends (the comms `channel` feature) are enabled in `[dev-dependencies]` only, so they never
-  reach the shipped binary through feature unification.
+- Test-only features (the comms `channel` backend and the `blueos-service` `testing` harness) are enabled in
+  `[dev-dependencies]` only, so they never reach the shipped binary through feature unification.
 - Layout: `core/libs/{logic,adapters,app}/...`, `core/services/<name>/{logic/<block>,logic/api,adapters/<thing>,app}`,
   `core/libs/idl/interfaces/` (`.msg` sources, D-05), `core/app/blueos` (multicall binary).
 - One multicall binary `blueos`; each service is invoked as `blueos <service>` or via a symlink named after
@@ -206,7 +206,8 @@ Decision:
   Command endpoints, IO results, Ticks, and Observed facts sent by Tasks through `CommandSender` (D-27).
 - **Every Command is a transaction.** The Kernel clones the DomainState before `handle`. If `handle` or a
   Projection panics, or an Effect fails synchronously, the Kernel restores the clone, drops the domain events,
-  and rejects the ack. Large, rarely changed parts of a Snapshot go behind `Arc` so the clone stays cheap.
+  and rejects the ack. A rejection by the Domain also restores the clone, so a rejected Command never changes the
+  Snapshot. Large, rarely changed parts of a Snapshot go behind `Arc` so the clone stays cheap.
 - Order after a successful `handle`: run the synchronous part of the Effects, update the Projections and publish
   the States, send the ack, then publish the Events. A client that reads a State right after the ack sees the new
   value.
