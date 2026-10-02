@@ -6,6 +6,9 @@ Numbered entries under `tests/` answer every "how do I do X?" question from the 
 
 An entry file name starts with the number of the **first** question it answers (`01-command.rs` for questions 1–3).
 
+[`ServiceContext`](../../../libs/app/service/src/service.rs) gives `build` the parsed service CLI, optional
+`--settings-path`, and the open backbone Session (same as production entry and [`Harness`](../../../libs/app/service/src/testing.rs)).
+
 Run:
 
 ```bash

@@ -186,7 +186,11 @@ async fn zenoh_startup_serves_every_endpoint_when_liveliness_appears() {
     let kernel_backend = Arc::clone(&backend);
     let kernel = Kernel::start(
         ZenohStartupService::NAME,
-        ZenohStartupService::build(&ServiceContext::new(ZenohStartupArguments {})).unwrap(),
+        ZenohStartupService::build(&ServiceContext::new(
+            ZenohStartupArguments {},
+            blueos_service::testing::channel_session(),
+        ))
+        .unwrap(),
         kernel_backend,
         Arc::new(PausedClock::start()),
     )

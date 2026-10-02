@@ -191,9 +191,14 @@ fn temp_settings_parent(label: &str) -> PathBuf {
 async fn start_with_settings_folder(parent: PathBuf) -> Harness<SettingsTankService> {
     let _ = std::fs::remove_dir_all(&parent);
     std::fs::create_dir_all(&parent).unwrap();
+    let backend: Arc<dyn blueos_comms::CommsBackend> = Arc::new(ChannelBackend::default());
     Harness::start_on_with_context(
-        Arc::new(ChannelBackend::default()),
-        ServiceContext::with_settings_path(SettingsTankArguments, Some(parent)),
+        Arc::clone(&backend),
+        ServiceContext::with_settings_path(
+            SettingsTankArguments,
+            Some(parent),
+            Arc::clone(&backend),
+        ),
     )
     .await
     .expect("harness starts")

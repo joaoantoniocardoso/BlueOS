@@ -172,7 +172,11 @@ async fn liveliness_is_declared_after_initial_state_publish() {
     });
     let _kernel = Kernel::start(
         LifecycleService::NAME,
-        LifecycleService::build(&ServiceContext::new(LifecycleArguments {})).unwrap(),
+        LifecycleService::build(&ServiceContext::new(
+            LifecycleArguments {},
+            blueos_service::testing::channel_session(),
+        ))
+        .unwrap(),
         Arc::clone(&backend),
         Arc::new(PausedClock::start()),
     )

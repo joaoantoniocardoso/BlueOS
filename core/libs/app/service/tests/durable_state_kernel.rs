@@ -277,7 +277,8 @@ async fn start_vault_kernel(
     JoinSet<()>,
 ) {
     let backend: Arc<dyn blueos_comms::CommsBackend> = Arc::new(ChannelBackend::default());
-    let context = ServiceContext::with_settings_path(VaultArguments {}, Some(folder));
+    let context =
+        ServiceContext::with_settings_path(VaultArguments {}, Some(folder), Arc::clone(&backend));
     let (builder, shutdown) = vault_builder(&context, shutdown_bump);
     let clock = Arc::new(PausedClock::start());
     let kernel = Kernel::start(VaultService::NAME, builder, Arc::clone(&backend), clock)
@@ -441,10 +442,14 @@ async fn observed_facts_and_rederivable_data_are_never_persisted() {
 #[tokio::test(start_paused = true)]
 async fn shutdown_flush_persists_changes_from_the_final_inbox_drain() {
     let folder = tempfile::tempdir().expect("tempdir").keep();
-    let context = ServiceContext::with_settings_path(VaultArguments {}, Some(folder.clone()));
+    let backend: Arc<dyn blueos_comms::CommsBackend> = Arc::new(ChannelBackend::default());
+    let context = ServiceContext::with_settings_path(
+        VaultArguments {},
+        Some(folder.clone()),
+        Arc::clone(&backend),
+    );
     let (builder, shutdown) = vault_builder(&context, true);
     let shutdown = shutdown.expect("shutdown handle");
-    let backend: Arc<dyn blueos_comms::CommsBackend> = Arc::new(ChannelBackend::default());
     let clock = Arc::new(PausedClock::start());
     let kernel = Kernel::start(VaultService::NAME, builder, Arc::clone(&backend), clock)
         .await

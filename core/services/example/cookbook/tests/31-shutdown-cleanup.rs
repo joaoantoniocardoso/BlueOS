@@ -81,8 +81,11 @@ impl Domain for ShutdownCookbook {
 #[tokio::test(start_paused = true)]
 async fn on_shutdown_marks_cleanup_in_the_snapshot() {
     CLEANED_UP.store(false, Ordering::SeqCst);
-    let mut builder =
-        ShutdownCookbookService::build(&ServiceContext::new(ShutdownCookbookArguments)).unwrap();
+    let mut builder = ShutdownCookbookService::build(&ServiceContext::new(
+        ShutdownCookbookArguments,
+        blueos_service::testing::channel_session(),
+    ))
+    .unwrap();
     let shutdown = builder.shutdown_handle();
     let backend: std::sync::Arc<dyn CommsBackend> = std::sync::Arc::new(ChannelBackend::default());
     let kernel = Kernel::start(

@@ -873,11 +873,14 @@ async fn a_kernel_with_only_io_queries_keeps_answering_them() {
 
 #[tokio::test(start_paused = true)]
 async fn the_kernel_stops_once_the_backbone_closes_every_endpoint() {
-    let builder = TankService::build(&ServiceContext::new(TankArguments { capacity: 100 }))
-        .unwrap()
-        .io_query("Probe", |_request: EmptyRequest| {
-            Box::pin(async { Ok(EmptyRequest::default()) })
-        });
+    let builder = TankService::build(&ServiceContext::new(
+        TankArguments { capacity: 100 },
+        blueos_service::testing::channel_session(),
+    ))
+    .unwrap()
+    .io_query("Probe", |_request: EmptyRequest| {
+        Box::pin(async { Ok(EmptyRequest::default()) })
+    });
     let kernel = Kernel::start(
         TankService::NAME,
         builder,

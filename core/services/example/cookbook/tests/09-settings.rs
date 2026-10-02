@@ -140,9 +140,15 @@ fn envelope_for(document: &SettingsCookbookDocument) -> SettingsEnvelope {
 async fn start_with_settings_folder(parent: PathBuf) -> Harness<SettingsCookbookService> {
     let _ = std::fs::remove_dir_all(&parent);
     std::fs::create_dir_all(&parent).unwrap();
+    let backend: std::sync::Arc<dyn blueos_comms::CommsBackend> =
+        std::sync::Arc::new(ChannelBackend::default());
     Harness::start_on_with_context(
-        std::sync::Arc::new(ChannelBackend::default()),
-        ServiceContext::with_settings_path(SettingsCookbookArguments, Some(parent)),
+        std::sync::Arc::clone(&backend),
+        ServiceContext::with_settings_path(
+            SettingsCookbookArguments,
+            Some(parent),
+            std::sync::Arc::clone(&backend),
+        ),
     )
     .await
     .expect("harness starts")
