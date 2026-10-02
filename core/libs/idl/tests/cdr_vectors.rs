@@ -135,6 +135,15 @@ fn extra_vectors() -> Vec<CdrVector> {
         .expect("capability");
     let service_info_old_writer = service_info_writer.finish_with_encapsulation();
 
+    let python_producer_log = Log {
+        timestamp: Time { sec: 9, nanosec: 8 },
+        level: 3,
+        message: "python commonwealth log".into(),
+        name: "wifi-manager".into(),
+        file: "main.py".into(),
+        line: 17,
+    };
+
     let mut vectors = vec![
         CdrVector {
             schema_name: Log::SCHEMA_NAME.to_string(),
@@ -143,6 +152,20 @@ fn extra_vectors() -> Vec<CdrVector> {
             category: "example".to_string(),
             skip_encode_round_trip: false,
             layout_note: Some("string file followed by uint32 line".to_string()),
+        },
+        CdrVector {
+            schema_name: Log::SCHEMA_NAME.to_string(),
+            hex: encode_hex(
+                &python_producer_log
+                    .encode()
+                    .expect("encode python producer Log"),
+            ),
+            decoded: serde_json::to_value(python_producer_log).expect("python producer log json"),
+            category: "python_producer".to_string(),
+            skip_encode_round_trip: true,
+            layout_note: Some(
+                "encoded by commonwealth blueos_idl (Python services log sink)".to_string(),
+            ),
         },
         CdrVector {
             schema_name: CommandAck::SCHEMA_NAME.to_string(),
