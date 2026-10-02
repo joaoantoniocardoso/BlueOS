@@ -116,17 +116,24 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: thumbv7em-none-eabihf
 
       - name: Install supply-chain tools
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-deny@0.20.2,cargo-machete@0.9.2,typos-cli@1.50.3
+          tool: cargo-deny@0.20.2,cargo-machete@0.9.2,typos-cli@1.50.3,cargo-nextest@0.9.146
 
       - name: Rust supply-chain checks
         run: |
           # shellcheck disable=SC1091
           source .hooks/lib/rust_checks.sh
           run_rust_supply_chain_checks "$GITHUB_WORKSPACE/core"
+
+      - name: Gate self-tests
+        run: |
+          .hooks/tests/rust_checks_test.sh
+          .hooks/tests/ergonomics_report_test.sh
 
       - name: cargo deny advisories
         id: advisories
