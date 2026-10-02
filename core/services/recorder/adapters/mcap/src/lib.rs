@@ -8,9 +8,10 @@
 mod channel_descriptor;
 mod footer;
 mod mcap_file;
+mod rewrite;
 mod writer_handle;
 
-pub use footer::{Footer, read_footer_at};
+pub use footer::{Footer, is_indexed, read_footer_at};
 
 pub use channel_descriptor::{
     ChannelDescriptor, ChannelRoute, MessageEncoding, SchemaEncoding,
@@ -21,4 +22,5 @@ pub use mcap_file::{
     McapError, McapFile, WriteSampleRequest, cached_descriptor, descriptor_for_sample,
     ros2_lane_descriptor,
 };
+pub use rewrite::{RewriteError, RewriteSummary, SOURCE_READ_BYTES, rewrite, rewrite_from_reader};
 pub use writer_handle::McapWriterHandle;
