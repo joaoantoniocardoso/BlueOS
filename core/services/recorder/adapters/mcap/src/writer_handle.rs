@@ -12,7 +12,7 @@ use tracing::warn;
 use blueos_comms::Payload;
 
 use crate::{
-    channel_descriptor::ChannelDescriptor,
+    channel_descriptor::{ChannelDescriptor, ChannelRoute},
     mcap_file::{McapError, McapFile, WriteSampleRequest},
 };
 
@@ -85,6 +85,7 @@ impl McapWriterHandle {
     pub fn try_write_sample(
         &self,
         topic: String,
+        route: ChannelRoute,
         log_time: u64,
         publish_time: u64,
         payload: Payload,
@@ -92,6 +93,7 @@ impl McapWriterHandle {
     ) {
         let command = WriterCommand::Write(WriteSampleRequest {
             topic,
+            route,
             log_time,
             publish_time,
             payload,

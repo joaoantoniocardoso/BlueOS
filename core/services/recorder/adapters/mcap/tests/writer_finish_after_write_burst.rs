@@ -6,7 +6,7 @@ use bytes::Bytes;
 use tempfile::tempdir;
 
 use blueos_comms::Payload;
-use blueos_recorder_mcap::{ChannelDescriptor, McapWriterHandle, MessageEncoding};
+use blueos_recorder_mcap::{ChannelDescriptor, ChannelRoute, McapWriterHandle, MessageEncoding};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn finish_returns_bytes_for_every_queued_sample() {
@@ -28,6 +28,7 @@ async fn finish_returns_bytes_for_every_queued_sample() {
     for _ in 0..SAMPLE_COUNT {
         writer.try_write_sample(
             "test/topic".into(),
+            ChannelRoute::for_topic("test/topic"),
             0,
             0,
             Payload::new(Bytes::from_static(PAYLOAD)),

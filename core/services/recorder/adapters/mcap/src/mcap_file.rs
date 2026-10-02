@@ -15,7 +15,10 @@ use thiserror::Error;
 
 use blueos_comms::Payload;
 
-use crate::channel_descriptor::ChannelDescriptor;
+use crate::channel_descriptor::{
+    ChannelDescriptor, ChannelRoute, channel_descriptor_cdr_fallback,
+    channel_descriptor_for_ros2_type, channel_descriptor_for_sample,
+};
 
 /// Errors while writing an MCAP file.
 #[derive(Debug, Error)]
@@ -38,13 +41,15 @@ pub enum McapError {
 pub struct WriteSampleRequest {
     /// Zenoh topic key.
     pub topic: String,
+    /// Writer route (supports multiple channels per topic).
+    pub route: ChannelRoute,
     /// MCAP log time in nanoseconds.
     pub log_time: u64,
     /// MCAP publish time in nanoseconds.
     pub publish_time: u64,
     /// Sample payload (shared until the MCAP write).
     pub payload: Payload,
-    /// Channel metadata registered once per topic.
+    /// Channel metadata registered once per route.
     pub descriptor: Arc<ChannelDescriptor>,
 }
 
@@ -53,7 +58,7 @@ pub struct McapFile {
     path: PathBuf,
     file_name: String,
     writer: Writer<BufWriter<File>>,
-    channels: BTreeMap<String, ChannelState>,
+    channels: BTreeMap<ChannelRoute, ChannelState>,
     bytes_written: u64,
 }
 
@@ -103,12 +108,13 @@ impl McapFile {
 
     /// Writes one queued sample.
     pub fn write_sample_request(&mut self, request: &WriteSampleRequest) -> Result<(), McapError> {
-        let channel_id = self.channel_id_for(&request.topic, request.descriptor.as_ref())?;
+        let channel_id =
+            self.channel_id_for(&request.route, &request.topic, request.descriptor.as_ref())?;
         let payload = request.payload.to_bytes();
         let payload = payload.as_ref();
         let sequence = self
             .channels
-            .get(&request.topic)
+            .get(&request.route)
             .expect("channel exists")
             .sequence;
         self.writer
@@ -122,7 +128,7 @@ impl McapFile {
                 payload,
             )
             .map_err(McapError::Mcap)?;
-        if let Some(channel) = self.channels.get_mut(&request.topic) {
+        if let Some(channel) = self.channels.get_mut(&request.route) {
             channel.sequence += 1;
         }
         self.bytes_written = self.bytes_written.saturating_add(payload.len() as u64);
@@ -137,10 +143,11 @@ impl McapFile {
 
     fn channel_id_for(
         &mut self,
+        route: &ChannelRoute,
         topic: &str,
         descriptor: &ChannelDescriptor,
     ) -> Result<u16, McapError> {
-        if let Some(state) = self.channels.get(topic) {
+        if let Some(state) = self.channels.get(route) {
             return Ok(state.channel_id);
         }
         let schema_id = match &descriptor.schema {
@@ -169,7 +176,7 @@ impl McapFile {
             )
             .map_err(McapError::Mcap)?;
         self.channels.insert(
-            topic.to_owned(),
+            route.clone(),
             ChannelState {
                 channel_id,
                 sequence: 0,
@@ -198,9 +205,43 @@ pub fn descriptor_for_sample(
     cache: &mut BTreeMap<String, Arc<ChannelDescriptor>>,
 ) -> Option<Arc<ChannelDescriptor>> {
     if !cache.contains_key(topic) {
-        let descriptor =
-            crate::channel_descriptor::channel_descriptor_for_sample(topic, encoding, payload)?;
+        let descriptor = channel_descriptor_for_sample(topic, encoding, payload)?;
         cache.insert(topic.to_owned(), Arc::new(descriptor));
     }
     cache.get(topic).cloned()
+}
+
+/// Descriptor for a ros2dds schema lane (typed or fallback when schema text is unknown).
+pub fn ros2_lane_descriptor(
+    topic: &str,
+    type_name: Option<&str>,
+    cache: &mut BTreeMap<ChannelRoute, Arc<ChannelDescriptor>>,
+) -> (ChannelRoute, Arc<ChannelDescriptor>) {
+    match type_name {
+        Some(type_name) => {
+            let route = ChannelRoute::typed(topic, type_name);
+            let descriptor = cached_descriptor(cache, &route, || {
+                channel_descriptor_for_ros2_type(topic, type_name)
+            });
+            (route, descriptor)
+        }
+        None => {
+            let route = ChannelRoute::for_topic(topic);
+            let descriptor =
+                cached_descriptor(cache, &route, || channel_descriptor_cdr_fallback(topic));
+            (route, descriptor)
+        }
+    }
+}
+
+/// Returns a cached descriptor for `route`, building it when missing.
+pub fn cached_descriptor(
+    cache: &mut BTreeMap<ChannelRoute, Arc<ChannelDescriptor>>,
+    route: &ChannelRoute,
+    build: impl FnOnce() -> ChannelDescriptor,
+) -> Arc<ChannelDescriptor> {
+    if !cache.contains_key(route) {
+        cache.insert(route.clone(), Arc::new(build()));
+    }
+    Arc::clone(cache.get(route).expect("inserted"))
 }
