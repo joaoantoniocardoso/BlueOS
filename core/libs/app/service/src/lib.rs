@@ -17,6 +17,6 @@ mod service;
 #[cfg(feature = "testing")]
 pub mod testing;
 
-pub use builder::ServiceBuilder;
+pub use builder::{Refusal, ServiceBuilder};
 pub use kernel::{Clock, Kernel};
 pub use service::{Service, ServiceContext, ServiceError};

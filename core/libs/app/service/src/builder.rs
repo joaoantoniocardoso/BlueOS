@@ -1,11 +1,15 @@
 //! What a Service's `build` declares: the initial Snapshot and how the Domain meets the backbone.
 
+use core::error::Error;
+
 use blueos_api::{Message, cdr_encoding};
 use blueos_domain::Domain;
 use blueos_idl::Error as IdlError;
 
+use crate::kernel::Rejection;
+
 /// Decodes a Request body into the Domain's Request.
-pub(crate) type Decode<D> = Box<dyn Fn(&[u8]) -> Result<<D as Domain>::Request, IdlError> + Send>;
+pub(crate) type Decode<D> = Box<dyn Fn(&[u8]) -> Result<<D as Domain>::Request, Rejection> + Send>;
 
 /// Computes and encodes a State from the Snapshot.
 pub(crate) type Project<D> =
@@ -14,6 +18,9 @@ pub(crate) type Project<D> =
 /// Turns a domain event into an encoded Event, or `None` when this Event endpoint does not publish it.
 pub(crate) type Select<D> =
     Box<dyn Fn(&<D as Domain>::Event) -> Option<Result<Vec<u8>, IdlError>> + Send + Sync>;
+
+/// Why an endpoint conversion or an IO query refused what a client sent. Its text is the reason the client gets.
+pub type Refusal = Box<dyn Error + Send + Sync>;
 
 /// Everything a Service declares in `build`: the initial Snapshot, then one call per endpoint. Each call converts
 /// between a Message and the Domain's own types, so the Domain never sees a Message.
@@ -57,15 +64,19 @@ impl<D: Domain> ServiceBuilder<D> {
     }
 
     /// Adds the Command endpoint `name`. Its body is an `M`, which `into_request` turns into the Domain's Request.
-    /// A body that does not decode is rejected before it reaches the Inbox.
+    /// A body that does not decode, or that `into_request` refuses, is rejected before it reaches the Inbox, with
+    /// the refusal as the reason.
     pub fn command<M: Message + 'static>(
         mut self,
         name: &str,
-        into_request: impl Fn(M) -> D::Request + Send + 'static,
+        into_request: impl Fn(M) -> Result<D::Request, Refusal> + Send + 'static,
     ) -> Self {
         self.commands.push(CommandEndpoint {
             name: name.to_owned(),
-            decode: Box::new(move |body| M::decode(body).map(&into_request)),
+            decode: Box::new(move |body| {
+                into_request(M::decode(body).map_err(Rejection::InvalidBody)?)
+                    .map_err(Rejection::Refused)
+            }),
         });
         self
     }

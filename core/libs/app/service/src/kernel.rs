@@ -18,7 +18,7 @@ use blueos_domain::{Command, Domain, Now, Outcome};
 use blueos_idl::Error as IdlError;
 
 use crate::{
-    builder::{Decode, EventEndpoint, ServiceBuilder, StateEndpoint},
+    builder::{Decode, EventEndpoint, Refusal, ServiceBuilder, StateEndpoint},
     service::ServiceError,
 };
 
@@ -65,7 +65,7 @@ pub trait Clock: Send + Sync {
 
 /// Why the Kernel did not apply a Command. Its text is the reason in the rejected [`CommandAck`].
 #[derive(Debug, thiserror::Error)]
-enum Rejection {
+pub(crate) enum Rejection {
     /// The Domain rejected the Command, with its own reason.
     #[error("{0}")]
     Domain(Box<dyn Error + Send + Sync>),
@@ -75,6 +75,9 @@ enum Rejection {
     /// The body is not the Command endpoint's Message.
     #[error("the Request does not decode: {0}")]
     InvalidBody(IdlError),
+    /// The endpoint's conversion refused the Message, with its own reason.
+    #[error("{0}")]
+    Refused(Refusal),
 }
 
 /// Why a State, an Event or an ack did not reach the backbone.
@@ -255,7 +258,7 @@ async fn serve_command<D: Domain>(
                 // A closed Inbox means the Kernel stopped; dropping the query tells the client.
                 drop(inbox.send(delivery).await);
             }
-            Err(error) => acknowledge(query, Err(Rejection::InvalidBody(error))).await,
+            Err(rejection) => acknowledge(query, Err(rejection)).await,
         }
     }
 }

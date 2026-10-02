@@ -79,6 +79,10 @@ struct AboveCapacity {
 #[error("a tank needs a capacity above 0")]
 struct NoCapacity;
 
+#[derive(Debug, thiserror::Error)]
+#[error("{0} is not a percentage")]
+struct NotAPercent(u8);
+
 /// The tank, publishing a State that fails to encode at one level.
 struct FragileTankService;
 
@@ -118,7 +122,14 @@ impl Service for TankService {
         }
         Ok(ServiceBuilder::new(TankSnapshot::empty(capacity))
             .command("SetLevel", |request: SetLevelRequest| {
-                TankRequest::SetLevel(request.level)
+                Ok(TankRequest::SetLevel(request.level))
+            })
+            .command("SetPercent", move |request: SetLevelRequest| {
+                if request.level > 100 {
+                    return Err(NotAPercent(request.level).into());
+                }
+                let level = u16::from(capacity) * u16::from(request.level) / 100;
+                Ok(TankRequest::SetLevel(u8::try_from(level).unwrap()))
             })
             .state("level_set_at", |snapshot: &TankSnapshot| Time {
                 sec: i32::try_from(snapshot.level_set_at.as_secs()).unwrap(),
@@ -158,7 +169,7 @@ impl Service for FragileTankService {
         Ok(
             ServiceBuilder::new(TankSnapshot::empty(context.arguments().capacity))
                 .command("SetLevel", |request: SetLevelRequest| {
-                    TankRequest::SetLevel(request.level)
+                    Ok(TankRequest::SetLevel(request.level))
                 })
                 .state("tank", |snapshot: &TankSnapshot| FragileLevel {
                     level: snapshot.level,
@@ -180,7 +191,7 @@ impl Service for MisnamedTankService {
         Ok(
             ServiceBuilder::new(TankSnapshot::empty(context.arguments().capacity))
                 .command("Set#Level", |request: SetLevelRequest| {
-                    TankRequest::SetLevel(request.level)
+                    Ok(TankRequest::SetLevel(request.level))
                 }),
         )
     }
@@ -716,6 +727,25 @@ async fn the_harness_panics_when_a_state_has_no_value() {
         .unwrap();
 
     harness.state::<PumpState>("missing").await;
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_request_its_conversion_refuses_is_rejected_before_the_domain() {
+    let harness = Harness::<TankService>::start(TankArguments { capacity: 10 })
+        .await
+        .unwrap();
+
+    let refused = harness
+        .send("SetPercent", &SetLevelRequest { level: 150 })
+        .await;
+    let applied = harness
+        .send("SetPercent", &SetLevelRequest { level: 50 })
+        .await;
+
+    assert!(!refused.accepted);
+    assert_eq!(refused.reason, "150 is not a percentage");
+    assert!(applied.accepted, "{}", applied.reason);
+    assert_eq!(harness.state::<PumpState>("tank").await.level, 5);
 }
 
 fn record(journal: &Mutex<Vec<String>>, entry: String) {
