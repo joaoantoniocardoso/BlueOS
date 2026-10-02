@@ -8,20 +8,18 @@ use blueos_domain::Domain;
 use crate::builder::ServiceBuilder;
 
 /// A BlueOS Service: one Domain, its name and version, its command-line arguments, and a `build` that declares how
-/// the Domain meets the backbone.
+/// the Domain meets the backbone. `endpoints` is generated from the Service's endpoint manifest (D-26).
 ///
 /// ```ignore
 /// impl Service for Example {
 ///     type Domain = Pump;
 ///     type Arguments = ExampleArguments;
 ///
-///     const NAME: &'static str = "example";
+///     const NAME: &'static str = endpoints::NAME;
 ///     const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 ///
 ///     fn build(context: &ServiceContext<ExampleArguments>) -> Result<ServiceBuilder<Pump>, ServiceError> {
-///         Ok(ServiceBuilder::new(PumpSnapshot::default())
-///             .command("SetLevel", |request: SetLevelRequest| PumpRequest::SetLevel(request.level))
-///             .state("pump", PumpState::from))
+///         Ok(endpoints::register(ServiceBuilder::new(PumpSnapshot::default())))
 ///     }
 /// }
 /// ```
