@@ -162,7 +162,11 @@ fn fill_read_request<R: Read>(
     }
     let mut remaining = need;
     while remaining > 0 {
-        let batch = remaining.min(SOURCE_READ_BYTES);
+        if *bytes_consumed >= total_bytes {
+            return Err(McapError::UnexpectedEof);
+        }
+        let unread = (total_bytes - *bytes_consumed) as usize;
+        let batch = remaining.min(SOURCE_READ_BYTES).min(unread);
         let buffer = linear.insert(batch);
         let written = source.read(buffer)?;
         linear.notify_read(written);
