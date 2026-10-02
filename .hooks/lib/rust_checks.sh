@@ -175,6 +175,16 @@ collect_test_only_feature_violations() {
     return 0
 }
 
+# Usage: run_shipped_clippy
+# Run from the Cargo workspace. Lints the feature set build_cross.sh ships (D-16).
+# --all-features hides an item that only a feature the shipped binary leaves off refers to.
+run_shipped_clippy() {
+    # shellcheck disable=SC1091
+    source shipped_features.sh
+    cargo clippy --locked -p "$BLUEOS_SHIPPED_PACKAGE" \
+        --features "${BLUEOS_SHIPPED_FEATURES[*]}" -- -D warnings
+}
+
 # Usage: run_rust_lint_checks <workspace_dir>
 run_rust_lint_checks() {
     local workspace_dir="$1"
@@ -217,6 +227,9 @@ run_rust_lint_checks() {
 
         echo "Running cargo clippy.."
         cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+
+        echo "Running cargo clippy for the shipped configuration.."
+        run_shipped_clippy
 
         echo "Running blueos rust style check.."
         cargo run --locked -q -p blueos-rust-style-check -- "$workspace_dir"
