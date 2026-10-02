@@ -1,10 +1,5 @@
 //! Little-endian CDR writers and readers for ROS 2 message payloads.
 
-#![expect(
-    clippy::arbitrary_source_item_ordering,
-    reason = "CDR helpers follow wire layout, not alphabetical order"
-)]
-
 use alloc::string::String;
 use alloc::vec::Vec;
 
