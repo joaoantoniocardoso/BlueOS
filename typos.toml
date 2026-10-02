@@ -5,6 +5,7 @@ extend-exclude = [
     "core/frontend/**",
     "core/services/**",
     "core/libs/commonwealth/**",
+    "**/tests/vectors/**",
     "core/tools/**",
     "core/uv.lock",
     "deploy/**",

@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "libs/adapters/comms",
     "libs/logic/domain",
+    "libs/logic/ros2-names",
     "libs/idl",
     "libs/idl/codegen",
     "libs/tools/rust-style-check",
@@ -30,6 +31,7 @@ strip = true
 [workspace.dependencies]
 blueos-comms = { path = "libs/adapters/comms" }
 blueos-domain = { path = "libs/logic/domain" }
+blueos-ros2-names = { path = "libs/logic/ros2-names" }
 blueos-recorder-capture = { path = "services/recorder/logic/capture" }
 blueos-recorder-domain = { path = "services/recorder/logic/recorder" }
 blueos-idl = { path = "libs/idl" }

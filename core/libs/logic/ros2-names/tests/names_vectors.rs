@@ -1,0 +1,211 @@
+#![allow(
+    clippy::arbitrary_source_item_ordering,
+    missing_docs,
+    unreachable_pub,
+    reason = "ROS 2 name vector integration tests"
+)]
+
+use serde::Deserialize;
+
+use blueos_ros2_names::{
+    RmwZenohDataKey, Ros2EntityKind, Ros2Transport, dds_type_name_to_ros, parse_rmw_zenoh_data_key,
+    parse_rmw_zenoh_liveliness_token, parse_ros2dds_liveliness_token, ros2dds_data_key_to_topic,
+    ros2dds_liveliness_token_to_data_key,
+};
+
+#[derive(Deserialize)]
+struct Vectors {
+    rmw_zenoh_data_keys: Vec<RmwDataVector>,
+    rmw_zenoh_tokens: Vec<RmwTokenVector>,
+    ros2dds_tokens: Vec<Ros2ddsTokenVector>,
+    dds_type_names: Vec<DdsTypeVector>,
+    ros2dds_data_key_topics: Vec<DataKeyTopicVector>,
+    ros2dds_token_data_keys: Option<Vec<TokenDataKeyVector>>,
+}
+
+#[derive(Deserialize)]
+struct RmwDataVector {
+    key: String,
+    expected: Option<RmwDataExpected>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RmwDataExpected {
+    #[serde(rename = "domainId")]
+    domain_id: u32,
+    topic: String,
+    #[serde(rename = "typeName")]
+    type_name: String,
+    #[serde(rename = "typeHash")]
+    type_hash: String,
+}
+
+#[derive(Deserialize)]
+struct RmwTokenVector {
+    key: String,
+    expected: Option<RmwTokenExpected>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RmwTokenExpected {
+    transport: String,
+    #[serde(rename = "entityKind")]
+    entity_kind: String,
+    #[serde(rename = "domainId")]
+    domain_id: u32,
+    namespace: String,
+    node: String,
+    topic: String,
+    #[serde(rename = "typeName")]
+    type_name: String,
+    #[serde(rename = "typeHash")]
+    type_hash: String,
+}
+
+#[derive(Deserialize)]
+struct Ros2ddsTokenVector {
+    key: String,
+    expected: Option<Ros2ddsTokenExpected>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Ros2ddsTokenExpected {
+    transport: String,
+    #[serde(rename = "entityKind")]
+    entity_kind: String,
+    topic: String,
+    #[serde(rename = "typeName")]
+    type_name: String,
+}
+
+#[derive(Deserialize)]
+struct DdsTypeVector {
+    dds: String,
+    ros: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct DataKeyTopicVector {
+    key: String,
+    topic: String,
+}
+
+#[derive(Deserialize)]
+struct TokenDataKeyVector {
+    key: String,
+    #[serde(rename = "dataKey")]
+    data_key: String,
+}
+
+fn entity_kind_name(kind: Ros2EntityKind) -> &'static str {
+    match kind {
+        Ros2EntityKind::Publisher => "publisher",
+        Ros2EntityKind::Subscriber => "subscriber",
+        Ros2EntityKind::ServiceServer => "service_server",
+        Ros2EntityKind::ServiceClient => "service_client",
+        Ros2EntityKind::ActionServer => "action_server",
+        Ros2EntityKind::ActionClient => "action_client",
+    }
+}
+
+fn transport_name(transport: Ros2Transport) -> &'static str {
+    match transport {
+        Ros2Transport::RmwZenoh => "rmw_zenoh",
+        Ros2Transport::Ros2dds => "ros2dds",
+    }
+}
+
+#[test]
+fn names_json_vectors() {
+    let text = include_str!("vectors/names.json");
+    let vectors: Vectors = serde_json::from_str(text).expect("parse vectors");
+
+    for entry in &vectors.rmw_zenoh_data_keys {
+        let parsed = parse_rmw_zenoh_data_key(&entry.key);
+        match (&entry.expected, parsed) {
+            (None, None) => {}
+            (
+                Some(expected),
+                Some(RmwZenohDataKey {
+                    domain_id,
+                    topic,
+                    type_name,
+                    type_hash,
+                }),
+            ) => {
+                assert_eq!(domain_id, expected.domain_id);
+                assert_eq!(topic, expected.topic);
+                assert_eq!(type_name, expected.type_name);
+                assert_eq!(type_hash, expected.type_hash);
+            }
+            (expected, parsed) => {
+                panic!(
+                    "rmw data key {:?}: expected {:?}, got {:?}",
+                    entry.key, expected, parsed
+                );
+            }
+        }
+    }
+
+    for entry in &vectors.rmw_zenoh_tokens {
+        let parsed = parse_rmw_zenoh_liveliness_token(&entry.key);
+        match (&entry.expected, parsed) {
+            (None, None) => {}
+            (Some(expected), Some(info)) => {
+                assert_eq!(transport_name(info.transport), expected.transport);
+                assert_eq!(entity_kind_name(info.entity_kind), expected.entity_kind);
+                assert_eq!(info.domain_id, Some(expected.domain_id));
+                assert_eq!(info.namespace.as_deref(), Some(expected.namespace.as_str()));
+                assert_eq!(info.node.as_deref(), Some(expected.node.as_str()));
+                assert_eq!(info.topic, expected.topic);
+                assert_eq!(info.type_name, expected.type_name);
+                assert_eq!(info.type_hash.as_deref(), Some(expected.type_hash.as_str()));
+            }
+            (expected, parsed) => {
+                panic!(
+                    "rmw token {:?}: expected {:?}, got {:?}",
+                    entry.key, expected, parsed
+                );
+            }
+        }
+    }
+
+    for entry in &vectors.ros2dds_tokens {
+        let parsed = parse_ros2dds_liveliness_token(&entry.key);
+        match (&entry.expected, parsed) {
+            (None, None) => {}
+            (Some(expected), Some(info)) => {
+                assert_eq!(transport_name(info.transport), expected.transport);
+                assert_eq!(entity_kind_name(info.entity_kind), expected.entity_kind);
+                assert_eq!(info.topic, expected.topic);
+                assert_eq!(info.type_name, expected.type_name);
+            }
+            (expected, parsed) => {
+                panic!(
+                    "ros2dds token {:?}: expected {:?}, got {:?}",
+                    entry.key, expected, parsed
+                );
+            }
+        }
+    }
+
+    for entry in &vectors.dds_type_names {
+        let parsed = dds_type_name_to_ros(&entry.dds);
+        assert_eq!(parsed.as_deref(), entry.ros.as_deref(), "dds {}", entry.dds);
+    }
+
+    for entry in &vectors.ros2dds_data_key_topics {
+        assert_eq!(ros2dds_data_key_to_topic(&entry.key), entry.topic);
+    }
+
+    if let Some(entries) = &vectors.ros2dds_token_data_keys {
+        for entry in entries {
+            assert_eq!(
+                ros2dds_liveliness_token_to_data_key(&entry.key).as_deref(),
+                Some(entry.data_key.as_str()),
+                "token {}",
+                entry.key
+            );
+        }
+    }
+}

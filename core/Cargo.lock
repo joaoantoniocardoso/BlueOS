@@ -127,6 +127,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "blueos-ros2-names"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "blueos-rust-style-check"
 version = "0.1.0"
 dependencies = [
