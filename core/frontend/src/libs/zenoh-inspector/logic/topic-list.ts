@@ -1,10 +1,5 @@
 import type { TopicGroup, TopicInfo } from './types'
 
-/** Matches integration ZenohInspector: keys whose name contains `video`. */
-export function isVideoTopicKey(key: string): boolean {
-  return key.toLowerCase().includes('video')
-}
-
 export function topicPrimaryLabel(topic: TopicInfo): string {
   return topic.ros2?.topic ?? topic.key
 }

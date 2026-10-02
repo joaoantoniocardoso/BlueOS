@@ -33,12 +33,24 @@ export {
 export type { TopicListRow } from './topic-list'
 export {
   flattenTopicGroups,
-  isVideoTopicKey,
   serviceAliveFromBlueosGroup,
   topicCountInGroups,
   topicPrimaryLabel,
   visibleTopicsInGroup,
 } from './topic-list'
+export {
+  encodingBase,
+  hasCdrEncapsulationHeader,
+  isAmbiguousCdrEncoding,
+  payloadIsCdrCandidate,
+} from './topic-classification'
+export {
+  availableViews,
+  defaultView,
+  defaultViewRegistry,
+  jsonView,
+  videoView,
+} from './views'
 export type {
   BlueosKeyInfo,
   BlueosKeyKind,
@@ -54,4 +66,5 @@ export type {
   TopicGroup,
   TopicInfo,
   TopicSource,
+  ViewDescriptor,
 } from './types'

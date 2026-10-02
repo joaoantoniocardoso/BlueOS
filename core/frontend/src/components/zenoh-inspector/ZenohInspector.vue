@@ -33,7 +33,10 @@
           <inspector-topic-detail
             :controller="inspectorController"
             :selected-topic="inspector.selectedTopic"
+            :available-views="inspector.availableViews"
+            :selected-view-id="inspector.selectedViewId"
             :selected-decoded="inspector.selectedDecoded"
+            @select-view="onSelectView"
           />
           <v-card-text v-if="inspector.selectedService">
             <inspector-service-panel
@@ -80,6 +83,8 @@ function emptyInspectorViewState(): InspectorViewState {
     topicGroups: [],
     selectedKey: null,
     selectedTopic: null,
+    availableViews: [],
+    selectedViewId: 'json',
     selectedDecoded: null,
     selectedService: null,
     serviceInfo: null,
@@ -129,6 +134,9 @@ export default Vue.extend({
   methods: {
     onFilter(text: string | null): void {
       inspectorBindings(this).controller.setFilter(text ?? '')
+    },
+    onSelectView(viewId: string): void {
+      inspectorBindings(this).controller.selectView(viewId)
     },
     onSelectTopic(key: string): void {
       const { controller } = inspectorBindings(this)

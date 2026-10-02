@@ -7,12 +7,14 @@ import {
   applyBlueosServiceLiveliness,
   applyRos2Liveliness,
   applySample,
+  availableViews,
   createCoalescer,
   createInspectorState,
   decodePayload,
   defaultRequestText,
+  defaultView,
+  defaultViewRegistry,
   endpointsByKind,
-  isVideoTopicKey,
   parseRequestText,
   topicsBySource,
 } from './logic'
@@ -25,6 +27,7 @@ import type {
   TopicGroup,
   TopicInfo,
   Unsubscribe,
+  ViewDescriptor,
 } from './logic/types'
 
 export interface InspectorSourceHandlers {
@@ -51,6 +54,8 @@ export interface InspectorViewState {
   topicGroups: TopicGroup[]
   selectedKey: string | null
   selectedTopic: TopicInfo | null
+  availableViews: ViewDescriptor[]
+  selectedViewId: string
   selectedDecoded: DecodedPayload | null
   selectedService: string | null
   serviceInfo: ServiceInfo | null
@@ -72,6 +77,7 @@ export interface InspectorControllerDependencies {
   codec: CdrCodec
   scheduler: FrameScheduler
   clock?: () => number
+  viewRegistry?: ViewDescriptor[]
 }
 
 function topicMatchesFilter(topic: TopicInfo, needle: string): boolean {
@@ -149,10 +155,15 @@ export class InspectorController {
 
   private readonly sampleCoalescer
 
+  private readonly viewRegistry: ViewDescriptor[]
+
+  private selectedViewId: string | null = null
+
   constructor(dependencies: InspectorControllerDependencies, callbacks: InspectorControllerCallbacks) {
     this.dependencies = dependencies
     this.callbacks = callbacks
     this.clock = dependencies.clock ?? Date.now
+    this.viewRegistry = dependencies.viewRegistry ?? defaultViewRegistry
     this.inspectorState = createInspectorState()
     this.sampleCoalescer = createCoalescer(this.dependencies.scheduler, (batch) => {
       this.applySampleBatch(batch)
@@ -215,11 +226,27 @@ export class InspectorController {
     this.selectedKey = key
     this.sampleCoalescer.setSelectedKey(key)
     if (key === null) {
+      this.selectedViewId = null
       this.invalidateSelectedDecode()
       this.scheduleEmit()
       return
     }
+    const topic = this.inspectorState.topics[key]
+    if (topic) {
+      this.selectedViewId = defaultView(topic, this.viewRegistry).id
+    }
     this.invalidateSelectedDecode()
+    this.scheduleEmit()
+  }
+
+  selectView(id: string): void {
+    const selectedTopic = this.selectedKey ? this.inspectorState.topics[this.selectedKey] : undefined
+    const previousViewId = this.selectedViewId
+      ?? (selectedTopic ? defaultView(selectedTopic, this.viewRegistry).id : 'json')
+    this.selectedViewId = id
+    if (previousViewId === 'video' && id !== 'video') {
+      this.invalidateSelectedDecode()
+    }
     this.scheduleEmit()
   }
 
@@ -321,7 +348,9 @@ export class InspectorController {
         for (const listener of this.selectedSampleListeners) {
           listener(sample)
         }
-        if (!isVideoTopicKey(key)) {
+        const topic = this.inspectorState.topics[key]
+        const viewId = this.selectedViewId ?? (topic ? defaultView(topic, this.viewRegistry).id : 'json')
+        if (viewId !== 'video') {
           this.invalidateSelectedDecode()
         }
       }
@@ -344,8 +373,11 @@ export class InspectorController {
     })
   }
 
-  private computeSelectedDecoded(): DecodedPayload | null {
-    if (!this.selectedKey || isVideoTopicKey(this.selectedKey)) {
+  private computeSelectedDecoded(viewId: string): DecodedPayload | null {
+    if (viewId === 'video') {
+      return null
+    }
+    if (!this.selectedKey) {
       return null
     }
     const topic = this.inspectorState.topics[this.selectedKey]
@@ -369,12 +401,16 @@ export class InspectorController {
 
   private emitState(): void {
     const selectedTopic = this.selectedKey ? this.inspectorState.topics[this.selectedKey] ?? null : null
+    const viewId = this.selectedViewId
+      ?? (selectedTopic ? defaultView(selectedTopic, this.viewRegistry).id : 'json')
     this.callbacks.onState({
       filter: this.filter,
       topicGroups: filterTopicGroups(topicsBySource(this.inspectorState), this.filter),
       selectedKey: this.selectedKey,
       selectedTopic,
-      selectedDecoded: this.computeSelectedDecoded(),
+      availableViews: selectedTopic ? availableViews(selectedTopic, this.viewRegistry) : [],
+      selectedViewId: viewId,
+      selectedDecoded: this.computeSelectedDecoded(viewId),
       selectedService: this.selectedService,
       serviceInfo: this.serviceInfo,
       serviceEndpoints: this.serviceInfo ? endpointsByKind(this.serviceInfo.endpoints) : null,
