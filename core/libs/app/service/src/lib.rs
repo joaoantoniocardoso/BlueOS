@@ -30,7 +30,6 @@ mod tasks;
 #[cfg(feature = "testing")]
 pub mod testing;
 
-pub use blueos_domain::{DomainDurable, IoError};
 pub use builder::{Refusal, ServiceBuilder};
 pub use clock::Clock;
 pub use command_sender::{CommandSender, SendError, Session};
