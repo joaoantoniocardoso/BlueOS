@@ -128,6 +128,29 @@ test_fmt_check_fails_on_unformatted_source() {
     rm -rf "$temporary"
 }
 
+test_syn_style_check_fails_on_mixed_import_groups() {
+    local temporary
+    temporary=$(mktemp -d)
+    cp -a "$ROOT_DIR/core/." "$temporary/"
+    cat >>"$temporary/libs/logic/smoke/Cargo.toml" <<'EOF'
+
+[dependencies]
+convert_case.workspace = true
+EOF
+    cat >>"$temporary/libs/logic/smoke/src/lib.rs" <<'EOF'
+
+use std::path::PathBuf;
+use convert_case::Case;
+EOF
+    if (
+        cd "$temporary"
+        cargo run --locked -q -p blueos-rust-style-check -- . 2>/dev/null
+    ); then
+        fail "syn style check should reject mixed import groups"
+    fi
+    rm -rf "$temporary"
+}
+
 test_clippy_fails_on_allow_attributes() {
     local temporary
     temporary=$(mktemp -d)
@@ -312,6 +335,7 @@ main() {
     test_folder_rejects_cross_service_dependency
     test_workspace_metadata_is_clean
     test_fmt_check_fails_on_unformatted_source
+    test_syn_style_check_fails_on_mixed_import_groups
     test_clippy_fails_on_allow_attributes
     test_no_std_build_fails_on_io_dependency
     test_machete_fails_on_unused_dependency
