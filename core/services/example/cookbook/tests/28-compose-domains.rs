@@ -1,4 +1,5 @@
-//! Compose reusable Blocks inside one Domain with [`Outcome::map`].
+//! Compose reusable Blocks inside one Domain with [`Outcome::map`]. You do not compose two Domains in one
+//! Service; you nest Blocks and map their [`Outcome`] into the parent Domain's events and effects.
 
 use core::{
     convert::Infallible,
@@ -8,6 +9,8 @@ use core::{
 };
 
 use blueos_domain::{Command, Decision, Domain, IoError, Now, Outcome};
+use blueos_idl::msg::blueos_example_msgs::{EmptyRequest, LevelQueryResponse};
+use blueos_service::{Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness};
 
 const NOW: Now = Now {
     wall: Duration::from_secs(1_700_000_000),
@@ -108,6 +111,31 @@ impl Display for LampRejection {
 
 impl Error for LampRejection {}
 
+struct ComposeCookbookService;
+
+#[derive(Clone, Default, clap::Args)]
+struct ComposeCookbookArguments;
+
+impl Service for ComposeCookbookService {
+    type Domain = Room;
+    type Context = ();
+    type Arguments = ComposeCookbookArguments;
+
+    const NAME: &'static str = "cookbook_compose";
+    const VERSION: &'static str = "1.0.0";
+
+    fn build(
+        _context: &ServiceContext<ComposeCookbookArguments>,
+    ) -> Result<ServiceBuilder<Room>, ServiceError> {
+        Ok(ServiceBuilder::new(RoomSnapshot::default())
+            .command("TurnOn", |_: EmptyRequest| Ok(RoomRequest::TurnOn))
+            .state("lamp", |snapshot: &RoomSnapshot| LevelQueryResponse {
+                level: u8::from(matches!(snapshot.lamp, Lamp::On)),
+                max_level: 1,
+            }))
+    }
+}
+
 #[test]
 fn block_outcome_maps_into_the_composing_domain() {
     let mut snapshot = RoomSnapshot::default();
@@ -128,4 +156,15 @@ fn block_rejection_maps_into_the_composing_domain() {
         panic!("turning an on lamp on must reject, got {decision:?}");
     };
     assert_eq!(reason.downcast_ref(), Some(&LampRejection::AlreadyOn));
+}
+
+#[tokio::test(start_paused = true)]
+async fn composed_block_state_reaches_clients_through_the_service() {
+    let harness = Harness::<ComposeCookbookService>::start(ComposeCookbookArguments)
+        .await
+        .expect("start");
+    let ack = harness.send("TurnOn", &EmptyRequest::default()).await;
+    assert!(ack.accepted);
+    let lamp = harness.state::<LevelQueryResponse>("lamp").await;
+    assert_eq!(lamp.level, 1);
 }
