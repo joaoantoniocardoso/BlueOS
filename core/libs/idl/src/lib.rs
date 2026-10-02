@@ -1,4 +1,4 @@
-//! ROS 2 `.msg` types for BlueOS with embedded `ros2msg` schemas and a `#![no_std]` CDR codec (D-05).
+//! The BlueOS Messages as Rust types, with their ROS 2 schemas and the CDR codec that reads and writes them.
 
 #![no_std]
 #![expect(
