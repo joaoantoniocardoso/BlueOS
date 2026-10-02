@@ -1,107 +1,13 @@
-error[E0432]: unresolved import `blueos_domain`
- --> tests/compile_fail/common/mod.rs
-  |
-  | use blueos_domain::{Command, Decision, Domain, DomainQueries, IoError, Now};
-  |     ^^^^^^^^^^^^^ use of unresolved module or unlinked crate `blueos_domain`
-  |
-help: there is a crate or module with a similar name
-  |
-5 - use blueos_domain::{Command, Decision, Domain, DomainQueries, IoError, Now};
-5 + use blueos_comms::{Command, Decision, Domain, DomainQueries, IoError, Now};
-  |
-
-error[E0432]: unresolved import `blueos_example_domain::PumpEvent`
- --> tests/compile_fail/common/mod.rs
-  |
-  |     Pump, PumpEvent, PumpQuery, PumpRequest, PumpResponse, PumpSnapshot,
-  |           ^^^^^^^^^ no `PumpEvent` in the root
-
 error[E0053]: method `set_level` has an incompatible type for trait
   --> tests/compile_fail/wrong_message.rs:12:28
    |
 12 |     fn set_level(_request: EmptyRequest) -> PumpRequest {
    |                            ^^^^^^^^^^^^ expected `SetLevelRequest`, found `EmptyRequest`
    |
-   = note: expected signature `fn(SetLevelRequest) -> _`
+   = note: expected signature `fn(SetLevelRequest) -> PumpRequest`
               found signature `fn(EmptyRequest) -> PumpRequest`
 help: change the parameter type to match the trait
    |
 12 -     fn set_level(_request: EmptyRequest) -> PumpRequest {
 12 +     fn set_level(_request: SetLevelRequest) -> PumpRequest {
    |
-
-error[E0277]: the trait bound `Twin: blueos_domain::DomainQueries` is not satisfied
-  --> tests/compile_fail/wrong_message.rs:16:5
-   |
-16 |     fn level(_request: EmptyRequest) -> PumpQuery {
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ unsatisfied trait bound
-   |
-help: the trait `blueos_domain::DomainQueries` is not implemented for `Twin`
-  --> tests/compile_fail/common/mod.rs
-   |
-   | pub struct Twin;
-   | ^^^^^^^^^^^^^^^
-help: the trait `blueos_domain::DomainQueries` is implemented for `Pump`
-  --> $WORKSPACE/services/example/logic/domain/src/lib.rs
-   |
-   | impl DomainQueries for Pump {
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-error[E0277]: the trait bound `Twin: blueos_domain::DomainQueries` is not satisfied
-  --> tests/compile_fail/wrong_message.rs:20:5
-   |
-20 |     fn level_response(_response: PumpResponse) -> Option<LevelQueryResponse> {
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ unsatisfied trait bound
-   |
-help: the trait `blueos_domain::DomainQueries` is not implemented for `Twin`
-  --> tests/compile_fail/common/mod.rs
-   |
-   | pub struct Twin;
-   | ^^^^^^^^^^^^^^^
-help: the trait `blueos_domain::DomainQueries` is implemented for `Pump`
-  --> $WORKSPACE/services/example/logic/domain/src/lib.rs
-   |
-   | impl DomainQueries for Pump {
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-error[E0277]: the trait bound `Twin: blueos_domain::Domain` is not satisfied
-  --> tests/compile_fail/wrong_message.rs:24:5
-   |
-24 |     fn pump(_snapshot: &PumpSnapshot) -> PumpState {
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ unsatisfied trait bound
-   |
-help: the trait `blueos_domain::Domain` is not implemented for `Twin`
-  --> tests/compile_fail/common/mod.rs
-   |
-   | pub struct Twin;
-   | ^^^^^^^^^^^^^^^
-help: the trait `blueos_domain::Domain` is implemented for `Pump`
-  --> $WORKSPACE/services/example/logic/domain/src/lib.rs
-   |
-   | impl Domain for Pump {
-   | ^^^^^^^^^^^^^^^^^^^^
-
-error[E0277]: the trait bound `Twin: blueos_domain::DomainQueries` is not satisfied
-  --> tests/compile_fail/wrong_message.rs:11:22
-   |
-11 | impl Conversions for Twin {
-   |                      ^^^^ unsatisfied trait bound
-   |
-help: the trait `blueos_domain::DomainQueries` is not implemented for `Twin`
-  --> tests/compile_fail/common/mod.rs
-   |
-   | pub struct Twin;
-   | ^^^^^^^^^^^^^^^
-help: the trait `blueos_domain::DomainQueries` is implemented for `Pump`
-  --> $WORKSPACE/services/example/logic/domain/src/lib.rs
-   |
-   | impl DomainQueries for Pump {
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-note: required by a bound in `Conversions`
-  --> $WORKSPACE/services/example/logic/api/src/endpoints.rs
-   |
-   | pub trait Conversions: DomainQueries {
-   |                        ^^^^^^^^^^^^^ required by this bound in `Conversions`
-   = note: `Conversions` is a "sealed trait", because to implement it you also need to implement `blueos_domain::DomainQueries`, which is not accessible; this is usually done to force you to use one of the provided types that already implement it
-   = help: the following type implements the trait:
-             blueos_example_domain::Pump

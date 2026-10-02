@@ -1,17 +1,24 @@
-error[E0432]: unresolved import `blueos_domain`
- --> tests/compile_fail/common/mod.rs
-  |
-  | use blueos_domain::{Command, Decision, Domain, DomainQueries, IoError, Now};
-  |     ^^^^^^^^^^^^^ use of unresolved module or unlinked crate `blueos_domain`
-  |
-help: there is a crate or module with a similar name
-  |
-5 - use blueos_domain::{Command, Decision, Domain, DomainQueries, IoError, Now};
-5 + use blueos_comms::{Command, Decision, Domain, DomainQueries, IoError, Now};
-  |
-
-error[E0432]: unresolved import `blueos_example_domain::PumpEvent`
- --> tests/compile_fail/common/mod.rs
-  |
-  |     Pump, PumpEvent, PumpQuery, PumpRequest, PumpResponse, PumpSnapshot,
-  |           ^^^^^^^^^ no `PumpEvent` in the root
+error[E0277]: `Twin` does not convert the endpoints of the `example` Service
+  --> tests/compile_fail/missing_conversions.rs:13:25
+   |
+13 |     endpoints::register(builder);
+   |     ------------------- ^^^^^^^ no `impl Conversions for Twin` in the `example` logic/api crate
+   |     |
+   |     required by a bound introduced by this call
+   |
+help: the trait `blueos_example_api::endpoints::Conversions` is not implemented for `Twin`
+  --> tests/compile_fail/common/mod.rs
+   |
+   | pub struct Twin;
+   | ^^^^^^^^^^^^^^^
+   = note: implement `set_level` for the Command `SetLevel`, `level` for the Query `Level`, `level_response` for the Query `Level`, `pump` for the State `pump`
+help: the trait `blueos_example_api::endpoints::Conversions` is implemented for `Pump`
+  --> $WORKSPACE/services/example/logic/api/src/lib.rs
+   |
+   | impl Conversions for Pump {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required by a bound in `register`
+  --> src/endpoints.rs
+   |
+   | pub fn register<D: Conversions, Context>(
+   |                    ^^^^^^^^^^^ required by this bound in `register`
