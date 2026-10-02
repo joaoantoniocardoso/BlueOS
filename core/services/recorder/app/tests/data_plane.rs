@@ -29,11 +29,8 @@ async fn recording_blueos_topics_produces_mcap_with_ros2msg_schema() {
     wait_for_active_recording(harness.backend()).await;
     publish_pump_state(harness.backend()).await;
     wait_for_recording_bytes(&harness, 1).await;
-    stop_recording(&harness).await;
-    wait_for_recording_idle(harness.backend()).await;
-    wait_for_mcap_readable(single_recorder_mcap(directory.path()).as_path()).await;
-
-    let path = single_recorder_mcap(directory.path());
+    let path = active_recording_mcap_path(&harness, directory.path()).await;
+    stop_recording_and_finalize_mcap(harness.backend(), &path).await;
     let data = fs::read(&path).expect("mcap file");
     let summary = mcap::Summary::read(&data).expect("read").expect("summary");
     assert!(
@@ -71,11 +68,10 @@ async fn records_video_and_non_blueos_keys() {
         .await
         .expect("publish external");
     wait_for_recording_bytes(&harness, 1).await;
-    stop_recording(&harness).await;
-    wait_for_recording_idle(harness.backend()).await;
-    wait_for_mcap_readable(single_recorder_mcap(directory.path()).as_path()).await;
+    let path = active_recording_mcap_path(&harness, directory.path()).await;
+    stop_recording_and_finalize_mcap(harness.backend(), &path).await;
 
-    let data = fs::read(single_recorder_mcap(directory.path())).expect("read");
+    let data = fs::read(path).expect("read");
     let summary = mcap::Summary::read(&data).expect("read").expect("summary");
     let topics: Vec<_> = summary
         .channels
@@ -116,18 +112,14 @@ async fn rotation_keeps_both_files_intact_and_state_correct() {
     assert!(state.session_active);
     assert!(state.current_file.starts_with("recorder_"));
 
-    stop_recording(&harness).await;
-    wait_for_recording_idle(harness.backend()).await;
-    for path in recorder_mcaps(directory.path()) {
-        wait_for_mcap_readable(path.as_path()).await;
-    }
+    let first_path = directory.path().join(&first_file_name);
+    wait_for_mcap_finalized(&first_path).await;
+    let second_path = active_recording_mcap_path(&harness, directory.path()).await;
+    stop_recording_and_finalize_mcap(harness.backend(), &second_path).await;
+    assert_mcap_readable(&second_path).await;
 
     let paths = recorder_mcaps(directory.path());
     assert_eq!(paths.len(), 2);
-    for path in paths {
-        let bytes = fs::read(path).expect("read");
-        mcap::Summary::read(&bytes).expect("read").expect("summary");
-    }
 }
 
 #[tokio::test(start_paused = true)]
@@ -138,10 +130,8 @@ async fn second_start_on_same_folder_does_not_overwrite_first_file() {
     wait_for_active_recording(first.backend()).await;
     publish_pump_state(first.backend()).await;
     wait_for_recording_bytes(&first, 1).await;
-    stop_recording(&first).await;
-    wait_for_recording_idle(first.backend()).await;
-    let first_path = single_recorder_mcap(directory.path());
-    wait_for_mcap_readable(first_path.as_path()).await;
+    let first_path = active_recording_mcap_path(&first, directory.path()).await;
+    stop_recording_and_finalize_mcap(first.backend(), &first_path).await;
     let first_bytes = fs::read(&first_path).expect("read first");
     drop(first);
 
@@ -150,11 +140,10 @@ async fn second_start_on_same_folder_does_not_overwrite_first_file() {
     wait_for_active_recording(second.backend()).await;
     publish_pump_state(second.backend()).await;
     wait_for_recording_bytes(&second, 1).await;
-    stop_recording(&second).await;
-    wait_for_recording_idle(second.backend()).await;
-    for path in recorder_mcaps(directory.path()) {
-        wait_for_mcap_readable(path.as_path()).await;
-    }
+    let second_path = active_recording_mcap_path(&second, directory.path()).await;
+    stop_recording_and_finalize_mcap(second.backend(), &second_path).await;
+    assert_mcap_readable(&first_path).await;
+    assert_mcap_readable(&second_path).await;
 
     assert_eq!(recorder_mcaps(directory.path()).len(), 2);
     assert_eq!(
@@ -188,6 +177,7 @@ async fn shutdown_mid_recording_leaves_readable_file() {
     wait_for_active_recording(&backend).await;
     publish_pump_state(&backend).await;
     wait_for_recording_bytes_on(&backend, 1).await;
+    let path = active_recording_mcap_path_on(&backend, directory.path()).await;
 
     shutdown.trigger();
     timeout(REPLY_TIMEOUT, run)
@@ -195,7 +185,8 @@ async fn shutdown_mid_recording_leaves_readable_file() {
         .expect("shutdown")
         .expect("join");
 
-    let bytes = fs::read(single_recorder_mcap(directory.path())).expect("read");
+    assert_mcap_readable(&path).await;
+    let bytes = fs::read(&path).expect("read");
     mcap::Summary::read(&bytes)
         .expect("read")
         .expect("readable after shutdown");
@@ -225,6 +216,7 @@ async fn shutdown_with_no_samples_after_start_still_finishes_file() {
     start_recording_on(&backend).await;
     wait_for_active_recording(&backend).await;
     advance(Duration::from_secs(1)).await;
+    let path = active_recording_mcap_path_on(&backend, directory.path()).await;
 
     shutdown.trigger();
     timeout(REPLY_TIMEOUT, run)
@@ -232,7 +224,7 @@ async fn shutdown_with_no_samples_after_start_still_finishes_file() {
         .expect("shutdown")
         .expect("join");
 
-    let path = wait_for_one_recorder_mcap(directory.path()).await;
+    assert_mcap_readable(&path).await;
     let bytes = fs::read(&path).expect("read");
     mcap::Summary::read(&bytes)
         .expect("read")
@@ -265,6 +257,7 @@ async fn shutdown_with_full_writer_queue_finishes_file() {
     for _ in 0..64 {
         publish_pump_state(&backend).await;
     }
+    let path = active_recording_mcap_path_on(&backend, directory.path()).await;
 
     shutdown.trigger();
     timeout(REPLY_TIMEOUT, run)
@@ -272,7 +265,7 @@ async fn shutdown_with_full_writer_queue_finishes_file() {
         .expect("shutdown")
         .expect("join");
 
-    let path = wait_for_one_recorder_mcap(directory.path()).await;
+    assert_mcap_readable(&path).await;
     let bytes = fs::read(&path).expect("read");
     mcap::Summary::read(&bytes)
         .expect("read")
@@ -317,10 +310,6 @@ async fn start_recording_on(backend: &Arc<dyn CommsBackend>) {
         .expect("start");
 }
 
-async fn stop_recording(harness: &Harness<RecorderService>) {
-    harness.send("Stop", &StopRecordingCommand::default()).await;
-}
-
 async fn publish_pump_state(backend: &Arc<dyn CommsBackend>) {
     let message = PumpState::default();
     backend
@@ -333,69 +322,99 @@ async fn publish_pump_state(backend: &Arc<dyn CommsBackend>) {
         .expect("publish");
 }
 
-async fn wait_for_mcap_readable(path: &std::path::Path) {
-    for _ in 0..200 {
-        advance(Duration::from_millis(50)).await;
-        let Ok(bytes) = fs::read(path) else {
-            continue;
-        };
-        if mcap::Summary::read(&bytes)
+async fn active_recording_mcap_path(
+    harness: &Harness<RecorderService>,
+    directory: &std::path::Path,
+) -> std::path::PathBuf {
+    active_recording_mcap_path_on(harness.backend(), directory).await
+}
+
+async fn active_recording_mcap_path_on(
+    backend: &Arc<dyn CommsBackend>,
+    directory: &std::path::Path,
+) -> std::path::PathBuf {
+    wait_for_active_recording(backend).await;
+    directory.join(recording_state(backend).await.current_file)
+}
+
+/// Stop clears `recording` State before the writer finishes, so no State update marks finalize.
+/// Wait for idle, then advance virtual time until the data plane Task completes `finish`.
+async fn stop_recording_and_finalize_mcap(backend: &Arc<dyn CommsBackend>, path: &std::path::Path) {
+    stop_recording_on(backend).await;
+    wait_for_recording_idle(backend).await;
+    wait_for_mcap_finalized(path).await;
+}
+
+async fn stop_recording_on(backend: &Arc<dyn CommsBackend>) {
+    let stop = StopRecordingCommand::default();
+    let body = QueryBody::new(
+        stop.encode().expect("encode"),
+        cdr_encoding(StopRecordingCommand::SCHEMA_NAME),
+    );
+    backend
+        .get(
+            &command_key(RecorderService::NAME, "Stop"),
+            Some(body),
+            REPLY_TIMEOUT,
+        )
+        .await
+        .expect("stop");
+}
+
+async fn assert_mcap_readable(path: &std::path::Path) {
+    let path = path.to_path_buf();
+    tokio::task::spawn_blocking(move || {
+        let bytes = fs::read(&path).expect("read mcap");
+        mcap::Summary::read(&bytes)
+            .expect("parse mcap")
+            .expect("mcap summary");
+    })
+    .await
+    .expect("read task");
+}
+
+async fn wait_for_mcap_finalized(path: &std::path::Path) {
+    let path = path.to_path_buf();
+    timeout(REPLY_TIMEOUT, async {
+        loop {
+            let finalized = tokio::task::spawn_blocking({
+                let path = path.clone();
+                move || -> Option<()> {
+                    let bytes = fs::read(&path).ok()?;
+                    mcap::Summary::read(&bytes).ok().flatten()?;
+                    Some(())
+                }
+            })
+            .await
             .ok()
-            .and_then(|summary| summary)
-            .is_some()
-        {
-            return;
+            .flatten()
+            .is_some();
+            if finalized {
+                return;
+            }
+            advance(Duration::from_millis(50)).await;
         }
-    }
-    panic!("mcap file never became readable at {}", path.display());
+    })
+    .await
+    .expect("mcap file never finalized");
 }
 
 async fn wait_for_recording_idle(backend: &Arc<dyn CommsBackend>) {
-    for _ in 0..200 {
-        advance(Duration::from_millis(50)).await;
-        let state = recording_state(backend).await;
-        if !state.session_active {
-            return;
-        }
-    }
-    panic!("recording never became idle");
+    wait_for_recording_state(backend, false, |state| !state.session_active).await;
 }
 
 async fn wait_for_active_recording(backend: &Arc<dyn CommsBackend>) {
-    for _ in 0..200 {
-        advance(Duration::from_millis(50)).await;
-        let state = recording_state(backend).await;
-        if !state.current_file.is_empty() {
-            return;
-        }
-    }
-    panic!("recording never became active");
+    wait_for_recording_state(backend, false, |state| !state.current_file.is_empty()).await;
 }
 
 async fn wait_for_rotated_recording(backend: &Arc<dyn CommsBackend>, previous_file: &str) {
-    for _ in 0..200 {
-        advance(Duration::from_millis(50)).await;
-        let state = recording_state(backend).await;
-        if state.session_active
+    let previous_file = previous_file.to_owned();
+    wait_for_recording_state(backend, false, |state| {
+        state.session_active
             && !state.current_file.is_empty()
             && state.current_file != previous_file
-        {
-            return;
-        }
-    }
-    panic!("recording never rotated to a new MCAP file");
-}
-
-async fn wait_for_one_recorder_mcap(directory: &std::path::Path) -> std::path::PathBuf {
-    for _ in 0..200 {
-        advance(Duration::from_millis(50)).await;
-        let paths = recorder_mcaps(directory);
-        if paths.len() == 1 {
-            wait_for_mcap_readable(paths[0].as_path()).await;
-            return paths[0].clone();
-        }
-    }
-    panic!("expected one recorder MCAP in {}", directory.display());
+    })
+    .await;
 }
 
 async fn wait_for_recording_bytes(harness: &Harness<RecorderService>, minimum: u64) {
@@ -418,26 +437,46 @@ async fn recording_state(backend: &Arc<dyn CommsBackend>) -> RecordingState {
 }
 
 async fn wait_for_recording_bytes_on(backend: &Arc<dyn CommsBackend>, minimum: u64) {
-    for _ in 0..20 {
+    wait_for_recording_state(backend, true, |state| {
+        state.session_bytes_written >= minimum
+    })
+    .await;
+}
+
+async fn wait_for_recording_state(
+    backend: &Arc<dyn CommsBackend>,
+    advance_bytes_report_interval: bool,
+    predicate: impl Fn(&RecordingState) -> bool,
+) {
+    let key = state_key(RecorderService::NAME, "recording");
+    let mut updates = backend
+        .subscribe(&key)
+        .await
+        .expect("subscribe recording state");
+
+    if predicate(&recording_state(backend).await) {
+        return;
+    }
+
+    if advance_bytes_report_interval {
         advance(Duration::from_secs(1)).await;
-        let replies = backend
-            .get(
-                &state_key(RecorderService::NAME, "recording"),
-                None,
-                REPLY_TIMEOUT,
-            )
-            .await
-            .expect("state");
-        let [Ok(reply)] = replies.as_slice() else {
-            panic!("expected one recording state");
-        };
-        let state =
-            RecordingState::decode(&reply.payload().to_bytes()).expect("decode recording state");
-        if state.session_bytes_written >= minimum {
+        if predicate(&recording_state(backend).await) {
             return;
         }
     }
-    panic!("recording bytes never reached {minimum}");
+
+    timeout(REPLY_TIMEOUT, async {
+        while let Some(sample) = updates.recv().await {
+            let state = RecordingState::decode(&sample.payload().to_bytes())
+                .expect("decode recording state");
+            if predicate(&state) {
+                return;
+            }
+        }
+        panic!("recording state subscription closed");
+    })
+    .await
+    .unwrap_or_else(|_| panic!("timed out waiting for recording state"));
 }
 
 fn recorder_mcaps(directory: &std::path::Path) -> Vec<std::path::PathBuf> {
@@ -451,10 +490,4 @@ fn recorder_mcaps(directory: &std::path::Path) -> Vec<std::path::PathBuf> {
                 .is_some_and(|name| name.starts_with("recorder_") && name.ends_with(".mcap"))
         })
         .collect()
-}
-
-fn single_recorder_mcap(directory: &std::path::Path) -> std::path::PathBuf {
-    let mut paths = recorder_mcaps(directory);
-    assert_eq!(paths.len(), 1, "expected one recorder mcap");
-    paths.pop().expect("path")
 }

@@ -1,4 +1,4 @@
-//! One open MCAP file owned by the data plane writer thread.
+//! One open MCAP file owned by the data plane writer actor.
 
 use std::{
     collections::BTreeMap,
@@ -20,8 +20,8 @@ use crate::channel_descriptor::ChannelDescriptor;
 /// Errors while writing an MCAP file.
 #[derive(Debug, Error)]
 pub enum McapError {
-    /// The writer thread is not running.
-    #[error("the MCAP writer thread stopped")]
+    /// The writer actor is not running.
+    #[error("the MCAP writer stopped")]
     WriterStopped,
     /// Filesystem operation failed.
     #[error("filesystem operation failed")]

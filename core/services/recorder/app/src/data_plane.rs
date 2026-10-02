@@ -1,4 +1,4 @@
-//! Data plane Task: owns the MCAP writer thread, follows [`RecordGate`], reports Observed facts.
+//! Data plane Task: owns the MCAP writer actor, follows [`RecordGate`], reports Observed facts.
 
 use core::time::Duration;
 use std::{collections::BTreeMap, sync::Arc};
@@ -20,7 +20,7 @@ use crate::context::RecorderContext;
 
 const BYTES_REPORT_INTERVAL: Duration = Duration::from_secs(1);
 
-/// Metadata for the file the writer thread has open.
+/// Metadata for the file the writer actor has open.
 struct OpenRecording {
     file_generation: u64,
 }
