@@ -8,22 +8,35 @@ fn main() {
     let arguments: Vec<String> = env::args().collect();
     let write_committed = arguments.iter().any(|argument| argument == "--write");
     let output = argument_value(&arguments, "--output").map(PathBuf::from);
+    let typescript_output = argument_value(&arguments, "--typescript-output").map(PathBuf::from);
 
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let idl_root = manifest_dir.parent().expect("idl crate root");
     let interfaces_root = idl_root.join("interfaces");
 
-    let out_dir = match (write_committed, output) {
-        (true, None) => idl_root.join("src/generated"),
-        (_, Some(path)) => path,
-        (false, None) => {
+    if write_committed {
+        if output.is_some() || typescript_output.is_some() {
+            eprintln!("--write cannot be combined with --output or --typescript-output");
+            std::process::exit(1);
+        }
+        generate(
+            &interfaces_root,
+            &idl_root.join("src/generated"),
+            Some(&idl_root.join("typescript")),
+        );
+        return;
+    }
+
+    let out_dir = match output {
+        Some(path) => path,
+        None => {
             eprintln!("usage: blueos-idl-codegen --write");
-            eprintln!("       blueos-idl-codegen --output <dir>");
+            eprintln!("       blueos-idl-codegen --output <dir> [--typescript-output <dir>]");
             std::process::exit(1);
         }
     };
 
-    generate(&interfaces_root, &out_dir);
+    generate(&interfaces_root, &out_dir, typescript_output.as_deref());
 }
 
 fn argument_value(arguments: &[String], flag: &str) -> Option<String> {

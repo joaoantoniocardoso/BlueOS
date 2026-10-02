@@ -33,7 +33,7 @@ pub struct MessageRecord {
 }
 
 /// Regenerates committed Rust types and schema lookup under `out_dir` (typically `blueos-idl/src/generated`).
-pub fn generate(interfaces_root: &Path, out_dir: &Path) {
+pub fn generate(interfaces_root: &Path, out_dir: &Path, typescript_dir: Option<&Path>) {
     let messages = collect_messages(interfaces_root);
     let records: BTreeMap<String, MessageRecord> = messages
         .into_iter()
@@ -52,6 +52,11 @@ pub fn generate(interfaces_root: &Path, out_dir: &Path) {
     let test_generated = idl_root.join("tests/generated");
     fs::create_dir_all(&test_generated).expect("create test generated dir");
     write_cdr_codec_dispatch(&records, &test_generated);
+
+    if let Some(typescript_dir) = typescript_dir {
+        fs::create_dir_all(typescript_dir).expect("create typescript dir");
+        write_typescript(&records, typescript_dir);
+    }
 }
 
 /// Writes `schema_catalog.rs`, a `schema` lookup of the text of every message under `interfaces_root`, with no
@@ -601,6 +606,79 @@ fn const_value_tokens(value: &msg_ast::ConstantValue, datatype: &DataType) -> To
         (DataType::F64, ConstantValue::F64(value)) => quote! { f64 = #value },
         (DataType::String, ConstantValue::String(value)) => quote! { &'static str = #value },
         _ => quote! { () },
+    }
+}
+
+fn write_typescript(records: &BTreeMap<String, MessageRecord>, typescript_dir: &Path) {
+    let mut interface_blocks = Vec::new();
+    let mut schema_entries = Vec::new();
+    for record in records.values() {
+        let interface_name = record.name.clone();
+        let mut fields = Vec::new();
+        for field in record.message.fields() {
+            if matches!(field.case(), FieldCase::Const(_)) {
+                continue;
+            }
+            let field_name = rust_field_name(field);
+            let ts_name = if field_name == "type_" {
+                "type".to_string()
+            } else {
+                field_name
+            };
+            let ts_type = typescript_type(field);
+            fields.push(format!("  {ts_name}: {ts_type};"));
+        }
+        interface_blocks.push(format!(
+            "export interface {interface_name} {{\n{}\n}}\n",
+            fields.join("\n")
+        ));
+        let schema = schema_text(record, records);
+        schema_entries.push(format!(
+            "  \"{}\": `{}`,",
+            record.schema_name,
+            schema.replace('`', "\\`")
+        ));
+    }
+
+    fs::write(
+        typescript_dir.join("messages.d.ts"),
+        format!("// @generated\n\n{}\n", interface_blocks.join("\n")),
+    )
+    .expect("write messages.d.ts");
+    fs::write(
+        typescript_dir.join("schemas.ts"),
+        format!(
+            "// @generated\nexport const SCHEMAS: Record<string, string> = {{\n{}\n}};\n",
+            schema_entries.join("\n")
+        ),
+    )
+    .expect("write schemas.ts");
+    fs::write(
+        typescript_dir.join("index.ts"),
+        "// @generated\nexport * from \"./schemas\";\n",
+    )
+    .expect("write index.ts");
+}
+
+fn typescript_type(field: &Field) -> String {
+    let base = match field.datatype() {
+        DataType::String => "string".to_string(),
+        DataType::Bool => "boolean".to_string(),
+        DataType::U8
+        | DataType::U16
+        | DataType::U32
+        | DataType::U64
+        | DataType::I8
+        | DataType::I16
+        | DataType::I32
+        | DataType::I64
+        | DataType::F32
+        | DataType::F64 => "number".to_string(),
+        DataType::GlobalMessage { name, .. } => name.clone(),
+    };
+    match field.case() {
+        FieldCase::Vector | FieldCase::Array(_) => format!("{base}[]"),
+        FieldCase::Scalar | FieldCase::Const(_) => base,
     }
 }
 
