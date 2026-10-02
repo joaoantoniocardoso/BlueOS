@@ -166,10 +166,11 @@ pub enum CommsError {
         source: Box<dyn core::error::Error + Send + Sync>,
     },
     /// The session or router rejected an operation.
-    #[error("backend: {message}")]
+    #[error("backend: {source}")]
     Backend {
-        /// What went wrong.
-        message: String,
+        /// What the backend reported.
+        #[source]
+        source: Box<dyn core::error::Error + Send + Sync>,
     },
 }
 
@@ -415,6 +416,15 @@ impl LivelinessToken {
     pub fn new(on_drop: impl FnOnce() + Send + 'static) -> Self {
         Self {
             on_drop: Some(Box::new(on_drop)),
+        }
+    }
+}
+
+impl CommsError {
+    /// The session or router rejected an operation with `source`.
+    pub fn backend(source: impl Into<Box<dyn core::error::Error + Send + Sync>>) -> Self {
+        Self::Backend {
+            source: source.into(),
         }
     }
 }

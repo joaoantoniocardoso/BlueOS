@@ -448,9 +448,9 @@ impl CommsBackend for RecordingBackend {
     fn publish(&self, sample: Sample) -> BoxFuture<'_, Result<(), CommsError>> {
         if self.publishes_fail.load(Ordering::SeqCst) {
             return Box::pin(async {
-                Err(CommsError::Backend {
-                    message: "the backbone is down".to_owned(),
-                })
+                Err(CommsError::backend(std::io::Error::from(
+                    std::io::ErrorKind::NotConnected,
+                )))
             });
         }
         record(&self.journal, format!("publish {}", sample.key()));

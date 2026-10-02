@@ -46,9 +46,7 @@ impl CommsBackend for ZenohBackend {
             if let Some(attachment) = sample.attachment() {
                 builder = builder.attachment(zbytes_from_payload(attachment));
             }
-            builder.await.map_err(|error| CommsError::Backend {
-                message: error.to_string(),
-            })?;
+            builder.await.map_err(CommsError::backend)?;
             Ok(())
         })
     }
@@ -65,9 +63,7 @@ impl CommsBackend for ZenohBackend {
                 .declare_subscriber(key_expression)
                 .with(FifoChannel::new(HANDLER_CAPACITY))
                 .await
-                .map_err(|error| CommsError::Backend {
-                    message: error.to_string(),
-                })?;
+                .map_err(CommsError::backend)?;
             tokio::spawn(async move {
                 while let Ok(sample) = subscriber.recv_async().await {
                     let sample = sample_to_comms(sample);
@@ -92,9 +88,7 @@ impl CommsBackend for ZenohBackend {
                 .declare_queryable(key)
                 .with(FifoChannel::new(HANDLER_CAPACITY))
                 .await
-                .map_err(|error| CommsError::Backend {
-                    message: error.to_string(),
-                })?;
+                .map_err(CommsError::backend)?;
             let declared_key = key.to_string();
             tokio::spawn(async move {
                 while let Ok(query) = queryable.recv_async().await {
@@ -120,9 +114,7 @@ impl CommsBackend for ZenohBackend {
                                     .lock()
                                     .unwrap_or_else(PoisonError::into_inner)
                                     .take()
-                                    .ok_or(CommsError::Backend {
-                                        message: "query already answered".to_owned(),
-                                    })?;
+                                    .ok_or(CommsError::backend(QueryAlreadyAnswered))?;
                                 match reply {
                                     Ok(sample) => {
                                         let mut builder = query
@@ -135,18 +127,14 @@ impl CommsBackend for ZenohBackend {
                                             builder =
                                                 builder.attachment(zbytes_from_payload(attachment));
                                         }
-                                        builder.await.map_err(|error| CommsError::Backend {
-                                            message: error.to_string(),
-                                        })?;
+                                        builder.await.map_err(CommsError::backend)?;
                                     }
                                     Err(error) => {
                                         query
                                             .reply_err(zbytes_from_payload(error.payload()))
                                             .encoding(error.encoding())
                                             .await
-                                            .map_err(|error| CommsError::Backend {
-                                                message: error.to_string(),
-                                            })?;
+                                            .map_err(CommsError::backend)?;
                                     }
                                 }
                                 Ok(())
@@ -179,9 +167,7 @@ impl CommsBackend for ZenohBackend {
                     .payload(zbytes_from_payload(body.payload()))
                     .encoding(body.encoding());
             }
-            let replies = builder.await.map_err(|error| CommsError::Backend {
-                message: error.to_string(),
-            })?;
+            let replies = builder.await.map_err(CommsError::backend)?;
             let deadline = tokio::time::Instant::now() + timeout;
             let mut collected = Vec::new();
             while tokio::time::Instant::now() < deadline {
@@ -206,9 +192,7 @@ impl CommsBackend for ZenohBackend {
                 .liveliness()
                 .declare_token(key)
                 .await
-                .map_err(|error| CommsError::Backend {
-                    message: error.to_string(),
-                })?;
+                .map_err(CommsError::backend)?;
             Ok(LivelinessToken::new(move || {
                 let _ = token.undeclare().wait();
             }))
@@ -229,9 +213,7 @@ impl CommsBackend for ZenohBackend {
                 .history(true)
                 .with(FifoChannel::new(HANDLER_CAPACITY))
                 .await
-                .map_err(|error| CommsError::Backend {
-                    message: error.to_string(),
-                })?;
+                .map_err(CommsError::backend)?;
             tokio::spawn(async move {
                 while let Ok(sample) = subscriber.recv_async().await {
                     let event = match sample.kind() {
@@ -263,9 +245,7 @@ impl CommsBackend for ZenohBackend {
                 .liveliness()
                 .get(key_expression)
                 .await
-                .map_err(|error| CommsError::Backend {
-                    message: error.to_string(),
-                })?;
+                .map_err(CommsError::backend)?;
             let deadline = tokio::time::Instant::now() + timeout;
             let mut keys = Vec::new();
             while tokio::time::Instant::now() < deadline {
@@ -308,9 +288,7 @@ impl ZenohBackend {
     async fn from_config(configuration: zenoh::Config) -> Result<Self, CommsError> {
         let session = zenoh::open(configuration)
             .await
-            .map_err(|error| CommsError::Backend {
-                message: error.to_string(),
-            })?;
+            .map_err(CommsError::backend)?;
         Ok(Self { session })
     }
 }
@@ -318,6 +296,10 @@ impl ZenohBackend {
 struct ReceiverStream<T> {
     receiver: mpsc::Receiver<T>,
 }
+
+#[derive(Debug, thiserror::Error)]
+#[error("the query was already answered")]
+struct QueryAlreadyAnswered;
 
 impl<T> Stream for ReceiverStream<T> {
     type Item = T;

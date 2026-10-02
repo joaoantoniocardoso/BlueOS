@@ -9,6 +9,7 @@ publish.workspace = true
 blueos-comms.workspace = true
 bytes.workspace = true
 futures-util = { workspace = true, features = ["alloc"] }
+thiserror.workspace = true
 tokio = { workspace = true, features = ["sync", "time"] }
 zenoh.workspace = true
 zenoh-keyexpr = { workspace = true, features = ["std"] }

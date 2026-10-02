@@ -253,6 +253,7 @@ dependencies = [
  "blueos-comms",
  "bytes",
  "futures-util",
+ "thiserror",
  "tokio",
  "zenoh",
  "zenoh-keyexpr",
