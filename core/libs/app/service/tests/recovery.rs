@@ -18,7 +18,7 @@ use blueos_idl::msg::{
     blueos_msgs::{ServiceStatus, ServiceStatusStatus},
 };
 use blueos_service::{
-    Clock, Kernel, RestartPolicy, RunOutcome, Service, ServiceBuilder, ServiceContext,
+    Backoff, Clock, Kernel, RestartPolicy, RunOutcome, Service, ServiceBuilder, ServiceContext,
     ServiceError, TaskFailed,
     testing::{Harness, PausedClock},
 };
@@ -287,21 +287,27 @@ async fn poisoned_lock_does_not_stop_another_task() {
     assert!(shared.is_poisoned());
 
     let mut builder = ServiceBuilder::<TasksDomain>::new(TasksSnapshot);
-    builder = builder.task("survivor", RestartPolicy::Always, move |_task_context| {
-        let shared_for_survivor = Arc::clone(&shared_for_survivor);
-        let successes_for_survivor = Arc::clone(&successes_for_survivor);
-        let survivor_finished_for_task = Arc::clone(&survivor_finished_for_task);
-        async move {
-            let mut guard = shared_for_survivor
-                .lock()
-                .unwrap_or_else(|poisoned| poisoned.into_inner());
-            *guard += 1;
-            if successes_for_survivor.fetch_add(1, Ordering::SeqCst) + 1 >= 2 {
-                survivor_finished_for_task.notify_one();
+    builder = builder.task(
+        "survivor",
+        RestartPolicy::Always {
+            backoff: Backoff::default(),
+        },
+        move |_task_context| {
+            let shared_for_survivor = Arc::clone(&shared_for_survivor);
+            let successes_for_survivor = Arc::clone(&successes_for_survivor);
+            let survivor_finished_for_task = Arc::clone(&survivor_finished_for_task);
+            async move {
+                let mut guard = shared_for_survivor
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner());
+                *guard += 1;
+                if successes_for_survivor.fetch_add(1, Ordering::SeqCst) + 1 >= 2 {
+                    survivor_finished_for_task.notify_one();
+                }
+                Err(TaskFailed)
             }
-            Err(TaskFailed)
-        }
-    });
+        },
+    );
 
     let backend: Arc<dyn CommsBackend> = Arc::new(blueos_comms::channel::ChannelBackend::default());
     let clock: Arc<dyn Clock> = Arc::new(PausedClock::start());

@@ -12,7 +12,9 @@ use tokio::sync::{mpsc, watch};
 use blueos_recorder_capture::RecordGate;
 use blueos_recorder_domain::{RecorderDomain, RecorderRequest, RecorderSnapshot};
 use blueos_recorder_storage::RecordingsFolder;
-use blueos_service::{RestartPolicy, Service, ServiceBuilder, ServiceContext, ServiceError};
+use blueos_service::{
+    Backoff, RestartPolicy, Service, ServiceBuilder, ServiceContext, ServiceError,
+};
 
 use crate::{
     cli::RecorderArguments,
@@ -149,17 +151,23 @@ fn assemble_builder(
                 .on_start(RecorderRequest::Startup)
                 .task(
                     "data_plane",
-                    RestartPolicy::Always,
+                    RestartPolicy::Always {
+                        backoff: Backoff::default(),
+                    },
                     |task_context| async move { run_data_plane(task_context).await },
                 )
                 .task(
                     "mavlink",
-                    RestartPolicy::Always,
+                    RestartPolicy::Always {
+                        backoff: Backoff::default(),
+                    },
                     |task_context| async move { run_mavlink_ingress(task_context).await },
                 )
                 .task(
                     "library_observed",
-                    RestartPolicy::Always,
+                    RestartPolicy::Always {
+                        backoff: Backoff::default(),
+                    },
                     |task_context| async move { run_library_observed_bridge(task_context).await },
                 ),
             RecorderHandlers::new(recorder_context),

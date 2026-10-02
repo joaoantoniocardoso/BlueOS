@@ -41,4 +41,4 @@ pub use projection::Projection;
 pub use run_outcome::RunOutcome;
 pub use service::{Service, ServiceContext, ServiceError};
 pub use shutdown::ShutdownHandle;
-pub use tasks::{RestartPolicy, TaskContext, TaskFailed};
+pub use tasks::{Backoff, RestartPolicy, TaskContext, TaskFailed};
