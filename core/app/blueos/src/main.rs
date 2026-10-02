@@ -3,8 +3,9 @@
 use std::{ffi::OsString, process::ExitCode};
 
 use blueos_service::entry::{missing_feature, multicall_help, multicall_version, resolve, usage};
+
 /// Service names that are always recognized, even when their feature is off.
-const KNOWN: &[&str] = &["example", "probe", "recorder"];
+const KNOWN: &[&str] = &["example", "recorder"];
 
 fn main() -> ExitCode {
     let arguments: Vec<OsString> = std::env::args_os().collect();
@@ -14,17 +15,13 @@ fn main() -> ExitCode {
     let Some((name, service_arguments)) = resolve(&arguments) else {
         return usage(KNOWN);
     };
-    #[cfg(not(any(feature = "example", feature = "probe", feature = "recorder")))]
+    #[cfg(not(any(feature = "example", feature = "recorder")))]
     drop(service_arguments);
     match name.as_str() {
         #[cfg(feature = "example")]
         "example" => blueos_service::entry::run::<blueos_example_app::service::ExampleService>(
             service_arguments,
         ),
-        #[cfg(feature = "probe")]
-        "probe" => {
-            blueos_service::entry::run::<blueos_service::probe::ProbeService>(service_arguments)
-        }
         #[cfg(feature = "recorder")]
         "recorder" => {
             blueos_service::entry::run::<blueos_recorder_app::RecorderService>(service_arguments)
