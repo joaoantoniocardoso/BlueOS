@@ -564,6 +564,9 @@ Decision:
   - The example passes every rule of the style guide with zero `#[allow]`; an agent copying it inherits the style.
   - The example README covers adding a new service: the `main.rs` arm, the feature, nginx and
     `core/start-blueos-core`.
+- Once the Kernel exists, a new architecture overview replaces the draft 1 one in `docs/architecture/`: how a Service
+  works end to end, and a "where it is in the code" table keyed by the `GLOSSARY.md` terms. Service READMEs link to
+  the glossary and never redefine its words.
 - The stacked-PR split is decided once the Recorder runs on a device.
 
 ## D-21 Breaking changes for users and extension developers
