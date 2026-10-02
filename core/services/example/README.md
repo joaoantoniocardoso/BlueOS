@@ -76,10 +76,3 @@ cargo test -p blueos-example-cookbook
 TRYBUILD=overwrite cargo test -p blueos-example-app --test compile_errors
 bun --cwd core/frontend test tests/example/ExampleMinimalPanel.test.ts
 ```
-
-## Relation to `tank`
-
-`core/services/tank` is a test Service with every endpoint shape (custom Command/Query, IO query, Events). It is not in
-the multicall binary. Much of `tank` duplicates concepts shown here: `SetLevel`, `Level`, and a level State overlap
-`example-minimal`; `tank` adds `Drain`, custom validation handlers, `LevelAfterFill`, `Probe`, and Events for codegen
-tests.
