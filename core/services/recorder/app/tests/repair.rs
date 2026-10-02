@@ -103,9 +103,16 @@ async fn cancel_repair_leaves_original_bytes_unchanged() {
     set_modified_seconds_ago(&path, 20);
     let original = fs::read(&path).expect("read");
 
-    let harness = Harness::<RecorderService>::start(RecorderArguments {
-        recorder_path: directory.path().to_path_buf(),
-    })
+    let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
+    let operation_key = event_key(RecorderService::NAME, "operation");
+    let mut operations = backend.subscribe(&operation_key).await.expect("subscribe");
+
+    let harness = Harness::start_on(
+        Arc::clone(&backend),
+        RecorderArguments {
+            recorder_path: directory.path().to_path_buf(),
+        },
+    )
     .await
     .expect("harness");
 
@@ -134,6 +141,17 @@ async fn cancel_repair_leaves_original_bytes_unchanged() {
         .await;
 
     wait_for_library_file_not_repairing(&harness, "cancel.mcap").await;
+
+    let operation = timeout(Duration::from_secs(5), operations.recv())
+        .await
+        .expect("operation event")
+        .expect("payload");
+    let message =
+        RecordingOperation::decode(operation.payload().to_bytes().as_ref()).expect("decode");
+    assert_eq!(message.operation, RecordingOperationOperation::Repair);
+    assert!(!message.succeeded);
+    assert!(message.cancelled);
+    assert!(message.error.is_empty());
 
     assert_eq!(fs::read(&path).expect("read"), original);
     assert!(

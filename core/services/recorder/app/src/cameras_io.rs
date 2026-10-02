@@ -37,9 +37,9 @@ pub(crate) async fn publish_cameras_request(
             warn!(
                 %error,
                 topic = RAW_MAVLINK_IN_TOPIC,
-                "Failed to publish MAVLink reply"
+                "Failed to publish cameras MAVLink request"
             );
-            IoError::new("failed to publish MAVLink reply")
+            IoError::new("failed to publish cameras MAVLink request")
         })?;
     Ok(None)
 }
