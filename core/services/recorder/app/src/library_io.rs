@@ -23,7 +23,7 @@ use blueos_recorder_mcap::{RewriteError, rewrite};
 use blueos_recorder_paths::RecordingRelativePath;
 use blueos_recorder_storage::{RecordingsFolder, StorageError};
 
-use crate::context::RecorderContext;
+use crate::context::{RecorderContext, RepairBeforeRewrite};
 
 fn lock_unpoisoned<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex
@@ -62,12 +62,14 @@ pub(crate) async fn run_library_repair_io(
     recordings_folder: Arc<RecordingsFolder>,
     progress_sender: mpsc::Sender<RecorderObservedFact>,
     cancel_flags: Arc<Mutex<BTreeMap<String, Arc<AtomicBool>>>>,
+    before_rewrite: RepairBeforeRewrite,
     path: RecordingRelativePath,
 ) -> Result<Option<RecorderIoResult>, IoError> {
     let relative = path.as_str().to_string();
     let cancel = RecorderContext::repair_cancel_flag(&cancel_flags, &relative);
     let path_for_result = path.clone();
     let rewrite_result = tokio::task::spawn_blocking(move || {
+        before_rewrite(&cancel);
         let source = match recordings_folder.resolve(&relative) {
             Ok(value) => value,
             Err(StorageError::NotFound) | Err(StorageError::InvalidPath) => {
