@@ -19,12 +19,15 @@ use tokio::{
 use tracing::{error, warn};
 
 use blueos_api::{
-    CommandAck, JOB_ID_NONE, Message, cdr_encoding, command_key, event_key, query_key,
-    settings_key, state_key,
+    CommandAck, JOB_ID_NONE, Message, cdr_encoding, command_key, event_key, info_query_key,
+    query_key, settings_key, state_key, status_state_key,
 };
 use blueos_comms::{CommsBackend, CommsError, Query, Queryable, Sample};
 use blueos_domain::{Command, Domain, Effect, Now, Outcome};
-use blueos_idl::{Error as IdlError, msg::blueos_msgs::SettingsEnvelope};
+use blueos_idl::{
+    Error as IdlError,
+    msg::blueos_msgs::{ServiceInfo, ServiceStatus, ServiceStatusStatus, SettingsEnvelope},
+};
 
 use crate::{
     builder::{
@@ -194,6 +197,42 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         let (inbox_sender, inbox) = mpsc::channel(INBOX_CAPACITY);
         let snapshot_for_queries = Arc::new(tokio::sync::RwLock::new(builder.snapshot.clone()));
         let mut endpoints = JoinSet::new();
+        let service_info = ServiceInfo {
+            name: service.to_owned(),
+            version: builder.metadata.version.to_owned(),
+            build: builder.metadata.build.to_owned(),
+            capabilities: builder
+                .metadata
+                .capabilities
+                .iter()
+                .map(|capability| (*capability).to_owned())
+                .collect(),
+            endpoints: builder.manifest_endpoints.clone(),
+        };
+        let info_key = info_query_key(service);
+        let info_encoding = cdr_encoding(ServiceInfo::SCHEMA_NAME);
+        let info_payload = Bytes::from(
+            service_info
+                .encode()
+                .map_err(|error| ServiceError::Build(Box::new(error)))?,
+        );
+        let info_queryable = declare(&*backend, info_key.clone()).await?;
+        endpoints.spawn(serve_fixed_reply(
+            info_queryable,
+            info_key,
+            info_payload,
+            info_encoding,
+        ));
+        let status_key = status_state_key(service);
+        let status_encoding = cdr_encoding(ServiceStatus::SCHEMA_NAME);
+        let status_latest = watch::Sender::new(None);
+        let status_queryable = declare(&*backend, status_key.clone()).await?;
+        endpoints.spawn(serve_state(
+            status_queryable,
+            status_key.clone(),
+            status_encoding.clone(),
+            status_latest.subscribe(),
+        ));
         let mut settings = None;
         if let Some(registration) = builder.settings {
             let mut driver = (registration.start)()?;
@@ -290,6 +329,13 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             .collect();
         kernel.publish_states(initial_states).await;
         kernel.publish_settings().await;
+        publish_standard_status(
+            &kernel.backend,
+            &status_key,
+            &status_encoding,
+            &status_latest,
+        )
+        .await;
         Ok(kernel)
     }
 
@@ -483,6 +529,43 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 }
             }
         }
+    }
+}
+
+async fn publish_standard_status(
+    backend: &Arc<dyn CommsBackend>,
+    key: &str,
+    encoding: &str,
+    latest: &watch::Sender<Option<Bytes>>,
+) {
+    let status = ServiceStatus {
+        status: ServiceStatusStatus::Ready,
+        detail: String::new(),
+    };
+    let sent: Result<(), SendError> = async {
+        let payload = Bytes::from(status.encode()?);
+        if latest.borrow().as_ref() == Some(&payload) {
+            return Ok(());
+        }
+        let sample = Sample::new(key, Bytes::clone(&payload), encoding);
+        backend.publish(sample).await?;
+        latest.send_replace(Some(payload));
+        Ok(())
+    }
+    .await;
+    warn_on_failure("State", key, sent);
+}
+
+/// Answers every `info` query with the same encoded [`ServiceInfo`].
+async fn serve_fixed_reply(
+    mut queryable: Queryable,
+    key: String,
+    payload: Bytes,
+    encoding: String,
+) {
+    while let Some(query) = queryable.recv().await {
+        let sent = query.reply(Bytes::clone(&payload), encoding.as_str()).await;
+        warn_on_failure("Query", &key, sent.map_err(SendError::from));
     }
 }
 

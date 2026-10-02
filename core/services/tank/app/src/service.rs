@@ -22,9 +22,9 @@ impl Service for TankService {
         let handlers = TankHandlers {
             sensor_level: context.arguments().sensor_level,
         };
-        Ok(endpoints::register(
-            ServiceBuilder::new(TankSnapshot::default()),
-            handlers,
-        ))
+        Ok(
+            endpoints::register(ServiceBuilder::new(TankSnapshot::default()), handlers)
+                .service_metadata(Self::VERSION, Self::BUILD, Self::CAPABILITIES),
+        )
     }
 }
