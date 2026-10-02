@@ -16,14 +16,10 @@ async fn zenoh_backend_conformance() {
         );
         return;
     };
-    let backend: Arc<dyn CommsBackend> = match ZenohBackend::connect(&endpoint).await {
-        Ok(backend) => Arc::new(backend),
-        Err(error) => {
-            eprintln!(
-                "skip: could not connect to zenohd at {endpoint} ({error}); start zenohd or unset BLUEOS_ZENOH_ENDPOINT"
-            );
-            return;
-        }
-    };
+    let backend: Arc<dyn CommsBackend> = Arc::new(
+        ZenohBackend::connect(&endpoint)
+            .await
+            .unwrap_or_else(|error| panic!("could not connect to zenohd at {endpoint}: {error}")),
+    );
     conformance::run_all(&|| Arc::clone(&backend)).await;
 }
