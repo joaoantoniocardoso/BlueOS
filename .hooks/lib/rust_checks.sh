@@ -19,6 +19,28 @@ crate_place() {
     fi
 }
 
+# Usage: check_rust_style_copies <repository_dir>
+# The Rust checklist in docs/architecture/rust-style.md is copied verbatim into the files developers and agents
+# read; a copy that drifts teaches a different rule.
+check_rust_style_copies() {
+    local repository_dir="$1"
+    local source="$repository_dir/docs/architecture/rust-style.md"
+    local markers='/<!-- rust-style:begin -->/,/<!-- rust-style:end -->/p'
+    local checklist copy
+    checklist=$(sed -n "$markers" "$source")
+    if [ -z "$checklist" ]; then
+        printf 'No rust-style checklist markers in %s\n' "$source" >&2
+        exit 1
+    fi
+    for copy in "$repository_dir/AGENTS.md" "$repository_dir/.cursor/rules/rust-blueos.mdc"; do
+        if [ "$(sed -n "$markers" "$copy")" != "$checklist" ]; then
+            printf 'The Rust checklist in %s differs from %s; copy the block between the rust-style markers\n' \
+                "$copy" "$source" >&2
+            exit 1
+        fi
+    done
+}
+
 # Usage: run_rust_checks <workspace_dir>
 run_rust_checks() {
     local workspace_dir="$1"
@@ -33,6 +55,8 @@ run_rust_checks() {
     fi
 
     echo "Running Rust checks for ${workspace_dir}"
+    echo "Checking the Rust checklist copies.."
+    check_rust_style_copies "$(git -C "$workspace_dir" rev-parse --show-toplevel)"
     (
         cd "$workspace_dir" || exit 1
 
