@@ -340,7 +340,7 @@ jobs:
       - name: Install cross-build tools
         uses: taiki-e/install-action@v2
         with:
-          tool: cross@0.2.16,cargo-auditable@0.7.6,cargo-bloat@0.12.1
+          tool: cross@0.2.5,cargo-auditable@0.7.6
 
       - name: Cross-build blueos
         working-directory: core
@@ -354,9 +354,6 @@ jobs:
           BIN="target/build/${{ matrix.target }}/${{ matrix.target }}/release/blueos"
           ls -lah "${BIN}"
           file "${BIN}"
-          CARGO_TARGET_DIR="target/build/${{ matrix.target }}" \
-            cargo bloat --release -p blueos --target "${{ matrix.target }}" --crates -n 20 \
-            >> "$GITHUB_STEP_SUMMARY"
 
       - name: Package binary artifact
         working-directory: core
