@@ -53,16 +53,23 @@ pub trait CommsBackend: Send + Sync {
     ) -> BoxFuture<'a, Result<Vec<Reply>, CommsError>>;
 }
 
-/// The bytes of a sample, a query or a reply. Cloning it shares the buffer, never copies it.
-#[derive(Clone, Debug)]
-pub struct Payload {
-    buffer: Arc<dyn PayloadBuffer>,
+/// The queries a queryable receives, in arrival order.
+pub struct Queryable {
+    queries: BoxStream<'static, Query>,
 }
 
-/// A backend's own byte buffer, held inside a [`Payload`] so that it reaches the receiver untouched.
-pub trait PayloadBuffer: Any + Debug + Send + Sync {
-    /// The bytes, borrowed when the buffer is contiguous and copied only when it is not.
-    fn to_bytes(&self) -> Cow<'_, [u8]>;
+/// The samples a subscription receives, in publication order.
+pub struct Subscriber {
+    samples: BoxStream<'static, Sample>,
+}
+
+/// One get, as a queryable receives it. Dropping it without a reply tells the getter this queryable has nothing
+/// to say.
+pub struct Query {
+    declared_key: String,
+    key_expression: String,
+    body: Option<QueryBody>,
+    responder: Responder,
 }
 
 /// One publication: a key, an encoded payload and its metadata.
@@ -89,23 +96,16 @@ pub struct ReplyError {
     encoding: String,
 }
 
-/// One get, as a queryable receives it. Dropping it without a reply tells the getter this queryable has nothing
-/// to say.
-pub struct Query {
-    declared_key: String,
-    key_expression: String,
-    body: Option<QueryBody>,
-    responder: Responder,
+/// The bytes of a sample, a query or a reply. Cloning it shares the buffer, never copies it.
+#[derive(Clone, Debug)]
+pub struct Payload {
+    buffer: Arc<dyn PayloadBuffer>,
 }
 
-/// The samples a subscription receives, in publication order.
-pub struct Subscriber {
-    samples: BoxStream<'static, Sample>,
-}
-
-/// The queries a queryable receives, in arrival order.
-pub struct Queryable {
-    queries: BoxStream<'static, Query>,
+/// A backend's own byte buffer, held inside a [`Payload`] so that it reaches the receiver untouched.
+pub trait PayloadBuffer: Any + Debug + Send + Sync {
+    /// The bytes, borrowed when the buffer is contiguous and copied only when it is not.
+    fn to_bytes(&self) -> Cow<'_, [u8]>;
 }
 
 /// Why the backbone refused an operation.
