@@ -50,21 +50,32 @@ check_generated_idl() {
     local workspace_dir="$1"
     local idl_root="$workspace_dir/libs/idl"
     local idl_generated="$idl_root/src/generated"
+    local idl_test_generated="$idl_root/tests/generated"
     local idl_typescript="$idl_root/typescript"
     local temporary
     temporary=$(mktemp -d)
     (
         cd "$workspace_dir" || exit 1
+        mkdir -p "$temporary/tests/generated"
         cargo run --quiet -p blueos-idl-codegen --bin blueos-idl-codegen -- \
+            --idl-root "$idl_root" \
+            --core-dir "$workspace_dir" \
             --output "$temporary/generated" \
-            --typescript-output "$temporary/typescript"
+            --typescript-output "$temporary/typescript" \
+            --test-generated-output "$temporary/tests/generated"
         cargo run --quiet -p blueos-idl-codegen --bin blueos-idl-codegen-catalog -- \
+            --idl-root "$idl_root" \
             --generated-output "$temporary/generated" \
             --typescript-output "$temporary/typescript"
     )
     if ! diff -ru "$idl_generated" "$temporary/generated" >/dev/null; then
         rm -rf "$temporary"
         printf 'Committed IDL Rust is stale; fix with: (cd core && cargo run -p blueos-idl-codegen --bin blueos-idl-codegen -- --write)\n' >&2
+        exit 1
+    fi
+    if ! diff -q "$idl_test_generated/cdr_codec_dispatch.rs" "$temporary/tests/generated/cdr_codec_dispatch.rs" >/dev/null; then
+        rm -rf "$temporary"
+        printf 'Committed IDL test dispatch is stale; fix with: (cd core && cargo run -p blueos-idl-codegen --bin blueos-idl-codegen -- --write)\n' >&2
         exit 1
     fi
     if ! diff -ru "$idl_typescript" "$temporary/typescript" >/dev/null; then
@@ -78,7 +89,8 @@ check_generated_idl() {
 # Regenerates every Service's endpoint code from its endpoint manifest and compares it with what is committed.
 check_generated_endpoints() {
     local workspace_dir="$1"
-    if ! (cd "$workspace_dir" && cargo run --quiet -p blueos-idl-codegen --bin blueos-idl-codegen -- --check-endpoints); then
+    if ! (cd "$workspace_dir" && cargo run --quiet -p blueos-idl-codegen --bin blueos-idl-codegen -- \
+        --check-endpoints --idl-root "$workspace_dir/libs/idl" --core-dir "$workspace_dir"); then
         printf 'Committed endpoint code is stale; fix with: (cd core && cargo run -p blueos-idl-codegen --bin blueos-idl-codegen -- --write)\n' >&2
         exit 1
     fi
@@ -184,7 +196,8 @@ run_rust_lint_checks() {
 
         if [ "$fixing" = true ]; then
             echo "Regenerating committed IDL and endpoint Rust.."
-            cargo run --quiet -p blueos-idl-codegen --bin blueos-idl-codegen -- --write
+            cargo run --quiet -p blueos-idl-codegen --bin blueos-idl-codegen -- \
+                --write --idl-root "$workspace_dir/libs/idl" --core-dir "$workspace_dir"
             echo "Running cargo fmt.."
             cargo fmt --all
             exit 0
