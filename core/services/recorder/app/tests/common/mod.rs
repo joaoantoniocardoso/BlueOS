@@ -8,7 +8,7 @@
 use core::time::Duration;
 use std::{fs, path::Path, path::PathBuf, sync::Arc};
 
-use tokio::time::{advance, timeout};
+use tokio::time::{advance, sleep, timeout};
 
 use bytes::Bytes;
 
@@ -16,17 +16,24 @@ use blueos_api::{Message, cdr_encoding, command_key, query_key, state_key};
 use blueos_comms::{CommsBackend, Payload, QueryBody, ReplyError, Sample};
 use blueos_idl::msg::{
     blueos_example_msgs::PumpState,
-    blueos_recorder_msgs::{RecordingState, StartRecordingCommand, StopRecordingCommand},
+    blueos_recorder_msgs::{
+        RecordingFileState, RecordingLibrary, RecordingState, StartRecordingCommand,
+        StopRecordingCommand,
+    },
 };
 use blueos_recorder_app::{
     IndexQuerySetup, RecorderArguments, RecorderService, build_with_record_gate_and_index,
 };
+use blueos_recorder_library::RESCAN_INTERVAL;
 use blueos_service::{
     Kernel, Service, ServiceContext,
     testing::{Harness, PausedClock},
 };
 
 pub(crate) const REPLY_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Upper bound for waiting on pushed State while blocking IO runs on wall time.
+pub(crate) const STATE_WAIT_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Recorder harness with a custom index walk (the stock [`Harness`] always uses production wiring).
 pub(crate) struct RecorderTestHarness {
@@ -153,12 +160,17 @@ pub(crate) async fn active_recording_mcap_path_on(
     directory.join(recording_state(backend).await.current_file)
 }
 
-/// Stop clears `recording` State before the writer finishes, so no State update marks finalize.
-/// Wait for idle, then advance virtual time until the data plane Task completes `finish`.
+/// Stop clears `recording` State before the writer finishes; wait for idle, rescan, and library Ready.
 pub(crate) async fn stop_recording_and_finalize_mcap(backend: &Arc<dyn CommsBackend>, path: &Path) {
+    let file_name = path
+        .file_name()
+        .expect("recording path has a file name")
+        .to_string_lossy()
+        .into_owned();
     stop_recording_on(backend).await;
     wait_for_recording_idle(backend).await;
-    wait_for_mcap_finalized(path).await;
+    advance(RESCAN_INTERVAL).await;
+    wait_for_library_file_ready_by_name(backend, &file_name).await;
 }
 
 pub(crate) async fn stop_recording_on(backend: &Arc<dyn CommsBackend>) {
@@ -189,38 +201,12 @@ pub(crate) async fn assert_mcap_readable(path: &Path) {
     .expect("read task");
 }
 
-pub(crate) async fn wait_for_mcap_finalized(path: &Path) {
-    let path = path.to_path_buf();
-    timeout(REPLY_TIMEOUT, async {
-        loop {
-            let finalized = tokio::task::spawn_blocking({
-                let path = path.clone();
-                move || -> Option<()> {
-                    let bytes = fs::read(&path).ok()?;
-                    mcap::Summary::read(&bytes).ok().flatten()?;
-                    Some(())
-                }
-            })
-            .await
-            .ok()
-            .flatten()
-            .is_some();
-            if finalized {
-                return;
-            }
-            advance(Duration::from_millis(50)).await;
-        }
-    })
-    .await
-    .expect("mcap file never finalized");
-}
-
 pub(crate) async fn wait_for_recording_idle(backend: &Arc<dyn CommsBackend>) {
-    wait_for_recording_state(backend, false, |state| !state.session_active).await;
+    wait_for_recording_state(backend, |state| !state.session_active).await;
 }
 
 pub(crate) async fn wait_for_active_recording(backend: &Arc<dyn CommsBackend>) {
-    wait_for_recording_state(backend, false, |state| !state.current_file.is_empty()).await;
+    wait_for_recording_state(backend, |state| !state.current_file.is_empty()).await;
 }
 
 pub(crate) async fn wait_for_recording_bytes(harness: &Harness<RecorderService>, minimum: u64) {
@@ -228,61 +214,143 @@ pub(crate) async fn wait_for_recording_bytes(harness: &Harness<RecorderService>,
 }
 
 pub(crate) async fn wait_for_recording_bytes_on(backend: &Arc<dyn CommsBackend>, minimum: u64) {
-    wait_for_recording_state(backend, true, |state| {
-        state.session_bytes_written >= minimum
+    advance(Duration::from_secs(1)).await;
+    wait_for_recording_state(backend, |state| state.session_bytes_written >= minimum).await;
+}
+
+pub(crate) async fn wait_for_rotated_recording(
+    backend: &Arc<dyn CommsBackend>,
+    previous_file: &str,
+) {
+    let previous_file = previous_file.to_owned();
+    wait_for_recording_state(backend, |state| {
+        state.session_active
+            && !state.current_file.is_empty()
+            && state.current_file != previous_file
     })
     .await;
 }
 
+/// Waits until outstanding kernel [`spawn_blocking`] IO has finished on a paused runtime.
+///
+/// Auto-advance is inhibited while a blocking task runs, so a tiny [`sleep`] does not complete
+/// until the runtime is idle and no blocking work remains (for example after a library rescan
+/// triggered by a preceding [`advance`]).
+pub(crate) async fn drain_blocking_io() {
+    sleep(Duration::from_millis(1)).await;
+}
+
 pub(crate) async fn recording_state(backend: &Arc<dyn CommsBackend>) -> RecordingState {
+    fetch_recorder_state(backend, "recording").await
+}
+
+pub(crate) async fn library_state(backend: &Arc<dyn CommsBackend>) -> RecordingLibrary {
+    fetch_recorder_state(backend, "library").await
+}
+
+pub(crate) async fn wait_for_recording_state(
+    backend: &Arc<dyn CommsBackend>,
+    predicate: impl Fn(&RecordingState) -> bool,
+) {
+    wait_for_recorder_state(backend, "recording", predicate).await;
+}
+
+pub(crate) async fn wait_for_library_state(
+    backend: &Arc<dyn CommsBackend>,
+    predicate: impl Fn(&RecordingLibrary) -> bool,
+) {
+    wait_for_recorder_state(backend, "library", predicate).await;
+}
+
+pub(crate) async fn wait_for_library_file_listed(
+    harness: &Harness<RecorderService>,
+    relative_path: &str,
+) {
+    let path = relative_path.to_owned();
+    wait_for_library_state(harness.backend(), move |library| {
+        library.files.iter().any(|file| file.path == path)
+    })
+    .await;
+}
+
+pub(crate) async fn wait_for_library_file_ready_by_name(
+    backend: &Arc<dyn CommsBackend>,
+    file_name: &str,
+) {
+    let name = file_name.to_owned();
+    wait_for_library_state(backend, move |library| {
+        library
+            .files
+            .iter()
+            .any(|file| file.name == name && file.state == RecordingFileState::Ready)
+    })
+    .await;
+}
+
+pub(crate) async fn wait_for_library_file_ready(
+    harness: &Harness<RecorderService>,
+    relative_path: &str,
+) {
+    let path = relative_path.to_owned();
+    wait_for_library_state(harness.backend(), move |library| {
+        library
+            .files
+            .iter()
+            .any(|file| file.path == path && file.state == RecordingFileState::Ready)
+    })
+    .await;
+}
+
+pub(crate) async fn wait_for_library_file_not_repairing(
+    harness: &Harness<RecorderService>,
+    relative_path: &str,
+) {
+    let path = relative_path.to_owned();
+    wait_for_library_state(harness.backend(), move |library| {
+        library
+            .files
+            .iter()
+            .all(|file| file.path != path || file.state != RecordingFileState::Repairing)
+    })
+    .await;
+}
+
+async fn fetch_recorder_state<M: Message>(backend: &Arc<dyn CommsBackend>, state: &str) -> M {
     let replies = backend
         .get(
-            &state_key(RecorderService::NAME, "recording"),
+            &state_key(RecorderService::NAME, state),
             None,
             REPLY_TIMEOUT,
         )
         .await
         .expect("state");
     let [Ok(reply)] = replies.as_slice() else {
-        panic!("expected one recording state");
+        panic!("expected one {state} state");
     };
-    RecordingState::decode(&reply.payload().to_bytes()).expect("decode recording state")
+    M::decode(&reply.payload().to_bytes()).expect("decode state")
 }
 
-pub(crate) async fn wait_for_recording_state(
+async fn wait_for_recorder_state<M: Message>(
     backend: &Arc<dyn CommsBackend>,
-    advance_bytes_report_interval: bool,
-    predicate: impl Fn(&RecordingState) -> bool,
+    state: &str,
+    predicate: impl Fn(&M) -> bool,
 ) {
-    let key = state_key(RecorderService::NAME, "recording");
-    let mut updates = backend
-        .subscribe(&key)
-        .await
-        .expect("subscribe recording state");
-
-    if predicate(&recording_state(backend).await) {
+    let key = state_key(RecorderService::NAME, state);
+    let mut updates = backend.subscribe(&key).await.expect("subscribe state");
+    if predicate(&fetch_recorder_state::<M>(backend, state).await) {
         return;
     }
-
-    if advance_bytes_report_interval {
-        advance(Duration::from_secs(1)).await;
-        if predicate(&recording_state(backend).await) {
-            return;
-        }
-    }
-
-    timeout(REPLY_TIMEOUT, async {
+    timeout(STATE_WAIT_TIMEOUT, async {
         while let Some(sample) = updates.recv().await {
-            let state = RecordingState::decode(&sample.payload().to_bytes())
-                .expect("decode recording state");
-            if predicate(&state) {
+            let value = M::decode(&sample.payload().to_bytes()).expect("decode state");
+            if predicate(&value) {
                 return;
             }
         }
-        panic!("recording state subscription closed");
+        panic!("{state} state subscription closed");
     })
     .await
-    .unwrap_or_else(|_| panic!("timed out waiting for recording state"));
+    .unwrap_or_else(|_| panic!("timed out waiting for {state} state"));
 }
 
 pub(crate) fn recorder_mcaps(directory: &Path) -> Vec<PathBuf> {
