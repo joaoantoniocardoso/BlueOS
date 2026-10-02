@@ -4,7 +4,7 @@ import Vue from 'vue'
 
 import { encodeCdr } from '@/libs/blueos-api/cdr'
 import { cdrEncoding } from '@/libs/blueos-api/keys'
-import { tank } from '@/libs/blueos-api/services/tank'
+import { pump } from '@/libs/blueos-api/services/example'
 import { blueosApiMixin } from '@/mixins/blueosApi'
 
 import FakeTransport from '../blueos-api/fake-transport'
@@ -19,7 +19,7 @@ describe('blueosApiMixin', () => {
         return { level: null as number | null }
       },
       async created() {
-        await this.blueosWatchState(transport, tank, (message) => {
+        await this.blueosWatchState(transport, pump, (message) => {
           this.level = message.level
         })
       },
@@ -34,9 +34,11 @@ describe('blueosApiMixin', () => {
     query.reply({
       kind: 'sample',
       sample: {
-        key: tank.key,
-        payload: encodeCdr(tank.messageSchema, { level: 1, max_level: 10 }),
-        encoding: cdrEncoding(tank.messageSchema),
+        key: pump.key,
+        payload: encodeCdr(pump.messageSchema, {
+          level: 1, max_level: 10, self_test_phase: 0, self_test_active: false,
+        }),
+        encoding: cdrEncoding(pump.messageSchema),
       },
     })
     await Vue.nextTick()
@@ -45,9 +47,11 @@ describe('blueosApiMixin', () => {
     const rendersAfterQuery = renderCount
 
     transport.publish({
-      key: tank.key,
-      payload: encodeCdr(tank.messageSchema, { level: 5, max_level: 10 }),
-      encoding: cdrEncoding(tank.messageSchema),
+      key: pump.key,
+      payload: encodeCdr(pump.messageSchema, {
+        level: 5, max_level: 10, self_test_phase: 0, self_test_active: false,
+      }),
+      encoding: cdrEncoding(pump.messageSchema),
     })
     await Vue.nextTick()
 
@@ -61,7 +65,7 @@ describe('blueosApiMixin', () => {
     const Component = Vue.extend({
       mixins: [blueosApiMixin],
       created() {
-        void this.blueosWatchState(transport, tank, () => undefined)
+        void this.blueosWatchState(transport, pump, () => undefined)
       },
       render(createElement) {
         return createElement('span')
@@ -78,9 +82,11 @@ describe('blueosApiMixin', () => {
     query.reply({
       kind: 'sample',
       sample: {
-        key: tank.key,
-        payload: encodeCdr(tank.messageSchema, { level: 1, max_level: 10 }),
-        encoding: cdrEncoding(tank.messageSchema),
+        key: pump.key,
+        payload: encodeCdr(pump.messageSchema, {
+          level: 1, max_level: 10, self_test_phase: 0, self_test_active: false,
+        }),
+        encoding: cdrEncoding(pump.messageSchema),
       },
     })
     await Vue.nextTick()

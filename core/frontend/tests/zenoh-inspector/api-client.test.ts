@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 import { encodeCdr } from '@/libs/blueos-api/cdr'
 import { cdrEncoding, infoQueryKey } from '@/libs/blueos-api/keys'
-import { Drain } from '@/libs/blueos-api/services/tank'
+import { SetLevel } from '@/libs/blueos-api/services/example'
 import { COMMAND_ACK_SCHEMA, SERVICE_INFO_SCHEMA } from '@/libs/blueos-api/types'
 import { createInspectorApiClient } from '@/libs/zenoh-inspector/adapters/api-client'
 import type { SchemaProvider } from '@/libs/zenoh-inspector/logic/types'
@@ -32,9 +32,9 @@ function tankServiceInfo(): ServiceInfo {
     endpoints: [
       {
         kind: 'command',
-        name: Drain.name,
-        key: Drain.key,
-        request_schema: Drain.requestSchema,
+        name: 'Drain',
+        key: 'blueos/v1/tank/command/Drain',
+        request_schema: 'blueos_example_msgs/msg/EmptyRequest',
         response_schema: COMMAND_ACK_SCHEMA,
       },
       {
@@ -113,18 +113,18 @@ describe('createInspectorApiClient', () => {
     const pending = transport.nextQuery()
     const ack: CommandAck = { accepted: true, job_id: 1, reason: '' }
     const resultPromise = client.request(
-      Drain.key,
+      SetLevel.key,
       'command',
-      Drain.requestSchema,
+      SetLevel.requestSchema,
       COMMAND_ACK_SCHEMA,
       {},
     )
     const query = await pending
-    expect(query.body?.encoding).toBe(cdrEncoding(Drain.requestSchema))
+    expect(query.body?.encoding).toBe(cdrEncoding(SetLevel.requestSchema))
     query.reply({
       kind: 'sample',
       sample: {
-        key: Drain.key,
+        key: SetLevel.key,
         payload: encodeCdr(COMMAND_ACK_SCHEMA, ack),
         encoding: cdrEncoding(COMMAND_ACK_SCHEMA),
       },

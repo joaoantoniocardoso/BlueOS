@@ -19,6 +19,9 @@ use serde::Deserialize;
 /// The file name of an endpoint manifest, next to the `Cargo.toml` of a Service's app crate.
 pub const MANIFEST_FILE: &str = "endpoints.toml";
 
+/// Where the TypeScript clients are committed, under `core/`.
+const TYPESCRIPT_DIR: &str = "frontend/src/libs/blueos-api/services";
+
 /// The names D-12 gives every Service, in snake case.
 const RESERVED_NAMES: [&str; 6] = [
     "info",
@@ -339,17 +342,8 @@ fn collect_service_endpoints(
     core_dir: &Path,
     messages: &BTreeSet<String>,
 ) -> Result<Vec<(String, Endpoint)>, EndpointsError> {
-    let workspace = read_toml(&core_dir.join("Cargo.toml"))?;
-    let members = workspace
-        .get("workspace")
-        .and_then(|workspace| workspace.get("members"))
-        .and_then(toml::Value::as_array)
-        .ok_or_else(|| EndpointsError::Cargo {
-            path: core_dir.join("Cargo.toml"),
-            reason: "no `workspace.members` list".to_owned(),
-        })?;
     let mut collected = Vec::new();
-    for member in members.iter().filter_map(toml::Value::as_str) {
+    for member in workspace_members(core_dir)? {
         let manifest_path = core_dir.join(member).join(MANIFEST_FILE);
         if !manifest_path.is_file() {
             continue;
@@ -388,17 +382,8 @@ pub fn generate_all(
     core_dir: &Path,
     messages: &BTreeSet<String>,
 ) -> Result<Vec<GeneratedFile>, EndpointsError> {
-    let workspace = read_toml(&core_dir.join("Cargo.toml"))?;
-    let members = workspace
-        .get("workspace")
-        .and_then(|workspace| workspace.get("members"))
-        .and_then(toml::Value::as_array)
-        .ok_or_else(|| EndpointsError::Cargo {
-            path: core_dir.join("Cargo.toml"),
-            reason: "no `workspace.members` list".to_owned(),
-        })?;
     let mut files = Vec::new();
-    for member in members.iter().filter_map(toml::Value::as_str) {
+    for member in workspace_members(core_dir)? {
         let app_dir = core_dir.join(member);
         let manifest_path = app_dir.join(MANIFEST_FILE);
         if !manifest_path.exists() {
@@ -422,7 +407,7 @@ pub fn generate_all(
                     error,
                 }
             })?;
-        let typescript_dir = core_dir.join("frontend/src/libs/blueos-api/services");
+        let typescript_dir = core_dir.join(TYPESCRIPT_DIR);
         fs::create_dir_all(&typescript_dir).map_err(|error| EndpointsError::Read {
             path: typescript_dir.clone(),
             error,
@@ -442,6 +427,37 @@ pub fn generate_all(
     Ok(files)
 }
 
+/// The generated endpoint files under `core_dir` that `generated` does not list: the TypeScript client or the
+/// wiring of a crate whose `endpoints.toml` is gone.
+pub fn stray_files(
+    core_dir: &Path,
+    generated: &[GeneratedFile],
+) -> Result<Vec<PathBuf>, EndpointsError> {
+    let clients = fs::read_dir(core_dir.join(TYPESCRIPT_DIR))
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|entry| entry.path());
+    let wiring = workspace_members(core_dir)?
+        .into_iter()
+        .map(|member| core_dir.join(member).join("src/endpoints.rs"));
+    let mut stray = Vec::new();
+    for path in clients.chain(wiring) {
+        let contents = match fs::read_to_string(&path) {
+            Ok(contents) => contents,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
+            Err(error) => return Err(EndpointsError::Read { path, error }),
+        };
+        let is_generated =
+            contents.contains(GENERATED_NOTICE) || contents.contains(TYPESCRIPT_GENERATED_NOTICE);
+        if is_generated && !generated.iter().any(|file| file.path == path) {
+            stray.push(path);
+        }
+    }
+    stray.sort();
+    Ok(stray)
+}
+
 /// Generates the two endpoint sources of the manifest `source`, whose `logic/api` crate is `api_crate` (in its
 /// Rust spelling, with `_`).
 pub fn generate(
@@ -459,6 +475,24 @@ pub fn generate(
         typescript: typescript_client_source(&service, &endpoints),
         service,
     })
+}
+
+/// The `workspace.members` of the `Cargo.toml` at `core_dir`.
+fn workspace_members(core_dir: &Path) -> Result<Vec<String>, EndpointsError> {
+    let workspace = read_toml(&core_dir.join("Cargo.toml"))?;
+    let members = workspace
+        .get("workspace")
+        .and_then(|workspace| workspace.get("members"))
+        .and_then(toml::Value::as_array)
+        .ok_or_else(|| EndpointsError::Cargo {
+            path: core_dir.join("Cargo.toml"),
+            reason: "no `workspace.members` list".to_owned(),
+        })?;
+    Ok(members
+        .iter()
+        .filter_map(toml::Value::as_str)
+        .map(str::to_owned)
+        .collect())
 }
 
 fn read_toml(path: &Path) -> Result<toml::Table, EndpointsError> {

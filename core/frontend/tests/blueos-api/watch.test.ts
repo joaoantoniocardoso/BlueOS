@@ -8,7 +8,7 @@ import { QueryFailedError, UnexpectedEncodingError } from '@/libs/blueos-api/err
 import {
   cdrEncoding, jobsKey, settingsKey, statusStateKey,
 } from '@/libs/blueos-api/keys'
-import { tank } from '@/libs/blueos-api/services/tank'
+import { pump } from '@/libs/blueos-api/services/example'
 import type { Sample } from '@/libs/blueos-api/transport'
 import type { MessageForSchema, SchemaName } from '@/libs/blueos-api/types'
 import { watchState } from '@/libs/blueos-api/watch'
@@ -38,10 +38,12 @@ function sample<Schema extends SchemaName>(key: string, schema: Schema, message:
 }
 
 function level(value: number): Sample {
-  return sample(tank.key, tank.messageSchema, { level: value, max_level: 10 })
+  return sample(pump.key, pump.messageSchema, {
+    level: value, max_level: 10, self_test_phase: 0, self_test_active: false,
+  })
 }
 
-function levels(observed: Observed<MessageForSchema<typeof tank.messageSchema>>): number[] {
+function levels(observed: Observed<MessageForSchema<typeof pump.messageSchema>>): number[] {
   return observed.values.map(({ message }) => message.level)
 }
 
@@ -49,9 +51,9 @@ describe('watchState', () => {
   it('keeps an update published after subscribing and before querying, and ignores the older reply', async () => {
     const transport = new FakeTransport()
     transport.afterSubscribe = () => transport.publish(level(2))
-    const observed = observe<MessageForSchema<typeof tank.messageSchema>>()
+    const observed = observe<MessageForSchema<typeof pump.messageSchema>>()
 
-    const watching = watchState(transport, tank, observed)
+    const watching = watchState(transport, pump, observed)
     const query = await transport.nextQuery()
     query.reply({ kind: 'sample', sample: level(1) })
     await watching
@@ -61,25 +63,25 @@ describe('watchState', () => {
 
   it('never loses an update published while the query is pending', async () => {
     const transport = new FakeTransport()
-    const observed = observe<MessageForSchema<typeof tank.messageSchema>>()
+    const observed = observe<MessageForSchema<typeof pump.messageSchema>>()
 
-    const watching = watchState(transport, tank, observed)
+    const watching = watchState(transport, pump, observed)
     const query = await transport.nextQuery()
     transport.publish(level(2))
     query.reply({ kind: 'sample', sample: level(1) })
     await watching
 
-    expect(transport.subscribers.map(({ key }) => key)).toEqual([tank.key])
-    expect(query.key).toBe(tank.key)
+    expect(transport.subscribers.map(({ key }) => key)).toEqual([pump.key])
+    expect(query.key).toBe(pump.key)
     expect(query.body).toBeUndefined()
     expect(levels(observed)).toEqual([2])
   })
 
   it('delivers the reply when no update came first, then every update', async () => {
     const transport = new FakeTransport()
-    const observed = observe<MessageForSchema<typeof tank.messageSchema>>()
+    const observed = observe<MessageForSchema<typeof pump.messageSchema>>()
 
-    const watching = watchState(transport, tank, observed)
+    const watching = watchState(transport, pump, observed)
     const query = await transport.nextQuery()
     query.reply({ kind: 'sample', sample: level(1) })
     await watching
@@ -87,14 +89,14 @@ describe('watchState', () => {
     transport.publish(level(3))
 
     expect(levels(observed)).toEqual([1, 2, 3])
-    expect(observed.values[0].key).toBe(tank.key)
+    expect(observed.values[0].key).toBe(pump.key)
   })
 
   it('waits for the first update when the State has no value yet', async () => {
     const transport = new FakeTransport()
-    const observed = observe<MessageForSchema<typeof tank.messageSchema>>()
+    const observed = observe<MessageForSchema<typeof pump.messageSchema>>()
 
-    const watching = watchState(transport, tank, observed)
+    const watching = watchState(transport, pump, observed)
     const query = await transport.nextQuery()
     query.reply()
     await watching
@@ -153,9 +155,9 @@ describe('watchState', () => {
 
   it('reports a sample it cannot decode and keeps watching', async () => {
     const transport = new FakeTransport()
-    const observed = observe<MessageForSchema<typeof tank.messageSchema>>()
+    const observed = observe<MessageForSchema<typeof pump.messageSchema>>()
 
-    const watching = watchState(transport, tank, observed)
+    const watching = watchState(transport, pump, observed)
     const query = await transport.nextQuery()
     query.reply()
     await watching
@@ -169,23 +171,23 @@ describe('watchState', () => {
 
   it('reports an error reply and keeps watching', async () => {
     const transport = new FakeTransport()
-    const observed = observe<MessageForSchema<typeof tank.messageSchema>>()
+    const observed = observe<MessageForSchema<typeof pump.messageSchema>>()
 
-    const watching = watchState(transport, tank, observed)
+    const watching = watchState(transport, pump, observed)
     const query = await transport.nextQuery()
     query.reply({ kind: 'error', payload: new TextEncoder().encode('busy'), encoding: 'text/plain' })
     await watching
     transport.publish(level(2))
 
-    expect(observed.errors).toEqual([new QueryFailedError(tank.key, 'busy')])
+    expect(observed.errors).toEqual([new QueryFailedError(pump.key, 'busy')])
     expect(levels(observed)).toEqual([2])
   })
 
   it('closes its subscriber when the query fails', async () => {
     const transport = new FakeTransport()
-    const observed = observe<MessageForSchema<typeof tank.messageSchema>>()
+    const observed = observe<MessageForSchema<typeof pump.messageSchema>>()
 
-    const watching = watchState(transport, tank, observed)
+    const watching = watchState(transport, pump, observed)
     const query = await transport.nextQuery()
     query.fail(new Error('router unreachable'))
 
@@ -195,9 +197,9 @@ describe('watchState', () => {
 
   it('delivers nothing once closed', async () => {
     const transport = new FakeTransport()
-    const observed = observe<MessageForSchema<typeof tank.messageSchema>>()
+    const observed = observe<MessageForSchema<typeof pump.messageSchema>>()
 
-    const watching = watchState(transport, tank, observed)
+    const watching = watchState(transport, pump, observed)
     const query = await transport.nextQuery()
     query.reply()
     const subscription = await watching
