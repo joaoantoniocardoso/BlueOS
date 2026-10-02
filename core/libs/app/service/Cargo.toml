@@ -14,7 +14,9 @@ blueos-api.workspace = true
 blueos-comms.workspace = true
 blueos-domain.workspace = true
 blueos-idl.workspace = true
+blueos-settings.workspace = true
 bytes.workspace = true
+serde_json.workspace = true
 clap = { workspace = true, features = ["std"] }
 thiserror.workspace = true
 tokio = { workspace = true, features = ["rt", "sync", "time"] }
@@ -22,8 +24,11 @@ tracing = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 blueos-service = { workspace = true, features = ["testing"] }
+blueos-settings.workspace = true
 clap = { workspace = true, features = ["derive", "std"] }
 futures-util.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["macros", "rt", "test-util"] }
 

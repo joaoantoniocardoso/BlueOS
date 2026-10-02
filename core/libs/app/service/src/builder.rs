@@ -1,8 +1,14 @@
 //! What a Service's `build` declares: the initial Snapshot and how the Domain meets the backbone.
 
+use core::error::Error;
+use std::path::PathBuf;
+
 use blueos_api::{Message, cdr_encoding};
 use blueos_domain::Domain;
-use blueos_idl::Error as IdlError;
+use blueos_idl::{Error as IdlError, msg::blueos_msgs::SettingsEnvelope};
+use blueos_settings::SettingsSchema;
+
+use crate::settings::{SettingsRegistration, register_settings};
 
 /// Decodes a Request body into the Domain's Request.
 pub(crate) type Decode<D> = Box<dyn Fn(&[u8]) -> Result<<D as Domain>::Request, IdlError> + Send>;
@@ -23,6 +29,7 @@ pub struct ServiceBuilder<D: Domain> {
     pub(crate) commands: Vec<CommandEndpoint<D>>,
     pub(crate) states: Vec<StateEndpoint<D>>,
     pub(crate) events: Vec<EventEndpoint<D>>,
+    pub(crate) settings: Option<SettingsRegistration<D>>,
 }
 
 /// A Command endpoint: a query on `blueos/v1/<service>/command/<name>` whose body is a Request.
@@ -53,7 +60,35 @@ impl<D: Domain> ServiceBuilder<D> {
             commands: Vec::new(),
             states: Vec::new(),
             events: Vec::new(),
+            settings: None,
         }
+    }
+
+    /// Registers Python-compatible settings (D-11): the Kernel loads once at startup, owns `UpdateSettings`, and
+    /// persists after each successful update.
+    ///
+    pub fn settings<S>(
+        mut self,
+        service_name: &str,
+        config_folder: Option<PathBuf>,
+        into_snapshot: impl Fn(&mut D::Snapshot, S) + Send + Sync + 'static,
+        from_snapshot: impl Fn(&D::Snapshot) -> S + Send + Sync + 'static,
+        into_request: impl Fn(SettingsEnvelope) -> Result<D::Request, Box<dyn Error + Send + Sync>>
+        + Send
+        + Sync
+        + 'static,
+    ) -> Self
+    where
+        S: SettingsSchema + Send + Sync + 'static,
+    {
+        self.settings = Some(register_settings(
+            service_name.to_owned(),
+            config_folder,
+            into_snapshot,
+            from_snapshot,
+            into_request,
+        ));
+        self
     }
 
     /// Adds the Command endpoint `name`. Its body is an `M`, which `into_request` turns into the Domain's Request.

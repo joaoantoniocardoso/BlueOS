@@ -14,6 +14,7 @@
 mod builder;
 mod kernel;
 mod service;
+mod settings;
 #[cfg(feature = "testing")]
 pub mod testing;
 
