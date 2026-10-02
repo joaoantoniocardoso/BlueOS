@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { LibraryRecording } from '@/libs/recorder/types'
 import {
+  canPlayRecording,
   operationFailureMessage,
   readySnapshotDownloadPath,
   snapshotDownloadPath,
@@ -31,6 +32,12 @@ describe('recorder view-logic', () => {
       file({ path: 'new.mcap', created: 2 }),
     ])
     expect(sorted.map((entry) => entry.path)).toEqual(['new.mcap', 'old.mcap'])
+  })
+
+  it('allows playback for ready and in-progress recordings', () => {
+    expect(canPlayRecording(file({ state: 'ready' }))).toBe(true)
+    expect(canPlayRecording(file({ state: 'recording' }))).toBe(true)
+    expect(canPlayRecording(file({ state: 'needs_repair' }))).toBe(false)
   })
 
   it('reads snapshot output path from a succeeded operation event', () => {
