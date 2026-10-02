@@ -1,12 +1,12 @@
 <template>
   <div>
-    <div class="stream-wrapper">
+    <div class="stream-wrapper blue_whale">
       <video
         ref="player"
         autoplay
         muted
         playsinline
-        class="stream"
+        class="stream blue_whale"
       >
         <track
           kind="captions"
@@ -187,7 +187,6 @@ export default Vue.extend({
   width: 100%;
   aspect-ratio: 16 / 9;
   max-height: calc(72vh / var(--grid-rows, 1));
-  background: #000;
 }
 
 .stream {
@@ -197,7 +196,6 @@ export default Vue.extend({
   width: 100%;
   height: 100%;
   z-index: 0;
-  background: #000;
 }
 
 .stream-overlay {
@@ -211,19 +209,31 @@ export default Vue.extend({
   pointer-events: none;
 }
 
-.stream-error {
-  background: rgba(0, 0, 0, 0.85);
+.stream-error::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-color: var(--v-blue_whale-base);
+  opacity: 0.85;
+  z-index: -1;
 }
 
 .stream-waiting {
   justify-content: flex-end;
   padding-bottom: 12px;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.55));
+}
+
+.stream-waiting::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(transparent, var(--v-blue_whale-base));
+  opacity: 0.55;
+  z-index: -1;
 }
 
 .stream-meta {
   min-height: 20px;
-  color: #e5e7eb;
 }
 
 .stats-overlay {
@@ -234,8 +244,17 @@ export default Vue.extend({
   max-width: calc(100% - 12px);
   padding: 8px 10px;
   border-radius: 4px;
-  background: rgba(0, 0, 0, 0.7);
   pointer-events: none;
+}
+
+.stats-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 4px;
+  background-color: var(--v-blue_whale-base);
+  opacity: 0.7;
+  z-index: -1;
 }
 
 .stats-overlay table {
