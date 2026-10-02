@@ -6,6 +6,16 @@ ROOT_DIR=$(git rev-parse --show-toplevel)
 # shellcheck disable=SC1091
 source "$ROOT_DIR/.hooks/lib/rust_checks.sh"
 
+# A failing test exits before its own cleanup, so every temporary copy lives under one root removed on exit.
+TMPDIR=$(mktemp -d)
+export TMPDIR
+trap 'rm -rf "$TMPDIR"' EXIT
+
+# The build folder and node_modules can weigh gigabytes and no test reads them.
+copy_core() {
+    tar -C "$ROOT_DIR/core" --exclude=./target --exclude=./frontend/node_modules -cf - . | tar -C "$1" -xf -
+}
+
 fail() {
     printf 'rust_checks_test: %s\n' "$1" >&2
     exit 1
@@ -117,7 +127,7 @@ test_workspace_metadata_is_clean() {
 test_fmt_check_fails_on_unformatted_source() {
     local temporary
     temporary=$(mktemp -d)
-    cp -a "$ROOT_DIR/core/." "$temporary/"
+    copy_core "$temporary"
     printf '\n\npub const UNFORMATTED:()=();\n' >>"$temporary/libs/logic/domain/src/lib.rs"
     if (
         cd "$temporary"
@@ -131,7 +141,7 @@ test_fmt_check_fails_on_unformatted_source() {
 test_syn_style_check_fails_on_mixed_import_groups() {
     local temporary
     temporary=$(mktemp -d)
-    cp -a "$ROOT_DIR/core/." "$temporary/"
+    copy_core "$temporary"
     cat >>"$temporary/libs/logic/domain/Cargo.toml" <<'EOF'
 
 [dependencies]
@@ -154,7 +164,7 @@ EOF
 test_clippy_fails_on_allow_attributes() {
     local temporary
     temporary=$(mktemp -d)
-    cp -a "$ROOT_DIR/core/." "$temporary/"
+    copy_core "$temporary"
     cat >>"$temporary/libs/logic/domain/src/lib.rs" <<'EOF'
 
 #[allow(dead_code)]
@@ -172,7 +182,7 @@ EOF
 test_no_std_build_fails_on_io_dependency() {
     local temporary
     temporary=$(mktemp -d)
-    cp -a "$ROOT_DIR/core/." "$temporary/"
+    copy_core "$temporary"
     sed -i '/blueos-domain = /a socket2 = "0.5"' "$temporary/Cargo.toml"
     cat >>"$temporary/libs/logic/domain/Cargo.toml" <<'EOF'
 
@@ -192,7 +202,7 @@ EOF
 test_machete_fails_on_unused_dependency() {
     local temporary
     temporary=$(mktemp -d)
-    cp -a "$ROOT_DIR/core/." "$temporary/"
+    copy_core "$temporary"
     sed -i '/blueos-domain = /a libc = "0.2"' "$temporary/Cargo.toml"
     cat >>"$temporary/libs/logic/domain/Cargo.toml" <<'EOF'
 
@@ -223,7 +233,7 @@ test_typos_fails_on_misspelling() {
 test_nextest_fails_on_hanging_test() {
     local temporary
     temporary=$(mktemp -d)
-    cp -a "$ROOT_DIR/core/." "$temporary/"
+    copy_core "$temporary"
     mkdir -p "$temporary/.config"
     cat >"$temporary/.config/nextest.toml" <<'EOF'
 [profile.default]
@@ -251,7 +261,7 @@ EOF
 test_coverage_ratchet_fails_when_floor_is_too_high() {
     local temporary
     temporary=$(mktemp -d)
-    cp -a "$ROOT_DIR/core/." "$temporary/"
+    copy_core "$temporary"
     sed -i 's/workspace = 100/workspace = 101/' "$temporary/coverage-ratchet.toml"
     export RUSTC_WRAPPER=
     if check_rust_coverage_ratchet "$temporary" 2>/dev/null; then
@@ -263,7 +273,7 @@ test_coverage_ratchet_fails_when_floor_is_too_high() {
 test_deny_licenses_rejects_unlisted_license() {
     local temporary
     temporary=$(mktemp -d)
-    cp -a "$ROOT_DIR/core/." "$temporary/"
+    copy_core "$temporary"
     sed -i '/^allow = \[/,/\]/d' "$temporary/deny.toml"
     if (
         cd "$temporary"
@@ -307,7 +317,7 @@ test_style_copies_reject_drifting_cursor_rule() {
 test_deny_bans_direct_zenoh() {
     local temporary
     temporary=$(mktemp -d)
-    cp -a "$ROOT_DIR/core/." "$temporary/"
+    copy_core "$temporary"
     cat >>"$temporary/libs/logic/domain/Cargo.toml" <<'EOF'
 
 [dependencies]
@@ -329,7 +339,7 @@ test_test_only_features_stay_out_of_normal_builds() {
     fi
     local temporary output
     temporary=$(mktemp -d)
-    cp -a "$ROOT_DIR/core/." "$temporary/"
+    copy_core "$temporary"
     cat >>"$temporary/libs/logic/domain/Cargo.toml" <<'EOF'
 
 [dependencies]
