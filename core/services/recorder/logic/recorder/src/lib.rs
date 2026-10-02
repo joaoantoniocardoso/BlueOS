@@ -4,11 +4,14 @@
 
 extern crate alloc;
 
+pub mod durable;
+pub mod job;
+
 use core::{convert::Infallible, fmt};
 
 use alloc::{borrow::ToOwned, vec::Vec};
-use blueos_domain::{Command, Decision, Domain, DomainQueries, Now, Outcome};
-use blueos_jobs::{DomainJobs, JobEnd, JobGraph, JobId, Jobs, LeafJob};
+use blueos_domain::{Command, Decision, Domain, DomainDurable, DomainQueries, Now, Outcome};
+use blueos_jobs::{DomainJobs, JobEnd, JobGraph, JobId, JobKind, JobStatus, Jobs, LeafJob};
 use blueos_recorder_cameras::{
     Cameras, CamerasIoRequest, CamerasIoResult, CamerasObservedFact, CamerasTick, CamerasTimerKey,
 };
@@ -24,12 +27,17 @@ use blueos_recorder_library::{
 };
 use blueos_recorder_paths::RecordingRelativePath;
 
+use durable::RecorderDurableState;
+use job::RecorderJobStep;
+
 /// Persisted Recorder settings (the same fields as [`CaptureSettings`] until the api crate owns conversions).
 pub type RecorderSettings = CaptureSettings;
 
 /// Root Snapshot composed from Blocks.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct RecorderSnapshot {
+    /// Part of the Snapshot written across restarts.
+    pub durable: RecorderDurableState,
     /// Active recording, armed flag, bytes written and the record gate projection.
     pub capture: Capture,
     /// Recording catalog, repair and delete operations.
@@ -38,16 +46,6 @@ pub struct RecorderSnapshot {
     pub cameras: Cameras,
     /// Long-running repair Jobs.
     pub jobs: Jobs<RecorderJobStep>,
-}
-
-/// One step of a Recorder Job.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum RecorderJobStep {
-    /// Rewrites one recording file.
-    RepairRecording {
-        /// Validated relative path.
-        path: RecordingRelativePath,
-    },
 }
 
 /// Client Commands for the Recorder.
@@ -144,6 +142,8 @@ pub enum RecorderIoResult {
 /// Timer ticks for the Recorder Domain.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RecorderTick {
+    /// Kernel delivers this once after durable state restore (D-28).
+    Restored,
     /// Library rescan timer.
     Library(LibraryTick),
     /// Tick from the cameras Block.
@@ -271,6 +271,7 @@ impl Domain for RecorderDomain {
                         .handle_request(CaptureRequest::StopVideoRecording { topic }, now),
                 ),
             },
+            Command::Tick(RecorderTick::Restored) => merge_restored(snapshot),
             Command::Tick(RecorderTick::Library(tick)) => {
                 map_library_outcome(Library::handle_tick(tick))
             }
@@ -366,6 +367,22 @@ impl Domain for RecorderDomain {
     }
 }
 
+impl DomainDurable for RecorderDomain {
+    type DurableState = RecorderDurableState;
+
+    fn durable_state(snapshot: &Self::Snapshot) -> &Self::DurableState {
+        &snapshot.durable
+    }
+
+    fn set_durable_state(snapshot: &mut Self::Snapshot, state: Self::DurableState) {
+        snapshot.durable = state;
+    }
+
+    fn restored_tick() -> Self::Tick {
+        RecorderTick::Restored
+    }
+}
+
 impl DomainJobs for RecorderDomain {
     type Step = RecorderJobStep;
 
@@ -447,6 +464,29 @@ fn merge_job_and_library(
     library: Outcome<LibraryEvent, LibraryTick, LibraryIoRequest, LibraryTimerKey>,
 ) -> Decision<RecorderDomain> {
     map_library_outcome(library)
+}
+
+fn merge_restored(snapshot: &mut RecorderSnapshot) -> Decision<RecorderDomain> {
+    let interrupted_repairs: Vec<JobId> = snapshot
+        .jobs
+        .list()
+        .into_iter()
+        .filter(|view| view.status == JobStatus::Interrupted)
+        .filter(|view| {
+            matches!(
+                view.kind,
+                JobKind::Leaf(RecorderJobStep::RepairRecording { .. })
+            )
+        })
+        .map(|view| view.job_id)
+        .collect();
+    for job_id in interrupted_repairs {
+        let _finished = snapshot.jobs.finish(job_id, JobEnd::Failed);
+    }
+    Outcome::Applied {
+        events: Vec::new(),
+        effects: Vec::new(),
+    }
 }
 
 fn merge_startup(snapshot: &mut RecorderSnapshot, now: Now) -> Decision<RecorderDomain> {

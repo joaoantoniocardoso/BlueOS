@@ -2,10 +2,11 @@
 
 mod common;
 
-use core::time::Duration;
+use core::{num::NonZeroU32, time::Duration};
 use std::{fs, path::Path, process::Command, sync::Arc};
 
 use mcap::{Writer, write::WriteOptions};
+use serde::Serialize;
 use tempfile::tempdir;
 use tokio::time::{advance, timeout};
 
@@ -13,23 +14,36 @@ use blueos_api::event_key;
 use blueos_comms::{CommsBackend, channel::ChannelBackend};
 use blueos_idl::{
     Message,
+    msg::blueos_msgs::JobStatusStatus,
     msg::blueos_recorder_msgs::{
         CancelRepairCommand, RecordingOperation, RecordingOperationOperation,
         RepairRecordingCommand,
     },
 };
+use blueos_jobs::{JobGraph, Jobs};
 use blueos_recorder_app::{RecorderArguments, RecorderService};
+use blueos_recorder_domain::{durable::RecorderDurableState, job::RecorderJobStep};
 use blueos_recorder_library::RESCAN_INTERVAL;
 use blueos_recorder_mcap::is_indexed;
+use blueos_recorder_paths::RecordingRelativePath;
 use blueos_service::{
-    Service,
+    Service, ServiceContext,
     testing::{Harness, WALL_CLOCK_AT_START},
 };
+use blueos_settings::ServiceStateStore;
 
 use common::{
     drain_blocking_io, wait_for_library_file_listed, wait_for_library_file_not_repairing,
     wait_for_library_file_ready,
 };
+
+#[derive(Serialize)]
+struct PersistedRecorderState {
+    #[serde(rename = "VERSION")]
+    version: u32,
+    domain: RecorderDurableState,
+    jobs: Jobs<RecorderJobStep>,
+}
 
 #[tokio::test(start_paused = true)]
 async fn repair_rewrites_truncated_recording_and_publishes_operation_event() {
@@ -129,13 +143,72 @@ async fn cancel_repair_leaves_original_bytes_unchanged() {
 }
 
 #[tokio::test(start_paused = true)]
+async fn restored_interrupted_repair_job_is_failed_and_recover_discarded() {
+    let directory = tempdir().expect("tempdir");
+    let settings_parent = tempdir().expect("settings");
+    let path = directory.path().join("broken.mcap");
+    write_truncated_mcap(&path);
+    fs::write(directory.path().join("broken.recover"), b"temporary").expect("write recover");
+
+    let mut persisted_jobs = Jobs::default();
+    persisted_jobs.start(JobGraph::Leaf(RecorderJobStep::RepairRecording {
+        path: RecordingRelativePath::parse("broken.mcap").expect("path"),
+    }));
+    let envelope = PersistedRecorderState {
+        version: NonZeroU32::MIN.get(),
+        domain: RecorderDurableState,
+        jobs: persisted_jobs,
+    };
+    let store = ServiceStateStore::open(
+        RecorderService::NAME,
+        Some(settings_parent.path().to_path_buf()),
+        NonZeroU32::MIN,
+    );
+    fs::create_dir_all(store.path().parent().expect("state file parent directory")).expect("mkdir");
+    fs::write(
+        store.path(),
+        serde_json::to_vec(&envelope).expect("serialize"),
+    )
+    .expect("write state");
+
+    let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
+    let context = ServiceContext::with_settings_path(
+        RecorderArguments {
+            recorder_path: directory.path().to_path_buf(),
+        },
+        Some(settings_parent.path().to_path_buf()),
+        Arc::clone(&backend),
+    );
+    let harness = Harness::<RecorderService>::start_on_with_context(backend, context)
+        .await
+        .expect("harness");
+    advance(Duration::from_millis(10)).await;
+    drain_blocking_io().await;
+
+    assert!(
+        !directory.path().join("broken.recover").exists(),
+        "startup must discard leftover recover files"
+    );
+    let job_list = harness.jobs().await;
+    let repair_job = job_list
+        .jobs
+        .iter()
+        .find(|job| job.name.starts_with("repair "))
+        .expect("repair job in history");
+    assert_eq!(
+        repair_job.status,
+        JobStatusStatus::Failed,
+        "interrupted repair must finish as failed after restore"
+    );
+}
+
+#[tokio::test(start_paused = true)]
 async fn leftover_recover_file_is_removed_at_startup() {
     let directory = tempdir().expect("tempdir");
     fs::write(directory.path().join("stale.recover"), b"leftover").expect("write");
 
     let _harness = Harness::<RecorderService>::start(RecorderArguments {
         recorder_path: directory.path().to_path_buf(),
-        mcap_writer_queue_capacity: None,
     })
     .await
     .expect("harness");

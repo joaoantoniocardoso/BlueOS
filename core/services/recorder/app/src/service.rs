@@ -1,6 +1,6 @@
 //! The Recorder Service wiring.
 
-use core::sync::atomic::AtomicU8;
+use core::{num::NonZeroU32, sync::atomic::AtomicU8};
 use std::{
     collections::BTreeMap,
     path::PathBuf,
@@ -26,6 +26,8 @@ use crate::{
     mavlink::run_mavlink_ingress,
     settings::RecorderSettings,
 };
+
+const RECORDER_DURABLE_STATE_VERSION: NonZeroU32 = NonZeroU32::MIN;
 
 /// The Recorder Service.
 pub struct RecorderService;
@@ -96,8 +98,13 @@ fn assemble_builder(
     );
     let config_parent = context.settings_path().map(PathBuf::from);
     let (observed_sender, observed_receiver) = mpsc::channel(64);
-    let (builder, record_gate) = ServiceBuilder::new(RecorderSnapshot::default())
+    let (mut builder, record_gate) = ServiceBuilder::new(RecorderSnapshot::default())
         .projection(|snapshot: &RecorderSnapshot| snapshot.record_gate());
+    builder = builder.durable_state_with_jobs(
+        RecorderService::NAME,
+        config_parent.clone(),
+        RECORDER_DURABLE_STATE_VERSION,
+    );
     let gate_receiver = record_gate.subscribe();
     let recorder_context = RecorderContext {
         record_gate,

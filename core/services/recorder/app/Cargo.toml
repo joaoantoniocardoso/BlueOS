@@ -32,9 +32,12 @@ tracing = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 blueos-comms = { workspace = true, features = ["channel"] }
+blueos-jobs = { workspace = true, features = ["serde"] }
 blueos-service = { workspace = true, features = ["testing"] }
 bytes.workspace = true
 mcap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 tempfile = "3"
 tokio = { workspace = true, features = ["macros", "rt", "test-util", "time"] }
 trybuild.workspace = true
