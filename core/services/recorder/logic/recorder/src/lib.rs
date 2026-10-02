@@ -43,6 +43,8 @@ pub enum RecorderRequest {
         /// Video topic to stop.
         topic: alloc::string::String,
     },
+    /// Kernel startup hook: applies [`RecorderSettings::auto_start_recording`] when enabled.
+    Startup,
 }
 
 /// Observed facts from the data plane Task and adapters.
@@ -105,6 +107,21 @@ impl Domain for RecorderDomain {
                 RecorderRequest::StopVideoRecording { topic } => snapshot
                     .capture
                     .handle_request(CaptureRequest::StopVideoRecording { topic }, now),
+                RecorderRequest::Startup => {
+                    if snapshot.capture.settings.auto_start_recording {
+                        snapshot.capture.handle_request(
+                            CaptureRequest::StartRecording {
+                                rotate_if_active: false,
+                            },
+                            now,
+                        )
+                    } else {
+                        Outcome::Applied {
+                            events: alloc::vec::Vec::new(),
+                            effects: alloc::vec::Vec::new(),
+                        }
+                    }
+                }
             }),
             Command::IoResult(never) => match never {},
             Command::Tick(never) => match never {},
