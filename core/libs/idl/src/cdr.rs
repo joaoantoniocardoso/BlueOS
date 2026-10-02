@@ -145,25 +145,38 @@ impl Reader {
         self.position >= self.buffer.len()
     }
 
+    /// Bytes left in the field body after the current read position.
+    pub fn remaining_body_bytes(&self) -> usize {
+        self.buffer.len().saturating_sub(self.position)
+    }
+
     fn align(&mut self, alignment: usize) -> Result<(), Error> {
         let offset = self.position % alignment;
         if offset == 0 {
             return Ok(());
         }
         let padding = alignment - offset;
-        if self.position + padding > self.buffer.len() {
+        let next_position = self
+            .position
+            .checked_add(padding)
+            .ok_or(Error::UnexpectedEnd)?;
+        if next_position > self.buffer.len() {
             return Err(Error::UnexpectedEnd);
         }
-        self.position += padding;
+        self.position = next_position;
         Ok(())
     }
 
     fn read_exact(&mut self, count: usize) -> Result<&[u8], Error> {
-        if self.position + count > self.buffer.len() {
+        let end = self
+            .position
+            .checked_add(count)
+            .ok_or(Error::UnexpectedEnd)?;
+        if end > self.buffer.len() {
             return Err(Error::UnexpectedEnd);
         }
-        let slice = &self.buffer[self.position..self.position + count];
-        self.position += count;
+        let slice = &self.buffer[self.position..end];
+        self.position = end;
         Ok(slice)
     }
 
@@ -234,17 +247,31 @@ impl Reader {
         Ok(f64::from_bits(self.read_u64()?))
     }
 
+    /// Reads a sequence length prefix bounded by the remaining field body bytes.
+    pub fn read_bounded_sequence_length(&mut self) -> Result<u32, Error> {
+        let length = self.read_u32()?;
+        let length_bytes = length as usize;
+        if length_bytes > self.remaining_body_bytes() {
+            return Err(Error::InvalidLength);
+        }
+        Ok(length)
+    }
+
     /// Reads a ROS string (length includes the null terminator; no padding after it).
     pub fn read_string(&mut self) -> Result<String, Error> {
-        let length = self.read_u32()? as usize;
+        let length = self.read_u32()?;
         if length == 0 {
             return Ok(String::new());
         }
-        let bytes = self.read_exact(length)?.to_vec();
+        let length_bytes = length as usize;
+        if length_bytes > self.remaining_body_bytes() {
+            return Err(Error::InvalidLength);
+        }
+        let bytes = self.read_exact(length_bytes)?;
         if bytes.last() != Some(&0) {
             return Err(Error::Utf8);
         }
-        let text = core::str::from_utf8(&bytes[..length - 1]).map_err(|_| Error::Utf8)?;
+        let text = core::str::from_utf8(&bytes[..length_bytes - 1]).map_err(|_| Error::Utf8)?;
         Ok(text.into())
     }
 }
@@ -288,5 +315,26 @@ mod tests {
             Reader::new_with_encapsulation(&writer.finish_with_encapsulation()).expect("reader");
         assert_eq!(reader.read_u32().expect("read"), 7);
         assert!(!reader.is_exhausted());
+    }
+
+    #[test]
+    fn read_string_rejects_length_beyond_remaining() {
+        let mut writer = Writer::new();
+        writer.write_u32(0xFFFF_FFFF).expect("length");
+        let mut reader =
+            Reader::new_with_encapsulation(&writer.finish_with_encapsulation()).expect("reader");
+        assert_eq!(reader.read_string(), Err(Error::InvalidLength));
+    }
+
+    #[test]
+    fn read_bounded_sequence_length_rejects_hostile_prefix() {
+        let mut writer = Writer::new();
+        writer.write_u32(0xFFFF_FFFF).expect("length");
+        let mut reader =
+            Reader::new_with_encapsulation(&writer.finish_with_encapsulation()).expect("reader");
+        assert_eq!(
+            reader.read_bounded_sequence_length(),
+            Err(Error::InvalidLength)
+        );
     }
 }

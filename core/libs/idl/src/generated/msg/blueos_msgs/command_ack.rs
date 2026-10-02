@@ -5,7 +5,8 @@ use crate::{
     message::{CdrStruct, Message},
 };
 use alloc::string::String;
-#[derive(Debug, Clone, Default, PartialEq)]
+use serde::{Deserialize, Serialize};
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct CommandAck {
     pub accepted: bool,
     pub job_id: u64,

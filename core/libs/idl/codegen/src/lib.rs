@@ -46,6 +46,12 @@ pub fn generate(interfaces_root: &Path, out_dir: &Path) {
     fs::create_dir_all(out_dir).expect("create generated dir");
 
     write_rust_messages(&records, out_dir);
+    let idl_root = interfaces_root
+        .parent()
+        .expect("interfaces directory has a parent");
+    let test_generated = idl_root.join("tests/generated");
+    fs::create_dir_all(&test_generated).expect("create test generated dir");
+    write_cdr_codec_dispatch(&records, &test_generated);
 }
 
 /// Writes `schema_catalog.rs`, a `schema` lookup of the text of every message under `interfaces_root`, with no
@@ -233,7 +239,7 @@ fn write_rust_messages(records: &BTreeMap<String, MessageRecord>, out_dir: &Path
                 format!("use alloc::{{{}}};\n\n", alloc_paths.join(", "))
             };
             let file_contents = format!(
-                "// @generated\n#![allow(\n    missing_docs,\n    reason = \"generated from ROS .msg sources\",\n)]\n{alloc_imports}use crate::{{cdr, error::Error, message::{{CdrStruct, Message}}}};\n{}\n",
+                "// @generated\n#![allow(\n    missing_docs,\n    reason = \"generated from ROS .msg sources\",\n)]\n{alloc_imports}use crate::{{cdr, error::Error, message::{{CdrStruct, Message}}}};\nuse serde::{{Deserialize, Serialize}};\n{}\n",
                 tokens
             );
             write_formatted_rust_file(
@@ -313,7 +319,13 @@ fn generate_struct_tokens(
     for field in message.fields() {
         let field_name = format_ident!("{}", rust_field_name(field));
         let field_type = rust_type_tokens(field);
+        let serde_with = if matches!(field.case(), FieldCase::Array(_)) {
+            quote! { #[serde(with = "serde_arrays")] }
+        } else {
+            quote! {}
+        };
         fields.push(quote! {
+            #serde_with
             pub #field_name: #field_type,
         });
     }
@@ -333,7 +345,7 @@ fn generate_struct_tokens(
 
     quote! {
         #constants_mod
-        #[derive(Debug, Clone, Default, PartialEq)]
+        #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
         pub struct #struct_name {
             #(#fields)*
         }
@@ -390,7 +402,7 @@ fn read_field_tokens(field: &Field, _field_name: &proc_macro2::Ident) -> TokenSt
                     if reader.is_exhausted() {
                         Vec::new()
                     } else {
-                        let length = reader.read_u32()?;
+                        let length = reader.read_bounded_sequence_length()?;
                         let mut values = Vec::with_capacity(length as usize);
                         for _index in 0..length {
                             values.push(#element);
@@ -645,4 +657,29 @@ pub fn format_lock_line(schema_name: &str, major: u32, field_signature: &str) ->
         major,
         field_signature_hash(field_signature)
     )
+}
+
+fn write_cdr_codec_dispatch(records: &BTreeMap<String, MessageRecord>, out_dir: &Path) {
+    let mut encode_arms = Vec::new();
+    let mut decode_arms = Vec::new();
+    for record in records.values() {
+        let type_path = format!("blueos_idl::msg::{}::{}", record.package, record.name);
+        encode_arms.push(format!(
+            "        \"{}\" => {}::default().encode().ok(),",
+            record.schema_name, type_path
+        ));
+        decode_arms.push(format!(
+            "        \"{}\" => {}::decode(payload).ok().and_then(|message| serde_json::to_value(message).ok()),",
+            record.schema_name, type_path
+        ));
+    }
+    fs::write(
+        out_dir.join("cdr_codec_dispatch.rs"),
+        format!(
+            "// @generated\nuse blueos_idl::Message;\n\npub fn encode_default(schema_name: &str) -> Option<Vec<u8>> {{\n    match schema_name {{\n{}\n        _ => None,\n    }}\n}}\n\npub fn decode_to_json(schema_name: &str, payload: &[u8]) -> Option<serde_json::Value> {{\n    match schema_name {{\n{}\n        _ => None,\n    }}\n}}\n",
+            encode_arms.join("\n"),
+            decode_arms.join("\n")
+        ),
+    )
+    .expect("write cdr_codec_dispatch.rs");
 }
