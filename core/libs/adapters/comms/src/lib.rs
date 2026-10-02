@@ -51,6 +51,26 @@ pub trait CommsBackend: Send + Sync {
         body: Option<QueryBody>,
         timeout: Duration,
     ) -> BoxFuture<'a, Result<Vec<Reply>, CommsError>>;
+
+    /// Keeps `key` alive until the returned token is dropped.
+    fn declare_liveliness<'a>(
+        &'a self,
+        key: &'a str,
+    ) -> BoxFuture<'a, Result<LivelinessToken, CommsError>>;
+
+    /// Receives every liveliness change on a key that intersects `key_expression`, until the
+    /// [`LivelinessSubscriber`] is dropped.
+    fn subscribe_liveliness<'a>(
+        &'a self,
+        key_expression: &'a str,
+    ) -> BoxFuture<'a, Result<LivelinessSubscriber, CommsError>>;
+
+    /// Returns keys of liveliness tokens that were alive during `timeout`.
+    fn get_liveliness<'a>(
+        &'a self,
+        key_expression: &'a str,
+        timeout: Duration,
+    ) -> BoxFuture<'a, Result<Vec<String>, CommsError>>;
 }
 
 /// The queries a queryable receives, in arrival order.
@@ -108,6 +128,31 @@ pub trait PayloadBuffer: Any + Debug + Send + Sync {
     fn to_bytes(&self) -> Cow<'_, [u8]>;
 }
 
+/// The liveliness changes a subscription receives, in arrival order.
+pub struct LivelinessSubscriber {
+    events: BoxStream<'static, LivelinessEvent>,
+}
+
+/// A liveliness token appeared or disappeared on the backbone.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum LivelinessEvent {
+    /// A token was declared on `key`.
+    Put {
+        /// The key that became alive.
+        key: String,
+    },
+    /// A token was dropped on `key`.
+    Delete {
+        /// The key that is no longer alive.
+        key: String,
+    },
+}
+
+/// Holds a liveliness declaration until it is dropped.
+pub struct LivelinessToken {
+    on_drop: Option<Box<dyn FnOnce() + Send>>,
+}
+
 /// Why the backbone refused an operation.
 #[derive(Debug, thiserror::Error)]
 pub enum CommsError {
@@ -119,6 +164,12 @@ pub enum CommsError {
         /// What makes it invalid.
         #[source]
         source: Box<dyn core::error::Error + Send + Sync>,
+    },
+    /// The session or router rejected an operation.
+    #[error("backend: {message}")]
+    Backend {
+        /// What went wrong.
+        message: String,
     },
 }
 
@@ -241,6 +292,14 @@ impl QueryBody {
 }
 
 impl ReplyError {
+    /// An error encoded as `encoding`.
+    pub fn new(payload: impl Into<Payload>, encoding: impl Into<String>) -> Self {
+        Self {
+            payload: payload.into(),
+            encoding: encoding.into(),
+        }
+    }
+
     /// The encoded error.
     pub fn payload(&self) -> &Payload {
         &self.payload
@@ -326,5 +385,36 @@ impl Queryable {
     /// Waits for the next query, or returns `None` once the backend has closed the queryable.
     pub async fn recv(&mut self) -> Option<Query> {
         self.queries.next().await
+    }
+}
+
+impl LivelinessSubscriber {
+    /// Wraps a backend's stream of liveliness events.
+    pub fn new(events: impl Stream<Item = LivelinessEvent> + Send + 'static) -> Self {
+        Self {
+            events: events.boxed(),
+        }
+    }
+
+    /// Waits for the next event, or returns `None` once the backend has closed the subscription.
+    pub async fn recv(&mut self) -> Option<LivelinessEvent> {
+        self.events.next().await
+    }
+}
+
+impl Drop for LivelinessToken {
+    fn drop(&mut self) {
+        if let Some(on_drop) = self.on_drop.take() {
+            on_drop();
+        }
+    }
+}
+
+impl LivelinessToken {
+    /// A token that runs `on_drop` when dropped.
+    pub fn new(on_drop: impl FnOnce() + Send + 'static) -> Self {
+        Self {
+            on_drop: Some(Box::new(on_drop)),
+        }
     }
 }
