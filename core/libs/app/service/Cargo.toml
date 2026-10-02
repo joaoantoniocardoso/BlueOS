@@ -16,14 +16,16 @@ blueos-domain.workspace = true
 blueos-idl.workspace = true
 bytes.workspace = true
 clap = { workspace = true, features = ["std"] }
+futures-util = { workspace = true, features = ["std"] }
 thiserror.workspace = true
-tokio = { workspace = true, features = ["rt", "sync", "time"] }
+tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }
+tokio-util = { workspace = true, features = ["time"] }
 tracing = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 blueos-service = { workspace = true, features = ["testing"] }
 clap = { workspace = true, features = ["derive", "std"] }
-futures-util.workspace = true
+futures-util = { workspace = true, features = ["std"] }
 thiserror.workspace = true
 tokio = { workspace = true, features = ["macros", "rt", "test-util"] }
 

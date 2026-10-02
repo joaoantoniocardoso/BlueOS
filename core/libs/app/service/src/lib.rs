@@ -17,6 +17,7 @@ mod service;
 #[cfg(feature = "testing")]
 pub mod testing;
 
+pub use blueos_domain::IoError;
 pub use builder::ServiceBuilder;
 pub use kernel::{Clock, Kernel};
 pub use service::{Service, ServiceContext, ServiceError};

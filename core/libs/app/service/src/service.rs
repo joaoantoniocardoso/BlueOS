@@ -28,6 +28,8 @@ use crate::builder::ServiceBuilder;
 pub trait Service {
     /// The pure logic the Kernel runs.
     type Domain: Domain;
+    /// What IO code receives by reference, together with the Snapshot it needs.
+    type Context: Send + Sync + 'static;
     /// The service's own command-line arguments, added to the ones every Service has.
     type Arguments: clap::Args;
 
@@ -45,7 +47,7 @@ pub trait Service {
     /// [`ServiceError::Build`] when the Context cannot make a working Service, such as an argument out of range.
     fn build(
         context: &ServiceContext<Self::Arguments>,
-    ) -> Result<ServiceBuilder<Self::Domain>, ServiceError>;
+    ) -> Result<ServiceBuilder<Self::Domain, Self::Context>, ServiceError>;
 }
 
 /// What a Service's `build` and IO code may use: its command-line arguments.

@@ -1,8 +1,13 @@
 //! What a Service's `build` declares: the initial Snapshot and how the Domain meets the backbone.
 
+use core::future::Future;
+use std::sync::Arc;
+
 use blueos_api::{Message, cdr_encoding};
-use blueos_domain::Domain;
+use blueos_domain::{Domain, IoError};
 use blueos_idl::Error as IdlError;
+
+use crate::kernel::io::IoExecutor;
 
 /// Decodes a Request body into the Domain's Request.
 pub(crate) type Decode<D> = Box<dyn Fn(&[u8]) -> Result<<D as Domain>::Request, IdlError> + Send>;
@@ -18,8 +23,10 @@ pub(crate) type Select<D> =
 /// Everything a Service declares in `build`: the initial Snapshot, then one call per endpoint. Each call converts
 /// between a Message and the Domain's own types, so the Domain never sees a Message.
 #[must_use]
-pub struct ServiceBuilder<D: Domain> {
+pub struct ServiceBuilder<D: Domain, Context = ()> {
     pub(crate) snapshot: D::Snapshot,
+    pub(crate) context: Context,
+    pub(crate) io: Option<IoExecutor<D, Context>>,
     pub(crate) commands: Vec<CommandEndpoint<D>>,
     pub(crate) states: Vec<StateEndpoint<D>>,
     pub(crate) events: Vec<EventEndpoint<D>>,
@@ -45,15 +52,49 @@ pub(crate) struct EventEndpoint<D: Domain> {
     pub(crate) select: Select<D>,
 }
 
-impl<D: Domain> ServiceBuilder<D> {
+impl<D: Domain> ServiceBuilder<D, ()> {
     /// A Service whose Domain starts from `snapshot`, with no endpoints yet.
     pub fn new(snapshot: D::Snapshot) -> Self {
         Self {
             snapshot,
+            context: (),
+            io: None,
             commands: Vec::new(),
             states: Vec::new(),
             events: Vec::new(),
         }
+    }
+}
+
+impl<D: Domain> ServiceBuilder<D, ()> {
+    /// The Context IO code receives by reference, together with the Snapshot it needs.
+    pub fn context<NewContext: Send + Sync + 'static>(
+        self,
+        context: NewContext,
+    ) -> ServiceBuilder<D, NewContext> {
+        ServiceBuilder {
+            snapshot: self.snapshot,
+            context,
+            io: None,
+            commands: self.commands,
+            states: self.states,
+            events: self.events,
+        }
+    }
+}
+
+impl<D: Domain, Context> ServiceBuilder<D, Context> {
+    /// The executor for every [`Effect::Io`]. It returns an optional IO result Command, or an [`IoError`] the Kernel
+    /// turns into [`Domain::io_failed`].
+    pub fn io<F, Fut>(mut self, executor: F) -> Self
+    where
+        F: Fn(&Context, &D::Snapshot, D::IoRequest) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = Result<Option<D::IoResult>, IoError>> + Send + 'static,
+    {
+        self.io = Some(Arc::new(move |context, snapshot, request| {
+            Box::pin(executor(context, snapshot, request))
+        }));
+        self
     }
 
     /// Adds the Command endpoint `name`. Its body is an `M`, which `into_request` turns into the Domain's Request.

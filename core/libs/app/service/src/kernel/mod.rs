@@ -1,5 +1,9 @@
 //! The Kernel: the Inbox loop that applies every Command to the Domain and publishes what changed.
 
+mod effects;
+pub(crate) mod io;
+mod timers;
+
 use core::{error::Error, panic::AssertUnwindSafe};
 use std::{panic, sync::Arc};
 
@@ -22,30 +26,34 @@ use crate::{
     service::ServiceError,
 };
 
+use effects::{apply_sync_effects, io_requests};
+use io::{IoExecutor, spawn_io_chain};
+use timers::TimerWheel;
+
 /// How many Commands wait in the Inbox before a sender has to wait.
 const INBOX_CAPACITY: usize = 256;
 
 /// Runs one Domain: the only writer of its Snapshot, and the owner of everything that can be stopped (the Inbox
 /// and the endpoint adapters). Dropping it stops them.
-pub struct Kernel<D: Domain> {
+pub struct Kernel<D: Domain, Context = ()> {
     service: &'static str,
     snapshot: D::Snapshot,
     inbox: mpsc::Receiver<Delivery<D>>,
+    inbox_sender: Option<mpsc::Sender<Delivery<D>>>,
     states: Vec<PublishedState<D>>,
     events: Vec<EventEndpoint<D>>,
     backend: Arc<dyn CommsBackend>,
     clock: Arc<dyn Clock>,
-    #[expect(
-        dead_code,
-        reason = "held so that dropping the Kernel aborts its endpoint adapters"
-    )]
+    timers: TimerWheel<D>,
+    context: Arc<Context>,
+    io: Option<IoExecutor<D, Context>>,
     endpoints: JoinSet<()>,
 }
 
-/// One Command in the Inbox, with the query to acknowledge once it is handled.
-struct Delivery<D: Domain> {
-    command: Command<D::Request, D::IoResult, D::Tick, D::ObservedFact>,
-    query: Query,
+/// One Command in the Inbox, with an optional query to acknowledge once it is handled.
+pub(crate) struct Delivery<D: Domain> {
+    pub(crate) command: Command<D::Request, D::IoResult, D::Tick, D::ObservedFact>,
+    pub(crate) reply: Option<Query>,
 }
 
 /// A State with its key and the last value the backbone accepted.
@@ -86,7 +94,7 @@ enum SendError {
     Comms(#[from] CommsError),
 }
 
-impl<D: Domain> Kernel<D> {
+impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
     /// Declares every endpoint of `builder` on `backend` and publishes the initial States, so every endpoint answers
     /// once this returns.
     ///
@@ -95,7 +103,7 @@ impl<D: Domain> Kernel<D> {
     /// [`ServiceError::DeclareEndpoint`] when the backbone refuses an endpoint.
     pub async fn start(
         service: &'static str,
-        builder: ServiceBuilder<D>,
+        builder: ServiceBuilder<D, Context>,
         backend: Arc<dyn CommsBackend>,
         clock: Arc<dyn Clock>,
     ) -> Result<Self, ServiceError> {
@@ -130,10 +138,14 @@ impl<D: Domain> Kernel<D> {
             service,
             snapshot: builder.snapshot,
             inbox,
+            inbox_sender: Some(inbox_sender),
             states,
             events: builder.events,
             backend,
             clock,
+            timers: TimerWheel::new(),
+            context: Arc::new(builder.context),
+            io: builder.io,
             endpoints,
         };
         let initial_states = kernel
@@ -147,6 +159,26 @@ impl<D: Domain> Kernel<D> {
 
     /// Handles the Commands in the Inbox one at a time, until every endpoint has stopped.
     pub async fn run(mut self) {
+        while !self.endpoints.is_empty() {
+            tokio::select! {
+                delivery = self.inbox.recv() => {
+                    if let Some(delivery) = delivery {
+                        self.dispatch(delivery).await;
+                    }
+                }
+                tick = self.timers.next_tick(), if self.timers.waiting() => {
+                    if let Some(tick) = tick {
+                        self.dispatch(Delivery {
+                            command: Command::Tick(tick),
+                            reply: None,
+                        })
+                        .await;
+                    }
+                }
+                _ = self.endpoints.join_next() => {}
+            }
+        }
+        self.inbox_sender.take();
         while let Some(delivery) = self.inbox.recv().await {
             self.dispatch(delivery).await;
         }
@@ -155,20 +187,23 @@ impl<D: Domain> Kernel<D> {
     /// Applies one Command as a transaction: if the Domain rejects it, or `handle` or a Projection panics, the
     /// Snapshot is restored from a clone taken first and the domain events are dropped.
     async fn dispatch(&mut self, delivery: Delivery<D>) {
-        let Delivery { command, query } = delivery;
+        let Delivery { command, reply } = delivery;
         let now = self.clock.now();
         let backup = self.snapshot.clone();
         let snapshot = &mut self.snapshot;
         let states = &self.states;
+        let io_registered = self.io.is_some();
+        let timers = &mut self.timers;
         let decided = panic::catch_unwind(AssertUnwindSafe(|| {
             match D::handle(snapshot, command, now) {
-                // ponytail: the Effects are dropped until the Kernel runs IO and timers.
-                Outcome::Applied { events, effects: _ } => {
+                Outcome::Applied { events, effects } => {
+                    apply_sync_effects(&effects, timers, io_registered)
+                        .map_err(|error| Rejection::Domain(Box::new(error)))?;
                     let encoded_states: Vec<_> = states
                         .iter()
                         .map(|state| (state.endpoint.project)(snapshot))
                         .collect();
-                    Ok((events, encoded_states))
+                    Ok((events, effects, encoded_states))
                 }
                 Outcome::Rejected { reason } => Err(Rejection::Domain(reason)),
             }
@@ -181,14 +216,30 @@ impl<D: Domain> Kernel<D> {
             Err(Rejection::Panicked)
         });
         match decided {
-            Ok((events, encoded_states)) => {
+            Ok((events, effects, encoded_states)) => {
                 self.publish_states(encoded_states).await;
-                acknowledge(query, Ok(())).await;
+                if let Some(query) = reply {
+                    acknowledge(query, Ok(())).await;
+                }
                 self.publish_events(events).await;
+                if let Some(executor) = self.io.clone() {
+                    let requests = io_requests::<D>(&effects);
+                    if let (Some(inbox_sender), false) = (&self.inbox_sender, requests.is_empty()) {
+                        spawn_io_chain(
+                            executor,
+                            Arc::clone(&self.context),
+                            self.snapshot.clone(),
+                            requests,
+                            mpsc::Sender::clone(inbox_sender),
+                        );
+                    }
+                }
             }
             Err(rejection) => {
                 self.snapshot = backup;
-                acknowledge(query, Err(rejection)).await;
+                if let Some(query) = reply {
+                    acknowledge(query, Err(rejection)).await;
+                }
             }
         }
     }
@@ -250,9 +301,8 @@ async fn serve_command<D: Domain>(
             Ok(request) => {
                 let delivery = Delivery {
                     command: Command::Request(request),
-                    query,
+                    reply: Some(query),
                 };
-                // A closed Inbox means the Kernel stopped; dropping the query tells the client.
                 drop(inbox.send(delivery).await);
             }
             Err(error) => acknowledge(query, Err(Rejection::InvalidBody(error))).await,
