@@ -277,11 +277,24 @@ jobs:
         with:
           tool: cargo-nextest@0.9.146,cargo-llvm-cov@0.9.1
 
-      - name: Rust tests and coverage ratchet
+      - name: Rust tests
         run: |
           # shellcheck disable=SC1091
           source .hooks/lib/rust_checks.sh
           run_rust_test_checks "$GITHUB_WORKSPACE/core"
+
+      - name: Flake hunt
+        if: github.event_name == 'pull_request'
+        run: |
+          if [ "$(git rev-parse --is-shallow-repository)" = true ]; then
+            git fetch --no-tags --unshallow origin
+          fi
+          .hooks/lib/flake_hunt.sh "${{ github.event.pull_request.base.sha }}"
+
+      - name: Coverage ratchet
+        run: |
+          # shellcheck disable=SC1091
+          source .hooks/lib/rust_checks.sh
           check_rust_coverage_ratchet "$GITHUB_WORKSPACE/core"
 
       - name: Coverage summary
