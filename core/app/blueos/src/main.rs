@@ -4,7 +4,7 @@ use std::{ffi::OsString, process::ExitCode};
 
 use blueos_service::entry::{missing_feature, multicall_help, multicall_version, resolve, usage};
 /// Service names that are always recognized, even when their feature is off.
-const KNOWN: &[&str] = &["probe"];
+const KNOWN: &[&str] = &["probe", "recorder"];
 
 fn main() -> ExitCode {
     let arguments: Vec<OsString> = std::env::args_os().collect();
