@@ -4,6 +4,9 @@
 
 extern crate alloc;
 
+#[cfg(test)]
+extern crate std;
+
 /// Returns one so callers can assert the crate links.
 ///
 /// ```
@@ -13,8 +16,6 @@ pub const ANSWER: u8 = 1;
 
 #[cfg(test)]
 mod tests {
-    extern crate std;
-
     use super::ANSWER;
 
     #[test]
