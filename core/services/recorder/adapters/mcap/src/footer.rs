@@ -6,7 +6,8 @@ use std::{
     path::Path,
 };
 
-const MCAP_MAGIC: [u8; 8] = [137, 77, 67, 65, 80, 48, 13, 10];
+/// MCAP file magic bytes at the start and end of a file.
+pub const MCAP_MAGIC: [u8; 8] = [137, 77, 67, 65, 80, 48, 13, 10];
 const MAGIC_SIZE: usize = MCAP_MAGIC.len();
 const RECORD_HEADER_SIZE: usize = 9;
 const FOOTER_RECORD_SIZE: usize = RECORD_HEADER_SIZE + 20;

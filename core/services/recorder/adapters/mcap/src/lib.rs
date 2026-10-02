@@ -7,11 +7,13 @@
 
 mod channel_descriptor;
 mod footer;
+mod index;
 mod mcap_file;
 mod rewrite;
 mod writer_handle;
 
-pub use footer::{Footer, is_indexed, read_footer_at};
+pub use footer::{Footer, MCAP_MAGIC, is_indexed, read_footer_at};
+pub use index::{IndexError, walk_index, walk_index_reader};
 
 pub use channel_descriptor::{
     ChannelDescriptor, ChannelRoute, MessageEncoding, SchemaEncoding,
