@@ -6,6 +6,7 @@ import type * as Idl from '@blueos-idl/messages'
 import {
   commandKey,
   eventKey,
+  queryKey,
   stateKey,
 } from '../keys'
 
@@ -56,6 +57,17 @@ export const Stop = {
   requestSchema: 'blueos_recorder_msgs/msg/StopRecordingCommand' as const,
 }
 export type StopRequest = Idl.StopRecordingCommand
+
+/** io_query `index` at `blueos/v1/recorder/query/index`. */
+export const index = {
+  kind: 'io_query' as const,
+  name: 'index',
+  key: queryKey(NAME, 'index'),
+  requestSchema: 'blueos_recorder_msgs/msg/RecordingIndexRequest' as const,
+  responseSchema: 'blueos_recorder_msgs/msg/RecordingIndex' as const,
+}
+export type indexRequest = Idl.RecordingIndexRequest
+export type indexResponse = Idl.RecordingIndex
 
 /** state `library` at `blueos/v1/recorder/state/library`. */
 export const library = {

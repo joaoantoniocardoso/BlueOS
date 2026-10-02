@@ -26,9 +26,6 @@ pub enum McapError {
     /// The writer actor is not running.
     #[error("the MCAP writer stopped")]
     WriterStopped,
-    /// The writer actor task failed while joining.
-    #[error("the MCAP writer actor task failed")]
-    ActorJoin(#[source] tokio::task::JoinError),
     /// Filesystem operation failed.
     #[error("filesystem operation failed")]
     Io(#[source] std::io::Error),

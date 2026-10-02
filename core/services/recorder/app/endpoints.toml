@@ -13,6 +13,9 @@ CancelRepair = { request = "blueos_recorder_msgs/msg/CancelRepairCommand", custo
 [event]
 operation = { message = "blueos_recorder_msgs/msg/RecordingOperation" }
 
+[io_query]
+index = { request = "blueos_recorder_msgs/msg/RecordingIndexRequest", response = "blueos_recorder_msgs/msg/RecordingIndex" }
+
 [state]
 recording = { message = "blueos_recorder_msgs/msg/RecordingState" }
 library = { message = "blueos_recorder_msgs/msg/RecordingLibrary" }

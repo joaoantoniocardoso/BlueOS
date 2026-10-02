@@ -1,19 +1,32 @@
 //! Service Context: Projections and shared adapters.
 
-use core::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+use core::{
+    sync::atomic::{AtomicBool, AtomicU8, Ordering},
+    time::Duration,
+};
 use std::{
     collections::BTreeMap,
+    path::Path,
     sync::{Arc, Mutex},
 };
 
 use tokio::sync::mpsc;
 
+use blueos_idl::msg::blueos_recorder_msgs::RecordingIndex;
 use blueos_recorder_capture::RecordGate;
 use blueos_recorder_domain::RecorderObservedFact;
+use blueos_recorder_mcap::{IndexError, walk_index};
 use blueos_recorder_storage::{LibraryFooterCache, RecordingsFolder};
 use blueos_service::{Projection, Session};
 
+use crate::index_io::RECORDING_INDEX_WALK_TIMEOUT;
+
+/// Runs one recording index walk outside the Inbox (production default: MCAP `walk_index`).
+pub type IndexWalker =
+    Arc<dyn Fn(&Path, u64, u32, &AtomicBool) -> Result<RecordingIndex, IndexError> + Send + Sync>;
+
 /// Context built in `RecorderService::build` and shared with Tasks and IO executors.
+#[derive(Clone)]
 pub struct RecorderContext {
     /// Projection the data plane reconciles against.
     pub record_gate: Projection<RecordGate>,
@@ -33,6 +46,29 @@ pub struct RecorderContext {
     pub library_observed_receiver: Arc<tokio::sync::Mutex<mpsc::Receiver<RecorderObservedFact>>>,
     /// Per-path cancel flags for in-flight repairs.
     pub repair_cancel_flags: Arc<Mutex<BTreeMap<String, Arc<AtomicBool>>>>,
+    /// Wall-clock budget for one `index` walk.
+    pub index_walk_timeout: Duration,
+    /// Index walk invoked from the `index` IO query handler.
+    pub index_walker: IndexWalker,
+}
+
+/// Overrides for the `index` IO query when building a test harness.
+#[doc(hidden)]
+#[derive(Clone)]
+pub struct IndexQuerySetup {
+    /// Walk budget passed into [`RecorderContext::index_walk_timeout`].
+    pub walk_timeout: Duration,
+    /// Walk function passed into [`RecorderContext::index_walker`].
+    pub walker: IndexWalker,
+}
+
+impl Default for IndexQuerySetup {
+    fn default() -> Self {
+        Self {
+            walk_timeout: RECORDING_INDEX_WALK_TIMEOUT,
+            walker: default_index_walker(),
+        }
+    }
 }
 
 impl RecorderContext {
@@ -69,4 +105,9 @@ impl RecorderContext {
     ) {
         Self::repair_cancel_flag(flags, relative_path).store(true, Ordering::Relaxed);
     }
+}
+
+/// Production index walk implementation.
+pub fn default_index_walker() -> IndexWalker {
+    Arc::new(walk_index)
 }
