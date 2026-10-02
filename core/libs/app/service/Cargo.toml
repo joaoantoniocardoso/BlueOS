@@ -21,7 +21,7 @@ backon.workspace = true
 bytes.workspace = true
 clap = { workspace = true, features = ["derive", "env", "std"] }
 futures-util = { workspace = true, features = ["std"] }
-serde = { workspace = true, features = ["derive"] }
+serde = { workspace = true, features = ["derive", "std"] }
 serde_json.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["macros", "rt", "rt-multi-thread", "signal", "sync", "time"] }
