@@ -1,0 +1,70 @@
+import {
+  RecordingFileState,
+  RecordingOperationOperation,
+} from '@blueos-idl'
+import type { RecordingFile, RecordingOperation, Time } from '@blueos-idl/messages'
+
+import type {
+  LibraryRecording,
+  RecordingOperationEvent,
+  RecordingOperationKind,
+  RecordingState,
+} from './types'
+
+function timeToUnixSeconds(time: Time): number {
+  return time.sec + time.nanosec / 1e9
+}
+
+export function mapRecordingState(state: number): RecordingState {
+  switch (state) {
+    case RecordingFileState.Recording:
+      return 'recording'
+    case RecordingFileState.Ready:
+      return 'ready'
+    case RecordingFileState.NeedsRepair:
+      return 'needs_repair'
+    case RecordingFileState.Repairing:
+      return 'repairing'
+    default:
+      return 'needs_repair'
+  }
+}
+
+export function mapRecordingFile(file: RecordingFile): LibraryRecording {
+  return {
+    path: file.path,
+    name: file.name,
+    size_bytes: file.size_bytes,
+    created: timeToUnixSeconds(file.created),
+    state: mapRecordingState(file.state),
+    repair_bytes_processed: file.repair_bytes_processed,
+    repair_total_bytes: file.repair_total_bytes,
+    repair_bytes_per_second: file.repair_bytes_per_second,
+    repair_error: file.repair_error,
+    allowed_operations: [...file.allowed_operations],
+  }
+}
+
+function mapOperationKind(operation: number): RecordingOperationKind {
+  switch (operation) {
+    case RecordingOperationOperation.Repair:
+      return 'repair'
+    case RecordingOperationOperation.Snapshot:
+      return 'snapshot'
+    case RecordingOperationOperation.Delete:
+      return 'delete'
+    default:
+      return 'repair'
+  }
+}
+
+export function mapRecordingOperation(event: RecordingOperation): RecordingOperationEvent {
+  return {
+    operation: mapOperationKind(event.operation),
+    path: event.path,
+    output_path: event.output_path,
+    succeeded: event.succeeded,
+    cancelled: event.cancelled,
+    error: event.error,
+  }
+}
