@@ -24,6 +24,7 @@ pub(crate) fn register_io(
             let folder = Arc::clone(&context.recordings_folder);
             let progress_sender = context.library_observed_sender.clone();
             let cancel_flags = Arc::clone(&context.repair_cancel_flags);
+            let before_rewrite = Arc::clone(&context.repair_before_rewrite);
             async move {
                 match request {
                     RecorderIoRequest::Cameras(request) => {
@@ -31,7 +32,14 @@ pub(crate) fn register_io(
                             .await
                     }
                     RecorderIoRequest::Library(LibraryIoRequest::Repair { path }) => {
-                        run_library_repair_io(folder, progress_sender, cancel_flags, path).await
+                        run_library_repair_io(
+                            folder,
+                            progress_sender,
+                            cancel_flags,
+                            before_rewrite,
+                            path,
+                        )
+                        .await
                     }
                     RecorderIoRequest::Library(LibraryIoRequest::CancelRepair { path }) => {
                         run_cancel_repair_io(&cancel_flags, &path)

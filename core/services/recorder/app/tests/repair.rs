@@ -2,13 +2,20 @@
 
 mod common;
 
-use core::{num::NonZeroU32, time::Duration};
+use core::{
+    num::NonZeroU32,
+    sync::atomic::{AtomicBool, Ordering},
+    time::Duration,
+};
 use std::{fs, path::Path, process::Command, sync::Arc};
 
 use mcap::{Writer, write::WriteOptions};
 use serde::Serialize;
 use tempfile::tempdir;
-use tokio::time::{advance, timeout};
+use tokio::{
+    sync::Notify,
+    time::{advance, timeout},
+};
 
 use blueos_api::event_key;
 use blueos_comms::{CommsBackend, channel::ChannelBackend};
@@ -16,12 +23,12 @@ use blueos_idl::{
     Message,
     msg::blueos_msgs::JobStatusStatus,
     msg::blueos_recorder_msgs::{
-        CancelRepairCommand, RecordingOperation, RecordingOperationOperation,
+        CancelRepairCommand, RecordingFileState, RecordingOperation, RecordingOperationOperation,
         RepairRecordingCommand,
     },
 };
 use blueos_jobs::{JobGraph, Jobs};
-use blueos_recorder_app::{RecorderArguments, RecorderService};
+use blueos_recorder_app::{IndexQuerySetup, RecorderArguments, RecorderService, RepairIoSetup};
 use blueos_recorder_domain::{durable::RecorderDurableState, job::RecorderJobStep};
 use blueos_recorder_library::RESCAN_INTERVAL;
 use blueos_recorder_mcap::is_indexed;
@@ -33,9 +40,11 @@ use blueos_service::{
 use blueos_settings::ServiceStateStore;
 
 use common::{
-    drain_blocking_io, wait_for_library_file_listed, wait_for_library_file_not_repairing,
-    wait_for_library_file_ready,
+    drain_blocking_io, start_recorder_test_harness_with, wait_for_library_file_listed,
+    wait_for_library_file_ready, wait_for_library_state,
 };
+
+struct ReleaseRepairOnDrop(Arc<AtomicBool>);
 
 #[derive(Serialize)]
 struct PersistedRecorderState {
@@ -43,6 +52,12 @@ struct PersistedRecorderState {
     version: u32,
     domain: RecorderDurableState,
     jobs: Jobs<RecorderJobStep>,
+}
+
+impl Drop for ReleaseRepairOnDrop {
+    fn drop(&mut self) {
+        self.0.store(true, Ordering::Relaxed);
+    }
 }
 
 #[tokio::test(start_paused = true)]
@@ -103,24 +118,40 @@ async fn cancel_repair_leaves_original_bytes_unchanged() {
     set_modified_seconds_ago(&path, 20);
     let original = fs::read(&path).expect("read");
 
-    let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
-    let operation_key = event_key(RecorderService::NAME, "operation");
-    let mut operations = backend.subscribe(&operation_key).await.expect("subscribe");
-
-    let harness = Harness::start_on(
-        Arc::clone(&backend),
-        RecorderArguments {
-            recorder_path: directory.path().to_path_buf(),
+    let release = Arc::new(AtomicBool::new(false));
+    let _release_on_drop = ReleaseRepairOnDrop(Arc::clone(&release));
+    let entered = Arc::new(Notify::new());
+    let entered_for_hold = Arc::clone(&entered);
+    let release_for_hold = Arc::clone(&release);
+    let harness = start_recorder_test_harness_with(
+        directory.path(),
+        IndexQuerySetup::default(),
+        RepairIoSetup {
+            before_rewrite: Arc::new(move |cancel| {
+                entered_for_hold.notify_one();
+                while !release_for_hold.load(Ordering::Relaxed) && !cancel.load(Ordering::Relaxed) {
+                    core::hint::spin_loop();
+                }
+            }),
         },
     )
-    .await
-    .expect("harness");
+    .await;
 
-    wait_for_library_file_listed(&harness, "cancel.mcap").await;
+    let operation_key = event_key(RecorderService::NAME, "operation");
+    let mut operations = harness
+        .backend
+        .subscribe(&operation_key)
+        .await
+        .expect("subscribe");
+
+    wait_for_library_state(&harness.backend, |library| {
+        library.files.iter().any(|file| file.path == "cancel.mcap")
+    })
+    .await;
     advance(RESCAN_INTERVAL + Duration::from_secs(20)).await;
     drain_blocking_io().await;
 
-    harness
+    let repair_ack = harness
         .send(
             "RepairRecording",
             &RepairRecordingCommand {
@@ -128,10 +159,14 @@ async fn cancel_repair_leaves_original_bytes_unchanged() {
             },
         )
         .await;
+    assert!(
+        repair_ack.accepted,
+        "repair rejected: {}",
+        repair_ack.reason
+    );
+    entered.notified().await;
 
-    advance(Duration::from_millis(100)).await;
-
-    harness
+    let cancel_ack = harness
         .send(
             "CancelRepair",
             &CancelRepairCommand {
@@ -139,8 +174,19 @@ async fn cancel_repair_leaves_original_bytes_unchanged() {
             },
         )
         .await;
+    assert!(
+        cancel_ack.accepted,
+        "cancel rejected: {}",
+        cancel_ack.reason
+    );
 
-    wait_for_library_file_not_repairing(&harness, "cancel.mcap").await;
+    wait_for_library_state(&harness.backend, |library| {
+        library
+            .files
+            .iter()
+            .all(|file| file.path != "cancel.mcap" || file.state != RecordingFileState::Repairing)
+    })
+    .await;
 
     let operation = timeout(Duration::from_secs(5), operations.recv())
         .await

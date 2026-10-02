@@ -18,7 +18,9 @@ use blueos_service::{
 
 use crate::{
     cli::RecorderArguments,
-    context::{DEFAULT_MCAP_WRITER_QUEUE_CAPACITY, IndexQuerySetup, RecorderContext},
+    context::{
+        DEFAULT_MCAP_WRITER_QUEUE_CAPACITY, IndexQuerySetup, RecorderContext, RepairIoSetup,
+    },
     data_plane::run_data_plane,
     endpoints,
     handlers::RecorderHandlers,
@@ -59,9 +61,10 @@ pub fn build_with_record_gate(
     ),
     ServiceError,
 > {
-    build_with_record_gate_and_index(
+    build_with_record_gate_index_and_repair(
         context,
         IndexQuerySetup::default(),
+        RepairIoSetup::default(),
         DEFAULT_MCAP_WRITER_QUEUE_CAPACITY,
     )
 }
@@ -79,13 +82,20 @@ pub fn build_with_record_gate_and_index(
     ),
     ServiceError,
 > {
-    let (builder, gate_receiver) = assemble_builder(context, index, mcap_writer_queue_capacity)?;
-    Ok((builder, gate_receiver))
+    build_with_record_gate_index_and_repair(
+        context,
+        index,
+        RepairIoSetup::default(),
+        mcap_writer_queue_capacity,
+    )
 }
 
-fn assemble_builder(
+/// Like [`build_with_record_gate_and_index`], with a repair-IO hold for tests.
+#[doc(hidden)]
+pub fn build_with_record_gate_index_and_repair(
     context: &ServiceContext<RecorderArguments>,
     index: IndexQuerySetup,
+    repair: RepairIoSetup,
     mcap_writer_queue_capacity: usize,
 ) -> Result<
     (
@@ -120,6 +130,7 @@ fn assemble_builder(
         library_observed_sender: observed_sender,
         library_observed_receiver: Arc::new(tokio::sync::Mutex::new(observed_receiver)),
         repair_cancel_flags: Arc::new(Mutex::new(BTreeMap::new())),
+        repair_before_rewrite: repair.before_rewrite,
         index_walk_timeout: index.walk_timeout,
         index_walker: index.walker,
     };

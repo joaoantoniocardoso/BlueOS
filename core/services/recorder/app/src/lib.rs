@@ -21,5 +21,10 @@ mod service;
 mod settings;
 
 pub use cli::RecorderArguments;
-pub use context::{IndexQuerySetup, IndexWalker, default_index_walker};
-pub use service::{RecorderService, build_with_record_gate, build_with_record_gate_and_index};
+pub use context::{
+    IndexQuerySetup, IndexWalker, RepairBeforeRewrite, RepairIoSetup, default_index_walker,
+};
+pub use service::{
+    RecorderService, build_with_record_gate, build_with_record_gate_and_index,
+    build_with_record_gate_index_and_repair,
+};
