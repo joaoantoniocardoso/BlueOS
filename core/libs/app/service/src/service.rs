@@ -37,6 +37,10 @@ pub trait Service {
     /// The version reported to clients. Write `env!("CARGO_PKG_VERSION")` in the service crate, where it expands to
     /// the service's version.
     const VERSION: &'static str;
+    /// The build label reported on `info`, for example a git revision or `dev`.
+    const BUILD: &'static str = "dev";
+    /// Capability strings reported on `info`, when the Service has any.
+    const CAPABILITIES: &'static [&'static str] = &[];
 
     /// Declares the initial Snapshot and every endpoint. It is pure: no IO and no spawning, so a test that calls it
     /// exercises exactly the wiring that ships.

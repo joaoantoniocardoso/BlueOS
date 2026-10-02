@@ -86,4 +86,62 @@ pub fn register<D: Conversions, H: Handlers<D>, Context>(
         .state("tank", <D as Conversions>::tank)
         .event("Emptied", <D as Conversions>::emptied)
         .event("LevelChanged", <D as Conversions>::level_changed)
+        .manifest_endpoints(vec![
+            blueos_idl::msg::blueos_msgs::EndpointInfo {
+                kind: "command".into(),
+                name: "Drain".into(),
+                key: "blueos/v1/tank/command/Drain".into(),
+                request_schema: "blueos_example_msgs/msg/EmptyRequest".into(),
+                response_schema: "blueos_msgs/msg/CommandAck".into(),
+            },
+            blueos_idl::msg::blueos_msgs::EndpointInfo {
+                kind: "command".into(),
+                name: "SetLevel".into(),
+                key: "blueos/v1/tank/command/SetLevel".into(),
+                request_schema: "blueos_example_msgs/msg/SetLevelRequest".into(),
+                response_schema: "blueos_msgs/msg/CommandAck".into(),
+            },
+            blueos_idl::msg::blueos_msgs::EndpointInfo {
+                kind: "query".into(),
+                name: "Level".into(),
+                key: "blueos/v1/tank/query/Level".into(),
+                request_schema: "blueos_example_msgs/msg/EmptyRequest".into(),
+                response_schema: "blueos_example_msgs/msg/LevelQueryResponse".into(),
+            },
+            blueos_idl::msg::blueos_msgs::EndpointInfo {
+                kind: "query".into(),
+                name: "LevelAfterFill".into(),
+                key: "blueos/v1/tank/query/LevelAfterFill".into(),
+                request_schema: "blueos_example_msgs/msg/SetLevelRequest".into(),
+                response_schema: "blueos_example_msgs/msg/LevelQueryResponse".into(),
+            },
+            blueos_idl::msg::blueos_msgs::EndpointInfo {
+                kind: "io_query".into(),
+                name: "Probe".into(),
+                key: "blueos/v1/tank/query/Probe".into(),
+                request_schema: "blueos_example_msgs/msg/EmptyRequest".into(),
+                response_schema: "blueos_example_msgs/msg/LevelQueryResponse".into(),
+            },
+            blueos_idl::msg::blueos_msgs::EndpointInfo {
+                kind: "state".into(),
+                name: "tank".into(),
+                key: "blueos/v1/tank/state/tank".into(),
+                request_schema: "".into(),
+                response_schema: "blueos_example_msgs/msg/LevelQueryResponse".into(),
+            },
+            blueos_idl::msg::blueos_msgs::EndpointInfo {
+                kind: "event".into(),
+                name: "Emptied".into(),
+                key: "blueos/v1/tank/event/Emptied".into(),
+                request_schema: "".into(),
+                response_schema: "blueos_example_msgs/msg/EmptyRequest".into(),
+            },
+            blueos_idl::msg::blueos_msgs::EndpointInfo {
+                kind: "event".into(),
+                name: "LevelChanged".into(),
+                key: "blueos/v1/tank/event/LevelChanged".into(),
+                request_schema: "".into(),
+                response_schema: "blueos_example_msgs/msg/LevelQueryResponse".into(),
+            },
+        ])
 }

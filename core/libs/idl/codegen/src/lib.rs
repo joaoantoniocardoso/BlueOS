@@ -1121,6 +1121,21 @@ pub fn format_lock_line(schema_name: &str, major: u32, field_signature: &str) ->
     }
 }
 
+/// When an endpoint key's locked and current Message signatures differ, returns why the lock cannot stay as-is.
+pub fn explain_endpoint_lock_mismatch(
+    key: &str,
+    major: u32,
+    locked_signature: &str,
+    current_signature: &str,
+) -> String {
+    if locked_signature == current_signature {
+        return format!("{key} (major {major}) signatures match");
+    }
+    format!(
+        "{key} (major {major}) endpoint API change; bump major in api.lock and refresh the lock"
+    )
+}
+
 fn write_cdr_codec_dispatch(records: &BTreeMap<String, MessageRecord>, out_dir: &Path) {
     let mut encode_arms = Vec::new();
     let mut decode_arms = Vec::new();

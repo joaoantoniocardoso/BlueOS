@@ -3,12 +3,22 @@
 use std::{collections::BTreeMap, fs, path::PathBuf};
 
 use blueos_idl_codegen::{
-    collect_messages_for_test, explain_lock_mismatch, field_signature_hash, format_lock_line,
+    collect_messages_for_test, endpoints::collect_endpoint_lock_lines,
+    explain_endpoint_lock_mismatch, explain_lock_mismatch, field_signature_hash, format_lock_line,
     frozen_message_schemas, is_append_only_evolution, parse_lock_line,
 };
 
 fn interfaces_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("interfaces")
+}
+
+fn core_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("libs")
+        .parent()
+        .expect("core root")
+        .to_path_buf()
 }
 
 fn lock_path() -> PathBuf {
@@ -27,28 +37,29 @@ fn read_lock() -> BTreeMap<String, (u32, String)> {
         .collect()
 }
 
+fn message_lock(lock: &BTreeMap<String, (u32, String)>) -> BTreeMap<String, (u32, String)> {
+    lock.iter()
+        .filter(|(name, _)| name.contains("/msg/"))
+        .map(|(name, value)| (name.clone(), value.clone()))
+        .collect()
+}
+
+fn endpoint_lock(lock: &BTreeMap<String, (u32, String)>) -> BTreeMap<String, (u32, String)> {
+    lock.iter()
+        .filter(|(name, _)| name.starts_with("blueos/v1/"))
+        .map(|(name, value)| (name.clone(), value.clone()))
+        .collect()
+}
+
 #[test]
 fn api_lock_matches_interfaces() {
     let current = collect_messages_for_test(&interfaces_root());
     let frozen = frozen_message_schemas(&current);
-    let locked = read_lock();
+    let locked = message_lock(&read_lock());
     let updating = std::env::var("BLUEOS_IDL_UPDATE_LOCK").as_deref() == Ok("1");
 
     if updating {
-        let mut lines = Vec::new();
-        for record in &current {
-            let major = locked
-                .get(&record.schema_name)
-                .map(|(major, _field_signature)| *major)
-                .unwrap_or(1);
-            lines.push(format_lock_line(
-                &record.schema_name,
-                major,
-                &record.field_signature,
-            ));
-        }
-        lines.sort();
-        fs::write(lock_path(), format!("{}\n", lines.join("\n"))).expect("write api.lock");
+        write_lock_file();
         return;
     }
 
@@ -77,6 +88,78 @@ fn api_lock_matches_interfaces() {
             )
         );
     }
+}
+
+#[test]
+fn api_lock_matches_endpoint_manifests() {
+    let messages = collect_messages_for_test(&interfaces_root())
+        .into_iter()
+        .map(|record| record.schema_name)
+        .collect();
+    let current =
+        collect_endpoint_lock_lines(&core_root(), &messages).expect("collect endpoint keys");
+    let current: BTreeMap<String, (u32, String)> = current
+        .into_iter()
+        .map(|line| {
+            let (key, major, signature) = parse_lock_line(&line).expect("lock line");
+            (key, (major, signature))
+        })
+        .collect();
+    let locked = endpoint_lock(&read_lock());
+    let updating = std::env::var("BLUEOS_IDL_UPDATE_LOCK").as_deref() == Ok("1");
+
+    if updating {
+        write_lock_file();
+        return;
+    }
+
+    assert_eq!(
+        locked.len(),
+        current.len(),
+        "endpoint key count changed; run: cargo run -p blueos-idl-codegen --bin blueos-idl-print-lock > core/libs/idl/api.lock"
+    );
+    for (key, (major, current_signature)) in &current {
+        let (locked_major, locked_signature) =
+            locked.get(key).expect("endpoint key missing from api.lock");
+        assert_eq!(*locked_major, *major);
+        if locked_signature == current_signature {
+            continue;
+        }
+        panic!(
+            "{}",
+            explain_endpoint_lock_mismatch(key, *major, locked_signature, current_signature)
+        );
+    }
+}
+
+fn write_lock_file() {
+    let current = collect_messages_for_test(&interfaces_root());
+    let messages = current
+        .iter()
+        .map(|record| record.schema_name.clone())
+        .collect();
+    let previous = read_lock();
+    let mut lines = Vec::new();
+    for record in &current {
+        let major = previous
+            .get(&record.schema_name)
+            .map(|(major, _field_signature)| *major)
+            .unwrap_or(1);
+        lines.push(format_lock_line(
+            &record.schema_name,
+            major,
+            &record.field_signature,
+        ));
+    }
+    for line in collect_endpoint_lock_lines(&core_root(), &messages).expect("collect endpoint keys")
+    {
+        let (key, _major, _signature) = parse_lock_line(&line).expect("lock line");
+        let major = previous.get(&key).map(|(major, _)| *major).unwrap_or(1);
+        let signature = parse_lock_line(&line).expect("lock line").2;
+        lines.push(format_lock_line(&key, major, &signature));
+    }
+    lines.sort();
+    fs::write(lock_path(), format!("{}\n", lines.join("\n"))).expect("write api.lock");
 }
 
 #[test]
@@ -154,4 +237,15 @@ fn breaking_change_requires_major_bump_message() {
         false,
     );
     assert!(message.contains("breaking"));
+}
+
+#[test]
+fn endpoint_lock_requires_major_bump_for_signature_change() {
+    let message = explain_endpoint_lock_mismatch(
+        "blueos/v1/tank/command/Drain",
+        1,
+        "request=blueos_example_msgs/msg/EmptyRequest;response=blueos_msgs/msg/CommandAck",
+        "request=blueos_example_msgs/msg/SetLevelRequest;response=blueos_msgs/msg/CommandAck",
+    );
+    assert!(message.contains("endpoint API change"));
 }

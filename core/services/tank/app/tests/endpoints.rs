@@ -4,9 +4,12 @@ use core::time::Duration;
 
 use tokio::time::timeout;
 
-use blueos_api::{Message, event_key};
+use blueos_api::{Message, command_key, event_key, query_key};
 use blueos_comms::ReplyError;
-use blueos_idl::msg::blueos_example_msgs::{EmptyRequest, LevelQueryResponse, SetLevelRequest};
+use blueos_idl::msg::{
+    blueos_example_msgs::{EmptyRequest, LevelQueryResponse, SetLevelRequest},
+    blueos_msgs::{CommandAck, ServiceInfo, ServiceStatus, ServiceStatusStatus},
+};
 use blueos_service::{Service, testing::Harness};
 use blueos_tank_app::{cli::TankArguments, service::TankService};
 
@@ -122,6 +125,56 @@ async fn probe_reads_the_sensor_outside_the_inbox() {
         .await;
 
     assert_eq!(answer.unwrap(), level(30));
+}
+
+#[tokio::test(start_paused = true)]
+async fn info_lists_every_manifest_endpoint_with_schemas() {
+    let harness = start(0).await;
+
+    let info = harness
+        .query::<EmptyRequest, ServiceInfo>("info", &EmptyRequest::default())
+        .await
+        .expect("the info query answers");
+
+    assert_eq!(info.name, TankService::NAME);
+    assert_eq!(info.version, TankService::VERSION);
+    let drain = info
+        .endpoints
+        .iter()
+        .find(|endpoint| endpoint.name == "Drain")
+        .expect("Drain is listed");
+    assert_eq!(drain.kind, "command");
+    assert_eq!(drain.key, command_key(TankService::NAME, "Drain"));
+    assert_eq!(drain.request_schema, EmptyRequest::SCHEMA_NAME);
+    assert_eq!(drain.response_schema, CommandAck::SCHEMA_NAME);
+    let level = info
+        .endpoints
+        .iter()
+        .find(|endpoint| endpoint.name == "Level")
+        .expect("Level is listed");
+    assert_eq!(level.kind, "query");
+    assert_eq!(level.key, query_key(TankService::NAME, "Level"));
+    assert_eq!(level.request_schema, EmptyRequest::SCHEMA_NAME);
+    assert_eq!(level.response_schema, LevelQueryResponse::SCHEMA_NAME);
+    let probe = info
+        .endpoints
+        .iter()
+        .find(|endpoint| endpoint.name == "Probe")
+        .expect("Probe is listed");
+    assert_eq!(probe.kind, "io_query");
+    assert_eq!(probe.request_schema, EmptyRequest::SCHEMA_NAME);
+    assert_eq!(probe.response_schema, LevelQueryResponse::SCHEMA_NAME);
+    assert_eq!(info.endpoints.len(), 8);
+}
+
+#[tokio::test(start_paused = true)]
+async fn status_is_ready_after_startup() {
+    let harness = start(0).await;
+
+    let status = harness.state::<ServiceStatus>("status").await;
+
+    assert_eq!(status.status, ServiceStatusStatus::Ready);
+    assert!(status.detail.is_empty());
 }
 
 #[tokio::test(start_paused = true)]

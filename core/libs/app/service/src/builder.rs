@@ -5,7 +5,10 @@ use std::{path::PathBuf, sync::Arc};
 
 use blueos_api::{Message, cdr_encoding};
 use blueos_domain::{Domain, DomainQueries, IoError};
-use blueos_idl::{Error as IdlError, msg::blueos_msgs::SettingsEnvelope};
+use blueos_idl::{
+    Error as IdlError,
+    msg::blueos_msgs::{EndpointInfo, SettingsEnvelope},
+};
 use blueos_settings::SettingsSchema;
 
 use crate::{
@@ -32,12 +35,22 @@ pub(crate) type Respond = Box<
 /// Why an endpoint conversion or an IO query refused what a client sent. Its text is the reason the client gets.
 pub type Refusal = Box<dyn Error + Send + Sync>;
 
+/// Name, version and capabilities the Kernel publishes on the standard `info` query.
+#[derive(Clone, Debug)]
+pub(crate) struct ServiceMetadata {
+    pub(crate) version: &'static str,
+    pub(crate) build: &'static str,
+    pub(crate) capabilities: &'static [&'static str],
+}
+
 /// Everything a Service declares in `build`: the initial Snapshot, then one call per endpoint. Each call converts
 /// between a Message and the Domain's own types, so the Domain never sees a Message.
 #[must_use]
 pub struct ServiceBuilder<D: Domain, Context = ()> {
     pub(crate) snapshot: D::Snapshot,
     pub(crate) context: Context,
+    pub(crate) metadata: ServiceMetadata,
+    pub(crate) manifest_endpoints: Vec<EndpointInfo>,
     pub(crate) io: IoExecutors<D, Context>,
     pub(crate) commands: Vec<CommandEndpoint<D>>,
     pub(crate) queries: Vec<(String, AnswerQuery<D>)>,
@@ -91,6 +104,12 @@ impl<D: Domain> ServiceBuilder<D, ()> {
         Self {
             snapshot,
             context: (),
+            metadata: ServiceMetadata {
+                version: "0.0.0",
+                build: "dev",
+                capabilities: &[],
+            },
+            manifest_endpoints: Vec::new(),
             io: IoExecutors {
                 r#async: None,
                 blocking: None,
@@ -112,6 +131,8 @@ impl<D: Domain> ServiceBuilder<D, ()> {
         ServiceBuilder {
             snapshot: self.snapshot,
             context,
+            metadata: self.metadata,
+            manifest_endpoints: self.manifest_endpoints,
             io: IoExecutors {
                 r#async: None,
                 blocking: None,
@@ -156,6 +177,28 @@ impl<D: Domain + DomainQueries, Context> ServiceBuilder<D, Context> {
 }
 
 impl<D: Domain, Context> ServiceBuilder<D, Context> {
+    /// The version, build label and capabilities the Kernel publishes on the standard `info` query.
+    pub fn service_metadata(
+        mut self,
+        version: &'static str,
+        build: &'static str,
+        capabilities: &'static [&'static str],
+    ) -> Self {
+        self.metadata = ServiceMetadata {
+            version,
+            build,
+            capabilities,
+        };
+        self
+    }
+
+    /// Endpoints from the Service manifest, listed in `ServiceInfo` on the `info` query. The generated `register`
+    /// sets this; the Kernel adds the standard endpoints separately.
+    pub fn manifest_endpoints(mut self, manifest_endpoints: Vec<EndpointInfo>) -> Self {
+        self.manifest_endpoints = manifest_endpoints;
+        self
+    }
+
     /// The executor for every [`Effect::Io`]. It returns an optional IO result Command, or an [`IoError`] the Kernel
     /// turns into [`Domain::io_failed`].
     pub fn io<F, Fut>(mut self, executor: F) -> Self
