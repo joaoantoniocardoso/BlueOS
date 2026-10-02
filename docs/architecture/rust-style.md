@@ -238,6 +238,19 @@ tokio::spawn({
 - **Type-state for state that moves**: builders where a missing required part is a compile error, and resource
   handles (an open file versus a finished one).
 - **An outcome is an enum**, never a set of flags.
+- **An uninhabited type for what cannot happen.** A Domain or Block with no IO requests, no domain events or no
+  timers sets that associated type to `core::convert::Infallible` or an empty enum, never a placeholder variant or
+  `()`, so the compiler proves the case never occurs and no `match` needs an arm for it.
+
+```rust
+// Bad: a placeholder every match must handle
+enum PumpIoRequest {
+    None,
+}
+
+// Good
+type IoRequest = core::convert::Infallible;
+```
 
 ```rust
 // Bad: eight combinations, three legal
