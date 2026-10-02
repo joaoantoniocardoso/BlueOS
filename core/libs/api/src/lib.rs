@@ -34,11 +34,6 @@ pub fn service_liveliness_key(service: &str) -> String {
     format!("{KEY_PREFIX}/services/{service}")
 }
 
-/// Service metadata queryable (`blueos/v1/services/<name>/info`).
-pub fn service_info_key(service: &str) -> String {
-    format!("{KEY_PREFIX}/services/{service}/info")
-}
-
 /// Command queryable (`blueos/v1/<service>/command/<name>`).
 pub fn command_key(service: &str, name: &str) -> String {
     format!("{KEY_PREFIX}/{service}/command/{name}")

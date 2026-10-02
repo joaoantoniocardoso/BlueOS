@@ -70,10 +70,6 @@ def service_liveliness_key(service: str) -> str:
     return f"{KEY_PREFIX}/services/{service}"
 
 
-def service_info_key(service: str) -> str:
-    return f"{KEY_PREFIX}/services/{service}/info"
-
-
 def command_key(service: str, name: str) -> str:
     return f"{KEY_PREFIX}/{service}/command/{name}"
 

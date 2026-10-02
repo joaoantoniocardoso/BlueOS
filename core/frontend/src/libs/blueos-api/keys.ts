@@ -10,10 +10,6 @@ export function serviceLivelinessKey(service: string): string {
   return `${KEY_PREFIX}/services/${service}`
 }
 
-export function serviceInfoKey(service: string): string {
-  return `${KEY_PREFIX}/services/${service}/info`
-}
-
 export function commandKey(service: string, name: string): string {
   return `${KEY_PREFIX}/${service}/command/${name}`
 }

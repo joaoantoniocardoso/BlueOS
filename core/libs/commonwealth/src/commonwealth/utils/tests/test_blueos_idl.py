@@ -63,7 +63,6 @@ def test_keys_vectors_match_python_helpers() -> None:
     assert blueos_idl.TYPE_HASH_ATTACHMENT_KEY == constants["type_hash_attachment_key"]
 
     _assert_service_cases(vectors["service_liveliness_key"], blueos_idl.service_liveliness_key)
-    _assert_service_cases(vectors["service_info_key"], blueos_idl.service_info_key)
     _assert_named_cases(vectors["command_key"], blueos_idl.command_key)
     _assert_named_cases(vectors["state_key"], blueos_idl.state_key)
     _assert_named_cases(vectors["event_key"], blueos_idl.event_key)

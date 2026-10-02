@@ -9,9 +9,6 @@
     { "service": "recorder", "expected": "blueos/v1/services/recorder" },
     { "service": "kraken", "expected": "blueos/v1/services/kraken" }
   ],
-  "service_info_key": [
-    { "service": "recorder", "expected": "blueos/v1/services/recorder/info" }
-  ],
   "command_key": [
     {
       "service": "recorder",
