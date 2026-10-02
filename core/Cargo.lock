@@ -354,7 +354,9 @@ dependencies = [
  "blueos-recorder-capture",
  "blueos-recorder-domain",
  "blueos-recorder-mcap",
+ "blueos-recorder-schema-gate",
  "blueos-recorder-storage",
+ "blueos-ros2-names",
  "blueos-service",
  "blueos-settings",
  "bytes",
@@ -396,6 +398,13 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "blueos-recorder-schema-gate"
+version = "0.1.0"
+dependencies = [
+ "blueos-ros2-names",
 ]
 
 [[package]]

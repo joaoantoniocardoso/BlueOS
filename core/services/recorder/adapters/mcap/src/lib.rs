@@ -10,10 +10,12 @@ mod mcap_file;
 mod writer_handle;
 
 pub use channel_descriptor::{
-    ChannelDescriptor, MessageEncoding, SchemaEncoding, channel_descriptor_cdr_fallback,
+    ChannelDescriptor, ChannelRoute, MessageEncoding, SchemaEncoding,
+    channel_descriptor_cdr_fallback, channel_descriptor_for_ros2_type,
     channel_descriptor_for_sample,
 };
 pub use mcap_file::{
-    McapError, McapFile, WriteSampleRequest, descriptor_for_sample, should_record_topic,
+    McapError, McapFile, WriteSampleRequest, cached_descriptor, descriptor_for_sample,
+    ros2_lane_descriptor, should_record_topic,
 };
 pub use writer_handle::McapWriterHandle;

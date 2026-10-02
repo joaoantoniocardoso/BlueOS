@@ -14,14 +14,16 @@ blueos-recorder-api.workspace = true
 blueos-recorder-capture.workspace = true
 blueos-recorder-domain.workspace = true
 blueos-recorder-mcap.workspace = true
+blueos-recorder-schema-gate.workspace = true
 blueos-recorder-storage.workspace = true
+blueos-ros2-names.workspace = true
 blueos-service.workspace = true
 blueos-settings.workspace = true
 clap = { workspace = true, features = ["derive", "std"] }
 bytes.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
-tokio = { workspace = true, features = ["macros", "rt", "sync"] }
+tokio = { workspace = true, features = ["macros", "rt", "rt-multi-thread", "sync", "time"] }
 tracing = { workspace = true, features = ["std"] }
 
 [dev-dependencies]

@@ -58,6 +58,15 @@ pub enum SchemaEncoding {
     JsonSchema,
 }
 
+/// Identifies one MCAP channel route (default topic lane or a typed schema lane).
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct ChannelRoute {
+    /// Zenoh topic key.
+    pub topic: String,
+    /// ROS 2 type name for a typed lane; none for encoding/default/fallback lanes.
+    pub type_name: Option<String>,
+}
+
 impl fmt::Display for SchemaEncoding {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(self.as_str())
@@ -91,6 +100,24 @@ impl MessageEncoding {
     }
 }
 
+impl ChannelRoute {
+    /// Default route for a topic (encoding suffix or fallback lane).
+    pub fn for_topic(topic: impl Into<String>) -> Self {
+        Self {
+            topic: topic.into(),
+            type_name: None,
+        }
+    }
+
+    /// Typed schema lane for a resolved ROS 2 message type.
+    pub fn typed(topic: impl Into<String>, type_name: impl Into<String>) -> Self {
+        Self {
+            topic: topic.into(),
+            type_name: Some(type_name.into()),
+        }
+    }
+}
+
 /// Builds a channel descriptor from a backbone sample (D-24 order: IDL then catalog, else JSON fallback).
 pub fn channel_descriptor_for_sample(
     topic: &str,
@@ -109,7 +136,9 @@ pub fn channel_descriptor_for_sample(
 
     match (media_type, schema_name) {
         ("application/cdr", Some(schema_name)) => {
-            let schema_data = load_cdr_schema(schema_name)?;
+            let Some(schema_data) = load_cdr_schema(schema_name) else {
+                return Some(channel_descriptor_cdr_fallback(topic));
+            };
             Some(ChannelDescriptor {
                 topic: topic.to_owned(),
                 schema: Some(SchemaDescriptor {
@@ -153,6 +182,24 @@ pub fn channel_descriptor_for_sample(
             warn!(sample_encoding, "unknown sample encoding");
             None
         }
+    }
+}
+
+/// Builds a CDR channel for a resolved ROS 2 type name (IDL, catalog, or fallback).
+pub fn channel_descriptor_for_ros2_type(topic: &str, type_name: &str) -> ChannelDescriptor {
+    let Some(schema_data) = load_cdr_schema(type_name) else {
+        return channel_descriptor_cdr_fallback(topic);
+    };
+    ChannelDescriptor {
+        topic: topic.to_owned(),
+        schema: Some(SchemaDescriptor {
+            encoding: SchemaEncoding::Ros2Msg,
+            content: Some(SchemaDescriptorContent {
+                name: type_name.to_owned(),
+                data: schema_data,
+            }),
+        }),
+        message_encoding: MessageEncoding::Cdr,
     }
 }
 
