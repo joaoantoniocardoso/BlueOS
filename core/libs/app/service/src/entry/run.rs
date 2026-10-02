@@ -77,13 +77,13 @@ async fn run_with_log_publisher_on_backend<S: Service>(
             Arc::clone(&backend),
         );
         let builder = S::build(&context)?;
-        let kernel = Kernel::start(S::NAME, builder, backend, clock).await?;
+        let mut kernel = Kernel::start(S::NAME, builder, backend, clock).await?;
+        kernel.attach_log_publisher(log_runtime);
         Ok(kernel.run().await)
     }
     .await;
     if let Err(service_error) = &outcome {
         error!(%service_error, "The service could not start or run");
     }
-    log_runtime.shutdown_and_wait().await;
     outcome
 }

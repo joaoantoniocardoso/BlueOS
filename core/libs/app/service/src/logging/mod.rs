@@ -11,14 +11,14 @@ use blueos_logging::{LogPublisher, attach, init};
 use crate::shutdown::SHUTDOWN_IO_DRAIN_TIMEOUT;
 
 /// Runs the log publisher on a tracker until [`LogPublisherRuntime::shutdown_and_wait`].
-pub(crate) struct LogPublisherRuntime {
+pub struct LogPublisherRuntime {
     tracker: TaskTracker,
     shutdown: CancellationToken,
 }
 
 impl LogPublisherRuntime {
     /// Spawns `publisher` on a dedicated tracker (no detached [`tokio::spawn`]).
-    pub(crate) fn start(publisher: LogPublisher) -> Self {
+    pub fn start(publisher: LogPublisher) -> Self {
         let tracker = TaskTracker::new();
         let shutdown = CancellationToken::new();
         tracker.spawn(publisher.run(shutdown.clone()));
@@ -26,7 +26,7 @@ impl LogPublisherRuntime {
     }
 
     /// Cancels the publisher, drains queued records within the service shutdown budget, then joins.
-    pub(crate) async fn shutdown_and_wait(self) {
+    pub async fn shutdown_and_wait(self) {
         self.shutdown.cancel();
         self.tracker.close();
         let _ = tokio::time::timeout(SHUTDOWN_IO_DRAIN_TIMEOUT, self.tracker.wait()).await;

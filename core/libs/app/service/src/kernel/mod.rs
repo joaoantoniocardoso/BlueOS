@@ -46,6 +46,7 @@ use crate::{
     durable_state::{DurablePersister, DurableStateHandle},
     inbox::{CommandReply, Delivery},
     inbox_recovery::{self, log_caught_panic},
+    logging::LogPublisherRuntime,
     projection::ProjectionRegistry,
     run_outcome::RunOutcome,
     service::ServiceError,
@@ -101,6 +102,7 @@ pub struct Kernel<D: Domain, Context = ()> {
     shutting_down: bool,
     tasks: TaskSupervisor,
     projections: ProjectionRegistry<D>,
+    log_publisher: Option<LogPublisherRuntime>,
 }
 
 /// The standard `settings` State and its persistence driver (D-11).
@@ -201,6 +203,11 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         effect_log: Option<EffectLogStorage<D>>,
     ) -> Result<Self, ServiceError> {
         Self::boot(service, builder, backend, clock, effect_log).await
+    }
+
+    /// Runs the service log publisher flush as the last shutdown step (D-04, D-13).
+    pub fn attach_log_publisher(&mut self, runtime: LogPublisherRuntime) {
+        self.log_publisher = Some(runtime);
     }
 
     async fn boot(
@@ -364,6 +371,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             shutting_down: false,
             tasks: task_supervisor,
             projections,
+            log_publisher: None,
         };
         kernel.projections.refresh(&kernel.snapshot);
         for command in startup_commands {
@@ -634,6 +642,9 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         }
         if let Some(durable) = &mut self.durable {
             durable.persister.flush_and_shutdown().await;
+        }
+        if let Some(runtime) = self.log_publisher.take() {
+            runtime.shutdown_and_wait().await;
         }
         repeated_inbox_panics.unwrap_or(RunOutcome::Stopped)
     }
