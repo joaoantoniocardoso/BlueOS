@@ -29,9 +29,6 @@ members = [
     "services/example/cookbook",
     "services/example/logic/api",
     "services/example/logic/domain",
-    "services/tank/app",
-    "services/tank/logic/api",
-    "services/tank/logic/domain",
 ]
 
 [workspace.package]
@@ -75,9 +72,6 @@ blueos-example-domain = { path = "services/example/logic/domain" }
 blueos-recorder-mcap = { path = "services/recorder/adapters/mcap" }
 blueos-recorder-schema-gate = { path = "services/recorder/logic/schema-gate" }
 blueos-recorder-storage = { path = "services/recorder/adapters/storage" }
-blueos-tank-api = { path = "services/tank/logic/api" }
-blueos-tank-app = { path = "services/tank/app" }
-blueos-tank-domain = { path = "services/tank/logic/domain" }
 blueos-idl = { path = "libs/idl" }
 blueos-idl-codegen = { path = "libs/idl/codegen" }
 blueos-rust-style-check = { path = "libs/tools/rust-style-check" }

@@ -32,7 +32,7 @@ tokio-util = { workspace = true, features = ["rt", "time"] }
 tracing = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
-blueos-tank-domain = { workspace = true }
+blueos-example-domain = { workspace = true }
 blueos-comms = { workspace = true, features = ["channel"] }
 blueos-comms-zenoh.workspace = true
 blueos-logging = { workspace = true, features = ["testing"] }

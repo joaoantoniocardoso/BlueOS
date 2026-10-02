@@ -13,7 +13,7 @@ struct SessionProbeContext;
 struct SessionProbeService;
 
 impl Service for SessionProbeService {
-    type Domain = blueos_tank_domain::Tank;
+    type Domain = blueos_example_domain::Pump;
     type Context = SessionProbeContext;
     type Arguments = SessionProbeArguments;
 
@@ -25,7 +25,7 @@ impl Service for SessionProbeService {
     ) -> Result<ServiceBuilder<Self::Domain, SessionProbeContext>, ServiceError> {
         let _session: &Arc<dyn CommsBackend> = context.session();
         Ok(
-            ServiceBuilder::new(blueos_tank_domain::TankSnapshot::default())
+            ServiceBuilder::new(blueos_example_domain::PumpSnapshot::default())
                 .context(SessionProbeContext),
         )
     }
