@@ -451,6 +451,12 @@ Decision:
 - `core/frontend/src/libs/blueos-api/` is **plain TypeScript with no Vue imports**. It exposes: subscribe to a
   State then query it; send a command and get `accepted/rejected + job_id`; watch jobs; decode/encode IDL types.
   States, settings and jobs share one watcher helper.
+- The library reaches the backbone only through a `Transport` with two operations, `subscribe` and `get`.
+  `zenohTransport` implements it over the `zenoh-ts` Session; vitest drives the library with an in-memory fake, so
+  no unit test needs the network, a timer or a sleep.
+- `watchState` subscribes, then queries, and ignores the reply for a key that already had an update (D-10). A
+  wildcard key follows each matching key on its own. `sendCommand` returns the decoded `CommandAck`: a rejection is an
+  ack, while no reply or an error reply throws a typed error.
 - Each service gets a typed TypeScript client generated from its endpoint manifest (D-26): keys, request and
   response types, States and Events. The frontend writes no key strings and copies no constants by hand.
 - A thin Vue 2 wrapper (mixin or store module) sits on top.
