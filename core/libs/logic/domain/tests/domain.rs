@@ -7,7 +7,7 @@ use core::{
     time::Duration,
 };
 
-use blueos_domain::{Command, Decision, Domain, Effect, Now, Outcome};
+use blueos_domain::{Command, Decision, Domain, DomainQueries, Effect, Now, Outcome};
 
 const NOW: Now = Now {
     wall: Duration::from_secs(1_700_000_000),
@@ -34,6 +34,10 @@ struct TankSnapshot {
 enum TankRequest {
     StartPump { run_time: Duration },
     StopPump,
+}
+
+enum TankQuery {
+    PumpRunTime,
 }
 
 #[derive(Debug, PartialEq)]
@@ -148,6 +152,18 @@ impl Domain for Tank {
                 events: Vec::new(),
                 effects: Vec::new(),
             },
+        }
+    }
+}
+
+impl DomainQueries for Tank {
+    type Query = TankQuery;
+    type Response = Option<Duration>;
+
+    fn query(snapshot: &Self::Snapshot, query: Self::Query, now: Now) -> Self::Response {
+        match (query, &snapshot.pump) {
+            (TankQuery::PumpRunTime, Pump::Running { since }) => Some(now.monotonic - *since),
+            (TankQuery::PumpRunTime, Pump::Idle) => None,
         }
     }
 }
@@ -273,4 +289,17 @@ fn outcome_map_lifts_a_timer_cancel() {
             Effect::Io(TankIoRequest::Pump(PumpIoRequest::SetPower { on: false })),
         ]
     );
+}
+
+#[test]
+fn domain_with_queries_answers_from_the_snapshot() {
+    let snapshot = TankSnapshot {
+        pump: Pump::Running {
+            since: Duration::from_secs(12),
+        },
+    };
+
+    let response = Tank::query(&snapshot, TankQuery::PumpRunTime, NOW);
+
+    assert_eq!(response, Some(Duration::from_secs(30)));
 }

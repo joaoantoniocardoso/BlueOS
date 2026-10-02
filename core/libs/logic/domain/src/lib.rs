@@ -153,3 +153,14 @@ pub trait Domain {
         now: Now,
     ) -> Decision<Self>;
 }
+
+/// A Domain that answers Queries. A Domain without Queries does not implement it.
+pub trait DomainQueries: Domain {
+    /// The questions a client can ask.
+    type Query;
+    /// The answer to a Query.
+    type Response;
+
+    /// Answers a Query from the Snapshot, without changing it.
+    fn query(snapshot: &Self::Snapshot, query: Self::Query, now: Now) -> Self::Response;
+}
