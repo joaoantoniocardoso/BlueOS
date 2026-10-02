@@ -14,12 +14,16 @@ fn main() -> ExitCode {
     let Some((name, service_arguments)) = resolve(&arguments) else {
         return usage(KNOWN);
     };
-    #[cfg(not(feature = "probe"))]
+    #[cfg(not(any(feature = "probe", feature = "recorder")))]
     drop(service_arguments);
     match name.as_str() {
         #[cfg(feature = "probe")]
         "probe" => {
             blueos_service::entry::run::<blueos_service::probe::ProbeService>(service_arguments)
+        }
+        #[cfg(feature = "recorder")]
+        "recorder" => {
+            blueos_service::entry::run::<blueos_recorder_app::RecorderService>(service_arguments)
         }
         other if KNOWN.contains(&other) => missing_feature(other),
         _ => usage(KNOWN),
