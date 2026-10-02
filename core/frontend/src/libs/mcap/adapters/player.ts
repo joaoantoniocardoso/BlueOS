@@ -487,6 +487,7 @@ export class McapVideoPlayer {
         return
       }
 
+      const knownChunks = this.recording.reader.summary.chunkIndexes.length
       // eslint-disable-next-line no-await-in-loop
       const frame = await this.cursor.next(signal)
       if (!frame) {
@@ -497,7 +498,7 @@ export class McapVideoPlayer {
           this.waiting = true
           this.emitStats()
           // eslint-disable-next-line no-await-in-loop
-          const grew = await this.waitForNewData(signal)
+          const grew = await this.waitForNewData(signal, knownChunks)
           this.waiting = false
           this.emitStats()
           if (grew) {
@@ -535,10 +536,13 @@ export class McapVideoPlayer {
     }
   }
 
-  private async waitForNewData(signal: AbortSignal): Promise<boolean> {
+  private async waitForNewData(signal: AbortSignal, knownChunks: number): Promise<boolean> {
+    const { reader } = this.recording
     while (!this.destroyed && !signal.aborted) {
+      // The playback controller extends the same reader when the library reports a new size, and only
+      // the caller that applies the growth hears about it; the chunk count tells the rest.
       // eslint-disable-next-line no-await-in-loop
-      if (await this.recording.reader.extendWrittenPrefix(signal)) {
+      if (await reader.extendWrittenPrefix(signal) || reader.summary.chunkIndexes.length > knownChunks) {
         return true
       }
       try {
@@ -614,13 +618,12 @@ export class McapVideoPlayer {
     if (finalize) {
       await this.media.finalize()
       this.media = null
+    } else if (flushAll) {
+      await this.media.flushFragment()
     }
 
-    if (!signal.aborted) {
-      this.alignPlayhead()
-      if (this.wantPlaying && this.video.paused) {
-        this.video.play().catch(() => undefined)
-      }
+    if (!signal.aborted && this.wantPlaying && this.video.paused) {
+      this.video.play().catch(() => undefined)
     }
     this.priming = false
     this.loading = false
@@ -678,6 +681,11 @@ export class McapVideoPlayer {
         await this.appendToBuffer(data)
       }
     })
+    // Aligned here rather than after a flush: mediabunny does not wait for the last chunk of a flush to
+    // be appended, so the playhead would wait at a time no media will ever cover.
+    if (!this.controller.signal.aborted) {
+      this.alignPlayhead()
+    }
     await this.run(() => this.evict(false))
   }
 
