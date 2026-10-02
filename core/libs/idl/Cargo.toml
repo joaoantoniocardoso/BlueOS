@@ -10,6 +10,7 @@ publish = true
 include = [
     "/Cargo.toml",
     "/README.md",
+    "/api.lock",
     "/src/**/*",
     "/interfaces/**/*.msg",
     "/interfaces/**/package.xml",

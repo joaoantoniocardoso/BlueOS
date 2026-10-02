@@ -1,0 +1,1 @@
+blueos_msgs/msg/CommandAck 1 accepted:bool;job_id:uint64;reason:string
