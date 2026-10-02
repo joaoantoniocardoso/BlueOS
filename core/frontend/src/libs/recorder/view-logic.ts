@@ -49,6 +49,12 @@ function snapshotPathPrefix(sourcePath: string): string {
   return parent ? `${parent}/${stem}.snapshot-` : `${stem}.snapshot-`
 }
 
+function isReadySnapshotMcapForPrefix(file: LibraryRecording, prefix: string): boolean {
+  return file.state === 'ready'
+    && file.path.startsWith(prefix)
+    && file.path.toLowerCase().endsWith('.mcap')
+}
+
 /** Ready snapshot MCAP paths for one source recording, newest first. */
 export function snapshotPathsForSource(
   sourcePath: string,
@@ -56,11 +62,7 @@ export function snapshotPathsForSource(
 ): string[] {
   const prefix = snapshotPathPrefix(sourcePath)
   return files
-    .filter(
-      (file) => file.state === 'ready'
-        && file.path.startsWith(prefix)
-        && file.path.toLowerCase().endsWith('.mcap'),
-    )
+    .filter((file) => isReadySnapshotMcapForPrefix(file, prefix))
     .sort((left, right) => right.created - left.created)
     .map((file) => file.path)
 }
@@ -73,10 +75,7 @@ export function readySnapshotDownloadPath(
   const prefix = snapshotPathPrefix(sourcePath)
   const match = files
     .filter(
-      (file) => file.state === 'ready'
-        && file.path.startsWith(prefix)
-        && file.path.toLowerCase().endsWith('.mcap')
-        && !excludePaths.has(file.path),
+      (file) => isReadySnapshotMcapForPrefix(file, prefix) && !excludePaths.has(file.path),
     )
     .sort((left, right) => right.created - left.created)[0]
   return match?.path ?? null

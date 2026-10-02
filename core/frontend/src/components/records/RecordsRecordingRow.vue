@@ -79,6 +79,13 @@ import {
 import type { LibraryRecording } from '@/libs/recorder/types'
 import { prettifySize } from '@/utils/helper_functions'
 
+const OPERATION_UI: Record<string, { label: string, icon: string, color: string }> = {
+  [REPAIR_RECORDING]: { label: 'Repair', icon: 'mdi-wrench', color: 'primary' },
+  [CANCEL_REPAIR]: { label: 'Cancel repair', icon: 'mdi-stop', color: 'primary' },
+  [DELETE_RECORDING]: { label: 'Delete', icon: 'mdi-delete', color: 'error' },
+  [SNAPSHOT_RECORDING]: { label: 'Download snapshot', icon: 'mdi-download', color: 'primary' },
+}
+
 export default Vue.extend({
   name: 'RecordsRecordingRow',
   components: { RecordsRecordingPreview },
@@ -142,38 +149,13 @@ export default Vue.extend({
       return new Date(timestamp * 1000).toLocaleString()
     },
     operationLabel(operationName: string): string {
-      switch (operationName) {
-        case REPAIR_RECORDING:
-          return 'Repair'
-        case CANCEL_REPAIR:
-          return 'Cancel repair'
-        case DELETE_RECORDING:
-          return 'Delete'
-        case SNAPSHOT_RECORDING:
-          return 'Download snapshot'
-        default:
-          return operationName
-      }
+      return OPERATION_UI[operationName]?.label ?? operationName
     },
     operationIcon(operationName: string): string {
-      switch (operationName) {
-        case REPAIR_RECORDING:
-          return 'mdi-wrench'
-        case CANCEL_REPAIR:
-          return 'mdi-stop'
-        case DELETE_RECORDING:
-          return 'mdi-delete'
-        case SNAPSHOT_RECORDING:
-          return 'mdi-download'
-        default:
-          return 'mdi-playlist-check'
-      }
+      return OPERATION_UI[operationName]?.icon ?? 'mdi-playlist-check'
     },
     operationColor(operationName: string): string {
-      if (operationName === DELETE_RECORDING) {
-        return 'error'
-      }
-      return 'primary'
+      return OPERATION_UI[operationName]?.color ?? 'primary'
     },
     operationTooltip(operationName: string): string {
       return `${this.operationLabel(operationName)} ${this.file.name}`
