@@ -614,6 +614,8 @@ export class McapVideoPlayer {
     if (finalize) {
       await this.media.finalize()
       this.media = null
+    } else if (flushAll) {
+      await this.media.flushFragment()
     }
 
     if (!signal.aborted) {
