@@ -17,6 +17,7 @@ use crate::{
     kernel::{Rejection, Unanswered, io::IoExecutors},
     settings::{SettingsRegistration, register_settings},
     shutdown::{ShutdownHandle, new_shutdown_channel},
+    tasks::{RestartPolicy, TaskContext, TaskFailed, TaskSpec},
 };
 
 /// One Command the Kernel delivers through the Inbox.
@@ -70,6 +71,7 @@ pub struct ServiceBuilder<D: Domain, Context = ()> {
     pub(crate) events: Vec<EventEndpoint<D>>,
     pub(crate) settings: Option<SettingsRegistration<D>>,
     pub(crate) startup_commands: Vec<InboxCommand<D>>,
+    pub(crate) tasks: Vec<TaskSpec<Context>>,
     pub(crate) shutdown_request: Option<D::Request>,
     pub(crate) shutdown_sender: Option<watch::Sender<bool>>,
     pub(crate) shutdown_receiver: Option<watch::Receiver<bool>>,
@@ -136,6 +138,7 @@ impl<D: Domain> ServiceBuilder<D, ()> {
             events: Vec::new(),
             settings: None,
             startup_commands: Vec::new(),
+            tasks: Vec::new(),
             shutdown_request: None,
             shutdown_sender: None,
             shutdown_receiver: None,
@@ -163,6 +166,7 @@ impl<D: Domain> ServiceBuilder<D, ()> {
             events: self.events,
             settings: self.settings,
             startup_commands: self.startup_commands,
+            tasks: Vec::new(),
             shutdown_request: self.shutdown_request,
             shutdown_sender: self.shutdown_sender,
             shutdown_receiver: self.shutdown_receiver,
@@ -373,6 +377,20 @@ impl<D: Domain, Context> ServiceBuilder<D, Context> {
                     response.encode().map_err(Unanswered::Encode)
                 })
             }),
+        });
+        self
+    }
+
+    /// Declares a long-running Task supervised by the Kernel (D-27).
+    pub fn task<F, Fut>(mut self, name: &str, policy: RestartPolicy, run: F) -> Self
+    where
+        F: Fn(TaskContext<Context>) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = Result<(), TaskFailed>> + Send + 'static,
+    {
+        self.tasks.push(TaskSpec {
+            name: name.to_owned(),
+            policy,
+            run: Arc::new(move |context| Box::pin(run(context))),
         });
         self
     }
