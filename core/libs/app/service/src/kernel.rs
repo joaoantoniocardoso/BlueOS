@@ -4,6 +4,7 @@ use core::{error::Error, panic::AssertUnwindSafe};
 use std::{panic, sync::Arc};
 
 use bytes::Bytes;
+use futures_util::FutureExt;
 use tokio::{
     sync::{mpsc, watch},
     task::JoinSet,
@@ -18,7 +19,9 @@ use blueos_domain::{Command, Domain, Now, Outcome};
 use blueos_idl::Error as IdlError;
 
 use crate::{
-    builder::{Answer, Ask, Decode, EventEndpoint, Refusal, ServiceBuilder, StateEndpoint},
+    builder::{
+        Answer, Ask, Decode, EventEndpoint, Refusal, Respond, ServiceBuilder, StateEndpoint,
+    },
     service::ServiceError,
 };
 
@@ -37,10 +40,6 @@ pub struct Kernel<D: Domain> {
     events: Vec<EventEndpoint<D>>,
     backend: Arc<dyn CommsBackend>,
     clock: Arc<dyn Clock>,
-    #[expect(
-        dead_code,
-        reason = "held so that dropping the Kernel aborts its endpoint adapters"
-    )]
     endpoints: JoinSet<()>,
 }
 
@@ -152,6 +151,14 @@ impl<D: Domain> Kernel<D> {
                 mpsc::Sender::clone(&inbox_sender),
             ));
         }
+        for endpoint in builder.io_queries {
+            let queryable = declare(&*backend, query_key(service, &endpoint.name)).await?;
+            endpoints.spawn(serve_io_query(
+                queryable,
+                endpoint.respond,
+                endpoint.encoding,
+            ));
+        }
         let mut states = Vec::new();
         for endpoint in builder.states {
             let key = state_key(service, &endpoint.name);
@@ -206,6 +213,7 @@ impl<D: Domain> Kernel<D> {
                 }
             }
         }
+        while self.endpoints.join_next().await.is_some() {}
     }
 
     /// Applies one Command as a transaction: if the Domain rejects it, or `handle` or a Projection panics, the
@@ -340,6 +348,20 @@ async fn serve_query<D: Domain>(
             }
             Err(unanswered) => reply(query, Err(unanswered), encoding.clone()).await,
         }
+    }
+}
+
+/// Answers each IO query in turn, so one slow answer delays the next instead of running beside it.
+async fn serve_io_query(mut queryable: Queryable, respond: Respond, encoding: String) {
+    while let Some(query) = queryable.recv().await {
+        let body = query
+            .body()
+            .map(|body| body.payload().to_bytes().into_owned());
+        let answered = AssertUnwindSafe(respond(body.unwrap_or_default()))
+            .catch_unwind()
+            .await
+            .unwrap_or(Err(Unanswered::Panicked));
+        reply(query, answered, encoding.clone()).await;
     }
 }
 

@@ -16,6 +16,7 @@ blueos-domain.workspace = true
 blueos-idl.workspace = true
 bytes.workspace = true
 clap = { workspace = true, features = ["std"] }
+futures-util = { workspace = true, features = ["std"] }
 thiserror.workspace = true
 tokio = { workspace = true, features = ["rt", "sync", "time"] }
 tracing = { workspace = true, features = ["std"] }

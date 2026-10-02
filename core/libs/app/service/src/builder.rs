@@ -1,6 +1,6 @@
 //! What a Service's `build` declares: the initial Snapshot and how the Domain meets the backbone.
 
-use core::error::Error;
+use core::{error::Error, future::Future, pin::Pin};
 use std::sync::Arc;
 
 use blueos_api::{Message, cdr_encoding};
@@ -27,6 +27,11 @@ pub(crate) type Ask<D> = Box<dyn Fn(&[u8]) -> Result<Answer<D>, Unanswered> + Se
 pub(crate) type Answer<D> =
     Box<dyn FnOnce(&<D as Domain>::Snapshot, Now) -> Result<Vec<u8>, Unanswered> + Send>;
 
+/// Answers an IO query body with the encoded reply.
+pub(crate) type Respond = Box<
+    dyn Fn(Vec<u8>) -> Pin<Box<dyn Future<Output = Result<Vec<u8>, Unanswered>> + Send>> + Send,
+>;
+
 /// Why an endpoint conversion or an IO query refused what a client sent. Its text is the reason the client gets.
 pub type Refusal = Box<dyn Error + Send + Sync>;
 
@@ -37,6 +42,7 @@ pub struct ServiceBuilder<D: Domain> {
     pub(crate) snapshot: D::Snapshot,
     pub(crate) commands: Vec<CommandEndpoint<D>>,
     pub(crate) queries: Vec<QueryEndpoint<D>>,
+    pub(crate) io_queries: Vec<IoQueryEndpoint>,
     pub(crate) states: Vec<StateEndpoint<D>>,
     pub(crate) events: Vec<EventEndpoint<D>>,
 }
@@ -52,6 +58,13 @@ pub(crate) struct QueryEndpoint<D: Domain> {
     pub(crate) name: String,
     pub(crate) encoding: String,
     pub(crate) ask: Ask<D>,
+}
+
+/// An IO query endpoint: a query on `blueos/v1/<service>/query/<name>`, answered by IO code outside the Inbox.
+pub(crate) struct IoQueryEndpoint {
+    pub(crate) name: String,
+    pub(crate) encoding: String,
+    pub(crate) respond: Respond,
 }
 
 /// A State: published on `blueos/v1/<service>/state/<name>` when it changes, and readable there at any time.
@@ -75,6 +88,7 @@ impl<D: Domain> ServiceBuilder<D> {
             snapshot,
             commands: Vec::new(),
             queries: Vec::new(),
+            io_queries: Vec::new(),
             states: Vec::new(),
             events: Vec::new(),
         }
@@ -126,6 +140,33 @@ impl<D: Domain> ServiceBuilder<D> {
             name: name.to_owned(),
             encoding: cdr_encoding(M::SCHEMA_NAME),
             select: Box::new(move |event| select(event).map(|message| message.encode())),
+        });
+        self
+    }
+
+    /// Adds the IO query endpoint `name`, answered by `respond` outside the Inbox, one query at a time: for reads
+    /// that need IO but no Domain state. A body that does not decode, a refusal or a panic in `respond` is replied
+    /// as an error with its reason.
+    pub fn io_query<Q: Message + 'static, R: Message + 'static>(
+        mut self,
+        name: &str,
+        respond: impl Fn(Q) -> Pin<Box<dyn Future<Output = Result<R, Refusal>> + Send>>
+        + Send
+        + Sync
+        + 'static,
+    ) -> Self {
+        let respond = Arc::new(respond);
+        self.io_queries.push(IoQueryEndpoint {
+            name: name.to_owned(),
+            encoding: cdr_encoding(R::SCHEMA_NAME),
+            respond: Box::new(move |body| {
+                let respond = Arc::clone(&respond);
+                Box::pin(async move {
+                    let request = Q::decode(&body).map_err(Unanswered::InvalidBody)?;
+                    let response = respond(request).await.map_err(Unanswered::Refused)?;
+                    response.encode().map_err(Unanswered::Encode)
+                })
+            }),
         });
         self
     }
