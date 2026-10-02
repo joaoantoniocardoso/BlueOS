@@ -522,7 +522,7 @@ Decision (radcam-manager model):
   (`RUN --mount=type=bind,source=target/build`), not copied, so the other architectures' binaries never land
   in a layer; `core/.dockerignore` re-includes only `target/build/*/*/release/blueos`.
 - Shipped features: `recorder` only. The teaching example and the cookbook are never shipped.
-- Release binaries are about 14 MB per target (musl, stripped, thin LTO).
+- Release binaries are 15 to 18 MB per target (musl, stripped, thin LTO).
 - Local builds: `cd core && ./build_cross.sh`.
 - The Rust gates and CI jobs are in D-30.
 
