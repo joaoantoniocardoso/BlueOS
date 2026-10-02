@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["libs/logic/smoke"]
+members = ["libs/adapters/comms", "libs/logic/smoke"]
 
 [workspace.package]
 version = "0.1.0"
@@ -20,7 +20,13 @@ panic = "unwind"
 strip = true
 
 [workspace.dependencies]
+blueos-comms = { path = "libs/adapters/comms" }
 blueos-smoke = { path = "libs/logic/smoke" }
+bytes = { version = "1.12", default-features = false }
+futures-util = { version = "0.3.32", default-features = false }
+thiserror = { version = "2.0.18", default-features = false }
+tokio = { version = "1.53", default-features = false }
+zenoh-keyexpr = { version = "=1.9.0", default-features = false }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
