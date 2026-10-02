@@ -27,7 +27,7 @@ use blueos_api::{
     service_liveliness_key, settings_key, state_key, status_state_key,
 };
 use blueos_comms::{CommsBackend, CommsError, Query, Queryable, Sample};
-use blueos_domain::{Command, Domain, Effect, Outcome};
+use blueos_domain::{Command, Domain, Outcome};
 use blueos_idl::{
     Error as IdlError,
     msg::blueos_msgs::{
@@ -67,8 +67,9 @@ const REASON_ENCODING: &str = "text/plain";
 
 /// One applied Command's Effects in application order.
 #[cfg(feature = "testing")]
-type EffectBatch<D> =
-    Vec<Effect<<D as Domain>::Tick, <D as Domain>::IoRequest, <D as Domain>::TimerKey>>;
+type EffectBatch<D> = Vec<
+    blueos_domain::Effect<<D as Domain>::Tick, <D as Domain>::IoRequest, <D as Domain>::TimerKey>,
+>;
 
 /// Shared storage for recorded Effects when the harness asks not to run them.
 #[cfg(feature = "testing")]
