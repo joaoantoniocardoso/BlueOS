@@ -137,6 +137,22 @@ pub trait Domain: 'static {
     }
 }
 
+/// A Domain that keeps part of its Snapshot across restarts (D-28). Only [`durable_state`] is persisted; other
+/// Snapshot fields hold observed facts and re-derivable data.
+pub trait DomainDurable: Domain {
+    /// The part of the Snapshot written to disk with the Domain's Jobs.
+    type DurableState: Clone + PartialEq + Send + Sync + 'static;
+
+    /// The durable part of the Snapshot.
+    fn durable_state(snapshot: &Self::Snapshot) -> &Self::DurableState;
+
+    /// Replaces the durable part after load from disk.
+    fn set_durable_state(snapshot: &mut Self::Snapshot, state: Self::DurableState);
+
+    /// The Tick the Kernel delivers once after restore so the Domain can re-arm timers and decide per flow.
+    fn restored_tick() -> Self::Tick;
+}
+
 /// A Domain that answers Queries. A Domain without Queries does not implement it.
 pub trait DomainQueries: Domain {
     /// The questions a client can ask. The Kernel moves them into its Inbox, so they are `Send + 'static`.
