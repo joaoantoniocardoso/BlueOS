@@ -14,9 +14,12 @@ clap = { workspace = true, features = ["derive", "std"] }
 
 [dev-dependencies]
 blueos-api.workspace = true
+blueos-domain.workspace = true
 blueos-comms.workspace = true
 blueos-service = { workspace = true, features = ["testing"] }
 tokio = { workspace = true, features = ["macros", "rt", "test-util", "time"] }
+serde = { workspace = true, features = ["derive", "std"] }
+toml.workspace = true
 trybuild.workspace = true
 
 [lints]

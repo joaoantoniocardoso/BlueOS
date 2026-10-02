@@ -4,8 +4,10 @@ use core::convert::Infallible;
 use std::{ffi::OsString, path::PathBuf};
 
 use blueos_domain::{Command, Decision, Domain, IoError, Now, Outcome};
+use blueos_idl::msg::blueos_example_msgs::LevelQueryResponse;
 use blueos_service::{
     Service, ServiceBuilder, ServiceContext, ServiceError, entry::parse_service_cli,
+    testing::Harness,
 };
 
 struct CliCookbookService;
@@ -20,7 +22,6 @@ struct CliCookbook;
 
 #[derive(Clone)]
 struct CliCookbookSnapshot {
-    #[expect(dead_code, reason = "carried from CLI for the build example")]
     marker: Option<PathBuf>,
 }
 
@@ -37,6 +38,14 @@ impl Service for CliCookbookService {
     ) -> Result<ServiceBuilder<CliCookbook>, ServiceError> {
         Ok(ServiceBuilder::new(CliCookbookSnapshot {
             marker: context.arguments().marker.clone(),
+        })
+        .state("cli", |snapshot: &CliCookbookSnapshot| LevelQueryResponse {
+            level: u8::from(snapshot.marker.is_some()),
+            max_level: snapshot
+                .marker
+                .as_ref()
+                .map(|path| path.as_os_str().len().min(255) as u8)
+                .unwrap_or(0),
         }))
     }
 }
@@ -101,4 +110,17 @@ fn service_flags_flatten_with_the_common_cli() {
         blueos_service::testing::channel_session(),
     ))
     .expect("build");
+}
+
+#[tokio::test(start_paused = true)]
+async fn service_specific_flag_reaches_the_domain_snapshot() {
+    let marker = PathBuf::from("/tmp/marker");
+    let harness = Harness::<CliCookbookService>::start(CliCookbookArguments {
+        marker: Some(marker.clone()),
+    })
+    .await
+    .expect("start");
+    let published = harness.state::<LevelQueryResponse>("cli").await;
+    assert_eq!(published.level, 1);
+    assert_eq!(published.max_level, marker.as_os_str().len() as u8);
 }

@@ -3,9 +3,7 @@
 use core::convert::Infallible;
 
 use blueos_domain::{Command, Decision, Domain, DomainQueries, IoError, Now};
-use blueos_example_domain::{
-    Pump, PumpEvent, PumpQuery, PumpRequest, PumpResponse, PumpSnapshot,
-};
+use blueos_example_domain::{Pump, PumpQuery, PumpRequest, PumpResponse, PumpSnapshot};
 
 pub struct Twin;
 
@@ -15,7 +13,7 @@ impl Domain for Twin {
     type IoResult = Infallible;
     type Tick = Infallible;
     type ObservedFact = Infallible;
-    type Event = PumpEvent;
+    type Event = Infallible;
     type IoRequest = Infallible;
     type TimerKey = Infallible;
 

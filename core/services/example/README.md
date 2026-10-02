@@ -15,11 +15,13 @@ the small wiring path; the numbered [`cookbook/`](cookbook/README.md) answers ev
 | `logic/api/` | `impl` of the generated `Conversions` trait (Message ↔ Domain) |
 | `app/endpoints.toml` | Public endpoint manifest (D-26) |
 | `app/src/endpoints.rs` | Generated `register` (do not edit) |
+| `app/src/lib.rs` | Crate root: `cli`, `endpoints`, `service` only |
 | `app/src/service.rs` | `impl Service` calling `endpoints::register` |
 | `app/src/cli.rs` | Service-specific `clap::Args` (common flags come from the Kernel) |
+| `app/src/tasks.rs` | Optional supervised Tasks (see cookbook Q27) |
+| `app/src/handlers.rs` | Optional custom Command/Query handlers when the manifest marks an endpoint `custom` |
 
-There is no `adapters/` crate until you have real IO. Tasks and custom handlers live under `app/src/` when the manifest
-marks an endpoint `custom`.
+There is no `adapters/` crate until you have real IO.
 
 ## Run locally (not shipped)
 
@@ -70,6 +72,8 @@ from a parent you control. Browser check against a live Service is manual.
 ```bash
 cd core
 cargo test -p blueos-example-domain -p blueos-example-app
+cargo test -p blueos-example-cookbook
+TRYBUILD=overwrite cargo test -p blueos-example-app --test compile_errors
 bun --cwd core/frontend test tests/example/ExampleMinimalPanel.test.ts
 ```
 

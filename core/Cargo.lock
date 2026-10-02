@@ -278,12 +278,15 @@ version = "0.1.0"
 dependencies = [
  "blueos-api",
  "blueos-comms",
+ "blueos-domain",
  "blueos-example-api",
  "blueos-example-domain",
  "blueos-idl",
  "blueos-service",
  "clap",
+ "serde",
  "tokio",
+ "toml",
  "trybuild",
 ]
 

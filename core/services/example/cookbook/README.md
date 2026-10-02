@@ -39,7 +39,7 @@ cd core && cargo test -p blueos-example-cookbook
 | 17 | Report partial progress of one job | [`tests/17-job-progress.rs`](tests/17-job-progress.rs) | written |
 | 18 | Unit-test the Domain | [`../logic/domain/src/lib.rs`](../logic/domain/src/lib.rs) (`#[cfg(test)]`) | written |
 | 19 | Integration-test the service | [`../app/tests/endpoints.rs`](../app/tests/endpoints.rs) | written |
-| 20 | Use the service from the frontend | [`../README.md`](../README.md) (Frontend section) | written |
+| 20 | Use the service from the frontend | [`../../frontend/tests/example/ExampleMinimalPanel.test.ts`](../../../frontend/tests/example/ExampleMinimalPanel.test.ts) | written |
 | 21 | Evolve a message safely | [`tests/21-evolve-message.rs`](tests/21-evolve-message.rs) | written |
 | 22 | Add an IO query | [`tests/22-io-query.rs`](tests/22-io-query.rs) | written |
 | 23 | Accept a non-IDL Command body | [`tests/23-non-idl-command.rs`](tests/23-non-idl-command.rs) | written |
@@ -56,5 +56,4 @@ cd core && cargo test -p blueos-example-cookbook
 | 34 | Register a new service | [`tests/34-register-new-service.rs`](tests/34-register-new-service.rs) | written |
 
 The [`tests/question_index.rs`](tests/question_index.rs) test parses this table: every question maps to exactly
-one entry, pending rows must match the explicit `#62` list, written cookbook files must exist under `tests/`,
-and `cargo test` compiles every entry file there.
+one entry, written cookbook files must exist under `tests/`, and `cargo test` compiles every entry file there.
