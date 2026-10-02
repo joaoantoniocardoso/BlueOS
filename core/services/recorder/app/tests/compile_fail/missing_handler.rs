@@ -11,28 +11,28 @@ struct ForgetfulHandlers;
 
 impl Handlers<RecorderDomain> for ForgetfulHandlers {
     fn cancel_repair(&self, _request: CancelRepairCommand) -> Result<RecorderRequest, Refusal> {
-        Err(Refusal::new("stub"))
+        Err(Refusal::from("stub"))
     }
 
     fn delete_recording(
         &self,
         _request: DeleteRecordingCommand,
     ) -> Result<RecorderRequest, Refusal> {
-        Err(Refusal::new("stub"))
+        Err(Refusal::from("stub"))
     }
 
     fn repair_recording(
         &self,
         _request: RepairRecordingCommand,
     ) -> Result<RecorderRequest, Refusal> {
-        Err(Refusal::new("stub"))
+        Err(Refusal::from("stub"))
     }
 
     fn snapshot_recording(
         &self,
         _request: SnapshotRecordingCommand,
     ) -> Result<RecorderRequest, Refusal> {
-        Err(Refusal::new("stub"))
+        Err(Refusal::from("stub"))
     }
 }
 
