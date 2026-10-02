@@ -154,9 +154,9 @@ class ExtensionLogPublisher:
     @classmethod
     def _format_log_payload(cls, container_name: str, message: str) -> bytes:
         level, normalized_message = cls._extract_level(message)
-        seconds, nanos = divmod(time.time_ns(), 1_000_000_000)
+        seconds, nanoseconds = divmod(time.time_ns(), 1_000_000_000)
         foxglove_log = {
-            "timestamp": {"sec": seconds, "nanosec": nanos},
+            "timestamp": {"sec": seconds, "nanosec": nanoseconds},
             "level": level,
             "message": normalized_message,
             "name": container_name,
