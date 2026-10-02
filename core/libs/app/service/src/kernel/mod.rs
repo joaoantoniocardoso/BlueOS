@@ -19,16 +19,16 @@ use futures_util::FutureExt;
 use tokio::{
     sync::{mpsc, watch},
     task::JoinSet,
-    time::Instant,
 };
 use tracing::{error, warn};
 
 use blueos_api::{
     CommandAck, JOB_ID_NONE, Message, cdr_encoding, command_key, event_key, query_key,
-    service_liveliness_key, settings_key, state_key,
+    service_info_key, service_liveliness_key, settings_key, state_key,
 };
 use blueos_comms::{CommsBackend, CommsError, Query, Queryable, Sample};
 use blueos_domain::{Command, Domain, Effect, Now, Outcome};
+use blueos_idl::msg::blueos_msgs::ServiceInfo;
 use blueos_idl::{Error as IdlError, msg::blueos_msgs::SettingsEnvelope};
 
 use crate::{
@@ -270,6 +270,9 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             let queryable = declare(&*backend, query_key(service, &endpoint.name)).await?;
             pending_io_queries.push((queryable, endpoint.respond, endpoint.encoding));
         }
+        let info_key = service_info_key(service);
+        let info_queryable = declare(&*backend, info_key).await?;
+        let service_name = service.to_owned();
         let mut kernel = Self {
             service,
             snapshot: builder.snapshot,
@@ -309,19 +312,6 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             .collect();
         kernel.publish_states(initial_states).await;
         kernel.publish_settings().await;
-        let liveliness_key = service_liveliness_key(service);
-        let liveliness = kernel
-            .backend
-            .declare_liveliness(&liveliness_key)
-            .await
-            .map_err(|source| ServiceError::DeclareEndpoint {
-                key: liveliness_key,
-                source,
-            })?;
-        kernel.liveliness_task = Some(tokio::spawn(async move {
-            let _liveliness = liveliness;
-            pending::<()>().await;
-        }));
         if let Some((queryable, update_queryable, key, encoding, latest)) = pending_settings_serve {
             let driver = Arc::clone(
                 &kernel
@@ -374,40 +364,82 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 .endpoints
                 .spawn(serve_io_query(queryable, respond, encoding));
         }
+        kernel
+            .endpoints
+            .spawn(serve_service_info(info_queryable, service_name));
+        let liveliness_key = service_liveliness_key(service);
+        let liveliness = kernel
+            .backend
+            .declare_liveliness(&liveliness_key)
+            .await
+            .map_err(|source| ServiceError::DeclareEndpoint {
+                key: liveliness_key,
+                source,
+            })?;
+        kernel.liveliness_task = Some(tokio::spawn(async move {
+            let _liveliness = liveliness;
+            pending::<()>().await;
+        }));
         Ok(kernel)
     }
 
     /// Handles the Commands in the Inbox one at a time, until shutdown finishes or every endpoint has stopped.
     pub async fn run(mut self) -> RunOutcome {
-        let mut shutdown_deadline = None;
+        let mut shutdown_monotonic_deadline = None;
         let mut shutdown_receiver = None;
         core::mem::swap(&mut self.shutdown_receiver, &mut shutdown_receiver);
         let stop_requested = Arc::new(AtomicBool::new(false));
-        let stop_flag = Arc::clone(&stop_requested);
+        let stop_flag_for_signals = Arc::clone(&stop_requested);
+        let mut signal_shutdown_receiver = shutdown_receiver.clone();
         tokio::spawn(async move {
-            wait_for_shutdown_signal(&mut shutdown_receiver).await;
-            stop_flag.store(true, Ordering::SeqCst);
+            wait_for_shutdown_signal(&mut signal_shutdown_receiver).await;
+            stop_flag_for_signals.store(true, Ordering::SeqCst);
         });
 
         loop {
+            if let Some(receiver) = &mut shutdown_receiver
+                && *receiver.borrow_and_update()
+            {
+                stop_requested.store(true, Ordering::SeqCst);
+            }
             if stop_requested.load(Ordering::SeqCst) && !self.shutting_down {
                 self.begin_shutdown().await;
-                shutdown_deadline = Some(Instant::now() + SHUTDOWN_IO_DRAIN_TIMEOUT);
+                shutdown_monotonic_deadline =
+                    Some(self.clock.now().monotonic + SHUTDOWN_IO_DRAIN_TIMEOUT);
             }
 
             if self.shutting_down {
-                let remaining = shutdown_deadline
-                    .map(|deadline: Instant| deadline.saturating_duration_since(Instant::now()))
+                let remaining = shutdown_monotonic_deadline
+                    .map(|deadline| deadline.saturating_sub(self.clock.now().monotonic))
                     .unwrap_or(SHUTDOWN_IO_DRAIN_TIMEOUT);
-                match tokio::time::timeout(remaining, self.inbox.recv()).await {
-                    Ok(Some(delivery)) => self.dispatch(delivery).await,
-                    Ok(None) => break,
-                    Err(_) => {
+                while let Ok(Some(delivery)) =
+                    tokio::time::timeout(Duration::ZERO, self.inbox.recv()).await
+                {
+                    self.dispatch(delivery).await;
+                }
+                if self.io_inflight.count() == 0 {
+                    break;
+                }
+                if remaining == Duration::ZERO {
+                    warn!(
+                        timeout = ?SHUTDOWN_IO_DRAIN_TIMEOUT,
+                        "shutdown io drain timed out"
+                    );
+                    break;
+                }
+                tokio::select! {
+                    biased;
+                    () = tokio::time::sleep(remaining) => {
                         warn!(
                             timeout = ?SHUTDOWN_IO_DRAIN_TIMEOUT,
                             "shutdown io drain timed out"
                         );
-                        if self.io_inflight.count() == 0 {
+                        break;
+                    }
+                    delivery = self.inbox.recv() => {
+                        if let Some(delivery) = delivery {
+                            self.dispatch(delivery).await;
+                        } else {
                             break;
                         }
                     }
@@ -420,6 +452,20 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             }
 
             tokio::select! {
+                biased;
+                _ = async {
+                    let Some(receiver) = &mut shutdown_receiver else {
+                        pending::<()>().await;
+                        return;
+                    };
+                    while !*receiver.borrow_and_update() {
+                        if receiver.changed().await.is_err() {
+                            pending::<()>().await;
+                        }
+                    }
+                }, if shutdown_receiver.is_some() => {
+                    stop_requested.store(true, Ordering::SeqCst);
+                }
                 delivery = self.inbox.recv() => {
                     if let Some(delivery) = delivery {
                         self.dispatch(delivery).await;
@@ -703,6 +749,25 @@ async fn serve_update_settings<D: Domain>(
             }
             Err(error) => acknowledge(query, Err(Rejection::Domain(error))).await,
         }
+    }
+}
+
+/// Answers every get on the standard `info` query with minimal metadata (full manifest listing is #51).
+async fn serve_service_info(mut queryable: Queryable, name: String) {
+    let encoding = cdr_encoding(ServiceInfo::SCHEMA_NAME);
+    while let Some(query) = queryable.recv().await {
+        let info = ServiceInfo {
+            name: name.clone(),
+            ..ServiceInfo::default()
+        };
+        let key = query.key_expression().to_owned();
+        let sent: Result<(), SendError> = async {
+            let payload = info.encode()?;
+            query.reply(payload, encoding.as_str()).await?;
+            Ok(())
+        }
+        .await;
+        warn_on_failure("info", &key, sent);
     }
 }
 
