@@ -11,14 +11,6 @@ blueos/v1/recorder/event/operation 1 request=;response=blueos_recorder_msgs/msg/
 blueos/v1/recorder/query/index 1 request=blueos_recorder_msgs/msg/RecordingIndexRequest;response=blueos_recorder_msgs/msg/RecordingIndex
 blueos/v1/recorder/state/library 1 request=;response=blueos_recorder_msgs/msg/RecordingLibrary
 blueos/v1/recorder/state/recording 1 request=;response=blueos_recorder_msgs/msg/RecordingState
-blueos/v1/tank/command/Drain 1 request=blueos_example_msgs/msg/EmptyRequest;response=blueos_msgs/msg/CommandAck
-blueos/v1/tank/command/SetLevel 1 request=blueos_example_msgs/msg/SetLevelRequest;response=blueos_msgs/msg/CommandAck
-blueos/v1/tank/event/Emptied 1 request=;response=blueos_example_msgs/msg/EmptyRequest
-blueos/v1/tank/event/LevelChanged 1 request=;response=blueos_example_msgs/msg/LevelQueryResponse
-blueos/v1/tank/query/Level 1 request=blueos_example_msgs/msg/EmptyRequest;response=blueos_example_msgs/msg/LevelQueryResponse
-blueos/v1/tank/query/LevelAfterFill 1 request=blueos_example_msgs/msg/SetLevelRequest;response=blueos_example_msgs/msg/LevelQueryResponse
-blueos/v1/tank/query/Probe 1 request=blueos_example_msgs/msg/EmptyRequest;response=blueos_example_msgs/msg/LevelQueryResponse
-blueos/v1/tank/state/tank 1 request=;response=blueos_example_msgs/msg/LevelQueryResponse
 blueos_example_msgs/msg/EmptyRequest 1 padding:uint8
 blueos_example_msgs/msg/LevelQueryResponse 1 level:uint8;max_level:uint8
 blueos_example_msgs/msg/PumpState 1 level:uint8;max_level:uint8;self_test_phase:uint8;self_test_active:bool

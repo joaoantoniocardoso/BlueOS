@@ -1,11 +1,13 @@
-#![allow(missing_docs, reason = "generated from ROS .msg sources")]
+#![expect(missing_docs, reason = "generated from ROS .msg sources")]
+use alloc::string::String;
+
+use serde::{Deserialize, Serialize};
+
 use crate::{
     cdr,
     error::Error,
     message::{CdrStruct, Message},
 };
-use alloc::string::String;
-use serde::{Deserialize, Serialize};
 pub mod constants_log {
     pub const UNKNOWN: u8 = 0u8;
     pub const DEBUG: u8 = 1u8;

@@ -19,17 +19,26 @@ fn main() {
         .any(|argument| argument == "--check-endpoints");
     let output = argument_value(&arguments, "--output").map(PathBuf::from);
     let typescript_output = argument_value(&arguments, "--typescript-output").map(PathBuf::from);
+    let test_generated_output =
+        argument_value(&arguments, "--test-generated-output").map(PathBuf::from);
 
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let idl_root = manifest_dir.parent().expect("idl crate root");
+    let idl_root = argument_value(&arguments, "--idl-root")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| manifest_dir.parent().expect("idl crate root").to_path_buf());
     let interfaces_root = idl_root.join("interfaces");
-    let core_dir = idl_root
-        .parent()
-        .and_then(Path::parent)
-        .expect("core directory");
+    let core_dir = argument_value(&arguments, "--core-dir")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            idl_root
+                .parent()
+                .and_then(Path::parent)
+                .expect("core directory")
+                .to_path_buf()
+        });
 
     if check_endpoints {
-        let stale: Vec<GeneratedFile> = endpoint_files(core_dir, &interfaces_root)
+        let stale: Vec<GeneratedFile> = endpoint_files(&core_dir, &interfaces_root)
             .into_iter()
             .filter(|file| fs::read_to_string(&file.path).ok().as_ref() != Some(&file.contents))
             .collect();
@@ -51,9 +60,10 @@ fn main() {
             &interfaces_root,
             &idl_root.join("src/generated"),
             Some(&idl_root.join("typescript")),
+            Some(&idl_root.join("tests/generated")),
         );
-        generate_catalog(idl_root);
-        for file in endpoint_files(core_dir, &interfaces_root) {
+        generate_catalog(&idl_root);
+        for file in endpoint_files(&core_dir, &interfaces_root) {
             fs::write(&file.path, file.contents).expect("write generated endpoints");
         }
         return;
@@ -62,16 +72,25 @@ fn main() {
     let out_dir = match output {
         Some(path) => path,
         None => {
-            eprintln!("usage: blueos-idl-codegen --write");
-            eprintln!("       blueos-idl-codegen --check-endpoints");
-            eprintln!("       blueos-idl-codegen --output <dir> [--typescript-output <dir>]");
+            eprintln!("usage: blueos-idl-codegen --write [--idl-root <dir>] [--core-dir <dir>]");
+            eprintln!(
+                "       blueos-idl-codegen --check-endpoints [--idl-root <dir>] [--core-dir <dir>]"
+            );
+            eprintln!(
+                "       blueos-idl-codegen --output <dir> [--typescript-output <dir>] [--idl-root <dir>]"
+            );
             std::process::exit(1);
         }
     };
 
-    generate(&interfaces_root, &out_dir, typescript_output.as_deref());
+    generate(
+        &interfaces_root,
+        &out_dir,
+        typescript_output.as_deref(),
+        test_generated_output.as_deref(),
+    );
     if let Some(typescript_dir) = typescript_output.as_deref() {
-        generate_catalog_outputs(idl_root, &out_dir, typescript_dir);
+        generate_catalog_outputs(&idl_root, &out_dir, typescript_dir);
     }
 }
 

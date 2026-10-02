@@ -1,0 +1,17 @@
+error[E0432]: unresolved import `blueos_domain`
+ --> tests/compile_fail/common/mod.rs
+  |
+  | use blueos_domain::{Command, Decision, Domain, DomainQueries, IoError, Now};
+  |     ^^^^^^^^^^^^^ use of unresolved module or unlinked crate `blueos_domain`
+  |
+help: there is a crate or module with a similar name
+  |
+5 - use blueos_domain::{Command, Decision, Domain, DomainQueries, IoError, Now};
+5 + use blueos_comms::{Command, Decision, Domain, DomainQueries, IoError, Now};
+  |
+
+error[E0432]: unresolved import `blueos_example_domain::PumpEvent`
+ --> tests/compile_fail/common/mod.rs
+  |
+  |     Pump, PumpEvent, PumpQuery, PumpRequest, PumpResponse, PumpSnapshot,
+  |           ^^^^^^^^^ no `PumpEvent` in the root

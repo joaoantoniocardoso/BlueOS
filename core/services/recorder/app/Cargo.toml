@@ -37,6 +37,7 @@ bytes.workspace = true
 mcap.workspace = true
 tempfile = "3"
 tokio = { workspace = true, features = ["macros", "rt", "test-util", "time"] }
+trybuild.workspace = true
 
 [lints]
 workspace = true

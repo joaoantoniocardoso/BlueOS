@@ -1,10 +1,11 @@
-#![allow(missing_docs, reason = "generated from ROS .msg sources")]
+#![expect(missing_docs, reason = "generated from ROS .msg sources")]
+use serde::{Deserialize, Serialize};
+
 use crate::{
     cdr,
     error::Error,
     message::{CdrStruct, Message},
 };
-use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum PumpStateSelfTestPhase {
     #[default]
@@ -14,6 +15,29 @@ pub enum PumpStateSelfTestPhase {
     Failed,
     Cancelled,
     Unknown(u8),
+}
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct PumpState {
+    pub level: u8,
+    pub max_level: u8,
+    pub self_test_phase: PumpStateSelfTestPhase,
+    pub self_test_active: bool,
+}
+impl serde::Serialize for PumpStateSelfTestPhase {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        <u8>::serialize(&self.as_raw(), serializer)
+    }
+}
+impl<'de> serde::Deserialize<'de> for PumpStateSelfTestPhase {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self::from_raw(<u8>::deserialize(deserializer)?))
+    }
 }
 impl PumpStateSelfTestPhase {
     pub fn from_raw(raw: u8) -> Self {
@@ -36,29 +60,6 @@ impl PumpStateSelfTestPhase {
             Self::Unknown(raw) => raw,
         }
     }
-}
-impl serde::Serialize for PumpStateSelfTestPhase {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        <u8>::serialize(&self.as_raw(), serializer)
-    }
-}
-impl<'de> serde::Deserialize<'de> for PumpStateSelfTestPhase {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        Ok(Self::from_raw(<u8>::deserialize(deserializer)?))
-    }
-}
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct PumpState {
-    pub level: u8,
-    pub max_level: u8,
-    pub self_test_phase: PumpStateSelfTestPhase,
-    pub self_test_active: bool,
 }
 impl CdrStruct for PumpState {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {

@@ -780,7 +780,8 @@ Decision:
 
 - Each service commits `app/endpoints.toml`, listing every public endpoint: its kind (command, query, io query,
   state, event), name and Message types. The key is derived, never written: `blueos/v1/<service>/<kind>/<name>`
-  (D-07), and an IO query is a query on the wire. `services/tank` is the test Service of every shape:
+  (D-07), and an IO query is a query on the wire. The teaching example's compile-fail tests cover manifest mistakes;
+  a separate test Service is not required for every endpoint shape:
 
 ```toml
 service = "tank"
@@ -819,7 +820,7 @@ LevelChanged = { message = "blueos_example_msgs/msg/LevelQueryResponse" }
 - Mistakes are compile errors. A Domain without `impl Conversions`, or a type without `impl Handlers`, gets an
   `#[diagnostic::on_unimplemented]` message that names the Service and lists every function with its endpoint.
   A missing function is E0046 and a wrong Message type is E0053, both naming the function, which is the
-  endpoint's name. `services/tank/app/tests/compile_errors.rs` pins each error. The generator rejects two
+  endpoint's name. `services/example/app/tests/compile_errors.rs` pins each error. The generator rejects two
   endpoints that generate the same function (names are unique in a Service, whatever their kind, and compared
   in snake case), the reserved names of D-12 (`Info` and `info` alike), a name that is not an identifier, a
   Message that is not in `blueos-idl`, and a field the format does not have.

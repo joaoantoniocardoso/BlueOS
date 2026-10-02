@@ -1,6 +1,5 @@
-#![allow(
+#![expect(
     clippy::arbitrary_source_item_ordering,
-    missing_docs,
     reason = "generated from ROS .msg sources"
 )]
 pub mod msg;

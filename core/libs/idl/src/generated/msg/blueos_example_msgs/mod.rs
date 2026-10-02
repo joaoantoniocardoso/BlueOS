@@ -1,4 +1,4 @@
-#![allow(
+#![expect(
     clippy::pub_use,
     missing_docs,
     reason = "generated from ROS .msg sources"

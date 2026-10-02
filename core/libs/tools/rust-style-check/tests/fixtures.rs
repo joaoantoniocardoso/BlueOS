@@ -80,3 +80,13 @@ fn clone_before_spawn_passes() {
 fn clone_before_spawn_fails() {
     assert_rule("clone_before_spawn", "fail", true);
 }
+
+#[test]
+fn allow_attributes_passes() {
+    assert_rule("allow_attributes", "pass", false);
+}
+
+#[test]
+fn allow_attributes_fails() {
+    assert_rule("allow_attributes", "fail", true);
+}

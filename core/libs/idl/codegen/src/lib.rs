@@ -36,7 +36,12 @@ pub struct MessageRecord {
 }
 
 /// Regenerates committed Rust types and schema lookup under `out_dir` (typically `blueos-idl/src/generated`).
-pub fn generate(interfaces_root: &Path, out_dir: &Path, typescript_dir: Option<&Path>) {
+pub fn generate(
+    interfaces_root: &Path,
+    out_dir: &Path,
+    typescript_dir: Option<&Path>,
+    test_generated_dir: Option<&Path>,
+) {
     let messages = collect_messages(interfaces_root);
     let records: BTreeMap<String, MessageRecord> = messages
         .into_iter()
@@ -47,12 +52,16 @@ pub fn generate(interfaces_root: &Path, out_dir: &Path, typescript_dir: Option<&
         fs::remove_dir_all(out_dir).expect("remove stale generated dir");
     }
     fs::create_dir_all(out_dir).expect("create generated dir");
+    fs::write(out_dir.join("rustfmt.toml"), "reorder_imports = false\n")
+        .expect("write generated rustfmt.toml");
 
     write_rust_messages(&records, out_dir);
     let idl_root = interfaces_root
         .parent()
         .expect("interfaces directory has a parent");
-    let test_generated = idl_root.join("tests/generated");
+    let test_generated = test_generated_dir
+        .map(PathBuf::from)
+        .unwrap_or_else(|| idl_root.join("tests/generated"));
     fs::create_dir_all(&test_generated).expect("create test generated dir");
     write_cdr_codec_dispatch(&records, &test_generated);
 
@@ -271,7 +280,7 @@ fn write_rust_messages(records: &BTreeMap<String, MessageRecord>, out_dir: &Path
                 format!("use alloc::{{{}}};\n\n", alloc_paths.join(", "))
             };
             let file_contents = format!(
-                "// @generated\n#![allow(\n    missing_docs,\n    reason = \"generated from ROS .msg sources\",\n)]\n{alloc_imports}use crate::{{cdr, error::Error, message::{{CdrStruct, Message}}}};\nuse serde::{{Deserialize, Serialize}};\n{}\n",
+                "// @generated\n#![expect(\n    missing_docs,\n    reason = \"generated from ROS .msg sources\",\n)]\n{alloc_imports}use serde::{{Deserialize, Serialize}};\n\nuse crate::{{cdr, error::Error, message::{{CdrStruct, Message}}}};\n\n{}\n",
                 tokens
             );
             write_formatted_rust_file(
@@ -282,7 +291,7 @@ fn write_rust_messages(records: &BTreeMap<String, MessageRecord>, out_dir: &Path
             message_mods.push(format!("pub use {module_name}::*;"));
         }
         let package_mod = format!(
-            "// @generated\n#![allow(\n    clippy::pub_use,\n    missing_docs,\n    reason = \"generated from ROS .msg sources\",\n)]\n{}\n",
+            "// @generated\n#![expect(\n    clippy::pub_use,\n    missing_docs,\n    reason = \"generated from ROS .msg sources\",\n)]\n{}\n",
             message_mods.join("\n")
         );
         write_formatted_rust_file(&package_dir.join("mod.rs"), &package_mod);
@@ -290,7 +299,7 @@ fn write_rust_messages(records: &BTreeMap<String, MessageRecord>, out_dir: &Path
     }
 
     let root_mod = format!(
-        "// @generated\n#![allow(\n    missing_docs,\n    reason = \"generated from ROS .msg sources\",\n)]\n{}\n",
+        "// @generated\n#![expect(\n    missing_docs,\n    reason = \"generated from ROS .msg sources\",\n)]\n{}\n",
         package_mods.join("\n")
     );
     fs::create_dir_all(out_dir.join("msg")).expect("create msg dir");
@@ -307,7 +316,7 @@ fn write_rust_messages(records: &BTreeMap<String, MessageRecord>, out_dir: &Path
     write_formatted_rust_file(
         &out_dir.join("mod.rs"),
         &format!(
-            "// @generated\n#![allow(\n    clippy::arbitrary_source_item_ordering,\n    missing_docs,\n    reason = \"generated from ROS .msg sources\"\n)]\n\npub mod msg;\n\nuse crate::message::Message;\n\n/// ROS 2 `.msg` text of any IDL message, keyed by its `SCHEMA_NAME`.\npub fn schema(schema_name: &str) -> Option<&'static str> {{\n    match schema_name {{\n{}\n        _ => None,\n    }}\n}}\n",
+            "// @generated\n#![expect(\n    clippy::arbitrary_source_item_ordering,\n    reason = \"generated from ROS .msg sources\"\n)]\n\npub mod msg;\n\nuse crate::message::Message;\n\n/// ROS 2 `.msg` text of any IDL message, keyed by its `SCHEMA_NAME`.\npub fn schema(schema_name: &str) -> Option<&'static str> {{\n    match schema_name {{\n{}\n        _ => None,\n    }}\n}}\n",
             schema_arms.join("\n")
         ),
     );
@@ -316,15 +325,55 @@ fn write_rust_messages(records: &BTreeMap<String, MessageRecord>, out_dir: &Path
 fn write_formatted_rust_file(path: &Path, source: &str) {
     let syntax = syn::parse_file(source).expect("generated Rust must parse");
     let formatted = prettyplease::unparse(&syntax);
-    fs::write(path, formatted).expect("write generated Rust");
+    fs::write(path, &formatted).expect("write generated Rust");
     let status = std::process::Command::new("rustfmt")
-        .arg("--edition")
-        .arg("2024")
+        .args(["--edition", "2024"])
         .arg(path)
         .status()
         .expect("run rustfmt on generated Rust");
     if !status.success() {
         panic!("rustfmt failed for {}", path.display());
+    }
+    let separated = separate_import_groups(&fs::read_to_string(path).expect("read generated Rust"));
+    fs::write(path, separated).expect("write import group separators");
+}
+
+fn separate_import_groups(source: &str) -> String {
+    let mut output = String::new();
+    let mut previous_group: Option<ImportGroup> = None;
+    for line in source.lines() {
+        let trimmed = line.trim();
+        if let Some(group) = import_group_for_line(trimmed) {
+            if let Some(previous_group) = previous_group
+                && group != previous_group
+                && !output.ends_with("\n\n")
+            {
+                output.push('\n');
+            }
+            previous_group = Some(group);
+        } else if !trimmed.is_empty() || previous_group.is_some() {
+            previous_group = None;
+        }
+        output.push_str(line);
+        output.push('\n');
+    }
+    output
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ImportGroup {
+    Std,
+    ThirdParty,
+    Owned,
+}
+
+fn import_group_for_line(line: &str) -> Option<ImportGroup> {
+    let rest = line.strip_prefix("use ")?;
+    let root = rest.split("::").next()?.split('{').next()?.trim();
+    match root {
+        "std" | "core" | "alloc" => Some(ImportGroup::Std),
+        "crate" | "self" | "super" => Some(ImportGroup::Owned),
+        _ => Some(ImportGroup::ThirdParty),
     }
 }
 
@@ -391,21 +440,11 @@ fn scalar_rust_type_tokens(datatype: &DataType) -> TokenStream {
     }
 }
 
-fn generate_enum_tokens(message_name: &str, family: &ConstantFamily) -> TokenStream {
+fn generate_enum_definition_tokens(message_name: &str, family: &ConstantFamily) -> TokenStream {
     let enum_name = enum_ident_for_field(message_name, &family.field_name);
     let raw_type = scalar_rust_type_tokens(&family.constants[0].datatype);
-    let mut from_arms = Vec::new();
-    let mut as_arms = Vec::new();
     let mut sorted_constants = family.constants.clone();
     sorted_constants.sort_by_key(constant_discriminant);
-    for constant in &sorted_constants {
-        let variant = enum_variant_ident(constant, family);
-        let raw = constant_raw_literal(constant);
-        from_arms.push(quote! { #raw => Self::#variant, });
-        as_arms.push(quote! { Self::#variant => #raw, });
-    }
-    from_arms.push(quote! { raw => Self::Unknown(raw), });
-    as_arms.push(quote! { Self::Unknown(raw) => raw, });
     let mut variant_tokens = Vec::new();
     for (index, constant) in sorted_constants.iter().enumerate() {
         let variant = enum_variant_ident(constant, family);
@@ -421,21 +460,25 @@ fn generate_enum_tokens(message_name: &str, family: &ConstantFamily) -> TokenStr
             #(#variant_tokens)*
             Unknown(#raw_type),
         }
+    }
+}
 
-        impl #enum_name {
-            pub fn from_raw(raw: #raw_type) -> Self {
-                match raw {
-                    #(#from_arms)*
-                }
-            }
-
-            pub fn as_raw(self) -> #raw_type {
-                match self {
-                    #(#as_arms)*
-                }
-            }
-        }
-
+fn generate_enum_impl_tokens(message_name: &str, family: &ConstantFamily) -> TokenStream {
+    let enum_name = enum_ident_for_field(message_name, &family.field_name);
+    let raw_type = scalar_rust_type_tokens(&family.constants[0].datatype);
+    let mut from_arms = Vec::new();
+    let mut as_arms = Vec::new();
+    let mut sorted_constants = family.constants.clone();
+    sorted_constants.sort_by_key(constant_discriminant);
+    for constant in &sorted_constants {
+        let variant = enum_variant_ident(constant, family);
+        let raw = constant_raw_literal(constant);
+        from_arms.push(quote! { #raw => Self::#variant, });
+        as_arms.push(quote! { Self::#variant => #raw, });
+    }
+    from_arms.push(quote! { raw => Self::Unknown(raw), });
+    as_arms.push(quote! { Self::Unknown(raw) => raw, });
+    quote! {
         impl serde::Serialize for #enum_name {
             fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
             where
@@ -451,6 +494,20 @@ fn generate_enum_tokens(message_name: &str, family: &ConstantFamily) -> TokenStr
                 D: serde::Deserializer<'de>,
             {
                 Ok(Self::from_raw(<#raw_type>::deserialize(deserializer)?))
+            }
+        }
+
+        impl #enum_name {
+            pub fn from_raw(raw: #raw_type) -> Self {
+                match raw {
+                    #(#from_arms)*
+                }
+            }
+
+            pub fn as_raw(self) -> #raw_type {
+                match self {
+                    #(#as_arms)*
+                }
             }
         }
     }
@@ -483,9 +540,13 @@ fn generate_struct_tokens(
     let schema_text = schema_text(record, records);
     let type_hash = record.type_hash.as_str();
 
-    let enum_tokens = families
+    let enum_definitions = families
         .values()
-        .map(|family| generate_enum_tokens(&record.name, family))
+        .map(|family| generate_enum_definition_tokens(&record.name, family))
+        .collect::<Vec<_>>();
+    let enum_impls = families
+        .values()
+        .map(|family| generate_enum_impl_tokens(&record.name, family))
         .collect::<Vec<_>>();
 
     let mut fields = Vec::new();
@@ -526,12 +587,14 @@ fn generate_struct_tokens(
     let field_count = message.fields().len();
 
     quote! {
-        #(#enum_tokens)*
+        #(#enum_definitions)*
         #constants_mod
         #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
         pub struct #struct_name {
             #(#fields)*
         }
+
+        #(#enum_impls)*
 
         impl CdrStruct for #struct_name {
             fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {

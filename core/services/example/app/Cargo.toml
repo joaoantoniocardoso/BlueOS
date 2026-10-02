@@ -17,6 +17,7 @@ blueos-api.workspace = true
 blueos-comms.workspace = true
 blueos-service = { workspace = true, features = ["testing"] }
 tokio = { workspace = true, features = ["macros", "rt", "test-util", "time"] }
+trybuild.workspace = true
 
 [lints]
 workspace = true

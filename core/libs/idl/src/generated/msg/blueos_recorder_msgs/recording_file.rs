@@ -1,11 +1,13 @@
-#![allow(missing_docs, reason = "generated from ROS .msg sources")]
+#![expect(missing_docs, reason = "generated from ROS .msg sources")]
+use alloc::{string::String, vec::Vec};
+
+use serde::{Deserialize, Serialize};
+
 use crate::{
     cdr,
     error::Error,
     message::{CdrStruct, Message},
 };
-use alloc::{string::String, vec::Vec};
-use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum RecordingFileState {
     #[default]
@@ -14,6 +16,35 @@ pub enum RecordingFileState {
     NeedsRepair,
     Repairing,
     Unknown(u8),
+}
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct RecordingFile {
+    pub path: String,
+    pub name: String,
+    pub size_bytes: u64,
+    pub created: crate::msg::builtin_interfaces::Time,
+    pub state: RecordingFileState,
+    pub repair_bytes_processed: u64,
+    pub repair_total_bytes: u64,
+    pub repair_bytes_per_second: f64,
+    pub repair_error: String,
+    pub allowed_operations: Vec<String>,
+}
+impl serde::Serialize for RecordingFileState {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        <u8>::serialize(&self.as_raw(), serializer)
+    }
+}
+impl<'de> serde::Deserialize<'de> for RecordingFileState {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self::from_raw(<u8>::deserialize(deserializer)?))
+    }
 }
 impl RecordingFileState {
     pub fn from_raw(raw: u8) -> Self {
@@ -34,35 +65,6 @@ impl RecordingFileState {
             Self::Unknown(raw) => raw,
         }
     }
-}
-impl serde::Serialize for RecordingFileState {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        <u8>::serialize(&self.as_raw(), serializer)
-    }
-}
-impl<'de> serde::Deserialize<'de> for RecordingFileState {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        Ok(Self::from_raw(<u8>::deserialize(deserializer)?))
-    }
-}
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct RecordingFile {
-    pub path: String,
-    pub name: String,
-    pub size_bytes: u64,
-    pub created: crate::msg::builtin_interfaces::Time,
-    pub state: RecordingFileState,
-    pub repair_bytes_processed: u64,
-    pub repair_total_bytes: u64,
-    pub repair_bytes_per_second: f64,
-    pub repair_error: String,
-    pub allowed_operations: Vec<String>,
 }
 impl CdrStruct for RecordingFile {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
