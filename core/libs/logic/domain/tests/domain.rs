@@ -1,6 +1,11 @@
 //! L1 tests: Domains and Blocks driven by plain function calls, with no runtime.
 
-use core::{convert::Infallible, time::Duration};
+use core::{
+    convert::Infallible,
+    error::Error,
+    fmt::{self, Display, Formatter},
+    time::Duration,
+};
 
 use blueos_domain::{Command, Decision, Domain, Effect, Now, Outcome};
 
@@ -28,6 +33,7 @@ struct TankSnapshot {
 
 enum TankRequest {
     StartPump { run_time: Duration },
+    StopPump,
 }
 
 #[derive(Debug, PartialEq)]
@@ -60,6 +66,7 @@ enum Pump {
 #[derive(Debug, PartialEq)]
 enum PumpEvent {
     Started,
+    Stopped { ran_for: Duration },
 }
 
 #[derive(Debug, PartialEq)]
@@ -75,6 +82,11 @@ enum PumpIoRequest {
 #[derive(Debug, PartialEq)]
 enum PumpTimerKey {
     RunTime,
+}
+
+#[derive(Debug, PartialEq)]
+enum PumpRejection {
+    NotRunning,
 }
 
 impl Domain for Counter {
@@ -118,7 +130,15 @@ impl Domain for Tank {
         now: Now,
     ) -> Decision<Self> {
         match command {
-            Command::Request(TankRequest::StartPump { run_time }) => snapshot.pump.start(run_time, now).map(
+            Command::Request(TankRequest::StartPump { run_time }) => {
+                snapshot.pump.start(run_time, now).map(
+                    TankEvent::Pump,
+                    TankTick::Pump,
+                    TankIoRequest::Pump,
+                    TankTimerKey::Pump,
+                )
+            }
+            Command::Request(TankRequest::StopPump) => snapshot.pump.stop(now).map(
                 TankEvent::Pump,
                 TankTick::Pump,
                 TankIoRequest::Pump,
@@ -134,7 +154,9 @@ impl Domain for Tank {
 
 impl Pump {
     fn start(&mut self, run_time: Duration, now: Now) -> PumpOutcome {
-        *self = Self::Running { since: now.monotonic };
+        *self = Self::Running {
+            since: now.monotonic,
+        };
         Outcome::Applied {
             events: vec![PumpEvent::Started],
             effects: vec![
@@ -147,7 +169,33 @@ impl Pump {
             ],
         }
     }
+
+    fn stop(&mut self, now: Now) -> PumpOutcome {
+        let Self::Running { since } = *self else {
+            return Outcome::reject(PumpRejection::NotRunning);
+        };
+        *self = Self::Idle;
+        Outcome::Applied {
+            events: vec![PumpEvent::Stopped {
+                ran_for: now.monotonic - since,
+            }],
+            effects: vec![
+                Effect::Cancel(PumpTimerKey::RunTime),
+                Effect::Io(PumpIoRequest::SetPower { on: false }),
+            ],
+        }
+    }
 }
+
+impl Display for PumpRejection {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NotRunning => formatter.write_str("the pump is not running"),
+        }
+    }
+}
+
+impl Error for PumpRejection {}
 
 #[test]
 fn domain_without_queries_jobs_or_io_handles_a_request() {
@@ -185,4 +233,16 @@ fn outcome_map_lifts_a_block_into_its_domain() {
             },
         ]
     );
+}
+
+#[test]
+fn rejection_carries_a_typed_reason_through_map() {
+    let mut snapshot = TankSnapshot { pump: Pump::Idle };
+
+    let decision = Tank::handle(&mut snapshot, Command::Request(TankRequest::StopPump), NOW);
+
+    let Outcome::Rejected { reason } = decision else {
+        panic!("stopping an idle pump must be rejected, got {decision:?}");
+    };
+    assert_eq!(reason.downcast_ref(), Some(&PumpRejection::NotRunning));
 }
