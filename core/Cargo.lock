@@ -340,6 +340,7 @@ dependencies = [
  "blueos-idl",
  "blueos-recorder-capture",
  "blueos-recorder-domain",
+ "blueos-recorder-library",
 ]
 
 [[package]]
@@ -353,7 +354,9 @@ dependencies = [
  "blueos-recorder-api",
  "blueos-recorder-capture",
  "blueos-recorder-domain",
+ "blueos-recorder-library",
  "blueos-recorder-mcap",
+ "blueos-recorder-paths",
  "blueos-recorder-storage",
  "blueos-service",
  "blueos-settings",
@@ -421,6 +424,7 @@ dependencies = [
  "blueos-recorder-mcap",
  "tempfile",
  "thiserror",
+ "tracing",
  "walkdir",
 ]
 
