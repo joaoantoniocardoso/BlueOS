@@ -547,14 +547,6 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 }
                 tokio::select! {
                     biased;
-                    () = tokio::time::sleep(remaining) => {
-                        warn!(
-                            timeout = ?SHUTDOWN_IO_DRAIN_TIMEOUT,
-                            "shutdown io drain timed out"
-                        );
-                        self.tasks.join_with_budget(Duration::ZERO, &self.clock).await;
-                        break;
-                    }
                     delivery = self.inbox.recv() => {
                         if let Some(delivery) = delivery {
                             if let Some(outcome) = self.dispatch(delivery).await {
@@ -564,6 +556,14 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                         } else {
                             break;
                         }
+                    }
+                    () = tokio::time::sleep(remaining) => {
+                        warn!(
+                            timeout = ?SHUTDOWN_IO_DRAIN_TIMEOUT,
+                            "shutdown io drain timed out"
+                        );
+                        self.tasks.join_with_budget(Duration::ZERO, &self.clock).await;
+                        break;
                     }
                 }
                 if repeated_inbox_panics.is_some() {
