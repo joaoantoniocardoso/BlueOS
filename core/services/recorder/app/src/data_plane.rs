@@ -446,6 +446,9 @@ async fn cleanup(
     liveliness_gets: &mut JoinSet<(String, LivelinessGetOutcome)>,
 ) {
     finish_open_file(local, writer, commands, liveliness_gets).await;
+    if let Err(error) = writer.close().await {
+        warn!(%error, "failed to close MCAP writer actor");
+    }
 }
 
 async fn finish_open_file(

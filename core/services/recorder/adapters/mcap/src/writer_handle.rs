@@ -1,7 +1,10 @@
 //! Async actor that owns [`McapFile`] and runs blocking IO on the runtime's blocking pool.
 
 use core::sync::atomic::{AtomicU64, Ordering};
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 use tokio::{
     sync::{mpsc, oneshot},
@@ -37,8 +40,7 @@ pub struct McapWriterHandle {
     command_sender: mpsc::Sender<WriterCommand>,
     bytes_written: Arc<AtomicU64>,
     dropped_samples: Arc<AtomicU64>,
-    #[expect(dead_code, reason = "writer actor; join is not used on Drop")]
-    actor: JoinHandle<()>,
+    actor: Mutex<Option<JoinHandle<()>>>,
 }
 
 impl Drop for McapWriterHandle {
@@ -63,7 +65,7 @@ impl McapWriterHandle {
             command_sender,
             bytes_written,
             dropped_samples,
-            actor,
+            actor: Mutex::new(Some(actor)),
         }
     }
 
@@ -125,6 +127,31 @@ impl McapWriterHandle {
     pub fn take_dropped_samples(&self) -> u64 {
         self.dropped_samples.swap(0, Ordering::Relaxed)
     }
+
+    /// Stops the writer actor and waits until it has joined.
+    pub async fn close(&self) -> Result<(), McapError> {
+        let actor = lock_unpoisoned(&self.actor).take();
+        let Some(actor) = actor else {
+            return Ok(());
+        };
+        if let Err(error) = self.command_sender.send(WriterCommand::Shutdown).await {
+            warn!(%error, "failed to enqueue MCAP writer shutdown");
+            return Err(McapError::WriterStopped);
+        }
+        match actor.await {
+            Ok(()) => Ok(()),
+            Err(error) => {
+                warn!(%error, "MCAP writer actor join failed");
+                Err(McapError::ActorJoin(error))
+            }
+        }
+    }
+}
+
+fn lock_unpoisoned<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+    mutex
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 async fn writer_actor(
