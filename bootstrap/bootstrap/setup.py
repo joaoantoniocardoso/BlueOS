@@ -15,7 +15,7 @@ setup(
         # indirect dependencies
         "six==1.15.0",
         "idna==3.4",
-        "urllib3==1.26.16",
+        "urllib3==2.8.0",
         "certifi==2023.7.22",
         "charset-normalizer==2.0.12",
         "websocket-client==1.6.3",
