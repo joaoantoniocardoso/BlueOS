@@ -4,8 +4,13 @@ import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import { decodeCdr } from '@/libs/blueos-api/cdr'
-import { cdrEncoding } from '@/libs/blueos-api/keys'
-import { watchLogs } from '@/libs/blueos-api/logs'
+import { cdrEncoding, extensionLogKey } from '@/libs/blueos-api/keys'
+import {
+  extensionLogsRequestKey,
+  requestExtensionLogs,
+  watchExtensionLogs,
+  watchLogs,
+} from '@/libs/blueos-api/logs'
 import { LOG_SCHEMA } from '@/libs/blueos-api/types'
 
 import FakeTransport from './fake-transport'
@@ -63,5 +68,53 @@ describe('watchLogs', () => {
     const vector = pythonProducerLogVector()
     const payload = decodeHex(vector.hex)
     expect(decodeCdr(LOG_SCHEMA, payload)).toEqual(vector.decoded)
+  })
+})
+
+describe('watchExtensionLogs', () => {
+  it('decodes CDR Log samples on the extension log key', async () => {
+    const vector = pythonProducerLogVector()
+    const transport = new FakeTransport()
+    const received: string[] = []
+
+    const subscription = await watchExtensionLogs(transport, 'kraken', 'my_ext', {
+      onLog: (entry) => {
+        received.push(entry.message)
+      },
+    })
+
+    transport.publish({
+      key: extensionLogKey('kraken', 'my_ext'),
+      payload: decodeHex(vector.hex),
+      encoding: cdrEncoding(LOG_SCHEMA),
+    })
+
+    expect(received).toEqual([vector.decoded.message])
+    await subscription.close()
+  })
+})
+
+describe('requestExtensionLogs', () => {
+  it('decodes the Kraken extension logs request JSON payload', async () => {
+    const transport = new FakeTransport()
+    const requestPromise = requestExtensionLogs(transport, 'kraken', 'demo-ext')
+    const pending = await transport.nextQuery()
+    expect(pending.key).toBe(extensionLogsRequestKey('kraken', 'demo-ext'))
+    pending.reply({
+      kind: 'sample',
+      sample: {
+        key: pending.key,
+        payload: new TextEncoder().encode(JSON.stringify({
+          status: 'success',
+          messages: [{ level: 2, message: 'INFO: started' }],
+          total_lines: 1,
+          topic: extensionLogKey('kraken', 'demo-ext'),
+        })),
+        encoding: 'application/json',
+      },
+    })
+    const response = await requestPromise
+    expect(response?.messages).toEqual([{ level: 2, message: 'INFO: started' }])
+    expect(response?.topic).toBe(extensionLogKey('kraken', 'demo-ext'))
   })
 })
