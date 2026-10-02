@@ -1,0 +1,186 @@
+import { sendCommand } from '@/libs/blueos-api/command'
+import { watchServiceAlive } from '@/libs/blueos-api/liveliness'
+import {
+  CancelRepair,
+  DeleteRecording,
+  RepairRecording,
+  SnapshotRecording,
+  library,
+  operation,
+} from '@/libs/blueos-api/services/recorder'
+import type { Subscription, Transport } from '@/libs/blueos-api/transport'
+import { watchEvent } from '@/libs/blueos-api/watch-event'
+import { watchState } from '@/libs/blueos-api/watch'
+
+import { DEFAULT_RECORDING_HTTP_PREFIX, SNAPSHOT_WAIT_TIMEOUT_MS } from './constants'
+import { mapRecordingFile, mapRecordingOperation } from './map'
+import type {
+  LibraryRecording,
+  RecorderCommandResult,
+  RecordingOperationEvent,
+} from './types'
+import { recordingDownloadUrl } from './url'
+import {
+  isSnapshotOperationForPath,
+  readySnapshotDownloadPath,
+  snapshotDownloadPath,
+  snapshotPathsForSource,
+  sortRecordingsNewestFirst,
+} from './view-logic'
+
+export { SNAPSHOT_WAIT_TIMEOUT_MS } from './constants'
+
+interface SnapshotWaiter {
+  resolve: (outputPath: string) => void
+  reject: (error: Error) => void
+  timeoutId: ReturnType<typeof setTimeout>
+  ignoredSnapshotPaths: Set<string>
+}
+
+export interface RecorderClient {
+  watchLibrary(
+    onLibrary: (files: LibraryRecording[]) => void,
+    onError?: (error: unknown) => void,
+  ): Promise<Subscription>
+  watchServiceRunning(onRunning: (running: boolean) => void): Promise<Subscription>
+  watchOperations(
+    onOperation: (event: RecordingOperationEvent) => void,
+    onError?: (error: unknown) => void,
+  ): Promise<Subscription>
+  repairRecording(path: string): Promise<RecorderCommandResult>
+  cancelRepair(path: string): Promise<RecorderCommandResult>
+  deleteRecording(path: string): Promise<RecorderCommandResult>
+  snapshotRecording(path: string): Promise<string>
+  recordingDownloadUrl(relativePath: string): string
+}
+
+export interface RecorderClientOptions {
+  recordingHttpPrefix?: string
+}
+
+function commandResult(ack: { accepted: boolean, reason: string }): RecorderCommandResult {
+  return { accepted: ack.accepted, reason: ack.reason }
+}
+
+export function createRecorderClient(
+  transport: Transport,
+  options: RecorderClientOptions = {},
+): RecorderClient {
+  const httpPrefix = options.recordingHttpPrefix ?? DEFAULT_RECORDING_HTTP_PREFIX
+  let librarySnapshot: LibraryRecording[] = []
+  const snapshotWaiters: Record<string, SnapshotWaiter> = {}
+
+  function removeSnapshotWaiter(sourcePath: string, rejectWith?: Error): void {
+    const waiter = snapshotWaiters[sourcePath]
+    if (!waiter) {
+      return
+    }
+    delete snapshotWaiters[sourcePath]
+    clearTimeout(waiter.timeoutId)
+    if (rejectWith) {
+      waiter.reject(rejectWith)
+    }
+  }
+
+  function resolveSnapshotWaiters(): void {
+    for (const [path, waiter] of Object.entries(snapshotWaiters)) {
+      const outputPath = readySnapshotDownloadPath(path, librarySnapshot, waiter.ignoredSnapshotPaths)
+      if (!outputPath) {
+        continue
+      }
+      delete snapshotWaiters[path]
+      clearTimeout(waiter.timeoutId)
+      waiter.resolve(outputPath)
+    }
+  }
+
+  function resolveSnapshotFromOperation(event: RecordingOperationEvent): void {
+    const waiter = snapshotWaiters[event.path]
+    if (!waiter || !isSnapshotOperationForPath(event, event.path)) {
+      return
+    }
+    delete snapshotWaiters[event.path]
+    clearTimeout(waiter.timeoutId)
+    const outputPath = snapshotDownloadPath(event)
+    if (outputPath) {
+      waiter.resolve(outputPath)
+      return
+    }
+    waiter.reject(new Error(event.error || 'Snapshot failed'))
+  }
+
+  function beginSnapshotWait(sourcePath: string): Promise<string> {
+    const ignoredSnapshotPaths = new Set(snapshotPathsForSource(sourcePath, librarySnapshot))
+    return new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        removeSnapshotWaiter(sourcePath, new Error('Timed out waiting for the snapshot file'))
+      }, SNAPSHOT_WAIT_TIMEOUT_MS)
+      snapshotWaiters[sourcePath] = {
+        resolve, reject, timeoutId, ignoredSnapshotPaths,
+      }
+    })
+  }
+
+  return {
+    watchLibrary(onLibrary, onError) {
+      return watchState(transport, library, {
+        onValue: (message) => {
+          librarySnapshot = sortRecordingsNewestFirst(message.files.map(mapRecordingFile))
+          onLibrary(librarySnapshot)
+          resolveSnapshotWaiters()
+        },
+        onError: (error) => onError?.(error),
+      })
+    },
+
+    watchServiceRunning(onRunning) {
+      return watchServiceAlive(transport, 'recorder', { onAlive: onRunning })
+    },
+
+    watchOperations(onOperation, onError) {
+      return watchEvent(transport, operation, {
+        onValue: (message) => {
+          const event = mapRecordingOperation(message)
+          onOperation(event)
+          resolveSnapshotFromOperation(event)
+        },
+        onError: (error) => onError?.(error),
+      })
+    },
+
+    async repairRecording(path) {
+      const ack = await sendCommand(transport, RepairRecording, { path })
+      return commandResult(ack)
+    },
+
+    async cancelRepair(path) {
+      const ack = await sendCommand(transport, CancelRepair, { path })
+      return commandResult(ack)
+    },
+
+    async deleteRecording(path) {
+      const ack = await sendCommand(transport, DeleteRecording, { path })
+      return commandResult(ack)
+    },
+
+    async snapshotRecording(path) {
+      const snapshotPromise = beginSnapshotWait(path)
+      try {
+        const ack = await sendCommand(transport, SnapshotRecording, { path })
+        if (!ack.accepted) {
+          removeSnapshotWaiter(path, new Error(ack.reason || 'Snapshot command rejected'))
+        }
+      } catch (error) {
+        removeSnapshotWaiter(
+          path,
+          error instanceof Error ? error : new Error(String(error)),
+        )
+      }
+      return snapshotPromise
+    },
+
+    recordingDownloadUrl(relativePath) {
+      return recordingDownloadUrl(relativePath, httpPrefix)
+    },
+  }
+}
