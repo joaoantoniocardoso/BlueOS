@@ -14,6 +14,7 @@
 mod builder;
 mod clock;
 pub mod entry;
+mod inbox_recovery;
 mod kernel;
 mod logging;
 #[cfg(feature = "probe")]
@@ -22,6 +23,7 @@ mod run_outcome;
 mod service;
 mod settings;
 mod shutdown;
+mod sync;
 mod tasks;
 #[cfg(feature = "testing")]
 pub mod testing;

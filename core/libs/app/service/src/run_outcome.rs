@@ -5,4 +5,6 @@
 pub enum RunOutcome {
     /// Every endpoint closed, or shutdown finished within the IO drain budget.
     Stopped,
+    /// Three Inbox loop panics within one minute; the entry layer maps this to a non-zero exit (D-29).
+    RepeatedInboxPanics,
 }

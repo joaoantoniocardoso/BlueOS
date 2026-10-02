@@ -20,7 +20,7 @@ use tokio::{
     sync::{mpsc, watch},
     task::JoinSet,
 };
-use tracing::{error, warn};
+use tracing::warn;
 
 use blueos_api::{
     CommandAck, JOB_ID_NONE, Message, cdr_encoding, command_key, event_key, info_query_key,
@@ -38,10 +38,12 @@ use crate::{
         AnswerQuery, Decode, EventEndpoint, Refusal, Respond, ServiceBuilder, StateEndpoint,
     },
     clock::Clock,
+    inbox_recovery::{self, log_caught_panic},
     run_outcome::RunOutcome,
     service::ServiceError,
     settings::{SettingsDriver, settings_encoding},
     shutdown::{IoInflight, SHUTDOWN_IO_DRAIN_TIMEOUT, wait_for_shutdown_signal},
+    sync::lock_unpoisoned,
     tasks::{TaskSupervisor, hold_liveliness_until_cancelled},
 };
 
@@ -233,6 +235,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         let status_latest = watch::Sender::new(None);
         let status_queryable = declare(&*backend, status_key.clone()).await?;
         let task_supervisor = TaskSupervisor::new(
+            service,
             Arc::clone(&backend),
             status_key.clone(),
             status_encoding.clone(),
@@ -322,13 +325,19 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             tasks: task_supervisor,
         };
         for command in startup_commands {
-            kernel
+            if kernel
                 .dispatch(Delivery {
                     command,
                     reply: None,
                     persist_settings: false,
                 })
-                .await;
+                .await
+                .is_some()
+            {
+                return Err(ServiceError::Build(
+                    "the Kernel stopped during startup after repeated Inbox panics".into(),
+                ));
+            }
         }
         let initial_states = kernel
             .states
@@ -432,6 +441,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
 
     /// Handles the Commands in the Inbox one at a time, until shutdown finishes or every endpoint has stopped.
     pub async fn run(mut self) -> RunOutcome {
+        let mut repeated_inbox_panics = None;
         let mut shutdown_monotonic_deadline = None;
         let mut shutdown_receiver = None;
         core::mem::swap(&mut self.shutdown_receiver, &mut shutdown_receiver);
@@ -462,7 +472,10 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 while let Ok(Some(delivery)) =
                     tokio::time::timeout(Duration::ZERO, self.inbox.recv()).await
                 {
-                    self.dispatch(delivery).await;
+                    if let Some(outcome) = self.dispatch(delivery).await {
+                        repeated_inbox_panics = Some(outcome);
+                        break;
+                    }
                 }
                 if self.io_inflight.count() == 0 {
                     let task_budget = shutdown_monotonic_deadline
@@ -493,13 +506,23 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                     }
                     delivery = self.inbox.recv() => {
                         if let Some(delivery) = delivery {
-                            self.dispatch(delivery).await;
+                            if let Some(outcome) = self.dispatch(delivery).await {
+                                repeated_inbox_panics = Some(outcome);
+                                break;
+                            }
                         } else {
                             break;
                         }
                     }
                 }
+                if repeated_inbox_panics.is_some() {
+                    break;
+                }
                 continue;
+            }
+
+            if repeated_inbox_panics.is_some() {
+                break;
             }
 
             if self.endpoints.is_empty() {
@@ -523,22 +546,29 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 }
                 delivery = self.inbox.recv() => {
                     if let Some(delivery) = delivery {
-                        self.dispatch(delivery).await;
+                        if let Some(outcome) = self.dispatch(delivery).await {
+                            repeated_inbox_panics = Some(outcome);
+                        }
                     } else if self.endpoints.is_empty() {
                         break;
                     }
                 }
                 tick = self.timers.next_tick(), if self.timers.waiting() => {
-                    if let Some(tick) = tick {
-                        self.dispatch(Delivery {
+                    if let Some(tick) = tick
+                        && let Some(outcome) = self.dispatch(Delivery {
                             command: Command::Tick(tick),
                             reply: None,
                             persist_settings: false,
                         })
-                        .await;
+                        .await
+                    {
+                        repeated_inbox_panics = Some(outcome);
                     }
                 }
                 _ = self.endpoints.join_next(), if !self.endpoints.is_empty() => {}
+            }
+            if repeated_inbox_panics.is_some() {
+                break;
             }
         }
 
@@ -546,9 +576,12 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         self.endpoints.abort_all();
         while let Ok(Some(delivery)) = tokio::time::timeout(Duration::ZERO, self.inbox.recv()).await
         {
-            self.dispatch(delivery).await;
+            if let Some(outcome) = self.dispatch(delivery).await {
+                repeated_inbox_panics = Some(outcome);
+                break;
+            }
         }
-        RunOutcome::Stopped
+        repeated_inbox_panics.unwrap_or(RunOutcome::Stopped)
     }
 
     async fn begin_shutdown(&mut self) {
@@ -571,7 +604,30 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
 
     /// Applies one Command as a transaction: if the Domain rejects it, or `handle` or a Projection panics, the
     /// Snapshot is restored from a clone taken first and the domain events are dropped.
-    async fn dispatch(&mut self, delivery: Delivery<D>) {
+    ///
+    /// Returns [`RunOutcome::RepeatedInboxPanics`] when the rolling panic budget is exhausted (D-29).
+    async fn dispatch(&mut self, delivery: Delivery<D>) -> Option<RunOutcome> {
+        let unwound = AssertUnwindSafe(self.dispatch_delivery(delivery))
+            .catch_unwind()
+            .await;
+        match unwound {
+            Ok(maybe_stop) => maybe_stop,
+            Err(panic) => {
+                log_caught_panic(self.service, None, panic);
+                if self
+                    .tasks
+                    .record_inbox_loop_panic(self.clock.now().monotonic)
+                    .await
+                {
+                    Some(RunOutcome::RepeatedInboxPanics)
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    async fn dispatch_delivery(&mut self, delivery: Delivery<D>) -> Option<RunOutcome> {
         let Delivery {
             command,
             reply,
@@ -581,7 +637,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             if let Some(query) = reply {
                 acknowledge(query, Err(Rejection::ShuttingDown)).await;
             }
-            return;
+            return None;
         }
         let now = self.clock.now();
         let backup = self.snapshot.clone();
@@ -607,11 +663,8 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 Outcome::Rejected { reason } => Err(Rejection::Domain(reason)),
             }
         }))
-        .unwrap_or_else(|_panic| {
-            error!(
-                service = self.service,
-                "Command panicked, so its Snapshot was restored"
-            );
+        .unwrap_or_else(|panic| {
+            log_caught_panic(self.service, Some(inbox_recovery::INBOX_LOOP_NAME), panic);
             Err(Rejection::Panicked)
         });
         match decided {
@@ -622,28 +675,20 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 }
                 #[cfg(feature = "testing")]
                 if let Some(log) = &self.effect_log {
-                    log.lock()
-                        .expect("the effect log mutex is not poisoned")
-                        .push(effects.clone());
+                    lock_unpoisoned(log).push(effects.clone());
                 }
                 if persist_settings && let Some(settings) = &self.settings {
-                    let persist_result = settings
-                        .driver
-                        .lock()
-                        .expect("settings driver mutex is not poisoned")
-                        .persist(&self.snapshot);
+                    let persist_result = lock_unpoisoned(&settings.driver).persist(&self.snapshot);
                     match persist_result {
-                        Ok(()) => settings
-                            .driver
-                            .lock()
-                            .expect("settings driver mutex is not poisoned")
-                            .commit_persisted(&self.snapshot),
+                        Ok(()) => {
+                            lock_unpoisoned(&settings.driver).commit_persisted(&self.snapshot)
+                        }
                         Err(error) => {
                             self.snapshot = backup;
                             if let Some(query) = reply {
                                 acknowledge(query, Err(Rejection::Domain(error.into()))).await;
                             }
-                            return;
+                            return None;
                         }
                     }
                 }
@@ -667,11 +712,25 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                         );
                     }
                 }
+                self.tasks.mark_inbox_loop_healthy().await;
+                None
             }
             Err(rejection) => {
                 self.snapshot = backup;
+                let stop = if matches!(rejection, Rejection::Panicked) {
+                    self.tasks
+                        .record_inbox_loop_panic(self.clock.now().monotonic)
+                        .await
+                } else {
+                    false
+                };
                 if let Some(query) = reply {
                     acknowledge(query, Err(rejection)).await;
+                }
+                if stop {
+                    Some(RunOutcome::RepeatedInboxPanics)
+                } else {
+                    None
                 }
             }
         }
@@ -682,13 +741,8 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             return;
         };
         let sent: Result<(), SendError> = async {
-            let payload = Bytes::from(
-                settings
-                    .driver
-                    .lock()
-                    .expect("settings driver mutex is not poisoned")
-                    .encode_state(&self.snapshot)?,
-            );
+            let payload =
+                Bytes::from(lock_unpoisoned(&settings.driver).encode_state(&self.snapshot)?);
             if settings.latest.borrow().as_ref() == Some(&payload) {
                 return Ok(());
             }
@@ -825,10 +879,7 @@ async fn serve_update_settings<D: Domain>(
                 continue;
             }
         };
-        let request = driver
-            .lock()
-            .expect("settings driver mutex is not poisoned")
-            .request_from_envelope(decoded);
+        let request = lock_unpoisoned(&driver).request_from_envelope(decoded);
         match request {
             Ok(request) => {
                 let delivery = Delivery {
