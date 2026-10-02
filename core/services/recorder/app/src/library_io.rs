@@ -11,7 +11,9 @@ use tracing::warn;
 
 use blueos_domain::IoError;
 use blueos_recorder_capture::RecordingState;
-use blueos_recorder_domain::{RecorderIoResult, RecorderObservedFact, RecorderSnapshot};
+use blueos_recorder_domain::{
+    RecorderIoRequest, RecorderIoResult, RecorderObservedFact, RecorderSnapshot,
+};
 use blueos_recorder_library::{
     LibraryIoRequest, LibraryIoResult, LibraryRepairOutcome, RepairFailure, ScannedRecording,
 };
@@ -34,7 +36,7 @@ pub(crate) fn run_library_io(
     request: blueos_recorder_domain::RecorderIoRequest,
 ) -> Result<Option<RecorderIoResult>, IoError> {
     match request {
-        blueos_recorder_domain::RecorderIoRequest::Library(io_request) => {
+        RecorderIoRequest::Library(io_request) => {
             Ok(Some(RecorderIoResult::Library(match io_request {
                 LibraryIoRequest::Scan => scan(context, snapshot),
                 LibraryIoRequest::Delete { path } => delete(context, &path),
