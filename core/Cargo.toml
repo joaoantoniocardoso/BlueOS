@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "libs/adapters/comms",
+    "libs/api",
     "libs/logic/domain",
     "libs/idl",
     "libs/idl/codegen",
@@ -28,6 +29,7 @@ panic = "unwind"
 strip = true
 
 [workspace.dependencies]
+blueos-api = { path = "libs/api" }
 blueos-comms = { path = "libs/adapters/comms" }
 blueos-domain = { path = "libs/logic/domain" }
 blueos-recorder-capture = { path = "services/recorder/logic/capture" }
