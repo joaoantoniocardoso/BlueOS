@@ -39,6 +39,7 @@
     "@types/semver": "^7.3.9",
     "@types/semver-stable": "^3.0.0",
     "@types/uuid": "^9.0.0",
+    "@types/webpack-env": "^1.18.8",
     "ansi_up": "^5.2.1",
     "apexcharts": "^3.36.3",
     "axios": "^1.12.2",
