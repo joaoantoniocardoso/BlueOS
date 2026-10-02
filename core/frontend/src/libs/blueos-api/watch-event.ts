@@ -1,7 +1,7 @@
 import { decodeSample } from './cdr'
-import type { Observer } from './watch'
 import type { Subscription, Transport } from './transport'
 import type { MessageForSchema, SchemaName } from './types'
+import type { Observer } from './watch'
 
 /** An Event endpoint, such as the generated `recorder.operation`. */
 export interface EventEndpoint<Schema extends SchemaName> {

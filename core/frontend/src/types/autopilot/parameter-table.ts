@@ -1,17 +1,16 @@
+import axios from 'axios'
 import { isNumber } from 'lodash'
 import ardupilotParamPaths from 'virtual:ardupilot-param-index'
 
-import { fetchVehicleType } from '@/components/autopilot/AutopilotManagerUpdater'
+import { fetchFirmwareVehicleType, fetchVehicleType } from '@/components/autopilot/AutopilotManagerUpdater'
 import { MavAutopilot } from '@/libs/MAVLink2Rest/mavlink2rest-ts/messages/mavlink2rest-enum'
 import autopilot_data from '@/store/autopilot'
 import autopilot from '@/store/autopilot_manager'
+import { FirmwareVehicleType } from '@/types/autopilot'
 import { Dictionary } from '@/types/common'
 
 import Parameter from './parameter'
 import { fetchPX4Metadata, PX4ParametersMetadata } from './px4/metadata-fetcher'
-import { fetchFirmwareVehicleType } from '@/components/autopilot/AutopilotManagerUpdater'
-import { FirmwareVehicleType } from '@/types/autopilot'
-import axios from 'axios'
 
 // Parameter metadata as in the JSON files
 interface Metadata {
@@ -99,18 +98,19 @@ export default class ParametersTable {
     this.fetchMetadata()
   }
 
+  // eslint-disable-next-line class-methods-use-this
   async fetchArduPilotMetadata(): Promise<MetadataFile | string> {
     try {
       const json_metadata_override = '/userdata/metadata_override.json'
-      const metadata = await axios.get(json_metadata_override).then(response => response.data as MetadataFile)
+      const metadata = await axios.get(json_metadata_override).then((response) => response.data as MetadataFile)
       console.info(`Using metadata override from ${json_metadata_override}`)
       return metadata
     } catch (error) {
-      console.debug(`Metadata override not present`)
+      console.debug('Metadata override not present')
     }
     await fetchFirmwareVehicleType() // required to populate autopilot.vehicle_type
     const jsons = ardupilotParamPaths
-    let folder = "Copter"
+    let folder = 'Copter'
     switch (autopilot.firmware_vehicle_type) {
       case FirmwareVehicleType.ArduSub:
         folder = 'Sub'
@@ -120,6 +120,9 @@ export default class ParametersTable {
         break
       case FirmwareVehicleType.ArduPlane:
         folder = 'Plane'
+        break
+      default:
+        break
     }
     const major = autopilot.firmware_info?.version.major
     let minor = autopilot.firmware_info?.version.minor ?? 0
@@ -127,16 +130,15 @@ export default class ParametersTable {
       // go down one minor version at a time until we find a match
       const metadata_path = `/assets/ArduPilot-Parameter-Repository/${folder}-${major}.${minor}/apm.pdef.json`
       if (jsons.includes(`/public${metadata_path}`)) {
-        return await axios.get(metadata_path).then(response => response.data as MetadataFile)
+        return axios.get(metadata_path).then((response) => response.data as MetadataFile)
       }
-      minor -= 1;
+      minor -= 1
     }
     // if we didn't find a match, just return the first one. that must be better than nothing, right?
     const fallback = jsons[0].replace('/public', '')
     console.warn(`Could not find metadata for ${folder}-${major}.X. Falling back to ${fallback}`)
-    return axios.get(fallback).then(response => response.data as MetadataFile)
+    return axios.get(fallback).then((response) => response.data as MetadataFile)
   }
-
 
   async fetchMetadata(): Promise<void> {
     if (autopilot.vehicle_type === null) {
@@ -149,7 +151,7 @@ export default class ParametersTable {
     if (autopilot_data.autopilot_type === MavAutopilot.MAV_AUTOPILOT_PX4) {
       this.metadata = fromPX4toArduPilotParametersMetadata(await fetchPX4Metadata())
     } else {
-    let metadata = await this.fetchArduPilotMetadata()
+      const metadata = await this.fetchArduPilotMetadata()
 
       for (const category of Object.values(metadata)) {
         for (const [name, parameter] of Object.entries(category)) {

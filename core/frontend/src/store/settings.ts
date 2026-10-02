@@ -4,10 +4,8 @@ import {
 } from 'vuex-module-decorators'
 
 import store from '@/store'
-import beacon from '@/store/beacon'
-import { castString } from '@/utils/helper_functions'
-import { DynamicModule as Module } from '@/utils/vuex'
 import bag from '@/store/bag'
+import { DynamicModule as Module } from '@/utils/vuex'
 
 @Module({
   dynamic: true,

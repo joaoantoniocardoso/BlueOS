@@ -138,8 +138,8 @@ class Mavlink2RestManager {
     param5: number | undefined = undefined,
     param6: number | undefined = undefined,
     param7: number | undefined = undefined,
-  ) {
-    mavlink2rest.sendMessage({
+  ): void {
+    this.sendMessage({
       header: {
         system_id: 255,
         component_id: 1,

@@ -2,11 +2,12 @@
  * Parses the sort time for a recording from its file name (UTC), falling back to file mtime.
  * Shared with `blueos-recorder-library` via `tests/vectors/recording_file_names.json`.
  */
+// eslint-disable-next-line import/prefer-default-export
 export function createdUnixSecondsFromFilename(
   fileName: string,
   fileTimeUnixSeconds: number,
 ): number {
-  if (!/^[\x00-\x7F]*$/.test(fileName)) {
+  if (!isAscii(fileName)) {
     return fileTimeUnixSeconds
   }
   const copyOrSnapshot = copyOrSnapshotTimestamp(fileName)
@@ -52,12 +53,22 @@ function recorderPrefixTimestamp(name: string): number | undefined {
   return parseRecorderPrefix(lower.slice('recorder_'.length))
 }
 
+function isAscii(fileName: string): boolean {
+  for (const character of fileName) {
+    if (character.charCodeAt(0) > 0x7f) {
+      return false
+    }
+  }
+  return true
+}
+
 function parseIsoSuffixTimestamp(suffix: string): number | undefined {
-  const marker = suffix.startsWith('copy-')
-    ? suffix.slice('copy-'.length)
-    : suffix.startsWith('snapshot-')
-      ? suffix.slice('snapshot-'.length)
-      : undefined
+  let marker: string | undefined
+  if (suffix.startsWith('copy-')) {
+    marker = suffix.slice('copy-'.length)
+  } else if (suffix.startsWith('snapshot-')) {
+    marker = suffix.slice('snapshot-'.length)
+  }
   if (marker === undefined || !marker.endsWith('z.mcap')) {
     return undefined
   }
@@ -86,7 +97,7 @@ function parseRecorderPrefix(rest: string): number | undefined {
 function parseIsoTimestampBody(body: string): number | undefined {
   if (
     body.length !== 19
-    || (body.charAt(10) !== 'T' && body.charAt(10) !== 't')
+    || body.charAt(10) !== 'T' && body.charAt(10) !== 't'
   ) {
     return undefined
   }

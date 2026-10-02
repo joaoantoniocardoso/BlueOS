@@ -1,4 +1,6 @@
-import { ChannelReceiver, Config, QueryTarget, Reply, Sample, Session, Subscriber } from '@eclipse-zenoh/zenoh-ts'
+import {
+  ChannelReceiver, Config, QueryTarget, Reply, Sample, Session, Subscriber,
+} from '@eclipse-zenoh/zenoh-ts'
 
 // zenoh-ts 1.9 no longer exports Receiver/RecvErr; the get() channel rejects receive() on close
 // (and the query has its own timeout), so we just map that rejection to Disconnected.
@@ -19,9 +21,11 @@ export async function receiveQueryReply(receiver: Receiver): Promise<Reply | Rec
 class ZenohManager {
   private static instance: ZenohManager
 
-  private sessionPromise: Promise<Session> | null = null
+  private sessionPromise: Promise<Session> | null
 
-  private constructor() {}
+  private constructor() {
+    this.sessionPromise = null
+  }
 
   public static getInstance(): ZenohManager {
     if (!ZenohManager.instance) {
@@ -47,7 +51,7 @@ class ZenohManager {
     return this.sessionPromise
   }
 
-  public async query(key: string, target: QueryTarget, timeout: number = 30000) : Promise<any | null> {
+  public async query(key: string, target: QueryTarget, timeout = 30000): Promise<unknown> {
     const session = await this.getSession()
     if (!session) {
       console.error('Zenoh session not initialized')
@@ -76,7 +80,7 @@ class ZenohManager {
       return null
     }
 
-    if (!reply || typeof (reply as any).result !== 'function') {
+    if (!reply || typeof (reply as { result?: unknown }).result !== 'function') {
       console.error('Unexpected reply from zenoh queryable:', reply)
       return null
     }

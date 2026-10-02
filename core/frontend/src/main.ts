@@ -2,21 +2,22 @@
 import './cosmos'
 import '@/style/css/vuetify-global.css'
 import '@/style/css/animations.css'
-import './components/vue-tour/dist/vue-tour.css'
+import 'vue-tour/dist/vue-tour.css'
 
+import * as Sentry from '@sentry/vue'
 import Vue from 'vue'
 import VueApexCharts from 'vue-apexcharts'
 import JsonViewer from 'vue-json-viewer'
 import VueTooltipDirective from 'vue-tooltip-directive'
+import VStep from 'vue-tour/src/components/VStep.vue'
+import VTour from 'vue-tour/src/components/VTour.vue'
 import VueDraggable from 'vuedraggable'
 import Vuetify from 'vuetify/lib'
-import * as Sentry from "@sentry/vue";
+
+import consoleLogger from '@/libs/console-logger'
 
 import App from './App.vue'
 import DefaultTooltip from './components/common/DefaultTooltip.vue'
-import VStep from './components/vue-tour/src/components/VStep.vue'
-import VTour from './components/vue-tour/src/components/VTour.vue'
-import consoleLogger from '@/libs/console-logger'
 import vuetify from './plugins/vuetify'
 import router from './router'
 import store from './store'

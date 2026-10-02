@@ -18,9 +18,12 @@ export function getLatestVersion(versions: Record<string, Version>, beta = true)
     return values.find((v) => v.tag === stable.max(values.map((v1) => v1.tag)))
   }
 
-  return values.reduce(
-    (a: Version, b: Version) => (semver.compare(a.tag, b.tag) > 0 ? a : b),
-  )
+  return values.reduce((a: Version, b: Version) => {
+    if (semver.compare(a.tag, b.tag) > 0) {
+      return a
+    }
+    return b
+  })
 }
 
 export function isStable(version: string): boolean {

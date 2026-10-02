@@ -4,18 +4,13 @@ import {
 
 import { vehicle_folder } from '@/components/vehiclesetup/viewers/modelHelper'
 import { MavAutopilot, MavType } from '@/libs/MAVLink2Rest/mavlink2rest-ts/messages/mavlink2rest-enum'
-import { Message as M2R } from '@/libs/MAVLink2Rest/mavlink2rest-ts/messages/mavlink2rest-message'
 import store from '@/store'
 import Parameter from '@/types/autopilot/parameter'
 // eslint-disable-next-line import/no-cycle
 import ParameterFetcher from '@/types/autopilot/parameter-fetcher'
-
-
 import {
   FRAME_CLASS as ROVER_FRAME_CLASS,
-  FRAME_TYPE as ROVER_FRAME_TYPE,
 } from '@/types/autopilot/parameter-rover-enums'
-
 import {
   FRAME_CONFIG as SUB_FRAME_CONFIG,
 } from '@/types/autopilot/parameter-sub-enums'
@@ -101,7 +96,7 @@ class AutopilotStore extends VuexModule {
     return undefined
   }
 
-  get vehicle_model() {
+  get vehicle_model(): string {
     const frame = this.frame_type
     if (!autopilot_manager.vehicle_type || frame === undefined) {
       return ''
@@ -113,7 +108,7 @@ class AutopilotStore extends VuexModule {
     return ''
   }
 
-  get is_safe() {
+  get is_safe(): boolean {
     // We can potentially check for external things here
     return !this.verhicle_armed
   }

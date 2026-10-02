@@ -43,7 +43,9 @@ export function parseParamSets(payload: unknown): ParamSets {
 // Callers retry on failure, so errors are propagated instead of swallowed.
 export async function fetchParamSets(): Promise<ParamSets> {
   try {
-    pending_param_sets ??= fetchWithVehicleFallback(PARAM_SETS_URL).then((response) => response.json()).then(parseParamSets)
+    pending_param_sets ??= fetchWithVehicleFallback(PARAM_SETS_URL)
+      .then((response) => response.json())
+      .then(parseParamSets)
     return await pending_param_sets
   } catch (error) {
     pending_param_sets = undefined

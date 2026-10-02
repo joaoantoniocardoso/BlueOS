@@ -1,3 +1,5 @@
+import type { AxiosProgressEvent } from 'axios'
+
 import {
   ExtensionData,
   ExtensionUploadResponse,
@@ -8,6 +10,7 @@ import {
   UploadProgressEvent,
 } from '@/types/kraken'
 import back_axios from '@/utils/api'
+
 const KRAKEN_BASE_URL = '/kraken'
 const KRAKEN_API_V2_URL = `${KRAKEN_BASE_URL}/v2.0`
 
@@ -192,7 +195,7 @@ export async function setManifestSourceOrder(identifier: string, order: number):
  */
 export async function installExtension(
   extension: InstalledExtensionData,
-  progressHandler: (event: any) => void,
+  progressHandler: (event: AxiosProgressEvent) => void,
 ): Promise<void> {
   await back_axios({
     url: `${KRAKEN_API_V2_URL}/extension/install`,
@@ -268,7 +271,7 @@ export async function restartExtension(identifier: string): Promise<void> {
 export async function updateExtensionToVersion(
   identifier: string,
   version: string,
-  progressHandler: (event: any) => void,
+  progressHandler: (event: AxiosProgressEvent) => void,
 ): Promise<void> {
   await back_axios({
     url: `${KRAKEN_API_V2_URL}/extension/${identifier}/${version}`,
@@ -307,7 +310,7 @@ export async function listContainers(): Promise<RunningContainer[]> {
 /**
  * List all stats of all running containers from kraken, uses API v2
  */
-export async function getContainersStats(): Promise<any> {
+export async function getContainersStats(): Promise<Record<string, { cpu: number, memory: number }>> {
   const response = await back_axios({
     method: 'GET',
     url: `${KRAKEN_API_V2_URL}/container/stats`,
@@ -366,7 +369,7 @@ export async function keepTemporaryExtensionAlive(tempTag: string): Promise<void
 export async function finalizeExtension(
   extension: InstalledExtensionData,
   tempTag: string,
-  progressHandler: (event: any) => void,
+  progressHandler: (event: AxiosProgressEvent) => void,
 ): Promise<void> {
   await back_axios({
     method: 'POST',
