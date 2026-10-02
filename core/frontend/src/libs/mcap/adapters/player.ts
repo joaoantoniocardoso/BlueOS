@@ -618,11 +618,8 @@ export class McapVideoPlayer {
       await this.media.flushFragment()
     }
 
-    if (!signal.aborted) {
-      this.alignPlayhead()
-      if (this.wantPlaying && this.video.paused) {
-        this.video.play().catch(() => undefined)
-      }
+    if (!signal.aborted && this.wantPlaying && this.video.paused) {
+      this.video.play().catch(() => undefined)
     }
     this.priming = false
     this.loading = false
@@ -680,6 +677,11 @@ export class McapVideoPlayer {
         await this.appendToBuffer(data)
       }
     })
+    // Aligned here rather than after a flush: mediabunny does not wait for the last chunk of a flush to
+    // be appended, so the playhead would wait at a time no media will ever cover.
+    if (!this.controller.signal.aborted) {
+      this.alignPlayhead()
+    }
     await this.run(() => this.evict(false))
   }
 
