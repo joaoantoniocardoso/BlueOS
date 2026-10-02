@@ -29,6 +29,8 @@ pub enum RecordingPathError {
 
 /// A library-relative MCAP path that passed [`RecordingRelativePath::parse`].
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
 pub struct RecordingRelativePath(String);
 
 impl RecordingRelativePath {

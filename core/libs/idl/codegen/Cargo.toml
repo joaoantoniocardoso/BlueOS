@@ -12,7 +12,7 @@ prettyplease.workspace = true
 proc-macro2.workspace = true
 quote.workspace = true
 roslibrust_codegen.workspace = true
-serde.workspace = true
+serde = { workspace = true, features = ["std"] }
 sha2.workspace = true
 syn.workspace = true
 thiserror.workspace = true

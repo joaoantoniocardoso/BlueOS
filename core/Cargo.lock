@@ -383,6 +383,7 @@ dependencies = [
  "blueos-comms",
  "blueos-domain",
  "blueos-idl",
+ "blueos-jobs",
  "blueos-recorder-api",
  "blueos-recorder-cameras",
  "blueos-recorder-capture",
@@ -432,6 +433,7 @@ dependencies = [
  "blueos-recorder-capture",
  "blueos-recorder-library",
  "blueos-recorder-paths",
+ "serde",
 ]
 
 [[package]]
@@ -473,6 +475,9 @@ dependencies = [
 [[package]]
 name = "blueos-recorder-paths"
 version = "0.1.0"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "blueos-recorder-schema-gate"

@@ -16,7 +16,9 @@ use blueos_idl::msg::{
     blueos_msgs::ServiceInfo,
     blueos_recorder_msgs::{RecordingState, StartRecordingCommand},
 };
-use blueos_recorder_app::{RecorderService, build_with_record_gate};
+use blueos_recorder_app::{
+    IndexQuerySetup, RecorderService, build_with_record_gate, build_with_record_gate_and_index,
+};
 use blueos_recorder_cameras::RAW_MAVLINK_OUT_TOPIC;
 use blueos_recorder_capture::{CaptureObservedFact, RecordGate};
 use blueos_recorder_domain::{RecorderObservedFact, RecorderRequest};
@@ -175,10 +177,7 @@ async fn mavlink_recorded_after_armed_observed_fact() {
 async fn dropped_armed_fact_heals_on_mavlink_periodic_resend() {
     let directory = tempdir().expect("tempdir");
     let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
-    let context = ServiceContext::new(
-        recorder_arguments(directory.path(), None),
-        Arc::clone(&backend),
-    );
+    let context = ServiceContext::new(recorder_arguments(directory.path()), Arc::clone(&backend));
     let (builder, mut record_gate) = build_with_record_gate(&context).expect("build");
     let kernel = Kernel::start(
         RecorderService::NAME,
@@ -326,7 +325,7 @@ async fn shutdown_mid_recording_leaves_readable_file() {
     let settings_parent = tempdir().expect("settings");
     let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
     let context = ServiceContext::with_settings_path(
-        recorder_arguments(directory.path(), None),
+        recorder_arguments(directory.path()),
         Some(settings_parent.path().to_path_buf()),
         Arc::clone(&backend),
     );
@@ -367,7 +366,7 @@ async fn shutdown_with_no_samples_after_start_still_finishes_file() {
     let settings_parent = tempdir().expect("settings");
     let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
     let context = ServiceContext::with_settings_path(
-        recorder_arguments(directory.path(), None),
+        recorder_arguments(directory.path()),
         Some(settings_parent.path().to_path_buf()),
         Arc::clone(&backend),
     );
@@ -407,11 +406,12 @@ async fn shutdown_with_full_writer_queue_finishes_file() {
     let settings_parent = tempdir().expect("settings");
     let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
     let context = ServiceContext::with_settings_path(
-        recorder_arguments(directory.path(), Some(2)),
+        recorder_arguments(directory.path()),
         Some(settings_parent.path().to_path_buf()),
         Arc::clone(&backend),
     );
-    let mut builder = RecorderService::build(&context).expect("build");
+    let (mut builder, _) =
+        build_with_record_gate_and_index(&context, IndexQuerySetup::default(), 2).expect("build");
     let shutdown = builder.shutdown_handle();
     let kernel = Kernel::start(
         RecorderService::NAME,
