@@ -13,9 +13,7 @@ use tokio::sync::mpsc;
 
 use blueos_domain::{Command, Domain, IoError};
 
-use crate::{shutdown::IoInflight, tasks::TaskSpawner};
-
-use super::Delivery;
+use crate::{inbox::Delivery, shutdown::IoInflight, tasks::TaskSpawner};
 
 /// Runs one IO request through the service's async executor.
 pub(crate) type IoExecutor<D, Context>

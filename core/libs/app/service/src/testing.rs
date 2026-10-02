@@ -14,7 +14,7 @@ use blueos_api::{
 use blueos_comms::{CommsBackend, QueryBody, ReplyError, channel::ChannelBackend};
 use blueos_domain::{Domain, Effect, Now};
 
-use crate::{Clock, Kernel, Service, ServiceContext, ServiceError};
+use crate::{Clock, CommandSender, Kernel, Service, ServiceContext, ServiceError};
 
 /// The wall-clock time the Domain sees when the harness starts: 2026-01-01T00:00:00Z.
 pub const WALL_CLOCK_AT_START: Duration = Duration::from_secs(1_767_225_600);
@@ -35,6 +35,7 @@ pub struct EffectLog<D: Domain>(EffectLogStorage<D>);
 /// A running Service `S`, with a client on the same backbone. Dropping it stops the Kernel.
 pub struct Harness<S: Service> {
     backend: Arc<dyn CommsBackend>,
+    command_sender: CommandSender<S::Domain>,
     #[expect(
         dead_code,
         reason = "held so that dropping the Harness aborts the Kernel"
@@ -155,15 +156,24 @@ impl<S: Service> Harness<S> {
             effect_log,
         )
         .await?;
+        let command_sender = kernel
+            .command_sender()
+            .expect("the Kernel hands out a CommandSender before it runs");
         let mut tasks = JoinSet::new();
         tasks.spawn(async move {
             kernel.run().await;
         });
         Ok(Self {
             backend,
+            command_sender,
             kernel: tasks,
             service: PhantomData,
         })
+    }
+
+    /// Sends Commands into the service's Inbox without using the backbone.
+    pub fn command_sender(&self) -> &CommandSender<S::Domain> {
+        &self.command_sender
     }
 
     /// The backbone the Service runs on, for anything the harness has no helper for, such as subscribing to an
