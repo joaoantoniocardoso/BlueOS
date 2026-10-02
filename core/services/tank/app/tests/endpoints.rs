@@ -61,6 +61,27 @@ async fn drain_empties_the_tank() {
 }
 
 #[tokio::test(start_paused = true)]
+async fn drain_publishes_emptied() {
+    let harness = start(0).await;
+    let mut events = harness
+        .backend()
+        .subscribe(&event_key(TankService::NAME, "Emptied"))
+        .await
+        .unwrap();
+
+    harness.send("Drain", &EmptyRequest::default()).await;
+
+    let event = timeout(Duration::from_secs(10), events.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        EmptyRequest::decode(&event.payload().to_bytes()).unwrap(),
+        EmptyRequest::default()
+    );
+}
+
+#[tokio::test(start_paused = true)]
 async fn level_answers_how_full_the_tank_is() {
     let harness = start(0).await;
     harness

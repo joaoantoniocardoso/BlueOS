@@ -84,5 +84,6 @@ pub fn register<D: Conversions, H: Handlers<D>>(
             }
         })
         .state("tank", <D as Conversions>::tank)
+        .event("Emptied", <D as Conversions>::emptied)
         .event("LevelChanged", <D as Conversions>::level_changed)
 }

@@ -11,7 +11,7 @@ use blueos_idl::msg::blueos_example_msgs;
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not convert the endpoints of the `tank` Service",
     label = "no `impl Conversions for {Self}` in the `tank` logic/api crate",
-    note = "implement `drain` for the Command `Drain`, `level` for the Query `Level`, `level_response` for the Query `Level`, `level_after_fill_response` for the Query `LevelAfterFill`, `tank` for the State `tank`, `level_changed` for the Event `LevelChanged`"
+    note = "implement `drain` for the Command `Drain`, `level` for the Query `Level`, `level_response` for the Query `Level`, `level_after_fill_response` for the Query `LevelAfterFill`, `tank` for the State `tank`, `emptied` for the Event `Emptied`, `level_changed` for the Event `LevelChanged`"
 )]
 pub trait Conversions: DomainQueries {
     /// The Command `Drain`, at `blueos/v1/tank/command/Drain`.
@@ -40,6 +40,11 @@ pub trait Conversions: DomainQueries {
     ///
     /// Its value for `snapshot`.
     fn tank(snapshot: &Self::Snapshot) -> blueos_example_msgs::LevelQueryResponse;
+
+    /// The Event `Emptied`, at `blueos/v1/tank/event/Emptied`.
+    ///
+    /// What it publishes for `event`, or `None` when `event` is another one.
+    fn emptied(event: &Self::Event) -> Option<blueos_example_msgs::EmptyRequest>;
 
     /// The Event `LevelChanged`, at `blueos/v1/tank/event/LevelChanged`.
     ///

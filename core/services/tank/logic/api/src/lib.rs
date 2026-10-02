@@ -34,9 +34,14 @@ impl Conversions for Tank {
         level_message(snapshot.level)
     }
 
+    fn emptied(event: &TankEvent) -> Option<EmptyRequest> {
+        matches!(event, TankEvent::Emptied).then(EmptyRequest::default)
+    }
+
     fn level_changed(event: &TankEvent) -> Option<LevelQueryResponse> {
         match *event {
             TankEvent::LevelChanged(level) => Some(level_message(level)),
+            TankEvent::Emptied => None,
         }
     }
 }

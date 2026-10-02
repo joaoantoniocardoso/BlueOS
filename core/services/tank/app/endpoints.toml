@@ -18,4 +18,5 @@ Probe = { request = "blueos_example_msgs/msg/EmptyRequest", response = "blueos_e
 tank = { message = "blueos_example_msgs/msg/LevelQueryResponse" }
 
 [event]
+Emptied = { message = "blueos_example_msgs/msg/EmptyRequest" }
 LevelChanged = { message = "blueos_example_msgs/msg/LevelQueryResponse" }

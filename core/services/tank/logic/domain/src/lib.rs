@@ -34,6 +34,8 @@ pub enum TankRequest {
 pub enum TankEvent {
     /// The tank is now at this level.
     LevelChanged(Percent),
+    /// The tank is now empty.
+    Emptied,
 }
 
 /// The questions a client asks the tank.
@@ -81,8 +83,12 @@ impl Domain for Tank {
             TankRequest::SetLevel(level) => level,
             TankRequest::Drain => Percent::default(),
         };
+        let mut events = vec![TankEvent::LevelChanged(snapshot.level)];
+        if snapshot.level == Percent::default() {
+            events.push(TankEvent::Emptied);
+        }
         Outcome::Applied {
-            events: vec![TankEvent::LevelChanged(snapshot.level)],
+            events,
             effects: vec![],
         }
     }
