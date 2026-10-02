@@ -1,8 +1,3 @@
-"""Runtime ROS 2 `.msg` parsing and CDR codec for the versioned BlueOS zenoh API (D-06, D-17).
-
-Key helpers mirror `core/libs/api/src/lib.rs` (single source of truth for key layout).
-"""
-
 from __future__ import annotations
 
 import logging
@@ -13,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
+# The keys and encodings must match `core/libs/api`, the source of truth; the shared `keys.json` vectors check it.
 API_VERSION = "v1"
 KEY_PREFIX = "blueos/v1"
 
