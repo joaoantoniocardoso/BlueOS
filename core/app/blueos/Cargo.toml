@@ -11,6 +11,7 @@ path = "src/main.rs"
 
 [features]
 probe = ["blueos-service/probe"]
+recorder = []
 
 [dependencies]
 blueos-service.workspace = true
