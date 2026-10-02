@@ -1,4 +1,4 @@
-//! Publishes MAVLink replies from cameras Block IO Effects.
+//! MAVLink encoding and publish for cameras Block IO Effects.
 
 use core::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
@@ -11,44 +11,37 @@ use blueos_domain::IoError;
 use blueos_recorder_cameras::{
     CamerasIoRequest, CaptureCommandKind, DiscoveryMessageKind, RAW_MAVLINK_IN_TOPIC,
 };
-use blueos_recorder_domain::{RecorderDomain, RecorderIoRequest, RecorderSnapshot};
+use blueos_recorder_domain::RecorderIoResult;
 use blueos_recorder_mavlink::{
     MavlinkCaptureCommand, MavlinkDiscoveryMessage, SystemAndComponent as MavlinkSystem,
     build_camera_capture_status, build_command_ack, build_discovery_request,
     default_discovery_source,
 };
-use blueos_service::ServiceBuilder;
+use blueos_service::Session;
 
-use crate::context::RecorderContext;
-
-/// Registers the IO executor on the Service builder.
-pub(crate) fn register_io(
-    builder: ServiceBuilder<RecorderDomain, RecorderContext>,
-) -> ServiceBuilder<RecorderDomain, RecorderContext> {
-    builder.io(
-        |context: &RecorderContext, _snapshot: &RecorderSnapshot, request| {
-            let session = Arc::clone(&context.session);
-            let mavlink_sequence = Arc::clone(&context.mavlink_sequence);
-            async move {
-                let RecorderIoRequest::Cameras(request) = request else {
-                    unreachable!("library IO runs on the blocking executor")
-                };
-                let bytes = encode_cameras_io(&mavlink_sequence, request);
-                session
-                    .publish(Sample::new(
-                        RAW_MAVLINK_IN_TOPIC,
-                        Payload::new(Bytes::from(bytes)),
-                        "application/octet-stream",
-                    ))
-                    .await
-                    .map_err(|error| {
-                        warn!(%error, topic = RAW_MAVLINK_IN_TOPIC, "Failed to publish MAVLink reply");
-                        IoError::new("failed to publish MAVLink reply")
-                    })?;
-                Ok(None)
-            }
-        },
-    )
+/// Encodes and publishes one cameras IO request on the backbone session.
+pub(crate) async fn publish_cameras_request(
+    session: Session,
+    mavlink_sequence: Arc<AtomicU8>,
+    request: CamerasIoRequest,
+) -> Result<Option<RecorderIoResult>, IoError> {
+    let bytes = encode_cameras_io(&mavlink_sequence, request);
+    session
+        .publish(Sample::new(
+            RAW_MAVLINK_IN_TOPIC,
+            Payload::new(Bytes::from(bytes)),
+            "application/octet-stream",
+        ))
+        .await
+        .map_err(|error| {
+            warn!(
+                %error,
+                topic = RAW_MAVLINK_IN_TOPIC,
+                "Failed to publish MAVLink reply"
+            );
+            IoError::new("failed to publish MAVLink reply")
+        })?;
+    Ok(None)
 }
 
 fn encode_cameras_io(mavlink_sequence: &Arc<AtomicU8>, request: CamerasIoRequest) -> Vec<u8> {
