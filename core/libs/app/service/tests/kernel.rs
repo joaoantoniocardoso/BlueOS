@@ -15,8 +15,8 @@ use blueos_api::{
     CommandAck, JOB_ID_NONE, Message, cdr_encoding, command_key, event_key, state_key,
 };
 use blueos_comms::{
-    CommsBackend, CommsError, Query, QueryBody, Queryable, Reply, Sample, Subscriber,
-    channel::ChannelBackend,
+    CommsBackend, CommsError, LivelinessSubscriber, LivelinessToken, Query, QueryBody, Queryable,
+    Reply, Sample, Subscriber, channel::ChannelBackend,
 };
 use blueos_domain::{Command, Decision, Domain, Now, Outcome};
 use blueos_idl::{
@@ -280,16 +280,36 @@ impl CommsBackend for ClosedBackend {
     ) -> BoxFuture<'a, Result<Vec<Reply>, CommsError>> {
         Box::pin(async { Ok(Vec::new()) })
     }
+
+    fn declare_liveliness<'a>(
+        &'a self,
+        _key: &'a str,
+    ) -> BoxFuture<'a, Result<LivelinessToken, CommsError>> {
+        Box::pin(async { Ok(LivelinessToken::new(|| ())) })
+    }
+
+    fn subscribe_liveliness<'a>(
+        &'a self,
+        _key_expression: &'a str,
+    ) -> BoxFuture<'a, Result<LivelinessSubscriber, CommsError>> {
+        Box::pin(async { Ok(LivelinessSubscriber::new(stream::empty())) })
+    }
+
+    fn get_liveliness<'a>(
+        &'a self,
+        _key_expression: &'a str,
+        _timeout: Duration,
+    ) -> BoxFuture<'a, Result<Vec<String>, CommsError>> {
+        Box::pin(async { Ok(Vec::new()) })
+    }
 }
 
 impl CommsBackend for RecordingBackend {
     fn publish(&self, sample: Sample) -> BoxFuture<'_, Result<(), CommsError>> {
         if self.publishes_fail.load(Ordering::SeqCst) {
-            let key_expression = sample.key().to_owned();
-            return Box::pin(async move {
-                Err(CommsError::InvalidKeyExpression {
-                    key_expression,
-                    source: "the backbone is down".into(),
+            return Box::pin(async {
+                Err(CommsError::Backend {
+                    message: "the backbone is down".to_owned(),
                 })
             });
         }
@@ -332,6 +352,28 @@ impl CommsBackend for RecordingBackend {
         timeout: Duration,
     ) -> BoxFuture<'a, Result<Vec<Reply>, CommsError>> {
         self.bus.get(key_expression, body, timeout)
+    }
+
+    fn declare_liveliness<'a>(
+        &'a self,
+        key: &'a str,
+    ) -> BoxFuture<'a, Result<LivelinessToken, CommsError>> {
+        self.bus.declare_liveliness(key)
+    }
+
+    fn subscribe_liveliness<'a>(
+        &'a self,
+        key_expression: &'a str,
+    ) -> BoxFuture<'a, Result<LivelinessSubscriber, CommsError>> {
+        self.bus.subscribe_liveliness(key_expression)
+    }
+
+    fn get_liveliness<'a>(
+        &'a self,
+        key_expression: &'a str,
+        timeout: Duration,
+    ) -> BoxFuture<'a, Result<Vec<String>, CommsError>> {
+        self.bus.get_liveliness(key_expression, timeout)
     }
 }
 
