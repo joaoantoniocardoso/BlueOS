@@ -31,6 +31,9 @@ pub(crate) fn run_library_io(
                 LibraryIoRequest::Delete { path } => delete(context, &path),
             })))
         }
+        RecorderIoRequest::Cameras(_) => {
+            unreachable!("cameras IO runs on the async executor")
+        }
     }
 }
 
