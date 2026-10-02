@@ -40,6 +40,7 @@ jobs:
       env:
         BASE_SHA: ${{ github.event.pull_request.base.sha }}
         HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        SKIP_RUST_CHECKS: 1
       run: |
         .hooks/pre-push
 
@@ -115,17 +116,24 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: thumbv7em-none-eabihf
 
       - name: Install supply-chain tools
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-deny@0.20.2,cargo-machete@0.9.2,typos-cli@1.50.3
+          tool: cargo-deny@0.20.2,cargo-machete@0.9.2,typos-cli@1.50.3,cargo-nextest@0.9.146
 
       - name: Rust supply-chain checks
         run: |
           # shellcheck disable=SC1091
           source .hooks/lib/rust_checks.sh
           run_rust_supply_chain_checks "$GITHUB_WORKSPACE/core"
+
+      - name: Gate self-tests
+        run: |
+          .hooks/tests/rust_checks_test.sh
+          .hooks/tests/ergonomics_report_test.sh
 
       - name: cargo deny advisories
         id: advisories
@@ -225,7 +233,7 @@ jobs:
         run: |
           # shellcheck disable=SC1091
           source ../.github/lib/rust_report_only.sh
-          RUST_NIGHTLY=$(tr -d '[:space:]' < ../nightly-toolchain.txt)
+          RUST_NIGHTLY=$(tr -d '[:space:]' < nightly-toolchain.txt)
           report_section "cargo udeps" \
             cargo "+${RUST_NIGHTLY}" udeps --all-targets --workspace --locked
           report_section "branch coverage summary" \
@@ -332,7 +340,7 @@ jobs:
       - name: Install cross-build tools
         uses: taiki-e/install-action@v2
         with:
-          tool: cross@0.2.16,cargo-auditable@0.7.6,cargo-bloat@0.12.1
+          tool: cross@0.2.5,cargo-auditable@0.7.6
 
       - name: Cross-build blueos
         working-directory: core
@@ -346,9 +354,6 @@ jobs:
           BIN="target/build/${{ matrix.target }}/${{ matrix.target }}/release/blueos"
           ls -lah "${BIN}"
           file "${BIN}"
-          CARGO_TARGET_DIR="target/build/${{ matrix.target }}" \
-            cargo bloat --release -p blueos --target "${{ matrix.target }}" --crates -n 20 \
-            >> "$GITHUB_STEP_SUMMARY"
 
       - name: Package binary artifact
         working-directory: core

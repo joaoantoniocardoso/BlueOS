@@ -11,13 +11,16 @@ use tokio::time::{advance, timeout};
 use blueos_api::state_key;
 use blueos_comms::{CommsBackend, channel::ChannelBackend};
 use blueos_idl::msg::blueos_recorder_msgs::{
-    DeleteRecordingCommand, RecordingLibrary, RecordingState, StopRecordingCommand,
+    DeleteRecordingCommand, RecordingLibrary, StopRecordingCommand,
 };
 use blueos_recorder_app::{RecorderArguments, RecorderService};
 use blueos_recorder_library::RESCAN_INTERVAL;
 use blueos_service::{Service, testing::Harness};
 
-use common::{drain_blocking_io, wait_for_library_file_listed, wait_for_recording_idle};
+use common::{
+    drain_blocking_io, wait_for_active_recording, wait_for_library_file_listed,
+    wait_for_recording_idle,
+};
 
 #[tokio::test(start_paused = true)]
 async fn unchanged_rescan_does_not_republish_library_state() {
@@ -85,11 +88,9 @@ async fn stop_auto_recording_and_remove_session_files(
     harness: &Harness<RecorderService>,
     directory: &std::path::Path,
 ) {
-    let recording = harness.state::<RecordingState>("recording").await;
-    if recording.session_active {
-        harness.send("Stop", &StopRecordingCommand::default()).await;
-        wait_for_recording_idle(harness.backend()).await;
-    }
+    wait_for_active_recording(harness.backend()).await;
+    harness.send("Stop", &StopRecordingCommand::default()).await;
+    wait_for_recording_idle(harness.backend()).await;
     for entry in fs::read_dir(directory).into_iter().flatten().flatten() {
         let name = entry.file_name().to_string_lossy().into_owned();
         if name.starts_with("recorder_") && name.ends_with(".mcap") {
