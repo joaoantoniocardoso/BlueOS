@@ -1,5 +1,6 @@
 //! Syn-based linter for BlueOS Rust style rules that `clippy` cannot enforce (D-30).
 
+mod allow_attributes;
 mod clone_before_spawn;
 mod declaration_order;
 mod import_groups;
@@ -27,6 +28,7 @@ pub fn check_source(source: &str, path: &Path) -> Result<Vec<Diagnostic>, String
 
 fn collect_diagnostics(syntax_tree: &File) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
+    allow_attributes::check_file(syntax_tree, &mut diagnostics);
     import_groups::check_file(syntax_tree, &mut diagnostics);
     declaration_order::check_file(syntax_tree, &mut diagnostics);
     structured_logging::check_file(syntax_tree, &mut diagnostics);

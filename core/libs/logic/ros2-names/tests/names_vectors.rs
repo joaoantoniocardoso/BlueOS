@@ -1,9 +1,4 @@
-#![allow(
-    clippy::arbitrary_source_item_ordering,
-    missing_docs,
-    unreachable_pub,
-    reason = "ROS 2 name vector integration tests"
-)]
+//! Integration tests for ROS 2 and Zenoh name parsing against committed JSON vectors.
 
 use serde::Deserialize;
 

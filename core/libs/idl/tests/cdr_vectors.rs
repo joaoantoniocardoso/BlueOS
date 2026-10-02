@@ -1,7 +1,7 @@
-#![allow(
-    clippy::arbitrary_source_item_ordering,
+//! Integration tests that decode committed CDR hex fixtures for every IDL message.
+
+#![expect(
     clippy::too_many_lines,
-    missing_docs,
     unreachable_pub,
     reason = "CDR vector integration tests"
 )]
