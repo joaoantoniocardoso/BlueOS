@@ -16,7 +16,7 @@ use blueos_service::{RestartPolicy, Service, ServiceBuilder, ServiceContext, Ser
 
 use crate::{
     cli::RecorderArguments,
-    context::{IndexQuerySetup, RecorderContext},
+    context::{DEFAULT_MCAP_WRITER_QUEUE_CAPACITY, IndexQuerySetup, RecorderContext},
     data_plane::run_data_plane,
     endpoints,
     handlers::RecorderHandlers,
@@ -55,14 +55,19 @@ pub fn build_with_record_gate(
     ),
     ServiceError,
 > {
-    build_with_record_gate_and_index(context, IndexQuerySetup::default())
+    build_with_record_gate_and_index(
+        context,
+        IndexQuerySetup::default(),
+        DEFAULT_MCAP_WRITER_QUEUE_CAPACITY,
+    )
 }
 
-/// Like [`build_with_record_gate`], with a custom index walk for integration tests.
+/// Like [`build_with_record_gate`], with integration-test wiring overrides.
 #[doc(hidden)]
 pub fn build_with_record_gate_and_index(
     context: &ServiceContext<RecorderArguments>,
     index: IndexQuerySetup,
+    mcap_writer_queue_capacity: usize,
 ) -> Result<
     (
         ServiceBuilder<RecorderDomain, RecorderContext>,
@@ -70,13 +75,14 @@ pub fn build_with_record_gate_and_index(
     ),
     ServiceError,
 > {
-    let (builder, gate_receiver) = assemble_builder(context, index)?;
+    let (builder, gate_receiver) = assemble_builder(context, index, mcap_writer_queue_capacity)?;
     Ok((builder, gate_receiver))
 }
 
 fn assemble_builder(
     context: &ServiceContext<RecorderArguments>,
     index: IndexQuerySetup,
+    mcap_writer_queue_capacity: usize,
 ) -> Result<
     (
         ServiceBuilder<RecorderDomain, RecorderContext>,
@@ -99,10 +105,7 @@ fn assemble_builder(
         library_footer_cache: Arc::new(Mutex::new(
             blueos_recorder_storage::LibraryFooterCache::default(),
         )),
-        mcap_writer_queue_capacity: context
-            .arguments()
-            .mcap_writer_queue_capacity
-            .unwrap_or(4096),
+        mcap_writer_queue_capacity,
         session: Arc::clone(context.session()),
         mavlink_sequence: Arc::new(AtomicU8::new(0)),
         library_observed_sender: observed_sender,

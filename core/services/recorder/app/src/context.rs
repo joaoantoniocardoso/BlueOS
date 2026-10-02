@@ -21,6 +21,9 @@ use blueos_service::{Projection, Session};
 
 use crate::index_io::RECORDING_INDEX_WALK_TIMEOUT;
 
+/// Default MCAP writer queue depth for production wiring.
+pub(crate) const DEFAULT_MCAP_WRITER_QUEUE_CAPACITY: usize = 4096;
+
 /// Runs one recording index walk outside the Inbox (production default: MCAP `walk_index`).
 pub type IndexWalker =
     Arc<dyn Fn(&Path, u64, u32, &AtomicBool) -> Result<RecordingIndex, IndexError> + Send + Sync>;

@@ -32,7 +32,6 @@ async fn unchanged_rescan_does_not_republish_library_state() {
         Arc::clone(&backend),
         RecorderArguments {
             recorder_path: directory.path().to_path_buf(),
-            mcap_writer_queue_capacity: None,
         },
     )
     .await
@@ -63,7 +62,6 @@ async fn delete_rejects_hostile_paths_without_touching_disk() {
 
     let harness = Harness::<RecorderService>::start(RecorderArguments {
         recorder_path: directory.path().to_path_buf(),
-        mcap_writer_queue_capacity: None,
     })
     .await
     .expect("harness");

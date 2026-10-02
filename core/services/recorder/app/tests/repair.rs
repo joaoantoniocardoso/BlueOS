@@ -46,7 +46,6 @@ async fn repair_rewrites_truncated_recording_and_publishes_operation_event() {
         Arc::clone(&backend),
         RecorderArguments {
             recorder_path: directory.path().to_path_buf(),
-            mcap_writer_queue_capacity: None,
         },
     )
     .await
@@ -92,7 +91,6 @@ async fn cancel_repair_leaves_original_bytes_unchanged() {
 
     let harness = Harness::<RecorderService>::start(RecorderArguments {
         recorder_path: directory.path().to_path_buf(),
-        mcap_writer_queue_capacity: None,
     })
     .await
     .expect("harness");

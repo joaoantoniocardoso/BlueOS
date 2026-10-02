@@ -37,12 +37,9 @@ async fn snapshot_active_recording_while_writer_runs() {
     let operation_key = event_key(RecorderService::NAME, "operation");
     let mut operations = backend.subscribe(&operation_key).await.expect("subscribe");
 
-    let harness = Harness::start_on(
-        Arc::clone(&backend),
-        recorder_arguments(directory.path(), None),
-    )
-    .await
-    .expect("harness");
+    let harness = Harness::start_on(Arc::clone(&backend), recorder_arguments(directory.path()))
+        .await
+        .expect("harness");
 
     start_recording(&harness).await;
     wait_for_active_recording(harness.backend()).await;
@@ -137,12 +134,9 @@ async fn snapshot_rewrite_publishes_indexed_output_path() {
     let operation_key = event_key(RecorderService::NAME, "operation");
     let mut operations = backend.subscribe(&operation_key).await.expect("subscribe");
 
-    let harness = Harness::start_on(
-        Arc::clone(&backend),
-        recorder_arguments(directory.path(), None),
-    )
-    .await
-    .expect("harness");
+    let harness = Harness::start_on(Arc::clone(&backend), recorder_arguments(directory.path()))
+        .await
+        .expect("harness");
 
     stop_recording_on(harness.backend()).await;
     wait_for_recording_idle(harness.backend()).await;

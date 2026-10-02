@@ -69,18 +69,14 @@ impl RecorderTestHarness {
     }
 }
 
-pub(crate) fn recorder_arguments(
-    path: &Path,
-    mcap_writer_queue_capacity: Option<usize>,
-) -> RecorderArguments {
+pub(crate) fn recorder_arguments(path: &Path) -> RecorderArguments {
     RecorderArguments {
         recorder_path: path.to_path_buf(),
-        mcap_writer_queue_capacity,
     }
 }
 
 pub(crate) async fn start_harness(path: &Path) -> Harness<RecorderService> {
-    Harness::start(recorder_arguments(path, None))
+    Harness::start(recorder_arguments(path))
         .await
         .expect("harness")
 }
@@ -90,9 +86,9 @@ pub(crate) async fn start_recorder_test_harness(
     index: IndexQuerySetup,
 ) -> RecorderTestHarness {
     let backend: Arc<dyn CommsBackend> = Arc::new(blueos_comms::channel::ChannelBackend::default());
-    let context = ServiceContext::new(recorder_arguments(path, None), Arc::clone(&backend));
+    let context = ServiceContext::new(recorder_arguments(path), Arc::clone(&backend));
     let (builder, _) =
-        build_with_record_gate_and_index(&context, index).expect("build recorder service");
+        build_with_record_gate_and_index(&context, index, 4096).expect("build recorder service");
     let clock = Arc::new(PausedClock::start());
     let kernel = Kernel::start(RecorderService::NAME, builder, Arc::clone(&backend), clock)
         .await
