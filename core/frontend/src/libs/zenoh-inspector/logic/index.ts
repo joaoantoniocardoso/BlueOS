@@ -22,6 +22,7 @@ export {
   parseRmwZenohDataKey,
   parseRmwZenohToken,
   parseRos2ddsToken,
+  ros2ddsLivelinessTokenToDataKey,
   ros2ddsTopicFromDataKey,
 } from './ros2-names'
 export {
