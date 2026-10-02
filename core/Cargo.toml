@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-    "libs/logic/smoke",
+    "libs/logic/domain",
     "libs/idl",
     "libs/idl/codegen",
     "libs/tools/rust-style-check",
@@ -25,10 +25,10 @@ panic = "unwind"
 strip = true
 
 [workspace.dependencies]
+blueos-domain = { path = "libs/logic/domain" }
 blueos-idl = { path = "libs/idl" }
 blueos-idl-codegen = { path = "libs/idl/codegen" }
 blueos-rust-style-check = { path = "libs/tools/rust-style-check" }
-blueos-smoke = { path = "libs/logic/smoke" }
 convert_case = "0.8"
 prettyplease = "0.2"
 proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }

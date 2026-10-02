@@ -55,6 +55,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "blueos-domain"
+version = "0.1.0"
+
+[[package]]
 name = "blueos-idl"
 version = "0.1.0"
 dependencies = [
@@ -83,10 +87,6 @@ dependencies = [
  "syn 2.0.119",
  "walkdir",
 ]
-
-[[package]]
-name = "blueos-smoke"
-version = "0.1.0"
 
 [[package]]
 name = "cfg-if"
