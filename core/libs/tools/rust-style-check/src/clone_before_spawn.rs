@@ -10,6 +10,18 @@ struct SpawnVisitor {
     diagnostics: Vec<Diagnostic>,
 }
 
+impl<'ast> Visit<'ast> for SpawnVisitor {
+    fn visit_expr_block(&mut self, node: &'ast syn::ExprBlock) {
+        self.check_block(&node.block.stmts);
+        visit_block(self, &node.block);
+    }
+
+    fn visit_item_fn(&mut self, node: &'ast syn::ItemFn) {
+        self.check_block(&node.block.stmts);
+        syn::visit::visit_item_fn(self, node);
+    }
+}
+
 impl SpawnVisitor {
     fn check_block(&mut self, statements: &[Stmt]) {
         for (index, statement) in statements.iter().enumerate() {
@@ -124,18 +136,6 @@ fn is_spawn_call(expression: &Expr) -> bool {
             .last()
             .is_some_and(|segment| segment.ident == "spawn"),
         _ => false,
-    }
-}
-
-impl<'ast> Visit<'ast> for SpawnVisitor {
-    fn visit_expr_block(&mut self, node: &'ast syn::ExprBlock) {
-        self.check_block(&node.block.stmts);
-        visit_block(self, &node.block);
-    }
-
-    fn visit_item_fn(&mut self, node: &'ast syn::ItemFn) {
-        self.check_block(&node.block.stmts);
-        syn::visit::visit_item_fn(self, node);
     }
 }
 

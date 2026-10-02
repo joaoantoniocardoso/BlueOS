@@ -22,6 +22,18 @@ struct OrderVisitor {
     diagnostics: Vec<Diagnostic>,
 }
 
+impl<'ast> Visit<'ast> for OrderVisitor {
+    fn visit_item_mod(&mut self, node: &'ast ItemMod) {
+        if node.attrs.iter().any(cfg_is_test) {
+            return;
+        }
+        if let Some((_, items)) = &node.content {
+            self.check_module(items);
+        }
+        visit_item_mod(self, node);
+    }
+}
+
 impl OrderVisitor {
     fn check_module(&mut self, items: &[Item]) {
         self.check_kind_order(items);
@@ -380,18 +392,6 @@ fn impl_self_name(impl_item: &ItemImpl) -> String {
             .map(|segment| segment.ident.to_string())
             .unwrap_or_default(),
         _ => String::new(),
-    }
-}
-
-impl<'ast> Visit<'ast> for OrderVisitor {
-    fn visit_item_mod(&mut self, node: &'ast ItemMod) {
-        if node.attrs.iter().any(cfg_is_test) {
-            return;
-        }
-        if let Some((_, items)) = &node.content {
-            self.check_module(items);
-        }
-        visit_item_mod(self, node);
     }
 }
 

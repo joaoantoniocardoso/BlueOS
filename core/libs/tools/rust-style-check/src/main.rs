@@ -4,8 +4,9 @@ use std::{
     process::ExitCode,
 };
 
-use blueos_rust_style_check::{Diagnostic, check_source};
 use walkdir::WalkDir;
+
+use blueos_rust_style_check::{Diagnostic, check_source};
 
 fn main() -> ExitCode {
     let arguments: Vec<String> = env::args().skip(1).collect();

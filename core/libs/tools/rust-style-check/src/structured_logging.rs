@@ -8,6 +8,23 @@ struct LoggingVisitor {
     diagnostics: Vec<Diagnostic>,
 }
 
+impl<'ast> Visit<'ast> for LoggingVisitor {
+    fn visit_expr_macro(&mut self, node: &'ast syn::ExprMacro) {
+        self.check_log_macro(&node.mac.path, &node.mac.tokens);
+        syn::visit::visit_expr_macro(self, node);
+    }
+
+    fn visit_item_macro(&mut self, node: &'ast ItemMacro) {
+        self.check_log_macro(&node.mac.path, &node.mac.tokens);
+        syn::visit::visit_item_macro(self, node);
+    }
+
+    fn visit_stmt_macro(&mut self, node: &'ast StmtMacro) {
+        self.check_log_macro(&node.mac.path, &node.mac.tokens);
+        syn::visit::visit_stmt_macro(self, node);
+    }
+}
+
 impl LoggingVisitor {
     fn check_log_macro(&mut self, macro_path: &syn::Path, tokens: &proc_macro2::TokenStream) {
         if !is_tracing_log_macro(macro_path) {
@@ -71,23 +88,6 @@ fn message_has_placeholder(literal: &str) -> bool {
         index += 1;
     }
     false
-}
-
-impl<'ast> Visit<'ast> for LoggingVisitor {
-    fn visit_expr_macro(&mut self, node: &'ast syn::ExprMacro) {
-        self.check_log_macro(&node.mac.path, &node.mac.tokens);
-        syn::visit::visit_expr_macro(self, node);
-    }
-
-    fn visit_item_macro(&mut self, node: &'ast ItemMacro) {
-        self.check_log_macro(&node.mac.path, &node.mac.tokens);
-        syn::visit::visit_item_macro(self, node);
-    }
-
-    fn visit_stmt_macro(&mut self, node: &'ast StmtMacro) {
-        self.check_log_macro(&node.mac.path, &node.mac.tokens);
-        syn::visit::visit_stmt_macro(self, node);
-    }
 }
 
 pub fn check_file(syntax_tree: &File, diagnostics: &mut Vec<Diagnostic>) {

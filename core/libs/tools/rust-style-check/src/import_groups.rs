@@ -41,6 +41,15 @@ struct ImportVisitor {
     diagnostics: Vec<Diagnostic>,
 }
 
+impl<'ast> Visit<'ast> for ImportVisitor {
+    fn visit_item_mod(&mut self, node: &'ast ItemMod) {
+        if let Some((_, items)) = &node.content {
+            self.check_module(items);
+        }
+        visit_item_mod(self, node);
+    }
+}
+
 impl ImportVisitor {
     fn check_module(&mut self, items: &[Item]) {
         let mut index = 0usize;
@@ -140,15 +149,6 @@ fn crate_roots_in_use(use_item: &ItemUse) -> Vec<String> {
         Vec::new()
     } else {
         vec![root]
-    }
-}
-
-impl<'ast> Visit<'ast> for ImportVisitor {
-    fn visit_item_mod(&mut self, node: &'ast ItemMod) {
-        if let Some((_, items)) = &node.content {
-            self.check_module(items);
-        }
-        visit_item_mod(self, node);
     }
 }
 
