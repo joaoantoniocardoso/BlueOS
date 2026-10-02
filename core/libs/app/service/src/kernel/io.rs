@@ -8,11 +8,12 @@
 use core::{future::Future, panic::AssertUnwindSafe, pin::Pin};
 use std::sync::Arc;
 
+use futures_util::FutureExt;
 use tokio::sync::mpsc;
 
 use blueos_domain::{Command, Domain, IoError};
 
-use crate::shutdown::IoInflight;
+use crate::{shutdown::IoInflight, tasks::TaskSpawner};
 
 use super::Delivery;
 
@@ -70,6 +71,7 @@ impl<D: Domain, Context> IoExecutors<D, Context> {
 
 /// Runs every IO [`Effect`] of one Decision in order in one task and delivers each result to the Inbox.
 pub(crate) fn spawn_io_chain<D: Domain, Context: Send + Sync + 'static>(
+    spawner: TaskSpawner,
     executors: IoExecutors<D, Context>,
     context: Arc<Context>,
     snapshot: D::Snapshot,
@@ -81,7 +83,7 @@ pub(crate) fn spawn_io_chain<D: Domain, Context: Send + Sync + 'static>(
         return;
     }
     let _inflight = io_inflight.track();
-    tokio::spawn(async move {
+    spawner.spawn(async move {
         let _inflight = _inflight;
         for request in requests {
             let failed_request = request.clone();
@@ -149,7 +151,7 @@ pub(crate) fn spawn_io_chain<D: Domain, Context: Send + Sync + 'static>(
                 let context = Arc::clone(&context);
                 let snapshot = snapshot.clone();
                 let future = r#async(&*context, &snapshot, request);
-                match tokio::spawn(future).await {
+                match AssertUnwindSafe(future).catch_unwind().await {
                     Ok(Ok(Some(io_result))) => Command::IoResult(io_result),
                     Ok(Ok(None)) => continue,
                     Ok(Err(error)) => D::io_failed(failed_request, error),

@@ -27,7 +27,7 @@ use blueos_api::{
     query_key, service_liveliness_key, settings_key, state_key, status_state_key,
 };
 use blueos_comms::{CommsBackend, CommsError, Query, Queryable, Sample};
-use blueos_domain::{Command, Domain, Effect, Now, Outcome};
+use blueos_domain::{Command, Domain, Effect, Outcome};
 use blueos_idl::{
     Error as IdlError,
     msg::blueos_msgs::{ServiceInfo, ServiceStatus, ServiceStatusStatus, SettingsEnvelope},
@@ -37,10 +37,12 @@ use crate::{
     builder::{
         AnswerQuery, Decode, EventEndpoint, Refusal, Respond, ServiceBuilder, StateEndpoint,
     },
+    clock::Clock,
     run_outcome::RunOutcome,
     service::ServiceError,
     settings::{SettingsDriver, settings_encoding},
     shutdown::{IoInflight, SHUTDOWN_IO_DRAIN_TIMEOUT, wait_for_shutdown_signal},
+    tasks::{TaskSupervisor, hold_liveliness_until_cancelled},
 };
 
 use effects::{apply_sync_effects, io_requests};
@@ -84,7 +86,7 @@ pub struct Kernel<D: Domain, Context = ()> {
     shutdown_receiver: Option<watch::Receiver<bool>>,
     io_inflight: IoInflight,
     shutting_down: bool,
-    liveliness_task: Option<tokio::task::JoinHandle<()>>,
+    tasks: TaskSupervisor,
 }
 
 /// One Command in the Inbox, with an optional query to acknowledge once it is handled.
@@ -108,13 +110,6 @@ struct PublishedState<D: Domain> {
     endpoint: StateEndpoint<D>,
     /// Stored only after a publish succeeds, so a failed publish is retried on the next Command.
     latest: watch::Sender<Option<Bytes>>,
-}
-
-/// Where the Kernel reads the time, once per Command, to give the Domain its [`Now`]. A shipped Service reads the
-/// system clock; the test harness injects one that follows the paused tokio clock.
-pub trait Clock: Send + Sync {
-    /// The current time.
-    fn now(&self) -> Now;
 }
 
 /// Why the Kernel did not apply a Command. Its text is the reason in the rejected [`CommandAck`].
@@ -237,6 +232,13 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         let status_encoding = cdr_encoding(ServiceStatus::SCHEMA_NAME);
         let status_latest = watch::Sender::new(None);
         let status_queryable = declare(&*backend, status_key.clone()).await?;
+        let task_supervisor = TaskSupervisor::new(
+            Arc::clone(&backend),
+            status_key.clone(),
+            status_encoding.clone(),
+            status_latest.clone(),
+        );
+        let task_specs = builder.tasks;
         let mut pending_settings_serve = None;
         let mut settings = None;
         if let Some(registration) = builder.settings {
@@ -317,7 +319,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             shutdown_receiver,
             io_inflight: IoInflight::new(),
             shutting_down: false,
-            liveliness_task: None,
+            tasks: task_supervisor,
         };
         for command in startup_commands {
             kernel
@@ -342,6 +344,11 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             &status_latest,
         )
         .await;
+        kernel.tasks.start(
+            task_specs,
+            Arc::clone(&kernel.context),
+            Arc::clone(&kernel.clock),
+        );
         kernel.endpoints.spawn(serve_fixed_reply(
             info_queryable,
             info_key,
@@ -415,10 +422,11 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 key: liveliness_key,
                 source,
             })?;
-        kernel.liveliness_task = Some(tokio::spawn(async move {
-            let _liveliness = liveliness;
-            pending::<()>().await;
-        }));
+        let liveliness_shutdown = kernel.tasks.shutdown_token();
+        let task_spawner = kernel.tasks.spawner();
+        task_spawner.spawn(async move {
+            hold_liveliness_until_cancelled(liveliness, liveliness_shutdown).await;
+        });
         Ok(kernel)
     }
 
@@ -430,7 +438,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         let stop_requested = Arc::new(AtomicBool::new(false));
         let stop_flag_for_signals = Arc::clone(&stop_requested);
         let mut signal_shutdown_receiver = shutdown_receiver.clone();
-        tokio::spawn(async move {
+        self.tasks.spawner().spawn(async move {
             wait_for_shutdown_signal(&mut signal_shutdown_receiver).await;
             stop_flag_for_signals.store(true, Ordering::SeqCst);
         });
@@ -457,6 +465,10 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                     self.dispatch(delivery).await;
                 }
                 if self.io_inflight.count() == 0 {
+                    let task_budget = shutdown_monotonic_deadline
+                        .map(|deadline| deadline.saturating_sub(self.clock.now().monotonic))
+                        .unwrap_or(SHUTDOWN_IO_DRAIN_TIMEOUT);
+                    self.tasks.join_with_budget(task_budget, &self.clock).await;
                     break;
                 }
                 if remaining == Duration::ZERO {
@@ -464,6 +476,9 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                         timeout = ?SHUTDOWN_IO_DRAIN_TIMEOUT,
                         "shutdown io drain timed out"
                     );
+                    self.tasks
+                        .join_with_budget(Duration::ZERO, &self.clock)
+                        .await;
                     break;
                 }
                 tokio::select! {
@@ -473,6 +488,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                             timeout = ?SHUTDOWN_IO_DRAIN_TIMEOUT,
                             "shutdown io drain timed out"
                         );
+                        self.tasks.join_with_budget(Duration::ZERO, &self.clock).await;
                         break;
                     }
                     delivery = self.inbox.recv() => {
@@ -527,9 +543,6 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         }
 
         self.inbox_sender.take();
-        if let Some(task) = self.liveliness_task.take() {
-            task.abort();
-        }
         self.endpoints.abort_all();
         while let Ok(Some(delivery)) = tokio::time::timeout(Duration::ZERO, self.inbox.recv()).await
         {
@@ -543,6 +556,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             return;
         }
         self.shutting_down = true;
+        self.tasks.cancel();
         if let Some(request) = self.shutdown_request.lock().await.take() {
             let delivery = Delivery {
                 command: Command::Request(request),
@@ -643,6 +657,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                     let requests = io_requests::<D>(&effects);
                     if let (Some(inbox_sender), false) = (&self.inbox_sender, requests.is_empty()) {
                         spawn_io_chain(
+                            self.tasks.spawner(),
                             self.io.clone(),
                             Arc::clone(&self.context),
                             self.snapshot.clone(),
