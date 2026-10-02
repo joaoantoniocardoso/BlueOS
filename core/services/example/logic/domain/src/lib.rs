@@ -1,4 +1,4 @@
-//! The pump Domain of `example-minimal` (D-20): set a fill level and read it back. Never shipped.
+//! The pump Domain of `example-minimal`: set a fill level and read it back. Never shipped.
 
 #![no_std]
 
