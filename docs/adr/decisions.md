@@ -174,7 +174,9 @@ Shape of the logic:
   Domain's types, so composing a Block needs no fake Domain and no hand-written mapping functions.
 - The `Domain` trait is split: `Domain` (Snapshot, Command, Event, IoRequest, timer key, `handle`), plus
   separate traits for Domains that have queries and for Domains that have jobs. A Domain without one of them
-  does not mention it. Associated type defaults are unstable Rust, so the split is the only way.
+  does not mention it. Associated type defaults are unstable Rust, so the split is the only way. A Domain or Block
+  with no IO requests, no domain events or no timers sets that associated type to an uninhabited type
+  (`core::convert::Infallible` or an empty enum), never a placeholder.
 - A Command enum is grouped by origin: **Request** (from a Command endpoint), **IO result**, **Tick**, and
   **Observed fact** (from a Task). Only Requests can come from outside the process (D-26), so a client can never
   forge an IO result or an observed fact. The grouping is also what documents the enum.
