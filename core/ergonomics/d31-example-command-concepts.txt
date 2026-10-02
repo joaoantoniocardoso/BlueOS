@@ -1,0 +1,9 @@
+# Concepts to add one Command end to end in example-minimal (SetLevel path, D-31).
+# One concept per line; lines starting with # are ignored.
+Message type in core/libs/idl/interfaces/
+Regenerate IDL and api.lock from endpoints.toml
+Command row in app/endpoints.toml
+Domain Command variant and handle arm
+Conversions trait method in logic/api
+Generated app endpoints.rs register chain
+Integration test through real build()
