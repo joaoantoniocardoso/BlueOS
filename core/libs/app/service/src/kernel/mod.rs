@@ -15,23 +15,32 @@ use tokio::{
 use tracing::{error, warn};
 
 use blueos_api::{
-    CommandAck, JOB_ID_NONE, Message, cdr_encoding, command_key, event_key, state_key,
+    CommandAck, JOB_ID_NONE, Message, cdr_encoding, command_key, event_key, query_key, state_key,
 };
 use blueos_comms::{CommsBackend, CommsError, Query, Queryable, Sample};
-use blueos_domain::{Command, Domain, Now, Outcome};
+use blueos_domain::{Command, Domain, Effect, Now, Outcome};
 use blueos_idl::Error as IdlError;
 
 use crate::{
-    builder::{Decode, EventEndpoint, ServiceBuilder, StateEndpoint},
+    builder::{AnswerQuery, Decode, EventEndpoint, ServiceBuilder, StateEndpoint},
     service::ServiceError,
 };
 
 use effects::{apply_sync_effects, io_requests};
-use io::{IoExecutor, spawn_io_chain};
+use io::{IoExecutors, spawn_io_chain};
 use timers::TimerWheel;
 
 /// How many Commands wait in the Inbox before a sender has to wait.
 const INBOX_CAPACITY: usize = 256;
+
+/// One applied Command's Effects in application order.
+#[cfg(feature = "testing")]
+type EffectBatch<D> =
+    Vec<Effect<<D as Domain>::Tick, <D as Domain>::IoRequest, <D as Domain>::TimerKey>>;
+
+/// Shared storage for recorded Effects when the harness asks not to run them.
+#[cfg(feature = "testing")]
+pub(crate) type EffectLogStorage<D> = Arc<std::sync::Mutex<Vec<EffectBatch<D>>>>;
 
 /// Runs one Domain: the only writer of its Snapshot, and the owner of everything that can be stopped (the Inbox
 /// and the endpoint adapters). Dropping it stops them.
@@ -46,7 +55,10 @@ pub struct Kernel<D: Domain, Context = ()> {
     clock: Arc<dyn Clock>,
     timers: TimerWheel<D>,
     context: Arc<Context>,
-    io: Option<IoExecutor<D, Context>>,
+    io: IoExecutors<D, Context>,
+    snapshot_for_queries: Arc<tokio::sync::RwLock<D::Snapshot>>,
+    #[cfg(feature = "testing")]
+    effect_log: Option<EffectLogStorage<D>>,
     endpoints: JoinSet<()>,
 }
 
@@ -107,7 +119,20 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         backend: Arc<dyn CommsBackend>,
         clock: Arc<dyn Clock>,
     ) -> Result<Self, ServiceError> {
+        Self::start_with_effect_log(service, builder, backend, clock, None).await
+    }
+
+    /// Like [`Self::start`], optionally recording Effects without running IO or timers (harness only).
+    #[cfg(feature = "testing")]
+    pub async fn start_with_effect_log(
+        service: &'static str,
+        builder: ServiceBuilder<D, Context>,
+        backend: Arc<dyn CommsBackend>,
+        clock: Arc<dyn Clock>,
+        effect_log: Option<EffectLogStorage<D>>,
+    ) -> Result<Self, ServiceError> {
         let (inbox_sender, inbox) = mpsc::channel(INBOX_CAPACITY);
+        let snapshot_for_queries = Arc::new(tokio::sync::RwLock::new(builder.snapshot.clone()));
         let mut endpoints = JoinSet::new();
         for command in builder.commands {
             let queryable = declare(&*backend, command_key(service, &command.name)).await?;
@@ -134,6 +159,17 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 latest,
             });
         }
+        for (name, answer) in builder.queries {
+            let key = query_key(service, &name);
+            let queryable = declare(&*backend, key.clone()).await?;
+            endpoints.spawn(serve_query::<D>(
+                queryable,
+                key,
+                answer,
+                Arc::clone(&snapshot_for_queries),
+                Arc::clone(&clock),
+            ));
+        }
         let kernel = Self {
             service,
             snapshot: builder.snapshot,
@@ -146,6 +182,9 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             timers: TimerWheel::new(),
             context: Arc::new(builder.context),
             io: builder.io,
+            snapshot_for_queries,
+            #[cfg(feature = "testing")]
+            effect_log,
             endpoints,
         };
         let initial_states = kernel
@@ -192,12 +231,16 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         let backup = self.snapshot.clone();
         let snapshot = &mut self.snapshot;
         let states = &self.states;
-        let io_registered = self.io.is_some();
+        #[cfg(feature = "testing")]
+        let run_effects = self.effect_log.is_none();
+        #[cfg(not(feature = "testing"))]
+        let run_effects = true;
         let timers = &mut self.timers;
+        let io = &self.io;
         let decided = panic::catch_unwind(AssertUnwindSafe(|| {
             match D::handle(snapshot, command, now) {
                 Outcome::Applied { events, effects } => {
-                    apply_sync_effects(&effects, timers, io_registered)
+                    apply_sync_effects(&effects, timers, io, run_effects)
                         .map_err(|error| Rejection::Domain(Box::new(error)))?;
                     let encoded_states: Vec<_> = states
                         .iter()
@@ -217,16 +260,26 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         });
         match decided {
             Ok((events, effects, encoded_states)) => {
+                {
+                    let mut shared = self.snapshot_for_queries.write().await;
+                    *shared = self.snapshot.clone();
+                }
+                #[cfg(feature = "testing")]
+                if let Some(log) = &self.effect_log {
+                    log.lock()
+                        .expect("the effect log mutex is not poisoned")
+                        .push(effects.clone());
+                }
                 self.publish_states(encoded_states).await;
                 if let Some(query) = reply {
                     acknowledge(query, Ok(())).await;
                 }
                 self.publish_events(events).await;
-                if let Some(executor) = self.io.clone() {
+                if run_effects {
                     let requests = io_requests::<D>(&effects);
                     if let (Some(inbox_sender), false) = (&self.inbox_sender, requests.is_empty()) {
                         spawn_io_chain(
-                            executor,
+                            self.io.clone(),
                             Arc::clone(&self.context),
                             self.snapshot.clone(),
                             requests,
@@ -311,6 +364,31 @@ async fn serve_command<D: Domain>(
 }
 
 /// Answers every get on a State with the last value the backbone accepted.
+async fn serve_query<D: Domain>(
+    mut queryable: Queryable,
+    key: String,
+    answer: AnswerQuery<D>,
+    snapshot: Arc<tokio::sync::RwLock<D::Snapshot>>,
+    clock: Arc<dyn Clock>,
+) {
+    while let Some(query) = queryable.recv().await {
+        let body = query
+            .body()
+            .map(|body| body.payload().to_bytes())
+            .unwrap_or_default();
+        let now = clock.now();
+        let shared = snapshot.read().await;
+        let sent: Result<(), SendError> = match answer(&*shared, &body, now) {
+            Ok((payload, encoding)) => query
+                .reply(payload, encoding.as_str())
+                .await
+                .map_err(SendError::from),
+            Err(error) => Err(SendError::Encode(error)),
+        };
+        warn_on_failure("Query", &key, sent);
+    }
+}
+
 async fn serve_state(
     mut queryable: Queryable,
     key: String,

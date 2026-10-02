@@ -2,7 +2,7 @@
 
 use blueos_domain::{Domain, Effect};
 
-use super::timers::TimerWheel;
+use super::{io::IoExecutors, timers::TimerWheel};
 
 /// Why the synchronous part of the Effects could not be applied.
 #[derive(Debug, thiserror::Error)]
@@ -13,20 +13,22 @@ pub(crate) enum SyncEffectError {
 }
 
 /// Applies every timer [`Effect`] and checks that IO [`Effect`]s have an executor before the Command is acknowledged.
-pub(crate) fn apply_sync_effects<D: Domain>(
+pub(crate) fn apply_sync_effects<D: Domain, Context>(
     effects: &[Effect<D::Tick, D::IoRequest, D::TimerKey>],
     timers: &mut TimerWheel<D>,
-    io_registered: bool,
+    executors: &IoExecutors<D, Context>,
+    run_timers: bool,
 ) -> Result<(), SyncEffectError> {
-    let mut needs_io = false;
-    for effect in effects {
-        match effect {
-            Effect::Io(_) => needs_io = true,
-            Effect::Schedule { .. } | Effect::Cancel(_) => timers.apply(effect.clone()),
-        }
-    }
-    if needs_io && !io_registered {
+    let requests = io_requests::<D>(effects);
+    if !requests.is_empty() && !executors.can_run(&requests) {
         return Err(SyncEffectError::IoNotRegistered);
+    }
+    if run_timers {
+        for effect in effects {
+            if matches!(effect, Effect::Schedule { .. } | Effect::Cancel(_)) {
+                timers.apply(effect.clone());
+            }
+        }
     }
     Ok(())
 }

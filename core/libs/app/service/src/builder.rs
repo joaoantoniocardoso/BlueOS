@@ -4,10 +4,10 @@ use core::future::Future;
 use std::sync::Arc;
 
 use blueos_api::{Message, cdr_encoding};
-use blueos_domain::{Domain, IoError};
+use blueos_domain::{Domain, DomainQueries, IoError};
 use blueos_idl::Error as IdlError;
 
-use crate::kernel::io::IoExecutor;
+use crate::kernel::io::IoExecutors;
 
 /// Decodes a Request body into the Domain's Request.
 pub(crate) type Decode<D> = Box<dyn Fn(&[u8]) -> Result<<D as Domain>::Request, IdlError> + Send>;
@@ -26,11 +26,23 @@ pub(crate) type Select<D> =
 pub struct ServiceBuilder<D: Domain, Context = ()> {
     pub(crate) snapshot: D::Snapshot,
     pub(crate) context: Context,
-    pub(crate) io: Option<IoExecutor<D, Context>>,
+    pub(crate) io: IoExecutors<D, Context>,
     pub(crate) commands: Vec<CommandEndpoint<D>>,
+    pub(crate) queries: Vec<(String, AnswerQuery<D>)>,
     pub(crate) states: Vec<StateEndpoint<D>>,
     pub(crate) events: Vec<EventEndpoint<D>>,
 }
+
+/// Answers one Query from the Snapshot and the request body.
+pub(crate) type AnswerQuery<D> = Arc<
+    dyn Fn(
+            &<D as Domain>::Snapshot,
+            &[u8],
+            blueos_domain::Now,
+        ) -> Result<(Vec<u8>, String), IdlError>
+        + Send
+        + Sync,
+>;
 
 /// A Command endpoint: a query on `blueos/v1/<service>/command/<name>` whose body is a Request.
 pub(crate) struct CommandEndpoint<D: Domain> {
@@ -58,8 +70,12 @@ impl<D: Domain> ServiceBuilder<D, ()> {
         Self {
             snapshot,
             context: (),
-            io: None,
+            io: IoExecutors {
+                r#async: None,
+                blocking: None,
+            },
             commands: Vec::new(),
+            queries: Vec::new(),
             states: Vec::new(),
             events: Vec::new(),
         }
@@ -75,11 +91,36 @@ impl<D: Domain> ServiceBuilder<D, ()> {
         ServiceBuilder {
             snapshot: self.snapshot,
             context,
-            io: None,
+            io: IoExecutors {
+                r#async: None,
+                blocking: None,
+            },
             commands: self.commands,
+            queries: self.queries,
             states: self.states,
             events: self.events,
         }
+    }
+}
+
+impl<D: Domain + DomainQueries, Context> ServiceBuilder<D, Context> {
+    /// Adds the Query endpoint `name`. Its body is an `M`; the answer is an `R` built from the current Snapshot.
+    pub fn query<M: Message + 'static, R: Message + 'static>(
+        mut self,
+        name: &str,
+        into_query: impl Fn(M) -> D::Query + Send + Sync + 'static,
+        into_response: impl Fn(D::Response) -> R + Send + Sync + 'static,
+    ) -> Self {
+        let encoding = cdr_encoding(R::SCHEMA_NAME);
+        self.queries.push((
+            name.to_owned(),
+            Arc::new(move |snapshot, body, now| {
+                let query = M::decode(body).map(&into_query)?;
+                let response = D::query(snapshot, query, now);
+                Ok((into_response(response).encode()?, encoding.clone()))
+            }),
+        ));
+        self
     }
 }
 
@@ -91,9 +132,22 @@ impl<D: Domain, Context> ServiceBuilder<D, Context> {
         F: Fn(&Context, &D::Snapshot, D::IoRequest) -> Fut + Send + Sync + 'static,
         Fut: Future<Output = Result<Option<D::IoResult>, IoError>> + Send + 'static,
     {
-        self.io = Some(Arc::new(move |context, snapshot, request| {
+        self.io.r#async = Some(Arc::new(move |context, snapshot, request| {
             Box::pin(executor(context, snapshot, request))
         }));
+        self
+    }
+
+    /// The executor for IO the Domain marks with [`Domain::io_runs_on_blocking_thread`]. The Kernel runs it with
+    /// [`tokio::task::spawn_blocking`], with the same ordering and result reporting as [`.io`](Self::io).
+    pub fn blocking_io<F>(mut self, executor: F) -> Self
+    where
+        F: Fn(&Context, &D::Snapshot, D::IoRequest) -> Result<Option<D::IoResult>, IoError>
+            + Send
+            + Sync
+            + 'static,
+    {
+        self.io.blocking = Some(Arc::new(executor));
         self
     }
 
