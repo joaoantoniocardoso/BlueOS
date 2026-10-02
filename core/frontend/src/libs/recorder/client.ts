@@ -12,7 +12,10 @@ import type { Subscription, Transport } from '@/libs/blueos-api/transport'
 import { watchEvent } from '@/libs/blueos-api/watch-event'
 import { watchState } from '@/libs/blueos-api/watch'
 
+import type { RecordingIndexSource } from '@/libs/mcap/logic/recording-index'
+
 import { DEFAULT_RECORDING_HTTP_PREFIX, SNAPSHOT_WAIT_TIMEOUT_MS } from './constants'
+import { createCachedRecordingIndexSource } from './index-source'
 import { mapRecordingFile, mapRecordingOperation } from './map'
 import type {
   LibraryRecording,
@@ -52,6 +55,7 @@ export interface RecorderClient {
   deleteRecording(path: string): Promise<RecorderCommandResult>
   snapshotRecording(path: string): Promise<string>
   recordingDownloadUrl(relativePath: string): string
+  recordingIndexSource(path: string): RecordingIndexSource
 }
 
 export interface RecorderClientOptions {
@@ -181,6 +185,13 @@ export function createRecorderClient(
 
     recordingDownloadUrl(relativePath) {
       return recordingDownloadUrl(relativePath, httpPrefix)
+    },
+
+    recordingIndexSource(path) {
+      return createCachedRecordingIndexSource(transport, path, () => {
+        const file = librarySnapshot.find((recording) => recording.path === path)
+        return file?.size_bytes ?? 0
+      })
     },
   }
 }
