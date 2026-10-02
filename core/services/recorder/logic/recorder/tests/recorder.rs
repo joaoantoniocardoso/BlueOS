@@ -57,9 +57,9 @@ fn start_stop_and_rotation_use_record_gate_without_file_io() {
         snapshot.capture.recording,
         RecordingState::AwaitingMcapFile { file_generation: 1 }
     ));
-    let gate = RecorderDomain::query(&snapshot, RecorderQuery::RecordGate, now_at(0));
-    assert!(gate.recording_requested);
-    assert_eq!(gate.desired_file_generation, 1);
+    let gate_after_start = RecorderDomain::query(&snapshot, RecorderQuery::RecordGate, now_at(0));
+    assert!(gate_after_start.recording_requested);
+    assert_eq!(gate_after_start.desired_file_generation, 1);
 
     task_reports_mcap_file_opened(&mut snapshot, 1, "a.mcap");
     assert!(matches!(
@@ -85,9 +85,9 @@ fn start_stop_and_rotation_use_record_gate_without_file_io() {
         panic!("rotate must apply");
     };
     assert!(rotate_effects.is_empty());
-    let gate = RecorderDomain::query(&snapshot, RecorderQuery::RecordGate, now_at(1));
-    assert!(gate.recording_requested);
-    assert_eq!(gate.desired_file_generation, 2);
+    let gate_after_rotate = RecorderDomain::query(&snapshot, RecorderQuery::RecordGate, now_at(1));
+    assert!(gate_after_rotate.recording_requested);
+    assert_eq!(gate_after_rotate.desired_file_generation, 2);
     task_reports_mcap_file_opened(&mut snapshot, 2, "b.mcap");
 
     let stop = RecorderDomain::handle(
@@ -104,8 +104,8 @@ fn start_stop_and_rotation_use_record_gate_without_file_io() {
     };
     assert!(stop_effects.is_empty());
     assert!(matches!(snapshot.capture.recording, RecordingState::Idle));
-    let gate = RecorderDomain::query(&snapshot, RecorderQuery::RecordGate, now_at(2));
-    assert!(!gate.recording_requested);
+    let gate_after_stop = RecorderDomain::query(&snapshot, RecorderQuery::RecordGate, now_at(2));
+    assert!(!gate_after_stop.recording_requested);
 }
 
 #[test]
@@ -183,9 +183,9 @@ fn rotation_keeps_recording_requested_until_new_file_is_active() {
         now_at(1),
     );
 
-    let gate = RecorderDomain::query(&snapshot, RecorderQuery::RecordGate, now_at(1));
-    assert!(gate.recording_requested);
-    assert_eq!(gate.desired_file_generation, 2);
+    let gate_mid_rotation = RecorderDomain::query(&snapshot, RecorderQuery::RecordGate, now_at(1));
+    assert!(gate_mid_rotation.recording_requested);
+    assert_eq!(gate_mid_rotation.desired_file_generation, 2);
     assert!(matches!(
         snapshot.capture.recording,
         RecordingState::Active(ActiveRecording {
@@ -202,8 +202,9 @@ fn rotation_keeps_recording_requested_until_new_file_is_active() {
             ..
         })
     ));
-    let gate = RecorderDomain::query(&snapshot, RecorderQuery::RecordGate, now_at(2));
-    assert!(gate.recording_requested);
+    let gate_after_new_file =
+        RecorderDomain::query(&snapshot, RecorderQuery::RecordGate, now_at(2));
+    assert!(gate_after_new_file.recording_requested);
 }
 
 #[test]
@@ -239,8 +240,9 @@ fn auto_start_recording_applies_live_on_settings_update() {
         snapshot.capture.recording,
         RecordingState::AwaitingMcapFile { file_generation: 1 }
     ));
-    let gate = RecorderDomain::query(&snapshot, RecorderQuery::RecordGate, now_at(0));
-    assert!(gate.recording_requested);
+    let gate_after_auto_start =
+        RecorderDomain::query(&snapshot, RecorderQuery::RecordGate, now_at(0));
+    assert!(gate_after_auto_start.recording_requested);
 }
 
 #[test]
