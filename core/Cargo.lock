@@ -75,6 +75,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "blueos-rust-style-check"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+ "walkdir",
+]
+
+[[package]]
 name = "blueos-smoke"
 version = "0.1.0"
 

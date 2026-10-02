@@ -1,0 +1,19 @@
+[package]
+name = "blueos-rust-style-check"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+description = "Syn-based linter for BlueOS Rust style rules that clippy cannot enforce"
+
+[[bin]]
+name = "blueos-rust-style-check"
+path = "src/main.rs"
+
+[dependencies]
+proc-macro2.workspace = true
+syn = { workspace = true, features = ["full", "visit", "printing"] }
+walkdir = { workspace = true }
+
+[dev-dependencies]
+quote = { version = "1", default-features = false }
