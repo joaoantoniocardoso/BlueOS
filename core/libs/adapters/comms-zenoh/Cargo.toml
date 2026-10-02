@@ -1,0 +1,21 @@
+[package]
+name = "blueos-comms-zenoh"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+blueos-comms.workspace = true
+bytes.workspace = true
+futures-util = { workspace = true, features = ["alloc"] }
+tokio = { workspace = true, features = ["sync", "time"] }
+zenoh.workspace = true
+zenoh-keyexpr = { workspace = true, features = ["std"] }
+
+[dev-dependencies]
+blueos-comms = { workspace = true, features = ["channel"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "test-util"] }
+
+[lints]
+workspace = true
