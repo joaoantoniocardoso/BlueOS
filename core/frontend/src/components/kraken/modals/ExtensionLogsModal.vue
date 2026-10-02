@@ -97,6 +97,9 @@ import { saveAs } from 'file-saver'
 import Vue from 'vue'
 
 import kraken from '@/components/kraken/KrakenManager'
+import { decodeSample } from '@/libs/blueos-api/cdr'
+import { cdrEncoding } from '@/libs/blueos-api/keys'
+import { LOG_SCHEMA } from '@/libs/blueos-api/types'
 
 interface LogMessage {
   message: string
@@ -162,8 +165,7 @@ export default Vue.extend({
       await this.requestHistoricalLogsForExtension(this.extensionIdentifier)
 
       if (!this.current_modal_topic) {
-        const topic = this.extensionIdentifier.replace(/\//g, '_').replace(/ /g, '_')
-        await this.setupModalSubscriber(`extensions/logs/${topic}`)
+        await this.setupModalSubscriber(kraken.extensionLogsTopic(this.extensionIdentifier))
       }
     },
     closeModal() {
@@ -214,18 +216,20 @@ export default Vue.extend({
       this.modal_subscriber = await kraken.createExtensionLogsSubscriber(topic, this.handleSubscriber)
     },
     async handleSubscriber(sample: Sample) {
-      const payloadString = sample.payload().toString()
+      const encoding = sample.encoding().toString()
+      let message = sample.payload().toString()
 
-      let message = payloadString
-      try {
-        const parsed = JSON.parse(payloadString)
-        if (parsed.message != null) {
-          message = parsed.message
-        } else if (parsed.data != null) {
-          message = parsed.data
+      if (encoding === cdrEncoding(LOG_SCHEMA)) {
+        try {
+          const decoded = decodeSample({
+            key: '',
+            payload: sample.payload().toBytes(),
+            encoding,
+          }, LOG_SCHEMA)
+          message = decoded.message
+        } catch {
+          // Keep raw payload when decode fails.
         }
-      } catch {
-        // Do nothing
       }
 
       this.message_buffer.push({ message })
