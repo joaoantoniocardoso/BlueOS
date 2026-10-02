@@ -573,7 +573,7 @@ Decision:
 - The teaching example is `core/services/example/`:
   - `example-minimal`: one Command, one Query, one State, a Domain unit test and the frontend call, about
     150 lines (a goal, D-31).
-  - A cookbook of numbered entries, `core/services/example/cookbook/NN-<topic>.rs`, each a self-contained test
+  - A cookbook of numbered entries, `core/services/example/cookbook/tests/NN-<topic>.rs`, each a self-contained test
     on the channel backend, answering every "how do I do X?" question (34 today, listed in the ergonomics review
     P4). A README table maps each question to its entry, and a test asserts that every question resolves to an
     entry that compiles.
