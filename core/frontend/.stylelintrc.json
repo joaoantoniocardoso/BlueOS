@@ -40,6 +40,17 @@
     "selector-pseudo-element-colon-notation": null,
     "shorthand-property-no-redundant-values": null,
     "declaration-block-no-redundant-longhand-properties": null,
-    "value-no-vendor-prefix": null
+    "value-no-vendor-prefix": null,
+    "declaration-property-value-disallowed-list": [
+      {
+        "/.+/": [
+          "/--v-theme-/",
+          "/--v-(?!(?:primary|secondary|accent|success|error|info|warning|critical|water|detail|positive|neutral|negative|attention|br_blue|mariner_blue|blue_whale|tether_yellow|tuna|oyster|sheet_bg_complement|sheet_bg|outline)-base\\b)[\\w-]+-base\\b/"
+        ]
+      },
+      {
+        "message": "Use a Vuetify 2 theme variable --v-<key>-base (hex) for a key in src/plugins/vuetify.ts. Vuetify 3 --v-theme-* names are unset."
+      }
+    ]
   }
 }
