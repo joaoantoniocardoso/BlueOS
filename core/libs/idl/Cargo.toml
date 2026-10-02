@@ -1,0 +1,24 @@
+[package]
+name = "blueos-idl"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "BlueOS ROS 2 message definitions with CDR codec and embedded schemas"
+readme = "README.md"
+repository = "https://github.com/bluerobotics/BlueOS"
+publish = true
+include = [
+    "/Cargo.toml",
+    "/README.md",
+    "/src/**/*",
+    "/interfaces/**/*.msg",
+    "/interfaces/**/package.xml",
+]
+
+[lints]
+workspace = true
+
+[dependencies]
+
+[dev-dependencies]
+blueos-idl-codegen = { path = "codegen" }

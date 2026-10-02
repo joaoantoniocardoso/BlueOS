@@ -41,6 +41,24 @@ check_rust_style_copies() {
     done
 }
 
+# Regenerates IDL output into a temp dir and byte-compares with committed `src/generated`.
+check_generated_idl() {
+    local workspace_dir="$1"
+    local idl_generated="$workspace_dir/libs/idl/src/generated"
+    local temporary
+    temporary=$(mktemp -d)
+    (
+        cd "$workspace_dir" || exit 1
+        cargo run --quiet -p blueos-idl-codegen -- --output "$temporary/generated"
+    )
+    if ! diff -ru "$idl_generated" "$temporary/generated" >/dev/null; then
+        rm -rf "$temporary"
+        printf 'Committed IDL Rust is stale; fix with: (cd core && cargo run -p blueos-idl-codegen -- --write)\n' >&2
+        exit 1
+    fi
+    rm -rf "$temporary"
+}
+
 # Usage: collect_folder_violations <cargo-metadata-json>
 # Prints one violation per line. Exits 1 when any violation exists.
 collect_folder_violations() {
@@ -105,11 +123,18 @@ run_rust_lint_checks() {
     (
         cd "$workspace_dir" || exit 1
 
-        echo "Running cargo fmt.."
         if [ "$fixing" = true ]; then
+            echo "Regenerating committed IDL Rust.."
+            cargo run --quiet -p blueos-idl-codegen -- --write
+            echo "Running cargo fmt.."
             cargo fmt --all
             exit 0
         fi
+
+        echo "Checking committed IDL Rust.."
+        check_generated_idl "$workspace_dir"
+
+        echo "Running cargo fmt.."
         cargo fmt --all --check
 
         echo "Running cargo clippy.."
@@ -123,13 +148,14 @@ run_rust_lint_checks() {
             exit 1
         fi
 
-        local package_args=()
+        local package_args=() idl_package_args=()
         local name directory unit folder
         while IFS=$'\t' read -r name directory; do
             read -r unit folder <<<"$(crate_place "$directory")"
-            if [ "$folder" = logic ]; then
-                package_args+=(-p "$name")
-            fi
+            case "$folder" in
+                logic) package_args+=(-p "$name") ;;
+                idl) [[ $directory == */codegen ]] || idl_package_args+=(-p "$name") ;;
+            esac
         done < <(jq -r '.packages[] | [.name, (.manifest_path | rtrimstr("/Cargo.toml"))] | @tsv' <<<"$metadata")
 
         echo "Building logic crates for ${RUST_NO_STD_TARGET} and ${RUST_WASM32_TARGET}.."
@@ -137,6 +163,9 @@ run_rust_lint_checks() {
             for no_std_target in "$RUST_NO_STD_TARGET" "$RUST_WASM32_TARGET"; do
                 cargo check --locked --target "$no_std_target" "${package_args[@]}"
             done
+        fi
+        if [ ${#idl_package_args[@]} -gt 0 ]; then
+            cargo check --locked --target "$RUST_NO_STD_TARGET" --no-default-features "${idl_package_args[@]}"
         fi
     )
 }
