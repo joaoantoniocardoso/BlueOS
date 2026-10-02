@@ -1,0 +1,24 @@
+[package]
+name = "blueos-recorder-mcap"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+bytes.workspace = true
+blueos-comms.workspace = true
+blueos-idl = { workspace = true, features = ["catalog"] }
+json5.workspace = true
+mcap.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["sync"] }
+tracing = { workspace = true, features = ["std"] }
+
+[dev-dependencies]
+bytes.workspace = true
+tempfile = "3"
+
+[lints]
+workspace = true

@@ -1,0 +1,18 @@
+[package]
+name = "blueos-recorder-api"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+blueos-domain.workspace = true
+blueos-idl = { workspace = true, default-features = false }
+blueos-recorder-capture.workspace = true
+blueos-recorder-domain.workspace = true
+blueos-settings.workspace = true
+serde = { workspace = true, features = ["alloc"] }
+serde_json.workspace = true
+
+[lints]
+workspace = true
