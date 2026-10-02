@@ -188,6 +188,41 @@ EOF
     rm -rf "$temporary"
 }
 
+test_shipped_clippy_rejects_item_used_only_under_non_shipped_feature() {
+    local temporary output
+    temporary=$(mktemp -d)
+    copy_core "$temporary"
+    cat >>"$temporary/libs/app/service/src/lib.rs" <<'EOF'
+
+use core::sync::atomic::AtomicUsize;
+
+/// Used only when the non-shipped testing feature is enabled.
+#[cfg(feature = "testing")]
+#[must_use]
+pub fn planted_non_shipped_item() -> usize {
+    AtomicUsize::new(1).load(core::sync::atomic::Ordering::Relaxed)
+}
+EOF
+    if ! output=$(
+        cd "$temporary"
+        cargo clippy --locked -p blueos-service --all-features -- -D warnings 2>&1
+    ); then
+        printf '%s\n' "$output" >&2
+        fail "all-features clippy should pass an item used under a non-shipped feature"
+    fi
+    if output=$(
+        cd "$temporary"
+        run_shipped_clippy 2>&1
+    ); then
+        fail "shipped clippy should reject an item used only under a non-shipped feature"
+    fi
+    if ! grep -q 'unused import' <<<"$output"; then
+        printf '%s\n' "$output" >&2
+        fail "shipped clippy should report the unused import"
+    fi
+    rm -rf "$temporary"
+}
+
 test_clippy_fails_on_allow_attributes() {
     local temporary
     temporary=$(mktemp -d)
@@ -390,6 +425,7 @@ main() {
     test_workspace_metadata_is_clean
     test_fmt_check_fails_on_unformatted_source
     test_syn_style_check_fails_on_mixed_import_groups
+    test_shipped_clippy_rejects_item_used_only_under_non_shipped_feature
     test_clippy_fails_on_allow_attributes
     test_no_std_build_fails_on_io_dependency
     test_machete_fails_on_unused_dependency

@@ -71,6 +71,10 @@ Async test code never waits on wall time: no `std::thread::sleep` in async code,
 `spawn_blocking` work (see `drain_blocking_io` in the Recorder harness). A blocking test double may block its own
 thread to stand in for slow IO.
 
+A test that needs a State waits for it with a predicate (the `wait_for_*` helpers, which subscribe and
+check the current value), rather than reading it once and branching on it, because the IO behind the State
+may not have landed yet.
+
 ## Documentation
 
 - Every public item has a doc comment (`missing_docs` is denied). Private items need one only when they are not

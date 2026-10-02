@@ -182,8 +182,10 @@ jobs:
         run: |
           # shellcheck disable=SC1091
           source ../.github/lib/rust_report_only.sh
+          # shellcheck disable=SC1091
+          source shipped_features.sh
           report_section "cargo bloat" \
-            cargo bloat --release -p blueos --features recorder --crates -n 25
+            cargo bloat --release -p "$BLUEOS_SHIPPED_PACKAGE" --features "${BLUEOS_SHIPPED_FEATURES[*]}" --crates -n 25
           report_section "rustqual" \
             rustqual --no-fail --format github .
           report_section "thailint unwrap-abuse" \
@@ -275,11 +277,24 @@ jobs:
         with:
           tool: cargo-nextest@0.9.146,cargo-llvm-cov@0.9.1
 
-      - name: Rust tests and coverage ratchet
+      - name: Rust tests
         run: |
           # shellcheck disable=SC1091
           source .hooks/lib/rust_checks.sh
           run_rust_test_checks "$GITHUB_WORKSPACE/core"
+
+      - name: Flake hunt
+        if: github.event_name == 'pull_request'
+        run: |
+          if [ "$(git rev-parse --is-shallow-repository)" = true ]; then
+            git fetch --no-tags --unshallow origin
+          fi
+          .hooks/lib/flake_hunt.sh "${{ github.event.pull_request.base.sha }}"
+
+      - name: Coverage ratchet
+        run: |
+          # shellcheck disable=SC1091
+          source .hooks/lib/rust_checks.sh
           check_rust_coverage_ratchet "$GITHUB_WORKSPACE/core"
 
       - name: Coverage summary

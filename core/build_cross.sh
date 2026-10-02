@@ -13,14 +13,20 @@ else
 fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${ROOT}/shipped_features.sh"
 cd "${ROOT}"
 
 for TARGET in "${TARGETS_ARRAY[@]}"; do
     export CARGO_TARGET_DIR="target/build/${TARGET}"
 
-    echo "Building blueos for target: ${TARGET}"
+    echo "Building ${BLUEOS_SHIPPED_PACKAGE} for target: ${TARGET}"
     # cross only wraps `cargo build`; auditable is a cargo subcommand (D-16, D-30).
-    CARGO="cargo auditable" cross build --release --locked --features recorder -p blueos --target "${TARGET}" "$@"
+    CARGO="cargo auditable" cross build --release --locked \
+        --features "${BLUEOS_SHIPPED_FEATURES[*]}" \
+        -p "${BLUEOS_SHIPPED_PACKAGE}" \
+        --target "${TARGET}" \
+        "$@"
 done
 
 echo "All builds completed successfully."
