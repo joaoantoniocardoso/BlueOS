@@ -1,12 +1,14 @@
 //! Trace-level logging does not publish `zenoh*` targets on the `log` key.
 
-use std::{sync::Arc, time::Duration};
+use core::time::Duration;
+use std::sync::Arc;
+
+use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
 use blueos_api::log_key;
 use blueos_comms::{CommsBackend, channel::ChannelBackend};
 use blueos_idl::{Message, msg::foxglove_msgs::Log};
 use blueos_logging::{attach, init};
-use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
 #[tokio::test(start_paused = true)]
 async fn zenoh_targets_are_not_published_at_trace_level() {

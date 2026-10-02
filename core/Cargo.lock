@@ -245,8 +245,6 @@ dependencies = [
  "blueos-comms",
  "blueos-idl",
  "bytes",
- "futures-util",
- "thiserror",
  "tokio",
  "tokio-util",
  "tracing",
@@ -307,7 +305,6 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]

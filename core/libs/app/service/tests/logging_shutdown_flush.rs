@@ -1,12 +1,14 @@
 //! Records logged just before publisher shutdown are still published.
 
-use std::{sync::Arc, time::Duration};
+use core::time::Duration;
+use std::sync::Arc;
+
+use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
 use blueos_api::log_key;
 use blueos_comms::{CommsBackend, channel::ChannelBackend};
 use blueos_idl::{Message, msg::foxglove_msgs::Log};
 use blueos_logging::{attach, init};
-use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
 #[tokio::test(start_paused = true)]
 async fn record_logged_before_shutdown_is_published() {

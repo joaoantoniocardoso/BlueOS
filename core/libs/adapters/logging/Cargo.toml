@@ -13,8 +13,6 @@ testing = []
 blueos-comms.workspace = true
 blueos-idl.workspace = true
 bytes.workspace = true
-futures-util = { workspace = true, features = ["std"] }
-thiserror.workspace = true
 tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }
 tokio-util = { workspace = true, features = ["rt"] }
 tracing = { workspace = true, features = ["std"] }
