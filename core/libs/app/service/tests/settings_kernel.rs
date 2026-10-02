@@ -6,7 +6,7 @@ use std::{path::PathBuf, sync::Arc};
 use serde::{Deserialize, Serialize};
 
 use blueos_comms::channel::ChannelBackend;
-use blueos_domain::{Command, Decision, Domain, Now, Outcome};
+use blueos_domain::{Command, Decision, Domain, IoError, Now, Outcome};
 use blueos_idl::{msg::blueos_example_msgs::SetLevelRequest, msg::blueos_msgs::SettingsEnvelope};
 use blueos_service::{Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness};
 use blueos_settings::{SettingsError, SettingsSchema, settings_file_name};
@@ -62,6 +62,7 @@ struct SettingsTank;
 
 impl Service for SettingsTankService {
     type Domain = SettingsTank;
+    type Context = ();
     type Arguments = SettingsTankArguments;
 
     const NAME: &'static str = "settings_tank";
@@ -121,7 +122,17 @@ impl Domain for SettingsTank {
                     effects: Vec::new(),
                 }
             }
+            Command::IoResult(never) => match never {},
+            Command::Tick(never) => match never {},
+            Command::ObservedFact(never) => match never {},
         }
+    }
+
+    fn io_failed(
+        request: Self::IoRequest,
+        _error: IoError,
+    ) -> Command<Self::Request, Self::IoResult, Self::Tick, Self::ObservedFact> {
+        match request {}
     }
 }
 

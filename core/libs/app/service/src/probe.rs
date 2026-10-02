@@ -4,7 +4,7 @@ use core::convert::Infallible;
 
 use clap::Args;
 
-use blueos_domain::{Command, Decision, Domain, Outcome};
+use blueos_domain::{Command, Decision, Domain, IoError, Outcome};
 
 use crate::{Service, ServiceBuilder, ServiceContext, ServiceError};
 
@@ -28,6 +28,7 @@ pub struct ProbeSnapshot;
 
 impl Service for ProbeService {
     type Domain = Probe;
+    type Context = ();
     type Arguments = ProbeArguments;
 
     const NAME: &'static str = "probe";
@@ -60,5 +61,12 @@ impl Domain for Probe {
             events: Vec::new(),
             effects: Vec::new(),
         }
+    }
+
+    fn io_failed(
+        request: Self::IoRequest,
+        _error: IoError,
+    ) -> Command<Self::Request, Self::IoResult, Self::Tick, Self::ObservedFact> {
+        match request {}
     }
 }

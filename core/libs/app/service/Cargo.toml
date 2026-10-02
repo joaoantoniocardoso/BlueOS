@@ -18,10 +18,12 @@ blueos-domain.workspace = true
 blueos-idl.workspace = true
 blueos-settings.workspace = true
 bytes.workspace = true
-serde_json.workspace = true
 clap = { workspace = true, features = ["derive", "env", "std"] }
+futures-util = { workspace = true, features = ["std"] }
+serde_json.workspace = true
 thiserror.workspace = true
-tokio = { workspace = true, features = ["rt", "sync", "time"] }
+tokio = { workspace = true, features = ["macros", "rt", "rt-multi-thread", "sync", "time"] }
+tokio-util = { workspace = true, features = ["time"] }
 tracing = { workspace = true, features = ["std"] }
 tracing-subscriber.workspace = true
 

@@ -69,6 +69,10 @@ pub enum RecorderQuery {
 /// Marker type for the Recorder [`Domain`].
 pub struct RecorderDomain;
 
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+/// Timer keys the Recorder Domain does not schedule yet.
+pub enum RecorderTimerKey {}
+
 impl Domain for RecorderDomain {
     type Snapshot = RecorderSnapshot;
     type Request = RecorderRequest;
@@ -77,7 +81,7 @@ impl Domain for RecorderDomain {
     type ObservedFact = RecorderObservedFact;
     type Event = RecorderEvent;
     type IoRequest = Infallible;
-    type TimerKey = Infallible;
+    type TimerKey = RecorderTimerKey;
 
     fn handle(
         snapshot: &mut Self::Snapshot,
@@ -108,6 +112,13 @@ impl Domain for RecorderDomain {
                 map_capture_outcome(snapshot.capture.handle_observed_fact(fact))
             }
         }
+    }
+
+    fn io_failed(
+        request: Self::IoRequest,
+        _error: blueos_domain::IoError,
+    ) -> Command<Self::Request, Self::IoResult, Self::Tick, Self::ObservedFact> {
+        match request {}
     }
 }
 

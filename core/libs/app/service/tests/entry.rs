@@ -6,7 +6,7 @@ use std::{ffi::OsString, path::PathBuf, process::ExitCode};
 
 use clap::Args;
 
-use blueos_domain::{Command, Decision, Domain, Now, Outcome};
+use blueos_domain::{Command, Decision, Domain, IoError, Now, Outcome};
 use blueos_service::{
     Service, ServiceBuilder, ServiceContext, ServiceError,
     entry::{
@@ -28,6 +28,7 @@ struct FixtureSnapshot;
 
 impl Service for FixtureService {
     type Domain = Fixture;
+    type Context = ();
     type Arguments = FixtureArguments;
 
     const NAME: &'static str = "fixture";
@@ -62,6 +63,13 @@ impl Domain for Fixture {
             events: Vec::new(),
             effects: Vec::new(),
         }
+    }
+
+    fn io_failed(
+        request: Self::IoRequest,
+        _error: IoError,
+    ) -> Command<Self::Request, Self::IoResult, Self::Tick, Self::ObservedFact> {
+        match request {}
     }
 }
 

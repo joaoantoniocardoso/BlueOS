@@ -1,14 +1,17 @@
 //! What a Service's `build` declares: the initial Snapshot and how the Domain meets the backbone.
 
-use core::error::Error;
-use std::path::PathBuf;
+use core::{error::Error, future::Future};
+use std::{path::PathBuf, sync::Arc};
 
 use blueos_api::{Message, cdr_encoding};
-use blueos_domain::Domain;
+use blueos_domain::{Domain, DomainQueries, IoError};
 use blueos_idl::{Error as IdlError, msg::blueos_msgs::SettingsEnvelope};
 use blueos_settings::SettingsSchema;
 
-use crate::settings::{SettingsRegistration, register_settings};
+use crate::{
+    kernel::io::IoExecutors,
+    settings::{SettingsRegistration, register_settings},
+};
 
 /// Decodes a Request body into the Domain's Request.
 pub(crate) type Decode<D> = Box<dyn Fn(&[u8]) -> Result<<D as Domain>::Request, IdlError> + Send>;
@@ -24,13 +27,27 @@ pub(crate) type Select<D> =
 /// Everything a Service declares in `build`: the initial Snapshot, then one call per endpoint. Each call converts
 /// between a Message and the Domain's own types, so the Domain never sees a Message.
 #[must_use]
-pub struct ServiceBuilder<D: Domain> {
+pub struct ServiceBuilder<D: Domain, Context = ()> {
     pub(crate) snapshot: D::Snapshot,
+    pub(crate) context: Context,
+    pub(crate) io: IoExecutors<D, Context>,
     pub(crate) commands: Vec<CommandEndpoint<D>>,
+    pub(crate) queries: Vec<(String, AnswerQuery<D>)>,
     pub(crate) states: Vec<StateEndpoint<D>>,
     pub(crate) events: Vec<EventEndpoint<D>>,
     pub(crate) settings: Option<SettingsRegistration<D>>,
 }
+
+/// Answers one Query from the Snapshot and the request body.
+pub(crate) type AnswerQuery<D> = Arc<
+    dyn Fn(
+            &<D as Domain>::Snapshot,
+            &[u8],
+            blueos_domain::Now,
+        ) -> Result<(Vec<u8>, String), IdlError>
+        + Send
+        + Sync,
+>;
 
 /// A Command endpoint: a query on `blueos/v1/<service>/command/<name>` whose body is a Request.
 pub(crate) struct CommandEndpoint<D: Domain> {
@@ -52,21 +69,95 @@ pub(crate) struct EventEndpoint<D: Domain> {
     pub(crate) select: Select<D>,
 }
 
-impl<D: Domain> ServiceBuilder<D> {
+impl<D: Domain> ServiceBuilder<D, ()> {
     /// A Service whose Domain starts from `snapshot`, with no endpoints yet.
     pub fn new(snapshot: D::Snapshot) -> Self {
         Self {
             snapshot,
+            context: (),
+            io: IoExecutors {
+                r#async: None,
+                blocking: None,
+            },
             commands: Vec::new(),
+            queries: Vec::new(),
             states: Vec::new(),
             events: Vec::new(),
             settings: None,
         }
     }
 
+    /// The Context IO code receives by reference, together with the Snapshot it needs.
+    pub fn context<NewContext: Send + Sync + 'static>(
+        self,
+        context: NewContext,
+    ) -> ServiceBuilder<D, NewContext> {
+        ServiceBuilder {
+            snapshot: self.snapshot,
+            context,
+            io: IoExecutors {
+                r#async: None,
+                blocking: None,
+            },
+            commands: self.commands,
+            queries: self.queries,
+            states: self.states,
+            events: self.events,
+            settings: self.settings,
+        }
+    }
+}
+
+impl<D: Domain + DomainQueries, Context> ServiceBuilder<D, Context> {
+    /// Adds the Query endpoint `name`. Its body is an `M`; the answer is an `R` built from the current Snapshot.
+    pub fn query<M: Message + 'static, R: Message + 'static>(
+        mut self,
+        name: &str,
+        into_query: impl Fn(M) -> D::Query + Send + Sync + 'static,
+        into_response: impl Fn(D::Response) -> R + Send + Sync + 'static,
+    ) -> Self {
+        let encoding = cdr_encoding(R::SCHEMA_NAME);
+        self.queries.push((
+            name.to_owned(),
+            Arc::new(move |snapshot, body, now| {
+                let query = M::decode(body).map(&into_query)?;
+                let response = D::query(snapshot, query, now);
+                Ok((into_response(response).encode()?, encoding.clone()))
+            }),
+        ));
+        self
+    }
+}
+
+impl<D: Domain, Context> ServiceBuilder<D, Context> {
+    /// The executor for every [`Effect::Io`]. It returns an optional IO result Command, or an [`IoError`] the Kernel
+    /// turns into [`Domain::io_failed`].
+    pub fn io<F, Fut>(mut self, executor: F) -> Self
+    where
+        F: Fn(&Context, &D::Snapshot, D::IoRequest) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = Result<Option<D::IoResult>, IoError>> + Send + 'static,
+    {
+        self.io.r#async = Some(Arc::new(move |context, snapshot, request| {
+            Box::pin(executor(context, snapshot, request))
+        }));
+        self
+    }
+
+    /// The executor for IO the Domain marks with [`Domain::io_runs_on_blocking_thread`]. The Kernel runs it with
+    /// [`tokio::task::spawn_blocking`], with the same ordering and result reporting as [`.io`](Self::io).
+    pub fn blocking_io<F>(mut self, executor: F) -> Self
+    where
+        F: Fn(&Context, &D::Snapshot, D::IoRequest) -> Result<Option<D::IoResult>, IoError>
+            + Send
+            + Sync
+            + 'static,
+    {
+        self.io.blocking = Some(Arc::new(executor));
+        self
+    }
+
     /// Registers Python-compatible settings (D-11): the Kernel loads once at startup, owns `UpdateSettings`, and
     /// persists after each successful update.
-    ///
     pub fn settings<S>(
         mut self,
         service_name: &str,

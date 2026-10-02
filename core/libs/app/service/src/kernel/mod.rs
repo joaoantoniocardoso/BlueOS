@@ -1,5 +1,9 @@
 //! The Kernel: the Inbox loop that applies every Command to the Domain and publishes what changed.
 
+mod effects;
+pub(crate) mod io;
+mod timers;
+
 use core::{error::Error, panic::AssertUnwindSafe};
 use std::{
     panic,
@@ -14,44 +18,61 @@ use tokio::{
 use tracing::{error, warn};
 
 use blueos_api::{
-    CommandAck, JOB_ID_NONE, Message, cdr_encoding, command_key, event_key, settings_key, state_key,
+    CommandAck, JOB_ID_NONE, Message, cdr_encoding, command_key, event_key, query_key,
+    settings_key, state_key,
 };
 use blueos_comms::{CommsBackend, CommsError, Query, Queryable, Sample};
-use blueos_domain::{Command, Domain, Now, Outcome};
+use blueos_domain::{Command, Domain, Effect, Now, Outcome};
 use blueos_idl::{Error as IdlError, msg::blueos_msgs::SettingsEnvelope};
 
 use crate::{
-    builder::{Decode, EventEndpoint, ServiceBuilder, StateEndpoint},
+    builder::{AnswerQuery, Decode, EventEndpoint, ServiceBuilder, StateEndpoint},
     service::ServiceError,
     settings::{SettingsDriver, settings_encoding},
 };
 
+use effects::{apply_sync_effects, io_requests};
+use io::{IoExecutors, spawn_io_chain};
+use timers::TimerWheel;
+
 /// How many Commands wait in the Inbox before a sender has to wait.
 const INBOX_CAPACITY: usize = 256;
 
+/// One applied Command's Effects in application order.
+#[cfg(feature = "testing")]
+type EffectBatch<D> =
+    Vec<Effect<<D as Domain>::Tick, <D as Domain>::IoRequest, <D as Domain>::TimerKey>>;
+
+/// Shared storage for recorded Effects when the harness asks not to run them.
+#[cfg(feature = "testing")]
+pub(crate) type EffectLogStorage<D> = Arc<std::sync::Mutex<Vec<EffectBatch<D>>>>;
+
 /// Runs one Domain: the only writer of its Snapshot, and the owner of everything that can be stopped (the Inbox
 /// and the endpoint adapters). Dropping it stops them.
-pub struct Kernel<D: Domain> {
+pub struct Kernel<D: Domain, Context = ()> {
     service: &'static str,
     snapshot: D::Snapshot,
     inbox: mpsc::Receiver<Delivery<D>>,
+    inbox_sender: Option<mpsc::Sender<Delivery<D>>>,
     states: Vec<PublishedState<D>>,
     settings: Option<SettingsEndpoint<D>>,
     events: Vec<EventEndpoint<D>>,
     backend: Arc<dyn CommsBackend>,
     clock: Arc<dyn Clock>,
-    #[expect(
-        dead_code,
-        reason = "held so that dropping the Kernel aborts its endpoint adapters"
-    )]
+    timers: TimerWheel<D>,
+    context: Arc<Context>,
+    io: IoExecutors<D, Context>,
+    snapshot_for_queries: Arc<tokio::sync::RwLock<D::Snapshot>>,
+    #[cfg(feature = "testing")]
+    effect_log: Option<EffectLogStorage<D>>,
     endpoints: JoinSet<()>,
 }
 
-/// One Command in the Inbox, with the query to acknowledge once it is handled.
-struct Delivery<D: Domain> {
-    command: Command<D::Request, D::IoResult, D::Tick, D::ObservedFact>,
-    query: Query,
-    persist_settings: bool,
+/// One Command in the Inbox, with an optional query to acknowledge once it is handled.
+pub(crate) struct Delivery<D: Domain> {
+    pub(crate) command: Command<D::Request, D::IoResult, D::Tick, D::ObservedFact>,
+    pub(crate) reply: Option<Query>,
+    pub(crate) persist_settings: bool,
 }
 
 /// The standard `settings` State and its persistence driver (D-11).
@@ -100,7 +121,7 @@ enum SendError {
     Comms(#[from] CommsError),
 }
 
-impl<D: Domain> Kernel<D> {
+impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
     /// Declares every endpoint of `builder` on `backend` and publishes the initial States, so every endpoint answers
     /// once this returns.
     ///
@@ -109,11 +130,41 @@ impl<D: Domain> Kernel<D> {
     /// [`ServiceError::DeclareEndpoint`] when the backbone refuses an endpoint.
     pub async fn start(
         service: &'static str,
-        mut builder: ServiceBuilder<D>,
+        builder: ServiceBuilder<D, Context>,
         backend: Arc<dyn CommsBackend>,
         clock: Arc<dyn Clock>,
     ) -> Result<Self, ServiceError> {
+        #[cfg(feature = "testing")]
+        {
+            Self::boot(service, builder, backend, clock, None).await
+        }
+        #[cfg(not(feature = "testing"))]
+        {
+            Self::boot(service, builder, backend, clock).await
+        }
+    }
+
+    /// Like [`Self::start`], optionally recording Effects without running IO or timers (harness only).
+    #[cfg(feature = "testing")]
+    pub async fn start_with_effect_log(
+        service: &'static str,
+        builder: ServiceBuilder<D, Context>,
+        backend: Arc<dyn CommsBackend>,
+        clock: Arc<dyn Clock>,
+        effect_log: Option<EffectLogStorage<D>>,
+    ) -> Result<Self, ServiceError> {
+        Self::boot(service, builder, backend, clock, effect_log).await
+    }
+
+    async fn boot(
+        service: &'static str,
+        mut builder: ServiceBuilder<D, Context>,
+        backend: Arc<dyn CommsBackend>,
+        clock: Arc<dyn Clock>,
+        #[cfg(feature = "testing")] effect_log: Option<EffectLogStorage<D>>,
+    ) -> Result<Self, ServiceError> {
         let (inbox_sender, inbox) = mpsc::channel(INBOX_CAPACITY);
+        let snapshot_for_queries = Arc::new(tokio::sync::RwLock::new(builder.snapshot.clone()));
         let mut endpoints = JoinSet::new();
         let mut settings = None;
         if let Some(registration) = builder.settings {
@@ -169,15 +220,33 @@ impl<D: Domain> Kernel<D> {
                 latest,
             });
         }
+        for (name, answer) in builder.queries {
+            let key = query_key(service, &name);
+            let queryable = declare(&*backend, key.clone()).await?;
+            endpoints.spawn(serve_query::<D>(
+                queryable,
+                key,
+                answer,
+                Arc::clone(&snapshot_for_queries),
+                Arc::clone(&clock),
+            ));
+        }
         let kernel = Self {
             service,
             snapshot: builder.snapshot,
             inbox,
+            inbox_sender: Some(inbox_sender),
             states,
             settings,
             events: builder.events,
             backend,
             clock,
+            timers: TimerWheel::new(),
+            context: Arc::new(builder.context),
+            io: builder.io,
+            snapshot_for_queries,
+            #[cfg(feature = "testing")]
+            effect_log,
             endpoints,
         };
         let initial_states = kernel
@@ -192,6 +261,27 @@ impl<D: Domain> Kernel<D> {
 
     /// Handles the Commands in the Inbox one at a time, until every endpoint has stopped.
     pub async fn run(mut self) {
+        while !self.endpoints.is_empty() {
+            tokio::select! {
+                delivery = self.inbox.recv() => {
+                    if let Some(delivery) = delivery {
+                        self.dispatch(delivery).await;
+                    }
+                }
+                tick = self.timers.next_tick(), if self.timers.waiting() => {
+                    if let Some(tick) = tick {
+                        self.dispatch(Delivery {
+                            command: Command::Tick(tick),
+                            reply: None,
+                            persist_settings: false,
+                        })
+                        .await;
+                    }
+                }
+                _ = self.endpoints.join_next() => {}
+            }
+        }
+        self.inbox_sender.take();
         while let Some(delivery) = self.inbox.recv().await {
             self.dispatch(delivery).await;
         }
@@ -202,22 +292,29 @@ impl<D: Domain> Kernel<D> {
     async fn dispatch(&mut self, delivery: Delivery<D>) {
         let Delivery {
             command,
-            query,
+            reply,
             persist_settings,
         } = delivery;
         let now = self.clock.now();
         let backup = self.snapshot.clone();
         let snapshot = &mut self.snapshot;
         let states = &self.states;
+        #[cfg(feature = "testing")]
+        let run_effects = self.effect_log.is_none();
+        #[cfg(not(feature = "testing"))]
+        let run_effects = true;
+        let timers = &mut self.timers;
+        let io = &self.io;
         let decided = panic::catch_unwind(AssertUnwindSafe(|| {
             match D::handle(snapshot, command, now) {
-                // ponytail: the Effects are dropped until the Kernel runs IO and timers.
-                Outcome::Applied { events, effects: _ } => {
+                Outcome::Applied { events, effects } => {
+                    apply_sync_effects(&effects, timers, io, run_effects)
+                        .map_err(|error| Rejection::Domain(Box::new(error)))?;
                     let encoded_states: Vec<_> = states
                         .iter()
                         .map(|state| (state.endpoint.project)(snapshot))
                         .collect();
-                    Ok((events, encoded_states))
+                    Ok((events, effects, encoded_states))
                 }
                 Outcome::Rejected { reason } => Err(Rejection::Domain(reason)),
             }
@@ -230,7 +327,17 @@ impl<D: Domain> Kernel<D> {
             Err(Rejection::Panicked)
         });
         match decided {
-            Ok((events, encoded_states)) => {
+            Ok((events, effects, encoded_states)) => {
+                {
+                    let mut shared = self.snapshot_for_queries.write().await;
+                    *shared = self.snapshot.clone();
+                }
+                #[cfg(feature = "testing")]
+                if let Some(log) = &self.effect_log {
+                    log.lock()
+                        .expect("the effect log mutex is not poisoned")
+                        .push(effects.clone());
+                }
                 if persist_settings && let Some(settings) = &self.settings {
                     let persist_result = settings
                         .driver
@@ -245,19 +352,37 @@ impl<D: Domain> Kernel<D> {
                             .commit_persisted(&self.snapshot),
                         Err(error) => {
                             self.snapshot = backup;
-                            acknowledge(query, Err(Rejection::Domain(error.into()))).await;
+                            if let Some(query) = reply {
+                                acknowledge(query, Err(Rejection::Domain(error.into()))).await;
+                            }
                             return;
                         }
                     }
                 }
                 self.publish_states(encoded_states).await;
                 self.publish_settings().await;
-                acknowledge(query, Ok(())).await;
+                if let Some(query) = reply {
+                    acknowledge(query, Ok(())).await;
+                }
                 self.publish_events(events).await;
+                if run_effects {
+                    let requests = io_requests::<D>(&effects);
+                    if let (Some(inbox_sender), false) = (&self.inbox_sender, requests.is_empty()) {
+                        spawn_io_chain(
+                            self.io.clone(),
+                            Arc::clone(&self.context),
+                            self.snapshot.clone(),
+                            requests,
+                            mpsc::Sender::clone(inbox_sender),
+                        );
+                    }
+                }
             }
             Err(rejection) => {
                 self.snapshot = backup;
-                acknowledge(query, Err(rejection)).await;
+                if let Some(query) = reply {
+                    acknowledge(query, Err(rejection)).await;
+                }
             }
         }
     }
@@ -347,10 +472,9 @@ async fn serve_command<D: Domain>(
             Ok(request) => {
                 let delivery = Delivery {
                     command: Command::Request(request),
-                    query,
+                    reply: Some(query),
                     persist_settings: false,
                 };
-                // A closed Inbox means the Kernel stopped; dropping the query tells the client.
                 drop(inbox.send(delivery).await);
             }
             Err(error) => acknowledge(query, Err(Rejection::InvalidBody(error))).await,
@@ -358,7 +482,6 @@ async fn serve_command<D: Domain>(
     }
 }
 
-/// Answers every get on a State with the last value the backbone accepted.
 /// Decodes `UpdateSettings`, validates the document, and queues a Domain Command that persists on success.
 async fn serve_update_settings<D: Domain>(
     mut queryable: Queryable,
@@ -383,7 +506,7 @@ async fn serve_update_settings<D: Domain>(
             Ok(request) => {
                 let delivery = Delivery {
                     command: Command::Request(request),
-                    query,
+                    reply: Some(query),
                     persist_settings: true,
                 };
                 drop(inbox.send(delivery).await);
@@ -406,6 +529,32 @@ async fn serve_settings(
             let sent = query.reply(payload, encoding.as_str()).await;
             warn_on_failure("State", &key, sent.map_err(SendError::from));
         }
+    }
+}
+
+/// Answers every get on a Domain Query endpoint from the current Snapshot.
+async fn serve_query<D: Domain>(
+    mut queryable: Queryable,
+    key: String,
+    answer: AnswerQuery<D>,
+    snapshot: Arc<tokio::sync::RwLock<D::Snapshot>>,
+    clock: Arc<dyn Clock>,
+) {
+    while let Some(query) = queryable.recv().await {
+        let body = query
+            .body()
+            .map(|body| body.payload().to_bytes())
+            .unwrap_or_default();
+        let now = clock.now();
+        let shared = snapshot.read().await;
+        let sent: Result<(), SendError> = match answer(&*shared, &body, now) {
+            Ok((payload, encoding)) => query
+                .reply(payload, encoding.as_str())
+                .await
+                .map_err(SendError::from),
+            Err(error) => Err(SendError::Encode(error)),
+        };
+        warn_on_failure("Query", &key, sent);
     }
 }
 
