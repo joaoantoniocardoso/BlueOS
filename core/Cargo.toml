@@ -20,6 +20,9 @@ members = [
     "services/recorder/logic/api",
     "services/recorder/logic/capture",
     "services/recorder/logic/recorder",
+    "services/example/app",
+    "services/example/logic/api",
+    "services/example/logic/domain",
     "services/tank/app",
     "services/tank/logic/api",
     "services/tank/logic/domain",
@@ -56,6 +59,9 @@ blueos-recorder-api = { path = "services/recorder/logic/api" }
 blueos-recorder-app = { path = "services/recorder/app" }
 blueos-recorder-capture = { path = "services/recorder/logic/capture" }
 blueos-recorder-domain = { path = "services/recorder/logic/recorder" }
+blueos-example-api = { path = "services/example/logic/api" }
+blueos-example-app = { path = "services/example/app" }
+blueos-example-domain = { path = "services/example/logic/domain" }
 blueos-recorder-mcap = { path = "services/recorder/adapters/mcap" }
 blueos-recorder-storage = { path = "services/recorder/adapters/storage" }
 blueos-tank-api = { path = "services/tank/logic/api" }

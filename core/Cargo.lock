@@ -211,6 +211,7 @@ dependencies = [
 name = "blueos"
 version = "0.1.0"
 dependencies = [
+ "blueos-example-app",
  "blueos-recorder-app",
  "blueos-service",
 ]
@@ -251,6 +252,37 @@ dependencies = [
 [[package]]
 name = "blueos-domain"
 version = "0.1.0"
+
+[[package]]
+name = "blueos-example-api"
+version = "0.1.0"
+dependencies = [
+ "blueos-domain",
+ "blueos-example-domain",
+ "blueos-idl",
+]
+
+[[package]]
+name = "blueos-example-app"
+version = "0.1.0"
+dependencies = [
+ "blueos-api",
+ "blueos-comms",
+ "blueos-example-api",
+ "blueos-example-domain",
+ "blueos-idl",
+ "blueos-service",
+ "clap",
+ "tokio",
+]
+
+[[package]]
+name = "blueos-example-domain"
+version = "0.1.0"
+dependencies = [
+ "blueos-domain",
+ "thiserror",
+]
 
 [[package]]
 name = "blueos-idl"

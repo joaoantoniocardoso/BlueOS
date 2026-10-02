@@ -10,10 +10,12 @@ name = "blueos"
 path = "src/main.rs"
 
 [features]
+example = ["dep:blueos-example-app"]
 probe = ["blueos-service/probe"]
 recorder = ["blueos-recorder-app"]
 
 [dependencies]
+blueos-example-app = { workspace = true, optional = true }
 blueos-recorder-app = { workspace = true, optional = true }
 blueos-service.workspace = true
 
