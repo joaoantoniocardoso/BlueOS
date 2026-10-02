@@ -7,7 +7,7 @@ use core::{
     time::Duration,
 };
 
-use blueos_domain::{Command, Decision, Domain, DomainQueries, Effect, Now, Outcome};
+use blueos_domain::{Command, Decision, Domain, DomainQueries, Effect, IoError, Now, Outcome};
 
 const NOW: Now = Now {
     wall: Duration::from_secs(1_700_000_000),
@@ -18,6 +18,9 @@ type PumpOutcome = Outcome<PumpEvent, PumpTick, PumpIoRequest, PumpTimerKey>;
 
 /// A Domain with only Requests: no Queries, no Jobs, no IO, no domain events and no timers.
 struct Counter;
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+enum CounterTimerKey {}
 
 enum CounterRequest {
     Increment,
@@ -40,7 +43,7 @@ enum TankQuery {
     PumpRunTime,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 enum TankTick {
     Pump(PumpTick),
 }
@@ -50,12 +53,12 @@ enum TankEvent {
     Pump(PumpEvent),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 enum TankIoRequest {
     Pump(PumpIoRequest),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 enum TankTimerKey {
     Pump(PumpTimerKey),
 }
@@ -73,17 +76,17 @@ enum PumpEvent {
     Stopped { ran_for: Duration },
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 enum PumpTick {
     RunTimeElapsed,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 enum PumpIoRequest {
     SetPower { on: bool },
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 enum PumpTimerKey {
     RunTime,
 }
@@ -101,7 +104,7 @@ impl Domain for Counter {
     type ObservedFact = Infallible;
     type Event = Infallible;
     type IoRequest = Infallible;
-    type TimerKey = Infallible;
+    type TimerKey = CounterTimerKey;
 
     fn handle(
         snapshot: &mut Self::Snapshot,
@@ -115,6 +118,13 @@ impl Domain for Counter {
             events: Vec::new(),
             effects: Vec::new(),
         }
+    }
+
+    fn io_failed(
+        request: Self::IoRequest,
+        _error: IoError,
+    ) -> Command<Self::Request, Self::IoResult, Self::Tick, Self::ObservedFact> {
+        match request {}
     }
 }
 
@@ -152,6 +162,19 @@ impl Domain for Tank {
                 events: Vec::new(),
                 effects: Vec::new(),
             },
+            Command::IoResult(io_result) => match io_result {},
+            Command::ObservedFact(observed_fact) => match observed_fact {},
+        }
+    }
+
+    fn io_failed(
+        request: Self::IoRequest,
+        _error: IoError,
+    ) -> Command<Self::Request, Self::IoResult, Self::Tick, Self::ObservedFact> {
+        match request {
+            TankIoRequest::Pump(PumpIoRequest::SetPower { on: _ }) => {
+                panic!("the Tank tests do not run IO through the Kernel");
+            }
         }
     }
 }
@@ -212,6 +235,14 @@ impl Display for PumpRejection {
 }
 
 impl Error for PumpRejection {}
+
+#[test]
+fn io_error_carries_a_message_for_the_domain() {
+    let error = IoError::new("disk full");
+
+    assert_eq!(error.message(), "disk full");
+    assert_eq!(error.to_string(), "disk full");
+}
 
 #[test]
 fn domain_without_queries_jobs_or_io_handles_a_request() {

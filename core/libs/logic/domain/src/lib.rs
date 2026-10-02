@@ -9,8 +9,13 @@
 
 extern crate alloc;
 
-use alloc::{boxed::Box, vec::Vec};
-use core::{error::Error, time::Duration};
+use alloc::{boxed::Box, string::String, vec::Vec};
+use core::{
+    error::Error,
+    fmt::{self, Display, Formatter},
+    hash::Hash,
+    time::Duration,
+};
 
 /// The Decision of a Domain: the [`Outcome`] in the Domain's own types.
 pub type Decision<D> = Outcome<
@@ -70,6 +75,12 @@ pub enum Effect<Tick, IoRequest, TimerKey> {
     Cancel(TimerKey),
 }
 
+/// Why an IO request the Kernel ran did not finish with a result Command.
+#[derive(Debug)]
+pub struct IoError {
+    message: String,
+}
+
 /// The time the Kernel read from its Clock once for the Command being handled.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Now {
@@ -95,15 +106,15 @@ pub trait Domain: 'static {
     /// The Commands that report how an IO request ended.
     type IoResult: Send + 'static;
     /// The Commands that a timer delivers.
-    type Tick: Send + 'static;
+    type Tick: Clone + Send + Sync + 'static;
     /// The Commands that report what a Task saw.
     type ObservedFact: Send + 'static;
     /// The domain events, published as Events after the Command is acknowledged.
     type Event: Send + 'static;
     /// The IO the Domain asks the Kernel to run.
-    type IoRequest: Send + 'static;
+    type IoRequest: Clone + Send + 'static;
     /// The names of the Domain's timers.
-    type TimerKey: Send + 'static;
+    type TimerKey: Clone + Hash + Eq + Send + Sync + 'static;
 
     /// Applies one Command to the Snapshot and decides what happens next. A Command that is invalid for the
     /// Snapshot is rejected, never accepted and ignored.
@@ -112,6 +123,13 @@ pub trait Domain: 'static {
         command: Command<Self::Request, Self::IoResult, Self::Tick, Self::ObservedFact>,
         now: Now,
     ) -> Decision<Self>;
+
+    /// Turns a failed IO request into the Command the Domain handles next. The Kernel calls this when an IO executor
+    /// returns [`Err`] or panics.
+    fn io_failed(
+        request: Self::IoRequest,
+        error: IoError,
+    ) -> Command<Self::Request, Self::IoResult, Self::Tick, Self::ObservedFact>;
 }
 
 /// A Domain that answers Queries. A Domain without Queries does not implement it.
@@ -131,6 +149,28 @@ pub trait DomainQueries: Domain {
 pub trait DomainJobs: Domain {
     /// What one step of a Job does.
     type Step;
+}
+
+impl Display for IoError {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        formatter.write_str(&self.message)
+    }
+}
+
+impl Error for IoError {}
+
+impl IoError {
+    /// Records why the IO request failed.
+    pub fn new(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+        }
+    }
+
+    /// The failure as text for logs and rejections.
+    pub fn message(&self) -> &str {
+        &self.message
+    }
 }
 
 impl<Event, Tick, IoRequest, TimerKey> Outcome<Event, Tick, IoRequest, TimerKey> {
