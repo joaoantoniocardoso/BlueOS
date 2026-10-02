@@ -93,6 +93,7 @@ if [ "${SKIP_RUST_CHECKS:-}" != "1" ]; then
     if [ "$fixing" != true ]; then
         "$ROOT_DIR/.hooks/tests/rust_checks_test.sh"
         "$ROOT_DIR/.hooks/tests/ergonomics_report_test.sh"
+        "$ROOT_DIR/.hooks/tests/docs_paths_test.sh"
     fi
 fi
 
