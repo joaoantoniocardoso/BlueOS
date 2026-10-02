@@ -11,6 +11,15 @@ import {
 /** The name of the `recorder` Service, in each of its keys: `blueos/v1/recorder/...`. */
 export const NAME = 'recorder'
 
+/** command `DeleteRecording` at `blueos/v1/recorder/command/DeleteRecording`. */
+export const DeleteRecording = {
+  kind: 'command' as const,
+  name: 'DeleteRecording',
+  key: commandKey(NAME, 'DeleteRecording'),
+  requestSchema: 'blueos_recorder_msgs/msg/DeleteRecordingCommand' as const,
+}
+export type DeleteRecordingRequest = Idl.DeleteRecordingCommand
+
 /** command `Start` at `blueos/v1/recorder/command/Start`. */
 export const Start = {
   kind: 'command' as const,
@@ -28,6 +37,15 @@ export const Stop = {
   requestSchema: 'blueos_recorder_msgs/msg/StopRecordingCommand' as const,
 }
 export type StopRequest = Idl.StopRecordingCommand
+
+/** state `library` at `blueos/v1/recorder/state/library`. */
+export const library = {
+  kind: 'state' as const,
+  name: 'library',
+  key: stateKey(NAME, 'library'),
+  messageSchema: 'blueos_recorder_msgs/msg/RecordingLibrary' as const,
+}
+export type Library = Idl.RecordingLibrary
 
 /** state `recording` at `blueos/v1/recorder/state/recording`. */
 export const recording = {

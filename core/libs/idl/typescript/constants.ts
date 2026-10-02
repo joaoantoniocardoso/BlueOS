@@ -30,6 +30,7 @@ export const ServiceStatusStatus = {
 export type ServiceStatusStatus = typeof ServiceStatusStatus[keyof typeof ServiceStatusStatus] | number;
 
 export const RecordingFileState = {
+  NeedsRepair: 2,
   Ready: 1,
   Recording: 0,
   Repairing: 3,

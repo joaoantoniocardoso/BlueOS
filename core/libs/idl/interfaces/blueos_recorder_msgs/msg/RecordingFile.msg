@@ -22,3 +22,5 @@ uint64 repair_total_bytes
 float64 repair_bytes_per_second
 # Reason the last repair failed; empty when it did not fail. Cleared by the next repair.
 string repair_error
+# Command endpoint names the library will accept for this file (for example DeleteRecording).
+string[] allowed_operations

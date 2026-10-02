@@ -15,8 +15,45 @@ pub(crate) struct ConstantFamily {
 pub(crate) fn constant_families(message: &Message) -> Vec<ConstantFamily> {
     let mut families = Vec::new();
     let mut claimed_constants = BTreeSet::new();
+    for field in message.fields() {
+        if !matches!(field.case(), FieldCase::Scalar | FieldCase::Const(_)) {
+            continue;
+        }
+        if matches!(
+            field.datatype(),
+            DataType::String | DataType::Bool | DataType::GlobalMessage { .. }
+        ) {
+            continue;
+        }
+        let field_prefix = format!("{}_", field.name().to_uppercase());
+        let mut family_constants: Vec<Constant> = message
+            .constants()
+            .iter()
+            .filter(|constant| {
+                constant.name.starts_with(&field_prefix)
+                    && field.datatype() == constant.datatype
+                    && !claimed_constants.contains(&constant.name)
+            })
+            .cloned()
+            .collect();
+        if family_constants.len() < 2 {
+            continue;
+        }
+        family_constants.sort_by(|left, right| left.name.cmp(&right.name));
+        for constant in &family_constants {
+            claimed_constants.insert(constant.name.clone());
+        }
+        families.push(ConstantFamily {
+            field_name: field.name().to_string(),
+            constant_prefix: field_prefix,
+            constants: family_constants,
+        });
+    }
     let mut groups = BTreeMap::new();
     for constant in message.constants() {
+        if claimed_constants.contains(&constant.name) {
+            continue;
+        }
         let Some(prefix) = constant_name_prefix(&constant.name) else {
             continue;
         };
@@ -35,13 +72,7 @@ pub(crate) fn constant_families(message: &Message) -> Vec<ConstantFamily> {
         .collect::<Vec<_>>();
     grouped.sort_by_key(|group| std::cmp::Reverse(group.1.len()));
     for field in message.fields() {
-        if !matches!(
-            field.case(),
-            FieldCase::Scalar | FieldCase::Const(_) | FieldCase::Vector | FieldCase::Array(_)
-        ) {
-            continue;
-        }
-        if matches!(field.case(), FieldCase::Vector | FieldCase::Array(_)) {
+        if !matches!(field.case(), FieldCase::Scalar | FieldCase::Const(_)) {
             continue;
         }
         if matches!(
@@ -152,6 +183,22 @@ mod tests {
         assert_eq!(families.len(), 1);
         assert_eq!(families[0].field_name, "self_test_phase");
         assert_eq!(families[0].constant_prefix, "SELF_TEST_");
+    }
+
+    #[test]
+    fn constant_families_bind_state_prefix_with_needs_repair() {
+        let message = crate::msg_ast::Message::from_parts(
+            vec![crate::msg_ast::Field::scalar_uint8("state")],
+            vec![
+                uint8_constant("STATE_RECORDING", 0),
+                uint8_constant("STATE_READY", 1),
+                uint8_constant("STATE_NEEDS_REPAIR", 2),
+                uint8_constant("STATE_REPAIRING", 3),
+            ],
+        );
+        let families = constant_families(&message);
+        assert_eq!(families.len(), 1);
+        assert_eq!(families[0].constants.len(), 4);
     }
 
     #[test]
