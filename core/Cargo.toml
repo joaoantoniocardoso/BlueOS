@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "libs/adapters/comms",
+    "libs/api",
     "libs/logic/domain",
     "libs/logic/ros2-names",
     "libs/idl",
@@ -29,6 +30,7 @@ panic = "unwind"
 strip = true
 
 [workspace.dependencies]
+blueos-api = { path = "libs/api" }
 blueos-comms = { path = "libs/adapters/comms" }
 blueos-domain = { path = "libs/logic/domain" }
 blueos-ros2-names = { path = "libs/logic/ros2-names" }

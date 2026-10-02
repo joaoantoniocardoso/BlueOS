@@ -73,6 +73,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "blueos-api"
+version = "0.1.0"
+dependencies = [
+ "blueos-idl",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "blueos-comms"
 version = "0.1.0"
 dependencies = [
