@@ -27,7 +27,7 @@ use blueos_api::{
     query_key, service_liveliness_key, settings_key, state_key, status_state_key,
 };
 use blueos_comms::{CommsBackend, CommsError, Query, Queryable, Sample};
-use blueos_domain::{Command, Domain, Now, Outcome};
+use blueos_domain::{Command, Domain, Effect, Now, Outcome};
 use blueos_idl::{
     Error as IdlError,
     msg::blueos_msgs::{ServiceInfo, ServiceStatus, ServiceStatusStatus, SettingsEnvelope},
