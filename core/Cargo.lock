@@ -239,6 +239,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "blueos-logging"
+version = "0.1.0"
+dependencies = [
+ "blueos-comms",
+ "blueos-idl",
+ "bytes",
+ "futures-util",
+ "thiserror",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "blueos-recorder-capture"
 version = "0.1.0"
 dependencies = [
@@ -280,6 +295,7 @@ dependencies = [
  "blueos-comms-zenoh",
  "blueos-domain",
  "blueos-idl",
+ "blueos-logging",
  "blueos-service",
  "blueos-settings",
  "bytes",

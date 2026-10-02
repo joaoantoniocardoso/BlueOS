@@ -4,6 +4,7 @@ members = [
     "app/blueos",
     "libs/adapters/comms",
     "libs/adapters/comms-zenoh",
+    "libs/adapters/logging",
     "libs/adapters/settings",
     "libs/api",
     "libs/app/service",
@@ -40,6 +41,7 @@ strip = true
 blueos-api = { path = "libs/api" }
 blueos-comms = { path = "libs/adapters/comms" }
 blueos-comms-zenoh = { path = "libs/adapters/comms-zenoh" }
+blueos-logging = { path = "libs/adapters/logging" }
 blueos-domain = { path = "libs/logic/domain" }
 blueos-ros2-names = { path = "libs/logic/ros2-names" }
 blueos-service = { path = "libs/app/service" }
