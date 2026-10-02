@@ -6,19 +6,62 @@ use crate::{
 };
 use alloc::string::String;
 use serde::{Deserialize, Serialize};
-pub mod constants_job_status {
-    pub const STATUS_QUEUED: u8 = 0u8;
-    pub const STATUS_RUNNING: u8 = 1u8;
-    pub const STATUS_CANCELLING: u8 = 2u8;
-    pub const STATUS_SUCCEEDED: u8 = 3u8;
-    pub const STATUS_FAILED: u8 = 4u8;
-    pub const STATUS_CANCELLED: u8 = 5u8;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum JobStatusStatus {
+    #[default]
+    Queued,
+    Running,
+    Cancelling,
+    Succeeded,
+    Failed,
+    Cancelled,
+    Unknown(u8),
+}
+impl JobStatusStatus {
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0u8 => Self::Queued,
+            1u8 => Self::Running,
+            2u8 => Self::Cancelling,
+            3u8 => Self::Succeeded,
+            4u8 => Self::Failed,
+            5u8 => Self::Cancelled,
+            raw => Self::Unknown(raw),
+        }
+    }
+    pub fn as_raw(self) -> u8 {
+        match self {
+            Self::Queued => 0u8,
+            Self::Running => 1u8,
+            Self::Cancelling => 2u8,
+            Self::Succeeded => 3u8,
+            Self::Failed => 4u8,
+            Self::Cancelled => 5u8,
+            Self::Unknown(raw) => raw,
+        }
+    }
+}
+impl serde::Serialize for JobStatusStatus {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        <u8>::serialize(&self.as_raw(), serializer)
+    }
+}
+impl<'de> serde::Deserialize<'de> for JobStatusStatus {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self::from_raw(<u8>::deserialize(deserializer)?))
+    }
 }
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct JobStatus {
     pub job_id: u64,
     pub parent_job_id: u64,
-    pub status: u8,
+    pub status: JobStatusStatus,
     pub name: String,
 }
 impl CdrStruct for JobStatus {
@@ -35,9 +78,9 @@ impl CdrStruct for JobStatus {
                 reader.read_u64()?
             },
             status: if reader.is_exhausted() {
-                Default::default()
+                <JobStatusStatus>::default()
             } else {
-                reader.read_u8()?
+                JobStatusStatus::from_raw(reader.read_u8()?)
             },
             name: if reader.is_exhausted() {
                 String::new()
@@ -49,7 +92,7 @@ impl CdrStruct for JobStatus {
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {
         writer.write_u64(self.job_id)?;
         writer.write_u64(self.parent_job_id)?;
-        writer.write_u8(self.status)?;
+        writer.write_u8(self.status.as_raw())?;
         writer.write_string(self.name.as_str())?;
         Ok(())
     }

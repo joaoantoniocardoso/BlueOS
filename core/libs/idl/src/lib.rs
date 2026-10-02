@@ -8,6 +8,8 @@
 
 extern crate alloc;
 
+#[cfg(feature = "catalog")]
+pub mod catalog;
 /// CDR reader and writer used by generated message codecs.
 pub mod cdr;
 /// Zenoh `application/cdr;<schema_name>` encoding helpers.

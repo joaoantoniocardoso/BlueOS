@@ -308,7 +308,6 @@ test_deny_bans_direct_zenoh() {
     local temporary
     temporary=$(mktemp -d)
     cp -a "$ROOT_DIR/core/." "$temporary/"
-    sed -i '/blueos-domain = /a zenoh = { version = "=1.9.0", default-features = false }' "$temporary/Cargo.toml"
     cat >>"$temporary/libs/logic/domain/Cargo.toml" <<'EOF'
 
 [dependencies]

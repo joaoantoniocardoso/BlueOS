@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "libs/adapters/comms",
+    "libs/adapters/comms-zenoh",
     "libs/api",
     "libs/app/service",
     "libs/logic/domain",
@@ -33,6 +34,7 @@ strip = true
 [workspace.dependencies]
 blueos-api = { path = "libs/api" }
 blueos-comms = { path = "libs/adapters/comms" }
+blueos-comms-zenoh = { path = "libs/adapters/comms-zenoh" }
 blueos-domain = { path = "libs/logic/domain" }
 blueos-ros2-names = { path = "libs/logic/ros2-names" }
 blueos-service = { path = "libs/app/service" }
@@ -55,6 +57,7 @@ thiserror = { version = "2.0.18", default-features = false }
 tokio = { version = "1.53", default-features = false }
 tracing = { version = "0.1.41", default-features = false }
 walkdir = { version = "2", default-features = false }
+zenoh = { version = "=1.9.0", default-features = false, features = ["shared-memory", "transport_tcp"] }
 zenoh-keyexpr = { version = "=1.9.0", default-features = false }
 
 [workspace.lints.rust]

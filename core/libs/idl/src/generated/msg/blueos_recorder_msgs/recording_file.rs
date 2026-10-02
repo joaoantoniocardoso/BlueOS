@@ -6,11 +6,50 @@ use crate::{
 };
 use alloc::string::String;
 use serde::{Deserialize, Serialize};
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum RecordingFileState {
+    #[default]
+    Recording,
+    Ready,
+    Repairing,
+    Unknown(u8),
+}
+impl RecordingFileState {
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0u8 => Self::Recording,
+            1u8 => Self::Ready,
+            3u8 => Self::Repairing,
+            raw => Self::Unknown(raw),
+        }
+    }
+    pub fn as_raw(self) -> u8 {
+        match self {
+            Self::Recording => 0u8,
+            Self::Ready => 1u8,
+            Self::Repairing => 3u8,
+            Self::Unknown(raw) => raw,
+        }
+    }
+}
+impl serde::Serialize for RecordingFileState {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        <u8>::serialize(&self.as_raw(), serializer)
+    }
+}
+impl<'de> serde::Deserialize<'de> for RecordingFileState {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self::from_raw(<u8>::deserialize(deserializer)?))
+    }
+}
 pub mod constants_recording_file {
-    pub const STATE_RECORDING: u8 = 0u8;
-    pub const STATE_READY: u8 = 1u8;
     pub const STATE_NEEDS_REPAIR: u8 = 2u8;
-    pub const STATE_REPAIRING: u8 = 3u8;
 }
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct RecordingFile {
@@ -18,7 +57,7 @@ pub struct RecordingFile {
     pub name: String,
     pub size_bytes: u64,
     pub created: crate::msg::builtin_interfaces::Time,
-    pub state: u8,
+    pub state: RecordingFileState,
     pub repair_bytes_processed: u64,
     pub repair_total_bytes: u64,
     pub repair_bytes_per_second: f64,
@@ -48,9 +87,9 @@ impl CdrStruct for RecordingFile {
                 <crate::msg::builtin_interfaces::Time>::cdr_decode_fields(reader)?
             },
             state: if reader.is_exhausted() {
-                Default::default()
+                <RecordingFileState>::default()
             } else {
-                reader.read_u8()?
+                RecordingFileState::from_raw(reader.read_u8()?)
             },
             repair_bytes_processed: if reader.is_exhausted() {
                 Default::default()
@@ -79,7 +118,7 @@ impl CdrStruct for RecordingFile {
         writer.write_string(self.name.as_str())?;
         writer.write_u64(self.size_bytes)?;
         <crate::msg::builtin_interfaces::Time>::cdr_encode_fields(&self.created, writer)?;
-        writer.write_u8(self.state)?;
+        writer.write_u8(self.state.as_raw())?;
         writer.write_u64(self.repair_bytes_processed)?;
         writer.write_u64(self.repair_total_bytes)?;
         writer.write_f64(self.repair_bytes_per_second)?;
