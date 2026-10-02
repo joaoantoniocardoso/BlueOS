@@ -211,7 +211,7 @@ struct PublishedEntry {
 
 /// One manifest endpoint, for `api.lock` and the generated `info` list.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct EndpointInfoRow {
+pub(crate) struct EndpointInfoRow {
     pub kind: &'static str,
     pub name: String,
     pub key: String,

@@ -4,12 +4,14 @@ use std::collections::BTreeSet;
 
 use roslibrust_codegen::{ArrayType, ConstantInfo, FieldInfo, RosLiteral};
 
+/// The fields and constants of one `.msg` file, in source order.
 #[derive(Clone, Debug)]
 pub struct Message {
     fields: Vec<Field>,
     constants: Vec<Constant>,
 }
 
+/// One field of a [`Message`]: its name, whether it is a scalar, a sequence or an array, and its type.
 #[derive(Clone, Debug)]
 pub struct Field {
     name: String,
