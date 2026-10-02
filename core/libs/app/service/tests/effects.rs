@@ -2,30 +2,55 @@
 
 use core::{
     convert::Infallible,
-    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
+    sync::atomic::{AtomicUsize, Ordering},
     time::Duration,
 };
+use std::sync::{Arc, Mutex, mpsc};
+
 use tokio::time::{advance, timeout};
 
-use blueos_api::{Message, cdr_encoding, command_key};
+use blueos_api::{Message, cdr_encoding, command_key, state_key};
+use blueos_comms::Subscriber;
 use blueos_domain::{Command, Decision, Domain, DomainQueries, Effect, IoError, Now, Outcome};
 use blueos_idl::msg::blueos_example_msgs::{EmptyRequest, LevelQueryResponse};
 use blueos_service::{Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness};
 
 static PANIC_GUARD: AtomicUsize = AtomicUsize::new(0);
-static BLOCKING_RELEASE: AtomicBool = AtomicBool::new(false);
 
 struct EffectsService;
 
-#[derive(clap::Args)]
+/// Per-test gate for [`EffectsIoRequest::BlockingHold`]: no busy-wait and no process-wide statics.
+struct BlockingHoldLatch {
+    started: mpsc::SyncSender<()>,
+    release: Mutex<mpsc::Receiver<()>>,
+    io_applied: mpsc::SyncSender<()>,
+}
+
+#[derive(Clone, clap::Args)]
 struct EffectsArguments {
     #[arg(long, default_value_t = 10)]
     capacity: u8,
+    #[arg(skip)]
+    blocking_hold: Option<Arc<BlockingHoldLatch>>,
+    #[arg(skip)]
+    record_capacity_done: Option<mpsc::SyncSender<()>>,
+}
+
+impl Default for EffectsArguments {
+    fn default() -> Self {
+        Self {
+            capacity: 10,
+            blocking_hold: None,
+            record_capacity_done: None,
+        }
+    }
 }
 
 #[derive(Clone)]
 struct EffectsContext {
     expected_capacity: u8,
+    blocking_hold: Option<Arc<BlockingHoldLatch>>,
+    record_capacity_done: Option<mpsc::SyncSender<()>>,
 }
 
 #[derive(Clone)]
@@ -37,6 +62,7 @@ struct EffectsSnapshot {
     last_failed_request: Option<EffectsIoRequest>,
     tick_count: u8,
     blocking_io_running: bool,
+    blocking_io_applied: Option<mpsc::SyncSender<()>>,
 }
 
 enum EffectsRequest {
@@ -96,6 +122,11 @@ impl Service for EffectsService {
         context: &ServiceContext<EffectsArguments>,
     ) -> Result<ServiceBuilder<Effects, Self::Context>, ServiceError> {
         let capacity = context.arguments().capacity;
+        let blocking_io_applied = context
+            .arguments()
+            .blocking_hold
+            .as_ref()
+            .map(|latch| latch.io_applied.clone());
         Ok(ServiceBuilder::new(EffectsSnapshot {
             level: 0,
             capacity,
@@ -104,15 +135,29 @@ impl Service for EffectsService {
             last_failed_request: None,
             tick_count: 0,
             blocking_io_running: false,
+            blocking_io_applied,
         })
         .context(EffectsContext {
             expected_capacity: capacity,
+            blocking_hold: context.arguments().blocking_hold.clone(),
+            record_capacity_done: context.arguments().record_capacity_done.clone(),
         })
-        .blocking_io(|_io_context, _snapshot, request| match request {
+        .blocking_io(|io_context, _snapshot, request| match request {
             EffectsIoRequest::BlockingHold => {
-                while !BLOCKING_RELEASE.load(Ordering::SeqCst) {
-                    std::thread::yield_now();
-                }
+                let Some(latch) = &io_context.blocking_hold else {
+                    return Err(IoError::new(
+                        "BlockingHold requires a per-test BlockingHoldLatch",
+                    ));
+                };
+                latch.started.send(()).map_err(|_| {
+                    IoError::new("the test stopped waiting for blocking IO to start")
+                })?;
+                latch
+                    .release
+                    .lock()
+                    .expect("the release mutex is not poisoned")
+                    .recv()
+                    .map_err(|_| IoError::new("the test stopped before releasing blocking IO"))?;
                 Ok(Some(EffectsIoResult::Succeeded))
             }
             EffectsIoRequest::Fail
@@ -124,6 +169,7 @@ impl Service for EffectsService {
             |io_context: &EffectsContext, snapshot: &EffectsSnapshot, request| {
                 let expected_capacity = io_context.expected_capacity;
                 let snapshot_capacity = snapshot.capacity;
+                let record_capacity_done = io_context.record_capacity_done.clone();
                 async move {
                     match request {
                         EffectsIoRequest::Fail => Err(IoError::new("the first IO step failed")),
@@ -134,6 +180,9 @@ impl Service for EffectsService {
                         }
                         EffectsIoRequest::RecordCapacity => {
                             assert_eq!(expected_capacity, snapshot_capacity);
+                            if let Some(done) = record_capacity_done {
+                                let _ = done.send(());
+                            }
                             Ok(None)
                         }
                         EffectsIoRequest::BlockingHold => {
@@ -263,6 +312,9 @@ impl Domain for Effects {
             Command::IoResult(EffectsIoResult::Succeeded) => {
                 snapshot.succeeded_io_requests += 1;
                 snapshot.blocking_io_running = false;
+                if let Some(applied) = snapshot.blocking_io_applied.take() {
+                    let _ = applied.send(());
+                }
                 Outcome::Applied {
                     events: Vec::new(),
                     effects: Vec::new(),
@@ -327,6 +379,7 @@ impl Service for EffectsWithoutIoService {
             last_failed_request: None,
             tick_count: 0,
             blocking_io_running: false,
+            blocking_io_applied: None,
         })
         .command("ScheduleIoWithoutExecutor", |_: EmptyRequest| {
             EffectsRequest::ScheduleIoWithoutExecutor
@@ -338,92 +391,87 @@ impl Service for EffectsWithoutIoService {
     }
 }
 
-async fn io_counts(harness: &Harness<EffectsService>) -> LevelQueryResponse {
-    harness.state::<LevelQueryResponse>("io").await
+async fn subscribe_state(harness: &Harness<EffectsService>, name: &str) -> Subscriber {
+    harness
+        .backend()
+        .subscribe(&state_key(EffectsService::NAME, name))
+        .await
+        .expect("the state key is valid")
 }
 
-async fn drain_io(harness: &Harness<EffectsService>) {
-    for _ in 0..32 {
-        tokio::task::yield_now().await;
-        let counts = io_counts(harness).await;
-        if counts.level >= 1 && counts.max_level >= 1 {
-            return;
-        }
-    }
-    panic!("the IO chain did not finish");
+async fn next_state_sample(subscriber: &mut Subscriber) -> LevelQueryResponse {
+    let sample = timeout(Duration::from_secs(10), subscriber.recv())
+        .await
+        .expect("a state sample is published")
+        .expect("the subscription is open");
+    LevelQueryResponse::decode(&sample.payload().to_bytes()).expect("the state decodes")
+}
+
+async fn expect_no_state_sample(subscriber: &mut Subscriber) {
+    let observed = timeout(Duration::from_millis(1), subscriber.recv()).await;
+    assert!(
+        observed.is_err(),
+        "expected no further state publish on this subscription"
+    );
 }
 
 #[tokio::test(start_paused = true)]
 async fn failed_first_io_still_runs_second() {
-    let harness = Harness::<EffectsService>::start(EffectsArguments { capacity: 10 })
+    let harness = Harness::<EffectsService>::start(EffectsArguments::default())
         .await
         .unwrap();
+    let mut io_states = subscribe_state(&harness, "io").await;
     let ack = harness.send("RunIoChain", &EmptyRequest::default()).await;
     assert!(ack.accepted);
-    drain_io(&harness).await;
-    let counts = io_counts(&harness).await;
-    assert_eq!(counts.level, 1);
-    assert_eq!(counts.max_level, 1);
+    let after_fail = next_state_sample(&mut io_states).await;
+    assert_eq!(after_fail.level, 1);
+    assert_eq!(after_fail.max_level, 0);
+    let after_success = next_state_sample(&mut io_states).await;
+    assert_eq!(after_success.level, 1);
+    assert_eq!(after_success.max_level, 1);
 }
 
 #[tokio::test(start_paused = true)]
 async fn io_panic_reaches_domain_as_io_failed() {
-    let harness = Harness::<EffectsService>::start(EffectsArguments { capacity: 10 })
+    let harness = Harness::<EffectsService>::start(EffectsArguments::default())
         .await
         .unwrap();
+    let mut io_states = subscribe_state(&harness, "io").await;
     let ack = harness.send("RunIoPanic", &EmptyRequest::default()).await;
     assert!(ack.accepted);
-    for _ in 0..32 {
-        tokio::task::yield_now().await;
-        if io_counts(&harness).await.level >= 1 {
-            break;
-        }
-    }
-    let counts = io_counts(&harness).await;
-    assert_eq!(counts.level, 1);
-    assert_eq!(counts.max_level, 0);
+    let after_panic = next_state_sample(&mut io_states).await;
+    assert_eq!(after_panic.level, 1);
+    assert_eq!(after_panic.max_level, 0);
 }
 
 #[tokio::test(start_paused = true)]
 async fn rearmed_timer_fires_once_at_new_time() {
-    let harness = Harness::<EffectsService>::start(EffectsArguments { capacity: 10 })
+    let harness = Harness::<EffectsService>::start(EffectsArguments::default())
         .await
         .unwrap();
+    let mut tick_states = subscribe_state(&harness, "ticks").await;
     harness.send("ArmTimer", &EmptyRequest::default()).await;
     harness.send("ReArmTimer", &EmptyRequest::default()).await;
     advance(Duration::from_secs(5)).await;
-    let observed = timeout(Duration::from_secs(1), async {
-        loop {
-            if harness.state::<LevelQueryResponse>("ticks").await.level == 1 {
-                return;
-            }
-            tokio::task::yield_now().await;
-        }
-    })
-    .await;
-    assert!(observed.is_ok());
+    assert_eq!(next_state_sample(&mut tick_states).await.level, 1);
     advance(Duration::from_secs(10)).await;
-    tokio::task::yield_now().await;
-    assert_eq!(harness.state::<LevelQueryResponse>("ticks").await.level, 1);
+    expect_no_state_sample(&mut tick_states).await;
 }
 
 #[tokio::test(start_paused = true)]
 async fn cancelled_timer_never_fires() {
-    let harness = Harness::<EffectsService>::start(EffectsArguments { capacity: 10 })
+    let harness = Harness::<EffectsService>::start(EffectsArguments::default())
         .await
         .unwrap();
+    let mut tick_states = subscribe_state(&harness, "ticks").await;
     harness.send("CancelTimer", &EmptyRequest::default()).await;
     advance(Duration::from_secs(20)).await;
-    let observed = timeout(Duration::from_millis(1), async {
-        harness.state::<LevelQueryResponse>("ticks").await.level
-    })
-    .await;
-    assert_eq!(observed.unwrap(), 0);
+    expect_no_state_sample(&mut tick_states).await;
 }
 
 #[tokio::test(start_paused = true)]
 async fn synchronous_io_effect_failure_rolls_back_command() {
-    let harness = Harness::<EffectsWithoutIoService>::start(EffectsArguments { capacity: 10 })
+    let harness = Harness::<EffectsWithoutIoService>::start(EffectsArguments::default())
         .await
         .unwrap();
     let ack = harness
@@ -436,26 +484,44 @@ async fn synchronous_io_effect_failure_rolls_back_command() {
 
 #[tokio::test(start_paused = true)]
 async fn io_executor_receives_context_and_snapshot() {
-    let harness = Harness::<EffectsService>::start(EffectsArguments { capacity: 10 })
-        .await
-        .unwrap();
+    let (done_sender, done_receiver) = mpsc::sync_channel(1);
+    let wait_for_io = tokio::task::spawn_blocking(move || done_receiver.recv());
+    let harness = Harness::<EffectsService>::start(EffectsArguments {
+        capacity: 10,
+        record_capacity_done: Some(done_sender),
+        ..EffectsArguments::default()
+    })
+    .await
+    .unwrap();
     let ack = harness
         .send("RecordCapacity", &EmptyRequest::default())
         .await;
     assert!(ack.accepted);
-    for _ in 0..8 {
-        tokio::task::yield_now().await;
-    }
+    wait_for_io
+        .await
+        .expect("join")
+        .expect("RecordCapacity IO should run");
 }
 
 #[tokio::test(start_paused = true)]
 async fn query_answers_while_blocking_io_is_held() {
-    BLOCKING_RELEASE.store(false, Ordering::SeqCst);
-    let harness = Harness::<EffectsService>::start(EffectsArguments { capacity: 10 })
-        .await
-        .unwrap();
-    let backend = std::sync::Arc::clone(harness.backend());
-    let send = tokio::spawn(async move {
+    let (started_sender, started_receiver) = mpsc::sync_channel(0);
+    let (release_sender, release_receiver) = mpsc::channel();
+    let (io_applied_sender, io_applied_receiver) = mpsc::sync_channel(0);
+    let latch = Arc::new(BlockingHoldLatch {
+        started: started_sender,
+        release: Mutex::new(release_receiver),
+        io_applied: io_applied_sender,
+    });
+    let harness = Harness::<EffectsService>::start(EffectsArguments {
+        capacity: 10,
+        blocking_hold: Some(Arc::clone(&latch)),
+        ..EffectsArguments::default()
+    })
+    .await
+    .unwrap();
+    let backend = Arc::clone(harness.backend());
+    let command = tokio::spawn(async move {
         let body = blueos_comms::QueryBody::new(
             EmptyRequest::default().encode().unwrap(),
             cdr_encoding(EmptyRequest::SCHEMA_NAME),
@@ -469,59 +535,47 @@ async fn query_answers_while_blocking_io_is_held() {
             .await
             .unwrap();
     });
-    let observed = timeout(Duration::from_secs(1), async {
-        loop {
-            if harness
-                .query::<EmptyRequest, LevelQueryResponse>(
-                    "blocking_active",
-                    &EmptyRequest::default(),
-                )
-                .await
-                .level
-                == 1
-            {
-                return harness
-                    .query::<EmptyRequest, LevelQueryResponse>(
-                        "blocking_active",
-                        &EmptyRequest::default(),
-                    )
-                    .await
-                    .level;
-            }
-            tokio::task::yield_now().await;
-        }
-    })
-    .await
-    .expect("blocking IO should start");
-    assert_eq!(observed, 1);
-    BLOCKING_RELEASE.store(true, Ordering::SeqCst);
-    send.await.expect("the Command should finish");
-    let cleared = timeout(Duration::from_secs(1), async {
-        loop {
-            if harness
-                .query::<EmptyRequest, LevelQueryResponse>(
-                    "blocking_active",
-                    &EmptyRequest::default(),
-                )
-                .await
-                .level
-                == 0
-            {
-                return;
-            }
-            tokio::task::yield_now().await;
-        }
-    })
-    .await;
-    cleared.expect("blocking IO should finish after release");
+    tokio::task::spawn_blocking(move || started_receiver.recv())
+        .await
+        .expect("started join")
+        .expect("blocking IO should start");
+    assert_eq!(
+        harness
+            .query::<EmptyRequest, LevelQueryResponse>(
+                "blocking_active",
+                &EmptyRequest::default(),
+            )
+            .await
+            .level,
+        1
+    );
+    release_sender
+        .send(())
+        .expect("the test should release blocking IO");
+    tokio::task::spawn_blocking(move || io_applied_receiver.recv())
+        .await
+        .expect("io applied join")
+        .expect("blocking IO result should reach the Domain");
+    command.await.expect("the Command should finish");
+    assert_eq!(
+        harness
+            .query::<EmptyRequest, LevelQueryResponse>(
+                "blocking_active",
+                &EmptyRequest::default(),
+            )
+            .await
+            .level,
+        0
+    );
 }
 
 #[tokio::test(start_paused = true)]
 async fn effect_recorder_sees_effects_without_running_them() {
     let (harness, log) =
-        Harness::<EffectsService>::start_recording_effects(EffectsArguments { capacity: 10 })
+        Harness::<EffectsService>::start_recording_effects(EffectsArguments::default())
             .await
             .unwrap();
+    let mut tick_states = subscribe_state(&harness, "ticks").await;
     let ack = harness.send("CancelTimer", &EmptyRequest::default()).await;
     assert!(ack.accepted);
     let batch = log.last_batch().expect("one Command was applied");
@@ -537,9 +591,5 @@ async fn effect_recorder_sees_effects_without_running_them() {
         ]
     );
     advance(Duration::from_secs(20)).await;
-    let observed = timeout(Duration::from_millis(1), async {
-        harness.state::<LevelQueryResponse>("ticks").await.level
-    })
-    .await;
-    assert_eq!(observed.unwrap(), 0);
+    expect_no_state_sample(&mut tick_states).await;
 }
