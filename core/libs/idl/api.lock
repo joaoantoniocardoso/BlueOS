@@ -1,3 +1,6 @@
+   Compiling blueos-idl-codegen v0.1.0 (/home/joaoantoniocardoso/BlueRobotics/worktrees/BlueOS-docker/quartz-geyser/draft2-integration/core/libs/idl/codegen)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.15s
+     Running `target/debug/blueos-idl-print-lock`
 blueos/v1/tank/command/Drain 1 request=blueos_example_msgs/msg/EmptyRequest;response=blueos_msgs/msg/CommandAck
 blueos/v1/tank/command/SetLevel 1 request=blueos_example_msgs/msg/SetLevelRequest;response=blueos_msgs/msg/CommandAck
 blueos/v1/tank/event/Emptied 1 request=;response=blueos_example_msgs/msg/EmptyRequest
