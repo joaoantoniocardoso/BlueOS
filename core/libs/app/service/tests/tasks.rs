@@ -25,7 +25,7 @@ use blueos_idl::{
 use blueos_service::{
     Clock, Kernel, RestartPolicy, RunOutcome, Service, ServiceBuilder, ServiceContext,
     ServiceError, TaskFailed,
-    testing::{Harness, PausedClock, WALL_CLOCK_AT_START},
+    testing::{Harness, PausedClock, WALL_CLOCK_AT_START, lock_unpoisoned},
 };
 
 const RECV_TIMEOUT: Duration = Duration::from_secs(10);
@@ -112,10 +112,7 @@ where
         } else {
             format!("{message} {task}")
         };
-        self.0
-            .lock()
-            .expect("warnings mutex is not poisoned")
-            .push(line);
+        lock_unpoisoned(&self.0).push(line);
     }
 }
 
@@ -238,11 +235,7 @@ async fn shutdown_leaves_no_tasks_running() {
         let started_for_task = Arc::clone(&started_for_task);
         async move {
             RUNNING.fetch_add(1, Ordering::SeqCst);
-            if let Some(sender) = started_for_task
-                .lock()
-                .expect("started mutex is not poisoned")
-                .take()
-            {
+            if let Some(sender) = lock_unpoisoned(&started_for_task).take() {
                 let _ = sender.send(());
             }
             context.shutdown.cancelled().await;
@@ -290,10 +283,7 @@ async fn straggler_is_aborted_and_named_in_warning() {
     shutdown.trigger();
     tokio::time::advance(Duration::from_secs(5)).await;
     assert_eq!(run.await.expect("kernel run finishes"), RunOutcome::Stopped);
-    let captured = warnings
-        .lock()
-        .expect("warnings mutex is not poisoned")
-        .clone();
+    let captured = lock_unpoisoned(&warnings).clone();
     assert!(
         captured.iter().any(|message| message.contains("straggler")),
         "expected a warning naming the straggler, got {captured:?}"

@@ -15,7 +15,7 @@ use blueos_domain::{Command, Decision, Domain, DomainQueries, Effect, IoError, N
 use blueos_idl::msg::blueos_example_msgs::{EmptyRequest, LevelQueryResponse};
 use blueos_service::{
     Kernel, RunOutcome, Service, ServiceBuilder, ServiceContext, ServiceError,
-    testing::{Harness, PausedClock},
+    testing::{Harness, PausedClock, lock_unpoisoned},
 };
 
 static PANIC_GUARD: AtomicUsize = AtomicUsize::new(0);
@@ -176,10 +176,7 @@ impl Service for EffectsService {
                 latch.started.send(()).map_err(|_| {
                     IoError::new("the test stopped waiting for blocking IO to start")
                 })?;
-                latch
-                    .release
-                    .lock()
-                    .expect("the release mutex is not poisoned")
+                lock_unpoisoned(&latch.release)
                     .recv()
                     .map_err(|_| IoError::new("the test stopped before releasing blocking IO"))?;
                 Ok(Some(EffectsIoResult::Succeeded))

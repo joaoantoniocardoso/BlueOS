@@ -19,7 +19,7 @@ use blueos_domain::{Command, Decision, Domain, DomainQueries, Now, Outcome};
 use blueos_idl::msg::blueos_example_msgs::{EmptyRequest, LevelQueryResponse, SetLevelRequest};
 use blueos_service::{
     Projection, RestartPolicy, Service, ServiceBuilder, ServiceContext, ServiceError, TaskFailed,
-    testing::Harness,
+    testing::{Harness, lock_unpoisoned},
 };
 
 const RECV_TIMEOUT: Duration = Duration::from_secs(10);
@@ -260,10 +260,7 @@ impl CommsBackend for RecordingBackend {
 }
 
 fn record(journal: &Arc<Mutex<Vec<String>>>, entry: String) {
-    journal
-        .lock()
-        .expect("the journal mutex is not poisoned")
-        .push(entry);
+    lock_unpoisoned(journal).push(entry);
 }
 
 fn recorded(query: Query, key: String, journal: Arc<Mutex<Vec<String>>>) -> Query {
@@ -360,9 +357,6 @@ async fn in_process_commands_never_use_the_backbone() {
         .send_awaiting_ack(Command::Request(ReconcileRequest::SetDesired(true)))
         .await
         .expect("the Command is applied");
-    let entries = journal
-        .lock()
-        .expect("the journal mutex is not poisoned")
-        .clone();
+    let entries = lock_unpoisoned(&journal).clone();
     assert!(entries.iter().all(|entry| !entry.contains("command")));
 }

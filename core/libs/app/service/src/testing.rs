@@ -15,9 +15,7 @@ use blueos_comms::{CommsBackend, QueryBody, ReplyError, channel::ChannelBackend}
 use blueos_domain::{Domain, Effect, Now};
 use blueos_idl::msg::blueos_msgs::JobList;
 
-use crate::{
-    Clock, CommandSender, Kernel, Service, ServiceContext, ServiceError, sync::lock_unpoisoned,
-};
+use crate::{Clock, CommandSender, Kernel, Service, ServiceContext, ServiceError, sync};
 
 /// The wall-clock time the Domain sees when the harness starts: 2026-01-01T00:00:00Z.
 pub const WALL_CLOCK_AT_START: Duration = Duration::from_secs(1_767_225_600);
@@ -56,12 +54,12 @@ pub struct PausedClock {
 impl<D: Domain> EffectLog<D> {
     /// Every batch of Effects, one batch per applied Command, in order.
     pub fn batches(&self) -> Vec<EffectBatch<D>> {
-        lock_unpoisoned(&self.0).clone()
+        sync::lock_unpoisoned(&self.0).clone()
     }
 
     /// The Effects from the last applied Command, if any.
     pub fn last_batch(&self) -> Option<EffectBatch<D>> {
-        lock_unpoisoned(&self.0).last().cloned()
+        sync::lock_unpoisoned(&self.0).last().cloned()
     }
 }
 
@@ -294,6 +292,11 @@ impl<S: Service> Harness<S> {
         };
         JobList::decode(&reply.payload().to_bytes()).expect("the reply is a JobList")
     }
+}
+
+/// Locks `mutex`, or takes the guarded value if a prior holder panicked (D-29).
+pub fn lock_unpoisoned<T>(mutex: &std::sync::Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+    sync::lock_unpoisoned(mutex)
 }
 
 /// In-process backbone Session for tests that call [`Service::build`] outside [`Harness`].
