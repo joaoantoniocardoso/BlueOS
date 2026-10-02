@@ -93,8 +93,12 @@ if [ "${SKIP_RUST_CHECKS:-}" != "1" ]; then
     if [ "$fixing" != true ]; then
         "$ROOT_DIR/.hooks/tests/rust_checks_test.sh"
         "$ROOT_DIR/.hooks/tests/ergonomics_report_test.sh"
+        "$ROOT_DIR/.hooks/tests/docs_paths_test.sh"
     fi
 fi
+
+echo "Checking documentation paths..."
+python3 "$ROOT_DIR/.hooks/lib/check_docs_paths.py" "$ROOT_DIR"
 
 run_environment_phase "core" "$CORE_DIR" EMPTY_PATHS EMPTY_PATHS true
 # Bootstrap checks reuse the venv (run_environment_phase runs in a subshell so we re-activate)

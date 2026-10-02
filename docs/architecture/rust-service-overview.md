@@ -137,7 +137,7 @@ Each row names the crate and module that implements the term on this branch. Pat
 | **Control plane** | Domain Commands and Snapshot, e.g. Recorder `RecorderDomain::handle` (`services/recorder/logic/recorder/src/lib.rs`) |
 | **Data plane** | Recorder `run_data_plane` and MCAP writer path (`services/recorder/app/src/data_plane.rs`) |
 | **Message** | `blueos-idl` generated types (`libs/idl/src/generated/`); schemas from `libs/idl/interfaces/` |
-| **Session** | `Arc<dyn CommsBackend>` alias in `command_sender.rs`; Zenoh in `blueos-comms-zenoh` (`libs/adapters/comms/zenoh/`) |
+| **Session** | `Arc<dyn CommsBackend>` alias in `command_sender.rs`; Zenoh in `blueos-comms-zenoh` (`libs/adapters/comms-zenoh/`) |
 | **Command endpoint** | `ServiceBuilder::command`, `serve_command` (`builder.rs`, `kernel/mod.rs`); manifest entry `SetLevel` in `services/example/app/endpoints.toml` |
 | **Query endpoint** | `ServiceBuilder::query`, `serve_query` (`kernel/mod.rs`); `Level` on example |
 | **IO query endpoint** | `ServiceBuilder::io_query`; Recorder `index` (`services/recorder/app/src/handlers.rs`) |

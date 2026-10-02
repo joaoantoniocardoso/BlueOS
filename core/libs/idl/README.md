@@ -4,8 +4,7 @@ Published ROS 2 message types for BlueOS with embedded `ros2msg` schemas and a `
 
 ## Message sources
 
-Canonical `.msg` files live in `interfaces/` inside this crate so `cargo package` ships them. Workspace
-paths under `core/interfaces/` symlink here (see `core/interfaces/README.md`).
+Canonical `.msg` files live in `interfaces/` (`core/libs/idl/interfaces/`) so `cargo package` ships them.
 
 ## Schema evolution (D-06)
 

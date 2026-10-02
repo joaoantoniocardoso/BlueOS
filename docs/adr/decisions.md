@@ -677,7 +677,7 @@ Decision:
 
 - Layering mirrors D-23: `src/libs/zenoh-inspector/logic/` (pure TypeScript, vitest), `adapters/` (zenoh-ts,
   `blueos-api`, `requestAnimationFrame`), a framework-agnostic controller, and Vue 2 components that only bind.
-  Ports live in `logic/types.ts`.
+  Ports live in `libs/zenoh-inspector/logic/types.ts`.
 - **Views are a registry** of `{ id, label, supports(topic), priority }`. JSON is always available; the video
   player is the default for `CompressedVideo` and `video/` topics. New views are registry entries.
 - **Services describe their API.** `ServiceInfo` carries `EndpointInfo[] endpoints`: kind, name, key, request and
