@@ -4,7 +4,7 @@ use core::time::Duration;
 
 use tokio::time::timeout;
 
-use blueos_api::{Message, command_key, event_key, query_key};
+use blueos_api::{Message, command_key, event_key, jobs_key, query_key};
 use blueos_comms::ReplyError;
 use blueos_idl::msg::{
     blueos_example_msgs::{EmptyRequest, LevelQueryResponse, SetLevelRequest},
@@ -175,6 +175,28 @@ async fn status_is_ready_after_startup() {
 
     assert_eq!(status.status, ServiceStatusStatus::Ready);
     assert!(status.detail.is_empty());
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_tank_without_jobs_publishes_no_jobs_state() {
+    let harness = start(0).await;
+
+    let replies = harness
+        .backend()
+        .get(&jobs_key(TankService::NAME), None, Duration::from_secs(10))
+        .await
+        .unwrap();
+    let info = harness
+        .query::<EmptyRequest, ServiceInfo>("info", &EmptyRequest::default())
+        .await
+        .expect("the info query answers");
+
+    assert!(replies.is_empty(), "got {replies:?}");
+    assert!(
+        info.endpoints
+            .iter()
+            .all(|endpoint| endpoint.name != "jobs")
+    );
 }
 
 #[tokio::test(start_paused = true)]
