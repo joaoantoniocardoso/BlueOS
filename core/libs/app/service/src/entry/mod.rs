@@ -5,6 +5,7 @@ mod multicall;
 mod parse;
 mod resolve;
 mod run;
+mod system_clock;
 mod verbosity;
 
 pub use common::CommonArguments;
@@ -12,4 +13,6 @@ pub use multicall::{missing_feature, multicall_help, multicall_version, usage};
 pub use parse::{ParseError, ParsedServiceArguments, parse_service_cli};
 pub use resolve::resolve;
 pub use run::run;
+#[cfg(feature = "testing")]
+pub use run::run_with_backend;
 pub use verbosity::verbosity_from_raw;

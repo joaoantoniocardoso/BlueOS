@@ -12,6 +12,8 @@ use tokio::sync::mpsc;
 
 use blueos_domain::{Command, Domain, IoError};
 
+use crate::shutdown::IoInflight;
+
 use super::Delivery;
 
 /// Runs one IO request through the service's async executor.
@@ -73,11 +75,14 @@ pub(crate) fn spawn_io_chain<D: Domain, Context: Send + Sync + 'static>(
     snapshot: D::Snapshot,
     requests: Vec<D::IoRequest>,
     inbox: mpsc::Sender<Delivery<D>>,
+    io_inflight: IoInflight,
 ) {
     if requests.is_empty() {
         return;
     }
+    let _inflight = io_inflight.track();
     tokio::spawn(async move {
+        let _inflight = _inflight;
         for request in requests {
             let failed_request = request.clone();
             let command = if D::io_runs_on_blocking_thread(&request) {
