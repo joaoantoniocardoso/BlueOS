@@ -94,6 +94,7 @@ fn extra_vectors() -> Vec<CdrVector> {
         repair_total_bytes: 0,
         repair_bytes_per_second: 0.0,
         repair_error: String::new(),
+        allowed_operations: Vec::new(),
     };
     let service_info = ServiceInfo {
         name: "recorder".into(),

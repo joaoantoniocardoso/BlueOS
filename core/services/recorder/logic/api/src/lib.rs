@@ -9,10 +9,12 @@ pub mod endpoints;
 use alloc::{string::String, vec::Vec};
 
 use blueos_idl::msg::blueos_recorder_msgs::{
-    RecordingState, StartRecordingCommand, StopRecordingCommand,
+    RecordingFile, RecordingFileState as WireRecordingFileState, RecordingLibrary, RecordingState,
+    StartRecordingCommand, StopRecordingCommand,
 };
 use blueos_recorder_capture::RecordingState as DomainRecordingState;
 use blueos_recorder_domain::{RecorderDomain, RecorderRequest, RecorderSnapshot};
+use blueos_recorder_library::RecordingFileState;
 
 use crate::endpoints::Conversions;
 
@@ -29,6 +31,10 @@ impl Conversions for RecorderDomain {
 
     fn recording(snapshot: &RecorderSnapshot) -> RecordingState {
         recorder_session_state(snapshot)
+    }
+
+    fn library(snapshot: &RecorderSnapshot) -> RecordingLibrary {
+        recording_library(snapshot)
     }
 }
 
@@ -55,4 +61,45 @@ pub fn recorder_session_state(snapshot: &RecorderSnapshot) -> RecordingState {
             .cloned()
             .collect::<Vec<_>>(),
     }
+}
+
+/// Projects the published `library` State from the Snapshot.
+pub fn recording_library(snapshot: &RecorderSnapshot) -> RecordingLibrary {
+    RecordingLibrary {
+        files: snapshot
+            .library
+            .entries()
+            .iter()
+            .map(recording_file_message)
+            .collect(),
+    }
+}
+
+fn recording_file_message(entry: &blueos_recorder_library::RecordingFileEntry) -> RecordingFile {
+    let (sec, nanosec) = unix_seconds_to_time(entry.created_unix_seconds);
+    RecordingFile {
+        path: entry.path.clone(),
+        name: entry.name.clone(),
+        size_bytes: entry.size_bytes,
+        created: blueos_idl::msg::builtin_interfaces::Time { sec, nanosec },
+        state: recording_file_state_wire(entry.state),
+        repair_bytes_processed: 0,
+        repair_total_bytes: 0,
+        repair_bytes_per_second: 0.0,
+        repair_error: String::new(),
+        allowed_operations: entry.allowed_operations.clone(),
+    }
+}
+
+fn recording_file_state_wire(state: RecordingFileState) -> WireRecordingFileState {
+    match state {
+        RecordingFileState::Recording => WireRecordingFileState::Recording,
+        RecordingFileState::Ready => WireRecordingFileState::Ready,
+        RecordingFileState::NeedsRepair => WireRecordingFileState::NeedsRepair,
+        RecordingFileState::Repairing => WireRecordingFileState::Repairing,
+    }
+}
+
+fn unix_seconds_to_time(seconds: i64) -> (i32, u32) {
+    (i32::try_from(seconds).unwrap_or(i32::MAX), 0)
 }

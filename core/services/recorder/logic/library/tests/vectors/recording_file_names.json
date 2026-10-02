@@ -1,0 +1,32 @@
+[
+  {
+    "file_name": "recorder_20240102_030405.mcap",
+    "file_time_unix_seconds": 1000,
+    "created_unix_seconds": 1704164645
+  },
+  {
+    "file_name": "recorder_20240102_030405.copy-2024-01-02T04-05-06Z.mcap",
+    "file_time_unix_seconds": 0,
+    "created_unix_seconds": 1704168306
+  },
+  {
+    "file_name": "recorder_20240102_030405.snapshot-2024-01-02T04-05-06Z.mcap",
+    "file_time_unix_seconds": 0,
+    "created_unix_seconds": 1704168306
+  },
+  {
+    "file_name": "recorder_20240102_030405_split_20240102_040506.mcap",
+    "file_time_unix_seconds": 0,
+    "created_unix_seconds": 1704168306
+  },
+  {
+    "file_name": "recorder_20240102_990405.mcap",
+    "file_time_unix_seconds": 4242,
+    "created_unix_seconds": 4242
+  },
+  {
+    "file_name": "recorder_20240102_030405_🎬.mcap",
+    "file_time_unix_seconds": 777,
+    "created_unix_seconds": 777
+  }
+]

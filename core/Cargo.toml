@@ -18,7 +18,9 @@ members = [
     "services/recorder/adapters/storage",
     "services/recorder/app",
     "services/recorder/logic/api",
+    "services/recorder/logic/paths",
     "services/recorder/logic/capture",
+    "services/recorder/logic/library",
     "services/recorder/logic/recorder",
     "services/recorder/logic/schema-gate",
     "services/example/app",
@@ -59,6 +61,8 @@ blueos-service = { path = "libs/app/service" }
 blueos-settings = { path = "libs/adapters/settings" }
 blueos-recorder-api = { path = "services/recorder/logic/api" }
 blueos-recorder-app = { path = "services/recorder/app" }
+blueos-recorder-library = { path = "services/recorder/logic/library" }
+blueos-recorder-paths = { path = "services/recorder/logic/paths" }
 blueos-recorder-capture = { path = "services/recorder/logic/capture" }
 blueos-recorder-domain = { path = "services/recorder/logic/recorder" }
 blueos-example-api = { path = "services/example/logic/api" }

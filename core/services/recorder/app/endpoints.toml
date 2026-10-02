@@ -6,6 +6,8 @@ service = "recorder"
 [command]
 Start = { request = "blueos_recorder_msgs/msg/StartRecordingCommand" }
 Stop = { request = "blueos_recorder_msgs/msg/StopRecordingCommand" }
+DeleteRecording = { request = "blueos_recorder_msgs/msg/DeleteRecordingCommand", custom = true }
 
 [state]
 recording = { message = "blueos_recorder_msgs/msg/RecordingState" }
+library = { message = "blueos_recorder_msgs/msg/RecordingLibrary" }

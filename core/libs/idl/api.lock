@@ -1,8 +1,10 @@
 blueos/v1/example/command/SetLevel 1 request=blueos_example_msgs/msg/SetLevelRequest;response=blueos_msgs/msg/CommandAck
 blueos/v1/example/query/Level 1 request=blueos_example_msgs/msg/EmptyRequest;response=blueos_example_msgs/msg/LevelQueryResponse
 blueos/v1/example/state/pump 1 request=;response=blueos_example_msgs/msg/PumpState
+blueos/v1/recorder/command/DeleteRecording 1 request=blueos_recorder_msgs/msg/DeleteRecordingCommand;response=blueos_msgs/msg/CommandAck
 blueos/v1/recorder/command/Start 1 request=blueos_recorder_msgs/msg/StartRecordingCommand;response=blueos_msgs/msg/CommandAck
 blueos/v1/recorder/command/Stop 1 request=blueos_recorder_msgs/msg/StopRecordingCommand;response=blueos_msgs/msg/CommandAck
+blueos/v1/recorder/state/library 1 request=;response=blueos_recorder_msgs/msg/RecordingLibrary
 blueos/v1/recorder/state/recording 1 request=;response=blueos_recorder_msgs/msg/RecordingState
 blueos/v1/tank/command/Drain 1 request=blueos_example_msgs/msg/EmptyRequest;response=blueos_msgs/msg/CommandAck
 blueos/v1/tank/command/SetLevel 1 request=blueos_example_msgs/msg/SetLevelRequest;response=blueos_msgs/msg/CommandAck
@@ -30,7 +32,7 @@ blueos_recorder_msgs/msg/CancelRepairCommand 1 path:string
 blueos_recorder_msgs/msg/ChannelMessageCount 1 channel_id:uint16;count:uint64
 blueos_recorder_msgs/msg/ChunkIndexEntry 1 start_time:uint64;end_time:uint64;offset:uint64;length:uint64;compression:string;compressed_size:uint64;uncompressed_size:uint64;channel_ids:uint16[];message_index_length:uint64
 blueos_recorder_msgs/msg/DeleteRecordingCommand 1 path:string
-blueos_recorder_msgs/msg/RecordingFile 1 path:string;name:string;size_bytes:uint64;created:builtin_interfaces/Time;state:uint8;repair_bytes_processed:uint64;repair_total_bytes:uint64;repair_bytes_per_second:float64;repair_error:string
+blueos_recorder_msgs/msg/RecordingFile 1 path:string;name:string;size_bytes:uint64;created:builtin_interfaces/Time;state:uint8;repair_bytes_processed:uint64;repair_total_bytes:uint64;repair_bytes_per_second:float64;repair_error:string;allowed_operations:string[]
 blueos_recorder_msgs/msg/RecordingIndex 1 size:uint64;offset:uint64;closed:bool;chunks:blueos_recorder_msgs/ChunkIndexEntry[];message_counts:blueos_recorder_msgs/ChannelMessageCount[];records:uint8[]
 blueos_recorder_msgs/msg/RecordingIndexRequest 1 path:string;from_offset:uint64;limit:uint32
 blueos_recorder_msgs/msg/RecordingLibrary 1 files:blueos_recorder_msgs/RecordingFile[]

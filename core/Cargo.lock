@@ -360,6 +360,7 @@ dependencies = [
  "blueos-idl",
  "blueos-recorder-capture",
  "blueos-recorder-domain",
+ "blueos-recorder-library",
 ]
 
 [[package]]
@@ -373,7 +374,9 @@ dependencies = [
  "blueos-recorder-api",
  "blueos-recorder-capture",
  "blueos-recorder-domain",
+ "blueos-recorder-library",
  "blueos-recorder-mcap",
+ "blueos-recorder-paths",
  "blueos-recorder-schema-gate",
  "blueos-recorder-storage",
  "blueos-ros2-names",
@@ -402,6 +405,18 @@ version = "0.1.0"
 dependencies = [
  "blueos-domain",
  "blueos-recorder-capture",
+ "blueos-recorder-library",
+ "blueos-recorder-paths",
+]
+
+[[package]]
+name = "blueos-recorder-library"
+version = "0.1.0"
+dependencies = [
+ "blueos-domain",
+ "blueos-recorder-paths",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -421,6 +436,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "blueos-recorder-paths"
+version = "0.1.0"
+
+[[package]]
 name = "blueos-recorder-schema-gate"
 version = "0.1.0"
 dependencies = [
@@ -431,8 +450,11 @@ dependencies = [
 name = "blueos-recorder-storage"
 version = "0.1.0"
 dependencies = [
+ "blueos-recorder-mcap",
  "tempfile",
  "thiserror",
+ "tracing",
+ "walkdir",
 ]
 
 [[package]]

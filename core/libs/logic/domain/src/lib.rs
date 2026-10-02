@@ -76,7 +76,7 @@ pub enum Effect<Tick, IoRequest, TimerKey> {
 }
 
 /// Why an IO request the Kernel ran did not finish with a result Command.
-#[derive(Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct IoError {
     message: String,
 }
