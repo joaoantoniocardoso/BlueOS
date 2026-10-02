@@ -65,6 +65,9 @@ test_crate_place() {
     read -r unit folder <<<"$(crate_place "$ROOT_DIR/core/services/recorder/adapters/mcap")"
     [ "$unit" = recorder ] && [ "$folder" = adapters ] || fail "crate_place for service adapter"
 
+    read -r unit folder <<<"$(crate_place "$ROOT_DIR/core/services/recorder/logic/api")"
+    [ "$unit" = recorder ] && [ "$folder" = api ] || fail "crate_place for service logic/api"
+
     read -r unit folder <<<"$(crate_place "$ROOT_DIR/core/app/blueos")"
     [ "$unit" = multicall ] && [ "$folder" = app ] || fail "crate_place for multicall"
 }
@@ -91,6 +94,30 @@ test_folder_rejects_logic_depending_on_adapter() {
 EOF
 )
     assert_violation "logic to adapter" "$metadata" 'logic, so it may only depend on libs/logic'
+}
+
+test_folder_rejects_logic_api_depending_on_adapter() {
+    local metadata
+    metadata=$(cat <<'EOF'
+{
+  "packages": [
+    {
+      "name": "blueos-example-api",
+      "manifest_path": "/repo/core/services/example/logic/api/Cargo.toml",
+      "dependencies": [
+        { "name": "blueos-idl", "kind": null, "path": "/repo/core/libs/idl" },
+        { "name": "blueos-example-domain", "kind": null, "path": "/repo/core/services/example/logic/domain" },
+        { "name": "blueos-cli", "kind": null, "path": "/repo/core/libs/adapters/cli" }
+      ]
+    }
+  ]
+}
+EOF
+)
+    assert_violation "logic/api to adapter" "$metadata" 'logic/api, so it may only depend on libs/logic, blueos-idl'
+    if [ "$(collect_folder_violations "$metadata" | wc -l)" -ne 1 ]; then
+        fail "logic/api may depend on blueos-idl and its own Domain"
+    fi
 }
 
 test_folder_rejects_cross_service_dependency() {
@@ -358,6 +385,7 @@ main() {
     test_style_copies_reject_drifting_agents_md
     test_style_copies_reject_drifting_cursor_rule
     test_folder_rejects_logic_depending_on_adapter
+    test_folder_rejects_logic_api_depending_on_adapter
     test_folder_rejects_cross_service_dependency
     test_workspace_metadata_is_clean
     test_fmt_check_fails_on_unformatted_source

@@ -8,9 +8,11 @@ RUST_WASM32_TARGET=wasm32-unknown-unknown
 RUST_TEST_ONLY_FEATURES=(blueos-comms/channel blueos-service/testing)
 
 # Prints "<unit> <folder>" for a crate directory: "libs logic" for libs/logic/jobs, "calibration app" for
-# services/calibration/app, "multicall app" for core/app/blueos.
+# services/calibration/app, "calibration api" for services/calibration/logic/api, "multicall app" for core/app/blueos.
 crate_place() {
-    if [[ $1 =~ /services/([^/]+)/([^/]+) ]]; then
+    if [[ $1 =~ /services/([^/]+)/logic/api$ ]]; then
+        echo "${BASH_REMATCH[1]} api"
+    elif [[ $1 =~ /services/([^/]+)/([^/]+) ]]; then
         echo "${BASH_REMATCH[1]} ${BASH_REMATCH[2]}"
     elif [[ $1 =~ /libs/([^/]+) ]]; then
         echo "libs ${BASH_REMATCH[1]}"
@@ -118,6 +120,11 @@ collect_folder_violations() {
             && [ "$dependency_unit/$dependency_folder" != libs/logic ] \
             && { [ "$dependency_folder" != logic ] || [ "$dependency_unit" != "$unit" ]; }; then
             violations+=("$name is logic, so it may only depend on libs/logic or sibling logic in the same service, not on $dependency")
+        elif [ "$folder" = api ] && [ "$unit" != libs ] \
+            && [ "$dependency_unit/$dependency_folder" != libs/logic ] \
+            && [ "$dependency_unit/$dependency_folder" != libs/idl ] \
+            && { [ "$dependency_folder" != logic ] || [ "$dependency_unit" != "$unit" ]; }; then
+            violations+=("$name is logic/api, so it may only depend on libs/logic, blueos-idl or logic in the same service, not on $dependency")
         elif [ "$folder" = adapters ] && [ "$dependency_folder" != adapters ] && [ "$dependency_unit/$dependency_folder" != libs/idl ]; then
             violations+=("$name is an adapter, so it may only depend on adapters, not on $dependency")
         fi
@@ -220,6 +227,7 @@ run_rust_lint_checks() {
             read -r unit folder <<<"$(crate_place "$directory")"
             case "$folder" in
                 logic) package_args+=(-p "$name") ;;
+                api) [ "$unit" = libs ] || package_args+=(-p "$name") ;;
                 idl) [[ $directory == */codegen ]] || idl_package_args+=(-p "$name") ;;
             esac
         done < <(jq -r '.packages[] | [.name, (.manifest_path | rtrimstr("/Cargo.toml"))] | @tsv' <<<"$metadata")
