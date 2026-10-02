@@ -82,6 +82,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "blueos-recorder-capture"
+version = "0.1.0"
+dependencies = [
+ "blueos-domain",
+]
+
+[[package]]
+name = "blueos-recorder-domain"
+version = "0.1.0"
+dependencies = [
+ "blueos-domain",
+ "blueos-recorder-capture",
+]
+
+[[package]]
 name = "blueos-rust-style-check"
 version = "0.1.0"
 dependencies = [
