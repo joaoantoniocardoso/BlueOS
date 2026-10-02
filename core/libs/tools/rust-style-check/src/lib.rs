@@ -5,6 +5,7 @@ mod clone_before_spawn;
 mod declaration_order;
 mod import_groups;
 mod structured_logging;
+mod test_module_placement;
 
 use std::path::Path;
 
@@ -40,6 +41,7 @@ fn collect_diagnostics(syntax_tree: &File, path: &Path) -> Vec<Diagnostic> {
     }
     structured_logging::check_file(syntax_tree, &mut diagnostics);
     clone_before_spawn::check_file(syntax_tree, &mut diagnostics);
+    test_module_placement::check_file(syntax_tree, &mut diagnostics);
     diagnostics.sort_by_key(|diagnostic| (diagnostic.line, diagnostic.rule));
     diagnostics
 }

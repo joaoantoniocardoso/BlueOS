@@ -90,3 +90,13 @@ fn allow_attributes_passes() {
 fn allow_attributes_fails() {
     assert_rule("allow_attributes", "fail", true);
 }
+
+#[test]
+fn test_module_placement_passes() {
+    assert_rule("test_module_placement", "pass", false);
+}
+
+#[test]
+fn test_module_placement_fails() {
+    assert_rule("test_module_placement", "fail", true);
+}
