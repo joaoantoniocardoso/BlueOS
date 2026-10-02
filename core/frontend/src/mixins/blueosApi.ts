@@ -22,16 +22,8 @@ export const blueosApiMixin = {
   },
 
   methods: {
-    async blueosWatchState<Schema extends SchemaName>(
-      transport: Transport,
-      state: StateEndpoint<Schema>,
-      onValue: (message: MessageForSchema<Schema>, key: string) => void,
-      onError?: (error: unknown) => void,
-    ): Promise<Subscription> {
-      const subscription = await watchState(transport, state, {
-        onValue,
-        onError: onError ?? (() => undefined),
-      })
+    async blueosTrackSubscription(subscriptionPromise: Promise<Subscription>): Promise<Subscription> {
+      const subscription = await subscriptionPromise
       if (this._isDestroyed) {
         await subscription.close()
         return subscription
@@ -40,19 +32,25 @@ export const blueosApiMixin = {
       return subscription
     },
 
+    async blueosWatchState<Schema extends SchemaName>(
+      transport: Transport,
+      state: StateEndpoint<Schema>,
+      onValue: (message: MessageForSchema<Schema>, key: string) => void,
+      onError?: (error: unknown) => void,
+    ): Promise<Subscription> {
+      return this.blueosTrackSubscription(watchState(transport, state, {
+        onValue,
+        onError: onError ?? (() => undefined),
+      }))
+    },
+
     async blueosWatchJob(
       transport: Transport,
       service: string,
       jobId: number,
       observer: JobObserver,
     ): Promise<Subscription> {
-      const subscription = await watchJob(transport, service, jobId, observer)
-      if (this._isDestroyed) {
-        await subscription.close()
-        return subscription
-      }
-      this.blueosApiSubscriptions.push(subscription)
-      return subscription
+      return this.blueosTrackSubscription(watchJob(transport, service, jobId, observer))
     },
   },
 
