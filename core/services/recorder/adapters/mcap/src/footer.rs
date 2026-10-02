@@ -21,6 +21,18 @@ pub struct Footer {
     pub summary_offset_start: u64,
 }
 
+/// Returns whether `path` has a non-zero MCAP summary (seekable).
+pub fn is_indexed(path: &Path) -> bool {
+    let size = match std::fs::metadata(path) {
+        Ok(metadata) => metadata.len(),
+        Err(_) => return false,
+    };
+    read_footer_at(path, size)
+        .ok()
+        .flatten()
+        .is_some_and(|footer| footer.summary_start > 0)
+}
+
 /// Reads the footer at the end of an MCAP file of `size` bytes.
 pub fn read_footer_at(path: &Path, size: u64) -> io::Result<Option<Footer>> {
     if size < (MAGIC_SIZE as u64 * 2) + FOOTER_RECORD_SIZE as u64 {

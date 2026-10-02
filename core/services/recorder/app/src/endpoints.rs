@@ -18,15 +18,31 @@ pub const NAME: &str = "recorder";
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not handle the custom endpoints of the `recorder` Service",
     label = "no `impl Handlers<D> for {Self}` in the `recorder` app crate",
-    note = "implement `delete_recording` for the Command `DeleteRecording`"
+    note = "implement `cancel_repair` for the Command `CancelRepair`, `delete_recording` for the Command `DeleteRecording`, `repair_recording` for the Command `RepairRecording`"
 )]
 pub trait Handlers<D: Domain>: Send + Sync + 'static {
+    /// The Command `CancelRepair`, at `blueos/v1/recorder/command/CancelRepair`.
+    ///
+    /// The Domain's Request for the Message, or why it is refused.
+    fn cancel_repair(
+        &self,
+        request: blueos_recorder_msgs::CancelRepairCommand,
+    ) -> Result<D::Request, Refusal>;
+
     /// The Command `DeleteRecording`, at `blueos/v1/recorder/command/DeleteRecording`.
     ///
     /// The Domain's Request for the Message, or why it is refused.
     fn delete_recording(
         &self,
         request: blueos_recorder_msgs::DeleteRecordingCommand,
+    ) -> Result<D::Request, Refusal>;
+
+    /// The Command `RepairRecording`, at `blueos/v1/recorder/command/RepairRecording`.
+    ///
+    /// The Domain's Request for the Message, or why it is refused.
+    fn repair_recording(
+        &self,
+        request: blueos_recorder_msgs::RepairRecordingCommand,
     ) -> Result<D::Request, Refusal>;
 }
 
@@ -37,10 +53,22 @@ pub fn register<D: Conversions, H: Handlers<D>, Context>(
 ) -> ServiceBuilder<D, Context> {
     let handlers = Arc::new(handlers);
     builder
+        .command("CancelRepair", {
+            let handlers = Arc::clone(&handlers);
+            move |request: blueos_recorder_msgs::CancelRepairCommand| {
+                H::cancel_repair(&handlers, request)
+            }
+        })
         .command("DeleteRecording", {
             let handlers = Arc::clone(&handlers);
             move |request: blueos_recorder_msgs::DeleteRecordingCommand| {
                 H::delete_recording(&handlers, request)
+            }
+        })
+        .command("RepairRecording", {
+            let handlers = Arc::clone(&handlers);
+            move |request: blueos_recorder_msgs::RepairRecordingCommand| {
+                H::repair_recording(&handlers, request)
             }
         })
         .command(
@@ -57,12 +85,27 @@ pub fn register<D: Conversions, H: Handlers<D>, Context>(
         )
         .state("library", <D as Conversions>::library)
         .state("recording", <D as Conversions>::recording)
+        .event("operation", <D as Conversions>::operation)
         .manifest_endpoints(vec![
+            blueos_idl::msg::blueos_msgs::EndpointInfo {
+                kind: "command".into(),
+                name: "CancelRepair".into(),
+                key: "blueos/v1/recorder/command/CancelRepair".into(),
+                request_schema: "blueos_recorder_msgs/msg/CancelRepairCommand".into(),
+                response_schema: "blueos_msgs/msg/CommandAck".into(),
+            },
             blueos_idl::msg::blueos_msgs::EndpointInfo {
                 kind: "command".into(),
                 name: "DeleteRecording".into(),
                 key: "blueos/v1/recorder/command/DeleteRecording".into(),
                 request_schema: "blueos_recorder_msgs/msg/DeleteRecordingCommand".into(),
+                response_schema: "blueos_msgs/msg/CommandAck".into(),
+            },
+            blueos_idl::msg::blueos_msgs::EndpointInfo {
+                kind: "command".into(),
+                name: "RepairRecording".into(),
+                key: "blueos/v1/recorder/command/RepairRecording".into(),
+                request_schema: "blueos_recorder_msgs/msg/RepairRecordingCommand".into(),
                 response_schema: "blueos_msgs/msg/CommandAck".into(),
             },
             blueos_idl::msg::blueos_msgs::EndpointInfo {
@@ -92,6 +135,13 @@ pub fn register<D: Conversions, H: Handlers<D>, Context>(
                 key: "blueos/v1/recorder/state/recording".into(),
                 request_schema: "".into(),
                 response_schema: "blueos_recorder_msgs/msg/RecordingState".into(),
+            },
+            blueos_idl::msg::blueos_msgs::EndpointInfo {
+                kind: "event".into(),
+                name: "operation".into(),
+                key: "blueos/v1/recorder/event/operation".into(),
+                request_schema: "".into(),
+                response_schema: "blueos_recorder_msgs/msg/RecordingOperation".into(),
             },
         ])
 }

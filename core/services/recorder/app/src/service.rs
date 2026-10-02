@@ -6,7 +6,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use tokio::sync::watch;
+use tokio::sync::{mpsc, watch};
 
 use blueos_recorder_capture::RecordGate;
 use blueos_recorder_domain::{RecorderDomain, RecorderRequest, RecorderSnapshot};
@@ -14,9 +14,10 @@ use blueos_recorder_storage::RecordingsFolder;
 use blueos_service::{RestartPolicy, Service, ServiceBuilder, ServiceContext, ServiceError};
 
 use crate::{
-    cameras_io::register_io, cli::RecorderArguments, context::RecorderContext,
-    data_plane::run_data_plane, endpoints, handlers::RecorderHandlers, library_io::run_library_io,
-    mavlink::run_mavlink_ingress, settings::RecorderSettings,
+    cli::RecorderArguments, context::RecorderContext, data_plane::run_data_plane, endpoints,
+    handlers::RecorderHandlers, io::register_io, library_io::run_library_io,
+    library_observed::run_library_observed_bridge, mavlink::run_mavlink_ingress,
+    settings::RecorderSettings,
 };
 
 /// The Recorder Service.
@@ -65,6 +66,7 @@ fn assemble_builder(
             .map_err(|error| ServiceError::Build(error.into()))?,
     );
     let config_parent = context.settings_path().map(PathBuf::from);
+    let (observed_sender, observed_receiver) = mpsc::channel(64);
     let (builder, record_gate) = ServiceBuilder::new(RecorderSnapshot::default())
         .projection(|snapshot: &RecorderSnapshot| snapshot.record_gate());
     let gate_receiver = record_gate.subscribe();
@@ -83,10 +85,14 @@ fn assemble_builder(
                         .unwrap_or(4096),
                     session: Arc::clone(context.session()),
                     mavlink_sequence: Arc::new(AtomicU8::new(0)),
+                    library_observed_sender: observed_sender,
+                    library_observed_receiver: Arc::new(tokio::sync::Mutex::new(observed_receiver)),
+                    repair_cancel_flags: Arc::new(Mutex::new(std::collections::BTreeMap::new())),
                 })
                 .blocking_io(|context: &RecorderContext, snapshot, request| {
                     run_library_io(context, snapshot, request)
                 })
+                .jobs()
                 .settings(
                     RecorderService::NAME,
                     config_parent,
@@ -114,6 +120,11 @@ fn assemble_builder(
                     "mavlink",
                     RestartPolicy::Always,
                     |task_context| async move { run_mavlink_ingress(task_context).await },
+                )
+                .task(
+                    "library_observed",
+                    RestartPolicy::Always,
+                    |task_context| async move { run_library_observed_bridge(task_context).await },
                 ),
             RecorderHandlers,
         )

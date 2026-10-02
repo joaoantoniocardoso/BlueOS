@@ -7,6 +7,7 @@ publish.workspace = true
 
 [dependencies]
 blueos-domain.workspace = true
+blueos-jobs.workspace = true
 blueos-recorder-cameras = { path = "../cameras" }
 blueos-recorder-capture = { path = "../capture" }
 blueos-recorder-library.workspace = true

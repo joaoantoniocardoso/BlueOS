@@ -9,12 +9,13 @@ pub mod endpoints;
 use alloc::{string::String, vec::Vec};
 
 use blueos_idl::msg::blueos_recorder_msgs::{
-    RecordingFile, RecordingFileState as WireRecordingFileState, RecordingLibrary, RecordingState,
-    StartRecordingCommand, StopRecordingCommand,
+    RecordingFile, RecordingFileState as WireRecordingFileState, RecordingLibrary,
+    RecordingOperation, RecordingOperationOperation, RecordingState, StartRecordingCommand,
+    StopRecordingCommand,
 };
 use blueos_recorder_capture::RecordingState as DomainRecordingState;
-use blueos_recorder_domain::{RecorderDomain, RecorderRequest, RecorderSnapshot};
-use blueos_recorder_library::RecordingFileState;
+use blueos_recorder_domain::{RecorderDomain, RecorderEvent, RecorderRequest, RecorderSnapshot};
+use blueos_recorder_library::{RecordingFileState, RecordingOperationEvent, RepairFailure};
 
 use crate::endpoints::Conversions;
 
@@ -35,6 +36,15 @@ impl Conversions for RecorderDomain {
 
     fn library(snapshot: &RecorderSnapshot) -> RecordingLibrary {
         recording_library(snapshot)
+    }
+
+    fn operation(event: &RecorderEvent) -> Option<RecordingOperation> {
+        match event {
+            RecorderEvent::RecordingOperation(operation) => {
+                Some(recording_operation_message(operation))
+            }
+            RecorderEvent::Capture(_) => None,
+        }
     }
 }
 
@@ -83,10 +93,10 @@ fn recording_file_message(entry: &blueos_recorder_library::RecordingFileEntry) -
         size_bytes: entry.size_bytes,
         created: blueos_idl::msg::builtin_interfaces::Time { sec, nanosec },
         state: recording_file_state_wire(entry.state),
-        repair_bytes_processed: 0,
-        repair_total_bytes: 0,
-        repair_bytes_per_second: 0.0,
-        repair_error: String::new(),
+        repair_bytes_processed: entry.repair_bytes_processed,
+        repair_total_bytes: entry.repair_total_bytes,
+        repair_bytes_per_second: entry.repair_bytes_per_second,
+        repair_error: entry.repair_error.clone(),
         allowed_operations: entry.allowed_operations.clone(),
     }
 }
@@ -102,4 +112,28 @@ fn recording_file_state_wire(state: RecordingFileState) -> WireRecordingFileStat
 
 fn unix_seconds_to_time(seconds: i64) -> (i32, u32) {
     (i32::try_from(seconds).unwrap_or(i32::MAX), 0)
+}
+
+fn recording_operation_message(event: &RecordingOperationEvent) -> RecordingOperation {
+    RecordingOperation {
+        operation: RecordingOperationOperation::Repair,
+        path: event.path.clone(),
+        output_path: event.output_path.clone(),
+        succeeded: event.succeeded,
+        cancelled: event.cancelled,
+        error: repair_failure_wire(&event.failure, event.cancelled),
+    }
+}
+
+fn repair_failure_wire(failure: &RepairFailure, cancelled: bool) -> String {
+    if cancelled {
+        return String::new();
+    }
+    match failure {
+        RepairFailure::None => String::new(),
+        RepairFailure::Io => "Filesystem operation failed.".into(),
+        RepairFailure::Rewrite => "MCAP rewrite failed.".into(),
+        RepairFailure::Replace => "Could not replace the recording file.".into(),
+        RepairFailure::Message(message) => message.clone(),
+    }
 }

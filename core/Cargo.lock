@@ -425,6 +425,7 @@ name = "blueos-recorder-domain"
 version = "0.1.0"
 dependencies = [
  "blueos-domain",
+ "blueos-jobs",
  "blueos-recorder-cameras",
  "blueos-recorder-capture",
  "blueos-recorder-library",
@@ -436,6 +437,7 @@ name = "blueos-recorder-library"
 version = "0.1.0"
 dependencies = [
  "blueos-domain",
+ "blueos-jobs",
  "blueos-recorder-paths",
  "serde",
  "serde_json",

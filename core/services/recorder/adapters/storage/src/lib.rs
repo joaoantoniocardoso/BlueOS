@@ -20,6 +20,7 @@ use walkdir::WalkDir;
 use blueos_recorder_mcap::read_footer_at;
 
 const RECORDING_SUFFIX: &str = ".mcap";
+const RECOVER_SUFFIX: &str = ".recover";
 const LIBRARY_SCAN_MAX_DEPTH: usize = 8;
 
 /// Errors from the recordings folder adapter.
@@ -76,9 +77,47 @@ impl RecordingsFolder {
     /// Creates `base` when missing and canonicalizes it.
     pub fn new(base: PathBuf) -> Result<Self, StorageError> {
         fs::create_dir_all(&base)?;
-        Ok(Self {
+        let folder = Self {
             base: base.canonicalize()?,
-        })
+        };
+        folder.discard_recover_files();
+        Ok(folder)
+    }
+
+    /// Removes leftover `.recover` files under the recordings folder, including nested ones.
+    pub fn discard_recover_files(&self) {
+        let mut removed = Vec::new();
+        self.discard_recover_files_in(&self.base, &mut removed);
+        for (relative, size_bytes) in removed {
+            tracing::info!(
+                path = %relative,
+                size_bytes,
+                "Discarded leftover repair temporary file"
+            );
+        }
+    }
+
+    /// Path for a repair rewrite next to `relative` (`<stem>.recover`).
+    pub fn recover_temporary_path(&self, relative: &str) -> PathBuf {
+        let path = Path::new(relative);
+        let parent = path.parent().unwrap_or_else(|| Path::new(""));
+        let stem = path
+            .file_stem()
+            .and_then(OsStr::to_str)
+            .unwrap_or("recording");
+        let temporary_name = format!("{stem}{RECOVER_SUFFIX}");
+        self.base.join(parent).join(temporary_name)
+    }
+
+    /// Renames a finished repair temporary file over the recording.
+    pub fn replace_recording_from_temporary(
+        &self,
+        temporary: &Path,
+        relative: &str,
+    ) -> Result<(), StorageError> {
+        let destination = self.resolve(relative)?;
+        fs::rename(temporary, destination)?;
+        Ok(())
     }
 
     /// Picks a new `recorder_YYYYMMDD_HHMMSS.mcap` path that does not exist yet.
@@ -198,6 +237,32 @@ impl RecordingsFolder {
     /// Base directory path.
     pub fn base(&self) -> &Path {
         &self.base
+    }
+
+    fn discard_recover_files_in(&self, directory: &Path, removed: &mut Vec<(String, u64)>) {
+        let entries = match fs::read_dir(directory) {
+            Ok(value) => value,
+            Err(_) => return,
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                self.discard_recover_files_in(&path, removed);
+                continue;
+            }
+            let name = entry.file_name();
+            if !name.to_string_lossy().ends_with(RECOVER_SUFFIX) {
+                continue;
+            }
+            let relative = path
+                .strip_prefix(&self.base)
+                .map(relative_path_string)
+                .unwrap_or_else(|_| name.to_string_lossy().into_owned());
+            let size_bytes = entry.metadata().map(|metadata| metadata.len()).unwrap_or(0);
+            if fs::remove_file(&path).is_ok() {
+                removed.push((relative, size_bytes));
+            }
+        }
     }
 }
 

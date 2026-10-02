@@ -11,7 +11,7 @@ use blueos_idl::msg::blueos_recorder_msgs;
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not convert the endpoints of the `recorder` Service",
     label = "no `impl Conversions for {Self}` in the `recorder` logic/api crate",
-    note = "implement `start` for the Command `Start`, `stop` for the Command `Stop`, `library` for the State `library`, `recording` for the State `recording`"
+    note = "implement `start` for the Command `Start`, `stop` for the Command `Stop`, `library` for the State `library`, `recording` for the State `recording`, `operation` for the Event `operation`"
 )]
 pub trait Conversions: Domain {
     /// The Command `Start`, at `blueos/v1/recorder/command/Start`.
@@ -33,4 +33,9 @@ pub trait Conversions: Domain {
     ///
     /// Its value for `snapshot`.
     fn recording(snapshot: &Self::Snapshot) -> blueos_recorder_msgs::RecordingState;
+
+    /// The Event `operation`, at `blueos/v1/recorder/event/operation`.
+    ///
+    /// What it publishes for `event`, or `None` when `event` is another one.
+    fn operation(event: &Self::Event) -> Option<blueos_recorder_msgs::RecordingOperation>;
 }
