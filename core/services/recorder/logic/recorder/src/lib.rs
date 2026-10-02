@@ -18,8 +18,9 @@ use blueos_recorder_capture::{
 };
 use blueos_recorder_library::{
     Library, LibraryEvent, LibraryIoRequest, LibraryIoResult, LibraryRejection,
-    LibraryRepairOutcome, LibraryRepairProgress, LibraryRequest, LibraryTick, LibraryTimerKey,
-    RecordingOperationEvent, RepairFailure,
+    LibraryRepairOutcome, LibraryRepairProgress, LibraryRequest, LibrarySnapshotOutcome,
+    LibraryTick, LibraryTimerKey, RecordingOperationEvent, RepairFailure,
+    snapshot_output_relative_path,
 };
 use blueos_recorder_paths::RecordingRelativePath;
 
@@ -85,6 +86,11 @@ pub enum RecorderRequest {
     },
     /// Removes a finished recording from the library folder.
     DeleteRecording {
+        /// Path validated at the api boundary.
+        path: RecordingRelativePath,
+    },
+    /// Writes an indexed copy of a recording (typically while it is still being written).
+    SnapshotRecording {
         /// Path validated at the api boundary.
         path: RecordingRelativePath,
     },
@@ -229,6 +235,15 @@ impl Domain for RecorderDomain {
                         now,
                     ))
                 }
+                RecorderRequest::SnapshotRecording { path } => {
+                    let output_path = snapshot_output_relative_path(path.as_str(), now);
+                    map_library_outcome(snapshot.library.start_snapshot(
+                        path,
+                        output_path,
+                        active,
+                        now,
+                    ))
+                }
                 RecorderRequest::Startup => merge_startup(snapshot, now),
                 RecorderRequest::StartRecording { rotate_if_active } => map_capture_outcome(
                     snapshot
@@ -326,6 +341,15 @@ impl Domain for RecorderDomain {
             RecorderIoRequest::Library(LibraryIoRequest::CancelRepair { path }) => {
                 let _ = (path, error);
                 Command::IoResult(RecorderIoResult::Library(LibraryIoResult::ScanFailed))
+            }
+            RecorderIoRequest::Library(LibraryIoRequest::Snapshot { path, output_path }) => {
+                Command::IoResult(RecorderIoResult::Library(
+                    LibraryIoResult::SnapshotFinished {
+                        path,
+                        output_path,
+                        outcome: LibrarySnapshotOutcome::Failed(RepairFailure::Io),
+                    },
+                ))
             }
             RecorderIoRequest::Cameras(_) => {
                 let _ = error;
