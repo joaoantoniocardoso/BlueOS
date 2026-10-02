@@ -3,5 +3,9 @@
 version = 4
 
 [[package]]
+name = "blueos-domain"
+version = "0.1.0"
+
+[[package]]
 name = "blueos-smoke"
 version = "0.1.0"
