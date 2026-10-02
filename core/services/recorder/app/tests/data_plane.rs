@@ -272,7 +272,8 @@ async fn shutdown_with_full_writer_queue_finishes_file() {
         .expect("shutdown")
         .expect("join");
 
-    let bytes = fs::read(single_recorder_mcap(directory.path())).expect("read");
+    let path = wait_for_one_recorder_mcap(directory.path()).await;
+    let bytes = fs::read(&path).expect("read");
     mcap::Summary::read(&bytes)
         .expect("read")
         .expect("readable after back pressure");

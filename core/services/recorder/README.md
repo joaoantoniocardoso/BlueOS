@@ -17,7 +17,8 @@ On BlueOS images the `recorder` symlink calls the multicall `blueos` binary with
 |-------|------|
 | `logic/capture` | Record gate, active recording state |
 | `logic/recorder` | Recorder Domain |
-| `logic/api` | `RecorderSettings`, wire conversions |
+| `logic/api` | Wire conversions |
+| `app` | `RecorderSettings`, service wiring |
 | `adapters/mcap` | `McapFile`, channel descriptors |
 | `adapters/storage` | Recordings folder paths |
 | `app` | Service wiring and data plane Task |

@@ -307,9 +307,6 @@ dependencies = [
  "blueos-idl",
  "blueos-recorder-capture",
  "blueos-recorder-domain",
- "blueos-settings",
- "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -329,11 +326,10 @@ dependencies = [
  "blueos-settings",
  "bytes",
  "clap",
- "futures-util",
  "mcap",
+ "serde",
  "serde_json",
  "tempfile",
- "thiserror",
  "tokio",
  "tracing",
 ]

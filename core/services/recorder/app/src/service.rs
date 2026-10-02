@@ -2,13 +2,13 @@
 
 use std::{path::PathBuf, sync::Arc};
 
-use blueos_recorder_api::RecorderSettings;
 use blueos_recorder_domain::{RecorderDomain, RecorderRequest, RecorderSnapshot};
 use blueos_recorder_storage::RecordingsFolder;
 use blueos_service::{RestartPolicy, Service, ServiceBuilder, ServiceContext, ServiceError};
 
 use crate::{
     cli::RecorderArguments, context::RecorderContext, data_plane::run_data_plane, endpoints,
+    settings::RecorderSettings,
 };
 
 /// The Recorder Service.

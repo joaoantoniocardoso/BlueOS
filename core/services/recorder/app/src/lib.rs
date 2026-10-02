@@ -10,6 +10,7 @@ mod context;
 mod data_plane;
 pub mod endpoints;
 mod service;
+mod settings;
 
 pub use cli::RecorderArguments;
 pub use service::RecorderService;

@@ -6,7 +6,6 @@ license.workspace = true
 publish = false
 
 [dependencies]
-bytes.workspace = true
 blueos-comms.workspace = true
 blueos-idl = { workspace = true, features = ["catalog"] }
 json5.workspace = true
