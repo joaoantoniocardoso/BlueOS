@@ -304,6 +304,17 @@ run_rust_test_checks() {
     )
 }
 
+# Usage: export_rust_llvm_cov_tools
+# Points cargo-llvm-cov at the llvm-profdata/llvm-cov that match the active rustc (not a distro symlink).
+export_rust_llvm_cov_tools() {
+    local sysroot host bindir
+    sysroot=$(rustc --print sysroot)
+    host=$(rustc -vV | sed -n 's/^host: //p')
+    bindir="$sysroot/lib/rustlib/$host/bin"
+    export LLVM_PROFDATA="$bindir/llvm-profdata"
+    export LLVM_COV="$bindir/llvm-cov"
+}
+
 # Usage: check_rust_coverage_ratchet <workspace_dir> [ratchet_file]
 # Runs instrumented tests and fails when measured line coverage is below the committed floors.
 check_rust_coverage_ratchet() {
@@ -319,6 +330,7 @@ check_rust_coverage_ratchet() {
     echo "Running Rust coverage ratchet for ${workspace_dir}"
     (
         cd "$workspace_dir" || exit 1
+        export_rust_llvm_cov_tools
 
         echo "Resetting prior coverage artifacts.."
         cargo llvm-cov clean --workspace
