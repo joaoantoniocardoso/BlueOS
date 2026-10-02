@@ -1,0 +1,15 @@
+[package]
+name = "blueos-recorder-domain"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+blueos-domain.workspace = true
+blueos-recorder-capture = { path = "../capture" }
+
+[lints]
+workspace = true
+
+[dev-dependencies]
