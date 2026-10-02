@@ -1,4 +1,8 @@
-#![allow(missing_docs, reason = "integration test against shared JSON vectors")]
+#![allow(
+    clippy::arbitrary_source_item_ordering,
+    missing_docs,
+    reason = "integration test against shared JSON vectors"
+)]
 
 use std::{fs, path::PathBuf};
 
