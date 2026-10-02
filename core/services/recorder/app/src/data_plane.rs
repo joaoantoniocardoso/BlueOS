@@ -1,24 +1,39 @@
 //! Data plane Task: owns the MCAP writer actor, follows [`RecordGate`], reports Observed facts.
 
 use core::time::Duration;
-use std::{collections::BTreeMap, sync::Arc};
+use std::{collections::BTreeMap, collections::BTreeSet, sync::Arc};
 
-use tokio::time::{MissedTickBehavior, interval};
+use tokio::{
+    task::JoinSet,
+    time::{MissedTickBehavior, interval},
+};
 use tracing::warn;
 
-use blueos_comms::Sample;
+use blueos_comms::{LivelinessEvent, Payload, Sample};
 use blueos_domain::Command;
 use blueos_recorder_capture::{CaptureObservedFact, RecordGate};
 use blueos_recorder_domain::{RecorderDomain, RecorderObservedFact};
 use blueos_recorder_mcap::{
-    ChannelDescriptor, McapWriterHandle, descriptor_for_sample, should_record_topic,
+    ChannelDescriptor, ChannelRoute, McapWriterHandle, ros2_lane_descriptor, should_record_topic,
+};
+use blueos_recorder_schema_gate::{
+    Ros2ddsGate, Ros2ddsGateInput, Ros2ddsGateOutput, held::HeldSample,
 };
 use blueos_recorder_storage::RecordingsFolder;
+use blueos_ros2_names::{parse_ros2dds_liveliness_token, ros2dds_liveliness_token_to_data_key};
 use blueos_service::{CommandSender, TaskContext, TaskFailed};
 
-use crate::context::RecorderContext;
+use crate::{
+    context::RecorderContext,
+    sample_plan::{SampleWritePlan, plan_sample_write},
+};
 
 const BYTES_REPORT_INTERVAL: Duration = Duration::from_secs(1);
+// ponytail: fixed 100 ms tick scans awaiting topics; sleep-until-earliest-deadline would skip idle wakeups.
+const GATE_TICK_INTERVAL: Duration = Duration::from_millis(100);
+const LIVELINESS_GET_TIMEOUT: Duration = Duration::from_millis(500);
+
+type LivelinessGetOutcome = Result<Vec<String>, blueos_comms::CommsError>;
 
 /// Metadata for the file the writer actor has open.
 struct OpenRecording {
@@ -28,8 +43,10 @@ struct OpenRecording {
 /// Local state the Domain does not own.
 struct DataPlaneLocal {
     open: Option<OpenRecording>,
-    descriptors: BTreeMap<String, Arc<ChannelDescriptor>>,
+    descriptors: BTreeMap<ChannelRoute, Arc<ChannelDescriptor>>,
     last_reported_bytes: u64,
+    ros2_gate: Ros2ddsGate<Payload>,
+    pending_liveliness_gets: BTreeSet<String>,
 }
 
 /// Runs until shutdown, reconciling [`RecordGate`] and recording backbone samples.
@@ -44,6 +61,8 @@ pub(crate) async fn run_data_plane(
         open: None,
         descriptors: BTreeMap::new(),
         last_reported_bytes: 0,
+        ros2_gate: Ros2ddsGate::default(),
+        pending_liveliness_gets: BTreeSet::new(),
     };
     let folder = Arc::clone(&task_context.context.recordings_folder);
     let mut subscriber = task_context
@@ -54,23 +73,42 @@ pub(crate) async fn run_data_plane(
             warn!(%error, "failed to subscribe to the backbone");
             TaskFailed
         })?;
+    let mut liveliness = task_context
+        .session
+        .subscribe_liveliness("@/*/@ros2_lv/**")
+        .await
+        .map_err(|error| {
+            warn!(%error, "failed to subscribe to ros2dds liveliness");
+            TaskFailed
+        })?;
+    let mut liveliness_gets = JoinSet::new();
     let mut bytes_timer = interval(BYTES_REPORT_INTERVAL);
     bytes_timer.set_missed_tick_behavior(MissedTickBehavior::Skip);
+    let mut gate_timer = interval(GATE_TICK_INTERVAL);
+    gate_timer.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
     {
         let gate_snapshot = gate.borrow().clone();
-        reconcile(&gate_snapshot, &mut local, &folder, &writer, &task_context).await?;
+        reconcile(
+            &gate_snapshot,
+            &mut local,
+            &folder,
+            &writer,
+            &task_context,
+            &mut liveliness_gets,
+        )
+        .await?;
     }
 
     loop {
         tokio::select! {
             () = task_context.shutdown.cancelled() => {
-                cleanup(&mut local, &writer, &task_context.commands).await;
+                cleanup(&mut local, &writer, &task_context.commands, &mut liveliness_gets).await;
                 break;
             }
             changed = gate.changed() => {
                 if changed.is_err() {
-                    cleanup(&mut local, &writer, &task_context.commands).await;
+                    cleanup(&mut local, &writer, &task_context.commands, &mut liveliness_gets).await;
                     break;
                 }
                 {
@@ -81,13 +119,14 @@ pub(crate) async fn run_data_plane(
                         &folder,
                         &writer,
                         &task_context,
+                        &mut liveliness_gets,
                     )
                     .await?;
                 }
             }
             sample = subscriber.recv() => {
                 let Some(sample) = sample else {
-                    cleanup(&mut local, &writer, &task_context.commands).await;
+                    cleanup(&mut local, &writer, &task_context.commands, &mut liveliness_gets).await;
                     break;
                 };
                 if let Err(error) = handle_sample(
@@ -97,11 +136,74 @@ pub(crate) async fn run_data_plane(
                     &folder,
                     &writer,
                     &task_context,
+                    &mut liveliness_gets,
                 )
                 .await
                 {
-                    cleanup(&mut local, &writer, &task_context.commands).await;
+                    cleanup(&mut local, &writer, &task_context.commands, &mut liveliness_gets).await;
                     return Err(error);
+                }
+            }
+            event = liveliness.recv() => {
+                let Some(event) = event else {
+                    warn!("ros2dds liveliness stream ended");
+                    continue;
+                };
+                handle_liveliness_event(
+                    event,
+                    &mut local,
+                    &writer,
+                    &task_context,
+                    &mut liveliness_gets,
+                )
+                .await;
+            }
+            Some(join_result) = liveliness_gets.join_next(), if !liveliness_gets.is_empty() => {
+                match join_result {
+                    Ok((topic, get_result)) => {
+                        local.pending_liveliness_gets.remove(&topic);
+                        let token_keys = match get_result {
+                            Ok(token_keys) => token_keys,
+                            Err(error) => {
+                                warn!(%error, topic = %topic, "ros2dds liveliness get failed");
+                                Vec::new()
+                            }
+                        };
+                        let outputs = local.ros2_gate.on_input(
+                            &topic,
+                            Ros2ddsGateInput::LivelinessGetResult { token_keys },
+                        );
+                        apply_gate_outputs(
+                            &topic,
+                            outputs,
+                            &mut local,
+                            &writer,
+                            &task_context,
+                            &mut liveliness_gets,
+                        )
+                        .await;
+                    }
+                    Err(error) => {
+                        warn!(%error, "ros2dds liveliness get task failed");
+                    }
+                }
+            }
+            _ = gate_timer.tick() => {
+                let now_monotonic_millis = monotonic_millis(&task_context);
+                for topic in local.ros2_gate.topics_awaiting_timer() {
+                    let outputs = local.ros2_gate.on_input(
+                        &topic,
+                        Ros2ddsGateInput::TimerTick { now_monotonic_millis },
+                    );
+                    apply_gate_outputs(
+                        &topic,
+                        outputs,
+                        &mut local,
+                        &writer,
+                        &task_context,
+                        &mut liveliness_gets,
+                    )
+                    .await;
                 }
             }
             _ = bytes_timer.tick() => {
@@ -112,6 +214,45 @@ pub(crate) async fn run_data_plane(
     Ok(())
 }
 
+async fn handle_liveliness_event(
+    event: LivelinessEvent,
+    local: &mut DataPlaneLocal,
+    writer: &Arc<McapWriterHandle>,
+    task_context: &TaskContext<RecorderDomain, RecorderContext>,
+    liveliness_gets: &mut JoinSet<(String, LivelinessGetOutcome)>,
+) {
+    match event {
+        LivelinessEvent::Put { key } => {
+            if let Some(data_key) = ros2dds_liveliness_token_to_data_key(&key)
+                && let Some(info) = parse_ros2dds_liveliness_token(&key)
+            {
+                let outputs = local.ros2_gate.on_input(
+                    &data_key,
+                    Ros2ddsGateInput::LivelinessTypePut {
+                        type_name: info.type_name,
+                    },
+                );
+                apply_gate_outputs(
+                    &data_key,
+                    outputs,
+                    local,
+                    writer,
+                    task_context,
+                    liveliness_gets,
+                )
+                .await;
+            }
+        }
+        LivelinessEvent::Delete { key } => {
+            if let Some(data_key) = ros2dds_liveliness_token_to_data_key(&key) {
+                local
+                    .ros2_gate
+                    .on_input(&data_key, Ros2ddsGateInput::LivelinessTypeDelete);
+            }
+        }
+    }
+}
+
 async fn handle_sample(
     sample: &Sample,
     gate: &mut tokio::sync::watch::Receiver<RecordGate>,
@@ -119,6 +260,7 @@ async fn handle_sample(
     folder: &Arc<RecordingsFolder>,
     writer: &Arc<McapWriterHandle>,
     task_context: &TaskContext<RecorderDomain, RecorderContext>,
+    liveliness_gets: &mut JoinSet<(String, LivelinessGetOutcome)>,
 ) -> Result<(), TaskFailed> {
     let gate_snapshot = gate.borrow().clone();
     if !gate_snapshot.recording_requested {
@@ -132,29 +274,121 @@ async fn handle_sample(
         .as_ref()
         .is_some_and(|open| open.file_generation != gate_snapshot.desired_file_generation)
     {
-        reconcile(&gate_snapshot, local, folder, writer, task_context).await?;
+        reconcile(
+            &gate_snapshot,
+            local,
+            folder,
+            writer,
+            task_context,
+            liveliness_gets,
+        )
+        .await?;
     }
-    let Some(descriptor) = descriptor_for_sample(
-        sample.key(),
-        sample.encoding(),
-        sample.payload(),
-        &mut local.descriptors,
-    ) else {
-        return Ok(());
-    };
     if local.open.is_none() {
         return Ok(());
     }
+
+    let topic = sample.key();
     let wall = task_context.clock.now().wall;
     let log_time = sample_log_time_nanos(sample, wall);
-    writer.try_write_sample(
-        sample.key().to_owned(),
-        log_time,
-        log_time,
-        sample.payload().clone(),
-        descriptor,
-    );
+    let publish_time = log_time;
+
+    match plan_sample_write(
+        topic,
+        sample.encoding(),
+        sample.payload(),
+        &local.ros2_gate,
+        &mut local.descriptors,
+    ) {
+        SampleWritePlan::Ready { route, descriptor } => {
+            writer.try_write_sample(
+                topic.to_owned(),
+                route,
+                log_time,
+                publish_time,
+                sample.payload().clone(),
+                descriptor,
+            );
+        }
+        SampleWritePlan::Skip => {}
+        SampleWritePlan::NeedsRos2Gate => {
+            let outputs = local.ros2_gate.on_input(
+                topic,
+                Ros2ddsGateInput::Sample {
+                    now_monotonic_millis: monotonic_millis(task_context),
+                    log_time,
+                    publish_time,
+                    payload: sample.payload().clone(),
+                },
+            );
+            apply_gate_outputs(topic, outputs, local, writer, task_context, liveliness_gets).await;
+        }
+    }
     Ok(())
+}
+
+async fn apply_gate_outputs(
+    topic: &str,
+    outputs: Vec<Ros2ddsGateOutput>,
+    local: &mut DataPlaneLocal,
+    writer: &Arc<McapWriterHandle>,
+    task_context: &TaskContext<RecorderDomain, RecorderContext>,
+    liveliness_gets: &mut JoinSet<(String, LivelinessGetOutcome)>,
+) {
+    if local.open.is_none() {
+        return;
+    }
+    for output in outputs {
+        match output {
+            Ros2ddsGateOutput::QueryLiveliness { pattern } => {
+                if local.pending_liveliness_gets.insert(topic.to_owned()) {
+                    let session = Arc::clone(&task_context.session);
+                    let topic_owned = topic.to_owned();
+                    liveliness_gets.spawn(async move {
+                        let result = session
+                            .get_liveliness(&pattern, LIVELINESS_GET_TIMEOUT)
+                            .await;
+                        (topic_owned, result)
+                    });
+                }
+            }
+            Ros2ddsGateOutput::ReleaseHeld { type_name } => {
+                let samples = local.ros2_gate.drain_held(topic);
+                let (route, descriptor) =
+                    ros2_lane_descriptor(topic, type_name.as_deref(), &mut local.descriptors);
+                write_held_samples(writer, topic, route, descriptor, samples);
+            }
+        }
+    }
+}
+
+fn write_held_samples(
+    writer: &McapWriterHandle,
+    topic: &str,
+    route: ChannelRoute,
+    descriptor: Arc<ChannelDescriptor>,
+    samples: Vec<HeldSample<Payload>>,
+) {
+    for held in samples {
+        writer.try_write_sample(
+            topic.to_owned(),
+            route.clone(),
+            held.log_time,
+            held.publish_time,
+            held.payload,
+            Arc::clone(&descriptor),
+        );
+    }
+}
+
+fn monotonic_millis(task_context: &TaskContext<RecorderDomain, RecorderContext>) -> u64 {
+    task_context
+        .clock
+        .now()
+        .monotonic
+        .as_millis()
+        .try_into()
+        .unwrap_or(u64::MAX)
 }
 
 async fn reconcile(
@@ -163,9 +397,10 @@ async fn reconcile(
     folder: &Arc<RecordingsFolder>,
     writer: &Arc<McapWriterHandle>,
     task_context: &TaskContext<RecorderDomain, RecorderContext>,
+    liveliness_gets: &mut JoinSet<(String, LivelinessGetOutcome)>,
 ) -> Result<(), TaskFailed> {
     if !gate.recording_requested {
-        finish_open_file(local, writer, &task_context.commands).await;
+        finish_open_file(local, writer, &task_context.commands, liveliness_gets).await;
         return Ok(());
     }
 
@@ -178,7 +413,7 @@ async fn reconcile(
         return Ok(());
     }
 
-    finish_open_file(local, writer, &task_context.commands).await;
+    finish_open_file(local, writer, &task_context.commands, liveliness_gets).await;
 
     let wall = task_context.clock.now().wall;
     let (path, file_name) = folder.allocate_new_recording(wall).map_err(|error| {
@@ -208,15 +443,20 @@ async fn cleanup(
     local: &mut DataPlaneLocal,
     writer: &Arc<McapWriterHandle>,
     commands: &CommandSender<RecorderDomain>,
+    liveliness_gets: &mut JoinSet<(String, LivelinessGetOutcome)>,
 ) {
-    finish_open_file(local, writer, commands).await;
+    finish_open_file(local, writer, commands, liveliness_gets).await;
 }
 
 async fn finish_open_file(
     local: &mut DataPlaneLocal,
     writer: &Arc<McapWriterHandle>,
     commands: &CommandSender<RecorderDomain>,
+    liveliness_gets: &mut JoinSet<(String, LivelinessGetOutcome)>,
 ) {
+    liveliness_gets.abort_all();
+    local.pending_liveliness_gets.clear();
+    local.ros2_gate.clear();
     let Some(open) = local.open.take() else {
         return;
     };

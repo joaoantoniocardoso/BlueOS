@@ -9,6 +9,7 @@ mod cli;
 mod context;
 mod data_plane;
 pub mod endpoints;
+mod sample_plan;
 mod service;
 mod settings;
 
