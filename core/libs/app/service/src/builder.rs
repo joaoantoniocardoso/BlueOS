@@ -6,7 +6,7 @@ use std::{path::PathBuf, sync::Arc};
 use tokio::sync::watch;
 
 use blueos_api::{JOB_ID_NONE, Message, cdr_encoding};
-use blueos_domain::{Command, Domain, DomainQueries, IoError};
+use blueos_domain::{Command, Domain, DomainDurable, DomainQueries, IoError};
 use blueos_idl::{
     Error as IdlError,
     msg::blueos_msgs::{EndpointInfo, JobList, JobStatus, JobStatusStatus, SettingsEnvelope},
@@ -15,6 +15,9 @@ use blueos_jobs::{DomainJobs, JobEnd, JobId, JobKind, Jobs};
 use blueos_settings::SettingsSchema;
 
 use crate::{
+    durable_state::{
+        DurableStateRegistration, register_durable_state, register_durable_state_with_jobs,
+    },
     kernel::{Rejection, Unanswered, io::IoExecutors},
     settings::{SettingsRegistration, register_settings},
     shutdown::{ShutdownHandle, new_shutdown_channel},
@@ -75,6 +78,7 @@ pub struct ServiceBuilder<D: Domain, Context = ()> {
     pub(crate) projections: Vec<Box<dyn crate::projection::RefreshProjection<D> + Send + Sync>>,
     pub(crate) events: Vec<EventEndpoint<D>>,
     pub(crate) settings: Option<SettingsRegistration<D>>,
+    pub(crate) durable: Option<DurableStateRegistration<D>>,
     pub(crate) jobs: Option<JobsEndpoint<D>>,
     pub(crate) startup_commands: Vec<InboxCommand<D>>,
     pub(crate) tasks: Vec<TaskSpec<D, Context>>,
@@ -151,6 +155,7 @@ impl<D: Domain> ServiceBuilder<D, ()> {
             projections: Vec::new(),
             events: Vec::new(),
             settings: None,
+            durable: None,
             jobs: None,
             startup_commands: Vec::new(),
             tasks: Vec::new(),
@@ -181,6 +186,7 @@ impl<D: Domain> ServiceBuilder<D, ()> {
             projections: self.projections,
             events: self.events,
             settings: self.settings,
+            durable: self.durable,
             jobs: self.jobs,
             startup_commands: self.startup_commands,
             tasks: Vec::new(),
@@ -188,6 +194,48 @@ impl<D: Domain> ServiceBuilder<D, ()> {
             shutdown_sender: self.shutdown_sender,
             shutdown_receiver: self.shutdown_receiver,
         }
+    }
+}
+
+impl<D: DomainDurable, Context> ServiceBuilder<D, Context> {
+    /// Persists the Domain's durable Snapshot field as versioned JSON next to the settings (D-28).
+    pub fn durable_state(
+        mut self,
+        service_name: &str,
+        config_folder: Option<PathBuf>,
+        version: core::num::NonZeroU32,
+    ) -> Self
+    where
+        D::DurableState: serde::Serialize + serde::de::DeserializeOwned + PartialEq,
+    {
+        self.durable = Some(register_durable_state::<D>(
+            service_name.to_owned(),
+            config_folder,
+            version,
+        ));
+        self
+    }
+}
+
+impl<D, Context> ServiceBuilder<D, Context>
+where
+    D: DomainDurable + DomainJobs,
+    D::DurableState: serde::Serialize + serde::de::DeserializeOwned + PartialEq,
+    D::Step: serde::Serialize + serde::de::DeserializeOwned + PartialEq,
+{
+    /// Like [`ServiceBuilder::durable_state`], and persists the Domain's Jobs with the durable part.
+    pub fn durable_state_with_jobs(
+        mut self,
+        service_name: &str,
+        config_folder: Option<PathBuf>,
+        version: core::num::NonZeroU32,
+    ) -> Self {
+        self.durable = Some(register_durable_state_with_jobs::<D>(
+            service_name.to_owned(),
+            config_folder,
+            version,
+        ));
+        self
     }
 }
 
@@ -463,6 +511,7 @@ fn job_list<Step: Display>(jobs: &Jobs<Step>) -> JobList {
                     blueos_jobs::JobStatus::Finished(JobEnd::Cancelled) => {
                         JobStatusStatus::Cancelled
                     }
+                    blueos_jobs::JobStatus::Interrupted => JobStatusStatus::Interrupted,
                 },
                 name: match view.kind {
                     JobKind::Leaf(step) => step.to_string(),

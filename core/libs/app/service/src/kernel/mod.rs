@@ -43,6 +43,7 @@ use crate::{
     },
     clock::Clock,
     command_sender::{CommandSender, Session, command_ack},
+    durable_state::{DurablePersister, DurableStateHandle},
     inbox::{CommandReply, Delivery},
     inbox_recovery::{self, log_caught_panic},
     projection::ProjectionRegistry,
@@ -81,6 +82,7 @@ pub struct Kernel<D: Domain, Context = ()> {
     inbox_sender: Option<mpsc::Sender<Delivery<D>>>,
     states: Vec<PublishedState<D>>,
     settings: Option<SettingsEndpoint<D>>,
+    durable: Option<DurableStateHandle<D>>,
     events: Vec<EventEndpoint<D>>,
     /// Set only for a Domain with Jobs.
     latest_root: Option<LatestRoot<D>>,
@@ -208,8 +210,18 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         clock: Arc<dyn Clock>,
         #[cfg(feature = "testing")] effect_log: Option<EffectLogStorage<D>>,
     ) -> Result<Self, ServiceError> {
-        let startup_commands = builder.startup_commands;
+        let mut startup_commands = builder.startup_commands;
         let shutdown_request = tokio::sync::Mutex::new(builder.shutdown_request);
+        let durable_registration = builder.durable.take();
+        if let Some(registration) = &durable_registration {
+            registration
+                .store
+                .ensure_directory()
+                .map_err(ServiceError::Settings)?;
+            if (registration.restore_from_disk)(&mut builder.snapshot, clock.as_ref()) {
+                startup_commands.push(Command::Tick(registration.restored_tick.clone()));
+            }
+        }
         let shutdown_receiver = builder.shutdown_receiver;
         let (inbox_sender, inbox) = mpsc::channel(INBOX_CAPACITY);
         let snapshot_for_queries = Arc::new(tokio::sync::RwLock::new(builder.snapshot.clone()));
@@ -321,6 +333,11 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             pending_io_queries.push((queryable, endpoint.respond, endpoint.encoding));
         }
         let projections = ProjectionRegistry::new(builder.projections);
+        let durable = durable_registration.map(|registration| DurableStateHandle {
+            persister: DurablePersister::spawn(Arc::clone(&clock), registration.store),
+            serialize: registration.serialize,
+            changed: registration.changed,
+        });
         let session: Session = Arc::clone(&backend);
         let mut kernel = Self {
             service,
@@ -329,6 +346,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             inbox_sender: Some(inbox_sender),
             states,
             settings,
+            durable,
             events: builder.events,
             latest_root,
             backend,
@@ -614,6 +632,9 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 break;
             }
         }
+        if let Some(durable) = &mut self.durable {
+            durable.persister.flush_and_shutdown().await;
+        }
         repeated_inbox_panics.unwrap_or(RunOutcome::Stopped)
     }
 
@@ -707,6 +728,13 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 #[cfg(feature = "testing")]
                 if let Some(log) = &self.effect_log {
                     lock_unpoisoned(log).push(effects.clone());
+                }
+                if let Some(durable) = &self.durable
+                    && (durable.changed)(&backup, &self.snapshot)
+                {
+                    durable
+                        .persister
+                        .queue_document((durable.serialize)(&self.snapshot));
                 }
                 if persist_settings && let Some(settings) = &self.settings {
                     let persist_result = lock_unpoisoned(&settings.driver).persist(&self.snapshot);

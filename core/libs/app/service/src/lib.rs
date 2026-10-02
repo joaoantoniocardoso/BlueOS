@@ -14,6 +14,7 @@
 mod builder;
 mod clock;
 mod command_sender;
+mod durable_state;
 pub mod entry;
 mod inbox;
 mod inbox_recovery;
@@ -31,7 +32,7 @@ mod tasks;
 #[cfg(feature = "testing")]
 pub mod testing;
 
-pub use blueos_domain::IoError;
+pub use blueos_domain::{DomainDurable, IoError};
 pub use builder::{Refusal, ServiceBuilder};
 pub use clock::Clock;
 pub use command_sender::{CommandSender, SendError, Session};
