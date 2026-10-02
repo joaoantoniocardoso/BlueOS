@@ -65,8 +65,11 @@ line that uses it. Draft 1 grew four undocumented patterns, one of which contrad
 ## Tests
 
 Write the failing test first (D-20). Each test lives in the lowest layer that can see the behavior (D-30): a Domain
-rule is an L1 unit test with no runtime, never a Kernel test. Tests use a paused clock and the injected Clock, never
-`sleep`.
+rule is an L1 unit test with no runtime, never a Kernel test. Tests use a paused clock and the injected `Clock`.
+Async test code never waits on wall time: no `std::thread::sleep` in async code, and no real-clock
+`tokio::time::sleep`. On a paused runtime, `tokio::time::sleep` is allowed only as a drain of outstanding
+`spawn_blocking` work (see `drain_blocking_io` in the Recorder harness). A blocking test double may block its own
+thread to stand in for slow IO.
 
 ## Documentation
 
