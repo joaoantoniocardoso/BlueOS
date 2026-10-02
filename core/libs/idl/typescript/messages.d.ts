@@ -199,3 +199,39 @@ export interface Header {
   frame_id: string;
 }
 
+export interface MessageBySchema {
+  "blueos_example_msgs/msg/EmptyRequest": EmptyRequest;
+  "blueos_example_msgs/msg/LevelQueryResponse": LevelQueryResponse;
+  "blueos_example_msgs/msg/PumpState": PumpState;
+  "blueos_example_msgs/msg/SelfTestCompleted": SelfTestCompleted;
+  "blueos_example_msgs/msg/SetLevelRequest": SetLevelRequest;
+  "blueos_msgs/msg/CommandAck": CommandAck;
+  "blueos_msgs/msg/EndpointInfo": EndpointInfo;
+  "blueos_msgs/msg/JobList": JobList;
+  "blueos_msgs/msg/JobStatus": JobStatus;
+  "blueos_msgs/msg/RestartRequired": RestartRequired;
+  "blueos_msgs/msg/ServiceInfo": ServiceInfo;
+  "blueos_msgs/msg/ServiceStatus": ServiceStatus;
+  "blueos_msgs/msg/SettingField": SettingField;
+  "blueos_msgs/msg/SettingsEnvelope": SettingsEnvelope;
+  "blueos_recorder_msgs/msg/CancelRepairCommand": CancelRepairCommand;
+  "blueos_recorder_msgs/msg/ChannelMessageCount": ChannelMessageCount;
+  "blueos_recorder_msgs/msg/ChunkIndexEntry": ChunkIndexEntry;
+  "blueos_recorder_msgs/msg/DeleteRecordingCommand": DeleteRecordingCommand;
+  "blueos_recorder_msgs/msg/RecordingFile": RecordingFile;
+  "blueos_recorder_msgs/msg/RecordingIndex": RecordingIndex;
+  "blueos_recorder_msgs/msg/RecordingIndexRequest": RecordingIndexRequest;
+  "blueos_recorder_msgs/msg/RecordingLibrary": RecordingLibrary;
+  "blueos_recorder_msgs/msg/RecordingOperation": RecordingOperation;
+  "blueos_recorder_msgs/msg/RecordingPolicy": RecordingPolicy;
+  "blueos_recorder_msgs/msg/RecordingState": RecordingState;
+  "blueos_recorder_msgs/msg/RepairRecordingCommand": RepairRecordingCommand;
+  "blueos_recorder_msgs/msg/SetPolicyCommand": SetPolicyCommand;
+  "blueos_recorder_msgs/msg/SnapshotRecordingCommand": SnapshotRecordingCommand;
+  "blueos_recorder_msgs/msg/StartRecordingCommand": StartRecordingCommand;
+  "blueos_recorder_msgs/msg/StopRecordingCommand": StopRecordingCommand;
+  "builtin_interfaces/msg/Duration": Duration;
+  "builtin_interfaces/msg/Time": Time;
+  "foxglove_msgs/msg/Log": Log;
+  "std_msgs/msg/Header": Header;
+}
