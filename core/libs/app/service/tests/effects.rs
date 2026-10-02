@@ -13,7 +13,10 @@ use blueos_api::{Message, cdr_encoding, command_key, state_key};
 use blueos_comms::Subscriber;
 use blueos_domain::{Command, Decision, Domain, DomainQueries, Effect, IoError, Now, Outcome};
 use blueos_idl::msg::blueos_example_msgs::{EmptyRequest, LevelQueryResponse};
-use blueos_service::{Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness};
+use blueos_service::{
+    Kernel, RunOutcome, Service, ServiceBuilder, ServiceContext, ServiceError,
+    testing::{Harness, PausedClock},
+};
 
 static PANIC_GUARD: AtomicUsize = AtomicUsize::new(0);
 
@@ -26,12 +29,21 @@ struct BlockingHoldLatch {
     io_applied: mpsc::SyncSender<()>,
 }
 
+/// Per-test gate for async-held IO under a paused clock (shutdown drain tests).
+struct AsyncHoldLatch {
+    started: mpsc::SyncSender<()>,
+    release: tokio::sync::Mutex<tokio::sync::mpsc::Receiver<()>>,
+    io_applied: mpsc::SyncSender<()>,
+}
+
 #[derive(Clone, clap::Args)]
 struct EffectsArguments {
     #[arg(long, default_value_t = 10)]
     capacity: u8,
     #[arg(skip)]
     blocking_hold: Option<Arc<BlockingHoldLatch>>,
+    #[arg(skip)]
+    async_hold: Option<Arc<AsyncHoldLatch>>,
     #[arg(skip)]
     record_capacity_done: Option<mpsc::SyncSender<()>>,
 }
@@ -41,6 +53,7 @@ impl Default for EffectsArguments {
         Self {
             capacity: 10,
             blocking_hold: None,
+            async_hold: None,
             record_capacity_done: None,
         }
     }
@@ -50,6 +63,7 @@ impl Default for EffectsArguments {
 struct EffectsContext {
     expected_capacity: u8,
     blocking_hold: Option<Arc<BlockingHoldLatch>>,
+    async_hold: Option<Arc<AsyncHoldLatch>>,
     record_capacity_done: Option<mpsc::SyncSender<()>>,
 }
 
@@ -74,6 +88,7 @@ enum EffectsRequest {
     ScheduleIoWithoutExecutor,
     RecordCapacity,
     RunBlockingHold,
+    RunAsyncHold,
 }
 
 enum EffectsQuery {
@@ -87,6 +102,7 @@ enum EffectsIoRequest {
     Panic,
     RecordCapacity,
     BlockingHold,
+    AsyncHold,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -126,7 +142,14 @@ impl Service for EffectsService {
             .arguments()
             .blocking_hold
             .as_ref()
-            .map(|latch| latch.io_applied.clone());
+            .map(|latch| latch.io_applied.clone())
+            .or_else(|| {
+                context
+                    .arguments()
+                    .async_hold
+                    .as_ref()
+                    .map(|latch| latch.io_applied.clone())
+            });
         Ok(ServiceBuilder::new(EffectsSnapshot {
             level: 0,
             capacity,
@@ -140,6 +163,7 @@ impl Service for EffectsService {
         .context(EffectsContext {
             expected_capacity: capacity,
             blocking_hold: context.arguments().blocking_hold.clone(),
+            async_hold: context.arguments().async_hold.clone(),
             record_capacity_done: context.arguments().record_capacity_done.clone(),
         })
         .blocking_io(|io_context, _snapshot, request| match request {
@@ -163,13 +187,15 @@ impl Service for EffectsService {
             EffectsIoRequest::Fail
             | EffectsIoRequest::Succeed
             | EffectsIoRequest::Panic
-            | EffectsIoRequest::RecordCapacity => Err(IoError::new("not a blocking IO request")),
+            | EffectsIoRequest::RecordCapacity
+            | EffectsIoRequest::AsyncHold => Err(IoError::new("not a blocking IO request")),
         })
         .io(
             |io_context: &EffectsContext, snapshot: &EffectsSnapshot, request| {
                 let expected_capacity = io_context.expected_capacity;
                 let snapshot_capacity = snapshot.capacity;
                 let record_capacity_done = io_context.record_capacity_done.clone();
+                let async_hold = io_context.async_hold.clone();
                 async move {
                     match request {
                         EffectsIoRequest::Fail => Err(IoError::new("the first IO step failed")),
@@ -187,6 +213,21 @@ impl Service for EffectsService {
                         }
                         EffectsIoRequest::BlockingHold => {
                             Err(IoError::new("blocking IO belongs on a blocking thread"))
+                        }
+                        EffectsIoRequest::AsyncHold => {
+                            let Some(latch) = &async_hold else {
+                                return Err(IoError::new(
+                                    "AsyncHold requires a per-test AsyncHoldLatch",
+                                ));
+                            };
+                            latch.started.send(()).map_err(|_| {
+                                IoError::new("the test stopped waiting for async IO to start")
+                            })?;
+                            let mut release = latch.release.lock().await;
+                            release.recv().await.ok_or_else(|| {
+                                IoError::new("the test stopped before releasing async IO")
+                            })?;
+                            Ok(Some(EffectsIoResult::Succeeded))
                         }
                     }
                 }
@@ -219,6 +260,9 @@ impl Service for EffectsService {
         })
         .command("RunBlockingHold", |_: EmptyRequest| {
             Ok(EffectsRequest::RunBlockingHold)
+        })
+        .command("RunAsyncHold", |_: EmptyRequest| {
+            Ok(EffectsRequest::RunAsyncHold)
         })
         .query(
             "blocking_active",
@@ -308,6 +352,13 @@ impl Domain for Effects {
                 Outcome::Applied {
                     events: Vec::new(),
                     effects: vec![Effect::Io(EffectsIoRequest::BlockingHold)],
+                }
+            }
+            Command::Request(EffectsRequest::RunAsyncHold) => {
+                snapshot.blocking_io_running = true;
+                Outcome::Applied {
+                    events: Vec::new(),
+                    effects: vec![Effect::Io(EffectsIoRequest::AsyncHold)],
                 }
             }
             Command::IoResult(EffectsIoResult::Failed {
@@ -600,4 +651,134 @@ async fn effect_recorder_sees_effects_without_running_them() {
     );
     advance(Duration::from_secs(20)).await;
     expect_no_state_sample(&mut tick_states).await;
+}
+
+async fn start_effects_kernel_with_shutdown(
+    arguments: EffectsArguments,
+) -> (
+    Arc<dyn blueos_comms::CommsBackend>,
+    blueos_service::ShutdownHandle,
+    tokio::task::JoinHandle<RunOutcome>,
+) {
+    let mut builder =
+        EffectsService::build(&ServiceContext::new(arguments)).expect("the effects service builds");
+    let shutdown = builder.shutdown_handle();
+    let backend: Arc<dyn blueos_comms::CommsBackend> =
+        Arc::new(blueos_comms::channel::ChannelBackend::default());
+    let kernel = Kernel::start(
+        EffectsService::NAME,
+        builder,
+        Arc::clone(&backend),
+        Arc::new(PausedClock::start()),
+    )
+    .await
+    .expect("the kernel starts");
+    let run = tokio::spawn(async move { kernel.run().await });
+    (backend, shutdown, run)
+}
+
+#[tokio::test(start_paused = true)]
+async fn shutdown_waits_for_in_flight_io_before_returning() {
+    let (started_sender, started_receiver) = mpsc::sync_channel(0);
+    let (release_sender, release_receiver) = tokio::sync::mpsc::channel(1);
+    let (io_applied_sender, io_applied_receiver) = mpsc::sync_channel(0);
+    let latch = Arc::new(AsyncHoldLatch {
+        started: started_sender,
+        release: tokio::sync::Mutex::new(release_receiver),
+        io_applied: io_applied_sender,
+    });
+    let (backend, shutdown, run) = start_effects_kernel_with_shutdown(EffectsArguments {
+        async_hold: Some(Arc::clone(&latch)),
+        ..EffectsArguments::default()
+    })
+    .await;
+    let command = tokio::spawn(async move {
+        let body = blueos_comms::QueryBody::new(
+            EmptyRequest::default().encode().unwrap(),
+            cdr_encoding(EmptyRequest::SCHEMA_NAME),
+        );
+        backend
+            .get(
+                &command_key(EffectsService::NAME, "RunAsyncHold"),
+                Some(body),
+                Duration::from_secs(10),
+            )
+            .await
+            .unwrap();
+    });
+    tokio::task::spawn_blocking(move || started_receiver.recv())
+        .await
+        .expect("join")
+        .expect("blocking IO starts");
+    shutdown.trigger();
+    advance(Duration::from_millis(1)).await;
+    release_sender
+        .send(())
+        .await
+        .expect("the test releases async IO");
+    tokio::task::spawn_blocking(move || io_applied_receiver.recv())
+        .await
+        .expect("join")
+        .expect("IO result reaches the Domain");
+    command.await.expect("RunAsyncHold finishes");
+    let outcome = timeout(Duration::from_secs(1), run)
+        .await
+        .expect("shutdown finishes without waiting the full drain budget")
+        .expect("join");
+    assert_eq!(outcome, RunOutcome::Stopped);
+}
+
+#[tokio::test(start_paused = true)]
+async fn shutdown_abandons_in_flight_io_after_five_seconds() {
+    let (started_sender, started_receiver) = mpsc::sync_channel(0);
+    let (_release_sender, release_receiver) = tokio::sync::mpsc::channel(1);
+    let (io_applied_sender, _io_applied_receiver) = mpsc::sync_channel(0);
+    let latch = Arc::new(AsyncHoldLatch {
+        started: started_sender,
+        release: tokio::sync::Mutex::new(release_receiver),
+        io_applied: io_applied_sender,
+    });
+    let (backend, shutdown, run) = start_effects_kernel_with_shutdown(EffectsArguments {
+        async_hold: Some(Arc::clone(&latch)),
+        ..EffectsArguments::default()
+    })
+    .await;
+    let _command = tokio::spawn(async move {
+        let body = blueos_comms::QueryBody::new(
+            EmptyRequest::default().encode().unwrap(),
+            cdr_encoding(EmptyRequest::SCHEMA_NAME),
+        );
+        backend
+            .get(
+                &command_key(EffectsService::NAME, "RunAsyncHold"),
+                Some(body),
+                Duration::from_secs(10),
+            )
+            .await
+            .unwrap();
+    });
+    tokio::task::spawn_blocking(move || started_receiver.recv())
+        .await
+        .expect("join")
+        .expect("blocking IO starts");
+    let (finished_sender, mut finished_receiver) = tokio::sync::oneshot::channel();
+    let run_task = tokio::spawn(async move {
+        let outcome = run.await.expect("join");
+        let _ = finished_sender.send(());
+        outcome
+    });
+    shutdown.trigger();
+    let ((), outcome) = tokio::join!(
+        async {
+            advance(Duration::from_millis(1)).await;
+            advance(Duration::from_secs(4)).await;
+            assert!(
+                finished_receiver.try_recv().is_err(),
+                "shutdown must not return before the five second IO drain budget elapses"
+            );
+            advance(Duration::from_secs(1)).await;
+        },
+        run_task,
+    );
+    assert_eq!(outcome.expect("join"), RunOutcome::Stopped);
 }

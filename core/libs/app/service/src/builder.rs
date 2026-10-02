@@ -3,8 +3,10 @@
 use core::{error::Error, future::Future, pin::Pin};
 use std::{path::PathBuf, sync::Arc};
 
+use tokio::sync::watch;
+
 use blueos_api::{Message, cdr_encoding};
-use blueos_domain::{Domain, DomainQueries, IoError};
+use blueos_domain::{Command, Domain, DomainQueries, IoError};
 use blueos_idl::{
     Error as IdlError,
     msg::blueos_msgs::{EndpointInfo, SettingsEnvelope},
@@ -14,7 +16,16 @@ use blueos_settings::SettingsSchema;
 use crate::{
     kernel::{Rejection, Unanswered, io::IoExecutors},
     settings::{SettingsRegistration, register_settings},
+    shutdown::{ShutdownHandle, new_shutdown_channel},
 };
+
+/// One Command the Kernel delivers through the Inbox.
+pub(crate) type InboxCommand<D> = Command<
+    <D as Domain>::Request,
+    <D as Domain>::IoResult,
+    <D as Domain>::Tick,
+    <D as Domain>::ObservedFact,
+>;
 
 /// Decodes a Request body into the Domain's Request.
 pub(crate) type Decode<D> = Box<dyn Fn(&[u8]) -> Result<<D as Domain>::Request, Rejection> + Send>;
@@ -58,6 +69,10 @@ pub struct ServiceBuilder<D: Domain, Context = ()> {
     pub(crate) states: Vec<StateEndpoint<D>>,
     pub(crate) events: Vec<EventEndpoint<D>>,
     pub(crate) settings: Option<SettingsRegistration<D>>,
+    pub(crate) startup_commands: Vec<InboxCommand<D>>,
+    pub(crate) shutdown_request: Option<D::Request>,
+    pub(crate) shutdown_sender: Option<watch::Sender<bool>>,
+    pub(crate) shutdown_receiver: Option<watch::Receiver<bool>>,
 }
 
 /// Answers one Query from the Snapshot and the request body.
@@ -120,6 +135,10 @@ impl<D: Domain> ServiceBuilder<D, ()> {
             states: Vec::new(),
             events: Vec::new(),
             settings: None,
+            startup_commands: Vec::new(),
+            shutdown_request: None,
+            shutdown_sender: None,
+            shutdown_receiver: None,
         }
     }
 
@@ -143,6 +162,10 @@ impl<D: Domain> ServiceBuilder<D, ()> {
             states: self.states,
             events: self.events,
             settings: self.settings,
+            startup_commands: self.startup_commands,
+            shutdown_request: self.shutdown_request,
+            shutdown_sender: self.shutdown_sender,
+            shutdown_receiver: self.shutdown_receiver,
         }
     }
 }
@@ -197,6 +220,32 @@ impl<D: Domain, Context> ServiceBuilder<D, Context> {
     pub fn manifest_endpoints(mut self, manifest_endpoints: Vec<EndpointInfo>) -> Self {
         self.manifest_endpoints = manifest_endpoints;
         self
+    }
+
+    /// Domain Command dispatched through the Inbox once startup finishes, in registration order.
+    ///
+    /// Use this instead of querying the service's own command keys at startup: those queryables are not served until
+    /// after the initial States are published and the liveliness token is declared.
+    pub fn on_start(mut self, request: D::Request) -> Self {
+        self.startup_commands.push(Command::Request(request));
+        self
+    }
+
+    /// Domain Command dispatched on `SIGINT`, `SIGTERM`, or [`ShutdownHandle::trigger`].
+    pub fn on_shutdown(mut self, request: D::Request) -> Self {
+        self.shutdown_request = Some(request);
+        self
+    }
+
+    /// Handle for requesting graceful shutdown in tests (no real signals).
+    pub fn shutdown_handle(&mut self) -> ShutdownHandle {
+        if let Some(sender) = &self.shutdown_sender {
+            return ShutdownHandle::new(sender.clone());
+        }
+        let (handle, receiver) = new_shutdown_channel();
+        self.shutdown_sender = Some(handle.sender());
+        self.shutdown_receiver = Some(receiver);
+        handle
     }
 
     /// The executor for every [`Effect::Io`]. It returns an optional IO result Command, or an [`IoError`] the Kernel

@@ -289,7 +289,23 @@ impl CommsBackend for ZenohBackend {
 impl ZenohBackend {
     /// Opens a client session to `endpoint` (for example `tcp/127.0.0.1:7447`).
     pub async fn connect(endpoint: &str) -> Result<Self, CommsError> {
-        let configuration = config::client_config(endpoint)?;
+        Self::connect_with_options(&config::ZenohConnectOptions {
+            endpoint,
+            config_file: None,
+            zenoh_sets: &[],
+        })
+        .await
+    }
+
+    /// Opens a client session from the common CLI options (D-25).
+    pub async fn connect_with_options(
+        options: &config::ZenohConnectOptions<'_>,
+    ) -> Result<Self, CommsError> {
+        let configuration = config::client_config_from_options(options)?;
+        Self::from_config(configuration).await
+    }
+
+    async fn from_config(configuration: zenoh::Config) -> Result<Self, CommsError> {
         let session = zenoh::open(configuration)
             .await
             .map_err(|error| CommsError::Backend {

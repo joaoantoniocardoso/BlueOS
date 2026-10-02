@@ -16,12 +16,16 @@ pub mod entry;
 mod kernel;
 #[cfg(feature = "probe")]
 pub mod probe;
+mod run_outcome;
 mod service;
 mod settings;
+mod shutdown;
 #[cfg(feature = "testing")]
 pub mod testing;
 
 pub use blueos_domain::IoError;
 pub use builder::{Refusal, ServiceBuilder};
 pub use kernel::{Clock, Kernel};
+pub use run_outcome::RunOutcome;
 pub use service::{Service, ServiceContext, ServiceError};
+pub use shutdown::ShutdownHandle;
