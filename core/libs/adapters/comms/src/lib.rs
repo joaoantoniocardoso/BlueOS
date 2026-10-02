@@ -65,7 +65,7 @@ pub trait CommsBackend: Send + Sync {
         key_expression: &'a str,
     ) -> BoxFuture<'a, Result<LivelinessSubscriber, CommsError>>;
 
-    /// Returns keys of liveliness tokens that were alive during `timeout`.
+    /// Returns, within `timeout`, the keys of liveliness tokens that are alive.
     fn get_liveliness<'a>(
         &'a self,
         key_expression: &'a str,
