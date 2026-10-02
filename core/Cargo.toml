@@ -20,6 +20,7 @@ members = [
     "services/recorder/logic/api",
     "services/recorder/logic/capture",
     "services/recorder/logic/recorder",
+    "services/recorder/logic/schema-gate",
     "services/example/app",
     "services/example/logic/api",
     "services/example/logic/domain",
@@ -63,6 +64,7 @@ blueos-example-api = { path = "services/example/logic/api" }
 blueos-example-app = { path = "services/example/app" }
 blueos-example-domain = { path = "services/example/logic/domain" }
 blueos-recorder-mcap = { path = "services/recorder/adapters/mcap" }
+blueos-recorder-schema-gate = { path = "services/recorder/logic/schema-gate" }
 blueos-recorder-storage = { path = "services/recorder/adapters/storage" }
 blueos-tank-api = { path = "services/tank/logic/api" }
 blueos-tank-app = { path = "services/tank/app" }
