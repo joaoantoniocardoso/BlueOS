@@ -22,6 +22,7 @@ members = [
     "services/recorder/logic/recorder",
     "services/recorder/logic/schema-gate",
     "services/example/app",
+    "services/example/cookbook",
     "services/example/logic/api",
     "services/example/logic/domain",
     "services/tank/app",

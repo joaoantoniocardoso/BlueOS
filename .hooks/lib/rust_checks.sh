@@ -103,8 +103,8 @@ collect_folder_violations() {
         case "$folder" in
             logic) package_args+=("$name") ;;
             idl) [[ $directory == */codegen ]] || idl_package_args+=("$name") ;;
-            adapters | app | api | tools) ;;
-            *) violations+=("$name is not in logic/, adapters/, app/, idl/, or api/ under libs/ or services/<name>/") ;;
+            adapters | app | api | cookbook | tools) ;;
+            *) violations+=("$name is not in logic/, adapters/, app/, idl/, cookbook/, or api/ under libs/ or services/<name>/") ;;
         esac
     done < <(jq -r '.packages[] | [.name, (.manifest_path | rtrimstr("/Cargo.toml"))] | @tsv' <<<"$metadata")
     local dependency dependency_directory dependency_unit dependency_folder parent
