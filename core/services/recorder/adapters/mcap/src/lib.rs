@@ -6,8 +6,11 @@
 )]
 
 mod channel_descriptor;
+mod footer;
 mod mcap_file;
 mod writer_handle;
+
+pub use footer::{Footer, read_footer_at};
 
 pub use channel_descriptor::{
     ChannelDescriptor, MessageEncoding, SchemaEncoding, channel_descriptor_cdr_fallback,

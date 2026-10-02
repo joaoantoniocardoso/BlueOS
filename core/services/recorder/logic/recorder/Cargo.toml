@@ -8,8 +8,8 @@ publish.workspace = true
 [dependencies]
 blueos-domain.workspace = true
 blueos-recorder-capture = { path = "../capture" }
-blueos-recorder-library = { path = "../library" }
-blueos-recorder-paths = { path = "../paths" }
+blueos-recorder-library.workspace = true
+blueos-recorder-paths.workspace = true
 
 [lints]
 workspace = true

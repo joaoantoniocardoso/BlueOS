@@ -7,7 +7,7 @@ extern crate alloc;
 use core::convert::Infallible;
 
 use alloc::{borrow::ToOwned, vec::Vec};
-use blueos_domain::{Command, Decision, Domain, DomainQueries, Effect, Now, Outcome};
+use blueos_domain::{Command, Decision, Domain, DomainQueries, Now, Outcome};
 use blueos_recorder_capture::{
     Capture, CaptureEvent, CaptureObservedFact, CaptureRequest, CaptureSettings, RecordGate,
     RecordingState as CaptureRecordingState,
@@ -127,8 +127,9 @@ impl Domain for RecorderDomain {
         command: Command<Self::Request, Self::IoResult, Self::Tick, Self::ObservedFact>,
         now: Now,
     ) -> Decision<Self> {
-        let active_path = active_recording_path(snapshot).map(str::to_owned);
-        let active = active_path.as_deref();
+        let active_recording_relative_path =
+            active_recording_relative_path(snapshot).map(str::to_owned);
+        let active = active_recording_relative_path.as_deref();
         match command {
             Command::Request(request) => match request {
                 RecorderRequest::DeleteRecording { path } => {
@@ -139,29 +140,34 @@ impl Domain for RecorderDomain {
                     ))
                 }
                 RecorderRequest::Startup => merge_startup(snapshot, now),
-                other => map_capture_outcome(match other {
-                    RecorderRequest::StartRecording { rotate_if_active } => snapshot
+                RecorderRequest::StartRecording { rotate_if_active } => map_capture_outcome(
+                    snapshot
                         .capture
                         .handle_request(CaptureRequest::StartRecording { rotate_if_active }, now),
-                    RecorderRequest::StopRecording => snapshot
+                ),
+                RecorderRequest::StopRecording => map_capture_outcome(
+                    snapshot
                         .capture
                         .handle_request(CaptureRequest::StopRecording, now),
-                    RecorderRequest::UpdateSettings(settings) => snapshot
+                ),
+                RecorderRequest::UpdateSettings(settings) => map_capture_outcome(
+                    snapshot
                         .capture
                         .handle_request(CaptureRequest::UpdateSettings(settings), now),
-                    RecorderRequest::StartVideoRecording { topic } => snapshot
+                ),
+                RecorderRequest::StartVideoRecording { topic } => map_capture_outcome(
+                    snapshot
                         .capture
                         .handle_request(CaptureRequest::StartVideoRecording { topic }, now),
-                    RecorderRequest::StopVideoRecording { topic } => snapshot
+                ),
+                RecorderRequest::StopVideoRecording { topic } => map_capture_outcome(
+                    snapshot
                         .capture
                         .handle_request(CaptureRequest::StopVideoRecording { topic }, now),
-                    RecorderRequest::Startup | RecorderRequest::DeleteRecording { .. } => {
-                        unreachable!("handled above")
-                    }
-                }),
+                ),
             },
             Command::Tick(RecorderTick::Library(tick)) => {
-                map_library_outcome(snapshot.library.handle_tick(tick, active, now))
+                map_library_outcome(Library::handle_tick(tick))
             }
             Command::IoResult(RecorderIoResult::Library(result)) => {
                 map_library_outcome(snapshot.library.handle_io_result(result, active, now))
@@ -178,14 +184,13 @@ impl Domain for RecorderDomain {
     ) -> Command<Self::Request, Self::IoResult, Self::Tick, Self::ObservedFact> {
         match request {
             RecorderIoRequest::Library(LibraryIoRequest::Scan) => {
-                Command::IoResult(RecorderIoResult::Library(LibraryIoResult::ScanCompleted {
-                    recordings: Vec::new(),
-                }))
+                let _ = error;
+                Command::IoResult(RecorderIoResult::Library(LibraryIoResult::ScanFailed))
             }
             RecorderIoRequest::Library(LibraryIoRequest::Delete { path }) => {
                 Command::IoResult(RecorderIoResult::Library(LibraryIoResult::DeleteFinished {
                     path,
-                    error: Some(error.message().into()),
+                    error: Some(error),
                 }))
             }
         }
@@ -207,7 +212,8 @@ impl DomainQueries for RecorderDomain {
     }
 }
 
-fn active_recording_path(snapshot: &RecorderSnapshot) -> Option<&str> {
+/// Relative path in the library for the file being written (flat folder: same as the active base name).
+fn active_recording_relative_path(snapshot: &RecorderSnapshot) -> Option<&str> {
     match &snapshot.capture.recording {
         CaptureRecordingState::Active(active) => Some(active.file_name.as_str()),
         _ => None,
@@ -228,18 +234,34 @@ fn merge_startup(snapshot: &mut RecorderSnapshot, now: Now) -> Decision<Recorder
             effects: Vec::new(),
         }
     };
-    let library_effects = Library::initial_effects()
-        .into_iter()
-        .map(map_library_effect)
-        .collect::<Vec<_>>();
-    match map_capture_outcome(capture) {
+    let library = Outcome::Applied {
+        events: Vec::new(),
+        effects: Library::initial_effects(),
+    };
+    merge_capture_and_library(map_capture_outcome(capture), map_library_outcome(library))
+}
+
+fn merge_capture_and_library(
+    capture: Decision<RecorderDomain>,
+    library: Decision<RecorderDomain>,
+) -> Decision<RecorderDomain> {
+    match library {
         Outcome::Applied {
-            events,
-            mut effects,
-        } => {
-            effects.extend(library_effects);
-            Outcome::Applied { events, effects }
-        }
+            effects: library_effects,
+            ..
+        } => match capture {
+            Outcome::Applied {
+                events,
+                mut effects,
+            } => {
+                effects.extend(library_effects);
+                Outcome::Applied { events, effects }
+            }
+            Outcome::Rejected { .. } => Outcome::Applied {
+                events: Vec::new(),
+                effects: library_effects,
+            },
+        },
         Outcome::Rejected { reason } => Outcome::Rejected { reason },
     }
 }
@@ -269,22 +291,4 @@ fn map_library_outcome(
         RecorderIoRequest::Library,
         RecorderTimerKey::Library,
     )
-}
-
-fn map_library_effect(
-    effect: Effect<LibraryTick, LibraryIoRequest, LibraryTimerKey>,
-) -> Effect<RecorderTick, RecorderIoRequest, RecorderTimerKey> {
-    match effect {
-        Effect::Io(request) => Effect::Io(RecorderIoRequest::Library(request)),
-        Effect::Schedule {
-            after,
-            key,
-            command,
-        } => Effect::Schedule {
-            after,
-            key: RecorderTimerKey::Library(key),
-            command: RecorderTick::Library(command),
-        },
-        Effect::Cancel(key) => Effect::Cancel(RecorderTimerKey::Library(key)),
-    }
 }
