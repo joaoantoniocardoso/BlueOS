@@ -130,6 +130,11 @@ pub trait Domain: 'static {
         request: Self::IoRequest,
         error: IoError,
     ) -> Command<Self::Request, Self::IoResult, Self::Tick, Self::ObservedFact>;
+
+    /// Whether the Kernel runs this IO request on a blocking thread instead of the async executor.
+    fn io_runs_on_blocking_thread(_request: &Self::IoRequest) -> bool {
+        false
+    }
 }
 
 /// A Domain that answers Queries. A Domain without Queries does not implement it.
