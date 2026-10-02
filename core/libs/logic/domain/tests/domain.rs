@@ -246,3 +246,31 @@ fn rejection_carries_a_typed_reason_through_map() {
     };
     assert_eq!(reason.downcast_ref(), Some(&PumpRejection::NotRunning));
 }
+
+#[test]
+fn outcome_map_lifts_a_timer_cancel() {
+    let mut snapshot = TankSnapshot {
+        pump: Pump::Running {
+            since: Duration::from_secs(12),
+        },
+    };
+
+    let decision = Tank::handle(&mut snapshot, Command::Request(TankRequest::StopPump), NOW);
+
+    let Outcome::Applied { events, effects } = decision else {
+        panic!("stopping a running pump must be applied, got {decision:?}");
+    };
+    assert_eq!(
+        events,
+        vec![TankEvent::Pump(PumpEvent::Stopped {
+            ran_for: Duration::from_secs(30),
+        })]
+    );
+    assert_eq!(
+        effects,
+        vec![
+            Effect::Cancel(TankTimerKey::Pump(PumpTimerKey::RunTime)),
+            Effect::Io(TankIoRequest::Pump(PumpIoRequest::SetPower { on: false })),
+        ]
+    );
+}
