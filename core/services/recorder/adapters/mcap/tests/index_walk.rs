@@ -1,12 +1,11 @@
 //! MCAP index walk adapter tests.
 
-use core::cell::Cell;
+use core::{cell::Cell, sync::atomic::AtomicBool};
 use std::{
     collections::{HashMap, HashSet},
     fs::File,
     io::{Read, Seek, SeekFrom},
     path::Path,
-    sync::atomic::AtomicBool,
 };
 
 use tempfile::tempdir;

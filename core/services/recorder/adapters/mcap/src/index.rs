@@ -1,10 +1,10 @@
 //! Paged MCAP chunk-index walk for the recording `index` IO query.
 
+use core::sync::atomic::{AtomicBool, Ordering};
 use std::{
     fs::File,
     io::{Read, Seek, SeekFrom},
     path::Path,
-    sync::atomic::{AtomicBool, Ordering},
 };
 
 use thiserror::Error;

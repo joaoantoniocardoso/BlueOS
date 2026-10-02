@@ -11,6 +11,7 @@ mod context;
 mod data_plane;
 pub mod endpoints;
 mod handlers;
+mod index_io;
 mod io;
 mod library_io;
 mod library_observed;
@@ -20,4 +21,5 @@ mod service;
 mod settings;
 
 pub use cli::RecorderArguments;
-pub use service::{RecorderService, build_with_record_gate};
+pub use context::{IndexQuerySetup, IndexWalker, default_index_walker};
+pub use service::{RecorderService, build_with_record_gate, build_with_record_gate_and_index};

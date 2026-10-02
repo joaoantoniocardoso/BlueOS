@@ -2,6 +2,7 @@
 
 use core::sync::atomic::AtomicU8;
 use std::{
+    collections::BTreeMap,
     path::PathBuf,
     sync::{Arc, Mutex},
 };
@@ -14,9 +15,15 @@ use blueos_recorder_storage::RecordingsFolder;
 use blueos_service::{RestartPolicy, Service, ServiceBuilder, ServiceContext, ServiceError};
 
 use crate::{
-    cli::RecorderArguments, context::RecorderContext, data_plane::run_data_plane, endpoints,
-    handlers::RecorderHandlers, io::register_io, library_io::run_library_io,
-    library_observed::run_library_observed_bridge, mavlink::run_mavlink_ingress,
+    cli::RecorderArguments,
+    context::{IndexQuerySetup, RecorderContext},
+    data_plane::run_data_plane,
+    endpoints,
+    handlers::RecorderHandlers,
+    io::register_io,
+    library_io::run_library_io,
+    library_observed::run_library_observed_bridge,
+    mavlink::run_mavlink_ingress,
     settings::RecorderSettings,
 };
 
@@ -48,12 +55,28 @@ pub fn build_with_record_gate(
     ),
     ServiceError,
 > {
-    let (builder, gate_receiver) = assemble_builder(context)?;
+    build_with_record_gate_and_index(context, IndexQuerySetup::default())
+}
+
+/// Like [`build_with_record_gate`], with a custom index walk for integration tests.
+#[doc(hidden)]
+pub fn build_with_record_gate_and_index(
+    context: &ServiceContext<RecorderArguments>,
+    index: IndexQuerySetup,
+) -> Result<
+    (
+        ServiceBuilder<RecorderDomain, RecorderContext>,
+        watch::Receiver<RecordGate>,
+    ),
+    ServiceError,
+> {
+    let (builder, gate_receiver) = assemble_builder(context, index)?;
     Ok((builder, gate_receiver))
 }
 
 fn assemble_builder(
     context: &ServiceContext<RecorderArguments>,
+    index: IndexQuerySetup,
 ) -> Result<
     (
         ServiceBuilder<RecorderDomain, RecorderContext>,
@@ -70,27 +93,30 @@ fn assemble_builder(
     let (builder, record_gate) = ServiceBuilder::new(RecorderSnapshot::default())
         .projection(|snapshot: &RecorderSnapshot| snapshot.record_gate());
     let gate_receiver = record_gate.subscribe();
+    let recorder_context = RecorderContext {
+        record_gate,
+        recordings_folder,
+        library_footer_cache: Arc::new(Mutex::new(
+            blueos_recorder_storage::LibraryFooterCache::default(),
+        )),
+        mcap_writer_queue_capacity: context
+            .arguments()
+            .mcap_writer_queue_capacity
+            .unwrap_or(4096),
+        session: Arc::clone(context.session()),
+        mavlink_sequence: Arc::new(AtomicU8::new(0)),
+        library_observed_sender: observed_sender,
+        library_observed_receiver: Arc::new(tokio::sync::Mutex::new(observed_receiver)),
+        repair_cancel_flags: Arc::new(Mutex::new(BTreeMap::new())),
+        index_walk_timeout: index.walk_timeout,
+        index_walker: index.walker,
+    };
     let builder = register_io(
         endpoints::register(
             builder
-                .context(RecorderContext {
-                    record_gate,
-                    recordings_folder,
-                    library_footer_cache: Arc::new(Mutex::new(
-                        blueos_recorder_storage::LibraryFooterCache::default(),
-                    )),
-                    mcap_writer_queue_capacity: context
-                        .arguments()
-                        .mcap_writer_queue_capacity
-                        .unwrap_or(4096),
-                    session: Arc::clone(context.session()),
-                    mavlink_sequence: Arc::new(AtomicU8::new(0)),
-                    library_observed_sender: observed_sender,
-                    library_observed_receiver: Arc::new(tokio::sync::Mutex::new(observed_receiver)),
-                    repair_cancel_flags: Arc::new(Mutex::new(std::collections::BTreeMap::new())),
-                })
-                .blocking_io(|context: &RecorderContext, snapshot, request| {
-                    run_library_io(context, snapshot, request)
+                .context(recorder_context.clone())
+                .blocking_io(|recorder_context: &RecorderContext, snapshot, request| {
+                    run_library_io(recorder_context, snapshot, request)
                 })
                 .jobs()
                 .settings(
@@ -126,7 +152,7 @@ fn assemble_builder(
                     RestartPolicy::Always,
                     |task_context| async move { run_library_observed_bridge(task_context).await },
                 ),
-            RecorderHandlers,
+            RecorderHandlers::new(recorder_context),
         )
         .service_metadata(
             RecorderService::VERSION,
