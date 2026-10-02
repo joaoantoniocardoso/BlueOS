@@ -905,8 +905,10 @@ fn write_typescript(records: &BTreeMap<String, MessageRecord>, typescript_dir: &
     let mut interface_blocks = Vec::new();
     let mut schema_entries = Vec::new();
     let mut constant_blocks = Vec::new();
+    let mut message_by_schema = Vec::new();
     for record in records.values() {
         let interface_name = record.name.clone();
+        message_by_schema.push(format!("  \"{}\": {interface_name};", record.schema_name));
         let families = constant_families_by_field(&record.message);
         for family in families.values() {
             constant_blocks.push(typescript_constant_block(&interface_name, family));
@@ -949,7 +951,11 @@ fn write_typescript(records: &BTreeMap<String, MessageRecord>, typescript_dir: &
     .expect("write constants.ts");
     fs::write(
         typescript_dir.join("messages.d.ts"),
-        format!("// @generated\n\n{}\n", interface_blocks.join("\n")),
+        format!(
+            "// @generated\n\n{}\nexport interface MessageBySchema {{\n{}\n}}\n",
+            interface_blocks.join("\n"),
+            message_by_schema.join("\n")
+        ),
     )
     .expect("write messages.d.ts");
     fs::write(
