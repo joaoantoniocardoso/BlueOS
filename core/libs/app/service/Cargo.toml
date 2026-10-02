@@ -17,6 +17,7 @@ blueos-comms.workspace = true
 blueos-comms-zenoh.workspace = true
 blueos-domain.workspace = true
 blueos-idl.workspace = true
+blueos-jobs.workspace = true
 blueos-logging.workspace = true
 blueos-settings.workspace = true
 backon.workspace = true

@@ -4,8 +4,9 @@ use std::sync::Arc;
 
 use tokio::sync::{mpsc, oneshot};
 
-use blueos_api::CommandAck;
+use blueos_api::{CommandAck, JOB_ID_NONE};
 use blueos_domain::Domain;
+use blueos_jobs::JobId;
 
 use crate::{
     builder::InboxCommand,
@@ -95,16 +96,16 @@ impl<D: Domain> CommandSender<D> {
     }
 }
 
-pub(crate) fn command_ack(verdict: Result<(), Rejection>) -> CommandAck {
+pub(crate) fn command_ack(verdict: Result<Option<JobId>, Rejection>) -> CommandAck {
     match verdict {
-        Ok(()) => CommandAck {
+        Ok(started) => CommandAck {
             accepted: true,
-            job_id: blueos_api::JOB_ID_NONE,
+            job_id: started.map_or(JOB_ID_NONE, JobId::get),
             reason: String::new(),
         },
         Err(rejection) => CommandAck {
             accepted: false,
-            job_id: blueos_api::JOB_ID_NONE,
+            job_id: JOB_ID_NONE,
             reason: rejection.to_string(),
         },
     }

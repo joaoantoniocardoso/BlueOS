@@ -9,6 +9,7 @@ members = [
     "libs/api",
     "libs/app/service",
     "libs/logic/domain",
+    "libs/logic/jobs",
     "libs/logic/ros2-names",
     "libs/idl",
     "libs/idl/codegen",
@@ -43,6 +44,7 @@ blueos-comms = { path = "libs/adapters/comms" }
 blueos-comms-zenoh = { path = "libs/adapters/comms-zenoh" }
 blueos-logging = { path = "libs/adapters/logging" }
 blueos-domain = { path = "libs/logic/domain" }
+blueos-jobs = { path = "libs/logic/jobs" }
 blueos-ros2-names = { path = "libs/logic/ros2-names" }
 blueos-service = { path = "libs/app/service" }
 blueos-settings = { path = "libs/adapters/settings" }

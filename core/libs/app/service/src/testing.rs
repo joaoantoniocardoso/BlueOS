@@ -9,10 +9,11 @@ use std::sync::{Arc, Mutex};
 use tokio::{task::JoinSet, time::Instant};
 
 use blueos_api::{
-    CommandAck, Message, cdr_encoding, command_key, query_key, settings_key, state_key,
+    CommandAck, Message, cdr_encoding, command_key, jobs_key, query_key, settings_key, state_key,
 };
 use blueos_comms::{CommsBackend, QueryBody, ReplyError, channel::ChannelBackend};
 use blueos_domain::{Domain, Effect, Now};
+use blueos_idl::msg::blueos_msgs::JobList;
 
 use crate::{Clock, CommandSender, Kernel, Service, ServiceContext, ServiceError};
 
@@ -263,5 +264,22 @@ impl<S: Service> Harness<S> {
             panic!("expected one settings value, got {replies:?}");
         };
         M::decode(&reply.payload().to_bytes()).expect("the reply is SettingsEnvelope")
+    }
+
+    /// Reads the standard `jobs` State, as a late client would.
+    ///
+    /// # Panics
+    ///
+    /// When the Service does not reply exactly once with a [`JobList`], as for a Domain without Jobs.
+    pub async fn jobs(&self) -> JobList {
+        let replies = self
+            .backend
+            .get(&jobs_key(S::NAME), None, REPLY_TIMEOUT)
+            .await
+            .expect("the jobs key is valid");
+        let [Ok(reply)] = replies.as_slice() else {
+            panic!("expected one jobs value, got {replies:?}");
+        };
+        JobList::decode(&reply.payload().to_bytes()).expect("the reply is a JobList")
     }
 }

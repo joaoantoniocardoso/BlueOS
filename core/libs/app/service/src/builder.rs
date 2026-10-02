@@ -1,16 +1,17 @@
 //! What a Service's `build` declares: the initial Snapshot and how the Domain meets the backbone.
 
-use core::{error::Error, future::Future, pin::Pin};
+use core::{error::Error, fmt::Display, future::Future, pin::Pin};
 use std::{path::PathBuf, sync::Arc};
 
 use tokio::sync::watch;
 
-use blueos_api::{Message, cdr_encoding};
+use blueos_api::{JOB_ID_NONE, Message, cdr_encoding};
 use blueos_domain::{Command, Domain, DomainQueries, IoError};
 use blueos_idl::{
     Error as IdlError,
-    msg::blueos_msgs::{EndpointInfo, SettingsEnvelope},
+    msg::blueos_msgs::{EndpointInfo, JobList, JobStatus, JobStatusStatus, SettingsEnvelope},
 };
+use blueos_jobs::{DomainJobs, JobEnd, JobId, JobKind, Jobs};
 use blueos_settings::SettingsSchema;
 
 use crate::{
@@ -38,6 +39,9 @@ pub(crate) type Project<D> =
 /// Turns a domain event into an encoded Event, or `None` when this Event endpoint does not publish it.
 pub(crate) type Select<D> =
     Box<dyn Fn(&<D as Domain>::Event) -> Option<Result<Vec<u8>, IdlError>> + Send + Sync>;
+
+/// Reads the root Job started last from the Snapshot.
+pub(crate) type LatestRoot<D> = fn(&<D as Domain>::Snapshot) -> Option<JobId>;
 
 /// Answers an IO query body with the encoded reply.
 pub(crate) type Respond = Box<
@@ -71,6 +75,7 @@ pub struct ServiceBuilder<D: Domain, Context = ()> {
     pub(crate) projections: Vec<Box<dyn crate::projection::RefreshProjection<D> + Send + Sync>>,
     pub(crate) events: Vec<EventEndpoint<D>>,
     pub(crate) settings: Option<SettingsRegistration<D>>,
+    pub(crate) jobs: Option<JobsEndpoint<D>>,
     pub(crate) startup_commands: Vec<InboxCommand<D>>,
     pub(crate) tasks: Vec<TaskSpec<D, Context>>,
     pub(crate) shutdown_request: Option<D::Request>,
@@ -116,6 +121,13 @@ pub(crate) struct EventEndpoint<D: Domain> {
     pub(crate) select: Select<D>,
 }
 
+/// The standard `jobs` State, published on `blueos/v1/<service>/jobs`, and where the ack finds the root Job a
+/// Command started.
+pub(crate) struct JobsEndpoint<D: Domain> {
+    pub(crate) state: StateEndpoint<D>,
+    pub(crate) latest_root: LatestRoot<D>,
+}
+
 impl<D: Domain> ServiceBuilder<D, ()> {
     /// A Service whose Domain starts from `snapshot`, with no endpoints yet.
     pub fn new(snapshot: D::Snapshot) -> Self {
@@ -139,6 +151,7 @@ impl<D: Domain> ServiceBuilder<D, ()> {
             projections: Vec::new(),
             events: Vec::new(),
             settings: None,
+            jobs: None,
             startup_commands: Vec::new(),
             tasks: Vec::new(),
             shutdown_request: None,
@@ -168,12 +181,29 @@ impl<D: Domain> ServiceBuilder<D, ()> {
             projections: self.projections,
             events: self.events,
             settings: self.settings,
+            jobs: self.jobs,
             startup_commands: self.startup_commands,
             tasks: Vec::new(),
             shutdown_request: self.shutdown_request,
             shutdown_sender: self.shutdown_sender,
             shutdown_receiver: self.shutdown_receiver,
         }
+    }
+}
+
+impl<D: DomainJobs, Context> ServiceBuilder<D, Context> {
+    /// Publishes the Domain's Jobs as the standard `jobs` State, and acknowledges a Command that starts a root Job
+    /// with its id. Without it, the Service has no `jobs` State and acknowledges every Command with no Job.
+    pub fn jobs(mut self) -> Self {
+        self.jobs = Some(JobsEndpoint {
+            state: StateEndpoint {
+                name: "jobs".to_owned(),
+                encoding: cdr_encoding(JobList::SCHEMA_NAME),
+                project: Box::new(|snapshot| job_list(D::jobs(snapshot)).encode()),
+            },
+            latest_root: |snapshot| D::jobs(snapshot).latest_root(),
+        });
+        self
     }
 }
 
@@ -410,5 +440,36 @@ impl<D: Domain, Context> ServiceBuilder<D, Context> {
             run: Arc::new(move |context| Box::pin(run(context))),
         });
         self
+    }
+}
+
+/// Every Job as clients see it: a leaf is named by its step, a composition by its kind.
+fn job_list<Step: Display>(jobs: &Jobs<Step>) -> JobList {
+    JobList {
+        jobs: jobs
+            .list()
+            .into_iter()
+            .map(|view| JobStatus {
+                job_id: view.job_id.get(),
+                parent_job_id: view.parent.map_or(JOB_ID_NONE, JobId::get),
+                status: match view.status {
+                    blueos_jobs::JobStatus::Queued => JobStatusStatus::Queued,
+                    blueos_jobs::JobStatus::Running => JobStatusStatus::Running,
+                    blueos_jobs::JobStatus::Cancelling => JobStatusStatus::Cancelling,
+                    blueos_jobs::JobStatus::Finished(JobEnd::Succeeded) => {
+                        JobStatusStatus::Succeeded
+                    }
+                    blueos_jobs::JobStatus::Finished(JobEnd::Failed) => JobStatusStatus::Failed,
+                    blueos_jobs::JobStatus::Finished(JobEnd::Cancelled) => {
+                        JobStatusStatus::Cancelled
+                    }
+                },
+                name: match view.kind {
+                    JobKind::Leaf(step) => step.to_string(),
+                    JobKind::Sequence => "sequence".to_owned(),
+                    JobKind::Parallel => "parallel".to_owned(),
+                },
+            })
+            .collect(),
     }
 }

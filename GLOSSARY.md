@@ -26,7 +26,8 @@ domain events, and IO requests. The Kernel never runs a Block directly.
 _Avoid_: sub-domain, module, policy
 
 **DomainState**:
-The Snapshot together with the Jobs of a Service: all the data the Domain owns, and everything that can be copied.
+The Snapshot of a Service, including the Jobs it keeps: all the data the Domain owns, and everything that can be
+copied.
 _Avoid_: App, state (alone), store
 
 **Snapshot**:

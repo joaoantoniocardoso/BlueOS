@@ -248,6 +248,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "blueos-jobs"
+version = "0.1.0"
+dependencies = [
+ "blueos-domain",
+ "thiserror",
+]
+
+[[package]]
 name = "blueos-logging"
 version = "0.1.0"
 dependencies = [
@@ -303,6 +311,7 @@ dependencies = [
  "blueos-comms-zenoh",
  "blueos-domain",
  "blueos-idl",
+ "blueos-jobs",
  "blueos-logging",
  "blueos-service",
  "blueos-settings",
