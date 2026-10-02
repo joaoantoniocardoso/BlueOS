@@ -1,5 +1,7 @@
 use alloc::format;
 
+use blueos_recorder_paths::civil_days_since_epoch;
+
 /// Sort time for a recording, preferring timestamps embedded in the file name.
 pub fn created_unix_seconds_from_filename(name: &str, file_time_unix_seconds: i64) -> i64 {
     if !name.is_ascii() {
@@ -123,18 +125,4 @@ fn parse_digits(value: &str, start: usize, end: usize) -> Option<i64> {
 fn unix_timestamp_utc(year: i64, month: i64, day: i64, hour: i64, minute: i64, second: i64) -> i64 {
     let days = civil_days_since_epoch(year, month, day);
     days * 86_400 + hour * 3600 + minute * 60 + second
-}
-
-fn civil_days_since_epoch(year: i64, month: i64, day: i64) -> i64 {
-    let year = year - if month <= 2 { 1 } else { 0 };
-    let month = month + if month <= 2 { 9 } else { -3 };
-    let era = if year >= 0 {
-        year / 400
-    } else {
-        (year - 399) / 400
-    };
-    let year_of_era = year - era * 400;
-    let day_of_year = (153 * month + 2) / 5 + day - 1;
-    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
-    era * 146_097 + day_of_era - 719_468
 }
