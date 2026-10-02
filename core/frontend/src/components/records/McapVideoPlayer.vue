@@ -542,6 +542,7 @@ import {
   gridStyle,
   McapPlaybackViewState,
   McapRecordingPlaybackController,
+  type McapVideoStats,
   mergedVideoCoverage,
   mp4SaveLabel,
   namingPercent,
@@ -554,6 +555,7 @@ import {
   timelinePercent,
   timelineRangeStyles,
   trackCoversAt,
+  type VideoTrack,
   visibleTracks,
 } from '@/libs/mcap'
 import { prettifySize } from '@/utils/helper_functions'
@@ -756,8 +758,8 @@ export default Vue.extend({
       if (!streams) return []
       return Array.isArray(streams) ? streams : [streams]
     },
-    trackCovers(track: { coverage: { start: number, end: number }[] }, seconds: number): boolean {
-      return trackCoversAt(track as never, seconds)
+    trackCovers(track: VideoTrack, seconds: number): boolean {
+      return trackCoversAt(track, seconds)
     },
     onStreamReady(channelId: number, video: HTMLVideoElement): void {
       this.controller?.registerVideo(channelId, video)
@@ -799,8 +801,8 @@ export default Vue.extend({
     onCutToggle(enabled: boolean): void { this.controller?.onCutToggle(enabled) },
     onCsvBusy(busy: boolean): void { this.controller?.setCsvBusy(busy) },
     async openCsvExport(): Promise<void> { await this.controller?.openCsvExport() },
-    onStats(channelId: number, stats: unknown): void {
-      this.controller?.onStreamStats(channelId, stats as never)
+    onStats(channelId: number, stats: McapVideoStats): void {
+      this.controller?.onStreamStats(channelId, stats)
     },
     async saveMp4(): Promise<void> {
       await this.controller?.saveMp4(this.name, this.clip)
