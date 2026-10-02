@@ -6,7 +6,7 @@ use core::{
     sync::atomic::{AtomicBool, AtomicUsize, Ordering},
     time::Duration,
 };
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 
 use blueos_idl::msg::blueos_recorder_msgs::{RecordingIndex, RecordingIndexRequest};
 use blueos_recorder_app::{IndexQuerySetup, IndexWalker};
@@ -79,7 +79,7 @@ async fn index_query_serves_one_walk_at_a_time() {
     release.store(true, Ordering::Relaxed);
     first.await.expect("first task").expect("first index");
     second.await.expect("second task").expect("second index");
-    let events = walk_events.lock().expect("walk events");
+    let events = walk_events.lock().unwrap_or_else(PoisonError::into_inner);
     let starts: Vec<_> = events
         .iter()
         .enumerate()
@@ -160,17 +160,26 @@ fn controllable_walker(
     Arc::new(move |path, from_offset, limit, cancel| {
         let now_active = active.fetch_add(1, Ordering::SeqCst) + 1;
         max_active.fetch_max(now_active, Ordering::SeqCst);
-        walk_events.lock().expect("walk events").push("start");
+        walk_events
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push("start");
         while !release.load(Ordering::Relaxed) {
             if cancel.load(Ordering::Relaxed) {
                 active.fetch_sub(1, Ordering::SeqCst);
-                walk_events.lock().expect("walk events").push("cancelled");
+                walk_events
+                    .lock()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .push("cancelled");
                 return Err(IndexError::Cancelled);
             }
             std::thread::sleep(Duration::from_millis(1));
         }
         active.fetch_sub(1, Ordering::SeqCst);
-        walk_events.lock().expect("walk events").push("end");
+        walk_events
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push("end");
         walk_index(path, from_offset, limit, cancel)
     })
 }
