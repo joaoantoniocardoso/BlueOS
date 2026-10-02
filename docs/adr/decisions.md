@@ -177,6 +177,8 @@ Shape of the logic:
   functions.
 - The `Domain` trait is split: `Domain` (Snapshot, one type per Command origin, Event, IoRequest, timer key,
   `handle`), plus `DomainQueries` and `DomainJobs`. A Domain without queries or jobs does not mention them.
+  `DomainJobs` lives in `blueos-jobs`, next to the `Jobs` it returns, and the Domain keeps its `Jobs` in its
+  Snapshot, so the transaction clone rolls them back with the rest of the DomainState.
   Associated type defaults are unstable Rust, so the split is the only way. A Domain or Block with no IO requests,
   no domain events, no timers or no Commands of one origin sets that type to an uninhabited type
   (`core::convert::Infallible` or an empty enum), never a placeholder; a `match` then needs no arm for it.
@@ -422,7 +424,9 @@ Decision: the Kernel gives every service, for free:
   or after an Inbox loop recovery (D-29).
 - `settings` State + `UpdateSettings` command, including the pending restart fields (D-11).
 - `jobs` State, only for Domains that have jobs, derived by the Kernel from the DomainState: the live job graphs
-  plus a bounded history of finished ones. Finished root graphs are dropped after a retention count.
+  plus a bounded history of finished ones. Finished root graphs are dropped after a retention count. A Domain
+  with jobs opts in with `ServiceBuilder::jobs`. Job ids start at 1; the ack of a Command that started a root Job
+  carries its id, and every other ack carries 0.
 - `log` stream (D-13).
 
 These names are reserved: the endpoint manifest cannot reuse them.
