@@ -24,6 +24,8 @@ When identifying issues or problems, if you discover a possible root cause, expl
 
 **If you don't know something:** Search the codebase, check existing services for patterns, or read `core/tools/nginx/nginx.conf` for service endpoints. Say "I don't know" rather than guessing.
 
+**Rust services and the event-driven architecture:** read `docs/adr/decisions.md` before touching `core/Cargo.toml`, `core/libs/{logic,adapters,app}/`, `core/libs/idl/`, any Rust service, or `core/frontend/src/libs/blueos-api/`. Use the vocabulary defined in `GLOSSARY.md`.
+
 ## Directory Structure
 
 ```
@@ -44,7 +46,7 @@ blueos/
 When writing code:
 - Follow existing patterns in the codebase exactly
 - Use 120 character line length
-- No docstrings unless the function is non-obvious
+- Python and TypeScript: no docstrings unless the function is non-obvious (Rust follows `docs/architecture/rust-style.md`)
 - No comments unless explaining "why", never "what"
 - Don't do parrot comments. Do not comment something that just repeat what the code already says
 - Preserve existing comments when refactoring code. Do not delete comments from code you haven't logically changed
@@ -84,6 +86,40 @@ gh issue list --repo bluerobotics/BlueOS
 ### 3. Use bun for the frontend
 
 ### 4. Use `jq` to parse json
+
+## Writing a Rust service
+
+Read `docs/adr/decisions.md` (especially D-02, D-03, D-04, D-11, D-20, and D-25 to D-30) and
+`docs/architecture/rust-style.md`. The teaching example is `core/services/example/`: `example-minimal` for the
+basics, and the cookbook for every "how do I do X?" question (D-20).
+
+<!-- rust-style:begin -->
+Rust checklist. Full text with examples: `docs/architecture/rust-style.md`. Gates: `docs/adr/decisions.md` D-30.
+
+- Write the test first. Keep it simple: no abstraction, helper, or pattern the task does not need, and no helper
+  used once that is small enough to read inline. A new architectural pattern needs a decision entry first.
+- Document every public item. Open every crate root with `//!` saying what the crate owns, in user terms.
+  Private items need a doc comment only when they are not obvious.
+- Add a dependency to `[workspace.dependencies]` with `default-features = false` and only the features needed;
+  members use `workspace = true`.
+- Never abbreviate a name. Name values by meaning, not by type. `Err(error)`, never `Err(e)` or `Err(err)`.
+- Return typed errors, never strings or magic payloads.
+- Log with structured fields and a constant message: `warn!(%error, path = %path.display(), "Failed to open")`.
+- Group imports in five blocks separated by a blank line: std, third-party crates, `blueos` crates, owned modules
+  (`crate::`), relative paths (`self::`, `super::`). Chain each crate in one `use`.
+- Order declarations top-down: constants and type aliases, then types (a type before the types it uses), then
+  `impl` blocks in the same order (trait `impl`s before the inherent one), then free functions (a caller before
+  its callees), then `#[cfg(test)] mod tests`.
+- No renaming re-export, and no re-export of another crate's domain types. A facade needs
+  `#![expect(clippy::pub_use, reason = "...")]`.
+- Bind a value cloned for a `move` closure or an `async move` block inside a block attached to the spawn, never in
+  the enclosing scope.
+- Make illegal states unrepresentable: newtypes for ids, units (`Duration`) and validated input parsed once at the
+  boundary; an enum for state that is stored; type-state for builders and resource handles.
+- Borrow before cloning. Clone a handle with `Arc::clone(&handle)`; a data copy needs a reason.
+- No `unsafe`. No `#[allow]`: use `#[expect(lint, reason = "...")]`. Never `.expect` a lock.
+- Run `./.hooks/pre-push --fix`, then `./.hooks/pre-push`, before finishing.
+<!-- rust-style:end -->
 
 ## Creating a New Service
 
