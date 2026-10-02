@@ -142,8 +142,8 @@ _LOAD_SUCCEEDED = False
 _LOAD_FAILURE: Literal["none", "missing_root", "incomplete"] = "none"
 
 
-def reset_runtime_state() -> None:  # pylint: disable=global-statement
-    global _INTERFACES_WARNING_LOGGED, _LOAD_ATTEMPTED, _LOAD_SUCCEEDED, _LOAD_FAILURE
+def reset_runtime_state() -> None:
+    global _INTERFACES_WARNING_LOGGED, _LOAD_ATTEMPTED, _LOAD_SUCCEEDED, _LOAD_FAILURE  # pylint: disable=global-statement
     _MESSAGES.clear()
     _INTERFACES_WARNING_LOGGED = False
     _LOAD_ATTEMPTED = False
@@ -151,16 +151,16 @@ def reset_runtime_state() -> None:  # pylint: disable=global-statement
     _LOAD_FAILURE = "none"
 
 
-def _log_interfaces_issue(message: str) -> None:  # pylint: disable=global-statement
-    global _INTERFACES_WARNING_LOGGED
+def _log_interfaces_issue(message: str) -> None:
+    global _INTERFACES_WARNING_LOGGED  # pylint: disable=global-statement
     if _INTERFACES_WARNING_LOGGED:
         return
     _INTERFACES_WARNING_LOGGED = True
     _LOGGER.warning("%s", message)
 
 
-def ensure_idl_loaded(interfaces_root: Path | None = None) -> None:  # pylint: disable=global-statement
-    global _LOAD_ATTEMPTED, _LOAD_SUCCEEDED, _LOAD_FAILURE
+def ensure_idl_loaded(interfaces_root: Path | None = None) -> None:
+    global _LOAD_ATTEMPTED, _LOAD_SUCCEEDED, _LOAD_FAILURE  # pylint: disable=global-statement
     if _LOAD_SUCCEEDED:
         return
     if _LOAD_ATTEMPTED and not _LOAD_SUCCEEDED:
