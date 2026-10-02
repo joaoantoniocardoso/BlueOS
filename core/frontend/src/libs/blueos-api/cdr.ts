@@ -204,6 +204,15 @@ export function encodeCdrWithSchema(
   return writer.writeMessage(message)
 }
 
+export function defaultMessageForSchema(
+  schemaName: string,
+  schemaText: string,
+): Record<string, unknown> {
+  const definitions = getDefinitions(schemaName, schemaText)
+  const definitionsByName = definitionsMap(definitions)
+  return messageDefaults(dataFields(definitions[0]), definitionsByName)
+}
+
 export function decodeCdr<Schema extends SchemaName>(
   schemaName: Schema,
   payload: Uint8Array,
@@ -236,4 +245,12 @@ export function decodeSample<Schema extends SchemaName>(
     throw new UnexpectedEncodingError(sample.key, expected, sample.encoding)
   }
   return decodeCdr(schemaName, sample.payload)
+}
+
+export function schemaNameFromEncoding(encoding: string): string | undefined {
+  const separator = encoding.indexOf(';')
+  if (separator < 0) {
+    return undefined
+  }
+  return encoding.slice(separator + 1)
 }
