@@ -4,13 +4,15 @@
 //! from [`WALL_CLOCK_AT_START`], so `tokio::time::advance` moves the time the Domain sees, and nothing sleeps.
 
 use core::{marker::PhantomData, time::Duration};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use tokio::{task::JoinSet, time::Instant};
 
-use blueos_api::{CommandAck, Message, cdr_encoding, command_key, query_key, state_key};
+use blueos_api::{
+    CommandAck, Message, cdr_encoding, command_key, query_key, settings_key, state_key,
+};
 use blueos_comms::{CommsBackend, QueryBody, ReplyError, channel::ChannelBackend};
-use blueos_domain::Now;
+use blueos_domain::{Domain, Effect, Now};
 
 use crate::{Clock, Kernel, Service, ServiceContext, ServiceError};
 
@@ -19,6 +21,16 @@ pub const WALL_CLOCK_AT_START: Duration = Duration::from_secs(1_767_225_600);
 
 /// How long a client waits for a reply. Time is paused, so a missing reply costs no real time.
 const REPLY_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// One applied Command's Effects in application order.
+type EffectBatch<D> =
+    Vec<Effect<<D as Domain>::Tick, <D as Domain>::IoRequest, <D as Domain>::TimerKey>>;
+
+/// Shared storage for [`EffectLog`].
+type EffectLogStorage<D> = Arc<Mutex<Vec<EffectBatch<D>>>>;
+
+/// Effects the Kernel recorded for each applied Command, without running IO or timers.
+pub struct EffectLog<D: Domain>(EffectLogStorage<D>);
 
 /// A running Service `S`, with a client on the same backbone. Dropping it stops the Kernel.
 pub struct Harness<S: Service> {
@@ -35,6 +47,25 @@ pub struct Harness<S: Service> {
 /// `tokio::time::advance`. [`Harness`] uses it; a test that runs a [`Kernel`] directly passes it.
 pub struct PausedClock {
     started: Instant,
+}
+
+impl<D: Domain> EffectLog<D> {
+    /// Every batch of Effects, one batch per applied Command, in order.
+    pub fn batches(&self) -> Vec<EffectBatch<D>> {
+        self.0
+            .lock()
+            .expect("the effect log mutex is not poisoned")
+            .clone()
+    }
+
+    /// The Effects from the last applied Command, if any.
+    pub fn last_batch(&self) -> Option<EffectBatch<D>> {
+        self.0
+            .lock()
+            .expect("the effect log mutex is not poisoned")
+            .last()
+            .cloned()
+    }
 }
 
 impl Clock for PausedClock {
@@ -66,6 +97,24 @@ impl<S: Service> Harness<S> {
         Self::start_on(Arc::new(ChannelBackend::default()), arguments).await
     }
 
+    /// Starts the Service and records every Command's Effects without running IO or timers.
+    ///
+    /// # Errors
+    ///
+    /// The [`ServiceError`] that `build` or the Kernel's startup returned.
+    pub async fn start_recording_effects(
+        arguments: S::Arguments,
+    ) -> Result<(Self, EffectLog<S::Domain>), ServiceError> {
+        let log = EffectLog(Arc::new(Mutex::new(Vec::new())));
+        let harness = Self::start_on_with_effect_log(
+            Arc::new(ChannelBackend::default()),
+            ServiceContext::new(arguments),
+            Some(Arc::clone(&log.0)),
+        )
+        .await?;
+        Ok((harness, log))
+    }
+
     /// Like [`Harness::start`], on `backend`: for a test that wraps the channel backend, to make the backbone fail
     /// or to record what reaches it.
     ///
@@ -76,9 +125,36 @@ impl<S: Service> Harness<S> {
         backend: Arc<dyn CommsBackend>,
         arguments: S::Arguments,
     ) -> Result<Self, ServiceError> {
-        let builder = S::build(&ServiceContext::new(arguments))?;
+        Self::start_on_with_context(backend, ServiceContext::new(arguments)).await
+    }
+
+    /// Like [`Harness::start_on`], with a fully built [`ServiceContext`].
+    ///
+    /// # Errors
+    ///
+    /// The [`ServiceError`] that `build` or the Kernel's startup returned.
+    pub async fn start_on_with_context(
+        backend: Arc<dyn CommsBackend>,
+        context: ServiceContext<S::Arguments>,
+    ) -> Result<Self, ServiceError> {
+        Self::start_on_with_effect_log(backend, context, None).await
+    }
+
+    async fn start_on_with_effect_log(
+        backend: Arc<dyn CommsBackend>,
+        context: ServiceContext<S::Arguments>,
+        effect_log: Option<crate::kernel::EffectLogStorage<S::Domain>>,
+    ) -> Result<Self, ServiceError> {
+        let builder = S::build(&context)?;
         let clock = Arc::new(PausedClock::start());
-        let kernel = Kernel::start(S::NAME, builder, Arc::clone(&backend), clock).await?;
+        let kernel = Kernel::start_with_effect_log(
+            S::NAME,
+            builder,
+            Arc::clone(&backend),
+            clock,
+            effect_log,
+        )
+        .await?;
         let mut tasks = JoinSet::new();
         tasks.spawn(kernel.run());
         Ok(Self {
@@ -158,5 +234,22 @@ impl<S: Service> Harness<S> {
             panic!("expected one value of {state:?}, got {replies:?}");
         };
         M::decode(&reply.payload().to_bytes()).expect("the reply is the State's Message")
+    }
+
+    /// Reads the standard `settings` State, as a late client would.
+    ///
+    /// # Panics
+    ///
+    /// When the Service does not reply exactly once with an `M`.
+    pub async fn settings<M: Message>(&self) -> M {
+        let replies = self
+            .backend
+            .get(&settings_key(S::NAME), None, REPLY_TIMEOUT)
+            .await
+            .expect("the settings key is valid");
+        let [Ok(reply)] = replies.as_slice() else {
+            panic!("expected one settings value, got {replies:?}");
+        };
+        M::decode(&reply.payload().to_bytes()).expect("the reply is SettingsEnvelope")
     }
 }

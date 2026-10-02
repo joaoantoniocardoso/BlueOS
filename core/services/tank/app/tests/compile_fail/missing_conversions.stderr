@@ -20,5 +20,5 @@ help: the trait `blueos_tank_api::endpoints::Conversions` is implemented for `Ta
 note: required by a bound in `register`
   --> src/endpoints.rs
    |
-   | pub fn register<D: Conversions, H: Handlers<D>>(
+   | pub fn register<D: Conversions, H: Handlers<D>, Context>(
    |                    ^^^^^^^^^^^ required by this bound in `register`

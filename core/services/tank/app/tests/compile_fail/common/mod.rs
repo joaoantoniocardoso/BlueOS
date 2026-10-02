@@ -2,7 +2,7 @@
 
 use core::convert::Infallible;
 
-use blueos_domain::{Command, Decision, Domain, DomainQueries, Now};
+use blueos_domain::{Command, Decision, Domain, DomainQueries, IoError, Now};
 use blueos_tank_domain::{Tank, TankEvent, TankQuery, TankRequest, TankResponse, TankSnapshot};
 
 pub struct Twin;
@@ -23,6 +23,13 @@ impl Domain for Twin {
         _now: Now,
     ) -> Decision<Self> {
         unimplemented!()
+    }
+
+    fn io_failed(
+        request: Infallible,
+        _error: IoError,
+    ) -> Command<TankRequest, Infallible, Infallible, Infallible> {
+        match request {}
     }
 }
 

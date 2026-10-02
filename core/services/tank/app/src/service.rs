@@ -10,6 +10,7 @@ pub struct TankService;
 
 impl Service for TankService {
     type Domain = Tank;
+    type Context = ();
     type Arguments = TankArguments;
 
     const NAME: &'static str = endpoints::NAME;

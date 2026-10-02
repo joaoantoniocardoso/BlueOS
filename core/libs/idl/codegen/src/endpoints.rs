@@ -649,8 +649,8 @@ fn app_source(service: &str, api_crate: &str, endpoints: &[Endpoint]) -> String 
     if handled.is_empty() {
         _ = write!(
             source,
-            "\n/// Registers every endpoint of `endpoints.toml` on `builder`.\npub fn register<D: {bound}>(builder: \
-             ServiceBuilder<D>) -> ServiceBuilder<D> {{\nbuilder\n{registrations}}}\n"
+            "\n/// Registers every endpoint of `endpoints.toml` on `builder`.\npub fn register<D: {bound}, Context>(builder: \
+             ServiceBuilder<D, Context>) -> ServiceBuilder<D, Context> {{\nbuilder\n{registrations}}}\n"
         );
         return source;
     }
@@ -667,8 +667,8 @@ fn app_source(service: &str, api_crate: &str, endpoints: &[Endpoint]) -> String 
          endpoints of the `{service}` Service\",\nlabel = \"no `impl Handlers<D> for {{Self}}` in the \
          `{service}` app crate\",\nnote = \"implement {list}\"\n)]\npub trait Handlers<D: {domain}>: Send + Sync + \
          'static {{\n{methods}}}\n\n/// Registers every endpoint of `endpoints.toml` on `builder`, with `handlers` \
-         for the custom ones.\npub fn register<D: {bound}, H: Handlers<D>>(builder: ServiceBuilder<D>, handlers: \
-         H) -> ServiceBuilder<D> {{\nlet handlers = Arc::new(handlers);\nbuilder\n{registrations}}}\n"
+         for the custom ones.\npub fn register<D: {bound}, H: Handlers<D>, Context>(builder: ServiceBuilder<D, \
+         Context>, handlers: H) -> ServiceBuilder<D, Context> {{\nlet handlers = Arc::new(handlers);\nbuilder\n{registrations}}}\n"
     );
     source
 }

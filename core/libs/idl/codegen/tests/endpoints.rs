@@ -134,7 +134,7 @@ fn a_service_whose_endpoints_are_all_handled_has_no_conversions() {
     assert!(
         generated
             .app
-            .contains("pub fn register<D: Domain, H: Handlers<D>>")
+            .contains("pub fn register<D: Domain, H: Handlers<D>, Context>")
     );
     assert!(!generated.app.contains("Conversions"));
 }
@@ -152,7 +152,7 @@ fn a_service_without_custom_endpoints_has_no_handlers() {
     assert!(
         generated
             .app
-            .contains("pub fn register<D: Conversions>(builder")
+            .contains("pub fn register<D: Conversions, Context>(builder")
     );
     assert!(
         generated
@@ -168,7 +168,11 @@ fn a_service_without_endpoints_registers_nothing() {
     let generated = generate("service = \"test\"\n", "blueos_test_api", &messages()).unwrap();
 
     assert!(!generated.api.contains("trait"));
-    assert!(generated.app.contains("pub fn register<D: Domain>(builder"));
+    assert!(
+        generated
+            .app
+            .contains("pub fn register<D: Domain, Context>(builder")
+    );
     assert!(!generated.app.contains("blueos_idl"));
 }
 

@@ -1,6 +1,7 @@
 //! The trait every Service implements, and what its `build` receives and may return.
 
 use core::error::Error;
+use std::path::{Path, PathBuf};
 
 use blueos_comms::CommsError;
 use blueos_domain::Domain;
@@ -26,6 +27,8 @@ use crate::builder::ServiceBuilder;
 pub trait Service {
     /// The pure logic the Kernel runs.
     type Domain: Domain;
+    /// What IO code receives by reference, together with the Snapshot it needs.
+    type Context: Send + Sync + 'static;
     /// The service's own command-line arguments, added to the ones every Service has.
     type Arguments: clap::Args;
 
@@ -43,12 +46,13 @@ pub trait Service {
     /// [`ServiceError::Build`] when the Context cannot make a working Service, such as an argument out of range.
     fn build(
         context: &ServiceContext<Self::Arguments>,
-    ) -> Result<ServiceBuilder<Self::Domain>, ServiceError>;
+    ) -> Result<ServiceBuilder<Self::Domain, Self::Context>, ServiceError>;
 }
 
 /// What a Service's `build` and IO code may use: its command-line arguments.
 pub struct ServiceContext<Arguments> {
     arguments: Arguments,
+    settings_path: Option<PathBuf>,
 }
 
 /// Why a Service did not start.
@@ -66,16 +70,35 @@ pub enum ServiceError {
         #[source]
         source: CommsError,
     },
+    /// Settings could not be loaded or persisted.
+    #[error(transparent)]
+    Settings(#[from] blueos_settings::SettingsError),
 }
 
 impl<Arguments> ServiceContext<Arguments> {
     /// A Context holding the parsed command-line arguments.
     pub fn new(arguments: Arguments) -> Self {
-        Self { arguments }
+        Self {
+            arguments,
+            settings_path: None,
+        }
+    }
+
+    /// Like [`Self::new`], with the optional `--settings-path` parent directory.
+    pub fn with_settings_path(arguments: Arguments, settings_path: Option<PathBuf>) -> Self {
+        Self {
+            arguments,
+            settings_path,
+        }
     }
 
     /// The service's own command-line arguments.
     pub fn arguments(&self) -> &Arguments {
         &self.arguments
+    }
+
+    /// Parent directory for this service's settings folder, when the entry layer set one.
+    pub fn settings_path(&self) -> Option<&Path> {
+        self.settings_path.as_deref()
     }
 }

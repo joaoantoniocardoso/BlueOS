@@ -1,6 +1,6 @@
 //! Zenoh driver: client mode to local `zenohd`, zero-copy [`Payload`] where possible (D-09, D-10).
 
-mod config;
+pub mod config;
 mod payload;
 
 use core::{

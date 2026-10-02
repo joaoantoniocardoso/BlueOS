@@ -48,10 +48,10 @@ pub trait Handlers<D: DomainQueries>: Send + Sync + 'static {
 }
 
 /// Registers every endpoint of `endpoints.toml` on `builder`, with `handlers` for the custom ones.
-pub fn register<D: Conversions, H: Handlers<D>>(
-    builder: ServiceBuilder<D>,
+pub fn register<D: Conversions, H: Handlers<D>, Context>(
+    builder: ServiceBuilder<D, Context>,
     handlers: H,
-) -> ServiceBuilder<D> {
+) -> ServiceBuilder<D, Context> {
     let handlers = Arc::new(handlers);
     builder
         .command("Drain", |request: blueos_example_msgs::EmptyRequest| {

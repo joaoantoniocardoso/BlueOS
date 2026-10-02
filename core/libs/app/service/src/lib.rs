@@ -12,11 +12,16 @@
 )]
 
 mod builder;
+pub mod entry;
 mod kernel;
+#[cfg(feature = "probe")]
+pub mod probe;
 mod service;
+mod settings;
 #[cfg(feature = "testing")]
 pub mod testing;
 
+pub use blueos_domain::IoError;
 pub use builder::{Refusal, ServiceBuilder};
 pub use kernel::{Clock, Kernel};
 pub use service::{Service, ServiceContext, ServiceError};

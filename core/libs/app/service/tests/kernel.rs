@@ -63,6 +63,9 @@ enum TankRequest {
     SetLevel(u8),
 }
 
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+enum TankTimerKey {}
+
 enum TankEvent {
     LevelChanged(u8),
     Emptied,
@@ -133,6 +136,7 @@ struct RecordingBackend {
 
 impl Service for TankService {
     type Domain = Tank;
+    type Context = ();
     type Arguments = TankArguments;
 
     const NAME: &'static str = "tank";
@@ -205,6 +209,7 @@ impl Service for TankService {
 
 impl Service for FragileTankService {
     type Domain = Tank;
+    type Context = ();
     type Arguments = TankArguments;
 
     const NAME: &'static str = "fragile_tank";
@@ -235,6 +240,7 @@ impl Service for FragileTankService {
 
 impl Service for ProbeService {
     type Domain = Tank;
+    type Context = ();
     type Arguments = ProbeArguments;
 
     const NAME: &'static str = "probe";
@@ -276,6 +282,7 @@ impl Service for ProbeService {
 
 impl Service for MisnamedTankService {
     type Domain = Tank;
+    type Context = ();
     type Arguments = TankArguments;
 
     const NAME: &'static str = "misnamed_tank";
@@ -332,7 +339,7 @@ impl Domain for Tank {
     type ObservedFact = Infallible;
     type Event = TankEvent;
     type IoRequest = Infallible;
-    type TimerKey = Infallible;
+    type TimerKey = TankTimerKey;
 
     fn handle(
         snapshot: &mut TankSnapshot,
@@ -357,6 +364,13 @@ impl Domain for Tank {
             },
             effects: Vec::new(),
         }
+    }
+
+    fn io_failed(
+        request: Self::IoRequest,
+        _error: blueos_domain::IoError,
+    ) -> Command<TankRequest, Infallible, Infallible, Infallible> {
+        match request {}
     }
 }
 

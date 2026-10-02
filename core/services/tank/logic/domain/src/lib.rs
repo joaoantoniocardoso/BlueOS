@@ -8,7 +8,7 @@ extern crate alloc;
 use alloc::vec;
 use core::convert::Infallible;
 
-use blueos_domain::{Command, Decision, Domain, DomainQueries, Now, Outcome};
+use blueos_domain::{Command, Decision, Domain, DomainQueries, IoError, Now, Outcome};
 
 /// The tank.
 pub struct Tank;
@@ -91,6 +91,13 @@ impl Domain for Tank {
             events,
             effects: vec![],
         }
+    }
+
+    fn io_failed(
+        request: Infallible,
+        _error: IoError,
+    ) -> Command<TankRequest, Infallible, Infallible, Infallible> {
+        match request {}
     }
 }
 

@@ -1,13 +1,17 @@
 //! What a Service's `build` declares: the initial Snapshot and how the Domain meets the backbone.
 
 use core::{error::Error, future::Future, pin::Pin};
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use blueos_api::{Message, cdr_encoding};
-use blueos_domain::{Domain, DomainQueries, Now};
-use blueos_idl::Error as IdlError;
+use blueos_domain::{Domain, DomainQueries, IoError};
+use blueos_idl::{Error as IdlError, msg::blueos_msgs::SettingsEnvelope};
+use blueos_settings::SettingsSchema;
 
-use crate::kernel::{Rejection, Unanswered};
+use crate::{
+    kernel::{Rejection, Unanswered, io::IoExecutors},
+    settings::{SettingsRegistration, register_settings},
+};
 
 /// Decodes a Request body into the Domain's Request.
 pub(crate) type Decode<D> = Box<dyn Fn(&[u8]) -> Result<<D as Domain>::Request, Rejection> + Send>;
@@ -20,13 +24,6 @@ pub(crate) type Project<D> =
 pub(crate) type Select<D> =
     Box<dyn Fn(&<D as Domain>::Event) -> Option<Result<Vec<u8>, IdlError>> + Send + Sync>;
 
-/// Decodes a Query body into the question the Inbox loop asks the Domain.
-pub(crate) type Ask<D> = Box<dyn Fn(&[u8]) -> Result<Answer<D>, Unanswered> + Send>;
-
-/// Answers one decoded Query from the Snapshot with the encoded reply.
-pub(crate) type Answer<D> =
-    Box<dyn FnOnce(&<D as Domain>::Snapshot, Now) -> Result<Vec<u8>, Unanswered> + Send>;
-
 /// Answers an IO query body with the encoded reply.
 pub(crate) type Respond = Box<
     dyn Fn(Vec<u8>) -> Pin<Box<dyn Future<Output = Result<Vec<u8>, Unanswered>> + Send>> + Send,
@@ -38,14 +35,28 @@ pub type Refusal = Box<dyn Error + Send + Sync>;
 /// Everything a Service declares in `build`: the initial Snapshot, then one call per endpoint. Each call converts
 /// between a Message and the Domain's own types, so the Domain never sees a Message.
 #[must_use]
-pub struct ServiceBuilder<D: Domain> {
+pub struct ServiceBuilder<D: Domain, Context = ()> {
     pub(crate) snapshot: D::Snapshot,
+    pub(crate) context: Context,
+    pub(crate) io: IoExecutors<D, Context>,
     pub(crate) commands: Vec<CommandEndpoint<D>>,
-    pub(crate) queries: Vec<QueryEndpoint<D>>,
+    pub(crate) queries: Vec<(String, AnswerQuery<D>)>,
     pub(crate) io_queries: Vec<IoQueryEndpoint>,
     pub(crate) states: Vec<StateEndpoint<D>>,
     pub(crate) events: Vec<EventEndpoint<D>>,
+    pub(crate) settings: Option<SettingsRegistration<D>>,
 }
+
+/// Answers one Query from the Snapshot and the request body.
+pub(crate) type AnswerQuery<D> = Arc<
+    dyn Fn(
+            &<D as Domain>::Snapshot,
+            &[u8],
+            blueos_domain::Now,
+        ) -> Result<(Vec<u8>, String), Unanswered>
+        + Send
+        + Sync,
+>;
 
 /// A Command endpoint: a query on `blueos/v1/<service>/command/<name>` whose body is a Request.
 pub(crate) struct CommandEndpoint<D: Domain> {
@@ -53,14 +64,7 @@ pub(crate) struct CommandEndpoint<D: Domain> {
     pub(crate) decode: Decode<D>,
 }
 
-/// A Query endpoint: a query on `blueos/v1/<service>/query/<name>`, answered from the Snapshot by the Inbox loop.
-pub(crate) struct QueryEndpoint<D: Domain> {
-    pub(crate) name: String,
-    pub(crate) encoding: String,
-    pub(crate) ask: Ask<D>,
-}
-
-/// An IO query endpoint: a query on `blueos/v1/<service>/query/<name>`, answered by IO code outside the Inbox.
+/// An IO query endpoint: a query on `blueos/v1/<service>/query/<name>`, answered outside the Inbox.
 pub(crate) struct IoQueryEndpoint {
     pub(crate) name: String,
     pub(crate) encoding: String,
@@ -81,17 +85,127 @@ pub(crate) struct EventEndpoint<D: Domain> {
     pub(crate) select: Select<D>,
 }
 
-impl<D: Domain> ServiceBuilder<D> {
+impl<D: Domain> ServiceBuilder<D, ()> {
     /// A Service whose Domain starts from `snapshot`, with no endpoints yet.
     pub fn new(snapshot: D::Snapshot) -> Self {
         Self {
             snapshot,
+            context: (),
+            io: IoExecutors {
+                r#async: None,
+                blocking: None,
+            },
             commands: Vec::new(),
             queries: Vec::new(),
             io_queries: Vec::new(),
             states: Vec::new(),
             events: Vec::new(),
+            settings: None,
         }
+    }
+
+    /// The Context IO code receives by reference, together with the Snapshot it needs.
+    pub fn context<NewContext: Send + Sync + 'static>(
+        self,
+        context: NewContext,
+    ) -> ServiceBuilder<D, NewContext> {
+        ServiceBuilder {
+            snapshot: self.snapshot,
+            context,
+            io: IoExecutors {
+                r#async: None,
+                blocking: None,
+            },
+            commands: self.commands,
+            queries: self.queries,
+            io_queries: self.io_queries,
+            states: self.states,
+            events: self.events,
+            settings: self.settings,
+        }
+    }
+}
+
+impl<D: Domain + DomainQueries, Context> ServiceBuilder<D, Context> {
+    /// Adds the Query endpoint `name`. Its body is an `M`, which `into_query` turns into the Domain's Query; the
+    /// answer is the `R` that `into_response` makes of the Domain's Response from the current Snapshot.
+    /// `into_response` returns `None` for a Response that does not belong to this endpoint. A body that does not
+    /// decode, a refusal, a `None` or a panic is replied as an error with its reason.
+    pub fn query<M: Message + 'static, R: Message + 'static>(
+        mut self,
+        name: &str,
+        into_query: impl Fn(M) -> Result<D::Query, Refusal> + Send + Sync + 'static,
+        into_response: impl Fn(D::Response) -> Option<R> + Send + Sync + 'static,
+    ) -> Self {
+        let encoding = cdr_encoding(R::SCHEMA_NAME);
+        self.queries.push((
+            name.to_owned(),
+            Arc::new(move |snapshot, body, now| {
+                let query = into_query(M::decode(body).map_err(Unanswered::InvalidBody)?)
+                    .map_err(Unanswered::Refused)?;
+                let response = into_response(D::query(snapshot, query, now))
+                    .ok_or(Unanswered::OtherResponse)?;
+                Ok((
+                    response.encode().map_err(Unanswered::Encode)?,
+                    encoding.clone(),
+                ))
+            }),
+        ));
+        self
+    }
+}
+
+impl<D: Domain, Context> ServiceBuilder<D, Context> {
+    /// The executor for every [`Effect::Io`]. It returns an optional IO result Command, or an [`IoError`] the Kernel
+    /// turns into [`Domain::io_failed`].
+    pub fn io<F, Fut>(mut self, executor: F) -> Self
+    where
+        F: Fn(&Context, &D::Snapshot, D::IoRequest) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = Result<Option<D::IoResult>, IoError>> + Send + 'static,
+    {
+        self.io.r#async = Some(Arc::new(move |context, snapshot, request| {
+            Box::pin(executor(context, snapshot, request))
+        }));
+        self
+    }
+
+    /// The executor for IO the Domain marks with [`Domain::io_runs_on_blocking_thread`]. The Kernel runs it with
+    /// [`tokio::task::spawn_blocking`], with the same ordering and result reporting as [`.io`](Self::io).
+    pub fn blocking_io<F>(mut self, executor: F) -> Self
+    where
+        F: Fn(&Context, &D::Snapshot, D::IoRequest) -> Result<Option<D::IoResult>, IoError>
+            + Send
+            + Sync
+            + 'static,
+    {
+        self.io.blocking = Some(Arc::new(executor));
+        self
+    }
+
+    /// Registers Python-compatible settings (D-11): the Kernel loads once at startup, owns `UpdateSettings`, and
+    /// persists after each successful update.
+    pub fn settings<S>(
+        mut self,
+        service_name: &str,
+        config_folder: Option<PathBuf>,
+        into_snapshot: impl Fn(&mut D::Snapshot, S) + Send + Sync + 'static,
+        from_snapshot: impl Fn(&D::Snapshot) -> S + Send + Sync + 'static,
+        into_request: impl Fn(SettingsEnvelope) -> Result<D::Request, Box<dyn Error + Send + Sync>>
+        + Send
+        + Sync
+        + 'static,
+    ) -> Self
+    where
+        S: SettingsSchema + Send + Sync + 'static,
+    {
+        self.settings = Some(register_settings(
+            service_name.to_owned(),
+            config_folder,
+            into_snapshot,
+            from_snapshot,
+            into_request,
+        ));
+        self
     }
 
     /// Adds the Command endpoint `name`. Its body is an `M`, which `into_request` turns into the Domain's Request.
@@ -166,37 +280,6 @@ impl<D: Domain> ServiceBuilder<D> {
                     let response = respond(request).await.map_err(Unanswered::Refused)?;
                     response.encode().map_err(Unanswered::Encode)
                 })
-            }),
-        });
-        self
-    }
-}
-
-impl<D: DomainQueries> ServiceBuilder<D> {
-    /// Adds the Query endpoint `name`. Its body is a `Q`, which `into_query` turns into the Domain's Query; the
-    /// Inbox loop answers it between two Commands, and `into_message` turns the Domain's Response into the reply.
-    /// `into_message` returns `None` for a Response that does not belong to this endpoint. A body that does not
-    /// decode, a refusal, a `None` or a panic is replied as an error with its reason.
-    pub fn query<Q: Message + 'static, R: Message + 'static>(
-        mut self,
-        name: &str,
-        into_query: impl Fn(Q) -> Result<D::Query, Refusal> + Send + 'static,
-        into_message: impl Fn(D::Response) -> Option<R> + Send + Sync + 'static,
-    ) -> Self {
-        let into_message = Arc::new(into_message);
-        self.queries.push(QueryEndpoint {
-            name: name.to_owned(),
-            encoding: cdr_encoding(R::SCHEMA_NAME),
-            ask: Box::new(move |body| {
-                let question = into_query(Q::decode(body).map_err(Unanswered::InvalidBody)?)
-                    .map_err(Unanswered::Refused)?;
-                let into_message = Arc::clone(&into_message);
-                Ok(Box::new(move |snapshot, now| {
-                    into_message(D::query(snapshot, question, now))
-                        .ok_or(Unanswered::OtherResponse)?
-                        .encode()
-                        .map_err(Unanswered::Encode)
-                }))
             }),
         });
         self
