@@ -1,6 +1,7 @@
 import { ENCODING_APPLICATION_CDR } from '@/libs/blueos-api/keys'
 
 import { resolveSchemaName, schemaNameFromEncoding } from './schema-resolution'
+import { encodingBase, payloadIsCdrCandidate } from './topic-classification'
 import type {
   CdrCodec, DecodedPayload, SampleRecord, SchemaProvider, TopicInfo,
 } from './types'
@@ -12,24 +13,6 @@ const ZENOH_BYTES = 'zenoh/bytes'
 const BINARY_PREVIEW_BYTES = 64
 const DISPLAY_ARRAY_PREVIEW_BYTES = 32
 const DISPLAY_ARRAY_MAX_LENGTH = 64
-
-function encodingBase(encoding: string): string {
-  const semicolon = encoding.indexOf(';')
-  return semicolon < 0 ? encoding : encoding.slice(0, semicolon)
-}
-
-function hasCdrEncapsulationHeader(payload: Uint8Array): boolean {
-  if (payload.length < 4) {
-    return false
-  }
-  if (payload[0] === 0x00 && payload[1] === 0x01 && payload[2] === 0x00 && payload[3] === 0x00) {
-    return true
-  }
-  if (payload[0] === 0x00 && payload[1] === 0x00 && payload[2] === 0x00 && payload[3] === 0x00) {
-    return true
-  }
-  return false
-}
 
 export function bytesToHex(payload: Uint8Array, maxBytes: number): string {
   const length = Math.min(payload.length, maxBytes)
@@ -111,16 +94,14 @@ function tryDecodeCdr(
   if (!resolvedName) {
     return undefined
   }
-  const cdrEncoding = base === ENCODING_APPLICATION_CDR
-    || base === ZENOH_BYTES
-    || base === ''
-  if (!cdrEncoding) {
+  const ambiguous = base === ENCODING_APPLICATION_CDR || base === ZENOH_BYTES || base === ''
+  if (!ambiguous) {
     return undefined
   }
-  if (base === ENCODING_APPLICATION_CDR || hasCdrEncapsulationHeader(payload)) {
-    return decodeCdrPayload(resolvedName, payload, provider, codec)
+  if (!payloadIsCdrCandidate(base, payload)) {
+    return undefined
   }
-  return undefined
+  return decodeCdrPayload(resolvedName, payload, provider, codec)
 }
 
 export function decodePayload(
