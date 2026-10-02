@@ -15,6 +15,7 @@ pub enum JobStatusStatus {
     Succeeded,
     Failed,
     Cancelled,
+    Interrupted,
     Unknown(u8),
 }
 impl JobStatusStatus {
@@ -26,6 +27,7 @@ impl JobStatusStatus {
             3u8 => Self::Succeeded,
             4u8 => Self::Failed,
             5u8 => Self::Cancelled,
+            6u8 => Self::Interrupted,
             raw => Self::Unknown(raw),
         }
     }
@@ -37,6 +39,7 @@ impl JobStatusStatus {
             Self::Succeeded => 3u8,
             Self::Failed => 4u8,
             Self::Cancelled => 5u8,
+            Self::Interrupted => 6u8,
             Self::Unknown(raw) => raw,
         }
     }
@@ -98,7 +101,7 @@ impl CdrStruct for JobStatus {
     }
 }
 impl Message for JobStatus {
-    const SCHEMA: &'static str = "# blueos_msgs/msg/JobStatus\n# One job entry; status values mirror blueos_jobs (D-12).\n\nuint8 STATUS_QUEUED=0\nuint8 STATUS_RUNNING=1\nuint8 STATUS_CANCELLING=2\nuint8 STATUS_SUCCEEDED=3\nuint8 STATUS_FAILED=4\nuint8 STATUS_CANCELLED=5\n\nuint64 job_id\nuint64 parent_job_id\nuint8 status\nstring name";
+    const SCHEMA: &'static str = "# blueos_msgs/msg/JobStatus\n# One job entry; status values mirror blueos_jobs (D-12).\n\nuint8 STATUS_QUEUED=0\nuint8 STATUS_RUNNING=1\nuint8 STATUS_CANCELLING=2\nuint8 STATUS_SUCCEEDED=3\nuint8 STATUS_FAILED=4\nuint8 STATUS_CANCELLED=5\nuint8 STATUS_INTERRUPTED=6\n\nuint64 job_id\nuint64 parent_job_id\nuint8 status\nstring name";
     const SCHEMA_NAME: &'static str = "blueos_msgs/msg/JobStatus";
     const TYPE_HASH: &'static str =
         "eb55529f90cb8ed7d053a6c11ac965ae1b20f100071072431f3a275196ba197b";
