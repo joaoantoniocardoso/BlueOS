@@ -17,6 +17,7 @@ set -e
 
 EOF
 
+COPY libs/idl/typescript /home/pi/libs/idl/typescript
 COPY frontend /home/pi/frontend
 ENV BUN_FEATURE_FLAG_DISABLE_STREAMING_INSTALL=1
 RUN <<-EOF
