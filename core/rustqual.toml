@@ -1,0 +1,40 @@
+# rustqual.toml for the BlueOS Rust workspace (D-30).
+# Thresholds match rustqual 1.8.3 documented defaults (reference-configuration.md).
+# Do not run `rustqual --init` here: that calibrates to the current codebase.
+
+exclude_files = ["target/**", "frontend/**"]
+
+strict_closures = false
+strict_iterator_chains = false
+allow_recursion = false
+strict_error_propagation = false
+max_suppression_ratio = 0.10
+fail_on_warnings = false
+
+[complexity]
+enabled = true
+max_cognitive = 15
+max_cyclomatic = 10
+max_nesting_depth = 4
+max_function_lines = 60
+detect_unsafe = true
+detect_error_handling = true
+allow_expect = false
+
+[duplicates]
+enabled = true
+
+[boilerplate]
+enabled = true
+
+[srp]
+enabled = true
+
+[coupling]
+enabled = true
+
+[structural]
+enabled = true
+
+[test_quality]
+enabled = true
