@@ -14,6 +14,8 @@ pub const DELETE_RECORDING: &str = "DeleteRecording";
 pub const REPAIR_RECORDING: &str = "RepairRecording";
 /// Endpoint name for [`CancelRepair`](crate::LibraryRequest::CancelRepair).
 pub const CANCEL_REPAIR: &str = "CancelRepair";
+/// Endpoint name for the snapshot Command.
+pub const SNAPSHOT_RECORDING: &str = "SnapshotRecording";
 
 /// Inputs shared by rejection checks and [`allowed_operations`].
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -28,6 +30,8 @@ pub struct RecordingCommandContext<'a> {
     pub deleting: bool,
     /// Whether repair is in progress for this path.
     pub repairing: bool,
+    /// Whether a snapshot is in progress for this path.
+    pub snapshotting: bool,
     /// Whether the MCAP summary is present.
     pub indexed: bool,
     /// Modification time from the last scan (Unix seconds).
@@ -45,6 +49,9 @@ pub fn allowed_operations(context: &RecordingCommandContext<'_>) -> Vec<String> 
     if cancel_repair_rejection(context).is_none() {
         operations.push(CANCEL_REPAIR.into());
     }
+    if snapshot_recording_rejection(context).is_none() {
+        operations.push(SNAPSHOT_RECORDING.into());
+    }
     if delete_recording_rejection(context).is_none() {
         operations.push(DELETE_RECORDING.into());
     }
@@ -56,7 +63,7 @@ pub fn delete_recording_rejection(context: &RecordingCommandContext<'_>) -> Opti
     if !context.in_library {
         return Some("Recording not found.");
     }
-    if context.deleting || context.repairing {
+    if context.deleting || context.repairing || context.snapshotting {
         return Some("This recording is being processed.");
     }
     if context.active_recording_relative_path == Some(context.relative_path) {
@@ -72,6 +79,9 @@ pub fn repair_recording_rejection(context: &RecordingCommandContext<'_>) -> Opti
     }
     if context.repairing {
         return Some("This recording is already being repaired.");
+    }
+    if context.snapshotting {
+        return Some("This recording is being processed.");
     }
     if context.indexed {
         return Some("This recording already has an index.");
@@ -93,7 +103,78 @@ pub fn cancel_repair_rejection(context: &RecordingCommandContext<'_>) -> Option<
     None
 }
 
+/// Why snapshot is rejected, or `None` when it would apply.
+pub fn snapshot_recording_rejection(context: &RecordingCommandContext<'_>) -> Option<&'static str> {
+    if !context.in_library {
+        return Some("Recording not found.");
+    }
+    if context.snapshotting || context.repairing {
+        return Some("This recording is being processed.");
+    }
+    None
+}
+
 fn recently_written(modified_unix_seconds: i64, now: Now) -> bool {
     let modified = Duration::from_secs(modified_unix_seconds.max(0) as u64);
     now.wall.saturating_sub(modified) < RECENTLY_WRITTEN_DELAY
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const NOW: Now = Now {
+        wall: Duration::from_secs(20_000),
+        monotonic: Duration::ZERO,
+    };
+
+    fn context(relative_path: &str, in_library: bool) -> RecordingCommandContext<'_> {
+        RecordingCommandContext {
+            relative_path,
+            active_recording_relative_path: None,
+            in_library,
+            deleting: false,
+            repairing: false,
+            snapshotting: false,
+            indexed: false,
+            modified_unix_seconds: 1_000,
+            now: NOW,
+        }
+    }
+
+    #[test]
+    fn snapshot_rejects_missing_file() {
+        let context = context("missing.mcap", false);
+        assert_eq!(
+            snapshot_recording_rejection(&context),
+            Some("Recording not found.")
+        );
+    }
+
+    #[test]
+    fn snapshot_rejects_while_repair_runs() {
+        let mut context = context("live.mcap", true);
+        context.repairing = true;
+        assert_eq!(
+            snapshot_recording_rejection(&context),
+            Some("This recording is being processed.")
+        );
+    }
+
+    #[test]
+    fn snapshot_allowed_for_active_recording_row() {
+        let mut context = context("live.mcap", true);
+        context.active_recording_relative_path = Some("live.mcap");
+        assert!(snapshot_recording_rejection(&context).is_none());
+    }
+
+    #[test]
+    fn delete_rejected_while_snapshot_runs() {
+        let mut context = context("live.mcap", true);
+        context.snapshotting = true;
+        assert_eq!(
+            delete_recording_rejection(&context),
+            Some("This recording is being processed.")
+        );
+    }
 }
