@@ -11,4 +11,7 @@ extend-exclude = [
     "deploy/**",
     "bootstrap/**",
     "docs/architecture/draft-1/**",
+    "**/idl/catalog/**",
+    "**/idl/src/generated/schema_catalog.rs",
+    "**/idl/typescript/catalog.ts",
 ]
