@@ -1,12 +1,14 @@
 //! Early failures are visible on the console and replay on the `log` key after attach.
 
-use std::{sync::Arc, time::Duration};
+use core::time::Duration;
+use std::sync::Arc;
+
+use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
 use blueos_api::log_key;
 use blueos_comms::{CommsBackend, channel::ChannelBackend};
 use blueos_idl::{Message, msg::foxglove_msgs::Log};
 use blueos_logging::{attach, init_with_writer};
-use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
 #[tokio::test(start_paused = true)]
 async fn failure_before_session_appears_on_console_and_log_key() {

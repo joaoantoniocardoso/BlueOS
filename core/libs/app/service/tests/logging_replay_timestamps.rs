@@ -1,18 +1,17 @@
 //! Buffered records keep the timestamp from when they were created.
 
-use std::{
-    sync::{
-        Arc,
-        atomic::{AtomicUsize, Ordering},
-    },
-    time::{Duration, SystemTime},
+use core::{
+    sync::atomic::{AtomicUsize, Ordering},
+    time::Duration,
 };
+use std::{sync::Arc, time::SystemTime};
+
+use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
 use blueos_api::log_key;
 use blueos_comms::{CommsBackend, channel::ChannelBackend};
 use blueos_idl::{Message, msg::foxglove_msgs::Log};
 use blueos_logging::{attach, init, set_time_source};
-use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
 static TIME_STEP: AtomicUsize = AtomicUsize::new(0);
 
