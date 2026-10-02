@@ -4,6 +4,7 @@ blueos/v1/example/state/pump 1 request=;response=blueos_example_msgs/msg/PumpSta
 blueos/v1/recorder/command/CancelRepair 1 request=blueos_recorder_msgs/msg/CancelRepairCommand;response=blueos_msgs/msg/CommandAck
 blueos/v1/recorder/command/DeleteRecording 1 request=blueos_recorder_msgs/msg/DeleteRecordingCommand;response=blueos_msgs/msg/CommandAck
 blueos/v1/recorder/command/RepairRecording 1 request=blueos_recorder_msgs/msg/RepairRecordingCommand;response=blueos_msgs/msg/CommandAck
+blueos/v1/recorder/command/SnapshotRecording 1 request=blueos_recorder_msgs/msg/SnapshotRecordingCommand;response=blueos_msgs/msg/CommandAck
 blueos/v1/recorder/command/Start 1 request=blueos_recorder_msgs/msg/StartRecordingCommand;response=blueos_msgs/msg/CommandAck
 blueos/v1/recorder/command/Stop 1 request=blueos_recorder_msgs/msg/StopRecordingCommand;response=blueos_msgs/msg/CommandAck
 blueos/v1/recorder/event/operation 1 request=;response=blueos_recorder_msgs/msg/RecordingOperation

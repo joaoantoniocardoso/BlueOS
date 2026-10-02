@@ -10,10 +10,13 @@ use std::{fs, path::Path, path::PathBuf, sync::Arc};
 
 use tokio::time::{advance, timeout};
 
+use bytes::Bytes;
+
 use blueos_api::{Message, cdr_encoding, command_key, query_key, state_key};
-use blueos_comms::{CommsBackend, QueryBody, ReplyError};
-use blueos_idl::msg::blueos_recorder_msgs::{
-    RecordingState, StartRecordingCommand, StopRecordingCommand,
+use blueos_comms::{CommsBackend, Payload, QueryBody, ReplyError, Sample};
+use blueos_idl::msg::{
+    blueos_example_msgs::PumpState,
+    blueos_recorder_msgs::{RecordingState, StartRecordingCommand, StopRecordingCommand},
 };
 use blueos_recorder_app::{
     IndexQuerySetup, RecorderArguments, RecorderService, build_with_record_gate_and_index,
@@ -95,6 +98,18 @@ pub(crate) async fn start_recorder_test_harness(
         backend,
         kernel: kernel_tasks,
     }
+}
+
+pub(crate) async fn publish_pump_state(backend: &Arc<dyn CommsBackend>) {
+    let message = PumpState::default();
+    backend
+        .publish(Sample::new(
+            "blueos/v1/example/state/pump",
+            Payload::new(Bytes::from(message.encode().expect("encode"))),
+            cdr_encoding(PumpState::SCHEMA_NAME),
+        ))
+        .await
+        .expect("publish");
 }
 
 pub(crate) async fn start_recording(harness: &Harness<RecorderService>) {
