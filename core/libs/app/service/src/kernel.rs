@@ -11,19 +11,21 @@ use tokio::{
 use tracing::{error, warn};
 
 use blueos_api::{
-    CommandAck, JOB_ID_NONE, Message, cdr_encoding, command_key, event_key, state_key,
+    CommandAck, JOB_ID_NONE, Message, cdr_encoding, command_key, event_key, query_key, state_key,
 };
 use blueos_comms::{CommsBackend, CommsError, Query, Queryable, Sample};
 use blueos_domain::{Command, Domain, Now, Outcome};
 use blueos_idl::Error as IdlError;
 
 use crate::{
-    builder::{Decode, EventEndpoint, Refusal, ServiceBuilder, StateEndpoint},
+    builder::{Answer, Ask, Decode, EventEndpoint, Refusal, ServiceBuilder, StateEndpoint},
     service::ServiceError,
 };
 
 /// How many Commands wait in the Inbox before a sender has to wait.
 const INBOX_CAPACITY: usize = 256;
+/// The encoding of the reason in a Query's error reply.
+const REASON_ENCODING: &str = "text/plain";
 
 /// Runs one Domain: the only writer of its Snapshot, and the owner of everything that can be stopped (the Inbox
 /// and the endpoint adapters). Dropping it stops them.
@@ -42,10 +44,19 @@ pub struct Kernel<D: Domain> {
     endpoints: JoinSet<()>,
 }
 
-/// One Command in the Inbox, with the query to acknowledge once it is handled.
-struct Delivery<D: Domain> {
-    command: Command<D::Request, D::IoResult, D::Tick, D::ObservedFact>,
-    query: Query,
+/// What reaches the Domain through the Inbox, with the query to reply to once it is handled.
+enum Delivery<D: Domain> {
+    /// A Command, acknowledged once it is applied or rejected.
+    Command {
+        command: Command<D::Request, D::IoResult, D::Tick, D::ObservedFact>,
+        query: Query,
+    },
+    /// A Query endpoint's question, answered from the Snapshot between two Commands.
+    Query {
+        answer: Answer<D>,
+        encoding: String,
+        query: Query,
+    },
 }
 
 /// A State with its key and the last value the backbone accepted.
@@ -80,6 +91,26 @@ pub(crate) enum Rejection {
     Refused(Refusal),
 }
 
+/// Why a Query or an IO query got no answer. Its text is the reason in the error reply.
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum Unanswered {
+    /// The body is not the endpoint's request Message.
+    #[error("the Query does not decode: {0}")]
+    InvalidBody(IdlError),
+    /// The endpoint's conversion or IO code refused the request, with its own reason.
+    #[error("{0}")]
+    Refused(Refusal),
+    /// The Domain answered with a Response that the endpoint does not publish.
+    #[error("the Domain's Response does not belong to this Query")]
+    OtherResponse,
+    /// The answer panicked.
+    #[error("the Query panicked")]
+    Panicked,
+    /// The reply does not encode.
+    #[error("the reply does not encode: {0}")]
+    Encode(IdlError),
+}
+
 /// Why a State, an Event or an ack did not reach the backbone.
 #[derive(Debug, thiserror::Error)]
 enum SendError {
@@ -109,6 +140,15 @@ impl<D: Domain> Kernel<D> {
             endpoints.spawn(serve_command(
                 queryable,
                 command.decode,
+                mpsc::Sender::clone(&inbox_sender),
+            ));
+        }
+        for endpoint in builder.queries {
+            let queryable = declare(&*backend, query_key(service, &endpoint.name)).await?;
+            endpoints.spawn(serve_query(
+                queryable,
+                endpoint.ask,
+                endpoint.encoding,
                 mpsc::Sender::clone(&inbox_sender),
             ));
         }
@@ -148,17 +188,33 @@ impl<D: Domain> Kernel<D> {
         Ok(kernel)
     }
 
-    /// Handles the Commands in the Inbox one at a time, until every endpoint has stopped.
+    /// Handles the Commands and Queries in the Inbox one at a time, until every endpoint has stopped.
     pub async fn run(mut self) {
         while let Some(delivery) = self.inbox.recv().await {
-            self.dispatch(delivery).await;
+            match delivery {
+                Delivery::Command { command, query } => self.dispatch(command, query).await,
+                Delivery::Query {
+                    answer,
+                    encoding,
+                    query,
+                } => {
+                    let now = self.clock.now();
+                    let snapshot = &self.snapshot;
+                    let answered = panic::catch_unwind(AssertUnwindSafe(|| answer(snapshot, now)))
+                        .unwrap_or(Err(Unanswered::Panicked));
+                    reply(query, answered, encoding).await;
+                }
+            }
         }
     }
 
     /// Applies one Command as a transaction: if the Domain rejects it, or `handle` or a Projection panics, the
     /// Snapshot is restored from a clone taken first and the domain events are dropped.
-    async fn dispatch(&mut self, delivery: Delivery<D>) {
-        let Delivery { command, query } = delivery;
+    async fn dispatch(
+        &mut self,
+        command: Command<D::Request, D::IoResult, D::Tick, D::ObservedFact>,
+        query: Query,
+    ) {
         let now = self.clock.now();
         let backup = self.snapshot.clone();
         let snapshot = &mut self.snapshot;
@@ -251,7 +307,7 @@ async fn serve_command<D: Domain>(
         let request = decode(&body.unwrap_or_default());
         match request {
             Ok(request) => {
-                let delivery = Delivery {
+                let delivery = Delivery::Command {
                     command: Command::Request(request),
                     query,
                 };
@@ -259,6 +315,30 @@ async fn serve_command<D: Domain>(
                 drop(inbox.send(delivery).await);
             }
             Err(rejection) => acknowledge(query, Err(rejection)).await,
+        }
+    }
+}
+
+/// Decodes each Query outside the Inbox loop, so the loop only answers it.
+async fn serve_query<D: Domain>(
+    mut queryable: Queryable,
+    ask: Ask<D>,
+    encoding: String,
+    inbox: mpsc::Sender<Delivery<D>>,
+) {
+    while let Some(query) = queryable.recv().await {
+        let body = query.body().map(|body| body.payload().to_bytes());
+        match ask(&body.unwrap_or_default()) {
+            Ok(answer) => {
+                let delivery = Delivery::Query {
+                    answer,
+                    encoding: encoding.clone(),
+                    query,
+                };
+                // A closed Inbox means the Kernel stopped; dropping the query tells the client.
+                drop(inbox.send(delivery).await);
+            }
+            Err(unanswered) => reply(query, Err(unanswered), encoding.clone()).await,
         }
     }
 }
@@ -300,6 +380,19 @@ async fn acknowledge(query: Query, verdict: Result<(), Rejection>) {
     }
     .await;
     warn_on_failure("CommandAck", &key, sent);
+}
+
+/// Replies to a Query with its answer, or with the reason it has none.
+async fn reply(query: Query, answered: Result<Vec<u8>, Unanswered>, encoding: String) {
+    let key = query.key_expression().to_owned();
+    let sent = match answered {
+        Ok(payload) => query.reply(payload, encoding).await,
+        Err(unanswered) => {
+            let reason = unanswered.to_string().into_bytes();
+            query.reply_error(reason, REASON_ENCODING).await
+        }
+    };
+    warn_on_failure("Query", &key, sent.map_err(SendError::from));
 }
 
 /// A failed publish or reply is logged and never stops the Inbox loop.

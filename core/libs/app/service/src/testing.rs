@@ -8,8 +8,8 @@ use std::sync::Arc;
 
 use tokio::{task::JoinSet, time::Instant};
 
-use blueos_api::{CommandAck, Message, cdr_encoding, command_key, state_key};
-use blueos_comms::{CommsBackend, QueryBody, channel::ChannelBackend};
+use blueos_api::{CommandAck, Message, cdr_encoding, command_key, query_key, state_key};
+use blueos_comms::{CommsBackend, QueryBody, ReplyError, channel::ChannelBackend};
 use blueos_domain::Now;
 
 use crate::{Clock, Kernel, Service, ServiceContext, ServiceError};
@@ -113,6 +113,34 @@ impl<S: Service> Harness<S> {
             panic!("expected one ack from {command:?}, got {replies:?}");
         };
         CommandAck::decode(&reply.payload().to_bytes()).expect("the reply is a CommandAck")
+    }
+
+    /// Sends `request` to the Query or IO query endpoint `query`, as a client would, and returns the answer, or the
+    /// error reply.
+    ///
+    /// # Panics
+    ///
+    /// When the Service does not reply exactly once, or replies with something other than an `R`.
+    pub async fn query<Q: Message, R: Message>(
+        &self,
+        query: &str,
+        request: &Q,
+    ) -> Result<R, ReplyError> {
+        let body = QueryBody::new(
+            request.encode().expect("the request encodes"),
+            cdr_encoding(Q::SCHEMA_NAME),
+        );
+        let replies = self
+            .backend
+            .get(&query_key(S::NAME, query), Some(body), REPLY_TIMEOUT)
+            .await
+            .expect("the query key is valid");
+        let [reply] = replies.as_slice() else {
+            panic!("expected one reply from {query:?}, got {replies:?}");
+        };
+        reply
+            .clone()
+            .map(|sample| R::decode(&sample.payload().to_bytes()).expect("the reply is an R"))
     }
 
     /// Reads the State `state`, as a late client would.

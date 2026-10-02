@@ -1,12 +1,13 @@
 //! What a Service's `build` declares: the initial Snapshot and how the Domain meets the backbone.
 
 use core::error::Error;
+use std::sync::Arc;
 
 use blueos_api::{Message, cdr_encoding};
-use blueos_domain::Domain;
+use blueos_domain::{Domain, DomainQueries, Now};
 use blueos_idl::Error as IdlError;
 
-use crate::kernel::Rejection;
+use crate::kernel::{Rejection, Unanswered};
 
 /// Decodes a Request body into the Domain's Request.
 pub(crate) type Decode<D> = Box<dyn Fn(&[u8]) -> Result<<D as Domain>::Request, Rejection> + Send>;
@@ -19,6 +20,13 @@ pub(crate) type Project<D> =
 pub(crate) type Select<D> =
     Box<dyn Fn(&<D as Domain>::Event) -> Option<Result<Vec<u8>, IdlError>> + Send + Sync>;
 
+/// Decodes a Query body into the question the Inbox loop asks the Domain.
+pub(crate) type Ask<D> = Box<dyn Fn(&[u8]) -> Result<Answer<D>, Unanswered> + Send>;
+
+/// Answers one decoded Query from the Snapshot with the encoded reply.
+pub(crate) type Answer<D> =
+    Box<dyn FnOnce(&<D as Domain>::Snapshot, Now) -> Result<Vec<u8>, Unanswered> + Send>;
+
 /// Why an endpoint conversion or an IO query refused what a client sent. Its text is the reason the client gets.
 pub type Refusal = Box<dyn Error + Send + Sync>;
 
@@ -28,6 +36,7 @@ pub type Refusal = Box<dyn Error + Send + Sync>;
 pub struct ServiceBuilder<D: Domain> {
     pub(crate) snapshot: D::Snapshot,
     pub(crate) commands: Vec<CommandEndpoint<D>>,
+    pub(crate) queries: Vec<QueryEndpoint<D>>,
     pub(crate) states: Vec<StateEndpoint<D>>,
     pub(crate) events: Vec<EventEndpoint<D>>,
 }
@@ -36,6 +45,13 @@ pub struct ServiceBuilder<D: Domain> {
 pub(crate) struct CommandEndpoint<D: Domain> {
     pub(crate) name: String,
     pub(crate) decode: Decode<D>,
+}
+
+/// A Query endpoint: a query on `blueos/v1/<service>/query/<name>`, answered from the Snapshot by the Inbox loop.
+pub(crate) struct QueryEndpoint<D: Domain> {
+    pub(crate) name: String,
+    pub(crate) encoding: String,
+    pub(crate) ask: Ask<D>,
 }
 
 /// A State: published on `blueos/v1/<service>/state/<name>` when it changes, and readable there at any time.
@@ -58,6 +74,7 @@ impl<D: Domain> ServiceBuilder<D> {
         Self {
             snapshot,
             commands: Vec::new(),
+            queries: Vec::new(),
             states: Vec::new(),
             events: Vec::new(),
         }
@@ -109,6 +126,37 @@ impl<D: Domain> ServiceBuilder<D> {
             name: name.to_owned(),
             encoding: cdr_encoding(M::SCHEMA_NAME),
             select: Box::new(move |event| select(event).map(|message| message.encode())),
+        });
+        self
+    }
+}
+
+impl<D: DomainQueries> ServiceBuilder<D> {
+    /// Adds the Query endpoint `name`. Its body is a `Q`, which `into_query` turns into the Domain's Query; the
+    /// Inbox loop answers it between two Commands, and `into_message` turns the Domain's Response into the reply.
+    /// `into_message` returns `None` for a Response that does not belong to this endpoint. A body that does not
+    /// decode, a refusal, a `None` or a panic is replied as an error with its reason.
+    pub fn query<Q: Message + 'static, R: Message + 'static>(
+        mut self,
+        name: &str,
+        into_query: impl Fn(Q) -> Result<D::Query, Refusal> + Send + 'static,
+        into_message: impl Fn(D::Response) -> Option<R> + Send + Sync + 'static,
+    ) -> Self {
+        let into_message = Arc::new(into_message);
+        self.queries.push(QueryEndpoint {
+            name: name.to_owned(),
+            encoding: cdr_encoding(R::SCHEMA_NAME),
+            ask: Box::new(move |body| {
+                let question = into_query(Q::decode(body).map_err(Unanswered::InvalidBody)?)
+                    .map_err(Unanswered::Refused)?;
+                let into_message = Arc::clone(&into_message);
+                Ok(Box::new(move |snapshot, now| {
+                    into_message(D::query(snapshot, question, now))
+                        .ok_or(Unanswered::OtherResponse)?
+                        .encode()
+                        .map_err(Unanswered::Encode)
+                }))
+            }),
         });
         self
     }
