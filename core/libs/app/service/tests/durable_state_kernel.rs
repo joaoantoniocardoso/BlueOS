@@ -250,17 +250,21 @@ fn durable_value(folder: &Path) -> Option<u32> {
 }
 
 async fn wait_for_durable_value(folder: &Path, expected: u32) {
-    for _ in 0..50 {
-        if durable_value(folder) == Some(expected) {
-            return;
+    let folder = folder.to_path_buf();
+    tokio::task::spawn_blocking(move || {
+        for _ in 0..200 {
+            if durable_value(&folder) == Some(expected) {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(10));
         }
-        time::advance(Duration::from_millis(10)).await;
-        tokio::task::yield_now().await;
-    }
-    panic!(
-        "expected durable value {expected}, got {:?}",
-        durable_value(folder)
-    );
+        panic!(
+            "expected durable value {expected}, got {:?}",
+            durable_value(&folder)
+        );
+    })
+    .await
+    .expect("durable value wait");
 }
 
 async fn start_vault_kernel(

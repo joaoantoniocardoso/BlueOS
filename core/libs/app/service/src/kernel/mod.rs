@@ -729,13 +729,6 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 if let Some(log) = &self.effect_log {
                     lock_unpoisoned(log).push(effects.clone());
                 }
-                if let Some(durable) = &self.durable
-                    && (durable.changed)(&backup, &self.snapshot)
-                {
-                    durable
-                        .persister
-                        .queue_document((durable.serialize)(&self.snapshot));
-                }
                 if persist_settings && let Some(settings) = &self.settings {
                     let persist_result = lock_unpoisoned(&settings.driver).persist(&self.snapshot);
                     match persist_result {
@@ -749,6 +742,13 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                             return None;
                         }
                     }
+                }
+                if let Some(durable) = &self.durable
+                    && (durable.changed)(&backup, &self.snapshot)
+                {
+                    durable
+                        .persister
+                        .queue_document((durable.serialize)(&self.snapshot));
                 }
                 self.publish_states(encoded_states).await;
                 self.publish_settings().await;
