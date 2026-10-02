@@ -1,8 +1,8 @@
 //! Versioned durable state JSON next to the settings document (D-28).
 
+use core::num::NonZeroU32;
 use std::{
     fs,
-    num::NonZeroU32,
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };

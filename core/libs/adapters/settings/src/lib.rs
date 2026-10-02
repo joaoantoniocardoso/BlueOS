@@ -4,6 +4,11 @@
 //! saves match `commonwealth.settings` so a Rust service can replace a Python one without touching
 //! user data.
 
+#![expect(
+    clippy::pub_use,
+    reason = "the crate root exposes its own modules as one flat API"
+)]
+
 mod error;
 mod manager;
 mod restart;
