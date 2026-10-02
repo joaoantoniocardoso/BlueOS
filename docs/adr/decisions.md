@@ -206,7 +206,8 @@ Decision:
   Command endpoints, IO results, Ticks, and Observed facts sent by Tasks through `CommandSender` (D-27).
 - **Every Command is a transaction.** The Kernel clones the DomainState before `handle`. If `handle` or a
   Projection panics, or an Effect fails synchronously, the Kernel restores the clone, drops the domain events,
-  and rejects the ack. Large, rarely changed parts of a Snapshot go behind `Arc` so the clone stays cheap.
+  and rejects the ack. A rejection by the Domain also restores the clone, so a rejected Command never changes the
+  Snapshot. Large, rarely changed parts of a Snapshot go behind `Arc` so the clone stays cheap.
 - Order after a successful `handle`: run the synchronous part of the Effects, update the Projections and publish
   the States, send the ack, then publish the Events. A client that reads a State right after the ack sees the new
   value.
