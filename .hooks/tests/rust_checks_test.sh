@@ -33,6 +33,20 @@ assert_clean_metadata() {
     fi
 }
 
+assert_style_drift() {
+    local label="$1"
+    local repository_dir="$2"
+    local pattern="$3"
+    local output
+    if output=$(check_rust_style_copies "$repository_dir" 2>&1); then
+        fail "$label: expected the Rust checklist drift check to fail"
+    fi
+    if ! grep -q "$pattern" <<<"$output"; then
+        printf 'rust_checks_test: %s: expected pattern %q in:\n%s\n' "$label" "$pattern" "$output" >&2
+        exit 1
+    fi
+}
+
 test_crate_place() {
     local unit folder
     read -r unit folder <<<"$(crate_place "$ROOT_DIR/core/libs/logic/smoke")"
@@ -239,6 +253,36 @@ test_deny_licenses_rejects_unlisted_license() {
     rm -rf "$temporary"
 }
 
+test_style_copies_accept_repository() {
+    check_rust_style_copies "$ROOT_DIR" || fail "repository checklist copies should match rust-style.md"
+}
+
+test_style_copies_reject_drifting_agents_md() {
+    local temporary
+    temporary=$(mktemp -d)
+    mkdir -p "$temporary/docs/architecture" "$temporary/.cursor/rules"
+    cp "$ROOT_DIR/docs/architecture/rust-style.md" "$temporary/docs/architecture/"
+    cp "$ROOT_DIR/AGENTS.md" "$temporary/"
+    cp "$ROOT_DIR/.cursor/rules/rust-blueos.mdc" "$temporary/.cursor/rules/"
+    sed -i '/<!-- rust-style:begin -->/,/<!-- rust-style:end -->/s/Write the test first/Write the test second/' \
+        "$temporary/AGENTS.md"
+    assert_style_drift "agents.md drift" "$temporary" 'AGENTS.md'
+    rm -rf "$temporary"
+}
+
+test_style_copies_reject_drifting_cursor_rule() {
+    local temporary
+    temporary=$(mktemp -d)
+    mkdir -p "$temporary/docs/architecture" "$temporary/.cursor/rules"
+    cp "$ROOT_DIR/docs/architecture/rust-style.md" "$temporary/docs/architecture/"
+    cp "$ROOT_DIR/AGENTS.md" "$temporary/"
+    cp "$ROOT_DIR/.cursor/rules/rust-blueos.mdc" "$temporary/.cursor/rules/"
+    sed -i '/<!-- rust-style:begin -->/,/<!-- rust-style:end -->/s/Write the test first/Write the test second/' \
+        "$temporary/.cursor/rules/rust-blueos.mdc"
+    assert_style_drift "cursor rule drift" "$temporary" '.cursor/rules/rust-blueos.mdc'
+    rm -rf "$temporary"
+}
+
 test_deny_bans_direct_zenoh() {
     local temporary
     temporary=$(mktemp -d)
@@ -261,6 +305,9 @@ EOF
 
 main() {
     test_crate_place
+    test_style_copies_accept_repository
+    test_style_copies_reject_drifting_agents_md
+    test_style_copies_reject_drifting_cursor_rule
     test_folder_rejects_logic_depending_on_adapter
     test_folder_rejects_cross_service_dependency
     test_workspace_metadata_is_clean
