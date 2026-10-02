@@ -869,7 +869,7 @@ nothing but settings.
 
 Decision:
 
-- A Domain opts in by marking one part of its Snapshot as **durable state**; its Jobs are persisted with it.
+- A Domain opts in with [`DomainDurable`](../../core/libs/logic/domain/src/lib.rs): a dedicated `DurableState` type and accessors, separate from observed facts and re-derivable Snapshot fields. Its Jobs are persisted with it when the Service chains `durable_state_with_jobs`.
   Observed facts, live data and anything that can be re-derived are never persisted.
 - The durable part derives `serde` directly in the logic crate (`default-features = false`, `alloc`), because it
   has no external compatibility to keep.
@@ -879,9 +879,10 @@ Decision:
   same atomic write as settings (D-11). The ack does not wait for it.
 - An unreadable file, or one with another version, is logged, moved aside, and replaced by a fresh state. There
   are no migrations: it is recoverable state, not user configuration.
-- On restore, timers and in-flight IO are gone. The Kernel marks every Running Job leaf Interrupted, then
-  delivers one "restored" Tick, so the Domain re-arms its timers and decides, per flow, whether to retry or fail.
-  The Kernel never re-runs IO by itself, because IO is not idempotent.
+- On restore, timers and in-flight IO are gone. The Kernel marks every Running or Cancelling Job leaf
+  [`Interrupted`](../../core/libs/logic/jobs/src/lib.rs) (`STATUS_INTERRUPTED` on the wire), then delivers one
+  "restored" Tick from `DomainDurable::restored_tick`, so the Domain re-arms its timers and decides, per flow,
+  whether to retry or fail. The Kernel never re-runs IO by itself, because IO is not idempotent.
 
 ## D-29 Panics and recovery
 

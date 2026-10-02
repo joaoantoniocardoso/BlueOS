@@ -13,6 +13,7 @@ export const JobStatusStatus = {
   Cancelled: 5,
   Cancelling: 2,
   Failed: 4,
+  Interrupted: 6,
   Queued: 0,
   Running: 1,
   Succeeded: 3,

@@ -102,10 +102,21 @@ impl<S: Service> Harness<S> {
     pub async fn start_recording_effects(
         arguments: S::Arguments,
     ) -> Result<(Self, EffectLog<S::Domain>), ServiceError> {
+        Self::start_recording_effects_with_context(ServiceContext::new(arguments)).await
+    }
+
+    /// Like [`Self::start_recording_effects`], with a fully built [`ServiceContext`].
+    ///
+    /// # Errors
+    ///
+    /// The [`ServiceError`] that `build` or the Kernel's startup returned.
+    pub async fn start_recording_effects_with_context(
+        context: ServiceContext<S::Arguments>,
+    ) -> Result<(Self, EffectLog<S::Domain>), ServiceError> {
         let log = EffectLog(Arc::new(Mutex::new(Vec::new())));
         let harness = Self::start_on_with_effect_log(
             Arc::new(ChannelBackend::default()),
-            ServiceContext::new(arguments),
+            context,
             Some(Arc::clone(&log.0)),
         )
         .await?;

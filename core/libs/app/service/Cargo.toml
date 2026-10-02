@@ -17,13 +17,14 @@ blueos-comms.workspace = true
 blueos-comms-zenoh.workspace = true
 blueos-domain.workspace = true
 blueos-idl.workspace = true
-blueos-jobs.workspace = true
+blueos-jobs = { workspace = true, features = ["serde"] }
 blueos-logging.workspace = true
 blueos-settings.workspace = true
 backon.workspace = true
 bytes.workspace = true
 clap = { workspace = true, features = ["derive", "env", "std"] }
 futures-util = { workspace = true, features = ["std"] }
+serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["macros", "rt", "rt-multi-thread", "signal", "sync", "time"] }
@@ -43,6 +44,7 @@ serde_json.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["macros", "rt", "test-util"] }
 tracing-subscriber.workspace = true
+tempfile = "3"
 
 [lints]
 workspace = true

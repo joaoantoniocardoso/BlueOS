@@ -38,7 +38,7 @@ impl CdrStruct for JobList {
     }
 }
 impl Message for JobList {
-    const SCHEMA: &'static str = "# blueos_msgs/msg/JobList\n# Snapshot published on blueos/v1/<service>/jobs.\n\nblueos_msgs/JobStatus[] jobs\n================================================================================\nMSG: blueos_msgs/JobStatus\n# blueos_msgs/msg/JobStatus\n# One job entry; status values mirror blueos_jobs (D-12).\n\nuint8 STATUS_QUEUED=0\nuint8 STATUS_RUNNING=1\nuint8 STATUS_CANCELLING=2\nuint8 STATUS_SUCCEEDED=3\nuint8 STATUS_FAILED=4\nuint8 STATUS_CANCELLED=5\n\nuint64 job_id\nuint64 parent_job_id\nuint8 status\nstring name";
+    const SCHEMA: &'static str = "# blueos_msgs/msg/JobList\n# Snapshot published on blueos/v1/<service>/jobs.\n\nblueos_msgs/JobStatus[] jobs\n================================================================================\nMSG: blueos_msgs/JobStatus\n# blueos_msgs/msg/JobStatus\n# One job entry; status values mirror blueos_jobs (D-12).\n\nuint8 STATUS_QUEUED=0\nuint8 STATUS_RUNNING=1\nuint8 STATUS_CANCELLING=2\nuint8 STATUS_SUCCEEDED=3\nuint8 STATUS_FAILED=4\nuint8 STATUS_CANCELLED=5\nuint8 STATUS_INTERRUPTED=6\n\nuint64 job_id\nuint64 parent_job_id\nuint8 status\nstring name";
     const SCHEMA_NAME: &'static str = "blueos_msgs/msg/JobList";
     const TYPE_HASH: &'static str =
         "d98875249e005b9cb94c99cb57b5b6c60cfd364bcbc3935493bcec3accd11f1e";

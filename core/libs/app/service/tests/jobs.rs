@@ -160,6 +160,10 @@ impl DomainJobs for Brewer {
     fn jobs(snapshot: &BrewerSnapshot) -> &Jobs<Step> {
         &snapshot.jobs
     }
+
+    fn jobs_mut(snapshot: &mut BrewerSnapshot) -> &mut Jobs<Step> {
+        &mut snapshot.jobs
+    }
 }
 
 impl Display for Step {

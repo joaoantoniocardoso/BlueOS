@@ -283,6 +283,7 @@ name = "blueos-jobs"
 version = "0.1.0"
 dependencies = [
  "blueos-domain",
+ "serde",
  "thiserror",
 ]
 
@@ -410,6 +411,7 @@ dependencies = [
  "futures-util",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror",
  "tokio",
  "tokio-util",
@@ -424,6 +426,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+ "tracing",
 ]
 
 [[package]]
