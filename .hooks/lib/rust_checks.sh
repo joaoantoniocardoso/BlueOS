@@ -5,7 +5,7 @@
 RUST_NO_STD_TARGET=thumbv7em-none-eabihf
 RUST_WASM32_TARGET=wasm32-unknown-unknown
 # Features of test-only backends: enabled in [dev-dependencies] only, so they never reach a shipped binary (D-02).
-RUST_TEST_ONLY_FEATURES=(blueos-comms/channel)
+RUST_TEST_ONLY_FEATURES=(blueos-comms/channel blueos-service/testing)
 
 # Prints "<unit> <folder>" for a crate directory: "libs logic" for libs/logic/jobs, "calibration app" for
 # services/calibration/app, "multicall app" for core/app/blueos.
