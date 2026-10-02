@@ -1,8 +1,3 @@
-"""Runtime ROS 2 `.msg` parsing and CDR codec for the versioned BlueOS zenoh API (D-06, D-17).
-
-Key helpers mirror `core/libs/api/src/lib.rs` (single source of truth for key layout).
-"""
-
 from __future__ import annotations
 
 import logging
@@ -13,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
+# The keys and encodings must match `core/libs/api`, the source of truth; the shared `keys.json` vectors check it.
 API_VERSION = "v1"
 KEY_PREFIX = "blueos/v1"
 
@@ -355,6 +351,9 @@ class CdrReader:
     def is_exhausted(self) -> bool:
         return self._position >= len(self._buffer)
 
+    def remaining_bytes(self) -> int:
+        return len(self._buffer) - self._position
+
     def _align(self, alignment: int) -> None:
         offset = self._position % alignment
         if offset == 0:
@@ -545,6 +544,8 @@ def _decode_field(reader: CdrReader, field_type: FieldType) -> Any:
         if reader.is_exhausted():
             return []
         count = reader.read_u32()
+        if count > reader.remaining_bytes():
+            raise IdlCodecError("CDR sequence length exceeds the remaining payload")
         assert field_type.element is not None
         return [_decode_field_value(reader, field_type.element) for _ in range(count)]
 

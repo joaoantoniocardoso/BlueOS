@@ -5,7 +5,7 @@ import { JOB_ID_NONE, query, sendCommand } from '@/libs/blueos-api/command'
 import { updateSettingsCommand } from '@/libs/blueos-api/endpoints'
 import { NoReplyError, QueryFailedError, UnexpectedEncodingError } from '@/libs/blueos-api/errors'
 import { cdrEncoding, commandKey } from '@/libs/blueos-api/keys'
-import { Drain, Level, SetLevel } from '@/libs/blueos-api/services/tank'
+import { Level, SetLevel } from '@/libs/blueos-api/services/example'
 import type { Reply } from '@/libs/blueos-api/transport'
 import type { MessageForSchema, SchemaName } from '@/libs/blueos-api/types'
 
@@ -33,11 +33,11 @@ describe('sendCommand', () => {
 
   it('returns a rejection as a CommandAck with its reason', async () => {
     const transport = new FakeTransport()
-    const rejection = { accepted: false, job_id: JOB_ID_NONE, reason: 'the tank is already empty' }
+    const rejection = { accepted: false, job_id: JOB_ID_NONE, reason: 'the level is above the maximum' }
 
-    const sending = sendCommand(transport, Drain, { padding: 0 })
+    const sending = sendCommand(transport, SetLevel, { level: 3 })
     const sent = await transport.nextQuery()
-    sent.reply(answer(Drain.key, 'blueos_msgs/msg/CommandAck', rejection))
+    sent.reply(answer(SetLevel.key, 'blueos_msgs/msg/CommandAck', rejection))
 
     expect(await sending).toEqual(rejection)
   })
@@ -58,21 +58,21 @@ describe('sendCommand', () => {
   it('fails with NoReplyError when no Service answers', async () => {
     const transport = new FakeTransport()
 
-    const sending = sendCommand(transport, Drain, { padding: 0 })
+    const sending = sendCommand(transport, SetLevel, { level: 3 })
     const sent = await transport.nextQuery()
     sent.reply()
 
-    await expect(sending).rejects.toEqual(new NoReplyError(Drain.key))
+    await expect(sending).rejects.toEqual(new NoReplyError(SetLevel.key))
   })
 
   it('fails with QueryFailedError when the queryable replies with an error', async () => {
     const transport = new FakeTransport()
 
-    const sending = sendCommand(transport, Drain, { padding: 0 })
+    const sending = sendCommand(transport, SetLevel, { level: 3 })
     const sent = await transport.nextQuery()
     sent.reply({ kind: 'error', payload: new TextEncoder().encode('inbox closed'), encoding: 'text/plain' })
 
-    await expect(sending).rejects.toEqual(new QueryFailedError(Drain.key, 'inbox closed'))
+    await expect(sending).rejects.toEqual(new QueryFailedError(SetLevel.key, 'inbox closed'))
   })
 })
 

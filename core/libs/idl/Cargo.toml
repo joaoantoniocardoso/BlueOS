@@ -20,8 +20,6 @@ include = [
 ]
 
 [features]
-default = ["std"]
-std = []
 catalog = []
 
 [lints]

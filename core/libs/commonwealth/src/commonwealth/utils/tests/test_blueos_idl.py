@@ -97,6 +97,18 @@ def test_cdr_vectors_match_python_codec() -> None:
             assert encode_hex(reencoded) == vector["hex"], vector["schema_name"]
 
 
+@pytest.mark.parametrize("hostile_sequence", ["capabilities", "endpoints"])
+def test_service_info_rejects_hostile_sequence_length(hostile_sequence: str) -> None:
+    writer = blueos_idl.CdrWriter()
+    for text in ("recorder", "1.0.0", "dev"):
+        writer.write_string(text)
+    if hostile_sequence == "endpoints":
+        writer.write_u32(0)
+    writer.write_u32(0xFFFF_FFFF)
+    with pytest.raises(blueos_idl.IdlCodecError):
+        blueos_idl.decode("blueos_msgs/msg/ServiceInfo", writer.finish_with_encapsulation())
+
+
 def test_image_idl_interfaces_root_matches_copy_libs() -> None:
     assert blueos_idl.IMAGE_IDL_INTERFACES_ROOT == Path("/home/pi/libs/idl/interfaces")
 

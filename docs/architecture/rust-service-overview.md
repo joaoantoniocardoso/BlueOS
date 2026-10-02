@@ -99,13 +99,13 @@ in `core/services/recorder/logic/capture/src/lib.rs` and reports `Observed fact`
 stay on the data plane; the Inbox sees only control Commands and Observed facts (control plane vs data plane in the
 Recorder Domain at `core/services/recorder/logic/recorder/src/lib.rs`).
 
-**IO query endpoints.** Answered outside the Snapshot, in IO code with the service Context. See `TankHandlers::probe`
-in `core/services/tank/app/src/handlers.rs` and `ServiceBuilder::io_query` in
+**IO query endpoints.** Answered outside the Snapshot, in IO code with the service Context. See `RecorderHandlers::index`
+in `core/services/recorder/app/src/handlers.rs` and `ServiceBuilder::io_query` in
 `core/libs/app/service/src/builder.rs` (D-04).
 
 **Custom endpoints.** Endpoints marked `custom = true` in the manifest get a handler trait method; the service maps
-Messages in `handlers.rs` (D-26). `SetLevel` on `example-minimal` is not custom; `tank` uses custom handlers for
-the same Message types.
+Messages in `handlers.rs` (D-26). `SetLevel` on `example-minimal` is not custom; the Recorder's `DeleteRecording`,
+`RepairRecording`, `CancelRepair` and `SnapshotRecording` are, in `core/services/recorder/app/src/handlers.rs`.
 
 ## Where it is in the code
 
@@ -140,9 +140,9 @@ Each row names the crate and module that implements the term on this branch. Pat
 | **Session** | `Arc<dyn CommsBackend>` alias in `command_sender.rs`; Zenoh in `blueos-comms-zenoh` (`libs/adapters/comms/zenoh/`) |
 | **Command endpoint** | `ServiceBuilder::command`, `serve_command` (`builder.rs`, `kernel/mod.rs`); manifest entry `SetLevel` in `services/example/app/endpoints.toml` |
 | **Query endpoint** | `ServiceBuilder::query`, `serve_query` (`kernel/mod.rs`); `Level` on example |
-| **IO query endpoint** | `ServiceBuilder::io_query`; `tank` `Probe` (`services/tank/app/src/handlers.rs`) |
+| **IO query endpoint** | `ServiceBuilder::io_query`; Recorder `index` (`services/recorder/app/src/handlers.rs`) |
 | **Endpoint manifest** | `app/endpoints.toml`; generator `blueos-idl-codegen` (`libs/idl/codegen/src/endpoints.rs`) |
-| **Custom endpoint** | Manifest `custom = true`; handler trait in generated `endpoints.rs`, impl in `services/tank/app/src/handlers.rs` |
+| **Custom endpoint** | Manifest `custom = true`; handler trait in generated `endpoints.rs`, impl in `services/recorder/app/src/handlers.rs` |
 | **State** | `ServiceBuilder::state`; published in `kernel/mod.rs`; example `pump` key in `endpoints.toml` |
-| **Event** | `ServiceBuilder::event`; `publish_events` in `kernel/mod.rs`; `tank` `Emptied` / `LevelChanged` |
+| **Event** | `ServiceBuilder::event`; `publish_events` in `kernel/mod.rs`; Recorder `operation` in `services/recorder/app/endpoints.toml` |
 | **Settings document** | Service schema in `logic/api`; file IO via `libs/adapters/settings/`; Kernel `settings.rs`. Recorder `services/recorder/app/src/settings.rs`. Not used by `example-minimal` |

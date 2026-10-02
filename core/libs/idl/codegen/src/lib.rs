@@ -21,17 +21,28 @@ use msg_ast::{Constant, ConstantValue, DataType, Field, FieldCase, Message};
 const SCHEMA_SEPARATOR: &str =
     "================================================================================\n";
 
+/// One `.msg` file under an interfaces folder, parsed, with what `api.lock` and the generated code need of it.
 #[derive(Clone, Debug)]
 pub struct MessageRecord {
+    /// Its schema name, `<package>/msg/<Name>`.
     pub schema_name: String,
+    /// Its `<package>/<Name>` name, without `msg`.
     pub dynamic_key: String,
+    /// The ROS 2 package it is in.
     pub package: String,
+    /// The Message name, without the package.
     pub name: String,
+    /// The `.msg` file it was parsed from.
     pub source_path: PathBuf,
+    /// The text of the `.msg` file.
     pub source: String,
+    /// Its fields in order, as `name:type` joined by `;`: what `api.lock` records.
     pub field_signature: String,
+    /// The SHA-256 of its schema name and field signature, in hex.
     pub type_hash: String,
+    /// The schema names of the Messages its fields use.
     pub dependencies: BTreeSet<String>,
+    /// Its fields and constants, that the Rust and TypeScript output is generated from.
     pub message: Message,
 }
 
@@ -123,6 +134,7 @@ pub fn generate_catalog_typescript(interfaces_root: &Path, typescript_dir: &Path
     write_catalog_typescript(&records, typescript_dir);
 }
 
+/// Every message under `interfaces_root`, sorted by schema name, for the `api.lock` tool and the `blueos-idl` tests.
 pub fn collect_messages_for_test(interfaces_root: &Path) -> Vec<MessageRecord> {
     collect_messages(interfaces_root)
 }
@@ -1032,6 +1044,8 @@ fn write_typescript(records: &BTreeMap<String, MessageRecord>, typescript_dir: &
     write_typescript_index(typescript_dir);
 }
 
+/// Writes `index.ts` in `typescript_dir`, exporting the generated constants and schemas, and the catalog when
+/// `catalog.ts` is there.
 pub fn write_typescript_index(typescript_dir: &Path) {
     let catalog_path = typescript_dir.join("catalog.ts");
     let catalog_export = if catalog_path.exists() {
@@ -1125,6 +1139,7 @@ fn write_catalog_typescript(records: &BTreeMap<String, MessageRecord>, typescrip
     .expect("write catalog.ts");
 }
 
+/// The SHA-256 of `field_signature`, in hex.
 pub fn field_signature_hash(field_signature: &str) -> String {
     hash_hex(field_signature)
 }
@@ -1160,6 +1175,8 @@ pub fn explain_lock_mismatch(
     )
 }
 
+/// Whether the field signature `current` keeps every field of `previous`, in order, and only adds fields at the end
+/// (D-06).
 pub fn is_append_only_evolution(previous: &str, current: &str) -> bool {
     if previous == current {
         return true;
@@ -1174,6 +1191,8 @@ pub fn is_append_only_evolution(previous: &str, current: &str) -> bool {
     suffix.is_empty() || suffix.starts_with(';')
 }
 
+/// Splits an `api.lock` line into its schema name or endpoint key, its major version and its signature, which is
+/// empty for a message without fields. `None` when the line has no major version.
 pub fn parse_lock_line(line: &str) -> Option<(String, u32, String)> {
     let mut parts = line.split_whitespace();
     let schema_name = parts.next()?.to_string();
@@ -1182,6 +1201,7 @@ pub fn parse_lock_line(line: &str) -> Option<(String, u32, String)> {
     Some((schema_name, major, field_signature))
 }
 
+/// The `api.lock` line of a schema name or endpoint key, the inverse of [`parse_lock_line`].
 pub fn format_lock_line(schema_name: &str, major: u32, field_signature: &str) -> String {
     if field_signature.is_empty() {
         format!("{schema_name} {major}")

@@ -7,7 +7,7 @@ use tokio::time::timeout;
 
 use serde::Deserialize;
 
-use blueos_api::{Message, status_state_key};
+use blueos_api::{Message, cdr_encoding, info_query_key, status_state_key};
 use blueos_comms::{CommsBackend, channel::ChannelBackend};
 use blueos_example_app::{cli::ExampleArguments, service::ExampleService};
 use blueos_example_domain::MAX_LEVEL;
@@ -121,6 +121,67 @@ fn manifest_endpoints_from_toml() -> BTreeMap<String, ManifestEndpoint> {
         );
     }
     expected
+}
+
+/// The `example` lines of `api.lock`: each endpoint key with its request and response schema names.
+fn locked_endpoints() -> BTreeMap<String, (String, String)> {
+    let prefix = format!("blueos/v1/{}/", ExampleService::NAME);
+    include_str!("../../../../libs/idl/api.lock")
+        .lines()
+        .filter_map(|line| {
+            let mut parts = line.split_whitespace();
+            let key = parts.next()?.strip_prefix(&prefix)?;
+            let (request, response) = parts
+                .nth(1)?
+                .strip_prefix("request=")?
+                .split_once(";response=")?;
+            Some((
+                format!("{prefix}{key}"),
+                (request.to_owned(), response.to_owned()),
+            ))
+        })
+        .collect()
+}
+
+#[tokio::test(start_paused = true)]
+async fn the_kernel_serves_the_keys_and_messages_of_api_lock() {
+    let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
+    let harness =
+        Harness::<ExampleService>::start_on(Arc::clone(&backend), ExampleArguments::default())
+            .await
+            .unwrap();
+    let locked = locked_endpoints();
+
+    for key in [
+        info_query_key(ExampleService::NAME),
+        status_state_key(ExampleService::NAME),
+    ] {
+        let (request_schema, response_schema) = locked
+            .get(&key)
+            .unwrap_or_else(|| panic!("api.lock must record {key}"));
+        let replies = backend
+            .get(&key, None, Duration::from_secs(10))
+            .await
+            .expect("the key is valid");
+        let [Ok(reply)] = replies.as_slice() else {
+            panic!("the Kernel must answer {key} once, got {replies:?}");
+        };
+        assert_eq!(request_schema, "", "{key}");
+        assert_eq!(reply.encoding(), cdr_encoding(response_schema), "{key}");
+    }
+
+    let info = harness
+        .query::<EmptyRequest, ServiceInfo>("info", &EmptyRequest::default())
+        .await
+        .expect("the info query answers");
+    for endpoint in info.endpoints {
+        assert_eq!(
+            locked.get(&endpoint.key),
+            Some(&(endpoint.request_schema, endpoint.response_schema)),
+            "api.lock must record {} with the Messages info reports",
+            endpoint.key
+        );
+    }
 }
 
 #[tokio::test(start_paused = true)]

@@ -7,7 +7,7 @@ use std::{
 };
 
 use blueos_idl_codegen::{
-    endpoints::{GeneratedFile, generate_all},
+    endpoints::{GeneratedFile, generate_all, stray_files},
     generate, generate_catalog, generate_catalog_outputs, message_schema_names,
 };
 
@@ -38,14 +38,22 @@ fn main() {
         });
 
     if check_endpoints {
-        let stale: Vec<GeneratedFile> = endpoint_files(&core_dir, &interfaces_root)
-            .into_iter()
+        let files = endpoint_files(&core_dir, &interfaces_root);
+        let stray = stray_files(&core_dir, &files).unwrap_or_else(|error| {
+            eprintln!("{error}");
+            std::process::exit(1);
+        });
+        let stale: Vec<&GeneratedFile> = files
+            .iter()
             .filter(|file| fs::read_to_string(&file.path).ok().as_ref() != Some(&file.contents))
             .collect();
         for file in &stale {
             eprintln!("{} differs from its endpoint manifest", file.path.display());
         }
-        if !stale.is_empty() {
+        for path in &stray {
+            eprintln!("{} has no endpoint manifest: delete it", path.display());
+        }
+        if !stale.is_empty() || !stray.is_empty() {
             std::process::exit(1);
         }
         return;

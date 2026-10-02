@@ -1,4 +1,4 @@
-//! Syn-based linter for BlueOS Rust style rules that `clippy` cannot enforce (D-30).
+//! Checks the BlueOS Rust style rules that `clippy` cannot enforce.
 
 mod allow_attributes;
 mod clone_before_spawn;
