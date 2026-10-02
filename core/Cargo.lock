@@ -283,7 +283,9 @@ dependencies = [
  "blueos-idl",
  "blueos-service",
  "clap",
+ "serde",
  "tokio",
+ "toml",
  "trybuild",
 ]
 
