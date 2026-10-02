@@ -1,4 +1,4 @@
-//! Sans-IO gate for ros2dds topics whose schema arrives after the first sample (D-24, D-15).
+//! Sans-IO gate for ros2dds topics whose schema arrives after the first sample.
 
 #![no_std]
 

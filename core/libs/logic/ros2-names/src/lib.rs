@@ -1,4 +1,4 @@
-//! Pure parsers for rmw_zenoh and zenoh-plugin-ros2dds Zenoh keys and liveliness tokens (D-24).
+//! Pure parsers for rmw_zenoh and zenoh-plugin-ros2dds Zenoh keys and liveliness tokens.
 
 #![no_std]
 
