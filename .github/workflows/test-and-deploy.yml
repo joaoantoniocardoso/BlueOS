@@ -182,8 +182,10 @@ jobs:
         run: |
           # shellcheck disable=SC1091
           source ../.github/lib/rust_report_only.sh
+          # shellcheck disable=SC1091
+          source shipped_features.sh
           report_section "cargo bloat" \
-            cargo bloat --release -p blueos --features recorder --crates -n 25
+            cargo bloat --release -p "$BLUEOS_SHIPPED_PACKAGE" --features "${BLUEOS_SHIPPED_FEATURES[*]}" --crates -n 25
           report_section "rustqual" \
             rustqual --no-fail --format github .
           report_section "thailint unwrap-abuse" \
