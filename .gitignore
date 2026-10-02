@@ -18,3 +18,6 @@ core/compose/workspace/
 
 # macOS filesystem tracking
 .DS_Store
+
+# Rust build output
+core/target/

@@ -78,7 +78,7 @@ collect_folder_violations() {
         case "$folder" in
             logic) package_args+=("$name") ;;
             idl) [[ $directory == */codegen ]] || idl_package_args+=("$name") ;;
-            adapters | app | api) ;;
+            adapters | app | api | tools) ;;
             *) violations+=("$name is not in logic/, adapters/, app/, idl/, or api/ under libs/ or services/<name>/") ;;
         esac
     done < <(jq -r '.packages[] | [.name, (.manifest_path | rtrimstr("/Cargo.toml"))] | @tsv' <<<"$metadata")
@@ -150,6 +150,9 @@ run_rust_lint_checks() {
 
         echo "Running cargo clippy.."
         cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+
+        echo "Running blueos rust style check.."
+        cargo run --locked -q -p blueos-rust-style-check -- "$workspace_dir"
 
         local metadata
         metadata=$(cargo metadata --format-version 1 --no-deps --locked)

@@ -1,7 +1,6 @@
 //! Regenerates committed `blueos-idl` Rust output from ROS 2 `.msg` sources.
 
-use std::env;
-use std::path::PathBuf;
+use std::{env, path::PathBuf};
 
 use blueos_idl_codegen::generate;
 

@@ -1,3 +1,3 @@
 # Item-kind ordering only: field and variant order is CDR wire order (D-06).
-source-item-ordering = ["enum", "impl", "module", "struct", "trait"]
+source-item-ordering = ["module"]
 module-items-ordered-within-groupings = "none"

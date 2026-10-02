@@ -1,7 +1,6 @@
 //! Zenoh encoding strings for IDL payloads.
 
-use alloc::format;
-use alloc::string::String;
+use alloc::{format, string::String};
 
 /// Base CDR media type without a schema suffix.
 pub const ENCODING_APPLICATION_CDR: &str = "application/cdr";

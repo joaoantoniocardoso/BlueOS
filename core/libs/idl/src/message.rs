@@ -2,8 +2,10 @@
 
 use alloc::vec::Vec;
 
-use crate::cdr::{Reader, Writer};
-use crate::error::Error;
+use crate::{
+    cdr::{Reader, Writer},
+    error::Error,
+};
 
 /// Encodes and decodes the field body of a ROS 2 message (without the CDR encapsulation header).
 pub trait CdrStruct: Sized {

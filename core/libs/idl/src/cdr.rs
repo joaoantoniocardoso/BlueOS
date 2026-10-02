@@ -1,12 +1,6 @@
 //! Little-endian CDR writers and readers for ROS 2 message payloads.
 
-#![expect(
-    clippy::arbitrary_source_item_ordering,
-    reason = "CDR helpers follow wire layout, not alphabetical order"
-)]
-
-use alloc::string::String;
-use alloc::vec::Vec;
+use alloc::{string::String, vec::Vec};
 
 use crate::error::Error;
 
@@ -17,16 +11,16 @@ pub struct Writer {
     buffer: Vec<u8>,
 }
 
-impl Default for Writer {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 /// Incremental CDR reader for message field bodies.
 pub struct Reader {
     buffer: Vec<u8>,
     position: usize,
+}
+
+impl Default for Writer {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Writer {

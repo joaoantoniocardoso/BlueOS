@@ -1,8 +1,10 @@
 //! Generates committed `blueos-idl` Rust from ROS 2 `.msg` sources (`roslibrust_codegen` + `prettyplease`).
 
-use std::collections::{BTreeMap, BTreeSet};
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fs,
+    path::{Path, PathBuf},
+};
 
 use convert_case::{Case, Casing};
 use proc_macro2::TokenStream;
@@ -218,15 +220,20 @@ fn write_rust_messages(records: &BTreeMap<String, MessageRecord>, out_dir: &Path
                 .fields()
                 .iter()
                 .any(|field| matches!(field.case(), FieldCase::Vector | FieldCase::Array(_)));
-            let mut alloc_imports = String::new();
+            let mut alloc_paths = Vec::new();
             if uses_string {
-                alloc_imports.push_str("use alloc::string::String;\n");
+                alloc_paths.push("string::String");
             }
             if uses_vec {
-                alloc_imports.push_str("use alloc::vec::Vec;\n");
+                alloc_paths.push("vec::Vec");
             }
+            let alloc_imports = if alloc_paths.is_empty() {
+                String::new()
+            } else {
+                format!("use alloc::{{{}}};\n\n", alloc_paths.join(", "))
+            };
             let file_contents = format!(
-                "// @generated\n#![allow(\n    missing_docs,\n    reason = \"generated from ROS .msg sources\",\n)]\nuse crate::{{cdr, error::Error, message::{{CdrStruct, Message}}}};\n{alloc_imports}{}\n",
+                "// @generated\n#![allow(\n    missing_docs,\n    reason = \"generated from ROS .msg sources\",\n)]\n{alloc_imports}use crate::{{cdr, error::Error, message::{{CdrStruct, Message}}}};\n{}\n",
                 tokens
             );
             write_formatted_rust_file(

@@ -2,8 +2,7 @@
 
 use std::path::PathBuf;
 
-use blueos_idl::Message;
-use blueos_idl::msg::blueos_msgs::CommandAck;
+use blueos_idl::{Message, msg::blueos_msgs::CommandAck};
 use blueos_idl_codegen::collect_messages_for_test;
 
 const ENCODING_APPLICATION_CDR: &str = "application/cdr";
