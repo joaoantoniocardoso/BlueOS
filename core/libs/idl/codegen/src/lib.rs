@@ -628,6 +628,37 @@ pub fn field_signature_hash(field_signature: &str) -> String {
     hash_hex(field_signature)
 }
 
+/// Message types referenced as a field or sequence element of another message (D-06).
+pub fn frozen_message_schemas(records: &[MessageRecord]) -> BTreeSet<String> {
+    records
+        .iter()
+        .flat_map(|record| record.dependencies.iter().cloned())
+        .collect()
+}
+
+/// When `locked_signature` and `current_signature` differ, returns why the lock cannot stay as-is.
+pub fn explain_lock_mismatch(
+    schema_name: &str,
+    major: u32,
+    locked_signature: &str,
+    current_signature: &str,
+    frozen: bool,
+) -> String {
+    if frozen {
+        return format!(
+            "{schema_name} is frozen (nested in another message); field signature cannot change (major {major})"
+        );
+    }
+    if is_append_only_evolution(locked_signature, current_signature) {
+        return format!(
+            "{schema_name} (major {major}) is append-only; refresh api.lock (cargo run -p blueos-idl-codegen --bin blueos-idl-print-lock)"
+        );
+    }
+    format!(
+        "{schema_name} (major {major}) breaking IDL change; bump major in api.lock and refresh the lock"
+    )
+}
+
 pub fn is_append_only_evolution(previous: &str, current: &str) -> bool {
     if previous == current {
         return true;
@@ -646,17 +677,16 @@ pub fn parse_lock_line(line: &str) -> Option<(String, u32, String)> {
     let mut parts = line.split_whitespace();
     let schema_name = parts.next()?.to_string();
     let major = parts.next()?.parse().ok()?;
-    let hash = parts.next()?.to_string();
-    Some((schema_name, major, hash))
+    let field_signature = parts.next().unwrap_or("").to_string();
+    Some((schema_name, major, field_signature))
 }
 
 pub fn format_lock_line(schema_name: &str, major: u32, field_signature: &str) -> String {
-    format!(
-        "{} {} {}",
-        schema_name,
-        major,
-        field_signature_hash(field_signature)
-    )
+    if field_signature.is_empty() {
+        format!("{schema_name} {major}")
+    } else {
+        format!("{schema_name} {major} {field_signature}")
+    }
 }
 
 fn write_cdr_codec_dispatch(records: &BTreeMap<String, MessageRecord>, out_dir: &Path) {

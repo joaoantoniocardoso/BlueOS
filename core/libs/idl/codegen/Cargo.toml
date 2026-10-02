@@ -17,3 +17,7 @@ syn.workspace = true
 [[bin]]
 name = "blueos-idl-codegen"
 path = "src/main.rs"
+
+[[bin]]
+name = "blueos-idl-print-lock"
+path = "src/bin/print_lock.rs"

@@ -13,16 +13,16 @@ paths under `core/interfaces/` symlink here (see `core/interfaces/README.md`).
 - **New writer, old reader**: decoders ignore trailing payload bytes.
 - **Old writer, new reader**: generated Rust decoders default missing trailing fields.
 - Any other change (remove, reorder, retype, rename) requires a **major version bump** in
-  `core/interfaces/api.lock` and a new message type or package revision.
+  `api.lock` and a new message type or package revision.
 - Each type exposes `TYPE_HASH` (SHA-256 of schema name + ordered field signature).
 
 ### API-break lock
 
-`core/interfaces/api.lock` stores `schema_name major field_signature_hash` per message. CI runs
-`api_lock_matches_interfaces`; drift fails until the lock is refreshed intentionally:
+`api.lock` stores `schema_name major field_signature` per message. CI runs `api_lock_matches_interfaces`;
+drift fails until the lock is refreshed intentionally:
 
 ```bash
-BLUEOS_IDL_UPDATE_LOCK=1 cargo test -p blueos-idl api_lock_matches_interfaces -- --nocapture
+cargo run -p blueos-idl-codegen --bin blueos-idl-print-lock > core/libs/idl/api.lock
 ```
 
 After editing `.msg` files, rebuild to refresh TypeScript output:

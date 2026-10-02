@@ -49,14 +49,22 @@ check_generated_idl() {
     temporary=$(mktemp -d)
     (
         cd "$workspace_dir" || exit 1
-        cargo run --quiet -p blueos-idl-codegen -- --output "$temporary/generated"
+        cargo run --quiet -p blueos-idl-codegen --bin blueos-idl-codegen -- --output "$temporary/generated"
     )
     if ! diff -ru "$idl_generated" "$temporary/generated" >/dev/null; then
         rm -rf "$temporary"
-        printf 'Committed IDL Rust is stale; fix with: (cd core && cargo run -p blueos-idl-codegen -- --write)\n' >&2
+        printf 'Committed IDL Rust is stale; fix with: (cd core && cargo run -p blueos-idl-codegen --bin blueos-idl-codegen -- --write)\n' >&2
         exit 1
     fi
     rm -rf "$temporary"
+}
+
+check_api_lock() {
+    local workspace_dir="$1"
+    (
+        cd "$workspace_dir" || exit 1
+        cargo test --quiet -p blueos-idl --test api_lock
+    )
 }
 
 # Usage: collect_folder_violations <cargo-metadata-json>
@@ -125,7 +133,7 @@ run_rust_lint_checks() {
 
         if [ "$fixing" = true ]; then
             echo "Regenerating committed IDL Rust.."
-            cargo run --quiet -p blueos-idl-codegen -- --write
+            cargo run --quiet -p blueos-idl-codegen --bin blueos-idl-codegen -- --write
             echo "Running cargo fmt.."
             cargo fmt --all
             exit 0
@@ -133,6 +141,9 @@ run_rust_lint_checks() {
 
         echo "Checking committed IDL Rust.."
         check_generated_idl "$workspace_dir"
+
+        echo "Checking api.lock.."
+        check_api_lock "$workspace_dir"
 
         echo "Running cargo fmt.."
         cargo fmt --all --check
