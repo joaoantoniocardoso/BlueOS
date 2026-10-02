@@ -81,20 +81,33 @@ pub trait SettingsSchema: Serialize + DeserializeOwned + Clone + Default {
         }
 
         let json = serialize_settings_document(self)?;
-        let temp = path.with_extension("tmp");
-        {
-            let mut file = OpenOptions::new()
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .open(&temp)?;
-            file.write_all(&json)?;
-            file.sync_all()?;
-        }
-        std::fs::rename(temp, path)?;
-        sync_parent_directory(parent)?;
-        Ok(())
+        atomic_write_file(path, &json)
     }
+}
+
+/// Writes `bytes` to `path` atomically (temp file, fsync, rename, fsync parent), matching Python `os.replace`.
+///
+/// # Errors
+///
+/// [`SettingsError`] when the path or write fails.
+pub fn atomic_write_file(path: &Path, bytes: &[u8]) -> Result<(), SettingsError> {
+    let parent = path.parent().ok_or_else(|| {
+        SettingsError::BadSettingsFile(format!("invalid file path {}", path.display()))
+    })?;
+    std::fs::create_dir_all(parent)?;
+    let temp = path.with_extension("tmp");
+    {
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&temp)?;
+        file.write_all(bytes)?;
+        file.sync_all()?;
+    }
+    std::fs::rename(temp, path)?;
+    sync_parent_directory(parent)?;
+    Ok(())
 }
 
 fn sync_parent_directory(parent: &Path) -> Result<(), SettingsError> {
