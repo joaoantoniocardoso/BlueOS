@@ -1,11 +1,13 @@
-#![allow(missing_docs, reason = "generated from ROS .msg sources")]
+#![expect(missing_docs, reason = "generated from ROS .msg sources")]
+use alloc::string::String;
+
+use serde::{Deserialize, Serialize};
+
 use crate::{
     cdr,
     error::Error,
     message::{CdrStruct, Message},
 };
-use alloc::string::String;
-use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum RecordingOperationOperation {
     #[default]
@@ -13,6 +15,31 @@ pub enum RecordingOperationOperation {
     Snapshot,
     Delete,
     Unknown(u8),
+}
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct RecordingOperation {
+    pub operation: RecordingOperationOperation,
+    pub path: String,
+    pub output_path: String,
+    pub succeeded: bool,
+    pub cancelled: bool,
+    pub error: String,
+}
+impl serde::Serialize for RecordingOperationOperation {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        <u8>::serialize(&self.as_raw(), serializer)
+    }
+}
+impl<'de> serde::Deserialize<'de> for RecordingOperationOperation {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self::from_raw(<u8>::deserialize(deserializer)?))
+    }
 }
 impl RecordingOperationOperation {
     pub fn from_raw(raw: u8) -> Self {
@@ -31,31 +58,6 @@ impl RecordingOperationOperation {
             Self::Unknown(raw) => raw,
         }
     }
-}
-impl serde::Serialize for RecordingOperationOperation {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        <u8>::serialize(&self.as_raw(), serializer)
-    }
-}
-impl<'de> serde::Deserialize<'de> for RecordingOperationOperation {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        Ok(Self::from_raw(<u8>::deserialize(deserializer)?))
-    }
-}
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct RecordingOperation {
-    pub operation: RecordingOperationOperation,
-    pub path: String,
-    pub output_path: String,
-    pub succeeded: bool,
-    pub cancelled: bool,
-    pub error: String,
 }
 impl CdrStruct for RecordingOperation {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {

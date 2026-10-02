@@ -1,10 +1,11 @@
-#![allow(missing_docs, reason = "generated from ROS .msg sources")]
+#![expect(missing_docs, reason = "generated from ROS .msg sources")]
+use serde::{Deserialize, Serialize};
+
 use crate::{
     cdr,
     error::Error,
     message::{CdrStruct, Message},
 };
-use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Time {
     pub sec: i32,

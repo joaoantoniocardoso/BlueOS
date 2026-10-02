@@ -6,11 +6,6 @@ use syn::{
 
 use crate::{Diagnostic, push};
 
-pub fn check_file(syntax_tree: &File, diagnostics: &mut Vec<Diagnostic>) {
-    let mut visitor = AllowVisitor { diagnostics };
-    visitor.visit_file(syntax_tree);
-}
-
 struct AllowVisitor<'a> {
     diagnostics: &'a mut Vec<Diagnostic>,
 }
@@ -27,4 +22,9 @@ impl<'ast> Visit<'ast> for AllowVisitor<'ast> {
         }
         visit_attribute(self, attribute);
     }
+}
+
+pub fn check_file(syntax_tree: &File, diagnostics: &mut Vec<Diagnostic>) {
+    let mut visitor = AllowVisitor { diagnostics };
+    visitor.visit_file(syntax_tree);
 }

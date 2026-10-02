@@ -1,11 +1,13 @@
-#![allow(missing_docs, reason = "generated from ROS .msg sources")]
+#![expect(missing_docs, reason = "generated from ROS .msg sources")]
+use alloc::string::String;
+
+use serde::{Deserialize, Serialize};
+
 use crate::{
     cdr,
     error::Error,
     message::{CdrStruct, Message},
 };
-use alloc::string::String;
-use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum JobStatusStatus {
     #[default]
@@ -17,6 +19,29 @@ pub enum JobStatusStatus {
     Cancelled,
     Interrupted,
     Unknown(u8),
+}
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct JobStatus {
+    pub job_id: u64,
+    pub parent_job_id: u64,
+    pub status: JobStatusStatus,
+    pub name: String,
+}
+impl serde::Serialize for JobStatusStatus {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        <u8>::serialize(&self.as_raw(), serializer)
+    }
+}
+impl<'de> serde::Deserialize<'de> for JobStatusStatus {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self::from_raw(<u8>::deserialize(deserializer)?))
+    }
 }
 impl JobStatusStatus {
     pub fn from_raw(raw: u8) -> Self {
@@ -43,29 +68,6 @@ impl JobStatusStatus {
             Self::Unknown(raw) => raw,
         }
     }
-}
-impl serde::Serialize for JobStatusStatus {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        <u8>::serialize(&self.as_raw(), serializer)
-    }
-}
-impl<'de> serde::Deserialize<'de> for JobStatusStatus {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        Ok(Self::from_raw(<u8>::deserialize(deserializer)?))
-    }
-}
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct JobStatus {
-    pub job_id: u64,
-    pub parent_job_id: u64,
-    pub status: JobStatusStatus,
-    pub name: String,
 }
 impl CdrStruct for JobStatus {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {

@@ -1,11 +1,13 @@
-#![allow(missing_docs, reason = "generated from ROS .msg sources")]
+#![expect(missing_docs, reason = "generated from ROS .msg sources")]
+use alloc::string::String;
+
+use serde::{Deserialize, Serialize};
+
 use crate::{
     cdr,
     error::Error,
     message::{CdrStruct, Message},
 };
-use alloc::string::String;
-use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ServiceStatusStatus {
     #[default]
@@ -15,6 +17,27 @@ pub enum ServiceStatusStatus {
     Degraded,
     Stopping,
     Unknown(u8),
+}
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct ServiceStatus {
+    pub status: ServiceStatusStatus,
+    pub detail: String,
+}
+impl serde::Serialize for ServiceStatusStatus {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        <u8>::serialize(&self.as_raw(), serializer)
+    }
+}
+impl<'de> serde::Deserialize<'de> for ServiceStatusStatus {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self::from_raw(<u8>::deserialize(deserializer)?))
+    }
 }
 impl ServiceStatusStatus {
     pub fn from_raw(raw: u8) -> Self {
@@ -37,27 +60,6 @@ impl ServiceStatusStatus {
             Self::Unknown(raw) => raw,
         }
     }
-}
-impl serde::Serialize for ServiceStatusStatus {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        <u8>::serialize(&self.as_raw(), serializer)
-    }
-}
-impl<'de> serde::Deserialize<'de> for ServiceStatusStatus {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        Ok(Self::from_raw(<u8>::deserialize(deserializer)?))
-    }
-}
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct ServiceStatus {
-    pub status: ServiceStatusStatus,
-    pub detail: String,
 }
 impl CdrStruct for ServiceStatus {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
