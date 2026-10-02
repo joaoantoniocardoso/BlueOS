@@ -12,6 +12,7 @@ use quote::{format_ident, quote};
 use roslibrust_codegen::find_and_parse_ros_messages;
 use sha2::{Digest, Sha256};
 mod constant_family;
+pub mod endpoints;
 mod msg_ast;
 
 use constant_family::{ConstantFamily, constant_families, freestanding_constants};
@@ -115,6 +116,14 @@ pub fn generate_catalog_typescript(interfaces_root: &Path, typescript_dir: &Path
 
 pub fn collect_messages_for_test(interfaces_root: &Path) -> Vec<MessageRecord> {
     collect_messages(interfaces_root)
+}
+
+/// The schema name, `<package>/msg/<Name>`, of every message under `interfaces_root`.
+pub fn message_schema_names(interfaces_root: &Path) -> BTreeSet<String> {
+    collect_messages(interfaces_root)
+        .into_iter()
+        .map(|record| record.schema_name)
+        .collect()
 }
 
 fn collect_messages(interfaces_root: &Path) -> Vec<MessageRecord> {

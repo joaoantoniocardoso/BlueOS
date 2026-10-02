@@ -11,7 +11,7 @@ use tokio::{task::JoinSet, time::Instant};
 use blueos_api::{
     CommandAck, Message, cdr_encoding, command_key, query_key, settings_key, state_key,
 };
-use blueos_comms::{CommsBackend, QueryBody, channel::ChannelBackend};
+use blueos_comms::{CommsBackend, QueryBody, ReplyError, channel::ChannelBackend};
 use blueos_domain::{Domain, Effect, Now};
 
 use crate::{Clock, Kernel, Service, ServiceContext, ServiceError};
@@ -191,25 +191,32 @@ impl<S: Service> Harness<S> {
         CommandAck::decode(&reply.payload().to_bytes()).expect("the reply is a CommandAck")
     }
 
-    /// Runs `query` on the Query endpoint `name`, as a client would, and returns the response.
+    /// Sends `request` to the Query or IO query endpoint `query`, as a client would, and returns the answer, or the
+    /// error reply.
     ///
     /// # Panics
     ///
-    /// When the Service does not reply exactly once with an `R`.
-    pub async fn query<M: Message, R: Message>(&self, name: &str, request: &M) -> R {
+    /// When the Service does not reply exactly once, or replies with something other than an `R`.
+    pub async fn query<Q: Message, R: Message>(
+        &self,
+        query: &str,
+        request: &Q,
+    ) -> Result<R, ReplyError> {
         let body = QueryBody::new(
-            request.encode().expect("the query encodes"),
-            cdr_encoding(M::SCHEMA_NAME),
+            request.encode().expect("the request encodes"),
+            cdr_encoding(Q::SCHEMA_NAME),
         );
         let replies = self
             .backend
-            .get(&query_key(S::NAME, name), Some(body), REPLY_TIMEOUT)
+            .get(&query_key(S::NAME, query), Some(body), REPLY_TIMEOUT)
             .await
             .expect("the query key is valid");
-        let [Ok(reply)] = replies.as_slice() else {
-            panic!("expected one answer from {name:?}, got {replies:?}");
+        let [reply] = replies.as_slice() else {
+            panic!("expected one reply from {query:?}, got {replies:?}");
         };
-        R::decode(&reply.payload().to_bytes()).expect("the reply is the Query response Message")
+        reply
+            .clone()
+            .map(|sample| R::decode(&sample.payload().to_bytes()).expect("the reply is an R"))
     }
 
     /// Reads the State `state`, as a late client would.

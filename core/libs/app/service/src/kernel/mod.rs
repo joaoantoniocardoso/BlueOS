@@ -11,6 +11,7 @@ use std::{
 };
 
 use bytes::Bytes;
+use futures_util::FutureExt;
 use tokio::{
     sync::{mpsc, watch},
     task::JoinSet,
@@ -26,7 +27,9 @@ use blueos_domain::{Command, Domain, Effect, Now, Outcome};
 use blueos_idl::{Error as IdlError, msg::blueos_msgs::SettingsEnvelope};
 
 use crate::{
-    builder::{AnswerQuery, Decode, EventEndpoint, ServiceBuilder, StateEndpoint},
+    builder::{
+        AnswerQuery, Decode, EventEndpoint, Refusal, Respond, ServiceBuilder, StateEndpoint,
+    },
     service::ServiceError,
     settings::{SettingsDriver, settings_encoding},
 };
@@ -37,6 +40,8 @@ use timers::TimerWheel;
 
 /// How many Commands wait in the Inbox before a sender has to wait.
 const INBOX_CAPACITY: usize = 256;
+/// The encoding of the reason in a Query's error reply.
+const REASON_ENCODING: &str = "text/plain";
 
 /// One applied Command's Effects in application order.
 #[cfg(feature = "testing")]
@@ -100,7 +105,7 @@ pub trait Clock: Send + Sync {
 
 /// Why the Kernel did not apply a Command. Its text is the reason in the rejected [`CommandAck`].
 #[derive(Debug, thiserror::Error)]
-enum Rejection {
+pub(crate) enum Rejection {
     /// The Domain rejected the Command, with its own reason.
     #[error("{0}")]
     Domain(Box<dyn Error + Send + Sync>),
@@ -110,6 +115,29 @@ enum Rejection {
     /// The body is not the Command endpoint's Message.
     #[error("the Request does not decode: {0}")]
     InvalidBody(IdlError),
+    /// The endpoint's conversion refused the Message, with its own reason.
+    #[error("{0}")]
+    Refused(Refusal),
+}
+
+/// Why a Query or an IO query got no answer. Its text is the reason in the error reply.
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum Unanswered {
+    /// The body is not the endpoint's request Message.
+    #[error("the Query does not decode: {0}")]
+    InvalidBody(IdlError),
+    /// The endpoint's conversion or IO code refused the request, with its own reason.
+    #[error("{0}")]
+    Refused(Refusal),
+    /// The Domain answered with a Response that the endpoint does not publish.
+    #[error("the Domain's Response does not belong to this Query")]
+    OtherResponse,
+    /// The answer panicked.
+    #[error("the Query panicked")]
+    Panicked,
+    /// The reply does not encode.
+    #[error("the reply does not encode: {0}")]
+    Encode(IdlError),
 }
 
 /// Why a State, an Event or an ack did not reach the backbone.
@@ -221,14 +249,20 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             });
         }
         for (name, answer) in builder.queries {
-            let key = query_key(service, &name);
-            let queryable = declare(&*backend, key.clone()).await?;
+            let queryable = declare(&*backend, query_key(service, &name)).await?;
             endpoints.spawn(serve_query::<D>(
                 queryable,
-                key,
                 answer,
                 Arc::clone(&snapshot_for_queries),
                 Arc::clone(&clock),
+            ));
+        }
+        for endpoint in builder.io_queries {
+            let queryable = declare(&*backend, query_key(service, &endpoint.name)).await?;
+            endpoints.spawn(serve_io_query(
+                queryable,
+                endpoint.respond,
+                endpoint.encoding,
             ));
         }
         let kernel = Self {
@@ -477,7 +511,7 @@ async fn serve_command<D: Domain>(
                 };
                 drop(inbox.send(delivery).await);
             }
-            Err(error) => acknowledge(query, Err(Rejection::InvalidBody(error))).await,
+            Err(rejection) => acknowledge(query, Err(rejection)).await,
         }
     }
 }
@@ -535,7 +569,6 @@ async fn serve_settings(
 /// Answers every get on a Domain Query endpoint from the current Snapshot.
 async fn serve_query<D: Domain>(
     mut queryable: Queryable,
-    key: String,
     answer: AnswerQuery<D>,
     snapshot: Arc<tokio::sync::RwLock<D::Snapshot>>,
     clock: Arc<dyn Clock>,
@@ -546,15 +579,26 @@ async fn serve_query<D: Domain>(
             .map(|body| body.payload().to_bytes())
             .unwrap_or_default();
         let now = clock.now();
-        let shared = snapshot.read().await;
-        let sent: Result<(), SendError> = match answer(&*shared, &body, now) {
-            Ok((payload, encoding)) => query
-                .reply(payload, encoding.as_str())
-                .await
-                .map_err(SendError::from),
-            Err(error) => Err(SendError::Encode(error)),
+        let answered = {
+            let shared = snapshot.read().await;
+            panic::catch_unwind(AssertUnwindSafe(|| answer(&shared, &body, now)))
+                .unwrap_or(Err(Unanswered::Panicked))
         };
-        warn_on_failure("Query", &key, sent);
+        reply(query, answered).await;
+    }
+}
+
+/// Answers each IO query in turn, so one slow answer delays the next instead of running beside it.
+async fn serve_io_query(mut queryable: Queryable, respond: Respond, encoding: String) {
+    while let Some(query) = queryable.recv().await {
+        let body = query
+            .body()
+            .map(|body| body.payload().to_bytes().into_owned());
+        let answered = AssertUnwindSafe(respond(body.unwrap_or_default()))
+            .catch_unwind()
+            .await
+            .unwrap_or(Err(Unanswered::Panicked));
+        reply(query, answered.map(|payload| (payload, encoding.clone()))).await;
     }
 }
 
@@ -594,6 +638,19 @@ async fn acknowledge(query: Query, verdict: Result<(), Rejection>) {
     }
     .await;
     warn_on_failure("CommandAck", &key, sent);
+}
+
+/// Sends a Query's answer, or an error reply whose payload is the reason it got none.
+async fn reply(query: Query, answered: Result<(Vec<u8>, String), Unanswered>) {
+    let key = query.key_expression().to_owned();
+    let sent = match answered {
+        Ok((payload, encoding)) => query.reply(payload, encoding).await,
+        Err(unanswered) => {
+            let reason = unanswered.to_string().into_bytes();
+            query.reply_error(reason, REASON_ENCODING).await
+        }
+    };
+    warn_on_failure("Query", &key, sent.map_err(SendError::from));
 }
 
 /// A failed publish or reply is logged and never stops the Inbox loop.

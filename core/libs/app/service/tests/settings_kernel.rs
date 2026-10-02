@@ -77,7 +77,7 @@ impl Service for SettingsTankService {
             settings: SettingsTankDocument::default(),
         })
         .command("SetLevel", |request: SetLevelRequest| {
-            SettingsTankRequest::SetLevel(request.level)
+            Ok(SettingsTankRequest::SetLevel(request.level))
         })
         .settings(
             Self::NAME,

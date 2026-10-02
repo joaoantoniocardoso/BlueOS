@@ -9,16 +9,16 @@ use core::{
 use std::sync::{Arc, Mutex, PoisonError};
 
 use futures_util::{future::BoxFuture, stream};
-use tokio::time::timeout;
+use tokio::{sync::Semaphore, task::JoinSet, time::timeout};
 
 use blueos_api::{
-    CommandAck, JOB_ID_NONE, Message, cdr_encoding, command_key, event_key, state_key,
+    CommandAck, JOB_ID_NONE, Message, cdr_encoding, command_key, event_key, query_key, state_key,
 };
 use blueos_comms::{
     CommsBackend, CommsError, LivelinessSubscriber, LivelinessToken, Query, QueryBody, Queryable,
-    Reply, Sample, Subscriber, channel::ChannelBackend,
+    Reply, ReplyError, Sample, Subscriber, channel::ChannelBackend,
 };
-use blueos_domain::{Command, Decision, Domain, Now, Outcome};
+use blueos_domain::{Command, Decision, Domain, DomainQueries, Now, Outcome};
 use blueos_idl::{
     Error as IdlError,
     cdr::{Reader, Writer},
@@ -29,7 +29,7 @@ use blueos_idl::{
     },
 };
 use blueos_service::{
-    Kernel, Service, ServiceBuilder, ServiceContext, ServiceError,
+    Kernel, Refusal, Service, ServiceBuilder, ServiceContext, ServiceError,
     testing::{Harness, PausedClock, WALL_CLOCK_AT_START},
 };
 
@@ -71,6 +71,18 @@ enum TankEvent {
     Emptied,
 }
 
+enum TankQuery {
+    Level,
+    /// Answered with a Response that the `Level` conversion does not publish.
+    Other,
+    Panic,
+}
+
+enum TankResponse {
+    Level(u8),
+    Other,
+}
+
 #[derive(Debug, thiserror::Error)]
 #[error("level {level} is above the capacity {capacity}")]
 struct AboveCapacity {
@@ -81,6 +93,23 @@ struct AboveCapacity {
 #[derive(Debug, thiserror::Error)]
 #[error("a tank needs a capacity above 0")]
 struct NoCapacity;
+
+#[derive(Debug, thiserror::Error)]
+#[error("{0} is not a percentage")]
+struct NotAPercent(u8);
+
+/// The tank, with IO queries that read a simulated sensor outside the Inbox.
+struct ProbeService;
+
+#[derive(clap::Args, Default)]
+struct ProbeArguments {
+    #[arg(skip)]
+    sensor: Sensor,
+}
+
+/// A simulated level sensor: each permit lets one `Probe` read it.
+#[derive(Clone)]
+struct Sensor(Arc<Semaphore>);
 
 /// The tank, publishing a State that fails to encode at one level.
 struct FragileTankService;
@@ -122,8 +151,37 @@ impl Service for TankService {
         }
         Ok(ServiceBuilder::new(TankSnapshot::empty(capacity))
             .command("SetLevel", |request: SetLevelRequest| {
-                TankRequest::SetLevel(request.level)
+                Ok(TankRequest::SetLevel(request.level))
             })
+            .command("SetPercent", move |request: SetLevelRequest| {
+                if request.level > 100 {
+                    return Err(NotAPercent(request.level).into());
+                }
+                let level = u16::from(capacity) * u16::from(request.level) / 100;
+                Ok(TankRequest::SetLevel(u8::try_from(level).unwrap()))
+            })
+            .query(
+                "Level",
+                |_request: EmptyRequest| Ok(TankQuery::Level),
+                level_response,
+            )
+            .query(
+                "Other",
+                |_request: EmptyRequest| Ok(TankQuery::Other),
+                level_response,
+            )
+            .query(
+                "Panics",
+                |_request: EmptyRequest| Ok(TankQuery::Panic),
+                level_response,
+            )
+            .query(
+                "Refused",
+                |request: SetLevelRequest| -> Result<TankQuery, Refusal> {
+                    Err(NotAPercent(request.level).into())
+                },
+                level_response,
+            )
             .state("level_set_at", |snapshot: &TankSnapshot| Time {
                 sec: i32::try_from(snapshot.level_set_at.as_secs()).unwrap(),
                 nanosec: snapshot.level_set_at.subsec_nanos(),
@@ -163,12 +221,62 @@ impl Service for FragileTankService {
         Ok(
             ServiceBuilder::new(TankSnapshot::empty(context.arguments().capacity))
                 .command("SetLevel", |request: SetLevelRequest| {
-                    TankRequest::SetLevel(request.level)
+                    Ok(TankRequest::SetLevel(request.level))
                 })
+                .query(
+                    "Level",
+                    |_request: EmptyRequest| Ok(TankQuery::Level),
+                    |response: TankResponse| match response {
+                        TankResponse::Level(level) => Some(FragileLevel { level }),
+                        TankResponse::Other => None,
+                    },
+                )
                 .state("tank", |snapshot: &TankSnapshot| FragileLevel {
                     level: snapshot.level,
                 }),
         )
+    }
+}
+
+impl Service for ProbeService {
+    type Domain = Tank;
+    type Context = ();
+    type Arguments = ProbeArguments;
+
+    const NAME: &'static str = "probe";
+    const VERSION: &'static str = "1.0.0";
+
+    fn build(
+        context: &ServiceContext<ProbeArguments>,
+    ) -> Result<ServiceBuilder<Tank>, ServiceError> {
+        Ok(ServiceBuilder::new(TankSnapshot::empty(100))
+            .command("SetLevel", |request: SetLevelRequest| {
+                Ok(TankRequest::SetLevel(request.level))
+            })
+            .io_query("Probe", {
+                let sensor = Arc::clone(&context.arguments().sensor.0);
+                move |request: SetLevelRequest| {
+                    let sensor = Arc::clone(&sensor);
+                    Box::pin(async move {
+                        sensor.acquire().await?.forget();
+                        assert_ne!(request.level, LEVEL_THAT_PANICS_IN_HANDLE);
+                        if request.level > 100 {
+                            return Err(NotAPercent(request.level).into());
+                        }
+                        Ok(LevelQueryResponse {
+                            level: request.level,
+                            max_level: 100,
+                        })
+                    })
+                }
+            })
+            .io_query("FragileProbe", |_request: EmptyRequest| {
+                Box::pin(async {
+                    Ok(FragileLevel {
+                        level: LEVEL_THAT_FAILS_TO_ENCODE,
+                    })
+                })
+            }))
     }
 }
 
@@ -186,7 +294,7 @@ impl Service for MisnamedTankService {
         Ok(
             ServiceBuilder::new(TankSnapshot::empty(context.arguments().capacity))
                 .command("Set#Level", |request: SetLevelRequest| {
-                    TankRequest::SetLevel(request.level)
+                    Ok(TankRequest::SetLevel(request.level))
                 }),
         )
     }
@@ -263,6 +371,25 @@ impl Domain for Tank {
         _error: blueos_domain::IoError,
     ) -> Command<TankRequest, Infallible, Infallible, Infallible> {
         match request {}
+    }
+}
+
+impl DomainQueries for Tank {
+    type Query = TankQuery;
+    type Response = TankResponse;
+
+    fn query(snapshot: &TankSnapshot, query: TankQuery, _now: Now) -> TankResponse {
+        match query {
+            TankQuery::Level => TankResponse::Level(snapshot.level),
+            TankQuery::Other => TankResponse::Other,
+            TankQuery::Panic => panic!("the tank cannot answer"),
+        }
+    }
+}
+
+impl Default for Sensor {
+    fn default() -> Self {
+        Self(Arc::new(Semaphore::new(0)))
     }
 }
 
@@ -694,9 +821,63 @@ async fn each_event_endpoint_publishes_only_the_domain_events_it_selects() {
 }
 
 #[tokio::test(start_paused = true)]
+async fn a_kernel_with_only_io_queries_keeps_answering_them() {
+    let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
+    let builder = ServiceBuilder::<Tank>::new(TankSnapshot::empty(100)).io_query(
+        "Probe",
+        |request: SetLevelRequest| {
+            Box::pin(async move {
+                Ok(LevelQueryResponse {
+                    level: request.level,
+                    max_level: 100,
+                })
+            })
+        },
+    );
+    let kernel = Kernel::start(
+        "sensor",
+        builder,
+        Arc::clone(&backend),
+        Arc::new(PausedClock::start()),
+    )
+    .await
+    .unwrap();
+    let mut running = JoinSet::new();
+    running.spawn(kernel.run());
+    // Lets `run` go as far as it can before the IO query arrives.
+    tokio::task::yield_now().await;
+
+    let body = QueryBody::new(
+        SetLevelRequest { level: 4 }.encode().unwrap(),
+        cdr_encoding(SetLevelRequest::SCHEMA_NAME),
+    );
+    let replies = backend
+        .get(
+            &query_key("sensor", "Probe"),
+            Some(body),
+            Duration::from_secs(10),
+        )
+        .await
+        .unwrap();
+
+    let [Ok(reply)] = replies.as_slice() else {
+        panic!("expected one answer, got {replies:?}");
+    };
+    assert_eq!(
+        LevelQueryResponse::decode(&reply.payload().to_bytes())
+            .unwrap()
+            .level,
+        4
+    );
+}
+
+#[tokio::test(start_paused = true)]
 async fn the_kernel_stops_once_the_backbone_closes_every_endpoint() {
-    let builder =
-        TankService::build(&ServiceContext::new(TankArguments { capacity: 100 })).unwrap();
+    let builder = TankService::build(&ServiceContext::new(TankArguments { capacity: 100 }))
+        .unwrap()
+        .io_query("Probe", |_request: EmptyRequest| {
+            Box::pin(async { Ok(EmptyRequest::default()) })
+        });
     let kernel = Kernel::start(
         TankService::NAME,
         builder,
@@ -729,6 +910,213 @@ async fn the_harness_panics_when_a_state_has_no_value() {
         .unwrap();
 
     harness.state::<PumpState>("missing").await;
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_request_its_conversion_refuses_is_rejected_before_the_domain() {
+    let harness = Harness::<TankService>::start(TankArguments { capacity: 10 })
+        .await
+        .unwrap();
+
+    let refused = harness
+        .send("SetPercent", &SetLevelRequest { level: 150 })
+        .await;
+    let applied = harness
+        .send("SetPercent", &SetLevelRequest { level: 50 })
+        .await;
+
+    assert!(!refused.accepted);
+    assert_eq!(refused.reason, "150 is not a percentage");
+    assert!(applied.accepted, "{}", applied.reason);
+    assert_eq!(harness.state::<PumpState>("tank").await.level, 5);
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_query_is_answered_from_the_snapshot_left_by_the_commands_before_it() {
+    let harness = Harness::<TankService>::start(TankArguments { capacity: 100 })
+        .await
+        .unwrap();
+    harness
+        .send("SetLevel", &SetLevelRequest { level: 42 })
+        .await;
+
+    let answer = harness
+        .query::<_, LevelQueryResponse>("Level", &EmptyRequest::default())
+        .await
+        .unwrap();
+
+    assert_eq!(answer.level, 42);
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_query_without_an_answer_replies_why_and_the_inbox_goes_on() {
+    let harness = Harness::<TankService>::start(TankArguments { capacity: 100 })
+        .await
+        .unwrap();
+    let empty = EmptyRequest::default();
+
+    let other_response = harness
+        .query::<_, LevelQueryResponse>("Other", &empty)
+        .await;
+    let panicked = harness
+        .query::<_, LevelQueryResponse>("Panics", &empty)
+        .await;
+    let refused = harness
+        .query::<_, LevelQueryResponse>("Refused", &SetLevelRequest { level: 7 })
+        .await;
+    let undecodable = raw_query(&harness, TankService::NAME, "Level").await;
+
+    assert_eq!(
+        reason(other_response),
+        "the Domain's Response does not belong to this Query"
+    );
+    assert_eq!(reason(panicked), "the Query panicked");
+    assert_eq!(reason(refused), "7 is not a percentage");
+    assert_eq!(
+        reason(undecodable),
+        "the Query does not decode: invalid CDR encapsulation header"
+    );
+    let answer = harness
+        .query::<_, LevelQueryResponse>("Level", &empty)
+        .await;
+    assert_eq!(answer.unwrap().level, 0);
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_query_reply_that_fails_to_encode_replies_why() {
+    let harness = Harness::<FragileTankService>::start(TankArguments { capacity: 100 })
+        .await
+        .unwrap();
+    harness
+        .send(
+            "SetLevel",
+            &SetLevelRequest {
+                level: LEVEL_THAT_FAILS_TO_ENCODE,
+            },
+        )
+        .await;
+
+    let answer = harness
+        .query::<_, FragileLevel>("Level", &EmptyRequest::default())
+        .await;
+
+    assert_eq!(
+        reason(answer),
+        "the reply does not encode: invalid CDR length prefix"
+    );
+}
+
+#[tokio::test(start_paused = true)]
+async fn an_io_query_is_answered_outside_the_inbox() {
+    let arguments = ProbeArguments::default();
+    let sensor = arguments.sensor.clone();
+    let harness = Harness::<ProbeService>::start(arguments).await.unwrap();
+
+    // The sensor opens only after a Command was acknowledged, so a Probe that held the Inbox would never end.
+    let (answer, ack) = tokio::join!(
+        harness.query::<_, LevelQueryResponse>("Probe", &SetLevelRequest { level: 7 }),
+        async {
+            let ack = harness
+                .send("SetLevel", &SetLevelRequest { level: 1 })
+                .await;
+            sensor.0.add_permits(1);
+            ack
+        }
+    );
+
+    assert!(ack.accepted, "{}", ack.reason);
+    assert_eq!(answer.unwrap().level, 7);
+}
+
+#[tokio::test(start_paused = true)]
+async fn an_io_query_without_an_answer_replies_why_and_the_next_one_is_answered() {
+    let arguments = ProbeArguments::default();
+    arguments.sensor.0.add_permits(3);
+    let harness = Harness::<ProbeService>::start(arguments).await.unwrap();
+
+    let refused = harness
+        .query::<_, LevelQueryResponse>("Probe", &SetLevelRequest { level: 101 })
+        .await;
+    let panicked = harness
+        .query::<_, LevelQueryResponse>(
+            "Probe",
+            &SetLevelRequest {
+                level: LEVEL_THAT_PANICS_IN_HANDLE,
+            },
+        )
+        .await;
+    let undecodable = raw_query(&harness, ProbeService::NAME, "Probe").await;
+    let unencodable = harness
+        .query::<_, FragileLevel>("FragileProbe", &EmptyRequest::default())
+        .await;
+    let answer = harness
+        .query::<_, LevelQueryResponse>("Probe", &SetLevelRequest { level: 3 })
+        .await;
+
+    assert_eq!(reason(refused), "101 is not a percentage");
+    assert_eq!(reason(panicked), "the Query panicked");
+    assert_eq!(
+        reason(undecodable),
+        "the Query does not decode: invalid CDR encapsulation header"
+    );
+    assert_eq!(
+        reason(unencodable),
+        "the reply does not encode: invalid CDR length prefix"
+    );
+    assert_eq!(answer.unwrap().level, 3);
+}
+
+#[tokio::test(start_paused = true)]
+#[should_panic(expected = "expected one reply from \"Missing\"")]
+async fn the_harness_panics_when_a_query_gets_no_reply() {
+    let harness = Harness::<TankService>::start(TankArguments { capacity: 100 })
+        .await
+        .unwrap();
+
+    drop(
+        harness
+            .query::<_, LevelQueryResponse>("Missing", &EmptyRequest::default())
+            .await,
+    );
+}
+
+/// Sends a body that is not CDR to the query endpoint `name`.
+async fn raw_query<S: Service>(
+    harness: &Harness<S>,
+    service: &str,
+    name: &str,
+) -> Result<Sample, ReplyError> {
+    let body = QueryBody::new(vec![0xFF], cdr_encoding(EmptyRequest::SCHEMA_NAME));
+    let replies = harness
+        .backend()
+        .get(
+            &query_key(service, name),
+            Some(body),
+            Duration::from_secs(10),
+        )
+        .await
+        .unwrap();
+    let [reply] = replies.as_slice() else {
+        panic!("expected one reply, got {replies:?}");
+    };
+    reply.clone()
+}
+
+/// The reason in an error reply.
+fn reason<T: core::fmt::Debug>(answer: Result<T, ReplyError>) -> String {
+    let error = answer.expect_err("the query has no answer");
+    assert_eq!(error.encoding(), "text/plain");
+    String::from_utf8(error.payload().to_bytes().into_owned()).unwrap()
+}
+
+fn level_response(response: TankResponse) -> Option<LevelQueryResponse> {
+    match response {
+        TankResponse::Level(level) => Some(LevelQueryResponse {
+            level,
+            max_level: 0,
+        }),
+        TankResponse::Other => None,
+    }
 }
 
 fn record(journal: &Mutex<Vec<String>>, entry: String) {

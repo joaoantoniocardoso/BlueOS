@@ -1,0 +1,13 @@
+error[E0053]: method `drain` has an incompatible type for trait
+  --> tests/compile_fail/wrong_message.rs:12:24
+   |
+12 |     fn drain(_request: SetLevelRequest) -> TankRequest {
+   |                        ^^^^^^^^^^^^^^^ expected `EmptyRequest`, found `SetLevelRequest`
+   |
+   = note: expected signature `fn(EmptyRequest) -> TankRequest`
+              found signature `fn(SetLevelRequest) -> TankRequest`
+help: change the parameter type to match the trait
+   |
+12 -     fn drain(_request: SetLevelRequest) -> TankRequest {
+12 +     fn drain(_request: EmptyRequest) -> TankRequest {
+   |
