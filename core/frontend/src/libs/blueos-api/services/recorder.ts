@@ -5,11 +5,21 @@ import type * as Idl from '@blueos-idl/messages'
 
 import {
   commandKey,
+  eventKey,
   stateKey,
 } from '../keys'
 
 /** The name of the `recorder` Service, in each of its keys: `blueos/v1/recorder/...`. */
 export const NAME = 'recorder'
+
+/** command `CancelRepair` at `blueos/v1/recorder/command/CancelRepair`. */
+export const CancelRepair = {
+  kind: 'command' as const,
+  name: 'CancelRepair',
+  key: commandKey(NAME, 'CancelRepair'),
+  requestSchema: 'blueos_recorder_msgs/msg/CancelRepairCommand' as const,
+}
+export type CancelRepairRequest = Idl.CancelRepairCommand
 
 /** command `DeleteRecording` at `blueos/v1/recorder/command/DeleteRecording`. */
 export const DeleteRecording = {
@@ -19,6 +29,15 @@ export const DeleteRecording = {
   requestSchema: 'blueos_recorder_msgs/msg/DeleteRecordingCommand' as const,
 }
 export type DeleteRecordingRequest = Idl.DeleteRecordingCommand
+
+/** command `RepairRecording` at `blueos/v1/recorder/command/RepairRecording`. */
+export const RepairRecording = {
+  kind: 'command' as const,
+  name: 'RepairRecording',
+  key: commandKey(NAME, 'RepairRecording'),
+  requestSchema: 'blueos_recorder_msgs/msg/RepairRecordingCommand' as const,
+}
+export type RepairRecordingRequest = Idl.RepairRecordingCommand
 
 /** command `Start` at `blueos/v1/recorder/command/Start`. */
 export const Start = {
@@ -55,3 +74,12 @@ export const recording = {
   messageSchema: 'blueos_recorder_msgs/msg/RecordingState' as const,
 }
 export type Recording = Idl.RecordingState
+
+/** event `operation` at `blueos/v1/recorder/event/operation`. */
+export const operation = {
+  kind: 'event' as const,
+  name: 'operation',
+  key: eventKey(NAME, 'operation'),
+  messageSchema: 'blueos_recorder_msgs/msg/RecordingOperation' as const,
+}
+export type Operation = Idl.RecordingOperation
