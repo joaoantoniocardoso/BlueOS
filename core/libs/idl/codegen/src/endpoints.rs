@@ -22,14 +22,47 @@ pub const MANIFEST_FILE: &str = "endpoints.toml";
 /// Where the TypeScript clients are committed, under `core/`.
 const TYPESCRIPT_DIR: &str = "frontend/src/libs/blueos-api/services";
 
-/// The names D-12 gives every Service, in snake case.
-const RESERVED_NAMES: [&str; 6] = [
-    "info",
-    "jobs",
-    "log",
-    "settings",
-    "status",
-    "update_settings",
+/// The endpoints D-12 gives every Service. A manifest cannot reuse their names, and `api.lock` records them for
+/// every Service.
+// ponytail: records `settings`, `UpdateSettings` and `jobs` for every Service, as the generator cannot see a
+// `ServiceBuilder::settings` or `ServiceBuilder::jobs` opt-in; a manifest field would make the lock exact.
+const STANDARD_ENDPOINTS: [StandardEndpoint; 6] = [
+    StandardEndpoint {
+        name: "info",
+        key: "query/info",
+        request_schema: "",
+        response_schema: "blueos_msgs/msg/ServiceInfo",
+    },
+    StandardEndpoint {
+        name: "status",
+        key: "state/status",
+        request_schema: "",
+        response_schema: "blueos_msgs/msg/ServiceStatus",
+    },
+    StandardEndpoint {
+        name: "settings",
+        key: "settings",
+        request_schema: "",
+        response_schema: "blueos_msgs/msg/SettingsEnvelope",
+    },
+    StandardEndpoint {
+        name: "UpdateSettings",
+        key: "command/UpdateSettings",
+        request_schema: "blueos_msgs/msg/SettingsEnvelope",
+        response_schema: COMMAND_ACK_SCHEMA,
+    },
+    StandardEndpoint {
+        name: "log",
+        key: "log",
+        request_schema: "",
+        response_schema: "foxglove_msgs/msg/Log",
+    },
+    StandardEndpoint {
+        name: "jobs",
+        key: "jobs",
+        request_schema: "",
+        response_schema: "blueos_msgs/msg/JobList",
+    },
 ];
 
 const COMMAND_ACK_SCHEMA: &str = "blueos_msgs/msg/CommandAck";
@@ -211,6 +244,14 @@ struct MessageType {
     name: String,
 }
 
+/// An endpoint the Kernel declares for a Service, at `blueos/v1/<service>/<key>`.
+struct StandardEndpoint {
+    name: &'static str,
+    key: &'static str,
+    request_schema: &'static str,
+    response_schema: &'static str,
+}
+
 impl Endpoint {
     fn key(&self, service: &str) -> String {
         let segment = match self.kind {
@@ -321,18 +362,30 @@ impl MessageType {
     }
 }
 
-/// Every endpoint key declared in workspace manifests, for `api.lock`.
+/// Every endpoint key of the Services in workspace manifests, with the standard ones, for `api.lock`.
 pub fn collect_endpoint_lock_lines(
     core_dir: &Path,
     messages: &BTreeSet<String>,
 ) -> Result<Vec<String>, EndpointsError> {
     let mut lines = Vec::new();
-    for (service, endpoint) in collect_service_endpoints(core_dir, messages)? {
-        lines.push(crate::format_lock_line(
-            &endpoint.key(&service),
-            1,
-            &endpoint.lock_signature(),
-        ));
+    for (service, endpoints) in collect_service_endpoints(core_dir, messages)? {
+        for standard in &STANDARD_ENDPOINTS {
+            lines.push(crate::format_lock_line(
+                &format!("blueos/v1/{service}/{}", standard.key),
+                1,
+                &format!(
+                    "request={};response={}",
+                    standard.request_schema, standard.response_schema
+                ),
+            ));
+        }
+        for endpoint in endpoints {
+            lines.push(crate::format_lock_line(
+                &endpoint.key(&service),
+                1,
+                &endpoint.lock_signature(),
+            ));
+        }
     }
     lines.sort();
     Ok(lines)
@@ -341,7 +394,7 @@ pub fn collect_endpoint_lock_lines(
 fn collect_service_endpoints(
     core_dir: &Path,
     messages: &BTreeSet<String>,
-) -> Result<Vec<(String, Endpoint)>, EndpointsError> {
+) -> Result<Vec<(String, Vec<Endpoint>)>, EndpointsError> {
     let mut collected = Vec::new();
     for member in workspace_members(core_dir)? {
         let manifest_path = core_dir.join(member).join(MANIFEST_FILE);
@@ -355,13 +408,8 @@ fn collect_service_endpoints(
                 path: manifest_path.clone(),
                 error,
             })?;
-        for endpoint in service_endpoints {
-            collected.push((service.clone(), endpoint));
-        }
+        collected.push((service, service_endpoints));
     }
-    collected.sort_by(|(service_left, left), (service_right, right)| {
-        left.key(service_left).cmp(&right.key(service_right))
-    });
     Ok(collected)
 }
 
@@ -579,7 +627,10 @@ fn endpoints(
     for (kind, name, request, reply, custom) in raw {
         check_name(&name)?;
         let function = name.to_case(Case::Snake);
-        if RESERVED_NAMES.contains(&function.as_str()) {
+        if STANDARD_ENDPOINTS
+            .iter()
+            .any(|standard| standard.name.to_case(Case::Snake) == function)
+        {
             return Err(ManifestError::Reserved(name));
         }
         let endpoint = Endpoint {

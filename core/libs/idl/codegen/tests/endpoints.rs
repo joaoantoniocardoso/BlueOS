@@ -8,7 +8,10 @@ use std::{
 };
 
 use blueos_idl_codegen::{
-    endpoints::{EndpointsError, ManifestError, generate, generate_all, stray_files},
+    endpoints::{
+        EndpointsError, ManifestError, collect_endpoint_lock_lines, generate, generate_all,
+        stray_files,
+    },
     message_schema_names,
 };
 
@@ -258,6 +261,26 @@ fn a_generated_file_without_its_manifest_is_stray() {
                 .root
                 .join("frontend/src/libs/blueos-api/services/gone.ts"),
             workspace.root.join("gone/app/src/endpoints.rs"),
+        ]
+    );
+}
+
+#[test]
+fn the_lock_lists_the_standard_endpoints_of_every_service() {
+    let workspace = Workspace::new("standard_endpoints");
+    workspace.write("Cargo.toml", "[workspace]\nmembers = [\"test/app\"]\n");
+    workspace.write("test/app/endpoints.toml", "service = \"test\"\n");
+
+    assert_eq!(
+        collect_endpoint_lock_lines(&workspace.root, &messages()).unwrap(),
+        [
+            "blueos/v1/test/command/UpdateSettings 1 \
+             request=blueos_msgs/msg/SettingsEnvelope;response=blueos_msgs/msg/CommandAck",
+            "blueos/v1/test/jobs 1 request=;response=blueos_msgs/msg/JobList",
+            "blueos/v1/test/log 1 request=;response=foxglove_msgs/msg/Log",
+            "blueos/v1/test/query/info 1 request=;response=blueos_msgs/msg/ServiceInfo",
+            "blueos/v1/test/settings 1 request=;response=blueos_msgs/msg/SettingsEnvelope",
+            "blueos/v1/test/state/status 1 request=;response=blueos_msgs/msg/ServiceStatus",
         ]
     );
 }
