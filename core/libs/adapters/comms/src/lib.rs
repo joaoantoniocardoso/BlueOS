@@ -4,6 +4,9 @@
 //! backend in tests (its feature belongs in `[dev-dependencies]` only). Payloads are never framed or copied on the
 //! way through; metadata travels in the attachment.
 
+#[cfg(feature = "channel")]
+pub mod channel;
+
 use core::{any::Any, fmt::Debug, time::Duration};
 use std::{borrow::Cow, sync::Arc, time::SystemTime};
 
