@@ -289,7 +289,7 @@ test_coverage_ratchet_fails_when_floor_is_too_high() {
     local temporary
     temporary=$(mktemp -d)
     copy_core "$temporary"
-    sed -i 's/workspace = 100/workspace = 101/' "$temporary/coverage-ratchet.toml"
+    sed -i 's/^workspace = [0-9]\+/workspace = 101/' "$temporary/coverage-ratchet.toml"
     export RUSTC_WRAPPER=
     if check_rust_coverage_ratchet "$temporary" 2>/dev/null; then
         fail "coverage ratchet should fail when the floor is above measured coverage"
