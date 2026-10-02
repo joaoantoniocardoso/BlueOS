@@ -1,7 +1,9 @@
 //! The endpoint generator: what it rejects, what it generates for each mix of endpoints, and where it reads.
 
+extern crate alloc;
+
+use alloc::collections::BTreeSet;
 use std::{
-    collections::BTreeSet,
     env, fs,
     path::{Path, PathBuf},
     process,
@@ -18,6 +20,31 @@ use blueos_idl_codegen::{
 const SET_LEVEL: &str = "blueos_example_msgs/action/SetLevel";
 const LEVEL: &str = "blueos_example_msgs/srv/Level";
 const PUMP: &str = "blueos_example_msgs/msg/PumpState";
+
+/// A throwaway workspace directory, removed when dropped.
+struct Workspace {
+    root: PathBuf,
+}
+
+impl Drop for Workspace {
+    fn drop(&mut self) {
+        _ = fs::remove_dir_all(&self.root);
+    }
+}
+
+impl Workspace {
+    fn new(name: &str) -> Self {
+        let root = env::temp_dir().join(format!("blueos-endpoints-{}-{name}", process::id()));
+        _ = fs::remove_dir_all(&root);
+        Self { root }
+    }
+
+    fn write(&self, path: &str, contents: &str) {
+        let path = self.root.join(path);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, contents).unwrap();
+    }
+}
 
 #[test]
 fn rejects_two_endpoints_that_generate_the_same_function() {
@@ -598,31 +625,6 @@ fn generate_all_names_the_file_it_cannot_read() {
         ),
         "{error}"
     );
-}
-
-/// A throwaway workspace directory, removed when dropped.
-struct Workspace {
-    root: PathBuf,
-}
-
-impl Drop for Workspace {
-    fn drop(&mut self) {
-        _ = fs::remove_dir_all(&self.root);
-    }
-}
-
-impl Workspace {
-    fn new(name: &str) -> Self {
-        let root = env::temp_dir().join(format!("blueos-endpoints-{}-{name}", process::id()));
-        _ = fs::remove_dir_all(&root);
-        Self { root }
-    }
-
-    fn write(&self, path: &str, contents: &str) {
-        let path = self.root.join(path);
-        fs::create_dir_all(path.parent().unwrap()).unwrap();
-        fs::write(path, contents).unwrap();
-    }
 }
 
 fn rejection(manifest: &str) -> ManifestError {

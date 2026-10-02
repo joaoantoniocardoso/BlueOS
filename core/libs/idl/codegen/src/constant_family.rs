@@ -1,6 +1,6 @@
 //! Constant-family detection for IDL enum emission (D-05).
 
-use std::collections::{BTreeMap, BTreeSet};
+use alloc::collections::{BTreeMap, BTreeSet};
 
 use crate::msg_ast::{Constant, DataType, FieldCase, Message};
 
@@ -70,7 +70,7 @@ pub(crate) fn constant_families(message: &Message) -> Vec<ConstantFamily> {
             (datatype, stem.to_string(), prefix, constants)
         })
         .collect::<Vec<_>>();
-    grouped.sort_by_key(|group| std::cmp::Reverse(group.1.len()));
+    grouped.sort_by_key(|group| core::cmp::Reverse(group.1.len()));
     for field in message.fields() {
         if !matches!(field.case(), FieldCase::Scalar | FieldCase::Const(_)) {
             continue;

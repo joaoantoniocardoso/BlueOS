@@ -5,9 +5,9 @@
 //! files: `logic/api/src/endpoints.rs`, the `Conversions` trait its Domain implements, and `app/src/endpoints.rs`,
 //! the Service `NAME`, the `Handlers` trait of the `custom` Job types and `io` Queries, and `register`.
 
+use alloc::collections::{BTreeMap, BTreeSet};
+use core::fmt::Write as _;
 use std::{
-    collections::{BTreeMap, BTreeSet},
-    fmt::Write as _,
     fs, io,
     io::Write as _,
     path::{Path, PathBuf},
@@ -650,12 +650,13 @@ fn endpoints(
             custom,
             nature,
         };
-        for function in endpoint.functions() {
-            if let Some(first) = functions.insert(function.clone(), endpoint.name.clone()) {
+        for endpoint_function in endpoint.functions() {
+            if let Some(first) = functions.insert(endpoint_function.clone(), endpoint.name.clone())
+            {
                 return Err(ManifestError::Duplicate {
                     first,
                     second: endpoint.name,
-                    function,
+                    function: endpoint_function,
                 });
             }
         }

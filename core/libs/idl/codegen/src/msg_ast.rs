@@ -1,6 +1,6 @@
 //! Internal AST for codegen, adapted from `roslibrust_codegen` parse output.
 
-use std::collections::BTreeSet;
+use alloc::collections::BTreeSet;
 
 use roslibrust_codegen::{ArrayType, ConstantInfo, FieldInfo, RosLiteral};
 
@@ -120,7 +120,7 @@ impl Field {
     }
 }
 
-pub fn field_signature(message: &Message) -> String {
+pub(crate) fn field_signature(message: &Message) -> String {
     let mut parts = Vec::new();
     for field in message.fields() {
         let field_name = if field.name() == "type" {
