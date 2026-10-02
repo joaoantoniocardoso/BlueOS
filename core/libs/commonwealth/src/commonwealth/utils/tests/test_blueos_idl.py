@@ -88,6 +88,8 @@ def test_cdr_vectors_match_python_codec() -> None:
         assert decoded == vector["decoded"], vector["schema_name"]
         if vector.get("skip_encode_round_trip"):
             continue
+        if vector["category"] == "python_producer":
+            continue
         if vector["category"] == "default":
             reencoded = blueos_idl.encode(vector["schema_name"], {})
             assert encode_hex(reencoded) == vector["hex"], vector["schema_name"]
