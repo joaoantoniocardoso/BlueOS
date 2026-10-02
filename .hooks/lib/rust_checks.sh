@@ -73,6 +73,15 @@ check_generated_idl() {
     rm -rf "$temporary"
 }
 
+# Regenerates every Service's endpoint code from its endpoint manifest and compares it with what is committed.
+check_generated_endpoints() {
+    local workspace_dir="$1"
+    if ! (cd "$workspace_dir" && cargo run --quiet -p blueos-idl-codegen --bin blueos-idl-codegen -- --check-endpoints); then
+        printf 'Committed endpoint code is stale; fix with: (cd core && cargo run -p blueos-idl-codegen --bin blueos-idl-codegen -- --write)\n' >&2
+        exit 1
+    fi
+}
+
 check_api_lock() {
     local workspace_dir="$1"
     (
@@ -167,7 +176,7 @@ run_rust_lint_checks() {
         cd "$workspace_dir" || exit 1
 
         if [ "$fixing" = true ]; then
-            echo "Regenerating committed IDL Rust.."
+            echo "Regenerating committed IDL and endpoint Rust.."
             cargo run --quiet -p blueos-idl-codegen --bin blueos-idl-codegen -- --write
             echo "Running cargo fmt.."
             cargo fmt --all
@@ -176,6 +185,9 @@ run_rust_lint_checks() {
 
         echo "Checking committed IDL Rust.."
         check_generated_idl "$workspace_dir"
+
+        echo "Checking committed endpoint code.."
+        check_generated_endpoints "$workspace_dir"
 
         echo "Checking api.lock.."
         check_api_lock "$workspace_dir"
