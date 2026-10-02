@@ -34,24 +34,6 @@ pub enum Command<Request, IoResult, Tick, ObservedFact> {
     ObservedFact(ObservedFact),
 }
 
-/// An order to the Kernel to do something the Domain cannot.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum Effect<Tick, IoRequest, TimerKey> {
-    /// Runs the IO request. The IO Effects of one Decision run in order, and each one reports its own result.
-    Io(IoRequest),
-    /// Delivers `command` as a Tick once `after` has passed. Scheduling a key that is already armed re-arms it.
-    Schedule {
-        /// How long to wait, counted from the Command that returned this Effect.
-        after: Duration,
-        /// Names the timer, so it can be re-armed or cancelled.
-        key: TimerKey,
-        /// The Tick to deliver.
-        command: Tick,
-    },
-    /// Disarms the timer with this key. Cancelling a timer that is not armed does nothing.
-    Cancel(TimerKey),
-}
-
 /// What a Block or a Domain returns for one Command.
 #[derive(Debug)]
 pub enum Outcome<Event, Tick, IoRequest, TimerKey> {
@@ -68,6 +50,24 @@ pub enum Outcome<Event, Tick, IoRequest, TimerKey> {
         /// Why the Command was rejected, as the Block's or the Domain's own error type.
         reason: Box<dyn Error + Send + Sync>,
     },
+}
+
+/// An order to the Kernel to do something the Domain cannot.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Effect<Tick, IoRequest, TimerKey> {
+    /// Runs the IO request. The IO Effects of one Decision run in order, and each one reports its own result.
+    Io(IoRequest),
+    /// Delivers `command` as a Tick once `after` has passed. Scheduling a key that is already armed re-arms it.
+    Schedule {
+        /// How long to wait, counted from the Command that returned this Effect.
+        after: Duration,
+        /// Names the timer, so it can be re-armed or cancelled.
+        key: TimerKey,
+        /// The Tick to deliver.
+        command: Tick,
+    },
+    /// Disarms the timer with this key. Cancelling a timer that is not armed does nothing.
+    Cancel(TimerKey),
 }
 
 /// The time the Kernel read from its Clock once for the Command being handled.
