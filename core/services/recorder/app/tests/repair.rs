@@ -1,5 +1,7 @@
 //! Native repair through the Harness (layer L3, paused clock).
 
+mod common;
+
 use core::time::Duration;
 use std::{fs, path::Path, process::Command, sync::Arc};
 
@@ -12,8 +14,8 @@ use blueos_comms::{CommsBackend, channel::ChannelBackend};
 use blueos_idl::{
     Message,
     msg::blueos_recorder_msgs::{
-        CancelRepairCommand, RecordingFileState, RecordingLibrary, RecordingOperation,
-        RecordingOperationOperation, RepairRecordingCommand,
+        CancelRepairCommand, RecordingOperation, RecordingOperationOperation,
+        RepairRecordingCommand,
     },
 };
 use blueos_recorder_app::{RecorderArguments, RecorderService};
@@ -22,6 +24,11 @@ use blueos_recorder_mcap::is_indexed;
 use blueos_service::{
     Service,
     testing::{Harness, WALL_CLOCK_AT_START},
+};
+
+use common::{
+    drain_blocking_io, wait_for_library_file_listed, wait_for_library_file_not_repairing,
+    wait_for_library_file_ready,
 };
 
 #[tokio::test(start_paused = true)]
@@ -45,9 +52,9 @@ async fn repair_rewrites_truncated_recording_and_publishes_operation_event() {
     .await
     .expect("harness");
 
-    wait_for_library_file(&harness, "broken.mcap").await;
+    wait_for_library_file_listed(&harness, "broken.mcap").await;
     advance(RESCAN_INTERVAL + Duration::from_secs(20)).await;
-    drain_rescan_io(&harness).await;
+    drain_blocking_io().await;
 
     let ack = harness
         .send(
@@ -59,17 +66,7 @@ async fn repair_rewrites_truncated_recording_and_publishes_operation_event() {
         .await;
     assert!(ack.accepted, "repair rejected: {}", ack.reason);
 
-    for _ in 0..400 {
-        advance(Duration::from_millis(50)).await;
-        let library = harness.state::<RecordingLibrary>("library").await;
-        if library
-            .files
-            .iter()
-            .any(|file| file.state == RecordingFileState::Ready)
-        {
-            break;
-        }
-    }
+    wait_for_library_file_ready(&harness, "broken.mcap").await;
 
     assert!(is_indexed(&path), "repaired file must be indexed on disk");
 
@@ -100,9 +97,9 @@ async fn cancel_repair_leaves_original_bytes_unchanged() {
     .await
     .expect("harness");
 
-    wait_for_library_file(&harness, "cancel.mcap").await;
+    wait_for_library_file_listed(&harness, "cancel.mcap").await;
     advance(RESCAN_INTERVAL + Duration::from_secs(20)).await;
-    drain_rescan_io(&harness).await;
+    drain_blocking_io().await;
 
     harness
         .send(
@@ -124,9 +121,7 @@ async fn cancel_repair_leaves_original_bytes_unchanged() {
         )
         .await;
 
-    for _ in 0..200 {
-        advance(Duration::from_millis(50)).await;
-    }
+    wait_for_library_file_not_repairing(&harness, "cancel.mcap").await;
 
     assert_eq!(fs::read(&path).expect("read"), original);
     assert!(
@@ -192,22 +187,4 @@ fn write_truncated_mcap(path: &Path) {
     writer.finish().expect("finish");
     let bytes = fs::read(path).expect("read");
     fs::write(path, &bytes[..bytes.len() / 2]).expect("truncate");
-}
-
-async fn wait_for_library_file(harness: &Harness<RecorderService>, name: &str) {
-    for _ in 0..200 {
-        advance(Duration::from_millis(50)).await;
-        let library = harness.state::<RecordingLibrary>("library").await;
-        if library.files.iter().any(|file| file.path == name) {
-            return;
-        }
-    }
-    panic!("library never listed {name}");
-}
-
-async fn drain_rescan_io(harness: &Harness<RecorderService>) {
-    for _ in 0..200 {
-        advance(Duration::from_millis(50)).await;
-        let _library: RecordingLibrary = harness.state("library").await;
-    }
 }

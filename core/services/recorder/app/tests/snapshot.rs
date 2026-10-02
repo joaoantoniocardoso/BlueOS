@@ -15,7 +15,7 @@ use blueos_comms::{CommsBackend, Payload, Sample, channel::ChannelBackend};
 use blueos_idl::{
     Message,
     msg::blueos_recorder_msgs::{
-        RecordingLibrary, RecordingOperation, RecordingOperationOperation, SnapshotRecordingCommand,
+        RecordingOperation, RecordingOperationOperation, SnapshotRecordingCommand,
     },
 };
 use blueos_recorder_app::RecorderService;
@@ -24,9 +24,10 @@ use blueos_recorder_mcap::{RECORDING_WRITE_CHUNK_SIZE, is_indexed};
 use blueos_service::{Service, testing::Harness};
 
 use common::{
-    active_recording_mcap_path, recorder_arguments, start_harness, start_recording,
-    stop_recording_and_finalize_mcap, stop_recording_on, wait_for_active_recording,
-    wait_for_recording_bytes,
+    active_recording_mcap_path, drain_blocking_io, recorder_arguments, recording_state,
+    start_harness, start_recording, stop_recording_and_finalize_mcap, stop_recording_on,
+    wait_for_active_recording, wait_for_library_file_listed, wait_for_recording_bytes,
+    wait_for_recording_bytes_on, wait_for_recording_idle,
 };
 
 #[tokio::test(start_paused = true)]
@@ -63,13 +64,12 @@ async fn snapshot_active_recording_while_writer_runs() {
     wait_for_recording_bytes(&harness, RECORDING_WRITE_CHUNK_SIZE).await;
 
     let recording_file = active_recording_mcap_path(&harness, directory.path()).await;
-    wait_for_recording_file_bytes(&recording_file, 4096).await;
     let recording_path = recording_file
         .file_name()
         .expect("file name")
         .to_string_lossy()
         .into_owned();
-    wait_for_library_file(&harness, &recording_path).await;
+    wait_for_library_file_listed(&harness, &recording_path).await;
 
     let ack = harness
         .send(
@@ -91,12 +91,15 @@ async fn snapshot_active_recording_while_writer_runs() {
     assert!(message.succeeded, "snapshot failed: {}", message.error);
     assert!(!message.output_path.is_empty());
 
+    wait_for_library_file_listed(&harness, &message.output_path).await;
     let snapshot_path = directory.path().join(&message.output_path);
-    wait_for_recording_file_bytes(&snapshot_path, 1).await;
     assert!(is_indexed(&snapshot_path));
     let snapshot_messages = message_count(&snapshot_path);
     assert!(snapshot_messages > 0, "snapshot must contain messages");
 
+    let bytes_before_post_snapshot = recording_state(harness.backend())
+        .await
+        .session_bytes_written;
     for _ in 0..4 {
         harness
             .backend()
@@ -109,6 +112,11 @@ async fn snapshot_active_recording_while_writer_runs() {
             .expect("publish");
         advance(Duration::from_millis(20)).await;
     }
+    wait_for_recording_bytes_on(
+        harness.backend(),
+        bytes_before_post_snapshot + 4 * payload_bytes as u64,
+    )
+    .await;
 
     stop_recording_and_finalize_mcap(harness.backend(), &recording_file).await;
     assert!(is_indexed(&recording_file));
@@ -137,13 +145,11 @@ async fn snapshot_rewrite_publishes_indexed_output_path() {
     .expect("harness");
 
     stop_recording_on(harness.backend()).await;
-    for _ in 0..100 {
-        advance(Duration::from_millis(50)).await;
-    }
+    wait_for_recording_idle(harness.backend()).await;
 
-    wait_for_library_file(&harness, "partial.mcap").await;
+    wait_for_library_file_listed(&harness, "partial.mcap").await;
     advance(RESCAN_INTERVAL).await;
-    drain_rescan(&harness).await;
+    drain_blocking_io().await;
 
     let ack = harness
         .send(
@@ -166,8 +172,8 @@ async fn snapshot_rewrite_publishes_indexed_output_path() {
     assert!(!message.output_path.is_empty());
     assert_eq!(message.path, "partial.mcap");
 
+    wait_for_library_file_listed(&harness, &message.output_path).await;
     let snapshot_path = directory.path().join(&message.output_path);
-    wait_for_recording_file_bytes(&snapshot_path, 1).await;
     assert!(snapshot_path.exists(), "snapshot file must exist on disk");
     assert!(is_indexed(&snapshot_path));
     let bytes = fs::read(&snapshot_path).expect("read snapshot");
@@ -184,9 +190,7 @@ async fn snapshot_rejects_missing_file() {
     let directory = tempdir().expect("tempdir");
     let harness = start_harness(directory.path()).await;
     stop_recording_on(harness.backend()).await;
-    for _ in 0..100 {
-        advance(Duration::from_millis(50)).await;
-    }
+    wait_for_recording_idle(harness.backend()).await;
 
     let ack = harness
         .send(
@@ -227,43 +231,4 @@ fn write_truncated_mcap(path: &Path) {
     writer.finish().expect("finish");
     let bytes = fs::read(path).expect("read");
     fs::write(path, &bytes[..bytes.len() / 2]).expect("truncate");
-}
-
-async fn wait_for_recording_file_bytes(path: &Path, minimum: u64) {
-    let path = path.to_path_buf();
-    for _ in 0..600 {
-        advance(Duration::from_millis(50)).await;
-        let size = tokio::task::spawn_blocking({
-            let path = path.clone();
-            move || {
-                fs::metadata(&path)
-                    .map(|metadata| metadata.len())
-                    .unwrap_or(0)
-            }
-        })
-        .await
-        .unwrap_or(0);
-        if size >= minimum {
-            return;
-        }
-    }
-    panic!("file never reached {minimum} bytes on disk");
-}
-
-async fn wait_for_library_file(harness: &Harness<RecorderService>, path: &str) {
-    for _ in 0..200 {
-        advance(Duration::from_millis(50)).await;
-        let library = harness.state::<RecordingLibrary>("library").await;
-        if library.files.iter().any(|file| file.path == path) {
-            return;
-        }
-    }
-    panic!("library never listed {path}");
-}
-
-async fn drain_rescan(harness: &Harness<RecorderService>) {
-    for _ in 0..200 {
-        advance(Duration::from_millis(50)).await;
-        let _library: RecordingLibrary = harness.state("library").await;
-    }
 }
