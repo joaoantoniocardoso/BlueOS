@@ -10,6 +10,8 @@ blueos-api.workspace = true
 blueos-comms.workspace = true
 blueos-domain.workspace = true
 blueos-idl.workspace = true
+blueos-idl-codegen.workspace = true
+blueos-jobs.workspace = true
 blueos-logging.workspace = true
 blueos-service = { workspace = true, features = ["testing"] }
 blueos-settings.workspace = true

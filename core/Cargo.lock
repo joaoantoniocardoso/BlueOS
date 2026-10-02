@@ -293,6 +293,8 @@ dependencies = [
  "blueos-comms",
  "blueos-domain",
  "blueos-idl",
+ "blueos-idl-codegen",
+ "blueos-jobs",
  "blueos-logging",
  "blueos-service",
  "blueos-settings",

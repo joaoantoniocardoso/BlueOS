@@ -34,20 +34,20 @@ cd core && cargo test -p blueos-example-cookbook
 | 12 | Arm a timer | [`tests/12-timers.rs`](tests/12-timers.rs) | written |
 | 13 | Cancel a timer | [`tests/12-timers.rs`](tests/12-timers.rs) | written |
 | 14 | Do device IO | [`tests/14-io-effects.rs`](tests/14-io-effects.rs) | written |
-| 15 | Run multi-step work (job graph) | `15-jobs.rs` | not written yet (#62) |
-| 16 | Show job status in the UI | `16-job-status.rs` | not written yet (#62) |
-| 17 | Report partial progress of one job | `17-job-progress.rs` | not written yet (#62) |
+| 15 | Run multi-step work (job graph) | [`tests/15-jobs.rs`](tests/15-jobs.rs) | written |
+| 16 | Show job status in the UI | [`tests/16-job-status.rs`](tests/16-job-status.rs) | written |
+| 17 | Report partial progress of one job | [`tests/17-job-progress.rs`](tests/17-job-progress.rs) | written |
 | 18 | Unit-test the Domain | [`../logic/domain/src/lib.rs`](../logic/domain/src/lib.rs) (`#[cfg(test)]`) | written |
 | 19 | Integration-test the service | [`../app/tests/endpoints.rs`](../app/tests/endpoints.rs) | written |
 | 20 | Use the service from the frontend | [`../README.md`](../README.md) (Frontend section) | written |
-| 21 | Evolve a message safely | `21-evolve-message.rs` | not written yet (#62) |
-| 22 | Add an IO query | `22-io-query.rs` | not written yet (#62) |
-| 23 | Accept a non-IDL Command body | `23-non-idl-command.rs` | not written yet (#62) |
-| 24 | Send a Command from in-process code | `24-command-sender.rs` | not written yet (#62) |
-| 25 | Subscribe to another service's topic | `25-cross-subscribe.rs` | not written yet (#62) |
-| 26 | Call another service's Command | `26-cross-command.rs` | not written yet (#62) |
-| 27 | Run a long-lived background task | `27-tasks.rs` | not written yet (#62) |
-| 28 | Compose two Domains | `28-compose-domains.rs` | not written yet (#62) |
+| 21 | Evolve a message safely | [`tests/21-evolve-message.rs`](tests/21-evolve-message.rs) | written |
+| 22 | Add an IO query | [`tests/22-io-query.rs`](tests/22-io-query.rs) | written |
+| 23 | Accept a non-IDL Command body | [`tests/23-non-idl-command.rs`](tests/23-non-idl-command.rs) | written |
+| 24 | Send a Command from in-process code | [`tests/24-command-sender.rs`](tests/24-command-sender.rs) | written |
+| 25 | Subscribe to another service's topic | [`tests/25-cross-subscribe.rs`](tests/25-cross-subscribe.rs) | written |
+| 26 | Call another service's Command | [`tests/26-cross-command.rs`](tests/26-cross-command.rs) | written |
+| 27 | Run a long-lived background task | [`tests/27-tasks.rs`](tests/27-tasks.rs) | written |
+| 28 | Compose two Domains | [`tests/28-compose-domains.rs`](tests/28-compose-domains.rs) | written |
 | 29 | Extend the CLI | [`tests/29-extend-cli.rs`](tests/29-extend-cli.rs) | written |
 | 30 | Run a Command at startup | [`tests/30-startup-command.rs`](tests/30-startup-command.rs) | written |
 | 31 | Clean up at shutdown | [`tests/31-shutdown-cleanup.rs`](tests/31-shutdown-cleanup.rs) | written |
