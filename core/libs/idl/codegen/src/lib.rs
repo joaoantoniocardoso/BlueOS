@@ -36,7 +36,12 @@ pub struct MessageRecord {
 }
 
 /// Regenerates committed Rust types and schema lookup under `out_dir` (typically `blueos-idl/src/generated`).
-pub fn generate(interfaces_root: &Path, out_dir: &Path, typescript_dir: Option<&Path>) {
+pub fn generate(
+    interfaces_root: &Path,
+    out_dir: &Path,
+    typescript_dir: Option<&Path>,
+    test_generated_dir: Option<&Path>,
+) {
     let messages = collect_messages(interfaces_root);
     let records: BTreeMap<String, MessageRecord> = messages
         .into_iter()
@@ -54,7 +59,9 @@ pub fn generate(interfaces_root: &Path, out_dir: &Path, typescript_dir: Option<&
     let idl_root = interfaces_root
         .parent()
         .expect("interfaces directory has a parent");
-    let test_generated = idl_root.join("tests/generated");
+    let test_generated = test_generated_dir
+        .map(PathBuf::from)
+        .unwrap_or_else(|| idl_root.join("tests/generated"));
     fs::create_dir_all(&test_generated).expect("create test generated dir");
     write_cdr_codec_dispatch(&records, &test_generated);
 

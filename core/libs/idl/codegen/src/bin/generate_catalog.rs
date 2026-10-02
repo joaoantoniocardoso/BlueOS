@@ -7,7 +7,9 @@ use blueos_idl_codegen::{generate_catalog_outputs, write_typescript_index};
 fn main() {
     let arguments: Vec<String> = env::args().collect();
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let idl_root = manifest_dir.parent().expect("idl crate root");
+    let idl_root = argument_value(&arguments, "--idl-root")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| manifest_dir.parent().expect("idl crate root"));
     let generated_output = argument_value(&arguments, "--generated-output")
         .map(PathBuf::from)
         .unwrap_or_else(|| idl_root.join("src/generated"));
