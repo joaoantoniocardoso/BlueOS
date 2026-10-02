@@ -20,8 +20,6 @@ mod inbox;
 mod inbox_recovery;
 mod kernel;
 mod logging;
-#[cfg(feature = "probe")]
-pub mod probe;
 mod projection;
 mod run_outcome;
 mod service;
@@ -36,7 +34,10 @@ pub use blueos_domain::{DomainDurable, IoError};
 pub use builder::{Refusal, ServiceBuilder};
 pub use clock::Clock;
 pub use command_sender::{CommandSender, SendError, Session};
+#[cfg(feature = "testing")]
+pub use durable_state::DurableWriteFlush;
 pub use kernel::Kernel;
+pub use logging::LogPublisherRuntime;
 pub use projection::Projection;
 pub use run_outcome::RunOutcome;
 pub use service::{Service, ServiceContext, ServiceError};

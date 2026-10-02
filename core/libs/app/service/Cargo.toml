@@ -8,9 +8,6 @@ publish.workspace = true
 [features]
 # Test-only: enable it in [dev-dependencies] only, never in [dependencies].
 testing = ["blueos-comms/channel"]
-# Minimal Service for multicall tests and the `blueos` binary when built with `--features probe`.
-probe = []
-
 [dependencies]
 blueos-api.workspace = true
 blueos-comms.workspace = true

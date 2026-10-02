@@ -1,5 +1,7 @@
 //! Durable state across restarts (ticket #56, D-28).
 
+mod common;
+
 use core::{
     convert::Infallible,
     fmt::{self, Display, Formatter},
@@ -21,8 +23,8 @@ use blueos_domain::{Command, Domain, DomainDurable, Outcome};
 use blueos_idl::msg::{blueos_example_msgs::EmptyRequest, blueos_msgs::JobStatusStatus};
 use blueos_jobs::{DomainJobs, JobEnd, JobGraph, JobKind, JobStatus, Jobs};
 use blueos_service::{
-    CommandSender, Kernel, Service, ServiceBuilder, ServiceContext, ServiceError, ShutdownHandle,
-    testing::PausedClock,
+    CommandSender, DurableWriteFlush, Kernel, Service, ServiceBuilder, ServiceContext,
+    ServiceError, ShutdownHandle, testing::PausedClock,
 };
 use blueos_settings::{STATE_NAME_PREFIX, state_file_name};
 
@@ -242,29 +244,12 @@ fn state_path(folder: &Path) -> PathBuf {
 }
 
 fn durable_value(folder: &Path) -> Option<u32> {
-    let raw = fs::read_to_string(state_path(folder)).ok()?;
-    let value: serde_json::Value = serde_json::from_str(&raw).ok()?;
-    value["domain"]["value"]
-        .as_u64()
-        .map(|number| number as u32)
+    common::durable_u32_from_json(&state_path(folder), "/domain/value")
 }
 
-async fn wait_for_durable_value(folder: &Path, expected: u32) {
-    let folder = folder.to_path_buf();
-    tokio::task::spawn_blocking(move || {
-        for _ in 0..200 {
-            if durable_value(&folder) == Some(expected) {
-                return;
-            }
-            std::thread::sleep(Duration::from_millis(10));
-        }
-        panic!(
-            "expected durable value {expected}, got {:?}",
-            durable_value(&folder)
-        );
-    })
-    .await
-    .expect("durable value wait");
+async fn flush_and_expect_durable(durable_flush: &DurableWriteFlush, folder: &Path, expected: u32) {
+    durable_flush.flush().await;
+    assert_eq!(durable_value(folder), Some(expected));
 }
 
 async fn start_vault_kernel(
@@ -275,6 +260,7 @@ async fn start_vault_kernel(
     CommandSender<Vault>,
     Option<ShutdownHandle>,
     JoinSet<()>,
+    DurableWriteFlush,
 ) {
     let backend: Arc<dyn blueos_comms::CommsBackend> = Arc::new(ChannelBackend::default());
     let context =
@@ -285,11 +271,14 @@ async fn start_vault_kernel(
         .await
         .expect("vault starts");
     let command_sender = kernel.command_sender().expect("command sender");
+    let durable_flush = kernel
+        .durable_write_flush()
+        .expect("vault registers durable state");
     let mut tasks = JoinSet::new();
     tasks.spawn(async move {
         kernel.run().await;
     });
-    (backend, command_sender, shutdown, tasks)
+    (backend, command_sender, shutdown, tasks, durable_flush)
 }
 
 async fn send_command(backend: &Arc<dyn blueos_comms::CommsBackend>, command: &str) {
@@ -333,28 +322,32 @@ async fn query_jobs(
 
 #[tokio::test(start_paused = true)]
 async fn ten_changes_within_one_second_produce_one_write() {
-    let folder = tempfile::tempdir().expect("tempdir").keep();
-    let (backend, _sender, _shutdown, mut tasks) = start_vault_kernel(folder.clone(), false).await;
+    let temp_folder = tempfile::tempdir().expect("tempdir");
+    let folder = temp_folder.path().to_path_buf();
+    let (backend, _sender, _shutdown, mut tasks, durable_flush) =
+        start_vault_kernel(folder.clone(), false).await;
 
     for _ in 0..10 {
         send_command(&backend, "Bump").await;
     }
     time::advance(Duration::from_secs(1)).await;
-    wait_for_durable_value(&folder, 10).await;
+    flush_and_expect_durable(&durable_flush, &folder, 10).await;
     tasks.abort_all();
 }
 
 #[tokio::test(start_paused = true)]
 async fn corrupt_file_is_moved_aside_and_the_service_starts_fresh() {
-    let folder = tempfile::tempdir().expect("tempdir").keep();
+    let temp_folder = tempfile::tempdir().expect("tempdir");
+    let folder = temp_folder.path().to_path_buf();
     let path = state_path(&folder);
     fs::create_dir_all(path.parent().expect("parent")).expect("mkdir");
     fs::write(&path, b"{not json").expect("write corrupt file");
 
-    let (backend, _sender, _shutdown, mut tasks) = start_vault_kernel(folder.clone(), false).await;
+    let (backend, _sender, _shutdown, mut tasks, durable_flush) =
+        start_vault_kernel(folder.clone(), false).await;
     send_command(&backend, "Bump").await;
     time::advance(Duration::from_secs(1)).await;
-    wait_for_durable_value(&folder, 1).await;
+    flush_and_expect_durable(&durable_flush, &folder, 1).await;
     tasks.abort_all();
 
     let corrupt = fs::read_dir(path.parent().expect("parent"))
@@ -371,7 +364,8 @@ async fn corrupt_file_is_moved_aside_and_the_service_starts_fresh() {
 
 #[tokio::test(start_paused = true)]
 async fn wrong_shape_with_matching_version_starts_fresh_without_restored_tick() {
-    let folder = tempfile::tempdir().expect("tempdir").keep();
+    let temp_folder = tempfile::tempdir().expect("tempdir");
+    let folder = temp_folder.path().to_path_buf();
     let path = state_path(&folder);
     fs::create_dir_all(path.parent().expect("parent")).expect("mkdir");
     fs::write(
@@ -380,7 +374,8 @@ async fn wrong_shape_with_matching_version_starts_fresh_without_restored_tick() 
     )
     .expect("write malformed file");
 
-    let (_backend, _sender, _shutdown, mut tasks) = start_vault_kernel(folder.clone(), false).await;
+    let (_backend, _sender, _shutdown, mut tasks, _durable_flush) =
+        start_vault_kernel(folder.clone(), false).await;
     tasks.abort_all();
 
     let corrupt = fs::read_dir(path.parent().expect("parent"))
@@ -398,14 +393,16 @@ async fn wrong_shape_with_matching_version_starts_fresh_without_restored_tick() 
 
 #[tokio::test(start_paused = true)]
 async fn after_restore_interrupted_leaves_can_fail_or_retry_from_the_restored_tick() {
-    let folder = tempfile::tempdir().expect("tempdir").keep();
-    let (backend, _sender, _shutdown, mut tasks) = start_vault_kernel(folder.clone(), false).await;
+    let temp_folder = tempfile::tempdir().expect("tempdir");
+    let folder = temp_folder.path().to_path_buf();
+    let (backend, _sender, _shutdown, mut tasks, durable_flush) =
+        start_vault_kernel(folder.clone(), false).await;
     send_command(&backend, "StartParallel").await;
     time::advance(Duration::from_secs(1)).await;
-    wait_for_durable_value(&folder, 0).await;
+    flush_and_expect_durable(&durable_flush, &folder, 0).await;
     tasks.abort_all();
 
-    let (restore_backend, _restore_sender, _restore_shutdown, mut restore_tasks) =
+    let (restore_backend, _restore_sender, _restore_shutdown, mut restore_tasks, _restore_flush) =
         start_vault_kernel(folder.clone(), false).await;
     time::advance(Duration::from_millis(10)).await;
     let jobs = query_jobs(&restore_backend).await;
@@ -427,11 +424,13 @@ async fn after_restore_interrupted_leaves_can_fail_or_retry_from_the_restored_ti
 
 #[tokio::test(start_paused = true)]
 async fn observed_facts_and_rederivable_data_are_never_persisted() {
-    let folder = tempfile::tempdir().expect("tempdir").keep();
-    let (backend, _sender, _shutdown, mut tasks) = start_vault_kernel(folder.clone(), false).await;
+    let temp_folder = tempfile::tempdir().expect("tempdir");
+    let folder = temp_folder.path().to_path_buf();
+    let (backend, _sender, _shutdown, mut tasks, durable_flush) =
+        start_vault_kernel(folder.clone(), false).await;
     send_command(&backend, "Bump").await;
     time::advance(Duration::from_secs(1)).await;
-    wait_for_durable_value(&folder, 1).await;
+    flush_and_expect_durable(&durable_flush, &folder, 1).await;
     tasks.abort_all();
 
     let raw = fs::read_to_string(state_path(&folder)).expect("state file");
@@ -441,7 +440,8 @@ async fn observed_facts_and_rederivable_data_are_never_persisted() {
 
 #[tokio::test(start_paused = true)]
 async fn shutdown_flush_persists_changes_from_the_final_inbox_drain() {
-    let folder = tempfile::tempdir().expect("tempdir").keep();
+    let temp_folder = tempfile::tempdir().expect("tempdir");
+    let folder = temp_folder.path().to_path_buf();
     let backend: Arc<dyn blueos_comms::CommsBackend> = Arc::new(ChannelBackend::default());
     let context = ServiceContext::with_settings_path(
         VaultArguments {},
@@ -454,11 +454,14 @@ async fn shutdown_flush_persists_changes_from_the_final_inbox_drain() {
     let kernel = Kernel::start(VaultService::NAME, builder, Arc::clone(&backend), clock)
         .await
         .expect("vault starts");
+    let durable_flush = kernel
+        .durable_write_flush()
+        .expect("vault registers durable state");
     let run = tokio::spawn(async move { kernel.run().await });
 
     send_command(&backend, "Bump").await;
     time::advance(Duration::from_secs(1)).await;
-    wait_for_durable_value(&folder, 1).await;
+    flush_and_expect_durable(&durable_flush, &folder, 1).await;
 
     shutdown.trigger();
     let _ = run.await;

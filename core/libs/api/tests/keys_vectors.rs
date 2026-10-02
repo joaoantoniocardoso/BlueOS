@@ -7,15 +7,13 @@ use serde::Deserialize;
 use blueos_api::{
     API_VERSION, ENCODING_APPLICATION_CDR, KEY_PREFIX, TYPE_HASH_ATTACHMENT_KEY, cdr_encoding,
     command_key, event_key, extension_log_key, http_gateway_prefix, info_query_key, jobs_key,
-    log_key, query_key, service_info_key, service_liveliness_key, settings_key, state_key,
-    status_state_key,
+    log_key, query_key, service_liveliness_key, settings_key, state_key, status_state_key,
 };
 
 #[derive(Debug, Deserialize)]
 struct KeysVectors {
     constants: ConstantsVectors,
     service_liveliness_key: Vec<ServiceCase>,
-    service_info_key: Vec<ServiceCase>,
     command_key: Vec<NamedCase>,
     state_key: Vec<NamedCase>,
     event_key: Vec<NamedCase>,
@@ -82,9 +80,6 @@ fn keys_vectors_match_rust_api() {
 
     for case in vectors.service_liveliness_key {
         assert_eq!(service_liveliness_key(&case.service), case.expected);
-    }
-    for case in vectors.service_info_key {
-        assert_eq!(service_info_key(&case.service), case.expected);
     }
     for case in vectors.command_key {
         assert_eq!(command_key(&case.service, &case.name), case.expected);

@@ -16,7 +16,6 @@ import {
   KEY_PREFIX,
   logKey,
   queryKey,
-  serviceInfoKey,
   serviceLivelinessKey,
   settingsKey,
   stateKey,
@@ -32,7 +31,6 @@ interface KeysVectors {
     type_hash_attachment_key: string
   }
   service_liveliness_key: Array<{ service: string, expected: string }>
-  service_info_key: Array<{ service: string, expected: string }>
   command_key: Array<{ service: string, name: string, expected: string }>
   state_key: Array<{ service: string, name: string, expected: string }>
   event_key: Array<{ service: string, name: string, expected: string }>
@@ -65,12 +63,6 @@ describe('blueos-api key shared vectors', () => {
   it('matches service liveliness keys', () => {
     for (const caseEntry of vectors.service_liveliness_key) {
       expect(serviceLivelinessKey(caseEntry.service)).toBe(caseEntry.expected)
-    }
-  })
-
-  it('matches service info keys', () => {
-    for (const caseEntry of vectors.service_info_key) {
-      expect(serviceInfoKey(caseEntry.service)).toBe(caseEntry.expected)
     }
   })
 

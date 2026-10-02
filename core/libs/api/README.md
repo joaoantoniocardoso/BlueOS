@@ -17,7 +17,6 @@ All public keys are under `blueos/v1/<service>/...`:
 | `settings_key` | `blueos/v1/<service>/settings` |
 | `log_key` | `blueos/v1/<service>/log` |
 | `service_liveliness_key` | `blueos/v1/services/<name>` |
-| `service_info_key` | `blueos/v1/services/<name>/info` |
 
 Standard per-service state: `status_state_key`, `info_query_key`.
 

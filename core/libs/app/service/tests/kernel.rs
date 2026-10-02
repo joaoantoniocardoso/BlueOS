@@ -586,6 +586,26 @@ async fn states_are_published_before_the_ack_and_events_after_it() {
 }
 
 #[tokio::test(start_paused = true)]
+async fn send_awaiting_ack_returns_rejection_when_handle_panics() {
+    let harness = Harness::<TankService>::start(TankArguments { capacity: 100 })
+        .await
+        .unwrap();
+    harness
+        .send("SetLevel", &SetLevelRequest { level: 5 })
+        .await;
+    let ack = harness
+        .command_sender()
+        .send_awaiting_ack(Command::Request(TankRequest::SetLevel(
+            LEVEL_THAT_PANICS_IN_HANDLE,
+        )))
+        .await
+        .expect("the Inbox stays open");
+    assert!(!ack.accepted);
+    assert_eq!(ack.reason, "the Command panicked, so nothing changed");
+    assert_eq!(harness.state::<PumpState>("tank").await.level, 5);
+}
+
+#[tokio::test(start_paused = true)]
 async fn a_panic_in_handle_restores_the_snapshot_and_rejects_the_ack() {
     assert_a_panic_changes_nothing(LEVEL_THAT_PANICS_IN_HANDLE).await;
 }

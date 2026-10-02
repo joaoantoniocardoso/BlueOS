@@ -1,5 +1,7 @@
 //! Kernel settings: load, `UpdateSettings`, persist rollback, and pending restart fields.
 
+mod common;
+
 use core::{convert::Infallible, num::NonZeroU32, time::Duration};
 use std::{
     path::{Path, PathBuf},
@@ -220,29 +222,7 @@ fn durable_state_path(parent: &Path) -> PathBuf {
 }
 
 fn durable_live_field_on_disk(parent: &Path) -> Option<u32> {
-    let raw = std::fs::read_to_string(durable_state_path(parent)).ok()?;
-    let value: serde_json::Value = serde_json::from_str(&raw).ok()?;
-    value["domain"]["live_field"]
-        .as_u64()
-        .map(|number| number as u32)
-}
-
-async fn wait_for_durable_live_field(parent: &Path, expected: u32) {
-    let parent = parent.to_path_buf();
-    tokio::task::spawn_blocking(move || {
-        for _ in 0..200 {
-            if durable_live_field_on_disk(&parent) == Some(expected) {
-                return;
-            }
-            std::thread::sleep(Duration::from_millis(10));
-        }
-        panic!(
-            "expected durable live_field {expected}, got {:?}",
-            durable_live_field_on_disk(&parent)
-        );
-    })
-    .await
-    .expect("durable live_field wait");
+    common::durable_u32_from_json(&durable_state_path(parent), "/domain/live_field")
 }
 
 #[tokio::test(start_paused = true)]
@@ -333,7 +313,8 @@ async fn settings_write_failure_does_not_queue_durable_snapshot() {
         .await;
     assert!(ack.accepted);
     time::advance(Duration::from_secs(1)).await;
-    wait_for_durable_live_field(&parent, 2).await;
+    harness.flush_durable_writes().await;
+    assert_eq!(durable_live_field_on_disk(&parent), Some(2));
 
     let settings_path = parent.join(format!(
         "{}/{}",
@@ -354,9 +335,7 @@ async fn settings_write_failure_does_not_queue_durable_snapshot() {
     assert!(!blocked_ack.accepted);
 
     time::advance(Duration::from_secs(1)).await;
-    tokio::task::spawn_blocking(|| std::thread::sleep(Duration::from_millis(500)))
-        .await
-        .expect("debounce settle");
+    harness.flush_durable_writes().await;
     assert_eq!(
         durable_live_field_on_disk(&parent),
         Some(2),
