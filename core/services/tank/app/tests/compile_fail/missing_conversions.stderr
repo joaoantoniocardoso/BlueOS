@@ -1,0 +1,24 @@
+error[E0277]: `Twin` does not convert the endpoints of the `tank` Service
+  --> tests/compile_fail/missing_conversions.rs:30:25
+   |
+30 |     endpoints::register(builder, TwinHandlers);
+   |     ------------------- ^^^^^^^ no `impl Conversions for Twin` in the `tank` logic/api crate
+   |     |
+   |     required by a bound introduced by this call
+   |
+help: the trait `blueos_tank_api::endpoints::Conversions` is not implemented for `Twin`
+  --> tests/compile_fail/common/mod.rs
+   |
+   | pub struct Twin;
+   | ^^^^^^^^^^^^^^^
+   = note: implement `drain` for the Command `Drain`, `level` for the Query `Level`, `level_response` for the Query `Level`, `level_after_fill_response` for the Query `LevelAfterFill`, `tank` for the State `tank`, `emptied` for the Event `Emptied`, `level_changed` for the Event `LevelChanged`
+help: the trait `blueos_tank_api::endpoints::Conversions` is implemented for `Tank`
+  --> $WORKSPACE/services/tank/logic/api/src/lib.rs
+   |
+   | impl Conversions for Tank {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^
+note: required by a bound in `register`
+  --> src/endpoints.rs
+   |
+   | pub fn register<D: Conversions, H: Handlers<D>>(
+   |                    ^^^^^^^^^^^ required by this bound in `register`
