@@ -12,12 +12,14 @@ json5.workspace = true
 mcap.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
-tokio = { workspace = true, features = ["sync"] }
+tokio = { workspace = true, features = ["macros", "rt", "sync"] }
 tracing = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
+blueos-comms.workspace = true
 bytes.workspace = true
 tempfile = "3"
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
 [lints]
 workspace = true
