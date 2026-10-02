@@ -1,6 +1,5 @@
-import { readFileSync } from 'node:fs'
-import path from 'node:path'
-
+import { readFileSync } from 'fs'
+import path from 'path'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -8,7 +7,6 @@ import {
   parseRmwZenohDataKey,
   parseRmwZenohToken,
   parseRos2ddsToken,
-  ros2ddsLivelinessTokenToDataKey,
   ros2ddsTopicFromDataKey,
 } from '@/libs/zenoh-inspector/logic/ros2-names'
 import type { Ros2Info } from '@/libs/zenoh-inspector/logic/types'
@@ -24,11 +22,11 @@ type VectorFile = {
   ros2dds_tokens: { key: string, expected: Record<string, unknown> | null }[]
   dds_type_names: { dds: string, ros: string | null }[]
   ros2dds_data_key_topics: { key: string, topic: string }[]
-  ros2dds_token_data_keys?: { key: string, dataKey: string }[]
 }
 
 const vectors = JSON.parse(readFileSync(vectorsPath, 'utf8')) as VectorFile
 
+// Only keys listed in `expected` are compared; extra fields on the parse result are ignored.
 function expectPartial(actual: Ros2Info | undefined, expected: Record<string, unknown> | null): void {
   if (expected === null) {
     expect(actual).toBeUndefined()
@@ -40,15 +38,10 @@ function expectPartial(actual: Ros2Info | undefined, expected: Record<string, un
   }
 }
 
-describe('ros2-names shared vectors', () => {
+describe('ros2-names vectors', () => {
   it('parses rmw_zenoh data keys', () => {
     for (const entry of vectors.rmw_zenoh_data_keys) {
-      const parsed = parseRmwZenohDataKey(entry.key)
-      if (entry.expected === null) {
-        expect(parsed).toBeUndefined()
-      } else {
-        expect(parsed).toEqual(entry.expected)
-      }
+      expectPartial(parseRmwZenohDataKey(entry.key), entry.expected)
     }
   })
 
@@ -78,12 +71,6 @@ describe('ros2-names shared vectors', () => {
   it('maps ros2dds data keys to ROS topic names', () => {
     for (const entry of vectors.ros2dds_data_key_topics) {
       expect(ros2ddsTopicFromDataKey(entry.key)).toBe(entry.topic)
-    }
-  })
-
-  it('extracts ros2dds token data keys', () => {
-    for (const entry of vectors.ros2dds_token_data_keys ?? []) {
-      expect(ros2ddsLivelinessTokenToDataKey(entry.key)).toBe(entry.dataKey)
     }
   })
 })

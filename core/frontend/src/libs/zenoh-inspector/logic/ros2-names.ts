@@ -1,4 +1,4 @@
-import type { RmwZenohDataKeyFields, Ros2EntityKind, Ros2Info } from './types'
+import type { Ros2EntityKind, Ros2Info } from './types'
 
 const RMW_ZENOH_PREFIX = '@ros2_lv/'
 
@@ -7,8 +7,6 @@ const RMW_ENTITY_KIND: Record<string, Ros2EntityKind> = {
   MS: 'subscriber',
   SS: 'service_server',
   SC: 'service_client',
-  AS: 'action_server',
-  AC: 'action_client',
 }
 
 const ROS2DDS_ENTITY_KIND: Record<string, Ros2EntityKind> = {
@@ -39,39 +37,44 @@ export function ddsToRosTypeName(dds: string): string | undefined {
 }
 
 export function ros2ddsTopicFromDataKey(key: string): string {
-  if (key.length === 0) {
-    return '/'
-  }
-  if (key.startsWith('/')) {
-    return key
-  }
-  return `/${key}`
+  const path = key.startsWith('/') ? key.slice(1) : key
+  return `/${path}`
 }
 
-export function parseRmwZenohDataKey(key: string): RmwZenohDataKeyFields | undefined {
-  const segments = key.split('/')
-  if (segments.length < 4) {
+export function parseRmwZenohDataKey(key: string): Ros2Info | undefined {
+  const hashMatch = key.match(/\/(RIHS01_[a-f0-9]+)$/)
+  if (!hashMatch) {
     return undefined
   }
-  const domainId = Number.parseInt(segments[0], 10)
-  if (Number.isNaN(domainId)) {
+  const typeHash = hashMatch[1]
+  const beforeHash = key.slice(0, -hashMatch[0].length)
+
+  const typeMatch = beforeHash.match(/^(.*)\/([^/]+::(?:msg|srv|action)::dds_::\w+_)$/)
+  if (!typeMatch) {
     return undefined
   }
-  const typeHash = segments[segments.length - 1]
-  if (!typeHash.startsWith('RIHS01_')) {
-    return undefined
-  }
-  const ddsType = segments[segments.length - 2]
-  const typeName = ddsToRosTypeName(ddsType)
+
+  const typeName = ddsToRosTypeName(typeMatch[2])
   if (!typeName) {
     return undefined
   }
-  const topicSegments = segments.slice(1, segments.length - 2)
-  if (topicSegments.length === 0) {
+
+  const domainMatch = typeMatch[1].match(/^(\d+)\/(.*)$/)
+  if (!domainMatch) {
     return undefined
   }
-  const topic = `/${topicSegments.join('/')}`
+
+  const domainId = Number.parseInt(domainMatch[1], 10)
+  if (Number.isNaN(domainId)) {
+    return undefined
+  }
+
+  const topicPath = domainMatch[2]
+  const topic = topicPath.startsWith('/') ? topicPath : `/${topicPath}`
+
   return {
+    transport: 'rmw_zenoh',
+    entityKind: 'publisher',
     domainId,
     topic,
     typeName,
@@ -80,12 +83,12 @@ export function parseRmwZenohDataKey(key: string): RmwZenohDataKeyFields | undef
 }
 
 export function parseRmwZenohToken(key: string): Ros2Info | undefined {
-  if (!key.startsWith(RMW_ZENOH_PREFIX) || key.startsWith('@/')) {
+  if (!key.startsWith(RMW_ZENOH_PREFIX)) {
     return undefined
   }
 
   const parts = key.slice(RMW_ZENOH_PREFIX.length).split('/')
-  if (parts.length < 9) {
+  if (parts.length < 11) {
     return undefined
   }
 
@@ -104,23 +107,15 @@ export function parseRmwZenohToken(key: string): Ros2Info | undefined {
     return undefined
   }
 
-  const tail = parts.slice(8)
-  const typeIndex = tail.findIndex((segment) => segment.includes('::'))
-  if (typeIndex < 0) {
-    return undefined
-  }
-  const ddsType = tail[typeIndex]
+  const ddsType = parts[9]
   const typeName = ddsToRosTypeName(ddsType)
-  const typeHash = tail[typeIndex + 1]
-  if (!typeName || !typeHash?.startsWith('RIHS01_')) {
+  const typeHash = parts[10]?.startsWith('RIHS01_') ? parts[10] : undefined
+  if (!typeName || !typeHash) {
     return undefined
   }
-
-  const topic = typeIndex === 1
-    ? unmangleRmwZenohSegment(tail[0])
-    : unmangleRmwZenohSegment(tail.slice(0, typeIndex).join('/'))
 
   const namespace = unmangleRmwZenohSegment(parts[6])
+  const topic = unmangleRmwZenohSegment(parts[8])
 
   return {
     transport: 'rmw_zenoh',
@@ -148,11 +143,8 @@ export function parseRos2ddsToken(key: string): Ros2Info | undefined {
   }
 
   const path = match[3].replace(/\u00a7/g, '/')
-  const topic = ros2ddsTopicFromDataKey(path)
+  const topic = path.startsWith('/') ? path : `/${path}`
   const typeName = match[4].replace(/\u00a7/g, '/')
-  if (!typeName.includes('/') || typeName.split('/').length !== 3) {
-    return undefined
-  }
 
   return {
     transport: 'ros2dds',
@@ -160,15 +152,4 @@ export function parseRos2ddsToken(key: string): Ros2Info | undefined {
     topic,
     typeName,
   }
-}
-
-export function ros2ddsLivelinessTokenToDataKey(key: string): string | undefined {
-  const match = key.match(/^@\/([^/]+)\/@ros2_lv\/(MP|MS|SS|SC|AS|AC)\/([^/]+)/)
-  if (!match) {
-    return undefined
-  }
-  if (!ROS2DDS_ENTITY_KIND[match[2]]) {
-    return undefined
-  }
-  return match[3].replace(/\u00a7/g, '/')
 }
