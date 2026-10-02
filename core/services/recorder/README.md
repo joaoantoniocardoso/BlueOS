@@ -69,7 +69,7 @@ shared with the host. **Extension images** must set Kraken permissions according
 ```
 
 The narrower alternative is a bind mount of `/dev/shm`. See also `core/libs/api/README.md` and
-`doc/architecture/decisions.md` (D-09). External extension developer docs should repeat this requirement.
+`docs/adr/decisions.md` (D-09). External extension developer docs should repeat this requirement.
 
 ## Docker image binary (local builds)
 

@@ -2,7 +2,7 @@
 
 A minimal but complete BlueOS service: simulated pump level control, a three-step self-test job graph, scheduled
 timeouts, Python-compatible settings, and a pirate-mode frontend page. Use it as the template for new Rust
-services and for AI agents; read `doc/architecture/decisions.md` first.
+services and for AI agents; read `docs/adr/decisions.md` first.
 
 ## Layout (D-02)
 

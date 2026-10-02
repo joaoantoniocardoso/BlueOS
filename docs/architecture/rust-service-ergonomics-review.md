@@ -1,6 +1,6 @@
 # BlueOS Rust service: ergonomics review
 
-Companion to `doc/architecture/rust-service-overview.md` (how it works) and `doc/architecture/rust-service-review.md`
+Companion to `docs/architecture/rust-service-overview.md` (how it works) and `docs/architecture/rust-service-review.md`
 (correctness bugs). This document is about a different question: **how hard is this code to learn and to use?** It is
 the north for the next POC.
 
@@ -53,7 +53,7 @@ These are the principles that the next POC must follow. The themes E1 to E12 bel
   - the Zenoh session: the builder or the service, depending on the service (E2)
   - background tasks: nobody (E5)
 - **Name clash.** "App" already has two meanings: `blueos_cqrs::App`, which is Snapshot + Jobs
-  (`core/libs/logic/cqrs/src/lib.rs:157`, and the vocabulary in `doc/architecture/rust-service-overview.md`), and the
+  (`core/libs/logic/cqrs/src/lib.rs:157`, and the vocabulary in `docs/architecture/rust-service-overview.md`), and the
   `app/` layer folder. This proposal would add a third. The next POC must give "App" one meaning and rename the others.
 
 **Deep-dive questions**
@@ -71,7 +71,7 @@ These are the principles that the next POC must follow. The themes E1 to E12 bel
 - **The Kernel itself detaches tasks.** The three adapter spawners return `()` and drop their handles
   (`core/libs/app/service/src/runtime.rs:782`, `:849`, `:892`). Only the persist worker is owned and drained (`:441`,
   `:699`). The Recorder's detached tasks copy the Kernel's own style.
-- **D-04 and the code disagree.** D-04 says tokio lives "in the kernel only" (`doc/architecture/decisions.md:141`),
+- **D-04 and the code disagree.** D-04 says tokio lives "in the kernel only" (`docs/adr/decisions.md:141`),
   but each service builds its runtime, and the Recorder's `app/` crate spawns long-running tasks.
 - **`ServiceBuilder` has three jobs:** collecting registrations, disk IO at registration time (`.settings`), and being
   the process entry (`run()` opens the session and installs logging). This is why `.settings` cannot chain.
@@ -138,7 +138,7 @@ impl blueos_service::Service for Example {
 - **Answer, what "the App owns the state" includes:** the App owns the lifecycle of the state and the Kernel keeps the
   exclusive write access. The App should hold a Command sender (E6) and a State subscription, not the Snapshot itself;
   direct mutable access would break the single-writer property that makes the Inbox safe
-  (`doc/architecture/rust-service-overview.md:105`). Background tasks belong to the App as a named list with restart
+  (`docs/architecture/rust-service-overview.md:105`). Background tasks belong to the App as a named list with restart
   policies (E5), not to `tokio::spawn` call sites. Write that distinction down before renaming anything, or P1 reads as
   "put a `Mutex<Snapshot>` in the App", which undoes D-04.
 - **Recommendation:** split `run_with_session` (`core/libs/app/service/src/builder.rs:339`) so that `build()` returns a
@@ -307,7 +307,7 @@ impl blueos_service::Service for Example {
 - **The example teaches a DRY violation that the Recorder then scales up.**
   `core/services/example/logic/pump/src/phase.rs:1` says the values must stay aligned with the IDL constants by hand,
   although the codegen already emits them (`core/libs/idl/codegen/src/lib.rs:429`) and D-02 allows a `logic/` crate to
-  depend on `blueos-idl` (`doc/architecture/decisions.md:93`). The Recorder follows the lesson in `library_state_to_idl`
+  depend on `blueos-idl` (`docs/adr/decisions.md:93`). The Recorder follows the lesson in `library_state_to_idl`
   (`core/services/recorder/app/src/lib.rs:631`); see E8.
 - **The example ships a no-op presented as required wiring.** `.cli(Argv::default())`
   (`core/services/example/app/src/lib.rs:65`) is never paired with `.cli_command`, so it does nothing, and a reader
@@ -357,7 +357,7 @@ impl blueos_service::Service for Example {
   them, the framework surface a reader must read before writing the first line. Here that is about 2550 lines
   (`core/libs/logic/cqrs/src/lib.rs` 364, `core/libs/logic/jobs/src/lib.rs` 583,
   `core/libs/app/service/src/builder.rs` 396, `core/libs/app/service/src/runtime.rs` 1207, which
-  `doc/architecture/rust-service-overview.md:473` tells the reader to read). In the prototype it is about 712 lines of
+  `docs/architecture/rust-service-overview.md:473` tells the reader to read). In the prototype it is about 712 lines of
   `commonwealth`, and the rest is stock axum, serde and utoipa.
 - **Transferability must be weighted, not just counted.** 21 of the POC's 24 concepts are repo-local, against 1 of the
   prototype's 8. A developer who learns axum extractors can use that knowledge anywhere; `Decision`, `io_from_job`,
@@ -513,7 +513,7 @@ impl blueos_service::Service for Example {
   - complexity and single responsibility: `run_async` is one 340-line function (E2)
   - DRY: the `InjectedCommand` copy of `RecorderCommand` (E6), three `SystemAndComponent` types (E8), the calendar code
     written twice (E10)
-  - architecture: the layer rule in `doc/architecture/decisions.md` is checked only by folder convention
+  - architecture: the layer rule in `docs/adr/decisions.md` is checked only by folder convention
   - test quality: P6
 
 **Deep-dive questions**
@@ -805,7 +805,7 @@ use, as far as possible.
 - Which rules can a tool enforce (rustfmt, clippy lints such as `allow_attributes_without_reason`, a custom check),
   and which can only be written as guidance?
 - Where does the guidance live so that developers and agents both read it: `AGENTS.md`, a Rust section in
-  `doc/architecture/decisions.md`, editor rules committed to the repository?
+  `docs/adr/decisions.md`, editor rules committed to the repository?
 - Write one before and after example for each rule, taken from this POC.
 - Can a tool check the declaration order? Clippy's ordering lint (`arbitrary_source_item_ordering`, to confirm) sorts
   by kind and name, not by use, so it would fight this rule. Is a custom check from the use graph feasible, and where
@@ -891,7 +891,7 @@ use, as far as possible.
   `core/services/recorder/logic/policy/src/lib.rs:15`, `:16`, which caused E7's two-names-per-type confusion), ban
   re-exporting another crate's domain types to spare a caller a dependency, and allow a crate-root or adapter facade
   behind `#![expect(clippy::pub_use, reason = "...")]`, so every new one argues for itself in a pull request.
-- **Recommendation:** put the full rule text in a new `doc/architecture/rust-style.md`, keep the imperative checklist
+- **Recommendation:** put the full rule text in a new `docs/architecture/rust-style.md`, keep the imperative checklist
   once inside marker comments, and mirror that block verbatim into `AGENTS.md` and a committed
   `.cursor/rules/rust-blueos.mdc` scoped with `globs: core/**/*.rs`, with `CLAUDE.md` pointing at `AGENTS.md` and a
   20-line drift check in `.hooks/lib/rust_checks.sh` that fails when the three copies disagree. That is the same
@@ -1781,7 +1781,7 @@ impl<D: Domain> CommandSender<D> {
   `RecorderDomain` is driven by the Inbox as `Command -> Decision`; `Ros2ddsGate` is driven by the tap as
   `Ros2ddsGateInput -> Vec<Ros2ddsGateOutput>` (`core/services/recorder/logic/policy/src/ros2dds_gate.rs:51`, used at
   `core/services/recorder/app/src/tap.rs:34`). The architecture vocabulary
-  (`doc/architecture/rust-service-overview.md:16` to `:32`) has no word for the second.
+  (`docs/architecture/rust-service-overview.md:16` to `:32`) has no word for the second.
 - **The same library command arrives by two different transports.** `OperationFinished` and `ScanCompleted` come back as
   an IO result (`core/services/recorder/app/src/library_io.rs:93`, `:353`), while `RepairProgress` goes out on an mpsc
   channel and then through JSON over Zenoh to `Internal` (`:136`, `core/services/recorder/app/src/lib.rs:482`). Two
@@ -1792,7 +1792,7 @@ impl<D: Domain> CommandSender<D> {
   a side effect inside a State selector while the `Query` and `View` vocabulary built for exactly this goes unused.
 - **"Inbox" is used in the Recorder before it is defined anywhere a Recorder reader looks**
   (`core/services/recorder/logic/library/src/lib.rs:146`, `core/services/recorder/README.md:52`); the only definition is
-  `doc/architecture/rust-service-overview.md:24`, which the README does not link.
+  `docs/architecture/rust-service-overview.md:24`, which the README does not link.
   `core/services/recorder/app/src/tap.rs` has no module doc at all, so "tap" is defined only in a sentence in another
   file.
 - **Answer, the ontology: one Domain and four Blocks, where a Block does not implement `Domain`.** The Domain is what
@@ -1885,15 +1885,15 @@ RecorderCommand::Library(command) => library::handle(&mut snapshot.library, comm
   and an `adapters/` crate only on other adapters or `libs/idl` (`:90`). The intersection is empty, so
   `SystemAndComponent` cannot be defined once with today's gate. This is not a developer oversight and no code review
   will fix it.
-- **The gate and D-02 disagree, in both rows, in opposite directions.** `doc/architecture/decisions.md:93` says
+- **The gate and D-02 disagree, in both rows, in opposite directions.** `docs/adr/decisions.md:93` says
   `logic/` may depend on `blueos-idl` and the gate forbids it; `:94` does not mention `blueos-idl` for adapters and the
-  gate allows it. Since `doc/architecture/decisions.md:7` requires code and decisions to be fixed together, one of the
+  gate allows it. Since `docs/adr/decisions.md:7` requires code and decisions to be fixed together, one of the
   two is stale. R2 found the same contradiction from the DI side; see E13.
 - **Even with the gate relaxed, a naive `logic -> blueos-idl` dependency breaks the `no_std` gate.** The workspace
   declares `blueos-idl` with default features (`core/Cargo.toml:59`) and the default set is `["std"]`
   (`core/libs/idl/Cargo.toml:21`), while the hook builds every logic crate for `thumbv7em-none-eabihf` and
   `wasm32-unknown-unknown` with default features (`.hooks/lib/rust_checks.sh:105`). So any logic crate using the IDL
-  must write `default-features = false`, which `doc/architecture/decisions.md:306` already asks for generally.
+  must write `default-features = false`, which `docs/adr/decisions.md:306` already asks for generally.
 - **The recording-file state enum exists in four representations, and the TypeScript one is hand-written:** the `.msg`
   constants (`core/libs/idl/interfaces/blueos_recorder_msgs/msg/RecordingFile.msg:4`), the generated Rust consts
   (`core/libs/idl/codegen/src/lib.rs:429`), the domain enum (`core/services/recorder/logic/library/src/lib.rs:34`), and
@@ -1913,7 +1913,7 @@ RecorderCommand::Library(command) => library::handle(&mut snapshot.library, comm
 - **Answer, where the conversions can live: exactly two viable homes.** The logic crate that owns the Domain type, which
   needs the gate change plus `default-features = false`; or a newtype in the app crate (`struct StateField(u8)`), which
   buys the `From` syntax and nothing else. A third option is closed by policy rather than by Rust: `blueos-idl` is
-  published (`core/libs/idl/Cargo.toml:14`) and `doc/architecture/decisions.md:171` forbids a published crate from
+  published (`core/libs/idl/Cargo.toml:14`) and `docs/adr/decisions.md:171` forbids a published crate from
   depending on unpublished workspace crates, so the impls cannot live there.
 - **Answer, should the Domain use IDL types directly: only for leaf value types.** Keeping domain-owned types with
   `From` impls in the logic crate preserves exhaustive matching exactly where the rules live, and the conversion sits
@@ -1925,7 +1925,7 @@ RecorderCommand::Library(command) => library::handle(&mut snapshot.library, comm
 - **Answer, should the IDL generate Rust enums: yes, gated on a documented convention.** Generate an enum when a field
   `x` has sibling constants named `X_*` of the same type, with a mandatory `Unknown(u8)` variant so D-06 forward
   compatibility holds and an older reader survives a new value, and with shared test vectors per D-24
-  (`doc/architecture/decisions.md:623`) so the Rust, TypeScript and Python codecs agree. Then `library_state_to_idl` and
+  (`docs/adr/decisions.md:623`) so the Rust, TypeScript and Python codecs agree. Then `library_state_to_idl` and
   `internal_status_to_idl` become `From` impls and every future copy of them never gets written. Rejected: a newtype
   with associated consts, which loses the exhaustiveness that is the whole point. Ship the smaller change in the same
   pull request regardless, which is emitting the constants to TypeScript as values, because the hand-written
@@ -1960,7 +1960,7 @@ RecorderCommand::Library(command) => library::handle(&mut snapshot.library, comm
 - **Correction:** the `.msg` file is not the only source a reader finds. `core/libs/idl/typescript/messages.d.ts` (201
   lines, one interface per message) and `core/libs/idl/typescript/schemas.ts` (386 lines) are committed and greppable.
   And the `.msg` files are reachable by two paths, because `core/interfaces/<package>` is a symlink farm pointing into
-  `core/libs/idl/interfaces/` while `doc/architecture/decisions.md:106` describes `core/interfaces/` as the source.
+  `core/libs/idl/interfaces/` while `docs/adr/decisions.md:106` describes `core/interfaces/` as the source.
 - **Correction:** `rg` fails for three compounding reasons, not one. The output is in `OUT_DIR`; the target directory is
   outside the repository entirely, so even searching `target/` from the repository root cannot work; and five live
   copies of `generated_mod.rs` exist at once under different build-hash directories, plus one per extra target.
@@ -1983,7 +1983,7 @@ RecorderCommand::Library(command) => library::handle(&mut snapshot.library, comm
 - **`blueos-idl` cannot be published, so D-05 is unmet.** `cargo publish --dry-run -p blueos-idl` fails because
   `blueos-idl-codegen` specifies no version: the codegen is `publish = false`
   (`core/libs/idl/codegen/Cargo.toml:6`) and is declared as a bare path dependency (`core/Cargo.toml:60`), while
-  `doc/architecture/decisions.md:167` says the crate is published and `:171` forbids a published crate from depending on
+  `docs/adr/decisions.md:167` says the crate is published and `:171` forbids a published crate from depending on
   an unpublished one. Measured cost of that build dependency: a 38-crate build closure (including `regex`, `md-5` and
   `syn`) against a 9-crate runtime closure, and 6.13 s of clean build. `mavlink` does this correctly with a pinned
   published build dependency.
@@ -2001,7 +2001,7 @@ RecorderCommand::Library(command) => library::handle(&mut snapshot.library, comm
   for other people's builds, both formatted; ros2-rust generates a whole crate into the colcon build directory. tonic is
   unverified. The rule the split follows: codegen that is a library for other people's builds stays in `OUT_DIR`, and
   codegen whose output is the product users read gets committed. `blueos-idl` is the second kind, since
-  `doc/architecture/decisions.md:166` publishes it precisely so extensions and ROS 2 nodes read those types. Unverified:
+  `docs/adr/decisions.md:166` publishes it precisely so extensions and ROS 2 nodes read those types. Unverified:
   whether windows-rs or aws-sdk-rust run a freshness check on their committed output.
 - **Recommendation: commit the generated code into `src/`, with four conditions.** Run the output through
   `prettyplease` in the codegen tool, which adds a dependency to the tool and not to `blueos-idl`, because option A is
@@ -2085,7 +2085,7 @@ RecorderCommand::Library(command) => library::handle(&mut snapshot.library, comm
   or `.MCAP` (`core/services/recorder/logic/library/src/lib.rs:444`), and the frontend strips with `/\.mcap$/i`
   (`core/frontend/src/libs/recorder/view-logic.ts:187`). Measured by running all three: `live.Mcap` is accepted, the
   backend produces `live.Mcap.snapshot-...Z.mcap` and the browser expects `live.snapshot-`, so the snapshot succeeds and
-  the browser never recognises its own download, falling into the timeout path of `doc/architecture/decisions.md:560`.
+  the browser never recognises its own download, falling into the timeout path of `docs/adr/decisions.md:560`.
   Root cause: the suffix rule is data, written three times in two languages, with a fourth definition in the storage
   adapter (`core/services/recorder/adapters/storage/src/folder.rs:13`) that the logic crate cannot reach.
 - **The exponential backoff loop is written twice, 15 lines each** (`core/services/recorder/app/src/tap.rs:96` and
@@ -2096,7 +2096,7 @@ RecorderCommand::Library(command) => library::handle(&mut snapshot.library, comm
   broker, while `zenoh-keyexpr` 1.9.0 is already in `core/Cargo.lock:3610`, is `no_std`-capable, supports the `$*`
   sub-chunk wildcard the hand-written matcher does not, and is not covered by the `cargo-deny` ban, which names only the
   `zenoh` crate. A test double with different semantics from the production backbone is the exact failure class
-  `doc/architecture/decisions.md:567` records on the device. Separately, `**` is matched by full backtracking, so
+  `docs/adr/decisions.md:567` records on the device. Separately, `**` is matched by full backtracking, so
   several `**` in one expression is exponential; key expressions are service-controlled today, so this is a latent cost
   rather than an exploit.
 - **Two hand-rolled recursive directory walks can overflow the stack.**
@@ -2131,7 +2131,7 @@ RecorderCommand::Library(command) => library::handle(&mut snapshot.library, comm
   regression check. One behaviour change to accept deliberately: an invalid date now returns `None` and falls back to
   the file mtime, which is the fix for the validation bug and not a regression.
 - **Answer, one Clock owned by the App, with a wall method and a monotonic method.** D-03 already forbids reading a
-  clock inside logic (`doc/architecture/decisions.md:130`) and the Domain commands already carry `now_unix_seconds`, so
+  clock inside logic (`docs/adr/decisions.md:130`) and the Domain commands already carry `now_unix_seconds`, so
   the Domain is not the problem; nobody owns the read. One unit at the boundary, nanoseconds since the epoch, with named
   conversions instead of three units chosen per call site, and one error policy instead of `.expect("clock")` in one
   place and `unwrap_or_default()` in six. This is also the precondition P6 names, and it removes the need for most of
@@ -2140,7 +2140,7 @@ RecorderCommand::Library(command) => library::handle(&mut snapshot.library, comm
   becomes an eighth way to read the time. Tie it to E13 and do not land it alone.
 - **Recommendation:** take chrono with `alloc` in the logic crates, and do the `.mcap` suffix rule first because it is a
   live bug, defining the rule once with a shared JSON test vector checked by both `cargo test` and vitest, using the
-  mechanism `doc/architecture/decisions.md:623` already established. Then replace `key_match.rs` with `zenoh-keyexpr`,
+  mechanism `docs/adr/decisions.md:623` already established. Then replace `key_match.rs` with `zenoh-keyexpr`,
   replace the two directory walks with `walkdir` and make their suffix checks agree, add one retry helper with jitter
   and a cap to `libs/`, delete the `std` feature of `blueos-idl`, and add the one-line comment that says why `dirs` was
   rejected. Keep the custom CDR codec and the `no_std` path splitting: both have real reasons (D-06 trailing-field
@@ -2183,7 +2183,7 @@ RecorderCommand::Library(command) => library::handle(&mut snapshot.library, comm
   `core/frontend/src/components/recorder/RecorderPolicyCard.vue:24` has no effect in the running process, is not
   persisted, and reverts on restart. It is a restart-required field in fact, but `restart_required_fields()` returns
   `&[]` (`core/services/recorder/app/src/lib.rs:89`), so no `RestartRequired` event is possible and D-11
-  (`doc/architecture/decisions.md:293`) is not met.
+  (`docs/adr/decisions.md:293`) is not met.
 - **The Kernel loads the settings file and throws the value away, for every service.**
   `core/libs/app/service/src/runtime.rs:120` builds a `SettingsManager`, which is `with_load(.., true)`
   (`core/libs/adapters/settings/src/manager.rs:37`) and therefore reads the disk (`:60`), and `manager.settings()` is
@@ -2446,7 +2446,7 @@ blueos_service::main!(build);             // CLI, runtime, logging, shutdown, ex
   crate in a `logic/` folder may depend only on `libs/logic` or sibling logic in the same service
   (`.hooks/lib/rust_checks.sh:86` to `:89`), and `blueos-idl` lives in `libs/idl`, so `logic -> blueos-idl` is a
   violation, confirmed by running the script's own classifier against the three dependency shapes. But
-  `doc/architecture/decisions.md:93` says logic may depend on `blueos-idl`, and D-05 (`:167`) made the crate `no_std`
+  `docs/adr/decisions.md:93` says logic may depend on `blueos-idl`, and D-05 (`:167`) made the crate `no_std`
   plus `alloc` explicitly so that `logic/` may use it; the adapters rule one line below already carves out `libs/idl`
   (`.hooks/lib/rust_checks.sh:90`), so the omission looks accidental. The consequence: the one crate where E8's `From`
   wish is expressible is the crate the gate blocks. R4 found the same contradiction from the type side; see E8.
@@ -2470,7 +2470,7 @@ blueos_service::main!(build);             // CLI, runtime, logging, shutdown, ex
 - **The settings shape is the one DTO no generated type describes.** `RecorderSettings` is serde-only
   (`core/services/recorder/app/src/lib.rs:66`), and the field list the UI uses to warn about restarts is produced by
   walking `serde_json` object keys at runtime (`core/libs/app/service/src/runtime.rs:1193`). So the restart-required
-  contract D-11 promises to put in the IDL (`doc/architecture/decisions.md:295`) is in fact reconstructed from a JSON
+  contract D-11 promises to put in the IDL (`docs/adr/decisions.md:295`) is in fact reconstructed from a JSON
   string at publish time.
 - **Answer, should the DTOs be explicit: yes, and the blocker is a one-line condition, not Rust.** Fix the hook to allow
   `libs/idl` for logic crates, then add one crate per service, `logic/api`, that depends on `blueos-idl` and on the

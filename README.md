@@ -18,8 +18,8 @@
 BlueOS is a modular, robust, and efficient platform for managing a vehicle or robot from its [onboard computer](https://blueos.cloud/docs/latest/integrations/hardware/required/onboard-computer/). It is the evolution of the Companion project, which aimed to route a vehicle's video stream and communications to its [control station computer](https://blueos.cloud/docs/latest/integrations/hardware/required/control-computer/). Recognizing the need for a more sophisticated and scalable system, BlueOS was created from the ground up, embracing modularity to ensure portability, robust updating, and extensibility.
 
 <p align="center">
-  <a href="doc/dashboard.png">
-    <img src="doc/dashboard.png" width="75%">
+  <a href="docs/dashboard.png">
+    <img src="docs/dashboard.png" width="75%">
   </a>
 </p>
 
@@ -66,7 +66,7 @@ ArduRover is an open-source, uncrewed boat platform. Whether you are commanding 
 
 [BlueBoat](https://bluerobotics.com/store/blueboat/blueboat/) is supported by default.
 
-![](doc/blueboat.png)
+![](docs/blueboat.png)
 
 ### **Submarines (ArduSub)**
 
@@ -74,7 +74,7 @@ ArduSub is the go-to control system for remotely operated underwater vehicles (R
 
 [BlueROV2](https://bluerobotics.com/store/rov/bluerov2/) is supported out of the box.
 
-![](doc/bluerov.png)
+![](docs/bluerov.png)
 
 ### **Generic (ArduPilot / PX4)**
 

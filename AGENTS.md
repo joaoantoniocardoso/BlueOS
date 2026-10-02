@@ -24,7 +24,7 @@ When identifying issues or problems, if you discover a possible root cause, expl
 
 **If you don't know something:** Search the codebase, check existing services for patterns, or read `core/tools/nginx/nginx.conf` for service endpoints. Say "I don't know" rather than guessing.
 
-**Rust services and the event-driven architecture:** read `doc/architecture/decisions.md` before touching `core/Cargo.toml`, `core/libs/{logic,adapters,app}/`, `core/interfaces/`, any Rust service, or `core/frontend/src/libs/blueos-api/`.
+**Rust services and the event-driven architecture:** read `docs/adr/decisions.md` before touching `core/Cargo.toml`, `core/libs/{logic,adapters,app}/`, `core/interfaces/`, any Rust service, or `core/frontend/src/libs/blueos-api/`.
 
 ## Directory Structure
 
@@ -89,7 +89,7 @@ gh issue list --repo bluerobotics/BlueOS
 
 ## Writing a Rust service
 
-Read `doc/architecture/decisions.md` (especially D-02, D-03, D-10, D-11, D-12). The teaching example is
+Read `docs/adr/decisions.md` (especially D-02, D-03, D-10, D-11, D-12). The teaching example is
 `core/services/example/` — follow its README for folder layout, sans-IO commands/effects/jobs, IDL + `api.lock`,
 settings, multicall binary, tests, and the pirate-mode frontend view.
 

@@ -1,6 +1,6 @@
 # BlueOS Rust service: review findings
 
-Companion to `doc/architecture/rust-service-overview.md`, which uses the same vocabulary (App, Inbox, Kernel,
+Companion to `docs/architecture/rust-service-overview.md`, which uses the same vocabulary (App, Inbox, Kernel,
 Adapter task, Effect, State, Event, ...).
 
 **Scope.** The following code was reviewed:
@@ -252,7 +252,7 @@ copies.
 
 - `core/frontend/src/libs/blueos-api/state.ts:44`, then `core/frontend/src/libs/blueos-api/state.ts:50`.
 - The same in `core/frontend/src/libs/blueos-api/jobs.ts:43`, then `core/frontend/src/libs/blueos-api/jobs.ts:49`.
-- The order comes from D-10: "Clients query first, then subscribe" (`doc/architecture/decisions.md:264`).
+- The order comes from D-10: "Clients query first, then subscribe" (`docs/adr/decisions.md:264`).
 
 **What happens:** the watcher waits for the query reply, and only then declares the subscriber. A State published
 between these two moments is lost. States publish only on change (`core/libs/adapters/comms/src/state.rs:57`), so the
@@ -286,14 +286,14 @@ D-06 promises two things that the code does not deliver.
 - So the test cannot tell an append from a breaking change, and it never asks for a major bump.
 - `is_append_only_evolution` (`core/libs/idl/codegen/src/lib.rs:864`) is used only by its own unit tests
   (`core/libs/idl/tests/api_lock.rs:74` to `core/libs/idl/tests/api_lock.rs:101`).
-- D-06 requires this gate (`doc/architecture/decisions.md:200`).
+- D-06 requires this gate (`docs/adr/decisions.md:200`).
 
 **2. The type hash is never sent.**
 
 - Each message has `TYPE_HASH` (`core/libs/idl/src/message.rs:14`).
 - The Kernel publishes with `attachment: None` (`core/libs/app/service/src/runtime.rs:1091`).
 - Nothing reads `TYPE_HASH_ATTACHMENT_KEY` (`core/libs/api/src/lib.rs:12`).
-- D-06 says that a mismatch must "fail loudly" (`doc/architecture/decisions.md:196`).
+- D-06 says that a mismatch must "fail loudly" (`docs/adr/decisions.md:196`).
 
 **Also: append-only is safe only for the outer message.** The decoder fills in a missing field only when the whole
 buffer is exhausted (`core/libs/idl/codegen/src/lib.rs:520`, `:538`, `:555`). Some messages are used inside a

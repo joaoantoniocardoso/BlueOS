@@ -3,8 +3,8 @@
 This is a guided tour of a BlueOS Rust service. It follows the teaching example (`core/services/example`) and the
 shared kernel (`core/libs/app/service`) that every Rust service uses.
 
-- The reasons behind each design choice are in `doc/architecture/decisions.md`.
-- Known bugs and problems found while writing this tour are in `doc/architecture/rust-service-review.md`.
+- The reasons behind each design choice are in `docs/adr/decisions.md`.
+- Known bugs and problems found while writing this tour are in `docs/architecture/rust-service-review.md`.
 - References are `path:line` from the repository root, as of commit `17a3f639d`.
 
 # Part 1: The big picture
@@ -50,7 +50,7 @@ A BlueOS service is a process that:
 
 It talks to other programs only through Zenoh.
 
-The code has three layers, and the folder decides the layer (`doc/architecture/decisions.md:87`):
+The code has three layers, and the folder decides the layer (`docs/adr/decisions.md:87`):
 
 ```text
             Zenoh
@@ -69,7 +69,7 @@ The code has three layers, and the folder decides the layer (`doc/architecture/d
   adapters/  IO code (devices)     core/services/example/adapters/simulated_pump/
 ```
 
-**The core rule:** logic never waits (`doc/architecture/decisions.md:117`). When the Domain needs IO or time, it
+**The core rule:** logic never waits (`docs/adr/decisions.md:117`). When the Domain needs IO or time, it
 returns an Effect. The Kernel does the work and sends the result back into the Inbox as a new Command.
 
 ## 1.3 The five mechanisms in one picture
@@ -243,7 +243,7 @@ There are exactly three ways out:
    - `declare_liveliness(key)`: the token stays alive while the process is alive.
 3. **Wire format.** The payload is the CDR bytes of a Message. The encoding string is
    `application/cdr;<package>/msg/<Name>` (`core/libs/api/src/lib.rs:67`), built by `message_to_payload`
-   (`core/libs/app/service/src/builder.rs:390`). There is no framing (`doc/architecture/decisions.md:254`).
+   (`core/libs/app/service/src/builder.rs:390`). There is no framing (`docs/adr/decisions.md:254`).
 4. **Device IO.** `Effect::Io` calls the `.io` closure (`core/services/example/app/src/lib.rs:110`). That closure
    calls `io_to_command` (`core/services/example/app/src/lib.rs:192`), which calls `run_step`
    (`core/services/example/adapters/simulated_pump/src/lib.rs:16`).
