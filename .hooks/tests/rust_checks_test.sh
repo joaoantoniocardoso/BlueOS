@@ -172,6 +172,25 @@ EOF
     rm -rf "$temporary"
 }
 
+test_test_only_features_stay_out_of_normal_builds() {
+    if ! collect_test_only_feature_violations "$ROOT_DIR/core" >/dev/null; then
+        fail "the workspace enables a test-only feature outside [dev-dependencies]"
+    fi
+    local temporary output
+    temporary=$(mktemp -d)
+    cp -a "$ROOT_DIR/core/." "$temporary/"
+    cat >>"$temporary/libs/logic/smoke/Cargo.toml" <<'EOF'
+
+[dependencies]
+blueos-comms = { workspace = true, features = ["channel"] }
+EOF
+    if output=$(collect_test_only_feature_violations "$temporary"); then
+        fail "a test-only feature in [dependencies] should be a violation"
+    fi
+    grep -q 'blueos-comms/channel' <<<"$output" || fail "the violation should name blueos-comms/channel"
+    rm -rf "$temporary"
+}
+
 main() {
     test_crate_place
     test_folder_rejects_logic_depending_on_adapter
@@ -181,6 +200,7 @@ main() {
     test_clippy_fails_on_allow_attributes
     test_no_std_build_fails_on_io_dependency
     test_deny_bans_direct_zenoh
+    test_test_only_features_stay_out_of_normal_builds
     printf 'rust_checks_test: ok\n'
 }
 
