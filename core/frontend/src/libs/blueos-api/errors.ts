@@ -14,3 +14,11 @@ export class QueryFailedError extends Error {
     this.name = 'QueryFailedError'
   }
 }
+
+/** Nothing answered a query on `key`: no running Service serves it. */
+export class NoReplyError extends Error {
+  constructor(readonly key: string) {
+    super(`No reply on ${key}`)
+    this.name = 'NoReplyError'
+  }
+}
