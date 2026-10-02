@@ -130,3 +130,17 @@ This enforces: Black formatting, isort imports, pylint, ruff, mypy strict mode, 
 3. **Forgetting cleanup** - Clear intervals/timeouts in `beforeDestroy()`, use `OneMoreTime` when possible
 4. **Direct property access** - Use object destructuring for cleaner code
 5. **Wrong import order** - Keep imports alphabetically sorted
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on `bluerobotics/BlueOS`, via `gh`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `GLOSSARY.md` at the root and ADRs in `docs/adr/`. See `docs/agents/domain.md`.
