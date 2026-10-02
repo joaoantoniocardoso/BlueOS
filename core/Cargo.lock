@@ -239,6 +239,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "blueos-jobs"
+version = "0.1.0"
+dependencies = [
+ "blueos-domain",
+ "thiserror",
+]
+
+[[package]]
 name = "blueos-recorder-capture"
 version = "0.1.0"
 dependencies = [
@@ -279,6 +287,7 @@ dependencies = [
  "blueos-comms",
  "blueos-domain",
  "blueos-idl",
+ "blueos-jobs",
  "blueos-service",
  "blueos-settings",
  "bytes",
