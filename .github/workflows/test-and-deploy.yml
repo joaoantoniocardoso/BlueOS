@@ -233,7 +233,7 @@ jobs:
         run: |
           # shellcheck disable=SC1091
           source ../.github/lib/rust_report_only.sh
-          RUST_NIGHTLY=$(tr -d '[:space:]' < ../nightly-toolchain.txt)
+          RUST_NIGHTLY=$(tr -d '[:space:]' < nightly-toolchain.txt)
           report_section "cargo udeps" \
             cargo "+${RUST_NIGHTLY}" udeps --all-targets --workspace --locked
           report_section "branch coverage summary" \
