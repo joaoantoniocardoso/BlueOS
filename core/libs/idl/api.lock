@@ -1,3 +1,6 @@
+blueos/v1/example/command/SetLevel 1 request=blueos_example_msgs/msg/SetLevelRequest;response=blueos_msgs/msg/CommandAck
+blueos/v1/example/query/Level 1 request=blueos_example_msgs/msg/EmptyRequest;response=blueos_example_msgs/msg/LevelQueryResponse
+blueos/v1/example/state/pump 1 request=;response=blueos_example_msgs/msg/PumpState
 blueos/v1/recorder/command/Start 1 request=blueos_recorder_msgs/msg/StartRecordingCommand;response=blueos_msgs/msg/CommandAck
 blueos/v1/recorder/command/Stop 1 request=blueos_recorder_msgs/msg/StopRecordingCommand;response=blueos_msgs/msg/CommandAck
 blueos/v1/recorder/state/recording 1 request=;response=blueos_recorder_msgs/msg/RecordingState

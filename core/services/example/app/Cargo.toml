@@ -1,0 +1,22 @@
+[package]
+name = "blueos-example-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+blueos-idl.workspace = true
+blueos-service.workspace = true
+blueos-example-api.workspace = true
+blueos-example-domain.workspace = true
+clap = { workspace = true, features = ["derive", "std"] }
+
+[dev-dependencies]
+blueos-api.workspace = true
+blueos-comms.workspace = true
+blueos-service = { workspace = true, features = ["testing"] }
+tokio = { workspace = true, features = ["macros", "rt", "test-util", "time"] }
+
+[lints]
+workspace = true

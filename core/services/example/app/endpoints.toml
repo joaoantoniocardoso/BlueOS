@@ -1,0 +1,13 @@
+# The endpoints of the example-minimal Service. After changing this file, regenerate with:
+#   cargo run -p blueos-idl-codegen -- --write
+
+service = "example"
+
+[command]
+SetLevel = { request = "blueos_example_msgs/msg/SetLevelRequest" }
+
+[query]
+Level = { request = "blueos_example_msgs/msg/EmptyRequest", response = "blueos_example_msgs/msg/LevelQueryResponse" }
+
+[state]
+pump = { message = "blueos_example_msgs/msg/PumpState" }
