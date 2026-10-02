@@ -25,7 +25,7 @@ fn main() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let idl_root = argument_value(&arguments, "--idl-root")
         .map(PathBuf::from)
-        .unwrap_or_else(|| manifest_dir.parent().expect("idl crate root"));
+        .unwrap_or_else(|| manifest_dir.parent().expect("idl crate root").to_path_buf());
     let interfaces_root = idl_root.join("interfaces");
     let core_dir = argument_value(&arguments, "--core-dir")
         .map(PathBuf::from)
@@ -34,10 +34,11 @@ fn main() {
                 .parent()
                 .and_then(Path::parent)
                 .expect("core directory")
+                .to_path_buf()
         });
 
     if check_endpoints {
-        let stale: Vec<GeneratedFile> = endpoint_files(core_dir, &interfaces_root)
+        let stale: Vec<GeneratedFile> = endpoint_files(&core_dir, &interfaces_root)
             .into_iter()
             .filter(|file| fs::read_to_string(&file.path).ok().as_ref() != Some(&file.contents))
             .collect();
@@ -61,8 +62,8 @@ fn main() {
             Some(&idl_root.join("typescript")),
             Some(&idl_root.join("tests/generated")),
         );
-        generate_catalog(idl_root);
-        for file in endpoint_files(core_dir, &interfaces_root) {
+        generate_catalog(&idl_root);
+        for file in endpoint_files(&core_dir, &interfaces_root) {
             fs::write(&file.path, file.contents).expect("write generated endpoints");
         }
         return;
@@ -89,7 +90,7 @@ fn main() {
         test_generated_output.as_deref(),
     );
     if let Some(typescript_dir) = typescript_output.as_deref() {
-        generate_catalog_outputs(idl_root, &out_dir, typescript_dir);
+        generate_catalog_outputs(&idl_root, &out_dir, typescript_dir);
     }
 }
 

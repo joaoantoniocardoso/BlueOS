@@ -9,14 +9,14 @@ fn main() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let idl_root = argument_value(&arguments, "--idl-root")
         .map(PathBuf::from)
-        .unwrap_or_else(|| manifest_dir.parent().expect("idl crate root"));
+        .unwrap_or_else(|| manifest_dir.parent().expect("idl crate root").to_path_buf());
     let generated_output = argument_value(&arguments, "--generated-output")
         .map(PathBuf::from)
         .unwrap_or_else(|| idl_root.join("src/generated"));
     let typescript_output = argument_value(&arguments, "--typescript-output")
         .map(PathBuf::from)
         .unwrap_or_else(|| idl_root.join("typescript"));
-    generate_catalog_outputs(idl_root, &generated_output, &typescript_output);
+    generate_catalog_outputs(&idl_root, &generated_output, &typescript_output);
     write_typescript_index(&typescript_output);
 }
 

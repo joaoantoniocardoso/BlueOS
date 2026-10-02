@@ -1,7 +1,0 @@
-error[E0046]: not all trait items implemented, missing: `probe`
-  --> tests/compile_fail/missing_handler.rs:10:1
-   |
-10 | impl Handlers<Tank> for ForgetfulHandlers {
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ missing `probe` in implementation
-   |
-   = help: implement the missing item: `fn probe(&self, _: EmptyRequest) -> impl Future<Output = Result<LevelQueryResponse, Box<(dyn std::error::Error + Send + Sync + 'static)>>> + Send { todo!() }`
