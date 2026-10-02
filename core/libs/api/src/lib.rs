@@ -11,9 +11,14 @@
 
 extern crate alloc;
 
+mod command_ack;
+
 use alloc::{format, string::String};
 
-mod command_ack;
+pub use command_ack::{CommandAck, JOB_ID_NONE, Message};
+
+/// Base CDR media type and `application/cdr;<schema_name>` builder from `blueos-idl`.
+pub use blueos_idl::encoding::{ENCODING_APPLICATION_CDR, cdr_encoding};
 
 /// API version segment in every public key (`blueos/v1/...`).
 pub const API_VERSION: &str = "v1";
@@ -23,10 +28,6 @@ pub const KEY_PREFIX: &str = "blueos/v1";
 
 /// Zenoh attachment key for a message type hash (schema evolution, D-06).
 pub const TYPE_HASH_ATTACHMENT_KEY: &str = "blueos.type_hash";
-
-/// Base CDR media type and `application/cdr;<schema_name>` builder from `blueos-idl`.
-pub use blueos_idl::encoding::{ENCODING_APPLICATION_CDR, cdr_encoding};
-pub use command_ack::{CommandAck, JOB_ID_NONE, Message};
 
 /// Liveliness token for a running service (`blueos/v1/services/<name>`).
 pub fn service_liveliness_key(service: &str) -> String {
@@ -43,14 +44,14 @@ pub fn command_key(service: &str, name: &str) -> String {
     format!("{KEY_PREFIX}/{service}/command/{name}")
 }
 
-/// Standard service status state (`blueos/v1/<service>/state/status`).
-pub fn status_state_key(service: &str) -> String {
-    state_key(service, "status")
-}
-
 /// State sample key (`blueos/v1/<service>/state/<name>`).
 pub fn state_key(service: &str, name: &str) -> String {
     format!("{KEY_PREFIX}/{service}/state/{name}")
+}
+
+/// Standard service status state (`blueos/v1/<service>/state/status`).
+pub fn status_state_key(service: &str) -> String {
+    state_key(service, "status")
 }
 
 /// Event sample key (`blueos/v1/<service>/event/<name>`).
@@ -58,14 +59,14 @@ pub fn event_key(service: &str, name: &str) -> String {
     format!("{KEY_PREFIX}/{service}/event/{name}")
 }
 
-/// Standard service info query (`blueos/v1/<service>/query/info`).
-pub fn info_query_key(service: &str) -> String {
-    query_key(service, "info")
-}
-
 /// Ad-hoc query queryable (`blueos/v1/<service>/query/<name>`).
 pub fn query_key(service: &str, name: &str) -> String {
     format!("{KEY_PREFIX}/{service}/query/{name}")
+}
+
+/// Standard service info query (`blueos/v1/<service>/query/info`).
+pub fn info_query_key(service: &str) -> String {
+    query_key(service, "info")
 }
 
 /// Jobs projection stream (`blueos/v1/<service>/jobs`).
