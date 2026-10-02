@@ -192,30 +192,42 @@ impl Service for EffectsService {
                 }
             },
         )
-        .command("RunIoChain", |_: EmptyRequest| EffectsRequest::RunIoChain)
-        .command("RunIoPanic", |_: EmptyRequest| EffectsRequest::RunIoPanic)
-        .command("ArmTimer", |_: EmptyRequest| EffectsRequest::ArmTimer {
-            after: Duration::from_secs(10),
+        .command("RunIoChain", |_: EmptyRequest| {
+            Ok(EffectsRequest::RunIoChain)
         })
-        .command("ReArmTimer", |_: EmptyRequest| EffectsRequest::ReArmTimer {
-            after: Duration::from_secs(5),
+        .command("RunIoPanic", |_: EmptyRequest| {
+            Ok(EffectsRequest::RunIoPanic)
         })
-        .command("CancelTimer", |_: EmptyRequest| EffectsRequest::CancelTimer)
+        .command("ArmTimer", |_: EmptyRequest| {
+            Ok(EffectsRequest::ArmTimer {
+                after: Duration::from_secs(10),
+            })
+        })
+        .command("ReArmTimer", |_: EmptyRequest| {
+            Ok(EffectsRequest::ReArmTimer {
+                after: Duration::from_secs(5),
+            })
+        })
+        .command("CancelTimer", |_: EmptyRequest| {
+            Ok(EffectsRequest::CancelTimer)
+        })
         .command("ScheduleIoWithoutExecutor", |_: EmptyRequest| {
-            EffectsRequest::ScheduleIoWithoutExecutor
+            Ok(EffectsRequest::ScheduleIoWithoutExecutor)
         })
         .command("RecordCapacity", |_: EmptyRequest| {
-            EffectsRequest::RecordCapacity
+            Ok(EffectsRequest::RecordCapacity)
         })
         .command("RunBlockingHold", |_: EmptyRequest| {
-            EffectsRequest::RunBlockingHold
+            Ok(EffectsRequest::RunBlockingHold)
         })
         .query(
             "blocking_active",
-            |_: EmptyRequest| EffectsQuery::BlockingActive,
-            |active: bool| LevelQueryResponse {
-                level: u8::from(active),
-                max_level: 0,
+            |_: EmptyRequest| Ok(EffectsQuery::BlockingActive),
+            |active: bool| {
+                Some(LevelQueryResponse {
+                    level: u8::from(active),
+                    max_level: 0,
+                })
             },
         )
         .state("io", |snapshot: &EffectsSnapshot| LevelQueryResponse {
@@ -382,7 +394,7 @@ impl Service for EffectsWithoutIoService {
             blocking_io_applied: None,
         })
         .command("ScheduleIoWithoutExecutor", |_: EmptyRequest| {
-            EffectsRequest::ScheduleIoWithoutExecutor
+            Ok(EffectsRequest::ScheduleIoWithoutExecutor)
         })
         .state("level", |snapshot: &EffectsSnapshot| LevelQueryResponse {
             level: snapshot.level,
@@ -541,8 +553,9 @@ async fn query_answers_while_blocking_io_is_held() {
         .expect("blocking IO should start");
     assert_eq!(
         harness
-            .query::<EmptyRequest, LevelQueryResponse>("blocking_active", &EmptyRequest::default(),)
+            .query::<EmptyRequest, LevelQueryResponse>("blocking_active", &EmptyRequest::default())
             .await
+            .expect("the Query answers")
             .level,
         1
     );
@@ -556,8 +569,9 @@ async fn query_answers_while_blocking_io_is_held() {
     command.await.expect("the Command should finish");
     assert_eq!(
         harness
-            .query::<EmptyRequest, LevelQueryResponse>("blocking_active", &EmptyRequest::default(),)
+            .query::<EmptyRequest, LevelQueryResponse>("blocking_active", &EmptyRequest::default())
             .await
+            .expect("the Query answers")
             .level,
         0
     );

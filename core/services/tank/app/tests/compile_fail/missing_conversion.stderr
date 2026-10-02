@@ -1,0 +1,7 @@
+error[E0046]: not all trait items implemented, missing: `drain`
+  --> tests/compile_fail/missing_conversion.rs:11:1
+   |
+11 | impl Conversions for Twin {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ missing `drain` in implementation
+   |
+   = help: implement the missing item: `fn drain(_: EmptyRequest) -> <Self as Domain>::Request { todo!() }`

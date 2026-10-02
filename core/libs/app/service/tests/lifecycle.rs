@@ -58,7 +58,7 @@ impl Service for LifecycleService {
         Ok(ServiceBuilder::new(LifecycleSnapshot::default())
             .on_start(LifecycleRequest::Mark("on_start"))
             .on_shutdown(LifecycleRequest::Mark("on_shutdown"))
-            .command("Client", |_: EmptyRequest| LifecycleRequest::Client)
+            .command("Client", |_: EmptyRequest| Ok(LifecycleRequest::Client))
             .state("progress", |snapshot: &LifecycleSnapshot| PumpState {
                 level: snapshot.steps.len() as u8,
                 max_level: 0,

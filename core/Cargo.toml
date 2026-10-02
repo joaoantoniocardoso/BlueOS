@@ -14,6 +14,9 @@ members = [
     "libs/tools/rust-style-check",
     "services/recorder/logic/capture",
     "services/recorder/logic/recorder",
+    "services/tank/app",
+    "services/tank/logic/api",
+    "services/tank/logic/domain",
 ]
 
 [workspace.package]
@@ -43,6 +46,9 @@ blueos-service = { path = "libs/app/service" }
 blueos-settings = { path = "libs/adapters/settings" }
 blueos-recorder-capture = { path = "services/recorder/logic/capture" }
 blueos-recorder-domain = { path = "services/recorder/logic/recorder" }
+blueos-tank-api = { path = "services/tank/logic/api" }
+blueos-tank-app = { path = "services/tank/app" }
+blueos-tank-domain = { path = "services/tank/logic/domain" }
 blueos-idl = { path = "libs/idl" }
 blueos-idl-codegen = { path = "libs/idl/codegen" }
 blueos-rust-style-check = { path = "libs/tools/rust-style-check" }
@@ -61,8 +67,10 @@ syn = { version = "2", default-features = false, features = ["full", "parsing", 
 thiserror = { version = "2.0.18", default-features = false }
 tokio = { version = "1.53", default-features = false }
 tokio-util = { version = "0.7", default-features = false, features = ["time"] }
+toml = { version = "1.1", default-features = false, features = ["parse", "serde", "std"] }
 tracing = { version = "0.1.41", default-features = false }
 tracing-subscriber = { version = "0.3.22", default-features = false, features = ["env-filter", "fmt", "std"] }
+trybuild = { version = "1.0.121", default-features = false }
 walkdir = { version = "2", default-features = false }
 zenoh = { version = "=1.9.0", default-features = false, features = ["shared-memory", "transport_tcp"] }
 zenoh-keyexpr = { version = "=1.9.0", default-features = false }

@@ -124,6 +124,18 @@ A public entry point where a client asks a Service to change something, and gets
 **Query endpoint**:
 A public entry point where a client asks a Service for information without changing anything.
 
+**IO query endpoint**:
+A Query endpoint answered by IO outside the Inbox, such as reading a device, instead of from the Snapshot.
+
+**Endpoint manifest**:
+The committed list of a Service's public endpoints, `app/endpoints.toml`: each one's kind, name and Message
+types. The code that registers them is generated from it.
+_Avoid_: routes, endpoint config
+
+**Custom endpoint**:
+A Command or Query endpoint whose Message does not convert plainly to the Domain, so the Service maps it in code
+it writes, where it can refuse the Message.
+
 **State**:
 A public value a Service keeps current: published on change and readable at any time by late clients.
 

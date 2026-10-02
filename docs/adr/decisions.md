@@ -114,7 +114,7 @@ Decision: every Rust crate lives in exactly one of three folders, in shared libs
 | Folder | Content | May depend on (workspace crates) |
 |---|---|---|
 | `logic/<block>` | A Domain or a Block: pure code, `#![no_std]` + `alloc`, no IO, no IDL types | `libs/logic/`, sibling logic crates of the same service |
-| `logic/api` | Conversions between Messages and Domain types, and the settings document. Pure, `no_std` | `blueos-idl` (`default-features = false`), the service's own logic crates |
+| `logic/api` | Conversions between Messages and Domain types, and the settings document. Pure, `no_std` | `libs/logic/`, `blueos-idl`, the service's own logic crates |
 | `adapters/` | Code touching the outside world | `libs/adapters/`, `blueos-idl`, its own service's `adapters/` and `logic/` |
 | `app/` (service) | The `Service` implementation, the endpoint manifest, Tasks (D-25 to D-27) | anything in `libs/`, its own service |
 | `app/blueos` (workspace) | Multicall binary | `libs/`, service `app/` crates via cargo features |
@@ -736,7 +736,7 @@ impl blueos_service::Service for Example {
     type Domain = PumpDomain;
     type Arguments = crate::cli::ExampleArguments;
 
-    const NAME: &'static str = "example";
+    const NAME: &'static str = endpoints::NAME;
     const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
     fn build(context: &ServiceContext<Self::Arguments>) -> Result<ServiceBuilder<PumpDomain>, ServiceError> {
@@ -755,7 +755,8 @@ impl blueos_service::Service for Example {
   `--zenoh-config <FILE>` (also `ZENOH_CONFIG`), `--zenoh-set <PATH=JSON5>` (repeatable). Paths are `PathBuf`;
   arguments are not shell-expanded.
 - Inside `app/src/`, a service keeps a fixed layout documented in the example README: `lib.rs` (module list only),
-  `service.rs` (`impl Service`), `cli.rs`, `tasks.rs`, the generated endpoint code (D-26) and the custom handlers.
+  `service.rs` (`impl Service`), `cli.rs`, `tasks.rs`, the generated `endpoints.rs` (D-26) and the custom
+  handlers in `handlers.rs`.
 
 ## D-26 Endpoint manifest and generated wiring
 
@@ -765,16 +766,52 @@ Context: draft 1 had eleven registration methods with different closure shapes, 
 Decision:
 
 - Each service commits `app/endpoints.toml`, listing every public endpoint: its kind (command, query, io query,
-  state, event), name, key, and Message types.
-- The generator (the same tool and the same commit-and-compare rule as D-05) emits, committed:
-  - the registration code: a Message becomes a Request Command, a domain event becomes a Message, and a
-    Projection becomes a State Message, all through the `From` impls in `logic/api`;
-  - a handler-trait method only for an endpoint marked `custom`, whose mapping is not a plain conversion;
+  state, event), name and Message types. The key is derived, never written: `blueos/v1/<service>/<kind>/<name>`
+  (D-07), and an IO query is a query on the wire. `services/tank` is the test Service of every shape:
+
+```toml
+service = "tank"
+
+[command]
+Drain = { request = "blueos_example_msgs/msg/EmptyRequest" }
+SetLevel = { request = "blueos_example_msgs/msg/SetLevelRequest", custom = true }
+
+[query]
+Level = { request = "blueos_example_msgs/msg/EmptyRequest", response = "blueos_example_msgs/msg/LevelQueryResponse" }
+
+[io_query]
+Probe = { request = "blueos_example_msgs/msg/EmptyRequest", response = "blueos_example_msgs/msg/LevelQueryResponse" }
+
+[state]
+tank = { message = "blueos_example_msgs/msg/LevelQueryResponse" }
+
+[event]
+LevelChanged = { message = "blueos_example_msgs/msg/LevelQueryResponse" }
+```
+
+- The generator (the same tool and the same commit-and-compare rule as D-05: `blueos-idl-codegen --write`
+  regenerates, `--check-endpoints` runs in `.hooks/pre-push` and CI) emits, committed:
+  - `logic/api/src/endpoints.rs`: the `Conversions` trait, one function per endpoint named after it in snake
+    case. The Domain implements it in `logic/api`: a Message becomes a Request or a Query, a Response becomes the
+    reply Message (`<name>_response`), the Snapshot becomes a State Message, and a domain event becomes an Event
+    Message or `None`. `From` impls cannot do this: the Message and the Domain type are both foreign to
+    `logic/api`, so the orphan rule forbids the impl, and two endpoints that share a Message would need two.
+  - `app/src/endpoints.rs`: the Service `NAME`, `register`, which declares every endpoint on the
+    `ServiceBuilder`, and the `Handlers` trait. `Handlers` has a method only for an endpoint marked `custom` (a
+    Command or a Query whose conversion can refuse the Message or needs the Context) and for every IO query,
+    which is answered by IO outside the Inbox. States and Events are never custom. A custom Query's reply still
+    converts in `Conversions`.
   - the `ServiceInfo` endpoint list (D-12, D-24);
   - the typed TypeScript client (D-14).
-- Mistakes are compile errors: a missing handler or conversion, or a wrong Message type, with
-  `#[diagnostic::on_unimplemented]` messages that name the endpoint. The generator rejects duplicate names and
-  the reserved names of D-12.
+- Mistakes are compile errors. A Domain without `impl Conversions`, or a type without `impl Handlers`, gets an
+  `#[diagnostic::on_unimplemented]` message that names the Service and lists every function with its endpoint.
+  A missing function is E0046 and a wrong Message type is E0053, both naming the function, which is the
+  endpoint's name. `services/tank/app/tests/compile_errors.rs` pins each error. The generator rejects two
+  endpoints that generate the same function (names are unique in a Service, whatever their kind, and compared
+  in snake case), the reserved names of D-12 (`Info` and `info` alike), a name that is not an identifier, a
+  Message that is not in `blueos-idl`, and a field the format does not have.
+- Adding an endpoint touches the `.msg`, the manifest and the Domain (its `logic/` crates, `Conversions`
+  included); the app crate changes only in its generated file, or in `handlers.rs` for a custom endpoint.
 - `api.lock` (D-06) records every endpoint key with its Message types; a removed or renamed key is an API break.
 - No proc macro and no routing by naming convention. A naming convention could not name the endpoints that exist
   and would move an endpoint silently when a `.msg` is renamed; a derive macro would add a new framework concept
@@ -858,11 +895,12 @@ be recovered still exits.
 Decision:
 
 - **Tests.** Draft 2 is written test-first (D-20). Layers: L1 Domain and Block unit tests (no runtime); L2 codecs
-  and contracts (hostile CDR input, `api.lock`, generated-code comparison); L3 the Kernel harness on the channel
-  backend with a paused clock, an injected Clock, `CommandSender` and an Effect recorder, with no sleeps and no
-  polling; L4 service wiring, through the real `build()` (D-25); L5 backend conformance, one shared test body run
-  against the channel backend and a zenohd container; L6 device and system tests (D-15). File IO in the Kernel sits
-  behind a port, so a paused clock never races a blocking thread.
+  and contracts (hostile CDR input, `api.lock`, generated-code comparison, `trybuild` compile-fail tests of a
+  generated API); L3 the Kernel harness on the channel backend with a paused clock, an injected Clock,
+  `CommandSender` and an Effect recorder, with no sleeps and no polling; L4 service wiring, through the real
+  `build()` (D-25); L5 backend conformance, one shared test body run against the channel backend and a zenohd
+  container; L6 device and system tests (D-15). File IO in the Kernel sits behind a port, so a paused clock never
+  races a blocking thread.
 - **Gates that fail the build:** `cargo fmt`; clippy with `[workspace.lints]` (including `unsafe_code = "forbid"`,
   `missing_docs` for public items, `unreachable_pub`, `allow_attributes` and `allow_attributes_without_reason`,
   `pub_use`, `min_ident_chars`, `shadow_unrelated`, `std_instead_of_core`, `alloc_instead_of_core`,
@@ -871,7 +909,7 @@ Decision:
   the in-repo `syn` checker (below); `cargo deny check bans licenses sources`; `cargo nextest run` with a per-test
   timeout, plus `cargo test --doc`; coverage with `cargo-llvm-cov` and per-layer floors kept in a committed ratchet
   file that may only rise; `cargo machete`; `typos`; the folder check and the `no_std` and wasm32 builds (D-02);
-  `api.lock` and the generated-code comparison (D-05, D-06); `cargo auditable build`.
+  `api.lock` and the generated-code comparison (D-05, D-06, D-26); `cargo auditable build`.
 - **Advisories** (`cargo deny check advisories`) report on pull requests and fail on the scheduled run, so a new
   advisory in a transitive dependency does not turn every open pull request red.
 - **Report only:** `cargo bloat`; a pinned nightly job (`cargo udeps`, branch coverage, sanitizers, lockbud);
