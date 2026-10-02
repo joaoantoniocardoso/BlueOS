@@ -4,7 +4,7 @@ use core::future::Future;
 
 use blueos_idl::msg::blueos_recorder_msgs::{
     CancelRepairCommand, DeleteRecordingCommand, RecordingIndex, RecordingIndexRequest,
-    RepairRecordingCommand,
+    RepairRecordingCommand, SnapshotRecordingCommand,
 };
 use blueos_recorder_domain::{RecorderDomain, RecorderRequest};
 use blueos_recorder_paths::{RecordingRelativePath, recording_path_refusal};
@@ -40,6 +40,15 @@ impl Handlers<RecorderDomain> for RecorderHandlers {
         let path = RecordingRelativePath::parse(&request.path)
             .map_err(|error| Refusal::from(recording_path_refusal(error)))?;
         Ok(RecorderRequest::RepairRecording { path })
+    }
+
+    fn snapshot_recording(
+        &self,
+        request: SnapshotRecordingCommand,
+    ) -> Result<RecorderRequest, Refusal> {
+        let path = RecordingRelativePath::parse(&request.path)
+            .map_err(|error| Refusal::from(recording_path_refusal(error)))?;
+        Ok(RecorderRequest::SnapshotRecording { path })
     }
 
     fn index(

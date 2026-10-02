@@ -10,7 +10,7 @@ use blueos_service::ServiceBuilder;
 use crate::{
     cameras_io,
     context::RecorderContext,
-    library_io::{run_cancel_repair_io, run_library_repair_io},
+    library_io::{run_cancel_repair_io, run_library_repair_io, run_library_snapshot_io},
 };
 
 /// Registers the Service's single async IO executor (cameras egress and library repair).
@@ -36,6 +36,10 @@ pub(crate) fn register_io(
                     RecorderIoRequest::Library(LibraryIoRequest::CancelRepair { path }) => {
                         run_cancel_repair_io(&cancel_flags, &path)
                     }
+                    RecorderIoRequest::Library(LibraryIoRequest::Snapshot {
+                        path,
+                        output_path,
+                    }) => run_library_snapshot_io(folder, path, output_path).await,
                     RecorderIoRequest::Library(_) => Err(IoError::new(
                         "library scan and delete use the blocking executor",
                     )),

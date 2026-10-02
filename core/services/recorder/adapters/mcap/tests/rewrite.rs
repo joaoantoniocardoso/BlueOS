@@ -3,7 +3,7 @@
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::{
     fs::{self, File},
-    io::{BufWriter, Read},
+    io::{BufWriter, Read, Write},
     sync::Arc,
 };
 
@@ -202,6 +202,36 @@ fn rewrite_progress_fires_per_read_chunk_not_per_message() {
     let chunk_steps = total_bytes.div_ceil(SOURCE_READ_BYTES as u64) as usize;
     assert!(calls <= chunk_steps + 1);
     assert!(calls < message_count);
+}
+
+#[test]
+fn rewrite_ignores_bytes_appended_after_size_at_start() {
+    let directory = tempdir().expect("tempdir");
+    let source = directory.path().join("growing.mcap");
+    let output = directory.path().join("snapshot.mcap");
+    write_chunked_recording(&source, 6);
+    let size_at_start = fs::metadata(&source).expect("metadata").len();
+    fs::OpenOptions::new()
+        .append(true)
+        .open(&source)
+        .expect("append")
+        .write_all(&[0xFF; 4096])
+        .expect("grow");
+
+    let cancel = AtomicBool::new(false);
+    let summary = rewrite(&source, &output, &mut |_read, _total| {}, &cancel).expect("rewrite");
+    assert!(summary.messages > 0);
+    assert!(summary.bytes_read <= size_at_start);
+    assert!(is_indexed(&output));
+    let indexed_bytes = fs::read(&output).expect("read output");
+    let summary_read = mcap::Summary::read(&indexed_bytes)
+        .expect("summary read")
+        .expect("summary");
+    assert!(!summary_read.chunk_indexes.is_empty());
+    let message_count = mcap::MessageStream::new(&indexed_bytes)
+        .expect("stream")
+        .count();
+    assert_eq!(message_count, summary.messages as usize);
 }
 
 #[test]

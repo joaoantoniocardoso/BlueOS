@@ -15,7 +15,9 @@ use blueos_idl::msg::blueos_recorder_msgs::{
 };
 use blueos_recorder_capture::RecordingState as DomainRecordingState;
 use blueos_recorder_domain::{RecorderDomain, RecorderEvent, RecorderRequest, RecorderSnapshot};
-use blueos_recorder_library::{RecordingFileState, RecordingOperationEvent, RepairFailure};
+use blueos_recorder_library::{
+    RecordingFileState, RecordingOperationEvent, RecordingOperationKind, RepairFailure,
+};
 
 use crate::endpoints::Conversions;
 
@@ -115,8 +117,12 @@ fn unix_seconds_to_time(seconds: i64) -> (i32, u32) {
 }
 
 fn recording_operation_message(event: &RecordingOperationEvent) -> RecordingOperation {
+    let operation = match event.operation {
+        RecordingOperationKind::Repair => RecordingOperationOperation::Repair,
+        RecordingOperationKind::Snapshot => RecordingOperationOperation::Snapshot,
+    };
     RecordingOperation {
-        operation: RecordingOperationOperation::Repair,
+        operation,
         path: event.path.clone(),
         output_path: event.output_path.clone(),
         succeeded: event.succeeded,

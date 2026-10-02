@@ -1,16 +1,11 @@
 //! The recordings folder: validated paths, scan, delete, and wall-clock file names.
 
-#![expect(
-    clippy::std_instead_of_core,
-    reason = "filesystem and wall-clock adapters use the standard library"
-)]
-
 use std::{
     collections::{HashMap, HashSet},
     ffi::OsStr,
     fs, io,
     path::{Component, Path, PathBuf},
-    time::{Duration, UNIX_EPOCH},
+    time::UNIX_EPOCH,
 };
 
 use thiserror::Error;
@@ -21,6 +16,7 @@ use blueos_recorder_mcap::read_footer_at;
 
 const RECORDING_SUFFIX: &str = ".mcap";
 const RECOVER_SUFFIX: &str = ".recover";
+const SNAPSHOT_PARTIAL_SUFFIX: &str = ".partial";
 const LIBRARY_SCAN_MAX_DEPTH: usize = 8;
 
 /// Errors from the recordings folder adapter.
@@ -81,6 +77,7 @@ impl RecordingsFolder {
             base: base.canonicalize()?,
         };
         folder.discard_recover_files();
+        folder.discard_snapshot_partial_files();
         Ok(folder)
     }
 
@@ -120,12 +117,33 @@ impl RecordingsFolder {
         Ok(())
     }
 
+    /// Path for a snapshot rewrite before it is renamed into place (`<output>.partial`).
+    pub fn snapshot_temporary_path(&self, output_relative: &str) -> PathBuf {
+        self.base
+            .join(format!("{output_relative}{SNAPSHOT_PARTIAL_SUFFIX}"))
+    }
+
+    /// Renames a finished snapshot temporary file into the library folder.
+    pub fn finalize_snapshot(
+        &self,
+        temporary: &Path,
+        output_relative: &str,
+    ) -> Result<(), StorageError> {
+        validate_relative_recording_path(output_relative)?;
+        let destination = self.base.join(output_relative);
+        if let Some(parent) = destination.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::rename(temporary, destination)?;
+        Ok(())
+    }
+
     /// Picks a new `recorder_YYYYMMDD_HHMMSS.mcap` path that does not exist yet.
     pub fn allocate_new_recording(
         &self,
-        wall_clock: Duration,
+        wall_clock_stamp: &str,
     ) -> Result<(PathBuf, String), StorageError> {
-        let stamp = format_wall_timestamp(wall_clock);
+        let stamp = wall_clock_stamp;
         for suffix in 0u32..100 {
             let file_name = if suffix == 0 {
                 format!("recorder_{stamp}.mcap")
@@ -237,6 +255,49 @@ impl RecordingsFolder {
     /// Base directory path.
     pub fn base(&self) -> &Path {
         &self.base
+    }
+
+    /// Removes leftover snapshot `.partial` files under the recordings folder.
+    pub fn discard_snapshot_partial_files(&self) {
+        let mut removed = Vec::new();
+        self.discard_snapshot_partial_files_in(&self.base, &mut removed);
+        for (relative, size_bytes) in removed {
+            tracing::info!(
+                path = %relative,
+                size_bytes,
+                "Discarded leftover snapshot temporary file"
+            );
+        }
+    }
+
+    fn discard_snapshot_partial_files_in(
+        &self,
+        directory: &Path,
+        removed: &mut Vec<(String, u64)>,
+    ) {
+        let entries = match fs::read_dir(directory) {
+            Ok(value) => value,
+            Err(_) => return,
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                self.discard_snapshot_partial_files_in(&path, removed);
+                continue;
+            }
+            let name = entry.file_name();
+            if !name.to_string_lossy().ends_with(SNAPSHOT_PARTIAL_SUFFIX) {
+                continue;
+            }
+            let relative = path
+                .strip_prefix(&self.base)
+                .map(relative_path_string)
+                .unwrap_or_else(|_| name.to_string_lossy().into_owned());
+            let size_bytes = entry.metadata().map(|metadata| metadata.len()).unwrap_or(0);
+            if fs::remove_file(&path).is_ok() {
+                removed.push((relative, size_bytes));
+            }
+        }
     }
 
     fn discard_recover_files_in(&self, directory: &Path, removed: &mut Vec<(String, u64)>) {
@@ -353,41 +414,9 @@ fn modified_unix_seconds(metadata: &fs::Metadata) -> i64 {
         .unwrap_or(0)
 }
 
-/// Formats wall-clock seconds as `YYYYMMDD_HHMMSS` (UTC).
-fn format_wall_timestamp(wall_clock: Duration) -> String {
-    let seconds = wall_clock.as_secs();
-    let time_of_day = seconds % 86_400;
-    let hour = time_of_day / 3_600;
-    let minute = (time_of_day % 3_600) / 60;
-    let second = time_of_day % 60;
-    let days = seconds / 86_400;
-    let (year, month, day) = civil_from_days(days as i64);
-    format!("{year:04}{month:02}{day:02}_{hour:02}{minute:02}{second:02}")
-}
-
-fn civil_from_days(days: i64) -> (i64, i64, i64) {
-    let z = days + 719_468;
-    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
-    let doe = (z - era * 146_097) as u64;
-    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
-    let year = era * 400 + yoe as i64 + (yoe == 4) as i64;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let day = doy - (153 * mp + 2) / 5 + 1;
-    let month = mp as i64 + if mp < 10 { 3 } else { -9 };
-    let year = year + (month <= 2) as i64;
-    (year, month, day as i64)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn recorder_prefix_matches_library_parser() {
-        let stamp = format_wall_timestamp(Duration::from_secs(1_767_225_600));
-        assert_eq!(stamp, "20260101_000000");
-    }
 
     #[test]
     fn resolve_rejects_parent_dir() {

@@ -40,6 +40,15 @@ export const RepairRecording = {
 }
 export type RepairRecordingRequest = Idl.RepairRecordingCommand
 
+/** command `SnapshotRecording` at `blueos/v1/recorder/command/SnapshotRecording`. */
+export const SnapshotRecording = {
+  kind: 'command' as const,
+  name: 'SnapshotRecording',
+  key: commandKey(NAME, 'SnapshotRecording'),
+  requestSchema: 'blueos_recorder_msgs/msg/SnapshotRecordingCommand' as const,
+}
+export type SnapshotRecordingRequest = Idl.SnapshotRecordingCommand
+
 /** command `Start` at `blueos/v1/recorder/command/Start`. */
 export const Start = {
   kind: 'command' as const,

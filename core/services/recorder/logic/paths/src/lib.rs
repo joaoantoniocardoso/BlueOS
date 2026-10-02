@@ -1,10 +1,20 @@
 //! Relative recording paths: validated once before IO or Domain Commands.
 
 #![no_std]
+#![expect(
+    clippy::pub_use,
+    reason = "calendar helpers are shared by the library Block and storage adapter"
+)]
 
 extern crate alloc;
 
+mod calendar;
+
 use alloc::string::String;
+
+pub use calendar::{
+    civil_date_from_days_since_epoch, civil_days_since_epoch, recorder_wall_clock_file_stamp,
+};
 
 const RECORDING_SUFFIX: &str = ".mcap";
 

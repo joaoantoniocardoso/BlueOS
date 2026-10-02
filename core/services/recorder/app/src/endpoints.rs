@@ -19,7 +19,7 @@ pub const NAME: &str = "recorder";
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not handle the custom endpoints of the `recorder` Service",
     label = "no `impl Handlers<D> for {Self}` in the `recorder` app crate",
-    note = "implement `cancel_repair` for the Command `CancelRepair`, `delete_recording` for the Command `DeleteRecording`, `repair_recording` for the Command `RepairRecording`, `index` for the IO query `index`"
+    note = "implement `cancel_repair` for the Command `CancelRepair`, `delete_recording` for the Command `DeleteRecording`, `repair_recording` for the Command `RepairRecording`, `snapshot_recording` for the Command `SnapshotRecording`, `index` for the IO query `index`"
 )]
 pub trait Handlers<D: Domain>: Send + Sync + 'static {
     /// The Command `CancelRepair`, at `blueos/v1/recorder/command/CancelRepair`.
@@ -44,6 +44,14 @@ pub trait Handlers<D: Domain>: Send + Sync + 'static {
     fn repair_recording(
         &self,
         request: blueos_recorder_msgs::RepairRecordingCommand,
+    ) -> Result<D::Request, Refusal>;
+
+    /// The Command `SnapshotRecording`, at `blueos/v1/recorder/command/SnapshotRecording`.
+    ///
+    /// The Domain's Request for the Message, or why it is refused.
+    fn snapshot_recording(
+        &self,
+        request: blueos_recorder_msgs::SnapshotRecordingCommand,
     ) -> Result<D::Request, Refusal>;
 
     /// The IO query `index`, at `blueos/v1/recorder/query/index`.
@@ -78,6 +86,12 @@ pub fn register<D: Conversions, H: Handlers<D>, Context>(
             let handlers = Arc::clone(&handlers);
             move |request: blueos_recorder_msgs::RepairRecordingCommand| {
                 H::repair_recording(&handlers, request)
+            }
+        })
+        .command("SnapshotRecording", {
+            let handlers = Arc::clone(&handlers);
+            move |request: blueos_recorder_msgs::SnapshotRecordingCommand| {
+                H::snapshot_recording(&handlers, request)
             }
         })
         .command(
@@ -122,6 +136,13 @@ pub fn register<D: Conversions, H: Handlers<D>, Context>(
                 name: "RepairRecording".into(),
                 key: "blueos/v1/recorder/command/RepairRecording".into(),
                 request_schema: "blueos_recorder_msgs/msg/RepairRecordingCommand".into(),
+                response_schema: "blueos_msgs/msg/CommandAck".into(),
+            },
+            blueos_idl::msg::blueos_msgs::EndpointInfo {
+                kind: "command".into(),
+                name: "SnapshotRecording".into(),
+                key: "blueos/v1/recorder/command/SnapshotRecording".into(),
+                request_schema: "blueos_recorder_msgs/msg/SnapshotRecordingCommand".into(),
                 response_schema: "blueos_msgs/msg/CommandAck".into(),
             },
             blueos_idl::msg::blueos_msgs::EndpointInfo {

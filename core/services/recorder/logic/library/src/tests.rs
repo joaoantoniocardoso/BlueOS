@@ -2,15 +2,16 @@
 
 use core::time::Duration;
 
-use alloc::string::ToString;
+use alloc::{string::ToString, vec};
 
 use blueos_domain::{Effect, Now, Outcome};
 use blueos_jobs::JobId;
 
 use super::{
     Library, LibraryEvent, LibraryIoRequest, LibraryIoResult, LibraryRepairOutcome, LibraryRequest,
-    RecordingFileState, RecordingOperationKind, RepairFailure, ScannedRecording,
-    derive_recording_file_state,
+    LibrarySnapshotOutcome, RecordingFileState, RecordingOperationKind, RepairFailure,
+    SNAPSHOT_RECORDING, ScannedRecording, derive_recording_file_state,
+    snapshot_output_relative_path,
 };
 
 const NOW: Now = Now {
@@ -195,6 +196,60 @@ fn recording_state_priority() {
     assert_eq!(
         derive_recording_file_state("repairing.mcap", None, true, true),
         RecordingFileState::Repairing
+    );
+}
+
+#[test]
+fn snapshot_emits_operation_with_output_path() {
+    let mut library = scan_snapshot(&[("live.mcap", false)], 1_000);
+    let path = blueos_recorder_paths::RecordingRelativePath::parse("live.mcap").expect("path");
+    let output_path = snapshot_output_relative_path("live.mcap", NOW);
+    assert!(matches!(
+        library.start_snapshot(path.clone(), output_path.clone(), Some("live.mcap"), NOW),
+        Outcome::Applied { .. }
+    ));
+    let Outcome::Applied { events, .. } = library.handle_io_result(
+        LibraryIoResult::SnapshotFinished {
+            path,
+            output_path: output_path.clone(),
+            outcome: LibrarySnapshotOutcome::Succeeded,
+        },
+        Some("live.mcap"),
+        NOW,
+    ) else {
+        panic!("snapshot finish must apply");
+    };
+    let LibraryEvent::Operation(event) = &events[0];
+    assert_eq!(event.operation, RecordingOperationKind::Snapshot);
+    assert_eq!(event.output_path, output_path);
+    assert!(event.succeeded);
+}
+
+#[test]
+fn active_recording_lists_snapshot_in_allowed_operations() {
+    let mut library = scan_snapshot(&[("live.mcap", false)], 1_000);
+    let recordings = vec![ScannedRecording {
+        relative_path: "live.mcap".into(),
+        name: "live.mcap".into(),
+        size_bytes: 100,
+        modified_unix_seconds: 1_000,
+        indexed: false,
+    }];
+    library.handle_io_result(
+        LibraryIoResult::ScanCompleted { recordings },
+        Some("live.mcap"),
+        NOW,
+    );
+    let entry = library
+        .entries()
+        .iter()
+        .find(|entry| entry.path == "live.mcap")
+        .expect("entry");
+    assert!(
+        entry
+            .allowed_operations
+            .iter()
+            .any(|operation| operation == SNAPSHOT_RECORDING)
     );
 }
 

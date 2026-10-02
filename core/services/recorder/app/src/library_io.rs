@@ -3,6 +3,7 @@
 use core::sync::atomic::AtomicBool;
 use std::{
     collections::BTreeMap,
+    fs,
     sync::{Arc, Mutex, MutexGuard},
 };
 
@@ -15,7 +16,8 @@ use blueos_recorder_domain::{
     RecorderIoRequest, RecorderIoResult, RecorderObservedFact, RecorderSnapshot,
 };
 use blueos_recorder_library::{
-    LibraryIoRequest, LibraryIoResult, LibraryRepairOutcome, RepairFailure, ScannedRecording,
+    LibraryIoRequest, LibraryIoResult, LibraryRepairOutcome, LibrarySnapshotOutcome, RepairFailure,
+    ScannedRecording,
 };
 use blueos_recorder_mcap::{RewriteError, rewrite};
 use blueos_recorder_paths::RecordingRelativePath;
@@ -40,8 +42,12 @@ pub(crate) fn run_library_io(
             Ok(Some(RecorderIoResult::Library(match io_request {
                 LibraryIoRequest::Scan => scan(context, snapshot),
                 LibraryIoRequest::Delete { path } => delete(context, &path),
-                LibraryIoRequest::Repair { .. } | LibraryIoRequest::CancelRepair { .. } => {
-                    return Err(IoError::new("repair IO must use the async executor"));
+                LibraryIoRequest::Repair { .. }
+                | LibraryIoRequest::CancelRepair { .. }
+                | LibraryIoRequest::Snapshot { .. } => {
+                    return Err(IoError::new(
+                        "repair and snapshot IO use the async executor",
+                    ));
                 }
             })))
         }
@@ -125,6 +131,57 @@ pub(crate) async fn run_library_repair_io(
 
     RecorderContext::clear_repair_cancel_flag(&cancel_flags, path.as_str());
     Ok(Some(RecorderIoResult::Library(rewrite_result)))
+}
+
+/// Runs snapshot IO without blocking the async runtime worker.
+pub(crate) async fn run_library_snapshot_io(
+    recordings_folder: Arc<RecordingsFolder>,
+    path: RecordingRelativePath,
+    output_relative: String,
+) -> Result<Option<RecorderIoResult>, IoError> {
+    let path_for_result = path.clone();
+    let output_for_result = output_relative.clone();
+    let snapshot_result = tokio::task::spawn_blocking(move || {
+        let relative = path_for_result.as_str();
+        let finish = |outcome: LibrarySnapshotOutcome| LibraryIoResult::SnapshotFinished {
+            path: path_for_result.clone(),
+            output_path: output_for_result.clone(),
+            outcome,
+        };
+        let source = match recordings_folder.resolve(relative) {
+            Ok(value) => value,
+            Err(_) => {
+                return finish(LibrarySnapshotOutcome::Failed(RepairFailure::Io));
+            }
+        };
+        let temporary = recordings_folder.snapshot_temporary_path(&output_for_result);
+        let cancel = AtomicBool::new(false);
+        let rewrite_outcome = rewrite(&source, &temporary, &mut |_read, _total| {}, &cancel);
+        let outcome = match rewrite_outcome {
+            Ok(_summary) => {
+                match recordings_folder.finalize_snapshot(&temporary, &output_for_result) {
+                    Ok(()) => LibrarySnapshotOutcome::Succeeded,
+                    Err(_) => {
+                        let _ = fs::remove_file(&temporary);
+                        LibrarySnapshotOutcome::Failed(RepairFailure::Replace)
+                    }
+                }
+            }
+            Err(RewriteError::Cancelled) | Err(RewriteError::Mcap(_)) => {
+                let _ = fs::remove_file(&temporary);
+                LibrarySnapshotOutcome::Failed(RepairFailure::Rewrite)
+            }
+            Err(RewriteError::Io(_)) => {
+                let _ = fs::remove_file(&temporary);
+                LibrarySnapshotOutcome::Failed(RepairFailure::Io)
+            }
+        };
+        finish(outcome)
+    })
+    .await
+    .map_err(|error| IoError::new(error.to_string()))?;
+
+    Ok(Some(RecorderIoResult::Library(snapshot_result)))
 }
 
 /// Handles cancel-repair IO (only sets the cancel flag; rewrite observes it).

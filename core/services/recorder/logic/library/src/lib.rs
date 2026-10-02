@@ -9,6 +9,7 @@
 extern crate alloc;
 
 mod command_rules;
+mod snapshot;
 mod timestamp;
 
 use alloc::{
@@ -25,9 +26,10 @@ use blueos_recorder_paths::RecordingRelativePath;
 
 pub use command_rules::{
     CANCEL_REPAIR, DELETE_RECORDING, RECENTLY_WRITTEN_DELAY, REPAIR_RECORDING,
-    RecordingCommandContext, allowed_operations, cancel_repair_rejection,
-    delete_recording_rejection, repair_recording_rejection,
+    RecordingCommandContext, SNAPSHOT_RECORDING, allowed_operations, cancel_repair_rejection,
+    delete_recording_rejection, repair_recording_rejection, snapshot_recording_rejection,
 };
+pub use snapshot::snapshot_output_relative_path;
 pub use timestamp::created_unix_seconds_from_filename;
 
 // ponytail: timer rescan; switch to inotify if external writers or large folders make it costly.
@@ -41,6 +43,7 @@ pub struct Library {
     scanned: BTreeMap<String, ScannedRecording>,
     deleting: BTreeSet<String>,
     repairing: BTreeMap<String, RepairProgress>,
+    snapshotting: BTreeMap<String, String>,
     repair_errors: BTreeMap<String, String>,
 }
 
@@ -107,6 +110,8 @@ pub struct RecordingOperationEvent {
 pub enum RecordingOperationKind {
     /// Native MCAP rewrite.
     Repair,
+    /// Indexed copy of a recording still being written.
+    Snapshot,
 }
 
 /// Result of a library IO request.
@@ -133,6 +138,24 @@ pub enum LibraryIoResult {
         /// How the repair ended.
         outcome: LibraryRepairOutcome,
     },
+    /// A snapshot attempt finished.
+    SnapshotFinished {
+        /// Source recording path.
+        path: RecordingRelativePath,
+        /// Snapshot file path relative to the recordings folder.
+        output_path: String,
+        /// How the snapshot ended.
+        outcome: LibrarySnapshotOutcome,
+    },
+}
+
+/// How a snapshot IO request ended.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum LibrarySnapshotOutcome {
+    /// The indexed copy was written next to the source.
+    Succeeded,
+    /// Rewrite or rename failed.
+    Failed(RepairFailure),
 }
 
 /// How a repair IO request ended.
@@ -197,6 +220,13 @@ pub enum LibraryIoRequest {
     CancelRepair {
         /// Validated relative path.
         path: RecordingRelativePath,
+    },
+    /// Write an indexed copy next to a recording.
+    Snapshot {
+        /// Validated source path.
+        path: RecordingRelativePath,
+        /// Relative path for the finished snapshot file.
+        output_path: String,
     },
 }
 
@@ -302,6 +332,28 @@ impl Library {
     ) -> Option<&'static str> {
         let context = command_context(self, path, active_recording_relative_path, now);
         repair_recording_rejection(&context)
+    }
+
+    /// Starts a snapshot after the Domain accepted the Command.
+    pub fn start_snapshot(
+        &mut self,
+        path: RecordingRelativePath,
+        output_path: String,
+        active_recording_relative_path: Option<&str>,
+        now: Now,
+    ) -> LibraryOutcome {
+        let relative = path.as_str();
+        let context = command_context(self, relative, active_recording_relative_path, now);
+        if let Some(reason) = snapshot_recording_rejection(&context) {
+            return Outcome::reject(LibraryRejection(reason));
+        }
+        self.snapshotting
+            .insert(relative.to_string(), output_path.clone());
+        rebuild_entries(self, active_recording_relative_path, now);
+        Outcome::Applied {
+            events: vec![],
+            effects: vec![Effect::Io(LibraryIoRequest::Snapshot { path, output_path })],
+        }
     }
 
     /// Starts repair after the Domain started its Job.
@@ -421,6 +473,31 @@ impl Library {
                 rebuild_entries(self, active_recording_relative_path, now);
                 Outcome::Applied {
                     events: vec![],
+                    effects: vec![Effect::Io(LibraryIoRequest::Scan)],
+                }
+            }
+            LibraryIoResult::SnapshotFinished {
+                path,
+                output_path,
+                outcome,
+            } => {
+                let relative = path.as_str();
+                self.snapshotting.remove(relative);
+                let (succeeded, failure) = match outcome {
+                    LibrarySnapshotOutcome::Succeeded => (true, RepairFailure::None),
+                    LibrarySnapshotOutcome::Failed(failure) => (false, failure),
+                };
+                rebuild_entries(self, active_recording_relative_path, now);
+                let event = RecordingOperationEvent {
+                    operation: RecordingOperationKind::Snapshot,
+                    path: relative.to_string(),
+                    output_path,
+                    succeeded,
+                    cancelled: false,
+                    failure,
+                };
+                Outcome::Applied {
+                    events: vec![LibraryEvent::Operation(event)],
                     effects: vec![Effect::Io(LibraryIoRequest::Scan)],
                 }
             }
@@ -574,6 +651,7 @@ fn command_context<'a>(
         in_library: scanned.is_some(),
         deleting: library.deleting.contains(relative_path),
         repairing: library.repairing.contains_key(relative_path),
+        snapshotting: library.snapshotting.contains_key(relative_path),
         indexed: scanned.is_some_and(|recording| recording.indexed),
         modified_unix_seconds: scanned.map_or(0, |recording| recording.modified_unix_seconds),
         now,

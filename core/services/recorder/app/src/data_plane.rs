@@ -416,7 +416,8 @@ async fn reconcile(
     finish_open_file(local, writer, &task_context.commands, liveliness_gets).await;
 
     let wall = task_context.clock.now().wall;
-    let (path, file_name) = folder.allocate_new_recording(wall).map_err(|error| {
+    let stamp = blueos_recorder_paths::recorder_wall_clock_file_stamp(wall);
+    let (path, file_name) = folder.allocate_new_recording(&stamp).map_err(|error| {
         warn!(%error, "failed to allocate recording path");
         TaskFailed
     })?;
