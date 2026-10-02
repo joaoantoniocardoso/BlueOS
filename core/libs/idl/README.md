@@ -47,5 +47,6 @@ cargo run -p blueos-idl-codegen --bin blueos-idl-codegen -- --write
 
 ## Features
 
-- `std` (default): enables `std::error::Error` on `blueos_idl::Error`.
-- Without default features: suitable for `thumbv7em-none-eabihf` logic crates.
+- No default features, and no `std` feature: the crate is `no_std` + `alloc`, suitable for `thumbv7em-none-eabihf`
+  logic crates.
+- `catalog`: adds `catalog::schema`, the schema text of the vendored ROS 2 and Foxglove messages.
