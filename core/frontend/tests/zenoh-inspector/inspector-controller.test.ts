@@ -653,7 +653,38 @@ describe('InspectorController', () => {
     controller.stop()
   })
 
-  it('skips selectedDecoded for video topic keys', () => {
+  it('selects the video view by default for video/ topics', () => {
+    const source = new FakeSource()
+    const { scheduler, flush } = createFakeScheduler()
+    const provider = deferredCatalogProvider()
+    void provider.ready()
+    provider.resolveCatalog()
+
+    const states: InspectorViewState[] = []
+    const controller = new InspectorController({
+      source,
+      apiClient: { serviceInfo: vi.fn(), request: vi.fn(), rawQuery: vi.fn() },
+      schemaProvider: provider,
+      codec: cdrCodec,
+      scheduler,
+    }, { onState: (state) => states.push({ ...state }) })
+
+    controller.start()
+    source.handlers?.onSample({
+      key: 'video/front',
+      payload: new Uint8Array([1, 2, 3]),
+      encoding: 'zenoh/bytes',
+      receivedAt: 1,
+      kind: 'put',
+    })
+    flush()
+    controller.selectTopic('video/front')
+    flush()
+    expect(latestState(states).selectedViewId).toBe('video')
+    controller.stop()
+  })
+
+  it('skips selectedDecoded when the video view is active', () => {
     const source = new FakeSource()
     const { scheduler, flush } = createFakeScheduler()
     const provider = deferredCatalogProvider()
@@ -683,6 +714,7 @@ describe('InspectorController', () => {
     flush()
     controller.selectTopic('video/front')
     flush()
+    expect(latestState(states).selectedViewId).toBe('video')
     decode.mockClear()
     source.handlers?.onSample({
       key: 'video/front',
