@@ -169,7 +169,11 @@ async fn run_with_backend_stops_on_shutdown() {
     let parsed =
         parse_service_cli::<FixtureService>(["fixture", "--marker", "/tmp/x"].map(OsString::from))
             .expect("parse");
-    let mut builder = FixtureService::build(&ServiceContext::new(parsed.service.clone())).unwrap();
+    let mut builder = FixtureService::build(&ServiceContext::new(
+        parsed.service.clone(),
+        blueos_service::testing::channel_session(),
+    ))
+    .unwrap();
     let shutdown = builder.shutdown_handle();
     let backend = std::sync::Arc::new(ChannelBackend::default());
     let kernel = blueos_service::Kernel::start(

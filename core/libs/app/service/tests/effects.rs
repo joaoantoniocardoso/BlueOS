@@ -660,8 +660,11 @@ async fn start_effects_kernel_with_shutdown(
     blueos_service::ShutdownHandle,
     tokio::task::JoinHandle<RunOutcome>,
 ) {
-    let mut builder =
-        EffectsService::build(&ServiceContext::new(arguments)).expect("the effects service builds");
+    let mut builder = EffectsService::build(&ServiceContext::new(
+        arguments,
+        blueos_service::testing::channel_session(),
+    ))
+    .expect("the effects service builds");
     let shutdown = builder.shutdown_handle();
     let backend: Arc<dyn blueos_comms::CommsBackend> =
         Arc::new(blueos_comms::channel::ChannelBackend::default());

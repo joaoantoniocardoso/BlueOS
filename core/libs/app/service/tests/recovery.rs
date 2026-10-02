@@ -222,8 +222,11 @@ async fn inbox_loop_panic_marks_status_degraded_and_keeps_running() {
 async fn three_inbox_loop_panics_within_one_minute_exit_non_zero() {
     let backend: Arc<dyn CommsBackend> = Arc::new(blueos_comms::channel::ChannelBackend::default());
     let clock: Arc<dyn Clock> = Arc::new(PausedClock::start());
-    let builder =
-        TankService::build(&ServiceContext::new(TankArguments { capacity: 100 })).expect("build");
+    let builder = TankService::build(&ServiceContext::new(
+        TankArguments { capacity: 100 },
+        blueos_service::testing::channel_session(),
+    ))
+    .expect("build");
     let kernel = Kernel::start(
         TankService::NAME,
         builder,

@@ -96,5 +96,9 @@ fn service_flags_flatten_with_the_common_cli() {
         parsed.service.marker.as_deref(),
         Some(PathBuf::from("/tmp/marker").as_path())
     );
-    let _builder = CliCookbookService::build(&ServiceContext::new(parsed.service)).expect("build");
+    let _builder = CliCookbookService::build(&ServiceContext::new(
+        parsed.service,
+        blueos_service::testing::channel_session(),
+    ))
+    .expect("build");
 }

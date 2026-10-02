@@ -71,8 +71,11 @@ async fn run_with_log_publisher_on_backend<S: Service>(
     let publisher = logging::attach_backbone(S::NAME, Arc::clone(&backend)).await;
     let log_runtime = logging::LogPublisherRuntime::start(publisher);
     let outcome = async {
-        let context =
-            ServiceContext::with_settings_path(parsed.service, parsed.common.settings_path);
+        let context = ServiceContext::with_settings_path(
+            parsed.service,
+            parsed.common.settings_path,
+            Arc::clone(&backend),
+        );
         let builder = S::build(&context)?;
         let kernel = Kernel::start(S::NAME, builder, backend, clock).await?;
         Ok(kernel.run().await)

@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use blueos_comms::CommsError;
 use blueos_domain::Domain;
 
-use crate::builder::ServiceBuilder;
+use crate::{builder::ServiceBuilder, command_sender::Session};
 
 /// A BlueOS Service: one Domain, its name and version, its command-line arguments, and a `build` that declares how
 /// the Domain meets the backbone. `endpoints` is generated from the Service's endpoint manifest (D-26).
@@ -53,10 +53,11 @@ pub trait Service {
     ) -> Result<ServiceBuilder<Self::Domain, Self::Context>, ServiceError>;
 }
 
-/// What a Service's `build` and IO code may use: its command-line arguments.
+/// What a Service's `build` and IO code may use: parsed CLI arguments, optional settings path, and the open Session.
 pub struct ServiceContext<Arguments> {
     arguments: Arguments,
     settings_path: Option<PathBuf>,
+    session: Session,
 }
 
 /// Why a Service did not start.
@@ -83,20 +84,31 @@ pub enum ServiceError {
 }
 
 impl<Arguments> ServiceContext<Arguments> {
-    /// A Context holding the parsed command-line arguments.
-    pub fn new(arguments: Arguments) -> Self {
+    /// A Context holding the parsed command-line arguments and the Session opened before `build`.
+    pub fn new(arguments: Arguments, session: Session) -> Self {
         Self {
             arguments,
             settings_path: None,
+            session,
         }
     }
 
     /// Like [`Self::new`], with the optional `--settings-path` parent directory.
-    pub fn with_settings_path(arguments: Arguments, settings_path: Option<PathBuf>) -> Self {
+    pub fn with_settings_path(
+        arguments: Arguments,
+        settings_path: Option<PathBuf>,
+        session: Session,
+    ) -> Self {
         Self {
             arguments,
             settings_path,
+            session,
         }
+    }
+
+    /// The Zenoh session opened before `build`.
+    pub fn session(&self) -> &Session {
+        &self.session
     }
 
     /// The service's own command-line arguments.

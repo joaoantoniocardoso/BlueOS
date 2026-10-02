@@ -186,17 +186,6 @@ impl McapFile {
     }
 }
 
-/// Whether a backbone key should be recorded.
-pub fn should_record_topic(key: &str) -> bool {
-    if key.starts_with("blueos/v1/recorder/") {
-        return false;
-    }
-    if key.starts_with("blueos/v1/services/") {
-        return false;
-    }
-    true
-}
-
 /// Picks or builds the channel descriptor for `sample`, reusing `cache` when present.
 pub fn descriptor_for_sample(
     topic: &str,

@@ -9,6 +9,13 @@ use core::{error::Error, fmt, time::Duration};
 
 use blueos_domain::{Now, Outcome};
 
+/// Backbone prefix for decoded MAVLink samples.
+pub const MAVLINK_TOPIC_PREFIX: &str = "mavlink/";
+/// Backbone prefix for raw MAVLink frames (ingress and egress).
+pub const MAVLINK_RAW_TOPIC_PREFIX: &str = "mavlink_raw/";
+/// Backbone prefix for camera manager video samples.
+pub const VIDEO_TOPIC_PREFIX: &str = "video/";
+
 /// Block state: settings, armed fact, recording lifecycle, and video streams.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Capture {
@@ -212,6 +219,23 @@ impl Capture {
         }
     }
 
+    /// Whether a backbone sample should be written for the current gate (MAVLink and video policy).
+    pub fn should_record_sample(key: &str, gate: &RecordGate) -> bool {
+        if key.starts_with("blueos/v1/recorder/") || key.starts_with("blueos/v1/services/") {
+            return false;
+        }
+        if (key.starts_with(MAVLINK_TOPIC_PREFIX) || key.starts_with(MAVLINK_RAW_TOPIC_PREFIX))
+            && gate.record_mavlink_only_when_armed
+            && !gate.armed
+        {
+            return false;
+        }
+        if key.starts_with(VIDEO_TOPIC_PREFIX) && !gate.recording_video_topics.contains(key) {
+            return false;
+        }
+        true
+    }
+
     /// Elapsed recording time in milliseconds from monotonic clock readings (used by capture status in #70).
     pub fn recording_time_ms(recording_started_at: Duration, now: Now) -> u32 {
         now.monotonic
@@ -317,13 +341,7 @@ impl Capture {
     }
 
     fn start_video_recording(&mut self, topic: String) -> CaptureOutcome {
-        self.video_streams.insert(
-            topic.clone(),
-            VideoStream {
-                topic,
-                is_recording: true,
-            },
-        );
+        self.sync_video_topic_recording(&topic, true);
         Outcome::Applied {
             events: Vec::new(),
             effects: Vec::new(),
@@ -331,12 +349,26 @@ impl Capture {
     }
 
     fn stop_video_recording(&mut self, topic: String) -> CaptureOutcome {
-        if let Some(stream) = self.video_streams.get_mut(&topic) {
-            stream.is_recording = false;
-        }
+        self.sync_video_topic_recording(&topic, false);
         Outcome::Applied {
             events: Vec::new(),
             effects: Vec::new(),
+        }
+    }
+
+    /// Updates the record gate video set when the cameras Block starts or stops MAVLink capture.
+    pub fn sync_video_topic_recording(&mut self, topic: &str, recording: bool) {
+        if recording {
+            let topic = String::from(topic);
+            self.video_streams.insert(
+                topic.clone(),
+                VideoStream {
+                    topic,
+                    is_recording: true,
+                },
+            );
+        } else if let Some(stream) = self.video_streams.get_mut(topic) {
+            stream.is_recording = false;
         }
     }
 

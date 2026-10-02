@@ -11,10 +11,10 @@ use tracing::warn;
 
 use blueos_comms::{LivelinessEvent, Payload, Sample};
 use blueos_domain::Command;
-use blueos_recorder_capture::{CaptureObservedFact, RecordGate};
+use blueos_recorder_capture::{Capture, CaptureObservedFact, RecordGate};
 use blueos_recorder_domain::{RecorderDomain, RecorderObservedFact};
 use blueos_recorder_mcap::{
-    ChannelDescriptor, ChannelRoute, McapWriterHandle, ros2_lane_descriptor, should_record_topic,
+    ChannelDescriptor, ChannelRoute, McapWriterHandle, ros2_lane_descriptor,
 };
 use blueos_recorder_schema_gate::{
     Ros2ddsGate, Ros2ddsGateInput, Ros2ddsGateOutput, held::HeldSample,
@@ -266,7 +266,7 @@ async fn handle_sample(
     if !gate_snapshot.recording_requested {
         return Ok(());
     }
-    if !should_record_topic(sample.key()) {
+    if !Capture::should_record_sample(sample.key(), &gate_snapshot) {
         return Ok(());
     }
     if local

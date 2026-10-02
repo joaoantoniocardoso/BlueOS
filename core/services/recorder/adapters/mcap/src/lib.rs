@@ -19,6 +19,6 @@ pub use channel_descriptor::{
 };
 pub use mcap_file::{
     McapError, McapFile, WriteSampleRequest, cached_descriptor, descriptor_for_sample,
-    ros2_lane_descriptor, should_record_topic,
+    ros2_lane_descriptor,
 };
 pub use writer_handle::McapWriterHandle;

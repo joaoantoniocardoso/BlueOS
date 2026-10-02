@@ -758,7 +758,9 @@ impl blueos_service::Service for Example {
 
 - `entry::run::<S>()` does everything every service used to repeat: start logging (D-13), parse the CLI, build
   the runtime, open the Session, load the settings (D-11) and the durable state (D-28), call `build`, run the
-  Kernel, and map the result to an exit code (D-29). `VERSION` is a constant in the service crate because
+  Kernel, and map the result to an exit code (D-29). `build` receives that Session through
+  `ServiceContext::session()` so the Context and IO executors can publish before any Task runs, because an IO
+  Effect can run before the first Task starts. `VERSION` is a constant in the service crate because
   `env!("CARGO_PKG_VERSION")` expands where it is written.
 - Tests call `build` directly, so the wiring a test exercises is the wiring that ships.
 - The Kernel parses a common CLI, and each service extends it with `type Arguments: clap::Args`:

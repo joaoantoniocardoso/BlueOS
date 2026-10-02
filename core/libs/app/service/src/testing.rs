@@ -102,7 +102,12 @@ impl<S: Service> Harness<S> {
     pub async fn start_recording_effects(
         arguments: S::Arguments,
     ) -> Result<(Self, EffectLog<S::Domain>), ServiceError> {
-        Self::start_recording_effects_with_context(ServiceContext::new(arguments)).await
+        let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
+        Self::start_recording_effects_with_context(ServiceContext::new(
+            arguments,
+            Arc::clone(&backend),
+        ))
+        .await
     }
 
     /// Like [`Self::start_recording_effects`], with a fully built [`ServiceContext`].
@@ -114,12 +119,9 @@ impl<S: Service> Harness<S> {
         context: ServiceContext<S::Arguments>,
     ) -> Result<(Self, EffectLog<S::Domain>), ServiceError> {
         let log = EffectLog(Arc::new(Mutex::new(Vec::new())));
-        let harness = Self::start_on_with_effect_log(
-            Arc::new(ChannelBackend::default()),
-            context,
-            Some(Arc::clone(&log.0)),
-        )
-        .await?;
+        let backend = Arc::clone(context.session());
+        let harness =
+            Self::start_on_with_effect_log(backend, context, Some(Arc::clone(&log.0))).await?;
         Ok((harness, log))
     }
 
@@ -133,7 +135,11 @@ impl<S: Service> Harness<S> {
         backend: Arc<dyn CommsBackend>,
         arguments: S::Arguments,
     ) -> Result<Self, ServiceError> {
-        Self::start_on_with_context(backend, ServiceContext::new(arguments)).await
+        Self::start_on_with_context(
+            Arc::clone(&backend),
+            ServiceContext::new(arguments, Arc::clone(&backend)),
+        )
+        .await
     }
 
     /// Like [`Harness::start_on`], with a fully built [`ServiceContext`].
@@ -288,4 +294,9 @@ impl<S: Service> Harness<S> {
         };
         JobList::decode(&reply.payload().to_bytes()).expect("the reply is a JobList")
     }
+}
+
+/// In-process backbone Session for tests that call [`Service::build`] outside [`Harness`].
+pub fn channel_session() -> crate::command_sender::Session {
+    Arc::new(ChannelBackend::default())
 }
