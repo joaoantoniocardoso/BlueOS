@@ -138,8 +138,9 @@ Decision: every Rust crate lives in exactly one of three folders, in shared libs
   `--help`, `-h` and `--version` exit with 0.
 - No crate depends on another service's crates. Services talk only over comms.
 - Enforcement: `.hooks/lib/rust_checks.sh` (folder rules via `cargo metadata` + `jq`, `cargo deny` bans so
-  `zenoh` stays behind the comms zenoh driver, and a build of every `logic/` crate for `thumbv7em-none-eabihf`
-  and `wasm32-unknown-unknown` so any IO dependency fails to compile).
+  `zenoh` stays behind the comms zenoh driver, a `cargo tree` check without dev edges that fails when a test-only
+  feature is enabled, and a build of every `logic/` crate for `thumbv7em-none-eabihf` and `wasm32-unknown-unknown`
+  so any IO dependency fails to compile).
 
 Rationale: the folder decides the dependency rules, which keeps hexagonal boundaries mechanical rather than
 reviewed by hand. Keeping IDL types out of the Domain and Block crates means the wire format (D-06) never becomes
