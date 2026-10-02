@@ -3,6 +3,17 @@ import type {
   RecordingOperationEvent,
 } from './types'
 
+/** The library row for `path`, or null when nothing is open or the path left the library. */
+export function recordingByPath(
+  recordings: LibraryRecording[],
+  path: string | null,
+): LibraryRecording | null {
+  if (path === null) {
+    return null
+  }
+  return recordings.find((file) => file.path === path) ?? null
+}
+
 export function sortRecordingsNewestFirst(files: LibraryRecording[]): LibraryRecording[] {
   return [...files].sort((left, right) => {
     if (right.created !== left.created) {

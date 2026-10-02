@@ -5,6 +5,7 @@ import {
   canPlayRecording,
   operationFailureMessage,
   readySnapshotDownloadPath,
+  recordingByPath,
   snapshotDownloadPath,
   sortRecordingsNewestFirst,
 } from '@/libs/recorder/view-logic'
@@ -26,6 +27,15 @@ function file(overrides: Partial<LibraryRecording> = {}): LibraryRecording {
 }
 
 describe('recorder view-logic', () => {
+  it('returns the current library row for an open recording path', () => {
+    const growing = file({ path: 'live.mcap', size_bytes: 1000 })
+    expect(recordingByPath([growing], 'live.mcap')?.size_bytes).toBe(1000)
+    const updated = file({ path: 'live.mcap', size_bytes: 5000 })
+    expect(recordingByPath([updated], 'live.mcap')?.size_bytes).toBe(5000)
+    expect(recordingByPath([updated], 'other.mcap')).toBeNull()
+    expect(recordingByPath([updated], null)).toBeNull()
+  })
+
   it('sorts recordings newest first by created time', () => {
     const sorted = sortRecordingsNewestFirst([
       file({ path: 'old.mcap', created: 1 }),

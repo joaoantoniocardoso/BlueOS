@@ -93,7 +93,7 @@ import {
   SNAPSHOT_RECORDING,
 } from '@/libs/recorder/constants'
 import type { LibraryRecording, RecordingOperationEvent } from '@/libs/recorder/types'
-import { operationFailureMessage } from '@/libs/recorder/view-logic'
+import { operationFailureMessage, recordingByPath } from '@/libs/recorder/view-logic'
 import zenoh from '@/libs/zenoh'
 import { blueosApiMixin } from '@/mixins/blueosApi'
 
@@ -113,8 +113,13 @@ export default Vue.extend({
       busyOperation: null as string | null,
       playerOpen: false,
       playerBusy: false,
-      activeRecording: null as LibraryRecording | null,
+      activeRecordingPath: null as string | null,
     }
+  },
+  computed: {
+    activeRecording(): LibraryRecording | null {
+      return recordingByPath(this.recordings, this.activeRecordingPath)
+    },
   },
   async created() {
     const session = await zenoh.getSession()
@@ -153,7 +158,7 @@ export default Vue.extend({
       return this.recorder?.recordingIndexSource(path)
     },
     openPlayer(file: LibraryRecording): void {
-      this.activeRecording = file
+      this.activeRecordingPath = file.path
       this.playerOpen = true
     },
     closePlayer(): void {
@@ -161,7 +166,7 @@ export default Vue.extend({
         return
       }
       this.playerOpen = false
-      this.activeRecording = null
+      this.activeRecordingPath = null
     },
     onRecordingOperation(event: RecordingOperationEvent): void {
       const failure = operationFailureMessage(event, event.path)
