@@ -30,7 +30,6 @@ mod tasks;
 #[cfg(feature = "testing")]
 pub mod testing;
 
-pub use blueos_domain::{DomainDurable, IoError};
 pub use builder::{Refusal, ServiceBuilder};
 pub use clock::Clock;
 pub use command_sender::{CommandSender, SendError, Session};
@@ -42,4 +41,4 @@ pub use projection::Projection;
 pub use run_outcome::RunOutcome;
 pub use service::{Service, ServiceContext, ServiceError};
 pub use shutdown::ShutdownHandle;
-pub use tasks::{RestartPolicy, TaskContext, TaskFailed};
+pub use tasks::{Backoff, RestartPolicy, TaskContext, TaskFailed};

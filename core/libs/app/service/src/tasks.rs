@@ -44,11 +44,26 @@ pub enum RestartPolicy {
     Never,
     /// Restart only after failure, up to `max_attempts` failures.
     OnFailure {
+        /// How long the supervisor waits before each restart.
+        backoff: Backoff,
         /// How many times the Task may fail before the supervisor stops restarting it.
         max_attempts: u32,
     },
-    /// Restart whenever the Task stops, with exponential backoff between attempts.
-    Always,
+    /// Restart whenever the Task stops.
+    Always {
+        /// How long the supervisor waits before each restart.
+        backoff: Backoff,
+    },
+}
+
+/// The delay before each Task restart: it doubles from `minimum_delay` up to `maximum_delay`, plus up to as much
+/// again of random jitter, so Tasks that fail together do not restart together.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Backoff {
+    /// The delay before the first restart, before jitter.
+    pub minimum_delay: Duration,
+    /// The longest delay between restarts, before jitter.
+    pub maximum_delay: Duration,
 }
 
 /// Context passed to every Task body.
@@ -104,12 +119,21 @@ struct StatusPublisher {
     degraded_tasks: Arc<Mutex<BTreeSet<String>>>,
 }
 
-impl RestartPolicy {
+impl Default for Backoff {
     /// Exponential backoff from 100 ms to 30 s with jitter (D-27).
-    pub fn default_backoff() -> impl Iterator<Item = Duration> + Send {
+    fn default() -> Self {
+        Self {
+            minimum_delay: BACKOFF_MIN,
+            maximum_delay: BACKOFF_MAX,
+        }
+    }
+}
+
+impl Backoff {
+    fn delays(self) -> impl Iterator<Item = Duration> + Send {
         ExponentialBuilder::new()
-            .with_min_delay(BACKOFF_MIN)
-            .with_max_delay(BACKOFF_MAX)
+            .with_min_delay(self.minimum_delay)
+            .with_max_delay(self.maximum_delay)
             .with_jitter()
             .without_max_times()
             .build()
@@ -311,7 +335,12 @@ async fn supervise_task<D: Domain, Context: Send + Sync + 'static>(
     status: StatusPublisher,
 ) {
     let mut failures = 0u32;
-    let mut backoff = RestartPolicy::default_backoff();
+    let mut delays = match policy {
+        RestartPolicy::Never => None,
+        RestartPolicy::OnFailure { backoff, .. } | RestartPolicy::Always { backoff } => {
+            Some(backoff.delays())
+        }
+    };
     loop {
         if shutdown.is_cancelled() {
             break;
@@ -338,9 +367,9 @@ async fn supervise_task<D: Domain, Context: Send + Sync + 'static>(
         let should_restart = match (outcome, policy) {
             (Ok(()), RestartPolicy::Never) => false,
             (Ok(()), RestartPolicy::OnFailure { .. }) => false,
-            (Ok(()), RestartPolicy::Always) => true,
+            (Ok(()), RestartPolicy::Always { .. }) => true,
             (Err(TaskFailed), RestartPolicy::Never) => false,
-            (Err(TaskFailed), RestartPolicy::OnFailure { max_attempts }) => {
+            (Err(TaskFailed), RestartPolicy::OnFailure { max_attempts, .. }) => {
                 failures = failures.saturating_add(1);
                 if failures >= max_attempts {
                     status.mark_degraded(&name).await;
@@ -349,13 +378,13 @@ async fn supervise_task<D: Domain, Context: Send + Sync + 'static>(
                     true
                 }
             }
-            (Err(TaskFailed), RestartPolicy::Always) => true,
+            (Err(TaskFailed), RestartPolicy::Always { .. }) => true,
         };
         if !should_restart {
             break;
         }
         status.mark_degraded(&name).await;
-        let Some(delay) = backoff.next() else {
+        let Some(delay) = delays.as_mut().and_then(Iterator::next) else {
             break;
         };
         if wait_delay(&clock, &shutdown, delay).await {

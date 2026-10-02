@@ -23,7 +23,7 @@ use blueos_idl::{
     msg::blueos_msgs::{ServiceStatus, ServiceStatusStatus},
 };
 use blueos_service::{
-    Clock, Kernel, RestartPolicy, RunOutcome, Service, ServiceBuilder, ServiceContext,
+    Backoff, Clock, Kernel, RestartPolicy, RunOutcome, Service, ServiceBuilder, ServiceContext,
     ServiceError, TaskFailed,
     testing::{Harness, PausedClock, WALL_CLOCK_AT_START, lock_unpoisoned},
 };
@@ -124,18 +124,91 @@ async fn next_status(subscriber: &mut StateSubscriber) -> ServiceStatus {
     ServiceStatus::decode(&sample.payload().to_bytes()).expect("status payload decodes")
 }
 
+async fn delay_between_first_two_attempts(policy: RestartPolicy) -> Duration {
+    let (attempt_sender, mut attempt_receiver) = tokio::sync::mpsc::unbounded_channel();
+    let builder =
+        ServiceBuilder::<TasksDomain>::new(TasksSnapshot).task("flaky", policy, move |context| {
+            let attempt_sender = attempt_sender.clone();
+            async move {
+                let _ = attempt_sender.send(context.clock.now().monotonic);
+                Err(TaskFailed)
+            }
+        });
+    let backend: Arc<dyn CommsBackend> = Arc::new(blueos_comms::channel::ChannelBackend::default());
+    let clock: Arc<dyn Clock> = Arc::new(PausedClock::start());
+    let kernel = Kernel::start(TasksService::NAME, builder, backend, clock)
+        .await
+        .expect("kernel starts");
+    let run = tokio::spawn(kernel.run());
+    let mut next_attempt = async || {
+        timeout(RECV_TIMEOUT, attempt_receiver.recv())
+            .await
+            .expect("the Task runs before timeout")
+            .expect("the Task keeps reporting attempts")
+    };
+    let first = next_attempt().await;
+    let second = next_attempt().await;
+    run.abort();
+    second - first
+}
+
+#[tokio::test(start_paused = true)]
+async fn always_restarts_after_the_backoff_the_task_declares() {
+    let backoff = Backoff {
+        minimum_delay: Duration::from_secs(1),
+        maximum_delay: Duration::from_secs(1),
+    };
+
+    let delay = delay_between_first_two_attempts(RestartPolicy::Always { backoff }).await;
+
+    assert!(delay >= Duration::from_secs(1), "restarted after {delay:?}");
+}
+
+#[test]
+fn the_default_backoff_runs_from_100_milliseconds_to_30_seconds() {
+    assert_eq!(
+        Backoff::default(),
+        Backoff {
+            minimum_delay: Duration::from_millis(100),
+            maximum_delay: Duration::from_secs(30),
+        }
+    );
+}
+
+#[tokio::test(start_paused = true)]
+async fn on_failure_restarts_after_the_backoff_the_task_declares() {
+    let backoff = Backoff {
+        minimum_delay: Duration::from_secs(1),
+        maximum_delay: Duration::from_secs(1),
+    };
+
+    let delay = delay_between_first_two_attempts(RestartPolicy::OnFailure {
+        backoff,
+        max_attempts: 3,
+    })
+    .await;
+
+    assert!(delay >= Duration::from_secs(1), "restarted after {delay:?}");
+}
+
 #[tokio::test(start_paused = true)]
 async fn always_failing_task_restarts_with_backoff_and_degrades_status() {
     let attempts = Arc::new(AtomicUsize::new(0));
     let attempts_for_task = Arc::clone(&attempts);
     let mut builder = ServiceBuilder::<TasksDomain>::new(TasksSnapshot);
-    builder = builder.task("flaky", RestartPolicy::Always, move |_context| {
-        let attempt_counter = Arc::clone(&attempts_for_task);
-        async move {
-            attempt_counter.fetch_add(1, Ordering::SeqCst);
-            Err(TaskFailed)
-        }
-    });
+    builder = builder.task(
+        "flaky",
+        RestartPolicy::Always {
+            backoff: Backoff::default(),
+        },
+        move |_context| {
+            let attempt_counter = Arc::clone(&attempts_for_task);
+            async move {
+                attempt_counter.fetch_add(1, Ordering::SeqCst);
+                Err(TaskFailed)
+            }
+        },
+    );
     let backend: Arc<dyn CommsBackend> = Arc::new(blueos_comms::channel::ChannelBackend::default());
     let clock: Arc<dyn Clock> = Arc::new(PausedClock::start());
     let kernel = Kernel::start(
@@ -174,16 +247,26 @@ async fn status_names_remaining_task_while_the_other_restarts() {
     let beta_gate_for_task = Arc::clone(&beta_gate);
     let mut builder = ServiceBuilder::<TasksDomain>::new(TasksSnapshot);
     builder = builder
-        .task("alpha", RestartPolicy::Always, |_context| async move {
-            Err(TaskFailed)
-        })
-        .task("beta", RestartPolicy::Always, move |_context| {
-            let beta_notify = Arc::clone(&beta_gate_for_task);
-            async move {
-                beta_notify.notified().await;
-                Err(TaskFailed)
-            }
-        });
+        .task(
+            "alpha",
+            RestartPolicy::Always {
+                backoff: Backoff::default(),
+            },
+            |_context| async move { Err(TaskFailed) },
+        )
+        .task(
+            "beta",
+            RestartPolicy::Always {
+                backoff: Backoff::default(),
+            },
+            move |_context| {
+                let beta_notify = Arc::clone(&beta_gate_for_task);
+                async move {
+                    beta_notify.notified().await;
+                    Err(TaskFailed)
+                }
+            },
+        );
     let backend: Arc<dyn CommsBackend> = Arc::new(blueos_comms::channel::ChannelBackend::default());
     let clock: Arc<dyn Clock> = Arc::new(PausedClock::start());
     let kernel = Kernel::start(

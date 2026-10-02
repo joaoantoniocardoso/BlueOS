@@ -1,4 +1,4 @@
-//! Tracing setup with console output and backbone publishing as Foxglove `Log` (D-13).
+//! Prints a service's logs to the console and publishes them on the backbone as Foxglove `Log` messages.
 //!
 //! Call [`init`] once per process on the first line of service entry. Attach [`attach`] when a
 //! [`CommsBackend`] exists so buffered records replay on the service `log` key.

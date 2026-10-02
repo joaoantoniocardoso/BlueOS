@@ -1,4 +1,4 @@
-//! Zenoh key layout, encoding strings and the [`CommandAck`] reply type for BlueOS services (D-07, D-10).
+//! Names the keys and encodings BlueOS services use on the backbone, and the [`CommandAck`] a Command replies with.
 //!
 //! Keys are always built through the helpers here, never as ad-hoc strings. Payloads use `blueos-idl`
 //! [`Message`] codecs; Zenoh encoding metadata uses [`cdr_encoding`].

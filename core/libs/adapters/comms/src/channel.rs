@@ -217,11 +217,10 @@ impl CommsBackend for ChannelBackend {
     fn get_liveliness<'a>(
         &'a self,
         key_expression: &'a str,
-        timeout: Duration,
+        _timeout: Duration,
     ) -> BoxFuture<'a, Result<Vec<String>, CommsError>> {
         Box::pin(async move {
             let expression = parse(key_expression)?;
-            let _ = timeout;
             let routes = self.routes.lock().unwrap_or_else(PoisonError::into_inner);
             Ok(routes
                 .liveliness_keys

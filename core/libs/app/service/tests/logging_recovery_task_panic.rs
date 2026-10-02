@@ -71,7 +71,7 @@ impl Domain for TasksDomain {
 
     fn io_failed(
         request: Self::IoRequest,
-        _error: blueos_service::IoError,
+        _error: blueos_domain::IoError,
     ) -> Command<Self::Request, Self::IoResult, Self::Tick, Self::ObservedFact> {
         match request {}
     }
