@@ -174,6 +174,38 @@ fn a_service_without_endpoints_registers_nothing() {
             .contains("pub fn register<D: Domain, Context>(builder")
     );
     assert!(!generated.app.contains("blueos_idl"));
+    assert!(generated.typescript.contains("export const NAME = 'test'"));
+    assert!(!generated.typescript.contains("commandKey"));
+}
+
+#[test]
+fn typescript_client_uses_key_helpers_and_idl_types() {
+    let manifest = format!(
+        "service = \"tank\"\n[command]\nDrain = {{ request = \"{EMPTY}\" }}\n[state]\ntank = {{ message = \
+         \"{LEVEL}\" }}\n"
+    );
+
+    let generated = generate(&manifest, "blueos_tank_api", &messages()).unwrap();
+
+    assert!(
+        generated
+            .typescript
+            .contains("import type * as Idl from '@blueos-idl/messages'")
+    );
+    assert!(generated.typescript.contains("from '../keys'"));
+    assert!(generated.typescript.contains("commandKey(NAME, 'Drain')"));
+    assert!(generated.typescript.contains("stateKey(NAME, 'tank')"));
+    assert!(
+        generated
+            .typescript
+            .contains("export type DrainRequest = Idl.EmptyRequest")
+    );
+    assert!(
+        generated
+            .typescript
+            .contains("export type Tank = Idl.LevelQueryResponse")
+    );
+    assert!(!generated.typescript.contains("vue"));
 }
 
 #[test]
