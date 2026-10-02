@@ -29,6 +29,7 @@ pub fn run<S: Service>(arguments: Vec<OsString>) -> ExitCode {
     runtime.block_on(async {
         match run_with_log_publisher::<S>(parsed).await {
             Ok(RunOutcome::Stopped) => ExitCode::SUCCESS,
+            Ok(RunOutcome::RepeatedInboxPanics) => ExitCode::from(1),
             Err(_service_error) => ExitCode::from(1),
         }
     })

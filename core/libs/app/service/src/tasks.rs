@@ -3,7 +3,7 @@
 use core::{future::Future, panic::AssertUnwindSafe, pin::Pin, time::Duration};
 use std::{
     collections::BTreeSet,
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{Arc, Mutex},
 };
 
 use backon::{BackoffBuilder, ExponentialBuilder};
@@ -24,6 +24,8 @@ use blueos_idl::{
 use crate::{
     clock::Clock,
     command_sender::{CommandSender, Session},
+    inbox_recovery::{INBOX_LOOP_NAME, LoopPanicTracker, log_caught_panic},
+    sync::lock_unpoisoned,
 };
 
 /// Minimum delay between Task restart attempts (spec D-27).
@@ -87,10 +89,12 @@ pub(crate) struct TaskSupervisor {
     shutdown: CancellationToken,
     handles: Mutex<Vec<(String, JoinHandle<()>)>>,
     status: StatusPublisher,
+    loop_panics: LoopPanicTracker,
 }
 
 #[derive(Clone)]
 struct StatusPublisher {
+    service: &'static str,
     backend: Arc<dyn CommsBackend>,
     key: String,
     encoding: String,
@@ -128,6 +132,7 @@ impl TaskSpawner {
 
 impl TaskSupervisor {
     pub(crate) fn new(
+        service: &'static str,
         backend: Arc<dyn CommsBackend>,
         status_key: String,
         status_encoding: String,
@@ -138,13 +143,29 @@ impl TaskSupervisor {
             shutdown: CancellationToken::new(),
             handles: Mutex::new(Vec::new()),
             status: StatusPublisher {
+                service,
                 backend,
                 key: status_key,
                 encoding: status_encoding,
                 latest: status_latest,
                 degraded_tasks: Arc::new(Mutex::new(BTreeSet::new())),
             },
+            loop_panics: LoopPanicTracker::new(),
         }
+    }
+
+    pub(crate) async fn mark_inbox_loop_degraded(&self) {
+        self.status.mark_degraded(INBOX_LOOP_NAME).await;
+    }
+
+    pub(crate) async fn mark_inbox_loop_healthy(&self) {
+        self.status.mark_running(INBOX_LOOP_NAME).await;
+    }
+
+    /// Records an Inbox loop recovery. Returns true when the Kernel should exit (D-29).
+    pub(crate) async fn record_inbox_loop_panic(&self, monotonic_now: Duration) -> bool {
+        self.mark_inbox_loop_degraded().await;
+        self.loop_panics.record_recovery(monotonic_now)
     }
 
     pub(crate) fn spawner(&self) -> TaskSpawner {
@@ -277,12 +298,6 @@ enum PublishError {
     Comms(#[from] blueos_comms::CommsError),
 }
 
-fn lock_unpoisoned<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
-    mutex
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
-}
-
 async fn supervise_task<D: Domain, Context: Send + Sync + 'static>(
     name: String,
     policy: RestartPolicy,
@@ -308,7 +323,10 @@ async fn supervise_task<D: Domain, Context: Send + Sync + 'static>(
         let run = Arc::clone(&run);
         let outcome = match AssertUnwindSafe(run(context)).catch_unwind().await {
             Ok(result) => result,
-            Err(_panic) => Err(TaskFailed),
+            Err(panic) => {
+                log_caught_panic(status.service, Some(&name), panic);
+                Err(TaskFailed)
+            }
         };
         if shutdown.is_cancelled() {
             break;

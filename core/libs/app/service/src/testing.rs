@@ -15,7 +15,9 @@ use blueos_comms::{CommsBackend, QueryBody, ReplyError, channel::ChannelBackend}
 use blueos_domain::{Domain, Effect, Now};
 use blueos_idl::msg::blueos_msgs::JobList;
 
-use crate::{Clock, CommandSender, Kernel, Service, ServiceContext, ServiceError};
+use crate::{
+    Clock, CommandSender, Kernel, Service, ServiceContext, ServiceError, sync::lock_unpoisoned,
+};
 
 /// The wall-clock time the Domain sees when the harness starts: 2026-01-01T00:00:00Z.
 pub const WALL_CLOCK_AT_START: Duration = Duration::from_secs(1_767_225_600);
@@ -54,19 +56,12 @@ pub struct PausedClock {
 impl<D: Domain> EffectLog<D> {
     /// Every batch of Effects, one batch per applied Command, in order.
     pub fn batches(&self) -> Vec<EffectBatch<D>> {
-        self.0
-            .lock()
-            .expect("the effect log mutex is not poisoned")
-            .clone()
+        lock_unpoisoned(&self.0).clone()
     }
 
     /// The Effects from the last applied Command, if any.
     pub fn last_batch(&self) -> Option<EffectBatch<D>> {
-        self.0
-            .lock()
-            .expect("the effect log mutex is not poisoned")
-            .last()
-            .cloned()
+        lock_unpoisoned(&self.0).last().cloned()
     }
 }
 
