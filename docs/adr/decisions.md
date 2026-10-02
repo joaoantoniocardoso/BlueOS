@@ -18,6 +18,7 @@ This record always states the current target. Superseded text is deleted; git ke
   - `rust-service-overview.md`: how draft 1 works.
   - `rust-service-review.md`: correctness findings (H1, M1 to M11, L1 to L13).
   - `rust-service-ergonomics-review.md`: owner direction (P1 to P12) and findings (E1 to E13).
+- Draft 2 map: [`docs/architecture/rust-service-overview.md`](../architecture/rust-service-overview.md) (D-20).
 - **Draft 2** is the target described here.
 
 ## Source reference
