@@ -1,0 +1,44 @@
+[workspace]
+resolver = "2"
+members = ["libs/logic/smoke"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
+
+[profile.release]
+lto = "thin"
+panic = "unwind"
+strip = true
+
+[workspace.dependencies]
+blueos-smoke = { path = "libs/logic/smoke" }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "deny"
+unreachable_pub = "deny"
+
+[workspace.lints.clippy]
+allow_attributes = "deny"
+allow_attributes_without_reason = "deny"
+alloc_instead_of_core = "deny"
+arbitrary_source_item_ordering = "deny"
+await_holding_lock = "deny"
+clone_on_copy = "warn"
+clone_on_ref_ptr = "warn"
+implicit_clone = "warn"
+min_ident_chars = "deny"
+pub_use = "deny"
+redundant_clone = "warn"
+shadow_unrelated = "deny"
+std_instead_of_core = "deny"
+wildcard_imports = "deny"
