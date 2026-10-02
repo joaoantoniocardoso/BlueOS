@@ -92,6 +92,7 @@ pub(crate) fn spawn_io_chain<D: Domain, Context: Send + Sync + 'static>(
                         .send(Delivery {
                             command,
                             reply: None,
+                            persist_settings: false,
                         })
                         .await
                         .is_err()
@@ -131,6 +132,7 @@ pub(crate) fn spawn_io_chain<D: Domain, Context: Send + Sync + 'static>(
                         .send(Delivery {
                             command,
                             reply: None,
+                            persist_settings: false,
                         })
                         .await
                         .is_err()
@@ -155,6 +157,7 @@ pub(crate) fn spawn_io_chain<D: Domain, Context: Send + Sync + 'static>(
                 .send(Delivery {
                     command,
                     reply: None,
+                    persist_settings: false,
                 })
                 .await
                 .is_err()

@@ -12,8 +12,12 @@
 )]
 
 mod builder;
+pub mod entry;
 mod kernel;
+#[cfg(feature = "probe")]
+pub mod probe;
 mod service;
+mod settings;
 #[cfg(feature = "testing")]
 pub mod testing;
 

@@ -1,13 +1,17 @@
 //! What a Service's `build` declares: the initial Snapshot and how the Domain meets the backbone.
 
-use core::future::Future;
-use std::sync::Arc;
+use core::{error::Error, future::Future};
+use std::{path::PathBuf, sync::Arc};
 
 use blueos_api::{Message, cdr_encoding};
 use blueos_domain::{Domain, DomainQueries, IoError};
-use blueos_idl::Error as IdlError;
+use blueos_idl::{Error as IdlError, msg::blueos_msgs::SettingsEnvelope};
+use blueos_settings::SettingsSchema;
 
-use crate::kernel::io::IoExecutors;
+use crate::{
+    kernel::io::IoExecutors,
+    settings::{SettingsRegistration, register_settings},
+};
 
 /// Decodes a Request body into the Domain's Request.
 pub(crate) type Decode<D> = Box<dyn Fn(&[u8]) -> Result<<D as Domain>::Request, IdlError> + Send>;
@@ -31,6 +35,7 @@ pub struct ServiceBuilder<D: Domain, Context = ()> {
     pub(crate) queries: Vec<(String, AnswerQuery<D>)>,
     pub(crate) states: Vec<StateEndpoint<D>>,
     pub(crate) events: Vec<EventEndpoint<D>>,
+    pub(crate) settings: Option<SettingsRegistration<D>>,
 }
 
 /// Answers one Query from the Snapshot and the request body.
@@ -78,11 +83,10 @@ impl<D: Domain> ServiceBuilder<D, ()> {
             queries: Vec::new(),
             states: Vec::new(),
             events: Vec::new(),
+            settings: None,
         }
     }
-}
 
-impl<D: Domain> ServiceBuilder<D, ()> {
     /// The Context IO code receives by reference, together with the Snapshot it needs.
     pub fn context<NewContext: Send + Sync + 'static>(
         self,
@@ -99,6 +103,7 @@ impl<D: Domain> ServiceBuilder<D, ()> {
             queries: self.queries,
             states: self.states,
             events: self.events,
+            settings: self.settings,
         }
     }
 }
@@ -148,6 +153,32 @@ impl<D: Domain, Context> ServiceBuilder<D, Context> {
             + 'static,
     {
         self.io.blocking = Some(Arc::new(executor));
+        self
+    }
+
+    /// Registers Python-compatible settings (D-11): the Kernel loads once at startup, owns `UpdateSettings`, and
+    /// persists after each successful update.
+    pub fn settings<S>(
+        mut self,
+        service_name: &str,
+        config_folder: Option<PathBuf>,
+        into_snapshot: impl Fn(&mut D::Snapshot, S) + Send + Sync + 'static,
+        from_snapshot: impl Fn(&D::Snapshot) -> S + Send + Sync + 'static,
+        into_request: impl Fn(SettingsEnvelope) -> Result<D::Request, Box<dyn Error + Send + Sync>>
+        + Send
+        + Sync
+        + 'static,
+    ) -> Self
+    where
+        S: SettingsSchema + Send + Sync + 'static,
+    {
+        self.settings = Some(register_settings(
+            service_name.to_owned(),
+            config_folder,
+            into_snapshot,
+            from_snapshot,
+            into_request,
+        ));
         self
     }
 

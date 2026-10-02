@@ -5,7 +5,10 @@ pub(crate) mod io;
 mod timers;
 
 use core::{error::Error, panic::AssertUnwindSafe};
-use std::{panic, sync::Arc};
+use std::{
+    panic,
+    sync::{Arc, Mutex},
+};
 
 use bytes::Bytes;
 use tokio::{
@@ -15,15 +18,17 @@ use tokio::{
 use tracing::{error, warn};
 
 use blueos_api::{
-    CommandAck, JOB_ID_NONE, Message, cdr_encoding, command_key, event_key, query_key, state_key,
+    CommandAck, JOB_ID_NONE, Message, cdr_encoding, command_key, event_key, query_key,
+    settings_key, state_key,
 };
 use blueos_comms::{CommsBackend, CommsError, Query, Queryable, Sample};
 use blueos_domain::{Command, Domain, Effect, Now, Outcome};
-use blueos_idl::Error as IdlError;
+use blueos_idl::{Error as IdlError, msg::blueos_msgs::SettingsEnvelope};
 
 use crate::{
     builder::{AnswerQuery, Decode, EventEndpoint, ServiceBuilder, StateEndpoint},
     service::ServiceError,
+    settings::{SettingsDriver, settings_encoding},
 };
 
 use effects::{apply_sync_effects, io_requests};
@@ -50,6 +55,7 @@ pub struct Kernel<D: Domain, Context = ()> {
     inbox: mpsc::Receiver<Delivery<D>>,
     inbox_sender: Option<mpsc::Sender<Delivery<D>>>,
     states: Vec<PublishedState<D>>,
+    settings: Option<SettingsEndpoint<D>>,
     events: Vec<EventEndpoint<D>>,
     backend: Arc<dyn CommsBackend>,
     clock: Arc<dyn Clock>,
@@ -66,6 +72,15 @@ pub struct Kernel<D: Domain, Context = ()> {
 pub(crate) struct Delivery<D: Domain> {
     pub(crate) command: Command<D::Request, D::IoResult, D::Tick, D::ObservedFact>,
     pub(crate) reply: Option<Query>,
+    pub(crate) persist_settings: bool,
+}
+
+/// The standard `settings` State and its persistence driver (D-11).
+struct SettingsEndpoint<D: Domain> {
+    key: String,
+    encoding: String,
+    driver: Arc<Mutex<Box<dyn SettingsDriver<D>>>>,
+    latest: watch::Sender<Option<Bytes>>,
 }
 
 /// A State with its key and the last value the backbone accepted.
@@ -119,7 +134,14 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         backend: Arc<dyn CommsBackend>,
         clock: Arc<dyn Clock>,
     ) -> Result<Self, ServiceError> {
-        Self::start_with_effect_log(service, builder, backend, clock, None).await
+        #[cfg(feature = "testing")]
+        {
+            Self::boot(service, builder, backend, clock, None).await
+        }
+        #[cfg(not(feature = "testing"))]
+        {
+            Self::boot(service, builder, backend, clock).await
+        }
     }
 
     /// Like [`Self::start`], optionally recording Effects without running IO or timers (harness only).
@@ -131,9 +153,48 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         clock: Arc<dyn Clock>,
         effect_log: Option<EffectLogStorage<D>>,
     ) -> Result<Self, ServiceError> {
+        Self::boot(service, builder, backend, clock, effect_log).await
+    }
+
+    async fn boot(
+        service: &'static str,
+        mut builder: ServiceBuilder<D, Context>,
+        backend: Arc<dyn CommsBackend>,
+        clock: Arc<dyn Clock>,
+        #[cfg(feature = "testing")] effect_log: Option<EffectLogStorage<D>>,
+    ) -> Result<Self, ServiceError> {
         let (inbox_sender, inbox) = mpsc::channel(INBOX_CAPACITY);
         let snapshot_for_queries = Arc::new(tokio::sync::RwLock::new(builder.snapshot.clone()));
         let mut endpoints = JoinSet::new();
+        let mut settings = None;
+        if let Some(registration) = builder.settings {
+            let mut driver = (registration.start)()?;
+            driver.load_into(&mut builder.snapshot)?;
+            let driver = Arc::new(Mutex::new(driver));
+            let key = settings_key(service);
+            let queryable = declare(&*backend, key.clone()).await?;
+            let encoding = settings_encoding();
+            let latest = watch::Sender::new(None);
+            endpoints.spawn(serve_settings(
+                queryable,
+                key.clone(),
+                encoding.clone(),
+                latest.subscribe(),
+            ));
+            let update_key = command_key(service, "UpdateSettings");
+            let update_queryable = declare(&*backend, update_key).await?;
+            endpoints.spawn(serve_update_settings(
+                update_queryable,
+                Arc::clone(&driver),
+                mpsc::Sender::clone(&inbox_sender),
+            ));
+            settings = Some(SettingsEndpoint {
+                key,
+                encoding,
+                driver,
+                latest,
+            });
+        }
         for command in builder.commands {
             let queryable = declare(&*backend, command_key(service, &command.name)).await?;
             endpoints.spawn(serve_command(
@@ -176,6 +237,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             inbox,
             inbox_sender: Some(inbox_sender),
             states,
+            settings,
             events: builder.events,
             backend,
             clock,
@@ -193,6 +255,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             .map(|state| (state.endpoint.project)(&kernel.snapshot))
             .collect();
         kernel.publish_states(initial_states).await;
+        kernel.publish_settings().await;
         Ok(kernel)
     }
 
@@ -210,6 +273,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                         self.dispatch(Delivery {
                             command: Command::Tick(tick),
                             reply: None,
+                            persist_settings: false,
                         })
                         .await;
                     }
@@ -226,7 +290,11 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
     /// Applies one Command as a transaction: if the Domain rejects it, or `handle` or a Projection panics, the
     /// Snapshot is restored from a clone taken first and the domain events are dropped.
     async fn dispatch(&mut self, delivery: Delivery<D>) {
-        let Delivery { command, reply } = delivery;
+        let Delivery {
+            command,
+            reply,
+            persist_settings,
+        } = delivery;
         let now = self.clock.now();
         let backup = self.snapshot.clone();
         let snapshot = &mut self.snapshot;
@@ -270,7 +338,29 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                         .expect("the effect log mutex is not poisoned")
                         .push(effects.clone());
                 }
+                if persist_settings && let Some(settings) = &self.settings {
+                    let persist_result = settings
+                        .driver
+                        .lock()
+                        .expect("settings driver mutex is not poisoned")
+                        .persist(&self.snapshot);
+                    match persist_result {
+                        Ok(()) => settings
+                            .driver
+                            .lock()
+                            .expect("settings driver mutex is not poisoned")
+                            .commit_persisted(&self.snapshot),
+                        Err(error) => {
+                            self.snapshot = backup;
+                            if let Some(query) = reply {
+                                acknowledge(query, Err(Rejection::Domain(error.into()))).await;
+                            }
+                            return;
+                        }
+                    }
+                }
                 self.publish_states(encoded_states).await;
+                self.publish_settings().await;
                 if let Some(query) = reply {
                     acknowledge(query, Ok(())).await;
                 }
@@ -295,6 +385,34 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 }
             }
         }
+    }
+
+    async fn publish_settings(&self) {
+        let Some(settings) = &self.settings else {
+            return;
+        };
+        let sent: Result<(), SendError> = async {
+            let payload = Bytes::from(
+                settings
+                    .driver
+                    .lock()
+                    .expect("settings driver mutex is not poisoned")
+                    .encode_state(&self.snapshot)?,
+            );
+            if settings.latest.borrow().as_ref() == Some(&payload) {
+                return Ok(());
+            }
+            let sample = Sample::new(
+                settings.key.as_str(),
+                Bytes::clone(&payload),
+                &settings.encoding,
+            );
+            self.backend.publish(sample).await?;
+            settings.latest.send_replace(Some(payload));
+            Ok(())
+        }
+        .await;
+        warn_on_failure("State", &settings.key, sent);
     }
 
     async fn publish_states(&self, encoded_states: Vec<Result<Vec<u8>, IdlError>>) {
@@ -355,6 +473,7 @@ async fn serve_command<D: Domain>(
                 let delivery = Delivery {
                     command: Command::Request(request),
                     reply: Some(query),
+                    persist_settings: false,
                 };
                 drop(inbox.send(delivery).await);
             }
@@ -363,7 +482,57 @@ async fn serve_command<D: Domain>(
     }
 }
 
-/// Answers every get on a State with the last value the backbone accepted.
+/// Decodes `UpdateSettings`, validates the document, and queues a Domain Command that persists on success.
+async fn serve_update_settings<D: Domain>(
+    mut queryable: Queryable,
+    driver: Arc<Mutex<Box<dyn SettingsDriver<D>>>>,
+    inbox: mpsc::Sender<Delivery<D>>,
+) {
+    while let Some(query) = queryable.recv().await {
+        let body = query.body().map(|body| body.payload().to_bytes());
+        let bytes = body.unwrap_or_default();
+        let decoded = match SettingsEnvelope::decode(&bytes) {
+            Ok(envelope) => envelope,
+            Err(error) => {
+                acknowledge(query, Err(Rejection::InvalidBody(error))).await;
+                continue;
+            }
+        };
+        let request = driver
+            .lock()
+            .expect("settings driver mutex is not poisoned")
+            .request_from_envelope(decoded);
+        match request {
+            Ok(request) => {
+                let delivery = Delivery {
+                    command: Command::Request(request),
+                    reply: Some(query),
+                    persist_settings: true,
+                };
+                drop(inbox.send(delivery).await);
+            }
+            Err(error) => acknowledge(query, Err(Rejection::Domain(error))).await,
+        }
+    }
+}
+
+/// Answers every get on the `settings` State with the last value the backbone accepted.
+async fn serve_settings(
+    mut queryable: Queryable,
+    key: String,
+    encoding: String,
+    latest: watch::Receiver<Option<Bytes>>,
+) {
+    while let Some(query) = queryable.recv().await {
+        let current = latest.borrow().clone();
+        if let Some(payload) = current {
+            let sent = query.reply(payload, encoding.as_str()).await;
+            warn_on_failure("State", &key, sent.map_err(SendError::from));
+        }
+    }
+}
+
+/// Answers every get on a Domain Query endpoint from the current Snapshot.
 async fn serve_query<D: Domain>(
     mut queryable: Queryable,
     key: String,

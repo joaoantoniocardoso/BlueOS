@@ -8,7 +8,9 @@ use std::sync::{Arc, Mutex};
 
 use tokio::{task::JoinSet, time::Instant};
 
-use blueos_api::{CommandAck, Message, cdr_encoding, command_key, query_key, state_key};
+use blueos_api::{
+    CommandAck, Message, cdr_encoding, command_key, query_key, settings_key, state_key,
+};
 use blueos_comms::{CommsBackend, QueryBody, channel::ChannelBackend};
 use blueos_domain::{Domain, Effect, Now};
 
@@ -106,7 +108,7 @@ impl<S: Service> Harness<S> {
         let log = EffectLog(Arc::new(Mutex::new(Vec::new())));
         let harness = Self::start_on_with_effect_log(
             Arc::new(ChannelBackend::default()),
-            arguments,
+            ServiceContext::new(arguments),
             Some(Arc::clone(&log.0)),
         )
         .await?;
@@ -123,15 +125,27 @@ impl<S: Service> Harness<S> {
         backend: Arc<dyn CommsBackend>,
         arguments: S::Arguments,
     ) -> Result<Self, ServiceError> {
-        Self::start_on_with_effect_log(backend, arguments, None).await
+        Self::start_on_with_context(backend, ServiceContext::new(arguments)).await
+    }
+
+    /// Like [`Harness::start_on`], with a fully built [`ServiceContext`].
+    ///
+    /// # Errors
+    ///
+    /// The [`ServiceError`] that `build` or the Kernel's startup returned.
+    pub async fn start_on_with_context(
+        backend: Arc<dyn CommsBackend>,
+        context: ServiceContext<S::Arguments>,
+    ) -> Result<Self, ServiceError> {
+        Self::start_on_with_effect_log(backend, context, None).await
     }
 
     async fn start_on_with_effect_log(
         backend: Arc<dyn CommsBackend>,
-        arguments: S::Arguments,
+        context: ServiceContext<S::Arguments>,
         effect_log: Option<crate::kernel::EffectLogStorage<S::Domain>>,
     ) -> Result<Self, ServiceError> {
-        let builder = S::build(&ServiceContext::new(arguments))?;
+        let builder = S::build(&context)?;
         let clock = Arc::new(PausedClock::start());
         let kernel = Kernel::start_with_effect_log(
             S::NAME,
@@ -213,5 +227,22 @@ impl<S: Service> Harness<S> {
             panic!("expected one value of {state:?}, got {replies:?}");
         };
         M::decode(&reply.payload().to_bytes()).expect("the reply is the State's Message")
+    }
+
+    /// Reads the standard `settings` State, as a late client would.
+    ///
+    /// # Panics
+    ///
+    /// When the Service does not reply exactly once with an `M`.
+    pub async fn settings<M: Message>(&self) -> M {
+        let replies = self
+            .backend
+            .get(&settings_key(S::NAME), None, REPLY_TIMEOUT)
+            .await
+            .expect("the settings key is valid");
+        let [Ok(reply)] = replies.as_slice() else {
+            panic!("expected one settings value, got {replies:?}");
+        };
+        M::decode(&reply.payload().to_bytes()).expect("the reply is SettingsEnvelope")
     }
 }
