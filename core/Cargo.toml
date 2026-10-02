@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["libs/logic/domain", "libs/logic/smoke"]
+members = ["libs/logic/domain"]
 
 [workspace.package]
 version = "0.1.0"
@@ -21,7 +21,6 @@ strip = true
 
 [workspace.dependencies]
 blueos-domain = { path = "libs/logic/domain" }
-blueos-smoke = { path = "libs/logic/smoke" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
