@@ -23,8 +23,8 @@ use tokio::{
 use tracing::{error, warn};
 
 use blueos_api::{
-    CommandAck, JOB_ID_NONE, Message, cdr_encoding, command_key, event_key, info_query_key,
-    query_key, service_liveliness_key, settings_key, state_key, status_state_key,
+    CommandAck, Message, cdr_encoding, command_key, event_key, info_query_key, query_key,
+    service_liveliness_key, settings_key, state_key, status_state_key,
 };
 use blueos_comms::{CommsBackend, CommsError, Query, Queryable, Sample};
 use blueos_domain::{Command, Domain, Effect, Outcome};
@@ -38,6 +38,9 @@ use crate::{
         AnswerQuery, Decode, EventEndpoint, Refusal, Respond, ServiceBuilder, StateEndpoint,
     },
     clock::Clock,
+    command_sender::{CommandSender, Session, command_ack},
+    inbox::{CommandReply, Delivery},
+    projection::ProjectionRegistry,
     run_outcome::RunOutcome,
     service::ServiceError,
     settings::{SettingsDriver, settings_encoding},
@@ -87,13 +90,7 @@ pub struct Kernel<D: Domain, Context = ()> {
     io_inflight: IoInflight,
     shutting_down: bool,
     tasks: TaskSupervisor,
-}
-
-/// One Command in the Inbox, with an optional query to acknowledge once it is handled.
-pub(crate) struct Delivery<D: Domain> {
-    pub(crate) command: Command<D::Request, D::IoResult, D::Tick, D::ObservedFact>,
-    pub(crate) reply: Option<Query>,
-    pub(crate) persist_settings: bool,
+    projections: ProjectionRegistry<D>,
 }
 
 /// The standard `settings` State and its persistence driver (D-11).
@@ -298,6 +295,8 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             let queryable = declare(&*backend, query_key(service, &endpoint.name)).await?;
             pending_io_queries.push((queryable, endpoint.respond, endpoint.encoding));
         }
+        let projections = ProjectionRegistry::new(builder.projections);
+        let session: Session = Arc::clone(&backend);
         let mut kernel = Self {
             service,
             snapshot: builder.snapshot,
@@ -320,7 +319,9 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             io_inflight: IoInflight::new(),
             shutting_down: false,
             tasks: task_supervisor,
+            projections,
         };
+        kernel.projections.refresh(&kernel.snapshot);
         for command in startup_commands {
             kernel
                 .dispatch(Delivery {
@@ -337,6 +338,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             .collect();
         kernel.publish_states(initial_states).await;
         kernel.publish_settings().await;
+        kernel.projections.refresh(&kernel.snapshot);
         publish_standard_status(
             &kernel.backend,
             &status_key,
@@ -344,8 +346,16 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             &status_latest,
         )
         .await;
+        let command_sender = CommandSender::new(mpsc::Sender::clone(
+            kernel
+                .inbox_sender
+                .as_ref()
+                .expect("the inbox sender exists during startup"),
+        ));
         kernel.tasks.start(
             task_specs,
+            session,
+            command_sender,
             Arc::clone(&kernel.context),
             Arc::clone(&kernel.clock),
         );
@@ -578,9 +588,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             persist_settings,
         } = delivery;
         if self.shutting_down && reply.is_some() {
-            if let Some(query) = reply {
-                acknowledge(query, Err(Rejection::ShuttingDown)).await;
-            }
+            complete_command_reply(reply, Err(Rejection::ShuttingDown)).await;
             return;
         }
         let now = self.clock.now();
@@ -640,18 +648,16 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                             .commit_persisted(&self.snapshot),
                         Err(error) => {
                             self.snapshot = backup;
-                            if let Some(query) = reply {
-                                acknowledge(query, Err(Rejection::Domain(error.into()))).await;
-                            }
+                            complete_command_reply(reply, Err(Rejection::Domain(error.into())))
+                                .await;
                             return;
                         }
                     }
                 }
                 self.publish_states(encoded_states).await;
                 self.publish_settings().await;
-                if let Some(query) = reply {
-                    acknowledge(query, Ok(())).await;
-                }
+                self.projections.refresh(&self.snapshot);
+                complete_command_reply(reply, Ok(())).await;
                 self.publish_events(events).await;
                 if run_effects {
                     let requests = io_requests::<D>(&effects);
@@ -670,11 +676,16 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             }
             Err(rejection) => {
                 self.snapshot = backup;
-                if let Some(query) = reply {
-                    acknowledge(query, Err(rejection)).await;
-                }
+                complete_command_reply(reply, Err(rejection)).await;
             }
         }
+    }
+
+    /// Hands out a [`CommandSender`] while the Inbox is still open.
+    pub fn command_sender(&self) -> Option<CommandSender<D>> {
+        self.inbox_sender
+            .as_ref()
+            .map(|sender| CommandSender::new(mpsc::Sender::clone(sender)))
     }
 
     async fn publish_settings(&self) {
@@ -799,12 +810,14 @@ async fn serve_command<D: Domain>(
             Ok(request) => {
                 let delivery = Delivery {
                     command: Command::Request(request),
-                    reply: Some(query),
+                    reply: Some(CommandReply::Query(query)),
                     persist_settings: false,
                 };
                 drop(inbox.send(delivery).await);
             }
-            Err(rejection) => acknowledge(query, Err(rejection)).await,
+            Err(rejection) => {
+                complete_command_reply(Some(CommandReply::Query(query)), Err(rejection)).await;
+            }
         }
     }
 }
@@ -821,7 +834,11 @@ async fn serve_update_settings<D: Domain>(
         let decoded = match SettingsEnvelope::decode(&bytes) {
             Ok(envelope) => envelope,
             Err(error) => {
-                acknowledge(query, Err(Rejection::InvalidBody(error))).await;
+                complete_command_reply(
+                    Some(CommandReply::Query(query)),
+                    Err(Rejection::InvalidBody(error)),
+                )
+                .await;
                 continue;
             }
         };
@@ -833,12 +850,18 @@ async fn serve_update_settings<D: Domain>(
             Ok(request) => {
                 let delivery = Delivery {
                     command: Command::Request(request),
-                    reply: Some(query),
+                    reply: Some(CommandReply::Query(query)),
                     persist_settings: true,
                 };
                 drop(inbox.send(delivery).await);
             }
-            Err(error) => acknowledge(query, Err(Rejection::Domain(error))).await,
+            Err(error) => {
+                complete_command_reply(
+                    Some(CommandReply::Query(query)),
+                    Err(Rejection::Domain(error)),
+                )
+                .await;
+            }
         }
     }
 }
@@ -910,27 +933,26 @@ async fn serve_state(
     }
 }
 
-async fn acknowledge(query: Query, verdict: Result<(), Rejection>) {
-    let ack = match verdict {
-        Ok(()) => CommandAck {
-            accepted: true,
-            job_id: JOB_ID_NONE,
-            reason: String::new(),
-        },
-        Err(rejection) => CommandAck {
-            accepted: false,
-            job_id: JOB_ID_NONE,
-            reason: rejection.to_string(),
-        },
+async fn complete_command_reply(reply: Option<CommandReply>, verdict: Result<(), Rejection>) {
+    let Some(reply) = reply else {
+        return;
     };
-    let key = query.key_expression().to_owned();
-    let sent: Result<(), SendError> = async {
-        let encoding = cdr_encoding(CommandAck::SCHEMA_NAME);
-        query.reply(ack.encode()?, encoding).await?;
-        Ok(())
+    let ack = command_ack(verdict);
+    match reply {
+        CommandReply::Ack(sender) => {
+            drop(sender.send(ack));
+        }
+        CommandReply::Query(query) => {
+            let key = query.key_expression().to_owned();
+            let sent: Result<(), SendError> = async {
+                let encoding = cdr_encoding(CommandAck::SCHEMA_NAME);
+                query.reply(ack.encode()?, encoding).await?;
+                Ok(())
+            }
+            .await;
+            warn_on_failure("CommandAck", &key, sent);
+        }
     }
-    .await;
-    warn_on_failure("CommandAck", &key, sent);
 }
 
 /// Sends a Query's answer, or an error reply whose payload is the reason it got none.

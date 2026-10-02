@@ -15,12 +15,16 @@ use tracing::warn;
 
 use blueos_api::Message;
 use blueos_comms::{CommsBackend, Sample};
+use blueos_domain::Domain;
 use blueos_idl::{
     Error as IdlError,
     msg::blueos_msgs::{ServiceStatus, ServiceStatusStatus},
 };
 
-use crate::clock::Clock;
+use crate::{
+    clock::Clock,
+    command_sender::{CommandSender, Session},
+};
 
 /// Minimum delay between Task restart attempts (spec D-27).
 const BACKOFF_MIN: Duration = Duration::from_millis(100);
@@ -46,9 +50,13 @@ pub enum RestartPolicy {
 }
 
 /// Context passed to every Task body.
-pub struct TaskContext<Context> {
+pub struct TaskContext<D: Domain, Context> {
     /// Becomes cancelled when the service begins shutdown.
     pub shutdown: CancellationToken,
+    /// The service's Session to the backbone.
+    pub session: Session,
+    /// Puts Commands into this service's Inbox.
+    pub commands: CommandSender<D>,
     /// The service Context from `build`.
     pub context: Arc<Context>,
 }
@@ -60,15 +68,15 @@ pub(crate) struct TaskSpawner {
 }
 
 /// One Task declared in `build`.
-pub(crate) struct TaskSpec<Context> {
+pub(crate) struct TaskSpec<D: Domain, Context> {
     pub(crate) name: String,
     pub(crate) policy: RestartPolicy,
-    pub(crate) run: TaskRun<Context>,
+    pub(crate) run: TaskRun<D, Context>,
 }
 
 /// Runs one Task attempt.
-pub(crate) type TaskRun<Context> = Arc<
-    dyn Fn(TaskContext<Context>) -> Pin<Box<dyn Future<Output = Result<(), TaskFailed>> + Send>>
+pub(crate) type TaskRun<D, Context> = Arc<
+    dyn Fn(TaskContext<D, Context>) -> Pin<Box<dyn Future<Output = Result<(), TaskFailed>> + Send>>
         + Send
         + Sync,
 >;
@@ -147,9 +155,11 @@ impl TaskSupervisor {
         self.shutdown.clone()
     }
 
-    pub(crate) fn start<Context: Send + Sync + 'static>(
+    pub(crate) fn start<D: Domain, Context: Send + Sync + 'static>(
         &self,
-        tasks: Vec<TaskSpec<Context>>,
+        tasks: Vec<TaskSpec<D, Context>>,
+        session: Session,
+        commands: CommandSender<D>,
         context: Arc<Context>,
         clock: Arc<dyn Clock>,
     ) {
@@ -161,6 +171,8 @@ impl TaskSupervisor {
             let status = self.status.clone();
             let task_context = TaskContext {
                 shutdown: shutdown.clone(),
+                session: Arc::clone(&session),
+                commands: commands.clone(),
                 context: Arc::clone(&context),
             };
             let handle = self.spawner.spawn(supervise_task(
@@ -271,11 +283,11 @@ fn lock_unpoisoned<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
         .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
-async fn supervise_task<Context: Send + Sync + 'static>(
+async fn supervise_task<D: Domain, Context: Send + Sync + 'static>(
     name: String,
     policy: RestartPolicy,
-    run: TaskRun<Context>,
-    task_context: TaskContext<Context>,
+    run: TaskRun<D, Context>,
+    task_context: TaskContext<D, Context>,
     shutdown: CancellationToken,
     clock: Arc<dyn Clock>,
     status: StatusPublisher,
@@ -289,6 +301,8 @@ async fn supervise_task<Context: Send + Sync + 'static>(
         status.mark_running(&name).await;
         let context = TaskContext {
             shutdown: task_context.shutdown.clone(),
+            session: Arc::clone(&task_context.session),
+            commands: task_context.commands.clone(),
             context: Arc::clone(&task_context.context),
         };
         let run = Arc::clone(&run);

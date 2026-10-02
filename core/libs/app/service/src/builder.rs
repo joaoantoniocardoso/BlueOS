@@ -68,10 +68,11 @@ pub struct ServiceBuilder<D: Domain, Context = ()> {
     pub(crate) queries: Vec<(String, AnswerQuery<D>)>,
     pub(crate) io_queries: Vec<IoQueryEndpoint>,
     pub(crate) states: Vec<StateEndpoint<D>>,
+    pub(crate) projections: Vec<Box<dyn crate::projection::RefreshProjection<D> + Send + Sync>>,
     pub(crate) events: Vec<EventEndpoint<D>>,
     pub(crate) settings: Option<SettingsRegistration<D>>,
     pub(crate) startup_commands: Vec<InboxCommand<D>>,
-    pub(crate) tasks: Vec<TaskSpec<Context>>,
+    pub(crate) tasks: Vec<TaskSpec<D, Context>>,
     pub(crate) shutdown_request: Option<D::Request>,
     pub(crate) shutdown_sender: Option<watch::Sender<bool>>,
     pub(crate) shutdown_receiver: Option<watch::Receiver<bool>>,
@@ -135,6 +136,7 @@ impl<D: Domain> ServiceBuilder<D, ()> {
             queries: Vec::new(),
             io_queries: Vec::new(),
             states: Vec::new(),
+            projections: Vec::new(),
             events: Vec::new(),
             settings: None,
             startup_commands: Vec::new(),
@@ -163,6 +165,7 @@ impl<D: Domain> ServiceBuilder<D, ()> {
             queries: self.queries,
             io_queries: self.io_queries,
             states: self.states,
+            projections: self.projections,
             events: self.events,
             settings: self.settings,
             startup_commands: self.startup_commands,
@@ -322,6 +325,20 @@ impl<D: Domain, Context> ServiceBuilder<D, Context> {
         self
     }
 
+    /// Declares a Projection for Tasks: a pure function of the Snapshot, recomputed after every applied Command
+    /// and delivered on a deduplicated typed `watch` receiver. It is not published on the backbone.
+    pub fn projection<T>(
+        mut self,
+        project: impl Fn(&D::Snapshot) -> T + Send + Sync + 'static,
+    ) -> (Self, crate::projection::Projection<T>)
+    where
+        T: Clone + PartialEq + Send + Sync + 'static,
+    {
+        let (handle, refresh) = crate::projection::register_projection(project, &self.snapshot);
+        self.projections.push(refresh);
+        (self, handle)
+    }
+
     /// Adds the State `name`, computed from the Snapshot by `projection` after every applied Command and published
     /// only when its encoded value changes. `projection` must be pure: it runs inside the Command's transaction, so
     /// a panic in it restores the Snapshot and rejects the Command.
@@ -384,7 +401,7 @@ impl<D: Domain, Context> ServiceBuilder<D, Context> {
     /// Declares a long-running Task supervised by the Kernel (D-27).
     pub fn task<F, Fut>(mut self, name: &str, policy: RestartPolicy, run: F) -> Self
     where
-        F: Fn(TaskContext<Context>) -> Fut + Send + Sync + 'static,
+        F: Fn(TaskContext<D, Context>) -> Fut + Send + Sync + 'static,
         Fut: Future<Output = Result<(), TaskFailed>> + Send + 'static,
     {
         self.tasks.push(TaskSpec {
