@@ -2,7 +2,7 @@
 
 use std::{env, path::PathBuf};
 
-use blueos_idl_codegen::generate;
+use blueos_idl_codegen::{generate, generate_catalog, generate_catalog_outputs};
 
 fn main() {
     let arguments: Vec<String> = env::args().collect();
@@ -24,6 +24,7 @@ fn main() {
             &idl_root.join("src/generated"),
             Some(&idl_root.join("typescript")),
         );
+        generate_catalog(idl_root);
         return;
     }
 
@@ -37,6 +38,9 @@ fn main() {
     };
 
     generate(&interfaces_root, &out_dir, typescript_output.as_deref());
+    if let Some(typescript_dir) = typescript_output.as_deref() {
+        generate_catalog_outputs(idl_root, &out_dir, typescript_dir);
+    }
 }
 
 fn argument_value(arguments: &[String], flag: &str) -> Option<String> {

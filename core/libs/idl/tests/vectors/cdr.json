@@ -365,6 +365,24 @@
       "layout_note": "string file followed by uint32 line"
     },
     {
+      "schema_name": "foxglove_msgs/msg/Log",
+      "hex": "0001000009000000080000000300000018000000707974686f6e20636f6d6d6f6e7765616c7468206c6f67000d000000776966692d6d616e6167657200000000080000006d61696e2e70790011000000",
+      "decoded": {
+        "file": "main.py",
+        "level": 3,
+        "line": 17,
+        "message": "python commonwealth log",
+        "name": "wifi-manager",
+        "timestamp": {
+          "nanosec": 8,
+          "sec": 9
+        }
+      },
+      "category": "python_producer",
+      "skip_encode_round_trip": true,
+      "layout_note": "encoded by commonwealth blueos_idl (Python services log sink)"
+    },
+    {
       "schema_name": "blueos_msgs/msg/CommandAck",
       "hex": "0001000001000000000000002a000000000000000700000071756575656400",
       "decoded": {

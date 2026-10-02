@@ -21,3 +21,7 @@ path = "src/main.rs"
 [[bin]]
 name = "blueos-idl-print-lock"
 path = "src/bin/print_lock.rs"
+
+[[bin]]
+name = "blueos-idl-codegen-catalog"
+path = "src/bin/generate_catalog.rs"
