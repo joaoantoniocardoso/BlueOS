@@ -1,18 +1,19 @@
 //! Multicall resolution and the common CLI flattened with each Service's arguments.
 
-use core::convert::Infallible;
-
+use core::{convert::Infallible, time::Duration};
 use std::{ffi::OsString, path::PathBuf, process::ExitCode};
 
 use clap::Args;
 
+use blueos_comms::channel::ChannelBackend;
 use blueos_domain::{Command, Decision, Domain, IoError, Now, Outcome};
 use blueos_service::{
-    Service, ServiceBuilder, ServiceContext, ServiceError,
+    RunOutcome, Service, ServiceBuilder, ServiceContext, ServiceError,
     entry::{
-        missing_feature, multicall_help, multicall_version, parse_service_cli, resolve, run, usage,
+        missing_feature, multicall_help, multicall_version, parse_service_cli, resolve, usage,
         verbosity_from_raw,
     },
+    testing::PausedClock,
 };
 
 #[derive(Args, Clone, Debug)]
@@ -163,14 +164,33 @@ fn verbosity_counted_from_raw_arguments() {
     assert_eq!(verbosity_from_raw(&arguments), 2);
 }
 
-#[test]
-fn run_builds_service_from_parsed_arguments() {
-    let exit_code = run::<FixtureService>(
-        ["fixture", "--marker", "/tmp/x"]
-            .map(OsString::from)
-            .to_vec(),
+#[tokio::test(start_paused = true)]
+async fn run_with_backend_stops_on_shutdown() {
+    let parsed =
+        parse_service_cli::<FixtureService>(["fixture", "--marker", "/tmp/x"].map(OsString::from))
+            .expect("parse");
+    let mut builder = FixtureService::build(&ServiceContext::new(parsed.service.clone())).unwrap();
+    let shutdown = builder.shutdown_handle();
+    let backend = std::sync::Arc::new(ChannelBackend::default());
+    let kernel = blueos_service::Kernel::start(
+        FixtureService::NAME,
+        builder,
+        backend,
+        std::sync::Arc::new(PausedClock::start()),
+    )
+    .await
+    .expect("start");
+    let run = tokio::spawn(kernel.run());
+    tokio::time::advance(Duration::from_millis(1)).await;
+    shutdown.trigger();
+    tokio::time::advance(Duration::from_secs(5)).await;
+    assert_eq!(
+        tokio::time::timeout(Duration::from_secs(1), run)
+            .await
+            .expect("shutdown completes")
+            .expect("join"),
+        RunOutcome::Stopped
     );
-    assert_eq!(exit_code, ExitCode::SUCCESS);
 }
 
 #[test]
