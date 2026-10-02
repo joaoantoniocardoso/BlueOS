@@ -8,6 +8,9 @@ use core::convert::Infallible;
 
 use alloc::{borrow::ToOwned, vec::Vec};
 use blueos_domain::{Command, Decision, Domain, DomainQueries, Now, Outcome};
+use blueos_recorder_cameras::{
+    Cameras, CamerasIoRequest, CamerasIoResult, CamerasObservedFact, CamerasTick, CamerasTimerKey,
+};
 use blueos_recorder_capture::{
     Capture, CaptureEvent, CaptureObservedFact, CaptureRequest, CaptureSettings, RecordGate,
     RecordingState as CaptureRecordingState,
@@ -27,6 +30,8 @@ pub struct RecorderSnapshot {
     pub capture: Capture,
     /// Recording catalog and delete operations.
     pub library: Library,
+    /// MAVLink camera protocol and video stream registration.
+    pub cameras: Cameras,
 }
 
 /// Client Commands for the Recorder.
@@ -65,6 +70,8 @@ pub enum RecorderRequest {
 pub enum RecorderObservedFact {
     /// Fact from the capture Block.
     Capture(CaptureObservedFact),
+    /// Fact from the cameras Block.
+    Cameras(CamerasObservedFact),
 }
 
 /// Domain events published after a Command is acknowledged.
@@ -86,6 +93,8 @@ pub enum RecorderQuery {
 pub enum RecorderIoRequest {
     /// Library folder scan or delete.
     Library(LibraryIoRequest),
+    /// IO from the cameras Block (MAVLink egress).
+    Cameras(CamerasIoRequest),
 }
 
 /// IO results delivered back to the Domain.
@@ -93,6 +102,8 @@ pub enum RecorderIoRequest {
 pub enum RecorderIoResult {
     /// Library IO finished.
     Library(LibraryIoResult),
+    /// Result from the cameras Block.
+    Cameras(CamerasIoResult),
 }
 
 /// Timer ticks for the Recorder Domain.
@@ -100,17 +111,28 @@ pub enum RecorderIoResult {
 pub enum RecorderTick {
     /// Library rescan timer.
     Library(LibraryTick),
+    /// Tick from the cameras Block.
+    Cameras(CamerasTick),
 }
 
 /// Timer keys for the Recorder Domain.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum RecorderTimerKey {
     /// Library rescan timer.
     Library(LibraryTimerKey),
+    /// Timer owned by the cameras Block.
+    Cameras(CamerasTimerKey),
 }
 
 /// Marker type for the Recorder [`Domain`].
 pub struct RecorderDomain;
+
+impl RecorderSnapshot {
+    /// Builds the projection the data plane and MAVLink Tasks follow.
+    pub fn record_gate(&self) -> RecordGate {
+        self.capture.record_gate()
+    }
+}
 
 impl Domain for RecorderDomain {
     type Snapshot = RecorderSnapshot;
@@ -169,11 +191,27 @@ impl Domain for RecorderDomain {
             Command::Tick(RecorderTick::Library(tick)) => {
                 map_library_outcome(Library::handle_tick(tick))
             }
+            Command::Tick(RecorderTick::Cameras(tick)) => {
+                let outcome = snapshot.cameras.handle_tick(tick, now);
+                sync_capture_video_recording(snapshot);
+                map_cameras_outcome(outcome)
+            }
             Command::IoResult(RecorderIoResult::Library(result)) => {
                 map_library_outcome(snapshot.library.handle_io_result(result, active, now))
             }
+            Command::IoResult(RecorderIoResult::Cameras(CamerasIoResult::PublishFailed)) => {
+                Outcome::Applied {
+                    events: Vec::new(),
+                    effects: Vec::new(),
+                }
+            }
             Command::ObservedFact(RecorderObservedFact::Capture(fact)) => {
                 map_capture_outcome(snapshot.capture.handle_observed_fact(fact))
+            }
+            Command::ObservedFact(RecorderObservedFact::Cameras(fact)) => {
+                let outcome = snapshot.cameras.handle_observed_fact(fact, now);
+                sync_capture_video_recording(snapshot);
+                map_cameras_outcome(outcome)
             }
         }
     }
@@ -193,6 +231,10 @@ impl Domain for RecorderDomain {
                     error: Some(error),
                 }))
             }
+            RecorderIoRequest::Cameras(_) => {
+                let _ = error;
+                Command::IoResult(RecorderIoResult::Cameras(CamerasIoResult::PublishFailed))
+            }
         }
     }
 
@@ -207,7 +249,7 @@ impl DomainQueries for RecorderDomain {
 
     fn query(snapshot: &Self::Snapshot, query: Self::Query, _now: Now) -> Self::Response {
         match query {
-            RecorderQuery::RecordGate => snapshot.capture.record_gate(),
+            RecorderQuery::RecordGate => snapshot.record_gate(),
         }
     }
 }
@@ -291,4 +333,23 @@ fn map_library_outcome(
         RecorderIoRequest::Library,
         RecorderTimerKey::Library,
     )
+}
+
+fn map_cameras_outcome(
+    outcome: Outcome<Infallible, CamerasTick, CamerasIoRequest, CamerasTimerKey>,
+) -> Decision<RecorderDomain> {
+    outcome.map(
+        |never| match never {},
+        RecorderTick::Cameras,
+        RecorderIoRequest::Cameras,
+        RecorderTimerKey::Cameras,
+    )
+}
+
+fn sync_capture_video_recording(snapshot: &mut RecorderSnapshot) {
+    for (topic, recording) in snapshot.cameras.video_recording_by_topic() {
+        snapshot
+            .capture
+            .sync_video_topic_recording(topic, recording);
+    }
 }
