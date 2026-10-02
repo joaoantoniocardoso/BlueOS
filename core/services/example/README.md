@@ -5,7 +5,7 @@ real Service. Vocabulary and rules live in [GLOSSARY.md](../../../GLOSSARY.md) a
 the steps.
 
 The full Draft 1 example under `git show 17a3f639d:core/services/example/` is reference only. `example-minimal` is
-the small wiring path; the numbered cookbook (not here yet) answers every other "how do I do X?" question.
+the small wiring path; the numbered [`cookbook/`](cookbook/README.md) answers every other "how do I do X?" question.
 
 ## Layout (D-02)
 
