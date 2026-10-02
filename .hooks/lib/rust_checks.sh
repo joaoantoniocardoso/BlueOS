@@ -4,6 +4,8 @@
 
 RUST_NO_STD_TARGET=thumbv7em-none-eabihf
 RUST_WASM32_TARGET=wasm32-unknown-unknown
+# Features of test-only backends: enabled in [dev-dependencies] only, so they never reach a shipped binary (D-02).
+RUST_TEST_ONLY_FEATURES=(blueos-comms/channel)
 
 # Prints "<unit> <folder>" for a crate directory: "libs logic" for libs/logic/jobs, "calibration app" for
 # services/calibration/app, "multicall app" for core/app/blueos.
@@ -120,6 +122,27 @@ collect_folder_violations() {
     return 0
 }
 
+# Usage: collect_test_only_feature_violations <workspace_dir>
+# Resolves features the way a non-test build does (no dev edges, every target) and prints one violation per
+# test-only feature it finds enabled. Exits 1 when any violation exists.
+collect_test_only_feature_violations() {
+    local workspace_dir="$1"
+    local violations=() feature package tree
+    for feature in "${RUST_TEST_ONLY_FEATURES[@]}"; do
+        package=${feature%/*}
+        tree=$(cargo tree --manifest-path "$workspace_dir/Cargo.toml" --workspace --target all \
+            --edges normal,build,features --invert "$package" --prefix none) || return 1
+        if grep -qF "$package feature \"${feature#*/}\"" <<<"$tree"; then
+            violations+=("$feature is enabled outside [dev-dependencies], so it would reach a shipped binary")
+        fi
+    done
+    if [ ${#violations[@]} -gt 0 ]; then
+        printf '%s\n' "${violations[@]}"
+        return 1
+    fi
+    return 0
+}
+
 # Usage: run_rust_lint_checks <workspace_dir>
 run_rust_lint_checks() {
     local workspace_dir="$1"
@@ -167,6 +190,11 @@ run_rust_lint_checks() {
 
         echo "Checking crate folders.."
         if ! collect_folder_violations "$metadata"; then
+            exit 1
+        fi
+
+        echo "Checking test-only features.."
+        if ! collect_test_only_feature_violations "$workspace_dir"; then
             exit 1
         fi
 
