@@ -1,29 +1,10 @@
 //! Parses [`README.md`](../README.md) and checks every P4.3 row against disk and naming rules.
 
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    path::PathBuf,
-};
-
-/// #62 removes names from this list as it lands entries; must match README "not written yet" rows.
-const PENDING_FOR_62: &[&str] = &[
-    "15-jobs.rs",
-    "16-job-status.rs",
-    "17-job-progress.rs",
-    "21-evolve-message.rs",
-    "22-io-query.rs",
-    "23-non-idl-command.rs",
-    "24-command-sender.rs",
-    "25-cross-subscribe.rs",
-    "26-cross-command.rs",
-    "27-tasks.rs",
-    "28-compose-domains.rs",
-];
+use std::{collections::BTreeMap, path::PathBuf};
 
 enum EntryKind {
     Cookbook { file: String },
     ExampleMinimal { relative: String },
-    Pending { file: String },
 }
 
 struct Row {
@@ -63,11 +44,11 @@ fn parse_readme_table(readme: &str) -> Vec<Row> {
         let number: u8 = cells[1].parse().expect("question number");
         let entry_cell = cells[3];
         let status = cells[4];
-        let entry = if status.contains("not written yet") {
-            EntryKind::Pending {
-                file: extract_cookbook_filename(entry_cell),
-            }
-        } else if entry_cell.contains("../") {
+        assert!(
+            !status.contains("not written yet"),
+            "question {number} must point at a written entry"
+        );
+        let entry = if entry_cell.contains("../") {
             EntryKind::ExampleMinimal {
                 relative: extract_example_minimal_path(entry_cell),
             }
@@ -132,11 +113,10 @@ fn readme_table_maps_questions_one_through_thirty_four() {
 }
 
 #[test]
-fn readme_entries_exist_follow_pending_list_and_numbering_rule() {
+fn readme_entries_exist_and_follow_numbering_rule() {
     let readme = include_str!("../README.md");
     let rows = parse_readme_table(readme);
     let mut first_question_by_cookbook_file: BTreeMap<String, u8> = BTreeMap::new();
-    let mut pending_from_readme = BTreeSet::new();
 
     for row in &rows {
         match &row.entry {
@@ -152,29 +132,8 @@ fn readme_entries_exist_follow_pending_list_and_numbering_rule() {
                 let path = example_minimal_root().join(relative);
                 assert!(path.is_file(), "missing example-minimal path {relative}");
             }
-            EntryKind::Pending { file } => {
-                pending_from_readme.insert(file.clone());
-                assert!(
-                    PENDING_FOR_62.contains(&file.as_str()),
-                    "{file} is pending in README but not in PENDING_FOR_62"
-                );
-                let path = tests_dir().join(file);
-                assert!(
-                    !path.exists(),
-                    "pending entry tests/{file} must not exist yet"
-                );
-            }
         }
     }
-
-    let pending_expected: BTreeSet<String> = PENDING_FOR_62
-        .iter()
-        .map(|name| (*name).to_owned())
-        .collect();
-    assert_eq!(
-        pending_from_readme, pending_expected,
-        "PENDING_FOR_62 must match every README not-written-yet row"
-    );
 
     for (file, first_question) in &first_question_by_cookbook_file {
         assert_eq!(
