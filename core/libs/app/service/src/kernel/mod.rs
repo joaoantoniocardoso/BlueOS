@@ -20,18 +20,22 @@ use tracing::{error, warn};
 
 use blueos_api::{
     CommandAck, JOB_ID_NONE, Message, cdr_encoding, command_key, event_key, info_query_key,
-    query_key, settings_key, state_key, status_state_key,
+    jobs_key, query_key, settings_key, state_key, status_state_key,
 };
 use blueos_comms::{CommsBackend, CommsError, Query, Queryable, Sample};
 use blueos_domain::{Command, Domain, Effect, Now, Outcome};
 use blueos_idl::{
     Error as IdlError,
-    msg::blueos_msgs::{ServiceInfo, ServiceStatus, ServiceStatusStatus, SettingsEnvelope},
+    msg::blueos_msgs::{
+        EndpointInfo, JobList, ServiceInfo, ServiceStatus, ServiceStatusStatus, SettingsEnvelope,
+    },
 };
+use blueos_jobs::JobId;
 
 use crate::{
     builder::{
-        AnswerQuery, Decode, EventEndpoint, Refusal, Respond, ServiceBuilder, StateEndpoint,
+        AnswerQuery, Decode, EventEndpoint, LatestRoot, Refusal, Respond, ServiceBuilder,
+        StateEndpoint,
     },
     service::ServiceError,
     settings::{SettingsDriver, settings_encoding},
@@ -65,6 +69,8 @@ pub struct Kernel<D: Domain, Context = ()> {
     states: Vec<PublishedState<D>>,
     settings: Option<SettingsEndpoint<D>>,
     events: Vec<EventEndpoint<D>>,
+    /// Set only for a Domain with Jobs.
+    latest_root: Option<LatestRoot<D>>,
     backend: Arc<dyn CommsBackend>,
     clock: Arc<dyn Clock>,
     timers: TimerWheel<D>,
@@ -207,7 +213,18 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 .iter()
                 .map(|capability| (*capability).to_owned())
                 .collect(),
-            endpoints: builder.manifest_endpoints.clone(),
+            endpoints: builder
+                .manifest_endpoints
+                .iter()
+                .cloned()
+                .chain(builder.jobs.as_ref().map(|_jobs| EndpointInfo {
+                    kind: "state".to_owned(),
+                    name: "jobs".to_owned(),
+                    key: jobs_key(service),
+                    request_schema: String::new(),
+                    response_schema: JobList::SCHEMA_NAME.to_owned(),
+                }))
+                .collect(),
         };
         let info_key = info_query_key(service);
         let info_encoding = cdr_encoding(ServiceInfo::SCHEMA_NAME);
@@ -270,9 +287,14 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 mpsc::Sender::clone(&inbox_sender),
             ));
         }
+        let latest_root = builder.jobs.as_ref().map(|jobs| jobs.latest_root);
+        let state_endpoints = builder
+            .states
+            .into_iter()
+            .map(|endpoint| (state_key(service, &endpoint.name), endpoint))
+            .chain(builder.jobs.map(|jobs| (jobs_key(service), jobs.state)));
         let mut states = Vec::new();
-        for endpoint in builder.states {
-            let key = state_key(service, &endpoint.name);
+        for (key, endpoint) in state_endpoints {
             let queryable = declare(&*backend, key.clone()).await?;
             let latest = watch::Sender::new(None);
             endpoints.spawn(serve_state(
@@ -312,6 +334,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             states,
             settings,
             events: builder.events,
+            latest_root,
             backend,
             clock,
             timers: TimerWheel::new(),
@@ -442,7 +465,15 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 self.publish_states(encoded_states).await;
                 self.publish_settings().await;
                 if let Some(query) = reply {
-                    acknowledge(query, Ok(())).await;
+                    let started = self.latest_root.and_then(|latest_root| {
+                        let latest = latest_root(&self.snapshot);
+                        if latest == latest_root(&backup) {
+                            None
+                        } else {
+                            latest
+                        }
+                    });
+                    acknowledge(query, Ok(started)).await;
                 }
                 self.publish_events(events).await;
                 if run_effects {
@@ -700,11 +731,12 @@ async fn serve_state(
     }
 }
 
-async fn acknowledge(query: Query, verdict: Result<(), Rejection>) {
+/// Acknowledges a Command, with the root Job it started when it started one.
+async fn acknowledge(query: Query, verdict: Result<Option<JobId>, Rejection>) {
     let ack = match verdict {
-        Ok(()) => CommandAck {
+        Ok(started) => CommandAck {
             accepted: true,
-            job_id: JOB_ID_NONE,
+            job_id: started.map_or(JOB_ID_NONE, JobId::get),
             reason: String::new(),
         },
         Err(rejection) => CommandAck {

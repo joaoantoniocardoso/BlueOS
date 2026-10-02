@@ -913,6 +913,16 @@ async fn the_harness_panics_when_a_state_has_no_value() {
 }
 
 #[tokio::test(start_paused = true)]
+#[should_panic(expected = "expected one jobs value")]
+async fn the_harness_panics_when_a_domain_without_jobs_is_asked_for_them() {
+    let harness = Harness::<TankService>::start(TankArguments { capacity: 100 })
+        .await
+        .unwrap();
+
+    harness.jobs().await;
+}
+
+#[tokio::test(start_paused = true)]
 async fn a_request_its_conversion_refuses_is_rejected_before_the_domain() {
     let harness = Harness::<TankService>::start(TankArguments { capacity: 10 })
         .await

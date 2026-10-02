@@ -1,14 +1,15 @@
 //! What a Service's `build` declares: the initial Snapshot and how the Domain meets the backbone.
 
-use core::{error::Error, future::Future, pin::Pin};
+use core::{error::Error, fmt::Display, future::Future, pin::Pin};
 use std::{path::PathBuf, sync::Arc};
 
-use blueos_api::{Message, cdr_encoding};
+use blueos_api::{JOB_ID_NONE, Message, cdr_encoding};
 use blueos_domain::{Domain, DomainQueries, IoError};
 use blueos_idl::{
     Error as IdlError,
-    msg::blueos_msgs::{EndpointInfo, SettingsEnvelope},
+    msg::blueos_msgs::{EndpointInfo, JobList, JobStatus, JobStatusStatus, SettingsEnvelope},
 };
+use blueos_jobs::{DomainJobs, JobEnd, JobId, JobKind, Jobs};
 use blueos_settings::SettingsSchema;
 
 use crate::{
@@ -26,6 +27,9 @@ pub(crate) type Project<D> =
 /// Turns a domain event into an encoded Event, or `None` when this Event endpoint does not publish it.
 pub(crate) type Select<D> =
     Box<dyn Fn(&<D as Domain>::Event) -> Option<Result<Vec<u8>, IdlError>> + Send + Sync>;
+
+/// Reads the root Job started last from the Snapshot.
+pub(crate) type LatestRoot<D> = fn(&<D as Domain>::Snapshot) -> Option<JobId>;
 
 /// Answers an IO query body with the encoded reply.
 pub(crate) type Respond = Box<
@@ -58,6 +62,7 @@ pub struct ServiceBuilder<D: Domain, Context = ()> {
     pub(crate) states: Vec<StateEndpoint<D>>,
     pub(crate) events: Vec<EventEndpoint<D>>,
     pub(crate) settings: Option<SettingsRegistration<D>>,
+    pub(crate) jobs: Option<JobsEndpoint<D>>,
 }
 
 /// Answers one Query from the Snapshot and the request body.
@@ -98,6 +103,13 @@ pub(crate) struct EventEndpoint<D: Domain> {
     pub(crate) select: Select<D>,
 }
 
+/// The standard `jobs` State, published on `blueos/v1/<service>/jobs`, and where the ack finds the root Job a
+/// Command started.
+pub(crate) struct JobsEndpoint<D: Domain> {
+    pub(crate) state: StateEndpoint<D>,
+    pub(crate) latest_root: LatestRoot<D>,
+}
+
 impl<D: Domain> ServiceBuilder<D, ()> {
     /// A Service whose Domain starts from `snapshot`, with no endpoints yet.
     pub fn new(snapshot: D::Snapshot) -> Self {
@@ -120,6 +132,7 @@ impl<D: Domain> ServiceBuilder<D, ()> {
             states: Vec::new(),
             events: Vec::new(),
             settings: None,
+            jobs: None,
         }
     }
 
@@ -143,7 +156,24 @@ impl<D: Domain> ServiceBuilder<D, ()> {
             states: self.states,
             events: self.events,
             settings: self.settings,
+            jobs: self.jobs,
         }
+    }
+}
+
+impl<D: DomainJobs, Context> ServiceBuilder<D, Context> {
+    /// Publishes the Domain's Jobs as the standard `jobs` State, and acknowledges a Command that starts a root Job
+    /// with its id. Without it, the Service has no `jobs` State and acknowledges every Command with no Job.
+    pub fn jobs(mut self) -> Self {
+        self.jobs = Some(JobsEndpoint {
+            state: StateEndpoint {
+                name: "jobs".to_owned(),
+                encoding: cdr_encoding(JobList::SCHEMA_NAME),
+                project: Box::new(|snapshot| job_list(D::jobs(snapshot)).encode()),
+            },
+            latest_root: |snapshot| D::jobs(snapshot).latest_root(),
+        });
+        self
     }
 }
 
@@ -326,5 +356,36 @@ impl<D: Domain, Context> ServiceBuilder<D, Context> {
             }),
         });
         self
+    }
+}
+
+/// Every Job as clients see it: a leaf is named by its step, a composition by its kind.
+fn job_list<Step: Display>(jobs: &Jobs<Step>) -> JobList {
+    JobList {
+        jobs: jobs
+            .list()
+            .into_iter()
+            .map(|view| JobStatus {
+                job_id: view.job_id.get(),
+                parent_job_id: view.parent.map_or(JOB_ID_NONE, JobId::get),
+                status: match view.status {
+                    blueos_jobs::JobStatus::Queued => JobStatusStatus::Queued,
+                    blueos_jobs::JobStatus::Running => JobStatusStatus::Running,
+                    blueos_jobs::JobStatus::Cancelling => JobStatusStatus::Cancelling,
+                    blueos_jobs::JobStatus::Finished(JobEnd::Succeeded) => {
+                        JobStatusStatus::Succeeded
+                    }
+                    blueos_jobs::JobStatus::Finished(JobEnd::Failed) => JobStatusStatus::Failed,
+                    blueos_jobs::JobStatus::Finished(JobEnd::Cancelled) => {
+                        JobStatusStatus::Cancelled
+                    }
+                },
+                name: match view.kind {
+                    JobKind::Leaf(step) => step.to_string(),
+                    JobKind::Sequence => "sequence".to_owned(),
+                    JobKind::Parallel => "parallel".to_owned(),
+                },
+            })
+            .collect(),
     }
 }
