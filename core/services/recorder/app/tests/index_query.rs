@@ -18,6 +18,14 @@ use blueos_service::Service;
 
 use common::{start_harness, start_recorder_test_harness};
 
+struct ReleaseWalksOnDrop(Arc<AtomicBool>);
+
+impl Drop for ReleaseWalksOnDrop {
+    fn drop(&mut self) {
+        self.0.store(true, Ordering::Relaxed);
+    }
+}
+
 #[tokio::test(start_paused = true)]
 async fn index_query_round_trips_through_the_service() {
     let directory = tempdir().expect("tempdir");
@@ -46,14 +54,17 @@ async fn index_query_serves_one_walk_at_a_time() {
     write_minimal_mcap(&directory.path().join(relative));
 
     let release = Arc::new(AtomicBool::new(false));
+    let _release_walks = ReleaseWalksOnDrop(Arc::clone(&release));
     let active = Arc::new(AtomicUsize::new(0));
     let max_active = Arc::new(AtomicUsize::new(0));
     let walk_events: Arc<Mutex<Vec<&'static str>>> = Arc::new(Mutex::new(Vec::new()));
+    let walk_started = Arc::new(Notify::new());
     let walker = controllable_walker(
         Arc::clone(&release),
         Arc::clone(&active),
         Arc::clone(&max_active),
         Arc::clone(&walk_events),
+        Arc::clone(&walk_started),
     );
     let harness = start_recorder_test_harness(
         directory.path(),
@@ -74,7 +85,7 @@ async fn index_query_serves_one_walk_at_a_time() {
     let first = tokio::spawn(async move { index_query_on(&first_backend, &first_request).await });
     let second_backend = Arc::clone(&harness.backend);
     let second = tokio::spawn(async move { index_query_on(&second_backend, &request).await });
-    advance(Duration::from_millis(100)).await;
+    walk_started.notified().await;
     assert_eq!(max_active.load(Ordering::SeqCst), 1);
     release.store(true, Ordering::Relaxed);
     first.await.expect("first task").expect("first index");
@@ -156,6 +167,7 @@ fn controllable_walker(
     active: Arc<AtomicUsize>,
     max_active: Arc<AtomicUsize>,
     walk_events: Arc<Mutex<Vec<&'static str>>>,
+    walk_started: Arc<Notify>,
 ) -> IndexWalker {
     Arc::new(move |path, from_offset, limit, cancel| {
         let now_active = active.fetch_add(1, Ordering::SeqCst) + 1;
@@ -164,6 +176,7 @@ fn controllable_walker(
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .push("start");
+        walk_started.notify_one();
         while !release.load(Ordering::Relaxed) {
             if cancel.load(Ordering::Relaxed) {
                 active.fetch_sub(1, Ordering::SeqCst);
