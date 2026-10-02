@@ -1,8 +1,6 @@
 //! `api.lock` drift and schema-evolution gate tests (D-06).
 
-use std::collections::BTreeMap;
-use std::fs;
-use std::path::PathBuf;
+use std::{collections::BTreeMap, fs, path::PathBuf};
 
 use blueos_idl_codegen::{
     collect_messages_for_test, explain_lock_mismatch, field_signature_hash, format_lock_line,

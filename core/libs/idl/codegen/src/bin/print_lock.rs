@@ -1,7 +1,6 @@
 //! Prints `api.lock` lines for every message under `blueos-idl/interfaces`.
 
-use std::env;
-use std::path::PathBuf;
+use std::{env, path::PathBuf};
 
 use blueos_idl_codegen::{collect_messages_for_test, format_lock_line};
 
