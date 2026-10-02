@@ -751,8 +751,8 @@ export default Vue.extend({
     },
     streamRefs(): { seek: (seconds: number) => void, play: () => void, pause: () => void }[] {
       const streams = this.$refs.stream as
-        | { seek: (s: number) => void, play: () => void, pause: () => void }[]
-        | { seek: (s: number) => void, play: () => void, pause: () => void }
+        | { seek: (seconds: number) => void, play: () => void, pause: () => void }[]
+        | { seek: (seconds: number) => void, play: () => void, pause: () => void }
       if (!streams) return []
       return Array.isArray(streams) ? streams : [streams]
     },

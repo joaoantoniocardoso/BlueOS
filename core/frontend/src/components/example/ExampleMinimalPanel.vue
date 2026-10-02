@@ -78,9 +78,9 @@ export default Vue.extend({
       this.sending = true
       this.lastError = ''
       try {
-        const ack = await sendCommand(this.transport, SetLevel, { level: this.targetLevel })
-        if (!ack.accepted) {
-          this.lastError = ack.reason || 'command rejected'
+        const commandAck = await sendCommand(this.transport, SetLevel, { level: this.targetLevel })
+        if (!commandAck.accepted) {
+          this.lastError = commandAck.reason || 'command rejected'
         }
       } catch (error) {
         this.lastError = error instanceof Error ? error.message : String(error)

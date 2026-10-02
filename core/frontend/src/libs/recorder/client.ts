@@ -62,8 +62,8 @@ export interface RecorderClientOptions {
   recordingHttpPrefix?: string
 }
 
-function commandResult(ack: { accepted: boolean, reason: string }): RecorderCommandResult {
-  return { accepted: ack.accepted, reason: ack.reason }
+function commandResult(commandAck: { accepted: boolean, reason: string }): RecorderCommandResult {
+  return { accepted: commandAck.accepted, reason: commandAck.reason }
 }
 
 export function createRecorderClient(
@@ -153,26 +153,26 @@ export function createRecorderClient(
     },
 
     async repairRecording(path) {
-      const ack = await sendCommand(transport, RepairRecording, { path })
-      return commandResult(ack)
+      const commandAck = await sendCommand(transport, RepairRecording, { path })
+      return commandResult(commandAck)
     },
 
     async cancelRepair(path) {
-      const ack = await sendCommand(transport, CancelRepair, { path })
-      return commandResult(ack)
+      const commandAck = await sendCommand(transport, CancelRepair, { path })
+      return commandResult(commandAck)
     },
 
     async deleteRecording(path) {
-      const ack = await sendCommand(transport, DeleteRecording, { path })
-      return commandResult(ack)
+      const commandAck = await sendCommand(transport, DeleteRecording, { path })
+      return commandResult(commandAck)
     },
 
     async snapshotRecording(path) {
       const snapshotPromise = beginSnapshotWait(path)
       try {
-        const ack = await sendCommand(transport, SnapshotRecording, { path })
-        if (!ack.accepted) {
-          removeSnapshotWaiter(path, new Error(ack.reason || 'Snapshot command rejected'))
+        const commandAck = await sendCommand(transport, SnapshotRecording, { path })
+        if (!commandAck.accepted) {
+          removeSnapshotWaiter(path, new Error(commandAck.reason || 'Snapshot command rejected'))
         }
       } catch (error) {
         removeSnapshotWaiter(
