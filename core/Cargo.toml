@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["libs/logic/smoke"]
+members = ["libs/logic/smoke", "libs/idl", "libs/idl/codegen"]
 
 [workspace.package]
 version = "0.1.0"
@@ -20,7 +20,17 @@ panic = "unwind"
 strip = true
 
 [workspace.dependencies]
+blueos-idl = { path = "libs/idl" }
+blueos-idl-codegen = { path = "libs/idl/codegen" }
 blueos-smoke = { path = "libs/logic/smoke" }
+roslibrust_codegen = { version = "0.26.0", default-features = false }
+prettyplease = "0.2"
+syn = { version = "2", default-features = false, features = ["full", "parsing"] }
+convert_case = "0.8"
+quote = "1"
+proc-macro2 = "1"
+sha2 = "0.10"
+walkdir = "2"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
