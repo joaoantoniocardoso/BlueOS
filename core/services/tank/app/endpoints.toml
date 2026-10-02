@@ -1,0 +1,21 @@
+# The endpoints of the tank Service. After changing this file, regenerate with:
+#   cargo run -p blueos-idl-codegen -- --write
+
+service = "tank"
+
+[command]
+Drain = { request = "blueos_example_msgs/msg/EmptyRequest" }
+SetLevel = { request = "blueos_example_msgs/msg/SetLevelRequest", custom = true }
+
+[query]
+Level = { request = "blueos_example_msgs/msg/EmptyRequest", response = "blueos_example_msgs/msg/LevelQueryResponse" }
+LevelAfterFill = { request = "blueos_example_msgs/msg/SetLevelRequest", response = "blueos_example_msgs/msg/LevelQueryResponse", custom = true }
+
+[io_query]
+Probe = { request = "blueos_example_msgs/msg/EmptyRequest", response = "blueos_example_msgs/msg/LevelQueryResponse" }
+
+[state]
+tank = { message = "blueos_example_msgs/msg/LevelQueryResponse" }
+
+[event]
+LevelChanged = { message = "blueos_example_msgs/msg/LevelQueryResponse" }

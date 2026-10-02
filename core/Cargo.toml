@@ -12,6 +12,9 @@ members = [
     "libs/tools/rust-style-check",
     "services/recorder/logic/capture",
     "services/recorder/logic/recorder",
+    "services/tank/app",
+    "services/tank/logic/api",
+    "services/tank/logic/domain",
 ]
 
 [workspace.package]
@@ -40,6 +43,9 @@ blueos-ros2-names = { path = "libs/logic/ros2-names" }
 blueos-service = { path = "libs/app/service" }
 blueos-recorder-capture = { path = "services/recorder/logic/capture" }
 blueos-recorder-domain = { path = "services/recorder/logic/recorder" }
+blueos-tank-api = { path = "services/tank/logic/api" }
+blueos-tank-app = { path = "services/tank/app" }
+blueos-tank-domain = { path = "services/tank/logic/domain" }
 blueos-idl = { path = "libs/idl" }
 blueos-idl-codegen = { path = "libs/idl/codegen" }
 blueos-rust-style-check = { path = "libs/tools/rust-style-check" }

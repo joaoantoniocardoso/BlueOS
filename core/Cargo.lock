@@ -282,6 +282,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "blueos-tank-api"
+version = "0.1.0"
+dependencies = [
+ "blueos-domain",
+ "blueos-idl",
+ "blueos-tank-domain",
+]
+
+[[package]]
+name = "blueos-tank-app"
+version = "0.1.0"
+dependencies = [
+ "blueos-api",
+ "blueos-comms",
+ "blueos-domain",
+ "blueos-idl",
+ "blueos-service",
+ "blueos-tank-api",
+ "blueos-tank-domain",
+ "clap",
+ "tokio",
+]
+
+[[package]]
+name = "blueos-tank-domain"
+version = "0.1.0"
+dependencies = [
+ "blueos-domain",
+ "thiserror",
+]
+
+[[package]]
 name = "bs58"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
