@@ -6,14 +6,51 @@ use crate::{
 };
 use alloc::string::String;
 use serde::{Deserialize, Serialize};
-pub mod constants_recording_operation {
-    pub const OPERATION_REPAIR: u8 = 0u8;
-    pub const OPERATION_SNAPSHOT: u8 = 1u8;
-    pub const OPERATION_DELETE: u8 = 2u8;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum RecordingOperationOperation {
+    #[default]
+    Repair,
+    Snapshot,
+    Delete,
+    Unknown(u8),
+}
+impl RecordingOperationOperation {
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0u8 => Self::Repair,
+            1u8 => Self::Snapshot,
+            2u8 => Self::Delete,
+            raw => Self::Unknown(raw),
+        }
+    }
+    pub fn as_raw(self) -> u8 {
+        match self {
+            Self::Repair => 0u8,
+            Self::Snapshot => 1u8,
+            Self::Delete => 2u8,
+            Self::Unknown(raw) => raw,
+        }
+    }
+}
+impl serde::Serialize for RecordingOperationOperation {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        <u8>::serialize(&self.as_raw(), serializer)
+    }
+}
+impl<'de> serde::Deserialize<'de> for RecordingOperationOperation {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self::from_raw(<u8>::deserialize(deserializer)?))
+    }
 }
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct RecordingOperation {
-    pub operation: u8,
+    pub operation: RecordingOperationOperation,
     pub path: String,
     pub output_path: String,
     pub succeeded: bool,
@@ -24,9 +61,9 @@ impl CdrStruct for RecordingOperation {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
             operation: if reader.is_exhausted() {
-                Default::default()
+                <RecordingOperationOperation>::default()
             } else {
-                reader.read_u8()?
+                RecordingOperationOperation::from_raw(reader.read_u8()?)
             },
             path: if reader.is_exhausted() {
                 String::new()
@@ -56,7 +93,7 @@ impl CdrStruct for RecordingOperation {
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {
-        writer.write_u8(self.operation)?;
+        writer.write_u8(self.operation.as_raw())?;
         writer.write_string(self.path.as_str())?;
         writer.write_string(self.output_path.as_str())?;
         writer.write_bool(self.succeeded)?;

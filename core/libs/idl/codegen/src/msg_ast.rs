@@ -17,14 +17,14 @@ pub struct Field {
     datatype: DataType,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Constant {
     pub name: String,
     pub datatype: DataType,
     pub value: ConstantValue,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum DataType {
     String,
     Bool,
@@ -49,7 +49,7 @@ pub enum FieldCase {
     Const(usize),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ConstantValue {
     U8(u8),
     U16(u16),
@@ -64,24 +64,15 @@ pub enum ConstantValue {
     String(String),
 }
 
-impl Field {
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    pub fn case(&self) -> FieldCase {
-        self.case.clone()
-    }
-
-    pub fn datatype(&self) -> DataType {
-        self.datatype.clone()
-    }
-}
-
 impl Message {
     pub fn from_ros_fields(fields: &[FieldInfo], constants: &[ConstantInfo]) -> Self {
         let fields = fields.iter().map(field_from_ros).collect::<Vec<_>>();
         let constants = constants.iter().map(constant_from_ros).collect::<Vec<_>>();
+        Self { fields, constants }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn from_parts(fields: Vec<Field>, constants: Vec<Constant>) -> Self {
         Self { fields, constants }
     }
 
@@ -101,6 +92,29 @@ impl Message {
             }
         }
         names
+    }
+}
+
+impl Field {
+    #[cfg(test)]
+    pub(crate) fn scalar_uint8(name: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            case: FieldCase::Scalar,
+            datatype: DataType::U8,
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn case(&self) -> FieldCase {
+        self.case.clone()
+    }
+
+    pub fn datatype(&self) -> DataType {
+        self.datatype.clone()
     }
 }
 

@@ -11,9 +11,11 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use roslibrust_codegen::find_and_parse_ros_messages;
 use sha2::{Digest, Sha256};
+mod constant_family;
 mod msg_ast;
 
-use msg_ast::{DataType, Field, FieldCase, Message};
+use constant_family::{ConstantFamily, constant_families, freestanding_constants};
+use msg_ast::{Constant, ConstantValue, DataType, Field, FieldCase, Message};
 
 const SCHEMA_SEPARATOR: &str =
     "================================================================================\n";
@@ -59,6 +61,22 @@ pub fn generate(interfaces_root: &Path, out_dir: &Path, typescript_dir: Option<&
     }
 }
 
+/// Regenerates committed catalog schema lookup and TypeScript (`catalog.ts`).
+pub fn generate_catalog(idl_root: &Path) {
+    let typescript_dir = idl_root.join("typescript");
+    generate_catalog_outputs(idl_root, &idl_root.join("src/generated"), &typescript_dir);
+}
+
+/// Writes vendored catalog outputs next to interface codegen artifacts.
+pub fn generate_catalog_outputs(idl_root: &Path, generated_dir: &Path, typescript_dir: &Path) {
+    let catalog_interfaces = idl_root.join("catalog/interfaces");
+    fs::create_dir_all(generated_dir).expect("create generated dir");
+    fs::create_dir_all(typescript_dir).expect("create typescript dir");
+    generate_schema_catalog(&catalog_interfaces, generated_dir);
+    generate_catalog_typescript(&catalog_interfaces, typescript_dir);
+    write_typescript_index(typescript_dir);
+}
+
 /// Writes `schema_catalog.rs`, a `schema` lookup of the text of every message under `interfaces_root`, with no
 /// message types, for third-party definitions that are not part of the BlueOS API.
 pub fn generate_schema_catalog(interfaces_root: &Path, out_dir: &Path) {
@@ -79,7 +97,7 @@ pub fn generate_schema_catalog(interfaces_root: &Path, out_dir: &Path) {
     fs::write(
         out_dir.join("schema_catalog.rs"),
         format!(
-            "// @generated\npub fn schema(schema_name: &str) -> Option<&'static str> {{\n    match schema_name {{\n{}\n        _ => None,\n    }}\n}}\n",
+            "// @generated\npub(crate) fn schema(schema_name: &str) -> Option<&'static str> {{\n    match schema_name {{\n{}\n        _ => None,\n    }}\n}}\n",
             schema_arms.join("\n")
         ),
     )
@@ -301,20 +319,170 @@ fn write_formatted_rust_file(path: &Path, source: &str) {
     }
 }
 
+fn constant_families_by_field(message: &Message) -> BTreeMap<String, ConstantFamily> {
+    constant_families(message)
+        .into_iter()
+        .map(|family| (family.field_name.clone(), family))
+        .collect()
+}
+
+fn enum_ident_for_field(message_name: &str, field_name: &str) -> proc_macro2::Ident {
+    format_ident!("{}{}", message_name, field_name.to_case(Case::Pascal))
+}
+
+fn constant_raw_literal(constant: &Constant) -> TokenStream {
+    match &constant.value {
+        ConstantValue::U8(value) => quote! { #value },
+        ConstantValue::U16(value) => quote! { #value },
+        ConstantValue::U32(value) => quote! { #value },
+        ConstantValue::U64(value) => quote! { #value },
+        ConstantValue::I8(value) => quote! { #value },
+        ConstantValue::I16(value) => quote! { #value },
+        ConstantValue::I32(value) => quote! { #value },
+        ConstantValue::I64(value) => quote! { #value },
+        ConstantValue::F32(value) => quote! { #value },
+        ConstantValue::F64(value) => quote! { #value },
+        ConstantValue::String(value) => quote! { #value },
+    }
+}
+
+fn enum_variant_ident(constant: &Constant, family: &ConstantFamily) -> proc_macro2::Ident {
+    let suffix = constant
+        .name
+        .strip_prefix(&family.constant_prefix)
+        .unwrap_or(constant.name.as_str());
+    let pascal = suffix.to_case(Case::Pascal);
+    let variant_name = if pascal == "Unknown" {
+        format!("{}{}", family.field_name.to_case(Case::Pascal), pascal)
+    } else {
+        pascal
+    };
+    format_ident!("{}", variant_name)
+}
+
+fn scalar_rust_type_tokens(datatype: &DataType) -> TokenStream {
+    match datatype {
+        DataType::U8 => quote! { u8 },
+        DataType::U16 => quote! { u16 },
+        DataType::U32 => quote! { u32 },
+        DataType::U64 => quote! { u64 },
+        DataType::I8 => quote! { i8 },
+        DataType::I16 => quote! { i16 },
+        DataType::I32 => quote! { i32 },
+        DataType::I64 => quote! { i64 },
+        DataType::F32 => quote! { f32 },
+        DataType::F64 => quote! { f64 },
+        DataType::String => quote! { String },
+        DataType::Bool => quote! { bool },
+        DataType::GlobalMessage { package, name } => {
+            let package = format_ident!("{}", package);
+            let name = format_ident!("{}", name);
+            quote! { crate::msg::#package::#name }
+        }
+    }
+}
+
+fn generate_enum_tokens(message_name: &str, family: &ConstantFamily) -> TokenStream {
+    let enum_name = enum_ident_for_field(message_name, &family.field_name);
+    let raw_type = scalar_rust_type_tokens(&family.constants[0].datatype);
+    let mut from_arms = Vec::new();
+    let mut as_arms = Vec::new();
+    let mut sorted_constants = family.constants.clone();
+    sorted_constants.sort_by_key(constant_discriminant);
+    for constant in &sorted_constants {
+        let variant = enum_variant_ident(constant, family);
+        let raw = constant_raw_literal(constant);
+        from_arms.push(quote! { #raw => Self::#variant, });
+        as_arms.push(quote! { Self::#variant => #raw, });
+    }
+    from_arms.push(quote! { raw => Self::Unknown(raw), });
+    as_arms.push(quote! { Self::Unknown(raw) => raw, });
+    let mut variant_tokens = Vec::new();
+    for (index, constant) in sorted_constants.iter().enumerate() {
+        let variant = enum_variant_ident(constant, family);
+        if index == 0 {
+            variant_tokens.push(quote! { #[default] #variant, });
+        } else {
+            variant_tokens.push(quote! { #variant, });
+        }
+    }
+    quote! {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+        pub enum #enum_name {
+            #(#variant_tokens)*
+            Unknown(#raw_type),
+        }
+
+        impl #enum_name {
+            pub fn from_raw(raw: #raw_type) -> Self {
+                match raw {
+                    #(#from_arms)*
+                }
+            }
+
+            pub fn as_raw(self) -> #raw_type {
+                match self {
+                    #(#as_arms)*
+                }
+            }
+        }
+
+        impl serde::Serialize for #enum_name {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: serde::Serializer,
+            {
+                <#raw_type>::serialize(&self.as_raw(), serializer)
+            }
+        }
+
+        impl<'de> serde::Deserialize<'de> for #enum_name {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: serde::Deserializer<'de>,
+            {
+                Ok(Self::from_raw(<#raw_type>::deserialize(deserializer)?))
+            }
+        }
+    }
+}
+
+fn constant_discriminant(constant: &Constant) -> u64 {
+    match &constant.value {
+        ConstantValue::U8(value) => *value as u64,
+        ConstantValue::U16(value) => *value as u64,
+        ConstantValue::U32(value) => *value as u64,
+        ConstantValue::U64(value) => *value,
+        ConstantValue::I8(value) => *value as u64,
+        ConstantValue::I16(value) => *value as u64,
+        ConstantValue::I32(value) => *value as u64,
+        ConstantValue::I64(value) => *value as u64,
+        ConstantValue::F32(value) => value.to_bits() as u64,
+        ConstantValue::F64(value) => value.to_bits(),
+        ConstantValue::String(_) => 0,
+    }
+}
+
 fn generate_struct_tokens(
     record: &MessageRecord,
     records: &BTreeMap<String, MessageRecord>,
 ) -> TokenStream {
     let message = &record.message;
+    let families = constant_families_by_field(message);
     let struct_name = format_ident!("{}", record.name);
     let schema_name = record.schema_name.as_str();
     let schema_text = schema_text(record, records);
     let type_hash = record.type_hash.as_str();
 
+    let enum_tokens = families
+        .values()
+        .map(|family| generate_enum_tokens(&record.name, family))
+        .collect::<Vec<_>>();
+
     let mut fields = Vec::new();
     let mut constants_mod = None;
     let mut constants = Vec::new();
-    for constant in message.constants() {
+    for constant in freestanding_constants(message) {
         let const_name = format_ident!("{}", constant.name);
         let const_tokens = const_value_tokens(&constant.value, &constant.datatype);
         constants.push(quote! {
@@ -323,7 +491,7 @@ fn generate_struct_tokens(
     }
     for field in message.fields() {
         let field_name = format_ident!("{}", rust_field_name(field));
-        let field_type = rust_type_tokens(field);
+        let field_type = rust_type_tokens(field, &families, &record.name);
         let serde_with = if matches!(field.case(), FieldCase::Array(_)) {
             quote! { #[serde(with = "serde_arrays")] }
         } else {
@@ -343,12 +511,13 @@ fn generate_struct_tokens(
         });
     }
 
-    let encode_fields = encode_field_tokens(message);
-    let decode_tokens = decode_field_tokens(message);
+    let encode_fields = encode_field_tokens(message, &families, &record.name);
+    let decode_tokens = decode_field_tokens(message, &families, &record.name);
     let decode_assignments = decode_tokens.assignments;
     let field_count = message.fields().len();
 
     quote! {
+        #(#enum_tokens)*
         #constants_mod
         #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
         pub struct #struct_name {
@@ -384,11 +553,15 @@ struct DecodeFieldTokens {
     assignments: TokenStream,
 }
 
-fn decode_field_tokens(message: &Message) -> DecodeFieldTokens {
+fn decode_field_tokens(
+    message: &Message,
+    families: &BTreeMap<String, ConstantFamily>,
+    message_name: &str,
+) -> DecodeFieldTokens {
     let mut assignments = Vec::new();
     for field in message.fields() {
         let field_name = format_ident!("{}", rust_field_name(field));
-        let read = read_field_tokens(field, &field_name);
+        let read = read_field_tokens(field, &field_name, families, message_name);
         assignments.push(quote! {
             #field_name: #read,
         });
@@ -398,10 +571,15 @@ fn decode_field_tokens(message: &Message) -> DecodeFieldTokens {
     }
 }
 
-fn read_field_tokens(field: &Field, _field_name: &proc_macro2::Ident) -> TokenStream {
+fn read_field_tokens(
+    field: &Field,
+    _field_name: &proc_macro2::Ident,
+    families: &BTreeMap<String, ConstantFamily>,
+    message_name: &str,
+) -> TokenStream {
     match field.case() {
         FieldCase::Vector => {
-            let element = read_scalar_or_message_inner(field);
+            let element = read_scalar_or_message_inner(field, families, message_name);
             quote! {
                 {
                     if reader.is_exhausted() {
@@ -418,7 +596,7 @@ fn read_field_tokens(field: &Field, _field_name: &proc_macro2::Ident) -> TokenSt
             }
         }
         FieldCase::Array(size) => {
-            let element = read_scalar_or_message_inner(field);
+            let element = read_scalar_or_message_inner(field, families, message_name);
             quote! {
                 {
                     let mut values = [Default::default(); #size];
@@ -431,13 +609,18 @@ fn read_field_tokens(field: &Field, _field_name: &proc_macro2::Ident) -> TokenSt
                 }
             }
         }
-        _ => read_scalar_or_message(field, false),
+        _ => read_scalar_or_message(field, families, message_name, false),
     }
 }
 
-fn read_scalar_or_message(field: &Field, _nested: bool) -> TokenStream {
-    let default_value = default_for_field(field);
-    let read = read_scalar_or_message_inner(field);
+fn read_scalar_or_message(
+    field: &Field,
+    families: &BTreeMap<String, ConstantFamily>,
+    message_name: &str,
+    _nested: bool,
+) -> TokenStream {
+    let default_value = default_for_field(field, families, message_name);
+    let read = read_scalar_or_message_inner(field, families, message_name);
     quote! {
         if reader.is_exhausted() {
             #default_value
@@ -447,7 +630,16 @@ fn read_scalar_or_message(field: &Field, _nested: bool) -> TokenStream {
     }
 }
 
-fn read_scalar_or_message_inner(field: &Field) -> TokenStream {
+fn read_scalar_or_message_inner(
+    field: &Field,
+    families: &BTreeMap<String, ConstantFamily>,
+    message_name: &str,
+) -> TokenStream {
+    if let Some(family) = families.get(field.name()) {
+        let enum_name = enum_ident_for_field(message_name, &family.field_name);
+        let read_raw = read_primitive_tokens(&field.datatype());
+        return quote! { #enum_name::from_raw(#read_raw) };
+    }
     match field.datatype() {
         DataType::String => quote! { reader.read_string()? },
         DataType::Bool => quote! { reader.read_bool()? },
@@ -469,19 +661,33 @@ fn read_scalar_or_message_inner(field: &Field) -> TokenStream {
     }
 }
 
-fn encode_field_tokens(message: &Message) -> Vec<TokenStream> {
+fn encode_field_tokens(
+    message: &Message,
+    families: &BTreeMap<String, ConstantFamily>,
+    message_name: &str,
+) -> Vec<TokenStream> {
     let mut tokens = Vec::new();
     for field in message.fields() {
         let field_name = format_ident!("{}", rust_field_name(field));
-        tokens.push(write_field_tokens(field, quote! { self.#field_name }));
+        tokens.push(write_field_tokens(
+            field,
+            quote! { self.#field_name },
+            families,
+            message_name,
+        ));
     }
     tokens
 }
 
-fn write_field_tokens(field: &Field, value: TokenStream) -> TokenStream {
+fn write_field_tokens(
+    field: &Field,
+    value: TokenStream,
+    families: &BTreeMap<String, ConstantFamily>,
+    message_name: &str,
+) -> TokenStream {
     match field.case() {
         FieldCase::Vector => {
-            let element_write = write_vector_element(field);
+            let element_write = write_vector_element(field, families, message_name);
             quote! {
                 writer.write_u32(#value.len() as u32)?;
                 for element in #value.iter() {
@@ -490,18 +696,24 @@ fn write_field_tokens(field: &Field, value: TokenStream) -> TokenStream {
             }
         }
         FieldCase::Array(_) => {
-            let element_write = write_vector_element(field);
+            let element_write = write_vector_element(field, families, message_name);
             quote! {
                 for element in #value.iter() {
                     #element_write
                 }
             }
         }
-        FieldCase::Scalar | FieldCase::Const(_) => write_scalar_or_message(field, value),
+        FieldCase::Scalar | FieldCase::Const(_) => {
+            write_scalar_or_message(field, value, families, message_name)
+        }
     }
 }
 
-fn write_vector_element(field: &Field) -> TokenStream {
+fn write_vector_element(
+    field: &Field,
+    families: &BTreeMap<String, ConstantFamily>,
+    message_name: &str,
+) -> TokenStream {
     match field.datatype() {
         DataType::GlobalMessage { package, name } => {
             let package = format_ident!("{}", package);
@@ -511,11 +723,19 @@ fn write_vector_element(field: &Field) -> TokenStream {
             }
         }
         DataType::String => quote! { writer.write_string(element.as_str())?; },
-        _ => write_scalar_or_message(field, quote! { *element }),
+        _ => write_scalar_or_message(field, quote! { *element }, families, message_name),
     }
 }
 
-fn write_scalar_or_message(field: &Field, value: TokenStream) -> TokenStream {
+fn write_scalar_or_message(
+    field: &Field,
+    value: TokenStream,
+    families: &BTreeMap<String, ConstantFamily>,
+    _message_name: &str,
+) -> TokenStream {
+    if families.contains_key(field.name()) {
+        return write_primitive_tokens(&field.datatype(), quote! { #value.as_raw() });
+    }
     match field.datatype() {
         DataType::String => quote! { writer.write_string(#value.as_str())?; },
         DataType::Bool => quote! { writer.write_bool(#value)?; },
@@ -537,7 +757,55 @@ fn write_scalar_or_message(field: &Field, value: TokenStream) -> TokenStream {
     }
 }
 
-fn default_for_field(field: &Field) -> TokenStream {
+fn read_primitive_tokens(datatype: &DataType) -> TokenStream {
+    match datatype {
+        DataType::U8 => quote! { reader.read_u8()? },
+        DataType::U16 => quote! { reader.read_u16()? },
+        DataType::U32 => quote! { reader.read_u32()? },
+        DataType::U64 => quote! { reader.read_u64()? },
+        DataType::I8 => quote! { reader.read_i8()? },
+        DataType::I16 => quote! { reader.read_i16()? },
+        DataType::I32 => quote! { reader.read_i32()? },
+        DataType::I64 => quote! { reader.read_i64()? },
+        DataType::F32 => quote! { reader.read_f32()? },
+        DataType::F64 => quote! { reader.read_f64()? },
+        DataType::Bool => quote! { reader.read_bool()? },
+        DataType::String => quote! { reader.read_string()? },
+        DataType::GlobalMessage { package, name } => {
+            let package = format_ident!("{}", package);
+            let name = format_ident!("{}", name);
+            quote! { <crate::msg::#package::#name>::cdr_decode_fields(reader)? }
+        }
+    }
+}
+
+fn write_primitive_tokens(datatype: &DataType, value: TokenStream) -> TokenStream {
+    match datatype {
+        DataType::String => quote! { writer.write_string(#value.as_str())?; },
+        DataType::Bool => quote! { writer.write_bool(#value)?; },
+        DataType::U8 => quote! { writer.write_u8(#value)?; },
+        DataType::U16 => quote! { writer.write_u16(#value)?; },
+        DataType::U32 => quote! { writer.write_u32(#value)?; },
+        DataType::U64 => quote! { writer.write_u64(#value)?; },
+        DataType::I8 => quote! { writer.write_i8(#value)?; },
+        DataType::I16 => quote! { writer.write_i16(#value)?; },
+        DataType::I32 => quote! { writer.write_i32(#value)?; },
+        DataType::I64 => quote! { writer.write_i64(#value)?; },
+        DataType::F32 => quote! { writer.write_f32(#value)?; },
+        DataType::F64 => quote! { writer.write_f64(#value)?; },
+        DataType::GlobalMessage { package, name } => {
+            let package = format_ident!("{}", package);
+            let name = format_ident!("{}", name);
+            quote! { <crate::msg::#package::#name>::cdr_encode_fields(&#value, writer)?; }
+        }
+    }
+}
+
+fn default_for_field(
+    field: &Field,
+    families: &BTreeMap<String, ConstantFamily>,
+    message_name: &str,
+) -> TokenStream {
     match field.case() {
         FieldCase::Vector => quote! { Vec::new() },
         FieldCase::Array(size) => {
@@ -551,20 +819,35 @@ fn default_for_field(field: &Field) -> TokenStream {
             };
             quote! { [#element_default; #size] }
         }
-        FieldCase::Scalar | FieldCase::Const(_) => match field.datatype() {
-            DataType::String => quote! { String::new() },
-            DataType::Bool => quote! { false },
-            DataType::GlobalMessage { package, name } => {
-                let package = format_ident!("{}", package);
-                let name = format_ident!("{}", name);
-                quote! { <crate::msg::#package::#name>::default() }
+        FieldCase::Scalar | FieldCase::Const(_) => {
+            if families.contains_key(field.name()) {
+                let enum_name = enum_ident_for_field(message_name, field.name());
+                quote! { <#enum_name>::default() }
+            } else {
+                match field.datatype() {
+                    DataType::String => quote! { String::new() },
+                    DataType::Bool => quote! { false },
+                    DataType::GlobalMessage { package, name } => {
+                        let package = format_ident!("{}", package);
+                        let name = format_ident!("{}", name);
+                        quote! { <crate::msg::#package::#name>::default() }
+                    }
+                    _ => quote! { Default::default() },
+                }
             }
-            _ => quote! { Default::default() },
-        },
+        }
     }
 }
 
-fn rust_type_tokens(field: &Field) -> TokenStream {
+fn rust_type_tokens(
+    field: &Field,
+    families: &BTreeMap<String, ConstantFamily>,
+    message_name: &str,
+) -> TokenStream {
+    if let Some(family) = families.get(field.name()) {
+        let enum_name = enum_ident_for_field(message_name, &family.field_name);
+        return quote! { #enum_name };
+    }
     let base = match field.datatype() {
         DataType::String => quote! { String },
         DataType::Bool => quote! { bool },
@@ -612,8 +895,13 @@ fn const_value_tokens(value: &msg_ast::ConstantValue, datatype: &DataType) -> To
 fn write_typescript(records: &BTreeMap<String, MessageRecord>, typescript_dir: &Path) {
     let mut interface_blocks = Vec::new();
     let mut schema_entries = Vec::new();
+    let mut constant_blocks = Vec::new();
     for record in records.values() {
         let interface_name = record.name.clone();
+        let families = constant_families_by_field(&record.message);
+        for family in families.values() {
+            constant_blocks.push(typescript_constant_block(&interface_name, family));
+        }
         let mut fields = Vec::new();
         for field in record.message.fields() {
             if matches!(field.case(), FieldCase::Const(_)) {
@@ -640,6 +928,16 @@ fn write_typescript(records: &BTreeMap<String, MessageRecord>, typescript_dir: &
         ));
     }
 
+    let constants_source = if constant_blocks.is_empty() {
+        String::new()
+    } else {
+        format!("{}\n", constant_blocks.join("\n"))
+    };
+    fs::write(
+        typescript_dir.join("constants.ts"),
+        format!("// @generated\n\n{constants_source}"),
+    )
+    .expect("write constants.ts");
     fs::write(
         typescript_dir.join("messages.d.ts"),
         format!("// @generated\n\n{}\n", interface_blocks.join("\n")),
@@ -653,11 +951,58 @@ fn write_typescript(records: &BTreeMap<String, MessageRecord>, typescript_dir: &
         ),
     )
     .expect("write schemas.ts");
+    write_typescript_index(typescript_dir);
+}
+
+pub fn write_typescript_index(typescript_dir: &Path) {
+    let catalog_path = typescript_dir.join("catalog.ts");
+    let catalog_export = if catalog_path.exists() {
+        "export * from \"./catalog\";\n"
+    } else {
+        ""
+    };
     fs::write(
         typescript_dir.join("index.ts"),
-        "// @generated\nexport * from \"./schemas\";\n",
+        format!(
+            "// @generated\nexport * from \"./constants\";\nexport * from \"./schemas\";\n{catalog_export}",
+            catalog_export = catalog_export
+        ),
     )
     .expect("write index.ts");
+}
+
+fn typescript_constant_block(message_name: &str, family: &ConstantFamily) -> String {
+    let export_name = format!(
+        "{}{}",
+        message_name,
+        family.field_name.to_case(Case::Pascal)
+    );
+    let mut entries = Vec::new();
+    for constant in &family.constants {
+        let variant = enum_variant_ident(constant, family);
+        let raw = typescript_constant_value(&constant.value);
+        entries.push(format!("  {variant}: {raw},"));
+    }
+    format!(
+        "export const {export_name} = {{\n{}\n}} as const;\nexport type {export_name} = typeof {export_name}[keyof typeof {export_name}] | number;\n",
+        entries.join("\n")
+    )
+}
+
+fn typescript_constant_value(value: &ConstantValue) -> String {
+    match value {
+        ConstantValue::String(text) => format!("\"{text}\""),
+        ConstantValue::F32(value) => value.to_string(),
+        ConstantValue::F64(value) => value.to_string(),
+        ConstantValue::U8(value) => value.to_string(),
+        ConstantValue::U16(value) => value.to_string(),
+        ConstantValue::U32(value) => value.to_string(),
+        ConstantValue::U64(value) => value.to_string(),
+        ConstantValue::I8(value) => value.to_string(),
+        ConstantValue::I16(value) => value.to_string(),
+        ConstantValue::I32(value) => value.to_string(),
+        ConstantValue::I64(value) => value.to_string(),
+    }
 }
 
 fn typescript_type(field: &Field) -> String {

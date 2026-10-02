@@ -14,7 +14,9 @@ use std::path::PathBuf;
 
 use blueos_idl::Message;
 use blueos_idl::msg::blueos_msgs::{CommandAck, EndpointInfo, ServiceInfo};
-use blueos_idl::msg::blueos_recorder_msgs::RecordingFile;
+use blueos_idl::msg::blueos_recorder_msgs::{
+    RecordingFile, RecordingFileState, RecordingOperationOperation,
+};
 use blueos_idl::msg::builtin_interfaces::Time;
 use blueos_idl::msg::foxglove_msgs::Log;
 use blueos_idl_codegen::collect_messages_for_test;
@@ -87,7 +89,7 @@ fn extra_vectors() -> Vec<CdrVector> {
             sec: 1_790_306_134,
             nanosec: 0,
         },
-        state: 1,
+        state: RecordingFileState::Ready,
         repair_bytes_processed: 0,
         repair_total_bytes: 0,
         repair_bytes_per_second: 0.0,
@@ -208,7 +210,7 @@ fn extra_vectors() -> Vec<CdrVector> {
     });
 
     let recording_operation = blueos_idl::msg::blueos_recorder_msgs::RecordingOperation {
-        operation: 1,
+        operation: RecordingOperationOperation::from_raw(1),
         path: "session/foo.mcap".into(),
         output_path: "session/foo_snapshot.mcap".into(),
         succeeded: true,

@@ -46,14 +46,18 @@ check_rust_style_copies() {
 # Regenerates IDL output into a temp dir and byte-compares with committed `src/generated`.
 check_generated_idl() {
     local workspace_dir="$1"
-    local idl_generated="$workspace_dir/libs/idl/src/generated"
-    local idl_typescript="$workspace_dir/libs/idl/typescript"
+    local idl_root="$workspace_dir/libs/idl"
+    local idl_generated="$idl_root/src/generated"
+    local idl_typescript="$idl_root/typescript"
     local temporary
     temporary=$(mktemp -d)
     (
         cd "$workspace_dir" || exit 1
         cargo run --quiet -p blueos-idl-codegen --bin blueos-idl-codegen -- \
             --output "$temporary/generated" \
+            --typescript-output "$temporary/typescript"
+        cargo run --quiet -p blueos-idl-codegen --bin blueos-idl-codegen-catalog -- \
+            --generated-output "$temporary/generated" \
             --typescript-output "$temporary/typescript"
     )
     if ! diff -ru "$idl_generated" "$temporary/generated" >/dev/null; then
