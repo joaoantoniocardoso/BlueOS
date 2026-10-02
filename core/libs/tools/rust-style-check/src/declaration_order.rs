@@ -81,15 +81,15 @@ impl OrderVisitor {
                 && matches!(struct_item.vis, Visibility::Public(_))
             {
                 let name = struct_item.ident.to_string();
-                let deps = type_dependencies_in_type(&struct_item.fields, &type_names);
-                graph.insert(name, deps);
+                let dependencies = type_dependencies_in_type(&struct_item.fields, &type_names);
+                graph.insert(name, dependencies);
             }
             if let Item::Enum(enum_item) = item
                 && matches!(enum_item.vis, Visibility::Public(_))
             {
                 let name = enum_item.ident.to_string();
-                let deps = enum_dependencies(enum_item, &type_names);
-                graph.insert(name, deps);
+                let dependencies = enum_dependencies(enum_item, &type_names);
+                graph.insert(name, dependencies);
             }
         }
         let order = topological_order(&graph);
@@ -102,13 +102,15 @@ impl OrderVisitor {
             let dependent_pos = positions.get(&dependent);
             let dependency_pos = positions.get(&dependency);
             if let (Some(dependent_pos), Some(dependency_pos)) = (dependent_pos, dependency_pos)
-                && dependent_pos < dependency_pos
+                && dependent_pos > dependency_pos
             {
                 push(
                     &mut self.diagnostics,
                     "declaration_order",
                     item_span(&items[*dependent_pos]),
-                    format!("type `{dependent}` must be declared after type `{dependency}`"),
+                    format!(
+                        "type `{dependent}` must be declared before type `{dependency}`, which it uses"
+                    ),
                 );
             }
         }
@@ -280,33 +282,33 @@ fn counts_toward_kind_order(item: &Item) -> bool {
 }
 
 fn type_dependencies_in_type(fields: &syn::Fields, known: &BTreeSet<String>) -> BTreeSet<String> {
-    let mut deps = BTreeSet::new();
+    let mut dependencies = BTreeSet::new();
     let mut visitor = TypeRefVisitor {
         known,
-        deps: &mut deps,
+        dependencies: &mut dependencies,
     };
     visitor.visit_fields(fields);
-    deps
+    dependencies
 }
 
 fn enum_dependencies(enum_item: &ItemEnum, known: &BTreeSet<String>) -> BTreeSet<String> {
-    let mut deps = BTreeSet::new();
+    let mut dependencies = BTreeSet::new();
     for variant in &enum_item.variants {
-        deps.extend(type_dependencies_in_type(&variant.fields, known));
+        dependencies.extend(type_dependencies_in_type(&variant.fields, known));
     }
-    deps
+    dependencies
 }
 
 struct TypeRefVisitor<'a> {
     known: &'a BTreeSet<String>,
-    deps: &'a mut BTreeSet<String>,
+    dependencies: &'a mut BTreeSet<String>,
 }
 
 impl<'ast> Visit<'ast> for TypeRefVisitor<'ast> {
     fn visit_path_segment(&mut self, segment: &'ast syn::PathSegment) {
         let name = segment.ident.to_string();
         if self.known.contains(&name) {
-            self.deps.insert(name);
+            self.dependencies.insert(name);
         }
         syn::visit::visit_path_segment(self, segment);
     }
@@ -344,8 +346,8 @@ impl<'ast> Visit<'ast> for CallVisitor<'ast> {
 
 fn topological_order(graph: &BTreeMap<String, BTreeSet<String>>) -> Vec<(String, String)> {
     let mut edges = Vec::new();
-    for (node, deps) in graph {
-        for dependency in deps {
+    for (node, dependencies) in graph {
+        for dependency in dependencies {
             edges.push((node.clone(), dependency.clone()));
         }
     }

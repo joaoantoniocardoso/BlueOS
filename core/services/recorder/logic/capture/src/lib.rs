@@ -9,53 +9,18 @@ use core::{error::Error, fmt, time::Duration};
 
 use blueos_domain::{Now, Outcome};
 
-/// User settings that affect whether samples are written and when recording starts.
+/// Block state: settings, armed fact, recording lifecycle, and video streams.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CaptureSettings {
-    /// When set, MAVLink topics are recorded only while the vehicle is armed.
-    pub record_mavlink_only_when_armed: bool,
-    /// When set, recording starts as soon as settings allow; applied live on update.
-    pub auto_start_recording: bool,
-}
-
-/// The recording the Domain tracks after the data plane reports an open [`McapFile`].
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ActiveRecording {
-    /// Monotonic file identity the Task assigns; stale facts for other values are ignored.
-    pub file_generation: u64,
-    /// Base name of the file being written.
-    pub file_name: String,
-    /// Bytes reported by the data plane for this file.
-    pub bytes_written: u64,
-}
-
-/// Projection the data plane Task reconciles against (D-27). Pure function of the Snapshot.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct RecordGate {
-    /// Whether the control plane wants the Task to keep an MCAP file open.
-    pub recording_requested: bool,
+pub struct Capture {
+    /// User settings including armed gating and auto-start.
+    pub settings: CaptureSettings,
     /// Latest armed fact from the vehicle.
     pub armed: bool,
-    /// Copy of [`CaptureSettings::record_mavlink_only_when_armed`].
-    pub record_mavlink_only_when_armed: bool,
-    /// File generation the Task should open or rotate to; bumps on each rotation request.
-    pub desired_file_generation: u64,
-    /// Video topics that are actively being captured.
-    pub recording_video_topics: BTreeSet<String>,
-}
-
-/// Control-plane recording lifecycle; illegal combinations are unrepresentable.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum RecordingState {
-    /// The user is not recording and the Task should close any open file.
-    Idle,
-    /// Recording was requested; waiting for the Task to report an open file.
-    AwaitingMcapFile {
-        /// Matches [`RecordGate::desired_file_generation`].
-        file_generation: u64,
-    },
-    /// The Task reported an open file for this recording.
-    Active(ActiveRecording),
+    /// MCAP file lifecycle; see [`RecordingState`].
+    pub recording: RecordingState,
+    /// Next [`RecordGate::desired_file_generation`] assigned on start or rotation.
+    next_file_generation: u64,
+    video_streams: BTreeMap<String, VideoStream>,
 }
 
 /// Commands a client sends to the capture Block.
@@ -80,6 +45,20 @@ pub enum CaptureRequest {
         /// Video topic to stop.
         topic: String,
     },
+}
+
+/// Control-plane recording lifecycle; illegal combinations are unrepresentable.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum RecordingState {
+    /// The user is not recording and the Task should close any open file.
+    Idle,
+    /// Recording was requested; waiting for the Task to report an open file.
+    AwaitingMcapFile {
+        /// Matches [`RecordGate::desired_file_generation`].
+        file_generation: u64,
+    },
+    /// The Task reported an open file for this recording.
+    Active(ActiveRecording),
 }
 
 /// Facts the data plane Task reports (full current value, handled idempotently).
@@ -108,15 +87,6 @@ pub enum CaptureObservedFact {
     ArmedChanged(bool),
 }
 
-/// Per-video-stream state used for the record gate.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct VideoStream {
-    /// Same string as the map key.
-    pub topic: String,
-    /// Whether this stream is included in [`RecordGate::recording_video_topics`].
-    pub is_recording: bool,
-}
-
 /// Domain events emitted by the capture Block.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum CaptureEvent {
@@ -136,26 +106,56 @@ pub enum CaptureRejection {
     NotRecording,
 }
 
+/// Per-video-stream state used for the record gate.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VideoStream {
+    /// Same string as the map key.
+    pub topic: String,
+    /// Whether this stream is included in [`RecordGate::recording_video_topics`].
+    pub is_recording: bool,
+}
+
+/// Projection the data plane Task reconciles against (D-27). Pure function of the Snapshot.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RecordGate {
+    /// Whether the control plane wants the Task to keep an MCAP file open.
+    pub recording_requested: bool,
+    /// Latest armed fact from the vehicle.
+    pub armed: bool,
+    /// Copy of [`CaptureSettings::record_mavlink_only_when_armed`].
+    pub record_mavlink_only_when_armed: bool,
+    /// File generation the Task should open or rotate to; bumps on each rotation request.
+    pub desired_file_generation: u64,
+    /// Video topics that are actively being captured.
+    pub recording_video_topics: BTreeSet<String>,
+}
+
+/// The recording the Domain tracks after the data plane reports an open [`McapFile`].
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ActiveRecording {
+    /// Monotonic file identity the Task assigns; stale facts for other values are ignored.
+    pub file_generation: u64,
+    /// Base name of the file being written.
+    pub file_name: String,
+    /// Bytes reported by the data plane for this file.
+    pub bytes_written: u64,
+}
+
+/// User settings that affect whether samples are written and when recording starts.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CaptureSettings {
+    /// When set, MAVLink topics are recorded only while the vehicle is armed.
+    pub record_mavlink_only_when_armed: bool,
+    /// When set, recording starts as soon as settings allow; applied live on update.
+    pub auto_start_recording: bool,
+}
+
 type CaptureOutcome = Outcome<
     CaptureEvent,
     core::convert::Infallible,
     core::convert::Infallible,
     core::convert::Infallible,
 >;
-
-/// Block state: settings, armed fact, recording lifecycle, and video streams.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Capture {
-    /// User settings including armed gating and auto-start.
-    pub settings: CaptureSettings,
-    /// Latest armed fact from the vehicle.
-    pub armed: bool,
-    /// MCAP file lifecycle; see [`RecordingState`].
-    pub recording: RecordingState,
-    /// Next [`RecordGate::desired_file_generation`] assigned on start or rotation.
-    next_file_generation: u64,
-    video_streams: BTreeMap<String, VideoStream>,
-}
 
 impl Default for CaptureSettings {
     fn default() -> Self {

@@ -1,8 +1,8 @@
-pub struct Library;
-
 pub struct Recorder {
     library: Library,
 }
+
+pub struct Library;
 
 pub fn run() {
     start();

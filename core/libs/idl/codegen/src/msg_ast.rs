@@ -4,6 +4,26 @@ use std::collections::BTreeSet;
 
 use roslibrust_codegen::{ArrayType, ConstantInfo, FieldInfo, RosLiteral};
 
+#[derive(Clone, Debug)]
+pub struct Message {
+    fields: Vec<Field>,
+    constants: Vec<Constant>,
+}
+
+#[derive(Clone, Debug)]
+pub struct Field {
+    name: String,
+    case: FieldCase,
+    datatype: DataType,
+}
+
+#[derive(Clone, Debug)]
+pub struct Constant {
+    pub name: String,
+    pub datatype: DataType,
+    pub value: ConstantValue,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DataType {
     String,
@@ -30,13 +50,6 @@ pub enum FieldCase {
 }
 
 #[derive(Clone, Debug)]
-pub struct Field {
-    name: String,
-    case: FieldCase,
-    datatype: DataType,
-}
-
-#[derive(Clone, Debug)]
 pub enum ConstantValue {
     U8(u8),
     U16(u16),
@@ -49,19 +62,6 @@ pub enum ConstantValue {
     F32(f32),
     F64(f64),
     String(String),
-}
-
-#[derive(Clone, Debug)]
-pub struct Constant {
-    pub name: String,
-    pub datatype: DataType,
-    pub value: ConstantValue,
-}
-
-#[derive(Clone, Debug)]
-pub struct Message {
-    fields: Vec<Field>,
-    constants: Vec<Constant>,
 }
 
 impl Field {
