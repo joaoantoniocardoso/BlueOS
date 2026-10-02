@@ -355,6 +355,9 @@ class CdrReader:
     def is_exhausted(self) -> bool:
         return self._position >= len(self._buffer)
 
+    def remaining_bytes(self) -> int:
+        return len(self._buffer) - self._position
+
     def _align(self, alignment: int) -> None:
         offset = self._position % alignment
         if offset == 0:
@@ -545,6 +548,8 @@ def _decode_field(reader: CdrReader, field_type: FieldType) -> Any:
         if reader.is_exhausted():
             return []
         count = reader.read_u32()
+        if count > reader.remaining_bytes():
+            raise IdlCodecError("CDR sequence length exceeds the remaining payload")
         assert field_type.element is not None
         return [_decode_field_value(reader, field_type.element) for _ in range(count)]
 
