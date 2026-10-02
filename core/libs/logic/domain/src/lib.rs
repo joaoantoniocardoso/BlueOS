@@ -116,8 +116,8 @@ pub trait Domain: 'static {
 
 /// A Domain that answers Queries. A Domain without Queries does not implement it.
 pub trait DomainQueries: Domain {
-    /// The questions a client can ask.
-    type Query;
+    /// The questions a client can ask. The Kernel moves them into its Inbox, so they are `Send + 'static`.
+    type Query: Send + 'static;
     /// The answer to a Query.
     type Response;
 
