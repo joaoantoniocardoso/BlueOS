@@ -1,10 +1,6 @@
 //! Hostile CDR inputs must fail without large allocations.
 
-use blueos_idl::{
-    Message,
-    cdr,
-    msg::blueos_msgs::ServiceInfo,
-};
+use blueos_idl::{Message, cdr, msg::blueos_msgs::ServiceInfo};
 
 #[test]
 fn service_info_rejects_hostile_capabilities_length() {
