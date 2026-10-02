@@ -160,6 +160,32 @@ jobs:
         working-directory: core
         run: cargo llvm-cov report --summary-only >> "$GITHUB_STEP_SUMMARY"
 
+  rust-backend-conformance:
+    runs-on: ubuntu-latest
+    services:
+      zenohd:
+        image: eclipse/zenoh:1.9.0
+        ports:
+          - 7447:7447
+    env:
+      BLUEOS_ZENOH_ENDPOINT: tcp/127.0.0.1:7447
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Use cached dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+          shared-key: rust-backend-conformance
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: L5 backend conformance (zenohd)
+        working-directory: core
+        run: cargo test -p blueos-comms-zenoh --test backend_conformance
+
   deploy-docker-images:
     runs-on: ubuntu-latest
     needs: [frontend-tests, python-tests]
