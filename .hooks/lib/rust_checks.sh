@@ -45,15 +45,23 @@ check_rust_style_copies() {
 check_generated_idl() {
     local workspace_dir="$1"
     local idl_generated="$workspace_dir/libs/idl/src/generated"
+    local idl_typescript="$workspace_dir/libs/idl/typescript"
     local temporary
     temporary=$(mktemp -d)
     (
         cd "$workspace_dir" || exit 1
-        cargo run --quiet -p blueos-idl-codegen --bin blueos-idl-codegen -- --output "$temporary/generated"
+        cargo run --quiet -p blueos-idl-codegen --bin blueos-idl-codegen -- \
+            --output "$temporary/generated" \
+            --typescript-output "$temporary/typescript"
     )
     if ! diff -ru "$idl_generated" "$temporary/generated" >/dev/null; then
         rm -rf "$temporary"
         printf 'Committed IDL Rust is stale; fix with: (cd core && cargo run -p blueos-idl-codegen --bin blueos-idl-codegen -- --write)\n' >&2
+        exit 1
+    fi
+    if ! diff -ru "$idl_typescript" "$temporary/typescript" >/dev/null; then
+        rm -rf "$temporary"
+        printf 'Committed IDL TypeScript is stale; fix with: (cd core && cargo run -p blueos-idl-codegen --bin blueos-idl-codegen -- --write)\n' >&2
         exit 1
     fi
     rm -rf "$temporary"
