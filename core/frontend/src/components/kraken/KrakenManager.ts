@@ -1,3 +1,4 @@
+import { extensionLogKey, httpGatewayPrefix } from '@/libs/blueos-api/keys'
 import zenoh from '@/libs/zenoh'
 import {
   ExtensionData,
@@ -394,8 +395,12 @@ export async function finalizeExtension(
  * @param {number} timeout The timeout for the query
  * @returns {Promise<any | null>}
  */
+export function extensionLogsTopic(identifier: string): string {
+  return extensionLogKey('kraken', identifier)
+}
+
 export async function getHistoricalLogsForExtension(identifier: string, timeout: number): Promise<any | null> {
-  const queryKey = `kraken/extension/logs/request?extension_name=${identifier}`
+  const queryKey = `${httpGatewayPrefix('kraken')}/extension/logs/request?extension_name=${identifier}`
   return await zenoh.query(queryKey, QueryTarget.BestMatching, timeout)
 }
 
@@ -438,4 +443,5 @@ export default {
   finalizeExtension,
   getHistoricalLogsForExtension,
   createExtensionLogsSubscriber,
+  extensionLogsTopic,
 }

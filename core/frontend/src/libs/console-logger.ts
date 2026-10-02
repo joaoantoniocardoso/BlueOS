@@ -1,7 +1,11 @@
-import { Encoding, Session } from '@eclipse-zenoh/zenoh-ts'
+import type { Log } from '@blueos-idl/messages'
+import { Encoding } from '@eclipse-zenoh/zenoh-ts'
 
-import frontend from '@/store/frontend'
+import { encodeCdr } from '@/libs/blueos-api/cdr'
+import { logKey } from '@/libs/blueos-api/keys'
+import { LOG_SCHEMA } from '@/libs/blueos-api/types'
 import zenoh from '@/libs/zenoh'
+import frontend from '@/store/frontend'
 
 /**
  * Compliant with FoxGlove LogLevel
@@ -16,27 +20,12 @@ enum LogLevel {
   FATAL = 5,
 }
 
-/**
- * Compliant with FoxGlove Log
- * https://docs.foxglove.dev/docs/visualization/message-schemas/log
- */
-interface Log {
-  timestamp: { sec: number; nsec: number }
-  level: LogLevel
-  message: string
-  name: string
-  file: string
-  line: number
-}
-
 class ConsoleLogger {
-  private session: Session | null = null
+  private session: Awaited<ReturnType<typeof zenoh.getSession>> | null = null
 
   private static readonly STACK_LINE_REGEX = /\(?([^\s()]+):(\d+):\d+\)?/
 
-  private static readonly LOG_ENCODING = Encoding.fromString(
-    Encoding.APPLICATION_JSON.toString(),
-  ).withSchema('foxglove.Log')
+  private static readonly LOG_ENCODING = Encoding.APPLICATION_CDR.withSchema(LOG_SCHEMA)
 
   readonly originalConsole: {
     log: typeof console.log
@@ -89,33 +78,33 @@ class ConsoleLogger {
   }
 
   private interceptConsole(): void {
-    console.log = (...args: any[]) => {
+    console.log = (...args: unknown[]) => {
       this.originalConsole.log(...args)
       this.publishMessage(LogLevel.INFO, args)
     }
 
-    console.info = (...args: any[]) => {
+    console.info = (...args: unknown[]) => {
       this.originalConsole.info(...args)
       this.publishMessage(LogLevel.INFO, args)
     }
 
-    console.warn = (...args: any[]) => {
+    console.warn = (...args: unknown[]) => {
       this.originalConsole.warn(...args)
       this.publishMessage(LogLevel.WARNING, args)
     }
 
-    console.error = (...args: any[]) => {
+    console.error = (...args: unknown[]) => {
       this.originalConsole.error(...args)
       this.publishMessage(LogLevel.ERROR, args)
     }
 
-    console.debug = (...args: any[]) => {
+    console.debug = (...args: unknown[]) => {
       this.originalConsole.debug(...args)
       this.publishMessage(LogLevel.DEBUG, args)
     }
   }
 
-  private publishMessage(level: LogLevel, args: any[], file?: string, line?: number): void {
+  private publishMessage(level: LogLevel, args: unknown[], file?: string, line?: number): void {
     if (!this.session) {
       return
     }
@@ -124,7 +113,7 @@ class ConsoleLogger {
       const now = new Date()
       const timestamp = {
         sec: Math.floor(now.getTime() / 1000),
-        nsec: now.getTime() % 1000 * 1000000,
+        nanosec: now.getTime() % 1000 * 1000000,
       }
 
       if (file === undefined || line === undefined) {
@@ -142,8 +131,8 @@ class ConsoleLogger {
         line: line ?? 0,
       }
 
-      const topic = `frontend/${frontend.frontend_id}/logs`
-      const payload = JSON.stringify(message)
+      const topic = logKey('frontend')
+      const payload = encodeCdr(LOG_SCHEMA, message)
 
       // put() is async in zenoh 1.9; swallow rejections via `originalConsole` so a failed publish
       // cannot surface as an `unhandledrejection` and re-enter `publishMessage` (infinite feedback loop).
@@ -156,13 +145,13 @@ class ConsoleLogger {
     }
   }
 
-  private static extractErrorLocation(args: any[]): { file: string | undefined; line: number | undefined } {
+  private static extractErrorLocation(args: unknown[]): { file: string | undefined; line: number | undefined } {
     for (const arg of args) {
       try {
         if (arg instanceof Error && typeof arg.stack === 'string') {
           const lines = arg.stack.split('\n')
-          for (const l of lines) {
-            const match = ConsoleLogger.STACK_LINE_REGEX.exec(l)
+          for (const lineText of lines) {
+            const match = ConsoleLogger.STACK_LINE_REGEX.exec(lineText)
             if (match) {
               return {
                 file: match[1],
@@ -179,7 +168,7 @@ class ConsoleLogger {
     return { file: undefined, line: undefined }
   }
 
-  private static stringifyArgument(arg: any): string {
+  private static stringifyArgument(arg: unknown): string {
     if (arg === null) {
       return 'null'
     }
