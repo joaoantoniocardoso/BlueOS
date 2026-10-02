@@ -102,13 +102,13 @@ impl OrderVisitor {
             let dependent_pos = positions.get(&dependent);
             let dependency_pos = positions.get(&dependency);
             if let (Some(dependent_pos), Some(dependency_pos)) = (dependent_pos, dependency_pos)
-                && dependent_pos > dependency_pos
+                && dependent_pos < dependency_pos
             {
                 push(
                     &mut self.diagnostics,
                     "declaration_order",
                     item_span(&items[*dependent_pos]),
-                    format!("type `{dependent}` must be declared before type `{dependency}`"),
+                    format!("type `{dependent}` must be declared after type `{dependency}`"),
                 );
             }
         }

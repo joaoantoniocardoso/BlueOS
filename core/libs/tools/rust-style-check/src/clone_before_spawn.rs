@@ -147,12 +147,12 @@ pub fn check_file(syntax_tree: &File, diagnostics: &mut Vec<Diagnostic>) {
         if let syn::Item::Fn(function) = item {
             visitor.check_block(&function.block.stmts);
         }
-        if let syn::Item::Mod(module) = item {
-            if let Some((_, items)) = &module.content {
-                for inner in items {
-                    if let syn::Item::Fn(function) = inner {
-                        visitor.check_block(&function.block.stmts);
-                    }
+        if let syn::Item::Mod(module) = item
+            && let Some((_, items)) = &module.content
+        {
+            for inner in items {
+                if let syn::Item::Fn(function) = inner {
+                    visitor.check_block(&function.block.stmts);
                 }
             }
         }

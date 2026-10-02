@@ -73,10 +73,10 @@ fn collect_rust_sources(workspace_root: &Path) -> Vec<PathBuf> {
         {
             continue;
         }
-        if path
-            .components()
-            .any(|component| component.as_os_str() == "fixtures")
-        {
+        if path.components().any(|component| {
+            let name = component.as_os_str();
+            name == "fixtures" || name == "generated"
+        }) {
             continue;
         }
         paths.push(path);
