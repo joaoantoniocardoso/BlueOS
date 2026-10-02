@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "app/blueos",
     "libs/adapters/comms",
     "libs/adapters/comms-zenoh",
     "libs/api",
@@ -56,6 +57,7 @@ syn = { version = "2", default-features = false, features = ["full", "parsing", 
 thiserror = { version = "2.0.18", default-features = false }
 tokio = { version = "1.53", default-features = false }
 tracing = { version = "0.1.41", default-features = false }
+tracing-subscriber = { version = "0.3.22", default-features = false, features = ["env-filter", "fmt", "std"] }
 walkdir = { version = "2", default-features = false }
 zenoh = { version = "=1.9.0", default-features = false, features = ["shared-memory", "transport_tcp"] }
 zenoh-keyexpr = { version = "=1.9.0", default-features = false }

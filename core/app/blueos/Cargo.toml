@@ -1,0 +1,19 @@
+[package]
+name = "blueos"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "blueos"
+path = "src/main.rs"
+
+[features]
+probe = ["blueos-service/probe"]
+
+[dependencies]
+blueos-service.workspace = true
+
+[lints]
+workspace = true
