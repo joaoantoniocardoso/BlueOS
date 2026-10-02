@@ -16,6 +16,7 @@ use blueos_recorder_mcap::read_footer_at;
 
 const RECORDING_SUFFIX: &str = ".mcap";
 const RECOVER_SUFFIX: &str = ".recover";
+const SNAPSHOT_PARTIAL_SUFFIX: &str = ".partial";
 const LIBRARY_SCAN_MAX_DEPTH: usize = 8;
 
 /// Errors from the recordings folder adapter.
@@ -76,6 +77,7 @@ impl RecordingsFolder {
             base: base.canonicalize()?,
         };
         folder.discard_recover_files();
+        folder.discard_snapshot_partial_files();
         Ok(folder)
     }
 
@@ -111,6 +113,27 @@ impl RecordingsFolder {
         relative: &str,
     ) -> Result<(), StorageError> {
         let destination = self.resolve(relative)?;
+        fs::rename(temporary, destination)?;
+        Ok(())
+    }
+
+    /// Path for a snapshot rewrite before it is renamed into place (`<output>.partial`).
+    pub fn snapshot_temporary_path(&self, output_relative: &str) -> PathBuf {
+        self.base
+            .join(format!("{output_relative}{SNAPSHOT_PARTIAL_SUFFIX}"))
+    }
+
+    /// Renames a finished snapshot temporary file into the library folder.
+    pub fn finalize_snapshot(
+        &self,
+        temporary: &Path,
+        output_relative: &str,
+    ) -> Result<(), StorageError> {
+        validate_relative_recording_path(output_relative)?;
+        let destination = self.base.join(output_relative);
+        if let Some(parent) = destination.parent() {
+            fs::create_dir_all(parent)?;
+        }
         fs::rename(temporary, destination)?;
         Ok(())
     }
@@ -232,6 +255,49 @@ impl RecordingsFolder {
     /// Base directory path.
     pub fn base(&self) -> &Path {
         &self.base
+    }
+
+    /// Removes leftover snapshot `.partial` files under the recordings folder.
+    pub fn discard_snapshot_partial_files(&self) {
+        let mut removed = Vec::new();
+        self.discard_snapshot_partial_files_in(&self.base, &mut removed);
+        for (relative, size_bytes) in removed {
+            tracing::info!(
+                path = %relative,
+                size_bytes,
+                "Discarded leftover snapshot temporary file"
+            );
+        }
+    }
+
+    fn discard_snapshot_partial_files_in(
+        &self,
+        directory: &Path,
+        removed: &mut Vec<(String, u64)>,
+    ) {
+        let entries = match fs::read_dir(directory) {
+            Ok(value) => value,
+            Err(_) => return,
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                self.discard_snapshot_partial_files_in(&path, removed);
+                continue;
+            }
+            let name = entry.file_name();
+            if !name.to_string_lossy().ends_with(SNAPSHOT_PARTIAL_SUFFIX) {
+                continue;
+            }
+            let relative = path
+                .strip_prefix(&self.base)
+                .map(relative_path_string)
+                .unwrap_or_else(|_| name.to_string_lossy().into_owned());
+            let size_bytes = entry.metadata().map(|metadata| metadata.len()).unwrap_or(0);
+            if fs::remove_file(&path).is_ok() {
+                removed.push((relative, size_bytes));
+            }
+        }
     }
 
     fn discard_recover_files_in(&self, directory: &Path, removed: &mut Vec<(String, u64)>) {
