@@ -49,6 +49,25 @@ enum PersistMessage {
     Flush(oneshot::Sender<()>),
 }
 
+/// Lets tests wait for debounced durable writes without shutting the persister down.
+#[cfg(feature = "testing")]
+pub struct DurableWriteFlush {
+    request: mpsc::UnboundedSender<PersistMessage>,
+}
+
+#[cfg(feature = "testing")]
+impl DurableWriteFlush {
+    /// Waits until any debounced durable document queued so far has been written.
+    pub async fn flush(&self) {
+        let (done, receiver) = oneshot::channel();
+        if let Err(error) = self.request.send(PersistMessage::Flush(done)) {
+            warn!(%error, "Durable state flush queue closed");
+            return;
+        }
+        let _ = receiver.await;
+    }
+}
+
 impl DurablePersister {
     pub(crate) fn spawn(clock: Arc<dyn Clock>, store: ServiceStateStore) -> Self {
         let store = Arc::new(store);
@@ -63,14 +82,25 @@ impl DurablePersister {
         }
     }
 
-    pub(crate) async fn flush_and_shutdown(&mut self) {
+    pub(crate) async fn flush_pending(&self) {
         let (done, receiver) = oneshot::channel();
         if let Err(error) = self.request.send(PersistMessage::Flush(done)) {
             warn!(%error, "Durable state flush queue closed");
             return;
         }
         let _ = receiver.await;
+    }
+
+    pub(crate) async fn flush_and_shutdown(&mut self) {
+        self.flush_pending().await;
         self.task.abort();
+    }
+
+    #[cfg(feature = "testing")]
+    pub(crate) fn flush_handle(&self) -> DurableWriteFlush {
+        DurableWriteFlush {
+            request: self.request.clone(),
+        }
     }
 }
 

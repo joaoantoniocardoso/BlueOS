@@ -37,6 +37,7 @@ pub struct EffectLog<D: Domain>(EffectLogStorage<D>);
 pub struct Harness<S: Service> {
     backend: Arc<dyn CommsBackend>,
     command_sender: CommandSender<S::Domain>,
+    durable_flush: Option<crate::durable_state::DurableWriteFlush>,
     #[expect(
         dead_code,
         reason = "held so that dropping the Harness aborts the Kernel"
@@ -170,6 +171,7 @@ impl<S: Service> Harness<S> {
         let command_sender = kernel
             .command_sender()
             .expect("the Kernel hands out a CommandSender before it runs");
+        let durable_flush = kernel.durable_write_flush();
         let mut tasks = JoinSet::new();
         tasks.spawn(async move {
             kernel.run().await;
@@ -177,9 +179,17 @@ impl<S: Service> Harness<S> {
         Ok(Self {
             backend,
             command_sender,
+            durable_flush,
             kernel: tasks,
             service: PhantomData,
         })
+    }
+
+    /// Waits for debounced durable state writes to reach disk.
+    pub async fn flush_durable_writes(&self) {
+        if let Some(flush) = &self.durable_flush {
+            flush.flush().await;
+        }
     }
 
     /// Sends Commands into the service's Inbox without using the backbone.

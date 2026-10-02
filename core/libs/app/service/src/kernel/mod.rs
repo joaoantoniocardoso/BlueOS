@@ -210,6 +210,14 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         self.log_publisher = Some(runtime);
     }
 
+    /// Handle for waiting on debounced durable writes in tests.
+    #[cfg(feature = "testing")]
+    pub fn durable_write_flush(&self) -> Option<crate::durable_state::DurableWriteFlush> {
+        self.durable
+            .as_ref()
+            .map(|durable| durable.persister.flush_handle())
+    }
+
     async fn boot(
         service: &'static str,
         mut builder: ServiceBuilder<D, Context>,
