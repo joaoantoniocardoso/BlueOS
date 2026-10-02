@@ -277,6 +277,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "blueos-example-cookbook"
+version = "0.1.0"
+dependencies = [
+ "blueos-api",
+ "blueos-comms",
+ "blueos-domain",
+ "blueos-idl",
+ "blueos-logging",
+ "blueos-service",
+ "blueos-settings",
+ "clap",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tokio-util",
+ "tracing",
+]
+
+[[package]]
 name = "blueos-example-domain"
 version = "0.1.0"
 dependencies = [

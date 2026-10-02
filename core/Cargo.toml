@@ -21,6 +21,7 @@ members = [
     "services/recorder/logic/capture",
     "services/recorder/logic/recorder",
     "services/example/app",
+    "services/example/cookbook",
     "services/example/logic/api",
     "services/example/logic/domain",
     "services/tank/app",
