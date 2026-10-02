@@ -16,6 +16,12 @@ interface FakeSubscriber {
   open: boolean
 }
 
+interface FakeLivelinessSubscriber {
+  key: string
+  onAlive: (alive: boolean) => void
+  open: boolean
+}
+
 function matches(expression: string, key: string): boolean {
   const chunks = expression.split('/').map((chunk) => {
     if (chunk === '*') {
@@ -33,6 +39,8 @@ function matches(expression: string, key: string): boolean {
 export default class FakeTransport implements Transport {
   readonly subscribers: FakeSubscriber[] = []
 
+  readonly livelinessSubscribers: FakeLivelinessSubscriber[] = []
+
   /** Runs once a subscriber is declared, before `subscribe` resolves. */
   afterSubscribe?: () => void
 
@@ -44,6 +52,16 @@ export default class FakeTransport implements Transport {
     const subscriber = { key, onSample, open: true }
     this.subscribers.push(subscriber)
     this.afterSubscribe?.()
+    return {
+      close: async () => {
+        subscriber.open = false
+      },
+    }
+  }
+
+  async subscribeLiveliness(key: string, onAlive: (alive: boolean) => void): Promise<Subscription> {
+    const subscriber = { key, onAlive, open: true }
+    this.livelinessSubscribers.push(subscriber)
     return {
       close: async () => {
         subscriber.open = false
@@ -81,6 +99,15 @@ export default class FakeTransport implements Transport {
     for (const subscriber of this.subscribers) {
       if (subscriber.open && matches(subscriber.key, sample.key)) {
         subscriber.onSample(sample)
+      }
+    }
+  }
+
+  /** Delivers a liveliness put or delete for tests. */
+  publishLiveliness(key: string, alive: boolean): void {
+    for (const subscriber of this.livelinessSubscribers) {
+      if (subscriber.open && matches(subscriber.key, key)) {
+        subscriber.onAlive(alive)
       }
     }
   }

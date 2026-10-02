@@ -29,4 +29,8 @@ export interface Transport {
   subscribe(key: string, onSample: (sample: Sample) => void): Promise<Subscription>
   /** Resolves with every reply once the query on `key` is complete; no reply at all is an empty list. */
   get(key: string, body?: QueryBody): Promise<Reply[]>
+  /**
+   * Subscribes to service liveliness on `key`. `onAlive` is true on token put and false on delete.
+   */
+  subscribeLiveliness(key: string, onAlive: (alive: boolean) => void): Promise<Subscription>
 }

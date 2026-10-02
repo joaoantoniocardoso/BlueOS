@@ -45,5 +45,15 @@ export default function zenohTransport(session: Session): Transport {
       }
       return replies
     },
+
+    async subscribeLiveliness(key, onAlive) {
+      const subscriber = await session.liveliness().declareSubscriber(key, {
+        history: true,
+        handler: (sample: ZenohSample) => {
+          onAlive(sample.kind() === SampleKind.PUT)
+        },
+      })
+      return { close: () => subscriber.undeclare() }
+    },
   }
 }
