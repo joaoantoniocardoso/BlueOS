@@ -89,29 +89,33 @@
 </template>
 
 <script lang="ts">
-import {
-  Sample, Subscriber,
-} from '@eclipse-zenoh/zenoh-ts'
 import AnsiUp from 'ansi_up'
 import { saveAs } from 'file-saver'
 import Vue from 'vue'
 
-import kraken from '@/components/kraken/KrakenManager'
-import { decodeSample } from '@/libs/blueos-api/cdr'
-import { cdrEncoding } from '@/libs/blueos-api/keys'
-import { LOG_SCHEMA } from '@/libs/blueos-api/types'
+import { extensionLogKey } from '@/libs/blueos-api/keys'
+import {
+  requestExtensionLogs,
+  watchExtensionLogs,
+} from '@/libs/blueos-api/logs'
+import type { Subscription, Transport } from '@/libs/blueos-api/transport'
+import zenohTransport from '@/libs/blueos-api/zenoh-transport'
+import zenoh from '@/libs/zenoh'
+import { blueosApiMixin } from '@/mixins/blueosApi'
 
 interface LogMessage {
   message: string
 }
 
 const ansi = new AnsiUp()
+const KRAKEN_SERVICE = 'kraken'
 const LOGS_QUERY_TIMEOUT_MS = 30000
 const MAX_LOG_MESSAGES = 5000
 const BUFFER_FLUSH_INTERVAL_MS = 16
 
 export default Vue.extend({
   name: 'ExtensionLogsModal',
+  mixins: [blueosApiMixin],
   props: {
     value: {
       type: Boolean,
@@ -128,8 +132,9 @@ export default Vue.extend({
   },
   data() {
     return {
+      transport: null as Transport | null,
       modal_messages: [] as LogMessage[],
-      modal_subscriber: null as Subscriber | null,
+      log_subscription: null as Subscription | null,
       current_modal_topic: '',
       modal_error: null as string | null,
       requesting_logs: false,
@@ -154,6 +159,10 @@ export default Vue.extend({
       }
     },
   },
+  async created() {
+    const session = await zenoh.getSession()
+    this.transport = zenohTransport(session)
+  },
   beforeDestroy() {
     this.cleanup()
   },
@@ -162,10 +171,15 @@ export default Vue.extend({
       this.modal_messages = []
       this.modal_error = null
 
+      if (!this.transport) {
+        this.setErrorAndStop('Zenoh transport is not ready')
+        return
+      }
+
       await this.requestHistoricalLogsForExtension(this.extensionIdentifier)
 
       if (!this.current_modal_topic) {
-        await this.setupModalSubscriber(kraken.extensionLogsTopic(this.extensionIdentifier))
+        await this.setupLogWatcher(extensionLogKey(KRAKEN_SERVICE, this.extensionIdentifier))
       }
     },
     closeModal() {
@@ -173,9 +187,9 @@ export default Vue.extend({
       this.$emit('input', false)
     },
     cleanup() {
-      if (this.modal_subscriber) {
-        this.modal_subscriber.undeclare()
-        this.modal_subscriber = null
+      if (this.log_subscription) {
+        this.log_subscription.close().catch(() => undefined)
+        this.log_subscription = null
       }
       if (this.buffer_flush_timer) {
         clearTimeout(this.buffer_flush_timer)
@@ -203,48 +217,51 @@ export default Vue.extend({
       this.buffer_flush_timer = null
       this.scheduleScroll()
     },
-    async setupModalSubscriber(topic: string) {
-      if (this.current_modal_topic === topic && this.modal_subscriber) {
+    async setupLogWatcher(topic: string) {
+      if (!this.transport || this.current_modal_topic === topic && this.log_subscription) {
         return
       }
 
-      if (this.modal_subscriber) {
-        await this.modal_subscriber.undeclare()
+      if (this.log_subscription) {
+        await this.log_subscription.close()
+        this.log_subscription = null
       }
 
       this.current_modal_topic = topic
-      this.modal_subscriber = await kraken.createExtensionLogsSubscriber(topic, this.handleSubscriber)
-    },
-    async handleSubscriber(sample: Sample) {
-      const encoding = sample.encoding().toString()
-      let message = sample.payload().toString()
-
-      if (encoding === cdrEncoding(LOG_SCHEMA)) {
-        try {
-          const decoded = decodeSample({
-            key: '',
-            payload: sample.payload().toBytes(),
-            encoding,
-          }, LOG_SCHEMA)
-          message = decoded.message
-        } catch {
-          // Keep raw payload when decode fails.
-        }
-      }
-
-      this.message_buffer.push({ message })
-
-      if (!this.buffer_flush_timer) {
-        this.buffer_flush_timer = window.setTimeout(() => {
-          this.flushMessageBuffer()
-        }, BUFFER_FLUSH_INTERVAL_MS)
-      }
+      const identifier = this.extensionIdentifier
+      this.log_subscription = await this.blueosTrackSubscription(watchExtensionLogs(
+        this.transport,
+        KRAKEN_SERVICE,
+        identifier,
+        {
+          onLog: (entry) => {
+            this.message_buffer.push({ message: entry.message })
+            if (!this.buffer_flush_timer) {
+              this.buffer_flush_timer = window.setTimeout(() => {
+                this.flushMessageBuffer()
+              }, BUFFER_FLUSH_INTERVAL_MS)
+            }
+          },
+          onError: (error) => {
+            const errorMessage = error instanceof Error ? error.message : String(error)
+            this.setErrorAndStop(`Error decoding extension log: ${errorMessage}`)
+          },
+        },
+      ))
     },
     async requestHistoricalLogsForExtension(identifier: string) {
+      if (!this.transport) {
+        return
+      }
       this.requesting_logs = true
       this.modal_error = null
       try {
-        const response = await kraken.getHistoricalLogsForExtension(identifier, this.query_timeout)
+        const response = await Promise.race([
+          requestExtensionLogs(this.transport, KRAKEN_SERVICE, identifier),
+          new Promise<null>((resolve) => {
+            window.setTimeout(() => resolve(null), this.query_timeout)
+          }),
+        ])
 
         if (!response) {
           this.setErrorAndStop('No response from logs service (timeout or connection issue)')
@@ -258,14 +275,14 @@ export default Vue.extend({
         }
 
         if (Array.isArray(response.messages)) {
-          this.modal_messages = response.messages.map((msg: { message?: string }) => ({
-            message: msg.message != null ? String(msg.message) : '',
+          this.modal_messages = response.messages.map((line) => ({
+            message: line.message != null ? String(line.message) : '',
           }))
           this.scrollToBottom()
         }
 
         if (response.topic && response.topic !== this.current_modal_topic) {
-          await this.setupModalSubscriber(response.topic)
+          await this.setupLogWatcher(response.topic)
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error)

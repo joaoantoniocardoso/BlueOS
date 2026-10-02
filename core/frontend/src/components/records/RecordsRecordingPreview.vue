@@ -20,7 +20,7 @@
           icon
           large
           color="primary"
-          class="play-btn"
+          class="play-btn sheet_bg"
           @click.stop="onClick"
         >
           <v-icon large>
@@ -48,7 +48,7 @@
         icon
         large
         color="primary"
-        class="play-btn mt-2"
+        class="play-btn sheet_bg mt-2"
         @click.stop="onClick"
       >
         <v-icon large>
@@ -174,13 +174,26 @@ export default Vue.extend({
 }
 
 .preview-overlay {
+  position: relative;
+  isolation: isolate;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.25);
 }
 
-.play-btn {
-  background-color: rgba(255, 255, 255, 0.85) !important;
+.preview-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-color: var(--v-blue_whale-base);
+  opacity: 0.25;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.preview-overlay .play-btn {
+  position: relative;
+  z-index: 1;
+  opacity: 0.85;
 }
 
 .preview-clickable {

@@ -41,6 +41,35 @@ export function ros2ddsTopicFromDataKey(key: string): string {
   return `/${path}`
 }
 
+function ros2ddsUnescapeKey(segment: string): string {
+  return segment.replace(/\u00a7/g, '/')
+}
+
+/** Extracts the Zenoh data key a ros2dds liveliness token advertises (slashes, no leading slash). */
+export function ros2ddsLivelinessTokenToDataKey(key: string): string | undefined {
+  if (!key.startsWith('@/')) {
+    return undefined
+  }
+  const afterAt = key.slice(2)
+  const zidEnd = afterAt.indexOf('/')
+  if (zidEnd < 0) {
+    return undefined
+  }
+  const rest = afterAt.slice(zidEnd + 1)
+  if (!rest.startsWith('@ros2_lv/')) {
+    return undefined
+  }
+  const segments = rest.slice('@ros2_lv/'.length).split('/')
+  if (segments.length < 2) {
+    return undefined
+  }
+  const entityKind = ROS2DDS_ENTITY_KIND[segments[0]]
+  if (!entityKind) {
+    return undefined
+  }
+  return ros2ddsUnescapeKey(segments[1])
+}
+
 export function parseRmwZenohDataKey(key: string): Ros2Info | undefined {
   const hashMatch = key.match(/\/(RIHS01_[a-f0-9]+)$/)
   if (!hashMatch) {

@@ -7,6 +7,7 @@ import {
   parseRmwZenohDataKey,
   parseRmwZenohToken,
   parseRos2ddsToken,
+  ros2ddsLivelinessTokenToDataKey,
   ros2ddsTopicFromDataKey,
 } from '@/libs/zenoh-inspector/logic/ros2-names'
 import type { Ros2Info } from '@/libs/zenoh-inspector/logic/types'
@@ -22,6 +23,7 @@ type VectorFile = {
   ros2dds_tokens: { key: string, expected: Record<string, unknown> | null }[]
   dds_type_names: { dds: string, ros: string | null }[]
   ros2dds_data_key_topics: { key: string, topic: string }[]
+  ros2dds_token_data_keys: { key: string, dataKey: string }[]
 }
 
 const vectors = JSON.parse(readFileSync(vectorsPath, 'utf8')) as VectorFile
@@ -71,6 +73,12 @@ describe('ros2-names vectors', () => {
   it('maps ros2dds data keys to ROS topic names', () => {
     for (const entry of vectors.ros2dds_data_key_topics) {
       expect(ros2ddsTopicFromDataKey(entry.key)).toBe(entry.topic)
+    }
+  })
+
+  it('maps ros2dds liveliness tokens to Zenoh data keys', () => {
+    for (const entry of vectors.ros2dds_token_data_keys) {
+      expect(ros2ddsLivelinessTokenToDataKey(entry.key)).toBe(entry.dataKey)
     }
   })
 })

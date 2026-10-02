@@ -8,7 +8,7 @@
         <v-slider
           v-model="targetLevel"
           class="flex-grow-1 mr-4"
-          :max="100"
+          :max="pumpMaxLevel"
           :min="0"
           label="Level"
           hide-details
@@ -57,6 +57,7 @@ export default Vue.extend({
     return {
       targetLevel: 0,
       pumpLevel: null as number | null,
+      pumpMaxLevel: 100,
       sending: false,
       lastError: '' as string,
     }
@@ -67,6 +68,7 @@ export default Vue.extend({
       pump,
       (message) => {
         this.pumpLevel = message.level
+        this.pumpMaxLevel = message.max_level
       },
       (error) => {
         this.lastError = error instanceof Error ? error.message : String(error)
@@ -78,9 +80,9 @@ export default Vue.extend({
       this.sending = true
       this.lastError = ''
       try {
-        const ack = await sendCommand(this.transport, SetLevel, { level: this.targetLevel })
-        if (!ack.accepted) {
-          this.lastError = ack.reason || 'command rejected'
+        const commandAck = await sendCommand(this.transport, SetLevel, { level: this.targetLevel })
+        if (!commandAck.accepted) {
+          this.lastError = commandAck.reason || 'command rejected'
         }
       } catch (error) {
         this.lastError = error instanceof Error ? error.message : String(error)

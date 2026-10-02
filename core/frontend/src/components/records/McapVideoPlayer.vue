@@ -31,11 +31,11 @@
 
     <div
       v-if="recording && tracks.length > 0"
-      class="player-stage"
+      class="player-stage blue_whale"
     >
       <div
         v-if="visible_tracks.length === 0"
-        class="stream-empty caption text-center py-8"
+        class="stream-empty caption text-center py-8 grey--text text--lighten-4"
       >
         Select at least one stream to play.
       </div>
@@ -64,7 +64,7 @@
         />
       </div>
 
-      <div class="playback-bar">
+      <div class="playback-bar blue_whale grey--text text--lighten-4">
         <div class="d-flex align-center">
           <v-btn
             v-tooltip="playing ? 'Pause' : 'Play'"
@@ -127,7 +127,7 @@
                 Streams {{ visible_tracks.length }}/{{ tracks.length }}
               </v-btn>
             </template>
-            <v-card class="stream-picker" dark>
+            <v-card class="stream-picker blue_whale" dark>
               <v-card-text class="pb-1">
                 <v-text-field
                   v-model="stream_search"
@@ -204,8 +204,8 @@
             class="timeline-video"
             :style="range.style"
           >
-            <span class="timeline-mark timeline-mark-start">&gt;</span>
-            <span class="timeline-mark timeline-mark-end">&lt;</span>
+            <span class="timeline-mark timeline-mark-start white--text">&gt;</span>
+            <span class="timeline-mark timeline-mark-end white--text">&lt;</span>
           </div>
           <div
             v-for="(range, index) in buffered_styles"
@@ -214,12 +214,12 @@
             :style="range"
           />
           <div
-            class="timeline-playhead"
+            class="timeline-playhead white"
             :style="{ left: playhead_percent }"
           />
           <div
             v-if="pointer_seconds !== null"
-            class="timeline-hover"
+            class="timeline-hover white--text"
             :style="{ left: hover_percent }"
           >
             {{ positionLabel(pointer_seconds) }}
@@ -542,6 +542,7 @@ import {
   gridStyle,
   McapPlaybackViewState,
   McapRecordingPlaybackController,
+  type McapVideoStats,
   mergedVideoCoverage,
   mp4SaveLabel,
   namingPercent,
@@ -554,6 +555,7 @@ import {
   timelinePercent,
   timelineRangeStyles,
   trackCoversAt,
+  type VideoTrack,
   visibleTracks,
 } from '@/libs/mcap'
 import { prettifySize } from '@/utils/helper_functions'
@@ -751,13 +753,13 @@ export default Vue.extend({
     },
     streamRefs(): { seek: (seconds: number) => void, play: () => void, pause: () => void }[] {
       const streams = this.$refs.stream as
-        | { seek: (s: number) => void, play: () => void, pause: () => void }[]
-        | { seek: (s: number) => void, play: () => void, pause: () => void }
+        | { seek: (seconds: number) => void, play: () => void, pause: () => void }[]
+        | { seek: (seconds: number) => void, play: () => void, pause: () => void }
       if (!streams) return []
       return Array.isArray(streams) ? streams : [streams]
     },
-    trackCovers(track: { coverage: { start: number, end: number }[] }, seconds: number): boolean {
-      return trackCoversAt(track as never, seconds)
+    trackCovers(track: VideoTrack, seconds: number): boolean {
+      return trackCoversAt(track, seconds)
     },
     onStreamReady(channelId: number, video: HTMLVideoElement): void {
       this.controller?.registerVideo(channelId, video)
@@ -799,8 +801,8 @@ export default Vue.extend({
     onCutToggle(enabled: boolean): void { this.controller?.onCutToggle(enabled) },
     onCsvBusy(busy: boolean): void { this.controller?.setCsvBusy(busy) },
     async openCsvExport(): Promise<void> { await this.controller?.openCsvExport() },
-    onStats(channelId: number, stats: unknown): void {
-      this.controller?.onStreamStats(channelId, stats as never)
+    onStats(channelId: number, stats: McapVideoStats): void {
+      this.controller?.onStreamStats(channelId, stats)
     },
     async saveMp4(): Promise<void> {
       await this.controller?.saveMp4(this.name, this.clip)
@@ -818,7 +820,6 @@ export default Vue.extend({
 }
 
 .player-stage {
-  background: #000;
   border-radius: 4px;
   overflow: hidden;
 }
@@ -830,13 +831,7 @@ export default Vue.extend({
   padding: 8px 8px 0;
 }
 
-.stream-empty {
-  color: #e5e7eb;
-}
-
 .playback-bar {
-  background: #000;
-  color: #e5e7eb;
   padding: 4px 12px 12px;
 }
 
@@ -851,7 +846,6 @@ export default Vue.extend({
 
 .stream-picker {
   min-width: 280px;
-  background: #000;
 }
 
 .stream-picker-list {
@@ -877,7 +871,7 @@ export default Vue.extend({
   top: 8px;
   height: 4px;
   border-radius: 2px;
-  background: #2a2a2a;
+  background-color: var(--v-oyster-base);
 }
 
 .timeline-video {
@@ -885,7 +879,7 @@ export default Vue.extend({
   top: 8px;
   height: 4px;
   border-radius: 2px;
-  background: #6b7280;
+  background-color: var(--v-tuna-base);
   pointer-events: none;
 }
 
@@ -894,7 +888,6 @@ export default Vue.extend({
   top: -9px;
   font-size: 10px;
   line-height: 1;
-  color: #fff;
   pointer-events: none;
 }
 
@@ -913,7 +906,7 @@ export default Vue.extend({
   top: 8px;
   height: 4px;
   border-radius: 2px;
-  background: #d1d5db;
+  background-color: var(--v-accent-base);
   pointer-events: none;
 }
 
@@ -924,7 +917,6 @@ export default Vue.extend({
   height: 10px;
   margin-left: -5px;
   border-radius: 50%;
-  background: #fff;
   pointer-events: none;
 }
 
@@ -935,8 +927,6 @@ export default Vue.extend({
   padding: 2px 6px;
   margin-bottom: 4px;
   border-radius: 3px;
-  background: rgba(0, 0, 0, 0.85);
-  color: #fff;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
@@ -945,14 +935,36 @@ export default Vue.extend({
   transform: translateX(-50%);
 }
 
+.timeline-hover::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  background-color: var(--v-blue_whale-base);
+  opacity: 0.85;
+  z-index: -1;
+}
+
 .action-group {
   min-width: 0;
 }
 
 .export-panel {
-  border: 1px solid rgba(128, 128, 128, 0.35);
+  position: relative;
+  isolation: isolate;
+  border: 1px solid var(--v-outline-base);
   border-radius: 8px;
-  background: rgba(128, 128, 128, 0.08);
+}
+
+.export-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  background-color: var(--v-outline-base);
+  opacity: 0.08;
+  z-index: -1;
+  pointer-events: none;
 }
 
 .range-wrapper {
