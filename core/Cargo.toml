@@ -6,6 +6,8 @@ members = [
     "libs/idl",
     "libs/idl/codegen",
     "libs/tools/rust-style-check",
+    "services/recorder/logic/capture",
+    "services/recorder/logic/recorder",
 ]
 
 [workspace.package]
@@ -28,6 +30,8 @@ strip = true
 [workspace.dependencies]
 blueos-comms = { path = "libs/adapters/comms" }
 blueos-domain = { path = "libs/logic/domain" }
+blueos-recorder-capture = { path = "services/recorder/logic/capture" }
+blueos-recorder-domain = { path = "services/recorder/logic/recorder" }
 blueos-idl = { path = "libs/idl" }
 blueos-idl-codegen = { path = "libs/idl/codegen" }
 blueos-rust-style-check = { path = "libs/tools/rust-style-check" }
