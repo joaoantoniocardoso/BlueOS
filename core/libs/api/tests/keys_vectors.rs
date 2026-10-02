@@ -1,8 +1,4 @@
-#![allow(
-    clippy::arbitrary_source_item_ordering,
-    missing_docs,
-    reason = "integration test against shared JSON vectors"
-)]
+//! Key helpers must match the JSON vectors shared with the TypeScript client.
 
 use std::{fs, path::PathBuf};
 
@@ -14,10 +10,6 @@ use blueos_api::{
     log_key, query_key, service_info_key, service_liveliness_key, settings_key, state_key,
     status_state_key,
 };
-
-fn vectors_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/vectors/keys.json")
-}
 
 #[derive(Debug, Deserialize)]
 struct KeysVectors {
@@ -133,4 +125,8 @@ fn keys_vectors_match_rust_api() {
     for case in vectors.cdr_encoding {
         assert_eq!(cdr_encoding(&case.schema_name), case.expected);
     }
+}
+
+fn vectors_path() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/vectors/keys.json")
 }
