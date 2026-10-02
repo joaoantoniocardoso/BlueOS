@@ -164,3 +164,11 @@ pub trait DomainQueries: Domain {
     /// Answers a Query from the Snapshot, without changing it.
     fn query(snapshot: &Self::Snapshot, query: Self::Query, now: Now) -> Self::Response;
 }
+
+/// A Domain whose Commands start Jobs. The Kernel keeps the Jobs next to the Snapshot, together the DomainState,
+/// and publishes them as the `jobs` State. A Domain without Jobs does not implement it and publishes no `jobs`
+/// State.
+pub trait DomainJobs: Domain {
+    /// What one step of a Job does.
+    type Step;
+}
