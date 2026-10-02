@@ -1,0 +1,11 @@
+# The endpoints of the recorder Service. After changing this file, regenerate with:
+#   cargo run -p blueos-idl-codegen -- --write
+
+service = "recorder"
+
+[command]
+Start = { request = "blueos_recorder_msgs/msg/StartRecordingCommand" }
+Stop = { request = "blueos_recorder_msgs/msg/StopRecordingCommand" }
+
+[state]
+recording = { message = "blueos_recorder_msgs/msg/RecordingState" }

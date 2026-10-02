@@ -61,6 +61,8 @@ pub struct TaskContext<D: Domain, Context> {
     pub commands: CommandSender<D>,
     /// The service Context from `build`.
     pub context: Arc<Context>,
+    /// Injected clock for timestamps and timers (D-29).
+    pub clock: Arc<dyn Clock>,
 }
 
 /// Spawns every future on the shared [`TaskTracker`].
@@ -195,6 +197,7 @@ impl TaskSupervisor {
                 session: Arc::clone(&session),
                 commands: commands.clone(),
                 context: Arc::clone(&context),
+                clock: Arc::clone(&clock),
             };
             let handle = self.spawner.spawn(supervise_task(
                 name.clone(),
@@ -319,6 +322,7 @@ async fn supervise_task<D: Domain, Context: Send + Sync + 'static>(
             session: Arc::clone(&task_context.session),
             commands: task_context.commands.clone(),
             context: Arc::clone(&task_context.context),
+            clock: Arc::clone(&task_context.clock),
         };
         let run = Arc::clone(&run);
         let outcome = match AssertUnwindSafe(run(context)).catch_unwind().await {

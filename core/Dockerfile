@@ -114,7 +114,6 @@ COPY ./.vscode /home/pi/.vscode
 # Copy binaries and necessary folders from download-binaries to this stage
 COPY --from=download-binaries \
     /usr/bin/blueos_startup_update.py \
-    /usr/bin/blueos-recorder \
     /usr/bin/bridges \
     /usr/bin/disktest \
     /usr/bin/linux2rest \
