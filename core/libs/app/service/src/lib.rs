@@ -13,11 +13,14 @@
 
 mod builder;
 mod clock;
+mod command_sender;
 pub mod entry;
+mod inbox;
 mod kernel;
 mod logging;
 #[cfg(feature = "probe")]
 pub mod probe;
+mod projection;
 mod run_outcome;
 mod service;
 mod settings;
@@ -29,7 +32,9 @@ pub mod testing;
 pub use blueos_domain::IoError;
 pub use builder::{Refusal, ServiceBuilder};
 pub use clock::Clock;
+pub use command_sender::{CommandSender, SendError, Session};
 pub use kernel::Kernel;
+pub use projection::Projection;
 pub use run_outcome::RunOutcome;
 pub use service::{Service, ServiceContext, ServiceError};
 pub use shutdown::ShutdownHandle;
