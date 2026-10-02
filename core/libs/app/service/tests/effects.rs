@@ -541,10 +541,7 @@ async fn query_answers_while_blocking_io_is_held() {
         .expect("blocking IO should start");
     assert_eq!(
         harness
-            .query::<EmptyRequest, LevelQueryResponse>(
-                "blocking_active",
-                &EmptyRequest::default(),
-            )
+            .query::<EmptyRequest, LevelQueryResponse>("blocking_active", &EmptyRequest::default(),)
             .await
             .level,
         1
@@ -559,10 +556,7 @@ async fn query_answers_while_blocking_io_is_held() {
     command.await.expect("the Command should finish");
     assert_eq!(
         harness
-            .query::<EmptyRequest, LevelQueryResponse>(
-                "blocking_active",
-                &EmptyRequest::default(),
-            )
+            .query::<EmptyRequest, LevelQueryResponse>("blocking_active", &EmptyRequest::default(),)
             .await
             .level,
         0
