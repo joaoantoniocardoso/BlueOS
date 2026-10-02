@@ -75,6 +75,10 @@ A test that needs a State waits for it with a predicate (the `wait_for_*` helper
 check the current value), rather than reading it once and branching on it, because the IO behind the State
 may not have landed yet.
 
+A test that needs private items goes in an inline `#[cfg(test)] mod tests { ... }` at the end of its file. A test
+that uses only the public API goes in the crate's `tests/` folder. The syn checker rejects an out-of-line
+`#[cfg(test)] mod tests;`, which would sit between the two.
+
 ## Documentation
 
 - Every public item has a doc comment (`missing_docs` is denied). Private items need one only when they are not
