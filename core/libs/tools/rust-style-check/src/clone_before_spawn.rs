@@ -1,3 +1,5 @@
+use alloc::collections::BTreeSet;
+
 use syn::{
     Expr, ExprAsync, ExprCall, ExprPath, File, Pat, Stmt,
     spanned::Spanned,
@@ -8,6 +10,10 @@ use crate::{Diagnostic, push};
 
 struct SpawnVisitor {
     diagnostics: Vec<Diagnostic>,
+}
+
+struct CaptureVisitor<'a> {
+    names: &'a mut BTreeSet<String>,
 }
 
 impl<'ast> Visit<'ast> for SpawnVisitor {
@@ -58,6 +64,15 @@ impl SpawnVisitor {
     }
 }
 
+impl<'ast> Visit<'ast> for CaptureVisitor<'ast> {
+    fn visit_expr_path(&mut self, node: &'ast ExprPath) {
+        if node.qself.is_none() && node.path.segments.len() == 1 {
+            self.names.insert(node.path.segments[0].ident.to_string());
+        }
+        visit_expr_path(self, node);
+    }
+}
+
 fn clone_binding_before_spawn(prior: &[Stmt], async_block: &ExprAsync) -> bool {
     let captured = identifiers_in_async_block(async_block);
     for statement in prior {
@@ -70,24 +85,11 @@ fn clone_binding_before_spawn(prior: &[Stmt], async_block: &ExprAsync) -> bool {
     false
 }
 
-fn identifiers_in_async_block(async_block: &ExprAsync) -> std::collections::BTreeSet<String> {
-    let mut names = std::collections::BTreeSet::new();
+fn identifiers_in_async_block(async_block: &ExprAsync) -> BTreeSet<String> {
+    let mut names = BTreeSet::new();
     let mut visitor = CaptureVisitor { names: &mut names };
     visitor.visit_block(&async_block.block);
     names
-}
-
-struct CaptureVisitor<'a> {
-    names: &'a mut std::collections::BTreeSet<String>,
-}
-
-impl<'ast> Visit<'ast> for CaptureVisitor<'ast> {
-    fn visit_expr_path(&mut self, node: &'ast ExprPath) {
-        if node.qself.is_none() && node.path.segments.len() == 1 {
-            self.names.insert(node.path.segments[0].ident.to_string());
-        }
-        visit_expr_path(self, node);
-    }
 }
 
 fn clone_binding_name(statement: &Stmt) -> Option<String> {
@@ -139,7 +141,7 @@ fn is_spawn_call(expression: &Expr) -> bool {
     }
 }
 
-pub fn check_file(syntax_tree: &File, diagnostics: &mut Vec<Diagnostic>) {
+pub(crate) fn check_file(syntax_tree: &File, diagnostics: &mut Vec<Diagnostic>) {
     let mut visitor = SpawnVisitor {
         diagnostics: Vec::new(),
     };

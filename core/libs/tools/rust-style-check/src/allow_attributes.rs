@@ -24,7 +24,7 @@ impl<'ast> Visit<'ast> for AllowVisitor<'ast> {
     }
 }
 
-pub fn check_file(syntax_tree: &File, diagnostics: &mut Vec<Diagnostic>) {
+pub(crate) fn check_file(syntax_tree: &File, diagnostics: &mut Vec<Diagnostic>) {
     let mut visitor = AllowVisitor { diagnostics };
     visitor.visit_file(syntax_tree);
 }

@@ -1,5 +1,7 @@
 //! Checks the BlueOS Rust style rules that `clippy` cannot enforce.
 
+extern crate alloc;
+
 mod allow_attributes;
 mod clone_before_spawn;
 mod declaration_order;
@@ -15,8 +17,11 @@ use syn::File;
 /// One style violation with a stable rule name for tests and CI output.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Diagnostic {
+    /// The rule's name, the same as its module and fixture folder.
     pub rule: &'static str,
+    /// The 1-based line of the offending item.
     pub line: usize,
+    /// What is wrong and how to fix it.
     pub message: String,
 }
 

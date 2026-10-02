@@ -6,6 +6,9 @@ license.workspace = true
 publish = false
 description = "Syn-based linter for BlueOS Rust style rules that clippy cannot enforce"
 
+[lints]
+workspace = true
+
 [[bin]]
 name = "blueos-rust-style-check"
 path = "src/main.rs"

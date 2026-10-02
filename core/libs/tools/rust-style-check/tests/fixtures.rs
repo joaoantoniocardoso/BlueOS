@@ -1,3 +1,5 @@
+//! Each rule fails on its `fail.rs` fixture and passes on its `pass.rs` fixture.
+
 use std::path::Path;
 
 use blueos_rust_style_check::check_source;
