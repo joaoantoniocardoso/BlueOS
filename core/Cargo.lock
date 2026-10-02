@@ -169,6 +169,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "blueos"
+version = "0.1.0"
+dependencies = [
+ "blueos-service",
+]
+
+[[package]]
 name = "blueos-api"
 version = "0.1.0"
 dependencies = [
@@ -276,6 +283,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
