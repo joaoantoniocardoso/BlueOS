@@ -1,4 +1,5 @@
-//! Zenoh driver: client mode to local `zenohd`, zero-copy [`Payload`] where possible (D-09, D-10).
+//! Connects a service to the backbone through the local Zenoh router, passing each [`Payload`] on without a copy
+//! where it can.
 
 pub mod config;
 mod payload;

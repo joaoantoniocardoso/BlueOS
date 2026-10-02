@@ -2,7 +2,7 @@
 //!
 //! File layout, naming (`settings-<VERSION>.json`), the `VERSION` field, migrations, and atomic
 //! saves match `commonwealth.settings` so a Rust service can replace a Python one without touching
-//! user data. See `docs/adr/decisions.md` (D-11) for runtime vs restart-required fields.
+//! user data.
 
 mod error;
 mod manager;
