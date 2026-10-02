@@ -25,16 +25,16 @@ drift fails until the lock is refreshed intentionally:
 cargo run -p blueos-idl-codegen --bin blueos-idl-print-lock > core/libs/idl/api.lock
 ```
 
-After editing `.msg` files, rebuild to refresh TypeScript output:
+After editing `.msg` files, regenerate committed Rust and TypeScript:
 
 ```bash
-cargo build -p blueos-idl
+cargo run -p blueos-idl-codegen --bin blueos-idl-codegen -- --write
 ```
 
 ## Adding a message
 
 1. Add `interfaces/<package>/msg/<Name>.msg` (use `#` comments).
-2. `cargo build -p blueos-idl` (regenerates Rust + `typescript/`).
+2. `cargo run -p blueos-idl-codegen --bin blueos-idl-codegen -- --write` (regenerates Rust + `typescript/`).
 3. Update `api.lock` with the command above (or bump major for breaking changes).
 
 ## Consumers

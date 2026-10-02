@@ -12,6 +12,7 @@ include = [
     "/README.md",
     "/api.lock",
     "/src/**/*",
+    "/typescript/**/*",
     "/interfaces/**/*.msg",
     "/interfaces/**/package.xml",
     "/tests/vectors/cdr.json",
