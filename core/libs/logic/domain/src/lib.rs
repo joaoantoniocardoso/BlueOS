@@ -79,49 +79,6 @@ pub struct Now {
     pub monotonic: Duration,
 }
 
-impl<Event, Tick, IoRequest, TimerKey> Outcome<Event, Tick, IoRequest, TimerKey> {
-    /// Rejects the Command. Decide before changing the Snapshot: a rejected Command changes nothing.
-    pub fn reject(reason: impl Error + Send + Sync + 'static) -> Self {
-        Self::Rejected {
-            reason: Box::new(reason),
-        }
-    }
-
-    /// Lifts a Block's Outcome into the Domain that composes it, usually by passing the Domain's enum constructors:
-    /// `.map(Event::Pump, Tick::Pump, IoRequest::Pump, TimerKey::Pump)`. A type the Block leaves uninhabited is
-    /// lifted with `|never| match never {}`.
-    pub fn map<MappedEvent, MappedTick, MappedIoRequest, MappedTimerKey>(
-        self,
-        mut into_event: impl FnMut(Event) -> MappedEvent,
-        mut into_tick: impl FnMut(Tick) -> MappedTick,
-        mut into_io_request: impl FnMut(IoRequest) -> MappedIoRequest,
-        mut into_timer_key: impl FnMut(TimerKey) -> MappedTimerKey,
-    ) -> Outcome<MappedEvent, MappedTick, MappedIoRequest, MappedTimerKey> {
-        match self {
-            Self::Applied { events, effects } => Outcome::Applied {
-                events: events.into_iter().map(&mut into_event).collect(),
-                effects: effects
-                    .into_iter()
-                    .map(|effect| match effect {
-                        Effect::Io(request) => Effect::Io(into_io_request(request)),
-                        Effect::Schedule {
-                            after,
-                            key,
-                            command,
-                        } => Effect::Schedule {
-                            after,
-                            key: into_timer_key(key),
-                            command: into_tick(command),
-                        },
-                        Effect::Cancel(key) => Effect::Cancel(into_timer_key(key)),
-                    })
-                    .collect(),
-            },
-            Self::Rejected { reason } => Outcome::Rejected { reason },
-        }
-    }
-}
-
 /// The pure logic of a Service.
 ///
 /// A type the Domain has no use for is an uninhabited type ([`core::convert::Infallible`] or an empty enum), never
@@ -171,4 +128,47 @@ pub trait DomainQueries: Domain {
 pub trait DomainJobs: Domain {
     /// What one step of a Job does.
     type Step;
+}
+
+impl<Event, Tick, IoRequest, TimerKey> Outcome<Event, Tick, IoRequest, TimerKey> {
+    /// Rejects the Command. Decide before changing the Snapshot: a rejected Command changes nothing.
+    pub fn reject(reason: impl Error + Send + Sync + 'static) -> Self {
+        Self::Rejected {
+            reason: Box::new(reason),
+        }
+    }
+
+    /// Lifts a Block's Outcome into the Domain that composes it, usually by passing the Domain's enum constructors:
+    /// `.map(Event::Pump, Tick::Pump, IoRequest::Pump, TimerKey::Pump)`. A type the Block leaves uninhabited is
+    /// lifted with `|never| match never {}`.
+    pub fn map<MappedEvent, MappedTick, MappedIoRequest, MappedTimerKey>(
+        self,
+        mut into_event: impl FnMut(Event) -> MappedEvent,
+        mut into_tick: impl FnMut(Tick) -> MappedTick,
+        mut into_io_request: impl FnMut(IoRequest) -> MappedIoRequest,
+        mut into_timer_key: impl FnMut(TimerKey) -> MappedTimerKey,
+    ) -> Outcome<MappedEvent, MappedTick, MappedIoRequest, MappedTimerKey> {
+        match self {
+            Self::Applied { events, effects } => Outcome::Applied {
+                events: events.into_iter().map(&mut into_event).collect(),
+                effects: effects
+                    .into_iter()
+                    .map(|effect| match effect {
+                        Effect::Io(request) => Effect::Io(into_io_request(request)),
+                        Effect::Schedule {
+                            after,
+                            key,
+                            command,
+                        } => Effect::Schedule {
+                            after,
+                            key: into_timer_key(key),
+                            command: into_tick(command),
+                        },
+                        Effect::Cancel(key) => Effect::Cancel(into_timer_key(key)),
+                    })
+                    .collect(),
+            },
+            Self::Rejected { reason } => Outcome::Rejected { reason },
+        }
+    }
 }

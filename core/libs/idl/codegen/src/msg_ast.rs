@@ -36,27 +36,6 @@ pub struct Field {
     datatype: DataType,
 }
 
-impl Field {
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    pub fn case(&self) -> FieldCase {
-        self.case.clone()
-    }
-
-    pub fn datatype(&self) -> DataType {
-        self.datatype.clone()
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct Constant {
-    pub name: String,
-    pub datatype: DataType,
-    pub value: ConstantValue,
-}
-
 #[derive(Clone, Debug)]
 pub enum ConstantValue {
     U8(u8),
@@ -73,9 +52,30 @@ pub enum ConstantValue {
 }
 
 #[derive(Clone, Debug)]
+pub struct Constant {
+    pub name: String,
+    pub datatype: DataType,
+    pub value: ConstantValue,
+}
+
+#[derive(Clone, Debug)]
 pub struct Message {
     fields: Vec<Field>,
     constants: Vec<Constant>,
+}
+
+impl Field {
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn case(&self) -> FieldCase {
+        self.case.clone()
+    }
+
+    pub fn datatype(&self) -> DataType {
+        self.datatype.clone()
+    }
 }
 
 impl Message {
@@ -97,7 +97,7 @@ impl Message {
         let mut names = BTreeSet::new();
         for field in &self.fields {
             if let DataType::GlobalMessage { package, name } = &field.datatype {
-                names.insert(format!("{}/msg/{}", package, name));
+                names.insert(format!("{package}/msg/{name}"));
             }
         }
         names
@@ -131,7 +131,7 @@ fn ros_field_type_name(field: &Field) -> String {
         DataType::I64 => "int64".to_string(),
         DataType::F32 => "float32".to_string(),
         DataType::F64 => "float64".to_string(),
-        DataType::GlobalMessage { package, name } => format!("{}/{}", package, name),
+        DataType::GlobalMessage { package, name } => format!("{package}/{name}"),
     };
     match field.case {
         FieldCase::Vector => format!("{base}[]"),

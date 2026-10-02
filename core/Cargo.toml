@@ -1,6 +1,11 @@
 [workspace]
 resolver = "2"
-members = ["libs/logic/domain", "libs/idl", "libs/idl/codegen"]
+members = [
+    "libs/logic/domain",
+    "libs/idl",
+    "libs/idl/codegen",
+    "libs/tools/rust-style-check",
+]
 
 [workspace.package]
 version = "0.1.0"
@@ -23,14 +28,15 @@ strip = true
 blueos-domain = { path = "libs/logic/domain" }
 blueos-idl = { path = "libs/idl" }
 blueos-idl-codegen = { path = "libs/idl/codegen" }
+blueos-rust-style-check = { path = "libs/tools/rust-style-check" }
 convert_case = "0.8"
 prettyplease = "0.2"
-proc-macro2 = "1"
+proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quote = "1"
 roslibrust_codegen = { version = "0.26.0", default-features = false }
 sha2 = "0.10"
-syn = { version = "2", default-features = false, features = ["full", "parsing"] }
-walkdir = "2"
+syn = { version = "2", default-features = false, features = ["full", "parsing", "printing", "clone-impls", "visit"] }
+walkdir = { version = "2", default-features = false }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
