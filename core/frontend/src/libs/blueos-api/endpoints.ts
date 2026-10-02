@@ -3,19 +3,19 @@ import {
 } from './keys'
 import type { SchemaName } from './types'
 
-/** A State endpoint, such as the generated `tank.tank`: published on change and answered to a query. */
+/** A State endpoint, such as the generated `example.pump`: published on change and answered to a query. */
 export interface StateEndpoint<Schema extends SchemaName> {
   key: string
   messageSchema: Schema
 }
 
-/** A Command endpoint, such as the generated `tank.Drain`. It replies with a `CommandAck`. */
+/** A Command endpoint, such as the generated `example.SetLevel`. It replies with a `CommandAck`. */
 export interface CommandEndpoint<Schema extends SchemaName> {
   key: string
   requestSchema: Schema
 }
 
-/** A Query or IO query endpoint, such as the generated `tank.Level`. */
+/** A Query or IO query endpoint, such as the generated `example.Level`. */
 export interface QueryEndpoint<RequestSchema extends SchemaName, ResponseSchema extends SchemaName> {
   key: string
   requestSchema: RequestSchema
