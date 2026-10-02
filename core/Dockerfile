@@ -169,5 +169,35 @@ set -e
 
 EOF
 
+# Multicall binary (last layer: small incremental image updates when only Rust services change)
+RUN --mount=type=bind,source=target/build,target=/tmp/target/build <<-EOF
+set -e
+
+    if [ "${TARGETARCH}" = "amd64" ]; then
+        TARGET="x86_64-unknown-linux-musl"
+    elif [ "${TARGETARCH}" = "arm64" ]; then
+        TARGET="aarch64-unknown-linux-musl"
+    elif [ "${TARGETARCH}" = "arm" ]; then
+        TARGET="armv7-unknown-linux-musleabihf"
+    else
+        echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2
+        exit 1
+    fi
+
+    BIN="/tmp/target/build/${TARGET}/${TARGET}/release/blueos"
+    if [ ! -f "${BIN}" ]; then
+        echo "Missing blueos binary at ${BIN}" >&2
+        echo "From the repository root, run:" >&2
+        echo "  cd core && ./build_cross.sh" >&2
+        echo "Or for one target:" >&2
+        echo "  TARGETS='x86_64-unknown-linux-musl' ./build_cross.sh" >&2
+        exit 1
+    fi
+
+    install -m 0755 "${BIN}" /usr/bin/blueos
+    ln -sf blueos /usr/bin/recorder
+
+EOF
+
 # Start
 CMD ["/bin/bash", "-i", "-c", "/usr/bin/start-blueos-core && sleep infinity"]
