@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+# commit-msg hook. This repository keeps its hooks in .hooks/ and runs
+# .hooks/pre-push by path from CI. It does not set core.hooksPath, and the
+# shared .git/hooks directory is not part of the tree, so Git runs this file
+# only when core.hooksPath is .hooks. The pre-push check is the gate that
+# always runs.
+
+set -euo pipefail
+
+root_dir=$(git rev-parse --show-toplevel)
+# shellcheck disable=SC1091
+source "$root_dir/.hooks/lib/commit_subject.sh"
+
+if [ -e "$(git rev-parse --git-path MERGE_HEAD)" ]; then
+    exit 0
+fi
+
+message_file=$1
+subject=$(head -n 1 "$message_file")
+mapfile -t changed_files < <(commit_index_changed_paths)
+
+if [ "${#changed_files[@]}" -eq 0 ]; then
+    check_commit_subject "$subject"
+else
+    check_commit_subject "$subject" "${changed_files[@]}"
+fi

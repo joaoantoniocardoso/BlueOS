@@ -12,6 +12,7 @@ declare -a EMPTY_PATHS=()
 source "$ROOT_DIR/.hooks/lib/common.sh"
 source "$ROOT_DIR/.hooks/lib/python_checks.sh"
 source "$ROOT_DIR/.hooks/lib/rust_checks.sh"
+source "$ROOT_DIR/.hooks/lib/commit_subject.sh"
 
 declare -a ISORT_CONFIG_ARGS=(--settings-path "$CORE_DIR/pyproject.toml")
 declare -a BLACK_CONFIG_ARGS=(--config "$CORE_DIR/pyproject.toml")
@@ -50,6 +51,7 @@ if [ "$fixing" = true ]; then
 fi
 
 check_no_fixup_commits
+check_commit_subjects
 check_required_tools
 run_nginx_validation
 
@@ -94,6 +96,7 @@ if [ "${SKIP_RUST_CHECKS:-}" != "1" ]; then
         "$ROOT_DIR/.hooks/tests/rust_checks_test.sh"
         "$ROOT_DIR/.hooks/tests/ergonomics_report_test.sh"
         "$ROOT_DIR/.hooks/tests/docs_paths_test.sh"
+        "$ROOT_DIR/.hooks/tests/commit_subject_test.sh"
     fi
 fi
 
