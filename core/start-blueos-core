@@ -317,13 +317,25 @@ tune_performance
 
 # Docker stops the container with SIGTERM to this script (the main process), then kills everything after its stop
 # timeout. Forward SIGTERM to what each tmux pane runs (run-service, which stops its service without restarting it)
-# and wait for them, so services such as the recorder shut down cleanly.
+# and wait for them, so services such as the recorder shut down cleanly. Processes that a service spawned and that
+# outlived it (ArduSub, mavlink-server, dnsmasq) are children of this main process, not of a pane, so signal them too,
+# except the tmux server: its death hangs up the panes before the services finish. STOP_TIMEOUT_SECONDS is below
+# Docker's default stop timeout (10 s), so whatever is still running at the deadline is killed here and the container
+# exits 0 instead of being killed by Docker.
 function stop_services {
     echo "Stopping services.."
-    local pane_processes
+    local tmux_server_process pane_processes inherited_processes
+    tmux_server_process=$(tmux display-message -p '#{pid}') || true
     pane_processes=$(pgrep -P "$(tmux list-panes -a -F '#{pane_pid}' | paste -sd,)") || true
-    kill -TERM $pane_processes 2>/dev/null || true
-    while kill -0 $pane_processes 2>/dev/null; do
+    inherited_processes=$(pgrep -P $$ | grep -vx "$tmux_server_process") || true
+    kill -TERM $pane_processes $inherited_processes 2>/dev/null || true
+    local deadline=$((SECONDS + ${STOP_TIMEOUT_SECONDS:-8}))
+    while kill -0 $pane_processes $inherited_processes 2>/dev/null; do
+        if [ "$SECONDS" -ge "$deadline" ]; then
+            echo "Killing what is still running.."
+            kill -KILL $pane_processes $inherited_processes 2>/dev/null || true
+            break
+        fi
         sleep 0.1
     done
     echo "BlueOS stopped!"
