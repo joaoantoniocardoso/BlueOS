@@ -39,7 +39,7 @@ fn read_lock() -> BTreeMap<String, (u32, String)> {
 
 fn message_lock(lock: &BTreeMap<String, (u32, String)>) -> BTreeMap<String, (u32, String)> {
     lock.iter()
-        .filter(|(name, _)| name.contains("/msg/"))
+        .filter(|(name, _)| !name.starts_with("blueos/v1/"))
         .map(|(name, value)| (name.clone(), value.clone()))
         .collect()
 }
