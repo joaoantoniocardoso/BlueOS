@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import {
   dateFilterOptions,
@@ -8,10 +8,9 @@ import {
 } from '@/libs/recorder/filter'
 import type { LibraryRecording } from '@/libs/recorder/types'
 
-// Three hours behind UTC, so a UTC-based day would disagree with the local clock the cards display.
-beforeAll(() => {
-  process.env.TZ = 'America/Sao_Paulo'
-})
+// Three hours behind UTC, so a UTC-based day would disagree with the local clock the cards display. Set before the
+// constants below, which build dates in the local zone.
+process.env.TZ = 'America/Sao_Paulo'
 
 const DAY_ONE = new Date(2024, 0, 1, 23, 59, 59).getTime() / 1000
 const DAY_TWO = new Date(2024, 0, 2, 0, 0, 1).getTime() / 1000
