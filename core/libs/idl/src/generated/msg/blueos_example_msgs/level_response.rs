@@ -7,11 +7,11 @@ use crate::{
     message::{CdrStruct, Message},
 };
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct LevelQueryResponse {
+pub struct LevelResponse {
     pub level: u8,
     pub max_level: u8,
 }
-impl CdrStruct for LevelQueryResponse {
+impl CdrStruct for LevelResponse {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
             level: if reader.is_exhausted() {
@@ -32,12 +32,12 @@ impl CdrStruct for LevelQueryResponse {
         Ok(())
     }
 }
-impl Message for LevelQueryResponse {
-    const SCHEMA: &'static str = "# blueos_example_msgs/msg/LevelQueryResponse\n# Reply for blueos/v1/example/query/Level.\n\nuint8 level\nuint8 max_level";
-    const SCHEMA_NAME: &'static str = "blueos_example_msgs/msg/LevelQueryResponse";
+impl Message for LevelResponse {
+    const SCHEMA: &'static str = "uint8 level\nuint8 max_level";
+    const SCHEMA_NAME: &'static str = "blueos_example_msgs/srv/Level_Response";
     const TYPE_HASH: &'static str =
-        "e8078ae454d2cee17351cc1656144ce07ee0c99b6635fbf434151a7aa2385433";
+        "a6e5f89f3aaae348bd738ca7067e44cf9067fba46e80bd9db1badc121c046560";
 }
-impl LevelQueryResponse {
+impl LevelResponse {
     pub const KNOWN_FIELD_COUNT: usize = 2usize;
 }

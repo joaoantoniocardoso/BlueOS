@@ -9,7 +9,7 @@ use crate::{
     message::{CdrStruct, Message},
 };
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct RecordingIndex {
+pub struct RecordingIndexResponse {
     pub size: u64,
     pub offset: u64,
     pub closed: bool,
@@ -17,7 +17,7 @@ pub struct RecordingIndex {
     pub message_counts: Vec<crate::msg::blueos_recorder_msgs::ChannelMessageCount>,
     pub records: Vec<u8>,
 }
-impl CdrStruct for RecordingIndex {
+impl CdrStruct for RecordingIndexResponse {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
             size: if reader.is_exhausted() {
@@ -105,12 +105,12 @@ impl CdrStruct for RecordingIndex {
         Ok(())
     }
 }
-impl Message for RecordingIndex {
-    const SCHEMA: &'static str = "# blueos_recorder_msgs/msg/RecordingIndex\n# Reply of the index query: one page of a walk over record headers, so the browser can fetch chunk\n# bodies with HTTP ranges even when the file has no summary yet (still recording, needs repair).\n\nuint64 size\n# Where the next page starts.\nuint64 offset\n# A DataEnd or Footer record was reached: the walk is complete.\nbool closed\nblueos_recorder_msgs/ChunkIndexEntry[] chunks\nblueos_recorder_msgs/ChannelMessageCount[] message_counts\n# Raw Header, Schema, Channel and Metadata records met in this page, in file order.\nuint8[] records\n================================================================================\nMSG: blueos_recorder_msgs/ChannelMessageCount\n# blueos_recorder_msgs/msg/ChannelMessageCount\n\nuint16 channel_id\nuint64 count\n================================================================================\nMSG: blueos_recorder_msgs/ChunkIndexEntry\n# blueos_recorder_msgs/msg/ChunkIndexEntry\n\nuint64 start_time\nuint64 end_time\n# Offset and length of the whole Chunk record, header included.\nuint64 offset\nuint64 length\nstring compression\nuint64 compressed_size\nuint64 uncompressed_size\nuint16[] channel_ids\n# Bytes of the MessageIndex records that follow the chunk.\nuint64 message_index_length";
-    const SCHEMA_NAME: &'static str = "blueos_recorder_msgs/msg/RecordingIndex";
+impl Message for RecordingIndexResponse {
+    const SCHEMA: &'static str = "uint64 size\n# Where the next page starts.\nuint64 offset\n# A DataEnd or Footer record was reached: the walk is complete.\nbool closed\nblueos_recorder_msgs/ChunkIndexEntry[] chunks\nblueos_recorder_msgs/ChannelMessageCount[] message_counts\n# Raw Header, Schema, Channel and Metadata records met in this page, in file order.\nuint8[] records\n================================================================================\nMSG: blueos_recorder_msgs/ChannelMessageCount\n# blueos_recorder_msgs/msg/ChannelMessageCount\n\nuint16 channel_id\nuint64 count\n================================================================================\nMSG: blueos_recorder_msgs/ChunkIndexEntry\n# blueos_recorder_msgs/msg/ChunkIndexEntry\n\nuint64 start_time\nuint64 end_time\n# Offset and length of the whole Chunk record, header included.\nuint64 offset\nuint64 length\nstring compression\nuint64 compressed_size\nuint64 uncompressed_size\nuint16[] channel_ids\n# Bytes of the MessageIndex records that follow the chunk.\nuint64 message_index_length";
+    const SCHEMA_NAME: &'static str = "blueos_recorder_msgs/srv/RecordingIndex_Response";
     const TYPE_HASH: &'static str =
-        "a950ba66197d84e10b2480bc2856ccf6dff3ea6e8ceb5f18959623c3df846521";
+        "200e518341b652bd029a3aa03d1b8c5a6f0875dcc5937fbd2270d4a92080791a";
 }
-impl RecordingIndex {
+impl RecordingIndexResponse {
     pub const KNOWN_FIELD_COUNT: usize = 6usize;
 }

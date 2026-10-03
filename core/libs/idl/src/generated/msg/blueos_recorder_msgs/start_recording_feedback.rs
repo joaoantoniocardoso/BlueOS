@@ -7,8 +7,8 @@ use crate::{
     message::{CdrStruct, Message},
 };
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct EmptyRequest {}
-impl CdrStruct for EmptyRequest {
+pub struct StartRecordingFeedback {}
+impl CdrStruct for StartRecordingFeedback {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         if !reader.is_exhausted() {
             reader.read_u8()?;
@@ -20,12 +20,12 @@ impl CdrStruct for EmptyRequest {
         Ok(())
     }
 }
-impl Message for EmptyRequest {
-    const SCHEMA: &'static str = "# blueos_example_msgs/msg/EmptyRequest\n# Command payload with no semantics (StartSelfTest, CancelSelfTest). Declared empty, with no placeholder field.";
-    const SCHEMA_NAME: &'static str = "blueos_example_msgs/msg/EmptyRequest";
+impl Message for StartRecordingFeedback {
+    const SCHEMA: &'static str = "";
+    const SCHEMA_NAME: &'static str = "blueos_recorder_msgs/action/StartRecording_Feedback";
     const TYPE_HASH: &'static str =
-        "f1734b149172a687e3f4961e15fbacbdf1b343df7220696f80befce499ba3334";
+        "aed0eda94f1eb887df3798c618fdaedab967b00d4e83a1ae286106b08ad724aa";
 }
-impl EmptyRequest {
+impl StartRecordingFeedback {
     pub const KNOWN_FIELD_COUNT: usize = 0usize;
 }

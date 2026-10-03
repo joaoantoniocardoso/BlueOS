@@ -9,10 +9,10 @@ use crate::{
     message::{CdrStruct, Message},
 };
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct DeleteRecordingCommand {
+pub struct RepairRecordingGoal {
     pub path: String,
 }
-impl CdrStruct for DeleteRecordingCommand {
+impl CdrStruct for RepairRecordingGoal {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
             path: if reader.is_exhausted() {
@@ -27,12 +27,12 @@ impl CdrStruct for DeleteRecordingCommand {
         Ok(())
     }
 }
-impl Message for DeleteRecordingCommand {
-    const SCHEMA: &'static str = "# blueos_recorder_msgs/msg/DeleteRecordingCommand\n# Rejected while the recording is being written or repaired.\n\nstring path";
-    const SCHEMA_NAME: &'static str = "blueos_recorder_msgs/msg/DeleteRecordingCommand";
+impl Message for RepairRecordingGoal {
+    const SCHEMA: &'static str = "# blueos_recorder_msgs/action/RepairRecording\n# The Job type on blueos/v1/recorder/command/RepairRecording: rewrites a STATE_NEEDS_REPAIR recording so it has a\n# summary again. Progress is on the library state.\n\nstring path";
+    const SCHEMA_NAME: &'static str = "blueos_recorder_msgs/action/RepairRecording_Goal";
     const TYPE_HASH: &'static str =
-        "b80baa05a1ef8df71bca2185c9a3f57ef02116e4b7a45dafdb510999df220d0a";
+        "db70da2e2d919b4d7e6b60c02c8d4f5d91ffb7991d5c5d8ec88cd8689aa1d65e";
 }
-impl DeleteRecordingCommand {
+impl RepairRecordingGoal {
     pub const KNOWN_FIELD_COUNT: usize = 1usize;
 }

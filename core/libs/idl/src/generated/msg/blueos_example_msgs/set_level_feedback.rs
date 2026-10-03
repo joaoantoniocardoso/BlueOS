@@ -7,13 +7,13 @@ use crate::{
     message::{CdrStruct, Message},
 };
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct StopRecordingCommand {
-    pub reserved: u8,
+pub struct SetLevelFeedback {
+    pub level: u8,
 }
-impl CdrStruct for StopRecordingCommand {
+impl CdrStruct for SetLevelFeedback {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
-            reserved: if reader.is_exhausted() {
+            level: if reader.is_exhausted() {
                 Default::default()
             } else {
                 reader.read_u8()?
@@ -21,16 +21,16 @@ impl CdrStruct for StopRecordingCommand {
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {
-        writer.write_u8(self.reserved)?;
+        writer.write_u8(self.level)?;
         Ok(())
     }
 }
-impl Message for StopRecordingCommand {
-    const SCHEMA: &'static str = "# blueos_recorder_msgs/msg/StopRecordingCommand\n# Finishes the current MCAP session; samples are dropped until StartRecording.\n\nuint8 reserved";
-    const SCHEMA_NAME: &'static str = "blueos_recorder_msgs/msg/StopRecordingCommand";
+impl Message for SetLevelFeedback {
+    const SCHEMA: &'static str = "# Feedback: the level the pump is at.\nuint8 level";
+    const SCHEMA_NAME: &'static str = "blueos_example_msgs/action/SetLevel_Feedback";
     const TYPE_HASH: &'static str =
-        "6b37b53b2d9be781f1786b61d9fd965f831b3a09a7ea003f52e5f73aa6244ba0";
+        "8ef7679800c0a3fe76127625252faf723051ca530ec9badeaf5790312692c354";
 }
-impl StopRecordingCommand {
+impl SetLevelFeedback {
     pub const KNOWN_FIELD_COUNT: usize = 1usize;
 }

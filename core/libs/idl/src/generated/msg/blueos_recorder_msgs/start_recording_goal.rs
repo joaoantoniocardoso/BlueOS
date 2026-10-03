@@ -7,10 +7,10 @@ use crate::{
     message::{CdrStruct, Message},
 };
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct StartRecordingCommand {
+pub struct StartRecordingGoal {
     pub rotate_if_active: bool,
 }
-impl CdrStruct for StartRecordingCommand {
+impl CdrStruct for StartRecordingGoal {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
             rotate_if_active: if reader.is_exhausted() {
@@ -25,12 +25,12 @@ impl CdrStruct for StartRecordingCommand {
         Ok(())
     }
 }
-impl Message for StartRecordingCommand {
-    const SCHEMA: &'static str = "# blueos_recorder_msgs/msg/StartRecordingCommand\n# Opens a new MCAP session (rotate if one is already active).\n\nbool rotate_if_active";
-    const SCHEMA_NAME: &'static str = "blueos_recorder_msgs/msg/StartRecordingCommand";
+impl Message for StartRecordingGoal {
+    const SCHEMA: &'static str = "# blueos_recorder_msgs/action/StartRecording\n# The Job type on blueos/v1/recorder/command/Start: opens a new MCAP session (rotate if one is already active).\n\nbool rotate_if_active";
+    const SCHEMA_NAME: &'static str = "blueos_recorder_msgs/action/StartRecording_Goal";
     const TYPE_HASH: &'static str =
-        "3f9387f316dff318effbc26590570ba1ea6ef148f3b1c29bccc5f72a657c0135";
+        "03c4c6bebf5e4d21e8cc536f27e8a090b0fc8272e04b778edb8ad1584a930e02";
 }
-impl StartRecordingCommand {
+impl StartRecordingGoal {
     pub const KNOWN_FIELD_COUNT: usize = 1usize;
 }

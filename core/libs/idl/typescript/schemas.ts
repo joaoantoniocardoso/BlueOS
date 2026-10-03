@@ -1,12 +1,14 @@
 // @generated
 export const SCHEMAS: Record<string, string> = {
-  "blueos_example_msgs/msg/EmptyRequest": `# blueos_example_msgs/msg/EmptyRequest
-# Command payload with no semantics (StartSelfTest, CancelSelfTest). Declared empty, with no placeholder field.`,
-  "blueos_example_msgs/msg/LevelQueryResponse": `# blueos_example_msgs/msg/LevelQueryResponse
-# Reply for blueos/v1/example/query/Level.
+  "blueos_example_msgs/action/SetLevel_Feedback": `# Feedback: the level the pump is at.
+uint8 level`,
+  "blueos_example_msgs/action/SetLevel_Goal": `# blueos_example_msgs/action/SetLevel
+# The Job type on blueos/v1/example/command/SetLevel: the pump moves to a level one step at a time.
 
-uint8 level
-uint8 max_level`,
+# Goal: the level to reach, at most PumpState.max_level.
+uint8 level`,
+  "blueos_example_msgs/action/SetLevel_Result": `# Job result: the level the pump reached.
+uint8 level`,
   "blueos_example_msgs/msg/PumpState": `# blueos_example_msgs/msg/PumpState
 # Published on blueos/v1/example/state/pump (teaching example, D-20).
 
@@ -25,10 +27,10 @@ bool self_test_active`,
 
 bool passed
 string detail`,
-  "blueos_example_msgs/msg/SetLevelRequest": `# blueos_example_msgs/msg/SetLevelRequest
-# Payload for blueos/v1/example/command/SetLevel.
-
-uint8 level`,
+  "blueos_example_msgs/srv/Level_Request": `# blueos_example_msgs/srv/Level
+# The Query on blueos/v1/example/query/Level. Its request is empty.`,
+  "blueos_example_msgs/srv/Level_Response": `uint8 level
+uint8 max_level`,
   "blueos_msgs/msg/CommandAck": `# blueos_msgs/msg/CommandAck
 # Reply to a Command, which submits a Job or controls one (D-10, D-36).
 
@@ -224,6 +226,39 @@ MSG: blueos_msgs/SettingField
 
 string path
 bool restart_required`,
+  "blueos_recorder_msgs/action/DeleteRecording_Feedback": ``,
+  "blueos_recorder_msgs/action/DeleteRecording_Goal": `# blueos_recorder_msgs/action/DeleteRecording
+# The Job type on blueos/v1/recorder/command/DeleteRecording. Rejected while the recording is being written or
+# repaired.
+
+string path`,
+  "blueos_recorder_msgs/action/DeleteRecording_Result": ``,
+  "blueos_recorder_msgs/action/RepairRecording_Feedback": ``,
+  "blueos_recorder_msgs/action/RepairRecording_Goal": `# blueos_recorder_msgs/action/RepairRecording
+# The Job type on blueos/v1/recorder/command/RepairRecording: rewrites a STATE_NEEDS_REPAIR recording so it has a
+# summary again. Progress is on the library state.
+
+string path`,
+  "blueos_recorder_msgs/action/RepairRecording_Result": ``,
+  "blueos_recorder_msgs/action/SnapshotRecording_Feedback": ``,
+  "blueos_recorder_msgs/action/SnapshotRecording_Goal": `# blueos_recorder_msgs/action/SnapshotRecording
+# The Job type on blueos/v1/recorder/command/SnapshotRecording: writes an indexed copy of a recording (typically the
+# one being written) next to it, named <stem>.snapshot-<UTC ISO time>Z.mcap. The copy is announced by a
+# RecordingOperation event.
+
+string path`,
+  "blueos_recorder_msgs/action/SnapshotRecording_Result": ``,
+  "blueos_recorder_msgs/action/StartRecording_Feedback": ``,
+  "blueos_recorder_msgs/action/StartRecording_Goal": `# blueos_recorder_msgs/action/StartRecording
+# The Job type on blueos/v1/recorder/command/Start: opens a new MCAP session (rotate if one is already active).
+
+bool rotate_if_active`,
+  "blueos_recorder_msgs/action/StartRecording_Result": ``,
+  "blueos_recorder_msgs/action/StopRecording_Feedback": ``,
+  "blueos_recorder_msgs/action/StopRecording_Goal": `# blueos_recorder_msgs/action/StopRecording
+# The Job type on blueos/v1/recorder/command/Stop: finishes the current MCAP session; samples are dropped until
+# Start.`,
+  "blueos_recorder_msgs/action/StopRecording_Result": ``,
   "blueos_recorder_msgs/msg/ChannelMessageCount": `# blueos_recorder_msgs/msg/ChannelMessageCount
 
 uint16 channel_id
@@ -241,10 +276,6 @@ uint64 uncompressed_size
 uint16[] channel_ids
 # Bytes of the MessageIndex records that follow the chunk.
 uint64 message_index_length`,
-  "blueos_recorder_msgs/msg/DeleteRecordingCommand": `# blueos_recorder_msgs/msg/DeleteRecordingCommand
-# Rejected while the recording is being written or repaired.
-
-string path`,
   "blueos_recorder_msgs/msg/RecordingFile": `# blueos_recorder_msgs/msg/RecordingFile
 # One MCAP recording in the recorder folder, as listed in RecordingLibrary.
 
@@ -283,48 +314,6 @@ int32 sec
 
 # The nanoseconds component, valid in the range [0, 1e9).
 uint32 nanosec`,
-  "blueos_recorder_msgs/msg/RecordingIndex": `# blueos_recorder_msgs/msg/RecordingIndex
-# Reply of the index query: one page of a walk over record headers, so the browser can fetch chunk
-# bodies with HTTP ranges even when the file has no summary yet (still recording, needs repair).
-
-uint64 size
-# Where the next page starts.
-uint64 offset
-# A DataEnd or Footer record was reached: the walk is complete.
-bool closed
-blueos_recorder_msgs/ChunkIndexEntry[] chunks
-blueos_recorder_msgs/ChannelMessageCount[] message_counts
-# Raw Header, Schema, Channel and Metadata records met in this page, in file order.
-uint8[] records
-================================================================================
-MSG: blueos_recorder_msgs/ChannelMessageCount
-# blueos_recorder_msgs/msg/ChannelMessageCount
-
-uint16 channel_id
-uint64 count
-================================================================================
-MSG: blueos_recorder_msgs/ChunkIndexEntry
-# blueos_recorder_msgs/msg/ChunkIndexEntry
-
-uint64 start_time
-uint64 end_time
-# Offset and length of the whole Chunk record, header included.
-uint64 offset
-uint64 length
-string compression
-uint64 compressed_size
-uint64 uncompressed_size
-uint16[] channel_ids
-# Bytes of the MessageIndex records that follow the chunk.
-uint64 message_index_length`,
-  "blueos_recorder_msgs/msg/RecordingIndexRequest": `# blueos_recorder_msgs/msg/RecordingIndexRequest
-# Payload of the blueos/v1/recorder/query/index query.
-
-string path
-# 0 starts at the file magic; otherwise the \`offset\` of a previous RecordingIndex reply.
-uint64 from_offset
-# Maximum chunks in the reply (1..=20000).
-uint32 limit`,
   "blueos_recorder_msgs/msg/RecordingLibrary": `# blueos_recorder_msgs/msg/RecordingLibrary
 # Published on blueos/v1/recorder/state/library, newest recording first.
 
@@ -391,23 +380,46 @@ bool session_active
 string current_file
 uint64 session_bytes_written
 string[] recording_video_topics`,
-  "blueos_recorder_msgs/msg/RepairRecordingCommand": `# blueos_recorder_msgs/msg/RepairRecordingCommand
-# Rewrites a STATE_NEEDS_REPAIR recording so it has a summary again. Progress is on the library state.
+  "blueos_recorder_msgs/srv/RecordingIndex_Request": `# blueos_recorder_msgs/srv/RecordingIndex
+# The Query on blueos/v1/recorder/query/index. Its response is one page of a walk over record headers, so the
+# browser can fetch chunk bodies with HTTP ranges even when the file has no summary yet (still recording, needs
+# repair).
 
-string path`,
-  "blueos_recorder_msgs/msg/SnapshotRecordingCommand": `# blueos_recorder_msgs/msg/SnapshotRecordingCommand
-# Writes an indexed copy of a recording (typically the one being written) next to it, named
-# <stem>.snapshot-<UTC ISO time>Z.mcap. The copy is announced by a RecordingOperation event.
+string path
+# 0 starts at the file magic; otherwise the \`offset\` of a previous response.
+uint64 from_offset
+# Maximum chunks in the response (1..=20000).
+uint32 limit`,
+  "blueos_recorder_msgs/srv/RecordingIndex_Response": `uint64 size
+# Where the next page starts.
+uint64 offset
+# A DataEnd or Footer record was reached: the walk is complete.
+bool closed
+blueos_recorder_msgs/ChunkIndexEntry[] chunks
+blueos_recorder_msgs/ChannelMessageCount[] message_counts
+# Raw Header, Schema, Channel and Metadata records met in this page, in file order.
+uint8[] records
+================================================================================
+MSG: blueos_recorder_msgs/ChannelMessageCount
+# blueos_recorder_msgs/msg/ChannelMessageCount
 
-string path`,
-  "blueos_recorder_msgs/msg/StartRecordingCommand": `# blueos_recorder_msgs/msg/StartRecordingCommand
-# Opens a new MCAP session (rotate if one is already active).
+uint16 channel_id
+uint64 count
+================================================================================
+MSG: blueos_recorder_msgs/ChunkIndexEntry
+# blueos_recorder_msgs/msg/ChunkIndexEntry
 
-bool rotate_if_active`,
-  "blueos_recorder_msgs/msg/StopRecordingCommand": `# blueos_recorder_msgs/msg/StopRecordingCommand
-# Finishes the current MCAP session; samples are dropped until StartRecording.
-
-uint8 reserved`,
+uint64 start_time
+uint64 end_time
+# Offset and length of the whole Chunk record, header included.
+uint64 offset
+uint64 length
+string compression
+uint64 compressed_size
+uint64 uncompressed_size
+uint16[] channel_ids
+# Bytes of the MessageIndex records that follow the chunk.
+uint64 message_index_length`,
   "builtin_interfaces/msg/Duration": `# This message communicates ROS Duration.
 
 int32 sec

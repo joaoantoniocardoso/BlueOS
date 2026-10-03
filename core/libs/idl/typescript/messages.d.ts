@@ -1,10 +1,15 @@
 // @generated
 
-export interface EmptyRequest {}
-
-export interface LevelQueryResponse {
+export interface SetLevelFeedback {
   level: number;
-  max_level: number;
+}
+
+export interface SetLevelGoal {
+  level: number;
+}
+
+export interface SetLevelResult {
+  level: number;
 }
 
 export interface PumpState {
@@ -19,8 +24,11 @@ export interface SelfTestCompleted {
   detail: string;
 }
 
-export interface SetLevelRequest {
+export interface LevelRequest {}
+
+export interface LevelResponse {
   level: number;
+  max_level: number;
 }
 
 export interface CommandAck {
@@ -94,6 +102,44 @@ export interface SettingsEnvelope {
   fields: SettingField[];
 }
 
+export interface DeleteRecordingFeedback {}
+
+export interface DeleteRecordingGoal {
+  path: string;
+}
+
+export interface DeleteRecordingResult {}
+
+export interface RepairRecordingFeedback {}
+
+export interface RepairRecordingGoal {
+  path: string;
+}
+
+export interface RepairRecordingResult {}
+
+export interface SnapshotRecordingFeedback {}
+
+export interface SnapshotRecordingGoal {
+  path: string;
+}
+
+export interface SnapshotRecordingResult {}
+
+export interface StartRecordingFeedback {}
+
+export interface StartRecordingGoal {
+  rotate_if_active: boolean;
+}
+
+export interface StartRecordingResult {}
+
+export interface StopRecordingFeedback {}
+
+export interface StopRecordingGoal {}
+
+export interface StopRecordingResult {}
+
 export interface ChannelMessageCount {
   channel_id: number;
   count: number;
@@ -111,10 +157,6 @@ export interface ChunkIndexEntry {
   message_index_length: number;
 }
 
-export interface DeleteRecordingCommand {
-  path: string;
-}
-
 export interface RecordingFile {
   path: string;
   name: string;
@@ -127,21 +169,6 @@ export interface RecordingFile {
   repair_error: string;
   allowed_operations: string[];
   repair_job_id: string;
-}
-
-export interface RecordingIndex {
-  size: number;
-  offset: number;
-  closed: boolean;
-  chunks: ChunkIndexEntry[];
-  message_counts: ChannelMessageCount[];
-  records: number[];
-}
-
-export interface RecordingIndexRequest {
-  path: string;
-  from_offset: number;
-  limit: number;
 }
 
 export interface RecordingLibrary {
@@ -165,20 +192,19 @@ export interface RecordingState {
   recording_video_topics: string[];
 }
 
-export interface RepairRecordingCommand {
+export interface RecordingIndexRequest {
   path: string;
+  from_offset: number;
+  limit: number;
 }
 
-export interface SnapshotRecordingCommand {
-  path: string;
-}
-
-export interface StartRecordingCommand {
-  rotate_if_active: boolean;
-}
-
-export interface StopRecordingCommand {
-  reserved: number;
+export interface RecordingIndexResponse {
+  size: number;
+  offset: number;
+  closed: boolean;
+  chunks: ChunkIndexEntry[];
+  message_counts: ChannelMessageCount[];
+  records: number[];
 }
 
 export interface Duration {
@@ -206,11 +232,13 @@ export interface Header {
 }
 
 export interface MessageBySchema {
-  "blueos_example_msgs/msg/EmptyRequest": EmptyRequest;
-  "blueos_example_msgs/msg/LevelQueryResponse": LevelQueryResponse;
+  "blueos_example_msgs/action/SetLevel_Feedback": SetLevelFeedback;
+  "blueos_example_msgs/action/SetLevel_Goal": SetLevelGoal;
+  "blueos_example_msgs/action/SetLevel_Result": SetLevelResult;
   "blueos_example_msgs/msg/PumpState": PumpState;
   "blueos_example_msgs/msg/SelfTestCompleted": SelfTestCompleted;
-  "blueos_example_msgs/msg/SetLevelRequest": SetLevelRequest;
+  "blueos_example_msgs/srv/Level_Request": LevelRequest;
+  "blueos_example_msgs/srv/Level_Response": LevelResponse;
   "blueos_msgs/msg/CommandAck": CommandAck;
   "blueos_msgs/msg/EndpointInfo": EndpointInfo;
   "blueos_msgs/msg/JobFeedback": JobFeedback;
@@ -224,19 +252,29 @@ export interface MessageBySchema {
   "blueos_msgs/msg/ServiceStatus": ServiceStatus;
   "blueos_msgs/msg/SettingField": SettingField;
   "blueos_msgs/msg/SettingsEnvelope": SettingsEnvelope;
+  "blueos_recorder_msgs/action/DeleteRecording_Feedback": DeleteRecordingFeedback;
+  "blueos_recorder_msgs/action/DeleteRecording_Goal": DeleteRecordingGoal;
+  "blueos_recorder_msgs/action/DeleteRecording_Result": DeleteRecordingResult;
+  "blueos_recorder_msgs/action/RepairRecording_Feedback": RepairRecordingFeedback;
+  "blueos_recorder_msgs/action/RepairRecording_Goal": RepairRecordingGoal;
+  "blueos_recorder_msgs/action/RepairRecording_Result": RepairRecordingResult;
+  "blueos_recorder_msgs/action/SnapshotRecording_Feedback": SnapshotRecordingFeedback;
+  "blueos_recorder_msgs/action/SnapshotRecording_Goal": SnapshotRecordingGoal;
+  "blueos_recorder_msgs/action/SnapshotRecording_Result": SnapshotRecordingResult;
+  "blueos_recorder_msgs/action/StartRecording_Feedback": StartRecordingFeedback;
+  "blueos_recorder_msgs/action/StartRecording_Goal": StartRecordingGoal;
+  "blueos_recorder_msgs/action/StartRecording_Result": StartRecordingResult;
+  "blueos_recorder_msgs/action/StopRecording_Feedback": StopRecordingFeedback;
+  "blueos_recorder_msgs/action/StopRecording_Goal": StopRecordingGoal;
+  "blueos_recorder_msgs/action/StopRecording_Result": StopRecordingResult;
   "blueos_recorder_msgs/msg/ChannelMessageCount": ChannelMessageCount;
   "blueos_recorder_msgs/msg/ChunkIndexEntry": ChunkIndexEntry;
-  "blueos_recorder_msgs/msg/DeleteRecordingCommand": DeleteRecordingCommand;
   "blueos_recorder_msgs/msg/RecordingFile": RecordingFile;
-  "blueos_recorder_msgs/msg/RecordingIndex": RecordingIndex;
-  "blueos_recorder_msgs/msg/RecordingIndexRequest": RecordingIndexRequest;
   "blueos_recorder_msgs/msg/RecordingLibrary": RecordingLibrary;
   "blueos_recorder_msgs/msg/RecordingOperation": RecordingOperation;
   "blueos_recorder_msgs/msg/RecordingState": RecordingState;
-  "blueos_recorder_msgs/msg/RepairRecordingCommand": RepairRecordingCommand;
-  "blueos_recorder_msgs/msg/SnapshotRecordingCommand": SnapshotRecordingCommand;
-  "blueos_recorder_msgs/msg/StartRecordingCommand": StartRecordingCommand;
-  "blueos_recorder_msgs/msg/StopRecordingCommand": StopRecordingCommand;
+  "blueos_recorder_msgs/srv/RecordingIndex_Request": RecordingIndexRequest;
+  "blueos_recorder_msgs/srv/RecordingIndex_Response": RecordingIndexResponse;
   "builtin_interfaces/msg/Duration": Duration;
   "builtin_interfaces/msg/Time": Time;
   "foxglove_msgs/msg/Log": Log;
