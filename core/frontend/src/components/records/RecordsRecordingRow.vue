@@ -29,17 +29,7 @@
       <span class="mr-2">{{ formatSize(file.size_bytes) }}</span>
       <span class="caption">{{ formatDate(file.created) }}</span>
     </v-card-subtitle>
-    <v-card-text v-if="file.state === 'repairing' && repairLabel" class="py-2">
-      <v-progress-linear
-        :value="repairPercent"
-        color="primary"
-        height="8"
-        rounded
-      />
-      <div class="caption mt-1">
-        {{ repairLabel }}
-      </div>
-    </v-card-text>
+    <records-repair-progress :file="file" class="px-4 py-2" />
     <v-spacer />
     <v-card-actions class="pt-0 flex-wrap">
       <v-btn
@@ -79,13 +69,14 @@
 import Vue, { PropType } from 'vue'
 
 import RecordsRecordingPreview from '@/components/records/RecordsRecordingPreview.vue'
+import RecordsRepairProgress from '@/components/records/RecordsRepairProgress.vue'
 import type { LibraryRecording } from '@/libs/recorder/types'
 import { RECORDING_OPERATION_UI, RECORDING_STATE_UI } from '@/libs/recorder/view-logic'
 import { prettifySize } from '@/utils/helper_functions'
 
 export default Vue.extend({
   name: 'RecordsRecordingRow',
-  components: { RecordsRecordingPreview },
+  components: { RecordsRecordingPreview, RecordsRepairProgress },
   props: {
     file: {
       type: Object as PropType<LibraryRecording>,
@@ -118,20 +109,6 @@ export default Vue.extend({
     },
     stateLabel(): string {
       return RECORDING_STATE_UI[this.file.state]?.label ?? this.file.state
-    },
-    repairPercent(): number {
-      if (this.file.repair_total_bytes <= 0) {
-        return 0
-      }
-      return Math.min(100, this.file.repair_bytes_processed / this.file.repair_total_bytes * 100)
-    },
-    repairLabel(): string | null {
-      if (this.file.state !== 'repairing' || this.file.repair_total_bytes <= 0) {
-        return null
-      }
-      const read = prettifySize(this.file.repair_bytes_processed / 1024)
-      const total = prettifySize(this.file.repair_total_bytes / 1024)
-      return `${read} of ${total}`
     },
   },
   methods: {
