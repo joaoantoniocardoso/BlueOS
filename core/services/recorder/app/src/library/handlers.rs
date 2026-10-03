@@ -8,8 +8,8 @@ use core::{
 use std::sync::Arc;
 
 use blueos_idl::msg::blueos_recorder_msgs::{
-    DeleteRecordingCommand, RecordingIndex, RecordingIndexRequest, RepairRecordingCommand,
-    SnapshotRecordingCommand,
+    DeleteRecordingGoal, RecordingIndexRequest, RecordingIndexResponse, RepairRecordingGoal,
+    SnapshotRecordingGoal,
 };
 use blueos_jobs::JobId;
 use blueos_recorder_domain::{RecorderDomain, RecorderRequest};
@@ -29,11 +29,8 @@ pub(crate) struct RecorderHandlers {
 }
 
 impl Handlers<RecorderDomain> for RecorderHandlers {
-    fn delete_recording(
-        &self,
-        request: DeleteRecordingCommand,
-    ) -> Result<RecorderRequest, Refusal> {
-        let path = RecordingRelativePath::parse(&request.path)
+    fn delete_recording(&self, goal: DeleteRecordingGoal) -> Result<RecorderRequest, Refusal> {
+        let path = RecordingRelativePath::parse(&goal.path)
             .map_err(|error| Refusal::from(recording_path_refusal(error)))?;
         Ok(RecorderRequest::DeleteRecording { path })
     }
@@ -41,18 +38,15 @@ impl Handlers<RecorderDomain> for RecorderHandlers {
     fn repair_recording(
         &self,
         job_id: JobId,
-        request: RepairRecordingCommand,
+        goal: RepairRecordingGoal,
     ) -> Result<RecorderRequest, Refusal> {
-        let path = RecordingRelativePath::parse(&request.path)
+        let path = RecordingRelativePath::parse(&goal.path)
             .map_err(|error| Refusal::from(recording_path_refusal(error)))?;
         Ok(RecorderRequest::RepairRecording { job_id, path })
     }
 
-    fn snapshot_recording(
-        &self,
-        request: SnapshotRecordingCommand,
-    ) -> Result<RecorderRequest, Refusal> {
-        let path = RecordingRelativePath::parse(&request.path)
+    fn snapshot_recording(&self, goal: SnapshotRecordingGoal) -> Result<RecorderRequest, Refusal> {
+        let path = RecordingRelativePath::parse(&goal.path)
             .map_err(|error| Refusal::from(recording_path_refusal(error)))?;
         Ok(RecorderRequest::SnapshotRecording { path })
     }
@@ -60,7 +54,7 @@ impl Handlers<RecorderDomain> for RecorderHandlers {
     fn index(
         &self,
         request: RecordingIndexRequest,
-    ) -> impl Future<Output = Result<RecordingIndex, Refusal>> + Send {
+    ) -> impl Future<Output = Result<RecordingIndexResponse, Refusal>> + Send {
         let recorder_context = self.context.clone();
         async move { run_index_query(&recorder_context, request).await }
     }
@@ -80,7 +74,7 @@ impl RecorderHandlers {
 pub(crate) async fn run_index_query(
     context: &RecorderContext,
     request: RecordingIndexRequest,
-) -> Result<RecordingIndex, Refusal> {
+) -> Result<RecordingIndexResponse, Refusal> {
     let relative = RecordingRelativePath::parse(&request.path)
         .map_err(|error| Refusal::from(recording_path_refusal(error)))?;
     let path = context
