@@ -14,6 +14,8 @@ include = [
     "/src/**/*",
     "/typescript/**/*",
     "/interfaces/**/*.msg",
+    "/interfaces/**/*.srv",
+    "/interfaces/**/*.action",
     "/interfaces/**/package.xml",
     "/catalog/**/*",
     "/tests/vectors/cdr.json",
