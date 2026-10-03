@@ -1,14 +1,17 @@
 <template>
   <v-data-table
+    :value="selectedFiles"
     :headers="headers"
     :items="files"
     item-key="path"
     sort-by="created"
     sort-desc
+    show-select
     :items-per-page="25"
     :footer-props="{ 'items-per-page-options': [10, 25, 50, -1] }"
     :mobile-breakpoint="0"
     class="records-table"
+    @input="$emit('update:selected-files', $event)"
   >
     <template #item.name="{ item }">
       <span class="font-weight-medium">{{ item.name }}</span>
@@ -102,6 +105,10 @@ export default Vue.extend({
     busyOperation: {
       type: String as PropType<string | null>,
       default: null,
+    },
+    selectedFiles: {
+      type: Array as PropType<LibraryRecording[]>,
+      default: () => [],
     },
   },
   data() {
