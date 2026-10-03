@@ -37,7 +37,7 @@ export function jobsState(service: string): StateEndpoint<'blueos_msgs/msg/JobLi
   return { key: jobsKey(service), messageSchema: 'blueos_msgs/msg/JobList' }
 }
 
-/** The `UpdateSettings` Command of a Service, the only way to change its settings (D-11). */
+/** The `UpdateSettings` instant Job type of a Service, the only way to change its settings (D-11, D-12). */
 export function updateSettingsCommand(service: string): CommandEndpoint<'blueos_msgs/msg/SettingsEnvelope'> {
   return { key: commandKey(service, 'UpdateSettings'), requestSchema: 'blueos_msgs/msg/SettingsEnvelope' }
 }

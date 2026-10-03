@@ -80,17 +80,21 @@ describe('sendCommand', () => {
     expect(await sending).toEqual(rejection)
   })
 
-  it('sends UpdateSettings like any other Command', async () => {
+  it('submits UpdateSettings as a Job and returns its final status', async () => {
     const transport = new FakeTransport()
     const envelope = { document_json: '{"VERSION":1}', fields: [] }
 
     const sending = sendCommand(transport, updateSettingsCommand('tank'), envelope)
     const sent = await transport.nextQuery()
+    const jobId = attachedJobId(sent.body?.attachment)
     sent.reply(answer(sent.key, 'blueos_msgs/msg/CommandAck', {
-      accepted: true, job_id: '', status: CommandAckStatus.StatusUnknown, reason: '',
+      accepted: true, job_id: jobId, status: CommandAckStatus.Succeeded, reason: '',
     }))
 
-    expect((await sending).accepted).toBe(true)
+    expect(await sending).toEqual({
+      accepted: true, job_id: jobId, status: CommandAckStatus.Succeeded, reason: '',
+    })
+    expect(jobId).toMatch(/^[0-9a-f-]{36}$/)
     expect(sent.key).toBe(commandKey('tank', 'UpdateSettings'))
     expect(sent.body?.payload).toEqual(encodeCdr('blueos_msgs/msg/SettingsEnvelope', envelope))
   })
