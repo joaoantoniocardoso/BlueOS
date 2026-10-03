@@ -303,8 +303,9 @@ async fn cancel_job_stops_a_held_repair_and_leaves_the_original_unchanged() {
     );
 
     assert_eq!(fs::read(&path).expect("read"), original);
-    assert!(
-        !directory.path().join("cancel.recover").exists(),
+    assert_eq!(
+        recover_files(directory.path()),
+        Vec::<String>::new(),
         "cancel must remove the temporary file"
     );
 }
@@ -343,8 +344,9 @@ async fn shutdown_stops_a_held_repair_before_it_finishes() {
         "shutdown must wait for the rewrite it cancelled"
     );
     assert_eq!(fs::read(&path).expect("read"), original);
-    assert!(
-        !directory.path().join("held.recover").exists(),
+    assert_eq!(
+        recover_files(directory.path()),
+        Vec::<String>::new(),
         "shutdown must remove the temporary file"
     );
 }
@@ -429,6 +431,21 @@ async fn leftover_recover_file_is_removed_at_startup() {
         !directory.path().join("stale.recover").exists(),
         "startup must discard leftover recover files"
     );
+}
+
+/// The names of the repair temporary files in `directory`.
+fn recover_files(directory: &Path) -> Vec<String> {
+    fs::read_dir(directory)
+        .expect("read the recordings folder")
+        .map(|entry| {
+            entry
+                .expect("read an entry")
+                .file_name()
+                .to_string_lossy()
+                .into_owned()
+        })
+        .filter(|name| name.ends_with(".recover"))
+        .collect()
 }
 
 /// Waits until `feedback` shows the Job `job_id` at the read offset `bytes_processed`.
