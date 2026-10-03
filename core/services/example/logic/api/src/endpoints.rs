@@ -5,29 +5,52 @@
 
 use blueos_domain::DomainQueries;
 use blueos_idl::msg::blueos_example_msgs;
+use blueos_jobs::JobId;
 
-/// Converts between the Domain and the Messages of every endpoint of the `example` Service that is not
-/// `custom`. Implement it for the Domain in this crate: `register` in the app crate calls it.
+/// Converts between the Domain and the Messages of every endpoint of the `example` Service but its IO
+/// queries. Implement it for the Domain in this crate: `register` in the app crate calls it.
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not convert the endpoints of the `example` Service",
     label = "no `impl Conversions for {Self}` in the `example` logic/api crate",
-    note = "implement `set_level` for the Command `SetLevel`, `level` for the Query `Level`, `level_response` for the Query `Level`, `pump` for the State `pump`"
+    note = "implement `SetLevelError`, `set_level`, `set_level_feedback` and `set_level_result` for the Job type `SetLevel`, `level` and `level_response` for the Query `Level`, `pump` for the State `pump`"
 )]
 pub trait Conversions: DomainQueries {
-    /// The Command `SetLevel`, at `blueos/v1/example/command/SetLevel`.
+    /// Why a Goal of the Job type `SetLevel` is rejected.
+    type SetLevelError: core::error::Error + Send + Sync + 'static;
+
+    /// The Job type `SetLevel`, at `blueos/v1/example/command/SetLevel`.
     ///
-    /// The Domain's Request for the Message.
-    fn set_level(request: blueos_example_msgs::SetLevelRequest) -> Self::Request;
+    /// The Domain's Request for the Goal, or why it is rejected.
+    fn set_level(
+        job_id: JobId,
+        goal: blueos_example_msgs::SetLevelGoal,
+    ) -> Result<Self::Request, Self::SetLevelError>;
+
+    /// The Feedback of a Job of the Job type `SetLevel`.
+    ///
+    /// That of the Job `job_id` in `snapshot`, or `None` while it has none.
+    fn set_level_feedback(
+        snapshot: &Self::Snapshot,
+        job_id: JobId,
+    ) -> Option<blueos_example_msgs::SetLevelFeedback>;
+
+    /// The Job result of a Job of the Job type `SetLevel`.
+    ///
+    /// That of the Job `job_id`, in the `snapshot` of the step that ended it.
+    fn set_level_result(
+        snapshot: &Self::Snapshot,
+        job_id: JobId,
+    ) -> blueos_example_msgs::SetLevelResult;
 
     /// The Query `Level`, at `blueos/v1/example/query/Level`.
     ///
-    /// The Domain's Query for the Message.
-    fn level(request: blueos_example_msgs::EmptyRequest) -> Self::Query;
+    /// The Domain's Query for the request.
+    fn level(request: blueos_example_msgs::LevelRequest) -> Self::Query;
 
     /// The reply of the Query `Level`.
     ///
-    /// The Message for `response`, or `None` when `response` answers another Query.
-    fn level_response(response: Self::Response) -> Option<blueos_example_msgs::LevelQueryResponse>;
+    /// The response for `response`, or `None` when `response` answers another Query.
+    fn level_response(response: Self::Response) -> Option<blueos_example_msgs::LevelResponse>;
 
     /// The State `pump`, at `blueos/v1/example/state/pump`.
     ///
