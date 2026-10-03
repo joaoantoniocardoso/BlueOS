@@ -158,7 +158,8 @@ jobs:
       - name: cargo deny advisories
         id: advisories
         working-directory: core
-        continue-on-error: ${{ github.event_name != 'schedule' }}
+        # A new advisory in a transitive dependency must not turn every open pull request red.
+        continue-on-error: ${{ github.event_name == 'pull_request' }}
         run: |
           echo "## cargo deny advisories" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
