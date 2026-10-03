@@ -10,6 +10,7 @@ import {
   type BulkAction,
   bulkActionTargets,
   bulkJobEnded,
+  repairsInFlight,
   runBulkAction,
 } from '@/libs/recorder/bulk-actions'
 import { DELETE_RECORDING, REPAIR_RECORDING } from '@/libs/recorder/constants'
@@ -161,5 +162,39 @@ describe('recorder bulk Job results', () => {
 
     expect(bulkActionTargets(recordings, DELETE_RECORDING).map((entry) => entry.path)).toEqual(['ready.mcap'])
     expect(bulkActionTargets(recordings, REPAIR_RECORDING).map((entry) => entry.path)).toEqual(['repair.mcap'])
+  })
+})
+
+describe('recorder bulk repair in flight', () => {
+  it('lasts from the first submission until every submitted Job has ended, not until the commands are sent', async () => {
+    const action: BulkAction = { failures: [], pending: ['a.mcap', 'b.mcap'] }
+    expect(repairsInFlight(REPAIR_RECORDING, true, action)).toBe(true)
+
+    await runBulkAction(action, REPAIR_RECORDING, async () => ({
+      accepted: true, reason: '', job_id: JOB_A, status: CommandAckStatus.Executing,
+    }))
+    expect(repairsInFlight(REPAIR_RECORDING, false, action)).toBe(true)
+
+    bulkJobEnded(action, jobResult('a.mcap', JobStatusStatus.Succeeded))
+    expect(repairsInFlight(REPAIR_RECORDING, false, action)).toBe(true)
+    bulkJobEnded(action, jobResult('b.mcap', JobStatusStatus.Aborted, 'disk full'))
+    expect(repairsInFlight(REPAIR_RECORDING, false, action)).toBe(false)
+  })
+
+  it('ends with the submission when every repair is refused', async () => {
+    const action: BulkAction = { failures: [], pending: ['a.mcap'] }
+
+    await runBulkAction(action, REPAIR_RECORDING, async () => ({
+      accepted: false, reason: 'Busy.', job_id: '', status: CommandAckStatus.StatusUnknown,
+    }))
+
+    expect(repairsInFlight(REPAIR_RECORDING, false, action)).toBe(false)
+  })
+
+  it('is not about a bulk delete or download, whose commands finish at once', () => {
+    const action: BulkAction = { failures: [], pending: ['a.mcap'] }
+
+    expect(repairsInFlight(DELETE_RECORDING, false, action)).toBe(false)
+    expect(repairsInFlight(null, false, action)).toBe(false)
   })
 })

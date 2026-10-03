@@ -112,7 +112,9 @@ export class McapCsvExportController {
           },
         },
       )
-      this.callbacks.onSaved(file, fileName)
+      if (!controller.signal.aborted) {
+        this.callbacks.onSaved(file, fileName)
+      }
     } catch (error) {
       if (!(error instanceof Error) || error.name !== 'AbortError') {
         this.callbacks.onError(error instanceof Error ? error.message : String(error))

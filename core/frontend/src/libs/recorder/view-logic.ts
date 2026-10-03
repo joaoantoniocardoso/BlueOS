@@ -31,13 +31,13 @@ export const RECORDING_OPERATION_UI: Record<string, { label: string, icon: strin
 }
 
 /**
- * The operation buttons of `file`: Delete always and Repair whenever the file needs it, so a refused one stays visible
- * and says why, plus any other allowed operation that has a button.
+ * The operation buttons of `file`: Delete always and Repair while the file needs it or is being written, so a refused
+ * one stays visible and says why, plus any other allowed operation that has a button.
  */
 export function operationButtons(file: LibraryRecording): string[] {
   return Object.keys(RECORDING_OPERATION_UI).filter((operationName) => file.allowed_operations.includes(operationName)
     || operationName === DELETE_RECORDING
-    || operationName === REPAIR_RECORDING && file.state === 'needs_repair')
+    || operationName === REPAIR_RECORDING && (file.state === 'needs_repair' || file.state === 'recording'))
 }
 
 /** Why the recorder refuses `operationName` for `file`, or null when it allows it. */
