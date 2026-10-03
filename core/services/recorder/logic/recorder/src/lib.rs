@@ -78,6 +78,8 @@ pub enum RecorderRequest {
     },
     /// Removes a finished recording from the library folder.
     DeleteRecording {
+        /// The Job the delete runs as.
+        job_id: JobId,
         /// Path validated at the api boundary.
         path: RecordingRelativePath,
     },
@@ -210,9 +212,9 @@ impl Domain for RecorderDomain {
                     }
                     map_library_outcome(snapshot.library.start_repair(path, job_id, active, now))
                 }
-                RecorderRequest::DeleteRecording { path } => {
+                RecorderRequest::DeleteRecording { job_id, path } => {
                     map_library_outcome(snapshot.library.handle_request(
-                        LibraryRequest::DeleteRecording { path },
+                        LibraryRequest::DeleteRecording { path, job_id },
                         active,
                         now,
                     ))
@@ -267,6 +269,14 @@ impl Domain for RecorderDomain {
                 map_cameras_outcome(outcome)
             }
             Command::IoResult(RecorderIoResult::Library(result)) => {
+                if let LibraryIoResult::DeleteFinished { job_id, error, .. } = &result {
+                    let end = error
+                        .as_ref()
+                        .map_or(JobEnd::Succeeded, |error| JobEnd::Aborted {
+                            reason: error.to_string(),
+                        });
+                    let _ended = snapshot.jobs.end(*job_id, end);
+                }
                 map_library_outcome(snapshot.library.handle_io_result(result, active, now))
             }
             Command::IoResult(RecorderIoResult::Cameras(CamerasIoResult::PublishFailed)) => {
@@ -309,9 +319,10 @@ impl Domain for RecorderDomain {
                 let _ = error;
                 Command::IoResult(RecorderIoResult::Library(LibraryIoResult::ScanFailed))
             }
-            RecorderIoRequest::Library(LibraryIoRequest::Delete { path }) => {
+            RecorderIoRequest::Library(LibraryIoRequest::Delete { path, job_id }) => {
                 Command::IoResult(RecorderIoResult::Library(LibraryIoResult::DeleteFinished {
                     path,
+                    job_id,
                     error: Some(error),
                 }))
             }
