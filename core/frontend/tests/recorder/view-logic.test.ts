@@ -89,6 +89,8 @@ describe('recorder view-logic', () => {
     expect(canLoadThumbnail(file({ state: 'recording' }))).toBe(false)
     expect(canLoadThumbnail(file({ state: 'needs_repair' }))).toBe(false)
     expect(canLoadThumbnail(file({ state: 'repairing' }))).toBe(false)
+    expect(canLoadThumbnail(file({ state: 'ready', video_topics: [] }))).toBe(false)
+    expect(canLoadThumbnail(file({ state: 'ready', video_topics: null }))).toBe(true)
   })
 
   it('reads the snapshot output path from the result of a succeeded snapshot Job', () => {

@@ -197,6 +197,7 @@ export function canPlayRecording(file: LibraryRecording): boolean {
 /** A thumbnail seeks to the middle of the video, which needs the summary only a finished, indexed file has. */
 export function canLoadThumbnail(file: LibraryRecording): boolean {
   return file.state === 'ready'
+    && file.video_topics?.length !== 0
 }
 
 /** The snapshot a snapshot Job wrote, or null when the Job did not succeed. */
