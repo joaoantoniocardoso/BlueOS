@@ -97,6 +97,7 @@ if [ "${SKIP_RUST_CHECKS:-}" != "1" ]; then
         "$ROOT_DIR/.hooks/tests/rust_checks_test.sh"
         "$ROOT_DIR/.hooks/tests/dependency_gate_test.sh"
         "$ROOT_DIR/.hooks/tests/ergonomics_report_test.sh"
+        "$ROOT_DIR/.hooks/tests/report_section_test.sh"
         "$ROOT_DIR/.hooks/tests/docs_paths_test.sh"
         "$ROOT_DIR/.hooks/tests/commit_subject_test.sh"
     fi
