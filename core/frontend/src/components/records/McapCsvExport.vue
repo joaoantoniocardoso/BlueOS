@@ -132,6 +132,7 @@ import {
   csvSelectionLabel,
   filterChannelsBySearch,
   McapCsvExportController,
+  McapCsvExportState,
   McapVideoRecording,
   Mp4ExportRange,
 } from '@/libs/mcap'
@@ -147,12 +148,26 @@ export default Vue.extend({
   data() {
     return {
       controller: null as McapCsvExportController | null,
-      selected: [] as ReturnType<McapCsvExportController['getState']>['selected'],
-      search: '',
-      export_progress: null as ReturnType<McapCsvExportController['getState']>['exportProgress'],
+      selectedChannels: [] as McapCsvExportState['selected'],
+      searchText: '',
+      export_progress: null as McapCsvExportState['exportProgress'],
     }
   },
   computed: {
+    selected: {
+      get(): McapCsvExportState['selected'] { return this.selectedChannels },
+      set(value: McapCsvExportState['selected']) {
+        this.selectedChannels = value
+        this.controller?.setSelected(value)
+      },
+    },
+    search: {
+      get(): string { return this.searchText },
+      set(value: string | null) {
+        this.searchText = value ?? ''
+        this.controller?.setSearch(this.searchText)
+      },
+    },
     channels() {
       const all = this.recording.channels
       return filterChannelsBySearch(all, this.search)
@@ -178,26 +193,15 @@ export default Vue.extend({
       return csvExportStatusText(this.export_progress, (kilobytes) => prettifySize(kilobytes))
     },
   },
-  watch: {
-    search(value: string) {
-      this.controller?.setSearch(value)
-    },
-    selected(value: ReturnType<McapCsvExportController['getState']>['selected']) {
-      this.controller?.setSelected(value)
-    },
-  },
   mounted() {
     this.controller = new McapCsvExportController(this.recording, this.clip, this.name, {
-      onState: (state) => {
-        this.selected = state.selected
-        this.search = state.search
-        this.export_progress = state.exportProgress
-      },
+      onState: (state) => { this.export_progress = state.exportProgress },
       onBusy: (busy) => this.$emit('busy', busy),
       onError: (message) => this.$emit('error', message),
       onSaved: (blob, fileName) => saveAs(blob, fileName),
     })
     this.controller.mount()
+    this.readSelection()
   },
   beforeDestroy() {
     this.controller?.destroy()
@@ -205,12 +209,18 @@ export default Vue.extend({
   methods: {
     selectAll(): void {
       this.controller?.selectAll()
+      this.readSelection()
     },
     selectNone(): void {
       this.controller?.selectNone()
+      this.readSelection()
     },
     selectDefaults(): void {
       this.controller?.selectDefaults()
+      this.readSelection()
+    },
+    readSelection(): void {
+      this.selectedChannels = [...this.controller?.getState().selected ?? []]
     },
     async saveCsv(): Promise<void> {
       await this.controller?.saveCsv(csvFileName(this.name, this.clip))
