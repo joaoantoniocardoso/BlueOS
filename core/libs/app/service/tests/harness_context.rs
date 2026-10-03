@@ -2,7 +2,7 @@
 //! `build` (layer L4).
 
 use core::convert::Infallible;
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use blueos_domain::{Command, Decision, Domain, Effect, IoError, Now, Outcome};
 use blueos_idl::msg::blueos_example_msgs::{EmptyRequest, LevelQueryResponse};
@@ -19,6 +19,7 @@ struct GaugeArguments;
 struct GaugeContext {
     read_sensor: ReadSensor,
     max_level: u8,
+    settings_path: Option<PathBuf>,
 }
 
 struct Gauge;
@@ -50,10 +51,11 @@ impl Service for GaugeService {
     const NAME: &'static str = "gauge";
     const VERSION: &'static str = "1.0.0";
 
-    fn context(_service: &ServiceContext<GaugeArguments>) -> Result<GaugeContext, ServiceError> {
+    fn context(service: &ServiceContext<GaugeArguments>) -> Result<GaugeContext, ServiceError> {
         Ok(GaugeContext {
             read_sensor: Arc::new(|| 42),
             max_level: 100,
+            settings_path: service.settings_path().map(PathBuf::from),
         })
     }
 
@@ -132,6 +134,28 @@ async fn start_runs_the_context_that_ships() {
     assert!(ack.accepted);
     let gauge = harness.state::<LevelQueryResponse>("gauge").await;
     assert_eq!((gauge.level, gauge.max_level), (42, 100));
+}
+
+#[tokio::test(start_paused = true)]
+async fn start_gives_the_service_a_settings_path_under_a_temporary_directory() {
+    let mut settings_paths = Vec::new();
+    for _ in 0..2 {
+        let mut settings_path = None;
+        let _harness = Harness::<GaugeService>::start_with(GaugeArguments, |context| {
+            settings_path = context.settings_path.clone();
+        })
+        .await
+        .unwrap();
+        settings_paths.push(settings_path.expect("the harness supplies a settings path"));
+    }
+
+    for settings_path in &settings_paths {
+        assert!(
+            settings_path.starts_with(std::env::temp_dir()),
+            "{settings_path:?} is outside the temporary directory"
+        );
+    }
+    assert_ne!(settings_paths[0], settings_paths[1]);
 }
 
 #[tokio::test(start_paused = true)]
