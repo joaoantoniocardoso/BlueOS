@@ -49,6 +49,6 @@ export function jobResultEvent(service: string, jobType: string): EventEndpoint<
 }
 
 /** The `UpdateSettings` instant Job type of a Service, the only way to change its settings (D-11, D-12). */
-export function updateSettingsCommand(service: string): CommandEndpoint<'blueos_msgs/msg/SettingsEnvelope'> {
-  return { key: commandKey(service, 'UpdateSettings'), goalSchema: 'blueos_msgs/msg/SettingsEnvelope' }
+export function updateSettingsCommand(service: string): CommandEndpoint<'blueos_msgs/action/UpdateSettings_Goal'> {
+  return { key: commandKey(service, 'UpdateSettings'), goalSchema: 'blueos_msgs/action/UpdateSettings_Goal' }
 }

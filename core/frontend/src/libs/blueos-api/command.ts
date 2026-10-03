@@ -4,9 +4,7 @@ import type { CommandAck, JobList } from '@blueos-idl/messages'
 import { decodeSample, encodeCdr } from './cdr'
 import type { CommandEndpoint, QueryEndpoint } from './endpoints'
 import { NoReplyError, QueryFailedError } from './errors'
-import {
-  cdrEncoding, commandKey, ENCODING_APPLICATION_CDR, jobHistoryKey,
-} from './keys'
+import { cdrEncoding, commandKey, jobHistoryKey } from './keys'
 import type { QueryBody, Transport } from './transport'
 import {
   COMMAND_ACK_SCHEMA, type MessageForSchema, PERMISSION_ANSWER_SCHEMA, type SchemaName,
@@ -92,11 +90,7 @@ export async function jobHistory(transport: Transport, service: string, jobType:
 }
 
 async function control(transport: Transport, service: string, name: string, jobId: string): Promise<CommandAck> {
-  return ask(transport, commandKey(service, name), {
-    payload: new Uint8Array(),
-    encoding: ENCODING_APPLICATION_CDR,
-    attachment: new TextEncoder().encode(jobId),
-  }, COMMAND_ACK_SCHEMA)
+  return sendCommand(transport, { key: commandKey(service, name), goalSchema: 'std_msgs/msg/Empty' }, {}, jobId)
 }
 
 async function ask<ResponseSchema extends SchemaName>(
