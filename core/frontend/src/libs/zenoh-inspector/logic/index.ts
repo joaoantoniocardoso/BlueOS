@@ -9,6 +9,7 @@ export {
 export {
   defaultRequestText, encodeRequest, endpointsByKind, endpointSchemas, parseRequestText,
 } from './forms'
+export { unwrapJobPart } from './job-parts'
 export {
   applyBlueosServiceLiveliness,
   applyRos2Liveliness,
