@@ -1,8 +1,12 @@
 # blueos_recorder_msgs/action/SnapshotRecording
 # The Job type on blueos/v1/recorder/command/SnapshotRecording: writes an indexed copy of a recording (typically the
-# one being written) next to it, named <stem>.snapshot-<UTC ISO time>Z.mcap. The copy is announced by a
-# RecordingOperation event.
+# one being written) next to it, named <stem>.snapshot-<UTC ISO time>Z.mcap.
 
 string path
 ---
+# Job result: the recording the Job copied, and the snapshot, which exists when the Job succeeded.
+string path
+string output_path
 ---
+# Feedback: the snapshot the Job is writing.
+string output_path

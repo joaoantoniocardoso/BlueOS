@@ -1,7 +1,12 @@
 # blueos_recorder_msgs/action/RepairRecording
 # The Job type on blueos/v1/recorder/command/RepairRecording: rewrites a STATE_NEEDS_REPAIR recording so it has a
-# summary again. Progress is on the library state.
+# summary again. CancelJob stops it and leaves the recording untouched.
 
 string path
 ---
+# Job result: the recording the Job repaired. Why it failed is the reason of the Job.
+string path
 ---
+# Feedback: how far the repair has read into the recording.
+uint64 bytes_processed
+uint64 total_bytes
