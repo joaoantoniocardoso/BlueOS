@@ -1295,8 +1295,9 @@ Decision:
   - `inbox_step_seconds`: histogram of the time each Command step takes, rejected and panicked steps included;
   - `inbox_depth`: gauge of the Commands still waiting when a step begins;
   - `task_restarts`: counter of the restarts the supervisor performed, labelled `task` with the Task's name. It
-    appears at the first restart, so a Task that never restarted adds nothing. A restart counts after its backoff,
-    not when it is decided, and the Inbox loop's recoveries (D-29) are not Task restarts, so they are not counted;
+    is registered at zero when the Task is supervised, so a Task that never restarted shows 0. A restart counts
+    after its backoff, not when it is decided, and the Inbox loop's recoveries (D-29) are not Task restarts, so they
+    are not counted;
   - `tokio_workers`, `tokio_alive_tasks` and `tokio_global_queue_depth`: gauges read from the runtime's own
     `Handle::metrics()` on each publication tick, so no extra crate and no `tokio_unstable` flag. This is the stable
     subset that stays still while a service is idle, so an idle service does not republish. Left out are the busy
