@@ -153,3 +153,11 @@ export function jobFailureMessage({ job, result }: RecordingJobResult): string |
   }
   return `${RECORDING_OPERATION_UI[job.job_type].label} failed for ${result.path}: ${job.reason || 'unknown error'}`
 }
+
+/** Which Job the user canceled, or null when the Job ended any other way. */
+export function jobCanceledMessage({ job, result }: RecordingJobResult): string | null {
+  if (job.status !== JobStatusStatus.Canceled) {
+    return null
+  }
+  return `${RECORDING_OPERATION_UI[job.job_type].label} canceled for ${result.path}`
+}

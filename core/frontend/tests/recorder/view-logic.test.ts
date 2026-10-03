@@ -6,6 +6,7 @@ import { DELETE_RECORDING, REPAIR_RECORDING, SNAPSHOT_RECORDING } from '@/libs/r
 import type { LibraryRecording, RecordingJobResult } from '@/libs/recorder/types'
 import {
   canPlayRecording,
+  jobCanceledMessage,
   jobFailureMessage,
   readySnapshotDownloadPath,
   recordingByPath,
@@ -121,5 +122,13 @@ describe('recorder view-logic', () => {
       [],
     )
     expect(repairProgress(live)).toEqual({ percent: 25, label: '1.0 MB of 4.0 MB' })
+  })
+
+  it('says which Job was canceled, and nothing for a Job that ended any other way', () => {
+    const result = { path: 'half.mcap' }
+    expect(jobCanceledMessage(jobResult(REPAIR_RECORDING, JobStatusStatus.Canceled, result)))
+      .toBe('Repair canceled for half.mcap')
+    expect(jobCanceledMessage(jobResult(REPAIR_RECORDING, JobStatusStatus.Succeeded, result))).toBeNull()
+    expect(jobCanceledMessage(jobResult(REPAIR_RECORDING, JobStatusStatus.Aborted, result, 'disk full'))).toBeNull()
   })
 })
