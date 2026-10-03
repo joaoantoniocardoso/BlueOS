@@ -3,9 +3,9 @@
 use std::{collections::BTreeMap, fs, path::PathBuf};
 
 use blueos_idl_codegen::{
-    collect_messages_for_test, endpoints::collect_endpoint_lock_lines,
+    check_message_lock, collect_messages_for_test, endpoints::collect_endpoint_lock_lines,
     explain_endpoint_lock_mismatch, explain_lock_mismatch, field_signature_hash, format_lock_line,
-    frozen_message_schemas, is_append_only_evolution, parse_lock_line,
+    is_append_only_evolution, parse_lock_line,
 };
 
 fn interfaces_root() -> PathBuf {
@@ -54,7 +54,6 @@ fn endpoint_lock(lock: &BTreeMap<String, (u32, String)>) -> BTreeMap<String, (u3
 #[test]
 fn api_lock_matches_interfaces() {
     let current = collect_messages_for_test(&interfaces_root());
-    let frozen = frozen_message_schemas(&current);
     let locked = message_lock(&read_lock());
     let updating = std::env::var("BLUEOS_IDL_UPDATE_LOCK").as_deref() == Ok("1");
 
@@ -63,30 +62,8 @@ fn api_lock_matches_interfaces() {
         return;
     }
 
-    assert_eq!(
-        locked.len(),
-        current.len(),
-        "message count changed; run: cargo run -p blueos-idl-codegen --bin blueos-idl-print-lock > core/libs/idl/api.lock"
-    );
-    for record in current {
-        let (major, locked_signature) = locked
-            .get(&record.schema_name)
-            .expect("schema missing from api.lock");
-        let current_signature = &record.field_signature;
-        if locked_signature == current_signature {
-            continue;
-        }
-        let frozen = frozen.contains(&record.schema_name);
-        panic!(
-            "{}",
-            explain_lock_mismatch(
-                &record.schema_name,
-                *major,
-                locked_signature,
-                current_signature,
-                frozen,
-            )
-        );
+    if let Err(reason) = check_message_lock(&locked, &current) {
+        panic!("{reason}");
     }
 }
 

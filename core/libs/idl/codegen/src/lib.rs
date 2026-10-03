@@ -1164,6 +1164,36 @@ pub fn field_signature_hash(field_signature: &str) -> String {
     hash_hex(field_signature)
 }
 
+/// Compares the message lines of `api.lock` (schema name to major version and field signature) with the messages
+/// `current` has, every `.srv` and `.action` part included (D-06). The error says why the lock cannot stay as-is.
+pub fn check_message_lock(
+    locked: &BTreeMap<String, (u32, String)>,
+    current: &[MessageRecord],
+) -> Result<(), String> {
+    if locked.len() != current.len() {
+        return Err(
+            "message count changed; run: cargo run -p blueos-idl-codegen --bin blueos-idl-print-lock > core/libs/idl/api.lock"
+                .to_owned(),
+        );
+    }
+    let frozen = frozen_message_schemas(current);
+    for record in current {
+        let Some((major, locked_signature)) = locked.get(&record.schema_name) else {
+            return Err(format!("{} is missing from api.lock", record.schema_name));
+        };
+        if *locked_signature != record.field_signature {
+            return Err(explain_lock_mismatch(
+                &record.schema_name,
+                *major,
+                locked_signature,
+                &record.field_signature,
+                frozen.contains(&record.schema_name),
+            ));
+        }
+    }
+    Ok(())
+}
+
 /// Message types referenced as a field or sequence element of another message (D-06).
 pub fn frozen_message_schemas(records: &[MessageRecord]) -> BTreeSet<String> {
     records
