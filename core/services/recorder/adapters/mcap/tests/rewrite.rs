@@ -286,6 +286,59 @@ fn rewrite_keeps_the_messages_of_the_chunk_its_writer_left_open() {
 }
 
 #[test]
+fn rewrite_of_a_recording_that_ends_before_its_first_message_is_an_empty_recording() {
+    let directory = tempdir().expect("tempdir");
+    let writing = directory.path().join("writing.mcap");
+    let source = directory.path().join("source.mcap");
+    let output = directory.path().join("output.mcap");
+    let mut writer = Writer::with_options(
+        fs::File::create(&writing).expect("create"),
+        WriteOptions::new().compression(Some(Compression::Lz4)),
+    )
+    .expect("writer");
+    let schema_id = writer
+        .add_schema("test", "jsonschema", b"{}")
+        .expect("schema");
+    let channel_id = writer
+        .add_channel(schema_id, "topic", "json", &Default::default())
+        .expect("channel");
+    let header = mcap::records::MessageHeader {
+        channel_id,
+        sequence: 0,
+        log_time: 0,
+        publish_time: 0,
+    };
+    writer
+        .write_to_known_channel(&header, b"payload")
+        .expect("write");
+    fs::copy(&writing, &source).expect("copy the recording as its writer left it");
+    drop(writer);
+
+    let cancel = AtomicBool::new(false);
+    let summary = rewrite(&source, &output, &mut |_read, _total| {}, &cancel).expect("rewrite");
+
+    assert_eq!(summary.messages, 0);
+    assert!(is_indexed(&output));
+    let recovered = fs::read(&output).expect("read output");
+    assert_eq!(MessageStream::new(&recovered).expect("stream").count(), 0);
+}
+
+#[test]
+fn rewrite_of_a_file_that_is_not_an_mcap_fails_and_leaves_no_output() {
+    let directory = tempdir().expect("tempdir");
+    let source = directory.path().join("source.mcap");
+    let output = directory.path().join("output.mcap");
+    fs::write(&source, b"not an MCAP recording").expect("write");
+
+    let cancel = AtomicBool::new(false);
+    let error =
+        rewrite(&source, &output, &mut |_read, _total| {}, &cancel).expect_err("not an MCAP");
+
+    assert!(matches!(error, RewriteError::Mcap(_)));
+    assert!(!output.exists());
+}
+
+#[test]
 fn rewrite_produces_indexed_file_with_messages() {
     let directory = tempdir().expect("tempdir");
     let source = directory.path().join("source.mcap");
