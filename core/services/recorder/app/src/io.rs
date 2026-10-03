@@ -24,21 +24,15 @@ pub(crate) fn register_io(
             let folder = Arc::clone(&context.recordings_folder);
             let progress_sender = context.library_observed_sender.clone();
             let cancel_flags = Arc::clone(&context.repair_cancel_flags);
-            let before_rewrite = Arc::clone(&context.repair_before_rewrite);
+            let rewriter = Arc::clone(&context.rewriter);
             async move {
                 match request {
                     RecorderIoRequest::Cameras(request) => {
                         io::publish_cameras_request(session, mavlink_sequence, request).await
                     }
                     RecorderIoRequest::Library(LibraryIoRequest::Repair { path }) => {
-                        run_library_repair_io(
-                            folder,
-                            progress_sender,
-                            cancel_flags,
-                            before_rewrite,
-                            path,
-                        )
-                        .await
+                        run_library_repair_io(folder, progress_sender, cancel_flags, rewriter, path)
+                            .await
                     }
                     RecorderIoRequest::Library(LibraryIoRequest::CancelRepair { path }) => {
                         run_cancel_repair_io(&cancel_flags, &path)
@@ -46,7 +40,7 @@ pub(crate) fn register_io(
                     RecorderIoRequest::Library(LibraryIoRequest::Snapshot {
                         path,
                         output_path,
-                    }) => run_library_snapshot_io(folder, path, output_path).await,
+                    }) => run_library_snapshot_io(folder, rewriter, path, output_path).await,
                     RecorderIoRequest::Library(_) => Err(IoError::new(
                         "library scan and delete use the blocking executor",
                     )),

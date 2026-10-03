@@ -17,10 +17,5 @@ mod settings;
 mod tasks;
 
 pub use cli::RecorderArguments;
-pub use context::{
-    IndexQuerySetup, IndexWalker, RepairBeforeRewrite, RepairIoSetup, default_index_walker,
-};
-pub use service::{
-    RecorderService, build_with_record_gate, build_with_record_gate_and_index,
-    build_with_record_gate_index_and_repair,
-};
+pub use context::{IndexWalker, RecorderContext, Rewriter};
+pub use service::RecorderService;
