@@ -12,13 +12,14 @@ use core::convert::Infallible;
 use blueos_idl::{
     Message,
     msg::blueos_recorder_msgs::{
-        DeleteRecordingFeedback, DeleteRecordingGoal, DeleteRecordingResult, RecordingFile,
-        RecordingFileState as WireRecordingFileState, RecordingLibrary, RecordingState,
-        RepairRecordingFeedback, RepairRecordingGoal, RepairRecordingResult,
+        DeleteRecordingFeedback, DeleteRecordingGoal, DeleteRecordingResult, RecordingContents,
+        RecordingFile, RecordingFileState as WireRecordingFileState, RecordingLibrary,
+        RecordingState, RepairRecordingFeedback, RepairRecordingGoal, RepairRecordingResult,
         SnapshotRecordingFeedback, SnapshotRecordingGoal, SnapshotRecordingResult,
         StartRecordingFeedback, StartRecordingGoal, StartRecordingResult, StopRecordingFeedback,
         StopRecordingGoal, StopRecordingResult,
     },
+    msg::builtin_interfaces::Duration,
 };
 use blueos_jobs::JobId;
 use blueos_recorder_capture::RecordingState as DomainRecordingState;
@@ -217,12 +218,23 @@ pub fn recorder_session_state(snapshot: &RecorderSnapshot) -> RecordingState {
 
 /// Projects the published `library` State from the Snapshot.
 pub fn recording_library(snapshot: &RecorderSnapshot) -> RecordingLibrary {
+    let entries = snapshot.library.entries();
     RecordingLibrary {
-        files: snapshot
-            .library
-            .entries()
+        files: entries.iter().map(recording_file_message).collect(),
+        contents: entries
             .iter()
-            .map(recording_file_message)
+            .filter_map(|entry| {
+                let contents = snapshot.library.contents(&entry.path)?;
+                Some(RecordingContents {
+                    path: entry.path.clone(),
+                    duration: Duration {
+                        sec: i32::try_from(contents.duration.as_secs()).unwrap_or(i32::MAX),
+                        nanosec: contents.duration.subsec_nanos(),
+                    },
+                    video_topics: contents.video_topics.clone(),
+                    other_topic_count: contents.other_topic_count,
+                })
+            })
             .collect(),
     }
 }

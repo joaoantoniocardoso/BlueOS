@@ -278,6 +278,19 @@ pub struct ScannedRecording {
     pub modified_unix_seconds: i64,
     /// Whether the MCAP summary is present.
     pub indexed: bool,
+    /// What the recording holds, from its MCAP summary; `None` without one or when it could not be read.
+    pub contents: Option<RecordingContents>,
+}
+
+/// What a recording holds, from its MCAP summary.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RecordingContents {
+    /// Time from the first message to the last.
+    pub duration: Duration,
+    /// Topics of the video channels, sorted.
+    pub video_topics: Vec<String>,
+    /// How many other topics the recording has, such as telemetry.
+    pub other_topic_count: u32,
 }
 
 impl fmt::Display for RepairFailure {
@@ -311,6 +324,11 @@ impl Library {
     /// Published catalog, newest first.
     pub fn entries(&self) -> &[RecordingFileEntry] {
         &self.entries
+    }
+
+    /// What the recording at `relative_path` holds; `None` when unknown or not in the library.
+    pub fn contents(&self, relative_path: &str) -> Option<&RecordingContents> {
+        self.scanned.get(relative_path)?.contents.as_ref()
     }
 
     /// The repairs and snapshots the library wants done, in the order they started.

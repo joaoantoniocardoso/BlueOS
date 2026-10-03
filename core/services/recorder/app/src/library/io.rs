@@ -8,7 +8,9 @@ use blueos_domain::IoError;
 use blueos_jobs::JobId;
 use blueos_recorder_capture::RecordingState;
 use blueos_recorder_domain::{RecorderIoRequest, RecorderIoResult, RecorderSnapshot};
-use blueos_recorder_library::{LibraryIoRequest, LibraryIoResult, ScannedRecording};
+use blueos_recorder_library::{
+    LibraryIoRequest, LibraryIoResult, RecordingContents, ScannedRecording,
+};
 use blueos_recorder_paths::RecordingRelativePath;
 
 use crate::context::RecorderContext;
@@ -59,6 +61,11 @@ fn scan(context: &RecorderContext, snapshot: &RecorderSnapshot) -> LibraryIoResu
                     size_bytes: file.size_bytes,
                     modified_unix_seconds: file.modified_unix_seconds,
                     indexed: file.indexed,
+                    contents: file.contents.map(|contents| RecordingContents {
+                        duration: contents.duration,
+                        video_topics: contents.video_topics,
+                        other_topic_count: contents.other_topic_count,
+                    }),
                 })
                 .collect(),
         },
