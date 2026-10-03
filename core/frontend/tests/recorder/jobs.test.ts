@@ -87,7 +87,9 @@ describe('recorder Job submission', () => {
       },
     })
 
-    expect(await result).toEqual({ accepted: true, reason: '', job_id: JOB_ID })
+    expect(await result).toEqual({
+      accepted: true, reason: '', job_id: JOB_ID, status: CommandAckStatus.Executing,
+    })
   })
 
   it('submits one Job per call, each under its own id', async () => {
