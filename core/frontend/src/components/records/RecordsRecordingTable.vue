@@ -20,6 +20,7 @@
       <v-chip x-small :color="stateUi(item).color">
         {{ stateUi(item).label }}
       </v-chip>
+      <records-repair-progress :file="item" class="my-1" />
     </template>
     <template #item.size_bytes="{ item }">
       {{ formatSize(item.size_bytes) }}
@@ -32,6 +33,7 @@
         <v-btn
           v-if="canPlay(item)"
           v-tooltip="`Play ${item.name}`"
+          :aria-label="`Play ${item.name}`"
           icon
           small
           color="primary"
@@ -46,6 +48,7 @@
           v-for="operationName in item.allowed_operations"
           :key="operationName"
           v-tooltip="`${operationUi(operationName).label} ${item.name}`"
+          :aria-label="`${operationUi(operationName).label} ${item.name}`"
           icon
           small
           :color="operationUi(operationName).color"
@@ -60,6 +63,7 @@
         <v-btn
           v-if="item.state === 'ready'"
           v-tooltip="`Download ${item.name}`"
+          :aria-label="`Download ${item.name}`"
           icon
           small
           color="primary"
@@ -79,12 +83,14 @@
 <script lang="ts">
 import Vue, { PropType } from 'vue'
 
+import RecordsRepairProgress from '@/components/records/RecordsRepairProgress.vue'
 import type { LibraryRecording } from '@/libs/recorder/types'
 import { canPlayRecording, RECORDING_OPERATION_UI, RECORDING_STATE_UI } from '@/libs/recorder/view-logic'
 import { prettifySize } from '@/utils/helper_functions'
 
 export default Vue.extend({
   name: 'RecordsRecordingTable',
+  components: { RecordsRepairProgress },
   props: {
     files: {
       type: Array as PropType<LibraryRecording[]>,

@@ -1,15 +1,20 @@
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 
 import {
   dateFilterOptions,
   filterRecordings,
   NO_RECORDING_FILTERS,
-  utcCalendarDay,
+  localCalendarDay,
 } from '@/libs/recorder/filter'
 import type { LibraryRecording } from '@/libs/recorder/types'
 
-const DAY_ONE = Date.UTC(2024, 0, 1, 23, 59, 59) / 1000
-const DAY_TWO = Date.UTC(2024, 0, 2, 0, 0, 1) / 1000
+// Three hours behind UTC, so a UTC-based day would disagree with the local clock the cards display.
+beforeAll(() => {
+  process.env.TZ = 'America/Sao_Paulo'
+})
+
+const DAY_ONE = new Date(2024, 0, 1, 23, 59, 59).getTime() / 1000
+const DAY_TWO = new Date(2024, 0, 2, 0, 0, 1).getTime() / 1000
 
 function file(overrides: Partial<LibraryRecording> = {}): LibraryRecording {
   return {
@@ -58,7 +63,7 @@ describe('recorder filter', () => {
     expect(filterRecordings(recordings, { ...NO_RECORDING_FILTERS, state: 'repairing' })).toEqual([])
   })
 
-  it('filters by UTC calendar day', () => {
+  it('filters by local calendar day', () => {
     expect(names(filterRecordings(recordings, { ...NO_RECORDING_FILTERS, date: '2024-01-02' })))
       .toEqual(['reef-survey.mcap', 'reef-night.mcap'])
   })
@@ -76,10 +81,20 @@ describe('recorder filter', () => {
   })
 
   it('lists the days present, newest first', () => {
-    expect(utcCalendarDay(DAY_ONE)).toBe('2024-01-01')
+    expect(localCalendarDay(DAY_ONE)).toBe('2024-01-01')
     expect(dateFilterOptions(recordings)).toEqual([
-      { text: '2024-01-02 UTC', value: '2024-01-02' },
-      { text: '2024-01-01 UTC', value: '2024-01-01' },
+      { text: '2024-01-02', value: '2024-01-02' },
+      { text: '2024-01-01', value: '2024-01-01' },
     ])
+  })
+
+  it('files a recording under the day its card shows, not the UTC day', () => {
+    // recorder_20260930_021902 is 02:19:02 UTC, which is 23:19:02 on the 29th at UTC-3.
+    const created = Date.UTC(2026, 8, 30, 2, 19, 2) / 1000
+    expect(new Date(created * 1000).toLocaleDateString('en-CA')).toBe('2026-09-29')
+    expect(localCalendarDay(created)).toBe('2026-09-29')
+    const late = file({ path: 'late.mcap', name: 'late.mcap', created })
+    expect(filterRecordings([late], { ...NO_RECORDING_FILTERS, date: '2026-09-29' })).toEqual([late])
+    expect(filterRecordings([late], { ...NO_RECORDING_FILTERS, date: '2026-09-30' })).toEqual([])
   })
 })

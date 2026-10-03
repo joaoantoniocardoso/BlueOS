@@ -66,7 +66,7 @@
       <v-select
         v-model="dateFilter"
         :items="dateOptions"
-        label="Date (UTC)"
+        label="Date"
         clearable
         dense
         outlined
@@ -86,6 +86,7 @@
       <v-spacer />
       <v-btn
         v-tooltip="'Cards'"
+        aria-label="Cards"
         icon
         small
         class="mb-2"
@@ -98,6 +99,7 @@
       </v-btn>
       <v-btn
         v-tooltip="'List'"
+        aria-label="List"
         icon
         small
         class="mb-2"
@@ -173,28 +175,40 @@
       @play="openPlayer"
     />
 
-    <v-row v-else>
-      <v-col
-        v-for="file in visibleRecordings"
-        :key="file.path"
-        cols="12"
-        sm="6"
-        md="4"
-        lg="3"
-      >
-        <records-recording-row
-          :file="file"
-          :download-url="downloadUrl(file.path)"
-          :disabled="!recorderServiceRunning"
-          :busy-operation="busyPath === file.path ? busyOperation : null"
-          selectable
-          :selected="selectedPaths.includes(file.path)"
-          @toggle-select="toggleSelected(file)"
-          @operation="onOperation"
-          @play="openPlayer"
-        />
-      </v-col>
-    </v-row>
+    <v-data-iterator
+      v-else-if="visibleRecordings.length > 0"
+      :items="visibleRecordings"
+      item-key="path"
+      sort-by="created"
+      sort-desc
+      :items-per-page="24"
+      :footer-props="{ 'items-per-page-options': [12, 24, 48, 96] }"
+    >
+      <template #default="{ items }">
+        <v-row>
+          <v-col
+            v-for="file in items"
+            :key="file.path"
+            cols="12"
+            sm="6"
+            md="4"
+            lg="3"
+          >
+            <records-recording-row
+              :file="file"
+              :download-url="downloadUrl(file.path)"
+              :disabled="!recorderServiceRunning"
+              :busy-operation="busyPath === file.path ? busyOperation : null"
+              selectable
+              :selected="selectedPaths.includes(file.path)"
+              @toggle-select="toggleSelected(file)"
+              @operation="onOperation"
+              @play="openPlayer"
+            />
+          </v-col>
+        </v-row>
+      </template>
+    </v-data-iterator>
 
     <v-dialog
       v-model="playerOpen"
@@ -206,7 +220,12 @@
         <v-card-title class="py-2">
           <span class="text-truncate">{{ activeRecording.name }}</span>
           <v-spacer />
-          <v-btn icon @click="closePlayer">
+          <v-btn
+            v-tooltip="'Close'"
+            aria-label="Close"
+            icon
+            @click="closePlayer"
+          >
             <v-icon>mdi-close</v-icon>
           </v-btn>
         </v-card-title>
@@ -277,6 +296,7 @@ import RecordsSessionControls from '@/components/records/RecordsSessionControls.
 import type { Transport } from '@/libs/blueos-api/transport'
 import zenohTransport from '@/libs/blueos-api/zenoh-transport'
 import type { RecordingIndexSource } from '@/libs/mcap/logic/recording-index'
+import message_manager, { MessageLevel } from '@/libs/message-manager'
 import {
   type BulkAction,
   bulkActionTargets,
@@ -303,7 +323,7 @@ import type {
   LibraryRecording, RecorderCommandResult, RecordingJobResult, RecordingState,
 } from '@/libs/recorder/types'
 import {
-  jobFailureMessage, RECORDING_STATE_UI, recordingByPath, type RepairProgress, withRepairJobs,
+  jobCanceledMessage, jobFailureMessage, RECORDING_STATE_UI, recordingByPath, type RepairProgress, withRepairJobs,
 } from '@/libs/recorder/view-logic'
 import zenoh from '@/libs/zenoh'
 import { blueosApiMixin } from '@/mixins/blueosApi'
@@ -476,6 +496,10 @@ export default Vue.extend({
       this.lastError = error instanceof Error ? error.message : String(error)
     },
     onRecordingOperation(entry: RecordingJobResult): void {
+      const canceled = jobCanceledMessage(entry)
+      if (canceled) {
+        message_manager.emitMessage(MessageLevel.Info, canceled)
+      }
       if (bulkJobEnded(this.bulkAction, entry)) {
         this.reportBulkFailures()
         return
@@ -548,17 +572,14 @@ export default Vue.extend({
       if (!this.recorder) {
         return
       }
+      if (operationName === REPAIR_RECORDING) {
+        this.askRepair([file])
+        return
+      }
       this.lastError = ''
       this.busyPath = file.path
       this.busyOperation = operationName
       try {
-        if (operationName === REPAIR_RECORDING) {
-          const result = await this.recorder.repairRecording(file.path)
-          if (!result.accepted) {
-            this.lastError = result.reason
-          }
-          return
-        }
         if (operationName === CANCEL_JOB) {
           const result = await this.recorder.cancelRepair(file.repair_job_id)
           if (!result.accepted) {

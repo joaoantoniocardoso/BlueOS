@@ -6,11 +6,15 @@ import { DELETE_RECORDING, REPAIR_RECORDING, SNAPSHOT_RECORDING } from '@/libs/r
 import type { LibraryRecording, RecordingJobResult } from '@/libs/recorder/types'
 import {
   canPlayRecording,
+  jobCanceledMessage,
   jobFailureMessage,
   readySnapshotDownloadPath,
   recordingByPath,
+  repairProgress,
+  type RepairProgress,
   snapshotDownloadPath,
   sortRecordingsNewestFirst,
+  withRepairJobs,
 } from '@/libs/recorder/view-logic'
 
 function jobResult(
@@ -96,5 +100,35 @@ describe('recorder view-logic', () => {
       .toBe('Repair failed for gone.mcap: unknown error')
     expect(jobFailureMessage(jobResult(DELETE_RECORDING, JobStatusStatus.Succeeded, result))).toBeNull()
     expect(jobFailureMessage(jobResult(REPAIR_RECORDING, JobStatusStatus.Canceled, result))).toBeNull()
+  })
+
+  it('reports how far a repairing recording is, and nothing for any other', () => {
+    const repairing = file({
+      state: 'repairing', repair_bytes_processed: 512 * 1024, repair_total_bytes: 2 * 1024 * 1024,
+    })
+    expect(repairProgress(repairing)).toEqual({ percent: 25, label: '512.0 kB of 2.0 MB' })
+    expect(repairProgress({ ...repairing, repair_bytes_processed: 3 * 1024 * 1024 }))
+      .toEqual({ percent: 100, label: '3.0 MB of 2.0 MB' })
+    expect(repairProgress({ ...repairing, repair_total_bytes: 0 })).toBeNull()
+    expect(repairProgress({ ...repairing, state: 'needs_repair' })).toBeNull()
+  })
+
+  it('reports the live Feedback of the repair Job for a repairing row', () => {
+    const jobId = '0b5e8f5c-6f0a-4c4e-9a52-2f1e7d3c9b10'
+    const repairing = file({ state: 'repairing', repair_job_id: jobId })
+    const [live] = withRepairJobs(
+      [repairing],
+      { [jobId]: { bytes_processed: 1024 * 1024, total_bytes: 4 * 1024 * 1024 } } as RepairProgress,
+      [],
+    )
+    expect(repairProgress(live)).toEqual({ percent: 25, label: '1.0 MB of 4.0 MB' })
+  })
+
+  it('says which Job was canceled, and nothing for a Job that ended any other way', () => {
+    const result = { path: 'half.mcap' }
+    expect(jobCanceledMessage(jobResult(REPAIR_RECORDING, JobStatusStatus.Canceled, result)))
+      .toBe('Repair canceled for half.mcap')
+    expect(jobCanceledMessage(jobResult(REPAIR_RECORDING, JobStatusStatus.Succeeded, result))).toBeNull()
+    expect(jobCanceledMessage(jobResult(REPAIR_RECORDING, JobStatusStatus.Aborted, result, 'disk full'))).toBeNull()
   })
 })
