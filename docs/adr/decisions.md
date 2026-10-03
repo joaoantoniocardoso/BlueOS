@@ -1051,30 +1051,62 @@ Decision:
 - **Test placement.** Tests that go through a crate's public API (L2 to L4, golden fixtures) live in its `tests/`
   folder. Tests that need private access live in a `#[cfg(test)] mod tests` inside the file they test. A crate-level
   `src/tests.rs` is not allowed.
-- **Gates that fail the build:** `cargo fmt`; clippy with `[workspace.lints]` (including `unsafe_code = "forbid"`,
-  `missing_docs` for public items, `unreachable_pub`, `allow_attributes` and `allow_attributes_without_reason`,
+- **Every Rust check is in one of three tiers: gate, ratchet or report.** A tool that cannot run fails its job in
+  every tier: the tier says what is done with the number a tool produces, never whether the tool ran. Each report
+  section names the exit codes that mean its tool ran, and writes the tool's version and exit code to the job
+  summary; a section that runs an in-repository script (the D-31 measures) has no version of its own and writes
+  only its exit code. Every section of a step runs, and the step then fails if any of them could not run.
+- **Gate** (zero findings, or the build fails): `cargo fmt`; clippy with `[workspace.lints]` (including
+  `unsafe_code = "forbid"`, `missing_docs` for public items, `unreachable_pub`, `allow_attributes` and
+  `allow_attributes_without_reason`,
   `pub_use`, `min_ident_chars`, `shadow_unrelated`, `std_instead_of_core`, `alloc_instead_of_core`,
   `wildcard_imports`, `await_holding_lock`, the clone lints, and `arbitrary_source_item_ordering` configured in
   `core/clippy.toml` to order item kinds only, never fields or variants, because field order is CDR wire order);
   the in-repo `syn` checker (below); `cargo deny check bans licenses sources`; `cargo nextest run` with a per-test
-  timeout, plus `cargo test --doc`; coverage with `cargo-llvm-cov` and per-layer floors kept in a committed ratchet
-  file that may only rise; `cargo machete`; `typos`; the dependency check (`cargo metadata` + `jq`: every
+  timeout, plus `cargo test --doc`, and a flake hunt that reruns the integration tests a pull request or a push
+  changed; `cargo machete`; `typos` (every service included); the dependency check (`cargo metadata` + `jq`: every
   dependency of a member, dev and build dependencies included, is `workspace = true`, and every
   `[workspace.dependencies]` entry sets `default-features = false` unless a committed exception file lists it with a
   reason); the folder check and the `no_std` and wasm32 builds (D-02);
-  `api.lock` and the generated-code comparison (D-05, D-06, D-26); `cargo auditable build`.
+  `api.lock` and the generated-code comparison (D-05, D-06, D-26); `cargo auditable build`; and, on the pinned
+  nightly, `cargo udeps` (it agrees with `cargo machete` at zero), the address sanitizer on the example domain lib,
+  and lockbud's deadlock detector on the workspace crates. lockbud links against rustc internals, so it runs on the
+  nightly its pinned commit names, and it exits 0 whatever it finds, so it must first report the known deadlock in
+  `.github/lockbud-canary`.
 - **Advisories** (`cargo deny check advisories`) report on pull requests and fail on the scheduled run, so a new
   advisory in a transitive dependency does not turn every open pull request red. The scheduled run also reports
   outdated direct dependencies, report only; each upgrade is its own pull request.
+- **Ratchet** (findings counted per category against committed ceilings; a count above its ceiling fails, and a
+  ceiling may only fall): every count in `rustqual`'s `--save-baseline` output, `total_findings` included, and
+  thai-lint's findings per rule (`unwrap-abuse`, `clone-abuse`, `blocking-async`), with ceilings in
+  `core/quality-ratchet.toml`; line coverage per layer, with floors in `core/coverage-ratchet.toml`.
+  - The quality ratchet runs in the pre-push hook and the lint job. A count below its ceiling also fails, until
+    `./.hooks/pre-push --fix` lowers the ceiling; fix mode never raises one. A measured category without a ceiling,
+    or a ceiling for a category the tool does not report, fails, so a new `rustqual` version cannot add categories
+    silently. A tool that crashes or writes no JSON fails the check, and fix mode then writes nothing.
+  - A `rustqual` suppression is a `// qual:allow` with a written reason, and an exceeded `max_suppression_ratio`
+    fails.
+  - CI compares both ratchet files with the base revision (the pull request's base, or the commit a push replaced)
+    and fails when a ceiling rose, a floor fell, or a key was removed, and when the base revision cannot be
+    resolved. Loosening one on purpose (for example, for a
+    new `rustqual` rule) takes a commit that touches only the ratchet file plus a note here, and that commit fails
+    the check for a maintainer to accept.
+  - Gating on `rustqual`'s quality score or `--fail-on-regression` is rejected: the score is a ratio over all
+    functions, so trivial functions raise it while violations grow, and its baseline stores only counts.
+  - Counting per category lets one fix pay for one new finding in the same category. Tracking each finding's
+    identity (file, rule, function) would close that, but it breaks on every rename or move; revisit if the counts
+    stay flat while findings churn.
 - **`std` paths in `std` crates.** `std_instead_of_core` and `alloc_instead_of_core` are denied, but
   `std_instead_of_alloc` is not: adapter and app crates use `std::` for allocating types, because `alloc::` would
   need `extern crate alloc;` in crates that will never be `no_std`. The `no_std` and wasm32 builds of `logic/`
   (D-02) are what guarantee portability.
-- **Report only:** `cargo bloat`; benchmarks, binary size and build timings (D-33); a pinned nightly job (`cargo udeps`, branch coverage, sanitizers, lockbud);
-  `rustqual` (exact version pinned, `rustqual.toml` written by hand at its documented defaults), thai-lint and
-  ast-metrics.
-- CI has eight Rust jobs on pull requests: lint, test (with coverage), supply chain, report-only quality,
-  report-only nightly, report-only benchmarks (D-33), backend conformance (with a zenohd service container), and
+- **Report** (a measurement with no findings, shown in the job summary): `cargo bloat`; ast-metrics; the `rustqual`
+  and thai-lint finding listings, whose counts the ratchet gates; branch coverage numbers from the pinned nightly; the outdated direct dependencies, each upgrade being its own pull request; the
+  D-31 ergonomics measures; benchmarks, binary size and build timings (D-33).
+- `rustqual` and thai-lint are pinned to exact versions in `.hooks/lib/rust_checks.sh`; `rustqual.toml` is written
+  by hand at the tool's documented defaults.
+- CI has eight Rust jobs on pull requests: lint, test (with coverage), supply chain, report quality, nightly (the
+  pinned-nightly gates and branch coverage), report-only benchmarks (D-33), backend conformance (with a zenohd service container), and
   the cross build (D-16). The Pi benchmarks run only on pushes to master, and the release profile variants only on
   manual trigger (D-33). Tools are installed prebuilt
   (`taiki-e/install-action`), never with `cargo install`. Coverage stays out of the pre-push hook because it
