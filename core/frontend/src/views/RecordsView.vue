@@ -7,6 +7,16 @@
     />
 
     <v-alert
+      v-if="recordings.length > 0"
+      type="warning"
+      dense
+      class="mb-4"
+    >
+      Playing or downloading a recording pulls it over the vehicle link and can take most of the
+      available bandwidth, which may disturb vehicle operations. Close the player when you are done with it.
+    </v-alert>
+
+    <v-alert
       v-if="!recorderServiceRunning"
       type="error"
       dense
