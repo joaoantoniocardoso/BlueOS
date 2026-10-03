@@ -272,11 +272,10 @@ collect_dependency_violations() {
     local workspace_manifest="$2"
     local exceptions_file="$3"
     local violations=() name manifest_path
-    local toml_to_json='import json, sys, tomllib; print(json.dumps(tomllib.load(open(sys.argv[1], "rb"))))'
     while IFS=$'\t' read -r name manifest_path; do
         while IFS= read -r violation; do
             violations+=("$violation")
-        done < <(python3 -c "$toml_to_json" "$manifest_path" | jq -r --arg name "$name" '
+        done < <(toml_to_json "$manifest_path" | jq -r --arg name "$name" '
             def sections: ["dependencies", "dev-dependencies", "build-dependencies"][] as $section
                 | (.[$section] // {} | to_entries[] | {section: $section, entry: .}),
                   (.target // {} | .[] | .[$section] // {} | to_entries[] | {section: $section, entry: .});
@@ -286,8 +285,8 @@ collect_dependency_violations() {
     done < <(jq -r '.packages[] | [.name, .manifest_path] | @tsv' <<<"$metadata")
 
     local workspace exceptions
-    workspace=$(python3 -c "$toml_to_json" "$workspace_manifest")
-    exceptions=$(python3 -c "$toml_to_json" "$exceptions_file")
+    workspace=$(toml_to_json "$workspace_manifest")
+    exceptions=$(toml_to_json "$exceptions_file")
     while IFS= read -r violation; do
         violations+=("$violation")
     done < <(jq -r --argjson exceptions "$exceptions" --arg file "$(basename "$exceptions_file")" '
