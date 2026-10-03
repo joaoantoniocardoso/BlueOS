@@ -18,12 +18,14 @@ pub use calendar::{
 
 const RECORDING_SUFFIX: &str = ".mcap";
 
-/// Why a relative recording path string is not acceptable.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+/// Why a relative recording path string is not acceptable. Its text is the reason a client gets.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]
 pub enum RecordingPathError {
     /// Empty, absolute, contains `..`, or otherwise invalid.
+    #[error("Invalid recording path.")]
     InvalidPath,
     /// The path does not end with `.mcap` (case-insensitive).
+    #[error("Only .mcap recordings are supported.")]
     UnsupportedSuffix,
 }
 
@@ -61,14 +63,6 @@ pub fn validate_relative_recording_path(relative: &str) -> Result<(), RecordingP
         return Err(RecordingPathError::UnsupportedSuffix);
     }
     Ok(())
-}
-
-/// Client-facing refusal text for a path parse error.
-pub fn recording_path_refusal(error: RecordingPathError) -> &'static str {
-    match error {
-        RecordingPathError::InvalidPath => "Invalid recording path.",
-        RecordingPathError::UnsupportedSuffix => "Only .mcap recordings are supported.",
-    }
 }
 
 #[cfg(test)]
