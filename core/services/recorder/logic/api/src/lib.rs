@@ -9,12 +9,16 @@ pub mod endpoints;
 use alloc::{string::String, vec::Vec};
 use core::convert::Infallible;
 
-use blueos_idl::msg::blueos_recorder_msgs::{
-    DeleteRecordingFeedback, DeleteRecordingGoal, DeleteRecordingResult, RecordingFile,
-    RecordingFileState as WireRecordingFileState, RecordingLibrary, RecordingState,
-    RepairRecordingFeedback, RepairRecordingGoal, RepairRecordingResult, SnapshotRecordingFeedback,
-    SnapshotRecordingGoal, SnapshotRecordingResult, StartRecordingFeedback, StartRecordingGoal,
-    StartRecordingResult, StopRecordingFeedback, StopRecordingGoal, StopRecordingResult,
+use blueos_idl::{
+    Message,
+    msg::blueos_recorder_msgs::{
+        DeleteRecordingFeedback, DeleteRecordingGoal, DeleteRecordingResult, RecordingFile,
+        RecordingFileState as WireRecordingFileState, RecordingLibrary, RecordingState,
+        RepairRecordingFeedback, RepairRecordingGoal, RepairRecordingResult,
+        SnapshotRecordingFeedback, SnapshotRecordingGoal, SnapshotRecordingResult,
+        StartRecordingFeedback, StartRecordingGoal, StartRecordingResult, StopRecordingFeedback,
+        StopRecordingGoal, StopRecordingResult,
+    },
 };
 use blueos_jobs::JobId;
 use blueos_recorder_capture::RecordingState as DomainRecordingState;
@@ -31,9 +35,12 @@ impl Conversions for RecorderDomain {
     type StartError = Infallible;
     type StopError = Infallible;
 
-    fn delete_recording(goal: DeleteRecordingGoal) -> Result<RecorderRequest, RecordingPathError> {
+    fn delete_recording(
+        job_id: JobId,
+        goal: DeleteRecordingGoal,
+    ) -> Result<RecorderRequest, RecordingPathError> {
         RecordingRelativePath::parse(&goal.path)
-            .map(|path| RecorderRequest::DeleteRecording { path })
+            .map(|path| RecorderRequest::DeleteRecording { job_id, path })
     }
 
     fn delete_recording_feedback(
@@ -44,10 +51,15 @@ impl Conversions for RecorderDomain {
     }
 
     fn delete_recording_result(
-        _snapshot: &RecorderSnapshot,
-        _job_id: JobId,
+        snapshot: &RecorderSnapshot,
+        job_id: JobId,
     ) -> DeleteRecordingResult {
-        DeleteRecordingResult::default()
+        snapshot
+            .jobs
+            .job(job_id)
+            .and_then(|job| DeleteRecordingGoal::decode(&job.goal).ok())
+            .map(|goal| DeleteRecordingResult { path: goal.path })
+            .unwrap_or_default()
     }
 
     fn repair_recording(
