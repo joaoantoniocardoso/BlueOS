@@ -299,7 +299,7 @@ async fn fetch_recorder_state<M: Message>(backend: &Arc<dyn CommsBackend>, state
     M::decode(&reply.payload().to_bytes()).expect("decode state")
 }
 
-async fn wait_for_recorder_state<M: Message>(
+pub(crate) async fn wait_for_recorder_state<M: Message>(
     backend: &Arc<dyn CommsBackend>,
     state: &str,
     predicate: impl Fn(&M) -> bool,
