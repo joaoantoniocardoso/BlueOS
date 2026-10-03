@@ -5,7 +5,7 @@ use core::time::Duration;
 use blueos_domain::{Effect, Now, Outcome};
 use blueos_recorder_cameras::{
     Cameras, CamerasIoRequest, CamerasObservedFact, CamerasTick, CamerasTimerKey,
-    CaptureCommandKind, DiscoveryMessageKind, SystemAndComponent,
+    CaptureCommandKind, DiscoveryMessageKind, SystemAndComponent, VIDEO_CAPTURE_STATUS_IDLE,
 };
 
 const fn now_at(monotonic_seconds: u64) -> Now {
@@ -247,5 +247,60 @@ fn start_capture_is_rejected_without_capture_video_capability() {
             .video_recording_by_topic()
             .any(|(_, recording)| recording),
         "stream must not enter recording without capability"
+    );
+}
+
+fn camera_capture_command(
+    cameras: &mut Cameras,
+    command: CaptureCommandKind,
+    monotonic_seconds: u64,
+) -> Vec<Effect<CamerasTick, CamerasIoRequest, CamerasTimerKey>> {
+    let outcome = cameras.handle_observed_fact(
+        CamerasObservedFact::CameraCaptureCommand {
+            command,
+            target_system: 1,
+            target_component: 100,
+            status_interval: Duration::from_secs(1),
+        },
+        now_at(monotonic_seconds),
+    );
+    let Outcome::Applied { effects, .. } = outcome else {
+        panic!("capture command must apply");
+    };
+    effects
+}
+
+#[test]
+fn stop_capture_publishes_one_idle_capture_status() {
+    let mut cameras = Cameras::default();
+    register_stream(&mut cameras, "video/front/stream", 1, 100);
+    enable_capture_video(&mut cameras, 1, 100);
+    camera_capture_command(&mut cameras, CaptureCommandKind::StartCapture, 10);
+
+    let effects = camera_capture_command(&mut cameras, CaptureCommandKind::StopCapture, 12);
+
+    let idle_statuses = effects
+        .iter()
+        .filter(|effect| {
+            matches!(
+                effect,
+                Effect::Io(CamerasIoRequest::CaptureStatus {
+                    video_status: VIDEO_CAPTURE_STATUS_IDLE,
+                    recording_time_ms: 0,
+                    ..
+                })
+            )
+        })
+        .count();
+    assert_eq!(
+        idle_statuses, 1,
+        "stop must tell the sender the stream is idle"
+    );
+    assert!(
+        effects.iter().any(|effect| matches!(
+            effect,
+            Effect::Cancel(CamerasTimerKey::CaptureStatus { .. })
+        )),
+        "stop must still cancel the periodic capture status timer"
     );
 }

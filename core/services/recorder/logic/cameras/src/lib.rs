@@ -341,6 +341,11 @@ impl Cameras {
                         command,
                         accepted: true,
                     }));
+                    effects.push(Effect::Io(CamerasIoRequest::CaptureStatus {
+                        camera,
+                        video_status: VIDEO_CAPTURE_STATUS_IDLE,
+                        recording_time_ms: 0,
+                    }));
                     effects.push(Effect::Cancel(CamerasTimerKey::CaptureStatus {
                         topic: topic.clone(),
                     }));
