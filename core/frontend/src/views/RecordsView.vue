@@ -417,6 +417,7 @@ import {
   type BulkAction,
   bulkActionTargets,
   bulkJobEnded,
+  repairsInFlight,
   runBulkAction,
 } from '@/libs/recorder/bulk-actions'
 import { createRecorderClient, type RecorderClient } from '@/libs/recorder/client'
@@ -509,6 +510,7 @@ export default Vue.extend({
       deleteTargets: [] as LibraryRecording[],
       repairTargets: [] as LibraryRecording[],
       bulkOperation: null as string | null,
+      bulkActionOperation: null as string | null,
       bulkAction: { failures: [], pending: [] } as BulkAction,
       leaveDialog: false,
       pendingLeave: null as NavigationGuardNext | null,
@@ -582,7 +584,7 @@ export default Vue.extend({
       return bulkActionTargets(this.selectedFiles, REPAIR_RECORDING).length > 0
     },
     bulkBusy(): boolean {
-      return this.bulkOperation !== null
+      return this.bulkOperation !== null || this.bulkRepairing
     },
     bulkDownloading(): boolean {
       return this.bulkOperation === DOWNLOAD
@@ -591,7 +593,7 @@ export default Vue.extend({
       return this.bulkOperation === DELETE_RECORDING
     },
     bulkRepairing(): boolean {
-      return this.bulkOperation === REPAIR_RECORDING
+      return repairsInFlight(this.bulkActionOperation, this.bulkOperation !== null, this.bulkAction)
     },
     deleteDialogMessage(): string {
       return deleteConfirmationMessage(bulkActionTargets(this.deleteTargets, DELETE_RECORDING))
@@ -792,6 +794,7 @@ export default Vue.extend({
       this.lastError = ''
       this.bulkAction = { failures: [], pending }
       this.bulkOperation = operationName
+      this.bulkActionOperation = operationName
       try {
         await runBulkAction(this.bulkAction, operationName, (path) => submit(recorder, path))
         this.reportBulkFailures()
@@ -847,6 +850,7 @@ export default Vue.extend({
     async downloadSelected(): Promise<void> {
       this.lastError = ''
       this.bulkOperation = DOWNLOAD
+      this.bulkActionOperation = DOWNLOAD
       try {
         for (const file of this.selectedFiles.filter((selected) => this.canDownload(selected))) {
           // eslint-disable-next-line no-await-in-loop
