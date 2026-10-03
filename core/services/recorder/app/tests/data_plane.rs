@@ -469,7 +469,7 @@ async fn shutdown_with_no_samples_after_start_still_finishes_file() {
 async fn shutdown_with_full_writer_queue_finishes_file() {
     let directory = tempdir().expect("tempdir");
     let harness = start_harness_with(directory.path(), |context| {
-        context.mcap_writer_queue_capacity = 2;
+        context.mcap_writer_queue_bytes = 64;
     })
     .await;
 

@@ -14,8 +14,8 @@ use blueos_recorder_mcap::{IndexError, RewriteError, RewriteSummary};
 use blueos_recorder_storage::{LibraryFooterCache, RecordingsFolder};
 use blueos_service::Session;
 
-/// Default MCAP writer queue depth for production wiring.
-pub(crate) const DEFAULT_MCAP_WRITER_QUEUE_CAPACITY: usize = 4096;
+/// Default byte budget of the MCAP writer queue for production wiring, well below the Recorder's memory limit.
+pub(crate) const DEFAULT_MCAP_WRITER_QUEUE_BYTES: usize = 32 * 1024 * 1024;
 
 /// Runs one recording index walk outside the Inbox (production default: MCAP `walk_index`).
 pub type IndexWalker = Arc<
@@ -44,8 +44,8 @@ pub struct RecorderContext {
     pub recordings_folder: Arc<RecordingsFolder>,
     /// Footer cache used only on the library blocking IO path.
     pub library_footer_cache: Arc<Mutex<LibraryFooterCache>>,
-    /// Bounded queue between the data plane Task and the MCAP writer thread.
-    pub mcap_writer_queue_capacity: usize,
+    /// The most sample payload bytes queued between the data plane Task and the MCAP writer thread.
+    pub mcap_writer_queue_bytes: usize,
     /// Backbone session for IO executors (available before Tasks start).
     pub session: Session,
     /// MAVLink v2 sequence counter for egress frames.

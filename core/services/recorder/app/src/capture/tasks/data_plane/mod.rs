@@ -46,6 +46,8 @@ struct DataPlaneLocal {
     open: Option<OpenRecording>,
     descriptors: BTreeMap<ChannelRoute, Arc<ChannelDescriptor>>,
     last_reported_bytes: u64,
+    /// Samples the writer dropped from the open file so far.
+    samples_dropped: u64,
     ros2_gate: Ros2ddsGate<Payload>,
     pending_liveliness_gets: BTreeSet<String>,
 }
@@ -55,14 +57,15 @@ pub(crate) async fn run_data_plane(
     task_context: TaskContext<RecorderDomain, RecorderContext>,
     record_gate: Projection<RecordGate>,
 ) -> Result<(), TaskFailed> {
-    let writer = Arc::new(McapWriterHandle::spawn_with_queue_capacity(
-        task_context.context.mcap_writer_queue_capacity,
+    let writer = Arc::new(McapWriterHandle::spawn_with_queue_bytes(
+        task_context.context.mcap_writer_queue_bytes,
     ));
     let mut gate = record_gate.subscribe();
     let mut local = DataPlaneLocal {
         open: None,
         descriptors: BTreeMap::new(),
         last_reported_bytes: 0,
+        samples_dropped: 0,
         ros2_gate: Ros2ddsGate::default(),
         pending_liveliness_gets: BTreeSet::new(),
     };
@@ -439,6 +442,7 @@ async fn reconcile(
         file_generation: desired,
     });
     local.last_reported_bytes = 0;
+    local.samples_dropped = 0;
     Ok(())
 }
 
@@ -510,6 +514,17 @@ async fn report_bytes_if_due(
             dropped,
             "MCAP writer queue dropped samples under back pressure"
         );
+        local.samples_dropped = local.samples_dropped.saturating_add(dropped);
+        if let Some(open) = &local.open {
+            let _ = send_observed(
+                commands,
+                CaptureObservedFact::RecordingSamplesDropped {
+                    file_generation: open.file_generation,
+                    samples: local.samples_dropped,
+                },
+            )
+            .await;
+        }
     }
     let Some(open) = &local.open else {
         return;
