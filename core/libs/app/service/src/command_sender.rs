@@ -98,12 +98,19 @@ impl<D: Domain> CommandSender<D> {
     }
 }
 
-/// A new random Job id, as a client generates one for each Goal it submits to another Service.
-// ponytail: 128 random bits from std's `RandomState` keys, not a UUID v4 generator: ids only need to be unique.
+/// A new random Job id, as a client generates one for each Goal it submits to another Service: a UUID v4, like the
+/// one the frontend's `newJobId` makes.
+// ponytail: the random bits come from std's `RandomState` keys, not a cryptographic generator: ids only need to be
+// unique.
 #[must_use]
 pub fn new_job_id() -> JobId {
+    const VERSION_MASK: u128 = 0xf << 76;
+    const VERSION_4: u128 = 0x4 << 76;
+    const VARIANT_MASK: u128 = 0x3 << 62;
+    const VARIANT_RFC_4122: u128 = 0x2 << 62;
     let random = || RandomState::new().build_hasher().finish();
-    JobId::from_u128(u128::from(random()) << 64 | u128::from(random()))
+    let bits = u128::from(random()) << 64 | u128::from(random());
+    JobId::from_u128(bits & !VERSION_MASK & !VARIANT_MASK | VERSION_4 | VARIANT_RFC_4122)
 }
 
 /// The ack of a Command that named `job_id`, with the status of `job` after it was applied, or with no Job for a
