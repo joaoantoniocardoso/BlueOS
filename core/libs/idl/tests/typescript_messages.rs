@@ -14,7 +14,12 @@ fn every_embedded_schema_names_its_message_type() {
     assert!(schema_names.contains(&"blueos_msgs/msg/CommandAck"));
     assert!(MESSAGES.contains("export interface MessageBySchema {\n"));
     for schema_name in schema_names {
-        let type_name = schema_name.rsplit('/').next().unwrap_or(schema_name);
+        // A part is named `<Name>_Request` in ROS 2 and `<Name>Request` in TypeScript.
+        let type_name = schema_name
+            .rsplit('/')
+            .next()
+            .unwrap_or(schema_name)
+            .replace('_', "");
         assert!(
             MESSAGES.contains(&format!("  \"{schema_name}\": {type_name};\n")),
             "MessageBySchema has no {schema_name}; run: cargo run -p blueos-idl-codegen -- --write"

@@ -179,6 +179,7 @@ def _load_interfaces(root: Path) -> None:
     for path in sorted(root.rglob("*.msg")):
         relative = path.relative_to(root).with_suffix("").as_posix()
         raw_text[relative] = path.read_text(encoding="utf-8")
+    raw_text.update(_interface_parts(root))
 
     messages: dict[str, MessageDef] = {}
     for schema_name, text in raw_text.items():
@@ -195,6 +196,20 @@ def _load_interfaces(root: Path) -> None:
 
     _MESSAGES.clear()
     _MESSAGES.update(messages)
+
+
+def _interface_parts(root: Path) -> dict[str, str]:
+    # Each part of a `.srv` or `.action` is a message named as in ROS 2: `<package>/srv/<Name>_Request`.
+    raw_text: dict[str, str] = {}
+    for suffix, part_names in ((".srv", ("Request", "Response")), (".action", ("Goal", "Result", "Feedback"))):
+        for path in sorted(root.rglob(f"*{suffix}")):
+            relative = path.relative_to(root).with_suffix("").as_posix()
+            parts = re.split(r"^---[ \t]*$", path.read_text(encoding="utf-8"), flags=re.MULTILINE)
+            if len(parts) != len(part_names):
+                raise IdlCodecError(f"{relative}{suffix} has {len(parts)} parts, expected {len(part_names)}")
+            for part_name, text in zip(part_names, parts):
+                raw_text[f"{relative}_{part_name}"] = text
+    return raw_text
 
 
 def _collect_missing_message_types(
@@ -215,7 +230,7 @@ def _collect_missing_message_types(
 
 
 def _package_prefix(schema_name: str) -> str:
-    return schema_name.split("/msg/", maxsplit=1)[0]
+    return schema_name.split("/", maxsplit=1)[0]
 
 
 def _normalize_message_type(type_reference: str, owning_schema: str) -> str:
