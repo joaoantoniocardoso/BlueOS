@@ -362,31 +362,14 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         let mut job_types = HashMap::new();
         let mut job_outputs = Vec::new();
         let mut pending_job_outputs = Vec::new();
+        let job_type_names: Vec<String> = builder
+            .commands
+            .iter()
+            .map(|command| command.name.clone())
+            .chain(["UpdateSettings".to_owned()])
+            .collect();
         for command in builder.commands {
             let queryable = declare(&*backend, command_key(service, &command.name)).await?;
-            let job_output = JobTypeOutput {
-                job_type: command.name.clone(),
-                output: builder
-                    .job_outputs
-                    .remove(&command.name)
-                    .unwrap_or(JobOutput {
-                        feedback: None,
-                        result: None,
-                    }),
-                feedback_latest: watch::Sender::new(None),
-                history: watch::Sender::new(None),
-            };
-            let feedback_key = job_feedback_key(service, &command.name);
-            let history_key = job_history_key(service, &command.name);
-            pending_job_outputs.push((
-                declare(&*backend, feedback_key.clone()).await?,
-                feedback_key,
-                job_output.feedback_latest.subscribe(),
-                declare(&*backend, history_key.clone()).await?,
-                history_key,
-                job_output.history.subscribe(),
-            ));
-            job_outputs.push(job_output);
             let into_input: IntoInput<D> = {
                 let decode = Arc::clone(&command.decode);
                 let job_type = command.name.clone();
@@ -404,6 +387,28 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             };
             pending_commands.push((queryable, into_input));
             job_types.insert(command.name, command.decode);
+        }
+        for job_type in job_type_names {
+            let feedback_key = job_feedback_key(service, &job_type);
+            let history_key = job_history_key(service, &job_type);
+            let job_output = JobTypeOutput {
+                output: builder.job_outputs.remove(&job_type).unwrap_or(JobOutput {
+                    feedback: None,
+                    result: None,
+                }),
+                job_type,
+                feedback_latest: watch::Sender::new(None),
+                history: watch::Sender::new(None),
+            };
+            pending_job_outputs.push((
+                declare(&*backend, feedback_key.clone()).await?,
+                feedback_key,
+                job_output.feedback_latest.subscribe(),
+                declare(&*backend, history_key.clone()).await?,
+                history_key,
+                job_output.history.subscribe(),
+            ));
+            job_outputs.push(job_output);
         }
         if let Some(job_type) = builder.job_outputs.keys().next() {
             return Err(ServiceError::Build(

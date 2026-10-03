@@ -320,6 +320,37 @@ async fn update_settings_is_an_instant_job_that_acks_its_final_status() {
 }
 
 #[tokio::test(start_paused = true)]
+async fn update_settings_appears_in_the_history_query_like_any_other_job_type() {
+    let parent = temp_settings_parent("history");
+    let harness = start_with_settings_folder(parent.clone()).await;
+    let [first, second] = [7, 8].map(JobId::from_u128);
+    for (job_id, live_field) in [(first, 2), (second, 3)] {
+        let updated = SettingsTankDocument {
+            version: SettingsTankDocument::VERSION,
+            live_field,
+            restart_field: "changed".into(),
+        };
+        harness
+            .submit("UpdateSettings", job_id, &envelope_for(&updated))
+            .await;
+    }
+
+    let history = harness.job_history("UpdateSettings").await;
+
+    assert_eq!(
+        history.jobs,
+        [first, second].map(|job_id| JobStatus {
+            job_id: job_id.to_string(),
+            job_type: "UpdateSettings".to_owned(),
+            status: JobStatusStatus::Succeeded,
+            reason: String::new(),
+        })
+    );
+
+    let _ = std::fs::remove_dir_all(parent);
+}
+
+#[tokio::test(start_paused = true)]
 async fn a_retry_of_update_settings_does_not_write_again() {
     let parent = temp_settings_parent("retry");
     let harness = start_with_settings_folder(parent.clone()).await;
