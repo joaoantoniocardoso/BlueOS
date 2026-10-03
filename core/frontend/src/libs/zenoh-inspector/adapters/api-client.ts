@@ -14,7 +14,7 @@ import { COMMAND_ACK_SCHEMA, SERVICE_INFO_SCHEMA } from '@/libs/blueos-api/types
 
 import type { SampleRecord, SchemaProvider } from '../logic/types'
 
-export type InspectorRequestKind = 'command' | 'query' | 'io_query'
+export type InspectorRequestKind = 'job' | 'query'
 
 export type InspectorRequestResult =
   | { kind: 'ack', value: CommandAck }
@@ -112,13 +112,13 @@ export function createInspectorApiClient(
         body = {
           payload: encodeCdrWithSchema(requestSchemaName, schemaText, message),
           encoding: cdrEncoding(requestSchemaName),
-          attachment: kind === 'command' ? new TextEncoder().encode(newJobId()) : undefined,
+          attachment: kind === 'job' ? new TextEncoder().encode(newJobId()) : undefined,
         }
       }
 
       const sample = await firstSampleReply(transport, key, body)
 
-      if (kind === 'command') {
+      if (kind === 'job') {
         const ackText = schemaProvider.schemaText(COMMAND_ACK_SCHEMA)
         if (!ackText) {
           throw new Error('CommandAck schema is missing')

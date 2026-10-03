@@ -1,7 +1,9 @@
 /* eslint-disable no-void */
 import type { EndpointInfo, ServiceInfo } from '@blueos-idl/messages'
 
-import type { InspectorApiClient, InspectorRequestResult as InspectorApiRequestResult } from './adapters/api-client'
+import type {
+  InspectorApiClient, InspectorRequestKind, InspectorRequestResult as InspectorApiRequestResult,
+} from './adapters/api-client'
 import type { LazySchemaProvider } from './adapters/schema-provider'
 import {
   applyBlueosServiceLiveliness,
@@ -15,6 +17,7 @@ import {
   defaultView,
   defaultViewRegistry,
   endpointsByKind,
+  endpointSchemas,
   parseRequestText,
   topicsBySource,
 } from './logic'
@@ -286,12 +289,13 @@ export class InspectorController {
       return
     }
     try {
+      const { requestSchema, responseSchema } = endpointSchemas(endpoint)
       const result = await this.dependencies.apiClient.request(
         endpoint.key,
-        endpoint.kind as 'command' | 'query' | 'io_query',
-        endpoint.request_schema,
-        endpoint.response_schema,
-        endpoint.request_schema ? parsed.value : undefined,
+        endpoint.kind as InspectorRequestKind,
+        requestSchema,
+        responseSchema,
+        requestSchema ? parsed.value : undefined,
       )
       this.lastRequestResult = { status: 'success', result }
     } catch (error) {
