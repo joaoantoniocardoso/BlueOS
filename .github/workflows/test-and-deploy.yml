@@ -133,6 +133,7 @@ jobs:
       - name: Gate self-tests
         run: |
           .hooks/tests/rust_checks_test.sh
+          .hooks/tests/dependency_gate_test.sh
           .hooks/tests/ergonomics_report_test.sh
           .hooks/tests/docs_paths_test.sh
           .hooks/tests/commit_subject_test.sh

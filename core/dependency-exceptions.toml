@@ -1,0 +1,3 @@
+# Workspace dependencies that keep their default features on (D-30). Every entry needs a reason; the dependency gate
+# fails on an empty reason and on an entry the workspace no longer needs.
+[exceptions]

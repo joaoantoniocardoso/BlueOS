@@ -18,7 +18,6 @@ use tokio::{
 };
 
 use blueos_api::event_key;
-use blueos_comms::{CommsBackend, channel::ChannelBackend};
 use blueos_idl::{
     Message,
     msg::blueos_msgs::JobStatusStatus,
@@ -28,19 +27,19 @@ use blueos_idl::{
     },
 };
 use blueos_jobs::{JobId, JobNature, Jobs};
-use blueos_recorder_app::{IndexQuerySetup, RecorderArguments, RecorderService, RepairIoSetup};
+use blueos_recorder_app::RecorderService;
 use blueos_recorder_domain::durable::RecorderDurableState;
 use blueos_recorder_library::RESCAN_INTERVAL;
 use blueos_recorder_mcap::is_indexed;
 use blueos_service::{
-    Service, ServiceContext,
+    Service,
     testing::{Harness, WALL_CLOCK_AT_START},
 };
 use blueos_settings::ServiceStateStore;
 
 use common::{
-    drain_blocking_io, start_recorder_test_harness_with, wait_for_library_file_listed,
-    wait_for_library_file_ready, wait_for_library_state,
+    drain_blocking_io, recorder_arguments, start_harness, start_harness_with,
+    wait_for_library_file_listed, wait_for_library_file_ready, wait_for_library_state,
 };
 
 struct ReleaseRepairOnDrop(Arc<AtomicBool>);
@@ -66,18 +65,13 @@ async fn repair_rewrites_truncated_recording_and_publishes_operation_event() {
     write_truncated_mcap(&path);
     set_modified_seconds_ago(&path, 20);
 
-    let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
+    let harness = start_harness(directory.path()).await;
     let operation_key = event_key(RecorderService::NAME, "operation");
-    let mut operations = backend.subscribe(&operation_key).await.expect("subscribe");
-
-    let harness = Harness::start_on(
-        Arc::clone(&backend),
-        RecorderArguments {
-            recorder_path: directory.path().to_path_buf(),
-        },
-    )
-    .await
-    .expect("harness");
+    let mut operations = harness
+        .backend()
+        .subscribe(&operation_key)
+        .await
+        .expect("subscribe");
 
     wait_for_library_file_listed(&harness, "broken.mcap").await;
     advance(RESCAN_INTERVAL + Duration::from_secs(20)).await;
@@ -122,28 +116,26 @@ async fn cancel_repair_leaves_original_bytes_unchanged() {
     let entered = Arc::new(Notify::new());
     let entered_for_hold = Arc::clone(&entered);
     let release_for_hold = Arc::clone(&release);
-    let harness = start_recorder_test_harness_with(
-        directory.path(),
-        IndexQuerySetup::default(),
-        RepairIoSetup {
-            before_rewrite: Arc::new(move |cancel| {
-                entered_for_hold.notify_one();
-                while !release_for_hold.load(Ordering::Relaxed) && !cancel.load(Ordering::Relaxed) {
-                    core::hint::spin_loop();
-                }
-            }),
-        },
-    )
+    let harness = start_harness_with(directory.path(), |context| {
+        let rewriter = Arc::clone(&context.rewriter);
+        context.rewriter = Arc::new(move |source, output, progress, cancel| {
+            entered_for_hold.notify_one();
+            while !release_for_hold.load(Ordering::Relaxed) && !cancel.load(Ordering::Relaxed) {
+                core::hint::spin_loop();
+            }
+            rewriter(source, output, progress, cancel)
+        });
+    })
     .await;
 
     let operation_key = event_key(RecorderService::NAME, "operation");
     let mut operations = harness
-        .backend
+        .backend()
         .subscribe(&operation_key)
         .await
         .expect("subscribe");
 
-    wait_for_library_state(&harness.backend, |library| {
+    wait_for_library_state(harness.backend(), |library| {
         library.files.iter().any(|file| file.path == "cancel.mcap")
     })
     .await;
@@ -179,7 +171,7 @@ async fn cancel_repair_leaves_original_bytes_unchanged() {
         cancel_ack.reason
     );
 
-    wait_for_library_state(&harness.backend, |library| {
+    wait_for_library_state(harness.backend(), |library| {
         library
             .files
             .iter()
@@ -247,17 +239,13 @@ async fn restored_interrupted_repair_job_is_aborted_and_recover_discarded() {
     )
     .expect("write state");
 
-    let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
-    let context = ServiceContext::with_settings_path(
-        RecorderArguments {
-            recorder_path: directory.path().to_path_buf(),
-        },
+    let harness = Harness::<RecorderService>::start_with_settings_path(
+        recorder_arguments(directory.path()),
         Some(settings_parent.path().to_path_buf()),
-        Arc::clone(&backend),
-    );
-    let harness = Harness::<RecorderService>::start_on_with_context(backend, context)
-        .await
-        .expect("harness");
+        |_context| {},
+    )
+    .await
+    .expect("harness");
     advance(Duration::from_millis(10)).await;
     drain_blocking_io().await;
 
@@ -283,11 +271,7 @@ async fn leftover_recover_file_is_removed_at_startup() {
     let directory = tempdir().expect("tempdir");
     fs::write(directory.path().join("stale.recover"), b"leftover").expect("write");
 
-    let _harness = Harness::<RecorderService>::start(RecorderArguments {
-        recorder_path: directory.path().to_path_buf(),
-    })
-    .await
-    .expect("harness");
+    let _harness = start_harness(directory.path()).await;
 
     assert!(
         !directory.path().join("stale.recover").exists(),

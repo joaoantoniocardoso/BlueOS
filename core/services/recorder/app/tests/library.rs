@@ -18,8 +18,8 @@ use blueos_recorder_library::RESCAN_INTERVAL;
 use blueos_service::{Service, testing::Harness};
 
 use common::{
-    drain_blocking_io, wait_for_active_recording, wait_for_library_file_listed,
-    wait_for_recording_idle,
+    drain_blocking_io, recorder_arguments, start_harness, start_recording,
+    wait_for_active_recording, wait_for_library_file_listed, wait_for_recording_idle,
 };
 
 #[tokio::test(start_paused = true)]
@@ -31,14 +31,9 @@ async fn unchanged_rescan_does_not_republish_library_state() {
     let state_key = state_key(RecorderService::NAME, "library");
     let mut updates = backend.subscribe(&state_key).await.expect("subscribe");
 
-    let harness = Harness::start_on(
-        Arc::clone(&backend),
-        RecorderArguments {
-            recorder_path: directory.path().to_path_buf(),
-        },
-    )
-    .await
-    .expect("harness");
+    let harness = Harness::start_on(Arc::clone(&backend), recorder_arguments(directory.path()))
+        .await
+        .expect("harness");
 
     stop_auto_recording_and_remove_session_files(&harness, directory.path()).await;
     wait_for_library_file_listed(&harness, "finished.mcap").await;
@@ -63,11 +58,7 @@ async fn delete_rejects_hostile_paths_without_touching_disk() {
     let victim = directory.path().join("safe.mcap");
     fs::write(&victim, b"data").expect("write");
 
-    let harness = Harness::<RecorderService>::start(RecorderArguments {
-        recorder_path: directory.path().to_path_buf(),
-    })
-    .await
-    .expect("harness");
+    let harness = start_harness(directory.path()).await;
 
     for path in ["../outside.mcap", "/etc/passwd.mcap", "notes.txt"] {
         let ack = harness
@@ -88,6 +79,8 @@ async fn stop_auto_recording_and_remove_session_files(
     harness: &Harness<RecorderService>,
     directory: &std::path::Path,
 ) {
+    start_recording(harness).await;
+    advance(Duration::from_secs(1)).await;
     wait_for_active_recording(harness.backend()).await;
     harness.send("Stop", &StopRecordingCommand::default()).await;
     wait_for_recording_idle(harness.backend()).await;

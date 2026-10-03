@@ -19,11 +19,11 @@ use blueos_recorder_library::{
     LibraryIoRequest, LibraryIoResult, LibraryRepairOutcome, LibrarySnapshotOutcome, RepairFailure,
     ScannedRecording,
 };
-use blueos_recorder_mcap::{RewriteError, rewrite};
+use blueos_recorder_mcap::RewriteError;
 use blueos_recorder_paths::RecordingRelativePath;
 use blueos_recorder_storage::{RecordingsFolder, StorageError};
 
-use crate::context::{RecorderContext, RepairBeforeRewrite};
+use crate::context::{RecorderContext, Rewriter};
 
 fn lock_unpoisoned<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex
@@ -62,14 +62,13 @@ pub(crate) async fn run_library_repair_io(
     recordings_folder: Arc<RecordingsFolder>,
     progress_sender: mpsc::Sender<RecorderObservedFact>,
     cancel_flags: Arc<Mutex<BTreeMap<String, Arc<AtomicBool>>>>,
-    before_rewrite: RepairBeforeRewrite,
+    rewriter: Rewriter,
     path: RecordingRelativePath,
 ) -> Result<Option<RecorderIoResult>, IoError> {
     let relative = path.as_str().to_string();
     let cancel = RecorderContext::repair_cancel_flag(&cancel_flags, &relative);
     let path_for_result = path.clone();
     let rewrite_result = tokio::task::spawn_blocking(move || {
-        before_rewrite(&cancel);
         let source = match recordings_folder.resolve(&relative) {
             Ok(value) => value,
             Err(StorageError::NotFound) | Err(StorageError::InvalidPath) => {
@@ -87,7 +86,7 @@ pub(crate) async fn run_library_repair_io(
         };
         let temporary = recordings_folder.recover_temporary_path(&relative);
         let progress_path = path_for_result.clone();
-        let rewrite_outcome = rewrite(
+        let rewrite_outcome = rewriter(
             &source,
             &temporary,
             &mut |bytes_read, total_bytes| {
@@ -138,6 +137,7 @@ pub(crate) async fn run_library_repair_io(
 /// Runs snapshot IO without blocking the async runtime worker.
 pub(crate) async fn run_library_snapshot_io(
     recordings_folder: Arc<RecordingsFolder>,
+    rewriter: Rewriter,
     path: RecordingRelativePath,
     output_relative: String,
 ) -> Result<Option<RecorderIoResult>, IoError> {
@@ -158,7 +158,7 @@ pub(crate) async fn run_library_snapshot_io(
         };
         let temporary = recordings_folder.snapshot_temporary_path(&output_for_result);
         let cancel = AtomicBool::new(false);
-        let rewrite_outcome = rewrite(&source, &temporary, &mut |_read, _total| {}, &cancel);
+        let rewrite_outcome = rewriter(&source, &temporary, &mut |_read, _total| {}, &cancel);
         let outcome = match rewrite_outcome {
             Ok(_summary) => {
                 match recordings_folder.finalize_snapshot(&temporary, &output_for_result) {
