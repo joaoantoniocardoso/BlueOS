@@ -178,8 +178,12 @@ fn repair(
     cancel: &AtomicBool,
 ) -> LibraryRepairOutcome {
     let relative = path.as_str();
-    let Ok(source) = recordings_folder.resolve(relative) else {
-        return LibraryRepairOutcome::Failed(RepairFailure::Io);
+    let source = match recordings_folder.resolve(relative) {
+        Ok(source) => source,
+        Err(error) => {
+            warn!(%error, path = %relative, "Failed to resolve a recording to repair");
+            return LibraryRepairOutcome::Failed(RepairFailure::Io);
+        }
     };
     let temporary = recordings_folder.recover_temporary_path(relative);
     let rewritten = rewriter(
@@ -205,7 +209,10 @@ fn repair(
         Ok(_summary) => {
             match recordings_folder.replace_recording_from_temporary(&temporary, relative) {
                 Ok(()) => LibraryRepairOutcome::Succeeded,
-                Err(_) => LibraryRepairOutcome::Failed(RepairFailure::Replace),
+                Err(error) => {
+                    warn!(%error, path = %relative, "Failed to replace a recording with its repair");
+                    LibraryRepairOutcome::Failed(RepairFailure::Replace)
+                }
             }
         }
         Err(RewriteError::Cancelled) => LibraryRepairOutcome::Cancelled,
@@ -226,14 +233,21 @@ fn snapshot(
     rewriter: &Rewriter,
     cancel: &AtomicBool,
 ) -> LibrarySnapshotOutcome {
-    let Ok(source) = recordings_folder.resolve(path.as_str()) else {
-        return LibrarySnapshotOutcome::Failed(RepairFailure::Io);
+    let source = match recordings_folder.resolve(path.as_str()) {
+        Ok(source) => source,
+        Err(error) => {
+            warn!(%error, path = path.as_str(), "Failed to resolve a recording to snapshot");
+            return LibrarySnapshotOutcome::Failed(RepairFailure::Io);
+        }
     };
     let temporary = recordings_folder.snapshot_temporary_path(output_path);
     let outcome = match rewriter(&source, &temporary, &mut |_read, _total| {}, cancel) {
         Ok(_summary) => match recordings_folder.finalize_snapshot(&temporary, output_path) {
             Ok(()) => LibrarySnapshotOutcome::Succeeded,
-            Err(_) => LibrarySnapshotOutcome::Failed(RepairFailure::Replace),
+            Err(error) => {
+                warn!(%error, path = %output_path, "Failed to finish a snapshot");
+                LibrarySnapshotOutcome::Failed(RepairFailure::Replace)
+            }
         },
         Err(RewriteError::Cancelled | RewriteError::Mcap(_)) => {
             LibrarySnapshotOutcome::Failed(RepairFailure::Rewrite)
