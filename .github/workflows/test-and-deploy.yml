@@ -235,7 +235,7 @@ jobs:
             --ok 0 --no-version -- \
             "$GITHUB_WORKSPACE/.hooks/lib/ergonomics_report.sh" "$GITHUB_WORKSPACE"
 
-  rust-report-nightly:
+  rust-nightly:
     runs-on: ubuntu-latest
     env:
       # lockbud links against rustc internals, so it builds and runs only on the nightly its commit names.
@@ -253,7 +253,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: core
-          shared-key: rust-report-nightly
+          shared-key: rust-nightly
 
       - name: Install pinned nightly toolchain
         uses: dtolnay/rust-toolchain@master
@@ -286,7 +286,7 @@ jobs:
           cargo "+$LOCKBUD_TOOLCHAIN" install --locked --root "$HOME/.lockbud" \
             --git https://github.com/BurtonQin/lockbud --rev "$LOCKBUD_REVISION" lockbud
 
-      - name: Report-only nightly tools
+      - name: Nightly checks
         working-directory: core
         run: |
           # shellcheck disable=SC1091
