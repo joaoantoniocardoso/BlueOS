@@ -642,6 +642,3 @@ pub fn derive_recording_file_state(
     }
     RecordingFileState::NeedsRepair
 }
-
-#[cfg(test)]
-mod tests;

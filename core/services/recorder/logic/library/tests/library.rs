@@ -2,12 +2,9 @@
 
 use core::time::Duration;
 
-use alloc::{string::ToString, vec};
-
 use blueos_domain::{Effect, Now, Outcome};
 use blueos_jobs::JobId;
-
-use super::{
+use blueos_recorder_library::{
     CANCEL_JOB, Library, LibraryIoRequest, LibraryIoResult, LibraryObservedFact, LibraryOperation,
     LibraryRepairOutcome, LibraryRepairProgress, LibraryRequest, LibrarySnapshotOutcome,
     RecordingFileState, RepairFailure, SNAPSHOT_RECORDING, ScannedRecording,
