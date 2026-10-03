@@ -6,6 +6,7 @@ import { DELETE_RECORDING, REPAIR_RECORDING, SNAPSHOT_RECORDING } from '@/libs/r
 import type { LibraryRecording, RecordingJobResult } from '@/libs/recorder/types'
 import {
   canPlayRecording,
+  deleteConfirmationMessage,
   jobCanceledMessage,
   jobFailureMessage,
   readySnapshotDownloadPath,
@@ -130,5 +131,11 @@ describe('recorder view-logic', () => {
       .toBe('Repair canceled for half.mcap')
     expect(jobCanceledMessage(jobResult(REPAIR_RECORDING, JobStatusStatus.Succeeded, result))).toBeNull()
     expect(jobCanceledMessage(jobResult(REPAIR_RECORDING, JobStatusStatus.Aborted, result, 'disk full'))).toBeNull()
+  })
+
+  it('asks before deleting one recording or many', () => {
+    expect(deleteConfirmationMessage([file({ name: 'dive.mcap' })])).toBe('Delete dive.mcap? This cannot be undone.')
+    expect(deleteConfirmationMessage([file(), file({ path: 'other.mcap' })]))
+      .toBe('Delete 2 recordings? This cannot be undone.')
   })
 })

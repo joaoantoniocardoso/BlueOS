@@ -146,6 +146,13 @@ export function readySnapshotDownloadPath(
   return match?.path ?? null
 }
 
+export function deleteConfirmationMessage(targets: LibraryRecording[]): string {
+  if (targets.length === 1) {
+    return `Delete ${targets[0].name}? This cannot be undone.`
+  }
+  return `Delete ${targets.length} recordings? This cannot be undone.`
+}
+
 /** Why a Job aborted, for the user, or null when it succeeded or was canceled. */
 export function jobFailureMessage({ job, result }: RecordingJobResult): string | null {
   if (job.status !== JobStatusStatus.Aborted) {

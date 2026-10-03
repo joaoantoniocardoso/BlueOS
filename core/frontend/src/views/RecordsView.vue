@@ -323,7 +323,13 @@ import type {
   LibraryRecording, RecorderCommandResult, RecordingJobResult, RecordingState,
 } from '@/libs/recorder/types'
 import {
-  jobCanceledMessage, jobFailureMessage, RECORDING_STATE_UI, recordingByPath, type RepairProgress, withRepairJobs,
+  deleteConfirmationMessage,
+  jobCanceledMessage,
+  jobFailureMessage,
+  RECORDING_STATE_UI,
+  recordingByPath,
+  type RepairProgress,
+  withRepairJobs,
 } from '@/libs/recorder/view-logic'
 import zenoh from '@/libs/zenoh'
 import { blueosApiMixin } from '@/mixins/blueosApi'
@@ -416,11 +422,7 @@ export default Vue.extend({
       return this.bulkOperation === REPAIR_RECORDING
     },
     deleteDialogMessage(): string {
-      const targets = bulkActionTargets(this.deleteTargets, DELETE_RECORDING)
-      if (targets.length === 1) {
-        return `Delete ${targets[0].name}? This cannot be undone.`
-      }
-      return `Delete ${targets.length} recordings? This cannot be undone.`
+      return deleteConfirmationMessage(bulkActionTargets(this.deleteTargets, DELETE_RECORDING))
     },
     repairDialogMessage(): string {
       const targets = bulkActionTargets(this.repairTargets, REPAIR_RECORDING)
@@ -576,19 +578,16 @@ export default Vue.extend({
         this.askRepair([file])
         return
       }
+      if (operationName === DELETE_RECORDING) {
+        this.askDelete([file])
+        return
+      }
       this.lastError = ''
       this.busyPath = file.path
       this.busyOperation = operationName
       try {
         if (operationName === CANCEL_JOB) {
           const result = await this.recorder.cancelRepair(file.repair_job_id)
-          if (!result.accepted) {
-            this.lastError = result.reason
-          }
-          return
-        }
-        if (operationName === DELETE_RECORDING) {
-          const result = await this.recorder.deleteRecording(file.path)
           if (!result.accepted) {
             this.lastError = result.reason
           }
