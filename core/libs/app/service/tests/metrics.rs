@@ -195,6 +195,13 @@ async fn many_commands_within_one_second_produce_one_publication() {
         10,
         "the first publication carries every Command of the second"
     );
+
+    let second = timeout(Duration::from_millis(900), published.recv()).await;
+
+    assert!(
+        second.is_err(),
+        "a second publication came within the same second: {second:?}"
+    );
 }
 
 #[tokio::test(start_paused = true)]
