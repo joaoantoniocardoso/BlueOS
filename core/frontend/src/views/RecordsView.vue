@@ -188,7 +188,7 @@
           :disabled="!recorderServiceRunning"
           :busy-operation="busyPath === file.path ? busyOperation : null"
           selectable
-          :selected="isSelected(file)"
+          :selected="selectedPaths.includes(file.path)"
           @toggle-select="toggleSelected(file)"
           @operation="onOperation"
           @play="openPlayer"
@@ -278,13 +278,10 @@ import type { Transport } from '@/libs/blueos-api/transport'
 import zenohTransport from '@/libs/blueos-api/zenoh-transport'
 import type { RecordingIndexSource } from '@/libs/mcap/logic/recording-index'
 import {
-  appendBulkOperationFailure,
+  type BulkAction,
   bulkActionTargets,
-  bulkDeleteSubmissionFailureMessages,
-  bulkRepairSubmissionFailureMessages,
-  formatBulkFailureMessages,
-  submitBulkDelete,
-  submitBulkRepair,
+  bulkJobEnded,
+  runBulkAction,
 } from '@/libs/recorder/bulk-actions'
 import { createRecorderClient, type RecorderClient } from '@/libs/recorder/client'
 import {
@@ -296,16 +293,17 @@ import {
 import { dateFilterOptions, filterRecordings } from '@/libs/recorder/filter'
 import {
   allVisibleSelected,
-  isPathSelected,
   pruneSelection,
   selectedVisibleRecordings,
   setVisibleSelection,
   someVisibleSelected,
   togglePathSelection,
 } from '@/libs/recorder/selection'
-import type { LibraryRecording, RecordingOperationEvent, RecordingState } from '@/libs/recorder/types'
+import type {
+  LibraryRecording, RecorderCommandResult, RecordingJobResult, RecordingState,
+} from '@/libs/recorder/types'
 import {
-  operationFailureMessage, RECORDING_STATE_UI, recordingByPath, type RepairProgress, withRepairJobs,
+  jobFailureMessage, RECORDING_STATE_UI, recordingByPath, type RepairProgress, withRepairJobs,
 } from '@/libs/recorder/view-logic'
 import zenoh from '@/libs/zenoh'
 import { blueosApiMixin } from '@/mixins/blueosApi'
@@ -341,10 +339,8 @@ export default Vue.extend({
       repairDialog: false,
       deleteTargets: [] as LibraryRecording[],
       repairTargets: [] as LibraryRecording[],
-      bulkDeleting: false,
-      bulkRepairing: false,
-      bulkOperationPaths: [] as string[],
-      bulkFailureMessages: [] as string[],
+      bulkOperation: null as string | null,
+      bulkAction: { failures: [], pending: [] } as BulkAction,
     }
   },
   computed: {
@@ -375,9 +371,7 @@ export default Vue.extend({
         return this.selectedFiles
       },
       set(items: LibraryRecording[]): void {
-        const visiblePaths = new Set(this.visibleRecordings.map((file) => file.path))
-        const hidden = this.selectedPaths.filter((path) => !visiblePaths.has(path))
-        this.selectedPaths = [...hidden, ...items.map((file) => file.path)]
+        this.selectedPaths = setVisibleSelection(this.selectedPaths, this.visibleRecordings, items)
       },
     },
     allVisibleSelected(): boolean {
@@ -393,7 +387,13 @@ export default Vue.extend({
       return bulkActionTargets(this.selectedFiles, REPAIR_RECORDING).length > 0
     },
     bulkBusy(): boolean {
-      return this.bulkDeleting || this.bulkRepairing
+      return this.bulkOperation !== null
+    },
+    bulkDeleting(): boolean {
+      return this.bulkOperation === DELETE_RECORDING
+    },
+    bulkRepairing(): boolean {
+      return this.bulkOperation === REPAIR_RECORDING
     },
     deleteDialogMessage(): string {
       const targets = bulkActionTargets(this.deleteTargets, DELETE_RECORDING)
@@ -421,9 +421,7 @@ export default Vue.extend({
           this.selectedPaths = pruneSelection(this.selectedPaths, files.map((file) => file.path))
           this.libraryLoading = false
         },
-        (error) => {
-          this.lastError = error instanceof Error ? error.message : String(error)
-        },
+        (error) => this.showError(error),
       )),
       this.blueosTrackSubscription(this.recorder.watchServiceRunning((running) => {
         this.recorderServiceRunning = running
@@ -436,31 +434,23 @@ export default Vue.extend({
         (state) => {
           this.recording = state
         },
-        (error) => {
-          this.lastError = error instanceof Error ? error.message : String(error)
-        },
+        (error) => this.showError(error),
       )),
       this.blueosTrackSubscription(this.recorder.watchRepairProgress(
         (progress) => {
           this.repairProgress = progress
         },
-        (error) => {
-          this.lastError = error instanceof Error ? error.message : String(error)
-        },
+        (error) => this.showError(error),
       )),
       this.blueosTrackSubscription(this.recorder.watchJobs(
         (jobs) => {
           this.jobs = jobs
         },
-        (error) => {
-          this.lastError = error instanceof Error ? error.message : String(error)
-        },
+        (error) => this.showError(error),
       )),
       this.blueosTrackSubscription(this.recorder.watchOperations(
-        (event) => this.onRecordingOperation(event),
-        (error) => {
-          this.lastError = error instanceof Error ? error.message : String(error)
-        },
+        (entry) => this.onRecordingOperation(entry),
+        (error) => this.showError(error),
       )),
     ])
   },
@@ -482,38 +472,34 @@ export default Vue.extend({
       this.playerOpen = false
       this.activeRecordingPath = null
     },
-    onRecordingOperation(event: RecordingOperationEvent): void {
-      if (this.bulkOperationPaths.includes(event.path)) {
-        this.bulkFailureMessages = appendBulkOperationFailure(
-          this.bulkFailureMessages,
-          event,
-          new Set(this.bulkOperationPaths),
-        )
-        if (event.succeeded || event.cancelled) {
-          this.bulkOperationPaths = this.bulkOperationPaths.filter((path) => path !== event.path)
-        }
+    showError(error: unknown): void {
+      this.lastError = error instanceof Error ? error.message : String(error)
+    },
+    onRecordingOperation(entry: RecordingJobResult): void {
+      if (bulkJobEnded(this.bulkAction, entry)) {
         this.reportBulkFailures()
         return
       }
-      const failure = operationFailureMessage(event, event.path)
+      const failure = jobFailureMessage(entry)
       if (failure) {
         this.lastError = failure
       }
     },
     reportBulkFailures(): void {
-      if (this.bulkFailureMessages.length === 0) {
+      if (this.bulkAction.failures.length === 0) {
         return
       }
-      this.lastError = formatBulkFailureMessages(this.bulkFailureMessages)
-    },
-    isSelected(file: LibraryRecording): boolean {
-      return isPathSelected(this.selectedPaths, file.path)
+      this.lastError = this.bulkAction.failures.join('\n')
     },
     toggleSelected(file: LibraryRecording): void {
       this.selectedPaths = togglePathSelection(this.selectedPaths, file.path)
     },
     toggleSelectAllVisible(selected: boolean): void {
-      this.selectedPaths = setVisibleSelection(this.selectedPaths, this.visibleRecordings, selected)
+      this.selectedPaths = setVisibleSelection(
+        this.selectedPaths,
+        this.visibleRecordings,
+        selected ? this.visibleRecordings : [],
+      )
     },
     clearSelection(): void {
       this.selectedPaths = []
@@ -527,61 +513,35 @@ export default Vue.extend({
       this.repairDialog = true
     },
     async confirmBulkDelete(): Promise<void> {
-      if (!this.recorder) {
-        return
-      }
-      const targets = bulkActionTargets(this.deleteTargets, DELETE_RECORDING)
+      const targets = this.deleteTargets
       this.deleteDialog = false
       this.deleteTargets = []
-      if (targets.length === 0) {
-        return
-      }
-      const paths = targets.map((file) => file.path)
-      this.lastError = ''
-      this.bulkFailureMessages = []
-      this.bulkOperationPaths = [...paths]
-      this.bulkDeleting = true
-      try {
-        const outcomes = await submitBulkDelete(
-          paths,
-          (path) => this.recorder!.deleteRecording(path),
-        )
-        this.bulkFailureMessages = bulkDeleteSubmissionFailureMessages(outcomes)
-        this.bulkOperationPaths = outcomes
-          .filter((outcome) => outcome.accepted)
-          .map((outcome) => outcome.path)
-        this.reportBulkFailures()
-      } finally {
-        this.bulkDeleting = false
-      }
+      await this.runBulk(DELETE_RECORDING, targets, (recorder, path) => recorder.deleteRecording(path))
     },
     async confirmBulkRepair(): Promise<void> {
-      if (!this.recorder) {
-        return
-      }
-      const targets = bulkActionTargets(this.repairTargets, REPAIR_RECORDING)
+      const targets = this.repairTargets
       this.repairDialog = false
       this.repairTargets = []
-      if (targets.length === 0) {
+      await this.runBulk(REPAIR_RECORDING, targets, (recorder, path) => recorder.repairRecording(path))
+    },
+    async runBulk(
+      operationName: string,
+      targets: LibraryRecording[],
+      submit: (recorder: RecorderClient, path: string) => Promise<RecorderCommandResult>,
+    ): Promise<void> {
+      const { recorder } = this
+      const pending = bulkActionTargets(targets, operationName).map((file) => file.path)
+      if (!recorder || pending.length === 0) {
         return
       }
-      const paths = targets.map((file) => file.path)
       this.lastError = ''
-      this.bulkFailureMessages = []
-      this.bulkOperationPaths = [...paths]
-      this.bulkRepairing = true
+      this.bulkAction = { failures: [], pending }
+      this.bulkOperation = operationName
       try {
-        const outcomes = await submitBulkRepair(
-          paths,
-          (path) => this.recorder!.repairRecording(path),
-        )
-        this.bulkFailureMessages = bulkRepairSubmissionFailureMessages(outcomes)
-        this.bulkOperationPaths = outcomes
-          .filter((outcome) => outcome.accepted)
-          .map((outcome) => outcome.path)
+        await runBulkAction(this.bulkAction, operationName, (path) => submit(recorder, path))
         this.reportBulkFailures()
       } finally {
-        this.bulkRepairing = false
+        this.bulkOperation = null
       }
     },
     async onOperation(operationName: string, file: LibraryRecording): Promise<void> {
@@ -621,7 +581,7 @@ export default Vue.extend({
           )
         }
       } catch (error) {
-        this.lastError = error instanceof Error ? error.message : String(error)
+        this.showError(error)
       } finally {
         this.busyPath = null
         this.busyOperation = null
