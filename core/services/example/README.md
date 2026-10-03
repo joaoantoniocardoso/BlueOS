@@ -16,7 +16,8 @@ the small wiring path; the numbered [`cookbook/`](cookbook/README.md) answers ev
 | `app/endpoints.toml` | Public endpoint manifest (D-26) |
 | `app/src/endpoints.rs` | Generated `register` (do not edit) |
 | `app/src/lib.rs` | Crate root: `cli`, `endpoints`, `service` only |
-| `app/src/service.rs` | `impl Service` calling `endpoints::register` |
+| `app/src/service.rs` | `impl Service`: `context` builds the Context (here `()`), `build` calls `endpoints::register` |
+| `app/src/context.rs` | The Context and its Ports, once the Service has IO or Tasks (example-minimal has none) |
 | `app/src/cli.rs` | Service-specific `clap::Args` (common flags come from the Kernel) |
 | `cookbook/tests/27-tasks.rs` | Supervised Tasks (Q27); example-minimal ships none |
 | `app/src/handlers.rs` | Optional custom Command/Query handlers when the manifest marks an endpoint `custom` |
@@ -46,16 +47,20 @@ optional on `core/app/blueos`; without it, `blueos example` prints that the name
    `frontend/src/libs/blueos-api/services/<name>.ts`, and `core/libs/idl/api.lock`).
 4. **Domain** — Implement `Domain` / `DomainQueries` in `logic/domain`. Unit-test `handle` and `query` with no tokio.
 5. **Conversions** — `impl Conversions for ...` in `logic/api/src/lib.rs`.
-6. **Service** — `impl Service` in `app/src/service.rs`: `const NAME = endpoints::NAME`, `build` returns
-   `endpoints::register(ServiceBuilder::new(...))` plus `.service_metadata(...)` when you need `info` fields.
+6. **Service** — `impl Service` in `app/src/service.rs`: `const NAME = endpoints::NAME`, then two steps that the
+   Kernel runs in order. `context` builds the Context: it may open what the arguments name and fills every Port with
+   its real adapter (`Ok(())` when there is nothing). `build` is pure, with no IO and no spawning: it returns
+   `endpoints::register(ServiceBuilder::new(...))` plus `.service_metadata(...)` when you need `info` fields. A Task
+   that follows a Projection captures the handle in `build`; the Context never holds a Projection.
 7. **Multicall** — Add `"<name>"` to `KNOWN` in `core/app/blueos/src/main.rs` (always, even when the feature is off).
    Add a `#[cfg(feature = "<name>")]` match arm calling `blueos_service::entry::run::<YourService>`.
 8. **Cargo feature** — On `core/app/blueos/Cargo.toml`, an optional dependency on your `app` crate and a feature that
    enables it (for example `example = ["dep:blueos-example-app"]`). Wire the match arm with `#[cfg(feature = "example")]`.
    Do **not** add that feature to `build_cross.sh`, CI cross-build, `core/Dockerfile`, or `core/start-blueos-core`
    unless the Service ships.
-9. **Integration tests** — `app/tests/` using `blueos_service::testing::Harness` and `Harness::start` (real `build`,
-   no hand-wired registration).
+9. **Integration tests** — `app/tests/` using `blueos_service::testing::Harness`: `Harness::start` runs the real
+   `context` and `build`; `Harness::start_with(arguments, |context| ...)` replaces a Port or a tunable in between.
+   No second wiring function, and no test-only `pub` item in the app crate.
 10. **nginx** — When the Service exposes HTTP, add a `location` in `core/tools/nginx/nginx.conf` (see other services).
 11. **Startup** — When the Service should run on the vehicle, add a line in `core/start-blueos-core` in dependency order.
 12. **Frontend** — Import the generated client from `@/libs/blueos-api/services/<name>`, use `sendCommand` /
