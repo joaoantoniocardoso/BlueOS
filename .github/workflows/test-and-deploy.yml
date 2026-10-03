@@ -212,6 +212,10 @@ jobs:
   rust-report-nightly:
     runs-on: ubuntu-latest
     continue-on-error: true
+    env:
+      # lockbud links against rustc internals, so it builds and runs only on the nightly its commit names.
+      LOCKBUD_TOOLCHAIN: nightly-2026-02-07
+      LOCKBUD_REVISION: cc78cb72cb85cb80e596717339cca95ef50c8fe0
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -237,6 +241,26 @@ jobs:
         with:
           tool: cargo-udeps@0.1.61,cargo-llvm-cov@0.9.1,cargo-nextest@0.9.146
 
+      - name: Install lockbud toolchain
+        run: |
+          rustup toolchain install "$LOCKBUD_TOOLCHAIN" --profile minimal \
+            --component rust-src,rustc-dev,llvm-tools-preview
+          echo "$HOME/.lockbud/bin" >> "$GITHUB_PATH"
+
+      # lockbud publishes no binaries, so it is built once per commit and cached.
+      - name: Use cached lockbud
+        id: lockbud-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.lockbud
+          key: lockbud-${{ env.LOCKBUD_REVISION }}-${{ env.LOCKBUD_TOOLCHAIN }}-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Build lockbud
+        if: steps.lockbud-cache.outputs.cache-hit != 'true'
+        run: |
+          cargo "+$LOCKBUD_TOOLCHAIN" install --locked --root "$HOME/.lockbud" \
+            --git https://github.com/BurtonQin/lockbud --rev "$LOCKBUD_REVISION" lockbud
+
       - name: Report-only nightly tools
         working-directory: core
         run: |
@@ -260,10 +284,25 @@ jobs:
               cargo '+${RUST_NIGHTLY}' test -p blueos-example-domain --lib --target x86_64-unknown-linux-gnu \
                 -- --test-threads=1
             "
+          # lockbud only analyses crates it compiles, so it builds into target folders the cache never restores.
+          # It exits 0 whatever it finds, so a finding is read from its log, and the canary's known deadlock proves
+          # that it analysed something.
+          lockbud_workspace() {
+            local crates status=0
+            crates=$(cargo metadata --no-deps --format-version 1 --locked \
+              | jq -r '[.packages[].targets[].name | gsub("-"; "_")] | unique | join(",")') || return
+            [ -n "$crates" ] || return
+            (cd ../.github/lockbud-canary && CARGO_TARGET_DIR="$RUNNER_TEMP/lockbud-canary" \
+              cargo "+${LOCKBUD_TOOLCHAIN}" lockbud -k deadlock -l lockbud_canary -- --locked) 2>&1 \
+              | tee "$RUNNER_TEMP/lockbud-canary.log" || return
+            grep -q "crate lockbud_canary contains bugs" "$RUNNER_TEMP/lockbud-canary.log" || return
+            CARGO_TARGET_DIR="$RUNNER_TEMP/lockbud" cargo "+${LOCKBUD_TOOLCHAIN}" lockbud -k deadlock -l "$crates" \
+              -- --locked 2>&1 | tee "$RUNNER_TEMP/lockbud.log" || return
+            grep -q "contains bugs" "$RUNNER_TEMP/lockbud.log" || status=$?
+            [ "$status" -eq 1 ]
+          }
           report_section "lockbud deadlock" \
-            docker run --rm -v "$PWD:/volume" -w /volume \
-              burtonqin/lockbud@sha256:f4478dc2216f2dfd97aadca69086f7896226a8ccc1c7e54ef57d4e6ef0de3f57 \
-              -k deadlock
+            lockbud_workspace
 
   rust-test:
     runs-on: ubuntu-latest
