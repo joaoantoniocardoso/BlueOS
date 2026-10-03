@@ -199,7 +199,10 @@ jobs:
           report_section "thailint blocking-async" \
             thailint blocking-async libs app services
           report_section "ast-metrics" \
-            ast-metrics analyze libs app services --language rust
+            bash -ec '
+              ast-metrics analyze --report-json "$RUNNER_TEMP/ast-metrics.json" libs app services
+              test -s "$RUNNER_TEMP/ast-metrics.json"
+            '
           {
             echo "## D-31 ergonomics measures"
             echo
@@ -227,7 +230,7 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ steps.nightly.outputs.toolchain }}
-          components: rust-src,rustc-dev,llvm-tools-preview
+          components: rust-src,rustc-dev,llvm-tools-preview,rustfmt
 
       - name: Install nightly report tools
         uses: taiki-e/install-action@v2
@@ -243,16 +246,19 @@ jobs:
           report_section "cargo udeps" \
             cargo "+${RUST_NIGHTLY}" udeps --all-targets --workspace --locked
           report_section "branch coverage summary" \
-            bash -c '
+            bash -ec '
               cargo llvm-cov clean --workspace
-              cargo llvm-cov nextest --workspace --locked --branch --no-report
+              # The trybuild snapshots hold stable compiler messages, which nightly words differently.
+              cargo llvm-cov nextest --workspace --locked --branch --no-report -E "not binary(compile_errors)"
               cargo llvm-cov report --branch --summary-only
             '
           report_section "address sanitizer (example domain lib)" \
-            bash -c "
+            bash -ec "
               export RUSTFLAGS='-Zsanitizer=address -Cdebuginfo=1'
               export ASAN_OPTIONS='detect_leaks=0'
-              cargo '+${RUST_NIGHTLY}' test -p blueos-example-domain --lib -- --test-threads=1
+              # An explicit target keeps RUSTFLAGS off proc-macros and build scripts.
+              cargo '+${RUST_NIGHTLY}' test -p blueos-example-domain --lib --target x86_64-unknown-linux-gnu \
+                -- --test-threads=1
             "
           report_section "lockbud deadlock" \
             docker run --rm -v "$PWD:/volume" -w /volume \
