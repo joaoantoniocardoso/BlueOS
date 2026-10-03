@@ -108,7 +108,7 @@ pub struct Kernel<D: Domain, Context = ()> {
     durable: Option<DurableStateHandle<D>>,
     events: Vec<EventEndpoint<D>>,
     /// Decodes the Goal of each Job type, for a Job that executes once its permission is granted.
-    job_types: HashMap<String, Decode<D>>,
+    goal_decoders: HashMap<String, Decode<D>>,
     /// Where the Jobs are when the Domain keeps them in its Snapshot.
     jobs_access: Option<JobsAccess<D>>,
     /// The Jobs, when the Domain does not keep them.
@@ -434,7 +434,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             });
         }
         let mut pending_commands = Vec::new();
-        let mut job_types = HashMap::new();
+        let mut goal_decoders = HashMap::new();
         let mut job_outputs = Vec::new();
         let mut pending_job_outputs = Vec::new();
         for command in builder.commands {
@@ -455,7 +455,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 })
             };
             pending_commands.push((queryable, into_input));
-            job_types.insert(command.name, command.decode);
+            goal_decoders.insert(command.name, command.decode);
         }
         for job_type in job_type_names {
             let feedback_key = job_feedback_key(service, &job_type);
@@ -545,7 +545,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             settings,
             durable,
             events: builder.events,
-            job_types,
+            goal_decoders,
             jobs_access: builder.jobs,
             own_jobs: Jobs::default(),
             jobs_latest,
