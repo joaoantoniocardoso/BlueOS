@@ -35,6 +35,8 @@ pub struct RecordingCommandContext<'a> {
     pub snapshotting: bool,
     /// Whether the MCAP summary is present.
     pub indexed: bool,
+    /// Whether a repair already failed because the file, as it is now, is not an MCAP recording.
+    pub not_mcap: bool,
     /// Modification time from the last scan (Unix seconds).
     pub modified_unix_seconds: i64,
     /// Injected time for the Command.
@@ -87,6 +89,9 @@ pub fn repair_recording_rejection(context: &RecordingCommandContext<'_>) -> Opti
     if context.indexed {
         return Some("This recording already has an index.");
     }
+    if context.not_mcap {
+        return Some("This recording is not an MCAP file.");
+    }
     if context.active_recording_relative_path == Some(context.relative_path) {
         return Some("This recording is still being written. Try again once it is finished.");
     }
@@ -138,6 +143,7 @@ mod tests {
             repairing: false,
             snapshotting: false,
             indexed: false,
+            not_mcap: false,
             modified_unix_seconds: 1_000,
             now: NOW,
         }
