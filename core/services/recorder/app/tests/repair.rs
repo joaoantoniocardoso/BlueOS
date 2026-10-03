@@ -23,7 +23,7 @@ use tokio::{
 };
 
 use blueos_api::job_feedback_key;
-use blueos_comms::Subscriber;
+use blueos_comms::{CommsBackend, Subscriber, channel::ChannelBackend};
 use blueos_idl::{
     Message,
     msg::blueos_msgs::{CommandAckStatus, JobFeedbackList, JobStatusStatus},
@@ -37,7 +37,7 @@ use blueos_recorder_domain::durable::RecorderDurableState;
 use blueos_recorder_library::RESCAN_INTERVAL;
 use blueos_recorder_mcap::is_indexed;
 use blueos_service::{
-    Service, new_job_id,
+    Service, ServiceContext, new_job_id,
     testing::{Harness, WALL_CLOCK_AT_START, lock_unpoisoned},
 };
 use blueos_settings::ServiceStateStore;
@@ -393,10 +393,14 @@ async fn restored_interrupted_repair_job_is_aborted_and_recover_discarded() {
     )
     .expect("write state");
 
-    let harness = Harness::<RecorderService>::start_with_settings_path(
-        recorder_arguments(directory.path()),
-        Some(settings_parent.path().to_path_buf()),
-        |_context| {},
+    let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
+    let harness = Harness::<RecorderService>::start_on_with_context(
+        Arc::clone(&backend),
+        ServiceContext::with_settings_path(
+            recorder_arguments(directory.path()),
+            Some(settings_parent.path().to_path_buf()),
+            backend,
+        ),
     )
     .await
     .expect("harness");
