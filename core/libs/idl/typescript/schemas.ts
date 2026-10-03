@@ -1,9 +1,7 @@
 // @generated
 export const SCHEMAS: Record<string, string> = {
   "blueos_example_msgs/msg/EmptyRequest": `# blueos_example_msgs/msg/EmptyRequest
-# Command payload with no semantics (StartSelfTest, CancelSelfTest). Padding keeps CDR codegen happy.
-
-uint8 padding`,
+# Command payload with no semantics (StartSelfTest, CancelSelfTest). Declared empty, with no placeholder field.`,
   "blueos_example_msgs/msg/LevelQueryResponse": `# blueos_example_msgs/msg/LevelQueryResponse
 # Reply for blueos/v1/example/query/Level.
 

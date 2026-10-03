@@ -1,8 +1,6 @@
 // @generated
 
-export interface EmptyRequest {
-  padding: number;
-}
+export interface EmptyRequest {}
 
 export interface LevelQueryResponse {
   level: number;
