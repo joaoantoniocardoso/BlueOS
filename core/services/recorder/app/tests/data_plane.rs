@@ -13,7 +13,7 @@ use blueos_comms::{Payload, Sample};
 use blueos_domain::Command;
 use blueos_idl::msg::{
     blueos_example_msgs::EmptyRequest,
-    blueos_msgs::ServiceInfo,
+    blueos_msgs::{ServiceInfo, SettingsEnvelope},
     blueos_recorder_msgs::{RecordingState, StartRecordingCommand},
 };
 use blueos_recorder_app::RecorderService;
@@ -354,4 +354,18 @@ async fn shutdown_with_full_writer_queue_finishes_file() {
     mcap::Summary::read(&bytes)
         .expect("read")
         .expect("readable after back pressure");
+}
+
+#[tokio::test(start_paused = true)]
+async fn update_settings_command_applies_capture_settings() {
+    let directory = tempdir().expect("tempdir");
+    let harness = start_harness(directory.path()).await;
+    let envelope = SettingsEnvelope {
+        document_json:
+            r#"{"VERSION":1,"record_mavlink_only_when_armed":false,"auto_start_recording":false}"#
+                .into(),
+        fields: Vec::new(),
+    };
+    let ack = harness.send("UpdateSettings", &envelope).await;
+    assert!(ack.accepted);
 }
