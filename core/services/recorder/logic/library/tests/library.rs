@@ -7,7 +7,8 @@ use blueos_jobs::JobId;
 use blueos_recorder_library::{
     CANCEL_JOB, Library, LibraryIoRequest, LibraryIoResult, LibraryObservedFact, LibraryOperation,
     LibraryRepairOutcome, LibraryRepairProgress, LibraryRequest, LibrarySnapshotOutcome,
-    RecordingFileState, RepairFailure, RepairProgress, SNAPSHOT_RECORDING, ScannedRecording,
+    REPAIR_PROGRESS_PUBLISH_INTERVAL, RecordingFileState, RepairFailure, RepairProgress,
+    SNAPSHOT_RECORDING, ScannedRecording,
     derive_recording_file_state, snapshot_output_relative_path,
 };
 
@@ -202,6 +203,53 @@ fn a_repair_reports_its_read_offset_to_its_job_until_it_ends() {
         })
     );
     assert_eq!(library.entries()[0].repair_error, "");
+}
+
+#[test]
+fn the_library_takes_repair_progress_once_per_publish_interval_and_always_its_end() {
+    let mut library = scan_snapshot(&[("file.mcap", false)], 1_000);
+    let path = blueos_recorder_paths::RecordingRelativePath::parse("file.mcap").expect("path");
+    assert!(matches!(
+        library.start_repair(path.clone(), job_id(1), None, NOW),
+        Outcome::Applied { .. }
+    ));
+    let mut report = |bytes_processed: u64, after: Duration| {
+        library.handle_observed_fact(
+            LibraryObservedFact::RepairProgress(LibraryRepairProgress {
+                path: path.clone(),
+                bytes_processed,
+                total_bytes: 100,
+            }),
+            None,
+            Now {
+                wall: NOW.wall + after,
+                monotonic: NOW.monotonic + after,
+            },
+        );
+        let published = library.entries()[0].repair_bytes_processed;
+        let latest = library
+            .repair_progress(job_id(1))
+            .expect("progress")
+            .bytes_processed;
+        (published, latest)
+    };
+
+    assert_eq!(
+        report(10, REPAIR_PROGRESS_PUBLISH_INTERVAL / 5),
+        (0, 10),
+        "progress right after the repair started waits for the publish interval"
+    );
+    assert_eq!(report(20, REPAIR_PROGRESS_PUBLISH_INTERVAL), (20, 20));
+    assert_eq!(
+        report(30, REPAIR_PROGRESS_PUBLISH_INTERVAL * 6 / 5),
+        (20, 30),
+        "progress within the publish interval waits"
+    );
+    assert_eq!(
+        report(100, REPAIR_PROGRESS_PUBLISH_INTERVAL * 7 / 5),
+        (100, 100),
+        "the end of the read is published at once"
+    );
 }
 
 #[test]
