@@ -181,7 +181,7 @@ async def main() -> None:
         implementation.configure(parser.parse_args())
 
     # Running uvicorn with log disabled so loguru can handle it
-    config = Config(app=app, host="0.0.0.0", port=9000, log_config=None)
+    config = Config(app=app, host="0.0.0.0", port=9000, log_config=None, timeout_graceful_shutdown=2)
     server = Server(config)
 
     # pylint: disable=global-statement

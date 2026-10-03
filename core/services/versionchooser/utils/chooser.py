@@ -308,9 +308,9 @@ class VersionChooser:
                 logger.info("Stopping core...")
                 core = await self.client.containers.get("blueos-core")  # type: ignore
                 if core:
-                    await core.kill()
+                    await core.stop()
                     result = await core.wait()  # type: ignore
-                    logger.info(f"Response after waiting for core to be killed: {result}")
+                    logger.info(f"Response after waiting for core to be stopped: {result}")
                 return JSONResponse(
                     status_code=200, content={"message": f"Changed to version {image}:{tag}, restarting..."}
                 )
@@ -466,5 +466,5 @@ class VersionChooser:
         """
         logger.info("Stopping core...")
         core = await self.client.containers.get("blueos-core")  # type: ignore
-        await core.kill()
+        await core.stop()
         return JSONResponse(status_code=200, content={"message": "Restarting..."})

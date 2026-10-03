@@ -82,7 +82,7 @@ async def main() -> None:
     _ = parser.parse_args()
 
     # Running uvicorn with log disabled so loguru can handle it
-    config = Config(app=app, host="0.0.0.0", port=9110, log_config=None)
+    config = Config(app=app, host="0.0.0.0", port=9110, log_config=None, timeout_graceful_shutdown=2)
     server = Server(config)
 
     asyncio.create_task(sensor_manager())
