@@ -453,7 +453,8 @@ run_rust_supply_chain_checks() {
 check_typos() {
     local repository_dir="$1"
     local typos_paths=() path
-    for path in .hooks/lib core/libs core/app core/Cargo.toml core/deny.toml core/clippy.toml core/coverage-ratchet.toml; do
+    for path in .hooks/lib core/libs core/app core/services core/Cargo.toml core/deny.toml core/clippy.toml \
+        core/coverage-ratchet.toml core/quality-ratchet.toml; do
         if [ -e "$repository_dir/$path" ]; then
             typos_paths+=("$path")
         fi
