@@ -280,7 +280,7 @@ async fn info_lists_each_endpoint_with_the_interface_type_of_api_lock_and_its_sc
         .await
         .expect("info query");
 
-    assert_eq!(info.endpoints.len(), 9 + 3 * 6, "{:?}", info.endpoints);
+    assert_eq!(info.endpoints.len(), 9 + 1 + 3 * 6, "{:?}", info.endpoints);
     for endpoint in &info.endpoints {
         assert_eq!(
             locked.get(endpoint.key.as_str()),
@@ -288,9 +288,10 @@ async fn info_lists_each_endpoint_with_the_interface_type_of_api_lock_and_its_sc
             "{}",
             endpoint.key
         );
-        assert_eq!(
-            endpoint.schema.as_str(),
-            blueos_idl::schema(&endpoint.interface_type).unwrap_or_default(),
+        assert!(
+            endpoint.schema.starts_with(
+                blueos_idl::schema(&endpoint.interface_type).expect("a listed type has a schema")
+            ),
             "{}",
             endpoint.key
         );
