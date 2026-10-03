@@ -116,6 +116,9 @@ export default Vue.extend({
     fileSizeBytes() {
       this.loadThumbnail()
     },
+    canPlay() {
+      this.loadThumbnail()
+    },
   },
   beforeDestroy() {
     this.revokeObjectUrl()
@@ -135,6 +138,7 @@ export default Vue.extend({
     },
     async loadThumbnail(): Promise<void> {
       if (!this.canPlay || !canLoadThumbnail(this.file) || !this.downloadUrl) {
+        this.controller?.abort()
         this.revokeObjectUrl()
         this.loading = false
         return
