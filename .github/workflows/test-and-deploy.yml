@@ -351,12 +351,16 @@ jobs:
           run_rust_test_checks "$GITHUB_WORKSPACE/core"
 
       - name: Flake hunt
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' || (github.event_name == 'push' && !github.event.created)
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           if [ "$(git rev-parse --is-shallow-repository)" = true ]; then
             git fetch --no-tags --unshallow origin
           fi
-          .hooks/lib/flake_hunt.sh "${{ github.event.pull_request.base.sha }}"
+          # A force push replaces a commit that no branch holds any more.
+          git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null || git fetch --no-tags origin "$BASE_SHA"
+          .hooks/lib/flake_hunt.sh "$BASE_SHA"
 
       - name: Coverage ratchet
         run: |
