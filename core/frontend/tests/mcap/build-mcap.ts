@@ -1,6 +1,11 @@
 import { McapWriter, TempBuffer } from '@mcap/core'
 
 import { encodeCdrWithSchema } from '@/libs/blueos-api/cdr'
+import type { ByteSource } from '@/libs/mcap/logic/byte-source'
+import { type McapChunkIndex, McapIndexedReader } from '@/libs/mcap/logic/reader'
+import type { RecordingIndexSource } from '@/libs/mcap/logic/recording-index'
+
+import MemoryByteSource from './memory-byte-source'
 
 /** Minimal Annex-B IDR slice (SPS + PPS + IDR) for mux/codec probes. */
 export const SAMPLE_H264_KEYFRAME = Uint8Array.from([
@@ -123,6 +128,117 @@ export async function buildTwoTrackVideoMcap(): Promise<Uint8Array> {
   }
   await writer.end()
   return buffer.get()
+}
+
+/**
+ * A telemetry topic every 100 ms for 4 s and a video stream that only starts 2 s in, so the first chunks hold no
+ * video and the video Channel record sits in a later chunk, as when a camera starts during a recording.
+ */
+export async function buildLateVideoMcap(): Promise<Uint8Array> {
+  const buffer = new TempBuffer()
+  const writer = new McapWriter({ writable: buffer, chunkSize: 256 })
+  await writer.start({ profile: '', library: 'blueos-test' })
+  const telemetrySchema = await writer.registerSchema({
+    name: 'blueos_msgs/msg/TelemetrySample',
+    encoding: 'jsonschema',
+    data: new TextEncoder().encode('{"type":"object"}'),
+  })
+  const telemetry = await writer.registerChannel({
+    schemaId: telemetrySchema, topic: '/telemetry/depth', messageEncoding: 'json', metadata: new Map(),
+  })
+  const videoSchema = await writer.registerSchema({
+    name: 'foxglove.CompressedVideo', encoding: 'ros2msg', data: new TextEncoder().encode(COMPRESSED_VIDEO_SCHEMA),
+  })
+  const camera = await writer.registerChannel({
+    schemaId: videoSchema, topic: 'video/camera/stream', messageEncoding: 'cdr', metadata: new Map(),
+  })
+  const payload = encodeCompressedVideo('h264', SAMPLE_H264_KEYFRAME)
+  for (let index = 0; index < 40; index += 1) {
+    const logTime = 1_000_000_000n + BigInt(index) * 100_000_000n
+    await writer.addMessage({
+      channelId: telemetry,
+      sequence: index,
+      logTime,
+      publishTime: logTime,
+      data: new TextEncoder().encode(JSON.stringify({ depth_m: index })),
+    })
+    if (index >= 20) {
+      await writer.addMessage({
+        channelId: camera, sequence: index - 20, logTime, publishTime: logTime, data: payload,
+      })
+    }
+  }
+  await writer.end()
+  return buffer.get()
+}
+
+/** A finished recording served as if it were still being written, `writtenChunks` chunks at a time. */
+export interface LiveRecording {
+  /** Chunks of the finished recording, in file order. */
+  chunks: McapChunkIndex[]
+  /** Chunks on disk so far; raise it to write more. */
+  writtenChunks: number
+  /** The bytes on disk so far. */
+  bytes: () => Uint8Array
+  source: ByteSource & { bytesRead: number }
+  /** Pages through the written chunks the way the recorder's index service does. */
+  indexSource: RecordingIndexSource
+}
+
+export async function asLiveRecording(finished: Uint8Array, writtenChunks: number): Promise<LiveRecording> {
+  const reader = await McapIndexedReader.open(new MemoryByteSource(finished))
+  const { chunkIndexes } = reader.summary
+  const counts = await Promise.all(chunkIndexes.map((chunk, index) => Promise.all(
+    chunk.channelIds.map(async (channelId) => ({
+      channel_id: channelId,
+      count: (await reader.readChunkMessageEntries(index, channelId))?.length ?? 0,
+    })),
+  )))
+  const live: LiveRecording = {
+    chunks: chunkIndexes,
+    writtenChunks,
+    bytes: () => {
+      const last = chunkIndexes[live.writtenChunks - 1]
+      return finished.subarray(0, last.offset + last.length + last.messageIndexLength)
+    },
+    source: {
+      bytesRead: 0,
+      size: async () => live.bytes().length,
+      read: async (offset, length) => {
+        const slice = live.bytes().subarray(offset, offset + length)
+        live.source.bytesRead += slice.length
+        return slice
+      },
+    },
+    indexSource: {
+      page: async (fromOffset) => {
+        const size = live.bytes().length
+        const written = chunkIndexes
+          .slice(0, live.writtenChunks)
+          .map((chunk, index) => ({ chunk, index }))
+          .filter(({ chunk }) => chunk.offset >= fromOffset)
+        return {
+          size,
+          offset: size,
+          closed: false,
+          chunks: written.map(({ chunk }) => ({
+            start_time: Number(chunk.startTime),
+            end_time: Number(chunk.endTime),
+            offset: chunk.offset,
+            length: chunk.length,
+            compression: chunk.compression,
+            compressed_size: chunk.compressedSize,
+            uncompressed_size: chunk.uncompressedSize,
+            channel_ids: chunk.channelIds,
+            message_index_length: chunk.messageIndexLength,
+          })),
+          message_counts: written.flatMap(({ index }) => counts[index]),
+          records: new Uint8Array(),
+        }
+      },
+    },
+  }
+  return live
 }
 
 /** Simple JSON channel for CSV export tests (avoids ROS2 CDR layout in the video helper). */

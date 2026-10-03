@@ -369,10 +369,18 @@ export class McapIndexedReader {
 
   private async extendWrittenPrefixLocked(state: PrefixScanState, signal?: AbortSignal): Promise<boolean> {
     const chunksBefore = state.chunkIndexes.length
+    const countedBefore = new Set(state.messageCountByChannel.keys())
     const extended = await McapIndexedReader.extendFromRecordingIndex(this.source, state, state.indexSource, signal)
     if (!extended.grew) {
       return false
     }
+    // A channel first written after opening, such as a camera started meanwhile, would otherwise stay unnamed and
+    // unplayable. New channels are rare, so naming each costs one chunk, unlike the ones opening left to its budget.
+    const introduced = new Set(
+      [...state.messageCountByChannel.keys()].filter((channelId) => !countedBefore.has(channelId)),
+    )
+    await McapIndexedReader
+      .resolvePrefixChannels(this.source, extended.size, state, Infinity, signal, undefined, introduced)
     const summary = McapIndexedReader.summaryFromPrefix(state, extended.size)
     this.summary.size = summary.size
     this.summary.startTime = summary.startTime
@@ -441,6 +449,7 @@ export class McapIndexedReader {
     budgetBytes: number,
     signal?: AbortSignal,
     onProgress?: (progress: PrefixScanProgress) => void,
+    onlyChannelIds?: ReadonlySet<number>,
   ): Promise<void> {
     const introducedBy = new Map<number, McapChunkIndex>()
     for (const chunk of state.chunkIndexes) {
@@ -455,7 +464,7 @@ export class McapIndexedReader {
     // eslint-disable-next-line no-constant-condition
     while (true) {
       const chunk = [...state.messageCountByChannel.entries()]
-        .filter(([channelId]) => !state.channels.has(channelId))
+        .filter(([channelId]) => !state.channels.has(channelId) && (onlyChannelIds?.has(channelId) ?? true))
         .sort(([, left], [, right]) => Number(right - left))
         .map(([channelId]) => introducedBy.get(channelId))
         .find((candidate) => candidate !== undefined && !state.openedChunkOffsets.has(candidate.offset))
