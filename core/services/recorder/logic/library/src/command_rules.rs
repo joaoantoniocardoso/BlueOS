@@ -124,8 +124,10 @@ pub fn snapshot_recording_rejection(context: &RecordingCommandContext<'_>) -> Op
 }
 
 fn recently_written(modified_unix_seconds: i64, now: Now) -> bool {
-    let modified = Duration::from_secs(modified_unix_seconds.max(0) as u64);
-    now.wall.saturating_sub(modified) < RECENTLY_WRITTEN_DELAY
+    now.wall
+        .as_secs()
+        .saturating_sub(modified_unix_seconds.max(0) as u64)
+        < RECENTLY_WRITTEN_DELAY.as_secs()
 }
 
 #[cfg(test)]
