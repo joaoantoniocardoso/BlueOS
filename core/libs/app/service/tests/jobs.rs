@@ -517,6 +517,26 @@ async fn no_key_outside_command_changes_anything() {
 }
 
 #[tokio::test(start_paused = true)]
+async fn info_reports_the_version_and_build_label_of_the_service_its_build_never_passes() {
+    let harness = start().await;
+
+    let info = harness.info().await;
+
+    assert_eq!(
+        (
+            info.name.as_str(),
+            info.version.as_str(),
+            info.build.as_str()
+        ),
+        (
+            BrewerService::NAME,
+            BrewerService::VERSION,
+            BrewerService::BUILD
+        )
+    );
+}
+
+#[tokio::test(start_paused = true)]
 async fn info_lists_the_jobs_state_and_the_feedback_result_and_history_of_each_job_type() {
     let harness = start().await;
     let service = BrewerService::NAME;
