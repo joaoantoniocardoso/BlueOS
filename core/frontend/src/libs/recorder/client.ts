@@ -92,9 +92,7 @@ export interface RecorderClientOptions {
 }
 
 function commandResult(commandAck: CommandAck): RecorderCommandResult {
-  return {
-    accepted: commandAck.accepted, reason: commandAck.reason, job_id: commandAck.job_id, status: commandAck.status,
-  }
+  return { accepted: commandAck.accepted, reason: commandAck.reason, job_id: commandAck.job_id, status: commandAck.status }
 }
 
 export function createRecorderClient(

@@ -39,7 +39,8 @@ pub fn run<S: Service>(arguments: Vec<OsString>) -> ExitCode {
     })
 }
 
-/// Runs a parsed CLI on an injected backbone (layer L3, channel backend in tests).
+/// Runs a parsed CLI on an injected backbone (layer L3, channel backend in tests). The Service's metrics are not
+/// installed as the process-wide recorder, so only what its own tasks record reaches them.
 #[cfg(feature = "testing")]
 pub async fn run_with_backend<S: Service>(
     parsed: ParsedServiceArguments<S::Arguments>,

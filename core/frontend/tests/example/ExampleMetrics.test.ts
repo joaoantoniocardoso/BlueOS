@@ -11,7 +11,7 @@ import { watchState } from '@/libs/blueos-api/watch'
 import FakeTransport from '../blueos-api/fake-transport'
 
 /**
- * Q35: how does the frontend read the `metrics` of a Service?
+ * Q37: how does the frontend read the `metrics` of a Service?
  *
  * Every Service publishes `metrics` (D-35), so there is no generated constant for it: `metricsState(service)` builds
  * the State endpoint and `watchState` reads it, as for any State. The Service answers a late client with its current

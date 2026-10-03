@@ -18,7 +18,7 @@ use blueos_service::{
     RestartPolicy, Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness,
 };
 
-// qual:test_helper only tests use this Service and its Domain, which the quality ratchet counts as dead types
+// qual:test_helper only these tests use this Service and its Domain, and a dead type has no qual:allow target
 struct DoorbellService;
 
 #[derive(Clone, Default, clap::Args)]

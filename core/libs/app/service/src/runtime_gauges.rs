@@ -5,13 +5,6 @@ use tokio::runtime::Handle;
 
 use crate::metrics_registry::MetricsRegistry;
 
-/// How many worker threads the runtime has.
-const WORKERS: &str = "tokio_workers";
-/// How many tasks the runtime has spawned that have not finished.
-const ALIVE_TASKS: &str = "tokio_alive_tasks";
-/// How many tasks wait in the runtime's global queue.
-const GLOBAL_QUEUE_DEPTH: &str = "tokio_global_queue_depth";
-
 /// The gauges of the runtime the Kernel runs on. Only values that stay still while a Service is idle are here, so an
 /// idle Service does not republish its `metrics` (D-35).
 pub(crate) struct RuntimeGauges {
@@ -26,9 +19,9 @@ impl RuntimeGauges {
     pub(crate) fn new(registry: &MetricsRegistry) -> Self {
         metrics::with_local_recorder(registry, || Self {
             handle: Handle::current(),
-            workers: metrics::gauge!(WORKERS),
-            alive_tasks: metrics::gauge!(ALIVE_TASKS),
-            global_queue_depth: metrics::gauge!(GLOBAL_QUEUE_DEPTH),
+            workers: metrics::gauge!("tokio_workers"),
+            alive_tasks: metrics::gauge!("tokio_alive_tasks"),
+            global_queue_depth: metrics::gauge!("tokio_global_queue_depth"),
         })
     }
 

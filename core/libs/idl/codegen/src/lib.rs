@@ -785,15 +785,13 @@ fn read_field_tokens(
         FieldCase::Array(size) => {
             let element = read_scalar_or_message_inner(field, families, message_name);
             quote! {
-                {
+                reader.read_or_default(|reader| {
                     let mut values = [Default::default(); #size];
-                    if !reader.is_exhausted() {
-                        for index in 0..#size {
-                            values[index] = #element;
-                        }
+                    for index in 0..#size {
+                        values[index] = #element;
                     }
-                    values
-                }
+                    Ok(values)
+                })?
             }
         }
         _ => read_scalar_or_message(field, families, message_name, false),

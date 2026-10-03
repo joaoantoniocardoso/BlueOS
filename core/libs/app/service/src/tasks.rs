@@ -9,6 +9,7 @@ use std::{
 use backon::{BackoffBuilder, ExponentialBuilder};
 use bytes::Bytes;
 use futures_util::{FutureExt, future::join_all};
+use metrics::Counter;
 use tokio::{sync::watch, task::JoinHandle};
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
 use tracing::warn;
@@ -33,8 +34,6 @@ use crate::{
 const BACKOFF_MIN: Duration = Duration::from_millis(100);
 /// Maximum delay between Task restart attempts (spec D-27).
 const BACKOFF_MAX: Duration = Duration::from_secs(30);
-/// The counter of how many times the supervisor restarted a Task, labelled with the Task's name (D-35).
-const TASK_RESTARTS: &str = "task_restarts";
 
 /// When a supervised Task body fails and should be restarted.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -219,10 +218,13 @@ impl TaskSupervisor {
             let name = task.name.clone();
             let policy = task.policy;
             let run = Arc::clone(&task.run);
-            let shutdown = self.shutdown.child_token();
             let status = self.status.clone();
+            let restarts = metrics::with_local_recorder(
+                &self.spawner.metrics,
+                || metrics::counter!("task_restarts", "task" => name.clone()),
+            );
             let task_context = TaskContext {
-                shutdown: shutdown.clone(),
+                shutdown: self.shutdown.child_token(),
                 session: Arc::clone(&session),
                 commands: commands.clone(),
                 context: Arc::clone(&context),
@@ -233,9 +235,9 @@ impl TaskSupervisor {
                 policy,
                 run,
                 task_context,
-                shutdown,
                 Arc::clone(&clock),
                 status,
+                restarts,
             ));
             lock_unpoisoned(&self.handles).push((name, handle));
         }
@@ -335,9 +337,9 @@ async fn supervise_task<D: Domain, Context: Send + Sync + 'static>(
     policy: RestartPolicy,
     run: TaskRun<D, Context>,
     task_context: TaskContext<D, Context>,
-    shutdown: CancellationToken,
     clock: Arc<dyn Clock>,
     status: StatusPublisher,
+    restarts: Counter,
 ) {
     let mut failures = 0u32;
     let mut delays = match policy {
@@ -347,7 +349,7 @@ async fn supervise_task<D: Domain, Context: Send + Sync + 'static>(
         }
     };
     loop {
-        if shutdown.is_cancelled() {
+        if task_context.shutdown.is_cancelled() {
             break;
         }
         status.mark_running(&name).await;
@@ -366,7 +368,7 @@ async fn supervise_task<D: Domain, Context: Send + Sync + 'static>(
                 Err(TaskFailed)
             }
         };
-        if shutdown.is_cancelled() {
+        if task_context.shutdown.is_cancelled() {
             break;
         }
         let should_restart = match (outcome, policy) {
@@ -392,10 +394,10 @@ async fn supervise_task<D: Domain, Context: Send + Sync + 'static>(
         let Some(delay) = delays.as_mut().and_then(Iterator::next) else {
             break;
         };
-        if wait_delay(&clock, &shutdown, delay).await {
+        if wait_delay(&clock, &task_context.shutdown, delay).await {
             break;
         }
-        metrics::counter!(TASK_RESTARTS, "task" => name.clone()).increment(1);
+        restarts.increment(1);
     }
 }
 

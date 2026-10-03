@@ -79,10 +79,6 @@ const UPDATE_SETTINGS_ACTION: &str = "blueos_msgs/action/UpdateSettings";
 const METRICS: &str = "metrics";
 /// The shortest time between two publications of the `metrics` State (D-35).
 const METRICS_PERIOD: Duration = Duration::from_secs(1);
-/// The histogram of how long the Inbox took to apply each Command, in seconds.
-const INBOX_STEP_TIME: &str = "inbox_step_seconds";
-/// The gauge of how many Commands waited in the Inbox when the last step began.
-const INBOX_DEPTH: &str = "inbox_depth";
 /// The line ROS 2 schema text puts before the schema of each message it depends on.
 const SCHEMA_SEPARATOR: &str =
     "================================================================================";
@@ -339,6 +335,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         let shutdown_receiver = builder.shutdown_receiver;
         let (inbox_sender, inbox) = mpsc::channel(INBOX_CAPACITY);
         let snapshot_for_queries = Arc::new(tokio::sync::RwLock::new(builder.snapshot.clone()));
+        let metrics_key = state_key(service, METRICS);
         let job_type_names: Vec<String> = builder
             .commands
             .iter()
@@ -379,7 +376,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                     EndpointInfo {
                         kind: "state".to_owned(),
                         name: METRICS.to_owned(),
-                        key: state_key(service, METRICS),
+                        key: metrics_key.clone(),
                         interface_type: ServiceMetrics::SCHEMA_NAME.to_owned(),
                         schema: ServiceMetrics::SCHEMA.to_owned(),
                     },
@@ -428,11 +425,11 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         let status_encoding = cdr_encoding(ServiceStatus::SCHEMA_NAME);
         let status_latest = watch::Sender::new(None);
         let status_queryable = declare(&*backend, status_key.clone()).await?;
-        let metrics_queryable = declare(&*backend, state_key(service, METRICS)).await?;
+        let metrics_queryable = declare(&*backend, metrics_key.clone()).await?;
         let (inbox_step_time, inbox_depth) = metrics::with_local_recorder(&builder.metrics, || {
             (
-                metrics::histogram!(INBOX_STEP_TIME),
-                metrics::gauge!(INBOX_DEPTH),
+                metrics::histogram!("inbox_step_seconds"),
+                metrics::gauge!("inbox_depth"),
             )
         });
         let runtime_gauges = RuntimeGauges::new(&builder.metrics);
@@ -645,7 +642,6 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             &status_latest,
         )
         .await;
-        kernel.publish_metrics().await;
         let command_sender = CommandSender::new(mpsc::Sender::clone(
             kernel
                 .inbox_sender
@@ -659,6 +655,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             Arc::clone(&kernel.context),
             Arc::clone(&kernel.clock),
         );
+        kernel.publish_metrics().await;
         kernel.endpoints.spawn(serve_fixed_reply(
             info_queryable,
             info_key,
@@ -673,7 +670,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         ));
         kernel.endpoints.spawn(serve_state(
             metrics_queryable,
-            state_key(service, METRICS),
+            metrics_key,
             cdr_encoding(ServiceMetrics::SCHEMA_NAME),
             kernel.metrics_latest.subscribe(),
         ));

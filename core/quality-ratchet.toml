@@ -31,7 +31,7 @@ total_findings = 662
 [thailint]
 "unwrap-abuse.unwrap-call" = 6
 "unwrap-abuse.expect-call" = 0
-"clone-abuse.clone-in-loop" = 61
+"clone-abuse.clone-in-loop" = 60
 "clone-abuse.clone-chain" = 0
 "clone-abuse.unnecessary-clone" = 5
 "blocking-async.fs-in-async" = 0

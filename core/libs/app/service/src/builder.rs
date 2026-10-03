@@ -104,7 +104,7 @@ pub struct ServiceBuilder<D: Domain, Context = ()> {
     pub(crate) shutdown_request: Option<D::Request>,
     pub(crate) shutdown_sender: Option<watch::Sender<bool>>,
     pub(crate) shutdown_receiver: Option<watch::Receiver<bool>>,
-    /// Where the Service's metrics land: a new registry, or the one the entry made before `context` (D-35).
+    /// The registry the Service's metrics are recorded in (D-35).
     pub(crate) metrics: MetricsRegistry,
 }
 

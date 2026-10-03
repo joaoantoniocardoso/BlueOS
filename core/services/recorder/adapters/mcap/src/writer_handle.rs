@@ -231,11 +231,12 @@ async fn writer_actor(
                     queued_bytes.fetch_sub(batch_bytes, Ordering::Relaxed);
                     continue;
                 };
-                let batch_metrics = Arc::clone(&metrics);
-                let write_result = tokio::task::spawn_blocking(move || {
+                let write_result = tokio::task::spawn_blocking({
+                    let metrics = Arc::clone(&metrics);
+                    move || {
                     for request in batch {
                         match file.write_sample_request(&request) {
-                            Ok(()) => batch_metrics
+                            Ok(()) => metrics
                                 .record_written(&request.topic, request.payload.size_bytes()),
                             Err(error) => {
                                 warn!(%error, topic = %request.topic, "failed to write MCAP sample");
@@ -244,6 +245,7 @@ async fn writer_actor(
                     }
                     let bytes = file.bytes_written();
                     (file, bytes)
+                    }
                 })
                 .await;
                 queued_bytes.fetch_sub(batch_bytes, Ordering::Relaxed);
