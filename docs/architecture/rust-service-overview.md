@@ -81,7 +81,8 @@ These do not appear in `example-minimal`, but every shipped Service uses the sam
 **Settings document.** Each service defines its document in `logic/api` and registers `.settings(...)` on
 `ServiceBuilder`. The Kernel loads the file through `SettingsDriver` in `core/libs/app/service/src/settings.rs`,
 using `blueos-settings` in `core/libs/adapters/settings/` for Python-compatible files (D-11). `UpdateSettings` is
-served like any Command (`serve_update_settings` in `kernel/mod.rs`). The published `settings` State uses the same
+an instant Job type that every Service has (`serve_update_settings` in `kernel/mod.rs`): the ack carries its final
+status, and a Service without settings refuses it. The published `settings` State uses the same
 JSON as the file inside `SettingsEnvelope`.
 
 **Durable state.** Opt-in via `ServiceBuilder::durable_state` (D-28). `core/libs/app/service/src/durable_state.rs`

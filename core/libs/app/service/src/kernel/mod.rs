@@ -36,7 +36,7 @@ use blueos_idl::{
         SettingsEnvelope,
     },
 };
-use blueos_jobs::{JobControl, JobEnd, JobId, JobStatus, Jobs, JobsError, Submitted};
+use blueos_jobs::{JobControl, JobEnd, JobId, JobNature, JobStatus, Jobs, JobsError, Submitted};
 
 use crate::{
     builder::{
@@ -161,6 +161,9 @@ pub(crate) enum Rejection {
     /// The attachment of a Command is not the id of the Job it submits or controls.
     #[error("the Command's attachment is not a Job id")]
     NoJobId,
+    /// The Service registered no settings, so there is nothing for `UpdateSettings` to change.
+    #[error("the Service has no settings")]
+    NoSettings,
     /// The Jobs refused the submit or the control.
     #[error(transparent)]
     Jobs(#[from] JobsError),
@@ -311,6 +314,8 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             status_latest.clone(),
         );
         let task_specs = builder.tasks;
+        let update_settings_queryable =
+            declare(&*backend, command_key(service, "UpdateSettings")).await?;
         let mut pending_settings_serve = None;
         let mut settings = None;
         if let Some(registration) = builder.settings {
@@ -321,15 +326,8 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             let queryable = declare(&*backend, key.clone()).await?;
             let encoding = settings_encoding();
             let latest = watch::Sender::new(None);
-            let update_key = command_key(service, "UpdateSettings");
-            let update_queryable = declare(&*backend, update_key).await?;
-            pending_settings_serve = Some((
-                queryable,
-                update_queryable,
-                key.clone(),
-                encoding.clone(),
-                latest.subscribe(),
-            ));
+            pending_settings_serve =
+                Some((queryable, key.clone(), encoding.clone(), latest.subscribe()));
             settings = Some(SettingsEndpoint {
                 key,
                 encoding,
@@ -501,28 +499,24 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             status_encoding,
             status_latest.subscribe(),
         ));
-        if let Some((queryable, update_queryable, key, encoding, latest)) = pending_settings_serve {
-            let driver = Arc::clone(
-                &kernel
-                    .settings
-                    .as_ref()
-                    .expect("settings exist when their queryables were declared")
-                    .driver,
-            );
+        if let Some((queryable, key, encoding, latest)) = pending_settings_serve {
             kernel
                 .endpoints
                 .spawn(serve_settings(queryable, key, encoding, latest));
-            kernel.endpoints.spawn(serve_update_settings(
-                update_queryable,
-                driver,
-                mpsc::Sender::clone(
-                    kernel
-                        .inbox_sender
-                        .as_ref()
-                        .expect("the inbox sender exists during startup"),
-                ),
-            ));
         }
+        kernel.endpoints.spawn(serve_update_settings(
+            update_settings_queryable,
+            kernel
+                .settings
+                .as_ref()
+                .map(|endpoint| Arc::clone(&endpoint.driver)),
+            mpsc::Sender::clone(
+                kernel
+                    .inbox_sender
+                    .as_ref()
+                    .expect("the inbox sender exists during startup"),
+            ),
+        ));
         for (queryable, into_input) in pending_commands {
             kernel.endpoints.spawn(serve_command(
                 queryable,
@@ -797,6 +791,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 return None;
             }
         };
+        let persist_settings = persist_settings && command.is_some();
         let snapshot = &mut self.snapshot;
         let own_jobs = &mut self.own_jobs;
         let jobs_access = self.jobs_access;
@@ -858,6 +853,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                         }
                         Err(error) => {
                             self.snapshot = backup;
+                            self.own_jobs = jobs_backup;
                             complete_command_reply(
                                 reply,
                                 command_ack(job_id, None, Err(Rejection::Domain(error.into()))),
@@ -1109,15 +1105,7 @@ async fn serve_command<D: Domain>(
     inbox: mpsc::Sender<Delivery<D>>,
 ) {
     while let Some(query) = queryable.recv().await {
-        let job_id = query
-            .body()
-            .and_then(QueryBody::attachment)
-            .and_then(|attachment| {
-                core::str::from_utf8(&attachment.to_bytes())
-                    .ok()?
-                    .parse()
-                    .ok()
-            });
+        let job_id = attached_job_id(&query);
         let body = query
             .body()
             .map(|body| body.payload().to_bytes().into_owned())
@@ -1145,45 +1133,60 @@ async fn serve_command<D: Domain>(
     }
 }
 
-/// Decodes `UpdateSettings`, validates the document, and queues a Domain Command that persists on success.
+/// Decodes `UpdateSettings` into an instant Job, validates the document, and queues it with a flag to persist on
+/// success. A Service without settings refuses it.
 async fn serve_update_settings<D: Domain>(
     mut queryable: Queryable,
-    driver: Arc<Mutex<Box<dyn SettingsDriver<D>>>>,
+    driver: Option<Arc<Mutex<Box<dyn SettingsDriver<D>>>>>,
     inbox: mpsc::Sender<Delivery<D>>,
 ) {
     while let Some(query) = queryable.recv().await {
-        let body = query.body().map(|body| body.payload().to_bytes());
-        let bytes = body.unwrap_or_default();
-        let decoded = match SettingsEnvelope::decode(&bytes) {
-            Ok(envelope) => envelope,
-            Err(error) => {
-                complete_command_reply(
-                    Some(CommandReply::Query(query)),
-                    command_ack(None, None, Err(Rejection::InvalidBody(error))),
-                )
-                .await;
-                continue;
-            }
-        };
-        let request = lock_unpoisoned(&driver).request_from_envelope(decoded);
-        match request {
-            Ok(request) => {
+        let job_id = attached_job_id(&query);
+        let goal = query
+            .body()
+            .map(|body| body.payload().to_bytes().into_owned())
+            .unwrap_or_default();
+        let input = job_id.ok_or(Rejection::NoJobId).and_then(|job_id| {
+            let driver = driver.as_ref().ok_or(Rejection::NoSettings)?;
+            let envelope = SettingsEnvelope::decode(&goal).map_err(Rejection::InvalidBody)?;
+            let request = lock_unpoisoned(driver)
+                .request_from_envelope(envelope)
+                .map_err(Rejection::Domain)?;
+            Ok(Input::Submit {
+                job_id,
+                job_type: "UpdateSettings".to_owned(),
+                goal,
+                nature: JobNature::INSTANT,
+                request,
+            })
+        });
+        match input {
+            Ok(input) => {
                 let delivery = Delivery {
-                    input: Input::Command(Command::Request(request)),
+                    input,
                     reply: Some(CommandReply::Query(query)),
                     persist_settings: true,
                 };
                 drop(inbox.send(delivery).await);
             }
-            Err(error) => {
+            Err(rejection) => {
                 complete_command_reply(
                     Some(CommandReply::Query(query)),
-                    command_ack(None, None, Err(Rejection::Domain(error))),
+                    command_ack(job_id, None, Err(rejection)),
                 )
                 .await;
             }
         }
     }
+}
+
+/// The id of the Job a client's Command names in its attachment, if it is one.
+fn attached_job_id(query: &Query) -> Option<JobId> {
+    let attachment = query.body().and_then(QueryBody::attachment)?;
+    core::str::from_utf8(&attachment.to_bytes())
+        .ok()?
+        .parse()
+        .ok()
 }
 
 /// Answers every get on the `settings` State with the last value the backbone accepted.

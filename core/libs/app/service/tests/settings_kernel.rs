@@ -11,9 +11,14 @@ use std::{
 use serde::{Deserialize, Serialize};
 use tokio::time;
 
+use blueos_api::CommandAck;
 use blueos_comms::channel::ChannelBackend;
 use blueos_domain::{Command, Decision, Domain, DomainDurable, IoError, Now, Outcome};
-use blueos_idl::{msg::blueos_example_msgs::SetLevelRequest, msg::blueos_msgs::SettingsEnvelope};
+use blueos_idl::{
+    msg::blueos_example_msgs::SetLevelRequest,
+    msg::blueos_msgs::{CommandAckStatus, JobStatus, JobStatusStatus, SettingsEnvelope},
+};
+use blueos_jobs::JobId;
 use blueos_service::{Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness};
 use blueos_settings::{SettingsError, SettingsSchema, settings_file_name, state_file_name};
 
@@ -275,6 +280,73 @@ async fn update_settings_persists_and_publishes_pending_restart() {
 }
 
 #[tokio::test(start_paused = true)]
+async fn update_settings_is_an_instant_job_that_acks_its_final_status() {
+    let parent = temp_settings_parent("instant-job");
+    let harness = start_with_settings_folder(parent.clone()).await;
+    let job_id = JobId::from_u128(7);
+    let updated = SettingsTankDocument {
+        version: SettingsTankDocument::VERSION,
+        live_field: 2,
+        restart_field: "changed".into(),
+    };
+
+    let ack = harness
+        .submit("UpdateSettings", job_id, &envelope_for(&updated))
+        .await;
+
+    assert_eq!(
+        ack,
+        CommandAck {
+            accepted: true,
+            job_id: job_id.to_string(),
+            status: CommandAckStatus::Succeeded,
+            reason: String::new(),
+        }
+    );
+    let running: SettingsTankDocument =
+        serde_json::from_str(&harness.settings::<SettingsEnvelope>().await.document_json).unwrap();
+    assert_eq!(running, updated);
+    assert_eq!(
+        harness.jobs().await.jobs,
+        [JobStatus {
+            job_id: job_id.to_string(),
+            job_type: "UpdateSettings".to_owned(),
+            status: JobStatusStatus::Succeeded,
+            reason: String::new(),
+        }]
+    );
+
+    let _ = std::fs::remove_dir_all(parent);
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_retry_of_update_settings_does_not_write_again() {
+    let parent = temp_settings_parent("retry");
+    let harness = start_with_settings_folder(parent.clone()).await;
+    let job_id = JobId::from_u128(7);
+    let updated = envelope_for(&SettingsTankDocument {
+        version: SettingsTankDocument::VERSION,
+        live_field: 2,
+        restart_field: "changed".into(),
+    });
+    let first = harness.submit("UpdateSettings", job_id, &updated).await;
+    let settings_path = parent.join(format!(
+        "{}/{}",
+        SettingsTankService::NAME,
+        settings_file_name(SettingsTankDocument::VERSION)
+    ));
+    std::fs::remove_file(&settings_path).unwrap();
+
+    let retry = harness.submit("UpdateSettings", job_id, &updated).await;
+
+    assert_eq!(retry, first);
+    assert!(!settings_path.exists());
+    assert_eq!(harness.jobs().await.jobs.len(), 1);
+
+    let _ = std::fs::remove_dir_all(parent);
+}
+
+#[tokio::test(start_paused = true)]
 async fn write_failure_restores_snapshot_and_rejects() {
     let parent = temp_settings_parent("write-fail");
     let harness = start_with_settings_folder(parent.clone()).await;
@@ -299,6 +371,7 @@ async fn write_failure_restores_snapshot_and_rejects() {
     let envelope = harness.settings::<SettingsEnvelope>().await;
     let running: SettingsTankDocument = serde_json::from_str(&envelope.document_json).unwrap();
     assert_eq!(running.live_field, 1);
+    assert!(harness.jobs().await.jobs.is_empty());
 
     let _ = std::fs::remove_dir_all(parent);
 }
@@ -364,8 +437,26 @@ async fn rejects_foreign_version() {
         document_json: document.to_string(),
         fields: Vec::new(),
     };
-    let ack = harness.send("UpdateSettings", &envelope).await;
+    let job_id = JobId::from_u128(7);
+    let ack = harness.submit("UpdateSettings", job_id, &envelope).await;
     assert!(!ack.accepted);
+    assert_eq!(ack.job_id, job_id.to_string());
+    assert_eq!(ack.status, CommandAckStatus::StatusUnknown);
+
+    let running: SettingsTankDocument =
+        serde_json::from_str(&harness.settings::<SettingsEnvelope>().await.document_json).unwrap();
+    assert_eq!(running, SettingsTankDocument::default());
+    let on_disk: SettingsTankDocument = serde_json::from_str(
+        &std::fs::read_to_string(parent.join(format!(
+            "{}/{}",
+            SettingsTankService::NAME,
+            settings_file_name(SettingsTankDocument::VERSION)
+        )))
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(on_disk, SettingsTankDocument::default());
+    assert!(harness.jobs().await.jobs.is_empty());
 
     let _ = std::fs::remove_dir_all(parent);
 }

@@ -14,7 +14,7 @@ use blueos_comms::{QueryBody, Subscriber};
 use blueos_domain::{Command, Decision, Domain, Effect, IoError, Now, Outcome};
 use blueos_idl::msg::{
     blueos_example_msgs::{EmptyRequest, SetLevelRequest},
-    blueos_msgs::{CommandAckStatus, JobList, JobStatusStatus, ServiceInfo},
+    blueos_msgs::{CommandAckStatus, JobList, JobStatusStatus, ServiceInfo, SettingsEnvelope},
 };
 use blueos_jobs::{DomainJobs, JobControl, JobEnd, JobId, JobNature, JobStatus, Jobs};
 use blueos_service::{Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness};
@@ -217,6 +217,26 @@ async fn a_job_that_ends_in_the_step_that_accepts_it_acks_its_final_status() {
             entry(empty, "Brew", JobStatusStatus::Aborted, "no cups to brew"),
         ]
     );
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_service_without_settings_refuses_update_settings() {
+    let harness = start().await;
+    let job_id = JobId::from_u128(3);
+
+    let ack = harness
+        .submit("UpdateSettings", job_id, &SettingsEnvelope::default())
+        .await;
+
+    assert_eq!(
+        ack,
+        rejected(
+            job_id,
+            CommandAckStatus::StatusUnknown,
+            "the Service has no settings"
+        )
+    );
+    assert!(listed(&harness).await.is_empty());
 }
 
 #[tokio::test(start_paused = true)]
