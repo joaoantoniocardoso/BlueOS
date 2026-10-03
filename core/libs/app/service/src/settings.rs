@@ -20,7 +20,9 @@ use crate::service::ServiceError;
 
 type SettingsDriverBox<D> = Box<dyn SettingsDriver<D>>;
 
-type SettingsStartup<D> = Box<dyn FnOnce() -> Result<SettingsDriverBox<D>, ServiceError>>;
+/// Opens the settings of the Service named by the first argument in the settings folder of the second.
+type SettingsStartup<D> =
+    Box<dyn FnOnce(String, Option<PathBuf>) -> Result<SettingsDriverBox<D>, ServiceError>>;
 
 /// Configuration collected in [`ServiceBuilder::settings`]; the [`Kernel`] opens the manager at startup.
 pub(crate) struct SettingsRegistration<D: Domain> {
@@ -115,8 +117,6 @@ where
 
 /// Records the settings port; disk IO happens when the [`Kernel`] starts.
 pub(crate) fn register_settings<D, S>(
-    service_name: String,
-    config_folder: Option<PathBuf>,
     into_snapshot: impl Fn(&mut D::Snapshot, S) + Send + Sync + 'static,
     from_snapshot: impl Fn(&D::Snapshot) -> S + Send + Sync + 'static,
     into_request: impl Fn(SettingsEnvelope) -> Result<D::Request, Box<dyn Error + Send + Sync>>
@@ -129,7 +129,7 @@ where
     S: SettingsSchema + Send + Sync + 'static,
 {
     SettingsRegistration {
-        start: Box::new(move || {
+        start: Box::new(move |service_name, config_folder| {
             let manager = SettingsManager::<S>::new(service_name, config_folder)?;
             let loaded = manager.settings().clone();
             let driver = TypedSettingsDriver {

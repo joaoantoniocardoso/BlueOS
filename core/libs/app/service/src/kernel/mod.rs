@@ -302,7 +302,13 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             .job_result(UPDATE_SETTINGS, |_, _| UpdateSettingsResult::default());
         let mut startup_commands = builder.startup_commands;
         let shutdown_request = tokio::sync::Mutex::new(builder.shutdown_request);
-        let durable_registration = builder.durable.take();
+        let durable_registration = builder.durable.take().map(|declaration| {
+            (declaration.open)(
+                service.to_owned(),
+                builder.settings_folder.clone(),
+                declaration.version,
+            )
+        });
         if let Some(registration) = &durable_registration {
             registration
                 .store
@@ -410,7 +416,8 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         let mut pending_settings_serve = None;
         let mut settings = None;
         if let Some(registration) = builder.settings {
-            let mut driver = (registration.start)()?;
+            let mut driver =
+                (registration.start)(service.to_owned(), builder.settings_folder.clone())?;
             driver.load_into(&mut builder.snapshot)?;
             let driver = Arc::new(Mutex::new(driver));
             let key = settings_key(service);

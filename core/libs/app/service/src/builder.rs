@@ -1,6 +1,6 @@
 //! What a Service's `build` declares: the initial Snapshot and how the Domain meets the backbone.
 
-use core::{error::Error, future::Future, pin::Pin};
+use core::{error::Error, future::Future, num::NonZeroU32, pin::Pin};
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use tokio::sync::watch;
@@ -19,6 +19,7 @@ use crate::{
         DurableStateRegistration, register_durable_state, register_durable_state_with_jobs,
     },
     kernel::{Rejection, Unanswered, io::IoExecutors},
+    service::{Service, ServiceContext},
     settings::{SettingsRegistration, register_settings},
     shutdown::{ShutdownHandle, new_shutdown_channel},
     tasks::{RestartPolicy, TaskContext, TaskFailed, TaskSpec},
@@ -81,6 +82,8 @@ pub(crate) struct ServiceMetadata {
 pub struct ServiceBuilder<D: Domain, Context = ()> {
     pub(crate) snapshot: D::Snapshot,
     pub(crate) metadata: ServiceMetadata,
+    /// The folder the settings and the durable state live in, from the ServiceContext.
+    pub(crate) settings_folder: Option<PathBuf>,
     pub(crate) manifest_endpoints: Vec<EndpointInfo>,
     pub(crate) io: IoExecutors<D, Context>,
     pub(crate) commands: Vec<CommandEndpoint<D>>,
@@ -90,7 +93,7 @@ pub struct ServiceBuilder<D: Domain, Context = ()> {
     pub(crate) projections: Vec<Box<dyn crate::projection::RefreshProjection<D> + Send + Sync>>,
     pub(crate) events: Vec<EventEndpoint<D>>,
     pub(crate) settings: Option<SettingsRegistration<D>>,
-    pub(crate) durable: Option<DurableStateRegistration<D>>,
+    pub(crate) durable: Option<DurableStateDeclaration<D>>,
     /// Set when the Domain keeps the Jobs in its Snapshot; the Kernel keeps them otherwise.
     pub(crate) jobs: Option<JobsAccess<D>>,
     /// The Feedback and Job result each Job type declared, by Job type.
@@ -100,6 +103,13 @@ pub struct ServiceBuilder<D: Domain, Context = ()> {
     pub(crate) shutdown_request: Option<D::Request>,
     pub(crate) shutdown_sender: Option<watch::Sender<bool>>,
     pub(crate) shutdown_receiver: Option<watch::Receiver<bool>>,
+}
+
+/// The durable state a Service declared, which the Kernel opens in the Service's settings folder when it starts.
+pub(crate) struct DurableStateDeclaration<D: Domain> {
+    /// Opens the store of the Service named by the first argument in the settings folder of the second.
+    pub(crate) open: fn(String, Option<PathBuf>, NonZeroU32) -> DurableStateRegistration<D>,
+    pub(crate) version: NonZeroU32,
 }
 
 /// Answers one Query from the Snapshot and the request body.
@@ -168,6 +178,7 @@ impl<D: Domain, Context> ServiceBuilder<D, Context> {
                 build: "dev",
                 capabilities: &[],
             },
+            settings_folder: None,
             manifest_endpoints: Vec::new(),
             io: IoExecutors {
                 r#async: None,
@@ -194,20 +205,14 @@ impl<D: Domain, Context> ServiceBuilder<D, Context> {
 
 impl<D: DomainDurable, Context> ServiceBuilder<D, Context> {
     /// Persists the Domain's durable Snapshot field as versioned JSON next to the settings (D-28).
-    pub fn durable_state(
-        mut self,
-        service_name: &str,
-        config_folder: Option<PathBuf>,
-        version: core::num::NonZeroU32,
-    ) -> Self
+    pub fn durable_state(mut self, version: NonZeroU32) -> Self
     where
         D::DurableState: serde::Serialize + serde::de::DeserializeOwned + PartialEq,
     {
-        self.durable = Some(register_durable_state::<D>(
-            service_name.to_owned(),
-            config_folder,
+        self.durable = Some(DurableStateDeclaration {
+            open: register_durable_state::<D>,
             version,
-        ));
+        });
         self
     }
 }
@@ -218,18 +223,12 @@ where
     D::DurableState: serde::Serialize + serde::de::DeserializeOwned + PartialEq,
 {
     /// Like [`ServiceBuilder::durable_state`], and persists the Domain's Jobs with the durable part.
-    pub fn durable_state_with_jobs(
-        mut self,
-        service_name: &str,
-        config_folder: Option<PathBuf>,
-        version: core::num::NonZeroU32,
-    ) -> Self {
+    pub fn durable_state_with_jobs(mut self, version: NonZeroU32) -> Self {
         self.jobs = Some((D::jobs, D::jobs_mut));
-        self.durable = Some(register_durable_state_with_jobs::<D>(
-            service_name.to_owned(),
-            config_folder,
+        self.durable = Some(DurableStateDeclaration {
+            open: register_durable_state_with_jobs::<D>,
             version,
-        ));
+        });
         self
     }
 }
@@ -289,18 +288,19 @@ impl<D: Domain + DomainQueries, Context> ServiceBuilder<D, Context> {
 }
 
 impl<D: Domain, Context> ServiceBuilder<D, Context> {
-    /// The version, build label and capabilities the Kernel publishes on the standard `info` query.
-    pub fn service_metadata(
+    /// Takes the version, build label and capabilities `info` publishes from `S`, and the folder the settings and the
+    /// durable state live in from `service` (D-25). The Kernel's entry points call it after `build`, so `build`
+    /// never passes them; a test that starts a [`Kernel`](crate::Kernel) by hand calls it too.
+    pub fn for_service<S: Service<Domain = D>>(
         mut self,
-        version: &'static str,
-        build: &'static str,
-        capabilities: &'static [&'static str],
+        service: &ServiceContext<S::Arguments>,
     ) -> Self {
         self.metadata = ServiceMetadata {
-            version,
-            build,
-            capabilities,
+            version: S::VERSION,
+            build: S::BUILD,
+            capabilities: S::CAPABILITIES,
         };
+        self.settings_folder = service.settings_path().map(PathBuf::from);
         self
     }
 
@@ -367,8 +367,6 @@ impl<D: Domain, Context> ServiceBuilder<D, Context> {
     /// persists after each successful update.
     pub fn settings<S>(
         mut self,
-        service_name: &str,
-        config_folder: Option<PathBuf>,
         into_snapshot: impl Fn(&mut D::Snapshot, S) + Send + Sync + 'static,
         from_snapshot: impl Fn(&D::Snapshot) -> S + Send + Sync + 'static,
         into_request: impl Fn(SettingsEnvelope) -> Result<D::Request, Box<dyn Error + Send + Sync>>
@@ -380,8 +378,6 @@ impl<D: Domain, Context> ServiceBuilder<D, Context> {
         S: SettingsSchema + Send + Sync + 'static,
     {
         self.settings = Some(register_settings(
-            service_name.to_owned(),
-            config_folder,
             into_snapshot,
             from_snapshot,
             into_request,

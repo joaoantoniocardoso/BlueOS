@@ -202,7 +202,7 @@ impl<S: Service> Harness<S> {
         };
         let mut context = S::context(&service)?;
         change(&mut context);
-        let mut builder = S::build(&service, &context)?;
+        let mut builder = S::build(&service, &context)?.for_service::<S>(&service);
         let shutdown = builder.shutdown_handle();
         let clock = Arc::new(PausedClock::start());
         let kernel = Kernel::start_with_effect_log(
