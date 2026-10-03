@@ -9,7 +9,7 @@ use tokio::time::timeout;
 
 use blueos_api::{
     CommandAck, Message, cdr_encoding, command_key, info_query_key, job_feedback_key,
-    job_result_key, jobs_key, query_key, status_state_key,
+    job_history_key, job_result_key, jobs_key, query_key, status_state_key,
 };
 use blueos_comms::{QueryBody, Subscriber};
 use blueos_domain::{Command, Decision, Domain, Effect, IoError, Now, Outcome};
@@ -517,22 +517,90 @@ async fn no_key_outside_command_changes_anything() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn info_lists_the_jobs_state() {
+async fn info_lists_the_jobs_state_and_the_feedback_result_and_history_of_each_job_type() {
     let harness = start().await;
+    let service = BrewerService::NAME;
 
     let info = harness
         .query::<LevelRequest, ServiceInfo>("info", &LevelRequest::default())
         .await
         .expect("the info query answers");
 
-    let [jobs] = info.endpoints.as_slice() else {
-        panic!("expected only the jobs State, got {:?}", info.endpoints);
-    };
-    assert_eq!(jobs.kind, "state");
-    assert_eq!(jobs.name, "jobs");
-    assert_eq!(jobs.key, jobs_key(BrewerService::NAME));
-    assert_eq!(jobs.interface_type, JobList::SCHEMA_NAME);
-    assert_eq!(jobs.schema, JobList::SCHEMA);
+    let listed: Vec<_> = info
+        .endpoints
+        .iter()
+        .map(|endpoint| {
+            (
+                endpoint.kind.as_str(),
+                endpoint.name.as_str(),
+                endpoint.key.clone(),
+                endpoint.interface_type.as_str(),
+                endpoint.schema.as_str(),
+            )
+        })
+        .collect();
+    let (list, list_schema) = (JobList::SCHEMA_NAME, JobList::SCHEMA);
+    assert_eq!(
+        listed.len(),
+        1 + 3 * 6,
+        "jobs, then three per Job type: {listed:?}"
+    );
+    let shown: Vec<_> = listed
+        .into_iter()
+        .filter(|(_, name, ..)| {
+            *name == "jobs"
+                || name.starts_with("jobs/Brew/")
+                || name.starts_with("jobs/UpdateSettings/")
+        })
+        .collect();
+    assert_eq!(
+        shown,
+        [
+            ("state", "jobs", jobs_key(service), list, list_schema),
+            (
+                "state",
+                "jobs/Brew/feedback",
+                job_feedback_key(service, "Brew"),
+                LevelResponse::SCHEMA_NAME,
+                LevelResponse::SCHEMA,
+            ),
+            (
+                "event",
+                "jobs/Brew/result",
+                job_result_key(service, "Brew"),
+                SetLevelGoal::SCHEMA_NAME,
+                SetLevelGoal::SCHEMA,
+            ),
+            (
+                "query",
+                "jobs/Brew/history",
+                job_history_key(service, "Brew"),
+                list,
+                list_schema
+            ),
+            (
+                "state",
+                "jobs/UpdateSettings/feedback",
+                job_feedback_key(service, "UpdateSettings"),
+                "",
+                "",
+            ),
+            (
+                "event",
+                "jobs/UpdateSettings/result",
+                job_result_key(service, "UpdateSettings"),
+                "",
+                ""
+            ),
+            (
+                "query",
+                "jobs/UpdateSettings/history",
+                job_history_key(service, "UpdateSettings"),
+                list,
+                list_schema,
+            ),
+        ]
+    );
 }
 
 #[tokio::test(start_paused = true)]
