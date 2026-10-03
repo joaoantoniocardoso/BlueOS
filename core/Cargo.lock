@@ -306,6 +306,7 @@ dependencies = [
  "blueos-service",
  "blueos-settings",
  "clap",
+ "metrics",
  "serde",
  "serde_json",
  "thiserror",
