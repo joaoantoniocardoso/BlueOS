@@ -8,7 +8,7 @@ use tokio::time::timeout;
 use blueos_api::{Message, state_key};
 use blueos_comms::{CommsBackend, Subscriber, channel::ChannelBackend};
 use blueos_domain::{Command, Decision, Domain, IoError, Now, Outcome};
-use blueos_idl::msg::blueos_example_msgs::{LevelQueryResponse, SetLevelRequest};
+use blueos_idl::msg::blueos_example_msgs::{LevelResponse, SetLevelGoal};
 use blueos_service::{Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness};
 
 struct PublisherCookbookService;
@@ -44,11 +44,11 @@ impl Service for PublisherCookbookService {
         _context: &(),
     ) -> Result<ServiceBuilder<PublisherCookbook>, ServiceError> {
         Ok(ServiceBuilder::new(PublisherCookbookSnapshot::default())
-            .command("SetLevel", |request: SetLevelRequest| {
+            .command("SetLevel", |request: SetLevelGoal| {
                 Ok(PublisherCookbookRequest::SetLevel(request.level))
             })
             .state("gauge", |snapshot: &PublisherCookbookSnapshot| {
-                LevelQueryResponse {
+                LevelResponse {
                     level: snapshot.level,
                     max_level: 100,
                 }
@@ -87,12 +87,12 @@ impl Domain for PublisherCookbook {
     }
 }
 
-async fn next_state(subscriber: &mut Subscriber) -> LevelQueryResponse {
+async fn next_state(subscriber: &mut Subscriber) -> LevelResponse {
     let sample = timeout(Duration::from_secs(10), subscriber.recv())
         .await
         .expect("state update arrives before timeout")
         .expect("state stream stays open");
-    LevelQueryResponse::decode(&sample.payload().to_bytes()).expect("state payload decodes")
+    LevelResponse::decode(&sample.payload().to_bytes()).expect("state payload decodes")
 }
 
 #[tokio::test(start_paused = true)]
@@ -109,9 +109,7 @@ async fn a_client_subscribes_to_another_services_state_key() {
         .await
         .expect("the gauge key subscribes");
 
-    harness
-        .send("SetLevel", &SetLevelRequest { level: 33 })
-        .await;
+    harness.send("SetLevel", &SetLevelGoal { level: 33 }).await;
 
     assert_eq!(next_state(&mut gauge).await.level, 33);
 }

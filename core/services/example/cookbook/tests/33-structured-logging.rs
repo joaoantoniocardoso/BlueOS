@@ -8,7 +8,7 @@ use tokio_util::{sync::CancellationToken, task::TaskTracker};
 use blueos_api::{Message, log_key};
 use blueos_comms::channel::ChannelBackend;
 use blueos_domain::{Command, Decision, Domain, Effect, IoError, Now, Outcome};
-use blueos_idl::msg::{blueos_example_msgs::EmptyRequest, foxglove_msgs::Log};
+use blueos_idl::msg::{blueos_example_msgs::LevelRequest, foxglove_msgs::Log};
 use blueos_logging::{attach, init};
 use blueos_service::{Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness};
 
@@ -61,7 +61,7 @@ impl Service for LoggingCookbookService {
                     }
                 }
             })
-            .command("Ping", |_: EmptyRequest| Ok(LoggingCookbookRequest::Ping)))
+            .command("Ping", |_: LevelRequest| Ok(LoggingCookbookRequest::Ping)))
     }
 }
 
@@ -118,7 +118,7 @@ async fn structured_fields_appear_on_the_log_key() {
     let harness = Harness::<LoggingCookbookService>::start_on(backend, LoggingCookbookArguments)
         .await
         .unwrap();
-    harness.send("Ping", &EmptyRequest::default()).await;
+    harness.send("Ping", &LevelRequest::default()).await;
 
     let sample = tokio::time::timeout(Duration::from_secs(1), subscriber.recv())
         .await

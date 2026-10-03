@@ -4,7 +4,7 @@ use core::convert::Infallible;
 use std::{ffi::OsString, path::PathBuf};
 
 use blueos_domain::{Command, Decision, Domain, IoError, Now, Outcome};
-use blueos_idl::msg::blueos_example_msgs::LevelQueryResponse;
+use blueos_idl::msg::blueos_example_msgs::LevelResponse;
 use blueos_service::{
     Service, ServiceBuilder, ServiceContext, ServiceError, entry::parse_service_cli,
     testing::Harness,
@@ -44,7 +44,7 @@ impl Service for CliCookbookService {
         Ok(ServiceBuilder::new(CliCookbookSnapshot {
             marker: service.arguments().marker.clone(),
         })
-        .state("cli", |snapshot: &CliCookbookSnapshot| LevelQueryResponse {
+        .state("cli", |snapshot: &CliCookbookSnapshot| LevelResponse {
             level: u8::from(snapshot.marker.is_some()),
             max_level: snapshot
                 .marker
@@ -125,7 +125,7 @@ async fn service_specific_flag_reaches_the_domain_snapshot() {
     })
     .await
     .expect("start");
-    let published = harness.state::<LevelQueryResponse>("cli").await;
+    let published = harness.state::<LevelResponse>("cli").await;
     assert_eq!(published.level, 1);
     assert_eq!(published.max_level, marker.as_os_str().len() as u8);
 }

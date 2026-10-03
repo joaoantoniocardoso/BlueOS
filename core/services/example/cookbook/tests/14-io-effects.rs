@@ -5,7 +5,7 @@ use core::convert::Infallible;
 use std::sync::Arc;
 
 use blueos_domain::{Command, Decision, Domain, Effect, IoError, Now, Outcome};
-use blueos_idl::msg::blueos_example_msgs::{EmptyRequest, LevelQueryResponse};
+use blueos_idl::msg::blueos_example_msgs::{LevelRequest, LevelResponse};
 use blueos_service::{Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness};
 
 /// Reads the level sensor: the Port a test replaces.
@@ -68,10 +68,10 @@ impl Service for IoCookbookService {
                 };
                 async move { Ok(Some(IoCookbookIoResult::Level(level))) }
             })
-            .command("ReadLevel", |_: EmptyRequest| {
+            .command("ReadLevel", |_: LevelRequest| {
                 Ok(IoCookbookRequest::ReadLevel)
             })
-            .state("pump", |snapshot: &IoCookbookSnapshot| LevelQueryResponse {
+            .state("pump", |snapshot: &IoCookbookSnapshot| LevelResponse {
                 level: snapshot.level,
                 max_level: 100,
             }))
@@ -126,9 +126,9 @@ async fn io_effect_updates_the_snapshot() {
     let harness = Harness::<IoCookbookService>::start(IoCookbookArguments)
         .await
         .unwrap();
-    let ack = harness.send("ReadLevel", &EmptyRequest::default()).await;
+    let ack = harness.send("ReadLevel", &LevelRequest::default()).await;
     assert!(ack.accepted);
-    assert_eq!(harness.state::<LevelQueryResponse>("pump").await.level, 42);
+    assert_eq!(harness.state::<LevelResponse>("pump").await.level, 42);
 }
 
 #[tokio::test(start_paused = true)]
@@ -138,7 +138,7 @@ async fn a_test_replaces_the_sensor_through_the_context() {
     })
     .await
     .unwrap();
-    let ack = harness.send("ReadLevel", &EmptyRequest::default()).await;
+    let ack = harness.send("ReadLevel", &LevelRequest::default()).await;
     assert!(ack.accepted);
-    assert_eq!(harness.state::<LevelQueryResponse>("pump").await.level, 7);
+    assert_eq!(harness.state::<LevelResponse>("pump").await.level, 7);
 }

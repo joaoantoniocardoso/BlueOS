@@ -3,7 +3,7 @@
 use core::convert::Infallible;
 
 use blueos_domain::{Command, Decision, Domain, DomainQueries, IoError, Now, Outcome};
-use blueos_idl::msg::blueos_example_msgs::{EmptyRequest, LevelQueryResponse, SetLevelRequest};
+use blueos_idl::msg::blueos_example_msgs::{LevelRequest, LevelResponse, SetLevelGoal};
 use blueos_service::{Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness};
 
 struct QueryCookbookService;
@@ -47,14 +47,14 @@ impl Service for QueryCookbookService {
         _context: &(),
     ) -> Result<ServiceBuilder<QueryCookbook>, ServiceError> {
         Ok(ServiceBuilder::new(QueryCookbookSnapshot::default())
-            .command("SetLevel", |request: SetLevelRequest| {
+            .command("SetLevel", |request: SetLevelGoal| {
                 Ok(QueryCookbookRequest::SetLevel(request.level))
             })
             .query(
                 "Level",
-                |_: EmptyRequest| Ok(QueryCookbookQuery::Level),
+                |_: LevelRequest| Ok(QueryCookbookQuery::Level),
                 |response: QueryCookbookResponse| match response {
-                    QueryCookbookResponse::Level(level) => Some(LevelQueryResponse {
+                    QueryCookbookResponse::Level(level) => Some(LevelResponse {
                         level,
                         max_level: 100,
                     }),
@@ -114,11 +114,9 @@ async fn query_reads_the_snapshot() {
     let harness = Harness::<QueryCookbookService>::start(QueryCookbookArguments)
         .await
         .unwrap();
-    harness
-        .send("SetLevel", &SetLevelRequest { level: 22 })
-        .await;
+    harness.send("SetLevel", &SetLevelGoal { level: 22 }).await;
     let answer = harness
-        .query::<_, LevelQueryResponse>("Level", &EmptyRequest::default())
+        .query::<_, LevelResponse>("Level", &LevelRequest::default())
         .await
         .unwrap();
     assert_eq!(answer.level, 22);

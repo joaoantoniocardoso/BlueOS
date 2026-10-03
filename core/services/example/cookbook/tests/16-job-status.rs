@@ -6,7 +6,7 @@ use core::convert::Infallible;
 use blueos_api::{Message, jobs_key};
 use blueos_domain::{Command, Decision, Domain, IoError, Now, Outcome};
 use blueos_idl::msg::{
-    blueos_example_msgs::EmptyRequest,
+    blueos_example_msgs::LevelRequest,
     blueos_msgs::{JobList, JobStatusStatus, ServiceInfo},
 };
 use blueos_service::{Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness};
@@ -39,7 +39,7 @@ impl Service for JobStatusCookbookService {
         _context: &(),
     ) -> Result<ServiceBuilder<JobStatusCookbook>, ServiceError> {
         Ok(ServiceBuilder::new(())
-            .command("Run", |_: EmptyRequest| Ok(JobStatusCookbookRequest::Run)))
+            .command("Run", |_: LevelRequest| Ok(JobStatusCookbookRequest::Run)))
     }
 }
 
@@ -84,7 +84,7 @@ async fn info_lists_the_jobs_state_and_harness_reads_it() {
         .unwrap();
 
     let info = harness
-        .query::<EmptyRequest, ServiceInfo>("info", &EmptyRequest::default())
+        .query::<LevelRequest, ServiceInfo>("info", &LevelRequest::default())
         .await
         .expect("the info query answers");
     let jobs_endpoint = info
@@ -93,9 +93,9 @@ async fn info_lists_the_jobs_state_and_harness_reads_it() {
         .find(|endpoint| endpoint.name == "jobs")
         .expect("info lists the jobs State");
     assert_eq!(jobs_endpoint.key, jobs_key(JobStatusCookbookService::NAME));
-    assert_eq!(jobs_endpoint.response_schema, JobList::SCHEMA_NAME);
+    assert_eq!(jobs_endpoint.interface_type, JobList::SCHEMA_NAME);
 
-    let ack = harness.send("Run", &EmptyRequest::default()).await;
+    let ack = harness.send("Run", &LevelRequest::default()).await;
 
     let jobs = harness.jobs().await;
     assert_eq!(jobs.jobs.len(), 1);
