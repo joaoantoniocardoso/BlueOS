@@ -15,7 +15,7 @@ mod command_ack;
 
 use alloc::{format, string::String};
 
-pub use command_ack::{CommandAck, JOB_ID_NONE, Message};
+pub use command_ack::{CommandAck, Message};
 
 /// Base CDR media type and `application/cdr;<schema_name>` builder from `blueos-idl`.
 pub use blueos_idl::encoding::{ENCODING_APPLICATION_CDR, cdr_encoding};

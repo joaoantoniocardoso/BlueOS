@@ -22,12 +22,15 @@ Standard per-service state: `status_state_key`, `info_query_key`.
 
 ## CommandAck
 
-Commands are Zenoh queries replied with `CommandAck { accepted, job_id, reason }` (D-10). Use
-`blueos_api::CommandAck` (from `blueos-idl`) and `Message::encode` / `decode`.
+Commands are Zenoh queries that submit a Job or control one, replied with
+`CommandAck { accepted, job_id, status, reason }` (D-10, D-36). Use `blueos_api::CommandAck` (from `blueos-idl`) and
+`Message::encode` / `decode`.
 
+- The query attachment is the Job id, the UUID text the client generated: the new Job for a submit, the Job to
+  control for `CancelJob`, `PauseJob`, `ResumeJob` and `AnswerPermission`.
 - `accepted`: whether the service took the command.
-- `job_id`: root job id when a Job was started. Assigned ids start at **1**; **`JOB_ID_NONE` (`0`)**
-  means no job was created (rejection or command that does not spawn work).
+- `job_id`: the Job id from the attachment, empty when the Command named no Job.
+- `status`: the Job's status after the command was applied, so a Job that ended at once returns its final status.
 - `reason`: human-readable detail (empty when none).
 
 Zenoh encoding: `cdr_encoding(CommandAck::SCHEMA_NAME)`.
