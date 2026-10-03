@@ -296,7 +296,9 @@
       v-model="playerOpen"
       max-width="1080"
       scrollable
+      :persistent="playerBusy"
       @click:outside="closePlayer"
+      @keydown.esc="closePlayer"
     >
       <v-card v-if="activeRecording">
         <v-card-title class="py-2">
@@ -513,7 +515,7 @@ export default Vue.extend({
       bulkActionOperation: null as string | null,
       bulkAction: { failures: [], pending: [] } as BulkAction,
       leaveDialog: false,
-      pendingLeave: null as NavigationGuardNext | null,
+      pendingLeave: null as ((cancel?: false) => void) | null,
       nowSeconds: Date.now() / 1000,
       clockId: 0,
     }
@@ -713,8 +715,17 @@ export default Vue.extend({
     },
     closePlayer(): void {
       if (this.playerBusy) {
+        this.pendingLeave = (cancel) => {
+          if (cancel !== false) {
+            this.closePlayerNow()
+          }
+        }
+        this.leaveDialog = true
         return
       }
+      this.closePlayerNow()
+    },
+    closePlayerNow(): void {
       this.playerOpen = false
       this.activeRecordingPath = null
     },
