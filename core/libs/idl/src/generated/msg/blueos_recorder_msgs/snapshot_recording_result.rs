@@ -16,16 +16,8 @@ pub struct SnapshotRecordingResult {
 impl CdrStruct for SnapshotRecordingResult {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
-            path: if reader.is_exhausted() {
-                String::new()
-            } else {
-                reader.read_string()?
-            },
-            output_path: if reader.is_exhausted() {
-                String::new()
-            } else {
-                reader.read_string()?
-            },
+            path: reader.read_or_default(|reader| reader.read_string())?,
+            output_path: reader.read_or_default(|reader| reader.read_string())?,
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {

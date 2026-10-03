@@ -13,11 +13,9 @@ pub struct UpdateSettingsGoal {
 impl CdrStruct for UpdateSettingsGoal {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
-            envelope: if reader.is_exhausted() {
-                <crate::msg::blueos_msgs::SettingsEnvelope>::default()
-            } else {
-                <crate::msg::blueos_msgs::SettingsEnvelope>::cdr_decode_fields(reader)?
-            },
+            envelope: reader.read_or_default(|reader| {
+                <crate::msg::blueos_msgs::SettingsEnvelope>::cdr_decode_fields(reader)
+            })?,
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {

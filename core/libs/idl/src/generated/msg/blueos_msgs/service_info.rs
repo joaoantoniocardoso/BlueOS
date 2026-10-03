@@ -19,47 +19,27 @@ pub struct ServiceInfo {
 impl CdrStruct for ServiceInfo {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
-            name: if reader.is_exhausted() {
-                String::new()
-            } else {
-                reader.read_string()?
-            },
-            version: if reader.is_exhausted() {
-                String::new()
-            } else {
-                reader.read_string()?
-            },
-            build: if reader.is_exhausted() {
-                String::new()
-            } else {
-                reader.read_string()?
-            },
-            capabilities: {
-                if reader.is_exhausted() {
-                    Vec::new()
-                } else {
-                    let length = reader.read_bounded_sequence_length()?;
-                    let mut values = Vec::with_capacity(length as usize);
-                    for _index in 0..length {
-                        values.push(reader.read_string()?);
-                    }
-                    values
+            name: reader.read_or_default(|reader| reader.read_string())?,
+            version: reader.read_or_default(|reader| reader.read_string())?,
+            build: reader.read_or_default(|reader| reader.read_string())?,
+            capabilities: reader.read_or_default(|reader| {
+                let length = reader.read_bounded_sequence_length()?;
+                let mut values = Vec::with_capacity(length as usize);
+                for _index in 0..length {
+                    values.push(reader.read_string()?);
                 }
-            },
-            endpoints: {
-                if reader.is_exhausted() {
-                    Vec::new()
-                } else {
-                    let length = reader.read_bounded_sequence_length()?;
-                    let mut values = Vec::with_capacity(length as usize);
-                    for _index in 0..length {
-                        values.push(<crate::msg::blueos_msgs::EndpointInfo>::cdr_decode_fields(
-                            reader,
-                        )?);
-                    }
-                    values
+                Ok(values)
+            })?,
+            endpoints: reader.read_or_default(|reader| {
+                let length = reader.read_bounded_sequence_length()?;
+                let mut values = Vec::with_capacity(length as usize);
+                for _index in 0..length {
+                    values.push(<crate::msg::blueos_msgs::EndpointInfo>::cdr_decode_fields(
+                        reader,
+                    )?);
                 }
-            },
+                Ok(values)
+            })?,
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {

@@ -14,16 +14,10 @@ pub struct MeasureResponse {
 impl CdrStruct for MeasureResponse {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
-            level: if reader.is_exhausted() {
-                Default::default()
-            } else {
-                reader.read_f32()?
-            },
-            progress: if reader.is_exhausted() {
-                <crate::msg::fixture_msgs::Progress>::default()
-            } else {
-                <crate::msg::fixture_msgs::Progress>::cdr_decode_fields(reader)?
-            },
+            level: reader.read_or_default(|reader| reader.read_f32())?,
+            progress: reader.read_or_default(|reader| {
+                <crate::msg::fixture_msgs::Progress>::cdr_decode_fields(reader)
+            })?,
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {

@@ -13,11 +13,7 @@ pub struct DrainResult {
 impl CdrStruct for DrainResult {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
-            drained: if reader.is_exhausted() {
-                Default::default()
-            } else {
-                reader.read_f32()?
-            },
+            drained: reader.read_or_default(|reader| reader.read_f32())?,
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {

@@ -28,36 +28,14 @@ pub struct Log {
 impl CdrStruct for Log {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
-            timestamp: if reader.is_exhausted() {
-                <crate::msg::builtin_interfaces::Time>::default()
-            } else {
-                <crate::msg::builtin_interfaces::Time>::cdr_decode_fields(reader)?
-            },
-            level: if reader.is_exhausted() {
-                Default::default()
-            } else {
-                reader.read_u8()?
-            },
-            message: if reader.is_exhausted() {
-                String::new()
-            } else {
-                reader.read_string()?
-            },
-            name: if reader.is_exhausted() {
-                String::new()
-            } else {
-                reader.read_string()?
-            },
-            file: if reader.is_exhausted() {
-                String::new()
-            } else {
-                reader.read_string()?
-            },
-            line: if reader.is_exhausted() {
-                Default::default()
-            } else {
-                reader.read_u32()?
-            },
+            timestamp: reader.read_or_default(|reader| {
+                <crate::msg::builtin_interfaces::Time>::cdr_decode_fields(reader)
+            })?,
+            level: reader.read_or_default(|reader| reader.read_u8())?,
+            message: reader.read_or_default(|reader| reader.read_string())?,
+            name: reader.read_or_default(|reader| reader.read_string())?,
+            file: reader.read_or_default(|reader| reader.read_string())?,
+            line: reader.read_or_default(|reader| reader.read_u32())?,
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {
