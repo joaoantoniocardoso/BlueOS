@@ -109,6 +109,7 @@ async fn deliver_fact(
         }
         MavlinkFact::CameraCaptureCommand {
             command,
+            sender,
             target_system,
             target_component,
             status_interval_hertz,
@@ -117,6 +118,7 @@ async fn deliver_fact(
                 commands,
                 RecorderObservedFact::Cameras(CamerasObservedFact::CameraCaptureCommand {
                     command: to_capture_command_kind(command),
+                    sender: to_cameras_system(sender),
                     target_system,
                     target_component,
                     status_interval: Cameras::capture_status_interval_from_rate(

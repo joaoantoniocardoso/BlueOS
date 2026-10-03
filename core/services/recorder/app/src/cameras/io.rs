@@ -49,10 +49,12 @@ fn encode_cameras_io(mavlink_sequence: &Arc<AtomicU8>, request: CamerasIoRequest
     match request {
         CamerasIoRequest::CommandAck {
             camera,
+            recipient,
             command,
             accepted,
         } => build_command_ack(
             to_mavlink_system(camera),
+            to_mavlink_system(recipient),
             next_sequence(mavlink_sequence),
             to_mavlink_capture_command(command),
             accepted,

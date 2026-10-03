@@ -61,6 +61,8 @@ pub enum CamerasObservedFact {
     CameraCaptureCommand {
         /// Which capture command was sent.
         command: CaptureCommandKind,
+        /// System and component that sent the command, which the ack is addressed to.
+        sender: SystemAndComponent,
         /// MAVLink target system.
         target_system: u8,
         /// MAVLink target component.
@@ -97,6 +99,8 @@ pub enum CamerasIoRequest {
     CommandAck {
         /// Camera that sends the ack.
         camera: SystemAndComponent,
+        /// Sender of the command, which the ack is addressed to.
+        recipient: SystemAndComponent,
         /// MAVLink command being acknowledged.
         command: CaptureCommandKind,
         /// Whether the command was accepted.
@@ -199,11 +203,13 @@ impl Cameras {
             } => self.set_camera_recording_capability(camera, capture_video),
             CamerasObservedFact::CameraCaptureCommand {
                 command,
+                sender,
                 target_system,
                 target_component,
                 status_interval,
             } => self.handle_capture_command(
                 command,
+                sender,
                 target_system,
                 target_component,
                 status_interval,
@@ -287,6 +293,7 @@ impl Cameras {
     fn handle_capture_command(
         &mut self,
         command: CaptureCommandKind,
+        sender: SystemAndComponent,
         target_system: u8,
         target_component: u8,
         status_interval: Duration,
@@ -311,6 +318,7 @@ impl Cameras {
                     let accepted = self.cameras_with_capture_video.contains(&camera);
                     effects.push(Effect::Io(CamerasIoRequest::CommandAck {
                         camera,
+                        recipient: sender,
                         command,
                         accepted,
                     }));
@@ -338,8 +346,14 @@ impl Cameras {
                     stream.recording_started_at = None;
                     effects.push(Effect::Io(CamerasIoRequest::CommandAck {
                         camera,
+                        recipient: sender,
                         command,
                         accepted: true,
+                    }));
+                    effects.push(Effect::Io(CamerasIoRequest::CaptureStatus {
+                        camera,
+                        video_status: VIDEO_CAPTURE_STATUS_IDLE,
+                        recording_time_ms: 0,
                     }));
                     effects.push(Effect::Cancel(CamerasTimerKey::CaptureStatus {
                         topic: topic.clone(),
@@ -349,6 +363,7 @@ impl Cameras {
                     let (video_status, recording_time_ms) = capture_status_fields(stream, now);
                     effects.push(Effect::Io(CamerasIoRequest::CommandAck {
                         camera,
+                        recipient: sender,
                         command,
                         accepted: true,
                     }));

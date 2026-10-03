@@ -82,9 +82,10 @@ pub fn encode_command_long(
     encode_mavlink_message(header, &message)
 }
 
-/// Builds a `COMMAND_ACK` frame for a capture command.
+/// Builds a `COMMAND_ACK` frame for a capture command, addressed to the `recipient` that sent it.
 pub fn build_command_ack(
     camera: SystemAndComponent,
+    recipient: SystemAndComponent,
     sequence: u8,
     command: MavlinkCaptureCommand,
     accepted: bool,
@@ -115,6 +116,10 @@ pub fn build_command_ack(
         &MavMessage::COMMAND_ACK(COMMAND_ACK_DATA {
             command: mavlink_command,
             result,
+            progress: u8::MAX,
+            result_param2: 0,
+            target_system: recipient.system_id,
+            target_component: recipient.component_id,
         }),
     )
 }
@@ -140,6 +145,8 @@ pub fn build_camera_capture_status(
             available_capacity: 0.0,
             image_status: 0,
             video_status,
+            image_count: 0,
+            camera_device_id: 0,
         }),
     )
 }
