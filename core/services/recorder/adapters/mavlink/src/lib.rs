@@ -53,6 +53,8 @@ pub enum MavlinkFact {
     CameraCaptureCommand {
         /// Capture command kind.
         command: MavlinkCaptureCommand,
+        /// System and component that sent the command, which the `COMMAND_ACK` is addressed to.
+        sender: SystemAndComponent,
         /// Target system.
         target_system: u8,
         /// Target component.
@@ -222,6 +224,10 @@ fn command_long_facts(packet: &PacketRef) -> Vec<MavlinkFact> {
     };
     vec![MavlinkFact::CameraCaptureCommand {
         command,
+        sender: SystemAndComponent {
+            system_id: *packet.system_id(),
+            component_id: *packet.component_id(),
+        },
         target_system: data.target_system,
         target_component: data.target_component,
         status_interval_hertz: data.param2,
