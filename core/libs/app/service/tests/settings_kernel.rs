@@ -100,10 +100,9 @@ impl Service for SettingsTankService {
     }
 
     fn build(
-        service: &ServiceContext<SettingsTankArguments>,
+        _service: &ServiceContext<SettingsTankArguments>,
         _context: &(),
     ) -> Result<ServiceBuilder<SettingsTank>, ServiceError> {
-        let config_parent = service.settings_path().map(PathBuf::from);
         Ok(ServiceBuilder::new(SettingsTankSnapshot {
             level: 0,
             settings: SettingsTankDocument::default(),
@@ -112,10 +111,8 @@ impl Service for SettingsTankService {
         .command("SetLevel", |request: SetLevelGoal| {
             Ok(SettingsTankRequest::SetLevel(request.level))
         })
-        .durable_state(Self::NAME, config_parent.clone(), DURABLE_STATE_VERSION)
+        .durable_state(DURABLE_STATE_VERSION)
         .settings(
-            Self::NAME,
-            config_parent,
             |snapshot: &mut SettingsTankSnapshot, settings| snapshot.settings = settings,
             |snapshot: &SettingsTankSnapshot| snapshot.settings.clone(),
             |envelope| {

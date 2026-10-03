@@ -165,11 +165,8 @@ fn vault_builder(
         saw_restored_tick: false,
         jobs: Jobs::default(),
     })
-    .durable_state_with_jobs(
-        VaultService::NAME,
-        context.settings_path().map(PathBuf::from),
-        STATE_VERSION,
-    )
+    .durable_state_with_jobs(STATE_VERSION)
+    .for_service::<VaultService>(context)
     .command("Bump", |_: Empty| Ok(VaultRequest::Bump))
     .job("StartJob", LASTING, |_job_id, _: Empty| {
         Ok(VaultRequest::StartJob)
