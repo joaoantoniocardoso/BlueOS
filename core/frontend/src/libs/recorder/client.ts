@@ -1,16 +1,20 @@
+import type { CommandAck, JobStatus } from '@blueos-idl/messages'
+
 import { cancelJob, sendCommand } from '@/libs/blueos-api/command'
-import { watchJobResults } from '@/libs/blueos-api/job'
+import { jobsState } from '@/libs/blueos-api/endpoints'
+import { watchJobFeedback, watchJobResults } from '@/libs/blueos-api/job'
 import { watchServiceAlive } from '@/libs/blueos-api/liveliness'
 import {
   DeleteRecording,
+  library,
   NAME,
   RepairRecording,
   SnapshotRecording,
-  library,
+  Start,
+  Stop,
 } from '@/libs/blueos-api/services/recorder'
 import type { Subscription, Transport } from '@/libs/blueos-api/transport'
 import { watchState } from '@/libs/blueos-api/watch'
-
 import type { RecordingIndexSource } from '@/libs/mcap/logic/recording-index'
 
 import { DEFAULT_RECORDING_HTTP_PREFIX, SNAPSHOT_WAIT_TIMEOUT_MS } from './constants'
@@ -25,6 +29,7 @@ import { recordingDownloadUrl } from './url'
 import {
   isSnapshotOperationForPath,
   readySnapshotDownloadPath,
+  type RepairProgress,
   snapshotDownloadPath,
   snapshotPathsForSource,
   sortRecordingsNewestFirst,
@@ -49,6 +54,16 @@ export interface RecorderClient {
     onOperation: (event: RecordingOperationEvent) => void,
     onError?: (error: unknown) => void,
   ): Promise<Subscription>
+  watchRepairProgress(
+    onProgress: (progress: RepairProgress) => void,
+    onError?: (error: unknown) => void,
+  ): Promise<Subscription>
+  watchJobs(
+    onJobs: (jobs: JobStatus[]) => void,
+    onError?: (error: unknown) => void,
+  ): Promise<Subscription>
+  startRecording(rotateIfActive: boolean): Promise<RecorderCommandResult>
+  stopRecording(): Promise<RecorderCommandResult>
   repairRecording(path: string): Promise<RecorderCommandResult>
   cancelRepair(repairJobId: string): Promise<RecorderCommandResult>
   deleteRecording(path: string): Promise<RecorderCommandResult>
@@ -61,8 +76,8 @@ export interface RecorderClientOptions {
   recordingHttpPrefix?: string
 }
 
-function commandResult(commandAck: { accepted: boolean, reason: string }): RecorderCommandResult {
-  return { accepted: commandAck.accepted, reason: commandAck.reason }
+function commandResult(commandAck: CommandAck): RecorderCommandResult {
+  return { accepted: commandAck.accepted, reason: commandAck.reason, job_id: commandAck.job_id }
 }
 
 export function createRecorderClient(
@@ -160,6 +175,28 @@ export function createRecorderClient(
           await Promise.all(subscriptions.map((subscription) => subscription.close()))
         },
       }
+    },
+
+    watchRepairProgress(onProgress, onError) {
+      return watchJobFeedback(transport, NAME, RepairRecording.name, RepairRecording.feedbackSchema, {
+        onValue: (entries) => onProgress(Object.fromEntries(entries.map(({ jobId, feedback }) => [jobId, feedback]))),
+        onError: (error) => onError?.(error),
+      })
+    },
+
+    watchJobs(onJobs, onError) {
+      return watchState(transport, jobsState(NAME), {
+        onValue: (list) => onJobs(list.jobs),
+        onError: (error) => onError?.(error),
+      })
+    },
+
+    async startRecording(rotateIfActive) {
+      return commandResult(await sendCommand(transport, Start, { rotate_if_active: rotateIfActive }))
+    },
+
+    async stopRecording() {
+      return commandResult(await sendCommand(transport, Stop, {}))
     },
 
     async repairRecording(path) {
