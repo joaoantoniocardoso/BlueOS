@@ -11,7 +11,7 @@ use blueos_idl::msg::{
     blueos_msgs::CommandAck,
 };
 use blueos_service::{
-    RestartPolicy, Service, ServiceBuilder, ServiceContext, ServiceError, TaskFailed,
+    RestartPolicy, Service, ServiceBuilder, ServiceContext, ServiceError, TaskFailed, new_job_id,
     testing::Harness,
 };
 
@@ -133,7 +133,8 @@ impl Service for CallerCookbookService {
                             .encode()
                             .expect("the request encodes"),
                         cdr_encoding(SetLevelRequest::SCHEMA_NAME),
-                    );
+                    )
+                    .with_attachment(new_job_id().to_string().into_bytes());
                     let replies = task_context
                         .session
                         .get(
