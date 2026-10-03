@@ -1,58 +1,13 @@
-import type { LibraryRecording, RecorderCommandResult, RecordingOperationEvent } from './types'
-import { operationFailureMessage } from './view-logic'
+import type { LibraryRecording, RecorderCommandResult, RecordingJobResult } from './types'
+import { jobFailureMessage, RECORDING_OPERATION_UI } from './view-logic'
 
-export interface BulkSubmissionOutcome {
-  path: string
-  accepted: boolean
-  reason: string
-  job_id: string
-  transportError: boolean
-}
-
-export type BulkDeleteRecording = (path: string) => Promise<RecorderCommandResult>
-export type BulkRepairRecording = (path: string) => Promise<RecorderCommandResult>
-
-async function submitBulk(
-  paths: readonly string[],
-  submit: (path: string) => Promise<RecorderCommandResult>,
-): Promise<BulkSubmissionOutcome[]> {
-  const outcomes: BulkSubmissionOutcome[] = []
-  for (const path of paths) {
-    try {
-      // eslint-disable-next-line no-await-in-loop
-      const result = await submit(path)
-      outcomes.push({
-        path,
-        accepted: result.accepted,
-        reason: result.reason,
-        job_id: result.job_id,
-        transportError: false,
-      })
-    } catch (error) {
-      outcomes.push({
-        path,
-        accepted: false,
-        reason: error instanceof Error ? error.message : String(error),
-        job_id: '',
-        transportError: true,
-      })
-    }
-  }
-  return outcomes
-}
-
-export function submitBulkDelete(
-  paths: readonly string[],
-  deleteRecording: BulkDeleteRecording,
-): Promise<BulkSubmissionOutcome[]> {
-  return submitBulk(paths, deleteRecording)
-}
-
-export function submitBulkRepair(
-  paths: readonly string[],
-  repairRecording: BulkRepairRecording,
-): Promise<BulkSubmissionOutcome[]> {
-  return submitBulk(paths, repairRecording)
+/**
+ * One operation on many recordings: why some failed so far, and the paths whose Job may still end. A path leaves
+ * `pending` when its submission is refused or its Job ends, in whichever order the ack and the Job result arrive.
+ */
+export interface BulkAction {
+  failures: string[]
+  pending: string[]
 }
 
 export function bulkActionTargets(
@@ -62,54 +17,39 @@ export function bulkActionTargets(
   return recordings.filter((file) => file.allowed_operations.includes(operationName))
 }
 
-function submissionFailureMessages(
-  outcomes: readonly BulkSubmissionOutcome[],
-  verb: 'Delete' | 'Repair',
-): string[] {
-  return outcomes.flatMap((outcome) => {
-    if (outcome.accepted) {
-      return []
+/** Submits `operationName` for each pending path, one at a time: a refused or unreachable path does not stop the rest. */
+export async function runBulkAction(
+  action: BulkAction,
+  operationName: string,
+  submit: (path: string) => Promise<RecorderCommandResult>,
+): Promise<void> {
+  const { label } = RECORDING_OPERATION_UI[operationName]
+  for (const path of [...action.pending]) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const { accepted, reason } = await submit(path)
+      if (!accepted) {
+        settle(action, path, `${label} rejected for ${path}: ${reason}`)
+      }
+    } catch (error) {
+      settle(action, path, `${label} failed for ${path}: ${error instanceof Error ? error.message : String(error)}`)
     }
-    if (outcome.transportError) {
-      return [`${verb} failed for ${outcome.path}: ${outcome.reason}`]
-    }
-    return [`${verb} rejected for ${outcome.path}: ${outcome.reason}`]
-  })
-}
-
-export function bulkDeleteSubmissionFailureMessages(outcomes: readonly BulkSubmissionOutcome[]): string[] {
-  return submissionFailureMessages(outcomes, 'Delete')
-}
-
-export function bulkRepairSubmissionFailureMessages(outcomes: readonly BulkSubmissionOutcome[]): string[] {
-  return submissionFailureMessages(outcomes, 'Repair')
-}
-
-export function bulkOperationFailureMessages(
-  events: readonly RecordingOperationEvent[],
-  bulkPaths: ReadonlySet<string>,
-): string[] {
-  return events.flatMap((event) => {
-    if (!bulkPaths.has(event.path)) {
-      return []
-    }
-    const message = operationFailureMessage(event, event.path)
-    return message ? [message] : []
-  })
-}
-
-export function appendBulkOperationFailure(
-  messages: readonly string[],
-  event: RecordingOperationEvent,
-  bulkPaths: ReadonlySet<string>,
-): string[] {
-  const added = bulkOperationFailureMessages([event], bulkPaths)
-  if (added.length === 0) {
-    return [...messages]
   }
-  return [...messages, added[0]]
 }
 
-export function formatBulkFailureMessages(messages: readonly string[]): string {
-  return messages.join('\n')
+/** Takes the ended Job of `entry` out of the bulk action; false when its path is not part of it. */
+export function bulkJobEnded(action: BulkAction, entry: RecordingJobResult): boolean {
+  return settle(action, entry.result.path, jobFailureMessage(entry))
+}
+
+function settle(action: BulkAction, path: string, failure: string | null): boolean {
+  const index = action.pending.indexOf(path)
+  if (index === -1) {
+    return false
+  }
+  action.pending.splice(index, 1)
+  if (failure !== null) {
+    action.failures.push(failure)
+  }
+  return true
 }
