@@ -226,8 +226,10 @@
     },
     {
       "schema_name": "blueos_recorder_msgs/action/DeleteRecording_Result",
-      "hex": "0001000000",
-      "decoded": {},
+      "hex": "000100000100000000",
+      "decoded": {
+        "path": ""
+      },
       "category": "default"
     },
     {

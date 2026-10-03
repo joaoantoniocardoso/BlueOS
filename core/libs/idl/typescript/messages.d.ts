@@ -116,7 +116,9 @@ export interface DeleteRecordingGoal {
   path: string;
 }
 
-export interface DeleteRecordingResult {}
+export interface DeleteRecordingResult {
+  path: string;
+}
 
 export interface RepairRecordingFeedback {
   bytes_processed: number;

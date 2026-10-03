@@ -252,10 +252,11 @@ bool restart_required`,
   "blueos_recorder_msgs/action/DeleteRecording_Feedback": ``,
   "blueos_recorder_msgs/action/DeleteRecording_Goal": `# blueos_recorder_msgs/action/DeleteRecording
 # The Job type on blueos/v1/recorder/command/DeleteRecording. Rejected while the recording is being written or
-# repaired.
+# repaired. The Job succeeds once the file is gone.
 
 string path`,
-  "blueos_recorder_msgs/action/DeleteRecording_Result": ``,
+  "blueos_recorder_msgs/action/DeleteRecording_Result": `# Job result: the recording the Job deleted. Why it failed is the reason of the Job.
+string path`,
   "blueos_recorder_msgs/action/RepairRecording_Feedback": `# Feedback: how far the repair has read into the recording.
 uint64 bytes_processed
 uint64 total_bytes`,

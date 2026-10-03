@@ -78,7 +78,7 @@ blueos_msgs/msg/SettingField 1 path:string;restart_required:bool
 blueos_msgs/msg/SettingsEnvelope 1 document_json:string;fields:blueos_msgs/SettingField[]
 blueos_recorder_msgs/action/DeleteRecording_Feedback 1
 blueos_recorder_msgs/action/DeleteRecording_Goal 1 path:string
-blueos_recorder_msgs/action/DeleteRecording_Result 1
+blueos_recorder_msgs/action/DeleteRecording_Result 1 path:string
 blueos_recorder_msgs/action/RepairRecording_Feedback 1 bytes_processed:uint64;total_bytes:uint64
 blueos_recorder_msgs/action/RepairRecording_Goal 1 path:string
 blueos_recorder_msgs/action/RepairRecording_Result 1 path:string

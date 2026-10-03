@@ -28,7 +28,7 @@ impl CdrStruct for DeleteRecordingGoal {
     }
 }
 impl Message for DeleteRecordingGoal {
-    const SCHEMA: &'static str = "# blueos_recorder_msgs/action/DeleteRecording\n# The Job type on blueos/v1/recorder/command/DeleteRecording. Rejected while the recording is being written or\n# repaired.\n\nstring path";
+    const SCHEMA: &'static str = "# blueos_recorder_msgs/action/DeleteRecording\n# The Job type on blueos/v1/recorder/command/DeleteRecording. Rejected while the recording is being written or\n# repaired. The Job succeeds once the file is gone.\n\nstring path";
     const SCHEMA_NAME: &'static str = "blueos_recorder_msgs/action/DeleteRecording_Goal";
     const TYPE_HASH: &'static str =
         "28a0a34912e735f751fed630a5ec1eec10049f8286a3f0b20a2b2b6629a0a98d";
