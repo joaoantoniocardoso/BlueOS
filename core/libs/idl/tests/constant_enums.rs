@@ -63,6 +63,7 @@ fn recorder_operation_and_state_enums_encode_scalars() {
         repair_bytes_per_second: 0.0,
         repair_error: String::new(),
         allowed_operations: Vec::new(),
+        repair_job_id: String::new(),
     };
     let state_payload = state_message.encode().expect("encode state");
     let decoded = blueos_idl::msg::blueos_recorder_msgs::RecordingFile::decode(&state_payload)

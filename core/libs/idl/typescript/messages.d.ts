@@ -116,6 +116,7 @@ export interface RecordingFile {
   repair_bytes_per_second: number;
   repair_error: string;
   allowed_operations: string[];
+  repair_job_id: string;
 }
 
 export interface RecordingIndex {
