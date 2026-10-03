@@ -53,6 +53,19 @@
     </v-alert>
 
     <v-alert
+      v-if="leaveGuarded"
+      type="warning"
+      dense
+      prominent
+      icon="mdi-open-in-app"
+      class="mb-4"
+    >
+      Keep this page open until the current download or export finishes.
+      Those steps run in this browser and will stop if you leave.
+      Repair on the vehicle continues, but you would lose progress shown here.
+    </v-alert>
+
+    <v-alert
       v-if="lastError"
       type="error"
       dense
@@ -366,13 +379,28 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <warning-dialog
+      v-model="leaveDialog"
+      :message="leaveMessage"
+      confirm-label="Leave anyway"
+      confirm-color="error"
+      cancel-label="Stay on this page"
+      persistent
+      :close-on-outside="false"
+      :close-on-esc="false"
+      @confirm="confirmLeave"
+      @input="onLeaveDialogInput"
+    />
   </v-container>
 </template>
 
 <script lang="ts">
 import type { JobStatus, RecordingState as RecordingSessionState } from '@blueos-idl/messages'
 import Vue from 'vue'
+import type { NavigationGuardNext, Route } from 'vue-router'
 
+import WarningDialog from '@/components/common/WarningDialog.vue'
 import McapVideoPlayer from '@/components/records/McapVideoPlayer.vue'
 import RecordsRecordingRow from '@/components/records/RecordsRecordingRow.vue'
 import RecordsRecordingTable from '@/components/records/RecordsRecordingTable.vue'
@@ -392,6 +420,7 @@ import {
   CANCEL_JOB,
   DELETE_RECORDING,
   DOWNLOAD,
+  RECORDS_LEAVE_MESSAGE,
   REPAIR_RECORDING,
 } from '@/libs/recorder/constants'
 import { dateFilterOptions, filterRecordings } from '@/libs/recorder/filter'
@@ -432,9 +461,17 @@ import { blueosApiMixin } from '@/mixins/blueosApi'
 export default Vue.extend({
   name: 'RecordsView',
   components: {
-    RecordsRecordingRow, RecordsRecordingTable, RecordsSessionControls, McapVideoPlayer,
+    RecordsRecordingRow, RecordsRecordingTable, RecordsSessionControls, McapVideoPlayer, WarningDialog,
   },
   mixins: [blueosApiMixin],
+  beforeRouteLeave(_to: Route, _from: Route, next: NavigationGuardNext): void {
+    if (!this.leaveGuarded) {
+      next()
+      return
+    }
+    this.pendingLeave = next
+    this.leaveDialog = true
+  },
   data() {
     return {
       transport: null as Transport | null,
@@ -464,6 +501,8 @@ export default Vue.extend({
       repairTargets: [] as LibraryRecording[],
       bulkOperation: null as string | null,
       bulkAction: { failures: [], pending: [] } as BulkAction,
+      leaveDialog: false,
+      pendingLeave: null as NavigationGuardNext | null,
     }
   },
   computed: {
@@ -472,6 +511,12 @@ export default Vue.extend({
     },
     actionsDisabled(): boolean {
       return !this.recorderServiceRunning || this.armed
+    },
+    leaveGuarded(): boolean {
+      return this.playerBusy || this.busyOperation === DOWNLOAD || this.bulkDownloading || this.bulkRepairing
+    },
+    leaveMessage(): string {
+      return RECORDS_LEAVE_MESSAGE
     },
     liveRecordings(): LibraryRecording[] {
       return withRepairJobs(this.recordings, this.repairProgress, this.jobs)
@@ -604,7 +649,33 @@ export default Vue.extend({
       )),
     ])
   },
+  mounted() {
+    window.addEventListener('beforeunload', this.onBeforeUnload)
+  },
+  beforeDestroy() {
+    window.removeEventListener('beforeunload', this.onBeforeUnload)
+  },
   methods: {
+    onBeforeUnload(event: BeforeUnloadEvent): void {
+      if (!this.leaveGuarded) {
+        return
+      }
+      event.preventDefault()
+      event.returnValue = this.leaveMessage
+    },
+    onLeaveDialogInput(open: boolean): void {
+      if (open || !this.pendingLeave) {
+        return
+      }
+      this.pendingLeave(false)
+      this.pendingLeave = null
+    },
+    confirmLeave(): void {
+      const next = this.pendingLeave
+      this.pendingLeave = null
+      this.leaveDialog = false
+      next?.()
+    },
     downloadUrl(path: string): string {
       return this.recorder?.recordingDownloadUrl(path) ?? ''
     },
