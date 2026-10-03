@@ -85,14 +85,15 @@ fn reconcile(
     task_context: &TaskContext<RecorderDomain, RecorderContext>,
 ) {
     for running_operation in running.iter() {
-        if !wanted.contains(&running_operation.operation) {
+        let job_id = running_operation.operation.job_id();
+        if !wanted.iter().any(|operation| operation.job_id() == job_id) {
             running_operation.cancel.store(true, Ordering::Relaxed);
         }
     }
     for operation in wanted {
         if running
             .iter()
-            .any(|running_operation| running_operation.operation == *operation)
+            .any(|running_operation| running_operation.operation.job_id() == operation.job_id())
         {
             continue;
         }
@@ -257,10 +258,11 @@ fn remove_temporary(temporary: &Path) {
 
 #[cfg(test)]
 mod tests {
-    use core::panic::AssertUnwindSafe;
+    use core::{panic::AssertUnwindSafe, time::Duration};
     use std::panic::catch_unwind;
 
     use blueos_jobs::JobId;
+    use blueos_recorder_library::RepairProgress;
 
     use super::*;
 
@@ -271,6 +273,11 @@ mod tests {
             operation: LibraryOperation::Repair {
                 path: RecordingRelativePath::parse("dive.mcap").expect("a valid path"),
                 job_id: JobId::from_u128(1),
+                progress: RepairProgress {
+                    bytes_processed: 0,
+                    total_bytes: 0,
+                    started_monotonic: Duration::ZERO,
+                },
             },
             task_id: tokio::spawn(async {}).id(),
             cancel: Arc::clone(&cancel),
