@@ -111,8 +111,9 @@ in `core/services/recorder/app/src/library/handlers.rs` and `ServiceBuilder::io_
 `core/libs/app/service/src/builder.rs` (D-04).
 
 **Custom endpoints.** Endpoints marked `custom = true` in the manifest get a handler trait method; the service maps
-Messages in `handlers.rs` (D-26). `SetLevel` on `example-minimal` is not custom; the Recorder's `DeleteRecording`,
-`RepairRecording` and `SnapshotRecording` are, in `core/services/recorder/app/src/library/handlers.rs`.
+Messages in `handlers.rs` (D-26). No Service declares one today: the Recorder's `DeleteRecording`, `RepairRecording`
+and `SnapshotRecording` validate their path in their fallible Goal conversion in `logic/api`, with the `paths` Sans-IO
+component, and a rejected path is the reason of the ack.
 
 ## Where it is in the code
 
@@ -149,7 +150,7 @@ Each row names the crate and module that implements the term on this branch. Pat
 | **Query endpoint** | `ServiceBuilder::query`, `serve_query` (`kernel/mod.rs`); `Level` on example |
 | **IO query endpoint** | `ServiceBuilder::io_query`; Recorder `index` (`services/recorder/app/src/library/handlers.rs`) |
 | **Endpoint manifest** | `app/endpoints.toml`; generator `blueos-idl-codegen` (`libs/idl/codegen/src/endpoints.rs`) |
-| **Custom endpoint** | Manifest `custom = true`; handler trait in generated `endpoints.rs`, impl in `services/recorder/app/src/library/handlers.rs` |
+| **Custom endpoint** | Manifest `custom = true`; handler trait method in the generated `endpoints.rs` (no Service uses one) |
 | **State** | `ServiceBuilder::state`; published in `kernel/mod.rs`; example `pump` key in `endpoints.toml` |
-| **Event** | `ServiceBuilder::event`; `publish_events` in `kernel/mod.rs`; Recorder `operation` in `services/recorder/app/endpoints.toml` |
+| **Event** | `ServiceBuilder::event`; `publish_events` in `kernel/mod.rs`; the Kernel's per-type Job result Event `jobs/<JobType>/result`, like the Recorder's `SnapshotRecording` result |
 | **Settings document** | Service schema in `logic/api`; file IO via `libs/adapters/settings/`; Kernel `settings.rs`. Recorder `services/recorder/app/src/settings.rs`. Not used by `example-minimal` |
