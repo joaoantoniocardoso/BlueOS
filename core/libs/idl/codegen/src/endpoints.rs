@@ -571,7 +571,7 @@ fn read(path: &Path) -> Result<String, EndpointsError> {
 
 /// Formats a generated source with `rustfmt`, as `cargo fmt` would. The source always parses, so a failure is a
 /// bug in the generator or a missing `rustfmt`.
-fn format(source: &str) -> String {
+pub fn format(source: &str) -> String {
     let mut rustfmt = Command::new("rustfmt")
         .args(["--edition", "2024"])
         .stdin(Stdio::piped())
