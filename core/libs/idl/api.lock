@@ -15,6 +15,7 @@ blueos/v1/example/log 1 type=foxglove_msgs/msg/Log
 blueos/v1/example/query/Level 1 type=blueos_example_msgs/srv/Level
 blueos/v1/example/query/info 1 type=blueos_msgs/msg/ServiceInfo
 blueos/v1/example/settings 1 type=blueos_msgs/msg/SettingsEnvelope
+blueos/v1/example/state/metrics 1 type=blueos_msgs/msg/ServiceMetrics
 blueos/v1/example/state/pump 1 type=blueos_example_msgs/msg/PumpState
 blueos/v1/example/state/status 1 type=blueos_msgs/msg/ServiceStatus
 blueos/v1/recorder/command/AnswerPermission 1 type=blueos_msgs/msg/PermissionAnswer
@@ -51,6 +52,7 @@ blueos/v1/recorder/query/index 1 type=blueos_recorder_msgs/srv/RecordingIndex
 blueos/v1/recorder/query/info 1 type=blueos_msgs/msg/ServiceInfo
 blueos/v1/recorder/settings 1 type=blueos_msgs/msg/SettingsEnvelope
 blueos/v1/recorder/state/library 1 type=blueos_recorder_msgs/msg/RecordingLibrary
+blueos/v1/recorder/state/metrics 1 type=blueos_msgs/msg/ServiceMetrics
 blueos/v1/recorder/state/recording 1 type=blueos_recorder_msgs/msg/RecordingState
 blueos/v1/recorder/state/status 1 type=blueos_msgs/msg/ServiceStatus
 blueos_example_msgs/action/SetLevel_Feedback 1 level:uint8
