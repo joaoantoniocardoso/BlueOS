@@ -107,6 +107,7 @@ async fn mavlink_not_recorded_while_disarmed_when_policy_enabled() {
     let harness = start_harness(directory.path()).await;
     start_recording(&harness).await;
     wait_for_active_recording(harness.backend()).await;
+    wait_for_recording_state(harness.backend(), |state| !state.armed).await;
 
     harness
         .backend()

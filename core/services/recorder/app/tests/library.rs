@@ -13,7 +13,7 @@ use blueos_comms::{CommsBackend, channel::ChannelBackend};
 use blueos_idl::msg::blueos_recorder_msgs::{
     DeleteRecordingCommand, RecordingLibrary, StopRecordingCommand,
 };
-use blueos_recorder_app::{RecorderArguments, RecorderService};
+use blueos_recorder_app::RecorderService;
 use blueos_recorder_library::RESCAN_INTERVAL;
 use blueos_service::{Service, testing::Harness};
 
