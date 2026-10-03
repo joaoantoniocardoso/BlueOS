@@ -1,6 +1,24 @@
 <template>
   <v-container fluid class="records-view">
+    <v-overlay
+      v-if="armed"
+      absolute
+      :opacity="0.9"
+      z-index="10"
+    >
+      <div class="d-flex flex-column align-center text-center pa-4">
+        <v-icon large color="warning" class="mb-3">
+          mdi-alert-outline
+        </v-icon>
+        <p class="mb-0">
+          Recording browsing is paused while the vehicle is armed,
+          so the link stays free for vehicle control.
+        </p>
+      </div>
+    </v-overlay>
+
     <records-session-controls
+      class="records-session"
       :recorder="recorder"
       :recording="recording"
       :service-running="recorderServiceRunning"
@@ -160,7 +178,7 @@
         outlined
         color="primary"
         class="mr-2 mb-2"
-        :disabled="!canRepairSelected || bulkBusy"
+        :disabled="!canRepairSelected || bulkBusy || actionsDisabled"
         :loading="bulkRepairing"
         @click="askRepair(selectedFiles)"
       >
@@ -175,7 +193,7 @@
         outlined
         color="error"
         class="mr-2 mb-2"
-        :disabled="!canDeleteSelected || bulkBusy"
+        :disabled="!canDeleteSelected || bulkBusy || actionsDisabled"
         :loading="bulkDeleting"
         @click="askDelete(selectedFiles)"
       >
@@ -201,7 +219,7 @@
       :sort-key.sync="sort.key"
       :sort-descending.sync="sort.descending"
       :download-url="downloadUrl"
-      :disabled="!recorderServiceRunning"
+      :disabled="actionsDisabled"
       :busy-path="busyPath"
       :busy-operation="busyOperation"
       @operation="onOperation"
@@ -230,7 +248,7 @@
             <records-recording-row
               :file="file"
               :download-url="downloadUrl(file.path)"
-              :disabled="!recorderServiceRunning"
+              :disabled="actionsDisabled"
               :busy-operation="busyPath === file.path ? busyOperation : null"
               selectable
               :selected="selectedPaths.includes(file.path)"
@@ -432,6 +450,12 @@ export default Vue.extend({
     }
   },
   computed: {
+    armed(): boolean {
+      return this.recording?.armed ?? false
+    },
+    actionsDisabled(): boolean {
+      return !this.recorderServiceRunning || this.armed
+    },
     liveRecordings(): LibraryRecording[] {
       return withRepairJobs(this.recordings, this.repairProgress, this.jobs)
     },
@@ -496,6 +520,13 @@ export default Vue.extend({
     },
   },
   watch: {
+    armed(armed: boolean): void {
+      if (armed) {
+        this.playerOpen = false
+        this.playerBusy = false
+        this.activeRecordingPath = null
+      }
+    },
     layout(layout: RecordsLayout): void {
       storeLayout(browserStorage, layout)
     },
@@ -705,7 +736,13 @@ export default Vue.extend({
 
 <style scoped>
 .records-view {
+  position: relative;
   min-height: 100%;
+}
+
+.records-session {
+  position: relative;
+  z-index: 11;
 }
 
 .records-search {
