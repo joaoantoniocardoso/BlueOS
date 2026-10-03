@@ -19,6 +19,7 @@ function session(overrides: Partial<RecordingState> = {}): RecordingState {
     current_file: '',
     session_bytes_written: 0,
     recording_video_topics: [],
+    samples_dropped: 0,
     ...overrides,
   }
 }
