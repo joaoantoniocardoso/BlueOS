@@ -1,16 +1,16 @@
 /* eslint-disable import/no-extraneous-dependencies */
-import { CommandAckStatus } from '@blueos-idl/constants'
+import { CommandAckStatus, JobStatusStatus } from '@blueos-idl/constants'
 import {
   afterEach, beforeEach, describe, expect, it, vi,
 } from 'vitest'
 
 import { encodeCdr } from '@/libs/blueos-api/cdr'
+import { jobResultEvent } from '@/libs/blueos-api/endpoints'
 import { cdrEncoding, commandKey, serviceLivelinessKey } from '@/libs/blueos-api/keys'
 import {
   DeleteRecording,
   library,
   NAME,
-  operation,
   RepairRecording,
   SnapshotRecording,
 } from '@/libs/blueos-api/services/recorder'
@@ -39,14 +39,15 @@ function recordingFile(overrides: Record<string, unknown> = {}) {
   }
 }
 
-function operationEvent(outputPath: string) {
+function snapshotJobResult(outputPath: string) {
   return {
-    operation: 1,
-    path: 'live.mcap',
-    output_path: outputPath,
-    succeeded: true,
-    cancelled: false,
-    error: '',
+    job: {
+      job_id: JOB_ID,
+      job_type: SnapshotRecording.name,
+      status: JobStatusStatus.Succeeded,
+      reason: '',
+    },
+    result: Array.from(encodeCdr(SnapshotRecording.resultSchema, { path: 'live.mcap', output_path: outputPath })),
   }
 }
 
@@ -96,7 +97,7 @@ describe('createRecorderClient', () => {
     expect(recordings).toEqual([[], ['a.mcap']])
   })
 
-  it('resolves snapshot before the command ack when the operation arrives early', async () => {
+  it('resolves snapshot before the command ack when the Job result arrives early', async () => {
     const transport = new FakeTransport()
     const client = createRecorderClient(transport)
     const operationWatch = client.watchOperations(() => undefined)
@@ -107,10 +108,11 @@ describe('createRecorderClient', () => {
     const snapshotQuery = await transport.nextQuery()
     expect(snapshotQuery.key).toBe(SnapshotRecording.key)
 
+    const results = jobResultEvent(NAME, SnapshotRecording.name)
     transport.publish({
-      key: operation.key,
-      payload: encodeCdr(operation.messageSchema, operationEvent(newSnapshot)),
-      encoding: cdrEncoding(operation.messageSchema),
+      key: results.key,
+      payload: encodeCdr(results.messageSchema, snapshotJobResult(newSnapshot)),
+      encoding: cdrEncoding(results.messageSchema),
     })
 
     snapshotQuery.reply({
