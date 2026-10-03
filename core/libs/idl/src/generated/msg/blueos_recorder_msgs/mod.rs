@@ -37,6 +37,8 @@ pub mod channel_message_count;
 pub use channel_message_count::*;
 pub mod chunk_index_entry;
 pub use chunk_index_entry::*;
+pub mod recording_contents;
+pub use recording_contents::*;
 pub mod recording_file;
 pub use recording_file::*;
 pub mod recording_library;

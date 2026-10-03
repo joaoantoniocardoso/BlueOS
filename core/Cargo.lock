@@ -503,6 +503,7 @@ name = "blueos-recorder-storage"
 version = "0.1.0"
 dependencies = [
  "blueos-recorder-mcap",
+ "mcap",
  "tempfile",
  "thiserror",
  "tracing",

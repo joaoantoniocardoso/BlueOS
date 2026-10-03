@@ -54,11 +54,18 @@ export class McapCsvExportController {
   }
 
   setSearch(search: string): void {
+    if (search === this.state.search) {
+      return
+    }
     this.state = { ...this.state, search }
     this.emit()
   }
 
   setSelected(selected: McapRecordingChannel[]): void {
+    const current = new Set(this.state.selected.map((channel) => channel.channelId))
+    if (selected.length === current.size && selected.every((channel) => current.has(channel.channelId))) {
+      return
+    }
     this.state = { ...this.state, selected: [...selected] }
     this.emit()
   }
@@ -86,14 +93,10 @@ export class McapCsvExportController {
     }
     const controller = new AbortController()
     const { clip } = this
-    const end = Math.min(clip?.endSeconds ?? Infinity, this.recording.durationSeconds)
-    const durationSeconds = Math.max(end - (clip?.startSeconds ?? 0), 0)
     this.exportController = controller
     this.state = {
       ...this.state,
-      exportProgress: {
-        seconds: 0, durationSeconds, bytes: 0, messages: 0,
-      },
+      exportProgress: { messages: 0, expectedMessages: 0, bytes: 0 },
     }
     this.emit()
     try {

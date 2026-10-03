@@ -400,6 +400,23 @@ uint64 uncompressed_size
 uint16[] channel_ids
 # Bytes of the MessageIndex records that follow the chunk.
 uint64 message_index_length`,
+  "blueos_recorder_msgs/msg/RecordingContents": `# blueos_recorder_msgs/msg/RecordingContents
+# What one recording of RecordingLibrary holds, read from its MCAP summary.
+
+# The path of the RecordingFile it describes.
+string path
+# Time from the first message to the last, from the Statistics record; zero without one.
+builtin_interfaces/Duration duration
+# Topics of the video channels (foxglove.CompressedVideo), sorted; empty when it has no video.
+string[] video_topics
+# How many other topics it has, such as telemetry.
+uint32 other_topic_count
+================================================================================
+MSG: builtin_interfaces/Duration
+# This message communicates ROS Duration.
+
+int32 sec
+uint32 nanosec`,
   "blueos_recorder_msgs/msg/RecordingFile": `# blueos_recorder_msgs/msg/RecordingFile
 # One MCAP recording in the recorder folder, as listed in RecordingLibrary.
 
@@ -442,6 +459,29 @@ uint32 nanosec`,
 # Published on blueos/v1/recorder/state/library, newest recording first.
 
 blueos_recorder_msgs/RecordingFile[] files
+# What the recordings of files hold, keyed by path: one entry per file whose summary was read, so a file without
+# an entry (being written, needs repair, or from an older recorder) holds something unknown. Kept apart from
+# RecordingFile, which is frozen as a sequence element (D-06).
+blueos_recorder_msgs/RecordingContents[] contents
+================================================================================
+MSG: builtin_interfaces/Duration
+# This message communicates ROS Duration.
+
+int32 sec
+uint32 nanosec
+================================================================================
+MSG: blueos_recorder_msgs/RecordingContents
+# blueos_recorder_msgs/msg/RecordingContents
+# What one recording of RecordingLibrary holds, read from its MCAP summary.
+
+# The path of the RecordingFile it describes.
+string path
+# Time from the first message to the last, from the Statistics record; zero without one.
+builtin_interfaces/Duration duration
+# Topics of the video channels (foxglove.CompressedVideo), sorted; empty when it has no video.
+string[] video_topics
+# How many other topics it has, such as telemetry.
+uint32 other_topic_count
 ================================================================================
 MSG: builtin_interfaces/Time
 # This message communicates ROS Time defined here:

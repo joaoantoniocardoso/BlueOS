@@ -3,7 +3,8 @@
 
 [default]
 # A persisted MAVLink endpoint name: renaming it would add a second endpoint to every vehicle that upgrades.
-extend-ignore-re = ['name="Zenoh Deamon"']
+# The mcap crate names its seek notification method.
+extend-ignore-re = ['name="Zenoh Deamon"', 'notify_seeked']
 
 [default.extend-words]
 # Python services name pyroute2's output interface argument, ArduPilot's simulator and its parameter files.

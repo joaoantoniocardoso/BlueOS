@@ -15,6 +15,8 @@ import {
   SnapshotRecording,
 } from '@/libs/blueos-api/services/recorder'
 import { SNAPSHOT_WAIT_TIMEOUT_MS, createRecorderClient } from '@/libs/recorder/client'
+import { mapRecordingFile } from '@/libs/recorder/map'
+import type { LibraryRecording } from '@/libs/recorder/types'
 
 import FakeTransport from '../blueos-api/fake-transport'
 
@@ -111,6 +113,53 @@ describe('createRecorderClient', () => {
 
     expect(running).toEqual([true])
     expect(recordings).toEqual([[], ['a.mcap']])
+  })
+
+  it('joins each recording with its contents, and leaves the contents of a file without an entry unknown', async () => {
+    const transport = new FakeTransport()
+    const client = createRecorderClient(transport)
+    const libraries: LibraryRecording[][] = []
+    const libraryWatch = client.watchLibrary((files) => libraries.push(files))
+    const stateQuery = await transport.nextQuery()
+    stateQuery.reply({
+      kind: 'sample',
+      sample: {
+        key: library.key,
+        payload: encodeCdr(library.messageSchema, {
+          files: ['dive.mcap', 'empty.mcap', 'old.mcap'].map((path) => recordingFile({ path, name: path, state: 1 })),
+          contents: [
+            {
+              path: 'dive.mcap',
+              duration: { sec: 90, nanosec: 500_000_000 },
+              video_topics: ['video/camera/stream'],
+              other_topic_count: 4,
+            },
+            {
+              path: 'empty.mcap', duration: { sec: 0, nanosec: 0 }, video_topics: [], other_topic_count: 0,
+            },
+          ],
+        }),
+        encoding: cdrEncoding(library.messageSchema),
+      },
+    })
+    await libraryWatch
+
+    const [files] = libraries
+    expect(files.map(({
+      path, duration_seconds, video_topics, other_topic_count,
+    }) => ({
+      path, duration_seconds, video_topics, other_topic_count,
+    }))).toEqual([
+      {
+        path: 'dive.mcap', duration_seconds: 90.5, video_topics: ['video/camera/stream'], other_topic_count: 4,
+      },
+      {
+        path: 'empty.mcap', duration_seconds: 0, video_topics: [], other_topic_count: 0,
+      },
+      {
+        path: 'old.mcap', duration_seconds: null, video_topics: null, other_topic_count: null,
+      },
+    ])
   })
 
   it('resolves snapshot before the command ack when the Job result arrives early', async () => {
@@ -301,6 +350,68 @@ describe('createRecorderClient', () => {
       encoding: cdrEncoding(library.messageSchema),
     })
     await expect(snapshot).resolves.toBe(newSnapshot)
+  })
+
+  it('downloads the file being written through a snapshot, and a finished one as it is', async () => {
+    const transport = new FakeTransport()
+    const client = createRecorderClient(transport)
+    await client.watchOperations(() => undefined)
+    const live = mapRecordingFile(recordingFile())
+    const finished = mapRecordingFile(recordingFile({ path: 'old.mcap', state: 1, allowed_operations: [] }))
+
+    const queries = vi.spyOn(transport, 'get')
+    await expect(client.recordingDownloadPath(finished)).resolves.toBe('old.mcap')
+    expect(queries).not.toHaveBeenCalled()
+
+    const newSnapshot = 'live.snapshot-2024-01-02T03-04-05Z.mcap'
+    const download = client.recordingDownloadPath(live)
+    const snapshotQuery = await transport.nextQuery()
+    expect(snapshotQuery.key).toBe(SnapshotRecording.key)
+    const results = jobResultEvent(NAME, SnapshotRecording.name)
+    transport.publish({
+      key: results.key,
+      payload: encodeCdr(results.messageSchema, snapshotJobResult(newSnapshot)),
+      encoding: cdrEncoding(results.messageSchema),
+    })
+    snapshotQuery.reply({
+      kind: 'sample',
+      sample: {
+        key: SnapshotRecording.key,
+        payload: encodeCdr('blueos_msgs/msg/CommandAck', {
+          accepted: true,
+          job_id: JOB_ID,
+          status: CommandAckStatus.Succeeded,
+          reason: '',
+        }),
+        encoding: cdrEncoding('blueos_msgs/msg/CommandAck'),
+      },
+    })
+
+    await expect(download).resolves.toBe(newSnapshot)
+  })
+
+  it('downloads the file directly when its recording stopped before the snapshot', async () => {
+    const transport = new FakeTransport()
+    const client = createRecorderClient(transport)
+    await client.watchOperations(() => undefined)
+
+    const download = client.recordingDownloadPath(mapRecordingFile(recordingFile()))
+    const snapshotQuery = await transport.nextQuery()
+    snapshotQuery.reply({
+      kind: 'sample',
+      sample: {
+        key: SnapshotRecording.key,
+        payload: encodeCdr('blueos_msgs/msg/CommandAck', {
+          accepted: false,
+          job_id: JOB_ID,
+          status: CommandAckStatus.StatusUnknown,
+          reason: 'Only the recording being written needs a snapshot. Download it directly.',
+        }),
+        encoding: cdrEncoding('blueos_msgs/msg/CommandAck'),
+      },
+    })
+
+    await expect(download).resolves.toBe('live.mcap')
   })
 
   it('rejects snapshotRecording when the command is refused and clears the waiter', async () => {

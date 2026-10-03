@@ -28,6 +28,9 @@ function file(overrides: Partial<LibraryRecording> = {}): LibraryRecording {
     repair_error: '',
     repair_job_id: '',
     allowed_operations: [],
+    duration_seconds: null,
+    video_topics: [],
+    other_topic_count: null,
     ...overrides,
   }
 }

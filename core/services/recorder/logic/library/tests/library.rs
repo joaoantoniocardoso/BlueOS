@@ -7,9 +7,9 @@ use blueos_jobs::JobId;
 use blueos_recorder_library::{
     CANCEL_JOB, Library, LibraryIoRequest, LibraryIoResult, LibraryObservedFact, LibraryOperation,
     LibraryRepairOutcome, LibraryRepairProgress, LibraryRequest, LibrarySnapshotOutcome,
-    REPAIR_PROGRESS_PUBLISH_INTERVAL, REPAIR_RECORDING, RecordingFileState, RepairFailure,
-    RepairProgress, SNAPSHOT_RECORDING, ScannedRecording, derive_recording_file_state,
-    snapshot_output_relative_path,
+    REPAIR_PROGRESS_PUBLISH_INTERVAL, REPAIR_RECORDING, RecordingContents, RecordingFileState,
+    RepairFailure, RepairProgress, SNAPSHOT_RECORDING, ScannedRecording,
+    derive_recording_file_state, snapshot_output_relative_path,
 };
 
 const NOW: Now = Now {
@@ -27,6 +27,7 @@ fn scan_snapshot(paths: &[(&str, bool)], modified_unix_seconds: i64) -> Library 
             size_bytes: 100,
             modified_unix_seconds,
             indexed: *indexed,
+            contents: None,
         })
         .collect();
     let outcome =
@@ -338,6 +339,7 @@ fn a_file_that_is_not_an_mcap_is_not_offered_repair_again_until_it_changes() {
                     size_bytes,
                     modified_unix_seconds,
                     indexed: false,
+                    contents: None,
                 }],
             },
             None,
@@ -459,6 +461,7 @@ fn active_recording_lists_snapshot_in_allowed_operations() {
         size_bytes: 100,
         modified_unix_seconds: 1_000,
         indexed: false,
+        contents: None,
     }];
     library.handle_io_result(
         LibraryIoResult::ScanCompleted { recordings },
@@ -501,4 +504,32 @@ fn operation_finished_schedules_rescan() {
             .iter()
             .any(|effect| matches!(effect, Effect::Io(LibraryIoRequest::Scan)))
     );
+}
+
+#[test]
+fn the_library_keeps_the_contents_of_each_scanned_recording() {
+    let mut library = Library::default();
+    let recordings = vec![ScannedRecording {
+        relative_path: "dive.mcap".into(),
+        name: "dive.mcap".into(),
+        size_bytes: 100,
+        modified_unix_seconds: 1_000,
+        indexed: true,
+        contents: Some(RecordingContents {
+            duration: Duration::from_secs(90),
+            video_topics: vec!["video/camera/stream".into()],
+            other_topic_count: 2,
+        }),
+    }];
+    library.handle_io_result(LibraryIoResult::ScanCompleted { recordings }, None, NOW);
+
+    assert_eq!(
+        library.contents("dive.mcap"),
+        Some(&RecordingContents {
+            duration: Duration::from_secs(90),
+            video_topics: vec!["video/camera/stream".into()],
+            other_topic_count: 2,
+        })
+    );
+    assert_eq!(library.contents("missing.mcap"), None);
 }

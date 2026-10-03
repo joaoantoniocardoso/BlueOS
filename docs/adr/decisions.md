@@ -315,6 +315,9 @@ Decision: accept the limitation, with a strict policy:
 - A message used as a field or as a sequence element of another message is **frozen**. A decoder fills missing
   fields only at the end of the whole buffer, so an appended field in a nested message shifts every byte after it.
   Changing a frozen message requires a new message type.
+  - To add data to the elements of a sequence, append to the top-level message a parallel sequence keyed by the
+    element's identity instead. An old reader decodes it empty, and a missing entry means unknown. Example: the
+    `RecordingContents[]` of `RecordingLibrary`, keyed by the path of each `RecordingFile` (D-23).
 - Each part of a `.action` (Goal, Job result, Feedback) and of a `.srv` (request, response) is a top-level message
   for this policy.
 - Any other change (remove, reorder, retype, rename a field; change semantics) requires a **new message type
@@ -694,7 +697,8 @@ Decision:
   repair Job through the Kernel's control endpoint (D-12) removes the repair from the list.
 - A recording still being written is downloaded through `SnapshotRecording`: the same rewrite writes an indexed
   copy `<stem>.snapshot-<UTC>Z.mcap` next to it, and the browser downloads it from nginx once the Job result
-  names it. The download also completes from the `library` State and times out.
+  names it. The download also completes from the `library` State and times out. Any other recording downloads
+  directly from nginx, so a snapshot of it is rejected: it would only copy the file on the vehicle's disk.
 - The recording-file suffix rule (case-insensitive `.mcap`) and the file name timestamp formats are defined once
   and shared with the frontend through a test vector (D-24). Timestamps are parsed and formatted with `chrono`.
 - The Recorder knows which file it is writing. Other files are rescanned on a timer and after each operation; the
@@ -702,6 +706,12 @@ Decision:
   or large folders make it costly.
 - `RecordingFile.allowed_operations` is published by the library from the same rules that reject Commands, so the
   frontend never duplicates them.
+- What a recording holds (its recording contents: duration, video topics and how many other topics) is read from
+  its MCAP summary with the footer, and cached the same way. The `library` State carries it as a parallel
+  `RecordingContents[]` keyed by path, not as new fields of `RecordingFile`: that message is a sequence element,
+  so it is frozen (D-06). A file has an entry only when its summary was read; a file without one (being written,
+  needs repair, an unreadable summary, or a library from an older recorder) holds something unknown, which the
+  page shows as unknown, never as empty.
 - The `index` Query (`io = true`, D-26) is answered by an adapter outside the Inbox (reads that need disk but no Domain state),
   one request at a time per query name, with a timeout. The walk reports the size seen at its start; the frontend
   asks again when `library` reports a new size.
@@ -722,7 +732,7 @@ API (keys under `blueos/v1/recorder/`, messages in `blueos_recorder_msgs`):
 
 | Kind | Name | Message |
 |---|---|---|
-| state | `library` | `RecordingLibrary` (`RecordingFile[]`, newest first) |
+| state | `library` | `RecordingLibrary` (`RecordingFile[]` newest first, `RecordingContents[]` keyed by path) |
 | job | `RepairRecording` / `DeleteRecording` / `SnapshotRecording` | lasting Job types (D-36), each an `.action` with the Goal `string path` |
 | state | `jobs/<JobType>/feedback` | `JobFeedbackList` of the Job type's `_Feedback` (D-12): a repair's read offset, a snapshot's output path |
 | event | `jobs/<JobType>/result` | `JobResult` of the Job type's `_Result`: how the Job ended, its reason, the path and a snapshot's output path |
@@ -731,7 +741,8 @@ API (keys under `blueos/v1/recorder/`, messages in `blueos_recorder_msgs`):
 
 Rejections (from the Python rules): repair when already repairing, already indexed, being written or written
 less than 10 s ago; cancel when not repairing; delete while being written, repaired or already being deleted;
-snapshot of a missing file; any path that is absolute, contains `..`, is not `.mcap`, or is not in the library.
+snapshot of a missing file or of any file but the one being written; any path that is absolute, contains `..`,
+is not `.mcap`, or is not in the library.
 A path is parsed once at the boundary into a validated recording path type; the Domain never receives an
 unvalidated path.
 

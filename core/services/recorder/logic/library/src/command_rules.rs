@@ -117,12 +117,17 @@ pub fn snapshot_recording_rejection(context: &RecordingCommandContext<'_>) -> Op
     if context.snapshotting || context.repairing {
         return Some("This recording is being processed.");
     }
+    if context.active_recording_relative_path != Some(context.relative_path) {
+        return Some("Only the recording being written needs a snapshot. Download it directly.");
+    }
     None
 }
 
 fn recently_written(modified_unix_seconds: i64, now: Now) -> bool {
-    let modified = Duration::from_secs(modified_unix_seconds.max(0) as u64);
-    now.wall.saturating_sub(modified) < RECENTLY_WRITTEN_DELAY
+    now.wall
+        .as_secs()
+        .saturating_sub(modified_unix_seconds.max(0) as u64)
+        < RECENTLY_WRITTEN_DELAY.as_secs()
 }
 
 #[cfg(test)]
@@ -173,6 +178,22 @@ mod tests {
         let mut context = context("live.mcap", true);
         context.active_recording_relative_path = Some("live.mcap");
         assert!(snapshot_recording_rejection(&context).is_none());
+    }
+
+    #[test]
+    fn snapshot_rejects_finished_recording() {
+        let context = context("done.mcap", true);
+        assert_eq!(
+            snapshot_recording_rejection(&context),
+            Some("Only the recording being written needs a snapshot. Download it directly.")
+        );
+    }
+
+    #[test]
+    fn ready_row_allows_delete_but_no_snapshot() {
+        let mut context = context("done.mcap", true);
+        context.indexed = true;
+        assert_eq!(allowed_operations(&context), [DELETE_RECORDING]);
     }
 
     #[test]

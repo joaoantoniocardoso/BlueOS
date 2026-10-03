@@ -9,7 +9,17 @@ export const DEFAULT_RECORDING_HTTP_PREFIX = '/userdata/recorder'
 
 export const SNAPSHOT_WAIT_TIMEOUT_MS = 600_000
 
+/** Rewrite speed seen on a Pi 4 SD card, only used to estimate a repair before one is running. */
+export const REPAIR_BYTES_PER_SECOND_ESTIMATE = 25 * 1024 * 1024
+
 export const REPAIR_RECORDING = RepairRecording.name
 export { CANCEL_JOB }
 export const DELETE_RECORDING = DeleteRecording.name
 export const SNAPSHOT_RECORDING = SnapshotRecording.name
+
+/** The busy operation of a row while its Download runs in the browser. */
+export const DOWNLOAD = 'Download'
+
+export const RECORDS_LEAVE_MESSAGE = 'Keep this page open. Downloads and exports run in this browser'
+  + ' and will stop if you leave.'
+  + ' Repair on the vehicle continues, but you would lose progress shown here.'

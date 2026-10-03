@@ -13,13 +13,16 @@ use std::fs;
 use std::path::PathBuf;
 
 use blueos_idl::Message;
+use blueos_idl::message::CdrStruct;
 use blueos_idl::msg::blueos_example_msgs::LevelRequest;
 use blueos_idl::msg::blueos_msgs::{
     CommandAck, CommandAckStatus, EndpointInfo, MetricCounter, MetricGauge, MetricHistogram,
     MetricLabel, ServiceInfo, ServiceMetrics,
 };
-use blueos_idl::msg::blueos_recorder_msgs::{RecordingFile, RecordingFileState};
-use blueos_idl::msg::builtin_interfaces::Time;
+use blueos_idl::msg::blueos_recorder_msgs::{
+    RecordingContents, RecordingFile, RecordingFileState, RecordingLibrary,
+};
+use blueos_idl::msg::builtin_interfaces::{Duration, Time};
 use blueos_idl::msg::foxglove_msgs::Log;
 use blueos_idl_codegen::collect_messages_for_test;
 use serde::{Deserialize, Serialize};
@@ -100,6 +103,28 @@ fn extra_vectors() -> Vec<CdrVector> {
         allowed_operations: Vec::new(),
         repair_job_id: String::new(),
     };
+    let recording_library = RecordingLibrary {
+        files: vec![recording_file.clone()],
+        contents: vec![RecordingContents {
+            path: recording_file.path.clone(),
+            duration: Duration {
+                sec: 2,
+                nanosec: 500_000_000,
+            },
+            video_topics: vec!["video/camera/stream".into()],
+            other_topic_count: 3,
+        }],
+    };
+    let mut library_writer = blueos_idl::cdr::Writer::new();
+    library_writer.write_u32(1).expect("files length");
+    recording_file
+        .cdr_encode_fields(&mut library_writer)
+        .expect("recording file");
+    let recording_library_old_writer = library_writer.finish_with_encapsulation();
+    let recording_library_old_writer_decoded = serde_json::json!({
+        "files": [serde_json::to_value(&recording_file).expect("recording file json")],
+        "contents": []
+    });
     let service_info = ServiceInfo {
         name: "recorder".into(),
         version: "1.0.0".into(),
@@ -197,6 +222,22 @@ fn extra_vectors() -> Vec<CdrVector> {
             category: "example".to_string(),
             skip_encode_round_trip: false,
             layout_note: None,
+        },
+        CdrVector {
+            schema_name: RecordingLibrary::SCHEMA_NAME.to_string(),
+            hex: encode_hex(&recording_library.encode().expect("encode RecordingLibrary")),
+            decoded: serde_json::to_value(recording_library).expect("recording library json"),
+            category: "example".to_string(),
+            skip_encode_round_trip: false,
+            layout_note: None,
+        },
+        CdrVector {
+            schema_name: RecordingLibrary::SCHEMA_NAME.to_string(),
+            hex: encode_hex(&recording_library_old_writer),
+            decoded: recording_library_old_writer_decoded,
+            category: "old_writer".to_string(),
+            skip_encode_round_trip: true,
+            layout_note: Some("a recorder from before contents was appended".to_string()),
         },
         CdrVector {
             schema_name: CommandAck::SCHEMA_NAME.to_string(),
@@ -396,6 +437,11 @@ fn encode_json_message(schema_name: &str, message: &serde_json::Value) -> Option
         RecordingFile::SCHEMA_NAME => {
             let message: RecordingFile =
                 serde_json::from_value(message.clone()).expect("RecordingFile from json");
+            message.encode().ok()
+        }
+        RecordingLibrary::SCHEMA_NAME => {
+            let message: RecordingLibrary =
+                serde_json::from_value(message.clone()).expect("RecordingLibrary from json");
             message.encode().ok()
         }
         blueos_idl::msg::blueos_msgs::SettingField::SCHEMA_NAME => {

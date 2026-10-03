@@ -34,6 +34,16 @@ export interface Mp4ExportOptions {
   signal?: AbortSignal
 }
 
+/** The stream, or the part of it asked for, holds no keyframe, so there is nothing that can be saved. */
+export class NoKeyframeError extends Error {
+  constructor(ranged: boolean) {
+    super(ranged
+      ? 'The selected part of this video stream holds no keyframe, so there is nothing that can be saved.'
+      : 'This video stream holds no keyframe, so there is nothing that can be saved.')
+    this.name = 'NoKeyframeError'
+  }
+}
+
 interface HeldSample {
   data: Uint8Array
   logTime: bigint
@@ -111,17 +121,13 @@ export async function exportTrackAsMp4(
   }
 
   if (!cursor.decoderInfo || !held && !writer) {
-    throw new Error(range
-      ? 'The selected part of this video stream holds no keyframe, so there is nothing that can be saved.'
-      : 'This video stream holds no keyframe, so there is nothing that can be saved.')
+    throw new NoKeyframeError(range !== undefined)
   }
   if (held) {
     await emit(held, duration)
   }
   if (!writer) {
-    throw new Error(range
-      ? 'The selected part of this video stream holds no keyframe, so there is nothing that can be saved.'
-      : 'This video stream holds no keyframe, so there is nothing that can be saved.')
+    throw new NoKeyframeError(range !== undefined)
   }
   return writer.finalize()
 }

@@ -209,6 +209,13 @@ export interface ChunkIndexEntry {
   message_index_length: number;
 }
 
+export interface RecordingContents {
+  path: string;
+  duration: Duration;
+  video_topics: string[];
+  other_topic_count: number;
+}
+
 export interface RecordingFile {
   path: string;
   name: string;
@@ -225,6 +232,7 @@ export interface RecordingFile {
 
 export interface RecordingLibrary {
   files: RecordingFile[];
+  contents: RecordingContents[];
 }
 
 export interface RecordingState {
@@ -323,6 +331,7 @@ export interface MessageBySchema {
   "blueos_recorder_msgs/action/StopRecording_Result": StopRecordingResult;
   "blueos_recorder_msgs/msg/ChannelMessageCount": ChannelMessageCount;
   "blueos_recorder_msgs/msg/ChunkIndexEntry": ChunkIndexEntry;
+  "blueos_recorder_msgs/msg/RecordingContents": RecordingContents;
   "blueos_recorder_msgs/msg/RecordingFile": RecordingFile;
   "blueos_recorder_msgs/msg/RecordingLibrary": RecordingLibrary;
   "blueos_recorder_msgs/msg/RecordingState": RecordingState;

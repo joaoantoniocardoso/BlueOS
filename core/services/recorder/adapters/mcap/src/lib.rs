@@ -10,6 +10,7 @@ mod footer;
 mod index;
 mod mcap_file;
 mod rewrite;
+mod summary;
 mod writer_handle;
 mod writer_metrics;
 
@@ -27,6 +28,7 @@ pub use mcap_file::{
     ros2_lane_descriptor,
 };
 pub use rewrite::{RewriteError, RewriteSummary, SOURCE_READ_BYTES, rewrite, rewrite_from_reader};
+pub use summary::{COMPRESSED_VIDEO_SCHEMA, RecordingContents, read_recording_contents};
 pub use writer_handle::McapWriterHandle;
 
 /// Default MCAP chunk size used by the data-plane writer ([`WriteOptions::DEFAULT_CHUNK_SIZE`]).
