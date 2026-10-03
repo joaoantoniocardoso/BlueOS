@@ -189,6 +189,31 @@ export function withLiveDuration(files: LibraryRecording[], nowSeconds: number):
   })
 }
 
+/** The duration of `file` as text; "-" when unknown. */
+export function durationLabel(file: LibraryRecording): string {
+  return file.duration_seconds === null ? '-' : formatDuration(file.duration_seconds)
+}
+
+/** The video topics of `file` and how many other topics it has, as text. */
+export function tracksLabel(file: LibraryRecording): string {
+  if (file.video_topics === null || file.other_topic_count === null) {
+    return 'unknown'
+  }
+  const parts = file.video_topics.length > 0 ? [file.video_topics.join(', ')] : []
+  if (file.other_topic_count > 0) {
+    parts.push(`${file.other_topic_count} other topic${file.other_topic_count === 1 ? '' : 's'}`)
+  }
+  return parts.length > 0 ? parts.join(' \u00B7 ') : 'no topics'
+}
+
+/** When a finished recording of known duration ended, in Unix seconds; null otherwise. */
+export function recordingEndSeconds(file: LibraryRecording): number | null {
+  if (file.state === 'recording' || file.duration_seconds === null) {
+    return null
+  }
+  return file.created + file.duration_seconds
+}
+
 /** A missing index is not a missing recording: the vehicle indexes what was written on demand. */
 export function canPlayRecording(file: LibraryRecording): boolean {
   return file.state === 'ready' || file.state === 'recording' || file.state === 'needs_repair'

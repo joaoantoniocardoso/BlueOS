@@ -16,6 +16,7 @@ import {
   canPlayRecording,
   deleteConfirmationMessage,
   downloadTooltip,
+  durationLabel,
   formatDuration,
   jobCanceledMessage,
   jobFailureMessage,
@@ -25,10 +26,12 @@ import {
   RECORDING_OPERATION_UI,
   recordingByPath,
   recordingDownload,
+  recordingEndSeconds,
   repairEstimateMessage,
   repairProgress,
   type RepairProgress,
   snapshotDownloadPath,
+  tracksLabel,
   withLiveDuration,
   withRepairJobs,
 } from '@/libs/recorder/view-logic'
@@ -245,5 +248,28 @@ describe('withLiveDuration', () => {
   it('returns the same list when nothing is being written', () => {
     const files = [file({ state: 'ready' }), file({ path: 'b.mcap', state: 'needs_repair' })]
     expect(withLiveDuration(files, 1_090)).toBe(files)
+  })
+})
+
+describe('durationLabel, tracksLabel and recordingEndSeconds', () => {
+  it('shows a known duration and a dash for an unknown one', () => {
+    expect(durationLabel(file({ duration_seconds: 125 }))).toBe('2m 05s')
+    expect(durationLabel(file({ duration_seconds: 0 }))).toBe('0m 00s')
+    expect(durationLabel(file({ duration_seconds: null }))).toBe('-')
+  })
+
+  it('names the video topics and counts the others, and says when the contents are unknown', () => {
+    expect(tracksLabel(file({ video_topics: ['video/a/stream', 'video/b/stream'], other_topic_count: 3 })))
+      .toBe('video/a/stream, video/b/stream \u00B7 3 other topics')
+    expect(tracksLabel(file({ video_topics: [], other_topic_count: 1 }))).toBe('1 other topic')
+    expect(tracksLabel(file({ video_topics: ['video/a/stream'], other_topic_count: 0 }))).toBe('video/a/stream')
+    expect(tracksLabel(file({ video_topics: [], other_topic_count: 0 }))).toBe('no topics')
+    expect(tracksLabel(file({ video_topics: null, other_topic_count: null }))).toBe('unknown')
+  })
+
+  it('ends a finished recording its duration after its start, and not one being written or of unknown length', () => {
+    expect(recordingEndSeconds(file({ state: 'ready', created: 1_000, duration_seconds: 90 }))).toBe(1_090)
+    expect(recordingEndSeconds(file({ state: 'recording', created: 1_000, duration_seconds: 90 }))).toBeNull()
+    expect(recordingEndSeconds(file({ state: 'needs_repair', duration_seconds: null }))).toBeNull()
   })
 })

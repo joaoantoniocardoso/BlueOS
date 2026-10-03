@@ -29,6 +29,12 @@
       <span class="mr-2">{{ formatSize(file.size_bytes) }}</span>
       <span class="caption">{{ formatDate(file.created) }}</span>
     </v-card-subtitle>
+    <v-card-subtitle class="py-0 caption">
+      <div>{{ durationLabel(file) }} &middot; {{ tracksLabel(file) }}</div>
+      <div v-if="endedText">
+        Ended {{ endedText }}
+      </div>
+    </v-card-subtitle>
     <records-repair-progress :file="file" class="px-4 py-2" />
     <v-spacer />
     <v-card-actions class="pt-0 flex-wrap">
@@ -78,10 +84,13 @@ import type { LibraryRecording } from '@/libs/recorder/types'
 import {
   canDownloadRecording,
   downloadTooltip,
+  durationLabel,
   operationButtons,
   operationDisabledReason,
   RECORDING_OPERATION_UI,
   RECORDING_STATE_UI,
+  recordingEndSeconds,
+  tracksLabel,
 } from '@/libs/recorder/view-logic'
 import { prettifySize } from '@/utils/helper_functions'
 
@@ -130,10 +139,16 @@ export default Vue.extend({
     stateLabel(): string {
       return RECORDING_STATE_UI[this.file.state]?.label ?? this.file.state
     },
+    endedText(): string | null {
+      const endSeconds = recordingEndSeconds(this.file)
+      return endSeconds === null ? null : this.formatDate(endSeconds)
+    },
   },
   methods: {
+    durationLabel,
     operationButtons,
     operationDisabledReason,
+    tracksLabel,
     formatSize(bytes: number): string {
       return prettifySize(bytes / 1024)
     },

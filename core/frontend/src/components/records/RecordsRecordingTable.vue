@@ -39,6 +39,12 @@
     <template #item.size_bytes="{ item }">
       {{ formatSize(item.size_bytes) }}
     </template>
+    <template #item.duration="{ item }">
+      {{ durationLabel(item) }}
+    </template>
+    <template #item.tracks="{ item }">
+      {{ tracksLabel(item) }}
+    </template>
     <template #item.created="{ item }">
       {{ formatDate(item.created) }}
     </template>
@@ -109,10 +115,12 @@ import {
   canDownloadRecording,
   canPlayRecording,
   downloadTooltip,
+  durationLabel,
   operationButtons,
   operationDisabledReason,
   RECORDING_OPERATION_UI,
   RECORDING_STATE_UI,
+  tracksLabel,
 } from '@/libs/recorder/view-logic'
 import { prettifySize } from '@/utils/helper_functions'
 
@@ -165,6 +173,8 @@ export default Vue.extend({
         { text: 'Name', value: 'name' },
         { text: 'State', value: 'state' },
         { text: 'Size', value: 'size_bytes' },
+        { text: 'Duration', value: 'duration' },
+        { text: 'Tracks', value: 'tracks', sortable: false },
         { text: 'Created', value: 'created' },
         {
           text: '',
@@ -178,6 +188,8 @@ export default Vue.extend({
   methods: {
     canPlay: canPlayRecording,
     downloadTooltip,
+    durationLabel,
+    tracksLabel,
     /** The view sorts `files` with the sort the cards share; the headers only change that sort. */
     keepOrder(items: LibraryRecording[]): LibraryRecording[] {
       return items
