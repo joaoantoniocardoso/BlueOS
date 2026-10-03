@@ -1,7 +1,7 @@
 # Finding ceilings per category for rustqual and thailint (D-30). A ceiling may only fall: the commit that
 # fixes findings lowers it with ./.hooks/pre-push --fix. Raising one needs its own commit and a D-30 note.
 [rustqual]
-violations = 55
+violations = 49
 complexity_warnings = 25
 magic_number_warnings = 145
 nesting_depth_warnings = 1
@@ -26,7 +26,7 @@ tq_uncovered_warnings = 0
 tq_untested_logic_warnings = 0
 structural_srp_warnings = 0
 structural_coupling_warnings = 10
-total_findings = 668
+total_findings = 662
 
 [thailint]
 "unwrap-abuse.unwrap-call" = 6
