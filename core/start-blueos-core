@@ -315,6 +315,22 @@ tune_performance() {
 
 tune_performance
 
+# Docker stops the container with SIGTERM to this script (the main process), then kills everything after its stop
+# timeout. Forward SIGTERM to what each tmux pane runs (run-service, which stops its service without restarting it)
+# and wait for them, so services such as the recorder shut down cleanly.
+function stop_services {
+    echo "Stopping services.."
+    local pane_processes
+    pane_processes=$(pgrep -P "$(tmux list-panes -a -F '#{pane_pid}' | paste -sd,)") || true
+    kill -TERM $pane_processes 2>/dev/null || true
+    while kill -0 $pane_processes 2>/dev/null; do
+        sleep 0.1
+    done
+    echo "BlueOS stopped!"
+    exit 0
+}
+trap stop_services TERM
+
 echo "Starting infrastructure services.."
 for TUPLE in "${INFRA_SERVICES[@]}"; do
     IFS=',' read -r NAME MEMORY_MB CPU_PERCENT IO_READ_MBPS IO_WRITE_MBPS EXECUTABLE <<< "$TUPLE"
@@ -341,3 +357,7 @@ done
 tmux new -d -s user_terminal && tmux send-keys -t user_terminal:0 "command cat /etc/motd" C-m
 
 echo "BlueOS running!"
+
+# Bash runs a trap only after the foreground command returns, so wait on a background sleep
+sleep infinity &
+wait $!
