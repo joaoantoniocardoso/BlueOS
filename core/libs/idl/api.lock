@@ -38,7 +38,10 @@ blueos_example_msgs/msg/SelfTestCompleted 1 passed:bool;detail:string
 blueos_example_msgs/msg/SetLevelRequest 1 level:uint8
 blueos_msgs/msg/CommandAck 1 accepted:bool;job_id:string;status:uint8;reason:string
 blueos_msgs/msg/EndpointInfo 1 kind:string;name:string;key:string;request_schema:string;response_schema:string
+blueos_msgs/msg/JobFeedback 1 job_id:string;feedback:uint8[]
+blueos_msgs/msg/JobFeedbackList 1 jobs:blueos_msgs/JobFeedback[]
 blueos_msgs/msg/JobList 1 jobs:blueos_msgs/JobStatus[]
+blueos_msgs/msg/JobResult 1 job:blueos_msgs/JobStatus;result:uint8[]
 blueos_msgs/msg/JobStatus 1 job_id:string;job_type:string;status:uint8;reason:string
 blueos_msgs/msg/PermissionAnswer 1 granted:bool
 blueos_msgs/msg/RestartRequired 1 fields:string[]

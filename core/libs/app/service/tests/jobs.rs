@@ -1,26 +1,32 @@
-//! The Jobs surface every Service gets from the Kernel: submit, the ack, the controls and the `jobs` State, through a
-//! real `build` (layer L3).
+//! The Jobs surface every Service gets from the Kernel: submit, the ack, the controls, the `jobs` State, and the
+//! Feedback, Job result and history of each Job type, through a real `build` (layer L3).
 
 use core::{convert::Infallible, time::Duration};
+use std::collections::BTreeMap;
 
 use bytes::Bytes;
 use tokio::time::timeout;
 
 use blueos_api::{
-    CommandAck, Message, cdr_encoding, command_key, info_query_key, jobs_key, query_key,
-    status_state_key,
+    CommandAck, Message, cdr_encoding, command_key, info_query_key, job_feedback_key,
+    job_result_key, jobs_key, query_key, status_state_key,
 };
 use blueos_comms::{QueryBody, Subscriber};
 use blueos_domain::{Command, Decision, Domain, Effect, IoError, Now, Outcome};
 use blueos_idl::msg::{
-    blueos_example_msgs::{EmptyRequest, SetLevelRequest},
-    blueos_msgs::{CommandAckStatus, JobList, JobStatusStatus, ServiceInfo, SettingsEnvelope},
+    blueos_example_msgs::{EmptyRequest, LevelQueryResponse, SetLevelRequest},
+    blueos_msgs::{
+        CommandAckStatus, JobFeedbackList, JobList, JobResult, JobStatusStatus, ServiceInfo,
+        SettingsEnvelope,
+    },
 };
 use blueos_jobs::{DomainJobs, JobControl, JobEnd, JobId, JobNature, JobStatus, Jobs};
 use blueos_service::{Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness};
 
-/// How long a brew takes once it executes.
+/// How long a brew takes to pour one cup once it executes.
 const BREW_TIME: Duration = Duration::from_secs(60);
+/// How many ended Jobs of each type the brewer keeps.
+const RETENTION: usize = 2;
 /// A Job type that runs until its time is up, and that a client may cancel, pause and resume.
 const BREW: JobNature = JobNature {
     lasting: true,
@@ -34,6 +40,14 @@ struct BrewerService;
 #[derive(Clone)]
 struct BrewerSnapshot {
     jobs: Jobs,
+    /// Every brew that executed, kept after it ends so its Job result can name the cups it poured.
+    brews: BTreeMap<JobId, Brew>,
+}
+
+#[derive(Clone)]
+struct Brew {
+    cups: u8,
+    poured: u8,
 }
 
 enum BrewerRequest {
@@ -64,7 +78,8 @@ impl Service for BrewerService {
         _context: &(),
     ) -> Result<ServiceBuilder<Brewer>, ServiceError> {
         Ok(ServiceBuilder::new(BrewerSnapshot {
-            jobs: Jobs::default(),
+            jobs: Jobs::with_retention(RETENTION),
+            brews: BTreeMap::new(),
         })
         .command("Ping", |_: EmptyRequest| Ok(BrewerRequest::Ping))
         .command("Refuse", |_: EmptyRequest| Ok(BrewerRequest::Refuse))
@@ -99,7 +114,17 @@ impl Service for BrewerService {
                     cups: goal.level,
                 })
             },
-        ))
+        )
+        .job_feedback("Brew", |snapshot: &BrewerSnapshot, job_id| {
+            let brew = snapshot.brews.get(&job_id)?;
+            (brew.poured > 0).then_some(LevelQueryResponse {
+                level: brew.poured,
+                max_level: brew.cups,
+            })
+        })
+        .job_result("Brew", |snapshot: &BrewerSnapshot, job_id| {
+            cups(snapshot.brews.get(&job_id).map_or(0, |brew| brew.poured))
+        }))
     }
 }
 
@@ -124,15 +149,9 @@ impl Domain for Brewer {
                     .jobs
                     .end(job_id, JobEnd::Aborted, "no cups to brew")
             }
-            Command::Request(BrewerRequest::Brew { job_id, .. }) => {
-                return Outcome::Applied {
-                    events: Vec::new(),
-                    effects: vec![Effect::Schedule {
-                        after: BREW_TIME,
-                        key: job_id,
-                        command: job_id,
-                    }],
-                };
+            Command::Request(BrewerRequest::Brew { job_id, cups }) => {
+                snapshot.brews.insert(job_id, Brew { cups, poured: 0 });
+                return pour_next_cup(job_id);
             }
             Command::Request(BrewerRequest::Ping) => Ok(()),
             Command::Request(BrewerRequest::Refuse) => {
@@ -140,13 +159,22 @@ impl Domain for Brewer {
                     reason: "refused".into(),
                 };
             }
-            // The brew follows the status a control set when its time is up.
+            // The brew follows the status a control set each time a cup is due.
             Command::Tick(job_id) => {
-                let end = match snapshot.jobs.job(job_id).map(|job| job.status) {
-                    Some(JobStatus::Canceling) => JobEnd::Canceled,
-                    _ => JobEnd::Succeeded,
-                };
-                snapshot.jobs.end(job_id, end, "")
+                if snapshot.jobs.job(job_id).map(|job| job.status) == Some(JobStatus::Canceling) {
+                    snapshot.jobs.end(job_id, JobEnd::Canceled, "")
+                } else {
+                    let Some(brew) = snapshot.brews.get_mut(&job_id) else {
+                        return Outcome::Rejected {
+                            reason: "no such brew".into(),
+                        };
+                    };
+                    brew.poured += 1;
+                    if brew.poured < brew.cups {
+                        return pour_next_cup(job_id);
+                    }
+                    snapshot.jobs.end(job_id, JobEnd::Succeeded, "")
+                }
             }
             Command::IoResult(result) => match result {},
             Command::ObservedFact(fact) => match fact {},
@@ -342,7 +370,7 @@ async fn a_lasting_job_succeeds_when_its_domain_ends_it() {
     let harness = start().await;
     let mut jobs = subscribe(&harness).await;
     harness.submit("Brew", JobId::from_u128(7), &cups(2)).await;
-    next(&mut jobs).await;
+    next::<JobList>(&mut jobs).await;
 
     assert_eq!(status(&next(&mut jobs).await), JobStatusStatus::Succeeded);
 }
@@ -507,6 +535,152 @@ async fn info_lists_the_jobs_state() {
     assert_eq!(jobs.response_schema, JobList::SCHEMA_NAME);
 }
 
+#[tokio::test(start_paused = true)]
+async fn the_feedback_state_holds_the_latest_feedback_of_a_job_until_it_ends() {
+    let harness = start().await;
+    let mut feedback = harness
+        .backend()
+        .subscribe(&job_feedback_key(BrewerService::NAME, "Brew"))
+        .await
+        .unwrap();
+    let job_id = JobId::from_u128(7);
+    harness.submit("Brew", job_id, &cups(3)).await;
+
+    let first = next(&mut feedback).await;
+    let second = next(&mut feedback).await;
+    let latest = harness.job_feedback("Brew").await;
+    let ended = next(&mut feedback).await;
+
+    assert_eq!(fed_back(first), [(job_id, poured(1, 3))]);
+    assert_eq!(fed_back(second), [(job_id, poured(2, 3))]);
+    assert_eq!(fed_back(latest), [(job_id, poured(2, 3))]);
+    assert_eq!(fed_back(ended), []);
+    assert_eq!(
+        listed(&harness).await,
+        [entry(job_id, "Brew", JobStatusStatus::Succeeded, "")]
+    );
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_client_that_opens_the_feedback_state_mid_job_sees_the_latest_feedback() {
+    let harness = start().await;
+    let [brewing, waiting] = [7, 8].map(JobId::from_u128);
+    harness.submit("Brew", brewing, &cups(3)).await;
+    harness.submit("Brew", waiting, &cups(3)).await;
+    tokio::time::sleep(BREW_TIME * 2 + BREW_TIME / 2).await;
+
+    let feedback = harness.job_feedback("Brew").await;
+
+    assert_eq!(
+        fed_back(feedback),
+        [(brewing, poured(2, 3)), (waiting, poured(2, 3))]
+    );
+}
+
+#[tokio::test(start_paused = true)]
+async fn the_result_event_carries_how_a_job_ended_and_its_job_result() {
+    let harness = start().await;
+    let mut results = harness
+        .backend()
+        .subscribe(&job_result_key(BrewerService::NAME, "Brew"))
+        .await
+        .unwrap();
+    let [aborted, succeeded, canceled] = [1, 2, 3].map(JobId::from_u128);
+
+    harness.submit("Brew", aborted, &cups(0)).await;
+    let abort = next(&mut results).await;
+    harness.submit("Brew", succeeded, &cups(2)).await;
+    let success = next(&mut results).await;
+    harness.submit("Brew", canceled, &cups(2)).await;
+    harness.control(canceled, JobControl::Cancel).await;
+    let cancel = next(&mut results).await;
+
+    assert_eq!(
+        ended(abort),
+        (
+            entry(aborted, "Brew", JobStatusStatus::Aborted, "no cups to brew"),
+            cups(0)
+        )
+    );
+    assert_eq!(
+        ended(success),
+        (
+            entry(succeeded, "Brew", JobStatusStatus::Succeeded, ""),
+            cups(2)
+        )
+    );
+    assert_eq!(
+        ended(cancel),
+        (
+            entry(canceled, "Brew", JobStatusStatus::Canceled, ""),
+            cups(0)
+        )
+    );
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_job_the_kernel_ends_publishes_its_result_too() {
+    let harness = start().await;
+    let mut results = harness
+        .backend()
+        .subscribe(&job_result_key(BrewerService::NAME, "Pour"))
+        .await
+        .unwrap();
+    let job_id = JobId::from_u128(7);
+    harness.submit("Pour", job_id, &cups(2)).await;
+
+    harness
+        .control(job_id, JobControl::AnswerPermission { granted: false })
+        .await;
+    let result: JobResult = next(&mut results).await;
+
+    assert_eq!(
+        row(result.job),
+        entry(
+            job_id,
+            "Pour",
+            JobStatusStatus::Canceled,
+            "permission denied"
+        )
+    );
+    assert_eq!(
+        result.result,
+        Vec::<u8>::new(),
+        "Pour declares no Job result"
+    );
+}
+
+#[tokio::test(start_paused = true)]
+async fn the_history_query_returns_the_last_finished_jobs_of_a_type_in_order() {
+    let harness = start().await;
+    let [first, second, third, brew] = [1, 2, 3, 4].map(JobId::from_u128);
+    for ping in [first, second, third] {
+        harness.submit("Ping", ping, &EmptyRequest::default()).await;
+    }
+    harness.submit("Brew", brew, &cups(0)).await;
+
+    let pings = harness.job_history("Ping").await;
+    let brews = harness.job_history("Brew").await;
+
+    assert_eq!(
+        pings.jobs.into_iter().map(row).collect::<Vec<_>>(),
+        [
+            entry(second, "Ping", JobStatusStatus::Succeeded, ""),
+            entry(third, "Ping", JobStatusStatus::Succeeded, ""),
+        ],
+        "the last {RETENTION} Pings, oldest first"
+    );
+    assert_eq!(
+        brews.jobs.into_iter().map(row).collect::<Vec<_>>(),
+        [entry(
+            brew,
+            "Brew",
+            JobStatusStatus::Aborted,
+            "no cups to brew"
+        )]
+    );
+}
+
 async fn start() -> Harness<BrewerService> {
     Harness::start(()).await.unwrap()
 }
@@ -547,20 +721,17 @@ async fn get_ack(harness: &Harness<BrewerService>, key: &str, body: QueryBody) -
 
 /// Every Job in the `jobs` State, as a late client reads it.
 async fn listed(harness: &Harness<BrewerService>) -> Vec<(JobId, String, JobStatusStatus, String)> {
-    harness
-        .jobs()
-        .await
-        .jobs
-        .into_iter()
-        .map(|job| {
-            (
-                job.job_id.parse().unwrap(),
-                job.job_type,
-                job.status,
-                job.reason,
-            )
-        })
-        .collect()
+    harness.jobs().await.jobs.into_iter().map(row).collect()
+}
+
+/// One Job as the Kernel publishes it, in the form [`entry`] builds.
+fn row(job: blueos_idl::msg::blueos_msgs::JobStatus) -> (JobId, String, JobStatusStatus, String) {
+    (
+        job.job_id.parse().unwrap(),
+        job.job_type,
+        job.status,
+        job.reason,
+    )
 }
 
 fn entry(
@@ -580,13 +751,54 @@ async fn subscribe(harness: &Harness<BrewerService>) -> Subscriber {
         .unwrap()
 }
 
-/// The next `jobs` State the Service publishes. Time is paused, so it advances to the next timer at once.
-async fn next(jobs: &mut Subscriber) -> JobList {
-    let sample = timeout(Duration::from_secs(600), jobs.recv())
+/// The next `M` the Service publishes on `subscriber`. Time is paused, so it advances to the next timer at once.
+async fn next<M: Message>(subscriber: &mut Subscriber) -> M {
+    let sample = timeout(Duration::from_secs(600), subscriber.recv())
         .await
         .unwrap()
         .unwrap();
-    JobList::decode(&sample.payload().to_bytes()).unwrap()
+    M::decode(&sample.payload().to_bytes()).unwrap()
+}
+
+/// Each Job in a `Brew` feedback State, with its decoded Feedback.
+fn fed_back(list: JobFeedbackList) -> Vec<(JobId, LevelQueryResponse)> {
+    list.jobs
+        .into_iter()
+        .map(|job| {
+            (
+                job.job_id.parse().unwrap(),
+                LevelQueryResponse::decode(&job.feedback).unwrap(),
+            )
+        })
+        .collect()
+}
+
+/// The Feedback of a brew that poured `poured` of its `cups`.
+fn poured(poured: u8, cups: u8) -> LevelQueryResponse {
+    LevelQueryResponse {
+        level: poured,
+        max_level: cups,
+    }
+}
+
+/// How a `Brew` ended, with its decoded Job result.
+fn ended(result: JobResult) -> ((JobId, String, JobStatusStatus, String), SetLevelRequest) {
+    (
+        row(result.job),
+        SetLevelRequest::decode(&result.result).unwrap(),
+    )
+}
+
+/// Pours the next cup of the brew `job_id` after [`BREW_TIME`].
+fn pour_next_cup(job_id: JobId) -> Decision<Brewer> {
+    Outcome::Applied {
+        events: Vec::new(),
+        effects: vec![Effect::Schedule {
+            after: BREW_TIME,
+            key: job_id,
+            command: job_id,
+        }],
+    }
 }
 
 /// The status of the only Job in `jobs`.

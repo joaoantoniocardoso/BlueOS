@@ -67,10 +67,41 @@
       "category": "default"
     },
     {
+      "schema_name": "blueos_msgs/msg/JobFeedback",
+      "hex": "00010000010000000000000000000000",
+      "decoded": {
+        "feedback": [],
+        "job_id": ""
+      },
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_msgs/msg/JobFeedbackList",
+      "hex": "0001000000000000",
+      "decoded": {
+        "jobs": []
+      },
+      "category": "default"
+    },
+    {
       "schema_name": "blueos_msgs/msg/JobList",
       "hex": "0001000000000000",
       "decoded": {
         "jobs": []
+      },
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_msgs/msg/JobResult",
+      "hex": "0001000001000000000000000100000000000000010000000000000000000000",
+      "decoded": {
+        "job": {
+          "job_id": "",
+          "job_type": "",
+          "reason": "",
+          "status": 0
+        },
+        "result": []
       },
       "category": "default"
     },

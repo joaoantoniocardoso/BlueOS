@@ -19,7 +19,7 @@ use core::{fmt, str::FromStr};
 
 use blueos_domain::Domain;
 
-/// How many ended Jobs [`Jobs::default`] keeps, so clients see how they ended and a retry finds them.
+/// How many ended Jobs of each Job type [`Jobs::default`] keeps, so clients see how they ended and a retry finds them.
 pub const DEFAULT_RETENTION: usize = 16;
 
 /// The reason of a Job that was running when the Service restarted (D-28).
@@ -27,13 +27,14 @@ const INTERRUPTED: &str = "interrupted";
 /// The reason of a Job whose permission request was denied.
 const PERMISSION_DENIED: &str = "permission denied";
 
-/// The Jobs of a Service: every active Job in the order it was submitted, and the last few that ended.
+/// The Jobs of a Service: every active Job in the order it was submitted, and the last few of each Job type that
+/// ended.
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Jobs {
     retention: usize,
     active: Vec<Job>,
-    /// The ended Jobs in the order they ended, at most `retention` of them.
+    /// The ended Jobs in the order they ended, at most `retention` of each Job type.
     finished: VecDeque<Job>,
 }
 
@@ -188,14 +189,14 @@ pub trait DomainJobs: Domain {
 }
 
 impl Default for Jobs {
-    /// No Jobs, keeping the last [`DEFAULT_RETENTION`] ended ones.
+    /// No Jobs, keeping the last [`DEFAULT_RETENTION`] ended ones of each Job type.
     fn default() -> Self {
         Self::with_retention(DEFAULT_RETENTION)
     }
 }
 
 impl Jobs {
-    /// No Jobs, keeping the last `retention` ended ones. An active Job is always kept.
+    /// No Jobs, keeping the last `retention` ended ones of each Job type. An active Job is always kept.
     pub const fn with_retention(retention: usize) -> Self {
         Self {
             retention,
@@ -351,9 +352,20 @@ impl Jobs {
         job.status = status;
         reason.clone_into(&mut job.reason);
         if status.has_ended() {
-            self.finished.push_back(self.active.remove(index));
-            let excess = self.finished.len().saturating_sub(self.retention);
-            self.finished.drain(..excess);
+            let ended = self.active.remove(index);
+            let job_type = ended.job_type.clone();
+            self.finished.push_back(ended);
+            let same_type = |finished: &Job| finished.job_type == job_type;
+            if self
+                .finished
+                .iter()
+                .filter(|finished| same_type(finished))
+                .count()
+                > self.retention
+                && let Some(oldest) = self.finished.iter().position(same_type)
+            {
+                self.finished.remove(oldest);
+            }
         }
     }
 }

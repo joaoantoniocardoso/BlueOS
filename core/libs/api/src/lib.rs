@@ -69,6 +69,21 @@ pub fn jobs_key(service: &str) -> String {
     format!("{KEY_PREFIX}/{service}/jobs")
 }
 
+/// Feedback State of a Job type (`blueos/v1/<service>/jobs/<job_type>/feedback`).
+pub fn job_feedback_key(service: &str, job_type: &str) -> String {
+    format!("{}/{job_type}/feedback", jobs_key(service))
+}
+
+/// Job result Event of a Job type (`blueos/v1/<service>/jobs/<job_type>/result`).
+pub fn job_result_key(service: &str, job_type: &str) -> String {
+    format!("{}/{job_type}/result", jobs_key(service))
+}
+
+/// Query for the last finished Jobs of a Job type (`blueos/v1/<service>/jobs/<job_type>/history`).
+pub fn job_history_key(service: &str, job_type: &str) -> String {
+    format!("{}/{job_type}/history", jobs_key(service))
+}
+
 /// Settings queryable and update stream (`blueos/v1/<service>/settings`).
 pub fn settings_key(service: &str) -> String {
     format!("{KEY_PREFIX}/{service}/settings")

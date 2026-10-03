@@ -24,24 +24,25 @@ use tokio::{
 use tracing::warn;
 
 use blueos_api::{
-    CommandAck, Message, cdr_encoding, command_key, event_key, info_query_key, jobs_key, query_key,
-    service_liveliness_key, settings_key, state_key, status_state_key,
+    CommandAck, Message, cdr_encoding, command_key, event_key, info_query_key, job_feedback_key,
+    job_history_key, job_result_key, jobs_key, query_key, service_liveliness_key, settings_key,
+    state_key, status_state_key,
 };
 use blueos_comms::{CommsBackend, CommsError, Query, QueryBody, Queryable, Sample};
 use blueos_domain::{Command, Domain, Outcome};
 use blueos_idl::{
     Error as IdlError,
     msg::blueos_msgs::{
-        EndpointInfo, JobList, PermissionAnswer, ServiceInfo, ServiceStatus, ServiceStatusStatus,
-        SettingsEnvelope,
+        EndpointInfo, JobFeedback, JobFeedbackList, JobList, JobResult, PermissionAnswer,
+        ServiceInfo, ServiceStatus, ServiceStatusStatus, SettingsEnvelope,
     },
 };
 use blueos_jobs::{JobControl, JobEnd, JobId, JobNature, JobStatus, Jobs, JobsError, Submitted};
 
 use crate::{
     builder::{
-        AnswerQuery, Decode, EventEndpoint, InboxCommand, JobsAccess, Refusal, Respond,
-        ServiceBuilder, StateEndpoint, job_list,
+        AnswerQuery, Decode, EventEndpoint, InboxCommand, JobOutput, JobsAccess, Refusal, Respond,
+        ServiceBuilder, StateEndpoint, job_list, job_status,
     },
     clock::Clock,
     command_sender::{CommandSender, Session, command_ack},
@@ -106,6 +107,8 @@ pub struct Kernel<D: Domain, Context = ()> {
     own_jobs: Jobs,
     /// The standard `jobs` State, as the backbone last accepted it.
     jobs_latest: watch::Sender<Option<Bytes>>,
+    /// The Feedback State, Job result Event and history of each Job type, in the order the Job types were added.
+    job_outputs: Vec<JobTypeOutput<D>>,
     backend: Arc<dyn CommsBackend>,
     clock: Arc<dyn Clock>,
     timers: TimerWheel<D>,
@@ -138,6 +141,26 @@ struct PublishedState<D: Domain> {
     endpoint: StateEndpoint<D>,
     /// Stored only after a publish succeeds, so a failed publish is retried on the next Command.
     latest: watch::Sender<Option<Bytes>>,
+}
+
+/// What one Job type publishes besides its status in the `jobs` State (D-12): its Feedback State on
+/// `jobs/<JobType>/feedback`, its Job result Event on `jobs/<JobType>/result`, and its last finished Jobs, answered on
+/// `jobs/<JobType>/history`.
+struct JobTypeOutput<D: Domain> {
+    job_type: String,
+    output: JobOutput<D>,
+    /// The Feedback State, as the backbone last accepted it.
+    feedback_latest: watch::Sender<Option<Bytes>>,
+    /// The answer of the history Query.
+    history: watch::Sender<Option<Bytes>>,
+}
+
+/// One Job type's output after a step, encoded inside the step's transaction.
+struct EncodedJobOutput {
+    feedback: Result<Vec<u8>, IdlError>,
+    history: Result<Vec<u8>, IdlError>,
+    /// The Job result Event of each Job of the type that ended in the step.
+    results: Vec<Result<Vec<u8>, IdlError>>,
 }
 
 /// Why the Kernel did not apply a Command. Its text is the reason in the rejected [`CommandAck`].
@@ -337,8 +360,33 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         }
         let mut pending_commands = Vec::new();
         let mut job_types = HashMap::new();
+        let mut job_outputs = Vec::new();
+        let mut pending_job_outputs = Vec::new();
         for command in builder.commands {
             let queryable = declare(&*backend, command_key(service, &command.name)).await?;
+            let job_output = JobTypeOutput {
+                job_type: command.name.clone(),
+                output: builder
+                    .job_outputs
+                    .remove(&command.name)
+                    .unwrap_or(JobOutput {
+                        feedback: None,
+                        result: None,
+                    }),
+                feedback_latest: watch::Sender::new(None),
+                history: watch::Sender::new(None),
+            };
+            let feedback_key = job_feedback_key(service, &command.name);
+            let history_key = job_history_key(service, &command.name);
+            pending_job_outputs.push((
+                declare(&*backend, feedback_key.clone()).await?,
+                feedback_key,
+                job_output.feedback_latest.subscribe(),
+                declare(&*backend, history_key.clone()).await?,
+                history_key,
+                job_output.history.subscribe(),
+            ));
+            job_outputs.push(job_output);
             let into_input: IntoInput<D> = {
                 let decode = Arc::clone(&command.decode);
                 let job_type = command.name.clone();
@@ -356,6 +404,11 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             };
             pending_commands.push((queryable, into_input));
             job_types.insert(command.name, command.decode);
+        }
+        if let Some(job_type) = builder.job_outputs.keys().next() {
+            return Err(ServiceError::Build(
+                format!("{job_type} declares Feedback or a Job result but is no Job type").into(),
+            ));
         }
         for control in CONTROLS {
             let queryable = declare(&*backend, command_key(service, &control.to_string())).await?;
@@ -425,6 +478,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             jobs_access: builder.jobs,
             own_jobs: Jobs::default(),
             jobs_latest,
+            job_outputs,
             backend,
             clock,
             timers: TimerWheel::new(),
@@ -465,6 +519,14 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             .collect();
         kernel.publish_states(initial_states).await;
         kernel.publish_jobs().await;
+        kernel
+            .publish_job_feedback(encode_job_outputs(
+                &kernel.job_outputs,
+                &kernel.snapshot,
+                kernel.jobs(),
+                kernel.jobs(),
+            ))
+            .await;
         kernel.publish_settings().await;
         kernel.projections.refresh(&kernel.snapshot);
         publish_standard_status(
@@ -535,6 +597,22 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             cdr_encoding(JobList::SCHEMA_NAME),
             kernel.jobs_latest.subscribe(),
         ));
+        for (feedback_queryable, feedback_key, feedback, history_queryable, history_key, history) in
+            pending_job_outputs
+        {
+            kernel.endpoints.spawn(serve_state(
+                feedback_queryable,
+                feedback_key,
+                cdr_encoding(JobFeedbackList::SCHEMA_NAME),
+                feedback,
+            ));
+            kernel.endpoints.spawn(serve_state(
+                history_queryable,
+                history_key,
+                cdr_encoding(JobList::SCHEMA_NAME),
+                history,
+            ));
+        }
         for (queryable, key, encoding, latest) in pending_states {
             kernel
                 .endpoints
@@ -796,6 +874,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         let own_jobs = &mut self.own_jobs;
         let jobs_access = self.jobs_access;
         let states = &self.states;
+        let job_outputs = &self.job_outputs;
         #[cfg(feature = "testing")]
         let run_effects = self.effect_log.is_none();
         #[cfg(not(feature = "testing"))]
@@ -826,7 +905,13 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                         .iter()
                         .map(|state| (state.endpoint.project)(snapshot))
                         .collect();
-                    Ok((events, effects, encoded_states))
+                    let encoded_job_outputs = encode_job_outputs(
+                        job_outputs,
+                        snapshot,
+                        jobs_in::<D>(jobs_access, snapshot, own_jobs),
+                        jobs_in::<D>(jobs_access, &backup, &jobs_backup),
+                    );
+                    Ok((events, effects, encoded_states, encoded_job_outputs))
                 }
                 Outcome::Rejected { reason } => Err(Rejection::Domain(reason)),
             }
@@ -836,7 +921,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             Err(Rejection::Panicked)
         });
         match decided {
-            Ok((events, effects, encoded_states)) => {
+            Ok((events, effects, encoded_states, encoded_job_outputs)) => {
                 {
                     let mut shared = self.snapshot_for_queries.write().await;
                     *shared = self.snapshot.clone();
@@ -872,11 +957,13 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 }
                 self.publish_states(encoded_states).await;
                 self.publish_jobs().await;
+                let job_results = self.publish_job_feedback(encoded_job_outputs).await;
                 self.publish_settings().await;
                 self.projections.refresh(&self.snapshot);
                 let job = job_id.and_then(|job_id| self.jobs().job(job_id));
                 complete_command_reply(reply, command_ack(job_id, job, Ok(()))).await;
                 self.publish_events(events).await;
+                self.publish_job_results(job_results).await;
                 if run_effects {
                     let requests = io_requests::<D>(&effects);
                     if let (Some(inbox_sender), false) = (&self.inbox_sender, requests.is_empty()) {
@@ -1014,6 +1101,64 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         }
         .await;
         warn_on_failure("State", &key, sent);
+    }
+
+    /// Publishes each Job type's Feedback State when it changed and keeps its history for the Query. Returns each
+    /// Job type's Job result Events, for [`Self::publish_job_results`] once the Command is acknowledged.
+    async fn publish_job_feedback(
+        &self,
+        outputs: Vec<EncodedJobOutput>,
+    ) -> Vec<Vec<Result<Vec<u8>, IdlError>>> {
+        let mut job_results = Vec::new();
+        for (job_output, encoded) in self.job_outputs.iter().zip(outputs) {
+            let EncodedJobOutput {
+                feedback,
+                history,
+                results,
+            } = encoded;
+            let key = job_feedback_key(self.service, &job_output.job_type);
+            let sent: Result<(), SendError> = async {
+                let payload = Bytes::from(feedback?);
+                if job_output.feedback_latest.borrow().as_ref() == Some(&payload) {
+                    return Ok(());
+                }
+                let encoding = cdr_encoding(JobFeedbackList::SCHEMA_NAME);
+                let sample = Sample::new(key.as_str(), Bytes::clone(&payload), &encoding);
+                self.backend.publish(sample).await?;
+                job_output.feedback_latest.send_replace(Some(payload));
+                Ok(())
+            }
+            .await;
+            warn_on_failure("State", &key, sent);
+            match history {
+                Ok(payload) => {
+                    job_output.history.send_replace(Some(Bytes::from(payload)));
+                }
+                Err(error) => warn_on_failure(
+                    "Query",
+                    &job_history_key(self.service, &job_output.job_type),
+                    Err(error.into()),
+                ),
+            }
+            job_results.push(results);
+        }
+        job_results
+    }
+
+    async fn publish_job_results(&self, job_results: Vec<Vec<Result<Vec<u8>, IdlError>>>) {
+        let encoding = cdr_encoding(JobResult::SCHEMA_NAME);
+        for (job_output, results) in self.job_outputs.iter().zip(job_results) {
+            let key = job_result_key(self.service, &job_output.job_type);
+            for encoded in results {
+                let sent: Result<(), SendError> = async {
+                    let sample = Sample::new(key.as_str(), encoded?, encoding.as_str());
+                    self.backend.publish(sample).await?;
+                    Ok(())
+                }
+                .await;
+                warn_on_failure("Event", &key, sent);
+            }
+        }
     }
 
     async fn publish_states(&self, encoded_states: Vec<Result<Vec<u8>, IdlError>>) {
@@ -1294,6 +1439,83 @@ async fn reply(query: Query, answered: Result<(Vec<u8>, String), Unanswered>) {
 fn warn_on_failure(kind: &'static str, key: &str, sent: Result<(), SendError>) {
     if let Err(error) = sent {
         warn!(%error, kind, key, "Failed to send");
+    }
+}
+
+/// Encodes each Job type's Feedback State and history from `snapshot` and `jobs`, and the Job result of each Job
+/// that ended since `before`.
+fn encode_job_outputs<D: Domain>(
+    job_outputs: &[JobTypeOutput<D>],
+    snapshot: &D::Snapshot,
+    jobs: &Jobs,
+    before: &Jobs,
+) -> Vec<EncodedJobOutput> {
+    job_outputs
+        .iter()
+        .map(|job_output| {
+            let of_type = || {
+                jobs.list()
+                    .filter(|job| job.job_type == job_output.job_type)
+            };
+            let fed_back = job_output.output.feedback.as_ref().map_or_else(
+                || Ok(Vec::new()),
+                |project| {
+                    of_type()
+                        .filter(|job| !job.status.has_ended())
+                        .filter_map(|job| {
+                            let encoded = project(snapshot, job.job_id)?;
+                            Some(encoded.map(|feedback| JobFeedback {
+                                job_id: job.job_id.to_string(),
+                                feedback,
+                            }))
+                        })
+                        .collect()
+                },
+            );
+            let history = JobList {
+                jobs: of_type()
+                    .filter(|job| job.status.has_ended())
+                    .map(job_status)
+                    .collect(),
+            };
+            let results = of_type()
+                .filter(|job| {
+                    job.status.has_ended()
+                        && !before
+                            .job(job.job_id)
+                            .is_some_and(|earlier| earlier.status.has_ended())
+                })
+                .map(|job| {
+                    let result = job_output
+                        .output
+                        .result
+                        .as_ref()
+                        .map_or_else(|| Ok(Vec::new()), |result| result(snapshot, job.job_id))?;
+                    JobResult {
+                        job: job_status(job),
+                        result,
+                    }
+                    .encode()
+                })
+                .collect();
+            EncodedJobOutput {
+                feedback: fed_back.and_then(|entries| JobFeedbackList { jobs: entries }.encode()),
+                history: history.encode(),
+                results,
+            }
+        })
+        .collect()
+}
+
+/// The Jobs, in the Snapshot when `jobs_access` says the Domain keeps them there, else in `own_jobs`.
+fn jobs_in<'jobs, D: Domain>(
+    jobs_access: Option<JobsAccess<D>>,
+    snapshot: &'jobs D::Snapshot,
+    own_jobs: &'jobs Jobs,
+) -> &'jobs Jobs {
+    match jobs_access {
+        Some((jobs, _jobs_mut)) => jobs(snapshot),
+        None => own_jobs,
     }
 }
 

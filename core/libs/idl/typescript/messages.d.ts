@@ -38,8 +38,22 @@ export interface EndpointInfo {
   response_schema: string;
 }
 
+export interface JobFeedback {
+  job_id: string;
+  feedback: number[];
+}
+
+export interface JobFeedbackList {
+  jobs: JobFeedback[];
+}
+
 export interface JobList {
   jobs: JobStatus[];
+}
+
+export interface JobResult {
+  job: JobStatus;
+  result: number[];
 }
 
 export interface JobStatus {
@@ -211,7 +225,10 @@ export interface MessageBySchema {
   "blueos_example_msgs/msg/SetLevelRequest": SetLevelRequest;
   "blueos_msgs/msg/CommandAck": CommandAck;
   "blueos_msgs/msg/EndpointInfo": EndpointInfo;
+  "blueos_msgs/msg/JobFeedback": JobFeedback;
+  "blueos_msgs/msg/JobFeedbackList": JobFeedbackList;
   "blueos_msgs/msg/JobList": JobList;
+  "blueos_msgs/msg/JobResult": JobResult;
   "blueos_msgs/msg/JobStatus": JobStatus;
   "blueos_msgs/msg/PermissionAnswer": PermissionAnswer;
   "blueos_msgs/msg/RestartRequired": RestartRequired;
