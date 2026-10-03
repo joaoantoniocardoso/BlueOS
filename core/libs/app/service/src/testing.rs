@@ -4,7 +4,10 @@
 //! from [`WALL_CLOCK_AT_START`], so `tokio::time::advance` moves the time the Domain sees, and nothing sleeps.
 
 use core::{marker::PhantomData, time::Duration};
-use std::sync::{Arc, Mutex};
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 use tokio::{task::JoinSet, time::Instant};
 
@@ -15,7 +18,9 @@ use blueos_comms::{CommsBackend, QueryBody, ReplyError, channel::ChannelBackend}
 use blueos_domain::{Domain, Effect, Now};
 use blueos_idl::msg::blueos_msgs::JobList;
 
-use crate::{Clock, CommandSender, Kernel, Service, ServiceContext, ServiceError, sync};
+use crate::{
+    Clock, CommandSender, Kernel, Service, ServiceContext, ServiceError, ShutdownHandle, sync,
+};
 
 /// The wall-clock time the Domain sees when the harness starts: 2026-01-01T00:00:00Z.
 pub const WALL_CLOCK_AT_START: Duration = Duration::from_secs(1_767_225_600);
@@ -38,10 +43,8 @@ pub struct Harness<S: Service> {
     backend: Arc<dyn CommsBackend>,
     command_sender: CommandSender<S::Domain>,
     durable_flush: Option<crate::durable_state::DurableWriteFlush>,
-    #[expect(
-        dead_code,
-        reason = "held so that dropping the Harness aborts the Kernel"
-    )]
+    shutdown: ShutdownHandle,
+    /// Dropping the Harness aborts the Kernel.
     kernel: JoinSet<()>,
     service: PhantomData<fn() -> S>,
 }
@@ -103,10 +106,24 @@ impl<S: Service> Harness<S> {
         arguments: S::Arguments,
         change: impl FnOnce(&mut S::Context),
     ) -> Result<Self, ServiceError> {
+        Self::start_with_settings_path(arguments, None, change).await
+    }
+
+    /// Like [`Self::start_with`], with the `--settings-path` parent directory the entry layer would pass: for a test
+    /// that restores or inspects the Service's durable state.
+    ///
+    /// # Errors
+    ///
+    /// The [`ServiceError`] that `context`, `build` or the Kernel's startup returned.
+    pub async fn start_with_settings_path(
+        arguments: S::Arguments,
+        settings_path: Option<PathBuf>,
+        change: impl FnOnce(&mut S::Context),
+    ) -> Result<Self, ServiceError> {
         let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
         Self::start_on_with_effect_log(
             Arc::clone(&backend),
-            ServiceContext::new(arguments, backend),
+            ServiceContext::with_settings_path(arguments, settings_path, backend),
             change,
             None,
         )
@@ -186,7 +203,8 @@ impl<S: Service> Harness<S> {
     ) -> Result<Self, ServiceError> {
         let mut context = S::context(&service)?;
         change(&mut context);
-        let builder = S::build(&service, &context)?;
+        let mut builder = S::build(&service, &context)?;
+        let shutdown = builder.shutdown_handle();
         let clock = Arc::new(PausedClock::start());
         let kernel = Kernel::start_with_effect_log(
             S::NAME,
@@ -209,6 +227,7 @@ impl<S: Service> Harness<S> {
             backend,
             command_sender,
             durable_flush,
+            shutdown,
             kernel: tasks,
             service: PhantomData,
         })
@@ -219,6 +238,12 @@ impl<S: Service> Harness<S> {
         if let Some(flush) = &self.durable_flush {
             flush.flush().await;
         }
+    }
+
+    /// Requests the graceful shutdown that `SIGTERM` would, and waits for the Kernel to finish it.
+    pub async fn shutdown(mut self) {
+        self.shutdown.trigger();
+        while self.kernel.join_next().await.is_some() {}
     }
 
     /// Sends Commands into the service's Inbox without using the backbone.
