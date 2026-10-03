@@ -146,7 +146,7 @@ impl Domain for Pump {
             };
         }
         snapshot.filling = None;
-        if let Err(error) = snapshot.jobs.end(filling.job_id, JobEnd::Succeeded, "") {
+        if let Err(error) = snapshot.jobs.end(filling.job_id, JobEnd::Succeeded) {
             return Outcome::reject(error);
         }
         Outcome::Applied {

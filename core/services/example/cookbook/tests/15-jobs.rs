@@ -102,7 +102,7 @@ impl Domain for JobsCookbook {
                 };
                 snapshot
                     .jobs
-                    .end(job_id, end, "")
+                    .end(job_id, end)
                     .expect("the Brew Job is running");
                 Outcome::Applied {
                     events: Vec::new(),
