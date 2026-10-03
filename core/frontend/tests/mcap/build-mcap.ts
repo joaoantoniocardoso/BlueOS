@@ -120,6 +120,42 @@ export async function buildJsonTelemetryMcap(messageCount = 3): Promise<Uint8Arr
   return buffer.get()
 }
 
+/**
+ * One CDR topic, `/stamps`, whose messages carry a list of samples, each with a `uint64[]` holding a value beyond
+ * 2^53.
+ */
+export async function buildUint64ArrayMcap(): Promise<Uint8Array> {
+  const schema = [
+    'blueos_msgs/Sample[] samples',
+    '================================================================================',
+    'MSG: blueos_msgs/Sample',
+    'uint64[] stamps',
+  ].join('\n')
+  const buffer = new TempBuffer()
+  const writer = new McapWriter({ writable: buffer, chunkSize: 512 })
+  await writer.start({ profile: '', library: 'blueos-test' })
+  const schemaId = await writer.registerSchema({
+    name: 'blueos_msgs/msg/Stamps', encoding: 'ros2msg', data: new TextEncoder().encode(schema),
+  })
+  const channelId = await writer.registerChannel({
+    schemaId, topic: '/stamps', messageEncoding: 'cdr', metadata: new Map(),
+  })
+  for (let index = 0; index < 3; index += 1) {
+    const logTime = 3_000_000_000n + BigInt(index) * 100_000_000n
+    await writer.addMessage({
+      channelId,
+      sequence: index,
+      logTime,
+      publishTime: logTime,
+      data: encodeCdrWithSchema('blueos_msgs/msg/Stamps', schema, {
+        samples: [{ stamps: [BigInt(index), 18446744073709551615n] }],
+      }),
+    })
+  }
+  await writer.end()
+  return buffer.get()
+}
+
 function encodeCompressedVideo(format: string, data: Uint8Array): Uint8Array {
   return encodeCdrWithSchema('foxglove.CompressedVideo', COMPRESSED_VIDEO_SCHEMA, {
     sec: 0,

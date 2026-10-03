@@ -77,7 +77,13 @@ function formatCell(value: unknown): string {
   if (typeof value === 'string') {
     return value
   }
-  return JSON.stringify(value)
+  // `JSON.stringify` throws on a 64-bit integer (`uint64[]` inside a list of messages): keep it as a decimal string.
+  return JSON.stringify(value, (_key, nested: unknown) => {
+    if (typeof nested === 'bigint') {
+      return nested.toString()
+    }
+    return nested
+  })
 }
 
 function flattenValue(value: unknown, prefix: string, fields: Record<string, string>): void {
