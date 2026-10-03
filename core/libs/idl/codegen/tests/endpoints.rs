@@ -450,12 +450,38 @@ fn the_lock_lists_the_standard_endpoints_of_every_service() {
             "blueos/v1/test/command/ResumeJob 1 type=",
             "blueos/v1/test/command/UpdateSettings 1 type=blueos_msgs/msg/SettingsEnvelope",
             "blueos/v1/test/jobs 1 type=blueos_msgs/msg/JobList",
+            "blueos/v1/test/jobs/UpdateSettings/feedback 1 type=",
+            "blueos/v1/test/jobs/UpdateSettings/history 1 type=blueos_msgs/msg/JobList",
+            "blueos/v1/test/jobs/UpdateSettings/result 1 type=",
             "blueos/v1/test/log 1 type=foxglove_msgs/msg/Log",
             "blueos/v1/test/query/info 1 type=blueos_msgs/msg/ServiceInfo",
             "blueos/v1/test/settings 1 type=blueos_msgs/msg/SettingsEnvelope",
             "blueos/v1/test/state/status 1 type=blueos_msgs/msg/ServiceStatus",
         ]
     );
+}
+
+#[test]
+fn the_lock_lists_the_feedback_result_and_history_of_each_job_type_with_its_action_parts() {
+    let workspace = Workspace::new("job_outputs");
+    workspace.write("Cargo.toml", "[workspace]\nmembers = [\"test/app\"]\n");
+    workspace.write(
+        "test/app/endpoints.toml",
+        &format!("service = \"test\"\n[job]\nSetLevel = {{ type = \"{SET_LEVEL}\" }}\n"),
+    );
+
+    let lines = collect_endpoint_lock_lines(&workspace.root, &messages()).unwrap();
+
+    for line in [
+        "blueos/v1/test/jobs/SetLevel/feedback 1 type=blueos_example_msgs/action/SetLevel_Feedback",
+        "blueos/v1/test/jobs/SetLevel/history 1 type=blueos_msgs/msg/JobList",
+        "blueos/v1/test/jobs/SetLevel/result 1 type=blueos_example_msgs/action/SetLevel_Result",
+    ] {
+        assert!(
+            lines.iter().any(|locked| locked == line),
+            "{line} in {lines:?}"
+        );
+    }
 }
 
 #[test]
