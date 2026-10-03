@@ -1073,9 +1073,10 @@ Decision:
   and lockbud's deadlock detector on the workspace crates. lockbud links against rustc internals, so it runs on the
   nightly its pinned commit names, and it exits 0 whatever it finds, so it must first report the known deadlock in
   `.github/lockbud-canary`.
-- **Advisories** (`cargo deny check advisories`) report on pull requests and fail on the scheduled run, so a new
-  advisory in a transitive dependency does not turn every open pull request red. The scheduled run also reports
-  outdated direct dependencies, report only; each upgrade is its own pull request.
+- **Advisories** (`cargo deny check advisories`) fail on pushes and report on pull requests, so a new advisory in a
+  transitive dependency does not turn every open pull request red. Scheduled runs only reach `master`, which has no
+  Rust jobs. An ignored advisory in `core/deny.toml` says whether a patch exists, which dependency holds the old
+  version back, and why it does not reach BlueOS.
 - **Ratchet** (findings counted per category against committed ceilings; a count above its ceiling fails, and a
   ceiling may only fall): every count in `rustqual`'s `--save-baseline` output, `total_findings` included, and
   thai-lint's findings per rule (`unwrap-abuse`, `clone-abuse`, `blocking-async`), with ceilings in
