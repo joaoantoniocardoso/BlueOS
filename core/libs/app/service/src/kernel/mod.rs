@@ -957,7 +957,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                         if jobs.job(job_id).is_some_and(|job| {
                             !job.nature.lasting && job.status == JobStatus::Executing
                         }) {
-                            jobs.end(job_id, JobEnd::Succeeded, "")?;
+                            jobs.end(job_id, JobEnd::Succeeded)?;
                         }
                     }
                     let encoded_states: Vec<_> = states

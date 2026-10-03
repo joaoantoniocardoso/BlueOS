@@ -144,11 +144,12 @@ impl Domain for Brewer {
         _now: Now,
     ) -> Decision<Self> {
         let ended = match command {
-            Command::Request(BrewerRequest::Brew { job_id, cups: 0 }) => {
-                snapshot
-                    .jobs
-                    .end(job_id, JobEnd::Aborted, "no cups to brew")
-            }
+            Command::Request(BrewerRequest::Brew { job_id, cups: 0 }) => snapshot.jobs.end(
+                job_id,
+                JobEnd::Aborted {
+                    reason: "no cups to brew".to_owned(),
+                },
+            ),
             Command::Request(BrewerRequest::Brew { job_id, cups }) => {
                 snapshot.brews.insert(job_id, Brew { cups, poured: 0 });
                 return pour_next_cup(job_id);
@@ -162,7 +163,7 @@ impl Domain for Brewer {
             // The brew follows the status a control set each time a cup is due.
             Command::Tick(job_id) => {
                 if snapshot.jobs.job(job_id).map(|job| job.status) == Some(JobStatus::Canceling) {
-                    snapshot.jobs.end(job_id, JobEnd::Canceled, "")
+                    snapshot.jobs.end(job_id, JobEnd::Canceled)
                 } else {
                     let Some(brew) = snapshot.brews.get_mut(&job_id) else {
                         return Outcome::Rejected {
@@ -173,7 +174,7 @@ impl Domain for Brewer {
                     if brew.poured < brew.cups {
                         return pour_next_cup(job_id);
                     }
-                    snapshot.jobs.end(job_id, JobEnd::Succeeded, "")
+                    snapshot.jobs.end(job_id, JobEnd::Succeeded)
                 }
             }
             Command::IoResult(result) => match result {},
