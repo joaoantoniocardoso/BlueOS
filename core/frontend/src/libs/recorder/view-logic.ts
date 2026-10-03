@@ -105,7 +105,7 @@ export function withRepairJobs(
     const canceling = jobs.some(
       (job) => job.job_id === file.repair_job_id && job.status === JobStatusStatus.Canceling,
     )
-    if (file.repair_job_id === '' || feedback === undefined && !canceling) {
+    if (file.repair_job_id === '' || (feedback === undefined && !canceling)) {
       return file
     }
     return {
