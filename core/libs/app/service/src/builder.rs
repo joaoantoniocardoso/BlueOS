@@ -63,11 +63,11 @@ pub(crate) struct ServiceMetadata {
 }
 
 /// Everything a Service declares in `build`: the initial Snapshot, then one call per endpoint. Each call converts
-/// between a Message and the Domain's own types, so the Domain never sees a Message.
+/// between a Message and the Domain's own types, so the Domain never sees a Message. `Context` is the type IO code
+/// and Tasks receive; the Kernel gets the value itself when it starts.
 #[must_use]
 pub struct ServiceBuilder<D: Domain, Context = ()> {
     pub(crate) snapshot: D::Snapshot,
-    pub(crate) context: Context,
     pub(crate) metadata: ServiceMetadata,
     pub(crate) manifest_endpoints: Vec<EndpointInfo>,
     pub(crate) io: IoExecutors<D, Context>,
@@ -132,12 +132,11 @@ pub(crate) struct JobsEndpoint<D: Domain> {
     pub(crate) latest_root: LatestRoot<D>,
 }
 
-impl<D: Domain> ServiceBuilder<D, ()> {
+impl<D: Domain, Context> ServiceBuilder<D, Context> {
     /// A Service whose Domain starts from `snapshot`, with no endpoints yet.
     pub fn new(snapshot: D::Snapshot) -> Self {
         Self {
             snapshot,
-            context: (),
             metadata: ServiceMetadata {
                 version: "0.0.0",
                 build: "dev",
@@ -162,37 +161,6 @@ impl<D: Domain> ServiceBuilder<D, ()> {
             shutdown_request: None,
             shutdown_sender: None,
             shutdown_receiver: None,
-        }
-    }
-
-    /// The Context IO code receives by reference, together with the Snapshot it needs.
-    pub fn context<NewContext: Send + Sync + 'static>(
-        self,
-        context: NewContext,
-    ) -> ServiceBuilder<D, NewContext> {
-        ServiceBuilder {
-            snapshot: self.snapshot,
-            context,
-            metadata: self.metadata,
-            manifest_endpoints: self.manifest_endpoints,
-            io: IoExecutors {
-                r#async: None,
-                blocking: None,
-            },
-            commands: self.commands,
-            queries: self.queries,
-            io_queries: self.io_queries,
-            states: self.states,
-            projections: self.projections,
-            events: self.events,
-            settings: self.settings,
-            durable: self.durable,
-            jobs: self.jobs,
-            startup_commands: self.startup_commands,
-            tasks: Vec::new(),
-            shutdown_request: self.shutdown_request,
-            shutdown_sender: self.shutdown_sender,
-            shutdown_receiver: self.shutdown_receiver,
         }
     }
 }

@@ -1,4 +1,4 @@
-//! The Kernel test harness (layer L3): a Service's real `build`, run on the in-process channel backend.
+//! The Kernel test harness (layer L3): a Service's real `context` and `build`, run on the in-process channel backend.
 //!
 //! Run every test with `#[tokio::test(start_paused = true)]`. The Kernel's [`Clock`] follows the paused tokio clock
 //! from [`WALL_CLOCK_AT_START`], so `tokio::time::advance` moves the time the Domain sees, and nothing sleeps.
@@ -84,20 +84,40 @@ impl PausedClock {
 }
 
 impl<S: Service> Harness<S> {
-    /// Calls `S::build` with `arguments` and starts its Kernel on a fresh channel backend.
+    /// Calls `S::context` and `S::build` with `arguments` and starts its Kernel on a fresh channel backend.
     ///
     /// # Errors
     ///
-    /// The [`ServiceError`] that `build` or the Kernel's startup returned.
+    /// The [`ServiceError`] that `context`, `build` or the Kernel's startup returned.
     pub async fn start(arguments: S::Arguments) -> Result<Self, ServiceError> {
         Self::start_on(Arc::new(ChannelBackend::default()), arguments).await
+    }
+
+    /// Like [`Self::start`], and `change` replaces Context fields after `S::context` and before `S::build`, so the
+    /// wiring under test is the wiring that ships: a Port wrapped or faked, or a tunable set.
+    ///
+    /// # Errors
+    ///
+    /// The [`ServiceError`] that `context`, `build` or the Kernel's startup returned.
+    pub async fn start_with(
+        arguments: S::Arguments,
+        change: impl FnOnce(&mut S::Context),
+    ) -> Result<Self, ServiceError> {
+        let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
+        Self::start_on_with_effect_log(
+            Arc::clone(&backend),
+            ServiceContext::new(arguments, backend),
+            change,
+            None,
+        )
+        .await
     }
 
     /// Starts the Service and records every Command's Effects without running IO or timers.
     ///
     /// # Errors
     ///
-    /// The [`ServiceError`] that `build` or the Kernel's startup returned.
+    /// The [`ServiceError`] that `context`, `build` or the Kernel's startup returned.
     pub async fn start_recording_effects(
         arguments: S::Arguments,
     ) -> Result<(Self, EffectLog<S::Domain>), ServiceError> {
@@ -113,14 +133,19 @@ impl<S: Service> Harness<S> {
     ///
     /// # Errors
     ///
-    /// The [`ServiceError`] that `build` or the Kernel's startup returned.
+    /// The [`ServiceError`] that `context`, `build` or the Kernel's startup returned.
     pub async fn start_recording_effects_with_context(
         context: ServiceContext<S::Arguments>,
     ) -> Result<(Self, EffectLog<S::Domain>), ServiceError> {
         let log = EffectLog(Arc::new(Mutex::new(Vec::new())));
         let backend = Arc::clone(context.session());
-        let harness =
-            Self::start_on_with_effect_log(backend, context, Some(Arc::clone(&log.0))).await?;
+        let harness = Self::start_on_with_effect_log(
+            backend,
+            context,
+            |_context| {},
+            Some(Arc::clone(&log.0)),
+        )
+        .await?;
         Ok((harness, log))
     }
 
@@ -129,7 +154,7 @@ impl<S: Service> Harness<S> {
     ///
     /// # Errors
     ///
-    /// The [`ServiceError`] that `build` or the Kernel's startup returned.
+    /// The [`ServiceError`] that `context`, `build` or the Kernel's startup returned.
     pub async fn start_on(
         backend: Arc<dyn CommsBackend>,
         arguments: S::Arguments,
@@ -145,24 +170,28 @@ impl<S: Service> Harness<S> {
     ///
     /// # Errors
     ///
-    /// The [`ServiceError`] that `build` or the Kernel's startup returned.
+    /// The [`ServiceError`] that `context`, `build` or the Kernel's startup returned.
     pub async fn start_on_with_context(
         backend: Arc<dyn CommsBackend>,
         context: ServiceContext<S::Arguments>,
     ) -> Result<Self, ServiceError> {
-        Self::start_on_with_effect_log(backend, context, None).await
+        Self::start_on_with_effect_log(backend, context, |_context| {}, None).await
     }
 
     async fn start_on_with_effect_log(
         backend: Arc<dyn CommsBackend>,
-        context: ServiceContext<S::Arguments>,
+        service: ServiceContext<S::Arguments>,
+        change: impl FnOnce(&mut S::Context),
         effect_log: Option<crate::kernel::EffectLogStorage<S::Domain>>,
     ) -> Result<Self, ServiceError> {
-        let builder = S::build(&context)?;
+        let mut context = S::context(&service)?;
+        change(&mut context);
+        let builder = S::build(&service, &context)?;
         let clock = Arc::new(PausedClock::start());
         let kernel = Kernel::start_with_effect_log(
             S::NAME,
             builder,
+            context,
             Arc::clone(&backend),
             clock,
             effect_log,
@@ -309,7 +338,7 @@ pub fn lock_unpoisoned<T>(mutex: &std::sync::Mutex<T>) -> std::sync::MutexGuard<
     sync::lock_unpoisoned(mutex)
 }
 
-/// In-process backbone Session for tests that call [`Service::build`] outside [`Harness`].
+/// In-process backbone Session for tests that call [`Service::context`] and [`Service::build`] outside [`Harness`].
 pub fn channel_session() -> crate::command_sender::Session {
     Arc::new(ChannelBackend::default())
 }
