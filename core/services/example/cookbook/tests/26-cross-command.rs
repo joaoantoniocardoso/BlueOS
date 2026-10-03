@@ -39,8 +39,13 @@ impl Service for TargetCookbookService {
     const NAME: &'static str = "cookbook_target";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<TargetCookbookArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<TargetCookbookArguments>,
+        _service: &ServiceContext<TargetCookbookArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<TargetCookbook>, ServiceError> {
         Ok(ServiceBuilder::new(TargetCookbookSnapshot::default())
             .command("SetLevel", |request: SetLevelRequest| {
@@ -110,8 +115,13 @@ impl Service for CallerCookbookService {
     const NAME: &'static str = "cookbook_caller";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<CallerCookbookArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<CallerCookbookArguments>,
+        _service: &ServiceContext<CallerCookbookArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<CallerCookbook>, ServiceError> {
         Ok(ServiceBuilder::new(CallerCookbookSnapshot::default())
             .task(

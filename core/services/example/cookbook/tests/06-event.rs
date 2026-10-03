@@ -37,8 +37,13 @@ impl Service for EventCookbookService {
     const NAME: &'static str = "cookbook_event";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<EventCookbookArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<EventCookbookArguments>,
+        _service: &ServiceContext<EventCookbookArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<EventCookbook>, ServiceError> {
         Ok(ServiceBuilder::new(EventCookbookSnapshot::default())
             .command("SetLevel", |request: SetLevelRequest| {

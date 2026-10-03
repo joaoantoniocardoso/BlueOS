@@ -36,8 +36,15 @@ impl Service for TypedErrorsCookbookService {
     const NAME: &'static str = "cookbook_typed_errors";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(
+        _service: &ServiceContext<TypedErrorsCookbookArguments>,
+    ) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<TypedErrorsCookbookArguments>,
+        _service: &ServiceContext<TypedErrorsCookbookArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<TypedErrorsCookbook>, ServiceError> {
         Ok(
             ServiceBuilder::new(TypedErrorsCookbookSnapshot::default()).command(

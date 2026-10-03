@@ -31,8 +31,13 @@ impl Service for CommandCookbookService {
     const NAME: &'static str = "cookbook_command";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<CommandCookbookArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<CommandCookbookArguments>,
+        _service: &ServiceContext<CommandCookbookArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<CommandCookbook>, ServiceError> {
         Ok(ServiceBuilder::new(CommandCookbookSnapshot::default())
             .command("SetLevel", |request: SetLevelRequest| {

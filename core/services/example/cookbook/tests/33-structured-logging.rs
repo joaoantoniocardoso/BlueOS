@@ -44,8 +44,13 @@ impl Service for LoggingCookbookService {
     const NAME: &'static str = "cookbook_logging";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<LoggingCookbookArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<LoggingCookbookArguments>,
+        _service: &ServiceContext<LoggingCookbookArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<LoggingCookbook>, ServiceError> {
         Ok(ServiceBuilder::new(LoggingCookbookSnapshot)
             .io(|_io_context, _snapshot, request| async move {

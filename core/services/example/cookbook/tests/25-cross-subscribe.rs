@@ -35,8 +35,13 @@ impl Service for PublisherCookbookService {
     const NAME: &'static str = "cookbook_publisher";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<PublisherCookbookArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<PublisherCookbookArguments>,
+        _service: &ServiceContext<PublisherCookbookArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<PublisherCookbook>, ServiceError> {
         Ok(ServiceBuilder::new(PublisherCookbookSnapshot::default())
             .command("SetLevel", |request: SetLevelRequest| {

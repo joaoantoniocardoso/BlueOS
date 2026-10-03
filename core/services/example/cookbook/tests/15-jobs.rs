@@ -47,8 +47,13 @@ impl Service for JobsCookbookService {
     const NAME: &'static str = "cookbook_jobs";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<JobsCookbookArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<JobsCookbookArguments>,
+        _service: &ServiceContext<JobsCookbookArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<JobsCookbook>, ServiceError> {
         Ok(ServiceBuilder::new(JobsCookbookSnapshot {
             jobs: Jobs::default(),

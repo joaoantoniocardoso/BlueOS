@@ -33,11 +33,16 @@ impl Service for CliCookbookService {
     const NAME: &'static str = "cookbook_cli";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<CliCookbookArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        context: &ServiceContext<CliCookbookArguments>,
+        service: &ServiceContext<CliCookbookArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<CliCookbook>, ServiceError> {
         Ok(ServiceBuilder::new(CliCookbookSnapshot {
-            marker: context.arguments().marker.clone(),
+            marker: service.arguments().marker.clone(),
         })
         .state("cli", |snapshot: &CliCookbookSnapshot| LevelQueryResponse {
             level: u8::from(snapshot.marker.is_some()),
@@ -105,10 +110,10 @@ fn service_flags_flatten_with_the_common_cli() {
         parsed.service.marker.as_deref(),
         Some(PathBuf::from("/tmp/marker").as_path())
     );
-    let _builder = CliCookbookService::build(&ServiceContext::new(
-        parsed.service,
-        blueos_service::testing::channel_session(),
-    ))
+    let _builder = CliCookbookService::build(
+        &ServiceContext::new(parsed.service, blueos_service::testing::channel_session()),
+        &(),
+    )
     .expect("build");
 }
 
