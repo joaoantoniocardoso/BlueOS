@@ -54,11 +54,18 @@ export class McapCsvExportController {
   }
 
   setSearch(search: string): void {
+    if (search === this.state.search) {
+      return
+    }
     this.state = { ...this.state, search }
     this.emit()
   }
 
   setSelected(selected: McapRecordingChannel[]): void {
+    const current = new Set(this.state.selected.map((channel) => channel.channelId))
+    if (selected.length === current.size && selected.every((channel) => current.has(channel.channelId))) {
+      return
+    }
     this.state = { ...this.state, selected: [...selected] }
     this.emit()
   }
