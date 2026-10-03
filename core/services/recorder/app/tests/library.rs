@@ -3,22 +3,23 @@
 mod common;
 
 use core::time::Duration;
-use std::fs;
+use std::{fs, sync::Arc};
 
 use tempfile::tempdir;
 use tokio::time::{advance, timeout};
 
 use blueos_api::state_key;
+use blueos_comms::{CommsBackend, channel::ChannelBackend};
 use blueos_idl::msg::blueos_recorder_msgs::{
     DeleteRecordingCommand, RecordingLibrary, StopRecordingCommand,
 };
-use blueos_recorder_app::RecorderService;
+use blueos_recorder_app::{RecorderArguments, RecorderService};
 use blueos_recorder_library::RESCAN_INTERVAL;
 use blueos_service::{Service, testing::Harness};
 
 use common::{
-    drain_blocking_io, start_harness, wait_for_active_recording, wait_for_library_file_listed,
-    wait_for_recording_idle,
+    drain_blocking_io, recorder_arguments, start_harness, wait_for_active_recording,
+    wait_for_library_file_listed, wait_for_recording_idle,
 };
 
 #[tokio::test(start_paused = true)]
@@ -26,13 +27,13 @@ async fn unchanged_rescan_does_not_republish_library_state() {
     let directory = tempdir().expect("tempdir");
     fs::write(directory.path().join("finished.mcap"), b"not a real mcap").expect("write");
 
-    let harness = start_harness(directory.path()).await;
+    let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
     let state_key = state_key(RecorderService::NAME, "library");
-    let mut updates = harness
-        .backend()
-        .subscribe(&state_key)
+    let mut updates = backend.subscribe(&state_key).await.expect("subscribe");
+
+    let harness = Harness::start_on(Arc::clone(&backend), recorder_arguments(directory.path()))
         .await
-        .expect("subscribe");
+        .expect("harness");
 
     stop_auto_recording_and_remove_session_files(&harness, directory.path()).await;
     wait_for_library_file_listed(&harness, "finished.mcap").await;
@@ -78,6 +79,7 @@ async fn stop_auto_recording_and_remove_session_files(
     harness: &Harness<RecorderService>,
     directory: &std::path::Path,
 ) {
+    advance(Duration::from_secs(1)).await;
     wait_for_active_recording(harness.backend()).await;
     harness.send("Stop", &StopRecordingCommand::default()).await;
     wait_for_recording_idle(harness.backend()).await;
