@@ -28,16 +28,16 @@ export function newJobId(): string {
 /**
  * Submits a Command as the Job `jobId` and returns the Service's verdict: accepted with the Job's status, or rejected
  * with a `reason`. An instant Job acks its final status; a lasting one goes on in the `jobs` State (D-10, D-36).
- * Sending again with the same `jobId` and request is a retry that returns the same Job.
+ * Sending again with the same `jobId` and Goal is a retry that returns the same Job.
  */
 export async function sendCommand<Schema extends SchemaName>(
   transport: Transport,
   command: CommandEndpoint<Schema>,
-  request: MessageForSchema<Schema>,
+  goal: MessageForSchema<Schema>,
   jobId: string = newJobId(),
 ): Promise<CommandAck> {
   return ask(transport, command.key, {
-    payload: encodeCdr(command.goalSchema, request),
+    payload: encodeCdr(command.goalSchema, goal),
     encoding: cdrEncoding(command.goalSchema),
     attachment: new TextEncoder().encode(jobId),
   }, COMMAND_ACK_SCHEMA)
