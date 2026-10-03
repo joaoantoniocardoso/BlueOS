@@ -1,5 +1,11 @@
 <template>
   <v-container fluid class="records-view">
+    <records-session-controls
+      :recorder="recorder"
+      :recording="recording"
+      :service-running="recorderServiceRunning"
+    />
+
     <v-alert
       v-if="!recorderServiceRunning"
       type="error"
@@ -156,12 +162,13 @@
 </template>
 
 <script lang="ts">
-import type { JobStatus } from '@blueos-idl/messages'
+import type { JobStatus, RecordingState as RecordingSessionState } from '@blueos-idl/messages'
 import Vue from 'vue'
 
 import McapVideoPlayer from '@/components/records/McapVideoPlayer.vue'
 import RecordsRecordingRow from '@/components/records/RecordsRecordingRow.vue'
 import RecordsRecordingTable from '@/components/records/RecordsRecordingTable.vue'
+import RecordsSessionControls from '@/components/records/RecordsSessionControls.vue'
 import type { Transport } from '@/libs/blueos-api/transport'
 import zenohTransport from '@/libs/blueos-api/zenoh-transport'
 import type { RecordingIndexSource } from '@/libs/mcap/logic/recording-index'
@@ -182,13 +189,16 @@ import { blueosApiMixin } from '@/mixins/blueosApi'
 
 export default Vue.extend({
   name: 'RecordsView',
-  components: { RecordsRecordingRow, RecordsRecordingTable, McapVideoPlayer },
+  components: {
+    RecordsRecordingRow, RecordsRecordingTable, RecordsSessionControls, McapVideoPlayer,
+  },
   mixins: [blueosApiMixin],
   data() {
     return {
       transport: null as Transport | null,
       recorder: null as RecorderClient | null,
       recordings: [] as LibraryRecording[],
+      recording: null as RecordingSessionState | null,
       repairProgress: {} as RepairProgress,
       jobs: [] as JobStatus[],
       libraryLoading: true,
@@ -247,6 +257,14 @@ export default Vue.extend({
           this.recordings = []
         }
       })),
+      this.blueosTrackSubscription(this.recorder.watchRecording(
+        (state) => {
+          this.recording = state
+        },
+        (error) => {
+          this.lastError = error instanceof Error ? error.message : String(error)
+        },
+      )),
       this.blueosTrackSubscription(this.recorder.watchRepairProgress(
         (progress) => {
           this.repairProgress = progress
