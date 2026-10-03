@@ -27,9 +27,87 @@
       {{ lastError }}
     </v-alert>
 
-    <v-row>
+    <v-alert
+      v-if="recordings.length > 0 && visibleRecordings.length === 0"
+      type="info"
+      dense
+      class="mb-4"
+    >
+      No recordings match the search and filters.
+    </v-alert>
+
+    <v-sheet v-if="recordings.length > 0" rounded class="d-flex align-center flex-wrap mb-4 px-2 pt-2">
+      <v-text-field
+        v-model="search"
+        label="Search by name"
+        prepend-inner-icon="mdi-magnify"
+        clearable
+        dense
+        outlined
+        hide-details
+        class="records-search mr-3 mb-2"
+      />
+      <v-select
+        v-model="stateFilter"
+        :items="stateOptions"
+        label="State"
+        clearable
+        dense
+        outlined
+        hide-details
+        class="records-filter mr-3 mb-2"
+      />
+      <v-select
+        v-model="dateFilter"
+        :items="dateOptions"
+        label="Date (UTC)"
+        clearable
+        dense
+        outlined
+        hide-details
+        class="records-filter mr-3 mb-2"
+      />
+      <v-spacer />
+      <v-btn
+        v-tooltip="'Cards'"
+        icon
+        small
+        class="mb-2"
+        :color="layout === 'cards' ? 'primary' : undefined"
+        @click="layout = 'cards'"
+      >
+        <v-icon small>
+          mdi-view-grid-outline
+        </v-icon>
+      </v-btn>
+      <v-btn
+        v-tooltip="'List'"
+        icon
+        small
+        class="mb-2"
+        :color="layout === 'list' ? 'primary' : undefined"
+        @click="layout = 'list'"
+      >
+        <v-icon small>
+          mdi-view-list-outline
+        </v-icon>
+      </v-btn>
+    </v-sheet>
+
+    <records-recording-table
+      v-if="layout === 'list'"
+      :files="visibleRecordings"
+      :download-url="downloadUrl"
+      :disabled="!recorderServiceRunning"
+      :busy-path="busyPath"
+      :busy-operation="busyOperation"
+      @operation="onOperation"
+      @play="openPlayer"
+    />
+
+    <v-row v-else>
       <v-col
-        v-for="file in recordings"
+        v-for="file in visibleRecordings"
         :key="file.path"
         cols="12"
         sm="6"
@@ -82,6 +160,7 @@ import Vue from 'vue'
 
 import McapVideoPlayer from '@/components/records/McapVideoPlayer.vue'
 import RecordsRecordingRow from '@/components/records/RecordsRecordingRow.vue'
+import RecordsRecordingTable from '@/components/records/RecordsRecordingTable.vue'
 import type { Transport } from '@/libs/blueos-api/transport'
 import zenohTransport from '@/libs/blueos-api/zenoh-transport'
 import type { RecordingIndexSource } from '@/libs/mcap/logic/recording-index'
@@ -92,14 +171,15 @@ import {
   REPAIR_RECORDING,
   SNAPSHOT_RECORDING,
 } from '@/libs/recorder/constants'
-import type { LibraryRecording, RecordingOperationEvent } from '@/libs/recorder/types'
-import { operationFailureMessage, recordingByPath } from '@/libs/recorder/view-logic'
+import { dateFilterOptions, filterRecordings } from '@/libs/recorder/filter'
+import type { LibraryRecording, RecordingOperationEvent, RecordingState } from '@/libs/recorder/types'
+import { operationFailureMessage, RECORDING_STATE_UI, recordingByPath } from '@/libs/recorder/view-logic'
 import zenoh from '@/libs/zenoh'
 import { blueosApiMixin } from '@/mixins/blueosApi'
 
 export default Vue.extend({
   name: 'RecordsView',
-  components: { RecordsRecordingRow, McapVideoPlayer },
+  components: { RecordsRecordingRow, RecordsRecordingTable, McapVideoPlayer },
   mixins: [blueosApiMixin],
   data() {
     return {
@@ -111,12 +191,29 @@ export default Vue.extend({
       lastError: '' as string,
       busyPath: null as string | null,
       busyOperation: null as string | null,
+      layout: 'cards' as 'cards' | 'list',
+      search: null as string | null,
+      stateFilter: null as RecordingState | null,
+      dateFilter: null as string | null,
       playerOpen: false,
       playerBusy: false,
       activeRecordingPath: null as string | null,
     }
   },
   computed: {
+    visibleRecordings(): LibraryRecording[] {
+      return filterRecordings(this.recordings, {
+        search: this.search ?? '',
+        state: this.stateFilter,
+        date: this.dateFilter,
+      })
+    },
+    stateOptions(): { text: string, value: string }[] {
+      return Object.entries(RECORDING_STATE_UI).map(([value, { label }]) => ({ text: label, value }))
+    },
+    dateOptions(): { text: string, value: string }[] {
+      return dateFilterOptions(this.recordings)
+    },
     activeRecording(): LibraryRecording | null {
       return recordingByPath(this.recordings, this.activeRecordingPath)
     },
@@ -230,5 +327,13 @@ export default Vue.extend({
 <style scoped>
 .records-view {
   min-height: 100%;
+}
+
+.records-search {
+  max-width: 320px;
+}
+
+.records-filter {
+  max-width: 200px;
 }
 </style>

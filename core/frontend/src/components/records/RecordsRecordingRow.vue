@@ -70,21 +70,9 @@
 import Vue, { PropType } from 'vue'
 
 import RecordsRecordingPreview from '@/components/records/RecordsRecordingPreview.vue'
-import {
-  CANCEL_REPAIR,
-  DELETE_RECORDING,
-  REPAIR_RECORDING,
-  SNAPSHOT_RECORDING,
-} from '@/libs/recorder/constants'
 import type { LibraryRecording } from '@/libs/recorder/types'
+import { RECORDING_OPERATION_UI, RECORDING_STATE_UI } from '@/libs/recorder/view-logic'
 import { prettifySize } from '@/utils/helper_functions'
-
-const OPERATION_UI: Record<string, { label: string, icon: string, color: string }> = {
-  [REPAIR_RECORDING]: { label: 'Repair', icon: 'mdi-wrench', color: 'primary' },
-  [CANCEL_REPAIR]: { label: 'Cancel repair', icon: 'mdi-stop', color: 'primary' },
-  [DELETE_RECORDING]: { label: 'Delete', icon: 'mdi-delete', color: 'error' },
-  [SNAPSHOT_RECORDING]: { label: 'Download snapshot', icon: 'mdi-download', color: 'primary' },
-}
 
 export default Vue.extend({
   name: 'RecordsRecordingRow',
@@ -109,22 +97,10 @@ export default Vue.extend({
   },
   computed: {
     stateColor(): string {
-      const colors: Record<string, string> = {
-        recording: 'warning',
-        needs_repair: 'error',
-        repairing: 'primary',
-        ready: 'success',
-      }
-      return colors[this.file.state] ?? 'grey'
+      return RECORDING_STATE_UI[this.file.state]?.color ?? 'grey'
     },
     stateLabel(): string {
-      const labels: Record<string, string> = {
-        recording: 'Recording',
-        needs_repair: 'Needs repair',
-        repairing: 'Repairing',
-        ready: 'Ready',
-      }
-      return labels[this.file.state] ?? this.file.state
+      return RECORDING_STATE_UI[this.file.state]?.label ?? this.file.state
     },
     repairPercent(): number {
       if (this.file.repair_total_bytes <= 0) {
@@ -149,13 +125,13 @@ export default Vue.extend({
       return new Date(timestamp * 1000).toLocaleString()
     },
     operationLabel(operationName: string): string {
-      return OPERATION_UI[operationName]?.label ?? operationName
+      return RECORDING_OPERATION_UI[operationName]?.label ?? operationName
     },
     operationIcon(operationName: string): string {
-      return OPERATION_UI[operationName]?.icon ?? 'mdi-playlist-check'
+      return RECORDING_OPERATION_UI[operationName]?.icon ?? 'mdi-playlist-check'
     },
     operationColor(operationName: string): string {
-      return OPERATION_UI[operationName]?.color ?? 'primary'
+      return RECORDING_OPERATION_UI[operationName]?.color ?? 'primary'
     },
     operationTooltip(operationName: string): string {
       return `${this.operationLabel(operationName)} ${this.file.name}`

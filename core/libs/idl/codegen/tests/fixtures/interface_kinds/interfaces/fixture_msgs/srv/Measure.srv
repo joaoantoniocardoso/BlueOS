@@ -1,0 +1,5 @@
+# fixture_msgs/srv/Measure
+string probe
+---
+float32 level
+Progress progress

@@ -16,4 +16,4 @@ syn = { workspace = true, features = ["full", "visit", "printing"] }
 walkdir = { workspace = true }
 
 [dev-dependencies]
-quote = { version = "1", default-features = false }
+quote.workspace = true

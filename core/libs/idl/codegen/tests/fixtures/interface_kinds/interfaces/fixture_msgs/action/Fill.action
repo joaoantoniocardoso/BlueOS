@@ -1,0 +1,7 @@
+# fixture_msgs/action/Fill
+float32 level
+float32 rate
+---
+bool reached
+---
+Progress progress

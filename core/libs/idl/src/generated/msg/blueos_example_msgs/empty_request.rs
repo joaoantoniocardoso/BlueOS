@@ -7,30 +7,25 @@ use crate::{
     message::{CdrStruct, Message},
 };
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct EmptyRequest {
-    pub padding: u8,
-}
+pub struct EmptyRequest {}
 impl CdrStruct for EmptyRequest {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
-        Ok(Self {
-            padding: if reader.is_exhausted() {
-                Default::default()
-            } else {
-                reader.read_u8()?
-            },
-        })
+        if !reader.is_exhausted() {
+            reader.read_u8()?;
+        }
+        Ok(Self {})
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {
-        writer.write_u8(self.padding)?;
+        writer.write_u8(0)?;
         Ok(())
     }
 }
 impl Message for EmptyRequest {
-    const SCHEMA: &'static str = "# blueos_example_msgs/msg/EmptyRequest\n# Command payload with no semantics (StartSelfTest, CancelSelfTest). Padding keeps CDR codegen happy.\n\nuint8 padding";
+    const SCHEMA: &'static str = "# blueos_example_msgs/msg/EmptyRequest\n# Command payload with no semantics (StartSelfTest, CancelSelfTest). Declared empty, with no placeholder field.";
     const SCHEMA_NAME: &'static str = "blueos_example_msgs/msg/EmptyRequest";
     const TYPE_HASH: &'static str =
-        "029ec6c17b5709cf24813cffef88f91fad6ed7021af1530d5fd599fee0cd69e6";
+        "f1734b149172a687e3f4961e15fbacbdf1b343df7220696f80befce499ba3334";
 }
 impl EmptyRequest {
-    pub const KNOWN_FIELD_COUNT: usize = 1usize;
+    pub const KNOWN_FIELD_COUNT: usize = 0usize;
 }

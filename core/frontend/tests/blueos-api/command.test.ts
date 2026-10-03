@@ -80,7 +80,7 @@ describe('query', () => {
   it('sends the request and returns the decoded response', async () => {
     const transport = new FakeTransport()
 
-    const asking = query(transport, Level, { padding: 0 })
+    const asking = query(transport, Level, {})
     const sent = await transport.nextQuery()
     sent.reply(answer(Level.key, Level.responseSchema, { level: 4, max_level: 10 }))
 
@@ -92,7 +92,7 @@ describe('query', () => {
   it('refuses a reply that is not the declared response', async () => {
     const transport = new FakeTransport()
 
-    const asking = query(transport, Level, { padding: 0 })
+    const asking = query(transport, Level, {})
     const sent = await transport.nextQuery()
     sent.reply(answer(Level.key, 'blueos_msgs/msg/CommandAck', { accepted: true, job_id: 0, reason: '' }))
 
