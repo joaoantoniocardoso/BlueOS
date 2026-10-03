@@ -1,4 +1,4 @@
-//! Service Context: Projections and shared adapters.
+//! Service Context: shared adapters and tunables, built in `RecorderService::context`.
 
 use core::{
     sync::atomic::{AtomicBool, AtomicU8, Ordering},
@@ -13,11 +13,10 @@ use std::{
 use tokio::sync::mpsc;
 
 use blueos_idl::msg::blueos_recorder_msgs::RecordingIndex;
-use blueos_recorder_capture::RecordGate;
 use blueos_recorder_domain::RecorderObservedFact;
 use blueos_recorder_mcap::{IndexError, walk_index};
 use blueos_recorder_storage::{LibraryFooterCache, RecordingsFolder};
-use blueos_service::{Projection, Session};
+use blueos_service::Session;
 
 use crate::index_io::RECORDING_INDEX_WALK_TIMEOUT;
 
@@ -31,11 +30,9 @@ pub type IndexWalker =
 /// Called on the blocking repair thread before the rewrite (production does nothing).
 pub type RepairBeforeRewrite = Arc<dyn Fn(&AtomicBool) + Send + Sync>;
 
-/// Context built in `RecorderService::build` and shared with Tasks and IO executors.
+/// Context built in `RecorderService::context` and shared with Tasks and IO executors.
 #[derive(Clone)]
 pub struct RecorderContext {
-    /// Projection the data plane reconciles against.
-    pub record_gate: Projection<RecordGate>,
     /// Recordings folder on disk (immutable; library scan uses a separate footer cache).
     pub recordings_folder: Arc<RecordingsFolder>,
     /// Footer cache used only on the library blocking IO path.

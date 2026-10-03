@@ -21,7 +21,7 @@ use blueos_recorder_schema_gate::{
 };
 use blueos_recorder_storage::RecordingsFolder;
 use blueos_ros2_names::{parse_ros2dds_liveliness_token, ros2dds_liveliness_token_to_data_key};
-use blueos_service::{CommandSender, TaskContext, TaskFailed};
+use blueos_service::{CommandSender, Projection, TaskContext, TaskFailed};
 
 use crate::{
     context::RecorderContext,
@@ -49,14 +49,15 @@ struct DataPlaneLocal {
     pending_liveliness_gets: BTreeSet<String>,
 }
 
-/// Runs until shutdown, reconciling [`RecordGate`] and recording backbone samples.
+/// Runs until shutdown, reconciling `record_gate` and recording backbone samples.
 pub(crate) async fn run_data_plane(
     task_context: TaskContext<RecorderDomain, RecorderContext>,
+    record_gate: Projection<RecordGate>,
 ) -> Result<(), TaskFailed> {
     let writer = Arc::new(McapWriterHandle::spawn_with_queue_capacity(
         task_context.context.mcap_writer_queue_capacity,
     ));
-    let mut gate = task_context.context.record_gate.subscribe();
+    let mut gate = record_gate.subscribe();
     let mut local = DataPlaneLocal {
         open: None,
         descriptors: BTreeMap::new(),
