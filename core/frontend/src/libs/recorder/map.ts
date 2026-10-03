@@ -1,15 +1,10 @@
 import {
-  JobStatusStatus,
   RecordingFileState,
 } from '@blueos-idl'
 import type { RecordingFile, Time } from '@blueos-idl/messages'
 
-import type { JobResultEntry } from '@/libs/blueos-api/job'
-
 import type {
   LibraryRecording,
-  RecordingOperationEvent,
-  RecordingOperationKind,
   RecordingState,
 } from './types'
 
@@ -45,19 +40,5 @@ export function mapRecordingFile(file: RecordingFile): LibraryRecording {
     repair_error: file.repair_error,
     repair_job_id: file.repair_job_id,
     allowed_operations: [...file.allowed_operations],
-  }
-}
-
-export function mapRecordingOperation(
-  operation: RecordingOperationKind,
-  { job, result }: JobResultEntry<{ path: string, output_path?: string }>,
-): RecordingOperationEvent {
-  return {
-    operation,
-    path: result.path,
-    output_path: result.output_path ?? '',
-    succeeded: job.status === JobStatusStatus.Succeeded,
-    cancelled: job.status === JobStatusStatus.Canceled,
-    error: job.reason,
   }
 }
