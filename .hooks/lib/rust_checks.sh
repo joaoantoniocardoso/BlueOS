@@ -729,6 +729,56 @@ check_rust_quality_ratchet() {
     )
 }
 
+# Usage: collect_ratchet_loosening <ceilings|floors> <base-file> <head-file>
+# Prints one line per value that moved the loose way since the base: a ceiling that rose, a floor that fell, or a
+# key that was removed. Exits 1 when any exists (D-30).
+collect_ratchet_loosening() {
+    local base head loosened
+    base=$(toml_to_json "$2") || return 1
+    head=$(toml_to_json "$3") || return 1
+    loosened=$(jq -rn --arg kind "$1" --argjson base "$base" --argjson head "$head" '
+        $base | to_entries[] | .key as $table | .value | to_entries[] | .key as $key | .value as $was
+        | $head[$table][$key] as $now
+        | if $now == null then "\($table).\($key) was removed"
+          elif $kind == "ceilings" and $now > $was then "\($table).\($key) ceiling rose from \($was) to \($now)"
+          elif $kind == "floors" and $now < $was then "\($table).\($key) floor fell from \($was) to \($now)"
+          else empty end')
+    if [ -n "$loosened" ]; then
+        printf '%s\n' "$loosened"
+        return 1
+    fi
+    return 0
+}
+
+# Usage: check_ratchets_not_loosened <repository_dir> <base_revision>
+# Fails when a ratchet file loosened since the base revision, and when the base revision cannot be resolved. A file
+# the base does not have has nothing to loosen.
+check_ratchets_not_loosened() {
+    local repository_dir="$1"
+    local base_revision="$2"
+    local base_file status=0 path kind
+    check_ratchet_prerequisites
+    if ! git -C "$repository_dir" cat-file -e "$base_revision^{commit}" 2>/dev/null; then
+        printf 'cannot resolve the base revision %s; fetch it before comparing the ratchet files\n' \
+            "$base_revision" >&2
+        return 1
+    fi
+    base_file=$(mktemp)
+    while read -r path kind; do
+        git -C "$repository_dir" cat-file -e "$base_revision:$path" 2>/dev/null || continue
+        git -C "$repository_dir" show "$base_revision:$path" >"$base_file"
+        if ! collect_ratchet_loosening "$kind" "$base_file" "$repository_dir/$path"; then
+            printf '%s loosened since %s; a ratchet may only tighten (D-30)\n' "$path" "$base_revision" >&2
+            status=1
+        fi
+    done <<'EOF'
+core/quality-ratchet.toml ceilings
+core/coverage-ratchet.toml floors
+EOF
+    rm -f "$base_file"
+    return "$status"
+}
+
 # Usage: run_rust_checks <workspace_dir>
 run_rust_checks() {
     local workspace_dir="$1"
