@@ -66,7 +66,7 @@
       <v-select
         v-model="dateFilter"
         :items="dateOptions"
-        label="Date (UTC)"
+        label="Date"
         clearable
         dense
         outlined
