@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import struct
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -132,15 +133,17 @@ _INTERFACES_WARNING_LOGGED = False
 _LOAD_ATTEMPTED = False
 _LOAD_SUCCEEDED = False
 _LOAD_FAILURE: Literal["none", "missing_root", "incomplete"] = "none"
+_LOAD_LOCK = threading.Lock()
 
 
 def reset_runtime_state() -> None:
     global _INTERFACES_WARNING_LOGGED, _LOAD_ATTEMPTED, _LOAD_SUCCEEDED, _LOAD_FAILURE  # pylint: disable=global-statement
-    _MESSAGES.clear()
-    _INTERFACES_WARNING_LOGGED = False
-    _LOAD_ATTEMPTED = False
-    _LOAD_SUCCEEDED = False
-    _LOAD_FAILURE = "none"
+    with _LOAD_LOCK:
+        _MESSAGES.clear()
+        _INTERFACES_WARNING_LOGGED = False
+        _LOAD_ATTEMPTED = False
+        _LOAD_SUCCEEDED = False
+        _LOAD_FAILURE = "none"
 
 
 def _log_interfaces_issue(message: str) -> None:
@@ -155,23 +158,26 @@ def ensure_idl_loaded(interfaces_root: Path | None = None) -> None:
     global _LOAD_ATTEMPTED, _LOAD_SUCCEEDED, _LOAD_FAILURE  # pylint: disable=global-statement
     if _LOAD_SUCCEEDED:
         return
-    if _LOAD_ATTEMPTED and not _LOAD_SUCCEEDED:
-        if _LOAD_FAILURE == "missing_root":
-            root = interfaces_root or default_idl_interfaces_root()
+    with _LOAD_LOCK:
+        if _LOAD_SUCCEEDED:
+            return  # type: ignore[unreachable]
+        if _LOAD_ATTEMPTED and not _LOAD_SUCCEEDED:
+            if _LOAD_FAILURE == "missing_root":
+                root = interfaces_root or default_idl_interfaces_root()
+                raise FileNotFoundError(f"BlueOS IDL interfaces directory not found: {root}")
+            raise IdlCodecError("BlueOS IDL interfaces failed to load")
+        _LOAD_ATTEMPTED = True
+        root = interfaces_root or default_idl_interfaces_root()
+        if not root.is_dir():
+            _LOAD_FAILURE = "missing_root"
+            _log_interfaces_issue(f"BlueOS IDL interfaces directory not found: {root}")
             raise FileNotFoundError(f"BlueOS IDL interfaces directory not found: {root}")
-        raise IdlCodecError("BlueOS IDL interfaces failed to load")
-    _LOAD_ATTEMPTED = True
-    root = interfaces_root or default_idl_interfaces_root()
-    if not root.is_dir():
-        _LOAD_FAILURE = "missing_root"
-        _log_interfaces_issue(f"BlueOS IDL interfaces directory not found: {root}")
-        raise FileNotFoundError(f"BlueOS IDL interfaces directory not found: {root}")
-    try:
-        _load_interfaces(root)
-    except IdlCodecError:
-        _LOAD_FAILURE = "incomplete"
-        raise
-    _LOAD_SUCCEEDED = True
+        try:
+            _load_interfaces(root)
+        except IdlCodecError:
+            _LOAD_FAILURE = "incomplete"
+            raise
+        _LOAD_SUCCEEDED = True
 
 
 def _load_interfaces(root: Path) -> None:
