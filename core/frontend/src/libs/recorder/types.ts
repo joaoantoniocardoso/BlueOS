@@ -13,6 +13,8 @@ export interface LibraryRecording {
   repair_total_bytes: number
   repair_bytes_per_second: number
   repair_error: string
+  /** The Job id of the repair while repairing, which `CancelJob` names; empty otherwise. */
+  repair_job_id: string
   allowed_operations: string[]
 }
 

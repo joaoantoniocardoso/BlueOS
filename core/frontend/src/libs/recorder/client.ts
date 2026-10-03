@@ -1,8 +1,8 @@
-import { sendCommand } from '@/libs/blueos-api/command'
+import { cancelJob, sendCommand } from '@/libs/blueos-api/command'
 import { watchServiceAlive } from '@/libs/blueos-api/liveliness'
 import {
-  CancelRepair,
   DeleteRecording,
+  NAME,
   RepairRecording,
   SnapshotRecording,
   library,
@@ -51,7 +51,7 @@ export interface RecorderClient {
     onError?: (error: unknown) => void,
   ): Promise<Subscription>
   repairRecording(path: string): Promise<RecorderCommandResult>
-  cancelRepair(path: string): Promise<RecorderCommandResult>
+  cancelRepair(repairJobId: string): Promise<RecorderCommandResult>
   deleteRecording(path: string): Promise<RecorderCommandResult>
   snapshotRecording(path: string): Promise<string>
   recordingDownloadUrl(relativePath: string): string
@@ -157,8 +157,8 @@ export function createRecorderClient(
       return commandResult(commandAck)
     },
 
-    async cancelRepair(path) {
-      const commandAck = await sendCommand(transport, CancelRepair, { path })
+    async cancelRepair(repairJobId) {
+      const commandAck = await cancelJob(transport, NAME, repairJobId)
       return commandResult(commandAck)
     },
 

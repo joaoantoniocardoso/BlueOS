@@ -41,6 +41,7 @@ export function mapRecordingFile(file: RecordingFile): LibraryRecording {
     repair_total_bytes: file.repair_total_bytes,
     repair_bytes_per_second: file.repair_bytes_per_second,
     repair_error: file.repair_error,
+    repair_job_id: file.repair_job_id,
     allowed_operations: [...file.allowed_operations],
   }
 }

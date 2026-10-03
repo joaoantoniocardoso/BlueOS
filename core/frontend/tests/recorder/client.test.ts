@@ -5,11 +5,11 @@ import {
 } from 'vitest'
 
 import { encodeCdr } from '@/libs/blueos-api/cdr'
-import { cdrEncoding, serviceLivelinessKey } from '@/libs/blueos-api/keys'
+import { cdrEncoding, commandKey, serviceLivelinessKey } from '@/libs/blueos-api/keys'
 import {
-  CancelRepair,
   DeleteRecording,
   library,
+  NAME,
   operation,
   RepairRecording,
   SnapshotRecording,
@@ -33,6 +33,7 @@ function recordingFile(overrides: Record<string, unknown> = {}) {
     repair_total_bytes: 0,
     repair_bytes_per_second: 0,
     repair_error: '',
+    repair_job_id: '',
     allowed_operations: ['SnapshotRecording'],
     ...overrides,
   }
@@ -323,23 +324,24 @@ describe('createRecorderClient', () => {
     })
     expect(await repair).toMatchObject({ accepted: true })
 
-    const cancel = client.cancelRepair('broken.mcap')
+    const cancel = client.cancelRepair(JOB_ID)
     const cancelQuery = await transport.nextQuery()
-    expect(cancelQuery.key).toBe(CancelRepair.key)
+    expect(cancelQuery.key).toBe(commandKey(NAME, 'CancelJob'))
+    expect(new TextDecoder().decode(cancelQuery.body?.attachment)).toBe(JOB_ID)
     cancelQuery.reply({
       kind: 'sample',
       sample: {
-        key: CancelRepair.key,
+        key: cancelQuery.key,
         payload: encodeCdr('blueos_msgs/msg/CommandAck', {
           accepted: false,
           job_id: JOB_ID,
           status: CommandAckStatus.StatusUnknown,
-          reason: 'not repairing',
+          reason: 'no such Job',
         }),
         encoding: cdrEncoding('blueos_msgs/msg/CommandAck'),
       },
     })
-    expect(await cancel).toMatchObject({ accepted: false, reason: 'not repairing' })
+    expect(await cancel).toMatchObject({ accepted: false, reason: 'no such Job' })
 
     const deleted = client.deleteRecording('old.mcap')
     const deleteQuery = await transport.nextQuery()
