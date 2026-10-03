@@ -1118,10 +1118,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
     }
 
     fn jobs(&self) -> &Jobs {
-        match self.jobs_access {
-            Some((jobs, _jobs_mut)) => jobs(&self.snapshot),
-            None => &self.own_jobs,
-        }
+        jobs_in::<D>(self.jobs_access, &self.snapshot, &self.own_jobs)
     }
 
     fn jobs_mut(&mut self) -> &mut Jobs {
