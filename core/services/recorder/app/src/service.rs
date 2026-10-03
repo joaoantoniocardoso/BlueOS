@@ -17,20 +17,21 @@ use blueos_service::{
 };
 
 use crate::{
+    capture::tasks::data_plane::run_data_plane,
     cli::RecorderArguments,
     context::{
         DEFAULT_MCAP_WRITER_QUEUE_CAPACITY, IndexQuerySetup, RecorderContext, RepairIoSetup,
         default_index_walker,
     },
-    data_plane::run_data_plane,
     endpoints,
-    handlers::RecorderHandlers,
-    index_io::RECORDING_INDEX_WALK_TIMEOUT,
     io::register_io,
-    library_io::run_library_io,
-    library_observed::run_library_observed_bridge,
-    mavlink::run_mavlink_ingress,
+    library::{
+        handlers::{RECORDING_INDEX_WALK_TIMEOUT, RecorderHandlers},
+        io::run_library_io,
+        tasks::observed::run_library_observed_bridge,
+    },
     settings::RecorderSettings,
+    tasks::mavlink::run_mavlink_ingress,
 };
 
 const RECORDER_DURABLE_STATE_VERSION: NonZeroU32 = NonZeroU32::MIN;

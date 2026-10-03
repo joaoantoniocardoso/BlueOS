@@ -1,5 +1,7 @@
 //! Data plane Task: owns the MCAP writer actor, follows [`RecordGate`], reports Observed facts.
 
+mod sample_plan;
+
 use core::time::Duration;
 use std::{collections::BTreeMap, collections::BTreeSet, sync::Arc};
 
@@ -23,10 +25,9 @@ use blueos_recorder_storage::RecordingsFolder;
 use blueos_ros2_names::{parse_ros2dds_liveliness_token, ros2dds_liveliness_token_to_data_key};
 use blueos_service::{CommandSender, Projection, TaskContext, TaskFailed};
 
-use crate::{
-    context::RecorderContext,
-    sample_plan::{SampleWritePlan, plan_sample_write},
-};
+use crate::context::RecorderContext;
+
+use self::sample_plan::{SampleWritePlan, plan_sample_write};
 
 const BYTES_REPORT_INTERVAL: Duration = Duration::from_secs(1);
 // ponytail: fixed 100 ms tick scans awaiting topics; sleep-until-earliest-deadline would skip idle wakeups.

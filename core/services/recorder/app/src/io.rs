@@ -8,9 +8,9 @@ use blueos_recorder_library::LibraryIoRequest;
 use blueos_service::ServiceBuilder;
 
 use crate::{
-    cameras_io,
+    cameras::io,
     context::RecorderContext,
-    library_io::{run_cancel_repair_io, run_library_repair_io, run_library_snapshot_io},
+    library::io::{run_cancel_repair_io, run_library_repair_io, run_library_snapshot_io},
 };
 
 /// Registers the Service's single async IO executor (cameras egress and library repair).
@@ -28,8 +28,7 @@ pub(crate) fn register_io(
             async move {
                 match request {
                     RecorderIoRequest::Cameras(request) => {
-                        cameras_io::publish_cameras_request(session, mavlink_sequence, request)
-                            .await
+                        io::publish_cameras_request(session, mavlink_sequence, request).await
                     }
                     RecorderIoRequest::Library(LibraryIoRequest::Repair { path }) => {
                         run_library_repair_io(
