@@ -312,8 +312,8 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                     kind: "state".to_owned(),
                     name: "jobs".to_owned(),
                     key: jobs_key(service),
-                    request_schema: String::new(),
-                    response_schema: JobList::SCHEMA_NAME.to_owned(),
+                    interface_type: JobList::SCHEMA_NAME.to_owned(),
+                    schema: JobList::SCHEMA.to_owned(),
                 }])
                 .collect(),
         };

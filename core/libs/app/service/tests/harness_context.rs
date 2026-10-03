@@ -5,7 +5,7 @@ use core::convert::Infallible;
 use std::{path::PathBuf, sync::Arc};
 
 use blueos_domain::{Command, Decision, Domain, Effect, IoError, Now, Outcome};
-use blueos_idl::msg::blueos_example_msgs::{EmptyRequest, LevelQueryResponse};
+use blueos_idl::msg::blueos_example_msgs::{LevelRequest, LevelResponse};
 use blueos_service::{Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness};
 
 /// Reads the gauge's sensor: the Port a test replaces.
@@ -71,12 +71,10 @@ impl Service for GaugeService {
                 };
                 async move { Ok(Some(GaugeIoResult::Level(level))) }
             })
-            .command("ReadLevel", |_: EmptyRequest| Ok(GaugeRequest::ReadLevel))
-            .state("gauge", move |snapshot: &GaugeSnapshot| {
-                LevelQueryResponse {
-                    level: snapshot.level,
-                    max_level,
-                }
+            .command("ReadLevel", |_: LevelRequest| Ok(GaugeRequest::ReadLevel))
+            .state("gauge", move |snapshot: &GaugeSnapshot| LevelResponse {
+                level: snapshot.level,
+                max_level,
             }))
     }
 }
@@ -129,10 +127,10 @@ async fn start_runs_the_context_that_ships() {
         .await
         .unwrap();
 
-    let ack = harness.send("ReadLevel", &EmptyRequest::default()).await;
+    let ack = harness.send("ReadLevel", &LevelRequest::default()).await;
 
     assert!(ack.accepted);
-    let gauge = harness.state::<LevelQueryResponse>("gauge").await;
+    let gauge = harness.state::<LevelResponse>("gauge").await;
     assert_eq!((gauge.level, gauge.max_level), (42, 100));
 }
 
@@ -167,9 +165,9 @@ async fn start_with_replaces_a_port_and_a_field_before_build() {
     .await
     .unwrap();
 
-    let ack = harness.send("ReadLevel", &EmptyRequest::default()).await;
+    let ack = harness.send("ReadLevel", &LevelRequest::default()).await;
 
     assert!(ack.accepted);
-    let gauge = harness.state::<LevelQueryResponse>("gauge").await;
+    let gauge = harness.state::<LevelResponse>("gauge").await;
     assert_eq!((gauge.level, gauge.max_level), (7, 50));
 }

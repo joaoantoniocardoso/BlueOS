@@ -15,7 +15,7 @@ use blueos_api::CommandAck;
 use blueos_comms::channel::ChannelBackend;
 use blueos_domain::{Command, Decision, Domain, DomainDurable, IoError, Now, Outcome};
 use blueos_idl::{
-    msg::blueos_example_msgs::SetLevelRequest,
+    msg::blueos_example_msgs::SetLevelGoal,
     msg::blueos_msgs::{CommandAckStatus, JobStatus, JobStatusStatus, SettingsEnvelope},
 };
 use blueos_jobs::JobId;
@@ -106,7 +106,7 @@ impl Service for SettingsTankService {
             settings: SettingsTankDocument::default(),
             durable: SettingsTankDurable { live_field: 1 },
         })
-        .command("SetLevel", |request: SetLevelRequest| {
+        .command("SetLevel", |request: SetLevelGoal| {
             Ok(SettingsTankRequest::SetLevel(request.level))
         })
         .durable_state(Self::NAME, config_parent.clone(), DURABLE_STATE_VERSION)
