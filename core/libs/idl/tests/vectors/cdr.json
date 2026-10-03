@@ -60,6 +60,29 @@
       "category": "default"
     },
     {
+      "schema_name": "blueos_msgs/action/UpdateSettings_Feedback",
+      "hex": "0001000000",
+      "decoded": {},
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_msgs/action/UpdateSettings_Goal",
+      "hex": "00010000010000000000000000000000",
+      "decoded": {
+        "envelope": {
+          "document_json": "",
+          "fields": []
+        }
+      },
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_msgs/action/UpdateSettings_Result",
+      "hex": "0001000000",
+      "decoded": {},
+      "category": "default"
+    },
+    {
       "schema_name": "blueos_msgs/msg/CommandAck",
       "hex": "000100000000000001000000000000000100000000",
       "decoded": {
@@ -203,8 +226,10 @@
     },
     {
       "schema_name": "blueos_recorder_msgs/action/DeleteRecording_Result",
-      "hex": "0001000000",
-      "decoded": {},
+      "hex": "000100000100000000",
+      "decoded": {
+        "path": ""
+      },
       "category": "default"
     },
     {
@@ -416,6 +441,12 @@
           "sec": 0
         }
       },
+      "category": "default"
+    },
+    {
+      "schema_name": "std_msgs/msg/Empty",
+      "hex": "0001000000",
+      "decoded": {},
       "category": "default"
     },
     {

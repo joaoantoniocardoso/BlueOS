@@ -103,7 +103,7 @@ impl Domain for JobProgressCookbook {
             Command::Tick(Heated { job_id }) => {
                 snapshot
                     .jobs
-                    .end(job_id, JobEnd::Succeeded, "")
+                    .end(job_id, JobEnd::Succeeded)
                     .expect("the Heat Job is running");
                 Outcome::Applied {
                     events: Vec::new(),

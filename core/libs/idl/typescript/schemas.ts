@@ -31,6 +31,27 @@ string detail`,
 # The Query on blueos/v1/example/query/Level. Its request is empty.`,
   "blueos_example_msgs/srv/Level_Response": `uint8 level
 uint8 max_level`,
+  "blueos_msgs/action/UpdateSettings_Feedback": ``,
+  "blueos_msgs/action/UpdateSettings_Goal": `# blueos_msgs/action/UpdateSettings
+# The Job type every Service serves on blueos/v1/<service>/command/UpdateSettings (D-11): replaces its settings
+# document. An instant Job type, so its ack is its final status. A Service without settings rejects it.
+
+blueos_msgs/SettingsEnvelope envelope
+================================================================================
+MSG: blueos_msgs/SettingField
+# blueos_msgs/msg/SettingField
+# Restart hint for one settings field (D-11).
+
+string path
+bool restart_required
+================================================================================
+MSG: blueos_msgs/SettingsEnvelope
+# blueos_msgs/msg/SettingsEnvelope
+# JSON settings document plus per-field restart flags (D-11).
+
+string document_json
+blueos_msgs/SettingField[] fields`,
+  "blueos_msgs/action/UpdateSettings_Result": ``,
   "blueos_msgs/msg/CommandAck": `# blueos_msgs/msg/CommandAck
 # Reply to a Command, which submits a Job or controls one (D-10, D-36).
 
@@ -61,7 +82,8 @@ string name
 string key
 # A .action for a job, a .srv for a query, a .msg for a state or an event.
 string interface_type
-# The schema text of interface_type. That of a .action or a .srv lists every part.
+# The schema text of interface_type. That of a .action or a .srv lists every part. That of a Job's feedback or
+# result, a blueos_msgs/JobFeedbackList or blueos_msgs/JobResult, then lists the action part its bytes carry.
 string schema`,
   "blueos_msgs/msg/JobFeedback": `# blueos_msgs/msg/JobFeedback
 # The latest Feedback of one active Job, in the jobs/<JobType>/feedback State (D-12, D-36), like the feedback of a ROS 2
@@ -196,7 +218,8 @@ string name
 string key
 # A .action for a job, a .srv for a query, a .msg for a state or an event.
 string interface_type
-# The schema text of interface_type. That of a .action or a .srv lists every part.
+# The schema text of interface_type. That of a .action or a .srv lists every part. That of a Job's feedback or
+# result, a blueos_msgs/JobFeedbackList or blueos_msgs/JobResult, then lists the action part its bytes carry.
 string schema`,
   "blueos_msgs/msg/ServiceStatus": `# blueos_msgs/msg/ServiceStatus
 # High-level service health on the status state key (D-12).
@@ -229,10 +252,11 @@ bool restart_required`,
   "blueos_recorder_msgs/action/DeleteRecording_Feedback": ``,
   "blueos_recorder_msgs/action/DeleteRecording_Goal": `# blueos_recorder_msgs/action/DeleteRecording
 # The Job type on blueos/v1/recorder/command/DeleteRecording. Rejected while the recording is being written or
-# repaired.
+# repaired. The Job succeeds once the file is gone.
 
 string path`,
-  "blueos_recorder_msgs/action/DeleteRecording_Result": ``,
+  "blueos_recorder_msgs/action/DeleteRecording_Result": `# Job result: the recording the Job deleted. Why it failed is the reason of the Job.
+string path`,
   "blueos_recorder_msgs/action/RepairRecording_Feedback": `# Feedback: how far the repair has read into the recording.
 uint64 bytes_processed
 uint64 total_bytes`,
@@ -450,6 +474,7 @@ int32 sec
 
 # The nanoseconds component, valid in the range [0, 1e9).
 uint32 nanosec`,
+  "std_msgs/msg/Empty": `# A message with no fields: the body of a Job control such as CancelJob, whose attachment names the Job.`,
   "std_msgs/msg/Header": `# Standard metadata for higher-level stamped data types.
 
 builtin_interfaces/Time stamp

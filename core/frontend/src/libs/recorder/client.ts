@@ -20,15 +20,14 @@ import type { RecordingIndexSource } from '@/libs/mcap/logic/recording-index'
 
 import { DEFAULT_RECORDING_HTTP_PREFIX, SNAPSHOT_WAIT_TIMEOUT_MS } from './constants'
 import { createCachedRecordingIndexSource } from './index-source'
-import { mapRecordingFile, mapRecordingOperation } from './map'
+import { mapRecordingFile } from './map'
 import type {
   LibraryRecording,
   RecorderCommandResult,
-  RecordingOperationEvent,
+  RecordingJobResult,
 } from './types'
 import { recordingDownloadUrl } from './url'
 import {
-  isSnapshotOperationForPath,
   readySnapshotDownloadPath,
   type RepairProgress,
   snapshotDownloadPath,
@@ -52,7 +51,7 @@ export interface RecorderClient {
   ): Promise<Subscription>
   watchServiceRunning(onRunning: (running: boolean) => void): Promise<Subscription>
   watchOperations(
-    onOperation: (event: RecordingOperationEvent) => void,
+    onOperation: (entry: RecordingJobResult) => void,
     onError?: (error: unknown) => void,
   ): Promise<Subscription>
   watchRecording(
@@ -117,19 +116,19 @@ export function createRecorderClient(
     }
   }
 
-  function resolveSnapshotFromOperation(event: RecordingOperationEvent): void {
-    const waiter = snapshotWaiters[event.path]
-    if (!waiter || !isSnapshotOperationForPath(event, event.path)) {
+  function resolveSnapshotFromOperation(entry: RecordingJobResult): void {
+    const waiter = snapshotWaiters[entry.result.path]
+    if (!waiter || entry.job.job_type !== SnapshotRecording.name) {
       return
     }
-    delete snapshotWaiters[event.path]
+    delete snapshotWaiters[entry.result.path]
     clearTimeout(waiter.timeoutId)
-    const outputPath = snapshotDownloadPath(event)
+    const outputPath = snapshotDownloadPath(entry)
     if (outputPath) {
       waiter.resolve(outputPath)
       return
     }
-    waiter.reject(new Error(event.error || 'Snapshot failed'))
+    waiter.reject(new Error(entry.job.reason || 'Snapshot failed'))
   }
 
   function beginSnapshotWait(sourcePath: string): Promise<string> {
@@ -161,20 +160,21 @@ export function createRecorderClient(
     },
 
     async watchOperations(onOperation, onError) {
-      const report = (event: RecordingOperationEvent): void => {
-        onOperation(event)
-        resolveSnapshotFromOperation(event)
-      }
-      const subscriptions = await Promise.all([
-        watchJobResults(transport, NAME, RepairRecording.name, RepairRecording.resultSchema, {
-          onValue: (entry) => report(mapRecordingOperation('repair', entry)),
-          onError: (error) => onError?.(error),
-        }),
-        watchJobResults(transport, NAME, SnapshotRecording.name, SnapshotRecording.resultSchema, {
-          onValue: (entry) => report(mapRecordingOperation('snapshot', entry)),
-          onError: (error) => onError?.(error),
-        }),
-      ])
+      const subscriptions = await Promise.all(
+        [DeleteRecording, RepairRecording, SnapshotRecording].map((operation) => watchJobResults(
+          transport,
+          NAME,
+          operation.name,
+          operation.resultSchema,
+          {
+            onValue: (entry: RecordingJobResult) => {
+              onOperation(entry)
+              resolveSnapshotFromOperation(entry)
+            },
+            onError: (error) => onError?.(error),
+          },
+        )),
+      )
       return {
         close: async () => {
           await Promise.all(subscriptions.map((subscription) => subscription.close()))

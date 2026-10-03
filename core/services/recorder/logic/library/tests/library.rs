@@ -2,15 +2,12 @@
 
 use core::time::Duration;
 
-use alloc::{string::ToString, vec};
-
 use blueos_domain::{Effect, Now, Outcome};
 use blueos_jobs::JobId;
-
-use super::{
+use blueos_recorder_library::{
     CANCEL_JOB, Library, LibraryIoRequest, LibraryIoResult, LibraryObservedFact, LibraryOperation,
     LibraryRepairOutcome, LibraryRepairProgress, LibraryRequest, LibrarySnapshotOutcome,
-    RecordingFileState, RepairFailure, SNAPSHOT_RECORDING, ScannedRecording,
+    RecordingFileState, RepairFailure, RepairProgress, SNAPSHOT_RECORDING, ScannedRecording,
     derive_recording_file_state, snapshot_output_relative_path,
 };
 
@@ -46,7 +43,10 @@ fn delete_rejects_active_recording_file() {
     let mut library = scan_snapshot(&[("live.mcap", true)], 1_000);
     let path = blueos_recorder_paths::RecordingRelativePath::parse("live.mcap").expect("path");
     let outcome = library.handle_request(
-        LibraryRequest::DeleteRecording { path },
+        LibraryRequest::DeleteRecording {
+            path,
+            job_id: JobId::from_u128(1),
+        },
         Some("live.mcap"),
         NOW,
     );
@@ -124,6 +124,11 @@ fn a_repair_is_listed_with_its_job_until_it_ends() {
         [LibraryOperation::Repair {
             path: path.clone(),
             job_id: job_id(7),
+            progress: RepairProgress {
+                bytes_processed: 0,
+                total_bytes: 100,
+                started_monotonic: NOW.monotonic,
+            },
         }]
     );
     let repairing = &library.entries()[0];
@@ -189,6 +194,11 @@ fn a_repair_reports_its_read_offset_to_its_job_until_it_ends() {
         Some(&LibraryOperation::Repair {
             path,
             job_id: job_id(1),
+            progress: RepairProgress {
+                bytes_processed: 40,
+                total_bytes: 100,
+                started_monotonic: NOW.monotonic,
+            },
         })
     );
     assert_eq!(library.entries()[0].repair_error, "");

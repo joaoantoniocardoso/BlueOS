@@ -24,7 +24,7 @@ use tracing::{trace, warn};
 pub use camera::video_topic_from_name;
 pub use encode::{
     build_camera_capture_status, build_command_ack, build_discovery_request, encode_command_long,
-    encode_mavlink_message, test_vehicle_heartbeat_frame,
+    encode_mavlink_message, test_camera_capture_frame, test_vehicle_heartbeat_frame,
 };
 pub use vehicle::armed_from_heartbeat;
 

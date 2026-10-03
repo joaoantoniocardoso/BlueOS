@@ -4,20 +4,20 @@
 //! from [`WALL_CLOCK_AT_START`], so `tokio::time::advance` moves the time the Domain sees, and nothing sleeps.
 
 use core::{marker::PhantomData, time::Duration};
-use std::{
-    path::PathBuf,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 use tokio::{task::JoinSet, time::Instant};
 
 use blueos_api::{
-    CommandAck, ENCODING_APPLICATION_CDR, Message, cdr_encoding, command_key, job_feedback_key,
+    CommandAck, Message, cdr_encoding, command_key, info_query_key, job_feedback_key,
     job_history_key, jobs_key, query_key, settings_key, state_key,
 };
 use blueos_comms::{CommsBackend, QueryBody, ReplyError, channel::ChannelBackend};
 use blueos_domain::{Domain, Effect, Now};
-use blueos_idl::msg::blueos_msgs::{JobFeedbackList, JobList, PermissionAnswer};
+use blueos_idl::msg::{
+    blueos_msgs::{JobFeedbackList, JobList, PermissionAnswer, ServiceInfo},
+    std_msgs::Empty,
+};
 use blueos_jobs::{JobControl, JobId};
 
 use crate::{
@@ -111,24 +111,10 @@ impl<S: Service> Harness<S> {
         arguments: S::Arguments,
         change: impl FnOnce(&mut S::Context),
     ) -> Result<Self, ServiceError> {
-        Self::start_with_settings_path(arguments, None, change).await
-    }
-
-    /// Like [`Self::start_with`], with the `--settings-path` parent directory the entry layer would pass: for a test
-    /// that restores or inspects the Service's durable state.
-    ///
-    /// # Errors
-    ///
-    /// The [`ServiceError`] that `context`, `build` or the Kernel's startup returned.
-    pub async fn start_with_settings_path(
-        arguments: S::Arguments,
-        settings_path: Option<PathBuf>,
-        change: impl FnOnce(&mut S::Context),
-    ) -> Result<Self, ServiceError> {
         let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
         Self::start_on_with_effect_log(
             Arc::clone(&backend),
-            ServiceContext::with_settings_path(arguments, settings_path, backend),
+            ServiceContext::new(arguments, backend),
             change,
             None,
         )
@@ -216,7 +202,7 @@ impl<S: Service> Harness<S> {
         };
         let mut context = S::context(&service)?;
         change(&mut context);
-        let mut builder = S::build(&service, &context)?;
+        let mut builder = S::build(&service, &context)?.for_service::<S>(&service);
         let shutdown = builder.shutdown_handle();
         let clock = Arc::new(PausedClock::start());
         let kernel = Kernel::start_with_effect_log(
@@ -271,14 +257,13 @@ impl<S: Service> Harness<S> {
         &self.backend
     }
 
-    /// Submits a Job of type `command` with `request` as its Goal and a new Job id, as a client would, and returns
-    /// the ack.
+    /// Submits a Job of type `command` with `goal` and a new Job id, as a client would, and returns the ack.
     ///
     /// # Panics
     ///
     /// When the Service does not reply exactly once with a [`CommandAck`].
-    pub async fn send<M: Message>(&self, command: &str, request: &M) -> CommandAck {
-        self.submit(command, new_job_id(), request).await
+    pub async fn send<M: Message>(&self, command: &str, goal: &M) -> CommandAck {
+        self.submit(command, new_job_id(), goal).await
     }
 
     /// Submits the Job `job_id` of type `job_type` with `goal`, as a client would, and returns the ack.
@@ -307,9 +292,10 @@ impl<S: Service> Harness<S> {
                     .expect("the answer encodes"),
                 cdr_encoding(PermissionAnswer::SCHEMA_NAME),
             ),
-            JobControl::Cancel | JobControl::Pause | JobControl::Resume => {
-                QueryBody::new(Vec::new(), ENCODING_APPLICATION_CDR)
-            }
+            JobControl::Cancel | JobControl::Pause | JobControl::Resume => QueryBody::new(
+                Empty {}.encode().expect("the empty body encodes"),
+                cdr_encoding(Empty::SCHEMA_NAME),
+            ),
         };
         self.command(&control.to_string(), job_id, body).await
     }
@@ -355,21 +341,22 @@ impl<S: Service> Harness<S> {
             .map(|sample| R::decode(&sample.payload().to_bytes()).expect("the reply is an R"))
     }
 
+    /// Asks the standard `info` Query with no body, as the inspector does, and returns the endpoints it lists.
+    ///
+    /// # Panics
+    ///
+    /// When the Service does not reply exactly once with a [`ServiceInfo`].
+    pub async fn info(&self) -> ServiceInfo {
+        self.read_one(&info_query_key(S::NAME)).await
+    }
+
     /// Reads the State `state`, as a late client would.
     ///
     /// # Panics
     ///
     /// When the Service does not reply exactly once with an `M`.
     pub async fn state<M: Message>(&self, state: &str) -> M {
-        let replies = self
-            .backend
-            .get(&state_key(S::NAME, state), None, REPLY_TIMEOUT)
-            .await
-            .expect("the state key is valid");
-        let [Ok(reply)] = replies.as_slice() else {
-            panic!("expected one value of {state:?}, got {replies:?}");
-        };
-        M::decode(&reply.payload().to_bytes()).expect("the reply is the State's Message")
+        self.read_one(&state_key(S::NAME, state)).await
     }
 
     /// Reads the standard `settings` State, as a late client would.
@@ -378,15 +365,7 @@ impl<S: Service> Harness<S> {
     ///
     /// When the Service does not reply exactly once with an `M`.
     pub async fn settings<M: Message>(&self) -> M {
-        let replies = self
-            .backend
-            .get(&settings_key(S::NAME), None, REPLY_TIMEOUT)
-            .await
-            .expect("the settings key is valid");
-        let [Ok(reply)] = replies.as_slice() else {
-            panic!("expected one settings value, got {replies:?}");
-        };
-        M::decode(&reply.payload().to_bytes()).expect("the reply is SettingsEnvelope")
+        self.read_one(&settings_key(S::NAME)).await
     }
 
     /// Reads the standard `jobs` State, as a late client would.
@@ -395,15 +374,7 @@ impl<S: Service> Harness<S> {
     ///
     /// When the Service does not reply exactly once with a [`JobList`].
     pub async fn jobs(&self) -> JobList {
-        let replies = self
-            .backend
-            .get(&jobs_key(S::NAME), None, REPLY_TIMEOUT)
-            .await
-            .expect("the jobs key is valid");
-        let [Ok(reply)] = replies.as_slice() else {
-            panic!("expected one jobs value, got {replies:?}");
-        };
-        JobList::decode(&reply.payload().to_bytes()).expect("the reply is a JobList")
+        self.read_one(&jobs_key(S::NAME)).await
     }
 
     /// Reads the Feedback State of the Job type `job_type`, as a late client would.
@@ -412,16 +383,7 @@ impl<S: Service> Harness<S> {
     ///
     /// When the Service does not reply exactly once with a [`JobFeedbackList`].
     pub async fn job_feedback(&self, job_type: &str) -> JobFeedbackList {
-        let replies = self
-            .backend
-            .get(&job_feedback_key(S::NAME, job_type), None, REPLY_TIMEOUT)
-            .await
-            .expect("the feedback key is valid");
-        let [Ok(reply)] = replies.as_slice() else {
-            panic!("expected one Feedback value of {job_type:?}, got {replies:?}");
-        };
-        JobFeedbackList::decode(&reply.payload().to_bytes())
-            .expect("the reply is a JobFeedbackList")
+        self.read_one(&job_feedback_key(S::NAME, job_type)).await
     }
 
     /// Calls the history Query of the Job type `job_type`: its last finished Jobs, in the order they ended.
@@ -430,15 +392,21 @@ impl<S: Service> Harness<S> {
     ///
     /// When the Service does not reply exactly once with a [`JobList`].
     pub async fn job_history(&self, job_type: &str) -> JobList {
+        self.read_one(&job_history_key(S::NAME, job_type)).await
+    }
+
+    /// Asks `key` with no body, as a late client would, and decodes the one reply it expects.
+    async fn read_one<M: Message>(&self, key: &str) -> M {
         let replies = self
             .backend
-            .get(&job_history_key(S::NAME, job_type), None, REPLY_TIMEOUT)
+            .get(key, None, REPLY_TIMEOUT)
             .await
-            .expect("the history key is valid");
+            .expect("the key is valid");
         let [Ok(reply)] = replies.as_slice() else {
-            panic!("expected one history of {job_type:?}, got {replies:?}");
+            panic!("expected one reply on {key}, got {replies:?}");
         };
-        JobList::decode(&reply.payload().to_bytes()).expect("the reply is a JobList")
+        M::decode(&reply.payload().to_bytes())
+            .unwrap_or_else(|error| panic!("the reply on {key} is no {}: {error}", M::SCHEMA_NAME))
     }
 }
 

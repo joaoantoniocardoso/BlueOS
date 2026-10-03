@@ -25,12 +25,8 @@ impl Service for ExampleService {
         _service: &ServiceContext<ExampleArguments>,
         _context: &(),
     ) -> Result<ServiceBuilder<Pump>, ServiceError> {
-        Ok(
-            endpoints::register(ServiceBuilder::new(PumpSnapshot::default())).service_metadata(
-                Self::VERSION,
-                Self::BUILD,
-                Self::CAPABILITIES,
-            ),
-        )
+        Ok(endpoints::register(ServiceBuilder::new(
+            PumpSnapshot::default(),
+        )))
     }
 }

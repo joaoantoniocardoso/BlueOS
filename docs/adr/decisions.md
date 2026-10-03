@@ -540,15 +540,18 @@ Decision:
   handler.
 - Names: `RecorderSettings` (the one settings type), `ActiveRecording` (the recording the Domain wants),
   `McapFile` (an open MCAP file), `RecordGate` (the Projection the data plane follows), `RecorderSessionState`
-  (the IDL message for the recording state), `RecordingFileState` (the lifecycle of one file in the library),
-  `RecordingOperationKind`. "Session" means only the Zenoh connection.
+  (the IDL message for the recording state), `RecordingFileState` (the lifecycle of one file in the library).
+  "Session" means only the Zenoh connection.
 - The data plane is a Task that owns the `McapFile` and follows the `RecordGate` through the reconcile pattern
   (D-27): it opens, rotates and finishes files itself and reports opened, finished and bytes written as
   Observed facts. There is one source of truth for the current file.
 - MAVLink facts (armed state) are Observed facts that carry the full current value and are re-sent periodically,
   so a dropped one heals (D-27). Each camera has its own capture status timer key.
-- `Start` and `Stop` are instant Job types (D-36). A recording started by arming or by a MAVLink camera command is
-  Domain state shown in the `recording` State, never a Job, so nothing gates it.
+- The recording is always running (`auto_start_recording`); arming starts nothing. MAVLink is recorded only while
+  the vehicle is armed or always, as the setting says, and a video stream is recorded from a MAVLink camera start
+  capture command until its stop command. All of this is Domain state shown in the `recording` State, never a
+  Job, so nothing gates it. `Start` and `Stop` are instant Job types (D-36) for a client that starts or stops the
+  recording by hand.
 - Preserve the contract MCM relies on (`--recorder=external`): `video/...` topics, MAVLink camera capture
   commands and status replies, and "record MAVLink only while armed".
 - Keep the zero-copy path (D-09). The data plane builds a channel descriptor once per channel, not per sample.
@@ -685,13 +688,13 @@ Decision:
 - Native repair: the `mcap` crate rewrites a recording in-process (no `mcap` CLI subprocess; progress is the
   exact read offset). Output goes to a `.recover` temporary file renamed over the original; cancel removes the
   temporary file and leaves the original untouched; leftovers, nested ones included, are discarded at startup. A
-  repair running at shutdown is not cancelled; the 5 s drain applies.
+  repair running at shutdown is cancelled the same way, within the 5 s drain.
 - Repairs and snapshots follow the reconcile pattern (D-27): the library Block lists the operations it wants, a
   `library` Task runs them and reports progress (the read offset) and the end as Observed facts, and cancelling the
   repair Job through the Kernel's control endpoint (D-12) removes the repair from the list.
 - A recording still being written is downloaded through `SnapshotRecording`: the same rewrite writes an indexed
-  copy `<stem>.snapshot-<UTC>Z.mcap` next to it, and the browser downloads it from nginx once the `operation`
-  Event names it. The download also completes from the `library` State and times out.
+  copy `<stem>.snapshot-<UTC>Z.mcap` next to it, and the browser downloads it from nginx once the Job result
+  names it. The download also completes from the `library` State and times out.
 - The recording-file suffix rule (case-insensitive `.mcap`) and the file name timestamp formats are defined once
   and shared with the frontend through a test vector (D-24). Timestamps are parsed and formatted with `chrono`.
 - The Recorder knows which file it is writing. Other files are rescanned on a timer and after each operation; the
@@ -720,8 +723,10 @@ API (keys under `blueos/v1/recorder/`, messages in `blueos_recorder_msgs`):
 | Kind | Name | Message |
 |---|---|---|
 | state | `library` | `RecordingLibrary` (`RecordingFile[]`, newest first) |
-| job | `RepairRecording` / `DeleteRecording` / `SnapshotRecording` | `.action` with the Goal `string path` |
-| event | `operation` | `RecordingOperation` (repair, snapshot, delete; succeeded, cancelled, failed with a reason, output path) |
+| job | `RepairRecording` / `DeleteRecording` / `SnapshotRecording` | lasting Job types (D-36), each an `.action` with the Goal `string path` |
+| state | `jobs/<JobType>/feedback` | `JobFeedbackList` of the Job type's `_Feedback` (D-12): a repair's read offset, a snapshot's output path |
+| event | `jobs/<JobType>/result` | `JobResult` of the Job type's `_Result`: how the Job ended, its reason, the path and a snapshot's output path |
+| query | `jobs/<JobType>/history` | `JobList` of the Job type's last finished Jobs |
 | query (`io`) | `index` | `RecordingIndex.srv` (paged chunk index + raw metadata records) |
 
 Rejections (from the Python rules): repair when already repairing, already indexed, being written or written
@@ -1179,7 +1184,8 @@ Decision:
 - **Load scenario** (test layer L6). A committed Python script, run with `uv` by a person from a topside computer,
   never in CI. It serves a fixed H.264 clip at 50 Mbps over RTSP with GStreamer (looped without re-encoding; the
   repository keeps its checksum and source, not the file), creates the redirect stream in MAVLink Camera Manager,
-  arms SITL and starts the recording. Phases of 60 s each: idle; one stream redirected; armed (MAVLink only); one
+  and arms SITL; the recording is always on, so arming makes it record MAVLink and a MAVLink camera start capture
+  command makes it record a stream. Phases of 60 s each: idle; one stream redirected; armed (MAVLink only); one
   stream recording; two streams recording. It samples CPU and memory of the Recorder, MAVLink Camera Manager,
   `zenohd` and the whole system over ssh, and checks that the MCAP file holds every frame and byte sent. The
   out-of-tree Recorder is measured with the same script on the same device and image, and is the reference.
@@ -1277,8 +1283,8 @@ Decision:
 - **Execution.** A running Job runs through the reconcile pattern (D-27). Steps inside a Job are the Domain's own
   state machine; a multi-step flow that is a product feature is its own Job type. Clients never submit job graphs.
 - **Only Requests create Jobs.** Work the Domain starts by itself, on an Observed fact or a Tick (the Recorder
-  starting a recording when the vehicle arms or when a MAVLink camera command arrives), shows in its State and is
-  never a Job. A Job is what a client asked for; a Domain never submits Jobs to itself.
+  recording MAVLink while the vehicle is armed, or a stream after a MAVLink camera start capture command), shows in
+  its State and is never a Job. A Job is what a client asked for; a Domain never submits Jobs to itself.
 - **Visibility.** Active Jobs are the `jobs` State, their Feedback is a State per Job type, and the end of a Job is an
   Event carrying its Job result; the last N finished Jobs of each type are a Query (D-12). Nothing grows without
   bound.

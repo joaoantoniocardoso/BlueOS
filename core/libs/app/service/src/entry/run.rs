@@ -78,7 +78,7 @@ async fn run_with_log_publisher_on_backend<S: Service>(
             Arc::clone(&backend),
         );
         let context = S::context(&service)?;
-        let builder = S::build(&service, &context)?;
+        let builder = S::build(&service, &context)?.for_service::<S>(&service);
         let mut kernel = Kernel::start(S::NAME, builder, context, backend, clock).await?;
         kernel.attach_log_publisher(log_runtime);
         Ok(kernel.run().await)

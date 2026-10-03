@@ -5,7 +5,7 @@ use core::{convert::Infallible, time::Duration};
 use std::collections::BTreeMap;
 
 use bytes::Bytes;
-use tokio::time::timeout;
+use tokio::time::{advance, timeout};
 
 use blueos_api::{
     CommandAck, Message, cdr_encoding, command_key, info_query_key, job_feedback_key,
@@ -14,11 +14,12 @@ use blueos_api::{
 use blueos_comms::{QueryBody, Subscriber};
 use blueos_domain::{Command, Decision, Domain, Effect, IoError, Now, Outcome};
 use blueos_idl::msg::{
-    blueos_example_msgs::{LevelRequest, LevelResponse, SetLevelGoal},
+    blueos_example_msgs::{LevelResponse, SetLevelGoal},
     blueos_msgs::{
-        CommandAckStatus, JobFeedbackList, JobList, JobResult, JobStatusStatus, ServiceInfo,
-        SettingsEnvelope,
+        CommandAckStatus, JobFeedbackList, JobList, JobResult, JobStatusStatus, SettingsEnvelope,
+        UpdateSettingsFeedback, UpdateSettingsResult,
     },
+    std_msgs::Empty,
 };
 use blueos_jobs::{DomainJobs, JobControl, JobEnd, JobId, JobNature, JobStatus, Jobs};
 use blueos_service::{Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness};
@@ -81,8 +82,8 @@ impl Service for BrewerService {
             jobs: Jobs::with_retention(RETENTION),
             brews: BTreeMap::new(),
         })
-        .command("Ping", |_: LevelRequest| Ok(BrewerRequest::Ping))
-        .command("Refuse", |_: LevelRequest| Ok(BrewerRequest::Refuse))
+        .command("Ping", |_: Empty| Ok(BrewerRequest::Ping))
+        .command("Refuse", |_: Empty| Ok(BrewerRequest::Refuse))
         .job("Brew", BREW, |job_id, goal: SetLevelGoal| {
             Ok(BrewerRequest::Brew {
                 job_id,
@@ -144,11 +145,12 @@ impl Domain for Brewer {
         _now: Now,
     ) -> Decision<Self> {
         let ended = match command {
-            Command::Request(BrewerRequest::Brew { job_id, cups: 0 }) => {
-                snapshot
-                    .jobs
-                    .end(job_id, JobEnd::Aborted, "no cups to brew")
-            }
+            Command::Request(BrewerRequest::Brew { job_id, cups: 0 }) => snapshot.jobs.end(
+                job_id,
+                JobEnd::Aborted {
+                    reason: "no cups to brew".to_owned(),
+                },
+            ),
             Command::Request(BrewerRequest::Brew { job_id, cups }) => {
                 snapshot.brews.insert(job_id, Brew { cups, poured: 0 });
                 return pour_next_cup(job_id);
@@ -162,7 +164,7 @@ impl Domain for Brewer {
             // The brew follows the status a control set each time a cup is due.
             Command::Tick(job_id) => {
                 if snapshot.jobs.job(job_id).map(|job| job.status) == Some(JobStatus::Canceling) {
-                    snapshot.jobs.end(job_id, JobEnd::Canceled, "")
+                    snapshot.jobs.end(job_id, JobEnd::Canceled)
                 } else {
                     let Some(brew) = snapshot.brews.get_mut(&job_id) else {
                         return Outcome::Rejected {
@@ -173,7 +175,7 @@ impl Domain for Brewer {
                     if brew.poured < brew.cups {
                         return pour_next_cup(job_id);
                     }
-                    snapshot.jobs.end(job_id, JobEnd::Succeeded, "")
+                    snapshot.jobs.end(job_id, JobEnd::Succeeded)
                 }
             }
             Command::IoResult(result) => match result {},
@@ -227,7 +229,7 @@ async fn a_job_that_ends_in_the_step_that_accepts_it_acks_its_final_status() {
     let harness = start().await;
     let [ping, empty] = [1, 2].map(JobId::from_u128);
 
-    let instant = harness.submit("Ping", ping, &LevelRequest::default()).await;
+    let instant = harness.submit("Ping", ping, &Empty::default()).await;
     let aborted = harness.submit("Brew", empty, &cups(0)).await;
 
     assert_eq!(instant, accepted(ping, CommandAckStatus::Succeeded));
@@ -305,9 +307,7 @@ async fn a_rejected_submit_leaves_no_job() {
     let harness = start().await;
     let job_id = JobId::from_u128(7);
 
-    let refused = harness
-        .submit("Refuse", job_id, &LevelRequest::default())
-        .await;
+    let refused = harness.submit("Refuse", job_id, &Empty::default()).await;
 
     assert_eq!(
         refused,
@@ -517,14 +517,31 @@ async fn no_key_outside_command_changes_anything() {
 }
 
 #[tokio::test(start_paused = true)]
+async fn info_reports_the_version_and_build_label_of_the_service_its_build_never_passes() {
+    let harness = start().await;
+
+    let info = harness.info().await;
+
+    assert_eq!(
+        (
+            info.name.as_str(),
+            info.version.as_str(),
+            info.build.as_str()
+        ),
+        (
+            BrewerService::NAME,
+            BrewerService::VERSION,
+            BrewerService::BUILD
+        )
+    );
+}
+
+#[tokio::test(start_paused = true)]
 async fn info_lists_the_jobs_state_and_the_feedback_result_and_history_of_each_job_type() {
     let harness = start().await;
     let service = BrewerService::NAME;
 
-    let info = harness
-        .query::<LevelRequest, ServiceInfo>("info", &LevelRequest::default())
-        .await
-        .expect("the info query answers");
+    let info = harness.info().await;
 
     let listed: Vec<_> = info
         .endpoints
@@ -540,15 +557,41 @@ async fn info_lists_the_jobs_state_and_the_feedback_result_and_history_of_each_j
         })
         .collect();
     let (list, list_schema) = (JobList::SCHEMA_NAME, JobList::SCHEMA);
+    let (feedback_list, result) = (JobFeedbackList::SCHEMA_NAME, JobResult::SCHEMA_NAME);
+    let separator = "=".repeat(80);
+    let carrying = |wrapper: &str, part: &str, part_schema: &str| {
+        format!("{wrapper}\n{separator}\nMSG: {part}\n{part_schema}")
+    };
+    let brew_feedback = carrying(
+        JobFeedbackList::SCHEMA,
+        "blueos_example_msgs/Level_Response",
+        LevelResponse::SCHEMA,
+    );
+    let brew_result = carrying(
+        JobResult::SCHEMA,
+        "blueos_example_msgs/SetLevel_Goal",
+        SetLevelGoal::SCHEMA,
+    );
+    let settings_feedback = carrying(
+        JobFeedbackList::SCHEMA,
+        "blueos_msgs/UpdateSettings_Feedback",
+        UpdateSettingsFeedback::SCHEMA,
+    );
+    let settings_result = carrying(
+        JobResult::SCHEMA,
+        "blueos_msgs/UpdateSettings_Result",
+        UpdateSettingsResult::SCHEMA,
+    );
     assert_eq!(
         listed.len(),
-        1 + 3 * 6,
-        "jobs, then three per Job type: {listed:?}"
+        1 + 1 + 3 * 6,
+        "UpdateSettings, jobs, then three per Job type: {listed:?}"
     );
     let shown: Vec<_> = listed
         .into_iter()
         .filter(|(_, name, ..)| {
-            *name == "jobs"
+            *name == "UpdateSettings"
+                || *name == "jobs"
                 || name.starts_with("jobs/Brew/")
                 || name.starts_with("jobs/UpdateSettings/")
         })
@@ -556,20 +599,27 @@ async fn info_lists_the_jobs_state_and_the_feedback_result_and_history_of_each_j
     assert_eq!(
         shown,
         [
+            (
+                "job",
+                "UpdateSettings",
+                command_key(service, "UpdateSettings"),
+                "blueos_msgs/action/UpdateSettings",
+                blueos_idl::schema("blueos_msgs/action/UpdateSettings").unwrap(),
+            ),
             ("state", "jobs", jobs_key(service), list, list_schema),
             (
                 "state",
                 "jobs/Brew/feedback",
                 job_feedback_key(service, "Brew"),
-                LevelResponse::SCHEMA_NAME,
-                LevelResponse::SCHEMA,
+                feedback_list,
+                brew_feedback.as_str(),
             ),
             (
                 "event",
                 "jobs/Brew/result",
                 job_result_key(service, "Brew"),
-                SetLevelGoal::SCHEMA_NAME,
-                SetLevelGoal::SCHEMA,
+                result,
+                brew_result.as_str(),
             ),
             (
                 "query",
@@ -582,15 +632,15 @@ async fn info_lists_the_jobs_state_and_the_feedback_result_and_history_of_each_j
                 "state",
                 "jobs/UpdateSettings/feedback",
                 job_feedback_key(service, "UpdateSettings"),
-                "",
-                "",
+                feedback_list,
+                settings_feedback.as_str(),
             ),
             (
                 "event",
                 "jobs/UpdateSettings/result",
                 job_result_key(service, "UpdateSettings"),
-                "",
-                ""
+                result,
+                settings_result.as_str(),
             ),
             (
                 "query",
@@ -632,17 +682,21 @@ async fn the_feedback_state_holds_the_latest_feedback_of_a_job_until_it_ends() {
 #[tokio::test(start_paused = true)]
 async fn a_client_that_opens_the_feedback_state_mid_job_sees_the_latest_feedback() {
     let harness = start().await;
+    let mut published = harness
+        .backend()
+        .subscribe(&job_feedback_key(BrewerService::NAME, "Brew"))
+        .await
+        .unwrap();
     let [brewing, waiting] = [7, 8].map(JobId::from_u128);
+    let two_cups_each = [(brewing, poured(2, 3)), (waiting, poured(2, 3))];
     harness.submit("Brew", brewing, &cups(3)).await;
     harness.submit("Brew", waiting, &cups(3)).await;
-    tokio::time::sleep(BREW_TIME * 2 + BREW_TIME / 2).await;
+    while fed_back(next(&mut published).await) != two_cups_each {}
+    advance(BREW_TIME / 2).await;
 
     let feedback = harness.job_feedback("Brew").await;
 
-    assert_eq!(
-        fed_back(feedback),
-        [(brewing, poured(2, 3)), (waiting, poured(2, 3))]
-    );
+    assert_eq!(fed_back(feedback), two_cups_each);
 }
 
 #[tokio::test(start_paused = true)]
@@ -723,7 +777,7 @@ async fn the_history_query_returns_the_last_finished_jobs_of_a_type_in_order() {
     let harness = start().await;
     let [first, second, third, brew] = [1, 2, 3, 4].map(JobId::from_u128);
     for ping in [first, second, third] {
-        harness.submit("Ping", ping, &LevelRequest::default()).await;
+        harness.submit("Ping", ping, &Empty::default()).await;
     }
     harness.submit("Brew", brew, &cups(0)).await;
 

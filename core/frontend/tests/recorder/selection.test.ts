@@ -4,7 +4,6 @@ import {
   allVisibleSelected,
   pruneSelection,
   selectedVisibleRecordings,
-  setPathSelected,
   setVisibleSelection,
   someVisibleSelected,
   togglePathSelection,
@@ -35,20 +34,18 @@ describe('recorder selection', () => {
     expect(togglePathSelection(['a.mcap'], 'a.mcap')).toEqual([])
   })
 
-  it('sets whether a path is selected', () => {
-    expect(setPathSelected([], 'a.mcap', true)).toEqual(['a.mcap'])
-    expect(setPathSelected(['a.mcap', 'b.mcap'], 'a.mcap', false)).toEqual(['b.mcap'])
-    expect(setPathSelected(['b.mcap'], 'a.mcap', true)).toEqual(['b.mcap', 'a.mcap'])
-  })
-
-  it('selects or clears every visible path without dropping hidden selections', () => {
-    expect(setVisibleSelection(['hidden.mcap'], visible, true)).toEqual([
+  it('selects the chosen visible paths without dropping hidden selections', () => {
+    expect(setVisibleSelection(['hidden.mcap'], visible, visible)).toEqual([
       'hidden.mcap',
       'a.mcap',
       'b.mcap',
       'c.mcap',
     ])
-    expect(setVisibleSelection(['hidden.mcap', 'a.mcap', 'b.mcap'], visible, false)).toEqual(['hidden.mcap'])
+    expect(setVisibleSelection(['hidden.mcap', 'a.mcap', 'b.mcap'], visible, [visible[2]])).toEqual([
+      'hidden.mcap',
+      'c.mcap',
+    ])
+    expect(setVisibleSelection(['hidden.mcap', 'a.mcap', 'b.mcap'], visible, [])).toEqual(['hidden.mcap'])
   })
 
   it('knows when all or some visible rows are selected', () => {

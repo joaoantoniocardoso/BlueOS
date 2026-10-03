@@ -85,7 +85,8 @@ optional on `core/app/blueos`; without it, `blueos example` prints that the name
 6. **Service** — `impl Service` in `app/src/service.rs`: `const NAME = endpoints::NAME`, then two steps that the
    Kernel runs in order. `context` builds the Context: it may open what the arguments name and fills every Port with
    its real adapter (`Ok(())` when there is nothing). `build` is pure, with no IO and no spawning: it returns
-   `endpoints::register(ServiceBuilder::new(...))` plus `.service_metadata(...)` when you need `info` fields. A Task
+   `endpoints::register(ServiceBuilder::new(...))`; the Kernel takes the `info` fields and the settings folder from
+   the Service itself. A Task
    that follows a Projection captures the handle in `build`; the Context never holds a Projection.
 7. **Multicall** — Add `"<name>"` to `KNOWN` in `core/app/blueos/src/main.rs` (always, even when the feature is off).
    Add a `#[cfg(feature = "<name>")]` match arm calling `blueos_service::entry::run::<YourService>`.

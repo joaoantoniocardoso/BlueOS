@@ -8,9 +8,7 @@ import {
 } from '@/libs/blueos-api/command'
 import { updateSettingsCommand } from '@/libs/blueos-api/endpoints'
 import { NoReplyError, QueryFailedError, UnexpectedEncodingError } from '@/libs/blueos-api/errors'
-import {
-  cdrEncoding, commandKey, ENCODING_APPLICATION_CDR, jobHistoryKey,
-} from '@/libs/blueos-api/keys'
+import { cdrEncoding, commandKey, jobHistoryKey } from '@/libs/blueos-api/keys'
 import { Level, SetLevel } from '@/libs/blueos-api/services/example'
 import type { Reply } from '@/libs/blueos-api/transport'
 import type { MessageForSchema, SchemaName } from '@/libs/blueos-api/types'
@@ -84,9 +82,9 @@ describe('sendCommand', () => {
 
   it('submits UpdateSettings as a Job and returns its final status', async () => {
     const transport = new FakeTransport()
-    const envelope = { document_json: '{"VERSION":1}', fields: [] }
+    const goal = { envelope: { document_json: '{"VERSION":1}', fields: [] } }
 
-    const sending = sendCommand(transport, updateSettingsCommand('tank'), envelope)
+    const sending = sendCommand(transport, updateSettingsCommand('tank'), goal)
     const sent = await transport.nextQuery()
     const jobId = attachedJobId(sent.body?.attachment)
     sent.reply(answer(sent.key, 'blueos_msgs/msg/CommandAck', {
@@ -98,7 +96,7 @@ describe('sendCommand', () => {
     })
     expect(jobId).toMatch(/^[0-9a-f-]{36}$/)
     expect(sent.key).toBe(commandKey('tank', 'UpdateSettings'))
-    expect(sent.body?.payload).toEqual(encodeCdr('blueos_msgs/msg/SettingsEnvelope', envelope))
+    expect(sent.body?.payload).toEqual(encodeCdr('blueos_msgs/action/UpdateSettings_Goal', goal))
   })
 
   it('fails with NoReplyError when no Service answers', async () => {
@@ -127,7 +125,7 @@ describe('Job controls', () => {
     ['CancelJob', cancelJob, CommandAckStatus.Canceling],
     ['PauseJob', pauseJob, CommandAckStatus.Paused],
     ['ResumeJob', resumeJob, CommandAckStatus.Executing],
-  ] as const)('%s sends the Job id with no body and returns the ack', async (name, control, status) => {
+  ] as const)('%s sends the Job id with an empty body and returns the ack', async (name, control, status) => {
     const transport = new FakeTransport()
     const ack = {
       accepted: true, job_id: JOB_ID, status, reason: '',
@@ -140,8 +138,8 @@ describe('Job controls', () => {
     expect(await sending).toEqual(ack)
     expect(sent.key).toBe(commandKey('tank', name))
     expect(attachedJobId(sent.body?.attachment)).toBe(JOB_ID)
-    expect(sent.body?.payload).toEqual(new Uint8Array())
-    expect(sent.body?.encoding).toBe(ENCODING_APPLICATION_CDR)
+    expect(sent.body?.payload).toEqual(encodeCdr('std_msgs/msg/Empty', {}))
+    expect(sent.body?.encoding).toBe(cdrEncoding('std_msgs/msg/Empty'))
   })
 
   it('returns the rejection of a control the Job type does not allow', async () => {

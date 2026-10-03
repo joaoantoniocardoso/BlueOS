@@ -208,12 +208,10 @@ describe('recorder Job watching', () => {
     }))
 
     expect(operations).toEqual([{
-      operation: 'repair',
-      path: 'broken.mcap',
-      output_path: '',
-      succeeded: false,
-      cancelled: false,
-      error: 'disk full',
+      job: {
+        job_id: JOB_ID, job_type: RepairRecording.name, status: JobStatusStatus.Aborted, reason: 'disk full',
+      },
+      result: { path: 'broken.mcap' },
     }])
   })
 })

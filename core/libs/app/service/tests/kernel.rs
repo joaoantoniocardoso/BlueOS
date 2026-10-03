@@ -25,9 +25,10 @@ use blueos_idl::{
     cdr::{Reader, Writer},
     message::CdrStruct,
     msg::{
-        blueos_example_msgs::{LevelRequest, LevelResponse, PumpState, SetLevelGoal},
+        blueos_example_msgs::{LevelResponse, PumpState, SetLevelGoal},
         blueos_msgs::{CommandAckStatus, JobStatusStatus},
         builtin_interfaces::Time,
+        std_msgs::Empty,
     },
 };
 use blueos_jobs::JobId;
@@ -170,17 +171,17 @@ impl Service for TankService {
             })
             .query(
                 "Level",
-                |_request: LevelRequest| Ok(TankQuery::Level),
+                |_request: Empty| Ok(TankQuery::Level),
                 level_response,
             )
             .query(
                 "Other",
-                |_request: LevelRequest| Ok(TankQuery::Other),
+                |_request: Empty| Ok(TankQuery::Other),
                 level_response,
             )
             .query(
                 "Panics",
-                |_request: LevelRequest| Ok(TankQuery::Panic),
+                |_request: Empty| Ok(TankQuery::Panic),
                 level_response,
             )
             .query(
@@ -210,7 +211,7 @@ impl Service for TankService {
                 TankEvent::Emptied => None,
             })
             .event("Emptied", |event: &TankEvent| {
-                matches!(event, TankEvent::Emptied).then(LevelRequest::default)
+                matches!(event, TankEvent::Emptied).then(Empty::default)
             }))
     }
 }
@@ -238,7 +239,7 @@ impl Service for FragileTankService {
                 })
                 .query(
                     "Level",
-                    |_request: LevelRequest| Ok(TankQuery::Level),
+                    |_request: Empty| Ok(TankQuery::Level),
                     |response: TankResponse| match response {
                         TankResponse::Level(level) => Some(FragileLevel { level }),
                         TankResponse::Other => None,
@@ -288,7 +289,7 @@ impl Service for ProbeService {
                     })
                 }
             })
-            .io_query("FragileProbe", |_request: LevelRequest| {
+            .io_query("FragileProbe", |_request: Empty| {
                 Box::pin(async {
                     Ok(FragileLevel {
                         level: LEVEL_THAT_FAILS_TO_ENCODE,
@@ -906,8 +907,8 @@ async fn the_kernel_stops_once_the_backbone_closes_every_endpoint() {
         &(),
     )
     .unwrap()
-    .io_query("Probe", |_request: LevelRequest| {
-        Box::pin(async { Ok(LevelRequest::default()) })
+    .io_query("Probe", |_request: Empty| {
+        Box::pin(async { Ok(Empty::default()) })
     });
     let kernel = Kernel::start(
         TankService::NAME,
@@ -935,7 +936,7 @@ async fn the_harness_panics_when_a_command_gets_no_ack() {
 }
 
 #[tokio::test(start_paused = true)]
-#[should_panic(expected = "expected one value of \"missing\"")]
+#[should_panic(expected = "expected one reply on blueos/v1/tank/state/missing")]
 async fn the_harness_panics_when_a_state_has_no_value() {
     let harness = Harness::<TankService>::start(TankArguments { capacity: 100 })
         .await
@@ -990,7 +991,7 @@ async fn a_query_is_answered_from_the_snapshot_left_by_the_commands_before_it() 
     harness.send("SetLevel", &SetLevelGoal { level: 42 }).await;
 
     let answer = harness
-        .query::<_, LevelResponse>("Level", &LevelRequest::default())
+        .query::<_, LevelResponse>("Level", &Empty::default())
         .await
         .unwrap();
 
@@ -1002,7 +1003,7 @@ async fn a_query_without_an_answer_replies_why_and_the_inbox_goes_on() {
     let harness = Harness::<TankService>::start(TankArguments { capacity: 100 })
         .await
         .unwrap();
-    let empty = LevelRequest::default();
+    let empty = Empty::default();
 
     let other_response = harness.query::<_, LevelResponse>("Other", &empty).await;
     let panicked = harness.query::<_, LevelResponse>("Panics", &empty).await;
@@ -1040,7 +1041,7 @@ async fn a_query_reply_that_fails_to_encode_replies_why() {
         .await;
 
     let answer = harness
-        .query::<_, FragileLevel>("Level", &LevelRequest::default())
+        .query::<_, FragileLevel>("Level", &Empty::default())
         .await;
 
     assert_eq!(
@@ -1088,7 +1089,7 @@ async fn an_io_query_without_an_answer_replies_why_and_the_next_one_is_answered(
         .await;
     let undecodable = raw_query(&harness, ProbeService::NAME, "Probe").await;
     let unencodable = harness
-        .query::<_, FragileLevel>("FragileProbe", &LevelRequest::default())
+        .query::<_, FragileLevel>("FragileProbe", &Empty::default())
         .await;
     let answer = harness
         .query::<_, LevelResponse>("Probe", &SetLevelGoal { level: 3 })
@@ -1116,7 +1117,7 @@ async fn the_harness_panics_when_a_query_gets_no_reply() {
 
     drop(
         harness
-            .query::<_, LevelResponse>("Missing", &LevelRequest::default())
+            .query::<_, LevelResponse>("Missing", &Empty::default())
             .await,
     );
 }
@@ -1127,7 +1128,7 @@ async fn raw_query<S: Service>(
     service: &str,
     name: &str,
 ) -> Result<Sample, ReplyError> {
-    let body = QueryBody::new(vec![0xFF], cdr_encoding(LevelRequest::SCHEMA_NAME));
+    let body = QueryBody::new(vec![0xFF], cdr_encoding(Empty::SCHEMA_NAME));
     let replies = harness
         .backend()
         .get(

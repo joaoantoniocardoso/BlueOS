@@ -8,11 +8,7 @@ pub mod durable;
 
 use core::convert::Infallible;
 
-use alloc::{
-    borrow::ToOwned,
-    string::{String, ToString},
-    vec::Vec,
-};
+use alloc::{borrow::ToOwned, string::ToString, vec::Vec};
 use blueos_domain::{Command, Decision, Domain, DomainDurable, DomainQueries, Now, Outcome};
 use blueos_jobs::{DomainJobs, JobEnd, JobId, JobStatus, Jobs};
 use blueos_recorder_cameras::{
@@ -23,9 +19,9 @@ use blueos_recorder_capture::{
     RecordingState as CaptureRecordingState,
 };
 use blueos_recorder_library::{
-    InfallibleLibraryEvent, Library, LibraryIoRequest, LibraryIoResult, LibraryObservedFact,
-    LibraryOperation, LibraryRejection, LibraryRepairOutcome, LibraryRequest,
-    LibrarySnapshotOutcome, LibraryTick, LibraryTimerKey, snapshot_output_relative_path,
+    Library, LibraryIoRequest, LibraryIoResult, LibraryObservedFact, LibraryOperation,
+    LibraryRejection, LibraryRepairOutcome, LibraryRequest, LibrarySnapshotOutcome, LibraryTick,
+    LibraryTimerKey, snapshot_output_relative_path,
 };
 use blueos_recorder_paths::RecordingRelativePath;
 
@@ -82,6 +78,8 @@ pub enum RecorderRequest {
     },
     /// Removes a finished recording from the library folder.
     DeleteRecording {
+        /// The Job the delete runs as.
+        job_id: JobId,
         /// Path validated at the api boundary.
         path: RecordingRelativePath,
     },
@@ -214,9 +212,9 @@ impl Domain for RecorderDomain {
                     }
                     map_library_outcome(snapshot.library.start_repair(path, job_id, active, now))
                 }
-                RecorderRequest::DeleteRecording { path } => {
+                RecorderRequest::DeleteRecording { job_id, path } => {
                     map_library_outcome(snapshot.library.handle_request(
-                        LibraryRequest::DeleteRecording { path },
+                        LibraryRequest::DeleteRecording { path, job_id },
                         active,
                         now,
                     ))
@@ -271,6 +269,14 @@ impl Domain for RecorderDomain {
                 map_cameras_outcome(outcome)
             }
             Command::IoResult(RecorderIoResult::Library(result)) => {
+                if let LibraryIoResult::DeleteFinished { job_id, error, .. } = &result {
+                    let end = error
+                        .as_ref()
+                        .map_or(JobEnd::Succeeded, |error| JobEnd::Aborted {
+                            reason: error.to_string(),
+                        });
+                    let _ended = snapshot.jobs.end(*job_id, end);
+                }
                 map_library_outcome(snapshot.library.handle_io_result(result, active, now))
             }
             Command::IoResult(RecorderIoResult::Cameras(CamerasIoResult::PublishFailed)) => {
@@ -291,13 +297,10 @@ impl Domain for RecorderDomain {
                 let end = job_end(&fact);
                 let decision =
                     map_library_outcome(snapshot.library.handle_observed_fact(fact, active, now));
-                if let Some((end, reason)) = end
-                    && let Some(
-                        LibraryOperation::Repair { job_id, .. }
-                        | LibraryOperation::Snapshot { job_id, .. },
-                    ) = snapshot.library.ended_operation()
+                if let Some(end) = end
+                    && let Some(operation) = snapshot.library.ended_operation()
                 {
-                    let _ended = snapshot.jobs.end(*job_id, end, &reason);
+                    let _ended = snapshot.jobs.end(operation.job_id(), end);
                 }
                 decision
             }
@@ -313,9 +316,10 @@ impl Domain for RecorderDomain {
                 let _ = error;
                 Command::IoResult(RecorderIoResult::Library(LibraryIoResult::ScanFailed))
             }
-            RecorderIoRequest::Library(LibraryIoRequest::Delete { path }) => {
+            RecorderIoRequest::Library(LibraryIoRequest::Delete { path, job_id }) => {
                 Command::IoResult(RecorderIoResult::Library(LibraryIoResult::DeleteFinished {
                     path,
+                    job_id,
                     error: Some(error),
                 }))
             }
@@ -379,8 +383,8 @@ fn active_recording_relative_path(snapshot: &RecorderSnapshot) -> Option<&str> {
     }
 }
 
-/// How the Job of a repair or snapshot ends, and why, when `fact` reports that the operation ended.
-fn job_end(fact: &LibraryObservedFact) -> Option<(JobEnd, String)> {
+/// How the Job of a repair or snapshot ends, when `fact` reports that the operation ended.
+fn job_end(fact: &LibraryObservedFact) -> Option<JobEnd> {
     match fact {
         LibraryObservedFact::RepairProgress(_) => None,
         LibraryObservedFact::RepairFinished {
@@ -390,11 +394,11 @@ fn job_end(fact: &LibraryObservedFact) -> Option<(JobEnd, String)> {
         | LibraryObservedFact::SnapshotFinished {
             outcome: LibrarySnapshotOutcome::Succeeded,
             ..
-        } => Some((JobEnd::Succeeded, String::new())),
+        } => Some(JobEnd::Succeeded),
         LibraryObservedFact::RepairFinished {
             outcome: LibraryRepairOutcome::Cancelled,
             ..
-        } => Some((JobEnd::Canceled, String::new())),
+        } => Some(JobEnd::Canceled),
         LibraryObservedFact::RepairFinished {
             outcome: LibraryRepairOutcome::Failed(failure),
             ..
@@ -402,7 +406,9 @@ fn job_end(fact: &LibraryObservedFact) -> Option<(JobEnd, String)> {
         | LibraryObservedFact::SnapshotFinished {
             outcome: LibrarySnapshotOutcome::Failed(failure),
             ..
-        } => Some((JobEnd::Aborted, failure.to_string())),
+        } => Some(JobEnd::Aborted {
+            reason: failure.to_string(),
+        }),
     }
 }
 
@@ -464,7 +470,7 @@ fn map_capture_outcome(
 }
 
 fn map_library_outcome(
-    outcome: Outcome<InfallibleLibraryEvent, LibraryTick, LibraryIoRequest, LibraryTimerKey>,
+    outcome: Outcome<Infallible, LibraryTick, LibraryIoRequest, LibraryTimerKey>,
 ) -> Decision<RecorderDomain> {
     outcome.map(
         |never| match never {},

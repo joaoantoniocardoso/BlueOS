@@ -22,6 +22,7 @@ pub trait Conversions: Domain {
     ///
     /// The Domain's Request for the Goal, or why it is rejected.
     fn delete_recording(
+        job_id: JobId,
         goal: blueos_recorder_msgs::DeleteRecordingGoal,
     ) -> Result<Self::Request, Self::DeleteRecordingError>;
 

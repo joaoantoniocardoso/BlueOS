@@ -12,15 +12,14 @@ use tokio::time::{advance, timeout};
 use blueos_comms::{Payload, Sample};
 use blueos_domain::Command;
 use blueos_idl::msg::{
-    blueos_example_msgs::LevelRequest,
-    blueos_msgs::{CommandAckStatus, ServiceInfo, SettingsEnvelope},
+    blueos_msgs::{CommandAckStatus, SettingsEnvelope},
     blueos_recorder_msgs::{RecordingState, StartRecordingGoal, StopRecordingGoal},
 };
 use blueos_recorder_app::RecorderService;
-use blueos_recorder_cameras::RAW_MAVLINK_OUT_TOPIC;
+use blueos_recorder_cameras::{CamerasObservedFact, RAW_MAVLINK_OUT_TOPIC, SystemAndComponent};
 use blueos_recorder_capture::CaptureObservedFact;
 use blueos_recorder_domain::{RecorderObservedFact, RecorderRequest};
-use blueos_recorder_mavlink::test_vehicle_heartbeat_frame;
+use blueos_recorder_mavlink::{test_camera_capture_frame, test_vehicle_heartbeat_frame};
 use blueos_service::Service;
 
 use blueos_recorder_library::RESCAN_INTERVAL;
@@ -204,7 +203,7 @@ async fn dropped_armed_fact_heals_on_mavlink_periodic_resend() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn arming_shows_the_recording_in_the_recording_state_without_a_job() {
+async fn the_always_on_recording_shows_the_armed_vehicle_in_the_recording_state_without_a_job() {
     let directory = tempdir().expect("tempdir");
     let harness = start_harness(directory.path()).await;
     wait_for_active_recording(harness.backend()).await;
@@ -225,6 +224,54 @@ async fn arming_shows_the_recording_in_the_recording_state_without_a_job() {
 
     assert!(harness.jobs().await.jobs.is_empty());
     assert!(harness.job_history("Start").await.jobs.is_empty());
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_mavlink_camera_start_and_stop_capture_record_its_video_topic_without_a_job() {
+    let directory = tempdir().expect("tempdir");
+    let harness = start_harness(directory.path()).await;
+    wait_for_active_recording(harness.backend()).await;
+    let topic = "video/front/stream";
+    let camera = SystemAndComponent {
+        system_id: 1,
+        component_id: 100,
+    };
+    for discovered in [
+        CamerasObservedFact::SetCameraRecordingCapability {
+            camera,
+            capture_video: true,
+        },
+        CamerasObservedFact::RegisterVideoStream {
+            topic: topic.into(),
+            camera,
+        },
+    ] {
+        harness
+            .command_sender()
+            .send(Command::ObservedFact(RecorderObservedFact::Cameras(
+                discovered,
+            )))
+            .await
+            .expect("camera discovered");
+    }
+
+    for (start, recording) in [(true, vec![topic.to_owned()]), (false, vec![])] {
+        harness
+            .backend()
+            .publish(Sample::new(
+                RAW_MAVLINK_OUT_TOPIC,
+                Payload::new(Bytes::from(test_camera_capture_frame(start, 1, 100))),
+                "application/octet-stream",
+            ))
+            .await
+            .expect("publish capture command");
+        wait_for_recording_state(harness.backend(), |state| {
+            state.recording_video_topics == recording
+        })
+        .await;
+    }
+
+    assert!(harness.jobs().await.jobs.is_empty());
 }
 
 #[tokio::test(start_paused = true)]
@@ -253,10 +300,7 @@ async fn start_and_stop_acks_carry_their_final_status() {
 async fn recorder_service_info_is_published() {
     let directory = tempdir().expect("tempdir");
     let harness = start_harness(directory.path()).await;
-    let info = harness
-        .query::<LevelRequest, ServiceInfo>("info", &LevelRequest::default())
-        .await
-        .expect("info query");
+    let info = harness.info().await;
     assert_eq!(info.name, RecorderService::NAME);
     assert_eq!(info.version, RecorderService::VERSION);
 }
@@ -275,12 +319,9 @@ async fn info_lists_each_endpoint_with_the_interface_type_of_api_lock_and_its_sc
         })
         .collect();
 
-    let info = harness
-        .query::<LevelRequest, ServiceInfo>("info", &LevelRequest::default())
-        .await
-        .expect("info query");
+    let info = harness.info().await;
 
-    assert_eq!(info.endpoints.len(), 9 + 3 * 6, "{:?}", info.endpoints);
+    assert_eq!(info.endpoints.len(), 9 + 1 + 3 * 6, "{:?}", info.endpoints);
     for endpoint in &info.endpoints {
         assert_eq!(
             locked.get(endpoint.key.as_str()),
@@ -288,9 +329,10 @@ async fn info_lists_each_endpoint_with_the_interface_type_of_api_lock_and_its_sc
             "{}",
             endpoint.key
         );
-        assert_eq!(
-            endpoint.schema.as_str(),
-            blueos_idl::schema(&endpoint.interface_type).unwrap_or_default(),
+        assert!(
+            endpoint.schema.starts_with(
+                blueos_idl::schema(&endpoint.interface_type).expect("a listed type has a schema")
+            ),
             "{}",
             endpoint.key
         );

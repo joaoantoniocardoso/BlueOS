@@ -5,7 +5,7 @@ use core::convert::Infallible;
 use std::{path::PathBuf, sync::Arc};
 
 use blueos_domain::{Command, Decision, Domain, Effect, IoError, Now, Outcome};
-use blueos_idl::msg::blueos_example_msgs::{LevelRequest, LevelResponse};
+use blueos_idl::msg::{blueos_example_msgs::LevelResponse, std_msgs::Empty};
 use blueos_service::{Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness};
 
 /// Reads the gauge's sensor: the Port a test replaces.
@@ -71,7 +71,7 @@ impl Service for GaugeService {
                 };
                 async move { Ok(Some(GaugeIoResult::Level(level))) }
             })
-            .command("ReadLevel", |_: LevelRequest| Ok(GaugeRequest::ReadLevel))
+            .command("ReadLevel", |_: Empty| Ok(GaugeRequest::ReadLevel))
             .state("gauge", move |snapshot: &GaugeSnapshot| LevelResponse {
                 level: snapshot.level,
                 max_level,
@@ -127,7 +127,7 @@ async fn start_runs_the_context_that_ships() {
         .await
         .unwrap();
 
-    let ack = harness.send("ReadLevel", &LevelRequest::default()).await;
+    let ack = harness.send("ReadLevel", &Empty::default()).await;
 
     assert!(ack.accepted);
     let gauge = harness.state::<LevelResponse>("gauge").await;
@@ -165,7 +165,7 @@ async fn start_with_replaces_a_port_and_a_field_before_build() {
     .await
     .unwrap();
 
-    let ack = harness.send("ReadLevel", &LevelRequest::default()).await;
+    let ack = harness.send("ReadLevel", &Empty::default()).await;
 
     assert!(ack.accepted);
     let gauge = harness.state::<LevelResponse>("gauge").await;

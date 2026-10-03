@@ -11,7 +11,7 @@ import {
 } from './constants'
 import type {
   LibraryRecording,
-  RecordingOperationEvent,
+  RecordingJobResult,
   RecordingState,
 } from './types'
 
@@ -84,18 +84,12 @@ export function canPlayRecording(file: LibraryRecording): boolean {
   return file.state === 'ready' || file.state === 'recording'
 }
 
-export function isSnapshotOperationForPath(
-  event: RecordingOperationEvent,
-  path: string,
-): boolean {
-  return event.operation === 'snapshot' && event.path === path
-}
-
-export function snapshotDownloadPath(event: RecordingOperationEvent): string | null {
-  if (!event.succeeded || event.cancelled || !event.output_path) {
+/** The snapshot a snapshot Job wrote, or null when the Job did not succeed. */
+export function snapshotDownloadPath({ job, result }: RecordingJobResult): string | null {
+  if (job.status !== JobStatusStatus.Succeeded || !('output_path' in result) || !result.output_path) {
     return null
   }
-  return event.output_path
+  return result.output_path
 }
 
 function snapshotPathPrefix(sourcePath: string): string {
@@ -138,18 +132,10 @@ export function readySnapshotDownloadPath(
   return match?.path ?? null
 }
 
-export function operationFailureMessage(
-  event: RecordingOperationEvent,
-  fileName: string,
-): string | null {
-  if (event.succeeded || event.cancelled) {
+/** Why a Job aborted, for the user, or null when it succeeded or was canceled. */
+export function jobFailureMessage({ job, result }: RecordingJobResult): string | null {
+  if (job.status !== JobStatusStatus.Aborted) {
     return null
   }
-  let verb = 'Delete'
-  if (event.operation === 'repair') {
-    verb = 'Repair'
-  } else if (event.operation === 'snapshot') {
-    verb = 'Snapshot'
-  }
-  return `${verb} failed for ${fileName}: ${event.error || 'unknown error'}`
+  return `${RECORDING_OPERATION_UI[job.job_type].label} failed for ${result.path}: ${job.reason || 'unknown error'}`
 }

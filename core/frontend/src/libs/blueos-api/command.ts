@@ -4,9 +4,7 @@ import type { CommandAck, JobList } from '@blueos-idl/messages'
 import { decodeSample, encodeCdr } from './cdr'
 import type { CommandEndpoint, QueryEndpoint } from './endpoints'
 import { NoReplyError, QueryFailedError } from './errors'
-import {
-  cdrEncoding, commandKey, ENCODING_APPLICATION_CDR, jobHistoryKey,
-} from './keys'
+import { cdrEncoding, commandKey, jobHistoryKey } from './keys'
 import type { QueryBody, Transport } from './transport'
 import {
   COMMAND_ACK_SCHEMA, type MessageForSchema, PERMISSION_ANSWER_SCHEMA, type SchemaName,
@@ -30,16 +28,16 @@ export function newJobId(): string {
 /**
  * Submits a Command as the Job `jobId` and returns the Service's verdict: accepted with the Job's status, or rejected
  * with a `reason`. An instant Job acks its final status; a lasting one goes on in the `jobs` State (D-10, D-36).
- * Sending again with the same `jobId` and request is a retry that returns the same Job.
+ * Sending again with the same `jobId` and Goal is a retry that returns the same Job.
  */
 export async function sendCommand<Schema extends SchemaName>(
   transport: Transport,
   command: CommandEndpoint<Schema>,
-  request: MessageForSchema<Schema>,
+  goal: MessageForSchema<Schema>,
   jobId: string = newJobId(),
 ): Promise<CommandAck> {
   return ask(transport, command.key, {
-    payload: encodeCdr(command.goalSchema, request),
+    payload: encodeCdr(command.goalSchema, goal),
     encoding: cdrEncoding(command.goalSchema),
     attachment: new TextEncoder().encode(jobId),
   }, COMMAND_ACK_SCHEMA)
@@ -92,11 +90,7 @@ export async function jobHistory(transport: Transport, service: string, jobType:
 }
 
 async function control(transport: Transport, service: string, name: string, jobId: string): Promise<CommandAck> {
-  return ask(transport, commandKey(service, name), {
-    payload: new Uint8Array(),
-    encoding: ENCODING_APPLICATION_CDR,
-    attachment: new TextEncoder().encode(jobId),
-  }, COMMAND_ACK_SCHEMA)
+  return sendCommand(transport, { key: commandKey(service, name), goalSchema: 'std_msgs/msg/Empty' }, {}, jobId)
 }
 
 async function ask<ResponseSchema extends SchemaName>(

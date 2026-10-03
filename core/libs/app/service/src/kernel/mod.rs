@@ -34,7 +34,8 @@ use blueos_idl::{
     Error as IdlError,
     msg::blueos_msgs::{
         EndpointInfo, JobFeedback, JobFeedbackList, JobList, JobResult, PermissionAnswer,
-        ServiceInfo, ServiceStatus, ServiceStatusStatus, SettingsEnvelope,
+        ServiceInfo, ServiceStatus, ServiceStatusStatus, UpdateSettingsFeedback,
+        UpdateSettingsGoal, UpdateSettingsResult,
     },
 };
 use blueos_jobs::{JobControl, JobEnd, JobId, JobNature, JobStatus, Jobs, JobsError, Submitted};
@@ -67,6 +68,13 @@ use timers::TimerWheel;
 const INBOX_CAPACITY: usize = 256;
 /// The encoding of the reason in a Query's error reply.
 const REASON_ENCODING: &str = "text/plain";
+/// The Job type every Service serves to replace its settings (D-11).
+const UPDATE_SETTINGS: &str = "UpdateSettings";
+/// The interface type of [`UPDATE_SETTINGS`], as `info` lists it.
+const UPDATE_SETTINGS_ACTION: &str = "blueos_msgs/action/UpdateSettings";
+/// The line ROS 2 schema text puts before the schema of each message it depends on.
+const SCHEMA_SEPARATOR: &str =
+    "================================================================================";
 /// The controls every Service serves on `command/<control>`. The answer of `AnswerPermission` comes from its body.
 const CONTROLS: [JobControl; 4] = [
     JobControl::Cancel,
@@ -100,7 +108,7 @@ pub struct Kernel<D: Domain, Context = ()> {
     durable: Option<DurableStateHandle<D>>,
     events: Vec<EventEndpoint<D>>,
     /// Decodes the Goal of each Job type, for a Job that executes once its permission is granted.
-    job_types: HashMap<String, Decode<D>>,
+    goal_decoders: HashMap<String, Decode<D>>,
     /// Where the Jobs are when the Domain keeps them in its Snapshot.
     jobs_access: Option<JobsAccess<D>>,
     /// The Jobs, when the Domain does not keep them.
@@ -163,6 +171,13 @@ struct EncodedJobOutput {
     results: Vec<Result<Vec<u8>, IdlError>>,
 }
 
+/// The build declared Feedback or a Job result for `job_type`, but no Job type of that name.
+#[derive(Debug, thiserror::Error)]
+#[error("{job_type} declares Feedback or a Job result but is no Job type")]
+struct OutputWithoutJobType {
+    job_type: String,
+}
+
 /// Why the Kernel did not apply a Command. Its text is the reason in the rejected [`CommandAck`].
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum Rejection {
@@ -187,6 +202,9 @@ pub(crate) enum Rejection {
     /// The Service registered no settings, so there is nothing for `UpdateSettings` to change.
     #[error("the Service has no settings")]
     NoSettings,
+    /// The Job a permission answer resumes has a type the Service does not register.
+    #[error("there is no Job type {0}")]
+    UnknownJobType(String),
     /// The Jobs refused the submit or the control.
     #[error(transparent)]
     Jobs(#[from] JobsError),
@@ -273,15 +291,24 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
 
     async fn boot(
         service: &'static str,
-        mut builder: ServiceBuilder<D, Context>,
+        builder: ServiceBuilder<D, Context>,
         context: Context,
         backend: Arc<dyn CommsBackend>,
         clock: Arc<dyn Clock>,
         #[cfg(feature = "testing")] effect_log: Option<EffectLogStorage<D>>,
     ) -> Result<Self, ServiceError> {
+        let mut builder = builder
+            .job_feedback(UPDATE_SETTINGS, |_, _| None::<UpdateSettingsFeedback>)
+            .job_result(UPDATE_SETTINGS, |_, _| UpdateSettingsResult::default());
         let mut startup_commands = builder.startup_commands;
         let shutdown_request = tokio::sync::Mutex::new(builder.shutdown_request);
-        let durable_registration = builder.durable.take();
+        let durable_registration = builder.durable.take().map(|declaration| {
+            (declaration.open)(
+                service.to_owned(),
+                builder.settings_folder.clone(),
+                declaration.version,
+            )
+        });
         if let Some(registration) = &durable_registration {
             registration
                 .store
@@ -298,7 +325,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             .commands
             .iter()
             .map(|command| command.name.clone())
-            .chain(["UpdateSettings".to_owned()])
+            .chain([UPDATE_SETTINGS.to_owned()])
             .collect();
         let service_info = ServiceInfo {
             name: service.to_owned(),
@@ -314,13 +341,24 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 .manifest_endpoints
                 .iter()
                 .cloned()
-                .chain([EndpointInfo {
-                    kind: "state".to_owned(),
-                    name: "jobs".to_owned(),
-                    key: jobs_key(service),
-                    interface_type: JobList::SCHEMA_NAME.to_owned(),
-                    schema: JobList::SCHEMA.to_owned(),
-                }])
+                .chain([
+                    EndpointInfo {
+                        kind: "job".to_owned(),
+                        name: UPDATE_SETTINGS.to_owned(),
+                        key: command_key(service, UPDATE_SETTINGS),
+                        interface_type: UPDATE_SETTINGS_ACTION.to_owned(),
+                        schema: blueos_idl::schema(UPDATE_SETTINGS_ACTION)
+                            .unwrap_or_default()
+                            .to_owned(),
+                    },
+                    EndpointInfo {
+                        kind: "state".to_owned(),
+                        name: "jobs".to_owned(),
+                        key: jobs_key(service),
+                        interface_type: JobList::SCHEMA_NAME.to_owned(),
+                        schema: JobList::SCHEMA.to_owned(),
+                    },
+                ])
                 .chain(job_type_names.iter().flat_map(|job_type| {
                     let (feedback_type, result_type) = builder
                         .job_outputs
@@ -332,15 +370,15 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                             kind: "state".to_owned(),
                             name: format!("jobs/{job_type}/feedback"),
                             key: job_feedback_key(service, job_type),
-                            interface_type: feedback_type.name.to_owned(),
-                            schema: feedback_type.schema.to_owned(),
+                            interface_type: JobFeedbackList::SCHEMA_NAME.to_owned(),
+                            schema: carrying::<JobFeedbackList>(feedback_type),
                         },
                         EndpointInfo {
                             kind: "event".to_owned(),
                             name: format!("jobs/{job_type}/result"),
                             key: job_result_key(service, job_type),
-                            interface_type: result_type.name.to_owned(),
-                            schema: result_type.schema.to_owned(),
+                            interface_type: JobResult::SCHEMA_NAME.to_owned(),
+                            schema: carrying::<JobResult>(result_type),
                         },
                         EndpointInfo {
                             kind: "query".to_owned(),
@@ -374,11 +412,12 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         );
         let task_specs = builder.tasks;
         let update_settings_queryable =
-            declare(&*backend, command_key(service, "UpdateSettings")).await?;
+            declare(&*backend, command_key(service, UPDATE_SETTINGS)).await?;
         let mut pending_settings_serve = None;
         let mut settings = None;
         if let Some(registration) = builder.settings {
-            let mut driver = (registration.start)()?;
+            let mut driver =
+                (registration.start)(service.to_owned(), builder.settings_folder.clone())?;
             driver.load_into(&mut builder.snapshot)?;
             let driver = Arc::new(Mutex::new(driver));
             let key = settings_key(service);
@@ -395,7 +434,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             });
         }
         let mut pending_commands = Vec::new();
-        let mut job_types = HashMap::new();
+        let mut goal_decoders = HashMap::new();
         let mut job_outputs = Vec::new();
         let mut pending_job_outputs = Vec::new();
         for command in builder.commands {
@@ -416,18 +455,13 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 })
             };
             pending_commands.push((queryable, into_input));
-            job_types.insert(command.name, command.decode);
+            goal_decoders.insert(command.name, command.decode);
         }
         for job_type in job_type_names {
             let feedback_key = job_feedback_key(service, &job_type);
             let history_key = job_history_key(service, &job_type);
             let job_output = JobTypeOutput {
-                output: builder.job_outputs.remove(&job_type).unwrap_or(JobOutput {
-                    feedback: None,
-                    result: None,
-                    feedback_type: MessageType::default(),
-                    result_type: MessageType::default(),
-                }),
+                output: builder.job_outputs.remove(&job_type).unwrap_or_default(),
                 job_type,
                 feedback_latest: watch::Sender::new(None),
                 history: watch::Sender::new(None),
@@ -443,9 +477,9 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             job_outputs.push(job_output);
         }
         if let Some(job_type) = builder.job_outputs.keys().next() {
-            return Err(ServiceError::Build(
-                format!("{job_type} declares Feedback or a Job result but is no Job type").into(),
-            ));
+            return Err(ServiceError::Build(Box::new(OutputWithoutJobType {
+                job_type: job_type.clone(),
+            })));
         }
         for control in CONTROLS {
             let queryable = declare(&*backend, command_key(service, &control.to_string())).await?;
@@ -511,7 +545,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             settings,
             durable,
             events: builder.events,
-            job_types,
+            goal_decoders,
             jobs_access: builder.jobs,
             own_jobs: Jobs::default(),
             jobs_latest,
@@ -935,7 +969,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                         if jobs.job(job_id).is_some_and(|job| {
                             !job.nature.lasting && job.status == JobStatus::Executing
                         }) {
-                            jobs.end(job_id, JobEnd::Succeeded, "")?;
+                            jobs.end(job_id, JobEnd::Succeeded)?;
                         }
                     }
                     let encoded_states: Vec<_> = states
@@ -1059,9 +1093,10 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                     return Ok(None);
                 }
                 let job = self.jobs().job(job_id).ok_or(JobsError::Unknown(job_id))?;
-                let decode = self.job_types.get(&job.job_type).ok_or_else(|| {
-                    Rejection::Refused(format!("there is no Job type {}", job.job_type).into())
-                })?;
+                let decode = self
+                    .goal_decoders
+                    .get(&job.job_type)
+                    .ok_or_else(|| Rejection::UnknownJobType(job.job_type.clone()))?;
                 decode(job_id, &job.goal).map(|request| Some(Command::Request(request)))
             }
         }
@@ -1083,10 +1118,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
     }
 
     fn jobs(&self) -> &Jobs {
-        match self.jobs_access {
-            Some((jobs, _jobs_mut)) => jobs(&self.snapshot),
-            None => &self.own_jobs,
-        }
+        jobs_in::<D>(self.jobs_access, &self.snapshot, &self.own_jobs)
     }
 
     fn jobs_mut(&mut self) -> &mut Jobs {
@@ -1330,13 +1362,14 @@ async fn serve_update_settings<D: Domain>(
             .unwrap_or_default();
         let input = job_id.ok_or(Rejection::NoJobId).and_then(|job_id| {
             let driver = driver.as_ref().ok_or(Rejection::NoSettings)?;
-            let envelope = SettingsEnvelope::decode(&goal).map_err(Rejection::InvalidBody)?;
+            let UpdateSettingsGoal { envelope } =
+                UpdateSettingsGoal::decode(&goal).map_err(Rejection::InvalidBody)?;
             let request = lock_unpoisoned(driver)
                 .request_from_envelope(envelope)
                 .map_err(Rejection::Domain)?;
             Ok(Input::Submit {
                 job_id,
-                job_type: "UpdateSettings".to_owned(),
+                job_type: UPDATE_SETTINGS.to_owned(),
                 goal,
                 nature: JobNature::INSTANT,
                 request,
@@ -1476,6 +1509,20 @@ async fn reply(query: Query, answered: Result<(Vec<u8>, String), Unanswered>) {
 fn warn_on_failure(kind: &'static str, key: &str, sent: Result<(), SendError>) {
     if let Err(error) = sent {
         warn!(%error, kind, key, "Failed to send");
+    }
+}
+
+/// The schema text of a Job output key as `info` lists it: the wrapper `M` on the wire, then the part its bytes
+/// carry, under the `MSG: <package>/<Name>` line ROS 2 gives a dependency. A Job type without the part gets `M`
+/// alone.
+fn carrying<M: Message>(part: MessageType) -> String {
+    match (part.name.split_once('/'), part.name.rsplit_once('/')) {
+        (Some((package, _)), Some((_, name))) => format!(
+            "{}\n{SCHEMA_SEPARATOR}\nMSG: {package}/{name}\n{}",
+            M::SCHEMA,
+            part.schema
+        ),
+        _ => M::SCHEMA.to_owned(),
     }
 }
 

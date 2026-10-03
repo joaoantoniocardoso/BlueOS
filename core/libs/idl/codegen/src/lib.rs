@@ -172,7 +172,7 @@ fn collect_messages(interfaces_root: &Path) -> Vec<MessageRecord> {
 /// Every message under `interfaces_root`, each `.srv` and `.action` part included as a top-level message named
 /// as in ROS 2 (`<package>/srv/<Name>_Request`, `<package>/action/<Name>_Goal`), and every `.srv` and `.action`.
 fn collect_interfaces(interfaces_root: &Path) -> (Vec<MessageRecord>, Vec<InterfaceRecord>) {
-    let (parsed_messages, parsed_services, parsed_actions) =
+    let (parsed_messages, parsed_queries, parsed_actions) =
         find_and_parse_ros_messages(&[interfaces_root.to_path_buf()])
             .expect("parse interfaces with roslibrust_codegen");
     // roslibrust also lists the parts of an `.action` and its ROS 1 wrappers as messages: only `.msg` files are.
@@ -187,12 +187,12 @@ fn collect_interfaces(interfaces_root: &Path) -> (Vec<MessageRecord>, Vec<Interf
         .map(|parsed| (format!("{}/msg/{}", parsed.package, parsed.name), parsed))
         .collect();
     let mut interfaces = Vec::new();
-    let services = parsed_services.into_iter().map(|service| {
+    let queries = parsed_queries.into_iter().map(|query| {
         let parts = vec![
-            ("Request", service.request_type),
-            ("Response", service.response_type),
+            ("Request", query.request_type),
+            ("Response", query.response_type),
         ];
-        ("srv", service.package, service.name, service.source, parts)
+        ("srv", query.package, query.name, query.source, parts)
     });
     let actions = parsed_actions.into_iter().map(|action| {
         let parts = vec![
@@ -202,7 +202,7 @@ fn collect_interfaces(interfaces_root: &Path) -> (Vec<MessageRecord>, Vec<Interf
         ];
         ("action", action.package, action.name, action.source, parts)
     });
-    for (kind, package, name, source, parts) in services.chain(actions) {
+    for (kind, package, name, source, parts) in queries.chain(actions) {
         let mut dependencies = BTreeSet::new();
         for (part, parsed) in parts {
             dependencies

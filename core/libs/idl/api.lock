@@ -1,16 +1,16 @@
 blueos/v1/example/command/AnswerPermission 1 type=blueos_msgs/msg/PermissionAnswer
-blueos/v1/example/command/CancelJob 1 type=
-blueos/v1/example/command/PauseJob 1 type=
-blueos/v1/example/command/ResumeJob 1 type=
+blueos/v1/example/command/CancelJob 1 type=std_msgs/msg/Empty
+blueos/v1/example/command/PauseJob 1 type=std_msgs/msg/Empty
+blueos/v1/example/command/ResumeJob 1 type=std_msgs/msg/Empty
 blueos/v1/example/command/SetLevel 1 type=blueos_example_msgs/action/SetLevel
-blueos/v1/example/command/UpdateSettings 1 type=blueos_msgs/msg/SettingsEnvelope
+blueos/v1/example/command/UpdateSettings 1 type=blueos_msgs/action/UpdateSettings
 blueos/v1/example/jobs 1 type=blueos_msgs/msg/JobList
-blueos/v1/example/jobs/SetLevel/feedback 1 type=blueos_example_msgs/action/SetLevel_Feedback
+blueos/v1/example/jobs/SetLevel/feedback 1 type=blueos_msgs/msg/JobFeedbackList
 blueos/v1/example/jobs/SetLevel/history 1 type=blueos_msgs/msg/JobList
-blueos/v1/example/jobs/SetLevel/result 1 type=blueos_example_msgs/action/SetLevel_Result
-blueos/v1/example/jobs/UpdateSettings/feedback 1 type=
+blueos/v1/example/jobs/SetLevel/result 1 type=blueos_msgs/msg/JobResult
+blueos/v1/example/jobs/UpdateSettings/feedback 1 type=blueos_msgs/msg/JobFeedbackList
 blueos/v1/example/jobs/UpdateSettings/history 1 type=blueos_msgs/msg/JobList
-blueos/v1/example/jobs/UpdateSettings/result 1 type=
+blueos/v1/example/jobs/UpdateSettings/result 1 type=blueos_msgs/msg/JobResult
 blueos/v1/example/log 1 type=foxglove_msgs/msg/Log
 blueos/v1/example/query/Level 1 type=blueos_example_msgs/srv/Level
 blueos/v1/example/query/info 1 type=blueos_msgs/msg/ServiceInfo
@@ -18,34 +18,34 @@ blueos/v1/example/settings 1 type=blueos_msgs/msg/SettingsEnvelope
 blueos/v1/example/state/pump 1 type=blueos_example_msgs/msg/PumpState
 blueos/v1/example/state/status 1 type=blueos_msgs/msg/ServiceStatus
 blueos/v1/recorder/command/AnswerPermission 1 type=blueos_msgs/msg/PermissionAnswer
-blueos/v1/recorder/command/CancelJob 1 type=
+blueos/v1/recorder/command/CancelJob 1 type=std_msgs/msg/Empty
 blueos/v1/recorder/command/DeleteRecording 1 type=blueos_recorder_msgs/action/DeleteRecording
-blueos/v1/recorder/command/PauseJob 1 type=
+blueos/v1/recorder/command/PauseJob 1 type=std_msgs/msg/Empty
 blueos/v1/recorder/command/RepairRecording 1 type=blueos_recorder_msgs/action/RepairRecording
-blueos/v1/recorder/command/ResumeJob 1 type=
+blueos/v1/recorder/command/ResumeJob 1 type=std_msgs/msg/Empty
 blueos/v1/recorder/command/SnapshotRecording 1 type=blueos_recorder_msgs/action/SnapshotRecording
 blueos/v1/recorder/command/Start 1 type=blueos_recorder_msgs/action/StartRecording
 blueos/v1/recorder/command/Stop 1 type=blueos_recorder_msgs/action/StopRecording
-blueos/v1/recorder/command/UpdateSettings 1 type=blueos_msgs/msg/SettingsEnvelope
+blueos/v1/recorder/command/UpdateSettings 1 type=blueos_msgs/action/UpdateSettings
 blueos/v1/recorder/jobs 1 type=blueos_msgs/msg/JobList
-blueos/v1/recorder/jobs/DeleteRecording/feedback 1 type=blueos_recorder_msgs/action/DeleteRecording_Feedback
+blueos/v1/recorder/jobs/DeleteRecording/feedback 1 type=blueos_msgs/msg/JobFeedbackList
 blueos/v1/recorder/jobs/DeleteRecording/history 1 type=blueos_msgs/msg/JobList
-blueos/v1/recorder/jobs/DeleteRecording/result 1 type=blueos_recorder_msgs/action/DeleteRecording_Result
-blueos/v1/recorder/jobs/RepairRecording/feedback 1 type=blueos_recorder_msgs/action/RepairRecording_Feedback
+blueos/v1/recorder/jobs/DeleteRecording/result 1 type=blueos_msgs/msg/JobResult
+blueos/v1/recorder/jobs/RepairRecording/feedback 1 type=blueos_msgs/msg/JobFeedbackList
 blueos/v1/recorder/jobs/RepairRecording/history 1 type=blueos_msgs/msg/JobList
-blueos/v1/recorder/jobs/RepairRecording/result 1 type=blueos_recorder_msgs/action/RepairRecording_Result
-blueos/v1/recorder/jobs/SnapshotRecording/feedback 1 type=blueos_recorder_msgs/action/SnapshotRecording_Feedback
+blueos/v1/recorder/jobs/RepairRecording/result 1 type=blueos_msgs/msg/JobResult
+blueos/v1/recorder/jobs/SnapshotRecording/feedback 1 type=blueos_msgs/msg/JobFeedbackList
 blueos/v1/recorder/jobs/SnapshotRecording/history 1 type=blueos_msgs/msg/JobList
-blueos/v1/recorder/jobs/SnapshotRecording/result 1 type=blueos_recorder_msgs/action/SnapshotRecording_Result
-blueos/v1/recorder/jobs/Start/feedback 1 type=blueos_recorder_msgs/action/StartRecording_Feedback
+blueos/v1/recorder/jobs/SnapshotRecording/result 1 type=blueos_msgs/msg/JobResult
+blueos/v1/recorder/jobs/Start/feedback 1 type=blueos_msgs/msg/JobFeedbackList
 blueos/v1/recorder/jobs/Start/history 1 type=blueos_msgs/msg/JobList
-blueos/v1/recorder/jobs/Start/result 1 type=blueos_recorder_msgs/action/StartRecording_Result
-blueos/v1/recorder/jobs/Stop/feedback 1 type=blueos_recorder_msgs/action/StopRecording_Feedback
+blueos/v1/recorder/jobs/Start/result 1 type=blueos_msgs/msg/JobResult
+blueos/v1/recorder/jobs/Stop/feedback 1 type=blueos_msgs/msg/JobFeedbackList
 blueos/v1/recorder/jobs/Stop/history 1 type=blueos_msgs/msg/JobList
-blueos/v1/recorder/jobs/Stop/result 1 type=blueos_recorder_msgs/action/StopRecording_Result
-blueos/v1/recorder/jobs/UpdateSettings/feedback 1 type=
+blueos/v1/recorder/jobs/Stop/result 1 type=blueos_msgs/msg/JobResult
+blueos/v1/recorder/jobs/UpdateSettings/feedback 1 type=blueos_msgs/msg/JobFeedbackList
 blueos/v1/recorder/jobs/UpdateSettings/history 1 type=blueos_msgs/msg/JobList
-blueos/v1/recorder/jobs/UpdateSettings/result 1 type=
+blueos/v1/recorder/jobs/UpdateSettings/result 1 type=blueos_msgs/msg/JobResult
 blueos/v1/recorder/log 1 type=foxglove_msgs/msg/Log
 blueos/v1/recorder/query/index 1 type=blueos_recorder_msgs/srv/RecordingIndex
 blueos/v1/recorder/query/info 1 type=blueos_msgs/msg/ServiceInfo
@@ -60,6 +60,9 @@ blueos_example_msgs/msg/PumpState 1 level:uint8;max_level:uint8;self_test_phase:
 blueos_example_msgs/msg/SelfTestCompleted 1 passed:bool;detail:string
 blueos_example_msgs/srv/Level_Request 1
 blueos_example_msgs/srv/Level_Response 1 level:uint8;max_level:uint8
+blueos_msgs/action/UpdateSettings_Feedback 1
+blueos_msgs/action/UpdateSettings_Goal 1 envelope:blueos_msgs/SettingsEnvelope
+blueos_msgs/action/UpdateSettings_Result 1
 blueos_msgs/msg/CommandAck 1 accepted:bool;job_id:string;status:uint8;reason:string
 blueos_msgs/msg/EndpointInfo 1 kind:string;name:string;key:string;interface_type:string;schema:string
 blueos_msgs/msg/JobFeedback 1 job_id:string;feedback:uint8[]
@@ -75,7 +78,7 @@ blueos_msgs/msg/SettingField 1 path:string;restart_required:bool
 blueos_msgs/msg/SettingsEnvelope 1 document_json:string;fields:blueos_msgs/SettingField[]
 blueos_recorder_msgs/action/DeleteRecording_Feedback 1
 blueos_recorder_msgs/action/DeleteRecording_Goal 1 path:string
-blueos_recorder_msgs/action/DeleteRecording_Result 1
+blueos_recorder_msgs/action/DeleteRecording_Result 1 path:string
 blueos_recorder_msgs/action/RepairRecording_Feedback 1 bytes_processed:uint64;total_bytes:uint64
 blueos_recorder_msgs/action/RepairRecording_Goal 1 path:string
 blueos_recorder_msgs/action/RepairRecording_Result 1 path:string
@@ -98,4 +101,5 @@ blueos_recorder_msgs/srv/RecordingIndex_Response 1 size:uint64;offset:uint64;clo
 builtin_interfaces/msg/Duration 1 sec:int32;nanosec:uint32
 builtin_interfaces/msg/Time 1 sec:int32;nanosec:uint32
 foxglove_msgs/msg/Log 1 timestamp:builtin_interfaces/Time;level:uint8;message:string;name:string;file:string;line:uint32
+std_msgs/msg/Empty 1
 std_msgs/msg/Header 1 stamp:builtin_interfaces/Time;frame_id:string

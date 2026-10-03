@@ -1,5 +1,6 @@
 //! The recordings folder: validated paths, scan, delete, and wall-clock file names.
 
+use core::sync::atomic::{AtomicU64, Ordering};
 use std::{
     collections::{HashMap, HashSet},
     ffi::OsStr,
@@ -18,6 +19,10 @@ const RECORDING_SUFFIX: &str = ".mcap";
 const RECOVER_SUFFIX: &str = ".recover";
 const SNAPSHOT_PARTIAL_SUFFIX: &str = ".partial";
 const LIBRARY_SCAN_MAX_DEPTH: usize = 8;
+
+/// Numbers each rewrite's temporary file, so two rewrites of one recording never share one, even when a restarted
+/// Task starts a rewrite again while the old one still winds down.
+static NEXT_REWRITE: AtomicU64 = AtomicU64::new(0);
 
 /// Errors from the recordings folder adapter.
 #[derive(Debug, Error)]
@@ -94,7 +99,7 @@ impl RecordingsFolder {
         }
     }
 
-    /// Path for a repair rewrite next to `relative` (`<stem>.recover`).
+    /// A new path for a repair rewrite next to `relative` (`<stem>.<rewrite>.recover`).
     pub fn recover_temporary_path(&self, relative: &str) -> PathBuf {
         let path = Path::new(relative);
         let parent = path.parent().unwrap_or_else(|| Path::new(""));
@@ -102,7 +107,8 @@ impl RecordingsFolder {
             .file_stem()
             .and_then(OsStr::to_str)
             .unwrap_or("recording");
-        let temporary_name = format!("{stem}{RECOVER_SUFFIX}");
+        let rewrite = NEXT_REWRITE.fetch_add(1, Ordering::Relaxed);
+        let temporary_name = format!("{stem}.{rewrite}{RECOVER_SUFFIX}");
         self.base.join(parent).join(temporary_name)
     }
 
@@ -117,10 +123,12 @@ impl RecordingsFolder {
         Ok(())
     }
 
-    /// Path for a snapshot rewrite before it is renamed into place (`<output>.partial`).
+    /// A new path for a snapshot rewrite before it is renamed into place (`<output>.<rewrite>.partial`).
     pub fn snapshot_temporary_path(&self, output_relative: &str) -> PathBuf {
-        self.base
-            .join(format!("{output_relative}{SNAPSHOT_PARTIAL_SUFFIX}"))
+        let rewrite = NEXT_REWRITE.fetch_add(1, Ordering::Relaxed);
+        self.base.join(format!(
+            "{output_relative}.{rewrite}{SNAPSHOT_PARTIAL_SUFFIX}"
+        ))
     }
 
     /// Renames a finished snapshot temporary file into the library folder.
@@ -426,5 +434,26 @@ mod tests {
             folder.resolve("../outside.mcap"),
             Err(StorageError::InvalidPath)
         ));
+    }
+
+    #[test]
+    fn each_rewrite_gets_its_own_temporary_file_and_startup_discards_them_all() {
+        let temporary = tempfile::tempdir().expect("tempdir");
+        let folder = RecordingsFolder::new(temporary.path().to_path_buf()).expect("folder");
+        let repairs = [(); 2].map(|()| folder.recover_temporary_path("dive/one.mcap"));
+        let snapshots = [(); 2].map(|()| folder.snapshot_temporary_path("dive/one-indexed.mcap"));
+        fs::create_dir_all(folder.base().join("dive")).expect("directory");
+        for path in repairs.iter().chain(&snapshots) {
+            fs::write(path, b"partial").expect("temporary file");
+        }
+
+        RecordingsFolder::new(temporary.path().to_path_buf()).expect("folder");
+
+        assert_ne!(repairs[0], repairs[1]);
+        assert_ne!(snapshots[0], snapshots[1]);
+        for path in repairs.iter().chain(&snapshots) {
+            assert_eq!(path.parent(), Some(folder.base().join("dive").as_path()));
+            assert!(!path.exists(), "{}", path.display());
+        }
     }
 }

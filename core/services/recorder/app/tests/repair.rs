@@ -23,7 +23,7 @@ use tokio::{
 };
 
 use blueos_api::job_feedback_key;
-use blueos_comms::Subscriber;
+use blueos_comms::{CommsBackend, Subscriber, channel::ChannelBackend};
 use blueos_idl::{
     Message,
     msg::blueos_msgs::{CommandAckStatus, JobFeedbackList, JobStatusStatus},
@@ -37,7 +37,7 @@ use blueos_recorder_domain::durable::RecorderDurableState;
 use blueos_recorder_library::RESCAN_INTERVAL;
 use blueos_recorder_mcap::is_indexed;
 use blueos_service::{
-    Service, new_job_id,
+    Service, ServiceContext, new_job_id,
     testing::{Harness, WALL_CLOCK_AT_START, lock_unpoisoned},
 };
 use blueos_settings::ServiceStateStore;
@@ -303,8 +303,9 @@ async fn cancel_job_stops_a_held_repair_and_leaves_the_original_unchanged() {
     );
 
     assert_eq!(fs::read(&path).expect("read"), original);
-    assert!(
-        !directory.path().join("cancel.recover").exists(),
+    assert_eq!(
+        recover_files(directory.path()),
+        Vec::<String>::new(),
         "cancel must remove the temporary file"
     );
 }
@@ -343,8 +344,9 @@ async fn shutdown_stops_a_held_repair_before_it_finishes() {
         "shutdown must wait for the rewrite it cancelled"
     );
     assert_eq!(fs::read(&path).expect("read"), original);
-    assert!(
-        !directory.path().join("held.recover").exists(),
+    assert_eq!(
+        recover_files(directory.path()),
+        Vec::<String>::new(),
         "shutdown must remove the temporary file"
     );
 }
@@ -391,10 +393,14 @@ async fn restored_interrupted_repair_job_is_aborted_and_recover_discarded() {
     )
     .expect("write state");
 
-    let harness = Harness::<RecorderService>::start_with_settings_path(
-        recorder_arguments(directory.path()),
-        Some(settings_parent.path().to_path_buf()),
-        |_context| {},
+    let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
+    let harness = Harness::<RecorderService>::start_on_with_context(
+        Arc::clone(&backend),
+        ServiceContext::with_settings_path(
+            recorder_arguments(directory.path()),
+            Some(settings_parent.path().to_path_buf()),
+            backend,
+        ),
     )
     .await
     .expect("harness");
@@ -429,6 +435,21 @@ async fn leftover_recover_file_is_removed_at_startup() {
         !directory.path().join("stale.recover").exists(),
         "startup must discard leftover recover files"
     );
+}
+
+/// The names of the repair temporary files in `directory`.
+fn recover_files(directory: &Path) -> Vec<String> {
+    fs::read_dir(directory)
+        .expect("read the recordings folder")
+        .map(|entry| {
+            entry
+                .expect("read an entry")
+                .file_name()
+                .to_string_lossy()
+                .into_owned()
+        })
+        .filter(|name| name.ends_with(".recover"))
+        .collect()
 }
 
 /// Waits until `feedback` shows the Job `job_id` at the read offset `bytes_processed`.

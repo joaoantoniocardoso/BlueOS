@@ -1,10 +1,7 @@
 //! The Recorder Service wiring.
 
 use core::{num::NonZeroU32, sync::atomic::AtomicU8};
-use std::{
-    path::PathBuf,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 use blueos_recorder_domain::{RecorderDomain, RecorderRequest, RecorderSnapshot};
 use blueos_recorder_mcap::{rewrite, walk_index};
@@ -63,73 +60,59 @@ impl Service for RecorderService {
     }
 
     fn build(
-        service: &ServiceContext<RecorderArguments>,
+        _service: &ServiceContext<RecorderArguments>,
         context: &RecorderContext,
     ) -> Result<ServiceBuilder<RecorderDomain, RecorderContext>, ServiceError> {
-        let config_parent = service.settings_path().map(PathBuf::from);
         let (builder, record_gate) = ServiceBuilder::new(RecorderSnapshot::default())
             .projection(|snapshot: &RecorderSnapshot| snapshot.record_gate());
         let (mut builder, library_operations) =
             builder.projection(|snapshot: &RecorderSnapshot| snapshot.library_operations());
-        builder = builder.durable_state_with_jobs(
-            RecorderService::NAME,
-            config_parent.clone(),
-            RECORDER_DURABLE_STATE_VERSION,
-        );
-        Ok(register_io(
-            endpoints::register(
-                builder
-                    .blocking_io(|recorder_context: &RecorderContext, snapshot, request| {
-                        run_library_io(recorder_context, snapshot, request)
-                    })
-                    .settings(
-                        RecorderService::NAME,
-                        config_parent,
-                        |snapshot: &mut RecorderSnapshot, settings: RecorderSettings| {
-                            snapshot.capture.settings = settings.into_capture_settings();
-                        },
-                        |snapshot: &RecorderSnapshot| {
-                            RecorderSettings::from_capture(&snapshot.capture.settings)
-                        },
-                        |envelope| {
-                            let document: RecorderSettings =
-                                serde_json::from_str(&envelope.document_json)?;
-                            Ok(RecorderRequest::UpdateSettings(
-                                document.into_capture_settings(),
-                            ))
-                        },
-                    )
-                    .on_start(RecorderRequest::Startup)
-                    .task(
-                        "data_plane",
-                        RestartPolicy::Always {
-                            backoff: Backoff::default(),
-                        },
-                        move |task_context| run_data_plane(task_context, record_gate.clone()),
-                    )
-                    .task(
-                        "mavlink",
-                        RestartPolicy::Always {
-                            backoff: Backoff::default(),
-                        },
-                        |task_context| async move { run_mavlink_ingress(task_context).await },
-                    )
-                    .task(
-                        "library_operations",
-                        RestartPolicy::Always {
-                            backoff: Backoff::default(),
-                        },
-                        move |task_context| {
-                            run_library_operations(task_context, library_operations.clone())
-                        },
-                    ),
-                RecorderHandlers::new(context.clone()),
-            )
-            .service_metadata(
-                RecorderService::VERSION,
-                RecorderService::BUILD,
-                RecorderService::CAPABILITIES,
-            ),
-        ))
+        builder = builder.durable_state_with_jobs(RECORDER_DURABLE_STATE_VERSION);
+        Ok(register_io(endpoints::register(
+            builder
+                .blocking_io(|recorder_context: &RecorderContext, snapshot, request| {
+                    run_library_io(recorder_context, snapshot, request)
+                })
+                .settings(
+                    |snapshot: &mut RecorderSnapshot, settings: RecorderSettings| {
+                        snapshot.capture.settings = settings.into_capture_settings();
+                    },
+                    |snapshot: &RecorderSnapshot| {
+                        RecorderSettings::from_capture(&snapshot.capture.settings)
+                    },
+                    |envelope| {
+                        let document: RecorderSettings =
+                            serde_json::from_str(&envelope.document_json)?;
+                        Ok(RecorderRequest::UpdateSettings(
+                            document.into_capture_settings(),
+                        ))
+                    },
+                )
+                .on_start(RecorderRequest::Startup)
+                .task(
+                    "data_plane",
+                    RestartPolicy::Always {
+                        backoff: Backoff::default(),
+                    },
+                    move |task_context| run_data_plane(task_context, record_gate.clone()),
+                )
+                .task(
+                    "mavlink",
+                    RestartPolicy::Always {
+                        backoff: Backoff::default(),
+                    },
+                    |task_context| async move { run_mavlink_ingress(task_context).await },
+                )
+                .task(
+                    "library_operations",
+                    RestartPolicy::Always {
+                        backoff: Backoff::default(),
+                    },
+                    move |task_context| {
+                        run_library_operations(task_context, library_operations.clone())
+                    },
+                ),
+            RecorderHandlers::new(context.clone()),
+        )))
     }
 }

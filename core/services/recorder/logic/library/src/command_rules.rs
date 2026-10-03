@@ -4,6 +4,7 @@ use alloc::{string::String, vec::Vec};
 use core::time::Duration;
 
 use blueos_domain::Now;
+use blueos_jobs::JobControl;
 
 /// Minimum age before an unindexed file may be repaired (avoids racing an active writer).
 pub const RECENTLY_WRITTEN_DELAY: Duration = Duration::from_secs(10);
@@ -13,7 +14,7 @@ pub const DELETE_RECORDING: &str = "DeleteRecording";
 /// Endpoint name for the repair Command.
 pub const REPAIR_RECORDING: &str = "RepairRecording";
 /// Endpoint name of the Kernel's control that cancels a repair's Job.
-pub const CANCEL_JOB: &str = "CancelJob";
+pub const CANCEL_JOB: &str = JobControl::Cancel.endpoint_name();
 /// Endpoint name for the snapshot Command.
 pub const SNAPSHOT_RECORDING: &str = "SnapshotRecording";
 

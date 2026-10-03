@@ -39,10 +39,16 @@ pub fn register<D: Conversions + DomainJobs, H: Handlers<D>, Context>(
 ) -> ServiceBuilder<D, Context> {
     let handlers = Arc::new(handlers);
     builder
-        .command(
+        .job(
             "DeleteRecording",
-            |goal: blueos_recorder_msgs::DeleteRecordingGoal| {
-                <D as Conversions>::delete_recording(goal).map_err(Refusal::from)
+            JobNature {
+                lasting: true,
+                cancellable: false,
+                pausable: false,
+                needs_permission: false,
+            },
+            |job_id, goal: blueos_recorder_msgs::DeleteRecordingGoal| {
+                <D as Conversions>::delete_recording(job_id, goal).map_err(Refusal::from)
             },
         )
         .job_feedback(
