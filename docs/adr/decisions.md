@@ -1165,7 +1165,7 @@ Decision:
   `pi5-builder`) and upload their results as a trend. They never run on pull requests, because code from a fork
   must not run on a self-hosted runner.
 - No hosted benchmark service (Bencher Cloud, CodSpeed): history is the CI artifacts.
-- The Rust toolchain is pinned in `core/rust-toolchain.toml` and bumped only in a dedicated pull request, so a
+- The Rust toolchain is pinned in a toolchain file under `core/` and bumped only in a dedicated pull request, so a
   compiler change shows as one step in the trend.
 - **Size and compile time.** Every pull request records the stripped and the zstd-compressed size of `blueos` per
   target, and the cross build uploads its `cargo build --timings` report. Release profile variants
