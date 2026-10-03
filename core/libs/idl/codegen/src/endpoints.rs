@@ -27,7 +27,7 @@ const TYPESCRIPT_DIR: &str = "frontend/src/libs/blueos-api/services";
 /// every Service.
 // ponytail: records `settings` and `UpdateSettings` for every Service, as the generator cannot see a
 // `ServiceBuilder::settings` opt-in; a manifest field would make the lock exact.
-// The type of a Job type is its Goal, and that of a Job control is empty: the Job id travels in the attachment.
+// A Job control names its Job in the attachment, so a body is needed only to answer a permission request.
 const STANDARD_ENDPOINTS: [StandardEndpoint; 10] = [
     StandardEndpoint {
         name: "info",
@@ -47,7 +47,7 @@ const STANDARD_ENDPOINTS: [StandardEndpoint; 10] = [
     StandardEndpoint {
         name: "UpdateSettings",
         key: "command/UpdateSettings",
-        interface_type: "blueos_msgs/msg/SettingsEnvelope",
+        interface_type: "blueos_msgs/action/UpdateSettings",
     },
     StandardEndpoint {
         name: "log",
@@ -62,17 +62,17 @@ const STANDARD_ENDPOINTS: [StandardEndpoint; 10] = [
     StandardEndpoint {
         name: "CancelJob",
         key: "command/CancelJob",
-        interface_type: "",
+        interface_type: "std_msgs/msg/Empty",
     },
     StandardEndpoint {
         name: "PauseJob",
         key: "command/PauseJob",
-        interface_type: "",
+        interface_type: "std_msgs/msg/Empty",
     },
     StandardEndpoint {
         name: "ResumeJob",
         key: "command/ResumeJob",
-        interface_type: "",
+        interface_type: "std_msgs/msg/Empty",
     },
     StandardEndpoint {
         name: "AnswerPermission",
@@ -357,7 +357,8 @@ impl InterfaceType {
 }
 
 /// Every endpoint key of the Services in workspace manifests, with the standard ones and the Feedback, Job result
-/// and history of each Job type (`UpdateSettings` included, with no Feedback or Job result), for `api.lock`.
+/// and history of each Job type (`UpdateSettings` included), for `api.lock`. The Feedback and the Job result are
+/// locked as the messages on the wire, which carry the parts of the Job type's `.action` as bytes.
 pub fn collect_endpoint_lock_lines(
     core_dir: &Path,
     messages: &BTreeSet<String>,
@@ -371,7 +372,7 @@ pub fn collect_endpoint_lock_lines(
                 &format!("type={}", standard.interface_type),
             ));
         }
-        let mut job_outputs = vec![("UpdateSettings".to_owned(), String::new(), String::new())];
+        let mut job_types = vec!["UpdateSettings".to_owned()];
         for endpoint in endpoints {
             lines.push(crate::format_lock_line(
                 &endpoint.key(&service),
@@ -379,17 +380,13 @@ pub fn collect_endpoint_lock_lines(
                 &format!("type={}", endpoint.interface.schema_name()),
             ));
             if endpoint.kind == Kind::Job {
-                job_outputs.push((
-                    endpoint.name,
-                    endpoint.interface.part_schema_name("Feedback"),
-                    endpoint.interface.part_schema_name("Result"),
-                ));
+                job_types.push(endpoint.name);
             }
         }
-        for (job_type, feedback_type, result_type) in job_outputs {
+        for job_type in job_types {
             for (output, interface_type) in [
-                ("feedback", feedback_type.as_str()),
-                ("result", result_type.as_str()),
+                ("feedback", "blueos_msgs/msg/JobFeedbackList"),
+                ("result", "blueos_msgs/msg/JobResult"),
                 ("history", "blueos_msgs/msg/JobList"),
             ] {
                 lines.push(crate::format_lock_line(

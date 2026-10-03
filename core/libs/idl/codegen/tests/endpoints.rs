@@ -445,14 +445,14 @@ fn the_lock_lists_the_standard_endpoints_of_every_service() {
         collect_endpoint_lock_lines(&workspace.root, &messages()).unwrap(),
         [
             "blueos/v1/test/command/AnswerPermission 1 type=blueos_msgs/msg/PermissionAnswer",
-            "blueos/v1/test/command/CancelJob 1 type=",
-            "blueos/v1/test/command/PauseJob 1 type=",
-            "blueos/v1/test/command/ResumeJob 1 type=",
-            "blueos/v1/test/command/UpdateSettings 1 type=blueos_msgs/msg/SettingsEnvelope",
+            "blueos/v1/test/command/CancelJob 1 type=std_msgs/msg/Empty",
+            "blueos/v1/test/command/PauseJob 1 type=std_msgs/msg/Empty",
+            "blueos/v1/test/command/ResumeJob 1 type=std_msgs/msg/Empty",
+            "blueos/v1/test/command/UpdateSettings 1 type=blueos_msgs/action/UpdateSettings",
             "blueos/v1/test/jobs 1 type=blueos_msgs/msg/JobList",
-            "blueos/v1/test/jobs/UpdateSettings/feedback 1 type=",
+            "blueos/v1/test/jobs/UpdateSettings/feedback 1 type=blueos_msgs/msg/JobFeedbackList",
             "blueos/v1/test/jobs/UpdateSettings/history 1 type=blueos_msgs/msg/JobList",
-            "blueos/v1/test/jobs/UpdateSettings/result 1 type=",
+            "blueos/v1/test/jobs/UpdateSettings/result 1 type=blueos_msgs/msg/JobResult",
             "blueos/v1/test/log 1 type=foxglove_msgs/msg/Log",
             "blueos/v1/test/query/info 1 type=blueos_msgs/msg/ServiceInfo",
             "blueos/v1/test/settings 1 type=blueos_msgs/msg/SettingsEnvelope",
@@ -462,7 +462,7 @@ fn the_lock_lists_the_standard_endpoints_of_every_service() {
 }
 
 #[test]
-fn the_lock_lists_the_feedback_result_and_history_of_each_job_type_with_its_action_parts() {
+fn the_lock_lists_the_feedback_result_and_history_of_each_job_type_with_their_wire_types() {
     let workspace = Workspace::new("job_outputs");
     workspace.write("Cargo.toml", "[workspace]\nmembers = [\"test/app\"]\n");
     workspace.write(
@@ -473,9 +473,9 @@ fn the_lock_lists_the_feedback_result_and_history_of_each_job_type_with_its_acti
     let lines = collect_endpoint_lock_lines(&workspace.root, &messages()).unwrap();
 
     for line in [
-        "blueos/v1/test/jobs/SetLevel/feedback 1 type=blueos_example_msgs/action/SetLevel_Feedback",
+        "blueos/v1/test/jobs/SetLevel/feedback 1 type=blueos_msgs/msg/JobFeedbackList",
         "blueos/v1/test/jobs/SetLevel/history 1 type=blueos_msgs/msg/JobList",
-        "blueos/v1/test/jobs/SetLevel/result 1 type=blueos_example_msgs/action/SetLevel_Result",
+        "blueos/v1/test/jobs/SetLevel/result 1 type=blueos_msgs/msg/JobResult",
     ] {
         assert!(
             lines.iter().any(|locked| locked == line),
