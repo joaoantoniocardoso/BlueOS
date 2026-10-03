@@ -6,7 +6,7 @@ service = "recorder"
 [job]
 Start = { type = "blueos_recorder_msgs/action/StartRecording" }
 Stop = { type = "blueos_recorder_msgs/action/StopRecording" }
-DeleteRecording = { type = "blueos_recorder_msgs/action/DeleteRecording" }
+DeleteRecording = { type = "blueos_recorder_msgs/action/DeleteRecording", nature = { lasting = true } }
 RepairRecording = { type = "blueos_recorder_msgs/action/RepairRecording", nature = { lasting = true, cancellable = true } }
 SnapshotRecording = { type = "blueos_recorder_msgs/action/SnapshotRecording", nature = { lasting = true } }
 
