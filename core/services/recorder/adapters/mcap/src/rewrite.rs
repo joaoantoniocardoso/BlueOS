@@ -141,6 +141,9 @@ impl<R: Read> OpenChunkReader<R> {
 }
 
 /// Rewrites `source` into `output`, reporting the read offset through `progress`.
+///
+/// It keeps every complete message. A source cut short is not an error, so one cut before its first complete
+/// message becomes an empty recording; a source that is not an MCAP recording fails.
 pub fn rewrite(
     source: &Path,
     output: &Path,
@@ -234,6 +237,7 @@ pub fn rewrite_from_reader<R: Read>(
 
     if let Some(error) = parse_error
         && messages == 0
+        && !matches!(error, McapError::UnexpectedEof)
     {
         if let Err(remove_error) = fs::remove_file(output) {
             debug!(%remove_error, "Failed to remove rewrite output after parse error");
