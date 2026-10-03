@@ -152,7 +152,8 @@ export function createRecorderClient(
     watchLibrary(onLibrary, onError) {
       return watchState(transport, library, {
         onValue: (message) => {
-          librarySnapshot = message.files.map(mapRecordingFile)
+          const contents = new Map(message.contents.map((entry) => [entry.path, entry]))
+          librarySnapshot = message.files.map((file) => mapRecordingFile(file, contents.get(file.path)))
           onLibrary(librarySnapshot)
           resolveSnapshotWaiters()
         },

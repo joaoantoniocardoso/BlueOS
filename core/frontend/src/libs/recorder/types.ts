@@ -9,10 +9,17 @@ import type {
 
 export type RecordingState = 'recording' | 'ready' | 'needs_repair' | 'repairing'
 
-/** A `RecordingFile` of the library State, with its time in Unix seconds (UTC) and its state named. */
+/**
+ * A `RecordingFile` of the library State, with its time in Unix seconds (UTC), its state named, and its
+ * `RecordingContents`: the duration in seconds, the topics of its video channels and how many other topics it has.
+ * All three are `null` when the library does not know them; an empty `video_topics` means no video.
+ */
 export type LibraryRecording = Omit<RecordingFile, 'created' | 'state'> & {
   created: number
   state: RecordingState
+  duration_seconds: number | null
+  video_topics: string[] | null
+  other_topic_count: number | null
 }
 
 /** How a delete, repair or snapshot Job of one recording ended; `job.job_type` says which it was. */

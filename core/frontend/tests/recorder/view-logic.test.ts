@@ -29,6 +29,7 @@ import {
   repairProgress,
   type RepairProgress,
   snapshotDownloadPath,
+  withLiveDuration,
   withRepairJobs,
 } from '@/libs/recorder/view-logic'
 
@@ -59,6 +60,9 @@ function file(overrides: Partial<LibraryRecording> = {}): LibraryRecording {
     repair_error: '',
     repair_job_id: '',
     allowed_operations: ['SnapshotRecording'],
+    duration_seconds: null,
+    video_topics: ['video/camera/stream'],
+    other_topic_count: 0,
     ...overrides,
   }
 }
@@ -225,5 +229,19 @@ describe('recorder view-logic', () => {
     expect(deleteConfirmationMessage([file({ name: 'dive.mcap' })])).toBe('Delete dive.mcap? This cannot be undone.')
     expect(deleteConfirmationMessage([file(), file({ path: 'other.mcap' })]))
       .toBe('Delete 2 recordings? This cannot be undone.')
+  })
+})
+
+describe('withLiveDuration', () => {
+  it('times the file being written from its start to now, and leaves the others as the library has them', () => {
+    const finished = file({ path: 'old.mcap', state: 'ready', duration_seconds: 30 })
+    const [live, same] = withLiveDuration([file({ state: 'recording', created: 1_000 }), finished], 1_090)
+    expect(live.duration_seconds).toBe(90)
+    expect(same).toBe(finished)
+  })
+
+  it('returns the same list when nothing is being written', () => {
+    const files = [file({ state: 'ready' }), file({ path: 'b.mcap', state: 'needs_repair' })]
+    expect(withLiveDuration(files, 1_090)).toBe(files)
   })
 })

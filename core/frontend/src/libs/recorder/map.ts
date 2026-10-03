@@ -1,7 +1,7 @@
 import {
   RecordingFileState,
 } from '@blueos-idl'
-import type { RecordingFile, Time } from '@blueos-idl/messages'
+import type { RecordingContents, RecordingFile, Time } from '@blueos-idl/messages'
 
 import type {
   LibraryRecording,
@@ -27,7 +27,8 @@ export function mapRecordingState(state: number): RecordingState {
   }
 }
 
-export function mapRecordingFile(file: RecordingFile): LibraryRecording {
+/** Maps `file` with its `contents`, which the library carries only when it knows them. */
+export function mapRecordingFile(file: RecordingFile, contents?: RecordingContents): LibraryRecording {
   return {
     path: file.path,
     name: file.name,
@@ -40,5 +41,8 @@ export function mapRecordingFile(file: RecordingFile): LibraryRecording {
     repair_error: file.repair_error,
     repair_job_id: file.repair_job_id,
     allowed_operations: [...file.allowed_operations],
+    duration_seconds: contents ? contents.duration.sec + contents.duration.nanosec / 1e9 : null,
+    video_topics: contents ? [...contents.video_topics] : null,
+    other_topic_count: contents?.other_topic_count ?? null,
   }
 }

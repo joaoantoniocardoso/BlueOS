@@ -176,6 +176,19 @@ export function recordingByPath(
   return recordings.find((file) => file.path === path) ?? null
 }
 
+/** `files` with the file being written lasting from its start until `nowSeconds`; `files` itself when none is. */
+export function withLiveDuration(files: LibraryRecording[], nowSeconds: number): LibraryRecording[] {
+  if (!files.some((file) => file.state === 'recording')) {
+    return files
+  }
+  return files.map((file) => {
+    if (file.state !== 'recording') {
+      return file
+    }
+    return { ...file, duration_seconds: Math.max(0, nowSeconds - file.created) }
+  })
+}
+
 /** A missing index is not a missing recording: the vehicle indexes what was written on demand. */
 export function canPlayRecording(file: LibraryRecording): boolean {
   return file.state === 'ready' || file.state === 'recording' || file.state === 'needs_repair'

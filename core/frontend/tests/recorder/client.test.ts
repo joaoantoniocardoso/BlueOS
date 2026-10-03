@@ -16,6 +16,7 @@ import {
 } from '@/libs/blueos-api/services/recorder'
 import { SNAPSHOT_WAIT_TIMEOUT_MS, createRecorderClient } from '@/libs/recorder/client'
 import { mapRecordingFile } from '@/libs/recorder/map'
+import type { LibraryRecording } from '@/libs/recorder/types'
 
 import FakeTransport from '../blueos-api/fake-transport'
 
@@ -96,6 +97,53 @@ describe('createRecorderClient', () => {
 
     expect(running).toEqual([true])
     expect(recordings).toEqual([[], ['a.mcap']])
+  })
+
+  it('joins each recording with its contents, and leaves the contents of a file without an entry unknown', async () => {
+    const transport = new FakeTransport()
+    const client = createRecorderClient(transport)
+    const libraries: LibraryRecording[][] = []
+    const libraryWatch = client.watchLibrary((files) => libraries.push(files))
+    const stateQuery = await transport.nextQuery()
+    stateQuery.reply({
+      kind: 'sample',
+      sample: {
+        key: library.key,
+        payload: encodeCdr(library.messageSchema, {
+          files: ['dive.mcap', 'empty.mcap', 'old.mcap'].map((path) => recordingFile({ path, name: path, state: 1 })),
+          contents: [
+            {
+              path: 'dive.mcap',
+              duration: { sec: 90, nanosec: 500_000_000 },
+              video_topics: ['video/camera/stream'],
+              other_topic_count: 4,
+            },
+            {
+              path: 'empty.mcap', duration: { sec: 0, nanosec: 0 }, video_topics: [], other_topic_count: 0,
+            },
+          ],
+        }),
+        encoding: cdrEncoding(library.messageSchema),
+      },
+    })
+    await libraryWatch
+
+    const [files] = libraries
+    expect(files.map(({
+      path, duration_seconds, video_topics, other_topic_count,
+    }) => ({
+      path, duration_seconds, video_topics, other_topic_count,
+    }))).toEqual([
+      {
+        path: 'dive.mcap', duration_seconds: 90.5, video_topics: ['video/camera/stream'], other_topic_count: 4,
+      },
+      {
+        path: 'empty.mcap', duration_seconds: 0, video_topics: [], other_topic_count: 0,
+      },
+      {
+        path: 'old.mcap', duration_seconds: null, video_topics: null, other_topic_count: null,
+      },
+    ])
   })
 
   it('resolves snapshot before the command ack when the Job result arrives early', async () => {
