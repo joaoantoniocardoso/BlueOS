@@ -130,7 +130,7 @@ export default Vue.extend({
   methods: {
     canPlay: canPlayRecording,
     stateUi(file: LibraryRecording): { label: string, color: string } {
-      return RECORDING_STATE_UI[file.state] ?? { label: file.state, color: 'grey' }
+      return RECORDING_STATE_UI[file.state] ?? { label: file.state, color: 'secondary' }
     },
     operationUi(operationName: string): { label: string, icon: string, color: string } {
       return RECORDING_OPERATION_UI[operationName]
