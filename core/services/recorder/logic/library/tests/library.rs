@@ -7,7 +7,7 @@ use blueos_jobs::JobId;
 use blueos_recorder_library::{
     CANCEL_JOB, Library, LibraryIoRequest, LibraryIoResult, LibraryObservedFact, LibraryOperation,
     LibraryRepairOutcome, LibraryRepairProgress, LibraryRequest, LibrarySnapshotOutcome,
-    RecordingFileState, RepairFailure, SNAPSHOT_RECORDING, ScannedRecording,
+    RecordingFileState, RepairFailure, RepairProgress, SNAPSHOT_RECORDING, ScannedRecording,
     derive_recording_file_state, snapshot_output_relative_path,
 };
 
@@ -124,6 +124,11 @@ fn a_repair_is_listed_with_its_job_until_it_ends() {
         [LibraryOperation::Repair {
             path: path.clone(),
             job_id: job_id(7),
+            progress: RepairProgress {
+                bytes_processed: 0,
+                total_bytes: 100,
+                started_monotonic: NOW.monotonic,
+            },
         }]
     );
     let repairing = &library.entries()[0];
@@ -189,6 +194,11 @@ fn a_repair_reports_its_read_offset_to_its_job_until_it_ends() {
         Some(&LibraryOperation::Repair {
             path,
             job_id: job_id(1),
+            progress: RepairProgress {
+                bytes_processed: 40,
+                total_bytes: 100,
+                started_monotonic: NOW.monotonic,
+            },
         })
     );
     assert_eq!(library.entries()[0].repair_error, "");
