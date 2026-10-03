@@ -88,7 +88,7 @@ pub fn register<D: Conversions + DomainJobs, H: Handlers<D>, Context>(
             "RepairRecording",
             JobNature {
                 lasting: true,
-                cancellable: false,
+                cancellable: true,
                 pausable: false,
                 needs_permission: false,
             },
