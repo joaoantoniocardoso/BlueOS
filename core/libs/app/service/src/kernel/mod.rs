@@ -55,6 +55,7 @@ use crate::{
     metrics_registry::MetricsRegistry,
     projection::ProjectionRegistry,
     run_outcome::RunOutcome,
+    runtime_gauges::RuntimeGauges,
     service::ServiceError,
     settings::{SettingsDriver, settings_encoding},
     shutdown::{IoInflight, SHUTDOWN_IO_DRAIN_TIMEOUT, wait_for_shutdown_signal},
@@ -149,6 +150,7 @@ pub struct Kernel<D: Domain, Context = ()> {
     metrics_latest: watch::Sender<Option<Bytes>>,
     inbox_step_time: metrics::Histogram,
     inbox_depth: metrics::Gauge,
+    runtime_gauges: RuntimeGauges,
 }
 
 /// The standard `settings` State and its persistence driver (D-11).
@@ -433,6 +435,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 metrics::gauge!(INBOX_DEPTH),
             )
         });
+        let runtime_gauges = RuntimeGauges::new(&builder.metrics);
         let task_supervisor = TaskSupervisor::new(
             service,
             Arc::clone(&backend),
@@ -600,6 +603,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             metrics_latest: watch::Sender::new(None),
             inbox_step_time,
             inbox_depth,
+            runtime_gauges,
         };
         kernel.projections.refresh(&kernel.snapshot);
         for command in startup_commands {
@@ -1208,6 +1212,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
     }
 
     async fn publish_metrics(&self) {
+        self.runtime_gauges.sample();
         let key = state_key(self.service, METRICS);
         let sent: Result<(), SendError> = async {
             let payload = Bytes::from(self.metrics.service_metrics().encode()?);

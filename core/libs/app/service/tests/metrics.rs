@@ -155,9 +155,10 @@ async fn a_client_that_asks_right_after_boot_gets_the_metrics() {
         metrics
             .gauges
             .iter()
-            .map(|gauge| (gauge.name.as_str(), gauge.value.to_bits()))
+            .filter(|gauge| gauge.name == "inbox_depth")
+            .map(|gauge| gauge.value.to_bits())
             .collect::<Vec<_>>(),
-        [("inbox_depth", 0.0_f64.to_bits())]
+        [0.0_f64.to_bits()]
     );
 }
 
@@ -292,6 +293,33 @@ async fn a_task_that_fails_and_restarts_counts_its_restarts() {
             .map(|label| (label.name.as_str(), label.value.as_str()))
             .collect::<Vec<_>>(),
         [("task", "unreliable")]
+    );
+}
+
+#[tokio::test(start_paused = true)]
+async fn the_tokio_runtime_gauges_are_in_the_metrics_and_an_idle_service_stays_quiet() {
+    let harness = Harness::<CounterService>::start(NoArguments {})
+        .await
+        .unwrap();
+    let mut published = subscribe(&harness).await;
+
+    let metrics = harness.state::<ServiceMetrics>("metrics").await;
+
+    let runtime_gauges = metrics
+        .gauges
+        .iter()
+        .filter(|gauge| gauge.name.starts_with("tokio_"))
+        .map(|gauge| (gauge.name.as_str(), gauge.value))
+        .collect::<Vec<_>>();
+    assert_eq!(runtime_gauges.len(), 3, "{runtime_gauges:?}");
+    assert_eq!(runtime_gauges[2], ("tokio_workers", 1.0));
+    next_metrics(&mut published).await;
+
+    let republished = timeout(PUBLICATION_TIMEOUT, published.recv()).await;
+
+    assert!(
+        republished.is_err(),
+        "an idle Service republished: {republished:?}"
     );
 }
 
