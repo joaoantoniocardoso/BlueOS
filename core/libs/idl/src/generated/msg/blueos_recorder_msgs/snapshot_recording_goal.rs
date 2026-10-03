@@ -28,7 +28,7 @@ impl CdrStruct for SnapshotRecordingGoal {
     }
 }
 impl Message for SnapshotRecordingGoal {
-    const SCHEMA: &'static str = "# blueos_recorder_msgs/action/SnapshotRecording\n# The Job type on blueos/v1/recorder/command/SnapshotRecording: writes an indexed copy of a recording (typically the\n# one being written) next to it, named <stem>.snapshot-<UTC ISO time>Z.mcap. The copy is announced by a\n# RecordingOperation event.\n\nstring path";
+    const SCHEMA: &'static str = "# blueos_recorder_msgs/action/SnapshotRecording\n# The Job type on blueos/v1/recorder/command/SnapshotRecording: writes an indexed copy of a recording (typically the\n# one being written) next to it, named <stem>.snapshot-<UTC ISO time>Z.mcap.\n\nstring path";
     const SCHEMA_NAME: &'static str = "blueos_recorder_msgs/action/SnapshotRecording_Goal";
     const TYPE_HASH: &'static str =
         "31087aec0a77e1fdc43a4a2af6b1e1c4b29c089c385d7ebf62101ae360233927";

@@ -33,7 +33,7 @@ names inside every Block folder (`handlers`, `io`, `tasks`).
 | `tasks/mavlink.rs` | MAVLink ingress (feeds capture and cameras) |
 | `capture/tasks/data_plane/` | Data plane Task and sample plan |
 | `cameras/io.rs` | Camera MAVLink egress |
-| `library/handlers.rs` | Custom Commands and the `index` IO query |
+| `library/handlers.rs` | The `index` IO query |
 | `library/io.rs` | Library blocking IO (rescan, delete) |
 | `library/tasks/operations.rs` | Repair and snapshot reconcile Task |
 

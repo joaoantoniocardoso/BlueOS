@@ -1,4 +1,4 @@
-//! Custom Recorder endpoints: path validation before the Domain sees a Command.
+//! The Recorder's `index` IO query.
 
 use core::{
     future::Future,
@@ -7,14 +7,10 @@ use core::{
 };
 use std::sync::Arc;
 
-use blueos_idl::msg::blueos_recorder_msgs::{
-    DeleteRecordingGoal, RecordingIndexRequest, RecordingIndexResponse, RepairRecordingGoal,
-    SnapshotRecordingGoal,
-};
-use blueos_jobs::JobId;
-use blueos_recorder_domain::{RecorderDomain, RecorderRequest};
+use blueos_idl::msg::blueos_recorder_msgs::{RecordingIndexRequest, RecordingIndexResponse};
+use blueos_recorder_domain::RecorderDomain;
 use blueos_recorder_mcap::IndexError;
-use blueos_recorder_paths::{RecordingRelativePath, recording_path_refusal};
+use blueos_recorder_paths::RecordingRelativePath;
 use blueos_recorder_storage::StorageError;
 use blueos_service::Refusal;
 
@@ -23,34 +19,12 @@ use crate::{context::RecorderContext, endpoints::Handlers};
 /// Default wall-clock budget for one index walk (`spawn_blocking` included).
 pub(crate) const RECORDING_INDEX_WALK_TIMEOUT: Duration = Duration::from_secs(30);
 
-/// Custom endpoint handlers for the Recorder Service.
+/// The handlers of the Recorder's IO queries.
 pub(crate) struct RecorderHandlers {
     context: RecorderContext,
 }
 
 impl Handlers<RecorderDomain> for RecorderHandlers {
-    fn delete_recording(&self, goal: DeleteRecordingGoal) -> Result<RecorderRequest, Refusal> {
-        let path = RecordingRelativePath::parse(&goal.path)
-            .map_err(|error| Refusal::from(recording_path_refusal(error)))?;
-        Ok(RecorderRequest::DeleteRecording { path })
-    }
-
-    fn repair_recording(
-        &self,
-        job_id: JobId,
-        goal: RepairRecordingGoal,
-    ) -> Result<RecorderRequest, Refusal> {
-        let path = RecordingRelativePath::parse(&goal.path)
-            .map_err(|error| Refusal::from(recording_path_refusal(error)))?;
-        Ok(RecorderRequest::RepairRecording { job_id, path })
-    }
-
-    fn snapshot_recording(&self, goal: SnapshotRecordingGoal) -> Result<RecorderRequest, Refusal> {
-        let path = RecordingRelativePath::parse(&goal.path)
-            .map_err(|error| Refusal::from(recording_path_refusal(error)))?;
-        Ok(RecorderRequest::SnapshotRecording { path })
-    }
-
     fn index(
         &self,
         request: RecordingIndexRequest,
@@ -75,8 +49,7 @@ pub(crate) async fn run_index_query(
     context: &RecorderContext,
     request: RecordingIndexRequest,
 ) -> Result<RecordingIndexResponse, Refusal> {
-    let relative = RecordingRelativePath::parse(&request.path)
-        .map_err(|error| Refusal::from(recording_path_refusal(error)))?;
+    let relative = RecordingRelativePath::parse(&request.path).map_err(Refusal::from)?;
     let path = context
         .recordings_folder
         .resolve(relative.as_str())

@@ -5,7 +5,6 @@ import type * as Idl from '@blueos-idl/messages'
 
 import {
   commandKey,
-  eventKey,
   queryKey,
   stateKey,
 } from '../keys'
@@ -114,13 +113,3 @@ export const recording = {
   messageSchema: 'blueos_recorder_msgs/msg/RecordingState' as const,
 }
 export type Recording = Idl.RecordingState
-
-/** event `operation` at `blueos/v1/recorder/event/operation`. */
-export const operation = {
-  kind: 'event' as const,
-  name: 'operation',
-  key: eventKey(NAME, 'operation'),
-  type: 'blueos_recorder_msgs/msg/RecordingOperation' as const,
-  messageSchema: 'blueos_recorder_msgs/msg/RecordingOperation' as const,
-}
-export type Operation = Idl.RecordingOperation

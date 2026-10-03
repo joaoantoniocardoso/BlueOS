@@ -1,4 +1,6 @@
 #![expect(missing_docs, reason = "generated from ROS .msg sources")]
+use alloc::string::String;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -7,25 +9,30 @@ use crate::{
     message::{CdrStruct, Message},
 };
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct RepairRecordingResult {}
+pub struct RepairRecordingResult {
+    pub path: String,
+}
 impl CdrStruct for RepairRecordingResult {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
-        if !reader.is_exhausted() {
-            reader.read_u8()?;
-        }
-        Ok(Self {})
+        Ok(Self {
+            path: if reader.is_exhausted() {
+                String::new()
+            } else {
+                reader.read_string()?
+            },
+        })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {
-        writer.write_u8(0)?;
+        writer.write_string(self.path.as_str())?;
         Ok(())
     }
 }
 impl Message for RepairRecordingResult {
-    const SCHEMA: &'static str = "";
+    const SCHEMA: &'static str = "# Job result: the recording the Job repaired. Why it failed is the reason of the Job.\nstring path";
     const SCHEMA_NAME: &'static str = "blueos_recorder_msgs/action/RepairRecording_Result";
     const TYPE_HASH: &'static str =
-        "afdb4ee88ff3cb16c5a7df7451a2a35ca36ac19f7f9bd0a22acf4de0704221ca";
+        "b5b71558c8c59e17ffe631de41f5aa2bfb63885109007bcaab06fe679a6887a9";
 }
 impl RepairRecordingResult {
-    pub const KNOWN_FIELD_COUNT: usize = 0usize;
+    pub const KNOWN_FIELD_COUNT: usize = 1usize;
 }

@@ -233,21 +233,26 @@ bool restart_required`,
 
 string path`,
   "blueos_recorder_msgs/action/DeleteRecording_Result": ``,
-  "blueos_recorder_msgs/action/RepairRecording_Feedback": ``,
+  "blueos_recorder_msgs/action/RepairRecording_Feedback": `# Feedback: how far the repair has read into the recording.
+uint64 bytes_processed
+uint64 total_bytes`,
   "blueos_recorder_msgs/action/RepairRecording_Goal": `# blueos_recorder_msgs/action/RepairRecording
 # The Job type on blueos/v1/recorder/command/RepairRecording: rewrites a STATE_NEEDS_REPAIR recording so it has a
-# summary again. Progress is on the library state.
+# summary again. CancelJob stops it and leaves the recording untouched.
 
 string path`,
-  "blueos_recorder_msgs/action/RepairRecording_Result": ``,
-  "blueos_recorder_msgs/action/SnapshotRecording_Feedback": ``,
+  "blueos_recorder_msgs/action/RepairRecording_Result": `# Job result: the recording the Job repaired. Why it failed is the reason of the Job.
+string path`,
+  "blueos_recorder_msgs/action/SnapshotRecording_Feedback": `# Feedback: the snapshot the Job is writing.
+string output_path`,
   "blueos_recorder_msgs/action/SnapshotRecording_Goal": `# blueos_recorder_msgs/action/SnapshotRecording
 # The Job type on blueos/v1/recorder/command/SnapshotRecording: writes an indexed copy of a recording (typically the
-# one being written) next to it, named <stem>.snapshot-<UTC ISO time>Z.mcap. The copy is announced by a
-# RecordingOperation event.
+# one being written) next to it, named <stem>.snapshot-<UTC ISO time>Z.mcap.
 
 string path`,
-  "blueos_recorder_msgs/action/SnapshotRecording_Result": ``,
+  "blueos_recorder_msgs/action/SnapshotRecording_Result": `# Job result: the recording the Job copied, and the snapshot, which exists when the Job succeeded.
+string path
+string output_path`,
   "blueos_recorder_msgs/action/StartRecording_Feedback": ``,
   "blueos_recorder_msgs/action/StartRecording_Goal": `# blueos_recorder_msgs/action/StartRecording
 # The Job type on blueos/v1/recorder/command/Start: opens a new MCAP session (rotate if one is already active).
@@ -358,20 +363,6 @@ string repair_error
 string[] allowed_operations
 # The Job id of the repair while STATE_REPAIRING, which CancelJob names; empty otherwise.
 string repair_job_id`,
-  "blueos_recorder_msgs/msg/RecordingOperation": `# blueos_recorder_msgs/msg/RecordingOperation
-# Published on blueos/v1/recorder/event/operation when a repair, snapshot or delete ends.
-
-uint8 OPERATION_REPAIR=0
-uint8 OPERATION_SNAPSHOT=1
-uint8 OPERATION_DELETE=2
-
-uint8 operation
-string path
-# The snapshot copy; empty for other operations.
-string output_path
-bool succeeded
-bool cancelled
-string error`,
   "blueos_recorder_msgs/msg/RecordingState": `# blueos_recorder_msgs/msg/RecordingState
 # Published on blueos/v1/recorder/state/recording.
 

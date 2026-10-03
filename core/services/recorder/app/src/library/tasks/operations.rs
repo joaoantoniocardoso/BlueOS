@@ -137,13 +137,13 @@ fn take_finished(
                     path,
                     outcome: LibraryRepairOutcome::Failed(RepairFailure::Io),
                 },
-                LibraryOperation::Snapshot { path, output_path } => {
-                    LibraryObservedFact::SnapshotFinished {
-                        path,
-                        output_path,
-                        outcome: LibrarySnapshotOutcome::Failed(RepairFailure::Io),
-                    }
-                }
+                LibraryOperation::Snapshot {
+                    path, output_path, ..
+                } => LibraryObservedFact::SnapshotFinished {
+                    path,
+                    output_path,
+                    outcome: LibrarySnapshotOutcome::Failed(RepairFailure::Io),
+                },
             }
         }
     })
@@ -161,7 +161,9 @@ fn run_operation(
             path: path.clone(),
             outcome: repair(path, recordings_folder, rewriter, commands, cancel),
         },
-        LibraryOperation::Snapshot { path, output_path } => LibraryObservedFact::SnapshotFinished {
+        LibraryOperation::Snapshot {
+            path, output_path, ..
+        } => LibraryObservedFact::SnapshotFinished {
             path: path.clone(),
             output_path: output_path.clone(),
             outcome: snapshot(path, output_path, recordings_folder, rewriter, cancel),

@@ -11,7 +11,8 @@ use tokio::time::{advance, timeout};
 use blueos_api::state_key;
 use blueos_comms::{CommsBackend, channel::ChannelBackend};
 use blueos_idl::msg::blueos_recorder_msgs::{
-    DeleteRecordingGoal, RecordingLibrary, StopRecordingGoal,
+    DeleteRecordingGoal, RecordingLibrary, RepairRecordingGoal, SnapshotRecordingGoal,
+    StopRecordingGoal,
 };
 use blueos_recorder_app::RecorderService;
 use blueos_recorder_library::RESCAN_INTERVAL;
@@ -53,25 +54,51 @@ async fn unchanged_rescan_does_not_republish_library_state() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn delete_rejects_hostile_paths_without_touching_disk() {
+async fn each_goal_with_an_invalid_path_is_rejected_in_the_ack_without_touching_disk() {
     let directory = tempdir().expect("tempdir");
     let victim = directory.path().join("safe.mcap");
     fs::write(&victim, b"data").expect("write");
 
     let harness = start_harness(directory.path()).await;
 
-    for path in ["../outside.mcap", "/etc/passwd.mcap", "notes.txt"] {
-        let ack = harness
-            .send(
-                "DeleteRecording",
-                &DeleteRecordingGoal { path: path.into() },
-            )
-            .await;
-        assert!(!ack.accepted, "expected refusal for {path:?}");
+    for (path, reason) in [
+        ("../outside.mcap", "Invalid recording path."),
+        ("/etc/passwd.mcap", "Invalid recording path."),
+        ("notes.txt", "Only .mcap recordings are supported."),
+    ] {
+        let path = path.to_owned();
+        let acks = [
+            harness
+                .send(
+                    "DeleteRecording",
+                    &DeleteRecordingGoal { path: path.clone() },
+                )
+                .await,
+            harness
+                .send(
+                    "RepairRecording",
+                    &RepairRecordingGoal { path: path.clone() },
+                )
+                .await,
+            harness
+                .send(
+                    "SnapshotRecording",
+                    &SnapshotRecordingGoal { path: path.clone() },
+                )
+                .await,
+        ];
+        for ack in acks {
+            assert!(!ack.accepted, "expected a rejection for {path:?}");
+            assert_eq!(ack.reason, reason, "{path:?}");
+        }
     }
     assert!(
+        harness.jobs().await.jobs.is_empty(),
+        "a rejected Goal must not create a Job"
+    );
+    assert!(
         victim.exists(),
-        "hostile delete must not remove library files"
+        "a rejected delete must not remove library files"
     );
 }
 

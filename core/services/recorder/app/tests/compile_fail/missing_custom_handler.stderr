@@ -1,7 +1,0 @@
-error[E0046]: not all trait items implemented, missing: `repair_recording`
-  --> tests/compile_fail/missing_custom_handler.rs:14:1
-   |
-14 | impl Handlers<RecorderDomain> for ForgetfulHandlers {
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ missing `repair_recording` in implementation
-   |
-   = help: implement the missing item: `fn repair_recording(&self, _: blueos_jobs::JobId, _: RepairRecordingGoal) -> Result<<RecorderDomain as blueos_domain::Domain>::Request, Box<(dyn std::error::Error + Send + Sync + 'static)>> { todo!() }`

@@ -4,9 +4,7 @@ use blueos_idl::{
     Message,
     msg::{
         blueos_msgs::{JobStatus, JobStatusStatus},
-        blueos_recorder_msgs::{
-            RecordingFileState, RecordingOperation, RecordingOperationOperation,
-        },
+        blueos_recorder_msgs::RecordingFileState,
     },
 };
 
@@ -40,18 +38,7 @@ fn known_status_variant_round_trips() {
 }
 
 #[test]
-fn recorder_operation_and_state_enums_encode_scalars() {
-    let operation = RecordingOperation {
-        operation: RecordingOperationOperation::Repair,
-        path: String::new(),
-        output_path: String::new(),
-        succeeded: false,
-        cancelled: false,
-        error: String::new(),
-    };
-    let payload = operation.encode().expect("encode operation");
-    assert_eq!(payload.last(), Some(&0));
-
+fn recorder_state_enum_encodes_a_scalar() {
     let state_message = blueos_idl::msg::blueos_recorder_msgs::RecordingFile {
         path: String::new(),
         name: String::new(),

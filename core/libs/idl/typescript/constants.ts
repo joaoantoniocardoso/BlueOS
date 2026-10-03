@@ -54,10 +54,3 @@ export const RecordingFileState = {
 } as const;
 export type RecordingFileState = typeof RecordingFileState[keyof typeof RecordingFileState] | number;
 
-export const RecordingOperationOperation = {
-  Delete: 2,
-  Repair: 0,
-  Snapshot: 1,
-} as const;
-export type RecordingOperationOperation = typeof RecordingOperationOperation[keyof typeof RecordingOperationOperation] | number;
-
