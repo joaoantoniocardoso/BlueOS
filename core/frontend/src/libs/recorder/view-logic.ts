@@ -1,7 +1,28 @@
+import {
+  CANCEL_REPAIR,
+  DELETE_RECORDING,
+  REPAIR_RECORDING,
+  SNAPSHOT_RECORDING,
+} from './constants'
 import type {
   LibraryRecording,
   RecordingOperationEvent,
+  RecordingState,
 } from './types'
+
+export const RECORDING_STATE_UI: Record<RecordingState, { label: string, color: string }> = {
+  recording: { label: 'Recording', color: 'warning' },
+  needs_repair: { label: 'Needs repair', color: 'error' },
+  repairing: { label: 'Repairing', color: 'primary' },
+  ready: { label: 'Ready', color: 'success' },
+}
+
+export const RECORDING_OPERATION_UI: Record<string, { label: string, icon: string, color: string }> = {
+  [REPAIR_RECORDING]: { label: 'Repair', icon: 'mdi-wrench', color: 'primary' },
+  [CANCEL_REPAIR]: { label: 'Cancel repair', icon: 'mdi-stop', color: 'primary' },
+  [DELETE_RECORDING]: { label: 'Delete', icon: 'mdi-delete', color: 'error' },
+  [SNAPSHOT_RECORDING]: { label: 'Download snapshot', icon: 'mdi-download', color: 'primary' },
+}
 
 /** The library row for `path`, or null when nothing is open or the path left the library. */
 export function recordingByPath(
