@@ -15,7 +15,7 @@ use tokio::{task::JoinSet, time};
 
 use blueos_comms::channel::ChannelBackend;
 use blueos_domain::{Command, Domain, DomainDurable, Outcome};
-use blueos_idl::msg::{blueos_example_msgs::LevelRequest, blueos_msgs::JobStatusStatus};
+use blueos_idl::msg::{blueos_msgs::JobStatusStatus, std_msgs::Empty};
 use blueos_jobs::{DomainJobs, JobNature, Jobs};
 use blueos_service::{
     CommandSender, DurableWriteFlush, Kernel, Service, ServiceBuilder, ServiceContext,
@@ -170,8 +170,8 @@ fn vault_builder(
         context.settings_path().map(PathBuf::from),
         STATE_VERSION,
     )
-    .command("Bump", |_: LevelRequest| Ok(VaultRequest::Bump))
-    .job("StartJob", LASTING, |_job_id, _: LevelRequest| {
+    .command("Bump", |_: Empty| Ok(VaultRequest::Bump))
+    .job("StartJob", LASTING, |_job_id, _: Empty| {
         Ok(VaultRequest::StartJob)
     })
     .job(
@@ -180,7 +180,7 @@ fn vault_builder(
             needs_permission: true,
             ..LASTING
         },
-        |_job_id, _: LevelRequest| Ok(VaultRequest::StartJob),
+        |_job_id, _: Empty| Ok(VaultRequest::StartJob),
     );
     let shutdown = if shutdown_bump {
         builder = builder.on_shutdown(VaultRequest::Bump);
@@ -239,8 +239,8 @@ async fn send_command(backend: &Arc<dyn blueos_comms::CommsBackend>, command: &s
     use blueos_idl::msg::blueos_msgs::CommandAck;
 
     let body = QueryBody::new(
-        LevelRequest::default().encode().expect("request encodes"),
-        cdr_encoding(LevelRequest::SCHEMA_NAME),
+        Empty::default().encode().expect("request encodes"),
+        cdr_encoding(Empty::SCHEMA_NAME),
     )
     .with_attachment(new_job_id().to_string().into_bytes());
     let replies = backend

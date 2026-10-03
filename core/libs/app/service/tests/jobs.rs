@@ -14,11 +14,12 @@ use blueos_api::{
 use blueos_comms::{QueryBody, Subscriber};
 use blueos_domain::{Command, Decision, Domain, Effect, IoError, Now, Outcome};
 use blueos_idl::msg::{
-    blueos_example_msgs::{LevelRequest, LevelResponse, SetLevelGoal},
+    blueos_example_msgs::{LevelResponse, SetLevelGoal},
     blueos_msgs::{
-        CommandAckStatus, JobFeedbackList, JobList, JobResult, JobStatusStatus, ServiceInfo,
-        SettingsEnvelope, UpdateSettingsFeedback, UpdateSettingsResult,
+        CommandAckStatus, JobFeedbackList, JobList, JobResult, JobStatusStatus, SettingsEnvelope,
+        UpdateSettingsFeedback, UpdateSettingsResult,
     },
+    std_msgs::Empty,
 };
 use blueos_jobs::{DomainJobs, JobControl, JobEnd, JobId, JobNature, JobStatus, Jobs};
 use blueos_service::{Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness};
@@ -81,8 +82,8 @@ impl Service for BrewerService {
             jobs: Jobs::with_retention(RETENTION),
             brews: BTreeMap::new(),
         })
-        .command("Ping", |_: LevelRequest| Ok(BrewerRequest::Ping))
-        .command("Refuse", |_: LevelRequest| Ok(BrewerRequest::Refuse))
+        .command("Ping", |_: Empty| Ok(BrewerRequest::Ping))
+        .command("Refuse", |_: Empty| Ok(BrewerRequest::Refuse))
         .job("Brew", BREW, |job_id, goal: SetLevelGoal| {
             Ok(BrewerRequest::Brew {
                 job_id,
@@ -228,7 +229,7 @@ async fn a_job_that_ends_in_the_step_that_accepts_it_acks_its_final_status() {
     let harness = start().await;
     let [ping, empty] = [1, 2].map(JobId::from_u128);
 
-    let instant = harness.submit("Ping", ping, &LevelRequest::default()).await;
+    let instant = harness.submit("Ping", ping, &Empty::default()).await;
     let aborted = harness.submit("Brew", empty, &cups(0)).await;
 
     assert_eq!(instant, accepted(ping, CommandAckStatus::Succeeded));
@@ -306,9 +307,7 @@ async fn a_rejected_submit_leaves_no_job() {
     let harness = start().await;
     let job_id = JobId::from_u128(7);
 
-    let refused = harness
-        .submit("Refuse", job_id, &LevelRequest::default())
-        .await;
+    let refused = harness.submit("Refuse", job_id, &Empty::default()).await;
 
     assert_eq!(
         refused,
@@ -522,10 +521,7 @@ async fn info_lists_the_jobs_state_and_the_feedback_result_and_history_of_each_j
     let harness = start().await;
     let service = BrewerService::NAME;
 
-    let info = harness
-        .query::<LevelRequest, ServiceInfo>("info", &LevelRequest::default())
-        .await
-        .expect("the info query answers");
+    let info = harness.info().await;
 
     let listed: Vec<_> = info
         .endpoints
@@ -757,7 +753,7 @@ async fn the_history_query_returns_the_last_finished_jobs_of_a_type_in_order() {
     let harness = start().await;
     let [first, second, third, brew] = [1, 2, 3, 4].map(JobId::from_u128);
     for ping in [first, second, third] {
-        harness.submit("Ping", ping, &LevelRequest::default()).await;
+        harness.submit("Ping", ping, &Empty::default()).await;
     }
     harness.submit("Brew", brew, &cups(0)).await;
 

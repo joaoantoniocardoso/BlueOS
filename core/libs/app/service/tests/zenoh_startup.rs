@@ -13,8 +13,9 @@ use blueos_comms::{CommsBackend, LivelinessEvent, QueryBody};
 use blueos_comms_zenoh::ZenohBackend;
 use blueos_domain::{Command, Decision, Domain, DomainQueries, IoError, Now, Outcome};
 use blueos_idl::msg::{
-    blueos_example_msgs::{LevelRequest, LevelResponse, PumpState},
+    blueos_example_msgs::{LevelResponse, PumpState},
     blueos_msgs::ServiceInfo,
+    std_msgs::Empty,
 };
 use blueos_jobs::JobId;
 use blueos_service::{
@@ -58,13 +59,13 @@ impl Service for ZenohStartupService {
         _context: &(),
     ) -> Result<ServiceBuilder<ZenohStartup>, ServiceError> {
         Ok(ServiceBuilder::new(ZenohStartupSnapshot { ready: true })
-            .command("Noop", |_: LevelRequest| Ok(ZenohStartupRequest::Noop))
+            .command("Noop", |_: Empty| Ok(ZenohStartupRequest::Noop))
             .query(
                 "level",
-                |_: LevelRequest| Ok(ZenohStartupQuery::Level),
+                |_: Empty| Ok(ZenohStartupQuery::Level),
                 |response: LevelResponse| Some(response),
             )
-            .io_query("Probe", |_request: LevelRequest| {
+            .io_query("Probe", |_request: Empty| {
                 Box::pin(async move {
                     Ok(LevelResponse {
                         level: 4,
@@ -144,8 +145,8 @@ async fn expect_one_get(
 
 async fn every_endpoint_answers(backend: &Arc<dyn CommsBackend>, service: &str) {
     let empty = QueryBody::new(
-        LevelRequest::default().encode().expect("encode"),
-        cdr_encoding(LevelRequest::SCHEMA_NAME),
+        Empty::default().encode().expect("encode"),
+        cdr_encoding(Empty::SCHEMA_NAME),
     );
     let info_payload = expect_one_get(backend, &info_query_key(service), None).await;
     let info = ServiceInfo::decode(&info_payload).expect("ServiceInfo");

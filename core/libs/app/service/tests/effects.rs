@@ -12,7 +12,7 @@ use tokio::time::{advance, timeout};
 use blueos_api::{Message, cdr_encoding, command_key, state_key};
 use blueos_comms::Subscriber;
 use blueos_domain::{Command, Decision, Domain, DomainQueries, Effect, IoError, Now, Outcome};
-use blueos_idl::msg::blueos_example_msgs::{LevelRequest, LevelResponse};
+use blueos_idl::msg::{blueos_example_msgs::LevelResponse, std_msgs::Empty};
 use blueos_jobs::JobId;
 use blueos_service::{
     Kernel, RunOutcome, Service, ServiceBuilder, ServiceContext, ServiceError,
@@ -237,40 +237,32 @@ impl Service for EffectsService {
                 }
             },
         )
-        .command("RunIoChain", |_: LevelRequest| {
-            Ok(EffectsRequest::RunIoChain)
-        })
-        .command("RunIoPanic", |_: LevelRequest| {
-            Ok(EffectsRequest::RunIoPanic)
-        })
-        .command("ArmTimer", |_: LevelRequest| {
+        .command("RunIoChain", |_: Empty| Ok(EffectsRequest::RunIoChain))
+        .command("RunIoPanic", |_: Empty| Ok(EffectsRequest::RunIoPanic))
+        .command("ArmTimer", |_: Empty| {
             Ok(EffectsRequest::ArmTimer {
                 after: Duration::from_secs(10),
             })
         })
-        .command("ReArmTimer", |_: LevelRequest| {
+        .command("ReArmTimer", |_: Empty| {
             Ok(EffectsRequest::ReArmTimer {
                 after: Duration::from_secs(5),
             })
         })
-        .command("CancelTimer", |_: LevelRequest| {
-            Ok(EffectsRequest::CancelTimer)
-        })
-        .command("ScheduleIoWithoutExecutor", |_: LevelRequest| {
+        .command("CancelTimer", |_: Empty| Ok(EffectsRequest::CancelTimer))
+        .command("ScheduleIoWithoutExecutor", |_: Empty| {
             Ok(EffectsRequest::ScheduleIoWithoutExecutor)
         })
-        .command("RecordCapacity", |_: LevelRequest| {
+        .command("RecordCapacity", |_: Empty| {
             Ok(EffectsRequest::RecordCapacity)
         })
-        .command("RunBlockingHold", |_: LevelRequest| {
+        .command("RunBlockingHold", |_: Empty| {
             Ok(EffectsRequest::RunBlockingHold)
         })
-        .command("RunAsyncHold", |_: LevelRequest| {
-            Ok(EffectsRequest::RunAsyncHold)
-        })
+        .command("RunAsyncHold", |_: Empty| Ok(EffectsRequest::RunAsyncHold))
         .query(
             "blocking_active",
-            |_: LevelRequest| Ok(EffectsQuery::BlockingActive),
+            |_: Empty| Ok(EffectsQuery::BlockingActive),
             |active: bool| {
                 Some(LevelResponse {
                     level: u8::from(active),
@@ -453,7 +445,7 @@ impl Service for EffectsWithoutIoService {
             blocking_io_running: false,
             blocking_io_applied: None,
         })
-        .command("ScheduleIoWithoutExecutor", |_: LevelRequest| {
+        .command("ScheduleIoWithoutExecutor", |_: Empty| {
             Ok(EffectsRequest::ScheduleIoWithoutExecutor)
         })
         .state("level", |snapshot: &EffectsSnapshot| LevelResponse {
@@ -493,7 +485,7 @@ async fn failed_first_io_still_runs_second() {
         .await
         .unwrap();
     let mut io_states = subscribe_state(&harness, "io").await;
-    let ack = harness.send("RunIoChain", &LevelRequest::default()).await;
+    let ack = harness.send("RunIoChain", &Empty::default()).await;
     assert!(ack.accepted);
     let after_fail = next_state_sample(&mut io_states).await;
     assert_eq!(after_fail.level, 1);
@@ -509,7 +501,7 @@ async fn io_panic_reaches_domain_as_io_failed() {
         .await
         .unwrap();
     let mut io_states = subscribe_state(&harness, "io").await;
-    let ack = harness.send("RunIoPanic", &LevelRequest::default()).await;
+    let ack = harness.send("RunIoPanic", &Empty::default()).await;
     assert!(ack.accepted);
     let after_panic = next_state_sample(&mut io_states).await;
     assert_eq!(after_panic.level, 1);
@@ -522,8 +514,8 @@ async fn rearmed_timer_fires_once_at_new_time() {
         .await
         .unwrap();
     let mut tick_states = subscribe_state(&harness, "ticks").await;
-    harness.send("ArmTimer", &LevelRequest::default()).await;
-    harness.send("ReArmTimer", &LevelRequest::default()).await;
+    harness.send("ArmTimer", &Empty::default()).await;
+    harness.send("ReArmTimer", &Empty::default()).await;
     advance(Duration::from_secs(5)).await;
     assert_eq!(next_state_sample(&mut tick_states).await.level, 1);
     advance(Duration::from_secs(10)).await;
@@ -536,7 +528,7 @@ async fn cancelled_timer_never_fires() {
         .await
         .unwrap();
     let mut tick_states = subscribe_state(&harness, "ticks").await;
-    harness.send("CancelTimer", &LevelRequest::default()).await;
+    harness.send("CancelTimer", &Empty::default()).await;
     advance(Duration::from_secs(20)).await;
     expect_no_state_sample(&mut tick_states).await;
 }
@@ -547,7 +539,7 @@ async fn synchronous_io_effect_failure_rolls_back_command() {
         .await
         .unwrap();
     let ack = harness
-        .send("ScheduleIoWithoutExecutor", &LevelRequest::default())
+        .send("ScheduleIoWithoutExecutor", &Empty::default())
         .await;
     assert!(!ack.accepted);
     assert!(ack.reason.contains("IO executor"));
@@ -565,9 +557,7 @@ async fn io_executor_receives_context_and_snapshot() {
     })
     .await
     .unwrap();
-    let ack = harness
-        .send("RecordCapacity", &LevelRequest::default())
-        .await;
+    let ack = harness.send("RecordCapacity", &Empty::default()).await;
     assert!(ack.accepted);
     wait_for_io
         .await
@@ -595,8 +585,8 @@ async fn query_answers_while_blocking_io_is_held() {
     let backend = Arc::clone(harness.backend());
     let command = tokio::spawn(async move {
         let body = blueos_comms::QueryBody::new(
-            LevelRequest::default().encode().unwrap(),
-            cdr_encoding(LevelRequest::SCHEMA_NAME),
+            Empty::default().encode().unwrap(),
+            cdr_encoding(Empty::SCHEMA_NAME),
         )
         .with_attachment(JobId::from_u128(1).to_string().into_bytes());
         backend
@@ -614,7 +604,7 @@ async fn query_answers_while_blocking_io_is_held() {
         .expect("blocking IO should start");
     assert_eq!(
         harness
-            .query::<LevelRequest, LevelResponse>("blocking_active", &LevelRequest::default())
+            .query::<Empty, LevelResponse>("blocking_active", &Empty::default())
             .await
             .expect("the Query answers")
             .level,
@@ -630,7 +620,7 @@ async fn query_answers_while_blocking_io_is_held() {
     command.await.expect("the Command should finish");
     assert_eq!(
         harness
-            .query::<LevelRequest, LevelResponse>("blocking_active", &LevelRequest::default())
+            .query::<Empty, LevelResponse>("blocking_active", &Empty::default())
             .await
             .expect("the Query answers")
             .level,
@@ -645,7 +635,7 @@ async fn effect_recorder_sees_effects_without_running_them() {
             .await
             .unwrap();
     let mut tick_states = subscribe_state(&harness, "ticks").await;
-    let ack = harness.send("CancelTimer", &LevelRequest::default()).await;
+    let ack = harness.send("CancelTimer", &Empty::default()).await;
     assert!(ack.accepted);
     let batch = log.last_batch().expect("one Command was applied");
     assert_eq!(
@@ -707,8 +697,8 @@ async fn shutdown_waits_for_in_flight_io_before_returning() {
     .await;
     let command = tokio::spawn(async move {
         let body = blueos_comms::QueryBody::new(
-            LevelRequest::default().encode().unwrap(),
-            cdr_encoding(LevelRequest::SCHEMA_NAME),
+            Empty::default().encode().unwrap(),
+            cdr_encoding(Empty::SCHEMA_NAME),
         )
         .with_attachment(JobId::from_u128(1).to_string().into_bytes());
         backend
@@ -759,8 +749,8 @@ async fn shutdown_abandons_in_flight_io_after_five_seconds() {
     .await;
     let _command = tokio::spawn(async move {
         let body = blueos_comms::QueryBody::new(
-            LevelRequest::default().encode().unwrap(),
-            cdr_encoding(LevelRequest::SCHEMA_NAME),
+            Empty::default().encode().unwrap(),
+            cdr_encoding(Empty::SCHEMA_NAME),
         )
         .with_attachment(JobId::from_u128(1).to_string().into_bytes());
         backend
@@ -815,8 +805,8 @@ async fn shutdown_waits_for_in_flight_blocking_io_before_returning() {
     .await;
     let command = tokio::spawn(async move {
         let body = blueos_comms::QueryBody::new(
-            LevelRequest::default().encode().unwrap(),
-            cdr_encoding(LevelRequest::SCHEMA_NAME),
+            Empty::default().encode().unwrap(),
+            cdr_encoding(Empty::SCHEMA_NAME),
         )
         .with_attachment(JobId::from_u128(1).to_string().into_bytes());
         backend
