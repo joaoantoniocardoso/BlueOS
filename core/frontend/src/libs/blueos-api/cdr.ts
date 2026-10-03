@@ -201,13 +201,42 @@ export function decodeCdrWithSchema(
   throw new Error(`Failed to decode CDR for schema ${schemaName}`)
 }
 
+// The decoder gives 64-bit integers as numbers, but the writer takes an array of them only as bigints.
+function withBigInts(
+  fields: MessageDefinitionField[],
+  message: Record<string, unknown>,
+  definitionsByName: Map<string, MessageDefinitionField[]>,
+): Record<string, unknown> {
+  const converted = { ...message }
+  for (const field of dataFields({ definitions: fields })) {
+    const nestedFields = field.isComplex === true ? definitionsByName.get(field.type) : undefined
+    const value = message[field.name]
+    const entries = field.isArray === true && Array.isArray(value) ? value : [value]
+    const convertedEntries = entries.map((entry: unknown) => {
+      if (nestedFields !== undefined && entry !== null && typeof entry === 'object') {
+        return withBigInts(nestedFields, entry as Record<string, unknown>, definitionsByName)
+      }
+      return typeof entry === 'number' && (field.type === 'int64' || field.type === 'uint64') ? BigInt(entry) : entry
+    })
+    if (field.name in message) {
+      converted[field.name] = field.isArray === true && Array.isArray(value) ? convertedEntries : convertedEntries[0]
+    }
+  }
+  return converted
+}
+
 export function encodeCdrWithSchema(
   schemaName: string,
   schemaText: string,
   message: object,
 ): Uint8Array {
+  const definitions = getDefinitions(schemaName, schemaText)
   const writer = getWriter(schemaName, schemaText)
-  return writer.writeMessage(message)
+  return writer.writeMessage(withBigInts(
+    dataFields(definitions[0]),
+    message as Record<string, unknown>,
+    definitionsMap(definitions),
+  ))
 }
 
 export function defaultMessageForSchema(
