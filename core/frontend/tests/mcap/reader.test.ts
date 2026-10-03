@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { McapIndexedReader } from '@/libs/mcap/logic/reader'
 import { listVideoTracks } from '@/libs/mcap/logic/video-track'
 
-import { buildIndexedVideoMcap } from './build-mcap'
+import { asLiveRecording, buildIndexedVideoMcap, buildLateVideoMcap } from './build-mcap'
 import MemoryByteSource from './memory-byte-source'
 
 describe('McapIndexedReader', () => {
@@ -26,5 +26,22 @@ describe('McapIndexedReader', () => {
     source.bytesRead = 0
     await McapIndexedReader.open(source)
     expect(source.bytesRead).toBeGreaterThanOrEqual(metadataBytes)
+  })
+
+  it('names a video stream first written after a live recording was opened, reading one chunk for it', async () => {
+    const finished = await buildLateVideoMcap()
+    const { chunks } = await asLiveRecording(finished, 1)
+    const firstVideoChunk = chunks.findIndex((chunk) => chunk.channelIds.length === 2)
+    expect(firstVideoChunk).toBeGreaterThan(0)
+    const live = await asLiveRecording(finished, firstVideoChunk)
+    const reader = await McapIndexedReader.open(live.source, { indexSource: live.indexSource })
+    expect(listVideoTracks(reader)).toEqual([])
+
+    live.writtenChunks = chunks.length
+    const readBefore = live.source.bytesRead
+    expect(await reader.extendWrittenPrefix()).toBe(true)
+
+    expect(listVideoTracks(reader).map((track) => [track.name, track.frameCount])).toEqual([['camera', 20]])
+    expect(live.source.bytesRead - readBefore).toBe(chunks[firstVideoChunk].length)
   })
 })

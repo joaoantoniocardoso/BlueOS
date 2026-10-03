@@ -13,7 +13,9 @@ import { mergedVideoCoverage, trackTimelineLanes } from '@/libs/mcap/logic/playb
 import { McapIndexedReader } from '@/libs/mcap/logic/reader'
 import { listVideoTracks } from '@/libs/mcap/logic/video-track'
 
-import { buildTwoTrackVideoMcap, TWO_TRACK_FRAME_NS } from './build-mcap'
+import {
+  asLiveRecording, buildLateVideoMcap, buildTwoTrackVideoMcap, TWO_TRACK_FRAME_NS,
+} from './build-mcap'
 import MemoryByteSource from './memory-byte-source'
 
 async function openTwoTracks(): Promise<McapVideoRecording> {
@@ -41,9 +43,10 @@ async function mp4SampleCount(file: Blob): Promise<number> {
   throw new Error('No stsz box')
 }
 
-/** Serves `bytes` to `HttpByteSource` the way nginx answers its range requests. */
-function serveOverHttp(bytes: Uint8Array): void {
+/** Serves the file that `written` returns to `HttpByteSource` the way nginx answers its range requests. */
+function serveOverHttp(written: () => Uint8Array): void {
   vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => {
+    const bytes = written()
     const range = (init?.headers as Record<string, string>).Range
     const [, first, last] = /^bytes=(\d*)-(\d*)$/.exec(range) ?? []
     const start = first === '' ? Math.max(0, bytes.length - Number(last)) : Number(first)
@@ -57,7 +60,8 @@ function serveOverHttp(bytes: Uint8Array): void {
 
 async function mountTwoTrackPlayer(onMp4Saved: (blob: Blob, fileName: string) => void = () => undefined):
   Promise<McapRecordingPlaybackController> {
-  serveOverHttp(await buildTwoTrackVideoMcap())
+  const bytes = await buildTwoTrackVideoMcap()
+  serveOverHttp(() => bytes)
   const controller = new McapRecordingPlaybackController({
     url: 'http://vehicle/userdata/recorder/two.mcap',
     ongoing: false,
@@ -155,6 +159,40 @@ describe('a recording with two video streams', () => {
     for (const stream of streams) {
       expect(stream.calls).toEqual(['seek 10', 'play', 'pause'])
     }
+    controller.destroy()
+  })
+})
+
+describe('a live recording', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('adds and selects a stream that started after the player opened, without reopening', async () => {
+    const finished = await buildLateVideoMcap()
+    const { chunks } = await asLiveRecording(finished, 1)
+    const live = await asLiveRecording(finished, chunks.findIndex((chunk) => chunk.channelIds.length === 2))
+    serveOverHttp(live.bytes)
+    const controller = new McapRecordingPlaybackController({
+      url: 'http://vehicle/userdata/recorder/live.mcap',
+      indexSource: live.indexSource,
+      ongoing: true,
+      callbacks: {
+        onState: () => undefined,
+        onBusy: () => undefined,
+        onSummary: () => undefined,
+        onMp4Saved: () => undefined,
+      },
+    })
+    await controller.mount()
+    expect(controller.getState().tracks).toEqual([])
+
+    live.writtenChunks = chunks.length
+    controller.onWrittenSizeBytes(live.bytes().length)
+
+    await vi.waitFor(() => expect(controller.getState().tracks.map((track) => track.name)).toEqual(['camera']))
+    const [camera] = controller.getState().tracks
+    expect(controller.getState().selectedChannelIds).toEqual([camera.channelId])
     controller.destroy()
   })
 })
