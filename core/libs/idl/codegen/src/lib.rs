@@ -21,10 +21,12 @@ use msg_ast::{Constant, ConstantValue, DataType, Field, FieldCase, Message};
 const SCHEMA_SEPARATOR: &str =
     "================================================================================\n";
 
-/// One `.msg` file under an interfaces folder, parsed, with what `api.lock` and the generated code need of it.
+/// One `.msg` file, or one part of a `.srv` or `.action` file, under an interfaces folder, parsed, with what
+/// `api.lock` and the generated code need of it.
 #[derive(Clone, Debug)]
 pub struct MessageRecord {
-    /// Its schema name, `<package>/msg/<Name>`.
+    /// Its schema name: `<package>/msg/<Name>`, or for a part `<package>/srv/<Name>_Request` or
+    /// `<package>/action/<Name>_Goal`, as in ROS 2.
     pub schema_name: String,
     /// Its `<package>/<Name>` name, without `msg`.
     pub dynamic_key: String,
@@ -46,6 +48,17 @@ pub struct MessageRecord {
     pub message: Message,
 }
 
+/// One `.srv` or `.action` file, with what the schema text that lists every part needs of it.
+#[derive(Clone, Debug)]
+struct InterfaceRecord {
+    /// Its interface type, `<package>/srv/<Name>` or `<package>/action/<Name>`.
+    schema_name: String,
+    /// The text of the file, every part in order.
+    source: String,
+    /// The schema names of the Messages its parts use.
+    dependencies: BTreeSet<String>,
+}
+
 /// Regenerates committed Rust types and schema lookup under `out_dir` (typically `blueos-idl/src/generated`).
 pub fn generate(
     interfaces_root: &Path,
@@ -53,7 +66,7 @@ pub fn generate(
     typescript_dir: Option<&Path>,
     test_generated_dir: Option<&Path>,
 ) {
-    let messages = collect_messages(interfaces_root);
+    let (messages, interfaces) = collect_interfaces(interfaces_root);
     let records: BTreeMap<String, MessageRecord> = messages
         .into_iter()
         .map(|record| (record.schema_name.clone(), record))
@@ -66,7 +79,7 @@ pub fn generate(
     fs::write(out_dir.join("rustfmt.toml"), "reorder_imports = false\n")
         .expect("write generated rustfmt.toml");
 
-    write_rust_messages(&records, out_dir);
+    write_rust_messages(&records, &interfaces, out_dir);
     let idl_root = interfaces_root
         .parent()
         .expect("interfaces directory has a parent");
@@ -111,7 +124,12 @@ pub fn generate_schema_catalog(interfaces_root: &Path, out_dir: &Path) {
             format!(
                 "        {:?} => Some({:?}),",
                 record.schema_name,
-                schema_text(record, &records)
+                schema_text(
+                    &record.schema_name,
+                    &record.source,
+                    &record.dependencies,
+                    &records
+                )
             )
         })
         .collect();
@@ -148,14 +166,61 @@ pub fn message_schema_names(interfaces_root: &Path) -> BTreeSet<String> {
 }
 
 fn collect_messages(interfaces_root: &Path) -> Vec<MessageRecord> {
-    let (parsed_messages, _, _) = find_and_parse_ros_messages(&[interfaces_root.to_path_buf()])
-        .expect("parse interfaces with roslibrust_codegen");
+    collect_interfaces(interfaces_root).0
+}
+
+/// Every message under `interfaces_root`, each `.srv` and `.action` part included as a top-level message named
+/// as in ROS 2 (`<package>/srv/<Name>_Request`, `<package>/action/<Name>_Goal`), and every `.srv` and `.action`.
+fn collect_interfaces(interfaces_root: &Path) -> (Vec<MessageRecord>, Vec<InterfaceRecord>) {
+    let (parsed_messages, parsed_services, parsed_actions) =
+        find_and_parse_ros_messages(&[interfaces_root.to_path_buf()])
+            .expect("parse interfaces with roslibrust_codegen");
+    // roslibrust also lists the parts of an `.action` and its ROS 1 wrappers as messages: only `.msg` files are.
+    let mut parsed_messages: Vec<_> = parsed_messages
+        .into_iter()
+        .filter(|parsed| {
+            parsed
+                .path
+                .extension()
+                .is_some_and(|extension| extension == "msg")
+        })
+        .map(|parsed| (format!("{}/msg/{}", parsed.package, parsed.name), parsed))
+        .collect();
+    let mut interfaces = Vec::new();
+    let services = parsed_services.into_iter().map(|service| {
+        let parts = vec![
+            ("Request", service.request_type),
+            ("Response", service.response_type),
+        ];
+        ("srv", service.package, service.name, service.source, parts)
+    });
+    let actions = parsed_actions.into_iter().map(|action| {
+        let parts = vec![
+            ("Goal", action.goal_type),
+            ("Result", action.result_type),
+            ("Feedback", action.feedback_type),
+        ];
+        ("action", action.package, action.name, action.source, parts)
+    });
+    for (kind, package, name, source, parts) in services.chain(actions) {
+        let mut dependencies = BTreeSet::new();
+        for (part, parsed) in parts {
+            dependencies
+                .extend(Message::from_ros_fields(&parsed.fields, &parsed.constants).dependencies());
+            parsed_messages.push((format!("{package}/{kind}/{name}_{part}"), parsed));
+        }
+        interfaces.push(InterfaceRecord {
+            schema_name: format!("{package}/{kind}/{name}"),
+            source,
+            dependencies,
+        });
+    }
+    interfaces.sort_by(|left, right| left.schema_name.cmp(&right.schema_name));
     let mut messages = Vec::new();
-    for parsed in parsed_messages {
+    for (schema_name, parsed) in parsed_messages {
         let package = parsed.package.clone();
         let name = parsed.name.clone();
         let dynamic_key = format!("{package}/{name}");
-        let schema_name = format!("{package}/msg/{name}");
         let message = Message::from_ros_fields(&parsed.fields, &parsed.constants);
         let field_signature = msg_ast::field_signature(&message);
         let type_hash = hash_hex(&format!("{schema_name}\n{field_signature}"));
@@ -174,7 +239,7 @@ fn collect_messages(interfaces_root: &Path) -> Vec<MessageRecord> {
         });
     }
     messages.sort_by(|left, right| left.schema_name.cmp(&right.schema_name));
-    messages
+    (messages, interfaces)
 }
 
 fn hash_hex(input: &str) -> String {
@@ -186,7 +251,12 @@ fn rust_field_name(field: &Field) -> String {
     field.name().to_string()
 }
 
-fn schema_text(record: &MessageRecord, records: &BTreeMap<String, MessageRecord>) -> String {
+fn schema_text(
+    schema_name: &str,
+    source: &str,
+    dependencies: &BTreeSet<String>,
+    records: &BTreeMap<String, MessageRecord>,
+) -> String {
     let mut ordered = Vec::new();
     let mut visiting = BTreeSet::new();
     let mut visited = BTreeSet::new();
@@ -215,7 +285,7 @@ fn schema_text(record: &MessageRecord, records: &BTreeMap<String, MessageRecord>
             visited.insert(schema_name.to_string());
         }
     }
-    for dependency in &record.dependencies {
+    for dependency in dependencies {
         visit(
             dependency,
             records,
@@ -225,7 +295,7 @@ fn schema_text(record: &MessageRecord, records: &BTreeMap<String, MessageRecord>
         );
     }
     visit(
-        &record.schema_name,
+        schema_name,
         records,
         &mut ordered,
         &mut visiting,
@@ -234,12 +304,12 @@ fn schema_text(record: &MessageRecord, records: &BTreeMap<String, MessageRecord>
 
     // ROS 2 message definition layout (as in MCAP `ros2msg` schemas): the root definition first, then each
     // dependency under `MSG: package/Name`, the form `@foxglove/rosmsg` resolves (it rejects `package/msg/Name`).
-    let mut blocks = vec![record.source.trim_end().to_string()];
-    for schema_name in ordered {
-        let Some(message_record) = records.get(&schema_name) else {
+    let mut blocks = vec![source.trim_end().to_string()];
+    for ordered_name in ordered {
+        let Some(message_record) = records.get(&ordered_name) else {
             continue;
         };
-        if schema_name == record.schema_name {
+        if ordered_name == schema_name {
             continue;
         }
         blocks.push(format!(
@@ -252,7 +322,11 @@ fn schema_text(record: &MessageRecord, records: &BTreeMap<String, MessageRecord>
     blocks.join(&format!("\n{SCHEMA_SEPARATOR}"))
 }
 
-fn write_rust_messages(records: &BTreeMap<String, MessageRecord>, out_dir: &Path) {
+fn write_rust_messages(
+    records: &BTreeMap<String, MessageRecord>,
+    interfaces: &[InterfaceRecord],
+    out_dir: &Path,
+) {
     let mut packages: BTreeMap<String, Vec<&MessageRecord>> = BTreeMap::new();
     for record in records.values() {
         packages
@@ -324,6 +398,18 @@ fn write_rust_messages(records: &BTreeMap<String, MessageRecord>, out_dir: &Path
                 record.schema_name, record.package, record.name
             )
         })
+        .chain(interfaces.iter().map(|interface| {
+            format!(
+                "        {:?} => Some({:?}),",
+                interface.schema_name,
+                schema_text(
+                    &interface.schema_name,
+                    &interface.source,
+                    &interface.dependencies,
+                    records
+                )
+            )
+        }))
         .collect();
     write_formatted_rust_file(
         &out_dir.join("mod.rs"),
@@ -549,7 +635,12 @@ fn generate_struct_tokens(
     let families = constant_families_by_field(message);
     let struct_name = format_ident!("{}", record.name);
     let schema_name = record.schema_name.as_str();
-    let schema_text = schema_text(record, records);
+    let schema_text = schema_text(
+        &record.schema_name,
+        &record.source,
+        &record.dependencies,
+        records,
+    );
     let type_hash = record.type_hash.as_str();
 
     let enum_definitions = families
@@ -1026,7 +1117,12 @@ fn write_typescript(records: &BTreeMap<String, MessageRecord>, typescript_dir: &
                 fields.join("\n")
             ));
         }
-        let schema = schema_text(record, records);
+        let schema = schema_text(
+            &record.schema_name,
+            &record.source,
+            &record.dependencies,
+            records,
+        );
         schema_entries.push(format!(
             "  \"{}\": `{}`,",
             record.schema_name,
@@ -1142,7 +1238,12 @@ fn typescript_type(field: &Field) -> String {
 fn write_catalog_typescript(records: &BTreeMap<String, MessageRecord>, typescript_dir: &Path) {
     let mut schema_entries = Vec::new();
     for record in records.values() {
-        let schema = schema_text(record, records);
+        let schema = schema_text(
+            &record.schema_name,
+            &record.source,
+            &record.dependencies,
+            records,
+        );
         schema_entries.push(format!(
             "  \"{}\": `{}`,",
             record.schema_name,
