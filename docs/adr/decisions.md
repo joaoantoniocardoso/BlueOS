@@ -540,8 +540,8 @@ Decision:
   handler.
 - Names: `RecorderSettings` (the one settings type), `ActiveRecording` (the recording the Domain wants),
   `McapFile` (an open MCAP file), `RecordGate` (the Projection the data plane follows), `RecorderSessionState`
-  (the IDL message for the recording state), `RecordingFileState` (the lifecycle of one file in the library),
-  `RecordingOperationKind`. "Session" means only the Zenoh connection.
+  (the IDL message for the recording state), `RecordingFileState` (the lifecycle of one file in the library).
+  "Session" means only the Zenoh connection.
 - The data plane is a Task that owns the `McapFile` and follows the `RecordGate` through the reconcile pattern
   (D-27): it opens, rotates and finishes files itself and reports opened, finished and bytes written as
   Observed facts. There is one source of truth for the current file.
@@ -688,13 +688,13 @@ Decision:
 - Native repair: the `mcap` crate rewrites a recording in-process (no `mcap` CLI subprocess; progress is the
   exact read offset). Output goes to a `.recover` temporary file renamed over the original; cancel removes the
   temporary file and leaves the original untouched; leftovers, nested ones included, are discarded at startup. A
-  repair running at shutdown is not cancelled; the 5 s drain applies.
+  repair running at shutdown is cancelled the same way, within the 5 s drain.
 - Repairs and snapshots follow the reconcile pattern (D-27): the library Block lists the operations it wants, a
   `library` Task runs them and reports progress (the read offset) and the end as Observed facts, and cancelling the
   repair Job through the Kernel's control endpoint (D-12) removes the repair from the list.
 - A recording still being written is downloaded through `SnapshotRecording`: the same rewrite writes an indexed
-  copy `<stem>.snapshot-<UTC>Z.mcap` next to it, and the browser downloads it from nginx once the `operation`
-  Event names it. The download also completes from the `library` State and times out.
+  copy `<stem>.snapshot-<UTC>Z.mcap` next to it, and the browser downloads it from nginx once the Job result
+  names it. The download also completes from the `library` State and times out.
 - The recording-file suffix rule (case-insensitive `.mcap`) and the file name timestamp formats are defined once
   and shared with the frontend through a test vector (D-24). Timestamps are parsed and formatted with `chrono`.
 - The Recorder knows which file it is writing. Other files are rescanned on a timer and after each operation; the
@@ -723,8 +723,10 @@ API (keys under `blueos/v1/recorder/`, messages in `blueos_recorder_msgs`):
 | Kind | Name | Message |
 |---|---|---|
 | state | `library` | `RecordingLibrary` (`RecordingFile[]`, newest first) |
-| job | `RepairRecording` / `DeleteRecording` / `SnapshotRecording` | `.action` with the Goal `string path` |
-| event | `operation` | `RecordingOperation` (repair, snapshot, delete; succeeded, cancelled, failed with a reason, output path) |
+| job | `RepairRecording` / `DeleteRecording` / `SnapshotRecording` | lasting Job types (D-36), each an `.action` with the Goal `string path` |
+| state | `jobs/<JobType>/feedback` | `JobFeedbackList` of the Job type's `_Feedback` (D-12): a repair's read offset, a snapshot's output path |
+| event | `jobs/<JobType>/result` | `JobResult` of the Job type's `_Result`: how the Job ended, its reason, the path and a snapshot's output path |
+| query | `jobs/<JobType>/history` | `JobList` of the Job type's last finished Jobs |
 | query (`io`) | `index` | `RecordingIndex.srv` (paged chunk index + raw metadata records) |
 
 Rejections (from the Python rules): repair when already repairing, already indexed, being written or written
