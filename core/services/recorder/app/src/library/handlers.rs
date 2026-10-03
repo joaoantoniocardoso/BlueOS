@@ -8,8 +8,8 @@ use core::{
 use std::sync::Arc;
 
 use blueos_idl::msg::blueos_recorder_msgs::{
-    CancelRepairCommand, DeleteRecordingCommand, RecordingIndex, RecordingIndexRequest,
-    RepairRecordingCommand, SnapshotRecordingCommand,
+    DeleteRecordingCommand, RecordingIndex, RecordingIndexRequest, RepairRecordingCommand,
+    SnapshotRecordingCommand,
 };
 use blueos_jobs::JobId;
 use blueos_recorder_domain::{RecorderDomain, RecorderRequest};
@@ -29,12 +29,6 @@ pub(crate) struct RecorderHandlers {
 }
 
 impl Handlers<RecorderDomain> for RecorderHandlers {
-    fn cancel_repair(&self, request: CancelRepairCommand) -> Result<RecorderRequest, Refusal> {
-        let path = RecordingRelativePath::parse(&request.path)
-            .map_err(|error| Refusal::from(recording_path_refusal(error)))?;
-        Ok(RecorderRequest::CancelRepair { path })
-    }
-
     fn delete_recording(
         &self,
         request: DeleteRecordingCommand,

@@ -112,7 +112,7 @@ in `core/services/recorder/app/src/library/handlers.rs` and `ServiceBuilder::io_
 
 **Custom endpoints.** Endpoints marked `custom = true` in the manifest get a handler trait method; the service maps
 Messages in `handlers.rs` (D-26). `SetLevel` on `example-minimal` is not custom; the Recorder's `DeleteRecording`,
-`RepairRecording`, `CancelRepair` and `SnapshotRecording` are, in `core/services/recorder/app/src/library/handlers.rs`.
+`RepairRecording` and `SnapshotRecording` are, in `core/services/recorder/app/src/library/handlers.rs`.
 
 ## Where it is in the code
 

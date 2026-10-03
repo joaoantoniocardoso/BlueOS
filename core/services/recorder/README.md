@@ -34,8 +34,8 @@ names inside every Block folder (`handlers`, `io`, `tasks`).
 | `capture/tasks/data_plane/` | Data plane Task and sample plan |
 | `cameras/io.rs` | Camera MAVLink egress |
 | `library/handlers.rs` | Custom Commands and the `index` IO query |
-| `library/io.rs` | Library blocking IO (rescan, repair, snapshot) |
-| `library/tasks/observed.rs` | Repair progress Observed-fact bridge Task |
+| `library/io.rs` | Library blocking IO (rescan, delete) |
+| `library/tasks/operations.rs` | Repair and snapshot reconcile Task |
 
 Sans-IO components (`logic/paths`, `logic/schema-gate`) have no application folder; the feature that uses them imports
 them directly.

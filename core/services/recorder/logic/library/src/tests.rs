@@ -8,10 +8,10 @@ use blueos_domain::{Effect, Now, Outcome};
 use blueos_jobs::JobId;
 
 use super::{
-    Library, LibraryEvent, LibraryIoRequest, LibraryIoResult, LibraryRepairOutcome, LibraryRequest,
-    LibrarySnapshotOutcome, RecordingFileState, RecordingOperationKind, RepairFailure,
-    SNAPSHOT_RECORDING, ScannedRecording, derive_recording_file_state,
-    snapshot_output_relative_path,
+    CANCEL_JOB, Library, LibraryEvent, LibraryIoRequest, LibraryIoResult, LibraryObservedFact,
+    LibraryOperation, LibraryRepairOutcome, LibraryRequest, LibrarySnapshotOutcome,
+    RecordingFileState, RecordingOperationKind, RepairFailure, SNAPSHOT_RECORDING,
+    ScannedRecording, derive_recording_file_state, snapshot_output_relative_path,
 };
 
 const NOW: Now = Now {
@@ -112,15 +112,46 @@ fn repair_rejects_recently_written_file() {
 }
 
 #[test]
-fn cancel_repair_rejects_when_not_repairing() {
+fn a_repair_is_listed_with_its_job_until_it_ends() {
     let mut library = scan_snapshot(&[("file.mcap", false)], 1_000);
     let path = blueos_recorder_paths::RecordingRelativePath::parse("file.mcap").expect("path");
-    let Outcome::Rejected { reason } =
-        library.handle_request(LibraryRequest::CancelRepair { path }, None, NOW)
-    else {
-        panic!("cancel must be rejected when idle");
-    };
-    assert_eq!(reason.to_string(), "This recording is not being repaired.");
+    assert!(matches!(
+        library.start_repair(path.clone(), job_id(7), None, NOW),
+        Outcome::Applied { .. }
+    ));
+    assert_eq!(
+        library.operations(),
+        [LibraryOperation::Repair {
+            path: path.clone(),
+            job_id: job_id(7),
+        }]
+    );
+    let repairing = &library.entries()[0];
+    assert_eq!(repairing.repair_job_id, Some(job_id(7)));
+    assert!(
+        repairing
+            .allowed_operations
+            .iter()
+            .any(|operation| operation == CANCEL_JOB)
+    );
+
+    library.handle_observed_fact(
+        LibraryObservedFact::RepairFinished {
+            path,
+            outcome: LibraryRepairOutcome::Cancelled,
+        },
+        None,
+        NOW,
+    );
+    assert!(library.operations().is_empty());
+    let ended = &library.entries()[0];
+    assert_eq!(ended.repair_job_id, None);
+    assert!(
+        !ended
+            .allowed_operations
+            .iter()
+            .any(|operation| operation == CANCEL_JOB)
+    );
 }
 
 #[test]
@@ -131,8 +162,8 @@ fn cancelled_repair_operation_event_is_not_a_failure() {
         library.start_repair(path.clone(), job_id(1), None, NOW),
         Outcome::Applied { .. }
     ));
-    let Outcome::Applied { events, .. } = library.handle_io_result(
-        LibraryIoResult::RepairFinished {
+    let Outcome::Applied { events, .. } = library.handle_observed_fact(
+        LibraryObservedFact::RepairFinished {
             path,
             outcome: LibraryRepairOutcome::Cancelled,
         },
@@ -158,8 +189,8 @@ fn failed_repair_keeps_error_on_entry() {
         Outcome::Applied { .. }
     ));
     assert!(matches!(
-        library.handle_io_result(
-            LibraryIoResult::RepairFinished {
+        library.handle_observed_fact(
+            LibraryObservedFact::RepairFinished {
                 path,
                 outcome: LibraryRepairOutcome::Failed(RepairFailure::Rewrite),
             },
@@ -205,8 +236,8 @@ fn snapshot_emits_operation_with_output_path() {
         library.start_snapshot(path.clone(), output_path.clone(), Some("live.mcap"), NOW),
         Outcome::Applied { .. }
     ));
-    let Outcome::Applied { events, .. } = library.handle_io_result(
-        LibraryIoResult::SnapshotFinished {
+    let Outcome::Applied { events, .. } = library.handle_observed_fact(
+        LibraryObservedFact::SnapshotFinished {
             path,
             output_path: output_path.clone(),
             outcome: LibrarySnapshotOutcome::Succeeded,
@@ -258,8 +289,8 @@ fn operation_finished_schedules_rescan() {
         library.start_repair(path.clone(), job_id(1), None, NOW),
         Outcome::Applied { .. }
     ));
-    let Outcome::Applied { effects, .. } = library.handle_io_result(
-        LibraryIoResult::RepairFinished {
+    let Outcome::Applied { effects, .. } = library.handle_observed_fact(
+        LibraryObservedFact::RepairFinished {
             path,
             outcome: LibraryRepairOutcome::Succeeded,
         },

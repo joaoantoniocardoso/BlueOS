@@ -224,10 +224,6 @@ MSG: blueos_msgs/SettingField
 
 string path
 bool restart_required`,
-  "blueos_recorder_msgs/msg/CancelRepairCommand": `# blueos_recorder_msgs/msg/CancelRepairCommand
-# Stops a running repair; the recording is left exactly as it was.
-
-string path`,
   "blueos_recorder_msgs/msg/ChannelMessageCount": `# blueos_recorder_msgs/msg/ChannelMessageCount
 
 uint16 channel_id
@@ -275,6 +271,8 @@ float64 repair_bytes_per_second
 string repair_error
 # Command endpoint names the library will accept for this file (for example DeleteRecording).
 string[] allowed_operations
+# The Job id of the repair while STATE_REPAIRING, which CancelJob names; empty otherwise.
+string repair_job_id
 ================================================================================
 MSG: builtin_interfaces/Time
 # This message communicates ROS Time defined here:
@@ -368,7 +366,9 @@ float64 repair_bytes_per_second
 # Reason the last repair failed; empty when it did not fail. Cleared by the next repair.
 string repair_error
 # Command endpoint names the library will accept for this file (for example DeleteRecording).
-string[] allowed_operations`,
+string[] allowed_operations
+# The Job id of the repair while STATE_REPAIRING, which CancelJob names; empty otherwise.
+string repair_job_id`,
   "blueos_recorder_msgs/msg/RecordingOperation": `# blueos_recorder_msgs/msg/RecordingOperation
 # Published on blueos/v1/recorder/event/operation when a repair, snapshot or delete ends.
 

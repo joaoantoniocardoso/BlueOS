@@ -20,29 +20,34 @@ use tokio::{
 use blueos_api::event_key;
 use blueos_idl::{
     Message,
-    msg::blueos_msgs::JobStatusStatus,
+    msg::blueos_msgs::{CommandAckStatus, JobStatusStatus},
     msg::blueos_recorder_msgs::{
-        CancelRepairCommand, RecordingFileState, RecordingOperation, RecordingOperationOperation,
-        RepairRecordingCommand,
+        RecordingOperation, RecordingOperationOperation, RepairRecordingCommand,
     },
 };
-use blueos_jobs::{JobId, JobNature, Jobs};
-use blueos_recorder_app::RecorderService;
+use blueos_jobs::{JobControl, JobId, JobNature, Jobs};
+use blueos_recorder_app::{RecorderContext, RecorderService};
 use blueos_recorder_domain::durable::RecorderDurableState;
 use blueos_recorder_library::RESCAN_INTERVAL;
 use blueos_recorder_mcap::is_indexed;
 use blueos_service::{
-    Service,
+    Service, new_job_id,
     testing::{Harness, WALL_CLOCK_AT_START},
 };
 use blueos_settings::ServiceStateStore;
 
 use common::{
     drain_blocking_io, recorder_arguments, start_harness, start_harness_with,
-    wait_for_library_file_listed, wait_for_library_file_ready, wait_for_library_state,
+    wait_for_library_file_listed, wait_for_library_file_not_repairing, wait_for_library_file_ready,
+    wait_for_library_state,
 };
 
-struct ReleaseRepairOnDrop(Arc<AtomicBool>);
+/// Holds the real rewrite Port mid-flight until the rewrite is cancelled or the test ends.
+struct HeldRewrite {
+    entered: Arc<Notify>,
+    release: Arc<AtomicBool>,
+    returned: Arc<AtomicBool>,
+}
 
 #[derive(Serialize)]
 struct PersistedRecorderState {
@@ -52,9 +57,36 @@ struct PersistedRecorderState {
     jobs: Jobs,
 }
 
-impl Drop for ReleaseRepairOnDrop {
+impl Drop for HeldRewrite {
     fn drop(&mut self) {
-        self.0.store(true, Ordering::Relaxed);
+        self.release.store(true, Ordering::Relaxed);
+    }
+}
+
+impl HeldRewrite {
+    fn new() -> Self {
+        Self {
+            entered: Arc::new(Notify::new()),
+            release: Arc::new(AtomicBool::new(false)),
+            returned: Arc::new(AtomicBool::new(false)),
+        }
+    }
+
+    /// Wraps the rewrite Port in `context`: it waits for a cancel or the release, then runs the real rewrite.
+    fn wrap(&self, context: &mut RecorderContext) {
+        let rewriter = Arc::clone(&context.rewriter);
+        let entered = Arc::clone(&self.entered);
+        let release = Arc::clone(&self.release);
+        let returned = Arc::clone(&self.returned);
+        context.rewriter = Arc::new(move |source, output, progress, cancel| {
+            entered.notify_one();
+            while !release.load(Ordering::Relaxed) && !cancel.load(Ordering::Relaxed) {
+                core::hint::spin_loop();
+            }
+            let rewritten = rewriter(source, output, progress, cancel);
+            returned.store(true, Ordering::Relaxed);
+            rewritten
+        });
     }
 }
 
@@ -77,9 +109,11 @@ async fn repair_rewrites_truncated_recording_and_publishes_operation_event() {
     advance(RESCAN_INTERVAL + Duration::from_secs(20)).await;
     drain_blocking_io().await;
 
+    let job_id = new_job_id();
     let ack = harness
-        .send(
+        .submit(
             "RepairRecording",
+            job_id,
             &RepairRecordingCommand {
                 path: "broken.mcap".into(),
             },
@@ -101,32 +135,22 @@ async fn repair_rewrites_truncated_recording_and_publishes_operation_event() {
     assert!(message.succeeded);
     assert!(!message.cancelled);
     assert!(message.error.is_empty());
+    assert_eq!(
+        repair_job_status(&harness, job_id).await,
+        JobStatusStatus::Succeeded
+    );
 }
 
 #[tokio::test(start_paused = true)]
-async fn cancel_repair_leaves_original_bytes_unchanged() {
+async fn cancel_job_stops_a_held_repair_and_leaves_the_original_unchanged() {
     let directory = tempdir().expect("tempdir");
     let path = directory.path().join("cancel.mcap");
     write_truncated_mcap(&path);
     set_modified_seconds_ago(&path, 20);
     let original = fs::read(&path).expect("read");
 
-    let release = Arc::new(AtomicBool::new(false));
-    let _release_on_drop = ReleaseRepairOnDrop(Arc::clone(&release));
-    let entered = Arc::new(Notify::new());
-    let entered_for_hold = Arc::clone(&entered);
-    let release_for_hold = Arc::clone(&release);
-    let harness = start_harness_with(directory.path(), |context| {
-        let rewriter = Arc::clone(&context.rewriter);
-        context.rewriter = Arc::new(move |source, output, progress, cancel| {
-            entered_for_hold.notify_one();
-            while !release_for_hold.load(Ordering::Relaxed) && !cancel.load(Ordering::Relaxed) {
-                core::hint::spin_loop();
-            }
-            rewriter(source, output, progress, cancel)
-        });
-    })
-    .await;
+    let held = HeldRewrite::new();
+    let harness = start_harness_with(directory.path(), |context| held.wrap(context)).await;
 
     let operation_key = event_key(RecorderService::NAME, "operation");
     let mut operations = harness
@@ -135,16 +159,15 @@ async fn cancel_repair_leaves_original_bytes_unchanged() {
         .await
         .expect("subscribe");
 
-    wait_for_library_state(harness.backend(), |library| {
-        library.files.iter().any(|file| file.path == "cancel.mcap")
-    })
-    .await;
+    wait_for_library_file_listed(&harness, "cancel.mcap").await;
     advance(RESCAN_INTERVAL + Duration::from_secs(20)).await;
     drain_blocking_io().await;
 
+    let job_id = new_job_id();
     let repair_ack = harness
-        .send(
+        .submit(
             "RepairRecording",
+            job_id,
             &RepairRecordingCommand {
                 path: "cancel.mcap".into(),
             },
@@ -155,29 +178,29 @@ async fn cancel_repair_leaves_original_bytes_unchanged() {
         "repair rejected: {}",
         repair_ack.reason
     );
-    entered.notified().await;
+    held.entered.notified().await;
+    let repair_job_id = job_id.to_string();
+    wait_for_library_state(harness.backend(), |library| {
+        library.files.iter().any(|file| {
+            file.path == "cancel.mcap"
+                && file.repair_job_id == repair_job_id
+                && file
+                    .allowed_operations
+                    .iter()
+                    .any(|operation| operation == "CancelJob")
+        })
+    })
+    .await;
 
-    let cancel_ack = harness
-        .send(
-            "CancelRepair",
-            &CancelRepairCommand {
-                path: "cancel.mcap".into(),
-            },
-        )
-        .await;
+    let cancel_ack = harness.control(job_id, JobControl::Cancel).await;
     assert!(
         cancel_ack.accepted,
         "cancel rejected: {}",
         cancel_ack.reason
     );
+    assert_eq!(cancel_ack.status, CommandAckStatus::Canceling);
 
-    wait_for_library_state(harness.backend(), |library| {
-        library
-            .files
-            .iter()
-            .all(|file| file.path != "cancel.mcap" || file.state != RecordingFileState::Repairing)
-    })
-    .await;
+    wait_for_library_file_not_repairing(&harness, "cancel.mcap").await;
 
     let operation = timeout(Duration::from_secs(5), operations.recv())
         .await
@@ -189,11 +212,55 @@ async fn cancel_repair_leaves_original_bytes_unchanged() {
     assert!(!message.succeeded);
     assert!(message.cancelled);
     assert!(message.error.is_empty());
+    assert_eq!(
+        repair_job_status(&harness, job_id).await,
+        JobStatusStatus::Canceled
+    );
 
     assert_eq!(fs::read(&path).expect("read"), original);
     assert!(
         !directory.path().join("cancel.recover").exists(),
         "cancel must remove the temporary file"
+    );
+}
+
+#[tokio::test(start_paused = true)]
+async fn shutdown_stops_a_held_repair_before_it_finishes() {
+    let directory = tempdir().expect("tempdir");
+    let path = directory.path().join("held.mcap");
+    write_truncated_mcap(&path);
+    set_modified_seconds_ago(&path, 20);
+    let original = fs::read(&path).expect("read");
+
+    let held = HeldRewrite::new();
+    let harness = start_harness_with(directory.path(), |context| held.wrap(context)).await;
+    wait_for_library_file_listed(&harness, "held.mcap").await;
+    advance(RESCAN_INTERVAL + Duration::from_secs(20)).await;
+    drain_blocking_io().await;
+
+    let ack = harness
+        .send(
+            "RepairRecording",
+            &RepairRecordingCommand {
+                path: "held.mcap".into(),
+            },
+        )
+        .await;
+    assert!(ack.accepted, "repair rejected: {}", ack.reason);
+    held.entered.notified().await;
+
+    timeout(Duration::from_secs(5), harness.shutdown())
+        .await
+        .expect("shutdown finishes");
+
+    assert!(
+        held.returned.load(Ordering::Relaxed),
+        "shutdown must wait for the rewrite it cancelled"
+    );
+    assert_eq!(fs::read(&path).expect("read"), original);
+    assert!(
+        !directory.path().join("held.recover").exists(),
+        "shutdown must remove the temporary file"
     );
 }
 
@@ -277,6 +344,18 @@ async fn leftover_recover_file_is_removed_at_startup() {
         !directory.path().join("stale.recover").exists(),
         "startup must discard leftover recover files"
     );
+}
+
+async fn repair_job_status(harness: &Harness<RecorderService>, job_id: JobId) -> JobStatusStatus {
+    let job_id = job_id.to_string();
+    harness
+        .jobs()
+        .await
+        .jobs
+        .into_iter()
+        .find(|job| job.job_id == job_id)
+        .expect("the repair Job is in the jobs State")
+        .status
 }
 
 fn set_modified_seconds_ago(path: &Path, seconds_ago: u64) {

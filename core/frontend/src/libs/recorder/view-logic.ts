@@ -1,5 +1,5 @@
 import {
-  CANCEL_REPAIR,
+  CANCEL_JOB,
   DELETE_RECORDING,
   REPAIR_RECORDING,
   SNAPSHOT_RECORDING,
@@ -19,7 +19,7 @@ export const RECORDING_STATE_UI: Record<RecordingState, { label: string, color: 
 
 export const RECORDING_OPERATION_UI: Record<string, { label: string, icon: string, color: string }> = {
   [REPAIR_RECORDING]: { label: 'Repair', icon: 'mdi-wrench', color: 'primary' },
-  [CANCEL_REPAIR]: { label: 'Cancel repair', icon: 'mdi-stop', color: 'primary' },
+  [CANCEL_JOB]: { label: 'Cancel repair', icon: 'mdi-stop', color: 'primary' },
   [DELETE_RECORDING]: { label: 'Delete', icon: 'mdi-delete', color: 'error' },
   [SNAPSHOT_RECORDING]: { label: 'Download snapshot', icon: 'mdi-download', color: 'primary' },
 }

@@ -166,7 +166,7 @@ import zenohTransport from '@/libs/blueos-api/zenoh-transport'
 import type { RecordingIndexSource } from '@/libs/mcap/logic/recording-index'
 import { createRecorderClient, type RecorderClient } from '@/libs/recorder/client'
 import {
-  CANCEL_REPAIR,
+  CANCEL_JOB,
   DELETE_RECORDING,
   REPAIR_RECORDING,
   SNAPSHOT_RECORDING,
@@ -286,8 +286,8 @@ export default Vue.extend({
           }
           return
         }
-        if (operationName === CANCEL_REPAIR) {
-          const result = await this.recorder.cancelRepair(file.path)
+        if (operationName === CANCEL_JOB) {
+          const result = await this.recorder.cancelRepair(file.repair_job_id)
           if (!result.accepted) {
             this.lastError = result.reason
           }
