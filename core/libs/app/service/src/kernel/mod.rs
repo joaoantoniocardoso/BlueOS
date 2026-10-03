@@ -67,6 +67,8 @@ use timers::TimerWheel;
 const INBOX_CAPACITY: usize = 256;
 /// The encoding of the reason in a Query's error reply.
 const REASON_ENCODING: &str = "text/plain";
+/// The Job type every Service serves to replace its settings (D-11).
+const UPDATE_SETTINGS: &str = "UpdateSettings";
 /// The controls every Service serves on `command/<control>`. The answer of `AnswerPermission` comes from its body.
 const CONTROLS: [JobControl; 4] = [
     JobControl::Cancel,
@@ -298,7 +300,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             .commands
             .iter()
             .map(|command| command.name.clone())
-            .chain(["UpdateSettings".to_owned()])
+            .chain([UPDATE_SETTINGS.to_owned()])
             .collect();
         let service_info = ServiceInfo {
             name: service.to_owned(),
@@ -374,7 +376,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         );
         let task_specs = builder.tasks;
         let update_settings_queryable =
-            declare(&*backend, command_key(service, "UpdateSettings")).await?;
+            declare(&*backend, command_key(service, UPDATE_SETTINGS)).await?;
         let mut pending_settings_serve = None;
         let mut settings = None;
         if let Some(registration) = builder.settings {
@@ -1336,7 +1338,7 @@ async fn serve_update_settings<D: Domain>(
                 .map_err(Rejection::Domain)?;
             Ok(Input::Submit {
                 job_id,
-                job_type: "UpdateSettings".to_owned(),
+                job_type: UPDATE_SETTINGS.to_owned(),
                 goal,
                 nature: JobNature::INSTANT,
                 request,
