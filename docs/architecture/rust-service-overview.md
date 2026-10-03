@@ -94,18 +94,18 @@ restored Tick; the Kernel does not re-run IO for interrupted Jobs (D-28).
 **Tasks and Projections.** Long-running work is declared with `ServiceBuilder::task` and supervised in
 `core/libs/app/service/src/tasks.rs` (D-27). Tasks receive a `CommandSender`, a `Session`, and typed
 `Projection` receivers from `core/libs/app/service/src/projection.rs`. The Recorder data plane Task is
-`run_data_plane` in `core/services/recorder/app/src/data_plane.rs`; it follows `RecordGate` from the capture Block
+`run_data_plane` in `core/services/recorder/app/src/capture/tasks/data_plane/mod.rs`; it follows `RecordGate` from the capture Block
 in `core/services/recorder/logic/capture/src/lib.rs` and reports `Observed fact` Commands (D-27). High-rate samples
 stay on the data plane; the Inbox sees only control Commands and Observed facts (control plane vs data plane in the
 Recorder Domain at `core/services/recorder/logic/recorder/src/lib.rs`).
 
 **IO query endpoints.** Answered outside the Snapshot, in IO code with the service Context. See `RecorderHandlers::index`
-in `core/services/recorder/app/src/handlers.rs` and `ServiceBuilder::io_query` in
+in `core/services/recorder/app/src/library/handlers.rs` and `ServiceBuilder::io_query` in
 `core/libs/app/service/src/builder.rs` (D-04).
 
 **Custom endpoints.** Endpoints marked `custom = true` in the manifest get a handler trait method; the service maps
 Messages in `handlers.rs` (D-26). `SetLevel` on `example-minimal` is not custom; the Recorder's `DeleteRecording`,
-`RepairRecording`, `CancelRepair` and `SnapshotRecording` are, in `core/services/recorder/app/src/handlers.rs`.
+`RepairRecording`, `CancelRepair` and `SnapshotRecording` are, in `core/services/recorder/app/src/library/handlers.rs`.
 
 ## Where it is in the code
 
@@ -121,7 +121,7 @@ Each row names the crate and module that implements the term on this branch. Pat
 | **Snapshot** | Per-Domain type, e.g. `PumpSnapshot` (`services/example/logic/domain/src/lib.rs`) |
 | **Durable state** | `blueos-service`: `durable_state` (`libs/app/service/src/durable_state.rs`); store in `blueos-settings` (`libs/adapters/settings/src/service_state.rs`). Not used by `example-minimal`. |
 | **Job** | `blueos-jobs` (`libs/logic/jobs/src/lib.rs`); Kernel `jobs` State wiring (`builder.rs`, `kernel/mod.rs`) |
-| **Task** | `blueos-service`: `tasks` (`libs/app/service/src/tasks.rs`); example Recorder `run_data_plane` (`services/recorder/app/src/data_plane.rs`) |
+| **Task** | `blueos-service`: `tasks` (`libs/app/service/src/tasks.rs`); example Recorder `run_data_plane` (`services/recorder/app/src/capture/tasks/data_plane/mod.rs`) |
 | **Inbox** | `blueos-service`: `inbox` (`libs/app/service/src/inbox.rs`); loop in `kernel/mod.rs` |
 | **Context** | Service-specific IO dependencies in `ServiceBuilder::context`; Recorder `RecorderContext` (`services/recorder/app/src/context.rs`). `example-minimal` uses `()` |
 | **Command** | `blueos-domain`: `Command` enum (`libs/logic/domain/src/lib.rs`) |
@@ -135,14 +135,14 @@ Each row names the crate and module that implements the term on this branch. Pat
 | **Effect** | `blueos-domain`: `Effect` (`libs/logic/domain/src/lib.rs`); applied in `kernel/effects.rs` and `kernel/io.rs` |
 | **domain event** | Per-Domain event type, e.g. `RecorderEvent` (`services/recorder/logic/recorder/src/lib.rs`). `Pump::Event` is uninhabited in `example-minimal` |
 | **Control plane** | Domain Commands and Snapshot, e.g. Recorder `RecorderDomain::handle` (`services/recorder/logic/recorder/src/lib.rs`) |
-| **Data plane** | Recorder `run_data_plane` and MCAP writer path (`services/recorder/app/src/data_plane.rs`) |
+| **Data plane** | Recorder `run_data_plane` and MCAP writer path (`services/recorder/app/src/capture/tasks/data_plane/mod.rs`) |
 | **Message** | `blueos-idl` generated types (`libs/idl/src/generated/`); schemas from `libs/idl/interfaces/` |
 | **Session** | `Arc<dyn CommsBackend>` alias in `command_sender.rs`; Zenoh in `blueos-comms-zenoh` (`libs/adapters/comms-zenoh/`) |
 | **Command endpoint** | `ServiceBuilder::command`, `serve_command` (`builder.rs`, `kernel/mod.rs`); manifest entry `SetLevel` in `services/example/app/endpoints.toml` |
 | **Query endpoint** | `ServiceBuilder::query`, `serve_query` (`kernel/mod.rs`); `Level` on example |
-| **IO query endpoint** | `ServiceBuilder::io_query`; Recorder `index` (`services/recorder/app/src/handlers.rs`) |
+| **IO query endpoint** | `ServiceBuilder::io_query`; Recorder `index` (`services/recorder/app/src/library/handlers.rs`) |
 | **Endpoint manifest** | `app/endpoints.toml`; generator `blueos-idl-codegen` (`libs/idl/codegen/src/endpoints.rs`) |
-| **Custom endpoint** | Manifest `custom = true`; handler trait in generated `endpoints.rs`, impl in `services/recorder/app/src/handlers.rs` |
+| **Custom endpoint** | Manifest `custom = true`; handler trait in generated `endpoints.rs`, impl in `services/recorder/app/src/library/handlers.rs` |
 | **State** | `ServiceBuilder::state`; published in `kernel/mod.rs`; example `pump` key in `endpoints.toml` |
 | **Event** | `ServiceBuilder::event`; `publish_events` in `kernel/mod.rs`; Recorder `operation` in `services/recorder/app/endpoints.toml` |
 | **Settings document** | Service schema in `logic/api`; file IO via `libs/adapters/settings/`; Kernel `settings.rs`. Recorder `services/recorder/app/src/settings.rs`. Not used by `example-minimal` |
