@@ -2,6 +2,7 @@ import { JobStatusStatus } from '@blueos-idl'
 import type { JobStatus } from '@blueos-idl/messages'
 
 import type { RepairRecordingFeedback } from '@/libs/blueos-api/services/recorder'
+import { prettifySize } from '@/utils/helper_functions'
 
 import {
   CANCEL_JOB,
@@ -58,6 +59,19 @@ export function withRepairJobs(
         : file.allowed_operations,
     }
   })
+}
+
+/** How far a repairing row is, for the bar and the text under it; null when it is not repairing or its size is unknown. */
+export function repairProgress(file: LibraryRecording): { percent: number, label: string } | null {
+  if (file.state !== 'repairing' || file.repair_total_bytes <= 0) {
+    return null
+  }
+  const processed = prettifySize(file.repair_bytes_processed / 1024)
+  const total = prettifySize(file.repair_total_bytes / 1024)
+  return {
+    percent: Math.min(100, file.repair_bytes_processed / file.repair_total_bytes * 100),
+    label: `${processed} of ${total}`,
+  }
 }
 
 /** The library row for `path`, or null when nothing is open or the path left the library. */
