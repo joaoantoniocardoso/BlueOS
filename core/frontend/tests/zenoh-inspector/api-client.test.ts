@@ -32,32 +32,32 @@ function tankServiceInfo(): ServiceInfo {
     capabilities: [],
     endpoints: [
       {
-        kind: 'command',
-        name: 'Drain',
-        key: 'blueos/v1/tank/command/Drain',
-        request_schema: 'blueos_example_msgs/msg/EmptyRequest',
-        response_schema: COMMAND_ACK_SCHEMA,
+        kind: 'job',
+        name: 'SetLevel',
+        key: 'blueos/v1/tank/command/SetLevel',
+        interface_type: 'blueos_example_msgs/action/SetLevel',
+        schema: 'uint8 level\n---\nuint8 level\n---\nuint8 level\n',
       },
       {
         kind: 'query',
         name: 'Level',
         key: 'blueos/v1/tank/query/Level',
-        request_schema: 'blueos_example_msgs/msg/EmptyRequest',
-        response_schema: 'blueos_example_msgs/msg/LevelQueryResponse',
+        interface_type: 'blueos_example_msgs/srv/Level',
+        schema: '---\nuint8 level\nuint8 max_level\n',
       },
       {
         kind: 'state',
-        name: 'tank',
-        key: 'blueos/v1/tank/state/tank',
-        request_schema: '',
-        response_schema: 'blueos_example_msgs/msg/LevelQueryResponse',
+        name: 'pump',
+        key: 'blueos/v1/tank/state/pump',
+        interface_type: 'blueos_example_msgs/msg/PumpState',
+        schema: SCHEMAS['blueos_example_msgs/msg/PumpState'],
       },
       {
         kind: 'event',
-        name: 'Emptied',
-        key: 'blueos/v1/tank/event/Emptied',
-        request_schema: '',
-        response_schema: 'blueos_example_msgs/msg/EmptyRequest',
+        name: 'SetLevel/result',
+        key: 'blueos/v1/tank/event/jobs/SetLevel/result',
+        interface_type: 'blueos_msgs/msg/JobResult',
+        schema: SCHEMAS['blueos_msgs/msg/JobResult'],
       },
     ],
   }
@@ -108,7 +108,7 @@ describe('createInspectorApiClient', () => {
     expect(info.endpoints).toEqual([])
   })
 
-  it('sends a Command from the generated form schemas', async () => {
+  it('submits a Goal to a Job type and decodes its CommandAck', async () => {
     const transport = new FakeTransport()
     const client = createInspectorApiClient(async () => transport, idlSchemaProvider())
     const pending = transport.nextQuery()
@@ -117,13 +117,13 @@ describe('createInspectorApiClient', () => {
     }
     const resultPromise = client.request(
       SetLevel.key,
-      'command',
-      SetLevel.requestSchema,
+      'job',
+      SetLevel.goalSchema,
       COMMAND_ACK_SCHEMA,
       {},
     )
     const query = await pending
-    expect(query.body?.encoding).toBe(cdrEncoding(SetLevel.requestSchema))
+    expect(query.body?.encoding).toBe(cdrEncoding(SetLevel.goalSchema))
     expect(new TextDecoder().decode(query.body?.attachment)).toMatch(/^[0-9a-f-]{36}$/)
     query.reply({
       kind: 'sample',
