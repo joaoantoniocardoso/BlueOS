@@ -8,6 +8,11 @@ use blueos_recorder_cameras::{
     CaptureCommandKind, DiscoveryMessageKind, SystemAndComponent, VIDEO_CAPTURE_STATUS_IDLE,
 };
 
+const GROUND_STATION: SystemAndComponent = SystemAndComponent {
+    system_id: 255,
+    component_id: 190,
+};
+
 const fn now_at(monotonic_seconds: u64) -> Now {
     Now {
         wall: Duration::from_secs(1_700_000_000),
@@ -54,6 +59,7 @@ fn two_cameras_get_independent_capture_status_timers() {
     let start_front = cameras.handle_observed_fact(
         CamerasObservedFact::CameraCaptureCommand {
             command: CaptureCommandKind::StartCapture,
+            sender: GROUND_STATION,
             target_system: 1,
             target_component: 100,
             status_interval: Duration::from_millis(500),
@@ -83,6 +89,7 @@ fn two_cameras_get_independent_capture_status_timers() {
     let start_rear = cameras.handle_observed_fact(
         CamerasObservedFact::CameraCaptureCommand {
             command: CaptureCommandKind::StartCapture,
+            sender: GROUND_STATION,
             target_system: 1,
             target_component: 101,
             status_interval: Duration::from_millis(500),
@@ -162,6 +169,7 @@ fn capture_status_uses_recording_time_ms_from_monotonic_clock() {
     let start = cameras.handle_observed_fact(
         CamerasObservedFact::CameraCaptureCommand {
             command: CaptureCommandKind::StartCapture,
+            sender: GROUND_STATION,
             target_system: 1,
             target_component: 100,
             status_interval: Duration::from_secs(1),
@@ -225,6 +233,7 @@ fn start_capture_is_rejected_without_capture_video_capability() {
     let outcome = cameras.handle_observed_fact(
         CamerasObservedFact::CameraCaptureCommand {
             command: CaptureCommandKind::StartCapture,
+            sender: GROUND_STATION,
             target_system: 1,
             target_component: 100,
             status_interval: Duration::from_secs(1),
@@ -258,6 +267,7 @@ fn camera_capture_command(
     let outcome = cameras.handle_observed_fact(
         CamerasObservedFact::CameraCaptureCommand {
             command,
+            sender: GROUND_STATION,
             target_system: 1,
             target_component: 100,
             status_interval: Duration::from_secs(1),
@@ -302,5 +312,47 @@ fn stop_capture_publishes_one_idle_capture_status() {
             Effect::Cancel(CamerasTimerKey::CaptureStatus { .. })
         )),
         "stop must still cancel the periodic capture status timer"
+    );
+}
+
+#[test]
+fn command_ack_is_addressed_to_the_sender_of_each_capture_command() {
+    let mut cameras = Cameras::default();
+    register_stream(&mut cameras, "video/front/stream", 1, 100);
+    enable_capture_video(&mut cameras, 1, 100);
+
+    for command in [
+        CaptureCommandKind::StartCapture,
+        CaptureCommandKind::RequestCaptureStatus,
+        CaptureCommandKind::StopCapture,
+    ] {
+        let effects = camera_capture_command(&mut cameras, command, 1);
+        assert!(
+            effects.iter().any(|effect| matches!(
+                effect,
+                Effect::Io(CamerasIoRequest::CommandAck { recipient, .. })
+                    if *recipient == GROUND_STATION
+            )),
+            "{command:?} must be acknowledged to the sender"
+        );
+    }
+}
+
+#[test]
+fn start_capture_is_accepted_without_evidence_that_the_stream_publishes() {
+    let mut cameras = Cameras::default();
+    register_stream(&mut cameras, "video/fakesource/stream", 1, 100);
+    enable_capture_video(&mut cameras, 1, 100);
+
+    let effects = camera_capture_command(&mut cameras, CaptureCommandKind::StartCapture, 1);
+
+    assert!(effects.iter().any(|effect| matches!(
+        effect,
+        Effect::Io(CamerasIoRequest::CommandAck { accepted: true, .. })
+    )));
+    assert!(
+        cameras
+            .video_recording_by_topic()
+            .any(|(topic, recording)| topic == "video/fakesource/stream" && recording)
     );
 }
