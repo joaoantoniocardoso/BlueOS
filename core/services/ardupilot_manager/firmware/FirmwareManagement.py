@@ -108,7 +108,7 @@ class FirmwareManager:
                 await self.firmware_installer.install_firmware(
                     new_firmware_path, board, self.firmware_path(board.platform)
                 )
-            logger.info(f"Succefully installed firmware for {board.name}.")
+            logger.info(f"Successfully installed firmware for {board.name}.")
         except Exception as error:
             raise FirmwareInstallFail(f"Could not install firmware: {error}") from error
 

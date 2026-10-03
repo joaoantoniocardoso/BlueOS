@@ -188,7 +188,7 @@ def test_unsupported_endpoints_are_stored_but_not_routed() -> None:
 
 
 @pytest.mark.skip(
-    reason="MavProxy tests are failling for several endpoint combinations. Since it's not being used \
+    reason="MavProxy tests are failing for several endpoint combinations. Since it's not being used \
     and it's not a priority to support it, they are being temporarily disabled."
 )
 @pytest.mark.asyncio

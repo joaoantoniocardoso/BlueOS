@@ -205,7 +205,7 @@ class HotspotManager:
                 return
             self._dhcp_server.stop()
         else:
-            logger.info("Tried to stop hostpot, but it was already not running.")
+            logger.info("Tried to stop hotspot, but it was already not running.")
 
     async def restart(self) -> None:
         self.stop()
