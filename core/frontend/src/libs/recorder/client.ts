@@ -1,4 +1,5 @@
 import { cancelJob, sendCommand } from '@/libs/blueos-api/command'
+import { watchJobResults } from '@/libs/blueos-api/job'
 import { watchServiceAlive } from '@/libs/blueos-api/liveliness'
 import {
   DeleteRecording,
@@ -6,10 +7,8 @@ import {
   RepairRecording,
   SnapshotRecording,
   library,
-  operation,
 } from '@/libs/blueos-api/services/recorder'
 import type { Subscription, Transport } from '@/libs/blueos-api/transport'
-import { watchEvent } from '@/libs/blueos-api/watch-event'
 import { watchState } from '@/libs/blueos-api/watch'
 
 import type { RecordingIndexSource } from '@/libs/mcap/logic/recording-index'
@@ -141,15 +140,26 @@ export function createRecorderClient(
       return watchServiceAlive(transport, 'recorder', { onAlive: onRunning })
     },
 
-    watchOperations(onOperation, onError) {
-      return watchEvent(transport, operation, {
-        onValue: (message) => {
-          const event = mapRecordingOperation(message)
-          onOperation(event)
-          resolveSnapshotFromOperation(event)
+    async watchOperations(onOperation, onError) {
+      const report = (event: RecordingOperationEvent): void => {
+        onOperation(event)
+        resolveSnapshotFromOperation(event)
+      }
+      const subscriptions = await Promise.all([
+        watchJobResults(transport, NAME, RepairRecording.name, RepairRecording.resultSchema, {
+          onValue: (entry) => report(mapRecordingOperation('repair', entry)),
+          onError: (error) => onError?.(error),
+        }),
+        watchJobResults(transport, NAME, SnapshotRecording.name, SnapshotRecording.resultSchema, {
+          onValue: (entry) => report(mapRecordingOperation('snapshot', entry)),
+          onError: (error) => onError?.(error),
+        }),
+      ])
+      return {
+        close: async () => {
+          await Promise.all(subscriptions.map((subscription) => subscription.close()))
         },
-        onError: (error) => onError?.(error),
-      })
+      }
     },
 
     async repairRecording(path) {

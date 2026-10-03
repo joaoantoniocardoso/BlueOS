@@ -1,8 +1,10 @@
 import {
+  JobStatusStatus,
   RecordingFileState,
-  RecordingOperationOperation,
 } from '@blueos-idl'
-import type { RecordingFile, RecordingOperation, Time } from '@blueos-idl/messages'
+import type { RecordingFile, Time } from '@blueos-idl/messages'
+
+import type { JobResultEntry } from '@/libs/blueos-api/job'
 
 import type {
   LibraryRecording,
@@ -46,26 +48,16 @@ export function mapRecordingFile(file: RecordingFile): LibraryRecording {
   }
 }
 
-function mapOperationKind(operation: number): RecordingOperationKind {
-  switch (operation) {
-    case RecordingOperationOperation.Repair:
-      return 'repair'
-    case RecordingOperationOperation.Snapshot:
-      return 'snapshot'
-    case RecordingOperationOperation.Delete:
-      return 'delete'
-    default:
-      return 'repair'
-  }
-}
-
-export function mapRecordingOperation(event: RecordingOperation): RecordingOperationEvent {
+export function mapRecordingOperation(
+  operation: RecordingOperationKind,
+  { job, result }: JobResultEntry<{ path: string, output_path?: string }>,
+): RecordingOperationEvent {
   return {
-    operation: mapOperationKind(event.operation),
-    path: event.path,
-    output_path: event.output_path,
-    succeeded: event.succeeded,
-    cancelled: event.cancelled,
-    error: event.error,
+    operation,
+    path: result.path,
+    output_path: result.output_path ?? '',
+    succeeded: job.status === JobStatusStatus.Succeeded,
+    cancelled: job.status === JobStatusStatus.Canceled,
+    error: job.reason,
   }
 }
