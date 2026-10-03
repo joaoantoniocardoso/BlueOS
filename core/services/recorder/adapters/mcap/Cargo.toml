@@ -18,7 +18,7 @@ tracing = { workspace = true, features = ["std"] }
 [dev-dependencies]
 blueos-comms.workspace = true
 bytes.workspace = true
-tempfile = "3"
+tempfile.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
 [lints]
