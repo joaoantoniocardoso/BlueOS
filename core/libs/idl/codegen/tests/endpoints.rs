@@ -171,6 +171,48 @@ fn a_service_without_custom_endpoints_has_no_handlers() {
 }
 
 #[test]
+fn a_command_with_a_nature_is_a_job_type_whose_conversion_gets_the_job_id() {
+    let manifest = format!(
+        "service = \"test\"\n[command]\nRepair = {{ request = \"{EMPTY}\", custom = true, nature = {{ lasting = \
+         true, cancellable = true }} }}\nSet = {{ request = \"{EMPTY}\", nature = {{ needs_permission = true }} \
+         }}\nStop = {{ request = \"{EMPTY}\" }}\n"
+    );
+
+    let generated = generate(&manifest, "blueos_test_api", &messages()).unwrap();
+
+    assert!(generated.api.contains(
+        "fn set(job_id: JobId, request: blueos_example_msgs::EmptyRequest) -> Self::Request;"
+    ));
+    assert!(
+        generated
+            .api
+            .contains("fn stop(request: blueos_example_msgs::EmptyRequest) -> Self::Request;")
+    );
+    assert!(generated.app.contains("job_id: JobId,"));
+    assert!(
+        generated
+            .app
+            .contains("pub fn register<D: Conversions + DomainJobs, H: Handlers<D>, Context>(")
+    );
+    let repair = generated.app.split(".job(").nth(1).unwrap();
+    assert!(repair.trim_start().starts_with("\"Repair\""));
+    assert!(repair.contains("lasting: true,"));
+    assert!(repair.contains("cancellable: true,"));
+    assert!(repair.contains("pausable: false,"));
+    assert!(
+        generated
+            .app
+            .contains("H::repair(&handlers, job_id, request)")
+    );
+    assert!(
+        generated
+            .app
+            .contains("Ok(<D as Conversions>::set(job_id, request))")
+    );
+    assert!(generated.app.contains(".command(\"Stop\""));
+}
+
+#[test]
 fn a_service_without_endpoints_registers_nothing() {
     let generated = generate("service = \"test\"\n", "blueos_test_api", &messages()).unwrap();
 
