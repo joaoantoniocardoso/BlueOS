@@ -19,9 +19,9 @@ use blueos_recorder_capture::{
     RecordingState as CaptureRecordingState,
 };
 use blueos_recorder_library::{
-    InfallibleLibraryEvent, Library, LibraryIoRequest, LibraryIoResult, LibraryObservedFact,
-    LibraryOperation, LibraryRejection, LibraryRepairOutcome, LibraryRequest,
-    LibrarySnapshotOutcome, LibraryTick, LibraryTimerKey, snapshot_output_relative_path,
+    Library, LibraryIoRequest, LibraryIoResult, LibraryObservedFact, LibraryOperation,
+    LibraryRejection, LibraryRepairOutcome, LibraryRequest, LibrarySnapshotOutcome, LibraryTick,
+    LibraryTimerKey, snapshot_output_relative_path,
 };
 use blueos_recorder_paths::RecordingRelativePath;
 
@@ -470,7 +470,7 @@ fn map_capture_outcome(
 }
 
 fn map_library_outcome(
-    outcome: Outcome<InfallibleLibraryEvent, LibraryTick, LibraryIoRequest, LibraryTimerKey>,
+    outcome: Outcome<Infallible, LibraryTick, LibraryIoRequest, LibraryTimerKey>,
 ) -> Decision<RecorderDomain> {
     outcome.map(
         |never| match never {},
