@@ -94,8 +94,14 @@ export function sortRecordingsNewestFirst(files: LibraryRecording[]): LibraryRec
   })
 }
 
+/** A missing index is not a missing recording: the vehicle indexes what was written on demand. */
 export function canPlayRecording(file: LibraryRecording): boolean {
-  return file.state === 'ready' || file.state === 'recording'
+  return file.state === 'ready' || file.state === 'recording' || file.state === 'needs_repair'
+}
+
+/** A thumbnail seeks to the middle of the video, which needs the summary only a finished, indexed file has. */
+export function canLoadThumbnail(file: LibraryRecording): boolean {
+  return file.state === 'ready'
 }
 
 /** The snapshot a snapshot Job wrote, or null when the Job did not succeed. */

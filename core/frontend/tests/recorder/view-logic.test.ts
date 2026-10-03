@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { DELETE_RECORDING, REPAIR_RECORDING, SNAPSHOT_RECORDING } from '@/libs/recorder/constants'
 import type { LibraryRecording, RecordingJobResult } from '@/libs/recorder/types'
 import {
+  canLoadThumbnail,
   canPlayRecording,
   deleteConfirmationMessage,
   jobCanceledMessage,
@@ -67,10 +68,18 @@ describe('recorder view-logic', () => {
     expect(sorted.map((entry) => entry.path)).toEqual(['new.mcap', 'old.mcap'])
   })
 
-  it('allows playback for ready and in-progress recordings', () => {
+  it('allows playback for ready, in-progress and unindexed recordings, but not while one is rewritten', () => {
     expect(canPlayRecording(file({ state: 'ready' }))).toBe(true)
     expect(canPlayRecording(file({ state: 'recording' }))).toBe(true)
-    expect(canPlayRecording(file({ state: 'needs_repair' }))).toBe(false)
+    expect(canPlayRecording(file({ state: 'needs_repair' }))).toBe(true)
+    expect(canPlayRecording(file({ state: 'repairing' }))).toBe(false)
+  })
+
+  it('builds a thumbnail only for a recording with an index to seek in', () => {
+    expect(canLoadThumbnail(file({ state: 'ready' }))).toBe(true)
+    expect(canLoadThumbnail(file({ state: 'recording' }))).toBe(false)
+    expect(canLoadThumbnail(file({ state: 'needs_repair' }))).toBe(false)
+    expect(canLoadThumbnail(file({ state: 'repairing' }))).toBe(false)
   })
 
   it('reads the snapshot output path from the result of a succeeded snapshot Job', () => {

@@ -70,7 +70,7 @@ import Vue, { PropType } from 'vue'
 
 import { loadRecordingThumbnail } from '@/libs/recorder/thumbnail-loader'
 import type { LibraryRecording } from '@/libs/recorder/types'
-import { canPlayRecording } from '@/libs/recorder/view-logic'
+import { canLoadThumbnail, canPlayRecording } from '@/libs/recorder/view-logic'
 
 export default Vue.extend({
   name: 'RecordsRecordingPreview',
@@ -134,7 +134,7 @@ export default Vue.extend({
       }
     },
     async loadThumbnail(): Promise<void> {
-      if (!this.canPlay || !this.downloadUrl) {
+      if (!this.canPlay || !canLoadThumbnail(this.file) || !this.downloadUrl) {
         this.revokeObjectUrl()
         this.loading = false
         return
