@@ -377,6 +377,7 @@ version = "0.1.0"
 dependencies = [
  "blueos-domain",
  "blueos-idl",
+ "blueos-jobs",
  "blueos-recorder-capture",
  "blueos-recorder-domain",
  "blueos-recorder-library",
