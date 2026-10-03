@@ -52,8 +52,13 @@ impl Service for LifecycleService {
     const NAME: &'static str = "lifecycle";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<LifecycleArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<LifecycleArguments>,
+        _service: &ServiceContext<LifecycleArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<Lifecycle>, ServiceError> {
         Ok(ServiceBuilder::new(LifecycleSnapshot::default())
             .on_start(LifecycleRequest::Mark("on_start"))
@@ -172,11 +177,15 @@ async fn liveliness_is_declared_after_initial_state_publish() {
     });
     let _kernel = Kernel::start(
         LifecycleService::NAME,
-        LifecycleService::build(&ServiceContext::new(
-            LifecycleArguments {},
-            blueos_service::testing::channel_session(),
-        ))
+        LifecycleService::build(
+            &ServiceContext::new(
+                LifecycleArguments {},
+                blueos_service::testing::channel_session(),
+            ),
+            &(),
+        )
         .unwrap(),
+        (),
         Arc::clone(&backend),
         Arc::new(PausedClock::start()),
     )

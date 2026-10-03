@@ -142,10 +142,15 @@ impl Service for TankService {
     const NAME: &'static str = "tank";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<TankArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        context: &ServiceContext<TankArguments>,
+        service: &ServiceContext<TankArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<Tank>, ServiceError> {
-        let capacity = context.arguments().capacity;
+        let capacity = service.arguments().capacity;
         if capacity == 0 {
             return Err(ServiceError::Build(NoCapacity.into()));
         }
@@ -215,11 +220,16 @@ impl Service for FragileTankService {
     const NAME: &'static str = "fragile_tank";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<TankArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        context: &ServiceContext<TankArguments>,
+        service: &ServiceContext<TankArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<Tank>, ServiceError> {
         Ok(
-            ServiceBuilder::new(TankSnapshot::empty(context.arguments().capacity))
+            ServiceBuilder::new(TankSnapshot::empty(service.arguments().capacity))
                 .command("SetLevel", |request: SetLevelRequest| {
                     Ok(TankRequest::SetLevel(request.level))
                 })
@@ -246,15 +256,20 @@ impl Service for ProbeService {
     const NAME: &'static str = "probe";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<ProbeArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        context: &ServiceContext<ProbeArguments>,
+        service: &ServiceContext<ProbeArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<Tank>, ServiceError> {
         Ok(ServiceBuilder::new(TankSnapshot::empty(100))
             .command("SetLevel", |request: SetLevelRequest| {
                 Ok(TankRequest::SetLevel(request.level))
             })
             .io_query("Probe", {
-                let sensor = Arc::clone(&context.arguments().sensor.0);
+                let sensor = Arc::clone(&service.arguments().sensor.0);
                 move |request: SetLevelRequest| {
                     let sensor = Arc::clone(&sensor);
                     Box::pin(async move {
@@ -288,11 +303,16 @@ impl Service for MisnamedTankService {
     const NAME: &'static str = "misnamed_tank";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<TankArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        context: &ServiceContext<TankArguments>,
+        service: &ServiceContext<TankArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<Tank>, ServiceError> {
         Ok(
-            ServiceBuilder::new(TankSnapshot::empty(context.arguments().capacity))
+            ServiceBuilder::new(TankSnapshot::empty(service.arguments().capacity))
                 .command("Set#Level", |request: SetLevelRequest| {
                     Ok(TankRequest::SetLevel(request.level))
                 }),
@@ -857,6 +877,7 @@ async fn a_kernel_with_only_io_queries_keeps_answering_them() {
     let kernel = Kernel::start(
         "sensor",
         builder,
+        (),
         Arc::clone(&backend),
         Arc::new(PausedClock::start()),
     )
@@ -893,10 +914,13 @@ async fn a_kernel_with_only_io_queries_keeps_answering_them() {
 
 #[tokio::test(start_paused = true)]
 async fn the_kernel_stops_once_the_backbone_closes_every_endpoint() {
-    let builder = TankService::build(&ServiceContext::new(
-        TankArguments { capacity: 100 },
-        blueos_service::testing::channel_session(),
-    ))
+    let builder = TankService::build(
+        &ServiceContext::new(
+            TankArguments { capacity: 100 },
+            blueos_service::testing::channel_session(),
+        ),
+        &(),
+    )
     .unwrap()
     .io_query("Probe", |_request: EmptyRequest| {
         Box::pin(async { Ok(EmptyRequest::default()) })
@@ -904,6 +928,7 @@ async fn the_kernel_stops_once_the_backbone_closes_every_endpoint() {
     let kernel = Kernel::start(
         TankService::NAME,
         builder,
+        (),
         Arc::new(ClosedBackend),
         Arc::new(PausedClock::start()),
     )

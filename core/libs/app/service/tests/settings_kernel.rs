@@ -87,10 +87,15 @@ impl Service for SettingsTankService {
     const NAME: &'static str = "settings_tank";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<SettingsTankArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        context: &ServiceContext<SettingsTankArguments>,
+        service: &ServiceContext<SettingsTankArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<SettingsTank>, ServiceError> {
-        let config_parent = context.settings_path().map(PathBuf::from);
+        let config_parent = service.settings_path().map(PathBuf::from);
         Ok(ServiceBuilder::new(SettingsTankSnapshot {
             level: 0,
             settings: SettingsTankDocument::default(),

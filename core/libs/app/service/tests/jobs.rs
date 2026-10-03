@@ -68,11 +68,16 @@ impl Service for BrewerService {
     const NAME: &'static str = "brewer";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<BrewerArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        context: &ServiceContext<BrewerArguments>,
+        service: &ServiceContext<BrewerArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<Brewer>, ServiceError> {
         Ok(ServiceBuilder::new(BrewerSnapshot {
-            jobs: Jobs::with_retention(context.arguments().retention),
+            jobs: Jobs::with_retention(service.arguments().retention),
         })
         .command("Brew", |_: EmptyRequest| Ok(BrewerRequest::Brew))
         .command("Scorch", |_: EmptyRequest| Ok(BrewerRequest::Scorch))

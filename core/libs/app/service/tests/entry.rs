@@ -35,10 +35,15 @@ impl Service for FixtureService {
     const NAME: &'static str = "fixture";
     const VERSION: &'static str = "9.8.7";
 
+    fn context(_service: &ServiceContext<FixtureArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        context: &ServiceContext<FixtureArguments>,
+        service: &ServiceContext<FixtureArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<Fixture>, ServiceError> {
-        let _marker = context.arguments().marker.clone();
+        let _marker = service.arguments().marker.clone();
         Ok(ServiceBuilder::new(FixtureSnapshot))
     }
 }
@@ -169,16 +174,20 @@ async fn run_with_backend_stops_on_shutdown() {
     let parsed =
         parse_service_cli::<FixtureService>(["fixture", "--marker", "/tmp/x"].map(OsString::from))
             .expect("parse");
-    let mut builder = FixtureService::build(&ServiceContext::new(
-        parsed.service.clone(),
-        blueos_service::testing::channel_session(),
-    ))
+    let mut builder = FixtureService::build(
+        &ServiceContext::new(
+            parsed.service.clone(),
+            blueos_service::testing::channel_session(),
+        ),
+        &(),
+    )
     .unwrap();
     let shutdown = builder.shutdown_handle();
     let backend = std::sync::Arc::new(ChannelBackend::default());
     let kernel = blueos_service::Kernel::start(
         FixtureService::NAME,
         builder,
+        (),
         backend,
         std::sync::Arc::new(PausedClock::start()),
     )

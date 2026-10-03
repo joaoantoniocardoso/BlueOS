@@ -202,10 +202,15 @@ impl Service for VaultService {
     const NAME: &'static str = "vault";
     const VERSION: &'static str = "0.0.0";
 
+    fn context(_service: &ServiceContext<Self::Arguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        context: &ServiceContext<Self::Arguments>,
+        service: &ServiceContext<Self::Arguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<Self::Domain>, ServiceError> {
-        Ok(vault_builder(context, false).0)
+        Ok(vault_builder(service, false).0)
     }
 }
 
@@ -267,7 +272,7 @@ async fn start_vault_kernel(
         ServiceContext::with_settings_path(VaultArguments {}, Some(folder), Arc::clone(&backend));
     let (builder, shutdown) = vault_builder(&context, shutdown_bump);
     let clock = Arc::new(PausedClock::start());
-    let kernel = Kernel::start(VaultService::NAME, builder, Arc::clone(&backend), clock)
+    let kernel = Kernel::start(VaultService::NAME, builder, (), Arc::clone(&backend), clock)
         .await
         .expect("vault starts");
     let command_sender = kernel.command_sender().expect("command sender");
@@ -451,7 +456,7 @@ async fn shutdown_flush_persists_changes_from_the_final_inbox_drain() {
     let (builder, shutdown) = vault_builder(&context, true);
     let shutdown = shutdown.expect("shutdown handle");
     let clock = Arc::new(PausedClock::start());
-    let kernel = Kernel::start(VaultService::NAME, builder, Arc::clone(&backend), clock)
+    let kernel = Kernel::start(VaultService::NAME, builder, (), Arc::clone(&backend), clock)
         .await
         .expect("vault starts");
     let durable_flush = kernel

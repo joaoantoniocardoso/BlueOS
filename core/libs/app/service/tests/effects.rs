@@ -134,17 +134,27 @@ impl Service for EffectsService {
     const NAME: &'static str = "effects";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(service: &ServiceContext<EffectsArguments>) -> Result<EffectsContext, ServiceError> {
+        Ok(EffectsContext {
+            expected_capacity: service.arguments().capacity,
+            blocking_hold: service.arguments().blocking_hold.clone(),
+            async_hold: service.arguments().async_hold.clone(),
+            record_capacity_done: service.arguments().record_capacity_done.clone(),
+        })
+    }
+
     fn build(
-        context: &ServiceContext<EffectsArguments>,
+        service: &ServiceContext<EffectsArguments>,
+        _context: &EffectsContext,
     ) -> Result<ServiceBuilder<Effects, Self::Context>, ServiceError> {
-        let capacity = context.arguments().capacity;
-        let blocking_io_applied = context
+        let capacity = service.arguments().capacity;
+        let blocking_io_applied = service
             .arguments()
             .blocking_hold
             .as_ref()
             .map(|latch| latch.io_applied.clone())
             .or_else(|| {
-                context
+                service
                     .arguments()
                     .async_hold
                     .as_ref()
@@ -160,33 +170,29 @@ impl Service for EffectsService {
             blocking_io_running: false,
             blocking_io_applied,
         })
-        .context(EffectsContext {
-            expected_capacity: capacity,
-            blocking_hold: context.arguments().blocking_hold.clone(),
-            async_hold: context.arguments().async_hold.clone(),
-            record_capacity_done: context.arguments().record_capacity_done.clone(),
-        })
-        .blocking_io(|io_context, _snapshot, request| match request {
-            EffectsIoRequest::BlockingHold => {
-                let Some(latch) = &io_context.blocking_hold else {
-                    return Err(IoError::new(
-                        "BlockingHold requires a per-test BlockingHoldLatch",
-                    ));
-                };
-                latch.started.send(()).map_err(|_| {
-                    IoError::new("the test stopped waiting for blocking IO to start")
-                })?;
-                lock_unpoisoned(&latch.release)
-                    .recv()
-                    .map_err(|_| IoError::new("the test stopped before releasing blocking IO"))?;
-                Ok(Some(EffectsIoResult::Succeeded))
-            }
-            EffectsIoRequest::Fail
-            | EffectsIoRequest::Succeed
-            | EffectsIoRequest::Panic
-            | EffectsIoRequest::RecordCapacity
-            | EffectsIoRequest::AsyncHold => Err(IoError::new("not a blocking IO request")),
-        })
+        .blocking_io(
+            |io_context: &EffectsContext, _snapshot, request| match request {
+                EffectsIoRequest::BlockingHold => {
+                    let Some(latch) = &io_context.blocking_hold else {
+                        return Err(IoError::new(
+                            "BlockingHold requires a per-test BlockingHoldLatch",
+                        ));
+                    };
+                    latch.started.send(()).map_err(|_| {
+                        IoError::new("the test stopped waiting for blocking IO to start")
+                    })?;
+                    lock_unpoisoned(&latch.release).recv().map_err(|_| {
+                        IoError::new("the test stopped before releasing blocking IO")
+                    })?;
+                    Ok(Some(EffectsIoResult::Succeeded))
+                }
+                EffectsIoRequest::Fail
+                | EffectsIoRequest::Succeed
+                | EffectsIoRequest::Panic
+                | EffectsIoRequest::RecordCapacity
+                | EffectsIoRequest::AsyncHold => Err(IoError::new("not a blocking IO request")),
+            },
+        )
         .io(
             |io_context: &EffectsContext, snapshot: &EffectsSnapshot, request| {
                 let expected_capacity = io_context.expected_capacity;
@@ -427,10 +433,15 @@ impl Service for EffectsWithoutIoService {
     const NAME: &'static str = "effects";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<EffectsArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        context: &ServiceContext<EffectsArguments>,
+        service: &ServiceContext<EffectsArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<Effects, Self::Context>, ServiceError> {
-        let capacity = context.arguments().capacity;
+        let capacity = service.arguments().capacity;
         Ok(ServiceBuilder::new(EffectsSnapshot {
             level: 7,
             capacity,
@@ -657,17 +668,17 @@ async fn start_effects_kernel_with_shutdown(
     blueos_service::ShutdownHandle,
     tokio::task::JoinHandle<RunOutcome>,
 ) {
-    let mut builder = EffectsService::build(&ServiceContext::new(
-        arguments,
-        blueos_service::testing::channel_session(),
-    ))
-    .expect("the effects service builds");
+    let service = ServiceContext::new(arguments, blueos_service::testing::channel_session());
+    let context = EffectsService::context(&service).expect("the effects context builds");
+    let mut builder =
+        EffectsService::build(&service, &context).expect("the effects service builds");
     let shutdown = builder.shutdown_handle();
     let backend: Arc<dyn blueos_comms::CommsBackend> =
         Arc::new(blueos_comms::channel::ChannelBackend::default());
     let kernel = Kernel::start(
         EffectsService::NAME,
         builder,
+        context,
         Arc::clone(&backend),
         Arc::new(PausedClock::start()),
     )
