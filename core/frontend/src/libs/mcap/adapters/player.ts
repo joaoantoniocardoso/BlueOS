@@ -228,16 +228,27 @@ export class McapVideoPlayer {
     this.video.addEventListener('waiting', this.onWaiting)
     this.video.addEventListener('error', this.onMediaError)
 
-    const opened = waitForSourceOpen(this.mediaSource)
-    this.video.src = this.objectUrl
-    await opened
+    // Starting counts as a restart: a seek arriving meanwhile, as when a stream comes into range on the seek
+    // itself, would otherwise point the stream at a second time while this one is still being read.
+    this.restarting = true
+    try {
+      const opened = waitForSourceOpen(this.mediaSource)
+      this.video.src = this.objectUrl
+      await opened
 
-    if (this.options.startSeconds != null) {
-      await this.stream.seekToKeyframe(this.options.startSeconds, this.controller.signal)
-    } else if (this.options.startAtEnd) {
-      await this.stream.seekToKeyframe(this.stream.durationSeconds, this.controller.signal)
-    } else {
-      this.stream.seekToStart()
+      if (this.options.startSeconds != null) {
+        await this.stream.seekToKeyframe(this.options.startSeconds, this.controller.signal)
+      } else if (this.options.startAtEnd) {
+        await this.stream.seekToKeyframe(this.stream.durationSeconds, this.controller.signal)
+      } else {
+        this.stream.seekToStart()
+      }
+    } finally {
+      this.restarting = false
+    }
+    if (this.queuedRestartSeconds !== null) {
+      await this.restartAt(this.queuedRestartSeconds)
+      return
     }
     this.scheduleFill()
   }

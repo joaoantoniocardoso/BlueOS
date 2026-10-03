@@ -7,7 +7,7 @@ import { McapVideoPlayer } from '@/libs/mcap/adapters/player'
 import { McapIndexedReader } from '@/libs/mcap/logic/reader'
 import { listVideoTracks } from '@/libs/mcap/logic/video-track'
 
-import { buildIndexedVideoMcap } from './build-mcap'
+import { buildIndexedVideoMcap, buildTwoTrackVideoMcap } from './build-mcap'
 import MemoryByteSource from './memory-byte-source'
 
 /** A browser decodes appended media asynchronously; the player must not count on it being instant. */
@@ -30,6 +30,9 @@ function boxPayload(data: Uint8Array, type: string): number {
 /** Buffers each appended fragment at its `tfdt` decode time, which is all the player reads back. */
 class FakeSourceBuffer extends EventTarget {
   mode = 'segments'
+
+  /** Start of every fragment appended, in append order, whatever was removed since. */
+  appendedStarts: number[] = []
 
   private fragmentStarts: number[] = []
 
@@ -57,6 +60,9 @@ class FakeSourceBuffer extends EventTarget {
       ? null
       : Number(data[tfdt] === 1 ? view.getBigUint64(tfdt + 4) : view.getUint32(tfdt + 4))
     const { timescale } = this
+    if (decodeTime !== null) {
+      this.appendedStarts.push(decodeTime / timescale)
+    }
     setTimeout(() => {
       if (decodeTime !== null) {
         this.fragmentStarts.push(decodeTime / timescale)
@@ -89,6 +95,23 @@ class FakeMediaSource extends EventTarget {
 
   endOfStream(): void {
     this.readyState = 'ended'
+  }
+}
+
+/** A media source the browser has not opened yet, so `start()` waits until the test opens it. */
+class UnopenedMediaSource extends FakeMediaSource {
+  static last: UnopenedMediaSource | null = null
+
+  readyState = 'closed'
+
+  constructor() {
+    super()
+    UnopenedMediaSource.last = this
+  }
+
+  open(): void {
+    this.readyState = 'open'
+    this.dispatchEvent(new Event('sourceopen'))
   }
 }
 
@@ -190,6 +213,43 @@ describe('McapVideoPlayer', () => {
     await vi.waitFor(() => {
       expect(video.buffered.end(0)).toBeGreaterThan(recording.durationSeconds + FRAME_SECONDS)
     }, { timeout: 3000 })
+    player.destroy()
+  })
+
+  it('reads a stream seeked while it was still starting once, in order, from the seek target only', async () => {
+    vi.stubGlobal('MediaSource', UnopenedMediaSource)
+    const reader = await McapIndexedReader.open(new MemoryByteSource(await buildTwoTrackVideoMcap()))
+    const [, cameraB] = listVideoTracks(reader)
+    const { startTime, endTime } = reader.summary
+    const recording = {
+      reader, tracks: [cameraB], channels: [], durationSeconds: Number(endTime - startTime) / 1e9, startTime,
+    }
+    const startSeconds = 6
+    const target = 12
+    const video = new FakeVideo()
+    const onError = vi.fn()
+    const player = new McapVideoPlayer(video as unknown as HTMLVideoElement, recording, cameraB, {
+      startSeconds,
+      onError,
+    })
+
+    const started = player.start()
+    player.seek(target)
+    await new Promise((resolve) => { setTimeout(resolve) })
+    UnopenedMediaSource.last?.open()
+    await started
+
+    const lastCameraBFrame = 15.25
+    await vi.waitFor(() => {
+      expect(onError.mock.calls.length > 0 || video.buffered.end(0) > lastCameraBFrame).toBe(true)
+    }, { timeout: 3000 })
+    expect(onError).not.toHaveBeenCalled()
+    const appended = sourceBuffer?.appendedStarts ?? []
+    expect(appended).toEqual([...new Set(appended)].sort((left, right) => left - right))
+    expect(appended[0]).toBeGreaterThan(startSeconds + 1)
+    expect(appended[0]).toBeLessThanOrEqual(target)
+    expect(video.currentTime).toBeGreaterThanOrEqual(appended[0])
+    expect(video.currentTime).toBeLessThanOrEqual(target)
     player.destroy()
   })
 })
