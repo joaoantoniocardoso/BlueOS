@@ -71,16 +71,13 @@ impl Service for SettingsCookbookService {
     }
 
     fn build(
-        service: &ServiceContext<SettingsCookbookArguments>,
+        _service: &ServiceContext<SettingsCookbookArguments>,
         _context: &(),
     ) -> Result<ServiceBuilder<SettingsCookbook>, ServiceError> {
-        let config_parent = service.settings_path().map(PathBuf::from);
         Ok(ServiceBuilder::new(SettingsCookbookSnapshot {
             settings: SettingsCookbookDocument::default(),
         })
         .settings(
-            Self::NAME,
-            config_parent,
             |snapshot: &mut SettingsCookbookSnapshot, settings| snapshot.settings = settings,
             |snapshot: &SettingsCookbookSnapshot| snapshot.settings.clone(),
             |envelope| {
