@@ -9,13 +9,13 @@ use std::sync::{Arc, Mutex};
 use tokio::{task::JoinSet, time::Instant};
 
 use blueos_api::{
-    CommandAck, Message, cdr_encoding, command_key, job_feedback_key, job_history_key, jobs_key,
-    query_key, settings_key, state_key,
+    CommandAck, Message, cdr_encoding, command_key, info_query_key, job_feedback_key,
+    job_history_key, jobs_key, query_key, settings_key, state_key,
 };
 use blueos_comms::{CommsBackend, QueryBody, ReplyError, channel::ChannelBackend};
 use blueos_domain::{Domain, Effect, Now};
 use blueos_idl::msg::{
-    blueos_msgs::{JobFeedbackList, JobList, PermissionAnswer},
+    blueos_msgs::{JobFeedbackList, JobList, PermissionAnswer, ServiceInfo},
     std_msgs::Empty,
 };
 use blueos_jobs::{JobControl, JobId};
@@ -339,6 +339,15 @@ impl<S: Service> Harness<S> {
         reply
             .clone()
             .map(|sample| R::decode(&sample.payload().to_bytes()).expect("the reply is an R"))
+    }
+
+    /// Asks the standard `info` Query with no body, as the inspector does, and returns the endpoints it lists.
+    ///
+    /// # Panics
+    ///
+    /// When the Service does not reply exactly once with a [`ServiceInfo`].
+    pub async fn info(&self) -> ServiceInfo {
+        self.read_one(&info_query_key(S::NAME)).await
     }
 
     /// Reads the State `state`, as a late client would.
