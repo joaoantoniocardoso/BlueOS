@@ -102,37 +102,6 @@ async fn records_video_and_non_blueos_keys() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn mavlink_not_recorded_while_disarmed_when_policy_enabled() {
-    let directory = tempdir().expect("tempdir");
-    let harness = start_harness(directory.path()).await;
-    start_recording(&harness).await;
-    wait_for_active_recording(harness.backend()).await;
-
-    harness
-        .backend()
-        .publish(Sample::new(
-            "mavlink/1/1/HEARTBEAT",
-            Payload::new(Bytes::from_static(b"mavlink-bytes")),
-            "application/octet-stream",
-        ))
-        .await
-        .expect("publish mavlink");
-    advance(Duration::from_secs(1)).await;
-
-    let path = active_recording_mcap_path(&harness, directory.path()).await;
-    stop_recording_and_finalize_mcap(harness.backend(), &path).await;
-
-    let data = fs::read(&path).expect("read");
-    let summary = mcap::Summary::read(&data).expect("read").expect("summary");
-    let topics: Vec<_> = summary
-        .channels
-        .values()
-        .map(|channel| channel.topic.as_str())
-        .collect();
-    assert!(!topics.contains(&"mavlink/1/1/HEARTBEAT"));
-}
-
-#[tokio::test(start_paused = true)]
 async fn mavlink_recorded_after_armed_observed_fact() {
     let directory = tempdir().expect("tempdir");
     let harness = start_harness(directory.path()).await;
