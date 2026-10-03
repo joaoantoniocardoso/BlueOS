@@ -201,26 +201,29 @@ export function decodeCdrWithSchema(
   throw new Error(`Failed to decode CDR for schema ${schemaName}`)
 }
 
-// The decoder gives 64-bit integers as numbers, but the writer takes an array of them only as bigints.
+// The decoder gives int64 and uint64 fields as numbers, but the writer takes them, scalars and arrays alike, only as
+// bigints. Other fields pass through; nested Messages are searched for them.
 function withBigInts(
   fields: MessageDefinitionField[],
   message: Record<string, unknown>,
   definitionsByName: Map<string, MessageDefinitionField[]>,
 ): Record<string, unknown> {
   const converted = { ...message }
-  for (const field of dataFields({ definitions: fields })) {
-    const nestedFields = field.isComplex === true ? definitionsByName.get(field.type) : undefined
+  for (const field of fields) {
     const value = message[field.name]
-    const entries = field.isArray === true && Array.isArray(value) ? value : [value]
-    const convertedEntries = entries.map((entry: unknown) => {
-      if (nestedFields !== undefined && entry !== null && typeof entry === 'object') {
-        return withBigInts(nestedFields, entry as Record<string, unknown>, definitionsByName)
-      }
-      return typeof entry === 'number' && (field.type === 'int64' || field.type === 'uint64') ? BigInt(entry) : entry
-    })
-    if (field.name in message) {
-      converted[field.name] = field.isArray === true && Array.isArray(value) ? convertedEntries : convertedEntries[0]
+    const nestedFields = field.isComplex === true ? definitionsByName.get(field.type) : undefined
+    const isWide = field.type === 'int64' || field.type === 'uint64'
+    if (value === undefined || nestedFields === undefined && !isWide) {
+      continue
     }
+    const entries = Array.isArray(value) ? value : [value]
+    const convertedEntries = entries.map((entry: unknown) => {
+      if (nestedFields === undefined) {
+        return BigInt(entry as number)
+      }
+      return withBigInts(nestedFields, entry as Record<string, unknown>, definitionsByName)
+    })
+    converted[field.name] = Array.isArray(value) ? convertedEntries : convertedEntries[0]
   }
   return converted
 }
@@ -233,7 +236,7 @@ export function encodeCdrWithSchema(
   const definitions = getDefinitions(schemaName, schemaText)
   const writer = getWriter(schemaName, schemaText)
   return writer.writeMessage(withBigInts(
-    dataFields(definitions[0]),
+    definitions[0].definitions,
     message as Record<string, unknown>,
     definitionsMap(definitions),
   ))
