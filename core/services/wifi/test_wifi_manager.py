@@ -1,6 +1,10 @@
+import asyncio
+import signal
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -10,6 +14,7 @@ _saved = {name: sys.modules.get(name) for name in ("exceptions", "settings", "ty
 for name in _saved:
     sys.modules.pop(name, None)
 
+from wifi_handlers.networkmanager.networkmanager import NetworkManagerWifi
 from wifi_handlers.wpa_supplicant.WifiManager import WifiManager
 
 for name, module in _saved.items():
@@ -40,6 +45,25 @@ async def test_reports_available_after_connecting(monkeypatch: pytest.MonkeyPatc
     await manager.connect(("127.0.0.1", 6664))
 
     assert manager.wpa_path is not None
+
+
+# uvicorn re-raises the SIGTERM it captured once it has served. A service handler that swallows it keeps the process
+# alive after the server ends, and the non-daemon zenoh callback thread then blocks the interpreter exit forever.
+async def test_start_leaves_sigterm_to_the_server(monkeypatch: pytest.MonkeyPatch) -> None:
+    manager = NetworkManagerWifi.__new__(NetworkManagerWifi)
+    manager._nm = SimpleNamespace(get_devices=AsyncMock(return_value=[]))  # type: ignore[assignment]
+    manager._tasks = []
+    for method in ("_create_virtual_interface", "_autoscan", "hotspot_watchdog"):
+        monkeypatch.setattr(NetworkManagerWifi, method, AsyncMock())
+    sigterm_handler = signal.getsignal(signal.SIGTERM)
+
+    try:
+        await manager.start()
+        assert signal.getsignal(signal.SIGTERM) is sigterm_handler
+    finally:
+        asyncio.get_running_loop().remove_signal_handler(signal.SIGTERM)
+        asyncio.get_running_loop().remove_signal_handler(signal.SIGINT)
+        signal.signal(signal.SIGTERM, sigterm_handler)
 
 
 async def _no_networks(_self: Any) -> list[Any]:
