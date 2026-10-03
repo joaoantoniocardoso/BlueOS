@@ -455,14 +455,15 @@ check_typos() {
     local typos_paths=() path
     for path in .hooks/lib core/libs core/app core/Cargo.toml core/deny.toml core/clippy.toml core/coverage-ratchet.toml; do
         if [ -e "$repository_dir/$path" ]; then
-            typos_paths+=("$repository_dir/$path")
+            typos_paths+=("$path")
         fi
     done
     if ! command -v typos >/dev/null 2>&1; then
         printf 'typos not installed; install typos-cli (e.g. cargo install --locked typos-cli)\n' >&2
         exit 1
     fi
-    typos --config "$repository_dir/typos.toml" "${typos_paths[@]}"
+    # typos matches the typos.toml excludes against the paths as given, so they must be relative to the repository.
+    (cd "$repository_dir" && typos --config typos.toml "${typos_paths[@]}")
 }
 
 # Usage: run_rust_test_checks <workspace_dir>
