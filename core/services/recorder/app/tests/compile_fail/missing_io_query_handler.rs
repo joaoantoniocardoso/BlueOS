@@ -1,7 +1,7 @@
 //! `Handlers` that miss the IO query `index`.
 
 use blueos_idl::msg::blueos_recorder_msgs::{
-    DeleteRecordingCommand, RepairRecordingCommand, SnapshotRecordingCommand,
+    DeleteRecordingGoal, RepairRecordingGoal, SnapshotRecordingGoal,
 };
 use blueos_jobs::JobId;
 use blueos_recorder_app::endpoints::Handlers;
@@ -13,7 +13,7 @@ struct ForgetfulHandlers;
 impl Handlers<RecorderDomain> for ForgetfulHandlers {
     fn delete_recording(
         &self,
-        _request: DeleteRecordingCommand,
+        _goal: DeleteRecordingGoal,
     ) -> Result<RecorderRequest, Refusal> {
         Err(Refusal::from("stub"))
     }
@@ -21,14 +21,14 @@ impl Handlers<RecorderDomain> for ForgetfulHandlers {
     fn repair_recording(
         &self,
         _job_id: JobId,
-        _request: RepairRecordingCommand,
+        _goal: RepairRecordingGoal,
     ) -> Result<RecorderRequest, Refusal> {
         Err(Refusal::from("stub"))
     }
 
     fn snapshot_recording(
         &self,
-        _request: SnapshotRecordingCommand,
+        _goal: SnapshotRecordingGoal,
     ) -> Result<RecorderRequest, Refusal> {
         Err(Refusal::from("stub"))
     }

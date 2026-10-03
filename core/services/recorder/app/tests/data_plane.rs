@@ -3,7 +3,7 @@
 mod common;
 
 use core::time::Duration;
-use std::fs;
+use std::{collections::BTreeMap, fs};
 
 use bytes::Bytes;
 use tempfile::tempdir;
@@ -12,9 +12,9 @@ use tokio::time::{advance, timeout};
 use blueos_comms::{Payload, Sample};
 use blueos_domain::Command;
 use blueos_idl::msg::{
-    blueos_example_msgs::EmptyRequest,
+    blueos_example_msgs::LevelRequest,
     blueos_msgs::{ServiceInfo, SettingsEnvelope},
-    blueos_recorder_msgs::{RecordingState, StartRecordingCommand},
+    blueos_recorder_msgs::{RecordingState, StartRecordingGoal},
 };
 use blueos_recorder_app::RecorderService;
 use blueos_recorder_cameras::RAW_MAVLINK_OUT_TOPIC;
@@ -208,11 +208,57 @@ async fn recorder_service_info_is_published() {
     let directory = tempdir().expect("tempdir");
     let harness = start_harness(directory.path()).await;
     let info = harness
-        .query::<EmptyRequest, ServiceInfo>("info", &EmptyRequest::default())
+        .query::<LevelRequest, ServiceInfo>("info", &LevelRequest::default())
         .await
         .expect("info query");
     assert_eq!(info.name, RecorderService::NAME);
     assert_eq!(info.version, RecorderService::VERSION);
+}
+
+#[tokio::test(start_paused = true)]
+async fn info_lists_each_endpoint_with_the_interface_type_of_api_lock_and_its_schema_text() {
+    let directory = tempdir().expect("tempdir");
+    let harness = start_harness(directory.path()).await;
+    let prefix = format!("blueos/v1/{}/", RecorderService::NAME);
+    let locked: BTreeMap<&str, &str> = include_str!("../../../../libs/idl/api.lock")
+        .lines()
+        .filter_map(|line| {
+            let mut parts = line.split_whitespace();
+            let key = parts.next().filter(|key| key.starts_with(&prefix))?;
+            Some((key, parts.nth(1)?.strip_prefix("type=")?))
+        })
+        .collect();
+
+    let info = harness
+        .query::<LevelRequest, ServiceInfo>("info", &LevelRequest::default())
+        .await
+        .expect("info query");
+
+    assert_eq!(info.endpoints.len(), 10, "{:?}", info.endpoints);
+    for endpoint in &info.endpoints {
+        assert_eq!(
+            locked.get(endpoint.key.as_str()),
+            Some(&endpoint.interface_type.as_str()),
+            "{}",
+            endpoint.key
+        );
+        assert_eq!(
+            Some(endpoint.schema.as_str()),
+            blueos_idl::schema(&endpoint.interface_type),
+            "{}",
+            endpoint.key
+        );
+    }
+    let index = info
+        .endpoints
+        .iter()
+        .find(|endpoint| endpoint.name == "index")
+        .expect("info lists the index Query");
+    assert_eq!(index.kind, "query");
+    assert_eq!(
+        index.interface_type,
+        "blueos_recorder_msgs/srv/RecordingIndex"
+    );
 }
 
 #[tokio::test(start_paused = true)]
@@ -232,7 +278,7 @@ async fn rotation_keeps_both_files_intact_and_state_correct() {
     harness
         .send(
             "Start",
-            &StartRecordingCommand {
+            &StartRecordingGoal {
                 rotate_if_active: true,
             },
         )
