@@ -454,6 +454,7 @@ import {
   recordingByPath,
   repairEstimateMessage,
   type RepairProgress,
+  withLiveDuration,
   withRepairJobs,
 } from '@/libs/recorder/view-logic'
 import zenoh from '@/libs/zenoh'
@@ -504,6 +505,8 @@ export default Vue.extend({
       bulkAction: { failures: [], pending: [] } as BulkAction,
       leaveDialog: false,
       pendingLeave: null as NavigationGuardNext | null,
+      nowSeconds: Date.now() / 1000,
+      clockId: 0,
     }
   },
   computed: {
@@ -520,7 +523,7 @@ export default Vue.extend({
       return RECORDS_LEAVE_MESSAGE
     },
     liveRecordings(): LibraryRecording[] {
-      return withRepairJobs(this.recordings, this.repairProgress, this.jobs)
+      return withLiveDuration(withRepairJobs(this.recordings, this.repairProgress, this.jobs), this.nowSeconds)
     },
     visibleRecordings(): LibraryRecording[] {
       const filtered = filterRecordings(this.liveRecordings, {
@@ -648,9 +651,15 @@ export default Vue.extend({
   },
   mounted() {
     window.addEventListener('beforeunload', this.onBeforeUnload)
+    this.clockId = window.setInterval(() => {
+      if (this.recordings.some((file) => file.state === 'recording')) {
+        this.nowSeconds = Date.now() / 1000
+      }
+    }, 1000)
   },
   beforeDestroy() {
     window.removeEventListener('beforeunload', this.onBeforeUnload)
+    window.clearInterval(this.clockId)
   },
   methods: {
     onBeforeUnload(event: BeforeUnloadEvent): void {
