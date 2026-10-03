@@ -100,13 +100,26 @@ trap 'echo "\$1 terminated" >> "$folder/events"; exit 0' TERM
 echo "\$1 started" >> "$folder/events"
 while true; do sleep 0.1; done
 EOF
+    cat > "$folder/slow" <<EOF
+#!/usr/bin/env bash
+trap 'echo "\$1 terminated" >> "$folder/events"; turns_left=5' TERM
+echo "\$1 started" >> "$folder/events"
+while true; do
+    sleep 0.1 &
+    wait \$! || true
+    if [ -n "\${turns_left:-}" ]; then
+        turns_left=\$((turns_left - 1))
+        [ "\$turns_left" -gt 0 ] || exit 0
+    fi
+done
+EOF
     cat > "$folder/orphaning" <<EOF
 #!/usr/bin/env bash
 trap 'echo "pane_child terminated" >> "$folder/events"; setsid "$folder/watched" late_orphan & exit 0' TERM
 echo "pane_child started" >> "$folder/events"
 while true; do sleep 0.1; done
 EOF
-    chmod +x "$folder/stubborn" "$folder/watched" "$folder/orphaning"
+    chmod +x "$folder/stubborn" "$folder/watched" "$folder/slow" "$folder/orphaning"
     local pane_child="$folder/watched pane_child"
     [ "$pane_child_ignores_sigterm" = true ] && pane_child="$folder/stubborn"
     [ "$pane_child_leaves_an_orphan" = true ] && pane_child="$folder/orphaning"
@@ -117,7 +130,7 @@ bash -c '$pane_child & wait' &
 pane_pid=\$!
 "$folder/watched" tmux_server &
 tmux_server_pid=\$!
-"$folder/watched" inherited &
+setsid "$folder/slow" inherited &
 tmux() {
     case \$1 in
         list-panes) echo "\$pane_pid" ;;
@@ -150,6 +163,8 @@ test_stop_services_terminates_inherited_processes_but_not_the_tmux_server() {
     grep -q "pane_child terminated" "$folder/events" || fail "the pane child did not get SIGTERM"
     grep -q "inherited terminated" "$folder/events" || fail "the process inherited by the main process got no SIGTERM"
     ! grep -q "tmux_server terminated" "$folder/events" || fail "the tmux server got SIGTERM"
+    [ "$(grep -c "inherited terminated" "$folder/events")" -eq 1 ] ||
+        fail "the inherited process that is slow to exit got SIGTERM more than once"
 }
 
 test_stop_services_terminates_a_process_orphaned_during_the_stop() {
