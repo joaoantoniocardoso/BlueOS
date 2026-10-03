@@ -7,6 +7,7 @@ import { prettifySize } from '@/utils/helper_functions'
 import {
   CANCEL_JOB,
   DELETE_RECORDING,
+  REPAIR_BYTES_PER_SECOND_ESTIMATE,
   REPAIR_RECORDING,
 } from './constants'
 import type {
@@ -125,10 +126,43 @@ export function repairProgress(file: LibraryRecording): { percent: number, label
   }
   const processed = prettifySize(file.repair_bytes_processed / 1024)
   const total = prettifySize(file.repair_total_bytes / 1024)
+  const bytesLeft = file.repair_total_bytes - file.repair_bytes_processed
+  const timeLeft = file.repair_bytes_per_second > 0 && bytesLeft > 0
+    ? ` \u00B7 ${formatDuration(bytesLeft / file.repair_bytes_per_second)} left`
+    : ''
   return {
     percent: Math.min(100, file.repair_bytes_processed / file.repair_total_bytes * 100),
-    label: `${processed} of ${total}`,
+    label: `${processed} of ${total}${timeLeft}`,
   }
+}
+
+/** What repairing `targets` rewrites, how long it should take, and what it costs the vehicle meanwhile. */
+export function repairEstimateMessage(targets: LibraryRecording[]): string {
+  const bytes = targets.reduce((total, file) => total + file.size_bytes, 0)
+  const seconds = bytes / REPAIR_BYTES_PER_SECOND_ESTIMATE
+  const estimate = seconds < 60 ? 'less than a minute' : `around ${formatDuration(seconds)}`
+  const what = targets.length === 1 ? targets[0].name : `${targets.length} recordings`
+  return `Repairing ${what} rewrites ${prettifySize(bytes / 1024)} on the vehicle and should take ${estimate},`
+    + ' keeping its disk and processor busy the whole time. Recording and streaming will be slower while it'
+    + ' runs. You can already play this recording without repairing it, and you can stop the repair at any'
+    + ' time.'
+}
+
+/** `seconds` as `2m 05s`, `3h 07m 09s` or `2d 5h 01m`. */
+export function formatDuration(seconds: number): string {
+  const total = Math.max(0, Math.round(seconds))
+  const days = Math.floor(total / 86400)
+  const hours = Math.floor(total % 86400 / 3600)
+  const minutes = Math.floor(total % 3600 / 60)
+  const paddedMinutes = String(minutes).padStart(2, '0')
+  const paddedSeconds = String(total % 60).padStart(2, '0')
+  if (days > 0) {
+    return `${days}d ${hours}h ${paddedMinutes}m`
+  }
+  if (hours > 0) {
+    return `${hours}h ${paddedMinutes}m ${paddedSeconds}s`
+  }
+  return `${minutes}m ${paddedSeconds}s`
 }
 
 /** The library row for `path`, or null when nothing is open or the path left the library. */

@@ -452,6 +452,7 @@ import {
   jobFailureMessage,
   RECORDING_STATE_UI,
   recordingByPath,
+  repairEstimateMessage,
   type RepairProgress,
   withRepairJobs,
 } from '@/libs/recorder/view-logic'
@@ -580,11 +581,7 @@ export default Vue.extend({
       return deleteConfirmationMessage(bulkActionTargets(this.deleteTargets, DELETE_RECORDING))
     },
     repairDialogMessage(): string {
-      const targets = bulkActionTargets(this.repairTargets, REPAIR_RECORDING)
-      if (targets.length === 1) {
-        return `Repair ${targets[0].name}? This rewrites the file on the vehicle.`
-      }
-      return `Repair ${targets.length} recordings? This rewrites each file on the vehicle.`
+      return repairEstimateMessage(bulkActionTargets(this.repairTargets, REPAIR_RECORDING))
     },
   },
   watch: {

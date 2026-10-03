@@ -9,6 +9,9 @@ export const DEFAULT_RECORDING_HTTP_PREFIX = '/userdata/recorder'
 
 export const SNAPSHOT_WAIT_TIMEOUT_MS = 600_000
 
+/** Rewrite speed seen on a Pi 4 SD card, only used to estimate a repair before one is running. */
+export const REPAIR_BYTES_PER_SECOND_ESTIMATE = 25 * 1024 * 1024
+
 export const REPAIR_RECORDING = RepairRecording.name
 export { CANCEL_JOB }
 export const DELETE_RECORDING = DeleteRecording.name

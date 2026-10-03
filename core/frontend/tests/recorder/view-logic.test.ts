@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import {
   CANCEL_JOB,
   DELETE_RECORDING,
+  REPAIR_BYTES_PER_SECOND_ESTIMATE,
   REPAIR_RECORDING,
   SNAPSHOT_RECORDING,
 } from '@/libs/recorder/constants'
@@ -15,6 +16,7 @@ import {
   canPlayRecording,
   deleteConfirmationMessage,
   downloadTooltip,
+  formatDuration,
   jobCanceledMessage,
   jobFailureMessage,
   operationButtons,
@@ -23,6 +25,7 @@ import {
   RECORDING_OPERATION_UI,
   recordingByPath,
   recordingDownload,
+  repairEstimateMessage,
   repairProgress,
   type RepairProgress,
   snapshotDownloadPath,
@@ -123,6 +126,36 @@ describe('recorder view-logic', () => {
       .toEqual({ percent: 100, label: '3.0 MB of 2.0 MB' })
     expect(repairProgress({ ...repairing, repair_total_bytes: 0 })).toBeNull()
     expect(repairProgress({ ...repairing, state: 'needs_repair' })).toBeNull()
+  })
+
+  it('adds the time left of a repair from its speed', () => {
+    const repairing = file({
+      state: 'repairing',
+      repair_bytes_processed: 1024 * 1024,
+      repair_total_bytes: 4 * 1024 * 1024,
+      repair_bytes_per_second: 1024 * 1024 / 50,
+    })
+    expect(repairProgress(repairing)?.label).toBe('1.0 MB of 4.0 MB \u00B7 2m 30s left')
+    expect(repairProgress({ ...repairing, repair_bytes_processed: 4 * 1024 * 1024 })?.label).toBe('4.0 MB of 4.0 MB')
+  })
+
+  it('formats a duration in days, hours, minutes and seconds', () => {
+    expect(formatDuration(125)).toBe('2m 05s')
+    expect(formatDuration(3 * 3600 + 7 * 60 + 9)).toBe('3h 07m 09s')
+    expect(formatDuration(2 * 86400 + 5 * 3600 + 60)).toBe('2d 5h 01m')
+    expect(formatDuration(-4)).toBe('0m 00s')
+  })
+
+  it('tells how much a repair rewrites and how long it should take', () => {
+    const small = file({ name: 'small.mcap', size_bytes: REPAIR_BYTES_PER_SECOND_ESTIMATE * 10 })
+    expect(repairEstimateMessage([small])).toMatch(
+      /^Repairing small\.mcap rewrites 250\.0 MB on the vehicle and should take less than a minute,/,
+    )
+    const large = file({ name: 'large.mcap', size_bytes: REPAIR_BYTES_PER_SECOND_ESTIMATE * 3600 })
+    expect(repairEstimateMessage([small, large])).toMatch(
+      /^Repairing 2 recordings rewrites .* and should take around 1h 00m 10s,/,
+    )
+    expect(repairEstimateMessage([small])).toContain('you can stop the repair at any time.')
   })
 
   it('reports the live Feedback of the repair Job for a repairing row', () => {
