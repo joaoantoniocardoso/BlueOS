@@ -313,6 +313,32 @@ test_typos_fails_on_misspelling() {
     rm -rf "$temporary"
 }
 
+test_typos_checks_every_service_and_honours_its_excludes() {
+    local temporary output
+    temporary=$(mktemp -d)
+    cp "$ROOT_DIR/typos.toml" "$temporary/"
+    mkdir -p "$temporary/core/services/recorder/app/src" "$temporary/core/services/wifi" \
+        "$temporary/core/libs/commonwealth"
+    printf 'const PLANTED_TYPO: &str = "teh";\n' >"$temporary/core/services/recorder/app/src/lib.rs"
+    printf 'PLANTED_TYPO = "teh"\n' >"$temporary/core/services/wifi/main.py"
+    printf 'PLANTED_TYPO = "teh"\n' >"$temporary/core/libs/commonwealth/settings.py"
+    printf '[rustqual]\nteh_warnings = 0\n' >"$temporary/core/quality-ratchet.toml"
+    output=$(cd / && check_typos "$temporary" 2>&1 || true)
+    if ! grep -q 'core/services/recorder/app/src/lib.rs' <<<"$output"; then
+        fail "typos should check the Rust services"
+    fi
+    if ! grep -q 'core/services/wifi/main.py' <<<"$output"; then
+        fail "typos should check the Python services"
+    fi
+    if ! grep -q 'core/quality-ratchet.toml' <<<"$output"; then
+        fail "typos should check the quality ratchet"
+    fi
+    if grep -q 'core/libs/commonwealth' <<<"$output"; then
+        fail "typos should skip what typos.toml excludes"
+    fi
+    rm -rf "$temporary"
+}
+
 test_nextest_fails_on_hanging_test() {
     local temporary
     temporary=$(mktemp -d)
@@ -453,6 +479,7 @@ main() {
     test_no_std_build_fails_on_io_dependency
     test_machete_fails_on_unused_dependency
     test_typos_fails_on_misspelling
+    test_typos_checks_every_service_and_honours_its_excludes
     test_nextest_fails_on_hanging_test
     test_coverage_ratchet_fails_when_floor_is_too_high
     test_deny_licenses_rejects_unlisted_license
