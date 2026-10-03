@@ -96,6 +96,9 @@ jobs:
         with:
           targets: thumbv7em-none-eabihf,wasm32-unknown-unknown
 
+      - name: Install quality tools
+        uses: ./.github/actions/quality-tools
+
       - name: Rust lint checks
         run: |
           # shellcheck disable=SC1091
@@ -134,6 +137,7 @@ jobs:
         run: |
           .hooks/tests/rust_checks_test.sh
           .hooks/tests/dependency_gate_test.sh
+          .hooks/tests/quality_ratchet_test.sh
           .hooks/tests/ergonomics_report_test.sh
           .hooks/tests/report_section_test.sh
           .hooks/tests/docs_paths_test.sh
@@ -168,15 +172,10 @@ jobs:
       - name: Install report tools
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-bloat@0.12.1,rustqual@1.8.3
+          tool: cargo-bloat@0.12.1
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-
-      - name: Install thailint
-        run: pip install thailint==0.25.0
+      - name: Install quality tools
+        uses: ./.github/actions/quality-tools
 
       - name: Install ast-metrics
         run: bash .github/lib/install_ast_metrics.sh
