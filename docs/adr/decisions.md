@@ -1110,7 +1110,8 @@ Decision:
   pinned-nightly gates and branch coverage), report-only benchmarks (D-33), backend conformance (with a zenohd service container), and
   the cross build (D-16). The Pi benchmarks run only on pushes to master, and the release profile variants only on
   manual trigger (D-33). Tools are installed prebuilt
-  (`taiki-e/install-action`), never with `cargo install`. Coverage stays out of the pre-push hook because it
+  (`taiki-e/install-action`), never with `cargo install`, except `rustqual` and lockbud, which publish no binaries:
+  CI builds each once per pinned version and caches it. Coverage stays out of the pre-push hook because it
   changes `RUSTFLAGS` and invalidates the developer's target folder.
 - **Style guide.** The full text lives in `docs/architecture/rust-style.md`. Its checklist is mirrored, between
   markers, into `AGENTS.md` and a committed `.cursor/rules/rust-blueos.mdc` (globs `core/**/*.rs`), and a drift
