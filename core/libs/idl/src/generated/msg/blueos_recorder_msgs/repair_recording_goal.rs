@@ -28,7 +28,7 @@ impl CdrStruct for RepairRecordingGoal {
     }
 }
 impl Message for RepairRecordingGoal {
-    const SCHEMA: &'static str = "# blueos_recorder_msgs/action/RepairRecording\n# The Job type on blueos/v1/recorder/command/RepairRecording: rewrites a STATE_NEEDS_REPAIR recording so it has a\n# summary again. Progress is on the library state.\n\nstring path";
+    const SCHEMA: &'static str = "# blueos_recorder_msgs/action/RepairRecording\n# The Job type on blueos/v1/recorder/command/RepairRecording: rewrites a STATE_NEEDS_REPAIR recording so it has a\n# summary again. CancelJob stops it and leaves the recording untouched.\n\nstring path";
     const SCHEMA_NAME: &'static str = "blueos_recorder_msgs/action/RepairRecording_Goal";
     const TYPE_HASH: &'static str =
         "db70da2e2d919b4d7e6b60c02c8d4f5d91ffb7991d5c5d8ec88cd8689aa1d65e";

@@ -21,7 +21,6 @@ blueos/v1/recorder/command/SnapshotRecording 1 type=blueos_recorder_msgs/action/
 blueos/v1/recorder/command/Start 1 type=blueos_recorder_msgs/action/StartRecording
 blueos/v1/recorder/command/Stop 1 type=blueos_recorder_msgs/action/StopRecording
 blueos/v1/recorder/command/UpdateSettings 1 type=blueos_msgs/msg/SettingsEnvelope
-blueos/v1/recorder/event/operation 1 type=blueos_recorder_msgs/msg/RecordingOperation
 blueos/v1/recorder/jobs 1 type=blueos_msgs/msg/JobList
 blueos/v1/recorder/log 1 type=foxglove_msgs/msg/Log
 blueos/v1/recorder/query/index 1 type=blueos_recorder_msgs/srv/RecordingIndex
@@ -53,12 +52,12 @@ blueos_msgs/msg/SettingsEnvelope 1 document_json:string;fields:blueos_msgs/Setti
 blueos_recorder_msgs/action/DeleteRecording_Feedback 1
 blueos_recorder_msgs/action/DeleteRecording_Goal 1 path:string
 blueos_recorder_msgs/action/DeleteRecording_Result 1
-blueos_recorder_msgs/action/RepairRecording_Feedback 1
+blueos_recorder_msgs/action/RepairRecording_Feedback 1 bytes_processed:uint64;total_bytes:uint64
 blueos_recorder_msgs/action/RepairRecording_Goal 1 path:string
-blueos_recorder_msgs/action/RepairRecording_Result 1
-blueos_recorder_msgs/action/SnapshotRecording_Feedback 1
+blueos_recorder_msgs/action/RepairRecording_Result 1 path:string
+blueos_recorder_msgs/action/SnapshotRecording_Feedback 1 output_path:string
 blueos_recorder_msgs/action/SnapshotRecording_Goal 1 path:string
-blueos_recorder_msgs/action/SnapshotRecording_Result 1
+blueos_recorder_msgs/action/SnapshotRecording_Result 1 path:string;output_path:string
 blueos_recorder_msgs/action/StartRecording_Feedback 1
 blueos_recorder_msgs/action/StartRecording_Goal 1 rotate_if_active:bool
 blueos_recorder_msgs/action/StartRecording_Result 1
@@ -69,7 +68,6 @@ blueos_recorder_msgs/msg/ChannelMessageCount 1 channel_id:uint16;count:uint64
 blueos_recorder_msgs/msg/ChunkIndexEntry 1 start_time:uint64;end_time:uint64;offset:uint64;length:uint64;compression:string;compressed_size:uint64;uncompressed_size:uint64;channel_ids:uint16[];message_index_length:uint64
 blueos_recorder_msgs/msg/RecordingFile 1 path:string;name:string;size_bytes:uint64;created:builtin_interfaces/Time;state:uint8;repair_bytes_processed:uint64;repair_total_bytes:uint64;repair_bytes_per_second:float64;repair_error:string;allowed_operations:string[];repair_job_id:string
 blueos_recorder_msgs/msg/RecordingLibrary 1 files:blueos_recorder_msgs/RecordingFile[]
-blueos_recorder_msgs/msg/RecordingOperation 1 operation:uint8;path:string;output_path:string;succeeded:bool;cancelled:bool;error:string
 blueos_recorder_msgs/msg/RecordingState 1 armed:bool;session_active:bool;current_file:string;session_bytes_written:uint64;recording_video_topics:string[]
 blueos_recorder_msgs/srv/RecordingIndex_Request 1 path:string;from_offset:uint64;limit:uint32
 blueos_recorder_msgs/srv/RecordingIndex_Response 1 size:uint64;offset:uint64;closed:bool;chunks:blueos_recorder_msgs/ChunkIndexEntry[];message_counts:blueos_recorder_msgs/ChannelMessageCount[];records:uint8[]

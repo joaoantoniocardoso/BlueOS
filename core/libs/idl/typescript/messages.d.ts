@@ -110,21 +110,31 @@ export interface DeleteRecordingGoal {
 
 export interface DeleteRecordingResult {}
 
-export interface RepairRecordingFeedback {}
+export interface RepairRecordingFeedback {
+  bytes_processed: number;
+  total_bytes: number;
+}
 
 export interface RepairRecordingGoal {
   path: string;
 }
 
-export interface RepairRecordingResult {}
+export interface RepairRecordingResult {
+  path: string;
+}
 
-export interface SnapshotRecordingFeedback {}
+export interface SnapshotRecordingFeedback {
+  output_path: string;
+}
 
 export interface SnapshotRecordingGoal {
   path: string;
 }
 
-export interface SnapshotRecordingResult {}
+export interface SnapshotRecordingResult {
+  path: string;
+  output_path: string;
+}
 
 export interface StartRecordingFeedback {}
 
@@ -173,15 +183,6 @@ export interface RecordingFile {
 
 export interface RecordingLibrary {
   files: RecordingFile[];
-}
-
-export interface RecordingOperation {
-  operation: number;
-  path: string;
-  output_path: string;
-  succeeded: boolean;
-  cancelled: boolean;
-  error: string;
 }
 
 export interface RecordingState {
@@ -271,7 +272,6 @@ export interface MessageBySchema {
   "blueos_recorder_msgs/msg/ChunkIndexEntry": ChunkIndexEntry;
   "blueos_recorder_msgs/msg/RecordingFile": RecordingFile;
   "blueos_recorder_msgs/msg/RecordingLibrary": RecordingLibrary;
-  "blueos_recorder_msgs/msg/RecordingOperation": RecordingOperation;
   "blueos_recorder_msgs/msg/RecordingState": RecordingState;
   "blueos_recorder_msgs/srv/RecordingIndex_Request": RecordingIndexRequest;
   "blueos_recorder_msgs/srv/RecordingIndex_Response": RecordingIndexResponse;

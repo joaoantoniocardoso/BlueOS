@@ -41,8 +41,6 @@ pub mod recording_file;
 pub use recording_file::*;
 pub mod recording_library;
 pub use recording_library::*;
-pub mod recording_operation;
-pub use recording_operation::*;
 pub mod recording_state;
 pub use recording_state::*;
 pub mod recording_index_request;

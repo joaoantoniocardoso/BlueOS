@@ -209,8 +209,11 @@
     },
     {
       "schema_name": "blueos_recorder_msgs/action/RepairRecording_Feedback",
-      "hex": "0001000000",
-      "decoded": {},
+      "hex": "0001000000000000000000000000000000000000",
+      "decoded": {
+        "bytes_processed": 0,
+        "total_bytes": 0
+      },
       "category": "default"
     },
     {
@@ -223,14 +226,18 @@
     },
     {
       "schema_name": "blueos_recorder_msgs/action/RepairRecording_Result",
-      "hex": "0001000000",
-      "decoded": {},
+      "hex": "000100000100000000",
+      "decoded": {
+        "path": ""
+      },
       "category": "default"
     },
     {
       "schema_name": "blueos_recorder_msgs/action/SnapshotRecording_Feedback",
-      "hex": "0001000000",
-      "decoded": {},
+      "hex": "000100000100000000",
+      "decoded": {
+        "output_path": ""
+      },
       "category": "default"
     },
     {
@@ -243,8 +250,11 @@
     },
     {
       "schema_name": "blueos_recorder_msgs/action/SnapshotRecording_Result",
-      "hex": "0001000000",
-      "decoded": {},
+      "hex": "0001000001000000000000000100000000",
+      "decoded": {
+        "output_path": "",
+        "path": ""
+      },
       "category": "default"
     },
     {
@@ -336,19 +346,6 @@
       "hex": "0001000000000000",
       "decoded": {
         "files": []
-      },
-      "category": "default"
-    },
-    {
-      "schema_name": "blueos_recorder_msgs/msg/RecordingOperation",
-      "hex": "0001000000000000010000000000000001000000000000000100000000",
-      "decoded": {
-        "cancelled": false,
-        "error": "",
-        "operation": 0,
-        "output_path": "",
-        "path": "",
-        "succeeded": false
       },
       "category": "default"
     },
@@ -565,20 +562,6 @@
       },
       "category": "layout",
       "layout_note": "string path followed by bool restart_required"
-    },
-    {
-      "schema_name": "blueos_recorder_msgs/msg/RecordingOperation",
-      "hex": "00010000010000001100000073657373696f6e2f666f6f2e6d636170000000001a00000073657373696f6e2f666f6f5f736e617073686f742e6d6361700001000100000000",
-      "decoded": {
-        "cancelled": false,
-        "error": "",
-        "operation": 1,
-        "output_path": "session/foo_snapshot.mcap",
-        "path": "session/foo.mcap",
-        "succeeded": true
-      },
-      "category": "layout",
-      "layout_note": "string output_path followed by bool succeeded"
     },
     {
       "schema_name": "blueos_example_msgs/srv/Level_Request",

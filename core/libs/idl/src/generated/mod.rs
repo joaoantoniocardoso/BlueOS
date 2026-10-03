@@ -96,9 +96,6 @@ pub fn schema(schema_name: &str) -> Option<&'static str> {
         "blueos_recorder_msgs/msg/RecordingLibrary" => {
             Some(msg::blueos_recorder_msgs::RecordingLibrary::SCHEMA)
         }
-        "blueos_recorder_msgs/msg/RecordingOperation" => {
-            Some(msg::blueos_recorder_msgs::RecordingOperation::SCHEMA)
-        }
         "blueos_recorder_msgs/msg/RecordingState" => {
             Some(msg::blueos_recorder_msgs::RecordingState::SCHEMA)
         }
@@ -122,10 +119,10 @@ pub fn schema(schema_name: &str) -> Option<&'static str> {
             "# blueos_recorder_msgs/action/DeleteRecording\n# The Job type on blueos/v1/recorder/command/DeleteRecording. Rejected while the recording is being written or\n# repaired.\n\nstring path\n---\n---",
         ),
         "blueos_recorder_msgs/action/RepairRecording" => Some(
-            "# blueos_recorder_msgs/action/RepairRecording\n# The Job type on blueos/v1/recorder/command/RepairRecording: rewrites a STATE_NEEDS_REPAIR recording so it has a\n# summary again. Progress is on the library state.\n\nstring path\n---\n---",
+            "# blueos_recorder_msgs/action/RepairRecording\n# The Job type on blueos/v1/recorder/command/RepairRecording: rewrites a STATE_NEEDS_REPAIR recording so it has a\n# summary again. CancelJob stops it and leaves the recording untouched.\n\nstring path\n---\n# Job result: the recording the Job repaired. Why it failed is the reason of the Job.\nstring path\n---\n# Feedback: how far the repair has read into the recording.\nuint64 bytes_processed\nuint64 total_bytes",
         ),
         "blueos_recorder_msgs/action/SnapshotRecording" => Some(
-            "# blueos_recorder_msgs/action/SnapshotRecording\n# The Job type on blueos/v1/recorder/command/SnapshotRecording: writes an indexed copy of a recording (typically the\n# one being written) next to it, named <stem>.snapshot-<UTC ISO time>Z.mcap. The copy is announced by a\n# RecordingOperation event.\n\nstring path\n---\n---",
+            "# blueos_recorder_msgs/action/SnapshotRecording\n# The Job type on blueos/v1/recorder/command/SnapshotRecording: writes an indexed copy of a recording (typically the\n# one being written) next to it, named <stem>.snapshot-<UTC ISO time>Z.mcap.\n\nstring path\n---\n# Job result: the recording the Job copied, and the snapshot, which exists when the Job succeeded.\nstring path\nstring output_path\n---\n# Feedback: the snapshot the Job is writing.\nstring output_path",
         ),
         "blueos_recorder_msgs/action/StartRecording" => Some(
             "# blueos_recorder_msgs/action/StartRecording\n# The Job type on blueos/v1/recorder/command/Start: opens a new MCAP session (rotate if one is already active).\n\nbool rotate_if_active\n---\n---",

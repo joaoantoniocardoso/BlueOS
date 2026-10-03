@@ -7,25 +7,37 @@ use crate::{
     message::{CdrStruct, Message},
 };
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct RepairRecordingFeedback {}
+pub struct RepairRecordingFeedback {
+    pub bytes_processed: u64,
+    pub total_bytes: u64,
+}
 impl CdrStruct for RepairRecordingFeedback {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
-        if !reader.is_exhausted() {
-            reader.read_u8()?;
-        }
-        Ok(Self {})
+        Ok(Self {
+            bytes_processed: if reader.is_exhausted() {
+                Default::default()
+            } else {
+                reader.read_u64()?
+            },
+            total_bytes: if reader.is_exhausted() {
+                Default::default()
+            } else {
+                reader.read_u64()?
+            },
+        })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {
-        writer.write_u8(0)?;
+        writer.write_u64(self.bytes_processed)?;
+        writer.write_u64(self.total_bytes)?;
         Ok(())
     }
 }
 impl Message for RepairRecordingFeedback {
-    const SCHEMA: &'static str = "";
+    const SCHEMA: &'static str = "# Feedback: how far the repair has read into the recording.\nuint64 bytes_processed\nuint64 total_bytes";
     const SCHEMA_NAME: &'static str = "blueos_recorder_msgs/action/RepairRecording_Feedback";
     const TYPE_HASH: &'static str =
-        "8b15cdfa92672bc36d28658718aa3f4459b8d93751b5402167be97bc12eae727";
+        "a7785a6c215252c35f671a7b190e9b7a5847a5dff49963e8a86b59c698538523";
 }
 impl RepairRecordingFeedback {
-    pub const KNOWN_FIELD_COUNT: usize = 0usize;
+    pub const KNOWN_FIELD_COUNT: usize = 2usize;
 }
