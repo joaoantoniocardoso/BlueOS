@@ -20,9 +20,9 @@ endpoints. The Domain never waits (D-03); the Kernel runs the Inbox loop and car
 A browser or test sends a Command on the backbone. The teaching frontend uses the generated client in
 `core/frontend/src/libs/blueos-api/services/example.ts`: the `SetLevel` descriptor names the key
 `blueos/v1/example/command/SetLevel` (D-07, D-26). `sendCommand` in `core/frontend/src/libs/blueos-api/command.ts`
-CDR-encodes a `SetLevelRequest` and performs a Zenoh query (D-10, D-14). The payload type is generated in
-`core/libs/idl/src/generated/msg/blueos_example_msgs/set_level_request.rs` from
-`core/libs/idl/interfaces/blueos_example_msgs/msg/SetLevelRequest.msg` (D-05).
+CDR-encodes a `SetLevelGoal` and performs a Zenoh query (D-10, D-14). The payload type is generated in
+`core/libs/idl/src/generated/msg/blueos_example_msgs/set_level_goal.rs` from the Goal part of
+`core/libs/idl/interfaces/blueos_example_msgs/action/SetLevel.action` (D-05).
 
 The same shape is exercised without a browser in `core/services/example/app/tests/endpoints.rs` via
 `Harness::send("SetLevel", ...)`, which uses the channel comms backend instead of Zenoh (D-10).
