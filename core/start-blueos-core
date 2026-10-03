@@ -321,16 +321,31 @@ tune_performance
 # outlived it (ArduSub, mavlink-server, dnsmasq) are children of this main process, not of a pane, so signal them too,
 # except the tmux server: its death hangs up the panes before the services finish. STOP_TIMEOUT_SECONDS is below
 # Docker's default stop timeout (10 s), so whatever is still running at the deadline is killed here and the container
-# exits 0 instead of being killed by Docker.
+# exits 0 instead of being killed by Docker. A service that exits during the stop orphans its own children (the
+# autopilot manager leaves ArduSub and mavlink-server, cable_guy leaves dnsmasq) to this process only then, so scan
+# again on each turn of the wait loop. Our own children (the sleep below, command substitutions) share our process
+# group; the services do not, so the group tells them apart.
 function stop_services {
     echo "Stopping services.."
-    local tmux_server_process pane_processes inherited_processes
+    local tmux_server_process pane_processes inherited_processes own_group newly_inherited_processes still_running
     tmux_server_process=$(tmux display-message -p '#{pid}') || true
     pane_processes=$(pgrep -P "$(tmux list-panes -a -F '#{pane_pid}' | paste -sd,)") || true
     inherited_processes=$(pgrep -P $$ | grep -vx "$tmux_server_process") || true
+    own_group=$(ps -o pgid= -p $$ | tr -d ' ')
     kill -TERM $pane_processes $inherited_processes 2>/dev/null || true
     local deadline=$((SECONDS + ${STOP_TIMEOUT_SECONDS:-8}))
-    while kill -0 $pane_processes $inherited_processes 2>/dev/null; do
+    while true; do
+        still_running=false
+        kill -0 $pane_processes $inherited_processes 2>/dev/null && still_running=true
+        newly_inherited_processes=$(ps -o pid=,pgid= --ppid $$ | awk -v own="$own_group" -v tmux="$tmux_server_process" \
+            -v signalled=" $pane_processes $inherited_processes " \
+            '$2 != own && $1 != tmux && !index(signalled, " " $1 " ") { print $1 }') || true
+        if [ -n "$newly_inherited_processes" ]; then
+            kill -TERM $newly_inherited_processes 2>/dev/null || true
+            inherited_processes="$inherited_processes $newly_inherited_processes"
+        elif [ "$still_running" = false ]; then
+            break
+        fi
         if [ "$SECONDS" -ge "$deadline" ]; then
             echo "Killing what is still running.."
             kill -KILL $pane_processes $inherited_processes 2>/dev/null || true
