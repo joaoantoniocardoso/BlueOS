@@ -82,6 +82,7 @@ convert_case = { version = "0.8", default-features = false }
 futures-util = { version = "0.3.32", default-features = false }
 json5 = { version = "0.4", default-features = false }
 mcap = { version = "0.25.0", default-features = false, features = ["lz4"] }
+metrics = { version = "0.24.6", default-features = false }
 prettyplease = { version = "0.2", default-features = false }
 proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quote = { version = "1", default-features = false }
