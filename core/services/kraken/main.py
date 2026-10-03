@@ -33,7 +33,7 @@ async def main() -> None:
 
     logger.info("Releasing the Kraken service.")
 
-    config = Config(app=application, host=args.host, port=args.port, log_config=None)
+    config = Config(app=application, host=args.host, port=args.port, log_config=None, timeout_graceful_shutdown=2)
     server = Server(config)
 
     jobs.set_base_host(f"http://{args.host}:{args.port}")

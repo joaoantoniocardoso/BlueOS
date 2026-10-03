@@ -735,7 +735,7 @@ port_to_service_map: Dict[int, str] = parse_nginx_file("/home/pi/tools/nginx/ngi
 async def main() -> None:
     await init_sentry_async(SERVICE_NAME)
 
-    config = Config(app=app, host="0.0.0.0", port=Helper.PORT, log_config=None)
+    config = Config(app=app, host="0.0.0.0", port=Helper.PORT, log_config=None, timeout_graceful_shutdown=2)
     server = Server(config)
 
     periodic_task = asyncio.create_task(periodic())

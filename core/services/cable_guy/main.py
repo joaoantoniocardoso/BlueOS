@@ -179,7 +179,7 @@ async def root() -> HTMLResponse:
 async def main() -> None:
     await init_sentry_async(SERVICE_NAME)
 
-    config = Config(app=app, host="0.0.0.0", port=9090, log_config=None)
+    config = Config(app=app, host="0.0.0.0", port=9090, log_config=None, timeout_graceful_shutdown=2)
     server = Server(config)
 
     await manager.initialize()
