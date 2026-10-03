@@ -19,7 +19,7 @@ use blueos_recorder_mcap::{IndexError, walk_index};
 use blueos_recorder_storage::{LibraryFooterCache, RecordingsFolder};
 use blueos_service::{Projection, Session};
 
-use crate::index_io::RECORDING_INDEX_WALK_TIMEOUT;
+use crate::library::handlers::RECORDING_INDEX_WALK_TIMEOUT;
 
 /// Default MCAP writer queue depth for production wiring.
 pub(crate) const DEFAULT_MCAP_WRITER_QUEUE_CAPACITY: usize = 4096;
