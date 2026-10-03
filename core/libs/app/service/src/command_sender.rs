@@ -117,7 +117,7 @@ pub(crate) fn command_ack(
         accepted: verdict.is_ok(),
         job_id: job_id.map(|job_id| job_id.to_string()).unwrap_or_default(),
         status: job.map_or(CommandAckStatus::StatusUnknown, |job| {
-            CommandAckStatus::from_raw(wire_status(job.status))
+            CommandAckStatus::from_raw(wire_status(job.status).as_raw())
         }),
         reason: match verdict {
             Ok(()) => job.map(|job| job.reason.clone()).unwrap_or_default(),

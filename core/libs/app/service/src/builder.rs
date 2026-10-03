@@ -555,22 +555,22 @@ pub(crate) fn job_status(job: &Job) -> JobStatus {
     JobStatus {
         job_id: job.job_id.to_string(),
         job_type: job.job_type.clone(),
-        status: JobStatusStatus::from_raw(wire_status(job.status)),
+        status: wire_status(job.status),
         reason: job.reason.clone(),
     }
 }
 
-/// The `STATUS_` value of `blueos_msgs/JobStatus` and `blueos_msgs/CommandAck` for a Job's status.
-pub(crate) const fn wire_status(status: blueos_jobs::JobStatus) -> u8 {
+/// The status of `blueos_msgs/JobStatus` for a Job's status; `blueos_msgs/CommandAck` shares its `STATUS_` values.
+pub(crate) const fn wire_status(status: blueos_jobs::JobStatus) -> JobStatusStatus {
     match status {
-        blueos_jobs::JobStatus::Accepted => 1,
-        blueos_jobs::JobStatus::Executing => 2,
-        blueos_jobs::JobStatus::Canceling => 3,
-        blueos_jobs::JobStatus::Succeeded => 4,
-        blueos_jobs::JobStatus::Canceled => 5,
-        blueos_jobs::JobStatus::Aborted => 6,
-        blueos_jobs::JobStatus::WaitingForPermission => 7,
-        blueos_jobs::JobStatus::WaitingForResource => 8,
-        blueos_jobs::JobStatus::Paused => 9,
+        blueos_jobs::JobStatus::Accepted => JobStatusStatus::Accepted,
+        blueos_jobs::JobStatus::Executing => JobStatusStatus::Executing,
+        blueos_jobs::JobStatus::Canceling => JobStatusStatus::Canceling,
+        blueos_jobs::JobStatus::Succeeded => JobStatusStatus::Succeeded,
+        blueos_jobs::JobStatus::Canceled => JobStatusStatus::Canceled,
+        blueos_jobs::JobStatus::Aborted => JobStatusStatus::Aborted,
+        blueos_jobs::JobStatus::WaitingForPermission => JobStatusStatus::WaitingForPermission,
+        blueos_jobs::JobStatus::WaitingForResource => JobStatusStatus::WaitingForResource,
+        blueos_jobs::JobStatus::Paused => JobStatusStatus::Paused,
     }
 }
