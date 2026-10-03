@@ -280,6 +280,25 @@ fn failed_repair_keeps_error_on_entry() {
 }
 
 #[test]
+fn a_repair_that_succeeds_takes_the_row_from_repairing_straight_to_ready() {
+    let mut library = scan_snapshot(&[("file.mcap", false)], 1_000);
+    let path = blueos_recorder_paths::RecordingRelativePath::parse("file.mcap").expect("path");
+    library.start_repair(path.clone(), job_id(1), None, NOW);
+    assert_eq!(library.entries()[0].state, RecordingFileState::Repairing);
+
+    library.handle_observed_fact(
+        LibraryObservedFact::RepairFinished {
+            path,
+            outcome: LibraryRepairOutcome::Succeeded,
+        },
+        None,
+        NOW,
+    );
+
+    assert_eq!(library.entries()[0].state, RecordingFileState::Ready);
+}
+
+#[test]
 fn recording_state_priority() {
     assert_eq!(
         derive_recording_file_state("live.mcap", Some("live.mcap"), false, true),

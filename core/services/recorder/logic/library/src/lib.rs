@@ -480,6 +480,10 @@ impl Library {
                 match outcome {
                     LibraryRepairOutcome::Succeeded => {
                         self.repair_errors.remove(relative);
+                        // The scan that follows confirms it; until then the row must not look unindexed.
+                        if let Some(scanned) = self.scanned.get_mut(relative) {
+                            scanned.indexed = true;
+                        }
                     }
                     LibraryRepairOutcome::Cancelled => {}
                     LibraryRepairOutcome::Failed(failure) => {
