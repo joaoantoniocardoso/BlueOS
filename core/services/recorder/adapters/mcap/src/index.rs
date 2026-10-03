@@ -9,7 +9,9 @@ use std::{
 
 use thiserror::Error;
 
-use blueos_idl::msg::blueos_recorder_msgs::{ChannelMessageCount, ChunkIndexEntry, RecordingIndex};
+use blueos_idl::msg::blueos_recorder_msgs::{
+    ChannelMessageCount, ChunkIndexEntry, RecordingIndexResponse,
+};
 
 use crate::footer::MCAP_MAGIC;
 
@@ -113,8 +115,8 @@ impl McapIndexWalker {
         }
     }
 
-    fn into_index(self) -> RecordingIndex {
-        RecordingIndex {
+    fn into_index(self) -> RecordingIndexResponse {
+        RecordingIndexResponse {
             size: self.size,
             offset: self.offset,
             closed: self.closed,
@@ -327,7 +329,7 @@ pub fn walk_index(
     from_offset: u64,
     limit: u32,
     cancel: &AtomicBool,
-) -> Result<RecordingIndex, IndexError> {
+) -> Result<RecordingIndexResponse, IndexError> {
     if !(MIN_LIMIT..=MAX_LIMIT).contains(&limit) {
         return Err(IndexError::LimitOutOfRange);
     }
@@ -343,7 +345,7 @@ pub fn walk_index_reader<R: Read + Seek>(
     from_offset: u64,
     limit: u32,
     cancel: &AtomicBool,
-) -> Result<RecordingIndex, IndexError> {
+) -> Result<RecordingIndexResponse, IndexError> {
     if !(MIN_LIMIT..=MAX_LIMIT).contains(&limit) {
         return Err(IndexError::LimitOutOfRange);
     }
