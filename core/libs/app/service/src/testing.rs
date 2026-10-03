@@ -274,14 +274,13 @@ impl<S: Service> Harness<S> {
         &self.backend
     }
 
-    /// Submits a Job of type `command` with `request` as its Goal and a new Job id, as a client would, and returns
-    /// the ack.
+    /// Submits a Job of type `command` with `goal` and a new Job id, as a client would, and returns the ack.
     ///
     /// # Panics
     ///
     /// When the Service does not reply exactly once with a [`CommandAck`].
-    pub async fn send<M: Message>(&self, command: &str, request: &M) -> CommandAck {
-        self.submit(command, new_job_id(), request).await
+    pub async fn send<M: Message>(&self, command: &str, goal: &M) -> CommandAck {
+        self.submit(command, new_job_id(), goal).await
     }
 
     /// Submits the Job `job_id` of type `job_type` with `goal`, as a client would, and returns the ack.
