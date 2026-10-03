@@ -13,8 +13,8 @@ use blueos_comms::{Payload, Sample};
 use blueos_domain::Command;
 use blueos_idl::msg::{
     blueos_example_msgs::LevelRequest,
-    blueos_msgs::{ServiceInfo, SettingsEnvelope},
-    blueos_recorder_msgs::{RecordingState, StartRecordingGoal},
+    blueos_msgs::{CommandAckStatus, ServiceInfo, SettingsEnvelope},
+    blueos_recorder_msgs::{RecordingState, StartRecordingGoal, StopRecordingGoal},
 };
 use blueos_recorder_app::RecorderService;
 use blueos_recorder_cameras::RAW_MAVLINK_OUT_TOPIC;
@@ -204,6 +204,52 @@ async fn dropped_armed_fact_heals_on_mavlink_periodic_resend() {
 }
 
 #[tokio::test(start_paused = true)]
+async fn arming_shows_the_recording_in_the_recording_state_without_a_job() {
+    let directory = tempdir().expect("tempdir");
+    let harness = start_harness(directory.path()).await;
+    wait_for_active_recording(harness.backend()).await;
+
+    harness
+        .backend()
+        .publish(Sample::new(
+            RAW_MAVLINK_OUT_TOPIC,
+            Payload::new(Bytes::from(test_vehicle_heartbeat_frame(true))),
+            "application/octet-stream",
+        ))
+        .await
+        .expect("publish armed heartbeat");
+    wait_for_recording_state(harness.backend(), |state| {
+        state.armed && state.session_active
+    })
+    .await;
+
+    assert!(harness.jobs().await.jobs.is_empty());
+    assert!(harness.job_history("Start").await.jobs.is_empty());
+}
+
+#[tokio::test(start_paused = true)]
+async fn start_and_stop_acks_carry_their_final_status() {
+    let directory = tempdir().expect("tempdir");
+    let harness = start_harness(directory.path()).await;
+
+    let start_ack = harness
+        .send(
+            "Start",
+            &StartRecordingGoal {
+                rotate_if_active: true,
+            },
+        )
+        .await;
+    assert!(start_ack.accepted, "start rejected: {}", start_ack.reason);
+    assert_eq!(start_ack.status, CommandAckStatus::Succeeded);
+    wait_for_active_recording(harness.backend()).await;
+
+    let stop_ack = harness.send("Stop", &StopRecordingGoal::default()).await;
+    assert!(stop_ack.accepted, "stop rejected: {}", stop_ack.reason);
+    assert_eq!(stop_ack.status, CommandAckStatus::Succeeded);
+}
+
+#[tokio::test(start_paused = true)]
 async fn recorder_service_info_is_published() {
     let directory = tempdir().expect("tempdir");
     let harness = start_harness(directory.path()).await;
@@ -234,7 +280,7 @@ async fn info_lists_each_endpoint_with_the_interface_type_of_api_lock_and_its_sc
         .await
         .expect("info query");
 
-    assert_eq!(info.endpoints.len(), 10, "{:?}", info.endpoints);
+    assert_eq!(info.endpoints.len(), 9, "{:?}", info.endpoints);
     for endpoint in &info.endpoints {
         assert_eq!(
             locked.get(endpoint.key.as_str()),
