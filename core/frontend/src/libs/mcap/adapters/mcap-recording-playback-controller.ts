@@ -294,6 +294,7 @@ export class McapRecordingPlaybackController {
       return
     }
     this.patch({ position: Math.min(seconds, duration) })
+    this.syncFollowers()
   }
 
   updateBuffered(): void {
@@ -638,6 +639,16 @@ export class McapRecordingPlaybackController {
       }
       if (follower.playbackRate !== leader.playbackRate) {
         follower.playbackRate = leader.playbackRate
+      }
+      // A stream whose media only starts after the leader's time, as one that came into range before its first
+      // keyframe, waits there for the leader. Seeking it back would read the same media again and land on it again.
+      const { buffered } = follower
+      const ranges = Array.from({ length: buffered.length }, (_, index) => ({
+        start: buffered.start(index), end: buffered.end(index),
+      }))
+      if (!timeRangesCover(ranges, leader.currentTime) && ranges.some((range) => range.start > leader.currentTime)) {
+        follower.pause()
+        continue
       }
       const drifted = Math.abs(follower.currentTime - leader.currentTime) > SYNC_TOLERANCE_SECONDS
       if (drifted && !follower.seeking) {

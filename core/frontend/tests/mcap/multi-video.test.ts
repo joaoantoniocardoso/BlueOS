@@ -1,3 +1,4 @@
+/* eslint-disable class-methods-use-this, max-classes-per-file */
 import {
   afterEach, describe, expect, it, vi,
 } from 'vitest'
@@ -7,9 +8,10 @@ import {
   McapRecordingPlaybackController,
   type StreamPlaybackControl,
 } from '@/libs/mcap/adapters/mcap-recording-playback-controller'
+import { McapStreamPanelController } from '@/libs/mcap/adapters/mcap-stream-panel-controller'
 import type { McapVideoRecording } from '@/libs/mcap/adapters/player'
 import VideoFrameStream from '@/libs/mcap/logic/frame-stream'
-import { mergedVideoCoverage, trackTimelineLanes } from '@/libs/mcap/logic/playback-ui'
+import { mergedVideoCoverage, trackCoversAt, trackTimelineLanes } from '@/libs/mcap/logic/playback-ui'
 import { McapIndexedReader } from '@/libs/mcap/logic/reader'
 import { listVideoTracks } from '@/libs/mcap/logic/video-track'
 
@@ -17,6 +19,229 @@ import {
   asLiveRecording, buildLateVideoMcap, buildTwoTrackVideoMcap, TWO_TRACK_FRAME_NS,
 } from './build-mcap'
 import MemoryByteSource from './memory-byte-source'
+
+/** How far apart two streams may play and still count as in step, the controller's sync tolerance. */
+const IN_STEP_SECONDS = 0.5
+
+/** How far a playing `<video>` moves between two `timeupdate` events, which browsers fire about every 250 ms. */
+const TIME_UPDATE_SECONDS = 0.25
+
+/** `HTMLMediaElement.readyState` values the fake reports. */
+const HAVE_METADATA = 1
+const HAVE_ENOUGH_DATA = 4
+
+const NO_RANGES: TimeRanges = { length: 0, start: () => 0, end: () => 0 }
+
+/** Offset of the payload of the first ISO BMFF box of this type, or -1. */
+function boxPayload(data: Uint8Array, type: string): number {
+  const code = [...type].map((character) => character.charCodeAt(0))
+  for (let index = 4; index + 4 <= data.length; index += 1) {
+    if (code.every((byte, offset) => data[index + offset] === byte)) {
+      return index + 4
+    }
+  }
+  return -1
+}
+
+/** Buffers the fragments appended so far as one range, from the first `tfdt` decode time to one frame past the last. */
+class FakeSourceBuffer extends EventTarget {
+  mode = 'segments'
+
+  private fragmentStarts: number[] = []
+
+  private timescale = 1
+
+  get buffered(): TimeRanges {
+    if (this.fragmentStarts.length === 0) {
+      return NO_RANGES
+    }
+    const start = Math.min(...this.fragmentStarts)
+    const end = Math.max(...this.fragmentStarts) + Number(TWO_TRACK_FRAME_NS) / 1e9
+    return { length: 1, start: () => start, end: () => end }
+  }
+
+  appendBuffer(data: Uint8Array): void {
+    const view = new DataView(data.buffer, data.byteOffset, data.byteLength)
+    const mdhd = boxPayload(data, 'mdhd')
+    if (mdhd >= 0) {
+      this.timescale = view.getUint32(mdhd + 4 + (data[mdhd] === 1 ? 16 : 8))
+    }
+    const tfdt = boxPayload(data, 'tfdt')
+    const { timescale } = this
+    setTimeout(() => {
+      if (tfdt >= 0) {
+        this.fragmentStarts.push(Number(data[tfdt] === 1 ? view.getBigUint64(tfdt + 4) : view.getUint32(tfdt + 4))
+          / timescale)
+      }
+      this.dispatchEvent(new Event('updateend'))
+    })
+  }
+
+  remove(): void {
+    this.fragmentStarts = []
+    setTimeout(() => this.dispatchEvent(new Event('updateend')))
+  }
+}
+
+/** Every media source a player created, by the object URL it handed to its `<video>`. */
+const mediaSources = new Map<string, FakeMediaSource>()
+
+class FakeMediaSource extends EventTarget {
+  static isTypeSupported(): boolean {
+    return true
+  }
+
+  readyState = 'open'
+
+  duration = Number.NaN
+
+  sourceBuffer: FakeSourceBuffer | null = null
+
+  addSourceBuffer(): FakeSourceBuffer {
+    this.sourceBuffer = new FakeSourceBuffer()
+    return this.sourceBuffer
+  }
+
+  endOfStream(): void {
+    this.readyState = 'ended'
+  }
+}
+
+/** A `<video>` playing the media of its own source, one `advance()` at a time. */
+class FakeVideo extends EventTarget {
+  paused = true
+
+  seeking = false
+
+  playbackRate = 1
+
+  src = ''
+
+  private time = 0
+
+  get currentTime(): number {
+    return this.time
+  }
+
+  set currentTime(seconds: number) {
+    this.time = seconds
+    this.dispatchEvent(new Event('seeking'))
+  }
+
+  get buffered(): TimeRanges {
+    return mediaSources.get(this.src)?.sourceBuffer?.buffered ?? NO_RANGES
+  }
+
+  get readyState(): number {
+    const { buffered } = this
+    if (buffered.length > 0 && this.time >= buffered.start(0) && this.time < buffered.end(0)) {
+      return HAVE_ENOUGH_DATA
+    }
+    return buffered.length > 0 ? HAVE_METADATA : 0
+  }
+
+  play(): Promise<void> {
+    if (this.paused) {
+      this.paused = false
+      this.dispatchEvent(new Event('play'))
+    }
+    return Promise.resolve()
+  }
+
+  pause(): void {
+    if (!this.paused) {
+      this.paused = true
+      this.dispatchEvent(new Event('pause'))
+    }
+  }
+
+  removeAttribute(): void {
+    this.src = ''
+  }
+
+  load(): void {
+    this.time = 0
+  }
+
+  /** Plays on until the next `timeupdate`, stalling where nothing is buffered, as a browser does. */
+  advance(): void {
+    if (this.paused) {
+      return
+    }
+    if (this.readyState < HAVE_ENOUGH_DATA) {
+      this.dispatchEvent(new Event('waiting'))
+      return
+    }
+    this.time = Math.min(this.time + TIME_UPDATE_SECONDS, this.buffered.end(0))
+    this.dispatchEvent(new Event('timeupdate'))
+  }
+}
+
+interface PlayingStream {
+  video: FakeVideo
+  panel: McapStreamPanelController
+  /** Opens or closes the stream when the playhead enters or leaves its range, as its `available` watcher does. */
+  followPosition: () => void
+}
+
+/** Plays a finished recording with a panel and a fake `<video>` per stream, wired as `McapVideoPlayer.vue` does. */
+async function mountPlayingStreams(bytes: Uint8Array):
+  Promise<{ controller: McapRecordingPlaybackController, streams: PlayingStream[] }> {
+  serveOverHttp(() => bytes)
+  vi.stubGlobal('MediaSource', FakeMediaSource)
+  vi.spyOn(URL, 'createObjectURL').mockImplementation((source) => {
+    const url = `blob:${mediaSources.size}`
+    mediaSources.set(url, source as unknown as FakeMediaSource)
+    return url
+  })
+  vi.spyOn(URL, 'revokeObjectURL').mockReturnValue(undefined)
+  const controller = new McapRecordingPlaybackController({
+    url: 'http://vehicle/userdata/recorder/two.mcap',
+    ongoing: false,
+    callbacks: {
+      onState: () => undefined,
+      onBusy: () => undefined,
+      onSummary: () => undefined,
+      onMp4Saved: () => undefined,
+    },
+  })
+  await controller.mount()
+  const { recording, tracks } = controller.getState()
+  const streams = tracks.map((track) => {
+    const video = new FakeVideo()
+    const element = video as unknown as HTMLVideoElement
+    let available = trackCoversAt(track, controller.getState().position)
+    const panel = new McapStreamPanelController(recording as McapVideoRecording, track, false, {
+      onState: () => undefined,
+      onTimeUpdate: (seconds) => controller.onStreamTime(track.channelId, seconds),
+      onPlay: () => controller.onLeaderPlay(),
+      onPause: () => controller.onLeaderPause(),
+    })
+    video.addEventListener('timeupdate', () => panel.handleTimeUpdate(element))
+    video.addEventListener('play', () => panel.handlePlay())
+    video.addEventListener('pause', () => panel.handlePause(available))
+    controller.registerVideo(track.channelId, element)
+    panel.setAvailable(available, element, controller.getState().position)
+    return {
+      video,
+      panel,
+      followPosition: () => {
+        const { position } = controller.getState()
+        if (trackCoversAt(track, position) !== available) {
+          available = !available
+          panel.setAvailable(available, element, position)
+        }
+      },
+    }
+  })
+  controller.setStreamControls(streams.map(({ video, panel }, index) => ({
+    channelId: tracks[index].channelId,
+    seek: (seconds) => panel.seek(seconds),
+    play: () => panel.play(video as unknown as HTMLVideoElement),
+    pause: () => panel.pause(video as unknown as HTMLVideoElement),
+  })))
+  return { controller, streams }
+}
 
 async function openTwoTracks(): Promise<McapVideoRecording> {
   const reader = await McapIndexedReader.open(new MemoryByteSource(await buildTwoTrackVideoMcap()))
@@ -159,6 +384,48 @@ describe('a recording with two video streams', () => {
     for (const stream of streams) {
       expect(stream.calls).toEqual(['seek 10', 'play', 'pause'])
     }
+    controller.destroy()
+  })
+})
+
+describe('two streams playing together', () => {
+  afterEach(() => {
+    mediaSources.clear()
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  it('holds a stream that comes into range ahead of its first keyframe until playback reaches it', async () => {
+    const { controller, streams } = await mountPlayingStreams(await buildTwoTrackVideoMcap(6))
+    const [cameraA, cameraB] = streams
+    const cameraBFirstKeyframe = 8.25
+    const [, cameraBTrack] = controller.getState().tracks
+    expect(cameraBTrack.coverage[0].start).toBeLessThan(cameraBFirstKeyframe - 2)
+
+    controller.seekTo(3)
+    await vi.waitFor(() => expect(cameraA.video.readyState).toBe(HAVE_ENOUGH_DATA))
+    const samples: { cameraA: number, cameraB: number, cameraBPlaying: boolean }[] = []
+    for (let step = 0; step < 80 && cameraA.video.currentTime < cameraBFirstKeyframe + 3; step += 1) {
+      streams.forEach(({ video }) => video.advance())
+      streams.forEach(({ followPosition }) => followPosition())
+      samples.push({
+        cameraA: cameraA.video.currentTime,
+        cameraB: cameraB.video.currentTime,
+        cameraBPlaying: !cameraB.video.paused && cameraB.video.readyState === HAVE_ENOUGH_DATA,
+      })
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => { setTimeout(resolve, 10) })
+    }
+
+    const playingAhead = samples.filter((sample) => sample.cameraA < cameraBFirstKeyframe && sample.cameraBPlaying)
+    expect(playingAhead).toEqual([])
+    const playingAfter = samples.filter((sample) => sample.cameraA >= cameraBFirstKeyframe + TIME_UPDATE_SECONDS)
+    expect(playingAfter.length).toBeGreaterThan(0)
+    for (const sample of playingAfter) {
+      expect(sample.cameraBPlaying).toBe(true)
+      expect(Math.abs(sample.cameraB - sample.cameraA)).toBeLessThanOrEqual(IN_STEP_SECONDS)
+    }
+    streams.forEach(({ panel }) => panel.destroy())
     controller.destroy()
   })
 })
