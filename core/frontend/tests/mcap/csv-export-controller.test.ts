@@ -6,6 +6,10 @@ import {
 import { McapCsvExportController } from '@/libs/mcap/adapters/mcap-csv-export-controller'
 import type { McapVideoRecording } from '@/libs/mcap/adapters/player'
 import type { McapRecordingChannel } from '@/libs/mcap/logic/channels'
+import { McapIndexedReader } from '@/libs/mcap/logic/reader'
+
+import { buildJsonTelemetryMcap } from './build-mcap'
+import MemoryByteSource from './memory-byte-source'
 
 function channel(channelId: number, topic: string): McapRecordingChannel {
   return {
@@ -42,4 +46,30 @@ describe('McapCsvExportController', () => {
     expect(onState).toHaveBeenCalledTimes(1)
     expect(onState.mock.calls[0][0].selected.map((entry: McapRecordingChannel) => entry.channelId)).toEqual([2])
   })
+})
+
+describe('McapCsvExportController when the player is destroyed', () => {
+  it('stops a running export and saves nothing', async () => {
+    const bytes = await buildJsonTelemetryMcap(200_000, 1024 * 1024)
+    const reader = await McapIndexedReader.open(new MemoryByteSource(bytes))
+    const { startTime, endTime } = reader.summary
+    const callbacks = {
+      onState: vi.fn(), onBusy: vi.fn(), onError: vi.fn(), onSaved: vi.fn(),
+    }
+    const controller = new McapCsvExportController({
+      reader,
+      startTime,
+      durationSeconds: Number(endTime - startTime) / 1e9,
+      channels: [...reader.summary.channels.keys()].map((channelId) => channel(channelId, '/depth')),
+    } as unknown as McapVideoRecording, null, 'dive', callbacks)
+    controller.mount()
+
+    const saving = controller.saveCsv('dive.csv')
+    setTimeout(() => controller.destroy(), 0)
+    await saving
+
+    expect(callbacks.onSaved).not.toHaveBeenCalled()
+    expect(callbacks.onError).not.toHaveBeenCalled()
+    expect(controller.getState().exportProgress).toBeNull()
+  }, 60_000)
 })
