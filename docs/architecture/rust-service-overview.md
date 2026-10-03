@@ -55,8 +55,9 @@ Unit tests in the same file call `Pump::handle` with no Kernel (D-20).
 On `Applied`, `apply_sync_effects` in `core/libs/app/service/src/kernel/effects.rs` runs synchronous Effects (none
 for this Command). Each declared State is a Projection of the Snapshot: `Conversions::pump` builds the `PumpState`
 Message from `PumpSnapshot` (`core/services/example/logic/api/src/lib.rs`). `publish_states` sends only changed
-values (D-10). `complete_command_reply` returns `CommandAck { accepted, job_id, reason }` with `job_id` zero when
-no Job started (D-10). `example-minimal` declares no Event endpoints and `Pump::Event` is uninhabited, so nothing
+values (D-10). `complete_command_reply` returns `CommandAck { accepted, job_id, status, reason }`: every Command is
+a Job under the id the client put in the query attachment, and an instant Job type such as `SetLevel` acks its final
+status (D-10, D-36). `example-minimal` declares no Event endpoints and `Pump::Event` is uninhabited, so nothing
 is published as an Event after the ack.
 
 On `Rejected`, the Snapshot stays at the backup, States are not republished, and the ack carries the rejection
@@ -87,9 +88,11 @@ JSON as the file inside `SettingsEnvelope`.
 debounces writes to `ServiceStateStore` in `core/libs/adapters/settings/src/service_state.rs`. Restore may deliver a
 restored Tick; the Kernel does not re-run IO for interrupted Jobs (D-28).
 
-**Jobs.** When the Domain implements `DomainJobs`, the Kernel keeps `Jobs` inside the Snapshot
-(`core/libs/logic/jobs/src/lib.rs`), publishes the standard `jobs` State, and puts the root `job_id` in the ack
-(D-04, D-12).
+**Jobs.** Every Command submits a Job under a client-generated id (D-36). The Kernel tracks it in `Jobs`
+(`core/libs/logic/jobs/src/lib.rs`), answers retries and "id reused", serves the reserved `CancelJob`, `PauseJob`,
+`ResumeJob` and `AnswerPermission` controls, and publishes the standard `jobs` State (D-12). A lasting Job type is
+declared with `ServiceBuilder::job` and its nature, or a manifest `nature`; its Domain implements `DomainJobs`, keeps
+`Jobs` inside the Snapshot, and ends the Job when the work finishes.
 
 **Tasks and Projections.** Long-running work is declared with `ServiceBuilder::task` and supervised in
 `core/libs/app/service/src/tasks.rs` (D-27). Tasks receive a `CommandSender`, a `Session`, and typed
@@ -117,7 +120,7 @@ Each row names the crate and module that implements the term on this branch. Pat
 | **Kernel** | `blueos-service`: `kernel` (`libs/app/service/src/kernel/mod.rs`) |
 | **Domain** | `blueos-domain`: `Domain` trait (`libs/logic/domain/src/lib.rs`); example `Pump` (`services/example/logic/domain/src/lib.rs`) |
 | **Block** | Composed logic with its own Snapshot slice; example `Capture` (`services/recorder/logic/capture/src/lib.rs`), lifted in `RecorderDomain` (`services/recorder/logic/recorder/src/lib.rs`). No separate `Block` trait. |
-| **DomainState** | The Kernel's `snapshot: D::Snapshot` plus embedded `Jobs` when `DomainJobs` is implemented (`kernel/mod.rs`, `libs/logic/jobs/src/lib.rs`; D-25) |
+| **DomainState** | The Kernel's `snapshot: D::Snapshot`, with `Jobs` inside it when `DomainJobs` is implemented and in the Kernel otherwise (`kernel/mod.rs`, `libs/logic/jobs/src/lib.rs`; D-25) |
 | **Snapshot** | Per-Domain type, e.g. `PumpSnapshot` (`services/example/logic/domain/src/lib.rs`) |
 | **Durable state** | `blueos-service`: `durable_state` (`libs/app/service/src/durable_state.rs`); store in `blueos-settings` (`libs/adapters/settings/src/service_state.rs`). Not used by `example-minimal`. |
 | **Job** | `blueos-jobs` (`libs/logic/jobs/src/lib.rs`); Kernel `jobs` State wiring (`builder.rs`, `kernel/mod.rs`) |
