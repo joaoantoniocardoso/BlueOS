@@ -1,5 +1,6 @@
 import json
 import logging
+import threading
 from collections.abc import Callable, Generator
 from pathlib import Path
 from typing import Any, cast
@@ -145,6 +146,30 @@ def test_missing_msg_definitions_log_once(caplog: pytest.LogCaptureFixture, tmp_
     warning_records = [record for record in caplog.records if record.levelno == logging.WARNING]
     assert len(warning_records) == 1
     assert "missing_pkg/msg/Missing" in warning_records[0].message
+
+
+def test_concurrent_first_load_is_thread_safe() -> None:
+    blueos_idl.reset_runtime_state()
+    errors: list[BaseException] = []
+    lock = threading.Lock()
+
+    def worker() -> None:
+        try:
+            blueos_idl.decode(
+                "blueos_msgs/msg/CommandAck",
+                decode_hex("000100000000000001000000000000000100000000"),
+            )
+        except BaseException as error:
+            with lock:
+                errors.append(error)
+
+    threads = [threading.Thread(target=worker) for _ in range(32)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert not errors
 
 
 def test_srv_and_action_parts_are_messages() -> None:
