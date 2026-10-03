@@ -631,7 +631,7 @@ Decision:
   - `example-minimal`: one Command, one Query, one State, a Domain unit test and the frontend call, about
     150 lines (a goal, D-31).
   - A cookbook of numbered entries, `core/services/example/cookbook/tests/NN-<topic>.rs`, each a self-contained test
-    on the channel backend, answering every "how do I do X?" question (34 today, listed in the ergonomics review
+    on the channel backend, answering every "how do I do X?" question (36 today, listed in the ergonomics review
     P4). A README table maps each question to its entry, and a test asserts that every question resolves to an
     entry that compiles.
   - The example's real `build()` is what its tests exercise; no test rebuilds the wiring by hand.
@@ -1278,12 +1278,22 @@ Decision:
   buckets add up across time and services and need no sketch. The bounds travel with each histogram; the Kernel's
   bounds suit durations in seconds, from 1 us to 10 s, and a metric with another range can get its own without a
   new type.
-- The Kernel's own metric names: `inbox_step_seconds` (histogram of the time each Command step takes, rejected and
-  panicked steps included) and `inbox_depth` (gauge of the Commands still waiting when a step begins).
-- Values are recorded by the Kernel (Inbox step time, Inbox depth, Task restarts, the stable `tokio-metrics`
-  subset), by Tasks and by adapters. Logic crates never record: a global recorder breaks sans-IO (D-03) and
-  `metrics` is not `no_std`. A Domain that wants something counted keeps it in its Snapshot and a Projection exposes
-  it.
+- The Kernel's own metrics, the same in every service:
+  - `inbox_step_seconds`: histogram of the time each Command step takes, rejected and panicked steps included;
+  - `inbox_depth`: gauge of the Commands still waiting when a step begins;
+  - `task_restarts`: counter of the restarts the supervisor performed, labelled `task` with the Task's name. It
+    appears at the first restart, so a Task that never restarted adds nothing. A restart counts after its backoff,
+    not when it is decided, and the Inbox loop's recoveries (D-29) are not Task restarts, so they are not counted;
+  - `tokio_workers`, `tokio_alive_tasks` and `tokio_global_queue_depth`: gauges read from the runtime's own
+    `Handle::metrics()` on each publication tick, so no extra crate and no `tokio_unstable` flag. This is the stable
+    subset that stays still while a service is idle, so an idle service does not republish. Left out are the busy
+    duration and the park counts, the only other stable values: they move on their own with the Kernel's timers and
+    the backbone's tasks, so the value would change every second.
+- Values are recorded by the Kernel (the metrics above), by Tasks and by adapters. Logic crates never record: a
+  global recorder breaks sans-IO (D-03) and `metrics` is not `no_std`. The pre-push hook's crate folder check fails
+  when a crate in a `logic/` folder, or a `logic/api` one, depends on `metrics`, with its own self-test. A Domain
+  that wants something counted keeps it in its Snapshot and a Projection exposes it, and a Task records it
+  (cookbook entry 35).
 - The frontend reads the State through `blueos-api`; the Recorder records it like any other State. There is no HTTP
   endpoint per service. A Prometheus or OpenTelemetry bridge is added later, as one more recorder or layer, only
   when a consumer needs it.
