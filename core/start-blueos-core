@@ -142,7 +142,6 @@ SERVICES=(
     'versionchooser',0,0,0,0,"$BLUEOS_PYTHON_BIN $SERVICES_PATH/versionchooser/main.py"
     'pardal',250,0,0,0,"nice -19 $BLUEOS_PYTHON_BIN $SERVICES_PATH/pardal/main.py"
     'ping',0,0,0,0,"nice -19 $RUN_AS_REGULAR_USER_BEGIN $BLUEOS_PYTHON_BIN $SERVICES_PATH/ping/main.py $RUN_AS_REGULAR_USER_END"
-    'user_terminal',0,0,0,0,"cat /etc/motd"
     'ttyd',250,0,0,0,'nice -19 ttyd -p 8088 sh -c "/usr/bin/tmux attach -t user_terminal || /usr/bin/tmux new -s user_terminal"'
     'nginx',250,0,0,0,"nice -18 nginx -g \"daemon off;\" -c $TOOLS_PATH/nginx/nginx.conf"
     'bag_of_holding',250,0,0,0,"$BLUEOS_PYTHON_BIN $SERVICES_PATH/bag_of_holding/main.py"
@@ -337,5 +336,8 @@ for TUPLE in "${SERVICES[@]}"; do
     IFS=',' read -r NAME MEMORY_MB CPU_PERCENT IO_READ_MBPS IO_WRITE_MBPS EXECUTABLE <<< "$TUPLE"
     create_service "$NAME" "$EXECUTABLE" "$MEMORY_MB" "$CPU_PERCENT" "$IO_READ_MBPS" "$IO_WRITE_MBPS"
 done
+
+# The shell ttyd attaches to shows the motd once, so it is not a service run-service would restart
+tmux new -d -s user_terminal && tmux send-keys -t user_terminal:0 "command cat /etc/motd" C-m
 
 echo "BlueOS running!"
