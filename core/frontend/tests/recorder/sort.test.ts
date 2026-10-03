@@ -56,6 +56,17 @@ describe('sortRecordings', () => {
     expect(sortedPaths(tied, 'size_bytes', true)).toEqual(['z.mcap', 'm.mcap', 'a.mcap'])
   })
 
+  it('sorts by duration, an unknown duration last both ways', () => {
+    const timed = [
+      file({ path: 'long.mcap', duration_seconds: 90 }),
+      file({ path: 'broken.mcap', state: 'needs_repair' }),
+      file({ path: 'short.mcap', duration_seconds: 30 }),
+      file({ path: 'empty.mcap', duration_seconds: 0 }),
+    ]
+    expect(sortedPaths(timed, 'duration', false)).toEqual(['empty.mcap', 'short.mcap', 'long.mcap', 'broken.mcap'])
+    expect(sortedPaths(timed, 'duration', true)).toEqual(['long.mcap', 'short.mcap', 'empty.mcap', 'broken.mcap'])
+  })
+
   it('leaves the given list in place', () => {
     const given = [...files]
     sortRecordings(given, 'name', false)

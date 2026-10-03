@@ -5,6 +5,7 @@ export type RecordingSortKey =
   | 'created'
   | 'name'
   | 'size_bytes'
+  | 'duration'
   | 'state'
 
 /** The sort keys in the order the "Sort by" control lists them. */
@@ -12,6 +13,7 @@ export const RECORDING_SORT_OPTIONS: { text: string, value: RecordingSortKey }[]
   { text: 'Date', value: 'created' },
   { text: 'Name', value: 'name' },
   { text: 'Size', value: 'size_bytes' },
+  { text: 'Duration', value: 'duration' },
   { text: 'State', value: 'state' },
 ]
 
@@ -20,6 +22,7 @@ const SORT_VALUE: Record<RecordingSortKey, (file: LibraryRecording) => number | 
   created: (file) => file.created,
   name: (file) => file.name,
   size_bytes: (file) => file.size_bytes,
+  duration: (file) => file.duration_seconds,
   state: (file) => file.state,
 }
 
