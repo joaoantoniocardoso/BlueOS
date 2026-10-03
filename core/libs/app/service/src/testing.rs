@@ -356,15 +356,7 @@ impl<S: Service> Harness<S> {
     ///
     /// When the Service does not reply exactly once with an `M`.
     pub async fn state<M: Message>(&self, state: &str) -> M {
-        let replies = self
-            .backend
-            .get(&state_key(S::NAME, state), None, REPLY_TIMEOUT)
-            .await
-            .expect("the state key is valid");
-        let [Ok(reply)] = replies.as_slice() else {
-            panic!("expected one value of {state:?}, got {replies:?}");
-        };
-        M::decode(&reply.payload().to_bytes()).expect("the reply is the State's Message")
+        self.read_one(&state_key(S::NAME, state)).await
     }
 
     /// Reads the standard `settings` State, as a late client would.
@@ -373,15 +365,7 @@ impl<S: Service> Harness<S> {
     ///
     /// When the Service does not reply exactly once with an `M`.
     pub async fn settings<M: Message>(&self) -> M {
-        let replies = self
-            .backend
-            .get(&settings_key(S::NAME), None, REPLY_TIMEOUT)
-            .await
-            .expect("the settings key is valid");
-        let [Ok(reply)] = replies.as_slice() else {
-            panic!("expected one settings value, got {replies:?}");
-        };
-        M::decode(&reply.payload().to_bytes()).expect("the reply is SettingsEnvelope")
+        self.read_one(&settings_key(S::NAME)).await
     }
 
     /// Reads the standard `jobs` State, as a late client would.
@@ -390,15 +374,7 @@ impl<S: Service> Harness<S> {
     ///
     /// When the Service does not reply exactly once with a [`JobList`].
     pub async fn jobs(&self) -> JobList {
-        let replies = self
-            .backend
-            .get(&jobs_key(S::NAME), None, REPLY_TIMEOUT)
-            .await
-            .expect("the jobs key is valid");
-        let [Ok(reply)] = replies.as_slice() else {
-            panic!("expected one jobs value, got {replies:?}");
-        };
-        JobList::decode(&reply.payload().to_bytes()).expect("the reply is a JobList")
+        self.read_one(&jobs_key(S::NAME)).await
     }
 
     /// Reads the Feedback State of the Job type `job_type`, as a late client would.
@@ -407,16 +383,7 @@ impl<S: Service> Harness<S> {
     ///
     /// When the Service does not reply exactly once with a [`JobFeedbackList`].
     pub async fn job_feedback(&self, job_type: &str) -> JobFeedbackList {
-        let replies = self
-            .backend
-            .get(&job_feedback_key(S::NAME, job_type), None, REPLY_TIMEOUT)
-            .await
-            .expect("the feedback key is valid");
-        let [Ok(reply)] = replies.as_slice() else {
-            panic!("expected one Feedback value of {job_type:?}, got {replies:?}");
-        };
-        JobFeedbackList::decode(&reply.payload().to_bytes())
-            .expect("the reply is a JobFeedbackList")
+        self.read_one(&job_feedback_key(S::NAME, job_type)).await
     }
 
     /// Calls the history Query of the Job type `job_type`: its last finished Jobs, in the order they ended.
@@ -425,15 +392,21 @@ impl<S: Service> Harness<S> {
     ///
     /// When the Service does not reply exactly once with a [`JobList`].
     pub async fn job_history(&self, job_type: &str) -> JobList {
+        self.read_one(&job_history_key(S::NAME, job_type)).await
+    }
+
+    /// Asks `key` with no body, as a late client would, and decodes the one reply it expects.
+    async fn read_one<M: Message>(&self, key: &str) -> M {
         let replies = self
             .backend
-            .get(&job_history_key(S::NAME, job_type), None, REPLY_TIMEOUT)
+            .get(key, None, REPLY_TIMEOUT)
             .await
-            .expect("the history key is valid");
+            .expect("the key is valid");
         let [Ok(reply)] = replies.as_slice() else {
-            panic!("expected one history of {job_type:?}, got {replies:?}");
+            panic!("expected one reply on {key}, got {replies:?}");
         };
-        JobList::decode(&reply.payload().to_bytes()).expect("the reply is a JobList")
+        M::decode(&reply.payload().to_bytes())
+            .unwrap_or_else(|error| panic!("the reply on {key} is no {}: {error}", M::SCHEMA_NAME))
     }
 }
 
