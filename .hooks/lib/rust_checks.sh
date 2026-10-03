@@ -151,6 +151,13 @@ collect_folder_violations() {
     done < <(jq -r '.packages[] | .name as $name | (.manifest_path | rtrimstr("/Cargo.toml")) as $directory
         | .dependencies[] | select(.kind != "dev" and .path != null) | [$name, $directory, .name, .path] | @tsv' \
         <<<"$metadata")
+    while IFS=$'\t' read -r name directory; do
+        read -r unit folder <<<"$(crate_place "$directory")"
+        if [ "$folder" = logic ] || [ "$folder" = api ]; then
+            violations+=("$name is logic, so it may not depend on metrics: logic exposes a count through its Snapshot and a Projection, and only a Task or an adapter records it (D-35)")
+        fi
+    done < <(jq -r '.packages[] | select(any(.dependencies[]; .name == "metrics" and .kind != "dev"))
+        | [.name, (.manifest_path | rtrimstr("/Cargo.toml"))] | @tsv' <<<"$metadata")
     if [ ${#violations[@]} -gt 0 ]; then
         printf '%s\n' "${violations[@]}"
         return 1
