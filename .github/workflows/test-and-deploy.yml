@@ -199,6 +199,17 @@ jobs:
           source ../.github/lib/rust_report_only.sh
           # shellcheck disable=SC1091
           source shipped_features.sh
+          outdated_direct_dependencies() {
+            local direct updates
+            direct=$(cargo metadata --format-version 1 --no-deps --locked \
+              | jq -r '[.packages[].dependencies[] | select(.source != null) | .name] | unique | join("|")')
+            updates=$(cargo update --dry-run --verbose 2>&1)
+            # grep exits 1 when nothing is outdated, and 2 when it fails.
+            grep -E "^ +Unchanged ($direct) " <<<"$updates" || [ "$?" -eq 1 ]
+          }
+          report_section "outdated direct dependencies" \
+            --ok 0 --version cargo --version -- \
+            outdated_direct_dependencies
           report_section "cargo bloat" \
             --ok 0 --version cargo bloat --version -- \
             cargo bloat --release -p "$BLUEOS_SHIPPED_PACKAGE" --features "${BLUEOS_SHIPPED_FEATURES[*]}" --crates -n 25
