@@ -31,6 +31,9 @@ pub enum RewriteError {
     /// The caller asked to stop.
     #[error("rewrite cancelled")]
     Cancelled,
+    /// The source does not start with the MCAP magic, so no repair can recover it.
+    #[error("not an MCAP file")]
+    NotMcap,
     /// The MCAP library reported an error.
     #[error("{0}")]
     Mcap(#[from] McapError),
@@ -242,7 +245,10 @@ pub fn rewrite_from_reader<R: Read>(
         if let Err(remove_error) = fs::remove_file(output) {
             debug!(%remove_error, "Failed to remove rewrite output after parse error");
         }
-        return Err(RewriteError::Mcap(error));
+        return Err(match error {
+            McapError::BadMagic => RewriteError::NotMcap,
+            other => RewriteError::Mcap(other),
+        });
     }
 
     progress(bytes_consumed, total_bytes);
