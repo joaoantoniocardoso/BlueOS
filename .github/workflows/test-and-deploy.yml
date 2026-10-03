@@ -137,6 +137,7 @@ jobs:
           .hooks/tests/ergonomics_report_test.sh
           .hooks/tests/docs_paths_test.sh
           .hooks/tests/commit_subject_test.sh
+          .hooks/tests/run_service_test.sh
 
       - name: cargo deny advisories
         id: advisories
