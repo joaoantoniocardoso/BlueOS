@@ -9,7 +9,7 @@ use std::{
 
 use blueos_idl_codegen::{
     endpoints::{
-        EndpointsError, ManifestError, collect_endpoint_lock_lines, generate, generate_all,
+        EndpointsError, ManifestError, collect_endpoint_lock_lines, format, generate, generate_all,
         stray_files,
     },
     message_schema_names,
@@ -397,6 +397,23 @@ fn the_committed_endpoint_files_match_their_manifests() {
             file.path.display()
         );
     }
+}
+
+#[test]
+fn the_custom_handler_fixture_of_the_compile_fail_tests_matches_its_manifest() {
+    let core_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
+    let fixture = core_dir.join("services/example/app/tests/compile_fail/custom");
+    let manifest = fs::read_to_string(fixture.join("endpoints.toml")).unwrap();
+    let messages = message_schema_names(&core_dir.join("libs/idl/interfaces"));
+
+    let generated = generate(&manifest, "blueos_example_api", &messages).unwrap();
+
+    assert_eq!(
+        fs::read_to_string(fixture.join("endpoints.rs")).unwrap(),
+        format(&generated.app),
+        "{} is stale: write the generated app source there",
+        fixture.join("endpoints.rs").display()
+    );
 }
 
 #[test]
