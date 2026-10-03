@@ -460,11 +460,18 @@ impl JobStatus {
 
 impl fmt::Display for JobControl {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(match self {
+        formatter.write_str(self.endpoint_name())
+    }
+}
+
+impl JobControl {
+    /// The name of the Kernel's control endpoint, `command/<name>`, that sends this control (D-12).
+    pub const fn endpoint_name(&self) -> &'static str {
+        match self {
             Self::Cancel => "CancelJob",
             Self::Pause => "PauseJob",
             Self::Resume => "ResumeJob",
             Self::AnswerPermission { .. } => "AnswerPermission",
-        })
+        }
     }
 }
