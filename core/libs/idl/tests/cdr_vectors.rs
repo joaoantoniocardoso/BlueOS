@@ -15,9 +15,7 @@ use std::path::PathBuf;
 use blueos_idl::Message;
 use blueos_idl::msg::blueos_example_msgs::LevelRequest;
 use blueos_idl::msg::blueos_msgs::{CommandAck, CommandAckStatus, EndpointInfo, ServiceInfo};
-use blueos_idl::msg::blueos_recorder_msgs::{
-    RecordingFile, RecordingFileState, RecordingOperationOperation,
-};
+use blueos_idl::msg::blueos_recorder_msgs::{RecordingFile, RecordingFileState};
 use blueos_idl::msg::builtin_interfaces::Time;
 use blueos_idl::msg::foxglove_msgs::Log;
 use blueos_idl_codegen::collect_messages_for_test;
@@ -239,28 +237,6 @@ fn extra_vectors() -> Vec<CdrVector> {
         layout_note: Some("string path followed by bool restart_required".to_string()),
     });
 
-    let recording_operation = blueos_idl::msg::blueos_recorder_msgs::RecordingOperation {
-        operation: RecordingOperationOperation::from_raw(1),
-        path: "session/foo.mcap".into(),
-        output_path: "session/foo_snapshot.mcap".into(),
-        succeeded: true,
-        cancelled: false,
-        error: String::new(),
-    };
-    vectors.push(CdrVector {
-        schema_name: blueos_idl::msg::blueos_recorder_msgs::RecordingOperation::SCHEMA_NAME
-            .to_string(),
-        hex: encode_hex(
-            &recording_operation
-                .encode()
-                .expect("encode RecordingOperation"),
-        ),
-        decoded: serde_json::to_value(recording_operation).expect("recording operation json"),
-        category: "layout".to_string(),
-        skip_encode_round_trip: false,
-        layout_note: Some("string output_path followed by bool succeeded".to_string()),
-    });
-
     vectors.push(CdrVector {
         schema_name: LevelRequest::SCHEMA_NAME.to_string(),
         hex: "0001000000".to_string(),
@@ -382,11 +358,6 @@ fn encode_json_message(schema_name: &str, message: &serde_json::Value) -> Option
         blueos_idl::msg::blueos_msgs::SettingField::SCHEMA_NAME => {
             let message: blueos_idl::msg::blueos_msgs::SettingField =
                 serde_json::from_value(message.clone()).expect("SettingField from json");
-            message.encode().ok()
-        }
-        blueos_idl::msg::blueos_recorder_msgs::RecordingOperation::SCHEMA_NAME => {
-            let message: blueos_idl::msg::blueos_recorder_msgs::RecordingOperation =
-                serde_json::from_value(message.clone()).expect("RecordingOperation from json");
             message.encode().ok()
         }
         _ => None,
