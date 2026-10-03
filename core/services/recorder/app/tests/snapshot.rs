@@ -8,38 +8,28 @@ use std::{fs, path::Path};
 use bytes::Bytes;
 use mcap::{Writer, write::WriteOptions};
 use tempfile::tempdir;
-use tokio::time::{advance, timeout};
+use tokio::time::advance;
 
-use blueos_api::event_key;
 use blueos_comms::{Payload, Sample};
-use blueos_idl::{
-    Message,
-    msg::blueos_recorder_msgs::{
-        RecordingOperation, RecordingOperationOperation, SnapshotRecordingGoal,
-    },
+use blueos_idl::msg::{
+    blueos_msgs::JobStatusStatus,
+    blueos_recorder_msgs::{SnapshotRecordingGoal, SnapshotRecordingResult},
 };
-use blueos_recorder_app::RecorderService;
 use blueos_recorder_library::RESCAN_INTERVAL;
 use blueos_recorder_mcap::{RECORDING_WRITE_CHUNK_SIZE, is_indexed};
-use blueos_service::Service;
 
 use common::{
-    active_recording_mcap_path, drain_blocking_io, recording_state, start_harness, start_recording,
-    stop_recording_and_finalize_mcap, stop_recording_on, wait_for_active_recording,
-    wait_for_library_file_listed, wait_for_recording_bytes, wait_for_recording_bytes_on,
-    wait_for_recording_idle,
+    active_recording_mcap_path, drain_blocking_io, next_job_result, recording_state, start_harness,
+    start_recording, stop_recording_and_finalize_mcap, stop_recording_on, subscribe_job_results,
+    wait_for_active_recording, wait_for_library_file_listed, wait_for_recording_bytes,
+    wait_for_recording_bytes_on, wait_for_recording_idle,
 };
 
 #[tokio::test(start_paused = true)]
 async fn snapshot_active_recording_while_writer_runs() {
     let directory = tempdir().expect("tempdir");
     let harness = start_harness(directory.path()).await;
-    let operation_key = event_key(RecorderService::NAME, "operation");
-    let mut operations = harness
-        .backend()
-        .subscribe(&operation_key)
-        .await
-        .expect("subscribe");
+    let mut results = subscribe_job_results(&harness, "SnapshotRecording").await;
 
     start_recording(&harness).await;
     wait_for_active_recording(harness.backend()).await;
@@ -78,14 +68,13 @@ async fn snapshot_active_recording_while_writer_runs() {
         .await;
     assert!(ack.accepted, "snapshot rejected: {}", ack.reason);
 
-    let operation = timeout(Duration::from_secs(5), operations.recv())
-        .await
-        .expect("operation event")
-        .expect("payload");
-    let message =
-        RecordingOperation::decode(operation.payload().to_bytes().as_ref()).expect("decode");
-    assert_eq!(message.operation, RecordingOperationOperation::Snapshot);
-    assert!(message.succeeded, "snapshot failed: {}", message.error);
+    let (job, message) = next_job_result::<SnapshotRecordingResult>(&mut results).await;
+    assert_eq!(
+        job.status,
+        JobStatusStatus::Succeeded,
+        "snapshot failed: {}",
+        job.reason
+    );
     assert!(!message.output_path.is_empty());
 
     wait_for_library_file_listed(&harness, &message.output_path).await;
@@ -125,18 +114,13 @@ async fn snapshot_active_recording_while_writer_runs() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn snapshot_rewrite_publishes_indexed_output_path() {
+async fn snapshot_job_result_names_the_indexed_snapshot() {
     let directory = tempdir().expect("tempdir");
     let path = directory.path().join("partial.mcap");
     write_truncated_mcap(&path);
 
     let harness = start_harness(directory.path()).await;
-    let operation_key = event_key(RecorderService::NAME, "operation");
-    let mut operations = harness
-        .backend()
-        .subscribe(&operation_key)
-        .await
-        .expect("subscribe");
+    let mut results = subscribe_job_results(&harness, "SnapshotRecording").await;
 
     stop_recording_on(harness.backend()).await;
     wait_for_recording_idle(harness.backend()).await;
@@ -155,14 +139,13 @@ async fn snapshot_rewrite_publishes_indexed_output_path() {
         .await;
     assert!(ack.accepted, "snapshot rejected: {}", ack.reason);
 
-    let operation = timeout(Duration::from_secs(5), operations.recv())
-        .await
-        .expect("operation event")
-        .expect("payload");
-    let message =
-        RecordingOperation::decode(operation.payload().to_bytes().as_ref()).expect("decode");
-    assert_eq!(message.operation, RecordingOperationOperation::Snapshot);
-    assert!(message.succeeded, "snapshot failed: {}", message.error);
+    let (job, message) = next_job_result::<SnapshotRecordingResult>(&mut results).await;
+    assert_eq!(
+        job.status,
+        JobStatusStatus::Succeeded,
+        "snapshot failed: {}",
+        job.reason
+    );
     assert!(!message.output_path.is_empty());
     assert_eq!(message.path, "partial.mcap");
 

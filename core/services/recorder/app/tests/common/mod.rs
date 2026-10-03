@@ -12,10 +12,11 @@ use tokio::time::{advance, sleep, timeout};
 
 use bytes::Bytes;
 
-use blueos_api::{Message, cdr_encoding, command_key, state_key};
-use blueos_comms::{CommsBackend, Payload, QueryBody, Sample};
+use blueos_api::{Message, cdr_encoding, command_key, job_result_key, state_key};
+use blueos_comms::{CommsBackend, Payload, QueryBody, Sample, Subscriber};
 use blueos_idl::msg::{
     blueos_example_msgs::PumpState,
+    blueos_msgs::{JobResult, JobStatus},
     blueos_recorder_msgs::{
         RecordingFileState, RecordingLibrary, RecordingState, StartRecordingGoal, StopRecordingGoal,
     },
@@ -130,6 +131,31 @@ pub(crate) async fn stop_recording_on(backend: &Arc<dyn CommsBackend>) {
         )
         .await
         .expect("stop");
+}
+
+/// Subscribes to the Job result Event of the Job type `job_type`.
+pub(crate) async fn subscribe_job_results(
+    harness: &Harness<RecorderService>,
+    job_type: &str,
+) -> Subscriber {
+    harness
+        .backend()
+        .subscribe(&job_result_key(RecorderService::NAME, job_type))
+        .await
+        .expect("subscribe to the Job results")
+}
+
+/// The next Job result on `results`: how its Job ended, and the Job result as an `R`.
+pub(crate) async fn next_job_result<R: Message>(results: &mut Subscriber) -> (JobStatus, R) {
+    let sample = timeout(STATE_WAIT_TIMEOUT, results.recv())
+        .await
+        .expect("a Job result")
+        .expect("the Job result subscription is open");
+    let message = JobResult::decode(&sample.payload().to_bytes()).expect("decode JobResult");
+    (
+        message.job,
+        R::decode(&message.result).expect("decode the Job result"),
+    )
 }
 
 pub(crate) async fn assert_mcap_readable(path: &Path) {

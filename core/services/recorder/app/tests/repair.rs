@@ -7,7 +7,12 @@ use core::{
     sync::atomic::{AtomicBool, Ordering},
     time::Duration,
 };
-use std::{fs, path::Path, process::Command, sync::Arc};
+use std::{
+    fs,
+    path::Path,
+    process::Command,
+    sync::{Arc, Mutex, mpsc},
+};
 
 use mcap::{Writer, write::WriteOptions};
 use serde::Serialize;
@@ -17,12 +22,13 @@ use tokio::{
     time::{advance, timeout},
 };
 
-use blueos_api::event_key;
+use blueos_api::job_feedback_key;
+use blueos_comms::Subscriber;
 use blueos_idl::{
     Message,
-    msg::blueos_msgs::{CommandAckStatus, JobStatusStatus},
+    msg::blueos_msgs::{CommandAckStatus, JobFeedbackList, JobStatusStatus},
     msg::blueos_recorder_msgs::{
-        RecordingOperation, RecordingOperationOperation, RepairRecordingGoal,
+        RepairRecordingFeedback, RepairRecordingGoal, RepairRecordingResult,
     },
 };
 use blueos_jobs::{JobControl, JobId, JobNature, Jobs};
@@ -32,14 +38,14 @@ use blueos_recorder_library::RESCAN_INTERVAL;
 use blueos_recorder_mcap::is_indexed;
 use blueos_service::{
     Service, new_job_id,
-    testing::{Harness, WALL_CLOCK_AT_START},
+    testing::{Harness, WALL_CLOCK_AT_START, lock_unpoisoned},
 };
 use blueos_settings::ServiceStateStore;
 
 use common::{
-    drain_blocking_io, recorder_arguments, start_harness, start_harness_with,
-    wait_for_library_file_listed, wait_for_library_file_not_repairing, wait_for_library_file_ready,
-    wait_for_library_state,
+    drain_blocking_io, next_job_result, recorder_arguments, start_harness, start_harness_with,
+    subscribe_job_results, wait_for_library_file_listed, wait_for_library_file_not_repairing,
+    wait_for_library_file_ready, wait_for_library_state,
 };
 
 /// Holds the real rewrite Port mid-flight until the rewrite is cancelled or the test ends.
@@ -47,6 +53,13 @@ struct HeldRewrite {
     entered: Arc<Notify>,
     release: Arc<AtomicBool>,
     returned: Arc<AtomicBool>,
+}
+
+/// Wraps the real rewrite Port so the test sets each read offset it reports before it runs the real rewrite.
+struct SteppedRewrite {
+    /// A read offset to report, or `None` to run the real rewrite.
+    sender: mpsc::Sender<Option<u64>>,
+    receiver: Arc<Mutex<mpsc::Receiver<Option<u64>>>>,
 }
 
 #[derive(Serialize)]
@@ -90,20 +103,50 @@ impl HeldRewrite {
     }
 }
 
+impl SteppedRewrite {
+    fn new() -> Self {
+        let (sender, receiver) = mpsc::channel();
+        Self {
+            sender,
+            receiver: Arc::new(Mutex::new(receiver)),
+        }
+    }
+
+    /// Wraps the rewrite Port in `context`: it reports each offset the test sends, then runs the real rewrite.
+    fn wrap(&self, context: &mut RecorderContext) {
+        let rewriter = Arc::clone(&context.rewriter);
+        let receiver = Arc::clone(&self.receiver);
+        context.rewriter = Arc::new(move |source, output, progress, cancel| {
+            let total_bytes = fs::metadata(source).map_or(0, |metadata| metadata.len());
+            while let Ok(Some(bytes_processed)) = lock_unpoisoned(&receiver).recv() {
+                progress(bytes_processed, total_bytes);
+            }
+            rewriter(source, output, progress, cancel)
+        });
+    }
+
+    fn report(&self, bytes_processed: u64) {
+        self.sender
+            .send(Some(bytes_processed))
+            .expect("the rewrite is waiting for a step");
+    }
+
+    fn finish(&self) {
+        self.sender
+            .send(None)
+            .expect("the rewrite is waiting for a step");
+    }
+}
+
 #[tokio::test(start_paused = true)]
-async fn repair_rewrites_truncated_recording_and_publishes_operation_event() {
+async fn repair_rewrites_truncated_recording_and_publishes_its_job_result() {
     let directory = tempdir().expect("tempdir");
     let path = directory.path().join("broken.mcap");
     write_truncated_mcap(&path);
     set_modified_seconds_ago(&path, 20);
 
     let harness = start_harness(directory.path()).await;
-    let operation_key = event_key(RecorderService::NAME, "operation");
-    let mut operations = harness
-        .backend()
-        .subscribe(&operation_key)
-        .await
-        .expect("subscribe");
+    let mut results = subscribe_job_results(&harness, "RepairRecording").await;
 
     wait_for_library_file_listed(&harness, "broken.mcap").await;
     advance(RESCAN_INTERVAL + Duration::from_secs(20)).await;
@@ -125,19 +168,71 @@ async fn repair_rewrites_truncated_recording_and_publishes_operation_event() {
 
     assert!(is_indexed(&path), "repaired file must be indexed on disk");
 
-    let operation = timeout(Duration::from_secs(5), operations.recv())
-        .await
-        .expect("operation event")
-        .expect("payload");
-    let message =
-        RecordingOperation::decode(operation.payload().to_bytes().as_ref()).expect("decode");
-    assert_eq!(message.operation, RecordingOperationOperation::Repair);
-    assert!(message.succeeded);
-    assert!(!message.cancelled);
-    assert!(message.error.is_empty());
+    let (job, result) = next_job_result::<RepairRecordingResult>(&mut results).await;
+    assert_eq!(
+        (job.job_id, job.status, job.reason.as_str()),
+        (job_id.to_string(), JobStatusStatus::Succeeded, "")
+    );
+    assert_eq!(result.path, "broken.mcap");
     assert_eq!(
         repair_job_status(&harness, job_id).await,
         JobStatusStatus::Succeeded
+    );
+}
+
+#[tokio::test(start_paused = true)]
+async fn repair_feedback_reports_a_growing_read_offset_also_to_a_client_that_opens_it_mid_repair() {
+    let directory = tempdir().expect("tempdir");
+    let path = directory.path().join("progress.mcap");
+    write_truncated_mcap(&path);
+    set_modified_seconds_ago(&path, 20);
+    let total_bytes = fs::metadata(&path).expect("metadata").len();
+
+    let stepped = SteppedRewrite::new();
+    let harness = start_harness_with(directory.path(), |context| stepped.wrap(context)).await;
+    wait_for_library_file_listed(&harness, "progress.mcap").await;
+    advance(RESCAN_INTERVAL + Duration::from_secs(20)).await;
+    drain_blocking_io().await;
+
+    let mut feedback = harness
+        .backend()
+        .subscribe(&job_feedback_key(RecorderService::NAME, "RepairRecording"))
+        .await
+        .expect("subscribe to the repair Feedback");
+    let mut results = subscribe_job_results(&harness, "RepairRecording").await;
+    let job_id = new_job_id();
+    let ack = harness
+        .submit(
+            "RepairRecording",
+            job_id,
+            &RepairRecordingGoal {
+                path: "progress.mcap".into(),
+            },
+        )
+        .await;
+    assert!(ack.accepted, "repair rejected: {}", ack.reason);
+
+    let first = total_bytes / 3;
+    stepped.report(first);
+    wait_for_read_offset(&mut feedback, job_id, first).await;
+    let late = harness.job_feedback("RepairRecording").await;
+    assert_eq!(
+        read_offsets(&late, job_id),
+        Some((first, total_bytes)),
+        "a client that opens the Feedback mid-repair sees the latest read offset"
+    );
+
+    let second = 2 * total_bytes / 3;
+    stepped.report(second);
+    wait_for_read_offset(&mut feedback, job_id, second).await;
+
+    stepped.finish();
+    let (job, _result) = next_job_result::<RepairRecordingResult>(&mut results).await;
+    assert_eq!(job.status, JobStatusStatus::Succeeded);
+    assert_eq!(
+        read_offsets(&harness.job_feedback("RepairRecording").await, job_id),
+        None,
+        "a Job leaves the Feedback when it ends"
     );
 }
 
@@ -151,13 +246,7 @@ async fn cancel_job_stops_a_held_repair_and_leaves_the_original_unchanged() {
 
     let held = HeldRewrite::new();
     let harness = start_harness_with(directory.path(), |context| held.wrap(context)).await;
-
-    let operation_key = event_key(RecorderService::NAME, "operation");
-    let mut operations = harness
-        .backend()
-        .subscribe(&operation_key)
-        .await
-        .expect("subscribe");
+    let mut results = subscribe_job_results(&harness, "RepairRecording").await;
 
     wait_for_library_file_listed(&harness, "cancel.mcap").await;
     advance(RESCAN_INTERVAL + Duration::from_secs(20)).await;
@@ -202,16 +291,12 @@ async fn cancel_job_stops_a_held_repair_and_leaves_the_original_unchanged() {
 
     wait_for_library_file_not_repairing(&harness, "cancel.mcap").await;
 
-    let operation = timeout(Duration::from_secs(5), operations.recv())
-        .await
-        .expect("operation event")
-        .expect("payload");
-    let message =
-        RecordingOperation::decode(operation.payload().to_bytes().as_ref()).expect("decode");
-    assert_eq!(message.operation, RecordingOperationOperation::Repair);
-    assert!(!message.succeeded);
-    assert!(message.cancelled);
-    assert!(message.error.is_empty());
+    let (job, result) = next_job_result::<RepairRecordingResult>(&mut results).await;
+    assert_eq!(
+        (job.status, job.reason.as_str()),
+        (JobStatusStatus::Canceled, "")
+    );
+    assert_eq!(result.path, "cancel.mcap");
     assert_eq!(
         repair_job_status(&harness, job_id).await,
         JobStatusStatus::Canceled
@@ -344,6 +429,36 @@ async fn leftover_recover_file_is_removed_at_startup() {
         !directory.path().join("stale.recover").exists(),
         "startup must discard leftover recover files"
     );
+}
+
+/// Waits until `feedback` shows the Job `job_id` at the read offset `bytes_processed`.
+async fn wait_for_read_offset(feedback: &mut Subscriber, job_id: JobId, bytes_processed: u64) {
+    timeout(Duration::from_secs(5), async {
+        while let Some(sample) = feedback.recv().await {
+            let list = JobFeedbackList::decode(&sample.payload().to_bytes())
+                .expect("decode JobFeedbackList");
+            if read_offsets(&list, job_id).is_some_and(|(read, _total)| read == bytes_processed) {
+                return;
+            }
+        }
+        panic!("the Feedback subscription closed");
+    })
+    .await
+    .expect("the Feedback shows the read offset");
+}
+
+/// The read offset and the total of the Job `job_id` in `feedback`, when it lists the Job.
+fn read_offsets(feedback: &JobFeedbackList, job_id: JobId) -> Option<(u64, u64)> {
+    let job_id = job_id.to_string();
+    feedback
+        .jobs
+        .iter()
+        .find(|entry| entry.job_id == job_id)
+        .map(|entry| {
+            let progress = RepairRecordingFeedback::decode(&entry.feedback)
+                .expect("decode RepairRecordingFeedback");
+            (progress.bytes_processed, progress.total_bytes)
+        })
 }
 
 async fn repair_job_status(harness: &Harness<RecorderService>, job_id: JobId) -> JobStatusStatus {
