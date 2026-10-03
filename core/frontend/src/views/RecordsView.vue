@@ -180,7 +180,7 @@
       class="d-flex align-center flex-wrap mb-4 pa-3"
     >
       <div class="mr-4 mb-2 subtitle-2">
-        {{ selectedFiles.length }} selected
+        {{ selectionLabel }}
       </div>
       <v-spacer />
       <v-btn
@@ -437,6 +437,8 @@ import {
   allVisibleSelected,
   pruneSelection,
   selectedVisibleRecordings,
+  selectionSummary,
+  selectionSummaryLabel,
   setVisibleSelection,
   someVisibleSelected,
   togglePathSelection,
@@ -544,6 +546,9 @@ export default Vue.extend({
     },
     selectedFiles(): LibraryRecording[] {
       return selectedVisibleRecordings(this.selectedPaths, this.visibleRecordings)
+    },
+    selectionLabel(): string {
+      return selectionSummaryLabel(selectionSummary(this.selectedFiles))
     },
     selectedTableFiles: {
       get(): LibraryRecording[] {

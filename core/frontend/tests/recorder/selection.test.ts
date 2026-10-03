@@ -4,11 +4,14 @@ import {
   allVisibleSelected,
   pruneSelection,
   selectedVisibleRecordings,
+  selectionSummary,
+  selectionSummaryLabel,
   setVisibleSelection,
   someVisibleSelected,
   togglePathSelection,
 } from '@/libs/recorder/selection'
 import type { LibraryRecording } from '@/libs/recorder/types'
+import { withLiveDuration } from '@/libs/recorder/view-logic'
 
 function file(path: string): LibraryRecording {
   return {
@@ -67,5 +70,32 @@ describe('recorder selection', () => {
 
   it('drops paths that left the library', () => {
     expect(pruneSelection(['a.mcap', 'gone.mcap'], ['a.mcap', 'b.mcap'])).toEqual(['a.mcap'])
+  })
+})
+
+describe('selectionSummary', () => {
+  const now = 10_000
+  const files = withLiveDuration([
+    { ...file('a.mcap'), size_bytes: 1024 ** 3, duration_seconds: 3600 },
+    { ...file('b.mcap'), size_bytes: 512 * 1024 ** 2, state: 'needs_repair' },
+    {
+      ...file('live.mcap'), size_bytes: 1024, state: 'recording', created: now - 120,
+    },
+  ], now)
+
+  it('sums size and duration, counts unknown durations and Needs repair, and times the live file until now', () => {
+    expect(selectionSummary(files)).toEqual({
+      count: 3,
+      sizeBytes: 1024 ** 3 + 512 * 1024 ** 2 + 1024,
+      durationSeconds: 3720,
+      unknownDurationCount: 1,
+      needsRepairCount: 1,
+    })
+  })
+
+  it('labels the summary and drops the parts that are zero', () => {
+    expect(selectionSummaryLabel(selectionSummary(files)))
+      .toBe('3 selected \u00B7 1.5 GB \u00B7 1h 02m 00s (1 without a known duration) \u00B7 1 need repair')
+    expect(selectionSummaryLabel(selectionSummary([files[0]]))).toBe('1 selected \u00B7 1.0 GB \u00B7 1h 00m 00s')
   })
 })
