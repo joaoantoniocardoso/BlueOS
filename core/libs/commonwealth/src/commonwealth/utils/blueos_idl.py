@@ -531,6 +531,9 @@ def _encode_field(writer: CdrWriter, field_type: FieldType, value: Any) -> None:
 def _encode_message_fields(writer: CdrWriter, schema_name: str, value: dict[str, Any]) -> None:
     defaults = _defaults_for_message(schema_name)
     message_def = _MESSAGES[schema_name]
+    if not message_def.fields:
+        # ROS 2 puts one byte on the wire for an empty struct (structure_needs_at_least_one_member).
+        writer.write_u8(0)
     for name, field_type in message_def.fields:
         field_value = value.get(name, defaults[name])
         _encode_field(writer, field_type, field_value)
@@ -573,6 +576,8 @@ def _decode_field_value(reader: CdrReader, field_type: FieldType) -> Any:
 def _decode_message_fields(reader: CdrReader, schema_name: str) -> dict[str, Any]:
     message_def = _MESSAGES[schema_name]
     decoded: dict[str, Any] = {}
+    if not message_def.fields and not reader.is_exhausted():
+        reader.read_u8()
     for name, field_type in message_def.fields:
         if reader.is_exhausted():
             decoded[name] = _default_for_field(field_type)
