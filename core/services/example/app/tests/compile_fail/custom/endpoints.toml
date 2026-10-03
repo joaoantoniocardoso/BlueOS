@@ -1,0 +1,8 @@
+# The example's Job type marked `custom`, for the compile-fail case of a missing `Handlers` method. The generated
+# `endpoints.rs` next to it is pinned by the codegen test
+# `the_custom_handler_fixture_of_the_compile_fail_tests_matches_its_manifest`.
+
+service = "example"
+
+[job]
+SetLevel = { type = "blueos_example_msgs/action/SetLevel", custom = true, nature = { lasting = true } }

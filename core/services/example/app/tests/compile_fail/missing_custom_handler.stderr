@@ -1,0 +1,14 @@
+error[E0046]: not all trait items implemented, missing: `set_level`
+  --> tests/compile_fail/missing_custom_handler.rs:12:1
+   |
+12 |   impl Handlers<Pump> for ForgetfulHandlers {}
+   |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ missing `set_level` in implementation
+   |
+  ::: tests/compile_fail/custom/endpoints.rs
+   |
+   | /     fn set_level(
+   | |         &self,
+   | |         job_id: JobId,
+   | |         goal: blueos_example_msgs::SetLevelGoal,
+   | |     ) -> Result<D::Request, Refusal>;
+   | |_____________________________________- `set_level` from trait
