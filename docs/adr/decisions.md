@@ -1019,8 +1019,9 @@ Decision:
 - A poisoned lock is never `.expect`ed; one panic must not cascade into every task that shares the lock.
 - An Inbox loop recovery marks the service degraded. Three loop panics within one minute make the process exit
   non-zero.
-- Exit codes: anything unrecoverable exits non-zero, so `core/run-service.sh` restarts the service. Exit 0 means
-  an intentional stop, which the supervisor does not restart. The container supervisor stays the outer ring.
+- Exit codes: anything unrecoverable exits non-zero, so the log says why. `core/run-service.sh` restarts a service
+  on any exit; only a container stop (SIGTERM to `run-service`) ends it. The container supervisor stays the outer
+  ring.
 
 Rationale: a process restart costs about 5 s, the tail of the MCAP file and a library rescan, so recovering in
 process is worth it; but a half-dead process that claims to be ready is worse than a restart, so whatever cannot
