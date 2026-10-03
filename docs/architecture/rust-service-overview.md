@@ -92,7 +92,10 @@ restored Tick; the Kernel does not re-run IO for interrupted Jobs (D-28).
 (`core/libs/logic/jobs/src/lib.rs`), answers retries and "id reused", serves the reserved `CancelJob`, `PauseJob`,
 `ResumeJob` and `AnswerPermission` controls, and publishes the standard `jobs` State (D-12). A lasting Job type is
 declared with `ServiceBuilder::job` and its nature, or a manifest `nature`; its Domain implements `DomainJobs`, keeps
-`Jobs` inside the Snapshot, and ends the Job when the work finishes.
+`Jobs` inside the Snapshot, and ends the Job when the work finishes. Each Job type also gets a
+`jobs/<JobType>/feedback` State, a `jobs/<JobType>/result` Event and a `jobs/<JobType>/history` Query of its last
+finished Jobs. `ServiceBuilder::job_feedback` and `ServiceBuilder::job_result` read the Feedback and the Job result
+from the Snapshot, as typed Messages the Kernel nests in `JobFeedbackList` and `JobResult`.
 
 **Tasks and Projections.** Long-running work is declared with `ServiceBuilder::task` and supervised in
 `core/libs/app/service/src/tasks.rs` (D-27). Tasks receive a `CommandSender`, a `Session`, and typed
