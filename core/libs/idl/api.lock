@@ -60,6 +60,9 @@ blueos_example_msgs/msg/PumpState 1 level:uint8;max_level:uint8;self_test_phase:
 blueos_example_msgs/msg/SelfTestCompleted 1 passed:bool;detail:string
 blueos_example_msgs/srv/Level_Request 1
 blueos_example_msgs/srv/Level_Response 1 level:uint8;max_level:uint8
+blueos_msgs/action/UpdateSettings_Feedback 1
+blueos_msgs/action/UpdateSettings_Goal 1 envelope:blueos_msgs/SettingsEnvelope
+blueos_msgs/action/UpdateSettings_Result 1
 blueos_msgs/msg/CommandAck 1 accepted:bool;job_id:string;status:uint8;reason:string
 blueos_msgs/msg/EndpointInfo 1 kind:string;name:string;key:string;interface_type:string;schema:string
 blueos_msgs/msg/JobFeedback 1 job_id:string;feedback:uint8[]
@@ -98,4 +101,5 @@ blueos_recorder_msgs/srv/RecordingIndex_Response 1 size:uint64;offset:uint64;clo
 builtin_interfaces/msg/Duration 1 sec:int32;nanosec:uint32
 builtin_interfaces/msg/Time 1 sec:int32;nanosec:uint32
 foxglove_msgs/msg/Log 1 timestamp:builtin_interfaces/Time;level:uint8;message:string;name:string;file:string;line:uint32
+std_msgs/msg/Empty 1
 std_msgs/msg/Header 1 stamp:builtin_interfaces/Time;frame_id:string

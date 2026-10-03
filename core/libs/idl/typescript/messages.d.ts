@@ -31,6 +31,14 @@ export interface LevelResponse {
   max_level: number;
 }
 
+export interface UpdateSettingsFeedback {}
+
+export interface UpdateSettingsGoal {
+  envelope: SettingsEnvelope;
+}
+
+export interface UpdateSettingsResult {}
+
 export interface CommandAck {
   accepted: boolean;
   job_id: string;
@@ -227,6 +235,8 @@ export interface Log {
   line: number;
 }
 
+export interface Empty {}
+
 export interface Header {
   stamp: Time;
   frame_id: string;
@@ -240,6 +250,9 @@ export interface MessageBySchema {
   "blueos_example_msgs/msg/SelfTestCompleted": SelfTestCompleted;
   "blueos_example_msgs/srv/Level_Request": LevelRequest;
   "blueos_example_msgs/srv/Level_Response": LevelResponse;
+  "blueos_msgs/action/UpdateSettings_Feedback": UpdateSettingsFeedback;
+  "blueos_msgs/action/UpdateSettings_Goal": UpdateSettingsGoal;
+  "blueos_msgs/action/UpdateSettings_Result": UpdateSettingsResult;
   "blueos_msgs/msg/CommandAck": CommandAck;
   "blueos_msgs/msg/EndpointInfo": EndpointInfo;
   "blueos_msgs/msg/JobFeedback": JobFeedback;
@@ -278,5 +291,6 @@ export interface MessageBySchema {
   "builtin_interfaces/msg/Duration": Duration;
   "builtin_interfaces/msg/Time": Time;
   "foxglove_msgs/msg/Log": Log;
+  "std_msgs/msg/Empty": Empty;
   "std_msgs/msg/Header": Header;
 }

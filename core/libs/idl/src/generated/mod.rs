@@ -26,6 +26,15 @@ pub fn schema(schema_name: &str) -> Option<&'static str> {
         "blueos_example_msgs/srv/Level_Response" => {
             Some(msg::blueos_example_msgs::LevelResponse::SCHEMA)
         }
+        "blueos_msgs/action/UpdateSettings_Feedback" => {
+            Some(msg::blueos_msgs::UpdateSettingsFeedback::SCHEMA)
+        }
+        "blueos_msgs/action/UpdateSettings_Goal" => {
+            Some(msg::blueos_msgs::UpdateSettingsGoal::SCHEMA)
+        }
+        "blueos_msgs/action/UpdateSettings_Result" => {
+            Some(msg::blueos_msgs::UpdateSettingsResult::SCHEMA)
+        }
         "blueos_msgs/msg/CommandAck" => Some(msg::blueos_msgs::CommandAck::SCHEMA),
         "blueos_msgs/msg/EndpointInfo" => Some(msg::blueos_msgs::EndpointInfo::SCHEMA),
         "blueos_msgs/msg/JobFeedback" => Some(msg::blueos_msgs::JobFeedback::SCHEMA),
@@ -108,12 +117,16 @@ pub fn schema(schema_name: &str) -> Option<&'static str> {
         "builtin_interfaces/msg/Duration" => Some(msg::builtin_interfaces::Duration::SCHEMA),
         "builtin_interfaces/msg/Time" => Some(msg::builtin_interfaces::Time::SCHEMA),
         "foxglove_msgs/msg/Log" => Some(msg::foxglove_msgs::Log::SCHEMA),
+        "std_msgs/msg/Empty" => Some(msg::std_msgs::Empty::SCHEMA),
         "std_msgs/msg/Header" => Some(msg::std_msgs::Header::SCHEMA),
         "blueos_example_msgs/action/SetLevel" => Some(
             "# blueos_example_msgs/action/SetLevel\n# The Job type on blueos/v1/example/command/SetLevel: the pump moves to a level one step at a time.\n\n# Goal: the level to reach, at most PumpState.max_level.\nuint8 level\n---\n# Job result: the level the pump reached.\nuint8 level\n---\n# Feedback: the level the pump is at.\nuint8 level",
         ),
         "blueos_example_msgs/srv/Level" => Some(
             "# blueos_example_msgs/srv/Level\n# The Query on blueos/v1/example/query/Level. Its request is empty.\n---\nuint8 level\nuint8 max_level",
+        ),
+        "blueos_msgs/action/UpdateSettings" => Some(
+            "# blueos_msgs/action/UpdateSettings\n# The Job type every Service serves on blueos/v1/<service>/command/UpdateSettings (D-11): replaces its settings\n# document. An instant Job type, so its ack is its final status. A Service without settings rejects it.\n\nblueos_msgs/SettingsEnvelope envelope\n---\n---\n================================================================================\nMSG: blueos_msgs/SettingField\n# blueos_msgs/msg/SettingField\n# Restart hint for one settings field (D-11).\n\nstring path\nbool restart_required\n================================================================================\nMSG: blueos_msgs/SettingsEnvelope\n# blueos_msgs/msg/SettingsEnvelope\n# JSON settings document plus per-field restart flags (D-11).\n\nstring document_json\nblueos_msgs/SettingField[] fields",
         ),
         "blueos_recorder_msgs/action/DeleteRecording" => Some(
             "# blueos_recorder_msgs/action/DeleteRecording\n# The Job type on blueos/v1/recorder/command/DeleteRecording. Rejected while the recording is being written or\n# repaired.\n\nstring path\n---\n---",

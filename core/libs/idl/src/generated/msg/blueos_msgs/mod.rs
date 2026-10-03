@@ -3,6 +3,12 @@
     missing_docs,
     reason = "generated from ROS .msg sources"
 )]
+pub mod update_settings_feedback;
+pub use update_settings_feedback::*;
+pub mod update_settings_goal;
+pub use update_settings_goal::*;
+pub mod update_settings_result;
+pub use update_settings_result::*;
 pub mod command_ack;
 pub use command_ack::*;
 pub mod endpoint_info;

@@ -31,6 +31,27 @@ string detail`,
 # The Query on blueos/v1/example/query/Level. Its request is empty.`,
   "blueos_example_msgs/srv/Level_Response": `uint8 level
 uint8 max_level`,
+  "blueos_msgs/action/UpdateSettings_Feedback": ``,
+  "blueos_msgs/action/UpdateSettings_Goal": `# blueos_msgs/action/UpdateSettings
+# The Job type every Service serves on blueos/v1/<service>/command/UpdateSettings (D-11): replaces its settings
+# document. An instant Job type, so its ack is its final status. A Service without settings rejects it.
+
+blueos_msgs/SettingsEnvelope envelope
+================================================================================
+MSG: blueos_msgs/SettingField
+# blueos_msgs/msg/SettingField
+# Restart hint for one settings field (D-11).
+
+string path
+bool restart_required
+================================================================================
+MSG: blueos_msgs/SettingsEnvelope
+# blueos_msgs/msg/SettingsEnvelope
+# JSON settings document plus per-field restart flags (D-11).
+
+string document_json
+blueos_msgs/SettingField[] fields`,
+  "blueos_msgs/action/UpdateSettings_Result": ``,
   "blueos_msgs/msg/CommandAck": `# blueos_msgs/msg/CommandAck
 # Reply to a Command, which submits a Job or controls one (D-10, D-36).
 
@@ -450,6 +471,7 @@ int32 sec
 
 # The nanoseconds component, valid in the range [0, 1e9).
 uint32 nanosec`,
+  "std_msgs/msg/Empty": `# A message with no fields: the body of a Job control such as CancelJob, whose attachment names the Job.`,
   "std_msgs/msg/Header": `# Standard metadata for higher-level stamped data types.
 
 builtin_interfaces/Time stamp
