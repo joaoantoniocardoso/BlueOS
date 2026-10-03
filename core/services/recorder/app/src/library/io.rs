@@ -5,6 +5,7 @@ use std::sync::{Mutex, MutexGuard};
 use tracing::warn;
 
 use blueos_domain::IoError;
+use blueos_jobs::JobId;
 use blueos_recorder_capture::RecordingState;
 use blueos_recorder_domain::{RecorderIoRequest, RecorderIoResult, RecorderSnapshot};
 use blueos_recorder_library::{LibraryIoRequest, LibraryIoResult, ScannedRecording};
@@ -28,7 +29,7 @@ pub(crate) fn run_library_io(
         RecorderIoRequest::Library(io_request) => {
             Ok(Some(RecorderIoResult::Library(match io_request {
                 LibraryIoRequest::Scan => scan(context, snapshot),
-                LibraryIoRequest::Delete { path } => delete(context, &path),
+                LibraryIoRequest::Delete { path, job_id } => delete(context, path, job_id),
             })))
         }
         RecorderIoRequest::Cameras(_) => {
@@ -68,7 +69,11 @@ fn scan(context: &RecorderContext, snapshot: &RecorderSnapshot) -> LibraryIoResu
     }
 }
 
-fn delete(context: &RecorderContext, path: &RecordingRelativePath) -> LibraryIoResult {
+fn delete(
+    context: &RecorderContext,
+    path: RecordingRelativePath,
+    job_id: JobId,
+) -> LibraryIoResult {
     let relative = path.as_str();
     let error = context
         .recordings_folder
@@ -79,7 +84,8 @@ fn delete(context: &RecorderContext, path: &RecordingRelativePath) -> LibraryIoR
             IoError::new(error.to_string())
         });
     LibraryIoResult::DeleteFinished {
-        path: path.clone(),
+        path,
+        job_id,
         error,
     }
 }
