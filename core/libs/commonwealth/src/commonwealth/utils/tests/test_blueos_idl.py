@@ -11,6 +11,7 @@ LIBS_ROOT = Path(__file__).resolve().parents[5]
 CDR_VECTORS_PATH = LIBS_ROOT / "idl" / "tests" / "vectors" / "cdr.json"
 KEYS_VECTORS_PATH = LIBS_ROOT / "api" / "tests" / "vectors" / "keys.json"
 IDL_INTERFACES_ROOT = LIBS_ROOT / "idl" / "interfaces"
+INTERFACE_KINDS_ROOT = LIBS_ROOT / "idl" / "codegen" / "tests" / "fixtures" / "interface_kinds" / "interfaces"
 
 
 @pytest.fixture(autouse=True)
@@ -144,3 +145,15 @@ def test_missing_msg_definitions_log_once(caplog: pytest.LogCaptureFixture, tmp_
     warning_records = [record for record in caplog.records if record.levelno == logging.WARNING]
     assert len(warning_records) == 1
     assert "missing_pkg/msg/Missing" in warning_records[0].message
+
+
+def test_srv_and_action_parts_are_messages() -> None:
+    blueos_idl.reset_runtime_state()
+    blueos_idl.ensure_idl_loaded(INTERFACE_KINDS_ROOT)
+
+    assert not blueos_idl.decode("fixture_msgs/action/Drain_Goal", decode_hex("0001000000"))
+    goal = blueos_idl.encode("fixture_msgs/action/Fill_Goal", {"level": 1.0, "rate": 2.0})
+    assert encode_hex(goal) == "000100000000803f00000040"
+    response = {"level": 0.5, "progress": {"done": 1, "total": 2}}
+    payload = blueos_idl.encode("fixture_msgs/srv/Measure_Response", response)
+    assert blueos_idl.decode("fixture_msgs/srv/Measure_Response", payload) == response
