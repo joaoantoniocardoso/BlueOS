@@ -1,15 +1,24 @@
-//! Device IO runs through Effects and reports back as IO results.
+//! Device IO runs through Effects and reports back as IO results. The device is a Port in the Context: `context`
+//! fills it with the real adapter, and a test replaces it through `Harness::start_with`.
 
 use core::convert::Infallible;
+use std::sync::Arc;
 
 use blueos_domain::{Command, Decision, Domain, Effect, IoError, Now, Outcome};
 use blueos_idl::msg::blueos_example_msgs::{EmptyRequest, LevelQueryResponse};
 use blueos_service::{Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness};
 
+/// Reads the level sensor: the Port a test replaces.
+type ReadSensor = Arc<dyn Fn() -> u8 + Send + Sync>;
+
 struct IoCookbookService;
 
 #[derive(Clone, Default, clap::Args)]
 struct IoCookbookArguments;
+
+struct IoCookbookContext {
+    read_sensor: ReadSensor,
+}
 
 struct IoCookbook;
 
@@ -34,20 +43,30 @@ enum IoCookbookIoResult {
 
 impl Service for IoCookbookService {
     type Domain = IoCookbook;
-    type Context = ();
+    type Context = IoCookbookContext;
     type Arguments = IoCookbookArguments;
 
     const NAME: &'static str = "cookbook_io";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(
+        _service: &ServiceContext<IoCookbookArguments>,
+    ) -> Result<IoCookbookContext, ServiceError> {
+        Ok(IoCookbookContext {
+            read_sensor: Arc::new(|| 42),
+        })
+    }
+
     fn build(
-        _context: &ServiceContext<IoCookbookArguments>,
-    ) -> Result<ServiceBuilder<IoCookbook>, ServiceError> {
+        _service: &ServiceContext<IoCookbookArguments>,
+        _context: &IoCookbookContext,
+    ) -> Result<ServiceBuilder<IoCookbook, IoCookbookContext>, ServiceError> {
         Ok(ServiceBuilder::new(IoCookbookSnapshot::default())
-            .io(|_io_context, _snapshot, request| async move {
-                match request {
-                    IoCookbookIoRequest::ReadSensor => Ok(Some(IoCookbookIoResult::Level(42))),
-                }
+            .io(|io_context: &IoCookbookContext, _snapshot, request| {
+                let level = match request {
+                    IoCookbookIoRequest::ReadSensor => (io_context.read_sensor)(),
+                };
+                async move { Ok(Some(IoCookbookIoResult::Level(level))) }
             })
             .command("ReadLevel", |_: EmptyRequest| {
                 Ok(IoCookbookRequest::ReadLevel)
@@ -110,4 +129,16 @@ async fn io_effect_updates_the_snapshot() {
     let ack = harness.send("ReadLevel", &EmptyRequest::default()).await;
     assert!(ack.accepted);
     assert_eq!(harness.state::<LevelQueryResponse>("pump").await.level, 42);
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_test_replaces_the_sensor_through_the_context() {
+    let harness = Harness::<IoCookbookService>::start_with(IoCookbookArguments, |context| {
+        context.read_sensor = Arc::new(|| 7);
+    })
+    .await
+    .unwrap();
+    let ack = harness.send("ReadLevel", &EmptyRequest::default()).await;
+    assert!(ack.accepted);
+    assert_eq!(harness.state::<LevelQueryResponse>("pump").await.level, 7);
 }

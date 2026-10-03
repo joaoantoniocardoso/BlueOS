@@ -31,8 +31,13 @@ impl Service for StartupCookbookService {
     const NAME: &'static str = "cookbook_startup";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<StartupCookbookArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<StartupCookbookArguments>,
+        _service: &ServiceContext<StartupCookbookArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<StartupCookbook>, ServiceError> {
         Ok(ServiceBuilder::new(StartupCookbookSnapshot::default())
             .on_start(StartupCookbookRequest::Mark)

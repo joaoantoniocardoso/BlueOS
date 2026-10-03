@@ -48,8 +48,13 @@ impl Service for TasksService {
     const NAME: &'static str = "tasks-harness";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<TasksArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<TasksArguments>,
+        _service: &ServiceContext<TasksArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<TasksDomain>, ServiceError> {
         Ok(ServiceBuilder::new(TasksSnapshot))
     }
@@ -136,7 +141,7 @@ async fn delay_between_first_two_attempts(policy: RestartPolicy) -> Duration {
         });
     let backend: Arc<dyn CommsBackend> = Arc::new(blueos_comms::channel::ChannelBackend::default());
     let clock: Arc<dyn Clock> = Arc::new(PausedClock::start());
-    let kernel = Kernel::start(TasksService::NAME, builder, backend, clock)
+    let kernel = Kernel::start(TasksService::NAME, builder, (), backend, clock)
         .await
         .expect("kernel starts");
     let run = tokio::spawn(kernel.run());
@@ -214,6 +219,7 @@ async fn always_failing_task_restarts_with_backoff_and_degrades_status() {
     let kernel = Kernel::start(
         TasksService::NAME,
         builder,
+        (),
         Arc::clone(&backend),
         Arc::clone(&clock),
     )
@@ -272,6 +278,7 @@ async fn status_names_remaining_task_while_the_other_restarts() {
     let kernel = Kernel::start(
         TasksService::NAME,
         builder,
+        (),
         Arc::clone(&backend),
         Arc::clone(&clock),
     )
@@ -329,7 +336,7 @@ async fn shutdown_leaves_no_tasks_running() {
     let shutdown = builder.shutdown_handle();
     let backend: Arc<dyn CommsBackend> = Arc::new(blueos_comms::channel::ChannelBackend::default());
     let clock: Arc<dyn Clock> = Arc::new(PausedClock::start());
-    let kernel = Kernel::start(TasksService::NAME, builder, Arc::clone(&backend), clock)
+    let kernel = Kernel::start(TasksService::NAME, builder, (), Arc::clone(&backend), clock)
         .await
         .expect("kernel starts");
     let run = tokio::spawn(async move { kernel.run().await });
@@ -359,7 +366,7 @@ async fn straggler_is_aborted_and_named_in_warning() {
     let shutdown = builder.shutdown_handle();
     let backend: Arc<dyn CommsBackend> = Arc::new(blueos_comms::channel::ChannelBackend::default());
     let clock: Arc<dyn Clock> = Arc::new(PausedClock::start());
-    let kernel = Kernel::start(TasksService::NAME, builder, Arc::clone(&backend), clock)
+    let kernel = Kernel::start(TasksService::NAME, builder, (), Arc::clone(&backend), clock)
         .await
         .expect("kernel starts");
     let run = tokio::spawn(async move { kernel.run().await });

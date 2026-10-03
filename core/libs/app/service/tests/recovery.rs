@@ -59,10 +59,15 @@ impl Service for TankService {
     const NAME: &'static str = "recovery-tank";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<TankArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        context: &ServiceContext<TankArguments>,
+        service: &ServiceContext<TankArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<Tank>, ServiceError> {
-        let capacity = context.arguments().capacity;
+        let capacity = service.arguments().capacity;
         Ok(ServiceBuilder::new(TankSnapshot {
             level: 0,
             capacity,
@@ -137,8 +142,13 @@ impl Service for TasksService {
     const NAME: &'static str = "recovery-tasks";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<TasksArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<TasksArguments>,
+        _service: &ServiceContext<TasksArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<TasksDomain>, ServiceError> {
         Ok(ServiceBuilder::new(TasksSnapshot))
     }
@@ -222,14 +232,18 @@ async fn inbox_loop_panic_marks_status_degraded_and_keeps_running() {
 async fn three_inbox_loop_panics_within_one_minute_exit_non_zero() {
     let backend: Arc<dyn CommsBackend> = Arc::new(blueos_comms::channel::ChannelBackend::default());
     let clock: Arc<dyn Clock> = Arc::new(PausedClock::start());
-    let builder = TankService::build(&ServiceContext::new(
-        TankArguments { capacity: 100 },
-        blueos_service::testing::channel_session(),
-    ))
+    let builder = TankService::build(
+        &ServiceContext::new(
+            TankArguments { capacity: 100 },
+            blueos_service::testing::channel_session(),
+        ),
+        &(),
+    )
     .expect("build");
     let kernel = Kernel::start(
         TankService::NAME,
         builder,
+        (),
         Arc::clone(&backend),
         Arc::clone(&clock),
     )
@@ -314,6 +328,7 @@ async fn poisoned_lock_does_not_stop_another_task() {
     let kernel = Kernel::start(
         TasksService::NAME,
         builder,
+        (),
         Arc::clone(&backend),
         Arc::clone(&clock),
     )

@@ -31,8 +31,13 @@ impl Service for HoldStateCookbookService {
     const NAME: &'static str = "cookbook_hold_state";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<HoldStateCookbookArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<HoldStateCookbookArguments>,
+        _service: &ServiceContext<HoldStateCookbookArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<HoldStateCookbook>, ServiceError> {
         Ok(ServiceBuilder::new(HoldStateCookbookSnapshot::default())
             .command("SetLevel", |request: SetLevelRequest| {

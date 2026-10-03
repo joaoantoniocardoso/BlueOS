@@ -38,8 +38,13 @@ impl Service for ShutdownCookbookService {
     const NAME: &'static str = "cookbook_shutdown";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<ShutdownCookbookArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<ShutdownCookbookArguments>,
+        _service: &ServiceContext<ShutdownCookbookArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<ShutdownCookbook>, ServiceError> {
         Ok(ServiceBuilder::new(ShutdownCookbookSnapshot::default())
             .on_shutdown(ShutdownCookbookRequest::Cleanup))
@@ -81,16 +86,20 @@ impl Domain for ShutdownCookbook {
 #[tokio::test(start_paused = true)]
 async fn on_shutdown_marks_cleanup_in_the_snapshot() {
     CLEANED_UP.store(false, Ordering::SeqCst);
-    let mut builder = ShutdownCookbookService::build(&ServiceContext::new(
-        ShutdownCookbookArguments,
-        blueos_service::testing::channel_session(),
-    ))
+    let mut builder = ShutdownCookbookService::build(
+        &ServiceContext::new(
+            ShutdownCookbookArguments,
+            blueos_service::testing::channel_session(),
+        ),
+        &(),
+    )
     .unwrap();
     let shutdown = builder.shutdown_handle();
     let backend: std::sync::Arc<dyn CommsBackend> = std::sync::Arc::new(ChannelBackend::default());
     let kernel = Kernel::start(
         ShutdownCookbookService::NAME,
         builder,
+        (),
         std::sync::Arc::clone(&backend),
         std::sync::Arc::new(PausedClock::start()),
     )

@@ -178,10 +178,12 @@ async fn dropped_armed_fact_heals_on_mavlink_periodic_resend() {
     let directory = tempdir().expect("tempdir");
     let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
     let context = ServiceContext::new(recorder_arguments(directory.path()), Arc::clone(&backend));
-    let (builder, mut record_gate) = build_with_record_gate(&context).expect("build");
+    let (builder, recorder_context, mut record_gate) =
+        build_with_record_gate(&context).expect("build");
     let kernel = Kernel::start(
         RecorderService::NAME,
         builder,
+        recorder_context,
         Arc::clone(&backend),
         Arc::new(PausedClock::start()),
     )
@@ -329,11 +331,13 @@ async fn shutdown_mid_recording_leaves_readable_file() {
         Some(settings_parent.path().to_path_buf()),
         Arc::clone(&backend),
     );
-    let mut builder = RecorderService::build(&context).expect("build");
+    let recorder_context = RecorderService::context(&context).expect("context");
+    let mut builder = RecorderService::build(&context, &recorder_context).expect("build");
     let shutdown = builder.shutdown_handle();
     let kernel = Kernel::start(
         RecorderService::NAME,
         builder,
+        recorder_context,
         Arc::clone(&backend),
         Arc::new(PausedClock::start()),
     )
@@ -370,11 +374,13 @@ async fn shutdown_with_no_samples_after_start_still_finishes_file() {
         Some(settings_parent.path().to_path_buf()),
         Arc::clone(&backend),
     );
-    let mut builder = RecorderService::build(&context).expect("build");
+    let recorder_context = RecorderService::context(&context).expect("context");
+    let mut builder = RecorderService::build(&context, &recorder_context).expect("build");
     let shutdown = builder.shutdown_handle();
     let kernel = Kernel::start(
         RecorderService::NAME,
         builder,
+        recorder_context,
         Arc::clone(&backend),
         Arc::new(PausedClock::start()),
     )
@@ -410,12 +416,13 @@ async fn shutdown_with_full_writer_queue_finishes_file() {
         Some(settings_parent.path().to_path_buf()),
         Arc::clone(&backend),
     );
-    let (mut builder, _) =
+    let (mut builder, recorder_context, _) =
         build_with_record_gate_and_index(&context, IndexQuerySetup::default(), 2).expect("build");
     let shutdown = builder.shutdown_handle();
     let kernel = Kernel::start(
         RecorderService::NAME,
         builder,
+        recorder_context,
         Arc::clone(&backend),
         Arc::new(PausedClock::start()),
     )

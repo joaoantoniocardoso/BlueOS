@@ -39,8 +39,15 @@ impl Service for PrivateEventCookbookService {
     const NAME: &'static str = "cookbook_private_event";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(
+        _service: &ServiceContext<PrivateEventCookbookArguments>,
+    ) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<PrivateEventCookbookArguments>,
+        _service: &ServiceContext<PrivateEventCookbookArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<PrivateEventCookbook>, ServiceError> {
         Ok(ServiceBuilder::new(PrivateEventCookbookSnapshot::default())
             .command("SetLevel", |request: SetLevelRequest| {

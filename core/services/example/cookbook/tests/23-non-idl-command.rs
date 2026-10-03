@@ -32,8 +32,13 @@ impl Service for NonIdlCookbookService {
     const NAME: &'static str = "cookbook_non_idl_command";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<NonIdlCookbookArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<NonIdlCookbookArguments>,
+        _service: &ServiceContext<NonIdlCookbookArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<NonIdlCookbook>, ServiceError> {
         Ok(
             ServiceBuilder::new(NonIdlCookbookSnapshot::default()).command(

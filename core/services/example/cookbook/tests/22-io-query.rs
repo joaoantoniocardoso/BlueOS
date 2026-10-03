@@ -30,8 +30,13 @@ impl Service for IoQueryCookbookService {
     const NAME: &'static str = "cookbook_io_query";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<IoQueryCookbookArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<IoQueryCookbookArguments>,
+        _service: &ServiceContext<IoQueryCookbookArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<IoQueryCookbook>, ServiceError> {
         Ok(
             ServiceBuilder::new(IoQueryCookbookSnapshot)

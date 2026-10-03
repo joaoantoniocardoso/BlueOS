@@ -116,12 +116,19 @@ pub(crate) async fn start_recorder_test_harness_with(
 ) -> RecorderTestHarness {
     let backend: Arc<dyn CommsBackend> = Arc::new(blueos_comms::channel::ChannelBackend::default());
     let context = ServiceContext::new(recorder_arguments(path), Arc::clone(&backend));
-    let (builder, _) = build_with_record_gate_index_and_repair(&context, index, repair, 4096)
-        .expect("build recorder service");
+    let (builder, recorder_context, _) =
+        build_with_record_gate_index_and_repair(&context, index, repair, 4096)
+            .expect("build recorder service");
     let clock = Arc::new(PausedClock::start());
-    let kernel = Kernel::start(RecorderService::NAME, builder, Arc::clone(&backend), clock)
-        .await
-        .expect("kernel");
+    let kernel = Kernel::start(
+        RecorderService::NAME,
+        builder,
+        recorder_context,
+        Arc::clone(&backend),
+        clock,
+    )
+    .await
+    .expect("kernel");
     let mut kernel_tasks = tokio::task::JoinSet::new();
     kernel_tasks.spawn(async move {
         kernel.run().await;

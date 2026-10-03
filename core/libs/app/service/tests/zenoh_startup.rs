@@ -48,8 +48,13 @@ impl Service for ZenohStartupService {
     const NAME: &'static str = "zenoh_startup";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<ZenohStartupArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<ZenohStartupArguments>,
+        _service: &ServiceContext<ZenohStartupArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<ZenohStartup>, ServiceError> {
         Ok(ServiceBuilder::new(ZenohStartupSnapshot { ready: true })
             .command("Noop", |_: EmptyRequest| Ok(ZenohStartupRequest::Noop))
@@ -186,11 +191,15 @@ async fn zenoh_startup_serves_every_endpoint_when_liveliness_appears() {
     let kernel_backend = Arc::clone(&backend);
     let kernel = Kernel::start(
         ZenohStartupService::NAME,
-        ZenohStartupService::build(&ServiceContext::new(
-            ZenohStartupArguments {},
-            blueos_service::testing::channel_session(),
-        ))
+        ZenohStartupService::build(
+            &ServiceContext::new(
+                ZenohStartupArguments {},
+                blueos_service::testing::channel_session(),
+            ),
+            &(),
+        )
         .unwrap(),
+        (),
         kernel_backend,
         Arc::new(PausedClock::start()),
     )

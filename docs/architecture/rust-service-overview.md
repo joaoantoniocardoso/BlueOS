@@ -6,7 +6,7 @@ The draft 1 tour stays unchanged under [`docs/architecture/draft-1/rust-service-
 as evidence (D-20).
 
 The walkthrough follows one `SetLevel` Command on `example-minimal` (`core/services/example/`). Integration tests
-use the same path through `ExampleService::build` and `endpoints::register` (D-20, D-25).
+use the same path through `ExampleService::context`, `ExampleService::build` and `endpoints::register` (D-20, D-25).
 
 ## Layers
 
@@ -69,8 +69,8 @@ D-10, D-14).
 
 `blueos_service::entry::run` in `core/libs/app/service/src/entry/run.rs` starts logging (D-13), parses the CLI
 (D-25), opens the Zenoh backend as the Session (D-25), loads settings and durable state when registered (D-11,
-D-28), calls `ExampleService::build` in `core/services/example/app/src/service.rs`, then `Kernel::start` and
-`Kernel::run` (D-25). `example-minimal` does not register settings, durable state, Tasks, or Jobs; the Recorder
+D-28), calls `ExampleService::context` and then `ExampleService::build` in
+`core/services/example/app/src/service.rs`, then `Kernel::start` with the Context and `Kernel::run` (D-25). `example-minimal` does not register settings, durable state, Tasks, or Jobs; the Recorder
 shows those paths below.
 
 ## Settings, durable state, Tasks, Projections
@@ -123,7 +123,7 @@ Each row names the crate and module that implements the term on this branch. Pat
 | **Job** | `blueos-jobs` (`libs/logic/jobs/src/lib.rs`); Kernel `jobs` State wiring (`builder.rs`, `kernel/mod.rs`) |
 | **Task** | `blueos-service`: `tasks` (`libs/app/service/src/tasks.rs`); example Recorder `run_data_plane` (`services/recorder/app/src/capture/tasks/data_plane/mod.rs`) |
 | **Inbox** | `blueos-service`: `inbox` (`libs/app/service/src/inbox.rs`); loop in `kernel/mod.rs` |
-| **Context** | Service-specific IO dependencies in `ServiceBuilder::context`; Recorder `RecorderContext` (`services/recorder/app/src/context.rs`). `example-minimal` uses `()` |
+| **Context** | Service-specific IO dependencies, built by `Service::context` and changed in tests by `Harness::start_with`; Recorder `RecorderContext` (`services/recorder/app/src/context.rs`). `example-minimal` uses `()` |
 | **Command** | `blueos-domain`: `Command` enum (`libs/logic/domain/src/lib.rs`) |
 | **Request** | `Command::Request` variant; client origin `PumpRequest` (`services/example/logic/domain/src/lib.rs`) |
 | **IO result** | `Command::IoResult`; handled via `Domain::io_failed` (domain trait). No IO in `example-minimal` |

@@ -18,7 +18,7 @@ use blueos_comms::{
 use blueos_domain::{Command, Decision, Domain, DomainQueries, Now, Outcome};
 use blueos_idl::msg::blueos_example_msgs::{EmptyRequest, LevelQueryResponse, SetLevelRequest};
 use blueos_service::{
-    Projection, RestartPolicy, Service, ServiceBuilder, ServiceContext, ServiceError, TaskFailed,
+    RestartPolicy, Service, ServiceBuilder, ServiceContext, ServiceError, TaskContext, TaskFailed,
     testing::{Harness, lock_unpoisoned},
 };
 
@@ -40,7 +40,6 @@ struct ReconcileSnapshot {
 }
 
 struct ReconcileContext {
-    desired_lamp: Projection<bool>,
     projection_changes: Arc<AtomicUsize>,
 }
 
@@ -76,10 +75,18 @@ impl Service for ReconcileService {
     const NAME: &'static str = "reconcile-harness";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(
+        service: &ServiceContext<ReconcileArguments>,
+    ) -> Result<ReconcileContext, ServiceError> {
+        Ok(ReconcileContext {
+            projection_changes: Arc::clone(&service.arguments().projection_changes),
+        })
+    }
+
     fn build(
-        context: &ServiceContext<ReconcileArguments>,
+        _service: &ServiceContext<ReconcileArguments>,
+        _context: &ReconcileContext,
     ) -> Result<ServiceBuilder<ReconcileDomain, ReconcileContext>, ServiceError> {
-        let projection_changes = Arc::clone(&context.arguments().projection_changes);
         let (builder, desired_lamp) = ServiceBuilder::new(ReconcileSnapshot {
             desired_lamp: false,
             observed_lamp: false,
@@ -87,10 +94,6 @@ impl Service for ReconcileService {
         })
         .projection(|snapshot: &ReconcileSnapshot| snapshot.desired_lamp);
         Ok(builder
-            .context(ReconcileContext {
-                desired_lamp,
-                projection_changes,
-            })
             .command("SetDesired", |request: SetLevelRequest| {
                 Ok(ReconcileRequest::SetDesired(request.level > 0))
             })
@@ -110,23 +113,25 @@ impl Service for ReconcileService {
             .task(
                 "reconcile",
                 RestartPolicy::Never,
-                move |task_context| async move {
-                    let mut desired = task_context.context.desired_lamp.subscribe();
-                    while !task_context.shutdown.is_cancelled() {
-                        if timeout(RECV_TIMEOUT, desired.changed()).await.is_err() {
-                            continue;
+                move |task_context: TaskContext<ReconcileDomain, ReconcileContext>| {
+                    let mut desired = desired_lamp.subscribe();
+                    async move {
+                        while !task_context.shutdown.is_cancelled() {
+                            if timeout(RECV_TIMEOUT, desired.changed()).await.is_err() {
+                                continue;
+                            }
+                            task_context
+                                .context
+                                .projection_changes
+                                .fetch_add(1, Ordering::SeqCst);
+                            let on = *desired.borrow();
+                            let _ = task_context
+                                .commands
+                                .send(Command::ObservedFact(ReconcileObserved::Lamp(on)))
+                                .await;
                         }
-                        task_context
-                            .context
-                            .projection_changes
-                            .fetch_add(1, Ordering::SeqCst);
-                        let on = *desired.borrow();
-                        let _ = task_context
-                            .commands
-                            .send(Command::ObservedFact(ReconcileObserved::Lamp(on)))
-                            .await;
+                        Ok::<(), TaskFailed>(())
                     }
-                    Ok::<(), TaskFailed>(())
                 },
             ))
     }

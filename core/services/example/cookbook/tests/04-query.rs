@@ -38,8 +38,13 @@ impl Service for QueryCookbookService {
     const NAME: &'static str = "cookbook_query";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<QueryCookbookArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<QueryCookbookArguments>,
+        _service: &ServiceContext<QueryCookbookArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<QueryCookbook>, ServiceError> {
         Ok(ServiceBuilder::new(QueryCookbookSnapshot::default())
             .command("SetLevel", |request: SetLevelRequest| {

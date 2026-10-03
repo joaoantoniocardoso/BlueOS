@@ -173,7 +173,7 @@ enum SendError {
 
 impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
     /// Declares every endpoint of `builder` on `backend` and publishes the initial States, so every endpoint answers
-    /// once this returns.
+    /// once this returns. The Kernel owns `context` from here on and hands it to IO code and Tasks.
     ///
     /// # Errors
     ///
@@ -181,16 +181,17 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
     pub async fn start(
         service: &'static str,
         builder: ServiceBuilder<D, Context>,
+        context: Context,
         backend: Arc<dyn CommsBackend>,
         clock: Arc<dyn Clock>,
     ) -> Result<Self, ServiceError> {
         #[cfg(feature = "testing")]
         {
-            Self::boot(service, builder, backend, clock, None).await
+            Self::boot(service, builder, context, backend, clock, None).await
         }
         #[cfg(not(feature = "testing"))]
         {
-            Self::boot(service, builder, backend, clock).await
+            Self::boot(service, builder, context, backend, clock).await
         }
     }
 
@@ -199,11 +200,12 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
     pub async fn start_with_effect_log(
         service: &'static str,
         builder: ServiceBuilder<D, Context>,
+        context: Context,
         backend: Arc<dyn CommsBackend>,
         clock: Arc<dyn Clock>,
         effect_log: Option<EffectLogStorage<D>>,
     ) -> Result<Self, ServiceError> {
-        Self::boot(service, builder, backend, clock, effect_log).await
+        Self::boot(service, builder, context, backend, clock, effect_log).await
     }
 
     /// Runs the service log publisher flush as the last shutdown step (D-04, D-13).
@@ -222,6 +224,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
     async fn boot(
         service: &'static str,
         mut builder: ServiceBuilder<D, Context>,
+        context: Context,
         backend: Arc<dyn CommsBackend>,
         clock: Arc<dyn Clock>,
         #[cfg(feature = "testing")] effect_log: Option<EffectLogStorage<D>>,
@@ -368,7 +371,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             backend,
             clock,
             timers: TimerWheel::new(),
-            context: Arc::new(builder.context),
+            context: Arc::new(context),
             io: builder.io,
             snapshot_for_queries,
             #[cfg(feature = "testing")]

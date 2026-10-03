@@ -36,8 +36,13 @@ impl Service for ShutdownLogService {
     const NAME: &'static str = "logging-shutdown-task";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<ShutdownLogArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<ShutdownLogArguments>,
+        _service: &ServiceContext<ShutdownLogArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<ShutdownLogDomain>, ServiceError> {
         Ok(ServiceBuilder::new(ShutdownLogSnapshot).task(
             "logger",
@@ -88,15 +93,16 @@ async fn task_shutdown_log_is_published_before_run_returns() {
     let mut subscriber = backend.subscribe(&key).await.expect("subscribe");
     let log_runtime = LogPublisherRuntime::start(attach(Arc::clone(&backend), key).await);
 
-    let mut builder = ShutdownLogService::build(&ServiceContext::new(
-        ShutdownLogArguments {},
-        Arc::clone(&backend),
-    ))
+    let mut builder = ShutdownLogService::build(
+        &ServiceContext::new(ShutdownLogArguments {}, Arc::clone(&backend)),
+        &(),
+    )
     .expect("build");
     let shutdown = builder.shutdown_handle();
     let mut kernel = Kernel::start(
         ShutdownLogService::NAME,
         builder,
+        (),
         Arc::clone(&backend),
         Arc::new(PausedClock::start()),
     )

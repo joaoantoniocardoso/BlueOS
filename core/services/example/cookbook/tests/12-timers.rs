@@ -43,8 +43,13 @@ impl Service for TimersCookbookService {
     const NAME: &'static str = "cookbook_timers";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<TimersCookbookArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<TimersCookbookArguments>,
+        _service: &ServiceContext<TimersCookbookArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<TimersCookbook>, ServiceError> {
         Ok(ServiceBuilder::new(TimersCookbookSnapshot::default())
             .command("Arm", |_: EmptyRequest| Ok(TimersCookbookRequest::Arm))

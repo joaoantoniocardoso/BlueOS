@@ -47,8 +47,13 @@ impl Service for TankService {
     const NAME: &'static str = "logging-recovery-inbox";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<TankArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<TankArguments>,
+        _service: &ServiceContext<TankArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<Tank>, ServiceError> {
         Ok(ServiceBuilder::new(TankSnapshot { level: 0 })
             .command("SetLevel", |request: SetLevelRequest| {

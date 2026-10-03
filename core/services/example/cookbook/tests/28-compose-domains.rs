@@ -124,8 +124,13 @@ impl Service for ComposeCookbookService {
     const NAME: &'static str = "cookbook_compose";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<ComposeCookbookArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<ComposeCookbookArguments>,
+        _service: &ServiceContext<ComposeCookbookArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<Room>, ServiceError> {
         Ok(ServiceBuilder::new(RoomSnapshot::default())
             .command("TurnOn", |_: EmptyRequest| Ok(RoomRequest::TurnOn))

@@ -30,8 +30,15 @@ impl Service for CommandSenderCookbookService {
     const NAME: &'static str = "cookbook_command_sender";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(
+        _service: &ServiceContext<CommandSenderCookbookArguments>,
+    ) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<CommandSenderCookbookArguments>,
+        _service: &ServiceContext<CommandSenderCookbookArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<CommandSenderCookbook>, ServiceError> {
         Ok(
             ServiceBuilder::new(CommandSenderCookbookSnapshot::default())

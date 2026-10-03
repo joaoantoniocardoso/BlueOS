@@ -32,8 +32,13 @@ impl Service for TasksCookbookService {
     const NAME: &'static str = "cookbook_tasks";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<TasksCookbookArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<TasksCookbookArguments>,
+        _service: &ServiceContext<TasksCookbookArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<TasksCookbook>, ServiceError> {
         Ok(ServiceBuilder::new(TasksCookbookSnapshot::default())
             .task("worker", RestartPolicy::Never, |task_context| async move {
