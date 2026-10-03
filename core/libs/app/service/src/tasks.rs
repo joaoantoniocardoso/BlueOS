@@ -33,6 +33,8 @@ use crate::{
 const BACKOFF_MIN: Duration = Duration::from_millis(100);
 /// Maximum delay between Task restart attempts (spec D-27).
 const BACKOFF_MAX: Duration = Duration::from_secs(30);
+/// The counter of how many times the supervisor restarted a Task, labelled with the Task's name (D-35).
+const TASK_RESTARTS: &str = "task_restarts";
 
 /// When a supervised Task body fails and should be restarted.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -393,6 +395,7 @@ async fn supervise_task<D: Domain, Context: Send + Sync + 'static>(
         if wait_delay(&clock, &shutdown, delay).await {
             break;
         }
+        metrics::counter!(TASK_RESTARTS, "task" => name.clone()).increment(1);
     }
 }
 
