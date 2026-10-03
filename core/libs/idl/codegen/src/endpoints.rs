@@ -356,7 +356,8 @@ impl InterfaceType {
     }
 }
 
-/// Every endpoint key of the Services in workspace manifests, with the standard ones, for `api.lock`.
+/// Every endpoint key of the Services in workspace manifests, with the standard ones and the Feedback, Job result
+/// and history of each Job type (`UpdateSettings` included, with no Feedback or Job result), for `api.lock`.
 pub fn collect_endpoint_lock_lines(
     core_dir: &Path,
     messages: &BTreeSet<String>,
@@ -370,12 +371,33 @@ pub fn collect_endpoint_lock_lines(
                 &format!("type={}", standard.interface_type),
             ));
         }
+        let mut job_outputs = vec![("UpdateSettings".to_owned(), String::new(), String::new())];
         for endpoint in endpoints {
             lines.push(crate::format_lock_line(
                 &endpoint.key(&service),
                 1,
                 &format!("type={}", endpoint.interface.schema_name()),
             ));
+            if endpoint.kind == Kind::Job {
+                job_outputs.push((
+                    endpoint.name,
+                    endpoint.interface.part_schema_name("Feedback"),
+                    endpoint.interface.part_schema_name("Result"),
+                ));
+            }
+        }
+        for (job_type, feedback_type, result_type) in job_outputs {
+            for (output, interface_type) in [
+                ("feedback", feedback_type.as_str()),
+                ("result", result_type.as_str()),
+                ("history", "blueos_msgs/msg/JobList"),
+            ] {
+                lines.push(crate::format_lock_line(
+                    &format!("blueos/v1/{service}/jobs/{job_type}/{output}"),
+                    1,
+                    &format!("type={interface_type}"),
+                ));
+            }
         }
     }
     lines.sort();
