@@ -1097,7 +1097,9 @@ Decision:
     or a ceiling for a category the tool does not report, fails, so a new `rustqual` version cannot add categories
     silently. A tool that crashes or writes no JSON fails the check, and fix mode then writes nothing.
   - A `rustqual` suppression is a `// qual:allow` with a written reason, and an exceeded `max_suppression_ratio`
-    fails.
+    fails. `rustqual` offers no `qual:allow` target for a dead type, so a cookbook test whose Service types only
+    that test uses may carry `// qual:test_helper` and a reason, the marker `rustqual` documents for types that serve
+    tests. Every other cookbook test counts those types against the `dead_type_warnings` ceiling instead.
   - CI compares both ratchet files with the base revision (the pull request's base, or the commit a push replaced)
     and fails when a ceiling rose, a floor fell, or a key was removed, and when the base revision cannot be
     resolved. Loosening one on purpose (for example, for a
