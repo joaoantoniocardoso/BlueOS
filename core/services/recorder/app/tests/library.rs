@@ -18,8 +18,8 @@ use blueos_recorder_library::RESCAN_INTERVAL;
 use blueos_service::{Service, testing::Harness};
 
 use common::{
-    drain_blocking_io, recorder_arguments, start_harness, wait_for_active_recording,
-    wait_for_library_file_listed, wait_for_recording_idle,
+    drain_blocking_io, recorder_arguments, start_harness, start_recording,
+    wait_for_active_recording, wait_for_library_file_listed, wait_for_recording_idle,
 };
 
 #[tokio::test(start_paused = true)]
@@ -79,6 +79,7 @@ async fn stop_auto_recording_and_remove_session_files(
     harness: &Harness<RecorderService>,
     directory: &std::path::Path,
 ) {
+    start_recording(harness).await;
     advance(Duration::from_secs(1)).await;
     wait_for_active_recording(harness.backend()).await;
     harness.send("Stop", &StopRecordingCommand::default()).await;
