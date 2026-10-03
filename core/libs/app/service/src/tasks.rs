@@ -13,7 +13,7 @@ use tokio::{sync::watch, task::JoinHandle};
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
 use tracing::warn;
 
-use blueos_api::Message;
+use blueos_api::{Message, cdr_encoding};
 use blueos_comms::{CommsBackend, Sample};
 use blueos_domain::Domain;
 use blueos_idl::{
@@ -25,6 +25,7 @@ use crate::{
     clock::Clock,
     command_sender::{CommandSender, Session},
     inbox_recovery::{INBOX_LOOP_NAME, LoopPanicTracker, log_caught_panic},
+    metrics_registry::MetricsRegistry,
     sync::lock_unpoisoned,
 };
 
@@ -80,10 +81,11 @@ pub struct TaskContext<D: Domain, Context> {
     pub clock: Arc<dyn Clock>,
 }
 
-/// Spawns every future on the shared [`TaskTracker`].
+/// Spawns every future on the shared [`TaskTracker`], recording its metrics in the Service's registry.
 #[derive(Clone)]
 pub(crate) struct TaskSpawner {
     tracker: Arc<TaskTracker>,
+    metrics: MetricsRegistry,
 }
 
 /// One Task declared in `build`.
@@ -141,9 +143,10 @@ impl Backoff {
 }
 
 impl TaskSpawner {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(metrics: MetricsRegistry) -> Self {
         Self {
             tracker: Arc::new(TaskTracker::new()),
+            metrics,
         }
     }
 
@@ -152,7 +155,7 @@ impl TaskSpawner {
         F: Future + Send + 'static,
         F::Output: Send + 'static,
     {
-        self.tracker.spawn(future)
+        self.tracker.spawn(self.metrics.scope(future))
     }
 }
 
@@ -161,18 +164,18 @@ impl TaskSupervisor {
         service: &'static str,
         backend: Arc<dyn CommsBackend>,
         status_key: String,
-        status_encoding: String,
         status_latest: watch::Sender<Option<Bytes>>,
+        metrics: MetricsRegistry,
     ) -> Self {
         Self {
-            spawner: TaskSpawner::new(),
+            spawner: TaskSpawner::new(metrics),
             shutdown: CancellationToken::new(),
             handles: Mutex::new(Vec::new()),
             status: StatusPublisher {
                 service,
                 backend,
                 key: status_key,
-                encoding: status_encoding,
+                encoding: cdr_encoding(ServiceStatus::SCHEMA_NAME),
                 latest: status_latest,
                 degraded_tasks: Arc::new(Mutex::new(BTreeSet::new())),
             },

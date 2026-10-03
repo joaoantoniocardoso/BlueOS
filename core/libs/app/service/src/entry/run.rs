@@ -7,7 +7,10 @@ use tracing::error;
 use blueos_comms::CommsBackend;
 use blueos_comms_zenoh::{ZenohBackend, config::ZenohConnectOptions};
 
-use crate::{Kernel, RunOutcome, Service, ServiceContext, ServiceError, logging};
+use crate::{
+    Kernel, RunOutcome, Service, ServiceContext, ServiceError, logging,
+    metrics_registry::MetricsRegistry,
+};
 
 use super::{
     parse::{ParsedServiceArguments, parse_service_cli},
@@ -44,12 +47,14 @@ pub async fn run_with_backend<S: Service>(
     clock: Arc<dyn crate::Clock>,
 ) -> Result<RunOutcome, ServiceError> {
     logging::init_from_verbosity(parsed.common.verbose);
-    run_with_log_publisher_on_backend::<S>(parsed, backend, clock).await
+    run_with_log_publisher_on_backend::<S>(parsed, backend, clock, MetricsRegistry::default()).await
 }
 
 async fn run_with_log_publisher<S: Service>(
     parsed: ParsedServiceArguments<S::Arguments>,
 ) -> Result<RunOutcome, ServiceError> {
+    let metrics = MetricsRegistry::default();
+    metrics.install();
     let options = ZenohConnectOptions {
         endpoint: &parsed.common.zenoh_endpoint,
         config_file: parsed.common.zenoh_config.as_deref(),
@@ -61,13 +66,14 @@ async fn run_with_log_publisher<S: Service>(
             .map_err(ServiceError::Session)?,
     );
     let clock = Arc::new(SystemClock::new());
-    run_with_log_publisher_on_backend::<S>(parsed, backend, clock).await
+    run_with_log_publisher_on_backend::<S>(parsed, backend, clock, metrics).await
 }
 
 async fn run_with_log_publisher_on_backend<S: Service>(
     parsed: ParsedServiceArguments<S::Arguments>,
     backend: Arc<dyn CommsBackend>,
     clock: Arc<dyn crate::Clock>,
+    metrics: MetricsRegistry,
 ) -> Result<RunOutcome, ServiceError> {
     let publisher = logging::attach_backbone(S::NAME, Arc::clone(&backend)).await;
     let log_runtime = logging::LogPublisherRuntime::start(publisher);
@@ -78,7 +84,8 @@ async fn run_with_log_publisher_on_backend<S: Service>(
             Arc::clone(&backend),
         );
         let context = S::context(&service)?;
-        let builder = S::build(&service, &context)?.for_service::<S>(&service);
+        let mut builder = S::build(&service, &context)?.for_service::<S>(&service);
+        builder.metrics = metrics;
         let mut kernel = Kernel::start(S::NAME, builder, context, backend, clock).await?;
         kernel.attach_log_publisher(log_runtime);
         Ok(kernel.run().await)
