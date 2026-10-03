@@ -6,8 +6,9 @@ use serde::Deserialize;
 
 use blueos_api::{
     API_VERSION, ENCODING_APPLICATION_CDR, KEY_PREFIX, TYPE_HASH_ATTACHMENT_KEY, cdr_encoding,
-    command_key, event_key, extension_log_key, http_gateway_prefix, info_query_key, jobs_key,
-    log_key, query_key, service_liveliness_key, settings_key, state_key, status_state_key,
+    command_key, event_key, extension_log_key, http_gateway_prefix, info_query_key,
+    job_feedback_key, job_history_key, job_result_key, jobs_key, log_key, query_key,
+    service_liveliness_key, settings_key, state_key, status_state_key,
 };
 
 #[derive(Debug, Deserialize)]
@@ -19,6 +20,9 @@ struct KeysVectors {
     event_key: Vec<NamedCase>,
     query_key: Vec<NamedCase>,
     jobs_key: Vec<ServiceCase>,
+    job_feedback_key: Vec<NamedCase>,
+    job_result_key: Vec<NamedCase>,
+    job_history_key: Vec<NamedCase>,
     settings_key: Vec<ServiceCase>,
     log_key: Vec<ServiceCase>,
     extension_log_key: Vec<ExtensionLogCase>,
@@ -95,6 +99,15 @@ fn keys_vectors_match_rust_api() {
     }
     for case in vectors.jobs_key {
         assert_eq!(jobs_key(&case.service), case.expected);
+    }
+    for case in vectors.job_feedback_key {
+        assert_eq!(job_feedback_key(&case.service, &case.name), case.expected);
+    }
+    for case in vectors.job_result_key {
+        assert_eq!(job_result_key(&case.service, &case.name), case.expected);
+    }
+    for case in vectors.job_history_key {
+        assert_eq!(job_history_key(&case.service, &case.name), case.expected);
     }
     for case in vectors.settings_key {
         assert_eq!(settings_key(&case.service), case.expected);
