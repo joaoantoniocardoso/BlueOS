@@ -936,7 +936,7 @@ async fn the_harness_panics_when_a_command_gets_no_ack() {
 }
 
 #[tokio::test(start_paused = true)]
-#[should_panic(expected = "expected one value of \"missing\"")]
+#[should_panic(expected = "expected one reply on blueos/v1/tank/state/missing")]
 async fn the_harness_panics_when_a_state_has_no_value() {
     let harness = Harness::<TankService>::start(TankArguments { capacity: 100 })
         .await
