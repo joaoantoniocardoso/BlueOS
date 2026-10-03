@@ -55,6 +55,8 @@ pub enum LibraryRequest {
     DeleteRecording {
         /// Syntax-validated relative path.
         path: RecordingRelativePath,
+        /// The Job the delete runs as.
+        job_id: JobId,
     },
 }
 
@@ -134,6 +136,8 @@ pub enum LibraryIoResult {
     DeleteFinished {
         /// Path that was deleted or attempted.
         path: RecordingRelativePath,
+        /// The Job the delete ran as.
+        job_id: JobId,
         /// Set when removal failed.
         error: Option<IoError>,
     },
@@ -199,6 +203,8 @@ pub enum LibraryIoRequest {
     Delete {
         /// Validated relative path.
         path: RecordingRelativePath,
+        /// The Job the delete runs as.
+        job_id: JobId,
     },
 }
 
@@ -403,7 +409,7 @@ impl Library {
         now: Now,
     ) -> LibraryOutcome {
         match request {
-            LibraryRequest::DeleteRecording { path } => {
+            LibraryRequest::DeleteRecording { path, job_id } => {
                 let relative = path.as_str();
                 let context = command_context(self, relative, active_recording_relative_path, now);
                 if let Some(reason) = delete_recording_rejection(&context) {
@@ -413,7 +419,7 @@ impl Library {
                 rebuild_entries(self, active_recording_relative_path, now);
                 Outcome::Applied {
                     events: vec![],
-                    effects: vec![Effect::Io(LibraryIoRequest::Delete { path })],
+                    effects: vec![Effect::Io(LibraryIoRequest::Delete { path, job_id })],
                 }
             }
         }
@@ -499,7 +505,7 @@ impl Library {
                 apply_scan(self, recordings, active_recording_relative_path, now)
             }
             LibraryIoResult::ScanFailed => finish_scan_cycle(),
-            LibraryIoResult::DeleteFinished { path, error } => {
+            LibraryIoResult::DeleteFinished { path, error, .. } => {
                 let relative = path.as_str();
                 self.deleting.remove(relative);
                 if error.is_none() {

@@ -43,7 +43,10 @@ fn delete_rejects_active_recording_file() {
     let mut library = scan_snapshot(&[("live.mcap", true)], 1_000);
     let path = blueos_recorder_paths::RecordingRelativePath::parse("live.mcap").expect("path");
     let outcome = library.handle_request(
-        LibraryRequest::DeleteRecording { path },
+        LibraryRequest::DeleteRecording {
+            path,
+            job_id: JobId::from_u128(1),
+        },
         Some("live.mcap"),
         NOW,
     );
