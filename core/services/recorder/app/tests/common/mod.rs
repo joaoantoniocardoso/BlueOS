@@ -23,7 +23,7 @@ use blueos_idl::msg::{
 };
 use blueos_recorder_app::{RecorderArguments, RecorderContext, RecorderService};
 use blueos_recorder_library::RESCAN_INTERVAL;
-use blueos_service::{Service, testing::Harness};
+use blueos_service::{Service, new_job_id, testing::Harness};
 
 pub(crate) const REPLY_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -72,7 +72,8 @@ pub(crate) async fn start_recording_on(backend: &Arc<dyn CommsBackend>) {
     let body = QueryBody::new(
         start.encode().expect("encode"),
         cdr_encoding(StartRecordingCommand::SCHEMA_NAME),
-    );
+    )
+    .with_attachment(new_job_id().to_string().into_bytes());
     backend
         .get(
             &command_key(RecorderService::NAME, "Start"),
@@ -120,7 +121,8 @@ pub(crate) async fn stop_recording_on(backend: &Arc<dyn CommsBackend>) {
     let body = QueryBody::new(
         stop.encode().expect("encode"),
         cdr_encoding(StopRecordingCommand::SCHEMA_NAME),
-    );
+    )
+    .with_attachment(new_job_id().to_string().into_bytes());
     backend
         .get(
             &command_key(RecorderService::NAME, "Stop"),

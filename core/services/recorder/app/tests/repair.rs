@@ -26,12 +26,11 @@ use blueos_idl::{
         RepairRecordingCommand,
     },
 };
-use blueos_jobs::{JobGraph, Jobs};
+use blueos_jobs::{JobId, JobNature, Jobs};
 use blueos_recorder_app::RecorderService;
-use blueos_recorder_domain::{durable::RecorderDurableState, job::RecorderJobStep};
+use blueos_recorder_domain::durable::RecorderDurableState;
 use blueos_recorder_library::RESCAN_INTERVAL;
 use blueos_recorder_mcap::is_indexed;
-use blueos_recorder_paths::RecordingRelativePath;
 use blueos_service::{
     Service,
     testing::{Harness, WALL_CLOCK_AT_START},
@@ -50,7 +49,7 @@ struct PersistedRecorderState {
     #[serde(rename = "VERSION")]
     version: u32,
     domain: RecorderDurableState,
-    jobs: Jobs<RecorderJobStep>,
+    jobs: Jobs,
 }
 
 impl Drop for ReleaseRepairOnDrop {
@@ -199,7 +198,7 @@ async fn cancel_repair_leaves_original_bytes_unchanged() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn restored_interrupted_repair_job_is_failed_and_recover_discarded() {
+async fn restored_interrupted_repair_job_is_aborted_and_recover_discarded() {
     let directory = tempdir().expect("tempdir");
     let settings_parent = tempdir().expect("settings");
     let path = directory.path().join("broken.mcap");
@@ -207,9 +206,22 @@ async fn restored_interrupted_repair_job_is_failed_and_recover_discarded() {
     fs::write(directory.path().join("broken.recover"), b"temporary").expect("write recover");
 
     let mut persisted_jobs = Jobs::default();
-    persisted_jobs.start(JobGraph::Leaf(RecorderJobStep::RepairRecording {
-        path: RecordingRelativePath::parse("broken.mcap").expect("path"),
-    }));
+    let goal = RepairRecordingCommand {
+        path: "broken.mcap".into(),
+    }
+    .encode()
+    .expect("encode");
+    persisted_jobs
+        .submit(
+            JobId::from_u128(1),
+            "RepairRecording",
+            &goal,
+            JobNature {
+                lasting: true,
+                ..JobNature::INSTANT
+            },
+        )
+        .expect("submit");
     let envelope = PersistedRecorderState {
         version: NonZeroU32::MIN.get(),
         domain: RecorderDurableState,
@@ -245,12 +257,12 @@ async fn restored_interrupted_repair_job_is_failed_and_recover_discarded() {
     let repair_job = job_list
         .jobs
         .iter()
-        .find(|job| job.name.starts_with("repair "))
+        .find(|job| job.job_type == "RepairRecording")
         .expect("repair job in history");
     assert_eq!(
-        repair_job.status,
-        JobStatusStatus::Failed,
-        "interrupted repair must finish as failed after restore"
+        (repair_job.status, repair_job.reason.as_str()),
+        (JobStatusStatus::Aborted, "interrupted"),
+        "interrupted repair must end aborted after restore"
     );
 }
 

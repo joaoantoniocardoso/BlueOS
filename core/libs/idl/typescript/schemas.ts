@@ -30,10 +30,25 @@ string detail`,
 
 uint8 level`,
   "blueos_msgs/msg/CommandAck": `# blueos_msgs/msg/CommandAck
-# Reply to a Zenoh command query (D-10).
+# Reply to a Command, which submits a Job or controls one (D-10, D-36).
+
+# The STATUS_ values of blueos_msgs/JobStatus. STATUS_UNKNOWN when the Command named no Job.
+uint8 STATUS_UNKNOWN=0
+uint8 STATUS_ACCEPTED=1
+uint8 STATUS_EXECUTING=2
+uint8 STATUS_CANCELING=3
+uint8 STATUS_SUCCEEDED=4
+uint8 STATUS_CANCELED=5
+uint8 STATUS_ABORTED=6
+uint8 STATUS_WAITING_FOR_PERMISSION=7
+uint8 STATUS_WAITING_FOR_RESOURCE=8
+uint8 STATUS_PAUSED=9
 
 bool accepted
-uint64 job_id
+# The UUID the client generated for the Job, as text.
+string job_id
+# The status of the Job after the Command was applied, so a Job that ended in that step returns its final status.
+uint8 status
 string reason`,
   "blueos_msgs/msg/EndpointInfo": `# blueos_msgs/msg/EndpointInfo
 # One key a service serves, listed in ServiceInfo.endpoints so clients can discover the API (D-12, D-24).
@@ -53,35 +68,54 @@ blueos_msgs/JobStatus[] jobs
 ================================================================================
 MSG: blueos_msgs/JobStatus
 # blueos_msgs/msg/JobStatus
-# One job entry; status values mirror blueos_jobs (D-12).
+# One Job in the jobs State (D-12, D-36). STATUS_ values 0 to 6 are those of ROS 2 action_msgs/GoalStatus; a ROS 2
+# client sees the two waiting statuses as STATUS_ACCEPTED, and STATUS_PAUSED as STATUS_EXECUTING (D-38).
 
-uint8 STATUS_QUEUED=0
-uint8 STATUS_RUNNING=1
-uint8 STATUS_CANCELLING=2
-uint8 STATUS_SUCCEEDED=3
-uint8 STATUS_FAILED=4
-uint8 STATUS_CANCELLED=5
-uint8 STATUS_INTERRUPTED=6
+uint8 STATUS_UNKNOWN=0
+uint8 STATUS_ACCEPTED=1
+uint8 STATUS_EXECUTING=2
+uint8 STATUS_CANCELING=3
+uint8 STATUS_SUCCEEDED=4
+uint8 STATUS_CANCELED=5
+uint8 STATUS_ABORTED=6
+uint8 STATUS_WAITING_FOR_PERMISSION=7
+uint8 STATUS_WAITING_FOR_RESOURCE=8
+uint8 STATUS_PAUSED=9
 
-uint64 job_id
-uint64 parent_job_id
+# The UUID the client generated for the Job, as text.
+string job_id
+# The Job type, the name of its submit endpoint.
+string job_type
 uint8 status
-string name`,
+# Why the Job was canceled or aborted, when the Kernel ended it.
+string reason`,
   "blueos_msgs/msg/JobStatus": `# blueos_msgs/msg/JobStatus
-# One job entry; status values mirror blueos_jobs (D-12).
+# One Job in the jobs State (D-12, D-36). STATUS_ values 0 to 6 are those of ROS 2 action_msgs/GoalStatus; a ROS 2
+# client sees the two waiting statuses as STATUS_ACCEPTED, and STATUS_PAUSED as STATUS_EXECUTING (D-38).
 
-uint8 STATUS_QUEUED=0
-uint8 STATUS_RUNNING=1
-uint8 STATUS_CANCELLING=2
-uint8 STATUS_SUCCEEDED=3
-uint8 STATUS_FAILED=4
-uint8 STATUS_CANCELLED=5
-uint8 STATUS_INTERRUPTED=6
+uint8 STATUS_UNKNOWN=0
+uint8 STATUS_ACCEPTED=1
+uint8 STATUS_EXECUTING=2
+uint8 STATUS_CANCELING=3
+uint8 STATUS_SUCCEEDED=4
+uint8 STATUS_CANCELED=5
+uint8 STATUS_ABORTED=6
+uint8 STATUS_WAITING_FOR_PERMISSION=7
+uint8 STATUS_WAITING_FOR_RESOURCE=8
+uint8 STATUS_PAUSED=9
 
-uint64 job_id
-uint64 parent_job_id
+# The UUID the client generated for the Job, as text.
+string job_id
+# The Job type, the name of its submit endpoint.
+string job_type
 uint8 status
-string name`,
+# Why the Job was canceled or aborted, when the Kernel ended it.
+string reason`,
+  "blueos_msgs/msg/PermissionAnswer": `# blueos_msgs/msg/PermissionAnswer
+# The body of command/AnswerPermission, whose attachment names the Job waiting for permission (D-36).
+
+# True lets the Job execute; false cancels it.
+bool granted`,
   "blueos_msgs/msg/RestartRequired": `# blueos_msgs/msg/RestartRequired
 # Event listing settings fields that need a service restart (D-11).
 

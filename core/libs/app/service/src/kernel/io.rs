@@ -13,7 +13,11 @@ use tokio::sync::mpsc;
 
 use blueos_domain::{Command, Domain, IoError};
 
-use crate::{inbox::Delivery, shutdown::IoInflight, tasks::TaskSpawner};
+use crate::{
+    inbox::{Delivery, Input},
+    shutdown::IoInflight,
+    tasks::TaskSpawner,
+};
 
 /// Runs one IO request through the service's async executor.
 pub(crate) type IoExecutor<D, Context>
@@ -95,7 +99,7 @@ pub(crate) fn spawn_io_chain<D: Domain, Context: Send + Sync + 'static>(
                     );
                     if inbox
                         .send(Delivery {
-                            command,
+                            input: Input::Command(command),
                             reply: None,
                             persist_settings: false,
                         })
@@ -135,7 +139,7 @@ pub(crate) fn spawn_io_chain<D: Domain, Context: Send + Sync + 'static>(
                     );
                     if inbox
                         .send(Delivery {
-                            command,
+                            input: Input::Command(command),
                             reply: None,
                             persist_settings: false,
                         })
@@ -160,7 +164,7 @@ pub(crate) fn spawn_io_chain<D: Domain, Context: Send + Sync + 'static>(
             };
             if inbox
                 .send(Delivery {
-                    command,
+                    input: Input::Command(command),
                     reply: None,
                     persist_settings: false,
                 })

@@ -35,6 +35,7 @@ export default function zenohTransport(session: Session): Transport {
       const receiver = await session.get(key, body && {
         payload: new ZBytes(body.payload),
         encoding: Encoding.fromString(body.encoding),
+        attachment: body.attachment && new ZBytes(body.attachment),
       })
       const replies: Reply[] = []
       for await (const reply of receiver ?? []) {

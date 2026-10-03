@@ -5,13 +5,12 @@
 extern crate alloc;
 
 pub mod durable;
-pub mod job;
 
-use core::{convert::Infallible, fmt};
+use core::convert::Infallible;
 
 use alloc::{borrow::ToOwned, vec::Vec};
 use blueos_domain::{Command, Decision, Domain, DomainDurable, DomainQueries, Now, Outcome};
-use blueos_jobs::{DomainJobs, JobEnd, JobGraph, JobId, JobKind, JobStatus, Jobs, LeafJob};
+use blueos_jobs::{DomainJobs, JobEnd, JobId, Jobs};
 use blueos_recorder_cameras::{
     Cameras, CamerasIoRequest, CamerasIoResult, CamerasObservedFact, CamerasTick, CamerasTimerKey,
 };
@@ -28,7 +27,6 @@ use blueos_recorder_library::{
 use blueos_recorder_paths::RecordingRelativePath;
 
 use durable::RecorderDurableState;
-use job::RecorderJobStep;
 
 /// Persisted Recorder settings (the same fields as [`CaptureSettings`] until the api crate owns conversions).
 pub type RecorderSettings = CaptureSettings;
@@ -45,7 +43,7 @@ pub struct RecorderSnapshot {
     /// MAVLink camera protocol and video stream registration.
     pub cameras: Cameras,
     /// Long-running repair Jobs.
-    pub jobs: Jobs<RecorderJobStep>,
+    pub jobs: Jobs,
 }
 
 /// Client Commands for the Recorder.
@@ -74,6 +72,8 @@ pub enum RecorderRequest {
     Startup,
     /// Rewrites an unindexed recording in place.
     RepairRecording {
+        /// The Job the repair runs as.
+        job_id: JobId,
         /// Path validated at the api boundary.
         path: RecordingRelativePath,
     },
@@ -189,7 +189,7 @@ impl Domain for RecorderDomain {
         let active = active_recording_relative_path.as_deref();
         match command {
             Command::Request(request) => match request {
-                RecorderRequest::RepairRecording { path } => {
+                RecorderRequest::RepairRecording { job_id, path } => {
                     if let Some(reason) =
                         snapshot
                             .library
@@ -197,31 +197,9 @@ impl Domain for RecorderDomain {
                     {
                         return Outcome::reject(LibraryRejection::new(reason));
                     }
-                    let started =
-                        snapshot
-                            .jobs
-                            .start(JobGraph::Leaf(RecorderJobStep::RepairRecording {
-                                path: path.clone(),
-                            }));
-                    let leaf_job_id = started
-                        .leaves
-                        .first()
-                        .expect("repair Job has one leaf")
-                        .job_id;
-                    let library = snapshot.library.start_repair(
-                        path,
-                        started.job_id,
-                        leaf_job_id,
-                        active,
-                        now,
-                    );
-                    merge_job_and_library(started.leaves, library)
+                    map_library_outcome(snapshot.library.start_repair(path, job_id, active, now))
                 }
                 RecorderRequest::CancelRepair { path } => {
-                    let relative = path.as_str();
-                    if let Some(root_job_id) = snapshot.library.repair_root_job_id(relative) {
-                        let _cancelling = snapshot.jobs.cancel(root_job_id);
-                    }
                     map_library_outcome(snapshot.library.handle_request(
                         LibraryRequest::CancelRepair { path },
                         active,
@@ -271,7 +249,10 @@ impl Domain for RecorderDomain {
                         .handle_request(CaptureRequest::StopVideoRecording { topic }, now),
                 ),
             },
-            Command::Tick(RecorderTick::Restored) => merge_restored(snapshot),
+            Command::Tick(RecorderTick::Restored) => Outcome::Applied {
+                events: Vec::new(),
+                effects: Vec::new(),
+            },
             Command::Tick(RecorderTick::Library(tick)) => {
                 map_library_outcome(Library::handle_tick(tick))
             }
@@ -283,7 +264,7 @@ impl Domain for RecorderDomain {
             Command::IoResult(RecorderIoResult::Library(result)) => {
                 let job_id = match &result {
                     LibraryIoResult::RepairFinished { path, .. } => {
-                        snapshot.library.repair_leaf_job_id(path.as_str())
+                        snapshot.library.repair_job_id(path.as_str())
                     }
                     _ => None,
                 };
@@ -384,25 +365,12 @@ impl DomainDurable for RecorderDomain {
 }
 
 impl DomainJobs for RecorderDomain {
-    type Step = RecorderJobStep;
-
-    fn jobs(snapshot: &Self::Snapshot) -> &Jobs<Self::Step> {
+    fn jobs(snapshot: &Self::Snapshot) -> &Jobs {
         &snapshot.jobs
     }
 
-    fn jobs_mut(snapshot: &mut Self::Snapshot) -> &mut Jobs<Self::Step> {
+    fn jobs_mut(snapshot: &mut Self::Snapshot) -> &mut Jobs {
         &mut snapshot.jobs
-    }
-}
-
-impl fmt::Display for RecorderJobStep {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::RepairRecording { path } => {
-                formatter.write_str("repair ")?;
-                formatter.write_str(path.as_str())
-            }
-        }
     }
 }
 
@@ -447,46 +415,16 @@ fn finish_repair_job(
                 )
             });
             if cancelled {
-                JobEnd::Cancelled
+                JobEnd::Canceled
             } else if failed {
-                JobEnd::Failed
+                JobEnd::Aborted
             } else {
                 JobEnd::Succeeded
             }
         }
-        Outcome::Rejected { .. } => JobEnd::Failed,
+        Outcome::Rejected { .. } => JobEnd::Aborted,
     };
-    let _finished = snapshot.jobs.finish(job_id, end);
-}
-
-fn merge_job_and_library(
-    _leaves: Vec<LeafJob<RecorderJobStep>>,
-    library: Outcome<LibraryEvent, LibraryTick, LibraryIoRequest, LibraryTimerKey>,
-) -> Decision<RecorderDomain> {
-    map_library_outcome(library)
-}
-
-fn merge_restored(snapshot: &mut RecorderSnapshot) -> Decision<RecorderDomain> {
-    let interrupted_repairs: Vec<JobId> = snapshot
-        .jobs
-        .list()
-        .into_iter()
-        .filter(|view| view.status == JobStatus::Interrupted)
-        .filter(|view| {
-            matches!(
-                view.kind,
-                JobKind::Leaf(RecorderJobStep::RepairRecording { .. })
-            )
-        })
-        .map(|view| view.job_id)
-        .collect();
-    for job_id in interrupted_repairs {
-        let _finished = snapshot.jobs.finish(job_id, JobEnd::Failed);
-    }
-    Outcome::Applied {
-        events: Vec::new(),
-        effects: Vec::new(),
-    }
+    let _ended = snapshot.jobs.end(job_id, end, "");
 }
 
 fn merge_startup(snapshot: &mut RecorderSnapshot, now: Now) -> Decision<RecorderDomain> {

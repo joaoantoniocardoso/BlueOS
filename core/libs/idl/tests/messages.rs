@@ -2,7 +2,10 @@
 
 use std::path::PathBuf;
 
-use blueos_idl::{Message, msg::blueos_msgs::CommandAck};
+use blueos_idl::{
+    Message,
+    msg::blueos_msgs::{CommandAck, CommandAckStatus},
+};
 use blueos_idl_codegen::collect_messages_for_test;
 
 const ENCODING_APPLICATION_CDR: &str = "application/cdr";
@@ -40,13 +43,13 @@ fn zenoh_encoding_uses_application_cdr_and_schema_name() {
 #[test]
 fn command_ack_matches_the_frontend_codec_bytes() {
     let expected = [
-        0x00, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2a, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x07, 0x00, 0x00, 0x00, 0x71, 0x75, 0x65, 0x75, 0x65, 0x64,
-        0x00,
+        0x00, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x37, 0x00, 0x02,
+        0x00, 0x07, 0x00, 0x00, 0x00, 0x71, 0x75, 0x65, 0x75, 0x65, 0x64, 0x00,
     ];
     let message = CommandAck {
         accepted: true,
-        job_id: 42,
+        job_id: "7".into(),
+        status: CommandAckStatus::Executing,
         reason: "queued".into(),
     };
     assert_eq!(message.encode().expect("encode"), expected);
@@ -57,7 +60,8 @@ fn command_ack_matches_the_frontend_codec_bytes() {
 fn command_ack_round_trip() {
     let message = CommandAck {
         accepted: true,
-        job_id: 42,
+        job_id: "0b5e8f5c-6f0a-4c4e-9a52-2f1e7d3c9b10".into(),
+        status: CommandAckStatus::Succeeded,
         reason: "queued".into(),
     };
     let payload = message.encode().expect("encode");
@@ -69,10 +73,11 @@ fn command_ack_round_trip() {
 fn command_ack_decode_old_writer_new_reader() {
     let mut writer = blueos_idl::cdr::Writer::new();
     writer.write_bool(true).expect("bool");
-    writer.write_u64(7).expect("job id");
+    writer.write_string("7").expect("job id");
     let payload = writer.finish_with_encapsulation();
     let decoded = CommandAck::decode(&payload).expect("decode");
     assert!(decoded.accepted);
-    assert_eq!(decoded.job_id, 7);
+    assert_eq!(decoded.job_id, "7");
+    assert_eq!(decoded.status, CommandAckStatus::StatusUnknown);
     assert!(decoded.reason.is_empty());
 }

@@ -17,6 +17,7 @@ use blueos_idl::msg::{
     blueos_example_msgs::{PumpState, SetLevelRequest},
     blueos_msgs::{ServiceStatus, ServiceStatusStatus},
 };
+use blueos_jobs::JobId;
 use blueos_service::{
     Backoff, Clock, Kernel, RestartPolicy, RunOutcome, Service, ServiceBuilder, ServiceContext,
     ServiceError, TaskFailed,
@@ -254,7 +255,7 @@ async fn three_inbox_loop_panics_within_one_minute_exit_non_zero() {
     let client = tokio::spawn({
         let backend = Arc::clone(&backend);
         async move {
-            for _ in 0..3 {
+            for attempt in 0..3 {
                 let body = QueryBody::new(
                     SetLevelRequest {
                         level: LEVEL_THAT_PANICS_IN_HANDLE,
@@ -262,7 +263,8 @@ async fn three_inbox_loop_panics_within_one_minute_exit_non_zero() {
                     .encode()
                     .expect("encode"),
                     cdr_encoding(SetLevelRequest::SCHEMA_NAME),
-                );
+                )
+                .with_attachment(JobId::from_u128(attempt).to_string().into_bytes());
                 backend
                     .get(
                         &command_key(TankService::NAME, "SetLevel"),

@@ -95,5 +95,26 @@ describe('zenohTransport', () => {
     ])
     expect((sent?.payload as ZBytes).toBytes()).toEqual(new Uint8Array([0]))
     expect(sent?.encoding?.toString()).toBe('application/cdr;blueos_example_msgs/msg/EmptyRequest')
+    expect(sent?.attachment).toBeUndefined()
+  })
+
+  it('sends the attachment of the body with the query', async () => {
+    let sent: GetOptions | undefined
+    const session = {
+      get: async (_key: string, options: GetOptions) => {
+        sent = options
+        const replies = new FifoChannel<Reply>(1)
+        replies.close()
+        return replies
+      },
+    } as unknown as Session
+
+    await zenohTransport(session).get('blueos/v1/tank/command/Drain', {
+      payload: new Uint8Array([0]),
+      encoding: 'application/cdr;blueos_example_msgs/msg/EmptyRequest',
+      attachment: new TextEncoder().encode('0b5e8f5c-6f0a-4c4e-9a52-2f1e7d3c9b10'),
+    })
+
+    expect((sent?.attachment as ZBytes).toString()).toBe('0b5e8f5c-6f0a-4c4e-9a52-2f1e7d3c9b10')
   })
 })

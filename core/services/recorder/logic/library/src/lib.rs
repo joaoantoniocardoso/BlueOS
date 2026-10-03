@@ -71,10 +71,8 @@ pub struct RepairProgress {
     pub total_bytes: u64,
     /// Monotonic time when repair started.
     pub started_monotonic: Duration,
-    /// Root Job acknowledged for this repair.
-    pub root_job_id: JobId,
-    /// Leaf Job to finish when IO ends.
-    pub leaf_job_id: JobId,
+    /// The Job to end when IO ends.
+    pub job_id: JobId,
 }
 
 /// Events published after library work completes.
@@ -360,8 +358,7 @@ impl Library {
     pub fn start_repair(
         &mut self,
         path: RecordingRelativePath,
-        root_job_id: JobId,
-        leaf_job_id: JobId,
+        job_id: JobId,
         active_recording_relative_path: Option<&str>,
         now: Now,
     ) -> LibraryOutcome {
@@ -377,8 +374,7 @@ impl Library {
                 bytes_processed: 0,
                 total_bytes: scanned.size_bytes,
                 started_monotonic: now.monotonic,
-                root_job_id,
-                leaf_job_id,
+                job_id,
             },
         );
         rebuild_entries(self, active_recording_relative_path, now);
@@ -536,18 +532,9 @@ impl Library {
         }
     }
 
-    /// Leaf Job id for an in-flight repair, if any.
-    pub fn repair_leaf_job_id(&self, path: &str) -> Option<JobId> {
-        self.repairing
-            .get(path)
-            .map(|progress| progress.leaf_job_id)
-    }
-
-    /// Root Job id for an in-flight repair, if any.
-    pub fn repair_root_job_id(&self, path: &str) -> Option<JobId> {
-        self.repairing
-            .get(path)
-            .map(|progress| progress.root_job_id)
+    /// Job id for an in-flight repair, if any.
+    pub fn repair_job_id(&self, path: &str) -> Option<JobId> {
+        self.repairing.get(path).map(|progress| progress.job_id)
     }
 }
 

@@ -15,5 +15,5 @@ help: the trait `Handlers<RecorderDomain>` is not implemented for `NoHandlers`
 note: required by a bound in `register`
   --> src/endpoints.rs
    |
-   | pub fn register<D: Conversions, H: Handlers<D>, Context>(
-   |                                    ^^^^^^^^^^^ required by this bound in `register`
+   | pub fn register<D: Conversions + DomainJobs, H: Handlers<D>, Context>(
+   |                                                 ^^^^^^^^^^^ required by this bound in `register`

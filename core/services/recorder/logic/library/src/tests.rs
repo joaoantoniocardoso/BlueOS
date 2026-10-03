@@ -37,8 +37,8 @@ fn scan_snapshot(paths: &[(&str, bool)], modified_unix_seconds: i64) -> Library 
     library
 }
 
-fn job_id(raw: u64) -> JobId {
-    JobId::new(raw).expect("job id")
+fn job_id(raw: u128) -> JobId {
+    JobId::from_u128(raw)
 }
 
 #[test]
@@ -61,11 +61,10 @@ fn repair_rejects_when_already_repairing() {
     let mut library = scan_snapshot(&[("file.mcap", false)], 1_000);
     let path = blueos_recorder_paths::RecordingRelativePath::parse("file.mcap").expect("path");
     assert!(matches!(
-        library.start_repair(path.clone(), job_id(1), job_id(2), None, NOW),
+        library.start_repair(path.clone(), job_id(1), None, NOW),
         Outcome::Applied { .. }
     ));
-    let Outcome::Rejected { reason } = library.start_repair(path, job_id(3), job_id(4), None, NOW)
-    else {
+    let Outcome::Rejected { reason } = library.start_repair(path, job_id(3), None, NOW) else {
         panic!("second repair must be rejected");
     };
     assert_eq!(
@@ -78,8 +77,7 @@ fn repair_rejects_when_already_repairing() {
 fn repair_rejects_indexed_file() {
     let mut library = scan_snapshot(&[("file.mcap", true)], 1_000);
     let path = blueos_recorder_paths::RecordingRelativePath::parse("file.mcap").expect("path");
-    let Outcome::Rejected { reason } = library.start_repair(path, job_id(1), job_id(2), None, NOW)
-    else {
+    let Outcome::Rejected { reason } = library.start_repair(path, job_id(1), None, NOW) else {
         panic!("repair must be rejected for indexed files");
     };
     assert_eq!(reason.to_string(), "This recording already has an index.");
@@ -90,7 +88,7 @@ fn repair_rejects_active_recording_file() {
     let mut library = scan_snapshot(&[("live.mcap", false)], 1_000);
     let path = blueos_recorder_paths::RecordingRelativePath::parse("live.mcap").expect("path");
     let Outcome::Rejected { reason } =
-        library.start_repair(path, job_id(1), job_id(2), Some("live.mcap"), NOW)
+        library.start_repair(path, job_id(1), Some("live.mcap"), NOW)
     else {
         panic!("repair must be rejected while recording");
     };
@@ -104,8 +102,7 @@ fn repair_rejects_active_recording_file() {
 fn repair_rejects_recently_written_file() {
     let mut library = scan_snapshot(&[("recent.mcap", false)], 19_995);
     let path = blueos_recorder_paths::RecordingRelativePath::parse("recent.mcap").expect("path");
-    let Outcome::Rejected { reason } = library.start_repair(path, job_id(1), job_id(2), None, NOW)
-    else {
+    let Outcome::Rejected { reason } = library.start_repair(path, job_id(1), None, NOW) else {
         panic!("repair must be rejected when written less than 10 s ago");
     };
     assert_eq!(
@@ -131,7 +128,7 @@ fn cancelled_repair_operation_event_is_not_a_failure() {
     let mut library = scan_snapshot(&[("file.mcap", false)], 1_000);
     let path = blueos_recorder_paths::RecordingRelativePath::parse("file.mcap").expect("path");
     assert!(matches!(
-        library.start_repair(path.clone(), job_id(1), job_id(2), None, NOW),
+        library.start_repair(path.clone(), job_id(1), None, NOW),
         Outcome::Applied { .. }
     ));
     let Outcome::Applied { events, .. } = library.handle_io_result(
@@ -157,7 +154,7 @@ fn failed_repair_keeps_error_on_entry() {
     let mut library = scan_snapshot(&[("file.mcap", false)], 1_000);
     let path = blueos_recorder_paths::RecordingRelativePath::parse("file.mcap").expect("path");
     assert!(matches!(
-        library.start_repair(path.clone(), job_id(1), job_id(2), None, NOW),
+        library.start_repair(path.clone(), job_id(1), None, NOW),
         Outcome::Applied { .. }
     ));
     assert!(matches!(
@@ -258,7 +255,7 @@ fn operation_finished_schedules_rescan() {
     let mut library = scan_snapshot(&[("file.mcap", false)], 1_000);
     let path = blueos_recorder_paths::RecordingRelativePath::parse("file.mcap").expect("path");
     assert!(matches!(
-        library.start_repair(path.clone(), job_id(1), job_id(2), None, NOW),
+        library.start_repair(path.clone(), job_id(1), None, NOW),
         Outcome::Applied { .. }
     ));
     let Outcome::Applied { effects, .. } = library.handle_io_result(

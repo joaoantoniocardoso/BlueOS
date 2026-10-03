@@ -99,10 +99,16 @@ impl CommsBackend for ZenohBackend {
                             .encoding()
                             .map(|wire_encoding| wire_encoding.to_string())
                             .unwrap_or_default();
-                        QueryBody::new(
+                        let body = QueryBody::new(
                             payload_from_zbytes(wire_payload.to_bytes().into()),
                             encoding,
-                        )
+                        );
+                        match query.attachment() {
+                            Some(attachment) => {
+                                body.with_attachment(payload_from_zbytes(attachment.clone()))
+                            }
+                            None => body,
+                        }
                     });
                     let query = Mutex::new(Some(query));
                     let reply_key = declared_key.clone();
@@ -167,6 +173,9 @@ impl CommsBackend for ZenohBackend {
                 builder = builder
                     .payload(zbytes_from_payload(body.payload()))
                     .encoding(body.encoding());
+                if let Some(attachment) = body.attachment() {
+                    builder = builder.attachment(zbytes_from_payload(attachment));
+                }
             }
             let replies = builder.await.map_err(CommsError::backend)?;
             let deadline = tokio::time::Instant::now() + timeout;

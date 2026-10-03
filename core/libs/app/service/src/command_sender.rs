@@ -1,16 +1,18 @@
 //! Puts Commands into the service's own Inbox from in-process code (D-27).
 
-use std::sync::Arc;
+use core::hash::{BuildHasher as _, Hasher as _};
+use std::{hash::RandomState, sync::Arc};
 
 use tokio::sync::{mpsc, oneshot};
 
-use blueos_api::{CommandAck, JOB_ID_NONE};
+use blueos_api::CommandAck;
 use blueos_domain::Domain;
-use blueos_jobs::JobId;
+use blueos_idl::msg::blueos_msgs::CommandAckStatus;
+use blueos_jobs::{Job, JobId};
 
 use crate::{
-    builder::InboxCommand,
-    inbox::{CommandReply, Delivery},
+    builder::{InboxCommand, wire_status},
+    inbox::{CommandReply, Delivery, Input},
     kernel::Rejection,
 };
 
@@ -52,7 +54,7 @@ impl<D: Domain> CommandSender<D> {
     /// Queues `command`. Waits when the Inbox is full.
     pub async fn send(&self, command: InboxCommand<D>) -> Result<(), SendError> {
         let delivery = Delivery {
-            command,
+            input: Input::Command(command),
             reply: None,
             persist_settings: false,
         };
@@ -65,7 +67,7 @@ impl<D: Domain> CommandSender<D> {
     /// Queues `command` without waiting. Fails fast when the Inbox is full.
     pub fn try_send(&self, command: InboxCommand<D>) -> Result<(), SendError> {
         let delivery = Delivery {
-            command,
+            input: Input::Command(command),
             reply: None,
             persist_settings: false,
         };
@@ -82,7 +84,7 @@ impl<D: Domain> CommandSender<D> {
     ) -> Result<CommandAck, SendError> {
         let (verdict_sender, verdict_receiver) = oneshot::channel();
         let delivery = Delivery {
-            command,
+            input: Input::Command(command),
             reply: Some(CommandReply::Ack(verdict_sender)),
             persist_settings: false,
         };
@@ -96,17 +98,30 @@ impl<D: Domain> CommandSender<D> {
     }
 }
 
-pub(crate) fn command_ack(verdict: Result<Option<JobId>, Rejection>) -> CommandAck {
-    match verdict {
-        Ok(started) => CommandAck {
-            accepted: true,
-            job_id: started.map_or(JOB_ID_NONE, JobId::get),
-            reason: String::new(),
-        },
-        Err(rejection) => CommandAck {
-            accepted: false,
-            job_id: JOB_ID_NONE,
-            reason: rejection.to_string(),
+/// A new random Job id, as a client generates one for each Goal it submits to another Service.
+// ponytail: 128 random bits from std's `RandomState` keys, not a UUID v4 generator: ids only need to be unique.
+#[must_use]
+pub fn new_job_id() -> JobId {
+    let random = || RandomState::new().build_hasher().finish();
+    JobId::from_u128(u128::from(random()) << 64 | u128::from(random()))
+}
+
+/// The ack of a Command that named `job_id`, with the status of `job` after it was applied, or with no Job for a
+/// Command that is no Job. An accepted ack carries the Job's reason, so a Job that ended at once says why.
+pub(crate) fn command_ack(
+    job_id: Option<JobId>,
+    job: Option<&Job>,
+    verdict: Result<(), Rejection>,
+) -> CommandAck {
+    CommandAck {
+        accepted: verdict.is_ok(),
+        job_id: job_id.map(|job_id| job_id.to_string()).unwrap_or_default(),
+        status: job.map_or(CommandAckStatus::StatusUnknown, |job| {
+            CommandAckStatus::from_raw(wire_status(job.status))
+        }),
+        reason: match verdict {
+            Ok(()) => job.map(|job| job.reason.clone()).unwrap_or_default(),
+            Err(rejection) => rejection.to_string(),
         },
     }
 }
@@ -169,5 +184,10 @@ mod tests {
             .expect("the first Command is queued");
         let full = sender.try_send(Command::Request(StubRequest::One));
         assert!(matches!(full, Err(SendError::InboxFull)));
+    }
+
+    #[test]
+    fn every_new_job_id_is_another() {
+        assert_ne!(new_job_id(), new_job_id());
     }
 }

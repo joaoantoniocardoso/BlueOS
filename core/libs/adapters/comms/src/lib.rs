@@ -102,11 +102,12 @@ pub struct Sample {
     attachment: Option<Payload>,
 }
 
-/// What a get sends along: an encoded payload, such as a Command's Message.
+/// What a get sends along: an encoded payload, such as a Command's Message, and its metadata.
 #[derive(Clone, Debug)]
 pub struct QueryBody {
     payload: Payload,
     encoding: String,
+    attachment: Option<Payload>,
 }
 
 /// An error a queryable replied instead of a sample, such as a body it could not decode.
@@ -273,11 +274,21 @@ impl Sample {
 }
 
 impl QueryBody {
-    /// A body of `payload` encoded as `encoding`.
+    /// A body of `payload` encoded as `encoding`, with no attachment.
     pub fn new(payload: impl Into<Payload>, encoding: impl Into<String>) -> Self {
         Self {
             payload: payload.into(),
             encoding: encoding.into(),
+            attachment: None,
+        }
+    }
+
+    /// Adds side-band metadata, such as the Job id a Command names, so that the payload itself stays unframed.
+    #[must_use]
+    pub fn with_attachment(self, attachment: impl Into<Payload>) -> Self {
+        Self {
+            attachment: Some(attachment.into()),
+            ..self
         }
     }
 
@@ -289,6 +300,11 @@ impl QueryBody {
     /// How the payload is encoded.
     pub fn encoding(&self) -> &str {
         &self.encoding
+    }
+
+    /// Side-band metadata, if the getter attached any.
+    pub fn attachment(&self) -> Option<&Payload> {
+        self.attachment.as_ref()
     }
 }
 

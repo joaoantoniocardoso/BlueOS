@@ -1,40 +1,43 @@
-//! Start a multi-step Job graph from a Command.
+//! Run lasting work as a Job: declare its nature, keep its id, and end it when the work finishes.
 
-use core::{
-    convert::Infallible,
-    fmt::{self, Display, Formatter},
-    time::Duration,
-};
+use core::{convert::Infallible, time::Duration};
+
+use tokio::time::advance;
 
 use blueos_domain::{Command, Decision, Domain, Effect, IoError, Now, Outcome};
-use blueos_idl::msg::blueos_example_msgs::EmptyRequest;
-use blueos_jobs::{DomainJobs, JobEnd, JobGraph, JobId, JobStatus, Jobs, LeafJob};
-use blueos_service::{Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness};
+use blueos_idl::msg::{
+    blueos_example_msgs::EmptyRequest,
+    blueos_msgs::{CommandAckStatus, JobStatusStatus},
+};
+use blueos_jobs::{DomainJobs, JobControl, JobEnd, JobId, JobNature, JobStatus, Jobs};
+use blueos_service::{
+    Service, ServiceBuilder, ServiceContext, ServiceError, new_job_id, testing::Harness,
+};
+
+/// Brewing runs until its timer fires, and a client may cancel it meanwhile.
+const BREW: JobNature = JobNature {
+    lasting: true,
+    cancellable: true,
+    ..JobNature::INSTANT
+};
 
 struct JobsCookbookService;
 
 #[derive(Clone, Default, clap::Args)]
 struct JobsCookbookArguments;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 struct JobsCookbookSnapshot {
-    jobs: Jobs<Step>,
+    jobs: Jobs,
 }
 
 enum JobsCookbookRequest {
-    Run,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum Step {
-    First,
-    Second,
+    Brew { job_id: JobId },
 }
 
 #[derive(Clone)]
-struct StepDone {
+struct Brewed {
     job_id: JobId,
-    step: Step,
 }
 
 struct JobsCookbook;
@@ -55,11 +58,11 @@ impl Service for JobsCookbookService {
         _service: &ServiceContext<JobsCookbookArguments>,
         _context: &(),
     ) -> Result<ServiceBuilder<JobsCookbook>, ServiceError> {
-        Ok(ServiceBuilder::new(JobsCookbookSnapshot {
-            jobs: Jobs::default(),
-        })
-        .command("Run", |_: EmptyRequest| Ok(JobsCookbookRequest::Run))
-        .jobs())
+        Ok(ServiceBuilder::new(JobsCookbookSnapshot::default()).job(
+            "Brew",
+            BREW,
+            |job_id, _: EmptyRequest| Ok(JobsCookbookRequest::Brew { job_id }),
+        ))
     }
 }
 
@@ -68,36 +71,39 @@ impl Domain for JobsCookbook {
     type Request = JobsCookbookRequest;
     type Event = Infallible;
     type IoResult = Infallible;
-    type Tick = StepDone;
+    type Tick = Brewed;
     type ObservedFact = Infallible;
     type IoRequest = Infallible;
     type TimerKey = JobId;
 
     fn handle(
         snapshot: &mut JobsCookbookSnapshot,
-        command: Command<JobsCookbookRequest, Infallible, StepDone, Infallible>,
+        command: Command<JobsCookbookRequest, Infallible, Brewed, Infallible>,
         _now: Now,
     ) -> Decision<Self> {
         match command {
-            Command::Request(JobsCookbookRequest::Run) => {
-                let started = snapshot.jobs.start(JobGraph::Sequence(vec![
-                    JobGraph::Leaf(Step::First),
-                    JobGraph::Leaf(Step::Second),
-                ]));
-                Outcome::Applied {
-                    events: Vec::new(),
-                    effects: started.leaves.into_iter().map(schedule).collect(),
-                }
-            }
-            Command::Tick(StepDone { job_id, step }) => {
-                let end = match (snapshot.jobs.status(job_id), step) {
-                    (Some(JobStatus::Cancelling), _) => JobEnd::Cancelled,
-                    (_, Step::First | Step::Second) => JobEnd::Succeeded,
+            Command::Request(JobsCookbookRequest::Brew { job_id }) => Outcome::Applied {
+                events: Vec::new(),
+                effects: vec![Effect::Schedule {
+                    after: Duration::from_secs(60),
+                    key: job_id,
+                    command: Brewed { job_id },
+                }],
+            },
+            Command::Tick(Brewed { job_id }) => {
+                let canceling = snapshot
+                    .jobs
+                    .job(job_id)
+                    .is_some_and(|job| job.status == JobStatus::Canceling);
+                let end = if canceling {
+                    JobEnd::Canceled
+                } else {
+                    JobEnd::Succeeded
                 };
                 snapshot
                     .jobs
-                    .finish(job_id, end)
-                    .expect("the leaf is running");
+                    .end(job_id, end, "")
+                    .expect("the Brew Job is running");
                 Outcome::Applied {
                     events: Vec::new(),
                     effects: Vec::new(),
@@ -117,43 +123,49 @@ impl Domain for JobsCookbook {
 }
 
 impl DomainJobs for JobsCookbook {
-    type Step = Step;
-
-    fn jobs(snapshot: &JobsCookbookSnapshot) -> &Jobs<Step> {
+    fn jobs(snapshot: &JobsCookbookSnapshot) -> &Jobs {
         &snapshot.jobs
     }
 
-    fn jobs_mut(snapshot: &mut JobsCookbookSnapshot) -> &mut Jobs<Step> {
+    fn jobs_mut(snapshot: &mut JobsCookbookSnapshot) -> &mut Jobs {
         &mut snapshot.jobs
     }
 }
 
-impl Display for Step {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        formatter.write_str(match self {
-            Self::First => "first",
-            Self::Second => "second",
-        })
-    }
-}
-
-fn schedule(leaf: LeafJob<Step>) -> Effect<StepDone, Infallible, JobId> {
-    Effect::Schedule {
-        after: Duration::from_secs(1),
-        key: leaf.job_id,
-        command: StepDone {
-            job_id: leaf.job_id,
-            step: leaf.step,
-        },
-    }
-}
-
 #[tokio::test(start_paused = true)]
-async fn a_command_that_starts_a_job_graph_acks_the_root_job_id() {
+async fn a_lasting_job_is_executing_until_its_domain_ends_it() {
     let harness = Harness::<JobsCookbookService>::start(JobsCookbookArguments)
         .await
         .unwrap();
-    let ack = harness.send("Run", &EmptyRequest::default()).await;
+    let job_id = new_job_id();
+
+    let ack = harness
+        .submit("Brew", job_id, &EmptyRequest::default())
+        .await;
     assert!(ack.accepted);
-    assert_eq!(ack.job_id, 1);
+    assert_eq!(ack.job_id, job_id.to_string());
+    assert_eq!(ack.status, CommandAckStatus::Executing);
+
+    advance(Duration::from_secs(60)).await;
+    let jobs = harness.jobs().await;
+    assert_eq!(jobs.jobs[0].status, JobStatusStatus::Succeeded);
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_cancelled_job_ends_canceled_when_its_work_stops() {
+    let harness = Harness::<JobsCookbookService>::start(JobsCookbookArguments)
+        .await
+        .unwrap();
+    let job_id = new_job_id();
+    harness
+        .submit("Brew", job_id, &EmptyRequest::default())
+        .await;
+
+    let ack = harness.control(job_id, JobControl::Cancel).await;
+    assert!(ack.accepted);
+    assert_eq!(ack.status, CommandAckStatus::Canceling);
+
+    advance(Duration::from_secs(60)).await;
+    let jobs = harness.jobs().await;
+    assert_eq!(jobs.jobs[0].status, JobStatusStatus::Canceled);
 }

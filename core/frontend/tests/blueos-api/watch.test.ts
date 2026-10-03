@@ -135,7 +135,10 @@ describe('watchState', () => {
     const envelope = { document_json: '{"VERSION":1}', fields: [{ path: 'auto_start', restart_required: true }] }
     const jobList = {
       jobs: [{
-        job_id: 1, parent_job_id: 0, status: JobStatusStatus.Running, name: 'repair',
+        job_id: '0b5e8f5c-6f0a-4c4e-9a52-2f1e7d3c9b10',
+        job_type: 'RepairRecording',
+        status: JobStatusStatus.Executing,
+        reason: '',
       }],
     }
 

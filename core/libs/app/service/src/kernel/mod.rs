@@ -10,6 +10,7 @@ use core::{
     sync::atomic::{AtomicBool, Ordering},
 };
 use std::{
+    collections::HashMap,
     panic,
     sync::{Arc, Mutex},
 };
@@ -26,25 +27,26 @@ use blueos_api::{
     CommandAck, Message, cdr_encoding, command_key, event_key, info_query_key, jobs_key, query_key,
     service_liveliness_key, settings_key, state_key, status_state_key,
 };
-use blueos_comms::{CommsBackend, CommsError, Query, Queryable, Sample};
+use blueos_comms::{CommsBackend, CommsError, Query, QueryBody, Queryable, Sample};
 use blueos_domain::{Command, Domain, Outcome};
 use blueos_idl::{
     Error as IdlError,
     msg::blueos_msgs::{
-        EndpointInfo, JobList, ServiceInfo, ServiceStatus, ServiceStatusStatus, SettingsEnvelope,
+        EndpointInfo, JobList, PermissionAnswer, ServiceInfo, ServiceStatus, ServiceStatusStatus,
+        SettingsEnvelope,
     },
 };
-use blueos_jobs::JobId;
+use blueos_jobs::{JobControl, JobEnd, JobId, JobStatus, Jobs, JobsError, Submitted};
 
 use crate::{
     builder::{
-        AnswerQuery, Decode, EventEndpoint, LatestRoot, Refusal, Respond, ServiceBuilder,
-        StateEndpoint,
+        AnswerQuery, Decode, EventEndpoint, InboxCommand, JobsAccess, Refusal, Respond,
+        ServiceBuilder, StateEndpoint, job_list,
     },
     clock::Clock,
     command_sender::{CommandSender, Session, command_ack},
     durable_state::{DurablePersister, DurableStateHandle},
-    inbox::{CommandReply, Delivery},
+    inbox::{CommandReply, Delivery, Input},
     inbox_recovery::{self, log_caught_panic},
     logging::LogPublisherRuntime,
     projection::ProjectionRegistry,
@@ -64,6 +66,16 @@ use timers::TimerWheel;
 const INBOX_CAPACITY: usize = 256;
 /// The encoding of the reason in a Query's error reply.
 const REASON_ENCODING: &str = "text/plain";
+/// The controls every Service serves on `command/<control>`. The answer of `AnswerPermission` comes from its body.
+const CONTROLS: [JobControl; 4] = [
+    JobControl::Cancel,
+    JobControl::Pause,
+    JobControl::Resume,
+    JobControl::AnswerPermission { granted: false },
+];
+
+/// Turns the Job id and the body of a Command into what the Kernel applies.
+type IntoInput<D> = Box<dyn Fn(JobId, Vec<u8>) -> Result<Input<D>, Rejection> + Send>;
 
 /// One applied Command's Effects in application order.
 #[cfg(feature = "testing")]
@@ -86,8 +98,14 @@ pub struct Kernel<D: Domain, Context = ()> {
     settings: Option<SettingsEndpoint<D>>,
     durable: Option<DurableStateHandle<D>>,
     events: Vec<EventEndpoint<D>>,
-    /// Set only for a Domain with Jobs.
-    latest_root: Option<LatestRoot<D>>,
+    /// Decodes the Goal of each Job type, for a Job that executes once its permission is granted.
+    job_types: HashMap<String, Decode<D>>,
+    /// Where the Jobs are when the Domain keeps them in its Snapshot.
+    jobs_access: Option<JobsAccess<D>>,
+    /// The Jobs, when the Domain does not keep them.
+    own_jobs: Jobs,
+    /// The standard `jobs` State, as the backbone last accepted it.
+    jobs_latest: watch::Sender<Option<Bytes>>,
     backend: Arc<dyn CommsBackend>,
     clock: Arc<dyn Clock>,
     timers: TimerWheel<D>,
@@ -140,6 +158,12 @@ pub(crate) enum Rejection {
     /// The endpoint's conversion refused the Message, with its own reason.
     #[error("{0}")]
     Refused(Refusal),
+    /// The attachment of a Command is not the id of the Job it submits or controls.
+    #[error("the Command's attachment is not a Job id")]
+    NoJobId,
+    /// The Jobs refused the submit or the control.
+    #[error(transparent)]
+    Jobs(#[from] JobsError),
 }
 
 /// Why a Query or an IO query got no answer. Its text is the reason in the error reply.
@@ -258,13 +282,13 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 .manifest_endpoints
                 .iter()
                 .cloned()
-                .chain(builder.jobs.as_ref().map(|_jobs| EndpointInfo {
+                .chain([EndpointInfo {
                     kind: "state".to_owned(),
                     name: "jobs".to_owned(),
                     key: jobs_key(service),
                     request_schema: String::new(),
                     response_schema: JobList::SCHEMA_NAME.to_owned(),
-                }))
+                }])
                 .collect(),
         };
         let info_key = info_query_key(service);
@@ -314,16 +338,48 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             });
         }
         let mut pending_commands = Vec::new();
+        let mut job_types = HashMap::new();
         for command in builder.commands {
             let queryable = declare(&*backend, command_key(service, &command.name)).await?;
-            pending_commands.push((queryable, command.decode));
+            let into_input: IntoInput<D> = {
+                let decode = Arc::clone(&command.decode);
+                let job_type = command.name.clone();
+                let nature = command.nature;
+                Box::new(move |job_id, goal| {
+                    let request = decode(job_id, &goal)?;
+                    Ok(Input::Submit {
+                        job_id,
+                        job_type: job_type.clone(),
+                        goal,
+                        nature,
+                        request,
+                    })
+                })
+            };
+            pending_commands.push((queryable, into_input));
+            job_types.insert(command.name, command.decode);
         }
-        let latest_root = builder.jobs.as_ref().map(|jobs| jobs.latest_root);
+        for control in CONTROLS {
+            let queryable = declare(&*backend, command_key(service, &control.to_string())).await?;
+            let into_input: IntoInput<D> = Box::new(move |job_id, body| {
+                let control = match control {
+                    JobControl::AnswerPermission { .. } => JobControl::AnswerPermission {
+                        granted: PermissionAnswer::decode(&body)
+                            .map_err(Rejection::InvalidBody)?
+                            .granted,
+                    },
+                    JobControl::Cancel | JobControl::Pause | JobControl::Resume => control,
+                };
+                Ok(Input::Control { job_id, control })
+            });
+            pending_commands.push((queryable, into_input));
+        }
+        let jobs_queryable = declare(&*backend, jobs_key(service)).await?;
+        let jobs_latest = watch::Sender::new(None);
         let state_endpoints = builder
             .states
             .into_iter()
-            .map(|endpoint| (state_key(service, &endpoint.name), endpoint))
-            .chain(builder.jobs.map(|jobs| (jobs_key(service), jobs.state)));
+            .map(|endpoint| (state_key(service, &endpoint.name), endpoint));
         let mut states = Vec::new();
         let mut pending_states = Vec::new();
         for (key, endpoint) in state_endpoints {
@@ -367,7 +423,10 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             settings,
             durable,
             events: builder.events,
-            latest_root,
+            job_types,
+            jobs_access: builder.jobs,
+            own_jobs: Jobs::default(),
+            jobs_latest,
             backend,
             clock,
             timers: TimerWheel::new(),
@@ -389,7 +448,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         for command in startup_commands {
             if kernel
                 .dispatch(Delivery {
-                    command,
+                    input: Input::Command(command),
                     reply: None,
                     persist_settings: false,
                 })
@@ -407,6 +466,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             .map(|state| (state.endpoint.project)(&kernel.snapshot))
             .collect();
         kernel.publish_states(initial_states).await;
+        kernel.publish_jobs().await;
         kernel.publish_settings().await;
         kernel.projections.refresh(&kernel.snapshot);
         publish_standard_status(
@@ -463,10 +523,10 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 ),
             ));
         }
-        for (queryable, decode) in pending_commands {
+        for (queryable, into_input) in pending_commands {
             kernel.endpoints.spawn(serve_command(
                 queryable,
-                decode,
+                into_input,
                 mpsc::Sender::clone(
                     kernel
                         .inbox_sender
@@ -475,6 +535,12 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 ),
             ));
         }
+        kernel.endpoints.spawn(serve_state(
+            jobs_queryable,
+            jobs_key(service),
+            cdr_encoding(JobList::SCHEMA_NAME),
+            kernel.jobs_latest.subscribe(),
+        ));
         for (queryable, key, encoding, latest) in pending_states {
             kernel
                 .endpoints
@@ -627,7 +693,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 tick = self.timers.next_tick(), if self.timers.waiting() => {
                     if let Some(tick) = tick
                         && let Some(outcome) = self.dispatch(Delivery {
-                            command: Command::Tick(tick),
+                            input: Input::Command(Command::Tick(tick)),
                             reply: None,
                             persist_settings: false,
                         })
@@ -669,7 +735,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         self.tasks.cancel();
         if let Some(request) = self.shutdown_request.lock().await.take() {
             let delivery = Delivery {
-                command: Command::Request(request),
+                input: Input::Command(Command::Request(request)),
                 reply: None,
                 persist_settings: false,
             };
@@ -706,17 +772,34 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
 
     async fn dispatch_delivery(&mut self, delivery: Delivery<D>) -> Option<RunOutcome> {
         let Delivery {
-            command,
+            input,
             reply,
             persist_settings,
         } = delivery;
+        let job_id = input.job_id();
         if self.shutting_down && reply.is_some() {
-            complete_command_reply(reply, Err(Rejection::ShuttingDown)).await;
+            complete_command_reply(
+                reply,
+                command_ack(job_id, None, Err(Rejection::ShuttingDown)),
+            )
+            .await;
             return None;
         }
         let now = self.clock.now();
         let backup = self.snapshot.clone();
+        let jobs_backup = self.own_jobs.clone();
+        let command = match self.accept(input) {
+            Ok(command) => command,
+            Err(rejection) => {
+                self.snapshot = backup;
+                self.own_jobs = jobs_backup;
+                self.reject(reply, job_id, rejection).await;
+                return None;
+            }
+        };
         let snapshot = &mut self.snapshot;
+        let own_jobs = &mut self.own_jobs;
+        let jobs_access = self.jobs_access;
         let states = &self.states;
         #[cfg(feature = "testing")]
         let run_effects = self.effect_log.is_none();
@@ -725,10 +808,25 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         let timers = &mut self.timers;
         let io = &self.io;
         let decided = panic::catch_unwind(AssertUnwindSafe(|| {
-            match D::handle(snapshot, command, now) {
+            let outcome = match command {
+                Some(command) => D::handle(snapshot, command, now),
+                None => Outcome::Applied {
+                    events: Vec::new(),
+                    effects: Vec::new(),
+                },
+            };
+            match outcome {
                 Outcome::Applied { events, effects } => {
                     apply_sync_effects(&effects, timers, io, run_effects)
                         .map_err(|error| Rejection::Domain(Box::new(error)))?;
+                    if let Some(job_id) = job_id {
+                        let jobs = jobs_in_mut::<D>(jobs_access, snapshot, own_jobs);
+                        if jobs.job(job_id).is_some_and(|job| {
+                            !job.nature.lasting && job.status == JobStatus::Executing
+                        }) {
+                            jobs.end(job_id, JobEnd::Succeeded, "")?;
+                        }
+                    }
                     let encoded_states: Vec<_> = states
                         .iter()
                         .map(|state| (state.endpoint.project)(snapshot))
@@ -760,8 +858,11 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                         }
                         Err(error) => {
                             self.snapshot = backup;
-                            complete_command_reply(reply, Err(Rejection::Domain(error.into())))
-                                .await;
+                            complete_command_reply(
+                                reply,
+                                command_ack(job_id, None, Err(Rejection::Domain(error.into()))),
+                            )
+                            .await;
                             return None;
                         }
                     }
@@ -774,17 +875,11 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                         .queue_document((durable.serialize)(&self.snapshot));
                 }
                 self.publish_states(encoded_states).await;
+                self.publish_jobs().await;
                 self.publish_settings().await;
                 self.projections.refresh(&self.snapshot);
-                let started = self.latest_root.and_then(|latest_root| {
-                    let latest = latest_root(&self.snapshot);
-                    if latest == latest_root(&backup) {
-                        None
-                    } else {
-                        latest
-                    }
-                });
-                complete_command_reply(reply, Ok(started)).await;
+                let job = job_id.and_then(|job_id| self.jobs().job(job_id));
+                complete_command_reply(reply, command_ack(job_id, job, Ok(()))).await;
                 self.publish_events(events).await;
                 if run_effects {
                     let requests = io_requests::<D>(&effects);
@@ -805,6 +900,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             }
             Err(rejection) => {
                 self.snapshot = backup;
+                self.own_jobs = jobs_backup;
                 let stop = if matches!(rejection, Rejection::Panicked) {
                     self.tasks
                         .record_inbox_loop_panic(self.clock.now().monotonic)
@@ -812,7 +908,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 } else {
                     false
                 };
-                complete_command_reply(reply, Err(rejection)).await;
+                self.reject(reply, job_id, rejection).await;
                 if stop {
                     Some(RunOutcome::RepeatedInboxPanics)
                 } else {
@@ -820,6 +916,61 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 }
             }
         }
+    }
+
+    /// Applies a client's submit or control to the Jobs, and returns the Command the Domain handles next: the Goal
+    /// of a Job that executes now, or `None` when only the Jobs changed (D-27).
+    fn accept(&mut self, input: Input<D>) -> Result<Option<InboxCommand<D>>, Rejection> {
+        match input {
+            Input::Command(command) => Ok(Some(command)),
+            Input::Submit {
+                job_id,
+                job_type,
+                goal,
+                nature,
+                request,
+            } => match self.jobs_mut().submit(job_id, &job_type, &goal, nature)? {
+                Submitted::New if !nature.needs_permission => Ok(Some(Command::Request(request))),
+                Submitted::New | Submitted::Retry => Ok(None),
+            },
+            Input::Control { job_id, control } => {
+                self.jobs_mut().control(job_id, control)?;
+                if control != (JobControl::AnswerPermission { granted: true }) {
+                    return Ok(None);
+                }
+                let job = self.jobs().job(job_id).ok_or(JobsError::Unknown(job_id))?;
+                let decode = self.job_types.get(&job.job_type).ok_or_else(|| {
+                    Rejection::Refused(format!("there is no Job type {}", job.job_type).into())
+                })?;
+                decode(job_id, &job.goal).map(|request| Some(Command::Request(request)))
+            }
+        }
+    }
+
+    /// Replies that the Kernel did not apply a Command, with the status of the Job it named, if that Job is in the
+    /// table and its id was not reused.
+    async fn reject(
+        &self,
+        reply: Option<CommandReply>,
+        job_id: Option<JobId>,
+        rejection: Rejection,
+    ) {
+        let job = match rejection {
+            Rejection::Jobs(JobsError::IdReused(_)) => None,
+            _ => job_id.and_then(|job_id| self.jobs().job(job_id)),
+        };
+        complete_command_reply(reply, command_ack(job_id, job, Err(rejection))).await;
+    }
+
+    fn jobs(&self) -> &Jobs {
+        match self.jobs_access {
+            Some((jobs, _jobs_mut)) => jobs(&self.snapshot),
+            None => &self.own_jobs,
+        }
+    }
+
+    fn jobs_mut(&mut self) -> &mut Jobs {
+        jobs_in_mut::<D>(self.jobs_access, &mut self.snapshot, &mut self.own_jobs)
     }
 
     /// Hands out a [`CommandSender`] while the Inbox is still open.
@@ -850,6 +1001,23 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         }
         .await;
         warn_on_failure("State", &settings.key, sent);
+    }
+
+    async fn publish_jobs(&self) {
+        let key = jobs_key(self.service);
+        let sent: Result<(), SendError> = async {
+            let payload = Bytes::from(job_list(self.jobs()).encode()?);
+            if self.jobs_latest.borrow().as_ref() == Some(&payload) {
+                return Ok(());
+            }
+            let encoding = cdr_encoding(JobList::SCHEMA_NAME);
+            let sample = Sample::new(key.as_str(), Bytes::clone(&payload), &encoding);
+            self.backend.publish(sample).await?;
+            self.jobs_latest.send_replace(Some(payload));
+            Ok(())
+        }
+        .await;
+        warn_on_failure("State", &key, sent);
     }
 
     async fn publish_states(&self, encoded_states: Vec<Result<Vec<u8>, IdlError>>) {
@@ -933,26 +1101,45 @@ async fn declare(backend: &dyn CommsBackend, key: String) -> Result<Queryable, S
     }
 }
 
-/// Decodes each Request outside the Inbox loop, so a body that does not decode never reaches the Domain.
+/// Reads the Job id from each Command's attachment and decodes its body outside the Inbox loop, so a Command that
+/// names no Job, or whose body does not decode, never reaches it.
 async fn serve_command<D: Domain>(
     mut queryable: Queryable,
-    decode: Decode<D>,
+    into_input: IntoInput<D>,
     inbox: mpsc::Sender<Delivery<D>>,
 ) {
     while let Some(query) = queryable.recv().await {
-        let body = query.body().map(|body| body.payload().to_bytes());
-        let request = decode(&body.unwrap_or_default());
-        match request {
-            Ok(request) => {
+        let job_id = query
+            .body()
+            .and_then(QueryBody::attachment)
+            .and_then(|attachment| {
+                core::str::from_utf8(&attachment.to_bytes())
+                    .ok()?
+                    .parse()
+                    .ok()
+            });
+        let body = query
+            .body()
+            .map(|body| body.payload().to_bytes().into_owned())
+            .unwrap_or_default();
+        let input = job_id
+            .ok_or(Rejection::NoJobId)
+            .and_then(|job_id| into_input(job_id, body));
+        match input {
+            Ok(input) => {
                 let delivery = Delivery {
-                    command: Command::Request(request),
+                    input,
                     reply: Some(CommandReply::Query(query)),
                     persist_settings: false,
                 };
                 drop(inbox.send(delivery).await);
             }
             Err(rejection) => {
-                complete_command_reply(Some(CommandReply::Query(query)), Err(rejection)).await;
+                complete_command_reply(
+                    Some(CommandReply::Query(query)),
+                    command_ack(job_id, None, Err(rejection)),
+                )
+                .await;
             }
         }
     }
@@ -972,7 +1159,7 @@ async fn serve_update_settings<D: Domain>(
             Err(error) => {
                 complete_command_reply(
                     Some(CommandReply::Query(query)),
-                    Err(Rejection::InvalidBody(error)),
+                    command_ack(None, None, Err(Rejection::InvalidBody(error))),
                 )
                 .await;
                 continue;
@@ -982,7 +1169,7 @@ async fn serve_update_settings<D: Domain>(
         match request {
             Ok(request) => {
                 let delivery = Delivery {
-                    command: Command::Request(request),
+                    input: Input::Command(Command::Request(request)),
                     reply: Some(CommandReply::Query(query)),
                     persist_settings: true,
                 };
@@ -991,7 +1178,7 @@ async fn serve_update_settings<D: Domain>(
             Err(error) => {
                 complete_command_reply(
                     Some(CommandReply::Query(query)),
-                    Err(Rejection::Domain(error)),
+                    command_ack(None, None, Err(Rejection::Domain(error))),
                 )
                 .await;
             }
@@ -1066,14 +1253,10 @@ async fn serve_state(
     }
 }
 
-async fn complete_command_reply(
-    reply: Option<CommandReply>,
-    verdict: Result<Option<JobId>, Rejection>,
-) {
+async fn complete_command_reply(reply: Option<CommandReply>, ack: CommandAck) {
     let Some(reply) = reply else {
         return;
     };
-    let ack = command_ack(verdict);
     match reply {
         CommandReply::Ack(sender) => {
             drop(sender.send(ack));
@@ -1108,5 +1291,17 @@ async fn reply(query: Query, answered: Result<(Vec<u8>, String), Unanswered>) {
 fn warn_on_failure(kind: &'static str, key: &str, sent: Result<(), SendError>) {
     if let Err(error) = sent {
         warn!(%error, kind, key, "Failed to send");
+    }
+}
+
+/// The Jobs, in the Snapshot when `jobs_access` says the Domain keeps them there, else in `own_jobs`.
+fn jobs_in_mut<'jobs, D: Domain>(
+    jobs_access: Option<JobsAccess<D>>,
+    snapshot: &'jobs mut D::Snapshot,
+    own_jobs: &'jobs mut Jobs,
+) -> &'jobs mut Jobs {
+    match jobs_access {
+        Some((_jobs, jobs_mut)) => jobs_mut(snapshot),
+        None => own_jobs,
     }
 }

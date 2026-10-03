@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use blueos_domain::Domain;
 use blueos_idl::msg::blueos_recorder_msgs;
+use blueos_jobs::{DomainJobs, JobId, JobNature};
 use blueos_recorder_api::endpoints::Conversions;
 use blueos_service::{Refusal, ServiceBuilder};
 
@@ -43,6 +44,7 @@ pub trait Handlers<D: Domain>: Send + Sync + 'static {
     /// The Domain's Request for the Message, or why it is refused.
     fn repair_recording(
         &self,
+        job_id: JobId,
         request: blueos_recorder_msgs::RepairRecordingCommand,
     ) -> Result<D::Request, Refusal>;
 
@@ -64,7 +66,7 @@ pub trait Handlers<D: Domain>: Send + Sync + 'static {
 }
 
 /// Registers every endpoint of `endpoints.toml` on `builder`, with `handlers` for the custom ones.
-pub fn register<D: Conversions, H: Handlers<D>, Context>(
+pub fn register<D: Conversions + DomainJobs, H: Handlers<D>, Context>(
     builder: ServiceBuilder<D, Context>,
     handlers: H,
 ) -> ServiceBuilder<D, Context> {
@@ -82,12 +84,21 @@ pub fn register<D: Conversions, H: Handlers<D>, Context>(
                 H::delete_recording(&handlers, request)
             }
         })
-        .command("RepairRecording", {
-            let handlers = Arc::clone(&handlers);
-            move |request: blueos_recorder_msgs::RepairRecordingCommand| {
-                H::repair_recording(&handlers, request)
-            }
-        })
+        .job(
+            "RepairRecording",
+            JobNature {
+                lasting: true,
+                cancellable: false,
+                pausable: false,
+                needs_permission: false,
+            },
+            {
+                let handlers = Arc::clone(&handlers);
+                move |job_id, request: blueos_recorder_msgs::RepairRecordingCommand| {
+                    H::repair_recording(&handlers, job_id, request)
+                }
+            },
+        )
         .command("SnapshotRecording", {
             let handlers = Arc::clone(&handlers);
             move |request: blueos_recorder_msgs::SnapshotRecordingCommand| {

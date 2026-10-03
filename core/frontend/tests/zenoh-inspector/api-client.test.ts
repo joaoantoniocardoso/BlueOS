@@ -1,4 +1,5 @@
 /* eslint-disable import/no-extraneous-dependencies */
+import { CommandAckStatus } from '@blueos-idl/constants'
 import type { CommandAck, ServiceInfo } from '@blueos-idl/messages'
 import { SCHEMAS } from '@blueos-idl/schemas'
 import { describe, expect, it } from 'vitest'
@@ -111,7 +112,9 @@ describe('createInspectorApiClient', () => {
     const transport = new FakeTransport()
     const client = createInspectorApiClient(async () => transport, idlSchemaProvider())
     const pending = transport.nextQuery()
-    const ack: CommandAck = { accepted: true, job_id: 1, reason: '' }
+    const ack: CommandAck = {
+      accepted: true, job_id: '0b5e8f5c-6f0a-4c4e-9a52-2f1e7d3c9b10', status: CommandAckStatus.Succeeded, reason: '',
+    }
     const resultPromise = client.request(
       SetLevel.key,
       'command',
@@ -121,6 +124,7 @@ describe('createInspectorApiClient', () => {
     )
     const query = await pending
     expect(query.body?.encoding).toBe(cdrEncoding(SetLevel.requestSchema))
+    expect(new TextDecoder().decode(query.body?.attachment)).toMatch(/^[0-9a-f-]{36}$/)
     query.reply({
       kind: 'sample',
       sample: {

@@ -43,9 +43,9 @@ cd core && cargo test -p blueos-example-cookbook
 | 12 | Arm a timer | [`tests/12-timers.rs`](tests/12-timers.rs) | written |
 | 13 | Cancel a timer | [`tests/12-timers.rs`](tests/12-timers.rs) | written |
 | 14 | Do device IO, and replace the device in a test | [`tests/14-io-effects.rs`](tests/14-io-effects.rs) | written |
-| 15 | Run multi-step work (job graph) | [`tests/15-jobs.rs`](tests/15-jobs.rs) | written |
+| 15 | Run lasting work as a Job, and cancel it | [`tests/15-jobs.rs`](tests/15-jobs.rs) | written |
 | 16 | Show job status in the UI | [`tests/16-job-status.rs`](tests/16-job-status.rs) | written |
-| 17 | Report partial progress of one job | [`tests/17-job-progress.rs`](tests/17-job-progress.rs) | written |
+| 17 | Follow a job through pause, resume and success | [`tests/17-job-progress.rs`](tests/17-job-progress.rs) | written |
 | 18 | Unit-test the Domain | [`../logic/domain/src/lib.rs`](../logic/domain/src/lib.rs) (`#[cfg(test)]`) | written |
 | 19 | Integration-test the service | [`../app/tests/endpoints.rs`](../app/tests/endpoints.rs) | written |
 | 20 | Use the service from the frontend | [`../../frontend/tests/example/ExampleMinimalPanel.test.ts`](../../../frontend/tests/example/ExampleMinimalPanel.test.ts) | written |

@@ -25,7 +25,8 @@ export interface SetLevelRequest {
 
 export interface CommandAck {
   accepted: boolean;
-  job_id: number;
+  job_id: string;
+  status: number;
   reason: string;
 }
 
@@ -42,10 +43,14 @@ export interface JobList {
 }
 
 export interface JobStatus {
-  job_id: number;
-  parent_job_id: number;
+  job_id: string;
+  job_type: string;
   status: number;
-  name: string;
+  reason: string;
+}
+
+export interface PermissionAnswer {
+  granted: boolean;
 }
 
 export interface RestartRequired {
@@ -208,6 +213,7 @@ export interface MessageBySchema {
   "blueos_msgs/msg/EndpointInfo": EndpointInfo;
   "blueos_msgs/msg/JobList": JobList;
   "blueos_msgs/msg/JobStatus": JobStatus;
+  "blueos_msgs/msg/PermissionAnswer": PermissionAnswer;
   "blueos_msgs/msg/RestartRequired": RestartRequired;
   "blueos_msgs/msg/ServiceInfo": ServiceInfo;
   "blueos_msgs/msg/ServiceStatus": ServiceStatus;

@@ -24,9 +24,9 @@ const TYPESCRIPT_DIR: &str = "frontend/src/libs/blueos-api/services";
 
 /// The endpoints D-12 gives every Service. A manifest cannot reuse their names, and `api.lock` records them for
 /// every Service.
-// ponytail: records `settings`, `UpdateSettings` and `jobs` for every Service, as the generator cannot see a
-// `ServiceBuilder::settings` or `ServiceBuilder::jobs` opt-in; a manifest field would make the lock exact.
-const STANDARD_ENDPOINTS: [StandardEndpoint; 6] = [
+// ponytail: records `settings` and `UpdateSettings` for every Service, as the generator cannot see a
+// `ServiceBuilder::settings` opt-in; a manifest field would make the lock exact.
+const STANDARD_ENDPOINTS: [StandardEndpoint; 10] = [
     StandardEndpoint {
         name: "info",
         key: "query/info",
@@ -62,6 +62,30 @@ const STANDARD_ENDPOINTS: [StandardEndpoint; 6] = [
         key: "jobs",
         request_schema: "",
         response_schema: "blueos_msgs/msg/JobList",
+    },
+    StandardEndpoint {
+        name: "CancelJob",
+        key: "command/CancelJob",
+        request_schema: "",
+        response_schema: COMMAND_ACK_SCHEMA,
+    },
+    StandardEndpoint {
+        name: "PauseJob",
+        key: "command/PauseJob",
+        request_schema: "",
+        response_schema: COMMAND_ACK_SCHEMA,
+    },
+    StandardEndpoint {
+        name: "ResumeJob",
+        key: "command/ResumeJob",
+        request_schema: "",
+        response_schema: COMMAND_ACK_SCHEMA,
+    },
+    StandardEndpoint {
+        name: "AnswerPermission",
+        key: "command/AnswerPermission",
+        request_schema: "blueos_msgs/msg/PermissionAnswer",
+        response_schema: COMMAND_ACK_SCHEMA,
     },
 ];
 
@@ -185,6 +209,21 @@ struct CommandEntry {
     request: String,
     #[serde(default)]
     custom: bool,
+    nature: Option<NatureEntry>,
+}
+
+/// What a Job type allows (D-36). A Command without one is an instant Job type that allows nothing.
+#[derive(Clone, Copy, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct NatureEntry {
+    #[serde(default)]
+    lasting: bool,
+    #[serde(default)]
+    cancellable: bool,
+    #[serde(default)]
+    pausable: bool,
+    #[serde(default)]
+    needs_permission: bool,
 }
 
 #[derive(Deserialize)]
@@ -227,6 +266,8 @@ struct Endpoint {
     request: Option<MessageType>,
     reply: Option<MessageType>,
     custom: bool,
+    /// Set for a Command whose Job type declares its nature, so its conversion gets the Job id.
+    nature: Option<NatureEntry>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -276,6 +317,15 @@ impl Endpoint {
 
     fn is_handled(&self) -> bool {
         self.custom || self.kind == Kind::IoQuery
+    }
+
+    /// The Job id parameter of its conversion: a Job type that declares its nature hands it to the Domain.
+    fn job_id_parameter(&self) -> &'static str {
+        if self.nature.is_some() {
+            "job_id: JobId, "
+        } else {
+            ""
+        }
     }
 
     /// The functions it generates in `Conversions` and `Handlers`, which must be unique in a Service.
@@ -588,43 +638,53 @@ fn endpoints(
     messages: &BTreeSet<String>,
 ) -> Result<Vec<Endpoint>, ManifestError> {
     check_name(&manifest.service)?;
-    let raw = manifest
-        .command
-        .into_iter()
-        .map(|(name, entry)| (Kind::Command, name, Some(entry.request), None, entry.custom))
-        .chain(manifest.query.into_iter().map(|(name, entry)| {
-            (
-                Kind::Query,
-                name,
-                Some(entry.request),
-                Some(entry.response),
-                entry.custom,
+    let raw =
+        manifest
+            .command
+            .into_iter()
+            .map(|(name, entry)| {
+                (
+                    Kind::Command,
+                    name,
+                    Some(entry.request),
+                    None,
+                    entry.custom,
+                    entry.nature,
+                )
+            })
+            .chain(manifest.query.into_iter().map(|(name, entry)| {
+                (
+                    Kind::Query,
+                    name,
+                    Some(entry.request),
+                    Some(entry.response),
+                    entry.custom,
+                    None,
+                )
+            }))
+            .chain(manifest.io_query.into_iter().map(|(name, entry)| {
+                (
+                    Kind::IoQuery,
+                    name,
+                    Some(entry.request),
+                    Some(entry.response),
+                    false,
+                    None,
+                )
+            }))
+            .chain(
+                manifest.state.into_iter().map(|(name, entry)| {
+                    (Kind::State, name, None, Some(entry.message), false, None)
+                }),
             )
-        }))
-        .chain(manifest.io_query.into_iter().map(|(name, entry)| {
-            (
-                Kind::IoQuery,
-                name,
-                Some(entry.request),
-                Some(entry.response),
-                false,
-            )
-        }))
-        .chain(
-            manifest
-                .state
-                .into_iter()
-                .map(|(name, entry)| (Kind::State, name, None, Some(entry.message), false)),
-        )
-        .chain(
-            manifest
-                .event
-                .into_iter()
-                .map(|(name, entry)| (Kind::Event, name, None, Some(entry.message), false)),
-        );
+            .chain(
+                manifest.event.into_iter().map(|(name, entry)| {
+                    (Kind::Event, name, None, Some(entry.message), false, None)
+                }),
+            );
     let mut functions = BTreeMap::new();
     let mut endpoints = Vec::new();
-    for (kind, name, request, reply, custom) in raw {
+    for (kind, name, request, reply, custom, nature) in raw {
         check_name(&name)?;
         let function = name.to_case(Case::Snake);
         if STANDARD_ENDPOINTS
@@ -644,6 +704,7 @@ fn endpoints(
             name,
             function,
             custom,
+            nature,
         };
         for function in endpoint.functions() {
             if let Some(first) = functions.insert(function.clone(), endpoint.name.clone()) {
@@ -707,10 +768,11 @@ fn api_source(service: &str, endpoints: &[Endpoint]) -> String {
                 } else {
                     "Query"
                 };
+                let job_id = endpoint.job_id_parameter();
                 _ = writeln!(
                     methods,
                     "/// The {title}, at `{key}`.\n///\n/// The Domain's {into} for the Message.\nfn \
-                     {function}(request: {request}) -> Self::{into};\n"
+                     {function}({job_id}request: {request}) -> Self::{into};\n"
                 );
                 notes.push(format!("`{function}` for the {title}"));
             }
@@ -760,9 +822,17 @@ fn api_source(service: &str, endpoints: &[Endpoint]) -> String {
     }
     let domain = domain_trait(endpoints);
     let list = notes.join(", ");
+    let jobs = if endpoints
+        .iter()
+        .any(|endpoint| endpoint.nature.is_some() && !endpoint.is_handled())
+    {
+        "use blueos_jobs::JobId;\n"
+    } else {
+        ""
+    };
     _ = write!(
         source,
-        "\nuse blueos_domain::{domain};\nuse blueos_idl::msg::{{{packages}}};\n\n/// Converts between the Domain and \
+        "\nuse blueos_domain::{domain};\nuse blueos_idl::msg::{{{packages}}};\n{jobs}\n/// Converts between the Domain and \
          the Messages of every endpoint of the `{service}` Service that is not\n/// `custom`. Implement it for the \
          Domain in this crate: `register` in the app crate calls it.\n#[diagnostic::on_unimplemented(\nmessage = \
          \"`{{Self}}` does not convert the endpoints of the `{service}` Service\",\nlabel = \"no `impl \
@@ -800,10 +870,11 @@ fn app_source(service: &str, api_crate: &str, endpoints: &[Endpoint]) -> String 
                 format!("impl Future<Output = Result<{reply}, Refusal>> + Send"),
             ),
         };
+        let job_id = endpoint.job_id_parameter();
         _ = writeln!(
             methods,
             "/// The {title}, at `{key}`.\n///\n/// {description}, or why it is refused.\nfn {function}(&self, \
-             request: {request}) -> {output};\n"
+             {job_id}request: {request}) -> {output};\n"
         );
     }
     let mut registrations = String::new();
@@ -816,10 +887,27 @@ fn app_source(service: &str, api_crate: &str, endpoints: &[Endpoint]) -> String 
         );
         let conversion =
             format!("|request: {request}| Ok(<D as Conversions>::{function}(request))");
-        let registration = match endpoint.kind {
-            Kind::Command if endpoint.custom => format!(".command(\"{name}\", {handler})"),
-            Kind::Command => format!(".command(\"{name}\", {conversion})"),
-            Kind::Query => format!(
+        let registration = match (endpoint.kind, endpoint.nature) {
+            (Kind::Command, Some(nature)) => {
+                let into_request = if endpoint.custom {
+                    format!(
+                        "{{\nlet handlers = Arc::clone(&handlers);\nmove |job_id, request: {request}| \
+                         H::{function}(&handlers, job_id, request)\n}}"
+                    )
+                } else {
+                    format!(
+                        "|job_id, request: {request}| Ok(<D as Conversions>::{function}(job_id, request))"
+                    )
+                };
+                format!(
+                    ".job(\"{name}\", JobNature {{ lasting: {}, cancellable: {}, pausable: {}, needs_permission: {} \
+                     }}, {into_request})",
+                    nature.lasting, nature.cancellable, nature.pausable, nature.needs_permission
+                )
+            }
+            (Kind::Command, None) if endpoint.custom => format!(".command(\"{name}\", {handler})"),
+            (Kind::Command, None) => format!(".command(\"{name}\", {conversion})"),
+            (Kind::Query, _) => format!(
                 ".query(\"{name}\", {}, <D as Conversions>::{function}_response)",
                 if endpoint.custom {
                     &handler
@@ -827,13 +915,13 @@ fn app_source(service: &str, api_crate: &str, endpoints: &[Endpoint]) -> String 
                     &conversion
                 }
             ),
-            Kind::IoQuery => format!(
+            (Kind::IoQuery, _) => format!(
                 ".io_query(\"{name}\", {{\nlet handlers = Arc::clone(&handlers);\nmove |request: {request}| \
                  {{\nlet handlers = Arc::clone(&handlers);\nBox::pin(async move {{ H::{function}(&handlers, \
                  request).await }})\n}}\n}})"
             ),
-            Kind::State => format!(".state(\"{name}\", <D as Conversions>::{function})"),
-            Kind::Event => format!(".event(\"{name}\", <D as Conversions>::{function})"),
+            (Kind::State, _) => format!(".state(\"{name}\", <D as Conversions>::{function})"),
+            (Kind::Event, _) => format!(".event(\"{name}\", <D as Conversions>::{function})"),
         };
         _ = writeln!(registrations, "{registration}");
         packages.extend(
@@ -867,6 +955,18 @@ fn app_source(service: &str, api_crate: &str, endpoints: &[Endpoint]) -> String 
             packages.into_iter().collect::<Vec<_>>().join(", ")
         );
     }
+    let jobs = endpoints.iter().any(|endpoint| endpoint.nature.is_some());
+    if jobs {
+        let job_id = if handled.iter().any(|endpoint| endpoint.nature.is_some()) {
+            "JobId, "
+        } else {
+            ""
+        };
+        _ = writeln!(
+            imports,
+            "use blueos_jobs::{{DomainJobs, {job_id}JobNature}};"
+        );
+    }
     let refusal = if handled.is_empty() { "" } else { "Refusal, " };
     _ = writeln!(imports, "use blueos_service::{{{refusal}ServiceBuilder}};");
     if conversions {
@@ -878,7 +978,12 @@ fn app_source(service: &str, api_crate: &str, endpoints: &[Endpoint]) -> String 
          `blueos/v1/{service}/...`.\npub const NAME: &str = \"{service}\";\n"
     );
     let manifest_endpoints = manifest_endpoints_vec_source(endpoints, service);
-    let bound = if conversions { "Conversions" } else { domain };
+    let bound = match (conversions, jobs) {
+        (true, true) => "Conversions + DomainJobs".to_owned(),
+        (true, false) => "Conversions".to_owned(),
+        (false, true) => format!("{domain} + DomainJobs"),
+        (false, false) => domain.to_owned(),
+    };
     let manifest_tail = format!("\n.manifest_endpoints({manifest_endpoints})");
     if handled.is_empty() {
         _ = write!(

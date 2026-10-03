@@ -88,7 +88,6 @@ impl Service for RecorderService {
                         .blocking_io(|recorder_context: &RecorderContext, snapshot, request| {
                             run_library_io(recorder_context, snapshot, request)
                         })
-                        .jobs()
                         .settings(
                             RecorderService::NAME,
                             config_parent,

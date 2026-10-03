@@ -10,10 +10,11 @@ export type Reply =
   | { kind: 'sample', sample: Sample }
   | { kind: 'error', payload: Uint8Array, encoding: string }
 
-/** The payload a query carries, such as an encoded Command. */
+/** The payload a query carries, such as an encoded Command, and its attachment, such as the Command's Job id. */
 export interface QueryBody {
   payload: Uint8Array
   encoding: string
+  attachment?: Uint8Array
 }
 
 export interface Subscription {
