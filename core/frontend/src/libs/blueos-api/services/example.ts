@@ -12,31 +12,38 @@ import {
 /** The name of the `example` Service, in each of its keys: `blueos/v1/example/...`. */
 export const NAME = 'example'
 
-/** command `SetLevel` at `blueos/v1/example/command/SetLevel`. */
+/** job `SetLevel` at `blueos/v1/example/command/SetLevel`. */
 export const SetLevel = {
-  kind: 'command' as const,
+  kind: 'job' as const,
   name: 'SetLevel',
   key: commandKey(NAME, 'SetLevel'),
-  requestSchema: 'blueos_example_msgs/msg/SetLevelRequest' as const,
+  type: 'blueos_example_msgs/action/SetLevel' as const,
+  goalSchema: 'blueos_example_msgs/action/SetLevel_Goal' as const,
+  feedbackSchema: 'blueos_example_msgs/action/SetLevel_Feedback' as const,
+  resultSchema: 'blueos_example_msgs/action/SetLevel_Result' as const,
 }
-export type SetLevelRequest = Idl.SetLevelRequest
+export type SetLevelGoal = Idl.SetLevelGoal
+export type SetLevelFeedback = Idl.SetLevelFeedback
+export type SetLevelResult = Idl.SetLevelResult
 
 /** query `Level` at `blueos/v1/example/query/Level`. */
 export const Level = {
   kind: 'query' as const,
   name: 'Level',
   key: queryKey(NAME, 'Level'),
-  requestSchema: 'blueos_example_msgs/msg/EmptyRequest' as const,
-  responseSchema: 'blueos_example_msgs/msg/LevelQueryResponse' as const,
+  type: 'blueos_example_msgs/srv/Level' as const,
+  requestSchema: 'blueos_example_msgs/srv/Level_Request' as const,
+  responseSchema: 'blueos_example_msgs/srv/Level_Response' as const,
 }
-export type LevelRequest = Idl.EmptyRequest
-export type LevelResponse = Idl.LevelQueryResponse
+export type LevelRequest = Idl.LevelRequest
+export type LevelResponse = Idl.LevelResponse
 
 /** state `pump` at `blueos/v1/example/state/pump`. */
 export const pump = {
   kind: 'state' as const,
   name: 'pump',
   key: stateKey(NAME, 'pump'),
+  type: 'blueos_example_msgs/msg/PumpState' as const,
   messageSchema: 'blueos_example_msgs/msg/PumpState' as const,
 }
 export type Pump = Idl.PumpState
