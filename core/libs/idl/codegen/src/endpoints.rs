@@ -24,9 +24,9 @@ const TYPESCRIPT_DIR: &str = "frontend/src/libs/blueos-api/services";
 
 /// The endpoints D-12 gives every Service. A manifest cannot reuse their names, and `api.lock` records them for
 /// every Service.
-// ponytail: records `settings`, `UpdateSettings` and `jobs` for every Service, as the generator cannot see a
-// `ServiceBuilder::settings` or `ServiceBuilder::jobs` opt-in; a manifest field would make the lock exact.
-const STANDARD_ENDPOINTS: [StandardEndpoint; 6] = [
+// ponytail: records `settings` and `UpdateSettings` for every Service, as the generator cannot see a
+// `ServiceBuilder::settings` opt-in; a manifest field would make the lock exact.
+const STANDARD_ENDPOINTS: [StandardEndpoint; 10] = [
     StandardEndpoint {
         name: "info",
         key: "query/info",
@@ -62,6 +62,30 @@ const STANDARD_ENDPOINTS: [StandardEndpoint; 6] = [
         key: "jobs",
         request_schema: "",
         response_schema: "blueos_msgs/msg/JobList",
+    },
+    StandardEndpoint {
+        name: "CancelJob",
+        key: "command/CancelJob",
+        request_schema: "",
+        response_schema: COMMAND_ACK_SCHEMA,
+    },
+    StandardEndpoint {
+        name: "PauseJob",
+        key: "command/PauseJob",
+        request_schema: "",
+        response_schema: COMMAND_ACK_SCHEMA,
+    },
+    StandardEndpoint {
+        name: "ResumeJob",
+        key: "command/ResumeJob",
+        request_schema: "",
+        response_schema: COMMAND_ACK_SCHEMA,
+    },
+    StandardEndpoint {
+        name: "AnswerPermission",
+        key: "command/AnswerPermission",
+        request_schema: "blueos_msgs/msg/PermissionAnswer",
+        response_schema: COMMAND_ACK_SCHEMA,
     },
 ];
 

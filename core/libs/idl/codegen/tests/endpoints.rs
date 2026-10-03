@@ -60,6 +60,10 @@ fn rejects_the_names_every_service_has() {
         "settings",
         "UpdateSettings",
         "jobs",
+        "CancelJob",
+        "PauseJob",
+        "ResumeJob",
+        "AnswerPermission",
         "Log",
     ] {
         let manifest =
@@ -274,6 +278,11 @@ fn the_lock_lists_the_standard_endpoints_of_every_service() {
     assert_eq!(
         collect_endpoint_lock_lines(&workspace.root, &messages()).unwrap(),
         [
+            "blueos/v1/test/command/AnswerPermission 1 \
+             request=blueos_msgs/msg/PermissionAnswer;response=blueos_msgs/msg/CommandAck",
+            "blueos/v1/test/command/CancelJob 1 request=;response=blueos_msgs/msg/CommandAck",
+            "blueos/v1/test/command/PauseJob 1 request=;response=blueos_msgs/msg/CommandAck",
+            "blueos/v1/test/command/ResumeJob 1 request=;response=blueos_msgs/msg/CommandAck",
             "blueos/v1/test/command/UpdateSettings 1 \
              request=blueos_msgs/msg/SettingsEnvelope;response=blueos_msgs/msg/CommandAck",
             "blueos/v1/test/jobs 1 request=;response=blueos_msgs/msg/JobList",
