@@ -44,37 +44,40 @@
             mdi-play-circle
           </v-icon>
         </v-btn>
-        <v-btn
-          v-for="operationName in item.allowed_operations"
+        <span
+          v-for="operationName in operationButtons(item)"
           :key="operationName"
-          v-tooltip="`${operationUi(operationName).label} ${item.name}`"
-          :aria-label="`${operationUi(operationName).label} ${item.name}`"
-          icon
-          small
-          :color="operationUi(operationName).color"
-          :loading="busyPath === item.path && busyOperation === operationName"
-          :disabled="disabled"
-          @click="$emit('operation', operationName, item)"
+          v-tooltip="operationTooltip(item, operationName)"
         >
-          <v-icon small>
-            {{ operationUi(operationName).icon }}
-          </v-icon>
-        </v-btn>
-        <v-btn
-          v-if="item.state === 'ready'"
-          v-tooltip="`Download ${item.name}`"
-          :aria-label="`Download ${item.name}`"
-          icon
-          small
-          color="primary"
-          :href="downloadUrl(item.path)"
-          :download="item.name"
-          :disabled="disabled"
-        >
-          <v-icon small>
-            mdi-download
-          </v-icon>
-        </v-btn>
+          <v-btn
+            :aria-label="operationTooltip(item, operationName)"
+            icon
+            small
+            :color="operationUi(operationName).color"
+            :loading="busyPath === item.path && busyOperation === operationName"
+            :disabled="disabled || operationDisabledReason(item, operationName) !== null"
+            @click="$emit('operation', operationName, item)"
+          >
+            <v-icon small>
+              {{ operationUi(operationName).icon }}
+            </v-icon>
+          </v-btn>
+        </span>
+        <span v-tooltip="downloadTooltip(item)">
+          <v-btn
+            :aria-label="downloadTooltip(item)"
+            icon
+            small
+            color="primary"
+            :loading="downloading(item)"
+            :disabled="disabled || !canDownload(item)"
+            @click="$emit('download', item)"
+          >
+            <v-icon small>
+              mdi-download
+            </v-icon>
+          </v-btn>
+        </span>
       </div>
     </template>
   </v-data-table>
@@ -84,8 +87,17 @@
 import Vue, { PropType } from 'vue'
 
 import RecordsRepairProgress from '@/components/records/RecordsRepairProgress.vue'
+import { DOWNLOAD } from '@/libs/recorder/constants'
 import type { LibraryRecording } from '@/libs/recorder/types'
-import { canPlayRecording, RECORDING_OPERATION_UI, RECORDING_STATE_UI } from '@/libs/recorder/view-logic'
+import {
+  canDownloadRecording,
+  canPlayRecording,
+  downloadTooltip,
+  operationButtons,
+  operationDisabledReason,
+  RECORDING_OPERATION_UI,
+  RECORDING_STATE_UI,
+} from '@/libs/recorder/view-logic'
 import { prettifySize } from '@/utils/helper_functions'
 
 export default Vue.extend({
@@ -135,6 +147,16 @@ export default Vue.extend({
   },
   methods: {
     canPlay: canPlayRecording,
+    downloadTooltip,
+    operationButtons,
+    operationDisabledReason,
+    canDownload: canDownloadRecording,
+    downloading(file: LibraryRecording): boolean {
+      return this.busyPath === file.path && this.busyOperation === DOWNLOAD
+    },
+    operationTooltip(file: LibraryRecording, operationName: string): string {
+      return operationDisabledReason(file, operationName) ?? `${this.operationUi(operationName).label} ${file.name}`
+    },
     stateUi(file: LibraryRecording): { label: string, color: string } {
       return RECORDING_STATE_UI[file.state] ?? { label: file.state, color: 'secondary' }
     },

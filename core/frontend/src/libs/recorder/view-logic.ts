@@ -8,7 +8,6 @@ import {
   CANCEL_JOB,
   DELETE_RECORDING,
   REPAIR_RECORDING,
-  SNAPSHOT_RECORDING,
 } from './constants'
 import type {
   LibraryRecording,
@@ -23,11 +22,69 @@ export const RECORDING_STATE_UI: Record<RecordingState, { label: string, color: 
   ready: { label: 'Ready', color: 'success' },
 }
 
+/** The operations a row shows as buttons. A snapshot is not one: the Download of the file being written takes it. */
 export const RECORDING_OPERATION_UI: Record<string, { label: string, icon: string, color: string }> = {
   [REPAIR_RECORDING]: { label: 'Repair', icon: 'mdi-wrench', color: 'primary' },
   [CANCEL_JOB]: { label: 'Cancel repair', icon: 'mdi-stop', color: 'primary' },
   [DELETE_RECORDING]: { label: 'Delete', icon: 'mdi-delete', color: 'error' },
-  [SNAPSHOT_RECORDING]: { label: 'Download snapshot', icon: 'mdi-download', color: 'primary' },
+}
+
+/**
+ * The operation buttons of `file`: Delete always and Repair whenever the file needs it, so a refused one stays visible
+ * and says why, plus any other allowed operation that has a button.
+ */
+export function operationButtons(file: LibraryRecording): string[] {
+  return Object.keys(RECORDING_OPERATION_UI).filter((operationName) => file.allowed_operations.includes(operationName)
+    || operationName === DELETE_RECORDING
+    || operationName === REPAIR_RECORDING && file.state === 'needs_repair')
+}
+
+/** Why the recorder refuses `operationName` for `file`, or null when it allows it. */
+export function operationDisabledReason(file: LibraryRecording, operationName: string): string | null {
+  if (file.allowed_operations.includes(operationName)) {
+    return null
+  }
+  if (operationName === DELETE_RECORDING && file.state === 'recording') {
+    return 'Cannot delete while the vehicle is still recording'
+  }
+  if (operationName === DELETE_RECORDING && file.state === 'repairing') {
+    return 'Cannot delete while the recording is being repaired'
+  }
+  if (operationName === REPAIR_RECORDING) {
+    return file.repair_error || 'Wait until the file is finished before repairing'
+  }
+  return 'The recorder does not allow this right now'
+}
+
+/**
+ * How a recording downloads: a finished file as it is, even without an index, and the file being written through a
+ * snapshot, the indexed copy of what has been written so far. A file being repaired does not download.
+ */
+export function recordingDownload(file: LibraryRecording): 'direct' | 'snapshot' | null {
+  if (file.state === 'recording') {
+    return 'snapshot'
+  }
+  if (file.state === 'repairing') {
+    return null
+  }
+  return 'direct'
+}
+
+export function canDownloadRecording(file: LibraryRecording): boolean {
+  return recordingDownload(file) !== null
+}
+
+export function downloadTooltip(file: LibraryRecording): string {
+  if (file.state === 'needs_repair') {
+    return `Download ${file.name}. It has no index: Repair makes it seekable`
+  }
+  if (file.state === 'repairing') {
+    return 'Wait until repair finishes before downloading'
+  }
+  if (file.state === 'recording') {
+    return 'Download what has been written so far'
+  }
+  return `Download ${file.name}`
 }
 
 /** The latest repair Feedback of each active repair Job, by Job id. */
@@ -159,9 +216,12 @@ export function deleteConfirmationMessage(targets: LibraryRecording[]): string {
   return `Delete ${targets.length} recordings? This cannot be undone.`
 }
 
-/** Why a Job aborted, for the user, or null when it succeeded or was canceled. */
+/**
+ * Why a Job aborted, for the user, or null when it succeeded or was canceled. A snapshot's failure is null too: the
+ * Download that took it reports it.
+ */
 export function jobFailureMessage({ job, result }: RecordingJobResult): string | null {
-  if (job.status !== JobStatusStatus.Aborted) {
+  if (job.status !== JobStatusStatus.Aborted || !(job.job_type in RECORDING_OPERATION_UI)) {
     return null
   }
   return `${RECORDING_OPERATION_UI[job.job_type].label} failed for ${result.path}: ${job.reason || 'unknown error'}`
@@ -169,7 +229,7 @@ export function jobFailureMessage({ job, result }: RecordingJobResult): string |
 
 /** Which Job the user canceled, or null when the Job ended any other way. */
 export function jobCanceledMessage({ job, result }: RecordingJobResult): string | null {
-  if (job.status !== JobStatusStatus.Canceled) {
+  if (job.status !== JobStatusStatus.Canceled || !(job.job_type in RECORDING_OPERATION_UI)) {
     return null
   }
   return `${RECORDING_OPERATION_UI[job.job_type].label} canceled for ${result.path}`

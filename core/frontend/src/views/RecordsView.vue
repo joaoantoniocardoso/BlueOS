@@ -172,6 +172,7 @@
       :busy-path="busyPath"
       :busy-operation="busyOperation"
       @operation="onOperation"
+      @download="downloadRecording"
       @play="openPlayer"
     />
 
@@ -203,6 +204,7 @@
               :selected="selectedPaths.includes(file.path)"
               @toggle-select="toggleSelected(file)"
               @operation="onOperation"
+              @download="downloadRecording"
               @play="openPlayer"
             />
           </v-col>
@@ -220,6 +222,21 @@
         <v-card-title class="py-2">
           <span class="text-truncate">{{ activeRecording.name }}</span>
           <v-spacer />
+          <v-btn
+            v-if="canDownload(activeRecording)"
+            v-tooltip="'Download the whole recording file. This is not cut to the export time range.'"
+            small
+            outlined
+            color="primary"
+            class="mr-2"
+            :loading="downloading(activeRecording)"
+            @click="downloadRecording(activeRecording)"
+          >
+            <v-icon small left>
+              mdi-download
+            </v-icon>
+            Download full MCAP
+          </v-btn>
           <v-btn
             v-tooltip="'Close'"
             aria-label="Close"
@@ -307,8 +324,8 @@ import { createRecorderClient, type RecorderClient } from '@/libs/recorder/clien
 import {
   CANCEL_JOB,
   DELETE_RECORDING,
+  DOWNLOAD,
   REPAIR_RECORDING,
-  SNAPSHOT_RECORDING,
 } from '@/libs/recorder/constants'
 import { dateFilterOptions, filterRecordings } from '@/libs/recorder/filter'
 import {
@@ -323,6 +340,7 @@ import type {
   LibraryRecording, RecorderCommandResult, RecordingJobResult, RecordingState,
 } from '@/libs/recorder/types'
 import {
+  canDownloadRecording,
   deleteConfirmationMessage,
   jobCanceledMessage,
   jobFailureMessage,
@@ -480,6 +498,10 @@ export default Vue.extend({
     downloadUrl(path: string): string {
       return this.recorder?.recordingDownloadUrl(path) ?? ''
     },
+    canDownload: canDownloadRecording,
+    downloading(file: LibraryRecording): boolean {
+      return this.busyPath === file.path && this.busyOperation === DOWNLOAD
+    },
     indexSource(path: string): RecordingIndexSource | undefined {
       return this.recorder?.recordingIndexSource(path)
     },
@@ -591,15 +613,23 @@ export default Vue.extend({
           if (!result.accepted) {
             this.lastError = result.reason
           }
-          return
         }
-        if (operationName === SNAPSHOT_RECORDING) {
-          const outputPath = await this.recorder.snapshotRecording(file.path)
-          this.triggerDownload(
-            this.recorder.recordingDownloadUrl(outputPath),
-            outputPath.split('/').pop() ?? file.name,
-          )
-        }
+      } catch (error) {
+        this.showError(error)
+      } finally {
+        this.busyPath = null
+        this.busyOperation = null
+      }
+    },
+    async downloadRecording(file: LibraryRecording): Promise<void> {
+      if (!this.recorder) {
+        return
+      }
+      this.busyPath = file.path
+      this.busyOperation = DOWNLOAD
+      try {
+        const path = await this.recorder.recordingDownloadPath(file)
+        this.triggerDownload(this.recorder.recordingDownloadUrl(path), path.split('/').pop() ?? file.name)
       } catch (error) {
         this.showError(error)
       } finally {

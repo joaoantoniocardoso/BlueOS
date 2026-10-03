@@ -2,16 +2,27 @@
 import { JobStatusStatus } from '@blueos-idl/constants'
 import { describe, expect, it } from 'vitest'
 
-import { DELETE_RECORDING, REPAIR_RECORDING, SNAPSHOT_RECORDING } from '@/libs/recorder/constants'
+import {
+  CANCEL_JOB,
+  DELETE_RECORDING,
+  REPAIR_RECORDING,
+  SNAPSHOT_RECORDING,
+} from '@/libs/recorder/constants'
 import type { LibraryRecording, RecordingJobResult } from '@/libs/recorder/types'
 import {
+  canDownloadRecording,
   canLoadThumbnail,
   canPlayRecording,
   deleteConfirmationMessage,
+  downloadTooltip,
   jobCanceledMessage,
   jobFailureMessage,
+  operationButtons,
+  operationDisabledReason,
   readySnapshotDownloadPath,
+  RECORDING_OPERATION_UI,
   recordingByPath,
+  recordingDownload,
   repairProgress,
   type RepairProgress,
   snapshotDownloadPath,
@@ -140,6 +151,50 @@ describe('recorder view-logic', () => {
       .toBe('Repair canceled for half.mcap')
     expect(jobCanceledMessage(jobResult(REPAIR_RECORDING, JobStatusStatus.Succeeded, result))).toBeNull()
     expect(jobCanceledMessage(jobResult(REPAIR_RECORDING, JobStatusStatus.Aborted, result, 'disk full'))).toBeNull()
+  })
+
+  it('downloads a finished file as it is, the file being written as a snapshot, and nothing while repairing', () => {
+    expect(recordingDownload(file({ state: 'ready' }))).toBe('direct')
+    expect(recordingDownload(file({ state: 'needs_repair' }))).toBe('direct')
+    expect(recordingDownload(file({ state: 'recording' }))).toBe('snapshot')
+    expect(recordingDownload(file({ state: 'repairing' }))).toBeNull()
+    expect(canDownloadRecording(file({ state: 'needs_repair' }))).toBe(true)
+    expect(canDownloadRecording(file({ state: 'repairing' }))).toBe(false)
+    expect(downloadTooltip(file({ state: 'repairing' }))).toBe('Wait until repair finishes before downloading')
+    expect(downloadTooltip(file({ state: 'ready', name: 'dive.mcap' }))).toBe('Download dive.mcap')
+    expect(downloadTooltip(file({ state: 'recording' }))).toBe('Download what has been written so far')
+    expect(downloadTooltip(file({ state: 'needs_repair', name: 'dive.mcap' })))
+      .toBe('Download dive.mcap. It has no index: Repair makes it seekable')
+  })
+
+  it('never shows a snapshot as an operation, nor reports its Job, which the Download reports itself', () => {
+    expect(Object.keys(RECORDING_OPERATION_UI)).not.toContain(SNAPSHOT_RECORDING)
+    expect(operationButtons(file({ allowed_operations: [SNAPSHOT_RECORDING, DELETE_RECORDING] })))
+      .toEqual([DELETE_RECORDING])
+    const result = { path: 'live.mcap', output_path: '' }
+    expect(jobFailureMessage(jobResult(SNAPSHOT_RECORDING, JobStatusStatus.Aborted, result, 'disk full'))).toBeNull()
+    expect(jobCanceledMessage(jobResult(SNAPSHOT_RECORDING, JobStatusStatus.Canceled, result))).toBeNull()
+  })
+
+  it('keeps Delete and a needed Repair as buttons, disabled with the reason the recorder refuses them', () => {
+    const live = file({ state: 'recording', allowed_operations: [SNAPSHOT_RECORDING] })
+    expect(operationButtons(live)).toEqual([DELETE_RECORDING])
+    expect(operationDisabledReason(live, DELETE_RECORDING)).toBe('Cannot delete while the vehicle is still recording')
+
+    const repairing = file({ state: 'repairing', allowed_operations: [CANCEL_JOB] })
+    expect(operationButtons(repairing)).toEqual([CANCEL_JOB, DELETE_RECORDING])
+    expect(operationDisabledReason(repairing, CANCEL_JOB)).toBeNull()
+    expect(operationDisabledReason(repairing, DELETE_RECORDING))
+      .toBe('Cannot delete while the recording is being repaired')
+
+    const broken = file({
+      state: 'needs_repair', allowed_operations: [DELETE_RECORDING], repair_error: 'Not an MCAP file',
+    })
+    expect(operationButtons(broken)).toEqual([REPAIR_RECORDING, DELETE_RECORDING])
+    expect(operationDisabledReason(broken, REPAIR_RECORDING)).toBe('Not an MCAP file')
+    expect(operationDisabledReason(file({ state: 'needs_repair', allowed_operations: [] }), REPAIR_RECORDING))
+      .toBe('Wait until the file is finished before repairing')
+    expect(operationDisabledReason(broken, DELETE_RECORDING)).toBeNull()
   })
 
   it('asks before deleting one recording or many', () => {

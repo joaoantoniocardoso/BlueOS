@@ -13,3 +13,6 @@ export const REPAIR_RECORDING = RepairRecording.name
 export { CANCEL_JOB }
 export const DELETE_RECORDING = DeleteRecording.name
 export const SNAPSHOT_RECORDING = SnapshotRecording.name
+
+/** The busy operation of a row while its Download runs in the browser. */
+export const DOWNLOAD = 'Download'
