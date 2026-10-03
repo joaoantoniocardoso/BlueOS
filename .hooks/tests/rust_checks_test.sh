@@ -151,6 +151,27 @@ test_workspace_metadata_is_clean() {
     assert_clean_metadata "workspace" "$metadata"
 }
 
+test_app_src_rejects_unknown_top_level_module() {
+    local temporary output
+    temporary=$(mktemp -d)
+    copy_core "$temporary"
+    printf '\n' >>"$temporary/services/recorder/app/src/library_io.rs"
+    if output=$(collect_app_src_violations "$temporary"); then
+        fail "app/src layout check should reject library_io.rs"
+    fi
+    if ! grep -q 'unknown top-level module library_io' <<<"$output"; then
+        printf 'rust_checks_test: expected library_io violation in:\n%s\n' "$output" >&2
+        exit 1
+    fi
+    rm -rf "$temporary"
+}
+
+test_app_src_allows_recorder_layout() {
+    if ! collect_app_src_violations "$ROOT_DIR"; then
+        fail "recorder app/src layout should pass the folder check"
+    fi
+}
+
 test_fmt_check_fails_on_unformatted_source() {
     local temporary
     temporary=$(mktemp -d)
@@ -423,6 +444,8 @@ main() {
     test_folder_rejects_logic_api_depending_on_adapter
     test_folder_rejects_cross_service_dependency
     test_workspace_metadata_is_clean
+    test_app_src_rejects_unknown_top_level_module
+    test_app_src_allows_recorder_layout
     test_fmt_check_fails_on_unformatted_source
     test_syn_style_check_fails_on_mixed_import_groups
     test_shipped_clippy_rejects_item_used_only_under_non_shipped_feature
