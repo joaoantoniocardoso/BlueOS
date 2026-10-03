@@ -19,5 +19,5 @@ export interface RecordingOperationEvent {
   error: string
 }
 
-/** The verdict of a submitted Job; `job_id` names the Job to watch or cancel. */
-export type RecorderCommandResult = Pick<CommandAck, 'accepted' | 'job_id' | 'reason'>
+/** The verdict of a submitted Job; `job_id` names the Job to watch or cancel, `status` is its status in the ack. */
+export type RecorderCommandResult = Pick<CommandAck, 'accepted' | 'job_id' | 'reason' | 'status'>

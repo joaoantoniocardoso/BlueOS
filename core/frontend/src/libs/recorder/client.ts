@@ -1,4 +1,4 @@
-import type { CommandAck, JobStatus } from '@blueos-idl/messages'
+import type { CommandAck, JobStatus, RecordingState as RecordingSessionState } from '@blueos-idl/messages'
 
 import { cancelJob, sendCommand } from '@/libs/blueos-api/command'
 import { jobsState } from '@/libs/blueos-api/endpoints'
@@ -8,6 +8,7 @@ import {
   DeleteRecording,
   library,
   NAME,
+  recording,
   RepairRecording,
   SnapshotRecording,
   Start,
@@ -54,6 +55,10 @@ export interface RecorderClient {
     onOperation: (event: RecordingOperationEvent) => void,
     onError?: (error: unknown) => void,
   ): Promise<Subscription>
+  watchRecording(
+    onRecording: (state: RecordingSessionState) => void,
+    onError?: (error: unknown) => void,
+  ): Promise<Subscription>
   watchRepairProgress(
     onProgress: (progress: RepairProgress) => void,
     onError?: (error: unknown) => void,
@@ -77,7 +82,7 @@ export interface RecorderClientOptions {
 }
 
 function commandResult(commandAck: CommandAck): RecorderCommandResult {
-  return { accepted: commandAck.accepted, reason: commandAck.reason, job_id: commandAck.job_id }
+  return { accepted: commandAck.accepted, reason: commandAck.reason, job_id: commandAck.job_id, status: commandAck.status }
 }
 
 export function createRecorderClient(
@@ -175,6 +180,13 @@ export function createRecorderClient(
           await Promise.all(subscriptions.map((subscription) => subscription.close()))
         },
       }
+    },
+
+    watchRecording(onRecording, onError) {
+      return watchState(transport, recording, {
+        onValue: (state) => onRecording(state),
+        onError: (error) => onError?.(error),
+      })
     },
 
     watchRepairProgress(onProgress, onError) {
