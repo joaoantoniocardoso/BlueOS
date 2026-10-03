@@ -91,6 +91,7 @@ impl Conversions for RecorderDomain {
             Some(LibraryOperation::Repair {
                 path,
                 job_id: ended,
+                ..
             }) if *ended == job_id => RepairRecordingResult {
                 path: path.as_str().into(),
             },
