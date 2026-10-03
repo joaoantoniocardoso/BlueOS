@@ -1,5 +1,14 @@
 <template>
   <v-card class="records-row d-flex flex-column" outlined>
+    <v-checkbox
+      v-if="selectable"
+      :input-value="selected"
+      dense
+      hide-details
+      class="card-select ma-2 mb-0"
+      @click.stop
+      @change="$emit('toggle-select')"
+    />
     <records-recording-preview
       :file="file"
       :download-url="downloadUrl"
@@ -93,6 +102,14 @@ export default Vue.extend({
     busyOperation: {
       type: String as PropType<string | null>,
       default: null,
+    },
+    selectable: {
+      type: Boolean,
+      default: false,
+    },
+    selected: {
+      type: Boolean,
+      default: false,
     },
   },
   computed: {
