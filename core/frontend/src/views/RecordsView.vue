@@ -407,6 +407,7 @@ import RecordsRecordingTable from '@/components/records/RecordsRecordingTable.vu
 import RecordsSessionControls from '@/components/records/RecordsSessionControls.vue'
 import type { Transport } from '@/libs/blueos-api/transport'
 import zenohTransport from '@/libs/blueos-api/zenoh-transport'
+import { deleteCachedThumbnail } from '@/libs/mcap/adapters/thumbnail-cache'
 import type { RecordingIndexSource } from '@/libs/mcap/logic/recording-index'
 import message_manager, { MessageLevel } from '@/libs/message-manager'
 import {
@@ -756,7 +757,14 @@ export default Vue.extend({
       const targets = this.deleteTargets
       this.deleteDialog = false
       this.deleteTargets = []
-      await this.runBulk(DELETE_RECORDING, targets, (recorder, path) => recorder.deleteRecording(path))
+      await this.runBulk(DELETE_RECORDING, targets, async (recorder, path) => {
+        const result = await recorder.deleteRecording(path)
+        const file = recordingByPath(targets, path)
+        if (result.accepted && file) {
+          await deleteCachedThumbnail({ path, sizeBytes: file.size_bytes, created: file.created })
+        }
+        return result
+      })
     },
     async confirmBulkRepair(): Promise<void> {
       const targets = this.repairTargets
