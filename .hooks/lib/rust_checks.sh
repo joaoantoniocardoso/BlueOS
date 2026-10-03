@@ -4,6 +4,10 @@
 
 RUST_NO_STD_TARGET=thumbv7em-none-eabihf
 RUST_WASM32_TARGET=wasm32-unknown-unknown
+# The quality ratchet tools and the thailint linters whose findings it counts (D-30).
+RUST_RUSTQUAL_VERSION=1.8.3
+RUST_THAILINT_VERSION=0.25.0
+RUST_THAILINT_LINTERS=(unwrap-abuse clone-abuse blocking-async)
 # Features of test-only backends: enabled in [dev-dependencies] only, so they never reach a shipped binary (D-02).
 RUST_TEST_ONLY_FEATURES=(blueos-comms/channel blueos-service/testing)
 
@@ -350,6 +354,8 @@ run_rust_lint_checks() {
                 --write --idl-root "$workspace_dir/libs/idl" --core-dir "$workspace_dir"
             echo "Running cargo fmt.."
             cargo fmt --all
+            echo "Lowering the quality ratchet ceilings.."
+            check_rust_quality_ratchet "$workspace_dir"
             exit 0
         fi
 
@@ -373,6 +379,9 @@ run_rust_lint_checks() {
 
         echo "Running blueos rust style check.."
         cargo run --locked -q -p blueos-rust-style-check -- "$workspace_dir"
+
+        echo "Checking the quality ratchet.."
+        check_rust_quality_ratchet "$workspace_dir"
 
         local metadata
         metadata=$(cargo metadata --format-version 1 --no-deps --locked)
@@ -563,6 +572,160 @@ check_rust_coverage_ratchet() {
                 if (key != "") print key "=" value
             }
         ' "$ratchet_file")
+    )
+}
+
+# Usage: toml_to_json <file>
+toml_to_json() {
+    python3 -c 'import json, sys, tomllib; print(json.dumps(tomllib.load(open(sys.argv[1], "rb"))))' "$1"
+}
+
+# Usage: check_ratchet_prerequisites
+# The ratchet files are read with python3's tomllib (3.11 or later) and compared with jq.
+check_ratchet_prerequisites() {
+    if ! python3 -c 'import tomllib' 2>/dev/null; then
+        printf 'python3 3.11 or later not installed; the ratchet checks read TOML with its tomllib\n' >&2
+        exit 1
+    fi
+    if ! command -v jq >/dev/null 2>&1; then
+        printf 'jq not installed; install it with your package manager (e.g. apt install jq)\n' >&2
+        exit 1
+    fi
+}
+
+# Usage: measure_quality <ratchet-json> <rustqual-baseline> <thailint-findings>
+# Prints {"rustqual": {category: count}, "thailint": {rule: count}}. rustqual's categories are the counts in its
+# --save-baseline output; a thailint rule that has a ceiling and no finding counts 0.
+measure_quality() {
+    jq -n --argjson ratchet "$1" --slurpfile baseline "$2" --slurpfile thailint "$3" '{
+        rustqual: ($baseline[0] | del(.version, .quality_score, .iosp_score, .total, .violation_details)),
+        thailint: (($ratchet.thailint // {} | map_values(0))
+            + ([$thailint[].violations[].rule_id] | group_by(.) | map({key: .[0], value: length}) | from_entries))
+    }'
+}
+
+# Usage: collect_quality_ratchet_violations <ratchet-file> <rustqual-baseline> <rustqual-report> <thailint-findings>
+# Compares rustqual's --save-baseline counts and thailint's JSON findings (one document per linter) with the
+# ceilings in the ratchet file. Prints one violation per line. Exits 1 when any violation exists (D-30).
+collect_quality_ratchet_violations() {
+    local ratchet_file="$1"
+    local ratchet measured violations
+    ratchet=$(toml_to_json "$ratchet_file") || return 1
+    measured=$(measure_quality "$ratchet" "$2" "$4") || return 1
+    violations=$(jq -rn --argjson ratchet "$ratchet" --argjson measured "$measured" --slurpfile report "$3" \
+        --arg file "$(basename "$ratchet_file")" --arg linters "${RUST_THAILINT_LINTERS[*]}" '
+        def listing($tool; $category):
+            if $tool == "rustqual" then "(cd core && rustqual .)"
+            else "(cd core && thailint \($category | split(".")[0]) libs app services)" end;
+        def reported($tool; $category):
+            ($measured[$tool] | has($category))
+                and ($tool == "rustqual" or ($linters | split(" ") | index($category | split(".")[0]) != null));
+        (if $report[0].summary.suppression_ratio_exceeded then
+            "rustqual: suppressions exceed max_suppression_ratio in rustqual.toml; fix the findings instead"
+        else empty end),
+        (["rustqual", "thailint"][] as $tool
+            | $measured[$tool] as $counts
+            | ($ratchet[$tool] // {}) as $ceilings
+            | ($counts | keys[] | select(. as $category | $ceilings | has($category) | not)
+                | "\($tool): \(.) has no ceiling in \($file); add it at \($counts[.])"),
+              ($ceilings | to_entries[] | .key as $category | .value as $ceiling
+                | if reported($tool; $category) | not then
+                    "\($tool): \($category) in \($file) is not a category \($tool) reports; remove it"
+                  elif $counts[$category] > $ceiling then
+                    "\($tool): \($category) is \($counts[$category]), above its ceiling of \($ceiling) in \($file); list the findings with \(listing($tool; $category))"
+                  elif $counts[$category] < $ceiling then
+                    "\($tool): \($category) is \($counts[$category]), below its ceiling of \($ceiling) in \($file); lower the ceiling with ./.hooks/pre-push --fix"
+                  else empty end))')
+    if [ -n "$violations" ]; then
+        printf '%s\n' "$violations"
+        return 1
+    fi
+    return 0
+}
+
+# Usage: lower_quality_ratchet_ceilings <ratchet-file> <rustqual-baseline> <thailint-findings>
+# Sets each ceiling to its measured count when the count is lower, and never raises one.
+lower_quality_ratchet_ceilings() {
+    local ratchet_file="$1"
+    local ratchet measured lowered lowered_file
+    ratchet=$(toml_to_json "$ratchet_file") || return 1
+    measured=$(measure_quality "$ratchet" "$2" "$3") || return 1
+    lowered=$(jq -rn --argjson ratchet "$ratchet" --argjson measured "$measured" '
+        ["rustqual", "thailint"][] as $tool
+        | $ratchet[$tool] // {} | to_entries[]
+        | select($measured[$tool][.key] != null and $measured[$tool][.key] < .value)
+        | "\($tool)\t\(.key)\t\($measured[$tool][.key])"') || return 1
+    lowered_file=$(mktemp) || return 1
+    if ! awk -v lowered="$lowered" '
+        BEGIN {
+            count = split(lowered, lines, "\n")
+            for (line_number = 1; line_number <= count; line_number++) {
+                split(lines[line_number], field, "\t")
+                ceiling[field[1] SUBSEP field[2]] = field[3]
+            }
+        }
+        /^\[/ { table = $0; gsub(/[][ \t]/, "", table) }
+        /=/ && !/^[ \t]*#/ {
+            key = $0
+            sub(/[ \t]*=.*/, "", key)
+            gsub(/^[ \t]+|"/, "", key)
+            if ((table SUBSEP key) in ceiling) sub(/=.*/, "= " ceiling[table SUBSEP key])
+        }
+        { print }
+    ' "$ratchet_file" >"$lowered_file"; then
+        rm -f "$lowered_file"
+        return 1
+    fi
+    cat "$lowered_file" >"$ratchet_file"
+    rm -f "$lowered_file"
+}
+
+# Usage: check_rust_quality_ratchet <workspace_dir> [ratchet_file]
+# Counts rustqual and thailint findings and fails when a count differs from its ceiling. In fix mode it lowers
+# the ceilings instead.
+check_rust_quality_ratchet() {
+    local workspace_dir="$1"
+    local ratchet_file="${2:-$workspace_dir/quality-ratchet.toml}"
+    if [ "$(rustqual --version 2>/dev/null)" != "rustqual $RUST_RUSTQUAL_VERSION" ]; then
+        printf 'rustqual %s not installed; install it with: cargo install --locked rustqual@%s\n' \
+            "$RUST_RUSTQUAL_VERSION" "$RUST_RUSTQUAL_VERSION" >&2
+        exit 1
+    fi
+    if [ "$(thailint --version 2>/dev/null)" != "thailint, version $RUST_THAILINT_VERSION" ]; then
+        printf 'thailint %s not installed; install it with: pip install thailint==%s\n' \
+            "$RUST_THAILINT_VERSION" "$RUST_THAILINT_VERSION" >&2
+        exit 1
+    fi
+    check_ratchet_prerequisites
+    (
+        cd "$workspace_dir" || exit 1
+        local measurements linter status
+        measurements=$(mktemp -d)
+        trap 'rm -rf "$measurements"' EXIT
+        rustqual --no-fail --format json --save-baseline "$measurements/baseline.json" . \
+            >"$measurements/report.json" || exit 1
+        if ! jq -e 'type == "object"' "$measurements/baseline.json" >/dev/null 2>&1 \
+            || ! jq -e '.summary | type == "object"' "$measurements/report.json" >/dev/null 2>&1; then
+            printf 'rustqual wrote no baseline or report JSON\n' >&2
+            exit 1
+        fi
+        for linter in "${RUST_THAILINT_LINTERS[@]}"; do
+            status=0
+            thailint "$linter" --format json libs app services >"$measurements/$linter.json" || status=$?
+            # thailint exits 1 when it finds something, and also when it crashes, so only its JSON tells them apart.
+            if [ "$status" -gt 1 ] \
+                || ! jq -e '.violations | type == "array"' "$measurements/$linter.json" >/dev/null 2>&1; then
+                printf 'thailint %s wrote no findings JSON (exit %s)\n' "$linter" "$status" >&2
+                exit 1
+            fi
+            cat "$measurements/$linter.json" >>"$measurements/thailint.json"
+        done
+        if [ "$fixing" = true ]; then
+            lower_quality_ratchet_ceilings "$ratchet_file" "$measurements/baseline.json" "$measurements/thailint.json"
+        elif ! collect_quality_ratchet_violations "$ratchet_file" "$measurements/baseline.json" \
+            "$measurements/report.json" "$measurements/thailint.json"; then
+            exit 1
+        fi
     )
 }
 
