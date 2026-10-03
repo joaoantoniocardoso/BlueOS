@@ -12,6 +12,9 @@ import {
   COMMAND_ACK_SCHEMA, type MessageForSchema, PERMISSION_ANSWER_SCHEMA, type SchemaName,
 } from './types'
 
+/** The control endpoint that cancels a Job; Services list it in `allowed_operations` while a Job can be cancelled. */
+export const CANCEL_JOB = 'CancelJob'
+
 /**
  * A new Job id: a random version 4 UUID. Keep it to retry the Command or to control its Job (D-36).
  */
@@ -44,7 +47,7 @@ export async function sendCommand<Schema extends SchemaName>(
 
 /** Asks the Service to cancel the Job `jobId`. The ack is rejected when its Job type cannot be cancelled. */
 export async function cancelJob(transport: Transport, service: string, jobId: string): Promise<CommandAck> {
-  return control(transport, service, 'CancelJob', jobId)
+  return control(transport, service, CANCEL_JOB, jobId)
 }
 
 /** Asks the Service to pause the Job `jobId`. The ack is rejected when its Job type cannot be paused. */

@@ -1,5 +1,11 @@
 <template>
   <v-container fluid class="records-view">
+    <records-session-controls
+      :recorder="recorder"
+      :recording="recording"
+      :service-running="recorderServiceRunning"
+    />
+
     <v-alert
       v-if="!recorderServiceRunning"
       type="error"
@@ -156,11 +162,13 @@
 </template>
 
 <script lang="ts">
+import type { JobStatus, RecordingState as RecordingSessionState } from '@blueos-idl/messages'
 import Vue from 'vue'
 
 import McapVideoPlayer from '@/components/records/McapVideoPlayer.vue'
 import RecordsRecordingRow from '@/components/records/RecordsRecordingRow.vue'
 import RecordsRecordingTable from '@/components/records/RecordsRecordingTable.vue'
+import RecordsSessionControls from '@/components/records/RecordsSessionControls.vue'
 import type { Transport } from '@/libs/blueos-api/transport'
 import zenohTransport from '@/libs/blueos-api/zenoh-transport'
 import type { RecordingIndexSource } from '@/libs/mcap/logic/recording-index'
@@ -173,19 +181,26 @@ import {
 } from '@/libs/recorder/constants'
 import { dateFilterOptions, filterRecordings } from '@/libs/recorder/filter'
 import type { LibraryRecording, RecordingOperationEvent, RecordingState } from '@/libs/recorder/types'
-import { operationFailureMessage, RECORDING_STATE_UI, recordingByPath } from '@/libs/recorder/view-logic'
+import {
+  operationFailureMessage, RECORDING_STATE_UI, recordingByPath, type RepairProgress, withRepairJobs,
+} from '@/libs/recorder/view-logic'
 import zenoh from '@/libs/zenoh'
 import { blueosApiMixin } from '@/mixins/blueosApi'
 
 export default Vue.extend({
   name: 'RecordsView',
-  components: { RecordsRecordingRow, RecordsRecordingTable, McapVideoPlayer },
+  components: {
+    RecordsRecordingRow, RecordsRecordingTable, RecordsSessionControls, McapVideoPlayer,
+  },
   mixins: [blueosApiMixin],
   data() {
     return {
       transport: null as Transport | null,
       recorder: null as RecorderClient | null,
       recordings: [] as LibraryRecording[],
+      recording: null as RecordingSessionState | null,
+      repairProgress: {} as RepairProgress,
+      jobs: [] as JobStatus[],
       libraryLoading: true,
       recorderServiceRunning: false,
       lastError: '' as string,
@@ -201,8 +216,11 @@ export default Vue.extend({
     }
   },
   computed: {
+    liveRecordings(): LibraryRecording[] {
+      return withRepairJobs(this.recordings, this.repairProgress, this.jobs)
+    },
     visibleRecordings(): LibraryRecording[] {
-      return filterRecordings(this.recordings, {
+      return filterRecordings(this.liveRecordings, {
         search: this.search ?? '',
         state: this.stateFilter,
         date: this.dateFilter,
@@ -215,7 +233,7 @@ export default Vue.extend({
       return dateFilterOptions(this.recordings)
     },
     activeRecording(): LibraryRecording | null {
-      return recordingByPath(this.recordings, this.activeRecordingPath)
+      return recordingByPath(this.liveRecordings, this.activeRecordingPath)
     },
   },
   async created() {
@@ -239,6 +257,30 @@ export default Vue.extend({
           this.recordings = []
         }
       })),
+      this.blueosTrackSubscription(this.recorder.watchRecording(
+        (state) => {
+          this.recording = state
+        },
+        (error) => {
+          this.lastError = error instanceof Error ? error.message : String(error)
+        },
+      )),
+      this.blueosTrackSubscription(this.recorder.watchRepairProgress(
+        (progress) => {
+          this.repairProgress = progress
+        },
+        (error) => {
+          this.lastError = error instanceof Error ? error.message : String(error)
+        },
+      )),
+      this.blueosTrackSubscription(this.recorder.watchJobs(
+        (jobs) => {
+          this.jobs = jobs
+        },
+        (error) => {
+          this.lastError = error instanceof Error ? error.message : String(error)
+        },
+      )),
       this.blueosTrackSubscription(this.recorder.watchOperations(
         (event) => this.onRecordingOperation(event),
         (error) => {

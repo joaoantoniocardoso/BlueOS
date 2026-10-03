@@ -1,3 +1,8 @@
+import { JobStatusStatus } from '@blueos-idl'
+import type { JobStatus } from '@blueos-idl/messages'
+
+import type { RepairRecordingFeedback } from '@/libs/blueos-api/services/recorder'
+
 import {
   CANCEL_JOB,
   DELETE_RECORDING,
@@ -22,6 +27,37 @@ export const RECORDING_OPERATION_UI: Record<string, { label: string, icon: strin
   [CANCEL_JOB]: { label: 'Cancel repair', icon: 'mdi-stop', color: 'primary' },
   [DELETE_RECORDING]: { label: 'Delete', icon: 'mdi-delete', color: 'error' },
   [SNAPSHOT_RECORDING]: { label: 'Download snapshot', icon: 'mdi-download', color: 'primary' },
+}
+
+/** The latest repair Feedback of each active repair Job, by Job id. */
+export type RepairProgress = Record<string, RepairRecordingFeedback>
+
+/**
+ * Lays the live repair Jobs over the library rows: a repairing row shows the Feedback of its Job (also for a page
+ * opened mid-repair), and offers no second cancel once its Job is canceling.
+ */
+export function withRepairJobs(
+  files: LibraryRecording[],
+  progress: RepairProgress,
+  jobs: JobStatus[],
+): LibraryRecording[] {
+  return files.map((file) => {
+    const feedback = progress[file.repair_job_id]
+    const canceling = jobs.some(
+      (job) => job.job_id === file.repair_job_id && job.status === JobStatusStatus.Canceling,
+    )
+    if (file.repair_job_id === '' || (feedback === undefined && !canceling)) {
+      return file
+    }
+    return {
+      ...file,
+      repair_bytes_processed: feedback?.bytes_processed ?? file.repair_bytes_processed,
+      repair_total_bytes: feedback?.total_bytes ?? file.repair_total_bytes,
+      allowed_operations: canceling
+        ? file.allowed_operations.filter((operationName) => operationName !== CANCEL_JOB)
+        : file.allowed_operations,
+    }
+  })
 }
 
 /** The library row for `path`, or null when nothing is open or the path left the library. */

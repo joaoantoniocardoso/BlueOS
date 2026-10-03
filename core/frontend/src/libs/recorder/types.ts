@@ -1,21 +1,13 @@
+import type { CommandAck, RecordingFile } from '@blueos-idl/messages'
+
 export type RecordingState = 'recording' | 'ready' | 'needs_repair' | 'repairing'
 
 export type RecordingOperationKind = 'repair' | 'snapshot' | 'delete'
 
-export interface LibraryRecording {
-  path: string
-  name: string
-  size_bytes: number
-  /** Unix seconds (UTC), from the file name or filesystem time. */
+/** A `RecordingFile` of the library State, with its time in Unix seconds (UTC) and its state named. */
+export type LibraryRecording = Omit<RecordingFile, 'created' | 'state'> & {
   created: number
   state: RecordingState
-  repair_bytes_processed: number
-  repair_total_bytes: number
-  repair_bytes_per_second: number
-  repair_error: string
-  /** The Job id of the repair while repairing, which `CancelJob` names; empty otherwise. */
-  repair_job_id: string
-  allowed_operations: string[]
 }
 
 export interface RecordingOperationEvent {
@@ -27,7 +19,5 @@ export interface RecordingOperationEvent {
   error: string
 }
 
-export interface RecorderCommandResult {
-  accepted: boolean
-  reason: string
-}
+/** The verdict of a submitted Job; `job_id` names the Job to watch or cancel, `status` is its status in the ack. */
+export type RecorderCommandResult = Pick<CommandAck, 'accepted' | 'job_id' | 'reason' | 'status'>
