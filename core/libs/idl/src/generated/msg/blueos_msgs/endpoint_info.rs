@@ -13,8 +13,8 @@ pub struct EndpointInfo {
     pub kind: String,
     pub name: String,
     pub key: String,
-    pub request_schema: String,
-    pub response_schema: String,
+    pub interface_type: String,
+    pub schema: String,
 }
 impl CdrStruct for EndpointInfo {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
@@ -34,12 +34,12 @@ impl CdrStruct for EndpointInfo {
             } else {
                 reader.read_string()?
             },
-            request_schema: if reader.is_exhausted() {
+            interface_type: if reader.is_exhausted() {
                 String::new()
             } else {
                 reader.read_string()?
             },
-            response_schema: if reader.is_exhausted() {
+            schema: if reader.is_exhausted() {
                 String::new()
             } else {
                 reader.read_string()?
@@ -50,16 +50,16 @@ impl CdrStruct for EndpointInfo {
         writer.write_string(self.kind.as_str())?;
         writer.write_string(self.name.as_str())?;
         writer.write_string(self.key.as_str())?;
-        writer.write_string(self.request_schema.as_str())?;
-        writer.write_string(self.response_schema.as_str())?;
+        writer.write_string(self.interface_type.as_str())?;
+        writer.write_string(self.schema.as_str())?;
         Ok(())
     }
 }
 impl Message for EndpointInfo {
-    const SCHEMA: &'static str = "# blueos_msgs/msg/EndpointInfo\n# One key a service serves, listed in ServiceInfo.endpoints so clients can discover the API (D-12, D-24).\n\n# One of: command, query, io_query, state, event.\nstring kind\nstring name\nstring key\n# Schema of the payload the client sends (command, query, io_query). Empty when the endpoint takes none.\nstring request_schema\n# Schema of the reply (command: CommandAck; query, io_query) or of the published sample (state, event).\nstring response_schema";
+    const SCHEMA: &'static str = "# blueos_msgs/msg/EndpointInfo\n# One key a service serves, listed in ServiceInfo.endpoints so clients can discover the API (D-12, D-24).\n\n# One of: job, query, state, event.\nstring kind\nstring name\nstring key\n# A .action for a job, a .srv for a query, a .msg for a state or an event.\nstring interface_type\n# The schema text of interface_type. That of a .action or a .srv lists every part.\nstring schema";
     const SCHEMA_NAME: &'static str = "blueos_msgs/msg/EndpointInfo";
     const TYPE_HASH: &'static str =
-        "76ab474b0e3bb9c16e3d681648503ea768ebfe7a0841db5cb271cd6a8fb62128";
+        "251a0a01220bdc22c550c09b88a34d3c54c3aa77cd34deab5e0dd90c3d52cfc2";
 }
 impl EndpointInfo {
     pub const KNOWN_FIELD_COUNT: usize = 5usize;

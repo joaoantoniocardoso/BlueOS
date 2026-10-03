@@ -53,14 +53,14 @@ string reason`,
   "blueos_msgs/msg/EndpointInfo": `# blueos_msgs/msg/EndpointInfo
 # One key a service serves, listed in ServiceInfo.endpoints so clients can discover the API (D-12, D-24).
 
-# One of: command, query, io_query, state, event.
+# One of: job, query, state, event.
 string kind
 string name
 string key
-# Schema of the payload the client sends (command, query, io_query). Empty when the endpoint takes none.
-string request_schema
-# Schema of the reply (command: CommandAck; query, io_query) or of the published sample (state, event).
-string response_schema`,
+# A .action for a job, a .srv for a query, a .msg for a state or an event.
+string interface_type
+# The schema text of interface_type. That of a .action or a .srv lists every part.
+string schema`,
   "blueos_msgs/msg/JobFeedback": `# blueos_msgs/msg/JobFeedback
 # The latest Feedback of one active Job, in the jobs/<JobType>/feedback State (D-12, D-36), like the feedback of a ROS 2
 # action.
@@ -188,14 +188,14 @@ MSG: blueos_msgs/EndpointInfo
 # blueos_msgs/msg/EndpointInfo
 # One key a service serves, listed in ServiceInfo.endpoints so clients can discover the API (D-12, D-24).
 
-# One of: command, query, io_query, state, event.
+# One of: job, query, state, event.
 string kind
 string name
 string key
-# Schema of the payload the client sends (command, query, io_query). Empty when the endpoint takes none.
-string request_schema
-# Schema of the reply (command: CommandAck; query, io_query) or of the published sample (state, event).
-string response_schema`,
+# A .action for a job, a .srv for a query, a .msg for a state or an event.
+string interface_type
+# The schema text of interface_type. That of a .action or a .srv lists every part.
+string schema`,
   "blueos_msgs/msg/ServiceStatus": `# blueos_msgs/msg/ServiceStatus
 # High-level service health on the status state key (D-12).
 

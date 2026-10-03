@@ -106,18 +106,18 @@ fn extra_vectors() -> Vec<CdrVector> {
         capabilities: vec!["record".into()],
         endpoints: vec![
             EndpointInfo {
-                kind: "command".into(),
+                kind: "job".into(),
                 name: "Start".into(),
                 key: "blueos/v1/recorder/command/Start".into(),
-                request_schema: "blueos_recorder_msgs/msg/StartRecordingCommand".into(),
-                response_schema: "blueos_msgs/msg/CommandAck".into(),
+                interface_type: "blueos_recorder_msgs/action/StartRecording".into(),
+                schema: "bool rotate_if_active\n---\n---".into(),
             },
             EndpointInfo {
                 kind: "state".into(),
                 name: "library".into(),
                 key: "blueos/v1/recorder/state/library".into(),
-                request_schema: String::new(),
-                response_schema: "blueos_recorder_msgs/msg/RecordingLibrary".into(),
+                interface_type: "blueos_recorder_msgs/msg/RecordingLibrary".into(),
+                schema: String::new(),
             },
         ],
     };

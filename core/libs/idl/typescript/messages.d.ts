@@ -34,8 +34,8 @@ export interface EndpointInfo {
   kind: string;
   name: string;
   key: string;
-  request_schema: string;
-  response_schema: string;
+  interface_type: string;
+  schema: string;
 }
 
 export interface JobFeedback {
