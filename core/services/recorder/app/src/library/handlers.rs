@@ -11,6 +11,7 @@ use blueos_idl::msg::blueos_recorder_msgs::{
     CancelRepairCommand, DeleteRecordingCommand, RecordingIndex, RecordingIndexRequest,
     RepairRecordingCommand, SnapshotRecordingCommand,
 };
+use blueos_jobs::JobId;
 use blueos_recorder_domain::{RecorderDomain, RecorderRequest};
 use blueos_recorder_mcap::IndexError;
 use blueos_recorder_paths::{RecordingRelativePath, recording_path_refusal};
@@ -45,11 +46,12 @@ impl Handlers<RecorderDomain> for RecorderHandlers {
 
     fn repair_recording(
         &self,
+        job_id: JobId,
         request: RepairRecordingCommand,
     ) -> Result<RecorderRequest, Refusal> {
         let path = RecordingRelativePath::parse(&request.path)
             .map_err(|error| Refusal::from(recording_path_refusal(error)))?;
-        Ok(RecorderRequest::RepairRecording { path })
+        Ok(RecorderRequest::RepairRecording { job_id, path })
     }
 
     fn snapshot_recording(

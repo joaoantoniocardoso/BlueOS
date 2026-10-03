@@ -1,7 +1,7 @@
 error[E0046]: not all trait items implemented, missing: `index`
-  --> tests/compile_fail/missing_handler.rs:12:1
+  --> tests/compile_fail/missing_handler.rs:13:1
    |
-12 | impl Handlers<RecorderDomain> for ForgetfulHandlers {
+13 | impl Handlers<RecorderDomain> for ForgetfulHandlers {
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ missing `index` in implementation
    |
    = help: implement the missing item: `fn index(&self, _: RecordingIndexRequest) -> impl Future<Output = Result<RecordingIndex, Box<(dyn std::error::Error + Send + Sync + 'static)>>> + Send { todo!() }`

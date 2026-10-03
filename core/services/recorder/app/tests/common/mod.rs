@@ -27,7 +27,7 @@ use blueos_recorder_app::{
 };
 use blueos_recorder_library::RESCAN_INTERVAL;
 use blueos_service::{
-    Kernel, Service, ServiceContext,
+    Kernel, Service, ServiceContext, new_job_id,
     testing::{Harness, PausedClock},
 };
 
@@ -73,7 +73,8 @@ impl RecorderTestHarness {
         let body = QueryBody::new(
             request.encode().expect("the request encodes"),
             cdr_encoding(M::SCHEMA_NAME),
-        );
+        )
+        .with_attachment(new_job_id().to_string().into_bytes());
         let replies = self
             .backend
             .get(
@@ -162,7 +163,8 @@ pub(crate) async fn start_recording_on(backend: &Arc<dyn CommsBackend>) {
     let body = QueryBody::new(
         start.encode().expect("encode"),
         cdr_encoding(StartRecordingCommand::SCHEMA_NAME),
-    );
+    )
+    .with_attachment(new_job_id().to_string().into_bytes());
     backend
         .get(
             &command_key(RecorderService::NAME, "Start"),
@@ -210,7 +212,8 @@ pub(crate) async fn stop_recording_on(backend: &Arc<dyn CommsBackend>) {
     let body = QueryBody::new(
         stop.encode().expect("encode"),
         cdr_encoding(StopRecordingCommand::SCHEMA_NAME),
-    );
+    )
+    .with_attachment(new_job_id().to_string().into_bytes());
     backend
         .get(
             &command_key(RecorderService::NAME, "Stop"),
