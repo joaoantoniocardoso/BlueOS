@@ -1,7 +1,7 @@
 import type { CommandAck, JobStatus, RecordingState as RecordingSessionState } from '@blueos-idl/messages'
 
 import { cancelJob, sendCommand } from '@/libs/blueos-api/command'
-import { jobsState } from '@/libs/blueos-api/endpoints'
+import { jobsState, metricsState } from '@/libs/blueos-api/endpoints'
 import { watchJobFeedback, watchJobResults } from '@/libs/blueos-api/job'
 import { watchServiceAlive } from '@/libs/blueos-api/liveliness'
 import {
@@ -29,6 +29,8 @@ import type {
 import { recordingDownloadUrl } from './url'
 import {
   readySnapshotDownloadPath,
+  type RecorderMetrics,
+  recorderMetrics,
   type RepairProgress,
   snapshotDownloadPath,
   snapshotPathsForSource,
@@ -66,6 +68,10 @@ export interface RecorderClient {
     onJobs: (jobs: JobStatus[]) => void,
     onError?: (error: unknown) => void,
   ): Promise<Subscription>
+  watchMetrics(
+    onMetrics: (metrics: RecorderMetrics) => void,
+    onError?: (error: unknown) => void,
+  ): Promise<Subscription>
   startRecording(rotateIfActive: boolean): Promise<RecorderCommandResult>
   stopRecording(): Promise<RecorderCommandResult>
   repairRecording(path: string): Promise<RecorderCommandResult>
@@ -81,7 +87,9 @@ export interface RecorderClientOptions {
 }
 
 function commandResult(commandAck: CommandAck): RecorderCommandResult {
-  return { accepted: commandAck.accepted, reason: commandAck.reason, job_id: commandAck.job_id, status: commandAck.status }
+  return {
+    accepted: commandAck.accepted, reason: commandAck.reason, job_id: commandAck.job_id, status: commandAck.status,
+  }
 }
 
 export function createRecorderClient(
@@ -199,6 +207,13 @@ export function createRecorderClient(
     watchJobs(onJobs, onError) {
       return watchState(transport, jobsState(NAME), {
         onValue: (list) => onJobs(list.jobs),
+        onError: (error) => onError?.(error),
+      })
+    },
+
+    watchMetrics(onMetrics, onError) {
+      return watchState(transport, metricsState(NAME), {
+        onValue: (message) => onMetrics(recorderMetrics(message)),
         onError: (error) => onError?.(error),
       })
     },
