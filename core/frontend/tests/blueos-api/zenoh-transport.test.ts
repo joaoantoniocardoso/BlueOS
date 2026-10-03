@@ -79,7 +79,7 @@ describe('zenohTransport', () => {
 
     const replies = await zenohTransport(session).get('blueos/v1/tank/command/Drain', {
       payload: new Uint8Array([0]),
-      encoding: 'application/cdr;blueos_example_msgs/msg/EmptyRequest',
+      encoding: 'application/cdr;blueos_example_msgs/srv/Level_Request',
     })
 
     expect(replies).toEqual([
@@ -94,7 +94,7 @@ describe('zenohTransport', () => {
       { kind: 'error', payload: new TextEncoder().encode('busy'), encoding: 'text/plain' },
     ])
     expect((sent?.payload as ZBytes).toBytes()).toEqual(new Uint8Array([0]))
-    expect(sent?.encoding?.toString()).toBe('application/cdr;blueos_example_msgs/msg/EmptyRequest')
+    expect(sent?.encoding?.toString()).toBe('application/cdr;blueos_example_msgs/srv/Level_Request')
     expect(sent?.attachment).toBeUndefined()
   })
 
@@ -111,7 +111,7 @@ describe('zenohTransport', () => {
 
     await zenohTransport(session).get('blueos/v1/tank/command/Drain', {
       payload: new Uint8Array([0]),
-      encoding: 'application/cdr;blueos_example_msgs/msg/EmptyRequest',
+      encoding: 'application/cdr;blueos_example_msgs/srv/Level_Request',
       attachment: new TextEncoder().encode('0b5e8f5c-6f0a-4c4e-9a52-2f1e7d3c9b10'),
     })
 
