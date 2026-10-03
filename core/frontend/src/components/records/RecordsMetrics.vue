@@ -5,7 +5,7 @@
         <tr>
           <th>Lane</th>
           <th class="text-right">
-            Written
+            Bytes written
           </th>
           <th class="text-right">
             Samples
