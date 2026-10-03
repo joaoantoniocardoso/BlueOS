@@ -38,6 +38,16 @@ fn a_job_id_is_the_text_of_a_uuid() {
 }
 
 #[test]
+fn ending_an_unknown_job_is_rejected() {
+    let mut jobs = Jobs::default();
+    let job_id = JobId::from_u128(99);
+    assert_eq!(
+        jobs.end(job_id, JobEnd::Succeeded, ""),
+        Err(JobsError::Unknown(job_id))
+    );
+}
+
+#[test]
 fn a_submitted_job_executes_until_its_domain_ends_it() {
     let mut jobs = Jobs::default();
     let job_id = JobId::from_u128(1);
