@@ -8,10 +8,10 @@ use blueos_domain::{Effect, Now, Outcome};
 use blueos_jobs::JobId;
 
 use super::{
-    CANCEL_JOB, Library, LibraryEvent, LibraryIoRequest, LibraryIoResult, LibraryObservedFact,
-    LibraryOperation, LibraryRepairOutcome, LibraryRequest, LibrarySnapshotOutcome,
-    RecordingFileState, RecordingOperationKind, RepairFailure, SNAPSHOT_RECORDING,
-    ScannedRecording, derive_recording_file_state, snapshot_output_relative_path,
+    CANCEL_JOB, Library, LibraryIoRequest, LibraryIoResult, LibraryObservedFact, LibraryOperation,
+    LibraryRepairOutcome, LibraryRepairProgress, LibraryRequest, LibrarySnapshotOutcome,
+    RecordingFileState, RepairFailure, SNAPSHOT_RECORDING, ScannedRecording,
+    derive_recording_file_state, snapshot_output_relative_path,
 };
 
 const NOW: Now = Now {
@@ -155,29 +155,43 @@ fn a_repair_is_listed_with_its_job_until_it_ends() {
 }
 
 #[test]
-fn cancelled_repair_operation_event_is_not_a_failure() {
+fn a_repair_reports_its_read_offset_to_its_job_until_it_ends() {
     let mut library = scan_snapshot(&[("file.mcap", false)], 1_000);
     let path = blueos_recorder_paths::RecordingRelativePath::parse("file.mcap").expect("path");
     assert!(matches!(
         library.start_repair(path.clone(), job_id(1), None, NOW),
         Outcome::Applied { .. }
     ));
-    let Outcome::Applied { events, .. } = library.handle_observed_fact(
+    library.handle_observed_fact(
+        LibraryObservedFact::RepairProgress(LibraryRepairProgress {
+            path: path.clone(),
+            bytes_processed: 40,
+            total_bytes: 100,
+        }),
+        None,
+        NOW,
+    );
+    let progress = library.repair_progress(job_id(1)).expect("progress");
+    assert_eq!((progress.bytes_processed, progress.total_bytes), (40, 100));
+    assert!(library.repair_progress(job_id(2)).is_none());
+
+    library.handle_observed_fact(
         LibraryObservedFact::RepairFinished {
-            path,
+            path: path.clone(),
             outcome: LibraryRepairOutcome::Cancelled,
         },
         None,
         NOW,
-    ) else {
-        panic!("repair finish must apply");
-    };
-    assert_eq!(events.len(), 1);
-    let LibraryEvent::Operation(event) = &events[0];
-    assert_eq!(event.operation, RecordingOperationKind::Repair);
-    assert!(event.cancelled);
-    assert!(!event.succeeded);
-    assert_eq!(event.failure, RepairFailure::None);
+    );
+    assert!(library.repair_progress(job_id(1)).is_none());
+    assert_eq!(
+        library.ended_operation(),
+        Some(&LibraryOperation::Repair {
+            path,
+            job_id: job_id(1),
+        })
+    );
+    assert_eq!(library.entries()[0].repair_error, "");
 }
 
 #[test]
@@ -228,29 +242,38 @@ fn recording_state_priority() {
 }
 
 #[test]
-fn snapshot_emits_operation_with_output_path() {
+fn a_snapshot_that_ends_is_the_ended_operation_with_its_output_path() {
     let mut library = scan_snapshot(&[("live.mcap", false)], 1_000);
     let path = blueos_recorder_paths::RecordingRelativePath::parse("live.mcap").expect("path");
     let output_path = snapshot_output_relative_path("live.mcap", NOW);
     assert!(matches!(
-        library.start_snapshot(path.clone(), output_path.clone(), Some("live.mcap"), NOW),
+        library.start_snapshot(
+            path.clone(),
+            output_path.clone(),
+            job_id(4),
+            Some("live.mcap"),
+            NOW
+        ),
         Outcome::Applied { .. }
     ));
-    let Outcome::Applied { events, .. } = library.handle_observed_fact(
+    let snapshot = LibraryOperation::Snapshot {
+        path: path.clone(),
+        output_path: output_path.clone(),
+        job_id: job_id(4),
+    };
+    assert_eq!(library.operations(), core::slice::from_ref(&snapshot));
+
+    library.handle_observed_fact(
         LibraryObservedFact::SnapshotFinished {
             path,
-            output_path: output_path.clone(),
+            output_path,
             outcome: LibrarySnapshotOutcome::Succeeded,
         },
         Some("live.mcap"),
         NOW,
-    ) else {
-        panic!("snapshot finish must apply");
-    };
-    let LibraryEvent::Operation(event) = &events[0];
-    assert_eq!(event.operation, RecordingOperationKind::Snapshot);
-    assert_eq!(event.output_path, output_path);
-    assert!(event.succeeded);
+    );
+    assert!(library.operations().is_empty());
+    assert_eq!(library.ended_operation(), Some(&snapshot));
 }
 
 #[test]
