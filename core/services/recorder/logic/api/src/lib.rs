@@ -10,26 +10,31 @@ use alloc::{string::String, vec::Vec};
 use core::convert::Infallible;
 
 use blueos_idl::msg::blueos_recorder_msgs::{
-    DeleteRecordingFeedback, DeleteRecordingResult, RecordingFile,
-    RecordingFileState as WireRecordingFileState, RecordingLibrary, RecordingOperation,
-    RecordingOperationOperation, RecordingState, RepairRecordingFeedback, RepairRecordingResult,
-    SnapshotRecordingFeedback, SnapshotRecordingResult, StartRecordingFeedback, StartRecordingGoal,
+    DeleteRecordingFeedback, DeleteRecordingGoal, DeleteRecordingResult, RecordingFile,
+    RecordingFileState as WireRecordingFileState, RecordingLibrary, RecordingState,
+    RepairRecordingFeedback, RepairRecordingGoal, RepairRecordingResult, SnapshotRecordingFeedback,
+    SnapshotRecordingGoal, SnapshotRecordingResult, StartRecordingFeedback, StartRecordingGoal,
     StartRecordingResult, StopRecordingFeedback, StopRecordingGoal, StopRecordingResult,
 };
 use blueos_jobs::JobId;
 use blueos_recorder_capture::RecordingState as DomainRecordingState;
-use blueos_recorder_domain::{RecorderDomain, RecorderEvent, RecorderRequest, RecorderSnapshot};
-use blueos_recorder_library::{
-    RecordingFileState, RecordingOperationEvent, RecordingOperationKind, RepairFailure,
-};
+use blueos_recorder_domain::{RecorderDomain, RecorderRequest, RecorderSnapshot};
+use blueos_recorder_library::{LibraryOperation, RecordingFileState};
+use blueos_recorder_paths::{RecordingPathError, RecordingRelativePath};
 
 use crate::endpoints::Conversions;
 
-// ponytail: every Recorder Job type declares an empty Feedback and Job result for now, so it publishes no Feedback
-// and an empty Job result; upgrade by giving each Job type the Feedback and Job result a client needs.
 impl Conversions for RecorderDomain {
+    type DeleteRecordingError = RecordingPathError;
+    type RepairRecordingError = RecordingPathError;
+    type SnapshotRecordingError = RecordingPathError;
     type StartError = Infallible;
     type StopError = Infallible;
+
+    fn delete_recording(goal: DeleteRecordingGoal) -> Result<RecorderRequest, RecordingPathError> {
+        RecordingRelativePath::parse(&goal.path)
+            .map(|path| RecorderRequest::DeleteRecording { path })
+    }
 
     fn delete_recording_feedback(
         _snapshot: &RecorderSnapshot,
@@ -45,32 +50,85 @@ impl Conversions for RecorderDomain {
         DeleteRecordingResult::default()
     }
 
+    fn repair_recording(
+        job_id: JobId,
+        goal: RepairRecordingGoal,
+    ) -> Result<RecorderRequest, RecordingPathError> {
+        RecordingRelativePath::parse(&goal.path)
+            .map(|path| RecorderRequest::RepairRecording { job_id, path })
+    }
+
     fn repair_recording_feedback(
-        _snapshot: &RecorderSnapshot,
-        _job_id: JobId,
+        snapshot: &RecorderSnapshot,
+        job_id: JobId,
     ) -> Option<RepairRecordingFeedback> {
-        None
+        snapshot
+            .library
+            .repair_progress(job_id)
+            .map(|progress| RepairRecordingFeedback {
+                bytes_processed: progress.bytes_processed,
+                total_bytes: progress.total_bytes,
+            })
     }
 
     fn repair_recording_result(
-        _snapshot: &RecorderSnapshot,
-        _job_id: JobId,
+        snapshot: &RecorderSnapshot,
+        job_id: JobId,
     ) -> RepairRecordingResult {
-        RepairRecordingResult::default()
+        match snapshot.library.ended_operation() {
+            Some(LibraryOperation::Repair {
+                path,
+                job_id: ended,
+            }) if *ended == job_id => RepairRecordingResult {
+                path: path.as_str().into(),
+            },
+            _ => RepairRecordingResult::default(),
+        }
+    }
+
+    fn snapshot_recording(
+        job_id: JobId,
+        goal: SnapshotRecordingGoal,
+    ) -> Result<RecorderRequest, RecordingPathError> {
+        RecordingRelativePath::parse(&goal.path)
+            .map(|path| RecorderRequest::SnapshotRecording { job_id, path })
     }
 
     fn snapshot_recording_feedback(
-        _snapshot: &RecorderSnapshot,
-        _job_id: JobId,
+        snapshot: &RecorderSnapshot,
+        job_id: JobId,
     ) -> Option<SnapshotRecordingFeedback> {
-        None
+        snapshot
+            .library
+            .operations()
+            .iter()
+            .find_map(|operation| match operation {
+                LibraryOperation::Snapshot {
+                    output_path,
+                    job_id: running,
+                    ..
+                } if *running == job_id => Some(SnapshotRecordingFeedback {
+                    output_path: output_path.clone(),
+                }),
+                _ => None,
+            })
     }
 
     fn snapshot_recording_result(
-        _snapshot: &RecorderSnapshot,
-        _job_id: JobId,
+        snapshot: &RecorderSnapshot,
+        job_id: JobId,
     ) -> SnapshotRecordingResult {
-        SnapshotRecordingResult::default()
+        match snapshot.library.ended_operation() {
+            Some(LibraryOperation::Snapshot {
+                path,
+                output_path,
+                job_id: ended,
+            }) if *ended == job_id => SnapshotRecordingResult {
+                path: path.as_str().into(),
+                output_path: output_path.clone(),
+            },
+            _ => SnapshotRecordingResult::default(),
+        }
     }
 
     fn start(goal: StartRecordingGoal) -> Result<RecorderRequest, Infallible> {
@@ -111,15 +169,6 @@ impl Conversions for RecorderDomain {
 
     fn library(snapshot: &RecorderSnapshot) -> RecordingLibrary {
         recording_library(snapshot)
-    }
-
-    fn operation(event: &RecorderEvent) -> Option<RecordingOperation> {
-        match event {
-            RecorderEvent::RecordingOperation(operation) => {
-                Some(recording_operation_message(operation))
-            }
-            RecorderEvent::Capture(_) => None,
-        }
     }
 }
 
@@ -188,32 +237,4 @@ fn recording_file_state_wire(state: RecordingFileState) -> WireRecordingFileStat
 
 fn unix_seconds_to_time(seconds: i64) -> (i32, u32) {
     (i32::try_from(seconds).unwrap_or(i32::MAX), 0)
-}
-
-fn recording_operation_message(event: &RecordingOperationEvent) -> RecordingOperation {
-    let operation = match event.operation {
-        RecordingOperationKind::Repair => RecordingOperationOperation::Repair,
-        RecordingOperationKind::Snapshot => RecordingOperationOperation::Snapshot,
-    };
-    RecordingOperation {
-        operation,
-        path: event.path.clone(),
-        output_path: event.output_path.clone(),
-        succeeded: event.succeeded,
-        cancelled: event.cancelled,
-        error: repair_failure_wire(&event.failure, event.cancelled),
-    }
-}
-
-fn repair_failure_wire(failure: &RepairFailure, cancelled: bool) -> String {
-    if cancelled {
-        return String::new();
-    }
-    match failure {
-        RepairFailure::None => String::new(),
-        RepairFailure::Io => "Filesystem operation failed.".into(),
-        RepairFailure::Rewrite => "MCAP rewrite failed.".into(),
-        RepairFailure::Replace => "Could not replace the recording file.".into(),
-        RepairFailure::Message(message) => message.clone(),
-    }
 }
