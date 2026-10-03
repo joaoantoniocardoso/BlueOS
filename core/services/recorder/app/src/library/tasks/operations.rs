@@ -28,6 +28,14 @@ struct RunningOperation {
     cancel: Arc<AtomicBool>,
 }
 
+/// A blocking rewrite cannot be aborted, so dropping its handle, as an unwinding Task does, cancels it: the
+/// restarted Task then never runs a second rewrite of the same recording beside it.
+impl Drop for RunningOperation {
+    fn drop(&mut self) {
+        self.cancel.store(true, Ordering::Relaxed);
+    }
+}
+
 /// Runs until shutdown, reconciling the rewrites it runs with the operations `operations` lists (D-27): it starts
 /// each listed operation, cancels each running one the list dropped, and reports progress and each end as
 /// Observed facts. At shutdown it cancels every rewrite and waits for them, so none outlives the Service.
@@ -65,9 +73,7 @@ pub(crate) async fn run_library_operations(
             }
         }
     }
-    for running_operation in &running {
-        running_operation.cancel.store(true, Ordering::Relaxed);
-    }
+    drop(running);
     while rewrites.join_next().await.is_some() {}
     Ok(())
 }
@@ -246,5 +252,39 @@ fn remove_temporary(temporary: &Path) {
         Err(error) => {
             warn!(%error, path = %temporary.display(), "Failed to remove a temporary rewrite file");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use core::panic::AssertUnwindSafe;
+    use std::panic::catch_unwind;
+
+    use blueos_jobs::JobId;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn a_task_that_unwinds_cancels_every_rewrite_it_runs() {
+        let cancel = Arc::new(AtomicBool::new(false));
+        let running_operation = RunningOperation {
+            operation: LibraryOperation::Repair {
+                path: RecordingRelativePath::parse("dive.mcap").expect("a valid path"),
+                job_id: JobId::from_u128(1),
+            },
+            task_id: tokio::spawn(async {}).id(),
+            cancel: Arc::clone(&cancel),
+        };
+
+        let unwound = catch_unwind(AssertUnwindSafe(move || {
+            let _running = [running_operation];
+            panic!("the operations Task panics");
+        }));
+
+        assert!(unwound.is_err());
+        assert!(
+            cancel.load(Ordering::Relaxed),
+            "a rewrite must not outlive the Task that runs it"
+        );
     }
 }
