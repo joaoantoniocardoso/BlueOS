@@ -5,7 +5,7 @@ use core::{convert::Infallible, time::Duration};
 use std::collections::BTreeMap;
 
 use bytes::Bytes;
-use tokio::time::timeout;
+use tokio::time::{advance, timeout};
 
 use blueos_api::{
     CommandAck, Message, cdr_encoding, command_key, info_query_key, job_feedback_key,
@@ -662,17 +662,21 @@ async fn the_feedback_state_holds_the_latest_feedback_of_a_job_until_it_ends() {
 #[tokio::test(start_paused = true)]
 async fn a_client_that_opens_the_feedback_state_mid_job_sees_the_latest_feedback() {
     let harness = start().await;
+    let mut published = harness
+        .backend()
+        .subscribe(&job_feedback_key(BrewerService::NAME, "Brew"))
+        .await
+        .unwrap();
     let [brewing, waiting] = [7, 8].map(JobId::from_u128);
+    let two_cups_each = [(brewing, poured(2, 3)), (waiting, poured(2, 3))];
     harness.submit("Brew", brewing, &cups(3)).await;
     harness.submit("Brew", waiting, &cups(3)).await;
-    tokio::time::sleep(BREW_TIME * 2 + BREW_TIME / 2).await;
+    while fed_back(next(&mut published).await) != two_cups_each {}
+    advance(BREW_TIME / 2).await;
 
     let feedback = harness.job_feedback("Brew").await;
 
-    assert_eq!(
-        fed_back(feedback),
-        [(brewing, poured(2, 3)), (waiting, poured(2, 3))]
-    );
+    assert_eq!(fed_back(feedback), two_cups_each);
 }
 
 #[tokio::test(start_paused = true)]
