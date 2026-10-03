@@ -76,6 +76,7 @@ cd core && cargo test -p blueos-example-cookbook
 | 34 | Register a new service | [`tests/34-register-new-service.rs`](tests/34-register-new-service.rs) | written |
 | 35 | Add a metric from a Task | [`tests/35-metrics.rs`](tests/35-metrics.rs) | written |
 | 36 | Expose a count a Domain owns | [`tests/35-metrics.rs`](tests/35-metrics.rs) | written |
+| 37 | Read a Service's metrics in the frontend | [`../../frontend/tests/example/ExampleMetrics.test.ts`](../../../frontend/tests/example/ExampleMetrics.test.ts) | written |
 
 The [`tests/question_index.rs`](tests/question_index.rs) test parses this table: every question maps to exactly
 one entry, written cookbook files must exist under `tests/`, and `cargo test` compiles every entry file there.

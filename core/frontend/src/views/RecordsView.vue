@@ -6,6 +6,8 @@
       :service-running="recorderServiceRunning"
     />
 
+    <records-metrics :metrics="metrics" />
+
     <v-alert
       v-if="!recorderServiceRunning"
       type="error"
@@ -290,6 +292,7 @@ import type { JobStatus, RecordingState as RecordingSessionState } from '@blueos
 import Vue from 'vue'
 
 import McapVideoPlayer from '@/components/records/McapVideoPlayer.vue'
+import RecordsMetrics from '@/components/records/RecordsMetrics.vue'
 import RecordsRecordingRow from '@/components/records/RecordsRecordingRow.vue'
 import RecordsRecordingTable from '@/components/records/RecordsRecordingTable.vue'
 import RecordsSessionControls from '@/components/records/RecordsSessionControls.vue'
@@ -323,7 +326,8 @@ import type {
   LibraryRecording, RecorderCommandResult, RecordingJobResult, RecordingState,
 } from '@/libs/recorder/types'
 import {
-  jobCanceledMessage, jobFailureMessage, RECORDING_STATE_UI, recordingByPath, type RepairProgress, withRepairJobs,
+  jobCanceledMessage, jobFailureMessage, type RecorderMetrics, RECORDING_STATE_UI, recordingByPath, type RepairProgress,
+  withRepairJobs,
 } from '@/libs/recorder/view-logic'
 import zenoh from '@/libs/zenoh'
 import { blueosApiMixin } from '@/mixins/blueosApi'
@@ -331,7 +335,7 @@ import { blueosApiMixin } from '@/mixins/blueosApi'
 export default Vue.extend({
   name: 'RecordsView',
   components: {
-    RecordsRecordingRow, RecordsRecordingTable, RecordsSessionControls, McapVideoPlayer,
+    RecordsMetrics, RecordsRecordingRow, RecordsRecordingTable, RecordsSessionControls, McapVideoPlayer,
   },
   mixins: [blueosApiMixin],
   data() {
@@ -340,6 +344,7 @@ export default Vue.extend({
       recorder: null as RecorderClient | null,
       recordings: [] as LibraryRecording[],
       recording: null as RecordingSessionState | null,
+      metrics: null as RecorderMetrics | null,
       repairProgress: {} as RepairProgress,
       jobs: [] as JobStatus[],
       libraryLoading: true,
@@ -453,6 +458,12 @@ export default Vue.extend({
       this.blueosTrackSubscription(this.recorder.watchRecording(
         (state) => {
           this.recording = state
+        },
+        (error) => this.showError(error),
+      )),
+      this.blueosTrackSubscription(this.recorder.watchMetrics(
+        (metrics) => {
+          this.metrics = metrics
         },
         (error) => this.showError(error),
       )),

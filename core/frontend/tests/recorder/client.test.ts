@@ -5,7 +5,7 @@ import {
 } from 'vitest'
 
 import { encodeCdr } from '@/libs/blueos-api/cdr'
-import { jobResultEvent } from '@/libs/blueos-api/endpoints'
+import { jobResultEvent, metricsState } from '@/libs/blueos-api/endpoints'
 import { cdrEncoding, commandKey, serviceLivelinessKey } from '@/libs/blueos-api/keys'
 import {
   DeleteRecording,
@@ -48,6 +48,22 @@ function snapshotJobResult(outputPath: string) {
       reason: '',
     },
     result: Array.from(encodeCdr(SnapshotRecording.resultSchema, { path: 'live.mcap', output_path: outputPath })),
+  }
+}
+
+function counter(name: string, lane: string, value: number) {
+  return { name, labels: [{ name: 'lane', value: lane }], value }
+}
+
+function recorderMetricsMessage(videoBytes: number) {
+  return {
+    counters: [
+      counter('bytes_written', 'video', videoBytes),
+      counter('samples_written', 'video', 3),
+      counter('samples_dropped', 'video', 1),
+    ],
+    gauges: [{ name: 'inbox_depth', labels: [], value: 2 }],
+    histograms: [],
   }
 }
 
@@ -417,5 +433,31 @@ describe('createRecorderClient', () => {
     })
 
     expect(errors.length).toBeGreaterThan(0)
+  })
+
+  it('hands the Recorder metrics to the observer at once for a page opened mid-recording, then each change', async () => {
+    const transport = new FakeTransport()
+    const client = createRecorderClient(transport)
+    const { key, messageSchema } = metricsState(NAME)
+    const videoBytes: number[] = []
+
+    const watching = client.watchMetrics((metrics) => {
+      videoBytes.push(metrics.lanes.find(({ lane }) => lane === 'video')?.bytesWritten ?? -1)
+    })
+    const query = await transport.nextQuery()
+    expect(query.key).toBe('blueos/v1/recorder/state/metrics')
+    query.reply({
+      kind: 'sample',
+      sample: {
+        key, payload: encodeCdr(messageSchema, recorderMetricsMessage(100)), encoding: cdrEncoding(messageSchema),
+      },
+    })
+    await watching
+    expect(videoBytes).toEqual([100])
+
+    transport.publish({
+      key, payload: encodeCdr(messageSchema, recorderMetricsMessage(250)), encoding: cdrEncoding(messageSchema),
+    })
+    expect(videoBytes).toEqual([100, 250])
   })
 })
