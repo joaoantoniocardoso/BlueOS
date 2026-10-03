@@ -8,11 +8,75 @@ use crate::{
     error::Error,
     message::{CdrStruct, Message},
 };
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum CommandAckStatus {
+    #[default]
+    StatusUnknown,
+    Accepted,
+    Executing,
+    Canceling,
+    Succeeded,
+    Canceled,
+    Aborted,
+    WaitingForPermission,
+    WaitingForResource,
+    Paused,
+    Unknown(u8),
+}
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct CommandAck {
     pub accepted: bool,
-    pub job_id: u64,
+    pub job_id: String,
+    pub status: CommandAckStatus,
     pub reason: String,
+}
+impl serde::Serialize for CommandAckStatus {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        <u8>::serialize(&self.as_raw(), serializer)
+    }
+}
+impl<'de> serde::Deserialize<'de> for CommandAckStatus {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(Self::from_raw(<u8>::deserialize(deserializer)?))
+    }
+}
+impl CommandAckStatus {
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0u8 => Self::StatusUnknown,
+            1u8 => Self::Accepted,
+            2u8 => Self::Executing,
+            3u8 => Self::Canceling,
+            4u8 => Self::Succeeded,
+            5u8 => Self::Canceled,
+            6u8 => Self::Aborted,
+            7u8 => Self::WaitingForPermission,
+            8u8 => Self::WaitingForResource,
+            9u8 => Self::Paused,
+            raw => Self::Unknown(raw),
+        }
+    }
+    pub fn as_raw(self) -> u8 {
+        match self {
+            Self::StatusUnknown => 0u8,
+            Self::Accepted => 1u8,
+            Self::Executing => 2u8,
+            Self::Canceling => 3u8,
+            Self::Succeeded => 4u8,
+            Self::Canceled => 5u8,
+            Self::Aborted => 6u8,
+            Self::WaitingForPermission => 7u8,
+            Self::WaitingForResource => 8u8,
+            Self::Paused => 9u8,
+            Self::Unknown(raw) => raw,
+        }
+    }
 }
 impl CdrStruct for CommandAck {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
@@ -23,9 +87,14 @@ impl CdrStruct for CommandAck {
                 reader.read_bool()?
             },
             job_id: if reader.is_exhausted() {
-                Default::default()
+                String::new()
             } else {
-                reader.read_u64()?
+                reader.read_string()?
+            },
+            status: if reader.is_exhausted() {
+                <CommandAckStatus>::default()
+            } else {
+                CommandAckStatus::from_raw(reader.read_u8()?)
             },
             reason: if reader.is_exhausted() {
                 String::new()
@@ -36,17 +105,18 @@ impl CdrStruct for CommandAck {
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {
         writer.write_bool(self.accepted)?;
-        writer.write_u64(self.job_id)?;
+        writer.write_string(self.job_id.as_str())?;
+        writer.write_u8(self.status.as_raw())?;
         writer.write_string(self.reason.as_str())?;
         Ok(())
     }
 }
 impl Message for CommandAck {
-    const SCHEMA: &'static str = "# blueos_msgs/msg/CommandAck\n# Reply to a Zenoh command query (D-10).\n\nbool accepted\nuint64 job_id\nstring reason";
+    const SCHEMA: &'static str = "# blueos_msgs/msg/CommandAck\n# Reply to a Command, which submits a Job or controls one (D-10, D-36).\n\n# The STATUS_ values of blueos_msgs/JobStatus. STATUS_UNKNOWN when the Command named no Job.\nuint8 STATUS_UNKNOWN=0\nuint8 STATUS_ACCEPTED=1\nuint8 STATUS_EXECUTING=2\nuint8 STATUS_CANCELING=3\nuint8 STATUS_SUCCEEDED=4\nuint8 STATUS_CANCELED=5\nuint8 STATUS_ABORTED=6\nuint8 STATUS_WAITING_FOR_PERMISSION=7\nuint8 STATUS_WAITING_FOR_RESOURCE=8\nuint8 STATUS_PAUSED=9\n\nbool accepted\n# The UUID the client generated for the Job, as text.\nstring job_id\n# The status of the Job after the Command was applied, so a Job that ended in that step returns its final status.\nuint8 status\nstring reason";
     const SCHEMA_NAME: &'static str = "blueos_msgs/msg/CommandAck";
     const TYPE_HASH: &'static str =
-        "fe577e8870479194b4a9a178ac6fc434f3e3bc51aeae6a56494d7b09d5485783";
+        "524646c4424151b0d8e4cd2775026942f22c3b7bcd6b2bcdd4126be44b812ee4";
 }
 impl CommandAck {
-    pub const KNOWN_FIELD_COUNT: usize = 3usize;
+    pub const KNOWN_FIELD_COUNT: usize = 4usize;
 }

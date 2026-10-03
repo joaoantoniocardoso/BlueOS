@@ -14,10 +14,10 @@ use blueos_idl::{
 fn unknown_constant_decodes_and_reencodes_unchanged() {
     let raw = 99u8;
     let message = JobStatus {
-        job_id: 1,
-        parent_job_id: 0,
+        job_id: String::new(),
+        job_type: String::new(),
         status: JobStatusStatus::from_raw(raw),
-        name: String::new(),
+        reason: String::new(),
     };
     let payload = message.encode().expect("encode");
     let decoded = JobStatus::decode(&payload).expect("decode");
@@ -28,14 +28,14 @@ fn unknown_constant_decodes_and_reencodes_unchanged() {
 #[test]
 fn known_status_variant_round_trips() {
     let message = JobStatus {
-        job_id: 0,
-        parent_job_id: 0,
-        status: JobStatusStatus::Queued,
-        name: String::new(),
+        job_id: String::new(),
+        job_type: String::new(),
+        status: JobStatusStatus::WaitingForPermission,
+        reason: String::new(),
     };
     let payload = message.encode().expect("encode");
     let decoded = JobStatus::decode(&payload).expect("decode");
-    assert_eq!(decoded.status, JobStatusStatus::Queued);
+    assert_eq!(decoded.status, JobStatusStatus::WaitingForPermission);
     assert_eq!(decoded.encode().expect("re-encode"), payload);
 }
 

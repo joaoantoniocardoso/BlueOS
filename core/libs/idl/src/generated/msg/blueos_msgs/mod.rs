@@ -11,6 +11,8 @@ pub mod job_list;
 pub use job_list::*;
 pub mod job_status;
 pub use job_status::*;
+pub mod permission_answer;
+pub use permission_answer::*;
 pub mod restart_required;
 pub use restart_required::*;
 pub mod service_info;

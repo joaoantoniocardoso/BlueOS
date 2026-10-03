@@ -45,11 +45,12 @@
     },
     {
       "schema_name": "blueos_msgs/msg/CommandAck",
-      "hex": "00010000000000000000000000000000000000000100000000",
+      "hex": "000100000000000001000000000000000100000000",
       "decoded": {
         "accepted": false,
-        "job_id": 0,
-        "reason": ""
+        "job_id": "",
+        "reason": "",
+        "status": 0
       },
       "category": "default"
     },
@@ -75,12 +76,20 @@
     },
     {
       "schema_name": "blueos_msgs/msg/JobStatus",
-      "hex": "0001000000000000000000000000000000000000000000000100000000",
+      "hex": "00010000010000000000000001000000000000000100000000",
       "decoded": {
-        "job_id": 0,
-        "name": "",
-        "parent_job_id": 0,
+        "job_id": "",
+        "job_type": "",
+        "reason": "",
         "status": 0
+      },
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_msgs/msg/PermissionAnswer",
+      "hex": "0001000000",
+      "decoded": {
+        "granted": false
       },
       "category": "default"
     },
@@ -383,11 +392,12 @@
     },
     {
       "schema_name": "blueos_msgs/msg/CommandAck",
-      "hex": "0001000001000000000000002a000000000000000700000071756575656400",
+      "hex": "00010000010000002500000030623565386635632d366630612d346334652d396135322d326631653764336339623130000700000700000071756575656400",
       "decoded": {
         "accepted": true,
-        "job_id": 42,
-        "reason": "queued"
+        "job_id": "0b5e8f5c-6f0a-4c4e-9a52-2f1e7d3c9b10",
+        "reason": "queued",
+        "status": 7
       },
       "category": "example"
     },
@@ -442,11 +452,12 @@
     },
     {
       "schema_name": "blueos_msgs/msg/CommandAck",
-      "hex": "0001000001000000000000000700000000000000",
+      "hex": "00010000010000002500000030623565386635632d366630612d346334652d396135322d32663165376433633962313000",
       "decoded": {
         "accepted": true,
-        "job_id": 7,
-        "reason": ""
+        "job_id": "0b5e8f5c-6f0a-4c4e-9a52-2f1e7d3c9b10",
+        "reason": "",
+        "status": 0
       },
       "category": "old_writer",
       "skip_encode_round_trip": true

@@ -28,10 +28,11 @@ blueos_example_msgs/msg/LevelQueryResponse 1 level:uint8;max_level:uint8
 blueos_example_msgs/msg/PumpState 1 level:uint8;max_level:uint8;self_test_phase:uint8;self_test_active:bool
 blueos_example_msgs/msg/SelfTestCompleted 1 passed:bool;detail:string
 blueos_example_msgs/msg/SetLevelRequest 1 level:uint8
-blueos_msgs/msg/CommandAck 1 accepted:bool;job_id:uint64;reason:string
+blueos_msgs/msg/CommandAck 1 accepted:bool;job_id:string;status:uint8;reason:string
 blueos_msgs/msg/EndpointInfo 1 kind:string;name:string;key:string;request_schema:string;response_schema:string
 blueos_msgs/msg/JobList 1 jobs:blueos_msgs/JobStatus[]
-blueos_msgs/msg/JobStatus 1 job_id:uint64;parent_job_id:uint64;status:uint8;name:string
+blueos_msgs/msg/JobStatus 1 job_id:string;job_type:string;status:uint8;reason:string
+blueos_msgs/msg/PermissionAnswer 1 granted:bool
 blueos_msgs/msg/RestartRequired 1 fields:string[]
 blueos_msgs/msg/ServiceInfo 1 name:string;version:string;build:string;capabilities:string[];endpoints:blueos_msgs/EndpointInfo[]
 blueos_msgs/msg/ServiceStatus 1 status:uint8;detail:string

@@ -24,6 +24,7 @@ pub fn schema(schema_name: &str) -> Option<&'static str> {
         "blueos_msgs/msg/EndpointInfo" => Some(msg::blueos_msgs::EndpointInfo::SCHEMA),
         "blueos_msgs/msg/JobList" => Some(msg::blueos_msgs::JobList::SCHEMA),
         "blueos_msgs/msg/JobStatus" => Some(msg::blueos_msgs::JobStatus::SCHEMA),
+        "blueos_msgs/msg/PermissionAnswer" => Some(msg::blueos_msgs::PermissionAnswer::SCHEMA),
         "blueos_msgs/msg/RestartRequired" => Some(msg::blueos_msgs::RestartRequired::SCHEMA),
         "blueos_msgs/msg/ServiceInfo" => Some(msg::blueos_msgs::ServiceInfo::SCHEMA),
         "blueos_msgs/msg/ServiceStatus" => Some(msg::blueos_msgs::ServiceStatus::SCHEMA),

@@ -14,7 +14,7 @@ use std::path::PathBuf;
 
 use blueos_idl::Message;
 use blueos_idl::msg::blueos_example_msgs::EmptyRequest;
-use blueos_idl::msg::blueos_msgs::{CommandAck, EndpointInfo, ServiceInfo};
+use blueos_idl::msg::blueos_msgs::{CommandAck, CommandAckStatus, EndpointInfo, ServiceInfo};
 use blueos_idl::msg::blueos_recorder_msgs::{
     RecordingFile, RecordingFileState, RecordingOperationOperation,
 };
@@ -79,7 +79,8 @@ fn extra_vectors() -> Vec<CdrVector> {
     let log_payload = log_message.encode().expect("encode Log");
     let command_ack_example = CommandAck {
         accepted: true,
-        job_id: 42,
+        job_id: "0b5e8f5c-6f0a-4c4e-9a52-2f1e7d3c9b10".into(),
+        status: CommandAckStatus::WaitingForPermission,
         reason: "queued".into(),
     };
     let recording_file = RecordingFile {
@@ -122,7 +123,9 @@ fn extra_vectors() -> Vec<CdrVector> {
 
     let mut writer = blueos_idl::cdr::Writer::new();
     writer.write_bool(true).expect("bool");
-    writer.write_u64(7).expect("job id");
+    writer
+        .write_string("0b5e8f5c-6f0a-4c4e-9a52-2f1e7d3c9b10")
+        .expect("job id");
     let command_ack_old_writer = writer.finish_with_encapsulation();
 
     let mut service_info_writer = blueos_idl::cdr::Writer::new();
@@ -198,7 +201,8 @@ fn extra_vectors() -> Vec<CdrVector> {
             hex: encode_hex(&command_ack_old_writer),
             decoded: serde_json::json!({
                 "accepted": true,
-                "job_id": 7,
+                "job_id": "0b5e8f5c-6f0a-4c4e-9a52-2f1e7d3c9b10",
+                "status": 0,
                 "reason": ""
             }),
             category: "old_writer".to_string(),
