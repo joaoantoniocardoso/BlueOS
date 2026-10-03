@@ -85,6 +85,46 @@ export async function buildSizedVideoMcap(messageCount = 16): Promise<Uint8Array
   return buffer.get()
 }
 
+/** Frame spacing of `buildTwoTrackVideoMcap`; camera_b frames sit half way between two camera_a frames. */
+export const TWO_TRACK_FRAME_NS = 500_000_000n
+
+/**
+ * Two keyframe-only video streams sharing chunks: camera_a has 41 frames over 20 s, and camera_b has
+ * 21 frames that start 5 s after camera_a and stop 5 s before it.
+ */
+export async function buildTwoTrackVideoMcap(): Promise<Uint8Array> {
+  const buffer = new TempBuffer()
+  const writer = new McapWriter({ writable: buffer, chunkSize: 1024 })
+  await writer.start({ profile: '', library: 'blueos-test' })
+  const schemaId = await writer.registerSchema({
+    name: 'foxglove.CompressedVideo',
+    encoding: 'ros2msg',
+    data: new TextEncoder().encode(COMPRESSED_VIDEO_SCHEMA),
+  })
+  const cameraA = await writer.registerChannel({
+    schemaId, topic: 'video/camera_a/stream', messageEncoding: 'cdr', metadata: new Map(),
+  })
+  const cameraB = await writer.registerChannel({
+    schemaId, topic: 'video/camera_b/stream', messageEncoding: 'cdr', metadata: new Map(),
+  })
+  const payload = encodeCompressedVideo('h264', SAMPLE_H264_KEYFRAME)
+  const baseTime = 1_000_000_000n
+  for (let index = 0; index <= 40; index += 1) {
+    const logTime = baseTime + BigInt(index) * TWO_TRACK_FRAME_NS
+    await writer.addMessage({
+      channelId: cameraA, sequence: index, logTime, publishTime: logTime, data: payload,
+    })
+    if (index >= 10 && index <= 30) {
+      const cameraBTime = logTime + TWO_TRACK_FRAME_NS / 2n
+      await writer.addMessage({
+        channelId: cameraB, sequence: index - 10, logTime: cameraBTime, publishTime: cameraBTime, data: payload,
+      })
+    }
+  }
+  await writer.end()
+  return buffer.get()
+}
+
 /** Simple JSON channel for CSV export tests (avoids ROS2 CDR layout in the video helper). */
 export async function buildJsonTelemetryMcap(messageCount = 3, chunkSize = 512): Promise<Uint8Array> {
   const buffer = new TempBuffer()

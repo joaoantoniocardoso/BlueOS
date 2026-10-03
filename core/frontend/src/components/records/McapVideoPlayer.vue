@@ -415,7 +415,7 @@
             color="primary"
             class="mb-2"
             :loading="Boolean(export_progress)"
-            :disabled="Boolean(export_progress) || tracks.length === 0"
+            :disabled="Boolean(export_progress) || visible_tracks.length === 0"
             @click="saveMp4"
           >
             <v-icon small left>
@@ -425,6 +425,15 @@
           </v-btn>
         </div>
       </div>
+      <v-alert
+        v-if="export_notice"
+        type="info"
+        dense
+        text
+        class="mt-2 mb-0"
+      >
+        {{ export_notice }}
+      </v-alert>
 
       <div
         v-if="statistics && leader_stats"
@@ -587,6 +596,7 @@ function emptyView(): McapPlaybackViewState {
     exportTrackName: null,
     exportTrackIndex: 0,
     exportTrackCount: 0,
+    exportNotice: null,
     playing: false,
     pendingSeek: null,
     timelineDragging: false,
@@ -631,6 +641,7 @@ export default Vue.extend({
     export_track_name() { return this.view.exportTrackName },
     export_track_index() { return this.view.exportTrackIndex },
     export_track_count() { return this.view.exportTrackCount },
+    export_notice() { return this.view.exportNotice },
     playing() { return this.view.playing },
     stream_search: {
       get(): string { return this.view.streamSearch },
@@ -662,7 +673,7 @@ export default Vue.extend({
     duration() { return this.recording?.durationSeconds ?? 0 },
     clip() { return clipExportRange(this.cut_enabled, this.clip_range, this.duration) },
     clip_duration_label() { return clipDurationLabel(this.clip_range) },
-    save_label() { return mp4SaveLabel(this.tracks.length, this.clip, this.clip_range) },
+    save_label() { return mp4SaveLabel(this.visible_tracks.length, this.clip, this.clip_range) },
     page_busy() { return Boolean(this.export_progress) || this.csv_busy },
     export_percentage() {
       return exportPercentage(this.export_progress, this.export_track_index, this.export_track_count)
