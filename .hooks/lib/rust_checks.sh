@@ -154,6 +154,91 @@ collect_folder_violations() {
     return 0
 }
 
+# Usage: service_app_block_folders <service_dir>
+# Prints one Block folder name per line that may appear under app/src/ (D-23).
+service_app_block_folders() {
+    local service_dir="$1"
+    local logic_dir="$service_dir/logic"
+    local domain_folder=api
+    if [ -d "$logic_dir/domain" ]; then
+        domain_folder=domain
+    elif [ -d "$logic_dir/$(basename "$service_dir")" ]; then
+        domain_folder=$(basename "$service_dir")
+    fi
+    local entry
+    for entry in "$logic_dir"/*; do
+        [ -d "$entry" ] || continue
+        local name
+        name=$(basename "$entry")
+        case "$name" in
+            api | "$domain_folder" | paths | schema-gate) continue ;;
+        esac
+        printf '%s\n' "$name"
+    done
+}
+
+# Usage: collect_app_src_violations <repository_dir>
+# Enforces D-23 layout under services/<name>/app/src. Prints one violation per line.
+collect_app_src_violations() {
+    local root_dir="$1"
+    local services_root
+    if [ -d "$root_dir/core/services" ]; then
+        services_root="$root_dir/core/services"
+    elif [ -d "$root_dir/services" ]; then
+        services_root="$root_dir/services"
+    else
+        return 0
+    fi
+    local violations=() service_dir app_src entry name stem
+    local -a service_wide=(cli context endpoints handlers io service settings)
+    while IFS= read -r -d '' service_dir; do
+        app_src="$service_dir/app/src"
+        [ -d "$app_src" ] || continue
+        local -a block_folders=()
+        while IFS= read -r name; do
+            [ -n "$name" ] && block_folders+=("$name")
+        done < <(service_app_block_folders "$service_dir")
+        while IFS= read -r -d '' entry; do
+            name=$(basename "$entry")
+            if [ -f "$entry" ]; then
+                [ "$name" = lib.rs ] && continue
+                stem=${name%.rs}
+                local allowed=false
+                for stem in "${service_wide[@]}"; do
+                    if [ "$name" = "${stem}.rs" ]; then
+                        allowed=true
+                        break
+                    fi
+                done
+                if [ "$allowed" = false ]; then
+                    violations+=("$app_src: unknown top-level module ${name%.rs}")
+                fi
+            elif [ -d "$entry" ]; then
+                case "$name" in
+                    tasks) ;;
+                    *)
+                        local block_allowed=false
+                        for stem in "${block_folders[@]}"; do
+                            if [ "$name" = "$stem" ]; then
+                                block_allowed=true
+                                break
+                            fi
+                        done
+                        if [ "$block_allowed" = false ]; then
+                            violations+=("$app_src: unknown top-level module $name")
+                        fi
+                        ;;
+                esac
+            fi
+        done < <(find "$app_src" -mindepth 1 -maxdepth 1 -print0)
+    done < <(find "$services_root" -mindepth 1 -maxdepth 1 -type d -print0)
+    if [ ${#violations[@]} -gt 0 ]; then
+        printf '%s\n' "${violations[@]}"
+        return 1
+    fi
+    return 0
+}
+
 # Usage: collect_test_only_feature_violations <workspace_dir>
 # Resolves features the way a non-test build does (no dev edges, every target) and prints one violation per
 # test-only feature it finds enabled. Exits 1 when any violation exists.
@@ -239,6 +324,11 @@ run_rust_lint_checks() {
 
         echo "Checking crate folders.."
         if ! collect_folder_violations "$metadata"; then
+            exit 1
+        fi
+
+        echo "Checking application crate layout.."
+        if ! collect_app_src_violations "$(git -C "$workspace_dir" rev-parse --show-toplevel)"; then
             exit 1
         fi
 

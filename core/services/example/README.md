@@ -19,7 +19,7 @@ the small wiring path; the numbered [`cookbook/`](cookbook/README.md) answers ev
 | `app/src/service.rs` | `impl Service` calling `endpoints::register` |
 | `app/src/cli.rs` | Service-specific `clap::Args` (common flags come from the Kernel) |
 | `cookbook/tests/27-tasks.rs` | Supervised Tasks (Q27); example-minimal ships none |
-| `app/src/handlers.rs` | Optional custom Command/Query handlers when the manifest marks an endpoint `custom` |
+| `<block>/handlers.rs` under `app/src/` | Optional custom Command/Query handlers when the manifest marks an endpoint `custom` (D-23) |
 
 There is no `adapters/` crate until you have real IO.
 
