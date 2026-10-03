@@ -7,138 +7,74 @@ use tokio::time::timeout;
 
 use serde::Deserialize;
 
-use blueos_api::{Message, cdr_encoding, info_query_key, status_state_key};
-use blueos_comms::{CommsBackend, channel::ChannelBackend};
+use blueos_api::{
+    Message, cdr_encoding, info_query_key, job_feedback_key, job_result_key, status_state_key,
+};
+use blueos_comms::{CommsBackend, Subscriber, channel::ChannelBackend};
 use blueos_example_app::{cli::ExampleArguments, service::ExampleService};
 use blueos_example_domain::MAX_LEVEL;
 use blueos_idl::msg::{
-    blueos_example_msgs::{EmptyRequest, LevelQueryResponse, PumpState, SetLevelRequest},
-    blueos_msgs::{CommandAck, ServiceInfo, ServiceStatus, ServiceStatusStatus},
+    blueos_example_msgs::{
+        LevelRequest, LevelResponse, PumpState, SetLevelFeedback, SetLevelGoal, SetLevelResult,
+    },
+    blueos_msgs::{
+        CommandAckStatus, JobFeedbackList, JobResult, JobStatusStatus, ServiceInfo, ServiceStatus,
+        ServiceStatusStatus,
+    },
 };
-use blueos_service::{Service, testing::Harness};
+use blueos_service::{Service, new_job_id, testing::Harness};
 
-struct ManifestEndpoint {
-    kind: &'static str,
-    name: String,
-    request_schema: String,
-    response_schema: String,
-}
-
+/// `endpoints.toml`: each table maps an endpoint name to its interface type.
 #[derive(Deserialize)]
 struct Manifest {
     service: String,
     #[serde(default)]
-    command: BTreeMap<String, CommandEntry>,
+    job: BTreeMap<String, Entry>,
     #[serde(default)]
-    query: BTreeMap<String, QueryEntry>,
+    query: BTreeMap<String, Entry>,
     #[serde(default)]
-    state: BTreeMap<String, StateEntry>,
+    state: BTreeMap<String, Entry>,
 }
 
 #[derive(Deserialize)]
-struct CommandEntry {
-    request: String,
+struct Entry {
+    #[serde(rename = "type")]
+    interface_type: String,
 }
 
-#[derive(Deserialize)]
-struct QueryEntry {
-    request: String,
-    response: String,
-}
-
-#[derive(Deserialize)]
-struct StateEntry {
-    message: String,
-}
-
-fn manifest_endpoints_from_toml() -> BTreeMap<String, ManifestEndpoint> {
+/// Each endpoint key of `endpoints.toml`, with its kind, name and interface type.
+fn manifest_endpoints() -> BTreeMap<String, (&'static str, String, String)> {
     let manifest: Manifest =
         toml::from_str(include_str!("../endpoints.toml")).expect("endpoints.toml parses");
     let service = manifest.service;
+    let tables = [
+        ("job", "command", manifest.job),
+        ("query", "query", manifest.query),
+        ("state", "state", manifest.state),
+    ];
     let mut expected = BTreeMap::new();
-    for (name, entry) in manifest.command {
-        let (request_schema, response_schema) = match name.as_str() {
-            "SetLevel" => {
-                assert_eq!(entry.request, SetLevelRequest::SCHEMA_NAME);
-                (
-                    SetLevelRequest::SCHEMA_NAME.to_owned(),
-                    CommandAck::SCHEMA_NAME.to_owned(),
-                )
-            }
-            other => panic!("unexpected command {other} in endpoints.toml"),
-        };
-        let key = format!("blueos/v1/{service}/command/{name}");
-        expected.insert(
-            key,
-            ManifestEndpoint {
-                kind: "command",
-                name,
-                request_schema,
-                response_schema,
-            },
-        );
-    }
-    for (name, entry) in manifest.query {
-        let (request_schema, response_schema) = match name.as_str() {
-            "Level" => {
-                assert_eq!(entry.request, EmptyRequest::SCHEMA_NAME);
-                assert_eq!(entry.response, LevelQueryResponse::SCHEMA_NAME);
-                (
-                    EmptyRequest::SCHEMA_NAME.to_owned(),
-                    LevelQueryResponse::SCHEMA_NAME.to_owned(),
-                )
-            }
-            other => panic!("unexpected query {other} in endpoints.toml"),
-        };
-        let key = format!("blueos/v1/{service}/query/{name}");
-        expected.insert(
-            key,
-            ManifestEndpoint {
-                kind: "query",
-                name,
-                request_schema,
-                response_schema,
-            },
-        );
-    }
-    for (name, entry) in manifest.state {
-        let response_schema = match name.as_str() {
-            "pump" => {
-                assert_eq!(entry.message, PumpState::SCHEMA_NAME);
-                PumpState::SCHEMA_NAME.to_owned()
-            }
-            other => panic!("unexpected state {other} in endpoints.toml"),
-        };
-        let key = format!("blueos/v1/{service}/state/{name}");
-        expected.insert(
-            key,
-            ManifestEndpoint {
-                kind: "state",
-                name,
-                request_schema: String::new(),
-                response_schema,
-            },
-        );
+    for (kind, segment, table) in tables {
+        for (name, entry) in table {
+            expected.insert(
+                format!("blueos/v1/{service}/{segment}/{name}"),
+                (kind, name, entry.interface_type),
+            );
+        }
     }
     expected
 }
 
-/// The `example` lines of `api.lock`: each endpoint key with its request and response schema names.
-fn locked_endpoints() -> BTreeMap<String, (String, String)> {
+/// The `example` lines of `api.lock`: each endpoint key with its interface type.
+fn locked_endpoints() -> BTreeMap<String, String> {
     let prefix = format!("blueos/v1/{}/", ExampleService::NAME);
     include_str!("../../../../libs/idl/api.lock")
         .lines()
         .filter_map(|line| {
             let mut parts = line.split_whitespace();
-            let key = parts.next()?.strip_prefix(&prefix)?;
-            let (request, response) = parts
-                .nth(1)?
-                .strip_prefix("request=")?
-                .split_once(";response=")?;
-            Some((
-                format!("{prefix}{key}"),
-                (request.to_owned(), response.to_owned()),
-            ))
+            let key = parts.next()?;
+            key.strip_prefix(&prefix)?;
+            let interface_type = parts.nth(1)?.strip_prefix("type=")?;
+            Some((key.to_owned(), interface_type.to_owned()))
         })
         .collect()
 }
@@ -156,7 +92,7 @@ async fn the_kernel_serves_the_keys_and_messages_of_api_lock() {
         info_query_key(ExampleService::NAME),
         status_state_key(ExampleService::NAME),
     ] {
-        let (request_schema, response_schema) = locked
+        let interface_type = locked
             .get(&key)
             .unwrap_or_else(|| panic!("api.lock must record {key}"));
         let replies = backend
@@ -166,44 +102,47 @@ async fn the_kernel_serves_the_keys_and_messages_of_api_lock() {
         let [Ok(reply)] = replies.as_slice() else {
             panic!("the Kernel must answer {key} once, got {replies:?}");
         };
-        assert_eq!(request_schema, "", "{key}");
-        assert_eq!(reply.encoding(), cdr_encoding(response_schema), "{key}");
+        assert_eq!(reply.encoding(), cdr_encoding(interface_type), "{key}");
     }
 
     let info = harness
-        .query::<EmptyRequest, ServiceInfo>("info", &EmptyRequest::default())
+        .query::<LevelRequest, ServiceInfo>("info", &LevelRequest::default())
         .await
         .expect("the info query answers");
     for endpoint in info.endpoints {
         assert_eq!(
             locked.get(&endpoint.key),
-            Some(&(endpoint.request_schema, endpoint.response_schema)),
-            "api.lock must record {} with the Messages info reports",
+            Some(&endpoint.interface_type),
+            "api.lock must record {} with the interface type info reports",
             endpoint.key
         );
     }
 }
 
 #[tokio::test(start_paused = true)]
-async fn info_lists_every_manifest_endpoint_with_schemas() {
+async fn info_lists_every_manifest_endpoint_with_its_interface_type_and_schema_text() {
     let harness = Harness::<ExampleService>::start(ExampleArguments::default())
         .await
         .unwrap();
     let info = harness
-        .query::<EmptyRequest, ServiceInfo>("info", &EmptyRequest::default())
+        .query::<LevelRequest, ServiceInfo>("info", &LevelRequest::default())
         .await
         .expect("the info query answers");
-    let expected = manifest_endpoints_from_toml();
-    for (key, manifest) in &expected {
+
+    for (key, (kind, name, interface_type)) in manifest_endpoints() {
         let endpoint = info
             .endpoints
             .iter()
-            .find(|endpoint| endpoint.key == *key)
+            .find(|endpoint| endpoint.key == key)
             .unwrap_or_else(|| panic!("info must list manifest endpoint {key}"));
-        assert_eq!(endpoint.kind, manifest.kind);
-        assert_eq!(endpoint.name, manifest.name);
-        assert_eq!(endpoint.request_schema, manifest.request_schema);
-        assert_eq!(endpoint.response_schema, manifest.response_schema);
+        assert_eq!(endpoint.kind, kind);
+        assert_eq!(endpoint.name, name);
+        assert_eq!(endpoint.interface_type, interface_type);
+        assert_eq!(
+            Some(endpoint.schema.as_str()),
+            blueos_idl::schema(&interface_type),
+            "{key}"
+        );
     }
 }
 
@@ -228,54 +167,123 @@ async fn status_is_ready_after_startup() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn set_level_updates_the_pump_state() {
-    let harness = Harness::<ExampleService>::start(ExampleArguments::default())
-        .await
-        .unwrap();
+async fn set_level_fills_the_pump_to_the_level() {
+    let harness = start().await;
 
-    let ack = harness
-        .send("SetLevel", &SetLevelRequest { level: 55 })
-        .await;
-    assert!(ack.accepted);
+    let level = fill(&harness, 3).await;
 
+    assert_eq!(level, 3);
     let pump = harness.state::<PumpState>("pump").await;
-    assert_eq!(pump.level, 55);
+    assert_eq!(pump.level, 3);
     assert_eq!(pump.max_level, MAX_LEVEL);
     assert!(!pump.self_test_active);
 }
 
 #[tokio::test(start_paused = true)]
-async fn set_level_refuses_a_level_above_the_maximum() {
-    let harness = Harness::<ExampleService>::start(ExampleArguments::default())
-        .await
-        .unwrap();
-    harness
-        .send("SetLevel", &SetLevelRequest { level: 55 })
-        .await;
+async fn set_level_publishes_its_feedback_and_job_result_on_the_keys_of_its_job_type() {
+    let harness = start().await;
+    let mut feedback = subscribe(
+        &harness,
+        &job_feedback_key(ExampleService::NAME, "SetLevel"),
+    )
+    .await;
+    let mut results = subscribe(&harness, &job_result_key(ExampleService::NAME, "SetLevel")).await;
+    let job_id = new_job_id();
 
     let ack = harness
-        .send("SetLevel", &SetLevelRequest { level: 150 })
+        .submit("SetLevel", job_id, &SetLevelGoal { level: 2 })
         .await;
+
+    assert_eq!(ack.status, CommandAckStatus::Executing);
+    let mut fed_back = Vec::new();
+    for _ in 0..3 {
+        let list: JobFeedbackList = next(&mut feedback).await;
+        fed_back.push(
+            list.jobs
+                .into_iter()
+                .map(|job| {
+                    (
+                        job.job_id,
+                        SetLevelFeedback::decode(&job.feedback).unwrap().level,
+                    )
+                })
+                .collect::<Vec<_>>(),
+        );
+    }
+    assert_eq!(
+        fed_back,
+        [
+            vec![(job_id.to_string(), 0)],
+            vec![(job_id.to_string(), 1)],
+            vec![],
+        ],
+        "the Feedback of each step, until the Job ends"
+    );
+    let result: JobResult = next(&mut results).await;
+    assert_eq!(result.job.job_id, job_id.to_string());
+    assert_eq!(result.job.status, JobStatusStatus::Succeeded);
+    assert_eq!(
+        SetLevelResult::decode(&result.result).unwrap(),
+        SetLevelResult { level: 2 }
+    );
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_goal_the_conversion_rejects_is_rejected_in_the_ack() {
+    let harness = start().await;
+    fill(&harness, 5).await;
+
+    let ack = harness.send("SetLevel", &SetLevelGoal { level: 150 }).await;
 
     assert!(!ack.accepted);
     assert_eq!(ack.reason, "150 is above the maximum level of 100");
-    assert_eq!(harness.state::<PumpState>("pump").await.level, 55);
+    assert!(
+        harness
+            .jobs()
+            .await
+            .jobs
+            .iter()
+            .all(|job| job.status == JobStatusStatus::Succeeded)
+    );
+    assert_eq!(harness.state::<PumpState>("pump").await.level, 5);
 }
 
 #[tokio::test(start_paused = true)]
 async fn level_query_reads_the_snapshot() {
-    let harness = Harness::<ExampleService>::start(ExampleArguments::default())
-        .await
-        .unwrap();
-    harness
-        .send("SetLevel", &SetLevelRequest { level: 12 })
-        .await;
+    let harness = start().await;
+    fill(&harness, 4).await;
 
     let answer = harness
-        .query::<_, LevelQueryResponse>("Level", &EmptyRequest::default())
+        .query::<_, LevelResponse>("Level", &LevelRequest::default())
         .await
         .unwrap();
 
-    assert_eq!(answer.level, 12);
+    assert_eq!(answer.level, 4);
     assert_eq!(answer.max_level, MAX_LEVEL);
+}
+
+async fn start() -> Harness<ExampleService> {
+    Harness::start(ExampleArguments::default()).await.unwrap()
+}
+
+/// Fills the pump to `level` and returns the level of the Job result, once the Job ends.
+async fn fill(harness: &Harness<ExampleService>, level: u8) -> u8 {
+    let mut results = subscribe(harness, &job_result_key(ExampleService::NAME, "SetLevel")).await;
+    let ack = harness.send("SetLevel", &SetLevelGoal { level }).await;
+    assert!(ack.accepted, "{}", ack.reason);
+    let result: JobResult = next(&mut results).await;
+    SetLevelResult::decode(&result.result).unwrap().level
+}
+
+async fn subscribe(harness: &Harness<ExampleService>, key: &str) -> Subscriber {
+    harness.backend().subscribe(key).await.unwrap()
+}
+
+/// The next `M` the Service publishes on `subscriber`. Time is paused, so it advances to the next step at once.
+async fn next<M: Message>(subscriber: &mut Subscriber) -> M {
+    let sample = timeout(Duration::from_secs(600), subscriber.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    M::decode(&sample.payload().to_bytes()).unwrap()
 }
