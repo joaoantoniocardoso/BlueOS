@@ -32,7 +32,7 @@ export function settingsState(service: string): StateEndpoint<'blueos_msgs/msg/S
   return { key: settingsKey(service), messageSchema: 'blueos_msgs/msg/SettingsEnvelope' }
 }
 
-/** The `jobs` State of a Service whose Domain has Jobs (D-12). */
+/** The `jobs` State of a Service: its active Jobs, those waiting for permission too, and the last ended ones. */
 export function jobsState(service: string): StateEndpoint<'blueos_msgs/msg/JobList'> {
   return { key: jobsKey(service), messageSchema: 'blueos_msgs/msg/JobList' }
 }
