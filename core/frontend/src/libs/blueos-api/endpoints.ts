@@ -1,7 +1,8 @@
 import {
-  commandKey, jobsKey, settingsKey, statusStateKey,
+  commandKey, jobFeedbackKey, jobResultKey, jobsKey, settingsKey, statusStateKey,
 } from './keys'
 import type { SchemaName } from './types'
+import type { EventEndpoint } from './watch-event'
 
 /** A State endpoint, such as the generated `example.pump`: published on change and answered to a query. */
 export interface StateEndpoint<Schema extends SchemaName> {
@@ -35,6 +36,16 @@ export function settingsState(service: string): StateEndpoint<'blueos_msgs/msg/S
 /** The `jobs` State of a Service: its active Jobs, those waiting for permission too, and the last ended ones. */
 export function jobsState(service: string): StateEndpoint<'blueos_msgs/msg/JobList'> {
   return { key: jobsKey(service), messageSchema: 'blueos_msgs/msg/JobList' }
+}
+
+/** The Feedback State of a Job type: the latest Feedback of each of its active Jobs (D-12). */
+export function jobFeedbackState(service: string, jobType: string): StateEndpoint<'blueos_msgs/msg/JobFeedbackList'> {
+  return { key: jobFeedbackKey(service, jobType), messageSchema: 'blueos_msgs/msg/JobFeedbackList' }
+}
+
+/** The Job result Event of a Job type, published when one of its Jobs ends (D-12). */
+export function jobResultEvent(service: string, jobType: string): EventEndpoint<'blueos_msgs/msg/JobResult'> {
+  return { key: jobResultKey(service, jobType), messageSchema: 'blueos_msgs/msg/JobResult' }
 }
 
 /** The `UpdateSettings` Command of a Service, the only way to change its settings (D-11). */

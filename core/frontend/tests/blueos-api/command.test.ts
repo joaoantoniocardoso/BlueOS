@@ -1,14 +1,16 @@
 /* eslint-disable import/no-extraneous-dependencies */
-import { CommandAckStatus } from '@blueos-idl/constants'
+import { CommandAckStatus, JobStatusStatus } from '@blueos-idl/constants'
 import { describe, expect, it } from 'vitest'
 
 import { encodeCdr } from '@/libs/blueos-api/cdr'
 import {
-  answerPermission, cancelJob, newJobId, pauseJob, query, resumeJob, sendCommand,
+  answerPermission, cancelJob, jobHistory, newJobId, pauseJob, query, resumeJob, sendCommand,
 } from '@/libs/blueos-api/command'
 import { updateSettingsCommand } from '@/libs/blueos-api/endpoints'
 import { NoReplyError, QueryFailedError, UnexpectedEncodingError } from '@/libs/blueos-api/errors'
-import { cdrEncoding, commandKey, ENCODING_APPLICATION_CDR } from '@/libs/blueos-api/keys'
+import {
+  cdrEncoding, commandKey, ENCODING_APPLICATION_CDR, jobHistoryKey,
+} from '@/libs/blueos-api/keys'
 import { Level, SetLevel } from '@/libs/blueos-api/services/example'
 import type { Reply } from '@/libs/blueos-api/transport'
 import type { MessageForSchema, SchemaName } from '@/libs/blueos-api/types'
@@ -192,5 +194,29 @@ describe('query', () => {
     }))
 
     await expect(asking).rejects.toBeInstanceOf(UnexpectedEncodingError)
+  })
+})
+
+describe('jobHistory', () => {
+  it('reads the last finished Jobs of a Job type, in the order they ended', async () => {
+    const transport = new FakeTransport()
+    const history = {
+      jobs: [
+        {
+          job_id: 'job-1', job_type: 'Fill', status: JobStatusStatus.Succeeded, reason: '',
+        },
+        {
+          job_id: 'job-2', job_type: 'Fill', status: JobStatusStatus.Aborted, reason: 'tank full',
+        },
+      ],
+    }
+
+    const reading = jobHistory(transport, 'tank', 'Fill')
+    const sent = await transport.nextQuery()
+    sent.reply(answer(jobHistoryKey('tank', 'Fill'), 'blueos_msgs/msg/JobList', history))
+
+    expect(await reading).toEqual(history)
+    expect(sent.key).toBe(jobHistoryKey('tank', 'Fill'))
+    expect(sent.body).toBeUndefined()
   })
 })

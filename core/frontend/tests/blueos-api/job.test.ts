@@ -5,9 +5,14 @@ import { describe, expect, it } from 'vitest'
 
 import { encodeCdr } from '@/libs/blueos-api/cdr'
 import { jobsState } from '@/libs/blueos-api/endpoints'
-import { isFinishedJobStatus, jobFromList, watchJob } from '@/libs/blueos-api/job'
-import { cdrEncoding, jobsKey } from '@/libs/blueos-api/keys'
-import type { MessageForSchema } from '@/libs/blueos-api/types'
+import {
+  isFinishedJobStatus, type JobFeedbackEntry, jobFromList, type JobResultEntry, watchJob, watchJobFeedback,
+  watchJobResults,
+} from '@/libs/blueos-api/job'
+import {
+  cdrEncoding, jobFeedbackKey, jobResultKey, jobsKey,
+} from '@/libs/blueos-api/keys'
+import type { MessageForSchema, SchemaName } from '@/libs/blueos-api/types'
 
 import FakeTransport from './fake-transport'
 
@@ -19,7 +24,18 @@ function jobsSample(list: JobList): ReturnType<typeof sample> {
   return sample(jobsKey('tank'), 'blueos_msgs/msg/JobList', list)
 }
 
-function sample<Schema extends 'blueos_msgs/msg/JobList'>(
+const LEVEL = 'blueos_example_msgs/msg/LevelQueryResponse'
+const SET_LEVEL = 'blueos_example_msgs/msg/SetLevelRequest'
+
+function feedbackSample(jobs: { job_id: string, level: number }[]): ReturnType<typeof sample> {
+  return sample(jobFeedbackKey('tank', 'Fill'), 'blueos_msgs/msg/JobFeedbackList', {
+    jobs: jobs.map(({ job_id, level }) => ({
+      job_id, feedback: Array.from(encodeCdr(LEVEL, { level, max_level: 3 })),
+    })),
+  })
+}
+
+function sample<Schema extends SchemaName>(
   key: string,
   schema: Schema,
   message: MessageForSchema<Schema>,
@@ -163,5 +179,55 @@ describe('watchJob', () => {
     await runToTerminal(JobStatusStatus.Canceled)
 
     expect(terminalStatuses).toEqual([JobStatusStatus.Aborted, JobStatusStatus.Canceled])
+  })
+})
+
+describe('watchJobFeedback', () => {
+  it('sees the latest Feedback of each active Job when it opens mid-Job, then every update', async () => {
+    const transport = new FakeTransport()
+    const seen: JobFeedbackEntry<MessageForSchema<typeof LEVEL>>[][] = []
+
+    const watching = watchJobFeedback(transport, 'tank', 'Fill', LEVEL, {
+      onValue: (feedback) => seen.push(feedback),
+      onError: (error) => { throw error },
+    })
+    const feedbackQuery = await transport.nextQuery()
+    expect(feedbackQuery.key).toBe(jobFeedbackKey('tank', 'Fill'))
+    feedbackQuery.reply({ kind: 'sample', sample: feedbackSample([{ job_id: 'job-1', level: 2 }]) })
+    const subscription = await watching
+    transport.publish(feedbackSample([{ job_id: 'job-1', level: 3 }, { job_id: 'job-2', level: 1 }]))
+    transport.publish(feedbackSample([]))
+
+    expect(seen).toEqual([
+      [{ jobId: 'job-1', feedback: { level: 2, max_level: 3 } }],
+      [
+        { jobId: 'job-1', feedback: { level: 3, max_level: 3 } },
+        { jobId: 'job-2', feedback: { level: 1, max_level: 3 } },
+      ],
+      [],
+    ])
+    await subscription.close()
+  })
+})
+
+describe('watchJobResults', () => {
+  it('decodes how each Job ended and its Job result', async () => {
+    const transport = new FakeTransport()
+    const seen: JobResultEntry<MessageForSchema<typeof SET_LEVEL>>[] = []
+    const canceled = {
+      job_id: 'job-1', job_type: 'Fill', status: JobStatusStatus.Canceled, reason: '',
+    }
+
+    const subscription = await watchJobResults(transport, 'tank', 'Fill', SET_LEVEL, {
+      onValue: (result) => seen.push(result),
+      onError: (error) => { throw error },
+    })
+    transport.publish(sample(jobResultKey('tank', 'Fill'), 'blueos_msgs/msg/JobResult', {
+      job: canceled, result: Array.from(encodeCdr(SET_LEVEL, { level: 2 })),
+    }))
+
+    expect(transport.subscribers[0].key).toBe(jobResultKey('tank', 'Fill'))
+    expect(seen).toEqual([{ job: canceled, result: { level: 2 } }])
+    await subscription.close()
   })
 })

@@ -1,10 +1,12 @@
 /* eslint-disable import/no-extraneous-dependencies */
-import type { CommandAck } from '@blueos-idl/messages'
+import type { CommandAck, JobList } from '@blueos-idl/messages'
 
 import { decodeSample, encodeCdr } from './cdr'
 import type { CommandEndpoint, QueryEndpoint } from './endpoints'
 import { NoReplyError, QueryFailedError } from './errors'
-import { cdrEncoding, commandKey, ENCODING_APPLICATION_CDR } from './keys'
+import {
+  cdrEncoding, commandKey, ENCODING_APPLICATION_CDR, jobHistoryKey,
+} from './keys'
 import type { QueryBody, Transport } from './transport'
 import {
   COMMAND_ACK_SCHEMA, type MessageForSchema, PERMISSION_ANSWER_SCHEMA, type SchemaName,
@@ -81,6 +83,11 @@ export async function query<RequestSchema extends SchemaName, ResponseSchema ext
   }, endpoint.responseSchema)
 }
 
+/** Calls the history Query of the Job type `jobType`: its last finished Jobs, in the order they ended (D-12). */
+export async function jobHistory(transport: Transport, service: string, jobType: string): Promise<JobList> {
+  return ask(transport, jobHistoryKey(service, jobType), undefined, 'blueos_msgs/msg/JobList')
+}
+
 async function control(transport: Transport, service: string, name: string, jobId: string): Promise<CommandAck> {
   return ask(transport, commandKey(service, name), {
     payload: new Uint8Array(),
@@ -92,7 +99,7 @@ async function control(transport: Transport, service: string, name: string, jobI
 async function ask<ResponseSchema extends SchemaName>(
   transport: Transport,
   key: string,
-  body: QueryBody,
+  body: QueryBody | undefined,
   responseSchema: ResponseSchema,
 ): Promise<MessageForSchema<ResponseSchema>> {
   const [reply] = await transport.get(key, body)
