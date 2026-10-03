@@ -221,8 +221,8 @@ fn endpoint_lock_requires_major_bump_for_signature_change() {
     let message = explain_endpoint_lock_mismatch(
         "blueos/v1/tank/command/Drain",
         1,
-        "request=blueos_example_msgs/msg/EmptyRequest;response=blueos_msgs/msg/CommandAck",
-        "request=blueos_example_msgs/msg/SetLevelRequest;response=blueos_msgs/msg/CommandAck",
+        "type=blueos_example_msgs/srv/Level",
+        "type=blueos_example_msgs/action/SetLevel",
     );
     assert!(message.contains("endpoint API change"));
 }
