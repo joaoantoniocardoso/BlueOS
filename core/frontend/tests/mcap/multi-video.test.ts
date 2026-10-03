@@ -9,6 +9,7 @@ import {
 } from '@/libs/mcap/adapters/mcap-recording-playback-controller'
 import type { McapVideoRecording } from '@/libs/mcap/adapters/player'
 import VideoFrameStream from '@/libs/mcap/logic/frame-stream'
+import { mergedVideoCoverage, trackTimelineLanes } from '@/libs/mcap/logic/playback-ui'
 import { McapIndexedReader } from '@/libs/mcap/logic/reader'
 import { listVideoTracks } from '@/libs/mcap/logic/video-track'
 
@@ -155,5 +156,30 @@ describe('a recording with two video streams', () => {
       expect(stream.calls).toEqual(['seek 10', 'play', 'pause'])
     }
     controller.destroy()
+  })
+})
+
+describe('timeline lanes', () => {
+  it('draws the range of each visible stream on its own lane, not one merged bar', async () => {
+    const { tracks, durationSeconds } = await openTwoTracks()
+
+    const lanes = trackTimelineLanes(tracks, durationSeconds)
+
+    expect(lanes.map((lane) => lane.channelId)).toEqual(tracks.map((track) => track.channelId))
+    const [cameraA, cameraB] = lanes.map((lane) => lane.ranges.map(({ style }) => ({
+      left: parseFloat(style.left), width: parseFloat(style.width),
+    })))
+    expect(cameraA).toHaveLength(1)
+    expect(cameraB).toHaveLength(1)
+    expect(cameraA[0].left).toBe(0)
+    expect(cameraA[0].width).toBeCloseTo(100, 5)
+    expect(cameraB[0].left).toBeGreaterThan(0)
+    expect(cameraB[0].left + cameraB[0].width).toBeLessThan(100)
+  })
+
+  it('keeps the merged union for playback', async () => {
+    const { tracks } = await openTwoTracks()
+
+    expect(mergedVideoCoverage(tracks)).toEqual(tracks[0].coverage)
   })
 })
