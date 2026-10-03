@@ -127,6 +127,9 @@ pub struct Payload {
 pub trait PayloadBuffer: Any + Debug + Send + Sync {
     /// The bytes, borrowed when the buffer is contiguous and copied only when it is not.
     fn to_bytes(&self) -> Cow<'_, [u8]>;
+
+    /// How many bytes the buffer holds, read without copying it.
+    fn size_bytes(&self) -> usize;
 }
 
 /// The liveliness changes a subscription receives, in arrival order.
@@ -200,6 +203,11 @@ impl Payload {
         self.buffer.to_bytes()
     }
 
+    /// How many bytes the payload holds, read without copying it.
+    pub fn size_bytes(&self) -> usize {
+        self.buffer.size_bytes()
+    }
+
     /// The backend's own buffer, if it is a `T`, so a backend can send it on without a copy.
     pub fn downcast_ref<T: PayloadBuffer>(&self) -> Option<&T> {
         let buffer: &dyn Any = &*self.buffer;
@@ -210,6 +218,10 @@ impl Payload {
 impl PayloadBuffer for Bytes {
     fn to_bytes(&self) -> Cow<'_, [u8]> {
         Cow::Borrowed(self)
+    }
+
+    fn size_bytes(&self) -> usize {
+        self.len()
     }
 }
 

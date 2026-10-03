@@ -35,6 +35,9 @@ pub use timestamp::created_unix_seconds_from_filename;
 // ponytail: timer rescan; switch to inotify if external writers or large folders make it costly.
 /// How often the library rescans the recordings folder while idle.
 pub const RESCAN_INTERVAL: Duration = Duration::from_secs(5);
+/// How long a repair's read offset waits, after the library entries were last rebuilt, before it is published in
+/// them; the Job's Feedback always has the latest one.
+pub const REPAIR_PROGRESS_PUBLISH_INTERVAL: Duration = Duration::from_millis(500);
 
 /// In-memory library Block state.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -45,6 +48,8 @@ pub struct Library {
     operations: Vec<LibraryOperation>,
     ended: Option<LibraryOperation>,
     repair_errors: BTreeMap<String, String>,
+    /// Monotonic time the entries were last rebuilt.
+    entries_rebuilt_monotonic: Duration,
 }
 
 /// Commands handled by the library Block.
@@ -444,7 +449,12 @@ impl Library {
                         progress.total_bytes = observed.total_bytes;
                     }
                 }
-                rebuild_entries(self, active_recording_relative_path, now);
+                if observed.bytes_processed >= observed.total_bytes
+                    || now.monotonic.saturating_sub(self.entries_rebuilt_monotonic)
+                        >= REPAIR_PROGRESS_PUBLISH_INTERVAL
+                {
+                    rebuild_entries(self, active_recording_relative_path, now);
+                }
                 Outcome::Applied {
                     events: vec![],
                     effects: vec![],
@@ -618,6 +628,7 @@ fn rebuild_entries(library: &mut Library, active_recording_relative_path: Option
     }
     entries.sort_by_key(|entry| core::cmp::Reverse(entry.created_unix_seconds));
     library.entries = entries;
+    library.entries_rebuilt_monotonic = now.monotonic;
 }
 
 fn command_context<'a>(

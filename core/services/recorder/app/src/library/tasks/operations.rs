@@ -216,7 +216,10 @@ fn repair(
             }
         }
         Err(RewriteError::Cancelled) => LibraryRepairOutcome::Cancelled,
-        Err(RewriteError::Mcap(_)) => LibraryRepairOutcome::Failed(RepairFailure::Rewrite),
+        Err(error @ RewriteError::Mcap(_)) => {
+            warn!(%error, path = %relative, "Failed to rewrite a recording to repair");
+            LibraryRepairOutcome::Failed(RepairFailure::Rewrite)
+        }
         Err(RewriteError::Io(_)) => LibraryRepairOutcome::Failed(RepairFailure::Io),
     };
     if outcome != LibraryRepairOutcome::Succeeded {
@@ -249,7 +252,9 @@ fn snapshot(
                 LibrarySnapshotOutcome::Failed(RepairFailure::Replace)
             }
         },
-        Err(RewriteError::Cancelled | RewriteError::Mcap(_)) => {
+        Err(RewriteError::Cancelled) => LibrarySnapshotOutcome::Failed(RepairFailure::Rewrite),
+        Err(error @ RewriteError::Mcap(_)) => {
+            warn!(%error, path = path.as_str(), "Failed to rewrite a recording to snapshot");
             LibrarySnapshotOutcome::Failed(RepairFailure::Rewrite)
         }
         Err(RewriteError::Io(_)) => LibrarySnapshotOutcome::Failed(RepairFailure::Io),

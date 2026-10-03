@@ -14,7 +14,7 @@ use std::{
     sync::{Arc, Mutex, mpsc},
 };
 
-use mcap::{Writer, write::WriteOptions};
+use mcap::{Compression, Writer, write::WriteOptions};
 use serde::Serialize;
 use tempfile::tempdir;
 use tokio::{
@@ -178,6 +178,50 @@ async fn repair_rewrites_truncated_recording_and_publishes_its_job_result() {
         repair_job_status(&harness, job_id).await,
         JobStatusStatus::Succeeded
     );
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_recording_killed_before_its_first_message_is_repaired_empty_and_no_longer_offered_for_repair()
+ {
+    let directory = tempdir().expect("tempdir");
+    let path = directory.path().join("killed.mcap");
+    write_mcap_killed_before_its_first_message(&path);
+    set_modified_seconds_ago(&path, 20);
+
+    let harness = start_harness(directory.path()).await;
+    let mut results = subscribe_job_results(&harness, "RepairRecording").await;
+    wait_for_library_file_listed(&harness, "killed.mcap").await;
+    advance(RESCAN_INTERVAL + Duration::from_secs(20)).await;
+    drain_blocking_io().await;
+
+    let ack = harness
+        .send(
+            "RepairRecording",
+            &RepairRecordingGoal {
+                path: "killed.mcap".into(),
+            },
+        )
+        .await;
+    assert!(ack.accepted, "repair rejected: {}", ack.reason);
+
+    let (job, _result) = next_job_result::<RepairRecordingResult>(&mut results).await;
+    assert_eq!(
+        (job.status, job.reason.as_str()),
+        (JobStatusStatus::Succeeded, "")
+    );
+    wait_for_library_file_ready(&harness, "killed.mcap").await;
+    let bytes = fs::read(&path).expect("read the repaired recording");
+    assert_eq!(mcap::MessageStream::new(&bytes).expect("stream").count(), 0);
+    wait_for_library_state(harness.backend(), |library| {
+        library.files.iter().any(|file| {
+            file.path == "killed.mcap"
+                && !file
+                    .allowed_operations
+                    .iter()
+                    .any(|operation| operation == "RepairRecording")
+        })
+    })
+    .await;
 }
 
 #[tokio::test(start_paused = true)]
@@ -533,4 +577,33 @@ fn write_truncated_mcap(path: &Path) {
     writer.finish().expect("finish");
     let bytes = fs::read(path).expect("read");
     fs::write(path, &bytes[..bytes.len() / 2]).expect("truncate");
+}
+
+/// Writes at `path` what a recorder killed right after it opened its first chunk leaves: the header and the open
+/// chunk's header, with the first message still in the compressor.
+fn write_mcap_killed_before_its_first_message(path: &Path) {
+    let writing = path.with_extension("writing");
+    let mut writer = Writer::with_options(
+        fs::File::create(&writing).expect("create"),
+        WriteOptions::new().compression(Some(Compression::Lz4)),
+    )
+    .expect("writer");
+    let schema_id = writer
+        .add_schema("test", "jsonschema", b"{}")
+        .expect("schema");
+    let channel_id = writer
+        .add_channel(schema_id, "topic", "json", &Default::default())
+        .expect("channel");
+    let header = mcap::records::MessageHeader {
+        channel_id,
+        sequence: 0,
+        log_time: 0,
+        publish_time: 0,
+    };
+    writer
+        .write_to_known_channel(&header, b"payload")
+        .expect("write");
+    fs::copy(&writing, path).expect("copy the recording as its writer left it");
+    drop(writer);
+    fs::remove_file(&writing).expect("remove the writer's file");
 }

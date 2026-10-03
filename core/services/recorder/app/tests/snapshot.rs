@@ -114,6 +114,66 @@ async fn snapshot_active_recording_while_writer_runs() {
 }
 
 #[tokio::test(start_paused = true)]
+async fn a_snapshot_of_the_active_recording_in_its_first_chunk_keeps_the_messages_on_disk() {
+    let directory = tempdir().expect("tempdir");
+    let harness = start_harness(directory.path()).await;
+    let mut results = subscribe_job_results(&harness, "SnapshotRecording").await;
+
+    start_recording(&harness).await;
+    wait_for_active_recording(harness.backend()).await;
+
+    let payload_bytes = 16 * 1024;
+    let sample_count = 16_u64;
+    for seed in 0..sample_count {
+        harness
+            .backend()
+            .publish(Sample::new(
+                "snapshot/first_chunk",
+                Payload::new(Bytes::from(incompressible_bytes(seed, payload_bytes))),
+                "application/octet-stream",
+            ))
+            .await
+            .expect("publish");
+        advance(Duration::from_millis(20)).await;
+    }
+    let written = sample_count * payload_bytes as u64;
+    assert!(written < RECORDING_WRITE_CHUNK_SIZE);
+    wait_for_recording_bytes(&harness, written).await;
+
+    let recording_file = active_recording_mcap_path(&harness, directory.path()).await;
+    let recording_path = recording_file
+        .file_name()
+        .expect("file name")
+        .to_string_lossy()
+        .into_owned();
+    wait_for_library_file_listed(&harness, &recording_path).await;
+
+    let ack = harness
+        .send(
+            "SnapshotRecording",
+            &SnapshotRecordingGoal {
+                path: recording_path,
+            },
+        )
+        .await;
+    assert!(ack.accepted, "snapshot rejected: {}", ack.reason);
+
+    let (job, message) = next_job_result::<SnapshotRecordingResult>(&mut results).await;
+    assert_eq!(
+        job.status,
+        JobStatusStatus::Succeeded,
+        "snapshot failed: {}",
+        job.reason
+    );
+    let snapshot_path = directory.path().join(&message.output_path);
+    assert!(is_indexed(&snapshot_path));
+    assert!(
+        message_count(&snapshot_path) > 0,
+        "the snapshot must keep the messages of the open chunk that reached the disk"
+    );
+}
+
+#[tokio::test(start_paused = true)]
 async fn snapshot_job_result_names_the_indexed_snapshot() {
     let directory = tempdir().expect("tempdir");
     let path = directory.path().join("partial.mcap");
@@ -183,6 +243,20 @@ async fn snapshot_rejects_missing_file() {
 fn message_count(path: &Path) -> usize {
     let bytes = fs::read(path).expect("read mcap");
     mcap::MessageStream::new(&bytes).expect("stream").count()
+}
+
+/// Bytes LZ4 cannot shrink, so the compressed chunk reaches the disk as fast as samples arrive. Each `seed` gives
+/// different bytes, so samples do not repeat each other either.
+fn incompressible_bytes(seed: u64, length: usize) -> Vec<u8> {
+    let mut state = 0x9E37_79B9_7F4A_7C15_u64 ^ seed;
+    (0..length)
+        .map(|_| {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            state.to_le_bytes()[0]
+        })
+        .collect()
 }
 
 fn write_truncated_mcap(path: &Path) {

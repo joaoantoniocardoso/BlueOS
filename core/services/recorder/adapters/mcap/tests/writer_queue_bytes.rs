@@ -1,4 +1,4 @@
-//! Regression: draining write batches must not drop a queued `Finish`.
+//! The writer queue holds at most its byte budget of samples, and counts each sample it drops.
 
 use std::sync::Arc;
 
@@ -8,34 +8,32 @@ use tempfile::tempdir;
 use blueos_comms::Payload;
 use blueos_recorder_mcap::{ChannelDescriptor, ChannelRoute, McapWriterHandle, MessageEncoding};
 
-#[tokio::test(flavor = "multi_thread")]
-async fn finish_returns_bytes_for_every_queued_sample() {
+#[tokio::test]
+async fn a_sample_past_the_queue_byte_budget_is_dropped_and_counted() {
     let directory = tempdir().expect("tempdir");
     let path = directory.path().join("recorder_test.mcap");
-    let writer = McapWriterHandle::spawn_with_queue_bytes(64 * 1024);
+    let writer = McapWriterHandle::spawn_with_queue_bytes(4 * 1024);
     writer
-        .open(path.clone(), "recorder_test.mcap".into())
+        .open(path, "recorder_test.mcap".into())
         .await
         .expect("open");
-
     let descriptor = Arc::new(ChannelDescriptor {
         topic: "test/topic".into(),
         schema: None,
         message_encoding: MessageEncoding::OctetStream,
     });
-    const SAMPLE_COUNT: u64 = 32;
-    const PAYLOAD: &[u8] = b"sample-bytes";
-    for _ in 0..SAMPLE_COUNT {
+
+    for _ in 0..8 {
         writer.try_write_sample(
             "test/topic".into(),
             ChannelRoute::for_topic("test/topic"),
             0,
             0,
-            Payload::new(Bytes::from_static(PAYLOAD)),
+            Payload::new(Bytes::from(vec![0_u8; 1024])),
             Arc::clone(&descriptor),
         );
     }
 
-    let bytes = writer.finish().await.expect("finish must not be dropped");
-    assert_eq!(bytes, SAMPLE_COUNT * PAYLOAD.len() as u64);
+    assert_eq!(writer.take_dropped_samples(), 4);
+    assert_eq!(writer.finish().await.expect("finish"), 4 * 1024);
 }

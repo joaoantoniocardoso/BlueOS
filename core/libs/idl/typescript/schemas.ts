@@ -394,7 +394,9 @@ bool armed
 bool session_active
 string current_file
 uint64 session_bytes_written
-string[] recording_video_topics`,
+string[] recording_video_topics
+# Samples left out of current_file because they arrived faster than the disk took them.
+uint64 samples_dropped`,
   "blueos_recorder_msgs/srv/RecordingIndex_Request": `# blueos_recorder_msgs/srv/RecordingIndex
 # The Query on blueos/v1/recorder/query/index. Its response is one page of a walk over record headers, so the
 # browser can fetch chunk bodies with HTTP ranges even when the file has no summary yet (still recording, needs

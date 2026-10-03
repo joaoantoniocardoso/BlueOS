@@ -190,13 +190,17 @@ impl Conversions for RecorderDomain {
 /// Wire field names use legacy "session" wording (see GLOSSARY).
 pub fn recorder_session_state(snapshot: &RecorderSnapshot) -> RecordingState {
     let gate = snapshot.capture.record_gate();
-    let (session_active, current_file, session_bytes_written) = match &snapshot.capture.recording {
-        DomainRecordingState::Idle => (false, String::new(), 0),
-        DomainRecordingState::AwaitingMcapFile { .. } => (true, String::new(), 0),
-        DomainRecordingState::Active(active) => {
-            (true, active.file_name.clone(), active.bytes_written)
-        }
-    };
+    let (session_active, current_file, session_bytes_written, samples_dropped) =
+        match &snapshot.capture.recording {
+            DomainRecordingState::Idle => (false, String::new(), 0, 0),
+            DomainRecordingState::AwaitingMcapFile { .. } => (true, String::new(), 0, 0),
+            DomainRecordingState::Active(active) => (
+                true,
+                active.file_name.clone(),
+                active.bytes_written,
+                active.samples_dropped,
+            ),
+        };
     RecordingState {
         armed: snapshot.capture.armed,
         session_active,
@@ -207,6 +211,7 @@ pub fn recorder_session_state(snapshot: &RecorderSnapshot) -> RecordingState {
             .iter()
             .cloned()
             .collect::<Vec<_>>(),
+        samples_dropped,
     }
 }
 

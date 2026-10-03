@@ -13,7 +13,7 @@ use blueos_service::{
 use crate::{
     capture::tasks::data_plane::run_data_plane,
     cli::RecorderArguments,
-    context::{DEFAULT_MCAP_WRITER_QUEUE_CAPACITY, RecorderContext},
+    context::{DEFAULT_MCAP_WRITER_QUEUE_BYTES, RecorderContext},
     endpoints,
     io::register_io,
     library::{
@@ -50,7 +50,7 @@ impl Service for RecorderService {
             library_footer_cache: Arc::new(Mutex::new(
                 blueos_recorder_storage::LibraryFooterCache::default(),
             )),
-            mcap_writer_queue_capacity: DEFAULT_MCAP_WRITER_QUEUE_CAPACITY,
+            mcap_writer_queue_bytes: DEFAULT_MCAP_WRITER_QUEUE_BYTES,
             session: Arc::clone(service.session()),
             mavlink_sequence: Arc::new(AtomicU8::new(0)),
             rewriter: Arc::new(rewrite),

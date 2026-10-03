@@ -201,6 +201,7 @@ export interface RecordingState {
   current_file: string;
   session_bytes_written: number;
   recording_video_topics: string[];
+  samples_dropped: number;
 }
 
 export interface RecordingIndexRequest {
