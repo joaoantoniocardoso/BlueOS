@@ -98,12 +98,12 @@ fn reconcile(
             let rewriter = Arc::clone(&task_context.context.rewriter);
             let commands = task_context.commands.clone();
             move || {
-                run_operation(
+                finished_fact(
                     &operation,
-                    &recordings_folder,
-                    &rewriter,
-                    &commands,
-                    &cancel,
+                    |path| repair(path, &recordings_folder, &rewriter, &commands, &cancel),
+                    |path, output_path| {
+                        snapshot(path, output_path, &recordings_folder, &rewriter, &cancel)
+                    },
                 )
             }
         });
@@ -132,41 +132,32 @@ fn take_finished(
         Ok((_task_id, fact)) => fact,
         Err(error) => {
             warn!(%error, "Library operation rewrite panicked");
-            match finished.operation {
-                LibraryOperation::Repair { path, .. } => LibraryObservedFact::RepairFinished {
-                    path,
-                    outcome: LibraryRepairOutcome::Failed(RepairFailure::Io),
-                },
-                LibraryOperation::Snapshot {
-                    path, output_path, ..
-                } => LibraryObservedFact::SnapshotFinished {
-                    path,
-                    output_path,
-                    outcome: LibrarySnapshotOutcome::Failed(RepairFailure::Io),
-                },
-            }
+            finished_fact(
+                &finished.operation,
+                |_path| LibraryRepairOutcome::Failed(RepairFailure::Io),
+                |_path, _output_path| LibrarySnapshotOutcome::Failed(RepairFailure::Io),
+            )
         }
     })
 }
 
-fn run_operation(
+/// The fact that `operation` ended, with the outcome `repair_outcome` or `snapshot_outcome` gives it.
+fn finished_fact(
     operation: &LibraryOperation,
-    recordings_folder: &RecordingsFolder,
-    rewriter: &Rewriter,
-    commands: &CommandSender<RecorderDomain>,
-    cancel: &AtomicBool,
+    repair_outcome: impl FnOnce(&RecordingRelativePath) -> LibraryRepairOutcome,
+    snapshot_outcome: impl FnOnce(&RecordingRelativePath, &str) -> LibrarySnapshotOutcome,
 ) -> LibraryObservedFact {
     match operation {
         LibraryOperation::Repair { path, .. } => LibraryObservedFact::RepairFinished {
             path: path.clone(),
-            outcome: repair(path, recordings_folder, rewriter, commands, cancel),
+            outcome: repair_outcome(path),
         },
         LibraryOperation::Snapshot {
             path, output_path, ..
         } => LibraryObservedFact::SnapshotFinished {
             path: path.clone(),
             output_path: output_path.clone(),
-            outcome: snapshot(path, output_path, recordings_folder, rewriter, cancel),
+            outcome: snapshot_outcome(path, output_path),
         },
     }
 }
