@@ -335,6 +335,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         let shutdown_receiver = builder.shutdown_receiver;
         let (inbox_sender, inbox) = mpsc::channel(INBOX_CAPACITY);
         let snapshot_for_queries = Arc::new(tokio::sync::RwLock::new(builder.snapshot.clone()));
+        let metrics_key = state_key(service, METRICS);
         let job_type_names: Vec<String> = builder
             .commands
             .iter()
@@ -375,7 +376,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                     EndpointInfo {
                         kind: "state".to_owned(),
                         name: METRICS.to_owned(),
-                        key: state_key(service, METRICS),
+                        key: metrics_key.clone(),
                         interface_type: ServiceMetrics::SCHEMA_NAME.to_owned(),
                         schema: ServiceMetrics::SCHEMA.to_owned(),
                     },
@@ -424,7 +425,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         let status_encoding = cdr_encoding(ServiceStatus::SCHEMA_NAME);
         let status_latest = watch::Sender::new(None);
         let status_queryable = declare(&*backend, status_key.clone()).await?;
-        let metrics_queryable = declare(&*backend, state_key(service, METRICS)).await?;
+        let metrics_queryable = declare(&*backend, metrics_key.clone()).await?;
         let (inbox_step_time, inbox_depth) = metrics::with_local_recorder(&builder.metrics, || {
             (
                 metrics::histogram!("inbox_step_seconds"),
@@ -669,7 +670,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         ));
         kernel.endpoints.spawn(serve_state(
             metrics_queryable,
-            state_key(service, METRICS),
+            metrics_key,
             cdr_encoding(ServiceMetrics::SCHEMA_NAME),
             kernel.metrics_latest.subscribe(),
         ));
