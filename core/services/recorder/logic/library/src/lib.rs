@@ -18,7 +18,7 @@ use alloc::{
     vec,
     vec::Vec,
 };
-use core::{error::Error, fmt, time::Duration};
+use core::{convert::Infallible, error::Error, fmt, time::Duration};
 
 use blueos_domain::{Effect, IoError, Now, Outcome};
 use blueos_jobs::JobId;
@@ -117,10 +117,6 @@ pub struct RepairProgress {
     pub started_monotonic: Duration,
 }
 
-/// Marker for library Block events when none apply.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum InfallibleLibraryEvent {}
-
 /// Result of a library IO request.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum LibraryIoResult {
@@ -190,8 +186,7 @@ pub struct LibraryRepairProgress {
     pub total_bytes: u64,
 }
 
-type LibraryOutcome =
-    Outcome<InfallibleLibraryEvent, LibraryTick, LibraryIoRequest, LibraryTimerKey>;
+type LibraryOutcome = Outcome<Infallible, LibraryTick, LibraryIoRequest, LibraryTimerKey>;
 
 /// Blocking IO the Kernel runs for the library Block.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -538,12 +533,12 @@ impl LibraryOperation {
     }
 }
 
-/// Removes the operation that `is_it` picks from `operations`, if any, and returns it.
+/// Removes the first operation that `matches` accepts from `operations`, if any, and returns it.
 fn take_operation(
     operations: &mut Vec<LibraryOperation>,
-    is_it: impl Fn(&LibraryOperation) -> bool,
+    matches: impl Fn(&LibraryOperation) -> bool,
 ) -> Option<LibraryOperation> {
-    let index = operations.iter().position(is_it)?;
+    let index = operations.iter().position(matches)?;
     Some(operations.remove(index))
 }
 
