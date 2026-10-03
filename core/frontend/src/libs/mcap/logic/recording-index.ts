@@ -1,4 +1,4 @@
-/** Paged chunk index walk; mirrors `blueos_recorder_msgs/msg/RecordingIndex` with JS number fields. */
+/** Paged chunk index walk; mirrors `blueos_recorder_msgs/srv/RecordingIndex_Response` with JS number fields. */
 
 export interface ChunkIndexEntry {
   start_time: number
