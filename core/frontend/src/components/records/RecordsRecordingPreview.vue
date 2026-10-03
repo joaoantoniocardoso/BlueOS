@@ -11,7 +11,7 @@
       v-if="objectUrl"
       :src="objectUrl"
       height="180"
-      class="grey lighten-3 preview-clickable"
+      :class="[previewBackground, 'preview-clickable']"
       aspect-ratio="16/9"
       contain
     >
@@ -33,14 +33,16 @@
     </v-img>
     <div
       v-else-if="loading"
-      class="preview-placeholder grey lighten-3 d-flex flex-column align-center justify-center"
+      class="preview-placeholder d-flex flex-column align-center justify-center"
+      :class="previewBackground"
     >
       <v-progress-circular indeterminate color="primary" size="48" />
       <span class="mt-2 caption grey--text text--darken-1">Processing thumbnail...</span>
     </div>
     <div
       v-else
-      class="preview-placeholder grey lighten-3 d-flex flex-column align-center justify-center preview-clickable"
+      class="preview-placeholder d-flex flex-column align-center justify-center preview-clickable"
+      :class="previewBackground"
     >
       <v-icon large color="grey darken-1">
         mdi-multimedia
@@ -96,6 +98,9 @@ export default Vue.extend({
   computed: {
     canPlay(): boolean {
       return !this.disabled && canPlayRecording(this.file)
+    },
+    previewBackground(): string {
+      return this.$vuetify.theme.dark ? 'grey darken-4' : 'grey lighten-3'
     },
     fileSizeBytes(): number {
       return this.file.size_bytes
