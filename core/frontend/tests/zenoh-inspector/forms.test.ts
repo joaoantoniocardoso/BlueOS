@@ -50,5 +50,12 @@ describe('forms', () => {
       responseSchema: 'blueos_recorder_msgs/srv/RecordingIndex_Response',
     })
     expect(endpointSchemas(STATUS)).toEqual({ requestSchema: '', responseSchema: 'blueos_msgs/msg/ServiceStatus' })
+    expect(endpointSchemas({
+      kind: 'query',
+      name: 'jobs/StartRecording/history',
+      key: 'blueos/v1/recorder/jobs/StartRecording/history',
+      interface_type: 'blueos_msgs/msg/JobList',
+      schema: '',
+    })).toEqual({ requestSchema: '', responseSchema: 'blueos_msgs/msg/JobList' })
   })
 })
