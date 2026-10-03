@@ -105,6 +105,16 @@ jobs:
           source .hooks/lib/rust_checks.sh
           run_rust_lint_checks "$GITHUB_WORKSPACE/core"
 
+      - name: Ratchet files may not loosen
+        if: github.event_name == 'pull_request' || (github.event_name == 'push' && !github.event.created)
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          # shellcheck disable=SC1091
+          source .hooks/lib/rust_checks.sh
+          check_ratchets_not_loosened "$GITHUB_WORKSPACE" "$BASE_SHA"
+
   rust-supply-chain:
     runs-on: ubuntu-latest
     steps:
@@ -138,6 +148,7 @@ jobs:
           .hooks/tests/rust_checks_test.sh
           .hooks/tests/dependency_gate_test.sh
           .hooks/tests/quality_ratchet_test.sh
+          .hooks/tests/ratchet_loosen_test.sh
           .hooks/tests/ergonomics_report_test.sh
           .hooks/tests/report_section_test.sh
           .hooks/tests/docs_paths_test.sh
