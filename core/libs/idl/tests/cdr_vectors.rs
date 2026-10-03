@@ -14,7 +14,10 @@ use std::path::PathBuf;
 
 use blueos_idl::Message;
 use blueos_idl::msg::blueos_example_msgs::LevelRequest;
-use blueos_idl::msg::blueos_msgs::{CommandAck, CommandAckStatus, EndpointInfo, ServiceInfo};
+use blueos_idl::msg::blueos_msgs::{
+    CommandAck, CommandAckStatus, EndpointInfo, MetricCounter, MetricGauge, MetricHistogram,
+    MetricLabel, ServiceInfo, ServiceMetrics,
+};
 use blueos_idl::msg::blueos_recorder_msgs::{RecordingFile, RecordingFileState};
 use blueos_idl::msg::builtin_interfaces::Time;
 use blueos_idl::msg::foxglove_msgs::Log;
@@ -237,6 +240,41 @@ fn extra_vectors() -> Vec<CdrVector> {
         layout_note: Some("string path followed by bool restart_required".to_string()),
     });
 
+    let service_metrics = ServiceMetrics {
+        counters: vec![MetricCounter {
+            name: "task_restarts".into(),
+            labels: vec![MetricLabel {
+                name: "task".into(),
+                value: "data_plane".into(),
+            }],
+            value: 3,
+        }],
+        gauges: vec![MetricGauge {
+            name: "inbox_depth".into(),
+            labels: Vec::new(),
+            value: 2.0,
+        }],
+        histograms: vec![MetricHistogram {
+            name: "inbox_step_seconds".into(),
+            labels: Vec::new(),
+            count: 4,
+            sum: 0.0255,
+            bucket_bounds: vec![0.001, 0.01],
+            bucket_counts: vec![1, 2, 1],
+        }],
+    };
+    vectors.push(CdrVector {
+        schema_name: ServiceMetrics::SCHEMA_NAME.to_string(),
+        hex: encode_hex(&service_metrics.encode().expect("encode ServiceMetrics")),
+        decoded: serde_json::to_value(service_metrics).expect("service metrics json"),
+        category: "example".to_string(),
+        skip_encode_round_trip: false,
+        layout_note: Some(
+            "one counter with a label, one gauge, one histogram with two bounds and three bucket counts"
+                .to_string(),
+        ),
+    });
+
     vectors.push(CdrVector {
         schema_name: LevelRequest::SCHEMA_NAME.to_string(),
         hex: "0001000000".to_string(),
@@ -348,6 +386,11 @@ fn encode_json_message(schema_name: &str, message: &serde_json::Value) -> Option
         ServiceInfo::SCHEMA_NAME => {
             let message: ServiceInfo =
                 serde_json::from_value(message.clone()).expect("ServiceInfo from json");
+            message.encode().ok()
+        }
+        ServiceMetrics::SCHEMA_NAME => {
+            let message: ServiceMetrics =
+                serde_json::from_value(message.clone()).expect("ServiceMetrics from json");
             message.encode().ok()
         }
         RecordingFile::SCHEMA_NAME => {

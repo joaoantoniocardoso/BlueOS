@@ -70,9 +70,14 @@ blueos_msgs/msg/JobFeedbackList 1 jobs:blueos_msgs/JobFeedback[]
 blueos_msgs/msg/JobList 1 jobs:blueos_msgs/JobStatus[]
 blueos_msgs/msg/JobResult 1 job:blueos_msgs/JobStatus;result:uint8[]
 blueos_msgs/msg/JobStatus 1 job_id:string;job_type:string;status:uint8;reason:string
+blueos_msgs/msg/MetricCounter 1 name:string;labels:blueos_msgs/MetricLabel[];value:uint64
+blueos_msgs/msg/MetricGauge 1 name:string;labels:blueos_msgs/MetricLabel[];value:float64
+blueos_msgs/msg/MetricHistogram 1 name:string;labels:blueos_msgs/MetricLabel[];count:uint64;sum:float64;bucket_bounds:float64[];bucket_counts:uint64[]
+blueos_msgs/msg/MetricLabel 1 name:string;value:string
 blueos_msgs/msg/PermissionAnswer 1 granted:bool
 blueos_msgs/msg/RestartRequired 1 fields:string[]
 blueos_msgs/msg/ServiceInfo 1 name:string;version:string;build:string;capabilities:string[];endpoints:blueos_msgs/EndpointInfo[]
+blueos_msgs/msg/ServiceMetrics 1 counters:blueos_msgs/MetricCounter[];gauges:blueos_msgs/MetricGauge[];histograms:blueos_msgs/MetricHistogram[]
 blueos_msgs/msg/ServiceStatus 1 status:uint8;detail:string
 blueos_msgs/msg/SettingField 1 path:string;restart_required:bool
 blueos_msgs/msg/SettingsEnvelope 1 document_json:string;fields:blueos_msgs/SettingField[]

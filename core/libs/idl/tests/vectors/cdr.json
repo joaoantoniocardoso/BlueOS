@@ -156,6 +156,48 @@
       "category": "default"
     },
     {
+      "schema_name": "blueos_msgs/msg/MetricCounter",
+      "hex": "00010000010000000000000000000000000000000000000000000000",
+      "decoded": {
+        "labels": [],
+        "name": "",
+        "value": 0
+      },
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_msgs/msg/MetricGauge",
+      "hex": "00010000010000000000000000000000000000000000000000000000",
+      "decoded": {
+        "labels": [],
+        "name": "",
+        "value": 0.0
+      },
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_msgs/msg/MetricHistogram",
+      "hex": "0001000001000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "decoded": {
+        "bucket_bounds": [],
+        "bucket_counts": [],
+        "count": 0,
+        "labels": [],
+        "name": "",
+        "sum": 0.0
+      },
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_msgs/msg/MetricLabel",
+      "hex": "0001000001000000000000000100000000",
+      "decoded": {
+        "name": "",
+        "value": ""
+      },
+      "category": "default"
+    },
+    {
       "schema_name": "blueos_msgs/msg/PermissionAnswer",
       "hex": "0001000000",
       "decoded": {
@@ -180,6 +222,16 @@
         "endpoints": [],
         "name": "",
         "version": ""
+      },
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_msgs/msg/ServiceMetrics",
+      "hex": "00010000000000000000000000000000",
+      "decoded": {
+        "counters": [],
+        "gauges": [],
+        "histograms": []
       },
       "category": "default"
     },
@@ -594,6 +646,50 @@
       },
       "category": "layout",
       "layout_note": "string path followed by bool restart_required"
+    },
+    {
+      "schema_name": "blueos_msgs/msg/ServiceMetrics",
+      "hex": "00010000010000000e0000007461736b5f726573746172747300000001000000050000007461736b000000000b000000646174615f706c616e6500000300000000000000010000000c000000696e626f785f6465707468000000000000000000000000400100000013000000696e626f785f737465705f7365636f6e64730000000000000400000000000000e9263108ac1c9a3f0200000000000000fca9f1d24d62503f7b14ae47e17a843f0300000000000000010000000000000002000000000000000100000000000000",
+      "decoded": {
+        "counters": [
+          {
+            "labels": [
+              {
+                "name": "task",
+                "value": "data_plane"
+              }
+            ],
+            "name": "task_restarts",
+            "value": 3
+          }
+        ],
+        "gauges": [
+          {
+            "labels": [],
+            "name": "inbox_depth",
+            "value": 2.0
+          }
+        ],
+        "histograms": [
+          {
+            "bucket_bounds": [
+              0.001,
+              0.01
+            ],
+            "bucket_counts": [
+              1,
+              2,
+              1
+            ],
+            "count": 4,
+            "labels": [],
+            "name": "inbox_step_seconds",
+            "sum": 0.0255
+          }
+        ]
+      },
+      "category": "example",
+      "layout_note": "one counter with a label, one gauge, one histogram with two bounds and three bucket counts"
     },
     {
       "schema_name": "blueos_example_msgs/srv/Level_Request",
