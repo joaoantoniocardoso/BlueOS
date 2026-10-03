@@ -169,10 +169,6 @@ MSG: blueos_msgs/SettingField
 
 string path
 bool restart_required`,
-  "blueos_recorder_msgs/msg/CancelRepairCommand": `# blueos_recorder_msgs/msg/CancelRepairCommand
-# Stops a running repair; the recording is left exactly as it was.
-
-string path`,
   "blueos_recorder_msgs/msg/ChannelMessageCount": `# blueos_recorder_msgs/msg/ChannelMessageCount
 
 uint16 channel_id

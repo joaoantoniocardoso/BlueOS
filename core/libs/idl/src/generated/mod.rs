@@ -30,9 +30,6 @@ pub fn schema(schema_name: &str) -> Option<&'static str> {
         "blueos_msgs/msg/ServiceStatus" => Some(msg::blueos_msgs::ServiceStatus::SCHEMA),
         "blueos_msgs/msg/SettingField" => Some(msg::blueos_msgs::SettingField::SCHEMA),
         "blueos_msgs/msg/SettingsEnvelope" => Some(msg::blueos_msgs::SettingsEnvelope::SCHEMA),
-        "blueos_recorder_msgs/msg/CancelRepairCommand" => {
-            Some(msg::blueos_recorder_msgs::CancelRepairCommand::SCHEMA)
-        }
         "blueos_recorder_msgs/msg/ChannelMessageCount" => {
             Some(msg::blueos_recorder_msgs::ChannelMessageCount::SCHEMA)
         }

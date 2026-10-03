@@ -20,17 +20,9 @@ pub const NAME: &str = "recorder";
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not handle the custom endpoints of the `recorder` Service",
     label = "no `impl Handlers<D> for {Self}` in the `recorder` app crate",
-    note = "implement `cancel_repair` for the Command `CancelRepair`, `delete_recording` for the Command `DeleteRecording`, `repair_recording` for the Command `RepairRecording`, `snapshot_recording` for the Command `SnapshotRecording`, `index` for the IO query `index`"
+    note = "implement `delete_recording` for the Command `DeleteRecording`, `repair_recording` for the Command `RepairRecording`, `snapshot_recording` for the Command `SnapshotRecording`, `index` for the IO query `index`"
 )]
 pub trait Handlers<D: Domain>: Send + Sync + 'static {
-    /// The Command `CancelRepair`, at `blueos/v1/recorder/command/CancelRepair`.
-    ///
-    /// The Domain's Request for the Message, or why it is refused.
-    fn cancel_repair(
-        &self,
-        request: blueos_recorder_msgs::CancelRepairCommand,
-    ) -> Result<D::Request, Refusal>;
-
     /// The Command `DeleteRecording`, at `blueos/v1/recorder/command/DeleteRecording`.
     ///
     /// The Domain's Request for the Message, or why it is refused.
@@ -72,12 +64,6 @@ pub fn register<D: Conversions + DomainJobs, H: Handlers<D>, Context>(
 ) -> ServiceBuilder<D, Context> {
     let handlers = Arc::new(handlers);
     builder
-        .command("CancelRepair", {
-            let handlers = Arc::clone(&handlers);
-            move |request: blueos_recorder_msgs::CancelRepairCommand| {
-                H::cancel_repair(&handlers, request)
-            }
-        })
         .command("DeleteRecording", {
             let handlers = Arc::clone(&handlers);
             move |request: blueos_recorder_msgs::DeleteRecordingCommand| {
@@ -128,13 +114,6 @@ pub fn register<D: Conversions + DomainJobs, H: Handlers<D>, Context>(
         .state("recording", <D as Conversions>::recording)
         .event("operation", <D as Conversions>::operation)
         .manifest_endpoints(vec![
-            blueos_idl::msg::blueos_msgs::EndpointInfo {
-                kind: "command".into(),
-                name: "CancelRepair".into(),
-                key: "blueos/v1/recorder/command/CancelRepair".into(),
-                request_schema: "blueos_recorder_msgs/msg/CancelRepairCommand".into(),
-                response_schema: "blueos_msgs/msg/CommandAck".into(),
-            },
             blueos_idl::msg::blueos_msgs::EndpointInfo {
                 kind: "command".into(),
                 name: "DeleteRecording".into(),

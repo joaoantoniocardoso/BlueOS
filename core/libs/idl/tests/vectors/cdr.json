@@ -141,14 +141,6 @@
       "category": "default"
     },
     {
-      "schema_name": "blueos_recorder_msgs/msg/CancelRepairCommand",
-      "hex": "000100000100000000",
-      "decoded": {
-        "path": ""
-      },
-      "category": "default"
-    },
-    {
       "schema_name": "blueos_recorder_msgs/msg/ChannelMessageCount",
       "hex": "0001000000000000000000000000000000000000",
       "decoded": {

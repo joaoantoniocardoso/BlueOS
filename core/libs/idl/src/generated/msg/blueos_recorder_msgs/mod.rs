@@ -3,8 +3,6 @@
     missing_docs,
     reason = "generated from ROS .msg sources"
 )]
-pub mod cancel_repair_command;
-pub use cancel_repair_command::*;
 pub mod channel_message_count;
 pub use channel_message_count::*;
 pub mod chunk_index_entry;

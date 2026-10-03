@@ -13,15 +13,6 @@ import {
 /** The name of the `recorder` Service, in each of its keys: `blueos/v1/recorder/...`. */
 export const NAME = 'recorder'
 
-/** command `CancelRepair` at `blueos/v1/recorder/command/CancelRepair`. */
-export const CancelRepair = {
-  kind: 'command' as const,
-  name: 'CancelRepair',
-  key: commandKey(NAME, 'CancelRepair'),
-  requestSchema: 'blueos_recorder_msgs/msg/CancelRepairCommand' as const,
-}
-export type CancelRepairRequest = Idl.CancelRepairCommand
-
 /** command `DeleteRecording` at `blueos/v1/recorder/command/DeleteRecording`. */
 export const DeleteRecording = {
   kind: 'command' as const,

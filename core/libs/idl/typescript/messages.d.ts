@@ -80,10 +80,6 @@ export interface SettingsEnvelope {
   fields: SettingField[];
 }
 
-export interface CancelRepairCommand {
-  path: string;
-}
-
 export interface ChannelMessageCount {
   channel_id: number;
   count: number;
@@ -220,7 +216,6 @@ export interface MessageBySchema {
   "blueos_msgs/msg/ServiceStatus": ServiceStatus;
   "blueos_msgs/msg/SettingField": SettingField;
   "blueos_msgs/msg/SettingsEnvelope": SettingsEnvelope;
-  "blueos_recorder_msgs/msg/CancelRepairCommand": CancelRepairCommand;
   "blueos_recorder_msgs/msg/ChannelMessageCount": ChannelMessageCount;
   "blueos_recorder_msgs/msg/ChunkIndexEntry": ChunkIndexEntry;
   "blueos_recorder_msgs/msg/DeleteRecordingCommand": DeleteRecordingCommand;

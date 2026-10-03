@@ -8,7 +8,6 @@ Start = { request = "blueos_recorder_msgs/msg/StartRecordingCommand" }
 Stop = { request = "blueos_recorder_msgs/msg/StopRecordingCommand" }
 DeleteRecording = { request = "blueos_recorder_msgs/msg/DeleteRecordingCommand", custom = true }
 RepairRecording = { request = "blueos_recorder_msgs/msg/RepairRecordingCommand", custom = true, nature = { lasting = true, cancellable = true } }
-CancelRepair = { request = "blueos_recorder_msgs/msg/CancelRepairCommand", custom = true }
 SnapshotRecording = { request = "blueos_recorder_msgs/msg/SnapshotRecordingCommand", custom = true }
 
 [event]
