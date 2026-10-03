@@ -343,6 +343,7 @@
             Whole recording
           </v-btn>
           <v-btn
+            v-if="tracks.length > 0"
             v-tooltip="'Move the start of the saved part to the playback position'"
             small
             text
@@ -352,6 +353,7 @@
             Set start to playhead
           </v-btn>
           <v-btn
+            v-if="tracks.length > 0"
             v-tooltip="'Move the end of the saved part to the playback position'"
             small
             text
