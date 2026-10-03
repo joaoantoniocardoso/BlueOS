@@ -173,28 +173,40 @@
       @play="openPlayer"
     />
 
-    <v-row v-else>
-      <v-col
-        v-for="file in visibleRecordings"
-        :key="file.path"
-        cols="12"
-        sm="6"
-        md="4"
-        lg="3"
-      >
-        <records-recording-row
-          :file="file"
-          :download-url="downloadUrl(file.path)"
-          :disabled="!recorderServiceRunning"
-          :busy-operation="busyPath === file.path ? busyOperation : null"
-          selectable
-          :selected="selectedPaths.includes(file.path)"
-          @toggle-select="toggleSelected(file)"
-          @operation="onOperation"
-          @play="openPlayer"
-        />
-      </v-col>
-    </v-row>
+    <v-data-iterator
+      v-else-if="visibleRecordings.length > 0"
+      :items="visibleRecordings"
+      item-key="path"
+      sort-by="created"
+      sort-desc
+      :items-per-page="24"
+      :footer-props="{ 'items-per-page-options': [12, 24, 48, 96] }"
+    >
+      <template #default="{ items }">
+        <v-row>
+          <v-col
+            v-for="file in items"
+            :key="file.path"
+            cols="12"
+            sm="6"
+            md="4"
+            lg="3"
+          >
+            <records-recording-row
+              :file="file"
+              :download-url="downloadUrl(file.path)"
+              :disabled="!recorderServiceRunning"
+              :busy-operation="busyPath === file.path ? busyOperation : null"
+              selectable
+              :selected="selectedPaths.includes(file.path)"
+              @toggle-select="toggleSelected(file)"
+              @operation="onOperation"
+              @play="openPlayer"
+            />
+          </v-col>
+        </v-row>
+      </template>
+    </v-data-iterator>
 
     <v-dialog
       v-model="playerOpen"
