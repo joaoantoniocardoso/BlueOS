@@ -3,9 +3,7 @@
     {
       "schema_name": "blueos_example_msgs/msg/EmptyRequest",
       "hex": "0001000000",
-      "decoded": {
-        "padding": 0
-      },
+      "decoded": {},
       "category": "default"
     },
     {
@@ -491,6 +489,13 @@
       },
       "category": "layout",
       "layout_note": "string output_path followed by bool succeeded"
+    },
+    {
+      "schema_name": "blueos_example_msgs/msg/EmptyRequest",
+      "hex": "0001000000",
+      "decoded": {},
+      "category": "empty_struct",
+      "layout_note": "ROS 2 writes one byte for an empty struct (structure_needs_at_least_one_member)"
     }
   ]
 }
