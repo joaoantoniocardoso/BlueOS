@@ -51,6 +51,7 @@
       <v-btn
         v-if="file.state === 'ready'"
         v-tooltip="`Download ${file.name}`"
+        :aria-label="`Download ${file.name}`"
         icon
         small
         color="primary"

@@ -33,6 +33,7 @@
         <v-btn
           v-if="canPlay(item)"
           v-tooltip="`Play ${item.name}`"
+          :aria-label="`Play ${item.name}`"
           icon
           small
           color="primary"
@@ -47,6 +48,7 @@
           v-for="operationName in item.allowed_operations"
           :key="operationName"
           v-tooltip="`${operationUi(operationName).label} ${item.name}`"
+          :aria-label="`${operationUi(operationName).label} ${item.name}`"
           icon
           small
           :color="operationUi(operationName).color"
@@ -61,6 +63,7 @@
         <v-btn
           v-if="item.state === 'ready'"
           v-tooltip="`Download ${item.name}`"
+          :aria-label="`Download ${item.name}`"
           icon
           small
           color="primary"

@@ -17,6 +17,8 @@
     >
       <div v-if="canPlay" class="preview-overlay d-flex align-center justify-center">
         <v-btn
+          v-tooltip="`Play ${file.name}`"
+          :aria-label="`Play ${file.name}`"
           icon
           large
           color="primary"
@@ -45,6 +47,8 @@
       </v-icon>
       <v-btn
         v-if="canPlay"
+        v-tooltip="`Play ${file.name}`"
+        :aria-label="`Play ${file.name}`"
         icon
         large
         color="primary"

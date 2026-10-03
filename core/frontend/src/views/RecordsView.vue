@@ -86,6 +86,7 @@
       <v-spacer />
       <v-btn
         v-tooltip="'Cards'"
+        aria-label="Cards"
         icon
         small
         class="mb-2"
@@ -98,6 +99,7 @@
       </v-btn>
       <v-btn
         v-tooltip="'List'"
+        aria-label="List"
         icon
         small
         class="mb-2"
@@ -218,7 +220,12 @@
         <v-card-title class="py-2">
           <span class="text-truncate">{{ activeRecording.name }}</span>
           <v-spacer />
-          <v-btn icon @click="closePlayer">
+          <v-btn
+            v-tooltip="'Close'"
+            aria-label="Close"
+            icon
+            @click="closePlayer"
+          >
             <v-icon>mdi-close</v-icon>
           </v-btn>
         </v-card-title>
