@@ -12,12 +12,15 @@ use std::{
 use tokio::{task::JoinSet, time::Instant};
 
 use blueos_api::{
-    CommandAck, ENCODING_APPLICATION_CDR, Message, cdr_encoding, command_key, job_feedback_key,
-    job_history_key, jobs_key, query_key, settings_key, state_key,
+    CommandAck, Message, cdr_encoding, command_key, job_feedback_key, job_history_key, jobs_key,
+    query_key, settings_key, state_key,
 };
 use blueos_comms::{CommsBackend, QueryBody, ReplyError, channel::ChannelBackend};
 use blueos_domain::{Domain, Effect, Now};
-use blueos_idl::msg::blueos_msgs::{JobFeedbackList, JobList, PermissionAnswer};
+use blueos_idl::msg::{
+    blueos_msgs::{JobFeedbackList, JobList, PermissionAnswer},
+    std_msgs::Empty,
+};
 use blueos_jobs::{JobControl, JobId};
 
 use crate::{
@@ -307,9 +310,10 @@ impl<S: Service> Harness<S> {
                     .expect("the answer encodes"),
                 cdr_encoding(PermissionAnswer::SCHEMA_NAME),
             ),
-            JobControl::Cancel | JobControl::Pause | JobControl::Resume => {
-                QueryBody::new(Vec::new(), ENCODING_APPLICATION_CDR)
-            }
+            JobControl::Cancel | JobControl::Pause | JobControl::Resume => QueryBody::new(
+                Empty {}.encode().expect("the empty body encodes"),
+                cdr_encoding(Empty::SCHEMA_NAME),
+            ),
         };
         self.command(&control.to_string(), job_id, body).await
     }
