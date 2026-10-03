@@ -1,7 +1,6 @@
 import asyncio
 import hashlib
 import select
-import signal
 import subprocess
 from concurrent.futures import CancelledError
 from typing import Any, List, Optional
@@ -101,12 +100,7 @@ class NetworkManagerWifi(AbstractWifiManager):
             logger.error(f"Failed to remove virtual interface: {e}")
 
     async def start(self) -> None:
-        """Start NetworkManagerWifi with signal handlers"""
-        # Set up signal handlers
-        loop = asyncio.get_running_loop()
-        for sig in (signal.SIGTERM, signal.SIGINT):
-            loop.add_signal_handler(sig, lambda s=sig: asyncio.create_task(self.handle_shutdown(s)))
-
+        """Start NetworkManagerWifi"""
         # Find WiFi device
         assert self._nm is not None
         devices = await self._nm.get_devices()
@@ -539,11 +533,6 @@ class NetworkManagerWifi(AbstractWifiManager):
             self._create_ap_process = None
 
         logger.info("NetworkManagerWifi cleanup completed")
-
-    async def handle_shutdown(self, sig: signal.Signals) -> None:
-        """Handle shutdown signals gracefully"""
-        logger.info(f"Received shutdown signal {sig.name}")
-        await self.cleanup()
 
     async def disconnect(self) -> None:
         """Disconnect from current wifi network."""

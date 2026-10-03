@@ -3,8 +3,9 @@
 import argparse
 import asyncio
 import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, AsyncGenerator, List, Optional
 
 from commonwealth.utils.apis import (
     GenericErrorHandlingRoute,
@@ -40,6 +41,13 @@ logger.info("Starting Wifi Manager.")
 wpa_manager = WifiManager()
 network_manager = NetworkManagerWifi()
 wifi_manager: Optional[AbstractWifiManager] = None
+
+
+@asynccontextmanager
+async def lifespan(fastapi_app: FastAPI) -> AsyncGenerator[None, None]:  # pylint: disable=unused-argument
+    yield
+    if wifi_manager is network_manager:
+        await network_manager.cleanup()
 
 
 app = FastAPI(
@@ -163,7 +171,7 @@ def get_hotspot_credentials() -> Any:
     return wifi_manager.hotspot_credentials()
 
 
-app = VersionedFastAPI(app, version="1.0.0", prefix_format="/v{major}.{minor}", enable_latest=True)
+app = VersionedFastAPI(app, version="1.0.0", prefix_format="/v{major}.{minor}", enable_latest=True, lifespan=lifespan)
 app.mount("/", StaticFiles(directory=str(FRONTEND_FOLDER), html=True))
 
 
