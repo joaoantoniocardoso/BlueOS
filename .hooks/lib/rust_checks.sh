@@ -446,6 +446,12 @@ run_rust_supply_chain_checks() {
     )
 
     echo "Running typos on the Rust workspace.."
+    check_typos "$repository_dir"
+}
+
+# Usage: check_typos <repository_dir>
+check_typos() {
+    local repository_dir="$1"
     local typos_paths=() path
     for path in .hooks/lib core/libs core/app core/Cargo.toml core/deny.toml core/clippy.toml core/coverage-ratchet.toml; do
         if [ -e "$repository_dir/$path" ]; then
