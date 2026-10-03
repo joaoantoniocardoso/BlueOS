@@ -597,6 +597,20 @@ fn generate_struct_tokens(
     let decode_tokens = decode_field_tokens(message, &families, &record.name);
     let decode_assignments = decode_tokens.assignments;
     let field_count = message.fields().len();
+    // ROS 2 puts one byte on the wire for an empty struct (`structure_needs_at_least_one_member`): the codec
+    // writes and skips it, and the type does not expose it.
+    let (skip_placeholder, write_placeholder) = if message.fields().is_empty() {
+        (
+            quote! {
+                if !reader.is_exhausted() {
+                    reader.read_u8()?;
+                }
+            },
+            quote! { writer.write_u8(0)?; },
+        )
+    } else {
+        (quote! {}, quote! {})
+    };
 
     quote! {
         #(#enum_definitions)*
@@ -610,12 +624,14 @@ fn generate_struct_tokens(
 
         impl CdrStruct for #struct_name {
             fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
+                #skip_placeholder
                 Ok(Self {
                     #decode_assignments
                 })
             }
 
             fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {
+                #write_placeholder
                 #(#encode_fields)*
                 Ok(())
             }
@@ -1002,10 +1018,14 @@ fn write_typescript(records: &BTreeMap<String, MessageRecord>, typescript_dir: &
             let ts_type = typescript_type(field);
             fields.push(format!("  {ts_name}: {ts_type};"));
         }
-        interface_blocks.push(format!(
-            "export interface {interface_name} {{\n{}\n}}\n",
-            fields.join("\n")
-        ));
+        if fields.is_empty() {
+            interface_blocks.push(format!("export interface {interface_name} {{}}\n"));
+        } else {
+            interface_blocks.push(format!(
+                "export interface {interface_name} {{\n{}\n}}\n",
+                fields.join("\n")
+            ));
+        }
         let schema = schema_text(record, records);
         schema_entries.push(format!(
             "  \"{}\": `{}`,",

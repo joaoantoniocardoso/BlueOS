@@ -170,6 +170,12 @@ export function decodeCdrWithSchema(
   const definitionsByName = definitionsMap(definitions)
   let lastBoundsError: unknown
 
+  // ROS 2 puts one placeholder byte on the wire for an empty struct; like the Rust and Python codecs, skip it
+  // whether or not it is there.
+  if (rootFields.length === 0) {
+    return {}
+  }
+
   for (let fieldCount = rootFields.length; fieldCount >= 1; fieldCount -= 1) {
     try {
       const reader = getReaderForFieldCount(schemaName, schemaText, fieldCount)

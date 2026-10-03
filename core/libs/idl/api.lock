@@ -23,7 +23,7 @@ blueos/v1/recorder/settings 1 request=;response=blueos_msgs/msg/SettingsEnvelope
 blueos/v1/recorder/state/library 1 request=;response=blueos_recorder_msgs/msg/RecordingLibrary
 blueos/v1/recorder/state/recording 1 request=;response=blueos_recorder_msgs/msg/RecordingState
 blueos/v1/recorder/state/status 1 request=;response=blueos_msgs/msg/ServiceStatus
-blueos_example_msgs/msg/EmptyRequest 1 padding:uint8
+blueos_example_msgs/msg/EmptyRequest 1
 blueos_example_msgs/msg/LevelQueryResponse 1 level:uint8;max_level:uint8
 blueos_example_msgs/msg/PumpState 1 level:uint8;max_level:uint8;self_test_phase:uint8;self_test_active:bool
 blueos_example_msgs/msg/SelfTestCompleted 1 passed:bool;detail:string
