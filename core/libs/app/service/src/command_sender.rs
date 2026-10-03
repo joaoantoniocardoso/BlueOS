@@ -190,4 +190,14 @@ mod tests {
     fn every_new_job_id_is_another() {
         assert_ne!(new_job_id(), new_job_id());
     }
+
+    #[test]
+    fn a_new_job_id_is_a_uuid_v4_like_the_one_a_browser_makes() {
+        for _ in 0..64 {
+            let job_id = new_job_id().to_string();
+
+            assert_eq!(&job_id[14..15], "4", "{job_id}");
+            assert!("89ab".contains(&job_id[19..20]), "{job_id}");
+        }
+    }
 }
