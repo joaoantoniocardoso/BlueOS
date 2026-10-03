@@ -301,6 +301,9 @@
       <v-card v-if="activeRecording">
         <v-card-title class="py-2">
           <span class="text-truncate">{{ activeRecording.name }}</span>
+          <span class="caption grey--text text--darken-1 font-weight-regular ml-2">
+            {{ activeRecordingMeta }}
+          </span>
           <v-spacer />
           <v-btn
             v-if="canDownload(activeRecording)"
@@ -455,6 +458,7 @@ import {
   jobFailureMessage,
   RECORDING_STATE_UI,
   recordingByPath,
+  recordingMetaLabel,
   repairEstimateMessage,
   type RepairProgress,
   withLiveDuration,
@@ -544,6 +548,9 @@ export default Vue.extend({
     },
     activeRecording(): LibraryRecording | null {
       return recordingByPath(this.liveRecordings, this.activeRecordingPath)
+    },
+    activeRecordingMeta(): string {
+      return this.activeRecording ? recordingMetaLabel(this.activeRecording) : ''
     },
     selectedFiles(): LibraryRecording[] {
       return selectedVisibleRecordings(this.selectedPaths, this.visibleRecordings)

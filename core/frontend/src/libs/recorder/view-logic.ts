@@ -214,6 +214,20 @@ export function recordingEndSeconds(file: LibraryRecording): number | null {
   return file.created + file.duration_seconds
 }
 
+/** The player header's summary of `file`: its duration and video streams when known, and its size. */
+export function recordingMetaLabel(file: LibraryRecording): string {
+  const parts: string[] = []
+  if (file.duration_seconds !== null) {
+    parts.push(formatDuration(file.duration_seconds))
+  }
+  const streams = file.video_topics?.length ?? 0
+  if (streams > 0) {
+    parts.push(`${streams} stream${streams === 1 ? '' : 's'}`)
+  }
+  parts.push(prettifySize(file.size_bytes / 1024))
+  return parts.join(' \u00B7 ')
+}
+
 /** What a card says under its duration: that the file is being written, or why it needs repair. */
 export function recordingCaption(file: LibraryRecording): string | null {
   if (file.state === 'recording') {

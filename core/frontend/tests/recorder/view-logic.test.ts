@@ -26,6 +26,7 @@ import {
   RECORDING_OPERATION_UI,
   recordingByPath,
   recordingCaption,
+  recordingMetaLabel,
   recordingDownload,
   recordingEndSeconds,
   repairEstimateMessage,
@@ -281,5 +282,16 @@ describe('recordingCaption', () => {
     expect(recordingCaption(file({ state: 'needs_repair' }))).toBe('Recording index is missing')
     expect(recordingCaption(file({ state: 'needs_repair', repair_error: 'Not an MCAP file' }))).toBe('Not an MCAP file')
     expect(recordingCaption(file({ state: 'ready' }))).toBeNull()
+  })
+})
+
+describe('recordingMetaLabel', () => {
+  it('sums up the duration, the video streams and the size of the recording in the player', () => {
+    expect(recordingMetaLabel(file({
+      duration_seconds: 125, video_topics: ['video/a/stream', 'video/b/stream'], size_bytes: 2048,
+    }))).toBe('2m 05s \u00B7 2 streams \u00B7 2.0 kB')
+    expect(recordingMetaLabel(file({ duration_seconds: null, video_topics: ['video/a/stream'], size_bytes: 2048 })))
+      .toBe('1 stream \u00B7 2.0 kB')
+    expect(recordingMetaLabel(file({ duration_seconds: null, video_topics: null, size_bytes: 2048 }))).toBe('2.0 kB')
   })
 })
