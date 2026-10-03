@@ -61,10 +61,65 @@ string key
 string request_schema
 # Schema of the reply (command: CommandAck; query, io_query) or of the published sample (state, event).
 string response_schema`,
+  "blueos_msgs/msg/JobFeedback": `# blueos_msgs/msg/JobFeedback
+# The latest Feedback of one active Job, in the jobs/<JobType>/feedback State (D-12, D-36), like the feedback of a ROS 2
+# action.
+
+# The UUID the client generated for the Job, as text.
+string job_id
+# The Job type's Feedback message, CDR with its encapsulation header.
+uint8[] feedback`,
+  "blueos_msgs/msg/JobFeedbackList": `# blueos_msgs/msg/JobFeedbackList
+# State published on blueos/v1/<service>/jobs/<JobType>/feedback: the latest Feedback of each active Job of the type,
+# in the order the Jobs were submitted. A Job leaves it when it ends.
+
+blueos_msgs/JobFeedback[] jobs
+================================================================================
+MSG: blueos_msgs/JobFeedback
+# blueos_msgs/msg/JobFeedback
+# The latest Feedback of one active Job, in the jobs/<JobType>/feedback State (D-12, D-36), like the feedback of a ROS 2
+# action.
+
+# The UUID the client generated for the Job, as text.
+string job_id
+# The Job type's Feedback message, CDR with its encapsulation header.
+uint8[] feedback`,
   "blueos_msgs/msg/JobList": `# blueos_msgs/msg/JobList
 # Snapshot published on blueos/v1/<service>/jobs.
 
 blueos_msgs/JobStatus[] jobs
+================================================================================
+MSG: blueos_msgs/JobStatus
+# blueos_msgs/msg/JobStatus
+# One Job in the jobs State (D-12, D-36). STATUS_ values 0 to 6 are those of ROS 2 action_msgs/GoalStatus; a ROS 2
+# client sees the two waiting statuses as STATUS_ACCEPTED, and STATUS_PAUSED as STATUS_EXECUTING (D-38).
+
+uint8 STATUS_UNKNOWN=0
+uint8 STATUS_ACCEPTED=1
+uint8 STATUS_EXECUTING=2
+uint8 STATUS_CANCELING=3
+uint8 STATUS_SUCCEEDED=4
+uint8 STATUS_CANCELED=5
+uint8 STATUS_ABORTED=6
+uint8 STATUS_WAITING_FOR_PERMISSION=7
+uint8 STATUS_WAITING_FOR_RESOURCE=8
+uint8 STATUS_PAUSED=9
+
+# The UUID the client generated for the Job, as text.
+string job_id
+# The Job type, the name of its submit endpoint.
+string job_type
+uint8 status
+# Why the Job was canceled or aborted, when the Kernel ended it.
+string reason`,
+  "blueos_msgs/msg/JobResult": `# blueos_msgs/msg/JobResult
+# Event published on blueos/v1/<service>/jobs/<JobType>/result when a Job ends (D-12, D-36), like the result of a ROS 2
+# action.
+
+# The Job as it ended: Succeeded, Canceled or Aborted, with its reason.
+blueos_msgs/JobStatus job
+# The Job type's Job result message, CDR with its encapsulation header. Empty when the Job type declares none.
+uint8[] result
 ================================================================================
 MSG: blueos_msgs/JobStatus
 # blueos_msgs/msg/JobStatus

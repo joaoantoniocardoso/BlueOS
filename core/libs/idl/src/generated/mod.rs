@@ -22,7 +22,10 @@ pub fn schema(schema_name: &str) -> Option<&'static str> {
         }
         "blueos_msgs/msg/CommandAck" => Some(msg::blueos_msgs::CommandAck::SCHEMA),
         "blueos_msgs/msg/EndpointInfo" => Some(msg::blueos_msgs::EndpointInfo::SCHEMA),
+        "blueos_msgs/msg/JobFeedback" => Some(msg::blueos_msgs::JobFeedback::SCHEMA),
+        "blueos_msgs/msg/JobFeedbackList" => Some(msg::blueos_msgs::JobFeedbackList::SCHEMA),
         "blueos_msgs/msg/JobList" => Some(msg::blueos_msgs::JobList::SCHEMA),
+        "blueos_msgs/msg/JobResult" => Some(msg::blueos_msgs::JobResult::SCHEMA),
         "blueos_msgs/msg/JobStatus" => Some(msg::blueos_msgs::JobStatus::SCHEMA),
         "blueos_msgs/msg/PermissionAnswer" => Some(msg::blueos_msgs::PermissionAnswer::SCHEMA),
         "blueos_msgs/msg/RestartRequired" => Some(msg::blueos_msgs::RestartRequired::SCHEMA),
