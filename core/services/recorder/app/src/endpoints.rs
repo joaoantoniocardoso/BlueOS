@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use blueos_domain::Domain;
 use blueos_idl::msg::blueos_recorder_msgs;
-use blueos_jobs::{DomainJobs, JobId, JobNature};
+use blueos_jobs::{DomainJobs, JobNature};
 use blueos_recorder_api::endpoints::Conversions;
 use blueos_service::{Refusal, ServiceBuilder};
 
@@ -20,34 +20,9 @@ pub const NAME: &str = "recorder";
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not handle the custom endpoints of the `recorder` Service",
     label = "no `impl Handlers<D> for {Self}` in the `recorder` app crate",
-    note = "implement `delete_recording` for the Job type `DeleteRecording`, `repair_recording` for the Job type `RepairRecording`, `snapshot_recording` for the Job type `SnapshotRecording`, `index` for the IO query `index`"
+    note = "implement `index` for the IO query `index`"
 )]
 pub trait Handlers<D: Domain>: Send + Sync + 'static {
-    /// The Job type `DeleteRecording`, at `blueos/v1/recorder/command/DeleteRecording`.
-    ///
-    /// The Domain's Request for the Goal, or why it is refused.
-    fn delete_recording(
-        &self,
-        goal: blueos_recorder_msgs::DeleteRecordingGoal,
-    ) -> Result<D::Request, Refusal>;
-
-    /// The Job type `RepairRecording`, at `blueos/v1/recorder/command/RepairRecording`.
-    ///
-    /// The Domain's Request for the Goal, or why it is refused.
-    fn repair_recording(
-        &self,
-        job_id: JobId,
-        goal: blueos_recorder_msgs::RepairRecordingGoal,
-    ) -> Result<D::Request, Refusal>;
-
-    /// The Job type `SnapshotRecording`, at `blueos/v1/recorder/command/SnapshotRecording`.
-    ///
-    /// The Domain's Request for the Goal, or why it is refused.
-    fn snapshot_recording(
-        &self,
-        goal: blueos_recorder_msgs::SnapshotRecordingGoal,
-    ) -> Result<D::Request, Refusal>;
-
     /// The IO query `index`, at `blueos/v1/recorder/query/index`.
     ///
     /// Its response, read outside the Inbox, or why it is refused.
@@ -64,12 +39,12 @@ pub fn register<D: Conversions + DomainJobs, H: Handlers<D>, Context>(
 ) -> ServiceBuilder<D, Context> {
     let handlers = Arc::new(handlers);
     builder
-        .command("DeleteRecording", {
-            let handlers = Arc::clone(&handlers);
-            move |goal: blueos_recorder_msgs::DeleteRecordingGoal| {
-                H::delete_recording(&handlers, goal)
-            }
-        })
+        .command(
+            "DeleteRecording",
+            |goal: blueos_recorder_msgs::DeleteRecordingGoal| {
+                <D as Conversions>::delete_recording(goal).map_err(Refusal::from)
+            },
+        )
         .job_feedback(
             "DeleteRecording",
             <D as Conversions>::delete_recording_feedback,
@@ -86,11 +61,8 @@ pub fn register<D: Conversions + DomainJobs, H: Handlers<D>, Context>(
                 pausable: false,
                 needs_permission: false,
             },
-            {
-                let handlers = Arc::clone(&handlers);
-                move |job_id, goal: blueos_recorder_msgs::RepairRecordingGoal| {
-                    H::repair_recording(&handlers, job_id, goal)
-                }
+            |job_id, goal: blueos_recorder_msgs::RepairRecordingGoal| {
+                <D as Conversions>::repair_recording(job_id, goal).map_err(Refusal::from)
             },
         )
         .job_feedback(
@@ -101,12 +73,18 @@ pub fn register<D: Conversions + DomainJobs, H: Handlers<D>, Context>(
             "RepairRecording",
             <D as Conversions>::repair_recording_result,
         )
-        .command("SnapshotRecording", {
-            let handlers = Arc::clone(&handlers);
-            move |goal: blueos_recorder_msgs::SnapshotRecordingGoal| {
-                H::snapshot_recording(&handlers, goal)
-            }
-        })
+        .job(
+            "SnapshotRecording",
+            JobNature {
+                lasting: true,
+                cancellable: false,
+                pausable: false,
+                needs_permission: false,
+            },
+            |job_id, goal: blueos_recorder_msgs::SnapshotRecordingGoal| {
+                <D as Conversions>::snapshot_recording(job_id, goal).map_err(Refusal::from)
+            },
+        )
         .job_feedback(
             "SnapshotRecording",
             <D as Conversions>::snapshot_recording_feedback,
@@ -134,7 +112,6 @@ pub fn register<D: Conversions + DomainJobs, H: Handlers<D>, Context>(
         })
         .state("library", <D as Conversions>::library)
         .state("recording", <D as Conversions>::recording)
-        .event("operation", <D as Conversions>::operation)
         .manifest_endpoints(vec![
             blueos_idl::msg::blueos_msgs::EndpointInfo {
                 kind: "job".into(),
@@ -205,15 +182,6 @@ pub fn register<D: Conversions + DomainJobs, H: Handlers<D>, Context>(
                 key: "blueos/v1/recorder/state/recording".into(),
                 interface_type: "blueos_recorder_msgs/msg/RecordingState".into(),
                 schema: blueos_idl::schema("blueos_recorder_msgs/msg/RecordingState")
-                    .unwrap_or_default()
-                    .into(),
-            },
-            blueos_idl::msg::blueos_msgs::EndpointInfo {
-                kind: "event".into(),
-                name: "operation".into(),
-                key: "blueos/v1/recorder/event/operation".into(),
-                interface_type: "blueos_recorder_msgs/msg/RecordingOperation".into(),
-                schema: blueos_idl::schema("blueos_recorder_msgs/msg/RecordingOperation")
                     .unwrap_or_default()
                     .into(),
             },

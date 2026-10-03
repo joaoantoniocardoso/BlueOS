@@ -6,12 +6,9 @@ service = "recorder"
 [job]
 Start = { type = "blueos_recorder_msgs/action/StartRecording" }
 Stop = { type = "blueos_recorder_msgs/action/StopRecording" }
-DeleteRecording = { type = "blueos_recorder_msgs/action/DeleteRecording", custom = true }
-RepairRecording = { type = "blueos_recorder_msgs/action/RepairRecording", custom = true, nature = { lasting = true, cancellable = true } }
-SnapshotRecording = { type = "blueos_recorder_msgs/action/SnapshotRecording", custom = true }
-
-[event]
-operation = { type = "blueos_recorder_msgs/msg/RecordingOperation" }
+DeleteRecording = { type = "blueos_recorder_msgs/action/DeleteRecording" }
+RepairRecording = { type = "blueos_recorder_msgs/action/RepairRecording", nature = { lasting = true, cancellable = true } }
+SnapshotRecording = { type = "blueos_recorder_msgs/action/SnapshotRecording", nature = { lasting = true } }
 
 [query]
 index = { type = "blueos_recorder_msgs/srv/RecordingIndex", io = true }

@@ -12,9 +12,19 @@ use blueos_jobs::JobId;
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not convert the endpoints of the `recorder` Service",
     label = "no `impl Conversions for {Self}` in the `recorder` logic/api crate",
-    note = "implement `delete_recording_feedback` and `delete_recording_result` for the Job type `DeleteRecording`, `repair_recording_feedback` and `repair_recording_result` for the Job type `RepairRecording`, `snapshot_recording_feedback` and `snapshot_recording_result` for the Job type `SnapshotRecording`, `StartError`, `start`, `start_feedback` and `start_result` for the Job type `Start`, `StopError`, `stop`, `stop_feedback` and `stop_result` for the Job type `Stop`, `library` for the State `library`, `recording` for the State `recording`, `operation` for the Event `operation`"
+    note = "implement `DeleteRecordingError`, `delete_recording`, `delete_recording_feedback` and `delete_recording_result` for the Job type `DeleteRecording`, `RepairRecordingError`, `repair_recording`, `repair_recording_feedback` and `repair_recording_result` for the Job type `RepairRecording`, `SnapshotRecordingError`, `snapshot_recording`, `snapshot_recording_feedback` and `snapshot_recording_result` for the Job type `SnapshotRecording`, `StartError`, `start`, `start_feedback` and `start_result` for the Job type `Start`, `StopError`, `stop`, `stop_feedback` and `stop_result` for the Job type `Stop`, `library` for the State `library`, `recording` for the State `recording`"
 )]
 pub trait Conversions: Domain {
+    /// Why a Goal of the Job type `DeleteRecording` is rejected.
+    type DeleteRecordingError: core::error::Error + Send + Sync + 'static;
+
+    /// The Job type `DeleteRecording`, at `blueos/v1/recorder/command/DeleteRecording`.
+    ///
+    /// The Domain's Request for the Goal, or why it is rejected.
+    fn delete_recording(
+        goal: blueos_recorder_msgs::DeleteRecordingGoal,
+    ) -> Result<Self::Request, Self::DeleteRecordingError>;
+
     /// The Feedback of a Job of the Job type `DeleteRecording`.
     ///
     /// That of the Job `job_id` in `snapshot`, or `None` while it has none.
@@ -31,6 +41,17 @@ pub trait Conversions: Domain {
         job_id: JobId,
     ) -> blueos_recorder_msgs::DeleteRecordingResult;
 
+    /// Why a Goal of the Job type `RepairRecording` is rejected.
+    type RepairRecordingError: core::error::Error + Send + Sync + 'static;
+
+    /// The Job type `RepairRecording`, at `blueos/v1/recorder/command/RepairRecording`.
+    ///
+    /// The Domain's Request for the Goal, or why it is rejected.
+    fn repair_recording(
+        job_id: JobId,
+        goal: blueos_recorder_msgs::RepairRecordingGoal,
+    ) -> Result<Self::Request, Self::RepairRecordingError>;
+
     /// The Feedback of a Job of the Job type `RepairRecording`.
     ///
     /// That of the Job `job_id` in `snapshot`, or `None` while it has none.
@@ -46,6 +67,17 @@ pub trait Conversions: Domain {
         snapshot: &Self::Snapshot,
         job_id: JobId,
     ) -> blueos_recorder_msgs::RepairRecordingResult;
+
+    /// Why a Goal of the Job type `SnapshotRecording` is rejected.
+    type SnapshotRecordingError: core::error::Error + Send + Sync + 'static;
+
+    /// The Job type `SnapshotRecording`, at `blueos/v1/recorder/command/SnapshotRecording`.
+    ///
+    /// The Domain's Request for the Goal, or why it is rejected.
+    fn snapshot_recording(
+        job_id: JobId,
+        goal: blueos_recorder_msgs::SnapshotRecordingGoal,
+    ) -> Result<Self::Request, Self::SnapshotRecordingError>;
 
     /// The Feedback of a Job of the Job type `SnapshotRecording`.
     ///
@@ -124,9 +156,4 @@ pub trait Conversions: Domain {
     ///
     /// Its value for `snapshot`.
     fn recording(snapshot: &Self::Snapshot) -> blueos_recorder_msgs::RecordingState;
-
-    /// The Event `operation`, at `blueos/v1/recorder/event/operation`.
-    ///
-    /// What it publishes for `event`, or `None` when `event` is another one.
-    fn operation(event: &Self::Event) -> Option<blueos_recorder_msgs::RecordingOperation>;
 }
