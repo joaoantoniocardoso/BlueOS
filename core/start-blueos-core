@@ -338,7 +338,7 @@ function stop_services {
         still_running=false
         kill -0 $pane_processes $inherited_processes 2>/dev/null && still_running=true
         newly_inherited_processes=$(ps -o pid=,pgid= --ppid $$ | awk -v own="$own_group" -v tmux="$tmux_server_process" \
-            -v signalled=" $pane_processes $inherited_processes " \
+            -v signalled=" $(printf '%s ' $pane_processes $inherited_processes)" \
             '$2 != own && $1 != tmux && !index(signalled, " " $1 " ") { print $1 }') || true
         if [ -n "$newly_inherited_processes" ]; then
             kill -TERM $newly_inherited_processes 2>/dev/null || true
