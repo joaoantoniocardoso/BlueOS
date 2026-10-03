@@ -3,7 +3,7 @@
 use core::convert::Infallible;
 
 use blueos_domain::{Command, Decision, Domain, IoError, Now, Outcome};
-use blueos_idl::msg::blueos_example_msgs::SetLevelRequest;
+use blueos_idl::msg::blueos_example_msgs::SetLevelGoal;
 use blueos_service::{
     Refusal, Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness,
 };
@@ -43,7 +43,7 @@ impl Service for NonIdlCookbookService {
         Ok(
             ServiceBuilder::new(NonIdlCookbookSnapshot::default()).command(
                 "SetLevel",
-                |request: SetLevelRequest| {
+                |request: SetLevelGoal| {
                     if request.level > 100 {
                         return Err(Refusal::from(format!(
                             "{} is not a percentage",
@@ -93,9 +93,7 @@ async fn custom_command_validation_rejects_before_the_inbox() {
     let harness = Harness::<NonIdlCookbookService>::start(NonIdlCookbookArguments)
         .await
         .unwrap();
-    let ack = harness
-        .send("SetLevel", &SetLevelRequest { level: 150 })
-        .await;
+    let ack = harness.send("SetLevel", &SetLevelGoal { level: 150 }).await;
     assert!(!ack.accepted);
     assert_eq!(ack.reason, "150 is not a percentage");
 }
@@ -105,8 +103,6 @@ async fn custom_command_validation_passes_a_typed_request() {
     let harness = Harness::<NonIdlCookbookService>::start(NonIdlCookbookArguments)
         .await
         .unwrap();
-    let ack = harness
-        .send("SetLevel", &SetLevelRequest { level: 40 })
-        .await;
+    let ack = harness.send("SetLevel", &SetLevelGoal { level: 40 }).await;
     assert!(ack.accepted);
 }

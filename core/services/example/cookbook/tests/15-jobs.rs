@@ -6,7 +6,7 @@ use tokio::time::advance;
 
 use blueos_domain::{Command, Decision, Domain, Effect, IoError, Now, Outcome};
 use blueos_idl::msg::{
-    blueos_example_msgs::EmptyRequest,
+    blueos_example_msgs::LevelRequest,
     blueos_msgs::{CommandAckStatus, JobStatusStatus},
 };
 use blueos_jobs::{DomainJobs, JobControl, JobEnd, JobId, JobNature, JobStatus, Jobs};
@@ -61,7 +61,7 @@ impl Service for JobsCookbookService {
         Ok(ServiceBuilder::new(JobsCookbookSnapshot::default()).job(
             "Brew",
             BREW,
-            |job_id, _: EmptyRequest| Ok(JobsCookbookRequest::Brew { job_id }),
+            |job_id, _: LevelRequest| Ok(JobsCookbookRequest::Brew { job_id }),
         ))
     }
 }
@@ -140,7 +140,7 @@ async fn a_lasting_job_is_executing_until_its_domain_ends_it() {
     let job_id = new_job_id();
 
     let ack = harness
-        .submit("Brew", job_id, &EmptyRequest::default())
+        .submit("Brew", job_id, &LevelRequest::default())
         .await;
     assert!(ack.accepted);
     assert_eq!(ack.job_id, job_id.to_string());
@@ -158,7 +158,7 @@ async fn a_cancelled_job_ends_canceled_when_its_work_stops() {
         .unwrap();
     let job_id = new_job_id();
     harness
-        .submit("Brew", job_id, &EmptyRequest::default())
+        .submit("Brew", job_id, &LevelRequest::default())
         .await;
 
     let ack = harness.control(job_id, JobControl::Cancel).await;

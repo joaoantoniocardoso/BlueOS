@@ -9,12 +9,12 @@ use tokio::time::timeout;
 
 use blueos_api::{
     CommandAck, Message, cdr_encoding, command_key, info_query_key, job_feedback_key,
-    job_result_key, jobs_key, query_key, status_state_key,
+    job_history_key, job_result_key, jobs_key, query_key, status_state_key,
 };
 use blueos_comms::{QueryBody, Subscriber};
 use blueos_domain::{Command, Decision, Domain, Effect, IoError, Now, Outcome};
 use blueos_idl::msg::{
-    blueos_example_msgs::{EmptyRequest, LevelQueryResponse, SetLevelRequest},
+    blueos_example_msgs::{LevelRequest, LevelResponse, SetLevelGoal},
     blueos_msgs::{
         CommandAckStatus, JobFeedbackList, JobList, JobResult, JobStatusStatus, ServiceInfo,
         SettingsEnvelope,
@@ -81,9 +81,9 @@ impl Service for BrewerService {
             jobs: Jobs::with_retention(RETENTION),
             brews: BTreeMap::new(),
         })
-        .command("Ping", |_: EmptyRequest| Ok(BrewerRequest::Ping))
-        .command("Refuse", |_: EmptyRequest| Ok(BrewerRequest::Refuse))
-        .job("Brew", BREW, |job_id, goal: SetLevelRequest| {
+        .command("Ping", |_: LevelRequest| Ok(BrewerRequest::Ping))
+        .command("Refuse", |_: LevelRequest| Ok(BrewerRequest::Refuse))
+        .job("Brew", BREW, |job_id, goal: SetLevelGoal| {
             Ok(BrewerRequest::Brew {
                 job_id,
                 cups: goal.level,
@@ -95,7 +95,7 @@ impl Service for BrewerService {
                 lasting: true,
                 ..JobNature::INSTANT
             },
-            |job_id, goal: SetLevelRequest| {
+            |job_id, goal: SetLevelGoal| {
                 Ok(BrewerRequest::Brew {
                     job_id,
                     cups: goal.level,
@@ -108,7 +108,7 @@ impl Service for BrewerService {
                 needs_permission: true,
                 ..BREW
             },
-            |job_id, goal: SetLevelRequest| {
+            |job_id, goal: SetLevelGoal| {
                 Ok(BrewerRequest::Brew {
                     job_id,
                     cups: goal.level,
@@ -117,7 +117,7 @@ impl Service for BrewerService {
         )
         .job_feedback("Brew", |snapshot: &BrewerSnapshot, job_id| {
             let brew = snapshot.brews.get(&job_id)?;
-            (brew.poured > 0).then_some(LevelQueryResponse {
+            (brew.poured > 0).then_some(LevelResponse {
                 level: brew.poured,
                 max_level: brew.cups,
             })
@@ -227,7 +227,7 @@ async fn a_job_that_ends_in_the_step_that_accepts_it_acks_its_final_status() {
     let harness = start().await;
     let [ping, empty] = [1, 2].map(JobId::from_u128);
 
-    let instant = harness.submit("Ping", ping, &EmptyRequest::default()).await;
+    let instant = harness.submit("Ping", ping, &LevelRequest::default()).await;
     let aborted = harness.submit("Brew", empty, &cups(0)).await;
 
     assert_eq!(instant, accepted(ping, CommandAckStatus::Succeeded));
@@ -306,7 +306,7 @@ async fn a_rejected_submit_leaves_no_job() {
     let job_id = JobId::from_u128(7);
 
     let refused = harness
-        .submit("Refuse", job_id, &EmptyRequest::default())
+        .submit("Refuse", job_id, &LevelRequest::default())
         .await;
 
     assert_eq!(
@@ -324,7 +324,7 @@ async fn a_command_without_a_job_id_is_rejected() {
     for attachment in [None, Some("not a uuid")] {
         let mut body = QueryBody::new(
             cups(2).encode().unwrap(),
-            cdr_encoding(SetLevelRequest::SCHEMA_NAME),
+            cdr_encoding(SetLevelGoal::SCHEMA_NAME),
         );
         if let Some(attachment) = attachment {
             body = body.with_attachment(Bytes::from_static(attachment.as_bytes()));
@@ -503,7 +503,7 @@ async fn no_key_outside_command_changes_anything() {
     ];
 
     for key in &keys {
-        let body = QueryBody::new(goal.clone(), cdr_encoding(SetLevelRequest::SCHEMA_NAME))
+        let body = QueryBody::new(goal.clone(), cdr_encoding(SetLevelGoal::SCHEMA_NAME))
             .with_attachment(Bytes::from(JobId::from_u128(7).to_string()));
         drop(
             harness
@@ -517,22 +517,90 @@ async fn no_key_outside_command_changes_anything() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn info_lists_the_jobs_state() {
+async fn info_lists_the_jobs_state_and_the_feedback_result_and_history_of_each_job_type() {
     let harness = start().await;
+    let service = BrewerService::NAME;
 
     let info = harness
-        .query::<EmptyRequest, ServiceInfo>("info", &EmptyRequest::default())
+        .query::<LevelRequest, ServiceInfo>("info", &LevelRequest::default())
         .await
         .expect("the info query answers");
 
-    let [jobs] = info.endpoints.as_slice() else {
-        panic!("expected only the jobs State, got {:?}", info.endpoints);
-    };
-    assert_eq!(jobs.kind, "state");
-    assert_eq!(jobs.name, "jobs");
-    assert_eq!(jobs.key, jobs_key(BrewerService::NAME));
-    assert_eq!(jobs.request_schema, "");
-    assert_eq!(jobs.response_schema, JobList::SCHEMA_NAME);
+    let listed: Vec<_> = info
+        .endpoints
+        .iter()
+        .map(|endpoint| {
+            (
+                endpoint.kind.as_str(),
+                endpoint.name.as_str(),
+                endpoint.key.clone(),
+                endpoint.interface_type.as_str(),
+                endpoint.schema.as_str(),
+            )
+        })
+        .collect();
+    let (list, list_schema) = (JobList::SCHEMA_NAME, JobList::SCHEMA);
+    assert_eq!(
+        listed.len(),
+        1 + 3 * 6,
+        "jobs, then three per Job type: {listed:?}"
+    );
+    let shown: Vec<_> = listed
+        .into_iter()
+        .filter(|(_, name, ..)| {
+            *name == "jobs"
+                || name.starts_with("jobs/Brew/")
+                || name.starts_with("jobs/UpdateSettings/")
+        })
+        .collect();
+    assert_eq!(
+        shown,
+        [
+            ("state", "jobs", jobs_key(service), list, list_schema),
+            (
+                "state",
+                "jobs/Brew/feedback",
+                job_feedback_key(service, "Brew"),
+                LevelResponse::SCHEMA_NAME,
+                LevelResponse::SCHEMA,
+            ),
+            (
+                "event",
+                "jobs/Brew/result",
+                job_result_key(service, "Brew"),
+                SetLevelGoal::SCHEMA_NAME,
+                SetLevelGoal::SCHEMA,
+            ),
+            (
+                "query",
+                "jobs/Brew/history",
+                job_history_key(service, "Brew"),
+                list,
+                list_schema
+            ),
+            (
+                "state",
+                "jobs/UpdateSettings/feedback",
+                job_feedback_key(service, "UpdateSettings"),
+                "",
+                "",
+            ),
+            (
+                "event",
+                "jobs/UpdateSettings/result",
+                job_result_key(service, "UpdateSettings"),
+                "",
+                ""
+            ),
+            (
+                "query",
+                "jobs/UpdateSettings/history",
+                job_history_key(service, "UpdateSettings"),
+                list,
+                list_schema,
+            ),
+        ]
+    );
 }
 
 #[tokio::test(start_paused = true)]
@@ -655,7 +723,7 @@ async fn the_history_query_returns_the_last_finished_jobs_of_a_type_in_order() {
     let harness = start().await;
     let [first, second, third, brew] = [1, 2, 3, 4].map(JobId::from_u128);
     for ping in [first, second, third] {
-        harness.submit("Ping", ping, &EmptyRequest::default()).await;
+        harness.submit("Ping", ping, &LevelRequest::default()).await;
     }
     harness.submit("Brew", brew, &cups(0)).await;
 
@@ -685,8 +753,8 @@ async fn start() -> Harness<BrewerService> {
     Harness::start(()).await.unwrap()
 }
 
-fn cups(level: u8) -> SetLevelRequest {
-    SetLevelRequest { level }
+fn cups(level: u8) -> SetLevelGoal {
+    SetLevelGoal { level }
 }
 
 fn accepted(job_id: JobId, status: CommandAckStatus) -> CommandAck {
@@ -761,31 +829,31 @@ async fn next<M: Message>(subscriber: &mut Subscriber) -> M {
 }
 
 /// Each Job in a `Brew` feedback State, with its decoded Feedback.
-fn fed_back(list: JobFeedbackList) -> Vec<(JobId, LevelQueryResponse)> {
+fn fed_back(list: JobFeedbackList) -> Vec<(JobId, LevelResponse)> {
     list.jobs
         .into_iter()
         .map(|job| {
             (
                 job.job_id.parse().unwrap(),
-                LevelQueryResponse::decode(&job.feedback).unwrap(),
+                LevelResponse::decode(&job.feedback).unwrap(),
             )
         })
         .collect()
 }
 
 /// The Feedback of a brew that poured `poured` of its `cups`.
-fn poured(poured: u8, cups: u8) -> LevelQueryResponse {
-    LevelQueryResponse {
+fn poured(poured: u8, cups: u8) -> LevelResponse {
+    LevelResponse {
         level: poured,
         max_level: cups,
     }
 }
 
 /// How a `Brew` ended, with its decoded Job result.
-fn ended(result: JobResult) -> ((JobId, String, JobStatusStatus, String), SetLevelRequest) {
+fn ended(result: JobResult) -> ((JobId, String, JobStatusStatus, String), SetLevelGoal) {
     (
         row(result.job),
-        SetLevelRequest::decode(&result.result).unwrap(),
+        SetLevelGoal::decode(&result.result).unwrap(),
     )
 }
 

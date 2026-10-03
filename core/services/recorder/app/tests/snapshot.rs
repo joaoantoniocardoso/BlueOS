@@ -15,7 +15,7 @@ use blueos_comms::{Payload, Sample};
 use blueos_idl::{
     Message,
     msg::blueos_recorder_msgs::{
-        RecordingOperation, RecordingOperationOperation, SnapshotRecordingCommand,
+        RecordingOperation, RecordingOperationOperation, SnapshotRecordingGoal,
     },
 };
 use blueos_recorder_app::RecorderService;
@@ -71,7 +71,7 @@ async fn snapshot_active_recording_while_writer_runs() {
     let ack = harness
         .send(
             "SnapshotRecording",
-            &SnapshotRecordingCommand {
+            &SnapshotRecordingGoal {
                 path: recording_path.clone(),
             },
         )
@@ -148,7 +148,7 @@ async fn snapshot_rewrite_publishes_indexed_output_path() {
     let ack = harness
         .send(
             "SnapshotRecording",
-            &SnapshotRecordingCommand {
+            &SnapshotRecordingGoal {
                 path: "partial.mcap".into(),
             },
         )
@@ -189,7 +189,7 @@ async fn snapshot_rejects_missing_file() {
     let ack = harness
         .send(
             "SnapshotRecording",
-            &SnapshotRecordingCommand {
+            &SnapshotRecordingGoal {
                 path: "missing.mcap".into(),
             },
         )

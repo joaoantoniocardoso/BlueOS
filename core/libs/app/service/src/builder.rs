@@ -124,6 +124,17 @@ pub(crate) struct CommandEndpoint<D: Domain> {
 pub(crate) struct JobOutput<D: Domain> {
     pub(crate) feedback: Option<ProjectFeedback<D>>,
     pub(crate) result: Option<ProjectResult<D>>,
+    /// The message of the Feedback, as `info` describes it.
+    pub(crate) feedback_type: MessageType,
+    /// The message of the Job result, as `info` describes it.
+    pub(crate) result_type: MessageType,
+}
+
+/// The schema name and text of a message, both empty for a Job type that declares no such message.
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct MessageType {
+    pub(crate) name: &'static str,
+    pub(crate) schema: &'static str,
 }
 
 /// An IO query endpoint: a query on `blueos/v1/<service>/query/<name>`, answered outside the Inbox.
@@ -407,9 +418,14 @@ impl<D: Domain, Context> ServiceBuilder<D, Context> {
         job_type: &str,
         feedback: impl Fn(&D::Snapshot, JobId) -> Option<M> + Send + Sync + 'static,
     ) -> Self {
-        self.job_output(job_type).feedback = Some(Box::new(move |snapshot, job_id| {
+        let job_output = self.job_output(job_type);
+        job_output.feedback = Some(Box::new(move |snapshot, job_id| {
             feedback(snapshot, job_id).map(|message| message.encode())
         }));
+        job_output.feedback_type = MessageType {
+            name: M::SCHEMA_NAME,
+            schema: M::SCHEMA,
+        };
         self
     }
 
@@ -421,9 +437,14 @@ impl<D: Domain, Context> ServiceBuilder<D, Context> {
         job_type: &str,
         result: impl Fn(&D::Snapshot, JobId) -> M + Send + Sync + 'static,
     ) -> Self {
-        self.job_output(job_type).result = Some(Box::new(move |snapshot, job_id| {
+        let job_output = self.job_output(job_type);
+        job_output.result = Some(Box::new(move |snapshot, job_id| {
             result(snapshot, job_id).encode()
         }));
+        job_output.result_type = MessageType {
+            name: M::SCHEMA_NAME,
+            schema: M::SCHEMA,
+        };
         self
     }
 
@@ -520,6 +541,8 @@ impl<D: Domain, Context> ServiceBuilder<D, Context> {
             .or_insert_with(|| JobOutput {
                 feedback: None,
                 result: None,
+                feedback_type: MessageType::default(),
+                result_type: MessageType::default(),
             })
     }
 }

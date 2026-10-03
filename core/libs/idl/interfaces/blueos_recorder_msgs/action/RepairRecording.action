@@ -1,0 +1,7 @@
+# blueos_recorder_msgs/action/RepairRecording
+# The Job type on blueos/v1/recorder/command/RepairRecording: rewrites a STATE_NEEDS_REPAIR recording so it has a
+# summary again. Progress is on the library state.
+
+string path
+---
+---

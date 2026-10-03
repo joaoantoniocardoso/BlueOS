@@ -17,8 +17,7 @@ use blueos_comms::{CommsBackend, Payload, QueryBody, Sample};
 use blueos_idl::msg::{
     blueos_example_msgs::PumpState,
     blueos_recorder_msgs::{
-        RecordingFileState, RecordingLibrary, RecordingState, StartRecordingCommand,
-        StopRecordingCommand,
+        RecordingFileState, RecordingLibrary, RecordingState, StartRecordingGoal, StopRecordingGoal,
     },
 };
 use blueos_recorder_app::{RecorderArguments, RecorderContext, RecorderService};
@@ -66,12 +65,12 @@ pub(crate) async fn start_recording(harness: &Harness<RecorderService>) {
 }
 
 pub(crate) async fn start_recording_on(backend: &Arc<dyn CommsBackend>) {
-    let start = StartRecordingCommand {
+    let start = StartRecordingGoal {
         rotate_if_active: false,
     };
     let body = QueryBody::new(
         start.encode().expect("encode"),
-        cdr_encoding(StartRecordingCommand::SCHEMA_NAME),
+        cdr_encoding(StartRecordingGoal::SCHEMA_NAME),
     )
     .with_attachment(new_job_id().to_string().into_bytes());
     backend
@@ -117,10 +116,10 @@ pub(crate) async fn stop_recording_and_finalize_mcap(backend: &Arc<dyn CommsBack
 }
 
 pub(crate) async fn stop_recording_on(backend: &Arc<dyn CommsBackend>) {
-    let stop = StopRecordingCommand::default();
+    let stop = StopRecordingGoal::default();
     let body = QueryBody::new(
         stop.encode().expect("encode"),
-        cdr_encoding(StopRecordingCommand::SCHEMA_NAME),
+        cdr_encoding(StopRecordingGoal::SCHEMA_NAME),
     )
     .with_attachment(new_job_id().to_string().into_bytes());
     backend

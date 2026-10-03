@@ -3,11 +3,11 @@
 
 service = "example"
 
-[command]
-SetLevel = { request = "blueos_example_msgs/msg/SetLevelRequest" }
+[job]
+SetLevel = { type = "blueos_example_msgs/action/SetLevel", nature = { lasting = true } }
 
 [query]
-Level = { request = "blueos_example_msgs/msg/EmptyRequest", response = "blueos_example_msgs/msg/LevelQueryResponse" }
+Level = { type = "blueos_example_msgs/srv/Level" }
 
 [state]
-pump = { message = "blueos_example_msgs/msg/PumpState" }
+pump = { type = "blueos_example_msgs/msg/PumpState" }

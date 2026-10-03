@@ -42,10 +42,10 @@ impl CdrStruct for RecordingIndexRequest {
     }
 }
 impl Message for RecordingIndexRequest {
-    const SCHEMA: &'static str = "# blueos_recorder_msgs/msg/RecordingIndexRequest\n# Payload of the blueos/v1/recorder/query/index query.\n\nstring path\n# 0 starts at the file magic; otherwise the `offset` of a previous RecordingIndex reply.\nuint64 from_offset\n# Maximum chunks in the reply (1..=20000).\nuint32 limit";
-    const SCHEMA_NAME: &'static str = "blueos_recorder_msgs/msg/RecordingIndexRequest";
+    const SCHEMA: &'static str = "# blueos_recorder_msgs/srv/RecordingIndex\n# The Query on blueos/v1/recorder/query/index. Its response is one page of a walk over record headers, so the\n# browser can fetch chunk bodies with HTTP ranges even when the file has no summary yet (still recording, needs\n# repair).\n\nstring path\n# 0 starts at the file magic; otherwise the `offset` of a previous response.\nuint64 from_offset\n# Maximum chunks in the response (1..=20000).\nuint32 limit";
+    const SCHEMA_NAME: &'static str = "blueos_recorder_msgs/srv/RecordingIndex_Request";
     const TYPE_HASH: &'static str =
-        "c4c436628167efca35d621b95cdf659343a3ce2f2b5709ce1fe34efd329bc11e";
+        "7916e0018ff26735e04e34cc544ba70e54ca49bed083e21ca88413299d38ecbe";
 }
 impl RecordingIndexRequest {
     pub const KNOWN_FIELD_COUNT: usize = 3usize;

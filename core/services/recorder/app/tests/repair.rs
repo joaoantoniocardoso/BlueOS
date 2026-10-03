@@ -22,7 +22,7 @@ use blueos_idl::{
     Message,
     msg::blueos_msgs::{CommandAckStatus, JobStatusStatus},
     msg::blueos_recorder_msgs::{
-        RecordingOperation, RecordingOperationOperation, RepairRecordingCommand,
+        RecordingOperation, RecordingOperationOperation, RepairRecordingGoal,
     },
 };
 use blueos_jobs::{JobControl, JobId, JobNature, Jobs};
@@ -114,7 +114,7 @@ async fn repair_rewrites_truncated_recording_and_publishes_operation_event() {
         .submit(
             "RepairRecording",
             job_id,
-            &RepairRecordingCommand {
+            &RepairRecordingGoal {
                 path: "broken.mcap".into(),
             },
         )
@@ -168,7 +168,7 @@ async fn cancel_job_stops_a_held_repair_and_leaves_the_original_unchanged() {
         .submit(
             "RepairRecording",
             job_id,
-            &RepairRecordingCommand {
+            &RepairRecordingGoal {
                 path: "cancel.mcap".into(),
             },
         )
@@ -241,7 +241,7 @@ async fn shutdown_stops_a_held_repair_before_it_finishes() {
     let ack = harness
         .send(
             "RepairRecording",
-            &RepairRecordingCommand {
+            &RepairRecordingGoal {
                 path: "held.mcap".into(),
             },
         )
@@ -273,7 +273,7 @@ async fn restored_interrupted_repair_job_is_aborted_and_recover_discarded() {
     fs::write(directory.path().join("broken.recover"), b"temporary").expect("write recover");
 
     let mut persisted_jobs = Jobs::default();
-    let goal = RepairRecordingCommand {
+    let goal = RepairRecordingGoal {
         path: "broken.mcap".into(),
     }
     .encode()

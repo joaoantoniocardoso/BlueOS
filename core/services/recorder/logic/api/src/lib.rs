@@ -7,12 +7,16 @@ extern crate alloc;
 pub mod endpoints;
 
 use alloc::{string::String, vec::Vec};
+use core::convert::Infallible;
 
 use blueos_idl::msg::blueos_recorder_msgs::{
-    RecordingFile, RecordingFileState as WireRecordingFileState, RecordingLibrary,
-    RecordingOperation, RecordingOperationOperation, RecordingState, StartRecordingCommand,
-    StopRecordingCommand,
+    DeleteRecordingFeedback, DeleteRecordingResult, RecordingFile,
+    RecordingFileState as WireRecordingFileState, RecordingLibrary, RecordingOperation,
+    RecordingOperationOperation, RecordingState, RepairRecordingFeedback, RepairRecordingResult,
+    SnapshotRecordingFeedback, SnapshotRecordingResult, StartRecordingFeedback, StartRecordingGoal,
+    StartRecordingResult, StopRecordingFeedback, StopRecordingGoal, StopRecordingResult,
 };
+use blueos_jobs::JobId;
 use blueos_recorder_capture::RecordingState as DomainRecordingState;
 use blueos_recorder_domain::{RecorderDomain, RecorderEvent, RecorderRequest, RecorderSnapshot};
 use blueos_recorder_library::{
@@ -21,15 +25,84 @@ use blueos_recorder_library::{
 
 use crate::endpoints::Conversions;
 
+// ponytail: every Recorder Job type declares an empty Feedback and Job result for now, so it publishes no Feedback
+// and an empty Job result; upgrade by giving each Job type the Feedback and Job result a client needs.
 impl Conversions for RecorderDomain {
-    fn start(request: StartRecordingCommand) -> RecorderRequest {
-        RecorderRequest::StartRecording {
-            rotate_if_active: request.rotate_if_active,
-        }
+    type StartError = Infallible;
+    type StopError = Infallible;
+
+    fn delete_recording_feedback(
+        _snapshot: &RecorderSnapshot,
+        _job_id: JobId,
+    ) -> Option<DeleteRecordingFeedback> {
+        None
     }
 
-    fn stop(_request: StopRecordingCommand) -> RecorderRequest {
-        RecorderRequest::StopRecording
+    fn delete_recording_result(
+        _snapshot: &RecorderSnapshot,
+        _job_id: JobId,
+    ) -> DeleteRecordingResult {
+        DeleteRecordingResult::default()
+    }
+
+    fn repair_recording_feedback(
+        _snapshot: &RecorderSnapshot,
+        _job_id: JobId,
+    ) -> Option<RepairRecordingFeedback> {
+        None
+    }
+
+    fn repair_recording_result(
+        _snapshot: &RecorderSnapshot,
+        _job_id: JobId,
+    ) -> RepairRecordingResult {
+        RepairRecordingResult::default()
+    }
+
+    fn snapshot_recording_feedback(
+        _snapshot: &RecorderSnapshot,
+        _job_id: JobId,
+    ) -> Option<SnapshotRecordingFeedback> {
+        None
+    }
+
+    fn snapshot_recording_result(
+        _snapshot: &RecorderSnapshot,
+        _job_id: JobId,
+    ) -> SnapshotRecordingResult {
+        SnapshotRecordingResult::default()
+    }
+
+    fn start(goal: StartRecordingGoal) -> Result<RecorderRequest, Infallible> {
+        Ok(RecorderRequest::StartRecording {
+            rotate_if_active: goal.rotate_if_active,
+        })
+    }
+
+    fn start_feedback(
+        _snapshot: &RecorderSnapshot,
+        _job_id: JobId,
+    ) -> Option<StartRecordingFeedback> {
+        None
+    }
+
+    fn start_result(_snapshot: &RecorderSnapshot, _job_id: JobId) -> StartRecordingResult {
+        StartRecordingResult::default()
+    }
+
+    fn stop(_goal: StopRecordingGoal) -> Result<RecorderRequest, Infallible> {
+        Ok(RecorderRequest::StopRecording)
+    }
+
+    fn stop_feedback(
+        _snapshot: &RecorderSnapshot,
+        _job_id: JobId,
+    ) -> Option<StopRecordingFeedback> {
+        None
+    }
+
+    fn stop_result(_snapshot: &RecorderSnapshot, _job_id: JobId) -> StopRecordingResult {
+        StopRecordingResult::default()
     }
 
     fn recording(snapshot: &RecorderSnapshot) -> RecordingState {

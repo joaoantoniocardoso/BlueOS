@@ -1,6 +1,6 @@
 # example-minimal (D-20)
 
-The teaching Service: one Command (`SetLevel`), one Query (`Level`), one State (`pump`). Copy this tree when you add a
+The teaching Service: one Job type (`SetLevel`), one Query (`Level`), one State (`pump`). Copy this tree when you add a
 real Service. Vocabulary and rules live in [GLOSSARY.md](../../../GLOSSARY.md) at the repo root; this file only walks
 the steps.
 
@@ -20,9 +20,41 @@ the small wiring path; the numbered [`cookbook/`](cookbook/README.md) answers ev
 | `app/src/context.rs` | The Context and its Ports, once the Service has IO or Tasks (example-minimal has none) |
 | `app/src/cli.rs` | Service-specific `clap::Args` (common flags come from the Kernel) |
 | `cookbook/tests/27-tasks.rs` | Supervised Tasks (Q27); example-minimal ships none |
-| `<block>/handlers.rs` under `app/src/` | Optional custom Command/Query handlers when the manifest marks an endpoint `custom` (D-23) |
+| `<block>/handlers.rs` under `app/src/` | Optional handlers for the `custom` Job types and the `io` Queries of the manifest (D-23) |
 
 There is no `adapters/` crate until you have real IO.
+
+## Endpoint kinds (D-26)
+
+`app/endpoints.toml` declares four kinds of endpoint, each with its interface type in `type`:
+
+```toml
+[job]
+SetLevel = { type = "blueos_example_msgs/action/SetLevel", nature = { lasting = true } }
+
+[query]
+Level = { type = "blueos_example_msgs/srv/Level" }
+
+[state]
+pump = { type = "blueos_example_msgs/msg/PumpState" }
+```
+
+- **`job`**: a Job type, a `.action`. A client submits its Goal; `Conversions` maps the Goal to a Request, or returns
+  its typed error, which the ack carries as the rejection. `Conversions` also gives the Job type's Feedback while a
+  Job runs and its Job result when it ends, which the Kernel publishes on `jobs/<JobType>/feedback` and
+  `jobs/<JobType>/result`. `nature` says what the Job type allows: without it, a Job is instant. `custom = true`
+  moves the Goal mapping to a `Handlers` method, for a Goal that needs the Context.
+- **`query`**: a Query, a `.srv`. `Conversions` maps its request to a Domain Query and the Domain's response to its
+  response. `io = true` answers it with a `Handlers` method outside the Inbox, for a read that needs IO.
+- **`state`** and **`event`**: a `.msg`, which `Conversions` makes of the Snapshot or of a domain event.
+
+The Kernel declares the Job controls (`CancelJob`, `PauseJob`, `ResumeJob`, `AnswerPermission`), `UpdateSettings`,
+`info`, `status`, `settings`, `jobs` and `log` for every Service: a manifest never lists them. `info` lists each
+endpoint with its kind, key, interface type and schema text, and `core/libs/idl/api.lock` records each key with its
+interface type.
+
+`SetLevel` moves the pump one level per second: its Feedback is the level the pump is at, and its Job result the level
+it reached. A level above `MAX_LEVEL` is rejected by its Goal conversion.
 
 ## Run locally (not shipped)
 
@@ -38,15 +70,18 @@ optional on `core/app/blueos`; without it, `blueos example` prints that the name
 
 ## Add a new Service (checklist)
 
-1. **Messages** — Add or reuse `.msg` files under `core/libs/idl/interfaces/`. Regenerate IDL:
-   `cargo run -p blueos-idl-codegen -- --write` in `core/`.
+1. **Interfaces** — Add or reuse a `.action` per Job type, a `.srv` per Query, and a `.msg` per State or Event under
+   `core/libs/idl/interfaces/`. Regenerate IDL: `cargo run -p blueos-idl-codegen -- --write` in `core/`.
 2. **Crates** — `services/<name>/logic/domain`, `logic/api`, `app` (same shape as this directory). Register the three
    members in `core/Cargo.toml` and `[workspace.dependencies]`.
-3. **Manifest** — `app/endpoints.toml` with `service = "<name>"` and tables for each endpoint kind. Regenerate:
+3. **Manifest** — `app/endpoints.toml` with `service = "<name>"` and a table for each endpoint kind (see
+   [Endpoint kinds](#endpoint-kinds-d-26)). Regenerate:
    `cargo run -p blueos-idl-codegen -- --write` (updates `logic/api/src/endpoints.rs`, `app/src/endpoints.rs`,
    `frontend/src/libs/blueos-api/services/<name>.ts`, and `core/libs/idl/api.lock`).
-4. **Domain** — Implement `Domain` / `DomainQueries` in `logic/domain`. Unit-test `handle` and `query` with no tokio.
-5. **Conversions** — `impl Conversions for ...` in `logic/api/src/lib.rs`.
+4. **Domain** — Implement `Domain` / `DomainQueries` in `logic/domain`, and `DomainJobs` once a Job type has a
+   `nature`. Unit-test `handle` and `query` with no tokio.
+5. **Conversions** — `impl Conversions for ...` in `logic/api/src/lib.rs`: a Goal conversion with its error type per
+   Job type that is not `custom`, Feedback and Job result per Job type, and one function per Query, State and Event.
 6. **Service** — `impl Service` in `app/src/service.rs`: `const NAME = endpoints::NAME`, then two steps that the
    Kernel runs in order. `context` builds the Context: it may open what the arguments name and fills every Port with
    its real adapter (`Ok(())` when there is nothing). `build` is pure, with no IO and no spawning: it returns

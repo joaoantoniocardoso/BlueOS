@@ -1,0 +1,20 @@
+# blueos_recorder_msgs/srv/RecordingIndex
+# The Query on blueos/v1/recorder/query/index. Its response is one page of a walk over record headers, so the
+# browser can fetch chunk bodies with HTTP ranges even when the file has no summary yet (still recording, needs
+# repair).
+
+string path
+# 0 starts at the file magic; otherwise the `offset` of a previous response.
+uint64 from_offset
+# Maximum chunks in the response (1..=20000).
+uint32 limit
+---
+uint64 size
+# Where the next page starts.
+uint64 offset
+# A DataEnd or Footer record was reached: the walk is complete.
+bool closed
+blueos_recorder_msgs/ChunkIndexEntry[] chunks
+blueos_recorder_msgs/ChannelMessageCount[] message_counts
+# Raw Header, Schema, Channel and Metadata records met in this page, in file order.
+uint8[] records

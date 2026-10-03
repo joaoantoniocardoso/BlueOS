@@ -24,7 +24,8 @@ every part in order.
 
 ### API-break lock
 
-`api.lock` stores `schema_name major field_signature` per message. CI runs `api_lock_matches_interfaces`;
+`api.lock` stores `schema_name major field_signature` per message, and `key major type=<interface type>` per
+endpoint key of every Service manifest. CI runs `api_lock_matches_interfaces`;
 drift fails until the lock is refreshed intentionally:
 
 ```bash

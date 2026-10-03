@@ -16,7 +16,7 @@ use blueos_comms::{
     Reply, Sample, Subscriber, channel::ChannelBackend,
 };
 use blueos_domain::{Command, Decision, Domain, DomainQueries, Now, Outcome};
-use blueos_idl::msg::blueos_example_msgs::{EmptyRequest, LevelQueryResponse, SetLevelRequest};
+use blueos_idl::msg::blueos_example_msgs::{LevelRequest, LevelResponse, SetLevelGoal};
 use blueos_service::{
     RestartPolicy, Service, ServiceBuilder, ServiceContext, ServiceError, TaskContext, TaskFailed,
     testing::{Harness, lock_unpoisoned},
@@ -94,17 +94,17 @@ impl Service for ReconcileService {
         })
         .projection(|snapshot: &ReconcileSnapshot| snapshot.desired_lamp);
         Ok(builder
-            .command("SetDesired", |request: SetLevelRequest| {
+            .command("SetDesired", |request: SetLevelGoal| {
                 Ok(ReconcileRequest::SetDesired(request.level > 0))
             })
-            .command("BumpScratch", |_request: EmptyRequest| {
+            .command("BumpScratch", |_request: LevelRequest| {
                 Ok(ReconcileRequest::BumpScratch)
             })
             .query(
                 "Observed",
-                |_request: EmptyRequest| Ok(ReconcileQuery::Observed),
+                |_request: LevelRequest| Ok(ReconcileQuery::Observed),
                 |response: ReconcileResponse| match response {
-                    ReconcileResponse::Observed(on) => Some(LevelQueryResponse {
+                    ReconcileResponse::Observed(on) => Some(LevelResponse {
                         level: u8::from(on),
                         max_level: 0,
                     }),
@@ -308,8 +308,8 @@ async fn send_awaiting_ack_returns_the_domain_verdict() {
         .await
         .expect("the Domain accepts the Command");
     assert!(accepted.accepted);
-    let observed: LevelQueryResponse = harness
-        .query("Observed", &EmptyRequest::default())
+    let observed: LevelResponse = harness
+        .query("Observed", &LevelRequest::default())
         .await
         .expect("the Query answers");
     assert_eq!(observed.level, 1);
@@ -327,16 +327,16 @@ async fn an_observed_fact_handled_twice_leaves_the_same_snapshot() {
         .send_awaiting_ack(Command::ObservedFact(ReconcileObserved::Lamp(true)))
         .await
         .expect("the first fact is applied");
-    let first: LevelQueryResponse = harness
-        .query("Observed", &EmptyRequest::default())
+    let first: LevelResponse = harness
+        .query("Observed", &LevelRequest::default())
         .await
         .expect("the Query answers");
     sender
         .send_awaiting_ack(Command::ObservedFact(ReconcileObserved::Lamp(true)))
         .await
         .expect("the second fact is applied");
-    let second: LevelQueryResponse = harness
-        .query("Observed", &EmptyRequest::default())
+    let second: LevelResponse = harness
+        .query("Observed", &LevelRequest::default())
         .await
         .expect("the Query answers");
     assert_eq!(first, second);

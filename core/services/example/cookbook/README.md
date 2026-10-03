@@ -18,6 +18,17 @@ Both receive a [`ServiceContext`](../../../libs/app/service/src/service.rs): the
 `Harness::start_with(arguments, |context| ...)` changes Context fields after `context` and before `build`, so the
 wiring under test is the wiring that ships ([`tests/14-io-effects.rs`](tests/14-io-effects.rs) replaces a device).
 
+A Service has four kinds of endpoint, which a real Service lists in its manifest (see
+[Endpoint kinds](../README.md#endpoint-kinds-d-26)) and an entry here declares on `ServiceBuilder` directly:
+
+- a Job type, a `.action` (`.command` for an instant one, `.job` with its nature, `.job_feedback` and `.job_result`):
+  [`tests/01-command.rs`](tests/01-command.rs), [`tests/15-jobs.rs`](tests/15-jobs.rs) to
+  [`tests/17-job-progress.rs`](tests/17-job-progress.rs);
+- a Query, a `.srv` (`.query`, or `.io_query` for one answered with IO): [`tests/04-query.rs`](tests/04-query.rs),
+  [`tests/22-io-query.rs`](tests/22-io-query.rs);
+- a State and an Event, a `.msg` (`.state`, `.event`): [`tests/05-state.rs`](tests/05-state.rs),
+  [`tests/06-event.rs`](tests/06-event.rs).
+
 Run:
 
 ```bash

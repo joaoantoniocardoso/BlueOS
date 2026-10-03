@@ -11,7 +11,7 @@ use blueos_domain::{Command, Decision, Domain, Effect, IoError, Now, Outcome};
 use blueos_idl::{
     Message,
     msg::{
-        blueos_example_msgs::EmptyRequest,
+        blueos_example_msgs::LevelRequest,
         blueos_msgs::{JobList, JobStatusStatus},
     },
 };
@@ -70,7 +70,7 @@ impl Service for JobProgressCookbookService {
             ServiceBuilder::new(JobProgressCookbookSnapshot::default()).job(
                 "Heat",
                 HEAT,
-                |job_id, _: EmptyRequest| Ok(JobProgressCookbookRequest::Heat { job_id }),
+                |job_id, _: LevelRequest| Ok(JobProgressCookbookRequest::Heat { job_id }),
             ),
         )
     }
@@ -155,7 +155,7 @@ async fn the_jobs_state_follows_a_job_through_pause_resume_and_success() {
     let job_id = new_job_id();
 
     harness
-        .submit("Heat", job_id, &EmptyRequest::default())
+        .submit("Heat", job_id, &LevelRequest::default())
         .await;
     assert_eq!(next_status(&mut jobs).await, JobStatusStatus::Executing);
     harness.control(job_id, JobControl::Pause).await;

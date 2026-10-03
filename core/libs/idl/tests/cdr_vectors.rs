@@ -13,7 +13,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use blueos_idl::Message;
-use blueos_idl::msg::blueos_example_msgs::EmptyRequest;
+use blueos_idl::msg::blueos_example_msgs::LevelRequest;
 use blueos_idl::msg::blueos_msgs::{CommandAck, CommandAckStatus, EndpointInfo, ServiceInfo};
 use blueos_idl::msg::blueos_recorder_msgs::{
     RecordingFile, RecordingFileState, RecordingOperationOperation,
@@ -106,18 +106,18 @@ fn extra_vectors() -> Vec<CdrVector> {
         capabilities: vec!["record".into()],
         endpoints: vec![
             EndpointInfo {
-                kind: "command".into(),
+                kind: "job".into(),
                 name: "Start".into(),
                 key: "blueos/v1/recorder/command/Start".into(),
-                request_schema: "blueos_recorder_msgs/msg/StartRecordingCommand".into(),
-                response_schema: "blueos_msgs/msg/CommandAck".into(),
+                interface_type: "blueos_recorder_msgs/action/StartRecording".into(),
+                schema: "bool rotate_if_active\n---\n---".into(),
             },
             EndpointInfo {
                 kind: "state".into(),
                 name: "library".into(),
                 key: "blueos/v1/recorder/state/library".into(),
-                request_schema: String::new(),
-                response_schema: "blueos_recorder_msgs/msg/RecordingLibrary".into(),
+                interface_type: "blueos_recorder_msgs/msg/RecordingLibrary".into(),
+                schema: String::new(),
             },
         ],
     };
@@ -262,7 +262,7 @@ fn extra_vectors() -> Vec<CdrVector> {
     });
 
     vectors.push(CdrVector {
-        schema_name: EmptyRequest::SCHEMA_NAME.to_string(),
+        schema_name: LevelRequest::SCHEMA_NAME.to_string(),
         hex: "0001000000".to_string(),
         decoded: serde_json::json!({}),
         category: "empty_struct".to_string(),
@@ -355,9 +355,9 @@ fn cdr_vectors_match_rust_codec() {
 
 fn encode_json_message(schema_name: &str, message: &serde_json::Value) -> Option<String> {
     let encoded = match schema_name {
-        EmptyRequest::SCHEMA_NAME => {
-            let message: EmptyRequest =
-                serde_json::from_value(message.clone()).expect("EmptyRequest from json");
+        LevelRequest::SCHEMA_NAME => {
+            let message: LevelRequest =
+                serde_json::from_value(message.clone()).expect("LevelRequest from json");
             message.encode().ok()
         }
         Log::SCHEMA_NAME => {

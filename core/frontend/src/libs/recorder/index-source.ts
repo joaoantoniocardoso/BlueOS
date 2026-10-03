@@ -1,4 +1,4 @@
-import type { RecordingIndex } from '@blueos-idl/messages'
+import type { RecordingIndexResponse } from '@blueos-idl/messages'
 
 import { query } from '@/libs/blueos-api/command'
 import { index } from '@/libs/blueos-api/services/recorder'
@@ -15,7 +15,7 @@ function recordsToUint8Array(records: number[] | Uint8Array): Uint8Array {
   return Uint8Array.from(records)
 }
 
-function mapIndexPage(page: RecordingIndex): RecordingIndexPage {
+function mapIndexPage(page: RecordingIndexResponse): RecordingIndexPage {
   return {
     size: page.size,
     offset: page.offset,

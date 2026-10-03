@@ -9,7 +9,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use blueos_idl::msg::blueos_recorder_msgs::RecordingIndex;
+use blueos_idl::msg::blueos_recorder_msgs::RecordingIndexResponse;
 use blueos_recorder_mcap::{IndexError, RewriteError, RewriteSummary};
 use blueos_recorder_storage::{LibraryFooterCache, RecordingsFolder};
 use blueos_service::Session;
@@ -18,8 +18,11 @@ use blueos_service::Session;
 pub(crate) const DEFAULT_MCAP_WRITER_QUEUE_CAPACITY: usize = 4096;
 
 /// Runs one recording index walk outside the Inbox (production default: MCAP `walk_index`).
-pub type IndexWalker =
-    Arc<dyn Fn(&Path, u64, u32, &AtomicBool) -> Result<RecordingIndex, IndexError> + Send + Sync>;
+pub type IndexWalker = Arc<
+    dyn Fn(&Path, u64, u32, &AtomicBool) -> Result<RecordingIndexResponse, IndexError>
+        + Send
+        + Sync,
+>;
 
 /// Rewrites a recording into a new file on a blocking thread: `(source, output, progress, cancel)` (production
 /// default: MCAP `rewrite`). The library operations Task runs repair and snapshot through it.

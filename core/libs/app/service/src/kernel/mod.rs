@@ -41,8 +41,8 @@ use blueos_jobs::{JobControl, JobEnd, JobId, JobNature, JobStatus, Jobs, JobsErr
 
 use crate::{
     builder::{
-        AnswerQuery, Decode, EventEndpoint, InboxCommand, JobOutput, JobsAccess, Refusal, Respond,
-        ServiceBuilder, StateEndpoint, job_list, job_status,
+        AnswerQuery, Decode, EventEndpoint, InboxCommand, JobOutput, JobsAccess, MessageType,
+        Refusal, Respond, ServiceBuilder, StateEndpoint, job_list, job_status,
     },
     clock::Clock,
     command_sender::{CommandSender, Session, command_ack},
@@ -294,6 +294,12 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         let shutdown_receiver = builder.shutdown_receiver;
         let (inbox_sender, inbox) = mpsc::channel(INBOX_CAPACITY);
         let snapshot_for_queries = Arc::new(tokio::sync::RwLock::new(builder.snapshot.clone()));
+        let job_type_names: Vec<String> = builder
+            .commands
+            .iter()
+            .map(|command| command.name.clone())
+            .chain(["UpdateSettings".to_owned()])
+            .collect();
         let service_info = ServiceInfo {
             name: service.to_owned(),
             version: builder.metadata.version.to_owned(),
@@ -312,9 +318,39 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                     kind: "state".to_owned(),
                     name: "jobs".to_owned(),
                     key: jobs_key(service),
-                    request_schema: String::new(),
-                    response_schema: JobList::SCHEMA_NAME.to_owned(),
+                    interface_type: JobList::SCHEMA_NAME.to_owned(),
+                    schema: JobList::SCHEMA.to_owned(),
                 }])
+                .chain(job_type_names.iter().flat_map(|job_type| {
+                    let (feedback_type, result_type) = builder
+                        .job_outputs
+                        .get(job_type)
+                        .map(|output| (output.feedback_type, output.result_type))
+                        .unwrap_or_default();
+                    [
+                        EndpointInfo {
+                            kind: "state".to_owned(),
+                            name: format!("jobs/{job_type}/feedback"),
+                            key: job_feedback_key(service, job_type),
+                            interface_type: feedback_type.name.to_owned(),
+                            schema: feedback_type.schema.to_owned(),
+                        },
+                        EndpointInfo {
+                            kind: "event".to_owned(),
+                            name: format!("jobs/{job_type}/result"),
+                            key: job_result_key(service, job_type),
+                            interface_type: result_type.name.to_owned(),
+                            schema: result_type.schema.to_owned(),
+                        },
+                        EndpointInfo {
+                            kind: "query".to_owned(),
+                            name: format!("jobs/{job_type}/history"),
+                            key: job_history_key(service, job_type),
+                            interface_type: JobList::SCHEMA_NAME.to_owned(),
+                            schema: JobList::SCHEMA.to_owned(),
+                        },
+                    ]
+                }))
                 .collect(),
         };
         let info_key = info_query_key(service);
@@ -364,29 +400,6 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         let mut pending_job_outputs = Vec::new();
         for command in builder.commands {
             let queryable = declare(&*backend, command_key(service, &command.name)).await?;
-            let job_output = JobTypeOutput {
-                job_type: command.name.clone(),
-                output: builder
-                    .job_outputs
-                    .remove(&command.name)
-                    .unwrap_or(JobOutput {
-                        feedback: None,
-                        result: None,
-                    }),
-                feedback_latest: watch::Sender::new(None),
-                history: watch::Sender::new(None),
-            };
-            let feedback_key = job_feedback_key(service, &command.name);
-            let history_key = job_history_key(service, &command.name);
-            pending_job_outputs.push((
-                declare(&*backend, feedback_key.clone()).await?,
-                feedback_key,
-                job_output.feedback_latest.subscribe(),
-                declare(&*backend, history_key.clone()).await?,
-                history_key,
-                job_output.history.subscribe(),
-            ));
-            job_outputs.push(job_output);
             let into_input: IntoInput<D> = {
                 let decode = Arc::clone(&command.decode);
                 let job_type = command.name.clone();
@@ -404,6 +417,30 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             };
             pending_commands.push((queryable, into_input));
             job_types.insert(command.name, command.decode);
+        }
+        for job_type in job_type_names {
+            let feedback_key = job_feedback_key(service, &job_type);
+            let history_key = job_history_key(service, &job_type);
+            let job_output = JobTypeOutput {
+                output: builder.job_outputs.remove(&job_type).unwrap_or(JobOutput {
+                    feedback: None,
+                    result: None,
+                    feedback_type: MessageType::default(),
+                    result_type: MessageType::default(),
+                }),
+                job_type,
+                feedback_latest: watch::Sender::new(None),
+                history: watch::Sender::new(None),
+            };
+            pending_job_outputs.push((
+                declare(&*backend, feedback_key.clone()).await?,
+                feedback_key,
+                job_output.feedback_latest.subscribe(),
+                declare(&*backend, history_key.clone()).await?,
+                history_key,
+                job_output.history.subscribe(),
+            ));
+            job_outputs.push(job_output);
         }
         if let Some(job_type) = builder.job_outputs.keys().next() {
             return Err(ServiceError::Build(

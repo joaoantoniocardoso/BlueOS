@@ -13,7 +13,7 @@ use blueos_comms::{CommsBackend, LivelinessEvent, QueryBody};
 use blueos_comms_zenoh::ZenohBackend;
 use blueos_domain::{Command, Decision, Domain, DomainQueries, IoError, Now, Outcome};
 use blueos_idl::msg::{
-    blueos_example_msgs::{EmptyRequest, LevelQueryResponse, PumpState},
+    blueos_example_msgs::{LevelRequest, LevelResponse, PumpState},
     blueos_msgs::ServiceInfo,
 };
 use blueos_jobs::JobId;
@@ -58,15 +58,15 @@ impl Service for ZenohStartupService {
         _context: &(),
     ) -> Result<ServiceBuilder<ZenohStartup>, ServiceError> {
         Ok(ServiceBuilder::new(ZenohStartupSnapshot { ready: true })
-            .command("Noop", |_: EmptyRequest| Ok(ZenohStartupRequest::Noop))
+            .command("Noop", |_: LevelRequest| Ok(ZenohStartupRequest::Noop))
             .query(
                 "level",
-                |_: EmptyRequest| Ok(ZenohStartupQuery::Level),
-                |response: LevelQueryResponse| Some(response),
+                |_: LevelRequest| Ok(ZenohStartupQuery::Level),
+                |response: LevelResponse| Some(response),
             )
-            .io_query("Probe", |_request: EmptyRequest| {
+            .io_query("Probe", |_request: LevelRequest| {
                 Box::pin(async move {
-                    Ok(LevelQueryResponse {
+                    Ok(LevelResponse {
                         level: 4,
                         max_level: 9,
                     })
@@ -114,11 +114,11 @@ impl Domain for ZenohStartup {
 
 impl DomainQueries for ZenohStartup {
     type Query = ZenohStartupQuery;
-    type Response = LevelQueryResponse;
+    type Response = LevelResponse;
 
     fn query(_snapshot: &Self::Snapshot, query: Self::Query, _now: Now) -> Self::Response {
         match query {
-            ZenohStartupQuery::Level => LevelQueryResponse {
+            ZenohStartupQuery::Level => LevelResponse {
                 level: 3,
                 max_level: 9,
             },
@@ -144,8 +144,8 @@ async fn expect_one_get(
 
 async fn every_endpoint_answers(backend: &Arc<dyn CommsBackend>, service: &str) {
     let empty = QueryBody::new(
-        EmptyRequest::default().encode().expect("encode"),
-        cdr_encoding(EmptyRequest::SCHEMA_NAME),
+        LevelRequest::default().encode().expect("encode"),
+        cdr_encoding(LevelRequest::SCHEMA_NAME),
     );
     let info_payload = expect_one_get(backend, &info_query_key(service), None).await;
     let info = ServiceInfo::decode(&info_payload).expect("ServiceInfo");
@@ -153,12 +153,12 @@ async fn every_endpoint_answers(backend: &Arc<dyn CommsBackend>, service: &str) 
 
     let level_payload =
         expect_one_get(backend, &query_key(service, "level"), Some(empty.clone())).await;
-    let level = LevelQueryResponse::decode(&level_payload).expect("level query");
+    let level = LevelResponse::decode(&level_payload).expect("level query");
     assert_eq!(level.level, 3);
 
     let probe_payload =
         expect_one_get(backend, &query_key(service, "Probe"), Some(empty.clone())).await;
-    let probe = LevelQueryResponse::decode(&probe_payload).expect("Probe io query");
+    let probe = LevelResponse::decode(&probe_payload).expect("Probe io query");
     assert_eq!(probe.level, 4);
 
     let command = empty.with_attachment(JobId::from_u128(1).to_string().into_bytes());

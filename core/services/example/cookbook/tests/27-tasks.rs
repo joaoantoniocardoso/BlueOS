@@ -3,7 +3,7 @@
 use core::{convert::Infallible, time::Duration};
 
 use blueos_domain::{Command, Decision, Domain, IoError, Now, Outcome};
-use blueos_idl::msg::blueos_example_msgs::LevelQueryResponse;
+use blueos_idl::msg::blueos_example_msgs::LevelResponse;
 use blueos_service::{
     RestartPolicy, Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness,
 };
@@ -50,11 +50,9 @@ impl Service for TasksCookbookService {
                 task_context.shutdown.cancelled().await;
                 Ok(())
             })
-            .state("ready", |snapshot: &TasksCookbookSnapshot| {
-                LevelQueryResponse {
-                    level: u8::from(snapshot.ready),
-                    max_level: 1,
-                }
+            .state("ready", |snapshot: &TasksCookbookSnapshot| LevelResponse {
+                level: u8::from(snapshot.ready),
+                max_level: 1,
             }))
     }
 }
@@ -102,5 +100,5 @@ async fn a_supervised_task_sends_commands_while_the_kernel_runs() {
         .await
         .unwrap();
     tokio::time::advance(Duration::from_secs(1)).await;
-    assert_eq!(harness.state::<LevelQueryResponse>("ready").await.level, 1);
+    assert_eq!(harness.state::<LevelResponse>("ready").await.level, 1);
 }

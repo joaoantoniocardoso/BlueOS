@@ -11,7 +11,7 @@ use tokio::time::{advance, timeout};
 use blueos_api::state_key;
 use blueos_comms::{CommsBackend, channel::ChannelBackend};
 use blueos_idl::msg::blueos_recorder_msgs::{
-    DeleteRecordingCommand, RecordingLibrary, StopRecordingCommand,
+    DeleteRecordingGoal, RecordingLibrary, StopRecordingGoal,
 };
 use blueos_recorder_app::RecorderService;
 use blueos_recorder_library::RESCAN_INTERVAL;
@@ -64,7 +64,7 @@ async fn delete_rejects_hostile_paths_without_touching_disk() {
         let ack = harness
             .send(
                 "DeleteRecording",
-                &DeleteRecordingCommand { path: path.into() },
+                &DeleteRecordingGoal { path: path.into() },
             )
             .await;
         assert!(!ack.accepted, "expected refusal for {path:?}");
@@ -82,7 +82,7 @@ async fn stop_auto_recording_and_remove_session_files(
     start_recording(harness).await;
     advance(Duration::from_secs(1)).await;
     wait_for_active_recording(harness.backend()).await;
-    harness.send("Stop", &StopRecordingCommand::default()).await;
+    harness.send("Stop", &StopRecordingGoal::default()).await;
     wait_for_recording_idle(harness.backend()).await;
     for entry in fs::read_dir(directory).into_iter().flatten().flatten() {
         let name = entry.file_name().to_string_lossy().into_owned();

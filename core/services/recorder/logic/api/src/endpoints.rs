@@ -5,24 +5,115 @@
 
 use blueos_domain::Domain;
 use blueos_idl::msg::blueos_recorder_msgs;
+use blueos_jobs::JobId;
 
-/// Converts between the Domain and the Messages of every endpoint of the `recorder` Service that is not
-/// `custom`. Implement it for the Domain in this crate: `register` in the app crate calls it.
+/// Converts between the Domain and the Messages of every endpoint of the `recorder` Service but its IO
+/// queries. Implement it for the Domain in this crate: `register` in the app crate calls it.
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not convert the endpoints of the `recorder` Service",
     label = "no `impl Conversions for {Self}` in the `recorder` logic/api crate",
-    note = "implement `start` for the Command `Start`, `stop` for the Command `Stop`, `library` for the State `library`, `recording` for the State `recording`, `operation` for the Event `operation`"
+    note = "implement `delete_recording_feedback` and `delete_recording_result` for the Job type `DeleteRecording`, `repair_recording_feedback` and `repair_recording_result` for the Job type `RepairRecording`, `snapshot_recording_feedback` and `snapshot_recording_result` for the Job type `SnapshotRecording`, `StartError`, `start`, `start_feedback` and `start_result` for the Job type `Start`, `StopError`, `stop`, `stop_feedback` and `stop_result` for the Job type `Stop`, `library` for the State `library`, `recording` for the State `recording`, `operation` for the Event `operation`"
 )]
 pub trait Conversions: Domain {
-    /// The Command `Start`, at `blueos/v1/recorder/command/Start`.
+    /// The Feedback of a Job of the Job type `DeleteRecording`.
     ///
-    /// The Domain's Request for the Message.
-    fn start(request: blueos_recorder_msgs::StartRecordingCommand) -> Self::Request;
+    /// That of the Job `job_id` in `snapshot`, or `None` while it has none.
+    fn delete_recording_feedback(
+        snapshot: &Self::Snapshot,
+        job_id: JobId,
+    ) -> Option<blueos_recorder_msgs::DeleteRecordingFeedback>;
 
-    /// The Command `Stop`, at `blueos/v1/recorder/command/Stop`.
+    /// The Job result of a Job of the Job type `DeleteRecording`.
     ///
-    /// The Domain's Request for the Message.
-    fn stop(request: blueos_recorder_msgs::StopRecordingCommand) -> Self::Request;
+    /// That of the Job `job_id`, in the `snapshot` of the step that ended it.
+    fn delete_recording_result(
+        snapshot: &Self::Snapshot,
+        job_id: JobId,
+    ) -> blueos_recorder_msgs::DeleteRecordingResult;
+
+    /// The Feedback of a Job of the Job type `RepairRecording`.
+    ///
+    /// That of the Job `job_id` in `snapshot`, or `None` while it has none.
+    fn repair_recording_feedback(
+        snapshot: &Self::Snapshot,
+        job_id: JobId,
+    ) -> Option<blueos_recorder_msgs::RepairRecordingFeedback>;
+
+    /// The Job result of a Job of the Job type `RepairRecording`.
+    ///
+    /// That of the Job `job_id`, in the `snapshot` of the step that ended it.
+    fn repair_recording_result(
+        snapshot: &Self::Snapshot,
+        job_id: JobId,
+    ) -> blueos_recorder_msgs::RepairRecordingResult;
+
+    /// The Feedback of a Job of the Job type `SnapshotRecording`.
+    ///
+    /// That of the Job `job_id` in `snapshot`, or `None` while it has none.
+    fn snapshot_recording_feedback(
+        snapshot: &Self::Snapshot,
+        job_id: JobId,
+    ) -> Option<blueos_recorder_msgs::SnapshotRecordingFeedback>;
+
+    /// The Job result of a Job of the Job type `SnapshotRecording`.
+    ///
+    /// That of the Job `job_id`, in the `snapshot` of the step that ended it.
+    fn snapshot_recording_result(
+        snapshot: &Self::Snapshot,
+        job_id: JobId,
+    ) -> blueos_recorder_msgs::SnapshotRecordingResult;
+
+    /// Why a Goal of the Job type `Start` is rejected.
+    type StartError: core::error::Error + Send + Sync + 'static;
+
+    /// The Job type `Start`, at `blueos/v1/recorder/command/Start`.
+    ///
+    /// The Domain's Request for the Goal, or why it is rejected.
+    fn start(
+        goal: blueos_recorder_msgs::StartRecordingGoal,
+    ) -> Result<Self::Request, Self::StartError>;
+
+    /// The Feedback of a Job of the Job type `Start`.
+    ///
+    /// That of the Job `job_id` in `snapshot`, or `None` while it has none.
+    fn start_feedback(
+        snapshot: &Self::Snapshot,
+        job_id: JobId,
+    ) -> Option<blueos_recorder_msgs::StartRecordingFeedback>;
+
+    /// The Job result of a Job of the Job type `Start`.
+    ///
+    /// That of the Job `job_id`, in the `snapshot` of the step that ended it.
+    fn start_result(
+        snapshot: &Self::Snapshot,
+        job_id: JobId,
+    ) -> blueos_recorder_msgs::StartRecordingResult;
+
+    /// Why a Goal of the Job type `Stop` is rejected.
+    type StopError: core::error::Error + Send + Sync + 'static;
+
+    /// The Job type `Stop`, at `blueos/v1/recorder/command/Stop`.
+    ///
+    /// The Domain's Request for the Goal, or why it is rejected.
+    fn stop(
+        goal: blueos_recorder_msgs::StopRecordingGoal,
+    ) -> Result<Self::Request, Self::StopError>;
+
+    /// The Feedback of a Job of the Job type `Stop`.
+    ///
+    /// That of the Job `job_id` in `snapshot`, or `None` while it has none.
+    fn stop_feedback(
+        snapshot: &Self::Snapshot,
+        job_id: JobId,
+    ) -> Option<blueos_recorder_msgs::StopRecordingFeedback>;
+
+    /// The Job result of a Job of the Job type `Stop`.
+    ///
+    /// That of the Job `job_id`, in the `snapshot` of the step that ended it.
+    fn stop_result(
+        snapshot: &Self::Snapshot,
+        job_id: JobId,
+    ) -> blueos_recorder_msgs::StopRecordingResult;
 
     /// The State `library`, at `blueos/v1/recorder/state/library`.
     ///

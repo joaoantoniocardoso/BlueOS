@@ -270,6 +270,7 @@ dependencies = [
  "blueos-domain",
  "blueos-example-domain",
  "blueos-idl",
+ "blueos-jobs",
 ]
 
 [[package]]
@@ -282,6 +283,7 @@ dependencies = [
  "blueos-example-api",
  "blueos-example-domain",
  "blueos-idl",
+ "blueos-jobs",
  "blueos-service",
  "clap",
  "serde",
@@ -317,6 +319,7 @@ name = "blueos-example-domain"
 version = "0.1.0"
 dependencies = [
  "blueos-domain",
+ "blueos-jobs",
  "thiserror",
 ]
 
@@ -374,6 +377,7 @@ version = "0.1.0"
 dependencies = [
  "blueos-domain",
  "blueos-idl",
+ "blueos-jobs",
  "blueos-recorder-capture",
  "blueos-recorder-domain",
  "blueos-recorder-library",

@@ -8,7 +8,7 @@ use core::{
 };
 use std::sync::{Arc, Mutex, PoisonError};
 
-use blueos_idl::msg::blueos_recorder_msgs::{RecordingIndex, RecordingIndexRequest};
+use blueos_idl::msg::blueos_recorder_msgs::{RecordingIndexRequest, RecordingIndexResponse};
 use blueos_recorder_app::IndexWalker;
 use blueos_recorder_mcap::{IndexError, walk_index};
 use tempfile::tempdir;
@@ -34,7 +34,7 @@ async fn index_query_round_trips_through_the_service() {
 
     let harness = start_harness(directory.path()).await;
     let index = harness
-        .query::<_, RecordingIndex>(
+        .query::<_, RecordingIndexResponse>(
             "index",
             &RecordingIndexRequest {
                 path: relative.into(),
@@ -150,7 +150,7 @@ async fn index_query_timeout_cancels_before_the_next_walk_starts() {
     assert_eq!(active.load(Ordering::SeqCst), 0);
 
     harness
-        .query::<_, RecordingIndex>("index", &request)
+        .query::<_, RecordingIndexResponse>("index", &request)
         .await
         .expect("second index after timeout");
     assert_eq!(walk_calls.load(Ordering::SeqCst), 2);
@@ -217,7 +217,7 @@ fn timeout_test_walker(
 async fn index_query_on(
     backend: &Arc<dyn blueos_comms::CommsBackend>,
     request: &RecordingIndexRequest,
-) -> Result<RecordingIndex, blueos_comms::ReplyError> {
+) -> Result<RecordingIndexResponse, blueos_comms::ReplyError> {
     use blueos_api::{Message, cdr_encoding, query_key};
     use blueos_comms::QueryBody;
     use blueos_recorder_app::RecorderService;
@@ -238,9 +238,9 @@ async fn index_query_on(
     let [reply] = replies.as_slice() else {
         panic!("expected one reply, got {replies:?}");
     };
-    reply
-        .clone()
-        .map(|sample| RecordingIndex::decode(&sample.payload().to_bytes()).expect("decode index"))
+    reply.clone().map(|sample| {
+        RecordingIndexResponse::decode(&sample.payload().to_bytes()).expect("decode index")
+    })
 }
 
 fn index_refusal_reason<T: core::fmt::Debug>(

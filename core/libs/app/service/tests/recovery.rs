@@ -14,7 +14,7 @@ use blueos_api::{Message, cdr_encoding, command_key, status_state_key};
 use blueos_comms::{CommsBackend, QueryBody};
 use blueos_domain::{Command, Decision, Domain, Now, Outcome};
 use blueos_idl::msg::{
-    blueos_example_msgs::{PumpState, SetLevelRequest},
+    blueos_example_msgs::{PumpState, SetLevelGoal},
     blueos_msgs::{ServiceStatus, ServiceStatusStatus},
 };
 use blueos_jobs::JobId;
@@ -74,7 +74,7 @@ impl Service for TankService {
             capacity,
             level_set_at: Duration::ZERO,
         })
-        .command("SetLevel", |request: SetLevelRequest| {
+        .command("SetLevel", |request: SetLevelGoal| {
             Ok(TankRequest::SetLevel(request.level))
         })
         .state("tank", |snapshot: &TankSnapshot| PumpState {
@@ -203,14 +203,12 @@ async fn inbox_loop_panic_marks_status_degraded_and_keeps_running() {
         .await
         .expect("status key subscribes");
 
-    harness
-        .send("SetLevel", &SetLevelRequest { level: 1 })
-        .await;
+    harness.send("SetLevel", &SetLevelGoal { level: 1 }).await;
 
     let ack = harness
         .send(
             "SetLevel",
-            &SetLevelRequest {
+            &SetLevelGoal {
                 level: LEVEL_THAT_PANICS_IN_HANDLE,
             },
         )
@@ -221,9 +219,7 @@ async fn inbox_loop_panic_marks_status_degraded_and_keeps_running() {
     assert_eq!(degraded.status, ServiceStatusStatus::Degraded);
     assert_eq!(degraded.detail, "inbox");
 
-    harness
-        .send("SetLevel", &SetLevelRequest { level: 2 })
-        .await;
+    harness.send("SetLevel", &SetLevelGoal { level: 2 }).await;
     let ready = next_status(&mut status_subscriber).await;
     assert_eq!(ready.status, ServiceStatusStatus::Ready);
     assert_eq!(harness.state::<PumpState>("tank").await.level, 2);
@@ -257,12 +253,12 @@ async fn three_inbox_loop_panics_within_one_minute_exit_non_zero() {
         async move {
             for attempt in 0..3 {
                 let body = QueryBody::new(
-                    SetLevelRequest {
+                    SetLevelGoal {
                         level: LEVEL_THAT_PANICS_IN_HANDLE,
                     }
                     .encode()
                     .expect("encode"),
-                    cdr_encoding(SetLevelRequest::SCHEMA_NAME),
+                    cdr_encoding(SetLevelGoal::SCHEMA_NAME),
                 )
                 .with_attachment(JobId::from_u128(attempt).to_string().into_bytes());
                 backend

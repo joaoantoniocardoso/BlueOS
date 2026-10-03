@@ -1,0 +1,7 @@
+# blueos_recorder_msgs/action/DeleteRecording
+# The Job type on blueos/v1/recorder/command/DeleteRecording. Rejected while the recording is being written or
+# repaired.
+
+string path
+---
+---

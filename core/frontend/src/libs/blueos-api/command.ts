@@ -36,8 +36,8 @@ export async function sendCommand<Schema extends SchemaName>(
   jobId: string = newJobId(),
 ): Promise<CommandAck> {
   return ask(transport, command.key, {
-    payload: encodeCdr(command.requestSchema, request),
-    encoding: cdrEncoding(command.requestSchema),
+    payload: encodeCdr(command.goalSchema, request),
+    encoding: cdrEncoding(command.goalSchema),
     attachment: new TextEncoder().encode(jobId),
   }, COMMAND_ACK_SCHEMA)
 }
@@ -64,7 +64,7 @@ export async function answerPermission(
   jobId: string,
   granted: boolean,
 ): Promise<CommandAck> {
-  const endpoint = { key: commandKey(service, 'AnswerPermission'), requestSchema: PERMISSION_ANSWER_SCHEMA }
+  const endpoint = { key: commandKey(service, 'AnswerPermission'), goalSchema: PERMISSION_ANSWER_SCHEMA }
   return sendCommand(transport, endpoint, { granted }, jobId)
 }
 

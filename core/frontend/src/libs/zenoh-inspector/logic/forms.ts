@@ -1,6 +1,30 @@
 import type { EndpointInfo } from '@blueos-idl/messages'
 
+import { COMMAND_ACK_SCHEMA } from '@/libs/blueos-api/types'
+
 import type { CdrCodec, SchemaProvider } from './types'
+
+/**
+ * The schema names a client sends to and reads from `endpoint`, from its kind and interface type: a Job type takes
+ * its Goal and acks with a `CommandAck`, a Query of a `.srv` takes its request and answers its response, and a State,
+ * an Event or a Query of a `.msg` (a Job type's history) takes nothing.
+ */
+export function endpointSchemas(endpoint: EndpointInfo): { requestSchema: string, responseSchema: string } {
+  switch (endpoint.kind) {
+    case 'job':
+      return { requestSchema: `${endpoint.interface_type}_Goal`, responseSchema: COMMAND_ACK_SCHEMA }
+    case 'query':
+      if (endpoint.interface_type.includes('/srv/')) {
+        return {
+          requestSchema: `${endpoint.interface_type}_Request`,
+          responseSchema: `${endpoint.interface_type}_Response`,
+        }
+      }
+      return { requestSchema: '', responseSchema: endpoint.interface_type }
+    default:
+      return { requestSchema: '', responseSchema: endpoint.interface_type }
+  }
+}
 
 export function defaultRequestText(
   schemaName: string,

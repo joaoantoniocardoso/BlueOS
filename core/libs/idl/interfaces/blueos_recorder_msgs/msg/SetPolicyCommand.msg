@@ -1,3 +1,0 @@
-# blueos_recorder_msgs/msg/SetPolicyCommand
-
-blueos_recorder_msgs/RecordingPolicy policy

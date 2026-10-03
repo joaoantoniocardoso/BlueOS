@@ -5,49 +5,64 @@
 
 use blueos_example_api::endpoints::Conversions;
 use blueos_idl::msg::blueos_example_msgs;
-use blueos_service::ServiceBuilder;
+use blueos_jobs::{DomainJobs, JobNature};
+use blueos_service::{Refusal, ServiceBuilder};
 
 /// The name of the `example` Service, in each of its keys: `blueos/v1/example/...`.
 pub const NAME: &str = "example";
 
 /// Registers every endpoint of `endpoints.toml` on `builder`.
-pub fn register<D: Conversions, Context>(
+pub fn register<D: Conversions + DomainJobs, Context>(
     builder: ServiceBuilder<D, Context>,
 ) -> ServiceBuilder<D, Context> {
     builder
-        .command(
+        .job(
             "SetLevel",
-            |request: blueos_example_msgs::SetLevelRequest| {
-                Ok(<D as Conversions>::set_level(request))
+            JobNature {
+                lasting: true,
+                cancellable: false,
+                pausable: false,
+                needs_permission: false,
+            },
+            |job_id, goal: blueos_example_msgs::SetLevelGoal| {
+                <D as Conversions>::set_level(job_id, goal).map_err(Refusal::from)
             },
         )
+        .job_feedback("SetLevel", <D as Conversions>::set_level_feedback)
+        .job_result("SetLevel", <D as Conversions>::set_level_result)
         .query(
             "Level",
-            |request: blueos_example_msgs::EmptyRequest| Ok(<D as Conversions>::level(request)),
+            |request: blueos_example_msgs::LevelRequest| Ok(<D as Conversions>::level(request)),
             <D as Conversions>::level_response,
         )
         .state("pump", <D as Conversions>::pump)
         .manifest_endpoints(vec![
             blueos_idl::msg::blueos_msgs::EndpointInfo {
-                kind: "command".into(),
+                kind: "job".into(),
                 name: "SetLevel".into(),
                 key: "blueos/v1/example/command/SetLevel".into(),
-                request_schema: "blueos_example_msgs/msg/SetLevelRequest".into(),
-                response_schema: "blueos_msgs/msg/CommandAck".into(),
+                interface_type: "blueos_example_msgs/action/SetLevel".into(),
+                schema: blueos_idl::schema("blueos_example_msgs/action/SetLevel")
+                    .unwrap_or_default()
+                    .into(),
             },
             blueos_idl::msg::blueos_msgs::EndpointInfo {
                 kind: "query".into(),
                 name: "Level".into(),
                 key: "blueos/v1/example/query/Level".into(),
-                request_schema: "blueos_example_msgs/msg/EmptyRequest".into(),
-                response_schema: "blueos_example_msgs/msg/LevelQueryResponse".into(),
+                interface_type: "blueos_example_msgs/srv/Level".into(),
+                schema: blueos_idl::schema("blueos_example_msgs/srv/Level")
+                    .unwrap_or_default()
+                    .into(),
             },
             blueos_idl::msg::blueos_msgs::EndpointInfo {
                 kind: "state".into(),
                 name: "pump".into(),
                 key: "blueos/v1/example/state/pump".into(),
-                request_schema: "".into(),
-                response_schema: "blueos_example_msgs/msg/PumpState".into(),
+                interface_type: "blueos_example_msgs/msg/PumpState".into(),
+                schema: blueos_idl::schema("blueos_example_msgs/msg/PumpState")
+                    .unwrap_or_default()
+                    .into(),
             },
         ])
 }

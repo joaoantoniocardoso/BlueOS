@@ -10,10 +10,10 @@ export interface StateEndpoint<Schema extends SchemaName> {
   messageSchema: Schema
 }
 
-/** A Command endpoint, such as the generated `example.SetLevel`. It replies with a `CommandAck`. */
+/** A Job type, such as the generated `example.SetLevel`: a client submits its Goal and gets a `CommandAck`. */
 export interface CommandEndpoint<Schema extends SchemaName> {
   key: string
-  requestSchema: Schema
+  goalSchema: Schema
 }
 
 /** A Query or IO query endpoint, such as the generated `example.Level`. */
@@ -50,5 +50,5 @@ export function jobResultEvent(service: string, jobType: string): EventEndpoint<
 
 /** The `UpdateSettings` instant Job type of a Service, the only way to change its settings (D-11, D-12). */
 export function updateSettingsCommand(service: string): CommandEndpoint<'blueos_msgs/msg/SettingsEnvelope'> {
-  return { key: commandKey(service, 'UpdateSettings'), requestSchema: 'blueos_msgs/msg/SettingsEnvelope' }
+  return { key: commandKey(service, 'UpdateSettings'), goalSchema: 'blueos_msgs/msg/SettingsEnvelope' }
 }

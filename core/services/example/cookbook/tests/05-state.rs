@@ -3,7 +3,7 @@
 use core::convert::Infallible;
 
 use blueos_domain::{Command, Decision, Domain, IoError, Now, Outcome};
-use blueos_idl::msg::blueos_example_msgs::{PumpState, SetLevelRequest};
+use blueos_idl::msg::blueos_example_msgs::{PumpState, SetLevelGoal};
 use blueos_service::{Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness};
 
 struct StateCookbookService;
@@ -39,7 +39,7 @@ impl Service for StateCookbookService {
         _context: &(),
     ) -> Result<ServiceBuilder<StateCookbook>, ServiceError> {
         Ok(ServiceBuilder::new(StateCookbookSnapshot::default())
-            .command("SetLevel", |request: SetLevelRequest| {
+            .command("SetLevel", |request: SetLevelGoal| {
                 Ok(StateCookbookRequest::SetLevel(request.level))
             })
             .state("pump", |snapshot: &StateCookbookSnapshot| PumpState {
@@ -87,9 +87,7 @@ async fn state_publishes_after_a_command() {
     let harness = Harness::<StateCookbookService>::start(StateCookbookArguments)
         .await
         .unwrap();
-    harness
-        .send("SetLevel", &SetLevelRequest { level: 77 })
-        .await;
+    harness.send("SetLevel", &SetLevelGoal { level: 77 }).await;
     let pump = harness.state::<PumpState>("pump").await;
     assert_eq!(pump.level, 77);
 }

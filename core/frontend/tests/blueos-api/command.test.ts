@@ -52,8 +52,8 @@ describe('sendCommand', () => {
     expect(await sending).toEqual({ ...ack, job_id: jobId })
     expect(jobId).toMatch(/^[0-9a-f-]{36}$/)
     expect(sent.key).toBe(SetLevel.key)
-    expect(sent.body?.payload).toEqual(encodeCdr(SetLevel.requestSchema, { level: 3 }))
-    expect(sent.body?.encoding).toBe(cdrEncoding(SetLevel.requestSchema))
+    expect(sent.body?.payload).toEqual(encodeCdr(SetLevel.goalSchema, { level: 3 }))
+    expect(sent.body?.encoding).toBe(cdrEncoding(SetLevel.goalSchema))
   })
 
   it('resubmits under the Job id it is given, so a retry returns the same Job', async () => {

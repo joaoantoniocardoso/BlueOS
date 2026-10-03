@@ -10,7 +10,7 @@ use std::{
 
 use tempfile::tempdir;
 
-use blueos_idl::msg::blueos_recorder_msgs::{ChunkIndexEntry, RecordingIndex};
+use blueos_idl::msg::blueos_recorder_msgs::{ChunkIndexEntry, RecordingIndexResponse};
 use blueos_recorder_mcap::{IndexError, MCAP_MAGIC, read_footer_at, walk_index, walk_index_reader};
 
 /// Start time, end time, compression, compressed size, and (channel id, message count) per message index.
@@ -142,7 +142,7 @@ fn build_chunked_mcap(
     data
 }
 
-fn walk_mcap_index_pages(mcap_path: &Path, page_limit: u32) -> Vec<RecordingIndex> {
+fn walk_mcap_index_pages(mcap_path: &Path, page_limit: u32) -> Vec<RecordingIndexResponse> {
     let mut pages = Vec::new();
     let mut offset = 0;
     loop {
@@ -161,7 +161,7 @@ fn walk_mcap_index_pages(mcap_path: &Path, page_limit: u32) -> Vec<RecordingInde
 }
 
 fn merge_paged_chunk_indexes(
-    pages: &[RecordingIndex],
+    pages: &[RecordingIndexResponse],
 ) -> (Vec<ChunkIndexEntry>, HashMap<u16, u64>) {
     let mut chunks = Vec::new();
     let mut message_counts = HashMap::new();
@@ -177,7 +177,7 @@ fn merge_paged_chunk_indexes(
     (chunks, message_counts)
 }
 
-fn message_counts_map(index: &RecordingIndex) -> HashMap<u16, u64> {
+fn message_counts_map(index: &RecordingIndexResponse) -> HashMap<u16, u64> {
     index
         .message_counts
         .iter()

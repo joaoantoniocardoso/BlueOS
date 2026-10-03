@@ -1,7 +1,7 @@
 error[E0046]: not all trait items implemented, missing: `set_level`
-  --> tests/compile_fail/missing_conversion.rs:11:1
+  --> tests/compile_fail/missing_conversion.rs:14:1
    |
-11 | impl Conversions for Twin {
+14 | impl Conversions for Twin {
    | ^^^^^^^^^^^^^^^^^^^^^^^^^ missing `set_level` in implementation
    |
-   = help: implement the missing item: `fn set_level(_: SetLevelRequest) -> <Self as Domain>::Request { todo!() }`
+   = help: implement the missing item: `fn set_level(_: JobId, _: SetLevelGoal) -> Result<<Self as Domain>::Request, <Self as Conversions>::SetLevelError> { todo!() }`

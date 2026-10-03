@@ -9,7 +9,7 @@ use core::{
 };
 
 use blueos_domain::{Command, Decision, Domain, IoError, Now, Outcome};
-use blueos_idl::msg::blueos_example_msgs::{EmptyRequest, LevelQueryResponse};
+use blueos_idl::msg::blueos_example_msgs::{LevelRequest, LevelResponse};
 use blueos_service::{Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness};
 
 const NOW: Now = Now {
@@ -133,8 +133,8 @@ impl Service for ComposeCookbookService {
         _context: &(),
     ) -> Result<ServiceBuilder<Room>, ServiceError> {
         Ok(ServiceBuilder::new(RoomSnapshot::default())
-            .command("TurnOn", |_: EmptyRequest| Ok(RoomRequest::TurnOn))
-            .state("lamp", |snapshot: &RoomSnapshot| LevelQueryResponse {
+            .command("TurnOn", |_: LevelRequest| Ok(RoomRequest::TurnOn))
+            .state("lamp", |snapshot: &RoomSnapshot| LevelResponse {
                 level: u8::from(matches!(snapshot.lamp, Lamp::On)),
                 max_level: 1,
             }))
@@ -168,8 +168,8 @@ async fn composed_block_state_reaches_clients_through_the_service() {
     let harness = Harness::<ComposeCookbookService>::start(ComposeCookbookArguments)
         .await
         .expect("start");
-    let ack = harness.send("TurnOn", &EmptyRequest::default()).await;
+    let ack = harness.send("TurnOn", &LevelRequest::default()).await;
     assert!(ack.accepted);
-    let lamp = harness.state::<LevelQueryResponse>("lamp").await;
+    let lamp = harness.state::<LevelResponse>("lamp").await;
     assert_eq!(lamp.level, 1);
 }
