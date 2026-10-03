@@ -12,7 +12,7 @@ use blueos_recorder_mcap::{ChannelDescriptor, ChannelRoute, McapWriterHandle, Me
 async fn finish_returns_bytes_for_every_queued_sample() {
     let directory = tempdir().expect("tempdir");
     let path = directory.path().join("recorder_test.mcap");
-    let writer = McapWriterHandle::spawn_with_queue_capacity(64);
+    let writer = McapWriterHandle::spawn_with_queue_bytes(64 * 1024);
     writer
         .open(path.clone(), "recorder_test.mcap".into())
         .await

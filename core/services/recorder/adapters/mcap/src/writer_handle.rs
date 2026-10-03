@@ -1,6 +1,6 @@
 //! Async actor that owns [`McapFile`] and runs blocking IO on the runtime's blocking pool.
 
-use core::sync::atomic::{AtomicU64, Ordering};
+use core::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::{path::PathBuf, sync::Arc};
 
 use tokio::{
@@ -17,6 +17,7 @@ use crate::{
 };
 
 const DEFAULT_WRITER_QUEUE_CAPACITY: usize = 4096;
+const DEFAULT_WRITER_QUEUE_BYTES: usize = 32 * 1024 * 1024;
 
 /// Commands handled by the writer actor.
 enum WriterCommand {
@@ -37,6 +38,10 @@ pub struct McapWriterHandle {
     command_sender: mpsc::Sender<WriterCommand>,
     bytes_written: Arc<AtomicU64>,
     dropped_samples: Arc<AtomicU64>,
+    /// Payload bytes of the samples queued and not written yet.
+    queued_bytes: Arc<AtomicUsize>,
+    /// The most payload bytes the queue holds; a sample past it is dropped.
+    queue_bytes: usize,
     #[expect(dead_code, reason = "writer actor; join is not used on Drop")]
     actor: JoinHandle<()>,
 }
@@ -48,21 +53,29 @@ impl Drop for McapWriterHandle {
 }
 
 impl McapWriterHandle {
-    /// Starts the writer actor with the default queue capacity.
+    /// Starts the writer actor with the default queue byte budget.
     pub fn spawn() -> Self {
-        Self::spawn_with_queue_capacity(DEFAULT_WRITER_QUEUE_CAPACITY)
+        Self::spawn_with_queue_bytes(DEFAULT_WRITER_QUEUE_BYTES)
     }
 
-    /// Starts the writer actor with a bounded command queue (for tests and tuning).
-    pub fn spawn_with_queue_capacity(capacity: usize) -> Self {
-        let (command_sender, command_receiver) = mpsc::channel(capacity);
+    /// Starts the writer actor with a queue that holds at most `queue_bytes` of sample payloads (for tests and
+    /// tuning).
+    pub fn spawn_with_queue_bytes(queue_bytes: usize) -> Self {
+        let (command_sender, command_receiver) = mpsc::channel(DEFAULT_WRITER_QUEUE_CAPACITY);
         let bytes_written = Arc::new(AtomicU64::new(0));
         let dropped_samples = Arc::new(AtomicU64::new(0));
-        let actor = tokio::spawn(writer_actor(command_receiver, Arc::clone(&bytes_written)));
+        let queued_bytes = Arc::new(AtomicUsize::new(0));
+        let actor = tokio::spawn(writer_actor(
+            command_receiver,
+            Arc::clone(&bytes_written),
+            Arc::clone(&queued_bytes),
+        ));
         Self {
             command_sender,
             bytes_written,
             dropped_samples,
+            queued_bytes,
+            queue_bytes,
             actor,
         }
     }
@@ -81,7 +94,8 @@ impl McapWriterHandle {
         reply_receiver.await.map_err(|_| McapError::WriterStopped)?
     }
 
-    /// Queues a sample write; drops the sample when the queue is full.
+    /// Queues a sample write; drops the sample when the queue is full or the sample would take it past its byte
+    /// budget.
     pub fn try_write_sample(
         &self,
         topic: String,
@@ -91,6 +105,16 @@ impl McapWriterHandle {
         payload: Payload,
         descriptor: Arc<ChannelDescriptor>,
     ) {
+        let payload_bytes = payload.size_bytes();
+        let queued_bytes = self
+            .queued_bytes
+            .fetch_add(payload_bytes, Ordering::Relaxed);
+        if queued_bytes.saturating_add(payload_bytes) > self.queue_bytes {
+            self.queued_bytes
+                .fetch_sub(payload_bytes, Ordering::Relaxed);
+            self.dropped_samples.fetch_add(1, Ordering::Relaxed);
+            return;
+        }
         let command = WriterCommand::Write(WriteSampleRequest {
             topic,
             route,
@@ -100,6 +124,8 @@ impl McapWriterHandle {
             descriptor,
         });
         if self.command_sender.try_send(command).is_err() {
+            self.queued_bytes
+                .fetch_sub(payload_bytes, Ordering::Relaxed);
             self.dropped_samples.fetch_add(1, Ordering::Relaxed);
         }
     }
@@ -130,6 +156,7 @@ impl McapWriterHandle {
 async fn writer_actor(
     mut command_receiver: mpsc::Receiver<WriterCommand>,
     bytes_written: Arc<AtomicU64>,
+    queued_bytes: Arc<AtomicUsize>,
 ) {
     let mut open: Option<McapFile> = None;
     let mut pending: Option<WriterCommand> = None;
@@ -186,7 +213,12 @@ async fn writer_actor(
                         Err(_) => break,
                     }
                 }
+                let batch_bytes: usize = batch
+                    .iter()
+                    .map(|request| request.payload.size_bytes())
+                    .sum();
                 let Some(mut file) = open.take() else {
+                    queued_bytes.fetch_sub(batch_bytes, Ordering::Relaxed);
                     continue;
                 };
                 let write_result = tokio::task::spawn_blocking(move || {
@@ -202,6 +234,7 @@ async fn writer_actor(
                     (file, bytes)
                 })
                 .await;
+                queued_bytes.fetch_sub(batch_bytes, Ordering::Relaxed);
                 match write_result {
                     Ok((written_file, bytes)) => {
                         open = Some(written_file);
