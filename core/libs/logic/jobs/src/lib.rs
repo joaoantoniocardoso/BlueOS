@@ -27,6 +27,66 @@ const INTERRUPTED: &str = "interrupted";
 /// The reason of a Job whose permission request was denied.
 const PERMISSION_DENIED: &str = "permission denied";
 
+/// The Jobs of a Service: every active Job in the order it was submitted, and the last few that ended.
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct Jobs {
+    retention: usize,
+    active: Vec<Job>,
+    /// The ended Jobs in the order they ended, at most `retention` of them.
+    finished: VecDeque<Job>,
+}
+
+/// Why [`Jobs`] refused a submit, a control or an end. Its text is the reason a client gets.
+#[derive(Debug, Eq, PartialEq, thiserror::Error)]
+pub enum JobsError {
+    /// No Job in the table has this id.
+    #[error("there is no Job {0}")]
+    Unknown(JobId),
+    /// A Job with this id exists with another type or Goal.
+    #[error("id reused")]
+    IdReused(JobId),
+    /// The nature of the Job type does not allow the control.
+    #[error("{job_type} does not allow {control}")]
+    NotAllowed {
+        /// The Job type.
+        job_type: String,
+        /// The control it does not allow.
+        control: JobControl,
+    },
+    /// The control does not apply to a Job in this status.
+    #[error("{control} does not apply to the Job {job_id}, which is {status:?}")]
+    Refused {
+        /// The Job.
+        job_id: JobId,
+        /// The control.
+        control: JobControl,
+        /// The status of the Job, which the control left unchanged.
+        status: JobStatus,
+    },
+    /// The Job has already ended.
+    #[error("the Job {0} has already ended")]
+    AlreadyEnded(JobId),
+}
+
+/// One Job in the table.
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct Job {
+    /// The id the client generated.
+    pub job_id: JobId,
+    /// The Job type, the name of its submit endpoint.
+    pub job_type: String,
+    /// The Goal as the client encoded it, so a retry is told from a reused id.
+    pub goal: Vec<u8>,
+    /// What the Job type allows.
+    pub nature: JobNature,
+    /// Where the Job is in its lifecycle.
+    pub status: JobStatus,
+    /// Why the Job was canceled or aborted, or empty.
+    pub reason: String,
+}
+
 /// Identifies a Job: the UUID the client generated when it submitted it, written as text on the wire.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[cfg_attr(
@@ -55,24 +115,6 @@ pub struct JobNature {
     pub pausable: bool,
     /// It waits for a client to grant permission before it executes.
     pub needs_permission: bool,
-}
-
-/// One Job in the table.
-#[derive(Clone, Debug, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Job {
-    /// The id the client generated.
-    pub job_id: JobId,
-    /// The Job type, the name of its submit endpoint.
-    pub job_type: String,
-    /// The Goal as the client encoded it, so a retry is told from a reused id.
-    pub goal: Vec<u8>,
-    /// What the Job type allows.
-    pub nature: JobNature,
-    /// Where the Job is in its lifecycle.
-    pub status: JobStatus,
-    /// Why the Job was canceled or aborted, or empty.
-    pub reason: String,
 }
 
 /// Where a Job is in its lifecycle: a ROS 2 action goal status, plus pause and the two waits (D-36).
@@ -135,48 +177,6 @@ pub enum Submitted {
     Retry,
 }
 
-/// Why [`Jobs`] refused a submit, a control or an end. Its text is the reason a client gets.
-#[derive(Debug, Eq, PartialEq, thiserror::Error)]
-pub enum JobsError {
-    /// No Job in the table has this id.
-    #[error("there is no Job {0}")]
-    Unknown(JobId),
-    /// A Job with this id exists with another type or Goal.
-    #[error("id reused")]
-    IdReused(JobId),
-    /// The nature of the Job type does not allow the control.
-    #[error("{job_type} does not allow {control}")]
-    NotAllowed {
-        /// The Job type.
-        job_type: String,
-        /// The control it does not allow.
-        control: JobControl,
-    },
-    /// The control does not apply to a Job in this status.
-    #[error("{control} does not apply to the Job {job_id}, which is {status:?}")]
-    Refused {
-        /// The Job.
-        job_id: JobId,
-        /// The control.
-        control: JobControl,
-        /// The status of the Job, which the control left unchanged.
-        status: JobStatus,
-    },
-    /// The Job has already ended.
-    #[error("the Job {0} has already ended")]
-    AlreadyEnded(JobId),
-}
-
-/// The Jobs of a Service: every active Job in the order it was submitted, and the last few that ended.
-#[derive(Clone, Debug, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Jobs {
-    retention: usize,
-    active: Vec<Job>,
-    /// The ended Jobs in the order they ended, at most `retention` of them.
-    finished: VecDeque<Job>,
-}
-
 /// A Domain whose Job types last beyond the step that accepts them. It keeps its [`Jobs`] in its Snapshot, so the
 /// Projections its Tasks follow see the status the controls set, and it ends each Job with [`Jobs::end`].
 pub trait DomainJobs: Domain {
@@ -185,102 +185,6 @@ pub trait DomainJobs: Domain {
 
     /// The Jobs in the Snapshot, for the Kernel to submit and control them.
     fn jobs_mut(snapshot: &mut Self::Snapshot) -> &mut Jobs;
-}
-
-impl JobId {
-    /// The id whose UUID is the 128 bits of `value`.
-    pub const fn from_u128(value: u128) -> Self {
-        Self(value)
-    }
-}
-
-impl fmt::Display for JobId {
-    /// The UUID in its hyphenated lowercase form.
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let value = self.0;
-        write!(
-            formatter,
-            "{:08x}-{:04x}-{:04x}-{:04x}-{:012x}",
-            value >> 96,
-            (value >> 80) & 0xffff,
-            (value >> 64) & 0xffff,
-            (value >> 48) & 0xffff,
-            value & 0xffff_ffff_ffff,
-        )
-    }
-}
-
-impl FromStr for JobId {
-    type Err = InvalidJobId;
-
-    /// Parses the hyphenated form of a UUID, in either case.
-    fn from_str(text: &str) -> Result<Self, Self::Err> {
-        if text.len() != 36 {
-            return Err(InvalidJobId);
-        }
-        let mut value = 0_u128;
-        for (index, character) in text.chars().enumerate() {
-            if matches!(index, 8 | 13 | 18 | 23) {
-                if character != '-' {
-                    return Err(InvalidJobId);
-                }
-                continue;
-            }
-            let digit = character.to_digit(16).ok_or(InvalidJobId)?;
-            value = (value << 4) | u128::from(digit);
-        }
-        Ok(Self(value))
-    }
-}
-
-impl TryFrom<String> for JobId {
-    type Error = InvalidJobId;
-
-    fn try_from(text: String) -> Result<Self, Self::Error> {
-        text.parse()
-    }
-}
-
-impl From<JobId> for String {
-    fn from(job_id: JobId) -> Self {
-        job_id.to_string()
-    }
-}
-
-impl JobNature {
-    /// A Job that succeeds in the step that executes it, and that a client cannot control.
-    pub const INSTANT: Self = Self {
-        lasting: false,
-        cancellable: false,
-        pausable: false,
-        needs_permission: false,
-    };
-
-    const fn allows(self, control: JobControl) -> bool {
-        match control {
-            JobControl::Cancel => self.cancellable,
-            JobControl::Pause | JobControl::Resume => self.pausable,
-            JobControl::AnswerPermission { .. } => self.needs_permission,
-        }
-    }
-}
-
-impl JobStatus {
-    /// Whether the Job has ended and never changes again.
-    pub const fn has_ended(self) -> bool {
-        matches!(self, Self::Succeeded | Self::Canceled | Self::Aborted)
-    }
-}
-
-impl fmt::Display for JobControl {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(match self {
-            Self::Cancel => "CancelJob",
-            Self::Pause => "PauseJob",
-            Self::Resume => "ResumeJob",
-            Self::AnswerPermission { .. } => "AnswerPermission",
-        })
-    }
 }
 
 impl Default for Jobs {
@@ -451,5 +355,101 @@ impl Jobs {
             let excess = self.finished.len().saturating_sub(self.retention);
             self.finished.drain(..excess);
         }
+    }
+}
+
+impl fmt::Display for JobId {
+    /// The UUID in its hyphenated lowercase form.
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let value = self.0;
+        write!(
+            formatter,
+            "{:08x}-{:04x}-{:04x}-{:04x}-{:012x}",
+            value >> 96,
+            (value >> 80) & 0xffff,
+            (value >> 64) & 0xffff,
+            (value >> 48) & 0xffff,
+            value & 0xffff_ffff_ffff,
+        )
+    }
+}
+
+impl FromStr for JobId {
+    type Err = InvalidJobId;
+
+    /// Parses the hyphenated form of a UUID, in either case.
+    fn from_str(text: &str) -> Result<Self, Self::Err> {
+        if text.len() != 36 {
+            return Err(InvalidJobId);
+        }
+        let mut value = 0_u128;
+        for (index, character) in text.chars().enumerate() {
+            if matches!(index, 8 | 13 | 18 | 23) {
+                if character != '-' {
+                    return Err(InvalidJobId);
+                }
+                continue;
+            }
+            let digit = character.to_digit(16).ok_or(InvalidJobId)?;
+            value = (value << 4) | u128::from(digit);
+        }
+        Ok(Self(value))
+    }
+}
+
+impl TryFrom<String> for JobId {
+    type Error = InvalidJobId;
+
+    fn try_from(text: String) -> Result<Self, Self::Error> {
+        text.parse()
+    }
+}
+
+impl JobId {
+    /// The id whose UUID is the 128 bits of `value`.
+    pub const fn from_u128(value: u128) -> Self {
+        Self(value)
+    }
+}
+
+impl From<JobId> for String {
+    fn from(job_id: JobId) -> Self {
+        job_id.to_string()
+    }
+}
+
+impl JobNature {
+    /// A Job that succeeds in the step that executes it, and that a client cannot control.
+    pub const INSTANT: Self = Self {
+        lasting: false,
+        cancellable: false,
+        pausable: false,
+        needs_permission: false,
+    };
+
+    const fn allows(self, control: JobControl) -> bool {
+        match control {
+            JobControl::Cancel => self.cancellable,
+            JobControl::Pause | JobControl::Resume => self.pausable,
+            JobControl::AnswerPermission { .. } => self.needs_permission,
+        }
+    }
+}
+
+impl JobStatus {
+    /// Whether the Job has ended and never changes again.
+    pub const fn has_ended(self) -> bool {
+        matches!(self, Self::Succeeded | Self::Canceled | Self::Aborted)
+    }
+}
+
+impl fmt::Display for JobControl {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(match self {
+            Self::Cancel => "CancelJob",
+            Self::Pause => "PauseJob",
+            Self::Resume => "ResumeJob",
+            Self::AnswerPermission { .. } => "AnswerPermission",
+        })
     }
 }
