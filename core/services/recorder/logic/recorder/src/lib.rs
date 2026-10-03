@@ -298,12 +298,9 @@ impl Domain for RecorderDomain {
                 let decision =
                     map_library_outcome(snapshot.library.handle_observed_fact(fact, active, now));
                 if let Some(end) = end
-                    && let Some(
-                        LibraryOperation::Repair { job_id, .. }
-                        | LibraryOperation::Snapshot { job_id, .. },
-                    ) = snapshot.library.ended_operation()
+                    && let Some(operation) = snapshot.library.ended_operation()
                 {
-                    let _ended = snapshot.jobs.end(*job_id, end);
+                    let _ended = snapshot.jobs.end(operation.job_id(), end);
                 }
                 decision
             }
