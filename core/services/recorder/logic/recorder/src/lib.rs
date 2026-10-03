@@ -8,7 +8,11 @@ pub mod durable;
 
 use core::convert::Infallible;
 
-use alloc::{borrow::ToOwned, vec::Vec};
+use alloc::{
+    borrow::ToOwned,
+    string::{String, ToString},
+    vec::Vec,
+};
 use blueos_domain::{Command, Decision, Domain, DomainDurable, DomainQueries, Now, Outcome};
 use blueos_jobs::{DomainJobs, JobEnd, JobId, JobStatus, Jobs};
 use blueos_recorder_cameras::{
@@ -19,9 +23,9 @@ use blueos_recorder_capture::{
     RecordingState as CaptureRecordingState,
 };
 use blueos_recorder_library::{
-    Library, LibraryEvent, LibraryIoRequest, LibraryIoResult, LibraryObservedFact,
-    LibraryOperation, LibraryRejection, LibraryRequest, LibraryTick, LibraryTimerKey,
-    RecordingOperationEvent, snapshot_output_relative_path,
+    InfallibleLibraryEvent, Library, LibraryIoRequest, LibraryIoResult, LibraryObservedFact,
+    LibraryOperation, LibraryRejection, LibraryRepairOutcome, LibraryRequest,
+    LibrarySnapshotOutcome, LibraryTick, LibraryTimerKey, snapshot_output_relative_path,
 };
 use blueos_recorder_paths::RecordingRelativePath;
 
@@ -83,6 +87,8 @@ pub enum RecorderRequest {
     },
     /// Writes an indexed copy of a recording (typically while it is still being written).
     SnapshotRecording {
+        /// The Job the snapshot runs as.
+        job_id: JobId,
         /// Path validated at the api boundary.
         path: RecordingRelativePath,
     },
@@ -104,8 +110,6 @@ pub enum RecorderObservedFact {
 pub enum RecorderEvent {
     /// Event from the capture Block.
     Capture(CaptureEvent),
-    /// Repair, snapshot, or delete finished.
-    RecordingOperation(RecordingOperationEvent),
 }
 
 /// Queries against the Recorder Snapshot.
@@ -217,11 +221,12 @@ impl Domain for RecorderDomain {
                         now,
                     ))
                 }
-                RecorderRequest::SnapshotRecording { path } => {
+                RecorderRequest::SnapshotRecording { job_id, path } => {
                     let output_path = snapshot_output_relative_path(path.as_str(), now);
                     map_library_outcome(snapshot.library.start_snapshot(
                         path,
                         output_path,
+                        job_id,
                         active,
                         now,
                     ))
@@ -283,16 +288,16 @@ impl Domain for RecorderDomain {
                 map_cameras_outcome(outcome)
             }
             Command::ObservedFact(RecorderObservedFact::Library(fact)) => {
-                let job_id = match &fact {
-                    LibraryObservedFact::RepairFinished { path, .. } => {
-                        snapshot.library.repair_job_id(path.as_str())
-                    }
-                    _ => None,
-                };
+                let end = job_end(&fact);
                 let decision =
                     map_library_outcome(snapshot.library.handle_observed_fact(fact, active, now));
-                if let Some(job_id) = job_id {
-                    finish_repair_job(snapshot, job_id, &decision);
+                if let Some((end, reason)) = end
+                    && let Some(
+                        LibraryOperation::Repair { job_id, .. }
+                        | LibraryOperation::Snapshot { job_id, .. },
+                    ) = snapshot.library.ended_operation()
+                {
+                    let _ended = snapshot.jobs.end(*job_id, end, &reason);
                 }
                 decision
             }
@@ -374,38 +379,31 @@ fn active_recording_relative_path(snapshot: &RecorderSnapshot) -> Option<&str> {
     }
 }
 
-fn finish_repair_job(
-    snapshot: &mut RecorderSnapshot,
-    job_id: JobId,
-    decision: &Decision<RecorderDomain>,
-) {
-    let end = match decision {
-        Outcome::Applied { events, .. } => {
-            let cancelled = events.iter().any(|event| {
-                matches!(
-                    event,
-                    RecorderEvent::RecordingOperation(operation)
-                        if operation.cancelled
-                )
-            });
-            let failed = events.iter().any(|event| {
-                matches!(
-                    event,
-                    RecorderEvent::RecordingOperation(operation)
-                        if !operation.succeeded && !operation.cancelled
-                )
-            });
-            if cancelled {
-                JobEnd::Canceled
-            } else if failed {
-                JobEnd::Aborted
-            } else {
-                JobEnd::Succeeded
-            }
+/// How the Job of a repair or snapshot ends, and why, when `fact` reports that the operation ended.
+fn job_end(fact: &LibraryObservedFact) -> Option<(JobEnd, String)> {
+    match fact {
+        LibraryObservedFact::RepairProgress(_) => None,
+        LibraryObservedFact::RepairFinished {
+            outcome: LibraryRepairOutcome::Succeeded,
+            ..
         }
-        Outcome::Rejected { .. } => JobEnd::Aborted,
-    };
-    let _ended = snapshot.jobs.end(job_id, end, "");
+        | LibraryObservedFact::SnapshotFinished {
+            outcome: LibrarySnapshotOutcome::Succeeded,
+            ..
+        } => Some((JobEnd::Succeeded, String::new())),
+        LibraryObservedFact::RepairFinished {
+            outcome: LibraryRepairOutcome::Cancelled,
+            ..
+        } => Some((JobEnd::Canceled, String::new())),
+        LibraryObservedFact::RepairFinished {
+            outcome: LibraryRepairOutcome::Failed(failure),
+            ..
+        }
+        | LibraryObservedFact::SnapshotFinished {
+            outcome: LibrarySnapshotOutcome::Failed(failure),
+            ..
+        } => Some((JobEnd::Aborted, failure.to_string())),
+    }
 }
 
 fn merge_startup(snapshot: &mut RecorderSnapshot, now: Now) -> Decision<RecorderDomain> {
@@ -466,12 +464,10 @@ fn map_capture_outcome(
 }
 
 fn map_library_outcome(
-    outcome: Outcome<LibraryEvent, LibraryTick, LibraryIoRequest, LibraryTimerKey>,
+    outcome: Outcome<InfallibleLibraryEvent, LibraryTick, LibraryIoRequest, LibraryTimerKey>,
 ) -> Decision<RecorderDomain> {
     outcome.map(
-        |event| match event {
-            LibraryEvent::Operation(operation) => RecorderEvent::RecordingOperation(operation),
-        },
+        |never| match never {},
         RecorderTick::Library,
         RecorderIoRequest::Library,
         RecorderTimerKey::Library,
