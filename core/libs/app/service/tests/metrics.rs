@@ -10,7 +10,8 @@ use blueos_comms::Subscriber;
 use blueos_domain::{Command, Decision, Domain, IoError, Now, Outcome};
 use blueos_idl::msg::blueos_msgs::{EndpointInfo, MetricHistogram, ServiceMetrics};
 use blueos_service::{
-    RestartPolicy, Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness,
+    Backoff, RestartPolicy, Service, ServiceBuilder, ServiceContext, ServiceError, TaskFailed,
+    testing::Harness,
 };
 
 /// How long a client waits for a publication. Time is paused, so the wait costs no real time.
@@ -21,6 +22,9 @@ struct CounterService;
 
 /// A Service with no Requests and one Task that records a counter through the `metrics` facade.
 struct PingingService;
+
+/// A Service with no Requests and one Task that always fails.
+struct FlakyService;
 
 #[derive(clap::Args)]
 struct NoArguments {}
@@ -82,6 +86,33 @@ impl Service for PingingService {
     }
 }
 
+impl Service for FlakyService {
+    type Domain = Counter;
+    type Context = ();
+    type Arguments = NoArguments;
+
+    const NAME: &'static str = "flaky";
+    const VERSION: &'static str = "1.0.0";
+
+    fn context(_service: &ServiceContext<NoArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
+    fn build(
+        _service: &ServiceContext<NoArguments>,
+        _context: &(),
+    ) -> Result<ServiceBuilder<Counter>, ServiceError> {
+        Ok(ServiceBuilder::new(CounterSnapshot).task(
+            "unreliable",
+            RestartPolicy::OnFailure {
+                backoff: Backoff::default(),
+                max_attempts: 3,
+            },
+            |_task| async move { Err(TaskFailed) },
+        ))
+    }
+}
+
 impl Domain for Counter {
     type Snapshot = CounterSnapshot;
     type Request = CounterRequest;
@@ -124,9 +155,10 @@ async fn a_client_that_asks_right_after_boot_gets_the_metrics() {
         metrics
             .gauges
             .iter()
-            .map(|gauge| (gauge.name.as_str(), gauge.value.to_bits()))
+            .filter(|gauge| gauge.name == "inbox_depth")
+            .map(|gauge| gauge.value.to_bits())
             .collect::<Vec<_>>(),
-        [("inbox_depth", 0.0_f64.to_bits())]
+        [0.0_f64.to_bits()]
     );
 }
 
@@ -225,6 +257,7 @@ async fn a_counter_a_task_records_is_in_the_metrics_of_its_service_only() {
         pinging_metrics
             .counters
             .iter()
+            .filter(|metric| metric.name == "pings_sent")
             .map(|metric| (metric.name.as_str(), metric.value))
             .collect::<Vec<_>>(),
         [("pings_sent", 1)]
@@ -236,6 +269,58 @@ async fn a_counter_a_task_records_is_in_the_metrics_of_its_service_only() {
         counter_metrics.counters
     );
     assert_eq!(inbox_steps(&counter_metrics).count, 1);
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_task_that_fails_and_restarts_counts_its_restarts() {
+    let harness = Harness::<FlakyService>::start(NoArguments {})
+        .await
+        .unwrap();
+    let mut published = subscribe(&harness).await;
+
+    let metrics = next_metrics(&mut published).await;
+
+    let restarts = metrics
+        .counters
+        .iter()
+        .find(|counter| counter.name == "task_restarts")
+        .expect("the Kernel counts the restarts of every Task");
+    assert_eq!(restarts.value, 2, "three attempts are two restarts");
+    assert_eq!(
+        restarts
+            .labels
+            .iter()
+            .map(|label| (label.name.as_str(), label.value.as_str()))
+            .collect::<Vec<_>>(),
+        [("task", "unreliable")]
+    );
+}
+
+#[tokio::test(start_paused = true)]
+async fn the_tokio_runtime_gauges_are_in_the_metrics_and_an_idle_service_stays_quiet() {
+    let harness = Harness::<CounterService>::start(NoArguments {})
+        .await
+        .unwrap();
+    let mut published = subscribe(&harness).await;
+
+    let metrics = harness.state::<ServiceMetrics>("metrics").await;
+
+    let runtime_gauges = metrics
+        .gauges
+        .iter()
+        .filter(|gauge| gauge.name.starts_with("tokio_"))
+        .map(|gauge| (gauge.name.as_str(), gauge.value))
+        .collect::<Vec<_>>();
+    assert_eq!(runtime_gauges.len(), 3, "{runtime_gauges:?}");
+    assert_eq!(runtime_gauges[2], ("tokio_workers", 1.0));
+    next_metrics(&mut published).await;
+
+    let republished = timeout(PUBLICATION_TIMEOUT, published.recv()).await;
+
+    assert!(
+        republished.is_err(),
+        "an idle Service republished: {republished:?}"
+    );
 }
 
 async fn subscribe<S: Service>(harness: &Harness<S>) -> Subscriber {

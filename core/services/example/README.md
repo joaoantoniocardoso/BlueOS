@@ -20,6 +20,7 @@ the small wiring path; the numbered [`cookbook/`](cookbook/README.md) answers ev
 | `app/src/context.rs` | The Context and its Ports, once the Service has IO or Tasks (example-minimal has none) |
 | `app/src/cli.rs` | Service-specific `clap::Args` (common flags come from the Kernel) |
 | `cookbook/tests/27-tasks.rs` | Supervised Tasks (Q27); example-minimal ships none |
+| `cookbook/tests/35-metrics.rs` | A metric recorded from a Task, and a count a Domain exposes (Q35, Q36) |
 | `<block>/handlers.rs` under `app/src/` | Optional handlers for the `custom` Job types and the `io` Queries of the manifest (D-23) |
 
 There is no `adapters/` crate until you have real IO.

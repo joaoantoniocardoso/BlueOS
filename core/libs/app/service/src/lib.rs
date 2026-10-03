@@ -23,6 +23,7 @@ mod logging;
 mod metrics_registry;
 mod projection;
 mod run_outcome;
+mod runtime_gauges;
 mod service;
 mod settings;
 mod shutdown;
