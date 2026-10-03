@@ -14,6 +14,7 @@ use blueos_comms::Payload;
 use crate::{
     channel_descriptor::{ChannelDescriptor, ChannelRoute},
     mcap_file::{McapError, McapFile, WriteSampleRequest},
+    writer_metrics::WriterMetrics,
 };
 
 const DEFAULT_WRITER_QUEUE_CAPACITY: usize = 4096;
@@ -42,6 +43,7 @@ pub struct McapWriterHandle {
     queued_bytes: Arc<AtomicUsize>,
     /// The most payload bytes the queue holds; a sample past it is dropped.
     queue_bytes: usize,
+    metrics: Arc<WriterMetrics>,
     #[expect(dead_code, reason = "writer actor; join is not used on Drop")]
     actor: JoinHandle<()>,
 }
@@ -65,10 +67,12 @@ impl McapWriterHandle {
         let bytes_written = Arc::new(AtomicU64::new(0));
         let dropped_samples = Arc::new(AtomicU64::new(0));
         let queued_bytes = Arc::new(AtomicUsize::new(0));
+        let metrics = Arc::new(WriterMetrics::register());
         let actor = tokio::spawn(writer_actor(
             command_receiver,
             Arc::clone(&bytes_written),
             Arc::clone(&queued_bytes),
+            Arc::clone(&metrics),
         ));
         Self {
             command_sender,
@@ -76,6 +80,7 @@ impl McapWriterHandle {
             dropped_samples,
             queued_bytes,
             queue_bytes,
+            metrics,
             actor,
         }
     }
@@ -113,6 +118,7 @@ impl McapWriterHandle {
             self.queued_bytes
                 .fetch_sub(payload_bytes, Ordering::Relaxed);
             self.dropped_samples.fetch_add(1, Ordering::Relaxed);
+            self.metrics.record_dropped(&topic);
             return;
         }
         let command = WriterCommand::Write(WriteSampleRequest {
@@ -123,10 +129,13 @@ impl McapWriterHandle {
             payload,
             descriptor,
         });
-        if self.command_sender.try_send(command).is_err() {
+        if let Err(rejected) = self.command_sender.try_send(command) {
             self.queued_bytes
                 .fetch_sub(payload_bytes, Ordering::Relaxed);
             self.dropped_samples.fetch_add(1, Ordering::Relaxed);
+            if let WriterCommand::Write(request) = rejected.into_inner() {
+                self.metrics.record_dropped(&request.topic);
+            }
         }
     }
 
@@ -157,6 +166,7 @@ async fn writer_actor(
     mut command_receiver: mpsc::Receiver<WriterCommand>,
     bytes_written: Arc<AtomicU64>,
     queued_bytes: Arc<AtomicUsize>,
+    metrics: Arc<WriterMetrics>,
 ) {
     let mut open: Option<McapFile> = None;
     let mut pending: Option<WriterCommand> = None;
@@ -221,10 +231,12 @@ async fn writer_actor(
                     queued_bytes.fetch_sub(batch_bytes, Ordering::Relaxed);
                     continue;
                 };
+                let batch_metrics = Arc::clone(&metrics);
                 let write_result = tokio::task::spawn_blocking(move || {
                     for request in batch {
                         match file.write_sample_request(&request) {
-                            Ok(()) => {}
+                            Ok(()) => batch_metrics
+                                .record_written(&request.topic, request.payload.size_bytes()),
                             Err(error) => {
                                 warn!(%error, topic = %request.topic, "failed to write MCAP sample");
                             }

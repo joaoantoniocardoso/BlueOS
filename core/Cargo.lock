@@ -474,6 +474,7 @@ dependencies = [
  "bytes",
  "json5",
  "mcap",
+ "metrics",
  "serde_json",
  "tempfile",
  "thiserror",
