@@ -175,6 +175,61 @@ collect_test_only_feature_violations() {
     return 0
 }
 
+# Usage: collect_dependency_violations <cargo-metadata-json> <workspace-manifest> <exceptions-file>
+# Prints one violation per line. Exits 1 when any violation exists (D-30). cargo metadata names the members; their
+# manifests are read as written because the metadata hides whether an entry inherited from the workspace.
+collect_dependency_violations() {
+    local metadata="$1"
+    local workspace_manifest="$2"
+    local exceptions_file="$3"
+    local violations=() name manifest_path
+    local toml_to_json='import json, sys, tomllib; print(json.dumps(tomllib.load(open(sys.argv[1], "rb"))))'
+    while IFS=$'\t' read -r name manifest_path; do
+        while IFS= read -r violation; do
+            violations+=("$violation")
+        done < <(python3 -c "$toml_to_json" "$manifest_path" | jq -r --arg name "$name" '
+            def sections: ["dependencies", "dev-dependencies", "build-dependencies"][] as $section
+                | (.[$section] // {} | to_entries[] | {section: $section, entry: .}),
+                  (.target // {} | .[] | .[$section] // {} | to_entries[] | {section: $section, entry: .});
+            sections
+            | select(.entry.value | type != "object" or .workspace != true)
+            | "\($name): [\(.section)] \(.entry.key) is not workspace = true"')
+    done < <(jq -r '.packages[] | [.name, .manifest_path] | @tsv' <<<"$metadata")
+
+    local workspace exceptions
+    workspace=$(python3 -c "$toml_to_json" "$workspace_manifest")
+    exceptions=$(python3 -c "$toml_to_json" "$exceptions_file")
+    while IFS= read -r violation; do
+        violations+=("$violation")
+    done < <(jq -r --argjson exceptions "$exceptions" --arg file "$(basename "$exceptions_file")" '
+        (.workspace.dependencies // {}) as $dependencies
+        | ($exceptions.exceptions // {}) as $listed
+        | ($dependencies | to_entries[]
+            | select(.value | type != "object" or .["default-features"] != false)
+            | select(.key as $key | $listed | has($key) | not)
+            | "workspace: \(.key) keeps default features; set default-features = false or list it in \($file) with a reason"),
+          ($listed | to_entries[] | .key as $key | .value as $reason
+            | if ($reason | type != "string" or (gsub("\\s"; "") == "")) then "exceptions: \($key) has no reason in \($file)"
+              elif ($dependencies | has($key) | not) then "exceptions: \($key) is listed but is not a workspace dependency"
+              elif ($dependencies[$key] | type == "object" and .["default-features"] == false) then
+                "exceptions: \($key) is listed but already sets default-features = false"
+              else empty end)' <<<"$workspace")
+    if [ ${#violations[@]} -gt 0 ]; then
+        printf '%s\n' "${violations[@]}"
+        return 1
+    fi
+    return 0
+}
+
+# Usage: check_dependency_gate <workspace_dir>
+check_dependency_gate() {
+    local workspace_dir="$1"
+    local metadata
+    metadata=$(cargo metadata --manifest-path "$workspace_dir/Cargo.toml" --format-version 1 --no-deps --locked) \
+        || return 1
+    collect_dependency_violations "$metadata" "$workspace_dir/Cargo.toml" "$workspace_dir/dependency-exceptions.toml"
+}
+
 # Usage: run_shipped_clippy
 # Run from the Cargo workspace. Lints the feature set build_cross.sh ships (D-16).
 # --all-features hides an item that only a feature the shipped binary leaves off refers to.
@@ -239,6 +294,11 @@ run_rust_lint_checks() {
 
         echo "Checking crate folders.."
         if ! collect_folder_violations "$metadata"; then
+            exit 1
+        fi
+
+        echo "Checking dependencies.."
+        if ! check_dependency_gate "$workspace_dir"; then
             exit 1
         fi
 
