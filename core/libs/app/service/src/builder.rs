@@ -1,17 +1,17 @@
 //! What a Service's `build` declares: the initial Snapshot and how the Domain meets the backbone.
 
-use core::{error::Error, fmt::Display, future::Future, pin::Pin};
+use core::{error::Error, future::Future, pin::Pin};
 use std::{path::PathBuf, sync::Arc};
 
 use tokio::sync::watch;
 
-use blueos_api::{JOB_ID_NONE, Message, cdr_encoding};
+use blueos_api::{Message, cdr_encoding};
 use blueos_domain::{Command, Domain, DomainDurable, DomainQueries, IoError};
 use blueos_idl::{
     Error as IdlError,
     msg::blueos_msgs::{EndpointInfo, JobList, JobStatus, JobStatusStatus, SettingsEnvelope},
 };
-use blueos_jobs::{DomainJobs, JobEnd, JobId, JobKind, Jobs};
+use blueos_jobs::{DomainJobs, JobId, JobNature, Jobs};
 use blueos_settings::SettingsSchema;
 
 use crate::{
@@ -32,8 +32,9 @@ pub(crate) type InboxCommand<D> = Command<
     <D as Domain>::ObservedFact,
 >;
 
-/// Decodes a Request body into the Domain's Request.
-pub(crate) type Decode<D> = Box<dyn Fn(&[u8]) -> Result<<D as Domain>::Request, Rejection> + Send>;
+/// Decodes the Goal of the Job a client submitted into the Domain's Request.
+pub(crate) type Decode<D> =
+    Arc<dyn Fn(JobId, &[u8]) -> Result<<D as Domain>::Request, Rejection> + Send + Sync>;
 
 /// Computes and encodes a State from the Snapshot.
 pub(crate) type Project<D> =
@@ -43,8 +44,11 @@ pub(crate) type Project<D> =
 pub(crate) type Select<D> =
     Box<dyn Fn(&<D as Domain>::Event) -> Option<Result<Vec<u8>, IdlError>> + Send + Sync>;
 
-/// Reads the root Job started last from the Snapshot.
-pub(crate) type LatestRoot<D> = fn(&<D as Domain>::Snapshot) -> Option<JobId>;
+/// Reads and changes the Jobs a Domain keeps in its Snapshot.
+pub(crate) type JobsAccess<D> = (
+    fn(&<D as Domain>::Snapshot) -> &Jobs,
+    fn(&mut <D as Domain>::Snapshot) -> &mut Jobs,
+);
 
 /// Answers an IO query body with the encoded reply.
 pub(crate) type Respond = Box<
@@ -79,7 +83,8 @@ pub struct ServiceBuilder<D: Domain, Context = ()> {
     pub(crate) events: Vec<EventEndpoint<D>>,
     pub(crate) settings: Option<SettingsRegistration<D>>,
     pub(crate) durable: Option<DurableStateRegistration<D>>,
-    pub(crate) jobs: Option<JobsEndpoint<D>>,
+    /// Set when the Domain keeps the Jobs in its Snapshot; the Kernel keeps them otherwise.
+    pub(crate) jobs: Option<JobsAccess<D>>,
     pub(crate) startup_commands: Vec<InboxCommand<D>>,
     pub(crate) tasks: Vec<TaskSpec<D, Context>>,
     pub(crate) shutdown_request: Option<D::Request>,
@@ -98,9 +103,10 @@ pub(crate) type AnswerQuery<D> = Arc<
         + Sync,
 >;
 
-/// A Command endpoint: a query on `blueos/v1/<service>/command/<name>` whose body is a Request.
+/// A Job type: a query on `blueos/v1/<service>/command/<name>` whose body is the Goal of a Job to submit.
 pub(crate) struct CommandEndpoint<D: Domain> {
     pub(crate) name: String,
+    pub(crate) nature: JobNature,
     pub(crate) decode: Decode<D>,
 }
 
@@ -123,13 +129,6 @@ pub(crate) struct EventEndpoint<D: Domain> {
     pub(crate) name: String,
     pub(crate) encoding: String,
     pub(crate) select: Select<D>,
-}
-
-/// The standard `jobs` State, published on `blueos/v1/<service>/jobs`, and where the ack finds the root Job a
-/// Command started.
-pub(crate) struct JobsEndpoint<D: Domain> {
-    pub(crate) state: StateEndpoint<D>,
-    pub(crate) latest_root: LatestRoot<D>,
 }
 
 impl<D: Domain, Context> ServiceBuilder<D, Context> {
@@ -189,7 +188,6 @@ impl<D, Context> ServiceBuilder<D, Context>
 where
     D: DomainDurable + DomainJobs,
     D::DurableState: serde::Serialize + serde::de::DeserializeOwned + PartialEq,
-    D::Step: serde::Serialize + serde::de::DeserializeOwned + PartialEq,
 {
     /// Like [`ServiceBuilder::durable_state`], and persists the Domain's Jobs with the durable part.
     pub fn durable_state_with_jobs(
@@ -198,6 +196,7 @@ where
         config_folder: Option<PathBuf>,
         version: core::num::NonZeroU32,
     ) -> Self {
+        self.jobs = Some((D::jobs, D::jobs_mut));
         self.durable = Some(register_durable_state_with_jobs::<D>(
             service_name.to_owned(),
             config_folder,
@@ -208,16 +207,25 @@ where
 }
 
 impl<D: DomainJobs, Context> ServiceBuilder<D, Context> {
-    /// Publishes the Domain's Jobs as the standard `jobs` State, and acknowledges a Command that starts a root Job
-    /// with its id. Without it, the Service has no `jobs` State and acknowledges every Command with no Job.
-    pub fn jobs(mut self) -> Self {
-        self.jobs = Some(JobsEndpoint {
-            state: StateEndpoint {
-                name: "jobs".to_owned(),
-                encoding: cdr_encoding(JobList::SCHEMA_NAME),
-                project: Box::new(|snapshot| job_list(D::jobs(snapshot)).encode()),
-            },
-            latest_root: |snapshot| D::jobs(snapshot).latest_root(),
+    /// Adds the Job type `name` with its `nature` (D-36). A client submits a Job on `command/<name>` with an `M` as
+    /// its Goal, which `into_request` turns into the Domain's Request together with the Job's id, so the Domain can
+    /// end the Job with [`Jobs::end`]. A Goal that does not decode, or that `into_request` refuses, is rejected
+    /// before it reaches the Inbox, with the refusal as the reason. The Kernel keeps this Service's Jobs in the
+    /// Snapshot.
+    pub fn job<M: Message + 'static>(
+        mut self,
+        name: &str,
+        nature: JobNature,
+        into_request: impl Fn(JobId, M) -> Result<D::Request, Refusal> + Send + Sync + 'static,
+    ) -> Self {
+        self.jobs = Some((D::jobs, D::jobs_mut));
+        self.commands.push(CommandEndpoint {
+            name: name.to_owned(),
+            nature,
+            decode: Arc::new(move |job_id, body| {
+                into_request(job_id, M::decode(body).map_err(Rejection::InvalidBody)?)
+                    .map_err(Rejection::Refused)
+            }),
         });
         self
     }
@@ -353,17 +361,19 @@ impl<D: Domain, Context> ServiceBuilder<D, Context> {
         self
     }
 
-    /// Adds the Command endpoint `name`. Its body is an `M`, which `into_request` turns into the Domain's Request.
-    /// A body that does not decode, or that `into_request` refuses, is rejected before it reaches the Inbox, with
-    /// the refusal as the reason.
+    /// Adds the instant Job type `name`, whose Jobs succeed in the step that executes them (D-36). A client
+    /// submits a Job on `command/<name>` with an `M` as its Goal, which `into_request` turns into the Domain's
+    /// Request. A Goal that does not decode, or that `into_request` refuses, is rejected before it reaches the
+    /// Inbox, with the refusal as the reason.
     pub fn command<M: Message + 'static>(
         mut self,
         name: &str,
-        into_request: impl Fn(M) -> Result<D::Request, Refusal> + Send + 'static,
+        into_request: impl Fn(M) -> Result<D::Request, Refusal> + Send + Sync + 'static,
     ) -> Self {
         self.commands.push(CommandEndpoint {
             name: name.to_owned(),
-            decode: Box::new(move |body| {
+            nature: JobNature::INSTANT,
+            decode: Arc::new(move |_job_id, body| {
                 into_request(M::decode(body).map_err(Rejection::InvalidBody)?)
                     .map_err(Rejection::Refused)
             }),
@@ -459,34 +469,32 @@ impl<D: Domain, Context> ServiceBuilder<D, Context> {
     }
 }
 
-/// Every Job as clients see it: a leaf is named by its step, a composition by its kind.
-fn job_list<Step: Display>(jobs: &Jobs<Step>) -> JobList {
+/// Every Job as clients see it in the `jobs` State.
+pub(crate) fn job_list(jobs: &Jobs) -> JobList {
     JobList {
         jobs: jobs
             .list()
-            .into_iter()
-            .map(|view| JobStatus {
-                job_id: view.job_id.get(),
-                parent_job_id: view.parent.map_or(JOB_ID_NONE, JobId::get),
-                status: match view.status {
-                    blueos_jobs::JobStatus::Queued => JobStatusStatus::Queued,
-                    blueos_jobs::JobStatus::Running => JobStatusStatus::Running,
-                    blueos_jobs::JobStatus::Cancelling => JobStatusStatus::Cancelling,
-                    blueos_jobs::JobStatus::Finished(JobEnd::Succeeded) => {
-                        JobStatusStatus::Succeeded
-                    }
-                    blueos_jobs::JobStatus::Finished(JobEnd::Failed) => JobStatusStatus::Failed,
-                    blueos_jobs::JobStatus::Finished(JobEnd::Cancelled) => {
-                        JobStatusStatus::Cancelled
-                    }
-                    blueos_jobs::JobStatus::Interrupted => JobStatusStatus::Interrupted,
-                },
-                name: match view.kind {
-                    JobKind::Leaf(step) => step.to_string(),
-                    JobKind::Sequence => "sequence".to_owned(),
-                    JobKind::Parallel => "parallel".to_owned(),
-                },
+            .map(|job| JobStatus {
+                job_id: job.job_id.to_string(),
+                job_type: job.job_type.clone(),
+                status: JobStatusStatus::from_raw(wire_status(job.status)),
+                reason: job.reason.clone(),
             })
             .collect(),
+    }
+}
+
+/// The `STATUS_` value of `blueos_msgs/JobStatus` and `blueos_msgs/CommandAck` for a Job's status.
+pub(crate) const fn wire_status(status: blueos_jobs::JobStatus) -> u8 {
+    match status {
+        blueos_jobs::JobStatus::Accepted => 1,
+        blueos_jobs::JobStatus::Executing => 2,
+        blueos_jobs::JobStatus::Canceling => 3,
+        blueos_jobs::JobStatus::Succeeded => 4,
+        blueos_jobs::JobStatus::Canceled => 5,
+        blueos_jobs::JobStatus::Aborted => 6,
+        blueos_jobs::JobStatus::WaitingForPermission => 7,
+        blueos_jobs::JobStatus::WaitingForResource => 8,
+        blueos_jobs::JobStatus::Paused => 9,
     }
 }

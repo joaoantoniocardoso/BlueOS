@@ -112,11 +112,11 @@ struct DomainOnlyEnvelope<D> {
 }
 
 #[derive(Serialize, serde::Deserialize)]
-struct PersistedEnvelopeWithJobs<D, Step> {
+struct PersistedEnvelopeWithJobs<D> {
     #[serde(rename = "VERSION")]
     version: u32,
     domain: D,
-    jobs: Jobs<Step>,
+    jobs: Jobs,
 }
 
 async fn persist_loop(
@@ -225,7 +225,6 @@ pub(crate) fn register_durable_state_with_jobs<D>(
 where
     D: DomainDurable + DomainJobs,
     D::DurableState: Serialize + DeserializeOwned + PartialEq,
-    D::Step: Serialize + DeserializeOwned + PartialEq,
 {
     let store = ServiceStateStore::open(service_name, config_folder, version);
     let version_raw = version.get();
@@ -291,12 +290,11 @@ fn restore_domain_and_jobs<D>(
 where
     D: DomainDurable + DomainJobs,
     D::DurableState: DeserializeOwned,
-    D::Step: DeserializeOwned,
 {
     let Some(document) = store.read_document() else {
         return false;
     };
-    let envelope: PersistedEnvelopeWithJobs<D::DurableState, D::Step> =
+    let envelope: PersistedEnvelopeWithJobs<D::DurableState> =
         match serde_json::from_value(document) {
             Ok(envelope) => envelope,
             Err(error) => {
@@ -311,6 +309,6 @@ where
         };
     D::set_durable_state(snapshot, envelope.domain);
     *D::jobs_mut(snapshot) = envelope.jobs;
-    D::jobs_mut(snapshot).interrupt_running_leaves();
+    D::jobs_mut(snapshot).interrupt();
     true
 }

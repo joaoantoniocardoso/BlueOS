@@ -2,12 +2,7 @@
 
 mod common;
 
-use core::{
-    convert::Infallible,
-    fmt::{self, Display, Formatter},
-    num::NonZeroU32,
-    time::Duration,
-};
+use core::{convert::Infallible, num::NonZeroU32, time::Duration};
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -21,35 +16,23 @@ use tokio::{task::JoinSet, time};
 use blueos_comms::channel::ChannelBackend;
 use blueos_domain::{Command, Domain, DomainDurable, Outcome};
 use blueos_idl::msg::{blueos_example_msgs::EmptyRequest, blueos_msgs::JobStatusStatus};
-use blueos_jobs::{DomainJobs, JobEnd, JobGraph, JobKind, JobStatus, Jobs};
+use blueos_jobs::{DomainJobs, JobNature, Jobs};
 use blueos_service::{
     CommandSender, DurableWriteFlush, Kernel, Service, ServiceBuilder, ServiceContext,
-    ServiceError, ShutdownHandle, testing::PausedClock,
+    ServiceError, ShutdownHandle, new_job_id, testing::PausedClock,
 };
 use blueos_settings::{STATE_NAME_PREFIX, state_file_name};
 
 const STATE_VERSION: NonZeroU32 = NonZeroU32::MIN;
+/// A Job type that runs until its Domain ends it.
+const LASTING: JobNature = JobNature {
+    lasting: true,
+    ..JobNature::INSTANT
+};
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 struct CounterState {
     value: u32,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-enum Step {
-    Alpha,
-    Beta,
-    Work,
-}
-
-impl Display for Step {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Alpha => formatter.write_str("Alpha"),
-            Self::Beta => formatter.write_str("Beta"),
-            Self::Work => formatter.write_str("Work"),
-        }
-    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -62,14 +45,13 @@ struct VaultSnapshot {
     durable: CounterState,
     observed: u32,
     saw_restored_tick: bool,
-    jobs: Jobs<Step>,
+    jobs: Jobs,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 enum VaultRequest {
     Bump,
     StartJob,
-    StartParallel,
 }
 
 struct Vault;
@@ -98,51 +80,12 @@ impl Domain for Vault {
                     effects: Vec::new(),
                 }
             }
-            Command::Request(VaultRequest::StartJob) => {
-                snapshot.jobs.start(JobGraph::Leaf(Step::Work));
-                Outcome::Applied {
-                    events: Vec::new(),
-                    effects: Vec::new(),
-                }
-            }
-            Command::Request(VaultRequest::StartParallel) => {
-                snapshot.jobs.start(JobGraph::Parallel(vec![
-                    JobGraph::Leaf(Step::Alpha),
-                    JobGraph::Leaf(Step::Beta),
-                ]));
-                Outcome::Applied {
-                    events: Vec::new(),
-                    effects: Vec::new(),
-                }
-            }
+            Command::Request(VaultRequest::StartJob) => Outcome::Applied {
+                events: Vec::new(),
+                effects: Vec::new(),
+            },
             Command::Tick(VaultTick::Restored) => {
                 snapshot.saw_restored_tick = true;
-                let interrupted_leaves: Vec<_> = snapshot
-                    .jobs
-                    .list()
-                    .into_iter()
-                    .filter(|view| view.status == JobStatus::Interrupted)
-                    .filter_map(|view| {
-                        let JobKind::Leaf(step) = view.kind else {
-                            return None;
-                        };
-                        Some((view.job_id, step.clone()))
-                    })
-                    .collect();
-                for (job_id, step) in interrupted_leaves {
-                    match step {
-                        Step::Alpha => {
-                            snapshot
-                                .jobs
-                                .finish(job_id, JobEnd::Failed)
-                                .expect("Alpha is interrupted");
-                        }
-                        Step::Beta => {
-                            snapshot.jobs.retry(job_id).expect("Beta is interrupted");
-                        }
-                        Step::Work => {}
-                    }
-                }
                 Outcome::Applied {
                     events: Vec::new(),
                     effects: Vec::new(),
@@ -178,13 +121,11 @@ impl DomainDurable for Vault {
 }
 
 impl DomainJobs for Vault {
-    type Step = Step;
-
-    fn jobs(snapshot: &Self::Snapshot) -> &Jobs<Self::Step> {
+    fn jobs(snapshot: &Self::Snapshot) -> &Jobs {
         &snapshot.jobs
     }
 
-    fn jobs_mut(snapshot: &mut Self::Snapshot) -> &mut Jobs<Self::Step> {
+    fn jobs_mut(snapshot: &mut Self::Snapshot) -> &mut Jobs {
         &mut snapshot.jobs
     }
 }
@@ -230,11 +171,17 @@ fn vault_builder(
         STATE_VERSION,
     )
     .command("Bump", |_: EmptyRequest| Ok(VaultRequest::Bump))
-    .command("StartJob", |_: EmptyRequest| Ok(VaultRequest::StartJob))
-    .command("StartParallel", |_: EmptyRequest| {
-        Ok(VaultRequest::StartParallel)
+    .job("StartJob", LASTING, |_job_id, _: EmptyRequest| {
+        Ok(VaultRequest::StartJob)
     })
-    .jobs();
+    .job(
+        "AwaitApproval",
+        JobNature {
+            needs_permission: true,
+            ..LASTING
+        },
+        |_job_id, _: EmptyRequest| Ok(VaultRequest::StartJob),
+    );
     let shutdown = if shutdown_bump {
         builder = builder.on_shutdown(VaultRequest::Bump);
         Some(builder.shutdown_handle())
@@ -294,7 +241,8 @@ async fn send_command(backend: &Arc<dyn blueos_comms::CommsBackend>, command: &s
     let body = QueryBody::new(
         EmptyRequest::default().encode().expect("request encodes"),
         cdr_encoding(EmptyRequest::SCHEMA_NAME),
-    );
+    )
+    .with_attachment(new_job_id().to_string().into_bytes());
     let replies = backend
         .get(
             &command_key(VaultService::NAME, command),
@@ -397,12 +345,13 @@ async fn wrong_shape_with_matching_version_starts_fresh_without_restored_tick() 
 }
 
 #[tokio::test(start_paused = true)]
-async fn after_restore_interrupted_leaves_can_fail_or_retry_from_the_restored_tick() {
+async fn a_restore_aborts_the_running_jobs_and_keeps_the_waiting_ones() {
     let temp_folder = tempfile::tempdir().expect("tempdir");
     let folder = temp_folder.path().to_path_buf();
     let (backend, _sender, _shutdown, mut tasks, durable_flush) =
         start_vault_kernel(folder.clone(), false).await;
-    send_command(&backend, "StartParallel").await;
+    send_command(&backend, "StartJob").await;
+    send_command(&backend, "AwaitApproval").await;
     time::advance(Duration::from_secs(1)).await;
     flush_and_expect_durable(&durable_flush, &folder, 0).await;
     tasks.abort_all();
@@ -413,18 +362,18 @@ async fn after_restore_interrupted_leaves_can_fail_or_retry_from_the_restored_ti
     let jobs = query_jobs(&restore_backend).await;
     restore_tasks.abort_all();
 
-    let alpha = jobs
+    let statuses: Vec<_> = jobs
         .jobs
         .iter()
-        .find(|job| job.name == "Alpha")
-        .expect("Alpha leaf");
-    let beta = jobs
-        .jobs
-        .iter()
-        .find(|job| job.name == "Beta")
-        .expect("Beta leaf");
-    assert_eq!(alpha.status, JobStatusStatus::Failed);
-    assert_eq!(beta.status, JobStatusStatus::Running);
+        .map(|job| (job.job_type.as_str(), job.status, job.reason.as_str()))
+        .collect();
+    assert_eq!(
+        statuses,
+        [
+            ("AwaitApproval", JobStatusStatus::WaitingForPermission, ""),
+            ("StartJob", JobStatusStatus::Aborted, "interrupted"),
+        ]
+    );
 }
 
 #[tokio::test(start_paused = true)]

@@ -12,7 +12,7 @@ use futures_util::{future::BoxFuture, stream};
 use tokio::{sync::Semaphore, task::JoinSet, time::timeout};
 
 use blueos_api::{
-    CommandAck, JOB_ID_NONE, Message, cdr_encoding, command_key, event_key, query_key, state_key,
+    CommandAck, Message, cdr_encoding, command_key, event_key, jobs_key, query_key, state_key,
 };
 use blueos_comms::{
     CommsBackend, CommsError, LivelinessSubscriber, LivelinessToken, Query, QueryBody, Queryable,
@@ -25,9 +25,11 @@ use blueos_idl::{
     message::CdrStruct,
     msg::{
         blueos_example_msgs::{EmptyRequest, LevelQueryResponse, PumpState, SetLevelRequest},
+        blueos_msgs::{CommandAckStatus, JobStatusStatus},
         builtin_interfaces::Time,
     },
 };
+use blueos_jobs::JobId;
 use blueos_service::{
     Kernel, Refusal, Service, ServiceBuilder, ServiceContext, ServiceError,
     testing::{Harness, PausedClock, WALL_CLOCK_AT_START},
@@ -575,7 +577,7 @@ async fn a_rejected_request_leaves_the_state_and_tells_the_client_why() {
 
     assert!(!ack.accepted);
     assert_eq!(ack.reason, "level 11 is above the capacity 10");
-    assert_eq!(ack.job_id, JOB_ID_NONE);
+    assert_eq!(ack.status, CommandAckStatus::StatusUnknown);
     assert_eq!(harness.state::<PumpState>("tank").await.level, 4);
 }
 
@@ -599,6 +601,7 @@ async fn states_are_published_before_the_ack_and_events_after_it() {
         [
             format!("publish {}", state_key(TankService::NAME, "level_set_at")),
             format!("publish {}", state_key(TankService::NAME, "tank")),
+            format!("publish {}", jobs_key(TankService::NAME)),
             format!("reply {}", command_key(TankService::NAME, "SetLevel")),
             format!("publish {}", event_key(TankService::NAME, "LevelChanged")),
         ]
@@ -762,7 +765,8 @@ async fn a_request_that_does_not_decode_is_rejected_before_the_domain() {
     let harness = Harness::<TankService>::start(TankArguments { capacity: 100 })
         .await
         .unwrap();
-    let body = QueryBody::new(vec![0xFF], cdr_encoding(SetLevelRequest::SCHEMA_NAME));
+    let body = QueryBody::new(vec![0xFF], cdr_encoding(SetLevelRequest::SCHEMA_NAME))
+        .with_attachment(JobId::from_u128(1).to_string().into_bytes());
 
     let replies = harness
         .backend()
@@ -853,6 +857,7 @@ async fn each_event_endpoint_publishes_only_the_domain_events_it_selects() {
         backend.take_journal(),
         [
             format!("publish {}", state_key(TankService::NAME, "tank")),
+            format!("publish {}", jobs_key(TankService::NAME)),
             format!("reply {}", command_key(TankService::NAME, "SetLevel")),
             format!("publish {}", event_key(TankService::NAME, "LevelChanged")),
             format!("publish {}", event_key(TankService::NAME, "Emptied")),
@@ -961,13 +966,24 @@ async fn the_harness_panics_when_a_state_has_no_value() {
 }
 
 #[tokio::test(start_paused = true)]
-#[should_panic(expected = "expected one jobs value")]
-async fn the_harness_panics_when_a_domain_without_jobs_is_asked_for_them() {
+async fn a_domain_without_jobs_still_lists_the_instant_jobs_it_ran() {
     let harness = Harness::<TankService>::start(TankArguments { capacity: 100 })
         .await
         .unwrap();
 
-    harness.jobs().await;
+    let ack = harness
+        .send("SetLevel", &SetLevelRequest { level: 42 })
+        .await;
+
+    assert_eq!(ack.status, CommandAckStatus::Succeeded);
+    let jobs = harness.jobs().await;
+    let [job] = jobs.jobs.as_slice() else {
+        panic!("expected one Job, got {jobs:?}");
+    };
+    assert_eq!(
+        (job.job_id.as_str(), job.job_type.as_str(), job.status),
+        (ack.job_id.as_str(), "SetLevel", JobStatusStatus::Succeeded)
+    );
 }
 
 #[tokio::test(start_paused = true)]

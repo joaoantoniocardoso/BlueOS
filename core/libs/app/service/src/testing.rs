@@ -9,13 +9,17 @@ use std::sync::{Arc, Mutex};
 use tokio::{task::JoinSet, time::Instant};
 
 use blueos_api::{
-    CommandAck, Message, cdr_encoding, command_key, jobs_key, query_key, settings_key, state_key,
+    CommandAck, ENCODING_APPLICATION_CDR, Message, cdr_encoding, command_key, jobs_key, query_key,
+    settings_key, state_key,
 };
 use blueos_comms::{CommsBackend, QueryBody, ReplyError, channel::ChannelBackend};
 use blueos_domain::{Domain, Effect, Now};
-use blueos_idl::msg::blueos_msgs::JobList;
+use blueos_idl::msg::blueos_msgs::{JobList, PermissionAnswer};
+use blueos_jobs::{JobControl, JobId};
 
-use crate::{Clock, CommandSender, Kernel, Service, ServiceContext, ServiceError, sync};
+use crate::{
+    Clock, CommandSender, Kernel, Service, ServiceContext, ServiceError, new_job_id, sync,
+};
 
 /// The wall-clock time the Domain sees when the harness starts: 2026-01-01T00:00:00Z.
 pub const WALL_CLOCK_AT_START: Duration = Duration::from_secs(1_767_225_600);
@@ -232,16 +236,51 @@ impl<S: Service> Harness<S> {
         &self.backend
     }
 
-    /// Sends `request` to the Command endpoint `command`, as a client would, and returns the ack.
+    /// Submits a Job of type `command` with `request` as its Goal and a new Job id, as a client would, and returns
+    /// the ack.
     ///
     /// # Panics
     ///
     /// When the Service does not reply exactly once with a [`CommandAck`].
     pub async fn send<M: Message>(&self, command: &str, request: &M) -> CommandAck {
+        self.submit(command, new_job_id(), request).await
+    }
+
+    /// Submits the Job `job_id` of type `job_type` with `goal`, as a client would, and returns the ack.
+    ///
+    /// # Panics
+    ///
+    /// When the Service does not reply exactly once with a [`CommandAck`].
+    pub async fn submit<M: Message>(&self, job_type: &str, job_id: JobId, goal: &M) -> CommandAck {
         let body = QueryBody::new(
-            request.encode().expect("the request encodes"),
+            goal.encode().expect("the Goal encodes"),
             cdr_encoding(M::SCHEMA_NAME),
         );
+        self.command(job_type, job_id, body).await
+    }
+
+    /// Sends `control` for the Job `job_id`, as a client would, and returns the ack.
+    ///
+    /// # Panics
+    ///
+    /// When the Service does not reply exactly once with a [`CommandAck`].
+    pub async fn control(&self, job_id: JobId, control: JobControl) -> CommandAck {
+        let body = match control {
+            JobControl::AnswerPermission { granted } => QueryBody::new(
+                PermissionAnswer { granted }
+                    .encode()
+                    .expect("the answer encodes"),
+                cdr_encoding(PermissionAnswer::SCHEMA_NAME),
+            ),
+            JobControl::Cancel | JobControl::Pause | JobControl::Resume => {
+                QueryBody::new(Vec::new(), ENCODING_APPLICATION_CDR)
+            }
+        };
+        self.command(&control.to_string(), job_id, body).await
+    }
+
+    async fn command(&self, command: &str, job_id: JobId, body: QueryBody) -> CommandAck {
+        let body = body.with_attachment(job_id.to_string().into_bytes());
         let replies = self
             .backend
             .get(&command_key(S::NAME, command), Some(body), REPLY_TIMEOUT)
@@ -319,7 +358,7 @@ impl<S: Service> Harness<S> {
     ///
     /// # Panics
     ///
-    /// When the Service does not reply exactly once with a [`JobList`], as for a Domain without Jobs.
+    /// When the Service does not reply exactly once with a [`JobList`].
     pub async fn jobs(&self) -> JobList {
         let replies = self
             .backend

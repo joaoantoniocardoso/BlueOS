@@ -16,6 +16,7 @@ use blueos_idl::msg::{
     blueos_example_msgs::{EmptyRequest, LevelQueryResponse, PumpState},
     blueos_msgs::ServiceInfo,
 };
+use blueos_jobs::JobId;
 use blueos_service::{
     Kernel, Service, ServiceBuilder, ServiceContext, ServiceError, testing::PausedClock,
 };
@@ -160,7 +161,9 @@ async fn every_endpoint_answers(backend: &Arc<dyn CommsBackend>, service: &str) 
     let probe = LevelQueryResponse::decode(&probe_payload).expect("Probe io query");
     assert_eq!(probe.level, 4);
 
-    let command_payload = expect_one_get(backend, &command_key(service, "Noop"), Some(empty)).await;
+    let command = empty.with_attachment(JobId::from_u128(1).to_string().into_bytes());
+    let command_payload =
+        expect_one_get(backend, &command_key(service, "Noop"), Some(command)).await;
     let ack = CommandAck::decode(&command_payload).expect("CommandAck");
     assert!(ack.accepted);
 

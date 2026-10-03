@@ -13,6 +13,7 @@ use blueos_api::{Message, cdr_encoding, command_key, state_key};
 use blueos_comms::Subscriber;
 use blueos_domain::{Command, Decision, Domain, DomainQueries, Effect, IoError, Now, Outcome};
 use blueos_idl::msg::blueos_example_msgs::{EmptyRequest, LevelQueryResponse};
+use blueos_jobs::JobId;
 use blueos_service::{
     Kernel, RunOutcome, Service, ServiceBuilder, ServiceContext, ServiceError,
     testing::{Harness, PausedClock, lock_unpoisoned},
@@ -596,7 +597,8 @@ async fn query_answers_while_blocking_io_is_held() {
         let body = blueos_comms::QueryBody::new(
             EmptyRequest::default().encode().unwrap(),
             cdr_encoding(EmptyRequest::SCHEMA_NAME),
-        );
+        )
+        .with_attachment(JobId::from_u128(1).to_string().into_bytes());
         backend
             .get(
                 &command_key(EffectsService::NAME, "RunBlockingHold"),
@@ -707,7 +709,8 @@ async fn shutdown_waits_for_in_flight_io_before_returning() {
         let body = blueos_comms::QueryBody::new(
             EmptyRequest::default().encode().unwrap(),
             cdr_encoding(EmptyRequest::SCHEMA_NAME),
-        );
+        )
+        .with_attachment(JobId::from_u128(1).to_string().into_bytes());
         backend
             .get(
                 &command_key(EffectsService::NAME, "RunAsyncHold"),
@@ -758,7 +761,8 @@ async fn shutdown_abandons_in_flight_io_after_five_seconds() {
         let body = blueos_comms::QueryBody::new(
             EmptyRequest::default().encode().unwrap(),
             cdr_encoding(EmptyRequest::SCHEMA_NAME),
-        );
+        )
+        .with_attachment(JobId::from_u128(1).to_string().into_bytes());
         backend
             .get(
                 &command_key(EffectsService::NAME, "RunAsyncHold"),
@@ -813,7 +817,8 @@ async fn shutdown_waits_for_in_flight_blocking_io_before_returning() {
         let body = blueos_comms::QueryBody::new(
             EmptyRequest::default().encode().unwrap(),
             cdr_encoding(EmptyRequest::SCHEMA_NAME),
-        );
+        )
+        .with_attachment(JobId::from_u128(1).to_string().into_bytes());
         backend
             .get(
                 &command_key(EffectsService::NAME, "RunBlockingHold"),

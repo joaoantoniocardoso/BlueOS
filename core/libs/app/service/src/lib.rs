@@ -32,7 +32,7 @@ pub mod testing;
 
 pub use builder::{Refusal, ServiceBuilder};
 pub use clock::Clock;
-pub use command_sender::{CommandSender, SendError, Session};
+pub use command_sender::{CommandSender, SendError, Session, new_job_id};
 #[cfg(feature = "testing")]
 pub use durable_state::DurableWriteFlush;
 pub use kernel::Kernel;
