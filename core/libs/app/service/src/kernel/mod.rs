@@ -171,6 +171,13 @@ struct EncodedJobOutput {
     results: Vec<Result<Vec<u8>, IdlError>>,
 }
 
+/// The build declared Feedback or a Job result for `job_type`, but no Job type of that name.
+#[derive(Debug, thiserror::Error)]
+#[error("{job_type} declares Feedback or a Job result but is no Job type")]
+struct OutputWithoutJobType {
+    job_type: String,
+}
+
 /// Why the Kernel did not apply a Command. Its text is the reason in the rejected [`CommandAck`].
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum Rejection {
@@ -195,6 +202,9 @@ pub(crate) enum Rejection {
     /// The Service registered no settings, so there is nothing for `UpdateSettings` to change.
     #[error("the Service has no settings")]
     NoSettings,
+    /// The Job a permission answer resumes has a type the Service does not register.
+    #[error("there is no Job type {0}")]
+    UnknownJobType(String),
     /// The Jobs refused the submit or the control.
     #[error(transparent)]
     Jobs(#[from] JobsError),
@@ -465,9 +475,9 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             job_outputs.push(job_output);
         }
         if let Some(job_type) = builder.job_outputs.keys().next() {
-            return Err(ServiceError::Build(
-                format!("{job_type} declares Feedback or a Job result but is no Job type").into(),
-            ));
+            return Err(ServiceError::Build(Box::new(OutputWithoutJobType {
+                job_type: job_type.clone(),
+            })));
         }
         for control in CONTROLS {
             let queryable = declare(&*backend, command_key(service, &control.to_string())).await?;
@@ -1081,9 +1091,10 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                     return Ok(None);
                 }
                 let job = self.jobs().job(job_id).ok_or(JobsError::Unknown(job_id))?;
-                let decode = self.job_types.get(&job.job_type).ok_or_else(|| {
-                    Rejection::Refused(format!("there is no Job type {}", job.job_type).into())
-                })?;
+                let decode = self
+                    .goal_decoders
+                    .get(&job.job_type)
+                    .ok_or_else(|| Rejection::UnknownJobType(job.job_type.clone()))?;
                 decode(job_id, &job.goal).map(|request| Some(Command::Request(request)))
             }
         }
