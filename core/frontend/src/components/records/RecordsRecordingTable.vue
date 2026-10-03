@@ -4,15 +4,29 @@
     :headers="headers"
     :items="files"
     item-key="path"
-    sort-by="created"
-    sort-desc
+    :sort-by="sortKey"
+    :sort-desc="sortDescending"
+    :custom-sort="keepOrder"
+    must-sort
     show-select
     :items-per-page="25"
     :footer-props="{ 'items-per-page-options': [10, 25, 50, -1] }"
     :mobile-breakpoint="0"
     class="records-table"
     @input="$emit('update:selected-files', $event)"
+    @update:sort-by="$emit('update:sort-key', $event)"
+    @update:sort-desc="$emit('update:sort-descending', $event)"
+    @click:row="onRowClick"
   >
+    <template #item.preview="{ item }">
+      <records-recording-preview
+        class="table-preview"
+        :file="item"
+        :download-url="downloadUrl(item.path)"
+        :disabled="disabled"
+        compact
+      />
+    </template>
     <template #item.name="{ item }">
       <span class="font-weight-medium">{{ item.name }}</span>
     </template>
@@ -25,11 +39,17 @@
     <template #item.size_bytes="{ item }">
       {{ formatSize(item.size_bytes) }}
     </template>
+    <template #item.duration="{ item }">
+      {{ durationLabel(item) }}
+    </template>
+    <template #item.tracks="{ item }">
+      {{ tracksLabel(item) }}
+    </template>
     <template #item.created="{ item }">
       {{ formatDate(item.created) }}
     </template>
     <template #item.actions="{ item }">
-      <div class="d-flex align-center justify-end">
+      <div class="d-flex align-center justify-end" @click.stop>
         <v-btn
           v-if="canPlay(item)"
           v-tooltip="`Play ${item.name}`"
@@ -44,37 +64,40 @@
             mdi-play-circle
           </v-icon>
         </v-btn>
-        <v-btn
-          v-for="operationName in item.allowed_operations"
+        <span
+          v-for="operationName in operationButtons(item)"
           :key="operationName"
-          v-tooltip="`${operationUi(operationName).label} ${item.name}`"
-          :aria-label="`${operationUi(operationName).label} ${item.name}`"
-          icon
-          small
-          :color="operationUi(operationName).color"
-          :loading="busyPath === item.path && busyOperation === operationName"
-          :disabled="disabled"
-          @click="$emit('operation', operationName, item)"
+          v-tooltip="operationTooltip(item, operationName)"
         >
-          <v-icon small>
-            {{ operationUi(operationName).icon }}
-          </v-icon>
-        </v-btn>
-        <v-btn
-          v-if="item.state === 'ready'"
-          v-tooltip="`Download ${item.name}`"
-          :aria-label="`Download ${item.name}`"
-          icon
-          small
-          color="primary"
-          :href="downloadUrl(item.path)"
-          :download="item.name"
-          :disabled="disabled"
-        >
-          <v-icon small>
-            mdi-download
-          </v-icon>
-        </v-btn>
+          <v-btn
+            :aria-label="operationTooltip(item, operationName)"
+            icon
+            small
+            :color="operationUi(operationName).color"
+            :loading="busyPath === item.path && busyOperation === operationName"
+            :disabled="disabled || operationDisabledReason(item, operationName) !== null"
+            @click="$emit('operation', operationName, item)"
+          >
+            <v-icon small>
+              {{ operationUi(operationName).icon }}
+            </v-icon>
+          </v-btn>
+        </span>
+        <span v-tooltip="downloadTooltip(item)">
+          <v-btn
+            :aria-label="downloadTooltip(item)"
+            icon
+            small
+            color="primary"
+            :loading="downloading(item)"
+            :disabled="disabled || !canDownload(item)"
+            @click="$emit('download', item)"
+          >
+            <v-icon small>
+              mdi-download
+            </v-icon>
+          </v-btn>
+        </span>
       </div>
     </template>
   </v-data-table>
@@ -83,14 +106,27 @@
 <script lang="ts">
 import Vue, { PropType } from 'vue'
 
+import RecordsRecordingPreview from '@/components/records/RecordsRecordingPreview.vue'
 import RecordsRepairProgress from '@/components/records/RecordsRepairProgress.vue'
+import { DOWNLOAD } from '@/libs/recorder/constants'
+import type { RecordingSortKey } from '@/libs/recorder/sort'
 import type { LibraryRecording } from '@/libs/recorder/types'
-import { canPlayRecording, RECORDING_OPERATION_UI, RECORDING_STATE_UI } from '@/libs/recorder/view-logic'
+import {
+  canDownloadRecording,
+  canPlayRecording,
+  downloadTooltip,
+  durationLabel,
+  operationButtons,
+  operationDisabledReason,
+  RECORDING_OPERATION_UI,
+  RECORDING_STATE_UI,
+  tracksLabel,
+} from '@/libs/recorder/view-logic'
 import { prettifySize } from '@/utils/helper_functions'
 
 export default Vue.extend({
   name: 'RecordsRecordingTable',
-  components: { RecordsRepairProgress },
+  components: { RecordsRecordingPreview, RecordsRepairProgress },
   props: {
     files: {
       type: Array as PropType<LibraryRecording[]>,
@@ -116,13 +152,29 @@ export default Vue.extend({
       type: Array as PropType<LibraryRecording[]>,
       default: () => [],
     },
+    sortKey: {
+      type: String as PropType<RecordingSortKey>,
+      required: true,
+    },
+    sortDescending: {
+      type: Boolean,
+      required: true,
+    },
   },
   data() {
     return {
       headers: [
+        {
+          text: '',
+          value: 'preview',
+          sortable: false,
+          width: 96,
+        },
         { text: 'Name', value: 'name' },
         { text: 'State', value: 'state' },
         { text: 'Size', value: 'size_bytes' },
+        { text: 'Duration', value: 'duration' },
+        { text: 'Tracks', value: 'tracks', sortable: false },
         { text: 'Created', value: 'created' },
         {
           text: '',
@@ -135,6 +187,27 @@ export default Vue.extend({
   },
   methods: {
     canPlay: canPlayRecording,
+    downloadTooltip,
+    durationLabel,
+    tracksLabel,
+    /** The view sorts `files` with the sort the cards share; the headers only change that sort. */
+    keepOrder(items: LibraryRecording[]): LibraryRecording[] {
+      return items
+    },
+    operationButtons,
+    operationDisabledReason,
+    canDownload: canDownloadRecording,
+    downloading(file: LibraryRecording): boolean {
+      return this.busyPath === file.path && this.busyOperation === DOWNLOAD
+    },
+    operationTooltip(file: LibraryRecording, operationName: string): string {
+      return operationDisabledReason(file, operationName) ?? `${this.operationUi(operationName).label} ${file.name}`
+    },
+    onRowClick(file: LibraryRecording): void {
+      if (!this.disabled && canPlayRecording(file)) {
+        this.$emit('play', file)
+      }
+    },
     stateUi(file: LibraryRecording): { label: string, color: string } {
       return RECORDING_STATE_UI[file.state] ?? { label: file.state, color: 'secondary' }
     },
@@ -151,3 +224,13 @@ export default Vue.extend({
   },
 })
 </script>
+
+<style scoped>
+.records-table ::v-deep tbody tr {
+  cursor: pointer;
+}
+
+.table-preview {
+  width: 96px;
+}
+</style>

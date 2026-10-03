@@ -99,6 +99,9 @@ pub fn schema(schema_name: &str) -> Option<&'static str> {
         "blueos_recorder_msgs/msg/ChunkIndexEntry" => {
             Some(msg::blueos_recorder_msgs::ChunkIndexEntry::SCHEMA)
         }
+        "blueos_recorder_msgs/msg/RecordingContents" => {
+            Some(msg::blueos_recorder_msgs::RecordingContents::SCHEMA)
+        }
         "blueos_recorder_msgs/msg/RecordingFile" => {
             Some(msg::blueos_recorder_msgs::RecordingFile::SCHEMA)
         }

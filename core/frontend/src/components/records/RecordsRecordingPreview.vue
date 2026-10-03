@@ -10,12 +10,12 @@
     <v-img
       v-if="objectUrl"
       :src="objectUrl"
-      height="180"
+      :height="compact ? 54 : 180"
       :class="[previewBackground, 'preview-clickable']"
       aspect-ratio="16/9"
       contain
     >
-      <div v-if="canPlay" class="preview-overlay d-flex align-center justify-center">
+      <div v-if="canPlay && !compact" class="preview-overlay d-flex align-center justify-center">
         <v-btn
           v-tooltip="`Play ${file.name}`"
           :aria-label="`Play ${file.name}`"
@@ -34,21 +34,21 @@
     <div
       v-else-if="loading"
       class="preview-placeholder d-flex flex-column align-center justify-center"
-      :class="previewBackground"
+      :class="[previewBackground, { 'preview-compact': compact }]"
     >
-      <v-progress-circular indeterminate color="primary" size="48" />
-      <span class="mt-2 caption grey--text text--darken-1">Processing thumbnail...</span>
+      <v-progress-circular indeterminate color="primary" :size="compact ? 24 : 48" />
+      <span v-if="!compact" class="mt-2 caption grey--text text--darken-1">Processing thumbnail...</span>
     </div>
     <div
       v-else
       class="preview-placeholder d-flex flex-column align-center justify-center preview-clickable"
-      :class="previewBackground"
+      :class="[previewBackground, { 'preview-compact': compact }]"
     >
-      <v-icon large color="grey darken-1">
+      <v-icon :large="!compact" color="grey darken-1">
         mdi-multimedia
       </v-icon>
       <v-btn
-        v-if="canPlay"
+        v-if="canPlay && !compact"
         v-tooltip="`Play ${file.name}`"
         :aria-label="`Play ${file.name}`"
         icon
@@ -70,7 +70,7 @@ import Vue, { PropType } from 'vue'
 
 import { loadRecordingThumbnail } from '@/libs/recorder/thumbnail-loader'
 import type { LibraryRecording } from '@/libs/recorder/types'
-import { canPlayRecording } from '@/libs/recorder/view-logic'
+import { canLoadThumbnail, canPlayRecording } from '@/libs/recorder/view-logic'
 
 export default Vue.extend({
   name: 'RecordsRecordingPreview',
@@ -84,6 +84,11 @@ export default Vue.extend({
       required: true,
     },
     disabled: {
+      type: Boolean,
+      default: false,
+    },
+    /** A small thumbnail for a table cell, without the Play overlay. */
+    compact: {
       type: Boolean,
       default: false,
     },
@@ -116,6 +121,9 @@ export default Vue.extend({
     fileSizeBytes() {
       this.loadThumbnail()
     },
+    canPlay() {
+      this.loadThumbnail()
+    },
   },
   beforeDestroy() {
     this.revokeObjectUrl()
@@ -134,7 +142,8 @@ export default Vue.extend({
       }
     },
     async loadThumbnail(): Promise<void> {
-      if (!this.canPlay || !this.downloadUrl) {
+      if (!this.canPlay || !canLoadThumbnail(this.file) || !this.downloadUrl) {
+        this.controller?.abort()
         this.revokeObjectUrl()
         this.loading = false
         return
@@ -180,6 +189,10 @@ export default Vue.extend({
 
 .preview-placeholder {
   height: 180px;
+}
+
+.preview-placeholder.preview-compact {
+  height: 54px;
 }
 
 .preview-overlay {

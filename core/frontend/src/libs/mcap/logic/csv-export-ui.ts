@@ -20,12 +20,13 @@ export function csvRangeLabel(clip: Mp4ExportRange | null): string {
   return `${start}s – ${end}`
 }
 
+/** Below 100 until the file is ready: the expected count is an estimate, and the file is built after the last row. */
 export function csvExportPercentage(progress: CsvExportProgress | null): number {
-  const { seconds, durationSeconds } = progress ?? { seconds: 0, durationSeconds: 0 }
-  if (durationSeconds <= 0) {
+  const { messages, expectedMessages } = progress ?? { messages: 0, expectedMessages: 0 }
+  if (expectedMessages <= 0) {
     return 0
   }
-  return Math.min(100, Math.round(seconds / durationSeconds * 100))
+  return Math.min(99, Math.round(messages / expectedMessages * 100))
 }
 
 export function csvExportStatusText(

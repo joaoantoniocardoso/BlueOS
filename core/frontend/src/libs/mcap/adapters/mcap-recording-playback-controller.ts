@@ -11,7 +11,12 @@ import type { PrefixScanProgress } from '../logic/reader'
 import type { RecordingIndexSource } from '../logic/recording-index'
 import type { VideoTrack } from '../logic/video-track'
 import { listVideoTracks, timeRangesCover } from '../logic/video-track'
-import { exportTrackAsMp4, type Mp4ExportProgress, type Mp4ExportRange } from './export'
+import {
+  exportTrackAsMp4,
+  type Mp4ExportProgress,
+  type Mp4ExportRange,
+  NoKeyframeError,
+} from './export'
 import {
   isMediaSourceSupported,
   McapVideoRecording,
@@ -56,6 +61,8 @@ export interface McapPlaybackViewState {
   exportTrackName: string | null
   exportTrackIndex: number
   exportTrackCount: number
+  /** What the last video export could not save, or null when it saved every stream. */
+  exportNotice: string | null
   playing: boolean
   pendingSeek: number | null
   timelineDragging: boolean
@@ -128,6 +135,7 @@ export class McapRecordingPlaybackController {
       exportTrackName: null,
       exportTrackIndex: 0,
       exportTrackCount: 0,
+      exportNotice: null,
       playing: false,
       pendingSeek: null,
       timelineDragging: false,
@@ -474,15 +482,17 @@ export class McapRecordingPlaybackController {
   }
 
   async saveMp4(recordingName: string, clip: Mp4ExportRange | null): Promise<void> {
-    const { recording, tracks, exportProgress } = this.state
+    const { recording, exportProgress } = this.state
+    const tracks = this.visibleTracks()
     if (!recording || tracks.length === 0 || exportProgress) {
       return
     }
     const controller = new AbortController()
     const end = Math.min(clip?.endSeconds ?? Infinity, recording.durationSeconds)
     const durationSeconds = Math.max(end - (clip?.startSeconds ?? 0), 0)
+    const skipped: string[] = []
     this.exportController = controller
-    this.patch({ exportTrackCount: tracks.length })
+    this.patch({ exportTrackCount: tracks.length, exportNotice: null })
     try {
       for (let index = 0; index < tracks.length; index += 1) {
         if (controller.signal.aborted) {
@@ -501,7 +511,16 @@ export class McapRecordingPlaybackController {
           onProgress: (progress) => {
             this.patch({ exportProgress: progress })
           },
+        }).catch((error) => {
+          if (error instanceof NoKeyframeError) {
+            skipped.push(track.name)
+            return null
+          }
+          throw error
         })
+        if (!file) {
+          continue
+        }
         const endLabel = Number.isFinite(clip?.endSeconds) ? `${Math.round(clip?.endSeconds ?? 0)}s` : 'end'
         const fileName = clip
           ? `${recordingName}-${track.name}-${Math.round(clip.startSeconds)}s-${endLabel}.mp4`
@@ -519,6 +538,7 @@ export class McapRecordingPlaybackController {
         exportTrackName: null,
         exportTrackIndex: 0,
         exportTrackCount: 0,
+        exportNotice: skippedStreamsNotice(skipped, tracks.length),
       })
     }
   }
@@ -630,4 +650,15 @@ export class McapRecordingPlaybackController {
       }
     }
   }
+}
+
+/** Names the streams an export skipped because the cut holds no keyframe of theirs; null when none was. */
+function skippedStreamsNotice(skipped: string[], total: number): string | null {
+  if (skipped.length === 0) {
+    return null
+  }
+  const saved = total - skipped.length
+  const names = skipped.join(', ')
+  const holds = skipped.length === 1 ? 'holds' : 'hold'
+  return `Saved ${saved} of ${total} video streams: ${names} ${holds} no keyframe in the selected part.`
 }

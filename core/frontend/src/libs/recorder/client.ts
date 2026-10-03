@@ -29,13 +29,16 @@ import type {
 import { recordingDownloadUrl } from './url'
 import {
   readySnapshotDownloadPath,
+  recordingDownload,
   type RepairProgress,
   snapshotDownloadPath,
   snapshotPathsForSource,
-  sortRecordingsNewestFirst,
 } from './view-logic'
 
 export { SNAPSHOT_WAIT_TIMEOUT_MS } from './constants'
+
+/** The recorder refused the snapshot, for instance because the recording stopped meanwhile. */
+class SnapshotRefusedError extends Error {}
 
 interface SnapshotWaiter {
   resolve: (outputPath: string) => void
@@ -72,6 +75,8 @@ export interface RecorderClient {
   cancelRepair(repairJobId: string): Promise<RecorderCommandResult>
   deleteRecording(path: string): Promise<RecorderCommandResult>
   snapshotRecording(path: string): Promise<string>
+  /** The path to download for `file`: its own, or for the file being written, a snapshot taken now. */
+  recordingDownloadPath(file: LibraryRecording): Promise<string>
   recordingDownloadUrl(relativePath: string): string
   recordingIndexSource(path: string): RecordingIndexSource
 }
@@ -147,7 +152,8 @@ export function createRecorderClient(
     watchLibrary(onLibrary, onError) {
       return watchState(transport, library, {
         onValue: (message) => {
-          librarySnapshot = sortRecordingsNewestFirst(message.files.map(mapRecordingFile))
+          const contents = new Map(message.contents.map((entry) => [entry.path, entry]))
+          librarySnapshot = message.files.map((file) => mapRecordingFile(file, contents.get(file.path)))
           onLibrary(librarySnapshot)
           resolveSnapshotWaiters()
         },
@@ -231,7 +237,7 @@ export function createRecorderClient(
       try {
         const commandAck = await sendCommand(transport, SnapshotRecording, { path })
         if (!commandAck.accepted) {
-          removeSnapshotWaiter(path, new Error(commandAck.reason || 'Snapshot command rejected'))
+          removeSnapshotWaiter(path, new SnapshotRefusedError(commandAck.reason || 'Snapshot command rejected'))
         }
       } catch (error) {
         removeSnapshotWaiter(
@@ -240,6 +246,20 @@ export function createRecorderClient(
         )
       }
       return snapshotPromise
+    },
+
+    async recordingDownloadPath(file) {
+      if (recordingDownload(file) !== 'snapshot') {
+        return file.path
+      }
+      try {
+        return await this.snapshotRecording(file.path)
+      } catch (error) {
+        if (error instanceof SnapshotRefusedError) {
+          return file.path
+        }
+        throw error
+      }
     },
 
     recordingDownloadUrl(relativePath) {

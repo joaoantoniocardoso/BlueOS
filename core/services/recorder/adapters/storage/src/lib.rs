@@ -13,7 +13,7 @@ use thiserror::Error;
 use tracing::warn;
 use walkdir::WalkDir;
 
-use blueos_recorder_mcap::read_footer_at;
+use blueos_recorder_mcap::{RecordingContents, read_footer_at, read_recording_contents};
 
 const RECORDING_SUFFIX: &str = ".mcap";
 const RECOVER_SUFFIX: &str = ".recover";
@@ -54,6 +54,8 @@ pub struct ScannedRecordingFile {
     pub modified_unix_seconds: i64,
     /// Whether the MCAP summary is present (seekable).
     pub indexed: bool,
+    /// What the recording holds, from its summary; `None` when it has none or it could not be read.
+    pub contents: Option<RecordingContents>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -63,10 +65,17 @@ struct FooterCacheKey {
     modified_unix_seconds: i64,
 }
 
-/// Footer read cache for library scans (not shared with the data plane).
+/// Footer and summary read cache for library scans (not shared with the data plane).
 #[derive(Clone, Debug, Default)]
 pub struct LibraryFooterCache {
-    entries: HashMap<PathBuf, (FooterCacheKey, bool)>,
+    entries: HashMap<PathBuf, (FooterCacheKey, FooterReading)>,
+}
+
+/// What a scan read from one file's footer and summary.
+#[derive(Clone, Debug, Default)]
+struct FooterReading {
+    indexed: bool,
+    contents: Option<RecordingContents>,
 }
 
 /// Where MCAP files are stored on disk.
@@ -207,13 +216,15 @@ impl RecordingsFolder {
             listed_paths.push(path.to_path_buf());
             let skip_footer = active_recording_relative_path == Some(relative_path.as_str())
                 || active_recording_relative_path == Some(name);
-            let indexed = footer_indexed(path, &metadata, skip_footer, footer_cache)?;
+            let FooterReading { indexed, contents } =
+                read_footer_cached(path, &metadata, skip_footer, footer_cache)?;
             recordings.push(ScannedRecordingFile {
                 relative_path,
                 name: name.to_string(),
                 size_bytes: metadata.len(),
                 modified_unix_seconds: modified_unix_seconds(&metadata),
                 indexed,
+                contents,
             });
         }
         prune_footer_cache(&mut footer_cache.entries, &listed_paths);
@@ -361,14 +372,14 @@ fn validate_relative_recording_path(relative: &str) -> Result<(), StorageError> 
     Ok(())
 }
 
-fn footer_indexed(
+fn read_footer_cached(
     path: &Path,
     metadata: &fs::Metadata,
     skip_footer: bool,
     footer_cache: &mut LibraryFooterCache,
-) -> Result<bool, StorageError> {
+) -> Result<FooterReading, StorageError> {
     if skip_footer {
-        return Ok(false);
+        return Ok(FooterReading::default());
     }
     let cache_key = FooterCacheKey {
         inode: inode(metadata),
@@ -376,18 +387,27 @@ fn footer_indexed(
         modified_unix_seconds: modified_unix_seconds(metadata),
     };
     let cache_path = path.to_path_buf();
-    if let Some((cached_key, indexed)) = footer_cache.entries.get(&cache_path)
+    if let Some((cached_key, reading)) = footer_cache.entries.get(&cache_path)
         && *cached_key == cache_key
     {
-        return Ok(*indexed);
+        return Ok(reading.clone());
     }
     let indexed = read_footer_at(path, metadata.len())
         .map_err(StorageError::Io)?
         .is_some_and(|footer| footer.summary_start > 0);
+    let contents = if indexed {
+        read_recording_contents(path).unwrap_or_else(|error| {
+            warn!(%error, path = %path.display(), "Failed to read the recording summary");
+            None
+        })
+    } else {
+        None
+    };
+    let reading = FooterReading { indexed, contents };
     footer_cache
         .entries
-        .insert(cache_path, (cache_key, indexed));
-    Ok(indexed)
+        .insert(cache_path, (cache_key, reading.clone()));
+    Ok(reading)
 }
 
 fn relative_path_string(path: &Path) -> String {
@@ -397,7 +417,10 @@ fn relative_path_string(path: &Path) -> String {
         .join("/")
 }
 
-fn prune_footer_cache(cache: &mut HashMap<PathBuf, (FooterCacheKey, bool)>, keep: &[PathBuf]) {
+fn prune_footer_cache(
+    cache: &mut HashMap<PathBuf, (FooterCacheKey, FooterReading)>,
+    keep: &[PathBuf],
+) {
     let keep_set: HashSet<&PathBuf> = keep.iter().collect();
     cache.retain(|path, _| keep_set.contains(path));
 }
@@ -424,6 +447,8 @@ fn modified_unix_seconds(metadata: &fs::Metadata) -> i64 {
 
 #[cfg(test)]
 mod tests {
+    use core::time::Duration;
+
     use super::*;
 
     #[test]
@@ -455,5 +480,103 @@ mod tests {
             assert_eq!(path.parent(), Some(folder.base().join("dive").as_path()));
             assert!(!path.exists(), "{}", path.display());
         }
+    }
+
+    #[test]
+    fn scan_reads_the_duration_and_video_topics_of_an_indexed_recording() {
+        let temporary = tempfile::tempdir().expect("tempdir");
+        let folder = RecordingsFolder::new(temporary.path().to_path_buf()).expect("folder");
+        write_recording(&folder.base().join("dive.mcap"));
+
+        let [scanned] = scan_one(&folder, &mut LibraryFooterCache::default());
+
+        assert!(scanned.indexed);
+        assert_eq!(
+            scanned.contents,
+            Some(RecordingContents {
+                duration: Duration::from_millis(2_500),
+                video_topics: vec!["video/camera/stream".into()],
+                other_topic_count: 1,
+            })
+        );
+    }
+
+    #[test]
+    fn scan_knows_no_duration_or_video_of_a_recording_without_summary() {
+        let temporary = tempfile::tempdir().expect("tempdir");
+        let folder = RecordingsFolder::new(temporary.path().to_path_buf()).expect("folder");
+        let path = folder.base().join("cut.mcap");
+        write_recording(&path);
+        let bytes = fs::read(&path).expect("read");
+        fs::write(&path, &bytes[..bytes.len() / 2]).expect("truncate");
+
+        let [scanned] = scan_one(&folder, &mut LibraryFooterCache::default());
+
+        assert!(!scanned.indexed);
+        assert_eq!(scanned.contents, None);
+    }
+
+    #[test]
+    fn scan_reuses_the_summary_of_a_file_whose_size_and_time_are_unchanged() {
+        let temporary = tempfile::tempdir().expect("tempdir");
+        let folder = RecordingsFolder::new(temporary.path().to_path_buf()).expect("folder");
+        let path = folder.base().join("dive.mcap");
+        write_recording(&path);
+        let mut footer_cache = LibraryFooterCache::default();
+        let [first] = scan_one(&folder, &mut footer_cache);
+
+        let metadata = fs::metadata(&path).expect("metadata");
+        let mut file = fs::File::options().write(true).open(&path).expect("open");
+        io::Write::write_all(&mut file, &vec![0; metadata.len() as usize]).expect("overwrite");
+        file.set_modified(metadata.modified().expect("modified"))
+            .expect("restore modified time");
+        let [second] = scan_one(&folder, &mut footer_cache);
+
+        assert_eq!(second, first);
+    }
+
+    fn scan_one(
+        folder: &RecordingsFolder,
+        footer_cache: &mut LibraryFooterCache,
+    ) -> [ScannedRecordingFile; 1] {
+        folder
+            .scan_library(None, footer_cache)
+            .expect("scan")
+            .try_into()
+            .expect("one recording")
+    }
+
+    /// A video message at 1 s and a telemetry message at 3.5 s.
+    fn write_recording(path: &Path) {
+        let mut writer =
+            mcap::Writer::new(fs::File::create(path).expect("create")).expect("writer");
+        let video_schema = writer
+            .add_schema("foxglove.CompressedVideo", "ros2msg", b"uint8[] data")
+            .expect("schema");
+        let video = writer
+            .add_channel(
+                video_schema,
+                "video/camera/stream",
+                "cdr",
+                &Default::default(),
+            )
+            .expect("video channel");
+        let telemetry = writer
+            .add_channel(0, "mavlink/heartbeat", "json", &Default::default())
+            .expect("telemetry channel");
+        for (channel_id, log_time) in [(video, 1_000_000_000), (telemetry, 3_500_000_000)] {
+            writer
+                .write_to_known_channel(
+                    &mcap::records::MessageHeader {
+                        channel_id,
+                        sequence: 0,
+                        log_time,
+                        publish_time: log_time,
+                    },
+                    b"{}",
+                )
+                .expect("write");
+        }
+        writer.finish().expect("finish");
     }
 }

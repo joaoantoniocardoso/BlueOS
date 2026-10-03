@@ -15,12 +15,11 @@ use blueos_idl::msg::{
     blueos_msgs::JobStatusStatus,
     blueos_recorder_msgs::{SnapshotRecordingGoal, SnapshotRecordingResult},
 };
-use blueos_recorder_library::RESCAN_INTERVAL;
 use blueos_recorder_mcap::{RECORDING_WRITE_CHUNK_SIZE, is_indexed};
 
 use common::{
-    active_recording_mcap_path, drain_blocking_io, next_job_result, recording_state, start_harness,
-    start_recording, stop_recording_and_finalize_mcap, stop_recording_on, subscribe_job_results,
+    active_recording_mcap_path, next_job_result, recording_state, start_harness, start_recording,
+    stop_recording_and_finalize_mcap, stop_recording_on, subscribe_job_results,
     wait_for_active_recording, wait_for_library_file_listed, wait_for_recording_bytes,
     wait_for_recording_bytes_on, wait_for_recording_idle,
 };
@@ -174,20 +173,14 @@ async fn a_snapshot_of_the_active_recording_in_its_first_chunk_keeps_the_message
 }
 
 #[tokio::test(start_paused = true)]
-async fn snapshot_job_result_names_the_indexed_snapshot() {
+async fn snapshot_rejects_a_recording_that_is_not_being_written() {
     let directory = tempdir().expect("tempdir");
-    let path = directory.path().join("partial.mcap");
-    write_truncated_mcap(&path);
+    write_truncated_mcap(&directory.path().join("partial.mcap"));
 
     let harness = start_harness(directory.path()).await;
-    let mut results = subscribe_job_results(&harness, "SnapshotRecording").await;
-
     stop_recording_on(harness.backend()).await;
     wait_for_recording_idle(harness.backend()).await;
-
     wait_for_library_file_listed(&harness, "partial.mcap").await;
-    advance(RESCAN_INTERVAL).await;
-    drain_blocking_io().await;
 
     let ack = harness
         .send(
@@ -197,29 +190,11 @@ async fn snapshot_job_result_names_the_indexed_snapshot() {
             },
         )
         .await;
-    assert!(ack.accepted, "snapshot rejected: {}", ack.reason);
-
-    let (job, message) = next_job_result::<SnapshotRecordingResult>(&mut results).await;
+    assert!(!ack.accepted, "a finished recording downloads directly");
     assert_eq!(
-        job.status,
-        JobStatusStatus::Succeeded,
-        "snapshot failed: {}",
-        job.reason
+        ack.reason,
+        "Only the recording being written needs a snapshot. Download it directly."
     );
-    assert!(!message.output_path.is_empty());
-    assert_eq!(message.path, "partial.mcap");
-
-    wait_for_library_file_listed(&harness, &message.output_path).await;
-    let snapshot_path = directory.path().join(&message.output_path);
-    assert!(snapshot_path.exists(), "snapshot file must exist on disk");
-    assert!(is_indexed(&snapshot_path));
-    let bytes = fs::read(&snapshot_path).expect("read snapshot");
-    let summary = mcap::Summary::read(&bytes)
-        .expect("summary read")
-        .expect("summary");
-    assert!(!summary.chunk_indexes.is_empty());
-    let messages = mcap::MessageStream::new(&bytes).expect("stream").count();
-    assert!(messages > 0);
 }
 
 #[tokio::test(start_paused = true)]

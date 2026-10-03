@@ -85,10 +85,50 @@ export async function buildSizedVideoMcap(messageCount = 16): Promise<Uint8Array
   return buffer.get()
 }
 
-/** Simple JSON channel for CSV export tests (avoids ROS2 CDR layout in the video helper). */
-export async function buildJsonTelemetryMcap(messageCount = 3): Promise<Uint8Array> {
+/** Frame spacing of `buildTwoTrackVideoMcap`; camera_b frames sit half way between two camera_a frames. */
+export const TWO_TRACK_FRAME_NS = 500_000_000n
+
+/**
+ * Two keyframe-only video streams sharing chunks: camera_a has 41 frames over 20 s, and camera_b has
+ * 21 frames that start 5 s after camera_a and stop 5 s before it.
+ */
+export async function buildTwoTrackVideoMcap(): Promise<Uint8Array> {
   const buffer = new TempBuffer()
-  const writer = new McapWriter({ writable: buffer, chunkSize: 512 })
+  const writer = new McapWriter({ writable: buffer, chunkSize: 1024 })
+  await writer.start({ profile: '', library: 'blueos-test' })
+  const schemaId = await writer.registerSchema({
+    name: 'foxglove.CompressedVideo',
+    encoding: 'ros2msg',
+    data: new TextEncoder().encode(COMPRESSED_VIDEO_SCHEMA),
+  })
+  const cameraA = await writer.registerChannel({
+    schemaId, topic: 'video/camera_a/stream', messageEncoding: 'cdr', metadata: new Map(),
+  })
+  const cameraB = await writer.registerChannel({
+    schemaId, topic: 'video/camera_b/stream', messageEncoding: 'cdr', metadata: new Map(),
+  })
+  const payload = encodeCompressedVideo('h264', SAMPLE_H264_KEYFRAME)
+  const baseTime = 1_000_000_000n
+  for (let index = 0; index <= 40; index += 1) {
+    const logTime = baseTime + BigInt(index) * TWO_TRACK_FRAME_NS
+    await writer.addMessage({
+      channelId: cameraA, sequence: index, logTime, publishTime: logTime, data: payload,
+    })
+    if (index >= 10 && index <= 30) {
+      const cameraBTime = logTime + TWO_TRACK_FRAME_NS / 2n
+      await writer.addMessage({
+        channelId: cameraB, sequence: index - 10, logTime: cameraBTime, publishTime: cameraBTime, data: payload,
+      })
+    }
+  }
+  await writer.end()
+  return buffer.get()
+}
+
+/** Simple JSON channel for CSV export tests (avoids ROS2 CDR layout in the video helper). */
+export async function buildJsonTelemetryMcap(messageCount = 3, chunkSize = 512): Promise<Uint8Array> {
+  const buffer = new TempBuffer()
+  const writer = new McapWriter({ writable: buffer, chunkSize })
   await writer.start({ profile: '', library: 'blueos-test' })
   const schemaId = await writer.registerSchema({
     name: 'blueos_msgs/msg/TelemetrySample',
@@ -114,6 +154,78 @@ export async function buildJsonTelemetryMcap(messageCount = 3): Promise<Uint8Arr
       logTime,
       publishTime: logTime,
       data: payload,
+    })
+  }
+  await writer.end()
+  return buffer.get()
+}
+
+/**
+ * Two JSON topics interleaved: `/depth` at 0, 200 and 400 ms with `depth_m`, and `/attitude` at 100 and 300 ms, whose
+ * second message adds `pitch` to `yaw`.
+ */
+export async function buildTwoJsonTopicsMcap(): Promise<Uint8Array> {
+  const buffer = new TempBuffer()
+  const writer = new McapWriter({ writable: buffer, chunkSize: 512 })
+  await writer.start({ profile: '', library: 'blueos-test' })
+  const schemaId = await writer.registerSchema({
+    name: 'blueos_msgs/msg/TelemetrySample',
+    encoding: 'jsonschema',
+    data: new TextEncoder().encode('{"type":"object"}'),
+  })
+  const depth = await writer.registerChannel({
+    schemaId, topic: '/depth', messageEncoding: 'json', metadata: new Map(),
+  })
+  const attitude = await writer.registerChannel({
+    schemaId, topic: '/attitude', messageEncoding: 'json', metadata: new Map(),
+  })
+  const messages: [number, number, number, object][] = [
+    [depth, 0, 0, { depth_m: 1 }],
+    [attitude, 0, 100, { yaw: 90 }],
+    [depth, 1, 200, { depth_m: 2 }],
+    [attitude, 1, 300, { yaw: 91, pitch: 5 }],
+    [depth, 2, 400, { depth_m: 3 }],
+  ]
+  for (const [channelId, sequence, milliseconds, value] of messages) {
+    const logTime = 2_000_000_000n + BigInt(milliseconds) * 1_000_000n
+    await writer.addMessage({
+      channelId, sequence, logTime, publishTime: logTime, data: new TextEncoder().encode(JSON.stringify(value)),
+    })
+  }
+  await writer.end()
+  return buffer.get()
+}
+
+/**
+ * One CDR topic, `/stamps`, whose messages carry a list of samples, each with a `uint64[]` holding a value beyond
+ * 2^53.
+ */
+export async function buildUint64ArrayMcap(): Promise<Uint8Array> {
+  const schema = [
+    'blueos_msgs/Sample[] samples',
+    '================================================================================',
+    'MSG: blueos_msgs/Sample',
+    'uint64[] stamps',
+  ].join('\n')
+  const buffer = new TempBuffer()
+  const writer = new McapWriter({ writable: buffer, chunkSize: 512 })
+  await writer.start({ profile: '', library: 'blueos-test' })
+  const schemaId = await writer.registerSchema({
+    name: 'blueos_msgs/msg/Stamps', encoding: 'ros2msg', data: new TextEncoder().encode(schema),
+  })
+  const channelId = await writer.registerChannel({
+    schemaId, topic: '/stamps', messageEncoding: 'cdr', metadata: new Map(),
+  })
+  for (let index = 0; index < 3; index += 1) {
+    const logTime = 3_000_000_000n + BigInt(index) * 100_000_000n
+    await writer.addMessage({
+      channelId,
+      sequence: index,
+      logTime,
+      publishTime: logTime,
+      data: encodeCdrWithSchema('blueos_msgs/msg/Stamps', schema, {
+        samples: [{ stamps: [BigInt(index), 18446744073709551615n] }],
+      }),
     })
   }
   await writer.end()
