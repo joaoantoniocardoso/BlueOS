@@ -19,6 +19,7 @@ const ACK: &str = "application/cdr;blueos_msgs/msg/CommandAck";
 pub async fn run_all(factory: &dyn Fn() -> Arc<dyn CommsBackend>) {
     a_subscriber_receives_the_published_sample_without_a_copy(factory()).await;
     the_attachment_and_timestamp_travel_with_the_sample(factory()).await;
+    the_attachment_travels_with_the_query_body(factory()).await;
     wildcards_match_as_in_zenoh(factory()).await;
     a_non_canonical_key_expression_is_rejected(factory()).await;
     a_get_reaches_the_queryable_and_returns_its_reply_without_a_copy(factory()).await;
@@ -75,6 +76,31 @@ async fn the_attachment_and_timestamp_travel_with_the_sample(backend: Arc<dyn Co
         sample.attachment().unwrap().to_bytes(),
         &b"correlation 7"[..]
     );
+}
+
+async fn the_attachment_travels_with_the_query_body(backend: Arc<dyn CommsBackend>) {
+    let mut queryable = backend
+        .declare_queryable("blueos/v1/example/command/SetLevel")
+        .await
+        .unwrap();
+
+    let get = backend.get(
+        "blueos/v1/example/command/SetLevel",
+        Some(
+            QueryBody::new(Bytes::from_static(b"level 3"), CDR)
+                .with_attachment(Bytes::from_static(b"job 7")),
+        ),
+        Duration::from_secs(1),
+    );
+    let answer = async {
+        let query = queryable.recv().await.unwrap();
+        let attachment = query.body().unwrap().attachment().unwrap().to_bytes();
+        assert_eq!(attachment, &b"job 7"[..]);
+        query.reply(Bytes::from_static(b"ok"), ACK).await.unwrap();
+    };
+    let (replies, ()) = tokio::join!(get, answer);
+
+    assert_eq!(replies.unwrap().len(), 1);
 }
 
 async fn wildcards_match_as_in_zenoh(backend: Arc<dyn CommsBackend>) {
