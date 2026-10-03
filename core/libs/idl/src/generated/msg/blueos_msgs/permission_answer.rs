@@ -13,11 +13,7 @@ pub struct PermissionAnswer {
 impl CdrStruct for PermissionAnswer {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
-            granted: if reader.is_exhausted() {
-                false
-            } else {
-                reader.read_bool()?
-            },
+            granted: reader.read_or_default(|reader| reader.read_bool())?,
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {

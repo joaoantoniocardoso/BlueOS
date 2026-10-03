@@ -81,26 +81,11 @@ impl JobStatusStatus {
 impl CdrStruct for JobStatus {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
-            job_id: if reader.is_exhausted() {
-                String::new()
-            } else {
-                reader.read_string()?
-            },
-            job_type: if reader.is_exhausted() {
-                String::new()
-            } else {
-                reader.read_string()?
-            },
-            status: if reader.is_exhausted() {
-                <JobStatusStatus>::default()
-            } else {
-                JobStatusStatus::from_raw(reader.read_u8()?)
-            },
-            reason: if reader.is_exhausted() {
-                String::new()
-            } else {
-                reader.read_string()?
-            },
+            job_id: reader.read_or_default(|reader| reader.read_string())?,
+            job_type: reader.read_or_default(|reader| reader.read_string())?,
+            status: reader
+                .read_or_default(|reader| Ok(JobStatusStatus::from_raw(reader.read_u8()?)))?,
+            reason: reader.read_or_default(|reader| reader.read_string())?,
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {

@@ -21,6 +21,7 @@ backon.workspace = true
 bytes.workspace = true
 clap = { workspace = true, features = ["derive", "env", "std"] }
 futures-util = { workspace = true, features = ["std"] }
+metrics.workspace = true
 serde = { workspace = true, features = ["derive", "std"] }
 serde_json.workspace = true
 tempfile = { workspace = true, optional = true }

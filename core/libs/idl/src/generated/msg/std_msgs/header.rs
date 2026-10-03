@@ -16,16 +16,10 @@ pub struct Header {
 impl CdrStruct for Header {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
-            stamp: if reader.is_exhausted() {
-                <crate::msg::builtin_interfaces::Time>::default()
-            } else {
-                <crate::msg::builtin_interfaces::Time>::cdr_decode_fields(reader)?
-            },
-            frame_id: if reader.is_exhausted() {
-                String::new()
-            } else {
-                reader.read_string()?
-            },
+            stamp: reader.read_or_default(|reader| {
+                <crate::msg::builtin_interfaces::Time>::cdr_decode_fields(reader)
+            })?,
+            frame_id: reader.read_or_default(|reader| reader.read_string())?,
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {

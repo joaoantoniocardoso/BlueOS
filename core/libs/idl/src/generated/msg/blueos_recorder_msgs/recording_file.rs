@@ -70,68 +70,27 @@ impl RecordingFileState {
 impl CdrStruct for RecordingFile {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
-            path: if reader.is_exhausted() {
-                String::new()
-            } else {
-                reader.read_string()?
-            },
-            name: if reader.is_exhausted() {
-                String::new()
-            } else {
-                reader.read_string()?
-            },
-            size_bytes: if reader.is_exhausted() {
-                Default::default()
-            } else {
-                reader.read_u64()?
-            },
-            created: if reader.is_exhausted() {
-                <crate::msg::builtin_interfaces::Time>::default()
-            } else {
-                <crate::msg::builtin_interfaces::Time>::cdr_decode_fields(reader)?
-            },
-            state: if reader.is_exhausted() {
-                <RecordingFileState>::default()
-            } else {
-                RecordingFileState::from_raw(reader.read_u8()?)
-            },
-            repair_bytes_processed: if reader.is_exhausted() {
-                Default::default()
-            } else {
-                reader.read_u64()?
-            },
-            repair_total_bytes: if reader.is_exhausted() {
-                Default::default()
-            } else {
-                reader.read_u64()?
-            },
-            repair_bytes_per_second: if reader.is_exhausted() {
-                Default::default()
-            } else {
-                reader.read_f64()?
-            },
-            repair_error: if reader.is_exhausted() {
-                String::new()
-            } else {
-                reader.read_string()?
-            },
-            allowed_operations: {
-                if reader.is_exhausted() {
-                    Vec::new()
-                } else {
-                    let length = reader.read_bounded_sequence_length()?;
-                    let mut values = Vec::with_capacity(length as usize);
-                    for _index in 0..length {
-                        values.push(reader.read_string()?);
-                    }
-                    values
+            path: reader.read_or_default(|reader| reader.read_string())?,
+            name: reader.read_or_default(|reader| reader.read_string())?,
+            size_bytes: reader.read_or_default(|reader| reader.read_u64())?,
+            created: reader.read_or_default(|reader| {
+                <crate::msg::builtin_interfaces::Time>::cdr_decode_fields(reader)
+            })?,
+            state: reader
+                .read_or_default(|reader| Ok(RecordingFileState::from_raw(reader.read_u8()?)))?,
+            repair_bytes_processed: reader.read_or_default(|reader| reader.read_u64())?,
+            repair_total_bytes: reader.read_or_default(|reader| reader.read_u64())?,
+            repair_bytes_per_second: reader.read_or_default(|reader| reader.read_f64())?,
+            repair_error: reader.read_or_default(|reader| reader.read_string())?,
+            allowed_operations: reader.read_or_default(|reader| {
+                let length = reader.read_bounded_sequence_length()?;
+                let mut values = Vec::with_capacity(length as usize);
+                for _index in 0..length {
+                    values.push(reader.read_string()?);
                 }
-            },
-            repair_job_id: if reader.is_exhausted() {
-                String::new()
-            } else {
-                reader.read_string()?
-            },
+                Ok(values)
+            })?,
+            repair_job_id: reader.read_or_default(|reader| reader.read_string())?,
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {

@@ -17,21 +17,9 @@ pub struct RecordingIndexRequest {
 impl CdrStruct for RecordingIndexRequest {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
-            path: if reader.is_exhausted() {
-                String::new()
-            } else {
-                reader.read_string()?
-            },
-            from_offset: if reader.is_exhausted() {
-                Default::default()
-            } else {
-                reader.read_u64()?
-            },
-            limit: if reader.is_exhausted() {
-                Default::default()
-            } else {
-                reader.read_u32()?
-            },
+            path: reader.read_or_default(|reader| reader.read_string())?,
+            from_offset: reader.read_or_default(|reader| reader.read_u64())?,
+            limit: reader.read_or_default(|reader| reader.read_u32())?,
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {

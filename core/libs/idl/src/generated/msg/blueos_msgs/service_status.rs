@@ -64,16 +64,9 @@ impl ServiceStatusStatus {
 impl CdrStruct for ServiceStatus {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
-            status: if reader.is_exhausted() {
-                <ServiceStatusStatus>::default()
-            } else {
-                ServiceStatusStatus::from_raw(reader.read_u8()?)
-            },
-            detail: if reader.is_exhausted() {
-                String::new()
-            } else {
-                reader.read_string()?
-            },
+            status: reader
+                .read_or_default(|reader| Ok(ServiceStatusStatus::from_raw(reader.read_u8()?)))?,
+            detail: reader.read_or_default(|reader| reader.read_string())?,
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {

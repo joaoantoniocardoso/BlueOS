@@ -15,6 +15,7 @@ blueos/v1/example/log 1 type=foxglove_msgs/msg/Log
 blueos/v1/example/query/Level 1 type=blueos_example_msgs/srv/Level
 blueos/v1/example/query/info 1 type=blueos_msgs/msg/ServiceInfo
 blueos/v1/example/settings 1 type=blueos_msgs/msg/SettingsEnvelope
+blueos/v1/example/state/metrics 1 type=blueos_msgs/msg/ServiceMetrics
 blueos/v1/example/state/pump 1 type=blueos_example_msgs/msg/PumpState
 blueos/v1/example/state/status 1 type=blueos_msgs/msg/ServiceStatus
 blueos/v1/recorder/command/AnswerPermission 1 type=blueos_msgs/msg/PermissionAnswer
@@ -51,6 +52,7 @@ blueos/v1/recorder/query/index 1 type=blueos_recorder_msgs/srv/RecordingIndex
 blueos/v1/recorder/query/info 1 type=blueos_msgs/msg/ServiceInfo
 blueos/v1/recorder/settings 1 type=blueos_msgs/msg/SettingsEnvelope
 blueos/v1/recorder/state/library 1 type=blueos_recorder_msgs/msg/RecordingLibrary
+blueos/v1/recorder/state/metrics 1 type=blueos_msgs/msg/ServiceMetrics
 blueos/v1/recorder/state/recording 1 type=blueos_recorder_msgs/msg/RecordingState
 blueos/v1/recorder/state/status 1 type=blueos_msgs/msg/ServiceStatus
 blueos_example_msgs/action/SetLevel_Feedback 1 level:uint8
@@ -70,9 +72,14 @@ blueos_msgs/msg/JobFeedbackList 1 jobs:blueos_msgs/JobFeedback[]
 blueos_msgs/msg/JobList 1 jobs:blueos_msgs/JobStatus[]
 blueos_msgs/msg/JobResult 1 job:blueos_msgs/JobStatus;result:uint8[]
 blueos_msgs/msg/JobStatus 1 job_id:string;job_type:string;status:uint8;reason:string
+blueos_msgs/msg/MetricCounter 1 name:string;labels:blueos_msgs/MetricLabel[];value:uint64
+blueos_msgs/msg/MetricGauge 1 name:string;labels:blueos_msgs/MetricLabel[];value:float64
+blueos_msgs/msg/MetricHistogram 1 name:string;labels:blueos_msgs/MetricLabel[];count:uint64;sum:float64;bucket_bounds:float64[];bucket_counts:uint64[]
+blueos_msgs/msg/MetricLabel 1 name:string;value:string
 blueos_msgs/msg/PermissionAnswer 1 granted:bool
 blueos_msgs/msg/RestartRequired 1 fields:string[]
 blueos_msgs/msg/ServiceInfo 1 name:string;version:string;build:string;capabilities:string[];endpoints:blueos_msgs/EndpointInfo[]
+blueos_msgs/msg/ServiceMetrics 1 counters:blueos_msgs/MetricCounter[];gauges:blueos_msgs/MetricGauge[];histograms:blueos_msgs/MetricHistogram[]
 blueos_msgs/msg/ServiceStatus 1 status:uint8;detail:string
 blueos_msgs/msg/SettingField 1 path:string;restart_required:bool
 blueos_msgs/msg/SettingsEnvelope 1 document_json:string;fields:blueos_msgs/SettingField[]

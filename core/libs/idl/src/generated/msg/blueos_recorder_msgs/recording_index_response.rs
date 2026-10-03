@@ -20,66 +20,41 @@ pub struct RecordingIndexResponse {
 impl CdrStruct for RecordingIndexResponse {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
-            size: if reader.is_exhausted() {
-                Default::default()
-            } else {
-                reader.read_u64()?
-            },
-            offset: if reader.is_exhausted() {
-                Default::default()
-            } else {
-                reader.read_u64()?
-            },
-            closed: if reader.is_exhausted() {
-                false
-            } else {
-                reader.read_bool()?
-            },
-            chunks: {
-                if reader.is_exhausted() {
-                    Vec::new()
-                } else {
-                    let length = reader.read_bounded_sequence_length()?;
-                    let mut values = Vec::with_capacity(length as usize);
-                    for _index in 0..length {
-                        values.push(
-                            <crate::msg::blueos_recorder_msgs::ChunkIndexEntry>::cdr_decode_fields(
-                                reader,
-                            )?,
-                        );
-                    }
-                    values
+            size: reader.read_or_default(|reader| reader.read_u64())?,
+            offset: reader.read_or_default(|reader| reader.read_u64())?,
+            closed: reader.read_or_default(|reader| reader.read_bool())?,
+            chunks: reader.read_or_default(|reader| {
+                let length = reader.read_bounded_sequence_length()?;
+                let mut values = Vec::with_capacity(length as usize);
+                for _index in 0..length {
+                    values.push(
+                        <crate::msg::blueos_recorder_msgs::ChunkIndexEntry>::cdr_decode_fields(
+                            reader,
+                        )?,
+                    );
                 }
-            },
-            message_counts: {
-                if reader.is_exhausted() {
-                    Vec::new()
-                } else {
-                    let length = reader.read_bounded_sequence_length()?;
-                    let mut values = Vec::with_capacity(length as usize);
-                    for _index in 0..length {
-                        values
-                            .push(
-                                <crate::msg::blueos_recorder_msgs::ChannelMessageCount>::cdr_decode_fields(
-                                    reader,
-                                )?,
-                            );
-                    }
-                    values
+                Ok(values)
+            })?,
+            message_counts: reader.read_or_default(|reader| {
+                let length = reader.read_bounded_sequence_length()?;
+                let mut values = Vec::with_capacity(length as usize);
+                for _index in 0..length {
+                    values.push(
+                        <crate::msg::blueos_recorder_msgs::ChannelMessageCount>::cdr_decode_fields(
+                            reader,
+                        )?,
+                    );
                 }
-            },
-            records: {
-                if reader.is_exhausted() {
-                    Vec::new()
-                } else {
-                    let length = reader.read_bounded_sequence_length()?;
-                    let mut values = Vec::with_capacity(length as usize);
-                    for _index in 0..length {
-                        values.push(reader.read_u8()?);
-                    }
-                    values
+                Ok(values)
+            })?,
+            records: reader.read_or_default(|reader| {
+                let length = reader.read_bounded_sequence_length()?;
+                let mut values = Vec::with_capacity(length as usize);
+                for _index in 0..length {
+                    values.push(reader.read_u8()?);
                 }
-            },
+                Ok(values)
+            })?,
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {

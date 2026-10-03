@@ -1260,8 +1260,26 @@ Decision:
 
 - `tracing` stays the API for events and spans (D-13). Counters, gauges and histograms go through the `metrics`
   facade.
-- The Kernel installs a recorder that publishes one `metrics` State per service (D-12), encoded with the IDL. Changes
-  are combined and published at most once per second. The message type is defined with the first implementation.
+- Each Kernel owns an in-process registry, the recorder behind the facade, and publishes it as one `metrics` State
+  per service (D-12): a first value during startup, so a late client gets an answer at once, then at most once per
+  second from the Inbox loop, and only when the encoded value changed. Changes are combined into that publication.
+- The shipped entry installs the Kernel's registry as the process-wide recorder before `context` runs, since one
+  process runs one service. The Kernel also makes it the recorder of every poll of the futures it spawns (Tasks, IO,
+  IO queries), and the harness does the same around `context` and `build`, so Kernels in one test process never
+  share values and no test depends on a process global. A handle registered there (`metrics::counter!` kept in a
+  variable) records into its registry from any thread; a bare call on a task or thread the Kernel did not spawn
+  reaches only the process-wide recorder.
+- The message is `blueos_msgs/ServiceMetrics`: three lists, `counters` (`MetricCounter`, a `uint64` total), `gauges`
+  (`MetricGauge`, a `float64`) and `histograms` (`MetricHistogram`: count, sum, the ascending upper bound of each
+  bucket, and one count per bucket plus one for the values above the last bound). Each element carries its name and
+  its `MetricLabel` name/value pairs, and each list is sorted by name and then labels, so an unchanged registry
+  encodes to the same bytes. The elements are frozen (D-06): a new kind of metric, or a new field such as a unit, is
+  a new element type in a list appended to `ServiceMetrics`. Histograms use explicit buckets rather than quantiles:
+  buckets add up across time and services and need no sketch. The bounds travel with each histogram; the Kernel's
+  bounds suit durations in seconds, from 1 us to 10 s, and a metric with another range can get its own without a
+  new type.
+- The Kernel's own metric names: `inbox_step_seconds` (histogram of the time each Command step takes, rejected and
+  panicked steps included) and `inbox_depth` (gauge of the Commands still waiting when a step begins).
 - Values are recorded by the Kernel (Inbox step time, Inbox depth, Task restarts, the stable `tokio-metrics`
   subset), by Tasks and by adapters. Logic crates never record: a global recorder breaks sans-IO (D-03) and
   `metrics` is not `no_std`. A Domain that wants something counted keeps it in its Snapshot and a Projection exposes
@@ -1277,7 +1295,8 @@ Decision:
   example the Recorder, queries the metrics key, which also clears entries for disconnected clients. The load
   scenario runs once with and once without `stats`.
 - Rejected: `jamesgober/rust-benchmark` (immature, unmaintained); continuous profiling (needs infrastructure off the
-  vehicle).
+  vehicle); one process-wide recorder in tests too (the values of concurrent Kernels would mix); the `metrics-util`
+  registry (its storage brings crossbeam, rand and a quantile sketch for what three sorted maps do).
 
 ## D-36 Jobs
 

@@ -20,6 +20,7 @@ mod inbox;
 mod inbox_recovery;
 mod kernel;
 mod logging;
+mod metrics_registry;
 mod projection;
 mod run_outcome;
 mod service;

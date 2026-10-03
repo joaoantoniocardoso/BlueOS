@@ -584,8 +584,8 @@ async fn info_lists_the_jobs_state_and_the_feedback_result_and_history_of_each_j
     );
     assert_eq!(
         listed.len(),
-        1 + 1 + 3 * 6,
-        "UpdateSettings, jobs, then three per Job type: {listed:?}"
+        1 + 1 + 1 + 3 * 6,
+        "UpdateSettings, jobs, metrics, then three per Job type: {listed:?}"
     );
     let shown: Vec<_> = listed
         .into_iter()

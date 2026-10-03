@@ -14,16 +14,8 @@ pub struct Time {
 impl CdrStruct for Time {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
-            sec: if reader.is_exhausted() {
-                Default::default()
-            } else {
-                reader.read_i32()?
-            },
-            nanosec: if reader.is_exhausted() {
-                Default::default()
-            } else {
-                reader.read_u32()?
-            },
+            sec: reader.read_or_default(|reader| reader.read_i32())?,
+            nanosec: reader.read_or_default(|reader| reader.read_u32())?,
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {

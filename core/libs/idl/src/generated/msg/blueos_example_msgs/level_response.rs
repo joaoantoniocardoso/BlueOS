@@ -14,16 +14,8 @@ pub struct LevelResponse {
 impl CdrStruct for LevelResponse {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
-            level: if reader.is_exhausted() {
-                Default::default()
-            } else {
-                reader.read_u8()?
-            },
-            max_level: if reader.is_exhausted() {
-                Default::default()
-            } else {
-                reader.read_u8()?
-            },
+            level: reader.read_or_default(|reader| reader.read_u8())?,
+            max_level: reader.read_or_default(|reader| reader.read_u8())?,
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {
