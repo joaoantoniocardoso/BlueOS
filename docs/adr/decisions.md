@@ -1280,6 +1280,12 @@ Decision:
   new type.
 - The Kernel's own metric names: `inbox_step_seconds` (histogram of the time each Command step takes, rejected and
   panicked steps included) and `inbox_depth` (gauge of the Commands still waiting when a step begins).
+- The Recorder's data plane counts `bytes_written` (payload bytes), `samples_written` and `samples_dropped` (a
+  sample past the writer queue's byte budget or capacity). Each carries one `lane` label: `mavlink`, `video` or
+  `other`. Recorded topics are open-ended (ROS 2 topics, every Service's keys), so a per-topic label would grow
+  without limit. The writer registers its nine handles once and a sample only increments one. The Recorder records
+  every other Service's `metrics` State like any other State; its own `metrics` is not recorded, by the same rule
+  that leaves out its `status` and `log`, and is read live.
 - Values are recorded by the Kernel (Inbox step time, Inbox depth, Task restarts, the stable `tokio-metrics`
   subset), by Tasks and by adapters. Logic crates never record: a global recorder breaks sans-IO (D-03) and
   `metrics` is not `no_std`. A Domain that wants something counted keeps it in its Snapshot and a Projection exposes
