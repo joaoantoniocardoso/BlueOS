@@ -259,6 +259,24 @@ fn the_list_shows_active_jobs_then_the_retained_finished_ones() {
     );
 }
 
+#[test]
+fn the_history_keeps_the_last_ended_jobs_of_each_type() {
+    let mut jobs = Jobs::with_retention(1);
+    let [first, second, snapshot] = [1, 2, 3].map(JobId::from_u128);
+    for (job_id, job_type) in [
+        (snapshot, "SnapshotRecording"),
+        (first, REPAIR),
+        (second, REPAIR),
+    ] {
+        jobs.submit(job_id, job_type, GOAL, LASTING).expect("new");
+        jobs.end(job_id, JobEnd::Succeeded, "").expect("active");
+    }
+
+    let listed: Vec<_> = jobs.list().map(|job| job.job_id).collect();
+
+    assert_eq!(listed, [snapshot, second]);
+}
+
 fn status(jobs: &Jobs, job_id: JobId) -> JobStatus {
     jobs.job(job_id).expect("the Job is in the table").status
 }
