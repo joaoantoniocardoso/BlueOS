@@ -334,7 +334,7 @@ fn rewrite_of_a_file_that_is_not_an_mcap_fails_and_leaves_no_output() {
     let error =
         rewrite(&source, &output, &mut |_read, _total| {}, &cancel).expect_err("not an MCAP");
 
-    assert!(matches!(error, RewriteError::Mcap(_)));
+    assert!(matches!(error, RewriteError::NotMcap));
     assert!(!output.exists());
 }
 

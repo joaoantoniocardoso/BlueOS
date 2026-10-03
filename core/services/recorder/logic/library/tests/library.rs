@@ -7,8 +7,8 @@ use blueos_jobs::JobId;
 use blueos_recorder_library::{
     CANCEL_JOB, Library, LibraryIoRequest, LibraryIoResult, LibraryObservedFact, LibraryOperation,
     LibraryRepairOutcome, LibraryRepairProgress, LibraryRequest, LibrarySnapshotOutcome,
-    REPAIR_PROGRESS_PUBLISH_INTERVAL, RecordingFileState, RepairFailure, RepairProgress,
-    SNAPSHOT_RECORDING, ScannedRecording, derive_recording_file_state,
+    REPAIR_PROGRESS_PUBLISH_INTERVAL, REPAIR_RECORDING, RecordingFileState, RepairFailure,
+    RepairProgress, SNAPSHOT_RECORDING, ScannedRecording, derive_recording_file_state,
     snapshot_output_relative_path,
 };
 
@@ -277,6 +277,122 @@ fn failed_repair_keeps_error_on_entry() {
         .find(|entry| entry.path == "file.mcap")
         .expect("entry");
     assert_eq!(entry.repair_error, "MCAP rewrite failed.");
+}
+
+#[test]
+fn a_repair_that_succeeds_takes_the_row_from_repairing_straight_to_ready() {
+    let mut library = scan_snapshot(&[("file.mcap", false)], 1_000);
+    let path = blueos_recorder_paths::RecordingRelativePath::parse("file.mcap").expect("path");
+    library.start_repair(path.clone(), job_id(1), None, NOW);
+    assert_eq!(library.entries()[0].state, RecordingFileState::Repairing);
+
+    library.handle_observed_fact(
+        LibraryObservedFact::RepairFinished {
+            path,
+            outcome: LibraryRepairOutcome::Succeeded,
+        },
+        None,
+        NOW,
+    );
+
+    assert_eq!(library.entries()[0].state, RecordingFileState::Ready);
+}
+
+#[test]
+fn a_file_that_is_not_an_mcap_is_not_offered_repair_again_until_it_changes() {
+    let mut library = scan_snapshot(&[("file.mcap", false)], 1_000);
+    let path = blueos_recorder_paths::RecordingRelativePath::parse("file.mcap").expect("path");
+    library.start_repair(path.clone(), job_id(1), None, NOW);
+    library.handle_observed_fact(
+        LibraryObservedFact::RepairFinished {
+            path: path.clone(),
+            outcome: LibraryRepairOutcome::Failed(RepairFailure::NotMcap),
+        },
+        None,
+        NOW,
+    );
+    let offers_repair = |catalog: &Library| {
+        catalog.entries()[0]
+            .allowed_operations
+            .iter()
+            .any(|operation| operation == REPAIR_RECORDING)
+    };
+    assert_eq!(library.entries()[0].state, RecordingFileState::NeedsRepair);
+    assert_eq!(
+        library.entries()[0].repair_error,
+        "This is not an MCAP file."
+    );
+    assert!(!offers_repair(&library));
+    let Outcome::Rejected { reason } = library.start_repair(path.clone(), job_id(2), None, NOW)
+    else {
+        panic!("a repair that cannot succeed must be rejected");
+    };
+    assert_eq!(reason.to_string(), "This recording is not an MCAP file.");
+
+    let rescan = |catalog: &mut Library, size_bytes: u64, modified_unix_seconds: i64| {
+        catalog.handle_io_result(
+            LibraryIoResult::ScanCompleted {
+                recordings: vec![ScannedRecording {
+                    relative_path: "file.mcap".into(),
+                    name: "file.mcap".into(),
+                    size_bytes,
+                    modified_unix_seconds,
+                    indexed: false,
+                }],
+            },
+            None,
+            NOW,
+        );
+    };
+    rescan(&mut library, 100, 1_000);
+    assert!(
+        !offers_repair(&library),
+        "a rescan of the same file keeps it"
+    );
+    rescan(&mut library, 150, 1_000);
+    assert!(offers_repair(&library), "a new size offers repair again");
+
+    library.handle_observed_fact(
+        LibraryObservedFact::RepairFinished {
+            path,
+            outcome: LibraryRepairOutcome::Failed(RepairFailure::NotMcap),
+        },
+        None,
+        NOW,
+    );
+    assert!(!offers_repair(&library));
+    rescan(&mut library, 150, 1_500);
+    assert!(
+        offers_repair(&library),
+        "a new modification time offers repair again"
+    );
+}
+
+#[test]
+fn a_repair_that_failed_for_a_reason_that_may_pass_is_offered_again() {
+    for failure in [
+        RepairFailure::Io,
+        RepairFailure::Rewrite,
+        RepairFailure::Replace,
+    ] {
+        let mut library = scan_snapshot(&[("file.mcap", false)], 1_000);
+        let path = blueos_recorder_paths::RecordingRelativePath::parse("file.mcap").expect("path");
+        library.start_repair(path.clone(), job_id(1), None, NOW);
+        library.handle_observed_fact(
+            LibraryObservedFact::RepairFinished {
+                path,
+                outcome: LibraryRepairOutcome::Failed(failure),
+            },
+            None,
+            NOW,
+        );
+        assert!(
+            library.entries()[0]
+                .allowed_operations
+                .iter()
+                .any(|operation| operation == REPAIR_RECORDING)
+        );
+    }
 }
 
 #[test]

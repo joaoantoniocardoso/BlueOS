@@ -225,6 +225,46 @@ async fn a_recording_killed_before_its_first_message_is_repaired_empty_and_no_lo
 }
 
 #[tokio::test(start_paused = true)]
+async fn a_file_that_is_not_an_mcap_aborts_its_repair_and_is_not_offered_repair_again() {
+    let directory = tempdir().expect("tempdir");
+    let path = directory.path().join("notes.mcap");
+    fs::write(&path, b"not an MCAP recording").expect("write");
+    set_modified_seconds_ago(&path, 20);
+
+    let harness = start_harness(directory.path()).await;
+    let mut results = subscribe_job_results(&harness, "RepairRecording").await;
+    wait_for_library_file_listed(&harness, "notes.mcap").await;
+    advance(RESCAN_INTERVAL + Duration::from_secs(20)).await;
+    drain_blocking_io().await;
+
+    let ack = harness
+        .send(
+            "RepairRecording",
+            &RepairRecordingGoal {
+                path: "notes.mcap".into(),
+            },
+        )
+        .await;
+    assert!(ack.accepted, "repair rejected: {}", ack.reason);
+
+    let (job, _result) = next_job_result::<RepairRecordingResult>(&mut results).await;
+    assert_eq!(job.status, JobStatusStatus::Aborted);
+    advance(RESCAN_INTERVAL).await;
+    drain_blocking_io().await;
+    wait_for_library_state(harness.backend(), |library| {
+        library.files.iter().any(|file| {
+            file.path == "notes.mcap"
+                && file.repair_error == "This is not an MCAP file."
+                && !file
+                    .allowed_operations
+                    .iter()
+                    .any(|operation| operation == "RepairRecording")
+        })
+    })
+    .await;
+}
+
+#[tokio::test(start_paused = true)]
 async fn repair_feedback_reports_a_growing_read_offset_also_to_a_client_that_opens_it_mid_repair() {
     let directory = tempdir().expect("tempdir");
     let path = directory.path().join("progress.mcap");

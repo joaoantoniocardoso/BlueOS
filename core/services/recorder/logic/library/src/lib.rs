@@ -48,6 +48,8 @@ pub struct Library {
     operations: Vec<LibraryOperation>,
     ended: Option<LibraryOperation>,
     repair_errors: BTreeMap<String, String>,
+    /// Files whose repair failed because they are not MCAP, with the size and modification time they had.
+    not_mcap: BTreeMap<String, (u64, i64)>,
     /// Monotonic time the entries were last rebuilt.
     entries_rebuilt_monotonic: Duration,
 }
@@ -170,6 +172,8 @@ pub enum RepairFailure {
     Io,
     /// MCAP rewrite failed.
     Rewrite,
+    /// The file is not an MCAP recording, so repairing it again cannot succeed.
+    NotMcap,
     /// Replace after rewrite failed.
     Replace,
     /// Adapter reported a message (reserved for future typed mapping).
@@ -281,6 +285,7 @@ impl fmt::Display for RepairFailure {
         match self {
             Self::Io => formatter.write_str("Filesystem operation failed."),
             Self::Rewrite => formatter.write_str("MCAP rewrite failed."),
+            Self::NotMcap => formatter.write_str("This is not an MCAP file."),
             Self::Replace => formatter.write_str("Could not replace the recording file."),
             Self::Message(message) => formatter.write_str(message),
         }
@@ -480,9 +485,22 @@ impl Library {
                 match outcome {
                     LibraryRepairOutcome::Succeeded => {
                         self.repair_errors.remove(relative);
+                        self.not_mcap.remove(relative);
+                        // The scan that follows confirms it; until then the row must not look unindexed.
+                        if let Some(scanned) = self.scanned.get_mut(relative) {
+                            scanned.indexed = true;
+                        }
                     }
                     LibraryRepairOutcome::Cancelled => {}
                     LibraryRepairOutcome::Failed(failure) => {
+                        if failure == RepairFailure::NotMcap
+                            && let Some(scanned) = self.scanned.get(relative)
+                        {
+                            self.not_mcap.insert(
+                                relative.to_string(),
+                                (scanned.size_bytes, scanned.modified_unix_seconds),
+                            );
+                        }
                         self.repair_errors
                             .insert(relative.to_string(), failure.to_string());
                     }
@@ -648,6 +666,10 @@ fn command_context<'a>(
             matches!(operation, LibraryOperation::Snapshot { path, .. } if path.as_str() == relative_path)
         }),
         indexed: scanned.is_some_and(|recording| recording.indexed),
+        not_mcap: scanned.is_some_and(|recording| {
+            library.not_mcap.get(relative_path)
+                == Some(&(recording.size_bytes, recording.modified_unix_seconds))
+        }),
         modified_unix_seconds: scanned.map_or(0, |recording| recording.modified_unix_seconds),
         now,
     }
