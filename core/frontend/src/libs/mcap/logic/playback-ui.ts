@@ -223,6 +223,16 @@ export function timelineRangeStyles(
   }))
 }
 
+export function trackTimelineLanes(
+  tracks: VideoTrack[],
+  durationSeconds: number,
+): { channelId: number, ranges: ReturnType<typeof timelineRangeStyles> }[] {
+  return tracks.map((track) => ({
+    channelId: track.channelId,
+    ranges: timelineRangeStyles(track.coverage, durationSeconds),
+  }))
+}
+
 export function bufferedRangeStyles(
   bufferedRanges: { start: number, end: number }[],
   durationSeconds: number,

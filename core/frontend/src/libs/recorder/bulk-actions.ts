@@ -1,3 +1,4 @@
+import { REPAIR_RECORDING } from './constants'
 import type { LibraryRecording, RecorderCommandResult, RecordingJobResult } from './types'
 import { jobFailureMessage, RECORDING_OPERATION_UI } from './view-logic'
 
@@ -35,6 +36,14 @@ export async function runBulkAction(
       settle(action, path, `${label} failed for ${path}: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
+}
+
+/**
+ * Whether a bulk repair is still running: while its commands are sent (`submitting`) and then until every submitted Job
+ * has ended, because a repair Job outlives its command.
+ */
+export function repairsInFlight(operationName: string | null, submitting: boolean, action: BulkAction): boolean {
+  return operationName === REPAIR_RECORDING && (submitting || action.pending.length > 0)
 }
 
 /** Takes the ended Job of `entry` out of the bulk action; false when its path is not part of it. */

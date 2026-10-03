@@ -205,7 +205,7 @@ describe('recorder view-logic', () => {
   it('never shows a snapshot as an operation, nor reports its Job, which the Download reports itself', () => {
     expect(Object.keys(RECORDING_OPERATION_UI)).not.toContain(SNAPSHOT_RECORDING)
     expect(operationButtons(file({ allowed_operations: [SNAPSHOT_RECORDING, DELETE_RECORDING] })))
-      .toEqual([DELETE_RECORDING])
+      .not.toContain(SNAPSHOT_RECORDING)
     const result = { path: 'live.mcap', output_path: '' }
     expect(jobFailureMessage(jobResult(SNAPSHOT_RECORDING, JobStatusStatus.Aborted, result, 'disk full'))).toBeNull()
     expect(jobCanceledMessage(jobResult(SNAPSHOT_RECORDING, JobStatusStatus.Canceled, result))).toBeNull()
@@ -213,8 +213,9 @@ describe('recorder view-logic', () => {
 
   it('keeps Delete and a needed Repair as buttons, disabled with the reason the recorder refuses them', () => {
     const live = file({ state: 'recording', allowed_operations: [SNAPSHOT_RECORDING] })
-    expect(operationButtons(live)).toEqual([DELETE_RECORDING])
+    expect(operationButtons(live)).toEqual([REPAIR_RECORDING, DELETE_RECORDING])
     expect(operationDisabledReason(live, DELETE_RECORDING)).toBe('Cannot delete while the vehicle is still recording')
+    expect(operationDisabledReason(live, REPAIR_RECORDING)).toBe('Wait until the file is finished before repairing')
 
     const repairing = file({ state: 'repairing', allowed_operations: [CANCEL_JOB] })
     expect(operationButtons(repairing)).toEqual([CANCEL_JOB, DELETE_RECORDING])

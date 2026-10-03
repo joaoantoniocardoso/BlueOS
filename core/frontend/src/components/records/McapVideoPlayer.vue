@@ -187,6 +187,7 @@
           ref="timeline"
           class="timeline mt-1"
           :class="{ 'timeline-over-video': pointer_over_video }"
+          :style="{ height: `${timeline_height}px` }"
           role="slider"
           :aria-valuemin="0"
           :aria-valuemax="duration"
@@ -197,16 +198,22 @@
           @pointercancel="onTimelineUp"
           @pointerleave="onTimelineLeave"
         >
-          <div class="timeline-track" />
-          <div
-            v-for="(range, index) in video_styles"
-            :key="`video-${index}`"
-            class="timeline-video"
-            :style="range.style"
-          >
-            <span class="timeline-mark timeline-mark-start white--text">&gt;</span>
-            <span class="timeline-mark timeline-mark-end white--text">&lt;</span>
-          </div>
+          <template v-for="(lane, laneIndex) in timeline_lanes">
+            <div
+              :key="`track-${lane.channelId}`"
+              class="timeline-track"
+              :style="{ top: laneTop(laneIndex) }"
+            />
+            <div
+              v-for="(range, index) in lane.ranges"
+              :key="`video-${lane.channelId}-${index}`"
+              class="timeline-video"
+              :style="{ ...range.style, top: laneTop(laneIndex) }"
+            >
+              <span class="timeline-mark timeline-mark-start white--text">&gt;</span>
+              <span class="timeline-mark timeline-mark-end white--text">&lt;</span>
+            </div>
+          </template>
           <div
             v-for="(range, index) in buffered_styles"
             :key="`buffered-${index}`"
@@ -215,7 +222,7 @@
           />
           <div
             class="timeline-playhead white"
-            :style="{ left: playhead_percent }"
+            :style="{ left: playhead_percent, top: playhead_top }"
           />
           <div
             v-if="pointer_seconds !== null"
@@ -554,7 +561,6 @@ import {
   McapPlaybackViewState,
   McapRecordingPlaybackController,
   type McapVideoStats,
-  mergedVideoCoverage,
   mp4SaveLabel,
   namingPercent,
   namingStatusText,
@@ -564,12 +570,15 @@ import {
   type RecordingIndexSource,
   recordingNameFromUrl,
   timelinePercent,
-  timelineRangeStyles,
   trackCoversAt,
+  trackTimelineLanes,
   type VideoTrack,
   visibleTracks,
 } from '@/libs/mcap'
 import { prettifySize } from '@/utils/helper_functions'
+
+const TIMELINE_HEIGHT = 18
+const TIMELINE_LANE_PITCH = 6
 
 function emptyView(): McapPlaybackViewState {
   return {
@@ -704,7 +713,6 @@ export default Vue.extend({
     naming_status() { return namingStatusText(this.naming_progress, prettifySize) },
     naming_percent() { return namingPercent(this.naming_progress) },
     name() { return recordingNameFromUrl(this.url) },
-    video_coverage() { return mergedVideoCoverage(this.visible_tracks) },
     last_video_time() {
       return coverageEnd(this.visible_tracks.length > 0 ? this.visible_tracks : this.tracks)
     },
@@ -712,7 +720,12 @@ export default Vue.extend({
     frame_age_label() { return formatFrameAge(this.last_video_time - this.position) },
     playhead_percent() { return timelinePercent(this.position, this.duration) },
     hover_percent() { return timelinePercent(this.pointer_seconds, this.duration) },
-    video_styles() { return timelineRangeStyles(this.video_coverage, this.duration) },
+    timeline_lanes() {
+      const lanes = trackTimelineLanes(this.visible_tracks, this.duration)
+      return lanes.length > 0 ? lanes : [{ channelId: -1, ranges: [] }]
+    },
+    timeline_height() { return TIMELINE_HEIGHT + (this.timeline_lanes.length - 1) * TIMELINE_LANE_PITCH },
+    playhead_top() { return `${5 + (this.timeline_lanes.length - 1) * TIMELINE_LANE_PITCH / 2}px` },
     buffered_styles() { return bufferedRangeStyles(this.buffered_ranges, this.duration) },
   },
   watch: {
@@ -750,6 +763,7 @@ export default Vue.extend({
     this.$emit('busy', false)
   },
   methods: {
+    laneTop(laneIndex: number): string { return `${8 + laneIndex * TIMELINE_LANE_PITCH}px` },
     syncStreamControls(): void {
       const streams = this.streamRefs()
       this.controller?.setStreamControls(
