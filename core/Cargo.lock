@@ -381,6 +381,7 @@ dependencies = [
  "blueos-recorder-capture",
  "blueos-recorder-domain",
  "blueos-recorder-library",
+ "blueos-recorder-paths",
 ]
 
 [[package]]
@@ -485,6 +486,7 @@ name = "blueos-recorder-paths"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "thiserror",
 ]
 
 [[package]]

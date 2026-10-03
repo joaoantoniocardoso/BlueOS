@@ -12,6 +12,7 @@ blueos-jobs.workspace = true
 blueos-recorder-capture.workspace = true
 blueos-recorder-domain.workspace = true
 blueos-recorder-library.workspace = true
+blueos-recorder-paths.workspace = true
 
 [lints]
 workspace = true
