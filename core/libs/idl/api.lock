@@ -56,10 +56,8 @@ blueos_recorder_msgs/msg/RecordingIndex 1 size:uint64;offset:uint64;closed:bool;
 blueos_recorder_msgs/msg/RecordingIndexRequest 1 path:string;from_offset:uint64;limit:uint32
 blueos_recorder_msgs/msg/RecordingLibrary 1 files:blueos_recorder_msgs/RecordingFile[]
 blueos_recorder_msgs/msg/RecordingOperation 1 operation:uint8;path:string;output_path:string;succeeded:bool;cancelled:bool;error:string
-blueos_recorder_msgs/msg/RecordingPolicy 1 record_mavlink_only_when_armed:bool;auto_start_recording:bool
 blueos_recorder_msgs/msg/RecordingState 1 armed:bool;session_active:bool;current_file:string;session_bytes_written:uint64;recording_video_topics:string[]
 blueos_recorder_msgs/msg/RepairRecordingCommand 1 path:string
-blueos_recorder_msgs/msg/SetPolicyCommand 1 policy:blueos_recorder_msgs/RecordingPolicy
 blueos_recorder_msgs/msg/SnapshotRecordingCommand 1 path:string
 blueos_recorder_msgs/msg/StartRecordingCommand 1 rotate_if_active:bool
 blueos_recorder_msgs/msg/StopRecordingCommand 1 reserved:uint8

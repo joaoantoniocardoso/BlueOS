@@ -383,11 +383,6 @@ string output_path
 bool succeeded
 bool cancelled
 string error`,
-  "blueos_recorder_msgs/msg/RecordingPolicy": `# blueos_recorder_msgs/msg/RecordingPolicy
-# Persisted recorder settings (D-11).
-
-bool record_mavlink_only_when_armed
-bool auto_start_recording`,
   "blueos_recorder_msgs/msg/RecordingState": `# blueos_recorder_msgs/msg/RecordingState
 # Published on blueos/v1/recorder/state/recording.
 
@@ -400,16 +395,6 @@ string[] recording_video_topics`,
 # Rewrites a STATE_NEEDS_REPAIR recording so it has a summary again. Progress is on the library state.
 
 string path`,
-  "blueos_recorder_msgs/msg/SetPolicyCommand": `# blueos_recorder_msgs/msg/SetPolicyCommand
-
-blueos_recorder_msgs/RecordingPolicy policy
-================================================================================
-MSG: blueos_recorder_msgs/RecordingPolicy
-# blueos_recorder_msgs/msg/RecordingPolicy
-# Persisted recorder settings (D-11).
-
-bool record_mavlink_only_when_armed
-bool auto_start_recording`,
   "blueos_recorder_msgs/msg/SnapshotRecordingCommand": `# blueos_recorder_msgs/msg/SnapshotRecordingCommand
 # Writes an indexed copy of a recording (typically the one being written) next to it, named
 # <stem>.snapshot-<UTC ISO time>Z.mcap. The copy is announced by a RecordingOperation event.

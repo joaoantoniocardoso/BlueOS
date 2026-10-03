@@ -270,15 +270,6 @@
       "category": "default"
     },
     {
-      "schema_name": "blueos_recorder_msgs/msg/RecordingPolicy",
-      "hex": "000100000000",
-      "decoded": {
-        "auto_start_recording": false,
-        "record_mavlink_only_when_armed": false
-      },
-      "category": "default"
-    },
-    {
       "schema_name": "blueos_recorder_msgs/msg/RecordingState",
       "hex": "0001000000000000010000000000000000000000000000000000000000000000",
       "decoded": {
@@ -295,17 +286,6 @@
       "hex": "000100000100000000",
       "decoded": {
         "path": ""
-      },
-      "category": "default"
-    },
-    {
-      "schema_name": "blueos_recorder_msgs/msg/SetPolicyCommand",
-      "hex": "000100000000",
-      "decoded": {
-        "policy": {
-          "auto_start_recording": false,
-          "record_mavlink_only_when_armed": false
-        }
       },
       "category": "default"
     },

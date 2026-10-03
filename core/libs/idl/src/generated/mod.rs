@@ -57,17 +57,11 @@ pub fn schema(schema_name: &str) -> Option<&'static str> {
         "blueos_recorder_msgs/msg/RecordingOperation" => {
             Some(msg::blueos_recorder_msgs::RecordingOperation::SCHEMA)
         }
-        "blueos_recorder_msgs/msg/RecordingPolicy" => {
-            Some(msg::blueos_recorder_msgs::RecordingPolicy::SCHEMA)
-        }
         "blueos_recorder_msgs/msg/RecordingState" => {
             Some(msg::blueos_recorder_msgs::RecordingState::SCHEMA)
         }
         "blueos_recorder_msgs/msg/RepairRecordingCommand" => {
             Some(msg::blueos_recorder_msgs::RepairRecordingCommand::SCHEMA)
-        }
-        "blueos_recorder_msgs/msg/SetPolicyCommand" => {
-            Some(msg::blueos_recorder_msgs::SetPolicyCommand::SCHEMA)
         }
         "blueos_recorder_msgs/msg/SnapshotRecordingCommand" => {
             Some(msg::blueos_recorder_msgs::SnapshotRecordingCommand::SCHEMA)

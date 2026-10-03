@@ -157,11 +157,6 @@ export interface RecordingOperation {
   error: string;
 }
 
-export interface RecordingPolicy {
-  record_mavlink_only_when_armed: boolean;
-  auto_start_recording: boolean;
-}
-
 export interface RecordingState {
   armed: boolean;
   session_active: boolean;
@@ -172,10 +167,6 @@ export interface RecordingState {
 
 export interface RepairRecordingCommand {
   path: string;
-}
-
-export interface SetPolicyCommand {
-  policy: RecordingPolicy;
 }
 
 export interface SnapshotRecordingCommand {
@@ -241,10 +232,8 @@ export interface MessageBySchema {
   "blueos_recorder_msgs/msg/RecordingIndexRequest": RecordingIndexRequest;
   "blueos_recorder_msgs/msg/RecordingLibrary": RecordingLibrary;
   "blueos_recorder_msgs/msg/RecordingOperation": RecordingOperation;
-  "blueos_recorder_msgs/msg/RecordingPolicy": RecordingPolicy;
   "blueos_recorder_msgs/msg/RecordingState": RecordingState;
   "blueos_recorder_msgs/msg/RepairRecordingCommand": RepairRecordingCommand;
-  "blueos_recorder_msgs/msg/SetPolicyCommand": SetPolicyCommand;
   "blueos_recorder_msgs/msg/SnapshotRecordingCommand": SnapshotRecordingCommand;
   "blueos_recorder_msgs/msg/StartRecordingCommand": StartRecordingCommand;
   "blueos_recorder_msgs/msg/StopRecordingCommand": StopRecordingCommand;
