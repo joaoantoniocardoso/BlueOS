@@ -34,6 +34,9 @@
       <div v-if="endedText">
         Ended {{ endedText }}
       </div>
+      <div v-if="caption">
+        {{ caption }}
+      </div>
     </v-card-subtitle>
     <records-repair-progress :file="file" class="px-4 py-2" />
     <v-spacer />
@@ -89,6 +92,7 @@ import {
   operationDisabledReason,
   RECORDING_OPERATION_UI,
   RECORDING_STATE_UI,
+  recordingCaption,
   recordingEndSeconds,
   tracksLabel,
 } from '@/libs/recorder/view-logic'
@@ -138,6 +142,9 @@ export default Vue.extend({
     },
     stateLabel(): string {
       return RECORDING_STATE_UI[this.file.state]?.label ?? this.file.state
+    },
+    caption(): string | null {
+      return recordingCaption(this.file)
     },
     endedText(): string | null {
       const endSeconds = recordingEndSeconds(this.file)

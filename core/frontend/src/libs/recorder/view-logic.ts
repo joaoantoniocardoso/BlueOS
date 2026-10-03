@@ -214,6 +214,17 @@ export function recordingEndSeconds(file: LibraryRecording): number | null {
   return file.created + file.duration_seconds
 }
 
+/** What a card says under its duration: that the file is being written, or why it needs repair. */
+export function recordingCaption(file: LibraryRecording): string | null {
+  if (file.state === 'recording') {
+    return 'recording...'
+  }
+  if (file.state === 'needs_repair') {
+    return file.repair_error || 'Recording index is missing'
+  }
+  return null
+}
+
 /** A missing index is not a missing recording: the vehicle indexes what was written on demand. */
 export function canPlayRecording(file: LibraryRecording): boolean {
   return file.state === 'ready' || file.state === 'recording' || file.state === 'needs_repair'

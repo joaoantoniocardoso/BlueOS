@@ -25,6 +25,7 @@ import {
   readySnapshotDownloadPath,
   RECORDING_OPERATION_UI,
   recordingByPath,
+  recordingCaption,
   recordingDownload,
   recordingEndSeconds,
   repairEstimateMessage,
@@ -271,5 +272,14 @@ describe('durationLabel, tracksLabel and recordingEndSeconds', () => {
     expect(recordingEndSeconds(file({ state: 'ready', created: 1_000, duration_seconds: 90 }))).toBe(1_090)
     expect(recordingEndSeconds(file({ state: 'recording', created: 1_000, duration_seconds: 90 }))).toBeNull()
     expect(recordingEndSeconds(file({ state: 'needs_repair', duration_seconds: null }))).toBeNull()
+  })
+})
+
+describe('recordingCaption', () => {
+  it('says the file is being written, or why it needs repair', () => {
+    expect(recordingCaption(file({ state: 'recording' }))).toBe('recording...')
+    expect(recordingCaption(file({ state: 'needs_repair' }))).toBe('Recording index is missing')
+    expect(recordingCaption(file({ state: 'needs_repair', repair_error: 'Not an MCAP file' }))).toBe('Not an MCAP file')
+    expect(recordingCaption(file({ state: 'ready' }))).toBeNull()
   })
 })
