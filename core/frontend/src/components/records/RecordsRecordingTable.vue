@@ -17,6 +17,15 @@
     @update:sort-by="$emit('update:sort-key', $event)"
     @update:sort-desc="$emit('update:sort-descending', $event)"
   >
+    <template #item.preview="{ item }">
+      <records-recording-preview
+        class="table-preview"
+        :file="item"
+        :download-url="downloadUrl(item.path)"
+        :disabled="disabled"
+        compact
+      />
+    </template>
     <template #item.name="{ item }">
       <span class="font-weight-medium">{{ item.name }}</span>
     </template>
@@ -90,6 +99,7 @@
 <script lang="ts">
 import Vue, { PropType } from 'vue'
 
+import RecordsRecordingPreview from '@/components/records/RecordsRecordingPreview.vue'
 import RecordsRepairProgress from '@/components/records/RecordsRepairProgress.vue'
 import { DOWNLOAD } from '@/libs/recorder/constants'
 import type { RecordingSortKey } from '@/libs/recorder/sort'
@@ -107,7 +117,7 @@ import { prettifySize } from '@/utils/helper_functions'
 
 export default Vue.extend({
   name: 'RecordsRecordingTable',
-  components: { RecordsRepairProgress },
+  components: { RecordsRecordingPreview, RecordsRepairProgress },
   props: {
     files: {
       type: Array as PropType<LibraryRecording[]>,
@@ -145,6 +155,12 @@ export default Vue.extend({
   data() {
     return {
       headers: [
+        {
+          text: '',
+          value: 'preview',
+          sortable: false,
+          width: 96,
+        },
         { text: 'Name', value: 'name' },
         { text: 'State', value: 'state' },
         { text: 'Size', value: 'size_bytes' },
@@ -190,3 +206,9 @@ export default Vue.extend({
   },
 })
 </script>
+
+<style scoped>
+.table-preview {
+  width: 96px;
+}
+</style>
