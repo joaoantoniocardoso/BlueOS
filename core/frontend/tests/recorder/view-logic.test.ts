@@ -26,7 +26,6 @@ import {
   repairProgress,
   type RepairProgress,
   snapshotDownloadPath,
-  sortRecordingsNewestFirst,
   withRepairJobs,
 } from '@/libs/recorder/view-logic'
 
@@ -69,14 +68,6 @@ describe('recorder view-logic', () => {
     expect(recordingByPath([updated], 'live.mcap')?.size_bytes).toBe(5000)
     expect(recordingByPath([updated], 'other.mcap')).toBeNull()
     expect(recordingByPath([updated], null)).toBeNull()
-  })
-
-  it('sorts recordings newest first by created time', () => {
-    const sorted = sortRecordingsNewestFirst([
-      file({ path: 'old.mcap', created: 1 }),
-      file({ path: 'new.mcap', created: 2 }),
-    ])
-    expect(sorted.map((entry) => entry.path)).toEqual(['new.mcap', 'old.mcap'])
   })
 
   it('allows playback for ready, in-progress and unindexed recordings, but not while one is rewritten', () => {

@@ -73,6 +73,27 @@
         hide-details
         class="records-filter mr-3 mb-2"
       />
+      <v-select
+        v-model="sort.key"
+        :items="sortOptions"
+        label="Sort by"
+        dense
+        outlined
+        hide-details
+        class="records-filter mb-2"
+      />
+      <v-btn
+        v-tooltip="sort.descending ? 'Descending: highest first' : 'Ascending: lowest first'"
+        :aria-label="sort.descending ? 'Sort ascending' : 'Sort descending'"
+        icon
+        small
+        class="mr-3 mb-2"
+        @click="sort.descending = !sort.descending"
+      >
+        <v-icon small>
+          {{ sort.descending ? 'mdi-sort-descending' : 'mdi-sort-ascending' }}
+        </v-icon>
+      </v-btn>
       <v-checkbox
         v-if="visibleRecordings.length > 0"
         :input-value="allVisibleSelected"
@@ -167,6 +188,8 @@
       v-if="layout === 'list'"
       :files="visibleRecordings"
       :selected-files.sync="selectedTableFiles"
+      :sort-key.sync="sort.key"
+      :sort-descending.sync="sort.descending"
       :download-url="downloadUrl"
       :disabled="!recorderServiceRunning"
       :busy-path="busyPath"
@@ -180,8 +203,7 @@
       v-else-if="visibleRecordings.length > 0"
       :items="visibleRecordings"
       item-key="path"
-      sort-by="created"
-      sort-desc
+      disable-sort
       :items-per-page="24"
       :footer-props="{ 'items-per-page-options': [12, 24, 48, 96] }"
     >
@@ -329,6 +351,15 @@ import {
 } from '@/libs/recorder/constants'
 import { dateFilterOptions, filterRecordings } from '@/libs/recorder/filter'
 import {
+  browserStorage,
+  type RecordsLayout,
+  type RecordsSort,
+  storedLayout,
+  storedSort,
+  storeLayout,
+  storeSort,
+} from '@/libs/recorder/preferences'
+import {
   allVisibleSelected,
   pruneSelection,
   selectedVisibleRecordings,
@@ -336,6 +367,7 @@ import {
   someVisibleSelected,
   togglePathSelection,
 } from '@/libs/recorder/selection'
+import { RECORDING_SORT_OPTIONS, sortRecordings } from '@/libs/recorder/sort'
 import type {
   LibraryRecording, RecorderCommandResult, RecordingJobResult, RecordingState,
 } from '@/libs/recorder/types'
@@ -371,7 +403,9 @@ export default Vue.extend({
       lastError: '' as string,
       busyPath: null as string | null,
       busyOperation: null as string | null,
-      layout: 'cards' as 'cards' | 'list',
+      layout: storedLayout(browserStorage),
+      sort: storedSort(browserStorage),
+      sortOptions: RECORDING_SORT_OPTIONS,
       search: null as string | null,
       stateFilter: null as RecordingState | null,
       dateFilter: null as string | null,
@@ -392,11 +426,12 @@ export default Vue.extend({
       return withRepairJobs(this.recordings, this.repairProgress, this.jobs)
     },
     visibleRecordings(): LibraryRecording[] {
-      return filterRecordings(this.liveRecordings, {
+      const filtered = filterRecordings(this.liveRecordings, {
         search: this.search ?? '',
         state: this.stateFilter,
         date: this.dateFilter,
       })
+      return sortRecordings(filtered, this.sort.key, this.sort.descending)
     },
     stateOptions(): { text: string, value: string }[] {
       return Object.entries(RECORDING_STATE_UI).map(([value, { label }]) => ({ text: label, value }))
@@ -448,6 +483,17 @@ export default Vue.extend({
         return `Repair ${targets[0].name}? This rewrites the file on the vehicle.`
       }
       return `Repair ${targets.length} recordings? This rewrites each file on the vehicle.`
+    },
+  },
+  watch: {
+    layout(layout: RecordsLayout): void {
+      storeLayout(browserStorage, layout)
+    },
+    sort: {
+      deep: true,
+      handler(sort: RecordsSort): void {
+        storeSort(browserStorage, sort)
+      },
     },
   },
   async created() {

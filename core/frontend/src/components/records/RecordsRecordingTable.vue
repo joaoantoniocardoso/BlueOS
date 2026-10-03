@@ -4,14 +4,18 @@
     :headers="headers"
     :items="files"
     item-key="path"
-    sort-by="created"
-    sort-desc
+    :sort-by="sortKey"
+    :sort-desc="sortDescending"
+    :custom-sort="keepOrder"
+    must-sort
     show-select
     :items-per-page="25"
     :footer-props="{ 'items-per-page-options': [10, 25, 50, -1] }"
     :mobile-breakpoint="0"
     class="records-table"
     @input="$emit('update:selected-files', $event)"
+    @update:sort-by="$emit('update:sort-key', $event)"
+    @update:sort-desc="$emit('update:sort-descending', $event)"
   >
     <template #item.name="{ item }">
       <span class="font-weight-medium">{{ item.name }}</span>
@@ -88,6 +92,7 @@ import Vue, { PropType } from 'vue'
 
 import RecordsRepairProgress from '@/components/records/RecordsRepairProgress.vue'
 import { DOWNLOAD } from '@/libs/recorder/constants'
+import type { RecordingSortKey } from '@/libs/recorder/sort'
 import type { LibraryRecording } from '@/libs/recorder/types'
 import {
   canDownloadRecording,
@@ -128,6 +133,14 @@ export default Vue.extend({
       type: Array as PropType<LibraryRecording[]>,
       default: () => [],
     },
+    sortKey: {
+      type: String as PropType<RecordingSortKey>,
+      required: true,
+    },
+    sortDescending: {
+      type: Boolean,
+      required: true,
+    },
   },
   data() {
     return {
@@ -148,6 +161,10 @@ export default Vue.extend({
   methods: {
     canPlay: canPlayRecording,
     downloadTooltip,
+    /** The view sorts `files` with the sort the cards share; the headers only change that sort. */
+    keepOrder(items: LibraryRecording[]): LibraryRecording[] {
+      return items
+    },
     operationButtons,
     operationDisabledReason,
     canDownload: canDownloadRecording,

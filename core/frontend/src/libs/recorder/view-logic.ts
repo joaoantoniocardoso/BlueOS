@@ -142,15 +142,6 @@ export function recordingByPath(
   return recordings.find((file) => file.path === path) ?? null
 }
 
-export function sortRecordingsNewestFirst(files: LibraryRecording[]): LibraryRecording[] {
-  return [...files].sort((left, right) => {
-    if (right.created !== left.created) {
-      return right.created - left.created
-    }
-    return right.path.localeCompare(left.path)
-  })
-}
-
 /** A missing index is not a missing recording: the vehicle indexes what was written on demand. */
 export function canPlayRecording(file: LibraryRecording): boolean {
   return file.state === 'ready' || file.state === 'recording' || file.state === 'needs_repair'

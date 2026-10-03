@@ -33,7 +33,6 @@ import {
   type RepairProgress,
   snapshotDownloadPath,
   snapshotPathsForSource,
-  sortRecordingsNewestFirst,
 } from './view-logic'
 
 export { SNAPSHOT_WAIT_TIMEOUT_MS } from './constants'
@@ -153,7 +152,7 @@ export function createRecorderClient(
     watchLibrary(onLibrary, onError) {
       return watchState(transport, library, {
         onValue: (message) => {
-          librarySnapshot = sortRecordingsNewestFirst(message.files.map(mapRecordingFile))
+          librarySnapshot = message.files.map(mapRecordingFile)
           onLibrary(librarySnapshot)
           resolveSnapshotWaiters()
         },
