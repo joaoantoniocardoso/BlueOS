@@ -12,8 +12,7 @@ use tokio::time::{advance, timeout};
 use blueos_comms::{Payload, Sample};
 use blueos_domain::Command;
 use blueos_idl::msg::{
-    blueos_example_msgs::LevelRequest,
-    blueos_msgs::{CommandAckStatus, ServiceInfo, SettingsEnvelope},
+    blueos_msgs::{CommandAckStatus, SettingsEnvelope},
     blueos_recorder_msgs::{RecordingState, StartRecordingGoal, StopRecordingGoal},
 };
 use blueos_recorder_app::RecorderService;
@@ -253,10 +252,7 @@ async fn start_and_stop_acks_carry_their_final_status() {
 async fn recorder_service_info_is_published() {
     let directory = tempdir().expect("tempdir");
     let harness = start_harness(directory.path()).await;
-    let info = harness
-        .query::<LevelRequest, ServiceInfo>("info", &LevelRequest::default())
-        .await
-        .expect("info query");
+    let info = harness.info().await;
     assert_eq!(info.name, RecorderService::NAME);
     assert_eq!(info.version, RecorderService::VERSION);
 }
@@ -275,10 +271,7 @@ async fn info_lists_each_endpoint_with_the_interface_type_of_api_lock_and_its_sc
         })
         .collect();
 
-    let info = harness
-        .query::<LevelRequest, ServiceInfo>("info", &LevelRequest::default())
-        .await
-        .expect("info query");
+    let info = harness.info().await;
 
     assert_eq!(info.endpoints.len(), 9 + 1 + 3 * 6, "{:?}", info.endpoints);
     for endpoint in &info.endpoints {
