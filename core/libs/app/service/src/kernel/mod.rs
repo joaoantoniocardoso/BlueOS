@@ -79,10 +79,6 @@ const UPDATE_SETTINGS_ACTION: &str = "blueos_msgs/action/UpdateSettings";
 const METRICS: &str = "metrics";
 /// The shortest time between two publications of the `metrics` State (D-35).
 const METRICS_PERIOD: Duration = Duration::from_secs(1);
-/// The histogram of how long the Inbox took to apply each Command, in seconds.
-const INBOX_STEP_TIME: &str = "inbox_step_seconds";
-/// The gauge of how many Commands waited in the Inbox when the last step began.
-const INBOX_DEPTH: &str = "inbox_depth";
 /// The line ROS 2 schema text puts before the schema of each message it depends on.
 const SCHEMA_SEPARATOR: &str =
     "================================================================================";
@@ -431,8 +427,8 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         let metrics_queryable = declare(&*backend, state_key(service, METRICS)).await?;
         let (inbox_step_time, inbox_depth) = metrics::with_local_recorder(&builder.metrics, || {
             (
-                metrics::histogram!(INBOX_STEP_TIME),
-                metrics::gauge!(INBOX_DEPTH),
+                metrics::histogram!("inbox_step_seconds"),
+                metrics::gauge!("inbox_depth"),
             )
         });
         let runtime_gauges = RuntimeGauges::new(&builder.metrics);
