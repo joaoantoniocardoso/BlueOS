@@ -50,6 +50,8 @@ pub struct Harness<S: Service> {
     /// Dropping the Harness aborts the Kernel.
     kernel: JoinSet<()>,
     service: PhantomData<fn() -> S>,
+    /// The settings path of a Service started without one; removed after the Kernel stops.
+    _settings_directory: Option<tempfile::TempDir>,
 }
 
 /// The injected [`Clock`]: it follows the paused tokio clock, so the time the Domain sees moves only with
@@ -200,10 +202,18 @@ impl<S: Service> Harness<S> {
 
     async fn start_on_with_effect_log(
         backend: Arc<dyn CommsBackend>,
-        service: ServiceContext<S::Arguments>,
+        mut service: ServiceContext<S::Arguments>,
         change: impl FnOnce(&mut S::Context),
         effect_log: Option<crate::kernel::EffectLogStorage<S::Domain>>,
     ) -> Result<Self, ServiceError> {
+        let settings_directory = if service.settings_path.is_none() {
+            let directory =
+                tempfile::tempdir().map_err(|error| ServiceError::Build(error.into()))?;
+            service.settings_path = Some(directory.path().to_path_buf());
+            Some(directory)
+        } else {
+            None
+        };
         let mut context = S::context(&service)?;
         change(&mut context);
         let mut builder = S::build(&service, &context)?;
@@ -233,6 +243,7 @@ impl<S: Service> Harness<S> {
             shutdown,
             kernel: tasks,
             service: PhantomData,
+            _settings_directory: settings_directory,
         })
     }
 

@@ -77,7 +77,7 @@ pub trait Service {
 /// Session.
 pub struct ServiceContext<Arguments> {
     arguments: Arguments,
-    settings_path: Option<PathBuf>,
+    pub(crate) settings_path: Option<PathBuf>,
     session: Session,
 }
 
