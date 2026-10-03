@@ -461,12 +461,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             let feedback_key = job_feedback_key(service, &job_type);
             let history_key = job_history_key(service, &job_type);
             let job_output = JobTypeOutput {
-                output: builder.job_outputs.remove(&job_type).unwrap_or(JobOutput {
-                    feedback: None,
-                    result: None,
-                    feedback_type: MessageType::default(),
-                    result_type: MessageType::default(),
-                }),
+                output: builder.job_outputs.remove(&job_type).unwrap_or_default(),
                 job_type,
                 feedback_latest: watch::Sender::new(None),
                 history: watch::Sender::new(None),

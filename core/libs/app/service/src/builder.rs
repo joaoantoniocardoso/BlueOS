@@ -532,14 +532,18 @@ impl<D: Domain, Context> ServiceBuilder<D, Context> {
     }
 
     fn job_output(&mut self, job_type: &str) -> &mut JobOutput<D> {
-        self.job_outputs
-            .entry(job_type.to_owned())
-            .or_insert_with(|| JobOutput {
-                feedback: None,
-                result: None,
-                feedback_type: MessageType::default(),
-                result_type: MessageType::default(),
-            })
+        self.job_outputs.entry(job_type.to_owned()).or_default()
+    }
+}
+
+impl<D: Domain> Default for JobOutput<D> {
+    fn default() -> Self {
+        Self {
+            feedback: None,
+            result: None,
+            feedback_type: MessageType::default(),
+            result_type: MessageType::default(),
+        }
     }
 }
 
