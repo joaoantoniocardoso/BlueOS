@@ -547,8 +547,11 @@ Decision:
   Observed facts. There is one source of truth for the current file.
 - MAVLink facts (armed state) are Observed facts that carry the full current value and are re-sent periodically,
   so a dropped one heals (D-27). Each camera has its own capture status timer key.
-- `Start` and `Stop` are instant Job types (D-36). A recording started by arming or by a MAVLink camera command is
-  Domain state shown in the `recording` State, never a Job, so nothing gates it.
+- The recording is always running (`auto_start_recording`); arming starts nothing. MAVLink is recorded only while
+  the vehicle is armed or always, as the setting says, and a video stream is recorded from a MAVLink camera start
+  capture command until its stop command. All of this is Domain state shown in the `recording` State, never a
+  Job, so nothing gates it. `Start` and `Stop` are instant Job types (D-36) for a client that starts or stops the
+  recording by hand.
 - Preserve the contract MCM relies on (`--recorder=external`): `video/...` topics, MAVLink camera capture
   commands and status replies, and "record MAVLink only while armed".
 - Keep the zero-copy path (D-09). The data plane builds a channel descriptor once per channel, not per sample.
@@ -1179,7 +1182,8 @@ Decision:
 - **Load scenario** (test layer L6). A committed Python script, run with `uv` by a person from a topside computer,
   never in CI. It serves a fixed H.264 clip at 50 Mbps over RTSP with GStreamer (looped without re-encoding; the
   repository keeps its checksum and source, not the file), creates the redirect stream in MAVLink Camera Manager,
-  arms SITL and starts the recording. Phases of 60 s each: idle; one stream redirected; armed (MAVLink only); one
+  and arms SITL; the recording is always on, so arming makes it record MAVLink and a MAVLink camera start capture
+  command makes it record a stream. Phases of 60 s each: idle; one stream redirected; armed (MAVLink only); one
   stream recording; two streams recording. It samples CPU and memory of the Recorder, MAVLink Camera Manager,
   `zenohd` and the whole system over ssh, and checks that the MCAP file holds every frame and byte sent. The
   out-of-tree Recorder is measured with the same script on the same device and image, and is the reference.
@@ -1277,8 +1281,8 @@ Decision:
 - **Execution.** A running Job runs through the reconcile pattern (D-27). Steps inside a Job are the Domain's own
   state machine; a multi-step flow that is a product feature is its own Job type. Clients never submit job graphs.
 - **Only Requests create Jobs.** Work the Domain starts by itself, on an Observed fact or a Tick (the Recorder
-  starting a recording when the vehicle arms or when a MAVLink camera command arrives), shows in its State and is
-  never a Job. A Job is what a client asked for; a Domain never submits Jobs to itself.
+  recording MAVLink while the vehicle is armed, or a stream after a MAVLink camera start capture command), shows in
+  its State and is never a Job. A Job is what a client asked for; a Domain never submits Jobs to itself.
 - **Visibility.** Active Jobs are the `jobs` State, their Feedback is a State per Job type, and the end of a Job is an
   Event carrying its Job result; the last N finished Jobs of each type are a Query (D-12). Nothing grows without
   bound.
