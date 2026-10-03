@@ -9,6 +9,7 @@ import {
   jobCanceledMessage,
   jobFailureMessage,
   readySnapshotDownloadPath,
+  recorderMetrics,
   recordingByPath,
   repairProgress,
   type RepairProgress,
@@ -130,5 +131,51 @@ describe('recorder view-logic', () => {
       .toBe('Repair canceled for half.mcap')
     expect(jobCanceledMessage(jobResult(REPAIR_RECORDING, JobStatusStatus.Succeeded, result))).toBeNull()
     expect(jobCanceledMessage(jobResult(REPAIR_RECORDING, JobStatusStatus.Aborted, result, 'disk full'))).toBeNull()
+  })
+})
+
+describe('recorderMetrics', () => {
+  function counter(name: string, lane: string, value: number) {
+    return { name, labels: [{ name: 'lane', value: lane }], value }
+  }
+
+  it('lays the per-lane counters out in a fixed lane order, with zero for a counter not published yet', () => {
+    const metrics = recorderMetrics({
+      counters: [
+        counter('bytes_written', 'other', 700),
+        counter('samples_written', 'other', 7),
+        counter('bytes_written', 'mavlink', 50),
+        counter('samples_dropped', 'video', 4),
+      ],
+      gauges: [],
+      histograms: [],
+    })
+
+    expect(metrics.lanes).toEqual([
+      { lane: 'mavlink', bytesWritten: 50, samplesWritten: 0, samplesDropped: 0 },
+      { lane: 'video', bytesWritten: 0, samplesWritten: 0, samplesDropped: 4 },
+      { lane: 'other', bytesWritten: 700, samplesWritten: 7, samplesDropped: 0 },
+    ])
+  })
+
+  it('reads the Inbox depth and the mean Inbox step time, and none while the Kernel has not stepped', () => {
+    const metrics = recorderMetrics({
+      counters: [],
+      gauges: [{ name: 'inbox_depth', labels: [], value: 3 }],
+      histograms: [{
+        name: 'inbox_step_seconds',
+        labels: [],
+        count: 4,
+        sum: 0.002,
+        bucket_bounds: [0.001],
+        bucket_counts: [4, 0],
+      }],
+    })
+    expect(metrics.inboxDepth).toBe(3)
+    expect(metrics.inboxStepSeconds).toBeCloseTo(0.0005)
+
+    const idle = recorderMetrics({ counters: [], gauges: [], histograms: [] })
+    expect(idle.inboxDepth).toBeNull()
+    expect(idle.inboxStepSeconds).toBeNull()
   })
 })
