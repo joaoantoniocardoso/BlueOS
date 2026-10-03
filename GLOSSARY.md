@@ -25,6 +25,11 @@ A pure, reusable piece of logic that a Domain composes, with its own part of the
 domain events, and IO requests. The Kernel never runs a Block directly.
 _Avoid_: sub-domain, module, policy
 
+**Sans-IO component**:
+A pure piece of logic that is neither a Domain nor a Block: no Domain composes it, and Domains, Blocks, Tasks or
+adapters call it, such as the gate that holds samples until their schema is known.
+_Avoid_: library (collides with the recording library), helper, util
+
 **DomainState**:
 The Snapshot together with the Jobs of a Service: all the data the Domain owns, and everything that can be copied.
 _Avoid_: App, state (alone), store
@@ -39,8 +44,31 @@ it belongs to the Domain and is discarded rather than migrated when its version 
 _Avoid_: checkpoint, saved state, cache
 
 **Job**:
-A tracked unit of multi-step work, composed in sequence or in parallel, that clients can watch and cancel.
-_Avoid_: task (for this meaning), workflow
+A unit of work a client submits to a Service and can watch, cancel, pause, resume and approve, modelled on a ROS 2
+action. Every Request either submits a Job or controls one.
+_Avoid_: task (for this meaning), workflow, job graph
+
+**Job type**:
+The kind of a Job, declared in code with its nature: the controls it allows, whether it needs permission, the
+Resources it needs, how it reacts to a revoked Lease, its concurrency limit and its conflict key.
+_Avoid_: job spec, job kind
+
+**Goal**:
+The parameters a client sends when it submits a Job, saying what the Job should achieve.
+_Avoid_: request (for this meaning), arguments, payload
+
+**Feedback**:
+The progress a running Job reports while it executes.
+_Avoid_: status (for this meaning), progress event
+
+**Job result**:
+What a Job reports once, when it ends.
+_Avoid_: response, reply, outcome
+
+**Permission request**:
+A question a Job asks the user before it executes. Any client may answer it, and it expires at a deadline its Job
+type sets.
+_Avoid_: prompt, confirmation
 
 **Task**:
 A long-running piece of work that the Kernel starts, supervises, restarts, and stops, such as a data plane.
@@ -51,8 +79,14 @@ The one ordered queue through which every Command reaches the Domain.
 _Avoid_: mailbox, event loop, channel
 
 **Context**:
-The set of dependencies a Service hands to its IO code: paths, devices, connections, the clock.
+The set of dependencies a Service hands to its IO code, handlers and Tasks: paths, devices, connections, the clock,
+and its Ports. It is the only thing a test changes to vary what a Service runs with.
 _Avoid_: container, IoContext, environment
+
+**Port**:
+A replaceable piece of a Context through which IO code reaches the outside world, filled with the real adapter in
+production and replaceable by a test.
+_Avoid_: hook, seam, injection point
 
 ## Domain vocabulary
 
@@ -62,8 +96,8 @@ on the bus.
 _Avoid_: action, message (for this meaning), request (for the whole)
 
 **Request**:
-A Command that a client sent through a Command endpoint. It is the only kind of Command that can come from outside
-the process.
+A Command that a client sent through a Command endpoint, which submits a Job or controls one. It is the only kind of
+Command that can come from outside the process.
 _Avoid_: client command, external command
 
 **IO result**:
@@ -108,6 +142,25 @@ The high-rate path that moves payloads (recorded samples, video) according to th
 them through the Inbox.
 _Avoid_: hot path (as a noun), pipeline
 
+## Resources
+
+**Resource**:
+Anything a Job must hold while it executes: an amount it consumes (disk space, bandwidth), an exclusive device, or a
+Condition.
+_Avoid_: capability, lock
+
+**Condition**:
+A Resource that is a fact which must stay true while a Job executes, such as the vehicle being disarmed.
+_Avoid_: precondition, guard
+
+**Lease**:
+The revocable right of one Job to hold one Resource.
+_Avoid_: lock, reservation
+
+**Arbiter**:
+What grants and revokes Leases: each Service's own until the service manager takes the role.
+_Avoid_: lock manager, scheduler
+
 ## API and wire
 
 **Message**:
@@ -119,10 +172,12 @@ A Service's connection to the Zenoh backbone.
 _Avoid_: connection, client; never use it for a recording
 
 **Command endpoint**:
-A public entry point where a client asks a Service to change something, and gets back whether it was accepted.
+A public entry point where a client submits a Job of one Job type, or controls an existing Job, and gets back
+whether it was accepted.
 
 **Query endpoint**:
 A public entry point where a client asks a Service for information without changing anything.
+_Avoid_: service (the ROS 2 name for it, which collides with Service)
 
 **State**:
 A public value a Service keeps current: published on change and readable at any time by late clients.
