@@ -492,6 +492,32 @@ async fn shutdown_with_full_writer_queue_finishes_file() {
 }
 
 #[tokio::test(start_paused = true)]
+async fn samples_past_the_writer_queue_byte_budget_are_counted_in_the_recording_state() {
+    let directory = tempdir().expect("tempdir");
+    let harness = start_harness_with(directory.path(), |context| {
+        context.mcap_writer_queue_bytes = 1024;
+    })
+    .await;
+
+    start_recording(&harness).await;
+    wait_for_active_recording(harness.backend()).await;
+    for _ in 0..4 {
+        harness
+            .backend()
+            .publish(Sample::new(
+                "load/flood",
+                Payload::new(Bytes::from(vec![0_u8; 4 * 1024])),
+                "application/octet-stream",
+            ))
+            .await
+            .expect("publish");
+    }
+    advance(Duration::from_secs(1)).await;
+
+    wait_for_recording_state(harness.backend(), |state| state.samples_dropped >= 4).await;
+}
+
+#[tokio::test(start_paused = true)]
 async fn update_settings_command_applies_capture_settings() {
     let directory = tempdir().expect("tempdir");
     let harness = start_harness(directory.path()).await;
