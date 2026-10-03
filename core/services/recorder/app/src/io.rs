@@ -6,7 +6,7 @@ use blueos_domain::IoError;
 use blueos_recorder_domain::{RecorderDomain, RecorderIoRequest, RecorderSnapshot};
 use blueos_service::ServiceBuilder;
 
-use crate::{cameras::io, context::RecorderContext};
+use crate::{cameras, context::RecorderContext};
 
 /// Registers the Service's single async IO executor (cameras egress).
 pub(crate) fn register_io(
@@ -19,7 +19,8 @@ pub(crate) fn register_io(
             async move {
                 match request {
                     RecorderIoRequest::Cameras(request) => {
-                        io::publish_cameras_request(session, mavlink_sequence, request).await
+                        cameras::io::publish_cameras_request(session, mavlink_sequence, request)
+                            .await
                     }
                     RecorderIoRequest::Library(_) => Err(IoError::new(
                         "library scan and delete use the blocking executor",
