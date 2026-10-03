@@ -42,7 +42,7 @@ fn ending_an_unknown_job_is_rejected() {
     let mut jobs = Jobs::default();
     let job_id = JobId::from_u128(99);
     assert_eq!(
-        jobs.end(job_id, JobEnd::Succeeded, ""),
+        jobs.end(job_id, JobEnd::Succeeded),
         Err(JobsError::Unknown(job_id))
     );
 }
@@ -57,11 +57,16 @@ fn a_submitted_job_executes_until_its_domain_ends_it() {
         Ok(Submitted::New)
     );
     assert_eq!(status(&jobs, job_id), JobStatus::Executing);
-    jobs.end(job_id, JobEnd::Succeeded, "").expect("active");
+    jobs.end(job_id, JobEnd::Succeeded).expect("active");
 
     assert_eq!(status(&jobs, job_id), JobStatus::Succeeded);
     assert_eq!(
-        jobs.end(job_id, JobEnd::Aborted, "late"),
+        jobs.end(
+            job_id,
+            JobEnd::Aborted {
+                reason: "late".to_owned()
+            }
+        ),
         Err(JobsError::AlreadyEnded(job_id))
     );
 }
@@ -83,7 +88,7 @@ fn the_same_id_with_the_same_goal_is_a_retry_and_with_another_goal_is_rejected()
         jobs.submit(job_id, "DeleteRecording", GOAL, LASTING),
         Err(JobsError::IdReused(job_id))
     );
-    jobs.end(job_id, JobEnd::Succeeded, "").expect("active");
+    jobs.end(job_id, JobEnd::Succeeded).expect("active");
     assert_eq!(
         jobs.submit(job_id, REPAIR, GOAL, LASTING),
         Ok(Submitted::Retry)
@@ -96,7 +101,7 @@ fn an_id_is_free_again_once_its_job_leaves_the_history() {
     let [first, second] = [JobId::from_u128(1), JobId::from_u128(2)];
     for job_id in [first, second] {
         jobs.submit(job_id, REPAIR, GOAL, LASTING).expect("new");
-        jobs.end(job_id, JobEnd::Succeeded, "").expect("active");
+        jobs.end(job_id, JobEnd::Succeeded).expect("active");
     }
 
     assert_eq!(jobs.job(first), None);
@@ -136,7 +141,7 @@ fn cancel_pause_and_resume_change_the_status_the_domain_follows() {
             status: JobStatus::Canceling,
         })
     );
-    jobs.end(job_id, JobEnd::Canceled, "").expect("active");
+    jobs.end(job_id, JobEnd::Canceled).expect("active");
     assert_eq!(status(&jobs, job_id), JobStatus::Canceled);
     assert_eq!(
         jobs.control(job_id, JobControl::Cancel),
@@ -250,9 +255,14 @@ fn the_list_shows_active_jobs_then_the_retained_finished_ones() {
     for job_id in [first, second, third, fourth] {
         jobs.submit(job_id, REPAIR, GOAL, LASTING).expect("new");
     }
-    jobs.end(second, JobEnd::Aborted, "disk full")
-        .expect("active");
-    jobs.end(first, JobEnd::Succeeded, "").expect("active");
+    jobs.end(
+        second,
+        JobEnd::Aborted {
+            reason: "disk full".to_owned(),
+        },
+    )
+    .expect("active");
+    jobs.end(first, JobEnd::Succeeded).expect("active");
 
     let listed: Vec<_> = jobs
         .list()
@@ -279,7 +289,7 @@ fn the_history_keeps_the_last_ended_jobs_of_each_type() {
         (second, REPAIR),
     ] {
         jobs.submit(job_id, job_type, GOAL, LASTING).expect("new");
-        jobs.end(job_id, JobEnd::Succeeded, "").expect("active");
+        jobs.end(job_id, JobEnd::Succeeded).expect("active");
     }
 
     let listed: Vec<_> = jobs.list().map(|job| job.job_id).collect();

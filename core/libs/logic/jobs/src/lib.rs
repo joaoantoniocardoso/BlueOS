@@ -143,14 +143,17 @@ pub enum JobStatus {
 }
 
 /// How a Job ended.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum JobEnd {
     /// It did its work.
     Succeeded,
     /// It stopped because it was cancelled.
     Canceled,
     /// It stopped on an error.
-    Aborted,
+    Aborted {
+        /// What went wrong, as clients see it.
+        reason: String,
+    },
 }
 
 /// What a client asks of an existing Job. Its text is the name of its endpoint.
@@ -292,20 +295,20 @@ impl Jobs {
         Ok(next)
     }
 
-    /// Ends an active Job with `reason`, which clients see when it is canceled or aborted.
+    /// Ends an active Job as `end` says.
     ///
     /// # Errors
     ///
     /// [`JobsError::Unknown`] when no Job has this id, and [`JobsError::AlreadyEnded`] when it has ended.
-    pub fn end(&mut self, job_id: JobId, end: JobEnd, reason: &str) -> Result<(), JobsError> {
+    pub fn end(&mut self, job_id: JobId, end: JobEnd) -> Result<(), JobsError> {
         match self.job(job_id) {
             None => Err(JobsError::Unknown(job_id)),
             Some(job) if job.status.has_ended() => Err(JobsError::AlreadyEnded(job_id)),
             Some(_) => {
-                let status = match end {
-                    JobEnd::Succeeded => JobStatus::Succeeded,
-                    JobEnd::Canceled => JobStatus::Canceled,
-                    JobEnd::Aborted => JobStatus::Aborted,
+                let (status, reason) = match &end {
+                    JobEnd::Succeeded => (JobStatus::Succeeded, ""),
+                    JobEnd::Canceled => (JobStatus::Canceled, ""),
+                    JobEnd::Aborted { reason } => (JobStatus::Aborted, reason.as_str()),
                 };
                 self.set(job_id, status, reason);
                 Ok(())
