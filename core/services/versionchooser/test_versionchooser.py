@@ -136,6 +136,33 @@ async def test_set_version(write_mock: AsyncMock) -> None:
 
 
 @pytest.mark.asyncio
+async def test_set_version_stops_core_instead_of_killing_it() -> None:
+    client = mock.AsyncMock()
+    core = client.containers.get.return_value
+    chooser = VersionChooser(client)
+
+    with mock.patch("builtins.open", mock.mock_open(read_data=SAMPLE_JSON)):
+        result = await chooser.set_version("bluerobotics/blueos-core", "master")
+
+    assert result.status_code == 200
+    core.stop.assert_awaited_once_with()
+    core.kill.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_restart_stops_core_instead_of_killing_it() -> None:
+    client = mock.AsyncMock()
+    core = client.containers.get.return_value
+
+    result = await VersionChooser(client).restart()
+
+    assert result.status_code == 200
+    client.containers.get.assert_awaited_once_with("blueos-core")
+    core.stop.assert_awaited_once_with()
+    core.kill.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 @mock.patch("json.load", return_value={})
 async def test_set_version_invalid_settings(json_mock: mock.MagicMock) -> None:
     client = mock.MagicMock()
