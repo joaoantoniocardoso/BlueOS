@@ -4,10 +4,7 @@
 //! from [`WALL_CLOCK_AT_START`], so `tokio::time::advance` moves the time the Domain sees, and nothing sleeps.
 
 use core::{marker::PhantomData, time::Duration};
-use std::{
-    path::PathBuf,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 use tokio::{task::JoinSet, time::Instant};
 
@@ -114,24 +111,10 @@ impl<S: Service> Harness<S> {
         arguments: S::Arguments,
         change: impl FnOnce(&mut S::Context),
     ) -> Result<Self, ServiceError> {
-        Self::start_with_settings_path(arguments, None, change).await
-    }
-
-    /// Like [`Self::start_with`], with the `--settings-path` parent directory the entry layer would pass: for a test
-    /// that restores or inspects the Service's durable state.
-    ///
-    /// # Errors
-    ///
-    /// The [`ServiceError`] that `context`, `build` or the Kernel's startup returned.
-    pub async fn start_with_settings_path(
-        arguments: S::Arguments,
-        settings_path: Option<PathBuf>,
-        change: impl FnOnce(&mut S::Context),
-    ) -> Result<Self, ServiceError> {
         let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
         Self::start_on_with_effect_log(
             Arc::clone(&backend),
-            ServiceContext::with_settings_path(arguments, settings_path, backend),
+            ServiceContext::new(arguments, backend),
             change,
             None,
         )
