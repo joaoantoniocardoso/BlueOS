@@ -132,6 +132,36 @@ describe('createRecorderClient', () => {
     await expect(snapshot).resolves.toBe(newSnapshot)
   })
 
+  it('reports the Job result of a delete as well as of a repair', async () => {
+    const transport = new FakeTransport()
+    const client = createRecorderClient(transport)
+    const reported: unknown[] = []
+    await client.watchOperations((entry) => reported.push(entry))
+    const aborted = {
+      job_id: JOB_ID, job_type: DeleteRecording.name, status: JobStatusStatus.Aborted, reason: 'invalid recording path',
+    }
+
+    for (const [operation, result] of [
+      [DeleteRecording, { path: 'old.mcap' }],
+      [RepairRecording, { path: 'old.mcap' }],
+    ] as const) {
+      const results = jobResultEvent(NAME, operation.name)
+      transport.publish({
+        key: results.key,
+        payload: encodeCdr(results.messageSchema, {
+          job: { ...aborted, job_type: operation.name },
+          result: Array.from(encodeCdr(operation.resultSchema, result)),
+        }),
+        encoding: cdrEncoding(results.messageSchema),
+      })
+    }
+
+    expect(reported).toEqual([
+      { job: aborted, result: { path: 'old.mcap' } },
+      { job: { ...aborted, job_type: RepairRecording.name }, result: { path: 'old.mcap' } },
+    ])
+  })
+
   it('resolves snapshot before the command ack when the library update arrives early', async () => {
     const transport = new FakeTransport()
     const client = createRecorderClient(transport)

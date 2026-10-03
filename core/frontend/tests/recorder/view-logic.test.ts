@@ -1,14 +1,31 @@
+/* eslint-disable import/no-extraneous-dependencies */
+import { JobStatusStatus } from '@blueos-idl/constants'
 import { describe, expect, it } from 'vitest'
 
-import type { LibraryRecording } from '@/libs/recorder/types'
+import { DELETE_RECORDING, REPAIR_RECORDING, SNAPSHOT_RECORDING } from '@/libs/recorder/constants'
+import type { LibraryRecording, RecordingJobResult } from '@/libs/recorder/types'
 import {
   canPlayRecording,
-  operationFailureMessage,
+  jobFailureMessage,
   readySnapshotDownloadPath,
   recordingByPath,
   snapshotDownloadPath,
   sortRecordingsNewestFirst,
 } from '@/libs/recorder/view-logic'
+
+function jobResult(
+  jobType: string,
+  status: JobStatusStatus,
+  result: RecordingJobResult['result'],
+  reason = '',
+): RecordingJobResult {
+  return {
+    job: {
+      job_id: '0b5e8f5c-6f0a-4c4e-9a52-2f1e7d3c9b10', job_type: jobType, status, reason,
+    },
+    result,
+  }
+}
 
 function file(overrides: Partial<LibraryRecording> = {}): LibraryRecording {
   return {
@@ -51,15 +68,11 @@ describe('recorder view-logic', () => {
     expect(canPlayRecording(file({ state: 'needs_repair' }))).toBe(false)
   })
 
-  it('reads snapshot output path from a succeeded operation event', () => {
-    expect(snapshotDownloadPath({
-      operation: 'snapshot',
-      path: 'live.mcap',
-      output_path: 'live.snapshot-2024-01-02T03-04-05Z.mcap',
-      succeeded: true,
-      cancelled: false,
-      error: '',
-    })).toBe('live.snapshot-2024-01-02T03-04-05Z.mcap')
+  it('reads the snapshot output path from the result of a succeeded snapshot Job', () => {
+    const output = 'live.snapshot-2024-01-02T03-04-05Z.mcap'
+    const result = { path: 'live.mcap', output_path: output }
+    expect(snapshotDownloadPath(jobResult(SNAPSHOT_RECORDING, JobStatusStatus.Succeeded, result))).toBe(output)
+    expect(snapshotDownloadPath(jobResult(SNAPSHOT_RECORDING, JobStatusStatus.Aborted, result))).toBeNull()
   })
 
   it('finds a ready snapshot file in the library after a missed event', () => {
@@ -75,14 +88,13 @@ describe('recorder view-logic', () => {
     expect(output).toBe('live.snapshot-2024-01-02T03-04-05Z.mcap')
   })
 
-  it('builds an operation failure message', () => {
-    expect(operationFailureMessage({
-      operation: 'delete',
-      path: 'gone.mcap',
-      output_path: '',
-      succeeded: false,
-      cancelled: false,
-      error: 'disk full',
-    }, 'gone.mcap')).toBe('Delete failed for gone.mcap: disk full')
+  it('says why a Job aborted, and nothing for a Job that succeeded or was canceled', () => {
+    const result = { path: 'gone.mcap' }
+    expect(jobFailureMessage(jobResult(DELETE_RECORDING, JobStatusStatus.Aborted, result, 'disk full')))
+      .toBe('Delete failed for gone.mcap: disk full')
+    expect(jobFailureMessage(jobResult(REPAIR_RECORDING, JobStatusStatus.Aborted, result, '')))
+      .toBe('Repair failed for gone.mcap: unknown error')
+    expect(jobFailureMessage(jobResult(DELETE_RECORDING, JobStatusStatus.Succeeded, result))).toBeNull()
+    expect(jobFailureMessage(jobResult(REPAIR_RECORDING, JobStatusStatus.Canceled, result))).toBeNull()
   })
 })
