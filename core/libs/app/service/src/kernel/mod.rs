@@ -645,7 +645,6 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             &status_latest,
         )
         .await;
-        kernel.publish_metrics().await;
         let command_sender = CommandSender::new(mpsc::Sender::clone(
             kernel
                 .inbox_sender
@@ -659,6 +658,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             Arc::clone(&kernel.context),
             Arc::clone(&kernel.clock),
         );
+        kernel.publish_metrics().await;
         kernel.endpoints.spawn(serve_fixed_reply(
             info_queryable,
             info_key,

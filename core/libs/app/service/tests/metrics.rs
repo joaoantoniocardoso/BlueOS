@@ -264,10 +264,10 @@ async fn a_counter_a_task_records_is_in_the_metrics_of_its_service_only() {
         pinging_metrics
             .counters
             .iter()
-            .filter(|metric| metric.name == "pings_sent")
+            .filter(|metric| metric.name == "pings_sent" || metric.name == "task_restarts")
             .map(|metric| (metric.name.as_str(), metric.value))
             .collect::<Vec<_>>(),
-        [("pings_sent", 1)]
+        [("pings_sent", 1), ("task_restarts", 0)]
     );
     assert_eq!(inbox_steps(&pinging_metrics).count, 0);
     assert!(
