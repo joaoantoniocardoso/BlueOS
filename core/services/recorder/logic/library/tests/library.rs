@@ -8,8 +8,8 @@ use blueos_recorder_library::{
     CANCEL_JOB, Library, LibraryIoRequest, LibraryIoResult, LibraryObservedFact, LibraryOperation,
     LibraryRepairOutcome, LibraryRepairProgress, LibraryRequest, LibrarySnapshotOutcome,
     REPAIR_PROGRESS_PUBLISH_INTERVAL, RecordingFileState, RepairFailure, RepairProgress,
-    SNAPSHOT_RECORDING, ScannedRecording,
-    derive_recording_file_state, snapshot_output_relative_path,
+    SNAPSHOT_RECORDING, ScannedRecording, derive_recording_file_state,
+    snapshot_output_relative_path,
 };
 
 const NOW: Now = Now {
