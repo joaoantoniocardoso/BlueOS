@@ -565,17 +565,14 @@ export default Vue.extend({
       if (!this.recorder) {
         return
       }
+      if (operationName === REPAIR_RECORDING) {
+        this.askRepair([file])
+        return
+      }
       this.lastError = ''
       this.busyPath = file.path
       this.busyOperation = operationName
       try {
-        if (operationName === REPAIR_RECORDING) {
-          const result = await this.recorder.repairRecording(file.path)
-          if (!result.accepted) {
-            this.lastError = result.reason
-          }
-          return
-        }
         if (operationName === CANCEL_JOB) {
           const result = await this.recorder.cancelRepair(file.repair_job_id)
           if (!result.accepted) {
