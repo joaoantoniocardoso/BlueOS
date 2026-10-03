@@ -80,3 +80,17 @@ impl WriterMetrics {
         self.samples_dropped.of(Lane::of(topic)).increment(1);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Lane;
+
+    #[test]
+    fn a_topic_falls_in_the_lane_of_its_prefix() {
+        assert!(matches!(Lane::of("mavlink/1/1/HEARTBEAT"), Lane::Mavlink));
+        assert!(matches!(Lane::of("mavlink_raw/1/1/30"), Lane::Mavlink));
+        assert!(matches!(Lane::of("video/camera1/stream"), Lane::Video));
+        assert!(matches!(Lane::of("load/flood"), Lane::Other));
+        assert!(matches!(Lane::of("mavlink"), Lane::Other));
+    }
+}
