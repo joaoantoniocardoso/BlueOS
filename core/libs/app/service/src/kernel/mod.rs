@@ -34,7 +34,8 @@ use blueos_idl::{
     Error as IdlError,
     msg::blueos_msgs::{
         EndpointInfo, JobFeedback, JobFeedbackList, JobList, JobResult, PermissionAnswer,
-        ServiceInfo, ServiceStatus, ServiceStatusStatus, SettingsEnvelope,
+        ServiceInfo, ServiceStatus, ServiceStatusStatus, UpdateSettingsFeedback,
+        UpdateSettingsGoal, UpdateSettingsResult,
     },
 };
 use blueos_jobs::{JobControl, JobEnd, JobId, JobNature, JobStatus, Jobs, JobsError, Submitted};
@@ -69,6 +70,11 @@ const INBOX_CAPACITY: usize = 256;
 const REASON_ENCODING: &str = "text/plain";
 /// The Job type every Service serves to replace its settings (D-11).
 const UPDATE_SETTINGS: &str = "UpdateSettings";
+/// The interface type of [`UPDATE_SETTINGS`], as `info` lists it.
+const UPDATE_SETTINGS_ACTION: &str = "blueos_msgs/action/UpdateSettings";
+/// The line ROS 2 schema text puts before the schema of each message it depends on.
+const SCHEMA_SEPARATOR: &str =
+    "================================================================================";
 /// The controls every Service serves on `command/<control>`. The answer of `AnswerPermission` comes from its body.
 const CONTROLS: [JobControl; 4] = [
     JobControl::Cancel,
@@ -275,12 +281,15 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
 
     async fn boot(
         service: &'static str,
-        mut builder: ServiceBuilder<D, Context>,
+        builder: ServiceBuilder<D, Context>,
         context: Context,
         backend: Arc<dyn CommsBackend>,
         clock: Arc<dyn Clock>,
         #[cfg(feature = "testing")] effect_log: Option<EffectLogStorage<D>>,
     ) -> Result<Self, ServiceError> {
+        let mut builder = builder
+            .job_feedback(UPDATE_SETTINGS, |_, _| None::<UpdateSettingsFeedback>)
+            .job_result(UPDATE_SETTINGS, |_, _| UpdateSettingsResult::default());
         let mut startup_commands = builder.startup_commands;
         let shutdown_request = tokio::sync::Mutex::new(builder.shutdown_request);
         let durable_registration = builder.durable.take();
@@ -316,13 +325,24 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 .manifest_endpoints
                 .iter()
                 .cloned()
-                .chain([EndpointInfo {
-                    kind: "state".to_owned(),
-                    name: "jobs".to_owned(),
-                    key: jobs_key(service),
-                    interface_type: JobList::SCHEMA_NAME.to_owned(),
-                    schema: JobList::SCHEMA.to_owned(),
-                }])
+                .chain([
+                    EndpointInfo {
+                        kind: "job".to_owned(),
+                        name: UPDATE_SETTINGS.to_owned(),
+                        key: command_key(service, UPDATE_SETTINGS),
+                        interface_type: UPDATE_SETTINGS_ACTION.to_owned(),
+                        schema: blueos_idl::schema(UPDATE_SETTINGS_ACTION)
+                            .unwrap_or_default()
+                            .to_owned(),
+                    },
+                    EndpointInfo {
+                        kind: "state".to_owned(),
+                        name: "jobs".to_owned(),
+                        key: jobs_key(service),
+                        interface_type: JobList::SCHEMA_NAME.to_owned(),
+                        schema: JobList::SCHEMA.to_owned(),
+                    },
+                ])
                 .chain(job_type_names.iter().flat_map(|job_type| {
                     let (feedback_type, result_type) = builder
                         .job_outputs
@@ -334,15 +354,15 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                             kind: "state".to_owned(),
                             name: format!("jobs/{job_type}/feedback"),
                             key: job_feedback_key(service, job_type),
-                            interface_type: feedback_type.name.to_owned(),
-                            schema: feedback_type.schema.to_owned(),
+                            interface_type: JobFeedbackList::SCHEMA_NAME.to_owned(),
+                            schema: carrying::<JobFeedbackList>(feedback_type),
                         },
                         EndpointInfo {
                             kind: "event".to_owned(),
                             name: format!("jobs/{job_type}/result"),
                             key: job_result_key(service, job_type),
-                            interface_type: result_type.name.to_owned(),
-                            schema: result_type.schema.to_owned(),
+                            interface_type: JobResult::SCHEMA_NAME.to_owned(),
+                            schema: carrying::<JobResult>(result_type),
                         },
                         EndpointInfo {
                             kind: "query".to_owned(),
@@ -1332,7 +1352,8 @@ async fn serve_update_settings<D: Domain>(
             .unwrap_or_default();
         let input = job_id.ok_or(Rejection::NoJobId).and_then(|job_id| {
             let driver = driver.as_ref().ok_or(Rejection::NoSettings)?;
-            let envelope = SettingsEnvelope::decode(&goal).map_err(Rejection::InvalidBody)?;
+            let UpdateSettingsGoal { envelope } =
+                UpdateSettingsGoal::decode(&goal).map_err(Rejection::InvalidBody)?;
             let request = lock_unpoisoned(driver)
                 .request_from_envelope(envelope)
                 .map_err(Rejection::Domain)?;
@@ -1478,6 +1499,20 @@ async fn reply(query: Query, answered: Result<(Vec<u8>, String), Unanswered>) {
 fn warn_on_failure(kind: &'static str, key: &str, sent: Result<(), SendError>) {
     if let Err(error) = sent {
         warn!(%error, kind, key, "Failed to send");
+    }
+}
+
+/// The schema text of a Job output key as `info` lists it: the wrapper `M` on the wire, then the part its bytes
+/// carry, under the `MSG: <package>/<Name>` line ROS 2 gives a dependency. A Job type without the part gets `M`
+/// alone.
+fn carrying<M: Message>(part: MessageType) -> String {
+    match (part.name.split_once('/'), part.name.rsplit_once('/')) {
+        (Some((package, _)), Some((_, name))) => format!(
+            "{}\n{SCHEMA_SEPARATOR}\nMSG: {package}/{name}\n{}",
+            M::SCHEMA,
+            part.schema
+        ),
+        _ => M::SCHEMA.to_owned(),
     }
 }
 

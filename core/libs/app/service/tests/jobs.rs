@@ -17,7 +17,7 @@ use blueos_idl::msg::{
     blueos_example_msgs::{LevelRequest, LevelResponse, SetLevelGoal},
     blueos_msgs::{
         CommandAckStatus, JobFeedbackList, JobList, JobResult, JobStatusStatus, ServiceInfo,
-        SettingsEnvelope,
+        SettingsEnvelope, UpdateSettingsFeedback, UpdateSettingsResult,
     },
 };
 use blueos_jobs::{DomainJobs, JobControl, JobEnd, JobId, JobNature, JobStatus, Jobs};
@@ -540,15 +540,41 @@ async fn info_lists_the_jobs_state_and_the_feedback_result_and_history_of_each_j
         })
         .collect();
     let (list, list_schema) = (JobList::SCHEMA_NAME, JobList::SCHEMA);
+    let (feedback_list, result) = (JobFeedbackList::SCHEMA_NAME, JobResult::SCHEMA_NAME);
+    let separator = "=".repeat(80);
+    let carrying = |wrapper: &str, part: &str, part_schema: &str| {
+        format!("{wrapper}\n{separator}\nMSG: {part}\n{part_schema}")
+    };
+    let brew_feedback = carrying(
+        JobFeedbackList::SCHEMA,
+        "blueos_example_msgs/Level_Response",
+        LevelResponse::SCHEMA,
+    );
+    let brew_result = carrying(
+        JobResult::SCHEMA,
+        "blueos_example_msgs/SetLevel_Goal",
+        SetLevelGoal::SCHEMA,
+    );
+    let settings_feedback = carrying(
+        JobFeedbackList::SCHEMA,
+        "blueos_msgs/UpdateSettings_Feedback",
+        UpdateSettingsFeedback::SCHEMA,
+    );
+    let settings_result = carrying(
+        JobResult::SCHEMA,
+        "blueos_msgs/UpdateSettings_Result",
+        UpdateSettingsResult::SCHEMA,
+    );
     assert_eq!(
         listed.len(),
-        1 + 3 * 6,
-        "jobs, then three per Job type: {listed:?}"
+        1 + 1 + 3 * 6,
+        "UpdateSettings, jobs, then three per Job type: {listed:?}"
     );
     let shown: Vec<_> = listed
         .into_iter()
         .filter(|(_, name, ..)| {
-            *name == "jobs"
+            *name == "UpdateSettings"
+                || *name == "jobs"
                 || name.starts_with("jobs/Brew/")
                 || name.starts_with("jobs/UpdateSettings/")
         })
@@ -556,20 +582,27 @@ async fn info_lists_the_jobs_state_and_the_feedback_result_and_history_of_each_j
     assert_eq!(
         shown,
         [
+            (
+                "job",
+                "UpdateSettings",
+                command_key(service, "UpdateSettings"),
+                "blueos_msgs/action/UpdateSettings",
+                blueos_idl::schema("blueos_msgs/action/UpdateSettings").unwrap(),
+            ),
             ("state", "jobs", jobs_key(service), list, list_schema),
             (
                 "state",
                 "jobs/Brew/feedback",
                 job_feedback_key(service, "Brew"),
-                LevelResponse::SCHEMA_NAME,
-                LevelResponse::SCHEMA,
+                feedback_list,
+                brew_feedback.as_str(),
             ),
             (
                 "event",
                 "jobs/Brew/result",
                 job_result_key(service, "Brew"),
-                SetLevelGoal::SCHEMA_NAME,
-                SetLevelGoal::SCHEMA,
+                result,
+                brew_result.as_str(),
             ),
             (
                 "query",
@@ -582,15 +615,15 @@ async fn info_lists_the_jobs_state_and_the_feedback_result_and_history_of_each_j
                 "state",
                 "jobs/UpdateSettings/feedback",
                 job_feedback_key(service, "UpdateSettings"),
-                "",
-                "",
+                feedback_list,
+                settings_feedback.as_str(),
             ),
             (
                 "event",
                 "jobs/UpdateSettings/result",
                 job_result_key(service, "UpdateSettings"),
-                "",
-                ""
+                result,
+                settings_result.as_str(),
             ),
             (
                 "query",

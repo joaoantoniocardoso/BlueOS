@@ -11,12 +11,15 @@ use std::{
 use serde::{Deserialize, Serialize};
 use tokio::time;
 
-use blueos_api::CommandAck;
+use blueos_api::{CommandAck, Message, job_result_key};
 use blueos_comms::channel::ChannelBackend;
 use blueos_domain::{Command, Decision, Domain, DomainDurable, IoError, Now, Outcome};
 use blueos_idl::{
     msg::blueos_example_msgs::SetLevelGoal,
-    msg::blueos_msgs::{CommandAckStatus, JobStatus, JobStatusStatus, SettingsEnvelope},
+    msg::blueos_msgs::{
+        CommandAckStatus, JobResult, JobStatus, JobStatusStatus, SettingsEnvelope,
+        UpdateSettingsGoal, UpdateSettingsResult,
+    },
 };
 use blueos_jobs::JobId;
 use blueos_service::{Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness};
@@ -314,6 +317,40 @@ async fn update_settings_is_an_instant_job_that_acks_its_final_status() {
             status: JobStatusStatus::Succeeded,
             reason: String::new(),
         }]
+    );
+
+    let _ = std::fs::remove_dir_all(parent);
+}
+
+#[tokio::test(start_paused = true)]
+async fn update_settings_takes_its_action_goal_and_publishes_its_action_result() {
+    let parent = temp_settings_parent("action");
+    let harness = start_with_settings_folder(parent.clone()).await;
+    let mut results = harness
+        .backend()
+        .subscribe(&job_result_key(SettingsTankService::NAME, "UpdateSettings"))
+        .await
+        .unwrap();
+    let job_id = JobId::from_u128(7);
+    let goal = UpdateSettingsGoal {
+        envelope: envelope_for(&SettingsTankDocument {
+            live_field: 2,
+            ..SettingsTankDocument::default()
+        }),
+    };
+
+    let ack = harness.submit("UpdateSettings", job_id, &goal).await;
+    let sample = time::timeout(Duration::from_secs(10), results.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    let ended = JobResult::decode(&sample.payload().to_bytes()).unwrap();
+
+    assert_eq!(ack.status, CommandAckStatus::Succeeded);
+    assert_eq!(ended.job.status, JobStatusStatus::Succeeded);
+    assert_eq!(
+        UpdateSettingsResult::decode(&ended.result),
+        Ok(UpdateSettingsResult::default())
     );
 
     let _ = std::fs::remove_dir_all(parent);
