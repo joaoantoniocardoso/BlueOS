@@ -135,6 +135,7 @@ jobs:
           .hooks/tests/rust_checks_test.sh
           .hooks/tests/dependency_gate_test.sh
           .hooks/tests/ergonomics_report_test.sh
+          .hooks/tests/report_section_test.sh
           .hooks/tests/docs_paths_test.sh
           .hooks/tests/commit_subject_test.sh
           .hooks/tests/run_service_test.sh
@@ -151,7 +152,6 @@ jobs:
 
   rust-report-quality:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -189,29 +189,32 @@ jobs:
           # shellcheck disable=SC1091
           source shipped_features.sh
           report_section "cargo bloat" \
+            --ok 0 --version cargo bloat --version -- \
             cargo bloat --release -p "$BLUEOS_SHIPPED_PACKAGE" --features "${BLUEOS_SHIPPED_FEATURES[*]}" --crates -n 25
           report_section "rustqual" \
+            --ok 0 --version rustqual --version -- \
             rustqual --no-fail --format github .
           report_section "thailint unwrap-abuse" \
+            --ok "0 1" --version thailint --version -- \
             thailint unwrap-abuse libs app services
           report_section "thailint clone-abuse" \
+            --ok "0 1" --version thailint --version -- \
             thailint clone-abuse libs app services
           report_section "thailint blocking-async" \
+            --ok "0 1" --version thailint --version -- \
             thailint blocking-async libs app services
           report_section "ast-metrics" \
+            --ok 0 --version bash -c "ast-metrics version | grep 'Current version'" -- \
             bash -ec '
               ast-metrics analyze --report-json "$RUNNER_TEMP/ast-metrics.json" libs app services
               test -s "$RUNNER_TEMP/ast-metrics.json"
             '
-          {
-            echo "## D-31 ergonomics measures"
-            echo
+          report_section "D-31 ergonomics measures" \
+            --ok 0 --no-version -- \
             "$GITHUB_WORKSPACE/.hooks/lib/ergonomics_report.sh" "$GITHUB_WORKSPACE"
-          } >> "$GITHUB_STEP_SUMMARY"
 
   rust-report-nightly:
     runs-on: ubuntu-latest
-    continue-on-error: true
     env:
       # lockbud links against rustc internals, so it builds and runs only on the nightly its commit names.
       LOCKBUD_TOOLCHAIN: nightly-2026-02-07
@@ -268,8 +271,10 @@ jobs:
           source ../.github/lib/rust_report_only.sh
           RUST_NIGHTLY=$(tr -d '[:space:]' < nightly-toolchain.txt)
           report_section "cargo udeps" \
+            --ok 0 --version cargo "+${RUST_NIGHTLY}" udeps --version -- \
             cargo "+${RUST_NIGHTLY}" udeps --all-targets --workspace --locked
           report_section "branch coverage summary" \
+            --ok 0 --version cargo llvm-cov --version -- \
             bash -ec '
               cargo llvm-cov clean --workspace
               # The trybuild snapshots hold stable compiler messages, which nightly words differently.
@@ -277,6 +282,7 @@ jobs:
               cargo llvm-cov report --branch --summary-only
             '
           report_section "address sanitizer (example domain lib)" \
+            --ok 0 --version rustc "+${RUST_NIGHTLY}" --version -- \
             bash -ec "
               export RUSTFLAGS='-Zsanitizer=address -Cdebuginfo=1'
               export ASAN_OPTIONS='detect_leaks=0'
@@ -302,6 +308,7 @@ jobs:
             [ "$status" -eq 1 ]
           }
           report_section "lockbud deadlock" \
+            --ok 0 --version cargo "+${LOCKBUD_TOOLCHAIN}" lockbud --version -- \
             lockbud_workspace
 
   rust-test:
