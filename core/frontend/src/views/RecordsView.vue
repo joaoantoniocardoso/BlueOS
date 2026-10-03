@@ -289,6 +289,7 @@ import RecordsSessionControls from '@/components/records/RecordsSessionControls.
 import type { Transport } from '@/libs/blueos-api/transport'
 import zenohTransport from '@/libs/blueos-api/zenoh-transport'
 import type { RecordingIndexSource } from '@/libs/mcap/logic/recording-index'
+import message_manager, { MessageLevel } from '@/libs/message-manager'
 import {
   type BulkAction,
   bulkActionTargets,
@@ -315,7 +316,7 @@ import type {
   LibraryRecording, RecorderCommandResult, RecordingJobResult, RecordingState,
 } from '@/libs/recorder/types'
 import {
-  jobFailureMessage, RECORDING_STATE_UI, recordingByPath, type RepairProgress, withRepairJobs,
+  jobCanceledMessage, jobFailureMessage, RECORDING_STATE_UI, recordingByPath, type RepairProgress, withRepairJobs,
 } from '@/libs/recorder/view-logic'
 import zenoh from '@/libs/zenoh'
 import { blueosApiMixin } from '@/mixins/blueosApi'
@@ -488,6 +489,10 @@ export default Vue.extend({
       this.lastError = error instanceof Error ? error.message : String(error)
     },
     onRecordingOperation(entry: RecordingJobResult): void {
+      const canceled = jobCanceledMessage(entry)
+      if (canceled) {
+        message_manager.emitMessage(MessageLevel.Info, canceled)
+      }
       if (bulkJobEnded(this.bulkAction, entry)) {
         this.reportBulkFailures()
         return
