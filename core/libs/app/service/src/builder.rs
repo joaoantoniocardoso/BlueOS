@@ -1,7 +1,7 @@
 //! What a Service's `build` declares: the initial Snapshot and how the Domain meets the backbone.
 
 use core::{error::Error, future::Future, pin::Pin};
-use std::{path::PathBuf, sync::Arc};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use tokio::sync::watch;
 
@@ -11,7 +11,7 @@ use blueos_idl::{
     Error as IdlError,
     msg::blueos_msgs::{EndpointInfo, JobList, JobStatus, JobStatusStatus, SettingsEnvelope},
 };
-use blueos_jobs::{DomainJobs, JobId, JobNature, Jobs};
+use blueos_jobs::{DomainJobs, Job, JobId, JobNature, Jobs};
 use blueos_settings::SettingsSchema;
 
 use crate::{
@@ -43,6 +43,14 @@ pub(crate) type Project<D> =
 /// Turns a domain event into an encoded Event, or `None` when this Event endpoint does not publish it.
 pub(crate) type Select<D> =
     Box<dyn Fn(&<D as Domain>::Event) -> Option<Result<Vec<u8>, IdlError>> + Send + Sync>;
+
+/// Encodes the latest Feedback of an active Job from the Snapshot, or `None` while it has none.
+pub(crate) type ProjectFeedback<D> =
+    Box<dyn Fn(&<D as Domain>::Snapshot, JobId) -> Option<Result<Vec<u8>, IdlError>> + Send + Sync>;
+
+/// Encodes the Job result of a Job from the Snapshot after the step that ended it.
+pub(crate) type ProjectResult<D> =
+    Box<dyn Fn(&<D as Domain>::Snapshot, JobId) -> Result<Vec<u8>, IdlError> + Send + Sync>;
 
 /// Reads and changes the Jobs a Domain keeps in its Snapshot.
 pub(crate) type JobsAccess<D> = (
@@ -85,6 +93,8 @@ pub struct ServiceBuilder<D: Domain, Context = ()> {
     pub(crate) durable: Option<DurableStateRegistration<D>>,
     /// Set when the Domain keeps the Jobs in its Snapshot; the Kernel keeps them otherwise.
     pub(crate) jobs: Option<JobsAccess<D>>,
+    /// The Feedback and Job result each Job type declared, by Job type.
+    pub(crate) job_outputs: HashMap<String, JobOutput<D>>,
     pub(crate) startup_commands: Vec<InboxCommand<D>>,
     pub(crate) tasks: Vec<TaskSpec<D, Context>>,
     pub(crate) shutdown_request: Option<D::Request>,
@@ -108,6 +118,12 @@ pub(crate) struct CommandEndpoint<D: Domain> {
     pub(crate) name: String,
     pub(crate) nature: JobNature,
     pub(crate) decode: Decode<D>,
+}
+
+/// What a Job type publishes besides its status in the `jobs` State: its Feedback and its Job result (D-12).
+pub(crate) struct JobOutput<D: Domain> {
+    pub(crate) feedback: Option<ProjectFeedback<D>>,
+    pub(crate) result: Option<ProjectResult<D>>,
 }
 
 /// An IO query endpoint: a query on `blueos/v1/<service>/query/<name>`, answered outside the Inbox.
@@ -155,6 +171,7 @@ impl<D: Domain, Context> ServiceBuilder<D, Context> {
             settings: None,
             durable: None,
             jobs: None,
+            job_outputs: HashMap::new(),
             startup_commands: Vec::new(),
             tasks: Vec::new(),
             shutdown_request: None,
@@ -381,6 +398,35 @@ impl<D: Domain, Context> ServiceBuilder<D, Context> {
         self
     }
 
+    /// Publishes the Feedback of the Job type `job_type` on its `jobs/<job_type>/feedback` State (D-12, D-36). After
+    /// every applied Command, the State lists, for each active Job of that type, the `M` that `feedback` makes of the
+    /// Snapshot, and leaves out a Job that `feedback` returns `None` for. A Job leaves it when it ends. `feedback`
+    /// must be pure, like a State's projection: a panic in it restores the Snapshot and rejects the Command.
+    pub fn job_feedback<M: Message + 'static>(
+        mut self,
+        job_type: &str,
+        feedback: impl Fn(&D::Snapshot, JobId) -> Option<M> + Send + Sync + 'static,
+    ) -> Self {
+        self.job_output(job_type).feedback = Some(Box::new(move |snapshot, job_id| {
+            feedback(snapshot, job_id).map(|message| message.encode())
+        }));
+        self
+    }
+
+    /// Publishes the Job result of the Job type `job_type` on its `jobs/<job_type>/result` Event when a Job ends, the
+    /// Kernel ending it included (D-12, D-36): the `M` that `result` makes of the Snapshot after the step that ended
+    /// the Job, so the Snapshot must still hold what `result` needs in that step. `result` must be pure.
+    pub fn job_result<M: Message + 'static>(
+        mut self,
+        job_type: &str,
+        result: impl Fn(&D::Snapshot, JobId) -> M + Send + Sync + 'static,
+    ) -> Self {
+        self.job_output(job_type).result = Some(Box::new(move |snapshot, job_id| {
+            result(snapshot, job_id).encode()
+        }));
+        self
+    }
+
     /// Declares a Projection for Tasks: a pure function of the Snapshot, recomputed after every applied Command
     /// and delivered on a deduplicated typed `watch` receiver. It is not published on the backbone.
     pub fn projection<T>(
@@ -467,20 +513,31 @@ impl<D: Domain, Context> ServiceBuilder<D, Context> {
         });
         self
     }
+
+    fn job_output(&mut self, job_type: &str) -> &mut JobOutput<D> {
+        self.job_outputs
+            .entry(job_type.to_owned())
+            .or_insert_with(|| JobOutput {
+                feedback: None,
+                result: None,
+            })
+    }
 }
 
 /// Every Job as clients see it in the `jobs` State.
 pub(crate) fn job_list(jobs: &Jobs) -> JobList {
     JobList {
-        jobs: jobs
-            .list()
-            .map(|job| JobStatus {
-                job_id: job.job_id.to_string(),
-                job_type: job.job_type.clone(),
-                status: JobStatusStatus::from_raw(wire_status(job.status)),
-                reason: job.reason.clone(),
-            })
-            .collect(),
+        jobs: jobs.list().map(job_status).collect(),
+    }
+}
+
+/// One Job as clients see it in the `jobs` State, a Job result and a history.
+pub(crate) fn job_status(job: &Job) -> JobStatus {
+    JobStatus {
+        job_id: job.job_id.to_string(),
+        job_type: job.job_type.clone(),
+        status: JobStatusStatus::from_raw(wire_status(job.status)),
+        reason: job.reason.clone(),
     }
 }
 

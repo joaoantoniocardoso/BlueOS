@@ -12,12 +12,12 @@ use std::{
 use tokio::{task::JoinSet, time::Instant};
 
 use blueos_api::{
-    CommandAck, ENCODING_APPLICATION_CDR, Message, cdr_encoding, command_key, jobs_key, query_key,
-    settings_key, state_key,
+    CommandAck, ENCODING_APPLICATION_CDR, Message, cdr_encoding, command_key, job_feedback_key,
+    job_history_key, jobs_key, query_key, settings_key, state_key,
 };
 use blueos_comms::{CommsBackend, QueryBody, ReplyError, channel::ChannelBackend};
 use blueos_domain::{Domain, Effect, Now};
-use blueos_idl::msg::blueos_msgs::{JobList, PermissionAnswer};
+use blueos_idl::msg::blueos_msgs::{JobFeedbackList, JobList, PermissionAnswer};
 use blueos_jobs::{JobControl, JobId};
 
 use crate::{
@@ -391,6 +391,41 @@ impl<S: Service> Harness<S> {
             .expect("the jobs key is valid");
         let [Ok(reply)] = replies.as_slice() else {
             panic!("expected one jobs value, got {replies:?}");
+        };
+        JobList::decode(&reply.payload().to_bytes()).expect("the reply is a JobList")
+    }
+
+    /// Reads the Feedback State of the Job type `job_type`, as a late client would.
+    ///
+    /// # Panics
+    ///
+    /// When the Service does not reply exactly once with a [`JobFeedbackList`].
+    pub async fn job_feedback(&self, job_type: &str) -> JobFeedbackList {
+        let replies = self
+            .backend
+            .get(&job_feedback_key(S::NAME, job_type), None, REPLY_TIMEOUT)
+            .await
+            .expect("the feedback key is valid");
+        let [Ok(reply)] = replies.as_slice() else {
+            panic!("expected one Feedback value of {job_type:?}, got {replies:?}");
+        };
+        JobFeedbackList::decode(&reply.payload().to_bytes())
+            .expect("the reply is a JobFeedbackList")
+    }
+
+    /// Calls the history Query of the Job type `job_type`: its last finished Jobs, in the order they ended.
+    ///
+    /// # Panics
+    ///
+    /// When the Service does not reply exactly once with a [`JobList`].
+    pub async fn job_history(&self, job_type: &str) -> JobList {
+        let replies = self
+            .backend
+            .get(&job_history_key(S::NAME, job_type), None, REPLY_TIMEOUT)
+            .await
+            .expect("the history key is valid");
+        let [Ok(reply)] = replies.as_slice() else {
+            panic!("expected one history of {job_type:?}, got {replies:?}");
         };
         JobList::decode(&reply.payload().to_bytes()).expect("the reply is a JobList")
     }

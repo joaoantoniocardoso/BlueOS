@@ -12,7 +12,8 @@ use futures_util::{future::BoxFuture, stream};
 use tokio::{sync::Semaphore, task::JoinSet, time::timeout};
 
 use blueos_api::{
-    CommandAck, Message, cdr_encoding, command_key, event_key, jobs_key, query_key, state_key,
+    CommandAck, Message, cdr_encoding, command_key, event_key, job_result_key, jobs_key, query_key,
+    state_key,
 };
 use blueos_comms::{
     CommsBackend, CommsError, LivelinessSubscriber, LivelinessToken, Query, QueryBody, Queryable,
@@ -604,6 +605,7 @@ async fn states_are_published_before_the_ack_and_events_after_it() {
             format!("publish {}", jobs_key(TankService::NAME)),
             format!("reply {}", command_key(TankService::NAME, "SetLevel")),
             format!("publish {}", event_key(TankService::NAME, "LevelChanged")),
+            format!("publish {}", job_result_key(TankService::NAME, "SetLevel")),
         ]
     );
 }
@@ -861,6 +863,7 @@ async fn each_event_endpoint_publishes_only_the_domain_events_it_selects() {
             format!("reply {}", command_key(TankService::NAME, "SetLevel")),
             format!("publish {}", event_key(TankService::NAME, "LevelChanged")),
             format!("publish {}", event_key(TankService::NAME, "Emptied")),
+            format!("publish {}", job_result_key(TankService::NAME, "SetLevel")),
         ]
     );
 }
