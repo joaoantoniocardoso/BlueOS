@@ -99,11 +99,11 @@ fn leading_entry_number(filename: &str) -> u8 {
 }
 
 #[test]
-fn readme_table_maps_questions_one_through_thirty_four() {
+fn readme_table_maps_questions_one_through_thirty_five() {
     let readme = include_str!("../README.md");
     let rows = parse_readme_table(readme);
-    assert_eq!(rows.len(), 34, "expected 34 question rows in README");
-    for question in 1..=34 {
+    assert_eq!(rows.len(), 35, "expected 35 question rows in README");
+    for question in 1..=35 {
         assert_eq!(
             rows.iter().filter(|row| row.number == question).count(),
             1,
