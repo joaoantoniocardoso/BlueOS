@@ -42,7 +42,7 @@ serde_json.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["macros", "rt", "test-util"] }
 tracing-subscriber.workspace = true
-tempfile = "3"
+tempfile.workspace = true
 
 [lints]
 workspace = true

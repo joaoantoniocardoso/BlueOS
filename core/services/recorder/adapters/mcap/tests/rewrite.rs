@@ -63,7 +63,7 @@ fn rewrite_truncated_file_keeps_complete_messages() {
     let output = directory.path().join("output.mcap");
     let expected_messages = write_chunked_recording(&source, 8);
     let bytes = fs::read(&source).expect("read");
-    let truncate_at = bytes.len().min(400);
+    let truncate_at = bytes.len() / 2;
     fs::write(&source, &bytes[..truncate_at]).expect("truncate");
 
     let cancel = AtomicBool::new(false);
