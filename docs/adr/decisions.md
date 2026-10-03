@@ -694,7 +694,8 @@ Decision:
   repair Job through the Kernel's control endpoint (D-12) removes the repair from the list.
 - A recording still being written is downloaded through `SnapshotRecording`: the same rewrite writes an indexed
   copy `<stem>.snapshot-<UTC>Z.mcap` next to it, and the browser downloads it from nginx once the Job result
-  names it. The download also completes from the `library` State and times out.
+  names it. The download also completes from the `library` State and times out. Any other recording downloads
+  directly from nginx, so a snapshot of it is rejected: it would only copy the file on the vehicle's disk.
 - The recording-file suffix rule (case-insensitive `.mcap`) and the file name timestamp formats are defined once
   and shared with the frontend through a test vector (D-24). Timestamps are parsed and formatted with `chrono`.
 - The Recorder knows which file it is writing. Other files are rescanned on a timer and after each operation; the
@@ -731,7 +732,8 @@ API (keys under `blueos/v1/recorder/`, messages in `blueos_recorder_msgs`):
 
 Rejections (from the Python rules): repair when already repairing, already indexed, being written or written
 less than 10 s ago; cancel when not repairing; delete while being written, repaired or already being deleted;
-snapshot of a missing file; any path that is absolute, contains `..`, is not `.mcap`, or is not in the library.
+snapshot of a missing file or of any file but the one being written; any path that is absolute, contains `..`,
+is not `.mcap`, or is not in the library.
 A path is parsed once at the boundary into a validated recording path type; the Domain never receives an
 unvalidated path.
 
