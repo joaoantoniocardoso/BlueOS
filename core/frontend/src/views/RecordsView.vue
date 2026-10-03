@@ -477,12 +477,7 @@ import { blueosApiMixin } from '@/mixins/blueosApi'
 export default Vue.extend({
   name: 'RecordsView',
   components: {
-    RecordsMetrics,
-    RecordsRecordingRow,
-    RecordsRecordingTable,
-    RecordsSessionControls,
-    McapVideoPlayer,
-    WarningDialog,
+    RecordsMetrics, RecordsRecordingRow, RecordsRecordingTable, RecordsSessionControls, McapVideoPlayer, WarningDialog,
   },
   mixins: [blueosApiMixin],
   beforeRouteLeave(_to: Route, _from: Route, next: NavigationGuardNext): void {
