@@ -4,7 +4,7 @@
 import { parse as parseMessageDefinition } from '@foxglove/rosmsg'
 import { MessageReader } from '@foxglove/rosmsg2-serialization'
 
-import { throwIfAborted } from './abort'
+import { sleep, throwIfAborted } from './abort'
 import { createProgressGate } from './progress'
 import {
   McapChannel, McapIndexedReader, McapMessage,
@@ -18,11 +18,20 @@ export interface Mp4ExportRange {
 
 const BASE_COLUMNS = ['log_time', 'topic', 'sequence'] as const
 
+/** How long the export runs before it gives the page a turn, so progress renders and Cancel is heard. */
+const YIELD_INTERVAL_MS = 50
+
+/**
+ * Lines are joined into string parts of about this many characters, and each part becomes a `Blob` at once, so the
+ * final `Blob` joins `Blob`s instead of copying the whole CSV text in one long task.
+ */
+const PART_CHARACTERS = 1024 * 1024
+
+/** `expectedMessages` comes from the channel message counts, scaled to the range; zero when unknown. */
 export interface CsvExportProgress {
-  seconds: number
-  durationSeconds: number
   bytes: number
   messages: number
+  expectedMessages: number
 }
 
 export interface CsvExportOptions {
@@ -176,6 +185,8 @@ async function loadCursorChunk(
   while (cursor.positionIndex < cursor.positions.length) {
     const chunkIndex = cursor.positions[cursor.positionIndex]
     cursor.positionIndex += 1
+    // ponytail: every selected channel reads each of its chunks itself, so the work grows with chunks times channels
+    // (2 s for a 38 MB recording). Read each chunk once for all selected channels if profiling shows it matters.
     // eslint-disable-next-line no-await-in-loop
     const messages = await reader.readChunkMessages(chunkIndex, cursor.channelId, signal)
     if (messages.length > 0) {
@@ -258,16 +269,20 @@ async function buildCursors(
   return cursors
 }
 
-async function collectRows(
+/**
+ * Writes each decoded row as a CSV line at once, so nothing but the CSV text is kept. A column gets its position the
+ * first time it appears, which puts each topic's fields together; a row written before a column first appeared is
+ * shorter than the header, and CSV readers fill the missing cells with empty values.
+ */
+async function writeRows(
   recording: McapCsvRecording,
   channelIds: number[],
   startLogTime: bigint,
   endLogTime: bigint | null,
-  startSeconds: number,
-  durationSeconds: number,
+  expectedMessages: number,
   onProgress?: (progress: CsvExportProgress) => void,
   signal?: AbortSignal,
-): Promise<{ rows: DecodedRow[], fieldColumns: string[] }> {
+): Promise<{ parts: Blob[], fieldColumns: string[], messages: number }> {
   const { reader, startTime } = recording
   const decoders = new Map<number, ChannelDecoder>()
   for (const channelId of channelIds) {
@@ -278,23 +293,13 @@ async function collectRows(
   }
 
   const cursors = await buildCursors(reader, channelIds, startLogTime, signal)
-  const rows: DecodedRow[] = []
-  const fieldColumns = new Set<string>()
+  const columnPositions = new Map<string, number>()
+  const parts: Blob[] = []
+  let part = ''
   let bytes = 0
   let messages = 0
+  let lastYield = Date.now()
   const shouldReport = createProgressGate()
-
-  function report(logTime: bigint): void {
-    if (!onProgress || !shouldReport()) {
-      return
-    }
-    onProgress({
-      seconds: Math.max(0, toSeconds(startTime, logTime) - startSeconds),
-      durationSeconds,
-      bytes,
-      messages,
-    })
-  }
 
   for (;;) {
     throwIfAborted(signal, 'The export was cancelled.')
@@ -320,29 +325,46 @@ async function collectRows(
     const decoder = decoders.get(nextCursor.channelId)
     if (decoder) {
       const row = decoder.decode(nextMessage)
-      rows.push(row)
-      for (const key of Object.keys(row.fields)) {
-        fieldColumns.add(key)
+      const line = rowLine(row, columnPositions, startTime)
+      part += line
+      if (part.length >= PART_CHARACTERS) {
+        parts.push(new Blob([part]))
+        part = ''
       }
       messages += 1
-      bytes += 64 + Object.values(row.fields).join(',').length
-      report(nextMessage.logTime)
+      bytes += line.length
+      if (onProgress && shouldReport()) {
+        onProgress({ messages, expectedMessages, bytes })
+      }
+    }
+    // ponytail: the export still decodes on the main thread and only yields between rows. A Web Worker over
+    // libs/mcap/logic (no DOM there) is the upgrade if long exports still feel slow.
+    if (Date.now() - lastYield >= YIELD_INTERVAL_MS) {
+      // eslint-disable-next-line no-await-in-loop
+      await sleep(0, signal)
+      lastYield = Date.now()
     }
     // eslint-disable-next-line no-await-in-loop
     await advanceCursor(nextCursor, reader, signal)
   }
 
-  return { rows, fieldColumns: [...fieldColumns].sort() }
+  if (part) {
+    parts.push(new Blob([part]))
+  }
+  return { parts, fieldColumns: [...columnPositions.keys()], messages }
 }
 
-function rowLine(row: DecodedRow, columns: readonly string[], startTime: bigint): string {
-  const cells = [
-    String(toSeconds(startTime, row.logTime)),
-    csvEscape(row.topic),
-    String(row.sequence),
-    ...columns.map((column) => csvEscape(row.fields[column] ?? '')),
-  ]
-  return `${cells.join(',')}\n`
+function rowLine(row: DecodedRow, columnPositions: Map<string, number>, startTime: bigint): string {
+  const cells = [String(toSeconds(startTime, row.logTime)), csvEscape(row.topic), String(row.sequence)]
+  for (const [column, value] of Object.entries(row.fields)) {
+    let position = columnPositions.get(column)
+    if (position === undefined) {
+      position = columnPositions.size
+      columnPositions.set(column, position)
+    }
+    cells[BASE_COLUMNS.length + position] = csvEscape(value)
+  }
+  return `${Array.from(cells, (cell) => cell ?? '').join(',')}\n`
 }
 
 /** Reads the selected channels over a clip range and returns one interleaved CSV file. */
@@ -363,42 +385,26 @@ export async function exportChannelsAsCsv(
   const endLogTime = range && Number.isFinite(range.endSeconds)
     ? recording.startTime + BigInt(Math.round(endSeconds * 1e9))
     : null
+  const channelMessages = channelIds.reduce(
+    (total, channelId) => total + Number(recording.reader.summary.messageCountByChannel.get(channelId) ?? 0n),
+    0,
+  )
+  const rangeFraction = range && recording.durationSeconds > 0 ? durationSeconds / recording.durationSeconds : 1
 
-  const { rows, fieldColumns } = await collectRows(
+  const { parts, fieldColumns, messages } = await writeRows(
     recording,
     channelIds,
     startLogTime,
     endLogTime,
-    startSeconds,
-    durationSeconds,
+    Math.round(channelMessages * rangeFraction),
     onProgress,
     signal,
   )
 
-  if (rows.length === 0) {
+  if (messages === 0) {
     throw new Error('The selected part of this recording holds no messages for the chosen channels.')
   }
 
-  const columns = [...BASE_COLUMNS, ...fieldColumns]
-  const parts: Blob[] = [new Blob([`${columns.join(',')}\n`])]
-  let bytes = parts[0].size
-  let messages = 0
-  const shouldReport = createProgressGate()
-  for (const row of rows) {
-    throwIfAborted(signal, 'The export was cancelled.')
-    const line = rowLine(row, fieldColumns, recording.startTime)
-    parts.push(new Blob([line]))
-    bytes += line.length
-    messages += 1
-    if (shouldReport()) {
-      onProgress?.({
-        seconds: durationSeconds,
-        durationSeconds,
-        bytes,
-        messages,
-      })
-    }
-  }
-
-  return new Blob(parts, { type: 'text/csv' })
+  const header = `${[...BASE_COLUMNS, ...fieldColumns].join(',')}\n`
+  return new Blob([header, ...parts], { type: 'text/csv' })
 }

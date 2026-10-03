@@ -86,9 +86,9 @@ export async function buildSizedVideoMcap(messageCount = 16): Promise<Uint8Array
 }
 
 /** Simple JSON channel for CSV export tests (avoids ROS2 CDR layout in the video helper). */
-export async function buildJsonTelemetryMcap(messageCount = 3): Promise<Uint8Array> {
+export async function buildJsonTelemetryMcap(messageCount = 3, chunkSize = 512): Promise<Uint8Array> {
   const buffer = new TempBuffer()
-  const writer = new McapWriter({ writable: buffer, chunkSize: 512 })
+  const writer = new McapWriter({ writable: buffer, chunkSize })
   await writer.start({ profile: '', library: 'blueos-test' })
   const schemaId = await writer.registerSchema({
     name: 'blueos_msgs/msg/TelemetrySample',
@@ -114,6 +114,42 @@ export async function buildJsonTelemetryMcap(messageCount = 3): Promise<Uint8Arr
       logTime,
       publishTime: logTime,
       data: payload,
+    })
+  }
+  await writer.end()
+  return buffer.get()
+}
+
+/**
+ * Two JSON topics interleaved: `/depth` at 0, 200 and 400 ms with `depth_m`, and `/attitude` at 100 and 300 ms, whose
+ * second message adds `pitch` to `yaw`.
+ */
+export async function buildTwoJsonTopicsMcap(): Promise<Uint8Array> {
+  const buffer = new TempBuffer()
+  const writer = new McapWriter({ writable: buffer, chunkSize: 512 })
+  await writer.start({ profile: '', library: 'blueos-test' })
+  const schemaId = await writer.registerSchema({
+    name: 'blueos_msgs/msg/TelemetrySample',
+    encoding: 'jsonschema',
+    data: new TextEncoder().encode('{"type":"object"}'),
+  })
+  const depth = await writer.registerChannel({
+    schemaId, topic: '/depth', messageEncoding: 'json', metadata: new Map(),
+  })
+  const attitude = await writer.registerChannel({
+    schemaId, topic: '/attitude', messageEncoding: 'json', metadata: new Map(),
+  })
+  const messages: [number, number, number, object][] = [
+    [depth, 0, 0, { depth_m: 1 }],
+    [attitude, 0, 100, { yaw: 90 }],
+    [depth, 1, 200, { depth_m: 2 }],
+    [attitude, 1, 300, { yaw: 91, pitch: 5 }],
+    [depth, 2, 400, { depth_m: 3 }],
+  ]
+  for (const [channelId, sequence, milliseconds, value] of messages) {
+    const logTime = 2_000_000_000n + BigInt(milliseconds) * 1_000_000n
+    await writer.addMessage({
+      channelId, sequence, logTime, publishTime: logTime, data: new TextEncoder().encode(JSON.stringify(value)),
     })
   }
   await writer.end()
