@@ -171,6 +171,23 @@
       </div>
       <v-spacer />
       <v-btn
+        v-tooltip="canDownloadSelected
+          ? 'Download the selected recordings. The browser may ask to allow several downloads.'
+          : 'Nothing selected can be downloaded'"
+        small
+        outlined
+        color="primary"
+        class="mr-2 mb-2"
+        :disabled="!canDownloadSelected || bulkBusy || actionsDisabled"
+        :loading="bulkDownloading"
+        @click="downloadSelected"
+      >
+        <v-icon small left>
+          mdi-download
+        </v-icon>
+        Download
+      </v-btn>
+      <v-btn
         v-tooltip="canRepairSelected
           ? 'Rewrite selected recordings so they can be read'
           : 'Nothing selected needs repair'"
@@ -493,6 +510,9 @@ export default Vue.extend({
     someVisibleSelected(): boolean {
       return someVisibleSelected(this.selectedPaths, this.visibleRecordings)
     },
+    canDownloadSelected(): boolean {
+      return this.selectedFiles.some((file) => this.canDownload(file))
+    },
     canDeleteSelected(): boolean {
       return bulkActionTargets(this.selectedFiles, DELETE_RECORDING).length > 0
     },
@@ -501,6 +521,9 @@ export default Vue.extend({
     },
     bulkBusy(): boolean {
       return this.bulkOperation !== null
+    },
+    bulkDownloading(): boolean {
+      return this.bulkOperation === DOWNLOAD
     },
     bulkDeleting(): boolean {
       return this.bulkOperation === DELETE_RECORDING
@@ -722,6 +745,18 @@ export default Vue.extend({
       } finally {
         this.busyPath = null
         this.busyOperation = null
+      }
+    },
+    async downloadSelected(): Promise<void> {
+      this.lastError = ''
+      this.bulkOperation = DOWNLOAD
+      try {
+        for (const file of this.selectedFiles.filter((selected) => this.canDownload(selected))) {
+          // eslint-disable-next-line no-await-in-loop
+          await this.downloadRecording(file)
+        }
+      } finally {
+        this.bulkOperation = null
       }
     },
     triggerDownload(url: string, fileName: string): void {
