@@ -16,6 +16,7 @@
     @input="$emit('update:selected-files', $event)"
     @update:sort-by="$emit('update:sort-key', $event)"
     @update:sort-desc="$emit('update:sort-descending', $event)"
+    @click:row="onRowClick"
   >
     <template #item.preview="{ item }">
       <records-recording-preview
@@ -42,7 +43,7 @@
       {{ formatDate(item.created) }}
     </template>
     <template #item.actions="{ item }">
-      <div class="d-flex align-center justify-end">
+      <div class="d-flex align-center justify-end" @click.stop>
         <v-btn
           v-if="canPlay(item)"
           v-tooltip="`Play ${item.name}`"
@@ -190,6 +191,11 @@ export default Vue.extend({
     operationTooltip(file: LibraryRecording, operationName: string): string {
       return operationDisabledReason(file, operationName) ?? `${this.operationUi(operationName).label} ${file.name}`
     },
+    onRowClick(file: LibraryRecording): void {
+      if (!this.disabled && canPlayRecording(file)) {
+        this.$emit('play', file)
+      }
+    },
     stateUi(file: LibraryRecording): { label: string, color: string } {
       return RECORDING_STATE_UI[file.state] ?? { label: file.state, color: 'secondary' }
     },
@@ -208,6 +214,10 @@ export default Vue.extend({
 </script>
 
 <style scoped>
+.records-table ::v-deep tbody tr {
+  cursor: pointer;
+}
+
 .table-preview {
   width: 96px;
 }
