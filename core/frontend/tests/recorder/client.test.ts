@@ -1,4 +1,5 @@
 /* eslint-disable import/no-extraneous-dependencies */
+import { CommandAckStatus } from '@blueos-idl/constants'
 import {
   afterEach, beforeEach, describe, expect, it, vi,
 } from 'vitest'
@@ -16,6 +17,8 @@ import {
 import { SNAPSHOT_WAIT_TIMEOUT_MS, createRecorderClient } from '@/libs/recorder/client'
 
 import FakeTransport from '../blueos-api/fake-transport'
+
+const JOB_ID = '0b5e8f5c-6f0a-4c4e-9a52-2f1e7d3c9b10'
 
 const idleLibrary = { files: [] as never[] }
 
@@ -115,7 +118,8 @@ describe('createRecorderClient', () => {
         key: SnapshotRecording.key,
         payload: encodeCdr('blueos_msgs/msg/CommandAck', {
           accepted: true,
-          job_id: 3,
+          job_id: JOB_ID,
+          status: CommandAckStatus.Succeeded,
           reason: '',
         }),
         encoding: cdrEncoding('blueos_msgs/msg/CommandAck'),
@@ -166,7 +170,8 @@ describe('createRecorderClient', () => {
         key: SnapshotRecording.key,
         payload: encodeCdr('blueos_msgs/msg/CommandAck', {
           accepted: true,
-          job_id: 3,
+          job_id: JOB_ID,
+          status: CommandAckStatus.Succeeded,
           reason: '',
         }),
         encoding: cdrEncoding('blueos_msgs/msg/CommandAck'),
@@ -210,7 +215,8 @@ describe('createRecorderClient', () => {
         key: SnapshotRecording.key,
         payload: encodeCdr('blueos_msgs/msg/CommandAck', {
           accepted: true,
-          job_id: 3,
+          job_id: JOB_ID,
+          status: CommandAckStatus.Succeeded,
           reason: '',
         }),
         encoding: cdrEncoding('blueos_msgs/msg/CommandAck'),
@@ -260,7 +266,8 @@ describe('createRecorderClient', () => {
         key: SnapshotRecording.key,
         payload: encodeCdr('blueos_msgs/msg/CommandAck', {
           accepted: false,
-          job_id: 0,
+          job_id: JOB_ID,
+          status: CommandAckStatus.StatusUnknown,
           reason: 'still processing',
         }),
         encoding: cdrEncoding('blueos_msgs/msg/CommandAck'),
@@ -282,7 +289,8 @@ describe('createRecorderClient', () => {
         key: SnapshotRecording.key,
         payload: encodeCdr('blueos_msgs/msg/CommandAck', {
           accepted: true,
-          job_id: 3,
+          job_id: JOB_ID,
+          status: CommandAckStatus.Succeeded,
           reason: '',
         }),
         encoding: cdrEncoding('blueos_msgs/msg/CommandAck'),
@@ -306,7 +314,8 @@ describe('createRecorderClient', () => {
         key: RepairRecording.key,
         payload: encodeCdr('blueos_msgs/msg/CommandAck', {
           accepted: true,
-          job_id: 1,
+          job_id: JOB_ID,
+          status: CommandAckStatus.Executing,
           reason: '',
         }),
         encoding: cdrEncoding('blueos_msgs/msg/CommandAck'),
@@ -323,7 +332,8 @@ describe('createRecorderClient', () => {
         key: CancelRepair.key,
         payload: encodeCdr('blueos_msgs/msg/CommandAck', {
           accepted: false,
-          job_id: 0,
+          job_id: JOB_ID,
+          status: CommandAckStatus.StatusUnknown,
           reason: 'not repairing',
         }),
         encoding: cdrEncoding('blueos_msgs/msg/CommandAck'),
@@ -340,7 +350,8 @@ describe('createRecorderClient', () => {
         key: DeleteRecording.key,
         payload: encodeCdr('blueos_msgs/msg/CommandAck', {
           accepted: true,
-          job_id: 2,
+          job_id: JOB_ID,
+          status: CommandAckStatus.Succeeded,
           reason: '',
         }),
         encoding: cdrEncoding('blueos_msgs/msg/CommandAck'),
