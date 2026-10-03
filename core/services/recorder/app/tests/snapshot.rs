@@ -3,7 +3,7 @@
 mod common;
 
 use core::time::Duration;
-use std::{fs, path::Path, sync::Arc};
+use std::{fs, path::Path};
 
 use bytes::Bytes;
 use mcap::{Writer, write::WriteOptions};
@@ -11,7 +11,7 @@ use tempfile::tempdir;
 use tokio::time::{advance, timeout};
 
 use blueos_api::event_key;
-use blueos_comms::{CommsBackend, Payload, Sample, channel::ChannelBackend};
+use blueos_comms::{Payload, Sample};
 use blueos_idl::{
     Message,
     msg::blueos_recorder_msgs::{
@@ -21,25 +21,25 @@ use blueos_idl::{
 use blueos_recorder_app::RecorderService;
 use blueos_recorder_library::RESCAN_INTERVAL;
 use blueos_recorder_mcap::{RECORDING_WRITE_CHUNK_SIZE, is_indexed};
-use blueos_service::{Service, testing::Harness};
+use blueos_service::Service;
 
 use common::{
-    active_recording_mcap_path, drain_blocking_io, recorder_arguments, recording_state,
-    start_harness, start_recording, stop_recording_and_finalize_mcap, stop_recording_on,
-    wait_for_active_recording, wait_for_library_file_listed, wait_for_recording_bytes,
-    wait_for_recording_bytes_on, wait_for_recording_idle,
+    active_recording_mcap_path, drain_blocking_io, recording_state, start_harness, start_recording,
+    stop_recording_and_finalize_mcap, stop_recording_on, wait_for_active_recording,
+    wait_for_library_file_listed, wait_for_recording_bytes, wait_for_recording_bytes_on,
+    wait_for_recording_idle,
 };
 
 #[tokio::test(start_paused = true)]
 async fn snapshot_active_recording_while_writer_runs() {
     let directory = tempdir().expect("tempdir");
-    let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
+    let harness = start_harness(directory.path()).await;
     let operation_key = event_key(RecorderService::NAME, "operation");
-    let mut operations = backend.subscribe(&operation_key).await.expect("subscribe");
-
-    let harness = Harness::start_on(Arc::clone(&backend), recorder_arguments(directory.path()))
+    let mut operations = harness
+        .backend()
+        .subscribe(&operation_key)
         .await
-        .expect("harness");
+        .expect("subscribe");
 
     start_recording(&harness).await;
     wait_for_active_recording(harness.backend()).await;
@@ -130,13 +130,13 @@ async fn snapshot_rewrite_publishes_indexed_output_path() {
     let path = directory.path().join("partial.mcap");
     write_truncated_mcap(&path);
 
-    let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
+    let harness = start_harness(directory.path()).await;
     let operation_key = event_key(RecorderService::NAME, "operation");
-    let mut operations = backend.subscribe(&operation_key).await.expect("subscribe");
-
-    let harness = Harness::start_on(Arc::clone(&backend), recorder_arguments(directory.path()))
+    let mut operations = harness
+        .backend()
+        .subscribe(&operation_key)
         .await
-        .expect("harness");
+        .expect("subscribe");
 
     stop_recording_on(harness.backend()).await;
     wait_for_recording_idle(harness.backend()).await;
