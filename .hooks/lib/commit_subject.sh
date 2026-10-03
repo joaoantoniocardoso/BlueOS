@@ -316,6 +316,11 @@ judge_logged_commit() {
 check_commit_subjects() {
     local log
     if [ -n "${BASE_SHA:-}" ] && [ -n "${HEAD_SHA:-}" ]; then
+        # A push that creates a branch has an all-zero base, and a force push's base may not be fetched.
+        if ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+            printf 'Skipping commit subjects: base %s is not in this clone\n' "$BASE_SHA"
+            return 0
+        fi
         printf 'Checking commit subjects in %s..%s\n' "$BASE_SHA" "$HEAD_SHA"
         log=$(git log --no-merges --no-renames --name-only --format='---%n%H%n%s' "${BASE_SHA}..${HEAD_SHA}")
     else
