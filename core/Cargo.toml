@@ -103,7 +103,7 @@ trybuild = { version = "1.0.121", default-features = false }
 walkdir = { version = "2", default-features = false }
 zenoh = { version = "=1.9.0", default-features = false, features = ["shared-memory", "transport_tcp"] }
 zenoh-keyexpr = { version = "=1.9.0", default-features = false }
-mavlink = { version = "0.18.0", default-features = false, features = ["std", "dialect-ardupilotmega"] }
+mavlink = { version = "0.18.0", default-features = false, features = ["std", "dialect-ardupilotmega", "mav2-message-extensions"] }
 mavlink-codec = { git = "https://github.com/joaoantoniocardoso/rust-mavlink-codec", rev = "577d04e1a60638b6ccab6729444cdb2e8201d8d8", default-features = false }
 
 [workspace.lints.rust]
