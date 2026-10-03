@@ -100,6 +100,7 @@ fn recording_file_message(entry: &blueos_recorder_library::RecordingFileEntry) -
         repair_bytes_per_second: entry.repair_bytes_per_second,
         repair_error: entry.repair_error.clone(),
         allowed_operations: entry.allowed_operations.clone(),
+        repair_job_id: entry.repair_job_id.map(String::from).unwrap_or_default(),
     }
 }
 
