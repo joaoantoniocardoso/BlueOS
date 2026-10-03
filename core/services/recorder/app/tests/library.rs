@@ -3,22 +3,21 @@
 mod common;
 
 use core::time::Duration;
-use std::{fs, sync::Arc};
+use std::fs;
 
 use tempfile::tempdir;
 use tokio::time::{advance, timeout};
 
 use blueos_api::state_key;
-use blueos_comms::{CommsBackend, channel::ChannelBackend};
 use blueos_idl::msg::blueos_recorder_msgs::{
     DeleteRecordingCommand, RecordingLibrary, StopRecordingCommand,
 };
-use blueos_recorder_app::{RecorderArguments, RecorderService};
+use blueos_recorder_app::RecorderService;
 use blueos_recorder_library::RESCAN_INTERVAL;
 use blueos_service::{Service, testing::Harness};
 
 use common::{
-    drain_blocking_io, wait_for_active_recording, wait_for_library_file_listed,
+    drain_blocking_io, start_harness, wait_for_active_recording, wait_for_library_file_listed,
     wait_for_recording_idle,
 };
 
@@ -27,18 +26,13 @@ async fn unchanged_rescan_does_not_republish_library_state() {
     let directory = tempdir().expect("tempdir");
     fs::write(directory.path().join("finished.mcap"), b"not a real mcap").expect("write");
 
-    let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
+    let harness = start_harness(directory.path()).await;
     let state_key = state_key(RecorderService::NAME, "library");
-    let mut updates = backend.subscribe(&state_key).await.expect("subscribe");
-
-    let harness = Harness::start_on(
-        Arc::clone(&backend),
-        RecorderArguments {
-            recorder_path: directory.path().to_path_buf(),
-        },
-    )
-    .await
-    .expect("harness");
+    let mut updates = harness
+        .backend()
+        .subscribe(&state_key)
+        .await
+        .expect("subscribe");
 
     stop_auto_recording_and_remove_session_files(&harness, directory.path()).await;
     wait_for_library_file_listed(&harness, "finished.mcap").await;
@@ -63,11 +57,7 @@ async fn delete_rejects_hostile_paths_without_touching_disk() {
     let victim = directory.path().join("safe.mcap");
     fs::write(&victim, b"data").expect("write");
 
-    let harness = Harness::<RecorderService>::start(RecorderArguments {
-        recorder_path: directory.path().to_path_buf(),
-    })
-    .await
-    .expect("harness");
+    let harness = start_harness(directory.path()).await;
 
     for path in ["../outside.mcap", "/etc/passwd.mcap", "notes.txt"] {
         let ack = harness

@@ -12,8 +12,8 @@ use tokio::time::{advance, sleep, timeout};
 
 use bytes::Bytes;
 
-use blueos_api::{CommandAck, Message, cdr_encoding, command_key, query_key, state_key};
-use blueos_comms::{CommsBackend, Payload, QueryBody, ReplyError, Sample};
+use blueos_api::{Message, cdr_encoding, command_key, state_key};
+use blueos_comms::{CommsBackend, Payload, QueryBody, Sample};
 use blueos_idl::msg::{
     blueos_example_msgs::PumpState,
     blueos_recorder_msgs::{
@@ -21,74 +21,14 @@ use blueos_idl::msg::{
         StopRecordingCommand,
     },
 };
-use blueos_recorder_app::{
-    IndexQuerySetup, RecorderArguments, RecorderService, RepairIoSetup,
-    build_with_record_gate_index_and_repair,
-};
+use blueos_recorder_app::{RecorderArguments, RecorderContext, RecorderService};
 use blueos_recorder_library::RESCAN_INTERVAL;
-use blueos_service::{
-    Kernel, Service, ServiceContext,
-    testing::{Harness, PausedClock},
-};
+use blueos_service::{Service, testing::Harness};
 
 pub(crate) const REPLY_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Upper bound for waiting on pushed State while blocking IO runs on wall time.
 pub(crate) const STATE_WAIT_TIMEOUT: Duration = Duration::from_secs(30);
-
-/// Recorder harness with a custom index walk (the stock [`Harness`] always uses production wiring).
-pub(crate) struct RecorderTestHarness {
-    pub backend: Arc<dyn CommsBackend>,
-    kernel: tokio::task::JoinSet<()>,
-}
-
-impl RecorderTestHarness {
-    pub(crate) async fn query<Q: Message, R: Message>(
-        &self,
-        query: &str,
-        request: &Q,
-    ) -> Result<R, ReplyError> {
-        let body = QueryBody::new(
-            request.encode().expect("the request encodes"),
-            cdr_encoding(Q::SCHEMA_NAME),
-        );
-        let replies = self
-            .backend
-            .get(
-                &query_key(RecorderService::NAME, query),
-                Some(body),
-                REPLY_TIMEOUT,
-            )
-            .await
-            .expect("the query key is valid");
-        let [reply] = replies.as_slice() else {
-            panic!("expected one reply from {query:?}, got {replies:?}");
-        };
-        reply
-            .clone()
-            .map(|sample| R::decode(&sample.payload().to_bytes()).expect("the reply is an R"))
-    }
-
-    pub(crate) async fn send<M: Message>(&self, command: &str, request: &M) -> CommandAck {
-        let body = QueryBody::new(
-            request.encode().expect("the request encodes"),
-            cdr_encoding(M::SCHEMA_NAME),
-        );
-        let replies = self
-            .backend
-            .get(
-                &command_key(RecorderService::NAME, command),
-                Some(body),
-                REPLY_TIMEOUT,
-            )
-            .await
-            .expect("the command key is valid");
-        let [Ok(reply)] = replies.as_slice() else {
-            panic!("expected one ack from {command:?}, got {replies:?}");
-        };
-        CommandAck::decode(&reply.payload().to_bytes()).expect("the reply is a CommandAck")
-    }
-}
 
 pub(crate) fn recorder_arguments(path: &Path) -> RecorderArguments {
     RecorderArguments {
@@ -97,46 +37,16 @@ pub(crate) fn recorder_arguments(path: &Path) -> RecorderArguments {
 }
 
 pub(crate) async fn start_harness(path: &Path) -> Harness<RecorderService> {
-    Harness::start(recorder_arguments(path))
+    start_harness_with(path, |_context| {}).await
+}
+
+pub(crate) async fn start_harness_with(
+    path: &Path,
+    change: impl FnOnce(&mut RecorderContext),
+) -> Harness<RecorderService> {
+    Harness::start_with(recorder_arguments(path), change)
         .await
         .expect("harness")
-}
-
-pub(crate) async fn start_recorder_test_harness(
-    path: &Path,
-    index: IndexQuerySetup,
-) -> RecorderTestHarness {
-    start_recorder_test_harness_with(path, index, RepairIoSetup::default()).await
-}
-
-pub(crate) async fn start_recorder_test_harness_with(
-    path: &Path,
-    index: IndexQuerySetup,
-    repair: RepairIoSetup,
-) -> RecorderTestHarness {
-    let backend: Arc<dyn CommsBackend> = Arc::new(blueos_comms::channel::ChannelBackend::default());
-    let context = ServiceContext::new(recorder_arguments(path), Arc::clone(&backend));
-    let (builder, recorder_context, _) =
-        build_with_record_gate_index_and_repair(&context, index, repair, 4096)
-            .expect("build recorder service");
-    let clock = Arc::new(PausedClock::start());
-    let kernel = Kernel::start(
-        RecorderService::NAME,
-        builder,
-        recorder_context,
-        Arc::clone(&backend),
-        clock,
-    )
-    .await
-    .expect("kernel");
-    let mut kernel_tasks = tokio::task::JoinSet::new();
-    kernel_tasks.spawn(async move {
-        kernel.run().await;
-    });
-    RecorderTestHarness {
-        backend,
-        kernel: kernel_tasks,
-    }
 }
 
 pub(crate) async fn publish_pump_state(backend: &Arc<dyn CommsBackend>) {

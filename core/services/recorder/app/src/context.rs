@@ -14,11 +14,9 @@ use tokio::sync::mpsc;
 
 use blueos_idl::msg::blueos_recorder_msgs::RecordingIndex;
 use blueos_recorder_domain::RecorderObservedFact;
-use blueos_recorder_mcap::{IndexError, walk_index};
+use blueos_recorder_mcap::{IndexError, RewriteError, RewriteSummary};
 use blueos_recorder_storage::{LibraryFooterCache, RecordingsFolder};
 use blueos_service::Session;
-
-use crate::library::handlers::RECORDING_INDEX_WALK_TIMEOUT;
 
 /// Default MCAP writer queue depth for production wiring.
 pub(crate) const DEFAULT_MCAP_WRITER_QUEUE_CAPACITY: usize = 4096;
@@ -27,8 +25,18 @@ pub(crate) const DEFAULT_MCAP_WRITER_QUEUE_CAPACITY: usize = 4096;
 pub type IndexWalker =
     Arc<dyn Fn(&Path, u64, u32, &AtomicBool) -> Result<RecordingIndex, IndexError> + Send + Sync>;
 
-/// Called on the blocking repair thread before the rewrite (production does nothing).
-pub type RepairBeforeRewrite = Arc<dyn Fn(&AtomicBool) + Send + Sync>;
+/// Rewrites a recording into a new file on a blocking thread: `(source, output, progress, cancel)` (production
+/// default: MCAP `rewrite`). Repair and snapshot both run through it.
+pub type Rewriter = Arc<
+    dyn Fn(
+            &Path,
+            &Path,
+            &mut dyn FnMut(u64, u64),
+            &AtomicBool,
+        ) -> Result<RewriteSummary, RewriteError>
+        + Send
+        + Sync,
+>;
 
 /// Context built in `RecorderService::context` and shared with Tasks and IO executors.
 #[derive(Clone)]
@@ -49,47 +57,12 @@ pub struct RecorderContext {
     pub library_observed_receiver: Arc<tokio::sync::Mutex<mpsc::Receiver<RecorderObservedFact>>>,
     /// Per-path cancel flags for in-flight repairs.
     pub repair_cancel_flags: Arc<Mutex<BTreeMap<String, Arc<AtomicBool>>>>,
-    /// Invoked on the blocking repair thread before the rewrite starts.
-    pub repair_before_rewrite: RepairBeforeRewrite,
+    /// Rewrite invoked by repair and snapshot IO.
+    pub rewriter: Rewriter,
     /// Wall-clock budget for one `index` walk.
     pub index_walk_timeout: Duration,
     /// Index walk invoked from the `index` IO query handler.
     pub index_walker: IndexWalker,
-}
-
-/// Overrides for the `index` IO query when building a test harness.
-#[doc(hidden)]
-#[derive(Clone)]
-pub struct IndexQuerySetup {
-    /// Walk budget passed into [`RecorderContext::index_walk_timeout`].
-    pub walk_timeout: Duration,
-    /// Walk function passed into [`RecorderContext::index_walker`].
-    pub walker: IndexWalker,
-}
-
-/// Overrides for repair IO when building a test harness.
-#[doc(hidden)]
-#[derive(Clone)]
-pub struct RepairIoSetup {
-    /// Called with the repair's cancel flag before the rewrite.
-    pub before_rewrite: RepairBeforeRewrite,
-}
-
-impl Default for IndexQuerySetup {
-    fn default() -> Self {
-        Self {
-            walk_timeout: RECORDING_INDEX_WALK_TIMEOUT,
-            walker: default_index_walker(),
-        }
-    }
-}
-
-impl Default for RepairIoSetup {
-    fn default() -> Self {
-        Self {
-            before_rewrite: Arc::new(|_cancel| {}),
-        }
-    }
 }
 
 impl RecorderContext {
@@ -126,9 +99,4 @@ impl RecorderContext {
     ) {
         Self::repair_cancel_flag(flags, relative_path).store(true, Ordering::Relaxed);
     }
-}
-
-/// Production index walk implementation.
-pub fn default_index_walker() -> IndexWalker {
-    Arc::new(walk_index)
 }
