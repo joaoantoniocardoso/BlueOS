@@ -79,10 +79,13 @@ test_sigterm_stops_the_service_cleanly_without_restart() {
 
 # Runs stop_services from start-blueos-core as the main process of a fake container: a pane child that either
 # ignores SIGTERM or stops on it, a process the main process inherited (like ArduSub, re-parented to PID 1), and a
-# stand-in for the tmux server, which must outlive the services because its death hangs up their panes.
+# stand-in for the tmux server, which must outlive the services because its death hangs up their panes. The main
+# process is a subreaper, like PID 1, so a pane child that leaves a process of its own session behind when it stops
+# (like the autopilot manager leaving ArduSub) orphans it to the main process in the middle of the stop.
 run_stop_services() {
     local folder=$1
     local pane_child_ignores_sigterm=$2
+    local pane_child_leaves_an_orphan=${3:-false}
     mkdir -p "$folder"
     : > "$folder/events"
     cat > "$folder/stubborn" <<EOF
@@ -97,9 +100,16 @@ trap 'echo "\$1 terminated" >> "$folder/events"; exit 0' TERM
 echo "\$1 started" >> "$folder/events"
 while true; do sleep 0.1; done
 EOF
-    chmod +x "$folder/stubborn" "$folder/watched"
+    cat > "$folder/orphaning" <<EOF
+#!/usr/bin/env bash
+trap 'echo "pane_child terminated" >> "$folder/events"; setsid "$folder/watched" late_orphan & exit 0' TERM
+echo "pane_child started" >> "$folder/events"
+while true; do sleep 0.1; done
+EOF
+    chmod +x "$folder/stubborn" "$folder/watched" "$folder/orphaning"
     local pane_child="$folder/watched pane_child"
     [ "$pane_child_ignores_sigterm" = true ] && pane_child="$folder/stubborn"
+    [ "$pane_child_leaves_an_orphan" = true ] && pane_child="$folder/orphaning"
     cat > "$folder/main_process" <<EOF
 #!/usr/bin/env bash
 eval "\$(sed -n '/^function stop_services {/,/^}/p' "$ROOT_DIR/core/start-blueos-core")"
@@ -119,7 +129,8 @@ STOP_TIMEOUT_SECONDS=2 stop_services
 EOF
     exit_status=0
     elapsed_seconds=$SECONDS
-    timeout 6 bash "$folder/main_process" > "$folder/log" 2>&1 || exit_status=$?
+    timeout 6 python3 -c 'import ctypes, os, sys; ctypes.CDLL(None).prctl(36, 1); os.execvp(sys.argv[1], sys.argv[1:])' \
+        bash "$folder/main_process" > "$folder/log" 2>&1 || exit_status=$?
     elapsed_seconds=$((SECONDS - elapsed_seconds))
 }
 
@@ -141,11 +152,20 @@ test_stop_services_terminates_inherited_processes_but_not_the_tmux_server() {
     ! grep -q "tmux_server terminated" "$folder/events" || fail "the tmux server got SIGTERM"
 }
 
+test_stop_services_terminates_a_process_orphaned_during_the_stop() {
+    local folder="$WORK_DIR/orphaned"
+    run_stop_services "$folder" false true
+    [ "$exit_status" -eq 0 ] || fail "stop_services did not exit 0 (status $exit_status)"
+    grep -q "late_orphan terminated" "$folder/events" || fail "the process orphaned during the stop got no SIGTERM"
+    ! grep -q "tmux_server terminated" "$folder/events" || fail "the tmux server got SIGTERM"
+}
+
 main() {
     test_sigterm_stops_the_service_cleanly_without_restart
     test_restarts_a_service_that_exits_zero
     test_stop_services_kills_a_service_that_ignores_sigterm
     test_stop_services_terminates_inherited_processes_but_not_the_tmux_server
+    test_stop_services_terminates_a_process_orphaned_during_the_stop
     printf 'run_service_test: ok\n'
 }
 
