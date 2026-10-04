@@ -5,7 +5,7 @@ violations = 73
 complexity_warnings = 28
 magic_number_warnings = 145
 nesting_depth_warnings = 1
-function_length_warnings = 44
+function_length_warnings = 43
 unsafe_warnings = 0
 error_handling_warnings = 42
 duplicate_groups = 21
@@ -26,7 +26,7 @@ tq_uncovered_warnings = 0
 tq_untested_logic_warnings = 0
 structural_srp_warnings = 0
 structural_coupling_warnings = 10
-total_findings = 694
+total_findings = 693
 
 [thailint]
 "unwrap-abuse.unwrap-call" = 6
