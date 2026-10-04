@@ -161,9 +161,10 @@ jobs:
         # A new advisory in a transitive dependency must not turn every open pull request red.
         continue-on-error: ${{ github.event_name == 'pull_request' }}
         run: |
+          set -o pipefail
           echo "## cargo deny advisories" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
-          cargo deny check advisories 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          cargo deny --color never check advisories 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
   rust-report-quality:
@@ -207,6 +208,10 @@ jobs:
             # grep exits 1 when nothing is outdated, and 2 when it fails.
             grep -E "^ +Unchanged ($direct) " <<<"$updates" || [ "$?" -eq 1 ]
           }
+          # thailint labels every finding an error, but the quality ratchet, not this listing, decides what fails.
+          thailint_findings() {
+            thailint "$1" libs app services | sed 's/\[ERROR\] //'
+          }
           report_section "outdated direct dependencies" \
             --ok 0 --version cargo --version -- \
             outdated_direct_dependencies
@@ -215,16 +220,16 @@ jobs:
             cargo bloat --release -p "$BLUEOS_SHIPPED_PACKAGE" --features "${BLUEOS_SHIPPED_FEATURES[*]}" --crates -n 25
           report_section "rustqual" \
             --ok 0 --version rustqual --version -- \
-            rustqual --no-fail --format github .
+            rustqual --no-fail --findings .
           report_section "thailint unwrap-abuse" \
             --ok "0 1" --version thailint --version -- \
-            thailint unwrap-abuse libs app services
+            thailint_findings unwrap-abuse
           report_section "thailint clone-abuse" \
             --ok "0 1" --version thailint --version -- \
-            thailint clone-abuse libs app services
+            thailint_findings clone-abuse
           report_section "thailint blocking-async" \
             --ok "0 1" --version thailint --version -- \
-            thailint blocking-async libs app services
+            thailint_findings blocking-async
           report_section "ast-metrics" \
             --ok 0 --version bash -c "ast-metrics version | grep 'Current version'" -- \
             bash -ec '
@@ -292,9 +297,10 @@ jobs:
           # shellcheck disable=SC1091
           source ../.github/lib/rust_report_only.sh
           RUST_NIGHTLY=$(tr -d '[:space:]' < nightly-toolchain.txt)
+          # The lint job builds on stable, so a warning that only the pinned nightly raises fails here.
           report_section "cargo udeps" \
             --ok 0 --version cargo "+${RUST_NIGHTLY}" udeps --version -- \
-            cargo "+${RUST_NIGHTLY}" udeps --all-targets --workspace --locked
+            env RUSTFLAGS="-D warnings" cargo "+${RUST_NIGHTLY}" udeps --all-targets --workspace --locked
           report_section "branch coverage summary" \
             --ok 0 --version cargo llvm-cov --version -- \
             bash -ec '
@@ -381,7 +387,13 @@ jobs:
 
       - name: Coverage summary
         working-directory: core
-        run: cargo llvm-cov report --summary-only >> "$GITHUB_STEP_SUMMARY"
+        # Unfenced, Markdown reads the table's dashed rule as a heading underline and joins its rows.
+        run: |
+          {
+            echo '```'
+            cargo llvm-cov report --summary-only
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
   rust-backend-conformance:
     runs-on: ubuntu-latest

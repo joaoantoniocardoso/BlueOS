@@ -77,10 +77,14 @@ report_section() {
     # errexit is ignored in any command that `||` or `if` tests, so the command runs outside one.
     [[ $- == *e* ]] && errexit=true
     set +e
+    # A job summary shows colour escape codes as text, and emoji and symbols do not reach every terminal, so the
+    # output is reduced to ASCII: box-drawing lines (U+2550, U+2500, U+2501) become = and -, and iconv
+    # transliterates the rest.
     (
         set -e
         "$@"
-    ) 2>&1 | tee -a "$summary"
+    ) 2>&1 | sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/\xe2\x95\x90/=/g; s/\xe2\x94\x80\|\xe2\x94\x81/-/g' \
+        | iconv -c -f UTF-8 -t ASCII//TRANSLIT | tee -a "$summary"
     status=${PIPESTATUS[0]}
     [ "$errexit" = false ] || set -e
     printf '```\n\nExit code: %s (accepted: %s)\n\n' "$status" "$accepted" | tee -a "$summary"
