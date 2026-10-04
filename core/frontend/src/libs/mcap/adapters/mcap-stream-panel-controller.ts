@@ -72,6 +72,10 @@ export class McapStreamPanelController {
   }
 
   handleTimeUpdate(video: HTMLVideoElement): void {
+    // Closing a stream resets its element to time 0, which is not a playback time.
+    if (!this.player) {
+      return
+    }
     this.callbacks.onTimeUpdate?.(video.currentTime)
   }
 
