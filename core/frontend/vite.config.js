@@ -53,7 +53,8 @@ export default defineConfig(({ command, mode }) => {
         // Vue version of project.
         version: 2.7,
       }),
-      sentryVitePlugin({
+      // Without a token the plugin can neither upload source maps nor create the release, and says so as an error.
+      process.env.SENTRY_AUTH_TOKEN && sentryVitePlugin({
         authToken: process.env.SENTRY_AUTH_TOKEN,
         org: "blue-robotics-c7",
         project: "blueos",
