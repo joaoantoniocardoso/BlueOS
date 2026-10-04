@@ -31,7 +31,7 @@ const RESULT = SetLevel.resultSchema
 function feedbackSample(jobs: { job_id: string, level: number }[]): ReturnType<typeof sample> {
   return sample(jobFeedbackKey('tank', 'Fill'), 'blueos_msgs/msg/JobFeedbackList', {
     jobs: jobs.map(({ job_id, level }) => ({
-      job_id, feedback: Array.from(encodeCdr(FEEDBACK, { level })),
+      job_id, feedback: encodeCdr(FEEDBACK, { level }),
     })),
   })
 }
@@ -224,7 +224,7 @@ describe('watchJobResults', () => {
       onError: (error) => { throw error },
     })
     transport.publish(sample(jobResultKey('tank', 'Fill'), 'blueos_msgs/msg/JobResult', {
-      job: canceled, result: Array.from(encodeCdr(RESULT, { level: 2 })),
+      job: canceled, result: encodeCdr(RESULT, { level: 2 }),
     }))
 
     expect(transport.subscribers[0].key).toBe(jobResultKey('tank', 'Fill'))

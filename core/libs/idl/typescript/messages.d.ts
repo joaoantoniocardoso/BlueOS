@@ -56,7 +56,7 @@ export interface EndpointInfo {
 
 export interface JobFeedback {
   job_id: string;
-  feedback: number[];
+  feedback: Uint8Array;
 }
 
 export interface JobFeedbackList {
@@ -69,7 +69,7 @@ export interface JobList {
 
 export interface JobResult {
   job: JobStatus;
-  result: number[];
+  result: Uint8Array;
 }
 
 export interface JobStatus {
@@ -212,6 +212,18 @@ export interface RecordingState {
   samples_dropped: number;
 }
 
+export interface RecordingBytesRequest {
+  path: string;
+  offset: number;
+  length: number;
+  from_end: boolean;
+}
+
+export interface RecordingBytesResponse {
+  size: number;
+  data: Uint8Array;
+}
+
 export interface RecordingIndexRequest {
   path: string;
   from_offset: number;
@@ -224,7 +236,7 @@ export interface RecordingIndexResponse {
   closed: boolean;
   chunks: ChunkIndexEntry[];
   message_counts: ChannelMessageCount[];
-  records: number[];
+  records: Uint8Array;
 }
 
 export interface Duration {
@@ -298,6 +310,8 @@ export interface MessageBySchema {
   "blueos_recorder_msgs/msg/RecordingFile": RecordingFile;
   "blueos_recorder_msgs/msg/RecordingLibrary": RecordingLibrary;
   "blueos_recorder_msgs/msg/RecordingState": RecordingState;
+  "blueos_recorder_msgs/srv/RecordingBytes_Request": RecordingBytesRequest;
+  "blueos_recorder_msgs/srv/RecordingBytes_Response": RecordingBytesResponse;
   "blueos_recorder_msgs/srv/RecordingIndex_Request": RecordingIndexRequest;
   "blueos_recorder_msgs/srv/RecordingIndex_Response": RecordingIndexResponse;
   "builtin_interfaces/msg/Duration": Duration;

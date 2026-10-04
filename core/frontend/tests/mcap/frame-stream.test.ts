@@ -27,16 +27,16 @@ async function openLoggingReads(): Promise<{ stream: VideoFrameStream, chunks: n
 }
 
 describe('VideoFrameStream', () => {
-  it('asks for the next chunk while reading on through a chunk', async () => {
+  it('asks for the next two chunks while reading on through a chunk', async () => {
     const { stream, chunks, chunkReads } = await openLoggingReads()
-    expect(chunks.length).toBeGreaterThanOrEqual(3)
+    expect(chunks.length).toBeGreaterThanOrEqual(4)
 
     while (!chunkReads().includes(chunks[1])) {
       // eslint-disable-next-line no-await-in-loop
       await stream.next()
     }
 
-    expect(chunkReads()).toEqual([chunks[0], chunks[1], chunks[2]])
+    expect(chunkReads()).toEqual([chunks[0], chunks[1], chunks[2], chunks[3]])
     // eslint-disable-next-line no-await-in-loop
     while (await stream.next()) { /* read to the end */ }
     expect(chunkReads()).toEqual(chunks)

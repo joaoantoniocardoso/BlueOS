@@ -9,6 +9,7 @@ import {
 } from '@/libs/mcap/adapters/mcap-recording-playback-controller'
 import { McapStreamPanelController } from '@/libs/mcap/adapters/mcap-stream-panel-controller'
 import type { McapVideoRecording } from '@/libs/mcap/adapters/player'
+import type { ByteSource } from '@/libs/mcap/logic/byte-source'
 import VideoFrameStream from '@/libs/mcap/logic/frame-stream'
 import { mergedVideoCoverage, trackCoversAt, trackTimelineLanes } from '@/libs/mcap/logic/playback-ui'
 import { McapIndexedReader } from '@/libs/mcap/logic/reader'
@@ -42,10 +43,9 @@ async function mountPlayingStreams(bytes: Uint8Array): Promise<{
   streams: PlayingStream[],
   mountStream: (track: VideoTrack) => PlayingStream,
 }> {
-  serveOverHttp(() => bytes)
   installFakeMedia({ frameSeconds: Number(TWO_TRACK_FRAME_NS) / 1e9 })
   const controller = new McapRecordingPlaybackController({
-    url: 'http://vehicle/userdata/recorder/two.mcap',
+    source: writtenSource(() => bytes),
     ongoing: false,
     callbacks: {
       onState: () => undefined,
@@ -120,27 +120,29 @@ async function mp4SampleCount(file: Blob): Promise<number> {
   throw new Error('No stsz box')
 }
 
-/** Serves the file that `written` returns to `HttpByteSource` the way nginx answers its range requests. */
-function serveOverHttp(written: () => Uint8Array): void {
-  vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => {
-    const bytes = written()
-    const range = (init?.headers as Record<string, string>).Range
-    const [, first, last] = /^bytes=(\d*)-(\d*)$/.exec(range) ?? []
-    const start = first === '' ? Math.max(0, bytes.length - Number(last)) : Number(first)
-    const end = first === '' || last === '' ? bytes.length - 1 : Math.min(Number(last), bytes.length - 1)
-    return new Response(bytes.slice(start, end + 1), {
-      status: 206,
-      headers: { 'Content-Range': `bytes ${start}-${end}/${bytes.length}` },
-    })
-  }))
+/** Serves the file that `written` returns, keeping the size first read as the recorder `bytes` Query source does. */
+function writtenSource(written: () => Uint8Array): ByteSource {
+  let total: number | null = null
+  const source = {
+    bytesRead: 0,
+    async size(): Promise<number> {
+      total ??= written().length
+      return total
+    },
+    async read(offset: number, length: number): Promise<Uint8Array> {
+      const data = written().slice(offset, offset + length)
+      source.bytesRead += data.length
+      return data
+    },
+  }
+  return source
 }
 
 async function mountTwoTrackPlayer(onMp4Saved: (blob: Blob, fileName: string) => void = () => undefined):
   Promise<McapRecordingPlaybackController> {
   const bytes = await buildTwoTrackVideoMcap()
-  serveOverHttp(() => bytes)
   const controller = new McapRecordingPlaybackController({
-    url: 'http://vehicle/userdata/recorder/two.mcap',
+    source: writtenSource(() => bytes),
     ongoing: false,
     callbacks: {
       onState: () => undefined,
@@ -465,9 +467,8 @@ describe('a live recording', () => {
     const finished = await buildLateVideoMcap()
     const { chunks } = await asLiveRecording(finished, 1)
     const live = await asLiveRecording(finished, chunks.findIndex((chunk) => chunk.channelIds.length === 2))
-    serveOverHttp(live.bytes)
     const controller = new McapRecordingPlaybackController({
-      url: 'http://vehicle/userdata/recorder/live.mcap',
+      source: writtenSource(live.bytes),
       indexSource: live.indexSource,
       ongoing: true,
       callbacks: {
@@ -491,9 +492,8 @@ describe('a live recording', () => {
 
   it('lists a channel that started after the player opened among the recording channels', async () => {
     const live = await asLiveRecording(await buildLateVideoMcap(), 1)
-    serveOverHttp(live.bytes)
     const controller = new McapRecordingPlaybackController({
-      url: 'http://vehicle/userdata/recorder/live.mcap',
+      source: writtenSource(live.bytes),
       indexSource: live.indexSource,
       ongoing: true,
       callbacks: {
@@ -516,9 +516,8 @@ describe('a live recording', () => {
 
   it('covers a stream that started after the player opened from its first frame to its last one', async () => {
     const live = await asLiveRecording(await buildTwoTrackVideoMcap(), 1)
-    serveOverHttp(live.bytes)
     const controller = new McapRecordingPlaybackController({
-      url: 'http://vehicle/userdata/recorder/live.mcap',
+      source: writtenSource(live.bytes),
       indexSource: live.indexSource,
       ongoing: true,
       callbacks: {
@@ -544,9 +543,8 @@ describe('a live recording', () => {
     const finished = await buildLateVideoMcap()
     const { chunks } = await asLiveRecording(finished, 1)
     const live = await asLiveRecording(finished, chunks.findIndex((chunk) => chunk.channelIds.length === 2))
-    serveOverHttp(live.bytes)
     const controller = new McapRecordingPlaybackController({
-      url: 'http://vehicle/userdata/recorder/live.mcap',
+      source: writtenSource(live.bytes),
       indexSource: live.indexSource,
       ongoing: true,
       callbacks: {

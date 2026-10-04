@@ -11,7 +11,7 @@
     />
     <records-recording-preview
       :file="file"
-      :download-url="downloadUrl"
+      :byte-source="byteSource"
       :disabled="disabled"
       @play="$emit('play', file)"
     />
@@ -82,6 +82,7 @@ import Vue, { PropType } from 'vue'
 
 import RecordsRecordingPreview from '@/components/records/RecordsRecordingPreview.vue'
 import RecordsRepairProgress from '@/components/records/RecordsRepairProgress.vue'
+import type { ByteSource } from '@/libs/mcap/logic/byte-source'
 import { DOWNLOAD } from '@/libs/recorder/constants'
 import type { LibraryRecording } from '@/libs/recorder/types'
 import {
@@ -106,8 +107,8 @@ export default Vue.extend({
       type: Object as PropType<LibraryRecording>,
       required: true,
     },
-    downloadUrl: {
-      type: String,
+    byteSource: {
+      type: Function as PropType<(path: string) => ByteSource | undefined>,
       required: true,
     },
     disabled: {

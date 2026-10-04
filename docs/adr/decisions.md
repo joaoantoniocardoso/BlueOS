@@ -1,6 +1,6 @@
 # BlueOS Rust Event-Driven Architecture: Decision Record
 
-Status: accepted, target of the second draft, last updated 2026-10-03.
+Status: accepted, target of the second draft, last updated 2026-10-04.
 
 This is the master decision record for introducing Rust, event-driven services, and a versioned IDL API
 into BlueOS. Every contributor (human or AI agent) working on `core/libs/`, `core/services/<rust service>/`,
@@ -34,6 +34,7 @@ For the exact wording of a decision, retrieve the design conversation (author ma
 | `e057bbce-4cce-4ab9-b903-a1737cf5db3e` | Performance and observability (D-33 to D-35) |
 | `a71bef70-6e6a-4cba-9a15-a0f62e8ff379` | Draft 2 review: IDL interface kinds, Job control endpoints, Context and Ports, `app/src/` layout, dependency gate, Records parity |
 | `63b385c2-088f-4392-b85e-4654c1de161c` | Architecture review against the team's intent: Jobs, resources, ROS 2 compatibility (D-36 to D-38 and their amendments) |
+| `683fa970-67b6-4ce0-864d-f727e19a3075` | Recording bytes over Zenoh: prototype, vehicle measurements and their root causes (D-39) |
 
 Related repositories (author machine, `~/BlueRobotics/`):
 
@@ -84,6 +85,7 @@ Related repositories (author machine, `~/BlueRobotics/`):
 - D-36 Jobs
 - D-37 Resources and leases
 - D-38 ROS 2 compatibility and a replaceable transport
+- D-39 Recording bytes on the backbone, downloads on nginx
 - Open items
 
 ---
@@ -541,7 +543,7 @@ Decision:
 
 - `app/src/` follows D-25: the service-wide modules; `tasks/mavlink.rs` (the MAVLink ingress, which feeds capture and
   cameras); `capture/tasks/data_plane/` (the data plane and its sample plan); `cameras/io.rs`; and `library/` with
-  `handlers.rs` (the `index` Query), `io.rs` (the rescan) and `tasks/operations.rs` (repair and snapshot through the
+  `handlers.rs` (the `index` and `bytes` Queries), `io.rs` (the rescan) and `tasks/operations.rs` (repair and snapshot through the
   reconcile pattern, D-23). Path validation is the fallible Goal conversion in `logic/api` (D-26), so there is no path
   handler.
 - Names: `RecorderSettings` (the one settings type), `ActiveRecording` (the recording the Domain wants),
@@ -688,9 +690,8 @@ Decision:
 - The Recorder owns its recordings. The library is a Block, `core/services/recorder/logic/library`
   (`blueos-recorder-library`), composed into the Recorder Domain. `recorder_extractor` is deleted with its uv
   workspace entries, nginx location and `start-blueos-core` line.
-- **Bytes stay on nginx.** `/userdata/recorder/<path>` serves files with HTTP ranges (CORS exposes
-  `Accept-Ranges` and `Content-Range`); browsers need ranges and downloads, which Zenoh does not give them.
-  This is the one exception to D-08: the IDL API carries the catalog and control, never recording bytes.
+- **Bytes on the backbone, downloads on nginx** (D-39). The Records page reads recordings through the `bytes`
+  Query; nginx serves `/userdata/recorder/<path>` for whole-file and snapshot downloads.
 - **Event-driven, no polling.** The library is a State; outcomes are Events; the frontend watches both.
 - Native repair: the `mcap` crate rewrites a recording in-process (no `mcap` CLI subprocess; progress is the
   exact read offset). Output goes to a `.recover` temporary file renamed over the original; cancel removes the
@@ -722,9 +723,9 @@ Decision:
 - Frontend layering mirrors the backend (D-02, D-14):
   - `src/libs/mcap/logic/`: pure TypeScript, no DOM, no network (record parsing, keyframe index, frames,
     codec parameters, CSV, muxing). Unit-tested with vitest in Node.
-  - `src/libs/mcap/adapters/`: IO behind small interfaces (`ByteSource` over `fetch` ranges, WebCodecs/MSE
-    players, canvas thumbnails, thumbnail cache). The index source is an interface; the recorder client
-    implements it with the `index` query.
+  - `src/libs/mcap/adapters/`: IO behind small interfaces (`ByteSource`, WebCodecs/MSE players, canvas
+    thumbnails, thumbnail cache). The byte source and the index source are interfaces passed in; the recorder
+    client implements them with the `bytes` and `index` queries, so `libs/mcap` never imports `libs/recorder`.
   - `src/libs/recorder/`: framework-agnostic recorder client on the generated client (D-14). No Vue imports.
   - Vue 2 components (`components/records/*`, `RecordsView.vue`) only bind these to templates. Records shows an
     explicit empty state when the Recorder is not running.
@@ -743,6 +744,7 @@ API (keys under `blueos/v1/recorder/`, messages in `blueos_recorder_msgs`):
 | event | `jobs/<JobType>/result` | `JobResult` of the Job type's `_Result`: how the Job ended, its reason, the path and a snapshot's output path |
 | query | `jobs/<JobType>/history` | `JobList` of the Job type's last finished Jobs |
 | query (`io`) | `index` | `RecordingIndex.srv` (paged chunk index + raw metadata records) |
+| query (`io`) | `bytes` | `RecordingBytes.srv` (a range of at most 1 MiB, or the file's tail, with the file's size, D-39) |
 
 Rejections (from the Python rules): repair when already repairing, already indexed, being written or written
 less than 10 s ago; cancel when not repairing; delete while being written, repaired or already being deleted;
@@ -1394,6 +1396,53 @@ Decision:
 
 Rationale: the late-joiner capability, ROS 2 durability and the framework's initialization rule become one feature,
 and swapping the local transport touches one driver.
+
+## D-39 Recording bytes on the backbone, downloads on nginx
+
+Context: D-23 first kept recording bytes on nginx, the one exception to D-08, because browsers need ranges. A
+prototype read them through a Recorder Query instead and was measured on a Raspberry Pi 5 over gigabit Ethernet
+(Chrome, 64 MiB of a finished 173 MB recording, alternating with nginx's HTTP ranges):
+
+| | First prototype | Final | nginx |
+|---|---|---|---|
+| Sequential read | 15.5-16.9 MiB/s | 105.7-109.2 MiB/s | 105.1-105.4 MiB/s |
+| Open to the first frame | 62-110 ms | 10-13 ms | 9 ms |
+| One thumbnail | 75-141 ms | 32-36 ms | 30-31 ms |
+
+Every gap had a root cause in the stack, not in the transport:
+
+- Nagle's algorithm on the `remote_api` plugin's websocket: a small message waited up to 40 ms for nginx's delayed
+  ACK. The plugin now sets `TCP_NODELAY`, in the zenoh fork release `1.9.0-shared-memory-1` (D-09).
+- `uint8[]` was decoded into a number array in the browser and encoded one byte at a time in Rust; both now copy the
+  bytes whole.
+- A Query resolved on the query's end instead of its reply, and opening took two serial queries (size, then
+  footer) where a suffix range takes one.
+- The browser hands websocket messages to the page on its main thread, while it fills a fetch body off it, so
+  decoding frames stalled the source. The frame stream reads two chunks ahead.
+
+Decision:
+
+- The Records page reads recordings (player, thumbnails, CSV export) only through the Recorder's `bytes` Query
+  (`io = true`, `RecordingBytes.srv`): a range of at most 1 MiB per reply, or the last `length` bytes with
+  `from_end`, each with the file's size when it was read. A longer `length` is clamped, as HTTP ranges are, and the
+  client splits a long read into several queries. No exception to D-08 is left.
+- nginx keeps serving `/userdata/recorder/<path>` for whole-file and snapshot downloads, which a browser needs as a
+  plain URL.
+- `libs/mcap` takes the `ByteSource` it reads; the recorder client builds it from a recording path (D-23).
+
+Costs accepted:
+
+- Vehicle CPU while a page reads at full rate: the recorder takes 10 % of one core on average with peaks of 22 %,
+  and zenohd 9 % with peaks of 21 %, against 1-3 % for nginx, which `sendfile`s from the page cache. Each reply is
+  built whole and copied through the recorder, zenohd and the plugin.
+- A busy page slows Zenoh more than fetch: with an added 2 ms busy loop every 6 ms, nginx reads at 104 MiB/s and
+  Zenoh at 83-85. Running the Zenoh session in a web worker would remove this; it is not done.
+- The Recorder serves one `bytes` Query at a time, as it does the `index` Query (D-23), and replies share the page's one
+  websocket with every State and Event; the 1 MiB reply bounds how long one reply holds it.
+
+Rationale: every read the page makes goes through one transport and the versioned API, so extensions, remote
+clients and the ROS 2 gateway (D-38) read recordings the same way, and access control, when it comes, has one place
+to go. On the reference vehicle this costs no throughput.
 
 ## Open items
 

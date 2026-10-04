@@ -15,7 +15,7 @@ function indexResponse(overrides: Record<string, unknown> = {}) {
     closed: true,
     chunks: [],
     message_counts: [],
-    records: [],
+    records: new Uint8Array(),
     ...overrides,
   }
 }

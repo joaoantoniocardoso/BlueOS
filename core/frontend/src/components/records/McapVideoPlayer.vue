@@ -575,6 +575,7 @@ import {
   type VideoTrack,
   visibleTracks,
 } from '@/libs/mcap'
+import type { ByteSource } from '@/libs/mcap/logic/byte-source'
 import { prettifySize } from '@/utils/helper_functions'
 
 const TIMELINE_HEIGHT = 18
@@ -622,6 +623,7 @@ export default Vue.extend({
   components: { McapCsvExport, McapVideoStream },
   props: {
     url: { type: String, required: true },
+    source: { type: Object as PropType<ByteSource>, required: true },
     indexSource: { type: Object as PropType<RecordingIndexSource | undefined>, default: undefined },
     ongoing: { type: Boolean, default: false },
     writtenSizeBytes: { type: Number, default: undefined },
@@ -739,7 +741,7 @@ export default Vue.extend({
   },
   mounted() {
     this.controller = new McapRecordingPlaybackController({
-      url: this.url,
+      source: this.source,
       indexSource: this.indexSource,
       ongoing: this.ongoing,
       writtenSizeBytes: this.writtenSizeBytes,

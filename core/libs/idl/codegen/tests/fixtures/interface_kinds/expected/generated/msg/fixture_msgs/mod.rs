@@ -17,6 +17,8 @@ pub mod fill_result;
 pub use fill_result::*;
 pub mod progress;
 pub use progress::*;
+pub mod samples;
+pub use samples::*;
 pub mod measure_request;
 pub use measure_request::*;
 pub mod measure_response;

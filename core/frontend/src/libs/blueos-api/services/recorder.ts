@@ -82,6 +82,18 @@ export type StopGoal = Idl.StopRecordingGoal
 export type StopFeedback = Idl.StopRecordingFeedback
 export type StopResult = Idl.StopRecordingResult
 
+/** query `bytes` at `blueos/v1/recorder/query/bytes`. */
+export const bytes = {
+  kind: 'query' as const,
+  name: 'bytes',
+  key: queryKey(NAME, 'bytes'),
+  type: 'blueos_recorder_msgs/srv/RecordingBytes' as const,
+  requestSchema: 'blueos_recorder_msgs/srv/RecordingBytes_Request' as const,
+  responseSchema: 'blueos_recorder_msgs/srv/RecordingBytes_Response' as const,
+}
+export type bytesRequest = Idl.RecordingBytesRequest
+export type bytesResponse = Idl.RecordingBytesResponse
+
 /** query `index` at `blueos/v1/recorder/query/index`. */
 export const index = {
   kind: 'query' as const,

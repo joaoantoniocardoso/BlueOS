@@ -5,6 +5,7 @@
  * Source Extensions. That keeps the work on the browser's hardware decoder and works over plain
  * HTTP, where WebCodecs is not available.
  */
+import type { ByteSource } from '../logic/byte-source'
 import VideoFrameStream from '../logic/frame-stream'
 import { DecodableFrameCursor } from '../logic/frames'
 import { muxFragmentedMp4 } from '../logic/mux'
@@ -71,7 +72,7 @@ function canvasToJpeg(canvas: HTMLCanvasElement, quality: number): Promise<Blob>
  * Returns null when the browser cannot decode the stream or the recording has no video.
  */
 export async function extractMcapThumbnail(
-  url: string,
+  source: ByteSource,
   options: McapThumbnailOptions = {},
 ): Promise<Blob | null> {
   const { signal, targetWidth = DEFAULT_TARGET_WIDTH, quality = DEFAULT_QUALITY } = options
@@ -79,7 +80,7 @@ export async function extractMcapThumbnail(
     return null
   }
 
-  const recording = await openMcapVideoRecording(url, { signal })
+  const recording = await openMcapVideoRecording(source, { signal })
   const track = [...recording.tracks]
     .filter((candidate) => candidate.frameCount > 0)
     .sort((left, right) => {

@@ -28,6 +28,12 @@ export interface Progress {
   total: number;
 }
 
+export interface Samples {
+  samples: Uint8Array;
+  tag: Uint8Array;
+  counts: number[];
+}
+
 export interface MeasureRequest {
   probe: string;
 }
@@ -45,6 +51,7 @@ export interface MessageBySchema {
   "fixture_msgs/action/Fill_Goal": FillGoal;
   "fixture_msgs/action/Fill_Result": FillResult;
   "fixture_msgs/msg/Progress": Progress;
+  "fixture_msgs/msg/Samples": Samples;
   "fixture_msgs/srv/Measure_Request": MeasureRequest;
   "fixture_msgs/srv/Measure_Response": MeasureResponse;
 }

@@ -28,7 +28,7 @@ describe('watchEvent', () => {
           status: 4,
           reason: '',
         },
-        result: [],
+        result: new Uint8Array(),
       }),
       encoding: cdrEncoding(results.messageSchema),
     })

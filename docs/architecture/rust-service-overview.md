@@ -27,7 +27,7 @@ CDR-encodes a `SetLevelGoal` and performs a Zenoh query (D-10, D-14). The payloa
 The same shape is exercised without a browser in `core/services/example/app/tests/endpoints.rs` via
 `Harness::send("SetLevel", ...)`, which uses the channel comms backend instead of Zenoh (D-10).
 
-HTTP is not on this Command path. Userdata files and nginx ranges are the exception for recording bytes (D-08, D-23).
+HTTP is not on this Command path. Recording downloads are the exception: nginx serves whole files (D-08, D-39).
 
 ### Command endpoint adapter
 

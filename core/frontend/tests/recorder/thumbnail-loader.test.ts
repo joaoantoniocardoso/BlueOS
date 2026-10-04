@@ -5,6 +5,8 @@ import {
 import { extractMcapThumbnail } from '@/libs/mcap/adapters/thumbnail'
 import { loadRecordingThumbnail } from '@/libs/recorder/thumbnail-loader'
 
+import MemoryByteSource from '../mcap/memory-byte-source'
+
 vi.mock('@/libs/mcap/adapters/thumbnail-cache', () => ({
   getCachedThumbnail: vi.fn(async () => null),
   setCachedThumbnail: vi.fn(async () => undefined),
@@ -12,10 +14,13 @@ vi.mock('@/libs/mcap/adapters/thumbnail-cache', () => ({
 vi.mock('@/libs/mcap/adapters/thumbnail', () => ({ extractMcapThumbnail: vi.fn() }))
 
 const extract = vi.mocked(extractMcapThumbnail)
+const sources = new Map<string, MemoryByteSource>()
 
 function load(name: string, signal?: AbortSignal): Promise<Blob | null> {
+  const source = new MemoryByteSource(new Uint8Array())
+  sources.set(name, source)
   return loadRecordingThumbnail({
-    downloadUrl: `/userdata/recorder/${name}`,
+    source,
     cacheKey: { path: name, sizeBytes: 1, created: 1 },
     signal,
   })
@@ -44,7 +49,7 @@ describe('loadRecordingThumbnail', () => {
     finishes[0](null)
     await settle()
     expect(extract).toHaveBeenCalledTimes(3)
-    expect(extract.mock.calls[2][0]).toBe('/userdata/recorder/d.mcap')
+    expect(extract.mock.calls[2][0]).toBe(sources.get('d.mcap'))
 
     finishes[1](null)
     finishes[2](null)

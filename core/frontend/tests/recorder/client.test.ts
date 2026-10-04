@@ -4,10 +4,11 @@ import {
   afterEach, beforeEach, describe, expect, it, vi,
 } from 'vitest'
 
-import { encodeCdr } from '@/libs/blueos-api/cdr'
+import { decodeCdr, encodeCdr } from '@/libs/blueos-api/cdr'
 import { jobResultEvent } from '@/libs/blueos-api/endpoints'
 import { cdrEncoding, commandKey, serviceLivelinessKey } from '@/libs/blueos-api/keys'
 import {
+  bytes,
   DeleteRecording,
   library,
   NAME,
@@ -49,7 +50,7 @@ function snapshotJobResult(outputPath: string) {
       status: JobStatusStatus.Succeeded,
       reason: '',
     },
-    result: Array.from(encodeCdr(SnapshotRecording.resultSchema, { path: 'live.mcap', output_path: outputPath })),
+    result: encodeCdr(SnapshotRecording.resultSchema, { path: 'live.mcap', output_path: outputPath }),
   }
 }
 
@@ -199,7 +200,7 @@ describe('createRecorderClient', () => {
         key: results.key,
         payload: encodeCdr(results.messageSchema, {
           job: { ...aborted, job_type: operation.name },
-          result: Array.from(encodeCdr(operation.resultSchema, result)),
+          result: encodeCdr(operation.resultSchema, result),
         }),
         encoding: cdrEncoding(results.messageSchema),
       })
@@ -503,6 +504,28 @@ describe('createRecorderClient', () => {
       },
     })
     expect(await deleted).toMatchObject({ accepted: true })
+  })
+
+  it('reads a recording with the bytes Query', async () => {
+    const transport = new FakeTransport()
+    const client = createRecorderClient(transport)
+
+    const read = client.recordingByteSource('flight 2/a#b.mcap').read(10, 3)
+    const query = await transport.nextQuery()
+    expect(query.key).toBe(bytes.key)
+    expect(decodeCdr(bytes.requestSchema, query.body?.payload ?? new Uint8Array())).toEqual({
+      path: 'flight 2/a#b.mcap', offset: 10, length: 3, from_end: false,
+    })
+    query.reply({
+      kind: 'sample',
+      sample: {
+        key: bytes.key,
+        payload: encodeCdr(bytes.responseSchema, { size: 100, data: new Uint8Array([1, 2, 3]) }),
+        encoding: cdrEncoding(bytes.responseSchema),
+      },
+    })
+
+    await expect(read).resolves.toEqual(new Uint8Array([1, 2, 3]))
   })
 
   it('forwards library decode errors to onError', async () => {

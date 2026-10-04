@@ -7,6 +7,7 @@
  * normally served over plain HTTP.
  */
 import { sleep } from '../logic/abort'
+import type { ByteSource } from '../logic/byte-source'
 import { listMcapChannels, McapRecordingChannel } from '../logic/channels'
 import { VideoFormat } from '../logic/codec'
 import VideoFrameStream from '../logic/frame-stream'
@@ -17,7 +18,6 @@ import {
 import { McapIndexedReader, PrefixScanProgress } from '../logic/reader'
 import type { RecordingIndexSource } from '../logic/recording-index'
 import { listVideoTracks, loadFrameAccurateCoverage, VideoTrack } from '../logic/video-track'
-import { HttpByteSource } from './http-byte-source'
 import { appendSourceBuffer, waitForSourceOpen } from './mse'
 
 const RESUME_TOLERANCE_SECONDS = 0.25
@@ -98,11 +98,11 @@ export interface McapVideoOpenOptions {
 }
 
 export async function openMcapVideoRecording(
-  url: string,
+  source: ByteSource,
   options: McapVideoOpenOptions = {},
 ): Promise<McapVideoRecording> {
   const { indexSource, signal, onProgress } = options
-  const reader = await McapIndexedReader.open(new HttpByteSource(url), { indexSource, signal, onProgress })
+  const reader = await McapIndexedReader.open(source, { indexSource, signal, onProgress })
   await loadFrameAccurateCoverage(reader, signal)
   const { startTime, endTime } = reader.summary
   return {
@@ -122,21 +122,6 @@ export interface McapVideoSummary {
   channels: McapRecordingChannel[]
   /** Bytes transferred to read this summary, useful to explain the cost of browsing recordings. */
   bytesRead: number
-}
-
-/** Reads what a recording contains without downloading its chunk index. */
-export async function readMcapVideoSummary(url: string, signal?: AbortSignal): Promise<McapVideoSummary> {
-  const source = new HttpByteSource(url)
-  const reader = await McapIndexedReader.open(source, { metadataOnly: true, signal })
-  const { startTime, endTime } = reader.summary
-  return {
-    durationSeconds: Number(endTime - startTime) / 1e9,
-    started: Number(startTime) / 1e9,
-    ended: Number(endTime) / 1e9,
-    tracks: listVideoTracks(reader),
-    channels: listMcapChannels(reader),
-    bytesRead: source.bytesRead,
-  }
 }
 
 export { isMediaSourceSupported } from './mse'

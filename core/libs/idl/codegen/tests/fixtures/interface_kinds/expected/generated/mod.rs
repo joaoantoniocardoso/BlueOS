@@ -14,6 +14,7 @@ pub fn schema(schema_name: &str) -> Option<&'static str> {
         "fixture_msgs/action/Fill_Goal" => Some(msg::fixture_msgs::FillGoal::SCHEMA),
         "fixture_msgs/action/Fill_Result" => Some(msg::fixture_msgs::FillResult::SCHEMA),
         "fixture_msgs/msg/Progress" => Some(msg::fixture_msgs::Progress::SCHEMA),
+        "fixture_msgs/msg/Samples" => Some(msg::fixture_msgs::Samples::SCHEMA),
         "fixture_msgs/srv/Measure_Request" => Some(msg::fixture_msgs::MeasureRequest::SCHEMA),
         "fixture_msgs/srv/Measure_Response" => Some(msg::fixture_msgs::MeasureResponse::SCHEMA),
         "fixture_msgs/action/Drain" => Some(
