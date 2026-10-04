@@ -387,7 +387,13 @@ jobs:
 
       - name: Coverage summary
         working-directory: core
-        run: cargo llvm-cov report --summary-only >> "$GITHUB_STEP_SUMMARY"
+        # Unfenced, Markdown reads the table's dashed rule as a heading underline and joins its rows.
+        run: |
+          {
+            echo '```'
+            cargo llvm-cov report --summary-only
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
   rust-backend-conformance:
     runs-on: ubuntu-latest
