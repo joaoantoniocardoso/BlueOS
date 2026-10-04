@@ -132,10 +132,9 @@ jobs:
 
       - name: Gate self-tests
         run: |
-          .hooks/tests/rust_checks_test.sh
-          .hooks/tests/ergonomics_report_test.sh
-          .hooks/tests/docs_paths_test.sh
-          .hooks/tests/commit_subject_test.sh
+          for self_test in .hooks/tests/*_test.sh; do
+            "$self_test"
+          done
 
       - name: cargo deny advisories
         id: advisories
