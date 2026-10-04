@@ -102,6 +102,16 @@ test_section_without_a_tool_prints_no_version() {
     assert_summary_contains "no version" "Exit code: 0 (accepted: 0)"
 }
 
+test_tool_output_reaches_the_summary_as_plain_ascii() {
+    export GITHUB_STEP_SUMMARY="$TMPDIR/plain.md"
+    report_section "colourful" --ok 0 --version echo "colourful 1" -- \
+        printf '\033[1;92m   Compiling\033[0m blueos\n\360\237\223\201 Report written \342\234\224\n' >/dev/null
+    assert_summary_contains "plain ascii" "   Compiling blueos"
+    if LC_ALL=C grep -q $'[\x1b\x80-\xff]' "$GITHUB_STEP_SUMMARY"; then
+        fail "plain ascii: the summary keeps an escape code or a non-ASCII character: $(cat -v "$GITHUB_STEP_SUMMARY")"
+    fi
+}
+
 test_usage_errors_fail() {
     export GITHUB_STEP_SUMMARY="$TMPDIR/usage.md"
     local label arguments
@@ -127,6 +137,7 @@ main() {
     test_failing_command_inside_a_function_fails_the_section
     test_failing_version_command_fails_the_step
     test_section_without_a_tool_prints_no_version
+    test_tool_output_reaches_the_summary_as_plain_ascii
     test_usage_errors_fail
     printf 'report_section_test: ok\n'
 }

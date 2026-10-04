@@ -91,6 +91,8 @@ export class AnnexBMsePlayer {
       throw new Error('This browser cannot play video, as it does not support Media Source Extensions.')
     }
     this.opened = waitForSourceOpen(this.mediaSource, this.controller.signal)
+    // Nothing awaits it until a frame is pushed, so destroying the player before then would leave its abort unhandled.
+    this.opened.catch(() => undefined)
     this.video.addEventListener('timeupdate', this.onTimeUpdate)
     this.video.addEventListener('waiting', this.onWaiting)
     this.video.muted = true

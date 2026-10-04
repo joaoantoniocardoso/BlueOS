@@ -295,7 +295,7 @@ EOF
     cargo generate-lockfile --manifest-path "$temporary/Cargo.toml" >/dev/null
     if (
         cd "$temporary"
-        cargo machete 2>/dev/null
+        cargo machete >/dev/null 2>&1
     ); then
         fail "cargo machete should reject an unused dependency"
     fi
@@ -386,7 +386,7 @@ test_deny_licenses_rejects_unlisted_license() {
     sed -i '/^allow = \[/,/\]/d' "$temporary/deny.toml"
     if (
         cd "$temporary"
-        cargo deny check licenses 2>/dev/null
+        cargo deny check licenses >/dev/null 2>&1
     ); then
         fail "cargo deny licenses should fail when MIT is not allowed"
     fi
@@ -435,7 +435,7 @@ EOF
     cargo generate-lockfile --manifest-path "$temporary/Cargo.toml" >/dev/null
     if (
         cd "$temporary"
-        cargo deny check bans licenses sources 2>/dev/null
+        cargo deny check bans licenses sources >/dev/null 2>&1
     ); then
         fail "cargo deny should reject a direct zenoh dependency"
     fi

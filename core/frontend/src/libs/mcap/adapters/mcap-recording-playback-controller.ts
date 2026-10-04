@@ -316,6 +316,11 @@ export class McapRecordingPlaybackController {
       this.patch({ position: target })
       return
     }
+    // A stopped stream still reports its time, as when pausing fires `timeupdate`. That is not the position: playback
+    // stopped the position just past the media of a stream that ended, and the time would bring it back inside.
+    if (!this.state.playing) {
+      return
+    }
     this.patch({ position: Math.min(seconds, duration) })
     this.syncFollowers()
   }
@@ -351,7 +356,9 @@ export class McapRecordingPlaybackController {
     const coverage = mergedVideoCoverage(this.visibleTracks())
     if (this.state.playing) {
       this.streamControls.forEach((stream) => stream.pause())
-      this.patch({ playing: false })
+      // The `timeupdate` that pausing fires is no longer taken as the position, so take the time paused at here.
+      const position = this.state.pendingSeek === null ? this.playbackPosition() : this.state.position
+      this.patch({ playing: false, position })
       return
     }
     if (!timeRangesCover(coverage, this.state.position) && coverage.length > 0) {
