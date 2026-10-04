@@ -28,6 +28,24 @@ describe('inspector registry', () => {
     expect(state.topics['blueos/v1/services/recorder'].alive).toBe(true)
   })
 
+  it('lists the log of an alive service before its first log line', () => {
+    let state = createInspectorState()
+    state = applyBlueosServiceLiveliness(state, 'recorder', true)
+    expect(sortedTopicKeys(state)).toEqual(['blueos/v1/recorder/log', 'blueos/v1/services/recorder'])
+    expect(state.topics['blueos/v1/recorder/log'].blueos?.kind).toBe('log')
+    expect(state.topics['blueos/v1/recorder/log'].sampleCount).toBe(0)
+
+    state = applySample(state, {
+      key: 'blueos/v1/recorder/log',
+      payload: new Uint8Array([0, 1, 0, 0]),
+      encoding: 'application/cdr;foxglove_msgs/msg/Log',
+      receivedAt: 0,
+      kind: 'put',
+    })
+    state = applyBlueosServiceLiveliness(state, 'recorder', true)
+    expect(state.topics['blueos/v1/recorder/log'].sampleCount).toBe(1)
+  })
+
   it('lists ros2dds subscriber tokens as entity-only entries', () => {
     const token = '@/zenoh/@ros2_lv/MS/robot1\u00a7camera\u00a7image_raw/sensor_msgs\u00a7msg\u00a7Image'
     let state = createInspectorState()

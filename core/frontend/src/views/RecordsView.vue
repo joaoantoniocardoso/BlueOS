@@ -4,7 +4,7 @@
       v-if="armed"
       absolute
       :opacity="0.9"
-      z-index="10"
+      z-index="3"
     >
       <div class="d-flex flex-column align-center text-center pa-4">
         <v-icon large color="warning" class="mb-3">
@@ -887,9 +887,10 @@ export default Vue.extend({
   min-height: 100%;
 }
 
+/* Above armed overlay (3), below app bar (5) and nav drawer (6). */
 .records-session {
   position: relative;
-  z-index: 11;
+  z-index: 4;
 }
 
 .records-search {
