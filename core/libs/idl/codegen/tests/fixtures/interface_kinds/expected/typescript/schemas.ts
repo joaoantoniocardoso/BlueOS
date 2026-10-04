@@ -22,6 +22,10 @@ float32 rate`,
   "fixture_msgs/msg/Progress": `# fixture_msgs/msg/Progress
 uint64 done
 uint64 total`,
+  "fixture_msgs/msg/Samples": `# fixture_msgs/msg/Samples
+uint8[] samples
+uint8[4] tag
+uint16[] counts`,
   "fixture_msgs/srv/Measure_Request": `# fixture_msgs/srv/Measure
 string probe`,
   "fixture_msgs/srv/Measure_Response": `float32 level

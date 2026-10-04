@@ -1213,7 +1213,13 @@ fn typescript_constant_value(value: &ConstantValue) -> String {
     }
 }
 
+/// The TypeScript type of `field`. A `uint8` sequence is a `Uint8Array`, which is what the CDR reader returns.
 fn typescript_type(field: &Field) -> String {
+    if matches!(field.datatype(), DataType::U8)
+        && matches!(field.case(), FieldCase::Vector | FieldCase::Array(_))
+    {
+        return "Uint8Array".to_string();
+    }
     let base = match field.datatype() {
         DataType::String => "string".to_string(),
         DataType::Bool => "boolean".to_string(),

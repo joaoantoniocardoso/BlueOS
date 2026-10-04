@@ -120,6 +120,16 @@ fn every_part_has_a_rust_and_a_typescript_type() {
 }
 
 #[test]
+fn a_uint8_sequence_is_a_uint8_array_in_typescript() {
+    let messages = fs::read_to_string(fixture_root().join("expected/typescript/messages.d.ts"))
+        .expect("read messages.d.ts");
+
+    assert!(messages.contains("  samples: Uint8Array;\n"));
+    assert!(messages.contains("  tag: Uint8Array;\n"));
+    assert!(messages.contains("  counts: number[];\n"));
+}
+
+#[test]
 fn the_schema_text_of_an_interface_lists_every_part() {
     let lookup =
         fs::read_to_string(fixture_root().join("expected/generated/mod.rs")).expect("read mod.rs");
@@ -162,6 +172,7 @@ fn the_lock_has_one_line_per_part() {
             "fixture_msgs/action/Fill_Goal 1 level:float32;rate:float32",
             "fixture_msgs/action/Fill_Result 1 reached:bool",
             "fixture_msgs/msg/Progress 1 done:uint64;total:uint64",
+            "fixture_msgs/msg/Samples 1 samples:uint8[];tag:uint8[4];counts:uint16[]",
             "fixture_msgs/srv/Measure_Request 1 probe:string",
             "fixture_msgs/srv/Measure_Response 1 level:float32;progress:fixture_msgs/Progress",
         ]

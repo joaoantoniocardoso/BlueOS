@@ -56,7 +56,7 @@ export interface EndpointInfo {
 
 export interface JobFeedback {
   job_id: string;
-  feedback: number[];
+  feedback: Uint8Array;
 }
 
 export interface JobFeedbackList {
@@ -69,7 +69,7 @@ export interface JobList {
 
 export interface JobResult {
   job: JobStatus;
-  result: number[];
+  result: Uint8Array;
 }
 
 export interface JobStatus {
@@ -220,7 +220,7 @@ export interface RecordingBytesRequest {
 
 export interface RecordingBytesResponse {
   size: number;
-  data: number[];
+  data: Uint8Array;
 }
 
 export interface RecordingIndexRequest {
@@ -235,7 +235,7 @@ export interface RecordingIndexResponse {
   closed: boolean;
   chunks: ChunkIndexEntry[];
   message_counts: ChannelMessageCount[];
-  records: number[];
+  records: Uint8Array;
 }
 
 export interface Duration {
