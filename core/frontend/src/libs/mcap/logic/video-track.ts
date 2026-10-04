@@ -155,8 +155,13 @@ export function parseCompressedVideo(
   }
 }
 
+/** `parseCompressedVideo` reads the frame time as top-level `sec` and `nanosec`; CDR lays both shapes out alike. */
+export function inlineRos2Time(schemaText: string): string {
+  return schemaText.replace(TIME_DEFINITION, INLINE_ROS2_TIME_FIELDS)
+}
+
 export function decodeSchemaDefinition(data: Uint8Array): string {
-  return new TextDecoder().decode(data).replace(TIME_DEFINITION, INLINE_ROS2_TIME_FIELDS)
+  return inlineRos2Time(new TextDecoder().decode(data))
 }
 
 export function listVideoTracks(reader: McapIndexedReader): VideoTrack[] {
