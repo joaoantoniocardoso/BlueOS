@@ -26,11 +26,7 @@ impl CdrStruct for RecordingBytesResponse {
                     Vec::new()
                 } else {
                     let length = reader.read_bounded_sequence_length()?;
-                    let mut values = Vec::with_capacity(length as usize);
-                    for _index in 0..length {
-                        values.push(reader.read_u8()?);
-                    }
-                    values
+                    reader.read_bytes(length as usize)?.to_vec()
                 }
             },
         })
@@ -38,9 +34,7 @@ impl CdrStruct for RecordingBytesResponse {
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {
         writer.write_u64(self.size)?;
         writer.write_u32(self.data.len() as u32)?;
-        for element in self.data.iter() {
-            writer.write_u8(*element)?;
-        }
+        writer.write_bytes(&self.data)?;
         Ok(())
     }
 }
