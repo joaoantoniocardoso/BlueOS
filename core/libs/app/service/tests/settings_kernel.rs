@@ -385,3 +385,48 @@ async fn rejects_unknown_fields_in_document() {
 
     let _ = std::fs::remove_dir_all(parent);
 }
+
+#[tokio::test(start_paused = true)]
+async fn harness_ignores_hostile_settings_in_the_user_config_folder() {
+    if std::env::var_os("BLUEOS_CONFIG_ISOLATION_PROBE").is_none() {
+        let config_home = temp_settings_parent("hostile-user-config");
+        let service_folder = config_home.join(SettingsTankService::NAME);
+        std::fs::create_dir_all(&service_folder).unwrap();
+        let hostile = SettingsTankDocument {
+            version: SettingsTankDocument::VERSION,
+            live_field: 99,
+            restart_field: "hostile".into(),
+        };
+        std::fs::write(
+            service_folder.join(settings_file_name(SettingsTankDocument::VERSION)),
+            serde_json::to_string(&hostile).unwrap(),
+        )
+        .unwrap();
+
+        let status = std::process::Command::new(std::env::current_exe().unwrap())
+            .arg("harness_ignores_hostile_settings_in_the_user_config_folder")
+            .arg("--exact")
+            .env("XDG_CONFIG_HOME", &config_home)
+            .env("BLUEOS_CONFIG_ISOLATION_PROBE", "1")
+            .status()
+            .unwrap();
+        let untouched: SettingsTankDocument = serde_json::from_str(
+            &std::fs::read_to_string(
+                service_folder.join(settings_file_name(SettingsTankDocument::VERSION)),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(untouched.live_field, 99);
+        let _ = std::fs::remove_dir_all(config_home);
+        assert!(status.success());
+        return;
+    }
+
+    let harness = Harness::<SettingsTankService>::start(SettingsTankArguments)
+        .await
+        .expect("harness");
+    let envelope = harness.settings::<SettingsEnvelope>().await;
+    let running: SettingsTankDocument = serde_json::from_str(&envelope.document_json).unwrap();
+    assert_eq!(running.live_field, 1);
+}

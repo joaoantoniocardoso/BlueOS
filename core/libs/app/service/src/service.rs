@@ -85,15 +85,29 @@ pub enum ServiceError {
 
 impl<Arguments> ServiceContext<Arguments> {
     /// A Context holding the parsed command-line arguments and the Session opened before `build`.
+    ///
+    /// With the `testing` feature, settings and durable state use a fresh temporary directory so a test does not
+    /// read or write the user config folder. Production startup uses [`Self::with_settings_path`]; an unset path
+    /// there still resolves from `XDG_CONFIG_HOME` or `$HOME/.config`.
     pub fn new(arguments: Arguments, session: Session) -> Self {
         Self {
             arguments,
-            settings_path: None,
+            settings_path: isolated_settings_path(),
             session,
         }
     }
 
-    /// Like [`Self::new`], with the optional `--settings-path` parent directory.
+    /// Fills an unset settings path so a test harness cannot reach the user config folder.
+    #[cfg(feature = "testing")]
+    pub(crate) fn isolate_unset_settings_folder(&mut self) {
+        if self.settings_path.is_none() {
+            self.settings_path = Some(isolated_test_config_parent());
+        }
+    }
+
+    /// Parsed arguments, the optional `--settings-path` parent, and the Session.
+    ///
+    /// `None` is the production default and still resolves from `XDG_CONFIG_HOME` or `$HOME/.config`.
     pub fn with_settings_path(
         arguments: Arguments,
         settings_path: Option<PathBuf>,
@@ -120,4 +134,32 @@ impl<Arguments> ServiceContext<Arguments> {
     pub fn settings_path(&self) -> Option<&Path> {
         self.settings_path.as_deref()
     }
+}
+
+#[cfg(feature = "testing")]
+fn isolated_settings_path() -> Option<PathBuf> {
+    Some(isolated_test_config_parent())
+}
+
+#[cfg(not(feature = "testing"))]
+fn isolated_settings_path() -> Option<PathBuf> {
+    None
+}
+
+#[cfg(feature = "testing")]
+fn isolated_test_config_parent() -> PathBuf {
+    use core::sync::atomic::{AtomicU64, Ordering};
+
+    static SEQUENCE: AtomicU64 = AtomicU64::new(0);
+    let sequence = SEQUENCE.fetch_add(1, Ordering::Relaxed);
+    let directory = std::env::temp_dir().join(format!(
+        "blueos-test-config-{}-{}",
+        std::process::id(),
+        sequence
+    ));
+    // ponytail: directories accumulate under the system temp folder until the OS cleans them, because the
+    // Kernel writes settings after the ServiceContext is dropped. A guard owned by the Kernel would remove
+    // them when the service stops.
+    std::fs::create_dir_all(&directory).expect("the isolated test config directory");
+    directory
 }
