@@ -393,6 +393,7 @@ dependencies = [
  "blueos-domain",
  "blueos-idl",
  "blueos-jobs",
+ "blueos-logging",
  "blueos-recorder-api",
  "blueos-recorder-cameras",
  "blueos-recorder-capture",
@@ -413,6 +414,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tokio",
+ "tokio-util",
  "tracing",
  "trybuild",
 ]
