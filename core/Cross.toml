@@ -1,0 +1,4 @@
+# cross 0.2.5's aarch64 musl image links through a wrapper that runs under `set -x`, so rustc reports its trace as a
+# linker warning on every build. The wrapper only adds a workaround for rustc older than 1.48.
+[target.aarch64-unknown-linux-musl]
+pre-build = ["sed -i '/^set -x$/d' /usr/bin/aarch64-linux-musl-gcc.sh"]
