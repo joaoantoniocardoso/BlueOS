@@ -58,6 +58,15 @@ pub enum ReadRangeError {
     Io(#[from] io::Error),
 }
 
+/// Where a range read by [`read_range`] starts.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RangeStart {
+    /// At this byte of the file.
+    Offset(u64),
+    /// As many bytes before the end of the file as the range is long, or at its first byte.
+    FromEnd,
+}
+
 /// A byte range of a recording, read by [`read_range`].
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RecordingRange {
@@ -372,11 +381,19 @@ impl RecordingsFolder {
     }
 }
 
-/// Reads up to `length` bytes of the recording at `path` from `offset`, never past the size it reports, so the
+/// Reads up to `length` bytes of the recording at `path` from `start`, never past the size it reports, so the
 /// range agrees with that size while the file grows.
-pub fn read_range(path: &Path, offset: u64, length: u64) -> Result<RecordingRange, ReadRangeError> {
+pub fn read_range(
+    path: &Path,
+    start: RangeStart,
+    length: u64,
+) -> Result<RecordingRange, ReadRangeError> {
     let mut file = File::open(path)?;
     let size = file.metadata()?.len();
+    let offset = match start {
+        RangeStart::Offset(offset) => offset,
+        RangeStart::FromEnd => size.saturating_sub(length),
+    };
     if offset > size {
         return Err(ReadRangeError::OffsetPastEnd { offset, size });
     }
