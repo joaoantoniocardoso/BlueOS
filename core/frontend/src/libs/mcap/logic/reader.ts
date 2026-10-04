@@ -893,6 +893,14 @@ export class McapIndexedReader {
     return messages
   }
 
+  /**
+   * Starts downloading a chunk that is about to be read, so that the source produces it while the chunk before it is
+   * still on its way. A failed download is left for the read that needs the chunk to report.
+   */
+  prefetchChunk(chunkIndex: number): void {
+    this.readChunkData(chunkIndex).catch(() => undefined)
+  }
+
   private async readChunkData(chunkIndex: number, signal?: AbortSignal): Promise<Uint8Array> {
     const cached = this.chunkCache.get(chunkIndex)
     if (cached) {
