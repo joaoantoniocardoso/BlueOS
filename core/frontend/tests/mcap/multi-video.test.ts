@@ -160,7 +160,11 @@ class FakeVideo extends EventTarget {
   }
 
   load(): void {
+    const moved = this.time !== 0
     this.time = 0
+    if (moved) {
+      setTimeout(() => this.dispatchEvent(new Event('timeupdate')), 0)
+    }
   }
 
   /** Plays on until the next `timeupdate`, stalling where nothing is buffered, as a browser does. */
@@ -551,6 +555,8 @@ describe('two streams playing together', () => {
     const cameraBLastFrame = 15.25
     expect(played).toBeGreaterThan(cameraBLastFrame)
     expect(controller.getState().playing).toBe(false)
+    await new Promise((resolve) => { setTimeout(resolve, 10) })
+    expect(controller.getState().position).toBeGreaterThan(cameraBLastFrame)
     controller.togglePlayback()
     expect(controller.getState().position).toBe(cameraBTrack.coverage[0].start)
     expect(controller.getState().playing).toBe(true)
