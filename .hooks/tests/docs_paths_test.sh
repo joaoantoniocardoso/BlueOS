@@ -154,6 +154,9 @@ EOF
     cat >"$repository/docs/architecture/draft-1/README.md" <<'EOF'
 Ignored draft README: `core/draft-readme-missing.rs`.
 EOF
+    cat >"$repository/docs/architecture/profiling-research.md" <<'EOF'
+Ignored research snapshot: `core/research-missing.rs`.
+EOF
     cat >"$repository/notes/other.md" <<'EOF'
 Unscoped: `core/unscoped-missing.rs`.
 EOF

@@ -2,7 +2,8 @@
 """Fail when documentation names a repository path that is not in git.
 
 Checked files are Markdown under ``docs/`` except ``docs/architecture/draft-1/``
-(a frozen historical record), every ``README.md``, ``AGENTS.md``, and
+(a frozen historical record) and ``*-research.md`` files (snapshots of the tree
+they studied, which may be another branch), every ``README.md``, ``AGENTS.md``, and
 ``GLOSSARY.md``. ``node_modules``, ``target``, and submodule contents are not
 documentation in this repository, so they are not scanned.
 
@@ -50,6 +51,7 @@ from pathlib import Path
 
 PLACEHOLDER_CHARACTERS = set("<>{}*")
 DRAFT_RECORD_PREFIX = "docs/architecture/draft-1/"
+RESEARCH_RECORD_SUFFIX = "-research.md"
 SKIPPED_DIRECTORY_NAMES = {"node_modules", "target"}
 # Docs name trees under the workspace and under the frontend sources without the prefix.
 EXTRA_RELATIVE_BASES = ("core", "core/frontend/src")
@@ -168,7 +170,7 @@ def markdown_in_scope(relative_path: str, submodule_prefixes: set[str]) -> bool:
     parts = relative_path.split("/")
     if any(part in SKIPPED_DIRECTORY_NAMES for part in parts):
         return False
-    if relative_path.startswith(DRAFT_RECORD_PREFIX):
+    if relative_path.startswith(DRAFT_RECORD_PREFIX) or relative_path.endswith(RESEARCH_RECORD_SUFFIX):
         return False
     for submodule_prefix in submodule_prefixes:
         if relative_path == submodule_prefix or relative_path.startswith(submodule_prefix + "/"):
