@@ -161,6 +161,7 @@ jobs:
         # A new advisory in a transitive dependency must not turn every open pull request red.
         continue-on-error: ${{ github.event_name == 'pull_request' }}
         run: |
+          set -o pipefail
           echo "## cargo deny advisories" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           cargo deny check advisories 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
