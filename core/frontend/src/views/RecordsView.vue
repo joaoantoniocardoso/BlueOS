@@ -430,6 +430,7 @@ import {
   repairsInFlight,
   runBulkAction,
 } from '@/libs/recorder/bulk-actions'
+import { exposeByteSourceBenchmark } from '@/libs/recorder/byte-source-benchmark'
 import { createRecorderClient, type RecorderClient } from '@/libs/recorder/client'
 import {
   CANCEL_JOB,
@@ -635,6 +636,7 @@ export default Vue.extend({
     },
   },
   async created() {
+    exposeByteSourceBenchmark()
     const session = await zenoh.getSession()
     this.transport = zenohTransport(session)
     this.recorder = createRecorderClient(this.transport)
