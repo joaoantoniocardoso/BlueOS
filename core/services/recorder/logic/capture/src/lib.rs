@@ -296,7 +296,7 @@ impl Capture {
 
     fn start_recording(&mut self, rotate_if_active: bool) -> CaptureOutcome {
         match &self.recording {
-            RecordingState::Active(active) if !rotate_if_active => {
+            RecordingState::Active(_) if !rotate_if_active => {
                 return Outcome::Applied {
                     events: Vec::new(),
                     effects: Vec::new(),
