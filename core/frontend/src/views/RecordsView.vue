@@ -1,10 +1,11 @@
 <template>
   <v-container fluid class="records-view">
     <v-overlay
-      v-if="armed"
+      v-if="armedBrowsingRestricted"
       absolute
       :opacity="0.9"
-      z-index="10"
+      z-index="3"
+      class="records-armed-overlay"
     >
       <div class="d-flex flex-column align-center text-center pa-4">
         <v-icon large color="warning" class="mb-3">
@@ -14,6 +15,13 @@
           Recording browsing is paused while the vehicle is armed,
           so the link stays free for vehicle control.
         </p>
+        <v-btn
+          class="ml-auto mr-auto mt-4"
+          color="warning"
+          @click="armedBrowsingUserOverride = true"
+        >
+          I know what I'm doing, let me through
+        </v-btn>
       </div>
     </v-overlay>
 
@@ -518,14 +526,18 @@ export default Vue.extend({
       pendingLeave: null as ((cancel?: false) => void) | null,
       nowSeconds: Date.now() / 1000,
       clockId: 0,
+      armedBrowsingUserOverride: false,
     }
   },
   computed: {
     armed(): boolean {
       return this.recording?.armed ?? false
     },
+    armedBrowsingRestricted(): boolean {
+      return this.armed && !this.armedBrowsingUserOverride
+    },
     actionsDisabled(): boolean {
-      return !this.recorderServiceRunning || this.armed
+      return !this.recorderServiceRunning || this.armedBrowsingRestricted
     },
     leaveGuarded(): boolean {
       return this.playerBusy || this.busyOperation === DOWNLOAD || this.bulkDownloading || this.bulkRepairing
@@ -605,8 +617,8 @@ export default Vue.extend({
     },
   },
   watch: {
-    armed(armed: boolean): void {
-      if (armed) {
+    armedBrowsingRestricted(restricted: boolean): void {
+      if (restricted) {
         this.playerOpen = false
         this.playerBusy = false
         this.activeRecordingPath = null
@@ -887,9 +899,21 @@ export default Vue.extend({
   min-height: 100%;
 }
 
+/* The overlay spans the whole library, so its notice sticks to the middle of the screen instead of the page. */
+.records-armed-overlay {
+  align-items: flex-start;
+}
+
+.records-armed-overlay ::v-deep .v-overlay__content {
+  position: sticky;
+  top: 50vh;
+  transform: translateY(-50%);
+}
+
+/* Above armed overlay (3), below app bar (5) and nav drawer (6). */
 .records-session {
   position: relative;
-  z-index: 11;
+  z-index: 4;
 }
 
 .records-search {
