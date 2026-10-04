@@ -4,7 +4,7 @@
 set -e
 
 PROJECT_NAME="zenoh"
-VERSION="1.9.0-shared-memory"
+VERSION="1.9.0-shared-memory-1"
 REPOSITORY_ORG="joaoantoniocardoso"
 REPOSITORY_NAME="zenoh"
 REPOSITORY_URL="https://github.com/${REPOSITORY_ORG}/${REPOSITORY_NAME}"
