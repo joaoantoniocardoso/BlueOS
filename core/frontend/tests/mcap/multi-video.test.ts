@@ -213,6 +213,7 @@ async function mountPlayingStreams(bytes: Uint8Array):
     let available = trackCoversAt(track, controller.getState().position)
     const panel = new McapStreamPanelController(recording as McapVideoRecording, track, false, {
       onState: () => undefined,
+      onStats: (stats) => controller.onStreamStats(track.channelId, stats),
       onTimeUpdate: (seconds) => controller.onStreamTime(track.channelId, seconds),
       onPlay: () => controller.onLeaderPlay(),
       onPause: () => controller.onLeaderPause(),
@@ -433,6 +434,34 @@ describe('two streams playing together', () => {
       expect(sample.cameraBPlaying).toBe(true)
       expect(Math.abs(sample.cameraB - sample.cameraA)).toBeLessThanOrEqual(IN_STEP_SECONDS)
     }
+    streams.forEach(({ panel }) => panel.destroy())
+    controller.destroy()
+  })
+
+  it('leaves a stream on its last frame while the other plays on, when its coverage runs past it', async () => {
+    const { controller, streams } = await mountPlayingStreams(await buildTwoTrackVideoMcap(0, false))
+    const [cameraA, cameraB] = streams
+    const cameraBLastFrame = 15.25
+    expect(trackCoversAt(controller.getState().tracks[1], cameraBLastFrame + 3)).toBe(true)
+    let cameraBSeeks = 0
+    cameraB.video.addEventListener('seeking', () => { cameraBSeeks += 1 })
+
+    controller.seekTo(12)
+    await vi.waitFor(() => expect(cameraA.video.readyState).toBe(HAVE_ENOUGH_DATA))
+    const samples: { cameraA: number, cameraB: number, cameraBSeeks: number }[] = []
+    for (let step = 0; step < 80 && cameraA.video.currentTime < cameraBLastFrame + 3; step += 1) {
+      streams.forEach(({ video }) => video.advance())
+      streams.forEach(({ followPosition }) => followPosition())
+      samples.push({ cameraA: cameraA.video.currentTime, cameraB: cameraB.video.currentTime, cameraBSeeks })
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => { setTimeout(resolve, 10) })
+    }
+
+    const inStep = samples.filter((sample) => sample.cameraA >= 13).map((sample) => sample.cameraB)
+    expect(inStep).toEqual([...inStep].sort((left, right) => left - right))
+    const afterLastFrame = samples.filter((sample) => sample.cameraA > cameraBLastFrame + 1)
+    expect(afterLastFrame.length).toBeGreaterThan(0)
+    expect(new Set(afterLastFrame.map((sample) => sample.cameraBSeeks)).size).toBe(1)
     streams.forEach(({ panel }) => panel.destroy())
     controller.destroy()
   })

@@ -96,11 +96,12 @@ export const TWO_TRACK_FRAME_NS = 500_000_000n
 /**
  * Two keyframe-only video streams sharing chunks: camera_a has 41 frames over 20 s, and camera_b has
  * 21 frames that start 5 s after camera_a and stop 5 s before it. The first `cameraBDeltaFrames` frames of
- * camera_b are deltas, so its first keyframe comes that many frames after its first frame.
+ * camera_b are deltas, so its first keyframe comes that many frames after its first frame. Without
+ * `useMessageIndex`, nothing tells which chunks hold which stream, so both cover the whole recording.
  */
-export async function buildTwoTrackVideoMcap(cameraBDeltaFrames = 0): Promise<Uint8Array> {
+export async function buildTwoTrackVideoMcap(cameraBDeltaFrames = 0, useMessageIndex = true): Promise<Uint8Array> {
   const buffer = new TempBuffer()
-  const writer = new McapWriter({ writable: buffer, chunkSize: 1024 })
+  const writer = new McapWriter({ writable: buffer, chunkSize: 1024, useMessageIndex })
   await writer.start({ profile: '', library: 'blueos-test' })
   const schemaId = await writer.registerSchema({
     name: 'foxglove.CompressedVideo',

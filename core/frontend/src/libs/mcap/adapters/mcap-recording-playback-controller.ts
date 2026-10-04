@@ -660,11 +660,15 @@ export class McapRecordingPlaybackController {
       }
       // A stream whose media only starts after the leader's time, as one that came into range before its first
       // keyframe, waits there for the leader. Seeking it back would read the same media again and land on it again.
+      // So does one with nothing left to read past its last frame, which a seek would only read again.
       const { buffered } = follower
       const ranges = Array.from({ length: buffered.length }, (_, index) => ({
         start: buffered.start(index), end: buffered.end(index),
       }))
-      if (!timeRangesCover(ranges, leader.currentTime) && ranges.some((range) => range.start > leader.currentTime)) {
+      const stats = this.state.streamStats[track.channelId]
+      const noneToCome = stats?.ended || stats?.waiting
+      if (!timeRangesCover(ranges, leader.currentTime)
+        && (noneToCome || ranges.some((range) => range.start > leader.currentTime))) {
         follower.pause()
         continue
       }

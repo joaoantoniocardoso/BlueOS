@@ -37,6 +37,8 @@ export interface McapVideoStats {
   loading: boolean
   /** True while an ongoing recording has no further frames yet and the player is polling for them. */
   waiting: boolean
+  /** True once a finished recording has been read to its end, so nothing more of the stream will be buffered. */
+  ended: boolean
   /** Frames read out of the recording, and how many of them started a group of pictures. */
   framesRead: number
   keyframes: number
@@ -295,6 +297,7 @@ export class McapVideoPlayer {
       format: this.pending[0]?.format ?? null,
       loading: this.loading,
       waiting: this.waiting,
+      ended: this.reachedEnd,
       framesRead,
       keyframes: this.cursor.keyframes,
       framesLost,
@@ -530,6 +533,7 @@ export class McapVideoPlayer {
           throw new Error('This video stream holds no keyframe, so there is nothing that can be decoded.')
         }
         this.signalEndOfStream()
+        this.emitStats()
         return
       }
 
