@@ -1,3 +1,5 @@
+import { logKey } from '@/libs/blueos-api/keys'
+
 import { parseBlueosKey } from './blueos-keys'
 import { parseRmwZenohDataKey, parseRmwZenohToken, parseRos2ddsToken } from './ros2-names'
 import type {
@@ -323,11 +325,14 @@ export function applyBlueosServiceLiveliness(
   alive: boolean,
 ): InspectorState {
   const key = `blueos/v1/services/${service}`
-  return upsertTopic(state, key, {
+  const next = upsertTopic(state, key, {
     alive,
     source: 'blueos',
     blueos: { service, kind: 'service_liveliness', name: '' },
   })
+  // Every service has a `log` stream (D-12) and a stream has nothing to query, so a quiet service's log is listed
+  // from its token rather than from its first line.
+  return upsertTopic(next, logKey(service), {})
 }
 
 export function sortedTopicKeys(state: InspectorState): string[] {

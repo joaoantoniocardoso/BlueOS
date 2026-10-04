@@ -15,9 +15,12 @@
         :selected-view-id="selectedViewId"
         @select-view="$emit('select-view', $event)"
       />
-      <raw-video-player
+      <inspector-video-view
         v-if="selectedViewId === 'video'"
-        :video-data="videoData"
+        :controller="controller"
+        :topic-key="selectedTopic.key"
+        :catalog-loaded="catalogLoaded"
+        :active="true"
       />
       <inspector-json-view
         v-else
@@ -37,39 +40,25 @@
 </template>
 
 <script lang="ts">
-/* eslint-disable import/no-extraneous-dependencies */
-import { parse as parseMessageDefinition } from '@foxglove/rosmsg'
-import { MessageReader } from '@foxglove/rosmsg2-serialization'
-import axios from 'axios'
 import Vue, { PropType } from 'vue'
 
 import type { InspectorController } from '@/libs/zenoh-inspector/inspector-controller'
 import type {
-  DecodedPayload, SampleRecord, TopicInfo, ViewDescriptor,
+  DecodedPayload, TopicInfo, ViewDescriptor,
 } from '@/libs/zenoh-inspector/logic/types'
 
 import InspectorJsonView from './InspectorJsonView.vue'
 import InspectorTopicHeader from './InspectorTopicHeader.vue'
+import InspectorVideoView from './InspectorVideoView.vue'
 import InspectorViewSwitcher from './InspectorViewSwitcher.vue'
-import RawVideoPlayer from './RawVideoPlayer.vue'
-
-interface InspectorTopicDetailBindings {
-  videoReader: MessageReader | null
-  latestSample: SampleRecord | null
-  sampleUnsubscribe: (() => void) | null
-}
-
-function detailBindings(component: Vue): InspectorTopicDetailBindings {
-  return component as unknown as InspectorTopicDetailBindings
-}
 
 export default Vue.extend({
   name: 'InspectorTopicDetail',
   components: {
     InspectorJsonView,
     InspectorTopicHeader,
+    InspectorVideoView,
     InspectorViewSwitcher,
-    RawVideoPlayer,
   },
   props: {
     controller: {
@@ -92,56 +81,9 @@ export default Vue.extend({
       type: Object as PropType<DecodedPayload | null>,
       default: null,
     },
-  },
-  computed: {
-    videoData(): Uint8Array {
-      const sample = detailBindings(this).latestSample
-      const reader = detailBindings(this).videoReader
-      if (sample === null || reader === null) {
-        return new Uint8Array()
-      }
-      const message = reader.readMessage(sample.payload) as { data: Uint8Array }
-      return message.data
-    },
-  },
-  watch: {
-    selectedTopic: {
-      handler(): void {
-        this.syncVideoSampleSubscription()
-      },
-    },
-    selectedViewId: {
-      handler(): void {
-        this.syncVideoSampleSubscription()
-      },
-    },
-  },
-  async created() {
-    const CompressedVideo = await axios.get('/msgs/CompressedVideo.msg').then((response) => response.data as string)
-    detailBindings(this).videoReader = new MessageReader(parseMessageDefinition(CompressedVideo))
-  },
-  mounted() {
-    this.syncVideoSampleSubscription()
-  },
-  beforeDestroy() {
-    detailBindings(this).sampleUnsubscribe?.()
-    detailBindings(this).sampleUnsubscribe = null
-  },
-  methods: {
-    syncVideoSampleSubscription(): void {
-      detailBindings(this).sampleUnsubscribe?.()
-      detailBindings(this).sampleUnsubscribe = null
-      detailBindings(this).latestSample = null
-      const topic = this.selectedTopic
-      if (topic === null || this.selectedViewId !== 'video') {
-        return
-      }
-      detailBindings(this).sampleUnsubscribe = this.controller.subscribeSelectedSample((sample) => {
-        detailBindings(this).latestSample = sample
-      })
-      if (topic.lastSample) {
-        detailBindings(this).latestSample = topic.lastSample
-      }
+    catalogLoaded: {
+      type: Boolean,
+      required: true,
     },
   },
 })

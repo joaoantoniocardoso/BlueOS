@@ -377,6 +377,9 @@ Decision:
 - Comms never copies payloads on the way through, on publish or on receive: no framing prefix, the payload is a
   cheap-clone bytes type (D-10) that hands back its inner buffer without a copy and offers a borrowed accessor,
   and the CDR reader borrows its input. The Recorder keeps the refcounted `ZBytes` path up to the MCAP write.
+- `core/tools/zenoh/bootstrap.sh` installs `zenohd` and its plugins from one shared-memory release of the zenoh
+  fork. They come from the same build because an SHM router rejects the stock plugins (`remote_api` serves the
+  frontend).
 - **Extensions need `IpcMode: host` in their Docker permissions to share SHM. This must be documented** in
   the extension developer docs (Kraken permissions, extension template) and in the `blueos-api` README.
   Document the narrower alternative too: bind-mounting `/dev/shm` (host IPC mode shares the whole host IPC

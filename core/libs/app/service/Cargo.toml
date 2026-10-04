@@ -19,7 +19,7 @@ blueos-logging.workspace = true
 blueos-settings.workspace = true
 backon.workspace = true
 bytes.workspace = true
-clap = { workspace = true, features = ["derive", "env", "std"] }
+clap = { workspace = true, features = ["derive", "env", "help", "std", "usage"] }
 futures-util = { workspace = true, features = ["std"] }
 serde = { workspace = true, features = ["derive", "std"] }
 serde_json.workspace = true
