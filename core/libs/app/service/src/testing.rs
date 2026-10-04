@@ -155,9 +155,10 @@ impl<S: Service> Harness<S> {
 
     async fn start_on_with_effect_log(
         backend: Arc<dyn CommsBackend>,
-        context: ServiceContext<S::Arguments>,
+        mut context: ServiceContext<S::Arguments>,
         effect_log: Option<crate::kernel::EffectLogStorage<S::Domain>>,
     ) -> Result<Self, ServiceError> {
+        context.isolate_unset_settings_folder();
         let builder = S::build(&context)?;
         let clock = Arc::new(PausedClock::start());
         let kernel = Kernel::start_with_effect_log(
