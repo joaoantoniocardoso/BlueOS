@@ -578,13 +578,26 @@ jobs:
       - name: Check core size
         if: ${{ matrix.docker == 'core' }}
         run: |
-          # Check if the image size is lower than our limit
-          docker image list
-          IMAGE_ID=$(docker images -q ${DOCKER_USERNAME:-bluerobotics}/${{ matrix.project }} | head -n 1)
-          LIMIT_SIZE_MB=700
-          IMAGE_SIZE_MB=$(( $(docker inspect $IMAGE_ID --format {{.Size}})/(2**20) ))
-          echo "Core size is: $IMAGE_SIZE_MB MB"
-          ((IMAGE_SIZE_MB < LIMIT_SIZE_MB))
+          # Check if the uncompressed image size is lower than our limit.
+          # A multi-platform build cannot be loaded into docker, so load only amd64: every layer is a builder cache hit.
+          IMAGE=${{ steps.prepare.outputs.docker_image }}:${{ steps.prepare.outputs.version }}
+          LIMIT_SIZE_MB=1536
+          docker buildx build \
+            --load \
+            --platform linux/amd64 \
+            ${{ steps.prepare.outputs.buildx_args }}
+          IMAGE_SIZE_BYTES=$(docker image inspect "${IMAGE}" --format '{{.Size}}')
+          if ! [[ "${IMAGE_SIZE_BYTES}" =~ ^[0-9]+$ ]]; then
+            echo "::error::Could not measure the size of ${IMAGE}, got '${IMAGE_SIZE_BYTES}'"
+            exit 1
+          fi
+          IMAGE_SIZE_MB=$(( IMAGE_SIZE_BYTES / 2**20 ))
+          echo "Core size is: ${IMAGE_SIZE_MB} MB (limit ${LIMIT_SIZE_MB} MB)"
+          echo "Core amd64 uncompressed size: ${IMAGE_SIZE_MB} MB (limit ${LIMIT_SIZE_MB} MB)" >> $GITHUB_STEP_SUMMARY
+          if (( IMAGE_SIZE_BYTES > LIMIT_SIZE_MB * 2**20 )); then
+            echo "::error::${IMAGE} is ${IMAGE_SIZE_MB} MB, over the ${LIMIT_SIZE_MB} MB limit"
+            exit 1
+          fi
 
       - name: Login to DockerHub
         if: success() && github.event_name != 'pull_request'
