@@ -125,13 +125,13 @@ impl RecordingsFolder {
     pub fn discard_recover_files(&self) {
         let mut removed = Vec::new();
         self.discard_recover_files_in(&self.base, &mut removed);
-        for (relative, size_bytes) in removed {
+        removed.into_iter().for_each(|(relative, size_bytes)| {
             tracing::info!(
                 path = %relative,
                 size_bytes,
                 "Discarded leftover repair temporary file"
             );
-        }
+        });
     }
 
     /// A new path for a repair rewrite next to `relative` (`<stem>.<rewrite>.recover`).
