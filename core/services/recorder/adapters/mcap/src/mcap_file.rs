@@ -12,6 +12,7 @@ use mcap::{
     Compression, McapError as McapCrateError, WriteOptions, Writer, records::MessageHeader,
 };
 use thiserror::Error;
+use tracing::info;
 
 use blueos_comms::Payload;
 
@@ -175,6 +176,12 @@ impl McapFile {
                 &BTreeMap::new(),
             )
             .map_err(McapError::Mcap)?;
+        info!(
+            topic,
+            type_name = route.type_name.as_deref(),
+            file_name = self.file_name,
+            "Added a channel to the recording"
+        );
         self.channels.insert(
             route.clone(),
             ChannelState {

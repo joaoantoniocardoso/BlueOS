@@ -9,7 +9,7 @@ use tokio::{
     task::JoinSet,
     time::{MissedTickBehavior, interval},
 };
-use tracing::warn;
+use tracing::{info, warn};
 
 use blueos_comms::{LivelinessEvent, Payload, Sample};
 use blueos_domain::Command;
@@ -39,11 +39,13 @@ type LivelinessGetOutcome = Result<Vec<String>, blueos_comms::CommsError>;
 /// Metadata for the file the writer actor has open.
 struct OpenRecording {
     file_generation: u64,
+    file_name: String,
 }
 
 /// Local state the Domain does not own.
 struct DataPlaneLocal {
     open: Option<OpenRecording>,
+    recording_video_topics: BTreeSet<String>,
     descriptors: BTreeMap<ChannelRoute, Arc<ChannelDescriptor>>,
     last_reported_bytes: u64,
     /// Samples the writer dropped from the open file so far.
@@ -63,6 +65,7 @@ pub(crate) async fn run_data_plane(
     let mut gate = record_gate.subscribe();
     let mut local = DataPlaneLocal {
         open: None,
+        recording_video_topics: BTreeSet::new(),
         descriptors: BTreeMap::new(),
         last_reported_bytes: 0,
         samples_dropped: 0,
@@ -404,6 +407,20 @@ async fn reconcile(
     task_context: &TaskContext<RecorderDomain, RecorderContext>,
     liveliness_gets: &mut JoinSet<(String, LivelinessGetOutcome)>,
 ) -> Result<(), TaskFailed> {
+    for topic in gate
+        .recording_video_topics
+        .difference(&local.recording_video_topics)
+    {
+        info!(topic, "Started recording a video stream");
+    }
+    for topic in local
+        .recording_video_topics
+        .difference(&gate.recording_video_topics)
+    {
+        info!(topic, "Stopped recording a video stream");
+    }
+    local.recording_video_topics = gate.recording_video_topics.clone();
+
     if !gate.recording_requested {
         finish_open_file(local, writer, &task_context.commands, liveliness_gets).await;
         return Ok(());
@@ -430,6 +447,7 @@ async fn reconcile(
         warn!(%error, "failed to open MCAP file");
         return Ok(());
     }
+    info!(file_name, "Opened a recording");
     send_observed(
         &task_context.commands,
         CaptureObservedFact::McapFileOpened {
@@ -440,6 +458,7 @@ async fn reconcile(
     .await?;
     local.open = Some(OpenRecording {
         file_generation: desired,
+        file_name,
     });
     local.last_reported_bytes = 0;
     local.samples_dropped = 0;
@@ -482,6 +501,7 @@ async fn finish_file(
             0
         }
     };
+    info!(file_name = open.file_name, bytes, "Finished a recording");
     if send_observed(
         commands,
         CaptureObservedFact::McapFileFinished {
