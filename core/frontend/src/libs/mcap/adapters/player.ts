@@ -125,21 +125,6 @@ export interface McapVideoSummary {
   bytesRead: number
 }
 
-/** Reads what a recording contains without downloading its chunk index. */
-export async function readMcapVideoSummary(url: string, signal?: AbortSignal): Promise<McapVideoSummary> {
-  const source = await recordingByteSource(url)
-  const reader = await McapIndexedReader.open(source, { metadataOnly: true, signal })
-  const { startTime, endTime } = reader.summary
-  return {
-    durationSeconds: Number(endTime - startTime) / 1e9,
-    started: Number(startTime) / 1e9,
-    ended: Number(endTime) / 1e9,
-    tracks: listVideoTracks(reader),
-    channels: listMcapChannels(reader),
-    bytesRead: source.bytesRead,
-  }
-}
-
 export { isMediaSourceSupported } from './mse'
 
 export class McapVideoPlayer {
