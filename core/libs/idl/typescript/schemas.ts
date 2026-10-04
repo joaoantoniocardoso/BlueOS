@@ -444,7 +444,9 @@ uint64 samples_dropped`,
 string path
 uint64 offset
 # Bytes wanted from \`offset\`. A response holds at most 1048576 (1 MiB), and fewer at the end of the file.
-uint32 length`,
+uint32 length
+# Read the last \`length\` bytes instead, ignoring \`offset\`, so one query gives the size and the MCAP footer.
+bool from_end`,
   "blueos_recorder_msgs/srv/RecordingBytes_Response": `# The size of the file when it was read; it grows while the recording is written.
 uint64 size
 uint8[] data`,

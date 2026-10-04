@@ -216,6 +216,7 @@ export interface RecordingBytesRequest {
   path: string;
   offset: number;
   length: number;
+  from_end: boolean;
 }
 
 export interface RecordingBytesResponse {

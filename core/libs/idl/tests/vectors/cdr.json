@@ -404,8 +404,9 @@
     },
     {
       "schema_name": "blueos_recorder_msgs/srv/RecordingBytes_Request",
-      "hex": "000100000100000000000000000000000000000000000000",
+      "hex": "00010000010000000000000000000000000000000000000000",
       "decoded": {
+        "from_end": false,
         "length": 0,
         "offset": 0,
         "path": ""
