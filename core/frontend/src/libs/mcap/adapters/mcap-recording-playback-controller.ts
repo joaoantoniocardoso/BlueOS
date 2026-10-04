@@ -294,6 +294,7 @@ export class McapRecordingPlaybackController {
       return
     }
     this.patch({ position: Math.min(seconds, duration) })
+    this.syncFollowers()
   }
 
   updateBuffered(): void {
@@ -577,6 +578,7 @@ export class McapRecordingPlaybackController {
     const { reader } = recording
     recording.durationSeconds = Number(reader.summary.endTime - recording.startTime) / 1e9
     const listed = listVideoTracks(reader)
+    const hadTracks = this.state.tracks.length > 0
     const selected = new Set(this.state.selectedChannelIds)
     const known = new Set(this.state.tracks.map((track) => track.channelId))
     for (const track of listed) {
@@ -593,6 +595,11 @@ export class McapRecordingPlaybackController {
       clipRange: [this.state.clipRange[0], recording.durationSeconds],
     })
     this.emitSummary()
+    // A live player that opened with no video stream has its playhead at the end of what was written then, where
+    // the first stream has no frame; it plays that stream from its latest frames instead, as it would on opening.
+    if (this.options.ongoing && !hadTracks && listed.length > 0) {
+      this.skipToLatest()
+    }
   }
 
   private emitSummary(): void {
@@ -638,6 +645,16 @@ export class McapRecordingPlaybackController {
       }
       if (follower.playbackRate !== leader.playbackRate) {
         follower.playbackRate = leader.playbackRate
+      }
+      // A stream whose media only starts after the leader's time, as one that came into range before its first
+      // keyframe, waits there for the leader. Seeking it back would read the same media again and land on it again.
+      const { buffered } = follower
+      const ranges = Array.from({ length: buffered.length }, (_, index) => ({
+        start: buffered.start(index), end: buffered.end(index),
+      }))
+      if (!timeRangesCover(ranges, leader.currentTime) && ranges.some((range) => range.start > leader.currentTime)) {
+        follower.pause()
+        continue
       }
       const drifted = Math.abs(follower.currentTime - leader.currentTime) > SYNC_TOLERANCE_SECONDS
       if (drifted && !follower.seeking) {

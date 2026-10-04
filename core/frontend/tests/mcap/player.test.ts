@@ -67,6 +67,9 @@ class FakeSourceBuffer extends EventTarget {
       if (decodeTime !== null) {
         this.fragmentStarts.push(decodeTime / timescale)
       }
+      if (mdhd >= 0) {
+        onMetadata?.()
+      }
       this.dispatchEvent(new Event('updateend'))
     }, APPEND_MS)
   }
@@ -78,6 +81,9 @@ class FakeSourceBuffer extends EventTarget {
 }
 
 let sourceBuffer: FakeSourceBuffer | null = null
+
+/** What the `<video>` does once the source buffer holds the init segment, which is when it leaves `HAVE_NOTHING`. */
+let onMetadata: (() => void) | null = null
 
 class FakeMediaSource extends EventTarget {
   static isTypeSupported(): boolean {
@@ -153,6 +159,40 @@ class FakeVideo extends EventTarget {
   }
 }
 
+/**
+ * A `<video>` with the HTML default playback start position: a time set while it has no media is kept, reported as
+ * its current time, and seeked to once its metadata loads. An element that a closed player left can hold one.
+ */
+class ReusedVideo extends FakeVideo {
+  private defaultPlaybackStart = 0
+
+  private metadataLoaded = false
+
+  constructor() {
+    super()
+    onMetadata = () => {
+      this.metadataLoaded = true
+      const start = this.defaultPlaybackStart
+      this.defaultPlaybackStart = 0
+      if (start > 0) {
+        super.currentTime = start
+      }
+    }
+  }
+
+  get currentTime(): number {
+    return this.defaultPlaybackStart || super.currentTime
+  }
+
+  set currentTime(seconds: number) {
+    if (this.metadataLoaded) {
+      super.currentTime = seconds
+    } else {
+      this.defaultPlaybackStart = seconds
+    }
+  }
+}
+
 describe('McapVideoPlayer', () => {
   beforeEach(() => {
     vi.stubGlobal('MediaSource', FakeMediaSource)
@@ -162,6 +202,7 @@ describe('McapVideoPlayer', () => {
 
   afterEach(() => {
     sourceBuffer = null
+    onMetadata = null
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
   })
@@ -250,6 +291,30 @@ describe('McapVideoPlayer', () => {
     expect(appended[0]).toBeLessThanOrEqual(target)
     expect(video.currentTime).toBeGreaterThanOrEqual(appended[0])
     expect(video.currentTime).toBeLessThanOrEqual(target)
+    player.destroy()
+  })
+
+  it('reads from its start time on a video element left at a later time', async () => {
+    const reader = await McapIndexedReader.open(new MemoryByteSource(await buildTwoTrackVideoMcap()))
+    const [, cameraB] = listVideoTracks(reader)
+    const { startTime, endTime } = reader.summary
+    const recording = {
+      reader, tracks: [cameraB], channels: [], durationSeconds: Number(endTime - startTime) / 1e9, startTime,
+    }
+    const startSeconds = 6
+    const video = new ReusedVideo()
+    video.currentTime = 14
+    const player = new McapVideoPlayer(video as unknown as HTMLVideoElement, recording, cameraB, {
+      startSeconds,
+      bufferAheadSeconds: 2,
+    })
+
+    await player.start()
+
+    await vi.waitFor(() => expect(Math.max(...sourceBuffer?.appendedStarts ?? [])).toBeGreaterThan(startSeconds + 1))
+    expect(Math.max(...sourceBuffer?.appendedStarts ?? [])).toBeLessThan(startSeconds + 4)
+    expect(video.currentTime).toBeGreaterThan(startSeconds - 1)
+    expect(video.currentTime).toBeLessThan(startSeconds + 1)
     player.destroy()
   })
 })
