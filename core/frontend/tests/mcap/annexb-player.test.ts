@@ -65,8 +65,12 @@ class FakeSourceBuffer extends EventTarget {
     }, 0)
   }
 
-  remove(): void {
-    this.fragmentStarts = []
+  /** Every range removed, in order. */
+  removed: Array<[number, number]> = []
+
+  remove(start: number, end: number): void {
+    this.removed.push([start, end])
+    this.fragmentStarts = this.fragmentStarts.filter((fragmentStart) => fragmentStart < start || fragmentStart >= end)
     setTimeout(() => this.dispatchEvent(new Event('updateend')))
   }
 }
@@ -136,6 +140,20 @@ function newPlayer(options: ConstructorParameters<typeof AnnexBMsePlayer>[1] = {
 } {
   const video = new FakeVideo()
   return { player: new AnnexBMsePlayer(video as unknown as HTMLVideoElement, options), video }
+}
+
+function appendedCount(): number {
+  return sourceBuffer?.appendedStarts.length ?? 0
+}
+
+/** Pushes frames at the pace of a camera, each one after the player appended the one before. */
+async function pushPaced(player: AnnexBMsePlayer, frames: Array<[Uint8Array, number]>): Promise<void> {
+  for (const [frame, timestampSeconds] of frames) {
+    const appended = appendedCount()
+    player.push(frame, 'h264', timestampSeconds)
+    // eslint-disable-next-line no-await-in-loop
+    await vi.waitFor(() => expect(appendedCount()).toBeGreaterThan(appended), { interval: 1 })
+  }
 }
 
 describe('AnnexBMsePlayer', () => {
@@ -230,6 +248,38 @@ describe('AnnexBMsePlayer', () => {
 
     expect(video.currentTime).toBeCloseTo(video.buffered.end(0), 2)
     expect(video.paused).toBe(false)
+    player.destroy()
+  })
+
+  it('never evicts a keyframe that the frames being played still depend on', async () => {
+    const { player, video } = newPlayer()
+    await pushPaced(player, Array.from({ length: 101 }, (_, index) => [
+      index === 0 ? SAMPLE_H264_KEYFRAME : SAMPLE_H264_DELTA, 100 + index * FRAME_SECONDS,
+    ]))
+    video.currentTime = 3.3
+
+    await pushPaced(player, [[SAMPLE_H264_DELTA, 100 + 101 * FRAME_SECONDS]])
+    await new Promise((resolve) => { setTimeout(resolve, 50) })
+
+    expect(sourceBuffer?.removed).toEqual([])
+    player.destroy()
+  })
+
+  it('evicts played media only up to the last keyframe that is out of the keep-behind window', async () => {
+    const { player, video } = newPlayer()
+    await pushPaced(player, Array.from({ length: 121 }, (_, index) => [
+      index % 90 === 0 ? SAMPLE_H264_KEYFRAME : SAMPLE_H264_DELTA,
+      100 + index * FRAME_SECONDS + (index >= 90 ? 0.0003 : 0),
+    ]))
+    video.currentTime = 5.2
+
+    await pushPaced(player, [[SAMPLE_H264_DELTA, 100 + 121 * FRAME_SECONDS]])
+
+    await vi.waitFor(() => expect(sourceBuffer?.removed).toHaveLength(1))
+    expect(sourceBuffer?.removed[0][0]).toBe(0)
+    expect(sourceBuffer?.removed[0][1]).toBeCloseTo(3, 1)
+    // The muxer rounds a frame time down to its timescale, so a range that ends at the keyframe time reaches into it.
+    expect(sourceBuffer?.removed[0][1]).toBeLessThan(sourceBuffer?.appendedStarts[90] ?? 0)
     player.destroy()
   })
 
