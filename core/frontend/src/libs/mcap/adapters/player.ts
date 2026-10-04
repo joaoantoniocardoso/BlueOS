@@ -6,6 +6,8 @@
  * instead of WebCodecs because WebCodecs is only available in secure contexts, and BlueOS is
  * normally served over plain HTTP.
  */
+import { recordingByteSource } from '@/libs/recorder/byte-source'
+
 import { sleep } from '../logic/abort'
 import { listMcapChannels, McapRecordingChannel } from '../logic/channels'
 import { VideoFormat } from '../logic/codec'
@@ -17,7 +19,6 @@ import {
 import { McapIndexedReader, PrefixScanProgress } from '../logic/reader'
 import type { RecordingIndexSource } from '../logic/recording-index'
 import { listVideoTracks, loadFrameAccurateCoverage, VideoTrack } from '../logic/video-track'
-import { HttpByteSource } from './http-byte-source'
 import { appendSourceBuffer, waitForSourceOpen } from './mse'
 
 const RESUME_TOLERANCE_SECONDS = 0.25
@@ -102,7 +103,7 @@ export async function openMcapVideoRecording(
   options: McapVideoOpenOptions = {},
 ): Promise<McapVideoRecording> {
   const { indexSource, signal, onProgress } = options
-  const reader = await McapIndexedReader.open(new HttpByteSource(url), { indexSource, signal, onProgress })
+  const reader = await McapIndexedReader.open(await recordingByteSource(url), { indexSource, signal, onProgress })
   await loadFrameAccurateCoverage(reader, signal)
   const { startTime, endTime } = reader.summary
   return {
@@ -126,7 +127,7 @@ export interface McapVideoSummary {
 
 /** Reads what a recording contains without downloading its chunk index. */
 export async function readMcapVideoSummary(url: string, signal?: AbortSignal): Promise<McapVideoSummary> {
-  const source = new HttpByteSource(url)
+  const source = await recordingByteSource(url)
   const reader = await McapIndexedReader.open(source, { metadataOnly: true, signal })
   const { startTime, endTime } = reader.summary
   return {

@@ -1,8 +1,14 @@
 import { query } from '@/libs/blueos-api/command'
 import { bytes } from '@/libs/blueos-api/services/recorder'
 import type { Transport } from '@/libs/blueos-api/transport'
+import zenohTransport from '@/libs/blueos-api/zenoh-transport'
+import { HttpByteSource } from '@/libs/mcap/adapters/http-byte-source'
 import { throwIfAborted, whileWaiting } from '@/libs/mcap/logic/abort'
 import type { ByteSource } from '@/libs/mcap/logic/byte-source'
+import zenoh from '@/libs/zenoh'
+
+import { DEFAULT_RECORDING_HTTP_PREFIX } from './constants'
+import { browserStorage, storedByteSource } from './preferences'
 
 /** The most bytes one reply of the recorder `bytes` Query carries. */
 export const RECORDING_BYTES_MAX_LENGTH = 1024 * 1024
@@ -70,4 +76,16 @@ export class ZenohByteSource implements ByteSource {
     this.bytesRead += data.byteLength
     return data
   }
+}
+
+/**
+ * The source of the recording that nginx serves at `url`: HTTP ranges, or the recorder `bytes` Query when the
+ * Records byte source is set to `zenoh`. Read on each call, so switching needs no rebuild.
+ */
+export async function recordingByteSource(url: string): Promise<ByteSource> {
+  if (storedByteSource(browserStorage) !== 'zenoh') {
+    return new HttpByteSource(url)
+  }
+  const path = url.slice(DEFAULT_RECORDING_HTTP_PREFIX.length + 1).split('/').map(decodeURIComponent).join('/')
+  return new ZenohByteSource(zenohTransport(await zenoh.getSession()), path)
 }

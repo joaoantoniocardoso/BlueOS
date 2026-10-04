@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  RECORDS_BYTE_SOURCE_STORAGE_KEY,
   RECORDS_LAYOUT_STORAGE_KEY,
   RECORDS_SORT_STORAGE_KEY,
+  storedByteSource,
   storedLayout,
   storedSort,
   storeLayout,
@@ -47,5 +49,12 @@ describe('Records page preferences', () => {
     expect(storedSort(blockedStorage)).toEqual({ key: 'created', descending: true })
     expect(() => storeLayout(blockedStorage, 'list')).not.toThrow()
     expect(() => storeSort(blockedStorage, { key: 'name', descending: false })).not.toThrow()
+  })
+
+  it('reads recording bytes over HTTP unless the byte source is set to zenoh', () => {
+    expect(storedByteSource(memoryStorage())).toBe('http')
+    expect(storedByteSource(blockedStorage)).toBe('http')
+    expect(storedByteSource(memoryStorage({ [RECORDS_BYTE_SOURCE_STORAGE_KEY]: 'websocket' }))).toBe('http')
+    expect(storedByteSource(memoryStorage({ [RECORDS_BYTE_SOURCE_STORAGE_KEY]: 'zenoh' }))).toBe('zenoh')
   })
 })
