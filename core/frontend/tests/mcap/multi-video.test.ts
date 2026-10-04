@@ -327,6 +327,14 @@ describe('a recording with two video streams', () => {
     expect(cameraB[1]).toBeLessThan(cameraA[1] - 1)
   })
 
+  it('covers each stream from its first frame to the end of its last one, not to the edges of its chunks', async () => {
+    const controller = await mountTwoTrackPlayer()
+    const [, cameraB] = controller.getState().tracks
+    // camera_b has a frame every 0.5 s from 5.25 to 15.25 s, in chunks that span 5 to 17.5 s.
+    expect(cameraB.coverage).toEqual([{ start: 5.25, end: 15.75 }])
+    controller.destroy()
+  })
+
   it('never yields a frame of the other stream from a shared chunk', async () => {
     const recording = await openTwoTracks()
     const stream = new VideoFrameStream(recording.reader, recording.tracks[1])
@@ -460,6 +468,32 @@ describe('a live recording', () => {
     await vi.waitFor(() => expect(controller.getState().tracks.map((track) => track.name)).toEqual(['camera']))
     const [camera] = controller.getState().tracks
     expect(controller.getState().selectedChannelIds).toEqual([camera.channelId])
+    controller.destroy()
+  })
+
+  it('covers a stream that started after the player opened from its first frame to its last one', async () => {
+    const live = await asLiveRecording(await buildTwoTrackVideoMcap(), 1)
+    serveOverHttp(live.bytes)
+    const controller = new McapRecordingPlaybackController({
+      url: 'http://vehicle/userdata/recorder/live.mcap',
+      indexSource: live.indexSource,
+      ongoing: true,
+      callbacks: {
+        onState: () => undefined,
+        onBusy: () => undefined,
+        onSummary: () => undefined,
+        onMp4Saved: () => undefined,
+      },
+    })
+    await controller.mount()
+    expect(controller.getState().tracks.map((track) => track.name)).toEqual(['camera_a'])
+
+    live.writtenChunks = live.chunks.length
+    controller.onWrittenSizeBytes(live.bytes().length)
+
+    await vi.waitFor(() => {
+      expect(controller.getState().tracks[1]?.coverage).toEqual([{ start: 5.25, end: 15.75 }])
+    })
     controller.destroy()
   })
 

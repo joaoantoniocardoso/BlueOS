@@ -16,7 +16,7 @@ import {
 } from '../logic/mux'
 import { McapIndexedReader, PrefixScanProgress } from '../logic/reader'
 import type { RecordingIndexSource } from '../logic/recording-index'
-import { listVideoTracks, VideoTrack } from '../logic/video-track'
+import { listVideoTracks, loadFrameAccurateCoverage, VideoTrack } from '../logic/video-track'
 import { HttpByteSource } from './http-byte-source'
 import { appendSourceBuffer, waitForSourceOpen } from './mse'
 
@@ -101,6 +101,7 @@ export async function openMcapVideoRecording(
 ): Promise<McapVideoRecording> {
   const { indexSource, signal, onProgress } = options
   const reader = await McapIndexedReader.open(new HttpByteSource(url), { indexSource, signal, onProgress })
+  await loadFrameAccurateCoverage(reader, signal)
   const { startTime, endTime } = reader.summary
   return {
     reader,

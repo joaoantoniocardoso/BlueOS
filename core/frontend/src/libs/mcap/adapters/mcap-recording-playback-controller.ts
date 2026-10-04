@@ -10,7 +10,9 @@ import {
 import type { PrefixScanProgress } from '../logic/reader'
 import type { RecordingIndexSource } from '../logic/recording-index'
 import type { VideoTrack } from '../logic/video-track'
-import { listVideoTracks, timeRangesCover } from '../logic/video-track'
+import {
+  coverageForChannel, listVideoTracks, loadFrameAccurateCoverage, timeRangesCover,
+} from '../logic/video-track'
 import {
   exportTrackAsMp4,
   type Mp4ExportProgress,
@@ -600,6 +602,16 @@ export class McapRecordingPlaybackController {
     if (this.options.ongoing && !hadTracks && listed.length > 0) {
       this.skipToLatest()
     }
+    // Only the listed tracks are narrowed: one listed here would skip the selection a new stream gets above.
+    loadFrameAccurateCoverage(reader, this.openController.signal).then((read) => {
+      if (read) {
+        this.patch({
+          tracks: this.state.tracks.map((track) => ({
+            ...track, coverage: coverageForChannel(reader, track.channelId),
+          })),
+        })
+      }
+    }).catch(() => undefined)
   }
 
   private emitSummary(): void {
