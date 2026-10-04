@@ -4,7 +4,8 @@ use core::sync::atomic::{AtomicU64, Ordering};
 use std::{
     collections::{HashMap, HashSet},
     ffi::OsStr,
-    fs, io,
+    fs::{self, File},
+    io::{self, Read, Seek, SeekFrom},
     path::{Component, Path, PathBuf},
     time::UNIX_EPOCH,
 };
@@ -39,6 +40,31 @@ pub enum StorageError {
     /// No unused file name was found.
     #[error("could not allocate a unique recording file name")]
     NameCollision,
+}
+
+/// Why a byte range of a recording could not be read. Its text is the reason a client gets.
+#[derive(Debug, Error)]
+pub enum ReadRangeError {
+    /// The range starts after the last byte of the file.
+    #[error("Offset {offset} is past the end of the recording ({size} bytes).")]
+    OffsetPastEnd {
+        /// The requested start of the range.
+        offset: u64,
+        /// The size of the file when it was read.
+        size: u64,
+    },
+    /// Opening or reading the file failed.
+    #[error("Failed to read the recording: {0}")]
+    Io(#[from] io::Error),
+}
+
+/// A byte range of a recording, read by [`read_range`].
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RecordingRange {
+    /// The size of the file when it was read; it grows while the recording is written.
+    pub size: u64,
+    /// The bytes of the range, fewer than asked for at the end of the file.
+    pub data: Vec<u8>,
 }
 
 /// One MCAP file discovered during a library scan.
@@ -344,6 +370,21 @@ impl RecordingsFolder {
             }
         }
     }
+}
+
+/// Reads up to `length` bytes of the recording at `path` from `offset`, never past the size it reports, so the
+/// range agrees with that size while the file grows.
+pub fn read_range(path: &Path, offset: u64, length: u64) -> Result<RecordingRange, ReadRangeError> {
+    let mut file = File::open(path)?;
+    let size = file.metadata()?.len();
+    if offset > size {
+        return Err(ReadRangeError::OffsetPastEnd { offset, size });
+    }
+    file.seek(SeekFrom::Start(offset))?;
+    let mut data = Vec::new();
+    file.take(length.min(size - offset))
+        .read_to_end(&mut data)?;
+    Ok(RecordingRange { size, data })
 }
 
 fn validate_relative_recording_path(relative: &str) -> Result<(), StorageError> {
