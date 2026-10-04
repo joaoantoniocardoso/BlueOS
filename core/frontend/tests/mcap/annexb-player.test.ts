@@ -173,9 +173,6 @@ describe('AnnexBMsePlayer', () => {
     const { player, video } = newPlayer({ onReady })
 
     const [objectUrl] = fakeMedia.mediaSources.keys()
-    // Destroyed before the source opens, the player's wait for `sourceopen` rejects with nothing listening: a product
-    // bug the shared fake exposes, as the browser opens the source from a later task.
-    await vi.waitFor(() => expect(fakeMedia.mediaSources.get(objectUrl)?.readyState).toBe('open'))
     player.destroy()
     player.push(SAMPLE_H264_KEYFRAME, 'h264')
     await new Promise((resolve) => { setTimeout(resolve, 20) })
@@ -183,5 +180,30 @@ describe('AnnexBMsePlayer', () => {
     expect(video.src).toBe('')
     expect(URL.revokeObjectURL).toHaveBeenCalledWith(objectUrl)
     expect(onReady).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['before the source opens, with no frame pushed', async () => undefined, false],
+    ['before the source opens, with a frame pushed', async () => undefined, true],
+    ['as the source opens, with a frame pushed', async () => { await Promise.resolve() }, true],
+    ['while the first fragment is being appended', async () => {
+      await vi.waitFor(() => expect(fakeMedia.sourceBuffers[0]?.updating).toBe(true), { interval: 0 })
+    }, true],
+    ['once frames play', async () => {
+      await vi.waitFor(() => expect(appendedCount()).toBeGreaterThan(0))
+    }, true],
+  ])('leaves no unhandled rejection when destroyed %s', async (_stage, waitUntil, pushFrame) => {
+    const onError = vi.fn()
+    const { player } = newPlayer({ onError })
+    if (pushFrame) {
+      player.push(SAMPLE_H264_KEYFRAME, 'h264', 1)
+      player.push(SAMPLE_H264_DELTA, 'h264', 1.04)
+    }
+    await waitUntil()
+
+    player.destroy()
+    await new Promise((resolve) => { setTimeout(resolve, 30) })
+
+    expect(onError).not.toHaveBeenCalled()
   })
 })

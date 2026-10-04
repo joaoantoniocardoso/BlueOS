@@ -372,11 +372,7 @@ describe('two streams playing together', () => {
     controller.destroy()
   })
 
-  // Product bug the browser-like fake exposed: pausing fires `timeupdate`, which `onStreamTime` turns back into the
-  // last frame's time (15.75), undoing the `+ 0.001` that `onStreamStats` moved the position past the media with.
-  // That time is still inside the coverage, so `togglePlayback` plays on from the end instead of seeking to the start.
-  // Remove `.fails` once the controller no longer lets that `timeupdate` move the position back.
-  it.fails('stops once the only visible stream plays its last frame, and plays again from its start', async () => {
+  it('stops once the only visible stream plays its last frame, and plays again from its start', async () => {
     const { controller, streams } = await mountPlayingStreams(await buildTwoTrackVideoMcap())
     const [cameraA, cameraB] = streams
     const [cameraATrack, cameraBTrack] = controller.getState().tracks
@@ -405,6 +401,29 @@ describe('two streams playing together', () => {
     expect(controller.getState().position).toBe(cameraBTrack.coverage[0].start)
     expect(controller.getState().playing).toBe(true)
     cameraB.panel.destroy()
+    controller.destroy()
+  })
+
+  it('keeps the position at the time the stream was paused at, not at its last `timeupdate`', async () => {
+    const { controller, streams } = await mountPlayingStreams(await buildTwoTrackVideoMcap())
+    const [cameraA] = streams
+    controller.seekTo(8)
+    cameraA.followPosition()
+    await vi.waitFor(() => expect(cameraA.video.readyState).toBe(HAVE_ENOUGH_DATA))
+    cameraA.video.advance()
+    await new Promise((resolve) => { setTimeout(resolve, 10) })
+    expect(controller.getState().pendingSeek).toBeNull()
+    const positionBefore = controller.getState().position
+    cameraA.video.advance()
+    cameraA.video.advance()
+    expect(cameraA.video.currentTime).toBeGreaterThan(positionBefore)
+
+    controller.togglePlayback()
+    await new Promise((resolve) => { setTimeout(resolve, 10) })
+
+    expect(controller.getState().playing).toBe(false)
+    expect(controller.getState().position).toBe(cameraA.video.currentTime)
+    streams.forEach(({ panel }) => panel.destroy())
     controller.destroy()
   })
 
