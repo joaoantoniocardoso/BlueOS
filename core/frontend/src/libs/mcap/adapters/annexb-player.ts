@@ -19,6 +19,8 @@ const LIVE_LAG_SECONDS = 0.5
 const KEEP_BEHIND_SECONDS = 2
 /** Evict only when more than this extra media sits behind the keep-behind window. */
 const EVICT_EXTRA_SECONDS = 1
+/** The muxer rounds a frame time down to its timescale, so a removal must end this far before a keyframe to keep it. */
+const KEYFRAME_GUARD_SECONDS = 0.01
 /** Ask mediabunny for short fragments; live still force-flushes after each frame. */
 const FRAGMENT_SECONDS = 0
 
@@ -74,6 +76,8 @@ export class AnnexBMsePlayer {
   private lastTimestamp = 0
 
   private lastDuration = 1 / 30
+
+  private keyframeTimes: number[] = []
 
   private pendingAppends: Uint8Array[] = []
 
@@ -179,6 +183,9 @@ export class AnnexBMsePlayer {
     }
 
     const timestamp = this.nextTimestamp(frame.timestampSeconds)
+    if (keyframe) {
+      this.keyframeTimes.push(timestamp)
+    }
     await this.media.add({
       data: annexB,
       timestamp,
@@ -346,15 +353,23 @@ export class AnnexBMsePlayer {
     )
   }
 
+  // Removing a keyframe also drops the frames that depend on it, so a camera with a long GOP would lose the picture
+  // being played. Only evict up to the last keyframe that is already out of the keep-behind window.
   private async evict(aggressive: boolean): Promise<void> {
     const buffer = this.sourceBuffer
     if (!buffer || buffer.buffered.length === 0) {
       return
     }
     const keepBehind = aggressive ? 0.25 : KEEP_BEHIND_SECONDS
-    const extra = this.video.currentTime - keepBehind - buffer.buffered.start(0)
-    if (extra > (aggressive ? 0 : EVICT_EXTRA_SECONDS)) {
-      await this.removeRange(0, this.video.currentTime - keepBehind)
+    const keepFrom = this.video.currentTime - keepBehind
+    const keyframeTime = this.keyframeTimes.filter((time) => time <= keepFrom).pop()
+    let end = aggressive ? keepFrom : buffer.buffered.start(0)
+    if (keyframeTime !== undefined) {
+      end = keyframeTime - KEYFRAME_GUARD_SECONDS
+    }
+    if (end - buffer.buffered.start(0) > (aggressive ? 0 : EVICT_EXTRA_SECONDS)) {
+      await this.removeRange(0, end)
+      this.keyframeTimes = this.keyframeTimes.filter((time) => time > end)
     }
   }
 
