@@ -243,6 +243,11 @@ export class McapVideoPlayer {
       } else {
         this.stream.seekToStart()
       }
+      // An element keeps a time set while it had no media and seeks there once this media loads, as when a closed
+      // player left it elsewhere; that seek would restart reading at the old time.
+      const startedAt = this.options.startSeconds ?? (this.options.startAtEnd ? this.stream.durationSeconds : 0)
+      this.internalSeekTarget = startedAt
+      this.video.currentTime = startedAt
     } finally {
       this.restarting = false
     }
