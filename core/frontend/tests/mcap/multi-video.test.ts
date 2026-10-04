@@ -462,6 +462,35 @@ describe('a live recording', () => {
     expect(controller.getState().selectedChannelIds).toEqual([camera.channelId])
     controller.destroy()
   })
+
+  it('plays the first stream added to a player with none from its latest frames', async () => {
+    const finished = await buildLateVideoMcap()
+    const { chunks } = await asLiveRecording(finished, 1)
+    const live = await asLiveRecording(finished, chunks.findIndex((chunk) => chunk.channelIds.length === 2))
+    serveOverHttp(live.bytes)
+    const controller = new McapRecordingPlaybackController({
+      url: 'http://vehicle/userdata/recorder/live.mcap',
+      indexSource: live.indexSource,
+      ongoing: true,
+      callbacks: {
+        onState: () => undefined,
+        onBusy: () => undefined,
+        onSummary: () => undefined,
+        onMp4Saved: () => undefined,
+      },
+    })
+    await controller.mount()
+    expect(controller.getState().playing).toBe(false)
+
+    live.writtenChunks = chunks.length
+    controller.onWrittenSizeBytes(live.bytes().length)
+
+    await vi.waitFor(() => expect(controller.getState().tracks).toHaveLength(1))
+    const lastCameraFrame = 3.9
+    expect(controller.getState().position).toBeCloseTo(lastCameraFrame)
+    expect(controller.getState().playing).toBe(true)
+    controller.destroy()
+  })
 })
 
 describe('timeline lanes', () => {

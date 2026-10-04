@@ -578,6 +578,7 @@ export class McapRecordingPlaybackController {
     const { reader } = recording
     recording.durationSeconds = Number(reader.summary.endTime - recording.startTime) / 1e9
     const listed = listVideoTracks(reader)
+    const hadTracks = this.state.tracks.length > 0
     const selected = new Set(this.state.selectedChannelIds)
     const known = new Set(this.state.tracks.map((track) => track.channelId))
     for (const track of listed) {
@@ -594,6 +595,11 @@ export class McapRecordingPlaybackController {
       clipRange: [this.state.clipRange[0], recording.durationSeconds],
     })
     this.emitSummary()
+    // A live player that opened with no video stream has its playhead at the end of what was written then, where
+    // the first stream has no frame; it plays that stream from its latest frames instead, as it would on opening.
+    if (this.options.ongoing && !hadTracks && listed.length > 0) {
+      this.skipToLatest()
+    }
   }
 
   private emitSummary(): void {
