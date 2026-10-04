@@ -13,7 +13,7 @@ import type { McapVideoRecording } from '@/libs/mcap/adapters/player'
 import VideoFrameStream from '@/libs/mcap/logic/frame-stream'
 import { mergedVideoCoverage, trackCoversAt, trackTimelineLanes } from '@/libs/mcap/logic/playback-ui'
 import { McapIndexedReader } from '@/libs/mcap/logic/reader'
-import { listVideoTracks } from '@/libs/mcap/logic/video-track'
+import { listVideoTracks, type VideoTrack } from '@/libs/mcap/logic/video-track'
 
 import {
   asLiveRecording, buildLateVideoMcap, buildTwoTrackVideoMcap, TWO_TRACK_FRAME_NS,
@@ -180,13 +180,20 @@ class FakeVideo extends EventTarget {
 interface PlayingStream {
   video: FakeVideo
   panel: McapStreamPanelController
+  control: StreamPlaybackControl
   /** Opens or closes the stream when the playhead enters or leaves its range, as its `available` watcher does. */
   followPosition: () => void
 }
 
-/** Plays a finished recording with a panel and a fake `<video>` per stream, wired as `McapVideoPlayer.vue` does. */
-async function mountPlayingStreams(bytes: Uint8Array):
-  Promise<{ controller: McapRecordingPlaybackController, streams: PlayingStream[] }> {
+/**
+ * Plays a finished recording with a panel and a fake `<video>` per stream, wired as `McapVideoPlayer.vue` does.
+ * `mountStream` mounts one more, as the page does when a hidden stream is shown again.
+ */
+async function mountPlayingStreams(bytes: Uint8Array): Promise<{
+  controller: McapRecordingPlaybackController,
+  streams: PlayingStream[],
+  mountStream: (track: VideoTrack) => PlayingStream,
+}> {
   serveOverHttp(() => bytes)
   vi.stubGlobal('MediaSource', FakeMediaSource)
   vi.spyOn(URL, 'createObjectURL').mockImplementation((source) => {
@@ -207,7 +214,7 @@ async function mountPlayingStreams(bytes: Uint8Array):
   })
   await controller.mount()
   const { recording, tracks } = controller.getState()
-  const streams = tracks.map((track) => {
+  function mountStream(track: VideoTrack): PlayingStream {
     const video = new FakeVideo()
     const element = video as unknown as HTMLVideoElement
     let available = trackCoversAt(track, controller.getState().position)
@@ -226,6 +233,12 @@ async function mountPlayingStreams(bytes: Uint8Array):
     return {
       video,
       panel,
+      control: {
+        channelId: track.channelId,
+        seek: (seconds) => panel.seek(seconds),
+        play: () => panel.play(element),
+        pause: () => panel.pause(element),
+      },
       followPosition: () => {
         const { position } = controller.getState()
         if (trackCoversAt(track, position) !== available) {
@@ -234,14 +247,10 @@ async function mountPlayingStreams(bytes: Uint8Array):
         }
       },
     }
-  })
-  controller.setStreamControls(streams.map(({ video, panel }, index) => ({
-    channelId: tracks[index].channelId,
-    seek: (seconds) => panel.seek(seconds),
-    play: () => panel.play(video as unknown as HTMLVideoElement),
-    pause: () => panel.pause(video as unknown as HTMLVideoElement),
-  })))
-  return { controller, streams }
+  }
+  const streams = tracks.map(mountStream)
+  controller.setStreamControls(streams.map(({ control }) => control))
+  return { controller, streams, mountStream }
 }
 
 async function openTwoTracks(): Promise<McapVideoRecording> {
@@ -435,6 +444,44 @@ describe('two streams playing together', () => {
       expect(Math.abs(sample.cameraB - sample.cameraA)).toBeLessThanOrEqual(IN_STEP_SECONDS)
     }
     streams.forEach(({ panel }) => panel.destroy())
+    controller.destroy()
+  })
+
+  it('shows a hidden stream at the playhead without moving the other one back', async () => {
+    const { controller, streams, mountStream } = await mountPlayingStreams(await buildTwoTrackVideoMcap())
+    const [cameraA, cameraB] = streams
+    const [cameraATrack] = controller.getState().tracks
+    controller.seekTo(8)
+    streams.forEach(({ followPosition }) => followPosition())
+    await vi.waitFor(() => expect(cameraB.video.readyState).toBe(HAVE_ENOUGH_DATA))
+    controller.toggleStream(cameraATrack.channelId)
+    cameraA.panel.destroy()
+    controller.setStreamControls([cameraB.control])
+    for (let step = 0; step < 6; step += 1) {
+      cameraB.video.advance()
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => { setTimeout(resolve, 10) })
+    }
+
+    controller.toggleStream(cameraATrack.channelId)
+    const shown = mountStream(cameraATrack)
+    controller.setStreamControls([shown.control, cameraB.control])
+    const samples: { position: number, cameraB: number }[] = []
+    for (let step = 0; step < 12; step += 1) {
+      [shown, cameraB].forEach(({ video }) => video.advance())
+      samples.push({ position: controller.getState().position, cameraB: cameraB.video.currentTime })
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => { setTimeout(resolve, 10) })
+    }
+
+    const positions = samples.map((sample) => sample.position)
+    expect(positions).toEqual([...positions].sort((left, right) => left - right))
+    samples.slice(1).forEach((sample, index) => {
+      expect(sample.cameraB).toBeGreaterThan(samples[index].cameraB - IN_STEP_SECONDS)
+    })
+    expect(Math.abs(shown.video.currentTime - cameraB.video.currentTime)).toBeLessThanOrEqual(IN_STEP_SECONDS)
+    shown.panel.destroy()
+    cameraB.panel.destroy()
     controller.destroy()
   })
 

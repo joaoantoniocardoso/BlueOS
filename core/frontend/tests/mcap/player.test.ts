@@ -7,7 +7,7 @@ import { McapVideoPlayer } from '@/libs/mcap/adapters/player'
 import { McapIndexedReader } from '@/libs/mcap/logic/reader'
 import { listVideoTracks } from '@/libs/mcap/logic/video-track'
 
-import { buildIndexedVideoMcap, buildTwoTrackVideoMcap } from './build-mcap'
+import { buildGopVideoMcap, buildIndexedVideoMcap, buildTwoTrackVideoMcap } from './build-mcap'
 import MemoryByteSource from './memory-byte-source'
 
 /** A browser decodes appended media asynchronously; the player must not count on it being instant. */
@@ -291,6 +291,27 @@ describe('McapVideoPlayer', () => {
     expect(appended[0]).toBeLessThanOrEqual(target)
     expect(video.currentTime).toBeGreaterThanOrEqual(appended[0])
     expect(video.currentTime).toBeLessThanOrEqual(target)
+    player.destroy()
+  })
+
+  it('starts from the keyframe at or before its start time and plays from that time', async () => {
+    const reader = await McapIndexedReader.open(new MemoryByteSource(await buildGopVideoMcap()))
+    const [track] = listVideoTracks(reader)
+    const { startTime, endTime } = reader.summary
+    const recording = {
+      reader, tracks: [track], channels: [], durationSeconds: Number(endTime - startTime) / 1e9, startTime,
+    }
+    const startSeconds = 15
+    const video = new FakeVideo()
+    const player = new McapVideoPlayer(video as unknown as HTMLVideoElement, recording, track, { startSeconds })
+
+    await player.start()
+
+    await vi.waitFor(() => expect(video.buffered.end(0)).toBeGreaterThan(startSeconds))
+    // Keyframes come every 2 s, and the chunk holding 15 s starts at 8.5 s, so its first keyframe is at 10 s.
+    const lastKeyframeBefore = 14
+    expect(sourceBuffer?.appendedStarts[0]).toBe(lastKeyframeBefore)
+    expect(video.currentTime).toBe(startSeconds)
     player.destroy()
   })
 

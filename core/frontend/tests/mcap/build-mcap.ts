@@ -90,6 +90,32 @@ export async function buildSizedVideoMcap(messageCount = 16): Promise<Uint8Array
   return buffer.get()
 }
 
+/**
+ * One video stream with a frame every 0.5 s for 30 s and a keyframe every 2 s, larger than the deltas as a camera's
+ * are, in chunks of about 10 s: a chunk holds several groups of pictures.
+ */
+export async function buildGopVideoMcap(): Promise<Uint8Array> {
+  const buffer = new TempBuffer()
+  const writer = new McapWriter({ writable: buffer, chunkSize: 2048 })
+  await writer.start({ profile: '', library: 'blueos-test' })
+  const schemaId = await writer.registerSchema({
+    name: 'foxglove.CompressedVideo', encoding: 'ros2msg', data: new TextEncoder().encode(COMPRESSED_VIDEO_SCHEMA),
+  })
+  const channelId = await writer.registerChannel({
+    schemaId, topic: 'video/camera/stream', messageEncoding: 'cdr', metadata: new Map(),
+  })
+  const keyframe = encodeCompressedVideo('h264', Uint8Array.from([...SAMPLE_H264_KEYFRAME, ...new Uint8Array(128)]))
+  const delta = encodeCompressedVideo('h264', SAMPLE_H264_DELTA)
+  for (let index = 0; index <= 60; index += 1) {
+    const logTime = 1_000_000_000n + BigInt(index) * 500_000_000n
+    await writer.addMessage({
+      channelId, sequence: index, logTime, publishTime: logTime, data: index % 4 === 0 ? keyframe : delta,
+    })
+  }
+  await writer.end()
+  return buffer.get()
+}
+
 /** Frame spacing of `buildTwoTrackVideoMcap`; camera_b frames sit half way between two camera_a frames. */
 export const TWO_TRACK_FRAME_NS = 500_000_000n
 
