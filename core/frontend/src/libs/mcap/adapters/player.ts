@@ -16,7 +16,7 @@ import {
 } from '../logic/mux'
 import { McapIndexedReader, PrefixScanProgress } from '../logic/reader'
 import type { RecordingIndexSource } from '../logic/recording-index'
-import { listVideoTracks, VideoTrack } from '../logic/video-track'
+import { listVideoTracks, loadFrameAccurateCoverage, VideoTrack } from '../logic/video-track'
 import { HttpByteSource } from './http-byte-source'
 import { appendSourceBuffer, waitForSourceOpen } from './mse'
 
@@ -37,6 +37,8 @@ export interface McapVideoStats {
   loading: boolean
   /** True while an ongoing recording has no further frames yet and the player is polling for them. */
   waiting: boolean
+  /** True once a finished recording has been read to its end, so nothing more of the stream will be buffered. */
+  ended: boolean
   /** Frames read out of the recording, and how many of them started a group of pictures. */
   framesRead: number
   keyframes: number
@@ -101,6 +103,7 @@ export async function openMcapVideoRecording(
 ): Promise<McapVideoRecording> {
   const { indexSource, signal, onProgress } = options
   const reader = await McapIndexedReader.open(new HttpByteSource(url), { indexSource, signal, onProgress })
+  await loadFrameAccurateCoverage(reader, signal)
   const { startTime, endTime } = reader.summary
   return {
     reader,
@@ -172,6 +175,9 @@ export class McapVideoPlayer {
 
   /** Time a queued restart has to land on, or null when nothing is waiting to be seeked to. */
   private queuedRestartSeconds: number | null = null
+
+  /** Time the last start or seek asked for, until a frame after it is read; null after that. */
+  private targetSeconds: number | null = null
 
   /** Whether a seek is currently pointing the stream at a new time. */
   private restarting = false
@@ -246,6 +252,7 @@ export class McapVideoPlayer {
       // An element keeps a time set while it had no media and seeks there once this media loads, as when a closed
       // player left it elsewhere; that seek would restart reading at the old time.
       const startedAt = this.options.startSeconds ?? (this.options.startAtEnd ? this.stream.durationSeconds : 0)
+      this.targetSeconds = startedAt
       this.internalSeekTarget = startedAt
       this.video.currentTime = startedAt
     } finally {
@@ -294,6 +301,7 @@ export class McapVideoPlayer {
       format: this.pending[0]?.format ?? null,
       loading: this.loading,
       waiting: this.waiting,
+      ended: this.reachedEnd,
       framesRead,
       keyframes: this.cursor.keyframes,
       framesLost,
@@ -381,6 +389,7 @@ export class McapVideoPlayer {
   private onWaiting = (): void => {
     this.alignPlayhead()
     this.scheduleFill()
+    this.emitStats()
   }
 
   private onSeeking = (): void => {
@@ -467,6 +476,7 @@ export class McapVideoPlayer {
       this.restoreDuration()
     }
     await this.stream.seekToKeyframe(seconds, this.controller.signal)
+    this.targetSeconds = seconds
     this.internalSeekTarget = seconds
     this.video.currentTime = seconds
   }
@@ -507,11 +517,13 @@ export class McapVideoPlayer {
       // eslint-disable-next-line no-await-in-loop
       const frame = await this.cursor.next(signal)
       if (!frame) {
+        // Known before the last media goes in, since only then may the playhead snap back onto it.
+        this.waiting = this.follow
+        this.reachedEnd = !this.follow
         // eslint-disable-next-line no-await-in-loop
         await this.flushFragment(true, !this.follow)
         if (this.follow) {
           this.loading = false
-          this.waiting = true
           this.emitStats()
           // eslint-disable-next-line no-await-in-loop
           const grew = await this.waitForNewData(signal, knownChunks)
@@ -524,11 +536,11 @@ export class McapVideoPlayer {
           }
           return
         }
-        this.reachedEnd = true
         if (this.needsKeyframe) {
           throw new Error('This video stream holds no keyframe, so there is nothing that can be decoded.')
         }
         this.signalEndOfStream()
+        this.emitStats()
         return
       }
 
@@ -542,6 +554,18 @@ export class McapVideoPlayer {
         this.needsKeyframe = false
       }
 
+      // Showing the target only takes the group of pictures holding it; appending earlier ones would make the
+      // playhead start before it.
+      if (this.targetSeconds !== null && this.stream.toSeconds(frame.logTime) <= this.targetSeconds) {
+        if (frame.isKeyframe) {
+          this.pending = []
+        }
+        this.pending.push({
+          logTime: frame.logTime, format: frame.format, data: frame.annexB, isKeyframe: frame.isKeyframe,
+        })
+        continue
+      }
+      this.targetSeconds = null
       this.pending.push({
         logTime: frame.logTime, format: frame.format, data: frame.annexB, isKeyframe: frame.isKeyframe,
       })
@@ -665,6 +689,10 @@ export class McapVideoPlayer {
       if (currentTime >= buffered.start(index) - RESUME_TOLERANCE_SECONDS && currentTime <= buffered.end(index)) {
         return
       }
+    }
+    // A seek lands ahead of the media read so far until reading gets there.
+    if (!this.reachedEnd && !this.waiting && currentTime > this.bufferedEnd()) {
+      return
     }
     // Snap onto the nearest range. A seek to the end of an ongoing file lands after the last keyframe,
     // and a recording that only holds video in part of its span has nothing at the time that was

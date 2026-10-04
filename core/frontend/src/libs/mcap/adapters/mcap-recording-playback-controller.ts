@@ -10,7 +10,9 @@ import {
 import type { PrefixScanProgress } from '../logic/reader'
 import type { RecordingIndexSource } from '../logic/recording-index'
 import type { VideoTrack } from '../logic/video-track'
-import { listVideoTracks, timeRangesCover } from '../logic/video-track'
+import {
+  coverageForChannel, listVideoTracks, loadFrameAccurateCoverage, timeRangesCover,
+} from '../logic/video-track'
 import {
   exportTrackAsMp4,
   type Mp4ExportProgress,
@@ -29,6 +31,8 @@ import {
 const SYNC_TOLERANCE_SECONDS = 0.5
 /** `HTMLMediaElement.HAVE_CURRENT_DATA`: the element has a frame for its current position. */
 const HAVE_CURRENT_DATA = 2
+/** `HTMLMediaElement.HAVE_FUTURE_DATA`: the element can play on from its current position. */
+const HAVE_FUTURE_DATA = 3
 
 export interface StreamPlaybackControl {
   channelId: number
@@ -189,6 +193,7 @@ export class McapRecordingPlaybackController {
 
   setSelectedChannelIds(channelIds: number[]): void {
     this.patch({ selectedChannelIds: [...channelIds] })
+    this.keepPlaybackOnVideo()
   }
 
   selectAllStreams(): void {
@@ -197,12 +202,14 @@ export class McapRecordingPlaybackController {
 
   selectNoStreams(): void {
     this.patch({ selectedChannelIds: [] })
+    this.keepPlaybackOnVideo()
   }
 
   toggleStream(channelId: number): void {
     const { selectedChannelIds, tracks } = this.state
     if (selectedChannelIds.includes(channelId)) {
       this.patch({ selectedChannelIds: selectedChannelIds.filter((selected) => selected !== channelId) })
+      this.keepPlaybackOnVideo()
       return
     }
     this.patch({
@@ -272,6 +279,22 @@ export class McapRecordingPlaybackController {
       streamStats: { ...this.state.streamStats, [channelId]: stats },
       bytesDownloaded: stats.bytesDownloaded,
     })
+    if (!stats.ended || !this.state.playing || channelId !== this.clockChannelId()) {
+      return
+    }
+    const leader = this.clockVideo()
+    const track = this.state.tracks.find((candidate) => candidate.channelId === channelId)
+    const bufferedEnd = leader && leader.buffered.length > 0 ? leader.buffered.end(leader.buffered.length - 1) : null
+    if (!leader || !track || bufferedEnd === null || leader.readyState >= HAVE_FUTURE_DATA
+      || leader.currentTime < bufferedEnd - SYNC_TOLERANCE_SECONDS) {
+      return
+    }
+    // The clock stream stalled on its last frame and will get no more. Moving the position just past its media hands
+    // the clock to a stream that covers a later time, if one does.
+    const playhead = this.playbackPosition()
+    const end = track.coverage.find((range) => timeRangesCover([range], playhead))?.end ?? playhead
+    this.patch({ position: Math.max(playhead, end) + 0.001 })
+    this.keepPlaybackOnVideo()
   }
 
   onStreamTime(channelId: number, seconds: number): void {
@@ -577,6 +600,7 @@ export class McapRecordingPlaybackController {
     }
     const { reader } = recording
     recording.durationSeconds = Number(reader.summary.endTime - recording.startTime) / 1e9
+    recording.channels = listMcapChannels(reader)
     const listed = listVideoTracks(reader)
     const hadTracks = this.state.tracks.length > 0
     const selected = new Set(this.state.selectedChannelIds)
@@ -600,6 +624,16 @@ export class McapRecordingPlaybackController {
     if (this.options.ongoing && !hadTracks && listed.length > 0) {
       this.skipToLatest()
     }
+    // Only the listed tracks are narrowed: one listed here would skip the selection a new stream gets above.
+    loadFrameAccurateCoverage(reader, this.openController.signal).then((read) => {
+      if (read) {
+        this.patch({
+          tracks: this.state.tracks.map((track) => ({
+            ...track, coverage: coverageForChannel(reader, track.channelId),
+          })),
+        })
+      }
+    }).catch(() => undefined)
   }
 
   private emitSummary(): void {
@@ -627,6 +661,21 @@ export class McapRecordingPlaybackController {
     return channelId === null ? null : this.state.videos[channelId] ?? null
   }
 
+  /** While playing, moves a position that no visible stream covers on to the next one that does, or stops there. */
+  private keepPlaybackOnVideo(): void {
+    const coverage = mergedVideoCoverage(this.visibleTracks())
+    if (!this.state.playing || timeRangesCover(coverage, this.state.position)) {
+      return
+    }
+    const next = coverage.find((range) => range.start > this.state.position)
+    if (next) {
+      this.seekTo(next.start)
+      return
+    }
+    this.streamControls.forEach((stream) => stream.pause())
+    this.patch({ playing: false })
+  }
+
   private playbackPosition(): number {
     const leader = this.clockVideo()
     const duration = this.state.recording?.durationSeconds ?? 0
@@ -648,11 +697,15 @@ export class McapRecordingPlaybackController {
       }
       // A stream whose media only starts after the leader's time, as one that came into range before its first
       // keyframe, waits there for the leader. Seeking it back would read the same media again and land on it again.
+      // So does one with nothing left to read past its last frame, which a seek would only read again.
       const { buffered } = follower
       const ranges = Array.from({ length: buffered.length }, (_, index) => ({
         start: buffered.start(index), end: buffered.end(index),
       }))
-      if (!timeRangesCover(ranges, leader.currentTime) && ranges.some((range) => range.start > leader.currentTime)) {
+      const stats = this.state.streamStats[track.channelId]
+      const noneToCome = stats?.ended || stats?.waiting
+      if (!timeRangesCover(ranges, leader.currentTime)
+        && (noneToCome || ranges.some((range) => range.start > leader.currentTime))) {
         follower.pause()
         continue
       }

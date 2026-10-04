@@ -121,6 +121,14 @@ export interface McapMessageEntry {
   size: number
 }
 
+/** Where the messages of one channel lie inside one chunk, read from the chunk's message index. */
+export interface McapChannelSpan {
+  firstLogTime: bigint
+  lastLogTime: bigint
+  /** Time from the second to last message to the last one, 0 when the chunk holds a single message of the channel. */
+  lastInterval: bigint
+}
+
 export interface PrefixScanProgress {
   offset: number
   size: number
@@ -276,6 +284,8 @@ export class McapIndexedReader {
   private chunkLoads = new Map<number, Promise<Uint8Array>>()
 
   private extendTask: Promise<boolean> | null = null
+
+  private channelSpansByChunkOffset = new Map<number, Map<number, McapChannelSpan>>()
 
   private constructor(
     public readonly source: ByteSource,
@@ -828,6 +838,37 @@ export class McapIndexedReader {
       const end = low < allOffsets.length ? allOffsets[low] : index.uncompressedSize
       return { logTime, size: Math.max(0, end - offset - MESSAGE_HEADER_SIZE) }
     }).sort((left, right) => Number(left.logTime - right.logTime))
+  }
+
+  /** The span of every channel in a chunk once `loadChannelSpans` has read them, undefined before. */
+  channelSpansIn(chunk: McapChunkIndex): ReadonlyMap<number, McapChannelSpan> | undefined {
+    return this.channelSpansByChunkOffset.get(chunk.offset)
+  }
+
+  /**
+   * Reads a chunk's message index, once, to learn where each channel's messages start and end in it. The index costs
+   * a few bytes per message against the whole chunk that reading the messages downloads. A chunk without one is left
+   * unread.
+   */
+  async loadChannelSpans(chunk: McapChunkIndex, signal?: AbortSignal): Promise<void> {
+    if (chunk.messageIndexLength === 0 || this.channelSpansByChunkOffset.has(chunk.offset)) {
+      return
+    }
+    const data = await this.source.read(chunk.offset + chunk.length, chunk.messageIndexLength, signal)
+    const spans = new Map<number, McapChannelSpan>()
+    for (const record of parseRecords(data).records) {
+      if (record.type !== 'MessageIndex' || record.records.length === 0) {
+        continue
+      }
+      const times = record.records.map(([logTime]) => logTime).sort((left, right) => Number(left - right))
+      const last = times[times.length - 1]
+      spans.set(record.channelId, {
+        firstLogTime: times[0],
+        lastLogTime: last,
+        lastInterval: times.length > 1 ? last - times[times.length - 2] : 0n,
+      })
+    }
+    this.channelSpansByChunkOffset.set(chunk.offset, spans)
   }
 
   async readChunkMessages(chunkIndex: number, channelId: number, signal?: AbortSignal): Promise<McapMessage[]> {
