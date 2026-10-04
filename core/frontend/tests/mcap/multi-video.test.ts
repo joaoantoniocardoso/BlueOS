@@ -16,7 +16,7 @@ import { McapIndexedReader } from '@/libs/mcap/logic/reader'
 import { listVideoTracks, type VideoTrack } from '@/libs/mcap/logic/video-track'
 
 import {
-  asLiveRecording, buildLateVideoMcap, buildTwoTrackVideoMcap, TWO_TRACK_FRAME_NS,
+  asLiveRecording, buildGopVideoMcap, buildLateVideoMcap, buildTwoTrackVideoMcap, TWO_TRACK_FRAME_NS,
 } from './build-mcap'
 import MemoryByteSource from './memory-byte-source'
 
@@ -389,6 +389,33 @@ describe('a recording with two video streams', () => {
     expect(saved).toEqual(['two-camera_a-0s-3s.mp4'])
     expect(controller.getState().exportNotice).toMatch(/camera_b/)
     controller.destroy()
+  })
+
+  it('saves the other streams and names the one that ended before the cut', async () => {
+    const saved: string[] = []
+    const controller = await mountTwoTrackPlayer((_blob, fileName) => saved.push(fileName))
+
+    await controller.saveMp4('two', { startSeconds: 16, endSeconds: 19 })
+
+    expect(saved).toEqual(['two-camera_a-16s-19s.mp4'])
+    expect(controller.getState().exportNotice).toMatch(/camera_b/)
+    controller.destroy()
+  })
+
+  it('keeps only the frames from the keyframe before the start of a cut on', async () => {
+    const reader = await McapIndexedReader.open(new MemoryByteSource(await buildGopVideoMcap()))
+    const recording = {
+      reader,
+      tracks: listVideoTracks(reader),
+      channels: [],
+      durationSeconds: Number(reader.summary.endTime - reader.summary.startTime) / 1e9,
+      startTime: reader.summary.startTime,
+    }
+
+    const file = await exportTrackAsMp4(recording, recording.tracks[0], { range: { startSeconds: 15, endSeconds: 20 } })
+
+    const framesFromTheKeyframeAt14To20 = 13
+    expect(await mp4SampleCount(file)).toBe(framesFromTheKeyframeAt14To20)
   })
 
   it('seeks, plays and pauses every stream', async () => {
