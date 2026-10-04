@@ -11,6 +11,7 @@ RepairRecording = { type = "blueos_recorder_msgs/action/RepairRecording", nature
 SnapshotRecording = { type = "blueos_recorder_msgs/action/SnapshotRecording", nature = { lasting = true } }
 
 [query]
+bytes = { type = "blueos_recorder_msgs/srv/RecordingBytes", io = true }
 index = { type = "blueos_recorder_msgs/srv/RecordingIndex", io = true }
 
 [state]

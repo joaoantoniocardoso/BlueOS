@@ -20,9 +20,17 @@ pub const NAME: &str = "recorder";
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not handle the custom endpoints of the `recorder` Service",
     label = "no `impl Handlers<D> for {Self}` in the `recorder` app crate",
-    note = "implement `index` for the IO query `index`"
+    note = "implement `bytes` for the IO query `bytes`, `index` for the IO query `index`"
 )]
 pub trait Handlers<D: Domain>: Send + Sync + 'static {
+    /// The IO query `bytes`, at `blueos/v1/recorder/query/bytes`.
+    ///
+    /// Its response, read outside the Inbox, or why it is refused.
+    fn bytes(
+        &self,
+        request: blueos_recorder_msgs::RecordingBytesRequest,
+    ) -> impl Future<Output = Result<blueos_recorder_msgs::RecordingBytesResponse, Refusal>> + Send;
+
     /// The IO query `index`, at `blueos/v1/recorder/query/index`.
     ///
     /// Its response, read outside the Inbox, or why it is refused.
@@ -109,6 +117,13 @@ pub fn register<D: Conversions + DomainJobs, H: Handlers<D>, Context>(
         })
         .job_feedback("Stop", <D as Conversions>::stop_feedback)
         .job_result("Stop", <D as Conversions>::stop_result)
+        .io_query("bytes", {
+            let handlers = Arc::clone(&handlers);
+            move |request: blueos_recorder_msgs::RecordingBytesRequest| {
+                let handlers = Arc::clone(&handlers);
+                Box::pin(async move { H::bytes(&handlers, request).await })
+            }
+        })
         .io_query("index", {
             let handlers = Arc::clone(&handlers);
             move |request: blueos_recorder_msgs::RecordingIndexRequest| {
@@ -161,6 +176,15 @@ pub fn register<D: Conversions + DomainJobs, H: Handlers<D>, Context>(
                 key: "blueos/v1/recorder/command/Stop".into(),
                 interface_type: "blueos_recorder_msgs/action/StopRecording".into(),
                 schema: blueos_idl::schema("blueos_recorder_msgs/action/StopRecording")
+                    .unwrap_or_default()
+                    .into(),
+            },
+            blueos_idl::msg::blueos_msgs::EndpointInfo {
+                kind: "query".into(),
+                name: "bytes".into(),
+                key: "blueos/v1/recorder/query/bytes".into(),
+                interface_type: "blueos_recorder_msgs/srv/RecordingBytes".into(),
+                schema: blueos_idl::schema("blueos_recorder_msgs/srv/RecordingBytes")
                     .unwrap_or_default()
                     .into(),
             },

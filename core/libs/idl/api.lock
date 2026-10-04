@@ -47,6 +47,7 @@ blueos/v1/recorder/jobs/UpdateSettings/feedback 1 type=blueos_msgs/msg/JobFeedba
 blueos/v1/recorder/jobs/UpdateSettings/history 1 type=blueos_msgs/msg/JobList
 blueos/v1/recorder/jobs/UpdateSettings/result 1 type=blueos_msgs/msg/JobResult
 blueos/v1/recorder/log 1 type=foxglove_msgs/msg/Log
+blueos/v1/recorder/query/bytes 1 type=blueos_recorder_msgs/srv/RecordingBytes
 blueos/v1/recorder/query/index 1 type=blueos_recorder_msgs/srv/RecordingIndex
 blueos/v1/recorder/query/info 1 type=blueos_msgs/msg/ServiceInfo
 blueos/v1/recorder/settings 1 type=blueos_msgs/msg/SettingsEnvelope
