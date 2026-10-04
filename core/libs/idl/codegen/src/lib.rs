@@ -769,6 +769,16 @@ fn read_field_tokens(
     message_name: &str,
 ) -> TokenStream {
     match field.case() {
+        FieldCase::Vector if is_byte_sequence(field, families) => quote! {
+            {
+                if reader.is_exhausted() {
+                    Vec::new()
+                } else {
+                    let length = reader.read_bounded_sequence_length()?;
+                    reader.read_bytes(length as usize)?.to_vec()
+                }
+            }
+        },
         FieldCase::Vector => {
             let element = read_scalar_or_message_inner(field, families, message_name);
             quote! {
@@ -877,6 +887,10 @@ fn write_field_tokens(
     message_name: &str,
 ) -> TokenStream {
     match field.case() {
+        FieldCase::Vector if is_byte_sequence(field, families) => quote! {
+            writer.write_u32(#value.len() as u32)?;
+            writer.write_bytes(&#value)?;
+        },
         FieldCase::Vector => {
             let element_write = write_vector_element(field, families, message_name);
             quote! {
@@ -898,6 +912,11 @@ fn write_field_tokens(
             write_scalar_or_message(field, value, families, message_name)
         }
     }
+}
+
+/// Whether `field` is a `uint8[]` of plain bytes, which the codec copies whole instead of byte by byte.
+fn is_byte_sequence(field: &Field, families: &BTreeMap<String, ConstantFamily>) -> bool {
+    matches!(field.datatype(), DataType::U8) && !families.contains_key(field.name())
 }
 
 fn write_vector_element(

@@ -130,6 +130,17 @@ fn a_uint8_sequence_is_a_uint8_array_in_typescript() {
 }
 
 #[test]
+fn a_uint8_sequence_is_written_and_read_whole_in_rust() {
+    let samples =
+        fs::read_to_string(fixture_root().join("expected/generated/msg/fixture_msgs/samples.rs"))
+            .expect("read samples.rs");
+
+    assert!(samples.contains("writer.write_bytes(&self.samples)?;"));
+    assert!(samples.contains("reader.read_bytes(length as usize)?.to_vec()"));
+    assert!(samples.contains("writer.write_u16(*element)?;"));
+}
+
+#[test]
 fn the_schema_text_of_an_interface_lists_every_part() {
     let lookup =
         fs::read_to_string(fixture_root().join("expected/generated/mod.rs")).expect("read mod.rs");
