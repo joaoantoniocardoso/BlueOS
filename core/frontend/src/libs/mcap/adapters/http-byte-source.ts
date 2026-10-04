@@ -1,7 +1,7 @@
 import type { ByteSource } from '../logic/byte-source'
 
 /** Bytes fetched from the end of the file to learn its size and read the MCAP footer at once. */
-const TAIL_SIZE = 4096
+export const TAIL_SIZE = 4096
 
 export class HttpByteSource implements ByteSource {
   bytesRead = 0

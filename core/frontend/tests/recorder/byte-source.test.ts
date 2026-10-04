@@ -18,7 +18,7 @@ vi.mock('@/libs/zenoh', () => ({ default: { getSession: async () => ({}) } }))
 
 const MEBIBYTE = 1024 * 1024
 
-function requestOf(query: PendingQuery): { path: string, offset: number, length: number } {
+function requestOf(query: PendingQuery): { path: string, offset: number, length: number, from_end: boolean } {
   if (!query.body) {
     throw new Error('expected a request body')
   }
@@ -47,25 +47,31 @@ async function answerRanges(transport: FakeTransport, count: number, size: numbe
 }
 
 describe('ZenohByteSource', () => {
-  it('reads a range with the bytes Query and reports the size of the first reply', async () => {
+  it('reads the size and the tail in one query, then a range with the bytes Query', async () => {
     const transport = new FakeTransport()
     const source = new ZenohByteSource(transport, 'flight/live.mcap')
+    const tail = new Uint8Array(4096).map((_, index) => index % 251)
 
     const size = source.size()
     const sizeQuery = await transport.nextQuery()
     expect(sizeQuery.key).toBe(bytes.key)
-    expect(requestOf(sizeQuery)).toEqual({ path: 'flight/live.mcap', offset: 0, length: 0 })
-    answer(sizeQuery, 1000, new Uint8Array())
-    await expect(size).resolves.toBe(1000)
+    expect(requestOf(sizeQuery)).toEqual({
+      path: 'flight/live.mcap', offset: 0, length: 4096, from_end: true,
+    })
+    answer(sizeQuery, 10000, tail)
+    await expect(size).resolves.toBe(10000)
+    await expect(source.read(10000 - 22, 22)).resolves.toEqual(tail.subarray(4096 - 22))
 
     const read = source.read(10, 4)
     const readQuery = await transport.nextQuery()
-    expect(requestOf(readQuery)).toEqual({ path: 'flight/live.mcap', offset: 10, length: 4 })
-    answer(readQuery, 1200, new Uint8Array([1, 2, 3, 4]))
+    expect(requestOf(readQuery)).toEqual({
+      path: 'flight/live.mcap', offset: 10, length: 4, from_end: false,
+    })
+    answer(readQuery, 12000, new Uint8Array([1, 2, 3, 4]))
 
     await expect(read).resolves.toEqual(new Uint8Array([1, 2, 3, 4]))
-    await expect(source.size()).resolves.toBe(1000)
-    expect(source.bytesRead).toBe(4)
+    await expect(source.size()).resolves.toBe(10000)
+    expect(source.bytesRead).toBe(4096 + 4)
   })
 
   it('splits a large read into 1 MiB queries, sent one at a time, and joins them in order', async () => {

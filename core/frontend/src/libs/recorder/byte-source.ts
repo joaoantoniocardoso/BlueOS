@@ -1,8 +1,8 @@
 import { query } from '@/libs/blueos-api/command'
-import { bytes } from '@/libs/blueos-api/services/recorder'
+import { bytes, type bytesRequest, type bytesResponse } from '@/libs/blueos-api/services/recorder'
 import type { Transport } from '@/libs/blueos-api/transport'
 import zenohTransport from '@/libs/blueos-api/zenoh-transport'
-import { HttpByteSource } from '@/libs/mcap/adapters/http-byte-source'
+import { HttpByteSource, TAIL_SIZE } from '@/libs/mcap/adapters/http-byte-source'
 import { throwIfAborted, whileWaiting } from '@/libs/mcap/logic/abort'
 import type { ByteSource } from '@/libs/mcap/logic/byte-source'
 import zenoh from '@/libs/zenoh'
@@ -26,11 +26,15 @@ export class ZenohByteSource implements ByteSource {
    */
   private queue: Promise<unknown> = Promise.resolve()
 
+  private tail: { offset: number, data: Uint8Array } | null = null
+
   constructor(private readonly transport: Transport, public readonly path: string) {}
 
+  /** Reads the end of the recording with its size, like the suffix range of `HttpByteSource`, for the footer. */
   async size(signal?: AbortSignal): Promise<number> {
     if (this.total === null) {
-      await this.readPiece(0, 0, signal)
+      const { size, data } = await this.request({ offset: 0, length: TAIL_SIZE, from_end: true }, signal)
+      this.tail = { offset: size - data.byteLength, data }
     }
     return this.total ?? 0
   }
@@ -39,11 +43,16 @@ export class ZenohByteSource implements ByteSource {
     if (length <= 0) {
       return new Uint8Array()
     }
+    const { tail } = this
+    if (tail && offset >= tail.offset && offset + length <= tail.offset + tail.data.byteLength) {
+      return tail.data.subarray(offset - tail.offset, offset - tail.offset + length)
+    }
     const pieces = await Promise.all(Array.from(
       { length: Math.ceil(length / RECORDING_BYTES_MAX_LENGTH) },
-      (_, piece) => {
-        const start = piece * RECORDING_BYTES_MAX_LENGTH
-        return this.readPiece(offset + start, Math.min(RECORDING_BYTES_MAX_LENGTH, length - start), signal)
+      async (_, piece) => {
+        const start = offset + piece * RECORDING_BYTES_MAX_LENGTH
+        const pieceLength = Math.min(RECORDING_BYTES_MAX_LENGTH, offset + length - start)
+        return (await this.request({ offset: start, length: pieceLength, from_end: false }, signal)).data
       },
     ))
     if (pieces.length === 1) {
@@ -57,21 +66,18 @@ export class ZenohByteSource implements ByteSource {
     return data
   }
 
-  private readPiece(offset: number, length: number, signal?: AbortSignal): Promise<Uint8Array> {
-    const piece = this.queue.then(() => this.queryPiece(offset, length, signal))
-    this.queue = piece.catch(() => undefined)
-    return piece
-  }
-
-  private async queryPiece(offset: number, length: number, signal?: AbortSignal): Promise<Uint8Array> {
-    throwIfAborted(signal)
-    const response = await whileWaiting(query(this.transport, bytes, { path: this.path, offset, length }), signal)
-    if (this.total === null) {
-      this.total = response.size
-    }
-    const { data } = response
-    this.bytesRead += data.byteLength
-    return data
+  private request(range: Omit<bytesRequest, 'path'>, signal?: AbortSignal): Promise<bytesResponse> {
+    const response = this.queue.then(async () => {
+      throwIfAborted(signal)
+      const answer = await whileWaiting(query(this.transport, bytes, { path: this.path, ...range }), signal)
+      if (this.total === null) {
+        this.total = answer.size
+      }
+      this.bytesRead += answer.data.byteLength
+      return answer
+    })
+    this.queue = response.catch(() => undefined)
+    return response
   }
 }
 
