@@ -43,6 +43,36 @@ async fn bytes_query_returns_fewer_bytes_at_the_end_of_the_file() {
 }
 
 #[tokio::test(start_paused = true)]
+async fn bytes_query_reads_the_end_of_the_file_from_end() {
+    let (_directory, harness) = start_with_recording("sample.mcap", b"0123456789").await;
+
+    let last = harness
+        .query::<_, RecordingBytesResponse>(
+            "bytes",
+            &RecordingBytesRequest {
+                from_end: true,
+                ..bytes_request("sample.mcap", 99, 4)
+            },
+        )
+        .await
+        .expect("last bytes");
+    let whole = harness
+        .query::<_, RecordingBytesResponse>(
+            "bytes",
+            &RecordingBytesRequest {
+                from_end: true,
+                ..bytes_request("sample.mcap", 0, 100)
+            },
+        )
+        .await
+        .expect("whole file");
+
+    assert_eq!(last.data, b"6789");
+    assert_eq!(last.size, 10);
+    assert_eq!(whole.data, b"0123456789");
+}
+
+#[tokio::test(start_paused = true)]
 async fn bytes_query_answers_at_most_one_mebibyte() {
     let (_directory, harness) =
         start_with_recording("large.mcap", &vec![7_u8; 3 * 1024 * 1024]).await;
@@ -106,6 +136,7 @@ fn bytes_request(path: &str, offset: u64, length: u32) -> RecordingBytesRequest 
         path: path.into(),
         offset,
         length,
+        from_end: false,
     }
 }
 

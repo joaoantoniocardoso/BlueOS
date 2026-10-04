@@ -13,7 +13,7 @@ use blueos_idl::msg::blueos_recorder_msgs::{
 use blueos_recorder_domain::RecorderDomain;
 use blueos_recorder_mcap::IndexError;
 use blueos_recorder_paths::RecordingRelativePath;
-use blueos_recorder_storage::{StorageError, read_range};
+use blueos_recorder_storage::{RangeStart, StorageError, read_range};
 use blueos_service::Refusal;
 
 use crate::{context::RecorderContext, endpoints::Handlers};
@@ -111,7 +111,12 @@ async fn run_bytes_query(
         .resolve(relative.as_str())
         .map_err(storage_refusal)?;
     let length = u64::from(request.length.min(RECORDING_BYTES_MAX_LENGTH));
-    let read = tokio::task::spawn_blocking(move || read_range(&path, request.offset, length));
+    let start = if request.from_end {
+        RangeStart::FromEnd
+    } else {
+        RangeStart::Offset(request.offset)
+    };
+    let read = tokio::task::spawn_blocking(move || read_range(&path, start, length));
     // ponytail: a read past its timeout is not cancelled, so its blocking thread may still run beside the next read.
     // Read in pieces with a cancel flag, as the index walk does, if a disk stalls that long.
     let range = tokio::time::timeout(RECORDING_BYTES_READ_TIMEOUT, read)
