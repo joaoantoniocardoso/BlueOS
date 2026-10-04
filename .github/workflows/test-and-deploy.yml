@@ -164,7 +164,7 @@ jobs:
           set -o pipefail
           echo "## cargo deny advisories" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
-          cargo deny check advisories 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          cargo deny --color never check advisories 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
   rust-report-quality:
