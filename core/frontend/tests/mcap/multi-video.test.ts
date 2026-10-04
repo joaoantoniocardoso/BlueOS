@@ -404,6 +404,22 @@ describe('a recording with two video streams', () => {
     }
     controller.destroy()
   })
+
+  it('moves playback to the next covered time, or stops, when the stream at the playhead is hidden', async () => {
+    const controller = await mountTwoTrackPlayer()
+    const [cameraA, cameraB] = controller.getState().tracks
+    controller.setStreamControls([fakeStreamControl(cameraA.channelId), fakeStreamControl(cameraB.channelId)])
+
+    controller.seekTo(2)
+    controller.toggleStream(cameraA.channelId)
+    expect(controller.getState()).toMatchObject({ position: cameraB.coverage[0].start, playing: true })
+
+    controller.toggleStream(cameraA.channelId)
+    controller.seekTo(18)
+    controller.setSelectedChannelIds([cameraB.channelId])
+    expect(controller.getState().playing).toBe(false)
+    controller.destroy()
+  })
 })
 
 describe('two streams playing together', () => {

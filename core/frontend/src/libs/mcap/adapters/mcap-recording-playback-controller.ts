@@ -193,6 +193,7 @@ export class McapRecordingPlaybackController {
 
   setSelectedChannelIds(channelIds: number[]): void {
     this.patch({ selectedChannelIds: [...channelIds] })
+    this.keepPlaybackOnVideo()
   }
 
   selectAllStreams(): void {
@@ -201,12 +202,14 @@ export class McapRecordingPlaybackController {
 
   selectNoStreams(): void {
     this.patch({ selectedChannelIds: [] })
+    this.keepPlaybackOnVideo()
   }
 
   toggleStream(channelId: number): void {
     const { selectedChannelIds, tracks } = this.state
     if (selectedChannelIds.includes(channelId)) {
       this.patch({ selectedChannelIds: selectedChannelIds.filter((selected) => selected !== channelId) })
+      this.keepPlaybackOnVideo()
       return
     }
     this.patch({
