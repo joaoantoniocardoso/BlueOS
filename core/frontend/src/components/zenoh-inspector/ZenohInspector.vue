@@ -36,6 +36,7 @@
             :available-views="inspector.availableViews"
             :selected-view-id="inspector.selectedViewId"
             :selected-decoded="inspector.selectedDecoded"
+            :catalog-loaded="inspector.catalogLoaded"
             @select-view="onSelectView"
           />
           <v-card-text v-if="inspector.selectedService">
