@@ -567,7 +567,8 @@ Decision:
 - Device acceptance checklist (test layer L6, D-30), run before merging: MCM `--recorder=external`; armed gating;
   video over SHM; MAVLink capture replies with two cameras; a session rotation while recording; `docker stop`
   mid-recording; an image for `linux/arm/v7` built from CI artifacts; repair cancel by hand; the library rescan
-  with hundreds of recordings; snapshot and repair under heavy write load; the Records page parity list (D-23).
+  with hundreds of recordings; snapshot and repair under heavy write load; the Records page acceptance list
+  (`docs/architecture/records-page-acceptance.md`).
 
 ## D-16 CI and deploy
 
@@ -726,7 +727,8 @@ Decision:
     explicit empty state when the Recorder is not running.
 - **Parity with draft 1.** The rebuilt Records page keeps every feature of the draft 1 page: list and cards views,
   the search bar, filters and bulk actions, and it is reachable from the BlueOS menu. Dropping one is a product
-  decision recorded here, never a side effect of the rewrite.
+  decision recorded here, never a side effect of the rewrite. Each behaviour kept is a row of
+  `docs/architecture/records-page-acceptance.md`, checked on a vehicle.
 
 API (keys under `blueos/v1/recorder/`, messages in `blueos_recorder_msgs`):
 
