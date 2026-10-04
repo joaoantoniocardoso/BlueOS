@@ -99,7 +99,7 @@ async function ask<ResponseSchema extends SchemaName>(
   body: QueryBody | undefined,
   responseSchema: ResponseSchema,
 ): Promise<MessageForSchema<ResponseSchema>> {
-  const [reply] = await transport.get(key, body)
+  const [reply] = await transport.get(key, body, 1)
   if (reply === undefined) {
     throw new NoReplyError(key)
   }
