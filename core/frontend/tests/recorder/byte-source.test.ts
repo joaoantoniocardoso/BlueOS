@@ -74,7 +74,7 @@ describe('ZenohByteSource', () => {
     expect(source.bytesRead).toBe(4096 + 4)
   })
 
-  it('splits a large read into 1 MiB queries, sent one at a time, and joins them in order', async () => {
+  it('splits a large read into 1 MiB queries, four in flight, and does not queue another read behind it', async () => {
     const transport = new FakeTransport()
     let inFlight = 0
     let mostInFlight = 0
@@ -98,7 +98,7 @@ describe('ZenohByteSource', () => {
     await answerRanges(transport, 7, 10 * MEBIBYTE)
     const data = await read
 
-    expect(mostInFlight).toBe(1)
+    expect(mostInFlight).toBe(5)
     expect(data.byteLength).toBe(5 * MEBIBYTE + 3)
     expect([0, 1, 2, 3, 4, 5].map((piece) => data[piece * MEBIBYTE])).toEqual([0, 1, 2, 3, 4, 5])
     await expect(other).resolves.toEqual(new Uint8Array([9, 9]))
