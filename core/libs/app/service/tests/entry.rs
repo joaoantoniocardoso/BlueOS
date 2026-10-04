@@ -142,6 +142,24 @@ fn service_help_and_version_exit_success() {
 }
 
 #[test]
+fn service_help_names_an_option() {
+    const CHILD_MARKER: &str = "BLUEOS_TEST_PRINT_SERVICE_HELP";
+    if std::env::var_os(CHILD_MARKER).is_some() {
+        let _ = parse_service_cli::<FixtureService>(["fixture", "--help"].map(OsString::from));
+        return;
+    }
+    let output = std::process::Command::new(std::env::current_exe().expect("test binary"))
+        .args(["--exact", "service_help_names_an_option", "--nocapture"])
+        .env(CHILD_MARKER, "1")
+        .output()
+        .expect("run the test binary");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Usage: fixture"), "stdout was: {stdout}");
+    assert!(stdout.contains("--marker"), "stdout was: {stdout}");
+    assert!(stdout.contains("--zenoh-endpoint"), "stdout was: {stdout}");
+}
+
+#[test]
 fn resolve_subcommand_style() {
     let arguments = ["blueos", "fixture", "--help"].map(OsString::from);
     let resolved = resolve(&arguments).expect("name");
