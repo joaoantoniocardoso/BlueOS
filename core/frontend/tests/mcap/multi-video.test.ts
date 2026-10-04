@@ -485,6 +485,36 @@ describe('two streams playing together', () => {
     controller.destroy()
   })
 
+  it('stops once the only visible stream plays its last frame, and plays again from its start', async () => {
+    const { controller, streams } = await mountPlayingStreams(await buildTwoTrackVideoMcap())
+    const [cameraA, cameraB] = streams
+    const [cameraATrack, cameraBTrack] = controller.getState().tracks
+    controller.toggleStream(cameraATrack.channelId)
+    cameraA.panel.destroy()
+    controller.setStreamControls([cameraB.control])
+    controller.seekTo(13)
+    cameraB.followPosition()
+    await vi.waitFor(() => expect(cameraB.video.readyState).toBe(HAVE_ENOUGH_DATA))
+
+    let played = 0
+    for (let step = 0; step < 40 && controller.getState().playing; step += 1) {
+      cameraB.video.advance()
+      played = Math.max(played, cameraB.video.currentTime)
+      cameraB.followPosition()
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => { setTimeout(resolve, 10) })
+    }
+
+    const cameraBLastFrame = 15.25
+    expect(played).toBeGreaterThan(cameraBLastFrame)
+    expect(controller.getState().playing).toBe(false)
+    controller.togglePlayback()
+    expect(controller.getState().position).toBe(cameraBTrack.coverage[0].start)
+    expect(controller.getState().playing).toBe(true)
+    cameraB.panel.destroy()
+    controller.destroy()
+  })
+
   it('leaves a stream on its last frame while the other plays on, when its coverage runs past it', async () => {
     const { controller, streams } = await mountPlayingStreams(await buildTwoTrackVideoMcap(0, false))
     const [cameraA, cameraB] = streams

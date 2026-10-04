@@ -31,6 +31,8 @@ import {
 const SYNC_TOLERANCE_SECONDS = 0.5
 /** `HTMLMediaElement.HAVE_CURRENT_DATA`: the element has a frame for its current position. */
 const HAVE_CURRENT_DATA = 2
+/** `HTMLMediaElement.HAVE_FUTURE_DATA`: the element can play on from its current position. */
+const HAVE_FUTURE_DATA = 3
 
 export interface StreamPlaybackControl {
   channelId: number
@@ -274,6 +276,22 @@ export class McapRecordingPlaybackController {
       streamStats: { ...this.state.streamStats, [channelId]: stats },
       bytesDownloaded: stats.bytesDownloaded,
     })
+    if (!stats.ended || !this.state.playing || channelId !== this.clockChannelId()) {
+      return
+    }
+    const leader = this.clockVideo()
+    const track = this.state.tracks.find((candidate) => candidate.channelId === channelId)
+    const bufferedEnd = leader && leader.buffered.length > 0 ? leader.buffered.end(leader.buffered.length - 1) : null
+    if (!leader || !track || bufferedEnd === null || leader.readyState >= HAVE_FUTURE_DATA
+      || leader.currentTime < bufferedEnd - SYNC_TOLERANCE_SECONDS) {
+      return
+    }
+    // The clock stream stalled on its last frame and will get no more. Moving the position just past its media hands
+    // the clock to a stream that covers a later time, if one does.
+    const playhead = this.playbackPosition()
+    const end = track.coverage.find((range) => timeRangesCover([range], playhead))?.end ?? playhead
+    this.patch({ position: Math.max(playhead, end) + 0.001 })
+    this.keepPlaybackOnVideo()
   }
 
   onStreamTime(channelId: number, seconds: number): void {
@@ -637,6 +655,21 @@ export class McapRecordingPlaybackController {
   private clockVideo(): HTMLVideoElement | null {
     const channelId = this.clockChannelId()
     return channelId === null ? null : this.state.videos[channelId] ?? null
+  }
+
+  /** While playing, moves a position that no visible stream covers on to the next one that does, or stops there. */
+  private keepPlaybackOnVideo(): void {
+    const coverage = mergedVideoCoverage(this.visibleTracks())
+    if (!this.state.playing || timeRangesCover(coverage, this.state.position)) {
+      return
+    }
+    const next = coverage.find((range) => range.start > this.state.position)
+    if (next) {
+      this.seekTo(next.start)
+      return
+    }
+    this.streamControls.forEach((stream) => stream.pause())
+    this.patch({ playing: false })
   }
 
   private playbackPosition(): number {

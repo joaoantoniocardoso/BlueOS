@@ -389,6 +389,7 @@ export class McapVideoPlayer {
   private onWaiting = (): void => {
     this.alignPlayhead()
     this.scheduleFill()
+    this.emitStats()
   }
 
   private onSeeking = (): void => {
