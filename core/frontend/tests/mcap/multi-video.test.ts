@@ -593,6 +593,31 @@ describe('a live recording', () => {
     controller.destroy()
   })
 
+  it('lists a channel that started after the player opened among the recording channels', async () => {
+    const live = await asLiveRecording(await buildLateVideoMcap(), 1)
+    serveOverHttp(live.bytes)
+    const controller = new McapRecordingPlaybackController({
+      url: 'http://vehicle/userdata/recorder/live.mcap',
+      indexSource: live.indexSource,
+      ongoing: true,
+      callbacks: {
+        onState: () => undefined,
+        onBusy: () => undefined,
+        onSummary: () => undefined,
+        onMp4Saved: () => undefined,
+      },
+    })
+    await controller.mount()
+
+    live.writtenChunks = live.chunks.length
+    controller.onWrittenSizeBytes(live.bytes().length)
+
+    await vi.waitFor(() => expect(controller.getState().tracks).toHaveLength(1))
+    expect(controller.getState().recording?.channels.map((channel) => channel.topic))
+      .toEqual(['/telemetry/depth', 'video/camera/stream'])
+    controller.destroy()
+  })
+
   it('covers a stream that started after the player opened from its first frame to its last one', async () => {
     const live = await asLiveRecording(await buildTwoTrackVideoMcap(), 1)
     serveOverHttp(live.bytes)

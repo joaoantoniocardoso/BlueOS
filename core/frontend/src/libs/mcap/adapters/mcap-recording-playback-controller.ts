@@ -600,6 +600,7 @@ export class McapRecordingPlaybackController {
     }
     const { reader } = recording
     recording.durationSeconds = Number(reader.summary.endTime - recording.startTime) / 1e9
+    recording.channels = listMcapChannels(reader)
     const listed = listVideoTracks(reader)
     const hadTracks = this.state.tracks.length > 0
     const selected = new Set(this.state.selectedChannelIds)
