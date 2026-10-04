@@ -47,6 +47,9 @@ export class FakeMedia {
   /** While true, a media source attached to an element stays `closed` until `openHeldSources()`. */
   holdSourceOpen = false
 
+  /** What `MediaSource.isTypeSupported()` answers. */
+  typeSupported = true
+
   private heldSources: FakeMediaSource[] = []
 
   constructor(readonly options: { frameSeconds: number, appendMilliseconds: number }) {}
@@ -88,6 +91,9 @@ export class FakeSourceBuffer extends EventTarget {
 
   /** Start of every fragment appended, in append order, whatever was removed since. */
   appendedStarts: number[] = []
+
+  /** Every range `remove()` was asked for, in order. */
+  removed: Array<[number, number]> = []
 
   private fragmentStarts: number[] = []
 
@@ -132,6 +138,7 @@ export class FakeSourceBuffer extends EventTarget {
   /** MSE "range removal": drops the fragments that start in `[start, end)`; throws while updating. */
   remove(start: number, end: number): void {
     this.startUpdate()
+    this.removed.push([start, end])
     queueTask(() => {
       this.fragmentStarts = this.fragmentStarts.filter((fragmentStart) => fragmentStart < start || fragmentStart >= end)
       this.endUpdate(false)
@@ -154,7 +161,7 @@ export class FakeSourceBuffer extends EventTarget {
 
 export class FakeMediaSource extends EventTarget {
   static isTypeSupported(): boolean {
-    return true
+    return media().typeSupported
   }
 
   /** MSE: `closed` until attached to an element, `open` once it fires `sourceopen`, `ended` after `endOfStream()`. */
@@ -186,6 +193,8 @@ export class FakeMediaSource extends EventTarget {
 /** A `<video>` playing the media of its own source, one `advance()` at a time. */
 export class FakeVideo extends EventTarget {
   paused = true
+
+  muted = false
 
   /** HTML: the rate the playback position advances at, which the controller copies from leader to followers. */
   playbackRate = 1
