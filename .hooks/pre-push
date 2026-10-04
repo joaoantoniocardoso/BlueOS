@@ -93,10 +93,9 @@ run_bootstrap_checks() {
 if [ "${SKIP_RUST_CHECKS:-}" != "1" ]; then
     run_rust_checks "$CORE_DIR"
     if [ "$fixing" != true ]; then
-        "$ROOT_DIR/.hooks/tests/rust_checks_test.sh"
-        "$ROOT_DIR/.hooks/tests/ergonomics_report_test.sh"
-        "$ROOT_DIR/.hooks/tests/docs_paths_test.sh"
-        "$ROOT_DIR/.hooks/tests/commit_subject_test.sh"
+        for self_test in "$ROOT_DIR"/.hooks/tests/*_test.sh; do
+            "$self_test"
+        done
     fi
 fi
 
