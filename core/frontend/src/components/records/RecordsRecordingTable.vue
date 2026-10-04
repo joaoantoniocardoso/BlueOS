@@ -22,7 +22,7 @@
       <records-recording-preview
         class="table-preview"
         :file="item"
-        :download-url="downloadUrl(item.path)"
+        :byte-source="byteSource"
         :disabled="disabled"
         compact
       />
@@ -108,6 +108,7 @@ import Vue, { PropType } from 'vue'
 
 import RecordsRecordingPreview from '@/components/records/RecordsRecordingPreview.vue'
 import RecordsRepairProgress from '@/components/records/RecordsRepairProgress.vue'
+import type { ByteSource } from '@/libs/mcap/logic/byte-source'
 import { DOWNLOAD } from '@/libs/recorder/constants'
 import type { RecordingSortKey } from '@/libs/recorder/sort'
 import type { LibraryRecording } from '@/libs/recorder/types'
@@ -132,8 +133,8 @@ export default Vue.extend({
       type: Array as PropType<LibraryRecording[]>,
       required: true,
     },
-    downloadUrl: {
-      type: Function as PropType<(path: string) => string>,
+    byteSource: {
+      type: Function as PropType<(path: string) => ByteSource | undefined>,
       required: true,
     },
     disabled: {

@@ -256,7 +256,7 @@
       :selected-files.sync="selectedTableFiles"
       :sort-key.sync="sort.key"
       :sort-descending.sync="sort.descending"
-      :download-url="downloadUrl"
+      :byte-source="byteSource"
       :disabled="actionsDisabled"
       :busy-path="busyPath"
       :busy-operation="busyOperation"
@@ -285,7 +285,7 @@
           >
             <records-recording-row
               :file="file"
-              :download-url="downloadUrl(file.path)"
+              :byte-source="byteSource"
               :disabled="actionsDisabled"
               :busy-operation="busyPath === file.path ? busyOperation : null"
               selectable
@@ -344,6 +344,7 @@
           <mcap-video-player
             v-if="playerOpen"
             :url="downloadUrl(activeRecording.path)"
+            :source="byteSource(activeRecording.path)"
             :index-source="indexSource(activeRecording.path)"
             :ongoing="activeRecording.state === 'recording'"
             :written-size-bytes="activeRecording.size_bytes"
@@ -421,6 +422,7 @@ import RecordsSessionControls from '@/components/records/RecordsSessionControls.
 import type { Transport } from '@/libs/blueos-api/transport'
 import zenohTransport from '@/libs/blueos-api/zenoh-transport'
 import { deleteCachedThumbnail } from '@/libs/mcap/adapters/thumbnail-cache'
+import type { ByteSource } from '@/libs/mcap/logic/byte-source'
 import type { RecordingIndexSource } from '@/libs/mcap/logic/recording-index'
 import message_manager, { MessageLevel } from '@/libs/message-manager'
 import {
@@ -720,6 +722,9 @@ export default Vue.extend({
     },
     indexSource(path: string): RecordingIndexSource | undefined {
       return this.recorder?.recordingIndexSource(path)
+    },
+    byteSource(path: string): ByteSource | undefined {
+      return this.recorder?.recordingByteSource(path)
     },
     openPlayer(file: LibraryRecording): void {
       this.activeRecordingPath = file.path

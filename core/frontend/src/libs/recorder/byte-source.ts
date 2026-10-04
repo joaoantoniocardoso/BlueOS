@@ -1,14 +1,11 @@
 import { query } from '@/libs/blueos-api/command'
 import { bytes, type bytesRequest, type bytesResponse } from '@/libs/blueos-api/services/recorder'
 import type { Transport } from '@/libs/blueos-api/transport'
-import zenohTransport from '@/libs/blueos-api/zenoh-transport'
-import { HttpByteSource, TAIL_SIZE } from '@/libs/mcap/adapters/http-byte-source'
 import { throwIfAborted, whileWaiting } from '@/libs/mcap/logic/abort'
 import type { ByteSource } from '@/libs/mcap/logic/byte-source'
-import zenoh from '@/libs/zenoh'
 
-import { DEFAULT_RECORDING_HTTP_PREFIX } from './constants'
-import { browserStorage, storedByteSource } from './preferences'
+/** Bytes read from the end of the recording to learn its size and read the MCAP footer at once. */
+const TAIL_SIZE = 4096
 
 /** The most bytes one reply of the recorder `bytes` Query carries. */
 export const RECORDING_BYTES_MAX_LENGTH = 1024 * 1024
@@ -19,7 +16,7 @@ export const RECORDING_BYTES_MAX_LENGTH = 1024 * 1024
  */
 export const RECORDING_BYTES_IN_FLIGHT = 4
 
-/** Reads a recording with the recorder `bytes` Query over the backbone instead of HTTP ranges from nginx. */
+/** Reads a recording with the recorder `bytes` Query over the backbone. */
 export class ZenohByteSource implements ByteSource {
   bytesRead = 0
 
@@ -29,7 +26,7 @@ export class ZenohByteSource implements ByteSource {
 
   constructor(private readonly transport: Transport, public readonly path: string) {}
 
-  /** Reads the end of the recording with its size, like the suffix range of `HttpByteSource`, for the footer. */
+  /** Reads the end of the recording with its size, for the footer. */
   async size(signal?: AbortSignal): Promise<number> {
     if (this.total === null) {
       const { size, data } = await this.request({ offset: 0, length: TAIL_SIZE, from_end: true }, signal)
@@ -80,16 +77,4 @@ export class ZenohByteSource implements ByteSource {
     this.bytesRead += answer.data.byteLength
     return answer
   }
-}
-
-/**
- * The source of the recording that nginx serves at `url`: HTTP ranges, or the recorder `bytes` Query when the
- * Records byte source is set to `zenoh`. Read on each call, so switching needs no rebuild.
- */
-export async function recordingByteSource(url: string): Promise<ByteSource> {
-  if (storedByteSource(browserStorage) !== 'zenoh') {
-    return new HttpByteSource(url)
-  }
-  const path = url.slice(DEFAULT_RECORDING_HTTP_PREFIX.length + 1).split('/').map(decodeURIComponent).join('/')
-  return new ZenohByteSource(zenohTransport(await zenoh.getSession()), path)
 }

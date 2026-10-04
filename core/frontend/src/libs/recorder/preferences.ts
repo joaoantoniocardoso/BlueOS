@@ -2,13 +2,9 @@ import { RECORDING_SORT_OPTIONS, type RecordingSortKey } from './sort'
 
 export const RECORDS_LAYOUT_STORAGE_KEY = 'blueos.records.layout'
 export const RECORDS_SORT_STORAGE_KEY = 'blueos.records.sort'
-export const RECORDS_BYTE_SOURCE_STORAGE_KEY = 'blueos.records.byteSource'
 
 /** How the Records page lays out recordings. */
 export type RecordsLayout = 'cards' | 'list'
-
-/** Where the Records page reads recording bytes: HTTP ranges from nginx, or the recorder `bytes` Query. */
-export type RecordsByteSource = 'http' | 'zenoh'
 
 /** The order of the Records page, shared by the cards and the list. */
 export interface RecordsSort {
@@ -43,11 +39,6 @@ export function storedSort(storage: PreferenceStorage): RecordsSort {
     // A value from an older page that no longer parses: start from the default.
   }
   return { key: 'created', descending: true }
-}
-
-/** The stored byte source, or HTTP when none is stored or the browser refuses storage. */
-export function storedByteSource(storage: PreferenceStorage): RecordsByteSource {
-  return readItem(storage, RECORDS_BYTE_SOURCE_STORAGE_KEY) === 'zenoh' ? 'zenoh' : 'http'
 }
 
 export function storeLayout(storage: PreferenceStorage, layout: RecordsLayout): void {

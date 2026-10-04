@@ -6,9 +6,8 @@
  * instead of WebCodecs because WebCodecs is only available in secure contexts, and BlueOS is
  * normally served over plain HTTP.
  */
-import { recordingByteSource } from '@/libs/recorder/byte-source'
-
 import { sleep } from '../logic/abort'
+import type { ByteSource } from '../logic/byte-source'
 import { listMcapChannels, McapRecordingChannel } from '../logic/channels'
 import { VideoFormat } from '../logic/codec'
 import VideoFrameStream from '../logic/frame-stream'
@@ -99,11 +98,11 @@ export interface McapVideoOpenOptions {
 }
 
 export async function openMcapVideoRecording(
-  url: string,
+  source: ByteSource,
   options: McapVideoOpenOptions = {},
 ): Promise<McapVideoRecording> {
   const { indexSource, signal, onProgress } = options
-  const reader = await McapIndexedReader.open(await recordingByteSource(url), { indexSource, signal, onProgress })
+  const reader = await McapIndexedReader.open(source, { indexSource, signal, onProgress })
   await loadFrameAccurateCoverage(reader, signal)
   const { startTime, endTime } = reader.summary
   return {

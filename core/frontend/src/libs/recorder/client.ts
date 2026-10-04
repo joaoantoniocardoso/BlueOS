@@ -16,8 +16,10 @@ import {
 } from '@/libs/blueos-api/services/recorder'
 import type { Subscription, Transport } from '@/libs/blueos-api/transport'
 import { watchState } from '@/libs/blueos-api/watch'
+import type { ByteSource } from '@/libs/mcap/logic/byte-source'
 import type { RecordingIndexSource } from '@/libs/mcap/logic/recording-index'
 
+import { ZenohByteSource } from './byte-source'
 import { DEFAULT_RECORDING_HTTP_PREFIX, SNAPSHOT_WAIT_TIMEOUT_MS } from './constants'
 import { createCachedRecordingIndexSource } from './index-source'
 import { mapRecordingFile } from './map'
@@ -79,6 +81,8 @@ export interface RecorderClient {
   recordingDownloadPath(file: LibraryRecording): Promise<string>
   recordingDownloadUrl(relativePath: string): string
   recordingIndexSource(path: string): RecordingIndexSource
+  /** The bytes of the recording at `path`, read with the `bytes` Query. */
+  recordingByteSource(path: string): ByteSource
 }
 
 export interface RecorderClientOptions {
@@ -271,6 +275,9 @@ export function createRecorderClient(
         const file = librarySnapshot.find((recording) => recording.path === path)
         return file?.size_bytes ?? 0
       })
+    },
+    recordingByteSource(path) {
+      return new ZenohByteSource(transport, path)
     },
   }
 }

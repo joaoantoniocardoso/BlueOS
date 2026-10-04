@@ -1,20 +1,13 @@
-import {
-  afterEach, describe, expect, it, vi,
-} from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { decodeCdr, encodeCdr } from '@/libs/blueos-api/cdr'
 import { QueryFailedError } from '@/libs/blueos-api/errors'
 import { cdrEncoding } from '@/libs/blueos-api/keys'
 import { bytes } from '@/libs/blueos-api/services/recorder'
 import type { Transport } from '@/libs/blueos-api/transport'
-import { HttpByteSource } from '@/libs/mcap/adapters/http-byte-source'
-import { recordingByteSource, ZenohByteSource } from '@/libs/recorder/byte-source'
-import { DEFAULT_RECORDING_HTTP_PREFIX } from '@/libs/recorder/constants'
-import { recordingDownloadUrl } from '@/libs/recorder/url'
+import { ZenohByteSource } from '@/libs/recorder/byte-source'
 
 import FakeTransport, { type PendingQuery } from '../blueos-api/fake-transport'
-
-vi.mock('@/libs/zenoh', () => ({ default: { getSession: async () => ({}) } }))
 
 const MEBIBYTE = 1024 * 1024
 
@@ -128,26 +121,5 @@ describe('ZenohByteSource', () => {
 
     await expect(read).rejects.toBeInstanceOf(QueryFailedError)
     await expect(read).rejects.toThrow('Recording not found.')
-  })
-})
-
-describe('recordingByteSource', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals()
-  })
-
-  it('reads HTTP ranges from nginx by default', async () => {
-    const source = await recordingByteSource(recordingDownloadUrl('flight/live.mcap', DEFAULT_RECORDING_HTTP_PREFIX))
-
-    expect(source).toBeInstanceOf(HttpByteSource)
-  })
-
-  it('reads the same recording with the bytes Query when the byte source is set to zenoh', async () => {
-    vi.stubGlobal('window', { localStorage: { getItem: () => 'zenoh' } })
-
-    const source = await recordingByteSource(recordingDownloadUrl('flight 2/a#b.mcap', DEFAULT_RECORDING_HTTP_PREFIX))
-
-    expect(source).toBeInstanceOf(ZenohByteSource)
-    expect((source as ZenohByteSource).path).toBe('flight 2/a#b.mcap')
   })
 })

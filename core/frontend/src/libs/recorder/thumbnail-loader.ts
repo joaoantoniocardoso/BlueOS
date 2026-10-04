@@ -5,12 +5,13 @@ import {
 } from '@/libs/mcap/adapters/thumbnail-cache'
 import { extractMcapThumbnail } from '@/libs/mcap/adapters/thumbnail'
 import { abortError } from '@/libs/mcap/logic/abort'
+import type { ByteSource } from '@/libs/mcap/logic/byte-source'
 
 /** Thumbnails pulled over the vehicle link at once; a long list waits its turn instead of flooding the link. */
 const MAX_CONCURRENT_EXTRACTIONS = 2
 
 export interface RecordingThumbnailRequest {
-  downloadUrl: string
+  source: ByteSource
   cacheKey: ThumbnailCacheKey
   signal?: AbortSignal
 }
@@ -28,7 +29,7 @@ export async function loadRecordingThumbnail(
   }
   await extractionTurn(request.signal)
   try {
-    const thumbnail = await extractMcapThumbnail(request.downloadUrl, { signal: request.signal })
+    const thumbnail = await extractMcapThumbnail(request.source, { signal: request.signal })
     if (thumbnail) {
       await setCachedThumbnail(request.cacheKey, thumbnail)
     }

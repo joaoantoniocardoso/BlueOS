@@ -68,6 +68,7 @@
 <script lang="ts">
 import Vue, { PropType } from 'vue'
 
+import type { ByteSource } from '@/libs/mcap/logic/byte-source'
 import { loadRecordingThumbnail } from '@/libs/recorder/thumbnail-loader'
 import type { LibraryRecording } from '@/libs/recorder/types'
 import { canLoadThumbnail, canPlayRecording } from '@/libs/recorder/view-logic'
@@ -79,8 +80,8 @@ export default Vue.extend({
       type: Object as PropType<LibraryRecording>,
       required: true,
     },
-    downloadUrl: {
-      type: String,
+    byteSource: {
+      type: Function as PropType<(path: string) => ByteSource | undefined>,
       required: true,
     },
     disabled: {
@@ -112,7 +113,7 @@ export default Vue.extend({
     },
   },
   watch: {
-    downloadUrl: {
+    'file.path': {
       immediate: true,
       handler() {
         this.loadThumbnail()
@@ -142,7 +143,8 @@ export default Vue.extend({
       }
     },
     async loadThumbnail(): Promise<void> {
-      if (!this.canPlay || !canLoadThumbnail(this.file) || !this.downloadUrl) {
+      const source = this.byteSource(this.file.path)
+      if (!this.canPlay || !canLoadThumbnail(this.file) || !source) {
         this.controller?.abort()
         this.revokeObjectUrl()
         this.loading = false
@@ -155,7 +157,7 @@ export default Vue.extend({
       this.loading = true
       try {
         const blob = await loadRecordingThumbnail({
-          downloadUrl: this.downloadUrl,
+          source,
           cacheKey: {
             path: this.file.path,
             sizeBytes: this.file.size_bytes,

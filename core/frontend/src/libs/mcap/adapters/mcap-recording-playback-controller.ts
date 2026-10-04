@@ -1,3 +1,4 @@
+import type { ByteSource } from '../logic/byte-source'
 import { listMcapChannels } from '../logic/channels'
 import {
   CLIP_STEP_SECONDS,
@@ -85,7 +86,7 @@ export interface McapPlaybackCallbacks {
 }
 
 export interface McapPlaybackControllerOptions {
-  url: string
+  source: ByteSource
   indexSource?: RecordingIndexSource
   ongoing: boolean
   writtenSizeBytes?: number
@@ -230,7 +231,7 @@ export class McapRecordingPlaybackController {
   async mount(): Promise<void> {
     try {
       const startedAt = Date.now()
-      const recording = await openMcapVideoRecording(this.options.url, {
+      const recording = await openMcapVideoRecording(this.options.source, {
         indexSource: this.options.indexSource,
         signal: this.openController.signal,
         onProgress: (progress) => {
