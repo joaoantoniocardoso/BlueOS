@@ -98,6 +98,27 @@ describe('zenohTransport', () => {
     expect(sent?.attachment).toBeUndefined()
   })
 
+  it('returns once the limit of replies arrived, without waiting for the query to complete', async () => {
+    const session = {
+      get: async () => {
+        const replies = new FifoChannel<Reply>(8)
+        replies.send(new Reply(zenohSample('blueos/v1/recorder/query/bytes', SampleKind.PUT, [3])))
+        return replies
+      },
+    } as unknown as Session
+
+    const replies = await zenohTransport(session).get('blueos/v1/recorder/query/bytes', undefined, 1)
+
+    expect(replies).toEqual([{
+      kind: 'sample',
+      sample: {
+        key: 'blueos/v1/recorder/query/bytes',
+        payload: new Uint8Array([3]),
+        encoding: 'application/cdr;blueos_msgs/msg/CommandAck',
+      },
+    }])
+  })
+
   it('sends the attachment of the body with the query', async () => {
     let sent: GetOptions | undefined
     const session = {
