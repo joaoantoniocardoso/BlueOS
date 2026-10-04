@@ -69,8 +69,7 @@ export class ZenohByteSource implements ByteSource {
     if (this.total === null) {
       this.total = response.size
     }
-    // CDR decodes `uint8[]` as a Uint8Array, although the generated type says `number[]`.
-    const data = response.data instanceof Uint8Array ? response.data : Uint8Array.from(response.data)
+    const { data } = response
     this.bytesRead += data.byteLength
     return data
   }

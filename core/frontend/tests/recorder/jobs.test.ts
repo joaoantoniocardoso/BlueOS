@@ -40,7 +40,7 @@ function repairFeedback(entries: { job_id: string, bytes_processed: number, tota
   return sample(jobFeedbackKey(NAME, RepairRecording.name), 'blueos_msgs/msg/JobFeedbackList', {
     jobs: entries.map(({ job_id, bytes_processed, total_bytes }) => ({
       job_id,
-      feedback: Array.from(encodeCdr(RepairRecording.feedbackSchema, { bytes_processed, total_bytes })),
+      feedback: encodeCdr(RepairRecording.feedbackSchema, { bytes_processed, total_bytes }),
     })),
   })
 }
@@ -163,7 +163,7 @@ describe('recorder Job watching', () => {
     transport.publish(sample(
       jobFeedbackKey(NAME, RepairRecording.name),
       'blueos_msgs/msg/JobFeedbackList',
-      { jobs: [{ job_id: JOB_ID, feedback: [1, 2] }] },
+      { jobs: [{ job_id: JOB_ID, feedback: new Uint8Array([1, 2]) }] },
     ))
 
     expect(errors).toHaveLength(1)
@@ -207,7 +207,7 @@ describe('recorder Job watching', () => {
       job: {
         job_id: JOB_ID, job_type: RepairRecording.name, status: JobStatusStatus.Aborted, reason: 'disk full',
       },
-      result: Array.from(encodeCdr(RepairRecording.resultSchema, { path: 'broken.mcap' })),
+      result: encodeCdr(RepairRecording.resultSchema, { path: 'broken.mcap' }),
     }))
 
     expect(operations).toEqual([{

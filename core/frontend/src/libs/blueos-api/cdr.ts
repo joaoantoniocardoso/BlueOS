@@ -146,6 +146,10 @@ function normalizeDecodedValue(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map((entry) => normalizeDecodedValue(entry))
   }
+  // A `uint8[]` stays the reader's view of the payload, as the generated `Uint8Array` type says.
+  if (value instanceof Uint8Array) {
+    return value
+  }
   if (ArrayBuffer.isView(value) && !(value instanceof DataView)) {
     return Array.from(value as unknown as ArrayLike<unknown>, (entry) => normalizeDecodedValue(entry))
   }

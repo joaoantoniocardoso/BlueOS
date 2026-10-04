@@ -105,7 +105,7 @@ export async function watchJobFeedback<Schema extends SchemaName>(
       try {
         entries = list.jobs.map((job) => ({
           jobId: job.job_id,
-          feedback: decodeCdr(feedbackSchema, Uint8Array.from(job.feedback)),
+          feedback: decodeCdr(feedbackSchema, job.feedback),
         }))
       } catch (error) {
         observer.onError(error)
@@ -129,7 +129,7 @@ export async function watchJobResults<Schema extends SchemaName>(
     onValue: ({ job, result }, key) => {
       let decoded: MessageForSchema<Schema>
       try {
-        decoded = decodeCdr(resultSchema, Uint8Array.from(result))
+        decoded = decodeCdr(resultSchema, result)
       } catch (error) {
         observer.onError(error)
         return

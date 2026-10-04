@@ -49,7 +49,7 @@ function snapshotJobResult(outputPath: string) {
       status: JobStatusStatus.Succeeded,
       reason: '',
     },
-    result: Array.from(encodeCdr(SnapshotRecording.resultSchema, { path: 'live.mcap', output_path: outputPath })),
+    result: encodeCdr(SnapshotRecording.resultSchema, { path: 'live.mcap', output_path: outputPath }),
   }
 }
 
@@ -199,7 +199,7 @@ describe('createRecorderClient', () => {
         key: results.key,
         payload: encodeCdr(results.messageSchema, {
           job: { ...aborted, job_type: operation.name },
-          result: Array.from(encodeCdr(operation.resultSchema, result)),
+          result: encodeCdr(operation.resultSchema, result),
         }),
         encoding: cdrEncoding(results.messageSchema),
       })

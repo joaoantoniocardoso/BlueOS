@@ -51,8 +51,8 @@ const ENDPOINTS: EndpointInfo[] = [
   ),
 ]
 
-function part(schemaName: string, message: Record<string, unknown>): number[] {
-  return Array.from(encodeCdrWithSchema(schemaName, SCHEMAS[schemaName as keyof typeof SCHEMAS], message))
+function part(schemaName: string, message: Record<string, unknown>): Uint8Array {
+  return encodeCdrWithSchema(schemaName, SCHEMAS[schemaName as keyof typeof SCHEMAS], message)
 }
 
 function decodedSample(key: string, schemaName: string, message: Record<string, unknown>): DecodedPayload {
@@ -113,14 +113,14 @@ describe('unwrapJobPart', () => {
   })
 
   it('keeps the bytes of a Job result the Job type declares none for', () => {
-    const wire = decodedSample(RESULT_KEY, JOB_RESULT, { job: job('job-a', 5), result: [] })
+    const wire = decodedSample(RESULT_KEY, JOB_RESULT, { job: job('job-a', 5), result: new Uint8Array() })
 
     expect(unwrapJobPart(wire, RESULT_KEY, ENDPOINTS, provider, cdrCodec)).toEqual(wire)
   })
 
   it('shows a Feedback with no fields as an empty message', () => {
     const wire = decodedSample(FEEDBACK_KEY, FEEDBACK_LIST, {
-      jobs: [{ job_id: 'job-a', feedback: [0, 1, 0, 0, 0] }],
+      jobs: [{ job_id: 'job-a', feedback: new Uint8Array([0, 1, 0, 0, 0]) }],
     })
     const empty = ENDPOINTS.map((entry) => ({
       ...entry,

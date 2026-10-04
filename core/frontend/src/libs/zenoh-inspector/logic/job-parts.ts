@@ -30,14 +30,14 @@ function carriedPart(endpoint: EndpointInfo | undefined, provider: SchemaProvide
 }
 
 function decodeBytes(bytes: unknown, part: CarriedPart, codec: CdrCodec): unknown {
-  if (!Array.isArray(bytes) || bytes.length === 0) {
+  if (!(bytes instanceof Uint8Array) || bytes.length === 0) {
     return bytes
   }
   if (part.text.trim() === '') {
     return {}
   }
   try {
-    return codec.decode(part.name, part.text, Uint8Array.from(bytes as number[]))
+    return codec.decode(part.name, part.text, bytes)
   } catch {
     // A part that does not decode stays as the bytes it came as.
     return bytes

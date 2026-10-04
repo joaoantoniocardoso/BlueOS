@@ -8,13 +8,6 @@ import type { RecordingIndexPage, RecordingIndexSource } from '@/libs/mcap/logic
 /** Maximum chunks per vehicle index request; matches the recorder service default. */
 export const INDEX_PAGE_LIMIT = 20_000
 
-function recordsToUint8Array(records: number[] | Uint8Array): Uint8Array {
-  if (records instanceof Uint8Array) {
-    return records
-  }
-  return Uint8Array.from(records)
-}
-
 function mapIndexPage(page: RecordingIndexResponse): RecordingIndexPage {
   return {
     size: page.size,
@@ -22,7 +15,7 @@ function mapIndexPage(page: RecordingIndexResponse): RecordingIndexPage {
     closed: page.closed,
     chunks: page.chunks,
     message_counts: page.message_counts,
-    records: recordsToUint8Array(page.records),
+    records: page.records,
   }
 }
 

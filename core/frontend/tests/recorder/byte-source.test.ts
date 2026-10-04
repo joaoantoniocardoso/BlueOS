@@ -30,7 +30,7 @@ function answer(query: PendingQuery, size: number, data: Uint8Array): void {
     kind: 'sample',
     sample: {
       key: bytes.key,
-      payload: encodeCdr(bytes.responseSchema, { size, data: [...data] }),
+      payload: encodeCdr(bytes.responseSchema, { size, data }),
       encoding: cdrEncoding(bytes.responseSchema),
     },
   })
