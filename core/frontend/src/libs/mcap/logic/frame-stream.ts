@@ -217,8 +217,14 @@ export default class VideoFrameStream {
       }
       const chunkIndex = positions[this.cursor]
       this.cursor += 1
+      const reading = this.reader.readChunkMessages(chunkIndex, this.track.channelId, signal)
+      // Read ahead only once a run reads on past its first chunk, so a seek for one frame (a thumbnail) costs one
+      // chunk.
+      if (this.runFrames > 0 && this.cursor < positions.length) {
+        this.reader.prefetchChunk(positions[this.cursor])
+      }
       // eslint-disable-next-line no-await-in-loop
-      const messages = await this.reader.readChunkMessages(chunkIndex, this.track.channelId, signal)
+      const messages = await reading
       this.queue = messages.map((message) => this.decoder.decode(message))
     }
     const frame = this.queue.shift() ?? null
