@@ -13,17 +13,18 @@ import { browserStorage, storedByteSource } from './preferences'
 /** The most bytes one reply of the recorder `bytes` Query carries. */
 export const RECORDING_BYTES_MAX_LENGTH = 1024 * 1024
 
-/**
- * Queries one read keeps in flight. The recorder answers them one at a time, so more would only queue on the
- * vehicle; these hide the round trip through nginx, the router and the recorder between two replies.
- */
-export const RECORDING_BYTES_IN_FLIGHT = 4
-
 /** Reads a recording with the recorder `bytes` Query over the backbone instead of HTTP ranges from nginx. */
 export class ZenohByteSource implements ByteSource {
   bytesRead = 0
 
   private total: number | null = null
+
+  /**
+   * Queries go one at a time. The recorder answers them in turn anyway, and a reply that overtakes no request
+   * waits up to 40 ms on the remote_api websocket: the plugin leaves Nagle's algorithm on, and nginx delays the
+   * ACK that a next request would otherwise carry.
+   */
+  private queue: Promise<unknown> = Promise.resolve()
 
   constructor(private readonly transport: Transport, public readonly path: string) {}
 
@@ -38,22 +39,13 @@ export class ZenohByteSource implements ByteSource {
     if (length <= 0) {
       return new Uint8Array()
     }
-    const pieceCount = Math.ceil(length / RECORDING_BYTES_MAX_LENGTH)
-    const pieces: Uint8Array[] = []
-    let nextPiece = 0
-    const readPieces = async (): Promise<void> => {
-      while (nextPiece < pieceCount) {
-        const start = nextPiece * RECORDING_BYTES_MAX_LENGTH
-        nextPiece += 1
-        // eslint-disable-next-line no-await-in-loop
-        pieces[start / RECORDING_BYTES_MAX_LENGTH] = await this.readPiece(
-          offset + start,
-          Math.min(RECORDING_BYTES_MAX_LENGTH, length - start),
-          signal,
-        )
-      }
-    }
-    await Promise.all(Array.from({ length: Math.min(RECORDING_BYTES_IN_FLIGHT, pieceCount) }, readPieces))
+    const pieces = await Promise.all(Array.from(
+      { length: Math.ceil(length / RECORDING_BYTES_MAX_LENGTH) },
+      (_, piece) => {
+        const start = piece * RECORDING_BYTES_MAX_LENGTH
+        return this.readPiece(offset + start, Math.min(RECORDING_BYTES_MAX_LENGTH, length - start), signal)
+      },
+    ))
     if (pieces.length === 1) {
       return pieces[0]
     }
@@ -65,7 +57,13 @@ export class ZenohByteSource implements ByteSource {
     return data
   }
 
-  private async readPiece(offset: number, length: number, signal?: AbortSignal): Promise<Uint8Array> {
+  private readPiece(offset: number, length: number, signal?: AbortSignal): Promise<Uint8Array> {
+    const piece = this.queue.then(() => this.queryPiece(offset, length, signal))
+    this.queue = piece.catch(() => undefined)
+    return piece
+  }
+
+  private async queryPiece(offset: number, length: number, signal?: AbortSignal): Promise<Uint8Array> {
     throwIfAborted(signal)
     const response = await whileWaiting(query(this.transport, bytes, { path: this.path, offset, length }), signal)
     if (this.total === null) {

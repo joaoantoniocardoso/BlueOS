@@ -68,7 +68,7 @@ describe('ZenohByteSource', () => {
     expect(source.bytesRead).toBe(4)
   })
 
-  it('splits a large read into 1 MiB queries, four in flight, and joins them in order', async () => {
+  it('splits a large read into 1 MiB queries, sent one at a time, and joins them in order', async () => {
     const transport = new FakeTransport()
     let inFlight = 0
     let mostInFlight = 0
@@ -88,13 +88,15 @@ describe('ZenohByteSource', () => {
     const source = new ZenohByteSource(counting, 'live.mcap')
 
     const read = source.read(0, 5 * MEBIBYTE + 3)
-    await answerRanges(transport, 6, 10 * MEBIBYTE)
+    const other = source.read(9 * MEBIBYTE, 2)
+    await answerRanges(transport, 7, 10 * MEBIBYTE)
     const data = await read
 
-    expect(mostInFlight).toBe(4)
+    expect(mostInFlight).toBe(1)
     expect(data.byteLength).toBe(5 * MEBIBYTE + 3)
     expect([0, 1, 2, 3, 4, 5].map((piece) => data[piece * MEBIBYTE])).toEqual([0, 1, 2, 3, 4, 5])
-    expect(source.bytesRead).toBe(5 * MEBIBYTE + 3)
+    await expect(other).resolves.toEqual(new Uint8Array([9, 9]))
+    expect(source.bytesRead).toBe(5 * MEBIBYTE + 5)
   })
 
   it('rejects with AbortError when its signal aborts, without waiting for the reply', async () => {
