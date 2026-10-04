@@ -97,6 +97,8 @@ blueos_recorder_msgs/msg/RecordingContents 1 path:string;duration:builtin_interf
 blueos_recorder_msgs/msg/RecordingFile 1 path:string;name:string;size_bytes:uint64;created:builtin_interfaces/Time;state:uint8;repair_bytes_processed:uint64;repair_total_bytes:uint64;repair_bytes_per_second:float64;repair_error:string;allowed_operations:string[];repair_job_id:string
 blueos_recorder_msgs/msg/RecordingLibrary 1 files:blueos_recorder_msgs/RecordingFile[];contents:blueos_recorder_msgs/RecordingContents[]
 blueos_recorder_msgs/msg/RecordingState 1 armed:bool;session_active:bool;current_file:string;session_bytes_written:uint64;recording_video_topics:string[];samples_dropped:uint64
+blueos_recorder_msgs/srv/RecordingBytes_Request 1 path:string;offset:uint64;length:uint32
+blueos_recorder_msgs/srv/RecordingBytes_Response 1 size:uint64;data:uint8[]
 blueos_recorder_msgs/srv/RecordingIndex_Request 1 path:string;from_offset:uint64;limit:uint32
 blueos_recorder_msgs/srv/RecordingIndex_Response 1 size:uint64;offset:uint64;closed:bool;chunks:blueos_recorder_msgs/ChunkIndexEntry[];message_counts:blueos_recorder_msgs/ChannelMessageCount[];records:uint8[]
 builtin_interfaces/msg/Duration 1 sec:int32;nanosec:uint32

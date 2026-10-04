@@ -212,6 +212,17 @@ export interface RecordingState {
   samples_dropped: number;
 }
 
+export interface RecordingBytesRequest {
+  path: string;
+  offset: number;
+  length: number;
+}
+
+export interface RecordingBytesResponse {
+  size: number;
+  data: number[];
+}
+
 export interface RecordingIndexRequest {
   path: string;
   from_offset: number;
@@ -298,6 +309,8 @@ export interface MessageBySchema {
   "blueos_recorder_msgs/msg/RecordingFile": RecordingFile;
   "blueos_recorder_msgs/msg/RecordingLibrary": RecordingLibrary;
   "blueos_recorder_msgs/msg/RecordingState": RecordingState;
+  "blueos_recorder_msgs/srv/RecordingBytes_Request": RecordingBytesRequest;
+  "blueos_recorder_msgs/srv/RecordingBytes_Response": RecordingBytesResponse;
   "blueos_recorder_msgs/srv/RecordingIndex_Request": RecordingIndexRequest;
   "blueos_recorder_msgs/srv/RecordingIndex_Response": RecordingIndexResponse;
   "builtin_interfaces/msg/Duration": Duration;

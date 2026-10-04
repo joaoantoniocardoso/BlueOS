@@ -403,6 +403,25 @@
       "category": "default"
     },
     {
+      "schema_name": "blueos_recorder_msgs/srv/RecordingBytes_Request",
+      "hex": "000100000100000000000000000000000000000000000000",
+      "decoded": {
+        "length": 0,
+        "offset": 0,
+        "path": ""
+      },
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_recorder_msgs/srv/RecordingBytes_Response",
+      "hex": "00010000000000000000000000000000",
+      "decoded": {
+        "data": [],
+        "size": 0
+      },
+      "category": "default"
+    },
+    {
       "schema_name": "blueos_recorder_msgs/srv/RecordingIndex_Request",
       "hex": "000100000100000000000000000000000000000000000000",
       "decoded": {

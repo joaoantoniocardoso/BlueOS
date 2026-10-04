@@ -437,6 +437,17 @@ uint64 session_bytes_written
 string[] recording_video_topics
 # Samples left out of current_file because they arrived faster than the disk took them.
 uint64 samples_dropped`,
+  "blueos_recorder_msgs/srv/RecordingBytes_Request": `# blueos_recorder_msgs/srv/RecordingBytes
+# The Query on blueos/v1/recorder/query/bytes. Its response is a byte range of a recording, so the browser can read
+# a recording over the backbone instead of HTTP ranges.
+
+string path
+uint64 offset
+# Bytes wanted from \`offset\`. A response holds at most 1048576 (1 MiB), and fewer at the end of the file.
+uint32 length`,
+  "blueos_recorder_msgs/srv/RecordingBytes_Response": `# The size of the file when it was read; it grows while the recording is written.
+uint64 size
+uint8[] data`,
   "blueos_recorder_msgs/srv/RecordingIndex_Request": `# blueos_recorder_msgs/srv/RecordingIndex
 # The Query on blueos/v1/recorder/query/index. Its response is one page of a walk over record headers, so the
 # browser can fetch chunk bodies with HTTP ranges even when the file has no summary yet (still recording, needs
