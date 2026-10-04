@@ -2,13 +2,13 @@
    While there are MAVLink things here, their usage is tied to Ardupilot's implementation
 */
 
-import mavlink2rest from "@/libs/MAVLink2Rest";
-import { MavCmd, MavModeFlag } from "@/libs/MAVLink2Rest/mavlink2rest-ts/messages/mavlink2rest-enum";
-import autopilot_data from "@/store/autopilot";
-import mavlink_store_get from "./mavlink";
-import mavlink from "@/store/mavlink";
-import { Message } from "@/libs/MAVLink2Rest/mavlink2rest-ts/messages/mavlink2rest-message";
+import mavlink2rest from '@/libs/MAVLink2Rest'
+import { MavCmd, MavModeFlag } from '@/libs/MAVLink2Rest/mavlink2rest-ts/messages/mavlink2rest-enum'
+import { Message } from '@/libs/MAVLink2Rest/mavlink2rest-ts/messages/mavlink2rest-message'
+import autopilot_data from '@/store/autopilot'
+import mavlink from '@/store/mavlink'
 
+import mavlink_store_get from './mavlink'
 
 export function isArmed(): boolean {
   const vehicle_id = autopilot_data.system_id
@@ -22,7 +22,6 @@ export function isArmed(): boolean {
 }
 
 function sendArmDisarm(arm: boolean, force: boolean): void {
-  const vehicle_id = autopilot_data.system_id
   const magic_number = arm ? 2989 : 21196
   mavlink2rest.sendMessage(
     {
@@ -52,21 +51,20 @@ function sendArmDisarm(arm: boolean, force: boolean): void {
 }
 
 export async function armDisarm(arm: boolean, force: boolean, tries?: number): Promise<void> {
-  return new Promise<void>(async (resolve, reject) => {
-    tries = tries || 5
-    let current_try = 0
+  const attempts = tries || 5
+  let current_try = 0
 
-    while (isArmed() !== arm && current_try < tries) {
-      current_try += 1
-      sendArmDisarm(arm, force)
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-    }
+  while (isArmed() !== arm && current_try < attempts) {
+    current_try += 1
+    sendArmDisarm(arm, force)
+    await new Promise<void>((done) => {
+      setTimeout(done, 1000)
+    })
+  }
 
-    if (isArmed() == arm) {
-      resolve()
-    }
-    reject()
-  })
+  if (isArmed() !== arm) {
+    await Promise.reject()
+  }
 }
 
 export function getMode(): number {
@@ -80,24 +78,23 @@ export function getMode(): number {
   return heartbeat?.custom_mode || 0
 }
 
-export async function setMode(mode: number,  tries?: number): Promise<void> {
-  tries = tries || 5
+export async function setMode(mode: number, tries?: number): Promise<void> {
+  const attempts = tries || 5
   let current_try = 0
-  return new Promise<void>(async (resolve, reject) => {
-    while (getMode() !== mode && current_try < tries) {
-      current_try += 1
-      mavlink2rest.sendCommandLong(
-        MavCmd.MAV_CMD_DO_SET_MODE,
-        MavModeFlag.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
-        mode,
-      )
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-    }
-    if (getMode() === mode) {
-      resolve()
-    }
-    reject()
-  })
+  while (getMode() !== mode && current_try < attempts) {
+    current_try += 1
+    mavlink2rest.sendCommandLong(
+      MavCmd.MAV_CMD_DO_SET_MODE,
+      MavModeFlag.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
+      mode,
+    )
+    await new Promise<void>((done) => {
+      setTimeout(done, 1000)
+    })
+  }
+  if (getMode() !== mode) {
+    await Promise.reject()
+  }
 }
 
 export async function doMotorTest(motorId: number, output: number): Promise<void> {

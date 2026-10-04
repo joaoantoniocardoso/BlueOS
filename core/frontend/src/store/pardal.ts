@@ -1,23 +1,23 @@
-import { 
-    Action,
-    getModule,
-    VuexModule,
-} from "vuex-module-decorators"
+import {
+  Action,
+  getModule,
+  VuexModule,
+} from 'vuex-module-decorators'
 
-import Notifier from "@/libs/notifier"
-import store from "@/store"
-import { pardal_service } from "@/types/frontend_services"
-import { SpeedTestResult } from "@/types/pardal"
-import back_axios from "@/utils/api"
-import { DynamicModule as Module } from "@/utils/vuex"
+import Notifier from '@/libs/notifier'
+import store from '@/store'
+import { pardal_service } from '@/types/frontend_services'
+import { SpeedTestResult } from '@/types/pardal'
+import back_axios from '@/utils/api'
+import { DynamicModule as Module } from '@/utils/vuex'
 
 const notifier = new Notifier(pardal_service)
 
 @Module({
-    dynamic: true,
-    store,
-    name: 'pardal',
-  })
+  dynamic: true,
+  store,
+  name: 'pardal',
+})
 
 class PardalStore extends VuexModule {
   API_URL = '/network-test'

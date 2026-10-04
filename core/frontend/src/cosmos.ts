@@ -1,4 +1,4 @@
-import { vec3 } from "gl-matrix";
+import { vec3 } from 'gl-matrix'
 
 export {}
 
@@ -63,14 +63,13 @@ String.prototype.toTitle = function (this: string): string {
  * @param color - The hexadecimal color code (with or without '#' prefix)
  * @returns A vec3 array containing the RGB values as integers [r, g, b] where each value is 0-255
  */
-export const convertHexToRgbd = (color: string): vec3 => {
+export function convertHexToRgbd(color: string): vec3 {
   color = color.replace('#', '')
   const r = parseInt(color.substring(0, 2), 16)
   const g = parseInt(color.substring(2, 4), 16)
   const b = parseInt(color.substring(4, 6), 16)
   return [r, g, b]
 }
-
 
 /**
  * Utility functions for clipboard operations
@@ -81,21 +80,21 @@ export const convertHexToRgbd = (color: string): vec3 => {
  * @param text - The text to copy to clipboard
  * @returns boolean indicating if the copy operation succeeded
  */
-const copyWithFallbackMethod = (text: string): boolean => {
+function copyWithFallbackMethod(text: string): boolean {
   const temporaryInputElement = document.createElement('input')
-  temporaryInputElement.addEventListener('focusin', e => e.stopPropagation())
+  temporaryInputElement.addEventListener('focusin', (e) => e.stopPropagation())
   temporaryInputElement.value = text
   document.body.appendChild(temporaryInputElement)
 
   try {
-      temporaryInputElement.select()
-      document.execCommand('copy')
-      return true
+    temporaryInputElement.select()
+    document.execCommand('copy')
+    return true
   } catch (error) {
-      console.error(`Failed to copy text to clipboard. Reason: ${error}`)
-      return false
+    console.error(`Failed to copy text to clipboard. Reason: ${error}`)
+    return false
   } finally {
-      document.body.removeChild(temporaryInputElement)
+    document.body.removeChild(temporaryInputElement)
   }
 }
 
@@ -105,16 +104,16 @@ const copyWithFallbackMethod = (text: string): boolean => {
 * @param fallback - Optional callback to handle fallback behavior
 * @returns Promise<boolean> indicating if the copy operation succeeded
 */
-const copyWithClipboardAPI = async (text: string, fallback?: () => boolean): Promise<boolean> => {
+async function copyWithClipboardAPI(text: string, fallback?: () => boolean): Promise<boolean> {
   try {
-      await navigator.clipboard.writeText(text)
-      return true
+    await navigator.clipboard.writeText(text)
+    return true
   } catch (error) {
-      console.error(`Failed to copy text to clipboard using Clipboard API. Reason: ${error}`)
-      if (fallback) {
-          return fallback()
-      }
-      return copyWithFallbackMethod(text)
+    console.error(`Failed to copy text to clipboard using Clipboard API. Reason: ${error}`)
+    if (fallback) {
+      return fallback()
+    }
+    return copyWithFallbackMethod(text)
   }
 }
 
@@ -123,29 +122,27 @@ const copyWithClipboardAPI = async (text: string, fallback?: () => boolean): Pro
 * @param text - The text to copy to clipboard
 * @returns Promise<boolean> indicating if the copy operation succeeded
 */
-export const copyToClipboard = async (text: string): Promise<boolean> => {
+export async function copyToClipboard(text: string): Promise<boolean> {
   try {
-      const permissionStatus = await navigator.permissions.query({ name: 'clipboard-write' as PermissionName })
+    const permissionStatus = await navigator.permissions.query({ name: 'clipboard-write' as PermissionName })
 
-      if (permissionStatus.state === 'granted') {
-          return await copyWithClipboardAPI(text)
-      } else if (permissionStatus.state === 'prompt') {
-          // The user will be prompted to grant the permission
-          return new Promise((resolve) => {
-              permissionStatus.onchange = async () => {
-                  if (permissionStatus.state === 'granted') {
-                      resolve(await copyWithClipboardAPI(text))
-                  } else {
-                      resolve(copyWithFallbackMethod(text))
-                  }
-              }
-          })
-      } else {
-          return copyWithFallbackMethod(text)
-      }
+    if (permissionStatus.state === 'granted') {
+      return await copyWithClipboardAPI(text)
+    } if (permissionStatus.state === 'prompt') {
+      // The user will be prompted to grant the permission
+      return new Promise((resolve) => {
+        permissionStatus.onchange = async () => {
+          if (permissionStatus.state === 'granted') {
+            resolve(await copyWithClipboardAPI(text))
+          } else {
+            resolve(copyWithFallbackMethod(text))
+          }
+        }
+      })
+    }
+    return copyWithFallbackMethod(text)
   } catch (error) {
-      console.error('Error while requesting clipboard-write permission:', error)
-      return copyWithFallbackMethod(text)
+    console.error('Error while requesting clipboard-write permission:', error)
+    return copyWithFallbackMethod(text)
   }
 }
-

@@ -13,13 +13,13 @@ import {
   RepairRecording,
   SnapshotRecording,
 } from '@/libs/blueos-api/services/recorder'
-import { SNAPSHOT_WAIT_TIMEOUT_MS, createRecorderClient } from '@/libs/recorder/client'
+import { createRecorderClient, SNAPSHOT_WAIT_TIMEOUT_MS } from '@/libs/recorder/client'
 
 import FakeTransport from '../blueos-api/fake-transport'
 
 const idleLibrary = { files: [] as never[] }
 
-function recordingFile(overrides: Record<string, unknown> = {}) {
+function recordingFile(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     path: 'live.mcap',
     name: 'live.mcap',
@@ -35,7 +35,7 @@ function recordingFile(overrides: Record<string, unknown> = {}) {
   }
 }
 
-function operationEvent(outputPath: string) {
+function operationEvent(outputPath: string): Record<string, unknown> {
   return {
     operation: 1,
     path: 'live.mcap',
@@ -83,7 +83,9 @@ describe('createRecorderClient', () => {
     transport.publish({
       key: library.key,
       payload: encodeCdr(library.messageSchema, {
-        files: [recordingFile({ path: 'a.mcap', name: 'a.mcap', state: 1, allowed_operations: ['DeleteRecording'] })],
+        files: [recordingFile({
+          path: 'a.mcap', name: 'a.mcap', state: 1, allowed_operations: ['DeleteRecording'],
+        })],
       }),
       encoding: cdrEncoding(library.messageSchema),
     })

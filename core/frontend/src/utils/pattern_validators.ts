@@ -55,7 +55,6 @@ export function isRtspVariantAddress(address: string): boolean {
   }
 }
 
-
 export function isFilepath(filepath: string): boolean {
   const filepath_pattern = /^(.+)\/([^/]+)$/
   return filepath_pattern.test(filepath)

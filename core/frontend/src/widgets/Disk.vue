@@ -99,7 +99,8 @@ export default Vue.extend({
 
 .disk-icon-main {
   font-size: 1.7rem !important;
-  color: rgba(var(--v-theme-on-surface), 0.8);
+  color: var(--v-sheet_bg_complement-base);
+  opacity: 0.8;
 }
 
 .disk-info-container {

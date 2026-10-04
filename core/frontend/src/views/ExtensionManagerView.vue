@@ -1273,23 +1273,37 @@ pre.logs {
 }
 
 .upload-phase {
+  position: relative;
+  isolation: isolate;
   border-radius: 12px;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
   padding: 12px 16px;
   background-color: var(--v-sheet_bg-base);
-  transition: border-color 0.2s ease;
 }
 
-.upload-phase.active {
+.upload-phase::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  border: 1px solid var(--v-sheet_bg_complement-base);
+  opacity: 0.12;
+  transition: border-color 0.2s ease, opacity 0.2s ease;
+}
+
+.upload-phase.active::before {
   border-color: var(--v-primary-base);
+  opacity: 1;
 }
 
-.upload-phase.complete {
+.upload-phase.complete::before {
   border-color: var(--v-success-base);
+  opacity: 1;
 }
 
-.upload-phase.error {
+.upload-phase.error::before {
   border-color: var(--v-error-base);
+  opacity: 1;
 }
 
 .upload-phase__header {
@@ -1302,10 +1316,21 @@ pre.logs {
 }
 
 .metadata-preview {
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  position: relative;
+  isolation: isolate;
   border-radius: 8px;
   padding: 12px 16px;
   background-color: var(--v-sheet_bg-base);
+}
+
+.metadata-preview::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  border: 1px solid var(--v-sheet_bg_complement-base);
+  opacity: 0.12;
 }
 
 .metadata-preview__grid {

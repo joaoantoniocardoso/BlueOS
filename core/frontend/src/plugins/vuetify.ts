@@ -1,6 +1,6 @@
 import '@mdi/font/css/materialdesignicons.css'
 
-import { siDiscourse } from 'simple-icons';
+import { siDiscourse } from 'simple-icons'
 import Vue from 'vue'
 import Vuetify from 'vuetify/lib/framework'
 
@@ -47,7 +47,7 @@ const vuetify = new Vuetify({
       light: {
         // Colors common to both themes
         ...baseTheme,
-        
+
         // BlueOS light theme defaults
         sheet_bg: DEFAULT_COLORS.SHEET_LIGHT_BG,
         sheet_bg_complement: DEFAULT_COLORS.SHEET_DARK_BG,
@@ -58,11 +58,11 @@ const vuetify = new Vuetify({
       dark: {
         // Colors common to both themes
         ...baseTheme,
-        
+
         // BlueOS dark theme defaults
         sheet_bg: DEFAULT_COLORS.SHEET_DARK_BG,
         sheet_bg_complement: DEFAULT_COLORS.SHEET_LIGHT_BG,
-        
+
         // Diagram dark theme colors
         outline: BR_COLORS.SKY_BLUE,
       },
@@ -74,14 +74,12 @@ const vuetify = new Vuetify({
 // this usage is required for tree-shaking to work,
 // otherwise all icons will be included in the bundle
 const icons = [
-  siDiscourse
-].map((icon) => {
-  return {
-    'name': icon.title,
-    'slug': icon.slug,
-    'path': icon.path
-  }
-})
+  siDiscourse,
+].map((icon) => ({
+  name: icon.title,
+  slug: icon.slug,
+  path: icon.path,
+}))
 
 for (const icon of icons) {
   vuetify.framework.icons.values[`si-${icon.slug}`] = `${icon.path}`

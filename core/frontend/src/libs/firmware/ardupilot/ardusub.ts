@@ -1,3 +1,4 @@
+/* eslint-disable import/prefer-default-export */
 export enum ArduSubMode {
   // Mode not set by vehicle yet
   PRE_FLIGHT = -1,

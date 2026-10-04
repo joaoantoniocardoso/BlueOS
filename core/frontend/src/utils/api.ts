@@ -6,10 +6,12 @@ const backend_offline_error = new Error('Backend is offline')
 backend_offline_error.name = 'BackendOffline'
 export { backend_offline_error }
 
-export const isBackendOffline = (error: any): boolean => {
+export function isBackendOffline(error: unknown): boolean {
   if (error === backend_offline_error) { return true }
-  if (error.message === 'Network Error') { return true }
-  return false;
+  if (typeof error === 'object' && error !== null && 'message' in error && error.message === 'Network Error') {
+    return true
+  }
+  return false
 }
 
 // Every back_axios call used to hit /status first, which piled up under normal polling.
@@ -30,7 +32,7 @@ function applyStatusResult(backend_offline: boolean): void {
 const axios_backend_instance: AxiosInstance = axios.create()
 axios_backend_instance.interceptors.request.use(async (config) => {
   const is_recently_online = last_online_at > 0 && !frontend.backend_offline
-  if (is_recently_online && (Date.now() - last_online_at) < STATUS_TTL_MS) {
+  if (is_recently_online && Date.now() - last_online_at < STATUS_TTL_MS) {
     return config
   }
 

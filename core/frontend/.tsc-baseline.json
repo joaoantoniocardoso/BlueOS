@@ -14,9 +14,9 @@
       "code": "TS2339",
       "count": 9
     },
-    "5eea9b288e40277eb764f21fb025cb05ecda2bfb": {
-      "file": "src/App.vue",
-      "code": "TS2591",
+    "dac86001aa6b7f85df687aa729f7621d3955d2de": {
+      "file": "src/components/app/BackendStatusChecker.vue",
+      "code": "TS2322",
       "count": 1
     },
     "8f0d07bfbad959361bf9258122b51545babc5599": {
@@ -28,11 +28,6 @@
       "file": "src/components/app/SettingsMenu.vue",
       "code": "TS2339",
       "count": 1
-    },
-    "74934772b6618cf4e491b0b9334569b0a09b5478": {
-      "file": "src/components/app/VehicleBanner.vue",
-      "code": "TS2591",
-      "count": 2
     },
     "fd190738ec79d96a6bb2a514783a2371adec7c45": {
       "file": "src/components/app/VehicleBanner.vue",
@@ -49,15 +44,35 @@
       "code": "TS2339",
       "count": 11
     },
+    "499e4fdcd025aab8b7cf9a6c5ec83d77464b1e5b": {
+      "file": "src/components/autopilot/AutopilotSerialConfiguration.vue",
+      "code": "TS2322",
+      "count": 2
+    },
     "739c6f278a4e18c13a0dc4e9d8c26ca9039ed97a": {
       "file": "src/components/autopilot/EndpointCreationDialog.vue",
       "code": "TS2345",
       "count": 2
     },
+    "4dfdee2009e282b91c2bf9f223d6ef56544686ed": {
+      "file": "src/components/autopilot/EndpointManager.vue",
+      "code": "TS2322",
+      "count": 3
+    },
     "97ee2ef021e9597e2f893428de5514cc2229d99b": {
       "file": "src/components/autopilot/MasterEndpointManager.vue",
       "code": "TS2345",
       "count": 2
+    },
+    "c31dbe66f064f092395e33b322179ab8863fe720": {
+      "file": "src/components/autopilot/SitlConfiguration.vue",
+      "code": "TS2322",
+      "count": 1
+    },
+    "468889133338d2ddf128fbee6d7e37167dd43b46": {
+      "file": "src/components/beacon/BeaconTrayMenu.vue",
+      "code": "TS2322",
+      "count": 1
     },
     "ac03a78962bb863dd4c7691ef7bab0b44b4f211e": {
       "file": "src/components/bridges/BridgeCard.vue",
@@ -74,20 +89,35 @@
       "code": "TS7006",
       "count": 2
     },
+    "f8df8bff86f47655ffb97db2ab78a601adf3a229": {
+      "file": "src/components/bridges/Bridget.vue",
+      "code": "TS2322",
+      "count": 1
+    },
     "6068ea46f8604d0ab0a327fe94f273bb17bf3c2e": {
       "file": "src/components/cloud/CloudTrayMenu.vue",
       "code": "TS2551",
       "count": 1
     },
-    "5cf2ef33812941eec1afa852e6971a636d73ed7b": {
-      "file": "src/components/common/SpinningLogo.vue",
-      "code": "TS2591",
+    "b3a626eb4ebd4483fa2931e8813c55caf6e2632e": {
+      "file": "src/components/common/DevicePathHelper.vue",
+      "code": "TS2322",
+      "count": 1
+    },
+    "46f68cff09df7f271502cfb5eaad3d4899b19d55": {
+      "file": "src/components/ethernet/EthernetUpdater.vue",
+      "code": "TS2322",
       "count": 1
     },
     "6d67759b13893ec29f9c526b55c9b1b32049d57e": {
       "file": "src/components/ethernet/InterfaceCard.vue",
       "code": "TS2339",
       "count": 1
+    },
+    "d16ea148ee41dd80eff42737c9d8fc715bae7b46": {
+      "file": "src/components/example/ExampleMinimalPanel.vue",
+      "code": "TS2345",
+      "count": 5
     },
     "82a58b1850ff14e44ea66bf309c229f9bdf399de": {
       "file": "src/components/health/GpsTrayMenu.vue",
@@ -104,14 +134,19 @@
       "code": "TS7016",
       "count": 1
     },
+    "537d576257281d561f6c735fc15398e464ae3284": {
+      "file": "src/components/kraken/BackAlleyTab.vue",
+      "code": "TS2339",
+      "count": 1
+    },
     "3fe6f78f45db48aaddf652b8978c0eade2b76366": {
       "file": "src/components/kraken/BackAlleyTab.vue",
       "code": "TS1117",
       "count": 4
     },
-    "4e3d3efc8c09d9ae2239e4313ec19614707cd4c0": {
-      "file": "src/components/kraken/KrakenManager.ts",
-      "code": "TS2551",
+    "4ae805961736a6cbcfc8126f908a0643ea03a423": {
+      "file": "src/components/kraken/BazaarTab.vue",
+      "code": "TS2322",
       "count": 1
     },
     "7cfa673a4b08aa6864bb2e6233245b68cf1efee6": {
@@ -149,10 +184,25 @@
       "code": "TS2339",
       "count": 1
     },
+    "8b1ab7d060bc0ecca2af6a1b9b707b8efe945bf2": {
+      "file": "src/components/kraken/modals/ExtensionLogsModal.vue",
+      "code": "TS2345",
+      "count": 15
+    },
     "8d964521d257dac25739867ddba9029a9c1e9830": {
       "file": "src/components/kraken/modals/ExtensionSettingsModal.vue",
       "code": "TS18046",
       "count": 2
+    },
+    "1d6a2adc74cc544d78e5d95e69bd653efe3fb608": {
+      "file": "src/components/nmea-injector/NMEAInjector.vue",
+      "code": "TS2322",
+      "count": 1
+    },
+    "4be6096ee3c04d8dade2fd23b899c164f4e9a7c1": {
+      "file": "src/components/notifications/NotificationManager.vue",
+      "code": "TS2345",
+      "count": 1
     },
     "9318e3915f8cb7c6d82de4b5bfe8fa378d8a7309": {
       "file": "src/components/parameter-editor/InlineParameterEditor.vue",
@@ -167,6 +217,11 @@
     "229ea2698a6dcce70da72fda4dee235c0e8bdf1a": {
       "file": "src/components/parameter-editor/ParameterLoader.vue",
       "code": "TS2614",
+      "count": 1
+    },
+    "3a482c72c121067abdef548f02f1e37b1eb0fbf2": {
+      "file": "src/components/parameter-editor/ParameterLoader.vue",
+      "code": "TS2322",
       "count": 1
     },
     "97a5852c6afb1d6d30208663c17c2401902865c6": {
@@ -184,9 +239,24 @@
       "code": "TS7053",
       "count": 1
     },
+    "b06d7af60e71b0df17874b00c473cfe811b1fb2d": {
+      "file": "src/components/records/McapVideoPlayer.vue",
+      "code": "TS2339",
+      "count": 50
+    },
+    "9a2400b84d83b2011adce5bf6361c625c36d73ec": {
+      "file": "src/components/records/McapVideoPlayer.vue",
+      "code": "TS2352",
+      "count": 1
+    },
     "60d26b2a8d2e57ce84cfb2d1d35b41294f6fb551": {
       "file": "src/components/speedtest/NetworkSpeedTest.vue",
       "code": "TS18048",
+      "count": 2
+    },
+    "3423d1a8b20954823edaa87a6bbd17a292208e00": {
+      "file": "src/components/system-information/AboutThisSystem.vue",
+      "code": "TS2322",
       "count": 2
     },
     "67ef4eb306f846b7b7f01008bd7ba0fe546808f1": {
@@ -199,10 +269,20 @@
       "code": "TS1117",
       "count": 1
     },
+    "73f5af6eb72632d30b82de6e4e2d8619cf619fac": {
+      "file": "src/components/system-information/Processes.vue",
+      "code": "TS2322",
+      "count": 1
+    },
     "a5df6e3c47b75860cff33a94cf343a0cdb99adb7": {
       "file": "src/components/vehiclesetup/Configure.vue",
       "code": "TS2339",
       "count": 1
+    },
+    "2b3f4d6b01caf4b4ff3cbbbeef9e1333bd7668df": {
+      "file": "src/components/vehiclesetup/MotorDetection.vue",
+      "code": "TS2322",
+      "count": 2
     },
     "cf83d83553b9f59c75108c15b4101bed409fa68b": {
       "file": "src/components/vehiclesetup/OrientationPicker.vue",
@@ -214,19 +294,24 @@
       "code": "TS2307",
       "count": 3
     },
+    "3c26cf9f970f81810c9e931ac6fcdda825a39b78": {
+      "file": "src/components/vehiclesetup/PwmSetup.vue",
+      "code": "TS2322",
+      "count": 3
+    },
     "2b6bbe2cd7a8571ab75d0c450bc73faa9e161d4a": {
       "file": "src/components/vehiclesetup/calibration.ts",
       "code": "TS2339",
       "count": 58
     },
-    "ea44530963871dce1b2da7806984fab46375cb8a": {
-      "file": "src/components/vehiclesetup/configuration/compass/CompassCalibrationProgressGrid.vue",
-      "code": "TS7016",
+    "dd7613d61cb9b5f4ecc5bca72ce46fe7e2fafab6": {
+      "file": "src/components/vehiclesetup/configuration/ArdupilotVehicleBodySetup.vue",
+      "code": "TS2322",
       "count": 1
     },
-    "73fa202c3d47dbe1f8547bb260b1dbf8cda83ce2": {
-      "file": "src/components/vehiclesetup/configuration/compass/CompassCalibrationProgressGrid.vue",
-      "code": "TS2307",
+    "8967a22ce9666c25964678f624f43613149f35dc": {
+      "file": "src/components/vehiclesetup/configuration/accelerometer/QuickAccelerometerCalibration.vue",
+      "code": "TS2322",
       "count": 1
     },
     "84a7a7311c3ccfc3fe2d48e5747dd3f52c5c4a71": {
@@ -249,15 +334,25 @@
       "code": "TS2339",
       "count": 1
     },
-    "03e406361f87eb770ae4c36d40fb6b5d3fdee1b7": {
-      "file": "src/components/vehiclesetup/overview/PingInfo.vue",
-      "code": "TS2591",
+    "945d34b55b18657d1261e7672184dc356ff2f7a1": {
+      "file": "src/components/vehiclesetup/overview/VehicleInfo.vue",
+      "code": "TS2322",
+      "count": 2
+    },
+    "022b60421ad31c7d364e4b7931d2aed07eeee475": {
+      "file": "src/components/vehiclesetup/overview/VideoOverview.vue",
+      "code": "TS2322",
       "count": 2
     },
     "9ac3c957a6cf60e7b2fa88993ed7610327f7c840": {
       "file": "src/components/vehiclesetup/viewers/GenericViewer.vue",
       "code": "TS2339",
       "count": 2
+    },
+    "4501ac5bbaf606fe90922ba4831ee23ca55e5545": {
+      "file": "src/components/vehiclesetup/viewers/GenericViewer.vue",
+      "code": "TS7016",
+      "count": 1
     },
     "9f935c55079babf31075240b482cdb4438b01f75": {
       "file": "src/components/vehiclesetup/viewers/GenericViewer.vue",
@@ -272,17 +367,37 @@
     "108b7670fce576042027b6a213fc6aea983ad130": {
       "file": "src/components/version-chooser/VersionCard.vue",
       "code": "TS2339",
-      "count": 26
+      "count": 28
     },
     "77d0fb94d3be18a25d414586e09aff878837c55d": {
       "file": "src/components/version-chooser/VersionChooser.vue",
       "code": "TS2345",
       "count": 1
     },
+    "b7f3e26fc4a6ca00268f8bad482379ad70fef52a": {
+      "file": "src/components/version-chooser/VersionChooser.vue",
+      "code": "TS2339",
+      "count": 1
+    },
+    "05601f523ab97b242e14e58100af02db0c1d84ea": {
+      "file": "src/components/version-chooser/VersionChooser.vue",
+      "code": "TS2322",
+      "count": 4
+    },
     "65c436c9f93aa607e6c0f99bcee8aa9cf53ccd58": {
       "file": "src/components/version-chooser/VersionChooser.vue",
       "code": "TS18048",
       "count": 1
+    },
+    "e3c7acb2cc43c409123853b886ef4ec1059e54ba": {
+      "file": "src/components/video-manager/VideoThumbnail.vue",
+      "code": "TS2322",
+      "count": 1
+    },
+    "309cc655f3d686329c84f35fc615b3e2d892ee44": {
+      "file": "src/components/video-manager/VideoUpdater.vue",
+      "code": "TS2322",
+      "count": 2
     },
     "809f0fb51056514a7c18e29dfdc1f9684ff9c399": {
       "file": "src/components/wifi/WifiManager.vue",
@@ -294,9 +409,29 @@
       "code": "TS18048",
       "count": 1
     },
+    "4d8e99c8162dddd8f9bb75dfbf30f903abc8994c": {
+      "file": "src/components/wifi/WifiUpdater.vue",
+      "code": "TS2322",
+      "count": 5
+    },
     "ac59f95a8fde9727ffb50af4548433cc390880db": {
       "file": "src/components/wizard/DefaultParamLoader.vue",
       "code": "TS2614",
+      "count": 1
+    },
+    "6b954671b5e3e56544fcfbbaa0dc6408d3a9864e": {
+      "file": "src/components/wizard/DefaultParamLoader.vue",
+      "code": "TS2322",
+      "count": 1
+    },
+    "49df320e48032920b4f5c9788ac7f9a0557d5a51": {
+      "file": "src/components/wizard/RequireInternet.vue",
+      "code": "TS2322",
+      "count": 2
+    },
+    "47455fbb66f4d71d1c0107ad90e7322f5b947739": {
+      "file": "src/components/wizard/ScriptLoader.vue",
+      "code": "TS2322",
       "count": 1
     },
     "b5c1d40a829fa4279253ab1e602475a0d8c369f1": {
@@ -324,6 +459,76 @@
       "code": "TS2551",
       "count": 3
     },
+    "e0e4835f109ee24e1d7294822eb18905fe179140": {
+      "file": "src/libs/blueos-api/logs.ts",
+      "code": "TS2345",
+      "count": 1
+    },
+    "96193a7b721e37988ed34095f208820c8104aae1": {
+      "file": "src/libs/blueos-api/logs.ts",
+      "code": "TS2339",
+      "count": 1
+    },
+    "08377ea5fcdeeb89e3e9a631d90b1e56bbd63c45": {
+      "file": "src/libs/mcap/adapters/export.ts",
+      "code": "TS2339",
+      "count": 1
+    },
+    "521563afd36f628f46f7a8db5b12bfc4e40446db": {
+      "file": "src/libs/mcap/adapters/thumbnail.ts",
+      "code": "TS2339",
+      "count": 1
+    },
+    "fad72104f4a7830c7888b014ac787a74cfa1b170": {
+      "file": "src/libs/mcap/index.ts",
+      "code": "TS2308",
+      "count": 1
+    },
+    "bf4b2416550ce1e58125e64f61e7c8eec0cb5662": {
+      "file": "src/libs/mcap/logic/mux.ts",
+      "code": "TS7016",
+      "count": 1
+    },
+    "4b0766dc3deb59f72395ad66d6c80c778a0472f0": {
+      "file": "src/libs/mcap/logic/mux.ts",
+      "code": "TS7006",
+      "count": 1
+    },
+    "6bc252cdfd847cf92c7a33505c725bcf8fc13daf": {
+      "file": "src/libs/mcap/logic/mux.ts",
+      "code": "TS2344",
+      "count": 1
+    },
+    "a490a6f828ae51008930474826522cd65a9e2724": {
+      "file": "src/libs/mcap/logic/mux.ts",
+      "code": "TS2322",
+      "count": 1
+    },
+    "4ac552776f9a0b81b5809cabf75c6170c2d5e3ab": {
+      "file": "src/libs/mcap/logic/reader.ts",
+      "code": "TS7016",
+      "count": 1
+    },
+    "1fb66ac73a92da735601030cbcac2e52a4148fb1": {
+      "file": "src/libs/recorder/map.ts",
+      "code": "TS2307",
+      "count": 1
+    },
+    "aed5726607b7afd9d25a2fe1c8175e2f6c814a71": {
+      "file": "src/libs/zenoh-inspector/adapters/api-client.ts",
+      "code": "TS2352",
+      "count": 3
+    },
+    "e49045e960319e301b155b3f7009cc812f95e945": {
+      "file": "src/libs/zenoh-inspector/inspector-controller.ts",
+      "code": "TS2345",
+      "count": 1
+    },
+    "d08ff4772fff7dfb6159ce594aab2b2552ed6153": {
+      "file": "src/libs/zenoh-inspector/logic/registry.ts",
+      "code": "TS2783",
+      "count": 2
+    },
     "4eb79b3bef92719f4466c565baacc087dfae4cba": {
       "file": "src/main.ts",
       "code": "TS7016",
@@ -334,14 +539,19 @@
       "code": "TS2769",
       "count": 1
     },
+    "1efe7f392c9f2c8e7acff4de98e3ba5e6047512b": {
+      "file": "src/mixins/blueosApi.ts",
+      "code": "TS2339",
+      "count": 3
+    },
+    "3645ab020a8e1ce2165d213003490617b36d5447": {
+      "file": "src/mixins/blueosApi.ts",
+      "code": "TS2551",
+      "count": 1
+    },
     "0a50d801dfb5792dece694409755c2139af102e0": {
       "file": "src/one-more-time.ts",
       "code": "TS2532",
-      "count": 1
-    },
-    "059d18bd29ecd27852f47662e38c97243f9f8ee1": {
-      "file": "src/one-more-time.ts",
-      "code": "TS2339",
       "count": 1
     },
     "4d9654c951606a31f6a20eedc66264b8dc90793b": {
@@ -384,6 +594,11 @@
       "code": "TS2665",
       "count": 1
     },
+    "44a0b91ee1cb4f2471411c192a8c8d33d88f2193": {
+      "file": "src/utils/major_tom.ts",
+      "code": "TS2769",
+      "count": 1
+    },
     "19896ac0b9d9bac5e3e4afcf52a930d4fdc40929": {
       "file": "src/views/Autopilot.vue",
       "code": "TS2339",
@@ -392,7 +607,12 @@
     "ab7f7df09752d23b7f6f8a8301d862d1439adf29": {
       "file": "src/views/Autopilot.vue",
       "code": "TS2322",
-      "count": 1
+      "count": 6
+    },
+    "cfc7e0c0a501963702fca7e22f9f40bc5804fb6b": {
+      "file": "src/views/ExtensionManagerView.vue",
+      "code": "TS2322",
+      "count": 5
     },
     "3e952b1ebb3729e18bfe73508cab6a7456b778a5": {
       "file": "src/views/ExtensionManagerView.vue",
@@ -409,6 +629,26 @@
       "code": "TS2339",
       "count": 1
     },
+    "58f26bf2d2f8a88fef4544ef1c0aea5c35dd26df": {
+      "file": "src/views/MainView.vue",
+      "code": "TS2322",
+      "count": 1
+    },
+    "b88f0c370271758fda2cc54139213559cc4df365": {
+      "file": "src/views/Pings.vue",
+      "code": "TS2322",
+      "count": 1
+    },
+    "57a23a3e949da300e264181b51e0ab237eb72bdc": {
+      "file": "src/views/RecordsView.vue",
+      "code": "TS2345",
+      "count": 16
+    },
+    "22d6de8e266d6ebd78336806b95aecb860da0d2f": {
+      "file": "src/views/SettingsView.vue",
+      "code": "TS2322",
+      "count": 1
+    },
     "81f6f0450e66a66189ad7ce67611c435e0e710fb": {
       "file": "src/views/SettingsView.vue",
       "code": "TS2339",
@@ -418,6 +658,46 @@
       "file": "src/views/VehicleSetupView.vue",
       "code": "TS2339",
       "count": 2
+    },
+    "8b57f6b7c8fb23f027be8025dfa2bf0cd9aaa1d4": {
+      "file": "src/views/VehicleSetupView.vue",
+      "code": "TS2322",
+      "count": 2
+    },
+    "16600407b2e0c598665ea9269d55ed91c73c5baf": {
+      "file": "tests/mcap/playback-ui.test.ts",
+      "code": "TS2353",
+      "count": 1
+    },
+    "b932cc90f5106860e8d3839458443e2db967e69d": {
+      "file": "tests/mcap/thumbnail-cache.test.ts",
+      "code": "TS2322",
+      "count": 6
+    },
+    "f930603a984a2c2fc946e43caf767cf946cc1940": {
+      "file": "tests/recorder/client.test.ts",
+      "code": "TS2740",
+      "count": 1
+    },
+    "7af984cc44a2405e2e4e736bc369af7b62e3a323": {
+      "file": "tests/recorder/client.test.ts",
+      "code": "TS2345",
+      "count": 1
+    },
+    "a61f8ff58f526b3e58d03a32c96c26ffe06d500f": {
+      "file": "tests/recorder/client.test.ts",
+      "code": "TS2322",
+      "count": 8
+    },
+    "b3907d8453505e839a626e57a7faa95c3f6f474e": {
+      "file": "tests/recorder/index-source.test.ts",
+      "code": "TS2345",
+      "count": 4
+    },
+    "b0259f1e72e28a64df0910ce67b9ec49fc933e19": {
+      "file": "tests/zenoh-inspector/api-client.test.ts",
+      "code": "TS2353",
+      "count": 1
     }
   }
 }

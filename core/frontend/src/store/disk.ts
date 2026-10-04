@@ -1,9 +1,12 @@
 import {
-  Action, Mutation, VuexModule, getModule,
+  Action, getModule,
+  Mutation, VuexModule,
 } from 'vuex-module-decorators'
 
 import store from '@/store'
-import { DiskSpeedResult, DiskSpeedTestPoint, DiskUsageQuery, DiskUsageResponse } from '@/types/disk'
+import {
+  DiskSpeedResult, DiskSpeedTestPoint, DiskUsageQuery, DiskUsageResponse,
+} from '@/types/disk'
 import back_axios, { isBackendOffline } from '@/utils/api'
 import { parseStreamingResponse } from '@/utils/streaming'
 import { DynamicModule as Module } from '@/utils/vuex'
@@ -201,7 +204,7 @@ class DiskStore extends VuexModule {
           const fragments = parseStreamingResponse(response)
           const validFragments = fragments.filter((f) => f.fragment >= 0 && f.status === 200 && f.data)
 
-          for (let i = processedFragments; i < validFragments.length; i++) {
+          for (let i = processedFragments; i < validFragments.length; i += 1) {
             const fragment = validFragments[i]
             if (!fragment.data) continue
 

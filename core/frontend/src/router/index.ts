@@ -1,10 +1,10 @@
-import { defineAsyncComponent } from 'vue'
-import Vue from 'vue'
+import Vue, { defineAsyncComponent } from 'vue'
 import VueRouter, { RouteConfig } from 'vue-router'
 
 import ExtensionView from '../views/ExtensionView.vue'
 import Main from '../views/MainView.vue'
 import PageNotFound from '../views/PageNotFound.vue'
+
 Vue.use(VueRouter)
 
 const routes: Array<RouteConfig> = [

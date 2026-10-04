@@ -1,6 +1,6 @@
 // ported from https://github.com/ArduPilot/pymavlink/blob/master/mavextra.py#L60
 
-import { glMatrix, vec3, mat3 } from 'gl-matrix'
+import { glMatrix, mat3, vec3 } from 'gl-matrix'
 
 export default function mag_heading(RawImu: vec3, attitude: vec3, declination: number): number {
   // calculate heading from raw magnetometer

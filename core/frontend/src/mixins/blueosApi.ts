@@ -24,6 +24,8 @@ export const blueosApiMixin = {
   methods: {
     async blueosTrackSubscription(subscriptionPromise: Promise<Subscription>): Promise<Subscription> {
       const subscription = await subscriptionPromise
+      // Vue 2 only exposes destruction on the instance as `_isDestroyed`.
+      // eslint-disable-next-line no-underscore-dangle
       if (this._isDestroyed) {
         await subscription.close()
         return subscription

@@ -1,4 +1,6 @@
-import { describe, expect, it, vi } from 'vitest'
+import {
+  describe, expect, it, vi,
+} from 'vitest'
 
 import { encodeCdr } from '@/libs/blueos-api/cdr'
 import { cdrEncoding } from '@/libs/blueos-api/keys'
@@ -8,7 +10,7 @@ import { createCachedRecordingIndexSource } from '@/libs/recorder/index-source'
 
 import FakeTransport from '../blueos-api/fake-transport'
 
-function indexResponse(overrides: Record<string, unknown> = {}) {
+function indexResponse(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     size: 500,
     offset: 0,

@@ -1,6 +1,6 @@
 /** Represents a BlueOS service, with the necessary information to identify it on the system */
 
-import Vue, { Component } from 'vue'
+import { Component } from 'vue'
 
 type PythonServiceError = {response: {data: {detail: string}}}
 export type GenericError = Error | PythonServiceError | unknown

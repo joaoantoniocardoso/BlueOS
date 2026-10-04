@@ -3,15 +3,14 @@ import { watchServiceAlive } from '@/libs/blueos-api/liveliness'
 import {
   CancelRepair,
   DeleteRecording,
-  RepairRecording,
-  SnapshotRecording,
   library,
   operation,
+  RepairRecording,
+  SnapshotRecording,
 } from '@/libs/blueos-api/services/recorder'
 import type { Subscription, Transport } from '@/libs/blueos-api/transport'
-import { watchEvent } from '@/libs/blueos-api/watch-event'
 import { watchState } from '@/libs/blueos-api/watch'
-
+import { watchEvent } from '@/libs/blueos-api/watch-event'
 import type { RecordingIndexSource } from '@/libs/mcap/logic/recording-index'
 
 import { DEFAULT_RECORDING_HTTP_PREFIX, SNAPSHOT_WAIT_TIMEOUT_MS } from './constants'

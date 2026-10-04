@@ -73,7 +73,7 @@ class Filebrowser {
     this.createFile(folder_path)
   }
 
-  async createFile(folder_path: string, override: Boolean = false): Promise<void> {
+  async createFile(folder_path: string, override = false): Promise<void> {
     await back_axios({
       method: 'post',
       url: `${filebrowser_url}/resources${folder_path}?override=${override}`,

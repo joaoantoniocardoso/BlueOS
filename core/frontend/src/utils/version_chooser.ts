@@ -96,7 +96,7 @@ function nestVersions(versions: Version[]): NestedVersion[] {
   const nested: NestedVersion[] = []
   // Several tags can point at the same image
   const expanded = new Set<string>()
-  const visit = (version: Version, depth: number): void => {
+  function visit(version: Version, depth: number): void {
     nested.push({ version, depth })
     if (version.sha === null || expanded.has(version.sha)) {
       return
@@ -250,6 +250,7 @@ export {
   dockerLogin,
   dockerLogout,
   fixVersion,
+  getFactoryVersion,
   getLatestBeta,
   getLatestStable,
   getLatestVersion,
@@ -262,5 +263,4 @@ export {
   nestVersions,
   sortImages,
   sortVersions,
-  getFactoryVersion,
 }

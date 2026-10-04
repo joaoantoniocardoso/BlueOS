@@ -1,14 +1,15 @@
+import type { AxiosResponse } from 'axios'
 import {
   Action,
   getModule, Mutation, VuexModule,
 } from 'vuex-module-decorators'
 
+import Notifier from '@/libs/notifier'
 import store from '@/store'
 import { DHCPServerDetails, EthernetInterface } from '@/types/ethernet'
 import { ethernet_service } from '@/types/frontend_services'
 import back_axios from '@/utils/api'
 import { DynamicModule as Module } from '@/utils/vuex'
-import Notifier from '@/libs/notifier'
 
 const notifier = new Notifier(ethernet_service)
 
@@ -84,7 +85,9 @@ class EthernetStore extends VuexModule {
   }
 
   @Action
-  async addDHCPServer(payload: { interface_name: string, ipv4_gateway: string, is_backup_server: boolean }): Promise<void> {
+  async addDHCPServer(
+    payload: { interface_name: string, ipv4_gateway: string, is_backup_server: boolean },
+  ): Promise<void> {
     this.context.commit('setUpdatingInterfaces', true)
 
     await back_axios({
@@ -116,7 +119,7 @@ class EthernetStore extends VuexModule {
       url: `${this.API_URL}/dhcp`,
       timeout: 10000,
       params: {
-        interface_name: interface_name,
+        interface_name,
       },
     })
       .catch((error) => {
@@ -131,7 +134,7 @@ class EthernetStore extends VuexModule {
 
   @Action
   async getDHCPServerDetails(interface_name: string): Promise<DHCPServerDetails> {
-    return await back_axios({
+    return back_axios({
       method: 'get',
       url: `${this.API_URL}/dhcp/details/${interface_name}`,
       timeout: 15000,
@@ -139,8 +142,8 @@ class EthernetStore extends VuexModule {
   }
 
   @Action
-  async getHostDNS() {
-    return await back_axios({
+  async getHostDNS(): Promise<AxiosResponse> {
+    return back_axios({
       method: 'get',
       url: `${this.API_URL}/host_dns`,
       timeout: 10000,
@@ -177,8 +180,8 @@ class EthernetStore extends VuexModule {
   }
 
   @Action
-  async getAvailableInterfaces() {
-    return await back_axios({
+  async getAvailableInterfaces(): Promise<AxiosResponse> {
+    return back_axios({
       method: 'get',
       url: `${this.API_URL}/interfaces`,
       // Necessary since the system can hang with dhclient timeouts
@@ -192,8 +195,8 @@ class EthernetStore extends VuexModule {
   }
 
   @Action
-  async getAvailableEthernetInterfaces() {
-    return await back_axios({
+  async getAvailableEthernetInterfaces(): Promise<AxiosResponse> {
+    return back_axios({
       method: 'get',
       url: `${this.API_URL}/ethernet`,
       // Necessary since the system can hang with dhclient timeouts
@@ -252,7 +255,7 @@ class EthernetStore extends VuexModule {
       url: `${this.API_URL}/dynamic_ip`,
       timeout: 10000,
       params: {
-        interface_name: interface_name,
+        interface_name,
       },
     })
       .catch((error) => {

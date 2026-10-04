@@ -132,6 +132,8 @@ Before starting, think through:
 
 ## Code Quality
 
+Before checks in a fresh worktree, run `scripts/setup-worktree.sh`. Frontend tests: `cd core/frontend && bun run test` (that script is Vitest; `bun test` is Bun's own runner).
+
 Always run before finishing a task:
 ```bash
 ./.hooks/pre-push --fix        # Auto-fix formatting

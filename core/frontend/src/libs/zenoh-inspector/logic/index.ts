@@ -31,6 +31,12 @@ export {
   schemaNameFromEncoding,
   transportTypeName,
 } from './schema-resolution'
+export {
+  encodingBase,
+  hasCdrEncapsulationHeader,
+  isAmbiguousCdrEncoding,
+  payloadIsCdrCandidate,
+} from './topic-classification'
 export type { TopicListRow } from './topic-list'
 export {
   flattenTopicGroups,
@@ -39,19 +45,6 @@ export {
   topicPrimaryLabel,
   visibleTopicsInGroup,
 } from './topic-list'
-export {
-  encodingBase,
-  hasCdrEncapsulationHeader,
-  isAmbiguousCdrEncoding,
-  payloadIsCdrCandidate,
-} from './topic-classification'
-export {
-  availableViews,
-  defaultView,
-  defaultViewRegistry,
-  jsonView,
-  videoView,
-} from './views'
 export type {
   BlueosKeyInfo,
   BlueosKeyKind,
@@ -69,3 +62,10 @@ export type {
   TopicSource,
   ViewDescriptor,
 } from './types'
+export {
+  availableViews,
+  defaultView,
+  defaultViewRegistry,
+  jsonView,
+  videoView,
+} from './views'

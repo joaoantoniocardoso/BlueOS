@@ -30,13 +30,17 @@ interface ThumbnailFetchState {
 }
 
 const THUMBNAIL_STATE_KEY = '__blueos_video_thumbnail_state__'
-const thumbnailState: ThumbnailFetchState = (window as any)[THUMBNAIL_STATE_KEY] ??= {
+const browserWindow = window as unknown as Record<string, ThumbnailFetchState | undefined>
+const existingThumbnailState = browserWindow[THUMBNAIL_STATE_KEY]
+const thumbnailState: ThumbnailFetchState = existingThumbnailState ?? {
   task: new OneMoreTime({ delay: 1000, autostart: false }),
   sources: new Set<string>(),
   busy: new Set<string>(),
   inProgress: false,
 }
-;(window as any)[THUMBNAIL_STATE_KEY] = thumbnailState
+if (!existingThumbnailState) {
+  browserWindow[THUMBNAIL_STATE_KEY] = thumbnailState
+}
 thumbnailState.task.setDelay(1000)
 
 @Module({
@@ -303,7 +307,11 @@ class VideoStore extends VuexModule {
   @Action
   startGetThumbnailForDevice(source: string): void {
     thumbnailState.sources.add(source)
-    const task = thumbnailState.task as any
+    const task = thumbnailState.task as unknown as {
+      isPaused: boolean
+      isRunning: boolean
+      timeoutId?: ReturnType<typeof setTimeout>
+    }
     if (task.isPaused) {
       thumbnailState.task.resume()
     } else if (!task.isRunning && !task.timeoutId) {
