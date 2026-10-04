@@ -29,6 +29,12 @@ describe('video frame reader', () => {
     expect(Array.from(frame?.data ?? [])).toEqual(Array.from(SAMPLE_H264_KEYFRAME))
   })
 
+  it('reads the source timestamp of a sample', () => {
+    const readFrame = createVideoFrameReader(SCHEMA_TEXT)
+
+    expect(readFrame(sample('h264', SAMPLE_H264_KEYFRAME))?.timestampSeconds).toBe(12.5)
+  })
+
   it('reads H.265 samples too', () => {
     const readFrame = createVideoFrameReader(SCHEMA_TEXT)
 

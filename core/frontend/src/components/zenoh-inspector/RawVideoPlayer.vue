@@ -59,6 +59,9 @@
       >
         lag {{ lag_label }}
       </span>
+      <span v-if="jitter_label" class="ml-2 grey--text text--lighten-1">
+        jitter {{ jitter_label }}
+      </span>
     </div>
   </div>
 </template>
@@ -70,6 +73,13 @@ import {
   AnnexBMsePlayer, AnnexBMseStats, AnnexBWebCodecsPlayer, isMediaSourceSupported, isWebCodecsSupported,
   VideoFormat,
 } from '@/libs/mcap'
+import { createVariationMeter, VariationSummary } from '@/libs/zenoh-inspector/logic/variation-meter'
+
+const AVERAGE_WINDOW_SECONDS = 2
+
+function milliseconds(seconds: number): string {
+  return `${Math.round(seconds * 1000)} ms`
+}
 
 function codecFamily(codec: string): string {
   if (codec.startsWith('avc1') || codec.startsWith('avc3')) {
@@ -94,6 +104,10 @@ export default Vue.extend({
     return {
       player: null as LivePlayer | null,
       stats: null as AnnexBMseStats | null,
+      lag_meter: createVariationMeter(AVERAGE_WINDOW_SECONDS),
+      lag: null as VariationSummary | null,
+      transit_meter: createVariationMeter(AVERAGE_WINDOW_SECONDS),
+      transit: null as VariationSummary | null,
       error: null as string | null,
       loading: true,
       path: '' as LivePath,
@@ -119,13 +133,19 @@ export default Vue.extend({
       return ''
     },
     lag_label(): string {
-      if (!this.stats) {
+      if (!this.lag) {
         return ''
       }
-      return `${Math.round(this.stats.lagSeconds * 1000)} ms`
+      return `${milliseconds(this.lag.latestSeconds)} (avg ${milliseconds(this.lag.averageSeconds)})`
     },
     lag_warning(): boolean {
-      return (this.stats?.lagSeconds ?? 0) > 0.5
+      return (this.lag?.latestSeconds ?? 0) > 0.5
+    },
+    jitter_label(): string {
+      if (!this.transit) {
+        return ''
+      }
+      return `${milliseconds(this.transit.changeSeconds)} (avg ${milliseconds(this.transit.averageChangeSeconds)})`
     },
   },
   mounted() {
@@ -151,6 +171,7 @@ export default Vue.extend({
         },
         onStats: (stats: AnnexBMseStats) => {
           this.stats = stats
+          this.lag = this.lag_meter.add(performance.now() / 1000, stats.lagSeconds)
         },
       }
     },
@@ -186,6 +207,10 @@ export default Vue.extend({
     // Used by ZenohInspector through $refs so frames are not dropped by Vue's update batching.
     // eslint-disable-next-line vue/no-unused-properties
     pushFrame(data: Uint8Array, format: VideoFormat, timestampSeconds?: number): void {
+      if (timestampSeconds !== undefined) {
+        const arrivalSeconds = performance.now() / 1000
+        this.transit = this.transit_meter.add(arrivalSeconds, arrivalSeconds - timestampSeconds)
+      }
       this.player?.push(data, format, timestampSeconds)
     },
   },
