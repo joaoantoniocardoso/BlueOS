@@ -71,7 +71,7 @@ async fn run_with_log_publisher_on_backend<S: Service>(
 ) -> Result<RunOutcome, ServiceError> {
     let publisher = logging::attach_backbone(S::NAME, Arc::clone(&backend)).await;
     let log_runtime = logging::LogPublisherRuntime::start(publisher);
-    let outcome = async {
+    let started = async {
         let service = ServiceContext::with_settings_path(
             parsed.service,
             parsed.common.settings_path,
@@ -79,13 +79,17 @@ async fn run_with_log_publisher_on_backend<S: Service>(
         );
         let context = S::context(&service)?;
         let builder = S::build(&service, &context)?.for_service::<S>(&service);
-        let mut kernel = Kernel::start(S::NAME, builder, context, backend, clock).await?;
-        kernel.attach_log_publisher(log_runtime);
-        Ok(kernel.run().await)
+        Kernel::start(S::NAME, builder, context, backend, clock).await
     }
     .await;
-    if let Err(service_error) = &outcome {
-        error!(%service_error, "The service could not start or run");
-    }
-    outcome
+    let mut kernel = match started {
+        Ok(kernel) => kernel,
+        Err(service_error) => {
+            error!(%service_error, "The service could not start or run");
+            log_runtime.shutdown_and_wait().await;
+            return Err(service_error);
+        }
+    };
+    kernel.attach_log_publisher(log_runtime);
+    Ok(kernel.run().await)
 }
