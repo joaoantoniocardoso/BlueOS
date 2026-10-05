@@ -11,6 +11,10 @@ TMPDIR=$(mktemp -d)
 export TMPDIR
 trap 'rm -rf "$TMPDIR"' EXIT
 
+# Cargo names a workspace crate's artifacts by its path inside the workspace, so a copy built in a shared target
+# folder overwrites the real workspace's test binaries with ones that point at the deleted copy.
+export CARGO_TARGET_DIR="$ROOT_DIR/core/target/rust-checks-test"
+
 # The build folder and node_modules can weigh gigabytes and no test reads them.
 copy_core() {
     tar -C "$ROOT_DIR/core" --exclude=./target --exclude=./frontend/node_modules -cf - . | tar -C "$1" -xf -
