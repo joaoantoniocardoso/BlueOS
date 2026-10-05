@@ -98,6 +98,7 @@ impl Domain for Pump {
     type IoRequest = Infallible;
     type TimerKey = JobId;
 
+    // qual:allow(iosp) reason: "the teaching Domain decides and ends its job in one readable handle"
     fn handle(
         snapshot: &mut PumpSnapshot,
         command: Command<PumpRequest, Infallible, JobId, Infallible>,
