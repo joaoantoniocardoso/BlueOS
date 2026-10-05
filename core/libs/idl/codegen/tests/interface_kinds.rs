@@ -66,7 +66,8 @@ fn fixtures_regenerate_to_the_committed_output() {
         &output.join("generated"),
         Some(&output.join("typescript")),
         Some(&output.join("tests/generated")),
-    );
+    )
+    .expect("generate fixture output");
     if updating {
         return;
     }
@@ -192,7 +193,7 @@ fn the_lock_has_one_line_per_part() {
 
 #[test]
 fn the_lock_comparison_rejects_a_non_append_change_to_a_goal() {
-    let current = collect_messages_for_test(&fixture_root().join("interfaces"));
+    let current = collect_messages_for_test(&fixture_root().join("interfaces")).expect("parse");
     let mut locked = locked();
     assert_eq!(check_message_lock(&locked, &current), Ok(()));
 
@@ -209,7 +210,7 @@ fn the_lock_comparison_rejects_a_non_append_change_to_a_goal() {
 
 #[test]
 fn the_lock_comparison_treats_a_goal_as_top_level() {
-    let current = collect_messages_for_test(&fixture_root().join("interfaces"));
+    let current = collect_messages_for_test(&fixture_root().join("interfaces")).expect("parse");
     let mut locked = locked();
     locked.insert(
         "fixture_msgs/action/Fill_Goal".to_owned(),
@@ -244,6 +245,7 @@ fn files(root: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
 
 fn lock_lines() -> Vec<String> {
     collect_messages_for_test(&fixture_root().join("interfaces"))
+        .expect("parse")
         .iter()
         .map(|record| format_lock_line(&record.schema_name, 1, &record.field_signature))
         .collect()

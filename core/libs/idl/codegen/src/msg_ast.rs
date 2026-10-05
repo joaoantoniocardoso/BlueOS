@@ -4,6 +4,8 @@ use alloc::collections::BTreeSet;
 
 use roslibrust_codegen::{ArrayType, ConstantInfo, FieldInfo, RosLiteral};
 
+use crate::error::CodegenError;
+
 /// The fields and constants of one `.msg` file, in source order.
 #[derive(Clone, Debug)]
 pub struct Message {
@@ -67,10 +69,19 @@ pub enum ConstantValue {
 }
 
 impl Message {
-    pub fn from_ros_fields(fields: &[FieldInfo], constants: &[ConstantInfo]) -> Self {
-        let fields = fields.iter().map(field_from_ros).collect::<Vec<_>>();
-        let constants = constants.iter().map(constant_from_ros).collect::<Vec<_>>();
-        Self { fields, constants }
+    pub fn from_ros_fields(
+        fields: &[FieldInfo],
+        constants: &[ConstantInfo],
+    ) -> Result<Self, CodegenError> {
+        let fields = fields
+            .iter()
+            .map(field_from_ros)
+            .collect::<Result<Vec<_>, _>>()?;
+        let constants = constants
+            .iter()
+            .map(constant_from_ros)
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Self { fields, constants })
     }
 
     #[cfg(test)]
@@ -156,7 +167,7 @@ fn ros_field_type_name(field: &Field) -> String {
     }
 }
 
-fn field_from_ros(field: &FieldInfo) -> Field {
+fn field_from_ros(field: &FieldInfo) -> Result<Field, CodegenError> {
     let name = if field.field_name == "type" {
         "type_".to_string()
     } else {
@@ -167,22 +178,22 @@ fn field_from_ros(field: &FieldInfo) -> Field {
         ArrayType::FixedLength(size) => FieldCase::Array(size),
         ArrayType::Unbounded | ArrayType::Bounded(_) => FieldCase::Vector,
     };
-    Field {
+    Ok(Field {
         name,
         case,
-        datatype: datatype_from_field(field),
-    }
+        datatype: datatype_from_field(field)?,
+    })
 }
 
-fn constant_from_ros(constant: &ConstantInfo) -> Constant {
-    Constant {
+fn constant_from_ros(constant: &ConstantInfo) -> Result<Constant, CodegenError> {
+    Ok(Constant {
         name: constant.constant_name.clone(),
-        datatype: scalar_datatype_from_type_name(&constant.constant_type),
-        value: literal_to_value(&constant.constant_type, &constant.constant_value),
-    }
+        datatype: scalar_datatype_from_type_name(&constant.constant_type)?,
+        value: literal_to_value(&constant.constant_type, &constant.constant_value)?,
+    })
 }
 
-fn datatype_from_field(field: &FieldInfo) -> DataType {
+fn datatype_from_field(field: &FieldInfo) -> Result<DataType, CodegenError> {
     if field.field_type.is_primitive() {
         scalar_datatype_from_type_name(&field.field_type.field_type)
     } else {
@@ -191,15 +202,15 @@ fn datatype_from_field(field: &FieldInfo) -> DataType {
             .package_name
             .clone()
             .unwrap_or_else(|| field.field_type.source_package.clone());
-        DataType::GlobalMessage {
+        Ok(DataType::GlobalMessage {
             package,
             name: field.field_type.field_type.clone(),
-        }
+        })
     }
 }
 
-fn scalar_datatype_from_type_name(type_name: &str) -> DataType {
-    match type_name {
+fn scalar_datatype_from_type_name(type_name: &str) -> Result<DataType, CodegenError> {
+    Ok(match type_name {
         "string" => DataType::String,
         "bool" => DataType::Bool,
         "uint8" | "byte" => DataType::U8,
@@ -212,25 +223,37 @@ fn scalar_datatype_from_type_name(type_name: &str) -> DataType {
         "int64" => DataType::I64,
         "float32" => DataType::F32,
         "float64" => DataType::F64,
-        other => panic!("unsupported ROS type {other}"),
-    }
+        other => {
+            return Err(CodegenError::UnsupportedRosType {
+                type_name: other.to_string(),
+            });
+        }
+    })
 }
 
-fn literal_to_value(type_name: &str, literal: &RosLiteral) -> ConstantValue {
+fn literal_to_value(type_name: &str, literal: &RosLiteral) -> Result<ConstantValue, CodegenError> {
     let text = literal.inner.trim();
-    match type_name {
+    let invalid = || CodegenError::InvalidConstantLiteral {
+        type_name: type_name.to_string(),
+        literal: text.to_string(),
+    };
+    Ok(match type_name {
         "string" => ConstantValue::String(text.to_string()),
         "bool" => ConstantValue::U8(if text == "true" { 1 } else { 0 }),
-        "uint8" | "byte" => ConstantValue::U8(text.parse().expect("uint8 constant")),
-        "uint16" => ConstantValue::U16(text.parse().expect("uint16 constant")),
-        "uint32" => ConstantValue::U32(text.parse().expect("uint32 constant")),
-        "uint64" => ConstantValue::U64(text.parse().expect("uint64 constant")),
-        "int8" | "char" => ConstantValue::I8(text.parse().expect("int8 constant")),
-        "int16" => ConstantValue::I16(text.parse().expect("int16 constant")),
-        "int32" => ConstantValue::I32(text.parse().expect("int32 constant")),
-        "int64" => ConstantValue::I64(text.parse().expect("int64 constant")),
-        "float32" => ConstantValue::F32(text.parse().expect("float32 constant")),
-        "float64" => ConstantValue::F64(text.parse().expect("float64 constant")),
-        other => panic!("unsupported constant type {other}"),
-    }
+        "uint8" | "byte" => ConstantValue::U8(text.parse().map_err(|_| invalid())?),
+        "uint16" => ConstantValue::U16(text.parse().map_err(|_| invalid())?),
+        "uint32" => ConstantValue::U32(text.parse().map_err(|_| invalid())?),
+        "uint64" => ConstantValue::U64(text.parse().map_err(|_| invalid())?),
+        "int8" | "char" => ConstantValue::I8(text.parse().map_err(|_| invalid())?),
+        "int16" => ConstantValue::I16(text.parse().map_err(|_| invalid())?),
+        "int32" => ConstantValue::I32(text.parse().map_err(|_| invalid())?),
+        "int64" => ConstantValue::I64(text.parse().map_err(|_| invalid())?),
+        "float32" => ConstantValue::F32(text.parse().map_err(|_| invalid())?),
+        "float64" => ConstantValue::F64(text.parse().map_err(|_| invalid())?),
+        other => {
+            return Err(CodegenError::UnsupportedRosType {
+                type_name: other.to_string(),
+            });
+        }
+    })
 }

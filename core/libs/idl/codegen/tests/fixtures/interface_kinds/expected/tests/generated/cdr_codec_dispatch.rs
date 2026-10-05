@@ -1,7 +1,7 @@
 // @generated
 use blueos_idl::Message;
 
-pub fn encode_default(schema_name: &str) -> Option<Vec<u8>> {
+pub(crate) fn encode_default(schema_name: &str) -> Option<Vec<u8>> {
     match schema_name {
         "fixture_msgs/action/Drain_Feedback" => blueos_idl::msg::fixture_msgs::DrainFeedback::default().encode().ok(),
         "fixture_msgs/action/Drain_Goal" => blueos_idl::msg::fixture_msgs::DrainGoal::default().encode().ok(),
@@ -17,7 +17,7 @@ pub fn encode_default(schema_name: &str) -> Option<Vec<u8>> {
     }
 }
 
-pub fn decode_to_json(schema_name: &str, payload: &[u8]) -> Option<serde_json::Value> {
+pub(crate) fn decode_to_json(schema_name: &str, payload: &[u8]) -> Option<serde_json::Value> {
     match schema_name {
         "fixture_msgs/action/Drain_Feedback" => blueos_idl::msg::fixture_msgs::DrainFeedback::decode(payload).ok().and_then(|message| serde_json::to_value(message).ok()),
         "fixture_msgs/action/Drain_Goal" => blueos_idl::msg::fixture_msgs::DrainGoal::decode(payload).ok().and_then(|message| serde_json::to_value(message).ok()),
