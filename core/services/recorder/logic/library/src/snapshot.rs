@@ -6,6 +6,11 @@ use core::time::Duration;
 use blueos_domain::Now;
 use blueos_recorder_paths::civil_date_from_days_since_epoch;
 
+const SECONDS_PER_MINUTE: i64 = 60;
+const SECONDS_PER_HOUR: i64 = 3_600;
+const HOURS_PER_DAY: i64 = 24;
+const SECONDS_PER_DAY: i64 = 86_400;
+
 /// Relative path for an indexed copy next to a recording (`<stem>.snapshot-<UTC>Z.mcap`).
 pub fn snapshot_output_relative_path(source_relative: &str, now: Now) -> String {
     let source = source_relative
@@ -24,10 +29,10 @@ pub fn snapshot_output_relative_path(source_relative: &str, now: Now) -> String 
 
 fn format_snapshot_timestamp(wall: Duration) -> String {
     let unix_seconds = i64::try_from(wall.as_secs()).unwrap_or(i64::MAX);
-    let second = unix_seconds.rem_euclid(60);
-    let minute = (unix_seconds / 60).rem_euclid(60);
-    let hour = (unix_seconds / 3_600).rem_euclid(24);
-    let days = unix_seconds.div_euclid(86_400);
+    let second = unix_seconds.rem_euclid(SECONDS_PER_MINUTE);
+    let minute = (unix_seconds / SECONDS_PER_MINUTE).rem_euclid(SECONDS_PER_MINUTE);
+    let hour = (unix_seconds / SECONDS_PER_HOUR).rem_euclid(HOURS_PER_DAY);
+    let days = unix_seconds.div_euclid(SECONDS_PER_DAY);
     let (year, month, day) = civil_date_from_days_since_epoch(days);
     format!("{year:04}-{month:02}-{day:02}T{hour:02}-{minute:02}-{second:02}")
 }

@@ -18,6 +18,9 @@ pub const CANCEL_JOB: &str = JobControl::Cancel.endpoint_name();
 /// Endpoint name for the snapshot Command.
 pub const SNAPSHOT_RECORDING: &str = "SnapshotRecording";
 
+const RECORDING_NOT_FOUND: &str = "Recording not found.";
+const RECORDING_BEING_PROCESSED: &str = "This recording is being processed.";
+
 /// Inputs shared by rejection checks and [`allowed_operations`].
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct RecordingCommandContext<'a> {
@@ -43,6 +46,32 @@ pub struct RecordingCommandContext<'a> {
     pub now: Now,
 }
 
+fn recording_not_found(context: &RecordingCommandContext<'_>) -> Option<&'static str> {
+    (!context.in_library).then_some(RECORDING_NOT_FOUND)
+}
+
+fn recording_being_processed(
+    context: &RecordingCommandContext<'_>,
+    include_deleting: bool,
+) -> Option<&'static str> {
+    let busy = context.snapshotting || context.repairing || (include_deleting && context.deleting);
+    busy.then_some(RECORDING_BEING_PROCESSED)
+}
+
+fn base_recording_checks(
+    context: &RecordingCommandContext<'_>,
+    include_deleting: bool,
+) -> Option<&'static str> {
+    recording_not_found(context).or_else(|| recording_being_processed(context, include_deleting))
+}
+
+fn recently_written(modified_unix_seconds: i64, now: Now) -> bool {
+    now.wall
+        .as_secs()
+        .saturating_sub(modified_unix_seconds.max(0) as u64)
+        < RECENTLY_WRITTEN_DELAY.as_secs()
+}
+
 /// Command endpoint names the library accepts for this recording.
 pub fn allowed_operations(context: &RecordingCommandContext<'_>) -> Vec<String> {
     let mut operations = Vec::new();
@@ -63,22 +92,16 @@ pub fn allowed_operations(context: &RecordingCommandContext<'_>) -> Vec<String> 
 
 /// Why delete is rejected, or `None` when it would apply.
 pub fn delete_recording_rejection(context: &RecordingCommandContext<'_>) -> Option<&'static str> {
-    if !context.in_library {
-        return Some("Recording not found.");
-    }
-    if context.deleting || context.repairing || context.snapshotting {
-        return Some("This recording is being processed.");
-    }
-    if context.active_recording_relative_path == Some(context.relative_path) {
-        return Some("This recording is still being written.");
-    }
-    None
+    base_recording_checks(context, true).or_else(|| {
+        (context.active_recording_relative_path == Some(context.relative_path))
+            .then_some("This recording is still being written.")
+    })
 }
 
 /// Why repair is rejected, or `None` when it would apply.
 pub fn repair_recording_rejection(context: &RecordingCommandContext<'_>) -> Option<&'static str> {
-    if !context.in_library {
-        return Some("Recording not found.");
+    if let Some(reason) = recording_not_found(context) {
+        return Some(reason);
     }
     if context.repairing {
         return Some("This recording is already being repaired.");
@@ -111,23 +134,10 @@ pub fn cancel_repair_rejection(context: &RecordingCommandContext<'_>) -> Option<
 
 /// Why snapshot is rejected, or `None` when it would apply.
 pub fn snapshot_recording_rejection(context: &RecordingCommandContext<'_>) -> Option<&'static str> {
-    if !context.in_library {
-        return Some("Recording not found.");
-    }
-    if context.snapshotting || context.repairing {
-        return Some("This recording is being processed.");
-    }
-    if context.active_recording_relative_path != Some(context.relative_path) {
-        return Some("Only the recording being written needs a snapshot. Download it directly.");
-    }
-    None
-}
-
-fn recently_written(modified_unix_seconds: i64, now: Now) -> bool {
-    now.wall
-        .as_secs()
-        .saturating_sub(modified_unix_seconds.max(0) as u64)
-        < RECENTLY_WRITTEN_DELAY.as_secs()
+    base_recording_checks(context, false).or_else(|| {
+        (context.active_recording_relative_path != Some(context.relative_path))
+            .then_some("Only the recording being written needs a snapshot. Download it directly.")
+    })
 }
 
 #[cfg(test)]
