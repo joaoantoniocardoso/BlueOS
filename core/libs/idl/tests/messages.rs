@@ -4,20 +4,15 @@ use std::path::PathBuf;
 
 use blueos_idl::{
     Message,
+    encoding::{ENCODING_APPLICATION_CDR, cdr_encoding},
     msg::blueos_msgs::{CommandAck, CommandAckStatus},
 };
 use blueos_idl_codegen::collect_messages_for_test;
 
-const ENCODING_APPLICATION_CDR: &str = "application/cdr";
-
-fn cdr_encoding(schema_name: &str) -> String {
-    format!("{ENCODING_APPLICATION_CDR};{schema_name}")
-}
-
 #[test]
 fn schema_lookup_covers_every_interface() {
     let interfaces_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("interfaces");
-    for record in collect_messages_for_test(&interfaces_root) {
+    for record in collect_messages_for_test(&interfaces_root).expect("parse interfaces") {
         assert!(
             blueos_idl::schema(&record.schema_name).is_some(),
             "{} has no schema",

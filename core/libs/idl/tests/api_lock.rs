@@ -53,7 +53,7 @@ fn endpoint_lock(lock: &BTreeMap<String, (u32, String)>) -> BTreeMap<String, (u3
 
 #[test]
 fn api_lock_matches_interfaces() {
-    let current = collect_messages_for_test(&interfaces_root());
+    let current = collect_messages_for_test(&interfaces_root()).expect("parse interfaces");
     let locked = message_lock(&read_lock());
     let updating = std::env::var("BLUEOS_IDL_UPDATE_LOCK").as_deref() == Ok("1");
 
@@ -70,6 +70,7 @@ fn api_lock_matches_interfaces() {
 #[test]
 fn api_lock_matches_endpoint_manifests() {
     let messages = collect_messages_for_test(&interfaces_root())
+        .expect("parse interfaces")
         .into_iter()
         .map(|record| record.schema_name)
         .collect();
@@ -110,7 +111,7 @@ fn api_lock_matches_endpoint_manifests() {
 }
 
 fn write_lock_file() {
-    let current = collect_messages_for_test(&interfaces_root());
+    let current = collect_messages_for_test(&interfaces_root()).expect("parse interfaces");
     let messages = current
         .iter()
         .map(|record| record.schema_name.clone())
