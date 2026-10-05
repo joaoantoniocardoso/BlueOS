@@ -24,10 +24,13 @@ pub(crate) fn apply_sync_effects<D: Domain, Context>(
         return Err(SyncEffectError::IoNotRegistered);
     }
     if run_timers {
-        for effect in effects {
-            if matches!(effect, Effect::Schedule { .. } | Effect::Cancel(_)) {
-                timers.apply(effect.clone());
-            }
+        let timer_effects: Vec<_> = effects
+            .iter()
+            .filter(|effect| matches!(effect, Effect::Schedule { .. } | Effect::Cancel(_)))
+            .cloned()
+            .collect();
+        for effect in timer_effects {
+            timers.apply(effect);
         }
     }
     Ok(())

@@ -56,23 +56,44 @@ impl ParseError {
 pub fn parse_service_cli<S: Service>(
     arguments: impl IntoIterator<Item = OsString>,
 ) -> Result<ParsedServiceArguments<S::Arguments>, ParseError> {
-    let arguments: Vec<OsString> = arguments.into_iter().collect();
-    if let Some(stop) = reserved_service_flag(&arguments) {
-        let mut command = ServiceCli::<S::Arguments>::command()
-            .name(S::NAME)
-            .version(S::VERSION);
-        match stop {
-            ParseError::Help => {
-                let _ = command.print_help();
-                println!();
-            }
-            ParseError::Version => {
-                println!("{} {}", S::NAME, S::VERSION);
-            }
-            ParseError::Usage => {}
+    parse_service_cli_collected::<S>(arguments.into_iter().collect())
+}
+
+fn parse_service_cli_collected<S: Service>(
+    arguments: Vec<OsString>,
+) -> Result<ParsedServiceArguments<S::Arguments>, ParseError> {
+    match reserved_service_flag(&arguments) {
+        Some(stop) => {
+            emit_reserved_flag_outcome::<S>(stop);
+            Err(stop)
         }
-        return Err(stop);
+        None => parse_service_cli_matches::<S>(arguments),
     }
+}
+
+fn emit_reserved_flag_outcome<S: Service>(stop: ParseError) {
+    match stop {
+        ParseError::Help => print_service_help::<S>(),
+        ParseError::Version => print_service_version::<S>(),
+        ParseError::Usage => {}
+    }
+}
+
+fn print_service_help<S: Service>() {
+    let mut command = ServiceCli::<S::Arguments>::command()
+        .name(S::NAME)
+        .version(S::VERSION);
+    let _ = command.print_help();
+    println!();
+}
+
+fn print_service_version<S: Service>() {
+    println!("{} {}", S::NAME, S::VERSION);
+}
+
+fn parse_service_cli_matches<S: Service>(
+    arguments: Vec<OsString>,
+) -> Result<ParsedServiceArguments<S::Arguments>, ParseError> {
     let command = ServiceCli::<S::Arguments>::command()
         .name(S::NAME)
         .version(S::VERSION);

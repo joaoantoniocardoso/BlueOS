@@ -179,6 +179,35 @@ async fn write_on_blocking_pool(store: &ServiceStateStore, bytes: Vec<u8>) {
     }
 }
 
+fn durable_bytes<T: Serialize>(envelope: &T) -> Vec<u8> {
+    match serde_json::to_vec(envelope) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            warn!(%error, "Durable state failed to serialize");
+            Vec::new()
+        }
+    }
+}
+
+fn load_persisted_document<T: DeserializeOwned>(
+    store: &ServiceStateStore,
+    clock: &dyn Clock,
+) -> Option<T> {
+    let document = store.read_document()?;
+    match serde_json::from_value(document) {
+        Ok(envelope) => Some(envelope),
+        Err(error) => {
+            warn!(
+                %error,
+                path = %store.path().display(),
+                "Durable state file does not match the schema; starting fresh"
+            );
+            store.move_aside_corrupt_at_wall_millis(Some(clock.now().wall.as_millis()));
+            None
+        }
+    }
+}
+
 /// Records durable state without Jobs.
 pub(crate) fn register_durable_state<D>(
     service_name: String,
@@ -192,11 +221,10 @@ where
     let store = ServiceStateStore::open(service_name, config_folder, version);
     let version_raw = version.get();
     let serialize = move |snapshot: &D::Snapshot| {
-        let envelope = DomainOnlyEnvelope {
+        durable_bytes(&DomainOnlyEnvelope {
             version: version_raw,
             domain: D::durable_state(snapshot).clone(),
-        };
-        serde_json::to_vec(&envelope).expect("durable state serializes")
+        })
     };
     let changed = |backup: &D::Snapshot, current: &D::Snapshot| {
         D::durable_state(backup) != D::durable_state(current)
@@ -204,7 +232,13 @@ where
     let load_into = {
         let store = store.clone();
         move |snapshot: &mut D::Snapshot, clock: &dyn Clock| {
-            restore_domain_only::<D>(&store, snapshot, clock)
+            let Some(envelope) =
+                load_persisted_document::<DomainOnlyEnvelope<D::DurableState>>(&store, clock)
+            else {
+                return false;
+            };
+            D::set_durable_state(snapshot, envelope.domain);
+            true
         }
     };
     DurableStateRegistration {
@@ -229,12 +263,11 @@ where
     let store = ServiceStateStore::open(service_name, config_folder, version);
     let version_raw = version.get();
     let serialize = move |snapshot: &D::Snapshot| {
-        let envelope = PersistedEnvelopeWithJobs {
+        durable_bytes(&PersistedEnvelopeWithJobs {
             version: version_raw,
             domain: D::durable_state(snapshot).clone(),
             jobs: D::jobs(snapshot).clone(),
-        };
-        serde_json::to_vec(&envelope).expect("durable state serializes")
+        })
     };
     let changed = |backup: &D::Snapshot, current: &D::Snapshot| {
         D::durable_state(backup) != D::durable_state(current) || D::jobs(backup) != D::jobs(current)
@@ -242,7 +275,15 @@ where
     let load_into = {
         let store = store.clone();
         move |snapshot: &mut D::Snapshot, clock: &dyn Clock| {
-            restore_domain_and_jobs::<D>(&store, snapshot, clock)
+            let Some(envelope) = load_persisted_document::<
+                PersistedEnvelopeWithJobs<D::DurableState>,
+            >(&store, clock) else {
+                return false;
+            };
+            D::set_durable_state(snapshot, envelope.domain);
+            *D::jobs_mut(snapshot) = envelope.jobs;
+            D::jobs_mut(snapshot).interrupt();
+            true
         }
     };
     DurableStateRegistration {
@@ -252,63 +293,4 @@ where
         changed: Box::new(changed),
         restored_tick: D::restored_tick(),
     }
-}
-
-fn restore_domain_only<D>(
-    store: &ServiceStateStore,
-    snapshot: &mut D::Snapshot,
-    clock: &dyn Clock,
-) -> bool
-where
-    D: DomainDurable,
-    D::DurableState: DeserializeOwned,
-{
-    let Some(document) = store.read_document() else {
-        return false;
-    };
-    let envelope: DomainOnlyEnvelope<D::DurableState> = match serde_json::from_value(document) {
-        Ok(envelope) => envelope,
-        Err(error) => {
-            warn!(
-                %error,
-                path = %store.path().display(),
-                "Durable state file does not match the schema; starting fresh"
-            );
-            store.move_aside_corrupt_at_wall_millis(Some(clock.now().wall.as_millis()));
-            return false;
-        }
-    };
-    D::set_durable_state(snapshot, envelope.domain);
-    true
-}
-
-fn restore_domain_and_jobs<D>(
-    store: &ServiceStateStore,
-    snapshot: &mut D::Snapshot,
-    clock: &dyn Clock,
-) -> bool
-where
-    D: DomainDurable + DomainJobs,
-    D::DurableState: DeserializeOwned,
-{
-    let Some(document) = store.read_document() else {
-        return false;
-    };
-    let envelope: PersistedEnvelopeWithJobs<D::DurableState> =
-        match serde_json::from_value(document) {
-            Ok(envelope) => envelope,
-            Err(error) => {
-                warn!(
-                    %error,
-                    path = %store.path().display(),
-                    "Durable state file does not match the schema; starting fresh"
-                );
-                store.move_aside_corrupt_at_wall_millis(Some(clock.now().wall.as_millis()));
-                return false;
-            }
-        };
-    D::set_durable_state(snapshot, envelope.domain);
-    *D::jobs_mut(snapshot) = envelope.jobs;
-    D::jobs_mut(snapshot).interrupt();
-    true
 }

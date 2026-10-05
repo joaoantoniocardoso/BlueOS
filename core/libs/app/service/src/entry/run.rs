@@ -26,21 +26,34 @@ pub fn run<S: Service>(arguments: Vec<OsString>) -> ExitCode {
         Ok(parsed) => parsed,
         Err(error) => return error.exit_code(),
     };
-    let runtime = tokio::runtime::Builder::new_multi_thread()
+    run_parsed_service::<S>(parsed)
+}
+
+fn run_parsed_service<S: Service>(parsed: ParsedServiceArguments<S::Arguments>) -> ExitCode {
+    let runtime = match tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
-        .expect("the tokio runtime builds");
-    runtime.block_on(async {
-        match run_with_log_publisher::<S>(parsed).await {
-            Ok(RunOutcome::Stopped) => ExitCode::SUCCESS,
-            Ok(RunOutcome::RepeatedInboxPanics) => ExitCode::from(1),
-            Err(_service_error) => ExitCode::from(1),
+    {
+        Ok(runtime) => runtime,
+        Err(error) => {
+            error!(%error, "The tokio runtime could not start");
+            return ExitCode::from(1);
         }
-    })
+    };
+    runtime.block_on(async { exit_code_for_outcome(run_with_log_publisher::<S>(parsed).await) })
+}
+
+fn exit_code_for_outcome(outcome: Result<RunOutcome, ServiceError>) -> ExitCode {
+    match outcome {
+        Ok(RunOutcome::Stopped) => ExitCode::SUCCESS,
+        Ok(RunOutcome::RepeatedInboxPanics) => ExitCode::from(1),
+        Err(_service_error) => ExitCode::from(1),
+    }
 }
 
 /// Runs a parsed CLI on an injected backbone (layer L3, channel backend in tests). The Service's metrics are not
 /// installed as the process-wide recorder, so only what its own tasks record reaches them.
+// qual:test_helper
 #[cfg(feature = "testing")]
 pub async fn run_with_backend<S: Service>(
     parsed: ParsedServiceArguments<S::Arguments>,

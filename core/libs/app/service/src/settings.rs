@@ -30,6 +30,7 @@ pub(crate) struct SettingsRegistration<D: Domain> {
 }
 
 /// Loads, persists, and builds the `settings` State for one service document type.
+// qual:allow(coupling, sit) reason: "Kernel settings seam; TypedSettingsDriver is the production implementor"
 pub(crate) trait SettingsDriver<D: Domain>: Send {
     /// Applies the on-disk document to `snapshot` during Kernel startup.
     fn load_into(&mut self, snapshot: &mut D::Snapshot) -> Result<(), ServiceError>;
@@ -163,18 +164,31 @@ pub(crate) fn reject_foreign_version(
     Ok(())
 }
 
+fn running_settings_json<S: SettingsSchema>(running: &S) -> (String, Value) {
+    (
+        settings_document_json_text(running).unwrap_or_default(),
+        settings_running_value(running).unwrap_or(Value::Null),
+    )
+}
+
+fn settings_document_json_text<S: SettingsSchema>(
+    running: &S,
+) -> Result<String, Box<dyn Error + Send + Sync>> {
+    let bytes = serialize_settings_document(running)?;
+    String::from_utf8(bytes).map_err(|error| error.into())
+}
+
+fn settings_running_value<S: SettingsSchema>(running: &S) -> Result<Value, serde_json::Error> {
+    serde_json::to_value(running)
+}
+
 /// Builds the wire `SettingsEnvelope`: running document JSON plus pending restart-required diffs.
 pub(crate) fn settings_envelope<S: SettingsSchema>(
     running: &S,
     baseline_at_start: &Value,
     restart_required_fields: &[&str],
 ) -> SettingsEnvelope {
-    let document_json = String::from_utf8(
-        serialize_settings_document(running).expect("settings document serializes"),
-    )
-    .expect("settings JSON is UTF-8");
-    let running_value =
-        serde_json::to_value(running).expect("settings document serializes to JSON");
+    let (document_json, running_value) = running_settings_json(running);
     let changes =
         diff_top_level_settings(restart_required_fields, baseline_at_start, &running_value);
     let fields = changes

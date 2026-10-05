@@ -1,6 +1,14 @@
 //! Supervised Tasks: restart policies, shutdown joining and `status` health (D-27, D-04).
 
-use core::{future::Future, panic::AssertUnwindSafe, pin::Pin, time::Duration};
+mod status;
+mod supervise;
+
+use status::StatusPublisher;
+use supervise::supervise_task;
+
+pub(crate) use supervise::hold_liveliness_until_cancelled;
+
+use core::{future::Future, pin::Pin, time::Duration};
 use std::{
     collections::BTreeSet,
     sync::{Arc, Mutex},
@@ -8,24 +16,20 @@ use std::{
 
 use backon::{BackoffBuilder, ExponentialBuilder};
 use bytes::Bytes;
-use futures_util::{FutureExt, future::join_all};
-use metrics::Counter;
+use futures_util::future::join_all;
 use tokio::{sync::watch, task::JoinHandle};
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
 use tracing::warn;
 
 use blueos_api::{Message, cdr_encoding};
-use blueos_comms::{CommsBackend, Sample};
+use blueos_comms::CommsBackend;
 use blueos_domain::Domain;
-use blueos_idl::{
-    Error as IdlError,
-    msg::blueos_msgs::{ServiceStatus, ServiceStatusStatus},
-};
+use blueos_idl::msg::blueos_msgs::ServiceStatus;
 
 use crate::{
     clock::Clock,
     command_sender::{CommandSender, Session},
-    inbox_recovery::{INBOX_LOOP_NAME, LoopPanicTracker, log_caught_panic},
+    inbox_recovery::{INBOX_LOOP_NAME, LoopPanicTracker},
     metrics_registry::MetricsRegistry,
     sync::lock_unpoisoned,
 };
@@ -107,19 +111,9 @@ pub(crate) type TaskRun<D, Context> = Arc<
 pub(crate) struct TaskSupervisor {
     spawner: TaskSpawner,
     shutdown: CancellationToken,
-    handles: Mutex<Vec<(String, JoinHandle<()>)>>,
+    handles: Mutex<Vec<(Arc<str>, JoinHandle<()>)>>,
     status: StatusPublisher,
     loop_panics: LoopPanicTracker,
-}
-
-#[derive(Clone)]
-struct StatusPublisher {
-    service: &'static str,
-    backend: Arc<dyn CommsBackend>,
-    key: String,
-    encoding: String,
-    latest: watch::Sender<Option<Bytes>>,
-    degraded_tasks: Arc<Mutex<BTreeSet<String>>>,
 }
 
 impl Default for Backoff {
@@ -214,31 +208,35 @@ impl TaskSupervisor {
         context: Arc<Context>,
         clock: Arc<dyn Clock>,
     ) {
+        let status = Arc::new(self.status.clone());
+        let shared_commands = CommandSender::clone(&commands);
         for task in tasks {
-            let name = task.name.clone();
+            let name: Arc<str> = Arc::from(task.name);
             let policy = task.policy;
-            let run = Arc::clone(&task.run);
-            let status = self.status.clone();
+            let run = task.run;
+            let restart_label = name.to_string();
             let restarts = metrics::with_local_recorder(
                 &self.spawner.metrics,
-                || metrics::counter!("task_restarts", "task" => name.clone()),
+                move || metrics::counter!("task_restarts", "task" => restart_label),
             );
             let task_context = TaskContext {
                 shutdown: self.shutdown.child_token(),
                 session: Arc::clone(&session),
-                commands: commands.clone(),
+                commands: CommandSender::clone(&shared_commands),
                 context: Arc::clone(&context),
                 clock: Arc::clone(&clock),
             };
-            let handle = self.spawner.spawn(supervise_task(
-                name.clone(),
-                policy,
-                run,
-                task_context,
-                Arc::clone(&clock),
-                status,
-                restarts,
-            ));
+            let handle = self
+                .spawner
+                .spawn(supervise_task(supervise::SuperviseTaskWork {
+                    name: Arc::clone(&name),
+                    policy,
+                    run,
+                    task_context,
+                    clock: Arc::clone(&clock),
+                    status: Arc::clone(&status),
+                    restarts,
+                }));
             lock_unpoisoned(&self.handles).push((name, handle));
         }
     }
@@ -273,155 +271,4 @@ impl TaskSupervisor {
             warn!(task = %name, "Shutdown aborted a Task that did not finish in time");
         }
     }
-}
-
-impl StatusPublisher {
-    async fn mark_running(&self, task: &str) {
-        lock_unpoisoned(&self.degraded_tasks).remove(task);
-        self.refresh_status().await;
-    }
-
-    async fn mark_degraded(&self, task: &str) {
-        lock_unpoisoned(&self.degraded_tasks).insert(task.to_owned());
-        self.refresh_status().await;
-    }
-
-    async fn refresh_status(&self) {
-        let (status, detail) = {
-            let degraded = lock_unpoisoned(&self.degraded_tasks);
-            if degraded.is_empty() {
-                (ServiceStatusStatus::Ready, String::new())
-            } else {
-                (
-                    ServiceStatusStatus::Degraded,
-                    degraded.iter().cloned().collect::<Vec<_>>().join(", "),
-                )
-            }
-        };
-        self.publish(status, detail).await;
-    }
-
-    async fn publish(&self, status: ServiceStatusStatus, detail: String) {
-        let message = ServiceStatus { status, detail };
-        let sent: Result<(), PublishError> = async {
-            let payload = Bytes::from(message.encode()?);
-            if self.latest.borrow().as_ref() == Some(&payload) {
-                return Ok(());
-            }
-            let sample = Sample::new(
-                self.key.as_str(),
-                Bytes::clone(&payload),
-                self.encoding.as_str(),
-            );
-            self.backend.publish(sample).await?;
-            self.latest.send_replace(Some(payload));
-            Ok(())
-        }
-        .await;
-        if let Err(error) = sent {
-            warn!(%error, key = %self.key, "Failed to publish service status");
-        }
-    }
-}
-
-#[derive(Debug, thiserror::Error)]
-enum PublishError {
-    #[error("the Message does not encode: {0}")]
-    Encode(#[from] IdlError),
-    #[error(transparent)]
-    Comms(#[from] blueos_comms::CommsError),
-}
-
-async fn supervise_task<D: Domain, Context: Send + Sync + 'static>(
-    name: String,
-    policy: RestartPolicy,
-    run: TaskRun<D, Context>,
-    task_context: TaskContext<D, Context>,
-    clock: Arc<dyn Clock>,
-    status: StatusPublisher,
-    restarts: Counter,
-) {
-    let mut failures = 0u32;
-    let mut delays = match policy {
-        RestartPolicy::Never => None,
-        RestartPolicy::OnFailure { backoff, .. } | RestartPolicy::Always { backoff } => {
-            Some(backoff.delays())
-        }
-    };
-    loop {
-        if task_context.shutdown.is_cancelled() {
-            break;
-        }
-        status.mark_running(&name).await;
-        let context = TaskContext {
-            shutdown: task_context.shutdown.clone(),
-            session: Arc::clone(&task_context.session),
-            commands: task_context.commands.clone(),
-            context: Arc::clone(&task_context.context),
-            clock: Arc::clone(&task_context.clock),
-        };
-        let run = Arc::clone(&run);
-        let outcome = match AssertUnwindSafe(run(context)).catch_unwind().await {
-            Ok(result) => result,
-            Err(panic) => {
-                log_caught_panic(status.service, Some(&name), panic);
-                Err(TaskFailed)
-            }
-        };
-        if task_context.shutdown.is_cancelled() {
-            break;
-        }
-        let should_restart = match (outcome, policy) {
-            (Ok(()), RestartPolicy::Never) => false,
-            (Ok(()), RestartPolicy::OnFailure { .. }) => false,
-            (Ok(()), RestartPolicy::Always { .. }) => true,
-            (Err(TaskFailed), RestartPolicy::Never) => false,
-            (Err(TaskFailed), RestartPolicy::OnFailure { max_attempts, .. }) => {
-                failures = failures.saturating_add(1);
-                if failures >= max_attempts {
-                    status.mark_degraded(&name).await;
-                    false
-                } else {
-                    true
-                }
-            }
-            (Err(TaskFailed), RestartPolicy::Always { .. }) => true,
-        };
-        if !should_restart {
-            break;
-        }
-        status.mark_degraded(&name).await;
-        let Some(delay) = delays.as_mut().and_then(Iterator::next) else {
-            break;
-        };
-        if wait_delay(&clock, &task_context.shutdown, delay).await {
-            break;
-        }
-        restarts.increment(1);
-    }
-}
-
-async fn wait_delay(clock: &Arc<dyn Clock>, shutdown: &CancellationToken, delay: Duration) -> bool {
-    let deadline = clock.now().monotonic + delay;
-    while clock.now().monotonic < deadline {
-        if shutdown.is_cancelled() {
-            return true;
-        }
-        let remaining = deadline.saturating_sub(clock.now().monotonic);
-        tokio::select! {
-            biased;
-            () = shutdown.cancelled() => return true,
-            () = tokio::time::sleep(remaining) => {}
-        }
-    }
-    false
-}
-
-/// Holds the liveliness token until shutdown; obeys the Task cancellation token.
-pub(crate) async fn hold_liveliness_until_cancelled(
-    liveliness: blueos_comms::LivelinessToken,
-    shutdown: CancellationToken,
-) {
-    let _liveliness = liveliness;
-    shutdown.cancelled().await;
 }

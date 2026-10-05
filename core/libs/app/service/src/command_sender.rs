@@ -108,8 +108,9 @@ pub fn new_job_id() -> JobId {
     const VERSION_4: u128 = 0x4 << 76;
     const VARIANT_MASK: u128 = 0x3 << 62;
     const VARIANT_RFC_4122: u128 = 0x2 << 62;
+    const HASHER_BITS: u32 = 64;
     let random = || RandomState::new().build_hasher().finish();
-    let bits = u128::from(random()) << 64 | u128::from(random());
+    let bits = u128::from(random()) << HASHER_BITS | u128::from(random());
     JobId::from_u128(bits & !VERSION_MASK & !VARIANT_MASK | VERSION_4 | VARIANT_RFC_4122)
 }
 

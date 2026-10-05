@@ -38,6 +38,7 @@ impl LoopPanicTracker {
 }
 
 /// Formats a caught panic payload the same way the logging panic hook does (D-13).
+// qual:allow(coupling, deh) reason: "panic payloads are &str, String, or opaque; downcast is the std hook contract"
 pub(crate) fn panic_message(panic: &dyn Any) -> String {
     if let Some(text) = panic.downcast_ref::<&str>() {
         (*text).to_string()
