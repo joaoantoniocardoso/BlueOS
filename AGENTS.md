@@ -120,6 +120,8 @@ Rust checklist. Full text with examples: `docs/architecture/rust-style.md`. Gate
   boundary; an enum for state that is stored; type-state for builders and resource handles.
 - Borrow before cloning. Clone a handle with `Arc::clone(&handle)`; a data copy needs a reason.
 - No `unsafe`. No `#[allow]`: use `#[expect(lint, reason = "...")]`. Never `.expect` a lock.
+- Fix a `rustqual` finding by simplifying the code. Code that is already simplest (one struct literal, one linear
+  sequence) stays whole under a `// qual:allow(...)` with a reason; carrier structs and forwarders are worse.
 - Run `./.hooks/pre-push --fix`, then `./.hooks/pre-push`, before finishing.
 <!-- rust-style:end -->
 
