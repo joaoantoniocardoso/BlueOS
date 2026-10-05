@@ -156,21 +156,21 @@ export default Vue.extend({
   computed: {
     selected: {
       get(): McapCsvExportState['selected'] { return this.selectedChannels },
-      set(value: McapCsvExportState['selected']) {
+      set(value: McapCsvExportState['selected']): void {
         this.selectedChannels = value
         this.controller?.setSelected(value)
       },
     },
     search: {
       get(): string { return this.searchText },
-      set(value: string | null) {
+      set(value: string | null): void {
         this.searchText = value ?? ''
         this.controller?.setSearch(this.searchText)
       },
     },
-    channels() {
+    channels(): McapVideoRecording['channels'] {
       const all = this.recording.channels
-      return filterChannelsBySearch(all, this.search)
+      return filterChannelsBySearch(all, this.searchText)
     },
     headers(): { text: string, value: string }[] {
       return [

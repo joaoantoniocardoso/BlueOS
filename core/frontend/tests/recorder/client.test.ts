@@ -1,5 +1,6 @@
 /* eslint-disable import/no-extraneous-dependencies */
 import { CommandAckStatus, JobStatusStatus } from '@blueos-idl/constants'
+import type { JobResult, RecordingFile, RecordingLibrary } from '@blueos-idl/messages'
 import {
   afterEach, beforeEach, describe, expect, it, vi,
 } from 'vitest'
@@ -23,9 +24,9 @@ import FakeTransport from '../blueos-api/fake-transport'
 
 const JOB_ID = '0b5e8f5c-6f0a-4c4e-9a52-2f1e7d3c9b10'
 
-const idleLibrary = { files: [] as never[] }
+const idleLibrary: RecordingLibrary = { files: [], contents: [] }
 
-function recordingFile(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+function recordingFile(overrides: Partial<RecordingFile> = {}): RecordingFile {
   return {
     path: 'live.mcap',
     name: 'live.mcap',
@@ -42,7 +43,7 @@ function recordingFile(overrides: Record<string, unknown> = {}): Record<string, 
   }
 }
 
-function snapshotJobResult(outputPath: string): Record<string, unknown> {
+function snapshotJobResult(outputPath: string): JobResult {
   return {
     job: {
       job_id: JOB_ID,
@@ -94,6 +95,7 @@ describe('createRecorderClient', () => {
         files: [recordingFile({
           path: 'a.mcap', name: 'a.mcap', state: 1, allowed_operations: ['DeleteRecording'],
         })],
+        contents: [],
       }),
       encoding: cdrEncoding(library.messageSchema),
     })
@@ -223,7 +225,7 @@ describe('createRecorderClient', () => {
       kind: 'sample',
       sample: {
         key: library.key,
-        payload: encodeCdr(library.messageSchema, { files: [recordingFile()] }),
+        payload: encodeCdr(library.messageSchema, { files: [recordingFile()], contents: [] }),
         encoding: cdrEncoding(library.messageSchema),
       },
     })
@@ -245,6 +247,7 @@ describe('createRecorderClient', () => {
             allowed_operations: ['DeleteRecording'],
           }),
         ],
+        contents: [],
       }),
       encoding: cdrEncoding(library.messageSchema),
     })
@@ -286,6 +289,7 @@ describe('createRecorderClient', () => {
               allowed_operations: ['DeleteRecording'],
             }),
           ],
+          contents: [],
         }),
         encoding: cdrEncoding(library.messageSchema),
       },
@@ -333,6 +337,7 @@ describe('createRecorderClient', () => {
             allowed_operations: ['DeleteRecording'],
           }),
         ],
+        contents: [],
       }),
       encoding: cdrEncoding(library.messageSchema),
     })

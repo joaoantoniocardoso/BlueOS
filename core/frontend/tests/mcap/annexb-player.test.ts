@@ -59,7 +59,7 @@ describe('AnnexBMsePlayer', () => {
 
   it('waits for a keyframe before it is ready, and reports the codec and size it found', async () => {
     const onReady = vi.fn()
-    const onStats = vi.fn<[AnnexBMseStats], void>()
+    const onStats = vi.fn<(stats: AnnexBMseStats) => void>()
     const { player } = newPlayer({ onReady, onStats })
 
     player.push(SAMPLE_H264_DELTA, 'h264')
@@ -158,7 +158,7 @@ describe('AnnexBMsePlayer', () => {
 
   it('reports the codec as unsupported when the browser cannot play it', async () => {
     fakeMedia.typeSupported = false
-    const onError = vi.fn<[Error], void>()
+    const onError = vi.fn<(error: Error) => void>()
     const { player } = newPlayer({ onError })
 
     player.push(SAMPLE_H264_KEYFRAME, 'h264')

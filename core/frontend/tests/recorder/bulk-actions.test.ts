@@ -45,6 +45,9 @@ function file(path: string, operations: string[]): LibraryRecording {
     allowed_operations: operations,
   }
 }
+    duration_seconds: null,
+    video_topics: null,
+    other_topic_count: null,
 
 function jobResult(path: string, status: JobStatusStatus, reason = ''): RecordingJobResult {
   return {

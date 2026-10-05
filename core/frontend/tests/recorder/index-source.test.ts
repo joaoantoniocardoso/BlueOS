@@ -1,3 +1,4 @@
+import type { RecordingIndexResponse } from '@blueos-idl/messages'
 import {
   describe, expect, it, vi,
 } from 'vitest'
@@ -10,7 +11,7 @@ import { createCachedRecordingIndexSource } from '@/libs/recorder/index-source'
 
 import FakeTransport from '../blueos-api/fake-transport'
 
-function indexResponse(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+function indexResponse(overrides: Partial<RecordingIndexResponse> = {}): RecordingIndexResponse {
   return {
     size: 500,
     offset: 0,
@@ -101,6 +102,7 @@ describe('recording index source', () => {
             repair_job_id: '',
             allowed_operations: [],
           }],
+          contents: [],
         }),
         encoding: cdrEncoding(library.messageSchema),
       },

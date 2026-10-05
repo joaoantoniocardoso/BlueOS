@@ -68,8 +68,9 @@ export async function exportTrackAsMp4(
   const endLogTime = range && Number.isFinite(range.endSeconds) ? stream.toLogTime(range.endSeconds) : null
 
   const cursor = new DecodableFrameCursor(stream, recording.reader, track, false)
-  let writer: Mp4FileStream | null = null
-  let held: HeldSample | null = null
+  // Assigned inside closures, which narrowing cannot see, so the declared null must not narrow the type.
+  let writer = null as Mp4FileStream | null
+  let held = null as HeldSample | null
   // The frames before the start from the last keyframe there on: the least that decodes the start.
   let preRoll: HeldSample[] = []
   let reachedStart = false
