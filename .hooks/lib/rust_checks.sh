@@ -141,8 +141,10 @@ collect_folder_violations() {
             && [ "$dependency_unit/$dependency_folder" != libs/idl ] \
             && { [ "$dependency_folder" != logic ] || [ "$dependency_unit" != "$unit" ]; }; then
             violations+=("$name is logic/api, so it may only depend on libs/logic, blueos-idl or logic in the same service, not on $dependency")
-        elif [ "$folder" = adapters ] && [ "$dependency_folder" != adapters ] && [ "$dependency_unit/$dependency_folder" != libs/idl ]; then
-            violations+=("$name is an adapter, so it may only depend on adapters, not on $dependency")
+        elif [ "$folder" = adapters ] && [ "$dependency_folder" != adapters ] \
+            && [ "$dependency_unit/$dependency_folder" != libs/idl ] \
+            && { [ "$dependency_folder" != logic ] || [ "$dependency_unit" = libs ]; }; then
+            violations+=("$name is an adapter, so it may only depend on adapters, blueos-idl or logic in the same service, not on $dependency")
         fi
         parent=$(dirname "$dependency_directory")
         if [ -f "$parent/Cargo.toml" ] && [ "$directory" != "$parent" ] && [ "$(dirname "$directory")" != "$parent" ]; then

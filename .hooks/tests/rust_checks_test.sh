@@ -120,6 +120,29 @@ EOF
     fi
 }
 
+test_folder_lets_an_adapter_depend_only_on_its_own_service_logic() {
+    local metadata
+    metadata=$(cat <<'EOF'
+{
+  "packages": [
+    {
+      "name": "blueos-recorder-mavlink",
+      "manifest_path": "/repo/core/services/recorder/adapters/mavlink/Cargo.toml",
+      "dependencies": [
+        { "name": "blueos-recorder-cameras", "kind": null, "path": "/repo/core/services/recorder/logic/cameras" },
+        { "name": "blueos-domain", "kind": null, "path": "/repo/core/libs/logic/domain" }
+      ]
+    }
+  ]
+}
+EOF
+)
+    assert_violation "adapter to libs/logic" "$metadata" 'adapter, so it may only depend on adapters, blueos-idl'
+    if [ "$(collect_folder_violations "$metadata" | wc -l)" -ne 1 ]; then
+        fail "an adapter may depend on its own service's logic"
+    fi
+}
+
 test_folder_rejects_logic_depending_on_metrics() {
     local metadata
     metadata=$(cat <<'EOF'
@@ -512,6 +535,7 @@ main() {
     test_style_copies_reject_drifting_cursor_rule
     test_folder_rejects_logic_depending_on_adapter
     test_folder_rejects_logic_api_depending_on_adapter
+    test_folder_lets_an_adapter_depend_only_on_its_own_service_logic
     test_folder_rejects_logic_depending_on_metrics
     test_folder_rejects_cross_service_dependency
     test_workspace_metadata_is_clean
