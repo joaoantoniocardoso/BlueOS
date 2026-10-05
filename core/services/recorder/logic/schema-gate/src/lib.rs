@@ -25,6 +25,7 @@ pub const ROS2DDS_HOLD_TIMEOUT_MS: u64 = 2_000;
 const MAVLINK_RAW_TOPIC_PREFIX: &str = "mavlink_raw/";
 const MAVLINK_TOPIC_PREFIX: &str = "mavlink/";
 const VIDEO_TOPIC_PREFIX: &str = "video/";
+const CDR_ENCAPSULATION_HEADER_LEN: usize = 4;
 
 /// Effects the data plane should run after one gate input.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -94,14 +95,19 @@ pub struct Ros2ddsGate<Payload> {
 
 impl<Payload> Default for Ros2ddsGate<Payload> {
     fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<Payload> Ros2ddsGate<Payload> {
+    /// Empty gate with no topics held or tracked.
+    pub fn new() -> Self {
         Self {
             topics: BTreeMap::new(),
             held: BTreeMap::new(),
         }
     }
-}
 
-impl<Payload> Ros2ddsGate<Payload> {
     /// Topics currently waiting for a liveliness token (for timeout ticks).
     pub fn topics_awaiting_timer(&self) -> Vec<String> {
         self.topics
@@ -326,7 +332,7 @@ pub fn ros2dds_liveliness_query_pattern(data_key: &str) -> String {
 }
 
 fn has_cdr_encapsulation_header(payload: &[u8]) -> bool {
-    payload.len() >= 4
+    payload.len() >= CDR_ENCAPSULATION_HEADER_LEN
         && payload[0] == 0x00
         && (payload[1] == 0x00 || payload[1] == 0x01)
         && payload[2] == 0x00
@@ -368,7 +374,7 @@ mod tests {
 
     #[test]
     fn sample_before_token_flushes_with_schema_when_token_arrives_within_two_seconds() {
-        let mut gate = Ros2ddsGate::<u8>::default();
+        let mut gate = Ros2ddsGate::<u8>::new();
         let outputs = gate.on_input("chatter", sample_input(42));
         assert_eq!(outputs.len(), 1);
         assert!(matches!(
@@ -398,7 +404,7 @@ mod tests {
 
     #[test]
     fn timeout_produces_fallback_then_typed_lane_on_later_token_and_sample() {
-        let mut gate = Ros2ddsGate::<u8>::default();
+        let mut gate = Ros2ddsGate::<u8>::new();
         let _ = gate.on_input("chatter", sample_input(1));
         let outputs = gate.on_input(
             "chatter",
@@ -429,7 +435,7 @@ mod tests {
 
     #[test]
     fn unknown_type_after_fallback_still_flushes_held_samples() {
-        let mut gate = Ros2ddsGate::<u8>::default();
+        let mut gate = Ros2ddsGate::<u8>::new();
         let _ = gate.on_input("chatter", sample_input(1));
         let timeout_outputs = gate.on_input(
             "chatter",
@@ -455,7 +461,7 @@ mod tests {
 
     #[test]
     fn queue_holds_payload_by_reference() {
-        let mut gate = Ros2ddsGate::<&'static u8>::default();
+        let mut gate = Ros2ddsGate::<&'static u8>::new();
         let payload: &'static u8 = &7;
         let _ = gate.on_input(
             "chatter",
@@ -486,7 +492,7 @@ mod tests {
 
     #[test]
     fn clear_drops_held_samples_and_state() {
-        let mut gate = Ros2ddsGate::<u8>::default();
+        let mut gate = Ros2ddsGate::<u8>::new();
         let _ = gate.on_input("chatter", sample_input(1));
         assert!(gate.tracks_topic("chatter"));
         gate.clear();
