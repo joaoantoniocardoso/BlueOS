@@ -56,6 +56,7 @@ pub fn init(verbosity: u8) {
 
 /// Starts logging with a custom writer (tests only).
 #[cfg(feature = "testing")]
+// qual:test_helper
 pub fn init_with_writer(verbosity: u8, writer: Arc<Mutex<Vec<u8>>>) {
     INIT.call_once(|| {
         install_panic_hook();
@@ -86,24 +87,32 @@ fn install_subscriber(
 
 fn install_panic_hook() {
     std::panic::set_hook(Box::new(|panic_info| {
-        let message = if let Some(text) = panic_info.payload().downcast_ref::<&str>() {
-            text.to_string()
-        } else if let Some(text) = panic_info.payload().downcast_ref::<String>() {
-            text.clone()
-        } else {
-            "panic".to_string()
-        };
-        let location = panic_info
-            .location()
-            .map(|location| {
-                format!(
-                    "{}:{}:{}",
-                    location.file(),
-                    location.line(),
-                    location.column()
-                )
-            })
-            .unwrap_or_default();
+        let message = panic_message(panic_info.payload());
+        let location = panic_location(panic_info.location());
         tracing::error!(%message, location = %location, "panic");
     }));
+}
+
+// qual:allow(coupling, deh) reason: "panic hook reads the payload the runtime provides"
+fn panic_message(payload: &(dyn core::any::Any + Send)) -> String {
+    if let Some(text) = payload.downcast_ref::<&str>() {
+        text.to_string()
+    } else if let Some(text) = payload.downcast_ref::<String>() {
+        text.clone()
+    } else {
+        "panic".to_string()
+    }
+}
+
+fn panic_location(location: Option<&core::panic::Location<'_>>) -> String {
+    location
+        .map(|location| {
+            format!(
+                "{}:{}:{}",
+                location.file(),
+                location.line(),
+                location.column()
+            )
+        })
+        .unwrap_or_default()
 }

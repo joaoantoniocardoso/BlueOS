@@ -44,6 +44,7 @@ impl tracing::field::Visit for WireMessageVisitor<'_> {
 }
 
 /// Maps a [`Level`] to the Foxglove `Log` level constants (aligned with Python `commonwealth` producers).
+// qual:allow(dry, boilerplate) reason: "maps tracing Level to Foxglove wire constants"
 pub(crate) fn foxglove_level(level: Level) -> u8 {
     use blueos_idl::msg::foxglove_msgs::constants_log::{DEBUG, ERROR, INFO, UNKNOWN, WARNING};
 
@@ -60,15 +61,22 @@ pub(crate) fn foxglove_level(level: Level) -> u8 {
 pub(crate) fn wire_message_from_event(event: &tracing::Event<'_>) -> String {
     let mut message = String::new();
     let mut extras = String::new();
-    let mut visitor = WireMessageVisitor {
-        message: &mut message,
-        extras: &mut extras,
-    };
-    event.record(&mut visitor);
-    if message.is_empty() {
-        message = event.metadata().name().to_string();
-    }
+    record_event_fields(event, &mut message, &mut extras);
+    let message = wire_message_text(&message, event.metadata().name());
     format!("{message}{extras}")
+}
+
+fn wire_message_text(message: &str, event_name: &str) -> String {
+    if message.is_empty() {
+        event_name.to_string()
+    } else {
+        message.to_string()
+    }
+}
+
+fn record_event_fields(event: &tracing::Event<'_>, message: &mut String, extras: &mut String) {
+    let mut visitor = WireMessageVisitor { message, extras };
+    event.record(&mut visitor);
 }
 
 fn trim_debug_quotes(value: &str) -> String {

@@ -72,29 +72,7 @@ where
         if should_ignore_target(event.metadata().target()) {
             return;
         }
-        let metadata = event.metadata();
-        let record = CapturedRecord {
-            created_at: now(),
-            level: *metadata.level(),
-            message: wire_message_from_event(event),
-            target: metadata.target().to_string(),
-            file: metadata.file().map(str::to_string),
-            line: metadata.line(),
-        };
-        let mut state = STATE
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        if let Some(sender) = state.live_sender.as_ref() {
-            match sender.try_send(record) {
-                Ok(()) => {}
-                Err(mpsc::error::TrySendError::Full(_)) => {
-                    DROPPED_LIVE.fetch_add(1, Ordering::Relaxed);
-                }
-                Err(mpsc::error::TrySendError::Closed(_)) => {}
-            }
-            return;
-        }
-        state.push_pre_session(record);
+        enqueue_captured_record(captured_record_from_event(event));
     }
 }
 
@@ -132,12 +110,42 @@ fn now() -> SystemTime {
 
 /// Injectable clock for tests (`testing` feature).
 #[cfg(feature = "testing")]
+// qual:test_helper
 pub fn set_time_source(source: fn() -> SystemTime) {
     let _ = TIME_SOURCE.set(source);
 }
 
 fn should_ignore_target(target: &str) -> bool {
     target.starts_with("zenoh")
+}
+
+fn captured_record_from_event(event: &tracing::Event<'_>) -> CapturedRecord {
+    let metadata = event.metadata();
+    CapturedRecord {
+        created_at: now(),
+        level: *metadata.level(),
+        message: wire_message_from_event(event),
+        target: metadata.target().to_string(),
+        file: metadata.file().map(str::to_string),
+        line: metadata.line(),
+    }
+}
+
+fn enqueue_captured_record(record: CapturedRecord) {
+    let mut state = STATE
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Some(sender) = state.live_sender.as_ref() {
+        match sender.try_send(record) {
+            Ok(()) => {}
+            Err(mpsc::error::TrySendError::Full(_)) => {
+                DROPPED_LIVE.fetch_add(1, Ordering::Relaxed);
+            }
+            Err(mpsc::error::TrySendError::Closed(_)) => {}
+        }
+        return;
+    }
+    state.push_pre_session(record);
 }
 
 /// Connects the backbone layer to `backend` and returns a publisher the caller must run.
@@ -221,16 +229,75 @@ fn encode_log(record: &CapturedRecord) -> Result<Vec<u8>, blueos_idl::error::Err
 
 #[cfg(test)]
 mod tests {
-    use std::time::SystemTime;
+    use std::{
+        sync::{Arc, Mutex},
+        time::SystemTime,
+    };
 
     use tracing::Level;
+    use tracing_subscriber::{
+        Layer,
+        layer::{Context, SubscriberExt},
+        registry::LookupSpan,
+        util::SubscriberInitExt,
+    };
 
-    use super::{BackboneState, CapturedRecord, should_ignore_target};
+    use super::{
+        BackboneState, CapturedRecord, captured_record_from_event, enqueue_captured_record,
+        should_ignore_target,
+    };
+
+    struct CaptureLayer {
+        record: Arc<Mutex<Option<CapturedRecord>>>,
+    }
+
+    impl<S> Layer<S> for CaptureLayer
+    where
+        S: tracing::Subscriber + for<'lookup> LookupSpan<'lookup>,
+    {
+        fn on_event(&self, event: &tracing::Event<'_>, _context: Context<'_, S>) {
+            *self
+                .record
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner()) =
+                Some(captured_record_from_event(event));
+        }
+    }
+
+    #[test]
+    fn captured_record_from_event_builds_message_and_target() {
+        let record = Arc::new(Mutex::new(None));
+        let _guard = tracing_subscriber::registry()
+            .with(CaptureLayer {
+                record: Arc::clone(&record),
+            })
+            .set_default();
+        tracing::warn!(target: "blueos_test", "backbone capture");
+        let guard = record
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let captured = guard.as_ref().expect("record");
+        assert_eq!(captured.target, "blueos_test");
+        assert_eq!(captured.message, "backbone capture");
+    }
 
     #[test]
     fn zenoh_targets_are_ignored() {
         assert!(should_ignore_target("zenoh::api::session"));
         assert!(!should_ignore_target("blueos_comms_zenoh"));
+    }
+
+    #[test]
+    fn enqueue_uses_pre_session_when_live_sender_absent() {
+        let record = CapturedRecord {
+            created_at: SystemTime::UNIX_EPOCH,
+            level: Level::INFO,
+            message: "queued".into(),
+            target: "test".into(),
+            file: None,
+            line: None,
+        };
+        enqueue_captured_record(record);
     }
 
     #[test]
