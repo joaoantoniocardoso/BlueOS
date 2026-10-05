@@ -1,5 +1,8 @@
 //! L5 backend conformance against a `zenohd` router.
 
+// Proving zenoh's `Session` is `Send` and `Sync` nests deeper than the default limit of 128.
+#![recursion_limit = "256"]
+
 #[path = "../../comms/tests/support/conformance_body.rs"]
 mod conformance;
 
