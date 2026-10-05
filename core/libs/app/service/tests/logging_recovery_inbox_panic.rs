@@ -124,7 +124,8 @@ async fn inbox_loop_panic_message_reaches_log_key() {
                 level: LEVEL_THAT_PANICS_IN_HANDLE,
             },
         )
-        .await;
+        .await
+        .unwrap();
 
     let sample = tokio::time::timeout(RECV_TIMEOUT, subscriber.recv())
         .await

@@ -1,196 +1,28 @@
 //! Inbox loop and Task panic recovery (layer L3, D-29).
 
-use core::{
-    convert::Infallible,
-    sync::atomic::{AtomicUsize, Ordering},
-    time::Duration,
-};
-use std::sync::{Arc, Mutex};
+mod recovery_fixture;
 
-use clap::Args;
-use tokio::time::timeout;
+use core::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 
 use blueos_api::{Message, cdr_encoding, command_key, status_state_key};
 use blueos_comms::{CommsBackend, QueryBody};
-use blueos_domain::{Command, Decision, Domain, Now, Outcome};
 use blueos_idl::msg::{
     blueos_example_msgs::{PumpState, SetLevelGoal},
-    blueos_msgs::{ServiceStatus, ServiceStatusStatus},
+    blueos_msgs::ServiceStatusStatus,
 };
 use blueos_jobs::JobId;
 use blueos_service::{
     Backoff, Clock, Kernel, RestartPolicy, RunOutcome, Service, ServiceBuilder, ServiceContext,
-    ServiceError, TaskFailed,
+    TaskFailed,
     testing::{Harness, PausedClock},
 };
+use tokio::time::timeout;
 
-const RECV_TIMEOUT: Duration = Duration::from_secs(10);
-const LEVEL_THAT_PANICS_IN_HANDLE: u8 = 99;
-
-struct TankService;
-
-#[derive(Args, Clone)]
-struct TankArguments {
-    #[arg(long, default_value_t = 100)]
-    capacity: u8,
-}
-
-struct Tank;
-
-#[derive(Clone)]
-struct TankSnapshot {
-    level: u8,
-    capacity: u8,
-    level_set_at: Duration,
-}
-
-enum TankRequest {
-    SetLevel(u8),
-}
-
-enum TankEvent {
-    LevelChanged,
-}
-
-impl Service for TankService {
-    type Domain = Tank;
-    type Context = ();
-    type Arguments = TankArguments;
-
-    const NAME: &'static str = "recovery-tank";
-    const VERSION: &'static str = "1.0.0";
-
-    fn context(_service: &ServiceContext<TankArguments>) -> Result<(), ServiceError> {
-        Ok(())
-    }
-
-    fn build(
-        service: &ServiceContext<TankArguments>,
-        _context: &(),
-    ) -> Result<ServiceBuilder<Tank>, ServiceError> {
-        let capacity = service.arguments().capacity;
-        Ok(ServiceBuilder::new(TankSnapshot {
-            level: 0,
-            capacity,
-            level_set_at: Duration::ZERO,
-        })
-        .command("SetLevel", |request: SetLevelGoal| {
-            Ok(TankRequest::SetLevel(request.level))
-        })
-        .state("tank", |snapshot: &TankSnapshot| PumpState {
-            level: snapshot.level,
-            max_level: snapshot.capacity,
-            ..PumpState::default()
-        }))
-    }
-}
-
-impl Domain for Tank {
-    type Snapshot = TankSnapshot;
-    type Request = TankRequest;
-    type Event = TankEvent;
-    type IoResult = Infallible;
-    type Tick = Infallible;
-    type ObservedFact = Infallible;
-    type IoRequest = Infallible;
-    type TimerKey = Infallible;
-
-    fn handle(
-        snapshot: &mut TankSnapshot,
-        command: Command<TankRequest, Infallible, Infallible, Infallible>,
-        now: Now,
-    ) -> Decision<Self> {
-        let TankRequest::SetLevel(level) = match command {
-            Command::Request(request) => request,
-            Command::IoResult(_) | Command::Tick(_) | Command::ObservedFact(_) => {
-                unreachable!("the recovery tank has no IO, timers or observed facts");
-            }
-        };
-        if level == LEVEL_THAT_PANICS_IN_HANDLE {
-            panic!("handle panicked");
-        }
-        snapshot.level = level;
-        snapshot.level_set_at = now.monotonic;
-        Outcome::Applied {
-            events: vec![TankEvent::LevelChanged],
-            effects: Vec::new(),
-        }
-    }
-
-    fn io_failed(
-        request: Self::IoRequest,
-        _error: blueos_domain::IoError,
-    ) -> Command<Self::Request, Self::IoResult, Self::Tick, Self::ObservedFact> {
-        match request {}
-    }
-}
-
-struct TasksService;
-
-#[derive(Args, Clone)]
-struct TasksArguments {}
-
-struct TasksDomain;
-
-#[derive(Clone, Default)]
-struct TasksSnapshot;
-
-impl Service for TasksService {
-    type Domain = TasksDomain;
-    type Context = ();
-    type Arguments = TasksArguments;
-
-    const NAME: &'static str = "recovery-tasks";
-    const VERSION: &'static str = "1.0.0";
-
-    fn context(_service: &ServiceContext<TasksArguments>) -> Result<(), ServiceError> {
-        Ok(())
-    }
-
-    fn build(
-        _service: &ServiceContext<TasksArguments>,
-        _context: &(),
-    ) -> Result<ServiceBuilder<TasksDomain>, ServiceError> {
-        Ok(ServiceBuilder::new(TasksSnapshot))
-    }
-}
-
-impl Domain for TasksDomain {
-    type Snapshot = TasksSnapshot;
-    type Request = Infallible;
-    type Event = Infallible;
-    type IoResult = Infallible;
-    type Tick = Infallible;
-    type ObservedFact = Infallible;
-    type IoRequest = Infallible;
-    type TimerKey = Infallible;
-
-    fn handle(
-        _snapshot: &mut TasksSnapshot,
-        _command: Command<Infallible, Infallible, Infallible, Infallible>,
-        _now: Now,
-    ) -> Decision<Self> {
-        Outcome::Applied {
-            events: Vec::new(),
-            effects: Vec::new(),
-        }
-    }
-
-    fn io_failed(
-        request: Self::IoRequest,
-        _error: blueos_domain::IoError,
-    ) -> Command<Self::Request, Self::IoResult, Self::Tick, Self::ObservedFact> {
-        match request {}
-    }
-}
-
-async fn next_status(subscriber: &mut blueos_comms::Subscriber) -> ServiceStatus {
-    let sample = timeout(RECV_TIMEOUT, subscriber.recv())
-        .await
-        .expect("status update arrives before timeout")
-        .expect("status stream stays open");
-    ServiceStatus::decode(&sample.payload().to_bytes()).expect("status payload decodes")
-}
+use recovery_fixture::{
+    LEVEL_THAT_PANICS_IN_HANDLE, RECV_TIMEOUT, TankArguments, TankService, TasksDomain,
+    TasksService, TasksSnapshot, next_status,
+};
 
 #[tokio::test(start_paused = true)]
 async fn inbox_loop_panic_marks_status_degraded_and_keeps_running() {
@@ -203,7 +35,10 @@ async fn inbox_loop_panic_marks_status_degraded_and_keeps_running() {
         .await
         .expect("status key subscribes");
 
-    harness.send("SetLevel", &SetLevelGoal { level: 1 }).await;
+    harness
+        .send("SetLevel", &SetLevelGoal { level: 1 })
+        .await
+        .unwrap();
 
     let ack = harness
         .send(
@@ -212,17 +47,21 @@ async fn inbox_loop_panic_marks_status_degraded_and_keeps_running() {
                 level: LEVEL_THAT_PANICS_IN_HANDLE,
             },
         )
-        .await;
+        .await
+        .unwrap();
     assert!(!ack.accepted);
 
     let degraded = next_status(&mut status_subscriber).await;
     assert_eq!(degraded.status, ServiceStatusStatus::Degraded);
     assert_eq!(degraded.detail, "inbox");
 
-    harness.send("SetLevel", &SetLevelGoal { level: 2 }).await;
+    harness
+        .send("SetLevel", &SetLevelGoal { level: 2 })
+        .await
+        .unwrap();
     let ready = next_status(&mut status_subscriber).await;
     assert_eq!(ready.status, ServiceStatusStatus::Ready);
-    assert_eq!(harness.state::<PumpState>("tank").await.level, 2);
+    assert_eq!(harness.state::<PumpState>("tank").await.unwrap().level, 2);
 }
 
 #[tokio::test(start_paused = true)]

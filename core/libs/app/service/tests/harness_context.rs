@@ -127,10 +127,10 @@ async fn start_runs_the_context_that_ships() {
         .await
         .unwrap();
 
-    let ack = harness.send("ReadLevel", &Empty::default()).await;
+    let ack = harness.send("ReadLevel", &Empty::default()).await.unwrap();
 
     assert!(ack.accepted);
-    let gauge = harness.state::<LevelResponse>("gauge").await;
+    let gauge = harness.state::<LevelResponse>("gauge").await.unwrap();
     assert_eq!((gauge.level, gauge.max_level), (42, 100));
 }
 
@@ -165,9 +165,9 @@ async fn start_with_replaces_a_port_and_a_field_before_build() {
     .await
     .unwrap();
 
-    let ack = harness.send("ReadLevel", &Empty::default()).await;
+    let ack = harness.send("ReadLevel", &Empty::default()).await.unwrap();
 
     assert!(ack.accepted);
-    let gauge = harness.state::<LevelResponse>("gauge").await;
+    let gauge = harness.state::<LevelResponse>("gauge").await.unwrap();
     assert_eq!((gauge.level, gauge.max_level), (7, 50));
 }

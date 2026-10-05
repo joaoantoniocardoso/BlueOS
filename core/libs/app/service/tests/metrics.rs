@@ -148,7 +148,7 @@ async fn a_client_that_asks_right_after_boot_gets_the_metrics() {
         .await
         .unwrap();
 
-    let metrics = harness.state::<ServiceMetrics>("metrics").await;
+    let metrics = harness.state::<ServiceMetrics>("metrics").await.unwrap();
 
     assert_eq!(inbox_steps(&metrics).count, 0);
     assert_eq!(
@@ -227,7 +227,7 @@ async fn info_lists_the_metrics_state_with_its_message_type() {
         .await
         .unwrap();
 
-    let info = harness.info().await;
+    let info = harness.info().await.unwrap();
 
     let metrics = info
         .endpoints
@@ -310,7 +310,7 @@ async fn the_tokio_runtime_gauges_are_in_the_metrics_and_an_idle_service_stays_q
         .unwrap();
     let mut published = subscribe(&harness).await;
 
-    let metrics = harness.state::<ServiceMetrics>("metrics").await;
+    let metrics = harness.state::<ServiceMetrics>("metrics").await.unwrap();
 
     let runtime_gauges = metrics
         .gauges

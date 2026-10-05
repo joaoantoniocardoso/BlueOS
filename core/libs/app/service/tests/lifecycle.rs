@@ -221,8 +221,8 @@ async fn on_start_runs_before_a_client_command() {
     let harness = Harness::<LifecycleService>::start(LifecycleArguments {})
         .await
         .unwrap();
-    harness.send("Client", &Empty::default()).await;
-    let progress = harness.state::<PumpState>("progress").await;
+    harness.send("Client", &Empty::default()).await.unwrap();
+    let progress = harness.state::<PumpState>("progress").await.unwrap();
     assert_eq!(progress.level, 2);
 }
 
