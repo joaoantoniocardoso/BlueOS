@@ -2,7 +2,14 @@
 # Thresholds match rustqual 1.8.3 documented defaults (reference-configuration.md).
 # Do not run `rustqual --init` here: that calibrates to the current codebase.
 
-exclude_files = ["target/**", "frontend/**"]
+# Generated IDL code is measured where it is written, in libs/idl/codegen.
+exclude_files = [
+    "target/**",
+    "frontend/**",
+    "libs/idl/src/generated/**",
+    "services/*/app/src/endpoints.rs",
+    "services/*/logic/api/src/endpoints.rs",
+]
 
 strict_closures = false
 strict_iterator_chains = false
