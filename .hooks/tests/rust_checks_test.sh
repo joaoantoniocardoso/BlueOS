@@ -263,8 +263,8 @@ test_syn_style_check_fails_on_mixed_import_groups() {
     copy_core "$temporary"
     cat >>"$temporary/libs/logic/domain/Cargo.toml" <<'EOF'
 
-[dependencies]
-convert_case.workspace = true
+[dependencies.convert_case]
+workspace = true
 EOF
     cat >>"$temporary/libs/logic/domain/src/lib.rs" <<'EOF'
 
@@ -340,8 +340,8 @@ test_no_std_build_fails_on_io_dependency() {
     sed -i '/blueos-domain = /a socket2 = "0.5"' "$temporary/Cargo.toml"
     cat >>"$temporary/libs/logic/domain/Cargo.toml" <<'EOF'
 
-[dependencies]
-socket2.workspace = true
+[dependencies.socket2]
+workspace = true
 EOF
     cargo generate-lockfile --manifest-path "$temporary/Cargo.toml" >/dev/null
     if (
@@ -360,8 +360,8 @@ test_machete_fails_on_unused_dependency() {
     sed -i '/blueos-domain = /a libc = "0.2"' "$temporary/Cargo.toml"
     cat >>"$temporary/libs/logic/domain/Cargo.toml" <<'EOF'
 
-[dependencies]
-libc.workspace = true
+[dependencies.libc]
+workspace = true
 EOF
     cargo generate-lockfile --manifest-path "$temporary/Cargo.toml" >/dev/null
     if (
@@ -500,8 +500,8 @@ test_deny_bans_direct_zenoh() {
     copy_core "$temporary"
     cat >>"$temporary/libs/logic/domain/Cargo.toml" <<'EOF'
 
-[dependencies]
-zenoh.workspace = true
+[dependencies.zenoh]
+workspace = true
 EOF
     cargo generate-lockfile --manifest-path "$temporary/Cargo.toml" >/dev/null
     if (
@@ -522,8 +522,9 @@ test_test_only_features_stay_out_of_normal_builds() {
     copy_core "$temporary"
     cat >>"$temporary/libs/logic/domain/Cargo.toml" <<'EOF'
 
-[dependencies]
-blueos-comms = { workspace = true, features = ["channel"] }
+[dependencies.blueos-comms]
+workspace = true
+features = ["channel"]
 EOF
     if output=$(collect_test_only_feature_violations "$temporary"); then
         fail "a test-only feature in [dependencies] should be a violation"
