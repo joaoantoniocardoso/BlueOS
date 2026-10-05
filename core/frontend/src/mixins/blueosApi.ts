@@ -1,3 +1,6 @@
+/* eslint-disable vue/no-unused-properties -- the components that mix this in call its methods */
+import { defineComponent } from 'vue'
+
 import type { StateEndpoint } from '@/libs/blueos-api/endpoints'
 import type { JobObserver } from '@/libs/blueos-api/job'
 import { watchJob } from '@/libs/blueos-api/job'
@@ -14,11 +17,18 @@ type BlueosApiMixinData = {
  * calls the same library functions without changing the core.
  */
 // eslint-disable-next-line import/prefer-default-export
-export const blueosApiMixin = {
+export const blueosApiMixin = defineComponent({
   data(): BlueosApiMixinData {
     return {
       blueosApiSubscriptions: [],
     }
+  },
+
+  beforeDestroy(): void {
+    for (const subscription of this.blueosApiSubscriptions) {
+      subscription.close().catch(() => undefined)
+    }
+    this.blueosApiSubscriptions = []
   },
 
   methods: {
@@ -26,7 +36,7 @@ export const blueosApiMixin = {
       const subscription = await subscriptionPromise
       // Vue 2 only exposes destruction on the instance as `_isDestroyed`.
       // eslint-disable-next-line no-underscore-dangle
-      if (this._isDestroyed) {
+      if ((this as unknown as { _isDestroyed: boolean })._isDestroyed) {
         await subscription.close()
         return subscription
       }
@@ -55,11 +65,4 @@ export const blueosApiMixin = {
       return this.blueosTrackSubscription(watchJob(transport, service, jobId, observer))
     },
   },
-
-  beforeDestroy(): void {
-    for (const subscription of this.blueosApiSubscriptions) {
-      subscription.close().catch(() => undefined)
-    }
-    this.blueosApiSubscriptions = []
-  },
-}
+})
