@@ -35,75 +35,67 @@ fn task_reports_mcap_file_opened(
     assert!(matches!(decision, Outcome::Applied { .. }));
 }
 
+fn assert_applied_without_effects<T, E, I, K>(outcome: Outcome<T, E, I, K>) {
+    let Outcome::Applied { effects, .. } = outcome else {
+        panic!("command must apply");
+    };
+    assert!(effects.is_empty());
+}
+
+fn assert_record_gate(snapshot: &RecorderSnapshot, monotonic_seconds: u64, generation: u64) {
+    let gate = RecorderDomain::query(
+        snapshot,
+        RecorderQuery::RecordGate,
+        now_at(monotonic_seconds),
+    );
+    assert!(gate.recording_requested);
+    assert_eq!(gate.desired_file_generation, generation);
+}
+
 #[test]
 fn start_stop_and_rotation_use_record_gate_without_file_io() {
     let mut snapshot = RecorderSnapshot::default();
-    let start = RecorderDomain::handle(
+    assert_applied_without_effects(RecorderDomain::handle(
         &mut snapshot,
         Command::Request(RecorderRequest::StartRecording {
             rotate_if_active: false,
         }),
         now_at(0),
-    );
-    let Outcome::Applied {
-        effects: start_effects,
-        ..
-    } = start
-    else {
-        panic!("start must apply");
-    };
-    assert!(start_effects.is_empty());
+    ));
     assert!(matches!(
-        snapshot.capture.recording,
+        snapshot.blocks.capture.recording,
         RecordingState::AwaitingMcapFile { file_generation: 1 }
     ));
-    let gate_after_start = RecorderDomain::query(&snapshot, RecorderQuery::RecordGate, now_at(0));
-    assert!(gate_after_start.recording_requested);
-    assert_eq!(gate_after_start.desired_file_generation, 1);
+    assert_record_gate(&snapshot, 0, 1);
 
     task_reports_mcap_file_opened(&mut snapshot, 1, "a.mcap");
     assert!(matches!(
-        snapshot.capture.recording,
+        snapshot.blocks.capture.recording,
         RecordingState::Active(ActiveRecording {
             file_generation: 1,
             ..
         })
     ));
 
-    let rotate = RecorderDomain::handle(
+    assert_applied_without_effects(RecorderDomain::handle(
         &mut snapshot,
         Command::Request(RecorderRequest::StartRecording {
             rotate_if_active: true,
         }),
         now_at(1),
-    );
-    let Outcome::Applied {
-        effects: rotate_effects,
-        ..
-    } = rotate
-    else {
-        panic!("rotate must apply");
-    };
-    assert!(rotate_effects.is_empty());
-    let gate_after_rotate = RecorderDomain::query(&snapshot, RecorderQuery::RecordGate, now_at(1));
-    assert!(gate_after_rotate.recording_requested);
-    assert_eq!(gate_after_rotate.desired_file_generation, 2);
+    ));
+    assert_record_gate(&snapshot, 1, 2);
     task_reports_mcap_file_opened(&mut snapshot, 2, "b.mcap");
 
-    let stop = RecorderDomain::handle(
+    assert_applied_without_effects(RecorderDomain::handle(
         &mut snapshot,
         Command::Request(RecorderRequest::StopRecording),
         now_at(2),
-    );
-    let Outcome::Applied {
-        effects: stop_effects,
-        ..
-    } = stop
-    else {
-        panic!("stop must apply");
-    };
-    assert!(stop_effects.is_empty());
-    assert!(matches!(snapshot.capture.recording, RecordingState::Idle));
+    ));
+    assert!(matches!(
+        snapshot.blocks.capture.recording,
+        RecordingState::Idle
+    ));
     let gate_after_stop = RecorderDomain::query(&snapshot, RecorderQuery::RecordGate, now_at(2));
     assert!(!gate_after_stop.recording_requested);
 }
@@ -140,7 +132,7 @@ fn late_mcap_file_finished_for_previous_file_does_not_clear_active_recording() {
         file_generation,
         file_name,
         ..
-    }) = &snapshot.capture.recording
+    }) = &snapshot.blocks.capture.recording
     else {
         panic!("active recording must remain after a stale file finished fact");
     };
@@ -157,7 +149,8 @@ fn late_mcap_file_finished_for_previous_file_does_not_clear_active_recording() {
         )),
         now_at(3),
     );
-    let RecordingState::Active(ActiveRecording { bytes_written, .. }) = snapshot.capture.recording
+    let RecordingState::Active(ActiveRecording { bytes_written, .. }) =
+        snapshot.blocks.capture.recording
     else {
         panic!("bytes must still apply to the active file generation");
     };
@@ -187,7 +180,7 @@ fn rotation_keeps_recording_requested_until_new_file_is_active() {
     assert!(gate_mid_rotation.recording_requested);
     assert_eq!(gate_mid_rotation.desired_file_generation, 2);
     assert!(matches!(
-        snapshot.capture.recording,
+        snapshot.blocks.capture.recording,
         RecordingState::Active(ActiveRecording {
             file_generation: 1,
             ..
@@ -196,7 +189,7 @@ fn rotation_keeps_recording_requested_until_new_file_is_active() {
 
     task_reports_mcap_file_opened(&mut snapshot, 2, "second.mcap");
     assert!(matches!(
-        snapshot.capture.recording,
+        snapshot.blocks.capture.recording,
         RecordingState::Active(ActiveRecording {
             file_generation: 2,
             ..
@@ -223,7 +216,7 @@ fn recording_time_ms_uses_fresh_monotonic_clock() {
 #[test]
 fn auto_start_recording_applies_live_on_settings_update() {
     let mut snapshot = RecorderSnapshot::default();
-    snapshot.capture.settings.auto_start_recording = false;
+    snapshot.blocks.capture.settings.auto_start_recording = false;
     let decision = RecorderDomain::handle(
         &mut snapshot,
         Command::Request(RecorderRequest::UpdateSettings(CaptureSettings {
@@ -237,7 +230,7 @@ fn auto_start_recording_applies_live_on_settings_update() {
     };
     assert!(effects.is_empty());
     assert!(matches!(
-        snapshot.capture.recording,
+        snapshot.blocks.capture.recording,
         RecordingState::AwaitingMcapFile { file_generation: 1 }
     ));
     let gate_after_auto_start =
@@ -248,7 +241,10 @@ fn auto_start_recording_applies_live_on_settings_update() {
 #[test]
 fn recording_lifecycle_is_one_enum_without_disagreeing_flags() {
     let mut snapshot = RecorderSnapshot::default();
-    assert!(matches!(snapshot.capture.recording, RecordingState::Idle));
+    assert!(matches!(
+        snapshot.blocks.capture.recording,
+        RecordingState::Idle
+    ));
     RecorderDomain::handle(
         &mut snapshot,
         Command::Request(RecorderRequest::StartRecording {
@@ -257,12 +253,12 @@ fn recording_lifecycle_is_one_enum_without_disagreeing_flags() {
         now_at(0),
     );
     assert!(matches!(
-        snapshot.capture.recording,
+        snapshot.blocks.capture.recording,
         RecordingState::AwaitingMcapFile { .. }
     ));
     task_reports_mcap_file_opened(&mut snapshot, 1, "file.mcap");
     assert!(matches!(
-        snapshot.capture.recording,
+        snapshot.blocks.capture.recording,
         RecordingState::Active(_)
     ));
 }
