@@ -18,7 +18,10 @@ export function bulkActionTargets(
   return recordings.filter((file) => file.allowed_operations.includes(operationName))
 }
 
-/** Submits `operationName` for each pending path, one at a time: a refused or unreachable path does not stop the rest. */
+/**
+ * Submits `operationName` for each pending path, one at a time: a refused or unreachable path does not stop the
+ * rest.
+ */
 export async function runBulkAction(
   action: BulkAction,
   operationName: string,

@@ -1,11 +1,12 @@
 /* eslint-disable import/no-extraneous-dependencies */
 import { CommandAckStatus, JobStatusStatus } from '@blueos-idl/constants'
-import { describe, expect, it, vi } from 'vitest'
+import {
+  describe, expect, it, vi,
+} from 'vitest'
 
 import { encodeCdr } from '@/libs/blueos-api/cdr'
 import { cdrEncoding } from '@/libs/blueos-api/keys'
 import { DeleteRecording, RepairRecording } from '@/libs/blueos-api/services/recorder'
-import { createRecorderClient } from '@/libs/recorder/client'
 import {
   type BulkAction,
   bulkActionTargets,
@@ -13,6 +14,7 @@ import {
   repairsInFlight,
   runBulkAction,
 } from '@/libs/recorder/bulk-actions'
+import { createRecorderClient } from '@/libs/recorder/client'
 import { DELETE_RECORDING, REPAIR_RECORDING } from '@/libs/recorder/constants'
 import type { LibraryRecording, RecorderCommandResult, RecordingJobResult } from '@/libs/recorder/types'
 
@@ -43,11 +45,11 @@ function file(path: string, operations: string[]): LibraryRecording {
     repair_error: '',
     repair_job_id: '',
     allowed_operations: operations,
-  }
-}
     duration_seconds: null,
     video_topics: null,
     other_topic_count: null,
+  }
+}
 
 function jobResult(path: string, status: JobStatusStatus, reason = ''): RecordingJobResult {
   return {
@@ -126,7 +128,9 @@ describe('recorder bulk submission', () => {
     const sent = await transport.nextQuery()
     sent.reply({
       kind: 'sample',
-      sample: { key: sent.key, payload: ack(JOB_A, false, 'Busy.'), encoding: cdrEncoding('blueos_msgs/msg/CommandAck') },
+      sample: {
+        key: sent.key, payload: ack(JOB_A, false, 'Busy.'), encoding: cdrEncoding('blueos_msgs/msg/CommandAck'),
+      },
     })
     await running
 
@@ -169,20 +173,23 @@ describe('recorder bulk Job results', () => {
 })
 
 describe('recorder bulk repair in flight', () => {
-  it('lasts from the first submission until every submitted Job has ended, not until the commands are sent', async () => {
-    const action: BulkAction = { failures: [], pending: ['a.mcap', 'b.mcap'] }
-    expect(repairsInFlight(REPAIR_RECORDING, true, action)).toBe(true)
+  it(
+    'lasts from the first submission until every submitted Job has ended, not until the commands are sent',
+    async () => {
+      const action: BulkAction = { failures: [], pending: ['a.mcap', 'b.mcap'] }
+      expect(repairsInFlight(REPAIR_RECORDING, true, action)).toBe(true)
 
-    await runBulkAction(action, REPAIR_RECORDING, async () => ({
-      accepted: true, reason: '', job_id: JOB_A, status: CommandAckStatus.Executing,
-    }))
-    expect(repairsInFlight(REPAIR_RECORDING, false, action)).toBe(true)
+      await runBulkAction(action, REPAIR_RECORDING, async () => ({
+        accepted: true, reason: '', job_id: JOB_A, status: CommandAckStatus.Executing,
+      }))
+      expect(repairsInFlight(REPAIR_RECORDING, false, action)).toBe(true)
 
-    bulkJobEnded(action, jobResult('a.mcap', JobStatusStatus.Succeeded))
-    expect(repairsInFlight(REPAIR_RECORDING, false, action)).toBe(true)
-    bulkJobEnded(action, jobResult('b.mcap', JobStatusStatus.Aborted, 'disk full'))
-    expect(repairsInFlight(REPAIR_RECORDING, false, action)).toBe(false)
-  })
+      bulkJobEnded(action, jobResult('a.mcap', JobStatusStatus.Succeeded))
+      expect(repairsInFlight(REPAIR_RECORDING, false, action)).toBe(true)
+      bulkJobEnded(action, jobResult('b.mcap', JobStatusStatus.Aborted, 'disk full'))
+      expect(repairsInFlight(REPAIR_RECORDING, false, action)).toBe(false)
+    },
+  )
 
   it('ends with the submission when every repair is refused', async () => {
     const action: BulkAction = { failures: [], pending: ['a.mcap'] }

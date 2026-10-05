@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest'
 import {
   dateFilterOptions,
   filterRecordings,
-  NO_RECORDING_FILTERS,
   localCalendarDay,
+  NO_RECORDING_FILTERS,
 } from '@/libs/recorder/filter'
 import type { LibraryRecording } from '@/libs/recorder/types'
 
@@ -36,10 +36,18 @@ function file(overrides: Partial<LibraryRecording> = {}): LibraryRecording {
 }
 
 const recordings = [
-  file({ path: 'dock-dive.mcap', name: 'dock-dive.mcap', created: DAY_ONE, state: 'ready' }),
-  file({ path: 'reef-survey.mcap', name: 'reef-survey.mcap', created: DAY_TWO, state: 'ready' }),
-  file({ path: 'reef-night.mcap', name: 'reef-night.mcap', created: DAY_TWO, state: 'needs_repair' }),
-  file({ path: 'Pool-Test.mcap', name: 'Pool-Test.mcap', created: DAY_ONE, state: 'recording' }),
+  file({
+    path: 'dock-dive.mcap', name: 'dock-dive.mcap', created: DAY_ONE, state: 'ready',
+  }),
+  file({
+    path: 'reef-survey.mcap', name: 'reef-survey.mcap', created: DAY_TWO, state: 'ready',
+  }),
+  file({
+    path: 'reef-night.mcap', name: 'reef-night.mcap', created: DAY_TWO, state: 'needs_repair',
+  }),
+  file({
+    path: 'Pool-Test.mcap', name: 'Pool-Test.mcap', created: DAY_ONE, state: 'recording',
+  }),
 ]
 
 function names(filtered: LibraryRecording[]): string[] {

@@ -40,9 +40,10 @@ describe('variation meter', () => {
     const clockOffsetSeconds = 1000
     const frames = [[0, 0.05], [0.033, 0.083], [0.066, 0.136]]
 
-    const summaries = frames.map(([sourceSeconds, arrivalSeconds]) => (
-      meter.add(arrivalSeconds, arrivalSeconds - (sourceSeconds + clockOffsetSeconds))
-    ))
+    const summaries = frames.map(([sourceSeconds, arrivalSeconds]) => {
+      const delaySeconds = arrivalSeconds - (sourceSeconds + clockOffsetSeconds)
+      return meter.add(arrivalSeconds, delaySeconds)
+    })
 
     expect(summaries[1].changeSeconds).toBeCloseTo(0)
     expect(summaries[2].changeSeconds).toBeCloseTo(0.02)

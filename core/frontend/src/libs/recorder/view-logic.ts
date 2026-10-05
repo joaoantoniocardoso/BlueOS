@@ -105,7 +105,7 @@ export function withRepairJobs(
     const canceling = jobs.some(
       (job) => job.job_id === file.repair_job_id && job.status === JobStatusStatus.Canceling,
     )
-    if (file.repair_job_id === '' || (feedback === undefined && !canceling)) {
+    if (file.repair_job_id === '' || feedback === undefined && !canceling) {
       return file
     }
     return {
@@ -119,7 +119,10 @@ export function withRepairJobs(
   })
 }
 
-/** How far a repairing row is, for the bar and the text under it; null when it is not repairing or its size is unknown. */
+/**
+ * How far a repairing row is, for the bar and the text under it; null when it is not repairing or its size is
+ * unknown.
+ */
 export function repairProgress(file: LibraryRecording): { percent: number, label: string } | null {
   if (file.state !== 'repairing' || file.repair_total_bytes <= 0) {
     return null

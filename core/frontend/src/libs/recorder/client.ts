@@ -90,7 +90,9 @@ export interface RecorderClientOptions {
 }
 
 function commandResult(commandAck: CommandAck): RecorderCommandResult {
-  return { accepted: commandAck.accepted, reason: commandAck.reason, job_id: commandAck.job_id, status: commandAck.status }
+  return {
+    accepted: commandAck.accepted, reason: commandAck.reason, job_id: commandAck.job_id, status: commandAck.status,
+  }
 }
 
 export function createRecorderClient(
@@ -272,7 +274,7 @@ export function createRecorderClient(
 
     recordingIndexSource(path) {
       return createCachedRecordingIndexSource(transport, path, () => {
-        const file = librarySnapshot.find((recording) => recording.path === path)
+        const file = librarySnapshot.find((libraryFile) => libraryFile.path === path)
         return file?.size_bytes ?? 0
       })
     },

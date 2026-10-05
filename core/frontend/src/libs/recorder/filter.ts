@@ -23,11 +23,9 @@ export function filterRecordings(
   filters: RecordingFilters,
 ): LibraryRecording[] {
   const search = filters.search.trim().toLowerCase()
-  return recordings.filter((file) => (
-    (!search || file.name.toLowerCase().includes(search))
+  return recordings.filter((file) => (!search || file.name.toLowerCase().includes(search))
     && (filters.state === null || file.state === filters.state)
-    && (filters.date === null || localCalendarDay(file.created) === filters.date)
-  ))
+    && (filters.date === null || localCalendarDay(file.created) === filters.date))
 }
 
 /** One option per local day that has a recording, newest first. */
