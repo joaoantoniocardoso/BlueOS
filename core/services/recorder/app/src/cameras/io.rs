@@ -8,14 +8,11 @@ use tracing::warn;
 
 use blueos_comms::{Payload, Sample};
 use blueos_domain::IoError;
-use blueos_recorder_cameras::{
-    CamerasIoRequest, CaptureCommandKind, DiscoveryMessageKind, RAW_MAVLINK_IN_TOPIC,
-};
+use blueos_recorder_cameras::{CamerasIoRequest, DiscoveryMessageKind, RAW_MAVLINK_IN_TOPIC};
 use blueos_recorder_domain::RecorderIoResult;
 use blueos_recorder_mavlink::{
-    MavlinkCaptureCommand, MavlinkDiscoveryMessage, SystemAndComponent as MavlinkSystem,
-    build_camera_capture_status, build_command_ack, build_discovery_request,
-    default_discovery_source,
+    MavlinkDiscoveryMessage, SystemAndComponent as MavlinkSystem, build_camera_capture_status,
+    build_command_ack, build_discovery_request, default_discovery_source,
 };
 use blueos_service::Session;
 
@@ -56,7 +53,7 @@ fn encode_cameras_io(mavlink_sequence: &Arc<AtomicU8>, request: CamerasIoRequest
             to_mavlink_system(camera),
             to_mavlink_system(recipient),
             next_sequence(mavlink_sequence),
-            to_mavlink_capture_command(command),
+            command,
             accepted,
         ),
         CamerasIoRequest::CaptureStatus {
@@ -93,15 +90,6 @@ fn to_mavlink_system(camera: blueos_recorder_cameras::SystemAndComponent) -> Mav
         component_id: camera.component_id,
     }
 }
-
-fn to_mavlink_capture_command(command: CaptureCommandKind) -> MavlinkCaptureCommand {
-    match command {
-        CaptureCommandKind::StartCapture => MavlinkCaptureCommand::StartCapture,
-        CaptureCommandKind::StopCapture => MavlinkCaptureCommand::StopCapture,
-        CaptureCommandKind::RequestCaptureStatus => MavlinkCaptureCommand::RequestCaptureStatus,
-    }
-}
-
 fn to_mavlink_discovery_message(message: DiscoveryMessageKind) -> MavlinkDiscoveryMessage {
     match message {
         DiscoveryMessageKind::CameraInformation => MavlinkDiscoveryMessage::CameraInformation,

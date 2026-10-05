@@ -7,13 +7,11 @@ use tracing::warn;
 
 use blueos_comms::Sample;
 use blueos_domain::Command;
-use blueos_recorder_cameras::{
-    Cameras, CamerasObservedFact, CaptureCommandKind, RAW_MAVLINK_OUT_TOPIC,
-};
+use blueos_recorder_cameras::{Cameras, CamerasObservedFact, RAW_MAVLINK_OUT_TOPIC};
 use blueos_recorder_capture::CaptureObservedFact;
 use blueos_recorder_domain::{RecorderDomain, RecorderObservedFact};
 use blueos_recorder_mavlink::{
-    MavlinkCaptureCommand, MavlinkFact, MavlinkIngressState, facts_from_frame, last_vehicle_armed,
+    MavlinkFact, MavlinkIngressState, facts_from_frame, last_vehicle_armed,
 };
 use blueos_service::{CommandSender, TaskContext, TaskFailed};
 
@@ -117,7 +115,7 @@ async fn deliver_fact(
             send_observed(
                 commands,
                 RecorderObservedFact::Cameras(CamerasObservedFact::CameraCaptureCommand {
-                    command: to_capture_command_kind(command),
+                    command,
                     sender: to_cameras_system(sender),
                     target_system,
                     target_component,
@@ -161,13 +159,5 @@ fn to_cameras_system(
     blueos_recorder_cameras::SystemAndComponent {
         system_id: camera.system_id,
         component_id: camera.component_id,
-    }
-}
-
-fn to_capture_command_kind(command: MavlinkCaptureCommand) -> CaptureCommandKind {
-    match command {
-        MavlinkCaptureCommand::StartCapture => CaptureCommandKind::StartCapture,
-        MavlinkCaptureCommand::StopCapture => CaptureCommandKind::StopCapture,
-        MavlinkCaptureCommand::RequestCaptureStatus => CaptureCommandKind::RequestCaptureStatus,
     }
 }
