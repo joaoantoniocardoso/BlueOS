@@ -1,13 +1,18 @@
 //! Active recording, the armed flag, bytes written and the record gate the data plane follows.
 
 #![no_std]
+#![expect(
+    clippy::pub_use,
+    reason = "the capture Block lives in block.rs; the crate root keeps public types and re-exports Capture"
+)]
 
 extern crate alloc;
 
-use alloc::{collections::BTreeMap, collections::BTreeSet, string::String, vec, vec::Vec};
-use core::{error::Error, fmt, time::Duration};
+mod block;
 
-use blueos_domain::{Now, Outcome};
+use core::{error::Error, fmt};
+
+pub use block::Capture;
 
 /// Backbone prefix for decoded MAVLink samples.
 pub const MAVLINK_TOPIC_PREFIX: &str = "mavlink/";
@@ -15,20 +20,6 @@ pub const MAVLINK_TOPIC_PREFIX: &str = "mavlink/";
 pub const MAVLINK_RAW_TOPIC_PREFIX: &str = "mavlink_raw/";
 /// Backbone prefix for camera manager video samples.
 pub const VIDEO_TOPIC_PREFIX: &str = "video/";
-
-/// Block state: settings, armed fact, recording lifecycle, and video streams.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Capture {
-    /// User settings including armed gating and auto-start.
-    pub settings: CaptureSettings,
-    /// Latest armed fact from the vehicle.
-    pub armed: bool,
-    /// MCAP file lifecycle; see [`RecordingState`].
-    pub recording: RecordingState,
-    /// Next [`RecordGate::desired_file_generation`] assigned on start or rotation.
-    next_file_generation: u64,
-    video_streams: BTreeMap<String, VideoStream>,
-}
 
 /// Commands a client sends to the capture Block.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -45,12 +36,12 @@ pub enum CaptureRequest {
     /// Marks a video topic as recording for [`RecordGate::recording_video_topics`].
     StartVideoRecording {
         /// Zenoh topic prefix `video/...`.
-        topic: String,
+        topic: alloc::string::String,
     },
     /// Removes a video topic from [`RecordGate::recording_video_topics`].
     StopVideoRecording {
         /// Video topic to stop.
-        topic: String,
+        topic: alloc::string::String,
     },
 }
 
@@ -76,7 +67,7 @@ pub enum CaptureObservedFact {
         /// Matches [`RecordGate::desired_file_generation`] when first opened, or the rotation target.
         file_generation: u64,
         /// Base name of the opened file.
-        file_name: String,
+        file_name: alloc::string::String,
     },
     /// The Task finished writing this file generation.
     McapFileFinished {
@@ -108,7 +99,7 @@ pub enum CaptureEvent {
     /// The active file was replaced during rotation.
     RecordingRotated {
         /// Name of the new active file.
-        file_name: String,
+        file_name: alloc::string::String,
     },
     /// Recording was stopped.
     RecordingStopped,
@@ -125,7 +116,7 @@ pub enum CaptureRejection {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VideoStream {
     /// Same string as the map key.
-    pub topic: String,
+    pub topic: alloc::string::String,
     /// Whether this stream is included in [`RecordGate::recording_video_topics`].
     pub is_recording: bool,
 }
@@ -142,7 +133,7 @@ pub struct RecordGate {
     /// File generation the Task should open or rotate to; bumps on each rotation request.
     pub desired_file_generation: u64,
     /// Video topics that are actively being captured.
-    pub recording_video_topics: BTreeSet<String>,
+    pub recording_video_topics: alloc::collections::BTreeSet<alloc::string::String>,
 }
 
 /// The recording the Domain tracks after the data plane reports an open [`McapFile`].
@@ -151,7 +142,7 @@ pub struct ActiveRecording {
     /// Monotonic file identity the Task assigns; stale facts for other values are ignored.
     pub file_generation: u64,
     /// Base name of the file being written.
-    pub file_name: String,
+    pub file_name: alloc::string::String,
     /// Bytes reported by the data plane for this file.
     pub bytes_written: u64,
     /// Samples the data plane reported it left out of this file.
@@ -167,7 +158,7 @@ pub struct CaptureSettings {
     pub auto_start_recording: bool,
 }
 
-type CaptureOutcome = Outcome<
+pub(crate) type CaptureOutcome = blueos_domain::Outcome<
     CaptureEvent,
     core::convert::Infallible,
     core::convert::Infallible,
@@ -192,281 +183,3 @@ impl fmt::Display for CaptureRejection {
 }
 
 impl Error for CaptureRejection {}
-
-impl Default for Capture {
-    fn default() -> Self {
-        Self {
-            settings: CaptureSettings::default(),
-            armed: false,
-            recording: RecordingState::Idle,
-            next_file_generation: 0,
-            video_streams: BTreeMap::new(),
-        }
-    }
-}
-
-impl Capture {
-    /// Builds the projection the data plane reconciles against.
-    pub fn record_gate(&self) -> RecordGate {
-        let recording_requested = !matches!(self.recording, RecordingState::Idle);
-        let desired_file_generation = match &self.recording {
-            RecordingState::Idle => 0,
-            RecordingState::AwaitingMcapFile { file_generation } => *file_generation,
-            RecordingState::Active(active) => active.file_generation.max(self.next_file_generation),
-        };
-        let recording_video_topics = self
-            .video_streams
-            .iter()
-            .filter(|(_, stream)| stream.is_recording)
-            .map(|(topic, _)| topic.clone())
-            .collect();
-        RecordGate {
-            recording_requested,
-            armed: self.armed,
-            record_mavlink_only_when_armed: self.settings.record_mavlink_only_when_armed,
-            desired_file_generation,
-            recording_video_topics,
-        }
-    }
-
-    /// Whether a backbone sample should be written for the current gate (MAVLink and video policy).
-    pub fn should_record_sample(key: &str, gate: &RecordGate) -> bool {
-        if key.starts_with("blueos/v1/recorder/") || key.starts_with("blueos/v1/services/") {
-            return false;
-        }
-        if (key.starts_with(MAVLINK_TOPIC_PREFIX) || key.starts_with(MAVLINK_RAW_TOPIC_PREFIX))
-            && gate.record_mavlink_only_when_armed
-            && !gate.armed
-        {
-            return false;
-        }
-        if key.starts_with(VIDEO_TOPIC_PREFIX) && !gate.recording_video_topics.contains(key) {
-            return false;
-        }
-        true
-    }
-
-    /// Elapsed recording time in milliseconds from monotonic clock readings (used by capture status in #70).
-    pub fn recording_time_ms(recording_started_at: Duration, now: Now) -> u32 {
-        now.monotonic
-            .saturating_sub(recording_started_at)
-            .as_millis() as u32
-    }
-
-    /// Applies a client Request.
-    pub fn handle_request(&mut self, request: CaptureRequest, _now: Now) -> CaptureOutcome {
-        match request {
-            CaptureRequest::StartRecording { rotate_if_active } => {
-                self.start_recording(rotate_if_active)
-            }
-            CaptureRequest::StopRecording => self.stop_recording(),
-            CaptureRequest::UpdateSettings(settings) => self.update_settings(settings),
-            CaptureRequest::StartVideoRecording { topic } => self.start_video_recording(topic),
-            CaptureRequest::StopVideoRecording { topic } => self.stop_video_recording(topic),
-        }
-    }
-
-    /// Applies an Observed fact from the data plane Task.
-    pub fn handle_observed_fact(&mut self, fact: CaptureObservedFact) -> CaptureOutcome {
-        match fact {
-            CaptureObservedFact::McapFileOpened {
-                file_generation,
-                file_name,
-            } => self.mcap_file_opened(file_generation, file_name),
-            CaptureObservedFact::McapFileFinished { file_generation } => {
-                self.mcap_file_finished(file_generation)
-            }
-            CaptureObservedFact::RecordingBytesWritten {
-                file_generation,
-                bytes,
-            } => self.recording_bytes_written(file_generation, bytes),
-            CaptureObservedFact::RecordingSamplesDropped {
-                file_generation,
-                samples,
-            } => self.recording_samples_dropped(file_generation, samples),
-            CaptureObservedFact::ArmedChanged(armed) => {
-                self.armed = armed;
-                Outcome::Applied {
-                    events: Vec::new(),
-                    effects: Vec::new(),
-                }
-            }
-        }
-    }
-
-    fn start_recording(&mut self, rotate_if_active: bool) -> CaptureOutcome {
-        match &self.recording {
-            RecordingState::Active(_) if !rotate_if_active => {
-                return Outcome::Applied {
-                    events: Vec::new(),
-                    effects: Vec::new(),
-                };
-            }
-            RecordingState::Active(active) => {
-                let next_generation = active.file_generation.saturating_add(1);
-                self.next_file_generation = next_generation;
-                return Outcome::Applied {
-                    events: Vec::new(),
-                    effects: Vec::new(),
-                };
-            }
-            RecordingState::AwaitingMcapFile { .. } => {
-                return Outcome::Applied {
-                    events: Vec::new(),
-                    effects: Vec::new(),
-                };
-            }
-            RecordingState::Idle => {}
-        }
-
-        self.next_file_generation += 1;
-        let file_generation = self.next_file_generation;
-        self.recording = RecordingState::AwaitingMcapFile { file_generation };
-        Outcome::Applied {
-            events: Vec::new(),
-            effects: Vec::new(),
-        }
-    }
-
-    fn stop_recording(&mut self) -> CaptureOutcome {
-        if matches!(self.recording, RecordingState::Idle) {
-            return Outcome::reject(CaptureRejection::NotRecording);
-        }
-        self.recording = RecordingState::Idle;
-        self.next_file_generation = 0;
-        for stream in self.video_streams.values_mut() {
-            stream.is_recording = false;
-        }
-        Outcome::Applied {
-            events: vec![CaptureEvent::RecordingStopped],
-            effects: Vec::new(),
-        }
-    }
-
-    fn update_settings(&mut self, settings: CaptureSettings) -> CaptureOutcome {
-        self.settings = settings;
-        if self.settings.auto_start_recording && matches!(self.recording, RecordingState::Idle) {
-            return self.start_recording(false);
-        }
-        Outcome::Applied {
-            events: Vec::new(),
-            effects: Vec::new(),
-        }
-    }
-
-    fn start_video_recording(&mut self, topic: String) -> CaptureOutcome {
-        self.sync_video_topic_recording(&topic, true);
-        Outcome::Applied {
-            events: Vec::new(),
-            effects: Vec::new(),
-        }
-    }
-
-    fn stop_video_recording(&mut self, topic: String) -> CaptureOutcome {
-        self.sync_video_topic_recording(&topic, false);
-        Outcome::Applied {
-            events: Vec::new(),
-            effects: Vec::new(),
-        }
-    }
-
-    /// Updates the record gate video set when the cameras Block starts or stops MAVLink capture.
-    pub fn sync_video_topic_recording(&mut self, topic: &str, recording: bool) {
-        if recording {
-            let topic = String::from(topic);
-            self.video_streams.insert(
-                topic.clone(),
-                VideoStream {
-                    topic,
-                    is_recording: true,
-                },
-            );
-        } else if let Some(stream) = self.video_streams.get_mut(topic) {
-            stream.is_recording = false;
-        }
-    }
-
-    fn mcap_file_opened(&mut self, file_generation: u64, file_name: String) -> CaptureOutcome {
-        let gate = self.record_gate();
-        if !gate.recording_requested || file_generation != gate.desired_file_generation {
-            return Outcome::Applied {
-                events: Vec::new(),
-                effects: Vec::new(),
-            };
-        }
-        let rotated = matches!(self.recording, RecordingState::Active(_));
-        self.recording = RecordingState::Active(ActiveRecording {
-            file_generation,
-            file_name: file_name.clone(),
-            bytes_written: 0,
-            samples_dropped: 0,
-        });
-        let events = if rotated {
-            vec![CaptureEvent::RecordingRotated { file_name }]
-        } else {
-            Vec::new()
-        };
-        Outcome::Applied {
-            events,
-            effects: Vec::new(),
-        }
-    }
-
-    fn mcap_file_finished(&mut self, file_generation: u64) -> CaptureOutcome {
-        match &self.recording {
-            RecordingState::Active(active) if active.file_generation == file_generation => {
-                if self.record_gate().desired_file_generation > file_generation {
-                    // Task closed the previous file during rotation; keep recording requested.
-                } else {
-                    self.recording = RecordingState::Idle;
-                    self.next_file_generation = 0;
-                }
-            }
-            RecordingState::AwaitingMcapFile {
-                file_generation: expected,
-            } if *expected != file_generation => {
-                // Stale finish for a file that is not the one we are waiting on.
-            }
-            RecordingState::Active(active) if active.file_generation != file_generation => {
-                // Late finish for a superseded file must not clear the active recording.
-            }
-            _ => {}
-        }
-        Outcome::Applied {
-            events: Vec::new(),
-            effects: Vec::new(),
-        }
-    }
-
-    fn recording_bytes_written(&mut self, file_generation: u64, bytes: u64) -> CaptureOutcome {
-        let RecordingState::Active(active) = &mut self.recording else {
-            return Outcome::Applied {
-                events: Vec::new(),
-                effects: Vec::new(),
-            };
-        };
-        if active.file_generation != file_generation {
-            return Outcome::Applied {
-                events: Vec::new(),
-                effects: Vec::new(),
-            };
-        }
-        active.bytes_written = bytes;
-        Outcome::Applied {
-            events: Vec::new(),
-            effects: Vec::new(),
-        }
-    }
-
-    fn recording_samples_dropped(&mut self, file_generation: u64, samples: u64) -> CaptureOutcome {
-        if let RecordingState::Active(active) = &mut self.recording
-            && active.file_generation == file_generation
-        {
-            active.samples_dropped = samples;
-        }
-        Outcome::Applied {
-            events: Vec::new(),
-            effects: Vec::new(),
-        }
-    }
-}
