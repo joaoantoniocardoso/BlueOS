@@ -37,6 +37,8 @@ Rust checklist. Full text with examples: `docs/architecture/rust-style.md`. Gate
   boundary; an enum for state that is stored; type-state for builders and resource handles.
 - Borrow before cloning. Clone a handle with `Arc::clone(&handle)`; a data copy needs a reason.
 - No `unsafe`. No `#[allow]`: use `#[expect(lint, reason = "...")]`. Never `.expect` a lock.
+- Fix a `rustqual` finding by simplifying the code. Code that is already simplest (one struct literal, one linear
+  sequence) stays whole under a `// qual:allow(...)` with a reason; carrier structs and forwarders are worse.
 - Run `./.hooks/pre-push --fix`, then `./.hooks/pre-push`, before finishing.
 <!-- rust-style:end -->
 
@@ -314,3 +316,15 @@ Clippy's clone lints are on, but no lint finds a copy on a hot path; review does
 
 No `unsafe` (`unsafe_code` is forbidden). No `#[allow]`: a suppression is an `#[expect(lint, reason = "...")]`, so
 it fails when it is no longer needed and always says why.
+
+`rustqual` and thai-lint fail the build on any finding (D-30). Fix a finding by making the code simpler: a cohesive
+step with its own name, a helper the code already repeats, a smaller type. Some code is already simplest and still
+measures high: a function that is one struct literal per field, or one linear sequence of steps. Keep it whole under
+a `// qual:allow(<dimension>, <metric>=<value>) reason: "..."` marker, as `declare_boot` in
+`core/libs/app/service/src/kernel/boot/run/declare.rs` does. `max_suppression_ratio` in `core/rustqual.toml` caps how
+many markers the workspace holds.
+
+Splitting such code to pass the gate makes it worse, and review rejects it:
+
+- a **carrier struct** is built once only to hand fields to the next function, which destructures it;
+- a **forwarder** is a function whose body only calls another with the same arguments.
