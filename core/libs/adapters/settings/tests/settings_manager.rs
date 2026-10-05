@@ -6,11 +6,8 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use super::{
-    error::SettingsError,
-    manager::SettingsManager,
-    restart::diff_top_level_settings,
-    schema::{SettingsSchema, read_version},
+use blueos_settings::{
+    SettingsError, SettingsManager, SettingsSchema, diff_top_level_settings, read_version,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

@@ -17,6 +17,3 @@ pub use manager::{
 pub use restart::{SettingsFieldChanges, diff_top_level_settings};
 pub use schema::{SettingsSchema, atomic_write_file, read_version, serialize_settings_document};
 pub use service_state::{STATE_NAME_PREFIX, ServiceStateStore, state_file_name};
-
-#[cfg(test)]
-mod tests;
