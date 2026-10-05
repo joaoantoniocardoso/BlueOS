@@ -1,6 +1,9 @@
 //! Prints `api.lock` lines for every message under `blueos-idl/interfaces`.
 
-use std::{collections::BTreeSet, env, path::PathBuf};
+extern crate alloc;
+
+use alloc::collections::BTreeSet;
+use std::{env, path::PathBuf};
 
 use blueos_idl_codegen::{
     collect_messages_for_test, endpoints::collect_endpoint_lock_lines, format_lock_line,

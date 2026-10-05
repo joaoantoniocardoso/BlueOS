@@ -1,3 +1,5 @@
+//! Prints every style violation in the workspace's Rust sources and exits non-zero when there is one.
+
 use std::{
     env,
     path::{Path, PathBuf},

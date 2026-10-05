@@ -4,6 +4,11 @@
 //! saves match `commonwealth.settings` so a Rust service can replace a Python one without touching
 //! user data.
 
+#![expect(
+    clippy::pub_use,
+    reason = "the crate root exposes its own modules as one flat API"
+)]
+
 mod error;
 mod manager;
 mod restart;
@@ -17,6 +22,3 @@ pub use manager::{
 pub use restart::{SettingsFieldChanges, diff_top_level_settings};
 pub use schema::{SettingsSchema, atomic_write_file, read_version, serialize_settings_document};
 pub use service_state::{STATE_NAME_PREFIX, ServiceStateStore, state_file_name};
-
-#[cfg(test)]
-mod tests;

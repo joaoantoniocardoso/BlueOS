@@ -1,7 +1,7 @@
+use core::num::NonZeroU32;
 use std::{
     fs::OpenOptions,
     io::Write,
-    num::NonZeroU32,
     path::{Path, PathBuf},
 };
 
@@ -15,18 +15,23 @@ use super::error::SettingsError;
 /// Implementations must match Python `commonwealth.settings.bases.PydanticSettings` semantics
 /// (see architecture decision D-11).
 pub trait SettingsSchema: Serialize + DeserializeOwned + Clone + Default {
+    /// This document's version, written to its `VERSION` field and filename.
     const VERSION: NonZeroU32;
 
+    /// Upgrades an older document in place until its `VERSION` equals [`Self::VERSION`].
     fn migrate(data: &mut serde_json::Value) -> Result<(), SettingsError>;
 
+    /// Files from before the `settings-<VERSION>.json` layout to try when none exists. Default: none.
     fn legacy_load_paths(_config_folder: &Path) -> Vec<PathBuf> {
         Vec::new()
     }
 
+    /// Runs once, just before the document is first written to `path`.
     fn on_settings_created(&self, _path: &Path) -> Result<(), SettingsError> {
         Ok(())
     }
 
+    /// Restores the defaults.
     fn reset(&mut self) {
         *self = Self::default();
     }
@@ -36,6 +41,7 @@ pub trait SettingsSchema: Serialize + DeserializeOwned + Clone + Default {
         &[]
     }
 
+    /// Parses a document, migrating it first when its version is older.
     fn load_from_value(mut data: serde_json::Value) -> Result<Self, SettingsError> {
         let version = read_version(&data)?;
         if version > Self::VERSION {
@@ -54,6 +60,7 @@ pub trait SettingsSchema: Serialize + DeserializeOwned + Clone + Default {
         serde_json::from_value(data).map_err(SettingsError::from)
     }
 
+    /// Reads and parses the document at `path`, migrating it when older.
     fn load(path: &Path) -> Result<Self, SettingsError> {
         if !path.is_file() {
             return Err(SettingsError::BadSettingsFile(format!(
@@ -116,6 +123,7 @@ fn sync_parent_directory(parent: &Path) -> Result<(), SettingsError> {
     Ok(())
 }
 
+/// Reads the document's `VERSION` field.
 pub fn read_version(data: &serde_json::Value) -> Result<NonZeroU32, SettingsError> {
     let Some(value) = data.get("VERSION") else {
         return Err(SettingsError::missing_version_field(data));
@@ -128,6 +136,7 @@ pub fn read_version(data: &serde_json::Value) -> Result<NonZeroU32, SettingsErro
     NonZeroU32::new(version).ok_or(SettingsError::BadAttributes)
 }
 
+/// Serializes `value` as JSON indented by four spaces, as Python writes settings.
 pub fn serialize_settings_document<T: Serialize>(value: &T) -> Result<Vec<u8>, SettingsError> {
     let mut buffer = Vec::new();
     let formatter = serde_json::ser::PrettyFormatter::with_indent(b"    ");

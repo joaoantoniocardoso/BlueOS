@@ -1,10 +1,13 @@
 //! Checks the BlueOS Rust style rules that `clippy` cannot enforce.
 
+extern crate alloc;
+
 mod allow_attributes;
 mod clone_before_spawn;
 mod declaration_order;
 mod import_groups;
 mod structured_logging;
+mod test_module_placement;
 
 use std::path::Path;
 
@@ -14,8 +17,11 @@ use syn::File;
 /// One style violation with a stable rule name for tests and CI output.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Diagnostic {
+    /// The rule's name, the same as its module and fixture folder.
     pub rule: &'static str,
+    /// The 1-based line of the offending item.
     pub line: usize,
+    /// What is wrong and how to fix it.
     pub message: String,
 }
 
@@ -40,6 +46,7 @@ fn collect_diagnostics(syntax_tree: &File, path: &Path) -> Vec<Diagnostic> {
     }
     structured_logging::check_file(syntax_tree, &mut diagnostics);
     clone_before_spawn::check_file(syntax_tree, &mut diagnostics);
+    test_module_placement::check_file(syntax_tree, &mut diagnostics);
     diagnostics.sort_by_key(|diagnostic| (diagnostic.line, diagnostic.rule));
     diagnostics
 }

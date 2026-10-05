@@ -1,3 +1,5 @@
+//! Each rule fails on its `fail.rs` fixture and passes on its `pass.rs` fixture.
+
 use std::path::Path;
 
 use blueos_rust_style_check::check_source;
@@ -89,4 +91,14 @@ fn allow_attributes_passes() {
 #[test]
 fn allow_attributes_fails() {
     assert_rule("allow_attributes", "fail", true);
+}
+
+#[test]
+fn test_module_placement_passes() {
+    assert_rule("test_module_placement", "pass", false);
+}
+
+#[test]
+fn test_module_placement_fails() {
+    assert_rule("test_module_placement", "fail", true);
 }

@@ -1,13 +1,12 @@
-use std::{
-    marker::PhantomData,
-    num::NonZeroU32,
-    path::{Path, PathBuf},
-};
+use core::{marker::PhantomData, num::NonZeroU32};
+use std::path::{Path, PathBuf};
 
 use super::{error::SettingsError, schema::SettingsSchema};
 
+/// Filename prefix for settings documents: `settings-<VERSION>.json`.
 pub const SETTINGS_NAME_PREFIX: &str = "settings-";
 
+/// Holds one service's settings and keeps them in sync with its `settings-<VERSION>.json`.
 pub struct SettingsManager<S: SettingsSchema> {
     config_folder: PathBuf,
     settings: S,
@@ -15,6 +14,7 @@ pub struct SettingsManager<S: SettingsSchema> {
 }
 
 impl<S: SettingsSchema> SettingsManager<S> {
+    /// Opens the settings for `project_name`, loading the newest readable file or writing the defaults.
     pub fn new(
         project_name: impl Into<String>,
         config_folder: Option<PathBuf>,
@@ -22,6 +22,7 @@ impl<S: SettingsSchema> SettingsManager<S> {
         Self::with_load(project_name, config_folder, true)
     }
 
+    /// Like [`Self::new`], but starts from the defaults without reading disk when `load` is false.
     pub fn with_load(
         project_name: impl Into<String>,
         config_folder: Option<PathBuf>,
@@ -48,6 +49,7 @@ impl<S: SettingsSchema> SettingsManager<S> {
         Ok(manager)
     }
 
+    /// Wraps settings already loaded from `config_folder`, without touching disk.
     pub fn from_loaded(config_folder: PathBuf, settings: S) -> Self {
         Self {
             config_folder,
@@ -56,27 +58,33 @@ impl<S: SettingsSchema> SettingsManager<S> {
         }
     }
 
+    /// The current settings.
     pub fn settings(&self) -> &S {
         &self.settings
     }
 
+    /// The current settings, for an edit that [`Self::save`] then persists.
     pub fn settings_mut(&mut self) -> &mut S {
         &mut self.settings
     }
 
+    /// Replaces the settings and saves them.
     pub fn set(&mut self, settings: S) -> Result<(), SettingsError> {
         self.settings = settings;
         self.save()
     }
 
+    /// The service's folder that holds its settings files.
     pub fn config_folder(&self) -> &Path {
         &self.config_folder
     }
 
+    /// The file the current settings version saves to.
     pub fn settings_file_path(&self) -> PathBuf {
         self.config_folder.join(settings_file_name(S::VERSION))
     }
 
+    /// Loads the settings at `path`, or writes and returns the defaults when the file does not exist.
     pub fn load_from_file(path: &Path) -> Result<S, SettingsError> {
         if path.is_file() {
             S::load(path)
@@ -87,11 +95,13 @@ impl<S: SettingsSchema> SettingsManager<S> {
         }
     }
 
+    /// Writes the current settings to [`Self::settings_file_path`].
     pub fn save(&mut self) -> Result<(), SettingsError> {
         let path = self.settings_file_path();
         self.settings.save(&path)
     }
 
+    /// Loads the newest readable settings file, then a legacy file, and falls back to saving the defaults.
     pub fn load(&mut self) -> Result<(), SettingsError> {
         self.clear_temp_files();
 
@@ -132,6 +142,7 @@ impl<S: SettingsSchema> SettingsManager<S> {
         self.save()
     }
 
+    /// Loads and migrates a settings file from one of [`SettingsSchema::legacy_load_paths`].
     pub fn load_legacy_file(path: &Path) -> Result<S, SettingsError> {
         let data = std::fs::read_to_string(path)?;
         let value: serde_json::Value = serde_json::from_str(&data)?;
@@ -174,6 +185,7 @@ fn user_config_dir() -> PathBuf {
     PathBuf::from("/root/.config")
 }
 
+/// The settings filename for `version`: `settings-<version>.json`.
 pub fn settings_file_name(version: NonZeroU32) -> String {
     format!("{SETTINGS_NAME_PREFIX}{version}.json")
 }

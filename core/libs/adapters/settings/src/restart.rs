@@ -3,7 +3,9 @@ use serde_json::Value;
 /// Top-level settings keys that changed, split by whether they can apply live (D-11).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SettingsFieldChanges {
+    /// Changed keys the service applies without restarting.
     pub applied_live: Vec<String>,
+    /// Changed keys that take effect only after the service restarts.
     pub restart_required: Vec<String>,
 }
 

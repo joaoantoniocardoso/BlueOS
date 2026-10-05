@@ -1,7 +1,13 @@
 //! Generates committed `blueos-idl` Rust from ROS 2 `.msg` sources (`roslibrust_codegen` + `prettyplease`).
 
+extern crate alloc;
+
+mod constant_family;
+pub mod endpoints;
+mod msg_ast;
+
+use alloc::collections::{BTreeMap, BTreeSet};
 use std::{
-    collections::{BTreeMap, BTreeSet},
     fs,
     path::{Path, PathBuf},
 };
@@ -11,9 +17,6 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use roslibrust_codegen::find_and_parse_ros_messages;
 use sha2::{Digest, Sha256};
-mod constant_family;
-pub mod endpoints;
-mod msg_ast;
 
 use constant_family::{ConstantFamily, constant_families, freestanding_constants};
 use msg_ast::{Constant, ConstantValue, DataType, Field, FieldCase, Message};
@@ -57,6 +60,17 @@ struct InterfaceRecord {
     source: String,
     /// The schema names of the Messages its parts use.
     dependencies: BTreeSet<String>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ImportGroup {
+    Std,
+    ThirdParty,
+    Owned,
+}
+
+struct DecodeFieldTokens {
+    assignments: TokenStream,
 }
 
 /// Regenerates committed Rust types and schema lookup under `out_dir` (typically `blueos-idl/src/generated`).
@@ -458,13 +472,6 @@ fn separate_import_groups(source: &str) -> String {
     output
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum ImportGroup {
-    Std,
-    ThirdParty,
-    Owned,
-}
-
 fn import_group_for_line(line: &str) -> Option<ImportGroup> {
     let rest = line.strip_prefix("use ")?;
     let root = rest.split("::").next()?.split('{').next()?.trim();
@@ -738,10 +745,6 @@ fn generate_struct_tokens(
             pub const KNOWN_FIELD_COUNT: usize = #field_count;
         }
     }
-}
-
-struct DecodeFieldTokens {
-    assignments: TokenStream,
 }
 
 fn decode_field_tokens(
@@ -1189,7 +1192,7 @@ fn typescript_type(field: &Field) -> String {
         | DataType::I64
         | DataType::F32
         | DataType::F64 => "number".to_string(),
-        DataType::GlobalMessage { name, .. } => name.clone(),
+        DataType::GlobalMessage { name, .. } => name,
     };
     match field.case() {
         FieldCase::Vector | FieldCase::Array(_) => format!("{base}[]"),

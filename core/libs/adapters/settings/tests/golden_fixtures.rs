@@ -1,4 +1,7 @@
-use std::{num::NonZeroU32, path::PathBuf};
+//! Loading, migrating and saving match Python `commonwealth.settings`, checked against golden files.
+
+use core::num::NonZeroU32;
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 

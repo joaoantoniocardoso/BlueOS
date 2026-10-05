@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet};
+use alloc::collections::{BTreeMap, BTreeSet};
 
 use syn::{
     File, Item, ItemEnum, ItemFn, ItemImpl, ItemMod, Visibility,
@@ -20,6 +20,16 @@ enum ItemKind {
 
 struct OrderVisitor {
     diagnostics: Vec<Diagnostic>,
+}
+
+struct TypeRefVisitor<'a> {
+    known: &'a BTreeSet<String>,
+    dependencies: &'a mut BTreeSet<String>,
+}
+
+struct CallVisitor<'a> {
+    known: &'a BTreeSet<String>,
+    callees: &'a mut BTreeSet<String>,
 }
 
 impl<'ast> Visit<'ast> for OrderVisitor {
@@ -186,6 +196,31 @@ impl OrderVisitor {
     }
 }
 
+impl<'ast> Visit<'ast> for TypeRefVisitor<'ast> {
+    fn visit_path_segment(&mut self, segment: &'ast syn::PathSegment) {
+        let name = segment.ident.to_string();
+        if self.known.contains(&name) {
+            self.dependencies.insert(name);
+        }
+        syn::visit::visit_path_segment(self, segment);
+    }
+}
+
+impl<'ast> Visit<'ast> for CallVisitor<'ast> {
+    fn visit_expr_call(&mut self, node: &'ast syn::ExprCall) {
+        if let syn::Expr::Path(path) = &*node.func
+            && path.qself.is_none()
+            && path.path.segments.len() == 1
+        {
+            let name = path.path.segments[0].ident.to_string();
+            if self.known.contains(&name) {
+                self.callees.insert(name);
+            }
+        }
+        syn::visit::visit_expr_call(self, node);
+    }
+}
+
 fn kind_rank(kind: ItemKind) -> u8 {
     match kind {
         ItemKind::ConstOrAlias => 0,
@@ -299,21 +334,6 @@ fn enum_dependencies(enum_item: &ItemEnum, known: &BTreeSet<String>) -> BTreeSet
     dependencies
 }
 
-struct TypeRefVisitor<'a> {
-    known: &'a BTreeSet<String>,
-    dependencies: &'a mut BTreeSet<String>,
-}
-
-impl<'ast> Visit<'ast> for TypeRefVisitor<'ast> {
-    fn visit_path_segment(&mut self, segment: &'ast syn::PathSegment) {
-        let name = segment.ident.to_string();
-        if self.known.contains(&name) {
-            self.dependencies.insert(name);
-        }
-        syn::visit::visit_path_segment(self, segment);
-    }
-}
-
 fn callees_in_function(function: &ItemFn, known: &BTreeSet<String>) -> BTreeSet<String> {
     let mut callees = BTreeSet::new();
     let mut visitor = CallVisitor {
@@ -322,26 +342,6 @@ fn callees_in_function(function: &ItemFn, known: &BTreeSet<String>) -> BTreeSet<
     };
     visitor.visit_block(&function.block);
     callees
-}
-
-struct CallVisitor<'a> {
-    known: &'a BTreeSet<String>,
-    callees: &'a mut BTreeSet<String>,
-}
-
-impl<'ast> Visit<'ast> for CallVisitor<'ast> {
-    fn visit_expr_call(&mut self, node: &'ast syn::ExprCall) {
-        if let syn::Expr::Path(path) = &*node.func
-            && path.qself.is_none()
-            && path.path.segments.len() == 1
-        {
-            let name = path.path.segments[0].ident.to_string();
-            if self.known.contains(&name) {
-                self.callees.insert(name);
-            }
-        }
-        syn::visit::visit_expr_call(self, node);
-    }
 }
 
 fn topological_order(graph: &BTreeMap<String, BTreeSet<String>>) -> Vec<(String, String)> {
@@ -407,7 +407,7 @@ fn cfg_is_test(attribute: &syn::Attribute) -> bool {
     list.tokens.to_string().contains("test")
 }
 
-pub fn check_file(syntax_tree: &File, diagnostics: &mut Vec<Diagnostic>) {
+pub(crate) fn check_file(syntax_tree: &File, diagnostics: &mut Vec<Diagnostic>) {
     let mut visitor = OrderVisitor {
         diagnostics: Vec::new(),
     };

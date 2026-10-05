@@ -1,17 +1,18 @@
-use std::{
+//! Loading, migrating, hooking and diffing settings through the public `SettingsManager` API.
+
+use core::{
     num::NonZeroU32,
-    path::PathBuf,
     sync::atomic::{AtomicBool, Ordering},
 };
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use super::{
-    error::SettingsError,
-    manager::SettingsManager,
-    restart::diff_top_level_settings,
-    schema::{SettingsSchema, read_version},
+use blueos_settings::{
+    SettingsError, SettingsManager, SettingsSchema, diff_top_level_settings, read_version,
 };
+
+static ON_SETTINGS_CREATED: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 struct Animal {
@@ -21,24 +22,6 @@ struct Animal {
     animal_type: String,
     #[serde(default)]
     parts: Vec<String>,
-}
-
-impl Default for Animal {
-    fn default() -> Self {
-        Self {
-            name: default_animal_name(),
-            animal_type: default_animal_type(),
-            parts: Vec::new(),
-        }
-    }
-}
-
-fn default_animal_name() -> String {
-    "bilica".into()
-}
-
-fn default_animal_type() -> String {
-    "dog".into()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -51,6 +34,34 @@ struct SettingsV1 {
     animal: Animal,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+struct SettingsV2 {
+    #[serde(rename = "VERSION")]
+    version: NonZeroU32,
+    #[serde(default = "default_v2_first_variable")]
+    first_variable: i32,
+    #[serde(default)]
+    new_animal: Animal,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+struct HookedSettings {
+    #[serde(rename = "VERSION")]
+    version: NonZeroU32,
+    #[serde(default)]
+    initialized: bool,
+}
+
+impl Default for Animal {
+    fn default() -> Self {
+        Self {
+            name: default_animal_name(),
+            animal_type: default_animal_type(),
+            parts: Vec::new(),
+        }
+    }
+}
+
 impl Default for SettingsV1 {
     fn default() -> Self {
         Self {
@@ -59,10 +70,6 @@ impl Default for SettingsV1 {
             animal: Animal::default(),
         }
     }
-}
-
-fn default_first_variable() -> i32 {
-    42
 }
 
 impl SettingsSchema for SettingsV1 {
@@ -82,20 +89,6 @@ impl SettingsSchema for SettingsV1 {
         }
         Ok(())
     }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-struct SettingsV2 {
-    #[serde(rename = "VERSION")]
-    version: NonZeroU32,
-    #[serde(default = "default_v2_first_variable")]
-    first_variable: i32,
-    #[serde(default)]
-    new_animal: Animal,
-}
-
-fn default_v2_first_variable() -> i32 {
-    66
 }
 
 impl Default for SettingsV2 {
@@ -136,16 +129,6 @@ impl SettingsSchema for SettingsV2 {
     }
 }
 
-static ON_SETTINGS_CREATED: AtomicBool = AtomicBool::new(false);
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-struct HookedSettings {
-    #[serde(rename = "VERSION")]
-    version: NonZeroU32,
-    #[serde(default)]
-    initialized: bool,
-}
-
 impl Default for HookedSettings {
     fn default() -> Self {
         Self {
@@ -166,6 +149,22 @@ impl SettingsSchema for HookedSettings {
         ON_SETTINGS_CREATED.store(true, Ordering::SeqCst);
         Ok(())
     }
+}
+
+fn default_animal_name() -> String {
+    "bilica".into()
+}
+
+fn default_animal_type() -> String {
+    "dog".into()
+}
+
+fn default_first_variable() -> i32 {
+    42
+}
+
+fn default_v2_first_variable() -> i32 {
+    66
 }
 
 fn temp_config_dir(name: &str) -> PathBuf {
@@ -204,8 +203,7 @@ fn on_settings_created_runs_before_first_save() {
 #[test]
 fn manager_creates_default_when_missing() {
     let directory = temp_config_dir("manager-default");
-    let manager =
-        SettingsManager::<SettingsV1>::new("test-service", Some(directory.clone())).unwrap();
+    let manager = SettingsManager::<SettingsV1>::new("test-service", Some(directory)).unwrap();
     assert_eq!(manager.settings().first_variable, 42);
     assert!(manager.settings_file_path().is_file());
 }

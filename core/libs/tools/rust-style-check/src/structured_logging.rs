@@ -90,7 +90,7 @@ fn message_has_placeholder(literal: &str) -> bool {
     false
 }
 
-pub fn check_file(syntax_tree: &File, diagnostics: &mut Vec<Diagnostic>) {
+pub(crate) fn check_file(syntax_tree: &File, diagnostics: &mut Vec<Diagnostic>) {
     let mut visitor = LoggingVisitor {
         diagnostics: Vec::new(),
     };
