@@ -1,6 +1,9 @@
 //! Connects a service to the backbone through the local Zenoh router, passing each [`Payload`] on without a copy
 //! where it can.
 
+// Proving zenoh's `Session` is `Send` and `Sync` nests deeper than the default limit of 128.
+#![recursion_limit = "256"]
+
 pub mod config;
 mod payload;
 mod zenoh_backend;
