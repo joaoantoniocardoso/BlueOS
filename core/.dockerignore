@@ -10,3 +10,14 @@
 **/build
 /target
 !/target/build/*/*/release/blueos
+# Rust sources reach the image only as the prebuilt binary. Copied in, every Rust change would rebuild the
+# Python environment and every layer after it.
+/libs/adapters
+/libs/api
+/libs/app
+/libs/idl
+!/libs/idl/typescript
+/libs/logic
+/libs/tools
+/services/example
+/services/recorder
