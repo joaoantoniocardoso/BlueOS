@@ -482,6 +482,9 @@ run_rust_test_checks() {
     (
         cd "$workspace_dir" || exit 1
 
+        echo "Building the tests.."
+        cargo nextest run --workspace --locked --no-run --future-incompat-report
+
         echo "Running cargo nextest.."
         cargo nextest run --workspace --locked
 
@@ -521,8 +524,12 @@ check_rust_coverage_ratchet() {
         echo "Resetting prior coverage artifacts.."
         cargo llvm-cov clean --workspace
 
+        # cargo llvm-cov takes --no-run to mean report without running, so the build runs an empty test set.
+        echo "Building the instrumented tests.."
+        cargo llvm-cov nextest --workspace --locked --no-report --future-incompat-report -E 'none()' --no-tests=pass
+
         echo "Running cargo llvm-cov nextest.."
-        cargo llvm-cov nextest --workspace --locked
+        cargo llvm-cov nextest --workspace --locked --no-report
 
         report_json=$(mktemp)
         measured_json=$(mktemp)
