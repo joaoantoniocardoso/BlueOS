@@ -108,6 +108,7 @@ async fn the_kernel_serves_the_keys_and_messages_of_api_lock() {
     let info = harness
         .query::<LevelRequest, ServiceInfo>("info", &LevelRequest::default())
         .await
+        .expect("the harness reaches the info query")
         .expect("the info query answers");
     for endpoint in info.endpoints {
         assert_eq!(
@@ -127,6 +128,7 @@ async fn info_lists_every_manifest_endpoint_with_its_interface_type_and_schema_t
     let info = harness
         .query::<LevelRequest, ServiceInfo>("info", &LevelRequest::default())
         .await
+        .expect("the harness reaches the info query")
         .expect("the info query answers");
 
     for (key, (kind, name, interface_type)) in manifest_endpoints() {
@@ -173,7 +175,7 @@ async fn set_level_fills_the_pump_to_the_level() {
     let level = fill(&harness, 3).await;
 
     assert_eq!(level, 3);
-    let pump = harness.state::<PumpState>("pump").await;
+    let pump = harness.state::<PumpState>("pump").await.unwrap();
     assert_eq!(pump.level, 3);
     assert_eq!(pump.max_level, MAX_LEVEL);
     assert!(!pump.self_test_active);
@@ -192,7 +194,8 @@ async fn set_level_publishes_its_feedback_and_job_result_on_the_keys_of_its_job_
 
     let ack = harness
         .submit("SetLevel", job_id, &SetLevelGoal { level: 2 })
-        .await;
+        .await
+        .unwrap();
 
     assert_eq!(ack.status, CommandAckStatus::Executing);
     let mut fed_back = Vec::new();
@@ -233,7 +236,10 @@ async fn a_goal_the_conversion_rejects_is_rejected_in_the_ack() {
     let harness = start().await;
     fill(&harness, 5).await;
 
-    let ack = harness.send("SetLevel", &SetLevelGoal { level: 150 }).await;
+    let ack = harness
+        .send("SetLevel", &SetLevelGoal { level: 150 })
+        .await
+        .unwrap();
 
     assert!(!ack.accepted);
     assert_eq!(ack.reason, "150 is above the maximum level of 100");
@@ -241,11 +247,12 @@ async fn a_goal_the_conversion_rejects_is_rejected_in_the_ack() {
         harness
             .jobs()
             .await
+            .unwrap()
             .jobs
             .iter()
             .all(|job| job.status == JobStatusStatus::Succeeded)
     );
-    assert_eq!(harness.state::<PumpState>("pump").await.level, 5);
+    assert_eq!(harness.state::<PumpState>("pump").await.unwrap().level, 5);
 }
 
 #[tokio::test(start_paused = true)]
@@ -256,6 +263,7 @@ async fn level_query_reads_the_snapshot() {
     let answer = harness
         .query::<_, LevelResponse>("Level", &LevelRequest::default())
         .await
+        .unwrap()
         .unwrap();
 
     assert_eq!(answer.level, 4);
@@ -269,7 +277,10 @@ async fn start() -> Harness<ExampleService> {
 /// Fills the pump to `level` and returns the level of the Job result, once the Job ends.
 async fn fill(harness: &Harness<ExampleService>, level: u8) -> u8 {
     let mut results = subscribe(harness, &job_result_key(ExampleService::NAME, "SetLevel")).await;
-    let ack = harness.send("SetLevel", &SetLevelGoal { level }).await;
+    let ack = harness
+        .send("SetLevel", &SetLevelGoal { level })
+        .await
+        .unwrap();
     assert!(ack.accepted, "{}", ack.reason);
     let result: JobResult = next(&mut results).await;
     SetLevelResult::decode(&result.result).unwrap().level
