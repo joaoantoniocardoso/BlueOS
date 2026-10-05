@@ -1082,7 +1082,8 @@ Decision:
   `pub_use`, `min_ident_chars`, `shadow_unrelated`, `std_instead_of_core`, `alloc_instead_of_core`,
   `wildcard_imports`, `await_holding_lock`, the clone lints, and `arbitrary_source_item_ordering` configured in
   `core/clippy.toml` to order item kinds only, never fields or variants, because field order is CDR wire order);
-  the in-repo `syn` checker (below); `cargo deny check bans licenses sources`; `cargo nextest run` with a per-test
+  the in-repo `syn` checker (below); `rustqual` and thai-lint's `unwrap-abuse`, `clone-abuse` and `blocking-async`
+  linters (below); `cargo deny check bans licenses sources`; `cargo nextest run` with a per-test
   timeout, plus `cargo test --doc`, and a flake hunt that reruns the integration tests a pull request or a push
   changed; `cargo machete`; `typos` (every service included); the dependency check (`cargo metadata` + `jq`: every
   dependency of a member, dev and build dependencies included, is `workspace = true`, and every
@@ -1097,34 +1098,30 @@ Decision:
   transitive dependency does not turn every open pull request red. Scheduled runs only reach `master`, which has no
   Rust jobs. An ignored advisory in `core/deny.toml` says whether a patch exists, which dependency holds the old
   version back, and why it does not reach BlueOS.
-- **Ratchet** (findings counted per category against committed ceilings; a count above its ceiling fails, and a
-  ceiling may only fall): every count in `rustqual`'s `--save-baseline` output, `total_findings` included, and
-  thai-lint's findings per rule (`unwrap-abuse`, `clone-abuse`, `blocking-async`), with ceilings in
-  `core/quality-ratchet.toml`; line coverage per layer, with floors in `core/coverage-ratchet.toml`.
-  - The quality ratchet runs in the pre-push hook and the lint job. A count below its ceiling also fails, until
-    `./.hooks/pre-push --fix` lowers the ceiling; fix mode never raises one. A measured category without a ceiling,
-    or a ceiling for a category the tool does not report, fails, so a new `rustqual` version cannot add categories
-    silently. A tool that crashes or writes no JSON fails the check, and fix mode then writes nothing.
-  - A `rustqual` suppression is a `// qual:allow` with a written reason, and an exceeded `max_suppression_ratio`
-    fails. `rustqual` offers no `qual:allow` target for a dead type, so a cookbook test whose Service types only
-    that test uses may carry `// qual:test_helper` and a reason, the marker `rustqual` documents for types that serve
-    tests. Every other cookbook test counts those types against the `dead_type_warnings` ceiling instead.
-  - CI compares both ratchet files with the base revision (the pull request's base, or the commit a push replaced)
-    and fails when a ceiling rose, a floor fell, or a key was removed, and when the base revision cannot be
-    resolved. Loosening one on purpose (for example, for a
-    new `rustqual` rule) takes a commit that touches only the ratchet file plus a note here, and that commit fails
-    the check for a maintainer to accept.
-  - Gating on `rustqual`'s quality score or `--fail-on-regression` is rejected: the score is a ratio over all
-    functions, so trivial functions raise it while violations grow, and its baseline stores only counts.
-  - Counting per category lets one fix pay for one new finding in the same category. Tracking each finding's
-    identity (file, rule, function) would close that, but it breaks on every rename or move; revisit if the counts
-    stay flat while findings churn.
+- **`rustqual` and thai-lint** run in the pre-push hook and the lint job, and any finding fails.
+  - `rustqual` runs with `--fail-on-warnings`, so suppressions over `max_suppression_ratio` fail too. A suppression
+    is a `// qual:allow` with a written reason, and is the last resort after fixing the code. `// qual:api` and
+    `// qual:test_helper` are free, and `rustqual` checks that what they claim is true.
+  - `rustqual` reads a `tests/` folder as integration tests only beside a crate root, so a package made only of
+    tests (the example cookbook) has a `src/lib.rs` that holds only its crate documentation.
+  - The generated IDL code (`libs/idl/src/generated` and each Service's generated `endpoints.rs`) is excluded;
+    `rustqual` measures the generator in
+    `libs/idl/codegen` instead, and the generated-code comparison pins what it writes.
+  - A ratchet of finding counts per category was rejected: it let one fix pay for one new finding in the same
+    category, and a ceiling of hundreds of findings measured nothing. Gating on `rustqual`'s quality score or
+    `--fail-on-regression` is rejected too: the score is a ratio over all functions, so trivial functions raise it
+    while violations grow.
+- **Ratchet** (line coverage per layer, with floors in `core/coverage-ratchet.toml`; a measure below its floor
+  fails, and a floor may only rise).
+  - CI compares the ratchet file with the base revision (the pull request's base, or the commit a push replaced)
+    and fails when a floor fell or a key was removed, and when the base revision cannot be resolved. Loosening one
+    on purpose takes a commit that touches only the ratchet file plus a note here, and that commit fails the check
+    for a maintainer to accept.
 - **`std` paths in `std` crates.** `std_instead_of_core` and `alloc_instead_of_core` are denied, but
   `std_instead_of_alloc` is not: adapter and app crates use `std::` for allocating types, because `alloc::` would
   need `extern crate alloc;` in crates that will never be `no_std`. The `no_std` and wasm32 builds of `logic/`
   (D-02) are what guarantee portability.
-- **Report** (a measurement with no findings, shown in the job summary): `cargo bloat`; ast-metrics; the `rustqual`
-  and thai-lint finding listings, whose counts the ratchet gates; branch coverage numbers from the pinned nightly; the outdated direct dependencies, each upgrade being its own pull request; the
+- **Report** (a measurement with no findings, shown in the job summary): `cargo bloat`; ast-metrics; branch coverage numbers from the pinned nightly; the outdated direct dependencies, each upgrade being its own pull request; the
   D-31 ergonomics measures; benchmarks, binary size and build timings (D-33).
 - `rustqual` and thai-lint are pinned to exact versions in `.hooks/lib/rust_checks.sh`; `rustqual.toml` is written
   by hand at the tool's documented defaults.
