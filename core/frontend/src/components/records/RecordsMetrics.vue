@@ -1,5 +1,5 @@
 <template>
-  <v-sheet v-if="metrics" rounded class="d-flex align-center flex-wrap mb-4 px-2 py-2">
+  <v-sheet v-if="metrics" rounded class="d-flex align-center flex-wrap px-2 py-2">
     <v-simple-table dense class="records-metrics-lanes transparent">
       <thead>
         <tr>

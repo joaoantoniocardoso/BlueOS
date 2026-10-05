@@ -32,7 +32,16 @@
       :service-running="recorderServiceRunning"
     />
 
-    <records-metrics :metrics="metrics" />
+    <v-expansion-panels v-if="settings.is_pirate_mode && metrics" class="mb-4">
+      <v-expansion-panel>
+        <v-expansion-panel-header>
+          Recorder metrics
+        </v-expansion-panel-header>
+        <v-expansion-panel-content>
+          <records-metrics :metrics="metrics" />
+        </v-expansion-panel-content>
+      </v-expansion-panel>
+    </v-expansion-panels>
 
     <v-alert
       v-if="recordings.length > 0"
@@ -481,6 +490,7 @@ import {
   withLiveDuration,
   withRepairJobs,
 } from '@/libs/recorder/view-logic'
+import settings from '@/libs/settings'
 import zenoh from '@/libs/zenoh'
 import { blueosApiMixin } from '@/mixins/blueosApi'
 
@@ -505,6 +515,7 @@ export default Vue.extend({
       recordings: [] as LibraryRecording[],
       recording: null as RecordingSessionState | null,
       metrics: null as RecorderMetrics | null,
+      settings,
       repairProgress: {} as RepairProgress,
       jobs: [] as JobStatus[],
       libraryLoading: true,
