@@ -6,18 +6,21 @@
 //! the controls set (D-27), and reports how each Job ended with [`Jobs::end`].
 
 #![no_std]
+#![expect(
+    clippy::pub_use,
+    reason = "JobId and InvalidJobId are defined in job_id.rs and exported at the crate root"
+)]
 
 extern crate alloc;
 
-use alloc::{
-    borrow::ToOwned,
-    collections::VecDeque,
-    string::{String, ToString},
-    vec::Vec,
-};
-use core::{fmt, str::FromStr};
+mod job_id;
+
+use alloc::{borrow::ToOwned, collections::VecDeque, string::String, vec::Vec};
+use core::fmt;
 
 use blueos_domain::Domain;
+
+pub use job_id::{InvalidJobId, JobId};
 
 /// How many ended Jobs of each Job type [`Jobs::default`] keeps, so clients see how they ended and a retry finds them.
 pub const DEFAULT_RETENTION: usize = 16;
@@ -87,20 +90,6 @@ pub struct Job {
     /// Why the Job was canceled or aborted, or empty.
     pub reason: String,
 }
-
-/// Identifies a Job: the UUID the client generated when it submitted it, written as text on the wire.
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-#[cfg_attr(
-    feature = "serde",
-    derive(serde::Serialize, serde::Deserialize),
-    serde(try_from = "String", into = "String")
-)]
-pub struct JobId(u128);
-
-/// The text is not a UUID such as `0b5e8f5c-6f0a-4c4e-9a52-2f1e7d3c9b10`.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, thiserror::Error)]
-#[error("the Job id is not a UUID")]
-pub struct InvalidJobId;
 
 /// What a Job type allows, declared in code with the Job type (D-36). [`JobNature::INSTANT`] allows nothing, and a
 /// declaration sets what its Job type allows on top of it.
@@ -221,26 +210,36 @@ impl Jobs {
         goal: &[u8],
         nature: JobNature,
     ) -> Result<Submitted, JobsError> {
-        if let Some(job) = self.job(job_id) {
-            return if job.job_type == job_type && job.goal == goal {
-                Ok(Submitted::Retry)
-            } else {
-                Err(JobsError::IdReused(job_id))
-            };
+        if let Some(result) = self.existing_submit_result(job_id, job_type, goal) {
+            return result;
         }
+        self.insert_submitted(job_id, job_type, goal, nature);
+        Ok(Submitted::New)
+    }
+
+    fn existing_submit_result(
+        &self,
+        job_id: JobId,
+        job_type: &str,
+        goal: &[u8],
+    ) -> Option<Result<Submitted, JobsError>> {
+        let job = self.job(job_id)?;
+        Some(if job.job_type == job_type && job.goal == goal {
+            Ok(Submitted::Retry)
+        } else {
+            Err(JobsError::IdReused(job_id))
+        })
+    }
+
+    fn insert_submitted(&mut self, job_id: JobId, job_type: &str, goal: &[u8], nature: JobNature) {
         self.active.push(Job {
             job_id,
             job_type: job_type.to_owned(),
             goal: goal.to_owned(),
             nature,
-            status: if nature.needs_permission {
-                JobStatus::WaitingForPermission
-            } else {
-                JobStatus::Executing
-            },
+            status: submitted_job_status(nature),
             reason: String::new(),
         });
-        Ok(Submitted::New)
     }
 
     /// Applies a control a client sent and returns the status it left the Job in. Cancelling a Job that has not
@@ -373,66 +372,6 @@ impl Jobs {
     }
 }
 
-impl fmt::Display for JobId {
-    /// The UUID in its hyphenated lowercase form.
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let value = self.0;
-        write!(
-            formatter,
-            "{:08x}-{:04x}-{:04x}-{:04x}-{:012x}",
-            value >> 96,
-            (value >> 80) & 0xffff,
-            (value >> 64) & 0xffff,
-            (value >> 48) & 0xffff,
-            value & 0xffff_ffff_ffff,
-        )
-    }
-}
-
-impl FromStr for JobId {
-    type Err = InvalidJobId;
-
-    /// Parses the hyphenated form of a UUID, in either case.
-    fn from_str(text: &str) -> Result<Self, Self::Err> {
-        if text.len() != 36 {
-            return Err(InvalidJobId);
-        }
-        let mut value = 0_u128;
-        for (index, character) in text.chars().enumerate() {
-            if matches!(index, 8 | 13 | 18 | 23) {
-                if character != '-' {
-                    return Err(InvalidJobId);
-                }
-                continue;
-            }
-            let digit = character.to_digit(16).ok_or(InvalidJobId)?;
-            value = (value << 4) | u128::from(digit);
-        }
-        Ok(Self(value))
-    }
-}
-
-impl TryFrom<String> for JobId {
-    type Error = InvalidJobId;
-
-    fn try_from(text: String) -> Result<Self, Self::Error> {
-        text.parse()
-    }
-}
-
-impl JobId {
-    /// The id whose UUID is the 128 bits of `value`.
-    pub const fn from_u128(value: u128) -> Self {
-        Self(value)
-    }
-}
-
-impl From<JobId> for String {
-    fn from(job_id: JobId) -> Self {
-        job_id.to_string()
-    }
-}
-
 impl JobNature {
     /// A Job that succeeds in the step that executes it, and that a client cannot control.
     pub const INSTANT: Self = Self {
@@ -458,6 +397,7 @@ impl JobStatus {
     }
 }
 
+// qual:allow(dry, boilerplate) reason: "Display delegates to the D-12 control endpoint name"
 impl fmt::Display for JobControl {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(self.endpoint_name())
@@ -473,5 +413,29 @@ impl JobControl {
             Self::Resume => "ResumeJob",
             Self::AnswerPermission { .. } => "AnswerPermission",
         }
+    }
+}
+
+fn submitted_job_status(nature: JobNature) -> JobStatus {
+    if nature.needs_permission {
+        JobStatus::WaitingForPermission
+    } else {
+        JobStatus::Executing
+    }
+}
+
+#[cfg(test)]
+mod endpoint_name_tests {
+    use super::JobControl;
+
+    #[test]
+    fn endpoint_name_matches_kernel_commands() {
+        assert_eq!(JobControl::Cancel.endpoint_name(), "CancelJob");
+        assert_eq!(JobControl::Pause.endpoint_name(), "PauseJob");
+        assert_eq!(JobControl::Resume.endpoint_name(), "ResumeJob");
+        assert_eq!(
+            JobControl::AnswerPermission { granted: true }.endpoint_name(),
+            "AnswerPermission"
+        );
     }
 }
