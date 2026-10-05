@@ -133,7 +133,7 @@ impl CommsBackend for ChannelBackend {
                     let query = Query::new(
                         queryable.key_expression.as_str(),
                         key_expression,
-                        body.clone(),
+                        body.as_ref().cloned(),
                         responder,
                     );
                     queryable.sender.try_send(query).is_ok() || !queryable.sender.is_closed()
