@@ -22,11 +22,17 @@
       "@/*": [
         "src/*"
       ],
+      "@blueos-idl": [
+        "../libs/idl/typescript"
+      ],
       "@blueos-idl/*": [
         "../libs/idl/typescript/*"
       ],
+      "vue/types/*": [
+        "node_modules/vue/types/*"
+      ],
       "mediabunny/codec-data": [
-        "node_modules/mediabunny/dist/modules/src/codec-data.js"
+        "node_modules/mediabunny/dist/modules/src/codec-data.d.ts"
       ]
     },
     "lib": [
