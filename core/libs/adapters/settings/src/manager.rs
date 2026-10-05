@@ -49,21 +49,14 @@ impl<S: SettingsSchema> SettingsManager<S> {
         Ok(manager)
     }
 
-    /// Wraps settings already loaded from `config_folder`, without touching disk.
-    pub fn from_loaded(config_folder: PathBuf, settings: S) -> Self {
-        Self {
-            config_folder,
-            settings,
-            _marker: PhantomData,
-        }
-    }
-
     /// The current settings.
+    // qual:allow(dry, boilerplate) reason: "settings field stays private so load/save owns persistence"
     pub fn settings(&self) -> &S {
         &self.settings
     }
 
     /// The current settings, for an edit that [`Self::save`] then persists.
+    // qual:allow(dry, boilerplate) reason: "mut access is paired with save() so disk stays consistent"
     pub fn settings_mut(&mut self) -> &mut S {
         &mut self.settings
     }
@@ -75,6 +68,7 @@ impl<S: SettingsSchema> SettingsManager<S> {
     }
 
     /// The service's folder that holds its settings files.
+    // qual:allow(dry, boilerplate) reason: "config_folder is private so paths always match manager state"
     pub fn config_folder(&self) -> &Path {
         &self.config_folder
     }
@@ -104,42 +98,20 @@ impl<S: SettingsSchema> SettingsManager<S> {
     /// Loads the newest readable settings file, then a legacy file, and falls back to saving the defaults.
     pub fn load(&mut self) -> Result<(), SettingsError> {
         self.clear_temp_files();
-
-        let mut candidates: Vec<PathBuf> = std::fs::read_dir(&self.config_folder)?
-            .filter_map(|entry| entry.ok())
-            .map(|entry| entry.path())
-            .filter(|path| {
-                path.file_name()
-                    .and_then(|name| name.to_str())
-                    .is_some_and(|name| {
-                        name.starts_with(SETTINGS_NAME_PREFIX) && name.ends_with(".json")
-                    })
-            })
-            .collect();
-        candidates.sort_by(|left, right| {
-            settings_version_from_path(right).cmp(&settings_version_from_path(left))
-        });
-
-        for candidate in candidates {
-            if let Ok(settings) = Self::load_from_file(&candidate) {
+        match load_settings_snapshot::<S>(&self.config_folder)? {
+            LoadedSettings::Versioned(settings) => {
                 self.settings = settings;
-                return Ok(());
+                Ok(())
+            }
+            LoadedSettings::Legacy(settings) => {
+                self.settings = settings;
+                self.save()
+            }
+            LoadedSettings::Missing => {
+                self.settings = S::default();
+                self.save()
             }
         }
-
-        for legacy_path in S::legacy_load_paths(&self.config_folder) {
-            if !legacy_path.is_file() {
-                continue;
-            }
-            if let Ok(settings) = Self::load_legacy_file(&legacy_path) {
-                self.settings = settings;
-                self.save()?;
-                return Ok(());
-            }
-        }
-
-        self.settings = S::default();
-        self.save()
     }
 
     /// Loads and migrates a settings file from one of [`SettingsSchema::legacy_load_paths`].
@@ -160,6 +132,58 @@ impl<S: SettingsSchema> SettingsManager<S> {
             }
         }
     }
+}
+
+enum LoadedSettings<S> {
+    Versioned(S),
+    Legacy(S),
+    Missing,
+}
+
+fn load_settings_snapshot<S: SettingsSchema>(
+    config_folder: &Path,
+) -> Result<LoadedSettings<S>, SettingsError> {
+    let candidates = sorted_settings_candidates(config_folder)?;
+    if let Some(settings) = first_loadable_settings::<S>(&candidates) {
+        return Ok(LoadedSettings::Versioned(settings));
+    }
+    if let Some(settings) = first_legacy_settings::<S>(config_folder) {
+        return Ok(LoadedSettings::Legacy(settings));
+    }
+    Ok(LoadedSettings::Missing)
+}
+
+fn first_loadable_settings<S: SettingsSchema>(candidates: &[PathBuf]) -> Option<S> {
+    candidates
+        .iter()
+        .filter_map(|path| SettingsManager::<S>::load_from_file(path).ok())
+        .next()
+}
+
+fn first_legacy_settings<S: SettingsSchema>(config_folder: &Path) -> Option<S> {
+    S::legacy_load_paths(config_folder)
+        .into_iter()
+        .filter(|path| path.is_file())
+        .filter_map(|path| SettingsManager::<S>::load_legacy_file(&path).ok())
+        .next()
+}
+
+fn sorted_settings_candidates(config_folder: &Path) -> Result<Vec<PathBuf>, SettingsError> {
+    let mut candidates: Vec<PathBuf> = std::fs::read_dir(config_folder)?
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| {
+                    name.starts_with(SETTINGS_NAME_PREFIX) && name.ends_with(".json")
+                })
+        })
+        .collect();
+    candidates.sort_by(|left, right| {
+        settings_version_from_path(right).cmp(&settings_version_from_path(left))
+    });
+    Ok(candidates)
 }
 
 fn settings_version_from_path(path: &Path) -> Option<NonZeroU32> {

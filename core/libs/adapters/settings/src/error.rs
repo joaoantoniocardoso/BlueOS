@@ -42,3 +42,17 @@ impl SettingsError {
         ))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::SettingsError;
+
+    #[test]
+    fn settings_from_the_future_includes_versions() {
+        let error = SettingsError::settings_from_the_future(9, 2);
+        assert!(matches!(error, SettingsError::SettingsFromTheFuture(_)));
+        let message = error.to_string();
+        assert!(message.contains('9'));
+        assert!(message.contains('2'));
+    }
+}
