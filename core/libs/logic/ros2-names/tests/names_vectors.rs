@@ -3,9 +3,9 @@
 use serde::Deserialize;
 
 use blueos_ros2_names::{
-    RmwZenohDataKey, Ros2EntityKind, Ros2Transport, dds_type_name_to_ros, parse_rmw_zenoh_data_key,
-    parse_rmw_zenoh_liveliness_token, parse_ros2dds_liveliness_token, ros2dds_data_key_to_topic,
-    ros2dds_liveliness_token_to_data_key,
+    RmwZenohDataKey, Ros2EntityKind, Ros2LivelinessInfo, Ros2Transport, dds_type_name_to_ros,
+    parse_rmw_zenoh_data_key, parse_rmw_zenoh_liveliness_token, parse_ros2dds_liveliness_token,
+    ros2dds_data_key_to_topic, ros2dds_liveliness_token_to_data_key,
 };
 
 #[derive(Deserialize)]
@@ -115,7 +115,18 @@ fn names_json_vectors() {
     let text = include_str!("vectors/names.json");
     let vectors: Vectors = serde_json::from_str(text).expect("parse vectors");
 
-    for entry in &vectors.rmw_zenoh_data_keys {
+    assert_rmw_data_keys(&vectors.rmw_zenoh_data_keys);
+    assert_rmw_tokens(&vectors.rmw_zenoh_tokens);
+    assert_ros2dds_tokens(&vectors.ros2dds_tokens);
+    assert_dds_type_names(&vectors.dds_type_names);
+    assert_ros2dds_data_key_topics(&vectors.ros2dds_data_key_topics);
+    if let Some(entries) = &vectors.ros2dds_token_data_keys {
+        assert_ros2dds_token_data_keys(entries);
+    }
+}
+
+fn assert_rmw_data_keys(entries: &[RmwDataVector]) {
+    for entry in entries {
         let parsed = parse_rmw_zenoh_data_key(&entry.key);
         match (&entry.expected, parsed) {
             (None, None) => {}
@@ -141,21 +152,14 @@ fn names_json_vectors() {
             }
         }
     }
+}
 
-    for entry in &vectors.rmw_zenoh_tokens {
+fn assert_rmw_tokens(entries: &[RmwTokenVector]) {
+    for entry in entries {
         let parsed = parse_rmw_zenoh_liveliness_token(&entry.key);
         match (&entry.expected, parsed) {
             (None, None) => {}
-            (Some(expected), Some(info)) => {
-                assert_eq!(transport_name(info.transport), expected.transport);
-                assert_eq!(entity_kind_name(info.entity_kind), expected.entity_kind);
-                assert_eq!(info.domain_id, Some(expected.domain_id));
-                assert_eq!(info.namespace.as_deref(), Some(expected.namespace.as_str()));
-                assert_eq!(info.node.as_deref(), Some(expected.node.as_str()));
-                assert_eq!(info.topic, expected.topic);
-                assert_eq!(info.type_name, expected.type_name);
-                assert_eq!(info.type_hash.as_deref(), Some(expected.type_hash.as_str()));
-            }
+            (Some(expected), Some(info)) => assert_rmw_token_matches(expected, &info),
             (expected, parsed) => {
                 panic!(
                     "rmw token {:?}: expected {:?}, got {:?}",
@@ -164,8 +168,21 @@ fn names_json_vectors() {
             }
         }
     }
+}
 
-    for entry in &vectors.ros2dds_tokens {
+fn assert_rmw_token_matches(expected: &RmwTokenExpected, info: &Ros2LivelinessInfo) {
+    assert_eq!(transport_name(info.transport), expected.transport);
+    assert_eq!(entity_kind_name(info.entity_kind), expected.entity_kind);
+    assert_eq!(info.domain_id, Some(expected.domain_id));
+    assert_eq!(info.namespace.as_deref(), Some(expected.namespace.as_str()));
+    assert_eq!(info.node.as_deref(), Some(expected.node.as_str()));
+    assert_eq!(info.topic, expected.topic);
+    assert_eq!(info.type_name, expected.type_name);
+    assert_eq!(info.type_hash.as_deref(), Some(expected.type_hash.as_str()));
+}
+
+fn assert_ros2dds_tokens(entries: &[Ros2ddsTokenVector]) {
+    for entry in entries {
         let parsed = parse_ros2dds_liveliness_token(&entry.key);
         match (&entry.expected, parsed) {
             (None, None) => {}
@@ -183,24 +200,26 @@ fn names_json_vectors() {
             }
         }
     }
+}
 
-    for entry in &vectors.dds_type_names {
+fn assert_dds_type_names(entries: &[DdsTypeVector]) {
+    for entry in entries {
         let parsed = dds_type_name_to_ros(&entry.dds);
         assert_eq!(parsed.as_deref(), entry.ros.as_deref(), "dds {}", entry.dds);
     }
+}
 
-    for entry in &vectors.ros2dds_data_key_topics {
+fn assert_ros2dds_data_key_topics(entries: &[DataKeyTopicVector]) {
+    for entry in entries {
         assert_eq!(ros2dds_data_key_to_topic(&entry.key), entry.topic);
     }
+}
 
-    if let Some(entries) = &vectors.ros2dds_token_data_keys {
-        for entry in entries {
-            assert_eq!(
-                ros2dds_liveliness_token_to_data_key(&entry.key).as_deref(),
-                Some(entry.data_key.as_str()),
-                "token {}",
-                entry.key
-            );
-        }
+fn assert_ros2dds_token_data_keys(entries: &[TokenDataKeyVector]) {
+    for entry in entries {
+        assert_eq!(
+            ros2dds_liveliness_token_to_data_key(&entry.key).as_deref(),
+            Some(entry.data_key.as_str())
+        );
     }
 }

@@ -8,6 +8,12 @@ use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
+const MIN_RMW_DATA_KEY_SEGMENTS: usize = 4;
+const MIN_RMW_LIVELINESS_SEGMENTS: usize = 9;
+const MIN_ROS2DDS_TOKEN_SEGMENTS: usize = 3;
+const DDS_TYPE_NAME_SEGMENTS: usize = 4;
+const ROS_TYPE_PATH_SEGMENTS: usize = 3;
+
 /// Parsed rmw_zenoh sample key: `<domain>/<topic...>/<dds_type>/<RIHS01 hash>`.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RmwZenohDataKey {
@@ -71,7 +77,7 @@ pub enum Ros2EntityKind {
 /// Parses an rmw_zenoh data key, or returns `None` when the key is not rmw_zenoh traffic.
 pub fn parse_rmw_zenoh_data_key(key: &str) -> Option<RmwZenohDataKey> {
     let segments: Vec<&str> = key.split('/').collect();
-    if segments.len() < 4 {
+    if segments.len() < MIN_RMW_DATA_KEY_SEGMENTS {
         return None;
     }
     let domain_id = segments[0].parse::<u32>().ok()?;
@@ -95,13 +101,14 @@ pub fn parse_rmw_zenoh_data_key(key: &str) -> Option<RmwZenohDataKey> {
 }
 
 /// Parses an rmw_zenoh `@ros2_lv/...` liveliness token. Node tokens (`NN`) return `None`.
+// qual:api
 pub fn parse_rmw_zenoh_liveliness_token(key: &str) -> Option<Ros2LivelinessInfo> {
     let rest = key.strip_prefix("@ros2_lv/")?;
     if key.starts_with("@/") {
         return None;
     }
     let segments: Vec<&str> = rest.split('/').collect();
-    if segments.len() < 9 {
+    if segments.len() < MIN_RMW_LIVELINESS_SEGMENTS {
         return None;
     }
     let domain_id = segments[0].parse::<u32>().ok()?;
@@ -135,7 +142,7 @@ pub fn parse_ros2dds_liveliness_token(key: &str) -> Option<Ros2LivelinessInfo> {
     }
     let rest = after_at[zid_end + 1..].strip_prefix("@ros2_lv/")?;
     let segments: Vec<&str> = rest.split('/').collect();
-    if segments.len() < 3 {
+    if segments.len() < MIN_ROS2DDS_TOKEN_SEGMENTS {
         return None;
     }
     let entity_kind = ros2dds_entity_kind(segments[0])?;
@@ -157,7 +164,7 @@ pub fn parse_ros2dds_liveliness_token(key: &str) -> Option<Ros2LivelinessInfo> {
 /// Converts a DDS type string (`pkg::msg::dds_::Name_`) to ROS form (`pkg/msg/Name`).
 pub fn dds_type_name_to_ros(dds: &str) -> Option<String> {
     let segments: Vec<&str> = dds.split("::").collect();
-    if segments.len() != 4 {
+    if segments.len() != DDS_TYPE_NAME_SEGMENTS {
         return None;
     }
     let package = segments[0];
@@ -254,7 +261,7 @@ fn ros2dds_unescape_key(segment: &str) -> String {
 
 fn ros2dds_unescape_type(segment: &str) -> Option<String> {
     let ros = segment.replace('\u{a7}', "/");
-    if ros.contains('/') && ros.split('/').count() == 3 {
+    if ros.contains('/') && ros.split('/').count() == ROS_TYPE_PATH_SEGMENTS {
         Some(ros)
     } else {
         None
