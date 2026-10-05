@@ -7,7 +7,7 @@ Numbered entries under `tests/` answer every "how do I do X?" question from the 
 An entry file name starts with the number of the **first** question it answers (`01-command.rs` for questions 1–3).
 
 Every [`Service`](../../../libs/app/service/src/service.rs) has two steps, run in this order by the production entry
-and by [`Harness`](../../../libs/app/service/src/testing.rs):
+and by [`Harness`](../../../libs/app/service/src/testing/mod.rs):
 
 - `context` builds the Context: it may open what the arguments name, and fills every Port with its real adapter.
 - `build` is pure: it declares the Snapshot, endpoints, Tasks and Projections, with no IO and no spawning. A Task that
