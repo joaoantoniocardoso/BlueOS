@@ -283,6 +283,9 @@ jobs:
             --ok 0 --version cargo llvm-cov --version -- \
             bash -ec '
               cargo llvm-cov clean --workspace
+              # cargo llvm-cov takes --no-run to mean report without running, so the build runs an empty test set.
+              cargo llvm-cov nextest --workspace --locked --branch --no-report --future-incompat-report \
+                -E "none()" --no-tests=pass
               # The trybuild snapshots hold stable compiler messages, which nightly words differently.
               cargo llvm-cov nextest --workspace --locked --branch --no-report -E "not binary(compile_errors)"
               cargo llvm-cov report --branch --summary-only
@@ -293,7 +296,9 @@ jobs:
               export RUSTFLAGS='-Zsanitizer=address -Cdebuginfo=1'
               export ASAN_OPTIONS='detect_leaks=0'
               # An explicit target keeps RUSTFLAGS off proc-macros and build scripts.
-              cargo '+${RUST_NIGHTLY}' test -p blueos-example-domain --lib --target x86_64-unknown-linux-gnu \
+              cargo '+${RUST_NIGHTLY}' test --locked -p blueos-example-domain --lib --target x86_64-unknown-linux-gnu \
+                --no-run --future-incompat-report
+              cargo '+${RUST_NIGHTLY}' test --locked -p blueos-example-domain --lib --target x86_64-unknown-linux-gnu \
                 -- --test-threads=1
             "
           # lockbud only analyses crates it compiles, so it builds into target folders the cache never restores.
@@ -437,9 +442,13 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Build the backend conformance tests
+        working-directory: core
+        run: cargo test --locked -p blueos-comms-zenoh --test backend_conformance --no-run --future-incompat-report
+
       - name: L5 backend conformance (zenohd)
         working-directory: core
-        run: cargo test -p blueos-comms-zenoh --test backend_conformance
+        run: cargo test --locked -p blueos-comms-zenoh --test backend_conformance
 
   rust-cross-build:
     runs-on: ubuntu-latest
