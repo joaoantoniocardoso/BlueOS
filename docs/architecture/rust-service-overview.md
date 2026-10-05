@@ -99,7 +99,7 @@ finished Jobs. `ServiceBuilder::job_feedback` and `ServiceBuilder::job_result` r
 from the Snapshot, as typed Messages the Kernel nests in `JobFeedbackList` and `JobResult`.
 
 **Tasks and Projections.** Long-running work is declared with `ServiceBuilder::task` and supervised in
-`core/libs/app/service/src/tasks.rs` (D-27). Tasks receive a `CommandSender`, a `Session`, and typed
+`core/libs/app/service/src/tasks/` (D-27). Tasks receive a `CommandSender`, a `Session`, and typed
 `Projection` receivers from `core/libs/app/service/src/projection.rs`. The Recorder data plane Task is
 `run_data_plane` in `core/services/recorder/app/src/capture/tasks/data_plane/mod.rs`; it follows `RecordGate` from the capture Block
 in `core/services/recorder/logic/capture/src/lib.rs` and reports `Observed fact` Commands (D-27). High-rate samples
@@ -108,7 +108,7 @@ Recorder Domain at `core/services/recorder/logic/recorder/src/lib.rs`).
 
 **IO query endpoints.** Answered outside the Snapshot, in IO code with the service Context. See `RecorderHandlers::index`
 in `core/services/recorder/app/src/library/handlers.rs` and `ServiceBuilder::io_query` in
-`core/libs/app/service/src/builder.rs` (D-04).
+`core/libs/app/service/src/builder/` (D-04).
 
 **Custom endpoints.** Endpoints marked `custom = true` in the manifest get a handler trait method; the service maps
 Messages in `handlers.rs` (D-26). No Service declares one today: the Recorder's `DeleteRecording`, `RepairRecording`
@@ -129,7 +129,7 @@ Each row names the crate and module that implements the term on this branch. Pat
 | **Snapshot** | Per-Domain type, e.g. `PumpSnapshot` (`services/example/logic/domain/src/lib.rs`) |
 | **Durable state** | `blueos-service`: `durable_state` (`libs/app/service/src/durable_state.rs`); store in `blueos-settings` (`libs/adapters/settings/src/service_state.rs`). Not used by `example-minimal`. |
 | **Job** | `blueos-jobs` (`libs/logic/jobs/src/lib.rs`); Kernel `jobs` State wiring (`builder.rs`, `kernel/mod.rs`) |
-| **Task** | `blueos-service`: `tasks` (`libs/app/service/src/tasks.rs`); example Recorder `run_data_plane` (`services/recorder/app/src/capture/tasks/data_plane/mod.rs`) |
+| **Task** | `blueos-service`: `tasks` (`libs/app/service/src/tasks/`); example Recorder `run_data_plane` (`services/recorder/app/src/capture/tasks/data_plane/mod.rs`) |
 | **Inbox** | `blueos-service`: `inbox` (`libs/app/service/src/inbox.rs`); loop in `kernel/mod.rs` |
 | **Context** | Service-specific IO dependencies, built by `Service::context` and changed in tests by `Harness::start_with`; Recorder `RecorderContext` (`services/recorder/app/src/context.rs`). `example-minimal` uses `()` |
 | **Command** | `blueos-domain`: `Command` enum (`libs/logic/domain/src/lib.rs`) |
