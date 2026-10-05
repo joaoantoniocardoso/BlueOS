@@ -1,33 +1,36 @@
 //! Conversions between the Recorder Domain and its public Messages.
 
 #![no_std]
+#![expect(
+    clippy::pub_use,
+    reason = "wire projections are defined in wire.rs and re-exported for service adapters"
+)]
 
 extern crate alloc;
 
 pub mod endpoints;
+mod wire;
 
-use alloc::{string::String, vec::Vec};
 use core::convert::Infallible;
 
 use blueos_idl::{
     Message,
     msg::blueos_recorder_msgs::{
-        DeleteRecordingFeedback, DeleteRecordingGoal, DeleteRecordingResult, RecordingContents,
-        RecordingFile, RecordingFileState as WireRecordingFileState, RecordingLibrary,
+        DeleteRecordingFeedback, DeleteRecordingGoal, DeleteRecordingResult, RecordingLibrary,
         RecordingState, RepairRecordingFeedback, RepairRecordingGoal, RepairRecordingResult,
         SnapshotRecordingFeedback, SnapshotRecordingGoal, SnapshotRecordingResult,
         StartRecordingFeedback, StartRecordingGoal, StartRecordingResult, StopRecordingFeedback,
         StopRecordingGoal, StopRecordingResult,
     },
-    msg::builtin_interfaces::Duration,
 };
 use blueos_jobs::JobId;
-use blueos_recorder_capture::RecordingState as DomainRecordingState;
 use blueos_recorder_domain::{RecorderDomain, RecorderRequest, RecorderSnapshot};
-use blueos_recorder_library::{LibraryOperation, RecordingFileState};
+use blueos_recorder_library::LibraryOperation;
 use blueos_recorder_paths::{RecordingPathError, RecordingRelativePath};
 
 use crate::endpoints::Conversions;
+
+pub use wire::{recorder_session_state, recording_library};
 
 impl Conversions for RecorderDomain {
     type DeleteRecordingError = RecordingPathError;
@@ -76,7 +79,10 @@ impl Conversions for RecorderDomain {
         job_id: JobId,
     ) -> Option<RepairRecordingFeedback> {
         snapshot
+            .blocks
             .library
+            .work()
+            .queue()
             .repair_progress(job_id)
             .map(|progress| RepairRecordingFeedback {
                 bytes_processed: progress.bytes_processed,
@@ -88,7 +94,7 @@ impl Conversions for RecorderDomain {
         snapshot: &RecorderSnapshot,
         job_id: JobId,
     ) -> RepairRecordingResult {
-        match snapshot.library.ended_operation() {
+        match snapshot.blocks.library.work().queue().ended_operation() {
             Some(LibraryOperation::Repair {
                 path,
                 job_id: ended,
@@ -113,7 +119,10 @@ impl Conversions for RecorderDomain {
         job_id: JobId,
     ) -> Option<SnapshotRecordingFeedback> {
         snapshot
+            .blocks
             .library
+            .work()
+            .queue()
             .operations()
             .iter()
             .find_map(|operation| match operation {
@@ -132,7 +141,7 @@ impl Conversions for RecorderDomain {
         snapshot: &RecorderSnapshot,
         job_id: JobId,
     ) -> SnapshotRecordingResult {
-        match snapshot.library.ended_operation() {
+        match snapshot.blocks.library.work().queue().ended_operation() {
             Some(LibraryOperation::Snapshot {
                 path,
                 output_path,
@@ -184,87 +193,4 @@ impl Conversions for RecorderDomain {
     fn library(snapshot: &RecorderSnapshot) -> RecordingLibrary {
         recording_library(snapshot)
     }
-}
-
-/// Projects the published `recording` State from the Snapshot (wire names mapped here).
-///
-/// Wire field names use legacy "session" wording (see GLOSSARY).
-pub fn recorder_session_state(snapshot: &RecorderSnapshot) -> RecordingState {
-    let gate = snapshot.capture.record_gate();
-    let (session_active, current_file, session_bytes_written, samples_dropped) =
-        match &snapshot.capture.recording {
-            DomainRecordingState::Idle => (false, String::new(), 0, 0),
-            DomainRecordingState::AwaitingMcapFile { .. } => (true, String::new(), 0, 0),
-            DomainRecordingState::Active(active) => (
-                true,
-                active.file_name.clone(),
-                active.bytes_written,
-                active.samples_dropped,
-            ),
-        };
-    RecordingState {
-        armed: snapshot.capture.armed,
-        session_active,
-        current_file,
-        session_bytes_written,
-        recording_video_topics: gate
-            .recording_video_topics
-            .iter()
-            .cloned()
-            .collect::<Vec<_>>(),
-        samples_dropped,
-    }
-}
-
-/// Projects the published `library` State from the Snapshot.
-pub fn recording_library(snapshot: &RecorderSnapshot) -> RecordingLibrary {
-    let entries = snapshot.library.entries();
-    RecordingLibrary {
-        files: entries.iter().map(recording_file_message).collect(),
-        contents: entries
-            .iter()
-            .filter_map(|entry| {
-                let contents = snapshot.library.contents(&entry.path)?;
-                Some(RecordingContents {
-                    path: entry.path.clone(),
-                    duration: Duration {
-                        sec: i32::try_from(contents.duration.as_secs()).unwrap_or(i32::MAX),
-                        nanosec: contents.duration.subsec_nanos(),
-                    },
-                    video_topics: contents.video_topics.clone(),
-                    other_topic_count: contents.other_topic_count,
-                })
-            })
-            .collect(),
-    }
-}
-
-fn recording_file_message(entry: &blueos_recorder_library::RecordingFileEntry) -> RecordingFile {
-    let (sec, nanosec) = unix_seconds_to_time(entry.created_unix_seconds);
-    RecordingFile {
-        path: entry.path.clone(),
-        name: entry.name.clone(),
-        size_bytes: entry.size_bytes,
-        created: blueos_idl::msg::builtin_interfaces::Time { sec, nanosec },
-        state: recording_file_state_wire(entry.state),
-        repair_bytes_processed: entry.repair_bytes_processed,
-        repair_total_bytes: entry.repair_total_bytes,
-        repair_bytes_per_second: entry.repair_bytes_per_second,
-        repair_error: entry.repair_error.clone(),
-        allowed_operations: entry.allowed_operations.clone(),
-        repair_job_id: entry.repair_job_id.map(String::from).unwrap_or_default(),
-    }
-}
-
-fn recording_file_state_wire(state: RecordingFileState) -> WireRecordingFileState {
-    match state {
-        RecordingFileState::Recording => WireRecordingFileState::Recording,
-        RecordingFileState::Ready => WireRecordingFileState::Ready,
-        RecordingFileState::NeedsRepair => WireRecordingFileState::NeedsRepair,
-        RecordingFileState::Repairing => WireRecordingFileState::Repairing,
-    }
-}
-
-fn unix_seconds_to_time(seconds: i64) -> (i32, u32) {
-    (i32::try_from(seconds).unwrap_or(i32::MAX), 0)
 }
