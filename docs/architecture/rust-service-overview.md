@@ -149,7 +149,7 @@ Each row names the crate and module that implements the term on this branch. Pat
 | **Command endpoint** | `ServiceBuilder::command`, `serve_command` (`builder.rs`, `kernel/mod.rs`); manifest entry `SetLevel` in `services/example/app/endpoints.toml` |
 | **Query endpoint** | `ServiceBuilder::query`, `serve_query` (`kernel/mod.rs`); `Level` on example |
 | **IO query endpoint** | `ServiceBuilder::io_query`; Recorder `index` (`services/recorder/app/src/library/handlers.rs`) |
-| **Endpoint manifest** | `app/endpoints.toml`; generator `blueos-idl-codegen` (`libs/idl/codegen/src/endpoints.rs`) |
+| **Endpoint manifest** | `app/endpoints.toml`; generator `blueos-idl-codegen` (`libs/idl/codegen/src/endpoints/`) |
 | **Custom endpoint** | Manifest `custom = true`; handler trait method in the generated `endpoints.rs` (no Service uses one) |
 | **State** | `ServiceBuilder::state`; published in `kernel/mod.rs`; example `pump` key in `endpoints.toml` |
 | **Event** | `ServiceBuilder::event`; `publish_events` in `kernel/mod.rs`; the Kernel's per-type Job result Event `jobs/<JobType>/result`, like the Recorder's `SnapshotRecording` result |
