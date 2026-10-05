@@ -393,7 +393,7 @@ test_typos_checks_every_service_and_honours_its_excludes() {
     printf 'const PLANTED_TYPO: &str = "teh";\n' >"$temporary/core/services/recorder/app/src/lib.rs"
     printf 'PLANTED_TYPO = "teh"\n' >"$temporary/core/services/wifi/main.py"
     printf 'PLANTED_TYPO = "teh"\n' >"$temporary/core/libs/commonwealth/settings.py"
-    printf '[rustqual]\nteh_warnings = 0\n' >"$temporary/core/quality-ratchet.toml"
+    printf '[lines]\nteh_layer = 0\n' >"$temporary/core/coverage-ratchet.toml"
     output=$(cd / && check_typos "$temporary" 2>&1 || true)
     if ! grep -q 'core/services/recorder/app/src/lib.rs' <<<"$output"; then
         fail "typos should check the Rust services"
@@ -401,8 +401,8 @@ test_typos_checks_every_service_and_honours_its_excludes() {
     if ! grep -q 'core/services/wifi/main.py' <<<"$output"; then
         fail "typos should check the Python services"
     fi
-    if ! grep -q 'core/quality-ratchet.toml' <<<"$output"; then
-        fail "typos should check the quality ratchet"
+    if ! grep -q 'core/coverage-ratchet.toml' <<<"$output"; then
+        fail "typos should check the coverage ratchet"
     fi
     if grep -q 'core/libs/commonwealth' <<<"$output"; then
         fail "typos should skip what typos.toml excludes"
