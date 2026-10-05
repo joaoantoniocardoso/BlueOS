@@ -10,12 +10,7 @@
 extern crate alloc;
 
 use alloc::{boxed::Box, string::String, vec::Vec};
-use core::{
-    error::Error,
-    fmt::{self, Display, Formatter},
-    hash::Hash,
-    time::Duration,
-};
+use core::{error::Error, hash::Hash, time::Duration};
 
 /// The Decision of a Domain: the [`Outcome`] in the Domain's own types.
 pub type Decision<D> = Outcome<
@@ -76,7 +71,8 @@ pub enum Effect<Tick, IoRequest, TimerKey> {
 }
 
 /// Why an IO request the Kernel ran did not finish with a result Command.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, thiserror::Error)]
+#[error("{message}")]
 pub struct IoError {
     message: String,
 }
@@ -163,14 +159,6 @@ pub trait DomainQueries: Domain {
     /// Answers a Query from the Snapshot, without changing it.
     fn query(snapshot: &Self::Snapshot, query: Self::Query, now: Now) -> Self::Response;
 }
-
-impl Display for IoError {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        formatter.write_str(&self.message)
-    }
-}
-
-impl Error for IoError {}
 
 impl IoError {
     /// Records why the IO request failed.
