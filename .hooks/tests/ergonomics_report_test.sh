@@ -66,6 +66,7 @@ build_fixture() {
     mkdir -p "$fixture_root/core/services/example/logic/api/src"
     mkdir -p "$fixture_root/core/libs/logic/domain/src"
     mkdir -p "$fixture_root/core/libs/logic/jobs/src"
+    mkdir -p "$fixture_root/core/libs/app/service/src/builder"
     mkdir -p "$fixture_root/core/libs/app/service/src/entry"
     mkdir -p "$fixture_root/core/libs/app/service/src/kernel"
 
@@ -112,7 +113,7 @@ EOF
     for framework_file in \
         "$fixture_root/core/libs/logic/domain/src/lib.rs" \
         "$fixture_root/core/libs/logic/jobs/src/lib.rs" \
-        "$fixture_root/core/libs/app/service/src/builder.rs" \
+        "$fixture_root/core/libs/app/service/src/builder/mod.rs" \
         "$fixture_root/core/libs/app/service/src/kernel/mod.rs" \
         "$fixture_root/core/libs/app/service/src/entry/run.rs"; do
         printf '// fixture framework\n' >"$framework_file"

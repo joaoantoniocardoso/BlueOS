@@ -31,7 +31,7 @@ api_lib="$example_dir/logic/api/src/lib.rs"
 readonly -a framework_read_set=(
     "$workspace_dir/libs/logic/domain/src/lib.rs"
     "$workspace_dir/libs/logic/jobs/src/lib.rs"
-    "$workspace_dir/libs/app/service/src/builder.rs"
+    "$workspace_dir/libs/app/service/src/builder"
     "$workspace_dir/libs/app/service/src/kernel/mod.rs"
     "$workspace_dir/libs/app/service/src/entry/run.rs"
 )
@@ -243,11 +243,12 @@ count_concepts() {
 framework_lines() {
     local path total=0
     for path in "${framework_read_set[@]}"; do
-        if [ ! -f "$path" ]; then
+        if [ ! -e "$path" ]; then
             printf 'ergonomics_report: missing framework file: %s\n' "$path" >&2
             exit 1
         fi
-        total=$((total + $(wc -l <"$path")))
+        # A folder is a module split into files; the reader still reads all of them.
+        total=$((total + $(find "$path" -name '*.rs' -exec cat {} + | wc -l)))
     done
     printf '%s' "$total"
 }
