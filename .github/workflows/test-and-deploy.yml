@@ -340,6 +340,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      # rust-cache (v2.9.2) cleans target/tests/target, a kaos and macrotest folder, without awaiting it, so a
+      # target/tests that only trybuild filled logs ENOENT errors on restore and save unless the folder exists.
+      - name: Create the folder rust-cache expects under target/tests
+        run: mkdir -p core/target/tests/target
+
       - name: Use cached dependencies
         uses: Swatinem/rust-cache@v2
         with:
@@ -364,6 +369,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      # See rust-test.
+      - name: Create the folder rust-cache expects under target/tests
+        run: mkdir -p core/target/tests/target
 
       - name: Use cached dependencies
         uses: Swatinem/rust-cache@v2
