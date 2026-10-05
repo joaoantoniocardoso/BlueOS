@@ -181,9 +181,6 @@ jobs:
         with:
           tool: cargo-bloat@0.12.1
 
-      - name: Install quality tools
-        uses: ./.github/actions/quality-tools
-
       - name: Install ast-metrics
         run: bash .github/lib/install_ast_metrics.sh
 
@@ -202,28 +199,12 @@ jobs:
             # grep exits 1 when nothing is outdated, and 2 when it fails.
             grep -E "^ +Unchanged ($direct) " <<<"$updates" || [ "$?" -eq 1 ]
           }
-          # thailint labels every finding an error, but the quality ratchet, not this listing, decides what fails.
-          thailint_findings() {
-            thailint "$1" libs app services | sed 's/\[ERROR\] //'
-          }
           report_section "outdated direct dependencies" \
             --ok 0 --version cargo --version -- \
             outdated_direct_dependencies
           report_section "cargo bloat" \
             --ok 0 --version cargo bloat --version -- \
             cargo bloat --release -p "$BLUEOS_SHIPPED_PACKAGE" --features "${BLUEOS_SHIPPED_FEATURES[*]}" --crates -n 25
-          report_section "rustqual" \
-            --ok 0 --version rustqual --version -- \
-            rustqual --no-fail --findings .
-          report_section "thailint unwrap-abuse" \
-            --ok "0 1" --version thailint --version -- \
-            thailint_findings unwrap-abuse
-          report_section "thailint clone-abuse" \
-            --ok "0 1" --version thailint --version -- \
-            thailint_findings clone-abuse
-          report_section "thailint blocking-async" \
-            --ok "0 1" --version thailint --version -- \
-            thailint_findings blocking-async
           report_section "ast-metrics" \
             --ok 0 --version bash -c "ast-metrics version | grep 'Current version'" -- \
             bash -ec '
@@ -370,10 +351,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      # See rust-test.
-      - name: Create the folder rust-cache expects under target/tests
-        run: mkdir -p core/target/tests/target
-
       - name: Use cached dependencies
         uses: Swatinem/rust-cache@v2
         with:
@@ -399,6 +376,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      # See rust-test.
+      - name: Create the folder rust-cache expects under target/tests
+        run: mkdir -p core/target/tests/target
 
       - name: Use cached dependencies
         uses: Swatinem/rust-cache@v2
