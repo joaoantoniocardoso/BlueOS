@@ -1,5 +1,6 @@
 /* eslint-disable import/no-extraneous-dependencies */
 import { JobStatusStatus } from '@blueos-idl/constants'
+import type { MetricCounter } from '@blueos-idl/messages'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -299,7 +300,7 @@ describe('recordingMetaLabel', () => {
 })
 
 describe('recorderMetrics', () => {
-  function counter(name: string, lane: string, value: number) {
+  function counter(name: string, lane: string, value: number): MetricCounter {
     return { name, labels: [{ name: 'lane', value: lane }], value }
   }
 
@@ -316,9 +317,15 @@ describe('recorderMetrics', () => {
     })
 
     expect(metrics.lanes).toEqual([
-      { lane: 'mavlink', bytesWritten: 50, samplesWritten: 0, samplesDropped: 0 },
-      { lane: 'video', bytesWritten: 0, samplesWritten: 0, samplesDropped: 4 },
-      { lane: 'other', bytesWritten: 700, samplesWritten: 7, samplesDropped: 0 },
+      {
+        lane: 'mavlink', bytesWritten: 50, samplesWritten: 0, samplesDropped: 0,
+      },
+      {
+        lane: 'video', bytesWritten: 0, samplesWritten: 0, samplesDropped: 4,
+      },
+      {
+        lane: 'other', bytesWritten: 700, samplesWritten: 7, samplesDropped: 0,
+      },
     ])
   })
 

@@ -1,6 +1,8 @@
 /* eslint-disable import/no-extraneous-dependencies */
 import { CommandAckStatus, JobStatusStatus } from '@blueos-idl/constants'
-import type { JobResult, RecordingFile, RecordingLibrary } from '@blueos-idl/messages'
+import type {
+  JobResult, MetricCounter, RecordingFile, RecordingLibrary, ServiceMetrics,
+} from '@blueos-idl/messages'
 import {
   afterEach, beforeEach, describe, expect, it, vi,
 } from 'vitest'
@@ -55,11 +57,11 @@ function snapshotJobResult(outputPath: string): JobResult {
   }
 }
 
-function counter(name: string, lane: string, value: number) {
+function counter(name: string, lane: string, value: number): MetricCounter {
   return { name, labels: [{ name: 'lane', value: lane }], value }
 }
 
-function recorderMetricsMessage(videoBytes: number) {
+function recorderMetricsMessage(videoBytes: number): ServiceMetrics {
   return {
     counters: [
       counter('bytes_written', 'video', videoBytes),
@@ -576,7 +578,7 @@ describe('createRecorderClient', () => {
     expect(errors.length).toBeGreaterThan(0)
   })
 
-  it('hands the Recorder metrics to the observer at once for a page opened mid-recording, then each change', async () => {
+  it('hands the Recorder metrics at once to a page opened mid-recording, then each change', async () => {
     const transport = new FakeTransport()
     const client = createRecorderClient(transport)
     const { key, messageSchema } = metricsState(NAME)
