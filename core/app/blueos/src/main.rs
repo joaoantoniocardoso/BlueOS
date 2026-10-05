@@ -1,8 +1,12 @@
 //! Multicall binary: `blueos <service>` or a symlink named after the service.
 
+mod multicall;
+
 use std::{ffi::OsString, process::ExitCode};
 
-use blueos_service::entry::{missing_feature, multicall_help, multicall_version, resolve, usage};
+use blueos_service::entry::{missing_feature, resolve, usage};
+
+use crate::multicall::{handle_multicall_reserved, multicall_reserved};
 
 /// Service names that are always recognized, even when their feature is off.
 const KNOWN: &[&str] = &["example", "recorder"];
@@ -10,7 +14,7 @@ const KNOWN: &[&str] = &["example", "recorder"];
 fn main() -> ExitCode {
     let arguments: Vec<OsString> = std::env::args_os().collect();
     if multicall_reserved(&arguments) {
-        return handle_multicall_reserved(&arguments);
+        return handle_multicall_reserved(&arguments, KNOWN, env!("CARGO_PKG_VERSION"));
     }
     let Some((name, service_arguments)) = resolve(&arguments) else {
         return usage(KNOWN);
@@ -28,21 +32,5 @@ fn main() -> ExitCode {
         }
         other if KNOWN.contains(&other) => missing_feature(other),
         _ => usage(KNOWN),
-    }
-}
-
-fn multicall_reserved(arguments: &[OsString]) -> bool {
-    arguments.get(1).is_some_and(|argument| {
-        matches!(
-            argument.to_string_lossy().as_ref(),
-            "-h" | "--help" | "--version"
-        )
-    })
-}
-
-fn handle_multicall_reserved(arguments: &[OsString]) -> ExitCode {
-    match arguments.get(1).map(|argument| argument.to_string_lossy()) {
-        Some(text) if text == "--version" => multicall_version(env!("CARGO_PKG_VERSION")),
-        _ => multicall_help(KNOWN),
     }
 }
