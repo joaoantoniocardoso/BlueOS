@@ -30,36 +30,13 @@ impl<'ast> Visit<'ast> for SpawnVisitor {
 
 impl SpawnVisitor {
     fn check_block(&mut self, statements: &[Stmt]) {
-        for (index, statement) in statements.iter().enumerate() {
-            let Stmt::Expr(expression, _) = statement else {
-                continue;
-            };
-            let Expr::Call(call) = expression else {
-                continue;
-            };
-            if !is_spawn_call(&call.func) {
-                continue;
-            }
-            let Some(argument) = call.args.first() else {
-                continue;
-            };
-            match argument {
-                Expr::Async(async_block) if async_block.capture.is_some() => {
-                    let prior = &statements[..index];
-                    if clone_binding_before_spawn(prior, async_block) {
-                        push(
-                            &mut self.diagnostics,
-                            "clone_before_spawn",
-                            async_block.span(),
-                            "bind values cloned for `async move` inside a block attached to `spawn`, not in the enclosing scope",
-                        );
-                    }
-                }
-                Expr::Block(block) => {
-                    self.check_block(&block.block.stmts);
-                }
-                _ => {}
-            }
+        for span in spawn_async_move_clone_spans(statements) {
+            push(
+                &mut self.diagnostics,
+                "clone_before_spawn",
+                span,
+                "bind values cloned for `async move` inside a block attached to `spawn`, not in the enclosing scope",
+            );
         }
     }
 }
@@ -73,16 +50,36 @@ impl<'ast> Visit<'ast> for CaptureVisitor<'ast> {
     }
 }
 
+fn spawn_async_move_clone_spans(
+    statements: &[Stmt],
+) -> impl Iterator<Item = proc_macro2::Span> + '_ {
+    statements
+        .iter()
+        .enumerate()
+        .filter_map(|(index, statement)| {
+            let Stmt::Expr(expression, _) = statement else {
+                return None;
+            };
+            let Expr::Call(call) = expression else {
+                return None;
+            };
+            if !is_spawn_call(&call.func) {
+                return None;
+            }
+            let Expr::Async(async_block) = call.args.first()? else {
+                return None;
+            };
+            async_block.capture?;
+            let prior = &statements[..index];
+            clone_binding_before_spawn(prior, async_block).then_some(async_block.span())
+        })
+}
+
 fn clone_binding_before_spawn(prior: &[Stmt], async_block: &ExprAsync) -> bool {
     let captured = identifiers_in_async_block(async_block);
-    for statement in prior {
-        if let Some(name) = clone_binding_name(statement)
-            && captured.contains(&name)
-        {
-            return true;
-        }
-    }
-    false
+    prior
+        .iter()
+        .any(|statement| clone_binding_name(statement).is_some_and(|name| captured.contains(&name)))
 }
 
 fn identifiers_in_async_block(async_block: &ExprAsync) -> BTreeSet<String> {
@@ -141,10 +138,7 @@ fn is_spawn_call(expression: &Expr) -> bool {
     }
 }
 
-pub(crate) fn check_file(syntax_tree: &File, diagnostics: &mut Vec<Diagnostic>) {
-    let mut visitor = SpawnVisitor {
-        diagnostics: Vec::new(),
-    };
+fn seed_spawn_checks(syntax_tree: &File, visitor: &mut SpawnVisitor) {
     for item in &syntax_tree.items {
         if let syn::Item::Fn(function) = item {
             visitor.check_block(&function.block.stmts);
@@ -159,6 +153,13 @@ pub(crate) fn check_file(syntax_tree: &File, diagnostics: &mut Vec<Diagnostic>) 
             }
         }
     }
+}
+
+pub(crate) fn check_file(syntax_tree: &File, diagnostics: &mut Vec<Diagnostic>) {
+    let mut visitor = SpawnVisitor {
+        diagnostics: Vec::new(),
+    };
+    seed_spawn_checks(syntax_tree, &mut visitor);
     visitor.visit_file(syntax_tree);
     diagnostics.extend(visitor.diagnostics);
 }

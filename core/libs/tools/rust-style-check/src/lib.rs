@@ -4,6 +4,7 @@ extern crate alloc;
 
 mod allow_attributes;
 mod clone_before_spawn;
+mod declaration_graph;
 mod declaration_order;
 mod import_groups;
 mod structured_logging;
