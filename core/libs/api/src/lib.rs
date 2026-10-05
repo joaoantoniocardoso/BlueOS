@@ -21,12 +21,14 @@ pub use command_ack::{CommandAck, Message};
 pub use blueos_idl::encoding::{ENCODING_APPLICATION_CDR, cdr_encoding};
 
 /// API version segment in every public key (`blueos/v1/...`).
+// qual:api
 pub const API_VERSION: &str = "v1";
 
 /// Prefix shared by every versioned BlueOS zenoh key.
 pub const KEY_PREFIX: &str = "blueos/v1";
 
 /// Zenoh attachment key for a message type hash (schema evolution, D-06).
+// qual:api
 pub const TYPE_HASH_ATTACHMENT_KEY: &str = "blueos.type_hash";
 
 /// Liveliness token for a running service (`blueos/v1/services/<name>`).
@@ -95,12 +97,14 @@ pub fn log_key(service: &str) -> String {
 }
 
 /// Extension log stream under a service (`blueos/v1/<service>/log/extension/<safe_id>`).
+// qual:api
 pub fn extension_log_key(service: &str, extension_identifier: &str) -> String {
     let safe_identifier = extension_identifier.replace(['/', ' '], "_");
     format!("{}/extension/{safe_identifier}", log_key(service))
 }
 
 /// HTTP gateway mount prefix (`blueos/v1/<service>/http`).
+// qual:api
 pub fn http_gateway_prefix(service: &str) -> String {
     format!("{KEY_PREFIX}/{service}/http")
 }
