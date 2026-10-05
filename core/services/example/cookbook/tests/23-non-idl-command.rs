@@ -93,7 +93,10 @@ async fn custom_command_validation_rejects_before_the_inbox() {
     let harness = Harness::<NonIdlCookbookService>::start(NonIdlCookbookArguments)
         .await
         .unwrap();
-    let ack = harness.send("SetLevel", &SetLevelGoal { level: 150 }).await;
+    let ack = harness
+        .send("SetLevel", &SetLevelGoal { level: 150 })
+        .await
+        .unwrap();
     assert!(!ack.accepted);
     assert_eq!(ack.reason, "150 is not a percentage");
 }
@@ -103,6 +106,9 @@ async fn custom_command_validation_passes_a_typed_request() {
     let harness = Harness::<NonIdlCookbookService>::start(NonIdlCookbookArguments)
         .await
         .unwrap();
-    let ack = harness.send("SetLevel", &SetLevelGoal { level: 40 }).await;
+    let ack = harness
+        .send("SetLevel", &SetLevelGoal { level: 40 })
+        .await
+        .unwrap();
     assert!(ack.accepted);
 }

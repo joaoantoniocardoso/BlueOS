@@ -126,9 +126,15 @@ async fn io_effect_updates_the_snapshot() {
     let harness = Harness::<IoCookbookService>::start(IoCookbookArguments)
         .await
         .unwrap();
-    let ack = harness.send("ReadLevel", &LevelRequest::default()).await;
+    let ack = harness
+        .send("ReadLevel", &LevelRequest::default())
+        .await
+        .unwrap();
     assert!(ack.accepted);
-    assert_eq!(harness.state::<LevelResponse>("pump").await.level, 42);
+    assert_eq!(
+        harness.state::<LevelResponse>("pump").await.unwrap().level,
+        42
+    );
 }
 
 #[tokio::test(start_paused = true)]
@@ -138,7 +144,13 @@ async fn a_test_replaces_the_sensor_through_the_context() {
     })
     .await
     .unwrap();
-    let ack = harness.send("ReadLevel", &LevelRequest::default()).await;
+    let ack = harness
+        .send("ReadLevel", &LevelRequest::default())
+        .await
+        .unwrap();
     assert!(ack.accepted);
-    assert_eq!(harness.state::<LevelResponse>("pump").await.level, 7);
+    assert_eq!(
+        harness.state::<LevelResponse>("pump").await.unwrap().level,
+        7
+    );
 }

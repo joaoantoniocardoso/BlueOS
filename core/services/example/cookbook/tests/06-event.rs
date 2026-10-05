@@ -99,7 +99,10 @@ async fn event_arrives_after_the_ack() {
         .subscribe(&event_key(EventCookbookService::NAME, "LevelChanged"))
         .await
         .unwrap();
-    let ack = harness.send("SetLevel", &SetLevelGoal { level: 15 }).await;
+    let ack = harness
+        .send("SetLevel", &SetLevelGoal { level: 15 })
+        .await
+        .unwrap();
     assert!(ack.accepted);
     let sample = timeout(Duration::from_secs(10), events.recv())
         .await

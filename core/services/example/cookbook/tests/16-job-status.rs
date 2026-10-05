@@ -86,6 +86,7 @@ async fn info_lists_the_jobs_state_and_harness_reads_it() {
     let info = harness
         .query::<LevelRequest, ServiceInfo>("info", &LevelRequest::default())
         .await
+        .expect("the harness reaches the info query")
         .expect("the info query answers");
     let jobs_endpoint = info
         .endpoints
@@ -95,9 +96,9 @@ async fn info_lists_the_jobs_state_and_harness_reads_it() {
     assert_eq!(jobs_endpoint.key, jobs_key(JobStatusCookbookService::NAME));
     assert_eq!(jobs_endpoint.interface_type, JobList::SCHEMA_NAME);
 
-    let ack = harness.send("Run", &LevelRequest::default()).await;
+    let ack = harness.send("Run", &LevelRequest::default()).await.unwrap();
 
-    let jobs = harness.jobs().await;
+    let jobs = harness.jobs().await.unwrap();
     assert_eq!(jobs.jobs.len(), 1);
     assert_eq!(jobs.jobs[0].job_id, ack.job_id);
     assert_eq!(jobs.jobs[0].job_type, "Run");

@@ -98,7 +98,10 @@ async fn wiring_refusal_uses_the_error_display() {
     let harness = Harness::<TypedErrorsCookbookService>::start(TypedErrorsCookbookArguments)
         .await
         .unwrap();
-    let ack = harness.send("SetLevel", &SetLevelGoal { level: 13 }).await;
+    let ack = harness
+        .send("SetLevel", &SetLevelGoal { level: 13 })
+        .await
+        .unwrap();
     assert!(!ack.accepted);
     assert_eq!(ack.reason, "level 13 is not allowed");
 }

@@ -109,7 +109,10 @@ async fn command_with_a_body_updates_state() {
     let harness = Harness::<CommandCookbookService>::start(CommandCookbookArguments)
         .await
         .unwrap();
-    let ack = harness.send("SetLevel", &SetLevelGoal { level: 40 }).await;
+    let ack = harness
+        .send("SetLevel", &SetLevelGoal { level: 40 })
+        .await
+        .unwrap();
     assert!(ack.accepted);
 }
 
@@ -118,8 +121,14 @@ async fn command_without_a_body_clears_state() {
     let harness = Harness::<CommandCookbookService>::start(CommandCookbookArguments)
         .await
         .unwrap();
-    harness.send("SetLevel", &SetLevelGoal { level: 40 }).await;
-    let ack = harness.send("Reset", &LevelRequest::default()).await;
+    harness
+        .send("SetLevel", &SetLevelGoal { level: 40 })
+        .await
+        .unwrap();
+    let ack = harness
+        .send("Reset", &LevelRequest::default())
+        .await
+        .unwrap();
     assert!(ack.accepted);
 }
 
@@ -128,7 +137,10 @@ async fn domain_rejection_surfaces_as_the_ack_reason() {
     let harness = Harness::<CommandCookbookService>::start(CommandCookbookArguments)
         .await
         .unwrap();
-    let ack = harness.send("SetLevel", &SetLevelGoal { level: 200 }).await;
+    let ack = harness
+        .send("SetLevel", &SetLevelGoal { level: 200 })
+        .await
+        .unwrap();
     assert!(!ack.accepted);
     assert_eq!(ack.reason, "200 is above the maximum of 100");
 }

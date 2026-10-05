@@ -1,5 +1,6 @@
 //! Registering a new Service touches the multicall binary, manifest, and ops docs.
 
+// qual:allow(test_quality, no_sut) reason: "Guards the teaching example README lists every registration touchpoint"
 #[test]
 fn example_readme_lists_registration_steps() {
     let readme = include_str!("../../README.md");
@@ -17,6 +18,7 @@ fn example_readme_lists_registration_steps() {
     }
 }
 
+// qual:allow(test_quality, no_sut) reason: "Guards the multicall binary still wires the teaching example service"
 #[test]
 fn multicall_knows_the_teaching_example_name() {
     let main_rs = include_str!("../../../../app/blueos/src/main.rs");

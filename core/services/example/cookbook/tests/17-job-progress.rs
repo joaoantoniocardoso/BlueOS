@@ -156,11 +156,12 @@ async fn the_jobs_state_follows_a_job_through_pause_resume_and_success() {
 
     harness
         .submit("Heat", job_id, &LevelRequest::default())
-        .await;
+        .await
+        .unwrap();
     assert_eq!(next_status(&mut jobs).await, JobStatusStatus::Executing);
-    harness.control(job_id, JobControl::Pause).await;
+    harness.control(job_id, JobControl::Pause).await.unwrap();
     assert_eq!(next_status(&mut jobs).await, JobStatusStatus::Paused);
-    harness.control(job_id, JobControl::Resume).await;
+    harness.control(job_id, JobControl::Resume).await.unwrap();
     assert_eq!(next_status(&mut jobs).await, JobStatusStatus::Executing);
     advance(Duration::from_secs(60)).await;
     assert_eq!(next_status(&mut jobs).await, JobStatusStatus::Succeeded);

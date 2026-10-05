@@ -97,5 +97,8 @@ async fn command_sender_applies_a_request_and_returns_the_ack() {
         .await
         .expect("the Inbox accepts the Command");
     assert!(ack.accepted);
-    assert_eq!(harness.state::<LevelResponse>("level").await.level, 9);
+    assert_eq!(
+        harness.state::<LevelResponse>("level").await.unwrap().level,
+        9
+    );
 }

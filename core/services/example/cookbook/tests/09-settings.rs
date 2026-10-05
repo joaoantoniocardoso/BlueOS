@@ -132,6 +132,17 @@ fn temp_settings_parent(label: &str) -> PathBuf {
     ))
 }
 
+fn cookbook_document(
+    live_field: u32,
+    restart_field: impl Into<String>,
+) -> SettingsCookbookDocument {
+    SettingsCookbookDocument {
+        live_field,
+        restart_field: restart_field.into(),
+        ..SettingsCookbookDocument::default()
+    }
+}
+
 fn envelope_for(document: &SettingsCookbookDocument) -> SettingsEnvelope {
     SettingsEnvelope {
         document_json: serde_json::to_string(document).unwrap(),
@@ -160,7 +171,7 @@ async fn start_with_settings_folder(parent: PathBuf) -> Harness<SettingsCookbook
 async fn settings_load_at_start() {
     let parent = temp_settings_parent("load");
     let harness = start_with_settings_folder(parent).await;
-    let envelope = harness.settings::<SettingsEnvelope>().await;
+    let envelope = harness.settings::<SettingsEnvelope>().await.unwrap();
     let document: SettingsCookbookDocument = serde_json::from_str(&envelope.document_json).unwrap();
     assert_eq!(document.live_field, 1);
 }
@@ -169,14 +180,11 @@ async fn settings_load_at_start() {
 async fn update_settings_persists_to_disk() {
     let parent = temp_settings_parent("persist");
     let harness = start_with_settings_folder(parent.clone()).await;
-    let updated = SettingsCookbookDocument {
-        version: SettingsCookbookDocument::VERSION,
-        live_field: 9,
-        restart_field: "changed".into(),
-    };
+    let updated = cookbook_document(9, "changed");
     let ack = harness
         .send("UpdateSettings", &envelope_for(&updated))
-        .await;
+        .await
+        .unwrap();
     assert!(ack.accepted);
     let on_disk_path = parent.join(format!(
         "{}/{}",
@@ -192,15 +200,12 @@ async fn update_settings_persists_to_disk() {
 async fn restart_required_field_is_published() {
     let parent = temp_settings_parent("restart");
     let harness = start_with_settings_folder(parent).await;
-    let updated = SettingsCookbookDocument {
-        version: SettingsCookbookDocument::VERSION,
-        live_field: 1,
-        restart_field: "needs-restart".into(),
-    };
+    let updated = cookbook_document(1, "needs-restart");
     harness
         .send("UpdateSettings", &envelope_for(&updated))
-        .await;
-    let envelope = harness.settings::<SettingsEnvelope>().await;
+        .await
+        .unwrap();
+    let envelope = harness.settings::<SettingsEnvelope>().await.unwrap();
     assert_eq!(envelope.fields.len(), 1);
     assert_eq!(envelope.fields[0].path, "restart_field");
     assert!(envelope.fields[0].restart_required);

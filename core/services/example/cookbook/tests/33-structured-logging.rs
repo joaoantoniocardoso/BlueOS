@@ -118,7 +118,10 @@ async fn structured_fields_appear_on_the_log_key() {
     let harness = Harness::<LoggingCookbookService>::start_on(backend, LoggingCookbookArguments)
         .await
         .unwrap();
-    harness.send("Ping", &LevelRequest::default()).await;
+    harness
+        .send("Ping", &LevelRequest::default())
+        .await
+        .unwrap();
 
     let sample = tokio::time::timeout(Duration::from_secs(1), subscriber.recv())
         .await

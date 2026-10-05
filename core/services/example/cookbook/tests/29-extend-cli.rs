@@ -125,7 +125,7 @@ async fn service_specific_flag_reaches_the_domain_snapshot() {
     })
     .await
     .expect("start");
-    let published = harness.state::<LevelResponse>("cli").await;
+    let published = harness.state::<LevelResponse>("cli").await.unwrap();
     assert_eq!(published.level, 1);
     assert_eq!(published.max_level, marker.as_os_str().len() as u8);
 }

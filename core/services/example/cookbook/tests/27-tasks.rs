@@ -100,5 +100,8 @@ async fn a_supervised_task_sends_commands_while_the_kernel_runs() {
         .await
         .unwrap();
     tokio::time::advance(Duration::from_secs(1)).await;
-    assert_eq!(harness.state::<LevelResponse>("ready").await.level, 1);
+    assert_eq!(
+        harness.state::<LevelResponse>("ready").await.unwrap().level,
+        1
+    );
 }

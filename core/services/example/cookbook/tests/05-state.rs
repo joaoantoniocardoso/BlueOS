@@ -87,7 +87,10 @@ async fn state_publishes_after_a_command() {
     let harness = Harness::<StateCookbookService>::start(StateCookbookArguments)
         .await
         .unwrap();
-    harness.send("SetLevel", &SetLevelGoal { level: 77 }).await;
-    let pump = harness.state::<PumpState>("pump").await;
+    harness
+        .send("SetLevel", &SetLevelGoal { level: 77 })
+        .await
+        .unwrap();
+    let pump = harness.state::<PumpState>("pump").await.unwrap();
     assert_eq!(pump.level, 77);
 }

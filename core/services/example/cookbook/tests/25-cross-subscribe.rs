@@ -109,7 +109,10 @@ async fn a_client_subscribes_to_another_services_state_key() {
         .await
         .expect("the gauge key subscribes");
 
-    harness.send("SetLevel", &SetLevelGoal { level: 33 }).await;
+    harness
+        .send("SetLevel", &SetLevelGoal { level: 33 })
+        .await
+        .unwrap();
 
     assert_eq!(next_state(&mut gauge).await.level, 33);
 }

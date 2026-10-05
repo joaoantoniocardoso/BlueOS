@@ -123,9 +123,12 @@ async fn armed_timer_fires_after_advance() {
     let harness = Harness::<TimersCookbookService>::start(TimersCookbookArguments)
         .await
         .unwrap();
-    harness.send("Arm", &LevelRequest::default()).await;
+    harness.send("Arm", &LevelRequest::default()).await.unwrap();
     advance(Duration::from_secs(6)).await;
-    assert_eq!(harness.state::<LevelResponse>("ticks").await.level, 1);
+    assert_eq!(
+        harness.state::<LevelResponse>("ticks").await.unwrap().level,
+        1
+    );
 }
 
 #[tokio::test(start_paused = true)]
@@ -133,7 +136,13 @@ async fn cancel_prevents_a_rearmed_timer_from_firing() {
     let harness = Harness::<TimersCookbookService>::start(TimersCookbookArguments)
         .await
         .unwrap();
-    harness.send("Cancel", &LevelRequest::default()).await;
+    harness
+        .send("Cancel", &LevelRequest::default())
+        .await
+        .unwrap();
     advance(Duration::from_secs(10)).await;
-    assert_eq!(harness.state::<LevelResponse>("ticks").await.level, 0);
+    assert_eq!(
+        harness.state::<LevelResponse>("ticks").await.unwrap().level,
+        0
+    );
 }

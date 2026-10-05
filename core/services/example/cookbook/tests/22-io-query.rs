@@ -103,7 +103,8 @@ async fn io_query_reads_outside_the_inbox() {
     let level: LevelResponse = harness
         .query("Probe", &SetLevelGoal { level: 55 })
         .await
-        .expect("the IO query answers");
+        .expect("the IO query answers")
+        .expect("the probe answers");
     assert_eq!(level.level, 55);
 }
 
@@ -112,7 +113,9 @@ async fn io_query_refusal_does_not_touch_the_snapshot() {
     let harness = Harness::<IoQueryCookbookService>::start(IoQueryCookbookArguments)
         .await
         .unwrap();
-    let refused: Result<LevelResponse, _> =
-        harness.query("Probe", &SetLevelGoal { level: 200 }).await;
+    let refused: Result<LevelResponse, _> = harness
+        .query("Probe", &SetLevelGoal { level: 200 })
+        .await
+        .unwrap();
     assert!(refused.is_err());
 }

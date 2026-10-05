@@ -215,8 +215,14 @@ async fn a_task_calls_another_services_command_through_the_session() {
 
     tokio::time::advance(Duration::from_secs(1)).await;
 
-    assert_eq!(target.state::<LevelResponse>("gauge").await.level, 12);
-    assert_eq!(caller.state::<LevelResponse>("done").await.level, 1);
+    assert_eq!(
+        target.state::<LevelResponse>("gauge").await.unwrap().level,
+        12
+    );
+    assert_eq!(
+        caller.state::<LevelResponse>("done").await.unwrap().level,
+        1
+    );
     drop(caller);
     drop(target);
 }

@@ -88,8 +88,14 @@ async fn snapshot_accumulates_across_commands() {
     let harness = Harness::<HoldStateCookbookService>::start(HoldStateCookbookArguments)
         .await
         .unwrap();
-    harness.send("SetLevel", &SetLevelGoal { level: 1 }).await;
-    harness.send("SetLevel", &SetLevelGoal { level: 2 }).await;
-    let changes = harness.state::<SetLevelGoal>("changes").await;
+    harness
+        .send("SetLevel", &SetLevelGoal { level: 1 })
+        .await
+        .unwrap();
+    harness
+        .send("SetLevel", &SetLevelGoal { level: 2 })
+        .await
+        .unwrap();
+    let changes = harness.state::<SetLevelGoal>("changes").await.unwrap();
     assert_eq!(changes.level, 2);
 }

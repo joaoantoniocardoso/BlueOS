@@ -125,7 +125,10 @@ async fn private_domain_events_do_not_publish() {
         ))
         .await
         .unwrap();
-    harness.send("Bump", &LevelRequest::default()).await;
+    harness
+        .send("Bump", &LevelRequest::default())
+        .await
+        .unwrap();
     let maybe = timeout(Duration::from_secs(1), events.recv()).await;
     assert!(maybe.is_err(), "InternalNote must not publish LevelChanged");
 }

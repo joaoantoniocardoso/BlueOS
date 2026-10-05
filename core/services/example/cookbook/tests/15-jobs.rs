@@ -141,13 +141,14 @@ async fn a_lasting_job_is_executing_until_its_domain_ends_it() {
 
     let ack = harness
         .submit("Brew", job_id, &LevelRequest::default())
-        .await;
+        .await
+        .unwrap();
     assert!(ack.accepted);
     assert_eq!(ack.job_id, job_id.to_string());
     assert_eq!(ack.status, CommandAckStatus::Executing);
 
     advance(Duration::from_secs(60)).await;
-    let jobs = harness.jobs().await;
+    let jobs = harness.jobs().await.unwrap();
     assert_eq!(jobs.jobs[0].status, JobStatusStatus::Succeeded);
 }
 
@@ -159,13 +160,14 @@ async fn a_cancelled_job_ends_canceled_when_its_work_stops() {
     let job_id = new_job_id();
     harness
         .submit("Brew", job_id, &LevelRequest::default())
-        .await;
+        .await
+        .unwrap();
 
-    let ack = harness.control(job_id, JobControl::Cancel).await;
+    let ack = harness.control(job_id, JobControl::Cancel).await.unwrap();
     assert!(ack.accepted);
     assert_eq!(ack.status, CommandAckStatus::Canceling);
 
     advance(Duration::from_secs(60)).await;
-    let jobs = harness.jobs().await;
+    let jobs = harness.jobs().await.unwrap();
     assert_eq!(jobs.jobs[0].status, JobStatusStatus::Canceled);
 }

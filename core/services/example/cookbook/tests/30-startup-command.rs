@@ -96,7 +96,10 @@ async fn on_start_runs_before_the_first_client_command() {
     let harness = Harness::<StartupCookbookService>::start(StartupCookbookArguments)
         .await
         .unwrap();
-    harness.send("Client", &LevelRequest::default()).await;
-    let progress = harness.state::<PumpState>("progress").await;
+    harness
+        .send("Client", &LevelRequest::default())
+        .await
+        .unwrap();
+    let progress = harness.state::<PumpState>("progress").await.unwrap();
     assert_eq!(progress.level, 2);
 }

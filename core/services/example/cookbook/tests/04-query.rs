@@ -114,10 +114,14 @@ async fn query_reads_the_snapshot() {
     let harness = Harness::<QueryCookbookService>::start(QueryCookbookArguments)
         .await
         .unwrap();
-    harness.send("SetLevel", &SetLevelGoal { level: 22 }).await;
+    harness
+        .send("SetLevel", &SetLevelGoal { level: 22 })
+        .await
+        .unwrap();
     let answer = harness
         .query::<_, LevelResponse>("Level", &LevelRequest::default())
         .await
+        .unwrap()
         .unwrap();
     assert_eq!(answer.level, 22);
 }

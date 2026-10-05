@@ -168,8 +168,11 @@ async fn composed_block_state_reaches_clients_through_the_service() {
     let harness = Harness::<ComposeCookbookService>::start(ComposeCookbookArguments)
         .await
         .expect("start");
-    let ack = harness.send("TurnOn", &LevelRequest::default()).await;
+    let ack = harness
+        .send("TurnOn", &LevelRequest::default())
+        .await
+        .unwrap();
     assert!(ack.accepted);
-    let lamp = harness.state::<LevelResponse>("lamp").await;
+    let lamp = harness.state::<LevelResponse>("lamp").await.unwrap();
     assert_eq!(lamp.level, 1);
 }

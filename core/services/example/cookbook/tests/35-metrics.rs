@@ -18,7 +18,6 @@ use blueos_service::{
     RestartPolicy, Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness,
 };
 
-// qual:test_helper only these tests use this Service and its Domain, and a dead type has no qual:allow target
 struct DoorbellService;
 
 #[derive(Clone, Default, clap::Args)]
@@ -125,7 +124,7 @@ async fn a_task_records_a_counter_that_shows_in_the_metrics_state() {
         .unwrap();
     advance(Duration::from_secs(1)).await;
 
-    let metrics = harness.state::<ServiceMetrics>("metrics").await;
+    let metrics = harness.state::<ServiceMetrics>("metrics").await.unwrap();
 
     let reports = metrics
         .counters
@@ -149,7 +148,7 @@ async fn a_domain_exposes_its_count_through_a_projection_a_task_records() {
     }
     advance(Duration::from_secs(1)).await;
 
-    let metrics = harness.state::<ServiceMetrics>("metrics").await;
+    let metrics = harness.state::<ServiceMetrics>("metrics").await.unwrap();
 
     let rings = metrics
         .gauges
