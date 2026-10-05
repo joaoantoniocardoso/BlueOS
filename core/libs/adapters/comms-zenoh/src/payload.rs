@@ -28,6 +28,7 @@ pub(crate) fn payload_from_zbytes(bytes: ZBytes) -> Payload {
 
 /// Sends a [`Payload`] on Zenoh, reusing an inner [`Bytes`] buffer when present.
 pub(crate) fn zbytes_from_payload(payload: &Payload) -> ZBytes {
+    // qual:allow(coupling, deh) reason: "reuse inner Bytes buffer when publishing without copying"
     if let Some(bytes) = payload.downcast_ref::<Bytes>() {
         ZBytes::from(bytes.clone())
     } else {
