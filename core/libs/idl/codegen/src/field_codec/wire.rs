@@ -64,8 +64,8 @@ pub(crate) fn read_field_tokens(
             quote! {
                 reader.read_or_default(|reader| {
                     let mut values = [Default::default(); #size];
-                    for index in 0..#size {
-                        values[index] = #element;
+                    for value in &mut values {
+                        *value = #element;
                     }
                     Ok(values)
                 })?

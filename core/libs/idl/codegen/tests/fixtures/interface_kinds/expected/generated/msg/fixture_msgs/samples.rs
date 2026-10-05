@@ -24,8 +24,8 @@ impl CdrStruct for Samples {
             })?,
             tag: reader.read_or_default(|reader| {
                 let mut values = [Default::default(); 4usize];
-                for index in 0..4usize {
-                    values[index] = reader.read_u8()?;
+                for value in &mut values {
+                    *value = reader.read_u8()?;
                 }
                 Ok(values)
             })?,
