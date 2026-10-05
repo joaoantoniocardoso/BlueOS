@@ -2,7 +2,7 @@
 
 use blueos_domain::Domain;
 
-use crate::{builder::InboxCommand, inbox::Delivery, run_outcome::RunOutcome};
+use crate::{inbox::Delivery, run_outcome::RunOutcome};
 
 use super::{
     super::{
@@ -14,17 +14,8 @@ use super::{
     decide::{DecideCommandContext, decide_command},
 };
 
-struct PendingDecidedDelivery<D: Domain> {
-    command: Option<InboxCommand<D>>,
-    now: blueos_domain::Now,
-    backup: D::Snapshot,
-    jobs_backup: blueos_jobs::Jobs,
-    reply: Option<crate::inbox::CommandReply>,
-    job_id: Option<blueos_jobs::JobId>,
-    persist_settings: bool,
-}
-
 impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
+    // qual:allow(complexity, max_function_lines=70) reason: "accept, decide, then commit or roll back in one linear sequence; most lines are the decide and commit literals"
     pub(super) async fn dispatch_delivery(&mut self, delivery: Delivery<D>) -> Option<RunOutcome> {
         let Delivery {
             input,
@@ -48,31 +39,6 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 return None;
             }
         };
-        self.finish_decided_delivery(PendingDecidedDelivery {
-            command,
-            now,
-            backup,
-            jobs_backup,
-            reply,
-            job_id,
-            persist_settings,
-        })
-        .await
-    }
-
-    async fn finish_decided_delivery(
-        &mut self,
-        pending: PendingDecidedDelivery<D>,
-    ) -> Option<RunOutcome> {
-        let PendingDecidedDelivery {
-            command,
-            now,
-            backup,
-            jobs_backup,
-            reply,
-            job_id,
-            persist_settings,
-        } = pending;
         let persist_settings = persist_settings && command.is_some();
         #[cfg(feature = "testing")]
         let run_effects = self.effect_log.is_none();
