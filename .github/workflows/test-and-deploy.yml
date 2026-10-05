@@ -2,6 +2,8 @@ name: Test, Build and Deploy Images
 
 env:
   DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+  # dtolnay/rust-toolchain turns colour on unless this is already set, and the escape codes clutter the logs.
+  CARGO_TERM_COLOR: never
 
 on:
     workflow_dispatch:
