@@ -21,6 +21,7 @@ pub mod message;
 
 mod generated;
 
+pub use encoding::{ENCODING_APPLICATION_CDR, cdr_encoding};
 pub use error::Error;
 pub use generated::{msg, schema};
 pub use message::Message;
