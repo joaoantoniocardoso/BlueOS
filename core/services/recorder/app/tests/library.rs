@@ -26,7 +26,8 @@ use common::harness::jobs::{next_job_result, subscribe_job_results};
 use common::harness::recording::start_recording;
 use common::harness::startup::start_harness;
 use common::harness::state::{
-    wait_for_active_recording, wait_for_library_file_listed, wait_for_recording_idle,
+    wait_for_active_recording, wait_for_library_file_listed, wait_for_library_state,
+    wait_for_recording_idle,
 };
 
 struct ListedDeleteFixture {
@@ -70,7 +71,13 @@ async fn stop_auto_recording_and_remove_session_files(
         }
     }
     advance(RESCAN_INTERVAL).await;
-    drain_blocking_io().await;
+    wait_for_library_state(harness.backend(), |library| {
+        !library
+            .files
+            .iter()
+            .any(|file| file.path.starts_with("recorder_"))
+    })
+    .await;
 }
 
 async fn drain_subscriber(updates: &mut blueos_comms::Subscriber) {
