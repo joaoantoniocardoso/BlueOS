@@ -262,3 +262,12 @@ if ! diff -u "$work/expected" "$work/actual"; then
     printf 'docs_paths_test: missing-path set mismatch\n%s\n' "$output" >&2
     exit 1
 fi
+
+# A file deleted from the working tree but still in the index is gone from the commit about to be made.
+rm "$work/clean/core/real.rs"
+if output=$(python3 "$checker" "$work/clean" 2>&1); then
+    fail "a reference to a file deleted from the working tree should fail"
+fi
+if ! grep -F -q "missing repository path 'core/real.rs'" <<<"$output"; then
+    fail "expected the deleted core/real.rs to be named in: $output"
+fi

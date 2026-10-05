@@ -127,11 +127,15 @@ def load_repository(repository_root: Path) -> tuple[set[str], set[str], set[str]
         metadata, path_bytes = record.split(b"\t", 1)
         mode = metadata.decode("ascii").split(" ", 1)[0]
         relative_path = path_bytes.decode("utf-8", "surrogateescape")
-        existing_paths.add(relative_path)
         if mode == "160000":
             submodule_prefixes.add(relative_path)
             record_directory(existing_paths, directories, top_level_directories, relative_path)
             continue
+        # A tracked file deleted from the working tree is gone from the commit about to be made.
+        working_tree_path = repository_root / relative_path
+        if not working_tree_path.is_symlink() and not working_tree_path.exists():
+            continue
+        existing_paths.add(relative_path)
         parent = relative_path
         while "/" in parent:
             parent = parent.rsplit("/", 1)[0]
