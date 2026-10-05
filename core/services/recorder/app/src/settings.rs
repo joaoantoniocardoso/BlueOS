@@ -31,7 +31,7 @@ impl Default for RecorderSettings {
 }
 
 impl SettingsSchema for RecorderSettings {
-    const VERSION: NonZeroU32 = NonZeroU32::new(1).unwrap();
+    const VERSION: NonZeroU32 = NonZeroU32::MIN;
 
     fn migrate(_data: &mut serde_json::Value) -> Result<(), blueos_settings::SettingsError> {
         Ok(())

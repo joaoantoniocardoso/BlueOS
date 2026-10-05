@@ -78,10 +78,8 @@ pub(crate) async fn run_index_query(
     let walker = Arc::clone(&context.index_walker);
     let cancel = Arc::new(AtomicBool::new(false));
     let cancel_for_walk = Arc::clone(&cancel);
-    let walk_path = path.clone();
-    let mut walk_task = tokio::task::spawn_blocking(move || {
-        (walker)(&walk_path, from_offset, limit, &cancel_for_walk)
-    });
+    let mut walk_task =
+        tokio::task::spawn_blocking(move || (walker)(&path, from_offset, limit, &cancel_for_walk));
     match tokio::time::timeout(walk_timeout, &mut walk_task).await {
         Ok(join_result) => join_result
             .map_err(|error| Refusal::from(format!("Recording index walk failed: {error}")))

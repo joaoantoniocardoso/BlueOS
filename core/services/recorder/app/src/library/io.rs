@@ -12,6 +12,7 @@ use blueos_recorder_library::{
     LibraryIoRequest, LibraryIoResult, RecordingContents, ScannedRecording,
 };
 use blueos_recorder_paths::RecordingRelativePath;
+use blueos_recorder_storage::scan_recordings_library;
 
 use crate::context::RecorderContext;
 
@@ -34,14 +35,12 @@ pub(crate) fn run_library_io(
                 LibraryIoRequest::Delete { path, job_id } => delete(context, path, job_id),
             })))
         }
-        RecorderIoRequest::Cameras(_) => {
-            unreachable!("cameras IO runs on the async executor")
-        }
+        RecorderIoRequest::Cameras(_) => Err(IoError::new("cameras IO runs on the async executor")),
     }
 }
 
 fn active_recording_relative_path(snapshot: &RecorderSnapshot) -> Option<String> {
-    match &snapshot.capture.recording {
+    match &snapshot.blocks.capture.recording {
         RecordingState::Active(active) => Some(active.file_name.clone()),
         _ => None,
     }
@@ -51,7 +50,7 @@ fn scan(context: &RecorderContext, snapshot: &RecorderSnapshot) -> LibraryIoResu
     let active = active_recording_relative_path(snapshot);
     let folder = &context.recordings_folder;
     let mut footer_cache = lock_unpoisoned(&context.library_footer_cache);
-    match folder.scan_library(active.as_deref(), &mut footer_cache) {
+    match scan_recordings_library(folder, active.as_deref(), &mut footer_cache) {
         Ok(files) => LibraryIoResult::ScanCompleted {
             recordings: files
                 .into_iter()

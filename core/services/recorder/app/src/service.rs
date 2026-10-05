@@ -75,10 +75,10 @@ impl Service for RecorderService {
                 })
                 .settings(
                     |snapshot: &mut RecorderSnapshot, settings: RecorderSettings| {
-                        snapshot.capture.settings = settings.into_capture_settings();
+                        snapshot.blocks.capture.settings = settings.into_capture_settings();
                     },
                     |snapshot: &RecorderSnapshot| {
-                        RecorderSettings::from_capture(&snapshot.capture.settings)
+                        RecorderSettings::from_capture(&snapshot.blocks.capture.settings)
                     },
                     |envelope| {
                         let document: RecorderSettings =
