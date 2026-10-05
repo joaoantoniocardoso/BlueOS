@@ -723,9 +723,11 @@ Decision:
 - Frontend layering mirrors the backend (D-02, D-14):
   - `src/libs/mcap/logic/`: pure TypeScript, no DOM, no network (record parsing, keyframe index, frames,
     codec parameters, CSV, muxing). Unit-tested with vitest in Node.
-  - `src/libs/mcap/adapters/`: IO behind small interfaces (`ByteSource`, WebCodecs/MSE players, canvas
-    thumbnails, thumbnail cache). The byte source and the index source are interfaces passed in; the recorder
-    client implements them with the `bytes` and `index` queries, so `libs/mcap` never imports `libs/recorder`.
+  - `src/libs/mcap/adapters/`: IO behind small interfaces (`ByteSource`, the MSE player, canvas thumbnails,
+    thumbnail cache). The byte source and the index source are interfaces passed in; the recorder client
+    implements them with the `bytes` and `index` queries, so `libs/mcap` never imports `libs/recorder`.
+  - Recorded video plays through MSE with fragmented MP4, never WebCodecs: BlueOS is served over plain HTTP, and
+    `VideoDecoder` exists only in secure contexts. Revisit if BlueOS moves to HTTPS.
   - `src/libs/recorder/`: framework-agnostic recorder client on the generated client (D-14). No Vue imports.
   - Vue 2 components (`components/records/*`, `RecordsView.vue`) only bind these to templates. Records shows an
     explicit empty state when the Recorder is not running.
