@@ -330,16 +330,24 @@ check_commit_subjects() {
     check_commit_subjects_from_log "$log"
 }
 
+# Only the nearest git process's own arguments count: a script above it may
+# mention --amend in its text without running an amend.
 commit_is_amend() {
-    local command_line process_id=$PPID depth
+    local process_id=$PPID depth argument
+    local -a arguments
     for ((depth = 0; depth < 4; depth++)); do
         if [ ! -r "/proc/${process_id}/cmdline" ]; then
             break
         fi
-        command_line=$(tr '\0' ' ' < "/proc/${process_id}/cmdline")
-        case " $command_line " in
-            *" --amend "*) return 0 ;;
-        esac
+        mapfile -d '' -t arguments < "/proc/${process_id}/cmdline"
+        if [ "${arguments[0]##*/}" = git ]; then
+            for argument in "${arguments[@]:1}"; do
+                if [ "$argument" = --amend ]; then
+                    return 0
+                fi
+            done
+            return 1
+        fi
         process_id=$(awk '/^PPid:/ { print $2 }' "/proc/${process_id}/status")
         if [ -z "$process_id" ] || [ "$process_id" = 0 ]; then
             break

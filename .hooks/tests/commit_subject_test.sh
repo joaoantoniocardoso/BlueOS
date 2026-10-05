@@ -261,6 +261,19 @@ test_push_base_missing_from_the_clone() {
     fi
 }
 
+test_amend_is_read_from_the_git_process() {
+    # The probe runs as the hook would: a child of a process named git, whose arguments are the commit's.
+    # shellcheck disable=SC2016
+    local probe='bash -c "source \"\$1\"; commit_is_amend" probe "$LIBRARY"; exit $?'
+    export LIBRARY="$ROOT_DIR/.hooks/lib/commit_subject.sh"
+    if ! bash -c "exec -a git bash -c '$probe' git commit --amend"; then
+        fail "git commit --amend must count as an amend"
+    fi
+    if bash -c ": a script that later runs git commit --amend ; (exec -a git bash -c '$probe' git commit); exit \$?"; then
+        fail "a plain git commit must not count as an amend because a wrapper mentions --amend"
+    fi
+}
+
 main() {
     test_style_guide_examples
     test_prefix_covers_every_file
@@ -271,6 +284,7 @@ main() {
     test_real_errors
     test_log_splits_commits
     test_push_base_missing_from_the_clone
+    test_amend_is_read_from_the_git_process
     printf 'commit_subject_test: ok\n'
 }
 
