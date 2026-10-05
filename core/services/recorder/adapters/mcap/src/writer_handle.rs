@@ -9,10 +9,7 @@ use tokio::{
 };
 use tracing::warn;
 
-use blueos_comms::Payload;
-
 use crate::{
-    channel_descriptor::{ChannelDescriptor, ChannelRoute},
     mcap_file::{McapError, McapFile, WriteSampleRequest},
     writer_metrics::WriterMetrics,
 };
@@ -101,16 +98,8 @@ impl McapWriterHandle {
 
     /// Queues a sample write; drops the sample when the queue is full or the sample would take it past its byte
     /// budget.
-    pub fn try_write_sample(
-        &self,
-        topic: String,
-        route: ChannelRoute,
-        log_time: u64,
-        publish_time: u64,
-        payload: Payload,
-        descriptor: Arc<ChannelDescriptor>,
-    ) {
-        let payload_bytes = payload.size_bytes();
+    pub fn try_write_sample(&self, request: WriteSampleRequest) {
+        let payload_bytes = request.payload.size_bytes();
         let queued_bytes = self
             .queued_bytes
             .fetch_add(payload_bytes, Ordering::Relaxed);
@@ -118,23 +107,16 @@ impl McapWriterHandle {
             self.queued_bytes
                 .fetch_sub(payload_bytes, Ordering::Relaxed);
             self.dropped_samples.fetch_add(1, Ordering::Relaxed);
-            self.metrics.record_dropped(&topic);
+            self.metrics.record_dropped(&request.topic);
             return;
         }
-        let command = WriterCommand::Write(WriteSampleRequest {
-            topic,
-            route,
-            log_time,
-            publish_time,
-            payload,
-            descriptor,
-        });
+        let command = WriterCommand::Write(request);
         if let Err(rejected) = self.command_sender.try_send(command) {
             self.queued_bytes
                 .fetch_sub(payload_bytes, Ordering::Relaxed);
             self.dropped_samples.fetch_add(1, Ordering::Relaxed);
-            if let WriterCommand::Write(request) = rejected.into_inner() {
-                self.metrics.record_dropped(&request.topic);
+            if let WriterCommand::Write(rejected_request) = rejected.into_inner() {
+                self.metrics.record_dropped(&rejected_request.topic);
             }
         }
     }
@@ -162,6 +144,15 @@ impl McapWriterHandle {
     }
 }
 
+struct WriteBatchContext<'a> {
+    open: &'a mut Option<McapFile>,
+    command_receiver: &'a mut mpsc::Receiver<WriterCommand>,
+    pending: &'a mut Option<WriterCommand>,
+    bytes_written: &'a Arc<AtomicU64>,
+    queued_bytes: &'a Arc<AtomicUsize>,
+    metrics: &'a Arc<WriterMetrics>,
+}
+
 async fn writer_actor(
     mut command_receiver: mpsc::Receiver<WriterCommand>,
     bytes_written: Arc<AtomicU64>,
@@ -184,95 +175,24 @@ async fn writer_actor(
                 file_name,
                 reply,
             } => {
-                let previous = open.take();
-                let open_result = tokio::task::spawn_blocking(move || {
-                    if let Some(file) = previous {
-                        let _ = finish_file(file, "before opening a new MCAP file");
-                    }
-                    McapFile::open(path, file_name)
-                })
-                .await;
-                let open_result = match open_result {
-                    Ok(result) => result,
-                    Err(join_error) => {
-                        warn!(%join_error, "MCAP open task failed");
-                        let _ = reply.send(Err(McapError::WriterStopped));
-                        continue;
-                    }
-                };
-                match open_result {
-                    Ok(file) => {
-                        bytes_written.store(0, Ordering::Relaxed);
-                        open = Some(file);
-                        let _ = reply.send(Ok(()));
-                    }
-                    Err(error) => {
-                        let _ = reply.send(Err(error));
-                    }
-                }
+                open_mcap_file(&mut open, path, file_name, reply, &bytes_written).await;
             }
             WriterCommand::Write(first) => {
-                let mut batch = vec![first];
-                loop {
-                    match command_receiver.try_recv() {
-                        Ok(WriterCommand::Write(request)) => batch.push(request),
-                        Ok(other) => {
-                            pending = Some(other);
-                            break;
-                        }
-                        Err(_) => break,
-                    }
-                }
-                let batch_bytes: usize = batch
-                    .iter()
-                    .map(|request| request.payload.size_bytes())
-                    .sum();
-                let Some(mut file) = open.take() else {
-                    queued_bytes.fetch_sub(batch_bytes, Ordering::Relaxed);
-                    continue;
-                };
-                let write_result = tokio::task::spawn_blocking({
-                    let metrics = Arc::clone(&metrics);
-                    move || {
-                    for request in batch {
-                        match file.write_sample_request(&request) {
-                            Ok(()) => metrics
-                                .record_written(&request.topic, request.payload.size_bytes()),
-                            Err(error) => {
-                                warn!(%error, topic = %request.topic, "failed to write MCAP sample");
-                            }
-                        }
-                    }
-                    let bytes = file.bytes_written();
-                    (file, bytes)
-                    }
-                })
+                write_mcap_batch(
+                    first,
+                    WriteBatchContext {
+                        open: &mut open,
+                        command_receiver: &mut command_receiver,
+                        pending: &mut pending,
+                        bytes_written: &bytes_written,
+                        queued_bytes: &queued_bytes,
+                        metrics: &metrics,
+                    },
+                )
                 .await;
-                queued_bytes.fetch_sub(batch_bytes, Ordering::Relaxed);
-                match write_result {
-                    Ok((written_file, bytes)) => {
-                        open = Some(written_file);
-                        bytes_written.store(bytes, Ordering::Relaxed);
-                    }
-                    Err(join_error) => {
-                        warn!(%join_error, "MCAP write task failed");
-                    }
-                }
             }
             WriterCommand::Finish { reply } => {
-                let taken = open.take();
-                let result = tokio::task::spawn_blocking(move || {
-                    taken.map_or(Ok(0), |file| finish_file(file, "on Finish command"))
-                })
-                .await;
-                let result = match result {
-                    Ok(result) => result,
-                    Err(join_error) => {
-                        warn!(%join_error, "MCAP finish task failed");
-                        Err(McapError::WriterStopped)
-                    }
-                };
-                let _ = reply.send(result);
+                finish_mcap_file(&mut open, reply).await;
             }
             WriterCommand::Shutdown => break,
         }
@@ -280,6 +200,116 @@ async fn writer_actor(
     if let Some(file) = open.take() {
         let _ = tokio::task::spawn_blocking(move || finish_file(file, "on writer shutdown")).await;
     }
+}
+
+async fn open_mcap_file(
+    open: &mut Option<McapFile>,
+    path: PathBuf,
+    file_name: String,
+    reply: oneshot::Sender<Result<(), McapError>>,
+    bytes_written: &Arc<AtomicU64>,
+) {
+    let previous = open.take();
+    let open_result = tokio::task::spawn_blocking(move || {
+        if let Some(file) = previous {
+            let _ = finish_file(file, "before opening a new MCAP file");
+        }
+        McapFile::open(path, file_name)
+    })
+    .await;
+    let open_result = match open_result {
+        Ok(result) => result,
+        Err(join_error) => {
+            warn!(%join_error, "MCAP open task failed");
+            let _ = reply.send(Err(McapError::WriterStopped));
+            return;
+        }
+    };
+    match open_result {
+        Ok(file) => {
+            bytes_written.store(0, Ordering::Relaxed);
+            *open = Some(file);
+            let _ = reply.send(Ok(()));
+        }
+        Err(error) => {
+            let _ = reply.send(Err(error));
+        }
+    }
+}
+
+async fn write_mcap_batch(first: WriteSampleRequest, context: WriteBatchContext<'_>) {
+    let WriteBatchContext {
+        open,
+        command_receiver,
+        pending,
+        bytes_written,
+        queued_bytes,
+        metrics,
+    } = context;
+    let mut batch = vec![first];
+    loop {
+        match command_receiver.try_recv() {
+            Ok(WriterCommand::Write(request)) => batch.push(request),
+            Ok(other) => {
+                *pending = Some(other);
+                break;
+            }
+            Err(_) => break,
+        }
+    }
+    let batch_bytes: usize = batch
+        .iter()
+        .map(|request| request.payload.size_bytes())
+        .sum();
+    let Some(mut file) = open.take() else {
+        queued_bytes.fetch_sub(batch_bytes, Ordering::Relaxed);
+        return;
+    };
+    let write_result = tokio::task::spawn_blocking({
+        let metrics = Arc::clone(metrics);
+        move || {
+            for request in batch {
+                match file.write_sample_request(&request) {
+                    Ok(()) => metrics.record_written(&request.topic, request.payload.size_bytes()),
+                    Err(error) => {
+                        warn!(%error, topic = %request.topic, "failed to write MCAP sample");
+                    }
+                }
+            }
+            let bytes = file.bytes_written;
+            (file, bytes)
+        }
+    })
+    .await;
+    queued_bytes.fetch_sub(batch_bytes, Ordering::Relaxed);
+    match write_result {
+        Ok((written_file, bytes)) => {
+            *open = Some(written_file);
+            bytes_written.store(bytes, Ordering::Relaxed);
+        }
+        Err(join_error) => {
+            warn!(%join_error, "MCAP write task failed");
+        }
+    }
+}
+
+async fn finish_mcap_file(
+    open: &mut Option<McapFile>,
+    reply: oneshot::Sender<Result<u64, McapError>>,
+) {
+    let taken = open.take();
+    let result = tokio::task::spawn_blocking(move || {
+        taken.map_or(Ok(0), |file| finish_file(file, "on Finish command"))
+    })
+    .await;
+    let result = match result {
+        Ok(result) => result,
+        Err(join_error) => {
+            warn!(%join_error, "MCAP finish task failed");
+            Err(McapError::WriterStopped)
+        }
+    };
+    let _ = reply.send(result);
 }
 
 fn finish_file(file: McapFile, context: &str) -> Result<u64, McapError> {

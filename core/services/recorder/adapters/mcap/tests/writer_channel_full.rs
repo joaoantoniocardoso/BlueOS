@@ -13,7 +13,9 @@ use metrics::{
 };
 
 use blueos_comms::Payload;
-use blueos_recorder_mcap::{ChannelDescriptor, ChannelRoute, McapWriterHandle, MessageEncoding};
+use blueos_recorder_mcap::{
+    ChannelDescriptor, ChannelRoute, McapWriterHandle, MessageEncoding, WriteSampleRequest,
+};
 
 /// Keeps every counter it is asked for, by name and labels.
 #[derive(Default)]
@@ -66,14 +68,14 @@ async fn a_sample_the_full_channel_rejects_is_dropped_and_counted_in_its_lane() 
 
     // The runtime cannot run the writer actor while this loop does not yield, so the channel only fills.
     for _ in 0..10_000 {
-        writer.try_write_sample(
-            topic.into(),
-            ChannelRoute::for_topic(topic),
-            0,
-            0,
-            Payload::new(Bytes::from_static(&[0])),
-            Arc::clone(&descriptor),
-        );
+        writer.try_write_sample(WriteSampleRequest {
+            topic: topic.into(),
+            route: ChannelRoute::for_topic(topic),
+            log_time: 0,
+            publish_time: 0,
+            payload: Payload::new(Bytes::from_static(&[0])),
+            descriptor: Arc::clone(&descriptor),
+        });
     }
 
     let dropped = writer.take_dropped_samples();

@@ -6,7 +6,9 @@ use bytes::Bytes;
 use tempfile::tempdir;
 
 use blueos_comms::Payload;
-use blueos_recorder_mcap::{ChannelDescriptor, ChannelRoute, McapWriterHandle, MessageEncoding};
+use blueos_recorder_mcap::{
+    ChannelDescriptor, ChannelRoute, McapWriterHandle, MessageEncoding, WriteSampleRequest,
+};
 
 #[tokio::test]
 async fn a_sample_past_the_queue_byte_budget_is_dropped_and_counted() {
@@ -24,14 +26,14 @@ async fn a_sample_past_the_queue_byte_budget_is_dropped_and_counted() {
     });
 
     for _ in 0..8 {
-        writer.try_write_sample(
-            "test/topic".into(),
-            ChannelRoute::for_topic("test/topic"),
-            0,
-            0,
-            Payload::new(Bytes::from(vec![0_u8; 1024])),
-            Arc::clone(&descriptor),
-        );
+        writer.try_write_sample(WriteSampleRequest {
+            topic: "test/topic".into(),
+            route: ChannelRoute::for_topic("test/topic"),
+            log_time: 0,
+            publish_time: 0,
+            payload: Payload::new(Bytes::from(vec![0_u8; 1024])),
+            descriptor: Arc::clone(&descriptor),
+        });
     }
 
     assert_eq!(writer.take_dropped_samples(), 4);

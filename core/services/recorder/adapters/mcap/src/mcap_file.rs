@@ -4,7 +4,7 @@ use std::{
     collections::BTreeMap,
     fs::{File, OpenOptions},
     io::BufWriter,
-    path::{Path, PathBuf},
+    path::PathBuf,
     sync::Arc,
 };
 
@@ -18,7 +18,7 @@ use blueos_comms::Payload;
 
 use crate::channel_descriptor::{
     ChannelDescriptor, ChannelRoute, channel_descriptor_cdr_fallback,
-    channel_descriptor_for_ros2_type, channel_descriptor_for_sample,
+    channel_descriptor_for_ros2_type,
 };
 
 /// Errors while writing an MCAP file.
@@ -56,11 +56,12 @@ pub struct WriteSampleRequest {
 
 /// An open MCAP recording file.
 pub struct McapFile {
-    path: PathBuf,
-    file_name: String,
+    /// Basename reported to the Domain.
+    pub(crate) file_name: String,
     writer: Writer<BufWriter<File>>,
     channels: BTreeMap<ChannelRoute, ChannelState>,
-    bytes_written: u64,
+    /// Bytes written to the file body so far.
+    pub(crate) bytes_written: u64,
 }
 
 struct ChannelState {
@@ -84,27 +85,11 @@ impl McapFile {
         )
         .map_err(McapError::Mcap)?;
         Ok(Self {
-            path,
             file_name,
             writer,
             channels: BTreeMap::new(),
             bytes_written: 0,
         })
-    }
-
-    /// Basename reported to the Domain.
-    pub fn file_name(&self) -> &str {
-        &self.file_name
-    }
-
-    /// Path on disk.
-    pub fn path(&self) -> &Path {
-        &self.path
-    }
-
-    /// Bytes written to the file body so far.
-    pub fn bytes_written(&self) -> u64 {
-        self.bytes_written
     }
 
     /// Writes one queued sample.
@@ -113,11 +98,10 @@ impl McapFile {
             self.channel_id_for(&request.route, &request.topic, request.descriptor.as_ref())?;
         let payload = request.payload.to_bytes();
         let payload = payload.as_ref();
-        let sequence = self
-            .channels
-            .get(&request.route)
-            .expect("channel exists")
-            .sequence;
+        let sequence = match self.channels.get(&request.route) {
+            Some(channel) => channel.sequence,
+            None => return Err(McapError::WriterStopped),
+        };
         self.writer
             .write_to_known_channel(
                 &MessageHeader {
@@ -193,20 +177,6 @@ impl McapFile {
     }
 }
 
-/// Picks or builds the channel descriptor for `sample`, reusing `cache` when present.
-pub fn descriptor_for_sample(
-    topic: &str,
-    encoding: &str,
-    payload: &blueos_comms::Payload,
-    cache: &mut BTreeMap<String, Arc<ChannelDescriptor>>,
-) -> Option<Arc<ChannelDescriptor>> {
-    if !cache.contains_key(topic) {
-        let descriptor = channel_descriptor_for_sample(topic, encoding, payload)?;
-        cache.insert(topic.to_owned(), Arc::new(descriptor));
-    }
-    cache.get(topic).cloned()
-}
-
 /// Descriptor for a ros2dds schema lane (typed or fallback when schema text is unknown).
 pub fn ros2_lane_descriptor(
     topic: &str,
@@ -236,8 +206,10 @@ pub fn cached_descriptor(
     route: &ChannelRoute,
     build: impl FnOnce() -> ChannelDescriptor,
 ) -> Arc<ChannelDescriptor> {
-    if !cache.contains_key(route) {
-        cache.insert(route.clone(), Arc::new(build()));
+    if let Some(descriptor) = cache.get(route) {
+        return Arc::clone(descriptor);
     }
-    Arc::clone(cache.get(route).expect("inserted"))
+    let descriptor = Arc::new(build());
+    cache.insert(route.clone(), Arc::clone(&descriptor));
+    descriptor
 }
