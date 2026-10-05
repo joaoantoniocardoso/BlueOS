@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Reruns Rust integration-test binaries changed since a base ref, one binary at a time.
+# Reruns Rust integration-test binaries changed since a base ref, each running its tests one at a time.
 # A race that vanishes when tests run in parallel still fails a serial rerun.
 # Usage: flake_hunt.sh <base-ref>
 # FLAKE_HUNT_ITERATIONS sets how many times each binary runs (default 200).
@@ -65,6 +65,7 @@ while IFS= read -r path; do
     unique_test_files+=("$path")
 done < <(printf '%s\n' "${test_files[@]}" | sort -u)
 
+executables=()
 for test_file in "${unique_test_files[@]}"; do
     # trybuild checks compile errors. Those results do not change between runs, and one run is minutes.
     if grep -q 'trybuild' "$test_file"; then
@@ -99,7 +100,15 @@ for test_file in "${unique_test_files[@]}"; do
         printf 'flake_hunt: no test binary for %s --test %s\n' "$package" "$test_name" >&2
         exit 1
     fi
+    executables+=("$executable")
+done
 
+if [ "${#executables[@]}" -eq 0 ]; then
+    exit 0
+fi
+
+hunt_binary() {
+    local executable=$1 iteration output failed_test
     for ((iteration = 1; iteration <= iterations; iteration++)); do
         if output=$("$executable" --test-threads=1 2>&1); then
             continue
@@ -110,9 +119,14 @@ for test_file in "${unique_test_files[@]}"; do
         if [ -z "$failed_test" ]; then
             failed_test=unknown
         fi
-        printf 'flake_hunt: binary %s test %s iteration %s\n' \
-            "$executable" "$failed_test" "$iteration" >&2
-        printf '%s\n' "$output" >&2
-        exit 1
+        printf 'flake_hunt: binary %s test %s iteration %s\n%s\n' \
+            "$executable" "$failed_test" "$iteration" "$output" >&2
+        return 1
     done
-done
+}
+export -f hunt_binary
+export iterations
+
+# Binaries run side by side, as nextest runs them; only the tests inside one binary stay serial.
+# shellcheck disable=SC2016
+printf '%s\0' "${executables[@]}" | xargs -0 -n 1 -P "$(nproc)" bash -c 'hunt_binary "$1"' hunt_binary || exit 1
