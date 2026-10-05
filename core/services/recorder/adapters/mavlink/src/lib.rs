@@ -21,6 +21,8 @@ use mavlink::dialects::ardupilotmega::{
 use mavlink_codec::PacketRef;
 use tracing::{trace, warn};
 
+use blueos_recorder_cameras::CaptureCommandKind;
+
 pub use camera::video_topic_from_name;
 pub use encode::{
     build_camera_capture_status, build_command_ack, build_discovery_request, encode_command_long,
@@ -52,7 +54,7 @@ pub enum MavlinkFact {
     /// A capture command from the camera manager.
     CameraCaptureCommand {
         /// Capture command kind.
-        command: MavlinkCaptureCommand,
+        command: CaptureCommandKind,
         /// System and component that sent the command, which the `COMMAND_ACK` is addressed to.
         sender: SystemAndComponent,
         /// Target system.
@@ -62,17 +64,6 @@ pub enum MavlinkFact {
         /// Requested status rate in hertz (`param2` on the command).
         status_interval_hertz: f32,
     },
-}
-
-/// Capture commands the camera manager sends over MAVLink.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum MavlinkCaptureCommand {
-    /// Start video capture.
-    StartCapture,
-    /// Stop video capture.
-    StopCapture,
-    /// Request capture status.
-    RequestCaptureStatus,
 }
 
 /// Discovery messages requested after a camera heartbeat.
@@ -234,16 +225,28 @@ fn command_long_facts(packet: &PacketRef) -> Vec<MavlinkFact> {
     }]
 }
 
-fn mavlink_capture_command(command: MavCmd) -> Option<MavlinkCaptureCommand> {
+pub(crate) fn mavlink_command_for_capture(command: CaptureCommandKind) -> MavCmd {
     match command {
-        MavCmd::MAV_CMD_VIDEO_START_CAPTURE => Some(MavlinkCaptureCommand::StartCapture),
-        MavCmd::MAV_CMD_VIDEO_STOP_CAPTURE => Some(MavlinkCaptureCommand::StopCapture),
+        CaptureCommandKind::StartCapture => MavCmd::MAV_CMD_VIDEO_START_CAPTURE,
+        CaptureCommandKind::StopCapture => MavCmd::MAV_CMD_VIDEO_STOP_CAPTURE,
+        #[expect(
+            deprecated,
+            reason = "camera manager still sends REQUEST_CAMERA_CAPTURE_STATUS"
+        )]
+        CaptureCommandKind::RequestCaptureStatus => MavCmd::MAV_CMD_REQUEST_CAMERA_CAPTURE_STATUS,
+    }
+}
+
+fn mavlink_capture_command(command: MavCmd) -> Option<CaptureCommandKind> {
+    match command {
+        MavCmd::MAV_CMD_VIDEO_START_CAPTURE => Some(CaptureCommandKind::StartCapture),
+        MavCmd::MAV_CMD_VIDEO_STOP_CAPTURE => Some(CaptureCommandKind::StopCapture),
         #[expect(
             deprecated,
             reason = "camera manager still sends REQUEST_CAMERA_CAPTURE_STATUS"
         )]
         MavCmd::MAV_CMD_REQUEST_CAMERA_CAPTURE_STATUS => {
-            Some(MavlinkCaptureCommand::RequestCaptureStatus)
+            Some(CaptureCommandKind::RequestCaptureStatus)
         }
         _ => None,
     }

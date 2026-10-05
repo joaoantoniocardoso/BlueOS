@@ -7,7 +7,15 @@ use mavlink::{
     },
 };
 
-use crate::{MavlinkCaptureCommand, MavlinkDiscoveryMessage, SystemAndComponent};
+use blueos_recorder_cameras::CaptureCommandKind;
+
+use crate::{MavlinkDiscoveryMessage, SystemAndComponent, mavlink_command_for_capture};
+
+/// `COMMAND_LONG` carries seven `f32` parameters (`param1`..`param7`).
+const COMMAND_LONG_PARAMETER_COUNT: usize = 7;
+/// MAVLink v2 wire protocol version field on `HEARTBEAT` (`mavlink_version`).
+const MAVLINK_V2_WIRE_PROTOCOL_VERSION: u8 = 3;
+type CommandLongParameters = [f32; COMMAND_LONG_PARAMETER_COUNT];
 
 /// Builds a `COMMAND_LONG` discovery request for a camera.
 pub fn build_discovery_request(
@@ -29,6 +37,7 @@ pub fn build_discovery_request(
     )
 }
 
+// qual:test_helper
 /// Encodes a ground station's video start (or, when `start` is false, stop) capture command to a camera, for tests
 /// (`mavlink_raw/out` ingress).
 pub fn test_camera_capture_frame(start: bool, target_system: u8, target_component: u8) -> Vec<u8> {
@@ -45,7 +54,7 @@ pub fn test_camera_capture_frame(start: bool, target_system: u8, target_componen
             component_id: target_component,
         },
         command,
-        [0.0; 7],
+        [0.0; COMMAND_LONG_PARAMETER_COUNT],
     )
 }
 
@@ -55,7 +64,7 @@ pub fn encode_command_long(
     sequence: &mut u8,
     target: SystemAndComponent,
     command: MavCmd,
-    parameters: [f32; 7],
+    parameters: CommandLongParameters,
 ) -> Vec<u8> {
     let header = MavHeader {
         system_id: source.system_id,
@@ -87,7 +96,7 @@ pub fn build_command_ack(
     camera: SystemAndComponent,
     recipient: SystemAndComponent,
     sequence: u8,
-    command: MavlinkCaptureCommand,
+    command: CaptureCommandKind,
     accepted: bool,
 ) -> Vec<u8> {
     let result = if accepted {
@@ -100,17 +109,7 @@ pub fn build_command_ack(
         component_id: camera.component_id,
         sequence,
     };
-    let mavlink_command = match command {
-        MavlinkCaptureCommand::StartCapture => MavCmd::MAV_CMD_VIDEO_START_CAPTURE,
-        MavlinkCaptureCommand::StopCapture => MavCmd::MAV_CMD_VIDEO_STOP_CAPTURE,
-        #[expect(
-            deprecated,
-            reason = "camera manager still sends REQUEST_CAMERA_CAPTURE_STATUS"
-        )]
-        MavlinkCaptureCommand::RequestCaptureStatus => {
-            MavCmd::MAV_CMD_REQUEST_CAMERA_CAPTURE_STATUS
-        }
-    };
+    let mavlink_command = mavlink_command_for_capture(command);
     encode_mavlink_message(
         header,
         &MavMessage::COMMAND_ACK(COMMAND_ACK_DATA {
@@ -151,6 +150,7 @@ pub fn build_camera_capture_status(
     )
 }
 
+// qual:test_helper
 /// Encodes an autopilot heartbeat for tests (`mavlink_raw/out` ingress).
 pub fn test_vehicle_heartbeat_frame(armed: bool) -> Vec<u8> {
     let mut base_mode = MavModeFlag::MAV_MODE_FLAG_CUSTOM_MODE_ENABLED;
@@ -170,7 +170,7 @@ pub fn test_vehicle_heartbeat_frame(armed: bool) -> Vec<u8> {
             autopilot: mavlink::dialects::ardupilotmega::MavAutopilot::MAV_AUTOPILOT_ARDUPILOTMEGA,
             base_mode,
             system_status: MavState::MAV_STATE_ACTIVE,
-            mavlink_version: 0x3,
+            mavlink_version: MAVLINK_V2_WIRE_PROTOCOL_VERSION,
         }),
     )
 }

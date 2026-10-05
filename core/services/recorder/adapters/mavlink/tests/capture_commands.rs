@@ -6,9 +6,10 @@ use mavlink::{
 };
 use mavlink_codec::PacketRef;
 
+use blueos_recorder_cameras::CaptureCommandKind;
 use blueos_recorder_mavlink::{
-    MavlinkCaptureCommand, MavlinkFact, MavlinkIngressState, SystemAndComponent, build_command_ack,
-    encode_command_long, facts_from_frame,
+    MavlinkFact, MavlinkIngressState, SystemAndComponent, build_command_ack, encode_command_long,
+    facts_from_frame,
 };
 
 const GROUND_STATION: SystemAndComponent = SystemAndComponent {
@@ -26,7 +27,7 @@ fn command_ack_is_addressed_to_the_sender_of_the_command() {
         CAMERA,
         GROUND_STATION,
         0,
-        MavlinkCaptureCommand::StartCapture,
+        CaptureCommandKind::StartCapture,
         true,
     );
 
