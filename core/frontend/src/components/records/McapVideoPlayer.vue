@@ -187,6 +187,7 @@
           ref="timeline"
           class="timeline mt-1"
           :class="{ 'timeline-over-video': pointer_over_video }"
+          :style="{ height: `${timeline_height}px` }"
           role="slider"
           :aria-valuemin="0"
           :aria-valuemax="duration"
@@ -197,16 +198,22 @@
           @pointercancel="onTimelineUp"
           @pointerleave="onTimelineLeave"
         >
-          <div class="timeline-track" />
-          <div
-            v-for="(range, index) in video_styles"
-            :key="`video-${index}`"
-            class="timeline-video"
-            :style="range.style"
-          >
-            <span class="timeline-mark timeline-mark-start white--text">&gt;</span>
-            <span class="timeline-mark timeline-mark-end white--text">&lt;</span>
-          </div>
+          <template v-for="(lane, laneIndex) in timeline_lanes">
+            <div
+              :key="`track-${lane.channelId}`"
+              class="timeline-track"
+              :style="{ top: laneTop(laneIndex) }"
+            />
+            <div
+              v-for="(range, index) in lane.ranges"
+              :key="`video-${lane.channelId}-${index}`"
+              class="timeline-video"
+              :style="{ ...range.style, top: laneTop(laneIndex) }"
+            >
+              <span class="timeline-mark timeline-mark-start white--text">&gt;</span>
+              <span class="timeline-mark timeline-mark-end white--text">&lt;</span>
+            </div>
+          </template>
           <div
             v-for="(range, index) in buffered_styles"
             :key="`buffered-${index}`"
@@ -215,7 +222,7 @@
           />
           <div
             class="timeline-playhead white"
-            :style="{ left: playhead_percent }"
+            :style="{ left: playhead_percent, top: playhead_top }"
           />
           <div
             v-if="pointer_seconds !== null"
@@ -343,6 +350,7 @@
             Whole recording
           </v-btn>
           <v-btn
+            v-if="tracks.length > 0"
             v-tooltip="'Move the start of the saved part to the playback position'"
             small
             text
@@ -352,6 +360,7 @@
             Set start to playhead
           </v-btn>
           <v-btn
+            v-if="tracks.length > 0"
             v-tooltip="'Move the end of the saved part to the playback position'"
             small
             text
@@ -413,7 +422,7 @@
             color="primary"
             class="mb-2"
             :loading="Boolean(export_progress)"
-            :disabled="Boolean(export_progress) || tracks.length === 0"
+            :disabled="Boolean(export_progress) || visible_tracks.length === 0"
             @click="saveMp4"
           >
             <v-icon small left>
@@ -423,6 +432,15 @@
           </v-btn>
         </div>
       </div>
+      <v-alert
+        v-if="export_notice"
+        type="info"
+        dense
+        text
+        class="mt-2 mb-0"
+      >
+        {{ export_notice }}
+      </v-alert>
 
       <div
         v-if="statistics && leader_stats"
@@ -543,7 +561,6 @@ import {
   McapPlaybackViewState,
   McapRecordingPlaybackController,
   type McapVideoStats,
-  mergedVideoCoverage,
   mp4SaveLabel,
   namingPercent,
   namingStatusText,
@@ -553,12 +570,16 @@ import {
   type RecordingIndexSource,
   recordingNameFromUrl,
   timelinePercent,
-  timelineRangeStyles,
   trackCoversAt,
+  trackTimelineLanes,
   type VideoTrack,
   visibleTracks,
 } from '@/libs/mcap'
+import type { ByteSource } from '@/libs/mcap/logic/byte-source'
 import { prettifySize } from '@/utils/helper_functions'
+
+const TIMELINE_HEIGHT = 18
+const TIMELINE_LANE_PITCH = 6
 
 function emptyView(): McapPlaybackViewState {
   return {
@@ -585,6 +606,7 @@ function emptyView(): McapPlaybackViewState {
     exportTrackName: null,
     exportTrackIndex: 0,
     exportTrackCount: 0,
+    exportNotice: null,
     playing: false,
     pendingSeek: null,
     timelineDragging: false,
@@ -601,6 +623,7 @@ export default Vue.extend({
   components: { McapCsvExport, McapVideoStream },
   props: {
     url: { type: String, required: true },
+    source: { type: Object as PropType<ByteSource>, required: true },
     indexSource: { type: Object as PropType<RecordingIndexSource | undefined>, default: undefined },
     ongoing: { type: Boolean, default: false },
     writtenSizeBytes: { type: Number, default: undefined },
@@ -629,6 +652,7 @@ export default Vue.extend({
     export_track_name() { return this.view.exportTrackName },
     export_track_index() { return this.view.exportTrackIndex },
     export_track_count() { return this.view.exportTrackCount },
+    export_notice() { return this.view.exportNotice },
     playing() { return this.view.playing },
     stream_search: {
       get(): string { return this.view.streamSearch },
@@ -660,7 +684,7 @@ export default Vue.extend({
     duration() { return this.recording?.durationSeconds ?? 0 },
     clip() { return clipExportRange(this.cut_enabled, this.clip_range, this.duration) },
     clip_duration_label() { return clipDurationLabel(this.clip_range) },
-    save_label() { return mp4SaveLabel(this.tracks.length, this.clip, this.clip_range) },
+    save_label() { return mp4SaveLabel(this.visible_tracks.length, this.clip, this.clip_range) },
     page_busy() { return Boolean(this.export_progress) || this.csv_busy },
     export_percentage() {
       return exportPercentage(this.export_progress, this.export_track_index, this.export_track_count)
@@ -691,7 +715,6 @@ export default Vue.extend({
     naming_status() { return namingStatusText(this.naming_progress, prettifySize) },
     naming_percent() { return namingPercent(this.naming_progress) },
     name() { return recordingNameFromUrl(this.url) },
-    video_coverage() { return mergedVideoCoverage(this.visible_tracks) },
     last_video_time() {
       return coverageEnd(this.visible_tracks.length > 0 ? this.visible_tracks : this.tracks)
     },
@@ -699,7 +722,12 @@ export default Vue.extend({
     frame_age_label() { return formatFrameAge(this.last_video_time - this.position) },
     playhead_percent() { return timelinePercent(this.position, this.duration) },
     hover_percent() { return timelinePercent(this.pointer_seconds, this.duration) },
-    video_styles() { return timelineRangeStyles(this.video_coverage, this.duration) },
+    timeline_lanes() {
+      const lanes = trackTimelineLanes(this.visible_tracks, this.duration)
+      return lanes.length > 0 ? lanes : [{ channelId: -1, ranges: [] }]
+    },
+    timeline_height() { return TIMELINE_HEIGHT + (this.timeline_lanes.length - 1) * TIMELINE_LANE_PITCH },
+    playhead_top() { return `${5 + (this.timeline_lanes.length - 1) * TIMELINE_LANE_PITCH / 2}px` },
     buffered_styles() { return bufferedRangeStyles(this.buffered_ranges, this.duration) },
   },
   watch: {
@@ -713,7 +741,7 @@ export default Vue.extend({
   },
   mounted() {
     this.controller = new McapRecordingPlaybackController({
-      url: this.url,
+      source: this.source,
       indexSource: this.indexSource,
       ongoing: this.ongoing,
       writtenSizeBytes: this.writtenSizeBytes,
@@ -737,6 +765,7 @@ export default Vue.extend({
     this.$emit('busy', false)
   },
   methods: {
+    laneTop(laneIndex: number): string { return `${8 + laneIndex * TIMELINE_LANE_PITCH}px` },
     syncStreamControls(): void {
       const streams = this.streamRefs()
       this.controller?.setStreamControls(

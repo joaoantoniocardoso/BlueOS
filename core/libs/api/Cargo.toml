@@ -16,4 +16,4 @@ blueos-idl = { workspace = true }
 
 [dev-dependencies]
 serde = { workspace = true, features = ["derive", "std"] }
-serde_json = "1"
+serde_json.workspace = true

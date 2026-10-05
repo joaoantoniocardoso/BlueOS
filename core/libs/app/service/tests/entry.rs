@@ -35,10 +35,15 @@ impl Service for FixtureService {
     const NAME: &'static str = "fixture";
     const VERSION: &'static str = "9.8.7";
 
+    fn context(_service: &ServiceContext<FixtureArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        context: &ServiceContext<FixtureArguments>,
+        service: &ServiceContext<FixtureArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<Fixture>, ServiceError> {
-        let _marker = context.arguments().marker.clone();
+        let _marker = service.arguments().marker.clone();
         Ok(ServiceBuilder::new(FixtureSnapshot))
     }
 }
@@ -137,6 +142,24 @@ fn service_help_and_version_exit_success() {
 }
 
 #[test]
+fn service_help_names_an_option() {
+    const CHILD_MARKER: &str = "BLUEOS_TEST_PRINT_SERVICE_HELP";
+    if std::env::var_os(CHILD_MARKER).is_some() {
+        let _ = parse_service_cli::<FixtureService>(["fixture", "--help"].map(OsString::from));
+        return;
+    }
+    let output = std::process::Command::new(std::env::current_exe().expect("test binary"))
+        .args(["--exact", "service_help_names_an_option", "--nocapture"])
+        .env(CHILD_MARKER, "1")
+        .output()
+        .expect("run the test binary");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Usage: fixture"), "stdout was: {stdout}");
+    assert!(stdout.contains("--marker"), "stdout was: {stdout}");
+    assert!(stdout.contains("--zenoh-endpoint"), "stdout was: {stdout}");
+}
+
+#[test]
 fn resolve_subcommand_style() {
     let arguments = ["blueos", "fixture", "--help"].map(OsString::from);
     let resolved = resolve(&arguments).expect("name");
@@ -169,16 +192,20 @@ async fn run_with_backend_stops_on_shutdown() {
     let parsed =
         parse_service_cli::<FixtureService>(["fixture", "--marker", "/tmp/x"].map(OsString::from))
             .expect("parse");
-    let mut builder = FixtureService::build(&ServiceContext::new(
-        parsed.service.clone(),
-        blueos_service::testing::channel_session(),
-    ))
+    let mut builder = FixtureService::build(
+        &ServiceContext::new(
+            parsed.service.clone(),
+            blueos_service::testing::channel_session(),
+        ),
+        &(),
+    )
     .unwrap();
     let shutdown = builder.shutdown_handle();
     let backend = std::sync::Arc::new(ChannelBackend::default());
     let kernel = blueos_service::Kernel::start(
         FixtureService::NAME,
         builder,
+        (),
         backend,
         std::sync::Arc::new(PausedClock::start()),
     )

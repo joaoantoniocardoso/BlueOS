@@ -52,10 +52,10 @@
                   />
                   <div class="d-flex flex-wrap">
                     <v-btn
-                      v-if="endpoint.request_schema"
+                      v-if="schemasOf(endpoint).requestSchema"
                       small
                       class="mr-2 mb-2"
-                      @click="$emit('fill-default', endpoint.request_schema)"
+                      @click="$emit('fill-default', schemasOf(endpoint).requestSchema)"
                     >
                       Fill defaults
                     </v-btn>
@@ -71,11 +71,12 @@
                   </div>
                 </div>
                 <div class="caption grey--text">
-                  Request schema: {{ endpoint.request_schema || 'none' }}
+                  Type: {{ endpoint.interface_type || 'none' }}
                 </div>
-                <div class="caption grey--text">
-                  Response schema: {{ endpoint.response_schema || 'none' }}
-                </div>
+                <pre
+                  v-if="endpoint.schema"
+                  class="caption grey--text"
+                >{{ endpoint.schema }}</pre>
               </v-expansion-panel-content>
             </v-expansion-panel>
           </v-expansion-panels>
@@ -127,10 +128,11 @@ import type { EndpointInfo, ServiceInfo } from '@blueos-idl/messages'
 import Vue, { PropType } from 'vue'
 
 import type { LastRequestResult } from '@/libs/zenoh-inspector/inspector-controller'
+import { endpointSchemas } from '@/libs/zenoh-inspector/logic'
 
 import InspectorRequestResultView from './InspectorRequestResultView.vue'
 
-const REQUEST_ENDPOINT_KINDS = new Set(['command', 'query', 'io_query'])
+const REQUEST_ENDPOINT_KINDS = new Set(['job', 'query'])
 
 export default Vue.extend({
   name: 'InspectorServicePanel',
@@ -187,6 +189,9 @@ export default Vue.extend({
     },
     isRequestEndpoint(endpoint: EndpointInfo): boolean {
       return REQUEST_ENDPOINT_KINDS.has(endpoint.kind)
+    },
+    schemasOf(endpoint: EndpointInfo): { requestSchema: string, responseSchema: string } {
+      return endpointSchemas(endpoint)
     },
     submitRawQuery(): void {
       const key = this.rawQueryKey.trim()

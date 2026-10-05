@@ -26,7 +26,7 @@ async def main() -> None:
     if args.debug:
         logging.getLogger(SERVICE_NAME).setLevel(logging.DEBUG)
 
-    config = Config(app=application, host=args.host, port=args.port)
+    config = Config(app=application, host=args.host, port=args.port, timeout_graceful_shutdown=2)
     server = Server(config)
 
     await server.serve()

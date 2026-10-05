@@ -5,7 +5,7 @@ use core::{convert::Infallible, time::Duration};
 use tokio::time::advance;
 
 use blueos_domain::{Command, Decision, Domain, Effect, IoError, Now, Outcome};
-use blueos_idl::msg::blueos_example_msgs::{EmptyRequest, LevelQueryResponse};
+use blueos_idl::msg::blueos_example_msgs::{LevelRequest, LevelResponse};
 use blueos_service::{Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness};
 
 struct TimersCookbookService;
@@ -43,19 +43,22 @@ impl Service for TimersCookbookService {
     const NAME: &'static str = "cookbook_timers";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<TimersCookbookArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<TimersCookbookArguments>,
+        _service: &ServiceContext<TimersCookbookArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<TimersCookbook>, ServiceError> {
         Ok(ServiceBuilder::new(TimersCookbookSnapshot::default())
-            .command("Arm", |_: EmptyRequest| Ok(TimersCookbookRequest::Arm))
-            .command("Cancel", |_: EmptyRequest| {
+            .command("Arm", |_: LevelRequest| Ok(TimersCookbookRequest::Arm))
+            .command("Cancel", |_: LevelRequest| {
                 Ok(TimersCookbookRequest::Cancel)
             })
-            .state("ticks", |snapshot: &TimersCookbookSnapshot| {
-                LevelQueryResponse {
-                    level: snapshot.tick_count,
-                    max_level: 0,
-                }
+            .state("ticks", |snapshot: &TimersCookbookSnapshot| LevelResponse {
+                level: snapshot.tick_count,
+                max_level: 0,
             }))
     }
 }
@@ -120,9 +123,9 @@ async fn armed_timer_fires_after_advance() {
     let harness = Harness::<TimersCookbookService>::start(TimersCookbookArguments)
         .await
         .unwrap();
-    harness.send("Arm", &EmptyRequest::default()).await;
+    harness.send("Arm", &LevelRequest::default()).await;
     advance(Duration::from_secs(6)).await;
-    assert_eq!(harness.state::<LevelQueryResponse>("ticks").await.level, 1);
+    assert_eq!(harness.state::<LevelResponse>("ticks").await.level, 1);
 }
 
 #[tokio::test(start_paused = true)]
@@ -130,7 +133,7 @@ async fn cancel_prevents_a_rearmed_timer_from_firing() {
     let harness = Harness::<TimersCookbookService>::start(TimersCookbookArguments)
         .await
         .unwrap();
-    harness.send("Cancel", &EmptyRequest::default()).await;
+    harness.send("Cancel", &LevelRequest::default()).await;
     advance(Duration::from_secs(10)).await;
-    assert_eq!(harness.state::<LevelQueryResponse>("ticks").await.level, 0);
+    assert_eq!(harness.state::<LevelResponse>("ticks").await.level, 0);
 }

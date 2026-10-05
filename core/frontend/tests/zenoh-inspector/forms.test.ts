@@ -1,7 +1,23 @@
 import type { EndpointInfo } from '@blueos-idl/messages'
 import { describe, expect, it } from 'vitest'
 
-import { endpointsByKind, parseRequestText } from '@/libs/zenoh-inspector/logic/forms'
+import { endpointsByKind, endpointSchemas, parseRequestText } from '@/libs/zenoh-inspector/logic/forms'
+
+const START: EndpointInfo = {
+  kind: 'job',
+  name: 'StartRecording',
+  key: 'blueos/v1/recorder/command/StartRecording',
+  interface_type: 'blueos_recorder_msgs/action/StartRecording',
+  schema: '',
+}
+
+const STATUS: EndpointInfo = {
+  kind: 'state',
+  name: 'status',
+  key: 'blueos/v1/recorder/state/status',
+  interface_type: 'blueos_msgs/msg/ServiceStatus',
+  schema: '',
+}
 
 describe('forms', () => {
   it('parses request JSON objects', () => {
@@ -11,24 +27,35 @@ describe('forms', () => {
   })
 
   it('groups endpoints by kind', () => {
-    const endpoints: EndpointInfo[] = [
-      {
-        kind: 'command',
-        name: 'start',
-        key: 'blueos/v1/recorder/command/start',
-        request_schema: 'blueos_msgs/srv/Start',
-        response_schema: 'blueos_msgs/srv/Start',
-      },
-      {
-        kind: 'state',
-        name: 'status',
-        key: 'blueos/v1/recorder/state/status',
-        request_schema: '',
-        response_schema: 'blueos_msgs/msg/ServiceStatus',
-      },
-    ]
-    const grouped = endpointsByKind(endpoints)
-    expect(grouped.command).toHaveLength(1)
+    const grouped = endpointsByKind([START, STATUS])
+    expect(grouped.job).toHaveLength(1)
     expect(grouped.state).toHaveLength(1)
+  })
+
+  it('names the parts of the interface type each kind sends and reads', () => {
+    const index: EndpointInfo = {
+      kind: 'query',
+      name: 'index',
+      key: 'blueos/v1/recorder/query/index',
+      interface_type: 'blueos_recorder_msgs/srv/RecordingIndex',
+      schema: '',
+    }
+
+    expect(endpointSchemas(START)).toEqual({
+      requestSchema: 'blueos_recorder_msgs/action/StartRecording_Goal',
+      responseSchema: 'blueos_msgs/msg/CommandAck',
+    })
+    expect(endpointSchemas(index)).toEqual({
+      requestSchema: 'blueos_recorder_msgs/srv/RecordingIndex_Request',
+      responseSchema: 'blueos_recorder_msgs/srv/RecordingIndex_Response',
+    })
+    expect(endpointSchemas(STATUS)).toEqual({ requestSchema: '', responseSchema: 'blueos_msgs/msg/ServiceStatus' })
+    expect(endpointSchemas({
+      kind: 'query',
+      name: 'jobs/StartRecording/history',
+      key: 'blueos/v1/recorder/jobs/StartRecording/history',
+      interface_type: 'blueos_msgs/msg/JobList',
+      schema: '',
+    })).toEqual({ requestSchema: '', responseSchema: 'blueos_msgs/msg/JobList' })
   })
 })

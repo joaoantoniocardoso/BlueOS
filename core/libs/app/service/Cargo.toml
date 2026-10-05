@@ -7,7 +7,7 @@ publish.workspace = true
 
 [features]
 # Test-only: enable it in [dev-dependencies] only, never in [dependencies].
-testing = ["blueos-comms/channel"]
+testing = ["blueos-comms/channel", "dep:tempfile"]
 [dependencies]
 blueos-api.workspace = true
 blueos-comms.workspace = true
@@ -19,10 +19,11 @@ blueos-logging.workspace = true
 blueos-settings.workspace = true
 backon.workspace = true
 bytes.workspace = true
-clap = { workspace = true, features = ["derive", "env", "std"] }
+clap = { workspace = true, features = ["derive", "env", "help", "std", "usage"] }
 futures-util = { workspace = true, features = ["std"] }
 serde = { workspace = true, features = ["derive", "std"] }
 serde_json.workspace = true
+tempfile = { workspace = true, optional = true }
 thiserror.workspace = true
 tokio = { workspace = true, features = ["macros", "rt", "rt-multi-thread", "signal", "sync", "time"] }
 tokio-util = { workspace = true, features = ["rt", "time"] }
@@ -42,7 +43,7 @@ serde_json.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["macros", "rt", "test-util"] }
 tracing-subscriber.workspace = true
-tempfile = "3"
+tempfile.workspace = true
 
 [lints]
 workspace = true

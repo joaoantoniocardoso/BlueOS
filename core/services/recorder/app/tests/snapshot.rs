@@ -3,29 +3,23 @@
 mod common;
 
 use core::time::Duration;
-use std::{fs, path::Path, sync::Arc};
+use std::{fs, path::Path};
 
 use bytes::Bytes;
 use mcap::{Writer, write::WriteOptions};
 use tempfile::tempdir;
-use tokio::time::{advance, timeout};
+use tokio::time::advance;
 
-use blueos_api::event_key;
-use blueos_comms::{CommsBackend, Payload, Sample, channel::ChannelBackend};
-use blueos_idl::{
-    Message,
-    msg::blueos_recorder_msgs::{
-        RecordingOperation, RecordingOperationOperation, SnapshotRecordingCommand,
-    },
+use blueos_comms::{Payload, Sample};
+use blueos_idl::msg::{
+    blueos_msgs::JobStatusStatus,
+    blueos_recorder_msgs::{SnapshotRecordingGoal, SnapshotRecordingResult},
 };
-use blueos_recorder_app::RecorderService;
-use blueos_recorder_library::RESCAN_INTERVAL;
 use blueos_recorder_mcap::{RECORDING_WRITE_CHUNK_SIZE, is_indexed};
-use blueos_service::{Service, testing::Harness};
 
 use common::{
-    active_recording_mcap_path, drain_blocking_io, recorder_arguments, recording_state,
-    start_harness, start_recording, stop_recording_and_finalize_mcap, stop_recording_on,
+    active_recording_mcap_path, next_job_result, recording_state, start_harness, start_recording,
+    stop_recording_and_finalize_mcap, stop_recording_on, subscribe_job_results,
     wait_for_active_recording, wait_for_library_file_listed, wait_for_recording_bytes,
     wait_for_recording_bytes_on, wait_for_recording_idle,
 };
@@ -33,13 +27,8 @@ use common::{
 #[tokio::test(start_paused = true)]
 async fn snapshot_active_recording_while_writer_runs() {
     let directory = tempdir().expect("tempdir");
-    let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
-    let operation_key = event_key(RecorderService::NAME, "operation");
-    let mut operations = backend.subscribe(&operation_key).await.expect("subscribe");
-
-    let harness = Harness::start_on(Arc::clone(&backend), recorder_arguments(directory.path()))
-        .await
-        .expect("harness");
+    let harness = start_harness(directory.path()).await;
+    let mut results = subscribe_job_results(&harness, "SnapshotRecording").await;
 
     start_recording(&harness).await;
     wait_for_active_recording(harness.backend()).await;
@@ -71,21 +60,20 @@ async fn snapshot_active_recording_while_writer_runs() {
     let ack = harness
         .send(
             "SnapshotRecording",
-            &SnapshotRecordingCommand {
+            &SnapshotRecordingGoal {
                 path: recording_path.clone(),
             },
         )
         .await;
     assert!(ack.accepted, "snapshot rejected: {}", ack.reason);
 
-    let operation = timeout(Duration::from_secs(5), operations.recv())
-        .await
-        .expect("operation event")
-        .expect("payload");
-    let message =
-        RecordingOperation::decode(operation.payload().to_bytes().as_ref()).expect("decode");
-    assert_eq!(message.operation, RecordingOperationOperation::Snapshot);
-    assert!(message.succeeded, "snapshot failed: {}", message.error);
+    let (job, message) = next_job_result::<SnapshotRecordingResult>(&mut results).await;
+    assert_eq!(
+        job.status,
+        JobStatusStatus::Succeeded,
+        "snapshot failed: {}",
+        job.reason
+    );
     assert!(!message.output_path.is_empty());
 
     wait_for_library_file_listed(&harness, &message.output_path).await;
@@ -125,58 +113,88 @@ async fn snapshot_active_recording_while_writer_runs() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn snapshot_rewrite_publishes_indexed_output_path() {
+async fn a_snapshot_of_the_active_recording_in_its_first_chunk_keeps_the_messages_on_disk() {
     let directory = tempdir().expect("tempdir");
-    let path = directory.path().join("partial.mcap");
-    write_truncated_mcap(&path);
+    let harness = start_harness(directory.path()).await;
+    let mut results = subscribe_job_results(&harness, "SnapshotRecording").await;
 
-    let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
-    let operation_key = event_key(RecorderService::NAME, "operation");
-    let mut operations = backend.subscribe(&operation_key).await.expect("subscribe");
+    start_recording(&harness).await;
+    wait_for_active_recording(harness.backend()).await;
 
-    let harness = Harness::start_on(Arc::clone(&backend), recorder_arguments(directory.path()))
-        .await
-        .expect("harness");
+    let payload_bytes = 16 * 1024;
+    let sample_count = 16_u64;
+    for seed in 0..sample_count {
+        harness
+            .backend()
+            .publish(Sample::new(
+                "snapshot/first_chunk",
+                Payload::new(Bytes::from(incompressible_bytes(seed, payload_bytes))),
+                "application/octet-stream",
+            ))
+            .await
+            .expect("publish");
+        advance(Duration::from_millis(20)).await;
+    }
+    let written = sample_count * payload_bytes as u64;
+    assert!(written < RECORDING_WRITE_CHUNK_SIZE);
+    wait_for_recording_bytes(&harness, written).await;
 
-    stop_recording_on(harness.backend()).await;
-    wait_for_recording_idle(harness.backend()).await;
-
-    wait_for_library_file_listed(&harness, "partial.mcap").await;
-    advance(RESCAN_INTERVAL).await;
-    drain_blocking_io().await;
+    let recording_file = active_recording_mcap_path(&harness, directory.path()).await;
+    let recording_path = recording_file
+        .file_name()
+        .expect("file name")
+        .to_string_lossy()
+        .into_owned();
+    wait_for_library_file_listed(&harness, &recording_path).await;
 
     let ack = harness
         .send(
             "SnapshotRecording",
-            &SnapshotRecordingCommand {
-                path: "partial.mcap".into(),
+            &SnapshotRecordingGoal {
+                path: recording_path,
             },
         )
         .await;
     assert!(ack.accepted, "snapshot rejected: {}", ack.reason);
 
-    let operation = timeout(Duration::from_secs(5), operations.recv())
-        .await
-        .expect("operation event")
-        .expect("payload");
-    let message =
-        RecordingOperation::decode(operation.payload().to_bytes().as_ref()).expect("decode");
-    assert_eq!(message.operation, RecordingOperationOperation::Snapshot);
-    assert!(message.succeeded, "snapshot failed: {}", message.error);
-    assert!(!message.output_path.is_empty());
-    assert_eq!(message.path, "partial.mcap");
-
-    wait_for_library_file_listed(&harness, &message.output_path).await;
+    let (job, message) = next_job_result::<SnapshotRecordingResult>(&mut results).await;
+    assert_eq!(
+        job.status,
+        JobStatusStatus::Succeeded,
+        "snapshot failed: {}",
+        job.reason
+    );
     let snapshot_path = directory.path().join(&message.output_path);
-    assert!(snapshot_path.exists(), "snapshot file must exist on disk");
     assert!(is_indexed(&snapshot_path));
-    let bytes = fs::read(&snapshot_path).expect("read snapshot");
-    let summary = mcap::Summary::read(&bytes)
-        .expect("summary read")
-        .expect("summary");
-    assert!(!summary.chunk_indexes.is_empty());
-    let messages = mcap::MessageStream::new(&bytes).expect("stream").count();
-    assert!(messages > 0);
+    assert!(
+        message_count(&snapshot_path) > 0,
+        "the snapshot must keep the messages of the open chunk that reached the disk"
+    );
+}
+
+#[tokio::test(start_paused = true)]
+async fn snapshot_rejects_a_recording_that_is_not_being_written() {
+    let directory = tempdir().expect("tempdir");
+    write_truncated_mcap(&directory.path().join("partial.mcap"));
+
+    let harness = start_harness(directory.path()).await;
+    stop_recording_on(harness.backend()).await;
+    wait_for_recording_idle(harness.backend()).await;
+    wait_for_library_file_listed(&harness, "partial.mcap").await;
+
+    let ack = harness
+        .send(
+            "SnapshotRecording",
+            &SnapshotRecordingGoal {
+                path: "partial.mcap".into(),
+            },
+        )
+        .await;
+    assert!(!ack.accepted, "a finished recording downloads directly");
+    assert_eq!(
+        ack.reason,
+        "Only the recording being written needs a snapshot. Download it directly."
+    );
 }
 
 #[tokio::test(start_paused = true)]
@@ -189,7 +207,7 @@ async fn snapshot_rejects_missing_file() {
     let ack = harness
         .send(
             "SnapshotRecording",
-            &SnapshotRecordingCommand {
+            &SnapshotRecordingGoal {
                 path: "missing.mcap".into(),
             },
         )
@@ -200,6 +218,20 @@ async fn snapshot_rejects_missing_file() {
 fn message_count(path: &Path) -> usize {
     let bytes = fs::read(path).expect("read mcap");
     mcap::MessageStream::new(&bytes).expect("stream").count()
+}
+
+/// Bytes LZ4 cannot shrink, so the compressed chunk reaches the disk as fast as samples arrive. Each `seed` gives
+/// different bytes, so samples do not repeat each other either.
+fn incompressible_bytes(seed: u64, length: usize) -> Vec<u8> {
+    let mut state = 0x9E37_79B9_7F4A_7C15_u64 ^ seed;
+    (0..length)
+        .map(|_| {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            state.to_le_bytes()[0]
+        })
+        .collect()
 }
 
 fn write_truncated_mcap(path: &Path) {

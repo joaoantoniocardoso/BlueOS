@@ -66,16 +66,18 @@ impl Service for SettingsCookbookService {
     const NAME: &'static str = "cookbook_settings";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<SettingsCookbookArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        context: &ServiceContext<SettingsCookbookArguments>,
+        _service: &ServiceContext<SettingsCookbookArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<SettingsCookbook>, ServiceError> {
-        let config_parent = context.settings_path().map(PathBuf::from);
         Ok(ServiceBuilder::new(SettingsCookbookSnapshot {
             settings: SettingsCookbookDocument::default(),
         })
         .settings(
-            Self::NAME,
-            config_parent,
             |snapshot: &mut SettingsCookbookSnapshot, settings| snapshot.settings = settings,
             |snapshot: &SettingsCookbookSnapshot| snapshot.settings.clone(),
             |envelope| {

@@ -25,6 +25,20 @@ function decodeHex(hex: string): Uint8Array {
   return bytes
 }
 
+/** The vectors are JSON, so they write a `uint8[]` as an array of numbers. */
+function withByteArrays(value: unknown): unknown {
+  if (value instanceof Uint8Array) {
+    return [...value]
+  }
+  if (Array.isArray(value)) {
+    return value.map(withByteArrays)
+  }
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, withByteArrays(entry)]))
+  }
+  return value
+}
+
 function vectorsFile(): CdrVectorsFile {
   const filePath = path.resolve(__dirname, '../../../libs/idl/tests/vectors/cdr.json')
   return JSON.parse(readFileSync(filePath, 'utf8')) as CdrVectorsFile
@@ -39,7 +53,7 @@ describe('blueos-api CDR shared vectors', () => {
   for (const vector of vectors) {
     it(`decodes ${vector.category} vector for ${vector.schema_name}`, () => {
       const payload = decodeHex(vector.hex)
-      expect(decodeCdr(vector.schema_name as never, payload)).toEqual(vector.decoded)
+      expect(withByteArrays(decodeCdr(vector.schema_name as never, payload))).toEqual(vector.decoded)
     })
 
     if (!vector.skip_encode_round_trip) {
@@ -49,4 +63,16 @@ describe('blueos-api CDR shared vectors', () => {
       })
     }
   }
+
+  it('decodes a uint8 sequence as a Uint8Array and encodes one back', () => {
+    const payload = encodeCdr('blueos_recorder_msgs/srv/RecordingBytes_Response', {
+      size: 9,
+      data: new Uint8Array([1, 2, 3]),
+    })
+
+    const decoded = decodeCdr('blueos_recorder_msgs/srv/RecordingBytes_Response', payload)
+
+    expect(decoded.data).toBeInstanceOf(Uint8Array)
+    expect(decoded).toEqual({ size: 9, data: new Uint8Array([1, 2, 3]) })
+  })
 })

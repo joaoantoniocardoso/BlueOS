@@ -10,13 +10,15 @@
     <v-img
       v-if="objectUrl"
       :src="objectUrl"
-      height="180"
-      class="grey lighten-3 preview-clickable"
+      :height="compact ? 54 : 180"
+      :class="[previewBackground, 'preview-clickable']"
       aspect-ratio="16/9"
       contain
     >
-      <div v-if="canPlay" class="preview-overlay d-flex align-center justify-center">
+      <div v-if="canPlay && !compact" class="preview-overlay d-flex align-center justify-center">
         <v-btn
+          v-tooltip="`Play ${file.name}`"
+          :aria-label="`Play ${file.name}`"
           icon
           large
           color="primary"
@@ -31,20 +33,24 @@
     </v-img>
     <div
       v-else-if="loading"
-      class="preview-placeholder grey lighten-3 d-flex flex-column align-center justify-center"
+      class="preview-placeholder d-flex flex-column align-center justify-center"
+      :class="[previewBackground, { 'preview-compact': compact }]"
     >
-      <v-progress-circular indeterminate color="primary" size="48" />
-      <span class="mt-2 caption grey--text text--darken-1">Processing thumbnail...</span>
+      <v-progress-circular indeterminate color="primary" :size="compact ? 24 : 48" />
+      <span v-if="!compact" class="mt-2 caption grey--text text--darken-1">Processing thumbnail...</span>
     </div>
     <div
       v-else
-      class="preview-placeholder grey lighten-3 d-flex flex-column align-center justify-center preview-clickable"
+      class="preview-placeholder d-flex flex-column align-center justify-center preview-clickable"
+      :class="[previewBackground, { 'preview-compact': compact }]"
     >
-      <v-icon large color="grey darken-1">
+      <v-icon :large="!compact" color="grey darken-1">
         mdi-multimedia
       </v-icon>
       <v-btn
-        v-if="canPlay"
+        v-if="canPlay && !compact"
+        v-tooltip="`Play ${file.name}`"
+        :aria-label="`Play ${file.name}`"
         icon
         large
         color="primary"
@@ -62,9 +68,10 @@
 <script lang="ts">
 import Vue, { PropType } from 'vue'
 
+import type { ByteSource } from '@/libs/mcap/logic/byte-source'
 import { loadRecordingThumbnail } from '@/libs/recorder/thumbnail-loader'
 import type { LibraryRecording } from '@/libs/recorder/types'
-import { canPlayRecording } from '@/libs/recorder/view-logic'
+import { canLoadThumbnail, canPlayRecording } from '@/libs/recorder/view-logic'
 
 export default Vue.extend({
   name: 'RecordsRecordingPreview',
@@ -73,11 +80,16 @@ export default Vue.extend({
       type: Object as PropType<LibraryRecording>,
       required: true,
     },
-    downloadUrl: {
-      type: String,
+    byteSource: {
+      type: Function as PropType<(path: string) => ByteSource | undefined>,
       required: true,
     },
     disabled: {
+      type: Boolean,
+      default: false,
+    },
+    /** A small thumbnail for a table cell, without the Play overlay. */
+    compact: {
       type: Boolean,
       default: false,
     },
@@ -93,18 +105,24 @@ export default Vue.extend({
     canPlay(): boolean {
       return !this.disabled && canPlayRecording(this.file)
     },
+    previewBackground(): string {
+      return this.$vuetify.theme.dark ? 'grey darken-4' : 'grey lighten-3'
+    },
     fileSizeBytes(): number {
       return this.file.size_bytes
     },
   },
   watch: {
-    downloadUrl: {
+    'file.path': {
       immediate: true,
       handler() {
         this.loadThumbnail()
       },
     },
     fileSizeBytes() {
+      this.loadThumbnail()
+    },
+    canPlay() {
       this.loadThumbnail()
     },
   },
@@ -125,7 +143,9 @@ export default Vue.extend({
       }
     },
     async loadThumbnail(): Promise<void> {
-      if (!this.canPlay || !this.downloadUrl) {
+      const source = this.byteSource(this.file.path)
+      if (!this.canPlay || !canLoadThumbnail(this.file) || !source) {
+        this.controller?.abort()
         this.revokeObjectUrl()
         this.loading = false
         return
@@ -137,7 +157,7 @@ export default Vue.extend({
       this.loading = true
       try {
         const blob = await loadRecordingThumbnail({
-          downloadUrl: this.downloadUrl,
+          source,
           cacheKey: {
             path: this.file.path,
             sizeBytes: this.file.size_bytes,
@@ -171,6 +191,10 @@ export default Vue.extend({
 
 .preview-placeholder {
   height: 180px;
+}
+
+.preview-placeholder.preview-compact {
+  height: 54px;
 }
 
 .preview-overlay {

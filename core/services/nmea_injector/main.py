@@ -85,7 +85,7 @@ async def main() -> None:
     await init_sentry_async(SERVICE_NAME)
 
     # # Running uvicorn with log disabled so loguru can handle it
-    config = Config(app=app, host="0.0.0.0", port=2748, log_config=None)
+    config = Config(app=app, host="0.0.0.0", port=2748, log_config=None, timeout_graceful_shutdown=2)
     server = Server(config)
 
     asyncio.create_task(controller.load_socks_from_settings())

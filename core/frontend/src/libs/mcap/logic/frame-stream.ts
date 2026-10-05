@@ -17,6 +17,11 @@ const PARAMETER_SET_SCAN_FRAMES = 60
  * cannot be decoded.
  */
 export const UNDECODABLE_FRAMES_BEFORE_SKIP = 30
+/**
+ * Chunks to download ahead of the one being read. Two keep the source busy while the browser's main thread is
+ * decoding frames, which a websocket source feels more than fetch does.
+ */
+const READ_AHEAD_CHUNKS = 2
 
 /** What reading a stream has come across. Totals cover the whole session, rates only the run. */
 export interface VideoStreamStats {
@@ -217,8 +222,15 @@ export default class VideoFrameStream {
       }
       const chunkIndex = positions[this.cursor]
       this.cursor += 1
+      const reading = this.reader.readChunkMessages(chunkIndex, this.track.channelId, signal)
+      // Read ahead only once a run reads on past its first chunk, so a seek for one frame (a thumbnail) costs one
+      // chunk.
+      if (this.runFrames > 0) {
+        positions.slice(this.cursor, this.cursor + READ_AHEAD_CHUNKS)
+          .forEach((position) => this.reader.prefetchChunk(position))
+      }
       // eslint-disable-next-line no-await-in-loop
-      const messages = await this.reader.readChunkMessages(chunkIndex, this.track.channelId, signal)
+      const messages = await reading
       this.queue = messages.map((message) => this.decoder.decode(message))
     }
     const frame = this.queue.shift() ?? null

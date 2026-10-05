@@ -31,10 +31,11 @@ export default function zenohTransport(session: Session): Transport {
       return { close: () => subscriber.undeclare() }
     },
 
-    async get(key, body) {
+    async get(key, body, limit) {
       const receiver = await session.get(key, body && {
         payload: new ZBytes(body.payload),
         encoding: Encoding.fromString(body.encoding),
+        attachment: body.attachment && new ZBytes(body.attachment),
       })
       const replies: Reply[] = []
       for await (const reply of receiver ?? []) {
@@ -42,6 +43,9 @@ export default function zenohTransport(session: Session): Transport {
         replies.push(result instanceof ReplyError
           ? { kind: 'error', payload: result.payload().toBytes(), encoding: result.encoding().toString() }
           : { kind: 'sample', sample: fromZenoh(result) })
+        if (replies.length === limit) {
+          break
+        }
       }
       return replies
     },

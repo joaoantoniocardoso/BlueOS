@@ -1,4 +1,4 @@
-//! The trait every Service implements, and what its `build` receives and may return.
+//! The trait every Service implements, and what its `context` and `build` receive and may return.
 
 use core::error::Error;
 use std::path::{Path, PathBuf};
@@ -8,18 +8,27 @@ use blueos_domain::Domain;
 
 use crate::{builder::ServiceBuilder, command_sender::Session};
 
-/// A BlueOS Service: one Domain, its name and version, its command-line arguments, and a `build` that declares how
-/// the Domain meets the backbone. `endpoints` is generated from the Service's endpoint manifest (D-26).
+/// A BlueOS Service: one Domain, its name and version, its command-line arguments, a `context` that builds what IO
+/// code and Tasks use, and a `build` that declares how the Domain meets the backbone. `endpoints` is generated from
+/// the Service's endpoint manifest (D-26).
 ///
 /// ```ignore
 /// impl Service for Example {
 ///     type Domain = Pump;
+///     type Context = ();
 ///     type Arguments = ExampleArguments;
 ///
 ///     const NAME: &'static str = endpoints::NAME;
 ///     const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 ///
-///     fn build(context: &ServiceContext<ExampleArguments>) -> Result<ServiceBuilder<Pump>, ServiceError> {
+///     fn context(_service: &ServiceContext<ExampleArguments>) -> Result<(), ServiceError> {
+///         Ok(())
+///     }
+///
+///     fn build(
+///         _service: &ServiceContext<ExampleArguments>,
+///         _context: &(),
+///     ) -> Result<ServiceBuilder<Pump>, ServiceError> {
 ///         Ok(endpoints::register(ServiceBuilder::new(PumpSnapshot::default())))
 ///     }
 /// }
@@ -27,7 +36,8 @@ use crate::{builder::ServiceBuilder, command_sender::Session};
 pub trait Service {
     /// The pure logic the Kernel runs.
     type Domain: Domain;
-    /// What IO code receives by reference, together with the Snapshot it needs.
+    /// What IO code and Tasks receive by reference: every Port with its adapter, and plain tunables. It never holds
+    /// a Projection; a Task captures the one it follows in `build`.
     type Context: Send + Sync + 'static;
     /// The service's own command-line arguments, added to the ones every Service has.
     type Arguments: clap::Args;
@@ -42,28 +52,39 @@ pub trait Service {
     /// Capability strings reported on `info`, when the Service has any.
     const CAPABILITIES: &'static [&'static str] = &[];
 
-    /// Declares the initial Snapshot and every endpoint. It is pure: no IO and no spawning, so a test that calls it
-    /// exercises exactly the wiring that ships.
+    /// Builds the Context, the only way the shipped Service gets one. It may open what the arguments name, and it
+    /// fills every Port with its real adapter. A test changes the result through `Harness::start_with` before
+    /// `build` sees it.
     ///
     /// # Errors
     ///
-    /// [`ServiceError::Build`] when the Context cannot make a working Service, such as an argument out of range.
+    /// [`ServiceError::Build`] when what the arguments name cannot be opened.
+    fn context(service: &ServiceContext<Self::Arguments>) -> Result<Self::Context, ServiceError>;
+
+    /// Declares the initial Snapshot, every endpoint, Task and Projection. It is pure: no IO and no spawning, so a
+    /// test that runs it exercises exactly the wiring that ships. The Kernel owns `context` once `build` returns.
+    ///
+    /// # Errors
+    ///
+    /// [`ServiceError::Build`] when the arguments cannot make a working Service, such as an argument out of range.
     fn build(
-        context: &ServiceContext<Self::Arguments>,
+        service: &ServiceContext<Self::Arguments>,
+        context: &Self::Context,
     ) -> Result<ServiceBuilder<Self::Domain, Self::Context>, ServiceError>;
 }
 
-/// What a Service's `build` and IO code may use: parsed CLI arguments, optional settings path, and the open Session.
+/// What a Service's `context` and `build` may use: parsed CLI arguments, optional settings path, and the open
+/// Session.
 pub struct ServiceContext<Arguments> {
     arguments: Arguments,
-    settings_path: Option<PathBuf>,
+    pub(crate) settings_path: Option<PathBuf>,
     session: Session,
 }
 
 /// Why a Service did not start.
 #[derive(Debug, thiserror::Error)]
 pub enum ServiceError {
-    /// The service's `build` refused its Context.
+    /// The service's `context` or `build` refused its arguments.
     #[error("the service could not be built")]
     Build(#[source] Box<dyn Error + Send + Sync>),
     /// The Zenoh session could not open.
@@ -94,14 +115,6 @@ impl<Arguments> ServiceContext<Arguments> {
             arguments,
             settings_path: isolated_settings_path(),
             session,
-        }
-    }
-
-    /// Fills an unset settings path so a test harness cannot reach the user config folder.
-    #[cfg(feature = "testing")]
-    pub(crate) fn isolate_unset_settings_folder(&mut self) {
-        if self.settings_path.is_none() {
-            self.settings_path = Some(isolated_test_config_parent());
         }
     }
 

@@ -102,11 +102,12 @@ pub struct Sample {
     attachment: Option<Payload>,
 }
 
-/// What a get sends along: an encoded payload, such as a Command's Message.
+/// What a get sends along: an encoded payload, such as a Command's Message, and its metadata.
 #[derive(Clone, Debug)]
 pub struct QueryBody {
     payload: Payload,
     encoding: String,
+    attachment: Option<Payload>,
 }
 
 /// An error a queryable replied instead of a sample, such as a body it could not decode.
@@ -126,6 +127,9 @@ pub struct Payload {
 pub trait PayloadBuffer: Any + Debug + Send + Sync {
     /// The bytes, borrowed when the buffer is contiguous and copied only when it is not.
     fn to_bytes(&self) -> Cow<'_, [u8]>;
+
+    /// How many bytes the buffer holds, read without copying it.
+    fn size_bytes(&self) -> usize;
 }
 
 /// The liveliness changes a subscription receives, in arrival order.
@@ -199,6 +203,11 @@ impl Payload {
         self.buffer.to_bytes()
     }
 
+    /// How many bytes the payload holds, read without copying it.
+    pub fn size_bytes(&self) -> usize {
+        self.buffer.size_bytes()
+    }
+
     /// The backend's own buffer, if it is a `T`, so a backend can send it on without a copy.
     pub fn downcast_ref<T: PayloadBuffer>(&self) -> Option<&T> {
         let buffer: &dyn Any = &*self.buffer;
@@ -209,6 +218,10 @@ impl Payload {
 impl PayloadBuffer for Bytes {
     fn to_bytes(&self) -> Cow<'_, [u8]> {
         Cow::Borrowed(self)
+    }
+
+    fn size_bytes(&self) -> usize {
+        self.len()
     }
 }
 
@@ -273,11 +286,21 @@ impl Sample {
 }
 
 impl QueryBody {
-    /// A body of `payload` encoded as `encoding`.
+    /// A body of `payload` encoded as `encoding`, with no attachment.
     pub fn new(payload: impl Into<Payload>, encoding: impl Into<String>) -> Self {
         Self {
             payload: payload.into(),
             encoding: encoding.into(),
+            attachment: None,
+        }
+    }
+
+    /// Adds side-band metadata, such as the Job id a Command names, so that the payload itself stays unframed.
+    #[must_use]
+    pub fn with_attachment(self, attachment: impl Into<Payload>) -> Self {
+        Self {
+            attachment: Some(attachment.into()),
+            ..self
         }
     }
 
@@ -289,6 +312,11 @@ impl QueryBody {
     /// How the payload is encoded.
     pub fn encoding(&self) -> &str {
         &self.encoding
+    }
+
+    /// Side-band metadata, if the getter attached any.
+    pub fn attachment(&self) -> Option<&Payload> {
+        self.attachment.as_ref()
     }
 }
 

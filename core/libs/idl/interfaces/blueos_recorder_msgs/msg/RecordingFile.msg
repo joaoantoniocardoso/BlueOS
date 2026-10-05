@@ -24,3 +24,5 @@ float64 repair_bytes_per_second
 string repair_error
 # Command endpoint names the library will accept for this file (for example DeleteRecording).
 string[] allowed_operations
+# The Job id of the repair while STATE_REPAIRING, which CancelJob names; empty otherwise.
+string repair_job_id

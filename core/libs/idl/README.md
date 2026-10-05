@@ -4,11 +4,18 @@ Published ROS 2 message types for BlueOS with embedded `ros2msg` schemas and a `
 
 ## Message sources
 
-Canonical `.msg` files live in `interfaces/` (`core/libs/idl/interfaces/`) so `cargo package` ships them.
+Canonical `.msg`, `.srv` and `.action` files live in `interfaces/` (`core/libs/idl/interfaces/`) so `cargo package`
+ships them.
+
+Each part of a `.srv` (request, response) and of a `.action` (Goal, Job result, Feedback) is a message named as in
+ROS 2, `<package>/srv/<Name>_Request` or `<package>/action/<Name>_Goal`, with the type `<Name>Request` or `<Name>Goal`
+in Rust and TypeScript. `blueos_idl::schema("<package>/action/<Name>")` returns the schema text of the whole file,
+every part in order.
 
 ## Schema evolution (D-06)
 
-- **Append-only** within a major version: new fields only at the end of the `.msg` file.
+- **Append-only** within a major version: new fields only at the end of the `.msg` file, or of the part of a
+  `.srv` or `.action`, each part being a top-level message.
 - **New writer, old reader**: decoders ignore trailing payload bytes.
 - **Old writer, new reader**: generated Rust decoders default missing trailing fields.
 - Any other change (remove, reorder, retype, rename) requires a **major version bump** in
@@ -17,17 +24,25 @@ Canonical `.msg` files live in `interfaces/` (`core/libs/idl/interfaces/`) so `c
 
 ### API-break lock
 
-`api.lock` stores `schema_name major field_signature` per message. CI runs `api_lock_matches_interfaces`;
+`api.lock` stores `schema_name major field_signature` per message, and `key major type=<interface type>` per
+endpoint key of every Service manifest. CI runs `api_lock_matches_interfaces`;
 drift fails until the lock is refreshed intentionally:
 
 ```bash
 cargo run -p blueos-idl-codegen --bin blueos-idl-print-lock > core/libs/idl/api.lock
 ```
 
-After editing `.msg` files, regenerate committed Rust and TypeScript:
+After editing `.msg`, `.srv` or `.action` files, regenerate committed Rust and TypeScript:
 
 ```bash
 cargo run -p blueos-idl-codegen --bin blueos-idl-codegen -- --write
+```
+
+After changing the generator, refresh the committed output of its `.srv` and `.action` fixtures
+(`codegen/tests/fixtures/interface_kinds/`):
+
+```bash
+BLUEOS_IDL_UPDATE_FIXTURES=1 cargo test -p blueos-idl-codegen --test interface_kinds
 ```
 
 ## Adding a message

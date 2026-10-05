@@ -4,11 +4,13 @@ import {
 
 import { McapRecordingPlaybackController } from '@/libs/mcap/adapters/mcap-recording-playback-controller'
 
+import MemoryByteSource from './memory-byte-source'
+
 describe('McapRecordingPlaybackController', () => {
   it('tracks written size growth for ongoing recordings', async () => {
     const onState = vi.fn()
     const controller = new McapRecordingPlaybackController({
-      url: 'http://example/recording.mcap',
+      source: new MemoryByteSource(new Uint8Array()),
       ongoing: true,
       writtenSizeBytes: 100,
       callbacks: {
@@ -26,7 +28,7 @@ describe('McapRecordingPlaybackController', () => {
 
   it('toggles stream selection', () => {
     const controller = new McapRecordingPlaybackController({
-      url: 'http://example/recording.mcap',
+      source: new MemoryByteSource(new Uint8Array()),
       ongoing: false,
       callbacks: {
         onState: () => undefined,

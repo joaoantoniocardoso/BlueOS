@@ -7,11 +7,11 @@ use blueos_api::{Message, cdr_encoding, command_key};
 use blueos_comms::{CommsBackend, QueryBody, channel::ChannelBackend};
 use blueos_domain::{Command, Decision, Domain, IoError, Now, Outcome};
 use blueos_idl::msg::{
-    blueos_example_msgs::{LevelQueryResponse, SetLevelRequest},
+    blueos_example_msgs::{LevelResponse, SetLevelGoal},
     blueos_msgs::CommandAck,
 };
 use blueos_service::{
-    RestartPolicy, Service, ServiceBuilder, ServiceContext, ServiceError, TaskFailed,
+    RestartPolicy, Service, ServiceBuilder, ServiceContext, ServiceError, TaskFailed, new_job_id,
     testing::Harness,
 };
 
@@ -39,18 +39,21 @@ impl Service for TargetCookbookService {
     const NAME: &'static str = "cookbook_target";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<TargetCookbookArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<TargetCookbookArguments>,
+        _service: &ServiceContext<TargetCookbookArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<TargetCookbook>, ServiceError> {
         Ok(ServiceBuilder::new(TargetCookbookSnapshot::default())
-            .command("SetLevel", |request: SetLevelRequest| {
+            .command("SetLevel", |request: SetLevelGoal| {
                 Ok(TargetCookbookRequest::SetLevel(request.level))
             })
-            .state("gauge", |snapshot: &TargetCookbookSnapshot| {
-                LevelQueryResponse {
-                    level: snapshot.level,
-                    max_level: 100,
-                }
+            .state("gauge", |snapshot: &TargetCookbookSnapshot| LevelResponse {
+                level: snapshot.level,
+                max_level: 100,
             }))
     }
 }
@@ -110,8 +113,13 @@ impl Service for CallerCookbookService {
     const NAME: &'static str = "cookbook_caller";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<CallerCookbookArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<CallerCookbookArguments>,
+        _service: &ServiceContext<CallerCookbookArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<CallerCookbook>, ServiceError> {
         Ok(ServiceBuilder::new(CallerCookbookSnapshot::default())
             .task(
@@ -119,11 +127,12 @@ impl Service for CallerCookbookService {
                 RestartPolicy::Never,
                 |task_context| async move {
                     let body = QueryBody::new(
-                        SetLevelRequest { level: 12 }
+                        SetLevelGoal { level: 12 }
                             .encode()
                             .expect("the request encodes"),
-                        cdr_encoding(SetLevelRequest::SCHEMA_NAME),
-                    );
+                        cdr_encoding(SetLevelGoal::SCHEMA_NAME),
+                    )
+                    .with_attachment(new_job_id().to_string().into_bytes());
                     let replies = task_context
                         .session
                         .get(
@@ -149,11 +158,9 @@ impl Service for CallerCookbookService {
                     Ok(())
                 },
             )
-            .state("done", |snapshot: &CallerCookbookSnapshot| {
-                LevelQueryResponse {
-                    level: u8::from(snapshot.remote_applied),
-                    max_level: 1,
-                }
+            .state("done", |snapshot: &CallerCookbookSnapshot| LevelResponse {
+                level: u8::from(snapshot.remote_applied),
+                max_level: 1,
             }))
     }
 }
@@ -208,8 +215,8 @@ async fn a_task_calls_another_services_command_through_the_session() {
 
     tokio::time::advance(Duration::from_secs(1)).await;
 
-    assert_eq!(target.state::<LevelQueryResponse>("gauge").await.level, 12);
-    assert_eq!(caller.state::<LevelQueryResponse>("done").await.level, 1);
+    assert_eq!(target.state::<LevelResponse>("gauge").await.level, 12);
+    assert_eq!(caller.state::<LevelResponse>("done").await.level, 1);
     drop(caller);
     drop(target);
 }

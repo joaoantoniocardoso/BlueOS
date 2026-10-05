@@ -1,7 +1,8 @@
 import {
-  commandKey, jobsKey, settingsKey, statusStateKey,
+  commandKey, jobFeedbackKey, jobResultKey, jobsKey, settingsKey, statusStateKey,
 } from './keys'
 import type { SchemaName } from './types'
+import type { EventEndpoint } from './watch-event'
 
 /** A State endpoint, such as the generated `example.pump`: published on change and answered to a query. */
 export interface StateEndpoint<Schema extends SchemaName> {
@@ -9,10 +10,10 @@ export interface StateEndpoint<Schema extends SchemaName> {
   messageSchema: Schema
 }
 
-/** A Command endpoint, such as the generated `example.SetLevel`. It replies with a `CommandAck`. */
+/** A Job type, such as the generated `example.SetLevel`: a client submits its Goal and gets a `CommandAck`. */
 export interface CommandEndpoint<Schema extends SchemaName> {
   key: string
-  requestSchema: Schema
+  goalSchema: Schema
 }
 
 /** A Query or IO query endpoint, such as the generated `example.Level`. */
@@ -32,12 +33,22 @@ export function settingsState(service: string): StateEndpoint<'blueos_msgs/msg/S
   return { key: settingsKey(service), messageSchema: 'blueos_msgs/msg/SettingsEnvelope' }
 }
 
-/** The `jobs` State of a Service whose Domain has Jobs (D-12). */
+/** The `jobs` State of a Service: its active Jobs, those waiting for permission too, and the last ended ones. */
 export function jobsState(service: string): StateEndpoint<'blueos_msgs/msg/JobList'> {
   return { key: jobsKey(service), messageSchema: 'blueos_msgs/msg/JobList' }
 }
 
-/** The `UpdateSettings` Command of a Service, the only way to change its settings (D-11). */
-export function updateSettingsCommand(service: string): CommandEndpoint<'blueos_msgs/msg/SettingsEnvelope'> {
-  return { key: commandKey(service, 'UpdateSettings'), requestSchema: 'blueos_msgs/msg/SettingsEnvelope' }
+/** The Feedback State of a Job type: the latest Feedback of each of its active Jobs (D-12). */
+export function jobFeedbackState(service: string, jobType: string): StateEndpoint<'blueos_msgs/msg/JobFeedbackList'> {
+  return { key: jobFeedbackKey(service, jobType), messageSchema: 'blueos_msgs/msg/JobFeedbackList' }
+}
+
+/** The Job result Event of a Job type, published when one of its Jobs ends (D-12). */
+export function jobResultEvent(service: string, jobType: string): EventEndpoint<'blueos_msgs/msg/JobResult'> {
+  return { key: jobResultKey(service, jobType), messageSchema: 'blueos_msgs/msg/JobResult' }
+}
+
+/** The `UpdateSettings` instant Job type of a Service, the only way to change its settings (D-11, D-12). */
+export function updateSettingsCommand(service: string): CommandEndpoint<'blueos_msgs/action/UpdateSettings_Goal'> {
+  return { key: commandKey(service, 'UpdateSettings'), goalSchema: 'blueos_msgs/action/UpdateSettings_Goal' }
 }

@@ -40,6 +40,27 @@
   "jobs_key": [
     { "service": "recorder", "expected": "blueos/v1/recorder/jobs" }
   ],
+  "job_feedback_key": [
+    {
+      "service": "recorder",
+      "name": "RepairRecording",
+      "expected": "blueos/v1/recorder/jobs/RepairRecording/feedback"
+    }
+  ],
+  "job_result_key": [
+    {
+      "service": "recorder",
+      "name": "RepairRecording",
+      "expected": "blueos/v1/recorder/jobs/RepairRecording/result"
+    }
+  ],
+  "job_history_key": [
+    {
+      "service": "recorder",
+      "name": "RepairRecording",
+      "expected": "blueos/v1/recorder/jobs/RepairRecording/history"
+    }
+  ],
   "settings_key": [
     { "service": "recorder", "expected": "blueos/v1/recorder/settings" }
   ],

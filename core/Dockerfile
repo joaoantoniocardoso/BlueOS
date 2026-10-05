@@ -200,4 +200,4 @@ set -e
 EOF
 
 # Start
-CMD ["/bin/bash", "-i", "-c", "/usr/bin/start-blueos-core && sleep infinity"]
+CMD ["/bin/bash", "-i", "-c", "exec /usr/bin/start-blueos-core"]

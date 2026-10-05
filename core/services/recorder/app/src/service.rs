@@ -1,34 +1,28 @@
 //! The Recorder Service wiring.
 
 use core::{num::NonZeroU32, sync::atomic::AtomicU8};
-use std::{
-    collections::BTreeMap,
-    path::PathBuf,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
-use tokio::sync::{mpsc, watch};
-
-use blueos_recorder_capture::RecordGate;
 use blueos_recorder_domain::{RecorderDomain, RecorderRequest, RecorderSnapshot};
+use blueos_recorder_mcap::{rewrite, walk_index};
 use blueos_recorder_storage::RecordingsFolder;
 use blueos_service::{
     Backoff, RestartPolicy, Service, ServiceBuilder, ServiceContext, ServiceError,
 };
 
 use crate::{
+    capture::tasks::data_plane::run_data_plane,
     cli::RecorderArguments,
-    context::{
-        DEFAULT_MCAP_WRITER_QUEUE_CAPACITY, IndexQuerySetup, RecorderContext, RepairIoSetup,
-    },
-    data_plane::run_data_plane,
+    context::{DEFAULT_MCAP_WRITER_QUEUE_BYTES, RecorderContext},
     endpoints,
-    handlers::RecorderHandlers,
     io::register_io,
-    library_io::run_library_io,
-    library_observed::run_library_observed_bridge,
-    mavlink::run_mavlink_ingress,
+    library::{
+        handlers::{RECORDING_INDEX_WALK_TIMEOUT, RecorderHandlers},
+        io::run_library_io,
+        tasks::operations::run_library_operations,
+    },
     settings::RecorderSettings,
+    tasks::mavlink::run_mavlink_ingress,
 };
 
 const RECORDER_DURABLE_STATE_VERSION: NonZeroU32 = NonZeroU32::MIN;
@@ -44,107 +38,42 @@ impl Service for RecorderService {
     const NAME: &'static str = endpoints::NAME;
     const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
-    fn build(
-        context: &ServiceContext<RecorderArguments>,
-    ) -> Result<ServiceBuilder<RecorderDomain, RecorderContext>, ServiceError> {
-        build_with_record_gate(context).map(|(builder, _gate_receiver)| builder)
+    fn context(
+        service: &ServiceContext<RecorderArguments>,
+    ) -> Result<RecorderContext, ServiceError> {
+        let recordings_folder = Arc::new(
+            RecordingsFolder::new(service.arguments().recorder_path.clone())
+                .map_err(|error| ServiceError::Build(error.into()))?,
+        );
+        Ok(RecorderContext {
+            recordings_folder,
+            library_footer_cache: Arc::new(Mutex::new(
+                blueos_recorder_storage::LibraryFooterCache::default(),
+            )),
+            mcap_writer_queue_bytes: DEFAULT_MCAP_WRITER_QUEUE_BYTES,
+            session: Arc::clone(service.session()),
+            mavlink_sequence: Arc::new(AtomicU8::new(0)),
+            rewriter: Arc::new(rewrite),
+            index_walk_timeout: RECORDING_INDEX_WALK_TIMEOUT,
+            index_walker: Arc::new(walk_index),
+        })
     }
-}
 
-/// Like [`RecorderService::build`], but also returns a [`RecordGate`] watcher for integration tests.
-pub fn build_with_record_gate(
-    context: &ServiceContext<RecorderArguments>,
-) -> Result<
-    (
-        ServiceBuilder<RecorderDomain, RecorderContext>,
-        watch::Receiver<RecordGate>,
-    ),
-    ServiceError,
-> {
-    build_with_record_gate_index_and_repair(
-        context,
-        IndexQuerySetup::default(),
-        RepairIoSetup::default(),
-        DEFAULT_MCAP_WRITER_QUEUE_CAPACITY,
-    )
-}
-
-/// Like [`build_with_record_gate`], with integration-test wiring overrides.
-#[doc(hidden)]
-pub fn build_with_record_gate_and_index(
-    context: &ServiceContext<RecorderArguments>,
-    index: IndexQuerySetup,
-    mcap_writer_queue_capacity: usize,
-) -> Result<
-    (
-        ServiceBuilder<RecorderDomain, RecorderContext>,
-        watch::Receiver<RecordGate>,
-    ),
-    ServiceError,
-> {
-    build_with_record_gate_index_and_repair(
-        context,
-        index,
-        RepairIoSetup::default(),
-        mcap_writer_queue_capacity,
-    )
-}
-
-/// Like [`build_with_record_gate_and_index`], with a repair-IO hold for tests.
-#[doc(hidden)]
-pub fn build_with_record_gate_index_and_repair(
-    context: &ServiceContext<RecorderArguments>,
-    index: IndexQuerySetup,
-    repair: RepairIoSetup,
-    mcap_writer_queue_capacity: usize,
-) -> Result<
-    (
-        ServiceBuilder<RecorderDomain, RecorderContext>,
-        watch::Receiver<RecordGate>,
-    ),
-    ServiceError,
-> {
-    let recordings_folder = Arc::new(
-        RecordingsFolder::new(context.arguments().recorder_path.clone())
-            .map_err(|error| ServiceError::Build(error.into()))?,
-    );
-    let config_parent = context.settings_path().map(PathBuf::from);
-    let (observed_sender, observed_receiver) = mpsc::channel(64);
-    let (mut builder, record_gate) = ServiceBuilder::new(RecorderSnapshot::default())
-        .projection(|snapshot: &RecorderSnapshot| snapshot.record_gate());
-    builder = builder.durable_state_with_jobs(
-        RecorderService::NAME,
-        config_parent.clone(),
-        RECORDER_DURABLE_STATE_VERSION,
-    );
-    let gate_receiver = record_gate.subscribe();
-    let recorder_context = RecorderContext {
-        record_gate,
-        recordings_folder,
-        library_footer_cache: Arc::new(Mutex::new(
-            blueos_recorder_storage::LibraryFooterCache::default(),
-        )),
-        mcap_writer_queue_capacity,
-        session: Arc::clone(context.session()),
-        mavlink_sequence: Arc::new(AtomicU8::new(0)),
-        library_observed_sender: observed_sender,
-        library_observed_receiver: Arc::new(tokio::sync::Mutex::new(observed_receiver)),
-        repair_cancel_flags: Arc::new(Mutex::new(BTreeMap::new())),
-        repair_before_rewrite: repair.before_rewrite,
-        index_walk_timeout: index.walk_timeout,
-        index_walker: index.walker,
-    };
-    let builder = register_io(
-        endpoints::register(
+    fn build(
+        _service: &ServiceContext<RecorderArguments>,
+        context: &RecorderContext,
+    ) -> Result<ServiceBuilder<RecorderDomain, RecorderContext>, ServiceError> {
+        let (builder, record_gate) = ServiceBuilder::new(RecorderSnapshot::default())
+            .projection(|snapshot: &RecorderSnapshot| snapshot.record_gate());
+        let (mut builder, library_operations) =
+            builder.projection(|snapshot: &RecorderSnapshot| snapshot.library_operations());
+        builder = builder.durable_state_with_jobs(RECORDER_DURABLE_STATE_VERSION);
+        Ok(register_io(endpoints::register(
             builder
-                .context(recorder_context.clone())
                 .blocking_io(|recorder_context: &RecorderContext, snapshot, request| {
                     run_library_io(recorder_context, snapshot, request)
                 })
-                .jobs()
                 .settings(
-                    RecorderService::NAME,
-                    config_parent,
                     |snapshot: &mut RecorderSnapshot, settings: RecorderSettings| {
                         snapshot.capture.settings = settings.into_capture_settings();
                     },
@@ -165,7 +94,7 @@ pub fn build_with_record_gate_index_and_repair(
                     RestartPolicy::Always {
                         backoff: Backoff::default(),
                     },
-                    |task_context| async move { run_data_plane(task_context).await },
+                    move |task_context| run_data_plane(task_context, record_gate.clone()),
                 )
                 .task(
                     "mavlink",
@@ -175,19 +104,15 @@ pub fn build_with_record_gate_index_and_repair(
                     |task_context| async move { run_mavlink_ingress(task_context).await },
                 )
                 .task(
-                    "library_observed",
+                    "library_operations",
                     RestartPolicy::Always {
                         backoff: Backoff::default(),
                     },
-                    |task_context| async move { run_library_observed_bridge(task_context).await },
+                    move |task_context| {
+                        run_library_operations(task_context, library_operations.clone())
+                    },
                 ),
-            RecorderHandlers::new(recorder_context),
-        )
-        .service_metadata(
-            RecorderService::VERSION,
-            RecorderService::BUILD,
-            RecorderService::CAPABILITIES,
-        ),
-    );
-    Ok((builder, gate_receiver))
+            RecorderHandlers::new(context.clone()),
+        )))
+    }
 }

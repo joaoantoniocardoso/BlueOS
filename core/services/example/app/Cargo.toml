@@ -7,6 +7,7 @@ publish.workspace = true
 
 [dependencies]
 blueos-idl.workspace = true
+blueos-jobs.workspace = true
 blueos-service.workspace = true
 blueos-example-api.workspace = true
 blueos-example-domain.workspace = true

@@ -15,7 +15,8 @@ use super::{
     verbosity::verbosity_from_raw,
 };
 
-/// Starts logging, parses the CLI, opens the Session, runs the Kernel, and returns an exit code (D-29).
+/// Starts logging, parses the CLI, opens the Session, calls `context` and then `build`, runs the Kernel, and returns
+/// an exit code (D-29).
 pub fn run<S: Service>(arguments: Vec<OsString>) -> ExitCode {
     logging::init_from_verbosity(verbosity_from_raw(&arguments));
     let parsed = match parse_service_cli::<S>(arguments) {
@@ -70,20 +71,25 @@ async fn run_with_log_publisher_on_backend<S: Service>(
 ) -> Result<RunOutcome, ServiceError> {
     let publisher = logging::attach_backbone(S::NAME, Arc::clone(&backend)).await;
     let log_runtime = logging::LogPublisherRuntime::start(publisher);
-    let outcome = async {
-        let context = ServiceContext::with_settings_path(
+    let started = async {
+        let service = ServiceContext::with_settings_path(
             parsed.service,
             parsed.common.settings_path,
             Arc::clone(&backend),
         );
-        let builder = S::build(&context)?;
-        let mut kernel = Kernel::start(S::NAME, builder, backend, clock).await?;
-        kernel.attach_log_publisher(log_runtime);
-        Ok(kernel.run().await)
+        let context = S::context(&service)?;
+        let builder = S::build(&service, &context)?.for_service::<S>(&service);
+        Kernel::start(S::NAME, builder, context, backend, clock).await
     }
     .await;
-    if let Err(service_error) = &outcome {
-        error!(%service_error, "The service could not start or run");
-    }
-    outcome
+    let mut kernel = match started {
+        Ok(kernel) => kernel,
+        Err(service_error) => {
+            error!(%service_error, "The service could not start or run");
+            log_runtime.shutdown_and_wait().await;
+            return Err(service_error);
+        }
+    };
+    kernel.attach_log_publisher(log_runtime);
+    Ok(kernel.run().await)
 }

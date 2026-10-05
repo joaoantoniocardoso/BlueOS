@@ -11,7 +11,7 @@ help: the trait `blueos_example_api::endpoints::Conversions` is not implemented 
    |
    | pub struct Twin;
    | ^^^^^^^^^^^^^^^
-   = note: implement `set_level` for the Command `SetLevel`, `level` for the Query `Level`, `level_response` for the Query `Level`, `pump` for the State `pump`
+   = note: implement `SetLevelError`, `set_level`, `set_level_feedback` and `set_level_result` for the Job type `SetLevel`, `level` and `level_response` for the Query `Level`, `pump` for the State `pump`
 help: the trait `blueos_example_api::endpoints::Conversions` is implemented for `Pump`
   --> $WORKSPACE/services/example/logic/api/src/lib.rs
    |
@@ -20,5 +20,5 @@ help: the trait `blueos_example_api::endpoints::Conversions` is implemented for 
 note: required by a bound in `register`
   --> src/endpoints.rs
    |
-   | pub fn register<D: Conversions, Context>(
+   | pub fn register<D: Conversions + DomainJobs, Context>(
    |                    ^^^^^^^^^^^ required by this bound in `register`

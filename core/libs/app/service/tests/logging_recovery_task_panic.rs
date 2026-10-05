@@ -35,8 +35,13 @@ impl Service for TasksService {
     const NAME: &'static str = "logging-recovery-task";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<TasksArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<TasksArguments>,
+        _service: &ServiceContext<TasksArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<TasksDomain>, ServiceError> {
         Ok(ServiceBuilder::new(TasksSnapshot).task(
             "panicker",

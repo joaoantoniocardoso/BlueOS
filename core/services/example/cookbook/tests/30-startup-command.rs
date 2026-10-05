@@ -3,7 +3,7 @@
 use core::convert::Infallible;
 
 use blueos_domain::{Command, Decision, Domain, IoError, Now, Outcome};
-use blueos_idl::msg::blueos_example_msgs::{EmptyRequest, PumpState};
+use blueos_idl::msg::blueos_example_msgs::{LevelRequest, PumpState};
 use blueos_service::{Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness};
 
 struct StartupCookbookService;
@@ -31,12 +31,17 @@ impl Service for StartupCookbookService {
     const NAME: &'static str = "cookbook_startup";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<StartupCookbookArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<StartupCookbookArguments>,
+        _service: &ServiceContext<StartupCookbookArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<StartupCookbook>, ServiceError> {
         Ok(ServiceBuilder::new(StartupCookbookSnapshot::default())
             .on_start(StartupCookbookRequest::Mark)
-            .command("Client", |_: EmptyRequest| {
+            .command("Client", |_: LevelRequest| {
                 Ok(StartupCookbookRequest::Client)
             })
             .state("progress", |snapshot: &StartupCookbookSnapshot| PumpState {
@@ -91,7 +96,7 @@ async fn on_start_runs_before_the_first_client_command() {
     let harness = Harness::<StartupCookbookService>::start(StartupCookbookArguments)
         .await
         .unwrap();
-    harness.send("Client", &EmptyRequest::default()).await;
+    harness.send("Client", &LevelRequest::default()).await;
     let progress = harness.state::<PumpState>("progress").await;
     assert_eq!(progress.level, 2);
 }

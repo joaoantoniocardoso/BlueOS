@@ -1,396 +1,306 @@
-//! L1 tests: Job graphs driven by plain function calls, as a Domain drives them from `handle`.
+//! L1 tests: the Jobs table driven by plain function calls, as the Kernel and a Domain drive it.
 
-use blueos_jobs::{JobEnd, JobGraph, JobId, JobKind, JobStatus, JobView, Jobs, JobsError, LeafJob};
+use blueos_jobs::{JobControl, JobEnd, JobId, JobNature, JobStatus, Jobs, JobsError, Submitted};
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum Step {
-    Fill,
-    Heat,
-    Drain,
+const REPAIR: &str = "RepairRecording";
+const GOAL: &[u8] = b"/recordings/a.mcap";
+const LASTING: JobNature = JobNature {
+    lasting: true,
+    cancellable: true,
+    pausable: true,
+    ..JobNature::INSTANT
+};
+
+#[test]
+fn a_job_id_is_the_text_of_a_uuid() {
+    let text = "0b5e8f5c-6f0a-4c4e-9a52-2f1e7d3c9b10";
+
+    let job_id: JobId = text.parse().expect("a UUID");
+
+    assert_eq!(job_id.to_string(), text);
+    assert_eq!(
+        "0B5E8F5C-6F0A-4C4E-9A52-2F1E7D3C9B10".parse::<JobId>(),
+        Ok(job_id)
+    );
+    for invalid in [
+        "",
+        "7",
+        "0b5e8f5c6f0a4c4e9a522f1e7d3c9b10",
+        "0b5e8f5c-6f0a-4c4e-9a52-2f1e7d3c9b1g",
+        "0b5e8f5c+6f0a-4c4e-9a52-2f1e7d3c9b10",
+    ] {
+        assert!(invalid.parse::<JobId>().is_err(), "{invalid} is no UUID");
+    }
+    assert_eq!(
+        JobId::from_u128(1).to_string(),
+        "00000000-0000-0000-0000-000000000001"
+    );
 }
 
 #[test]
-fn a_sequence_runs_its_steps_in_order() {
+fn ending_an_unknown_job_is_rejected() {
     let mut jobs = Jobs::default();
-
-    let started = jobs.start(JobGraph::Sequence(vec![
-        JobGraph::Leaf(Step::Fill),
-        JobGraph::Leaf(Step::Heat),
-    ]));
-
-    assert_eq!(started.job_id.get(), 1);
-    assert_eq!(steps(&started.leaves), [Step::Fill]);
-    assert_eq!(jobs.status(started.job_id), Some(JobStatus::Running));
-    let heat = jobs
-        .finish(started.leaves[0].job_id, JobEnd::Succeeded)
-        .expect("Fill is running");
-    assert_eq!(steps(&heat), [Step::Heat]);
-    assert_eq!(jobs.status(started.job_id), Some(JobStatus::Running));
-    let nothing = jobs
-        .finish(heat[0].job_id, JobEnd::Succeeded)
-        .expect("Heat is running");
-    assert!(nothing.is_empty());
+    let job_id = JobId::from_u128(99);
     assert_eq!(
-        jobs.status(started.job_id),
-        Some(JobStatus::Finished(JobEnd::Succeeded))
+        jobs.end(job_id, JobEnd::Succeeded),
+        Err(JobsError::Unknown(job_id))
     );
 }
 
 #[test]
-fn a_parallel_runs_every_step_at_once_and_joins_them_all() {
+fn a_submitted_job_executes_until_its_domain_ends_it() {
     let mut jobs = Jobs::default();
+    let job_id = JobId::from_u128(1);
 
-    let started = jobs.start(JobGraph::Parallel(vec![
-        JobGraph::Leaf(Step::Fill),
-        JobGraph::Leaf(Step::Drain),
-    ]));
-
-    assert_eq!(steps(&started.leaves), [Step::Fill, Step::Drain]);
-    let [fill, drain] = [started.leaves[0].job_id, started.leaves[1].job_id];
-    let nothing = jobs
-        .finish(drain, JobEnd::Failed)
-        .expect("Drain is running");
-    assert!(nothing.is_empty());
-    assert_eq!(jobs.status(started.job_id), Some(JobStatus::Running));
-    jobs.finish(fill, JobEnd::Succeeded)
-        .expect("Fill is running");
     assert_eq!(
-        jobs.status(started.job_id),
-        Some(JobStatus::Finished(JobEnd::Failed))
+        jobs.submit(job_id, REPAIR, GOAL, LASTING),
+        Ok(Submitted::New)
+    );
+    assert_eq!(status(&jobs, job_id), JobStatus::Executing);
+    jobs.end(job_id, JobEnd::Succeeded).expect("active");
+
+    assert_eq!(status(&jobs, job_id), JobStatus::Succeeded);
+    assert_eq!(
+        jobs.end(
+            job_id,
+            JobEnd::Aborted {
+                reason: "late".to_owned()
+            }
+        ),
+        Err(JobsError::AlreadyEnded(job_id))
     );
 }
 
 #[test]
-fn a_sequence_after_a_parallel_starts_once_the_parallel_has_joined() {
+fn the_same_id_with_the_same_goal_is_a_retry_and_with_another_goal_is_rejected() {
     let mut jobs = Jobs::default();
+    let job_id = JobId::from_u128(1);
+    jobs.submit(job_id, REPAIR, GOAL, LASTING).expect("new");
 
-    let started = jobs.start(JobGraph::Sequence(vec![
-        JobGraph::Parallel(vec![JobGraph::Leaf(Step::Fill), JobGraph::Leaf(Step::Heat)]),
-        JobGraph::Leaf(Step::Drain),
-    ]));
-
-    assert_eq!(steps(&started.leaves), [Step::Fill, Step::Heat]);
-    let after_fill = jobs
-        .finish(started.leaves[0].job_id, JobEnd::Succeeded)
-        .expect("Fill is running");
-    assert!(after_fill.is_empty());
-    let after_heat = jobs
-        .finish(started.leaves[1].job_id, JobEnd::Succeeded)
-        .expect("Heat is running");
-    assert_eq!(steps(&after_heat), [Step::Drain]);
+    assert_eq!(
+        jobs.submit(job_id, REPAIR, GOAL, LASTING),
+        Ok(Submitted::Retry)
+    );
+    let reused = jobs.submit(job_id, REPAIR, b"/recordings/b.mcap", LASTING);
+    assert_eq!(reused, Err(JobsError::IdReused(job_id)));
+    assert_eq!(reused.unwrap_err().to_string(), "id reused");
+    assert_eq!(
+        jobs.submit(job_id, "DeleteRecording", GOAL, LASTING),
+        Err(JobsError::IdReused(job_id))
+    );
+    jobs.end(job_id, JobEnd::Succeeded).expect("active");
+    assert_eq!(
+        jobs.submit(job_id, REPAIR, GOAL, LASTING),
+        Ok(Submitted::Retry)
+    );
 }
 
 #[test]
-fn a_failed_step_ends_its_sequence_and_cancels_the_steps_after_it() {
+fn an_id_is_free_again_once_its_job_leaves_the_history() {
+    let mut jobs = Jobs::with_retention(1);
+    let [first, second] = [JobId::from_u128(1), JobId::from_u128(2)];
+    for job_id in [first, second] {
+        jobs.submit(job_id, REPAIR, GOAL, LASTING).expect("new");
+        jobs.end(job_id, JobEnd::Succeeded).expect("active");
+    }
+
+    assert_eq!(jobs.job(first), None);
+    assert_eq!(
+        jobs.submit(first, REPAIR, b"another goal", LASTING),
+        Ok(Submitted::New)
+    );
+}
+
+#[test]
+fn cancel_pause_and_resume_change_the_status_the_domain_follows() {
     let mut jobs = Jobs::default();
-    let started = jobs.start(JobGraph::Sequence(vec![
-        JobGraph::Leaf(Step::Fill),
-        JobGraph::Leaf(Step::Heat),
-    ]));
-
-    let nothing = jobs
-        .finish(started.leaves[0].job_id, JobEnd::Failed)
-        .expect("Fill is running");
-
-    assert!(nothing.is_empty());
-    assert_eq!(
-        jobs.status(started.job_id),
-        Some(JobStatus::Finished(JobEnd::Failed))
-    );
-    assert_eq!(
-        leaf(&jobs, Step::Heat).status,
-        JobStatus::Finished(JobEnd::Cancelled)
-    );
-}
-
-#[test]
-fn cancelling_a_root_job_cancels_its_running_leaves() {
-    let mut jobs = Jobs::default();
-    let started = jobs.start(JobGraph::Sequence(vec![
-        JobGraph::Parallel(vec![JobGraph::Leaf(Step::Fill), JobGraph::Leaf(Step::Heat)]),
-        JobGraph::Leaf(Step::Drain),
-    ]));
-
-    let cancelling = jobs.cancel(started.job_id).expect("the root is running");
-
-    assert_eq!(cancelling, started.leaves);
-    assert_eq!(jobs.status(started.job_id), Some(JobStatus::Cancelling));
-    assert_eq!(leaf(&jobs, Step::Fill).status, JobStatus::Cancelling);
-    assert_eq!(
-        leaf(&jobs, Step::Drain).status,
-        JobStatus::Finished(JobEnd::Cancelled)
-    );
-    jobs.finish(cancelling[0].job_id, JobEnd::Cancelled)
-        .expect("Fill is cancelling");
-    let nothing = jobs
-        .finish(cancelling[1].job_id, JobEnd::Succeeded)
-        .expect("Heat is cancelling");
-    assert!(nothing.is_empty());
-    assert_eq!(
-        leaf(&jobs, Step::Heat).status,
-        JobStatus::Finished(JobEnd::Succeeded)
-    );
-    assert_eq!(
-        jobs.status(started.job_id),
-        Some(JobStatus::Finished(JobEnd::Cancelled))
-    );
-}
-
-#[test]
-fn a_cancelled_step_never_starts() {
-    let mut jobs = Jobs::default();
-    let started = jobs.start(JobGraph::Sequence(vec![
-        JobGraph::Leaf(Step::Fill),
-        JobGraph::Leaf(Step::Drain),
-    ]));
-    let drain = leaf(&jobs, Step::Drain).job_id;
-
-    let cancelling = jobs.cancel(drain).expect("Drain is queued");
-
-    assert!(cancelling.is_empty());
-    let nothing = jobs
-        .finish(started.leaves[0].job_id, JobEnd::Succeeded)
-        .expect("Fill is running");
-    assert!(nothing.is_empty());
-    assert_eq!(
-        jobs.status(started.job_id),
-        Some(JobStatus::Finished(JobEnd::Cancelled))
-    );
-}
-
-#[test]
-fn cancelling_twice_stops_nothing_more_and_a_finished_job_cannot_be_cancelled() {
-    let mut jobs = Jobs::default();
-    let started = jobs.start(JobGraph::Leaf(Step::Fill));
-
-    jobs.cancel(started.job_id).expect("Fill is running");
-    let again = jobs.cancel(started.job_id).expect("Fill is cancelling");
-    jobs.finish(started.job_id, JobEnd::Cancelled)
-        .expect("Fill is cancelling");
-
-    assert!(again.is_empty());
-    assert_eq!(
-        jobs.cancel(started.job_id),
-        Err(JobsError::Finished(started.job_id))
-    );
-}
-
-#[test]
-fn only_a_running_leaf_can_finish() {
-    let mut jobs = Jobs::default();
-    let started = jobs.start(JobGraph::Sequence(vec![
-        JobGraph::Leaf(Step::Fill),
-        JobGraph::Leaf(Step::Drain),
-    ]));
-    let fill = started.leaves[0].job_id;
-    let drain = leaf(&jobs, Step::Drain).job_id;
-    let unknown = JobId::new(1000).expect("1000 is not 0");
-    let before = jobs.clone();
+    let job_id = JobId::from_u128(1);
+    jobs.submit(job_id, REPAIR, GOAL, LASTING).expect("new");
 
     assert_eq!(
-        jobs.finish(started.job_id, JobEnd::Succeeded),
-        Err(JobsError::NotRunning(started.job_id))
+        jobs.control(job_id, JobControl::Pause),
+        Ok(JobStatus::Paused)
     );
     assert_eq!(
-        jobs.finish(drain, JobEnd::Succeeded),
-        Err(JobsError::NotRunning(drain))
+        jobs.control(job_id, JobControl::Pause),
+        Ok(JobStatus::Paused)
     );
     assert_eq!(
-        jobs.finish(unknown, JobEnd::Succeeded),
-        Err(JobsError::Unknown(unknown))
+        jobs.control(job_id, JobControl::Resume),
+        Ok(JobStatus::Executing)
     );
-    assert_eq!(jobs.cancel(unknown), Err(JobsError::Unknown(unknown)));
-    assert_eq!(jobs, before);
-    jobs.finish(fill, JobEnd::Failed).expect("Fill is running");
     assert_eq!(
-        jobs.finish(fill, JobEnd::Succeeded),
-        Err(JobsError::NotRunning(fill))
+        jobs.control(job_id, JobControl::Cancel),
+        Ok(JobStatus::Canceling)
     );
-}
-
-#[test]
-fn a_job_id_is_never_0() {
-    assert_eq!(JobId::new(0), None);
-    assert_eq!(JobId::new(7).map(JobId::get), Some(7));
-}
-
-#[test]
-fn finished_root_jobs_beyond_the_retention_count_are_dropped_oldest_finished_first() {
-    let mut jobs = Jobs::with_retention(2);
-    let long = jobs.start(JobGraph::Leaf(Step::Heat)).job_id;
-    let quick: Vec<JobId> = (0..3)
-        .map(|_| {
-            let job_id = jobs.start(JobGraph::Leaf(Step::Fill)).job_id;
-            jobs.finish(job_id, JobEnd::Succeeded)
-                .expect("Fill is running");
-            job_id
+    assert_eq!(
+        jobs.control(job_id, JobControl::Pause),
+        Err(JobsError::Refused {
+            job_id,
+            control: JobControl::Pause,
+            status: JobStatus::Canceling,
         })
+    );
+    jobs.end(job_id, JobEnd::Canceled).expect("active");
+    assert_eq!(status(&jobs, job_id), JobStatus::Canceled);
+    assert_eq!(
+        jobs.control(job_id, JobControl::Cancel),
+        Err(JobsError::Refused {
+            job_id,
+            control: JobControl::Cancel,
+            status: JobStatus::Canceled,
+        })
+    );
+}
+
+#[test]
+fn a_control_the_nature_does_not_allow_is_rejected() {
+    let mut jobs = Jobs::default();
+    let job_id = JobId::from_u128(1);
+    let nature = JobNature {
+        lasting: true,
+        ..JobNature::INSTANT
+    };
+    jobs.submit(job_id, REPAIR, GOAL, nature).expect("new");
+
+    for control in [
+        JobControl::Cancel,
+        JobControl::Pause,
+        JobControl::Resume,
+        JobControl::AnswerPermission { granted: true },
+    ] {
+        let rejected = jobs.control(job_id, control);
+        assert_eq!(
+            rejected,
+            Err(JobsError::NotAllowed {
+                job_type: REPAIR.to_owned(),
+                control,
+            })
+        );
+        assert_eq!(
+            rejected.unwrap_err().to_string(),
+            format!("{REPAIR} does not allow {control}")
+        );
+    }
+    assert_eq!(status(&jobs, job_id), JobStatus::Executing);
+    assert_eq!(
+        jobs.control(JobId::from_u128(2), JobControl::Cancel),
+        Err(JobsError::Unknown(JobId::from_u128(2)))
+    );
+}
+
+#[test]
+fn a_job_that_needs_permission_waits_for_an_answer() {
+    let mut jobs = Jobs::default();
+    let [granted, denied, canceled] = [1, 2, 3].map(JobId::from_u128);
+    let nature = JobNature {
+        needs_permission: true,
+        ..LASTING
+    };
+    for job_id in [granted, denied, canceled] {
+        jobs.submit(job_id, REPAIR, GOAL, nature).expect("new");
+        assert_eq!(status(&jobs, job_id), JobStatus::WaitingForPermission);
+    }
+
+    assert_eq!(
+        jobs.control(granted, JobControl::AnswerPermission { granted: true }),
+        Ok(JobStatus::Executing)
+    );
+    assert_eq!(
+        jobs.control(granted, JobControl::AnswerPermission { granted: true }),
+        Err(JobsError::Refused {
+            job_id: granted,
+            control: JobControl::AnswerPermission { granted: true },
+            status: JobStatus::Executing,
+        })
+    );
+    assert_eq!(
+        jobs.control(denied, JobControl::AnswerPermission { granted: false }),
+        Ok(JobStatus::Canceled)
+    );
+    assert_eq!(reason(&jobs, denied), "permission denied");
+    assert_eq!(
+        jobs.control(canceled, JobControl::Cancel),
+        Ok(JobStatus::Canceled)
+    );
+}
+
+#[test]
+fn a_restore_aborts_the_jobs_that_were_running_and_keeps_the_waiting_ones() {
+    let mut jobs = Jobs::default();
+    let [executing, paused, waiting] = [1, 2, 3].map(JobId::from_u128);
+    jobs.submit(executing, REPAIR, GOAL, LASTING).expect("new");
+    jobs.submit(paused, REPAIR, GOAL, LASTING).expect("new");
+    jobs.control(paused, JobControl::Pause).expect("pausable");
+    let needs_permission = JobNature {
+        needs_permission: true,
+        ..LASTING
+    };
+    jobs.submit(waiting, REPAIR, GOAL, needs_permission)
+        .expect("new");
+
+    jobs.interrupt();
+
+    for job_id in [executing, paused] {
+        assert_eq!(status(&jobs, job_id), JobStatus::Aborted);
+        assert_eq!(reason(&jobs, job_id), "interrupted");
+    }
+    assert_eq!(status(&jobs, waiting), JobStatus::WaitingForPermission);
+}
+
+#[test]
+fn the_list_shows_active_jobs_then_the_retained_finished_ones() {
+    let mut jobs = Jobs::with_retention(1);
+    let [first, second, third, fourth] = [1, 2, 3, 4].map(JobId::from_u128);
+    for job_id in [first, second, third, fourth] {
+        jobs.submit(job_id, REPAIR, GOAL, LASTING).expect("new");
+    }
+    jobs.end(
+        second,
+        JobEnd::Aborted {
+            reason: "disk full".to_owned(),
+        },
+    )
+    .expect("active");
+    jobs.end(first, JobEnd::Succeeded).expect("active");
+
+    let listed: Vec<_> = jobs
+        .list()
+        .map(|job| (job.job_id, job.status, job.reason.as_str()))
         .collect();
 
-    assert_eq!(roots(&jobs), [long, quick[1], quick[2]]);
-    assert_eq!(jobs.status(quick[0]), None);
-    assert_eq!(jobs.cancel(quick[0]), Err(JobsError::Unknown(quick[0])));
-    jobs.finish(long, JobEnd::Failed).expect("Heat is running");
-    assert_eq!(roots(&jobs), [quick[2], long]);
+    assert_eq!(
+        listed,
+        [
+            (third, JobStatus::Executing, ""),
+            (fourth, JobStatus::Executing, ""),
+            (first, JobStatus::Succeeded, ""),
+        ]
+    );
 }
 
 #[test]
-fn a_root_job_that_finishes_as_it_starts_is_kept_in_the_history() {
+fn the_history_keeps_the_last_ended_jobs_of_each_type() {
     let mut jobs = Jobs::with_retention(1);
+    let [first, second, snapshot] = [1, 2, 3].map(JobId::from_u128);
+    for (job_id, job_type) in [
+        (snapshot, "SnapshotRecording"),
+        (first, REPAIR),
+        (second, REPAIR),
+    ] {
+        jobs.submit(job_id, job_type, GOAL, LASTING).expect("new");
+        jobs.end(job_id, JobEnd::Succeeded).expect("active");
+    }
 
-    let empty = jobs.start(JobGraph::Parallel(vec![]));
+    let listed: Vec<_> = jobs.list().map(|job| job.job_id).collect();
 
-    assert!(empty.leaves.is_empty());
-    assert_eq!(
-        jobs.status(empty.job_id),
-        Some(JobStatus::Finished(JobEnd::Succeeded))
-    );
-    assert_eq!(roots(&jobs), [empty.job_id]);
+    assert_eq!(listed, [snapshot, second]);
 }
 
-#[test]
-fn with_a_retention_of_0_a_cancelled_root_job_is_listed_until_its_running_step_ends() {
-    let mut jobs = Jobs::with_retention(0);
-    let started = jobs.start(JobGraph::Sequence(vec![
-        JobGraph::Leaf(Step::Fill),
-        JobGraph::Leaf(Step::Drain),
-    ]));
-
-    jobs.cancel(started.job_id).expect("the root is running");
-    assert_eq!(roots(&jobs), [started.job_id]);
-    jobs.finish(started.leaves[0].job_id, JobEnd::Cancelled)
-        .expect("Fill is cancelling");
-
-    assert!(roots(&jobs).is_empty());
+fn status(jobs: &Jobs, job_id: JobId) -> JobStatus {
+    jobs.job(job_id).expect("the Job is in the table").status
 }
 
-#[test]
-fn a_finished_step_of_a_running_job_cannot_be_cancelled() {
-    let mut jobs = Jobs::default();
-    let started = jobs.start(JobGraph::Sequence(vec![
-        JobGraph::Leaf(Step::Fill),
-        JobGraph::Leaf(Step::Drain),
-    ]));
-    let fill = started.leaves[0].job_id;
-    jobs.finish(fill, JobEnd::Succeeded)
-        .expect("Fill is running");
-
-    assert_eq!(jobs.cancel(fill), Err(JobsError::Finished(fill)));
-}
-
-#[test]
-fn the_list_shows_each_root_job_followed_by_the_jobs_in_it() {
-    let mut jobs = Jobs::default();
-    let started = jobs.start(JobGraph::Sequence(vec![
-        JobGraph::Leaf(Step::Fill),
-        JobGraph::Parallel(vec![
-            JobGraph::Leaf(Step::Heat),
-            JobGraph::Leaf(Step::Drain),
-        ]),
-    ]));
-
-    let views = jobs.list();
-
-    let [root, fill, parallel, heat, drain] = views.as_slice() else {
-        panic!("expected five Jobs, got {views:?}");
-    };
-    assert_eq!(
-        *root,
-        JobView {
-            job_id: started.job_id,
-            parent: None,
-            status: JobStatus::Running,
-            kind: JobKind::Sequence,
-        }
-    );
-    assert_eq!(
-        *fill,
-        JobView {
-            job_id: started.leaves[0].job_id,
-            parent: Some(started.job_id),
-            status: JobStatus::Running,
-            kind: JobKind::Leaf(&Step::Fill),
-        }
-    );
-    assert_eq!(
-        (parallel.parent, parallel.status, parallel.kind),
-        (Some(started.job_id), JobStatus::Queued, JobKind::Parallel)
-    );
-    assert_eq!(
-        (heat.parent, heat.status, heat.kind),
-        (
-            Some(parallel.job_id),
-            JobStatus::Queued,
-            JobKind::Leaf(&Step::Heat)
-        )
-    );
-    assert_eq!(
-        (drain.parent, drain.kind),
-        (Some(parallel.job_id), JobKind::Leaf(&Step::Drain))
-    );
-}
-
-#[test]
-fn an_interrupted_leaf_can_finish_as_failed_or_cancelled() {
-    let mut jobs = Jobs::default();
-    let started = jobs.start(JobGraph::Leaf(Step::Fill));
-    let leaf_id = started.leaves[0].job_id;
-    jobs.interrupt_running_leaves();
-    assert_eq!(jobs.status(leaf_id), Some(JobStatus::Interrupted));
-
-    let nothing = jobs
-        .finish(leaf_id, JobEnd::Failed)
-        .expect("Interrupted is finishable");
-    assert!(nothing.is_empty());
-    assert_eq!(
-        jobs.status(started.job_id),
-        Some(JobStatus::Finished(JobEnd::Failed))
-    );
-}
-
-#[test]
-fn retry_turns_an_interrupted_leaf_back_into_a_running_leaf_job() {
-    let mut jobs = Jobs::default();
-    let started = jobs.start(JobGraph::Leaf(Step::Heat));
-    let leaf_id = started.leaves[0].job_id;
-    jobs.interrupt_running_leaves();
-
-    let leaf = jobs.retry(leaf_id).expect("Heat is interrupted");
-    assert_eq!(leaf.job_id, leaf_id);
-    assert_eq!(leaf.step, Step::Heat);
-    assert_eq!(jobs.status(leaf_id), Some(JobStatus::Running));
-}
-
-#[test]
-fn the_latest_root_job_is_the_one_started_last_even_once_dropped() {
-    let mut jobs = Jobs::with_retention(0);
-    assert_eq!(jobs.latest_root(), None);
-
-    let first = jobs.start(JobGraph::Leaf(Step::Fill));
-    jobs.finish(first.job_id, JobEnd::Succeeded)
-        .expect("Fill is running");
-    let second = jobs.start(JobGraph::Sequence(vec![]));
-
-    assert_ne!(first.job_id, second.job_id);
-    assert_eq!(jobs.latest_root(), Some(second.job_id));
-    assert!(roots(&jobs).is_empty());
-}
-
-fn roots(jobs: &Jobs<Step>) -> Vec<JobId> {
-    jobs.list()
-        .into_iter()
-        .filter(|job| job.parent.is_none())
-        .map(|job| job.job_id)
-        .collect()
-}
-
-fn steps(leaves: &[LeafJob<Step>]) -> Vec<Step> {
-    leaves.iter().map(|leaf| leaf.step).collect()
-}
-
-fn leaf(jobs: &Jobs<Step>, step: Step) -> JobView<'_, Step> {
-    jobs.list()
-        .into_iter()
-        .find(|job| job.kind == JobKind::Leaf(&step))
-        .expect("a leaf runs the step")
+fn reason(jobs: &Jobs, job_id: JobId) -> &str {
+    &jobs.job(job_id).expect("the Job is in the table").reason
 }

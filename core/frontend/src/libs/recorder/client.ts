@@ -1,36 +1,46 @@
-import { sendCommand } from '@/libs/blueos-api/command'
+import type { CommandAck, JobStatus, RecordingState as RecordingSessionState } from '@blueos-idl/messages'
+
+import { cancelJob, sendCommand } from '@/libs/blueos-api/command'
+import { jobsState } from '@/libs/blueos-api/endpoints'
+import { watchJobFeedback, watchJobResults } from '@/libs/blueos-api/job'
 import { watchServiceAlive } from '@/libs/blueos-api/liveliness'
 import {
-  CancelRepair,
   DeleteRecording,
   library,
-  operation,
+  NAME,
+  recording,
   RepairRecording,
   SnapshotRecording,
+  Start,
+  Stop,
 } from '@/libs/blueos-api/services/recorder'
 import type { Subscription, Transport } from '@/libs/blueos-api/transport'
 import { watchState } from '@/libs/blueos-api/watch'
-import { watchEvent } from '@/libs/blueos-api/watch-event'
+import type { ByteSource } from '@/libs/mcap/logic/byte-source'
 import type { RecordingIndexSource } from '@/libs/mcap/logic/recording-index'
 
+import { ZenohByteSource } from './byte-source'
 import { DEFAULT_RECORDING_HTTP_PREFIX, SNAPSHOT_WAIT_TIMEOUT_MS } from './constants'
 import { createCachedRecordingIndexSource } from './index-source'
-import { mapRecordingFile, mapRecordingOperation } from './map'
+import { mapRecordingFile } from './map'
 import type {
   LibraryRecording,
   RecorderCommandResult,
-  RecordingOperationEvent,
+  RecordingJobResult,
 } from './types'
 import { recordingDownloadUrl } from './url'
 import {
-  isSnapshotOperationForPath,
   readySnapshotDownloadPath,
+  recordingDownload,
+  type RepairProgress,
   snapshotDownloadPath,
   snapshotPathsForSource,
-  sortRecordingsNewestFirst,
 } from './view-logic'
 
 export { SNAPSHOT_WAIT_TIMEOUT_MS } from './constants'
+
+/** The recorder refused the snapshot, for instance because the recording stopped meanwhile. */
+class SnapshotRefusedError extends Error {}
 
 interface SnapshotWaiter {
   resolve: (outputPath: string) => void
@@ -46,23 +56,41 @@ export interface RecorderClient {
   ): Promise<Subscription>
   watchServiceRunning(onRunning: (running: boolean) => void): Promise<Subscription>
   watchOperations(
-    onOperation: (event: RecordingOperationEvent) => void,
+    onOperation: (entry: RecordingJobResult) => void,
     onError?: (error: unknown) => void,
   ): Promise<Subscription>
+  watchRecording(
+    onRecording: (state: RecordingSessionState) => void,
+    onError?: (error: unknown) => void,
+  ): Promise<Subscription>
+  watchRepairProgress(
+    onProgress: (progress: RepairProgress) => void,
+    onError?: (error: unknown) => void,
+  ): Promise<Subscription>
+  watchJobs(
+    onJobs: (jobs: JobStatus[]) => void,
+    onError?: (error: unknown) => void,
+  ): Promise<Subscription>
+  startRecording(rotateIfActive: boolean): Promise<RecorderCommandResult>
+  stopRecording(): Promise<RecorderCommandResult>
   repairRecording(path: string): Promise<RecorderCommandResult>
-  cancelRepair(path: string): Promise<RecorderCommandResult>
+  cancelRepair(repairJobId: string): Promise<RecorderCommandResult>
   deleteRecording(path: string): Promise<RecorderCommandResult>
   snapshotRecording(path: string): Promise<string>
+  /** The path to download for `file`: its own, or for the file being written, a snapshot taken now. */
+  recordingDownloadPath(file: LibraryRecording): Promise<string>
   recordingDownloadUrl(relativePath: string): string
   recordingIndexSource(path: string): RecordingIndexSource
+  /** The bytes of the recording at `path`, read with the `bytes` Query. */
+  recordingByteSource(path: string): ByteSource
 }
 
 export interface RecorderClientOptions {
   recordingHttpPrefix?: string
 }
 
-function commandResult(commandAck: { accepted: boolean, reason: string }): RecorderCommandResult {
-  return { accepted: commandAck.accepted, reason: commandAck.reason }
+function commandResult(commandAck: CommandAck): RecorderCommandResult {
+  return { accepted: commandAck.accepted, reason: commandAck.reason, job_id: commandAck.job_id, status: commandAck.status }
 }
 
 export function createRecorderClient(
@@ -97,19 +125,19 @@ export function createRecorderClient(
     }
   }
 
-  function resolveSnapshotFromOperation(event: RecordingOperationEvent): void {
-    const waiter = snapshotWaiters[event.path]
-    if (!waiter || !isSnapshotOperationForPath(event, event.path)) {
+  function resolveSnapshotFromOperation(entry: RecordingJobResult): void {
+    const waiter = snapshotWaiters[entry.result.path]
+    if (!waiter || entry.job.job_type !== SnapshotRecording.name) {
       return
     }
-    delete snapshotWaiters[event.path]
+    delete snapshotWaiters[entry.result.path]
     clearTimeout(waiter.timeoutId)
-    const outputPath = snapshotDownloadPath(event)
+    const outputPath = snapshotDownloadPath(entry)
     if (outputPath) {
       waiter.resolve(outputPath)
       return
     }
-    waiter.reject(new Error(event.error || 'Snapshot failed'))
+    waiter.reject(new Error(entry.job.reason || 'Snapshot failed'))
   }
 
   function beginSnapshotWait(sourcePath: string): Promise<string> {
@@ -128,7 +156,8 @@ export function createRecorderClient(
     watchLibrary(onLibrary, onError) {
       return watchState(transport, library, {
         onValue: (message) => {
-          librarySnapshot = sortRecordingsNewestFirst(message.files.map(mapRecordingFile))
+          const contents = new Map(message.contents.map((entry) => [entry.path, entry]))
+          librarySnapshot = message.files.map((file) => mapRecordingFile(file, contents.get(file.path)))
           onLibrary(librarySnapshot)
           resolveSnapshotWaiters()
         },
@@ -140,15 +169,56 @@ export function createRecorderClient(
       return watchServiceAlive(transport, 'recorder', { onAlive: onRunning })
     },
 
-    watchOperations(onOperation, onError) {
-      return watchEvent(transport, operation, {
-        onValue: (message) => {
-          const event = mapRecordingOperation(message)
-          onOperation(event)
-          resolveSnapshotFromOperation(event)
+    async watchOperations(onOperation, onError) {
+      const subscriptions = await Promise.all(
+        [DeleteRecording, RepairRecording, SnapshotRecording].map((operation) => watchJobResults(
+          transport,
+          NAME,
+          operation.name,
+          operation.resultSchema,
+          {
+            onValue: (entry: RecordingJobResult) => {
+              onOperation(entry)
+              resolveSnapshotFromOperation(entry)
+            },
+            onError: (error) => onError?.(error),
+          },
+        )),
+      )
+      return {
+        close: async () => {
+          await Promise.all(subscriptions.map((subscription) => subscription.close()))
         },
+      }
+    },
+
+    watchRecording(onRecording, onError) {
+      return watchState(transport, recording, {
+        onValue: (state) => onRecording(state),
         onError: (error) => onError?.(error),
       })
+    },
+
+    watchRepairProgress(onProgress, onError) {
+      return watchJobFeedback(transport, NAME, RepairRecording.name, RepairRecording.feedbackSchema, {
+        onValue: (entries) => onProgress(Object.fromEntries(entries.map(({ jobId, feedback }) => [jobId, feedback]))),
+        onError: (error) => onError?.(error),
+      })
+    },
+
+    watchJobs(onJobs, onError) {
+      return watchState(transport, jobsState(NAME), {
+        onValue: (list) => onJobs(list.jobs),
+        onError: (error) => onError?.(error),
+      })
+    },
+
+    async startRecording(rotateIfActive) {
+      return commandResult(await sendCommand(transport, Start, { rotate_if_active: rotateIfActive }))
+    },
+
+    async stopRecording() {
+      return commandResult(await sendCommand(transport, Stop, {}))
     },
 
     async repairRecording(path) {
@@ -156,8 +226,8 @@ export function createRecorderClient(
       return commandResult(commandAck)
     },
 
-    async cancelRepair(path) {
-      const commandAck = await sendCommand(transport, CancelRepair, { path })
+    async cancelRepair(repairJobId) {
+      const commandAck = await cancelJob(transport, NAME, repairJobId)
       return commandResult(commandAck)
     },
 
@@ -171,7 +241,7 @@ export function createRecorderClient(
       try {
         const commandAck = await sendCommand(transport, SnapshotRecording, { path })
         if (!commandAck.accepted) {
-          removeSnapshotWaiter(path, new Error(commandAck.reason || 'Snapshot command rejected'))
+          removeSnapshotWaiter(path, new SnapshotRefusedError(commandAck.reason || 'Snapshot command rejected'))
         }
       } catch (error) {
         removeSnapshotWaiter(
@@ -180,6 +250,20 @@ export function createRecorderClient(
         )
       }
       return snapshotPromise
+    },
+
+    async recordingDownloadPath(file) {
+      if (recordingDownload(file) !== 'snapshot') {
+        return file.path
+      }
+      try {
+        return await this.snapshotRecording(file.path)
+      } catch (error) {
+        if (error instanceof SnapshotRefusedError) {
+          return file.path
+        }
+        throw error
+      }
     },
 
     recordingDownloadUrl(relativePath) {
@@ -191,6 +275,9 @@ export function createRecorderClient(
         const file = librarySnapshot.find((recording) => recording.path === path)
         return file?.size_bytes ?? 0
       })
+    },
+    recordingByteSource(path) {
+      return new ZenohByteSource(transport, path)
     },
   }
 }

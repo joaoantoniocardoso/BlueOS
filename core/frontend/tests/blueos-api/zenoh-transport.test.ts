@@ -79,7 +79,7 @@ describe('zenohTransport', () => {
 
     const replies = await zenohTransport(session).get('blueos/v1/tank/command/Drain', {
       payload: new Uint8Array([0]),
-      encoding: 'application/cdr;blueos_example_msgs/msg/EmptyRequest',
+      encoding: 'application/cdr;blueos_example_msgs/srv/Level_Request',
     })
 
     expect(replies).toEqual([
@@ -94,6 +94,48 @@ describe('zenohTransport', () => {
       { kind: 'error', payload: new TextEncoder().encode('busy'), encoding: 'text/plain' },
     ])
     expect((sent?.payload as ZBytes).toBytes()).toEqual(new Uint8Array([0]))
-    expect(sent?.encoding?.toString()).toBe('application/cdr;blueos_example_msgs/msg/EmptyRequest')
+    expect(sent?.encoding?.toString()).toBe('application/cdr;blueos_example_msgs/srv/Level_Request')
+    expect(sent?.attachment).toBeUndefined()
+  })
+
+  it('returns once the limit of replies arrived, without waiting for the query to complete', async () => {
+    const session = {
+      get: async () => {
+        const replies = new FifoChannel<Reply>(8)
+        replies.send(new Reply(zenohSample('blueos/v1/recorder/query/bytes', SampleKind.PUT, [3])))
+        return replies
+      },
+    } as unknown as Session
+
+    const replies = await zenohTransport(session).get('blueos/v1/recorder/query/bytes', undefined, 1)
+
+    expect(replies).toEqual([{
+      kind: 'sample',
+      sample: {
+        key: 'blueos/v1/recorder/query/bytes',
+        payload: new Uint8Array([3]),
+        encoding: 'application/cdr;blueos_msgs/msg/CommandAck',
+      },
+    }])
+  })
+
+  it('sends the attachment of the body with the query', async () => {
+    let sent: GetOptions | undefined
+    const session = {
+      get: async (_key: string, options: GetOptions) => {
+        sent = options
+        const replies = new FifoChannel<Reply>(1)
+        replies.close()
+        return replies
+      },
+    } as unknown as Session
+
+    await zenohTransport(session).get('blueos/v1/tank/command/Drain', {
+      payload: new Uint8Array([0]),
+      encoding: 'application/cdr;blueos_example_msgs/srv/Level_Request',
+      attachment: new TextEncoder().encode('0b5e8f5c-6f0a-4c4e-9a52-2f1e7d3c9b10'),
+    })
+
+    expect((sent?.attachment as ZBytes).toString()).toBe('0b5e8f5c-6f0a-4c4e-9a52-2f1e7d3c9b10')
   })
 })

@@ -11,6 +11,8 @@ export interface McapVideoStats {
   loading: boolean
   /** True while an ongoing recording has no further frames yet and the player is polling for them. */
   waiting: boolean
+  /** True once a finished recording has been read to its end, so nothing more of the stream will be buffered. */
+  ended: boolean
   /** Frames read out of the recording, and how many of them started a group of pictures. */
   framesRead: number
   keyframes: number

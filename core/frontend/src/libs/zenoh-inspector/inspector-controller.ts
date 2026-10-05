@@ -1,7 +1,9 @@
 /* eslint-disable no-void */
 import type { EndpointInfo, ServiceInfo } from '@blueos-idl/messages'
 
-import type { InspectorApiClient, InspectorRequestResult as InspectorApiRequestResult } from './adapters/api-client'
+import type {
+  InspectorApiClient, InspectorRequestKind, InspectorRequestResult as InspectorApiRequestResult,
+} from './adapters/api-client'
 import type { LazySchemaProvider } from './adapters/schema-provider'
 import {
   applyBlueosServiceLiveliness,
@@ -15,8 +17,10 @@ import {
   defaultView,
   defaultViewRegistry,
   endpointsByKind,
+  endpointSchemas,
   parseRequestText,
   topicsBySource,
+  unwrapJobPart,
 } from './logic'
 import type {
   CdrCodec,
@@ -143,6 +147,10 @@ export class InspectorController {
 
   private sourceError: string | null = null
 
+  private readonly jobEndpoints = new Map<string, EndpointInfo[]>()
+
+  private readonly jobEndpointsRequested = new Set<string>()
+
   private sourceUnsubscribe: Unsubscribe | null = null
 
   private emitHandle: unknown | null = null
@@ -234,6 +242,9 @@ export class InspectorController {
     const topic = this.inspectorState.topics[key]
     if (topic) {
       this.selectedViewId = defaultView(topic, this.viewRegistry).id
+      if (topic.blueos?.kind === 'jobs') {
+        this.loadJobEndpoints(topic.blueos.service)
+      }
     }
     this.invalidateSelectedDecode()
     this.scheduleEmit()
@@ -286,12 +297,13 @@ export class InspectorController {
       return
     }
     try {
+      const { requestSchema, responseSchema } = endpointSchemas(endpoint)
       const result = await this.dependencies.apiClient.request(
         endpoint.key,
-        endpoint.kind as 'command' | 'query' | 'io_query',
-        endpoint.request_schema,
-        endpoint.response_schema,
-        endpoint.request_schema ? parsed.value : undefined,
+        endpoint.kind as InspectorRequestKind,
+        requestSchema,
+        responseSchema,
+        requestSchema ? parsed.value : undefined,
       )
       this.lastRequestResult = { status: 'success', result }
     } catch (error) {
@@ -358,6 +370,21 @@ export class InspectorController {
     this.scheduleEmit()
   }
 
+  // The info of a Service names the Feedback and Job result type each of its Job output keys carries.
+  private loadJobEndpoints(service: string): void {
+    if (this.jobEndpoints.has(service) || this.jobEndpointsRequested.has(service)) {
+      return
+    }
+    this.jobEndpointsRequested.add(service)
+    void this.dependencies.apiClient.serviceInfo(service).then((info) => {
+      this.jobEndpoints.set(service, info.endpoints)
+      this.invalidateSelectedDecode()
+      this.scheduleEmit()
+    }).catch(() => {
+      this.jobEndpointsRequested.delete(service)
+    })
+  }
+
   private invalidateSelectedDecode(): void {
     this.lastDecodedReceivedAt = null
     this.selectedDecoded = null
@@ -388,9 +415,15 @@ export class InspectorController {
     if (this.lastDecodedReceivedAt === sample.receivedAt && this.selectedDecoded !== null) {
       return this.selectedDecoded
     }
-    const decoded = decodePayload(
-      topic,
-      topic.schemaName,
+    const decoded = unwrapJobPart(
+      decodePayload(
+        topic,
+        topic.schemaName,
+        this.dependencies.schemaProvider,
+        this.dependencies.codec,
+      ),
+      topic.key,
+      this.jobEndpoints.get(topic.blueos?.service ?? '') ?? [],
       this.dependencies.schemaProvider,
       this.dependencies.codec,
     )

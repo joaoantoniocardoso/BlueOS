@@ -1,3 +1,4 @@
+import type { ByteSource } from '../logic/byte-source'
 import { listMcapChannels } from '../logic/channels'
 import {
   CLIP_STEP_SECONDS,
@@ -10,8 +11,15 @@ import {
 import type { PrefixScanProgress } from '../logic/reader'
 import type { RecordingIndexSource } from '../logic/recording-index'
 import type { VideoTrack } from '../logic/video-track'
-import { listVideoTracks, timeRangesCover } from '../logic/video-track'
-import { exportTrackAsMp4, type Mp4ExportProgress, type Mp4ExportRange } from './export'
+import {
+  coverageForChannel, listVideoTracks, loadFrameAccurateCoverage, timeRangesCover,
+} from '../logic/video-track'
+import {
+  exportTrackAsMp4,
+  type Mp4ExportProgress,
+  type Mp4ExportRange,
+  NoKeyframeError,
+} from './export'
 import {
   isMediaSourceSupported,
   McapVideoRecording,
@@ -24,6 +32,8 @@ import {
 const SYNC_TOLERANCE_SECONDS = 0.5
 /** `HTMLMediaElement.HAVE_CURRENT_DATA`: the element has a frame for its current position. */
 const HAVE_CURRENT_DATA = 2
+/** `HTMLMediaElement.HAVE_FUTURE_DATA`: the element can play on from its current position. */
+const HAVE_FUTURE_DATA = 3
 
 export interface StreamPlaybackControl {
   channelId: number
@@ -56,6 +66,8 @@ export interface McapPlaybackViewState {
   exportTrackName: string | null
   exportTrackIndex: number
   exportTrackCount: number
+  /** What the last video export could not save, or null when it saved every stream. */
+  exportNotice: string | null
   playing: boolean
   pendingSeek: number | null
   timelineDragging: boolean
@@ -74,7 +86,7 @@ export interface McapPlaybackCallbacks {
 }
 
 export interface McapPlaybackControllerOptions {
-  url: string
+  source: ByteSource
   indexSource?: RecordingIndexSource
   ongoing: boolean
   writtenSizeBytes?: number
@@ -128,6 +140,7 @@ export class McapRecordingPlaybackController {
       exportTrackName: null,
       exportTrackIndex: 0,
       exportTrackCount: 0,
+      exportNotice: null,
       playing: false,
       pendingSeek: null,
       timelineDragging: false,
@@ -181,6 +194,7 @@ export class McapRecordingPlaybackController {
 
   setSelectedChannelIds(channelIds: number[]): void {
     this.patch({ selectedChannelIds: [...channelIds] })
+    this.keepPlaybackOnVideo()
   }
 
   selectAllStreams(): void {
@@ -189,12 +203,14 @@ export class McapRecordingPlaybackController {
 
   selectNoStreams(): void {
     this.patch({ selectedChannelIds: [] })
+    this.keepPlaybackOnVideo()
   }
 
   toggleStream(channelId: number): void {
     const { selectedChannelIds, tracks } = this.state
     if (selectedChannelIds.includes(channelId)) {
       this.patch({ selectedChannelIds: selectedChannelIds.filter((selected) => selected !== channelId) })
+      this.keepPlaybackOnVideo()
       return
     }
     this.patch({
@@ -215,7 +231,7 @@ export class McapRecordingPlaybackController {
   async mount(): Promise<void> {
     try {
       const startedAt = Date.now()
-      const recording = await openMcapVideoRecording(this.options.url, {
+      const recording = await openMcapVideoRecording(this.options.source, {
         indexSource: this.options.indexSource,
         signal: this.openController.signal,
         onProgress: (progress) => {
@@ -264,6 +280,22 @@ export class McapRecordingPlaybackController {
       streamStats: { ...this.state.streamStats, [channelId]: stats },
       bytesDownloaded: stats.bytesDownloaded,
     })
+    if (!stats.ended || !this.state.playing || channelId !== this.clockChannelId()) {
+      return
+    }
+    const leader = this.clockVideo()
+    const track = this.state.tracks.find((candidate) => candidate.channelId === channelId)
+    const bufferedEnd = leader && leader.buffered.length > 0 ? leader.buffered.end(leader.buffered.length - 1) : null
+    if (!leader || !track || bufferedEnd === null || leader.readyState >= HAVE_FUTURE_DATA
+      || leader.currentTime < bufferedEnd - SYNC_TOLERANCE_SECONDS) {
+      return
+    }
+    // The clock stream stalled on its last frame and will get no more. Moving the position just past its media hands
+    // the clock to a stream that covers a later time, if one does.
+    const playhead = this.playbackPosition()
+    const end = track.coverage.find((range) => timeRangesCover([range], playhead))?.end ?? playhead
+    this.patch({ position: Math.max(playhead, end) + 0.001 })
+    this.keepPlaybackOnVideo()
   }
 
   onStreamTime(channelId: number, seconds: number): void {
@@ -285,7 +317,13 @@ export class McapRecordingPlaybackController {
       this.patch({ position: target })
       return
     }
+    // A stopped stream still reports its time, as when pausing fires `timeupdate`. That is not the position: playback
+    // stopped the position just past the media of a stream that ended, and the time would bring it back inside.
+    if (!this.state.playing) {
+      return
+    }
     this.patch({ position: Math.min(seconds, duration) })
+    this.syncFollowers()
   }
 
   updateBuffered(): void {
@@ -319,7 +357,9 @@ export class McapRecordingPlaybackController {
     const coverage = mergedVideoCoverage(this.visibleTracks())
     if (this.state.playing) {
       this.streamControls.forEach((stream) => stream.pause())
-      this.patch({ playing: false })
+      // The `timeupdate` that pausing fires is no longer taken as the position, so take the time paused at here.
+      const position = this.state.pendingSeek === null ? this.playbackPosition() : this.state.position
+      this.patch({ playing: false, position })
       return
     }
     if (!timeRangesCover(coverage, this.state.position) && coverage.length > 0) {
@@ -474,15 +514,17 @@ export class McapRecordingPlaybackController {
   }
 
   async saveMp4(recordingName: string, clip: Mp4ExportRange | null): Promise<void> {
-    const { recording, tracks, exportProgress } = this.state
+    const { recording, exportProgress } = this.state
+    const tracks = this.visibleTracks()
     if (!recording || tracks.length === 0 || exportProgress) {
       return
     }
     const controller = new AbortController()
     const end = Math.min(clip?.endSeconds ?? Infinity, recording.durationSeconds)
     const durationSeconds = Math.max(end - (clip?.startSeconds ?? 0), 0)
+    const skipped: string[] = []
     this.exportController = controller
-    this.patch({ exportTrackCount: tracks.length })
+    this.patch({ exportTrackCount: tracks.length, exportNotice: null })
     try {
       for (let index = 0; index < tracks.length; index += 1) {
         if (controller.signal.aborted) {
@@ -501,7 +543,16 @@ export class McapRecordingPlaybackController {
           onProgress: (progress) => {
             this.patch({ exportProgress: progress })
           },
+        }).catch((error) => {
+          if (error instanceof NoKeyframeError) {
+            skipped.push(track.name)
+            return null
+          }
+          throw error
         })
+        if (!file) {
+          continue
+        }
         const endLabel = Number.isFinite(clip?.endSeconds) ? `${Math.round(clip?.endSeconds ?? 0)}s` : 'end'
         const fileName = clip
           ? `${recordingName}-${track.name}-${Math.round(clip.startSeconds)}s-${endLabel}.mp4`
@@ -519,6 +570,7 @@ export class McapRecordingPlaybackController {
         exportTrackName: null,
         exportTrackIndex: 0,
         exportTrackCount: 0,
+        exportNotice: skippedStreamsNotice(skipped, tracks.length),
       })
     }
   }
@@ -556,7 +608,9 @@ export class McapRecordingPlaybackController {
     }
     const { reader } = recording
     recording.durationSeconds = Number(reader.summary.endTime - recording.startTime) / 1e9
+    recording.channels = listMcapChannels(reader)
     const listed = listVideoTracks(reader)
+    const hadTracks = this.state.tracks.length > 0
     const selected = new Set(this.state.selectedChannelIds)
     const known = new Set(this.state.tracks.map((track) => track.channelId))
     for (const track of listed) {
@@ -573,6 +627,21 @@ export class McapRecordingPlaybackController {
       clipRange: [this.state.clipRange[0], recording.durationSeconds],
     })
     this.emitSummary()
+    // A live player that opened with no video stream has its playhead at the end of what was written then, where
+    // the first stream has no frame; it plays that stream from its latest frames instead, as it would on opening.
+    if (this.options.ongoing && !hadTracks && listed.length > 0) {
+      this.skipToLatest()
+    }
+    // Only the listed tracks are narrowed: one listed here would skip the selection a new stream gets above.
+    loadFrameAccurateCoverage(reader, this.openController.signal).then((read) => {
+      if (read) {
+        this.patch({
+          tracks: this.state.tracks.map((track) => ({
+            ...track, coverage: coverageForChannel(reader, track.channelId),
+          })),
+        })
+      }
+    }).catch(() => undefined)
   }
 
   private emitSummary(): void {
@@ -600,6 +669,21 @@ export class McapRecordingPlaybackController {
     return channelId === null ? null : this.state.videos[channelId] ?? null
   }
 
+  /** While playing, moves a position that no visible stream covers on to the next one that does, or stops there. */
+  private keepPlaybackOnVideo(): void {
+    const coverage = mergedVideoCoverage(this.visibleTracks())
+    if (!this.state.playing || timeRangesCover(coverage, this.state.position)) {
+      return
+    }
+    const next = coverage.find((range) => range.start > this.state.position)
+    if (next) {
+      this.seekTo(next.start)
+      return
+    }
+    this.streamControls.forEach((stream) => stream.pause())
+    this.patch({ playing: false })
+  }
+
   private playbackPosition(): number {
     const leader = this.clockVideo()
     const duration = this.state.recording?.durationSeconds ?? 0
@@ -619,6 +703,20 @@ export class McapRecordingPlaybackController {
       if (follower.playbackRate !== leader.playbackRate) {
         follower.playbackRate = leader.playbackRate
       }
+      // A stream whose media only starts after the leader's time, as one that came into range before its first
+      // keyframe, waits there for the leader. Seeking it back would read the same media again and land on it again.
+      // So does one with nothing left to read past its last frame, which a seek would only read again.
+      const { buffered } = follower
+      const ranges = Array.from({ length: buffered.length }, (_, index) => ({
+        start: buffered.start(index), end: buffered.end(index),
+      }))
+      const stats = this.state.streamStats[track.channelId]
+      const noneToCome = stats?.ended || stats?.waiting
+      if (!timeRangesCover(ranges, leader.currentTime)
+        && (noneToCome || ranges.some((range) => range.start > leader.currentTime))) {
+        follower.pause()
+        continue
+      }
       const drifted = Math.abs(follower.currentTime - leader.currentTime) > SYNC_TOLERANCE_SECONDS
       if (drifted && !follower.seeking) {
         follower.currentTime = leader.currentTime
@@ -630,4 +728,15 @@ export class McapRecordingPlaybackController {
       }
     }
   }
+}
+
+/** Names the streams an export skipped because the cut holds no keyframe of theirs; null when none was. */
+function skippedStreamsNotice(skipped: string[], total: number): string | null {
+  if (skipped.length === 0) {
+    return null
+  }
+  const saved = total - skipped.length
+  const names = skipped.join(', ')
+  const holds = skipped.length === 1 ? 'holds' : 'hold'
+  return `Saved ${saved} of ${total} video streams: ${names} ${holds} no keyframe in the selected part.`
 }

@@ -3,7 +3,9 @@ import { parse as parseMessageDefinition } from '@foxglove/rosmsg'
 import { MessageReader } from '@foxglove/rosmsg2-serialization'
 
 import { VideoFormat } from './codec'
-import { McapChannel, McapIndexedReader, McapMessage } from './reader'
+import {
+  McapChannel, McapChunkIndex, McapIndexedReader, McapMessage,
+} from './reader'
 
 export const COMPRESSED_VIDEO_SCHEMA = 'foxglove.CompressedVideo'
 
@@ -54,17 +56,29 @@ export function timeRangesCover(ranges: TimeRange[], seconds: number): boolean {
   return ranges.some((range) => seconds >= range.start && seconds <= range.end)
 }
 
+/** Chunks that may hold the channel: all of them when the recording has no message index to tell. */
+function chunksHolding(reader: McapIndexedReader, channelId: number): McapChunkIndex[] {
+  return reader.summary.chunkIndexes.filter((chunk) => (chunk.channelIds.length === 0
+    || chunk.channelIds.includes(channelId)) && (reader.channelSpansIn(chunk)?.has(channelId) ?? true))
+}
+
+/**
+ * Where the channel has messages. Chunks whose message index was read (see `loadFrameAccurateCoverage`) count from
+ * the channel's first message in them to the end of its last; the others count whole.
+ */
 export function coverageForChannel(reader: McapIndexedReader, channelId: number): TimeRange[] {
-  const origin = reader.summary.startTime
+  const { startTime: origin, endTime } = reader.summary
   const ranges: TimeRange[] = []
-  for (const chunk of reader.summary.chunkIndexes) {
-    if (chunk.channelIds.length > 0 && !chunk.channelIds.includes(channelId)) {
-      continue
+  for (const chunk of chunksHolding(reader, channelId)) {
+    const span = reader.channelSpansIn(chunk)?.get(channelId)
+    let { startTime: start, endTime: end } = chunk
+    if (span) {
+      start = span.firstLogTime
+      // A frame stays on screen until the next one, so the last one lasts as long as the interval before it.
+      const shownUntil = span.lastLogTime + span.lastInterval
+      end = shownUntil < endTime ? shownUntil : endTime
     }
-    ranges.push({
-      start: Number(chunk.startTime - origin) / 1e9,
-      end: Number(chunk.endTime - origin) / 1e9,
-    })
+    ranges.push({ start: Number(start - origin) / 1e9, end: Number(end - origin) / 1e9 })
   }
   const merged = mergeTimeRanges(ranges)
   if (merged.length > 0) {
@@ -73,8 +87,39 @@ export function coverageForChannel(reader: McapIndexedReader, channelId: number)
   if ((reader.summary.messageCountByChannel.get(channelId) ?? 0n) <= 0n) {
     return []
   }
-  const duration = Number(reader.summary.endTime - origin) / 1e9
+  const duration = Number(endTime - origin) / 1e9
   return duration > 0 ? [{ start: 0, end: duration }] : []
+}
+
+/**
+ * Reads the message index of the chunks where a video stream's coverage starts or ends, so that it runs from the
+ * stream's first frame to the end of its last instead of to the edges of those chunks. That is two small reads per
+ * stretch of video, each done once. Returns true when it read anything.
+ */
+export async function loadFrameAccurateCoverage(reader: McapIndexedReader, signal?: AbortSignal): Promise<boolean> {
+  let read = false
+  // A chunk listed for a channel can turn out to hold none of its messages, which makes the next one an edge.
+  for (;;) {
+    const edges = new Set<McapChunkIndex>()
+    for (const channel of reader.channelsBySchemaName(COMPRESSED_VIDEO_SCHEMA)) {
+      const holding = chunksHolding(reader, channel.id)
+      holding.forEach((chunk, index) => {
+        const previous = holding[index - 1]
+        const next = holding[index + 1]
+        if (!previous || Number(chunk.startTime - previous.endTime) / 1e9 > COVERAGE_MERGE_SECONDS
+          || !next || Number(next.startTime - chunk.endTime) / 1e9 > COVERAGE_MERGE_SECONDS) {
+          edges.add(chunk)
+        }
+      })
+    }
+    const unread = [...edges].filter((chunk) => chunk.messageIndexLength > 0 && !reader.channelSpansIn(chunk))
+    if (unread.length === 0) {
+      return read
+    }
+    // eslint-disable-next-line no-await-in-loop
+    await Promise.all(unread.map((chunk) => reader.loadChannelSpans(chunk, signal)))
+    read = true
+  }
 }
 
 export interface VideoFrame {
@@ -110,8 +155,13 @@ export function parseCompressedVideo(
   }
 }
 
+/** `parseCompressedVideo` reads the frame time as top-level `sec` and `nanosec`; CDR lays both shapes out alike. */
+export function inlineRos2Time(schemaText: string): string {
+  return schemaText.replace(TIME_DEFINITION, INLINE_ROS2_TIME_FIELDS)
+}
+
 export function decodeSchemaDefinition(data: Uint8Array): string {
-  return new TextDecoder().decode(data).replace(TIME_DEFINITION, INLINE_ROS2_TIME_FIELDS)
+  return inlineRos2Time(new TextDecoder().decode(data))
 }
 
 export function listVideoTracks(reader: McapIndexedReader): VideoTrack[] {

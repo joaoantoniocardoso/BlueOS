@@ -10,10 +10,11 @@ export type Reply =
   | { kind: 'sample', sample: Sample }
   | { kind: 'error', payload: Uint8Array, encoding: string }
 
-/** The payload a query carries, such as an encoded Command. */
+/** The payload a query carries, such as an encoded Command, and its attachment, such as the Command's Job id. */
 export interface QueryBody {
   payload: Uint8Array
   encoding: string
+  attachment?: Uint8Array
 }
 
 export interface Subscription {
@@ -27,8 +28,12 @@ export interface Subscription {
 export interface Transport {
   /** Resolves once the subscriber is declared, so every later publication on `key` reaches `onSample`. */
   subscribe(key: string, onSample: (sample: Sample) => void): Promise<Subscription>
-  /** Resolves with every reply once the query on `key` is complete; no reply at all is an empty list. */
-  get(key: string, body?: QueryBody): Promise<Reply[]>
+  /**
+   * Resolves with every reply once the query on `key` is complete; no reply at all is an empty list. With `limit`,
+   * resolves as soon as that many replies arrived: the end of a query can trail its reply by a TCP delayed ACK
+   * (about 40 ms) through nginx.
+   */
+  get(key: string, body?: QueryBody, limit?: number): Promise<Reply[]>
   /**
    * Subscribes to service liveliness on `key`. `onAlive` is true on token put and false on delete.
    */

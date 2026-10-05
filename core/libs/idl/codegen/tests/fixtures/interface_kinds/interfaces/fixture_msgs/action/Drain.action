@@ -1,0 +1,6 @@
+# fixture_msgs/action/Drain
+# An empty Goal: draining needs no input.
+---
+float32 drained
+---
+Progress progress

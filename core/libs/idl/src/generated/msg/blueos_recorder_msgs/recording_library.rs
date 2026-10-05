@@ -11,6 +11,7 @@ use crate::{
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct RecordingLibrary {
     pub files: Vec<crate::msg::blueos_recorder_msgs::RecordingFile>,
+    pub contents: Vec<crate::msg::blueos_recorder_msgs::RecordingContents>,
 }
 impl CdrStruct for RecordingLibrary {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
@@ -31,6 +32,23 @@ impl CdrStruct for RecordingLibrary {
                     values
                 }
             },
+            contents: {
+                if reader.is_exhausted() {
+                    Vec::new()
+                } else {
+                    let length = reader.read_bounded_sequence_length()?;
+                    let mut values = Vec::with_capacity(length as usize);
+                    for _index in 0..length {
+                        values
+                            .push(
+                                <crate::msg::blueos_recorder_msgs::RecordingContents>::cdr_decode_fields(
+                                    reader,
+                                )?,
+                            );
+                    }
+                    values
+                }
+            },
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {
@@ -38,15 +56,21 @@ impl CdrStruct for RecordingLibrary {
         for element in self.files.iter() {
             <crate::msg::blueos_recorder_msgs::RecordingFile>::cdr_encode_fields(element, writer)?;
         }
+        writer.write_u32(self.contents.len() as u32)?;
+        for element in self.contents.iter() {
+            <crate::msg::blueos_recorder_msgs::RecordingContents>::cdr_encode_fields(
+                element, writer,
+            )?;
+        }
         Ok(())
     }
 }
 impl Message for RecordingLibrary {
-    const SCHEMA: &'static str = "# blueos_recorder_msgs/msg/RecordingLibrary\n# Published on blueos/v1/recorder/state/library, newest recording first.\n\nblueos_recorder_msgs/RecordingFile[] files\n================================================================================\nMSG: builtin_interfaces/Time\n# This message communicates ROS Time defined here:\n# https://design.ros2.org/articles/clock_and_time.html\n\n# The seconds component, valid over all int32 values.\nint32 sec\n\n# The nanoseconds component, valid in the range [0, 1e9).\nuint32 nanosec\n================================================================================\nMSG: blueos_recorder_msgs/RecordingFile\n# blueos_recorder_msgs/msg/RecordingFile\n# One MCAP recording in the recorder folder, as listed in RecordingLibrary.\n\n# Being written by the recorder; bytes are readable but the file has no summary yet.\nuint8 STATE_RECORDING=0\n# Finished and indexed; seekable through HTTP ranges on /userdata/recorder/<path>.\nuint8 STATE_READY=1\n# Finished without a summary (power loss, crash); RepairRecording gives it back.\nuint8 STATE_NEEDS_REPAIR=2\nuint8 STATE_REPAIRING=3\n\n# Relative to the recorder folder, forward slashes. Identifies the recording in every command.\nstring path\nstring name\nuint64 size_bytes\n# From the timestamp embedded in the file name, falling back to the file time.\nbuiltin_interfaces/Time created\nuint8 state\n# Repair progress while STATE_REPAIRING; zero otherwise.\nuint64 repair_bytes_processed\nuint64 repair_total_bytes\nfloat64 repair_bytes_per_second\n# Reason the last repair failed; empty when it did not fail. Cleared by the next repair.\nstring repair_error\n# Command endpoint names the library will accept for this file (for example DeleteRecording).\nstring[] allowed_operations";
+    const SCHEMA: &'static str = "# blueos_recorder_msgs/msg/RecordingLibrary\n# Published on blueos/v1/recorder/state/library, newest recording first.\n\nblueos_recorder_msgs/RecordingFile[] files\n# What the recordings of files hold, keyed by path: one entry per file whose summary was read, so a file without\n# an entry (being written, needs repair, or from an older recorder) holds something unknown. Kept apart from\n# RecordingFile, which is frozen as a sequence element (D-06).\nblueos_recorder_msgs/RecordingContents[] contents\n================================================================================\nMSG: builtin_interfaces/Duration\n# This message communicates ROS Duration.\n\nint32 sec\nuint32 nanosec\n================================================================================\nMSG: blueos_recorder_msgs/RecordingContents\n# blueos_recorder_msgs/msg/RecordingContents\n# What one recording of RecordingLibrary holds, read from its MCAP summary.\n\n# The path of the RecordingFile it describes.\nstring path\n# Time from the first message to the last, from the Statistics record; zero without one.\nbuiltin_interfaces/Duration duration\n# Topics of the video channels (foxglove.CompressedVideo), sorted; empty when it has no video.\nstring[] video_topics\n# How many other topics it has, such as telemetry.\nuint32 other_topic_count\n================================================================================\nMSG: builtin_interfaces/Time\n# This message communicates ROS Time defined here:\n# https://design.ros2.org/articles/clock_and_time.html\n\n# The seconds component, valid over all int32 values.\nint32 sec\n\n# The nanoseconds component, valid in the range [0, 1e9).\nuint32 nanosec\n================================================================================\nMSG: blueos_recorder_msgs/RecordingFile\n# blueos_recorder_msgs/msg/RecordingFile\n# One MCAP recording in the recorder folder, as listed in RecordingLibrary.\n\n# Being written by the recorder; bytes are readable but the file has no summary yet.\nuint8 STATE_RECORDING=0\n# Finished and indexed; seekable through HTTP ranges on /userdata/recorder/<path>.\nuint8 STATE_READY=1\n# Finished without a summary (power loss, crash); RepairRecording gives it back.\nuint8 STATE_NEEDS_REPAIR=2\nuint8 STATE_REPAIRING=3\n\n# Relative to the recorder folder, forward slashes. Identifies the recording in every command.\nstring path\nstring name\nuint64 size_bytes\n# From the timestamp embedded in the file name, falling back to the file time.\nbuiltin_interfaces/Time created\nuint8 state\n# Repair progress while STATE_REPAIRING; zero otherwise.\nuint64 repair_bytes_processed\nuint64 repair_total_bytes\nfloat64 repair_bytes_per_second\n# Reason the last repair failed; empty when it did not fail. Cleared by the next repair.\nstring repair_error\n# Command endpoint names the library will accept for this file (for example DeleteRecording).\nstring[] allowed_operations\n# The Job id of the repair while STATE_REPAIRING, which CancelJob names; empty otherwise.\nstring repair_job_id";
     const SCHEMA_NAME: &'static str = "blueos_recorder_msgs/msg/RecordingLibrary";
     const TYPE_HASH: &'static str =
-        "6b267c602a74d91302a51507faf46cb02331aa4dd4082d38ff7f1e9314b873d5";
+        "9e5d91d21ca76449d6a6df5ba6d5063d5380d00b9148be0b60118782ca0cc3eb";
 }
 impl RecordingLibrary {
-    pub const KNOWN_FIELD_COUNT: usize = 1usize;
+    pub const KNOWN_FIELD_COUNT: usize = 2usize;
 }

@@ -19,6 +19,7 @@ import type { FrameScheduler, SampleRecord, SchemaProvider } from '@/libs/zenoh-
 
 const STD_STRING_SCHEMA = 'std_msgs/msg/String'
 const STD_STRING_TEXT = CATALOG_SCHEMAS[STD_STRING_SCHEMA]
+const LEVEL_RESPONSE_SCHEMA = 'blueos_example_msgs/srv/Level_Response'
 
 const ROS2DDS_CHATTER_TOKEN = [
   '@/aac3178e146ba6f1fc6e6a4085e77f21/@ros2_lv/MP/chatter/',
@@ -293,32 +294,32 @@ describe('InspectorController', () => {
       capabilities: [],
       endpoints: [
         {
-          kind: 'command',
-          name: 'Drain',
-          key: 'blueos/v1/tank/command/Drain',
-          request_schema: 'blueos_example_msgs/msg/EmptyRequest',
-          response_schema: 'blueos_msgs/msg/CommandAck',
+          kind: 'job',
+          name: 'SetLevel',
+          key: 'blueos/v1/tank/command/SetLevel',
+          interface_type: 'blueos_example_msgs/action/SetLevel',
+          schema: '',
         },
         {
           kind: 'query',
           name: 'Level',
           key: 'blueos/v1/tank/query/Level',
-          request_schema: 'blueos_example_msgs/msg/EmptyRequest',
-          response_schema: 'blueos_example_msgs/msg/LevelQueryResponse',
+          interface_type: 'blueos_example_msgs/srv/Level',
+          schema: '',
         },
         {
           kind: 'state',
-          name: 'tank',
-          key: 'blueos/v1/tank/state/tank',
-          request_schema: '',
-          response_schema: 'blueos_example_msgs/msg/LevelQueryResponse',
+          name: 'pump',
+          key: 'blueos/v1/tank/state/pump',
+          interface_type: 'blueos_example_msgs/msg/PumpState',
+          schema: '',
         },
         {
           kind: 'event',
-          name: 'Emptied',
-          key: 'blueos/v1/tank/event/Emptied',
-          request_schema: '',
-          response_schema: 'blueos_example_msgs/msg/EmptyRequest',
+          name: 'SetLevel/result',
+          key: 'blueos/v1/tank/event/jobs/SetLevel/result',
+          interface_type: 'blueos_msgs/msg/JobResult',
+          schema: '',
         },
       ],
     }
@@ -343,7 +344,7 @@ describe('InspectorController', () => {
     await Promise.resolve()
     flush()
     const endpoints = latestState(states).serviceEndpoints
-    expect(endpoints?.command).toHaveLength(1)
+    expect(endpoints?.job).toHaveLength(1)
     expect(endpoints?.query).toHaveLength(1)
     expect(endpoints?.state).toHaveLength(1)
     expect(endpoints?.event).toHaveLength(1)
@@ -382,7 +383,7 @@ describe('InspectorController', () => {
     controller.selectService('cable_guy')
     await Promise.resolve()
     flush()
-    expect(latestState(states).serviceEndpoints?.command ?? []).toHaveLength(0)
+    expect(latestState(states).serviceEndpoints?.job ?? []).toHaveLength(0)
     expect(latestState(states).serviceInfo?.endpoints).toEqual([])
     controller.stop()
   })
@@ -400,11 +401,11 @@ describe('InspectorController', () => {
       build: 'test',
       capabilities: [],
       endpoints: [{
-        kind: 'command',
-        name: 'start',
-        key: 'blueos/v1/recorder/command/start',
-        request_schema: 'blueos_msgs/srv/Start',
-        response_schema: 'blueos_msgs/msg/CommandAck',
+        kind: 'job',
+        name: 'StartRecording',
+        key: 'blueos/v1/recorder/command/StartRecording',
+        interface_type: 'blueos_recorder_msgs/action/StartRecording',
+        schema: '',
       }],
     }
 
@@ -425,7 +426,7 @@ describe('InspectorController', () => {
     controller.selectService('recorder')
     await Promise.resolve()
     flush()
-    expect(latestState(states).serviceEndpoints?.command).toHaveLength(1)
+    expect(latestState(states).serviceEndpoints?.job).toHaveLength(1)
     controller.stop()
   })
 
@@ -438,16 +439,16 @@ describe('InspectorController', () => {
 
     const endpoint: EndpointInfo = {
       kind: 'query',
-      name: 'info',
-      key: 'blueos/v1/recorder/query/info',
-      request_schema: '',
-      response_schema: STD_STRING_SCHEMA,
+      name: 'Level',
+      key: 'blueos/v1/example/query/Level',
+      interface_type: 'blueos_example_msgs/srv/Level',
+      schema: '',
     }
 
     const request = vi.fn().mockResolvedValue({
       kind: 'cdr',
-      schemaName: STD_STRING_SCHEMA,
-      value: { data: 'reply' },
+      schemaName: LEVEL_RESPONSE_SCHEMA,
+      value: { level: 1, max_level: 2 },
     } satisfies InspectorRequestResult)
 
     const states: InspectorViewState[] = []
@@ -470,13 +471,13 @@ describe('InspectorController', () => {
     expect(request).toHaveBeenCalledWith(
       endpoint.key,
       'query',
-      '',
-      STD_STRING_SCHEMA,
-      undefined,
+      'blueos_example_msgs/srv/Level_Request',
+      LEVEL_RESPONSE_SCHEMA,
+      {},
     )
     expect(latestState(states).lastRequestResult).toEqual({
       status: 'success',
-      result: { kind: 'cdr', schemaName: STD_STRING_SCHEMA, value: { data: 'reply' } },
+      result: { kind: 'cdr', schemaName: LEVEL_RESPONSE_SCHEMA, value: { level: 1, max_level: 2 } },
     })
     controller.stop()
   })

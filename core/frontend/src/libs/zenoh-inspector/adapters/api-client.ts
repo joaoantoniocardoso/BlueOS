@@ -6,14 +6,15 @@ import {
   encodeCdrWithSchema,
   schemaNameFromEncoding,
 } from '@/libs/blueos-api/cdr'
+import { newJobId } from '@/libs/blueos-api/command'
 import { NoReplyError, QueryFailedError } from '@/libs/blueos-api/errors'
 import { cdrEncoding, infoQueryKey } from '@/libs/blueos-api/keys'
-import type { Sample, Transport } from '@/libs/blueos-api/transport'
+import type { QueryBody, Sample, Transport } from '@/libs/blueos-api/transport'
 import { COMMAND_ACK_SCHEMA, SERVICE_INFO_SCHEMA } from '@/libs/blueos-api/types'
 
 import type { SampleRecord, SchemaProvider } from '../logic/types'
 
-export type InspectorRequestKind = 'command' | 'query' | 'io_query'
+export type InspectorRequestKind = 'job' | 'query'
 
 export type InspectorRequestResult =
   | { kind: 'ack', value: CommandAck }
@@ -64,10 +65,7 @@ function decodeReplySample(
   }
 }
 
-function firstSampleReply(transport: Transport, key: string, body?: {
-  payload: Uint8Array
-  encoding: string
-}): Promise<Sample> {
+function firstSampleReply(transport: Transport, key: string, body?: QueryBody): Promise<Sample> {
   return transport.get(key, body).then((replies) => {
     const reply = replies[0]
     if (reply === undefined) {
@@ -105,7 +103,7 @@ export function createInspectorApiClient(
       message?: Record<string, unknown>,
     ): Promise<InspectorRequestResult> {
       const transport = await transportProvider()
-      let body: { payload: Uint8Array, encoding: string } | undefined
+      let body: QueryBody | undefined
       if (message !== undefined && requestSchemaName) {
         const schemaText = schemaProvider.schemaText(requestSchemaName)
         if (!schemaText) {
@@ -114,12 +112,13 @@ export function createInspectorApiClient(
         body = {
           payload: encodeCdrWithSchema(requestSchemaName, schemaText, message),
           encoding: cdrEncoding(requestSchemaName),
+          attachment: kind === 'job' ? new TextEncoder().encode(newJobId()) : undefined,
         }
       }
 
       const sample = await firstSampleReply(transport, key, body)
 
-      if (kind === 'command') {
+      if (kind === 'job') {
         const ackText = schemaProvider.schemaText(COMMAND_ACK_SCHEMA)
         if (!ackText) {
           throw new Error('CommandAck schema is missing')

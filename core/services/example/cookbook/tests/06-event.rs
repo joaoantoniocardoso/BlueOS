@@ -6,7 +6,7 @@ use tokio::time::timeout;
 
 use blueos_api::{Message, event_key};
 use blueos_domain::{Command, Decision, Domain, IoError, Now, Outcome};
-use blueos_idl::msg::blueos_example_msgs::{LevelQueryResponse, SetLevelRequest};
+use blueos_idl::msg::blueos_example_msgs::{LevelResponse, SetLevelGoal};
 use blueos_service::{Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness};
 
 struct EventCookbookService;
@@ -37,15 +37,20 @@ impl Service for EventCookbookService {
     const NAME: &'static str = "cookbook_event";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<EventCookbookArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<EventCookbookArguments>,
+        _service: &ServiceContext<EventCookbookArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<EventCookbook>, ServiceError> {
         Ok(ServiceBuilder::new(EventCookbookSnapshot::default())
-            .command("SetLevel", |request: SetLevelRequest| {
+            .command("SetLevel", |request: SetLevelGoal| {
                 Ok(EventCookbookRequest::SetLevel(request.level))
             })
             .event("LevelChanged", |event: &EventCookbookEvent| match event {
-                EventCookbookEvent::LevelChanged(level) => Some(LevelQueryResponse {
+                EventCookbookEvent::LevelChanged(level) => Some(LevelResponse {
                     level: *level,
                     max_level: 100,
                 }),
@@ -94,15 +99,13 @@ async fn event_arrives_after_the_ack() {
         .subscribe(&event_key(EventCookbookService::NAME, "LevelChanged"))
         .await
         .unwrap();
-    let ack = harness
-        .send("SetLevel", &SetLevelRequest { level: 15 })
-        .await;
+    let ack = harness.send("SetLevel", &SetLevelGoal { level: 15 }).await;
     assert!(ack.accepted);
     let sample = timeout(Duration::from_secs(10), events.recv())
         .await
         .unwrap()
         .unwrap();
     let decoded =
-        LevelQueryResponse::decode(sample.payload().to_bytes().as_ref()).expect("decode event");
+        LevelResponse::decode(sample.payload().to_bytes().as_ref()).expect("decode event");
     assert_eq!(decoded.level, 15);
 }

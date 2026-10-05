@@ -15,7 +15,7 @@ mod command_ack;
 
 use alloc::{format, string::String};
 
-pub use command_ack::{CommandAck, JOB_ID_NONE, Message};
+pub use command_ack::{CommandAck, Message};
 
 /// Base CDR media type and `application/cdr;<schema_name>` builder from `blueos-idl`.
 pub use blueos_idl::encoding::{ENCODING_APPLICATION_CDR, cdr_encoding};
@@ -67,6 +67,21 @@ pub fn query_key(service: &str, name: &str) -> String {
 /// Jobs projection stream (`blueos/v1/<service>/jobs`).
 pub fn jobs_key(service: &str) -> String {
     format!("{KEY_PREFIX}/{service}/jobs")
+}
+
+/// Feedback State of a Job type (`blueos/v1/<service>/jobs/<job_type>/feedback`).
+pub fn job_feedback_key(service: &str, job_type: &str) -> String {
+    format!("{}/{job_type}/feedback", jobs_key(service))
+}
+
+/// Job result Event of a Job type (`blueos/v1/<service>/jobs/<job_type>/result`).
+pub fn job_result_key(service: &str, job_type: &str) -> String {
+    format!("{}/{job_type}/result", jobs_key(service))
+}
+
+/// Query for the last finished Jobs of a Job type (`blueos/v1/<service>/jobs/<job_type>/history`).
+pub fn job_history_key(service: &str, job_type: &str) -> String {
+    format!("{}/{job_type}/history", jobs_key(service))
 }
 
 /// Settings queryable and update stream (`blueos/v1/<service>/settings`).

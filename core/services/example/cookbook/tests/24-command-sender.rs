@@ -3,7 +3,7 @@
 use core::convert::Infallible;
 
 use blueos_domain::{Command, Decision, Domain, IoError, Now, Outcome};
-use blueos_idl::msg::blueos_example_msgs::{LevelQueryResponse, SetLevelRequest};
+use blueos_idl::msg::blueos_example_msgs::{LevelResponse, SetLevelGoal};
 use blueos_service::{Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness};
 
 struct CommandSenderCookbookService;
@@ -30,16 +30,23 @@ impl Service for CommandSenderCookbookService {
     const NAME: &'static str = "cookbook_command_sender";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(
+        _service: &ServiceContext<CommandSenderCookbookArguments>,
+    ) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<CommandSenderCookbookArguments>,
+        _service: &ServiceContext<CommandSenderCookbookArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<CommandSenderCookbook>, ServiceError> {
         Ok(
             ServiceBuilder::new(CommandSenderCookbookSnapshot::default())
-                .command("SetLevel", |request: SetLevelRequest| {
+                .command("SetLevel", |request: SetLevelGoal| {
                     Ok(CommandSenderCookbookRequest::SetLevel(request.level))
                 })
                 .state("level", |snapshot: &CommandSenderCookbookSnapshot| {
-                    LevelQueryResponse {
+                    LevelResponse {
                         level: snapshot.level,
                         max_level: 100,
                     }
@@ -90,5 +97,5 @@ async fn command_sender_applies_a_request_and_returns_the_ack() {
         .await
         .expect("the Inbox accepts the Command");
     assert!(ack.accepted);
-    assert_eq!(harness.state::<LevelQueryResponse>("level").await.level, 9);
+    assert_eq!(harness.state::<LevelResponse>("level").await.level, 9);
 }

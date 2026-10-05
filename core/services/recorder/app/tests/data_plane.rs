@@ -3,35 +3,32 @@
 mod common;
 
 use core::time::Duration;
-use std::{fs, sync::Arc};
+use std::{collections::BTreeMap, fs};
 
 use bytes::Bytes;
 use tempfile::tempdir;
 use tokio::time::{advance, timeout};
 
-use blueos_comms::{CommsBackend, Payload, Sample, channel::ChannelBackend};
+use blueos_comms::{Payload, Sample};
 use blueos_domain::Command;
 use blueos_idl::msg::{
-    blueos_example_msgs::EmptyRequest,
-    blueos_msgs::ServiceInfo,
-    blueos_recorder_msgs::{RecordingState, StartRecordingCommand},
+    blueos_msgs::{CommandAckStatus, SettingsEnvelope},
+    blueos_recorder_msgs::{RecordingState, StartRecordingGoal, StopRecordingGoal},
 };
-use blueos_recorder_app::{
-    IndexQuerySetup, RecorderService, build_with_record_gate, build_with_record_gate_and_index,
-};
-use blueos_recorder_cameras::RAW_MAVLINK_OUT_TOPIC;
-use blueos_recorder_capture::{CaptureObservedFact, RecordGate};
+use blueos_recorder_app::RecorderService;
+use blueos_recorder_cameras::{CamerasObservedFact, RAW_MAVLINK_OUT_TOPIC, SystemAndComponent};
+use blueos_recorder_capture::CaptureObservedFact;
 use blueos_recorder_domain::{RecorderObservedFact, RecorderRequest};
-use blueos_recorder_mavlink::test_vehicle_heartbeat_frame;
-use blueos_service::{Kernel, Service, ServiceContext, testing::PausedClock};
+use blueos_recorder_mavlink::{test_camera_capture_frame, test_vehicle_heartbeat_frame};
+use blueos_service::Service;
 
 use blueos_recorder_library::RESCAN_INTERVAL;
 use common::{
-    REPLY_TIMEOUT, active_recording_mcap_path, active_recording_mcap_path_on, assert_mcap_readable,
-    drain_blocking_io, publish_pump_state, recorder_arguments, recorder_mcaps, start_harness,
-    start_recording, start_recording_on, stop_recording_and_finalize_mcap,
-    wait_for_active_recording, wait_for_library_file_ready_by_name, wait_for_recording_bytes,
-    wait_for_recording_bytes_on, wait_for_rotated_recording,
+    REPLY_TIMEOUT, active_recording_mcap_path, assert_mcap_readable, drain_blocking_io,
+    publish_pump_state, recorder_mcaps, start_harness, start_harness_with, start_recording,
+    stop_recording_and_finalize_mcap, wait_for_active_recording,
+    wait_for_library_file_ready_by_name, wait_for_recording_bytes, wait_for_recording_state,
+    wait_for_rotated_recording,
 };
 
 #[tokio::test(start_paused = true)]
@@ -109,6 +106,7 @@ async fn mavlink_not_recorded_while_disarmed_when_policy_enabled() {
     let harness = start_harness(directory.path()).await;
     start_recording(&harness).await;
     wait_for_active_recording(harness.backend()).await;
+    wait_for_recording_state(harness.backend(), |state| !state.armed).await;
 
     harness
         .backend()
@@ -176,24 +174,12 @@ async fn mavlink_recorded_after_armed_observed_fact() {
 #[tokio::test(start_paused = true)]
 async fn dropped_armed_fact_heals_on_mavlink_periodic_resend() {
     let directory = tempdir().expect("tempdir");
-    let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
-    let context = ServiceContext::new(recorder_arguments(directory.path()), Arc::clone(&backend));
-    let (builder, mut record_gate) = build_with_record_gate(&context).expect("build");
-    let kernel = Kernel::start(
-        RecorderService::NAME,
-        builder,
-        Arc::clone(&backend),
-        Arc::new(PausedClock::start()),
-    )
-    .await
-    .expect("kernel");
-    let command_sender = kernel.command_sender().expect("command sender").clone();
-    tokio::spawn(kernel.run());
+    let harness = start_harness(directory.path()).await;
+    start_recording(&harness).await;
+    wait_for_active_recording(harness.backend()).await;
 
-    start_recording_on(&backend).await;
-    wait_for_active_recording(&backend).await;
-
-    backend
+    harness
+        .backend()
         .publish(Sample::new(
             RAW_MAVLINK_OUT_TOPIC,
             Payload::new(Bytes::from(test_vehicle_heartbeat_frame(true))),
@@ -201,49 +187,166 @@ async fn dropped_armed_fact_heals_on_mavlink_periodic_resend() {
         ))
         .await
         .expect("publish armed heartbeat");
-    wait_for_record_gate(&mut record_gate, |gate| gate.armed).await;
+    wait_for_recording_state(harness.backend(), |state| state.armed).await;
 
-    command_sender
+    harness
+        .command_sender()
         .send(Command::ObservedFact(RecorderObservedFact::Capture(
             CaptureObservedFact::ArmedChanged(false),
         )))
         .await
         .expect("stale disarmed fact");
-    wait_for_record_gate(&mut record_gate, |gate| !gate.armed).await;
+    wait_for_recording_state(harness.backend(), |state| !state.armed).await;
 
     advance(Duration::from_secs(1)).await;
-    wait_for_record_gate(&mut record_gate, |gate| gate.armed).await;
+    wait_for_recording_state(harness.backend(), |state| state.armed).await;
 }
 
-async fn wait_for_record_gate(
-    record_gate: &mut tokio::sync::watch::Receiver<RecordGate>,
-    predicate: impl Fn(&RecordGate) -> bool,
-) {
-    if predicate(&record_gate.borrow()) {
-        return;
-    }
-    timeout(REPLY_TIMEOUT, async {
-        while record_gate.changed().await.is_ok() {
-            if predicate(&record_gate.borrow()) {
-                return;
-            }
-        }
-        panic!("record gate subscription closed");
+#[tokio::test(start_paused = true)]
+async fn the_always_on_recording_shows_the_armed_vehicle_in_the_recording_state_without_a_job() {
+    let directory = tempdir().expect("tempdir");
+    let harness = start_harness(directory.path()).await;
+    wait_for_active_recording(harness.backend()).await;
+
+    harness
+        .backend()
+        .publish(Sample::new(
+            RAW_MAVLINK_OUT_TOPIC,
+            Payload::new(Bytes::from(test_vehicle_heartbeat_frame(true))),
+            "application/octet-stream",
+        ))
+        .await
+        .expect("publish armed heartbeat");
+    wait_for_recording_state(harness.backend(), |state| {
+        state.armed && state.session_active
     })
-    .await
-    .expect("timed out waiting for record gate");
+    .await;
+
+    assert!(harness.jobs().await.jobs.is_empty());
+    assert!(harness.job_history("Start").await.jobs.is_empty());
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_mavlink_camera_start_and_stop_capture_record_its_video_topic_without_a_job() {
+    let directory = tempdir().expect("tempdir");
+    let harness = start_harness(directory.path()).await;
+    wait_for_active_recording(harness.backend()).await;
+    let topic = "video/front/stream";
+    let camera = SystemAndComponent {
+        system_id: 1,
+        component_id: 100,
+    };
+    for discovered in [
+        CamerasObservedFact::SetCameraRecordingCapability {
+            camera,
+            capture_video: true,
+        },
+        CamerasObservedFact::RegisterVideoStream {
+            topic: topic.into(),
+            camera,
+        },
+    ] {
+        harness
+            .command_sender()
+            .send(Command::ObservedFact(RecorderObservedFact::Cameras(
+                discovered,
+            )))
+            .await
+            .expect("camera discovered");
+    }
+
+    for (start, recording) in [(true, vec![topic.to_owned()]), (false, vec![])] {
+        harness
+            .backend()
+            .publish(Sample::new(
+                RAW_MAVLINK_OUT_TOPIC,
+                Payload::new(Bytes::from(test_camera_capture_frame(start, 1, 100))),
+                "application/octet-stream",
+            ))
+            .await
+            .expect("publish capture command");
+        wait_for_recording_state(harness.backend(), |state| {
+            state.recording_video_topics == recording
+        })
+        .await;
+    }
+
+    assert!(harness.jobs().await.jobs.is_empty());
+}
+
+#[tokio::test(start_paused = true)]
+async fn start_and_stop_acks_carry_their_final_status() {
+    let directory = tempdir().expect("tempdir");
+    let harness = start_harness(directory.path()).await;
+
+    let start_ack = harness
+        .send(
+            "Start",
+            &StartRecordingGoal {
+                rotate_if_active: true,
+            },
+        )
+        .await;
+    assert!(start_ack.accepted, "start rejected: {}", start_ack.reason);
+    assert_eq!(start_ack.status, CommandAckStatus::Succeeded);
+    wait_for_active_recording(harness.backend()).await;
+
+    let stop_ack = harness.send("Stop", &StopRecordingGoal::default()).await;
+    assert!(stop_ack.accepted, "stop rejected: {}", stop_ack.reason);
+    assert_eq!(stop_ack.status, CommandAckStatus::Succeeded);
 }
 
 #[tokio::test(start_paused = true)]
 async fn recorder_service_info_is_published() {
     let directory = tempdir().expect("tempdir");
     let harness = start_harness(directory.path()).await;
-    let info = harness
-        .query::<EmptyRequest, ServiceInfo>("info", &EmptyRequest::default())
-        .await
-        .expect("info query");
+    let info = harness.info().await;
     assert_eq!(info.name, RecorderService::NAME);
     assert_eq!(info.version, RecorderService::VERSION);
+}
+
+#[tokio::test(start_paused = true)]
+async fn info_lists_each_endpoint_with_the_interface_type_of_api_lock_and_its_schema_text() {
+    let directory = tempdir().expect("tempdir");
+    let harness = start_harness(directory.path()).await;
+    let prefix = format!("blueos/v1/{}/", RecorderService::NAME);
+    let locked: BTreeMap<&str, &str> = include_str!("../../../../libs/idl/api.lock")
+        .lines()
+        .filter_map(|line| {
+            let mut parts = line.split_whitespace();
+            let key = parts.next().filter(|key| key.starts_with(&prefix))?;
+            Some((key, parts.nth(1)?.strip_prefix("type=")?))
+        })
+        .collect();
+
+    let info = harness.info().await;
+
+    assert_eq!(info.endpoints.len(), 10 + 1 + 3 * 6, "{:?}", info.endpoints);
+    for endpoint in &info.endpoints {
+        assert_eq!(
+            locked.get(endpoint.key.as_str()),
+            Some(&endpoint.interface_type.as_str()),
+            "{}",
+            endpoint.key
+        );
+        assert!(
+            endpoint.schema.starts_with(
+                blueos_idl::schema(&endpoint.interface_type).expect("a listed type has a schema")
+            ),
+            "{}",
+            endpoint.key
+        );
+    }
+    let index = info
+        .endpoints
+        .iter()
+        .find(|endpoint| endpoint.name == "index")
+        .expect("info lists the index Query");
+    assert_eq!(index.kind, "query");
+    assert_eq!(
+        index.interface_type,
+        "blueos_recorder_msgs/srv/RecordingIndex"
+    );
 }
 
 #[tokio::test(start_paused = true)]
@@ -263,7 +366,7 @@ async fn rotation_keeps_both_files_intact_and_state_correct() {
     harness
         .send(
             "Start",
-            &StartRecordingCommand {
+            &StartRecordingGoal {
                 rotate_if_active: true,
             },
         )
@@ -322,36 +425,17 @@ async fn second_start_on_same_folder_does_not_overwrite_first_file() {
 #[tokio::test(start_paused = true)]
 async fn shutdown_mid_recording_leaves_readable_file() {
     let directory = tempdir().expect("tempdir");
-    let settings_parent = tempdir().expect("settings");
-    let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
-    let context = ServiceContext::with_settings_path(
-        recorder_arguments(directory.path()),
-        Some(settings_parent.path().to_path_buf()),
-        Arc::clone(&backend),
-    );
-    let mut builder = RecorderService::build(&context).expect("build");
-    let shutdown = builder.shutdown_handle();
-    let kernel = Kernel::start(
-        RecorderService::NAME,
-        builder,
-        Arc::clone(&backend),
-        Arc::new(PausedClock::start()),
-    )
-    .await
-    .expect("kernel");
-    let run = tokio::spawn(kernel.run());
+    let harness = start_harness(directory.path()).await;
 
-    start_recording_on(&backend).await;
-    wait_for_active_recording(&backend).await;
-    publish_pump_state(&backend).await;
-    wait_for_recording_bytes_on(&backend, 1).await;
-    let path = active_recording_mcap_path_on(&backend, directory.path()).await;
+    start_recording(&harness).await;
+    wait_for_active_recording(harness.backend()).await;
+    publish_pump_state(harness.backend()).await;
+    wait_for_recording_bytes(&harness, 1).await;
+    let path = active_recording_mcap_path(&harness, directory.path()).await;
 
-    shutdown.trigger();
-    timeout(REPLY_TIMEOUT, run)
+    timeout(REPLY_TIMEOUT, harness.shutdown())
         .await
-        .expect("shutdown")
-        .expect("join");
+        .expect("shutdown");
 
     assert_mcap_readable(&path).await;
     let bytes = fs::read(&path).expect("read");
@@ -363,35 +447,16 @@ async fn shutdown_mid_recording_leaves_readable_file() {
 #[tokio::test(start_paused = true)]
 async fn shutdown_with_no_samples_after_start_still_finishes_file() {
     let directory = tempdir().expect("tempdir");
-    let settings_parent = tempdir().expect("settings");
-    let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
-    let context = ServiceContext::with_settings_path(
-        recorder_arguments(directory.path()),
-        Some(settings_parent.path().to_path_buf()),
-        Arc::clone(&backend),
-    );
-    let mut builder = RecorderService::build(&context).expect("build");
-    let shutdown = builder.shutdown_handle();
-    let kernel = Kernel::start(
-        RecorderService::NAME,
-        builder,
-        Arc::clone(&backend),
-        Arc::new(PausedClock::start()),
-    )
-    .await
-    .expect("kernel");
-    let run = tokio::spawn(kernel.run());
+    let harness = start_harness(directory.path()).await;
 
-    start_recording_on(&backend).await;
-    wait_for_active_recording(&backend).await;
+    start_recording(&harness).await;
+    wait_for_active_recording(harness.backend()).await;
     advance(Duration::from_secs(1)).await;
-    let path = active_recording_mcap_path_on(&backend, directory.path()).await;
+    let path = active_recording_mcap_path(&harness, directory.path()).await;
 
-    shutdown.trigger();
-    timeout(REPLY_TIMEOUT, run)
+    timeout(REPLY_TIMEOUT, harness.shutdown())
         .await
-        .expect("shutdown")
-        .expect("join");
+        .expect("shutdown");
 
     assert_mcap_readable(&path).await;
     let bytes = fs::read(&path).expect("read");
@@ -403,42 +468,65 @@ async fn shutdown_with_no_samples_after_start_still_finishes_file() {
 #[tokio::test(start_paused = true)]
 async fn shutdown_with_full_writer_queue_finishes_file() {
     let directory = tempdir().expect("tempdir");
-    let settings_parent = tempdir().expect("settings");
-    let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
-    let context = ServiceContext::with_settings_path(
-        recorder_arguments(directory.path()),
-        Some(settings_parent.path().to_path_buf()),
-        Arc::clone(&backend),
-    );
-    let (mut builder, _) =
-        build_with_record_gate_and_index(&context, IndexQuerySetup::default(), 2).expect("build");
-    let shutdown = builder.shutdown_handle();
-    let kernel = Kernel::start(
-        RecorderService::NAME,
-        builder,
-        Arc::clone(&backend),
-        Arc::new(PausedClock::start()),
-    )
-    .await
-    .expect("kernel");
-    let run = tokio::spawn(kernel.run());
+    let harness = start_harness_with(directory.path(), |context| {
+        context.mcap_writer_queue_bytes = 64;
+    })
+    .await;
 
-    start_recording_on(&backend).await;
-    wait_for_active_recording(&backend).await;
+    start_recording(&harness).await;
+    wait_for_active_recording(harness.backend()).await;
     for _ in 0..64 {
-        publish_pump_state(&backend).await;
+        publish_pump_state(harness.backend()).await;
     }
-    let path = active_recording_mcap_path_on(&backend, directory.path()).await;
+    let path = active_recording_mcap_path(&harness, directory.path()).await;
 
-    shutdown.trigger();
-    timeout(REPLY_TIMEOUT, run)
+    timeout(REPLY_TIMEOUT, harness.shutdown())
         .await
-        .expect("shutdown")
-        .expect("join");
+        .expect("shutdown");
 
     assert_mcap_readable(&path).await;
     let bytes = fs::read(&path).expect("read");
     mcap::Summary::read(&bytes)
         .expect("read")
         .expect("readable after back pressure");
+}
+
+#[tokio::test(start_paused = true)]
+async fn samples_past_the_writer_queue_byte_budget_are_counted_in_the_recording_state() {
+    let directory = tempdir().expect("tempdir");
+    let harness = start_harness_with(directory.path(), |context| {
+        context.mcap_writer_queue_bytes = 1024;
+    })
+    .await;
+
+    start_recording(&harness).await;
+    wait_for_active_recording(harness.backend()).await;
+    for _ in 0..4 {
+        harness
+            .backend()
+            .publish(Sample::new(
+                "load/flood",
+                Payload::new(Bytes::from(vec![0_u8; 4 * 1024])),
+                "application/octet-stream",
+            ))
+            .await
+            .expect("publish");
+    }
+    advance(Duration::from_secs(1)).await;
+
+    wait_for_recording_state(harness.backend(), |state| state.samples_dropped >= 4).await;
+}
+
+#[tokio::test(start_paused = true)]
+async fn update_settings_command_applies_capture_settings() {
+    let directory = tempdir().expect("tempdir");
+    let harness = start_harness(directory.path()).await;
+    let envelope = SettingsEnvelope {
+        document_json:
+            r#"{"VERSION":1,"record_mavlink_only_when_armed":false,"auto_start_recording":false}"#
+                .into(),
+        fields: Vec::new(),
+    };
+    let ack = harness.send("UpdateSettings", &envelope).await;
+    assert!(ack.accepted);
 }

@@ -29,6 +29,7 @@ pub struct RecordingFile {
     pub repair_bytes_per_second: f64,
     pub repair_error: String,
     pub allowed_operations: Vec<String>,
+    pub repair_job_id: String,
 }
 impl serde::Serialize for RecordingFileState {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -126,6 +127,11 @@ impl CdrStruct for RecordingFile {
                     values
                 }
             },
+            repair_job_id: if reader.is_exhausted() {
+                String::new()
+            } else {
+                reader.read_string()?
+            },
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {
@@ -142,15 +148,16 @@ impl CdrStruct for RecordingFile {
         for element in self.allowed_operations.iter() {
             writer.write_string(element.as_str())?;
         }
+        writer.write_string(self.repair_job_id.as_str())?;
         Ok(())
     }
 }
 impl Message for RecordingFile {
-    const SCHEMA: &'static str = "# blueos_recorder_msgs/msg/RecordingFile\n# One MCAP recording in the recorder folder, as listed in RecordingLibrary.\n\n# Being written by the recorder; bytes are readable but the file has no summary yet.\nuint8 STATE_RECORDING=0\n# Finished and indexed; seekable through HTTP ranges on /userdata/recorder/<path>.\nuint8 STATE_READY=1\n# Finished without a summary (power loss, crash); RepairRecording gives it back.\nuint8 STATE_NEEDS_REPAIR=2\nuint8 STATE_REPAIRING=3\n\n# Relative to the recorder folder, forward slashes. Identifies the recording in every command.\nstring path\nstring name\nuint64 size_bytes\n# From the timestamp embedded in the file name, falling back to the file time.\nbuiltin_interfaces/Time created\nuint8 state\n# Repair progress while STATE_REPAIRING; zero otherwise.\nuint64 repair_bytes_processed\nuint64 repair_total_bytes\nfloat64 repair_bytes_per_second\n# Reason the last repair failed; empty when it did not fail. Cleared by the next repair.\nstring repair_error\n# Command endpoint names the library will accept for this file (for example DeleteRecording).\nstring[] allowed_operations\n================================================================================\nMSG: builtin_interfaces/Time\n# This message communicates ROS Time defined here:\n# https://design.ros2.org/articles/clock_and_time.html\n\n# The seconds component, valid over all int32 values.\nint32 sec\n\n# The nanoseconds component, valid in the range [0, 1e9).\nuint32 nanosec";
+    const SCHEMA: &'static str = "# blueos_recorder_msgs/msg/RecordingFile\n# One MCAP recording in the recorder folder, as listed in RecordingLibrary.\n\n# Being written by the recorder; bytes are readable but the file has no summary yet.\nuint8 STATE_RECORDING=0\n# Finished and indexed; seekable through HTTP ranges on /userdata/recorder/<path>.\nuint8 STATE_READY=1\n# Finished without a summary (power loss, crash); RepairRecording gives it back.\nuint8 STATE_NEEDS_REPAIR=2\nuint8 STATE_REPAIRING=3\n\n# Relative to the recorder folder, forward slashes. Identifies the recording in every command.\nstring path\nstring name\nuint64 size_bytes\n# From the timestamp embedded in the file name, falling back to the file time.\nbuiltin_interfaces/Time created\nuint8 state\n# Repair progress while STATE_REPAIRING; zero otherwise.\nuint64 repair_bytes_processed\nuint64 repair_total_bytes\nfloat64 repair_bytes_per_second\n# Reason the last repair failed; empty when it did not fail. Cleared by the next repair.\nstring repair_error\n# Command endpoint names the library will accept for this file (for example DeleteRecording).\nstring[] allowed_operations\n# The Job id of the repair while STATE_REPAIRING, which CancelJob names; empty otherwise.\nstring repair_job_id\n================================================================================\nMSG: builtin_interfaces/Time\n# This message communicates ROS Time defined here:\n# https://design.ros2.org/articles/clock_and_time.html\n\n# The seconds component, valid over all int32 values.\nint32 sec\n\n# The nanoseconds component, valid in the range [0, 1e9).\nuint32 nanosec";
     const SCHEMA_NAME: &'static str = "blueos_recorder_msgs/msg/RecordingFile";
     const TYPE_HASH: &'static str =
-        "a2aa80f504fed4d0eb8cfba5604b9e4d28bc8842815b517c5406f6a8426e64e5";
+        "06913023fe412d96db75f2d4894a5c8239ca0c74570b4c72a414b5f5f001b1f2";
 }
 impl RecordingFile {
-    pub const KNOWN_FIELD_COUNT: usize = 10usize;
+    pub const KNOWN_FIELD_COUNT: usize = 11usize;
 }

@@ -13,7 +13,7 @@ use blueos_comms::{
     Sample, Subscriber, channel::ChannelBackend,
 };
 use blueos_domain::{Command, Decision, Domain, IoError, Now, Outcome};
-use blueos_idl::msg::blueos_example_msgs::{EmptyRequest, PumpState};
+use blueos_idl::msg::{blueos_example_msgs::PumpState, std_msgs::Empty};
 use blueos_service::{
     Kernel, Service, ServiceBuilder, ServiceContext, ServiceError,
     testing::{Harness, PausedClock},
@@ -52,13 +52,18 @@ impl Service for LifecycleService {
     const NAME: &'static str = "lifecycle";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<LifecycleArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<LifecycleArguments>,
+        _service: &ServiceContext<LifecycleArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<Lifecycle>, ServiceError> {
         Ok(ServiceBuilder::new(LifecycleSnapshot::default())
             .on_start(LifecycleRequest::Mark("on_start"))
             .on_shutdown(LifecycleRequest::Mark("on_shutdown"))
-            .command("Client", |_: EmptyRequest| Ok(LifecycleRequest::Client))
+            .command("Client", |_: Empty| Ok(LifecycleRequest::Client))
             .state("progress", |snapshot: &LifecycleSnapshot| PumpState {
                 level: snapshot.steps.len() as u8,
                 max_level: 0,
@@ -172,11 +177,15 @@ async fn liveliness_is_declared_after_initial_state_publish() {
     });
     let _kernel = Kernel::start(
         LifecycleService::NAME,
-        LifecycleService::build(&ServiceContext::new(
-            LifecycleArguments {},
-            blueos_service::testing::channel_session(),
-        ))
+        LifecycleService::build(
+            &ServiceContext::new(
+                LifecycleArguments {},
+                blueos_service::testing::channel_session(),
+            ),
+            &(),
+        )
         .unwrap(),
+        (),
         Arc::clone(&backend),
         Arc::new(PausedClock::start()),
     )
@@ -212,7 +221,7 @@ async fn on_start_runs_before_a_client_command() {
     let harness = Harness::<LifecycleService>::start(LifecycleArguments {})
         .await
         .unwrap();
-    harness.send("Client", &EmptyRequest::default()).await;
+    harness.send("Client", &Empty::default()).await;
     let progress = harness.state::<PumpState>("progress").await;
     assert_eq!(progress.level, 2);
 }

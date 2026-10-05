@@ -1,4 +1,4 @@
-//! A value that is not `Handlers` cannot handle the recorder's custom endpoints.
+//! A value that is not `Handlers` cannot handle the recorder's IO query.
 
 use blueos_recorder_app::endpoints;
 use blueos_recorder_domain::{RecorderDomain, RecorderSnapshot};

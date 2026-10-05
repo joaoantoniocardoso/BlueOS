@@ -9,7 +9,7 @@ use tokio_util::{sync::CancellationToken, task::TaskTracker};
 use blueos_api::{Message, log_key};
 use blueos_comms::{CommsBackend, channel::ChannelBackend};
 use blueos_domain::{Command, Decision, Domain, Now, Outcome};
-use blueos_idl::{msg::blueos_example_msgs::SetLevelRequest, msg::foxglove_msgs::Log};
+use blueos_idl::{msg::blueos_example_msgs::SetLevelGoal, msg::foxglove_msgs::Log};
 use blueos_logging::{attach, init};
 use blueos_service::{Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness};
 
@@ -47,11 +47,16 @@ impl Service for TankService {
     const NAME: &'static str = "logging-recovery-inbox";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<TankArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<TankArguments>,
+        _service: &ServiceContext<TankArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<Tank>, ServiceError> {
         Ok(ServiceBuilder::new(TankSnapshot { level: 0 })
-            .command("SetLevel", |request: SetLevelRequest| {
+            .command("SetLevel", |request: SetLevelGoal| {
                 Ok(TankRequest::SetLevel(request.level))
             }))
     }
@@ -115,7 +120,7 @@ async fn inbox_loop_panic_message_reaches_log_key() {
     harness
         .send(
             "SetLevel",
-            &SetLevelRequest {
+            &SetLevelGoal {
                 level: LEVEL_THAT_PANICS_IN_HANDLE,
             },
         )

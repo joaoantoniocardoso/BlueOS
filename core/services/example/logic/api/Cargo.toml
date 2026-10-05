@@ -9,6 +9,7 @@ publish.workspace = true
 blueos-domain.workspace = true
 blueos-idl.workspace = true
 blueos-example-domain.workspace = true
+blueos-jobs.workspace = true
 
 [lints]
 workspace = true

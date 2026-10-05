@@ -1,4 +1,5 @@
 /* eslint-disable import/no-extraneous-dependencies */
+import { CommandAckStatus } from '@blueos-idl/constants'
 import { describe, expect, it } from 'vitest'
 
 import { encodeCdr } from '@/libs/blueos-api/cdr'
@@ -49,7 +50,8 @@ describe('example-minimal frontend', () => {
         key: SetLevel.key,
         payload: encodeCdr('blueos_msgs/msg/CommandAck', {
           accepted: true,
-          job_id: 0,
+          job_id: new TextDecoder().decode(commandQuery.body?.attachment),
+          status: CommandAckStatus.Succeeded,
           reason: '',
         }),
         encoding: cdrEncoding('blueos_msgs/msg/CommandAck'),

@@ -15,6 +15,10 @@ impl PayloadBuffer for ZenohBytes {
     fn to_bytes(&self) -> Cow<'_, [u8]> {
         self.0.to_bytes()
     }
+
+    fn size_bytes(&self) -> usize {
+        self.0.len()
+    }
 }
 
 /// Builds a [`Payload`] from Zenoh bytes without copying contiguous storage.

@@ -1,21 +1,27 @@
 /* eslint-disable import/no-extraneous-dependencies */
+import { CommandAckStatus, JobStatusStatus } from '@blueos-idl/constants'
 import {
   afterEach, beforeEach, describe, expect, it, vi,
 } from 'vitest'
 
-import { encodeCdr } from '@/libs/blueos-api/cdr'
-import { cdrEncoding, serviceLivelinessKey } from '@/libs/blueos-api/keys'
+import { decodeCdr, encodeCdr } from '@/libs/blueos-api/cdr'
+import { jobResultEvent } from '@/libs/blueos-api/endpoints'
+import { cdrEncoding, commandKey, serviceLivelinessKey } from '@/libs/blueos-api/keys'
 import {
-  CancelRepair,
+  bytes,
   DeleteRecording,
   library,
-  operation,
+  NAME,
   RepairRecording,
   SnapshotRecording,
 } from '@/libs/blueos-api/services/recorder'
 import { createRecorderClient, SNAPSHOT_WAIT_TIMEOUT_MS } from '@/libs/recorder/client'
+import { mapRecordingFile } from '@/libs/recorder/map'
+import type { LibraryRecording } from '@/libs/recorder/types'
 
 import FakeTransport from '../blueos-api/fake-transport'
+
+const JOB_ID = '0b5e8f5c-6f0a-4c4e-9a52-2f1e7d3c9b10'
 
 const idleLibrary = { files: [] as never[] }
 
@@ -30,19 +36,21 @@ function recordingFile(overrides: Record<string, unknown> = {}): Record<string, 
     repair_total_bytes: 0,
     repair_bytes_per_second: 0,
     repair_error: '',
+    repair_job_id: '',
     allowed_operations: ['SnapshotRecording'],
     ...overrides,
   }
 }
 
-function operationEvent(outputPath: string): Record<string, unknown> {
+function snapshotJobResult(outputPath: string): Record<string, unknown> {
   return {
-    operation: 1,
-    path: 'live.mcap',
-    output_path: outputPath,
-    succeeded: true,
-    cancelled: false,
-    error: '',
+    job: {
+      job_id: JOB_ID,
+      job_type: SnapshotRecording.name,
+      status: JobStatusStatus.Succeeded,
+      reason: '',
+    },
+    result: encodeCdr(SnapshotRecording.resultSchema, { path: 'live.mcap', output_path: outputPath }),
   }
 }
 
@@ -94,7 +102,54 @@ describe('createRecorderClient', () => {
     expect(recordings).toEqual([[], ['a.mcap']])
   })
 
-  it('resolves snapshot before the command ack when the operation arrives early', async () => {
+  it('joins each recording with its contents, and leaves the contents of a file without an entry unknown', async () => {
+    const transport = new FakeTransport()
+    const client = createRecorderClient(transport)
+    const libraries: LibraryRecording[][] = []
+    const libraryWatch = client.watchLibrary((files) => libraries.push(files))
+    const stateQuery = await transport.nextQuery()
+    stateQuery.reply({
+      kind: 'sample',
+      sample: {
+        key: library.key,
+        payload: encodeCdr(library.messageSchema, {
+          files: ['dive.mcap', 'empty.mcap', 'old.mcap'].map((path) => recordingFile({ path, name: path, state: 1 })),
+          contents: [
+            {
+              path: 'dive.mcap',
+              duration: { sec: 90, nanosec: 500_000_000 },
+              video_topics: ['video/camera/stream'],
+              other_topic_count: 4,
+            },
+            {
+              path: 'empty.mcap', duration: { sec: 0, nanosec: 0 }, video_topics: [], other_topic_count: 0,
+            },
+          ],
+        }),
+        encoding: cdrEncoding(library.messageSchema),
+      },
+    })
+    await libraryWatch
+
+    const [files] = libraries
+    expect(files.map(({
+      path, duration_seconds, video_topics, other_topic_count,
+    }) => ({
+      path, duration_seconds, video_topics, other_topic_count,
+    }))).toEqual([
+      {
+        path: 'dive.mcap', duration_seconds: 90.5, video_topics: ['video/camera/stream'], other_topic_count: 4,
+      },
+      {
+        path: 'empty.mcap', duration_seconds: 0, video_topics: [], other_topic_count: 0,
+      },
+      {
+        path: 'old.mcap', duration_seconds: null, video_topics: null, other_topic_count: null,
+      },
+    ])
+  })
+
+  it('resolves snapshot before the command ack when the Job result arrives early', async () => {
     const transport = new FakeTransport()
     const client = createRecorderClient(transport)
     const operationWatch = client.watchOperations(() => undefined)
@@ -105,10 +160,11 @@ describe('createRecorderClient', () => {
     const snapshotQuery = await transport.nextQuery()
     expect(snapshotQuery.key).toBe(SnapshotRecording.key)
 
+    const results = jobResultEvent(NAME, SnapshotRecording.name)
     transport.publish({
-      key: operation.key,
-      payload: encodeCdr(operation.messageSchema, operationEvent(newSnapshot)),
-      encoding: cdrEncoding(operation.messageSchema),
+      key: results.key,
+      payload: encodeCdr(results.messageSchema, snapshotJobResult(newSnapshot)),
+      encoding: cdrEncoding(results.messageSchema),
     })
 
     snapshotQuery.reply({
@@ -117,7 +173,8 @@ describe('createRecorderClient', () => {
         key: SnapshotRecording.key,
         payload: encodeCdr('blueos_msgs/msg/CommandAck', {
           accepted: true,
-          job_id: 3,
+          job_id: JOB_ID,
+          status: CommandAckStatus.Succeeded,
           reason: '',
         }),
         encoding: cdrEncoding('blueos_msgs/msg/CommandAck'),
@@ -125,6 +182,36 @@ describe('createRecorderClient', () => {
     })
 
     await expect(snapshot).resolves.toBe(newSnapshot)
+  })
+
+  it('reports the Job result of a delete as well as of a repair', async () => {
+    const transport = new FakeTransport()
+    const client = createRecorderClient(transport)
+    const reported: unknown[] = []
+    await client.watchOperations((entry) => reported.push(entry))
+    const aborted = {
+      job_id: JOB_ID, job_type: DeleteRecording.name, status: JobStatusStatus.Aborted, reason: 'invalid recording path',
+    }
+
+    for (const [operation, result] of [
+      [DeleteRecording, { path: 'old.mcap' }],
+      [RepairRecording, { path: 'old.mcap' }],
+    ] as const) {
+      const results = jobResultEvent(NAME, operation.name)
+      transport.publish({
+        key: results.key,
+        payload: encodeCdr(results.messageSchema, {
+          job: { ...aborted, job_type: operation.name },
+          result: encodeCdr(operation.resultSchema, result),
+        }),
+        encoding: cdrEncoding(results.messageSchema),
+      })
+    }
+
+    expect(reported).toEqual([
+      { job: aborted, result: { path: 'old.mcap' } },
+      { job: { ...aborted, job_type: RepairRecording.name }, result: { path: 'old.mcap' } },
+    ])
   })
 
   it('resolves snapshot before the command ack when the library update arrives early', async () => {
@@ -168,7 +255,8 @@ describe('createRecorderClient', () => {
         key: SnapshotRecording.key,
         payload: encodeCdr('blueos_msgs/msg/CommandAck', {
           accepted: true,
-          job_id: 3,
+          job_id: JOB_ID,
+          status: CommandAckStatus.Succeeded,
           reason: '',
         }),
         encoding: cdrEncoding('blueos_msgs/msg/CommandAck'),
@@ -212,7 +300,8 @@ describe('createRecorderClient', () => {
         key: SnapshotRecording.key,
         payload: encodeCdr('blueos_msgs/msg/CommandAck', {
           accepted: true,
-          job_id: 3,
+          job_id: JOB_ID,
+          status: CommandAckStatus.Succeeded,
           reason: '',
         }),
         encoding: cdrEncoding('blueos_msgs/msg/CommandAck'),
@@ -250,6 +339,68 @@ describe('createRecorderClient', () => {
     await expect(snapshot).resolves.toBe(newSnapshot)
   })
 
+  it('downloads the file being written through a snapshot, and a finished one as it is', async () => {
+    const transport = new FakeTransport()
+    const client = createRecorderClient(transport)
+    await client.watchOperations(() => undefined)
+    const live = mapRecordingFile(recordingFile())
+    const finished = mapRecordingFile(recordingFile({ path: 'old.mcap', state: 1, allowed_operations: [] }))
+
+    const queries = vi.spyOn(transport, 'get')
+    await expect(client.recordingDownloadPath(finished)).resolves.toBe('old.mcap')
+    expect(queries).not.toHaveBeenCalled()
+
+    const newSnapshot = 'live.snapshot-2024-01-02T03-04-05Z.mcap'
+    const download = client.recordingDownloadPath(live)
+    const snapshotQuery = await transport.nextQuery()
+    expect(snapshotQuery.key).toBe(SnapshotRecording.key)
+    const results = jobResultEvent(NAME, SnapshotRecording.name)
+    transport.publish({
+      key: results.key,
+      payload: encodeCdr(results.messageSchema, snapshotJobResult(newSnapshot)),
+      encoding: cdrEncoding(results.messageSchema),
+    })
+    snapshotQuery.reply({
+      kind: 'sample',
+      sample: {
+        key: SnapshotRecording.key,
+        payload: encodeCdr('blueos_msgs/msg/CommandAck', {
+          accepted: true,
+          job_id: JOB_ID,
+          status: CommandAckStatus.Succeeded,
+          reason: '',
+        }),
+        encoding: cdrEncoding('blueos_msgs/msg/CommandAck'),
+      },
+    })
+
+    await expect(download).resolves.toBe(newSnapshot)
+  })
+
+  it('downloads the file directly when its recording stopped before the snapshot', async () => {
+    const transport = new FakeTransport()
+    const client = createRecorderClient(transport)
+    await client.watchOperations(() => undefined)
+
+    const download = client.recordingDownloadPath(mapRecordingFile(recordingFile()))
+    const snapshotQuery = await transport.nextQuery()
+    snapshotQuery.reply({
+      kind: 'sample',
+      sample: {
+        key: SnapshotRecording.key,
+        payload: encodeCdr('blueos_msgs/msg/CommandAck', {
+          accepted: false,
+          job_id: JOB_ID,
+          status: CommandAckStatus.StatusUnknown,
+          reason: 'Only the recording being written needs a snapshot. Download it directly.',
+        }),
+        encoding: cdrEncoding('blueos_msgs/msg/CommandAck'),
+      },
+    })
+
+    await expect(download).resolves.toBe('live.mcap')
+  })
+
   it('rejects snapshotRecording when the command is refused and clears the waiter', async () => {
     const transport = new FakeTransport()
     const client = createRecorderClient(transport)
@@ -262,7 +413,8 @@ describe('createRecorderClient', () => {
         key: SnapshotRecording.key,
         payload: encodeCdr('blueos_msgs/msg/CommandAck', {
           accepted: false,
-          job_id: 0,
+          job_id: JOB_ID,
+          status: CommandAckStatus.StatusUnknown,
           reason: 'still processing',
         }),
         encoding: cdrEncoding('blueos_msgs/msg/CommandAck'),
@@ -284,7 +436,8 @@ describe('createRecorderClient', () => {
         key: SnapshotRecording.key,
         payload: encodeCdr('blueos_msgs/msg/CommandAck', {
           accepted: true,
-          job_id: 3,
+          job_id: JOB_ID,
+          status: CommandAckStatus.Succeeded,
           reason: '',
         }),
         encoding: cdrEncoding('blueos_msgs/msg/CommandAck'),
@@ -308,7 +461,8 @@ describe('createRecorderClient', () => {
         key: RepairRecording.key,
         payload: encodeCdr('blueos_msgs/msg/CommandAck', {
           accepted: true,
-          job_id: 1,
+          job_id: JOB_ID,
+          status: CommandAckStatus.Executing,
           reason: '',
         }),
         encoding: cdrEncoding('blueos_msgs/msg/CommandAck'),
@@ -316,22 +470,24 @@ describe('createRecorderClient', () => {
     })
     expect(await repair).toMatchObject({ accepted: true })
 
-    const cancel = client.cancelRepair('broken.mcap')
+    const cancel = client.cancelRepair(JOB_ID)
     const cancelQuery = await transport.nextQuery()
-    expect(cancelQuery.key).toBe(CancelRepair.key)
+    expect(cancelQuery.key).toBe(commandKey(NAME, 'CancelJob'))
+    expect(new TextDecoder().decode(cancelQuery.body?.attachment)).toBe(JOB_ID)
     cancelQuery.reply({
       kind: 'sample',
       sample: {
-        key: CancelRepair.key,
+        key: cancelQuery.key,
         payload: encodeCdr('blueos_msgs/msg/CommandAck', {
           accepted: false,
-          job_id: 0,
-          reason: 'not repairing',
+          job_id: JOB_ID,
+          status: CommandAckStatus.StatusUnknown,
+          reason: 'no such Job',
         }),
         encoding: cdrEncoding('blueos_msgs/msg/CommandAck'),
       },
     })
-    expect(await cancel).toMatchObject({ accepted: false, reason: 'not repairing' })
+    expect(await cancel).toMatchObject({ accepted: false, reason: 'no such Job' })
 
     const deleted = client.deleteRecording('old.mcap')
     const deleteQuery = await transport.nextQuery()
@@ -342,13 +498,36 @@ describe('createRecorderClient', () => {
         key: DeleteRecording.key,
         payload: encodeCdr('blueos_msgs/msg/CommandAck', {
           accepted: true,
-          job_id: 2,
+          job_id: JOB_ID,
+          status: CommandAckStatus.Succeeded,
           reason: '',
         }),
         encoding: cdrEncoding('blueos_msgs/msg/CommandAck'),
       },
     })
     expect(await deleted).toMatchObject({ accepted: true })
+  })
+
+  it('reads a recording with the bytes Query', async () => {
+    const transport = new FakeTransport()
+    const client = createRecorderClient(transport)
+
+    const read = client.recordingByteSource('flight 2/a#b.mcap').read(10, 3)
+    const query = await transport.nextQuery()
+    expect(query.key).toBe(bytes.key)
+    expect(decodeCdr(bytes.requestSchema, query.body?.payload ?? new Uint8Array())).toEqual({
+      path: 'flight 2/a#b.mcap', offset: 10, length: 3, from_end: false,
+    })
+    query.reply({
+      kind: 'sample',
+      sample: {
+        key: bytes.key,
+        payload: encodeCdr(bytes.responseSchema, { size: 100, data: new Uint8Array([1, 2, 3]) }),
+        encoding: cdrEncoding(bytes.responseSchema),
+      },
+    })
+
+    await expect(read).resolves.toEqual(new Uint8Array([1, 2, 3]))
   })
 
   it('forwards library decode errors to onError', async () => {

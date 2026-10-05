@@ -4,6 +4,10 @@
 
 RUST_NO_STD_TARGET=thumbv7em-none-eabihf
 RUST_WASM32_TARGET=wasm32-unknown-unknown
+# The quality ratchet tools and the thailint linters whose findings it counts (D-30).
+RUST_RUSTQUAL_VERSION=1.8.3
+RUST_THAILINT_VERSION=0.25.0
+RUST_THAILINT_LINTERS=(unwrap-abuse clone-abuse blocking-async)
 # Features of test-only backends: enabled in [dev-dependencies] only, so they never reach a shipped binary (D-02).
 RUST_TEST_ONLY_FEATURES=(blueos-comms/channel blueos-service/testing)
 
@@ -154,6 +158,91 @@ collect_folder_violations() {
     return 0
 }
 
+# Usage: service_app_block_folders <service_dir>
+# Prints one Block folder name per line that may appear under app/src/ (D-23).
+service_app_block_folders() {
+    local service_dir="$1"
+    local logic_dir="$service_dir/logic"
+    local domain_folder=api
+    if [ -d "$logic_dir/domain" ]; then
+        domain_folder=domain
+    elif [ -d "$logic_dir/$(basename "$service_dir")" ]; then
+        domain_folder=$(basename "$service_dir")
+    fi
+    local entry
+    for entry in "$logic_dir"/*; do
+        [ -d "$entry" ] || continue
+        local name
+        name=$(basename "$entry")
+        case "$name" in
+            api | "$domain_folder" | paths | schema-gate) continue ;;
+        esac
+        printf '%s\n' "$name"
+    done
+}
+
+# Usage: collect_app_src_violations <repository_dir>
+# Enforces D-23 layout under services/<name>/app/src. Prints one violation per line.
+collect_app_src_violations() {
+    local root_dir="$1"
+    local services_root
+    if [ -d "$root_dir/core/services" ]; then
+        services_root="$root_dir/core/services"
+    elif [ -d "$root_dir/services" ]; then
+        services_root="$root_dir/services"
+    else
+        return 0
+    fi
+    local violations=() service_dir app_src entry name stem
+    local -a service_wide=(cli context endpoints handlers io service settings)
+    while IFS= read -r -d '' service_dir; do
+        app_src="$service_dir/app/src"
+        [ -d "$app_src" ] || continue
+        local -a block_folders=()
+        while IFS= read -r name; do
+            [ -n "$name" ] && block_folders+=("$name")
+        done < <(service_app_block_folders "$service_dir")
+        while IFS= read -r -d '' entry; do
+            name=$(basename "$entry")
+            if [ -f "$entry" ]; then
+                [ "$name" = lib.rs ] && continue
+                stem=${name%.rs}
+                local allowed=false
+                for stem in "${service_wide[@]}"; do
+                    if [ "$name" = "${stem}.rs" ]; then
+                        allowed=true
+                        break
+                    fi
+                done
+                if [ "$allowed" = false ]; then
+                    violations+=("$app_src: unknown top-level module ${name%.rs}")
+                fi
+            elif [ -d "$entry" ]; then
+                case "$name" in
+                    tasks) ;;
+                    *)
+                        local block_allowed=false
+                        for stem in "${block_folders[@]}"; do
+                            if [ "$name" = "$stem" ]; then
+                                block_allowed=true
+                                break
+                            fi
+                        done
+                        if [ "$block_allowed" = false ]; then
+                            violations+=("$app_src: unknown top-level module $name")
+                        fi
+                        ;;
+                esac
+            fi
+        done < <(find "$app_src" -mindepth 1 -maxdepth 1 -print0)
+    done < <(find "$services_root" -mindepth 1 -maxdepth 1 -type d -print0)
+    if [ ${#violations[@]} -gt 0 ]; then
+        printf '%s\n' "${violations[@]}"
+        return 1
+    fi
+    return 0
+}
+
 # Usage: collect_test_only_feature_violations <workspace_dir>
 # Resolves features the way a non-test build does (no dev edges, every target) and prints one violation per
 # test-only feature it finds enabled. Exits 1 when any violation exists.
@@ -173,6 +262,60 @@ collect_test_only_feature_violations() {
         return 1
     fi
     return 0
+}
+
+# Usage: collect_dependency_violations <cargo-metadata-json> <workspace-manifest> <exceptions-file>
+# Prints one violation per line. Exits 1 when any violation exists (D-30). cargo metadata names the members; their
+# manifests are read as written because the metadata hides whether an entry inherited from the workspace.
+collect_dependency_violations() {
+    local metadata="$1"
+    local workspace_manifest="$2"
+    local exceptions_file="$3"
+    local violations=() name manifest_path
+    while IFS=$'\t' read -r name manifest_path; do
+        while IFS= read -r violation; do
+            violations+=("$violation")
+        done < <(toml_to_json "$manifest_path" | jq -r --arg name "$name" '
+            def sections: ["dependencies", "dev-dependencies", "build-dependencies"][] as $section
+                | (.[$section] // {} | to_entries[] | {section: $section, entry: .}),
+                  (.target // {} | .[] | .[$section] // {} | to_entries[] | {section: $section, entry: .});
+            sections
+            | select(.entry.value | type != "object" or .workspace != true)
+            | "\($name): [\(.section)] \(.entry.key) is not workspace = true"')
+    done < <(jq -r '.packages[] | [.name, .manifest_path] | @tsv' <<<"$metadata")
+
+    local workspace exceptions
+    workspace=$(toml_to_json "$workspace_manifest")
+    exceptions=$(toml_to_json "$exceptions_file")
+    while IFS= read -r violation; do
+        violations+=("$violation")
+    done < <(jq -r --argjson exceptions "$exceptions" --arg file "$(basename "$exceptions_file")" '
+        (.workspace.dependencies // {}) as $dependencies
+        | ($exceptions.exceptions // {}) as $listed
+        | ($dependencies | to_entries[]
+            | select(.value | type != "object" or .["default-features"] != false)
+            | select(.key as $key | $listed | has($key) | not)
+            | "workspace: \(.key) keeps default features; set default-features = false or list it in \($file) with a reason"),
+          ($listed | to_entries[] | .key as $key | .value as $reason
+            | if ($reason | type != "string" or (gsub("\\s"; "") == "")) then "exceptions: \($key) has no reason in \($file)"
+              elif ($dependencies | has($key) | not) then "exceptions: \($key) is listed but is not a workspace dependency"
+              elif ($dependencies[$key] | type == "object" and .["default-features"] == false) then
+                "exceptions: \($key) is listed but already sets default-features = false"
+              else empty end)' <<<"$workspace")
+    if [ ${#violations[@]} -gt 0 ]; then
+        printf '%s\n' "${violations[@]}"
+        return 1
+    fi
+    return 0
+}
+
+# Usage: check_dependency_gate <workspace_dir>
+check_dependency_gate() {
+    local workspace_dir="$1"
+    local metadata
+    metadata=$(cargo metadata --manifest-path "$workspace_dir/Cargo.toml" --format-version 1 --no-deps --locked) \
+        || return 1
+    collect_dependency_violations "$metadata" "$workspace_dir/Cargo.toml" "$workspace_dir/dependency-exceptions.toml"
 }
 
 # Usage: run_shipped_clippy
@@ -210,6 +353,8 @@ run_rust_lint_checks() {
                 --write --idl-root "$workspace_dir/libs/idl" --core-dir "$workspace_dir"
             echo "Running cargo fmt.."
             cargo fmt --all
+            echo "Lowering the quality ratchet ceilings.."
+            check_rust_quality_ratchet "$workspace_dir"
             exit 0
         fi
 
@@ -234,11 +379,24 @@ run_rust_lint_checks() {
         echo "Running blueos rust style check.."
         cargo run --locked -q -p blueos-rust-style-check -- "$workspace_dir"
 
+        echo "Checking the quality ratchet.."
+        check_rust_quality_ratchet "$workspace_dir"
+
         local metadata
         metadata=$(cargo metadata --format-version 1 --no-deps --locked)
 
         echo "Checking crate folders.."
         if ! collect_folder_violations "$metadata"; then
+            exit 1
+        fi
+
+        echo "Checking application crate layout.."
+        if ! collect_app_src_violations "$(git -C "$workspace_dir" rev-parse --show-toplevel)"; then
+            exit 1
+        fi
+
+        echo "Checking dependencies.."
+        if ! check_dependency_gate "$workspace_dir"; then
             exit 1
         fi
 
@@ -288,17 +446,25 @@ run_rust_supply_chain_checks() {
     )
 
     echo "Running typos on the Rust workspace.."
+    check_typos "$repository_dir"
+}
+
+# Usage: check_typos <repository_dir>
+check_typos() {
+    local repository_dir="$1"
     local typos_paths=() path
-    for path in .hooks/lib core/libs core/app core/Cargo.toml core/deny.toml core/clippy.toml core/coverage-ratchet.toml; do
+    for path in .hooks/lib core/libs core/app core/services core/Cargo.toml core/deny.toml core/clippy.toml \
+        core/coverage-ratchet.toml core/quality-ratchet.toml; do
         if [ -e "$repository_dir/$path" ]; then
-            typos_paths+=("$repository_dir/$path")
+            typos_paths+=("$path")
         fi
     done
     if ! command -v typos >/dev/null 2>&1; then
         printf 'typos not installed; install typos-cli (e.g. cargo install --locked typos-cli)\n' >&2
         exit 1
     fi
-    typos --config "$repository_dir/typos.toml" "${typos_paths[@]}"
+    # typos matches the typos.toml excludes against the paths as given, so they must be relative to the repository.
+    (cd "$repository_dir" && typos --config typos.toml "${typos_paths[@]}")
 }
 
 # Usage: run_rust_test_checks <workspace_dir>
@@ -414,6 +580,210 @@ check_rust_coverage_ratchet() {
             }
         ' "$ratchet_file")
     )
+}
+
+# Usage: toml_to_json <file>
+toml_to_json() {
+    python3 -c 'import json, sys, tomllib; print(json.dumps(tomllib.load(open(sys.argv[1], "rb"))))' "$1"
+}
+
+# Usage: check_ratchet_prerequisites
+# The ratchet files are read with python3's tomllib (3.11 or later) and compared with jq.
+check_ratchet_prerequisites() {
+    if ! python3 -c 'import tomllib' 2>/dev/null; then
+        printf 'python3 3.11 or later not installed; the ratchet checks read TOML with its tomllib\n' >&2
+        exit 1
+    fi
+    if ! command -v jq >/dev/null 2>&1; then
+        printf 'jq not installed; install it with your package manager (e.g. apt install jq)\n' >&2
+        exit 1
+    fi
+}
+
+# Usage: measure_quality <ratchet-json> <rustqual-baseline> <thailint-findings>
+# Prints {"rustqual": {category: count}, "thailint": {rule: count}}. rustqual's categories are the counts in its
+# --save-baseline output; a thailint rule that has a ceiling and no finding counts 0.
+measure_quality() {
+    jq -n --argjson ratchet "$1" --slurpfile baseline "$2" --slurpfile thailint "$3" '{
+        rustqual: ($baseline[0] | del(.version, .quality_score, .iosp_score, .total, .violation_details)),
+        thailint: (($ratchet.thailint // {} | map_values(0))
+            + ([$thailint[].violations[].rule_id] | group_by(.) | map({key: .[0], value: length}) | from_entries))
+    }'
+}
+
+# Usage: collect_quality_ratchet_violations <ratchet-file> <rustqual-baseline> <rustqual-report> <thailint-findings>
+# Compares rustqual's --save-baseline counts and thailint's JSON findings (one document per linter) with the
+# ceilings in the ratchet file. Prints one violation per line. Exits 1 when any violation exists (D-30).
+collect_quality_ratchet_violations() {
+    local ratchet_file="$1"
+    local ratchet measured violations
+    ratchet=$(toml_to_json "$ratchet_file") || return 1
+    measured=$(measure_quality "$ratchet" "$2" "$4") || return 1
+    violations=$(jq -rn --argjson ratchet "$ratchet" --argjson measured "$measured" --slurpfile report "$3" \
+        --arg file "$(basename "$ratchet_file")" --arg linters "${RUST_THAILINT_LINTERS[*]}" '
+        def listing($tool; $category):
+            if $tool == "rustqual" then "(cd core && rustqual .)"
+            else "(cd core && thailint \($category | split(".")[0]) libs app services)" end;
+        def reported($tool; $category):
+            ($measured[$tool] | has($category))
+                and ($tool == "rustqual" or ($linters | split(" ") | index($category | split(".")[0]) != null));
+        (if $report[0].summary.suppression_ratio_exceeded then
+            "rustqual: suppressions exceed max_suppression_ratio in rustqual.toml; fix the findings instead"
+        else empty end),
+        (["rustqual", "thailint"][] as $tool
+            | $measured[$tool] as $counts
+            | ($ratchet[$tool] // {}) as $ceilings
+            | ($counts | keys[] | select(. as $category | $ceilings | has($category) | not)
+                | "\($tool): \(.) has no ceiling in \($file); add it at \($counts[.])"),
+              ($ceilings | to_entries[] | .key as $category | .value as $ceiling
+                | if reported($tool; $category) | not then
+                    "\($tool): \($category) in \($file) is not a category \($tool) reports; remove it"
+                  elif $counts[$category] > $ceiling then
+                    "\($tool): \($category) is \($counts[$category]), above its ceiling of \($ceiling) in \($file); list the findings with \(listing($tool; $category))"
+                  elif $counts[$category] < $ceiling then
+                    "\($tool): \($category) is \($counts[$category]), below its ceiling of \($ceiling) in \($file); lower the ceiling with ./.hooks/pre-push --fix"
+                  else empty end))')
+    if [ -n "$violations" ]; then
+        printf '%s\n' "$violations"
+        return 1
+    fi
+    return 0
+}
+
+# Usage: lower_quality_ratchet_ceilings <ratchet-file> <rustqual-baseline> <thailint-findings>
+# Sets each ceiling to its measured count when the count is lower, and never raises one.
+lower_quality_ratchet_ceilings() {
+    local ratchet_file="$1"
+    local ratchet measured lowered lowered_file
+    ratchet=$(toml_to_json "$ratchet_file") || return 1
+    measured=$(measure_quality "$ratchet" "$2" "$3") || return 1
+    lowered=$(jq -rn --argjson ratchet "$ratchet" --argjson measured "$measured" '
+        ["rustqual", "thailint"][] as $tool
+        | $ratchet[$tool] // {} | to_entries[]
+        | select($measured[$tool][.key] != null and $measured[$tool][.key] < .value)
+        | "\($tool)\t\(.key)\t\($measured[$tool][.key])"') || return 1
+    lowered_file=$(mktemp) || return 1
+    if ! awk -v lowered="$lowered" '
+        BEGIN {
+            count = split(lowered, lines, "\n")
+            for (line_number = 1; line_number <= count; line_number++) {
+                split(lines[line_number], field, "\t")
+                ceiling[field[1] SUBSEP field[2]] = field[3]
+            }
+        }
+        /^\[/ { table = $0; gsub(/[][ \t]/, "", table) }
+        /=/ && !/^[ \t]*#/ {
+            key = $0
+            sub(/[ \t]*=.*/, "", key)
+            gsub(/^[ \t]+|"/, "", key)
+            if ((table SUBSEP key) in ceiling) sub(/=.*/, "= " ceiling[table SUBSEP key])
+        }
+        { print }
+    ' "$ratchet_file" >"$lowered_file"; then
+        rm -f "$lowered_file"
+        return 1
+    fi
+    cat "$lowered_file" >"$ratchet_file"
+    rm -f "$lowered_file"
+}
+
+# Usage: check_rust_quality_ratchet <workspace_dir> [ratchet_file]
+# Counts rustqual and thailint findings and fails when a count differs from its ceiling. In fix mode it lowers
+# the ceilings instead.
+check_rust_quality_ratchet() {
+    local workspace_dir="$1"
+    local ratchet_file="${2:-$workspace_dir/quality-ratchet.toml}"
+    if [ "$(rustqual --version 2>/dev/null)" != "rustqual $RUST_RUSTQUAL_VERSION" ]; then
+        printf 'rustqual %s not installed; install it with: cargo install --locked rustqual@%s\n' \
+            "$RUST_RUSTQUAL_VERSION" "$RUST_RUSTQUAL_VERSION" >&2
+        exit 1
+    fi
+    if [ "$(thailint --version 2>/dev/null)" != "thailint, version $RUST_THAILINT_VERSION" ]; then
+        printf 'thailint %s not installed; install it with: pip install thailint==%s\n' \
+            "$RUST_THAILINT_VERSION" "$RUST_THAILINT_VERSION" >&2
+        exit 1
+    fi
+    check_ratchet_prerequisites
+    (
+        cd "$workspace_dir" || exit 1
+        local measurements linter status
+        measurements=$(mktemp -d)
+        trap 'rm -rf "$measurements"' EXIT
+        rustqual --no-fail --format json --save-baseline "$measurements/baseline.json" . \
+            >"$measurements/report.json" || exit 1
+        if ! jq -e 'type == "object"' "$measurements/baseline.json" >/dev/null 2>&1 \
+            || ! jq -e '.summary | type == "object"' "$measurements/report.json" >/dev/null 2>&1; then
+            printf 'rustqual wrote no baseline or report JSON\n' >&2
+            exit 1
+        fi
+        for linter in "${RUST_THAILINT_LINTERS[@]}"; do
+            status=0
+            thailint "$linter" --format json libs app services >"$measurements/$linter.json" || status=$?
+            # thailint exits 1 when it finds something, and also when it crashes, so only its JSON tells them apart.
+            if [ "$status" -gt 1 ] \
+                || ! jq -e '.violations | type == "array"' "$measurements/$linter.json" >/dev/null 2>&1; then
+                printf 'thailint %s wrote no findings JSON (exit %s)\n' "$linter" "$status" >&2
+                exit 1
+            fi
+            cat "$measurements/$linter.json" >>"$measurements/thailint.json"
+        done
+        if [ "$fixing" = true ]; then
+            lower_quality_ratchet_ceilings "$ratchet_file" "$measurements/baseline.json" "$measurements/thailint.json"
+        elif ! collect_quality_ratchet_violations "$ratchet_file" "$measurements/baseline.json" \
+            "$measurements/report.json" "$measurements/thailint.json"; then
+            exit 1
+        fi
+    )
+}
+
+# Usage: collect_ratchet_loosening <ceilings|floors> <base-file> <head-file>
+# Prints one line per value that moved the loose way since the base: a ceiling that rose, a floor that fell, or a
+# key that was removed. Exits 1 when any exists (D-30).
+collect_ratchet_loosening() {
+    local base head loosened
+    base=$(toml_to_json "$2") || return 1
+    head=$(toml_to_json "$3") || return 1
+    loosened=$(jq -rn --arg kind "$1" --argjson base "$base" --argjson head "$head" '
+        $base | to_entries[] | .key as $table | .value | to_entries[] | .key as $key | .value as $was
+        | $head[$table][$key] as $now
+        | if $now == null then "\($table).\($key) was removed"
+          elif $kind == "ceilings" and $now > $was then "\($table).\($key) ceiling rose from \($was) to \($now)"
+          elif $kind == "floors" and $now < $was then "\($table).\($key) floor fell from \($was) to \($now)"
+          else empty end')
+    if [ -n "$loosened" ]; then
+        printf '%s\n' "$loosened"
+        return 1
+    fi
+    return 0
+}
+
+# Usage: check_ratchets_not_loosened <repository_dir> <base_revision>
+# Fails when a ratchet file loosened since the base revision, and when the base revision cannot be resolved. A file
+# the base does not have has nothing to loosen.
+check_ratchets_not_loosened() {
+    local repository_dir="$1"
+    local base_revision="$2"
+    local base_file status=0 path kind
+    check_ratchet_prerequisites
+    if ! git -C "$repository_dir" cat-file -e "$base_revision^{commit}" 2>/dev/null; then
+        printf 'cannot resolve the base revision %s; fetch it before comparing the ratchet files\n' \
+            "$base_revision" >&2
+        return 1
+    fi
+    base_file=$(mktemp)
+    while read -r path kind; do
+        git -C "$repository_dir" cat-file -e "$base_revision:$path" 2>/dev/null || continue
+        git -C "$repository_dir" show "$base_revision:$path" >"$base_file"
+        if ! collect_ratchet_loosening "$kind" "$base_file" "$repository_dir/$path"; then
+            printf '%s loosened since %s; a ratchet may only tighten (D-30)\n' "$path" "$base_revision" >&2
+            status=1
+        fi
+    done <<'EOF'
+core/quality-ratchet.toml ceilings
+core/coverage-ratchet.toml floors
+EOF
+    rm -f "$base_file"
+    return "$status"
 }
 
 # Usage: run_rust_checks <workspace_dir>

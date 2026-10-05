@@ -1,13 +1,10 @@
 import {
   RecordingFileState,
-  RecordingOperationOperation,
 } from '@blueos-idl'
-import type { RecordingFile, RecordingOperation, Time } from '@blueos-idl/messages'
+import type { RecordingContents, RecordingFile, Time } from '@blueos-idl/messages'
 
 import type {
   LibraryRecording,
-  RecordingOperationEvent,
-  RecordingOperationKind,
   RecordingState,
 } from './types'
 
@@ -30,7 +27,8 @@ export function mapRecordingState(state: number): RecordingState {
   }
 }
 
-export function mapRecordingFile(file: RecordingFile): LibraryRecording {
+/** Maps `file` with its `contents`, which the library carries only when it knows them. */
+export function mapRecordingFile(file: RecordingFile, contents?: RecordingContents): LibraryRecording {
   return {
     path: file.path,
     name: file.name,
@@ -41,30 +39,10 @@ export function mapRecordingFile(file: RecordingFile): LibraryRecording {
     repair_total_bytes: file.repair_total_bytes,
     repair_bytes_per_second: file.repair_bytes_per_second,
     repair_error: file.repair_error,
+    repair_job_id: file.repair_job_id,
     allowed_operations: [...file.allowed_operations],
-  }
-}
-
-function mapOperationKind(operation: number): RecordingOperationKind {
-  switch (operation) {
-    case RecordingOperationOperation.Repair:
-      return 'repair'
-    case RecordingOperationOperation.Snapshot:
-      return 'snapshot'
-    case RecordingOperationOperation.Delete:
-      return 'delete'
-    default:
-      return 'repair'
-  }
-}
-
-export function mapRecordingOperation(event: RecordingOperation): RecordingOperationEvent {
-  return {
-    operation: mapOperationKind(event.operation),
-    path: event.path,
-    output_path: event.output_path,
-    succeeded: event.succeeded,
-    cancelled: event.cancelled,
-    error: event.error,
+    duration_seconds: contents ? contents.duration.sec + contents.duration.nanosec / 1e9 : null,
+    video_topics: contents ? [...contents.video_topics] : null,
+    other_topic_count: contents?.other_topic_count ?? null,
   }
 }

@@ -5,7 +5,6 @@ import type * as Idl from '@blueos-idl/messages'
 
 import {
   commandKey,
-  eventKey,
   queryKey,
   stateKey,
 } from '../keys'
@@ -13,76 +12,106 @@ import {
 /** The name of the `recorder` Service, in each of its keys: `blueos/v1/recorder/...`. */
 export const NAME = 'recorder'
 
-/** command `CancelRepair` at `blueos/v1/recorder/command/CancelRepair`. */
-export const CancelRepair = {
-  kind: 'command' as const,
-  name: 'CancelRepair',
-  key: commandKey(NAME, 'CancelRepair'),
-  requestSchema: 'blueos_recorder_msgs/msg/CancelRepairCommand' as const,
-}
-export type CancelRepairRequest = Idl.CancelRepairCommand
-
-/** command `DeleteRecording` at `blueos/v1/recorder/command/DeleteRecording`. */
+/** job `DeleteRecording` at `blueos/v1/recorder/command/DeleteRecording`. */
 export const DeleteRecording = {
-  kind: 'command' as const,
+  kind: 'job' as const,
   name: 'DeleteRecording',
   key: commandKey(NAME, 'DeleteRecording'),
-  requestSchema: 'blueos_recorder_msgs/msg/DeleteRecordingCommand' as const,
+  type: 'blueos_recorder_msgs/action/DeleteRecording' as const,
+  goalSchema: 'blueos_recorder_msgs/action/DeleteRecording_Goal' as const,
+  feedbackSchema: 'blueos_recorder_msgs/action/DeleteRecording_Feedback' as const,
+  resultSchema: 'blueos_recorder_msgs/action/DeleteRecording_Result' as const,
 }
-export type DeleteRecordingRequest = Idl.DeleteRecordingCommand
+export type DeleteRecordingGoal = Idl.DeleteRecordingGoal
+export type DeleteRecordingFeedback = Idl.DeleteRecordingFeedback
+export type DeleteRecordingResult = Idl.DeleteRecordingResult
 
-/** command `RepairRecording` at `blueos/v1/recorder/command/RepairRecording`. */
+/** job `RepairRecording` at `blueos/v1/recorder/command/RepairRecording`. */
 export const RepairRecording = {
-  kind: 'command' as const,
+  kind: 'job' as const,
   name: 'RepairRecording',
   key: commandKey(NAME, 'RepairRecording'),
-  requestSchema: 'blueos_recorder_msgs/msg/RepairRecordingCommand' as const,
+  type: 'blueos_recorder_msgs/action/RepairRecording' as const,
+  goalSchema: 'blueos_recorder_msgs/action/RepairRecording_Goal' as const,
+  feedbackSchema: 'blueos_recorder_msgs/action/RepairRecording_Feedback' as const,
+  resultSchema: 'blueos_recorder_msgs/action/RepairRecording_Result' as const,
 }
-export type RepairRecordingRequest = Idl.RepairRecordingCommand
+export type RepairRecordingGoal = Idl.RepairRecordingGoal
+export type RepairRecordingFeedback = Idl.RepairRecordingFeedback
+export type RepairRecordingResult = Idl.RepairRecordingResult
 
-/** command `SnapshotRecording` at `blueos/v1/recorder/command/SnapshotRecording`. */
+/** job `SnapshotRecording` at `blueos/v1/recorder/command/SnapshotRecording`. */
 export const SnapshotRecording = {
-  kind: 'command' as const,
+  kind: 'job' as const,
   name: 'SnapshotRecording',
   key: commandKey(NAME, 'SnapshotRecording'),
-  requestSchema: 'blueos_recorder_msgs/msg/SnapshotRecordingCommand' as const,
+  type: 'blueos_recorder_msgs/action/SnapshotRecording' as const,
+  goalSchema: 'blueos_recorder_msgs/action/SnapshotRecording_Goal' as const,
+  feedbackSchema: 'blueos_recorder_msgs/action/SnapshotRecording_Feedback' as const,
+  resultSchema: 'blueos_recorder_msgs/action/SnapshotRecording_Result' as const,
 }
-export type SnapshotRecordingRequest = Idl.SnapshotRecordingCommand
+export type SnapshotRecordingGoal = Idl.SnapshotRecordingGoal
+export type SnapshotRecordingFeedback = Idl.SnapshotRecordingFeedback
+export type SnapshotRecordingResult = Idl.SnapshotRecordingResult
 
-/** command `Start` at `blueos/v1/recorder/command/Start`. */
+/** job `Start` at `blueos/v1/recorder/command/Start`. */
 export const Start = {
-  kind: 'command' as const,
+  kind: 'job' as const,
   name: 'Start',
   key: commandKey(NAME, 'Start'),
-  requestSchema: 'blueos_recorder_msgs/msg/StartRecordingCommand' as const,
+  type: 'blueos_recorder_msgs/action/StartRecording' as const,
+  goalSchema: 'blueos_recorder_msgs/action/StartRecording_Goal' as const,
+  feedbackSchema: 'blueos_recorder_msgs/action/StartRecording_Feedback' as const,
+  resultSchema: 'blueos_recorder_msgs/action/StartRecording_Result' as const,
 }
-export type StartRequest = Idl.StartRecordingCommand
+export type StartGoal = Idl.StartRecordingGoal
+export type StartFeedback = Idl.StartRecordingFeedback
+export type StartResult = Idl.StartRecordingResult
 
-/** command `Stop` at `blueos/v1/recorder/command/Stop`. */
+/** job `Stop` at `blueos/v1/recorder/command/Stop`. */
 export const Stop = {
-  kind: 'command' as const,
+  kind: 'job' as const,
   name: 'Stop',
   key: commandKey(NAME, 'Stop'),
-  requestSchema: 'blueos_recorder_msgs/msg/StopRecordingCommand' as const,
+  type: 'blueos_recorder_msgs/action/StopRecording' as const,
+  goalSchema: 'blueos_recorder_msgs/action/StopRecording_Goal' as const,
+  feedbackSchema: 'blueos_recorder_msgs/action/StopRecording_Feedback' as const,
+  resultSchema: 'blueos_recorder_msgs/action/StopRecording_Result' as const,
 }
-export type StopRequest = Idl.StopRecordingCommand
+export type StopGoal = Idl.StopRecordingGoal
+export type StopFeedback = Idl.StopRecordingFeedback
+export type StopResult = Idl.StopRecordingResult
 
-/** io_query `index` at `blueos/v1/recorder/query/index`. */
+/** query `bytes` at `blueos/v1/recorder/query/bytes`. */
+export const bytes = {
+  kind: 'query' as const,
+  name: 'bytes',
+  key: queryKey(NAME, 'bytes'),
+  type: 'blueos_recorder_msgs/srv/RecordingBytes' as const,
+  requestSchema: 'blueos_recorder_msgs/srv/RecordingBytes_Request' as const,
+  responseSchema: 'blueos_recorder_msgs/srv/RecordingBytes_Response' as const,
+}
+export type bytesRequest = Idl.RecordingBytesRequest
+export type bytesResponse = Idl.RecordingBytesResponse
+
+/** query `index` at `blueos/v1/recorder/query/index`. */
 export const index = {
-  kind: 'io_query' as const,
+  kind: 'query' as const,
   name: 'index',
   key: queryKey(NAME, 'index'),
-  requestSchema: 'blueos_recorder_msgs/msg/RecordingIndexRequest' as const,
-  responseSchema: 'blueos_recorder_msgs/msg/RecordingIndex' as const,
+  type: 'blueos_recorder_msgs/srv/RecordingIndex' as const,
+  requestSchema: 'blueos_recorder_msgs/srv/RecordingIndex_Request' as const,
+  responseSchema: 'blueos_recorder_msgs/srv/RecordingIndex_Response' as const,
 }
 export type indexRequest = Idl.RecordingIndexRequest
-export type indexResponse = Idl.RecordingIndex
+export type indexResponse = Idl.RecordingIndexResponse
 
 /** state `library` at `blueos/v1/recorder/state/library`. */
 export const library = {
   kind: 'state' as const,
   name: 'library',
   key: stateKey(NAME, 'library'),
+  type: 'blueos_recorder_msgs/msg/RecordingLibrary' as const,
   messageSchema: 'blueos_recorder_msgs/msg/RecordingLibrary' as const,
 }
 export type Library = Idl.RecordingLibrary
@@ -92,15 +121,7 @@ export const recording = {
   kind: 'state' as const,
   name: 'recording',
   key: stateKey(NAME, 'recording'),
+  type: 'blueos_recorder_msgs/msg/RecordingState' as const,
   messageSchema: 'blueos_recorder_msgs/msg/RecordingState' as const,
 }
 export type Recording = Idl.RecordingState
-
-/** event `operation` at `blueos/v1/recorder/event/operation`. */
-export const operation = {
-  kind: 'event' as const,
-  name: 'operation',
-  key: eventKey(NAME, 'operation'),
-  messageSchema: 'blueos_recorder_msgs/msg/RecordingOperation' as const,
-}
-export type Operation = Idl.RecordingOperation

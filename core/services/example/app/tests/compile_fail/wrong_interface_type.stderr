@@ -1,0 +1,13 @@
+error[E0053]: method `set_level` has an incompatible type for trait
+  --> tests/compile_fail/wrong_interface_type.rs:17:41
+   |
+17 |     fn set_level(_job_id: JobId, _goal: LevelRequest) -> Result<PumpRequest, AboveMaximum> {
+   |                                         ^^^^^^^^^^^^ expected `SetLevelGoal`, found `LevelRequest`
+   |
+   = note: expected signature `fn(JobId, SetLevelGoal) -> Result<PumpRequest, AboveMaximum>`
+              found signature `fn(JobId, LevelRequest) -> Result<PumpRequest, AboveMaximum>`
+help: change the parameter type to match the trait
+   |
+17 -     fn set_level(_job_id: JobId, _goal: LevelRequest) -> Result<PumpRequest, AboveMaximum> {
+17 +     fn set_level(_job_id: JobId, _goal: SetLevelGoal) -> Result<PumpRequest, AboveMaximum> {
+   |

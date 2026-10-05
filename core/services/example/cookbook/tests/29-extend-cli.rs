@@ -4,7 +4,7 @@ use core::convert::Infallible;
 use std::{ffi::OsString, path::PathBuf};
 
 use blueos_domain::{Command, Decision, Domain, IoError, Now, Outcome};
-use blueos_idl::msg::blueos_example_msgs::LevelQueryResponse;
+use blueos_idl::msg::blueos_example_msgs::LevelResponse;
 use blueos_service::{
     Service, ServiceBuilder, ServiceContext, ServiceError, entry::parse_service_cli,
     testing::Harness,
@@ -33,13 +33,18 @@ impl Service for CliCookbookService {
     const NAME: &'static str = "cookbook_cli";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<CliCookbookArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        context: &ServiceContext<CliCookbookArguments>,
+        service: &ServiceContext<CliCookbookArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<CliCookbook>, ServiceError> {
         Ok(ServiceBuilder::new(CliCookbookSnapshot {
-            marker: context.arguments().marker.clone(),
+            marker: service.arguments().marker.clone(),
         })
-        .state("cli", |snapshot: &CliCookbookSnapshot| LevelQueryResponse {
+        .state("cli", |snapshot: &CliCookbookSnapshot| LevelResponse {
             level: u8::from(snapshot.marker.is_some()),
             max_level: snapshot
                 .marker
@@ -105,10 +110,10 @@ fn service_flags_flatten_with_the_common_cli() {
         parsed.service.marker.as_deref(),
         Some(PathBuf::from("/tmp/marker").as_path())
     );
-    let _builder = CliCookbookService::build(&ServiceContext::new(
-        parsed.service,
-        blueos_service::testing::channel_session(),
-    ))
+    let _builder = CliCookbookService::build(
+        &ServiceContext::new(parsed.service, blueos_service::testing::channel_session()),
+        &(),
+    )
     .expect("build");
 }
 
@@ -120,7 +125,7 @@ async fn service_specific_flag_reaches_the_domain_snapshot() {
     })
     .await
     .expect("start");
-    let published = harness.state::<LevelQueryResponse>("cli").await;
+    let published = harness.state::<LevelResponse>("cli").await;
     assert_eq!(published.level, 1);
     assert_eq!(published.max_level, marker.as_os_str().len() as u8);
 }

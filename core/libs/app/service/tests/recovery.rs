@@ -14,9 +14,10 @@ use blueos_api::{Message, cdr_encoding, command_key, status_state_key};
 use blueos_comms::{CommsBackend, QueryBody};
 use blueos_domain::{Command, Decision, Domain, Now, Outcome};
 use blueos_idl::msg::{
-    blueos_example_msgs::{PumpState, SetLevelRequest},
+    blueos_example_msgs::{PumpState, SetLevelGoal},
     blueos_msgs::{ServiceStatus, ServiceStatusStatus},
 };
+use blueos_jobs::JobId;
 use blueos_service::{
     Backoff, Clock, Kernel, RestartPolicy, RunOutcome, Service, ServiceBuilder, ServiceContext,
     ServiceError, TaskFailed,
@@ -59,16 +60,21 @@ impl Service for TankService {
     const NAME: &'static str = "recovery-tank";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<TankArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        context: &ServiceContext<TankArguments>,
+        service: &ServiceContext<TankArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<Tank>, ServiceError> {
-        let capacity = context.arguments().capacity;
+        let capacity = service.arguments().capacity;
         Ok(ServiceBuilder::new(TankSnapshot {
             level: 0,
             capacity,
             level_set_at: Duration::ZERO,
         })
-        .command("SetLevel", |request: SetLevelRequest| {
+        .command("SetLevel", |request: SetLevelGoal| {
             Ok(TankRequest::SetLevel(request.level))
         })
         .state("tank", |snapshot: &TankSnapshot| PumpState {
@@ -137,8 +143,13 @@ impl Service for TasksService {
     const NAME: &'static str = "recovery-tasks";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<TasksArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<TasksArguments>,
+        _service: &ServiceContext<TasksArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<TasksDomain>, ServiceError> {
         Ok(ServiceBuilder::new(TasksSnapshot))
     }
@@ -192,14 +203,12 @@ async fn inbox_loop_panic_marks_status_degraded_and_keeps_running() {
         .await
         .expect("status key subscribes");
 
-    harness
-        .send("SetLevel", &SetLevelRequest { level: 1 })
-        .await;
+    harness.send("SetLevel", &SetLevelGoal { level: 1 }).await;
 
     let ack = harness
         .send(
             "SetLevel",
-            &SetLevelRequest {
+            &SetLevelGoal {
                 level: LEVEL_THAT_PANICS_IN_HANDLE,
             },
         )
@@ -210,9 +219,7 @@ async fn inbox_loop_panic_marks_status_degraded_and_keeps_running() {
     assert_eq!(degraded.status, ServiceStatusStatus::Degraded);
     assert_eq!(degraded.detail, "inbox");
 
-    harness
-        .send("SetLevel", &SetLevelRequest { level: 2 })
-        .await;
+    harness.send("SetLevel", &SetLevelGoal { level: 2 }).await;
     let ready = next_status(&mut status_subscriber).await;
     assert_eq!(ready.status, ServiceStatusStatus::Ready);
     assert_eq!(harness.state::<PumpState>("tank").await.level, 2);
@@ -222,14 +229,18 @@ async fn inbox_loop_panic_marks_status_degraded_and_keeps_running() {
 async fn three_inbox_loop_panics_within_one_minute_exit_non_zero() {
     let backend: Arc<dyn CommsBackend> = Arc::new(blueos_comms::channel::ChannelBackend::default());
     let clock: Arc<dyn Clock> = Arc::new(PausedClock::start());
-    let builder = TankService::build(&ServiceContext::new(
-        TankArguments { capacity: 100 },
-        blueos_service::testing::channel_session(),
-    ))
+    let builder = TankService::build(
+        &ServiceContext::new(
+            TankArguments { capacity: 100 },
+            blueos_service::testing::channel_session(),
+        ),
+        &(),
+    )
     .expect("build");
     let kernel = Kernel::start(
         TankService::NAME,
         builder,
+        (),
         Arc::clone(&backend),
         Arc::clone(&clock),
     )
@@ -240,15 +251,16 @@ async fn three_inbox_loop_panics_within_one_minute_exit_non_zero() {
     let client = tokio::spawn({
         let backend = Arc::clone(&backend);
         async move {
-            for _ in 0..3 {
+            for attempt in 0..3 {
                 let body = QueryBody::new(
-                    SetLevelRequest {
+                    SetLevelGoal {
                         level: LEVEL_THAT_PANICS_IN_HANDLE,
                     }
                     .encode()
                     .expect("encode"),
-                    cdr_encoding(SetLevelRequest::SCHEMA_NAME),
-                );
+                    cdr_encoding(SetLevelGoal::SCHEMA_NAME),
+                )
+                .with_attachment(JobId::from_u128(attempt).to_string().into_bytes());
                 backend
                     .get(
                         &command_key(TankService::NAME, "SetLevel"),
@@ -314,6 +326,7 @@ async fn poisoned_lock_does_not_stop_another_task() {
     let kernel = Kernel::start(
         TasksService::NAME,
         builder,
+        (),
         Arc::clone(&backend),
         Arc::clone(&clock),
     )

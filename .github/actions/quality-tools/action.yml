@@ -1,0 +1,37 @@
+name: Quality tools
+description: Install the rustqual and thailint versions pinned in .hooks/lib/rust_checks.sh (D-30).
+
+runs:
+  using: composite
+  steps:
+    - name: Load quality tool versions and add rustqual to PATH
+      id: versions
+      shell: bash
+      run: |
+        # shellcheck disable=SC1091
+        source .hooks/lib/rust_checks.sh
+        echo "rustqual=$RUST_RUSTQUAL_VERSION" >> "$GITHUB_OUTPUT"
+        echo "thailint=$RUST_THAILINT_VERSION" >> "$GITHUB_OUTPUT"
+        echo "$HOME/.rustqual/bin" >> "$GITHUB_PATH"
+
+    # rustqual publishes no binaries, so it is built once per version and cached.
+    - name: Use cached rustqual
+      id: rustqual-cache
+      uses: actions/cache@v5
+      with:
+        path: ~/.rustqual
+        key: rustqual-${{ steps.versions.outputs.rustqual }}-${{ runner.os }}-${{ runner.arch }}
+
+    - name: Build rustqual
+      if: steps.rustqual-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: cargo install --locked --root "$HOME/.rustqual" "rustqual@${{ steps.versions.outputs.rustqual }}"
+
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: "3.12"
+
+    - name: Install thailint
+      shell: bash
+      run: pip install "thailint==${{ steps.versions.outputs.thailint }}"

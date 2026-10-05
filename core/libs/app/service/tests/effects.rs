@@ -12,7 +12,8 @@ use tokio::time::{advance, timeout};
 use blueos_api::{Message, cdr_encoding, command_key, state_key};
 use blueos_comms::Subscriber;
 use blueos_domain::{Command, Decision, Domain, DomainQueries, Effect, IoError, Now, Outcome};
-use blueos_idl::msg::blueos_example_msgs::{EmptyRequest, LevelQueryResponse};
+use blueos_idl::msg::{blueos_example_msgs::LevelResponse, std_msgs::Empty};
+use blueos_jobs::JobId;
 use blueos_service::{
     Kernel, RunOutcome, Service, ServiceBuilder, ServiceContext, ServiceError,
     testing::{Harness, PausedClock, lock_unpoisoned},
@@ -134,17 +135,27 @@ impl Service for EffectsService {
     const NAME: &'static str = "effects";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(service: &ServiceContext<EffectsArguments>) -> Result<EffectsContext, ServiceError> {
+        Ok(EffectsContext {
+            expected_capacity: service.arguments().capacity,
+            blocking_hold: service.arguments().blocking_hold.clone(),
+            async_hold: service.arguments().async_hold.clone(),
+            record_capacity_done: service.arguments().record_capacity_done.clone(),
+        })
+    }
+
     fn build(
-        context: &ServiceContext<EffectsArguments>,
+        service: &ServiceContext<EffectsArguments>,
+        _context: &EffectsContext,
     ) -> Result<ServiceBuilder<Effects, Self::Context>, ServiceError> {
-        let capacity = context.arguments().capacity;
-        let blocking_io_applied = context
+        let capacity = service.arguments().capacity;
+        let blocking_io_applied = service
             .arguments()
             .blocking_hold
             .as_ref()
             .map(|latch| latch.io_applied.clone())
             .or_else(|| {
-                context
+                service
                     .arguments()
                     .async_hold
                     .as_ref()
@@ -160,33 +171,29 @@ impl Service for EffectsService {
             blocking_io_running: false,
             blocking_io_applied,
         })
-        .context(EffectsContext {
-            expected_capacity: capacity,
-            blocking_hold: context.arguments().blocking_hold.clone(),
-            async_hold: context.arguments().async_hold.clone(),
-            record_capacity_done: context.arguments().record_capacity_done.clone(),
-        })
-        .blocking_io(|io_context, _snapshot, request| match request {
-            EffectsIoRequest::BlockingHold => {
-                let Some(latch) = &io_context.blocking_hold else {
-                    return Err(IoError::new(
-                        "BlockingHold requires a per-test BlockingHoldLatch",
-                    ));
-                };
-                latch.started.send(()).map_err(|_| {
-                    IoError::new("the test stopped waiting for blocking IO to start")
-                })?;
-                lock_unpoisoned(&latch.release)
-                    .recv()
-                    .map_err(|_| IoError::new("the test stopped before releasing blocking IO"))?;
-                Ok(Some(EffectsIoResult::Succeeded))
-            }
-            EffectsIoRequest::Fail
-            | EffectsIoRequest::Succeed
-            | EffectsIoRequest::Panic
-            | EffectsIoRequest::RecordCapacity
-            | EffectsIoRequest::AsyncHold => Err(IoError::new("not a blocking IO request")),
-        })
+        .blocking_io(
+            |io_context: &EffectsContext, _snapshot, request| match request {
+                EffectsIoRequest::BlockingHold => {
+                    let Some(latch) = &io_context.blocking_hold else {
+                        return Err(IoError::new(
+                            "BlockingHold requires a per-test BlockingHoldLatch",
+                        ));
+                    };
+                    latch.started.send(()).map_err(|_| {
+                        IoError::new("the test stopped waiting for blocking IO to start")
+                    })?;
+                    lock_unpoisoned(&latch.release).recv().map_err(|_| {
+                        IoError::new("the test stopped before releasing blocking IO")
+                    })?;
+                    Ok(Some(EffectsIoResult::Succeeded))
+                }
+                EffectsIoRequest::Fail
+                | EffectsIoRequest::Succeed
+                | EffectsIoRequest::Panic
+                | EffectsIoRequest::RecordCapacity
+                | EffectsIoRequest::AsyncHold => Err(IoError::new("not a blocking IO request")),
+            },
+        )
         .io(
             |io_context: &EffectsContext, snapshot: &EffectsSnapshot, request| {
                 let expected_capacity = io_context.expected_capacity;
@@ -230,52 +237,44 @@ impl Service for EffectsService {
                 }
             },
         )
-        .command("RunIoChain", |_: EmptyRequest| {
-            Ok(EffectsRequest::RunIoChain)
-        })
-        .command("RunIoPanic", |_: EmptyRequest| {
-            Ok(EffectsRequest::RunIoPanic)
-        })
-        .command("ArmTimer", |_: EmptyRequest| {
+        .command("RunIoChain", |_: Empty| Ok(EffectsRequest::RunIoChain))
+        .command("RunIoPanic", |_: Empty| Ok(EffectsRequest::RunIoPanic))
+        .command("ArmTimer", |_: Empty| {
             Ok(EffectsRequest::ArmTimer {
                 after: Duration::from_secs(10),
             })
         })
-        .command("ReArmTimer", |_: EmptyRequest| {
+        .command("ReArmTimer", |_: Empty| {
             Ok(EffectsRequest::ReArmTimer {
                 after: Duration::from_secs(5),
             })
         })
-        .command("CancelTimer", |_: EmptyRequest| {
-            Ok(EffectsRequest::CancelTimer)
-        })
-        .command("ScheduleIoWithoutExecutor", |_: EmptyRequest| {
+        .command("CancelTimer", |_: Empty| Ok(EffectsRequest::CancelTimer))
+        .command("ScheduleIoWithoutExecutor", |_: Empty| {
             Ok(EffectsRequest::ScheduleIoWithoutExecutor)
         })
-        .command("RecordCapacity", |_: EmptyRequest| {
+        .command("RecordCapacity", |_: Empty| {
             Ok(EffectsRequest::RecordCapacity)
         })
-        .command("RunBlockingHold", |_: EmptyRequest| {
+        .command("RunBlockingHold", |_: Empty| {
             Ok(EffectsRequest::RunBlockingHold)
         })
-        .command("RunAsyncHold", |_: EmptyRequest| {
-            Ok(EffectsRequest::RunAsyncHold)
-        })
+        .command("RunAsyncHold", |_: Empty| Ok(EffectsRequest::RunAsyncHold))
         .query(
             "blocking_active",
-            |_: EmptyRequest| Ok(EffectsQuery::BlockingActive),
+            |_: Empty| Ok(EffectsQuery::BlockingActive),
             |active: bool| {
-                Some(LevelQueryResponse {
+                Some(LevelResponse {
                     level: u8::from(active),
                     max_level: 0,
                 })
             },
         )
-        .state("io", |snapshot: &EffectsSnapshot| LevelQueryResponse {
+        .state("io", |snapshot: &EffectsSnapshot| LevelResponse {
             level: snapshot.failed_io_requests,
             max_level: snapshot.succeeded_io_requests,
         })
-        .state("ticks", |snapshot: &EffectsSnapshot| LevelQueryResponse {
+        .state("ticks", |snapshot: &EffectsSnapshot| LevelResponse {
             level: snapshot.tick_count,
             max_level: 0,
         }))
@@ -427,10 +426,15 @@ impl Service for EffectsWithoutIoService {
     const NAME: &'static str = "effects";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<EffectsArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        context: &ServiceContext<EffectsArguments>,
+        service: &ServiceContext<EffectsArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<Effects, Self::Context>, ServiceError> {
-        let capacity = context.arguments().capacity;
+        let capacity = service.arguments().capacity;
         Ok(ServiceBuilder::new(EffectsSnapshot {
             level: 7,
             capacity,
@@ -441,10 +445,10 @@ impl Service for EffectsWithoutIoService {
             blocking_io_running: false,
             blocking_io_applied: None,
         })
-        .command("ScheduleIoWithoutExecutor", |_: EmptyRequest| {
+        .command("ScheduleIoWithoutExecutor", |_: Empty| {
             Ok(EffectsRequest::ScheduleIoWithoutExecutor)
         })
-        .state("level", |snapshot: &EffectsSnapshot| LevelQueryResponse {
+        .state("level", |snapshot: &EffectsSnapshot| LevelResponse {
             level: snapshot.level,
             max_level: 0,
         }))
@@ -459,12 +463,12 @@ async fn subscribe_state(harness: &Harness<EffectsService>, name: &str) -> Subsc
         .expect("the state key is valid")
 }
 
-async fn next_state_sample(subscriber: &mut Subscriber) -> LevelQueryResponse {
+async fn next_state_sample(subscriber: &mut Subscriber) -> LevelResponse {
     let sample = timeout(Duration::from_secs(10), subscriber.recv())
         .await
         .expect("a state sample is published")
         .expect("the subscription is open");
-    LevelQueryResponse::decode(&sample.payload().to_bytes()).expect("the state decodes")
+    LevelResponse::decode(&sample.payload().to_bytes()).expect("the state decodes")
 }
 
 async fn expect_no_state_sample(subscriber: &mut Subscriber) {
@@ -481,7 +485,7 @@ async fn failed_first_io_still_runs_second() {
         .await
         .unwrap();
     let mut io_states = subscribe_state(&harness, "io").await;
-    let ack = harness.send("RunIoChain", &EmptyRequest::default()).await;
+    let ack = harness.send("RunIoChain", &Empty::default()).await;
     assert!(ack.accepted);
     let after_fail = next_state_sample(&mut io_states).await;
     assert_eq!(after_fail.level, 1);
@@ -497,7 +501,7 @@ async fn io_panic_reaches_domain_as_io_failed() {
         .await
         .unwrap();
     let mut io_states = subscribe_state(&harness, "io").await;
-    let ack = harness.send("RunIoPanic", &EmptyRequest::default()).await;
+    let ack = harness.send("RunIoPanic", &Empty::default()).await;
     assert!(ack.accepted);
     let after_panic = next_state_sample(&mut io_states).await;
     assert_eq!(after_panic.level, 1);
@@ -510,8 +514,8 @@ async fn rearmed_timer_fires_once_at_new_time() {
         .await
         .unwrap();
     let mut tick_states = subscribe_state(&harness, "ticks").await;
-    harness.send("ArmTimer", &EmptyRequest::default()).await;
-    harness.send("ReArmTimer", &EmptyRequest::default()).await;
+    harness.send("ArmTimer", &Empty::default()).await;
+    harness.send("ReArmTimer", &Empty::default()).await;
     advance(Duration::from_secs(5)).await;
     assert_eq!(next_state_sample(&mut tick_states).await.level, 1);
     advance(Duration::from_secs(10)).await;
@@ -524,7 +528,7 @@ async fn cancelled_timer_never_fires() {
         .await
         .unwrap();
     let mut tick_states = subscribe_state(&harness, "ticks").await;
-    harness.send("CancelTimer", &EmptyRequest::default()).await;
+    harness.send("CancelTimer", &Empty::default()).await;
     advance(Duration::from_secs(20)).await;
     expect_no_state_sample(&mut tick_states).await;
 }
@@ -535,11 +539,11 @@ async fn synchronous_io_effect_failure_rolls_back_command() {
         .await
         .unwrap();
     let ack = harness
-        .send("ScheduleIoWithoutExecutor", &EmptyRequest::default())
+        .send("ScheduleIoWithoutExecutor", &Empty::default())
         .await;
     assert!(!ack.accepted);
     assert!(ack.reason.contains("IO executor"));
-    assert_eq!(harness.state::<LevelQueryResponse>("level").await.level, 7);
+    assert_eq!(harness.state::<LevelResponse>("level").await.level, 7);
 }
 
 #[tokio::test(start_paused = true)]
@@ -553,9 +557,7 @@ async fn io_executor_receives_context_and_snapshot() {
     })
     .await
     .unwrap();
-    let ack = harness
-        .send("RecordCapacity", &EmptyRequest::default())
-        .await;
+    let ack = harness.send("RecordCapacity", &Empty::default()).await;
     assert!(ack.accepted);
     wait_for_io
         .await
@@ -583,9 +585,10 @@ async fn query_answers_while_blocking_io_is_held() {
     let backend = Arc::clone(harness.backend());
     let command = tokio::spawn(async move {
         let body = blueos_comms::QueryBody::new(
-            EmptyRequest::default().encode().unwrap(),
-            cdr_encoding(EmptyRequest::SCHEMA_NAME),
-        );
+            Empty::default().encode().unwrap(),
+            cdr_encoding(Empty::SCHEMA_NAME),
+        )
+        .with_attachment(JobId::from_u128(1).to_string().into_bytes());
         backend
             .get(
                 &command_key(EffectsService::NAME, "RunBlockingHold"),
@@ -601,7 +604,7 @@ async fn query_answers_while_blocking_io_is_held() {
         .expect("blocking IO should start");
     assert_eq!(
         harness
-            .query::<EmptyRequest, LevelQueryResponse>("blocking_active", &EmptyRequest::default())
+            .query::<Empty, LevelResponse>("blocking_active", &Empty::default())
             .await
             .expect("the Query answers")
             .level,
@@ -617,7 +620,7 @@ async fn query_answers_while_blocking_io_is_held() {
     command.await.expect("the Command should finish");
     assert_eq!(
         harness
-            .query::<EmptyRequest, LevelQueryResponse>("blocking_active", &EmptyRequest::default())
+            .query::<Empty, LevelResponse>("blocking_active", &Empty::default())
             .await
             .expect("the Query answers")
             .level,
@@ -632,7 +635,7 @@ async fn effect_recorder_sees_effects_without_running_them() {
             .await
             .unwrap();
     let mut tick_states = subscribe_state(&harness, "ticks").await;
-    let ack = harness.send("CancelTimer", &EmptyRequest::default()).await;
+    let ack = harness.send("CancelTimer", &Empty::default()).await;
     assert!(ack.accepted);
     let batch = log.last_batch().expect("one Command was applied");
     assert_eq!(
@@ -657,17 +660,17 @@ async fn start_effects_kernel_with_shutdown(
     blueos_service::ShutdownHandle,
     tokio::task::JoinHandle<RunOutcome>,
 ) {
-    let mut builder = EffectsService::build(&ServiceContext::new(
-        arguments,
-        blueos_service::testing::channel_session(),
-    ))
-    .expect("the effects service builds");
+    let service = ServiceContext::new(arguments, blueos_service::testing::channel_session());
+    let context = EffectsService::context(&service).expect("the effects context builds");
+    let mut builder =
+        EffectsService::build(&service, &context).expect("the effects service builds");
     let shutdown = builder.shutdown_handle();
     let backend: Arc<dyn blueos_comms::CommsBackend> =
         Arc::new(blueos_comms::channel::ChannelBackend::default());
     let kernel = Kernel::start(
         EffectsService::NAME,
         builder,
+        context,
         Arc::clone(&backend),
         Arc::new(PausedClock::start()),
     )
@@ -694,9 +697,10 @@ async fn shutdown_waits_for_in_flight_io_before_returning() {
     .await;
     let command = tokio::spawn(async move {
         let body = blueos_comms::QueryBody::new(
-            EmptyRequest::default().encode().unwrap(),
-            cdr_encoding(EmptyRequest::SCHEMA_NAME),
-        );
+            Empty::default().encode().unwrap(),
+            cdr_encoding(Empty::SCHEMA_NAME),
+        )
+        .with_attachment(JobId::from_u128(1).to_string().into_bytes());
         backend
             .get(
                 &command_key(EffectsService::NAME, "RunAsyncHold"),
@@ -745,9 +749,10 @@ async fn shutdown_abandons_in_flight_io_after_five_seconds() {
     .await;
     let _command = tokio::spawn(async move {
         let body = blueos_comms::QueryBody::new(
-            EmptyRequest::default().encode().unwrap(),
-            cdr_encoding(EmptyRequest::SCHEMA_NAME),
-        );
+            Empty::default().encode().unwrap(),
+            cdr_encoding(Empty::SCHEMA_NAME),
+        )
+        .with_attachment(JobId::from_u128(1).to_string().into_bytes());
         backend
             .get(
                 &command_key(EffectsService::NAME, "RunAsyncHold"),
@@ -800,9 +805,10 @@ async fn shutdown_waits_for_in_flight_blocking_io_before_returning() {
     .await;
     let command = tokio::spawn(async move {
         let body = blueos_comms::QueryBody::new(
-            EmptyRequest::default().encode().unwrap(),
-            cdr_encoding(EmptyRequest::SCHEMA_NAME),
-        );
+            Empty::default().encode().unwrap(),
+            cdr_encoding(Empty::SCHEMA_NAME),
+        )
+        .with_attachment(JobId::from_u128(1).to_string().into_bytes());
         backend
             .get(
                 &command_key(EffectsService::NAME, "RunBlockingHold"),

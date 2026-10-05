@@ -483,7 +483,7 @@ async def main() -> None:
     try:
         await init_sentry_async(SERVICE_NAME)
 
-        config = Config(app=app, host="0.0.0.0", port=PORT, log_config=None)
+        config = Config(app=app, host="0.0.0.0", port=PORT, log_config=None, timeout_graceful_shutdown=2)
         server = Server(config)
 
         await server.serve()

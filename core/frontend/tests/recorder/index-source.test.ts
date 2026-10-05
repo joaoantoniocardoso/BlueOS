@@ -17,7 +17,7 @@ function indexResponse(overrides: Record<string, unknown> = {}): Record<string, 
     closed: true,
     chunks: [],
     message_counts: [],
-    records: [],
+    records: new Uint8Array(),
     ...overrides,
   }
 }
@@ -98,6 +98,7 @@ describe('recording index source', () => {
             repair_total_bytes: 0,
             repair_bytes_per_second: 0,
             repair_error: '',
+            repair_job_id: '',
             allowed_operations: [],
           }],
         }),

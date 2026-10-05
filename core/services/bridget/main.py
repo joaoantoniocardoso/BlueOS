@@ -80,7 +80,7 @@ async def main() -> None:
     await init_sentry_async(SERVICE_NAME)
 
     # Running uvicorn with log disabled so loguru can handle it
-    config = Config(app=app, host="0.0.0.0", port=27353, log_config=None)
+    config = Config(app=app, host="0.0.0.0", port=27353, log_config=None, timeout_graceful_shutdown=2)
     server = Server(config)
 
     await server.serve()

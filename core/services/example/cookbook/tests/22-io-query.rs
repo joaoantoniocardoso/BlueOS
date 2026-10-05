@@ -3,7 +3,7 @@
 use core::{convert::Infallible, future::Future, pin::Pin};
 
 use blueos_domain::{Command, Decision, Domain, IoError, Now, Outcome};
-use blueos_idl::msg::blueos_example_msgs::{EmptyRequest, LevelQueryResponse, SetLevelRequest};
+use blueos_idl::msg::blueos_example_msgs::{LevelRequest, LevelResponse, SetLevelGoal};
 use blueos_service::{
     Refusal, Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness,
 };
@@ -30,22 +30,27 @@ impl Service for IoQueryCookbookService {
     const NAME: &'static str = "cookbook_io_query";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<IoQueryCookbookArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<IoQueryCookbookArguments>,
+        _service: &ServiceContext<IoQueryCookbookArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<IoQueryCookbook>, ServiceError> {
         Ok(
             ServiceBuilder::new(IoQueryCookbookSnapshot)
-                .command("Bump", |_: EmptyRequest| Ok(IoQueryCookbookRequest::Bump))
+                .command("Bump", |_: LevelRequest| Ok(IoQueryCookbookRequest::Bump))
                 .io_query(
                     "Probe",
-                    |request: SetLevelRequest| -> Pin<
-                        Box<dyn Future<Output = Result<LevelQueryResponse, Refusal>> + Send>,
+                    |request: SetLevelGoal| -> Pin<
+                        Box<dyn Future<Output = Result<LevelResponse, Refusal>> + Send>,
                     > {
                         Box::pin(async move {
                             if request.level > 100 {
                                 return Err(Refusal::from("above maximum"));
                             }
-                            Ok(LevelQueryResponse {
+                            Ok(LevelResponse {
                                 level: request.level,
                                 max_level: 100,
                             })
@@ -95,8 +100,8 @@ async fn io_query_reads_outside_the_inbox() {
     let harness = Harness::<IoQueryCookbookService>::start(IoQueryCookbookArguments)
         .await
         .unwrap();
-    let level: LevelQueryResponse = harness
-        .query("Probe", &SetLevelRequest { level: 55 })
+    let level: LevelResponse = harness
+        .query("Probe", &SetLevelGoal { level: 55 })
         .await
         .expect("the IO query answers");
     assert_eq!(level.level, 55);
@@ -107,8 +112,7 @@ async fn io_query_refusal_does_not_touch_the_snapshot() {
     let harness = Harness::<IoQueryCookbookService>::start(IoQueryCookbookArguments)
         .await
         .unwrap();
-    let refused: Result<LevelQueryResponse, _> = harness
-        .query("Probe", &SetLevelRequest { level: 200 })
-        .await;
+    let refused: Result<LevelResponse, _> =
+        harness.query("Probe", &SetLevelGoal { level: 200 }).await;
     assert!(refused.is_err());
 }

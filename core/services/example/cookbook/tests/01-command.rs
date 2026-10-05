@@ -3,7 +3,7 @@
 use core::convert::Infallible;
 
 use blueos_domain::{Command, Decision, Domain, IoError, Now, Outcome};
-use blueos_idl::msg::blueos_example_msgs::{EmptyRequest, SetLevelRequest};
+use blueos_idl::msg::blueos_example_msgs::{LevelRequest, SetLevelGoal};
 use blueos_service::{Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness};
 
 struct CommandCookbookService;
@@ -31,14 +31,19 @@ impl Service for CommandCookbookService {
     const NAME: &'static str = "cookbook_command";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<CommandCookbookArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<CommandCookbookArguments>,
+        _service: &ServiceContext<CommandCookbookArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<CommandCookbook>, ServiceError> {
         Ok(ServiceBuilder::new(CommandCookbookSnapshot::default())
-            .command("SetLevel", |request: SetLevelRequest| {
+            .command("SetLevel", |request: SetLevelGoal| {
                 Ok(CommandCookbookRequest::SetLevel(request.level))
             })
-            .command("Reset", |_: EmptyRequest| Ok(CommandCookbookRequest::Reset)))
+            .command("Reset", |_: LevelRequest| Ok(CommandCookbookRequest::Reset)))
     }
 }
 
@@ -104,9 +109,7 @@ async fn command_with_a_body_updates_state() {
     let harness = Harness::<CommandCookbookService>::start(CommandCookbookArguments)
         .await
         .unwrap();
-    let ack = harness
-        .send("SetLevel", &SetLevelRequest { level: 40 })
-        .await;
+    let ack = harness.send("SetLevel", &SetLevelGoal { level: 40 }).await;
     assert!(ack.accepted);
 }
 
@@ -115,10 +118,8 @@ async fn command_without_a_body_clears_state() {
     let harness = Harness::<CommandCookbookService>::start(CommandCookbookArguments)
         .await
         .unwrap();
-    harness
-        .send("SetLevel", &SetLevelRequest { level: 40 })
-        .await;
-    let ack = harness.send("Reset", &EmptyRequest::default()).await;
+    harness.send("SetLevel", &SetLevelGoal { level: 40 }).await;
+    let ack = harness.send("Reset", &LevelRequest::default()).await;
     assert!(ack.accepted);
 }
 
@@ -127,9 +128,7 @@ async fn domain_rejection_surfaces_as_the_ack_reason() {
     let harness = Harness::<CommandCookbookService>::start(CommandCookbookArguments)
         .await
         .unwrap();
-    let ack = harness
-        .send("SetLevel", &SetLevelRequest { level: 200 })
-        .await;
+    let ack = harness.send("SetLevel", &SetLevelGoal { level: 200 }).await;
     assert!(!ack.accepted);
     assert_eq!(ack.reason, "200 is above the maximum of 100");
 }

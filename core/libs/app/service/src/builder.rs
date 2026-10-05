@@ -1,17 +1,17 @@
 //! What a Service's `build` declares: the initial Snapshot and how the Domain meets the backbone.
 
-use core::{error::Error, fmt::Display, future::Future, pin::Pin};
-use std::{path::PathBuf, sync::Arc};
+use core::{error::Error, future::Future, num::NonZeroU32, pin::Pin};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use tokio::sync::watch;
 
-use blueos_api::{JOB_ID_NONE, Message, cdr_encoding};
+use blueos_api::{Message, cdr_encoding};
 use blueos_domain::{Command, Domain, DomainDurable, DomainQueries, IoError};
 use blueos_idl::{
     Error as IdlError,
     msg::blueos_msgs::{EndpointInfo, JobList, JobStatus, JobStatusStatus, SettingsEnvelope},
 };
-use blueos_jobs::{DomainJobs, JobEnd, JobId, JobKind, Jobs};
+use blueos_jobs::{DomainJobs, Job, JobId, JobNature, Jobs};
 use blueos_settings::SettingsSchema;
 
 use crate::{
@@ -19,6 +19,7 @@ use crate::{
         DurableStateRegistration, register_durable_state, register_durable_state_with_jobs,
     },
     kernel::{Rejection, Unanswered, io::IoExecutors},
+    service::{Service, ServiceContext},
     settings::{SettingsRegistration, register_settings},
     shutdown::{ShutdownHandle, new_shutdown_channel},
     tasks::{RestartPolicy, TaskContext, TaskFailed, TaskSpec},
@@ -32,8 +33,9 @@ pub(crate) type InboxCommand<D> = Command<
     <D as Domain>::ObservedFact,
 >;
 
-/// Decodes a Request body into the Domain's Request.
-pub(crate) type Decode<D> = Box<dyn Fn(&[u8]) -> Result<<D as Domain>::Request, Rejection> + Send>;
+/// Decodes the Goal of the Job a client submitted into the Domain's Request.
+pub(crate) type Decode<D> =
+    Arc<dyn Fn(JobId, &[u8]) -> Result<<D as Domain>::Request, Rejection> + Send + Sync>;
 
 /// Computes and encodes a State from the Snapshot.
 pub(crate) type Project<D> =
@@ -43,8 +45,19 @@ pub(crate) type Project<D> =
 pub(crate) type Select<D> =
     Box<dyn Fn(&<D as Domain>::Event) -> Option<Result<Vec<u8>, IdlError>> + Send + Sync>;
 
-/// Reads the root Job started last from the Snapshot.
-pub(crate) type LatestRoot<D> = fn(&<D as Domain>::Snapshot) -> Option<JobId>;
+/// Encodes the latest Feedback of an active Job from the Snapshot, or `None` while it has none.
+pub(crate) type ProjectFeedback<D> =
+    Box<dyn Fn(&<D as Domain>::Snapshot, JobId) -> Option<Result<Vec<u8>, IdlError>> + Send + Sync>;
+
+/// Encodes the Job result of a Job from the Snapshot after the step that ended it.
+pub(crate) type ProjectResult<D> =
+    Box<dyn Fn(&<D as Domain>::Snapshot, JobId) -> Result<Vec<u8>, IdlError> + Send + Sync>;
+
+/// Reads and changes the Jobs a Domain keeps in its Snapshot.
+pub(crate) type JobsAccess<D> = (
+    fn(&<D as Domain>::Snapshot) -> &Jobs,
+    fn(&mut <D as Domain>::Snapshot) -> &mut Jobs,
+);
 
 /// Answers an IO query body with the encoded reply.
 pub(crate) type Respond = Box<
@@ -63,12 +76,14 @@ pub(crate) struct ServiceMetadata {
 }
 
 /// Everything a Service declares in `build`: the initial Snapshot, then one call per endpoint. Each call converts
-/// between a Message and the Domain's own types, so the Domain never sees a Message.
+/// between a Message and the Domain's own types, so the Domain never sees a Message. `Context` is the type IO code
+/// and Tasks receive; the Kernel gets the value itself when it starts.
 #[must_use]
 pub struct ServiceBuilder<D: Domain, Context = ()> {
     pub(crate) snapshot: D::Snapshot,
-    pub(crate) context: Context,
     pub(crate) metadata: ServiceMetadata,
+    /// The folder the settings and the durable state live in, from the ServiceContext.
+    pub(crate) settings_folder: Option<PathBuf>,
     pub(crate) manifest_endpoints: Vec<EndpointInfo>,
     pub(crate) io: IoExecutors<D, Context>,
     pub(crate) commands: Vec<CommandEndpoint<D>>,
@@ -78,13 +93,23 @@ pub struct ServiceBuilder<D: Domain, Context = ()> {
     pub(crate) projections: Vec<Box<dyn crate::projection::RefreshProjection<D> + Send + Sync>>,
     pub(crate) events: Vec<EventEndpoint<D>>,
     pub(crate) settings: Option<SettingsRegistration<D>>,
-    pub(crate) durable: Option<DurableStateRegistration<D>>,
-    pub(crate) jobs: Option<JobsEndpoint<D>>,
+    pub(crate) durable: Option<DurableStateDeclaration<D>>,
+    /// Set when the Domain keeps the Jobs in its Snapshot; the Kernel keeps them otherwise.
+    pub(crate) jobs: Option<JobsAccess<D>>,
+    /// The Feedback and Job result each Job type declared, by Job type.
+    pub(crate) job_outputs: HashMap<String, JobOutput<D>>,
     pub(crate) startup_commands: Vec<InboxCommand<D>>,
     pub(crate) tasks: Vec<TaskSpec<D, Context>>,
     pub(crate) shutdown_request: Option<D::Request>,
     pub(crate) shutdown_sender: Option<watch::Sender<bool>>,
     pub(crate) shutdown_receiver: Option<watch::Receiver<bool>>,
+}
+
+/// The durable state a Service declared, which the Kernel opens in the Service's settings folder when it starts.
+pub(crate) struct DurableStateDeclaration<D: Domain> {
+    /// Opens the store of the Service named by the first argument in the settings folder of the second.
+    pub(crate) open: fn(String, Option<PathBuf>, NonZeroU32) -> DurableStateRegistration<D>,
+    pub(crate) version: NonZeroU32,
 }
 
 /// Answers one Query from the Snapshot and the request body.
@@ -98,10 +123,28 @@ pub(crate) type AnswerQuery<D> = Arc<
         + Sync,
 >;
 
-/// A Command endpoint: a query on `blueos/v1/<service>/command/<name>` whose body is a Request.
+/// A Job type: a query on `blueos/v1/<service>/command/<name>` whose body is the Goal of a Job to submit.
 pub(crate) struct CommandEndpoint<D: Domain> {
     pub(crate) name: String,
+    pub(crate) nature: JobNature,
     pub(crate) decode: Decode<D>,
+}
+
+/// What a Job type publishes besides its status in the `jobs` State: its Feedback and its Job result (D-12).
+pub(crate) struct JobOutput<D: Domain> {
+    pub(crate) feedback: Option<ProjectFeedback<D>>,
+    pub(crate) result: Option<ProjectResult<D>>,
+    /// The message of the Feedback, as `info` describes it.
+    pub(crate) feedback_type: MessageType,
+    /// The message of the Job result, as `info` describes it.
+    pub(crate) result_type: MessageType,
+}
+
+/// The schema name and text of a message, both empty for a Job type that declares no such message.
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct MessageType {
+    pub(crate) name: &'static str,
+    pub(crate) schema: &'static str,
 }
 
 /// An IO query endpoint: a query on `blueos/v1/<service>/query/<name>`, answered outside the Inbox.
@@ -125,24 +168,17 @@ pub(crate) struct EventEndpoint<D: Domain> {
     pub(crate) select: Select<D>,
 }
 
-/// The standard `jobs` State, published on `blueos/v1/<service>/jobs`, and where the ack finds the root Job a
-/// Command started.
-pub(crate) struct JobsEndpoint<D: Domain> {
-    pub(crate) state: StateEndpoint<D>,
-    pub(crate) latest_root: LatestRoot<D>,
-}
-
-impl<D: Domain> ServiceBuilder<D, ()> {
+impl<D: Domain, Context> ServiceBuilder<D, Context> {
     /// A Service whose Domain starts from `snapshot`, with no endpoints yet.
     pub fn new(snapshot: D::Snapshot) -> Self {
         Self {
             snapshot,
-            context: (),
             metadata: ServiceMetadata {
                 version: "0.0.0",
                 build: "dev",
                 capabilities: &[],
             },
+            settings_folder: None,
             manifest_endpoints: Vec::new(),
             io: IoExecutors {
                 r#async: None,
@@ -157,6 +193,7 @@ impl<D: Domain> ServiceBuilder<D, ()> {
             settings: None,
             durable: None,
             jobs: None,
+            job_outputs: HashMap::new(),
             startup_commands: Vec::new(),
             tasks: Vec::new(),
             shutdown_request: None,
@@ -164,55 +201,18 @@ impl<D: Domain> ServiceBuilder<D, ()> {
             shutdown_receiver: None,
         }
     }
-
-    /// The Context IO code receives by reference, together with the Snapshot it needs.
-    pub fn context<NewContext: Send + Sync + 'static>(
-        self,
-        context: NewContext,
-    ) -> ServiceBuilder<D, NewContext> {
-        ServiceBuilder {
-            snapshot: self.snapshot,
-            context,
-            metadata: self.metadata,
-            manifest_endpoints: self.manifest_endpoints,
-            io: IoExecutors {
-                r#async: None,
-                blocking: None,
-            },
-            commands: self.commands,
-            queries: self.queries,
-            io_queries: self.io_queries,
-            states: self.states,
-            projections: self.projections,
-            events: self.events,
-            settings: self.settings,
-            durable: self.durable,
-            jobs: self.jobs,
-            startup_commands: self.startup_commands,
-            tasks: Vec::new(),
-            shutdown_request: self.shutdown_request,
-            shutdown_sender: self.shutdown_sender,
-            shutdown_receiver: self.shutdown_receiver,
-        }
-    }
 }
 
 impl<D: DomainDurable, Context> ServiceBuilder<D, Context> {
     /// Persists the Domain's durable Snapshot field as versioned JSON next to the settings (D-28).
-    pub fn durable_state(
-        mut self,
-        service_name: &str,
-        config_folder: Option<PathBuf>,
-        version: core::num::NonZeroU32,
-    ) -> Self
+    pub fn durable_state(mut self, version: NonZeroU32) -> Self
     where
         D::DurableState: serde::Serialize + serde::de::DeserializeOwned + PartialEq,
     {
-        self.durable = Some(register_durable_state::<D>(
-            service_name.to_owned(),
-            config_folder,
+        self.durable = Some(DurableStateDeclaration {
+            open: register_durable_state::<D>,
             version,
-        ));
+        });
         self
     }
 }
@@ -221,35 +221,38 @@ impl<D, Context> ServiceBuilder<D, Context>
 where
     D: DomainDurable + DomainJobs,
     D::DurableState: serde::Serialize + serde::de::DeserializeOwned + PartialEq,
-    D::Step: serde::Serialize + serde::de::DeserializeOwned + PartialEq,
 {
     /// Like [`ServiceBuilder::durable_state`], and persists the Domain's Jobs with the durable part.
-    pub fn durable_state_with_jobs(
-        mut self,
-        service_name: &str,
-        config_folder: Option<PathBuf>,
-        version: core::num::NonZeroU32,
-    ) -> Self {
-        self.durable = Some(register_durable_state_with_jobs::<D>(
-            service_name.to_owned(),
-            config_folder,
+    pub fn durable_state_with_jobs(mut self, version: NonZeroU32) -> Self {
+        self.jobs = Some((D::jobs, D::jobs_mut));
+        self.durable = Some(DurableStateDeclaration {
+            open: register_durable_state_with_jobs::<D>,
             version,
-        ));
+        });
         self
     }
 }
 
 impl<D: DomainJobs, Context> ServiceBuilder<D, Context> {
-    /// Publishes the Domain's Jobs as the standard `jobs` State, and acknowledges a Command that starts a root Job
-    /// with its id. Without it, the Service has no `jobs` State and acknowledges every Command with no Job.
-    pub fn jobs(mut self) -> Self {
-        self.jobs = Some(JobsEndpoint {
-            state: StateEndpoint {
-                name: "jobs".to_owned(),
-                encoding: cdr_encoding(JobList::SCHEMA_NAME),
-                project: Box::new(|snapshot| job_list(D::jobs(snapshot)).encode()),
-            },
-            latest_root: |snapshot| D::jobs(snapshot).latest_root(),
+    /// Adds the Job type `name` with its `nature` (D-36). A client submits a Job on `command/<name>` with an `M` as
+    /// its Goal, which `into_request` turns into the Domain's Request together with the Job's id, so the Domain can
+    /// end the Job with [`Jobs::end`]. A Goal that does not decode, or that `into_request` refuses, is rejected
+    /// before it reaches the Inbox, with the refusal as the reason. The Kernel keeps this Service's Jobs in the
+    /// Snapshot.
+    pub fn job<M: Message + 'static>(
+        mut self,
+        name: &str,
+        nature: JobNature,
+        into_request: impl Fn(JobId, M) -> Result<D::Request, Refusal> + Send + Sync + 'static,
+    ) -> Self {
+        self.jobs = Some((D::jobs, D::jobs_mut));
+        self.commands.push(CommandEndpoint {
+            name: name.to_owned(),
+            nature,
+            decode: Arc::new(move |job_id, body| {
+                into_request(job_id, M::decode(body).map_err(Rejection::InvalidBody)?)
+                    .map_err(Rejection::Refused)
+            }),
         });
         self
     }
@@ -285,18 +288,19 @@ impl<D: Domain + DomainQueries, Context> ServiceBuilder<D, Context> {
 }
 
 impl<D: Domain, Context> ServiceBuilder<D, Context> {
-    /// The version, build label and capabilities the Kernel publishes on the standard `info` query.
-    pub fn service_metadata(
+    /// Takes the version, build label and capabilities `info` publishes from `S`, and the folder the settings and the
+    /// durable state live in from `service` (D-25). The Kernel's entry points call it after `build`, so `build`
+    /// never passes them; a test that starts a [`Kernel`](crate::Kernel) by hand calls it too.
+    pub fn for_service<S: Service<Domain = D>>(
         mut self,
-        version: &'static str,
-        build: &'static str,
-        capabilities: &'static [&'static str],
+        service: &ServiceContext<S::Arguments>,
     ) -> Self {
         self.metadata = ServiceMetadata {
-            version,
-            build,
-            capabilities,
+            version: S::VERSION,
+            build: S::BUILD,
+            capabilities: S::CAPABILITIES,
         };
+        self.settings_folder = service.settings_path().map(PathBuf::from);
         self
     }
 
@@ -363,8 +367,6 @@ impl<D: Domain, Context> ServiceBuilder<D, Context> {
     /// persists after each successful update.
     pub fn settings<S>(
         mut self,
-        service_name: &str,
-        config_folder: Option<PathBuf>,
         into_snapshot: impl Fn(&mut D::Snapshot, S) + Send + Sync + 'static,
         from_snapshot: impl Fn(&D::Snapshot) -> S + Send + Sync + 'static,
         into_request: impl Fn(SettingsEnvelope) -> Result<D::Request, Box<dyn Error + Send + Sync>>
@@ -376,8 +378,6 @@ impl<D: Domain, Context> ServiceBuilder<D, Context> {
         S: SettingsSchema + Send + Sync + 'static,
     {
         self.settings = Some(register_settings(
-            service_name.to_owned(),
-            config_folder,
             into_snapshot,
             from_snapshot,
             into_request,
@@ -385,21 +385,62 @@ impl<D: Domain, Context> ServiceBuilder<D, Context> {
         self
     }
 
-    /// Adds the Command endpoint `name`. Its body is an `M`, which `into_request` turns into the Domain's Request.
-    /// A body that does not decode, or that `into_request` refuses, is rejected before it reaches the Inbox, with
-    /// the refusal as the reason.
+    /// Adds the instant Job type `name`, whose Jobs succeed in the step that executes them (D-36). A client
+    /// submits a Job on `command/<name>` with an `M` as its Goal, which `into_request` turns into the Domain's
+    /// Request. A Goal that does not decode, or that `into_request` refuses, is rejected before it reaches the
+    /// Inbox, with the refusal as the reason.
     pub fn command<M: Message + 'static>(
         mut self,
         name: &str,
-        into_request: impl Fn(M) -> Result<D::Request, Refusal> + Send + 'static,
+        into_request: impl Fn(M) -> Result<D::Request, Refusal> + Send + Sync + 'static,
     ) -> Self {
         self.commands.push(CommandEndpoint {
             name: name.to_owned(),
-            decode: Box::new(move |body| {
+            nature: JobNature::INSTANT,
+            decode: Arc::new(move |_job_id, body| {
                 into_request(M::decode(body).map_err(Rejection::InvalidBody)?)
                     .map_err(Rejection::Refused)
             }),
         });
+        self
+    }
+
+    /// Publishes the Feedback of the Job type `job_type` on its `jobs/<job_type>/feedback` State (D-12, D-36). After
+    /// every applied Command, the State lists, for each active Job of that type, the `M` that `feedback` makes of the
+    /// Snapshot, and leaves out a Job that `feedback` returns `None` for. A Job leaves it when it ends. `feedback`
+    /// must be pure, like a State's projection: a panic in it restores the Snapshot and rejects the Command.
+    pub fn job_feedback<M: Message + 'static>(
+        mut self,
+        job_type: &str,
+        feedback: impl Fn(&D::Snapshot, JobId) -> Option<M> + Send + Sync + 'static,
+    ) -> Self {
+        let job_output = self.job_output(job_type);
+        job_output.feedback = Some(Box::new(move |snapshot, job_id| {
+            feedback(snapshot, job_id).map(|message| message.encode())
+        }));
+        job_output.feedback_type = MessageType {
+            name: M::SCHEMA_NAME,
+            schema: M::SCHEMA,
+        };
+        self
+    }
+
+    /// Publishes the Job result of the Job type `job_type` on its `jobs/<job_type>/result` Event when a Job ends, the
+    /// Kernel ending it included (D-12, D-36): the `M` that `result` makes of the Snapshot after the step that ended
+    /// the Job, so the Snapshot must still hold what `result` needs in that step. `result` must be pure.
+    pub fn job_result<M: Message + 'static>(
+        mut self,
+        job_type: &str,
+        result: impl Fn(&D::Snapshot, JobId) -> M + Send + Sync + 'static,
+    ) -> Self {
+        let job_output = self.job_output(job_type);
+        job_output.result = Some(Box::new(move |snapshot, job_id| {
+            result(snapshot, job_id).encode()
+        }));
+        job_output.result_type = MessageType {
+            name: M::SCHEMA_NAME,
+            schema: M::SCHEMA,
+        };
         self
     }
 
@@ -489,36 +530,51 @@ impl<D: Domain, Context> ServiceBuilder<D, Context> {
         });
         self
     }
+
+    fn job_output(&mut self, job_type: &str) -> &mut JobOutput<D> {
+        self.job_outputs.entry(job_type.to_owned()).or_default()
+    }
 }
 
-/// Every Job as clients see it: a leaf is named by its step, a composition by its kind.
-fn job_list<Step: Display>(jobs: &Jobs<Step>) -> JobList {
+impl<D: Domain> Default for JobOutput<D> {
+    fn default() -> Self {
+        Self {
+            feedback: None,
+            result: None,
+            feedback_type: MessageType::default(),
+            result_type: MessageType::default(),
+        }
+    }
+}
+
+/// Every Job as clients see it in the `jobs` State.
+pub(crate) fn job_list(jobs: &Jobs) -> JobList {
     JobList {
-        jobs: jobs
-            .list()
-            .into_iter()
-            .map(|view| JobStatus {
-                job_id: view.job_id.get(),
-                parent_job_id: view.parent.map_or(JOB_ID_NONE, JobId::get),
-                status: match view.status {
-                    blueos_jobs::JobStatus::Queued => JobStatusStatus::Queued,
-                    blueos_jobs::JobStatus::Running => JobStatusStatus::Running,
-                    blueos_jobs::JobStatus::Cancelling => JobStatusStatus::Cancelling,
-                    blueos_jobs::JobStatus::Finished(JobEnd::Succeeded) => {
-                        JobStatusStatus::Succeeded
-                    }
-                    blueos_jobs::JobStatus::Finished(JobEnd::Failed) => JobStatusStatus::Failed,
-                    blueos_jobs::JobStatus::Finished(JobEnd::Cancelled) => {
-                        JobStatusStatus::Cancelled
-                    }
-                    blueos_jobs::JobStatus::Interrupted => JobStatusStatus::Interrupted,
-                },
-                name: match view.kind {
-                    JobKind::Leaf(step) => step.to_string(),
-                    JobKind::Sequence => "sequence".to_owned(),
-                    JobKind::Parallel => "parallel".to_owned(),
-                },
-            })
-            .collect(),
+        jobs: jobs.list().map(job_status).collect(),
+    }
+}
+
+/// One Job as clients see it in the `jobs` State, a Job result and a history.
+pub(crate) fn job_status(job: &Job) -> JobStatus {
+    JobStatus {
+        job_id: job.job_id.to_string(),
+        job_type: job.job_type.clone(),
+        status: wire_status(job.status),
+        reason: job.reason.clone(),
+    }
+}
+
+/// The status of `blueos_msgs/JobStatus` for a Job's status; `blueos_msgs/CommandAck` shares its `STATUS_` values.
+pub(crate) const fn wire_status(status: blueos_jobs::JobStatus) -> JobStatusStatus {
+    match status {
+        blueos_jobs::JobStatus::Accepted => JobStatusStatus::Accepted,
+        blueos_jobs::JobStatus::Executing => JobStatusStatus::Executing,
+        blueos_jobs::JobStatus::Canceling => JobStatusStatus::Canceling,
+        blueos_jobs::JobStatus::Succeeded => JobStatusStatus::Succeeded,
+        blueos_jobs::JobStatus::Canceled => JobStatusStatus::Canceled,
+        blueos_jobs::JobStatus::Aborted => JobStatusStatus::Aborted,
+        blueos_jobs::JobStatus::WaitingForPermission => JobStatusStatus::WaitingForPermission,
+        blueos_jobs::JobStatus::WaitingForResource => JobStatusStatus::WaitingForResource,
+        blueos_jobs::JobStatus::Paused => JobStatusStatus::Paused,
     }
 }

@@ -1,13 +1,33 @@
 # Example cookbook (D-20)
 
 Numbered entries under `tests/` answer every "how do I do X?" question from the draft 1 ergonomics review
-(P4.3). Each entry is an integration test on the in-process channel backend through a Service's real `build()`.
-`example-minimal` stays the small copy target; this cookbook covers everything else.
+(P4.3). Each entry is an integration test on the in-process channel backend through a Service's real `context` and
+`build`. `example-minimal` stays the small copy target; this cookbook covers everything else.
 
 An entry file name starts with the number of the **first** question it answers (`01-command.rs` for questions 1–3).
 
-[`ServiceContext`](../../../libs/app/service/src/service.rs) gives `build` the parsed service CLI, optional
-`--settings-path`, and the open backbone Session (same as production entry and [`Harness`](../../../libs/app/service/src/testing.rs)).
+Every [`Service`](../../../libs/app/service/src/service.rs) has two steps, run in this order by the production entry
+and by [`Harness`](../../../libs/app/service/src/testing.rs):
+
+- `context` builds the Context: it may open what the arguments name, and fills every Port with its real adapter.
+- `build` is pure: it declares the Snapshot, endpoints, Tasks and Projections, with no IO and no spawning. A Task that
+  follows a Projection captures the handle `projection` returned, never a Context field.
+
+Both receive a [`ServiceContext`](../../../libs/app/service/src/service.rs): the parsed service CLI, optional
+`--settings-path`, and the open backbone Session. A test varies a Service only through its Context:
+`Harness::start_with(arguments, |context| ...)` changes Context fields after `context` and before `build`, so the
+wiring under test is the wiring that ships ([`tests/14-io-effects.rs`](tests/14-io-effects.rs) replaces a device).
+
+A Service has four kinds of endpoint, which a real Service lists in its manifest (see
+[Endpoint kinds](../README.md#endpoint-kinds-d-26)) and an entry here declares on `ServiceBuilder` directly:
+
+- a Job type, a `.action` (`.command` for an instant one, `.job` with its nature, `.job_feedback` and `.job_result`):
+  [`tests/01-command.rs`](tests/01-command.rs), [`tests/15-jobs.rs`](tests/15-jobs.rs) to
+  [`tests/17-job-progress.rs`](tests/17-job-progress.rs);
+- a Query, a `.srv` (`.query`, or `.io_query` for one answered with IO): [`tests/04-query.rs`](tests/04-query.rs),
+  [`tests/22-io-query.rs`](tests/22-io-query.rs);
+- a State and an Event, a `.msg` (`.state`, `.event`): [`tests/05-state.rs`](tests/05-state.rs),
+  [`tests/06-event.rs`](tests/06-event.rs).
 
 Run:
 
@@ -33,10 +53,10 @@ cd core && cargo test -p blueos-example-cookbook
 | 11 | Mark a restart-required field | [`tests/09-settings.rs`](tests/09-settings.rs) | written |
 | 12 | Arm a timer | [`tests/12-timers.rs`](tests/12-timers.rs) | written |
 | 13 | Cancel a timer | [`tests/12-timers.rs`](tests/12-timers.rs) | written |
-| 14 | Do device IO | [`tests/14-io-effects.rs`](tests/14-io-effects.rs) | written |
-| 15 | Run multi-step work (job graph) | [`tests/15-jobs.rs`](tests/15-jobs.rs) | written |
+| 14 | Do device IO, and replace the device in a test | [`tests/14-io-effects.rs`](tests/14-io-effects.rs) | written |
+| 15 | Run lasting work as a Job, and cancel it | [`tests/15-jobs.rs`](tests/15-jobs.rs) | written |
 | 16 | Show job status in the UI | [`tests/16-job-status.rs`](tests/16-job-status.rs) | written |
-| 17 | Report partial progress of one job | [`tests/17-job-progress.rs`](tests/17-job-progress.rs) | written |
+| 17 | Follow a job through pause, resume and success | [`tests/17-job-progress.rs`](tests/17-job-progress.rs) | written |
 | 18 | Unit-test the Domain | [`../logic/domain/src/lib.rs`](../logic/domain/src/lib.rs) (`#[cfg(test)]`) | written |
 | 19 | Integration-test the service | [`../app/tests/endpoints.rs`](../app/tests/endpoints.rs) | written |
 | 20 | Use the service from the frontend | [`../../frontend/tests/example/ExampleMinimalPanel.test.ts`](../../../frontend/tests/example/ExampleMinimalPanel.test.ts) | written |

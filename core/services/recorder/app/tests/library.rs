@@ -3,23 +3,26 @@
 mod common;
 
 use core::time::Duration;
-use std::{fs, sync::Arc};
+use std::fs;
 
 use tempfile::tempdir;
 use tokio::time::{advance, timeout};
 
 use blueos_api::state_key;
-use blueos_comms::{CommsBackend, channel::ChannelBackend};
-use blueos_idl::msg::blueos_recorder_msgs::{
-    DeleteRecordingCommand, RecordingLibrary, StopRecordingCommand,
+use blueos_idl::msg::{
+    blueos_msgs::{CommandAckStatus, JobStatusStatus},
+    blueos_recorder_msgs::{
+        DeleteRecordingGoal, DeleteRecordingResult, RecordingLibrary, RepairRecordingGoal,
+        SnapshotRecordingGoal, StopRecordingGoal,
+    },
 };
-use blueos_recorder_app::{RecorderArguments, RecorderService};
+use blueos_recorder_app::RecorderService;
 use blueos_recorder_library::RESCAN_INTERVAL;
-use blueos_service::{Service, testing::Harness};
+use blueos_service::{Service, new_job_id, testing::Harness};
 
 use common::{
-    drain_blocking_io, wait_for_active_recording, wait_for_library_file_listed,
-    wait_for_recording_idle,
+    drain_blocking_io, next_job_result, start_harness, start_recording, subscribe_job_results,
+    wait_for_active_recording, wait_for_library_file_listed, wait_for_recording_idle,
 };
 
 #[tokio::test(start_paused = true)]
@@ -27,18 +30,12 @@ async fn unchanged_rescan_does_not_republish_library_state() {
     let directory = tempdir().expect("tempdir");
     fs::write(directory.path().join("finished.mcap"), b"not a real mcap").expect("write");
 
-    let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
-    let state_key = state_key(RecorderService::NAME, "library");
-    let mut updates = backend.subscribe(&state_key).await.expect("subscribe");
-
-    let harness = Harness::start_on(
-        Arc::clone(&backend),
-        RecorderArguments {
-            recorder_path: directory.path().to_path_buf(),
-        },
-    )
-    .await
-    .expect("harness");
+    let harness = start_harness(directory.path()).await;
+    let mut updates = harness
+        .backend()
+        .subscribe(&state_key(RecorderService::NAME, "library"))
+        .await
+        .expect("subscribe");
 
     stop_auto_recording_and_remove_session_files(&harness, directory.path()).await;
     wait_for_library_file_listed(&harness, "finished.mcap").await;
@@ -58,38 +55,127 @@ async fn unchanged_rescan_does_not_republish_library_state() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn delete_rejects_hostile_paths_without_touching_disk() {
+async fn each_goal_with_an_invalid_path_is_rejected_in_the_ack_without_touching_disk() {
     let directory = tempdir().expect("tempdir");
     let victim = directory.path().join("safe.mcap");
     fs::write(&victim, b"data").expect("write");
 
-    let harness = Harness::<RecorderService>::start(RecorderArguments {
-        recorder_path: directory.path().to_path_buf(),
-    })
-    .await
-    .expect("harness");
+    let harness = start_harness(directory.path()).await;
 
-    for path in ["../outside.mcap", "/etc/passwd.mcap", "notes.txt"] {
-        let ack = harness
-            .send(
-                "DeleteRecording",
-                &DeleteRecordingCommand { path: path.into() },
-            )
-            .await;
-        assert!(!ack.accepted, "expected refusal for {path:?}");
+    for (path, reason) in [
+        ("../outside.mcap", "Invalid recording path."),
+        ("/etc/passwd.mcap", "Invalid recording path."),
+        ("notes.txt", "Only .mcap recordings are supported."),
+    ] {
+        let path = path.to_owned();
+        let acks = [
+            harness
+                .send(
+                    "DeleteRecording",
+                    &DeleteRecordingGoal { path: path.clone() },
+                )
+                .await,
+            harness
+                .send(
+                    "RepairRecording",
+                    &RepairRecordingGoal { path: path.clone() },
+                )
+                .await,
+            harness
+                .send(
+                    "SnapshotRecording",
+                    &SnapshotRecordingGoal { path: path.clone() },
+                )
+                .await,
+        ];
+        for ack in acks {
+            assert!(!ack.accepted, "expected a rejection for {path:?}");
+            assert_eq!(ack.reason, reason, "{path:?}");
+        }
     }
     assert!(
-        victim.exists(),
-        "hostile delete must not remove library files"
+        harness.jobs().await.jobs.is_empty(),
+        "a rejected Goal must not create a Job"
     );
+    assert!(
+        victim.exists(),
+        "a rejected delete must not remove library files"
+    );
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_delete_succeeds_once_the_file_is_gone_and_names_it_in_its_job_result() {
+    let directory = tempdir().expect("tempdir");
+    let victim = directory.path().join("finished.mcap");
+    fs::write(&victim, b"data").expect("write");
+    let harness = start_harness(directory.path()).await;
+    let mut results = subscribe_job_results(&harness, "DeleteRecording").await;
+    wait_for_library_file_listed(&harness, "finished.mcap").await;
+
+    let job_id = new_job_id();
+    let ack = harness
+        .submit(
+            "DeleteRecording",
+            job_id,
+            &DeleteRecordingGoal {
+                path: "finished.mcap".into(),
+            },
+        )
+        .await;
+    let (job, result) = next_job_result::<DeleteRecordingResult>(&mut results).await;
+
+    assert_eq!(ack.status, CommandAckStatus::Executing);
+    assert_eq!(
+        (job.job_id, job.status, job.reason.as_str()),
+        (job_id.to_string(), JobStatusStatus::Succeeded, "")
+    );
+    assert_eq!(result.path, "finished.mcap");
+    assert!(!victim.exists());
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_delete_that_cannot_remove_the_file_aborts_its_job_with_the_error() {
+    let directory = tempdir().expect("tempdir");
+    let victim = directory.path().join("finished.mcap");
+    fs::write(&victim, b"data").expect("write");
+    let harness = start_harness(directory.path()).await;
+    let mut results = subscribe_job_results(&harness, "DeleteRecording").await;
+    wait_for_library_file_listed(&harness, "finished.mcap").await;
+    fs::remove_file(&victim).expect("remove the recording");
+    fs::create_dir(&victim).expect("put a folder where the recording was");
+
+    let job_id = new_job_id();
+    harness
+        .submit(
+            "DeleteRecording",
+            job_id,
+            &DeleteRecordingGoal {
+                path: "finished.mcap".into(),
+            },
+        )
+        .await;
+    let (job, result) = next_job_result::<DeleteRecordingResult>(&mut results).await;
+
+    assert_eq!(
+        (job.job_id, job.status, job.reason.as_str()),
+        (
+            job_id.to_string(),
+            JobStatusStatus::Aborted,
+            "invalid recording path"
+        )
+    );
+    assert_eq!(result.path, "finished.mcap");
+    assert!(victim.is_dir(), "a failed delete leaves the disk as it was");
 }
 
 async fn stop_auto_recording_and_remove_session_files(
     harness: &Harness<RecorderService>,
     directory: &std::path::Path,
 ) {
+    start_recording(harness).await;
+    advance(Duration::from_secs(1)).await;
     wait_for_active_recording(harness.backend()).await;
-    harness.send("Stop", &StopRecordingCommand::default()).await;
+    harness.send("Stop", &StopRecordingGoal::default()).await;
     wait_for_recording_idle(harness.backend()).await;
     for entry in fs::read_dir(directory).into_iter().flatten().flatten() {
         let name = entry.file_name().to_string_lossy().into_owned();

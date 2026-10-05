@@ -1,4 +1,4 @@
-//! Recording library Block: catalog State, repair and delete Commands, rescan timers and scan IO.
+//! Recording library Block: catalog State, the repairs and snapshots it wants, delete, rescan timers and scan IO.
 
 #![no_std]
 #![expect(
@@ -18,14 +18,14 @@ use alloc::{
     vec,
     vec::Vec,
 };
-use core::{error::Error, fmt, time::Duration};
+use core::{convert::Infallible, error::Error, fmt, time::Duration};
 
 use blueos_domain::{Effect, IoError, Now, Outcome};
 use blueos_jobs::JobId;
 use blueos_recorder_paths::RecordingRelativePath;
 
 pub use command_rules::{
-    CANCEL_REPAIR, DELETE_RECORDING, RECENTLY_WRITTEN_DELAY, REPAIR_RECORDING,
+    CANCEL_JOB, DELETE_RECORDING, RECENTLY_WRITTEN_DELAY, REPAIR_RECORDING,
     RecordingCommandContext, SNAPSHOT_RECORDING, allowed_operations, cancel_repair_rejection,
     delete_recording_rejection, repair_recording_rejection, snapshot_recording_rejection,
 };
@@ -35,6 +35,9 @@ pub use timestamp::created_unix_seconds_from_filename;
 // ponytail: timer rescan; switch to inotify if external writers or large folders make it costly.
 /// How often the library rescans the recordings folder while idle.
 pub const RESCAN_INTERVAL: Duration = Duration::from_secs(5);
+/// How long a repair's read offset waits, after the library entries were last rebuilt, before it is published in
+/// them; the Job's Feedback always has the latest one.
+pub const REPAIR_PROGRESS_PUBLISH_INTERVAL: Duration = Duration::from_millis(500);
 
 /// In-memory library Block state.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -42,23 +45,71 @@ pub struct Library {
     entries: Vec<RecordingFileEntry>,
     scanned: BTreeMap<String, ScannedRecording>,
     deleting: BTreeSet<String>,
-    repairing: BTreeMap<String, RepairProgress>,
-    snapshotting: BTreeMap<String, String>,
+    operations: Vec<LibraryOperation>,
+    ended: Option<LibraryOperation>,
     repair_errors: BTreeMap<String, String>,
+    /// Files whose repair failed because they are not MCAP, with the size and modification time they had.
+    not_mcap: BTreeMap<String, (u64, i64)>,
+    /// Monotonic time the entries were last rebuilt.
+    entries_rebuilt_monotonic: Duration,
 }
 
 /// Commands handled by the library Block.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum LibraryRequest {
-    /// Stops a running repair without touching the original file.
-    CancelRepair {
-        /// Syntax-validated relative path.
-        path: RecordingRelativePath,
-    },
     /// Remove a recording from disk.
     DeleteRecording {
         /// Syntax-validated relative path.
         path: RecordingRelativePath,
+        /// The Job the delete runs as.
+        job_id: JobId,
+    },
+}
+
+/// A rewrite the library wants done. The operations Task follows the list of them, runs each rewrite, and reports
+/// how it ended as a [`LibraryObservedFact`] (D-27).
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum LibraryOperation {
+    /// Rewrite a recording in place through a `.recover` file.
+    Repair {
+        /// Validated relative path.
+        path: RecordingRelativePath,
+        /// The Job the repair runs as.
+        job_id: JobId,
+        /// How far the repair has read.
+        progress: RepairProgress,
+    },
+    /// Write an indexed copy next to a recording.
+    Snapshot {
+        /// Validated source path.
+        path: RecordingRelativePath,
+        /// Relative path for the finished snapshot file.
+        output_path: String,
+        /// The Job the snapshot runs as.
+        job_id: JobId,
+    },
+}
+
+/// What the operations Task observed while running a [`LibraryOperation`].
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum LibraryObservedFact {
+    /// A repair read further into its source.
+    RepairProgress(LibraryRepairProgress),
+    /// A repair ended.
+    RepairFinished {
+        /// Path that was repaired or attempted.
+        path: RecordingRelativePath,
+        /// How the repair ended.
+        outcome: LibraryRepairOutcome,
+    },
+    /// A snapshot ended.
+    SnapshotFinished {
+        /// Source recording path.
+        path: RecordingRelativePath,
+        /// Snapshot file path relative to the recordings folder.
+        output_path: String,
+        /// How the snapshot ended.
+        outcome: LibrarySnapshotOutcome,
     },
 }
 
@@ -71,47 +122,6 @@ pub struct RepairProgress {
     pub total_bytes: u64,
     /// Monotonic time when repair started.
     pub started_monotonic: Duration,
-    /// Root Job acknowledged for this repair.
-    pub root_job_id: JobId,
-    /// Leaf Job to finish when IO ends.
-    pub leaf_job_id: JobId,
-}
-
-/// Events published after library work completes.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum LibraryEvent {
-    /// Repair, snapshot, or delete finished.
-    Operation(RecordingOperationEvent),
-}
-
-/// Marker for library Block events when none apply.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum InfallibleLibraryEvent {}
-
-/// Outcome of repair, snapshot, or delete work emitted to subscribers.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct RecordingOperationEvent {
-    /// Which operation ended.
-    pub operation: RecordingOperationKind,
-    /// Recording path.
-    pub path: String,
-    /// Snapshot copy path (empty for repair).
-    pub output_path: String,
-    /// Whether the work succeeded.
-    pub succeeded: bool,
-    /// Whether the work was cancelled.
-    pub cancelled: bool,
-    /// Failure reason when not cancelled.
-    pub failure: RepairFailure,
-}
-
-/// Which library operation finished.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum RecordingOperationKind {
-    /// Native MCAP rewrite.
-    Repair,
-    /// Indexed copy of a recording still being written.
-    Snapshot,
 }
 
 /// Result of a library IO request.
@@ -128,28 +138,14 @@ pub enum LibraryIoResult {
     DeleteFinished {
         /// Path that was deleted or attempted.
         path: RecordingRelativePath,
+        /// The Job the delete ran as.
+        job_id: JobId,
         /// Set when removal failed.
         error: Option<IoError>,
     },
-    /// A repair attempt finished.
-    RepairFinished {
-        /// Path that was repaired or attempted.
-        path: RecordingRelativePath,
-        /// How the repair ended.
-        outcome: LibraryRepairOutcome,
-    },
-    /// A snapshot attempt finished.
-    SnapshotFinished {
-        /// Source recording path.
-        path: RecordingRelativePath,
-        /// Snapshot file path relative to the recordings folder.
-        output_path: String,
-        /// How the snapshot ended.
-        outcome: LibrarySnapshotOutcome,
-    },
 }
 
-/// How a snapshot IO request ended.
+/// How a snapshot ended.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum LibrarySnapshotOutcome {
     /// The indexed copy was written next to the source.
@@ -158,7 +154,7 @@ pub enum LibrarySnapshotOutcome {
     Failed(RepairFailure),
 }
 
-/// How a repair IO request ended.
+/// How a repair ended.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum LibraryRepairOutcome {
     /// The file was rewritten and replaced.
@@ -169,15 +165,15 @@ pub enum LibraryRepairOutcome {
     Failed(RepairFailure),
 }
 
-/// Typed repair failure reasons in logic (mapped to wire strings in the api crate).
+/// Why a repair or snapshot failed. Its text is the reason of the Job and the error of the library row.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RepairFailure {
-    /// No failure (success or cancel).
-    None,
     /// Filesystem or resolve error.
     Io,
     /// MCAP rewrite failed.
     Rewrite,
+    /// The file is not an MCAP recording, so repairing it again cannot succeed.
+    NotMcap,
     /// Replace after rewrite failed.
     Replace,
     /// Adapter reported a message (reserved for future typed mapping).
@@ -188,7 +184,7 @@ pub enum RepairFailure {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct LibraryRejection(&'static str);
 
-/// Observed fact from repair IO (progress updates).
+/// How far a repair has read into its source.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LibraryRepairProgress {
     /// Recording being repaired.
@@ -199,7 +195,7 @@ pub struct LibraryRepairProgress {
     pub total_bytes: u64,
 }
 
-type LibraryOutcome = Outcome<LibraryEvent, LibraryTick, LibraryIoRequest, LibraryTimerKey>;
+type LibraryOutcome = Outcome<Infallible, LibraryTick, LibraryIoRequest, LibraryTimerKey>;
 
 /// Blocking IO the Kernel runs for the library Block.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -210,23 +206,8 @@ pub enum LibraryIoRequest {
     Delete {
         /// Validated relative path.
         path: RecordingRelativePath,
-    },
-    /// Rewrite one recording through a `.recover` file.
-    Repair {
-        /// Validated relative path.
-        path: RecordingRelativePath,
-    },
-    /// Signal a running repair to stop and remove its temporary file.
-    CancelRepair {
-        /// Validated relative path.
-        path: RecordingRelativePath,
-    },
-    /// Write an indexed copy next to a recording.
-    Snapshot {
-        /// Validated source path.
-        path: RecordingRelativePath,
-        /// Relative path for the finished snapshot file.
-        output_path: String,
+        /// The Job the delete runs as.
+        job_id: JobId,
     },
 }
 
@@ -267,6 +248,8 @@ pub struct RecordingFileEntry {
     pub repair_error: String,
     /// Command endpoint names accepted for this row.
     pub allowed_operations: Vec<String>,
+    /// The Job of the repair while [`RecordingFileState::Repairing`].
+    pub repair_job_id: Option<JobId>,
 }
 
 /// Lifecycle state of one recording in the published library view.
@@ -295,6 +278,31 @@ pub struct ScannedRecording {
     pub modified_unix_seconds: i64,
     /// Whether the MCAP summary is present.
     pub indexed: bool,
+    /// What the recording holds, from its MCAP summary; `None` without one or when it could not be read.
+    pub contents: Option<RecordingContents>,
+}
+
+/// What a recording holds, from its MCAP summary.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RecordingContents {
+    /// Time from the first message to the last.
+    pub duration: Duration,
+    /// Topics of the video channels, sorted.
+    pub video_topics: Vec<String>,
+    /// How many other topics the recording has, such as telemetry.
+    pub other_topic_count: u32,
+}
+
+impl fmt::Display for RepairFailure {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Io => formatter.write_str("Filesystem operation failed."),
+            Self::Rewrite => formatter.write_str("MCAP rewrite failed."),
+            Self::NotMcap => formatter.write_str("This is not an MCAP file."),
+            Self::Replace => formatter.write_str("Could not replace the recording file."),
+            Self::Message(message) => formatter.write_str(message),
+        }
+    }
 }
 
 impl fmt::Display for LibraryRejection {
@@ -318,6 +326,36 @@ impl Library {
         &self.entries
     }
 
+    /// What the recording at `relative_path` holds; `None` when unknown or not in the library.
+    pub fn contents(&self, relative_path: &str) -> Option<&RecordingContents> {
+        self.scanned.get(relative_path)?.contents.as_ref()
+    }
+
+    /// The repairs and snapshots the library wants done, in the order they started.
+    pub fn operations(&self) -> &[LibraryOperation] {
+        &self.operations
+    }
+
+    /// The repair or snapshot that ended last, kept until the next one ends, so its Job result can be read in the
+    /// step that ended it.
+    pub fn ended_operation(&self) -> Option<&LibraryOperation> {
+        self.ended.as_ref()
+    }
+
+    /// How far the repair the Job `job_id` runs has read, while it runs.
+    pub fn repair_progress(&self, job_id: JobId) -> Option<&RepairProgress> {
+        self.operations
+            .iter()
+            .find_map(|operation| match operation {
+                LibraryOperation::Repair {
+                    job_id: running,
+                    progress,
+                    ..
+                } if *running == job_id => Some(progress),
+                LibraryOperation::Repair { .. } | LibraryOperation::Snapshot { .. } => None,
+            })
+    }
+
     /// Effects to run when the library Block is first wired (initial scan only).
     pub fn initial_effects() -> Vec<Effect<LibraryTick, LibraryIoRequest, LibraryTimerKey>> {
         vec![Effect::Io(LibraryIoRequest::Scan)]
@@ -334,11 +372,12 @@ impl Library {
         repair_recording_rejection(&context)
     }
 
-    /// Starts a snapshot after the Domain accepted the Command.
+    /// Starts a snapshot after the Domain started its Job.
     pub fn start_snapshot(
         &mut self,
         path: RecordingRelativePath,
         output_path: String,
+        job_id: JobId,
         active_recording_relative_path: Option<&str>,
         now: Now,
     ) -> LibraryOutcome {
@@ -347,12 +386,15 @@ impl Library {
         if let Some(reason) = snapshot_recording_rejection(&context) {
             return Outcome::reject(LibraryRejection(reason));
         }
-        self.snapshotting
-            .insert(relative.to_string(), output_path.clone());
+        self.operations.push(LibraryOperation::Snapshot {
+            path,
+            output_path,
+            job_id,
+        });
         rebuild_entries(self, active_recording_relative_path, now);
         Outcome::Applied {
             events: vec![],
-            effects: vec![Effect::Io(LibraryIoRequest::Snapshot { path, output_path })],
+            effects: vec![],
         }
     }
 
@@ -360,8 +402,7 @@ impl Library {
     pub fn start_repair(
         &mut self,
         path: RecordingRelativePath,
-        root_job_id: JobId,
-        leaf_job_id: JobId,
+        job_id: JobId,
         active_recording_relative_path: Option<&str>,
         now: Now,
     ) -> LibraryOutcome {
@@ -371,20 +412,20 @@ impl Library {
             return Outcome::reject(LibraryRejection(reason));
         }
         let scanned = self.scanned.get(relative).expect("validated in library");
-        self.repairing.insert(
-            relative.to_string(),
-            RepairProgress {
-                bytes_processed: 0,
-                total_bytes: scanned.size_bytes,
-                started_monotonic: now.monotonic,
-                root_job_id,
-                leaf_job_id,
-            },
-        );
+        let progress = RepairProgress {
+            bytes_processed: 0,
+            total_bytes: scanned.size_bytes,
+            started_monotonic: now.monotonic,
+        };
+        self.operations.push(LibraryOperation::Repair {
+            path,
+            job_id,
+            progress,
+        });
         rebuild_entries(self, active_recording_relative_path, now);
         Outcome::Applied {
             events: vec![],
-            effects: vec![Effect::Io(LibraryIoRequest::Repair { path })],
+            effects: vec![],
         }
     }
 
@@ -396,18 +437,7 @@ impl Library {
         now: Now,
     ) -> LibraryOutcome {
         match request {
-            LibraryRequest::CancelRepair { path } => {
-                let relative = path.as_str();
-                let context = command_context(self, relative, active_recording_relative_path, now);
-                if let Some(reason) = cancel_repair_rejection(&context) {
-                    return Outcome::reject(LibraryRejection(reason));
-                }
-                Outcome::Applied {
-                    events: vec![],
-                    effects: vec![Effect::Io(LibraryIoRequest::CancelRepair { path })],
-                }
-            }
-            LibraryRequest::DeleteRecording { path } => {
+            LibraryRequest::DeleteRecording { path, job_id } => {
                 let relative = path.as_str();
                 let context = command_context(self, relative, active_recording_relative_path, now);
                 if let Some(reason) = delete_recording_rejection(&context) {
@@ -417,28 +447,88 @@ impl Library {
                 rebuild_entries(self, active_recording_relative_path, now);
                 Outcome::Applied {
                     events: vec![],
-                    effects: vec![Effect::Io(LibraryIoRequest::Delete { path })],
+                    effects: vec![Effect::Io(LibraryIoRequest::Delete { path, job_id })],
                 }
             }
         }
     }
 
-    /// Applies a repair progress Observed fact.
-    pub fn handle_repair_progress(
+    /// Applies what the operations Task observed: a repair's progress, or the end of a repair or snapshot, which
+    /// removes it from [`Library::operations`].
+    pub fn handle_observed_fact(
         &mut self,
-        progress: LibraryRepairProgress,
+        fact: LibraryObservedFact,
         active_recording_relative_path: Option<&str>,
         now: Now,
     ) -> LibraryOutcome {
-        let relative = progress.path.as_str();
-        if let Some(state) = self.repairing.get_mut(relative) {
-            state.bytes_processed = progress.bytes_processed.min(progress.total_bytes);
-            state.total_bytes = progress.total_bytes;
-        }
-        rebuild_entries(self, active_recording_relative_path, now);
-        Outcome::Applied {
-            events: vec![],
-            effects: vec![],
+        match fact {
+            LibraryObservedFact::RepairProgress(observed) => {
+                for operation in &mut self.operations {
+                    if let LibraryOperation::Repair { path, progress, .. } = operation
+                        && *path == observed.path
+                    {
+                        progress.bytes_processed =
+                            observed.bytes_processed.min(observed.total_bytes);
+                        progress.total_bytes = observed.total_bytes;
+                    }
+                }
+                if observed.bytes_processed >= observed.total_bytes
+                    || now.monotonic.saturating_sub(self.entries_rebuilt_monotonic)
+                        >= REPAIR_PROGRESS_PUBLISH_INTERVAL
+                {
+                    rebuild_entries(self, active_recording_relative_path, now);
+                }
+                Outcome::Applied {
+                    events: vec![],
+                    effects: vec![],
+                }
+            }
+            LibraryObservedFact::SnapshotFinished { path, .. } => {
+                self.ended = take_operation(
+                    &mut self.operations,
+                    |operation| matches!(operation, LibraryOperation::Snapshot { path: source, .. } if *source == path),
+                );
+                rebuild_entries(self, active_recording_relative_path, now);
+                Outcome::Applied {
+                    events: vec![],
+                    effects: vec![Effect::Io(LibraryIoRequest::Scan)],
+                }
+            }
+            LibraryObservedFact::RepairFinished { path, outcome } => {
+                self.ended = take_operation(
+                    &mut self.operations,
+                    |operation| matches!(operation, LibraryOperation::Repair { path: repaired, .. } if *repaired == path),
+                );
+                let relative = path.as_str();
+                match outcome {
+                    LibraryRepairOutcome::Succeeded => {
+                        self.repair_errors.remove(relative);
+                        self.not_mcap.remove(relative);
+                        // The scan that follows confirms it; until then the row must not look unindexed.
+                        if let Some(scanned) = self.scanned.get_mut(relative) {
+                            scanned.indexed = true;
+                        }
+                    }
+                    LibraryRepairOutcome::Cancelled => {}
+                    LibraryRepairOutcome::Failed(failure) => {
+                        if failure == RepairFailure::NotMcap
+                            && let Some(scanned) = self.scanned.get(relative)
+                        {
+                            self.not_mcap.insert(
+                                relative.to_string(),
+                                (scanned.size_bytes, scanned.modified_unix_seconds),
+                            );
+                        }
+                        self.repair_errors
+                            .insert(relative.to_string(), failure.to_string());
+                    }
+                }
+                rebuild_entries(self, active_recording_relative_path, now);
+                Outcome::Applied {
+                    events: vec![],
+                    effects: vec![Effect::Io(LibraryIoRequest::Scan)],
+                }
+            }
         }
     }
 
@@ -464,7 +554,7 @@ impl Library {
                 apply_scan(self, recordings, active_recording_relative_path, now)
             }
             LibraryIoResult::ScanFailed => finish_scan_cycle(),
-            LibraryIoResult::DeleteFinished { path, error } => {
+            LibraryIoResult::DeleteFinished { path, error, .. } => {
                 let relative = path.as_str();
                 self.deleting.remove(relative);
                 if error.is_none() {
@@ -476,89 +566,26 @@ impl Library {
                     effects: vec![Effect::Io(LibraryIoRequest::Scan)],
                 }
             }
-            LibraryIoResult::SnapshotFinished {
-                path,
-                output_path,
-                outcome,
-            } => {
-                let relative = path.as_str();
-                self.snapshotting.remove(relative);
-                let (succeeded, failure) = match outcome {
-                    LibrarySnapshotOutcome::Succeeded => (true, RepairFailure::None),
-                    LibrarySnapshotOutcome::Failed(failure) => (false, failure),
-                };
-                rebuild_entries(self, active_recording_relative_path, now);
-                let event = RecordingOperationEvent {
-                    operation: RecordingOperationKind::Snapshot,
-                    path: relative.to_string(),
-                    output_path,
-                    succeeded,
-                    cancelled: false,
-                    failure,
-                };
-                Outcome::Applied {
-                    events: vec![LibraryEvent::Operation(event)],
-                    effects: vec![Effect::Io(LibraryIoRequest::Scan)],
-                }
-            }
-            LibraryIoResult::RepairFinished { path, outcome } => {
-                let relative = path.as_str();
-                self.repairing.remove(relative);
-                let (succeeded, cancelled, failure) = match outcome {
-                    LibraryRepairOutcome::Succeeded => (true, false, RepairFailure::None),
-                    LibraryRepairOutcome::Cancelled => (false, true, RepairFailure::None),
-                    LibraryRepairOutcome::Failed(failure) => (false, false, failure),
-                };
-                if succeeded {
-                    self.repair_errors.remove(relative);
-                } else if !cancelled {
-                    self.repair_errors
-                        .insert(relative.to_string(), repair_failure_message(&failure));
-                }
-                rebuild_entries(self, active_recording_relative_path, now);
-                let event = RecordingOperationEvent {
-                    operation: RecordingOperationKind::Repair,
-                    path: relative.to_string(),
-                    output_path: String::new(),
-                    succeeded,
-                    cancelled,
-                    failure: if cancelled {
-                        RepairFailure::None
-                    } else {
-                        failure
-                    },
-                };
-                Outcome::Applied {
-                    events: vec![LibraryEvent::Operation(event)],
-                    effects: vec![Effect::Io(LibraryIoRequest::Scan)],
-                }
-            }
         }
-    }
-
-    /// Leaf Job id for an in-flight repair, if any.
-    pub fn repair_leaf_job_id(&self, path: &str) -> Option<JobId> {
-        self.repairing
-            .get(path)
-            .map(|progress| progress.leaf_job_id)
-    }
-
-    /// Root Job id for an in-flight repair, if any.
-    pub fn repair_root_job_id(&self, path: &str) -> Option<JobId> {
-        self.repairing
-            .get(path)
-            .map(|progress| progress.root_job_id)
     }
 }
 
-fn repair_failure_message(failure: &RepairFailure) -> String {
-    match failure {
-        RepairFailure::None => String::new(),
-        RepairFailure::Io => "Filesystem operation failed.".into(),
-        RepairFailure::Rewrite => "MCAP rewrite failed.".into(),
-        RepairFailure::Replace => "Could not replace the recording file.".into(),
-        RepairFailure::Message(message) => message.clone(),
+impl LibraryOperation {
+    /// The Job the operation runs as, which names it while its progress changes.
+    pub fn job_id(&self) -> JobId {
+        match self {
+            Self::Repair { job_id, .. } | Self::Snapshot { job_id, .. } => *job_id,
+        }
     }
+}
+
+/// Removes the first operation that `matches` accepts from `operations`, if any, and returns it.
+fn take_operation(
+    operations: &mut Vec<LibraryOperation>,
+    matches: impl Fn(&LibraryOperation) -> bool,
+) -> Option<LibraryOperation> {
+    let index = operations.iter().position(matches)?;
+    Some(operations.remove(index))
 }
 
 fn finish_scan_cycle() -> LibraryOutcome {
@@ -595,7 +622,7 @@ fn apply_scan(
 fn rebuild_entries(library: &mut Library, active_recording_relative_path: Option<&str>, now: Now) {
     let mut entries = Vec::new();
     for (path, scanned) in &library.scanned {
-        let repairing = library.repairing.get(path);
+        let repairing = running_repair(&library.operations, path);
         let state = derive_recording_file_state(
             path,
             active_recording_relative_path,
@@ -606,7 +633,7 @@ fn rebuild_entries(library: &mut Library, active_recording_relative_path: Option
         let created_unix_seconds =
             created_unix_seconds_from_filename(&scanned.name, scanned.modified_unix_seconds);
         let (repair_bytes_processed, repair_total_bytes, repair_bytes_per_second) =
-            if let Some(progress) = repairing {
+            if let Some((_job_id, progress)) = repairing {
                 let elapsed = now
                     .monotonic
                     .saturating_sub(progress.started_monotonic)
@@ -632,10 +659,12 @@ fn rebuild_entries(library: &mut Library, active_recording_relative_path: Option
             repair_bytes_per_second,
             repair_error,
             allowed_operations: allowed_operations(&context),
+            repair_job_id: repairing.map(|(job_id, _progress)| job_id),
         });
     }
     entries.sort_by_key(|entry| core::cmp::Reverse(entry.created_unix_seconds));
     library.entries = entries;
+    library.entries_rebuilt_monotonic = now.monotonic;
 }
 
 fn command_context<'a>(
@@ -650,12 +679,33 @@ fn command_context<'a>(
         active_recording_relative_path,
         in_library: scanned.is_some(),
         deleting: library.deleting.contains(relative_path),
-        repairing: library.repairing.contains_key(relative_path),
-        snapshotting: library.snapshotting.contains_key(relative_path),
+        repairing: running_repair(&library.operations, relative_path).is_some(),
+        snapshotting: library.operations.iter().any(|operation| {
+            matches!(operation, LibraryOperation::Snapshot { path, .. } if path.as_str() == relative_path)
+        }),
         indexed: scanned.is_some_and(|recording| recording.indexed),
+        not_mcap: scanned.is_some_and(|recording| {
+            library.not_mcap.get(relative_path)
+                == Some(&(recording.size_bytes, recording.modified_unix_seconds))
+        }),
         modified_unix_seconds: scanned.map_or(0, |recording| recording.modified_unix_seconds),
         now,
     }
+}
+
+/// The Job and progress of the repair of `relative_path` in `operations`, while it runs.
+fn running_repair<'a>(
+    operations: &'a [LibraryOperation],
+    relative_path: &str,
+) -> Option<(JobId, &'a RepairProgress)> {
+    operations.iter().find_map(|operation| match operation {
+        LibraryOperation::Repair {
+            path,
+            job_id,
+            progress,
+        } if path.as_str() == relative_path => Some((*job_id, progress)),
+        LibraryOperation::Repair { .. } | LibraryOperation::Snapshot { .. } => None,
+    })
 }
 
 /// Maps scan and in-flight state to the state shown in the library.
@@ -676,6 +726,3 @@ pub fn derive_recording_file_state(
     }
     RecordingFileState::NeedsRepair
 }
-
-#[cfg(test)]
-mod tests;

@@ -96,6 +96,13 @@ const menus = [
       + ' or its local network.',
   },
   {
+    title: 'Records',
+    icon: 'mdi-record-rec',
+    route: '/tools/records',
+    advanced: false,
+    text: 'Browse, play, download and repair the recordings made by the vehicle.',
+  },
+  {
     title: 'Serial Bridges',
     icon: 'mdi-bridge',
     route: '/tools/bridges',

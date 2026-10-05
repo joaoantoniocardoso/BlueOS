@@ -1,6 +1,6 @@
 # BlueOS Rust Event-Driven Architecture: Decision Record
 
-Status: accepted, target of the second draft, last updated 2026-10-03.
+Status: accepted, target of the second draft, last updated 2026-10-04.
 
 This is the master decision record for introducing Rust, event-driven services, and a versioned IDL API
 into BlueOS. Every contributor (human or AI agent) working on `core/libs/`, `core/services/<rust service>/`,
@@ -34,6 +34,7 @@ For the exact wording of a decision, retrieve the design conversation (author ma
 | `e057bbce-4cce-4ab9-b903-a1737cf5db3e` | Performance and observability (D-33 to D-35) |
 | `a71bef70-6e6a-4cba-9a15-a0f62e8ff379` | Draft 2 review: IDL interface kinds, Job control endpoints, Context and Ports, `app/src/` layout, dependency gate, Records parity |
 | `63b385c2-088f-4392-b85e-4654c1de161c` | Architecture review against the team's intent: Jobs, resources, ROS 2 compatibility (D-36 to D-38 and their amendments) |
+| `683fa970-67b6-4ce0-864d-f727e19a3075` | Recording bytes over Zenoh: prototype, vehicle measurements and their root causes (D-39) |
 
 Related repositories (author machine, `~/BlueRobotics/`):
 
@@ -84,6 +85,7 @@ Related repositories (author machine, `~/BlueRobotics/`):
 - D-36 Jobs
 - D-37 Resources and leases
 - D-38 ROS 2 compatibility and a replaceable transport
+- D-39 Recording bytes on the backbone, downloads on nginx
 - Open items
 
 ---
@@ -315,6 +317,9 @@ Decision: accept the limitation, with a strict policy:
 - A message used as a field or as a sequence element of another message is **frozen**. A decoder fills missing
   fields only at the end of the whole buffer, so an appended field in a nested message shifts every byte after it.
   Changing a frozen message requires a new message type.
+  - To add data to the elements of a sequence, append to the top-level message a parallel sequence keyed by the
+    element's identity instead. An old reader decodes it empty, and a missing entry means unknown. Example: the
+    `RecordingContents[]` of `RecordingLibrary`, keyed by the path of each `RecordingFile` (D-23).
 - Each part of a `.action` (Goal, Job result, Feedback) and of a `.srv` (request, response) is a top-level message
   for this policy.
 - Any other change (remove, reorder, retype, rename a field; change semantics) requires a **new message type
@@ -374,6 +379,9 @@ Decision:
 - Comms never copies payloads on the way through, on publish or on receive: no framing prefix, the payload is a
   cheap-clone bytes type (D-10) that hands back its inner buffer without a copy and offers a borrowed accessor,
   and the CDR reader borrows its input. The Recorder keeps the refcounted `ZBytes` path up to the MCAP write.
+- `core/tools/zenoh/bootstrap.sh` installs `zenohd` and its plugins from one shared-memory release of the zenoh
+  fork. They come from the same build because an SHM router rejects the stock plugins (`remote_api` serves the
+  frontend).
 - **Extensions need `IpcMode: host` in their Docker permissions to share SHM. This must be documented** in
   the extension developer docs (Kraken permissions, extension template) and in the `blueos-api` README.
   Document the narrower alternative too: bind-mounting `/dev/shm` (host IPC mode shares the whole host IPC
@@ -535,20 +543,23 @@ Decision:
 
 - `app/src/` follows D-25: the service-wide modules; `tasks/mavlink.rs` (the MAVLink ingress, which feeds capture and
   cameras); `capture/tasks/data_plane/` (the data plane and its sample plan); `cameras/io.rs`; and `library/` with
-  `handlers.rs` (the `index` Query), `io.rs` (the rescan) and `tasks/operations.rs` (repair and snapshot through the
+  `handlers.rs` (the `index` and `bytes` Queries), `io.rs` (the rescan) and `tasks/operations.rs` (repair and snapshot through the
   reconcile pattern, D-23). Path validation is the fallible Goal conversion in `logic/api` (D-26), so there is no path
   handler.
 - Names: `RecorderSettings` (the one settings type), `ActiveRecording` (the recording the Domain wants),
   `McapFile` (an open MCAP file), `RecordGate` (the Projection the data plane follows), `RecorderSessionState`
-  (the IDL message for the recording state), `RecordingFileState` (the lifecycle of one file in the library),
-  `RecordingOperationKind`. "Session" means only the Zenoh connection.
+  (the IDL message for the recording state), `RecordingFileState` (the lifecycle of one file in the library).
+  "Session" means only the Zenoh connection.
 - The data plane is a Task that owns the `McapFile` and follows the `RecordGate` through the reconcile pattern
   (D-27): it opens, rotates and finishes files itself and reports opened, finished and bytes written as
   Observed facts. There is one source of truth for the current file.
 - MAVLink facts (armed state) are Observed facts that carry the full current value and are re-sent periodically,
   so a dropped one heals (D-27). Each camera has its own capture status timer key.
-- `Start` and `Stop` are instant Job types (D-36). A recording started by arming or by a MAVLink camera command is
-  Domain state shown in the `recording` State, never a Job, so nothing gates it.
+- The recording is always running (`auto_start_recording`); arming starts nothing. MAVLink is recorded only while
+  the vehicle is armed or always, as the setting says, and a video stream is recorded from a MAVLink camera start
+  capture command until its stop command. All of this is Domain state shown in the `recording` State, never a
+  Job, so nothing gates it. `Start` and `Stop` are instant Job types (D-36) for a client that starts or stops the
+  recording by hand.
 - Preserve the contract MCM relies on (`--recorder=external`): `video/...` topics, MAVLink camera capture
   commands and status replies, and "record MAVLink only while armed".
 - Keep the zero-copy path (D-09). The data plane builds a channel descriptor once per channel, not per sample.
@@ -561,7 +572,8 @@ Decision:
 - Device acceptance checklist (test layer L6, D-30), run before merging: MCM `--recorder=external`; armed gating;
   video over SHM; MAVLink capture replies with two cameras; a session rotation while recording; `docker stop`
   mid-recording; an image for `linux/arm/v7` built from CI artifacts; repair cancel by hand; the library rescan
-  with hundreds of recordings; snapshot and repair under heavy write load; the Records page parity list (D-23).
+  with hundreds of recordings; snapshot and repair under heavy write load; the Records page acceptance list
+  (`docs/architecture/records-page-acceptance.md`).
 
 ## D-16 CI and deploy
 
@@ -678,20 +690,20 @@ Decision:
 - The Recorder owns its recordings. The library is a Block, `core/services/recorder/logic/library`
   (`blueos-recorder-library`), composed into the Recorder Domain. `recorder_extractor` is deleted with its uv
   workspace entries, nginx location and `start-blueos-core` line.
-- **Bytes stay on nginx.** `/userdata/recorder/<path>` serves files with HTTP ranges (CORS exposes
-  `Accept-Ranges` and `Content-Range`); browsers need ranges and downloads, which Zenoh does not give them.
-  This is the one exception to D-08: the IDL API carries the catalog and control, never recording bytes.
+- **Bytes on the backbone, downloads on nginx** (D-39). The Records page reads recordings through the `bytes`
+  Query; nginx serves `/userdata/recorder/<path>` for whole-file and snapshot downloads.
 - **Event-driven, no polling.** The library is a State; outcomes are Events; the frontend watches both.
 - Native repair: the `mcap` crate rewrites a recording in-process (no `mcap` CLI subprocess; progress is the
   exact read offset). Output goes to a `.recover` temporary file renamed over the original; cancel removes the
   temporary file and leaves the original untouched; leftovers, nested ones included, are discarded at startup. A
-  repair running at shutdown is not cancelled; the 5 s drain applies.
+  repair running at shutdown is cancelled the same way, within the 5 s drain.
 - Repairs and snapshots follow the reconcile pattern (D-27): the library Block lists the operations it wants, a
   `library` Task runs them and reports progress (the read offset) and the end as Observed facts, and cancelling the
   repair Job through the Kernel's control endpoint (D-12) removes the repair from the list.
 - A recording still being written is downloaded through `SnapshotRecording`: the same rewrite writes an indexed
-  copy `<stem>.snapshot-<UTC>Z.mcap` next to it, and the browser downloads it from nginx once the `operation`
-  Event names it. The download also completes from the `library` State and times out.
+  copy `<stem>.snapshot-<UTC>Z.mcap` next to it, and the browser downloads it from nginx once the Job result
+  names it. The download also completes from the `library` State and times out. Any other recording downloads
+  directly from nginx, so a snapshot of it is rejected: it would only copy the file on the vehicle's disk.
 - The recording-file suffix rule (case-insensitive `.mcap`) and the file name timestamp formats are defined once
   and shared with the frontend through a test vector (D-24). Timestamps are parsed and formatted with `chrono`.
 - The Recorder knows which file it is writing. Other files are rescanned on a timer and after each operation; the
@@ -699,34 +711,45 @@ Decision:
   or large folders make it costly.
 - `RecordingFile.allowed_operations` is published by the library from the same rules that reject Commands, so the
   frontend never duplicates them.
+- What a recording holds (its recording contents: duration, video topics and how many other topics) is read from
+  its MCAP summary with the footer, and cached the same way. The `library` State carries it as a parallel
+  `RecordingContents[]` keyed by path, not as new fields of `RecordingFile`: that message is a sequence element,
+  so it is frozen (D-06). A file has an entry only when its summary was read; a file without one (being written,
+  needs repair, an unreadable summary, or a library from an older recorder) holds something unknown, which the
+  page shows as unknown, never as empty.
 - The `index` Query (`io = true`, D-26) is answered by an adapter outside the Inbox (reads that need disk but no Domain state),
   one request at a time per query name, with a timeout. The walk reports the size seen at its start; the frontend
   asks again when `library` reports a new size.
 - Frontend layering mirrors the backend (D-02, D-14):
   - `src/libs/mcap/logic/`: pure TypeScript, no DOM, no network (record parsing, keyframe index, frames,
     codec parameters, CSV, muxing). Unit-tested with vitest in Node.
-  - `src/libs/mcap/adapters/`: IO behind small interfaces (`ByteSource` over `fetch` ranges, WebCodecs/MSE
-    players, canvas thumbnails, thumbnail cache). The index source is an interface; the recorder client
-    implements it with the `index` query.
+  - `src/libs/mcap/adapters/`: IO behind small interfaces (`ByteSource`, WebCodecs/MSE players, canvas
+    thumbnails, thumbnail cache). The byte source and the index source are interfaces passed in; the recorder
+    client implements them with the `bytes` and `index` queries, so `libs/mcap` never imports `libs/recorder`.
   - `src/libs/recorder/`: framework-agnostic recorder client on the generated client (D-14). No Vue imports.
   - Vue 2 components (`components/records/*`, `RecordsView.vue`) only bind these to templates. Records shows an
     explicit empty state when the Recorder is not running.
 - **Parity with draft 1.** The rebuilt Records page keeps every feature of the draft 1 page: list and cards views,
   the search bar, filters and bulk actions, and it is reachable from the BlueOS menu. Dropping one is a product
-  decision recorded here, never a side effect of the rewrite.
+  decision recorded here, never a side effect of the rewrite. Each behaviour kept is a row of
+  `docs/architecture/records-page-acceptance.md`, checked on a vehicle.
 
 API (keys under `blueos/v1/recorder/`, messages in `blueos_recorder_msgs`):
 
 | Kind | Name | Message |
 |---|---|---|
-| state | `library` | `RecordingLibrary` (`RecordingFile[]`, newest first) |
-| job | `RepairRecording` / `DeleteRecording` / `SnapshotRecording` | `.action` with the Goal `string path` |
-| event | `operation` | `RecordingOperation` (repair, snapshot, delete; succeeded, cancelled, failed with a reason, output path) |
+| state | `library` | `RecordingLibrary` (`RecordingFile[]` newest first, `RecordingContents[]` keyed by path) |
+| job | `RepairRecording` / `DeleteRecording` / `SnapshotRecording` | lasting Job types (D-36), each an `.action` with the Goal `string path` |
+| state | `jobs/<JobType>/feedback` | `JobFeedbackList` of the Job type's `_Feedback` (D-12): a repair's read offset, a snapshot's output path |
+| event | `jobs/<JobType>/result` | `JobResult` of the Job type's `_Result`: how the Job ended, its reason, the path and a snapshot's output path |
+| query | `jobs/<JobType>/history` | `JobList` of the Job type's last finished Jobs |
 | query (`io`) | `index` | `RecordingIndex.srv` (paged chunk index + raw metadata records) |
+| query (`io`) | `bytes` | `RecordingBytes.srv` (a range of at most 1 MiB, or the file's tail, with the file's size, D-39) |
 
 Rejections (from the Python rules): repair when already repairing, already indexed, being written or written
 less than 10 s ago; cancel when not repairing; delete while being written, repaired or already being deleted;
-snapshot of a missing file; any path that is absolute, contains `..`, is not `.mcap`, or is not in the library.
+snapshot of a missing file or of any file but the one being written; any path that is absolute, contains `..`,
+is not `.mcap`, or is not in the library.
 A path is parsed once at the boundary into a validated recording path type; the Domain never receives an
 unvalidated path.
 
@@ -1019,8 +1042,9 @@ Decision:
 - A poisoned lock is never `.expect`ed; one panic must not cascade into every task that shares the lock.
 - An Inbox loop recovery marks the service degraded. Three loop panics within one minute make the process exit
   non-zero.
-- Exit codes: anything unrecoverable exits non-zero, so `core/run-service.sh` restarts the service. Exit 0 means
-  an intentional stop, which the supervisor does not restart. The container supervisor stays the outer ring.
+- Exit codes: anything unrecoverable exits non-zero, so the log says why. `core/run-service.sh` restarts a service
+  on any exit; only a container stop (SIGTERM to `run-service`) ends it. The container supervisor stays the outer
+  ring.
 
 Rationale: a process restart costs about 5 s, the tail of the MCAP file and a library rescan, so recovering in
 process is worth it; but a half-dead process that claims to be ready is worse than a restart, so whatever cannot
@@ -1045,33 +1069,67 @@ Decision:
 - **Test placement.** Tests that go through a crate's public API (L2 to L4, golden fixtures) live in its `tests/`
   folder. Tests that need private access live in a `#[cfg(test)] mod tests` inside the file they test. A crate-level
   `src/tests.rs` is not allowed.
-- **Gates that fail the build:** `cargo fmt`; clippy with `[workspace.lints]` (including `unsafe_code = "forbid"`,
-  `missing_docs` for public items, `unreachable_pub`, `allow_attributes` and `allow_attributes_without_reason`,
+- **Every Rust check is in one of three tiers: gate, ratchet or report.** A tool that cannot run fails its job in
+  every tier: the tier says what is done with the number a tool produces, never whether the tool ran. Each report
+  section names the exit codes that mean its tool ran, and writes the tool's version and exit code to the job
+  summary; a section that runs an in-repository script (the D-31 measures) has no version of its own and writes
+  only its exit code. Every section of a step runs, and the step then fails if any of them could not run.
+- **Gate** (zero findings, or the build fails): `cargo fmt`; clippy with `[workspace.lints]` (including
+  `unsafe_code = "forbid"`, `missing_docs` for public items, `unreachable_pub`, `allow_attributes` and
+  `allow_attributes_without_reason`,
   `pub_use`, `min_ident_chars`, `shadow_unrelated`, `std_instead_of_core`, `alloc_instead_of_core`,
   `wildcard_imports`, `await_holding_lock`, the clone lints, and `arbitrary_source_item_ordering` configured in
   `core/clippy.toml` to order item kinds only, never fields or variants, because field order is CDR wire order);
   the in-repo `syn` checker (below); `cargo deny check bans licenses sources`; `cargo nextest run` with a per-test
-  timeout, plus `cargo test --doc`; coverage with `cargo-llvm-cov` and per-layer floors kept in a committed ratchet
-  file that may only rise; `cargo machete`; `typos`; the dependency check (`cargo metadata` + `jq`: every
+  timeout, plus `cargo test --doc`, and a flake hunt that reruns the integration tests a pull request or a push
+  changed; `cargo machete`; `typos` (every service included); the dependency check (`cargo metadata` + `jq`: every
   dependency of a member, dev and build dependencies included, is `workspace = true`, and every
   `[workspace.dependencies]` entry sets `default-features = false` unless a committed exception file lists it with a
   reason); the folder check and the `no_std` and wasm32 builds (D-02);
-  `api.lock` and the generated-code comparison (D-05, D-06, D-26); `cargo auditable build`.
-- **Advisories** (`cargo deny check advisories`) report on pull requests and fail on the scheduled run, so a new
-  advisory in a transitive dependency does not turn every open pull request red. The scheduled run also reports
-  outdated direct dependencies, report only; each upgrade is its own pull request.
+  `api.lock` and the generated-code comparison (D-05, D-06, D-26); `cargo auditable build`; and, on the pinned
+  nightly, `cargo udeps` (it agrees with `cargo machete` at zero), the address sanitizer on the example domain lib,
+  and lockbud's deadlock detector on the workspace crates. lockbud links against rustc internals, so it runs on the
+  nightly its pinned commit names, and it exits 0 whatever it finds, so it must first report the known deadlock in
+  `.github/lockbud-canary`.
+- **Advisories** (`cargo deny check advisories`) fail on pushes and report on pull requests, so a new advisory in a
+  transitive dependency does not turn every open pull request red. Scheduled runs only reach `master`, which has no
+  Rust jobs. An ignored advisory in `core/deny.toml` says whether a patch exists, which dependency holds the old
+  version back, and why it does not reach BlueOS.
+- **Ratchet** (findings counted per category against committed ceilings; a count above its ceiling fails, and a
+  ceiling may only fall): every count in `rustqual`'s `--save-baseline` output, `total_findings` included, and
+  thai-lint's findings per rule (`unwrap-abuse`, `clone-abuse`, `blocking-async`), with ceilings in
+  `core/quality-ratchet.toml`; line coverage per layer, with floors in `core/coverage-ratchet.toml`.
+  - The quality ratchet runs in the pre-push hook and the lint job. A count below its ceiling also fails, until
+    `./.hooks/pre-push --fix` lowers the ceiling; fix mode never raises one. A measured category without a ceiling,
+    or a ceiling for a category the tool does not report, fails, so a new `rustqual` version cannot add categories
+    silently. A tool that crashes or writes no JSON fails the check, and fix mode then writes nothing.
+  - A `rustqual` suppression is a `// qual:allow` with a written reason, and an exceeded `max_suppression_ratio`
+    fails.
+  - CI compares both ratchet files with the base revision (the pull request's base, or the commit a push replaced)
+    and fails when a ceiling rose, a floor fell, or a key was removed, and when the base revision cannot be
+    resolved. Loosening one on purpose (for example, for a
+    new `rustqual` rule) takes a commit that touches only the ratchet file plus a note here, and that commit fails
+    the check for a maintainer to accept.
+  - Gating on `rustqual`'s quality score or `--fail-on-regression` is rejected: the score is a ratio over all
+    functions, so trivial functions raise it while violations grow, and its baseline stores only counts.
+  - Counting per category lets one fix pay for one new finding in the same category. Tracking each finding's
+    identity (file, rule, function) would close that, but it breaks on every rename or move; revisit if the counts
+    stay flat while findings churn.
 - **`std` paths in `std` crates.** `std_instead_of_core` and `alloc_instead_of_core` are denied, but
   `std_instead_of_alloc` is not: adapter and app crates use `std::` for allocating types, because `alloc::` would
   need `extern crate alloc;` in crates that will never be `no_std`. The `no_std` and wasm32 builds of `logic/`
   (D-02) are what guarantee portability.
-- **Report only:** `cargo bloat`; benchmarks, binary size and build timings (D-33); a pinned nightly job (`cargo udeps`, branch coverage, sanitizers, lockbud);
-  `rustqual` (exact version pinned, `rustqual.toml` written by hand at its documented defaults), thai-lint and
-  ast-metrics.
-- CI has eight Rust jobs on pull requests: lint, test (with coverage), supply chain, report-only quality,
-  report-only nightly, report-only benchmarks (D-33), backend conformance (with a zenohd service container), and
+- **Report** (a measurement with no findings, shown in the job summary): `cargo bloat`; ast-metrics; the `rustqual`
+  and thai-lint finding listings, whose counts the ratchet gates; branch coverage numbers from the pinned nightly; the outdated direct dependencies, each upgrade being its own pull request; the
+  D-31 ergonomics measures; benchmarks, binary size and build timings (D-33).
+- `rustqual` and thai-lint are pinned to exact versions in `.hooks/lib/rust_checks.sh`; `rustqual.toml` is written
+  by hand at the tool's documented defaults.
+- CI has eight Rust jobs on pull requests: lint, test (with coverage), supply chain, report quality, nightly (the
+  pinned-nightly gates and branch coverage), report-only benchmarks (D-33), backend conformance (with a zenohd service container), and
   the cross build (D-16). The Pi benchmarks run only on pushes to master, and the release profile variants only on
   manual trigger (D-33). Tools are installed prebuilt
-  (`taiki-e/install-action`), never with `cargo install`. Coverage stays out of the pre-push hook because it
+  (`taiki-e/install-action`), never with `cargo install`, except `rustqual` and lockbud, which publish no binaries:
+  CI builds each once per pinned version and caches it. Coverage stays out of the pre-push hook because it
   changes `RUSTFLAGS` and invalidates the developer's target folder.
 - **Style guide.** The full text lives in `docs/architecture/rust-style.md`. Its checklist is mirrored, between
   markers, into `AGENTS.md` and a committed `.cursor/rules/rust-blueos.mdc` (globs `core/**/*.rs`), and a drift
@@ -1165,7 +1223,7 @@ Decision:
   `pi5-builder`) and upload their results as a trend. They never run on pull requests, because code from a fork
   must not run on a self-hosted runner.
 - No hosted benchmark service (Bencher Cloud, CodSpeed): history is the CI artifacts.
-- The Rust toolchain is pinned in `core/rust-toolchain.toml` and bumped only in a dedicated pull request, so a
+- The Rust toolchain is pinned in a toolchain file under `core/` and bumped only in a dedicated pull request, so a
   compiler change shows as one step in the trend.
 - **Size and compile time.** Every pull request records the stripped and the zstd-compressed size of `blueos` per
   target, and the cross build uploads its `cargo build --timings` report. Release profile variants
@@ -1179,7 +1237,8 @@ Decision:
 - **Load scenario** (test layer L6). A committed Python script, run with `uv` by a person from a topside computer,
   never in CI. It serves a fixed H.264 clip at 50 Mbps over RTSP with GStreamer (looped without re-encoding; the
   repository keeps its checksum and source, not the file), creates the redirect stream in MAVLink Camera Manager,
-  arms SITL and starts the recording. Phases of 60 s each: idle; one stream redirected; armed (MAVLink only); one
+  and arms SITL; the recording is always on, so arming makes it record MAVLink and a MAVLink camera start capture
+  command makes it record a stream. Phases of 60 s each: idle; one stream redirected; armed (MAVLink only); one
   stream recording; two streams recording. It samples CPU and memory of the Recorder, MAVLink Camera Manager,
   `zenohd` and the whole system over ssh, and checks that the MCAP file holds every frame and byte sent. The
   out-of-tree Recorder is measured with the same script on the same device and image, and is the reference.
@@ -1277,8 +1336,8 @@ Decision:
 - **Execution.** A running Job runs through the reconcile pattern (D-27). Steps inside a Job are the Domain's own
   state machine; a multi-step flow that is a product feature is its own Job type. Clients never submit job graphs.
 - **Only Requests create Jobs.** Work the Domain starts by itself, on an Observed fact or a Tick (the Recorder
-  starting a recording when the vehicle arms or when a MAVLink camera command arrives), shows in its State and is
-  never a Job. A Job is what a client asked for; a Domain never submits Jobs to itself.
+  recording MAVLink while the vehicle is armed, or a stream after a MAVLink camera start capture command), shows in
+  its State and is never a Job. A Job is what a client asked for; a Domain never submits Jobs to itself.
 - **Visibility.** Active Jobs are the `jobs` State, their Feedback is a State per Job type, and the end of a Job is an
   Event carrying its Job result; the last N finished Jobs of each type are a Query (D-12). Nothing grows without
   bound.
@@ -1337,6 +1396,53 @@ Decision:
 
 Rationale: the late-joiner capability, ROS 2 durability and the framework's initialization rule become one feature,
 and swapping the local transport touches one driver.
+
+## D-39 Recording bytes on the backbone, downloads on nginx
+
+Context: D-23 first kept recording bytes on nginx, the one exception to D-08, because browsers need ranges. A
+prototype read them through a Recorder Query instead and was measured on a Raspberry Pi 5 over gigabit Ethernet
+(Chrome, 64 MiB of a finished 173 MB recording, alternating with nginx's HTTP ranges):
+
+| | First prototype | Final | nginx |
+|---|---|---|---|
+| Sequential read | 15.5-16.9 MiB/s | 105.7-109.2 MiB/s | 105.1-105.4 MiB/s |
+| Open to the first frame | 62-110 ms | 10-13 ms | 9 ms |
+| One thumbnail | 75-141 ms | 32-36 ms | 30-31 ms |
+
+Every gap had a root cause in the stack, not in the transport:
+
+- Nagle's algorithm on the `remote_api` plugin's websocket: a small message waited up to 40 ms for nginx's delayed
+  ACK. The plugin now sets `TCP_NODELAY`, in the zenoh fork release `1.9.0-shared-memory-1` (D-09).
+- `uint8[]` was decoded into a number array in the browser and encoded one byte at a time in Rust; both now copy the
+  bytes whole.
+- A Query resolved on the query's end instead of its reply, and opening took two serial queries (size, then
+  footer) where a suffix range takes one.
+- The browser hands websocket messages to the page on its main thread, while it fills a fetch body off it, so
+  decoding frames stalled the source. The frame stream reads two chunks ahead.
+
+Decision:
+
+- The Records page reads recordings (player, thumbnails, CSV export) only through the Recorder's `bytes` Query
+  (`io = true`, `RecordingBytes.srv`): a range of at most 1 MiB per reply, or the last `length` bytes with
+  `from_end`, each with the file's size when it was read. A longer `length` is clamped, as HTTP ranges are, and the
+  client splits a long read into several queries. No exception to D-08 is left.
+- nginx keeps serving `/userdata/recorder/<path>` for whole-file and snapshot downloads, which a browser needs as a
+  plain URL.
+- `libs/mcap` takes the `ByteSource` it reads; the recorder client builds it from a recording path (D-23).
+
+Costs accepted:
+
+- Vehicle CPU while a page reads at full rate: the recorder takes 10 % of one core on average with peaks of 22 %,
+  and zenohd 9 % with peaks of 21 %, against 1-3 % for nginx, which `sendfile`s from the page cache. Each reply is
+  built whole and copied through the recorder, zenohd and the plugin.
+- A busy page slows Zenoh more than fetch: with an added 2 ms busy loop every 6 ms, nginx reads at 104 MiB/s and
+  Zenoh at 83-85. Running the Zenoh session in a web worker would remove this; it is not done.
+- The Recorder serves one `bytes` Query at a time, as it does the `index` Query (D-23), and replies share the page's one
+  websocket with every State and Event; the 1 MiB reply bounds how long one reply holds it.
+
+Rationale: every read the page makes goes through one transport and the versioned API, so extensions, remote
+clients and the ROS 2 gateway (D-38) read recordings the same way, and access control, when it comes, has one place
+to go. On the reference vehicle this costs no throughput.
 
 ## Open items
 

@@ -193,9 +193,9 @@ class Helper:
     # Whether we should or not keep a BlueOS system service when it's TCP port is not alive.
     # If 'False', when a service dies, it is not returned as an available service
     KEEP_BLUEOS_SERVICES_ALIVE = False
-    # Wether or not we should rescan periodically all services
+    # Whether or not we should rescan periodically all services
     PERIODICALLY_RESCAN_ALL_SERVICES = False
-    # Wether or not we should rescan periodically just the 3rdparty services (extensions)
+    # Whether or not we should rescan periodically just the 3rdparty services (extensions)
     PERIODICALLY_RESCAN_3RDPARTY_SERVICES = True
 
     MAX_ATTEMPTS_LEFT = 3
@@ -217,7 +217,7 @@ class Helper:
         try_json: bool = False,
         follow_redirects: int = 0,
     ) -> SimpleHttpResponse:
-        """This function is a simple wrappper around http.client to make convenient requests and get the answer
+        """This function is a simple wrapper around http.client to make convenient requests and get the answer
         knowing that it will never raise"""
 
         conn: Optional[Union[http.client.HTTPConnection, http.client.HTTPSConnection]] = None
@@ -603,7 +603,7 @@ def hardware_id() -> Any:
 @fast_api_app.get(
     "/software_id",
     response_model=str,
-    summary="An UUID that can bse used as unique identifier, generated once on BlueOS first boot.",
+    summary="An UUID that can be used as unique identifier, generated once on BlueOS first boot.",
 )
 @version(1, 0)
 @cache
@@ -735,7 +735,7 @@ port_to_service_map: Dict[int, str] = parse_nginx_file("/home/pi/tools/nginx/ngi
 async def main() -> None:
     await init_sentry_async(SERVICE_NAME)
 
-    config = Config(app=app, host="0.0.0.0", port=Helper.PORT, log_config=None)
+    config = Config(app=app, host="0.0.0.0", port=Helper.PORT, log_config=None, timeout_graceful_shutdown=2)
     server = Server(config)
 
     periodic_task = asyncio.create_task(periodic())

@@ -9,6 +9,14 @@ deny = [
     { crate = "zenoh", wrappers = ["blueos-comms-zenoh"], reason = "zenoh stays behind the zenoh driver" },
 ]
 
+[advisories]
+ignore = [
+    { id = "RUSTSEC-2026-0041", reason = "patched in lz4_flex 0.11.6, but zenoh-transport 1.9.0 (pinned by zenoh =1.9.0) requires lz4_flex ^0.10; the affected decompression only compiles under zenoh's transport_compression feature, which is off" },
+    { id = "RUSTSEC-2026-0194", reason = "patched in quick-xml 0.41.0, but mavlink-bindgen 0.18.0 (the build dependency of mavlink 0.18) requires quick-xml ^0.39; it only parses the MAVLink definitions bundled with mavlink, at build time" },
+    { id = "RUSTSEC-2026-0195", reason = "patched in quick-xml 0.41.0, but mavlink-bindgen 0.18.0 (the build dependency of mavlink 0.18) requires quick-xml ^0.39; it only parses the MAVLink definitions bundled with mavlink, at build time" },
+    { id = "RUSTSEC-2024-0436", reason = "no patch exists: paste is unmaintained with no successor; mcap 0.25 and token-cell 2.1 (through zenoh-keyexpr) pull it in as a proc-macro, so it only runs at build time" },
+]
+
 [licenses]
 allow = [
     "MIT",
@@ -19,7 +27,6 @@ allow = [
     "ISC",
     "Unicode-3.0",
     "Zlib",
-    "CC0-1.0",
     "MPL-2.0",
     "EPL-2.0",
 ]

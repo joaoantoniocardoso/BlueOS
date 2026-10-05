@@ -5,13 +5,12 @@
 extern crate alloc;
 
 pub mod durable;
-pub mod job;
 
-use core::{convert::Infallible, fmt};
+use core::convert::Infallible;
 
-use alloc::{borrow::ToOwned, vec::Vec};
+use alloc::{borrow::ToOwned, string::ToString, vec::Vec};
 use blueos_domain::{Command, Decision, Domain, DomainDurable, DomainQueries, Now, Outcome};
-use blueos_jobs::{DomainJobs, JobEnd, JobGraph, JobId, JobKind, JobStatus, Jobs, LeafJob};
+use blueos_jobs::{DomainJobs, JobEnd, JobId, JobStatus, Jobs};
 use blueos_recorder_cameras::{
     Cameras, CamerasIoRequest, CamerasIoResult, CamerasObservedFact, CamerasTick, CamerasTimerKey,
 };
@@ -20,15 +19,13 @@ use blueos_recorder_capture::{
     RecordingState as CaptureRecordingState,
 };
 use blueos_recorder_library::{
-    Library, LibraryEvent, LibraryIoRequest, LibraryIoResult, LibraryRejection,
-    LibraryRepairOutcome, LibraryRepairProgress, LibraryRequest, LibrarySnapshotOutcome,
-    LibraryTick, LibraryTimerKey, RecordingOperationEvent, RepairFailure,
-    snapshot_output_relative_path,
+    Library, LibraryIoRequest, LibraryIoResult, LibraryObservedFact, LibraryOperation,
+    LibraryRejection, LibraryRepairOutcome, LibraryRequest, LibrarySnapshotOutcome, LibraryTick,
+    LibraryTimerKey, snapshot_output_relative_path,
 };
 use blueos_recorder_paths::RecordingRelativePath;
 
 use durable::RecorderDurableState;
-use job::RecorderJobStep;
 
 /// Persisted Recorder settings (the same fields as [`CaptureSettings`] until the api crate owns conversions).
 pub type RecorderSettings = CaptureSettings;
@@ -45,7 +42,7 @@ pub struct RecorderSnapshot {
     /// MAVLink camera protocol and video stream registration.
     pub cameras: Cameras,
     /// Long-running repair Jobs.
-    pub jobs: Jobs<RecorderJobStep>,
+    pub jobs: Jobs,
 }
 
 /// Client Commands for the Recorder.
@@ -74,21 +71,22 @@ pub enum RecorderRequest {
     Startup,
     /// Rewrites an unindexed recording in place.
     RepairRecording {
-        /// Path validated at the api boundary.
-        path: RecordingRelativePath,
-    },
-    /// Stops a running repair without touching the original file.
-    CancelRepair {
+        /// The Job the repair runs as.
+        job_id: JobId,
         /// Path validated at the api boundary.
         path: RecordingRelativePath,
     },
     /// Removes a finished recording from the library folder.
     DeleteRecording {
+        /// The Job the delete runs as.
+        job_id: JobId,
         /// Path validated at the api boundary.
         path: RecordingRelativePath,
     },
     /// Writes an indexed copy of a recording (typically while it is still being written).
     SnapshotRecording {
+        /// The Job the snapshot runs as.
+        job_id: JobId,
         /// Path validated at the api boundary.
         path: RecordingRelativePath,
     },
@@ -101,8 +99,8 @@ pub enum RecorderObservedFact {
     Capture(CaptureObservedFact),
     /// Fact from the cameras Block.
     Cameras(CamerasObservedFact),
-    /// Repair read offset from library IO.
-    LibraryRepairProgress(LibraryRepairProgress),
+    /// Repair progress and the end of a repair or snapshot, from the library operations Task.
+    Library(LibraryObservedFact),
 }
 
 /// Domain events published after a Command is acknowledged.
@@ -110,8 +108,6 @@ pub enum RecorderObservedFact {
 pub enum RecorderEvent {
     /// Event from the capture Block.
     Capture(CaptureEvent),
-    /// Repair, snapshot, or delete finished.
-    RecordingOperation(RecordingOperationEvent),
 }
 
 /// Queries against the Recorder Snapshot.
@@ -167,6 +163,23 @@ impl RecorderSnapshot {
     pub fn record_gate(&self) -> RecordGate {
         self.capture.record_gate()
     }
+
+    /// Builds the projection the library operations Task follows: the library's operations, without a repair
+    /// whose Job a client is cancelling, so the Task stops it.
+    pub fn library_operations(&self) -> Vec<LibraryOperation> {
+        self.library
+            .operations()
+            .iter()
+            .filter(|operation| match operation {
+                LibraryOperation::Repair { job_id, .. } => !self
+                    .jobs
+                    .job(*job_id)
+                    .is_some_and(|job| job.status == JobStatus::Canceling),
+                LibraryOperation::Snapshot { .. } => true,
+            })
+            .cloned()
+            .collect()
+    }
 }
 
 impl Domain for RecorderDomain {
@@ -189,7 +202,7 @@ impl Domain for RecorderDomain {
         let active = active_recording_relative_path.as_deref();
         match command {
             Command::Request(request) => match request {
-                RecorderRequest::RepairRecording { path } => {
+                RecorderRequest::RepairRecording { job_id, path } => {
                     if let Some(reason) =
                         snapshot
                             .library
@@ -197,49 +210,21 @@ impl Domain for RecorderDomain {
                     {
                         return Outcome::reject(LibraryRejection::new(reason));
                     }
-                    let started =
-                        snapshot
-                            .jobs
-                            .start(JobGraph::Leaf(RecorderJobStep::RepairRecording {
-                                path: path.clone(),
-                            }));
-                    let leaf_job_id = started
-                        .leaves
-                        .first()
-                        .expect("repair Job has one leaf")
-                        .job_id;
-                    let library = snapshot.library.start_repair(
-                        path,
-                        started.job_id,
-                        leaf_job_id,
-                        active,
-                        now,
-                    );
-                    merge_job_and_library(started.leaves, library)
+                    map_library_outcome(snapshot.library.start_repair(path, job_id, active, now))
                 }
-                RecorderRequest::CancelRepair { path } => {
-                    let relative = path.as_str();
-                    if let Some(root_job_id) = snapshot.library.repair_root_job_id(relative) {
-                        let _cancelling = snapshot.jobs.cancel(root_job_id);
-                    }
+                RecorderRequest::DeleteRecording { job_id, path } => {
                     map_library_outcome(snapshot.library.handle_request(
-                        LibraryRequest::CancelRepair { path },
+                        LibraryRequest::DeleteRecording { path, job_id },
                         active,
                         now,
                     ))
                 }
-                RecorderRequest::DeleteRecording { path } => {
-                    map_library_outcome(snapshot.library.handle_request(
-                        LibraryRequest::DeleteRecording { path },
-                        active,
-                        now,
-                    ))
-                }
-                RecorderRequest::SnapshotRecording { path } => {
+                RecorderRequest::SnapshotRecording { job_id, path } => {
                     let output_path = snapshot_output_relative_path(path.as_str(), now);
                     map_library_outcome(snapshot.library.start_snapshot(
                         path,
                         output_path,
+                        job_id,
                         active,
                         now,
                     ))
@@ -271,7 +256,10 @@ impl Domain for RecorderDomain {
                         .handle_request(CaptureRequest::StopVideoRecording { topic }, now),
                 ),
             },
-            Command::Tick(RecorderTick::Restored) => merge_restored(snapshot),
+            Command::Tick(RecorderTick::Restored) => Outcome::Applied {
+                events: Vec::new(),
+                effects: Vec::new(),
+            },
             Command::Tick(RecorderTick::Library(tick)) => {
                 map_library_outcome(Library::handle_tick(tick))
             }
@@ -281,18 +269,15 @@ impl Domain for RecorderDomain {
                 map_cameras_outcome(outcome)
             }
             Command::IoResult(RecorderIoResult::Library(result)) => {
-                let job_id = match &result {
-                    LibraryIoResult::RepairFinished { path, .. } => {
-                        snapshot.library.repair_leaf_job_id(path.as_str())
-                    }
-                    _ => None,
-                };
-                let decision =
-                    map_library_outcome(snapshot.library.handle_io_result(result, active, now));
-                if let Some(job_id) = job_id {
-                    finish_repair_job(snapshot, job_id, &decision);
+                if let LibraryIoResult::DeleteFinished { job_id, error, .. } = &result {
+                    let end = error
+                        .as_ref()
+                        .map_or(JobEnd::Succeeded, |error| JobEnd::Aborted {
+                            reason: error.to_string(),
+                        });
+                    let _ended = snapshot.jobs.end(*job_id, end);
                 }
-                decision
+                map_library_outcome(snapshot.library.handle_io_result(result, active, now))
             }
             Command::IoResult(RecorderIoResult::Cameras(CamerasIoResult::PublishFailed)) => {
                 Outcome::Applied {
@@ -308,12 +293,16 @@ impl Domain for RecorderDomain {
                 sync_capture_video_recording(snapshot);
                 map_cameras_outcome(outcome)
             }
-            Command::ObservedFact(RecorderObservedFact::LibraryRepairProgress(progress)) => {
-                map_library_outcome(
-                    snapshot
-                        .library
-                        .handle_repair_progress(progress, active, now),
-                )
+            Command::ObservedFact(RecorderObservedFact::Library(fact)) => {
+                let end = job_end(&fact);
+                let decision =
+                    map_library_outcome(snapshot.library.handle_observed_fact(fact, active, now));
+                if let Some(end) = end
+                    && let Some(operation) = snapshot.library.ended_operation()
+                {
+                    let _ended = snapshot.jobs.end(operation.job_id(), end);
+                }
+                decision
             }
         }
     }
@@ -327,30 +316,12 @@ impl Domain for RecorderDomain {
                 let _ = error;
                 Command::IoResult(RecorderIoResult::Library(LibraryIoResult::ScanFailed))
             }
-            RecorderIoRequest::Library(LibraryIoRequest::Delete { path }) => {
+            RecorderIoRequest::Library(LibraryIoRequest::Delete { path, job_id }) => {
                 Command::IoResult(RecorderIoResult::Library(LibraryIoResult::DeleteFinished {
                     path,
+                    job_id,
                     error: Some(error),
                 }))
-            }
-            RecorderIoRequest::Library(LibraryIoRequest::Repair { path }) => {
-                Command::IoResult(RecorderIoResult::Library(LibraryIoResult::RepairFinished {
-                    path,
-                    outcome: LibraryRepairOutcome::Failed(RepairFailure::Io),
-                }))
-            }
-            RecorderIoRequest::Library(LibraryIoRequest::CancelRepair { path }) => {
-                let _ = (path, error);
-                Command::IoResult(RecorderIoResult::Library(LibraryIoResult::ScanFailed))
-            }
-            RecorderIoRequest::Library(LibraryIoRequest::Snapshot { path, output_path }) => {
-                Command::IoResult(RecorderIoResult::Library(
-                    LibraryIoResult::SnapshotFinished {
-                        path,
-                        output_path,
-                        outcome: LibrarySnapshotOutcome::Failed(RepairFailure::Io),
-                    },
-                ))
             }
             RecorderIoRequest::Cameras(_) => {
                 let _ = error;
@@ -384,25 +355,12 @@ impl DomainDurable for RecorderDomain {
 }
 
 impl DomainJobs for RecorderDomain {
-    type Step = RecorderJobStep;
-
-    fn jobs(snapshot: &Self::Snapshot) -> &Jobs<Self::Step> {
+    fn jobs(snapshot: &Self::Snapshot) -> &Jobs {
         &snapshot.jobs
     }
 
-    fn jobs_mut(snapshot: &mut Self::Snapshot) -> &mut Jobs<Self::Step> {
+    fn jobs_mut(snapshot: &mut Self::Snapshot) -> &mut Jobs {
         &mut snapshot.jobs
-    }
-}
-
-impl fmt::Display for RecorderJobStep {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::RepairRecording { path } => {
-                formatter.write_str("repair ")?;
-                formatter.write_str(path.as_str())
-            }
-        }
     }
 }
 
@@ -425,67 +383,32 @@ fn active_recording_relative_path(snapshot: &RecorderSnapshot) -> Option<&str> {
     }
 }
 
-fn finish_repair_job(
-    snapshot: &mut RecorderSnapshot,
-    job_id: JobId,
-    decision: &Decision<RecorderDomain>,
-) {
-    let end = match decision {
-        Outcome::Applied { events, .. } => {
-            let cancelled = events.iter().any(|event| {
-                matches!(
-                    event,
-                    RecorderEvent::RecordingOperation(operation)
-                        if operation.cancelled
-                )
-            });
-            let failed = events.iter().any(|event| {
-                matches!(
-                    event,
-                    RecorderEvent::RecordingOperation(operation)
-                        if !operation.succeeded && !operation.cancelled
-                )
-            });
-            if cancelled {
-                JobEnd::Cancelled
-            } else if failed {
-                JobEnd::Failed
-            } else {
-                JobEnd::Succeeded
-            }
+/// How the Job of a repair or snapshot ends, when `fact` reports that the operation ended.
+fn job_end(fact: &LibraryObservedFact) -> Option<JobEnd> {
+    match fact {
+        LibraryObservedFact::RepairProgress(_) => None,
+        LibraryObservedFact::RepairFinished {
+            outcome: LibraryRepairOutcome::Succeeded,
+            ..
         }
-        Outcome::Rejected { .. } => JobEnd::Failed,
-    };
-    let _finished = snapshot.jobs.finish(job_id, end);
-}
-
-fn merge_job_and_library(
-    _leaves: Vec<LeafJob<RecorderJobStep>>,
-    library: Outcome<LibraryEvent, LibraryTick, LibraryIoRequest, LibraryTimerKey>,
-) -> Decision<RecorderDomain> {
-    map_library_outcome(library)
-}
-
-fn merge_restored(snapshot: &mut RecorderSnapshot) -> Decision<RecorderDomain> {
-    let interrupted_repairs: Vec<JobId> = snapshot
-        .jobs
-        .list()
-        .into_iter()
-        .filter(|view| view.status == JobStatus::Interrupted)
-        .filter(|view| {
-            matches!(
-                view.kind,
-                JobKind::Leaf(RecorderJobStep::RepairRecording { .. })
-            )
-        })
-        .map(|view| view.job_id)
-        .collect();
-    for job_id in interrupted_repairs {
-        let _finished = snapshot.jobs.finish(job_id, JobEnd::Failed);
-    }
-    Outcome::Applied {
-        events: Vec::new(),
-        effects: Vec::new(),
+        | LibraryObservedFact::SnapshotFinished {
+            outcome: LibrarySnapshotOutcome::Succeeded,
+            ..
+        } => Some(JobEnd::Succeeded),
+        LibraryObservedFact::RepairFinished {
+            outcome: LibraryRepairOutcome::Cancelled,
+            ..
+        } => Some(JobEnd::Canceled),
+        LibraryObservedFact::RepairFinished {
+            outcome: LibraryRepairOutcome::Failed(failure),
+            ..
+        }
+        | LibraryObservedFact::SnapshotFinished {
+            outcome: LibrarySnapshotOutcome::Failed(failure),
+            ..
+        } => Some(JobEnd::Aborted {
+            reason: failure.to_string(),
+        }),
     }
 }
 
@@ -547,12 +470,10 @@ fn map_capture_outcome(
 }
 
 fn map_library_outcome(
-    outcome: Outcome<LibraryEvent, LibraryTick, LibraryIoRequest, LibraryTimerKey>,
+    outcome: Outcome<Infallible, LibraryTick, LibraryIoRequest, LibraryTimerKey>,
 ) -> Decision<RecorderDomain> {
     outcome.map(
-        |event| match event {
-            LibraryEvent::Operation(operation) => RecorderEvent::RecordingOperation(operation),
-        },
+        |never| match never {},
         RecorderTick::Library,
         RecorderIoRequest::Library,
         RecorderTimerKey::Library,

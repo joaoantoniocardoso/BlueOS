@@ -122,10 +122,20 @@ start_service() {
   add_to_cgroup $service_pid
   add_child_processes_to_cgroup $service_pid
 
-  # Wait for the process to complete and capture its exit code
-  wait $service_pid
-  return $?
+  # Wait for the process to complete; a trapped SIGTERM interrupts wait before it has exited
+  while kill -0 $service_pid 2>/dev/null; do
+    wait $service_pid
+  done
 }
+
+# SIGTERM means BlueOS is stopping: stop the service and do not restart it.
+# The service runs as a child of the eval subshell, so signal that child rather than the subshell.
+stopping=false
+stop_service() {
+  stopping=true
+  [ -n "$service_pid" ] && pkill -TERM -P $service_pid
+}
+trap stop_service TERM
 
 # Build limits description for logging
 get_limits_description() {
@@ -138,17 +148,18 @@ get_limits_description() {
   echo "$desc"
 }
 
-# Continuously run the service, restarting if it stops or exceeds resource limits
+# Continuously run the service, restarting whenever it exits (even with 0) until BlueOS is stopping
 while true; do
   echo "Starting service: $service_command with limits: $(get_limits_description)"
-  if ! start_service; then
-    timestamp=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
-    echo "$timestamp: Service ($service_command) exceeded resource limit or stopped. Restarting..." | tee -a "$LOG_FILE"
-  else
-    echo "Service ($service_command) completed successfully."
+  start_service
+  if [ "$stopping" = true ]; then
+    echo "Service ($service_command) stopped."
     break
   fi
+  timestamp=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+  echo "$timestamp: Service ($service_command) exceeded resource limit or stopped. Restarting..." | tee -a "$LOG_FILE"
 
   sleep 5
+  [ "$stopping" = true ] && break
   echo "Restarting service: $service_command"
 done

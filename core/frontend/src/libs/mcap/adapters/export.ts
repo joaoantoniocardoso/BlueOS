@@ -34,6 +34,16 @@ export interface Mp4ExportOptions {
   signal?: AbortSignal
 }
 
+/** The stream, or the part of it asked for, holds no keyframe, so there is nothing that can be saved. */
+export class NoKeyframeError extends Error {
+  constructor(ranged: boolean) {
+    super(ranged
+      ? 'The selected part of this video stream holds no keyframe, so there is nothing that can be saved.'
+      : 'This video stream holds no keyframe, so there is nothing that can be saved.')
+    this.name = 'NoKeyframeError'
+  }
+}
+
 interface HeldSample {
   data: Uint8Array
   logTime: bigint
@@ -60,6 +70,9 @@ export async function exportTrackAsMp4(
   const cursor = new DecodableFrameCursor(stream, recording.reader, track, false)
   let writer: Mp4FileStream | null = null
   let held: HeldSample | null = null
+  // The frames before the start from the last keyframe there on: the least that decodes the start.
+  let preRoll: HeldSample[] = []
+  let reachedStart = false
   let duration = 1 / 30
   let bytes = 0
   const shouldReport = createProgressGate()
@@ -86,12 +99,28 @@ export async function exportTrackAsMp4(
     }
   }
 
+  async function hold(sample: HeldSample): Promise<void> {
+    if (held) {
+      duration = clampSampleDuration(Number(sample.logTime - held.logTime) / 1e9)
+      await emit(held, duration)
+    }
+    held = sample
+  }
+
   for (;;) {
     throwIfAborted(signal, 'The export was cancelled.')
     // eslint-disable-next-line no-await-in-loop
     const frame = await cursor.next(signal)
     if (!frame) {
       break
+    }
+    const sample = { data: frame.annexB, logTime: frame.logTime, isKeyframe: frame.isKeyframe }
+    if (!reachedStart && stream.toSeconds(frame.logTime) < startSeconds) {
+      if (frame.isKeyframe) {
+        preRoll = []
+      }
+      preRoll.push(sample)
+      continue
     }
     if (endLogTime !== null && frame.logTime > endLogTime) {
       if (held) {
@@ -101,27 +130,26 @@ export async function exportTrackAsMp4(
       }
       break
     }
-
-    if (held) {
-      duration = clampSampleDuration(Number(frame.logTime - held.logTime) / 1e9)
-      // eslint-disable-next-line no-await-in-loop
-      await emit(held, duration)
+    // A stream with no frame inside the cut never gets here, so nothing of it is written.
+    if (!reachedStart) {
+      reachedStart = true
+      for (const preRollSample of preRoll) {
+        // eslint-disable-next-line no-await-in-loop
+        await hold(preRollSample)
+      }
     }
-    held = { data: frame.annexB, logTime: frame.logTime, isKeyframe: frame.isKeyframe }
+    // eslint-disable-next-line no-await-in-loop
+    await hold(sample)
   }
 
   if (!cursor.decoderInfo || !held && !writer) {
-    throw new Error(range
-      ? 'The selected part of this video stream holds no keyframe, so there is nothing that can be saved.'
-      : 'This video stream holds no keyframe, so there is nothing that can be saved.')
+    throw new NoKeyframeError(range !== undefined)
   }
   if (held) {
     await emit(held, duration)
   }
   if (!writer) {
-    throw new Error(range
-      ? 'The selected part of this video stream holds no keyframe, so there is nothing that can be saved.'
-      : 'This video stream holds no keyframe, so there is nothing that can be saved.')
+    throw new NoKeyframeError(range !== undefined)
   }
   return writer.finalize()
 }

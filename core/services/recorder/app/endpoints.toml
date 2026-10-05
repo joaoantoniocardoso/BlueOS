@@ -3,20 +3,17 @@
 
 service = "recorder"
 
-[command]
-Start = { request = "blueos_recorder_msgs/msg/StartRecordingCommand" }
-Stop = { request = "blueos_recorder_msgs/msg/StopRecordingCommand" }
-DeleteRecording = { request = "blueos_recorder_msgs/msg/DeleteRecordingCommand", custom = true }
-RepairRecording = { request = "blueos_recorder_msgs/msg/RepairRecordingCommand", custom = true }
-CancelRepair = { request = "blueos_recorder_msgs/msg/CancelRepairCommand", custom = true }
-SnapshotRecording = { request = "blueos_recorder_msgs/msg/SnapshotRecordingCommand", custom = true }
+[job]
+Start = { type = "blueos_recorder_msgs/action/StartRecording" }
+Stop = { type = "blueos_recorder_msgs/action/StopRecording" }
+DeleteRecording = { type = "blueos_recorder_msgs/action/DeleteRecording", nature = { lasting = true } }
+RepairRecording = { type = "blueos_recorder_msgs/action/RepairRecording", nature = { lasting = true, cancellable = true } }
+SnapshotRecording = { type = "blueos_recorder_msgs/action/SnapshotRecording", nature = { lasting = true } }
 
-[event]
-operation = { message = "blueos_recorder_msgs/msg/RecordingOperation" }
-
-[io_query]
-index = { request = "blueos_recorder_msgs/msg/RecordingIndexRequest", response = "blueos_recorder_msgs/msg/RecordingIndex" }
+[query]
+bytes = { type = "blueos_recorder_msgs/srv/RecordingBytes", io = true }
+index = { type = "blueos_recorder_msgs/srv/RecordingIndex", io = true }
 
 [state]
-recording = { message = "blueos_recorder_msgs/msg/RecordingState" }
-library = { message = "blueos_recorder_msgs/msg/RecordingLibrary" }
+recording = { type = "blueos_recorder_msgs/msg/RecordingState" }
+library = { type = "blueos_recorder_msgs/msg/RecordingLibrary" }

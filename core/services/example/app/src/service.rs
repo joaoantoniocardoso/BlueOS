@@ -1,4 +1,5 @@
-//! The `example-minimal` Service: Domain wiring through the generated [`endpoints::register`].
+//! The `example-minimal` Service: an empty Context, and Domain wiring through the generated
+//! [`endpoints::register`].
 
 use blueos_example_domain::{Pump, PumpSnapshot};
 use blueos_service::{Service, ServiceBuilder, ServiceContext, ServiceError};
@@ -16,15 +17,16 @@ impl Service for ExampleService {
     const NAME: &'static str = endpoints::NAME;
     const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
+    fn context(_service: &ServiceContext<ExampleArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<ExampleArguments>,
+        _service: &ServiceContext<ExampleArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<Pump>, ServiceError> {
-        Ok(
-            endpoints::register(ServiceBuilder::new(PumpSnapshot::default())).service_metadata(
-                Self::VERSION,
-                Self::BUILD,
-                Self::CAPABILITIES,
-            ),
-        )
+        Ok(endpoints::register(ServiceBuilder::new(
+            PumpSnapshot::default(),
+        )))
     }
 }

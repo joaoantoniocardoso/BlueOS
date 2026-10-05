@@ -30,6 +30,18 @@ export function jobsKey(service: string): string {
   return `${KEY_PREFIX}/${service}/jobs`
 }
 
+export function jobFeedbackKey(service: string, jobType: string): string {
+  return `${jobsKey(service)}/${jobType}/feedback`
+}
+
+export function jobResultKey(service: string, jobType: string): string {
+  return `${jobsKey(service)}/${jobType}/result`
+}
+
+export function jobHistoryKey(service: string, jobType: string): string {
+  return `${jobsKey(service)}/${jobType}/history`
+}
+
 export function settingsKey(service: string): string {
   return `${KEY_PREFIX}/${service}/settings`
 }

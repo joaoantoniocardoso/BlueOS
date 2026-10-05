@@ -49,7 +49,7 @@ export const blueosApiMixin = {
     async blueosWatchJob(
       transport: Transport,
       service: string,
-      jobId: number,
+      jobId: string,
       observer: JobObserver,
     ): Promise<Subscription> {
       return this.blueosTrackSubscription(watchJob(transport, service, jobId, observer))

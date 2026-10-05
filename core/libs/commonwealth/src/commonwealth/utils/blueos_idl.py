@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import struct
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -132,15 +133,17 @@ _INTERFACES_WARNING_LOGGED = False
 _LOAD_ATTEMPTED = False
 _LOAD_SUCCEEDED = False
 _LOAD_FAILURE: Literal["none", "missing_root", "incomplete"] = "none"
+_LOAD_LOCK = threading.Lock()
 
 
 def reset_runtime_state() -> None:
     global _INTERFACES_WARNING_LOGGED, _LOAD_ATTEMPTED, _LOAD_SUCCEEDED, _LOAD_FAILURE  # pylint: disable=global-statement
-    _MESSAGES.clear()
-    _INTERFACES_WARNING_LOGGED = False
-    _LOAD_ATTEMPTED = False
-    _LOAD_SUCCEEDED = False
-    _LOAD_FAILURE = "none"
+    with _LOAD_LOCK:
+        _MESSAGES.clear()
+        _INTERFACES_WARNING_LOGGED = False
+        _LOAD_ATTEMPTED = False
+        _LOAD_SUCCEEDED = False
+        _LOAD_FAILURE = "none"
 
 
 def _log_interfaces_issue(message: str) -> None:
@@ -155,23 +158,26 @@ def ensure_idl_loaded(interfaces_root: Path | None = None) -> None:
     global _LOAD_ATTEMPTED, _LOAD_SUCCEEDED, _LOAD_FAILURE  # pylint: disable=global-statement
     if _LOAD_SUCCEEDED:
         return
-    if _LOAD_ATTEMPTED and not _LOAD_SUCCEEDED:
-        if _LOAD_FAILURE == "missing_root":
-            root = interfaces_root or default_idl_interfaces_root()
+    with _LOAD_LOCK:
+        if _LOAD_SUCCEEDED:
+            return  # type: ignore[unreachable]
+        if _LOAD_ATTEMPTED and not _LOAD_SUCCEEDED:
+            if _LOAD_FAILURE == "missing_root":
+                root = interfaces_root or default_idl_interfaces_root()
+                raise FileNotFoundError(f"BlueOS IDL interfaces directory not found: {root}")
+            raise IdlCodecError("BlueOS IDL interfaces failed to load")
+        _LOAD_ATTEMPTED = True
+        root = interfaces_root or default_idl_interfaces_root()
+        if not root.is_dir():
+            _LOAD_FAILURE = "missing_root"
+            _log_interfaces_issue(f"BlueOS IDL interfaces directory not found: {root}")
             raise FileNotFoundError(f"BlueOS IDL interfaces directory not found: {root}")
-        raise IdlCodecError("BlueOS IDL interfaces failed to load")
-    _LOAD_ATTEMPTED = True
-    root = interfaces_root or default_idl_interfaces_root()
-    if not root.is_dir():
-        _LOAD_FAILURE = "missing_root"
-        _log_interfaces_issue(f"BlueOS IDL interfaces directory not found: {root}")
-        raise FileNotFoundError(f"BlueOS IDL interfaces directory not found: {root}")
-    try:
-        _load_interfaces(root)
-    except IdlCodecError:
-        _LOAD_FAILURE = "incomplete"
-        raise
-    _LOAD_SUCCEEDED = True
+        try:
+            _load_interfaces(root)
+        except IdlCodecError:
+            _LOAD_FAILURE = "incomplete"
+            raise
+        _LOAD_SUCCEEDED = True
 
 
 def _load_interfaces(root: Path) -> None:
@@ -179,6 +185,7 @@ def _load_interfaces(root: Path) -> None:
     for path in sorted(root.rglob("*.msg")):
         relative = path.relative_to(root).with_suffix("").as_posix()
         raw_text[relative] = path.read_text(encoding="utf-8")
+    raw_text.update(_interface_parts(root))
 
     messages: dict[str, MessageDef] = {}
     for schema_name, text in raw_text.items():
@@ -195,6 +202,20 @@ def _load_interfaces(root: Path) -> None:
 
     _MESSAGES.clear()
     _MESSAGES.update(messages)
+
+
+def _interface_parts(root: Path) -> dict[str, str]:
+    # Each part of a `.srv` or `.action` is a message named as in ROS 2: `<package>/srv/<Name>_Request`.
+    raw_text: dict[str, str] = {}
+    for suffix, part_names in ((".srv", ("Request", "Response")), (".action", ("Goal", "Result", "Feedback"))):
+        for path in sorted(root.rglob(f"*{suffix}")):
+            relative = path.relative_to(root).with_suffix("").as_posix()
+            parts = re.split(r"^---[ \t]*$", path.read_text(encoding="utf-8"), flags=re.MULTILINE)
+            if len(parts) != len(part_names):
+                raise IdlCodecError(f"{relative}{suffix} has {len(parts)} parts, expected {len(part_names)}")
+            for part_name, text in zip(part_names, parts):
+                raw_text[f"{relative}_{part_name}"] = text
+    return raw_text
 
 
 def _collect_missing_message_types(
@@ -215,7 +236,7 @@ def _collect_missing_message_types(
 
 
 def _package_prefix(schema_name: str) -> str:
-    return schema_name.split("/msg/", maxsplit=1)[0]
+    return schema_name.split("/", maxsplit=1)[0]
 
 
 def _normalize_message_type(type_reference: str, owning_schema: str) -> str:
@@ -531,6 +552,9 @@ def _encode_field(writer: CdrWriter, field_type: FieldType, value: Any) -> None:
 def _encode_message_fields(writer: CdrWriter, schema_name: str, value: dict[str, Any]) -> None:
     defaults = _defaults_for_message(schema_name)
     message_def = _MESSAGES[schema_name]
+    if not message_def.fields:
+        # ROS 2 puts one byte on the wire for an empty struct (structure_needs_at_least_one_member).
+        writer.write_u8(0)
     for name, field_type in message_def.fields:
         field_value = value.get(name, defaults[name])
         _encode_field(writer, field_type, field_value)
@@ -573,6 +597,8 @@ def _decode_field_value(reader: CdrReader, field_type: FieldType) -> Any:
 def _decode_message_fields(reader: CdrReader, schema_name: str) -> dict[str, Any]:
     message_def = _MESSAGES[schema_name]
     decoded: dict[str, Any] = {}
+    if not message_def.fields and not reader.is_exhausted():
+        reader.read_u8()
     for name, field_type in message_def.fields:
         if reader.is_exhausted():
             decoded[name] = _default_for_field(field_type)

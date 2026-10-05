@@ -8,15 +8,15 @@ use core::{
 };
 use std::sync::{Arc, Mutex, PoisonError};
 
-use blueos_idl::msg::blueos_recorder_msgs::{RecordingIndex, RecordingIndexRequest};
-use blueos_recorder_app::{IndexQuerySetup, IndexWalker};
+use blueos_idl::msg::blueos_recorder_msgs::{RecordingIndexRequest, RecordingIndexResponse};
+use blueos_recorder_app::IndexWalker;
 use blueos_recorder_mcap::{IndexError, walk_index};
 use tempfile::tempdir;
 use tokio::{sync::Notify, time::advance};
 
 use blueos_service::Service;
 
-use common::{start_harness, start_recorder_test_harness};
+use common::{start_harness, start_harness_with};
 
 struct ReleaseWalksOnDrop(Arc<AtomicBool>);
 
@@ -34,7 +34,7 @@ async fn index_query_round_trips_through_the_service() {
 
     let harness = start_harness(directory.path()).await;
     let index = harness
-        .query::<_, RecordingIndex>(
+        .query::<_, RecordingIndexResponse>(
             "index",
             &RecordingIndexRequest {
                 path: relative.into(),
@@ -66,13 +66,10 @@ async fn index_query_serves_one_walk_at_a_time() {
         Arc::clone(&walk_events),
         Arc::clone(&walk_started),
     );
-    let harness = start_recorder_test_harness(
-        directory.path(),
-        IndexQuerySetup {
-            walk_timeout: Duration::from_secs(30),
-            walker,
-        },
-    )
+    let harness = start_harness_with(directory.path(), |context| {
+        context.index_walk_timeout = Duration::from_secs(30);
+        context.index_walker = walker;
+    })
     .await;
 
     let request = RecordingIndexRequest {
@@ -80,10 +77,10 @@ async fn index_query_serves_one_walk_at_a_time() {
         from_offset: 0,
         limit: 2000,
     };
-    let first_backend = Arc::clone(&harness.backend);
+    let first_backend = Arc::clone(harness.backend());
     let first_request = request.clone();
     let first = tokio::spawn(async move { index_query_on(&first_backend, &first_request).await });
-    let second_backend = Arc::clone(&harness.backend);
+    let second_backend = Arc::clone(harness.backend());
     let second = tokio::spawn(async move { index_query_on(&second_backend, &request).await });
     walk_started.notified().await;
     assert_eq!(max_active.load(Ordering::SeqCst), 1);
@@ -127,13 +124,10 @@ async fn index_query_timeout_cancels_before_the_next_walk_starts() {
         Arc::clone(&max_active),
         Arc::clone(&walk_started),
     );
-    let harness = start_recorder_test_harness(
-        directory.path(),
-        IndexQuerySetup {
-            walk_timeout: Duration::from_millis(50),
-            walker,
-        },
-    )
+    let harness = start_harness_with(directory.path(), |context| {
+        context.index_walk_timeout = Duration::from_millis(50);
+        context.index_walker = walker;
+    })
     .await;
 
     let request = RecordingIndexRequest {
@@ -141,7 +135,7 @@ async fn index_query_timeout_cancels_before_the_next_walk_starts() {
         from_offset: 0,
         limit: 2000,
     };
-    let backend = Arc::clone(&harness.backend);
+    let backend = Arc::clone(harness.backend());
     let timeout_request = request.clone();
     let pending = tokio::spawn(async move { index_query_on(&backend, &timeout_request).await });
     walk_started.notified().await;
@@ -156,7 +150,7 @@ async fn index_query_timeout_cancels_before_the_next_walk_starts() {
     assert_eq!(active.load(Ordering::SeqCst), 0);
 
     harness
-        .query::<_, RecordingIndex>("index", &request)
+        .query::<_, RecordingIndexResponse>("index", &request)
         .await
         .expect("second index after timeout");
     assert_eq!(walk_calls.load(Ordering::SeqCst), 2);
@@ -223,7 +217,7 @@ fn timeout_test_walker(
 async fn index_query_on(
     backend: &Arc<dyn blueos_comms::CommsBackend>,
     request: &RecordingIndexRequest,
-) -> Result<RecordingIndex, blueos_comms::ReplyError> {
+) -> Result<RecordingIndexResponse, blueos_comms::ReplyError> {
     use blueos_api::{Message, cdr_encoding, query_key};
     use blueos_comms::QueryBody;
     use blueos_recorder_app::RecorderService;
@@ -244,9 +238,9 @@ async fn index_query_on(
     let [reply] = replies.as_slice() else {
         panic!("expected one reply, got {replies:?}");
     };
-    reply
-        .clone()
-        .map(|sample| RecordingIndex::decode(&sample.payload().to_bytes()).expect("decode index"))
+    reply.clone().map(|sample| {
+        RecordingIndexResponse::decode(&sample.payload().to_bytes()).expect("decode index")
+    })
 }
 
 fn index_refusal_reason<T: core::fmt::Debug>(

@@ -13,9 +13,11 @@ use blueos_comms::{CommsBackend, LivelinessEvent, QueryBody};
 use blueos_comms_zenoh::ZenohBackend;
 use blueos_domain::{Command, Decision, Domain, DomainQueries, IoError, Now, Outcome};
 use blueos_idl::msg::{
-    blueos_example_msgs::{EmptyRequest, LevelQueryResponse, PumpState},
+    blueos_example_msgs::{LevelResponse, PumpState},
     blueos_msgs::ServiceInfo,
+    std_msgs::Empty,
 };
+use blueos_jobs::JobId;
 use blueos_service::{
     Kernel, Service, ServiceBuilder, ServiceContext, ServiceError, testing::PausedClock,
 };
@@ -48,19 +50,24 @@ impl Service for ZenohStartupService {
     const NAME: &'static str = "zenoh_startup";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<ZenohStartupArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<ZenohStartupArguments>,
+        _service: &ServiceContext<ZenohStartupArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<ZenohStartup>, ServiceError> {
         Ok(ServiceBuilder::new(ZenohStartupSnapshot { ready: true })
-            .command("Noop", |_: EmptyRequest| Ok(ZenohStartupRequest::Noop))
+            .command("Noop", |_: Empty| Ok(ZenohStartupRequest::Noop))
             .query(
                 "level",
-                |_: EmptyRequest| Ok(ZenohStartupQuery::Level),
-                |response: LevelQueryResponse| Some(response),
+                |_: Empty| Ok(ZenohStartupQuery::Level),
+                |response: LevelResponse| Some(response),
             )
-            .io_query("Probe", |_request: EmptyRequest| {
+            .io_query("Probe", |_request: Empty| {
                 Box::pin(async move {
-                    Ok(LevelQueryResponse {
+                    Ok(LevelResponse {
                         level: 4,
                         max_level: 9,
                     })
@@ -108,11 +115,11 @@ impl Domain for ZenohStartup {
 
 impl DomainQueries for ZenohStartup {
     type Query = ZenohStartupQuery;
-    type Response = LevelQueryResponse;
+    type Response = LevelResponse;
 
     fn query(_snapshot: &Self::Snapshot, query: Self::Query, _now: Now) -> Self::Response {
         match query {
-            ZenohStartupQuery::Level => LevelQueryResponse {
+            ZenohStartupQuery::Level => LevelResponse {
                 level: 3,
                 max_level: 9,
             },
@@ -138,8 +145,8 @@ async fn expect_one_get(
 
 async fn every_endpoint_answers(backend: &Arc<dyn CommsBackend>, service: &str) {
     let empty = QueryBody::new(
-        EmptyRequest::default().encode().expect("encode"),
-        cdr_encoding(EmptyRequest::SCHEMA_NAME),
+        Empty::default().encode().expect("encode"),
+        cdr_encoding(Empty::SCHEMA_NAME),
     );
     let info_payload = expect_one_get(backend, &info_query_key(service), None).await;
     let info = ServiceInfo::decode(&info_payload).expect("ServiceInfo");
@@ -147,15 +154,17 @@ async fn every_endpoint_answers(backend: &Arc<dyn CommsBackend>, service: &str) 
 
     let level_payload =
         expect_one_get(backend, &query_key(service, "level"), Some(empty.clone())).await;
-    let level = LevelQueryResponse::decode(&level_payload).expect("level query");
+    let level = LevelResponse::decode(&level_payload).expect("level query");
     assert_eq!(level.level, 3);
 
     let probe_payload =
         expect_one_get(backend, &query_key(service, "Probe"), Some(empty.clone())).await;
-    let probe = LevelQueryResponse::decode(&probe_payload).expect("Probe io query");
+    let probe = LevelResponse::decode(&probe_payload).expect("Probe io query");
     assert_eq!(probe.level, 4);
 
-    let command_payload = expect_one_get(backend, &command_key(service, "Noop"), Some(empty)).await;
+    let command = empty.with_attachment(JobId::from_u128(1).to_string().into_bytes());
+    let command_payload =
+        expect_one_get(backend, &command_key(service, "Noop"), Some(command)).await;
     let ack = CommandAck::decode(&command_payload).expect("CommandAck");
     assert!(ack.accepted);
 
@@ -186,11 +195,15 @@ async fn zenoh_startup_serves_every_endpoint_when_liveliness_appears() {
     let kernel_backend = Arc::clone(&backend);
     let kernel = Kernel::start(
         ZenohStartupService::NAME,
-        ZenohStartupService::build(&ServiceContext::new(
-            ZenohStartupArguments {},
-            blueos_service::testing::channel_session(),
-        ))
+        ZenohStartupService::build(
+            &ServiceContext::new(
+                ZenohStartupArguments {},
+                blueos_service::testing::channel_session(),
+            ),
+            &(),
+        )
         .unwrap(),
+        (),
         kernel_backend,
         Arc::new(PausedClock::start()),
     )

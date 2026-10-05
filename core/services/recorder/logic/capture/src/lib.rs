@@ -90,6 +90,14 @@ pub enum CaptureObservedFact {
         /// Total bytes in the file so far.
         bytes: u64,
     },
+    /// Latest count of samples left out of this file generation because they arrived faster than the disk took
+    /// them.
+    RecordingSamplesDropped {
+        /// Generation whose file was written.
+        file_generation: u64,
+        /// Total samples dropped from the file so far.
+        samples: u64,
+    },
     /// Full current armed state (re-sent periodically so a dropped fact heals).
     ArmedChanged(bool),
 }
@@ -146,6 +154,8 @@ pub struct ActiveRecording {
     pub file_name: String,
     /// Bytes reported by the data plane for this file.
     pub bytes_written: u64,
+    /// Samples the data plane reported it left out of this file.
+    pub samples_dropped: u64,
 }
 
 /// User settings that affect whether samples are written and when recording starts.
@@ -270,6 +280,10 @@ impl Capture {
                 file_generation,
                 bytes,
             } => self.recording_bytes_written(file_generation, bytes),
+            CaptureObservedFact::RecordingSamplesDropped {
+                file_generation,
+                samples,
+            } => self.recording_samples_dropped(file_generation, samples),
             CaptureObservedFact::ArmedChanged(armed) => {
                 self.armed = armed;
                 Outcome::Applied {
@@ -282,7 +296,7 @@ impl Capture {
 
     fn start_recording(&mut self, rotate_if_active: bool) -> CaptureOutcome {
         match &self.recording {
-            RecordingState::Active(active) if !rotate_if_active => {
+            RecordingState::Active(_) if !rotate_if_active => {
                 return Outcome::Applied {
                     events: Vec::new(),
                     effects: Vec::new(),
@@ -385,6 +399,7 @@ impl Capture {
             file_generation,
             file_name: file_name.clone(),
             bytes_written: 0,
+            samples_dropped: 0,
         });
         let events = if rotated {
             vec![CaptureEvent::RecordingRotated { file_name }]
@@ -437,6 +452,18 @@ impl Capture {
             };
         }
         active.bytes_written = bytes;
+        Outcome::Applied {
+            events: Vec::new(),
+            effects: Vec::new(),
+        }
+    }
+
+    fn recording_samples_dropped(&mut self, file_generation: u64, samples: u64) -> CaptureOutcome {
+        if let RecordingState::Active(active) = &mut self.recording
+            && active.file_generation == file_generation
+        {
+            active.samples_dropped = samples;
+        }
         Outcome::Applied {
             events: Vec::new(),
             effects: Vec::new(),

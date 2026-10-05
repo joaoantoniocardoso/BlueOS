@@ -96,11 +96,24 @@ jobs:
         with:
           targets: thumbv7em-none-eabihf,wasm32-unknown-unknown
 
+      - name: Install quality tools
+        uses: ./.github/actions/quality-tools
+
       - name: Rust lint checks
         run: |
           # shellcheck disable=SC1091
           source .hooks/lib/rust_checks.sh
           run_rust_lint_checks "$GITHUB_WORKSPACE/core"
+
+      - name: Ratchet files may not loosen
+        if: github.event_name == 'pull_request' || (github.event_name == 'push' && !github.event.created)
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          # shellcheck disable=SC1091
+          source .hooks/lib/rust_checks.sh
+          check_ratchets_not_loosened "$GITHUB_WORKSPACE" "$BASE_SHA"
 
   rust-supply-chain:
     runs-on: ubuntu-latest
@@ -139,16 +152,17 @@ jobs:
       - name: cargo deny advisories
         id: advisories
         working-directory: core
-        continue-on-error: ${{ github.event_name != 'schedule' }}
+        # A new advisory in a transitive dependency must not turn every open pull request red.
+        continue-on-error: ${{ github.event_name == 'pull_request' }}
         run: |
+          set -o pipefail
           echo "## cargo deny advisories" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
-          cargo deny check advisories 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          cargo deny --color never check advisories 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
   rust-report-quality:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -165,15 +179,10 @@ jobs:
       - name: Install report tools
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-bloat@0.12.1,rustqual@1.8.3
+          tool: cargo-bloat@0.12.1
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-
-      - name: Install thailint
-        run: pip install thailint==0.25.0
+      - name: Install quality tools
+        uses: ./.github/actions/quality-tools
 
       - name: Install ast-metrics
         run: bash .github/lib/install_ast_metrics.sh
@@ -185,27 +194,52 @@ jobs:
           source ../.github/lib/rust_report_only.sh
           # shellcheck disable=SC1091
           source shipped_features.sh
+          outdated_direct_dependencies() {
+            local direct updates
+            direct=$(cargo metadata --format-version 1 --no-deps --locked \
+              | jq -r '[.packages[].dependencies[] | select(.source != null) | .name] | unique | join("|")')
+            updates=$(cargo update --dry-run --verbose 2>&1)
+            # grep exits 1 when nothing is outdated, and 2 when it fails.
+            grep -E "^ +Unchanged ($direct) " <<<"$updates" || [ "$?" -eq 1 ]
+          }
+          # thailint labels every finding an error, but the quality ratchet, not this listing, decides what fails.
+          thailint_findings() {
+            thailint "$1" libs app services | sed 's/\[ERROR\] //'
+          }
+          report_section "outdated direct dependencies" \
+            --ok 0 --version cargo --version -- \
+            outdated_direct_dependencies
           report_section "cargo bloat" \
+            --ok 0 --version cargo bloat --version -- \
             cargo bloat --release -p "$BLUEOS_SHIPPED_PACKAGE" --features "${BLUEOS_SHIPPED_FEATURES[*]}" --crates -n 25
           report_section "rustqual" \
-            rustqual --no-fail --format github .
+            --ok 0 --version rustqual --version -- \
+            rustqual --no-fail --findings .
           report_section "thailint unwrap-abuse" \
-            thailint unwrap-abuse libs app services
+            --ok "0 1" --version thailint --version -- \
+            thailint_findings unwrap-abuse
           report_section "thailint clone-abuse" \
-            thailint clone-abuse libs app services
+            --ok "0 1" --version thailint --version -- \
+            thailint_findings clone-abuse
           report_section "thailint blocking-async" \
-            thailint blocking-async libs app services
+            --ok "0 1" --version thailint --version -- \
+            thailint_findings blocking-async
           report_section "ast-metrics" \
-            ast-metrics analyze libs app services --language rust
-          {
-            echo "## D-31 ergonomics measures"
-            echo
+            --ok 0 --version bash -c "ast-metrics version | grep 'Current version'" -- \
+            bash -ec '
+              ast-metrics analyze --report-json "$RUNNER_TEMP/ast-metrics.json" libs app services
+              test -s "$RUNNER_TEMP/ast-metrics.json"
+            '
+          report_section "D-31 ergonomics measures" \
+            --ok 0 --no-version -- \
             "$GITHUB_WORKSPACE/.hooks/lib/ergonomics_report.sh" "$GITHUB_WORKSPACE"
-          } >> "$GITHUB_STEP_SUMMARY"
 
-  rust-report-nightly:
+  rust-nightly:
     runs-on: ubuntu-latest
-    continue-on-error: true
+    env:
+      # lockbud links against rustc internals, so it builds and runs only on the nightly its commit names.
+      LOCKBUD_TOOLCHAIN: nightly-2026-02-07
+      LOCKBUD_REVISION: cc78cb72cb85cb80e596717339cca95ef50c8fe0
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -218,44 +252,87 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: core
-          shared-key: rust-report-nightly
+          shared-key: rust-nightly
 
       - name: Install pinned nightly toolchain
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ steps.nightly.outputs.toolchain }}
-          components: rust-src,rustc-dev,llvm-tools-preview
+          components: rust-src,rustc-dev,llvm-tools-preview,rustfmt
 
       - name: Install nightly report tools
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-udeps@0.1.61,cargo-llvm-cov@0.9.1,cargo-nextest@0.9.146
 
-      - name: Report-only nightly tools
+      - name: Install lockbud toolchain
+        run: |
+          rustup toolchain install "$LOCKBUD_TOOLCHAIN" --profile minimal \
+            --component rust-src,rustc-dev,llvm-tools-preview
+          echo "$HOME/.lockbud/bin" >> "$GITHUB_PATH"
+
+      # lockbud publishes no binaries, so it is built once per commit and cached.
+      - name: Use cached lockbud
+        id: lockbud-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.lockbud
+          key: lockbud-${{ env.LOCKBUD_REVISION }}-${{ env.LOCKBUD_TOOLCHAIN }}-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Build lockbud
+        if: steps.lockbud-cache.outputs.cache-hit != 'true'
+        run: |
+          cargo "+$LOCKBUD_TOOLCHAIN" install --locked --root "$HOME/.lockbud" \
+            --git https://github.com/BurtonQin/lockbud --rev "$LOCKBUD_REVISION" lockbud
+
+      - name: Nightly checks
         working-directory: core
         run: |
           # shellcheck disable=SC1091
           source ../.github/lib/rust_report_only.sh
           RUST_NIGHTLY=$(tr -d '[:space:]' < nightly-toolchain.txt)
           export RUSTUP_TOOLCHAIN="$RUST_NIGHTLY"
+          # The lint job builds on stable, so a warning that only the pinned nightly raises fails here.
           report_section "cargo udeps" \
-            cargo "+${RUST_NIGHTLY}" udeps --all-targets --workspace --locked
+            --ok 0 --version cargo "+${RUST_NIGHTLY}" udeps --version -- \
+            env RUSTFLAGS="-D warnings" cargo "+${RUST_NIGHTLY}" udeps --all-targets --workspace --locked
           report_section "branch coverage summary" \
-            bash -c '
+            --ok 0 --version cargo llvm-cov --version -- \
+            bash -ec '
               cargo llvm-cov clean --workspace
-              cargo llvm-cov nextest --workspace --locked --branch --no-report
+              # The trybuild snapshots hold stable compiler messages, which nightly words differently.
+              cargo llvm-cov nextest --workspace --locked --branch --no-report -E "not binary(compile_errors)"
               cargo llvm-cov report --branch --summary-only
             '
           report_section "address sanitizer (example domain lib)" \
-            bash -c "
+            --ok 0 --version rustc "+${RUST_NIGHTLY}" --version -- \
+            bash -ec "
               export RUSTFLAGS='-Zsanitizer=address -Cdebuginfo=1'
               export ASAN_OPTIONS='detect_leaks=0'
-              cargo '+${RUST_NIGHTLY}' test -p blueos-example-domain --lib -- --test-threads=1
+              # An explicit target keeps RUSTFLAGS off proc-macros and build scripts.
+              cargo '+${RUST_NIGHTLY}' test -p blueos-example-domain --lib --target x86_64-unknown-linux-gnu \
+                -- --test-threads=1
             "
+          # lockbud only analyses crates it compiles, so it builds into target folders the cache never restores.
+          # It exits 0 whatever it finds, so a finding is read from its log, and the canary's known deadlock proves
+          # that it analysed something.
+          lockbud_workspace() {
+            local crates status=0
+            crates=$(cargo metadata --no-deps --format-version 1 --locked \
+              | jq -r '[.packages[].targets[].name | gsub("-"; "_")] | unique | join(",")') || return
+            [ -n "$crates" ] || return
+            (cd ../.github/lockbud-canary && CARGO_TARGET_DIR="$RUNNER_TEMP/lockbud-canary" \
+              cargo "+${LOCKBUD_TOOLCHAIN}" lockbud -k deadlock -l lockbud_canary -- --locked) 2>&1 \
+              | tee "$RUNNER_TEMP/lockbud-canary.log" || return
+            grep -q "crate lockbud_canary contains bugs" "$RUNNER_TEMP/lockbud-canary.log" || return
+            CARGO_TARGET_DIR="$RUNNER_TEMP/lockbud" cargo "+${LOCKBUD_TOOLCHAIN}" lockbud -k deadlock -l "$crates" \
+              -- --locked 2>&1 | tee "$RUNNER_TEMP/lockbud.log" || return
+            grep -q "contains bugs" "$RUNNER_TEMP/lockbud.log" || status=$?
+            [ "$status" -eq 1 ]
+          }
           report_section "lockbud deadlock" \
-            docker run --rm -v "$PWD:/volume" -w /volume \
-              burtonqin/lockbud@sha256:f4478dc2216f2dfd97aadca69086f7896226a8ccc1c7e54ef57d4e6ef0de3f57 \
-              -k deadlock
+            --ok 0 --version cargo "+${LOCKBUD_TOOLCHAIN}" lockbud --version -- \
+            lockbud_workspace
 
   rust-test:
     runs-on: ubuntu-latest
@@ -286,12 +363,16 @@ jobs:
           run_rust_test_checks "$GITHUB_WORKSPACE/core"
 
       - name: Flake hunt
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' || (github.event_name == 'push' && !github.event.created)
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           if [ "$(git rev-parse --is-shallow-repository)" = true ]; then
             git fetch --no-tags --unshallow origin
           fi
-          .hooks/lib/flake_hunt.sh "${{ github.event.pull_request.base.sha }}"
+          # A force push replaces a commit that no branch holds any more.
+          git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null || git fetch --no-tags origin "$BASE_SHA"
+          .hooks/lib/flake_hunt.sh "$BASE_SHA"
 
       - name: Coverage ratchet
         run: |
@@ -301,7 +382,13 @@ jobs:
 
       - name: Coverage summary
         working-directory: core
-        run: cargo llvm-cov report --summary-only >> "$GITHUB_STEP_SUMMARY"
+        # Unfenced, Markdown reads the table's dashed rule as a heading underline and joins its rows.
+        run: |
+          {
+            echo '```'
+            cargo llvm-cov report --summary-only
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
   rust-backend-conformance:
     runs-on: ubuntu-latest
@@ -486,13 +573,26 @@ jobs:
       - name: Check core size
         if: ${{ matrix.docker == 'core' }}
         run: |
-          # Check if the image size is lower than our limit
-          docker image list
-          IMAGE_ID=$(docker images -q ${DOCKER_USERNAME:-bluerobotics}/${{ matrix.project }} | head -n 1)
-          LIMIT_SIZE_MB=700
-          IMAGE_SIZE_MB=$(( $(docker inspect $IMAGE_ID --format {{.Size}})/(2**20) ))
-          echo "Core size is: $IMAGE_SIZE_MB MB"
-          ((IMAGE_SIZE_MB < LIMIT_SIZE_MB))
+          # Check if the uncompressed image size is lower than our limit.
+          # A multi-platform build cannot be loaded into docker, so load only amd64: every layer is a builder cache hit.
+          IMAGE=${{ steps.prepare.outputs.docker_image }}:${{ steps.prepare.outputs.version }}
+          LIMIT_SIZE_MB=1536
+          docker buildx build \
+            --load \
+            --platform linux/amd64 \
+            ${{ steps.prepare.outputs.buildx_args }}
+          IMAGE_SIZE_BYTES=$(docker image inspect "${IMAGE}" --format '{{.Size}}')
+          if ! [[ "${IMAGE_SIZE_BYTES}" =~ ^[0-9]+$ ]]; then
+            echo "::error::Could not measure the size of ${IMAGE}, got '${IMAGE_SIZE_BYTES}'"
+            exit 1
+          fi
+          IMAGE_SIZE_MB=$(( IMAGE_SIZE_BYTES / 2**20 ))
+          echo "Core size is: ${IMAGE_SIZE_MB} MB (limit ${LIMIT_SIZE_MB} MB)"
+          echo "Core amd64 uncompressed size: ${IMAGE_SIZE_MB} MB (limit ${LIMIT_SIZE_MB} MB)" >> $GITHUB_STEP_SUMMARY
+          if (( IMAGE_SIZE_BYTES > LIMIT_SIZE_MB * 2**20 )); then
+            echo "::error::${IMAGE} is ${IMAGE_SIZE_MB} MB, over the ${LIMIT_SIZE_MB} MB limit"
+            exit 1
+          fi
 
       - name: Login to DockerHub
         if: success() && github.event_name != 'pull_request'

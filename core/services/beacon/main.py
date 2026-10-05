@@ -345,7 +345,7 @@ async def main() -> None:
 
     logger.info("Starting Beacon Service.")
 
-    config = Config(app=app, host="0.0.0.0", port=9111, log_config=None)
+    config = Config(app=app, host="0.0.0.0", port=9111, log_config=None, timeout_graceful_shutdown=2)
     server = Server(config)
 
     asyncio.create_task(beacon.run())

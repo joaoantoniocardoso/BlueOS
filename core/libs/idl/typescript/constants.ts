@@ -9,14 +9,31 @@ export const PumpStateSelfTestPhase = {
 } as const;
 export type PumpStateSelfTestPhase = typeof PumpStateSelfTestPhase[keyof typeof PumpStateSelfTestPhase] | number;
 
+export const CommandAckStatus = {
+  Aborted: 6,
+  Accepted: 1,
+  Canceled: 5,
+  Canceling: 3,
+  Executing: 2,
+  Paused: 9,
+  Succeeded: 4,
+  StatusUnknown: 0,
+  WaitingForPermission: 7,
+  WaitingForResource: 8,
+} as const;
+export type CommandAckStatus = typeof CommandAckStatus[keyof typeof CommandAckStatus] | number;
+
 export const JobStatusStatus = {
-  Cancelled: 5,
-  Cancelling: 2,
-  Failed: 4,
-  Interrupted: 6,
-  Queued: 0,
-  Running: 1,
-  Succeeded: 3,
+  Aborted: 6,
+  Accepted: 1,
+  Canceled: 5,
+  Canceling: 3,
+  Executing: 2,
+  Paused: 9,
+  Succeeded: 4,
+  StatusUnknown: 0,
+  WaitingForPermission: 7,
+  WaitingForResource: 8,
 } as const;
 export type JobStatusStatus = typeof JobStatusStatus[keyof typeof JobStatusStatus] | number;
 
@@ -36,11 +53,4 @@ export const RecordingFileState = {
   Repairing: 3,
 } as const;
 export type RecordingFileState = typeof RecordingFileState[keyof typeof RecordingFileState] | number;
-
-export const RecordingOperationOperation = {
-  Delete: 2,
-  Repair: 0,
-  Snapshot: 1,
-} as const;
-export type RecordingOperationOperation = typeof RecordingOperationOperation[keyof typeof RecordingOperationOperation] | number;
 

@@ -3,7 +3,7 @@
 use core::convert::Infallible;
 
 use blueos_domain::{Command, Decision, Domain, IoError, Now, Outcome};
-use blueos_idl::msg::blueos_example_msgs::SetLevelRequest;
+use blueos_idl::msg::blueos_example_msgs::SetLevelGoal;
 use blueos_service::{Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness};
 
 struct HoldStateCookbookService;
@@ -31,15 +31,20 @@ impl Service for HoldStateCookbookService {
     const NAME: &'static str = "cookbook_hold_state";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<HoldStateCookbookArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<HoldStateCookbookArguments>,
+        _service: &ServiceContext<HoldStateCookbookArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<HoldStateCookbook>, ServiceError> {
         Ok(ServiceBuilder::new(HoldStateCookbookSnapshot::default())
-            .command("SetLevel", |request: SetLevelRequest| {
+            .command("SetLevel", |request: SetLevelGoal| {
                 Ok(HoldStateCookbookRequest::SetLevel(request.level))
             })
             .state("changes", |snapshot: &HoldStateCookbookSnapshot| {
-                SetLevelRequest {
+                SetLevelGoal {
                     level: snapshot.changes,
                 }
             }))
@@ -83,12 +88,8 @@ async fn snapshot_accumulates_across_commands() {
     let harness = Harness::<HoldStateCookbookService>::start(HoldStateCookbookArguments)
         .await
         .unwrap();
-    harness
-        .send("SetLevel", &SetLevelRequest { level: 1 })
-        .await;
-    harness
-        .send("SetLevel", &SetLevelRequest { level: 2 })
-        .await;
-    let changes = harness.state::<SetLevelRequest>("changes").await;
+    harness.send("SetLevel", &SetLevelGoal { level: 1 }).await;
+    harness.send("SetLevel", &SetLevelGoal { level: 2 }).await;
+    let changes = harness.state::<SetLevelGoal>("changes").await;
     assert_eq!(changes.level, 2);
 }

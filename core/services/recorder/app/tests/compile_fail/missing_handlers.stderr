@@ -11,9 +11,9 @@ help: the trait `Handlers<RecorderDomain>` is not implemented for `NoHandlers`
    |
  7 | struct NoHandlers;
    | ^^^^^^^^^^^^^^^^^
-   = note: implement `cancel_repair` for the Command `CancelRepair`, `delete_recording` for the Command `DeleteRecording`, `repair_recording` for the Command `RepairRecording`, `snapshot_recording` for the Command `SnapshotRecording`, `index` for the IO query `index`
+   = note: implement `bytes` for the IO query `bytes`, `index` for the IO query `index`
 note: required by a bound in `register`
   --> src/endpoints.rs
    |
-   | pub fn register<D: Conversions, H: Handlers<D>, Context>(
-   |                                    ^^^^^^^^^^^ required by this bound in `register`
+   | pub fn register<D: Conversions + DomainJobs, H: Handlers<D>, Context>(
+   |                                                 ^^^^^^^^^^^ required by this bound in `register`

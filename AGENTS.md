@@ -26,6 +26,8 @@ When identifying issues or problems, if you discover a possible root cause, expl
 
 **Rust services and the event-driven architecture:** read `docs/adr/decisions.md` before touching `core/Cargo.toml`, `core/libs/{logic,adapters,app}/`, `core/libs/idl/`, any Rust service, or `core/frontend/src/libs/blueos-api/`. Use the vocabulary defined in `GLOSSARY.md`.
 
+**Records page, its player, or the recording library:** acceptance runs every touched section of `docs/architecture/records-page-acceptance.md` on a vehicle.
+
 ## Directory Structure
 
 ```

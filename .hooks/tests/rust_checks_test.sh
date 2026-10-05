@@ -151,6 +151,27 @@ test_workspace_metadata_is_clean() {
     assert_clean_metadata "workspace" "$metadata"
 }
 
+test_app_src_rejects_unknown_top_level_module() {
+    local temporary output
+    temporary=$(mktemp -d)
+    copy_core "$temporary"
+    printf '\n' >>"$temporary/services/recorder/app/src/library_io.rs"
+    if output=$(collect_app_src_violations "$temporary"); then
+        fail "app/src layout check should reject library_io.rs"
+    fi
+    if ! grep -q 'unknown top-level module library_io' <<<"$output"; then
+        printf 'rust_checks_test: expected library_io violation in:\n%s\n' "$output" >&2
+        exit 1
+    fi
+    rm -rf "$temporary"
+}
+
+test_app_src_allows_recorder_layout() {
+    if ! collect_app_src_violations "$ROOT_DIR"; then
+        fail "recorder app/src layout should pass the folder check"
+    fi
+}
+
 test_fmt_check_fails_on_unformatted_source() {
     local temporary
     temporary=$(mktemp -d)
@@ -274,7 +295,7 @@ EOF
     cargo generate-lockfile --manifest-path "$temporary/Cargo.toml" >/dev/null
     if (
         cd "$temporary"
-        cargo machete 2>/dev/null
+        cargo machete >/dev/null 2>&1
     ); then
         fail "cargo machete should reject an unused dependency"
     fi
@@ -288,6 +309,32 @@ test_typos_fails_on_misspelling() {
     printf '\nconst PLANTED_TYPO: &str = "teh";\n' >>"$temporary/src/lib.rs"
     if typos --config "$ROOT_DIR/typos.toml" "$temporary" >/dev/null 2>&1; then
         fail "typos should reject a misspelling"
+    fi
+    rm -rf "$temporary"
+}
+
+test_typos_checks_every_service_and_honours_its_excludes() {
+    local temporary output
+    temporary=$(mktemp -d)
+    cp "$ROOT_DIR/typos.toml" "$temporary/"
+    mkdir -p "$temporary/core/services/recorder/app/src" "$temporary/core/services/wifi" \
+        "$temporary/core/libs/commonwealth"
+    printf 'const PLANTED_TYPO: &str = "teh";\n' >"$temporary/core/services/recorder/app/src/lib.rs"
+    printf 'PLANTED_TYPO = "teh"\n' >"$temporary/core/services/wifi/main.py"
+    printf 'PLANTED_TYPO = "teh"\n' >"$temporary/core/libs/commonwealth/settings.py"
+    printf '[rustqual]\nteh_warnings = 0\n' >"$temporary/core/quality-ratchet.toml"
+    output=$(cd / && check_typos "$temporary" 2>&1 || true)
+    if ! grep -q 'core/services/recorder/app/src/lib.rs' <<<"$output"; then
+        fail "typos should check the Rust services"
+    fi
+    if ! grep -q 'core/services/wifi/main.py' <<<"$output"; then
+        fail "typos should check the Python services"
+    fi
+    if ! grep -q 'core/quality-ratchet.toml' <<<"$output"; then
+        fail "typos should check the quality ratchet"
+    fi
+    if grep -q 'core/libs/commonwealth' <<<"$output"; then
+        fail "typos should skip what typos.toml excludes"
     fi
     rm -rf "$temporary"
 }
@@ -339,7 +386,7 @@ test_deny_licenses_rejects_unlisted_license() {
     sed -i '/^allow = \[/,/\]/d' "$temporary/deny.toml"
     if (
         cd "$temporary"
-        cargo deny check licenses 2>/dev/null
+        cargo deny check licenses >/dev/null 2>&1
     ); then
         fail "cargo deny licenses should fail when MIT is not allowed"
     fi
@@ -388,7 +435,7 @@ EOF
     cargo generate-lockfile --manifest-path "$temporary/Cargo.toml" >/dev/null
     if (
         cd "$temporary"
-        cargo deny check bans licenses sources 2>/dev/null
+        cargo deny check bans licenses sources >/dev/null 2>&1
     ); then
         fail "cargo deny should reject a direct zenoh dependency"
     fi
@@ -423,6 +470,8 @@ main() {
     test_folder_rejects_logic_api_depending_on_adapter
     test_folder_rejects_cross_service_dependency
     test_workspace_metadata_is_clean
+    test_app_src_rejects_unknown_top_level_module
+    test_app_src_allows_recorder_layout
     test_fmt_check_fails_on_unformatted_source
     test_syn_style_check_fails_on_mixed_import_groups
     test_shipped_clippy_rejects_item_used_only_under_non_shipped_feature
@@ -430,6 +479,7 @@ main() {
     test_no_std_build_fails_on_io_dependency
     test_machete_fails_on_unused_dependency
     test_typos_fails_on_misspelling
+    test_typos_checks_every_service_and_honours_its_excludes
     test_nextest_fails_on_hanging_test
     test_coverage_ratchet_fails_when_floor_is_too_high
     test_deny_licenses_rejects_unlisted_license

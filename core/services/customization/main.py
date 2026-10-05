@@ -343,7 +343,7 @@ async def main() -> None:
         if not THEME_FILE.exists():
             write_theme_css(load_theme_config().primary)
 
-        config = Config(app=app, host="0.0.0.0", port=PORT, log_config=None)
+        config = Config(app=app, host="0.0.0.0", port=PORT, log_config=None, timeout_graceful_shutdown=2)
         server = Server(config)
         await server.serve()
     finally:

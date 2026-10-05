@@ -7,29 +7,174 @@ extern crate alloc;
 pub mod endpoints;
 
 use alloc::{string::String, vec::Vec};
+use core::convert::Infallible;
 
-use blueos_idl::msg::blueos_recorder_msgs::{
-    RecordingFile, RecordingFileState as WireRecordingFileState, RecordingLibrary,
-    RecordingOperation, RecordingOperationOperation, RecordingState, StartRecordingCommand,
-    StopRecordingCommand,
+use blueos_idl::{
+    Message,
+    msg::blueos_recorder_msgs::{
+        DeleteRecordingFeedback, DeleteRecordingGoal, DeleteRecordingResult, RecordingContents,
+        RecordingFile, RecordingFileState as WireRecordingFileState, RecordingLibrary,
+        RecordingState, RepairRecordingFeedback, RepairRecordingGoal, RepairRecordingResult,
+        SnapshotRecordingFeedback, SnapshotRecordingGoal, SnapshotRecordingResult,
+        StartRecordingFeedback, StartRecordingGoal, StartRecordingResult, StopRecordingFeedback,
+        StopRecordingGoal, StopRecordingResult,
+    },
+    msg::builtin_interfaces::Duration,
 };
+use blueos_jobs::JobId;
 use blueos_recorder_capture::RecordingState as DomainRecordingState;
-use blueos_recorder_domain::{RecorderDomain, RecorderEvent, RecorderRequest, RecorderSnapshot};
-use blueos_recorder_library::{
-    RecordingFileState, RecordingOperationEvent, RecordingOperationKind, RepairFailure,
-};
+use blueos_recorder_domain::{RecorderDomain, RecorderRequest, RecorderSnapshot};
+use blueos_recorder_library::{LibraryOperation, RecordingFileState};
+use blueos_recorder_paths::{RecordingPathError, RecordingRelativePath};
 
 use crate::endpoints::Conversions;
 
 impl Conversions for RecorderDomain {
-    fn start(request: StartRecordingCommand) -> RecorderRequest {
-        RecorderRequest::StartRecording {
-            rotate_if_active: request.rotate_if_active,
+    type DeleteRecordingError = RecordingPathError;
+    type RepairRecordingError = RecordingPathError;
+    type SnapshotRecordingError = RecordingPathError;
+    type StartError = Infallible;
+    type StopError = Infallible;
+
+    fn delete_recording(
+        job_id: JobId,
+        goal: DeleteRecordingGoal,
+    ) -> Result<RecorderRequest, RecordingPathError> {
+        RecordingRelativePath::parse(&goal.path)
+            .map(|path| RecorderRequest::DeleteRecording { job_id, path })
+    }
+
+    fn delete_recording_feedback(
+        _snapshot: &RecorderSnapshot,
+        _job_id: JobId,
+    ) -> Option<DeleteRecordingFeedback> {
+        None
+    }
+
+    fn delete_recording_result(
+        snapshot: &RecorderSnapshot,
+        job_id: JobId,
+    ) -> DeleteRecordingResult {
+        snapshot
+            .jobs
+            .job(job_id)
+            .and_then(|job| DeleteRecordingGoal::decode(&job.goal).ok())
+            .map(|goal| DeleteRecordingResult { path: goal.path })
+            .unwrap_or_default()
+    }
+
+    fn repair_recording(
+        job_id: JobId,
+        goal: RepairRecordingGoal,
+    ) -> Result<RecorderRequest, RecordingPathError> {
+        RecordingRelativePath::parse(&goal.path)
+            .map(|path| RecorderRequest::RepairRecording { job_id, path })
+    }
+
+    fn repair_recording_feedback(
+        snapshot: &RecorderSnapshot,
+        job_id: JobId,
+    ) -> Option<RepairRecordingFeedback> {
+        snapshot
+            .library
+            .repair_progress(job_id)
+            .map(|progress| RepairRecordingFeedback {
+                bytes_processed: progress.bytes_processed,
+                total_bytes: progress.total_bytes,
+            })
+    }
+
+    fn repair_recording_result(
+        snapshot: &RecorderSnapshot,
+        job_id: JobId,
+    ) -> RepairRecordingResult {
+        match snapshot.library.ended_operation() {
+            Some(LibraryOperation::Repair {
+                path,
+                job_id: ended,
+                ..
+            }) if *ended == job_id => RepairRecordingResult {
+                path: path.as_str().into(),
+            },
+            _ => RepairRecordingResult::default(),
         }
     }
 
-    fn stop(_request: StopRecordingCommand) -> RecorderRequest {
-        RecorderRequest::StopRecording
+    fn snapshot_recording(
+        job_id: JobId,
+        goal: SnapshotRecordingGoal,
+    ) -> Result<RecorderRequest, RecordingPathError> {
+        RecordingRelativePath::parse(&goal.path)
+            .map(|path| RecorderRequest::SnapshotRecording { job_id, path })
+    }
+
+    fn snapshot_recording_feedback(
+        snapshot: &RecorderSnapshot,
+        job_id: JobId,
+    ) -> Option<SnapshotRecordingFeedback> {
+        snapshot
+            .library
+            .operations()
+            .iter()
+            .find_map(|operation| match operation {
+                LibraryOperation::Snapshot {
+                    output_path,
+                    job_id: running,
+                    ..
+                } if *running == job_id => Some(SnapshotRecordingFeedback {
+                    output_path: output_path.clone(),
+                }),
+                _ => None,
+            })
+    }
+
+    fn snapshot_recording_result(
+        snapshot: &RecorderSnapshot,
+        job_id: JobId,
+    ) -> SnapshotRecordingResult {
+        match snapshot.library.ended_operation() {
+            Some(LibraryOperation::Snapshot {
+                path,
+                output_path,
+                job_id: ended,
+            }) if *ended == job_id => SnapshotRecordingResult {
+                path: path.as_str().into(),
+                output_path: output_path.clone(),
+            },
+            _ => SnapshotRecordingResult::default(),
+        }
+    }
+
+    fn start(goal: StartRecordingGoal) -> Result<RecorderRequest, Infallible> {
+        Ok(RecorderRequest::StartRecording {
+            rotate_if_active: goal.rotate_if_active,
+        })
+    }
+
+    fn start_feedback(
+        _snapshot: &RecorderSnapshot,
+        _job_id: JobId,
+    ) -> Option<StartRecordingFeedback> {
+        None
+    }
+
+    fn start_result(_snapshot: &RecorderSnapshot, _job_id: JobId) -> StartRecordingResult {
+        StartRecordingResult::default()
+    }
+
+    fn stop(_goal: StopRecordingGoal) -> Result<RecorderRequest, Infallible> {
+        Ok(RecorderRequest::StopRecording)
+    }
+
+    fn stop_feedback(
+        _snapshot: &RecorderSnapshot,
+        _job_id: JobId,
+    ) -> Option<StopRecordingFeedback> {
+        None
+    }
+
+    fn stop_result(_snapshot: &RecorderSnapshot, _job_id: JobId) -> StopRecordingResult {
+        StopRecordingResult::default()
     }
 
     fn recording(snapshot: &RecorderSnapshot) -> RecordingState {
@@ -39,15 +184,6 @@ impl Conversions for RecorderDomain {
     fn library(snapshot: &RecorderSnapshot) -> RecordingLibrary {
         recording_library(snapshot)
     }
-
-    fn operation(event: &RecorderEvent) -> Option<RecordingOperation> {
-        match event {
-            RecorderEvent::RecordingOperation(operation) => {
-                Some(recording_operation_message(operation))
-            }
-            RecorderEvent::Capture(_) => None,
-        }
-    }
 }
 
 /// Projects the published `recording` State from the Snapshot (wire names mapped here).
@@ -55,13 +191,17 @@ impl Conversions for RecorderDomain {
 /// Wire field names use legacy "session" wording (see GLOSSARY).
 pub fn recorder_session_state(snapshot: &RecorderSnapshot) -> RecordingState {
     let gate = snapshot.capture.record_gate();
-    let (session_active, current_file, session_bytes_written) = match &snapshot.capture.recording {
-        DomainRecordingState::Idle => (false, String::new(), 0),
-        DomainRecordingState::AwaitingMcapFile { .. } => (true, String::new(), 0),
-        DomainRecordingState::Active(active) => {
-            (true, active.file_name.clone(), active.bytes_written)
-        }
-    };
+    let (session_active, current_file, session_bytes_written, samples_dropped) =
+        match &snapshot.capture.recording {
+            DomainRecordingState::Idle => (false, String::new(), 0, 0),
+            DomainRecordingState::AwaitingMcapFile { .. } => (true, String::new(), 0, 0),
+            DomainRecordingState::Active(active) => (
+                true,
+                active.file_name.clone(),
+                active.bytes_written,
+                active.samples_dropped,
+            ),
+        };
     RecordingState {
         armed: snapshot.capture.armed,
         session_active,
@@ -72,17 +212,29 @@ pub fn recorder_session_state(snapshot: &RecorderSnapshot) -> RecordingState {
             .iter()
             .cloned()
             .collect::<Vec<_>>(),
+        samples_dropped,
     }
 }
 
 /// Projects the published `library` State from the Snapshot.
 pub fn recording_library(snapshot: &RecorderSnapshot) -> RecordingLibrary {
+    let entries = snapshot.library.entries();
     RecordingLibrary {
-        files: snapshot
-            .library
-            .entries()
+        files: entries.iter().map(recording_file_message).collect(),
+        contents: entries
             .iter()
-            .map(recording_file_message)
+            .filter_map(|entry| {
+                let contents = snapshot.library.contents(&entry.path)?;
+                Some(RecordingContents {
+                    path: entry.path.clone(),
+                    duration: Duration {
+                        sec: i32::try_from(contents.duration.as_secs()).unwrap_or(i32::MAX),
+                        nanosec: contents.duration.subsec_nanos(),
+                    },
+                    video_topics: contents.video_topics.clone(),
+                    other_topic_count: contents.other_topic_count,
+                })
+            })
             .collect(),
     }
 }
@@ -100,6 +252,7 @@ fn recording_file_message(entry: &blueos_recorder_library::RecordingFileEntry) -
         repair_bytes_per_second: entry.repair_bytes_per_second,
         repair_error: entry.repair_error.clone(),
         allowed_operations: entry.allowed_operations.clone(),
+        repair_job_id: entry.repair_job_id.map(String::from).unwrap_or_default(),
     }
 }
 
@@ -114,32 +267,4 @@ fn recording_file_state_wire(state: RecordingFileState) -> WireRecordingFileStat
 
 fn unix_seconds_to_time(seconds: i64) -> (i32, u32) {
     (i32::try_from(seconds).unwrap_or(i32::MAX), 0)
-}
-
-fn recording_operation_message(event: &RecordingOperationEvent) -> RecordingOperation {
-    let operation = match event.operation {
-        RecordingOperationKind::Repair => RecordingOperationOperation::Repair,
-        RecordingOperationKind::Snapshot => RecordingOperationOperation::Snapshot,
-    };
-    RecordingOperation {
-        operation,
-        path: event.path.clone(),
-        output_path: event.output_path.clone(),
-        succeeded: event.succeeded,
-        cancelled: event.cancelled,
-        error: repair_failure_wire(&event.failure, event.cancelled),
-    }
-}
-
-fn repair_failure_wire(failure: &RepairFailure, cancelled: bool) -> String {
-    if cancelled {
-        return String::new();
-    }
-    match failure {
-        RepairFailure::None => String::new(),
-        RepairFailure::Io => "Filesystem operation failed.".into(),
-        RepairFailure::Rewrite => "MCAP rewrite failed.".into(),
-        RepairFailure::Replace => "Could not replace the recording file.".into(),
-        RepairFailure::Message(message) => message.clone(),
-    }
 }

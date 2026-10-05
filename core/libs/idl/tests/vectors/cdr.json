@@ -1,19 +1,26 @@
 {
   "vectors": [
     {
-      "schema_name": "blueos_example_msgs/msg/EmptyRequest",
+      "schema_name": "blueos_example_msgs/action/SetLevel_Feedback",
       "hex": "0001000000",
       "decoded": {
-        "padding": 0
+        "level": 0
       },
       "category": "default"
     },
     {
-      "schema_name": "blueos_example_msgs/msg/LevelQueryResponse",
-      "hex": "000100000000",
+      "schema_name": "blueos_example_msgs/action/SetLevel_Goal",
+      "hex": "0001000000",
       "decoded": {
-        "level": 0,
-        "max_level": 0
+        "level": 0
+      },
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_example_msgs/action/SetLevel_Result",
+      "hex": "0001000000",
+      "decoded": {
+        "level": 0
       },
       "category": "default"
     },
@@ -38,20 +45,51 @@
       "category": "default"
     },
     {
-      "schema_name": "blueos_example_msgs/msg/SetLevelRequest",
+      "schema_name": "blueos_example_msgs/srv/Level_Request",
       "hex": "0001000000",
+      "decoded": {},
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_example_msgs/srv/Level_Response",
+      "hex": "000100000000",
       "decoded": {
-        "level": 0
+        "level": 0,
+        "max_level": 0
       },
       "category": "default"
     },
     {
+      "schema_name": "blueos_msgs/action/UpdateSettings_Feedback",
+      "hex": "0001000000",
+      "decoded": {},
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_msgs/action/UpdateSettings_Goal",
+      "hex": "00010000010000000000000000000000",
+      "decoded": {
+        "envelope": {
+          "document_json": "",
+          "fields": []
+        }
+      },
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_msgs/action/UpdateSettings_Result",
+      "hex": "0001000000",
+      "decoded": {},
+      "category": "default"
+    },
+    {
       "schema_name": "blueos_msgs/msg/CommandAck",
-      "hex": "00010000000000000000000000000000000000000100000000",
+      "hex": "000100000000000001000000000000000100000000",
       "decoded": {
         "accepted": false,
-        "job_id": 0,
-        "reason": ""
+        "job_id": "",
+        "reason": "",
+        "status": 0
       },
       "category": "default"
     },
@@ -59,11 +97,28 @@
       "schema_name": "blueos_msgs/msg/EndpointInfo",
       "hex": "0001000001000000000000000100000000000000010000000000000001000000000000000100000000",
       "decoded": {
+        "interface_type": "",
         "key": "",
         "kind": "",
         "name": "",
-        "request_schema": "",
-        "response_schema": ""
+        "schema": ""
+      },
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_msgs/msg/JobFeedback",
+      "hex": "00010000010000000000000000000000",
+      "decoded": {
+        "feedback": [],
+        "job_id": ""
+      },
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_msgs/msg/JobFeedbackList",
+      "hex": "0001000000000000",
+      "decoded": {
+        "jobs": []
       },
       "category": "default"
     },
@@ -76,13 +131,35 @@
       "category": "default"
     },
     {
-      "schema_name": "blueos_msgs/msg/JobStatus",
-      "hex": "0001000000000000000000000000000000000000000000000100000000",
+      "schema_name": "blueos_msgs/msg/JobResult",
+      "hex": "0001000001000000000000000100000000000000010000000000000000000000",
       "decoded": {
-        "job_id": 0,
-        "name": "",
-        "parent_job_id": 0,
+        "job": {
+          "job_id": "",
+          "job_type": "",
+          "reason": "",
+          "status": 0
+        },
+        "result": []
+      },
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_msgs/msg/JobStatus",
+      "hex": "00010000010000000000000001000000000000000100000000",
+      "decoded": {
+        "job_id": "",
+        "job_type": "",
+        "reason": "",
         "status": 0
+      },
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_msgs/msg/PermissionAnswer",
+      "hex": "0001000000",
+      "decoded": {
+        "granted": false
       },
       "category": "default"
     },
@@ -134,11 +211,113 @@
       "category": "default"
     },
     {
-      "schema_name": "blueos_recorder_msgs/msg/CancelRepairCommand",
+      "schema_name": "blueos_recorder_msgs/action/DeleteRecording_Feedback",
+      "hex": "0001000000",
+      "decoded": {},
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_recorder_msgs/action/DeleteRecording_Goal",
       "hex": "000100000100000000",
       "decoded": {
         "path": ""
       },
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_recorder_msgs/action/DeleteRecording_Result",
+      "hex": "000100000100000000",
+      "decoded": {
+        "path": ""
+      },
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_recorder_msgs/action/RepairRecording_Feedback",
+      "hex": "0001000000000000000000000000000000000000",
+      "decoded": {
+        "bytes_processed": 0,
+        "total_bytes": 0
+      },
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_recorder_msgs/action/RepairRecording_Goal",
+      "hex": "000100000100000000",
+      "decoded": {
+        "path": ""
+      },
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_recorder_msgs/action/RepairRecording_Result",
+      "hex": "000100000100000000",
+      "decoded": {
+        "path": ""
+      },
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_recorder_msgs/action/SnapshotRecording_Feedback",
+      "hex": "000100000100000000",
+      "decoded": {
+        "output_path": ""
+      },
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_recorder_msgs/action/SnapshotRecording_Goal",
+      "hex": "000100000100000000",
+      "decoded": {
+        "path": ""
+      },
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_recorder_msgs/action/SnapshotRecording_Result",
+      "hex": "0001000001000000000000000100000000",
+      "decoded": {
+        "output_path": "",
+        "path": ""
+      },
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_recorder_msgs/action/StartRecording_Feedback",
+      "hex": "0001000000",
+      "decoded": {},
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_recorder_msgs/action/StartRecording_Goal",
+      "hex": "0001000000",
+      "decoded": {
+        "rotate_if_active": false
+      },
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_recorder_msgs/action/StartRecording_Result",
+      "hex": "0001000000",
+      "decoded": {},
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_recorder_msgs/action/StopRecording_Feedback",
+      "hex": "0001000000",
+      "decoded": {},
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_recorder_msgs/action/StopRecording_Goal",
+      "hex": "0001000000",
+      "decoded": {},
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_recorder_msgs/action/StopRecording_Result",
+      "hex": "0001000000",
+      "decoded": {},
       "category": "default"
     },
     {
@@ -167,16 +346,22 @@
       "category": "default"
     },
     {
-      "schema_name": "blueos_recorder_msgs/msg/DeleteRecordingCommand",
-      "hex": "000100000100000000",
+      "schema_name": "blueos_recorder_msgs/msg/RecordingContents",
+      "hex": "00010000010000000000000000000000000000000000000000000000",
       "decoded": {
-        "path": ""
+        "duration": {
+          "nanosec": 0,
+          "sec": 0
+        },
+        "other_topic_count": 0,
+        "path": "",
+        "video_topics": []
       },
       "category": "default"
     },
     {
       "schema_name": "blueos_recorder_msgs/msg/RecordingFile",
-      "hex": "0001000001000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000",
+      "hex": "00010000010000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000100000000",
       "decoded": {
         "allowed_operations": [],
         "created": {
@@ -188,6 +373,7 @@
         "repair_bytes_per_second": 0.0,
         "repair_bytes_processed": 0,
         "repair_error": "",
+        "repair_job_id": "",
         "repair_total_bytes": 0,
         "size_bytes": 0,
         "state": 0
@@ -195,20 +381,49 @@
       "category": "default"
     },
     {
-      "schema_name": "blueos_recorder_msgs/msg/RecordingIndex",
-      "hex": "000100000000000000000000000000000000000000000000000000000000000000000000",
+      "schema_name": "blueos_recorder_msgs/msg/RecordingLibrary",
+      "hex": "000100000000000000000000",
       "decoded": {
-        "chunks": [],
-        "closed": false,
-        "message_counts": [],
+        "contents": [],
+        "files": []
+      },
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_recorder_msgs/msg/RecordingState",
+      "hex": "0001000000000000010000000000000000000000000000000000000000000000000000000000000000000000",
+      "decoded": {
+        "armed": false,
+        "current_file": "",
+        "recording_video_topics": [],
+        "samples_dropped": 0,
+        "session_active": false,
+        "session_bytes_written": 0
+      },
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_recorder_msgs/srv/RecordingBytes_Request",
+      "hex": "00010000010000000000000000000000000000000000000000",
+      "decoded": {
+        "from_end": false,
+        "length": 0,
         "offset": 0,
-        "records": [],
+        "path": ""
+      },
+      "category": "default"
+    },
+    {
+      "schema_name": "blueos_recorder_msgs/srv/RecordingBytes_Response",
+      "hex": "00010000000000000000000000000000",
+      "decoded": {
+        "data": [],
         "size": 0
       },
       "category": "default"
     },
     {
-      "schema_name": "blueos_recorder_msgs/msg/RecordingIndexRequest",
+      "schema_name": "blueos_recorder_msgs/srv/RecordingIndex_Request",
       "hex": "000100000100000000000000000000000000000000000000",
       "decoded": {
         "from_offset": 0,
@@ -218,87 +433,15 @@
       "category": "default"
     },
     {
-      "schema_name": "blueos_recorder_msgs/msg/RecordingLibrary",
-      "hex": "0001000000000000",
+      "schema_name": "blueos_recorder_msgs/srv/RecordingIndex_Response",
+      "hex": "000100000000000000000000000000000000000000000000000000000000000000000000",
       "decoded": {
-        "files": []
-      },
-      "category": "default"
-    },
-    {
-      "schema_name": "blueos_recorder_msgs/msg/RecordingOperation",
-      "hex": "0001000000000000010000000000000001000000000000000100000000",
-      "decoded": {
-        "cancelled": false,
-        "error": "",
-        "operation": 0,
-        "output_path": "",
-        "path": "",
-        "succeeded": false
-      },
-      "category": "default"
-    },
-    {
-      "schema_name": "blueos_recorder_msgs/msg/RecordingPolicy",
-      "hex": "000100000000",
-      "decoded": {
-        "auto_start_recording": false,
-        "record_mavlink_only_when_armed": false
-      },
-      "category": "default"
-    },
-    {
-      "schema_name": "blueos_recorder_msgs/msg/RecordingState",
-      "hex": "0001000000000000010000000000000000000000000000000000000000000000",
-      "decoded": {
-        "armed": false,
-        "current_file": "",
-        "recording_video_topics": [],
-        "session_active": false,
-        "session_bytes_written": 0
-      },
-      "category": "default"
-    },
-    {
-      "schema_name": "blueos_recorder_msgs/msg/RepairRecordingCommand",
-      "hex": "000100000100000000",
-      "decoded": {
-        "path": ""
-      },
-      "category": "default"
-    },
-    {
-      "schema_name": "blueos_recorder_msgs/msg/SetPolicyCommand",
-      "hex": "000100000000",
-      "decoded": {
-        "policy": {
-          "auto_start_recording": false,
-          "record_mavlink_only_when_armed": false
-        }
-      },
-      "category": "default"
-    },
-    {
-      "schema_name": "blueos_recorder_msgs/msg/SnapshotRecordingCommand",
-      "hex": "000100000100000000",
-      "decoded": {
-        "path": ""
-      },
-      "category": "default"
-    },
-    {
-      "schema_name": "blueos_recorder_msgs/msg/StartRecordingCommand",
-      "hex": "0001000000",
-      "decoded": {
-        "rotate_if_active": false
-      },
-      "category": "default"
-    },
-    {
-      "schema_name": "blueos_recorder_msgs/msg/StopRecordingCommand",
-      "hex": "0001000000",
-      "decoded": {
-        "reserved": 0
+        "chunks": [],
+        "closed": false,
+        "message_counts": [],
+        "offset": 0,
+        "records": [],
+        "size": 0
       },
       "category": "default"
     },
@@ -334,6 +477,12 @@
           "sec": 0
         }
       },
+      "category": "default"
+    },
+    {
+      "schema_name": "std_msgs/msg/Empty",
+      "hex": "0001000000",
+      "decoded": {},
       "category": "default"
     },
     {
@@ -385,17 +534,18 @@
     },
     {
       "schema_name": "blueos_msgs/msg/CommandAck",
-      "hex": "0001000001000000000000002a000000000000000700000071756575656400",
+      "hex": "00010000010000002500000030623565386635632d366630612d346334652d396135322d326631653764336339623130000700000700000071756575656400",
       "decoded": {
         "accepted": true,
-        "job_id": 42,
-        "reason": "queued"
+        "job_id": "0b5e8f5c-6f0a-4c4e-9a52-2f1e7d3c9b10",
+        "reason": "queued",
+        "status": 7
       },
       "category": "example"
     },
     {
       "schema_name": "blueos_msgs/msg/ServiceInfo",
-      "hex": "00010000090000007265636f726465720000000006000000312e302e30000000040000006465760001000000070000007265636f726400000200000008000000636f6d6d616e640006000000537461727400000021000000626c75656f732f76312f7265636f726465722f636f6d6d616e642f5374617274000000002f000000626c75656f735f7265636f726465725f6d7367732f6d73672f53746172745265636f7264696e67436f6d6d616e6400001b000000626c75656f735f6d7367732f6d73672f436f6d6d616e6441636b0000060000007374617465000000080000006c6962726172790021000000626c75656f732f76312f7265636f726465722f73746174652f6c6962726172790000000001000000000000002a000000626c75656f735f7265636f726465725f6d7367732f6d73672f5265636f7264696e674c69627261727900",
+      "hex": "00010000090000007265636f726465720000000006000000312e302e30000000040000006465760001000000070000007265636f7264000002000000040000006a6f620006000000537461727400000021000000626c75656f732f76312f7265636f726465722f636f6d6d616e642f5374617274000000002b000000626c75656f735f7265636f726465725f6d7367732f616374696f6e2f53746172745265636f7264696e6700001e000000626f6f6c20726f746174655f69665f6163746976650a2d2d2d0a2d2d2d000000060000007374617465000000080000006c6962726172790021000000626c75656f732f76312f7265636f726465722f73746174652f6c696272617279000000002a000000626c75656f735f7265636f726465725f6d7367732f6d73672f5265636f7264696e674c6962726172790000000100000000",
       "decoded": {
         "build": "dev",
         "capabilities": [
@@ -403,18 +553,18 @@
         ],
         "endpoints": [
           {
+            "interface_type": "blueos_recorder_msgs/action/StartRecording",
             "key": "blueos/v1/recorder/command/Start",
-            "kind": "command",
+            "kind": "job",
             "name": "Start",
-            "request_schema": "blueos_recorder_msgs/msg/StartRecordingCommand",
-            "response_schema": "blueos_msgs/msg/CommandAck"
+            "schema": "bool rotate_if_active\n---\n---"
           },
           {
+            "interface_type": "blueos_recorder_msgs/msg/RecordingLibrary",
             "key": "blueos/v1/recorder/state/library",
             "kind": "state",
             "name": "library",
-            "request_schema": "",
-            "response_schema": "blueos_recorder_msgs/msg/RecordingLibrary"
+            "schema": ""
           }
         ],
         "name": "recorder",
@@ -424,7 +574,7 @@
     },
     {
       "schema_name": "blueos_recorder_msgs/msg/RecordingFile",
-      "hex": "000100001f00000073657373696f6e2f7265636f726465725f32303236303932352e6d6361700000170000007265636f726465725f32303236303932352e6d6361700000b3db02000000000056e7b56a000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000",
+      "hex": "000100001f00000073657373696f6e2f7265636f726465725f32303236303932352e6d6361700000170000007265636f726465725f32303236303932352e6d6361700000b3db02000000000056e7b56a0000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000100000000",
       "decoded": {
         "allowed_operations": [],
         "created": {
@@ -436,6 +586,7 @@
         "repair_bytes_per_second": 0.0,
         "repair_bytes_processed": 0,
         "repair_error": "",
+        "repair_job_id": "",
         "repair_total_bytes": 0,
         "size_bytes": 187315,
         "state": 1
@@ -443,12 +594,79 @@
       "category": "example"
     },
     {
+      "schema_name": "blueos_recorder_msgs/msg/RecordingLibrary",
+      "hex": "00010000010000001f00000073657373696f6e2f7265636f726465725f32303236303932352e6d6361700000170000007265636f726465725f32303236303932352e6d636170000000000000b3db02000000000056e7b56a0000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000100000000000000010000001f00000073657373696f6e2f7265636f726465725f32303236303932352e6d6361700000020000000065cd1d0100000014000000766964656f2f63616d6572612f73747265616d0003000000",
+      "decoded": {
+        "contents": [
+          {
+            "duration": {
+              "nanosec": 500000000,
+              "sec": 2
+            },
+            "other_topic_count": 3,
+            "path": "session/recorder_20260925.mcap",
+            "video_topics": [
+              "video/camera/stream"
+            ]
+          }
+        ],
+        "files": [
+          {
+            "allowed_operations": [],
+            "created": {
+              "nanosec": 0,
+              "sec": 1790306134
+            },
+            "name": "recorder_20260925.mcap",
+            "path": "session/recorder_20260925.mcap",
+            "repair_bytes_per_second": 0.0,
+            "repair_bytes_processed": 0,
+            "repair_error": "",
+            "repair_job_id": "",
+            "repair_total_bytes": 0,
+            "size_bytes": 187315,
+            "state": 1
+          }
+        ]
+      },
+      "category": "example"
+    },
+    {
+      "schema_name": "blueos_recorder_msgs/msg/RecordingLibrary",
+      "hex": "00010000010000001f00000073657373696f6e2f7265636f726465725f32303236303932352e6d6361700000170000007265636f726465725f32303236303932352e6d636170000000000000b3db02000000000056e7b56a0000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000100000000",
+      "decoded": {
+        "contents": [],
+        "files": [
+          {
+            "allowed_operations": [],
+            "created": {
+              "nanosec": 0,
+              "sec": 1790306134
+            },
+            "name": "recorder_20260925.mcap",
+            "path": "session/recorder_20260925.mcap",
+            "repair_bytes_per_second": 0.0,
+            "repair_bytes_processed": 0,
+            "repair_error": "",
+            "repair_job_id": "",
+            "repair_total_bytes": 0,
+            "size_bytes": 187315,
+            "state": 1
+          }
+        ]
+      },
+      "category": "old_writer",
+      "skip_encode_round_trip": true,
+      "layout_note": "a recorder from before contents was appended"
+    },
+    {
       "schema_name": "blueos_msgs/msg/CommandAck",
-      "hex": "0001000001000000000000000700000000000000",
+      "hex": "00010000010000002500000030623565386635632d366630612d346334652d396135322d32663165376433633962313000",
       "decoded": {
         "accepted": true,
-        "job_id": 7,
-        "reason": ""
+        "job_id": "0b5e8f5c-6f0a-4c4e-9a52-2f1e7d3c9b10",
+        "reason": "",
+        "status": 0
       },
       "category": "old_writer",
       "skip_encode_round_trip": true
@@ -479,18 +697,11 @@
       "layout_note": "string path followed by bool restart_required"
     },
     {
-      "schema_name": "blueos_recorder_msgs/msg/RecordingOperation",
-      "hex": "00010000010000001100000073657373696f6e2f666f6f2e6d636170000000001a00000073657373696f6e2f666f6f5f736e617073686f742e6d6361700001000100000000",
-      "decoded": {
-        "cancelled": false,
-        "error": "",
-        "operation": 1,
-        "output_path": "session/foo_snapshot.mcap",
-        "path": "session/foo.mcap",
-        "succeeded": true
-      },
-      "category": "layout",
-      "layout_note": "string output_path followed by bool succeeded"
+      "schema_name": "blueos_example_msgs/srv/Level_Request",
+      "hex": "0001000000",
+      "decoded": {},
+      "category": "empty_struct",
+      "layout_note": "ROS 2 writes one byte for an empty struct (structure_needs_at_least_one_member)"
     }
   ]
 }

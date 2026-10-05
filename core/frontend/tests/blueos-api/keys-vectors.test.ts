@@ -12,6 +12,9 @@ import {
   extensionLogKey,
   httpGatewayPrefix,
   infoQueryKey,
+  jobFeedbackKey,
+  jobHistoryKey,
+  jobResultKey,
   jobsKey,
   KEY_PREFIX,
   logKey,
@@ -36,6 +39,9 @@ interface KeysVectors {
   event_key: Array<{ service: string, name: string, expected: string }>
   query_key: Array<{ service: string, name: string, expected: string }>
   jobs_key: Array<{ service: string, expected: string }>
+  job_feedback_key: Array<{ service: string, name: string, expected: string }>
+  job_result_key: Array<{ service: string, name: string, expected: string }>
+  job_history_key: Array<{ service: string, name: string, expected: string }>
   settings_key: Array<{ service: string, expected: string }>
   log_key: Array<{ service: string, expected: string }>
   extension_log_key: Array<{ service: string, extension_identifier: string, expected: string }>
@@ -93,6 +99,18 @@ describe('blueos-api key shared vectors', () => {
   it('matches jobs keys', () => {
     for (const caseEntry of vectors.jobs_key) {
       expect(jobsKey(caseEntry.service)).toBe(caseEntry.expected)
+    }
+  })
+
+  it('matches the feedback, result and history keys of a Job type', () => {
+    for (const caseEntry of vectors.job_feedback_key) {
+      expect(jobFeedbackKey(caseEntry.service, caseEntry.name)).toBe(caseEntry.expected)
+    }
+    for (const caseEntry of vectors.job_result_key) {
+      expect(jobResultKey(caseEntry.service, caseEntry.name)).toBe(caseEntry.expected)
+    }
+    for (const caseEntry of vectors.job_history_key) {
+      expect(jobHistoryKey(caseEntry.service, caseEntry.name)).toBe(caseEntry.expected)
     }
   })
 

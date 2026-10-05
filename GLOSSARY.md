@@ -203,3 +203,10 @@ _Avoid_: domain event (for the published form)
 **Settings document**:
 The persisted, versioned configuration of one Service, in the same format the Python services use.
 _Avoid_: config, policy, preferences
+
+## Recorder
+
+**Recording contents**:
+What one recording holds, read from its MCAP summary: its duration, its video topics, and how many other topics it
+has. Unknown, never empty, while the file is being written, needs repair, or has a summary that cannot be read.
+_Avoid_: summary (the MCAP record it is read from), metadata

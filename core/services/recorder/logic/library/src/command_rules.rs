@@ -4,6 +4,7 @@ use alloc::{string::String, vec::Vec};
 use core::time::Duration;
 
 use blueos_domain::Now;
+use blueos_jobs::JobControl;
 
 /// Minimum age before an unindexed file may be repaired (avoids racing an active writer).
 pub const RECENTLY_WRITTEN_DELAY: Duration = Duration::from_secs(10);
@@ -12,8 +13,8 @@ pub const RECENTLY_WRITTEN_DELAY: Duration = Duration::from_secs(10);
 pub const DELETE_RECORDING: &str = "DeleteRecording";
 /// Endpoint name for the repair Command.
 pub const REPAIR_RECORDING: &str = "RepairRecording";
-/// Endpoint name for [`CancelRepair`](crate::LibraryRequest::CancelRepair).
-pub const CANCEL_REPAIR: &str = "CancelRepair";
+/// Endpoint name of the Kernel's control that cancels a repair's Job.
+pub const CANCEL_JOB: &str = JobControl::Cancel.endpoint_name();
 /// Endpoint name for the snapshot Command.
 pub const SNAPSHOT_RECORDING: &str = "SnapshotRecording";
 
@@ -34,6 +35,8 @@ pub struct RecordingCommandContext<'a> {
     pub snapshotting: bool,
     /// Whether the MCAP summary is present.
     pub indexed: bool,
+    /// Whether a repair already failed because the file, as it is now, is not an MCAP recording.
+    pub not_mcap: bool,
     /// Modification time from the last scan (Unix seconds).
     pub modified_unix_seconds: i64,
     /// Injected time for the Command.
@@ -47,7 +50,7 @@ pub fn allowed_operations(context: &RecordingCommandContext<'_>) -> Vec<String> 
         operations.push(REPAIR_RECORDING.into());
     }
     if cancel_repair_rejection(context).is_none() {
-        operations.push(CANCEL_REPAIR.into());
+        operations.push(CANCEL_JOB.into());
     }
     if snapshot_recording_rejection(context).is_none() {
         operations.push(SNAPSHOT_RECORDING.into());
@@ -86,6 +89,9 @@ pub fn repair_recording_rejection(context: &RecordingCommandContext<'_>) -> Opti
     if context.indexed {
         return Some("This recording already has an index.");
     }
+    if context.not_mcap {
+        return Some("This recording is not an MCAP file.");
+    }
     if context.active_recording_relative_path == Some(context.relative_path) {
         return Some("This recording is still being written. Try again once it is finished.");
     }
@@ -111,12 +117,17 @@ pub fn snapshot_recording_rejection(context: &RecordingCommandContext<'_>) -> Op
     if context.snapshotting || context.repairing {
         return Some("This recording is being processed.");
     }
+    if context.active_recording_relative_path != Some(context.relative_path) {
+        return Some("Only the recording being written needs a snapshot. Download it directly.");
+    }
     None
 }
 
 fn recently_written(modified_unix_seconds: i64, now: Now) -> bool {
-    let modified = Duration::from_secs(modified_unix_seconds.max(0) as u64);
-    now.wall.saturating_sub(modified) < RECENTLY_WRITTEN_DELAY
+    now.wall
+        .as_secs()
+        .saturating_sub(modified_unix_seconds.max(0) as u64)
+        < RECENTLY_WRITTEN_DELAY.as_secs()
 }
 
 #[cfg(test)]
@@ -137,6 +148,7 @@ mod tests {
             repairing: false,
             snapshotting: false,
             indexed: false,
+            not_mcap: false,
             modified_unix_seconds: 1_000,
             now: NOW,
         }
@@ -166,6 +178,22 @@ mod tests {
         let mut context = context("live.mcap", true);
         context.active_recording_relative_path = Some("live.mcap");
         assert!(snapshot_recording_rejection(&context).is_none());
+    }
+
+    #[test]
+    fn snapshot_rejects_finished_recording() {
+        let context = context("done.mcap", true);
+        assert_eq!(
+            snapshot_recording_rejection(&context),
+            Some("Only the recording being written needs a snapshot. Download it directly.")
+        );
+    }
+
+    #[test]
+    fn ready_row_allows_delete_but_no_snapshot() {
+        let mut context = context("done.mcap", true);
+        context.indexed = true;
+        assert_eq!(allowed_operations(&context), [DELETE_RECORDING]);
     }
 
     #[test]

@@ -1,4 +1,4 @@
-//! The Kernel test harness (layer L3): a Service's real `build`, run on the in-process channel backend.
+//! The Kernel test harness (layer L3): a Service's real `context` and `build`, run on the in-process channel backend.
 //!
 //! Run every test with `#[tokio::test(start_paused = true)]`. The Kernel's [`Clock`] follows the paused tokio clock
 //! from [`WALL_CLOCK_AT_START`], so `tokio::time::advance` moves the time the Domain sees, and nothing sleeps.
@@ -9,13 +9,21 @@ use std::sync::{Arc, Mutex};
 use tokio::{task::JoinSet, time::Instant};
 
 use blueos_api::{
-    CommandAck, Message, cdr_encoding, command_key, jobs_key, query_key, settings_key, state_key,
+    CommandAck, Message, cdr_encoding, command_key, info_query_key, job_feedback_key,
+    job_history_key, jobs_key, query_key, settings_key, state_key,
 };
 use blueos_comms::{CommsBackend, QueryBody, ReplyError, channel::ChannelBackend};
 use blueos_domain::{Domain, Effect, Now};
-use blueos_idl::msg::blueos_msgs::JobList;
+use blueos_idl::msg::{
+    blueos_msgs::{JobFeedbackList, JobList, PermissionAnswer, ServiceInfo},
+    std_msgs::Empty,
+};
+use blueos_jobs::{JobControl, JobId};
 
-use crate::{Clock, CommandSender, Kernel, Service, ServiceContext, ServiceError, sync};
+use crate::{
+    Clock, CommandSender, Kernel, Service, ServiceContext, ServiceError, ShutdownHandle,
+    new_job_id, sync,
+};
 
 /// The wall-clock time the Domain sees when the harness starts: 2026-01-01T00:00:00Z.
 pub const WALL_CLOCK_AT_START: Duration = Duration::from_secs(1_767_225_600);
@@ -38,12 +46,12 @@ pub struct Harness<S: Service> {
     backend: Arc<dyn CommsBackend>,
     command_sender: CommandSender<S::Domain>,
     durable_flush: Option<crate::durable_state::DurableWriteFlush>,
-    #[expect(
-        dead_code,
-        reason = "held so that dropping the Harness aborts the Kernel"
-    )]
+    shutdown: ShutdownHandle,
+    /// Dropping the Harness aborts the Kernel.
     kernel: JoinSet<()>,
     service: PhantomData<fn() -> S>,
+    /// The settings path of a Service started without one; removed after the Kernel stops.
+    _settings_directory: Option<tempfile::TempDir>,
 }
 
 /// The injected [`Clock`]: it follows the paused tokio clock, so the time the Domain sees moves only with
@@ -84,20 +92,40 @@ impl PausedClock {
 }
 
 impl<S: Service> Harness<S> {
-    /// Calls `S::build` with `arguments` and starts its Kernel on a fresh channel backend.
+    /// Calls `S::context` and `S::build` with `arguments` and starts its Kernel on a fresh channel backend.
     ///
     /// # Errors
     ///
-    /// The [`ServiceError`] that `build` or the Kernel's startup returned.
+    /// The [`ServiceError`] that `context`, `build` or the Kernel's startup returned.
     pub async fn start(arguments: S::Arguments) -> Result<Self, ServiceError> {
         Self::start_on(Arc::new(ChannelBackend::default()), arguments).await
+    }
+
+    /// Like [`Self::start`], and `change` replaces Context fields after `S::context` and before `S::build`, so the
+    /// wiring under test is the wiring that ships: a Port wrapped or faked, or a tunable set.
+    ///
+    /// # Errors
+    ///
+    /// The [`ServiceError`] that `context`, `build` or the Kernel's startup returned.
+    pub async fn start_with(
+        arguments: S::Arguments,
+        change: impl FnOnce(&mut S::Context),
+    ) -> Result<Self, ServiceError> {
+        let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
+        Self::start_on_with_effect_log(
+            Arc::clone(&backend),
+            ServiceContext::new(arguments, backend),
+            change,
+            None,
+        )
+        .await
     }
 
     /// Starts the Service and records every Command's Effects without running IO or timers.
     ///
     /// # Errors
     ///
-    /// The [`ServiceError`] that `build` or the Kernel's startup returned.
+    /// The [`ServiceError`] that `context`, `build` or the Kernel's startup returned.
     pub async fn start_recording_effects(
         arguments: S::Arguments,
     ) -> Result<(Self, EffectLog<S::Domain>), ServiceError> {
@@ -113,14 +141,19 @@ impl<S: Service> Harness<S> {
     ///
     /// # Errors
     ///
-    /// The [`ServiceError`] that `build` or the Kernel's startup returned.
+    /// The [`ServiceError`] that `context`, `build` or the Kernel's startup returned.
     pub async fn start_recording_effects_with_context(
         context: ServiceContext<S::Arguments>,
     ) -> Result<(Self, EffectLog<S::Domain>), ServiceError> {
         let log = EffectLog(Arc::new(Mutex::new(Vec::new())));
         let backend = Arc::clone(context.session());
-        let harness =
-            Self::start_on_with_effect_log(backend, context, Some(Arc::clone(&log.0))).await?;
+        let harness = Self::start_on_with_effect_log(
+            backend,
+            context,
+            |_context| {},
+            Some(Arc::clone(&log.0)),
+        )
+        .await?;
         Ok((harness, log))
     }
 
@@ -129,7 +162,7 @@ impl<S: Service> Harness<S> {
     ///
     /// # Errors
     ///
-    /// The [`ServiceError`] that `build` or the Kernel's startup returned.
+    /// The [`ServiceError`] that `context`, `build` or the Kernel's startup returned.
     pub async fn start_on(
         backend: Arc<dyn CommsBackend>,
         arguments: S::Arguments,
@@ -145,25 +178,37 @@ impl<S: Service> Harness<S> {
     ///
     /// # Errors
     ///
-    /// The [`ServiceError`] that `build` or the Kernel's startup returned.
+    /// The [`ServiceError`] that `context`, `build` or the Kernel's startup returned.
     pub async fn start_on_with_context(
         backend: Arc<dyn CommsBackend>,
         context: ServiceContext<S::Arguments>,
     ) -> Result<Self, ServiceError> {
-        Self::start_on_with_effect_log(backend, context, None).await
+        Self::start_on_with_effect_log(backend, context, |_context| {}, None).await
     }
 
     async fn start_on_with_effect_log(
         backend: Arc<dyn CommsBackend>,
-        mut context: ServiceContext<S::Arguments>,
+        mut service: ServiceContext<S::Arguments>,
+        change: impl FnOnce(&mut S::Context),
         effect_log: Option<crate::kernel::EffectLogStorage<S::Domain>>,
     ) -> Result<Self, ServiceError> {
-        context.isolate_unset_settings_folder();
-        let builder = S::build(&context)?;
+        let settings_directory = if service.settings_path.is_none() {
+            let directory =
+                tempfile::tempdir().map_err(|error| ServiceError::Build(error.into()))?;
+            service.settings_path = Some(directory.path().to_path_buf());
+            Some(directory)
+        } else {
+            None
+        };
+        let mut context = S::context(&service)?;
+        change(&mut context);
+        let mut builder = S::build(&service, &context)?.for_service::<S>(&service);
+        let shutdown = builder.shutdown_handle();
         let clock = Arc::new(PausedClock::start());
         let kernel = Kernel::start_with_effect_log(
             S::NAME,
             builder,
+            context,
             Arc::clone(&backend),
             clock,
             effect_log,
@@ -181,8 +226,10 @@ impl<S: Service> Harness<S> {
             backend,
             command_sender,
             durable_flush,
+            shutdown,
             kernel: tasks,
             service: PhantomData,
+            _settings_directory: settings_directory,
         })
     }
 
@@ -191,6 +238,12 @@ impl<S: Service> Harness<S> {
         if let Some(flush) = &self.durable_flush {
             flush.flush().await;
         }
+    }
+
+    /// Requests the graceful shutdown that `SIGTERM` would, and waits for the Kernel to finish it.
+    pub async fn shutdown(mut self) {
+        self.shutdown.trigger();
+        while self.kernel.join_next().await.is_some() {}
     }
 
     /// Sends Commands into the service's Inbox without using the backbone.
@@ -204,16 +257,51 @@ impl<S: Service> Harness<S> {
         &self.backend
     }
 
-    /// Sends `request` to the Command endpoint `command`, as a client would, and returns the ack.
+    /// Submits a Job of type `command` with `goal` and a new Job id, as a client would, and returns the ack.
     ///
     /// # Panics
     ///
     /// When the Service does not reply exactly once with a [`CommandAck`].
-    pub async fn send<M: Message>(&self, command: &str, request: &M) -> CommandAck {
+    pub async fn send<M: Message>(&self, command: &str, goal: &M) -> CommandAck {
+        self.submit(command, new_job_id(), goal).await
+    }
+
+    /// Submits the Job `job_id` of type `job_type` with `goal`, as a client would, and returns the ack.
+    ///
+    /// # Panics
+    ///
+    /// When the Service does not reply exactly once with a [`CommandAck`].
+    pub async fn submit<M: Message>(&self, job_type: &str, job_id: JobId, goal: &M) -> CommandAck {
         let body = QueryBody::new(
-            request.encode().expect("the request encodes"),
+            goal.encode().expect("the Goal encodes"),
             cdr_encoding(M::SCHEMA_NAME),
         );
+        self.command(job_type, job_id, body).await
+    }
+
+    /// Sends `control` for the Job `job_id`, as a client would, and returns the ack.
+    ///
+    /// # Panics
+    ///
+    /// When the Service does not reply exactly once with a [`CommandAck`].
+    pub async fn control(&self, job_id: JobId, control: JobControl) -> CommandAck {
+        let body = match control {
+            JobControl::AnswerPermission { granted } => QueryBody::new(
+                PermissionAnswer { granted }
+                    .encode()
+                    .expect("the answer encodes"),
+                cdr_encoding(PermissionAnswer::SCHEMA_NAME),
+            ),
+            JobControl::Cancel | JobControl::Pause | JobControl::Resume => QueryBody::new(
+                Empty {}.encode().expect("the empty body encodes"),
+                cdr_encoding(Empty::SCHEMA_NAME),
+            ),
+        };
+        self.command(&control.to_string(), job_id, body).await
+    }
+
+    async fn command(&self, command: &str, job_id: JobId, body: QueryBody) -> CommandAck {
+        let body = body.with_attachment(job_id.to_string().into_bytes());
         let replies = self
             .backend
             .get(&command_key(S::NAME, command), Some(body), REPLY_TIMEOUT)
@@ -253,21 +341,22 @@ impl<S: Service> Harness<S> {
             .map(|sample| R::decode(&sample.payload().to_bytes()).expect("the reply is an R"))
     }
 
+    /// Asks the standard `info` Query with no body, as the inspector does, and returns the endpoints it lists.
+    ///
+    /// # Panics
+    ///
+    /// When the Service does not reply exactly once with a [`ServiceInfo`].
+    pub async fn info(&self) -> ServiceInfo {
+        self.read_one(&info_query_key(S::NAME)).await
+    }
+
     /// Reads the State `state`, as a late client would.
     ///
     /// # Panics
     ///
     /// When the Service does not reply exactly once with an `M`.
     pub async fn state<M: Message>(&self, state: &str) -> M {
-        let replies = self
-            .backend
-            .get(&state_key(S::NAME, state), None, REPLY_TIMEOUT)
-            .await
-            .expect("the state key is valid");
-        let [Ok(reply)] = replies.as_slice() else {
-            panic!("expected one value of {state:?}, got {replies:?}");
-        };
-        M::decode(&reply.payload().to_bytes()).expect("the reply is the State's Message")
+        self.read_one(&state_key(S::NAME, state)).await
     }
 
     /// Reads the standard `settings` State, as a late client would.
@@ -276,32 +365,48 @@ impl<S: Service> Harness<S> {
     ///
     /// When the Service does not reply exactly once with an `M`.
     pub async fn settings<M: Message>(&self) -> M {
-        let replies = self
-            .backend
-            .get(&settings_key(S::NAME), None, REPLY_TIMEOUT)
-            .await
-            .expect("the settings key is valid");
-        let [Ok(reply)] = replies.as_slice() else {
-            panic!("expected one settings value, got {replies:?}");
-        };
-        M::decode(&reply.payload().to_bytes()).expect("the reply is SettingsEnvelope")
+        self.read_one(&settings_key(S::NAME)).await
     }
 
     /// Reads the standard `jobs` State, as a late client would.
     ///
     /// # Panics
     ///
-    /// When the Service does not reply exactly once with a [`JobList`], as for a Domain without Jobs.
+    /// When the Service does not reply exactly once with a [`JobList`].
     pub async fn jobs(&self) -> JobList {
+        self.read_one(&jobs_key(S::NAME)).await
+    }
+
+    /// Reads the Feedback State of the Job type `job_type`, as a late client would.
+    ///
+    /// # Panics
+    ///
+    /// When the Service does not reply exactly once with a [`JobFeedbackList`].
+    pub async fn job_feedback(&self, job_type: &str) -> JobFeedbackList {
+        self.read_one(&job_feedback_key(S::NAME, job_type)).await
+    }
+
+    /// Calls the history Query of the Job type `job_type`: its last finished Jobs, in the order they ended.
+    ///
+    /// # Panics
+    ///
+    /// When the Service does not reply exactly once with a [`JobList`].
+    pub async fn job_history(&self, job_type: &str) -> JobList {
+        self.read_one(&job_history_key(S::NAME, job_type)).await
+    }
+
+    /// Asks `key` with no body, as a late client would, and decodes the one reply it expects.
+    async fn read_one<M: Message>(&self, key: &str) -> M {
         let replies = self
             .backend
-            .get(&jobs_key(S::NAME), None, REPLY_TIMEOUT)
+            .get(key, None, REPLY_TIMEOUT)
             .await
-            .expect("the jobs key is valid");
+            .expect("the key is valid");
         let [Ok(reply)] = replies.as_slice() else {
-            panic!("expected one jobs value, got {replies:?}");
+            panic!("expected one reply on {key}, got {replies:?}");
         };
-        JobList::decode(&reply.payload().to_bytes()).expect("the reply is a JobList")
+        M::decode(&reply.payload().to_bytes())
+            .unwrap_or_else(|error| panic!("the reply on {key} is no {}: {error}", M::SCHEMA_NAME))
     }
 }
 
@@ -310,7 +415,7 @@ pub fn lock_unpoisoned<T>(mutex: &std::sync::Mutex<T>) -> std::sync::MutexGuard<
     sync::lock_unpoisoned(mutex)
 }
 
-/// In-process backbone Session for tests that call [`Service::build`] outside [`Harness`].
+/// In-process backbone Session for tests that call [`Service::context`] and [`Service::build`] outside [`Harness`].
 pub fn channel_session() -> crate::command_sender::Session {
     Arc::new(ChannelBackend::default())
 }

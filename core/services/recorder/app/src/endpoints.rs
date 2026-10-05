@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use blueos_domain::Domain;
 use blueos_idl::msg::blueos_recorder_msgs;
+use blueos_jobs::{DomainJobs, JobNature};
 use blueos_recorder_api::endpoints::Conversions;
 use blueos_service::{Refusal, ServiceBuilder};
 
@@ -15,97 +16,114 @@ use blueos_service::{Refusal, ServiceBuilder};
 pub const NAME: &str = "recorder";
 
 /// Handles the endpoints of the `recorder` Service whose mapping is not a plain conversion: the `custom`
-/// Commands and Queries, and the IO queries. Implement it in `handlers.rs` and pass it to [`register`].
+/// Job types and the IO queries. Implement it in `handlers.rs` and pass it to [`register`].
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not handle the custom endpoints of the `recorder` Service",
     label = "no `impl Handlers<D> for {Self}` in the `recorder` app crate",
-    note = "implement `cancel_repair` for the Command `CancelRepair`, `delete_recording` for the Command `DeleteRecording`, `repair_recording` for the Command `RepairRecording`, `snapshot_recording` for the Command `SnapshotRecording`, `index` for the IO query `index`"
+    note = "implement `bytes` for the IO query `bytes`, `index` for the IO query `index`"
 )]
 pub trait Handlers<D: Domain>: Send + Sync + 'static {
-    /// The Command `CancelRepair`, at `blueos/v1/recorder/command/CancelRepair`.
+    /// The IO query `bytes`, at `blueos/v1/recorder/query/bytes`.
     ///
-    /// The Domain's Request for the Message, or why it is refused.
-    fn cancel_repair(
+    /// Its response, read outside the Inbox, or why it is refused.
+    fn bytes(
         &self,
-        request: blueos_recorder_msgs::CancelRepairCommand,
-    ) -> Result<D::Request, Refusal>;
-
-    /// The Command `DeleteRecording`, at `blueos/v1/recorder/command/DeleteRecording`.
-    ///
-    /// The Domain's Request for the Message, or why it is refused.
-    fn delete_recording(
-        &self,
-        request: blueos_recorder_msgs::DeleteRecordingCommand,
-    ) -> Result<D::Request, Refusal>;
-
-    /// The Command `RepairRecording`, at `blueos/v1/recorder/command/RepairRecording`.
-    ///
-    /// The Domain's Request for the Message, or why it is refused.
-    fn repair_recording(
-        &self,
-        request: blueos_recorder_msgs::RepairRecordingCommand,
-    ) -> Result<D::Request, Refusal>;
-
-    /// The Command `SnapshotRecording`, at `blueos/v1/recorder/command/SnapshotRecording`.
-    ///
-    /// The Domain's Request for the Message, or why it is refused.
-    fn snapshot_recording(
-        &self,
-        request: blueos_recorder_msgs::SnapshotRecordingCommand,
-    ) -> Result<D::Request, Refusal>;
+        request: blueos_recorder_msgs::RecordingBytesRequest,
+    ) -> impl Future<Output = Result<blueos_recorder_msgs::RecordingBytesResponse, Refusal>> + Send;
 
     /// The IO query `index`, at `blueos/v1/recorder/query/index`.
     ///
-    /// Its reply, read outside the Inbox, or why it is refused.
+    /// Its response, read outside the Inbox, or why it is refused.
     fn index(
         &self,
         request: blueos_recorder_msgs::RecordingIndexRequest,
-    ) -> impl Future<Output = Result<blueos_recorder_msgs::RecordingIndex, Refusal>> + Send;
+    ) -> impl Future<Output = Result<blueos_recorder_msgs::RecordingIndexResponse, Refusal>> + Send;
 }
 
 /// Registers every endpoint of `endpoints.toml` on `builder`, with `handlers` for the custom ones.
-pub fn register<D: Conversions, H: Handlers<D>, Context>(
+pub fn register<D: Conversions + DomainJobs, H: Handlers<D>, Context>(
     builder: ServiceBuilder<D, Context>,
     handlers: H,
 ) -> ServiceBuilder<D, Context> {
     let handlers = Arc::new(handlers);
     builder
-        .command("CancelRepair", {
-            let handlers = Arc::clone(&handlers);
-            move |request: blueos_recorder_msgs::CancelRepairCommand| {
-                H::cancel_repair(&handlers, request)
-            }
-        })
-        .command("DeleteRecording", {
-            let handlers = Arc::clone(&handlers);
-            move |request: blueos_recorder_msgs::DeleteRecordingCommand| {
-                H::delete_recording(&handlers, request)
-            }
-        })
-        .command("RepairRecording", {
-            let handlers = Arc::clone(&handlers);
-            move |request: blueos_recorder_msgs::RepairRecordingCommand| {
-                H::repair_recording(&handlers, request)
-            }
-        })
-        .command("SnapshotRecording", {
-            let handlers = Arc::clone(&handlers);
-            move |request: blueos_recorder_msgs::SnapshotRecordingCommand| {
-                H::snapshot_recording(&handlers, request)
-            }
-        })
-        .command(
-            "Start",
-            |request: blueos_recorder_msgs::StartRecordingCommand| {
-                Ok(<D as Conversions>::start(request))
+        .job(
+            "DeleteRecording",
+            JobNature {
+                lasting: true,
+                cancellable: false,
+                pausable: false,
+                needs_permission: false,
+            },
+            |job_id, goal: blueos_recorder_msgs::DeleteRecordingGoal| {
+                <D as Conversions>::delete_recording(job_id, goal).map_err(Refusal::from)
             },
         )
-        .command(
-            "Stop",
-            |request: blueos_recorder_msgs::StopRecordingCommand| {
-                Ok(<D as Conversions>::stop(request))
+        .job_feedback(
+            "DeleteRecording",
+            <D as Conversions>::delete_recording_feedback,
+        )
+        .job_result(
+            "DeleteRecording",
+            <D as Conversions>::delete_recording_result,
+        )
+        .job(
+            "RepairRecording",
+            JobNature {
+                lasting: true,
+                cancellable: true,
+                pausable: false,
+                needs_permission: false,
+            },
+            |job_id, goal: blueos_recorder_msgs::RepairRecordingGoal| {
+                <D as Conversions>::repair_recording(job_id, goal).map_err(Refusal::from)
             },
         )
+        .job_feedback(
+            "RepairRecording",
+            <D as Conversions>::repair_recording_feedback,
+        )
+        .job_result(
+            "RepairRecording",
+            <D as Conversions>::repair_recording_result,
+        )
+        .job(
+            "SnapshotRecording",
+            JobNature {
+                lasting: true,
+                cancellable: false,
+                pausable: false,
+                needs_permission: false,
+            },
+            |job_id, goal: blueos_recorder_msgs::SnapshotRecordingGoal| {
+                <D as Conversions>::snapshot_recording(job_id, goal).map_err(Refusal::from)
+            },
+        )
+        .job_feedback(
+            "SnapshotRecording",
+            <D as Conversions>::snapshot_recording_feedback,
+        )
+        .job_result(
+            "SnapshotRecording",
+            <D as Conversions>::snapshot_recording_result,
+        )
+        .command("Start", |goal: blueos_recorder_msgs::StartRecordingGoal| {
+            <D as Conversions>::start(goal).map_err(Refusal::from)
+        })
+        .job_feedback("Start", <D as Conversions>::start_feedback)
+        .job_result("Start", <D as Conversions>::start_result)
+        .command("Stop", |goal: blueos_recorder_msgs::StopRecordingGoal| {
+            <D as Conversions>::stop(goal).map_err(Refusal::from)
+        })
+        .job_feedback("Stop", <D as Conversions>::stop_feedback)
+        .job_result("Stop", <D as Conversions>::stop_result)
+        .io_query("bytes", {
+            let handlers = Arc::clone(&handlers);
+            move |request: blueos_recorder_msgs::RecordingBytesRequest| {
+                let handlers = Arc::clone(&handlers);
+                Box::pin(async move { H::bytes(&handlers, request).await })
+            }
+        })
         .io_query("index", {
             let handlers = Arc::clone(&handlers);
             move |request: blueos_recorder_msgs::RecordingIndexRequest| {
@@ -115,77 +133,87 @@ pub fn register<D: Conversions, H: Handlers<D>, Context>(
         })
         .state("library", <D as Conversions>::library)
         .state("recording", <D as Conversions>::recording)
-        .event("operation", <D as Conversions>::operation)
         .manifest_endpoints(vec![
             blueos_idl::msg::blueos_msgs::EndpointInfo {
-                kind: "command".into(),
-                name: "CancelRepair".into(),
-                key: "blueos/v1/recorder/command/CancelRepair".into(),
-                request_schema: "blueos_recorder_msgs/msg/CancelRepairCommand".into(),
-                response_schema: "blueos_msgs/msg/CommandAck".into(),
-            },
-            blueos_idl::msg::blueos_msgs::EndpointInfo {
-                kind: "command".into(),
+                kind: "job".into(),
                 name: "DeleteRecording".into(),
                 key: "blueos/v1/recorder/command/DeleteRecording".into(),
-                request_schema: "blueos_recorder_msgs/msg/DeleteRecordingCommand".into(),
-                response_schema: "blueos_msgs/msg/CommandAck".into(),
+                interface_type: "blueos_recorder_msgs/action/DeleteRecording".into(),
+                schema: blueos_idl::schema("blueos_recorder_msgs/action/DeleteRecording")
+                    .unwrap_or_default()
+                    .into(),
             },
             blueos_idl::msg::blueos_msgs::EndpointInfo {
-                kind: "command".into(),
+                kind: "job".into(),
                 name: "RepairRecording".into(),
                 key: "blueos/v1/recorder/command/RepairRecording".into(),
-                request_schema: "blueos_recorder_msgs/msg/RepairRecordingCommand".into(),
-                response_schema: "blueos_msgs/msg/CommandAck".into(),
+                interface_type: "blueos_recorder_msgs/action/RepairRecording".into(),
+                schema: blueos_idl::schema("blueos_recorder_msgs/action/RepairRecording")
+                    .unwrap_or_default()
+                    .into(),
             },
             blueos_idl::msg::blueos_msgs::EndpointInfo {
-                kind: "command".into(),
+                kind: "job".into(),
                 name: "SnapshotRecording".into(),
                 key: "blueos/v1/recorder/command/SnapshotRecording".into(),
-                request_schema: "blueos_recorder_msgs/msg/SnapshotRecordingCommand".into(),
-                response_schema: "blueos_msgs/msg/CommandAck".into(),
+                interface_type: "blueos_recorder_msgs/action/SnapshotRecording".into(),
+                schema: blueos_idl::schema("blueos_recorder_msgs/action/SnapshotRecording")
+                    .unwrap_or_default()
+                    .into(),
             },
             blueos_idl::msg::blueos_msgs::EndpointInfo {
-                kind: "command".into(),
+                kind: "job".into(),
                 name: "Start".into(),
                 key: "blueos/v1/recorder/command/Start".into(),
-                request_schema: "blueos_recorder_msgs/msg/StartRecordingCommand".into(),
-                response_schema: "blueos_msgs/msg/CommandAck".into(),
+                interface_type: "blueos_recorder_msgs/action/StartRecording".into(),
+                schema: blueos_idl::schema("blueos_recorder_msgs/action/StartRecording")
+                    .unwrap_or_default()
+                    .into(),
             },
             blueos_idl::msg::blueos_msgs::EndpointInfo {
-                kind: "command".into(),
+                kind: "job".into(),
                 name: "Stop".into(),
                 key: "blueos/v1/recorder/command/Stop".into(),
-                request_schema: "blueos_recorder_msgs/msg/StopRecordingCommand".into(),
-                response_schema: "blueos_msgs/msg/CommandAck".into(),
+                interface_type: "blueos_recorder_msgs/action/StopRecording".into(),
+                schema: blueos_idl::schema("blueos_recorder_msgs/action/StopRecording")
+                    .unwrap_or_default()
+                    .into(),
             },
             blueos_idl::msg::blueos_msgs::EndpointInfo {
-                kind: "io_query".into(),
+                kind: "query".into(),
+                name: "bytes".into(),
+                key: "blueos/v1/recorder/query/bytes".into(),
+                interface_type: "blueos_recorder_msgs/srv/RecordingBytes".into(),
+                schema: blueos_idl::schema("blueos_recorder_msgs/srv/RecordingBytes")
+                    .unwrap_or_default()
+                    .into(),
+            },
+            blueos_idl::msg::blueos_msgs::EndpointInfo {
+                kind: "query".into(),
                 name: "index".into(),
                 key: "blueos/v1/recorder/query/index".into(),
-                request_schema: "blueos_recorder_msgs/msg/RecordingIndexRequest".into(),
-                response_schema: "blueos_recorder_msgs/msg/RecordingIndex".into(),
+                interface_type: "blueos_recorder_msgs/srv/RecordingIndex".into(),
+                schema: blueos_idl::schema("blueos_recorder_msgs/srv/RecordingIndex")
+                    .unwrap_or_default()
+                    .into(),
             },
             blueos_idl::msg::blueos_msgs::EndpointInfo {
                 kind: "state".into(),
                 name: "library".into(),
                 key: "blueos/v1/recorder/state/library".into(),
-                request_schema: "".into(),
-                response_schema: "blueos_recorder_msgs/msg/RecordingLibrary".into(),
+                interface_type: "blueos_recorder_msgs/msg/RecordingLibrary".into(),
+                schema: blueos_idl::schema("blueos_recorder_msgs/msg/RecordingLibrary")
+                    .unwrap_or_default()
+                    .into(),
             },
             blueos_idl::msg::blueos_msgs::EndpointInfo {
                 kind: "state".into(),
                 name: "recording".into(),
                 key: "blueos/v1/recorder/state/recording".into(),
-                request_schema: "".into(),
-                response_schema: "blueos_recorder_msgs/msg/RecordingState".into(),
-            },
-            blueos_idl::msg::blueos_msgs::EndpointInfo {
-                kind: "event".into(),
-                name: "operation".into(),
-                key: "blueos/v1/recorder/event/operation".into(),
-                request_schema: "".into(),
-                response_schema: "blueos_recorder_msgs/msg/RecordingOperation".into(),
+                interface_type: "blueos_recorder_msgs/msg/RecordingState".into(),
+                schema: blueos_idl::schema("blueos_recorder_msgs/msg/RecordingState")
+                    .unwrap_or_default()
+                    .into(),
             },
         ])
 }

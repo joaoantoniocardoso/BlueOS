@@ -12,7 +12,8 @@ use futures_util::{future::BoxFuture, stream};
 use tokio::{sync::Semaphore, task::JoinSet, time::timeout};
 
 use blueos_api::{
-    CommandAck, JOB_ID_NONE, Message, cdr_encoding, command_key, event_key, query_key, state_key,
+    CommandAck, Message, cdr_encoding, command_key, event_key, job_result_key, jobs_key, query_key,
+    state_key,
 };
 use blueos_comms::{
     CommsBackend, CommsError, LivelinessSubscriber, LivelinessToken, Query, QueryBody, Queryable,
@@ -24,10 +25,13 @@ use blueos_idl::{
     cdr::{Reader, Writer},
     message::CdrStruct,
     msg::{
-        blueos_example_msgs::{EmptyRequest, LevelQueryResponse, PumpState, SetLevelRequest},
+        blueos_example_msgs::{LevelResponse, PumpState, SetLevelGoal},
+        blueos_msgs::{CommandAckStatus, JobStatusStatus},
         builtin_interfaces::Time,
+        std_msgs::Empty,
     },
 };
+use blueos_jobs::JobId;
 use blueos_service::{
     Kernel, Refusal, Service, ServiceBuilder, ServiceContext, ServiceError,
     testing::{Harness, PausedClock, WALL_CLOCK_AT_START},
@@ -142,18 +146,23 @@ impl Service for TankService {
     const NAME: &'static str = "tank";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<TankArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        context: &ServiceContext<TankArguments>,
+        service: &ServiceContext<TankArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<Tank>, ServiceError> {
-        let capacity = context.arguments().capacity;
+        let capacity = service.arguments().capacity;
         if capacity == 0 {
             return Err(ServiceError::Build(NoCapacity.into()));
         }
         Ok(ServiceBuilder::new(TankSnapshot::empty(capacity))
-            .command("SetLevel", |request: SetLevelRequest| {
+            .command("SetLevel", |request: SetLevelGoal| {
                 Ok(TankRequest::SetLevel(request.level))
             })
-            .command("SetPercent", move |request: SetLevelRequest| {
+            .command("SetPercent", move |request: SetLevelGoal| {
                 if request.level > 100 {
                     return Err(NotAPercent(request.level).into());
                 }
@@ -162,22 +171,22 @@ impl Service for TankService {
             })
             .query(
                 "Level",
-                |_request: EmptyRequest| Ok(TankQuery::Level),
+                |_request: Empty| Ok(TankQuery::Level),
                 level_response,
             )
             .query(
                 "Other",
-                |_request: EmptyRequest| Ok(TankQuery::Other),
+                |_request: Empty| Ok(TankQuery::Other),
                 level_response,
             )
             .query(
                 "Panics",
-                |_request: EmptyRequest| Ok(TankQuery::Panic),
+                |_request: Empty| Ok(TankQuery::Panic),
                 level_response,
             )
             .query(
                 "Refused",
-                |request: SetLevelRequest| -> Result<TankQuery, Refusal> {
+                |request: SetLevelGoal| -> Result<TankQuery, Refusal> {
                     Err(NotAPercent(request.level).into())
                 },
                 level_response,
@@ -195,14 +204,14 @@ impl Service for TankService {
                 }
             })
             .event("LevelChanged", |event: &TankEvent| match event {
-                TankEvent::LevelChanged(level) => Some(LevelQueryResponse {
+                TankEvent::LevelChanged(level) => Some(LevelResponse {
                     level: *level,
                     max_level: 0,
                 }),
                 TankEvent::Emptied => None,
             })
             .event("Emptied", |event: &TankEvent| {
-                matches!(event, TankEvent::Emptied).then(EmptyRequest::default)
+                matches!(event, TankEvent::Emptied).then(Empty::default)
             }))
     }
 }
@@ -215,17 +224,22 @@ impl Service for FragileTankService {
     const NAME: &'static str = "fragile_tank";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<TankArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        context: &ServiceContext<TankArguments>,
+        service: &ServiceContext<TankArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<Tank>, ServiceError> {
         Ok(
-            ServiceBuilder::new(TankSnapshot::empty(context.arguments().capacity))
-                .command("SetLevel", |request: SetLevelRequest| {
+            ServiceBuilder::new(TankSnapshot::empty(service.arguments().capacity))
+                .command("SetLevel", |request: SetLevelGoal| {
                     Ok(TankRequest::SetLevel(request.level))
                 })
                 .query(
                     "Level",
-                    |_request: EmptyRequest| Ok(TankQuery::Level),
+                    |_request: Empty| Ok(TankQuery::Level),
                     |response: TankResponse| match response {
                         TankResponse::Level(level) => Some(FragileLevel { level }),
                         TankResponse::Other => None,
@@ -246,16 +260,21 @@ impl Service for ProbeService {
     const NAME: &'static str = "probe";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<ProbeArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        context: &ServiceContext<ProbeArguments>,
+        service: &ServiceContext<ProbeArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<Tank>, ServiceError> {
         Ok(ServiceBuilder::new(TankSnapshot::empty(100))
-            .command("SetLevel", |request: SetLevelRequest| {
+            .command("SetLevel", |request: SetLevelGoal| {
                 Ok(TankRequest::SetLevel(request.level))
             })
             .io_query("Probe", {
-                let sensor = Arc::clone(&context.arguments().sensor.0);
-                move |request: SetLevelRequest| {
+                let sensor = Arc::clone(&service.arguments().sensor.0);
+                move |request: SetLevelGoal| {
                     let sensor = Arc::clone(&sensor);
                     Box::pin(async move {
                         sensor.acquire().await?.forget();
@@ -263,14 +282,14 @@ impl Service for ProbeService {
                         if request.level > 100 {
                             return Err(NotAPercent(request.level).into());
                         }
-                        Ok(LevelQueryResponse {
+                        Ok(LevelResponse {
                             level: request.level,
                             max_level: 100,
                         })
                     })
                 }
             })
-            .io_query("FragileProbe", |_request: EmptyRequest| {
+            .io_query("FragileProbe", |_request: Empty| {
                 Box::pin(async {
                     Ok(FragileLevel {
                         level: LEVEL_THAT_FAILS_TO_ENCODE,
@@ -288,12 +307,17 @@ impl Service for MisnamedTankService {
     const NAME: &'static str = "misnamed_tank";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(_service: &ServiceContext<TankArguments>) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        context: &ServiceContext<TankArguments>,
+        service: &ServiceContext<TankArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<Tank>, ServiceError> {
         Ok(
-            ServiceBuilder::new(TankSnapshot::empty(context.arguments().capacity))
-                .command("Set#Level", |request: SetLevelRequest| {
+            ServiceBuilder::new(TankSnapshot::empty(service.arguments().capacity))
+                .command("Set#Level", |request: SetLevelGoal| {
                     Ok(TankRequest::SetLevel(request.level))
                 }),
         )
@@ -531,9 +555,7 @@ async fn a_client_reads_the_new_state_right_after_the_ack() {
         .unwrap();
     assert_eq!(harness.state::<PumpState>("tank").await.level, 0);
 
-    let ack = harness
-        .send("SetLevel", &SetLevelRequest { level: 42 })
-        .await;
+    let ack = harness.send("SetLevel", &SetLevelGoal { level: 42 }).await;
 
     assert!(ack.accepted, "{}", ack.reason);
     let state = harness.state::<PumpState>("tank").await;
@@ -545,17 +567,13 @@ async fn a_rejected_request_leaves_the_state_and_tells_the_client_why() {
     let harness = Harness::<TankService>::start(TankArguments { capacity: 10 })
         .await
         .unwrap();
-    harness
-        .send("SetLevel", &SetLevelRequest { level: 4 })
-        .await;
+    harness.send("SetLevel", &SetLevelGoal { level: 4 }).await;
 
-    let ack = harness
-        .send("SetLevel", &SetLevelRequest { level: 11 })
-        .await;
+    let ack = harness.send("SetLevel", &SetLevelGoal { level: 11 }).await;
 
     assert!(!ack.accepted);
     assert_eq!(ack.reason, "level 11 is above the capacity 10");
-    assert_eq!(ack.job_id, JOB_ID_NONE);
+    assert_eq!(ack.status, CommandAckStatus::StatusUnknown);
     assert_eq!(harness.state::<PumpState>("tank").await.level, 4);
 }
 
@@ -570,17 +588,17 @@ async fn states_are_published_before_the_ack_and_events_after_it() {
     .unwrap();
     backend.take_journal();
 
-    harness
-        .send("SetLevel", &SetLevelRequest { level: 3 })
-        .await;
+    harness.send("SetLevel", &SetLevelGoal { level: 3 }).await;
 
     assert_eq!(
         backend.take_journal(),
         [
             format!("publish {}", state_key(TankService::NAME, "level_set_at")),
             format!("publish {}", state_key(TankService::NAME, "tank")),
+            format!("publish {}", jobs_key(TankService::NAME)),
             format!("reply {}", command_key(TankService::NAME, "SetLevel")),
             format!("publish {}", event_key(TankService::NAME, "LevelChanged")),
+            format!("publish {}", job_result_key(TankService::NAME, "SetLevel")),
         ]
     );
 }
@@ -590,9 +608,7 @@ async fn send_awaiting_ack_returns_rejection_when_handle_panics() {
     let harness = Harness::<TankService>::start(TankArguments { capacity: 100 })
         .await
         .unwrap();
-    harness
-        .send("SetLevel", &SetLevelRequest { level: 5 })
-        .await;
+    harness.send("SetLevel", &SetLevelGoal { level: 5 }).await;
     let ack = harness
         .command_sender()
         .send_awaiting_ack(Command::Request(TankRequest::SetLevel(
@@ -619,9 +635,7 @@ async fn assert_a_panic_changes_nothing(level_that_panics: u8) {
     let harness = Harness::<TankService>::start(TankArguments { capacity: 100 })
         .await
         .unwrap();
-    harness
-        .send("SetLevel", &SetLevelRequest { level: 5 })
-        .await;
+    harness.send("SetLevel", &SetLevelGoal { level: 5 }).await;
     let mut events = harness
         .backend()
         .subscribe(&event_key(TankService::NAME, "LevelChanged"))
@@ -631,7 +645,7 @@ async fn assert_a_panic_changes_nothing(level_that_panics: u8) {
     let ack = harness
         .send(
             "SetLevel",
-            &SetLevelRequest {
+            &SetLevelGoal {
                 level: level_that_panics,
             },
         )
@@ -640,11 +654,9 @@ async fn assert_a_panic_changes_nothing(level_that_panics: u8) {
     assert!(!ack.accepted);
     assert_eq!(ack.reason, "the Command panicked, so nothing changed");
     assert_eq!(harness.state::<PumpState>("tank").await.level, 5);
-    harness
-        .send("SetLevel", &SetLevelRequest { level: 6 })
-        .await;
+    harness.send("SetLevel", &SetLevelGoal { level: 6 }).await;
     let first_event = next_sample(&mut events).await;
-    let first_event = LevelQueryResponse::decode(&first_event.payload().to_bytes()).unwrap();
+    let first_event = LevelResponse::decode(&first_event.payload().to_bytes()).unwrap();
     assert_eq!(first_event.level, 6);
 }
 
@@ -664,14 +676,12 @@ async fn a_failed_publish_does_not_stop_the_inbox_and_the_state_is_sent_on_the_n
         .unwrap();
     backend.publishes_fail.store(true, Ordering::SeqCst);
 
-    let ack = harness
-        .send("SetLevel", &SetLevelRequest { level: 1 })
-        .await;
+    let ack = harness.send("SetLevel", &SetLevelGoal { level: 1 }).await;
     backend.publishes_fail.store(false, Ordering::SeqCst);
     // The same State twice: sent by the first, because the failed publish was never stored, and deduplicated by
     // the second.
     for level in [1, 1, 2] {
-        harness.send("SetLevel", &SetLevelRequest { level }).await;
+        harness.send("SetLevel", &SetLevelGoal { level }).await;
     }
 
     assert!(ack.accepted, "{}", ack.reason);
@@ -696,14 +706,12 @@ async fn a_state_that_fails_to_encode_does_not_stop_the_inbox() {
     let failing_ack = harness
         .send(
             "SetLevel",
-            &SetLevelRequest {
+            &SetLevelGoal {
                 level: LEVEL_THAT_FAILS_TO_ENCODE,
             },
         )
         .await;
-    let next_ack = harness
-        .send("SetLevel", &SetLevelRequest { level: 2 })
-        .await;
+    let next_ack = harness.send("SetLevel", &SetLevelGoal { level: 2 }).await;
 
     assert!(failing_ack.accepted, "{}", failing_ack.reason);
     assert!(next_ack.accepted, "{}", next_ack.reason);
@@ -725,9 +733,7 @@ async fn handle_receives_the_time_of_the_injected_clock() {
         .unwrap();
     tokio::time::advance(Duration::from_millis(5_250)).await;
 
-    harness
-        .send("SetLevel", &SetLevelRequest { level: 7 })
-        .await;
+    harness.send("SetLevel", &SetLevelGoal { level: 7 }).await;
 
     let level_set_at = harness.state::<Time>("level_set_at").await;
     let expected = WALL_CLOCK_AT_START + Duration::from_millis(5_250);
@@ -742,7 +748,8 @@ async fn a_request_that_does_not_decode_is_rejected_before_the_domain() {
     let harness = Harness::<TankService>::start(TankArguments { capacity: 100 })
         .await
         .unwrap();
-    let body = QueryBody::new(vec![0xFF], cdr_encoding(SetLevelRequest::SCHEMA_NAME));
+    let body = QueryBody::new(vec![0xFF], cdr_encoding(SetLevelGoal::SCHEMA_NAME))
+        .with_attachment(JobId::from_u128(1).to_string().into_bytes());
 
     let replies = harness
         .backend()
@@ -819,23 +826,21 @@ async fn each_event_endpoint_publishes_only_the_domain_events_it_selects() {
     )
     .await
     .unwrap();
-    harness
-        .send("SetLevel", &SetLevelRequest { level: 3 })
-        .await;
+    harness.send("SetLevel", &SetLevelGoal { level: 3 }).await;
     backend.take_journal();
 
-    harness
-        .send("SetLevel", &SetLevelRequest { level: 0 })
-        .await;
+    harness.send("SetLevel", &SetLevelGoal { level: 0 }).await;
 
     // `level_set_at` is not published again: the time did not move, so its value did not change.
     assert_eq!(
         backend.take_journal(),
         [
             format!("publish {}", state_key(TankService::NAME, "tank")),
+            format!("publish {}", jobs_key(TankService::NAME)),
             format!("reply {}", command_key(TankService::NAME, "SetLevel")),
             format!("publish {}", event_key(TankService::NAME, "LevelChanged")),
             format!("publish {}", event_key(TankService::NAME, "Emptied")),
+            format!("publish {}", job_result_key(TankService::NAME, "SetLevel")),
         ]
     );
 }
@@ -845,9 +850,9 @@ async fn a_kernel_with_only_io_queries_keeps_answering_them() {
     let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
     let builder = ServiceBuilder::<Tank>::new(TankSnapshot::empty(100)).io_query(
         "Probe",
-        |request: SetLevelRequest| {
+        |request: SetLevelGoal| {
             Box::pin(async move {
-                Ok(LevelQueryResponse {
+                Ok(LevelResponse {
                     level: request.level,
                     max_level: 100,
                 })
@@ -857,6 +862,7 @@ async fn a_kernel_with_only_io_queries_keeps_answering_them() {
     let kernel = Kernel::start(
         "sensor",
         builder,
+        (),
         Arc::clone(&backend),
         Arc::new(PausedClock::start()),
     )
@@ -868,8 +874,8 @@ async fn a_kernel_with_only_io_queries_keeps_answering_them() {
     tokio::task::yield_now().await;
 
     let body = QueryBody::new(
-        SetLevelRequest { level: 4 }.encode().unwrap(),
-        cdr_encoding(SetLevelRequest::SCHEMA_NAME),
+        SetLevelGoal { level: 4 }.encode().unwrap(),
+        cdr_encoding(SetLevelGoal::SCHEMA_NAME),
     );
     let replies = backend
         .get(
@@ -884,7 +890,7 @@ async fn a_kernel_with_only_io_queries_keeps_answering_them() {
         panic!("expected one answer, got {replies:?}");
     };
     assert_eq!(
-        LevelQueryResponse::decode(&reply.payload().to_bytes())
+        LevelResponse::decode(&reply.payload().to_bytes())
             .unwrap()
             .level,
         4
@@ -893,17 +899,21 @@ async fn a_kernel_with_only_io_queries_keeps_answering_them() {
 
 #[tokio::test(start_paused = true)]
 async fn the_kernel_stops_once_the_backbone_closes_every_endpoint() {
-    let builder = TankService::build(&ServiceContext::new(
-        TankArguments { capacity: 100 },
-        blueos_service::testing::channel_session(),
-    ))
+    let builder = TankService::build(
+        &ServiceContext::new(
+            TankArguments { capacity: 100 },
+            blueos_service::testing::channel_session(),
+        ),
+        &(),
+    )
     .unwrap()
-    .io_query("Probe", |_request: EmptyRequest| {
-        Box::pin(async { Ok(EmptyRequest::default()) })
+    .io_query("Probe", |_request: Empty| {
+        Box::pin(async { Ok(Empty::default()) })
     });
     let kernel = Kernel::start(
         TankService::NAME,
         builder,
+        (),
         Arc::new(ClosedBackend),
         Arc::new(PausedClock::start()),
     )
@@ -922,11 +932,11 @@ async fn the_harness_panics_when_a_command_gets_no_ack() {
         .await
         .unwrap();
 
-    harness.send("Missing", &SetLevelRequest { level: 1 }).await;
+    harness.send("Missing", &SetLevelGoal { level: 1 }).await;
 }
 
 #[tokio::test(start_paused = true)]
-#[should_panic(expected = "expected one value of \"missing\"")]
+#[should_panic(expected = "expected one reply on blueos/v1/tank/state/missing")]
 async fn the_harness_panics_when_a_state_has_no_value() {
     let harness = Harness::<TankService>::start(TankArguments { capacity: 100 })
         .await
@@ -936,13 +946,22 @@ async fn the_harness_panics_when_a_state_has_no_value() {
 }
 
 #[tokio::test(start_paused = true)]
-#[should_panic(expected = "expected one jobs value")]
-async fn the_harness_panics_when_a_domain_without_jobs_is_asked_for_them() {
+async fn a_domain_without_jobs_still_lists_the_instant_jobs_it_ran() {
     let harness = Harness::<TankService>::start(TankArguments { capacity: 100 })
         .await
         .unwrap();
 
-    harness.jobs().await;
+    let ack = harness.send("SetLevel", &SetLevelGoal { level: 42 }).await;
+
+    assert_eq!(ack.status, CommandAckStatus::Succeeded);
+    let jobs = harness.jobs().await;
+    let [job] = jobs.jobs.as_slice() else {
+        panic!("expected one Job, got {jobs:?}");
+    };
+    assert_eq!(
+        (job.job_id.as_str(), job.job_type.as_str(), job.status),
+        (ack.job_id.as_str(), "SetLevel", JobStatusStatus::Succeeded)
+    );
 }
 
 #[tokio::test(start_paused = true)]
@@ -952,10 +971,10 @@ async fn a_request_its_conversion_refuses_is_rejected_before_the_domain() {
         .unwrap();
 
     let refused = harness
-        .send("SetPercent", &SetLevelRequest { level: 150 })
+        .send("SetPercent", &SetLevelGoal { level: 150 })
         .await;
     let applied = harness
-        .send("SetPercent", &SetLevelRequest { level: 50 })
+        .send("SetPercent", &SetLevelGoal { level: 50 })
         .await;
 
     assert!(!refused.accepted);
@@ -969,12 +988,10 @@ async fn a_query_is_answered_from_the_snapshot_left_by_the_commands_before_it() 
     let harness = Harness::<TankService>::start(TankArguments { capacity: 100 })
         .await
         .unwrap();
-    harness
-        .send("SetLevel", &SetLevelRequest { level: 42 })
-        .await;
+    harness.send("SetLevel", &SetLevelGoal { level: 42 }).await;
 
     let answer = harness
-        .query::<_, LevelQueryResponse>("Level", &EmptyRequest::default())
+        .query::<_, LevelResponse>("Level", &Empty::default())
         .await
         .unwrap();
 
@@ -986,16 +1003,12 @@ async fn a_query_without_an_answer_replies_why_and_the_inbox_goes_on() {
     let harness = Harness::<TankService>::start(TankArguments { capacity: 100 })
         .await
         .unwrap();
-    let empty = EmptyRequest::default();
+    let empty = Empty::default();
 
-    let other_response = harness
-        .query::<_, LevelQueryResponse>("Other", &empty)
-        .await;
-    let panicked = harness
-        .query::<_, LevelQueryResponse>("Panics", &empty)
-        .await;
+    let other_response = harness.query::<_, LevelResponse>("Other", &empty).await;
+    let panicked = harness.query::<_, LevelResponse>("Panics", &empty).await;
     let refused = harness
-        .query::<_, LevelQueryResponse>("Refused", &SetLevelRequest { level: 7 })
+        .query::<_, LevelResponse>("Refused", &SetLevelGoal { level: 7 })
         .await;
     let undecodable = raw_query(&harness, TankService::NAME, "Level").await;
 
@@ -1009,9 +1022,7 @@ async fn a_query_without_an_answer_replies_why_and_the_inbox_goes_on() {
         reason(undecodable),
         "the Query does not decode: invalid CDR encapsulation header"
     );
-    let answer = harness
-        .query::<_, LevelQueryResponse>("Level", &empty)
-        .await;
+    let answer = harness.query::<_, LevelResponse>("Level", &empty).await;
     assert_eq!(answer.unwrap().level, 0);
 }
 
@@ -1023,14 +1034,14 @@ async fn a_query_reply_that_fails_to_encode_replies_why() {
     harness
         .send(
             "SetLevel",
-            &SetLevelRequest {
+            &SetLevelGoal {
                 level: LEVEL_THAT_FAILS_TO_ENCODE,
             },
         )
         .await;
 
     let answer = harness
-        .query::<_, FragileLevel>("Level", &EmptyRequest::default())
+        .query::<_, FragileLevel>("Level", &Empty::default())
         .await;
 
     assert_eq!(
@@ -1047,11 +1058,9 @@ async fn an_io_query_is_answered_outside_the_inbox() {
 
     // The sensor opens only after a Command was acknowledged, so a Probe that held the Inbox would never end.
     let (answer, ack) = tokio::join!(
-        harness.query::<_, LevelQueryResponse>("Probe", &SetLevelRequest { level: 7 }),
+        harness.query::<_, LevelResponse>("Probe", &SetLevelGoal { level: 7 }),
         async {
-            let ack = harness
-                .send("SetLevel", &SetLevelRequest { level: 1 })
-                .await;
+            let ack = harness.send("SetLevel", &SetLevelGoal { level: 1 }).await;
             sensor.0.add_permits(1);
             ack
         }
@@ -1068,22 +1077,22 @@ async fn an_io_query_without_an_answer_replies_why_and_the_next_one_is_answered(
     let harness = Harness::<ProbeService>::start(arguments).await.unwrap();
 
     let refused = harness
-        .query::<_, LevelQueryResponse>("Probe", &SetLevelRequest { level: 101 })
+        .query::<_, LevelResponse>("Probe", &SetLevelGoal { level: 101 })
         .await;
     let panicked = harness
-        .query::<_, LevelQueryResponse>(
+        .query::<_, LevelResponse>(
             "Probe",
-            &SetLevelRequest {
+            &SetLevelGoal {
                 level: LEVEL_THAT_PANICS_IN_HANDLE,
             },
         )
         .await;
     let undecodable = raw_query(&harness, ProbeService::NAME, "Probe").await;
     let unencodable = harness
-        .query::<_, FragileLevel>("FragileProbe", &EmptyRequest::default())
+        .query::<_, FragileLevel>("FragileProbe", &Empty::default())
         .await;
     let answer = harness
-        .query::<_, LevelQueryResponse>("Probe", &SetLevelRequest { level: 3 })
+        .query::<_, LevelResponse>("Probe", &SetLevelGoal { level: 3 })
         .await;
 
     assert_eq!(reason(refused), "101 is not a percentage");
@@ -1108,7 +1117,7 @@ async fn the_harness_panics_when_a_query_gets_no_reply() {
 
     drop(
         harness
-            .query::<_, LevelQueryResponse>("Missing", &EmptyRequest::default())
+            .query::<_, LevelResponse>("Missing", &Empty::default())
             .await,
     );
 }
@@ -1119,7 +1128,7 @@ async fn raw_query<S: Service>(
     service: &str,
     name: &str,
 ) -> Result<Sample, ReplyError> {
-    let body = QueryBody::new(vec![0xFF], cdr_encoding(EmptyRequest::SCHEMA_NAME));
+    let body = QueryBody::new(vec![0xFF], cdr_encoding(Empty::SCHEMA_NAME));
     let replies = harness
         .backend()
         .get(
@@ -1142,9 +1151,9 @@ fn reason<T: core::fmt::Debug>(answer: Result<T, ReplyError>) -> String {
     String::from_utf8(error.payload().to_bytes().into_owned()).unwrap()
 }
 
-fn level_response(response: TankResponse) -> Option<LevelQueryResponse> {
+fn level_response(response: TankResponse) -> Option<LevelResponse> {
     match response {
-        TankResponse::Level(level) => Some(LevelQueryResponse {
+        TankResponse::Level(level) => Some(LevelResponse {
             level,
             max_level: 0,
         }),

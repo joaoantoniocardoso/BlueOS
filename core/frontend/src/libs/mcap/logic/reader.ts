@@ -121,6 +121,14 @@ export interface McapMessageEntry {
   size: number
 }
 
+/** Where the messages of one channel lie inside one chunk, read from the chunk's message index. */
+export interface McapChannelSpan {
+  firstLogTime: bigint
+  lastLogTime: bigint
+  /** Time from the second to last message to the last one, 0 when the chunk holds a single message of the channel. */
+  lastInterval: bigint
+}
+
 export interface PrefixScanProgress {
   offset: number
   size: number
@@ -277,6 +285,8 @@ export class McapIndexedReader {
 
   private extendTask: Promise<boolean> | null = null
 
+  private channelSpansByChunkOffset = new Map<number, Map<number, McapChannelSpan>>()
+
   private constructor(
     public readonly source: ByteSource,
     public readonly summary: McapSummary,
@@ -369,10 +379,18 @@ export class McapIndexedReader {
 
   private async extendWrittenPrefixLocked(state: PrefixScanState, signal?: AbortSignal): Promise<boolean> {
     const chunksBefore = state.chunkIndexes.length
+    const countedBefore = new Set(state.messageCountByChannel.keys())
     const extended = await McapIndexedReader.extendFromRecordingIndex(this.source, state, state.indexSource, signal)
     if (!extended.grew) {
       return false
     }
+    // A channel first written after opening, such as a camera started meanwhile, would otherwise stay unnamed and
+    // unplayable. New channels are rare, so naming each costs one chunk, unlike the ones opening left to its budget.
+    const introduced = new Set(
+      [...state.messageCountByChannel.keys()].filter((channelId) => !countedBefore.has(channelId)),
+    )
+    await McapIndexedReader
+      .resolvePrefixChannels(this.source, extended.size, state, Infinity, signal, undefined, introduced)
     const summary = McapIndexedReader.summaryFromPrefix(state, extended.size)
     this.summary.size = summary.size
     this.summary.startTime = summary.startTime
@@ -441,6 +459,7 @@ export class McapIndexedReader {
     budgetBytes: number,
     signal?: AbortSignal,
     onProgress?: (progress: PrefixScanProgress) => void,
+    onlyChannelIds?: ReadonlySet<number>,
   ): Promise<void> {
     const introducedBy = new Map<number, McapChunkIndex>()
     for (const chunk of state.chunkIndexes) {
@@ -455,7 +474,7 @@ export class McapIndexedReader {
     // eslint-disable-next-line no-constant-condition
     while (true) {
       const chunk = [...state.messageCountByChannel.entries()]
-        .filter(([channelId]) => !state.channels.has(channelId))
+        .filter(([channelId]) => !state.channels.has(channelId) && (onlyChannelIds?.has(channelId) ?? true))
         .sort(([, left], [, right]) => Number(right - left))
         .map(([channelId]) => introducedBy.get(channelId))
         .find((candidate) => candidate !== undefined && !state.openedChunkOffsets.has(candidate.offset))
@@ -821,6 +840,37 @@ export class McapIndexedReader {
     }).sort((left, right) => Number(left.logTime - right.logTime))
   }
 
+  /** The span of every channel in a chunk once `loadChannelSpans` has read them, undefined before. */
+  channelSpansIn(chunk: McapChunkIndex): ReadonlyMap<number, McapChannelSpan> | undefined {
+    return this.channelSpansByChunkOffset.get(chunk.offset)
+  }
+
+  /**
+   * Reads a chunk's message index, once, to learn where each channel's messages start and end in it. The index costs
+   * a few bytes per message against the whole chunk that reading the messages downloads. A chunk without one is left
+   * unread.
+   */
+  async loadChannelSpans(chunk: McapChunkIndex, signal?: AbortSignal): Promise<void> {
+    if (chunk.messageIndexLength === 0 || this.channelSpansByChunkOffset.has(chunk.offset)) {
+      return
+    }
+    const data = await this.source.read(chunk.offset + chunk.length, chunk.messageIndexLength, signal)
+    const spans = new Map<number, McapChannelSpan>()
+    for (const record of parseRecords(data).records) {
+      if (record.type !== 'MessageIndex' || record.records.length === 0) {
+        continue
+      }
+      const times = record.records.map(([logTime]) => logTime).sort((left, right) => Number(left - right))
+      const last = times[times.length - 1]
+      spans.set(record.channelId, {
+        firstLogTime: times[0],
+        lastLogTime: last,
+        lastInterval: times.length > 1 ? last - times[times.length - 2] : 0n,
+      })
+    }
+    this.channelSpansByChunkOffset.set(chunk.offset, spans)
+  }
+
   async readChunkMessages(chunkIndex: number, channelId: number, signal?: AbortSignal): Promise<McapMessage[]> {
     // Walk opcodes instead of McapStreamReader: a chunk holds every channel in its time span, and
     // the reader throws if it sees a message whose Channel record was never loaded.
@@ -841,6 +891,14 @@ export class McapIndexedReader {
     }
     messages.sort((left, right) => Number(left.logTime - right.logTime))
     return messages
+  }
+
+  /**
+   * Starts downloading a chunk that is about to be read, so that the source produces it while the chunk before it is
+   * still on its way. A failed download is left for the read that needs the chunk to report.
+   */
+  prefetchChunk(chunkIndex: number): void {
+    this.readChunkData(chunkIndex).catch(() => undefined)
   }
 
   private async readChunkData(chunkIndex: number, signal?: AbortSignal): Promise<Uint8Array> {

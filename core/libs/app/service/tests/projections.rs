@@ -16,9 +16,12 @@ use blueos_comms::{
     Reply, Sample, Subscriber, channel::ChannelBackend,
 };
 use blueos_domain::{Command, Decision, Domain, DomainQueries, Now, Outcome};
-use blueos_idl::msg::blueos_example_msgs::{EmptyRequest, LevelQueryResponse, SetLevelRequest};
+use blueos_idl::msg::{
+    blueos_example_msgs::{LevelResponse, SetLevelGoal},
+    std_msgs::Empty,
+};
 use blueos_service::{
-    Projection, RestartPolicy, Service, ServiceBuilder, ServiceContext, ServiceError, TaskFailed,
+    RestartPolicy, Service, ServiceBuilder, ServiceContext, ServiceError, TaskContext, TaskFailed,
     testing::{Harness, lock_unpoisoned},
 };
 
@@ -40,7 +43,6 @@ struct ReconcileSnapshot {
 }
 
 struct ReconcileContext {
-    desired_lamp: Projection<bool>,
     projection_changes: Arc<AtomicUsize>,
 }
 
@@ -76,10 +78,18 @@ impl Service for ReconcileService {
     const NAME: &'static str = "reconcile-harness";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(
+        service: &ServiceContext<ReconcileArguments>,
+    ) -> Result<ReconcileContext, ServiceError> {
+        Ok(ReconcileContext {
+            projection_changes: Arc::clone(&service.arguments().projection_changes),
+        })
+    }
+
     fn build(
-        context: &ServiceContext<ReconcileArguments>,
+        _service: &ServiceContext<ReconcileArguments>,
+        _context: &ReconcileContext,
     ) -> Result<ServiceBuilder<ReconcileDomain, ReconcileContext>, ServiceError> {
-        let projection_changes = Arc::clone(&context.arguments().projection_changes);
         let (builder, desired_lamp) = ServiceBuilder::new(ReconcileSnapshot {
             desired_lamp: false,
             observed_lamp: false,
@@ -87,21 +97,17 @@ impl Service for ReconcileService {
         })
         .projection(|snapshot: &ReconcileSnapshot| snapshot.desired_lamp);
         Ok(builder
-            .context(ReconcileContext {
-                desired_lamp,
-                projection_changes,
-            })
-            .command("SetDesired", |request: SetLevelRequest| {
+            .command("SetDesired", |request: SetLevelGoal| {
                 Ok(ReconcileRequest::SetDesired(request.level > 0))
             })
-            .command("BumpScratch", |_request: EmptyRequest| {
+            .command("BumpScratch", |_request: Empty| {
                 Ok(ReconcileRequest::BumpScratch)
             })
             .query(
                 "Observed",
-                |_request: EmptyRequest| Ok(ReconcileQuery::Observed),
+                |_request: Empty| Ok(ReconcileQuery::Observed),
                 |response: ReconcileResponse| match response {
-                    ReconcileResponse::Observed(on) => Some(LevelQueryResponse {
+                    ReconcileResponse::Observed(on) => Some(LevelResponse {
                         level: u8::from(on),
                         max_level: 0,
                     }),
@@ -110,23 +116,25 @@ impl Service for ReconcileService {
             .task(
                 "reconcile",
                 RestartPolicy::Never,
-                move |task_context| async move {
-                    let mut desired = task_context.context.desired_lamp.subscribe();
-                    while !task_context.shutdown.is_cancelled() {
-                        if timeout(RECV_TIMEOUT, desired.changed()).await.is_err() {
-                            continue;
+                move |task_context: TaskContext<ReconcileDomain, ReconcileContext>| {
+                    let mut desired = desired_lamp.subscribe();
+                    async move {
+                        while !task_context.shutdown.is_cancelled() {
+                            if timeout(RECV_TIMEOUT, desired.changed()).await.is_err() {
+                                continue;
+                            }
+                            task_context
+                                .context
+                                .projection_changes
+                                .fetch_add(1, Ordering::SeqCst);
+                            let on = *desired.borrow();
+                            let _ = task_context
+                                .commands
+                                .send(Command::ObservedFact(ReconcileObserved::Lamp(on)))
+                                .await;
                         }
-                        task_context
-                            .context
-                            .projection_changes
-                            .fetch_add(1, Ordering::SeqCst);
-                        let on = *desired.borrow();
-                        let _ = task_context
-                            .commands
-                            .send(Command::ObservedFact(ReconcileObserved::Lamp(on)))
-                            .await;
+                        Ok::<(), TaskFailed>(())
                     }
-                    Ok::<(), TaskFailed>(())
                 },
             ))
     }
@@ -303,8 +311,8 @@ async fn send_awaiting_ack_returns_the_domain_verdict() {
         .await
         .expect("the Domain accepts the Command");
     assert!(accepted.accepted);
-    let observed: LevelQueryResponse = harness
-        .query("Observed", &EmptyRequest::default())
+    let observed: LevelResponse = harness
+        .query("Observed", &Empty::default())
         .await
         .expect("the Query answers");
     assert_eq!(observed.level, 1);
@@ -322,16 +330,16 @@ async fn an_observed_fact_handled_twice_leaves_the_same_snapshot() {
         .send_awaiting_ack(Command::ObservedFact(ReconcileObserved::Lamp(true)))
         .await
         .expect("the first fact is applied");
-    let first: LevelQueryResponse = harness
-        .query("Observed", &EmptyRequest::default())
+    let first: LevelResponse = harness
+        .query("Observed", &Empty::default())
         .await
         .expect("the Query answers");
     sender
         .send_awaiting_ack(Command::ObservedFact(ReconcileObserved::Lamp(true)))
         .await
         .expect("the second fact is applied");
-    let second: LevelQueryResponse = harness
-        .query("Observed", &EmptyRequest::default())
+    let second: LevelResponse = harness
+        .query("Observed", &Empty::default())
         .await
         .expect("the Query answers");
     assert_eq!(first, second);

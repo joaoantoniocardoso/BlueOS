@@ -428,7 +428,7 @@ class WifiManager(AbstractWifiManager):
             is_connected = await self.get_current_network() is not None
 
             if is_connected and (await self.status()).ip_address is None:
-                # we are connected but have no ip addres? lets ask cable-guy for a new ip
+                # we are connected but have no ip address? lets ask cable-guy for a new ip
                 self.trigger_dhcp_client()
 
             if was_connected and not is_connected:

@@ -8,7 +8,9 @@ use blueos_service::{Service, ServiceBuilder, ServiceContext, ServiceError};
 #[derive(Clone, clap::Args)]
 struct SessionProbeArguments;
 
-struct SessionProbeContext;
+struct SessionProbeContext {
+    session: Arc<dyn CommsBackend>,
+}
 
 struct SessionProbeService;
 
@@ -20,20 +22,28 @@ impl Service for SessionProbeService {
     const NAME: &'static str = "session_probe";
     const VERSION: &'static str = "0.0.0";
 
+    fn context(
+        service: &ServiceContext<SessionProbeArguments>,
+    ) -> Result<SessionProbeContext, ServiceError> {
+        Ok(SessionProbeContext {
+            session: Arc::clone(service.session()),
+        })
+    }
+
     fn build(
-        context: &ServiceContext<SessionProbeArguments>,
+        _service: &ServiceContext<SessionProbeArguments>,
+        _context: &SessionProbeContext,
     ) -> Result<ServiceBuilder<Self::Domain, SessionProbeContext>, ServiceError> {
-        let _session: &Arc<dyn CommsBackend> = context.session();
-        Ok(
-            ServiceBuilder::new(blueos_example_domain::PumpSnapshot::default())
-                .context(SessionProbeContext),
-        )
+        Ok(ServiceBuilder::new(
+            blueos_example_domain::PumpSnapshot::default(),
+        ))
     }
 }
 
 #[test]
-fn build_receives_the_backbone_session() {
+fn context_receives_the_backbone_session() {
     let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
-    let context = ServiceContext::new(SessionProbeArguments, Arc::clone(&backend));
-    let _builder = SessionProbeService::build(&context).expect("build with session");
+    let service = ServiceContext::new(SessionProbeArguments, Arc::clone(&backend));
+    let context = SessionProbeService::context(&service).expect("context with session");
+    assert!(Arc::ptr_eq(&context.session, &backend));
 }

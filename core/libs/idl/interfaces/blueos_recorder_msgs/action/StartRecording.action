@@ -1,0 +1,6 @@
+# blueos_recorder_msgs/action/StartRecording
+# The Job type on blueos/v1/recorder/command/Start: opens a new MCAP session (rotate if one is already active).
+
+bool rotate_if_active
+---
+---

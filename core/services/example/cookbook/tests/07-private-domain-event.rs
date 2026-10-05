@@ -6,7 +6,7 @@ use tokio::time::timeout;
 
 use blueos_api::event_key;
 use blueos_domain::{Command, Decision, Domain, IoError, Now, Outcome};
-use blueos_idl::msg::blueos_example_msgs::{EmptyRequest, SetLevelRequest};
+use blueos_idl::msg::blueos_example_msgs::{LevelRequest, SetLevelGoal};
 use blueos_service::{Service, ServiceBuilder, ServiceContext, ServiceError, testing::Harness};
 
 struct PrivateEventCookbookService;
@@ -39,21 +39,28 @@ impl Service for PrivateEventCookbookService {
     const NAME: &'static str = "cookbook_private_event";
     const VERSION: &'static str = "1.0.0";
 
+    fn context(
+        _service: &ServiceContext<PrivateEventCookbookArguments>,
+    ) -> Result<(), ServiceError> {
+        Ok(())
+    }
+
     fn build(
-        _context: &ServiceContext<PrivateEventCookbookArguments>,
+        _service: &ServiceContext<PrivateEventCookbookArguments>,
+        _context: &(),
     ) -> Result<ServiceBuilder<PrivateEventCookbook>, ServiceError> {
         Ok(ServiceBuilder::new(PrivateEventCookbookSnapshot::default())
-            .command("SetLevel", |request: SetLevelRequest| {
+            .command("SetLevel", |request: SetLevelGoal| {
                 Ok(PrivateEventCookbookRequest::SetLevel(request.level))
             })
-            .command("Bump", |_: EmptyRequest| {
+            .command("Bump", |_: LevelRequest| {
                 Ok(PrivateEventCookbookRequest::Bump)
             })
             .event(
                 "LevelChanged",
                 |event: &PrivateEventCookbookEvent| match event {
                     PrivateEventCookbookEvent::LevelChanged(level) => {
-                        Some(SetLevelRequest { level: *level })
+                        Some(SetLevelGoal { level: *level })
                     }
                     PrivateEventCookbookEvent::InternalNote => None,
                 },
@@ -118,7 +125,7 @@ async fn private_domain_events_do_not_publish() {
         ))
         .await
         .unwrap();
-    harness.send("Bump", &EmptyRequest::default()).await;
+    harness.send("Bump", &LevelRequest::default()).await;
     let maybe = timeout(Duration::from_secs(1), events.recv()).await;
     assert!(maybe.is_err(), "InternalNote must not publish LevelChanged");
 }

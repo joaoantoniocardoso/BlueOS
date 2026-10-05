@@ -50,6 +50,12 @@ impl Writer {
         Ok(())
     }
 
+    /// Writes bytes as they are (no alignment), such as the elements of a `uint8[]`.
+    pub fn write_bytes(&mut self, bytes: &[u8]) -> Result<(), Error> {
+        self.buffer.extend_from_slice(bytes);
+        Ok(())
+    }
+
     /// Writes a CDR bool as `0` or `1`.
     pub fn write_bool(&mut self, value: bool) -> Result<(), Error> {
         self.write_u8(if value { 1 } else { 0 })
@@ -185,6 +191,11 @@ impl Reader {
         Ok(self.read_exact(1)?[0])
     }
 
+    /// Reads `count` bytes as they are (no alignment), such as the elements of a `uint8[]`.
+    pub fn read_bytes(&mut self, count: usize) -> Result<&[u8], Error> {
+        self.read_exact(count)
+    }
+
     /// Reads a CDR bool (`0` or `1`).
     pub fn read_bool(&mut self) -> Result<bool, Error> {
         match self.read_u8()? {
@@ -304,6 +315,19 @@ mod tests {
         assert_eq!(reader.read_string().expect("read string"), "ab");
         assert!(reader.read_bool().expect("read bool"));
         assert!(reader.is_exhausted());
+    }
+
+    #[test]
+    fn bytes_are_written_and_read_whole_without_alignment() {
+        let mut writer = Writer::new();
+        writer.write_u8(9).expect("write u8");
+        writer.write_bytes(&[1, 2, 3]).expect("write bytes");
+        let payload = writer.finish_with_encapsulation();
+        assert_eq!(payload, [0, 1, 0, 0, 9, 1, 2, 3]);
+        let mut reader = Reader::new_with_encapsulation(&payload).expect("reader");
+        assert_eq!(reader.read_u8().expect("read u8"), 9);
+        assert_eq!(reader.read_bytes(3).expect("read bytes"), [1, 2, 3]);
+        assert_eq!(reader.read_bytes(1), Err(Error::UnexpectedEnd));
     }
 
     #[test]
