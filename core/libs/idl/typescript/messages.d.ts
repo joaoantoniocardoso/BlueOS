@@ -22,6 +22,7 @@ export interface PumpState {
 export interface SelfTestCompleted {
   passed: boolean;
   detail: string;
+  checks: boolean[];
 }
 
 export interface LevelRequest {}

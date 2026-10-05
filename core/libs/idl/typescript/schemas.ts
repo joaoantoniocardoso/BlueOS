@@ -26,7 +26,9 @@ bool self_test_active`,
 # Event on blueos/v1/example/event/SelfTestCompleted.
 
 bool passed
-string detail`,
+string detail
+# One result per check, in the order the self-test runs them: motor, seal, level sensor.
+bool[3] checks`,
   "blueos_example_msgs/srv/Level_Request": `# blueos_example_msgs/srv/Level
 # The Query on blueos/v1/example/query/Level. Its request is empty.`,
   "blueos_example_msgs/srv/Level_Response": `uint8 level

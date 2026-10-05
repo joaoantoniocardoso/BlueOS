@@ -37,8 +37,13 @@
     },
     {
       "schema_name": "blueos_example_msgs/msg/SelfTestCompleted",
-      "hex": "00010000000000000100000000",
+      "hex": "00010000000000000100000000000000",
       "decoded": {
+        "checks": [
+          false,
+          false,
+          false
+        ],
         "detail": "",
         "passed": false
       },

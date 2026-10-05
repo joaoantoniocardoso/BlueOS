@@ -3,3 +3,5 @@
 
 bool passed
 string detail
+# One result per check, in the order the self-test runs them: motor, seal, level sensor.
+bool[3] checks

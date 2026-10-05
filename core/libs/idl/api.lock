@@ -60,7 +60,7 @@ blueos_example_msgs/action/SetLevel_Feedback 1 level:uint8
 blueos_example_msgs/action/SetLevel_Goal 1 level:uint8
 blueos_example_msgs/action/SetLevel_Result 1 level:uint8
 blueos_example_msgs/msg/PumpState 1 level:uint8;max_level:uint8;self_test_phase:uint8;self_test_active:bool
-blueos_example_msgs/msg/SelfTestCompleted 1 passed:bool;detail:string
+blueos_example_msgs/msg/SelfTestCompleted 1 passed:bool;detail:string;checks:bool[3]
 blueos_example_msgs/srv/Level_Request 1
 blueos_example_msgs/srv/Level_Response 1 level:uint8;max_level:uint8
 blueos_msgs/action/UpdateSettings_Feedback 1
