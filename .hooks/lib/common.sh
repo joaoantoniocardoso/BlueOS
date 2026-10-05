@@ -57,7 +57,7 @@ verify_tag_if_needed() {
 
 check_no_fixup_commits() {
     local range=""
-    if [ -n "${BASE_SHA:-}" ] && [ -n "${HEAD_SHA:-}" ]; then
+    if [ -n "${BASE_SHA:-}" ] && [ -n "${HEAD_SHA:-}" ] && git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
         range="${BASE_SHA}..${HEAD_SHA}"
     elif git rev-parse --verify --quiet origin/master >/dev/null; then
         range="origin/master..HEAD"

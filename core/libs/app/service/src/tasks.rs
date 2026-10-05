@@ -9,11 +9,12 @@ use std::{
 use backon::{BackoffBuilder, ExponentialBuilder};
 use bytes::Bytes;
 use futures_util::{FutureExt, future::join_all};
+use metrics::Counter;
 use tokio::{sync::watch, task::JoinHandle};
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
 use tracing::warn;
 
-use blueos_api::Message;
+use blueos_api::{Message, cdr_encoding};
 use blueos_comms::{CommsBackend, Sample};
 use blueos_domain::Domain;
 use blueos_idl::{
@@ -25,6 +26,7 @@ use crate::{
     clock::Clock,
     command_sender::{CommandSender, Session},
     inbox_recovery::{INBOX_LOOP_NAME, LoopPanicTracker, log_caught_panic},
+    metrics_registry::MetricsRegistry,
     sync::lock_unpoisoned,
 };
 
@@ -80,10 +82,11 @@ pub struct TaskContext<D: Domain, Context> {
     pub clock: Arc<dyn Clock>,
 }
 
-/// Spawns every future on the shared [`TaskTracker`].
+/// Spawns every future on the shared [`TaskTracker`], recording its metrics in the Service's registry.
 #[derive(Clone)]
 pub(crate) struct TaskSpawner {
     tracker: Arc<TaskTracker>,
+    metrics: MetricsRegistry,
 }
 
 /// One Task declared in `build`.
@@ -141,9 +144,10 @@ impl Backoff {
 }
 
 impl TaskSpawner {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(metrics: MetricsRegistry) -> Self {
         Self {
             tracker: Arc::new(TaskTracker::new()),
+            metrics,
         }
     }
 
@@ -152,7 +156,7 @@ impl TaskSpawner {
         F: Future + Send + 'static,
         F::Output: Send + 'static,
     {
-        self.tracker.spawn(future)
+        self.tracker.spawn(self.metrics.scope(future))
     }
 }
 
@@ -161,18 +165,18 @@ impl TaskSupervisor {
         service: &'static str,
         backend: Arc<dyn CommsBackend>,
         status_key: String,
-        status_encoding: String,
         status_latest: watch::Sender<Option<Bytes>>,
+        metrics: MetricsRegistry,
     ) -> Self {
         Self {
-            spawner: TaskSpawner::new(),
+            spawner: TaskSpawner::new(metrics),
             shutdown: CancellationToken::new(),
             handles: Mutex::new(Vec::new()),
             status: StatusPublisher {
                 service,
                 backend,
                 key: status_key,
-                encoding: status_encoding,
+                encoding: cdr_encoding(ServiceStatus::SCHEMA_NAME),
                 latest: status_latest,
                 degraded_tasks: Arc::new(Mutex::new(BTreeSet::new())),
             },
@@ -214,10 +218,13 @@ impl TaskSupervisor {
             let name = task.name.clone();
             let policy = task.policy;
             let run = Arc::clone(&task.run);
-            let shutdown = self.shutdown.child_token();
             let status = self.status.clone();
+            let restarts = metrics::with_local_recorder(
+                &self.spawner.metrics,
+                || metrics::counter!("task_restarts", "task" => name.clone()),
+            );
             let task_context = TaskContext {
-                shutdown: shutdown.clone(),
+                shutdown: self.shutdown.child_token(),
                 session: Arc::clone(&session),
                 commands: commands.clone(),
                 context: Arc::clone(&context),
@@ -228,9 +235,9 @@ impl TaskSupervisor {
                 policy,
                 run,
                 task_context,
-                shutdown,
                 Arc::clone(&clock),
                 status,
+                restarts,
             ));
             lock_unpoisoned(&self.handles).push((name, handle));
         }
@@ -330,9 +337,9 @@ async fn supervise_task<D: Domain, Context: Send + Sync + 'static>(
     policy: RestartPolicy,
     run: TaskRun<D, Context>,
     task_context: TaskContext<D, Context>,
-    shutdown: CancellationToken,
     clock: Arc<dyn Clock>,
     status: StatusPublisher,
+    restarts: Counter,
 ) {
     let mut failures = 0u32;
     let mut delays = match policy {
@@ -342,7 +349,7 @@ async fn supervise_task<D: Domain, Context: Send + Sync + 'static>(
         }
     };
     loop {
-        if shutdown.is_cancelled() {
+        if task_context.shutdown.is_cancelled() {
             break;
         }
         status.mark_running(&name).await;
@@ -361,7 +368,7 @@ async fn supervise_task<D: Domain, Context: Send + Sync + 'static>(
                 Err(TaskFailed)
             }
         };
-        if shutdown.is_cancelled() {
+        if task_context.shutdown.is_cancelled() {
             break;
         }
         let should_restart = match (outcome, policy) {
@@ -387,9 +394,10 @@ async fn supervise_task<D: Domain, Context: Send + Sync + 'static>(
         let Some(delay) = delays.as_mut().and_then(Iterator::next) else {
             break;
         };
-        if wait_delay(&clock, &shutdown, delay).await {
+        if wait_delay(&clock, &task_context.shutdown, delay).await {
             break;
         }
+        restarts.increment(1);
     }
 }
 

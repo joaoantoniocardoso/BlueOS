@@ -16,19 +16,11 @@ pub struct RecordingBytesResponse {
 impl CdrStruct for RecordingBytesResponse {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
-            size: if reader.is_exhausted() {
-                Default::default()
-            } else {
-                reader.read_u64()?
-            },
-            data: {
-                if reader.is_exhausted() {
-                    Vec::new()
-                } else {
-                    let length = reader.read_bounded_sequence_length()?;
-                    reader.read_bytes(length as usize)?.to_vec()
-                }
-            },
+            size: reader.read_or_default(|reader| reader.read_u64())?,
+            data: reader.read_or_default(|reader| {
+                let length = reader.read_bounded_sequence_length()?;
+                Ok(reader.read_bytes(length as usize)?.to_vec())
+            })?,
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {

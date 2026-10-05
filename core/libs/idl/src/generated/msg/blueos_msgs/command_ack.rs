@@ -81,26 +81,11 @@ impl CommandAckStatus {
 impl CdrStruct for CommandAck {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
-            accepted: if reader.is_exhausted() {
-                false
-            } else {
-                reader.read_bool()?
-            },
-            job_id: if reader.is_exhausted() {
-                String::new()
-            } else {
-                reader.read_string()?
-            },
-            status: if reader.is_exhausted() {
-                <CommandAckStatus>::default()
-            } else {
-                CommandAckStatus::from_raw(reader.read_u8()?)
-            },
-            reason: if reader.is_exhausted() {
-                String::new()
-            } else {
-                reader.read_string()?
-            },
+            accepted: reader.read_or_default(|reader| reader.read_bool())?,
+            job_id: reader.read_or_default(|reader| reader.read_string())?,
+            status: reader
+                .read_or_default(|reader| Ok(CommandAckStatus::from_raw(reader.read_u8()?)))?,
+            reason: reader.read_or_default(|reader| reader.read_string())?,
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {

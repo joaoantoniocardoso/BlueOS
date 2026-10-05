@@ -13,11 +13,7 @@ pub struct StartRecordingGoal {
 impl CdrStruct for StartRecordingGoal {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
-            rotate_if_active: if reader.is_exhausted() {
-                false
-            } else {
-                reader.read_bool()?
-            },
+            rotate_if_active: reader.read_or_default(|reader| reader.read_bool())?,
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {

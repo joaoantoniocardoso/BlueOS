@@ -18,26 +18,10 @@ pub struct RecordingBytesRequest {
 impl CdrStruct for RecordingBytesRequest {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
-            path: if reader.is_exhausted() {
-                String::new()
-            } else {
-                reader.read_string()?
-            },
-            offset: if reader.is_exhausted() {
-                Default::default()
-            } else {
-                reader.read_u64()?
-            },
-            length: if reader.is_exhausted() {
-                Default::default()
-            } else {
-                reader.read_u32()?
-            },
-            from_end: if reader.is_exhausted() {
-                false
-            } else {
-                reader.read_bool()?
-            },
+            path: reader.read_or_default(|reader| reader.read_string())?,
+            offset: reader.read_or_default(|reader| reader.read_u64())?,
+            length: reader.read_or_default(|reader| reader.read_u32())?,
+            from_end: reader.read_or_default(|reader| reader.read_bool())?,
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {

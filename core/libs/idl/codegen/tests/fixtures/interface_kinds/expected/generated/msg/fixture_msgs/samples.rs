@@ -18,35 +18,25 @@ pub struct Samples {
 impl CdrStruct for Samples {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
-            samples: {
-                if reader.is_exhausted() {
-                    Vec::new()
-                } else {
-                    let length = reader.read_bounded_sequence_length()?;
-                    reader.read_bytes(length as usize)?.to_vec()
-                }
-            },
-            tag: {
+            samples: reader.read_or_default(|reader| {
+                let length = reader.read_bounded_sequence_length()?;
+                Ok(reader.read_bytes(length as usize)?.to_vec())
+            })?,
+            tag: reader.read_or_default(|reader| {
                 let mut values = [Default::default(); 4usize];
-                if !reader.is_exhausted() {
-                    for index in 0..4usize {
-                        values[index] = reader.read_u8()?;
-                    }
+                for index in 0..4usize {
+                    values[index] = reader.read_u8()?;
                 }
-                values
-            },
-            counts: {
-                if reader.is_exhausted() {
-                    Vec::new()
-                } else {
-                    let length = reader.read_bounded_sequence_length()?;
-                    let mut values = Vec::with_capacity(length as usize);
-                    for _index in 0..length {
-                        values.push(reader.read_u16()?);
-                    }
-                    values
+                Ok(values)
+            })?,
+            counts: reader.read_or_default(|reader| {
+                let length = reader.read_bounded_sequence_length()?;
+                let mut values = Vec::with_capacity(length as usize);
+                for _index in 0..length {
+                    values.push(reader.read_u16()?);
                 }
-            },
+                Ok(values)
+            })?,
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {

@@ -151,6 +151,18 @@ impl Reader {
         self.position >= self.buffer.len()
     }
 
+    /// Reads one field with `read`, or gives its default when the body ends before it: the sender's version of the
+    /// Message predates the field (D-06).
+    pub fn read_or_default<T: Default>(
+        &mut self,
+        read: impl FnOnce(&mut Self) -> Result<T, Error>,
+    ) -> Result<T, Error> {
+        if self.is_exhausted() {
+            return Ok(T::default());
+        }
+        read(self)
+    }
+
     /// Bytes left in the field body after the current read position.
     pub fn remaining_body_bytes(&self) -> usize {
         self.buffer.len().saturating_sub(self.position)

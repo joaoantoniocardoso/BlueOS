@@ -249,6 +249,18 @@ EOF
     expect_log_reject "second commit in the log" "core/Cargo.lock" "$bad_log"
 }
 
+test_push_base_missing_from_the_clone() {
+    local output
+    if ! output=$(BASE_SHA=0000000000000000000000000000000000000000 HEAD_SHA=HEAD check_commit_subjects 2>&1); then
+        printf 'commit_subject_test: a push that creates a branch must pass\n%s\n' "$output" >&2
+        exit 1
+    fi
+    if ! grep -F -q -- "not in this clone" <<<"$output"; then
+        printf 'commit_subject_test: expected the skip to be named in:\n%s\n' "$output" >&2
+        exit 1
+    fi
+}
+
 main() {
     test_style_guide_examples
     test_prefix_covers_every_file
@@ -258,6 +270,7 @@ main() {
     test_root_files_renames_and_deletions
     test_real_errors
     test_log_splits_commits
+    test_push_base_missing_from_the_clone
     printf 'commit_subject_test: ok\n'
 }
 

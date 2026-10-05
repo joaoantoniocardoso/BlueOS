@@ -1,5 +1,5 @@
 import {
-  commandKey, jobFeedbackKey, jobResultKey, jobsKey, settingsKey, statusStateKey,
+  commandKey, jobFeedbackKey, jobResultKey, jobsKey, settingsKey, stateKey, statusStateKey,
 } from './keys'
 import type { SchemaName } from './types'
 import type { EventEndpoint } from './watch-event'
@@ -26,6 +26,11 @@ export interface QueryEndpoint<RequestSchema extends SchemaName, ResponseSchema 
 /** The `status` State of a Service (D-12). A `service` of `*` matches every Service. */
 export function statusState(service: string): StateEndpoint<'blueos_msgs/msg/ServiceStatus'> {
   return { key: statusStateKey(service), messageSchema: 'blueos_msgs/msg/ServiceStatus' }
+}
+
+/** The `metrics` State of a Service: its counters, gauges and histograms (D-35). A `service` of `*` matches all. */
+export function metricsState(service: string): StateEndpoint<'blueos_msgs/msg/ServiceMetrics'> {
+  return { key: stateKey(service, 'metrics'), messageSchema: 'blueos_msgs/msg/ServiceMetrics' }
 }
 
 /** The `settings` State of a Service, with its pending restart fields (D-11). */

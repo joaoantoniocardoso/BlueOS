@@ -19,6 +19,7 @@ use crate::{
         DurableStateRegistration, register_durable_state, register_durable_state_with_jobs,
     },
     kernel::{Rejection, Unanswered, io::IoExecutors},
+    metrics_registry::MetricsRegistry,
     service::{Service, ServiceContext},
     settings::{SettingsRegistration, register_settings},
     shutdown::{ShutdownHandle, new_shutdown_channel},
@@ -103,6 +104,8 @@ pub struct ServiceBuilder<D: Domain, Context = ()> {
     pub(crate) shutdown_request: Option<D::Request>,
     pub(crate) shutdown_sender: Option<watch::Sender<bool>>,
     pub(crate) shutdown_receiver: Option<watch::Receiver<bool>>,
+    /// The registry the Service's metrics are recorded in (D-35).
+    pub(crate) metrics: MetricsRegistry,
 }
 
 /// The durable state a Service declared, which the Kernel opens in the Service's settings folder when it starts.
@@ -199,6 +202,7 @@ impl<D: Domain, Context> ServiceBuilder<D, Context> {
             shutdown_request: None,
             shutdown_sender: None,
             shutdown_receiver: None,
+            metrics: MetricsRegistry::default(),
         }
     }
 }

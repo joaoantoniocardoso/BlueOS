@@ -28,7 +28,7 @@ const TYPESCRIPT_DIR: &str = "frontend/src/libs/blueos-api/services";
 // ponytail: records `settings` and `UpdateSettings` for every Service, as the generator cannot see a
 // `ServiceBuilder::settings` opt-in; a manifest field would make the lock exact.
 // A Job control names its Job in the attachment, so a body is needed only to answer a permission request.
-const STANDARD_ENDPOINTS: [StandardEndpoint; 10] = [
+const STANDARD_ENDPOINTS: [StandardEndpoint; 11] = [
     StandardEndpoint {
         name: "info",
         key: "query/info",
@@ -53,6 +53,11 @@ const STANDARD_ENDPOINTS: [StandardEndpoint; 10] = [
         name: "log",
         key: "log",
         interface_type: "foxglove_msgs/msg/Log",
+    },
+    StandardEndpoint {
+        name: "metrics",
+        key: "state/metrics",
+        interface_type: "blueos_msgs/msg/ServiceMetrics",
     },
     StandardEndpoint {
         name: "jobs",

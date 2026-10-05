@@ -18,33 +18,19 @@ pub struct RecordingContents {
 impl CdrStruct for RecordingContents {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
-            path: if reader.is_exhausted() {
-                String::new()
-            } else {
-                reader.read_string()?
-            },
-            duration: if reader.is_exhausted() {
-                <crate::msg::builtin_interfaces::Duration>::default()
-            } else {
-                <crate::msg::builtin_interfaces::Duration>::cdr_decode_fields(reader)?
-            },
-            video_topics: {
-                if reader.is_exhausted() {
-                    Vec::new()
-                } else {
-                    let length = reader.read_bounded_sequence_length()?;
-                    let mut values = Vec::with_capacity(length as usize);
-                    for _index in 0..length {
-                        values.push(reader.read_string()?);
-                    }
-                    values
+            path: reader.read_or_default(|reader| reader.read_string())?,
+            duration: reader.read_or_default(|reader| {
+                <crate::msg::builtin_interfaces::Duration>::cdr_decode_fields(reader)
+            })?,
+            video_topics: reader.read_or_default(|reader| {
+                let length = reader.read_bounded_sequence_length()?;
+                let mut values = Vec::with_capacity(length as usize);
+                for _index in 0..length {
+                    values.push(reader.read_string()?);
                 }
-            },
-            other_topic_count: if reader.is_exhausted() {
-                Default::default()
-            } else {
-                reader.read_u32()?
-            },
+                Ok(values)
+            })?,
+            other_topic_count: reader.read_or_default(|reader| reader.read_u32())?,
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {

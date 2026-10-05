@@ -22,7 +22,7 @@ use blueos_jobs::{JobControl, JobId};
 
 use crate::{
     Clock, CommandSender, Kernel, Service, ServiceContext, ServiceError, ShutdownHandle,
-    new_job_id, sync,
+    metrics_registry::MetricsRegistry, new_job_id, sync,
 };
 
 /// The wall-clock time the Domain sees when the harness starts: 2026-01-01T00:00:00Z.
@@ -200,9 +200,14 @@ impl<S: Service> Harness<S> {
         } else {
             None
         };
-        let mut context = S::context(&service)?;
-        change(&mut context);
-        let mut builder = S::build(&service, &context)?.for_service::<S>(&service);
+        let metrics = MetricsRegistry::default();
+        let (context, mut builder) = metrics::with_local_recorder(&metrics, || {
+            let mut context = S::context(&service)?;
+            change(&mut context);
+            let builder = S::build(&service, &context)?.for_service::<S>(&service);
+            Ok::<_, ServiceError>((context, builder))
+        })?;
+        builder.metrics = metrics;
         let shutdown = builder.shutdown_handle();
         let clock = Arc::new(PausedClock::start());
         let kernel = Kernel::start_with_effect_log(

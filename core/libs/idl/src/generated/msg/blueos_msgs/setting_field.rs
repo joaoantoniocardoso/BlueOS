@@ -16,16 +16,8 @@ pub struct SettingField {
 impl CdrStruct for SettingField {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
-            path: if reader.is_exhausted() {
-                String::new()
-            } else {
-                reader.read_string()?
-            },
-            restart_required: if reader.is_exhausted() {
-                false
-            } else {
-                reader.read_bool()?
-            },
+            path: reader.read_or_default(|reader| reader.read_string())?,
+            restart_required: reader.read_or_default(|reader| reader.read_bool())?,
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {

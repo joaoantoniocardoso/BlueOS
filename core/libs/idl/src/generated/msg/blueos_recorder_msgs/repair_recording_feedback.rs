@@ -14,16 +14,8 @@ pub struct RepairRecordingFeedback {
 impl CdrStruct for RepairRecordingFeedback {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
-            bytes_processed: if reader.is_exhausted() {
-                Default::default()
-            } else {
-                reader.read_u64()?
-            },
-            total_bytes: if reader.is_exhausted() {
-                Default::default()
-            } else {
-                reader.read_u64()?
-            },
+            bytes_processed: reader.read_or_default(|reader| reader.read_u64())?,
+            total_bytes: reader.read_or_default(|reader| reader.read_u64())?,
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {

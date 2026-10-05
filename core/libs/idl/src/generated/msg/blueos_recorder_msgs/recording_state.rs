@@ -20,43 +20,19 @@ pub struct RecordingState {
 impl CdrStruct for RecordingState {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
-            armed: if reader.is_exhausted() {
-                false
-            } else {
-                reader.read_bool()?
-            },
-            session_active: if reader.is_exhausted() {
-                false
-            } else {
-                reader.read_bool()?
-            },
-            current_file: if reader.is_exhausted() {
-                String::new()
-            } else {
-                reader.read_string()?
-            },
-            session_bytes_written: if reader.is_exhausted() {
-                Default::default()
-            } else {
-                reader.read_u64()?
-            },
-            recording_video_topics: {
-                if reader.is_exhausted() {
-                    Vec::new()
-                } else {
-                    let length = reader.read_bounded_sequence_length()?;
-                    let mut values = Vec::with_capacity(length as usize);
-                    for _index in 0..length {
-                        values.push(reader.read_string()?);
-                    }
-                    values
+            armed: reader.read_or_default(|reader| reader.read_bool())?,
+            session_active: reader.read_or_default(|reader| reader.read_bool())?,
+            current_file: reader.read_or_default(|reader| reader.read_string())?,
+            session_bytes_written: reader.read_or_default(|reader| reader.read_u64())?,
+            recording_video_topics: reader.read_or_default(|reader| {
+                let length = reader.read_bounded_sequence_length()?;
+                let mut values = Vec::with_capacity(length as usize);
+                for _index in 0..length {
+                    values.push(reader.read_string()?);
                 }
-            },
-            samples_dropped: if reader.is_exhausted() {
-                Default::default()
-            } else {
-                reader.read_u64()?
-            },
+                Ok(values)
+            })?,
+            samples_dropped: reader.read_or_default(|reader| reader.read_u64())?,
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {

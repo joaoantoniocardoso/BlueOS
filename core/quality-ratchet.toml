@@ -1,11 +1,11 @@
 # Finding ceilings per category for rustqual and thailint (D-30). A ceiling may only fall: the commit that
 # fixes findings lowers it with ./.hooks/pre-push --fix. Raising one needs its own commit and a D-30 note.
 [rustqual]
-violations = 73
-complexity_warnings = 28
+violations = 48
+complexity_warnings = 25
 magic_number_warnings = 145
 nesting_depth_warnings = 1
-function_length_warnings = 43
+function_length_warnings = 42
 unsafe_warnings = 0
 error_handling_warnings = 42
 duplicate_groups = 21
@@ -26,12 +26,12 @@ tq_uncovered_warnings = 0
 tq_untested_logic_warnings = 0
 structural_srp_warnings = 0
 structural_coupling_warnings = 10
-total_findings = 693
+total_findings = 661
 
 [thailint]
 "unwrap-abuse.unwrap-call" = 6
 "unwrap-abuse.expect-call" = 0
-"clone-abuse.clone-in-loop" = 61
+"clone-abuse.clone-in-loop" = 60
 "clone-abuse.clone-chain" = 0
 "clone-abuse.unnecessary-clone" = 5
 "blocking-async.fs-in-async" = 0

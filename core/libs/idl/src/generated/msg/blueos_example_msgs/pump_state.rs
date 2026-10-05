@@ -64,26 +64,12 @@ impl PumpStateSelfTestPhase {
 impl CdrStruct for PumpState {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
-            level: if reader.is_exhausted() {
-                Default::default()
-            } else {
-                reader.read_u8()?
-            },
-            max_level: if reader.is_exhausted() {
-                Default::default()
-            } else {
-                reader.read_u8()?
-            },
-            self_test_phase: if reader.is_exhausted() {
-                <PumpStateSelfTestPhase>::default()
-            } else {
-                PumpStateSelfTestPhase::from_raw(reader.read_u8()?)
-            },
-            self_test_active: if reader.is_exhausted() {
-                false
-            } else {
-                reader.read_bool()?
-            },
+            level: reader.read_or_default(|reader| reader.read_u8())?,
+            max_level: reader.read_or_default(|reader| reader.read_u8())?,
+            self_test_phase: reader.read_or_default(|reader| {
+                Ok(PumpStateSelfTestPhase::from_raw(reader.read_u8()?))
+            })?,
+            self_test_active: reader.read_or_default(|reader| reader.read_bool())?,
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {

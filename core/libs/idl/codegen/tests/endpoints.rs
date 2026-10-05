@@ -85,6 +85,8 @@ fn rejects_the_names_every_service_has() {
         "ResumeJob",
         "AnswerPermission",
         "Log",
+        "metrics",
+        "Metrics",
     ] {
         let manifest = format!("service = \"test\"\n[state]\n{name} = {{ type = \"{PUMP}\" }}\n");
 
@@ -473,6 +475,7 @@ fn the_lock_lists_the_standard_endpoints_of_every_service() {
             "blueos/v1/test/log 1 type=foxglove_msgs/msg/Log",
             "blueos/v1/test/query/info 1 type=blueos_msgs/msg/ServiceInfo",
             "blueos/v1/test/settings 1 type=blueos_msgs/msg/SettingsEnvelope",
+            "blueos/v1/test/state/metrics 1 type=blueos_msgs/msg/ServiceMetrics",
             "blueos/v1/test/state/status 1 type=blueos_msgs/msg/ServiceStatus",
         ]
     );

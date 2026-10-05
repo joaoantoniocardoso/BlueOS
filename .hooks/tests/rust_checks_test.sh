@@ -120,6 +120,50 @@ EOF
     fi
 }
 
+test_folder_rejects_logic_depending_on_metrics() {
+    local metadata
+    metadata=$(cat <<'EOF'
+{
+  "packages": [
+    {
+      "name": "blueos-bad-logic",
+      "manifest_path": "/repo/core/libs/logic/bad/Cargo.toml",
+      "dependencies": [
+        { "name": "metrics", "kind": null, "path": null }
+      ]
+    },
+    {
+      "name": "blueos-bad-api",
+      "manifest_path": "/repo/core/services/example/logic/api/Cargo.toml",
+      "dependencies": [
+        { "name": "metrics", "kind": "build", "path": null }
+      ]
+    },
+    {
+      "name": "blueos-test-only-logic",
+      "manifest_path": "/repo/core/libs/logic/tested/Cargo.toml",
+      "dependencies": [
+        { "name": "metrics", "kind": "dev", "path": null }
+      ]
+    },
+    {
+      "name": "blueos-service",
+      "manifest_path": "/repo/core/libs/app/service/Cargo.toml",
+      "dependencies": [
+        { "name": "metrics", "kind": null, "path": null }
+      ]
+    }
+  ]
+}
+EOF
+)
+    assert_violation "logic to metrics" "$metadata" 'blueos-bad-logic is logic, so it may not depend on metrics'
+    assert_violation "logic/api to metrics" "$metadata" 'blueos-bad-api is logic, so it may not depend on metrics'
+    if [ "$(collect_folder_violations "$metadata" | wc -l)" -ne 2 ]; then
+        fail "only logic crates may not depend on metrics, and a dev-dependency does not count"
+    fi
+}
+
 test_folder_rejects_cross_service_dependency() {
     local metadata
     metadata=$(cat <<'EOF'
@@ -468,6 +512,7 @@ main() {
     test_style_copies_reject_drifting_cursor_rule
     test_folder_rejects_logic_depending_on_adapter
     test_folder_rejects_logic_api_depending_on_adapter
+    test_folder_rejects_logic_depending_on_metrics
     test_folder_rejects_cross_service_dependency
     test_workspace_metadata_is_clean
     test_app_src_rejects_unknown_top_level_module

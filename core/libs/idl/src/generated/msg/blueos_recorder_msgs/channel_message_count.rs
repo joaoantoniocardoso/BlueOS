@@ -14,16 +14,8 @@ pub struct ChannelMessageCount {
 impl CdrStruct for ChannelMessageCount {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
-            channel_id: if reader.is_exhausted() {
-                Default::default()
-            } else {
-                reader.read_u16()?
-            },
-            count: if reader.is_exhausted() {
-                Default::default()
-            } else {
-                reader.read_u64()?
-            },
+            channel_id: reader.read_or_default(|reader| reader.read_u16())?,
+            count: reader.read_or_default(|reader| reader.read_u64())?,
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {

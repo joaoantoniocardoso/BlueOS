@@ -99,11 +99,11 @@ fn leading_entry_number(filename: &str) -> u8 {
 }
 
 #[test]
-fn readme_table_maps_questions_one_through_thirty_four() {
+fn readme_table_numbers_its_questions_from_one_without_gaps() {
     let readme = include_str!("../README.md");
     let rows = parse_readme_table(readme);
-    assert_eq!(rows.len(), 34, "expected 34 question rows in README");
-    for question in 1..=34 {
+    let question_count = u8::try_from(rows.len()).expect("fewer than 256 questions");
+    for question in 1..=question_count {
         assert_eq!(
             rows.iter().filter(|row| row.number == question).count(),
             1,

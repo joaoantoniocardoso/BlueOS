@@ -190,6 +190,56 @@ string job_type
 uint8 status
 # Why the Job was canceled or aborted, when the Kernel ended it.
 string reason`,
+  "blueos_msgs/msg/MetricCounter": `# blueos_msgs/msg/MetricCounter
+# A counter in ServiceMetrics (D-35): a total that only grows while the service runs.
+
+string name
+blueos_msgs/MetricLabel[] labels
+uint64 value
+================================================================================
+MSG: blueos_msgs/MetricLabel
+# blueos_msgs/msg/MetricLabel
+# One label of a metric in ServiceMetrics (D-35), such as the Task a restart counter counts.
+
+string name
+string value`,
+  "blueos_msgs/msg/MetricGauge": `# blueos_msgs/msg/MetricGauge
+# A gauge in ServiceMetrics (D-35): the last value the service set, such as how many Commands wait in the Inbox.
+
+string name
+blueos_msgs/MetricLabel[] labels
+float64 value
+================================================================================
+MSG: blueos_msgs/MetricLabel
+# blueos_msgs/msg/MetricLabel
+# One label of a metric in ServiceMetrics (D-35), such as the Task a restart counter counts.
+
+string name
+string value`,
+  "blueos_msgs/msg/MetricHistogram": `# blueos_msgs/msg/MetricHistogram
+# A histogram in ServiceMetrics (D-35), such as how long the Inbox took to apply each Command: how many values the
+# service recorded, their sum, and how many fell in each bucket.
+
+string name
+blueos_msgs/MetricLabel[] labels
+uint64 count
+float64 sum
+# The upper bound of each bucket, ascending. A bucket holds the values above the bound before it, up to its own.
+float64[] bucket_bounds
+# How many values fell in each bucket of bucket_bounds, plus one last entry for the values above the last bound.
+uint64[] bucket_counts
+================================================================================
+MSG: blueos_msgs/MetricLabel
+# blueos_msgs/msg/MetricLabel
+# One label of a metric in ServiceMetrics (D-35), such as the Task a restart counter counts.
+
+string name
+string value`,
+  "blueos_msgs/msg/MetricLabel": `# blueos_msgs/msg/MetricLabel
+# One label of a metric in ServiceMetrics (D-35), such as the Task a restart counter counts.
+
+string name
+string value`,
   "blueos_msgs/msg/PermissionAnswer": `# blueos_msgs/msg/PermissionAnswer
 # The body of command/AnswerPermission, whose attachment names the Job waiting for permission (D-36).
 
@@ -221,6 +271,51 @@ string interface_type
 # The schema text of interface_type. That of a .action or a .srv lists every part. That of a Job's feedback or
 # result, a blueos_msgs/JobFeedbackList or blueos_msgs/JobResult, then lists the action part its bytes carry.
 string schema`,
+  "blueos_msgs/msg/ServiceMetrics": `# blueos_msgs/msg/ServiceMetrics
+# State published on blueos/v1/<service>/state/metrics (D-12, D-35): every counter, gauge and histogram that the
+# Kernel, the Tasks and the adapters of the service recorded, each list sorted by name and then by labels. It is
+# published at most once per second, and only when a value changed.
+
+blueos_msgs/MetricCounter[] counters
+blueos_msgs/MetricGauge[] gauges
+blueos_msgs/MetricHistogram[] histograms
+================================================================================
+MSG: blueos_msgs/MetricLabel
+# blueos_msgs/msg/MetricLabel
+# One label of a metric in ServiceMetrics (D-35), such as the Task a restart counter counts.
+
+string name
+string value
+================================================================================
+MSG: blueos_msgs/MetricCounter
+# blueos_msgs/msg/MetricCounter
+# A counter in ServiceMetrics (D-35): a total that only grows while the service runs.
+
+string name
+blueos_msgs/MetricLabel[] labels
+uint64 value
+================================================================================
+MSG: blueos_msgs/MetricGauge
+# blueos_msgs/msg/MetricGauge
+# A gauge in ServiceMetrics (D-35): the last value the service set, such as how many Commands wait in the Inbox.
+
+string name
+blueos_msgs/MetricLabel[] labels
+float64 value
+================================================================================
+MSG: blueos_msgs/MetricHistogram
+# blueos_msgs/msg/MetricHistogram
+# A histogram in ServiceMetrics (D-35), such as how long the Inbox took to apply each Command: how many values the
+# service recorded, their sum, and how many fell in each bucket.
+
+string name
+blueos_msgs/MetricLabel[] labels
+uint64 count
+float64 sum
+# The upper bound of each bucket, ascending. A bucket holds the values above the bound before it, up to its own.
+float64[] bucket_bounds
+# How many values fell in each bucket of bucket_bounds, plus one last entry for the values above the last bound.
+uint64[] bucket_counts`,
   "blueos_msgs/msg/ServiceStatus": `# blueos_msgs/msg/ServiceStatus
 # High-level service health on the status state key (D-12).
 

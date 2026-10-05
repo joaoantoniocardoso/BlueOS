@@ -16,19 +16,13 @@ pub struct JobResult {
 impl CdrStruct for JobResult {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
-            job: if reader.is_exhausted() {
-                <crate::msg::blueos_msgs::JobStatus>::default()
-            } else {
-                <crate::msg::blueos_msgs::JobStatus>::cdr_decode_fields(reader)?
-            },
-            result: {
-                if reader.is_exhausted() {
-                    Vec::new()
-                } else {
-                    let length = reader.read_bounded_sequence_length()?;
-                    reader.read_bytes(length as usize)?.to_vec()
-                }
-            },
+            job: reader.read_or_default(|reader| {
+                <crate::msg::blueos_msgs::JobStatus>::cdr_decode_fields(reader)
+            })?,
+            result: reader.read_or_default(|reader| {
+                let length = reader.read_bounded_sequence_length()?;
+                Ok(reader.read_bytes(length as usize)?.to_vec())
+            })?,
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {

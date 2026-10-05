@@ -79,6 +79,32 @@ export interface JobStatus {
   reason: string;
 }
 
+export interface MetricCounter {
+  name: string;
+  labels: MetricLabel[];
+  value: number;
+}
+
+export interface MetricGauge {
+  name: string;
+  labels: MetricLabel[];
+  value: number;
+}
+
+export interface MetricHistogram {
+  name: string;
+  labels: MetricLabel[];
+  count: number;
+  sum: number;
+  bucket_bounds: number[];
+  bucket_counts: number[];
+}
+
+export interface MetricLabel {
+  name: string;
+  value: string;
+}
+
 export interface PermissionAnswer {
   granted: boolean;
 }
@@ -93,6 +119,12 @@ export interface ServiceInfo {
   build: string;
   capabilities: string[];
   endpoints: EndpointInfo[];
+}
+
+export interface ServiceMetrics {
+  counters: MetricCounter[];
+  gauges: MetricGauge[];
+  histograms: MetricHistogram[];
 }
 
 export interface ServiceStatus {
@@ -283,9 +315,14 @@ export interface MessageBySchema {
   "blueos_msgs/msg/JobList": JobList;
   "blueos_msgs/msg/JobResult": JobResult;
   "blueos_msgs/msg/JobStatus": JobStatus;
+  "blueos_msgs/msg/MetricCounter": MetricCounter;
+  "blueos_msgs/msg/MetricGauge": MetricGauge;
+  "blueos_msgs/msg/MetricHistogram": MetricHistogram;
+  "blueos_msgs/msg/MetricLabel": MetricLabel;
   "blueos_msgs/msg/PermissionAnswer": PermissionAnswer;
   "blueos_msgs/msg/RestartRequired": RestartRequired;
   "blueos_msgs/msg/ServiceInfo": ServiceInfo;
+  "blueos_msgs/msg/ServiceMetrics": ServiceMetrics;
   "blueos_msgs/msg/ServiceStatus": ServiceStatus;
   "blueos_msgs/msg/SettingField": SettingField;
   "blueos_msgs/msg/SettingsEnvelope": SettingsEnvelope;

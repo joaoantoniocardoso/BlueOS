@@ -19,31 +19,11 @@ pub struct EndpointInfo {
 impl CdrStruct for EndpointInfo {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
-            kind: if reader.is_exhausted() {
-                String::new()
-            } else {
-                reader.read_string()?
-            },
-            name: if reader.is_exhausted() {
-                String::new()
-            } else {
-                reader.read_string()?
-            },
-            key: if reader.is_exhausted() {
-                String::new()
-            } else {
-                reader.read_string()?
-            },
-            interface_type: if reader.is_exhausted() {
-                String::new()
-            } else {
-                reader.read_string()?
-            },
-            schema: if reader.is_exhausted() {
-                String::new()
-            } else {
-                reader.read_string()?
-            },
+            kind: reader.read_or_default(|reader| reader.read_string())?,
+            name: reader.read_or_default(|reader| reader.read_string())?,
+            key: reader.read_or_default(|reader| reader.read_string())?,
+            interface_type: reader.read_or_default(|reader| reader.read_string())?,
+            schema: reader.read_or_default(|reader| reader.read_string())?,
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {

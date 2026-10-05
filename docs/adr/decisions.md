@@ -640,8 +640,8 @@ Decision:
   - `example-minimal`: one Command, one Query, one State, a Domain unit test and the frontend call, about
     150 lines (a goal, D-31).
   - A cookbook of numbered entries, `core/services/example/cookbook/tests/NN-<topic>.rs`, each a self-contained test
-    on the channel backend, answering every "how do I do X?" question (34 today, listed in the ergonomics review
-    P4). A README table maps each question to its entry, and a test asserts that every question resolves to an
+    on the channel backend, answering every "how do I do X?" question (listed in the ergonomics review P4). A
+    README table maps each question to its entry, and a test asserts that every question resolves to an
     entry that compiles.
   - The example's real `build()` is what its tests exercise; no test rebuilds the wiring by hand.
   - The example passes every rule of the style guide with zero `#[allow]`; an agent copying it inherits the style.
@@ -1104,7 +1104,9 @@ Decision:
     or a ceiling for a category the tool does not report, fails, so a new `rustqual` version cannot add categories
     silently. A tool that crashes or writes no JSON fails the check, and fix mode then writes nothing.
   - A `rustqual` suppression is a `// qual:allow` with a written reason, and an exceeded `max_suppression_ratio`
-    fails.
+    fails. `rustqual` offers no `qual:allow` target for a dead type, so a cookbook test whose Service types only
+    that test uses may carry `// qual:test_helper` and a reason, the marker `rustqual` documents for types that serve
+    tests. Every other cookbook test counts those types against the `dead_type_warnings` ceiling instead.
   - CI compares both ratchet files with the base revision (the pull request's base, or the commit a push replaced)
     and fails when a ceiling rose, a floor fell, or a key was removed, and when the base revision cannot be
     resolved. Loosening one on purpose (for example, for a
@@ -1278,12 +1280,47 @@ Decision:
 
 - `tracing` stays the API for events and spans (D-13). Counters, gauges and histograms go through the `metrics`
   facade.
-- The Kernel installs a recorder that publishes one `metrics` State per service (D-12), encoded with the IDL. Changes
-  are combined and published at most once per second. The message type is defined with the first implementation.
-- Values are recorded by the Kernel (Inbox step time, Inbox depth, Task restarts, the stable `tokio-metrics`
-  subset), by Tasks and by adapters. Logic crates never record: a global recorder breaks sans-IO (D-03) and
-  `metrics` is not `no_std`. A Domain that wants something counted keeps it in its Snapshot and a Projection exposes
-  it.
+- Each Kernel owns an in-process registry, the recorder behind the facade, and publishes it as one `metrics` State
+  per service (D-12): a first value during startup, so a late client gets an answer at once, then at most once per
+  second from the Inbox loop, and only when the encoded value changed. Changes are combined into that publication.
+- The shipped entry installs the Kernel's registry as the process-wide recorder before `context` runs, since one
+  process runs one service. The Kernel also makes it the recorder of every poll of the futures it spawns (Tasks, IO,
+  IO queries), and the harness does the same around `context` and `build`, so Kernels in one test process never
+  share values and no test depends on a process global. A handle registered there (`metrics::counter!` kept in a
+  variable) records into its registry from any thread; a bare call on a task or thread the Kernel did not spawn
+  reaches only the process-wide recorder.
+- The message is `blueos_msgs/ServiceMetrics`: three lists, `counters` (`MetricCounter`, a `uint64` total), `gauges`
+  (`MetricGauge`, a `float64`) and `histograms` (`MetricHistogram`: count, sum, the ascending upper bound of each
+  bucket, and one count per bucket plus one for the values above the last bound). Each element carries its name and
+  its `MetricLabel` name/value pairs, and each list is sorted by name and then labels, so an unchanged registry
+  encodes to the same bytes. The elements are frozen (D-06): a new kind of metric, or a new field such as a unit, is
+  a new element type in a list appended to `ServiceMetrics`. Histograms use explicit buckets rather than quantiles:
+  buckets add up across time and services and need no sketch. The bounds travel with each histogram; the Kernel's
+  bounds suit durations in seconds, from 1 us to 10 s, and a metric with another range can get its own without a
+  new type.
+- The Kernel's own metrics, the same in every service:
+  - `inbox_step_seconds`: histogram of the time each Command step takes, rejected and panicked steps included;
+  - `inbox_depth`: gauge of the Commands still waiting when a step begins;
+  - `task_restarts`: counter of the restarts the supervisor performed, labelled `task` with the Task's name. It
+    is registered at zero when the Task is supervised, so a Task that never restarted shows 0. A restart counts
+    after its backoff, not when it is decided, and the Inbox loop's recoveries (D-29) are not Task restarts, so they
+    are not counted;
+  - `tokio_workers`, `tokio_alive_tasks` and `tokio_global_queue_depth`: gauges read from the runtime's own
+    `Handle::metrics()` on each publication tick, so no extra crate and no `tokio_unstable` flag. This is the stable
+    subset that stays still while a service is idle, so an idle service does not republish. Left out are the busy
+    duration and the park counts, the only other stable values: they move on their own with the Kernel's timers and
+    the backbone's tasks, so the value would change every second.
+- The Recorder's data plane counts `bytes_written` (payload bytes), `samples_written` and `samples_dropped` (a
+  sample past the writer queue's byte budget or capacity). Each carries one `lane` label: `mavlink`, `video` or
+  `other`. Recorded topics are open-ended (ROS 2 topics, every Service's keys), so a per-topic label would grow
+  without limit. The writer registers its nine handles once and a sample only increments one. The Recorder records
+  every other Service's `metrics` State like any other State; its own `metrics` is not recorded, by the same rule
+  that leaves out its `status` and `log`, and is read live.
+- Values are recorded by the Kernel (the metrics above), by Tasks and by adapters. Logic crates never record: a
+  global recorder breaks sans-IO (D-03) and `metrics` is not `no_std`. The pre-push hook's crate folder check fails
+  when a crate in a `logic/` folder, or a `logic/api` one, depends on `metrics`, with its own self-test. A Domain
+  that wants something counted keeps it in its Snapshot and a Projection exposes it, and a Task records it
+  (cookbook entry 35).
 - The frontend reads the State through `blueos-api`; the Recorder records it like any other State. There is no HTTP
   endpoint per service. A Prometheus or OpenTelemetry bridge is added later, as one more recorder or layer, only
   when a consumer needs it.
@@ -1295,7 +1332,8 @@ Decision:
   example the Recorder, queries the metrics key, which also clears entries for disconnected clients. The load
   scenario runs once with and once without `stats`.
 - Rejected: `jamesgober/rust-benchmark` (immature, unmaintained); continuous profiling (needs infrastructure off the
-  vehicle).
+  vehicle); one process-wide recorder in tests too (the values of concurrent Kernels would mix); the `metrics-util`
+  registry (its storage brings crossbeam, rand and a quantile sketch for what three sorted maps do).
 
 ## D-36 Jobs
 

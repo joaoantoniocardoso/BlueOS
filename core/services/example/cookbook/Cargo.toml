@@ -16,6 +16,7 @@ blueos-logging.workspace = true
 blueos-service = { workspace = true, features = ["testing"] }
 blueos-settings.workspace = true
 clap = { workspace = true, features = ["derive", "std"] }
+metrics.workspace = true
 serde = { workspace = true, features = ["derive", "std"] }
 serde_json.workspace = true
 thiserror.workspace = true

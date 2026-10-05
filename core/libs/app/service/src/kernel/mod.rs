@@ -20,6 +20,7 @@ use futures_util::FutureExt;
 use tokio::{
     sync::{mpsc, watch},
     task::JoinSet,
+    time::{Instant, MissedTickBehavior},
 };
 use tracing::warn;
 
@@ -34,7 +35,7 @@ use blueos_idl::{
     Error as IdlError,
     msg::blueos_msgs::{
         EndpointInfo, JobFeedback, JobFeedbackList, JobList, JobResult, PermissionAnswer,
-        ServiceInfo, ServiceStatus, ServiceStatusStatus, UpdateSettingsFeedback,
+        ServiceInfo, ServiceMetrics, ServiceStatus, ServiceStatusStatus, UpdateSettingsFeedback,
         UpdateSettingsGoal, UpdateSettingsResult,
     },
 };
@@ -51,8 +52,10 @@ use crate::{
     inbox::{CommandReply, Delivery, Input},
     inbox_recovery::{self, log_caught_panic},
     logging::LogPublisherRuntime,
+    metrics_registry::MetricsRegistry,
     projection::ProjectionRegistry,
     run_outcome::RunOutcome,
+    runtime_gauges::RuntimeGauges,
     service::ServiceError,
     settings::{SettingsDriver, settings_encoding},
     shutdown::{IoInflight, SHUTDOWN_IO_DRAIN_TIMEOUT, wait_for_shutdown_signal},
@@ -72,6 +75,10 @@ const REASON_ENCODING: &str = "text/plain";
 const UPDATE_SETTINGS: &str = "UpdateSettings";
 /// The interface type of [`UPDATE_SETTINGS`], as `info` lists it.
 const UPDATE_SETTINGS_ACTION: &str = "blueos_msgs/action/UpdateSettings";
+/// The State every Service publishes its metrics on (D-12, D-35).
+const METRICS: &str = "metrics";
+/// The shortest time between two publications of the `metrics` State (D-35).
+const METRICS_PERIOD: Duration = Duration::from_secs(1);
 /// The line ROS 2 schema text puts before the schema of each message it depends on.
 const SCHEMA_SEPARATOR: &str =
     "================================================================================";
@@ -133,6 +140,13 @@ pub struct Kernel<D: Domain, Context = ()> {
     tasks: TaskSupervisor,
     projections: ProjectionRegistry<D>,
     log_publisher: Option<LogPublisherRuntime>,
+    /// Every metric the Service recorded (D-35).
+    metrics: MetricsRegistry,
+    /// The standard `metrics` State, as the backbone last accepted it.
+    metrics_latest: watch::Sender<Option<Bytes>>,
+    inbox_step_time: metrics::Histogram,
+    inbox_depth: metrics::Gauge,
+    runtime_gauges: RuntimeGauges,
 }
 
 /// The standard `settings` State and its persistence driver (D-11).
@@ -321,6 +335,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         let shutdown_receiver = builder.shutdown_receiver;
         let (inbox_sender, inbox) = mpsc::channel(INBOX_CAPACITY);
         let snapshot_for_queries = Arc::new(tokio::sync::RwLock::new(builder.snapshot.clone()));
+        let metrics_key = state_key(service, METRICS);
         let job_type_names: Vec<String> = builder
             .commands
             .iter()
@@ -357,6 +372,13 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                         key: jobs_key(service),
                         interface_type: JobList::SCHEMA_NAME.to_owned(),
                         schema: JobList::SCHEMA.to_owned(),
+                    },
+                    EndpointInfo {
+                        kind: "state".to_owned(),
+                        name: METRICS.to_owned(),
+                        key: metrics_key.clone(),
+                        interface_type: ServiceMetrics::SCHEMA_NAME.to_owned(),
+                        schema: ServiceMetrics::SCHEMA.to_owned(),
                     },
                 ])
                 .chain(job_type_names.iter().flat_map(|job_type| {
@@ -403,12 +425,20 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         let status_encoding = cdr_encoding(ServiceStatus::SCHEMA_NAME);
         let status_latest = watch::Sender::new(None);
         let status_queryable = declare(&*backend, status_key.clone()).await?;
+        let metrics_queryable = declare(&*backend, metrics_key.clone()).await?;
+        let (inbox_step_time, inbox_depth) = metrics::with_local_recorder(&builder.metrics, || {
+            (
+                metrics::histogram!("inbox_step_seconds"),
+                metrics::gauge!("inbox_depth"),
+            )
+        });
+        let runtime_gauges = RuntimeGauges::new(&builder.metrics);
         let task_supervisor = TaskSupervisor::new(
             service,
             Arc::clone(&backend),
             status_key.clone(),
-            status_encoding.clone(),
             status_latest.clone(),
+            builder.metrics.clone(),
         );
         let task_specs = builder.tasks;
         let update_settings_queryable =
@@ -566,6 +596,11 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             tasks: task_supervisor,
             projections,
             log_publisher: None,
+            metrics: builder.metrics,
+            metrics_latest: watch::Sender::new(None),
+            inbox_step_time,
+            inbox_depth,
+            runtime_gauges,
         };
         kernel.projections.refresh(&kernel.snapshot);
         for command in startup_commands {
@@ -620,6 +655,7 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             Arc::clone(&kernel.context),
             Arc::clone(&kernel.clock),
         );
+        kernel.publish_metrics().await;
         kernel.endpoints.spawn(serve_fixed_reply(
             info_queryable,
             info_key,
@@ -631,6 +667,12 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             status_key,
             status_encoding,
             status_latest.subscribe(),
+        ));
+        kernel.endpoints.spawn(serve_state(
+            metrics_queryable,
+            metrics_key,
+            cdr_encoding(ServiceMetrics::SCHEMA_NAME),
+            kernel.metrics_latest.subscribe(),
         ));
         if let Some((queryable, key, encoding, latest)) = pending_settings_serve {
             kernel
@@ -698,9 +740,11 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             ));
         }
         for (queryable, respond, encoding) in pending_io_queries {
-            kernel
-                .endpoints
-                .spawn(serve_io_query(queryable, respond, encoding));
+            kernel.endpoints.spawn(
+                kernel
+                    .metrics
+                    .scope(serve_io_query(queryable, respond, encoding)),
+            );
         }
         let liveliness_key = service_liveliness_key(service);
         let liveliness = kernel
@@ -732,6 +776,9 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
             wait_for_shutdown_signal(&mut signal_shutdown_receiver).await;
             stop_flag_for_signals.store(true, Ordering::SeqCst);
         });
+        let mut metrics_interval =
+            tokio::time::interval_at(Instant::now() + METRICS_PERIOD, METRICS_PERIOD);
+        metrics_interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
         loop {
             if let Some(receiver) = &mut shutdown_receiver
@@ -824,6 +871,8 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
                 }, if shutdown_receiver.is_some() => {
                     stop_requested.store(true, Ordering::SeqCst);
                 }
+                // Polled before the Inbox, so a full Inbox cannot hold back the metrics.
+                _ = metrics_interval.tick() => self.publish_metrics().await,
                 delivery = self.inbox.recv() => {
                     if let Some(delivery) = delivery {
                         if let Some(outcome) = self.dispatch(delivery).await {
@@ -893,9 +942,13 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
     ///
     /// Returns [`RunOutcome::RepeatedInboxPanics`] when the rolling panic budget is exhausted (D-29).
     async fn dispatch(&mut self, delivery: Delivery<D>) -> Option<RunOutcome> {
+        self.inbox_depth.set(self.inbox.len() as f64);
+        let started = self.clock.now().monotonic;
         let unwound = AssertUnwindSafe(self.dispatch_delivery(delivery))
             .catch_unwind()
             .await;
+        self.inbox_step_time
+            .record(self.clock.now().monotonic.saturating_sub(started));
         match unwound {
             Ok(maybe_stop) => maybe_stop,
             Err(panic) => {
@@ -1153,6 +1206,24 @@ impl<D: Domain, Context: Send + Sync + 'static> Kernel<D, Context> {
         }
         .await;
         warn_on_failure("State", &settings.key, sent);
+    }
+
+    async fn publish_metrics(&self) {
+        self.runtime_gauges.sample();
+        let key = state_key(self.service, METRICS);
+        let sent: Result<(), SendError> = async {
+            let payload = Bytes::from(self.metrics.service_metrics().encode()?);
+            if self.metrics_latest.borrow().as_ref() == Some(&payload) {
+                return Ok(());
+            }
+            let encoding = cdr_encoding(ServiceMetrics::SCHEMA_NAME);
+            let sample = Sample::new(key.as_str(), Bytes::clone(&payload), &encoding);
+            self.backend.publish(sample).await?;
+            self.metrics_latest.send_replace(Some(payload));
+            Ok(())
+        }
+        .await;
+        warn_on_failure("State", &key, sent);
     }
 
     async fn publish_jobs(&self) {

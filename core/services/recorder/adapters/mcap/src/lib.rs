@@ -12,6 +12,7 @@ mod mcap_file;
 mod rewrite;
 mod summary;
 mod writer_handle;
+mod writer_metrics;
 
 pub use footer::{Footer, MCAP_MAGIC, is_indexed, read_footer_at};
 pub use index::{IndexError, walk_index, walk_index_reader};

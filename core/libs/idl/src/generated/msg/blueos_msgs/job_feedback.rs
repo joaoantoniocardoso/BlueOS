@@ -16,19 +16,11 @@ pub struct JobFeedback {
 impl CdrStruct for JobFeedback {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
-            job_id: if reader.is_exhausted() {
-                String::new()
-            } else {
-                reader.read_string()?
-            },
-            feedback: {
-                if reader.is_exhausted() {
-                    Vec::new()
-                } else {
-                    let length = reader.read_bounded_sequence_length()?;
-                    reader.read_bytes(length as usize)?.to_vec()
-                }
-            },
+            job_id: reader.read_or_default(|reader| reader.read_string())?,
+            feedback: reader.read_or_default(|reader| {
+                let length = reader.read_bounded_sequence_length()?;
+                Ok(reader.read_bytes(length as usize)?.to_vec())
+            })?,
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {

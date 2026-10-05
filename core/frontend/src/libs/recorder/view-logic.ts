@@ -1,5 +1,5 @@
 import { JobStatusStatus } from '@blueos-idl'
-import type { JobStatus } from '@blueos-idl/messages'
+import type { JobStatus, ServiceMetrics } from '@blueos-idl/messages'
 
 import type { RepairRecordingFeedback } from '@/libs/blueos-api/services/recorder'
 import { prettifySize } from '@/utils/helper_functions'
@@ -325,4 +325,41 @@ export function jobCanceledMessage({ job, result }: RecordingJobResult): string 
     return null
   }
   return `${RECORDING_OPERATION_UI[job.job_type].label} canceled for ${result.path}`
+}
+
+export const METRIC_LANES = ['mavlink', 'video', 'other'] as const
+
+export interface LaneMetrics {
+  lane: string
+  bytesWritten: number
+  samplesWritten: number
+  samplesDropped: number
+}
+
+export interface RecorderMetrics {
+  lanes: LaneMetrics[]
+  inboxDepth: number | null
+  inboxStepSeconds: number | null
+}
+
+/** The numbers the Records page shows out of the Recorder's `metrics` State (D-35). */
+export function recorderMetrics(metrics: ServiceMetrics): RecorderMetrics {
+  function laneCounter(name: string, lane: string): number {
+    const counter = metrics.counters.find(
+      ({ name: counterName, labels }) => counterName === name
+        && labels.some((label) => label.name === 'lane' && label.value === lane),
+    )
+    return counter?.value ?? 0
+  }
+  const step = metrics.histograms.find((histogram) => histogram.name === 'inbox_step_seconds')
+  return {
+    lanes: METRIC_LANES.map((lane) => ({
+      lane,
+      bytesWritten: laneCounter('bytes_written', lane),
+      samplesWritten: laneCounter('samples_written', lane),
+      samplesDropped: laneCounter('samples_dropped', lane),
+    })),
+    inboxDepth: metrics.gauges.find((gauge) => gauge.name === 'inbox_depth')?.value ?? null,
+    inboxStepSeconds: step && step.count > 0 ? step.sum / step.count : null,
+  }
 }

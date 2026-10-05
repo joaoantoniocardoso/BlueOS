@@ -306,6 +306,7 @@ dependencies = [
  "blueos-service",
  "blueos-settings",
  "clap",
+ "metrics",
  "serde",
  "serde_json",
  "thiserror",
@@ -476,6 +477,7 @@ dependencies = [
  "bytes",
  "json5",
  "mcap",
+ "metrics",
  "serde_json",
  "tempfile",
  "thiserror",
@@ -546,6 +548,7 @@ dependencies = [
  "bytes",
  "clap",
  "futures-util",
+ "metrics",
  "serde",
  "serde_json",
  "tempfile",
@@ -1743,6 +1746,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
+name = "metrics"
+version = "0.24.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "89550ee9f79e88fef3119de263694973a8adb26c21d75322164fb8c493039fe2"
+dependencies = [
+ "portable-atomic",
+ "rapidhash",
+]
+
+[[package]]
 name = "miniz_oxide"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2165,6 +2178,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
 dependencies = [
  "getrandom 0.2.17",
+]
+
+[[package]]
+name = "rapidhash"
+version = "4.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5da7e78a036ce858e8d55b7e7dc8ba3a88b78350fd2155d3591bbd966b58589e"
+dependencies = [
+ "rustversion",
 ]
 
 [[package]]

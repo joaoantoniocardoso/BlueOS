@@ -13,11 +13,9 @@ pub struct DrainFeedback {
 impl CdrStruct for DrainFeedback {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
-            progress: if reader.is_exhausted() {
-                <crate::msg::fixture_msgs::Progress>::default()
-            } else {
-                <crate::msg::fixture_msgs::Progress>::cdr_decode_fields(reader)?
-            },
+            progress: reader.read_or_default(|reader| {
+                <crate::msg::fixture_msgs::Progress>::cdr_decode_fields(reader)
+            })?,
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {

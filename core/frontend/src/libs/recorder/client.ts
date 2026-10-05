@@ -1,7 +1,7 @@
 import type { CommandAck, JobStatus, RecordingState as RecordingSessionState } from '@blueos-idl/messages'
 
 import { cancelJob, sendCommand } from '@/libs/blueos-api/command'
-import { jobsState } from '@/libs/blueos-api/endpoints'
+import { jobsState, metricsState } from '@/libs/blueos-api/endpoints'
 import { watchJobFeedback, watchJobResults } from '@/libs/blueos-api/job'
 import { watchServiceAlive } from '@/libs/blueos-api/liveliness'
 import {
@@ -31,6 +31,8 @@ import type {
 import { recordingDownloadUrl } from './url'
 import {
   readySnapshotDownloadPath,
+  type RecorderMetrics,
+  recorderMetrics,
   recordingDownload,
   type RepairProgress,
   snapshotDownloadPath,
@@ -69,6 +71,10 @@ export interface RecorderClient {
   ): Promise<Subscription>
   watchJobs(
     onJobs: (jobs: JobStatus[]) => void,
+    onError?: (error: unknown) => void,
+  ): Promise<Subscription>
+  watchMetrics(
+    onMetrics: (metrics: RecorderMetrics) => void,
     onError?: (error: unknown) => void,
   ): Promise<Subscription>
   startRecording(rotateIfActive: boolean): Promise<RecorderCommandResult>
@@ -211,6 +217,13 @@ export function createRecorderClient(
     watchJobs(onJobs, onError) {
       return watchState(transport, jobsState(NAME), {
         onValue: (list) => onJobs(list.jobs),
+        onError: (error) => onError?.(error),
+      })
+    },
+
+    watchMetrics(onMetrics, onError) {
+      return watchState(transport, metricsState(NAME), {
+        onValue: (message) => onMetrics(recorderMetrics(message)),
         onError: (error) => onError?.(error),
       })
     },

@@ -16,25 +16,17 @@ pub struct SettingsEnvelope {
 impl CdrStruct for SettingsEnvelope {
     fn cdr_decode_fields(reader: &mut cdr::Reader) -> Result<Self, Error> {
         Ok(Self {
-            document_json: if reader.is_exhausted() {
-                String::new()
-            } else {
-                reader.read_string()?
-            },
-            fields: {
-                if reader.is_exhausted() {
-                    Vec::new()
-                } else {
-                    let length = reader.read_bounded_sequence_length()?;
-                    let mut values = Vec::with_capacity(length as usize);
-                    for _index in 0..length {
-                        values.push(<crate::msg::blueos_msgs::SettingField>::cdr_decode_fields(
-                            reader,
-                        )?);
-                    }
-                    values
+            document_json: reader.read_or_default(|reader| reader.read_string())?,
+            fields: reader.read_or_default(|reader| {
+                let length = reader.read_bounded_sequence_length()?;
+                let mut values = Vec::with_capacity(length as usize);
+                for _index in 0..length {
+                    values.push(<crate::msg::blueos_msgs::SettingField>::cdr_decode_fields(
+                        reader,
+                    )?);
                 }
-            },
+                Ok(values)
+            })?,
         })
     }
     fn cdr_encode_fields(&self, writer: &mut cdr::Writer) -> Result<(), Error> {

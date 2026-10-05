@@ -770,44 +770,34 @@ fn read_field_tokens(
 ) -> TokenStream {
     match field.case() {
         FieldCase::Vector if is_byte_sequence(field, families) => quote! {
-            {
-                if reader.is_exhausted() {
-                    Vec::new()
-                } else {
-                    let length = reader.read_bounded_sequence_length()?;
-                    reader.read_bytes(length as usize)?.to_vec()
-                }
-            }
+            reader.read_or_default(|reader| {
+                let length = reader.read_bounded_sequence_length()?;
+                Ok(reader.read_bytes(length as usize)?.to_vec())
+            })?
         },
         FieldCase::Vector => {
             let element = read_scalar_or_message_inner(field, families, message_name);
             quote! {
-                {
-                    if reader.is_exhausted() {
-                        Vec::new()
-                    } else {
-                        let length = reader.read_bounded_sequence_length()?;
-                        let mut values = Vec::with_capacity(length as usize);
-                        for _index in 0..length {
-                            values.push(#element);
-                        }
-                        values
+                reader.read_or_default(|reader| {
+                    let length = reader.read_bounded_sequence_length()?;
+                    let mut values = Vec::with_capacity(length as usize);
+                    for _index in 0..length {
+                        values.push(#element);
                     }
-                }
+                    Ok(values)
+                })?
             }
         }
         FieldCase::Array(size) => {
             let element = read_scalar_or_message_inner(field, families, message_name);
             quote! {
-                {
+                reader.read_or_default(|reader| {
                     let mut values = [Default::default(); #size];
-                    if !reader.is_exhausted() {
-                        for index in 0..#size {
-                            values[index] = #element;
-                        }
+                    for index in 0..#size {
+                        values[index] = #element;
                     }
-                    values
-                }
+                    Ok(values)
+                })?
             }
         }
         _ => read_scalar_or_message(field, families, message_name, false),
@@ -820,13 +810,33 @@ fn read_scalar_or_message(
     message_name: &str,
     _nested: bool,
 ) -> TokenStream {
-    let default_value = default_for_field(field, families, message_name);
-    let read = read_scalar_or_message_inner(field, families, message_name);
-    quote! {
-        if reader.is_exhausted() {
-            #default_value
-        } else {
-            #read
+    let read = if families.contains_key(field.name()) {
+        let read = read_scalar_or_message_inner(field, families, message_name);
+        quote! { Ok(#read) }
+    } else {
+        read_result_tokens(&field.datatype())
+    };
+    quote! { reader.read_or_default(|reader| #read)? }
+}
+
+fn read_result_tokens(datatype: &DataType) -> TokenStream {
+    match datatype {
+        DataType::String => quote! { reader.read_string() },
+        DataType::Bool => quote! { reader.read_bool() },
+        DataType::U8 => quote! { reader.read_u8() },
+        DataType::U16 => quote! { reader.read_u16() },
+        DataType::U32 => quote! { reader.read_u32() },
+        DataType::U64 => quote! { reader.read_u64() },
+        DataType::I8 => quote! { reader.read_i8() },
+        DataType::I16 => quote! { reader.read_i16() },
+        DataType::I32 => quote! { reader.read_i32() },
+        DataType::I64 => quote! { reader.read_i64() },
+        DataType::F32 => quote! { reader.read_f32() },
+        DataType::F64 => quote! { reader.read_f64() },
+        DataType::GlobalMessage { package, name } => {
+            let package = format_ident!("{}", package);
+            let name = format_ident!("{}", name);
+            quote! { <crate::msg::#package::#name>::cdr_decode_fields(reader) }
         }
     }
 }
@@ -836,30 +846,12 @@ fn read_scalar_or_message_inner(
     families: &BTreeMap<String, ConstantFamily>,
     message_name: &str,
 ) -> TokenStream {
+    let read = read_primitive_tokens(&field.datatype());
     if let Some(family) = families.get(field.name()) {
         let enum_name = enum_ident_for_field(message_name, &family.field_name);
-        let read_raw = read_primitive_tokens(&field.datatype());
-        return quote! { #enum_name::from_raw(#read_raw) };
+        return quote! { #enum_name::from_raw(#read) };
     }
-    match field.datatype() {
-        DataType::String => quote! { reader.read_string()? },
-        DataType::Bool => quote! { reader.read_bool()? },
-        DataType::U8 => quote! { reader.read_u8()? },
-        DataType::U16 => quote! { reader.read_u16()? },
-        DataType::U32 => quote! { reader.read_u32()? },
-        DataType::U64 => quote! { reader.read_u64()? },
-        DataType::I8 => quote! { reader.read_i8()? },
-        DataType::I16 => quote! { reader.read_i16()? },
-        DataType::I32 => quote! { reader.read_i32()? },
-        DataType::I64 => quote! { reader.read_i64()? },
-        DataType::F32 => quote! { reader.read_f32()? },
-        DataType::F64 => quote! { reader.read_f64()? },
-        DataType::GlobalMessage { package, name } => {
-            let package = format_ident!("{}", package);
-            let name = format_ident!("{}", name);
-            quote! { <crate::msg::#package::#name>::cdr_decode_fields(reader)? }
-        }
-    }
+    read
 }
 
 fn encode_field_tokens(
@@ -968,25 +960,8 @@ fn write_scalar_or_message(
 }
 
 fn read_primitive_tokens(datatype: &DataType) -> TokenStream {
-    match datatype {
-        DataType::U8 => quote! { reader.read_u8()? },
-        DataType::U16 => quote! { reader.read_u16()? },
-        DataType::U32 => quote! { reader.read_u32()? },
-        DataType::U64 => quote! { reader.read_u64()? },
-        DataType::I8 => quote! { reader.read_i8()? },
-        DataType::I16 => quote! { reader.read_i16()? },
-        DataType::I32 => quote! { reader.read_i32()? },
-        DataType::I64 => quote! { reader.read_i64()? },
-        DataType::F32 => quote! { reader.read_f32()? },
-        DataType::F64 => quote! { reader.read_f64()? },
-        DataType::Bool => quote! { reader.read_bool()? },
-        DataType::String => quote! { reader.read_string()? },
-        DataType::GlobalMessage { package, name } => {
-            let package = format_ident!("{}", package);
-            let name = format_ident!("{}", name);
-            quote! { <crate::msg::#package::#name>::cdr_decode_fields(reader)? }
-        }
-    }
+    let read = read_result_tokens(datatype);
+    quote! { #read? }
 }
 
 fn write_primitive_tokens(datatype: &DataType, value: TokenStream) -> TokenStream {
@@ -1007,44 +982,6 @@ fn write_primitive_tokens(datatype: &DataType, value: TokenStream) -> TokenStrea
             let package = format_ident!("{}", package);
             let name = format_ident!("{}", name);
             quote! { <crate::msg::#package::#name>::cdr_encode_fields(&#value, writer)?; }
-        }
-    }
-}
-
-fn default_for_field(
-    field: &Field,
-    families: &BTreeMap<String, ConstantFamily>,
-    message_name: &str,
-) -> TokenStream {
-    match field.case() {
-        FieldCase::Vector => quote! { Vec::new() },
-        FieldCase::Array(size) => {
-            let element_default = match field.datatype() {
-                DataType::GlobalMessage { package, name } => {
-                    let package = format_ident!("{}", package);
-                    let name = format_ident!("{}", name);
-                    quote! { <crate::msg::#package::#name>::default() }
-                }
-                _ => quote! { Default::default() },
-            };
-            quote! { [#element_default; #size] }
-        }
-        FieldCase::Scalar | FieldCase::Const(_) => {
-            if families.contains_key(field.name()) {
-                let enum_name = enum_ident_for_field(message_name, field.name());
-                quote! { <#enum_name>::default() }
-            } else {
-                match field.datatype() {
-                    DataType::String => quote! { String::new() },
-                    DataType::Bool => quote! { false },
-                    DataType::GlobalMessage { package, name } => {
-                        let package = format_ident!("{}", package);
-                        let name = format_ident!("{}", name);
-                        quote! { <crate::msg::#package::#name>::default() }
-                    }
-                    _ => quote! { Default::default() },
-                }
-            }
         }
     }
 }
