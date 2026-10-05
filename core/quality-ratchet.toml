@@ -29,7 +29,7 @@ structural_coupling_warnings = 10
 total_findings = 660
 
 [thailint]
-"unwrap-abuse.unwrap-call" = 6
+"unwrap-abuse.unwrap-call" = 1
 "unwrap-abuse.expect-call" = 0
 "clone-abuse.clone-in-loop" = 60
 "clone-abuse.clone-chain" = 0
