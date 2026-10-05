@@ -19,10 +19,11 @@ use blueos_recorder_app::RecorderService;
 use blueos_recorder_domain::RecorderRequest;
 use blueos_service::Service;
 
-use common::{
-    start_harness, start_recording, stop_recording_and_finalize_mcap, wait_for_active_recording,
-    wait_for_recording_bytes,
+use common::harness::recording::{
+    active_recording_mcap_path, start_recording, stop_recording_and_finalize_mcap,
 };
+use common::harness::startup::start_harness;
+use common::harness::state::{wait_for_active_recording, wait_for_recording_bytes};
 
 const LOG_QUIET_PERIOD: Duration = Duration::from_secs(2);
 
@@ -56,7 +57,7 @@ async fn recording_lifecycle_is_logged_on_the_log_key() {
         .await
         .expect("publish video");
     wait_for_recording_bytes(&harness, 1).await;
-    let path = common::active_recording_mcap_path(&harness, directory.path()).await;
+    let path = active_recording_mcap_path(&harness, directory.path()).await;
     stop_recording_and_finalize_mcap(harness.backend(), &path).await;
 
     let messages = log_messages(&mut subscriber).await;

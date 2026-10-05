@@ -9,7 +9,7 @@ use blueos_idl::msg::blueos_recorder_msgs::{RecordingBytesRequest, RecordingByte
 use blueos_recorder_app::RecorderService;
 use blueos_service::testing::Harness;
 
-use common::start_harness;
+use common::harness::startup::start_harness;
 
 #[tokio::test(start_paused = true)]
 async fn bytes_query_reads_a_range_and_reports_the_file_size() {
@@ -18,7 +18,8 @@ async fn bytes_query_reads_a_range_and_reports_the_file_size() {
     let response = harness
         .query::<_, RecordingBytesResponse>("bytes", &bytes_request("sample.mcap", 3, 4))
         .await
-        .expect("bytes");
+        .unwrap()
+        .unwrap();
 
     assert_eq!(response.data, b"3456");
     assert_eq!(response.size, 10);
@@ -31,11 +32,13 @@ async fn bytes_query_returns_fewer_bytes_at_the_end_of_the_file() {
     let tail = harness
         .query::<_, RecordingBytesResponse>("bytes", &bytes_request("sample.mcap", 8, 100))
         .await
-        .expect("tail");
+        .unwrap()
+        .unwrap();
     let end = harness
         .query::<_, RecordingBytesResponse>("bytes", &bytes_request("sample.mcap", 10, 100))
         .await
-        .expect("end");
+        .unwrap()
+        .unwrap();
 
     assert_eq!(tail.data, b"89");
     assert_eq!(end.data, b"");
@@ -55,7 +58,8 @@ async fn bytes_query_reads_the_end_of_the_file_from_end() {
             },
         )
         .await
-        .expect("last bytes");
+        .unwrap()
+        .unwrap();
     let whole = harness
         .query::<_, RecordingBytesResponse>(
             "bytes",
@@ -65,7 +69,8 @@ async fn bytes_query_reads_the_end_of_the_file_from_end() {
             },
         )
         .await
-        .expect("whole file");
+        .unwrap()
+        .unwrap();
 
     assert_eq!(last.data, b"6789");
     assert_eq!(last.size, 10);
@@ -80,7 +85,8 @@ async fn bytes_query_answers_at_most_one_mebibyte() {
     let response = harness
         .query::<_, RecordingBytesResponse>("bytes", &bytes_request("large.mcap", 0, u32::MAX))
         .await
-        .expect("bytes");
+        .unwrap()
+        .unwrap();
 
     assert_eq!(response.data.len(), 1024 * 1024);
     assert_eq!(response.size, 3 * 1024 * 1024);
@@ -140,8 +146,13 @@ fn bytes_request(path: &str, offset: u64, length: u32) -> RecordingBytesRequest 
     }
 }
 
-fn refusal_reason(answer: Result<RecordingBytesResponse, ReplyError>) -> String {
-    let error = answer.expect_err("expected refusal");
+fn refusal_reason(
+    answer: Result<
+        Result<RecordingBytesResponse, ReplyError>,
+        blueos_service::testing::HarnessError,
+    >,
+) -> String {
+    let error = answer.unwrap().expect_err("expected refusal");
     assert_eq!(error.encoding(), "text/plain");
     String::from_utf8(error.payload().to_bytes().into_owned()).expect("utf-8 reason")
 }

@@ -6,23 +6,29 @@ use core::time::Duration;
 use std::{fs, path::Path};
 
 use bytes::Bytes;
-use mcap::{Writer, write::WriteOptions};
 use tempfile::tempdir;
 use tokio::time::advance;
 
-use blueos_comms::{Payload, Sample};
+use blueos_comms::{Payload, Sample, Subscriber};
 use blueos_idl::msg::{
     blueos_msgs::JobStatusStatus,
     blueos_recorder_msgs::{SnapshotRecordingGoal, SnapshotRecordingResult},
 };
+use blueos_recorder_app::RecorderService;
 use blueos_recorder_mcap::{RECORDING_WRITE_CHUNK_SIZE, is_indexed};
+use blueos_service::testing::Harness;
 
-use common::{
-    active_recording_mcap_path, next_job_result, recording_state, start_harness, start_recording,
-    stop_recording_and_finalize_mcap, stop_recording_on, subscribe_job_results,
-    wait_for_active_recording, wait_for_library_file_listed, wait_for_recording_bytes,
-    wait_for_recording_bytes_on, wait_for_recording_idle,
+use common::harness::jobs::{next_job_result, subscribe_job_results};
+use common::harness::recording::{
+    active_recording_mcap_path, start_recording, stop_recording_and_finalize_mcap,
+    stop_recording_on,
 };
+use common::harness::startup::start_harness;
+use common::harness::state::{
+    recording_state, wait_for_active_recording, wait_for_library_file_listed,
+    wait_for_recording_bytes, wait_for_recording_bytes_on, wait_for_recording_idle,
+};
+use common::mcap_fixtures::write_truncated_mcap;
 
 #[tokio::test(start_paused = true)]
 async fn snapshot_active_recording_while_writer_runs() {
@@ -35,18 +41,7 @@ async fn snapshot_active_recording_while_writer_runs() {
 
     let payload_bytes = 128 * 1024;
     let sample_count = (RECORDING_WRITE_CHUNK_SIZE / payload_bytes as u64) as usize + 2;
-    for _ in 0..sample_count {
-        harness
-            .backend()
-            .publish(Sample::new(
-                "snapshot/chunk_fill",
-                Payload::new(Bytes::from(vec![0_u8; payload_bytes])),
-                "application/octet-stream",
-            ))
-            .await
-            .expect("publish");
-        advance(Duration::from_millis(20)).await;
-    }
+    publish_chunk_fill_samples(&harness, sample_count, payload_bytes).await;
     wait_for_recording_bytes(&harness, RECORDING_WRITE_CHUNK_SIZE).await;
 
     let recording_file = active_recording_mcap_path(&harness, directory.path()).await;
@@ -64,39 +59,16 @@ async fn snapshot_active_recording_while_writer_runs() {
                 path: recording_path.clone(),
             },
         )
-        .await;
+        .await
+        .unwrap();
     assert!(ack.accepted, "snapshot rejected: {}", ack.reason);
 
-    let (job, message) = next_job_result::<SnapshotRecordingResult>(&mut results).await;
-    assert_eq!(
-        job.status,
-        JobStatusStatus::Succeeded,
-        "snapshot failed: {}",
-        job.reason
-    );
-    assert!(!message.output_path.is_empty());
-
-    wait_for_library_file_listed(&harness, &message.output_path).await;
-    let snapshot_path = directory.path().join(&message.output_path);
-    assert!(is_indexed(&snapshot_path));
-    let snapshot_messages = message_count(&snapshot_path);
-    assert!(snapshot_messages > 0, "snapshot must contain messages");
+    let snapshot_messages = assert_snapshot_succeeds(&harness, &directory, &mut results).await;
 
     let bytes_before_post_snapshot = recording_state(harness.backend())
         .await
         .session_bytes_written;
-    for _ in 0..4 {
-        harness
-            .backend()
-            .publish(Sample::new(
-                "snapshot/chunk_fill",
-                Payload::new(Bytes::from(vec![0_u8; payload_bytes])),
-                "application/octet-stream",
-            ))
-            .await
-            .expect("publish");
-        advance(Duration::from_millis(20)).await;
-    }
+    publish_chunk_fill_samples(&harness, 4, payload_bytes).await;
     wait_for_recording_bytes_on(
         harness.backend(),
         bytes_before_post_snapshot + 4 * payload_bytes as u64,
@@ -110,6 +82,28 @@ async fn snapshot_active_recording_while_writer_runs() {
         final_messages > snapshot_messages,
         "live recording must gain messages after the snapshot"
     );
+}
+
+async fn assert_snapshot_succeeds(
+    harness: &Harness<RecorderService>,
+    directory: &tempfile::TempDir,
+    results: &mut Subscriber,
+) -> usize {
+    let (job, message) = next_job_result::<SnapshotRecordingResult>(results).await;
+    assert_eq!(
+        job.status,
+        JobStatusStatus::Succeeded,
+        "snapshot failed: {}",
+        job.reason
+    );
+    assert!(!message.output_path.is_empty());
+
+    wait_for_library_file_listed(harness, &message.output_path).await;
+    let snapshot_path = directory.path().join(&message.output_path);
+    assert!(is_indexed(&snapshot_path));
+    let snapshot_messages = message_count(&snapshot_path);
+    assert!(snapshot_messages > 0, "snapshot must contain messages");
+    snapshot_messages
 }
 
 #[tokio::test(start_paused = true)]
@@ -154,7 +148,8 @@ async fn a_snapshot_of_the_active_recording_in_its_first_chunk_keeps_the_message
                 path: recording_path,
             },
         )
-        .await;
+        .await
+        .unwrap();
     assert!(ack.accepted, "snapshot rejected: {}", ack.reason);
 
     let (job, message) = next_job_result::<SnapshotRecordingResult>(&mut results).await;
@@ -189,7 +184,8 @@ async fn snapshot_rejects_a_recording_that_is_not_being_written() {
                 path: "partial.mcap".into(),
             },
         )
-        .await;
+        .await
+        .unwrap();
     assert!(!ack.accepted, "a finished recording downloads directly");
     assert_eq!(
         ack.reason,
@@ -211,7 +207,8 @@ async fn snapshot_rejects_missing_file() {
                 path: "missing.mcap".into(),
             },
         )
-        .await;
+        .await
+        .unwrap();
     assert!(!ack.accepted, "missing file must be rejected");
 }
 
@@ -222,6 +219,25 @@ fn message_count(path: &Path) -> usize {
 
 /// Bytes LZ4 cannot shrink, so the compressed chunk reaches the disk as fast as samples arrive. Each `seed` gives
 /// different bytes, so samples do not repeat each other either.
+async fn publish_chunk_fill_samples(
+    harness: &Harness<RecorderService>,
+    sample_count: usize,
+    payload_bytes: usize,
+) {
+    for _ in 0..sample_count {
+        harness
+            .backend()
+            .publish(Sample::new(
+                "snapshot/chunk_fill",
+                Payload::new(Bytes::from(vec![0_u8; payload_bytes])),
+                "application/octet-stream",
+            ))
+            .await
+            .expect("publish");
+        advance(Duration::from_millis(20)).await;
+    }
+}
+
 fn incompressible_bytes(seed: u64, length: usize) -> Vec<u8> {
     let mut state = 0x9E37_79B9_7F4A_7C15_u64 ^ seed;
     (0..length)
@@ -232,29 +248,4 @@ fn incompressible_bytes(seed: u64, length: usize) -> Vec<u8> {
             state.to_le_bytes()[0]
         })
         .collect()
-}
-
-fn write_truncated_mcap(path: &Path) {
-    let file = fs::File::create(path).expect("create");
-    let mut writer = Writer::with_options(file, WriteOptions::new()).expect("writer");
-    let schema_id = writer
-        .add_schema("test", "jsonschema", b"{}")
-        .expect("schema");
-    let channel_id = writer
-        .add_channel(schema_id, "topic", "json", &Default::default())
-        .expect("channel");
-    for index in 0..8 {
-        let header = mcap::records::MessageHeader {
-            channel_id,
-            sequence: index as u32,
-            log_time: index as u64,
-            publish_time: index as u64,
-        };
-        writer
-            .write_to_known_channel(&header, b"payload")
-            .expect("write");
-    }
-    writer.finish().expect("finish");
-    let bytes = fs::read(path).expect("read");
-    fs::write(path, &bytes[..bytes.len() / 2]).expect("truncate");
 }

@@ -16,7 +16,7 @@ use tokio::{sync::Notify, time::advance};
 
 use blueos_service::Service;
 
-use common::{start_harness, start_harness_with};
+use common::harness::startup::{start_harness, start_harness_with_index_walker};
 
 struct ReleaseWalksOnDrop(Arc<AtomicBool>);
 
@@ -43,7 +43,8 @@ async fn index_query_round_trips_through_the_service() {
             },
         )
         .await
-        .expect("index");
+        .unwrap()
+        .unwrap();
     assert!(index.size > 0);
 }
 
@@ -66,11 +67,8 @@ async fn index_query_serves_one_walk_at_a_time() {
         Arc::clone(&walk_events),
         Arc::clone(&walk_started),
     );
-    let harness = start_harness_with(directory.path(), |context| {
-        context.index_walk_timeout = Duration::from_secs(30);
-        context.index_walker = walker;
-    })
-    .await;
+    let harness =
+        start_harness_with_index_walker(directory.path(), Duration::from_secs(30), walker).await;
 
     let request = RecordingIndexRequest {
         path: relative.into(),
@@ -124,11 +122,8 @@ async fn index_query_timeout_cancels_before_the_next_walk_starts() {
         Arc::clone(&max_active),
         Arc::clone(&walk_started),
     );
-    let harness = start_harness_with(directory.path(), |context| {
-        context.index_walk_timeout = Duration::from_millis(50);
-        context.index_walker = walker;
-    })
-    .await;
+    let harness =
+        start_harness_with_index_walker(directory.path(), Duration::from_millis(50), walker).await;
 
     let request = RecordingIndexRequest {
         path: relative.into(),
@@ -149,7 +144,7 @@ async fn index_query_timeout_cancels_before_the_next_walk_starts() {
     assert_eq!(max_active.load(Ordering::SeqCst), 1);
     assert_eq!(active.load(Ordering::SeqCst), 0);
 
-    harness
+    let _ = harness
         .query::<_, RecordingIndexResponse>("index", &request)
         .await
         .expect("second index after timeout");

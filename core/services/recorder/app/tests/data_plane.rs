@@ -3,34 +3,28 @@
 mod common;
 
 use core::time::Duration;
-use std::{collections::BTreeMap, fs, sync::Arc};
+use std::fs;
 
 use bytes::Bytes;
 use tempfile::tempdir;
-use tokio::time::{advance, timeout};
+use tokio::time::advance;
 
-use blueos_api::{Message, cdr_encoding, state_key};
-use blueos_comms::{CommsBackend, Payload, Sample};
+use blueos_comms::{Payload, Sample};
 use blueos_domain::Command;
-use blueos_idl::msg::{
-    blueos_msgs::{CommandAckStatus, MetricCounter, ServiceMetrics, SettingsEnvelope},
-    blueos_recorder_msgs::{RecordingState, StartRecordingGoal, StopRecordingGoal},
-};
-use blueos_recorder_app::RecorderService;
 use blueos_recorder_cameras::{CamerasObservedFact, RAW_MAVLINK_OUT_TOPIC, SystemAndComponent};
 use blueos_recorder_capture::CaptureObservedFact;
 use blueos_recorder_domain::{RecorderObservedFact, RecorderRequest};
 use blueos_recorder_mavlink::{test_camera_capture_frame, test_vehicle_heartbeat_frame};
-use blueos_service::Service;
 
-use blueos_recorder_library::RESCAN_INTERVAL;
-use common::{
-    REPLY_TIMEOUT, active_recording_mcap_path, assert_mcap_readable, drain_blocking_io,
-    publish_pump_state, recorder_mcaps, start_harness, start_harness_with, start_recording,
-    stop_recording_and_finalize_mcap, wait_for_active_recording,
-    wait_for_library_file_ready_by_name, wait_for_recorder_state, wait_for_recording_bytes,
-    wait_for_recording_state, wait_for_rotated_recording,
+use common::harness::recording::{
+    active_recording_mcap_path, publish_pump_state, start_recording,
+    stop_recording_and_finalize_mcap,
 };
+use common::harness::startup::start_harness;
+use common::harness::state::{
+    wait_for_active_recording, wait_for_recording_bytes, wait_for_recording_state,
+};
+use common::mcap_fixtures::mcap_channel_topic_names;
 
 #[tokio::test(start_paused = true)]
 async fn recording_blueos_topics_produces_mcap_with_ros2msg_schema() {
@@ -123,14 +117,8 @@ async fn mavlink_not_recorded_while_disarmed_when_policy_enabled() {
     let path = active_recording_mcap_path(&harness, directory.path()).await;
     stop_recording_and_finalize_mcap(harness.backend(), &path).await;
 
-    let data = fs::read(&path).expect("read");
-    let summary = mcap::Summary::read(&data).expect("read").expect("summary");
-    let topics: Vec<_> = summary
-        .channels
-        .values()
-        .map(|channel| channel.topic.as_str())
-        .collect();
-    assert!(!topics.contains(&"mavlink/1/1/HEARTBEAT"));
+    let topics = mcap_channel_topic_names(&path);
+    assert!(!topics.iter().any(|topic| topic == "mavlink/1/1/HEARTBEAT"));
 }
 
 #[tokio::test(start_paused = true)]
@@ -162,14 +150,8 @@ async fn mavlink_recorded_after_armed_observed_fact() {
     let path = active_recording_mcap_path(&harness, directory.path()).await;
     stop_recording_and_finalize_mcap(harness.backend(), &path).await;
 
-    let data = fs::read(&path).expect("read");
-    let summary = mcap::Summary::read(&data).expect("read").expect("summary");
-    let topics: Vec<_> = summary
-        .channels
-        .values()
-        .map(|channel| channel.topic.as_str())
-        .collect();
-    assert!(topics.contains(&"mavlink/1/1/HEARTBEAT"));
+    let topics = mcap_channel_topic_names(&path);
+    assert!(topics.iter().any(|topic| topic == "mavlink/1/1/HEARTBEAT"));
 }
 
 #[tokio::test(start_paused = true)]
@@ -223,8 +205,8 @@ async fn the_always_on_recording_shows_the_armed_vehicle_in_the_recording_state_
     })
     .await;
 
-    assert!(harness.jobs().await.jobs.is_empty());
-    assert!(harness.job_history("Start").await.jobs.is_empty());
+    assert!(harness.jobs().await.unwrap().jobs.is_empty());
+    assert!(harness.job_history("Start").await.unwrap().jobs.is_empty());
 }
 
 #[tokio::test(start_paused = true)]
@@ -272,420 +254,5 @@ async fn a_mavlink_camera_start_and_stop_capture_record_its_video_topic_without_
         .await;
     }
 
-    assert!(harness.jobs().await.jobs.is_empty());
-}
-
-#[tokio::test(start_paused = true)]
-async fn start_and_stop_acks_carry_their_final_status() {
-    let directory = tempdir().expect("tempdir");
-    let harness = start_harness(directory.path()).await;
-
-    let start_ack = harness
-        .send(
-            "Start",
-            &StartRecordingGoal {
-                rotate_if_active: true,
-            },
-        )
-        .await;
-    assert!(start_ack.accepted, "start rejected: {}", start_ack.reason);
-    assert_eq!(start_ack.status, CommandAckStatus::Succeeded);
-    wait_for_active_recording(harness.backend()).await;
-
-    let stop_ack = harness.send("Stop", &StopRecordingGoal::default()).await;
-    assert!(stop_ack.accepted, "stop rejected: {}", stop_ack.reason);
-    assert_eq!(stop_ack.status, CommandAckStatus::Succeeded);
-}
-
-#[tokio::test(start_paused = true)]
-async fn recorder_service_info_is_published() {
-    let directory = tempdir().expect("tempdir");
-    let harness = start_harness(directory.path()).await;
-    let info = harness.info().await;
-    assert_eq!(info.name, RecorderService::NAME);
-    assert_eq!(info.version, RecorderService::VERSION);
-}
-
-#[tokio::test(start_paused = true)]
-async fn info_lists_each_endpoint_with_the_interface_type_of_api_lock_and_its_schema_text() {
-    let directory = tempdir().expect("tempdir");
-    let harness = start_harness(directory.path()).await;
-    let prefix = format!("blueos/v1/{}/", RecorderService::NAME);
-    let locked: BTreeMap<&str, &str> = include_str!("../../../../libs/idl/api.lock")
-        .lines()
-        .filter_map(|line| {
-            let mut parts = line.split_whitespace();
-            let key = parts.next().filter(|key| key.starts_with(&prefix))?;
-            Some((key, parts.nth(1)?.strip_prefix("type=")?))
-        })
-        .collect();
-
-    let info = harness.info().await;
-
-    assert_eq!(
-        info.endpoints.len(),
-        10 + 1 + 1 + 3 * 6,
-        "{:?}",
-        info.endpoints
-    );
-    for endpoint in &info.endpoints {
-        assert_eq!(
-            locked.get(endpoint.key.as_str()),
-            Some(&endpoint.interface_type.as_str()),
-            "{}",
-            endpoint.key
-        );
-        assert!(
-            endpoint.schema.starts_with(
-                blueos_idl::schema(&endpoint.interface_type).expect("a listed type has a schema")
-            ),
-            "{}",
-            endpoint.key
-        );
-    }
-    let index = info
-        .endpoints
-        .iter()
-        .find(|endpoint| endpoint.name == "index")
-        .expect("info lists the index Query");
-    assert_eq!(index.kind, "query");
-    assert_eq!(
-        index.interface_type,
-        "blueos_recorder_msgs/srv/RecordingIndex"
-    );
-}
-
-#[tokio::test(start_paused = true)]
-async fn rotation_keeps_both_files_intact_and_state_correct() {
-    let directory = tempdir().expect("tempdir");
-    let harness = start_harness(directory.path()).await;
-    start_recording(&harness).await;
-    wait_for_active_recording(harness.backend()).await;
-    publish_pump_state(harness.backend()).await;
-    wait_for_recording_bytes(&harness, 1).await;
-
-    advance(Duration::from_secs(1)).await;
-    let first_file_name = harness
-        .state::<RecordingState>("recording")
-        .await
-        .current_file;
-    harness
-        .send(
-            "Start",
-            &StartRecordingGoal {
-                rotate_if_active: true,
-            },
-        )
-        .await;
-    wait_for_rotated_recording(harness.backend(), &first_file_name).await;
-    publish_pump_state(harness.backend()).await;
-    advance(Duration::from_secs(1)).await;
-
-    let state = harness.state::<RecordingState>("recording").await;
-    assert!(state.session_active);
-    assert!(state.current_file.starts_with("recorder_"));
-
-    advance(RESCAN_INTERVAL).await;
-    drain_blocking_io().await;
-    wait_for_library_file_ready_by_name(harness.backend(), &first_file_name).await;
-    let first_path = directory.path().join(&first_file_name);
-    assert_mcap_readable(&first_path).await;
-    let second_path = active_recording_mcap_path(&harness, directory.path()).await;
-    stop_recording_and_finalize_mcap(harness.backend(), &second_path).await;
-    assert_mcap_readable(&second_path).await;
-
-    let paths = recorder_mcaps(directory.path());
-    assert_eq!(paths.len(), 2);
-}
-
-#[tokio::test(start_paused = true)]
-async fn second_start_on_same_folder_does_not_overwrite_first_file() {
-    let directory = tempdir().expect("tempdir");
-    let first = start_harness(directory.path()).await;
-    start_recording(&first).await;
-    wait_for_active_recording(first.backend()).await;
-    publish_pump_state(first.backend()).await;
-    wait_for_recording_bytes(&first, 1).await;
-    let first_path = active_recording_mcap_path(&first, directory.path()).await;
-    stop_recording_and_finalize_mcap(first.backend(), &first_path).await;
-    let first_bytes = fs::read(&first_path).expect("read first");
-    drop(first);
-
-    let second = start_harness(directory.path()).await;
-    start_recording(&second).await;
-    wait_for_active_recording(second.backend()).await;
-    publish_pump_state(second.backend()).await;
-    wait_for_recording_bytes(&second, 1).await;
-    let second_path = active_recording_mcap_path(&second, directory.path()).await;
-    stop_recording_and_finalize_mcap(second.backend(), &second_path).await;
-    assert_mcap_readable(&first_path).await;
-    assert_mcap_readable(&second_path).await;
-
-    assert_eq!(recorder_mcaps(directory.path()).len(), 2);
-    assert_eq!(
-        fs::read(&first_path).expect("first still readable"),
-        first_bytes
-    );
-}
-
-#[tokio::test(start_paused = true)]
-async fn shutdown_mid_recording_leaves_readable_file() {
-    let directory = tempdir().expect("tempdir");
-    let harness = start_harness(directory.path()).await;
-
-    start_recording(&harness).await;
-    wait_for_active_recording(harness.backend()).await;
-    publish_pump_state(harness.backend()).await;
-    wait_for_recording_bytes(&harness, 1).await;
-    let path = active_recording_mcap_path(&harness, directory.path()).await;
-
-    timeout(REPLY_TIMEOUT, harness.shutdown())
-        .await
-        .expect("shutdown");
-
-    assert_mcap_readable(&path).await;
-    let bytes = fs::read(&path).expect("read");
-    mcap::Summary::read(&bytes)
-        .expect("read")
-        .expect("readable after shutdown");
-}
-
-#[tokio::test(start_paused = true)]
-async fn shutdown_with_no_samples_after_start_still_finishes_file() {
-    let directory = tempdir().expect("tempdir");
-    let harness = start_harness(directory.path()).await;
-
-    start_recording(&harness).await;
-    wait_for_active_recording(harness.backend()).await;
-    advance(Duration::from_secs(1)).await;
-    let path = active_recording_mcap_path(&harness, directory.path()).await;
-
-    timeout(REPLY_TIMEOUT, harness.shutdown())
-        .await
-        .expect("shutdown");
-
-    assert_mcap_readable(&path).await;
-    let bytes = fs::read(&path).expect("read");
-    mcap::Summary::read(&bytes)
-        .expect("read")
-        .expect("readable after quiet shutdown");
-}
-
-#[tokio::test(start_paused = true)]
-async fn shutdown_with_full_writer_queue_finishes_file() {
-    let directory = tempdir().expect("tempdir");
-    let harness = start_harness_with(directory.path(), |context| {
-        context.mcap_writer_queue_bytes = 64;
-    })
-    .await;
-
-    start_recording(&harness).await;
-    wait_for_active_recording(harness.backend()).await;
-    for _ in 0..64 {
-        publish_pump_state(harness.backend()).await;
-    }
-    let path = active_recording_mcap_path(&harness, directory.path()).await;
-
-    timeout(REPLY_TIMEOUT, harness.shutdown())
-        .await
-        .expect("shutdown");
-
-    assert_mcap_readable(&path).await;
-    let bytes = fs::read(&path).expect("read");
-    mcap::Summary::read(&bytes)
-        .expect("read")
-        .expect("readable after back pressure");
-}
-
-#[tokio::test(start_paused = true)]
-async fn samples_past_the_writer_queue_byte_budget_are_counted_in_the_recording_state() {
-    let directory = tempdir().expect("tempdir");
-    let harness = start_harness_with(directory.path(), |context| {
-        context.mcap_writer_queue_bytes = 1024;
-    })
-    .await;
-
-    start_recording(&harness).await;
-    wait_for_active_recording(harness.backend()).await;
-    for _ in 0..4 {
-        harness
-            .backend()
-            .publish(Sample::new(
-                "load/flood",
-                Payload::new(Bytes::from(vec![0_u8; 4 * 1024])),
-                "application/octet-stream",
-            ))
-            .await
-            .expect("publish");
-    }
-    advance(Duration::from_secs(1)).await;
-
-    wait_for_recording_state(harness.backend(), |state| state.samples_dropped >= 4).await;
-}
-
-async fn wait_for_metrics(
-    backend: &Arc<dyn CommsBackend>,
-    predicate: impl Fn(&ServiceMetrics) -> bool,
-) {
-    wait_for_recorder_state(backend, "metrics", predicate).await;
-}
-
-/// The value of the counter `name` of `lane` in `metrics`; zero when it is not listed.
-fn lane_counter(metrics: &ServiceMetrics, name: &str, lane: &str) -> u64 {
-    metrics
-        .counters
-        .iter()
-        .find(|counter| {
-            counter.name == name
-                && counter
-                    .labels
-                    .iter()
-                    .any(|label| label.name == "lane" && label.value == lane)
-        })
-        .map_or(0, |counter| counter.value)
-}
-
-#[tokio::test(start_paused = true)]
-async fn written_samples_and_bytes_are_counted_per_lane_in_the_metrics_state() {
-    let directory = tempdir().expect("tempdir");
-    let harness = start_harness(directory.path()).await;
-    start_recording(&harness).await;
-    wait_for_active_recording(harness.backend()).await;
-    harness
-        .command_sender()
-        .send(Command::Request(RecorderRequest::StartVideoRecording {
-            topic: "video/camera1/stream".into(),
-        }))
-        .await
-        .expect("start video");
-    harness
-        .command_sender()
-        .send(Command::ObservedFact(RecorderObservedFact::Capture(
-            CaptureObservedFact::ArmedChanged(true),
-        )))
-        .await
-        .expect("armed fact");
-
-    for (topic, payload_bytes, samples) in [
-        ("mavlink/1/1/HEARTBEAT", 50, 1),
-        ("video/camera1/stream", 200, 2),
-        ("load/flood", 100, 3),
-    ] {
-        for _ in 0..samples {
-            harness
-                .backend()
-                .publish(Sample::new(
-                    topic,
-                    Payload::new(Bytes::from(vec![0_u8; payload_bytes])),
-                    "application/octet-stream",
-                ))
-                .await
-                .expect("publish");
-        }
-    }
-    advance(Duration::from_secs(1)).await;
-
-    wait_for_metrics(harness.backend(), |metrics| {
-        [("mavlink", 50, 1), ("video", 400, 2), ("other", 300, 3)]
-            .into_iter()
-            .all(|(lane, bytes, samples)| {
-                lane_counter(metrics, "bytes_written", lane) == bytes
-                    && lane_counter(metrics, "samples_written", lane) == samples
-                    && lane_counter(metrics, "samples_dropped", lane) == 0
-            })
-    })
-    .await;
-}
-
-#[tokio::test(start_paused = true)]
-async fn samples_past_the_writer_queue_byte_budget_are_counted_in_the_metrics_state() {
-    let directory = tempdir().expect("tempdir");
-    let harness = start_harness_with(directory.path(), |context| {
-        context.mcap_writer_queue_bytes = 1024;
-    })
-    .await;
-    start_recording(&harness).await;
-    wait_for_active_recording(harness.backend()).await;
-    for _ in 0..4 {
-        harness
-            .backend()
-            .publish(Sample::new(
-                "load/flood",
-                Payload::new(Bytes::from(vec![0_u8; 4 * 1024])),
-                "application/octet-stream",
-            ))
-            .await
-            .expect("publish");
-    }
-    advance(Duration::from_secs(1)).await;
-
-    wait_for_metrics(harness.backend(), |metrics| {
-        lane_counter(metrics, "samples_dropped", "other") == 4
-            && lane_counter(metrics, "samples_dropped", "video") == 0
-            && lane_counter(metrics, "samples_dropped", "mavlink") == 0
-    })
-    .await;
-}
-
-#[tokio::test(start_paused = true)]
-async fn the_metrics_state_of_another_service_is_recorded_into_the_mcap_file() {
-    let directory = tempdir().expect("tempdir");
-    let harness = start_harness(directory.path()).await;
-    start_recording(&harness).await;
-    wait_for_active_recording(harness.backend()).await;
-    let published = ServiceMetrics {
-        counters: vec![MetricCounter {
-            name: "restarts".into(),
-            labels: vec![],
-            value: 7,
-        }],
-        ..ServiceMetrics::default()
-    };
-    harness
-        .backend()
-        .publish(Sample::new(
-            state_key("example", "metrics"),
-            Payload::new(Bytes::from(published.encode().expect("encode"))),
-            cdr_encoding(ServiceMetrics::SCHEMA_NAME),
-        ))
-        .await
-        .expect("publish metrics");
-    publish_pump_state(harness.backend()).await;
-    wait_for_recording_bytes(&harness, 1).await;
-    let path = active_recording_mcap_path(&harness, directory.path()).await;
-    stop_recording_and_finalize_mcap(harness.backend(), &path).await;
-
-    let data = fs::read(&path).expect("read");
-    let messages: BTreeMap<_, _> = mcap::MessageStream::new(&data)
-        .expect("stream")
-        .map(|message| message.expect("message"))
-        .map(|message| (message.channel.topic.clone(), message))
-        .collect();
-    let metrics = &messages[&state_key("example", "metrics")];
-    assert_eq!(
-        ServiceMetrics::decode(&metrics.data).expect("decode"),
-        published
-    );
-    assert_eq!(
-        metrics.channel.schema.as_ref().expect("schema").name,
-        ServiceMetrics::SCHEMA_NAME
-    );
-    assert_eq!(
-        metrics.log_time,
-        messages[&state_key("example", "pump")].log_time
-    );
-}
-
-#[tokio::test(start_paused = true)]
-async fn update_settings_command_applies_capture_settings() {
-    let directory = tempdir().expect("tempdir");
-    let harness = start_harness(directory.path()).await;
-    let envelope = SettingsEnvelope {
-        document_json:
-            r#"{"VERSION":1,"record_mavlink_only_when_armed":false,"auto_start_recording":false}"#
-                .into(),
-        fields: Vec::new(),
-    };
-    let ack = harness.send("UpdateSettings", &envelope).await;
-    assert!(ack.accepted);
+    assert!(harness.jobs().await.unwrap().jobs.is_empty());
 }

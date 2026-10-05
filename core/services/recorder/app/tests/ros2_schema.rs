@@ -11,11 +11,14 @@ use tokio::time::advance;
 
 use blueos_comms::{CommsBackend, LivelinessToken, Payload, Sample};
 
-use common::{
-    active_recording_mcap_path, recorder_mcap_paths, start_harness, start_recording,
-    stop_recording_and_finalize_mcap, wait_for_active_recording, wait_for_recording_bytes,
-    wait_for_recording_idle,
+use common::harness::recording::{
+    active_recording_mcap_path, start_recording, stop_recording_and_finalize_mcap,
 };
+use common::harness::startup::start_harness;
+use common::harness::state::{
+    wait_for_active_recording, wait_for_recording_bytes, wait_for_recording_idle,
+};
+use common::mcap_fixtures::recorder_mcap_paths;
 
 const ZENOH_ID: &str = "aac3178e146ba6f1fc6e6a4085e77f21";
 const CDR_SAMPLE: [u8; 4] = [0x00, 0x01, 0x00, 0x00];
