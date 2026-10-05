@@ -9,6 +9,7 @@ publish.workspace = true
 blueos-domain.workspace = true
 blueos-jobs.workspace = true
 blueos-recorder-paths.workspace = true
+thiserror.workspace = true
 
 [lints]
 workspace = true

@@ -6,6 +6,7 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+blueos-recorder-cameras.workspace = true
 mavlink.workspace = true
 mavlink-codec.workspace = true
 tracing.workspace = true

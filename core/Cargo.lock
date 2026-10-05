@@ -262,6 +262,9 @@ dependencies = [
 [[package]]
 name = "blueos-domain"
 version = "0.1.0"
+dependencies = [
+ "thiserror",
+]
 
 [[package]]
 name = "blueos-example-api"
@@ -457,12 +460,14 @@ dependencies = [
  "blueos-recorder-paths",
  "serde",
  "serde_json",
+ "thiserror",
 ]
 
 [[package]]
 name = "blueos-recorder-mavlink"
 version = "0.1.0"
 dependencies = [
+ "blueos-recorder-cameras",
  "mavlink",
  "mavlink-codec",
  "tracing",
