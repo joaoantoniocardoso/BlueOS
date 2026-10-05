@@ -1,5 +1,8 @@
 //! L5: on `zenohd`, every endpoint answers before the liveliness token is visible.
 
+// Proving zenoh's `Session` is `Send` and `Sync` nests deeper than the default limit of 128.
+#![recursion_limit = "256"]
+
 use core::{convert::Infallible, time::Duration};
 use std::sync::Arc;
 
