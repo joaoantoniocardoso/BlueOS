@@ -120,7 +120,7 @@ fn alloc_paths_for_message(message: &Message) -> Vec<&'static str> {
     let uses_vec = message
         .fields()
         .iter()
-        .any(|field| matches!(field.case(), FieldCase::Vector | FieldCase::Array(_)));
+        .any(|field| matches!(field.case(), FieldCase::Vector));
     let mut alloc_paths = Vec::new();
     if uses_string {
         alloc_paths.push("string::String");
