@@ -129,11 +129,21 @@ jobs:
           if [[ "${{ matrix.docker }}" == "core" ]]; then
             COMMIT_DATE_ARG="--build-arg GIT_COMMIT_DATE=$(git log -1 --format=%cI)"
           fi
+          # Every build reads the registry cache. Only master writes it: one shared tag per platform,
+          # so concurrent pushes from other refs would overwrite each other. Tags are left out on
+          # purpose: they are cut from master, whose push already wrote the cache.
+          REGISTRY_CACHE=type=registry,ref=${DOCKER_IMAGE}:buildcache-${PLATFORM_SUFFIX}
+          CACHE_TO=""
+          if [[ "${GITHUB_REF}" == 'refs/heads/master' && "${{ github.event_name }}" != 'pull_request' ]]; then
+            CACHE_TO="--cache-to ${REGISTRY_CACHE},mode=max"
+          fi
           echo "buildx_args=\
             --build-arg GIT_DESCRIBE_TAGS=$(git describe --tags --long --always) \
             ${COMMIT_DATE_ARG} \
             --cache-from 'type=local,src=/tmp/.buildx-cache' \
+            --cache-from ${REGISTRY_CACHE} \
             --cache-to 'type=local,dest=/tmp/.buildx-cache' \
+            ${CACHE_TO} \
             --platform ${{ matrix.platform }} \
             --file ${{ matrix.docker }}/Dockerfile ./${{ matrix.docker }}" >> $GITHUB_OUTPUT
 
