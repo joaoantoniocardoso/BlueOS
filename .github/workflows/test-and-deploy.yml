@@ -14,6 +14,10 @@ on:
 jobs:
   python-tests:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        check: [lint, test]
 
     env:
       python-version: 3.11 # Our base image has Python 3.11
@@ -41,10 +45,10 @@ jobs:
         BASE_SHA: ${{ github.event.pull_request.base.sha }}
         HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       run: |
-        .hooks/pre-push
+        .hooks/pre-push --${{ matrix.check }}
 
     - name: Upload coverage
-      if: always()
+      if: always() && matrix.check == 'test'
       uses: actions/upload-artifact@v7
       with:
         name: coverage

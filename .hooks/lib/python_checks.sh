@@ -3,6 +3,8 @@
 declare -a isort_args=()
 declare -a black_args=()
 : "${fixing:=false}"
+: "${run_lint:=true}"
+: "${run_tests:=true}"
 
 setup_python_environment() {
     local env_label="$1"
@@ -50,56 +52,60 @@ run_python_checks() {
 
     pushd "$CORE_DIR" >/dev/null || return 1
 
-    echo "Running isort (${env_label}).."
-    isort "${isort_args[@]}" "${python_files[@]}"
+    if [ "$run_lint" = true ]; then
+        echo "Running isort (${env_label}).."
+        isort "${isort_args[@]}" "${python_files[@]}"
 
-    echo "Running black (${env_label}).."
-    black "${black_args[@]}" "${python_files[@]}"
+        echo "Running black (${env_label}).."
+        black "${black_args[@]}" "${python_files[@]}"
 
-    if [ "$fixing" = true ]; then
-        popd >/dev/null || return 1
-        return
-    fi
-
-    echo "Running ruff (${env_label}).."
-    ruff check "${python_files[@]}"
-
-    echo "Running pylint (${env_label}).."
-    pylint "${python_files[@]}"
-
-    local mypy_targets=()
-    mapfile -t mypy_targets < <(collect_mypy_targets)
-    if [ "${#mypy_targets[@]}" -gt 0 ]; then
-        echo "Running mypy (${env_label}).."
-        local mypy_bin="${VIRTUAL_ENV:-}/bin/mypy"
-        if [ ! -x "$mypy_bin" ]; then
-            mypy_bin="$(command -v mypy || true)"
+        if [ "$fixing" = true ]; then
+            popd >/dev/null || return 1
+            return
         fi
-        if [ -z "$mypy_bin" ]; then
-            echo "mypy executable not found in virtualenv or PATH." >&2
-            exit 1
+
+        echo "Running ruff (${env_label}).."
+        ruff check "${python_files[@]}"
+
+        echo "Running pylint (${env_label}).."
+        pylint "${python_files[@]}"
+
+        local mypy_targets=()
+        mapfile -t mypy_targets < <(collect_mypy_targets)
+        if [ "${#mypy_targets[@]}" -gt 0 ]; then
+            echo "Running mypy (${env_label}).."
+            local mypy_bin="${VIRTUAL_ENV:-}/bin/mypy"
+            if [ ! -x "$mypy_bin" ]; then
+                mypy_bin="$(command -v mypy || true)"
+            fi
+            if [ -z "$mypy_bin" ]; then
+                echo "mypy executable not found in virtualenv or PATH." >&2
+                exit 1
+            fi
+            printf '%s\n' "${mypy_targets[@]}" | parallel "$mypy_bin" --config-file "$CORE_DIR/pyproject.toml" {} --cache-dir {}/__mypycache__
         fi
-        printf '%s\n' "${mypy_targets[@]}" | parallel "$mypy_bin" --config-file "$CORE_DIR/pyproject.toml" {} --cache-dir {}/__mypycache__
     fi
 
-    echo "Running pytest (${env_label}).."
-    local pytest_args=(
-        -n 10
-        --durations=0
-        --cov="$CORE_DIR"
-        --cov="$ROOT_DIR/bootstrap"
-        --cov-report term
-        --cov-report html
-    )
-    local ignore_path
-    for ignore_path in "${pytest_ignores[@]}"; do
-        [[ -z "$ignore_path" ]] && continue
-        pytest_args+=(--ignore "$ignore_path")
-    done
-    if [ "${#pytest_targets[@]}" -gt 0 ]; then
-        pytest_args+=("${pytest_targets[@]}")
+    if [ "$run_tests" = true ]; then
+        echo "Running pytest (${env_label}).."
+        local pytest_args=(
+            -n 10
+            --durations=0
+            --cov="$CORE_DIR"
+            --cov="$ROOT_DIR/bootstrap"
+            --cov-report term
+            --cov-report html
+        )
+        local ignore_path
+        for ignore_path in "${pytest_ignores[@]}"; do
+            [[ -z "$ignore_path" ]] && continue
+            pytest_args+=(--ignore "$ignore_path")
+        done
+        if [ "${#pytest_targets[@]}" -gt 0 ]; then
+            pytest_args+=("${pytest_targets[@]}")
+        fi
+        pytest "${pytest_args[@]}"
     fi
-    pytest "${pytest_args[@]}"
 
     popd >/dev/null || return 1
 }
