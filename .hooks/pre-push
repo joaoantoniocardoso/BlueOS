@@ -22,6 +22,8 @@ isort_args=("${ISORT_CONFIG_ARGS[@]}" "${ISORT_CHECK_ARGS[@]}")
 # shellcheck disable=SC2034
 black_args=("${BLACK_CONFIG_ARGS[@]}" "${BLACK_CHECK_ARGS[@]}")
 fixing=false
+run_lint=true
+run_tests=true
 
 for arg in "$@"; do
     case $arg in
@@ -31,6 +33,12 @@ for arg in "$@"; do
             # shellcheck disable=SC2034
             black_args=("${BLACK_CONFIG_ARGS[@]}")
             fixing=true
+            ;;
+        --lint)
+            run_tests=false
+            ;;
+        --test)
+            run_lint=false
             ;;
         -h|--help)
             print_usage
@@ -50,11 +58,15 @@ fi
 
 check_no_fixup_commits
 check_required_tools
-run_nginx_validation
+if [ "$run_lint" = true ]; then
+    run_nginx_validation
+fi
 
 echo "Running pre push hook!"
 verify_tag_if_needed
-run_shellcheck_suite
+if [ "$run_lint" = true ]; then
+    run_shellcheck_suite
+fi
 
 run_bootstrap_checks() {
     echo "Running bootstrap checks..."
@@ -91,6 +103,8 @@ run_environment_phase "core" "$CORE_DIR" EMPTY_PATHS EMPTY_PATHS true
 # Bootstrap checks reuse the venv (run_environment_phase runs in a subshell so we re-activate)
 # shellcheck disable=SC1091
 source "$CORE_DIR/.venv/bin/activate"
-run_bootstrap_checks
+if [ "$run_lint" = true ]; then
+    run_bootstrap_checks
+fi
 
 exit 0
