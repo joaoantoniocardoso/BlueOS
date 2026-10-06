@@ -6,6 +6,8 @@ Usage: .hooks/pre-push [options]
 
 Options:
   --fix                   Run formatters (isort/black) and skip other checks.
+  --lint                  Run only the static checks, skipping pytest.
+  --test                  Run only pytest, skipping the static checks.
   -h, --help              Show this help message.
 EOF
 }
