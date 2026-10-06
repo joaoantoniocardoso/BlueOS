@@ -20,6 +20,10 @@ jobs:
   python-tests:
     if: github.event.action != 'labeled' || github.event.label.name == 'build-images'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        check: [lint, test]
 
     env:
       python-version: 3.11 # Our base image has Python 3.11
@@ -48,10 +52,10 @@ jobs:
         HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         SKIP_RUST_CHECKS: 1
       run: |
-        .hooks/pre-push
+        .hooks/pre-push --${{ matrix.check }}
 
     - name: Upload coverage
-      if: always()
+      if: always() && matrix.check == 'test'
       uses: actions/upload-artifact@v7
       with:
         name: coverage
