@@ -94,16 +94,6 @@ jobs:
           - platform: linux/arm/v7
             runner: ubuntu-24.04-arm
     steps:
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: false
-          docker-images: false
-          swap-storage: true
-
       - name: Checkout
         uses: actions/checkout@v6
         with:
