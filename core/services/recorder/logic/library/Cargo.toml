@@ -16,9 +16,14 @@ workspace = true
 
 [dev-dependencies]
 criterion.workspace = true
+gungraun.workspace = true
 serde = { workspace = true, features = ["derive", "std"] }
 serde_json.workspace = true
 
 [[bench]]
 name = "library_command"
+harness = false
+
+[[bench]]
+name = "library_command_gungraun"
 harness = false
