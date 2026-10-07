@@ -15,5 +15,10 @@ thiserror.workspace = true
 workspace = true
 
 [dev-dependencies]
+criterion.workspace = true
 serde = { workspace = true, features = ["derive", "std"] }
 serde_json.workspace = true
+
+[[bench]]
+name = "library_command"
+harness = false
