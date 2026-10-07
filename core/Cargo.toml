@@ -77,11 +77,13 @@ blueos-idl-codegen = { path = "libs/idl/codegen", default-features = false }
 bytes = { version = "1.12", default-features = false }
 clap = { version = "4.5", default-features = false }
 convert_case = { version = "0.8", default-features = false }
+criterion = { version = "0.7.0", default-features = false, features = ["cargo_bench_support"] }
 futures-util = { version = "0.3.32", default-features = false }
 json5 = { version = "0.4", default-features = false }
 mcap = { version = "0.25.0", default-features = false, features = ["lz4"] }
 metrics = { version = "0.24.6", default-features = false }
 prettyplease = { version = "0.2", default-features = false }
+proptest = { version = "1.11.0", default-features = false, features = ["std"] }
 proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quote = { version = "1", default-features = false }
 roslibrust_codegen = { version = "0.26.0", default-features = false }
