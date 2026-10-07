@@ -101,7 +101,7 @@ optional on `core/app/blueos`; without it, `blueos example` prints that the name
 10. **nginx** — When the Service exposes HTTP, add a `location` in `core/tools/nginx/nginx.conf` (see other services).
 11. **Startup** — When the Service should run on the vehicle, add a line in `core/start-blueos-core` in dependency order.
 12. **Frontend** — Import the generated client from `@/libs/blueos-api/services/<name>`, use `sendCommand` /
-    `watchState` or `blueosApiMixin`. Vitest uses `tests/blueos-api/fake-transport.ts`.
+    `watchState` or `blueosApiMixin`. Vitest uses `frontend/tests/blueos-api/fake-transport.ts`.
 
 ## Frontend for this example
 
