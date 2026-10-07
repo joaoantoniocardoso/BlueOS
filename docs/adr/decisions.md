@@ -1210,8 +1210,11 @@ Ours, with the reason:
 
 Decision:
 
-- The work is preventive: every performance measurement reports and none fails the build. A gate needs its own
-  decision here, once the data shows how noisy each metric is.
+- The work is preventive: every performance measurement reports and none fails the build, except one gate: the
+  Gungraun instruction count. Valgrind instruction counts are deterministic (identical across repeated runs of the
+  same binary), so a pull request fails when any benchmark's instruction count grows by more than 1% against the base
+  branch. Wall-clock time from Criterion and hyperfine stays report-only, because on a Pi it varied by several
+  percent between identical runs even with the frequency pinned and the containers stopped.
 - Reference hardware: a Raspberry Pi 4 on 32-bit Raspberry Pi OS bullseye. It moves to a Pi 5 on bookworm or trixie;
   the change is recorded here.
 - **Benchmarks.** Criterion for wall-clock time, Gungraun (Valgrind instruction counts) for comparisons in CI, and
@@ -1219,7 +1222,9 @@ Decision:
   dev-dependencies. The first ones cover the CDR codec, the Recorder data plane write path and one Domain step; the
   cookbook (D-20) shows how to add one. Benchmarks stay out of the pre-push hook.
 - **Pull requests.** Gungraun runs on `ubuntu-latest` and `ubuntu-24.04-arm` against a baseline built from the base
-  branch in the same job. Results go to the job summary and an artifact; no comment is posted on the pull request.
+  branch in the same job and fail the job on a regression past the limit (`GUNGRAUN_INSTRUCTION_LIMIT`, default 1%)
+  or when no instruction counts are produced. Results go to the job summary and an artifact; no comment is posted on
+  the pull request.
 - **Pushes to master.** Criterion and hyperfine run on the self-hosted Pi runners (`pi4-builder2`, then
   `pi5-builder`) and upload their results as a trend. They never run on pull requests, because code from a fork
   must not run on a self-hosted runner.
