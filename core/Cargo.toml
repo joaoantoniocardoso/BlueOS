@@ -78,6 +78,7 @@ bytes = { version = "1.12", default-features = false }
 clap = { version = "4.5", default-features = false }
 convert_case = { version = "0.8", default-features = false }
 criterion = { version = "0.7.0", default-features = false, features = ["cargo_bench_support"] }
+gungraun = { version = "0.20.0", default-features = false, features = ["default"] }
 futures-util = { version = "0.3.32", default-features = false }
 json5 = { version = "0.4", default-features = false }
 mcap = { version = "0.25.0", default-features = false, features = ["lz4"] }
