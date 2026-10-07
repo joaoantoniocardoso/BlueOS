@@ -37,6 +37,7 @@ dev = [
   "pytest-timeout==2.1.0",
   "pytest-xdist>=3.3.1",
   "pyelftools==0.30",
+  "load_scenario",
 ]
 lint = [
   "black==22.3.0",
@@ -71,6 +72,7 @@ nmea_injector = { workspace = true }
 pardal = { workspace = true }
 ping = { workspace = true }
 wifi = { workspace = true }
+load_scenario = { workspace = true }
 
 [tool.uv.workspace]
 members = [
@@ -92,6 +94,7 @@ members = [
   "services/ping",
   "services/versionchooser",
   "services/wifi",
+  "tests/l6/load_scenario",
 ]
 
 # ------------------ Tooling Configurations ------------------

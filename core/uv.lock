@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.12'",
@@ -22,6 +22,7 @@ members = [
     "filebrowser",
     "helper",
     "kraken",
+    "load-scenario",
     "nmea-injector",
     "pardal",
     "ping",
@@ -359,6 +360,7 @@ wheels = [
 name = "blueos-core"
 version = "1.4.0"
 source = { virtual = "." }
+default-groups = ["dev", "lint"]
 dependencies = [
     { name = "ardupilot-manager" },
     { name = "bag-of-holding" },
@@ -384,6 +386,7 @@ dependencies = [
 dev = [
     { name = "coverage" },
     { name = "httpx" },
+    { name = "load-scenario" },
     { name = "nmeasim" },
     { name = "pyelftools" },
     { name = "pyfakefs" },
@@ -431,6 +434,7 @@ requires-dist = [
 dev = [
     { name = "coverage", specifier = "==7.5.1" },
     { name = "httpx", specifier = "==0.28.1" },
+    { name = "load-scenario", editable = "tests/l6/load_scenario" },
     { name = "nmeasim", specifier = "==1.1.1.0" },
     { name = "pyelftools", specifier = "==0.30" },
     { name = "pyfakefs", specifier = "==5.2.4" },
@@ -1120,6 +1124,11 @@ requires-dist = [
     { name = "semver", specifier = "==3.0.4" },
     { name = "uvicorn", specifier = "==0.38.0" },
 ]
+
+[[package]]
+name = "load-scenario"
+version = "0.1.0"
+source = { editable = "tests/l6/load_scenario" }
 
 [[package]]
 name = "loguru"
