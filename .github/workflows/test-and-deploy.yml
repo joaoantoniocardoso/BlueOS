@@ -157,6 +157,8 @@ jobs:
           for self_test in .hooks/tests/*_test.sh; do
             "$self_test"
           done
+          # trybuild rewrites tests/target while the cache post step walks core/target.
+          rm -rf core/target/rust-checks-test
 
       - name: cargo deny advisories
         id: advisories
