@@ -33,11 +33,16 @@ serde_arrays.workspace = true
 [dev-dependencies]
 blueos-idl-codegen.workspace = true
 criterion.workspace = true
+gungraun.workspace = true
 proptest.workspace = true
 serde_json.workspace = true
 
 [[bench]]
 name = "cdr_codec"
+harness = false
+
+[[bench]]
+name = "cdr_codec_gungraun"
 harness = false
 
 [package.metadata.proptest]
