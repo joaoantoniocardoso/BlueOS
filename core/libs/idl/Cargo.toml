@@ -32,7 +32,16 @@ serde_arrays.workspace = true
 
 [dev-dependencies]
 blueos-idl-codegen.workspace = true
+criterion.workspace = true
+proptest.workspace = true
 serde_json.workspace = true
+
+[[bench]]
+name = "cdr_codec"
+harness = false
+
+[package.metadata.proptest]
+regressions = "proptest-regressions"
 
 [[test]]
 name = "catalog"
