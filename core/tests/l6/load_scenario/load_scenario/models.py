@@ -13,6 +13,9 @@ class LoadScenarioRun:
 
 @dataclass(frozen=True)
 class PhaseStatistics:
+    reference_median: float
+    candidate_median: float
+    median_percentage_of_reference: float | None
     median_difference: float
     confidence_interval_95: tuple[float, float]
     p_value: float
