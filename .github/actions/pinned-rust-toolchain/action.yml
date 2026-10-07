@@ -1,0 +1,25 @@
+name: Pinned Rust toolchain
+description: Install the stable toolchain pinned in core/rust-toolchain.toml (D-33).
+
+inputs:
+  targets:
+    description: >-
+      Comma-separated rustup targets. When empty, installs the targets listed in core/rust-toolchain.toml.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Load pinned stable toolchain
+      id: rust-toolchain
+      shell: bash
+      run: .github/lib/write_stable_rust_toolchain_outputs.sh
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ steps.rust-toolchain.outputs.channel }}
+        components: ${{ steps.rust-toolchain.outputs.components }}
+        targets: >-
+          ${{ inputs.targets != '' && inputs.targets || steps.rust-toolchain.outputs.targets }}

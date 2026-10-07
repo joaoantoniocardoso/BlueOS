@@ -103,9 +103,7 @@ jobs:
           workspaces: core
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: thumbv7em-none-eabihf,wasm32-unknown-unknown
+        uses: ./.github/actions/pinned-rust-toolchain
 
       - name: Install quality tools
         uses: ./.github/actions/quality-tools
@@ -139,7 +137,7 @@ jobs:
           shared-key: rust-supply-chain
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: ./.github/actions/pinned-rust-toolchain
         with:
           targets: thumbv7em-none-eabihf
 
@@ -185,7 +183,7 @@ jobs:
           shared-key: rust-report-quality
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: ./.github/actions/pinned-rust-toolchain
 
       - name: Install report tools
         uses: taiki-e/install-action@v2
@@ -348,7 +346,7 @@ jobs:
           workspaces: core
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: ./.github/actions/pinned-rust-toolchain
 
       - name: Install test tools
         uses: taiki-e/install-action@v2
@@ -373,7 +371,7 @@ jobs:
           workspaces: core
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: ./.github/actions/pinned-rust-toolchain
 
       - name: Flake hunt
         if: github.event_name == 'pull_request' || (github.event_name == 'push' && !github.event.created)
@@ -404,9 +402,7 @@ jobs:
           shared-key: rust-coverage
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: llvm-tools-preview
+        uses: ./.github/actions/pinned-rust-toolchain
 
       - name: Install coverage tools
         uses: taiki-e/install-action@v2
@@ -449,7 +445,7 @@ jobs:
           shared-key: rust-backend-conformance
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: ./.github/actions/pinned-rust-toolchain
 
       - name: Build the backend conformance tests
         working-directory: core
@@ -480,7 +476,7 @@ jobs:
           shared-key: rust-cross-build
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: ./.github/actions/pinned-rust-toolchain
         with:
           targets: ${{ matrix.target }}
 
