@@ -1129,6 +1129,18 @@ requires-dist = [
 name = "load-scenario"
 version = "0.1.0"
 source = { editable = "tests/l6/load_scenario" }
+dependencies = [
+    { name = "aiohttp" },
+    { name = "commonwealth" },
+    { name = "eclipse-zenoh" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aiohttp", specifier = "==3.13.2" },
+    { name = "commonwealth", editable = "libs/commonwealth" },
+    { name = "eclipse-zenoh", specifier = "==1.9.0" },
+]
 
 [[package]]
 name = "loguru"
