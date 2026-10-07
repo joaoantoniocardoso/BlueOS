@@ -20,11 +20,16 @@ tracing = { workspace = true, features = ["std"] }
 blueos-comms.workspace = true
 bytes.workspace = true
 criterion.workspace = true
+gungraun.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
 [[bench]]
 name = "write_sample"
+harness = false
+
+[[bench]]
+name = "write_sample_gungraun"
 harness = false
 
 [lints]
