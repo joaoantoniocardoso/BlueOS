@@ -84,7 +84,7 @@ for test_file in "${unique_test_files[@]}"; do
         "$package" "$test_name" "$iterations"
 
     if ! artifact_json=$(cargo test --locked --manifest-path "$repository/core/Cargo.toml" \
-        -p "$package" --test "$test_name" --no-run --message-format=json); then
+        -p "$package" --test "$test_name" --all-features --no-run --message-format=json); then
         printf 'flake_hunt: failed to build %s --test %s\n' "$package" "$test_name" >&2
         exit 1
     fi
