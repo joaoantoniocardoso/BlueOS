@@ -51,11 +51,7 @@ case "$mode" in
         mv "${profiles[@]}" "${output_directory}/self-profile/raw/"
         blueos_profile=$(
             find "${output_directory}/self-profile/raw" -maxdepth 1 -name 'blueos-*.mm_profdata' \
-                ! -name 'blueos_*' -printf '%s\n' \
-                | while read -r path; do
-                    printf '%s %s\n' "$(wc -c <"$path" | tr -d ' ')" "$path"
-                done \
-                | sort -n | tail -1 | cut -d' ' -f2-
+                ! -name 'blueos_*' -printf '%s %p\n' | sort -n | tail -1 | cut -d' ' -f2-
         )
         if [ -z "${blueos_profile:-}" ]; then
             printf 'no blueos self-profile data file after build\n' >&2

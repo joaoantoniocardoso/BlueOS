@@ -230,6 +230,8 @@ jobs:
       # lockbud links against rustc internals, so it builds and runs only on the nightly its commit names.
       LOCKBUD_TOOLCHAIN: nightly-2026-02-07
       LOCKBUD_REVISION: cc78cb72cb85cb80e596717339cca95ef50c8fe0
+      # summarize is built from source; the tag matches measureme 12.0.3 in the research note.
+      MEASUREME_TAG: 12.0.3
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -254,6 +256,10 @@ jobs:
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-udeps@0.1.61,cargo-llvm-cov@0.9.1,cargo-nextest@0.9.146
+
+      - name: Install summarize
+        run: |
+          RUSTFLAGS="--cap-lints warn" cargo install --locked summarize --git https://github.com/rust-lang/measureme --tag "$MEASUREME_TAG"
 
       - name: Install lockbud toolchain
         run: |
@@ -328,6 +334,26 @@ jobs:
           report_section "lockbud deadlock" \
             --ok 0 --version cargo "+${LOCKBUD_TOOLCHAIN}" lockbud --version -- \
             lockbud_workspace
+          nightly_measurements="${RUNNER_TEMP}/nightly-measurements"
+          mkdir -p "${nightly_measurements}"
+          report_section "compiler self-profile (blueos)" \
+            --ok 0 --version rustc "+${RUST_NIGHTLY}" --version -- \
+            ../.github/lib/blueos_nightly_compiler_report.sh self-profile "${nightly_measurements}"
+          report_section "macro expansion statistics" \
+            --ok 0 --version rustc "+${RUST_NIGHTLY}" --version -- \
+            ../.github/lib/blueos_nightly_compiler_report.sh macro-stats "${nightly_measurements}"
+          report_section "build-std size experiment" \
+            --ok 0 --version rustc "+${RUST_NIGHTLY}" --version -- \
+            ../.github/lib/blueos_nightly_compiler_report.sh build-std-size "${nightly_measurements}"
+
+      - name: Upload nightly measurement artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: rust-nightly-measurements
+          path: ${{ runner.temp }}/nightly-measurements/
+          retention-days: 7
+          if-no-files-found: error
 
   rust-test:
     runs-on: ubuntu-latest
