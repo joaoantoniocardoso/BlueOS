@@ -1,240 +1,15 @@
 //! L1 tests: Domains and Blocks driven by plain function calls, with no runtime.
 
-use core::{
-    convert::Infallible,
-    error::Error,
-    fmt::{self, Display, Formatter},
-    time::Duration,
+mod common;
+
+use core::time::Duration;
+
+use blueos_domain::{Command, Domain, DomainQueries, Effect, IoError, Outcome};
+
+use common::{
+    Counter, CounterRequest, NOW, Pump, PumpEvent, PumpIoRequest, PumpRejection, PumpTick, Tank,
+    TankEvent, TankIoRequest, TankQuery, TankRequest, TankSnapshot, TankTick, TankTimerKey,
 };
-
-use blueos_domain::{Command, Decision, Domain, DomainQueries, Effect, IoError, Now, Outcome};
-
-const NOW: Now = Now {
-    wall: Duration::from_secs(1_700_000_000),
-    monotonic: Duration::from_secs(42),
-};
-
-type PumpOutcome = Outcome<PumpEvent, PumpTick, PumpIoRequest, PumpTimerKey>;
-
-/// A Domain with only Requests: no Queries, no Jobs, no IO, no domain events and no timers.
-struct Counter;
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-enum CounterTimerKey {}
-
-enum CounterRequest {
-    Increment,
-}
-
-/// A Domain that composes the Pump Block.
-struct Tank;
-
-#[derive(Clone)]
-struct TankSnapshot {
-    pump: Pump,
-}
-
-enum TankRequest {
-    StartPump { run_time: Duration },
-    StopPump,
-}
-
-enum TankQuery {
-    PumpRunTime,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-enum TankTick {
-    Pump(PumpTick),
-}
-
-#[derive(Debug, PartialEq)]
-enum TankEvent {
-    Pump(PumpEvent),
-}
-
-#[derive(Clone, Debug, PartialEq)]
-enum TankIoRequest {
-    Pump(PumpIoRequest),
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-enum TankTimerKey {
-    Pump(PumpTimerKey),
-}
-
-/// A Block: a reusable piece of logic that owns its part of the Snapshot and does not implement `Domain`.
-#[derive(Clone)]
-enum Pump {
-    Idle,
-    Running { since: Duration },
-}
-
-#[derive(Debug, PartialEq)]
-enum PumpEvent {
-    Started,
-    Stopped { ran_for: Duration },
-}
-
-#[derive(Clone, Debug, PartialEq)]
-enum PumpTick {
-    RunTimeElapsed,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-enum PumpIoRequest {
-    SetPower { on: bool },
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-enum PumpTimerKey {
-    RunTime,
-}
-
-#[derive(Debug, PartialEq)]
-enum PumpRejection {
-    NotRunning,
-}
-
-impl Domain for Counter {
-    type Snapshot = u32;
-    type Request = CounterRequest;
-    type IoResult = Infallible;
-    type Tick = Infallible;
-    type ObservedFact = Infallible;
-    type Event = Infallible;
-    type IoRequest = Infallible;
-    type TimerKey = CounterTimerKey;
-
-    fn handle(
-        snapshot: &mut Self::Snapshot,
-        command: Command<Self::Request, Self::IoResult, Self::Tick, Self::ObservedFact>,
-        _now: Now,
-    ) -> Decision<Self> {
-        match command {
-            Command::Request(CounterRequest::Increment) => *snapshot += 1,
-        }
-        Outcome::Applied {
-            events: Vec::new(),
-            effects: Vec::new(),
-        }
-    }
-
-    fn io_failed(
-        request: Self::IoRequest,
-        _error: IoError,
-    ) -> Command<Self::Request, Self::IoResult, Self::Tick, Self::ObservedFact> {
-        match request {}
-    }
-}
-
-impl Domain for Tank {
-    type Snapshot = TankSnapshot;
-    type Request = TankRequest;
-    type IoResult = Infallible;
-    type Tick = TankTick;
-    type ObservedFact = Infallible;
-    type Event = TankEvent;
-    type IoRequest = TankIoRequest;
-    type TimerKey = TankTimerKey;
-
-    fn handle(
-        snapshot: &mut Self::Snapshot,
-        command: Command<Self::Request, Self::IoResult, Self::Tick, Self::ObservedFact>,
-        now: Now,
-    ) -> Decision<Self> {
-        match command {
-            Command::Request(TankRequest::StartPump { run_time }) => {
-                snapshot.pump.start(run_time, now).map(
-                    TankEvent::Pump,
-                    TankTick::Pump,
-                    TankIoRequest::Pump,
-                    TankTimerKey::Pump,
-                )
-            }
-            Command::Request(TankRequest::StopPump) => snapshot.pump.stop(now).map(
-                TankEvent::Pump,
-                TankTick::Pump,
-                TankIoRequest::Pump,
-                TankTimerKey::Pump,
-            ),
-            Command::Tick(TankTick::Pump(PumpTick::RunTimeElapsed)) => Outcome::Applied {
-                events: Vec::new(),
-                effects: Vec::new(),
-            },
-            Command::IoResult(io_result) => match io_result {},
-            Command::ObservedFact(observed_fact) => match observed_fact {},
-        }
-    }
-
-    fn io_failed(
-        request: Self::IoRequest,
-        _error: IoError,
-    ) -> Command<Self::Request, Self::IoResult, Self::Tick, Self::ObservedFact> {
-        match request {
-            TankIoRequest::Pump(PumpIoRequest::SetPower { on: _ }) => {
-                panic!("the Tank tests do not run IO through the Kernel");
-            }
-        }
-    }
-}
-
-impl DomainQueries for Tank {
-    type Query = TankQuery;
-    type Response = Option<Duration>;
-
-    fn query(snapshot: &Self::Snapshot, query: Self::Query, now: Now) -> Self::Response {
-        match (query, &snapshot.pump) {
-            (TankQuery::PumpRunTime, Pump::Running { since }) => Some(now.monotonic - *since),
-            (TankQuery::PumpRunTime, Pump::Idle) => None,
-        }
-    }
-}
-
-impl Pump {
-    fn start(&mut self, run_time: Duration, now: Now) -> PumpOutcome {
-        *self = Self::Running {
-            since: now.monotonic,
-        };
-        Outcome::Applied {
-            events: vec![PumpEvent::Started],
-            effects: vec![
-                Effect::Io(PumpIoRequest::SetPower { on: true }),
-                Effect::Schedule {
-                    after: run_time,
-                    key: PumpTimerKey::RunTime,
-                    command: PumpTick::RunTimeElapsed,
-                },
-            ],
-        }
-    }
-
-    fn stop(&mut self, now: Now) -> PumpOutcome {
-        let Self::Running { since } = *self else {
-            return Outcome::reject(PumpRejection::NotRunning);
-        };
-        *self = Self::Idle;
-        Outcome::Applied {
-            events: vec![PumpEvent::Stopped {
-                ran_for: now.monotonic - since,
-            }],
-            effects: vec![
-                Effect::Cancel(PumpTimerKey::RunTime),
-                Effect::Io(PumpIoRequest::SetPower { on: false }),
-            ],
-        }
-    }
-}
-
-impl Display for PumpRejection {
-    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::NotRunning => formatter.write_str("the pump is not running"),
-        }
-    }
-}
-
-impl Error for PumpRejection {}
 
 #[test]
 fn io_error_carries_a_message_for_the_domain() {
@@ -275,7 +50,7 @@ fn outcome_map_lifts_a_block_into_its_domain() {
             Effect::Io(TankIoRequest::Pump(PumpIoRequest::SetPower { on: true })),
             Effect::Schedule {
                 after: Duration::from_secs(30),
-                key: TankTimerKey::Pump(PumpTimerKey::RunTime),
+                key: TankTimerKey::Pump(common::PumpTimerKey::RunTime),
                 command: TankTick::Pump(PumpTick::RunTimeElapsed),
             },
         ]
@@ -316,7 +91,7 @@ fn outcome_map_lifts_a_timer_cancel() {
     assert_eq!(
         effects,
         vec![
-            Effect::Cancel(TankTimerKey::Pump(PumpTimerKey::RunTime)),
+            Effect::Cancel(TankTimerKey::Pump(common::PumpTimerKey::RunTime)),
             Effect::Io(TankIoRequest::Pump(PumpIoRequest::SetPower { on: false })),
         ]
     );
