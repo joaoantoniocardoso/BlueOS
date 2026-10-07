@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from load_scenario.constants import PROCESS_RECORDER, RESULT_SCHEMA_VERSION
+from load_scenario.constants import PROCESS_RECORDER
 from load_scenario.models import LoadScenarioRun, RecorderBinary
 from load_scenario.sampling import ProcessMeans
 
@@ -17,7 +17,7 @@ class PhaseResult:
 
 
 @dataclass(frozen=True)
-class LoadScenarioResult:
+class LoadScenarioResult:  # pylint: disable=too-many-instance-attributes
     schema_version: int
     run_id: str
     started_at: str
@@ -28,12 +28,12 @@ class LoadScenarioResult:
     throttle_before: str
     throttle_after: str
     throttled: bool
+    recording_dropped_samples: bool
     phases: dict[str, PhaseResult]
 
     def to_load_scenario_run(self) -> LoadScenarioRun:
         phase_means = {
-            phase_name: phase.processes[PROCESS_RECORDER].cpu_percent_mean
-            for phase_name, phase in self.phases.items()
+            phase_name: phase.processes[PROCESS_RECORDER].cpu_percent_mean for phase_name, phase in self.phases.items()
         }
         return LoadScenarioRun(
             recorder_binary=self.recorder_binary,
@@ -95,6 +95,7 @@ def _result_from_json(payload: dict[str, Any]) -> LoadScenarioResult:
             duration_seconds=float(phase_payload["duration_seconds"]),
             processes=processes,
         )
+    recording_dropped_samples = bool(payload.get("recording_dropped_samples", False))
     return LoadScenarioResult(
         schema_version=int(payload["schema_version"]),
         run_id=str(payload["run_id"]),
@@ -106,5 +107,6 @@ def _result_from_json(payload: dict[str, Any]) -> LoadScenarioResult:
         throttle_before=str(payload["throttle_before"]),
         throttle_after=str(payload["throttle_after"]),
         throttled=bool(payload["throttled"]),
+        recording_dropped_samples=recording_dropped_samples,
         phases=phases,
     )

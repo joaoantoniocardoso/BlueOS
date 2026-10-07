@@ -1,4 +1,5 @@
 import subprocess
+from pathlib import Path
 
 from load_scenario.sampling import ResourceSample, parse_remote_sample_line
 
@@ -87,6 +88,21 @@ class SshDevice:
     def collect_resource_sample(self) -> ResourceSample:
         output = self.run(_REMOTE_SAMPLE_SCRIPT, timeout_seconds=15.0)
         return parse_remote_sample_line(output)
+
+    def copy_file_from_device(self, remote_path: str, local_path: Path) -> None:
+        subprocess.run(
+            [
+                "scp",
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "StrictHostKeyChecking=accept-new",
+                f"{self._target}:{remote_path}",
+                str(local_path),
+            ],
+            check=True,
+            timeout=600.0,
+        )
 
     def collect_resource_samples(
         self,

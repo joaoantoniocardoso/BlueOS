@@ -1,7 +1,12 @@
 from pathlib import Path
 
 from load_scenario.constants import PHASE_ONE_STREAM_REDIRECTED, PROCESS_RECORDER
-from load_scenario.result import LoadScenarioResult, PhaseResult, read_result_file, write_result_file
+from load_scenario.result import (
+    LoadScenarioResult,
+    PhaseResult,
+    read_result_file,
+    write_result_file,
+)
 from load_scenario.sampling import ProcessMeans
 
 
@@ -17,6 +22,7 @@ def test_result_round_trip(tmp_path: Path) -> None:
         throttle_before="throttled=0x0",
         throttle_after="throttled=0x0",
         throttled=False,
+        recording_dropped_samples=False,
         phases={
             PHASE_ONE_STREAM_REDIRECTED: PhaseResult(
                 duration_seconds=60.0,

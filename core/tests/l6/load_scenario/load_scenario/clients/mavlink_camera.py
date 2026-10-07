@@ -31,3 +31,14 @@ class MavlinkCameraClient:
             "/mavlink-camera-manager/delete_stream",
             params={"name": self._stream_name},
         )
+
+    async def camera_component_id(self) -> int:
+        streams = await self._http_client.get_json("/mavlink-camera-manager/streams")
+        for stream in streams:
+            if stream.get("name") != self._stream_name:
+                continue
+            component_id = stream.get("mavlink_component_id")
+            if component_id is None:
+                break
+            return int(component_id)
+        raise RuntimeError(f"Stream {self._stream_name} was not found in MAVLink Camera Manager")
