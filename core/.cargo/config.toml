@@ -1,0 +1,3 @@
+[alias]
+# Shipped multicall binary only (D-16, D-33). Features match shipped_features.sh.
+blueos-release = "build --release --locked --features recorder -p blueos"
