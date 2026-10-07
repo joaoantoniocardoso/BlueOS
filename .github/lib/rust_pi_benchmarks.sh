@@ -2,6 +2,15 @@
 # Wall-clock Criterion benchmarks and hyperfine start-up timing on reference Pi hardware (D-33).
 # Report-only: numbers never fail the job; a tool that cannot run does.
 
+# The workflow only runs on bluerobotics/BlueOS master with a pi4-builder2 runner. To run the Criterion
+# benchmarks by hand on any Pi (verified on a Pi 5, aarch64), copy the repository over and run, on the Pi:
+#   curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal && . ~/.cargo/env
+#   cd core && for entry in blueos-idl:cdr_codec blueos-recorder-mcap:write_sample \
+#       blueos-recorder-library:library_command; do
+#       cargo bench --locked -p "${entry%%:*}" --bench "${entry#*:}" -- --noplot; done
+# This script itself additionally needs GITHUB_STEP_SUMMARY and GITHUB_SHA exported, plus cross, cargo-auditable
+# and hyperfine installed for the cross-build and start-up timing steps.
+
 set -euo pipefail
 
 if [ "$#" -ne 1 ]; then
