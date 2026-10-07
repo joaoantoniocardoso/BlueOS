@@ -3,10 +3,20 @@ name = "load_scenario"
 version = "0.1.0"
 description = "L6 device load scenario driver, results and report (D-33)."
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+  "aiohttp==3.13.2",
+  "commonwealth",
+  "eclipse-zenoh==1.9.0",
+]
+
+[project.scripts]
+load-scenario = "load_scenario.__main__:main"
 
 [tool.uv]
 package = true
+
+[tool.uv.sources]
+commonwealth = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]
