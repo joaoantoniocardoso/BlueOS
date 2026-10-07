@@ -48,6 +48,9 @@ lto = "thin"
 panic = "unwind"
 strip = true
 
+[profile.bench]
+strip = false
+
 [workspace.dependencies]
 blueos-api = { path = "libs/api", default-features = false }
 blueos-comms = { path = "libs/adapters/comms", default-features = false }
