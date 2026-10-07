@@ -7,6 +7,8 @@ exclude_files = [
     "target/**",
     "frontend/**",
     "libs/idl/src/generated/**",
+    "libs/idl/tests/generated/**",
+    "**/benches/**",
     "services/*/app/src/endpoints.rs",
     "services/*/logic/api/src/endpoints.rs",
 ]
