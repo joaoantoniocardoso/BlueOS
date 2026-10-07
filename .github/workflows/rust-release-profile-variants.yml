@@ -1,0 +1,55 @@
+name: Rust release profile variants
+
+env:
+  CARGO_TERM_COLOR: never
+
+on:
+  workflow_dispatch:
+
+jobs:
+  release-profile-variant:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - aarch64-unknown-linux-musl
+          - armv7-unknown-linux-musleabihf
+          - x86_64-unknown-linux-musl
+        variant:
+          - opt-level-s
+          - opt-level-z
+          - codegen-units-1
+          - lto-fat
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Use cached dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+          key: "${{ hashFiles('core/Cargo.lock') }}-${{ matrix.target }}-${{ matrix.variant }}"
+          shared-key: rust-release-profile-variants
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross-build tools
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross@0.2.5,cargo-auditable@0.7.6
+
+      - name: Release profile variant report
+        working-directory: core
+        env:
+          TARGET: ${{ matrix.target }}
+          VARIANT: ${{ matrix.variant }}
+        run: |
+          # shellcheck disable=SC1091
+          source ../.github/lib/rust_report_only.sh
+          report_section "release profile variant ${VARIANT} (${TARGET})" \
+            --ok 0 --no-version -- \
+            ../.github/lib/blueos_release_profile_variant_report.sh "${TARGET}" "${VARIANT}"
