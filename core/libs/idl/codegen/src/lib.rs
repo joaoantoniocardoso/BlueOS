@@ -9,6 +9,7 @@ extern crate alloc;
 
 mod catalog;
 mod cdr_dispatch;
+mod cdr_proptest;
 mod cli;
 mod collect;
 mod constant_family;
@@ -79,6 +80,7 @@ pub fn generate(
     fs::create_dir_all(&test_generated)
         .map_err(|source| CodegenError::io(&test_generated, source))?;
     cdr_dispatch::write_cdr_codec_dispatch(&records, &test_generated)?;
+    cdr_proptest::write_cdr_proptest(&records, &test_generated)?;
 
     if let Some(typescript_dir) = typescript_dir {
         fs::create_dir_all(typescript_dir)
