@@ -84,6 +84,7 @@ mcap = { version = "0.25.0", default-features = false, features = ["lz4"] }
 metrics = { version = "0.24.6", default-features = false }
 prettyplease = { version = "0.2", default-features = false }
 proptest = { version = "1.11.0", default-features = false, features = ["std"] }
+proptest-state-machine = { version = "0.8.0", default-features = false, features = ["std"] }
 proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
 quote = { version = "1", default-features = false }
 roslibrust_codegen = { version = "0.26.0", default-features = false }
