@@ -489,14 +489,27 @@ jobs:
         working-directory: core
         env:
           TARGETS: ${{ matrix.target }}
-        run: ./build_cross.sh
+        run: ./build_cross.sh --timings
 
       - name: Binary size report
         working-directory: core
+        env:
+          BIN: target/build/${{ matrix.target }}/${{ matrix.target }}/release/blueos
+          TARGET: ${{ matrix.target }}
         run: |
-          BIN="target/build/${{ matrix.target }}/${{ matrix.target }}/release/blueos"
-          ls -lah "${BIN}"
-          file "${BIN}"
+          # shellcheck disable=SC1091
+          source ../.github/lib/rust_report_only.sh
+          report_section "blueos binary size (${TARGET})" \
+            --ok 0 --no-version -- \
+            ../.github/lib/blueos_binary_size_report.sh "${BIN}" "${TARGET}"
+
+      - name: Upload cargo timings report
+        uses: actions/upload-artifact@v7
+        with:
+          name: cargo-timings-${{ matrix.target }}
+          path: core/target/build/${{ matrix.target }}/cargo-timings/
+          retention-days: 7
+          if-no-files-found: error
 
       - name: Package binary artifact
         working-directory: core
