@@ -550,6 +550,50 @@ jobs:
           path: blueos-${{ matrix.target }}.tar.gz
           retention-days: 7
 
+  rust-instruction-counts:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install Valgrind
+        uses: gungraun/setup-gungraun@v1
+        with:
+          runner-version: v0.20.0
+
+      - name: Install Rust toolchain
+        uses: ./.github/actions/pinned-rust-toolchain
+
+      - name: Use cached dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: core
+          key: gungraun-${{ matrix.runner }}-${{ hashFiles('core/Cargo.lock') }}
+          shared-key: gungraun-instruction-counts
+
+      - name: Gungraun instruction count report
+        working-directory: core
+        env:
+          GUNGRAUN_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
+          GUNGRAUN_HEAD_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+          GUNGRAUN_RUNNER_LABEL: ${{ matrix.runner }}
+          GUNGRAUN_RAW_OUTPUT: ${{ runner.temp }}/gungraun-instruction-counts.txt
+        run: ../.github/lib/blueos_gungraun_instruction_counts.sh
+
+      - name: Upload raw Gungraun output
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: gungraun-instruction-counts-${{ matrix.runner }}
+          path: ${{ runner.temp }}/gungraun-instruction-counts.txt
+          if-no-files-found: error
+
   build-docker-images:
     runs-on: ${{ matrix.runner }}
     needs: [rust-cross-build]
@@ -716,7 +760,7 @@ jobs:
 
   deploy-docker-images:
     runs-on: ubuntu-latest
-    needs: [build-docker-images, frontend-tests, python-tests, rust-lint, rust-supply-chain, rust-test, rust-flake-hunt, rust-coverage, rust-cross-build]
+    needs: [build-docker-images, frontend-tests, python-tests, rust-lint, rust-supply-chain, rust-test, rust-flake-hunt, rust-coverage, rust-cross-build, rust-instruction-counts]
     strategy:
       fail-fast: false
       matrix:
