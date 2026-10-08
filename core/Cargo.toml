@@ -1,5 +1,6 @@
 [workspace]
 resolver = "2"
+default-members = ["app/blueos"]
 members = [
     "app/blueos",
     "libs/adapters/comms",
