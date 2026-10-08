@@ -16,6 +16,7 @@
 /libs/api
 /libs/app
 /libs/idl
+!/libs/idl/interfaces
 !/libs/idl/typescript
 /libs/logic
 /libs/tools
