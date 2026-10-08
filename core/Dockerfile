@@ -201,7 +201,6 @@ set -e
     fi
 
     install -m 0755 "${BIN}" /usr/bin/blueos
-    ln -sf blueos /usr/bin/recorder
 
 EOF
 
