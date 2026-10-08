@@ -1,4 +1,7 @@
-//! Run a Domain Command through `on_start` before clients can call Commands.
+//! Question 30: how do I run a Command at startup?
+//!
+//! The answer is `.on_start(request)` in `build`, and the test proves the ordering the Kernel guarantees: startup
+//! Commands enter the Inbox before any endpoint answers, so no client Command runs first (D-04, D-25).
 
 use core::convert::Infallible;
 
@@ -40,6 +43,7 @@ impl Service for StartupCookbookService {
         _context: &(),
     ) -> Result<ServiceBuilder<StartupCookbook>, ServiceError> {
         Ok(ServiceBuilder::new(StartupCookbookSnapshot::default())
+            // A startup Command is a Request like any other and goes through `handle`; no special init path.
             .on_start(StartupCookbookRequest::Mark)
             .command("Client", |_: LevelRequest| {
                 Ok(StartupCookbookRequest::Client)
@@ -96,6 +100,7 @@ async fn on_start_runs_before_the_first_client_command() {
     let harness = Harness::<StartupCookbookService>::start(StartupCookbookArguments)
         .await
         .unwrap();
+    // `Mark` ran at startup and `Client` after it: two steps prove the startup Command was applied exactly once.
     harness
         .send("Client", &LevelRequest::default())
         .await

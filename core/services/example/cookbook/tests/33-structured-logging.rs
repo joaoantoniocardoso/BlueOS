@@ -1,4 +1,7 @@
-//! Structured `tracing` fields reach the standard `log` key.
+//! Question 33: how do I log with structure?
+//!
+//! The answer is the `tracing::info!` call in the `io` closure in `build` (fields plus a constant message) and the
+//! test, which proves the record reaches the `log` key. Shared boilerplate is explained in `01-command.rs`.
 
 use core::{convert::Infallible, time::Duration};
 use std::sync::Arc;
@@ -26,6 +29,7 @@ enum LoggingCookbookRequest {
     Ping,
 }
 
+// The IoRequest/IoResult pair exists only to give the Domain a reason to run the `io` adapter that logs.
 #[derive(Clone, Debug, PartialEq)]
 enum LoggingCookbookIoRequest {
     Ping,
@@ -56,6 +60,9 @@ impl Service for LoggingCookbookService {
             .io(|_io_context, _snapshot, request| async move {
                 match request {
                     LoggingCookbookIoRequest::Ping => {
+                        // Log in an adapter (the `io` closure), never in the Domain, which stays sans-IO (D-03). Fields
+                        // are structured and the message is constant (D-30); the logging adapter publishes each
+                        // record on the `log` key.
                         tracing::info!(sensor = "demo", "device ping");
                         Ok(Some(LoggingCookbookIoResult::Done))
                     }
@@ -107,6 +114,7 @@ impl Domain for LoggingCookbook {
 #[tokio::test(start_paused = true)]
 async fn structured_fields_appear_on_the_log_key() {
     init(0);
+    // Share one backend between the log publisher and the Service so the test can subscribe to the `log` key.
     let backend: Arc<dyn blueos_comms::CommsBackend> = Arc::new(ChannelBackend::default());
     let key = log_key(LoggingCookbookService::NAME);
     let mut subscriber = backend.subscribe(&key).await.expect("subscribe");
@@ -128,6 +136,7 @@ async fn structured_fields_appear_on_the_log_key() {
         .expect("log sample")
         .expect("sample");
     let decoded = Log::decode(sample.payload().to_bytes().as_ref()).expect("decode");
+    // Proof: the constant message and the structured field both arrive in the published Log.
     assert!(decoded.message.contains("device ping"));
     assert!(decoded.message.contains("sensor=demo"));
 

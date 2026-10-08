@@ -1,4 +1,7 @@
-//! Registering a new Service touches the multicall binary, manifest, and ops docs.
+//! Question 34: how do I register a new service?
+//!
+//! The answer lives in the example `README.md` (the checklist) and `core/app/blueos/src/main.rs` (the multicall
+//! entry, D-25). The tests below only guard that the checklist and the wiring do not rot.
 
 // qual:allow(test_quality, no_sut) reason: "Guards the teaching example README lists every registration touchpoint"
 #[test]

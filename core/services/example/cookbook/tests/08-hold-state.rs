@@ -1,4 +1,7 @@
-//! The Snapshot is the single source of truth between Commands.
+//! Question 8: how do I hold state between Commands?
+//!
+//! The answer is `Domain::handle`: it mutates the Snapshot it is given, and the Snapshot is the only thing that
+//! survives from one Command to the next. Shared boilerplate: `01-command.rs`.
 
 use core::convert::Infallible;
 
@@ -68,6 +71,8 @@ impl Domain for HoldStateCookbook {
     ) -> Decision<Self> {
         let Command::Request(HoldStateCookbookRequest::SetLevel(level)) = command;
         snapshot.level = level;
+        // State lives in the Snapshot, never in the marker type or a static (D-03, D-25): that keeps `handle` a pure
+        // function of its inputs, and lets the Kernel clone the Snapshot to roll back a failed Command (D-04).
         snapshot.changes += 1;
         Outcome::Applied {
             events: Vec::new(),
@@ -96,6 +101,7 @@ async fn snapshot_accumulates_across_commands() {
         .send("SetLevel", &SetLevelGoal { level: 2 })
         .await
         .unwrap();
+    // Two Commands, one counter: only a Snapshot that persisted between them can read 2.
     let changes = harness.state::<SetLevelGoal>("changes").await.unwrap();
     assert_eq!(changes.level, 2);
 }

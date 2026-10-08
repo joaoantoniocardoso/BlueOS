@@ -1,4 +1,7 @@
-//! Arm and cancel typed timer keys from Effects.
+//! Questions 12-13: how do I arm a timer, and cancel a timer?
+//!
+//! Both are Effects returned from `Domain::handle`: `Effect::Schedule` arms (question 12) and `Effect::Cancel`
+//! removes by key (question 13). Shared boilerplate: `01-command.rs`.
 
 use core::{convert::Infallible, time::Duration};
 
@@ -25,11 +28,13 @@ enum TimersCookbookRequest {
     Cancel,
 }
 
+// Each Domain declares its own timer key type, never a shared number space (D-03); the key is what `Cancel` names.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 enum TimersCookbookTimerKey {
     Alarm,
 }
 
+// The Tick is the Command the Kernel delivers when the timer expires, so a timeout is handled like any other input.
 #[derive(Clone)]
 enum TimersCookbookTick {
     Fired,
@@ -79,6 +84,8 @@ impl Domain for TimersCookbook {
         _now: Now,
     ) -> Decision<Self> {
         match command {
+            // The Domain never sleeps: it asks the Kernel for a timer (D-03), which keeps `handle` testable without a
+            // clock.
             Command::Request(TimersCookbookRequest::Arm) => Outcome::Applied {
                 events: Vec::new(),
                 effects: vec![Effect::Schedule {
@@ -87,6 +94,8 @@ impl Domain for TimersCookbook {
                     command: TimersCookbookTick::Fired,
                 }],
             },
+            // Schedule then Cancel the same key in one Outcome: the cancel must win over a timer armed alongside it
+            // (D-04).
             Command::Request(TimersCookbookRequest::Cancel) => Outcome::Applied {
                 events: Vec::new(),
                 effects: vec![
@@ -123,6 +132,7 @@ async fn armed_timer_fires_after_advance() {
     let harness = Harness::<TimersCookbookService>::start(TimersCookbookArguments)
         .await
         .unwrap();
+    // `advance` moves the paused clock past the 5 s delay; no real sleeping (D-30).
     harness.send("Arm", &LevelRequest::default()).await.unwrap();
     advance(Duration::from_secs(6)).await;
     assert_eq!(
@@ -140,6 +150,7 @@ async fn cancel_prevents_a_rearmed_timer_from_firing() {
         .send("Cancel", &LevelRequest::default())
         .await
         .unwrap();
+    // Twice the delay: had the timer survived the cancel, the tick count would be 1 by now.
     advance(Duration::from_secs(10)).await;
     assert_eq!(
         harness.state::<LevelResponse>("ticks").await.unwrap().level,

@@ -1,4 +1,7 @@
-//! Subscribe to another service's State on the shared backbone.
+//! Question 25: how do I subscribe to another service's topic?
+//!
+//! The answer is the test at the bottom: both sides share one backbone, and the subscriber addresses the State by
+//! `state_key(service, name)` (D-07, D-10). The publishing service above is the ordinary `.state` of `04`-`05`.
 
 use core::{convert::Infallible, time::Duration};
 use std::sync::Arc;
@@ -47,6 +50,7 @@ impl Service for PublisherCookbookService {
             .command("SetLevel", |request: SetLevelGoal| {
                 Ok(PublisherCookbookRequest::SetLevel(request.level))
             })
+            // A State is published on `state_key(NAME, "gauge")` after every applied Command (D-26).
             .state("gauge", |snapshot: &PublisherCookbookSnapshot| {
                 LevelResponse {
                     level: snapshot.level,
@@ -87,6 +91,7 @@ impl Domain for PublisherCookbook {
     }
 }
 
+// The timeout turns a missing publish into a failure instead of a hang; time is virtual (D-30).
 async fn next_state(subscriber: &mut Subscriber) -> LevelResponse {
     let sample = timeout(Duration::from_secs(10), subscriber.recv())
         .await
@@ -97,6 +102,8 @@ async fn next_state(subscriber: &mut Subscriber) -> LevelResponse {
 
 #[tokio::test(start_paused = true)]
 async fn a_client_subscribes_to_another_services_state_key() {
+    // `start_on` runs the Service on a backbone the test owns, so the test is a second client of it. A real
+    // consumer is another process on the same Zenoh session; a Domain follows a State through the Kernel (D-25).
     let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
     let harness = Harness::<PublisherCookbookService>::start_on(
         Arc::clone(&backend),
@@ -104,6 +111,7 @@ async fn a_client_subscribes_to_another_services_state_key() {
     )
     .await
     .unwrap();
+    // Subscribe before the Command so the update is not missed.
     let mut gauge = backend
         .subscribe(&state_key(PublisherCookbookService::NAME, "gauge"))
         .await

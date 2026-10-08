@@ -1,4 +1,6 @@
-//! How do I add a metric from a Task? And how does a Domain expose a count?
+//! Questions 35 and 36: how do I add a metric from a Task, and how does a Domain expose a count (D-35)?
+//!
+//! The answer is the `reporter` Task in `build` and the two tests at the bottom.
 //!
 //! A Task records with the `metrics` facade macros, the way any Rust code does: no BlueOS API. Whatever it records
 //! lands in its own Service's `metrics` State, next to the Kernel's own numbers (Inbox step time, Task restarts,
@@ -51,11 +53,13 @@ impl Service for DoorbellService {
         _service: &ServiceContext<DoorbellArguments>,
         _context: &(),
     ) -> Result<ServiceBuilder<Doorbell>, ServiceError> {
+        // The Projection lets the Task read the Domain's count while the Domain knows nothing of metrics (D-27, D-35).
         let (builder, rings) = ServiceBuilder::<Doorbell>::new(DoorbellSnapshot::default())
             .projection(|snapshot| snapshot.rings);
         Ok(builder.task("reporter", RestartPolicy::Never, move |task| {
             let mut rings = rings.subscribe();
             async move {
+                // Handles are created once, outside the loop, so the hot path does no name lookup.
                 let rings_gauge = metrics::gauge!("rings");
                 let reports = metrics::counter!("rings_reports");
                 loop {
@@ -126,6 +130,7 @@ async fn a_task_records_a_counter_that_shows_in_the_metrics_state() {
 
     let metrics = harness.state::<ServiceMetrics>("metrics").await.unwrap();
 
+    // Proof: the Task's own counter shows up in the Service's `metrics` State beside the Kernel's numbers.
     let reports = metrics
         .counters
         .iter()
@@ -150,6 +155,7 @@ async fn a_domain_exposes_its_count_through_a_projection_a_task_records() {
 
     let metrics = harness.state::<ServiceMetrics>("metrics").await.unwrap();
 
+    // Proof: the gauge equals the Domain's Snapshot count, recorded by the Task and not by the Domain.
     let rings = metrics
         .gauges
         .iter()

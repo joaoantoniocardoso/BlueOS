@@ -1,4 +1,7 @@
-//! Publish a State that tracks the Snapshot.
+//! Question 5: how do I publish a State?
+//!
+//! The answer is the `.state(...)` declaration in `build`: a pure selector from the Snapshot to a Message. The
+//! Domain never publishes; the Kernel does after each applied Command. Shared boilerplate: `01-command.rs`.
 
 use core::convert::Infallible;
 
@@ -42,6 +45,8 @@ impl Service for StateCookbookService {
             .command("SetLevel", |request: SetLevelGoal| {
                 Ok(StateCookbookRequest::SetLevel(request.level))
             })
+            // A State is a selector from the Snapshot to a Message (D-26). It has no side effects (D-27): the Kernel
+            // re-runs it after every applied Command and publishes only when the value changed.
             .state("pump", |snapshot: &StateCookbookSnapshot| PumpState {
                 level: snapshot.level,
                 max_level: 100,
@@ -91,6 +96,7 @@ async fn state_publishes_after_a_command() {
         .send("SetLevel", &SetLevelGoal { level: 77 })
         .await
         .unwrap();
+    // `harness.state` reads what a subscriber would see, so this proves the Snapshot change reached the bus.
     let pump = harness.state::<PumpState>("pump").await.unwrap();
     assert_eq!(pump.level, 77);
 }

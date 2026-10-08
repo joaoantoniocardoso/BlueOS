@@ -1,5 +1,9 @@
-//! The standard `jobs` State is listed on `info` and readable like any other State. Every Command is a Job, so a
-//! Service lists its Jobs without tracking them itself.
+//! Question 16: how do I show job status in the UI?
+//!
+//! The answer is that there is nothing to write: the Service declares only a Command, and the Kernel publishes the
+//! `jobs` State for it (D-36, D-12). The test shows what a UI reads: the `jobs` endpoint on `info`, then the
+//! `JobList` through `Harness::jobs`. This Domain keeps no Jobs, unlike `15-jobs.rs`, because an instant Command
+//! ends in the step that accepts it. Shared boilerplate is explained in `01-command.rs`.
 
 use core::convert::Infallible;
 
@@ -83,6 +87,7 @@ async fn info_lists_the_jobs_state_and_harness_reads_it() {
         .await
         .unwrap();
 
+    // A UI discovers the State from `info` (D-12) rather than hard-coding its key.
     let info = harness
         .query::<LevelRequest, ServiceInfo>("info", &LevelRequest::default())
         .await
@@ -98,6 +103,8 @@ async fn info_lists_the_jobs_state_and_harness_reads_it() {
 
     let ack = harness.send("Run", &LevelRequest::default()).await.unwrap();
 
+    // One entry, already Succeeded and keyed by the ack's id, proves the Command was tracked as a Job although
+    // the Service never mentions Jobs.
     let jobs = harness.jobs().await.unwrap();
     assert_eq!(jobs.jobs.len(), 1);
     assert_eq!(jobs.jobs[0].job_id, ack.job_id);

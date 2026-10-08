@@ -1,4 +1,7 @@
-//! Extend the common CLI with service-specific `clap::Args`.
+//! Question 29: how do I extend the CLI with a service flag?
+//!
+//! The answer is `type Arguments` on the `Service`: a `clap::Args` struct the Kernel flattens into the common CLI
+//! (D-25). `build` and `context` read it through `ServiceContext::arguments`.
 
 use core::convert::Infallible;
 use std::{ffi::OsString, path::PathBuf};
@@ -12,6 +15,7 @@ use blueos_service::{
 
 struct CliCookbookService;
 
+// Only service-specific flags go here; `-v`, `--settings-path` and the Zenoh flags are common and parsed by the Kernel.
 #[derive(Clone, Debug, clap::Args)]
 struct CliCookbookArguments {
     #[arg(long, value_name = "FILE")]
@@ -41,6 +45,7 @@ impl Service for CliCookbookService {
         service: &ServiceContext<CliCookbookArguments>,
         _context: &(),
     ) -> Result<ServiceBuilder<CliCookbook>, ServiceError> {
+        // A flag reaches the Domain by being copied into the initial Snapshot; the Domain never sees the CLI.
         Ok(ServiceBuilder::new(CliCookbookSnapshot {
             marker: service.arguments().marker.clone(),
         })
@@ -84,6 +89,7 @@ impl Domain for CliCookbook {
     }
 }
 
+// `parse_service_cli` is the production parser, so this proves both flag sets parse together.
 #[test]
 fn service_flags_flatten_with_the_common_cli() {
     let parsed = parse_service_cli::<CliCookbookService>(
@@ -117,6 +123,7 @@ fn service_flags_flatten_with_the_common_cli() {
     .expect("build");
 }
 
+// The harness takes the Arguments value directly, so a test sets the flag without argv.
 #[tokio::test(start_paused = true)]
 async fn service_specific_flag_reaches_the_domain_snapshot() {
     let marker = PathBuf::from("/tmp/marker");

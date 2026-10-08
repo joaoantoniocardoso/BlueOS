@@ -1,4 +1,7 @@
-//! Add a Query endpoint and answer from the Snapshot.
+//! Question 4: how do I add a Query?
+//!
+//! The answer is the `.query(...)` declaration in `build` (request decoder, response encoder) and the
+//! `DomainQueries` impl, which answers from the Snapshot. The shared boilerplate is explained in `01-command.rs`.
 
 use core::convert::Infallible;
 
@@ -50,6 +53,9 @@ impl Service for QueryCookbookService {
             .command("SetLevel", |request: SetLevelGoal| {
                 Ok(QueryCookbookRequest::SetLevel(request.level))
             })
+            // A Query is a request/reply endpoint (D-26): the first closure decodes the wire request into the Domain's
+            // own query type, the second encodes the Domain's response. `None` would mean "no answer", and keeps IDL
+            // types out of the Domain.
             .query(
                 "Level",
                 |_: LevelRequest| Ok(QueryCookbookQuery::Level),
@@ -94,6 +100,8 @@ impl Domain for QueryCookbook {
     }
 }
 
+// A Query is answered from the Snapshot by a pure function, outside `handle`: it cannot change state or emit Effects,
+// which is why a read never needs a Command (D-26). Answering with IO is a different kind, see `22-io-query.rs`.
 impl DomainQueries for QueryCookbook {
     type Query = QueryCookbookQuery;
     type Response = QueryCookbookResponse;
@@ -118,6 +126,7 @@ async fn query_reads_the_snapshot() {
         .send("SetLevel", &SetLevelGoal { level: 22 })
         .await
         .unwrap();
+    // The Command first, so the answer can only come from state the Domain actually holds, not a default.
     let answer = harness
         .query::<_, LevelResponse>("Level", &LevelRequest::default())
         .await

@@ -1,4 +1,11 @@
-//! Run lasting work as a Job: declare its nature, keep its id, and end it when the work finishes.
+//! Question 15: how do I run lasting work as a Job, and cancel it?
+//!
+//! The answer is the `BREW` nature and the `.job(...)` call in `build` (declaring the Job), the `Brew` and `Tick`
+//! arms of `Domain::handle` (keeping the id and ending the Job), the `DomainJobs` impl (where the Snapshot keeps
+//! its Jobs), and the two tests at the bottom (run to success, cancel). Shared boilerplate is explained in
+//! `01-command.rs`.
+//!
+//! Every client Request is a Job (D-36): an instant Command is the same mechanism with `JobNature::INSTANT`.
 
 use core::{convert::Infallible, time::Duration};
 
@@ -14,6 +21,8 @@ use blueos_service::{
     Service, ServiceBuilder, ServiceContext, ServiceError, new_job_id, testing::Harness,
 };
 
+// The nature is declared in code so `ServiceInfo` publishes it and a UI offers only the actions that apply, such
+// as Cancel, before sending anything (D-36). Anything not set here stays as `INSTANT` leaves it.
 /// Brewing runs until its timer fires, and a client may cancel it meanwhile.
 const BREW: JobNature = JobNature {
     lasting: true,
@@ -26,15 +35,19 @@ struct JobsCookbookService;
 #[derive(Clone, Default, clap::Args)]
 struct JobsCookbookArguments;
 
+// The Snapshot holds the Jobs, exposed to the Kernel by `DomainJobs` below: it is the source of truth for the
+// `jobs` State and for control Requests.
 #[derive(Clone, Default)]
 struct JobsCookbookSnapshot {
     jobs: Jobs,
 }
 
+// The client generates the Job id and the endpoint decoder passes it in, so the Domain can key its timer by it (D-36).
 enum JobsCookbookRequest {
     Brew { job_id: JobId },
 }
 
+// The Tick is the timer's payload: it carries the id so the Domain knows which Job's work finished.
 #[derive(Clone)]
 struct Brewed {
     job_id: JobId,
@@ -58,6 +71,7 @@ impl Service for JobsCookbookService {
         _service: &ServiceContext<JobsCookbookArguments>,
         _context: &(),
     ) -> Result<ServiceBuilder<JobsCookbook>, ServiceError> {
+        // `.job` replaces `.command` for lasting work: it takes the nature and hands the decoder the client's Job id.
         Ok(ServiceBuilder::new(JobsCookbookSnapshot::default()).job(
             "Brew",
             BREW,
@@ -82,6 +96,8 @@ impl Domain for JobsCookbook {
         _now: Now,
     ) -> Decision<Self> {
         match command {
+            // The Job stays Executing because the Domain does not end it here; the timer (keyed by the id, so a
+            // cancel could revoke it) later returns the end as a Tick.
             Command::Request(JobsCookbookRequest::Brew { job_id }) => Outcome::Applied {
                 events: Vec::new(),
                 effects: vec![Effect::Schedule {
@@ -91,6 +107,8 @@ impl Domain for JobsCookbook {
                 }],
             },
             Command::Tick(Brewed { job_id }) => {
+                // A cancel only moves the Job to Canceling; the Job ends Canceled once its work stops, which here
+                // is this Tick. Cooperative cancellation is the Domain's choice (D-36).
                 let canceling = snapshot
                     .jobs
                     .job(job_id)
@@ -145,6 +163,7 @@ async fn a_lasting_job_is_executing_until_its_domain_ends_it() {
         .unwrap();
     assert!(ack.accepted);
     assert_eq!(ack.job_id, job_id.to_string());
+    // A lasting Job acks as Executing instead of a final status; only an instant one takes the fast path (D-36).
     assert_eq!(ack.status, CommandAckStatus::Executing);
 
     advance(Duration::from_secs(60)).await;
@@ -165,6 +184,7 @@ async fn a_cancelled_job_ends_canceled_when_its_work_stops() {
 
     let ack = harness.control(job_id, JobControl::Cancel).await.unwrap();
     assert!(ack.accepted);
+    // Control acts at once and never queues (D-36), so the ack is Canceling; the final Canceled follows the Tick.
     assert_eq!(ack.status, CommandAckStatus::Canceling);
 
     advance(Duration::from_secs(60)).await;

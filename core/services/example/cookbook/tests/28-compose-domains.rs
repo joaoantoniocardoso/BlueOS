@@ -1,5 +1,8 @@
-//! Compose reusable Blocks inside one Domain with [`Outcome::map`]. You do not compose two Domains in one
-//! Service; you nest Blocks and map their [`Outcome`] into the parent Domain's events and effects.
+//! Question 28: how do I compose two Domains?
+//!
+//! The answer is that you do not: a Service runs one Domain (D-25). You compose Blocks, reusable sans-IO reducers
+//! that are not `Domain`s, and lift their `Outcome` with `Outcome::map` (D-03). See `Room::handle` below, where
+//! `Lamp` is the Block and `Room` is the Domain.
 
 use core::{
     convert::Infallible,
@@ -17,6 +20,7 @@ const NOW: Now = Now {
     monotonic: Duration::from_secs(42),
 };
 
+// A Block returns an Outcome in its own event type; it has no Request, so it is not a Domain (D-03).
 type LampOutcome = Outcome<LampEvent, Infallible, Infallible, Infallible>;
 
 #[derive(Clone, Default)]
@@ -68,6 +72,8 @@ impl Domain for Room {
         _now: Now,
     ) -> Decision<Self> {
         match command {
+            // `map` lifts the Block's events with the Domain's enum constructor and keeps a rejection as it is, so no
+            // hand-written conversion is needed. The other three mappers are `match never {}`: the Block has none.
             Command::Request(RoomRequest::TurnOn) => snapshot.lamp.turn_on().map(
                 RoomEvent::Lamp,
                 |tick: Infallible| match tick {},
@@ -88,6 +94,7 @@ impl Domain for Room {
     }
 }
 
+// The Block: plain state plus a method returning an Outcome. It is unit-testable with no Harness (D-03).
 impl Lamp {
     fn turn_on(&mut self) -> LampOutcome {
         if matches!(self, Self::On) {
@@ -141,6 +148,7 @@ impl Service for ComposeCookbookService {
     }
 }
 
+// The next two tests call `Domain::handle` directly: sans-IO logic needs no runtime (D-03, D-30).
 #[test]
 fn block_outcome_maps_into_the_composing_domain() {
     let mut snapshot = RoomSnapshot::default();
@@ -160,9 +168,11 @@ fn block_rejection_maps_into_the_composing_domain() {
     let Outcome::Rejected { reason } = decision else {
         panic!("turning an on lamp on must reject, got {decision:?}");
     };
+    // The Block's typed rejection survives the lift, so the Kernel can still turn it into the Ack reason (D-26).
     assert_eq!(reason.downcast_ref(), Some(&LampRejection::AlreadyOn));
 }
 
+// The composed Domain is still one ordinary Service; clients cannot tell it contains a Block.
 #[tokio::test(start_paused = true)]
 async fn composed_block_state_reaches_clients_through_the_service() {
     let harness = Harness::<ComposeCookbookService>::start(ComposeCookbookArguments)

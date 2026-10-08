@@ -1,4 +1,7 @@
-//! Typed errors become client-visible reasons without string matching.
+//! Question 32: how do I define and return typed errors?
+//!
+//! The answer is the `DisallowedLevel` type, its use in the decoder closure in `build`, and the assertion in the
+//! test. For rejecting from inside the Domain instead, see `01-command.rs`.
 
 use core::convert::Infallible;
 
@@ -22,6 +25,8 @@ enum TypedErrorsCookbookRequest {
     SetLevel(u8),
 }
 
+// A typed error is a struct or enum with a `Display` message (D-30): no `String` or magic payload. The Kernel
+// forwards that `Display` as the Ack reason (D-26), so callers never match on strings.
 #[derive(Debug, thiserror::Error)]
 #[error("level {level} is not allowed")]
 struct DisallowedLevel {
@@ -50,6 +55,7 @@ impl Service for TypedErrorsCookbookService {
             ServiceBuilder::new(TypedErrorsCookbookSnapshot::default()).command(
                 "SetLevel",
                 |request: SetLevelGoal| {
+                    // A decoder may refuse a body before the Domain sees it; same typed error, same Ack reason.
                     if request.level == 13 {
                         return Err(Box::new(DisallowedLevel {
                             level: request.level,
@@ -103,5 +109,6 @@ async fn wiring_refusal_uses_the_error_display() {
         .await
         .unwrap();
     assert!(!ack.accepted);
+    // The reason is the error's `Display`, not a hand-built string.
     assert_eq!(ack.reason, "level 13 is not allowed");
 }

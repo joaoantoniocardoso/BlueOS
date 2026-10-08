@@ -1,4 +1,8 @@
-//! Domain events that never select a public Event endpoint stay on the bus.
+//! Question 7: how do I keep a domain event private?
+//!
+//! The answer is the `None` arm of the `.event(...)` selector in `build`: a domain event the selector maps to
+//! `None` is never published, and one the Domain emits that no endpoint selects stays inside the service.
+//! Shared boilerplate: `01-command.rs`.
 
 use core::{convert::Infallible, time::Duration};
 
@@ -62,6 +66,8 @@ impl Service for PrivateEventCookbookService {
                     PrivateEventCookbookEvent::LevelChanged(level) => {
                         Some(SetLevelGoal { level: *level })
                     }
+                    // The selector decides what is public (D-26), so the Domain can emit freely and the API stays
+                    // what the manifest says; a private event is not an API break to add or remove (D-06).
                     PrivateEventCookbookEvent::InternalNote => None,
                 },
             ))
@@ -129,6 +135,7 @@ async fn private_domain_events_do_not_publish() {
         .send("Bump", &LevelRequest::default())
         .await
         .unwrap();
+    // `Bump` emits only `InternalNote`; silence on `LevelChanged` proves the selector filtered it.
     let maybe = timeout(Duration::from_secs(1), events.recv()).await;
     assert!(maybe.is_err(), "InternalNote must not publish LevelChanged");
 }

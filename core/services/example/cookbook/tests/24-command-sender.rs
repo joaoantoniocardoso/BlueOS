@@ -1,4 +1,7 @@
-//! Send a Command from in-process code through [`CommandSender`].
+//! Question 24: how do I send a Command from in-process code?
+//!
+//! The answer is the last test: `command_sender().send_awaiting_ack(...)` puts a typed `Command` into the service's
+//! own Inbox and waits for the Domain's verdict (D-27). Shared boilerplate is explained in `01-command.rs`.
 
 use core::convert::Infallible;
 
@@ -36,6 +39,7 @@ impl Service for CommandSenderCookbookService {
         Ok(())
     }
 
+    // The Command endpoint is declared only so the State can be read back; the proof below does not use it.
     fn build(
         _service: &ServiceContext<CommandSenderCookbookArguments>,
         _context: &(),
@@ -91,12 +95,16 @@ async fn command_sender_applies_a_request_and_returns_the_ack() {
     let harness = Harness::<CommandSenderCookbookService>::start(CommandSenderCookbookArguments)
         .await
         .unwrap();
+    // In production a Task or adapter gets this same `CommandSender` from its task context. It skips the wire and
+    // the endpoint decoder, so the caller builds the Domain's own Request; `send_awaiting_ack` returns the same
+    // ack and rejection an external Command would (D-27).
     let ack = harness
         .command_sender()
         .send_awaiting_ack(Command::Request(CommandSenderCookbookRequest::SetLevel(9)))
         .await
         .expect("the Inbox accepts the Command");
     assert!(ack.accepted);
+    // The Snapshot changed, so the Command went through `Domain::handle` like any other.
     assert_eq!(
         harness.state::<LevelResponse>("level").await.unwrap().level,
         9

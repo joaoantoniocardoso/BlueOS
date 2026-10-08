@@ -1,5 +1,9 @@
-//! Follow one Job through its lifecycle: the `jobs` State is published each time a status changes, including the
-//! pause and resume a client asks for.
+//! Question 17: how do I follow a job through pause, resume and success?
+//!
+//! The answer is the `HEAT` nature (`pausable`), `next_status` (reading one published `jobs` update), and the test
+//! at the bottom, which subscribes to the `jobs` State and drives `control` between updates. The Domain is the
+//! `15-jobs.rs` one without cancel handling: pause and resume need no Domain code. Shared boilerplate is explained
+//! in `01-command.rs`.
 
 use core::{convert::Infallible, time::Duration};
 
@@ -20,6 +24,8 @@ use blueos_service::{
     Service, ServiceBuilder, ServiceContext, ServiceError, new_job_id, testing::Harness,
 };
 
+// `pausable` is what makes the Kernel accept Pause and Resume; the Kernel moves the status, so `handle` never sees
+// them (D-36).
 /// Heating runs until its timer fires, and a client may pause and resume it meanwhile.
 const HEAT: JobNature = JobNature {
     lasting: true,
@@ -133,6 +139,8 @@ impl DomainJobs for JobProgressCookbook {
     }
 }
 
+// The `jobs` State is published on each status change, so a client follows a Job by subscribing instead of polling
+// (D-36).
 async fn next_status(subscriber: &mut Subscriber) -> JobStatusStatus {
     let sample = timeout(Duration::from_secs(10), subscriber.recv())
         .await
@@ -147,6 +155,7 @@ async fn the_jobs_state_follows_a_job_through_pause_resume_and_success() {
     let harness = Harness::<JobProgressCookbookService>::start(JobProgressCookbookArguments)
         .await
         .unwrap();
+    // Subscribing before submitting, with the client-generated id, means no status update can be missed (D-36).
     let mut jobs = harness
         .backend()
         .subscribe(&jobs_key(JobProgressCookbookService::NAME))
@@ -158,6 +167,7 @@ async fn the_jobs_state_follows_a_job_through_pause_resume_and_success() {
         .submit("Heat", job_id, &LevelRequest::default())
         .await
         .unwrap();
+    // The sequence of updates is the proof: Executing, Paused, Executing, then Succeeded only after the timer.
     assert_eq!(next_status(&mut jobs).await, JobStatusStatus::Executing);
     harness.control(job_id, JobControl::Pause).await.unwrap();
     assert_eq!(next_status(&mut jobs).await, JobStatusStatus::Paused);

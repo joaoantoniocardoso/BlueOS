@@ -1,4 +1,8 @@
-//! Settings load at start, persist on update, and publish restart-required fields.
+//! Questions 9-11: how do I define settings and load them at start, persist them, and mark a restart-required field?
+//!
+//! Question 9 is `SettingsCookbookDocument` plus the `.settings(...)` mappings in `build`. Question 10 is
+//! `update_settings_persists_to_disk`, and question 11 is `restart_required_fields` plus its test. The Domain never
+//! touches a file: the Kernel owns settings (D-11). Shared boilerplate: `01-command.rs`.
 
 use core::{convert::Infallible, num::NonZeroU32};
 use std::path::PathBuf;
@@ -16,6 +20,7 @@ struct SettingsCookbookService;
 #[derive(Clone, Default, clap::Args)]
 struct SettingsCookbookArguments;
 
+// The document keeps the Python settings file shape: a `VERSION` field and unknown fields denied (D-11).
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 struct SettingsCookbookDocument {
@@ -42,6 +47,8 @@ impl SettingsSchema for SettingsCookbookDocument {
         Ok(())
     }
 
+    // Constant list of fields the running process cannot apply live; the Kernel diffs them against the saved
+    // document and publishes the pending ones in the `settings` State (D-11).
     fn restart_required_fields() -> &'static [&'static str] {
         &["restart_field"]
     }
@@ -77,6 +84,9 @@ impl Service for SettingsCookbookService {
         Ok(ServiceBuilder::new(SettingsCookbookSnapshot {
             settings: SettingsCookbookDocument::default(),
         })
+        // Three mappings and nothing else (D-11): document into Snapshot, Snapshot into document, document into the
+        // update Request. The Kernel loads, validates `VERSION`, persists atomically and publishes; `UpdateSettings`
+        // is declared by it, which is why no `.command` appears here.
         .settings(
             |snapshot: &mut SettingsCookbookSnapshot, settings| snapshot.settings = settings,
             |snapshot: &SettingsCookbookSnapshot| snapshot.settings.clone(),
@@ -120,6 +130,7 @@ impl Domain for SettingsCookbook {
     }
 }
 
+// Persistence is real file IO, so each test gets its own folder instead of sharing state between tests.
 fn temp_settings_parent(label: &str) -> PathBuf {
     std::env::temp_dir().join(format!(
         "cookbook-settings-{}-{}-{}",
@@ -150,6 +161,8 @@ fn envelope_for(document: &SettingsCookbookDocument) -> SettingsEnvelope {
     }
 }
 
+// `Harness::start` passes no settings path, so a settings test builds the ServiceContext itself with one; `context`
+// and `build` still run unchanged.
 async fn start_with_settings_folder(parent: PathBuf) -> Harness<SettingsCookbookService> {
     let _ = std::fs::remove_dir_all(&parent);
     std::fs::create_dir_all(&parent).unwrap();
@@ -171,6 +184,7 @@ async fn start_with_settings_folder(parent: PathBuf) -> Harness<SettingsCookbook
 async fn settings_load_at_start() {
     let parent = temp_settings_parent("load");
     let harness = start_with_settings_folder(parent).await;
+    // No Command was sent: the value is the default the Kernel loaded into the Snapshot before the first Command.
     let envelope = harness.settings::<SettingsEnvelope>().await.unwrap();
     let document: SettingsCookbookDocument = serde_json::from_str(&envelope.document_json).unwrap();
     assert_eq!(document.live_field, 1);
@@ -186,6 +200,7 @@ async fn update_settings_persists_to_disk() {
         .await
         .unwrap();
     assert!(ack.accepted);
+    // Reading the file back, not the State, proves the Kernel persisted what it acked (D-11).
     let on_disk_path = parent.join(format!(
         "{}/{}",
         SettingsCookbookService::NAME,
@@ -205,6 +220,7 @@ async fn restart_required_field_is_published() {
         .send("UpdateSettings", &envelope_for(&updated))
         .await
         .unwrap();
+    // Only `restart_field` changed, so only it is reported as pending.
     let envelope = harness.settings::<SettingsEnvelope>().await.unwrap();
     assert_eq!(envelope.fields.len(), 1);
     assert_eq!(envelope.fields[0].path, "restart_field");

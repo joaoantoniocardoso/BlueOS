@@ -1,4 +1,5 @@
-//! Parses [`README.md`](../README.md) and checks every P4.3 row against disk and naming rules.
+//! Guards the question index in [`README.md`](../README.md): rows are numbered from 1 without gaps, every entry file
+//! exists, and each cookbook file is named after the first question it answers. Not a question itself.
 
 use std::{collections::BTreeMap, path::PathBuf};
 

@@ -1,4 +1,7 @@
-//! A supervised Task runs beside the Inbox and stops on service shutdown.
+//! Question 27: how do I run a long-lived background task?
+//!
+//! The answer is the `.task(...)` call in `build`: a named, supervised Task with a restart policy, which feeds the
+//! Domain through its `CommandSender` (D-27). The test proves the Kernel started it beside the Inbox.
 
 use core::{convert::Infallible, time::Duration};
 
@@ -41,12 +44,16 @@ impl Service for TasksCookbookService {
         _context: &(),
     ) -> Result<ServiceBuilder<TasksCookbook>, ServiceError> {
         Ok(ServiceBuilder::new(TasksCookbookSnapshot::default())
+            // The Kernel owns the handle and the shutdown token, so nothing is a detached `tokio::spawn` (D-27).
+            // `Never` suits a one-shot Task; a resource-owning loop would use `Always` with a backoff.
             .task("worker", RestartPolicy::Never, |task_context| async move {
+                // A Task changes state only by sending a Command; it never touches the Snapshot.
                 task_context
                     .commands
                     .send(Command::Request(TasksCookbookRequest::MarkReady))
                     .await
                     .expect("the Inbox accepts the ready Command");
+                // A well-behaved Task returns when the Kernel cancels it, in the shutdown order of D-04.
                 task_context.shutdown.cancelled().await;
                 Ok(())
             })
@@ -99,6 +106,7 @@ async fn a_supervised_task_sends_commands_while_the_kernel_runs() {
     let harness = Harness::<TasksCookbookService>::start(TasksCookbookArguments)
         .await
         .unwrap();
+    // Advancing the paused clock lets the spawned Task run; the State shows its Command reached the Domain.
     tokio::time::advance(Duration::from_secs(1)).await;
     assert_eq!(
         harness.state::<LevelResponse>("ready").await.unwrap().level,

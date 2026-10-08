@@ -1,4 +1,7 @@
-//! `on_shutdown` runs when the Kernel stops.
+//! Question 31: how do I clean up at shutdown?
+//!
+//! The answer is `.on_shutdown(...)` in `build`, the `Cleanup` arm of `Domain::handle`, and the test at the bottom.
+//! Shared boilerplate is explained in `01-command.rs`.
 
 use core::{
     convert::Infallible,
@@ -12,6 +15,8 @@ use blueos_service::{
     Kernel, RunOutcome, Service, ServiceBuilder, ServiceContext, ServiceError, testing::PausedClock,
 };
 
+// A process global only because the test must observe the Domain from outside the Kernel; a real Service reads its
+// Snapshot or its Context instead.
 static CLEANED_UP: AtomicBool = AtomicBool::new(false);
 
 struct ShutdownCookbookService;
@@ -46,6 +51,8 @@ impl Service for ShutdownCookbookService {
         _service: &ServiceContext<ShutdownCookbookArguments>,
         _context: &(),
     ) -> Result<ServiceBuilder<ShutdownCookbook>, ServiceError> {
+        // Cleanup is a Request like any other, queued as the Kernel's last Command (D-25), so it runs in the Domain
+        // with the Snapshot and stays sans-IO (D-03). The Kernel then drains in-flight IO and joins Tasks.
         Ok(ServiceBuilder::new(ShutdownCookbookSnapshot::default())
             .on_shutdown(ShutdownCookbookRequest::Cleanup))
     }
@@ -94,6 +101,7 @@ async fn on_shutdown_marks_cleanup_in_the_snapshot() {
         &(),
     )
     .unwrap();
+    // `Harness` has no shutdown trigger, so the test drives the Kernel directly to be able to stop it.
     let shutdown = builder.shutdown_handle();
     let backend: std::sync::Arc<dyn CommsBackend> = std::sync::Arc::new(ChannelBackend::default());
     let kernel = Kernel::start(
@@ -109,6 +117,7 @@ async fn on_shutdown_marks_cleanup_in_the_snapshot() {
     tokio::time::advance(Duration::from_millis(1)).await;
     shutdown.trigger();
     tokio::time::advance(Duration::from_secs(5)).await;
+    // Proof: the Domain ran the cleanup Request and the Kernel then reported a clean stop.
     assert!(CLEANED_UP.load(Ordering::SeqCst));
     assert_eq!(
         tokio::time::timeout(Duration::from_secs(1), run)

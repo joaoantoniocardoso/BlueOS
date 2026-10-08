@@ -1,4 +1,8 @@
-//! Call another service's Command through the shared Session.
+//! Question 26: how do I call another service's Command?
+//!
+//! The answer is the `call_remote` Task in `CallerCookbookService::build`: it queries `command_key(service, name)`
+//! on the Session in its task context, then reports the outcome to its own Domain as an Observed fact (D-10, D-27).
+//! The target service is an ordinary Command service (see `01-command.rs`).
 
 use core::{convert::Infallible, time::Duration};
 use std::sync::Arc;
@@ -121,11 +125,14 @@ impl Service for CallerCookbookService {
         _service: &ServiceContext<CallerCookbookArguments>,
         _context: &(),
     ) -> Result<ServiceBuilder<CallerCookbook>, ServiceError> {
+        // The call is a Task because it is IO that outlives one Command; the Domain stays sans-IO (D-03, D-27).
+        // `Never` restarts: the call is one-shot, and failing it is visible as a Task failure.
         Ok(ServiceBuilder::new(CallerCookbookSnapshot::default())
             .task(
                 "call_remote",
                 RestartPolicy::Never,
                 |task_context| async move {
+                    // The wire form of a Command: a CDR body plus the client-generated Job id as the attachment (D-10).
                     let body = QueryBody::new(
                         SetLevelGoal { level: 12 }
                             .encode()
@@ -150,6 +157,8 @@ impl Service for CallerCookbookService {
                     if !ack.accepted {
                         return Err(TaskFailed);
                     }
+                    // The Domain never sees the reply, only the fact that the remote accepted, so a dropped
+                    // reply cannot corrupt the Snapshot (D-27).
                     task_context
                         .commands
                         .send(Command::ObservedFact(CallerCookbookObserved::RemoteApplied))
@@ -205,6 +214,7 @@ impl Domain for CallerCookbook {
 #[tokio::test(start_paused = true)]
 async fn a_task_calls_another_services_command_through_the_session() {
     let backend: Arc<dyn CommsBackend> = Arc::new(ChannelBackend::default());
+    // Both services share one backbone, as two processes share one Zenoh router.
     let target =
         Harness::<TargetCookbookService>::start_on(Arc::clone(&backend), TargetCookbookArguments)
             .await
@@ -215,6 +225,7 @@ async fn a_task_calls_another_services_command_through_the_session() {
 
     tokio::time::advance(Duration::from_secs(1)).await;
 
+    // The proof has two sides: the target applied the Command, and the caller recorded the accepted ack.
     assert_eq!(
         target.state::<LevelResponse>("gauge").await.unwrap().level,
         12

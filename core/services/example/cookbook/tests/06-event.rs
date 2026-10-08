@@ -1,4 +1,8 @@
-//! Emit a public Event after a Command is acknowledged.
+//! Question 6: how do I emit an Event?
+//!
+//! The answer is in two places: `Outcome::Applied { events }` in `handle` (the Domain says what happened) and the
+//! `.event(...)` declaration in `build` (which domain events become a public Message). Shared boilerplate:
+//! `01-command.rs`.
 
 use core::{convert::Infallible, time::Duration};
 
@@ -49,6 +53,8 @@ impl Service for EventCookbookService {
             .command("SetLevel", |request: SetLevelGoal| {
                 Ok(EventCookbookRequest::SetLevel(request.level))
             })
+            // An Event endpoint maps a domain event to a Message, or to `None` to keep it private (D-26, see
+            // `07-private-domain-event.rs`). Unlike a State it carries a change, not the current value.
             .event("LevelChanged", |event: &EventCookbookEvent| match event {
                 EventCookbookEvent::LevelChanged(level) => Some(LevelResponse {
                     level: *level,
@@ -76,6 +82,7 @@ impl Domain for EventCookbook {
         let Command::Request(EventCookbookRequest::SetLevel(level)) = command;
         snapshot.level = level;
         Outcome::Applied {
+            // The Domain only returns the event; the Kernel publishes it after the Command is applied (D-04).
             events: vec![EventCookbookEvent::LevelChanged(level)],
             effects: Vec::new(),
         }
@@ -94,6 +101,7 @@ async fn event_arrives_after_the_ack() {
     let harness = Harness::<EventCookbookService>::start(EventCookbookArguments)
         .await
         .unwrap();
+    // Subscribe before sending: an Event is not retained, so a late subscriber would miss it.
     let mut events = harness
         .backend()
         .subscribe(&event_key(EventCookbookService::NAME, "LevelChanged"))
@@ -104,6 +112,7 @@ async fn event_arrives_after_the_ack() {
         .await
         .unwrap();
     assert!(ack.accepted);
+    // The ack means the Command was applied; the Event follows it on the bus, hence the bounded wait.
     let sample = timeout(Duration::from_secs(10), events.recv())
         .await
         .unwrap()
