@@ -117,11 +117,31 @@ class FakeImages:
         return [FakeImage(image=image_name, tags=["master"])]
 
 
+class FakeApi:
+    """Mocks the low level "APIClient" class from docker-py, as exposed by DockerClient.api"""
+
+    def __init__(self, client: "FakeClient") -> None:
+        self.client = client
+
+    @staticmethod
+    def create_host_config(**kwargs: Any) -> Dict[str, Any]:
+        return kwargs
+
+    def create_container(self, image: str, name: str = "", **kwargs: Any) -> Dict[str, str]:
+        self.client.containers.run(image, name=name, **kwargs)
+        return {"Id": name}
+
+    @staticmethod
+    def start(_container_id: str) -> None:
+        return
+
+
 class FakeClient:
     """Mocks a docker-py client for testing purposes"""
 
     def __init__(self) -> None:
         self.containers = FakeContainers([], self)
+        self.api = FakeApi(self)
         self.images = FakeImages()
 
     def set_active_dockers(self, containers: List[FakeContainer]) -> None:
