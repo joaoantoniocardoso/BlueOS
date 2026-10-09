@@ -17,6 +17,7 @@ _STUBBED = (
     "settings",
     "commonwealth",
     "commonwealth.utils",
+    "commonwealth.utils.commands",
     "commonwealth.utils.DHCPServerManager",
     "commonwealth.utils.general",
     "commonwealth.settings",
