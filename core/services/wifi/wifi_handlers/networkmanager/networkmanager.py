@@ -7,6 +7,7 @@ from concurrent.futures import CancelledError
 from typing import Any, List, Optional
 
 import sdbus
+from commonwealth.utils.commands import run_command
 from commonwealth.utils.general import device_id
 from loguru import logger
 from sdbus_async.networkmanager import (
@@ -295,6 +296,8 @@ class NetworkManagerWifi(AbstractWifiManager):
 
     # pylint: disable=too-many-branches
     async def enable_hotspot(self, save_settings: bool = True) -> bool:
+        # A soft-blocked radio (e.g. no wifi country set yet) makes the AP interface fail to come up
+        await asyncio.to_thread(run_command, "sudo rfkill unblock wifi", False)
         if not await self._create_virtual_interface():
             logger.error("Failed to create virtual interface for AP")
             return False
