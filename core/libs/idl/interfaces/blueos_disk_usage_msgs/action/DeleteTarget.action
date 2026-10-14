@@ -1,0 +1,13 @@
+# blueos_disk_usage_msgs/action/DeleteTarget
+# The Job type on blueos/v1/disk_usage/command/DeleteTarget. Rejected when the target is protected,
+# not found, outside root, is already being deleted by another Job.
+# deleted. The Job succeeds once the target is gone.
+
+string target
+---
+# Job result: the target the delete Job executed. Why it failed is the reason of the Job.
+string target
+---
+# Feedback: progress while deleting.
+uint64 entries_removed
+string current_target

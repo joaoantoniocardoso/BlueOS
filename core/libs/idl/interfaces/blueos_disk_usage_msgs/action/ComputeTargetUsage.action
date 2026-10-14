@@ -1,0 +1,18 @@
+# blueos_disk_usage_msgs/action/ComputeTargetUsage
+# The Job type on blueos/v1/disk_usage/command/ComputeTargetUsage: compute disk usage for a target folder recursively.
+
+# Target: the target (file or folder) to inspect.
+string target
+# Depth: the maximum depth to inspect.
+uint8 depth
+# IncludeFiles: whether to include files in the output.
+bool include_files
+# MinSizeBytes: filter out entries smaller than this size (except for the root).
+uint64 min_size_bytes
+---
+# Job result: complete scan.
+blueos_disk_usage_msgs/DiskUsage usage
+---
+# Feedback: progress while scanning.
+uint64 du_lines_parsed
+blueos_disk_usage_msgs/DiskNode[] nodes_added
