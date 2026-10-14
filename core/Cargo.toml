@@ -15,6 +15,8 @@ members = [
     "libs/idl",
     "libs/idl/codegen",
     "libs/tools/rust-style-check",
+    "services/disk_usage/app",
+    "services/disk_usage/logic/api",
     "services/recorder/adapters/mavlink",
     "services/recorder/adapters/mcap",
     "services/recorder/adapters/storage",
@@ -62,6 +64,9 @@ blueos-jobs = { path = "libs/logic/jobs", default-features = false }
 blueos-ros2-names = { path = "libs/logic/ros2-names", default-features = false }
 blueos-service = { path = "libs/app/service", default-features = false }
 blueos-settings = { path = "libs/adapters/settings", default-features = false }
+blueos-disk-usage-api = { path = "services/disk_usage/logic/api", default-features = false }
+blueos-disk-usage-app = { path = "services/disk_usage/app", default-features = false }
+# blueos-disk-usage-domain = { path = "services/disk_usage/domain", default-features = false }
 blueos-recorder-api = { path = "services/recorder/logic/api", default-features = false }
 blueos-recorder-app = { path = "services/recorder/app", default-features = false }
 blueos-recorder-cameras = { path = "services/recorder/logic/cameras", default-features = false }
@@ -81,36 +86,71 @@ blueos-idl-codegen = { path = "libs/idl/codegen", default-features = false }
 bytes = { version = "1.12", default-features = false }
 clap = { version = "4.5", default-features = false }
 convert_case = { version = "0.8", default-features = false }
-criterion = { version = "0.7.0", default-features = false, features = ["cargo_bench_support"] }
-gungraun = { version = "0.20.0", default-features = false, features = ["default"] }
+criterion = { version = "0.7.0", default-features = false, features = [
+    "cargo_bench_support",
+] }
+gungraun = { version = "0.20.0", default-features = false, features = [
+    "default",
+] }
 futures-util = { version = "0.3.32", default-features = false }
 json5 = { version = "0.4", default-features = false }
 mcap = { version = "0.25.0", default-features = false, features = ["lz4"] }
 metrics = { version = "0.24.6", default-features = false }
 prettyplease = { version = "0.2", default-features = false }
 proptest = { version = "1.11.0", default-features = false, features = ["std"] }
-proptest-state-machine = { version = "0.8.0", default-features = false, features = ["std"] }
-proc-macro2 = { version = "1", default-features = false, features = ["span-locations"] }
+proptest-state-machine = { version = "0.8.0", default-features = false, features = [
+    "std",
+] }
+proc-macro2 = { version = "1", default-features = false, features = [
+    "span-locations",
+] }
 quote = { version = "1", default-features = false }
 roslibrust_codegen = { version = "0.26.0", default-features = false }
-serde = { version = "1", default-features = false, features = ["alloc", "derive"] }
+serde = { version = "1", default-features = false, features = [
+    "alloc",
+    "derive",
+] }
 serde_arrays = { version = "0.2", default-features = false }
 serde_json = { version = "1", default-features = false, features = ["std"] }
 sha2 = { version = "0.10", default-features = false }
-syn = { version = "2", default-features = false, features = ["full", "parsing", "printing", "clone-impls", "visit"] }
+syn = { version = "2", default-features = false, features = [
+    "full",
+    "parsing",
+    "printing",
+    "clone-impls",
+    "visit",
+] }
 tempfile = { version = "3", default-features = false }
 thiserror = { version = "2.0.18", default-features = false }
 tokio = { version = "1.53", default-features = false }
 backon = { version = "1.6", default-features = false, features = ["std"] }
-tokio-util = { version = "0.7", default-features = false, features = ["rt", "time"] }
-toml = { version = "1.1", default-features = false, features = ["parse", "serde", "std"] }
+tokio-util = { version = "0.7", default-features = false, features = [
+    "rt",
+    "time",
+] }
+toml = { version = "1.1", default-features = false, features = [
+    "parse",
+    "serde",
+    "std",
+] }
 tracing = { version = "0.1.41", default-features = false }
-tracing-subscriber = { version = "0.3.22", default-features = false, features = ["env-filter", "fmt", "std"] }
+tracing-subscriber = { version = "0.3.22", default-features = false, features = [
+    "env-filter",
+    "fmt",
+    "std",
+] }
 trybuild = { version = "1.0.121", default-features = false }
 walkdir = { version = "2", default-features = false }
-zenoh = { version = "=1.9.0", default-features = false, features = ["shared-memory", "transport_tcp"] }
+zenoh = { version = "=1.9.0", default-features = false, features = [
+    "shared-memory",
+    "transport_tcp",
+] }
 zenoh-keyexpr = { version = "=1.9.0", default-features = false }
-mavlink = { version = "0.18.0", default-features = false, features = ["std", "dialect-ardupilotmega", "mav2-message-extensions"] }
+mavlink = { version = "0.18.0", default-features = false, features = [
+    "std",
+    "dialect-ardupilotmega",
+    "mav2-message-extensions",
+] }
 mavlink-codec = { git = "https://github.com/joaoantoniocardoso/rust-mavlink-codec", rev = "577d04e1a60638b6ccab6729444cdb2e8201d8d8", default-features = false }
 
 [workspace.lints.rust]
