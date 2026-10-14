@@ -1,0 +1,11 @@
+# The endpoints of the disk-usage Service. After changing this file, regenerate with:
+#   cargo run -p blueos-idl-codegen -- --write
+
+service = "disk_usage"
+
+[job]
+ComputeTargetUsage = { type = "blueos_disk_usage_msgs/action/ComputeTargetUsage", nature = { lasting = true, cancellable = true } }
+DeleteTarget = { type = "blueos_disk_usage_msgs/action/DeleteTarget", nature = { lasting = true } }
+
+[state]
+usage = { type = "blueos_disk_usage_msgs/msg/DiskUsage" }
