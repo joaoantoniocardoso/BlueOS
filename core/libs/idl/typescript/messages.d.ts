@@ -1,5 +1,49 @@
 // @generated
 
+export interface ComputeTargetUsageFeedback {
+  du_lines_parsed: number;
+  nodes_added: DiskNode[];
+}
+
+export interface ComputeTargetUsageGoal {
+  target: string;
+  depth: number;
+  include_files: boolean;
+  min_size_bytes: number;
+}
+
+export interface ComputeTargetUsageResult {
+  usage: DiskUsage;
+}
+
+export interface DeleteTargetFeedback {
+  entries_removed: number;
+  current_target: string;
+}
+
+export interface DeleteTargetGoal {
+  target: string;
+}
+
+export interface DeleteTargetResult {
+  target: string;
+}
+
+export interface DiskNode {
+  name: string;
+  path: string;
+  size_bytes: number;
+  is_dir: boolean;
+}
+
+export interface DiskUsage {
+  nodes: DiskNode[];
+  generated_at: Time;
+  depth: number;
+  include_files: boolean;
+  min_size_bytes: number;
+}
+
 export interface SetLevelFeedback {
   level: number;
 }
@@ -299,6 +343,14 @@ export interface Header {
 }
 
 export interface MessageBySchema {
+  "blueos_disk_usage_msgs/action/ComputeTargetUsage_Feedback": ComputeTargetUsageFeedback;
+  "blueos_disk_usage_msgs/action/ComputeTargetUsage_Goal": ComputeTargetUsageGoal;
+  "blueos_disk_usage_msgs/action/ComputeTargetUsage_Result": ComputeTargetUsageResult;
+  "blueos_disk_usage_msgs/action/DeleteTarget_Feedback": DeleteTargetFeedback;
+  "blueos_disk_usage_msgs/action/DeleteTarget_Goal": DeleteTargetGoal;
+  "blueos_disk_usage_msgs/action/DeleteTarget_Result": DeleteTargetResult;
+  "blueos_disk_usage_msgs/msg/DiskNode": DiskNode;
+  "blueos_disk_usage_msgs/msg/DiskUsage": DiskUsage;
   "blueos_example_msgs/action/SetLevel_Feedback": SetLevelFeedback;
   "blueos_example_msgs/action/SetLevel_Goal": SetLevelGoal;
   "blueos_example_msgs/action/SetLevel_Result": SetLevelResult;

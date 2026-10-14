@@ -1,6 +1,69 @@
 // @generated
 proptest! {
     #[test]
+    fn blueos_disk_usage_msgs_disk_node_round_trips(message in blueos_disk_usage_msgs_disk_node_strategy()) {
+        let encoded = message.encode().expect("encode");
+        let decoded = blueos_idl::msg::blueos_disk_usage_msgs::DiskNode::decode(&encoded).expect("decode");
+        prop_assert_eq!(message, decoded);
+    }
+
+    #[test]
+    fn blueos_disk_usage_msgs_compute_target_usage_feedback_round_trips(message in blueos_disk_usage_msgs_compute_target_usage_feedback_strategy()) {
+        let encoded = message.encode().expect("encode");
+        let decoded = blueos_idl::msg::blueos_disk_usage_msgs::ComputeTargetUsageFeedback::decode(&encoded).expect("decode");
+        prop_assert_eq!(message, decoded);
+    }
+
+    #[test]
+    fn blueos_disk_usage_msgs_compute_target_usage_goal_round_trips(message in blueos_disk_usage_msgs_compute_target_usage_goal_strategy()) {
+        let encoded = message.encode().expect("encode");
+        let decoded = blueos_idl::msg::blueos_disk_usage_msgs::ComputeTargetUsageGoal::decode(&encoded).expect("decode");
+        prop_assert_eq!(message, decoded);
+    }
+
+    #[test]
+    fn builtin_interfaces_time_round_trips(message in builtin_interfaces_time_strategy()) {
+        let encoded = message.encode().expect("encode");
+        let decoded = blueos_idl::msg::builtin_interfaces::Time::decode(&encoded).expect("decode");
+        prop_assert_eq!(message, decoded);
+    }
+
+    #[test]
+    fn blueos_disk_usage_msgs_disk_usage_round_trips(message in blueos_disk_usage_msgs_disk_usage_strategy()) {
+        let encoded = message.encode().expect("encode");
+        let decoded = blueos_idl::msg::blueos_disk_usage_msgs::DiskUsage::decode(&encoded).expect("decode");
+        prop_assert_eq!(message, decoded);
+    }
+
+    #[test]
+    fn blueos_disk_usage_msgs_compute_target_usage_result_round_trips(message in blueos_disk_usage_msgs_compute_target_usage_result_strategy()) {
+        let encoded = message.encode().expect("encode");
+        let decoded = blueos_idl::msg::blueos_disk_usage_msgs::ComputeTargetUsageResult::decode(&encoded).expect("decode");
+        prop_assert_eq!(message, decoded);
+    }
+
+    #[test]
+    fn blueos_disk_usage_msgs_delete_target_feedback_round_trips(message in blueos_disk_usage_msgs_delete_target_feedback_strategy()) {
+        let encoded = message.encode().expect("encode");
+        let decoded = blueos_idl::msg::blueos_disk_usage_msgs::DeleteTargetFeedback::decode(&encoded).expect("decode");
+        prop_assert_eq!(message, decoded);
+    }
+
+    #[test]
+    fn blueos_disk_usage_msgs_delete_target_goal_round_trips(message in blueos_disk_usage_msgs_delete_target_goal_strategy()) {
+        let encoded = message.encode().expect("encode");
+        let decoded = blueos_idl::msg::blueos_disk_usage_msgs::DeleteTargetGoal::decode(&encoded).expect("decode");
+        prop_assert_eq!(message, decoded);
+    }
+
+    #[test]
+    fn blueos_disk_usage_msgs_delete_target_result_round_trips(message in blueos_disk_usage_msgs_delete_target_result_strategy()) {
+        let encoded = message.encode().expect("encode");
+        let decoded = blueos_idl::msg::blueos_disk_usage_msgs::DeleteTargetResult::decode(&encoded).expect("decode");
+        prop_assert_eq!(message, decoded);
+    }
+
+    #[test]
     fn blueos_example_msgs_set_level_feedback_round_trips(message in blueos_example_msgs_set_level_feedback_strategy()) {
         let encoded = message.encode().expect("encode");
         let decoded = blueos_idl::msg::blueos_example_msgs::SetLevelFeedback::decode(&encoded).expect("decode");
@@ -326,13 +389,6 @@ proptest! {
     fn blueos_recorder_msgs_recording_contents_round_trips(message in blueos_recorder_msgs_recording_contents_strategy()) {
         let encoded = message.encode().expect("encode");
         let decoded = blueos_idl::msg::blueos_recorder_msgs::RecordingContents::decode(&encoded).expect("decode");
-        prop_assert_eq!(message, decoded);
-    }
-
-    #[test]
-    fn builtin_interfaces_time_round_trips(message in builtin_interfaces_time_strategy()) {
-        let encoded = message.encode().expect("encode");
-        let decoded = blueos_idl::msg::builtin_interfaces::Time::decode(&encoded).expect("decode");
         prop_assert_eq!(message, decoded);
     }
 

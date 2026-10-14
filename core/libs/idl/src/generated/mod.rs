@@ -7,6 +7,30 @@ use crate::message::Message;
 /// ROS 2 `.msg` text of any IDL message, keyed by its `SCHEMA_NAME`.
 pub fn schema(schema_name: &str) -> Option<&'static str> {
     match schema_name {
+        "blueos_disk_usage_msgs/action/ComputeTargetUsage_Feedback" => {
+            Some(msg::blueos_disk_usage_msgs::ComputeTargetUsageFeedback::SCHEMA)
+        }
+        "blueos_disk_usage_msgs/action/ComputeTargetUsage_Goal" => {
+            Some(msg::blueos_disk_usage_msgs::ComputeTargetUsageGoal::SCHEMA)
+        }
+        "blueos_disk_usage_msgs/action/ComputeTargetUsage_Result" => {
+            Some(msg::blueos_disk_usage_msgs::ComputeTargetUsageResult::SCHEMA)
+        }
+        "blueos_disk_usage_msgs/action/DeleteTarget_Feedback" => {
+            Some(msg::blueos_disk_usage_msgs::DeleteTargetFeedback::SCHEMA)
+        }
+        "blueos_disk_usage_msgs/action/DeleteTarget_Goal" => {
+            Some(msg::blueos_disk_usage_msgs::DeleteTargetGoal::SCHEMA)
+        }
+        "blueos_disk_usage_msgs/action/DeleteTarget_Result" => {
+            Some(msg::blueos_disk_usage_msgs::DeleteTargetResult::SCHEMA)
+        }
+        "blueos_disk_usage_msgs/msg/DiskNode" => {
+            Some(msg::blueos_disk_usage_msgs::DiskNode::SCHEMA)
+        }
+        "blueos_disk_usage_msgs/msg/DiskUsage" => {
+            Some(msg::blueos_disk_usage_msgs::DiskUsage::SCHEMA)
+        }
         "blueos_example_msgs/action/SetLevel_Feedback" => {
             Some(msg::blueos_example_msgs::SetLevelFeedback::SCHEMA)
         }
@@ -133,6 +157,12 @@ pub fn schema(schema_name: &str) -> Option<&'static str> {
         "foxglove_msgs/msg/Log" => Some(msg::foxglove_msgs::Log::SCHEMA),
         "std_msgs/msg/Empty" => Some(msg::std_msgs::Empty::SCHEMA),
         "std_msgs/msg/Header" => Some(msg::std_msgs::Header::SCHEMA),
+        "blueos_disk_usage_msgs/action/ComputeTargetUsage" => Some(
+            "# blueos_disk_usage_msgs/action/ComputeTargetUsage\n# The Job type on blueos/v1/disk_usage/command/ComputeTargetUsage: compute disk usage for a target folder recursively.\n\n# Target: the target (file or folder) to inspect.\nstring target\n# Depth: the maximum depth to inspect.\nuint8 depth\n# IncludeFiles: whether to include files in the output.\nbool include_files\n# MinSizeBytes: filter out entries smaller than this size (except for the root).\nuint64 min_size_bytes\n---\n# Job result: complete scan.\nblueos_disk_usage_msgs/DiskUsage usage\n---\n# Feedback: progress while scanning.\nuint64 du_lines_parsed\nblueos_disk_usage_msgs/DiskNode[] nodes_added\n================================================================================\nMSG: blueos_disk_usage_msgs/DiskNode\n# blueos_disk_usage_msgs/msg/DiskNode\n# One file or directory in a usage tree.\n\nstring name\nstring path\nuint64 size_bytes\nbool is_dir\n================================================================================\nMSG: builtin_interfaces/Time\n# This message communicates ROS Time defined here:\n# https://design.ros2.org/articles/clock_and_time.html\n\n# The seconds component, valid over all int32 values.\nint32 sec\n\n# The nanoseconds component, valid in the range [0, 1e9).\nuint32 nanosec\n================================================================================\nMSG: blueos_disk_usage_msgs/DiskUsage\n# blueos_disk_usage_msgs/msg/DiskUsage\n# Result of a usage scan: flat nodes list plus the parameters that produced it.\n\nblueos_disk_usage_msgs/DiskNode[] nodes\nbuiltin_interfaces/Time generated_at\nuint8 depth\nbool include_files\nuint64 min_size_bytes",
+        ),
+        "blueos_disk_usage_msgs/action/DeleteTarget" => Some(
+            "# blueos_disk_usage_msgs/action/DeleteTarget\n# The Job type on blueos/v1/disk_usage/command/DeleteTarget. Rejected when the target is protected,\n# not found, outside root, is already being deleted by another Job.\n# deleted. The Job succeeds once the target is gone.\n\nstring target\n---\n# Job result: the target the delete Job executed. Why it failed is the reason of the Job.\nstring target\n---\n# Feedback: progress while deleting.\nuint64 entries_removed\nstring current_target",
+        ),
         "blueos_example_msgs/action/SetLevel" => Some(
             "# blueos_example_msgs/action/SetLevel\n# The Job type on blueos/v1/example/command/SetLevel: the pump moves to a level one step at a time.\n\n# Goal: the level to reach, at most PumpState.max_level.\nuint8 level\n---\n# Job result: the level the pump reached.\nuint8 level\n---\n# Feedback: the level the pump is at.\nuint8 level",
         ),

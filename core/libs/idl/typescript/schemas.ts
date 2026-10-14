@@ -1,5 +1,104 @@
 // @generated
 export const SCHEMAS: Record<string, string> = {
+  "blueos_disk_usage_msgs/action/ComputeTargetUsage_Feedback": `# Feedback: progress while scanning.
+uint64 du_lines_parsed
+blueos_disk_usage_msgs/DiskNode[] nodes_added
+================================================================================
+MSG: blueos_disk_usage_msgs/DiskNode
+# blueos_disk_usage_msgs/msg/DiskNode
+# One file or directory in a usage tree.
+
+string name
+string path
+uint64 size_bytes
+bool is_dir`,
+  "blueos_disk_usage_msgs/action/ComputeTargetUsage_Goal": `# blueos_disk_usage_msgs/action/ComputeTargetUsage
+# The Job type on blueos/v1/disk_usage/command/ComputeTargetUsage: compute disk usage for a target folder recursively.
+
+# Target: the target (file or folder) to inspect.
+string target
+# Depth: the maximum depth to inspect.
+uint8 depth
+# IncludeFiles: whether to include files in the output.
+bool include_files
+# MinSizeBytes: filter out entries smaller than this size (except for the root).
+uint64 min_size_bytes`,
+  "blueos_disk_usage_msgs/action/ComputeTargetUsage_Result": `# Job result: complete scan.
+blueos_disk_usage_msgs/DiskUsage usage
+================================================================================
+MSG: blueos_disk_usage_msgs/DiskNode
+# blueos_disk_usage_msgs/msg/DiskNode
+# One file or directory in a usage tree.
+
+string name
+string path
+uint64 size_bytes
+bool is_dir
+================================================================================
+MSG: builtin_interfaces/Time
+# This message communicates ROS Time defined here:
+# https://design.ros2.org/articles/clock_and_time.html
+
+# The seconds component, valid over all int32 values.
+int32 sec
+
+# The nanoseconds component, valid in the range [0, 1e9).
+uint32 nanosec
+================================================================================
+MSG: blueos_disk_usage_msgs/DiskUsage
+# blueos_disk_usage_msgs/msg/DiskUsage
+# Result of a usage scan: flat nodes list plus the parameters that produced it.
+
+blueos_disk_usage_msgs/DiskNode[] nodes
+builtin_interfaces/Time generated_at
+uint8 depth
+bool include_files
+uint64 min_size_bytes`,
+  "blueos_disk_usage_msgs/action/DeleteTarget_Feedback": `# Feedback: progress while deleting.
+uint64 entries_removed
+string current_target`,
+  "blueos_disk_usage_msgs/action/DeleteTarget_Goal": `# blueos_disk_usage_msgs/action/DeleteTarget
+# The Job type on blueos/v1/disk_usage/command/DeleteTarget. Rejected when the target is protected,
+# not found, outside root, is already being deleted by another Job.
+# deleted. The Job succeeds once the target is gone.
+
+string target`,
+  "blueos_disk_usage_msgs/action/DeleteTarget_Result": `# Job result: the target the delete Job executed. Why it failed is the reason of the Job.
+string target`,
+  "blueos_disk_usage_msgs/msg/DiskNode": `# blueos_disk_usage_msgs/msg/DiskNode
+# One file or directory in a usage tree.
+
+string name
+string path
+uint64 size_bytes
+bool is_dir`,
+  "blueos_disk_usage_msgs/msg/DiskUsage": `# blueos_disk_usage_msgs/msg/DiskUsage
+# Result of a usage scan: flat nodes list plus the parameters that produced it.
+
+blueos_disk_usage_msgs/DiskNode[] nodes
+builtin_interfaces/Time generated_at
+uint8 depth
+bool include_files
+uint64 min_size_bytes
+================================================================================
+MSG: blueos_disk_usage_msgs/DiskNode
+# blueos_disk_usage_msgs/msg/DiskNode
+# One file or directory in a usage tree.
+
+string name
+string path
+uint64 size_bytes
+bool is_dir
+================================================================================
+MSG: builtin_interfaces/Time
+# This message communicates ROS Time defined here:
+# https://design.ros2.org/articles/clock_and_time.html
+
+# The seconds component, valid over all int32 values.
+int32 sec
+
+# The nanoseconds component, valid in the range [0, 1e9).
+uint32 nanosec`,
   "blueos_example_msgs/action/SetLevel_Feedback": `# Feedback: the level the pump is at.
 uint8 level`,
   "blueos_example_msgs/action/SetLevel_Goal": `# blueos_example_msgs/action/SetLevel

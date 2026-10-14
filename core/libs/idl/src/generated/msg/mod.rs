@@ -1,4 +1,5 @@
 #![expect(missing_docs, reason = "generated from ROS .msg sources")]
+pub mod blueos_disk_usage_msgs;
 pub mod blueos_example_msgs;
 pub mod blueos_msgs;
 pub mod blueos_recorder_msgs;
