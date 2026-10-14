@@ -6,6 +6,60 @@ use blueos_idl::Message;
 use super::cdr_proptest_helpers::{bounded_bytes, bounded_string, bounded_vec};
 
 prop_compose! {
+    pub(crate) fn blueos_disk_usage_msgs_disk_node_strategy()(name in bounded_string(), path in bounded_string(), size_bytes in any::<u64>(), is_dir in any::<bool>()) -> blueos_idl::msg::blueos_disk_usage_msgs::DiskNode {
+        blueos_idl::msg::blueos_disk_usage_msgs::DiskNode { name, path, size_bytes, is_dir }
+    }
+}
+
+prop_compose! {
+    pub(crate) fn blueos_disk_usage_msgs_compute_target_usage_feedback_strategy()(du_lines_parsed in any::<u64>(), nodes_added in bounded_vec(blueos_disk_usage_msgs_disk_node_strategy())) -> blueos_idl::msg::blueos_disk_usage_msgs::ComputeTargetUsageFeedback {
+        blueos_idl::msg::blueos_disk_usage_msgs::ComputeTargetUsageFeedback { du_lines_parsed, nodes_added }
+    }
+}
+
+prop_compose! {
+    pub(crate) fn blueos_disk_usage_msgs_compute_target_usage_goal_strategy()(target in bounded_string(), depth in any::<u8>(), include_files in any::<bool>(), min_size_bytes in any::<u64>()) -> blueos_idl::msg::blueos_disk_usage_msgs::ComputeTargetUsageGoal {
+        blueos_idl::msg::blueos_disk_usage_msgs::ComputeTargetUsageGoal { target, depth, include_files, min_size_bytes }
+    }
+}
+
+prop_compose! {
+    pub(crate) fn builtin_interfaces_time_strategy()(sec in any::<i32>(), nanosec in any::<u32>()) -> blueos_idl::msg::builtin_interfaces::Time {
+        blueos_idl::msg::builtin_interfaces::Time { sec, nanosec }
+    }
+}
+
+prop_compose! {
+    pub(crate) fn blueos_disk_usage_msgs_disk_usage_strategy()(nodes in bounded_vec(blueos_disk_usage_msgs_disk_node_strategy()), generated_at in builtin_interfaces_time_strategy(), depth in any::<u8>(), include_files in any::<bool>(), min_size_bytes in any::<u64>()) -> blueos_idl::msg::blueos_disk_usage_msgs::DiskUsage {
+        blueos_idl::msg::blueos_disk_usage_msgs::DiskUsage { nodes, generated_at, depth, include_files, min_size_bytes }
+    }
+}
+
+prop_compose! {
+    pub(crate) fn blueos_disk_usage_msgs_compute_target_usage_result_strategy()(usage in blueos_disk_usage_msgs_disk_usage_strategy()) -> blueos_idl::msg::blueos_disk_usage_msgs::ComputeTargetUsageResult {
+        blueos_idl::msg::blueos_disk_usage_msgs::ComputeTargetUsageResult { usage }
+    }
+}
+
+prop_compose! {
+    pub(crate) fn blueos_disk_usage_msgs_delete_target_feedback_strategy()(entries_removed in any::<u64>(), current_target in bounded_string()) -> blueos_idl::msg::blueos_disk_usage_msgs::DeleteTargetFeedback {
+        blueos_idl::msg::blueos_disk_usage_msgs::DeleteTargetFeedback { entries_removed, current_target }
+    }
+}
+
+prop_compose! {
+    pub(crate) fn blueos_disk_usage_msgs_delete_target_goal_strategy()(target in bounded_string()) -> blueos_idl::msg::blueos_disk_usage_msgs::DeleteTargetGoal {
+        blueos_idl::msg::blueos_disk_usage_msgs::DeleteTargetGoal { target }
+    }
+}
+
+prop_compose! {
+    pub(crate) fn blueos_disk_usage_msgs_delete_target_result_strategy()(target in bounded_string()) -> blueos_idl::msg::blueos_disk_usage_msgs::DeleteTargetResult {
+        blueos_idl::msg::blueos_disk_usage_msgs::DeleteTargetResult { target }
+    }
+}
+
+prop_compose! {
     pub(crate) fn blueos_example_msgs_set_level_feedback_strategy()(level in any::<u8>()) -> blueos_idl::msg::blueos_example_msgs::SetLevelFeedback {
         blueos_idl::msg::blueos_example_msgs::SetLevelFeedback { level }
     }
@@ -272,12 +326,6 @@ prop_compose! {
 prop_compose! {
     pub(crate) fn blueos_recorder_msgs_recording_contents_strategy()(path in bounded_string(), duration in builtin_interfaces_duration_strategy(), video_topics in bounded_vec(bounded_string()), other_topic_count in any::<u32>()) -> blueos_idl::msg::blueos_recorder_msgs::RecordingContents {
         blueos_idl::msg::blueos_recorder_msgs::RecordingContents { path, duration, video_topics, other_topic_count }
-    }
-}
-
-prop_compose! {
-    pub(crate) fn builtin_interfaces_time_strategy()(sec in any::<i32>(), nanosec in any::<u32>()) -> blueos_idl::msg::builtin_interfaces::Time {
-        blueos_idl::msg::builtin_interfaces::Time { sec, nanosec }
     }
 }
 

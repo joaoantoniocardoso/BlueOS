@@ -3,6 +3,14 @@ use blueos_idl::Message;
 
 pub(crate) fn encode_default(schema_name: &str) -> Option<Vec<u8>> {
     match schema_name {
+        "blueos_disk_usage_msgs/action/ComputeTargetUsage_Feedback" => blueos_idl::msg::blueos_disk_usage_msgs::ComputeTargetUsageFeedback::default().encode().ok(),
+        "blueos_disk_usage_msgs/action/ComputeTargetUsage_Goal" => blueos_idl::msg::blueos_disk_usage_msgs::ComputeTargetUsageGoal::default().encode().ok(),
+        "blueos_disk_usage_msgs/action/ComputeTargetUsage_Result" => blueos_idl::msg::blueos_disk_usage_msgs::ComputeTargetUsageResult::default().encode().ok(),
+        "blueos_disk_usage_msgs/action/DeleteTarget_Feedback" => blueos_idl::msg::blueos_disk_usage_msgs::DeleteTargetFeedback::default().encode().ok(),
+        "blueos_disk_usage_msgs/action/DeleteTarget_Goal" => blueos_idl::msg::blueos_disk_usage_msgs::DeleteTargetGoal::default().encode().ok(),
+        "blueos_disk_usage_msgs/action/DeleteTarget_Result" => blueos_idl::msg::blueos_disk_usage_msgs::DeleteTargetResult::default().encode().ok(),
+        "blueos_disk_usage_msgs/msg/DiskNode" => blueos_idl::msg::blueos_disk_usage_msgs::DiskNode::default().encode().ok(),
+        "blueos_disk_usage_msgs/msg/DiskUsage" => blueos_idl::msg::blueos_disk_usage_msgs::DiskUsage::default().encode().ok(),
         "blueos_example_msgs/action/SetLevel_Feedback" => blueos_idl::msg::blueos_example_msgs::SetLevelFeedback::default().encode().ok(),
         "blueos_example_msgs/action/SetLevel_Goal" => blueos_idl::msg::blueos_example_msgs::SetLevelGoal::default().encode().ok(),
         "blueos_example_msgs/action/SetLevel_Result" => blueos_idl::msg::blueos_example_msgs::SetLevelResult::default().encode().ok(),
@@ -67,6 +75,14 @@ pub(crate) fn encode_default(schema_name: &str) -> Option<Vec<u8>> {
 
 pub(crate) fn decode_to_json(schema_name: &str, payload: &[u8]) -> Option<serde_json::Value> {
     match schema_name {
+        "blueos_disk_usage_msgs/action/ComputeTargetUsage_Feedback" => blueos_idl::msg::blueos_disk_usage_msgs::ComputeTargetUsageFeedback::decode(payload).ok().and_then(|message| serde_json::to_value(message).ok()),
+        "blueos_disk_usage_msgs/action/ComputeTargetUsage_Goal" => blueos_idl::msg::blueos_disk_usage_msgs::ComputeTargetUsageGoal::decode(payload).ok().and_then(|message| serde_json::to_value(message).ok()),
+        "blueos_disk_usage_msgs/action/ComputeTargetUsage_Result" => blueos_idl::msg::blueos_disk_usage_msgs::ComputeTargetUsageResult::decode(payload).ok().and_then(|message| serde_json::to_value(message).ok()),
+        "blueos_disk_usage_msgs/action/DeleteTarget_Feedback" => blueos_idl::msg::blueos_disk_usage_msgs::DeleteTargetFeedback::decode(payload).ok().and_then(|message| serde_json::to_value(message).ok()),
+        "blueos_disk_usage_msgs/action/DeleteTarget_Goal" => blueos_idl::msg::blueos_disk_usage_msgs::DeleteTargetGoal::decode(payload).ok().and_then(|message| serde_json::to_value(message).ok()),
+        "blueos_disk_usage_msgs/action/DeleteTarget_Result" => blueos_idl::msg::blueos_disk_usage_msgs::DeleteTargetResult::decode(payload).ok().and_then(|message| serde_json::to_value(message).ok()),
+        "blueos_disk_usage_msgs/msg/DiskNode" => blueos_idl::msg::blueos_disk_usage_msgs::DiskNode::decode(payload).ok().and_then(|message| serde_json::to_value(message).ok()),
+        "blueos_disk_usage_msgs/msg/DiskUsage" => blueos_idl::msg::blueos_disk_usage_msgs::DiskUsage::decode(payload).ok().and_then(|message| serde_json::to_value(message).ok()),
         "blueos_example_msgs/action/SetLevel_Feedback" => blueos_idl::msg::blueos_example_msgs::SetLevelFeedback::decode(payload).ok().and_then(|message| serde_json::to_value(message).ok()),
         "blueos_example_msgs/action/SetLevel_Goal" => blueos_idl::msg::blueos_example_msgs::SetLevelGoal::decode(payload).ok().and_then(|message| serde_json::to_value(message).ok()),
         "blueos_example_msgs/action/SetLevel_Result" => blueos_idl::msg::blueos_example_msgs::SetLevelResult::decode(payload).ok().and_then(|message| serde_json::to_value(message).ok()),
