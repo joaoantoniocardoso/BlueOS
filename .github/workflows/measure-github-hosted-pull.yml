@@ -1,0 +1,198 @@
+name: Measure GitHub-hosted docker pull
+
+on:
+  push:
+    branches:
+      - experiment/github-hosted-pull
+
+jobs:
+  measure-pull:
+    name: pull ${{ matrix.platform }} on ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            platform: linux/amd64
+          - runner: ubuntu-24.04
+            platform: linux/arm/v7
+          - runner: ubuntu-24.04-arm
+            platform: linux/arm64
+    steps:
+      - name: Pull public images and record timings
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          RUNNER_LABEL: ${{ matrix.runner }}
+        run: |
+          python3 - << 'PY'
+          import os
+          import re
+          import subprocess
+          import sys
+          import time
+
+          IMAGES = [
+              "bluerobotics/blueos-core:master",
+              "bluerobotics/blueos-bootstrap:master",
+          ]
+          SIZE_PATTERN = re.compile(r"\d+(?:\.\d+)?\s*(?:[kKMGT]i?B|[kKMG]B)\b")
+
+
+          def emit(text):
+              print(text, flush=True)
+
+
+          def format_seconds(value):
+              if value is None:
+                  return "n/a"
+              return f"{value:.3f}"
+
+
+          def pull_one(image, platform):
+              safe_name = re.sub(r"[^A-Za-z0-9._-]+", "_", f"{image}-{platform}")
+              log_path = f"/tmp/docker-pull-{safe_name}.log"
+              command = [
+                  "docker",
+                  "pull",
+                  "--progress=plain",
+                  "--platform",
+                  platform,
+                  image,
+              ]
+              emit("COMMAND " + " ".join(command))
+              started_at = time.monotonic()
+              process = subprocess.Popen(
+                  command,
+                  stdout=subprocess.PIPE,
+                  stderr=subprocess.STDOUT,
+                  bufsize=0,
+              )
+              events = []
+              pending = b""
+              with open(log_path, "wb") as log_file:
+                  while True:
+                      chunk = process.stdout.read(4096)
+                      if not chunk:
+                          break
+                      log_file.write(chunk)
+                      log_file.flush()
+                      pending += chunk
+                      while True:
+                          split_at = None
+                          for index, byte in enumerate(pending):
+                              if byte in (10, 13):
+                                  split_at = index
+                                  break
+                          if split_at is None:
+                              break
+                          raw_line = pending[:split_at]
+                          pending = pending[split_at + 1 :]
+                          line = raw_line.decode("utf-8", errors="replace").strip()
+                          if not line:
+                              continue
+                          received_at = time.monotonic()
+                          events.append((received_at, line))
+                          emit(f"{received_at - started_at:10.3f} {line}")
+                  if pending.strip():
+                      line = pending.decode("utf-8", errors="replace").strip()
+                      received_at = time.monotonic()
+                      events.append((received_at, line))
+                      emit(f"{received_at - started_at:10.3f} {line}")
+              return_code = process.wait()
+              finished_at = time.monotonic()
+              wall_seconds = finished_at - started_at
+              download_times = [
+                  stamp for stamp, line in events if "Download complete" in line
+              ]
+              status_times = [stamp for stamp, line in events if "Status:" in line]
+              last_download = download_times[-1] if download_times else None
+              status_at = status_times[-1] if status_times else None
+              transfer_seconds = (
+                  last_download - started_at if last_download is not None else None
+              )
+              extract_seconds = (
+                  status_at - last_download
+                  if status_at is not None and last_download is not None
+                  else None
+              )
+              printed_sizes = [line for _, line in events if SIZE_PATTERN.search(line)]
+              printed_size = printed_sizes[-1] if printed_sizes else "not printed"
+              inspect = subprocess.run(
+                  ["docker", "image", "inspect", "--format", "{{.Size}}", image],
+                  check=False,
+                  capture_output=True,
+                  text=True,
+              )
+              inspect_size = (
+                  inspect.stdout.strip() if inspect.returncode == 0 else "unavailable"
+              )
+              emit(
+                  "RESULT "
+                  f"image={image} platform={platform} exit={return_code} "
+                  f"wall_s={format_seconds(wall_seconds)} "
+                  f"transfer_s={format_seconds(transfer_seconds)} "
+                  f"extract_s={format_seconds(extract_seconds)} "
+                  f"download_complete_count={len(download_times)} "
+                  f"printed_size={printed_size} "
+                  f"inspect_size_bytes={inspect_size} "
+                  f"log={log_path}"
+              )
+              summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+              if summary_path:
+                  with open(summary_path, "a", encoding="utf-8") as summary_file:
+                      summary_file.write(
+                          f"| `{image}` | `{platform}` | {format_seconds(wall_seconds)} | "
+                          f"{format_seconds(transfer_seconds)} | {format_seconds(extract_seconds)} | "
+                          f"{printed_size} | {inspect_size} | {return_code} |\n"
+                      )
+              return return_code
+
+
+          def main():
+              platform = os.environ["PLATFORM"]
+              runner_name = os.environ.get("RUNNER_NAME", "")
+              runner_os = os.environ.get("RUNNER_OS", "")
+              runner_arch = os.environ.get("RUNNER_ARCH", "")
+              runner_environment = os.environ.get("RUNNER_ENVIRONMENT", "")
+              uname = subprocess.run(
+                  ["uname", "-m"],
+                  check=True,
+                  capture_output=True,
+                  text=True,
+              )
+              machine = uname.stdout.strip()
+              emit(f"RUNNER_LABEL={os.environ.get('RUNNER_LABEL', '')}")
+              emit(f"RUNNER_NAME={runner_name}")
+              emit(f"RUNNER_OS={runner_os}")
+              emit(f"RUNNER_ARCH={runner_arch}")
+              emit(f"RUNNER_ENVIRONMENT={runner_environment}")
+              emit(f"uname_m={machine}")
+              summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+              if summary_path:
+                  with open(summary_path, "a", encoding="utf-8") as summary_file:
+                      runner_label = os.environ.get("RUNNER_LABEL", "")
+                      summary_file.write(f"## {platform} on {runner_label}\n\n")
+                      summary_file.write(f"- RUNNER_NAME: `{runner_name}`\n")
+                      summary_file.write(f"- RUNNER_OS: `{runner_os}`\n")
+                      summary_file.write(f"- RUNNER_ARCH: `{runner_arch}`\n")
+                      summary_file.write(f"- RUNNER_ENVIRONMENT: `{runner_environment}`\n")
+                      summary_file.write(f"- uname -m: `{machine}`\n\n")
+                      summary_file.write(
+                          "| image | platform | wall_s | transfer_s | extract_s | printed size | inspect bytes | exit |\n"
+                      )
+                      summary_file.write("| --- | --- | --- | --- | --- | --- | --- | --- |\n")
+              failures = []
+              for image in IMAGES:
+                  return_code = pull_one(image, platform)
+                  if return_code != 0:
+                      failures.append(image)
+              if failures:
+                  emit("FAILED " + " ".join(failures))
+                  raise SystemExit(1)
+
+
+          if __name__ == "__main__":
+              main()
+          PY
