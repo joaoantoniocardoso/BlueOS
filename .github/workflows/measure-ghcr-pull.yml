@@ -1,0 +1,619 @@
+name: Measure GHCR pull
+
+on:
+  push:
+    branches:
+      - experiment/ghcr-pull
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  measure:
+    name: ${{ matrix.platform_tag }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            platform: linux/amd64
+            platform_tag: amd64
+          - runner: ubuntu-24.04-arm
+            platform: linux/arm64
+            platform_tag: arm64
+
+    steps:
+      - name: Print runner identity
+        run: |
+          set -euo pipefail
+          echo "RUNNER_NAME=${RUNNER_NAME}"
+          echo "RUNNER_ARCH=${RUNNER_ARCH}"
+          uname -m
+          docker version --format 'docker-server={{.Server.Version}}'
+          df -h /
+
+      - name: Measure Hub and GHCR pulls
+        id: measure
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_ACTOR: ${{ github.actor }}
+          PLATFORM: ${{ matrix.platform }}
+          PLATFORM_TAG: ${{ matrix.platform_tag }}
+          RUNNER_LABEL: ${{ matrix.runner }}
+          PYTHONUNBUFFERED: "1"
+        run: |
+          set -euo pipefail
+          python3 << 'PY'
+          import json
+          import os
+          import re
+          import subprocess
+          import sys
+          import time
+          from concurrent.futures import ThreadPoolExecutor, as_completed
+
+          OWNER = "joaoantoniocardoso"
+          PACKAGE = "blueos-pull-measure"
+          PACKAGE_REF = f"ghcr.io/{OWNER}/{PACKAGE}"
+          IMAGES = (
+              "bluerobotics/blueos-core:master",
+              "bluerobotics/blueos-bootstrap:master",
+          )
+          # Match Docker's default MaxConcurrentDownloads so blob time is comparable to pull transfer time.
+          BLOB_CONCURRENCY = 3
+          MANIFEST_ACCEPT = ", ".join(
+              (
+                  "application/vnd.docker.distribution.manifest.v2+json",
+                  "application/vnd.oci.image.manifest.v1+json",
+                  "application/vnd.docker.distribution.manifest.list.v2+json",
+                  "application/vnd.oci.image.index.v1+json",
+              )
+          )
+          IMAGE_ACCEPT = ", ".join(
+              (
+                  "application/vnd.docker.distribution.manifest.v2+json",
+                  "application/vnd.oci.image.manifest.v1+json",
+              )
+          )
+
+          TOKEN = os.environ["GH_TOKEN"]
+          ACTOR = os.environ["GH_ACTOR"]
+          PLATFORM = os.environ["PLATFORM"]
+          PLATFORM_TAG = os.environ["PLATFORM_TAG"]
+          RUNNER_LABEL = os.environ["RUNNER_LABEL"]
+          RUNNER_NAME = os.environ.get("RUNNER_NAME", "")
+          RUNNER_ARCH = os.environ.get("RUNNER_ARCH", "")
+          UNAME = os.uname().machine
+          WANT_OS, WANT_ARCH = PLATFORM.split("/", 1)
+
+          def redact(text, extra=()):
+              if not text:
+                  return ""
+              redacted = text
+              for secret in (TOKEN, *extra):
+                  if secret:
+                      redacted = redacted.replace(secret, "***")
+              return redacted
+
+          def fail(message):
+              print(f"MEASURE_FAILED {redact(message)}", flush=True)
+              raise SystemExit(1)
+
+          def run(args, **kwargs):
+              print("+ " + " ".join(args), flush=True)
+              completed = subprocess.run(args, **kwargs)
+              if completed.returncode != 0:
+                  detail = ""
+                  if completed.stderr:
+                      detail = " " + redact(completed.stderr.strip())
+                  fail(f"{args[0]} exit {completed.returncode}{detail}")
+              return completed
+
+          def docker_login():
+              print("+ docker login ghcr.io --password-stdin", flush=True)
+              completed = subprocess.run(
+                  ["docker", "login", "ghcr.io", "-u", ACTOR, "--password-stdin"],
+                  input=TOKEN,
+                  text=True,
+                  capture_output=True,
+              )
+              if completed.returncode != 0:
+                  fail(f"docker login exit {completed.returncode} {completed.stderr.strip()}")
+              print(redact(completed.stdout.strip()), flush=True)
+
+          def image_attribute(name, template):
+              completed = subprocess.run(
+                  ["docker", "image", "inspect", "--format", template, name],
+                  text=True,
+                  capture_output=True,
+              )
+              if completed.returncode != 0:
+                  return None
+              return completed.stdout.strip()
+
+          def remove_local(*names):
+              existing = [name for name in names if image_attribute(name, "{{.Id}}")]
+              if not existing:
+                  return
+              run(["docker", "rmi", *existing])
+              for name in names:
+                  if image_attribute(name, "{{.Id}}"):
+                      fail(f"image still present after rmi: {name}")
+
+          def stream_pull(image):
+              started = time.perf_counter()
+              last_download = None
+              status_at = None
+              cache_hit = False
+              proc = subprocess.Popen(
+                  ["docker", "pull", "--progress=plain", image],
+                  stdout=subprocess.PIPE,
+                  stderr=subprocess.STDOUT,
+                  bufsize=0,
+              )
+              pending = b""
+              return_code = 1
+
+              def handle(raw):
+                  nonlocal last_download, status_at, cache_hit
+                  now = time.perf_counter()
+                  text = raw.decode("utf-8", "replace").strip()
+                  if not text:
+                      return
+                  if "Already exists" in text or "up to date" in text.lower():
+                      cache_hit = True
+                      print(text, flush=True)
+                      return
+                  if "Download complete" in text:
+                      last_download = now
+                      print(text, flush=True)
+                  elif text.startswith("Status:"):
+                      status_at = now
+                      print(text, flush=True)
+                  elif any(
+                      marker in text
+                      for marker in (
+                          "Pulling from",
+                          "Pull complete",
+                          "Digest:",
+                          "error",
+                          "Error",
+                          "denied",
+                          "unauthorized",
+                          "manifest unknown",
+                      )
+                  ):
+                      print(text, flush=True)
+
+              try:
+                  assert proc.stdout is not None
+                  while True:
+                      chunk = proc.stdout.read(4096)
+                      if not chunk:
+                          break
+                      pending += chunk
+                      pieces = re.split(br"[\r\n]", pending)
+                      pending = pieces.pop()
+                      for piece in pieces:
+                          handle(piece)
+                  if pending:
+                      handle(pending)
+                  return_code = proc.wait()
+              finally:
+                  if proc.poll() is None:
+                      proc.kill()
+              finished = time.perf_counter()
+              if return_code != 0:
+                  phase = "after-download" if last_download else "before-download"
+                  raise RuntimeError(f"docker pull {image} exit {return_code} {phase}")
+              if cache_hit:
+                  raise RuntimeError(f"docker pull {image} was not cold")
+              if last_download is None or status_at is None:
+                  raise RuntimeError(f"docker pull {image} missing download or status timestamps")
+              wall = finished - started
+              transfer = last_download - started
+              extract = status_at - last_download
+              return wall, transfer, extract
+
+          def pull_cold(image, attempts):
+              for attempt in range(1, attempts + 1):
+                  try:
+                      return stream_pull(image)
+                  except RuntimeError as error:
+                      message = str(error)
+                      print(f"pull attempt {attempt} failed: {redact(message)}", flush=True)
+                      remove_local(image)
+                      subprocess.run(["docker", "image", "prune", "-f"], check=False)
+                      if "before-download" not in message or attempt == attempts:
+                          fail(message)
+                      time.sleep(5)
+
+          def gh_api(method, path, fields=()):
+              args = ["gh", "api", "--method", method, path]
+              for field in fields:
+                  args.extend(["-f", field])
+              print("+ " + " ".join(args), flush=True)
+              return subprocess.run(args, text=True, capture_output=True)
+
+          def set_private():
+              endpoints = (
+                  f"/user/packages/container/{PACKAGE}",
+                  f"/repos/{OWNER}/BlueOS/packages/container/{PACKAGE}",
+              )
+              last_error = "not attempted"
+              for attempt in range(1, 13):
+                  for endpoint in endpoints:
+                      completed = gh_api("PATCH", endpoint, ("visibility=private",))
+                      if completed.returncode == 0:
+                          print(f"VISIBILITY private via {endpoint}", flush=True)
+                          return True
+                      last_error = redact(completed.stderr.strip())[:400]
+                  print(f"private visibility attempt {attempt} failed: {last_error}", flush=True)
+                  time.sleep(5)
+              print(f"VISIBILITY_FAILED package={PACKAGE_REF} {last_error}", flush=True)
+              return False
+
+          def curl_exchange(config, args):
+              completed = subprocess.run(
+                  ["curl", "-sS", "--config", "-", *args],
+                  input=config,
+                  text=True,
+                  capture_output=True,
+              )
+              if completed.returncode != 0:
+                  fail(f"curl exit {completed.returncode} {completed.stderr.strip()}")
+              return completed
+
+          def fetch_registry_token():
+              scope = f"repository:{OWNER}/{PACKAGE}:pull"
+              url = f"https://ghcr.io/token?service=ghcr.io&scope={scope}"
+              config = f'user = "{ACTOR}:{TOKEN}"\n'
+              completed = curl_exchange(config, ["-w", "\n%{http_code}", url])
+              body, _, status = completed.stdout.rpartition("\n")
+              if status.strip() != "200":
+                  fail(f"registry token http {status.strip()}")
+              try:
+                  payload = json.loads(body)
+              except json.JSONDecodeError:
+                  fail("registry token response was not json")
+              registry_token = payload.get("token") or payload.get("access_token")
+              if not registry_token:
+                  fail("registry token missing from response")
+              return registry_token
+
+          def fetch_manifest(registry_token, reference, accept):
+              url = f"https://ghcr.io/v2/{OWNER}/{PACKAGE}/manifests/{reference}"
+              config = (
+                  f'header = "Authorization: Bearer {registry_token}"\n'
+                  f'header = "Accept: {accept}"\n'
+              )
+              path = f"/tmp/ghcr-manifest-{reference.split(':')[-1][:20]}"
+              completed = curl_exchange(
+                  config,
+                  ["-L", "--raw", "-o", path, "-w", "%{http_code}", url],
+              )
+              status = completed.stdout.strip()
+              print(f"MANIFEST ref={reference} http={status}", flush=True)
+              if status != "200":
+                  fail(f"manifest http {status} for {reference}")
+              with open(path, encoding="utf-8") as manifest_file:
+                  document = json.load(manifest_file)
+              os.remove(path)
+              return document
+
+          def layer_specs(registry_token, tag):
+              document = fetch_manifest(registry_token, tag, MANIFEST_ACCEPT)
+              media_type = document.get("mediaType", "")
+              if "manifests" in document and "layers" not in document:
+                  match = None
+                  for entry in document["manifests"]:
+                      entry_platform = entry.get("platform") or {}
+                      if (
+                          entry_platform.get("os") == WANT_OS
+                          and entry_platform.get("architecture") == WANT_ARCH
+                      ):
+                          match = entry["digest"]
+                          break
+                  if match is None:
+                      fail(f"manifest list has no {PLATFORM} entry")
+                  document = fetch_manifest(registry_token, match, IMAGE_ACCEPT)
+                  media_type = document.get("mediaType", media_type)
+              layers = document.get("layers")
+              if not layers:
+                  fail(f"manifest has no layers ({media_type})")
+              specs = []
+              for layer in layers:
+                  digest = layer.get("digest")
+                  size = layer.get("size")
+                  if not digest or size is None:
+                      fail("layer missing digest or size")
+                  specs.append((digest, int(size)))
+              return specs
+
+          def download_blob(registry_token, digest):
+              url = f"https://ghcr.io/v2/{OWNER}/{PACKAGE}/blobs/{digest}"
+              config = f'header = "Authorization: Bearer {registry_token}"\n'
+              completed = subprocess.run(
+                  [
+                      "curl",
+                      "-sS",
+                      "--raw",
+                      "-L",
+                      "--config",
+                      "-",
+                      "-o",
+                      "/dev/null",
+                      "-w",
+                      "%{http_code} %{size_download}",
+                      url,
+                  ],
+                  input=config,
+                  text=True,
+                  capture_output=True,
+              )
+              stderr = redact(completed.stderr.strip(), (registry_token,))
+              if completed.returncode != 0:
+                  return digest, 0, 0, f"curl exit {completed.returncode} {stderr}"
+              parts = completed.stdout.split()
+              if len(parts) != 2:
+                  return digest, 0, 0, "unexpected curl status line"
+              return digest, int(parts[0]), int(parts[1]), ""
+
+          def download_layers(tag):
+              registry_token = fetch_registry_token()
+              specs = layer_specs(registry_token, tag)
+              expected = {digest: size for digest, size in specs}
+              print(
+                  f"BLOB_PLAN tag={tag} layers={len(specs)} expected_bytes={sum(expected.values())}",
+                  flush=True,
+              )
+              started = time.perf_counter()
+              results = []
+              with ThreadPoolExecutor(max_workers=BLOB_CONCURRENCY) as executor:
+                  futures = [
+                      executor.submit(download_blob, registry_token, digest)
+                      for digest, _size in specs
+                  ]
+                  for future in as_completed(futures):
+                      results.append(future.result())
+              elapsed = time.perf_counter() - started
+              total_bytes = 0
+              failed = False
+              for digest, status, size, error in sorted(results):
+                  total_bytes += size
+                  print(
+                      f"BLOB digest={digest} http={status} bytes={size} expected={expected[digest]} {error}".rstrip(),
+                      flush=True,
+                  )
+                  if error or status != 200 or size != expected[digest]:
+                      failed = True
+              if failed:
+                  fail(f"blob download failed for {tag}")
+              return elapsed, total_bytes
+
+          def target_for(image):
+              short = image.split("/", 1)[1].split(":", 1)[0].removeprefix("blueos-")
+              return f"{PACKAGE_REF}:{short}-{PLATFORM_TAG}"
+
+          def fmt(value):
+              return f"{value:.3f}"
+
+          print(
+              f"RUNNER_NAME={RUNNER_NAME} RUNNER_ARCH={RUNNER_ARCH} uname={UNAME} platform={PLATFORM}",
+              flush=True,
+          )
+          docker_login()
+          private_ok = False
+          for image in IMAGES:
+              target = target_for(image)
+              print(f"BEGIN image={image} target={target}", flush=True)
+              hub_wall, hub_transfer, hub_extract = pull_cold(image, 1)
+              actual_platform = image_attribute(image, "{{.Os}}/{{.Architecture}}")
+              if actual_platform != PLATFORM:
+                  fail(f"pulled {actual_platform} for {image}, expected {PLATFORM}")
+              hub_image_id = image_attribute(image, "{{.Id}}")
+              run(["docker", "tag", image, target])
+              pushed = False
+              for attempt in range(1, 4):
+                  print(f"+ docker push {target} attempt {attempt}", flush=True)
+                  completed = subprocess.run(["docker", "push", target])
+                  if completed.returncode == 0:
+                      pushed = True
+                      break
+                  print(f"push attempt {attempt} exit {completed.returncode}", flush=True)
+                  time.sleep(15)
+              if not pushed:
+                  fail(f"docker push failed for {target}")
+              if not private_ok:
+                  private_ok = set_private()
+              remove_local(image, target)
+              ghcr_wall, ghcr_transfer, ghcr_extract = pull_cold(target, 3)
+              ghcr_image_id = image_attribute(target, "{{.Id}}")
+              print(
+                  "PULL_TIMES"
+                  f" image={image}"
+                  f" hub_wall_s={fmt(hub_wall)}"
+                  f" hub_transfer_s={fmt(hub_transfer)}"
+                  f" hub_extract_s={fmt(hub_extract)}"
+                  f" ghcr_wall_s={fmt(ghcr_wall)}"
+                  f" ghcr_transfer_s={fmt(ghcr_transfer)}"
+                  f" ghcr_extract_s={fmt(ghcr_extract)}"
+                  f" hub_image_id={hub_image_id}"
+                  f" ghcr_image_id={ghcr_image_id}",
+                  flush=True,
+              )
+              if ghcr_image_id != hub_image_id:
+                  print(
+                      f"IMAGE_ID_MISMATCH image={image} hub={hub_image_id} ghcr={ghcr_image_id}",
+                      flush=True,
+                  )
+              ghcr_platform = image_attribute(target, "{{.Os}}/{{.Architecture}}")
+              if ghcr_platform != PLATFORM:
+                  fail(f"ghcr pull {target} platform {ghcr_platform}, expected {PLATFORM}")
+              remove_local(target)
+              api_seconds, api_bytes = download_layers(target.rsplit(":", 1)[1])
+              print(
+                  "RESULT"
+                  f" image={image}"
+                  f" platform={PLATFORM}"
+                  f" runner={RUNNER_LABEL}"
+                  f" runner_name={RUNNER_NAME}"
+                  f" runner_arch={RUNNER_ARCH}"
+                  f" uname={UNAME}"
+                  f" hub_wall_s={fmt(hub_wall)}"
+                  f" hub_transfer_s={fmt(hub_transfer)}"
+                  f" hub_extract_s={fmt(hub_extract)}"
+                  f" ghcr_wall_s={fmt(ghcr_wall)}"
+                  f" ghcr_transfer_s={fmt(ghcr_transfer)}"
+                  f" ghcr_extract_s={fmt(ghcr_extract)}"
+                  f" api_blob_s={fmt(api_seconds)}"
+                  f" api_bytes={api_bytes}"
+                  f" image_id={hub_image_id}",
+                  flush=True,
+              )
+          if private_ok:
+              print(f"VISIBILITY_OK package={PACKAGE_REF}", flush=True)
+          else:
+              print(f"VISIBILITY_FAILED package={PACKAGE_REF}", flush=True)
+          PY
+
+      - name: Delete GHCR package versions
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PLATFORM_TAG: ${{ matrix.platform_tag }}
+          MEASURE_OUTCOME: ${{ steps.measure.outcome }}
+        run: |
+          set -euo pipefail
+          python3 << 'PY'
+          import json
+          import os
+          import subprocess
+          import time
+
+          OWNER = "joaoantoniocardoso"
+          PACKAGE = "blueos-pull-measure"
+          PACKAGE_REF = f"ghcr.io/{OWNER}/{PACKAGE}"
+          PLATFORM_TAG = os.environ["PLATFORM_TAG"]
+          MEASURE_OUTCOME = os.environ.get("MEASURE_OUTCOME", "")
+          OUR_TAGS = {f"core-{PLATFORM_TAG}", f"bootstrap-{PLATFORM_TAG}"}
+          TOKEN = os.environ["GH_TOKEN"]
+
+          def redact(text):
+              if not text:
+                  return ""
+              return text.replace(TOKEN, "***")[:500]
+
+          def list_versions():
+              endpoints = (
+                  f"/user/packages/container/{PACKAGE}/versions",
+                  f"/repos/{OWNER}/BlueOS/packages/container/{PACKAGE}/versions",
+              )
+              errors = []
+              found = []
+              seen = set()
+              saw_success = False
+              for endpoint in endpoints:
+                  completed = subprocess.run(
+                      [
+                          "gh",
+                          "api",
+                          "--paginate",
+                          endpoint,
+                          "--jq",
+                          ".[] | {id: .id, tags: (.metadata.container.tags // [])}",
+                      ],
+                      text=True,
+                      capture_output=True,
+                  )
+                  if completed.returncode != 0:
+                      errors.append(f"{endpoint} {redact(completed.stderr.strip())}")
+                      continue
+                  saw_success = True
+                  for line in completed.stdout.splitlines():
+                      line = line.strip()
+                      if not line:
+                          continue
+                      version = json.loads(line)
+                      if version["id"] in seen:
+                          continue
+                      seen.add(version["id"])
+                      found.append((endpoint, version))
+              return found, errors, saw_success
+
+          deadline = time.time() + 60
+          found = []
+          errors = []
+          saw_success = False
+          matched = []
+          while True:
+              found, errors, saw_success = list_versions()
+              matched = []
+              for endpoint, version in found:
+                  overlap = set(version.get("tags") or []) & OUR_TAGS
+                  if overlap:
+                      matched.append((endpoint, version["id"], sorted(overlap)))
+              if matched or time.time() >= deadline:
+                  break
+              print("package versions not listed yet; retrying", flush=True)
+              time.sleep(5)
+
+          listed = [(version["id"], version.get("tags")) for _endpoint, version in found]
+          print(f"listed versions={listed}", flush=True)
+
+          if not saw_success:
+              absent = bool(errors) and all("404" in error or "Not Found" in error for error in errors)
+              if absent and MEASURE_OUTCOME != "success":
+                  print(f"DELETE_OK package={PACKAGE_REF} absent", flush=True)
+                  raise SystemExit(0)
+              print(f"DELETE_FAILED package={PACKAGE_REF}", flush=True)
+              for error in errors:
+                  print(error, flush=True)
+              raise SystemExit(1)
+
+          if not matched:
+              if MEASURE_OUTCOME == "success":
+                  print(f"DELETE_FAILED package={PACKAGE_REF} expected tags missing", flush=True)
+                  raise SystemExit(1)
+              print(f"DELETE_OK package={PACKAGE_REF} no matching versions", flush=True)
+              raise SystemExit(0)
+
+          deleted_tags = set()
+          for endpoint, version_id, tags in matched:
+              delete_path = f"{endpoint}/{version_id}"
+              completed = subprocess.run(
+                  ["gh", "api", "--method", "DELETE", delete_path],
+                  text=True,
+                  capture_output=True,
+              )
+              print(
+                  f"delete version={version_id} tags={','.join(tags)} exit={completed.returncode}",
+                  flush=True,
+              )
+              if completed.returncode != 0 and "404" not in completed.stderr and "Not Found" not in completed.stderr:
+                  print(redact(completed.stderr.strip()), flush=True)
+                  print(f"DELETE_FAILED package={PACKAGE_REF}", flush=True)
+                  raise SystemExit(1)
+              deleted_tags.update(tags)
+
+          found, errors, saw_success = list_versions()
+          remaining = []
+          for _endpoint, version in found:
+              overlap = set(version.get("tags") or []) & OUR_TAGS
+              if overlap:
+                  remaining.append(sorted(overlap))
+          if remaining or not saw_success:
+              print(f"DELETE_FAILED package={PACKAGE_REF} remaining={remaining} errors={errors}", flush=True)
+              raise SystemExit(1)
+          missing = sorted(OUR_TAGS - deleted_tags)
+          if missing and MEASURE_OUTCOME == "success":
+              print(f"DELETE_FAILED package={PACKAGE_REF} missing={','.join(missing)}", flush=True)
+              raise SystemExit(1)
+          print(
+              f"DELETE_OK package={PACKAGE_REF} deleted={','.join(sorted(deleted_tags))}",
+              flush=True,
+          )
+          PY
