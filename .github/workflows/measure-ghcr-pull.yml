@@ -53,6 +53,7 @@ jobs:
           import subprocess
           import sys
           import time
+          from collections import deque
           from concurrent.futures import ThreadPoolExecutor, as_completed
 
           OWNER = "joaoantoniocardoso"
@@ -148,14 +149,18 @@ jobs:
               last_download = None
               status_at = None
               cache_hit = False
+              # docker pull rejects --progress (exit 125). A non-TTY pipe is already
+              # plain "Download complete" / "Status:" output, which is what that flag
+              # would have selected on commands that support it.
               proc = subprocess.Popen(
-                  ["docker", "pull", "--progress=plain", image],
+                  ["docker", "pull", image],
                   stdout=subprocess.PIPE,
                   stderr=subprocess.STDOUT,
                   bufsize=0,
               )
               pending = b""
               return_code = 1
+              recent = deque(maxlen=15)
 
               def handle(raw):
                   nonlocal last_download, status_at, cache_hit
@@ -163,6 +168,7 @@ jobs:
                   text = raw.decode("utf-8", "replace").strip()
                   if not text:
                       return
+                  recent.append(text[:240])
                   if "Already exists" in text or "up to date" in text.lower():
                       cache_hit = True
                       print(text, flush=True)
@@ -208,7 +214,8 @@ jobs:
               finished = time.perf_counter()
               if return_code != 0:
                   phase = "after-download" if last_download else "before-download"
-                  raise RuntimeError(f"docker pull {image} exit {return_code} {phase}")
+                  tail = " ;; ".join(recent)
+                  raise RuntimeError(f"docker pull {image} exit {return_code} {phase} :: {tail}")
               if cache_hit:
                   raise RuntimeError(f"docker pull {image} was not cold")
               if last_download is None or status_at is None:
@@ -410,7 +417,7 @@ jobs:
           for image in IMAGES:
               target = target_for(image)
               print(f"BEGIN image={image} target={target}", flush=True)
-              hub_wall, hub_transfer, hub_extract = pull_cold(image, 1)
+              hub_wall, hub_transfer, hub_extract = pull_cold(image, 3)
               actual_platform = image_attribute(image, "{{.Os}}/{{.Architecture}}")
               if actual_platform != PLATFORM:
                   fail(f"pulled {actual_platform} for {image}, expected {PLATFORM}")
@@ -557,6 +564,8 @@ jobs:
                   if overlap:
                       matched.append((endpoint, version["id"], sorted(overlap)))
               if matched or time.time() >= deadline:
+                  break
+              if not saw_success and MEASURE_OUTCOME != "success":
                   break
               print("package versions not listed yet; retrying", flush=True)
               time.sleep(5)
