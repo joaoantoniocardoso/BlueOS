@@ -50,17 +50,35 @@ jobs:
               return f"{value:.3f}"
 
 
-          def pull_one(image, platform):
+          def docker_pull_supports_progress():
+              help_result = subprocess.run(
+                  ["docker", "pull", "--help"],
+                  check=False,
+                  capture_output=True,
+                  text=True,
+              )
+              help_text = help_result.stdout + help_result.stderr
+              return "--progress" in help_text
+
+
+          def pull_one(image, platform, progress_supported):
               safe_name = re.sub(r"[^A-Za-z0-9._-]+", "_", f"{image}-{platform}")
               log_path = f"/tmp/docker-pull-{safe_name}.log"
-              command = [
-                  "docker",
-                  "pull",
-                  "--progress=plain",
-                  "--platform",
-                  platform,
-                  image,
-              ]
+              command = ["docker", "pull", "--platform", platform, image]
+              if progress_supported:
+                  command = [
+                      "docker",
+                      "pull",
+                      "--progress=plain",
+                      "--platform",
+                      platform,
+                      image,
+                  ]
+              else:
+                  emit(
+                      "NOTE docker pull on this runner has no --progress flag; "
+                      "stdout is not a terminal, so the client prints plain lines"
+                  )
               emit("COMMAND " + " ".join(command))
               started_at = time.monotonic()
               process = subprocess.Popen(
@@ -169,6 +187,16 @@ jobs:
               emit(f"RUNNER_ARCH={runner_arch}")
               emit(f"RUNNER_ENVIRONMENT={runner_environment}")
               emit(f"uname_m={machine}")
+              version = subprocess.run(
+                  ["docker", "version", "--format", "{{.Client.Version}}"],
+                  check=False,
+                  capture_output=True,
+                  text=True,
+              )
+              docker_client = version.stdout.strip() or version.stderr.strip()
+              emit(f"docker_client={docker_client}")
+              progress_supported = docker_pull_supports_progress()
+              emit(f"docker_pull_progress_flag={progress_supported}")
               summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
               if summary_path:
                   with open(summary_path, "a", encoding="utf-8") as summary_file:
@@ -178,14 +206,16 @@ jobs:
                       summary_file.write(f"- RUNNER_OS: `{runner_os}`\n")
                       summary_file.write(f"- RUNNER_ARCH: `{runner_arch}`\n")
                       summary_file.write(f"- RUNNER_ENVIRONMENT: `{runner_environment}`\n")
-                      summary_file.write(f"- uname -m: `{machine}`\n\n")
+                      summary_file.write(f"- uname -m: `{machine}`\n")
+                      summary_file.write(f"- docker client: `{docker_client}`\n")
+                      summary_file.write(f"- docker pull --progress: `{progress_supported}`\n\n")
                       summary_file.write(
                           "| image | platform | wall_s | transfer_s | extract_s | printed size | inspect bytes | exit |\n"
                       )
                       summary_file.write("| --- | --- | --- | --- | --- | --- | --- | --- |\n")
               failures = []
               for image in IMAGES:
-                  return_code = pull_one(image, platform)
+                  return_code = pull_one(image, platform, progress_supported)
                   if return_code != 0:
                       failures.append(image)
               if failures:
