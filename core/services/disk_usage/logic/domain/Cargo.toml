@@ -1,0 +1,17 @@
+[package]
+name = "blueos-disk-usage-domain"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+blueos-domain.workspace = true
+blueos-jobs = { workspace = true, features = ["serde"] }
+thiserror.workspace = true
+serde.workspace = true
+
+[lints]
+workspace = true
+
+[dev-dependencies]
