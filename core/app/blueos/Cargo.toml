@@ -12,10 +12,12 @@ path = "src/main.rs"
 [features]
 example = ["dep:blueos-example-app"]
 recorder = ["blueos-recorder-app"]
+disk-usage = ["blueos-disk-usage-app"]
 
 [dependencies]
 blueos-example-app = { workspace = true, optional = true }
 blueos-recorder-app = { workspace = true, optional = true }
+blueos-disk-usage-app = { workspace = true, optional = true }
 blueos-service.workspace = true
 
 [lints]
