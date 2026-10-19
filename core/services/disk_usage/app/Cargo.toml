@@ -9,8 +9,8 @@ publish.workspace = true
 blueos-idl.workspace = true
 blueos-jobs.workspace = true
 blueos-service.workspace = true
-# blueos-disk-usage-api.workspace = true
-# blueos-disk-usage-domain.workspace = true
+blueos-disk-usage-api.workspace = true
+blueos-disk-usage-domain.workspace = true
 clap = { workspace = true, features = ["derive", "std"] }
 
 [dev-dependencies]
