@@ -9,7 +9,7 @@ use blueos_service::entry::{missing_feature, resolve, usage};
 use crate::multicall::{handle_multicall_reserved, multicall_reserved};
 
 /// Service names that are always recognized, even when their feature is off.
-const KNOWN: &[&str] = &["example", "recorder"];
+const KNOWN: &[&str] = &["example", "recorder", "disk-usage"];
 
 fn main() -> ExitCode {
     let arguments: Vec<OsString> = std::env::args_os().collect();
@@ -19,7 +19,7 @@ fn main() -> ExitCode {
     let Some((name, service_arguments)) = resolve(&arguments) else {
         return usage(KNOWN);
     };
-    #[cfg(not(any(feature = "example", feature = "recorder")))]
+    #[cfg(not(any(feature = "example", feature = "recorder", feature = "disk-usage")))]
     drop(service_arguments);
     match name.as_str() {
         #[cfg(feature = "example")]
@@ -30,6 +30,10 @@ fn main() -> ExitCode {
         "recorder" => {
             blueos_service::entry::run::<blueos_recorder_app::RecorderService>(service_arguments)
         }
+        #[cfg(feature = "disk-usage")]
+        "disk-usage" => blueos_service::entry::run::<
+            blueos_disk_usage_app::service::DiskUsageService,
+        >(service_arguments),
         other if KNOWN.contains(&other) => missing_feature(other),
         _ => usage(KNOWN),
     }
