@@ -17,6 +17,7 @@ members = [
     "libs/tools/rust-style-check",
     "services/disk_usage/app",
     "services/disk_usage/logic/api",
+    "services/disk_usage/logic/domain",
     "services/recorder/adapters/mavlink",
     "services/recorder/adapters/mcap",
     "services/recorder/adapters/storage",
@@ -66,7 +67,7 @@ blueos-service = { path = "libs/app/service", default-features = false }
 blueos-settings = { path = "libs/adapters/settings", default-features = false }
 blueos-disk-usage-api = { path = "services/disk_usage/logic/api", default-features = false }
 blueos-disk-usage-app = { path = "services/disk_usage/app", default-features = false }
-# blueos-disk-usage-domain = { path = "services/disk_usage/logic/domain", default-features = false }
+blueos-disk-usage-domain = { path = "services/disk_usage/logic/domain", default-features = false }
 blueos-recorder-api = { path = "services/recorder/logic/api", default-features = false }
 blueos-recorder-app = { path = "services/recorder/app", default-features = false }
 blueos-recorder-cameras = { path = "services/recorder/logic/cameras", default-features = false }

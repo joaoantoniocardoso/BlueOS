@@ -309,6 +309,7 @@ dependencies = [
  "blueos-api",
  "blueos-comms",
  "blueos-disk-usage-api",
+ "blueos-disk-usage-domain",
  "blueos-domain",
  "blueos-idl",
  "blueos-jobs",
@@ -318,6 +319,16 @@ dependencies = [
  "tokio",
  "toml",
  "trybuild",
+]
+
+[[package]]
+name = "blueos-disk-usage-domain"
+version = "0.1.0"
+dependencies = [
+ "blueos-domain",
+ "blueos-jobs",
+ "serde",
+ "thiserror",
 ]
 
 [[package]]
