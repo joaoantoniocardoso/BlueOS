@@ -297,6 +297,7 @@ dependencies = [
 name = "blueos-disk-usage-api"
 version = "0.1.0"
 dependencies = [
+ "blueos-disk-usage-domain",
  "blueos-domain",
  "blueos-idl",
  "blueos-jobs",
