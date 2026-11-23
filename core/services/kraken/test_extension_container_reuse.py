@@ -27,6 +27,8 @@ for module_name, module in _saved.items():
 
 pytestmark = pytest.mark.asyncio
 
+IDENTITY_LABEL = "blueos.extension.identifier"
+
 
 def make_config(**overrides: Any) -> Dict[str, Any]:
     config: Dict[str, Any] = {
@@ -114,10 +116,10 @@ async def test_reuses_stopped_container_without_recreating_it() -> None:
 
 async def test_replaces_container_when_configuration_changes() -> None:
     config = make_config(HostConfig={"NetworkMode": "host", "Privileged": True})
-    container = make_container(inspected("running", {CONFIG_FINGERPRINT_LABEL: "stale"}))
+    container = make_container(inspected("running", {CONFIG_FINGERPRINT_LABEL: "stale", IDENTITY_LABEL: "a.b"}))
     client = client_returning(container)
 
-    result = await Extension._start_or_create(client, "extension-name", config, "sha256:abc")
+    result = await Extension._start_or_create(client, "extension-name", config, container["Image"])
 
     container.stop.assert_awaited_once()
     container.delete.assert_awaited_once()
@@ -139,12 +141,12 @@ async def test_replaces_container_when_image_changes() -> None:
 
 
 async def test_replaces_container_created_before_fingerprints() -> None:
-    """Containers from older versions carry no label, so they migrate once."""
+    """Containers with identity labels but no fingerprint carry an unknown config, so they migrate once."""
     config = make_config()
-    container = make_container(inspected("exited", {}))
+    container = make_container(inspected("exited", {IDENTITY_LABEL: "a.b"}))
     client = client_returning(container)
 
-    await Extension._start_or_create(client, "extension-name", config, "sha256:abc")
+    await Extension._start_or_create(client, "extension-name", config, container["Image"])
 
     container.delete.assert_awaited_once()
     client.containers.create.assert_awaited_once()
@@ -224,6 +226,27 @@ async def test_reuse_preserves_the_fingerprint_label_for_the_next_start() -> Non
 
     assert result is reused
     second_client.containers.create.assert_not_awaited()
+
+
+async def test_fingerprint_ignores_identity_labels() -> None:
+    """Stamping what a container is must not make it look reconfigured."""
+    config = make_config()
+    labelled = make_config(Labels={"blueos.extension.identifier": "a.b", "blueos.extension.name": "b"})
+
+    assert Extension._config_fingerprint(config, "sha256:abc") == Extension._config_fingerprint(labelled, "sha256:abc")
+
+
+async def test_keeps_container_without_identity_labels_running_the_requested_image() -> None:
+    """Its configuration is unknown, so settings rebuilt by recovery must not replace a healthy container."""
+    config = make_config()
+    container = make_container(inspected("exited", {CONFIG_FINGERPRINT_LABEL: "stale"}))
+    client = client_returning(container)
+
+    result = await Extension._start_or_create(client, "extension-name", config, container["Image"])
+
+    assert result is container
+    container.delete.assert_not_awaited()
+    client.containers.create.assert_not_awaited()
 
 
 async def test_remove_finds_stopped_containers() -> None:
