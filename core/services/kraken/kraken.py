@@ -18,6 +18,8 @@ from manifest import ManifestManager
 from manifest.exceptions import ManifestBackendOffline
 from settings import ExtensionSettings, SettingsV2
 
+STABLE_RUN_SECONDS = 60
+
 
 class Kraken:
     def __init__(self) -> None:
@@ -53,7 +55,15 @@ class Kraken:
 
         extensions: List[ExtensionSettings] = Extension._fetch_settings()
 
+        running_names = {container.name[1:] for container in containers}
+        now = int(time.monotonic())
         for extension in extensions:
+            # A start counts as good only after the container stays up, or a crash loop never backs off
+            key = f"{extension.identifier}{extension.tag}"
+            if extension.container_name() in running_names and key in Extension.start_attempts:
+                if now - Extension.start_attempts[key][1] > STABLE_RUN_SECONDS:
+                    Extension.reset_start_attempt(key)
+
             if not self._extension_start_try_valid(extension):
                 continue
 

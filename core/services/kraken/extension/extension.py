@@ -444,7 +444,6 @@ class Extension:
                 # If the container is already running, this returns 304 Not Modified
                 await container.start()
                 logger.info(f"Extension {self.identifier}:{self.tag} started")
-                self.reset_start_attempt(self.unique_entry)
         except Exception as error:
             logger.warning(f"Failed to start extension {self.identifier}:{self.tag}: {error}")
             raise ExtensionPullFailed(f"Failed to start extension {self.identifier}:{self.tag}: {error}") from error
