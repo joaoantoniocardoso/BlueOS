@@ -6,6 +6,10 @@ class SettingsFromTheFuture(ValueError):
     """Settings file version is from a newer version of the service."""
 
 
+class SettingsNotSaved(RuntimeError):
+    """Saving would overwrite a stored settings file that could not be loaded or set aside."""
+
+
 class MigrationFail(RuntimeError):
     """Could not apply migration."""
 

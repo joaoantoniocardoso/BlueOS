@@ -1,12 +1,13 @@
 import pathlib
 import re
-from typing import Any, Optional, Type
+from typing import Any, List, Optional, Type
 
 import appdirs
 from loguru import logger
 
 from commonwealth.settings.bases.pykson_base import PyksonSettings
-from commonwealth.settings.temp_files import clear_temp_files
+from commonwealth.settings.exceptions import SettingsFromTheFuture, SettingsNotSaved
+from commonwealth.settings.temp_files import clear_temp_files, move_invalid_file_aside
 
 
 class PyksonManager:
@@ -30,6 +31,7 @@ class PyksonManager:
         )
         self.config_folder.mkdir(parents=True, exist_ok=True)
         self.settings_type = settings_type
+        self._save_blocked_by: List[str] = []
         self._settings: Optional[PyksonSettings] = None
         logger.debug(
             f"Starting {project_name} settings with {settings_type.__name__}, configuration path: {config_folder}"
@@ -94,6 +96,11 @@ class PyksonManager:
 
     def save(self) -> None:
         """Save settings"""
+        if self._save_blocked_by:
+            raise SettingsNotSaved(
+                f"Not saving {self.settings_file_path()}, the stored settings are kept as they are because "
+                + "; ".join(self._save_blocked_by)
+            )
         self.settings.save(self.settings_file_path())
 
     def load(self) -> None:
@@ -117,19 +124,34 @@ class PyksonManager:
         ]
         valid_files.sort(key=get_settings_version_from_filename, reverse=True)
 
+        # A broken settings class is a code bug, it must fail here before any file is moved aside
+        default_settings = self.settings_type()
+        blocked_by: List[str] = []
+        self._save_blocked_by = []
+
         logger.debug(f"Found possible candidates for settings source: {valid_files}")
         for valid_file in valid_files:
             logger.debug(f"Checking {valid_file} for settings")
             try:
                 self._settings = PyksonManager.load_from_file(self.settings_type, valid_file)
                 logger.debug(f"Using {valid_file} as settings source")
+                self._save_blocked_by = blocked_by
                 return
+            except SettingsFromTheFuture as exception:
+                logger.debug(f"Ignoring {valid_file}, going to try another file: {exception}")
+            except OSError as exception:
+                # Not a sign of a corrupt file, so it is neither moved aside nor replaced by the defaults
+                logger.error(f"Failed to read {valid_file}, going to try another file: {exception}")
+                blocked_by.append(f"{valid_file} could not be read: {exception}")
             except Exception as exception:
-                logger.debug("Invalid settings, going to try another file:", exception)
+                if failure := move_invalid_file_aside(valid_file, exception):
+                    blocked_by.append(f"{valid_file} is invalid and could not be set aside: {failure}")
 
         logger.debug("No valid settings found, using default settings")
-        self._settings = self.settings_type()
-        self.save()
+        self._settings = default_settings
+        self._save_blocked_by = blocked_by
+        if not blocked_by:
+            self.save()
 
     def _clear_temp_files(self) -> None:
         """Clear leftover fixed-name temporary files from older saves"""
