@@ -210,4 +210,4 @@ async def test_cleaner_keeps_containers_while_settings_are_empty(
             ExtensionSettings(identifier="a.b", docker="a/b", tag="1", enabled=True)
         ]
         await kraken.kill_dangling_containers()
-    remove.assert_awaited_once()
+    remove.assert_awaited_once_with("extension-foobar10", False)
