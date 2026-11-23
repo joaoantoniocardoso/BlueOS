@@ -10,6 +10,7 @@ from extension.extension import (  # type: ignore[attr-defined]
     ExtensionSettings,
 )
 from harbor import ContainerManager
+from harbor.exceptions import ContainerNotFound
 from kraken import Kraken
 from recovery import LABEL_IDENTIFIER, LABEL_NAME, LABEL_PERMISSIONS
 from recovery import TEMP_EXTENSION_TAG_PREFIX as RECOVERY_TEMP_PREFIX
@@ -211,3 +212,37 @@ async def test_cleaner_keeps_containers_while_settings_are_empty(
         ]
         await kraken.kill_dangling_containers()
     remove.assert_awaited_once_with("extension-foobar10", False)
+
+
+async def test_uninstall_keeps_the_entry_when_the_container_cannot_be_removed() -> None:
+    ext = ExtensionSettings(
+        identifier="a.b",
+        name="b",
+        docker="a/b",
+        tag="1",
+        permissions="{}",
+        user_permissions="",
+        enabled=True,
+    )
+    Extension._settings.extensions = [ext]
+    extension = await Extension.from_settings("a.b", "1")
+
+    with mock.patch.object(
+        Extension, "remove", mock.AsyncMock(side_effect=RuntimeError("docker is down"))
+    ):
+        await extension.uninstall()  # type: ignore
+    assert len(Extension._settings.extensions) == 1
+
+    with mock.patch.object(Extension, "remove", mock.AsyncMock()):
+        await extension.uninstall()  # type: ignore
+    assert not Extension._settings.extensions
+
+    Extension._settings.extensions = [ext]
+    with (
+        mock.patch.object(
+            Extension, "remove", mock.AsyncMock(side_effect=ContainerNotFound("gone"))
+        ),
+        mock.patch("extension.extension.DockerCtx"),
+    ):
+        await extension.uninstall()  # type: ignore
+    assert not Extension._settings.extensions
