@@ -17,6 +17,7 @@ for module_name in _saved:
 
 from aiodocker.exceptions import DockerError  # noqa: E402
 from extension.extension import CONFIG_FINGERPRINT_LABEL, Extension  # noqa: E402
+from harbor import ContainerManager  # noqa: E402
 
 for module_name, module in _saved.items():
     if module is not None:
@@ -223,3 +224,20 @@ async def test_reuse_preserves_the_fingerprint_label_for_the_next_start() -> Non
 
     assert result is reused
     second_client.containers.create.assert_not_awaited()
+
+
+async def test_remove_finds_stopped_containers() -> None:
+    """A stopped or crash-looping extension must still be removable, or user actions cannot reconfigure it."""
+    container = make_container(inspected("exited"))
+    client = client_returning(container)
+    client.containers.list.return_value = [container]
+
+    with (
+        mock.patch("extension.extension.DockerCtx") as ctx,
+        mock.patch.object(ContainerManager, "stop_all_by_name", mock.AsyncMock()),
+    ):
+        ctx.return_value.__aenter__.return_value = client
+        await Extension.remove("extension-name", False)
+
+    assert client.containers.list.await_args.kwargs["all"] is True
+    container.delete.assert_awaited_once()
