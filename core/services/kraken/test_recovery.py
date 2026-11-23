@@ -1,12 +1,15 @@
 import json
 from types import SimpleNamespace
 from typing import Any, Dict, Optional
+from unittest import mock
 
 import pytest
 from extension.extension import (  # type: ignore[attr-defined]
     TEMP_EXTENSION_TAG_PREFIX,
     Extension,
+    ExtensionSettings,
 )
+from harbor import ContainerManager
 from kraken import Kraken
 from recovery import LABEL_IDENTIFIER, LABEL_NAME, LABEL_PERMISSIONS
 from recovery import TEMP_EXTENSION_TAG_PREFIX as RECOVERY_TEMP_PREFIX
@@ -185,3 +188,26 @@ def test_only_one_tag_per_identifier_stays_enabled() -> None:
         "running": True,
         "new": False,
     }
+
+
+async def test_cleaner_keeps_containers_while_settings_are_empty(
+    kraken: Kraken,
+) -> None:
+    container = SimpleNamespace(name="/extension-foobar10")
+    remove = mock.AsyncMock()
+    with (
+        mock.patch.object(
+            ContainerManager,
+            "get_running_containers",
+            mock.AsyncMock(return_value=[container]),
+        ),
+        mock.patch.object(Extension, "remove", remove),
+    ):
+        await kraken.kill_dangling_containers()
+        remove.assert_not_awaited()
+
+        Extension._settings.extensions = [
+            ExtensionSettings(identifier="a.b", docker="a/b", tag="1", enabled=True)
+        ]
+        await kraken.kill_dangling_containers()
+    remove.assert_awaited_once()
