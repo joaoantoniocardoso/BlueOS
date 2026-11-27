@@ -29,6 +29,9 @@ uv run --env-file .env pytest scenarios/core -v
 `E2E_CORE_IMAGE` and `E2E_BOOTSTRAP_IMAGE` select the images. Defaults are the `master` tags. Missing images are pulled
 and loaded into the VM.
 
+`E2E_SIL_SSH_PORT` and `E2E_SIL_HTTP_PORT` set the host ports that forward to the VM. Defaults are `2222` and `8080`.
+Set both to run several VMs on one host, for example one pair per lab slot.
+
 ## Test a local BlueOS build
 
 Build the core image from this checkout and point the tests to it:

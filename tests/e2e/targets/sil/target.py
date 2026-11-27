@@ -1,4 +1,5 @@
 import logging
+import os
 import shutil
 from pathlib import Path
 
@@ -15,8 +16,8 @@ logger = logging.getLogger(__name__)
 
 class SilTarget(Target):
     name = "sil"
-    vm_ssh_forward_port = 2222
-    vm_http_forward_port = 8080
+    vm_ssh_forward_port = int(os.environ.get("E2E_SIL_SSH_PORT", "2222"))
+    vm_http_forward_port = int(os.environ.get("E2E_SIL_HTTP_PORT", "8080"))
     required_tools = ("docker", "qemu-img", "qemu-system-x86_64", "ssh", "sshpass")
 
     def __init__(self) -> None:
