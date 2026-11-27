@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 
 import {
-  isPermissionsObject, parsePermissions, permissionsBody, userPermissionsBody, validateIdentifier,
+  isPermissionsObject, parsePermissions, permissionsBody, userPermissionsBody, validateIdentifier, validateImageName,
 } from './kraken_extension'
 
 test('validateIdentifier rejects characters that break the extension URL', () => {
@@ -41,5 +41,20 @@ test('userPermissionsBody is empty or a JSON object string', () => {
   expect(userPermissionsBody('{"a":1}')).toBe('{"a":1}')
   for (const empty of ['', 'null', 'not json', '[]', null, undefined]) {
     expect(userPermissionsBody(empty)).toBe('')
+  }
+})
+
+test('validateImageName rejects what the backend rejects', () => {
+  const bad_names = [
+    '', 'host/Img', 'repo:1.0', 'a//b', 'a b', 'my_host/img', 'user@host/img', '[::1]:5000/img', 'host:/img',
+  ]
+  for (const bad of bad_names) {
+    expect(validateImageName(bad)).not.toBe(true)
+  }
+})
+
+test('validateImageName accepts what the backend accepts', () => {
+  for (const good of ['nginx', 'a/b', 'localhost:5000/team/img', 'Registry.Example.com/a/b.c_d__e-f']) {
+    expect(validateImageName(good)).toBe(true)
   }
 })

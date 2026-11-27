@@ -17,6 +17,8 @@ export function validateIdentifier(input: string): (true | string) {
 export function validateImageName(input: string): (true | string) {
   // See https://github.com/distribution/reference/blob/main/reference.go
   const path_part_regex = /^[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*$/
+  // Same grammar as the backend check, so a valid UI input is never rejected there
+  const domain_regex = /^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?(:[0-9]+)?$/
 
   if (!input) return 'Name must not be empty'
   if (/\s/.test(input)) return 'Name must not contain whitespace'
@@ -27,7 +29,7 @@ export function validateImageName(input: string): (true | string) {
     if (i === 0 && parts.length >= 2) {
       // note the domain is optional; we could just have a path.
       // But if a domain is present, it has looser parsing rules.
-      if (!URL.canParse(`http://${part}`)) {
+      if (!domain_regex.test(part)) {
         return 'Name has an invalid domain'
       }
     } else if (i === parts.length - 1 && part.includes(':')) {
