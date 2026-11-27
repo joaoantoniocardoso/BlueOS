@@ -36,7 +36,7 @@ def inspect_of(
     **config: Any,
 ) -> Dict[str, Any]:
     docker, tag = split_image_name(image) or ("", "")
-    name = "extension-" + "".join(char for char in f"{docker}{tag}" if char.isalnum())
+    name = ExtensionSettings(docker=docker, tag=tag).container_name()
     return {
         "Name": f"/{name}",
         "Created": created,
@@ -319,7 +319,8 @@ async def test_reconciliation_fixes_the_name_when_the_guessed_identifier_was_rig
 
 
 async def test_cleaner_removes_stopped_dangling_containers(kraken: Kraken) -> None:
-    stopped = [SimpleNamespace(name="/extension-gone10"), SimpleNamespace(name="/extension-ab1")]
+    kept = ExtensionSettings(identifier="a.b", docker="a/b", tag="1", enabled=True)
+    stopped = [SimpleNamespace(name="/extension-gone10"), SimpleNamespace(name=f"/{kept.container_name()}")]
 
     async def list_containers(include_stopped: bool = False) -> List[Any]:
         return stopped if include_stopped else []
@@ -332,6 +333,6 @@ async def test_cleaner_removes_stopped_dangling_containers(kraken: Kraken) -> No
         await kraken.kill_dangling_containers()
         remove.assert_not_awaited()
 
-        Extension._settings.extensions = [ExtensionSettings(identifier="a.b", docker="a/b", tag="1", enabled=True)]
+        Extension._settings.extensions = [kept]
         await kraken.kill_dangling_containers()
     assert [call.args for call in remove.await_args_list] == [("extension-gone10", False)]

@@ -43,6 +43,7 @@ def make_container(raw: Dict[str, Any], container_id: str = "container-id") -> m
     """A stand-in for aiodocker's DockerContainer, faithful to what kraken reads."""
     container = mock.AsyncMock()
     container.id = container_id
+    raw = {"Names": ["/extension-name"], **raw}
     container.__getitem__ = mock.Mock(side_effect=lambda key: raw[key])
     container.show.return_value = raw
     container.delete = mock.AsyncMock()
