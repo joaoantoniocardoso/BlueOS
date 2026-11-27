@@ -1,7 +1,7 @@
 import asyncio
 import uuid
 from functools import wraps
-from typing import Any, Callable, List, Optional, Set, Tuple, cast
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, cast
 
 import aiohttp
 import semver
@@ -37,6 +37,8 @@ class ManifestManager:
     _instance: Optional["ManifestManager"] = None
     _manager: Manager = Manager(SERVICE_NAME, SettingsV2)
     _settings = _manager.settings
+    # Last load failure per source identifier, so listings without data can report it with no download
+    _source_errors: Dict[str, str] = {}
 
     def __init__(self) -> None:
         raise RuntimeError("This class should not be instantiated, use ManifestManager.instance() instead")
@@ -114,10 +116,17 @@ class ManifestManager:
             priority=settings.priority,
             enabled=settings.enabled,
             factory=settings.factory,
+            error=self._source_errors.get(settings.identifier),
         )
 
         if fetch_data:
-            manifest.data = await self._fetch_manifest_data(settings.url)
+            try:
+                manifest.data = await self._fetch_manifest_data(settings.url)
+            except Exception as error:
+                self._source_errors[settings.identifier] = str(error)
+                raise
+            self._source_errors.pop(settings.identifier, None)
+            manifest.error = None
 
         return manifest
 
@@ -203,12 +212,14 @@ class ManifestManager:
     @not_on_default_manifest
     async def remove_source(self, identifier: str) -> None:
         manifest = self._get_settings_by_identifier(identifier)
+        self._source_errors.pop(identifier, None)
         self._settings.manifests.remove(manifest)
         self._manager.save()
 
     @not_on_default_manifest
     async def update_source(self, identifier: str, source: UpdateManifestSource, validate_url: bool) -> None:
         manifest = self._get_settings_by_identifier(identifier)
+        self._source_errors.pop(identifier, None)
 
         manifest.name = source.name if source.name is not None else manifest.name
         manifest.url = source.url if source.url is not None else manifest.url

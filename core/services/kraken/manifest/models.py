@@ -138,3 +138,4 @@ class Manifest(ManifestSource):
     priority: int
     factory: bool
     data: Optional[List[RepositoryEntry]] = None
+    error: Optional[str] = None
