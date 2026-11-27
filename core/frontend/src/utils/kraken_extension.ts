@@ -68,3 +68,39 @@ export function userPermissionsBody(label: string | null | undefined): string {
 export function extensionUrl(...segments: string[]): string {
   return `${KRAKEN_API_V2_URL}/extension/${segments.map(encodeURIComponent).join('/')}`
 }
+
+export interface PastedExtensionFields {
+  identifier: string
+  name: string
+  docker: string
+  tag: string
+  permissions?: string
+}
+
+// Copies the fields of a pasted extension config into `extension`.
+// Returns the parsed permissions to show in the editor, or null when the text is not an extension config.
+export function applyPastedConfig(
+  extension: PastedExtensionFields,
+  text: string,
+): { permissions: unknown } | null {
+  try {
+    const config = JSON.parse(text)
+    if (!(config.identifier && config.name && config.docker && config.tag)) {
+      return null
+    }
+    extension.identifier = config.identifier
+    extension.name = config.name
+    extension.docker = config.docker
+    extension.tag = config.tag
+
+    if (!config.permissions) {
+      return { permissions: undefined }
+    }
+    extension.permissions = typeof config.permissions === 'string'
+      ? config.permissions
+      : JSON.stringify(config.permissions)
+    return { permissions: JSON.parse(extension.permissions) }
+  } catch {
+    return null
+  }
+}
