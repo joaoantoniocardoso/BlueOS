@@ -5,6 +5,7 @@ import copy
 import hashlib
 import json
 import os
+import re
 import time
 import uuid
 from typing import Any, AsyncGenerator, Dict, List, Mapping, Optional, Set, Tuple, cast
@@ -43,6 +44,7 @@ from utils import has_enough_disk_space
 PULL_IDLE_TIMEOUT_SECONDS = 120
 TEMP_EXTENSION_KEEPALIVE_TTL_SECONDS = 10 * 60
 TEMP_EXTENSION_TAG_PREFIX = "temp-"
+TEMP_EXTENSION_TAG_PATTERN = re.compile(rf"^{TEMP_EXTENSION_TAG_PREFIX}[0-9a-f]{{8}}$")
 CONFIG_FINGERPRINT_LABEL = "blueos.config-fingerprint"
 IDENTITY_LABELS = (LABEL_IDENTIFIER, LABEL_NAME, LABEL_PERMISSIONS, LABEL_USER_PERMISSIONS)
 
@@ -856,6 +858,7 @@ class Extension:
         extensions: List[ExtensionSettings] = cls._fetch_settings()
         temp_extensions = [ext for ext in extensions if not ext.identifier or ext.identifier == ""]
         active_temp_refs: Set[str] = {f"{ext.docker}:{ext.tag}" for ext in temp_extensions}
+        installed_refs = {f"{ext.docker}:{ext.tag}" for ext in extensions if ext.identifier}
 
         now = int(time.time())
         for ext in temp_extensions:
@@ -877,7 +880,7 @@ class Extension:
             except Exception as error:
                 logger.warning(f"Failed to cleanup temporary extension {ext.docker}:{ext.tag}: {error}")
 
-        await cls._cleanup_orphan_temp_tags(active_temp_refs)
+        await cls._cleanup_orphan_temp_tags(active_temp_refs | installed_refs)
 
     @classmethod
     async def _cleanup_orphan_temp_tags(cls, active_temp_refs: Set[str]) -> None:
@@ -899,7 +902,7 @@ class Extension:
                     if ":" not in reference:
                         continue
                     _, tag = reference.rsplit(":", 1)
-                    if not tag.startswith(TEMP_EXTENSION_TAG_PREFIX):
+                    if not TEMP_EXTENSION_TAG_PATTERN.match(tag):
                         continue
 
                     if reference in active_temp_refs:
