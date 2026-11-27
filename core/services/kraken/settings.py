@@ -29,8 +29,15 @@ class ExtensionSettings(JsonObject):
         return f"{self.docker}:{self.tag}"
 
     def container_name(self) -> str:
-        regex = re.compile("[^a-zA-Z0-9]")
-        return "extension-" + regex.sub("", f"{self.docker}{self.tag}")
+        # Every character that is not a letter or a digit becomes "_" plus its hex bytes, so no two images share a name
+        escaped = re.sub(
+            r"[^a-zA-Z0-9]", lambda m: "".join(f"_{byte:02x}" for byte in m.group().encode()), self.fullname()
+        )
+        return "extension-" + escaped
+
+    def legacy_container_name(self) -> str:
+        """Name used by Kraken versions that dropped every character that is not a letter or a digit."""
+        return "extension-" + re.sub("[^a-zA-Z0-9]", "", f"{self.docker}{self.tag}")
 
 
 class ManifestSettings(JsonObject):

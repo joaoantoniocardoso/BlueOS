@@ -11,7 +11,7 @@ from config import DEFAULT_EXTENSIONS, SERVICE_NAME
 from extension.exceptions import IncompatibleExtension
 from extension.extension import Extension
 from extension.models import ExtensionSource
-from harbor import ContainerManager
+from harbor import ContainerManager, DockerCtx
 from jobs import JobsManager
 from jobs.models import Job, JobMethod
 from manifest import ManifestManager
@@ -43,7 +43,22 @@ class Kraken:
             and extension.container_name() not in Extension.locked_entries
         ) and (unique_entry not in Extension.start_attempts or (now - last_attempt > required_delay))
 
+    async def adopt_legacy_containers(self) -> None:
+        """Containers made before names became unique are renamed in place, so they are neither duplicated nor killed."""
+        extensions: List[ExtensionSettings] = Extension._fetch_settings()
+        try:
+            async with DockerCtx() as client:
+                for extension in extensions:
+                    if extension.container_name() in Extension.locked_entries:
+                        continue
+                    await ContainerManager.adopt_legacy_container(
+                        client, extension.legacy_container_name(), extension.container_name(), extension.fullname()
+                    )
+        except Exception as e:
+            logger.warning(f"Unable to adopt containers with legacy names: {e}")
+
     async def init_dead_extensions(self) -> None:
+        await self.adopt_legacy_containers()
         # This can fail if docker daemon is not running
         try:
             containers = await ContainerManager.get_running_containers()
@@ -140,6 +155,7 @@ class Kraken:
         await Extension.cleanup_temporary_extensions()
 
     async def kill_dangling_containers(self) -> None:
+        await self.adopt_legacy_containers()
         # This can fail if docker daemon is not running
         try:
             containers = await ContainerManager.get_running_containers()
