@@ -7,18 +7,7 @@ import json
 import os
 import time
 import uuid
-from typing import (
-    Any,
-    AsyncGenerator,
-    Dict,
-    List,
-    Literal,
-    Mapping,
-    Optional,
-    Set,
-    Tuple,
-    cast,
-)
+from typing import Any, AsyncGenerator, Dict, List, Mapping, Optional, Set, Tuple, cast
 
 from aiodocker.exceptions import DockerError
 from commonwealth.settings.manager import Manager
@@ -28,6 +17,7 @@ from loguru import logger
 from config import DEFAULT_INJECTED_ENV_VARIABLES
 from extension.exceptions import (
     ExtensionCleanupFailed,
+    ExtensionInstallInProgress,
     ExtensionInsufficientStorage,
     ExtensionNotFound,
     ExtensionNotRunning,
@@ -62,9 +52,11 @@ class Extension:
     Extension class to manage extensions.
     """
 
-    # If an extension is being installed the key will be the extension identifier if is being removed the key is the
-    # container name.
-    locked_entries: Dict[str, Literal[True]] = {}
+    # Keys are unique entries being pulled and container names being removed. The value counts the owners, so the
+    # first one to finish does not clear the lock of the others.
+    locked_entries: Dict[str, int] = {}
+    # Identifiers with an install running, from the first state change until the old tags are purged
+    installing_identifiers: Set[str] = set()
     # shortcut: one lock per container name is kept for the life of the process, drop it if names ever grow unbounded
     container_locks: Dict[str, asyncio.Lock] = {}
     start_attempts: Dict[str, Tuple[int, int]] = {}
@@ -95,11 +87,14 @@ class Extension:
 
     @classmethod
     def lock(cls, key: str) -> None:
-        cls.locked_entries[key] = True
+        cls.locked_entries[key] = cls.locked_entries.get(key, 0) + 1
 
     @classmethod
     def unlock(cls, key: str) -> None:
-        cls.locked_entries.pop(key, None)
+        if cls.locked_entries.get(key, 0) <= 1:
+            cls.locked_entries.pop(key, None)
+        else:
+            cls.locked_entries[key] -= 1
 
     @classmethod
     def container_lock(cls, container_name: str) -> asyncio.Lock:
@@ -380,6 +375,18 @@ class Extension:
             raise ExtensionCleanupFailed(f"Installed, but could not remove old tags: {reason}")
 
     async def install(self, clear_remaining_tags: bool = True, pull: bool = True) -> AsyncGenerator[bytes, None]:
+        # One install per identifier, since each one disables and purges the other tags of the extension
+        if self.identifier in self.installing_identifiers:
+            raise ExtensionInstallInProgress(f"Extension {self.identifier} is already being installed or updated")
+        self.installing_identifiers.add(self.identifier)
+        try:
+            async with contextlib.aclosing(self._install(clear_remaining_tags, pull)) as lines:
+                async for line in lines:
+                    yield line
+        finally:
+            self.installing_identifiers.discard(self.identifier)
+
+    async def _install(self, clear_remaining_tags: bool, pull: bool) -> AsyncGenerator[bytes, None]:
         logger.info(f"Installing extension {self.identifier}:{self.tag}")
 
         if not pull:

@@ -1,4 +1,5 @@
 # isort: skip_file
+import asyncio
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -17,7 +18,7 @@ for module_name in _saved:
 
 from aiodocker.exceptions import DockerError  # noqa: E402
 from loguru import logger  # noqa: E402
-from extension.exceptions import ExtensionPullFailed  # noqa: E402
+from extension.exceptions import ExtensionInstallInProgress, ExtensionPullFailed  # noqa: E402
 from extension.extension import Extension  # noqa: E402
 from extension.models import ExtensionSource  # noqa: E402
 from kraken import Kraken  # noqa: E402
@@ -85,6 +86,7 @@ def fixture_env() -> Any:
         mock.patch.object(Extension, "_settings", settings),
         mock.patch.object(Extension, "_manager", mock.Mock()),
         mock.patch.object(Extension, "locked_entries", {}),
+        mock.patch.object(Extension, "installing_identifiers", set()),
         mock.patch.object(Extension, "start_attempts", {}),
         mock.patch.object(Extension, "_clear_remaining_tags", mock.AsyncMock()) as clear,
     ):
@@ -413,3 +415,71 @@ async def test_finalize_succeeds_when_only_the_temp_tag_removal_fails(env: Any) 
     await upload_finalize(env, fake, make_settings("1"))
 
     assert fake.images[f"{DOCKER}:2"] == "up"
+
+
+def gate_pull(fake: FakeDocker, tag: str, started: asyncio.Event, release: asyncio.Event) -> None:
+    async def pull(*_: Any, **__: Any) -> AsyncIterator[Dict[str, Any]]:
+        started.set()
+        await release.wait()
+        fake.images[f"{DOCKER}:{tag}"] = f"id{tag}"
+        yield {"status": "Digest: sha256:abc"}
+
+    fake.client.images.pull = pull
+
+
+async def test_second_install_of_the_same_extension_is_refused_while_one_runs(env: Any) -> None:
+    running = make_settings("1")
+    env.settings.extensions = [running]
+    fake = FakeDocker({f"{DOCKER}:1": "id1"})
+    started, release = asyncio.Event(), asyncio.Event()
+    gate_pull(fake, "2", started, release)
+
+    first = asyncio.create_task(run_install(make_extension("2"), fake, running))
+    await started.wait()
+    with pytest.raises(ExtensionInstallInProgress):
+        await asyncio.wait_for(run_install(make_extension("3"), fake, running), 2)
+    assert tags(env) == {"1": False, "2": True}
+    release.set()
+    await first
+
+    assert tags(env) == {"1": False, "2": True}
+    env.clear.assert_awaited_once()
+
+
+async def test_install_guard_covers_the_purge_and_is_released_after_it(env: Any) -> None:
+    fake = FakeDocker({f"{DOCKER}:2": "id2", f"{DOCKER}:3": "id3"}, OK_LINES)
+    seen: List[bool] = []
+
+    async def clear() -> None:
+        seen.append("ext" in Extension.installing_identifiers)
+
+    env.clear.side_effect = clear
+    await run_install(make_extension("2"), fake)
+    assert seen == [True]
+    assert not Extension.installing_identifiers
+    await run_install(make_extension("3"), fake)
+
+
+@pytest.mark.usefixtures("env")
+async def test_install_guard_is_released_after_a_failed_install() -> None:
+    fake = FakeDocker({}, [{"error": "denied"}])
+    with pytest.raises(ExtensionPullFailed):
+        await run_install(make_extension("2"), fake)
+    assert not Extension.installing_identifiers
+
+
+@pytest.mark.usefixtures("env")
+async def test_installs_of_different_extensions_do_not_block_each_other() -> None:
+    Extension.installing_identifiers.add("other")
+    fake = FakeDocker({f"{DOCKER}:2": "id2"}, OK_LINES)
+    await run_install(make_extension("2"), fake)
+
+
+@pytest.mark.usefixtures("env")
+async def test_unlock_of_one_owner_keeps_the_lock_of_another() -> None:
+    Extension.lock("ext2")
+    Extension.lock("ext2")
+    Extension.unlock("ext2")
+    assert "ext2" in Extension.locked_entries
+    Extension.unlock("ext2")
+    assert "ext2" not in Extension.locked_entries
