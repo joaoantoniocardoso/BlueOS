@@ -1,7 +1,7 @@
 import asyncio
 import uuid
 from functools import wraps
-from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple, cast
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, cast
 
 import aiohttp
 import semver

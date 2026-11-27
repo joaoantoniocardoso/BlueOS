@@ -32,8 +32,8 @@ for module_name, module in _saved.items():
 pytestmark = pytest.mark.asyncio
 
 
-@pytest.fixture
-def warnings() -> Generator[List[str], None, None]:
+@pytest.fixture(name="warnings")
+def fixture_warnings() -> Generator[List[str], None, None]:
     messages: List[str] = []
     handler_id = logger.add(lambda message: messages.append(str(message)), level="WARNING")
     yield messages

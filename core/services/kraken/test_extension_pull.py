@@ -70,7 +70,7 @@ async def test_install_fails_when_the_pull_goes_silent() -> None:
 async def test_install_keeps_going_while_the_pull_has_progress() -> None:
     extension = make_extension()
 
-    async def pull(_auth: Optional[str]) -> AsyncGenerator[bytes, None]:
+    async def pull(_auth: Optional[str], _docker: Any = None) -> AsyncGenerator[bytes, None]:
         for index in range(4):
             await asyncio.sleep(0.05)
             yield str(index).encode()

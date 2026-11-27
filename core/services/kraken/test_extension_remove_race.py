@@ -78,12 +78,10 @@ class FakeEngine:
         }  # fmt: skip
         return name
 
-    async def _list(
-        self, filters: Dict[str, Any], all: bool = False
-    ) -> List[FakeContainer]:  # pylint: disable=redefined-builtin
+    async def _list(self, filters: Dict[str, Any], **options: Any) -> List[FakeContainer]:
         await asyncio.sleep(0)
         found = list(self.containers.items())
-        if not all:
+        if not options.get("all"):
             found = [(name, info) for name, info in found if info["State"]["Running"]]
         if "name" in filters:
             wanted = next(iter(filters["name"]))
