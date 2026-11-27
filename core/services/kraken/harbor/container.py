@@ -15,24 +15,42 @@ from harbor.models import ContainerModel, ContainerUsageModel
 
 class ContainerManager:
     @staticmethod
+    async def list_by_exact_name(client: Docker, container_name: str, all_states: bool = False) -> List[Any]:
+        # Docker's `name` filter matches substrings, so the result is narrowed to the exact name
+        containers = await client.containers.list(all=all_states, filters={"name": {container_name: True}})  # type: ignore
+        return [container for container in containers if f"/{container_name}" in container["Names"]]
+
+    @classmethod
     async def get_raw_container_by_name(
-        client: Docker, container_name: str, include_stopped: bool = False
+        cls, client: Docker, container_name: str, include_stopped: bool = False
     ) -> DockerContainer:
-        containers = await client.containers.list(  # type: ignore
-            all=include_stopped, filters={"name": {container_name: True}}
-        )
+        containers = await cls.list_by_exact_name(client, container_name, all_states=include_stopped)
         if not containers:
             raise ContainerNotFound(f"Container {container_name} not found")
 
         return cast(DockerContainer, containers[0])
 
-    @staticmethod
-    async def stop_all_by_name(client: Docker, container_name: str) -> None:
+    @classmethod
+    async def stop_all_by_name(cls, client: Docker, container_name: str) -> None:
         logger.info(f"Stopping container {container_name}")
-        containers = await client.containers.list(filters={"name": {container_name: True}})  # type: ignore
+        containers = await cls.list_by_exact_name(client, container_name)
         # Graceful termination with 10 seconds timeout before the containers are killed
         await asyncio.gather(*(container.stop(t=10) for container in containers))
         await asyncio.gather(*(container.wait() for container in containers))
+
+    @classmethod
+    async def adopt_legacy_container(cls, client: Docker, legacy_name: str, name: str, image: str) -> bool:
+        """Rename a container made by an older Kraken to `name`, if it is running `image`. Never stops it."""
+        if await cls.list_by_exact_name(client, name, all_states=True):
+            return False
+
+        for container in await cls.list_by_exact_name(client, legacy_name, all_states=True):
+            if ((await container.show())["Config"] or {}).get("Image") != image:
+                continue
+            logger.info(f"Renaming container {legacy_name} to {name}")
+            await container.rename(name)
+            return True
+        return False
 
     @staticmethod
     # pylint: disable=too-many-locals

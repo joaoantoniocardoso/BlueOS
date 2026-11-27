@@ -944,7 +944,12 @@ export default Vue.extend({
       this.log_info_output = `Awaiting logs for ${extension.name}`
       this.show_log = true
 
-      this.log_container_name = `extension-${(extension.docker + extension.tag).replace(/[^a-zA-Z0-9]/g, '')}`
+      // Same escape as ExtensionSettings.container_name in kraken: "_" plus the hex bytes of each other character
+      const escaped = `${extension.docker}:${extension.tag}`.replace(/[^a-zA-Z0-9]/g, (char) => {
+        const bytes = Array.from(new TextEncoder().encode(char))
+        return bytes.map((byte) => `_${byte.toString(16).padStart(2, '0')}`).join('')
+      })
+      this.log_container_name = `extension-${escaped}`
       const fetchLogs = (): void => {
         kraken.getContainerLogs(
           this.log_container_name ?? '',
