@@ -1,6 +1,6 @@
 import asyncio
 from functools import wraps
-from typing import Any, Callable, List, Tuple, cast
+from typing import Any, Callable, List, Optional, Tuple, cast
 
 from commonwealth.utils.streaming import streamer
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
@@ -17,7 +17,11 @@ from extension.exceptions import (
 )
 from extension.extension import Extension
 from extension.models import ExtensionInstallSource, ExtensionSource
-from manifest.exceptions import ManifestBackendOffline
+from manifest.exceptions import (
+    ExtensionSourceConflict,
+    ManifestBackendOffline,
+    ManifestNotFound,
+)
 
 # Keeps the client idle watchdog quiet while kraken is alive but docker has not printed anything
 HEARTBEAT_PERIOD = 30.0
@@ -36,6 +40,16 @@ def extension_to_http_exception(endpoint: Callable[..., Any]) -> Callable[..., A
         try:
             return await endpoint(*args, **kwargs)
         except ExtensionNotFound as error:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+        except ExtensionSourceConflict as error:
+            detail = {
+                "code": "extension_source_conflict",
+                "identifier": error.identifier,
+                "installed_docker": error.installed_docker,
+                "candidates": error.candidates,
+            }
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail) from error
+        except ManifestNotFound as error:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
         except ExtensionNotRunning as error:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
@@ -100,21 +114,25 @@ async def install(body: ExtensionInstallSource) -> StreamingResponse:
 
 @extension_router_v2.post("/{identifier}/install", status_code=status.HTTP_201_CREATED)
 @extension_to_http_exception
-async def install_by_identifier(identifier: str, stable: bool = True) -> StreamingResponse:
+async def install_by_identifier(
+    identifier: str, stable: bool = True, manifest_identifier: Optional[str] = None
+) -> StreamingResponse:
     """
     Install latest version of an extension by its identifier using one of the current manifests.
     """
-    extension: Extension = await Extension.from_latest(identifier, stable)
+    extension: Extension = await Extension.from_latest(identifier, stable, manifest_identifier)
     return StreamingResponse(streamer(extension.install(), heartbeats=HEARTBEAT_PERIOD))
 
 
 @extension_router_v2.post("/{identifier}/{tag}/install", status_code=status.HTTP_201_CREATED)
 @extension_to_http_exception
-async def install_by_identifier_and_tag(identifier: str, tag: str) -> StreamingResponse:
+async def install_by_identifier_and_tag(
+    identifier: str, tag: str, manifest_identifier: Optional[str] = None
+) -> StreamingResponse:
     """
     Install a specific version of an extension by its identifier and tag using one of the current manifests.
     """
-    extension = cast(Extension, await Extension.from_manifest(identifier, tag))
+    extension = cast(Extension, await Extension.from_manifest(identifier, tag, manifest_identifier))
     return StreamingResponse(streamer(extension.install(), heartbeats=HEARTBEAT_PERIOD))
 
 
@@ -150,23 +168,27 @@ async def restart(identifier: str) -> None:
 
 @extension_router_v2.put("/{identifier}", status_code=status.HTTP_200_OK)
 @extension_to_http_exception
-async def update_to_latest(identifier: str, purge: bool = True, stable: bool = True) -> StreamingResponse:
+async def update_to_latest(
+    identifier: str, purge: bool = True, stable: bool = True, manifest_identifier: Optional[str] = None
+) -> StreamingResponse:
     """
     Update a given extension by its identifier to latest (stable or not) version on the higher priority manifest and
     by default purge all other tags, if purge is set to false it will keep all other versions disabled only.
     """
-    extension = await Extension.from_latest(identifier, stable)
+    extension = await Extension.from_latest(identifier, stable, manifest_identifier)
     return StreamingResponse(streamer(extension.update(purge), heartbeats=HEARTBEAT_PERIOD))
 
 
 @extension_router_v2.put("/{identifier}/{tag}", status_code=status.HTTP_200_OK)
 @extension_to_http_exception
-async def update_to_tag(identifier: str, tag: str, purge: bool = True) -> Response:
+async def update_to_tag(
+    identifier: str, tag: str, purge: bool = True, manifest_identifier: Optional[str] = None
+) -> Response:
     """
     Update a given extension by its identifier and tag to latest version on the higher priority manifest and by default
     purge all other tags, if purge is set to false it will keep all other versions disabled only.
     """
-    extension = cast(Extension, await Extension.from_manifest(identifier, tag))
+    extension = cast(Extension, await Extension.from_manifest(identifier, tag, manifest_identifier))
     return StreamingResponse(streamer(extension.update(purge), heartbeats=HEARTBEAT_PERIOD))
 
 

@@ -16,9 +16,9 @@ from manifest.exceptions import (
     ManifestOperationNotAllowed,
 )
 from manifest.models import (
+    ConsolidatedEntry,
     Manifest,
     ManifestSource,
-    RepositoryEntry,
     UpdateManifestSource,
 )
 
@@ -75,11 +75,12 @@ async def fetch_by_identifier(identifier: str, data: bool = True) -> Manifest:
 
 @manifest_router_v2.get("/consolidated", status_code=status.HTTP_200_OK)
 @manifest_to_http_exception
-async def fetch_consolidated(readme: bool = True) -> list[RepositoryEntry]:
+async def fetch_consolidated(readme: bool = True) -> list[ConsolidatedEntry]:
     """
     List a consolidation of all repository entries from all manifest sources merged by its sorted priority, if a
-    repository entry is duplicated, the one with the highest priority will be kept. If readme is set to false, the
-    per-version readme is omitted, which keeps the payload small on slow links.
+    repository entry is duplicated, the one with the highest priority will be kept and the other repos are listed in
+    `conflicts`. If readme is set to false, the per-version readme is omitted, which keeps the payload small on slow
+    links.
     """
     entries = await manifest_manager.fetch_consolidated()
     return entries if readme else [entry.without_readme() for entry in entries]

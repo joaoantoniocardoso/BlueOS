@@ -11,7 +11,7 @@ from extension.extension import Extension
 from extension.models import ExtensionSource
 from harbor import ContainerManager
 from manifest import ManifestManager
-from manifest.models import RepositoryEntry
+from manifest.models import ConsolidatedEntry
 
 index_router_v1 = APIRouter(
     tags=["index_v1"],
@@ -24,7 +24,7 @@ manifest_manager = ManifestManager.instance()
 
 @index_router_v1.get("/extensions_manifest", status_code=status.HTTP_200_OK)
 @manifest_to_http_exception
-async def fetch_manifest() -> list[RepositoryEntry]:
+async def fetch_manifest() -> list[ConsolidatedEntry]:
     return await manifest_manager.fetch_consolidated()
 
 

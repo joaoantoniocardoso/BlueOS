@@ -33,7 +33,7 @@ pytestmark = pytest.mark.asyncio
 
 def make_extension() -> Extension:
     source = ExtensionInstallSource(
-        identifier="test.ext", tag="1.0", name="Test", docker="test/ext", enabled=True, permissions=""
+        identifier="test.ext", tag="1.0", name="Test", docker="test/ext", enabled=True, permissions="{}"
     )
     return Extension(source)
 

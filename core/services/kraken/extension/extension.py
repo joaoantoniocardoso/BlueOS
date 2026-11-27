@@ -551,11 +551,17 @@ class Extension:
             key=lambda ext: ext.source.name,
         )
 
+    @classmethod
+    def _installed_docker(cls, identifier: str) -> Optional[str]:
+        return next((ext.docker for ext in cls._settings.extensions if ext.identifier == identifier), None)
+
     @staticmethod
-    async def from_manifest(identifier: str, tag: Optional[str] = None) -> List["Extension"] | "Extension":
+    async def from_manifest(
+        identifier: str, tag: Optional[str] = None, manifest_id: Optional[str] = None
+    ) -> List["Extension"] | "Extension":
         manifest = ManifestManager.instance()
 
-        entry = await manifest.fetch_extension(identifier)
+        entry = await manifest.select_extension(identifier, Extension._installed_docker(identifier), manifest_id, tag)
         if not entry:
             raise ExtensionNotFound(f"Extension {identifier} not found")
 
@@ -568,7 +574,7 @@ class Extension:
                 for _, v in entry.versions.items()
             ]
 
-        version = await manifest.fetch_extension_version(identifier, tag)
+        version = manifest.version_from_entry(entry, tag)
         if not version:
             raise ExtensionNotFound(f"Extension {identifier}:{tag} not found")
 
@@ -590,14 +596,15 @@ class Extension:
         return enabled[0]
 
     @staticmethod
-    async def from_latest(identifier: str, stable: bool = True) -> "Extension":
+    async def from_latest(identifier: str, stable: bool = True, manifest_id: Optional[str] = None) -> "Extension":
         manifest = ManifestManager.instance()
 
-        entry = await manifest.fetch_extension(identifier)
+        entry = await manifest.select_extension(identifier, Extension._installed_docker(identifier), manifest_id)
         if not entry:
             raise ExtensionNotFound(f"Extension {identifier} not found")
 
-        version = await manifest.fetch_latest_extension_version(identifier, stable)
+        tags = manifest.versions_from_entry(entry, stable)
+        version = entry.versions.get(tags[0]) if tags else None
         if not version:
             raise ExtensionNotFound(f"Extension {identifier} has no" + ("stable" if stable else "") + "versions")
 
