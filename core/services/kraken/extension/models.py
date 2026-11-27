@@ -1,11 +1,18 @@
 import json
 import re
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, validator
+from pydantic.fields import ModelField
 
 from manifest.models import ExtensionVersion, RepositoryEntry
 from settings import ExtensionSettings
+
+# Matches the reference grammar: https://github.com/distribution/reference/blob/main/reference.go
+IDENTIFIER_REGEX = re.compile(r"[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+")
+DOCKER_DOMAIN_REGEX = re.compile(r"[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?(:[0-9]+)?")
+_DOCKER_PATH_PART = r"[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*"
+DOCKER_PATH_REGEX = re.compile(rf"{_DOCKER_PATH_PART}(/{_DOCKER_PATH_PART})*")
 
 
 class ExtensionSourceAuth(BaseModel):
@@ -58,6 +65,44 @@ class ExtensionInstallSource(ExtensionSource):
             raise ValueError("must not be empty")
         if re.search(r"\s", value):
             raise ValueError("must not contain whitespace")
+        return value
+
+    @validator("identifier")
+    @classmethod
+    def reject_unaddressable_identifier(cls, value: str) -> str:
+        if not IDENTIFIER_REGEX.fullmatch(value):
+            raise ValueError("must be two words separated by a period, using only letters, digits, '_' and '-'")
+        return value
+
+    @validator("docker")
+    @classmethod
+    def reject_invalid_docker(cls, value: str) -> str:
+        domain, separator, path = value.partition("/")
+        if not separator:
+            domain, path = "", value
+        if domain and not DOCKER_DOMAIN_REGEX.fullmatch(domain):
+            raise ValueError("has an invalid registry domain")
+        if not DOCKER_PATH_REGEX.fullmatch(path):
+            raise ValueError("must be a lowercase image name without a tag")
+        return value
+
+    @validator("permissions", pre=True)
+    @classmethod
+    def null_permissions_mean_empty(cls, value: Any) -> Any:
+        # Some catalog versions declare "permissions": null, which would crash Extension.start.
+        return "{}" if value == "null" else value
+
+    @validator("permissions", "user_permissions")
+    @classmethod
+    def reject_invalid_permissions(cls, value: str, field: ModelField) -> str:
+        if field.name == "user_permissions" and not value:
+            return value
+        try:
+            parsed = json.loads(value)
+        except ValueError as error:
+            raise ValueError("must be a JSON object") from error
+        if not isinstance(parsed, dict):
+            raise ValueError("must be a JSON object")
         return value
 
     @validator("name")
