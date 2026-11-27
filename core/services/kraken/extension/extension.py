@@ -723,6 +723,15 @@ class Extension:
 
         extension = Extension(temp_source)
 
+        # Tag before saving, so a failed tag leaves no temporary entry behind
+        async with DockerCtx() as client:
+            try:
+                await client.images.tag(image_name, f"{docker}:{temp_tag}")
+            except Exception as error:
+                raise ExtensionPullFailed(
+                    f"Failed to tag uploaded image {image_name} as {docker}:{temp_tag}: {error}"
+                ) from error
+
         # Save temporary extension settings
         # Use temp_tag for the settings entry, but docker points to actual loaded image
         temp_settings = ExtensionSettings(
@@ -736,13 +745,6 @@ class Extension:
         )
         extension._save_settings(temp_settings)
         cls.temp_extension_activity[temp_tag] = (now, now)
-
-        # Tag the loaded image with the temp_tag for reference
-        async with DockerCtx() as client:
-            try:
-                await client.images.tag(image_name, f"{docker}:{temp_tag}")
-            except Exception as error:
-                logger.warning(f"Failed to tag image with temp tag: {error}")
 
         return extension
 
