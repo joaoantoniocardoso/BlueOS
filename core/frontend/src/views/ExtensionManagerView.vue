@@ -427,6 +427,7 @@ import { Dictionary } from '@/types/common'
 import { kraken_service } from '@/types/frontend_services'
 import PullTracker from '@/utils/pull_tracker'
 import { aggregateStreamingResponse, parseStreamingResponse } from '@/utils/streaming'
+import resolveFinalizeResult from '@/utils/upload_finalize'
 
 import {
   ExtensionData, ExtensionUploadMetadata, InstalledExtensionData, ProgressEvent,
@@ -1164,8 +1165,13 @@ export default Vue.extend({
             }
           },
         )
-        this.setInstallFromFilePhase('success')
-        this.install_from_file_status_text = 'Extension installed successfully'
+        const result = resolveFinalizeResult()
+        if (result.phase === 'error') {
+          this.applyInstallFromFileError(result.message)
+          return
+        }
+        this.setInstallFromFilePhase(result.phase)
+        this.install_from_file_status_text = result.statusText
         this.stopUploadKeepAlive()
         this.upload_temp_tag = null
         this.upload_metadata = null
