@@ -81,37 +81,27 @@ class FakeDocker:
 @pytest.fixture(name="env")
 def fixture_env() -> Any:
     settings = SimpleNamespace(extensions=[])
+    manager = mock.Mock()
     with (
         mock.patch.object(Extension, "_settings", settings),
-        mock.patch.object(Extension, "_manager", mock.Mock()),
+        mock.patch.object(Extension, "_manager", manager),
+        mock.patch.object(Extension, "remove", mock.AsyncMock()),
         mock.patch.object(Extension, "locked_entries", {}),
         mock.patch.object(Extension, "start_attempts", {}),
         mock.patch.object(Extension, "_clear_remaining_tags", mock.AsyncMock()) as clear,
     ):
-        yield SimpleNamespace(settings=settings, clear=clear)
+        yield SimpleNamespace(settings=settings, clear=clear, manager=manager)
 
 
-def use_docker(fake: FakeDocker, running: Optional[ExtensionSettings] = None) -> Any:
+def use_docker(fake: FakeDocker) -> Any:
     ctx = mock.MagicMock()
     ctx.return_value.__aenter__ = mock.AsyncMock(return_value=fake.client)
     ctx.return_value.__aexit__ = mock.AsyncMock(return_value=False)
-
-    async def disable_running() -> Optional[Extension]:
-        if running is None:
-            return None
-        running.enabled = False
-        return Extension(ExtensionSource.from_settings(running))
-
-    stack = mock.patch("extension.extension.DockerCtx", ctx)
-    stack2 = mock.patch.object(Extension, "_disable_running_extension", side_effect=disable_running)
-    return (stack, stack2)
+    return mock.patch("extension.extension.DockerCtx", ctx)
 
 
-async def run_install(
-    ext: Extension, fake: FakeDocker, running: Optional[ExtensionSettings] = None, pull: bool = True
-) -> None:
-    patch_ctx, patch_running = use_docker(fake, running)
-    with patch_ctx, patch_running:
+async def run_install(ext: Extension, fake: FakeDocker, pull: bool = True) -> None:
+    with use_docker(fake):
         async for _ in ext.install(pull=pull):
             pass
 
@@ -134,7 +124,7 @@ OK_LINES = [{"status": "Pulling fs layer"}, {"status": "Digest: sha256:abc"}]
 )
 async def test_pull_fails_on_in_band_error_or_missing_image(lines: List[Dict[str, Any]], message: str) -> None:
     fake = FakeDocker({}, lines)
-    patch_ctx, _ = use_docker(fake)
+    patch_ctx = use_docker(fake)
     yielded = []
     with patch_ctx, pytest.raises(RuntimeError, match=message):
         async for line in make_extension("2")._pull_docker_image(None):
@@ -144,7 +134,7 @@ async def test_pull_fails_on_in_band_error_or_missing_image(lines: List[Dict[str
 
 async def test_pull_accepts_a_stream_without_status_line_when_image_is_local() -> None:
     fake = FakeDocker({f"{DOCKER}:2": "id2"}, [{"status": "Pulling fs layer"}])
-    patch_ctx, _ = use_docker(fake)
+    patch_ctx = use_docker(fake)
     with patch_ctx:
         async for _ in make_extension("2")._pull_docker_image(None):
             pass
@@ -152,7 +142,7 @@ async def test_pull_accepts_a_stream_without_status_line_when_image_is_local() -
 
 async def test_digest_pull_retags_over_stale_tag() -> None:
     fake = FakeDocker({f"{DOCKER}:2": "old", f"{DOCKER}@{DIGEST}": "new"}, OK_LINES)
-    patch_ctx, _ = use_docker(fake)
+    patch_ctx = use_docker(fake)
     with patch_ctx:
         async for _ in make_extension("2", DIGEST)._pull_docker_image(None):
             pass
@@ -165,7 +155,7 @@ async def test_failed_update_restores_running_tag(env: Any) -> None:
     fake = FakeDocker({f"{DOCKER}:1": "id1"}, [{"error": "not found"}])
 
     with pytest.raises(ExtensionPullFailed):
-        await run_install(make_extension("2"), fake, running)
+        await run_install(make_extension("2"), fake)
 
     assert tags(env) == {"1": True}
     fake.client.images.delete.assert_not_awaited()
@@ -177,7 +167,7 @@ async def test_failed_pull_keeps_other_local_image(env: Any) -> None:
     env.settings.extensions = [running]
     fake = FakeDocker({f"{DOCKER}:1": "id1", f"{DOCKER}:2": "id2"}, [{"error": "offline"}])
 
-    await run_install(make_extension("2"), fake, running)
+    await run_install(make_extension("2"), fake)
 
     assert tags(env) == {"1": False, "2": True}
     env.clear.assert_not_awaited()
@@ -189,7 +179,7 @@ async def test_failed_pull_refuses_alias_of_running_image(env: Any) -> None:
     fake = FakeDocker({f"{DOCKER}:1": "id1", f"{DOCKER}:2": "id1"}, [{"error": "offline"}])
 
     with pytest.raises(ExtensionPullFailed):
-        await run_install(make_extension("2"), fake, running)
+        await run_install(make_extension("2"), fake)
 
     assert tags(env) == {"1": True}
 
@@ -204,7 +194,7 @@ async def test_failed_pull_refuses_when_running_image_unknown(env: Any, status: 
         fake.inspect_errors[f"{DOCKER}:1"] = status
 
     with pytest.raises(ExtensionPullFailed):
-        await run_install(make_extension("2"), fake, running)
+        await run_install(make_extension("2"), fake)
 
     assert tags(env) == {"1": True}
 
@@ -215,7 +205,7 @@ async def test_failed_pull_requires_exact_digest(env: Any) -> None:
     fake = FakeDocker({f"{DOCKER}:1": "id1", f"{DOCKER}:2": "stale"}, [{"error": "offline"}])
 
     with pytest.raises(ExtensionPullFailed):
-        await run_install(make_extension("2", DIGEST), fake, running)
+        await run_install(make_extension("2", DIGEST), fake)
 
     assert tags(env) == {"1": True}
 
@@ -225,7 +215,7 @@ async def test_same_tag_reinstall_keeps_new_permissions_when_image_is_local(env:
     env.settings.extensions = [running]
     fake = FakeDocker({f"{DOCKER}:1": "id1"}, [{"error": "offline"}])
 
-    await run_install(make_extension("1", permissions='{"a": 1}'), fake, running)
+    await run_install(make_extension("1", permissions='{"a": 1}'), fake)
 
     assert env.settings.extensions[0].permissions == '{"a": 1}'
     assert env.settings.extensions[0].enabled
@@ -252,7 +242,7 @@ async def test_same_tag_failed_reinstall_restores_enabled_entry_even_if_enable_f
     fake = FakeDocker({f"{DOCKER}:1": "id1"}, [{"error": "offline"}])
 
     with mock.patch.object(Extension, "enable", side_effect=RuntimeError("boom")), pytest.raises(ExtensionPullFailed):
-        await run_install(make_extension("1", DIGEST, permissions='{"a": 1}'), fake, running)
+        await run_install(make_extension("1", DIGEST, permissions='{"a": 1}'), fake)
 
     assert len(env.settings.extensions) == 1
     assert env.settings.extensions[0].permissions == "{}"
@@ -313,7 +303,7 @@ async def test_watchdog_start_fails_when_the_pull_fails(
 ) -> None:
     env.settings.extensions = [make_settings("1")]
     fake = FakeDocker(images, lines)
-    patch_ctx, _ = use_docker(fake)
+    patch_ctx = use_docker(fake)
 
     with patch_ctx, pytest.raises(ExtensionPullFailed, match=message):
         await make_extension("1").start()
@@ -329,7 +319,7 @@ async def test_rollback_resets_the_running_tags_start_backoff(env: Any) -> None:
     fake = FakeDocker({f"{DOCKER}:1": "id1"}, [{"error": "not found"}])
 
     with pytest.raises(ExtensionPullFailed):
-        await run_install(make_extension("2"), fake, running)
+        await run_install(make_extension("2"), fake)
 
     assert f"{running.identifier}{running.tag}" not in Extension.start_attempts
 
@@ -340,7 +330,7 @@ async def upload_finalize(env: Any, fake: FakeDocker, running: ExtensionSettings
     )  # fmt: skip
     env.settings.extensions = [running, temp]
     source = ExtensionSource(identifier="ext", tag="2", name="Ext", docker=DOCKER, enabled=False, permissions="{}")
-    patch_ctx, _ = use_docker(fake)
+    patch_ctx = use_docker(fake)
     temp_source = ExtensionSource(identifier="", tag="tmp", name="Ext", docker=DOCKER, enabled=False, permissions="{}")
     with patch_ctx:
         return await Extension.finalize_temporary_extension(Extension(temp_source), source)
@@ -350,9 +340,8 @@ async def test_upload_of_the_running_image_under_a_new_tag_replaces_the_old_tag(
     running = make_settings("1")
     fake = FakeDocker({f"{DOCKER}:1": "same", f"{DOCKER}:tmp": "same"}, [{"error": "manifest unknown"}])
     new_extension = await upload_finalize(env, fake, running)
-    patch_ctx, patch_running = use_docker(fake, running)
 
-    with patch_ctx, patch_running:
+    with use_docker(fake):
         async for _ in new_extension.install(pull=False):
             pass
 
@@ -367,7 +356,7 @@ async def test_install_without_pull_fails_before_touching_a_running_extension_wh
     fake = FakeDocker({f"{DOCKER}:1": "id1"})
 
     with pytest.raises(ExtensionPullFailed, match="not available locally"):
-        await run_install(make_extension("2"), fake, running, pull=False)
+        await run_install(make_extension("2"), fake, pull=False)
 
     assert tags(env) == {"1": True}
     assert fake.pulls == 0
@@ -380,6 +369,6 @@ async def test_failed_pull_after_upload_finalize_does_not_keep_the_new_entry(env
     new_extension = await upload_finalize(env, fake, running)
 
     with pytest.raises(ExtensionPullFailed):
-        await run_install(new_extension, fake, running)
+        await run_install(new_extension, fake)
 
     assert tags(env) == {"1": True}
