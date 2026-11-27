@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
@@ -6,6 +8,8 @@ class ContainerModel(BaseModel):
     image: str
     image_id: str
     status: str
+    started_at: datetime
+    uptime_seconds: float
 
 
 class ContainerUsageModel(BaseModel):

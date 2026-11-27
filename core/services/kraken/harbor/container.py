@@ -11,6 +11,12 @@ from loguru import logger
 from harbor.contexts import DockerCtx
 from harbor.exceptions import ContainerNotFound
 from harbor.models import ContainerModel, ContainerUsageModel
+from harbor.uptime import (
+    compute_uptime_seconds,
+    host_uptime_seconds,
+    now_utc,
+    parse_docker_time,
+)
 
 
 class ContainerManager:
@@ -86,31 +92,32 @@ class ContainerManager:
         return result
 
     @staticmethod
+    async def _to_model(container: DockerContainer) -> ContainerModel:
+        name, image, image_id, status_text = (container[key] for key in ("Names", "Image", "ImageID", "Status"))
+        # show() replaces the list fields of the container with the inspect data, so read them first
+        started_at = parse_docker_time((await container.show())["State"]["StartedAt"])  # type: ignore
+        return ContainerModel(
+            name=name[0],
+            image=image,
+            image_id=image_id,
+            status=status_text,
+            started_at=started_at,
+            uptime_seconds=compute_uptime_seconds(started_at, now_utc(), host_uptime_seconds()),
+        )
+
+    @staticmethod
     async def get_running_containers() -> List[ContainerModel]:
         async with DockerCtx() as client:
             containers = await client.containers.list(filters={"status": ["running"]})  # type: ignore
 
-            return [
-                ContainerModel(
-                    name=container["Names"][0],
-                    image=container["Image"],
-                    image_id=container["ImageID"],
-                    status=container["Status"],
-                )
-                for container in containers
-            ]
+            return [await ContainerManager._to_model(container) for container in containers]
 
     @classmethod
     async def get_running_container_by_name(cls, container_name: str) -> ContainerModel:
         async with DockerCtx() as client:
             container = await cls.get_raw_container_by_name(client, container_name)
 
-            return ContainerModel(
-                name=container["Names"][0],
-                image=container["Image"],
-                image_id=container["ImageID"],
-                status=container["Status"],
-            )
+            return await cls._to_model(container)
 
     @classmethod
     async def get_container_log_by_name(cls, container_name: str) -> AsyncGenerator[str, None]:
