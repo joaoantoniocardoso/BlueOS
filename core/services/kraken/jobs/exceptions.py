@@ -4,3 +4,7 @@ class JobNotFound(Exception):
 
 class JobOperationNotAllowed(Exception):
     pass
+
+
+class JobRequestFailed(Exception):
+    pass
