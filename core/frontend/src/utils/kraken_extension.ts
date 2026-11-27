@@ -45,5 +45,5 @@ export function parsePermissions(label: string | null | undefined): any {
 }
 
 export function extensionUrl(...segments: string[]): string {
-  return `${KRAKEN_API_V2_URL}/extension/${segments.join('/')}`
+  return `${KRAKEN_API_V2_URL}/extension/${segments.map(encodeURIComponent).join('/')}`
 }
