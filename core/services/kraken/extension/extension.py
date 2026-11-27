@@ -437,10 +437,7 @@ class Extension:
         logger.info(f"Extension {self.identifier}:{self.tag} installed")
         # Uninstall all other tags in case user wants to clear them
         if clear_remaining_tags:
-            try:
-                await self._clear_remaining_tags()
-            except Exception as error:
-                logger.warning(f"Could not clear the other tags of {self.identifier}: {error}")
+            await self._clear_remaining_tags()
 
     async def update(self, clear_remaining_tags: bool) -> AsyncGenerator[bytes, None]:
         async for data in self.install(clear_remaining_tags):

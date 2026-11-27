@@ -561,10 +561,11 @@ async def test_failed_settings_save_keeps_the_old_tag_enabled_in_memory(env: Any
     env.clear.assert_not_awaited()
 
 
-async def test_failed_cleanup_of_old_tags_does_not_fail_a_good_install(env: Any) -> None:
+async def test_failed_cleanup_of_old_tags_is_reported_and_keeps_the_new_tag_enabled(env: Any) -> None:
     crashes = Crashes(env, FakeDocker({f"{DOCKER}:1": "id1"}), make_settings("1"))
-    env.clear.side_effect = RuntimeError("boom")
+    env.clear.side_effect = ExtensionCleanupFailed("boom")
 
-    await run_install(make_extension("2"), crashes.fake)
+    with pytest.raises(ExtensionCleanupFailed, match="boom"):
+        await run_install(make_extension("2"), crashes.fake)
 
     assert {ext.tag: ext.enabled for ext in crashes.disk} == {"1": False, "2": True}
