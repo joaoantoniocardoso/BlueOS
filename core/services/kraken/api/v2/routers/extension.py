@@ -240,7 +240,8 @@ async def keep_uploaded_extension_alive(
 @extension_router_v2.post("/upload/finalize", status_code=status.HTTP_201_CREATED)
 @extension_to_http_exception
 async def finalize_extension(
-    body: ExtensionSource, temp_tag: str = Query(..., description="Temporary tag from upload response")
+    body: ExtensionInstallSource,
+    temp_tag: str = Query(..., description="Temporary tag from upload response"),
 ) -> StreamingResponse:
     """
     Finalize a temporary extension by assigning a valid identifier and installing it.
