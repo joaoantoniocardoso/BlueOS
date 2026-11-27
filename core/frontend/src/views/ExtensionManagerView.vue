@@ -1165,7 +1165,8 @@ export default Vue.extend({
             }
           },
         )
-        const result = resolveFinalizeResult()
+        // The tracker already raised the alert and the notification for its own error.
+        const result = resolveFinalizeResult(undefined, tracker.error)
         if (result.phase === 'error') {
           this.applyInstallFromFileError(result.message)
           return

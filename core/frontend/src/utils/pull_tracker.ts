@@ -22,6 +22,8 @@ class PullTracker {
 
   private onerror: (error: string) => void
 
+  error: string | null = null
+
   overall_status = ''
 
   download_percentage = 0
@@ -31,6 +33,15 @@ class PullTracker {
   constructor(ready_callback: () => void, error_callback: (error: string) => void) {
     this.onready = ready_callback
     this.onerror = error_callback
+  }
+
+  // The response is cumulative, so the same failure is seen again on every later event.
+  private fail(error: string): void {
+    if (this.error !== null) {
+      return
+    }
+    this.error = error
+    this.onerror(error)
   }
 
   updateSimplifiedProgress(): void {
@@ -133,7 +144,7 @@ class PullTracker {
         if (error instanceof SyntaxError) {
           this.left_over_data = line
         } else {
-          this.onerror(`${error}`)
+          this.fail(`${error}`)
         }
       }
     }
@@ -159,7 +170,7 @@ class PullTracker {
       const result = aggregateStreamingResponse(
         parseStreamingResponse(response),
         (fragment) => {
-          this.onerror(fragment.error ?? `Unknown error with status ${fragment.status}`)
+          this.fail(fragment.error ?? `Unknown error with status ${fragment.status}`)
           /** Stops aggregation */
           return false
         },
