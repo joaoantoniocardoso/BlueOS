@@ -115,7 +115,8 @@ async def test_listing_without_data_shows_the_error_of_the_last_failed_fetch(
 
 async def test_a_later_good_fetch_clears_the_error(manager: ManifestManager) -> None:
     set_sources(BAD_URL)
-    await manager.fetch(fetch_data=True)
+    with pytest.raises(ManifestBackendOffline):
+        await manager.fetch(fetch_data=True)
     set_sources(GOOD_URL)
     manager._source_errors["source-0"] = "old"
 
@@ -126,7 +127,8 @@ async def test_a_later_good_fetch_clears_the_error(manager: ManifestManager) -> 
 
 async def test_changing_a_source_forgets_its_error(manager: ManifestManager) -> None:
     set_sources(BAD_URL)
-    await manager.fetch(fetch_data=True)
+    with pytest.raises(ManifestBackendOffline):
+        await manager.fetch(fetch_data=True)
 
     await manager.update_source("source-0", UpdateManifestSource(url=GOOD_URL), validate_url=False)
 

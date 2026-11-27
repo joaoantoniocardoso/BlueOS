@@ -46,6 +46,7 @@ async def test_incompatible_dead_extension_logs_the_reason(warnings: List[str]) 
         enabled=True, user_permissions="",
     )  # fmt: skip
     kraken = mock.Mock()
+    kraken.adopt_legacy_containers = mock.AsyncMock()
     kraken._extension_start_try_valid.return_value = True
     kraken.manifest.fetch_extension_version = mock.AsyncMock(side_effect=IncompatibleExtension("needs core 1.5"))
     start = mock.AsyncMock()

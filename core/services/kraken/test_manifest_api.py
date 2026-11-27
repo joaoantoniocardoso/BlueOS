@@ -19,11 +19,6 @@ from fastapi import HTTPException  # noqa: E402
 from fastapi.routing import APIRoute  # noqa: E402
 from manifest.models import RepositoryEntry  # noqa: E402
 
-try:
-    import fastapi_versioning  # noqa: F401  # pylint: disable=unused-import
-except ImportError:  # the root test environment does not carry the kraken service dependencies
-    sys.modules["fastapi_versioning"] = mock.Mock(versioned_api_route=lambda *_: APIRoute)
-
 # Loaded by path because importing the `api` package would start the whole service.
 _spec = importlib.util.spec_from_file_location(
     "kraken_manifest_router_v2", Path(_KRAKEN_DIR) / "api/v2/routers/manifest.py"

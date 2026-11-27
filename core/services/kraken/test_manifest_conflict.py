@@ -21,27 +21,6 @@ _saved = {module_name: sys.modules.get(module_name) for module_name in ("config"
 for module_name in _saved:
     sys.modules.pop(module_name, None)
 
-_stubbed: List[Any] = []
-# Another test module may already have put a stub without a spec in `sys.modules`, and `find_spec` refuses that.
-_loaded = sys.modules.get("fastapi_versioning")
-if (
-    (getattr(_loaded, "__spec__", None) is None)
-    if _loaded is not None
-    else importlib.util.find_spec("fastapi_versioning") is None
-):
-    # Not a dev dependency: the routes only need `versioned_api_route` to give a route class.
-    import types
-    import fastapi.dependencies.utils as fastapi_utils
-    from fastapi.routing import APIRoute
-
-    stub = types.ModuleType("fastapi_versioning")
-    stub.versioned_api_route = lambda *_args, **_kwargs: APIRoute  # type: ignore[attr-defined]
-    stub.VersionedFastAPI = mock.MagicMock()  # type: ignore[attr-defined]
-    sys.modules["fastapi_versioning"] = stub
-    # The upload route declares a `File` field, which refuses to load without python-multipart.
-    _stubbed = [fastapi_utils, fastapi_utils.check_file_field]
-    fastapi_utils.check_file_field = lambda _field: None
-
 from fastapi import HTTPException  # noqa: E402
 from api.v1.routers import extension as v1_extension  # noqa: E402
 from api.v1.routers import index as v1_index  # noqa: E402
@@ -62,9 +41,6 @@ for env_name, env_value in _saved_env.items():
 # Other services have their own top-level `api` package.
 for module_name in [name for name in sys.modules if name == "api" or name.startswith("api.")]:
     del sys.modules[module_name]
-if _stubbed:
-    sys.modules.pop("fastapi_versioning", None)
-    _stubbed[0].check_file_field = _stubbed[1]
 for module_name, module in _saved.items():
     if module is not None:
         sys.modules[module_name] = module

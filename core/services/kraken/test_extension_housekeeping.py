@@ -65,8 +65,8 @@ async def test_cleanup_ignores_wall_clock_step() -> None:
 @pytest.mark.parametrize("stable, word", [(True, "stable versions"), (False, "versions")])
 async def test_from_latest_message_has_spaces(stable: bool, word: str) -> None:
     manager = mock.Mock()
-    manager.fetch_extension = mock.AsyncMock(return_value=object())
-    manager.fetch_latest_extension_version = mock.AsyncMock(return_value=None)
+    manager.select_extension = mock.AsyncMock(return_value=object())
+    manager.versions_from_entry = mock.Mock(return_value=[])
     with mock.patch("extension.extension.ManifestManager.instance", return_value=manager):
         with pytest.raises(ExtensionNotFound) as error:
             await Extension.from_latest("id", stable)
