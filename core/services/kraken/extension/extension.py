@@ -808,23 +808,18 @@ class Extension:
         # Create new extension with valid identifier
         new_extension = Extension(source)
 
-        # Remove old temporary extension
-        temp_extension._save_settings()
-        cls.temp_extension_activity.pop(old_settings.tag, None)
-
-        # Retag uploaded image with final coordinates and drop the temporary tag reference
+        # Retag first: if it fails, the temporary entry and image stay, so the upload is not lost
         if old_settings.docker != source.docker or old_settings.tag != source.tag:
             async with DockerCtx() as client:
                 temp_reference = f"{old_settings.docker}:{old_settings.tag}"
-                new_reference = f"{source.docker}:{source.tag}"
-                try:
-                    await client.images.tag(temp_reference, new_reference)
-                except Exception as error:
-                    logger.warning(f"Failed to tag image: {error}")
+                await client.images.tag(temp_reference, f"{source.docker}:{source.tag}")
                 try:
                     await client.images.delete(temp_reference, force=True, noprune=False)
                 except Exception as error:
                     logger.warning(f"Failed to remove temporary image tag {temp_reference}: {error}")
+
+        temp_extension._save_settings()
+        cls.temp_extension_activity.pop(old_settings.tag, None)
 
         return new_extension
 

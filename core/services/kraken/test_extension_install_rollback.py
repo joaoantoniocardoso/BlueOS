@@ -383,3 +383,33 @@ async def test_failed_pull_after_upload_finalize_does_not_keep_the_new_entry(env
         await run_install(new_extension, fake, running)
 
     assert tags(env) == {"1": True}
+
+
+async def test_finalize_keeps_the_uploaded_image_and_temp_entry_when_the_retag_fails(env: Any) -> None:
+    running = make_settings("1")
+    fake = FakeDocker({f"{DOCKER}:1": "id1", f"{DOCKER}:tmp": "up"})
+    fake.client.images.tag.side_effect = DockerError(500, {"message": "no space left"})  # type: ignore
+
+    with pytest.raises(DockerError, match="no space left"):
+        await upload_finalize(env, fake, running)
+
+    fake.client.images.delete.assert_not_called()
+    assert tags(env) == {"1": True, "tmp": False}
+
+
+async def test_finalize_drops_the_temp_tag_only_after_the_retag(env: Any) -> None:
+    fake = FakeDocker({f"{DOCKER}:1": "id1", f"{DOCKER}:tmp": "up"})
+    await upload_finalize(env, fake, make_settings("1"))
+
+    assert fake.images[f"{DOCKER}:2"] == "up"
+    fake.client.images.delete.assert_awaited_once_with(f"{DOCKER}:tmp", force=True, noprune=False)
+    assert tags(env) == {"1": True}
+
+
+async def test_finalize_succeeds_when_only_the_temp_tag_removal_fails(env: Any) -> None:
+    fake = FakeDocker({f"{DOCKER}:1": "id1", f"{DOCKER}:tmp": "up"})
+    fake.client.images.delete.side_effect = DockerError(500, {"message": "busy"})  # type: ignore
+
+    await upload_finalize(env, fake, make_settings("1"))
+
+    assert fake.images[f"{DOCKER}:2"] == "up"
