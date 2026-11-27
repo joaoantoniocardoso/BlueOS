@@ -15,9 +15,9 @@ from manifest.exceptions import (
     ManifestOperationNotAllowed,
 )
 from manifest.models import (
+    ConsolidatedEntry,
     Manifest,
     ManifestSource,
-    RepositoryEntry,
     UpdateManifestSource,
 )
 
@@ -74,10 +74,11 @@ async def fetch_by_identifier(identifier: str, data: bool = True) -> Manifest:
 
 @manifest_router_v2.get("/consolidated", status_code=status.HTTP_200_OK)
 @manifest_to_http_exception
-async def fetch_consolidated() -> list[RepositoryEntry]:
+async def fetch_consolidated() -> list[ConsolidatedEntry]:
     """
     List a consolidation of all repository entries from all manifest sources merged by its sorted priority, if a
-    repository entry is duplicated, the one with the highest priority will be kept.
+    repository entry is duplicated, the one with the highest priority will be kept and the other repos are listed in
+    `conflicts`.
     """
     return await manifest_manager.fetch_consolidated()
 

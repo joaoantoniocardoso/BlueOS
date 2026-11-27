@@ -114,6 +114,20 @@ class RepositoryEntry(ExtensionMetadata):
     versions: Dict[str, ExtensionVersion] = Field(default_factory=dict)
 
 
+class ExtensionCandidate(BaseModel):
+    manifest: str
+    manifest_name: str
+    docker: str
+    name: str
+    tags: List[str]
+
+
+class ConsolidatedEntry(RepositoryEntry):
+    manifest: str
+    manifest_name: str
+    conflicts: List[ExtensionCandidate] = Field(default_factory=list)
+
+
 # Local Manifest models
 
 

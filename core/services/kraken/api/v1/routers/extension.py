@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, List, cast
+from typing import Any, List, Optional, cast
 
 from commonwealth.utils.streaming import streamer
 from fastapi import APIRouter, status
@@ -37,8 +37,10 @@ async def uninstall_extension(extension_identifier: str) -> Any:
 
 @extension_router_v1.post("/update_to_version", status_code=status.HTTP_201_CREATED)
 @extension_to_http_exception
-async def update_extension(extension_identifier: str, new_version: str) -> StreamingResponse:
-    extension = cast(Extension, await Extension.from_manifest(extension_identifier, new_version))
+async def update_extension(
+    extension_identifier: str, new_version: str, manifest_identifier: Optional[str] = None
+) -> StreamingResponse:
+    extension = cast(Extension, await Extension.from_manifest(extension_identifier, new_version, manifest_identifier))
     return StreamingResponse(streamer(extension.update(True)))
 
 

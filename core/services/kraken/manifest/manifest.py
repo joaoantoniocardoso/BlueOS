@@ -1,7 +1,7 @@
 import asyncio
 import uuid
 from functools import wraps
-from typing import Any, Callable, List, Optional, Set, Tuple, cast
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, cast
 
 import aiohttp
 import semver
@@ -11,6 +11,7 @@ from loguru import logger
 
 from config import DEFAULT_MANIFESTS, SERVICE_NAME
 from manifest.exceptions import (
+    ExtensionSourceConflict,
     ManifestBackendOffline,
     ManifestDataFetchFailed,
     ManifestDataParseFailed,
@@ -19,6 +20,8 @@ from manifest.exceptions import (
     ManifestOperationNotAllowed,
 )
 from manifest.models import (
+    ConsolidatedEntry,
+    ExtensionCandidate,
     ExtensionVersion,
     Manifest,
     ManifestData,
@@ -148,18 +151,66 @@ class ManifestManager:
 
         return await self._fetch_manifest(settings, fetch_data)
 
-    async def fetch_consolidated(self) -> List[RepositoryEntry]:
+    @staticmethod
+    def _candidate(manifest: Manifest, entry: RepositoryEntry) -> ExtensionCandidate:
+        return ExtensionCandidate(
+            manifest=manifest.identifier,
+            manifest_name=manifest.name,
+            docker=entry.docker,
+            name=entry.name,
+            tags=list(entry.versions),
+        )
+
+    async def fetch_consolidated(self) -> List[ConsolidatedEntry]:
         manifests = await self.fetch(fetch_data=True, enabled=True)
 
-        consolidated = []
-        seen_identifiers: Set[str] = set()
+        consolidated: Dict[str, ConsolidatedEntry] = {}
         for manifest in manifests:
-            if manifest.data is not None:
-                new_entries = [entry for entry in manifest.data if entry.identifier not in seen_identifiers]
-                consolidated.extend(new_entries)
-                seen_identifiers.update(entry.identifier for entry in new_entries)
+            for entry in manifest.data or []:
+                kept = consolidated.get(entry.identifier)
+                if kept is None:
+                    consolidated[entry.identifier] = ConsolidatedEntry(
+                        **dict(entry), manifest=manifest.identifier, manifest_name=manifest.name
+                    )
+                elif entry.docker not in [kept.docker, *(c.docker for c in kept.conflicts)]:
+                    kept.conflicts.append(self._candidate(manifest, entry))
 
-        return consolidated
+        return list(consolidated.values())
+
+    async def fetch_candidates(self, identifier: str) -> List[Tuple[Manifest, RepositoryEntry]]:
+        """Every enabled source entry with this identifier, in priority order."""
+        manifests = await self.fetch(fetch_data=True, enabled=True)
+        return [(m, entry) for m in manifests for entry in m.data or [] if entry.identifier == identifier]
+
+    async def select_extension(
+        self,
+        identifier: str,
+        installed_docker: Optional[str] = None,
+        manifest_id: Optional[str] = None,
+        tag: Optional[str] = None,
+    ) -> Optional[RepositoryEntry]:
+        """
+        Pick the entry to install or update from. An explicit source wins. Otherwise the priority decides, unless
+        sources list different repos: then the installed repo is kept, and with no candidate on it the caller must choose.
+        With a tag, only the sources that have that tag count.
+        """
+        if manifest_id is not None:
+            return await self.fetch_extension(identifier, manifest_id)
+
+        candidates = await self.fetch_candidates(identifier)
+        if tag is not None:
+            candidates = [(m, entry) for m, entry in candidates if self.version_from_entry(entry, tag)]
+        if len({entry.docker for _, entry in candidates}) < 2:
+            return candidates[0][1] if candidates else None
+
+        if installed_docker is None:
+            return candidates[0][1]
+        installed = [entry for _, entry in candidates if entry.docker == installed_docker]
+        if not installed:
+            raise ExtensionSourceConflict(
+                identifier, installed_docker, [self._candidate(m, entry).dict() for m, entry in candidates]
+            )
+        return installed[0]
 
     def _raise_in_default_source(self, identifier: str) -> None:
         default_identifiers = [source["identifier"] for source in DEFAULT_MANIFESTS]
@@ -268,7 +319,7 @@ class ManifestManager:
         self._manager.save()
 
     async def fetch_extension(self, extension_id: str, manifest_id: Optional[str] = None) -> Optional[RepositoryEntry]:
-        manifest = []
+        manifest: Sequence[RepositoryEntry]
         if manifest_id is None:
             # Only fetch enabled sources already sorted by priority
             manifest = await self.fetch_consolidated()
@@ -312,13 +363,14 @@ class ManifestManager:
 
         return ext.versions.get(versions[0]) if versions else None
 
-    async def fetch_extension_version(self, extension_id: str, tag: str) -> Optional[ExtensionVersion]:
-        ext = await self.fetch_extension(extension_id)
-        if not ext:
-            return None
-
+    @staticmethod
+    def version_from_entry(ext: RepositoryEntry, tag: str) -> Optional[ExtensionVersion]:
         return (
             ext.versions.get(tag)
             or ext.versions.get(f"v{tag}")
             or (ext.versions.get(tag[1:]) if tag.startswith("v") else None)
         )
+
+    async def fetch_extension_version(self, extension_id: str, tag: str) -> Optional[ExtensionVersion]:
+        ext = await self.fetch_extension(extension_id)
+        return self.version_from_entry(ext, tag) if ext else None
