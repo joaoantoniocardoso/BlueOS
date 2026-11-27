@@ -31,6 +31,18 @@
                 </span>
               </p>
               <v-spacer />
+              <v-tooltip v-if="element.error" top>
+                <template #activator="{ on, attrs }">
+                  <v-icon
+                    color="warning"
+                    v-bind="attrs"
+                    v-on="on"
+                  >
+                    mdi-alert-circle-outline
+                  </v-icon>
+                </template>
+                <span>{{ t`Failed to load this source:` }} {{ element.error }}</span>
+              </v-tooltip>
               <v-btn
                 icon
                 :disabled="element.factory"

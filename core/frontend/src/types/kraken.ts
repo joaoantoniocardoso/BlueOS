@@ -93,6 +93,7 @@ export interface Manifest extends ManifestSource {
   priority: number
   factory: boolean
   data?: [ExtensionData]
+  error?: string
 }
 
 export interface UploadProgressEvent {
