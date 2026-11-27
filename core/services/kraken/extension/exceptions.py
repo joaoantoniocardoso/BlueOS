@@ -10,6 +10,10 @@ class ExtensionPullFailed(Exception):
     pass
 
 
+class ExtensionCleanupFailed(Exception):
+    pass
+
+
 class IncompatibleExtension(Exception):
     pass
 

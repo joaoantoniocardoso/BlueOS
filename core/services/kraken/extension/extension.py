@@ -26,6 +26,7 @@ from loguru import logger
 
 from config import DEFAULT_INJECTED_ENV_VARIABLES, SERVICE_NAME
 from extension.exceptions import (
+    ExtensionCleanupFailed,
     ExtensionInsufficientStorage,
     ExtensionNotFound,
     ExtensionNotRunning,
@@ -53,6 +54,8 @@ class Extension:
     # If an extension is being installed the key will be the extension identifier if is being removed the key is the
     # container name.
     locked_entries: Dict[str, Literal[True]] = {}
+    # shortcut: one lock per container name is kept for the life of the process, drop it if names ever grow unbounded
+    container_locks: Dict[str, asyncio.Lock] = {}
     start_attempts: Dict[str, Tuple[int, int]] = {}
     temp_extension_activity: Dict[str, Tuple[int, int]] = {}
 
@@ -86,6 +89,10 @@ class Extension:
     @classmethod
     def unlock(cls, key: str) -> None:
         cls.locked_entries.pop(key, None)
+
+    @classmethod
+    def container_lock(cls, container_name: str) -> asyncio.Lock:
+        return cls.container_locks.setdefault(container_name, asyncio.Lock())
 
     @classmethod
     def mark_start_attempt(cls, key: str) -> None:
@@ -200,7 +207,8 @@ class Extension:
             )
             cls.lock(container_name)
 
-            async with DockerCtx() as client:
+            # Docker answers 409 to a second removal of a container that is already being removed
+            async with cls.container_lock(container_name), DockerCtx() as client:
                 container = await ContainerManager.get_raw_container_by_name(client, container_name)
 
                 image = container["Image"]
@@ -340,7 +348,12 @@ class Extension:
         logger.info(f"Clearing remaining tags for extension {self.identifier}")
         to_clear: List[Extension] = cast(List[Extension], await self.from_settings(self.identifier))
         to_clear = [version for version in to_clear if version.source.tag != self.tag]
-        await asyncio.gather(*(version.uninstall() for version in to_clear))
+        results = await asyncio.gather(*(version.uninstall() for version in to_clear), return_exceptions=True)
+        failures = [f"{ver.tag}: {res}" for ver, res in zip(to_clear, results) if isinstance(res, BaseException)]
+        if failures:
+            reason = "; ".join(failures)
+            logger.warning(f"Could not remove old tags of extension {self.identifier}: {reason}")
+            raise ExtensionCleanupFailed(f"Installed, but could not remove old tags: {reason}")
 
     async def install(self, clear_remaining_tags: bool = True, pull: bool = True) -> AsyncGenerator[bytes, None]:
         logger.info(f"Installing extension {self.identifier}:{self.tag}")
@@ -399,15 +412,13 @@ class Extension:
         try:
             await self.remove(old_settings.container_name())
         except ContainerNotFound:
-            # If container was not found we must try to remove the image since it will be lost
-            try:
-                async with DockerCtx() as client:
+            # The container is already gone, so only its image can be left over. A missing image is fine too
+            async with DockerCtx() as client:
+                try:
                     await client.images.delete(old_settings.fullname(), force=True, noprune=False)
-            except Exception:
-                pass
-        except Exception:
-            # If its other exception we should just ignore since the main loop will take care
-            pass
+                except DockerError as error:
+                    if error.status != 404:
+                        raise
         finally:
             if self.tag.startswith(TEMP_EXTENSION_TAG_PREFIX):
                 self.temp_extension_activity.pop(self.tag, None)
@@ -440,9 +451,13 @@ class Extension:
                     if image_id is None:
                         raise ExtensionPullFailed(f"Image {self.identifier}:{self.tag} missing after pull")
 
-                container = await Extension._start_or_create(client, ext.container_name(), config, image_id)
-                # If the container is already running, this returns 304 Not Modified
-                await container.start()
+                async with self.container_lock(ext.container_name()):
+                    # A removal that ran while this start waited for the lock may have disabled the extension
+                    if not self.settings.enabled:
+                        return
+                    container = await Extension._start_or_create(client, ext.container_name(), config, image_id)
+                    # If the container is already running, this returns 304 Not Modified
+                    await container.start()
                 logger.info(f"Extension {self.identifier}:{self.tag} started")
                 self.reset_start_attempt(self.unique_entry)
         except Exception as error:
