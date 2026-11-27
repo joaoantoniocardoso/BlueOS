@@ -4,6 +4,7 @@ import {
   InstalledExtensionData,
   Manifest,
   ManifestSource,
+  PullPolicy,
   RunningContainer,
   UploadProgressEvent,
 } from '@/types/kraken'
@@ -257,10 +258,12 @@ export async function finalizeExtension(
 /**
  * Install an extension to the latest version available
  * @param {InstalledExtensionData} extension The extension to be installed
+ * @param {PullPolicy} pull Pull the image always, only if it is missing locally, or never (use the local image)
  * @param {function} progressHandler The progress handler for the download
  */
 export async function installExtension(
   extension: InstalledExtensionData,
+  pull: PullPolicy,
   progressHandler: (event: any) => void,
 ): Promise<void> {
   await back_axios({
@@ -274,6 +277,7 @@ export async function installExtension(
       enabled: true,
       permissions: extension?.permissions ?? '',
       user_permissions: extension?.user_permissions ?? '',
+      pull,
     },
     timeout: 600000,
     onDownloadProgress: progressHandler,

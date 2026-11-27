@@ -429,7 +429,7 @@ import PullTracker from '@/utils/pull_tracker'
 import { aggregateStreamingResponse, parseStreamingResponse } from '@/utils/streaming'
 
 import {
-  ExtensionData, ExtensionUploadMetadata, InstalledExtensionData, ProgressEvent,
+  ExtensionData, ExtensionUploadMetadata, InstalledExtensionData, ProgressEvent, PullPolicy,
   RunningContainer, UploadProgressEvent,
 } from '../types/kraken'
 
@@ -863,7 +863,8 @@ export default Vue.extend({
         // This is from a file upload, use finalize endpoint
         await this.finalizeUploadedExtension(this.edited_extension)
       } else {
-        await this.install(this.edited_extension)
+        // Editing keeps the installed image. A new custom source must pull, because its tag may have moved
+        await this.install(this.edited_extension, this.edited_extension.editing ? 'never' : 'always')
       }
 
       this.show_dialog = false
@@ -974,13 +975,14 @@ export default Vue.extend({
       this.show_dialog = true
       this.selected_extension = extension
     },
-    async install(extension: InstalledExtensionData) {
+    async install(extension: InstalledExtensionData, pull: PullPolicy) {
       this.show_dialog = false
       this.show_pull_output = true
       const tracker = this.getTracker()
 
       kraken.installExtension(
         extension,
+        pull,
         (progressEvent) => this.handleDownloadProgress(progressEvent.event, tracker),
       )
         .then(() => {
@@ -1016,6 +1018,7 @@ export default Vue.extend({
       if (!this.selected_extension) {
         return
       }
+      // The catalog install sends no digest, so the tag may point to a newer image than the local one
       await this.install({
         identifier: this.selected_extension?.identifier,
         name: this.selected_extension?.name,
@@ -1024,7 +1027,7 @@ export default Vue.extend({
         enabled: true,
         permissions: JSON.stringify(this.selected_extension?.versions[tag].permissions),
         user_permissions: permissions ?? '',
-      })
+      }, 'always')
     },
     async uninstall(extension: InstalledExtensionData) {
       this.setLoading(extension, true)
