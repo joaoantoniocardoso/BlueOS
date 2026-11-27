@@ -7,7 +7,7 @@ export function validateIdentifier(input: string): (true | string) {
     return 'This field must not contain whitespace.'
   }
   const name_validator = '[A-Za-z][A-Za-z0-9]+'
-  const regex = RegExp(`^${name_validator}\\.${name_validator}`)
+  const regex = RegExp(`^${name_validator}\\.${name_validator}$`)
   if (regex.test(input)) {
     return true
   }
