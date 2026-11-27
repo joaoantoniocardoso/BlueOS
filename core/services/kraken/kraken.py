@@ -13,6 +13,7 @@ from extension.extension import Extension
 from extension.models import ExtensionSource
 from harbor import ContainerManager
 from jobs import JobsManager
+from jobs.exceptions import JobNotFound
 from jobs.models import Job, JobMethod
 from manifest import ManifestManager
 from manifest.exceptions import ManifestBackendOffline
@@ -68,8 +69,10 @@ class Kraken:
                         logger.warning(
                             f"Dead extension {extension.identifier}:{extension.tag} is external and likely requires authentication"
                         )
-                except IncompatibleExtension:
-                    logger.warning(f"Dead extension {extension.identifier}:{extension.tag} is not compatible anymore")
+                except IncompatibleExtension as e:
+                    logger.warning(
+                        f"Dead extension {extension.identifier}:{extension.tag} is not compatible anymore: {e}"
+                    )
                 except ManifestBackendOffline:
                     logger.warning(
                         f"Could not fetch manifest since the backend is offline, will try to start {extension.identifier}:{extension.tag} anyway"
@@ -96,7 +99,7 @@ class Kraken:
     def is_install_default_ext_job_created(self, identifier: str) -> bool:
         try:
             JobsManager.get_by_identifier(identifier)
-        except Exception:
+        except JobNotFound:
             return False
         return True
 
