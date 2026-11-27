@@ -1,6 +1,6 @@
 import platform as sys_platform
 from enum import StrEnum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Self
 
 from pydantic import BaseModel, Field, validator
 
@@ -113,7 +113,7 @@ class ExtensionMetadata(BaseModel):
 class RepositoryEntry(ExtensionMetadata):
     versions: Dict[str, ExtensionVersion] = Field(default_factory=dict)
 
-    def without_readme(self) -> "RepositoryEntry":
+    def without_readme(self) -> Self:
         # Never mutate: entries come from the cached manifest.
         return self.copy(
             update={"versions": {tag: version.copy(update={"readme": None}) for tag, version in self.versions.items()}}
