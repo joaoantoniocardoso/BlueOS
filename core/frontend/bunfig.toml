@@ -1,0 +1,3 @@
+[test]
+# The vue-tour submodule ships specs that need its own dev dependencies
+pathIgnorePatterns = ["src/components/vue-tour/**"]
