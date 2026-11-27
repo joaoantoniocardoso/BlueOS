@@ -265,3 +265,22 @@ async def test_remove_finds_stopped_containers() -> None:
 
     assert client.containers.list.await_args.kwargs["all"] is True
     container.delete.assert_awaited_once()
+
+
+async def test_remove_deletes_the_image_by_reference_not_by_id() -> None:
+    """Deleting by id would untag every other tag that shares the image."""
+    raw = inspected("running", image="repo:a")
+    container = make_container(raw)
+    container.__getitem__ = mock.Mock(side_effect=lambda key: {"Image": "sha256:" + "0" * 64}[key])
+    client = mock.AsyncMock()
+
+    with mock.patch("extension.extension.DockerCtx") as docker_ctx, mock.patch(
+        "extension.extension.ContainerManager"
+    ) as manager:
+        docker_ctx.return_value.__aenter__.return_value = client
+        manager.get_raw_container_by_name = mock.AsyncMock(return_value=container)
+        manager.stop_all_by_name = mock.AsyncMock()
+        await Extension.remove("extension-repoa")
+
+    client.images.delete.assert_awaited_once()
+    assert client.images.delete.await_args.args == ("repo:a",)

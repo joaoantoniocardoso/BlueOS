@@ -223,7 +223,8 @@ class Extension:
                     client, container_name, include_stopped=True
                 )
 
-                image = container["Image"]
+                # The list entry may hold an image id, which would untag every other tag of the same image
+                image = (await container.show())["Config"]["Image"]  # type: ignore
 
                 await ContainerManager.stop_all_by_name(client, container_name)
                 await container.delete()  # type: ignore
