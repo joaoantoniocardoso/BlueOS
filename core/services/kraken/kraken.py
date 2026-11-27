@@ -221,7 +221,7 @@ class Kraken:
     async def kill_dangling_containers(self) -> None:
         # This can fail if docker daemon is not running
         try:
-            containers = await ContainerManager.get_running_containers()
+            containers = await ContainerManager.get_running_containers(include_stopped=True)
         except Exception as e:
             logger.error(f"Unable to list docker containers: {e}")
             return

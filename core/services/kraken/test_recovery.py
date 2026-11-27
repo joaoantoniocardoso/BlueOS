@@ -316,3 +316,22 @@ async def test_reconciliation_fixes_the_name_when_the_guessed_identifier_was_rig
         "bluerobotics.cockpit": "Cockpit",
         "a.b": "B",
     }
+
+
+async def test_cleaner_removes_stopped_dangling_containers(kraken: Kraken) -> None:
+    stopped = [SimpleNamespace(name="/extension-gone10"), SimpleNamespace(name="/extension-ab1")]
+
+    async def list_containers(include_stopped: bool = False) -> List[Any]:
+        return stopped if include_stopped else []
+
+    remove = mock.AsyncMock()
+    with (
+        mock.patch.object(ContainerManager, "get_running_containers", list_containers),
+        mock.patch.object(Extension, "remove", remove),
+    ):
+        await kraken.kill_dangling_containers()
+        remove.assert_not_awaited()
+
+        Extension._settings.extensions = [ExtensionSettings(identifier="a.b", docker="a/b", tag="1", enabled=True)]
+        await kraken.kill_dangling_containers()
+    assert [call.args for call in remove.await_args_list] == [("extension-gone10", False)]
