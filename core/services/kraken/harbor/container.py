@@ -108,9 +108,10 @@ class ContainerManager:
             return inspects
 
     @staticmethod
-    async def get_running_containers() -> List[ContainerModel]:
+    async def get_running_containers(include_stopped: bool = False) -> List[ContainerModel]:
         async with DockerCtx() as client:
-            containers = await client.containers.list(filters={"status": ["running"]})  # type: ignore
+            query: Dict[str, Any] = {"all": True} if include_stopped else {"filters": {"status": ["running"]}}
+            containers = await client.containers.list(**query)  # type: ignore
 
             return [
                 ContainerModel(
