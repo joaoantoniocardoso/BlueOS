@@ -1,5 +1,4 @@
 # isort: skip_file
-import importlib.util
 import os
 import sys
 import tempfile

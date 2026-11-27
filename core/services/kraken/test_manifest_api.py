@@ -16,7 +16,6 @@ for module_name in _saved:
     sys.modules.pop(module_name, None)
 
 from fastapi import HTTPException  # noqa: E402
-from fastapi.routing import APIRoute  # noqa: E402
 from manifest.models import RepositoryEntry  # noqa: E402
 
 # Loaded by path because importing the `api` package would start the whole service.
