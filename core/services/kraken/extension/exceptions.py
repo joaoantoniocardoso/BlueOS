@@ -16,3 +16,7 @@ class IncompatibleExtension(Exception):
 
 class ExtensionInsufficientStorage(Exception):
     pass
+
+
+class ExtensionInstallInProgress(Exception):
+    pass
