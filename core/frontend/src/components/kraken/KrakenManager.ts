@@ -10,6 +10,7 @@ import {
   UploadProgressEvent,
 } from '@/types/kraken'
 import back_axios from '@/utils/api'
+import { extensionUrl, permissionsBody, userPermissionsBody } from '@/utils/kraken_extension'
 
 const KRAKEN_BASE_URL = '/kraken'
 const KRAKEN_API_V2_URL = `${KRAKEN_BASE_URL}/v2.0`
@@ -310,8 +311,8 @@ export async function finalizeExtension(
       docker: extension.docker,
       tag: extension.tag,
       enabled: true,
-      permissions: extension?.permissions ?? '',
-      user_permissions: extension?.user_permissions ?? '',
+      permissions: permissionsBody(extension?.permissions),
+      user_permissions: userPermissionsBody(extension?.user_permissions),
     },
     ...pullConfig,
   }))
@@ -335,8 +336,8 @@ export async function installExtension(
       docker: extension.docker,
       tag: extension.tag,
       enabled: true,
-      permissions: extension?.permissions ?? '',
-      user_permissions: extension?.user_permissions ?? '',
+      permissions: permissionsBody(extension?.permissions),
+      user_permissions: userPermissionsBody(extension?.user_permissions),
     },
     ...pullConfig,
   }))
@@ -350,7 +351,7 @@ export async function installExtension(
 export async function enableExtension(identifier: string, tag: string): Promise<void> {
   await back_axios({
     method: 'POST',
-    url: `${KRAKEN_API_V2_URL}/extension/${identifier}/${tag}/enable`,
+    url: extensionUrl(identifier, tag, 'enable'),
     timeout: 10000,
   })
 }
@@ -362,7 +363,7 @@ export async function enableExtension(identifier: string, tag: string): Promise<
 export async function disableExtension(identifier: string): Promise<void> {
   await back_axios({
     method: 'POST',
-    url: `${KRAKEN_API_V2_URL}/extension/${identifier}/disable`,
+    url: extensionUrl(identifier, 'disable'),
     timeout: 10000,
   })
 }
@@ -374,7 +375,7 @@ export async function disableExtension(identifier: string): Promise<void> {
 export async function uninstallExtension(identifier: string): Promise<void> {
   await back_axios({
     method: 'DELETE',
-    url: `${KRAKEN_API_V2_URL}/extension/${identifier}`,
+    url: extensionUrl(identifier),
   })
 }
 
@@ -385,7 +386,7 @@ export async function uninstallExtension(identifier: string): Promise<void> {
 export async function restartExtension(identifier: string): Promise<void> {
   await back_axios({
     method: 'POST',
-    url: `${KRAKEN_API_V2_URL}/extension/${identifier}/restart`,
+    url: extensionUrl(identifier, 'restart'),
     timeout: 10000,
   })
 }
@@ -402,7 +403,7 @@ export async function updateExtensionToVersion(
   progressHandler: (event: any) => void,
 ): Promise<void> {
   await withPullIdleWatchdog(progressHandler, (pullConfig) => back_axios({
-    url: `${KRAKEN_API_V2_URL}/extension/${identifier}/${version}`,
+    url: extensionUrl(identifier, version),
     method: 'PUT',
     ...pullConfig,
   }))
