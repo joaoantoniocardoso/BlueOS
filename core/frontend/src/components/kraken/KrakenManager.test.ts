@@ -16,11 +16,12 @@ interface Captured {
 const calls: { method?: string, url: string, data?: any }[] = []
 let captured: Captured | undefined
 let hold = false
+let response: unknown = []
 mock.module('../../utils/api', () => ({
   default: (config: Captured & { method?: string, url: string, data?: any }) => {
     calls.push(config)
     if (!hold) {
-      return Promise.resolve({ data: [] })
+      return Promise.resolve({ data: response })
     }
     return new Promise((resolve, reject) => {
       captured = config
@@ -37,6 +38,7 @@ afterEach(() => {
   jest.useRealTimers()
   captured = undefined
   hold = false
+  response = []
   calls.length = 0
 })
 
@@ -123,4 +125,18 @@ test('install and finalize send an object for null permissions', async () => {
     expect(call.data.permissions).toBe('{}')
     expect(call.data.user_permissions).toBe('')
   }
+})
+
+test('the source listing carries the load error of a source and downloads no data', async () => {
+  response = [
+    {
+      identifier: 'a', name: 'a', url: 'https://a', enabled: true, priority: 0, factory: false,
+    },
+    {
+      identifier: 'b', name: 'b', url: 'https://b', enabled: true, priority: 1, factory: false, error: 'backend is offline',
+    },
+  ]
+  const listed = await manager.fetchManifestSources(false)
+  expect(listed.map((source) => source.error)).toEqual([undefined, 'backend is offline'])
+  expect(calls.map((call) => call.url)).toEqual(['/kraken/v2.0/manifest/?data=false&enabled=false'])
 })
