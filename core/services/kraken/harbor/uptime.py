@@ -3,7 +3,8 @@ from pathlib import Path
 
 
 def compute_uptime_seconds(started_at: datetime, now: datetime, host_uptime_s: float) -> float:
-    return max(0.0, (now - started_at).total_seconds())
+    # A host without a real-time clock steps its clock at NTP sync, so a container cannot be older than the host
+    return max(0.0, min((now - started_at).total_seconds(), host_uptime_s))
 
 
 def host_uptime_seconds() -> float:
