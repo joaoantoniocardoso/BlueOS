@@ -22,6 +22,7 @@ from typing import (
 
 from aiodocker.exceptions import DockerError
 from commonwealth.settings.manager import Manager
+from commonwealth.utils.streaming import idle_timeout
 from loguru import logger
 
 from config import DEFAULT_INJECTED_ENV_VARIABLES, SERVICE_NAME
@@ -40,6 +41,8 @@ from manifest.models import ExtensionVersion
 from settings import ExtensionSettings, SettingsV2
 from utils import has_enough_disk_space
 
+# Same limit as PULL_IDLE_TIMEOUT_MS in the frontend KrakenManager.ts
+PULL_IDLE_TIMEOUT_SECONDS = 120
 TEMP_EXTENSION_KEEPALIVE_TTL_SECONDS = 10 * 60
 TEMP_EXTENSION_TAG_PREFIX = "temp-"
 CONFIG_FINGERPRINT_LABEL = "blueos.config-fingerprint"
@@ -367,7 +370,8 @@ class Extension:
                 # A local digest image is the exact content, so only a tag-only install needs the registry
                 is_local = not pull or bool(self.digest) and await self._local_image_id(client, exact=True) is not None
             if not is_local:
-                async for line in self._pull_docker_image(self._prepare_docker_auth()):
+                docker_auth = self._prepare_docker_auth()
+                async for line in idle_timeout(self._pull_docker_image(docker_auth), PULL_IDLE_TIMEOUT_SECONDS):
                     yield line
         except Exception as error:
             # In case of some external installs kraken shouldn't try to install it again so we remove from settings
