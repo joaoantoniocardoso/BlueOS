@@ -1,7 +1,7 @@
 import asyncio
 import uuid
 from functools import wraps
-from typing import Any, Callable, List, Optional, Set, Tuple, cast
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, cast
 
 import aiohttp
 import semver
@@ -28,6 +28,8 @@ from manifest.models import (
 )
 from settings import ManifestSettings, SettingsV2
 
+MANIFEST_DOWNLOAD_TIMEOUT = aiohttp.ClientTimeout(total=None, sock_connect=10, sock_read=30)
+
 
 class ManifestManager:
     """
@@ -37,6 +39,7 @@ class ManifestManager:
     _instance: Optional["ManifestManager"] = None
     _manager: Manager = Manager(SERVICE_NAME, SettingsV2)
     _settings = _manager.settings
+    _downloads: Dict[str, "asyncio.Task[List[RepositoryEntry]]"] = {}
 
     def __init__(self) -> None:
         raise RuntimeError("This class should not be instantiated, use ManifestManager.instance() instead")
@@ -87,8 +90,17 @@ class ManifestManager:
 
     @cached(ttl=3600, namespace="manifest")
     async def _fetch_manifest_data(self, url: str) -> List[RepositoryEntry]:
+        # aiocache's @cached has no lock, so concurrent cache misses share one download here.
+        task = self._downloads.get(url)
+        if task is None:
+            task = asyncio.create_task(self._download_manifest_data(url))
+            self._downloads[url] = task
+            task.add_done_callback(lambda _: self._downloads.pop(url, None))
+        return await asyncio.shield(task)
+
+    async def _download_manifest_data(self, url: str) -> List[RepositoryEntry]:
         try:
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(timeout=MANIFEST_DOWNLOAD_TIMEOUT) as session:
                 headers = {"Accept": "application/json"}
                 try:
                     async with session.get(url, headers=headers) as resp:
@@ -97,12 +109,18 @@ class ManifestManager:
                                 f"Failed to fetch manifest data from {url} with status {resp.status}"
                             )
 
+                        payload = await resp.json(content_type=None)
                         try:
-                            return ManifestData.parse_obj(await resp.json(content_type=None)).__root__
+                            return ManifestData.parse_obj(payload).__root__
                         except Exception as e:
                             raise ManifestDataParseFailed(f"Failed to parse manifest data from {url}") from e
                 except aiohttp.InvalidURL as e:
                     raise ManifestInvalidURL(f"Invalid URL {url}") from e
+        except asyncio.TimeoutError as e:
+            raise ManifestBackendOffline(
+                f"Unable to fetch manifest from {url}, no data for {MANIFEST_DOWNLOAD_TIMEOUT.sock_read} s "
+                f"(connect limit {MANIFEST_DOWNLOAD_TIMEOUT.sock_connect} s)"
+            ) from e
         except aiohttp.ClientConnectionError as e:
             raise ManifestBackendOffline("Unable to fetch manifest, backend is offline") from e
 
