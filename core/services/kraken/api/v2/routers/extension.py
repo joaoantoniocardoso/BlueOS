@@ -19,6 +19,9 @@ from extension.extension import Extension
 from extension.models import ExtensionInstallSource, ExtensionSource
 from manifest.exceptions import ManifestBackendOffline
 
+# Keeps the client idle watchdog quiet while kraken is alive but docker has not printed anything
+HEARTBEAT_PERIOD = 30.0
+
 extension_router_v2 = APIRouter(
     prefix="/extension",
     tags=["extension_v2"],
@@ -92,7 +95,7 @@ async def install(body: ExtensionInstallSource) -> StreamingResponse:
     can install incompatible extensions. Make sure to check the extension source before installing it.
     """
     extension = Extension(body)
-    return StreamingResponse(streamer(extension.install()))
+    return StreamingResponse(streamer(extension.install(), heartbeats=HEARTBEAT_PERIOD))
 
 
 @extension_router_v2.post("/{identifier}/install", status_code=status.HTTP_201_CREATED)
@@ -102,7 +105,7 @@ async def install_by_identifier(identifier: str, stable: bool = True) -> Streami
     Install latest version of an extension by its identifier using one of the current manifests.
     """
     extension: Extension = await Extension.from_latest(identifier, stable)
-    return StreamingResponse(streamer(extension.install()))
+    return StreamingResponse(streamer(extension.install(), heartbeats=HEARTBEAT_PERIOD))
 
 
 @extension_router_v2.post("/{identifier}/{tag}/install", status_code=status.HTTP_201_CREATED)
@@ -112,7 +115,7 @@ async def install_by_identifier_and_tag(identifier: str, tag: str) -> StreamingR
     Install a specific version of an extension by its identifier and tag using one of the current manifests.
     """
     extension = cast(Extension, await Extension.from_manifest(identifier, tag))
-    return StreamingResponse(streamer(extension.install()))
+    return StreamingResponse(streamer(extension.install(), heartbeats=HEARTBEAT_PERIOD))
 
 
 @extension_router_v2.post("/{identifier}/{tag}/enable", status_code=status.HTTP_204_NO_CONTENT)
@@ -153,7 +156,7 @@ async def update_to_latest(identifier: str, purge: bool = True, stable: bool = T
     by default purge all other tags, if purge is set to false it will keep all other versions disabled only.
     """
     extension = await Extension.from_latest(identifier, stable)
-    return StreamingResponse(streamer(extension.update(purge)))
+    return StreamingResponse(streamer(extension.update(purge), heartbeats=HEARTBEAT_PERIOD))
 
 
 @extension_router_v2.put("/{identifier}/{tag}", status_code=status.HTTP_200_OK)
@@ -164,7 +167,7 @@ async def update_to_tag(identifier: str, tag: str, purge: bool = True) -> Respon
     purge all other tags, if purge is set to false it will keep all other versions disabled only.
     """
     extension = cast(Extension, await Extension.from_manifest(identifier, tag))
-    return StreamingResponse(streamer(extension.update(purge)))
+    return StreamingResponse(streamer(extension.update(purge), heartbeats=HEARTBEAT_PERIOD))
 
 
 @extension_router_v2.delete("/{identifier}", status_code=status.HTTP_202_ACCEPTED)
@@ -265,4 +268,4 @@ async def finalize_extension(
     new_extension = await Extension.finalize_temporary_extension(temp_extension, body)
 
     # Install the extension
-    return StreamingResponse(streamer(new_extension.install(pull=False)))
+    return StreamingResponse(streamer(new_extension.install(pull=False), heartbeats=HEARTBEAT_PERIOD))
