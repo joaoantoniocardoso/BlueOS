@@ -97,8 +97,10 @@ class Kraken:
                         logger.warning(
                             f"Dead extension {extension.identifier}:{extension.tag} is external and likely requires authentication"
                         )
-                except IncompatibleExtension:
-                    logger.warning(f"Dead extension {extension.identifier}:{extension.tag} is not compatible anymore")
+                except IncompatibleExtension as e:
+                    logger.warning(
+                        f"Dead extension {extension.identifier}:{extension.tag} is not compatible anymore: {e}"
+                    )
                 except ManifestBackendOffline:
                     logger.warning(
                         f"Could not fetch manifest since the backend is offline, will try to start {extension.identifier}:{extension.tag} anyway"
