@@ -533,7 +533,7 @@ class Extension:
 
         version = await manifest.fetch_latest_extension_version(identifier, stable)
         if not version:
-            raise ExtensionNotFound(f"Extension {identifier} has no" + ("stable" if stable else "") + "versions")
+            raise ExtensionNotFound(f"Extension {identifier} has no " + ("stable " if stable else "") + "versions")
 
         return Extension(
             ExtensionSource.from_repository_version(entry, version),
