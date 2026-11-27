@@ -5,6 +5,7 @@ from unittest import mock
 import pytest
 from aiodocker.exceptions import DockerError
 
+# pylint: disable-next=unused-import
 from test_extension_install_rollback import (
     DOCKER,
     FakeDocker,

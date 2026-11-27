@@ -28,7 +28,7 @@ def expect(condition: bool, message: str = "condition not met") -> None:
 
 
 @pytest.fixture(name="registry", scope="module")
-def registry_fixture(target: Target, blueos: BlueOS) -> Iterator[None]:
+def registry_fixture(target: Target, blueos: BlueOS) -> Iterator[None]:  # pylint: disable=unused-argument
     assert isinstance(target, SilTarget)
     docker.load(target.ssh, "registry:2")
     target.shell(f"sudo docker run -d --name e2e-registry -p 127.0.0.1:{REGISTRY_PORT}:5000 registry:2")

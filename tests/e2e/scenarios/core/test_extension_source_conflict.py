@@ -130,7 +130,8 @@ def test_catalog_lists_the_other_repo_as_conflict(blueos: BlueOS, catalog: dict[
     ]
 
 
-def test_fresh_install_follows_priority(blueos: BlueOS, catalog: dict[str, str]) -> None:
+@pytest.mark.usefixtures("catalog")
+def test_fresh_install_follows_priority(blueos: BlueOS) -> None:
     status, output = call(blueos, "POST", f"extension/{IDENTIFIER}/install")
 
     assert status == 200, output
@@ -144,14 +145,16 @@ def test_explicit_source_switches_the_repo(blueos: BlueOS, catalog: dict[str, st
     assert installed(blueos) == [(OTHER_REPO, "1.5.0")]
 
 
-def test_update_keeps_the_installed_repo(blueos: BlueOS, catalog: dict[str, str]) -> None:
+@pytest.mark.usefixtures("catalog")
+def test_update_keeps_the_installed_repo(blueos: BlueOS) -> None:
     status, output = call(blueos, "PUT", f"extension/{IDENTIFIER}")
 
     assert status == 200, output
     assert installed(blueos) == [(OTHER_REPO, "1.5.0")]
 
 
-def test_installed_repo_in_no_source_needs_a_choice(blueos: BlueOS, catalog: dict[str, str]) -> None:
+@pytest.mark.usefixtures("catalog")
+def test_installed_repo_in_no_source_needs_a_choice(blueos: BlueOS) -> None:
     body = {
         "identifier": IDENTIFIER,
         "name": "e2e",
