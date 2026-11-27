@@ -150,6 +150,10 @@ class ManifestManager:
             return_exceptions=True,
         )
 
+        failures = [result for result in results if isinstance(result, Exception)]
+        if fetch_data and failures and len(failures) == len(results):
+            raise failures[0]
+
         manifests: List[Manifest] = []
         for source, result in zip(settings, results):
             if isinstance(result, BaseException):
