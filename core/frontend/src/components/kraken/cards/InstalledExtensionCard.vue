@@ -254,7 +254,7 @@ import system_information from '@/store/system-information'
 import { JSONValue } from '@/types/common'
 import { ExtensionData, InstalledExtensionData } from '@/types/kraken'
 import { Disk } from '@/types/system-information/system'
-import { prettifySize } from '@/utils/helper_functions'
+import { prettifyDuration, prettifySize } from '@/utils/helper_functions'
 
 export default Vue.extend({
   name: 'InstalledExtensionCard',
@@ -274,9 +274,9 @@ export default Vue.extend({
       required: true,
     },
     container: {
-      type: Object as PropType<{status: string}>,
+      type: Object as PropType<{status: string, uptime_seconds?: number}>,
       required: false,
-      default: undefined as {status: string} | undefined,
+      default: undefined as {status: string, uptime_seconds?: number} | undefined,
     },
     extensionData: {
       type: Object as PropType<ExtensionData>,
@@ -395,6 +395,10 @@ export default Vue.extend({
       return 100
     },
     getStatus(): string {
+      const uptime_seconds = this.container?.uptime_seconds
+      if (uptime_seconds !== undefined) {
+        return `Up ${prettifyDuration(uptime_seconds)}`
+      }
       return this.container?.status ?? 'N/A'
     },
     handleDisableClick() {

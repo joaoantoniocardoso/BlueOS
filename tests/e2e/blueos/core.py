@@ -1,3 +1,5 @@
+from typing import Any
+
 from blueos.http import request
 from utils.retry import wait_until
 
@@ -12,3 +14,7 @@ class BlueOS:
     def version(self) -> dict[str, str]:
         version: dict[str, str] = request("GET", f"{self.base_url}/version-chooser/v1.0/version/current")
         return version
+
+    def containers(self) -> list[dict[str, Any]]:
+        containers: list[dict[str, Any]] = request("GET", f"{self.base_url}/kraken/v1.0/list_containers")
+        return containers
