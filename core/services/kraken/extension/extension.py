@@ -606,7 +606,7 @@ class Extension:
         tags = manifest.versions_from_entry(entry, stable)
         version = entry.versions.get(tags[0]) if tags else None
         if not version:
-            raise ExtensionNotFound(f"Extension {identifier} has no" + ("stable" if stable else "") + "versions")
+            raise ExtensionNotFound(f"Extension {identifier} has no " + ("stable " if stable else "") + "versions")
 
         return Extension(
             ExtensionSource.from_repository_version(entry, version),
@@ -775,7 +775,7 @@ class Extension:
         """
 
         temp_tag = f"{TEMP_EXTENSION_TAG_PREFIX}{uuid.uuid4().hex[:8]}"
-        now = int(time.time())
+        now = int(time.monotonic())
 
         # Extract or set defaults
         DEFAULT_EXTENSION_NAME = "Unknown Extension"
@@ -853,7 +853,7 @@ class Extension:
         if temp_settings.identifier:
             raise ExtensionNotFound(f"Extension with tag {temp_tag} is not temporary")
 
-        now = int(time.time())
+        now = int(time.monotonic())
         created_at, _ = cls.temp_extension_activity.get(temp_tag, (now, now))
         cls.temp_extension_activity[temp_tag] = (created_at, now)
 
@@ -867,7 +867,7 @@ class Extension:
         active_temp_refs: Set[str] = {f"{ext.docker}:{ext.tag}" for ext in temp_extensions}
         installed_refs = {f"{ext.docker}:{ext.tag}" for ext in extensions if ext.identifier}
 
-        now = int(time.time())
+        now = int(time.monotonic())
         for ext in temp_extensions:
             timestamps = cls.temp_extension_activity.get(ext.tag)
             if timestamps is None:
