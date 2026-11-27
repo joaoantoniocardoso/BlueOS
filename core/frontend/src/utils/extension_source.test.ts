@@ -48,3 +48,12 @@ test('formatCandidate shows repo, manifest name and tags', () => {
   expect(formatCandidate(other)).toEqual({ repo: 'evil/ext', source: 'Second', tags: '2.0.0, 1.0.0' })
   expect(formatCandidate({ docker: 'a/b', name: 'B', tags: [] })).toEqual({ repo: 'a/b', source: 'B', tags: '-' })
 })
+
+test('with the installed repo as a conflict, the default row carries the winner id and is a switch', () => {
+  const winner = { ...entry, manifest: 'm1', manifest_name: 'First' }
+  const rows = entryCandidates(winner)
+  expect(rows[0]).toMatchObject({ manifest: 'm1', manifest_name: 'First', docker: 'org/ext' })
+  expect(isInstalledCandidate(rows[1], 'evil/ext')).toBe(true)
+  expect(isSourceSwitch(rows[0], 'evil/ext')).toBe(true)
+  expect(formatCandidate(rows[0]).source).toBe('First')
+})
