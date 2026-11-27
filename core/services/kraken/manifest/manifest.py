@@ -43,6 +43,8 @@ class ManifestManager:
     _manager: Manager = settings_manager
     _settings = _manager.settings
     _downloads: Dict[str, "asyncio.Task[List[RepositoryEntry]]"] = {}
+    # Last load failure per source identifier, so listings without data can report it with no download
+    _source_errors: Dict[str, str] = {}
 
     def __init__(self) -> None:
         raise RuntimeError("This class should not be instantiated, use ManifestManager.instance() instead")
@@ -135,10 +137,17 @@ class ManifestManager:
             priority=settings.priority,
             enabled=settings.enabled,
             factory=settings.factory,
+            error=self._source_errors.get(settings.identifier),
         )
 
         if fetch_data:
-            manifest.data = await self._fetch_manifest_data(settings.url)
+            try:
+                manifest.data = await self._fetch_manifest_data(settings.url)
+            except Exception as error:
+                self._source_errors[settings.identifier] = str(error)
+                raise
+            self._source_errors.pop(settings.identifier, None)
+            manifest.error = None
 
         return manifest
 
@@ -276,12 +285,14 @@ class ManifestManager:
     @not_on_default_manifest
     async def remove_source(self, identifier: str) -> None:
         manifest = self._get_settings_by_identifier(identifier)
+        self._source_errors.pop(identifier, None)
         self._settings.manifests.remove(manifest)
         self._manager.save()
 
     @not_on_default_manifest
     async def update_source(self, identifier: str, source: UpdateManifestSource, validate_url: bool) -> None:
         manifest = self._get_settings_by_identifier(identifier)
+        self._source_errors.pop(identifier, None)
 
         manifest.name = source.name if source.name is not None else manifest.name
         manifest.url = source.url if source.url is not None else manifest.url
