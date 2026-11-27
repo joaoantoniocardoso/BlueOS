@@ -326,7 +326,18 @@ export async function finalizeExtension(
 export async function installExtension(
   extension: InstalledExtensionData,
   progressHandler: (event: any) => void,
+  manifestIdentifier?: string,
 ): Promise<void> {
+  if (manifestIdentifier !== undefined) {
+    await withPullIdleWatchdog(progressHandler, (pullConfig) => back_axios({
+      url: extensionUrl(extension.identifier, extension.tag, 'install'),
+      method: 'POST',
+      params: { manifest_identifier: manifestIdentifier },
+      ...pullConfig,
+    }))
+    return
+  }
+
   await withPullIdleWatchdog(progressHandler, (pullConfig) => back_axios({
     url: `${KRAKEN_API_V2_URL}/extension/`,
     method: 'POST',
@@ -396,15 +407,18 @@ export async function restartExtension(identifier: string): Promise<void> {
  * @param {string} identifier The identifier of the extension
  * @param {string} version The version of the extension
  * @param {function} progressHandler The progress handler for the download
+ * @param {string} manifestIdentifier The manifest source chosen when more than one lists the extension
  */
 export async function updateExtensionToVersion(
   identifier: string,
   version: string,
   progressHandler: (event: any) => void,
+  manifestIdentifier?: string,
 ): Promise<void> {
   await withPullIdleWatchdog(progressHandler, (pullConfig) => back_axios({
     url: extensionUrl(identifier, version),
     method: 'PUT',
+    params: manifestIdentifier === undefined ? undefined : { manifest_identifier: manifestIdentifier },
     ...pullConfig,
   }))
 }

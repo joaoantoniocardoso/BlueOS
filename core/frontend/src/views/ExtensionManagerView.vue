@@ -19,6 +19,14 @@
         @clicked="performActionFromModal"
       />
     </v-dialog>
+    <ExtensionSourceChoiceDialog
+      v-model="show_source_choice"
+      :name="source_choice.name"
+      :candidates="source_choice.candidates"
+      :installed-docker="source_choice.installed_docker"
+      :browse="source_choice.browse"
+      @choose="chooseSource"
+    />
     <ExtensionSettingsModal
       v-model="show_settings"
       @refresh="fetchManifest"
@@ -297,6 +305,7 @@
       :installed-extensions="installed_extensions"
       @clicked="showModal"
       @update="update"
+      @show-conflicts="browseSources"
       @refresh="fetchManifest"
     />
     <BazaarTab
@@ -419,18 +428,22 @@ import kraken from '@/components/kraken/KrakenManager'
 import ExtensionCreationModal from '@/components/kraken/modals/ExtensionCreationModal.vue'
 import ExtensionDetailsModal from '@/components/kraken/modals/ExtensionDetailsModal.vue'
 import ExtensionSettingsModal from '@/components/kraken/modals/ExtensionSettingsModal.vue'
+import ExtensionSourceChoiceDialog from '@/components/kraken/modals/ExtensionSourceChoiceDialog.vue'
 import PullProgress from '@/components/utils/PullProgress.vue'
 import Notifier from '@/libs/notifier'
 import settings from '@/libs/settings'
 import { OneMoreTime } from '@/one-more-time'
 import { Dictionary } from '@/types/common'
 import { kraken_service } from '@/types/frontend_services'
+import {
+  entryCandidates, needsSourceChoice, parseSourceConflict,
+} from '@/utils/extension_source'
 import PullTracker from '@/utils/pull_tracker'
 import { aggregateStreamingResponse, parseStreamingResponse } from '@/utils/streaming'
 
 import {
-  ExtensionData, ExtensionUploadMetadata, InstalledExtensionData, ProgressEvent,
-  RunningContainer, UploadProgressEvent,
+  ExtensionData, ExtensionUploadMetadata, InstalledExtensionData, ProgressEvent, RunningContainer, SourceCandidate,
+  UploadProgressEvent,
 } from '../types/kraken'
 
 type TarInstallPhase = 'idle' | 'selected' | 'uploading' | 'processing' | 'ready' | 'installing' | 'success' | 'error'
@@ -486,6 +499,7 @@ export default Vue.extend({
     InstalledExtensionCard,
     ExtensionDetailsModal,
     ExtensionSettingsModal,
+    ExtensionSourceChoiceDialog,
     PullProgress,
     ExtensionCreationModal,
     SpinningLogo,
@@ -500,6 +514,14 @@ export default Vue.extend({
       show_dialog: false,
       show_settings: false,
       show_install_from_file_dialog: false,
+      show_source_choice: false,
+      source_choice: {
+        name: '',
+        candidates: [] as SourceCandidate[],
+        installed_docker: undefined as undefined | string,
+        browse: false,
+        retry: undefined as undefined | ((manifest?: string) => void),
+      },
       installed_extensions: {} as Dictionary<InstalledExtensionData>,
       selected_extension: null as (null | ExtensionData),
       running_containers: [] as RunningContainer[],
@@ -828,17 +850,36 @@ export default Vue.extend({
       }
     },
     async update(extension: InstalledExtensionData, version: string) {
+      const entry = this.manifestEntry(extension.identifier)
+      if (needsSourceChoice(entry)) {
+        const candidates = entryCandidates(entry ?? {})
+        this.openSourceChoice(extension.name, candidates, extension.identifier, (manifest) => {
+          this.runUpdate(extension, version, manifest)
+        })
+        return
+      }
+      this.runUpdate(extension, version)
+    },
+    runUpdate(extension: InstalledExtensionData, version: string, manifest?: string) {
       this.show_pull_output = true
       const tracker = this.getTracker()
       kraken.updateExtensionToVersion(
         extension.identifier,
         version,
         (progressEvent) => this.handleDownloadProgress(progressEvent.event, tracker),
+        manifest,
       )
         .then(() => {
           this.fetchInstalledExtensions()
         })
         .catch((error) => {
+          const conflict = parseSourceConflict(error)
+          if (conflict) {
+            this.openSourceChoice(extension.name, conflict.candidates, extension.identifier, (chosen) => {
+              this.runUpdate(extension, version, chosen)
+            })
+            return
+          }
           this.alerter = true
           this.alerter_error = String(error)
           notifier.pushBackError('EXTENSIONS_INSTALL_FAIL', error)
@@ -846,6 +887,31 @@ export default Vue.extend({
         .finally(() => {
           this.resetPullOutput()
         })
+    },
+    manifestEntry(identifier: string): ExtensionData | undefined {
+      return this.manifest_as_data.find((entry) => entry.identifier === identifier)
+    },
+    openSourceChoice(
+      name: string,
+      candidates: SourceCandidate[],
+      identifier: string,
+      retry: ((manifest?: string) => void) | undefined,
+    ) {
+      this.source_choice = {
+        name,
+        candidates,
+        installed_docker: this.installed_extensions[identifier]?.docker,
+        browse: retry === undefined,
+        retry,
+      }
+      this.show_source_choice = true
+    },
+    browseSources(extension: ExtensionData) {
+      this.openSourceChoice(extension.name, entryCandidates(extension), extension.identifier, undefined)
+    },
+    chooseSource(candidate: SourceCandidate | undefined) {
+      this.show_source_choice = false
+      this.source_choice.retry?.(candidate?.manifest)
     },
     metricsFor(extension: InstalledExtensionData): { cpu: number, memory: number} | Record<string, never> {
       const name = this.getContainerName(extension)?.replace('/', '')
@@ -979,7 +1045,7 @@ export default Vue.extend({
       this.show_dialog = true
       this.selected_extension = extension
     },
-    async install(extension: InstalledExtensionData) {
+    async install(extension: InstalledExtensionData, manifest?: string) {
       this.show_dialog = false
       this.show_pull_output = true
       const tracker = this.getTracker()
@@ -987,11 +1053,19 @@ export default Vue.extend({
       kraken.installExtension(
         extension,
         (progressEvent) => this.handleDownloadProgress(progressEvent.event, tracker),
+        manifest,
       )
         .then(() => {
           this.fetchInstalledExtensions()
         })
         .catch((error) => {
+          const conflict = parseSourceConflict(error)
+          if (conflict) {
+            this.openSourceChoice(extension.name, conflict.candidates, extension.identifier, (chosen) => {
+              this.install(extension, chosen)
+            })
+            return
+          }
           this.alerter = true
           this.alerter_error = String(error)
           notifier.pushBackError('EXTENSIONS_INSTALL_FAIL', error)
@@ -1021,7 +1095,7 @@ export default Vue.extend({
       if (!this.selected_extension) {
         return
       }
-      await this.install({
+      const extension = {
         identifier: this.selected_extension?.identifier,
         name: this.selected_extension?.name,
         docker: this.selected_extension?.docker,
@@ -1029,7 +1103,18 @@ export default Vue.extend({
         enabled: true,
         permissions: JSON.stringify(this.selected_extension?.versions[tag].permissions),
         user_permissions: permissions ?? '',
-      })
+      }
+      if (needsSourceChoice(this.selected_extension)) {
+        this.show_dialog = false
+        this.openSourceChoice(
+          extension.name,
+          entryCandidates(this.selected_extension),
+          extension.identifier,
+          (manifest) => this.install(extension, manifest),
+        )
+        return
+      }
+      await this.install(extension)
     },
     async uninstall(extension: InstalledExtensionData) {
       this.setLoading(extension, true)

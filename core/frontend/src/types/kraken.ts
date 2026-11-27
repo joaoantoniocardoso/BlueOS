@@ -47,6 +47,21 @@ export interface Version {
     images: VersionImage[]
 }
 
+export interface SourceCandidate {
+    manifest?: string
+    manifest_name?: string
+    docker: string
+    name: string
+    tags: string[]
+}
+
+export interface SourceConflictDetail {
+    code: 'extension_source_conflict'
+    identifier: string
+    installed_docker: string
+    candidates: SourceCandidate[]
+}
+
 export interface ExtensionData {
     identifier: string
     name: string
@@ -56,6 +71,9 @@ export interface ExtensionData {
     extension_logo?: string
     company_logo: string
     is_compatible?: boolean
+    manifest?: string
+    manifest_name?: string
+    conflicts?: SourceCandidate[]
     website?: string
     repo_info?: {
         downloads: number,
