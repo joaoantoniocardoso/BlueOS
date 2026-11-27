@@ -45,7 +45,7 @@ export async function installOrUpdateMajorTom(
   const majorTomData = await fetchMajorTomInstallData()
 
   // axios' fetch adapter leaves `.event` undefined, the callers need the native ProgressEvent in any case
-  await installExtension(majorTomData, (progressEvent) => progressHandler({
+  await installExtension(majorTomData, 'always', (progressEvent) => progressHandler({
     event: progressEvent.event ?? (progressEvent as unknown as ProgressEvent),
   }))
 }

@@ -25,7 +25,7 @@ from extension.exceptions import (
     ExtensionPullFailed,
     IncompatibleExtension,
 )
-from extension.models import ExtensionSource
+from extension.models import ExtensionSource, PullPolicy
 from harbor import ContainerManager, DockerCtx
 from harbor.exceptions import ContainerNotFound
 from manifest import ManifestManager
@@ -375,11 +375,15 @@ class Extension:
             logger.warning(f"Could not remove old tags of extension {self.identifier}: {reason}")
             raise ExtensionCleanupFailed(f"Installed, but could not remove old tags: {reason}")
 
-    async def install(self, clear_remaining_tags: bool = True, pull: bool = True) -> AsyncGenerator[bytes, None]:
+    async def install(
+        self, clear_remaining_tags: bool = True, pull: Optional[PullPolicy] = None
+    ) -> AsyncGenerator[bytes, None]:
         # One install per identifier, since each one disables and purges the other tags of the extension
         if self.identifier in self.installing_identifiers:
             raise ExtensionInstallInProgress(f"Extension {self.identifier} is already being installed or updated")
         self.installing_identifiers.add(self.identifier)
+        # A tag may have moved, so only a digest (exact content) allows reusing what is local by default
+        pull = pull or (PullPolicy.IF_MISSING if self.digest else PullPolicy.ALWAYS)
         try:
             async with contextlib.aclosing(self._install(clear_remaining_tags, pull)) as lines:
                 async for line in lines:
@@ -387,10 +391,10 @@ class Extension:
         finally:
             self.installing_identifiers.discard(self.identifier)
 
-    async def _install(self, clear_remaining_tags: bool, pull: bool) -> AsyncGenerator[bytes, None]:
-        logger.info(f"Installing extension {self.identifier}:{self.tag}")
+    async def _install(self, clear_remaining_tags: bool, pull: PullPolicy) -> AsyncGenerator[bytes, None]:
+        logger.info(f"Installing extension {self.identifier}:{self.tag} (pull: {pull.value})")
 
-        if not pull:
+        if pull == PullPolicy.NEVER:
             async with DockerCtx() as client:
                 if await self._local_image_id(client, exact=True) is None:
                     raise ExtensionPullFailed(f"Image {self.source.docker}:{self.tag} is not available locally")
@@ -405,8 +409,10 @@ class Extension:
             try:
                 async with DockerCtx() as client:
                     # A local digest image is the exact content, so only a tag-only install needs the registry
-                    is_local = (
-                        not pull or bool(self.digest) and await self._local_image_id(client, exact=True) is not None
+                    is_local = pull == PullPolicy.NEVER or (
+                        pull == PullPolicy.IF_MISSING
+                        and bool(self.digest)
+                        and await self._local_image_id(client, exact=True) is not None
                     )
                 if not is_local:
                     docker_auth = self._prepare_docker_auth()
@@ -414,7 +420,7 @@ class Extension:
                         yield line
             except Exception as error:
                 # The settings and the running extension are untouched until the pull ends: nothing to undo
-                if not await self._can_use_local_image(running_ext, sibling_image_id):
+                if pull != PullPolicy.IF_MISSING or not await self._can_use_local_image(running_ext, sibling_image_id):
                     raise ExtensionPullFailed(
                         f"Failed to pull extension {self.identifier}:{self.tag}: {error}"
                     ) from error

@@ -24,7 +24,7 @@ from extension.exceptions import (  # noqa: E402
     ExtensionPullFailed,
 )
 from extension.extension import Extension  # noqa: E402
-from extension.models import ExtensionSource  # noqa: E402
+from extension.models import ExtensionInstallSource, ExtensionSource, PullPolicy  # noqa: E402
 from kraken import Kraken  # noqa: E402
 from settings import ExtensionSettings  # noqa: E402
 
@@ -106,7 +106,7 @@ def use_docker(fake: FakeDocker) -> Any:
     return mock.patch("extension.extension.DockerCtx", ctx)
 
 
-async def run_install(ext: Extension, fake: FakeDocker, pull: bool = True) -> None:
+async def run_install(ext: Extension, fake: FakeDocker, pull: Optional[PullPolicy] = None) -> None:
     with use_docker(fake):
         async for _ in ext.install(pull=pull):
             pass
@@ -173,7 +173,7 @@ async def test_failed_pull_keeps_other_local_image(env: Any) -> None:
     env.settings.extensions = [running]
     fake = FakeDocker({f"{DOCKER}:1": "id1", f"{DOCKER}:2": "id2"}, [{"error": "offline"}])
 
-    await run_install(make_extension("2"), fake)
+    await run_install(make_extension("2"), fake, pull=PullPolicy.IF_MISSING)
 
     assert tags(env) == {"1": False, "2": True}
     env.clear.assert_not_awaited()
@@ -221,7 +221,7 @@ async def test_same_tag_reinstall_keeps_new_permissions_when_image_is_local(env:
     env.settings.extensions = [running]
     fake = FakeDocker({f"{DOCKER}:1": "id1"}, [{"error": "offline"}])
 
-    await run_install(make_extension("1", permissions='{"a": 1}'), fake)
+    await run_install(make_extension("1", permissions='{"a": 1}'), fake, pull=PullPolicy.NEVER)
 
     assert env.settings.extensions[0].permissions == '{"a": 1}'
     assert env.settings.extensions[0].enabled
@@ -321,7 +321,7 @@ async def test_upload_of_the_running_image_under_a_new_tag_replaces_the_old_tag(
     new_extension = await upload_finalize(env, fake, running)
 
     with use_docker(fake):
-        async for _ in new_extension.install(pull=False):
+        async for _ in new_extension.install(pull=PullPolicy.NEVER):
             pass
 
     assert fake.pulls == 0
@@ -335,7 +335,7 @@ async def test_install_without_pull_fails_before_touching_a_running_extension_wh
     fake = FakeDocker({f"{DOCKER}:1": "id1"})
 
     with pytest.raises(ExtensionPullFailed, match="not available locally"):
-        await run_install(make_extension("2"), fake, pull=False)
+        await run_install(make_extension("2"), fake, pull=PullPolicy.NEVER)
 
     assert tags(env) == {"1": True}
     assert fake.pulls == 0
@@ -400,10 +400,10 @@ async def test_second_install_of_the_same_extension_is_refused_while_one_runs(en
     started, release = asyncio.Event(), asyncio.Event()
     gate_pull(fake, "2", started, release)
 
-    first = asyncio.create_task(run_install(make_extension("2"), fake, running))
+    first = asyncio.create_task(run_install(make_extension("2"), fake))
     await started.wait()
     with pytest.raises(ExtensionInstallInProgress):
-        await asyncio.wait_for(run_install(make_extension("3"), fake, running), 2)
+        await asyncio.wait_for(run_install(make_extension("3"), fake), 2)
     assert tags(env) == {"1": True}
     release.set()
     await first
@@ -569,3 +569,86 @@ async def test_failed_cleanup_of_old_tags_is_reported_and_keeps_the_new_tag_enab
         await run_install(make_extension("2"), crashes.fake)
 
     assert {ext.tag: ext.enabled for ext in crashes.disk} == {"1": False, "2": True}
+
+
+async def test_failed_pull_without_digest_is_an_error_even_if_the_tag_is_local(env: Any) -> None:
+    running = make_settings("1")
+    env.settings.extensions = [running]
+    fake = FakeDocker({f"{DOCKER}:1": "id1", f"{DOCKER}:2": "id2"}, [{"error": "offline"}])
+
+    with pytest.raises(ExtensionPullFailed, match="offline"):
+        await run_install(make_extension("2"), fake)
+
+    assert tags(env) == {"1": True}
+
+
+async def test_failed_pull_of_the_same_tag_is_an_error_instead_of_keeping_the_old_image(env: Any) -> None:
+    fake = FakeDocker({f"{DOCKER}:latest": "old"}, [{"error": "registry unreachable"}])
+
+    with pytest.raises(ExtensionPullFailed, match="registry unreachable"):
+        await run_install(make_extension("latest"), fake)
+
+    env.clear.assert_not_awaited()
+
+
+@pytest.mark.usefixtures("env")
+async def test_always_pulls_even_if_the_digest_image_is_local_and_fails_when_the_pull_fails() -> None:
+    fake = FakeDocker({f"{DOCKER}@{DIGEST}": "new"}, [{"error": "offline"}])
+
+    with pytest.raises(ExtensionPullFailed, match="offline"):
+        await run_install(make_extension("2", DIGEST), fake, pull=PullPolicy.ALWAYS)
+
+    assert fake.pulls == 1
+
+
+@pytest.mark.usefixtures("env")
+async def test_if_missing_without_digest_keeps_the_local_tag_when_the_pull_fails() -> None:
+    fake = FakeDocker({f"{DOCKER}:2": "id2"}, [{"error": "offline"}])
+
+    await run_install(make_extension("2"), fake, pull=PullPolicy.IF_MISSING)
+
+    assert fake.pulls == 1
+
+
+async def test_never_installs_the_local_image_without_pulling(env: Any) -> None:
+    fake = FakeDocker({f"{DOCKER}:2": "id2"}, [{"error": "offline"}])
+
+    await run_install(make_extension("2"), fake, pull=PullPolicy.NEVER)
+
+    assert fake.pulls == 0
+    env.clear.assert_awaited_once()
+
+
+INSTALL_FIELDS = {
+    "identifier": "ab.cd",
+    "tag": "1",
+    "name": "Ext",
+    "docker": DOCKER,
+    "enabled": False,
+    "permissions": "{}",
+}
+
+
+def test_install_body_accepts_a_pull_policy_and_rejects_other_values() -> None:
+
+    assert ExtensionInstallSource(**INSTALL_FIELDS).pull is None
+    assert ExtensionInstallSource(**INSTALL_FIELDS, pull="never").pull == PullPolicy.NEVER
+    assert ExtensionInstallSource(**INSTALL_FIELDS, pull="if-missing").pull == PullPolicy.IF_MISSING
+    with pytest.raises(ValueError):
+        ExtensionInstallSource(**INSTALL_FIELDS, pull="sometimes")
+
+
+async def test_custom_install_route_passes_the_pull_policy_of_the_body() -> None:
+    pytest.importorskip("fastapi_versioning")
+    from api.v2.routers.extension import install as install_route  # pylint: disable=import-outside-toplevel
+
+    with mock.patch("api.v2.routers.extension.Extension") as extension_class:
+        extension_class.return_value.install = mock.Mock(return_value=mock.Mock())
+        with mock.patch("api.v2.routers.extension.streamer"):
+            await install_route(ExtensionInstallSource(**INSTALL_FIELDS, pull="never"))
+            await install_route(ExtensionInstallSource(**INSTALL_FIELDS))
+
+    assert [call.kwargs for call in extension_class.return_value.install.call_args_list] == [
+        {"pull": PullPolicy.NEVER},
+        {"pull": None},
+    ]

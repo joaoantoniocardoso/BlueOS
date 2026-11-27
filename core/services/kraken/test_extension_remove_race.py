@@ -17,6 +17,7 @@ from aiodocker.exceptions import DockerError  # noqa: E402
 from commonwealth.utils.streaming import streamer  # noqa: E402
 from extension.exceptions import ExtensionCleanupFailed  # noqa: E402
 from extension.extension import Extension  # noqa: E402
+from extension.models import PullPolicy  # noqa: E402
 from kraken import Kraken  # noqa: E402
 
 pytestmark = pytest.mark.asyncio
@@ -147,7 +148,7 @@ async def test_starter_does_not_delete_the_container_an_install_is_removing(worl
 
     starter = asyncio.create_task(world.kraken.init_dead_extensions())
     await asyncio.sleep(0)
-    install = make_extension("2").install(clear_remaining_tags=False, pull=False)
+    install = make_extension("2").install(clear_remaining_tags=False, pull=PullPolicy.NEVER)
     await asyncio.gather(starter, anext_all(install))
 
     assert world.engine.conflicts == []
@@ -224,7 +225,7 @@ async def test_install_stream_ends_with_the_cleanup_error_after_the_new_tag_is_i
     world.engine.delete_error = DockerError(500, {"message": "device or resource busy"})  # type: ignore
 
     with mock.patch.object(Extension, "_local_image_id", mock.AsyncMock(return_value="id")):
-        lines = [line async for line in streamer(make_extension("2").install(pull=False))]
+        lines = [line async for line in streamer(make_extension("2").install(pull=PullPolicy.NEVER))]
 
     last = json.loads(lines[-1].removesuffix("|\n\n|"))
     assert last["status"] == 500

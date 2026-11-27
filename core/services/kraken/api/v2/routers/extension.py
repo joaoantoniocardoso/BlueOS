@@ -17,7 +17,7 @@ from extension.exceptions import (
     IncompatibleExtension,
 )
 from extension.extension import Extension
-from extension.models import ExtensionInstallSource, ExtensionSource
+from extension.models import ExtensionInstallSource, ExtensionSource, PullPolicy
 from manifest.exceptions import (
     ExtensionSourceConflict,
     ManifestBackendOffline,
@@ -110,7 +110,7 @@ async def install(body: ExtensionInstallSource) -> StreamingResponse:
     can install incompatible extensions. Make sure to check the extension source before installing it.
     """
     extension = Extension(body)
-    return StreamingResponse(streamer(extension.install(), heartbeats=HEARTBEAT_PERIOD))
+    return StreamingResponse(streamer(extension.install(pull=body.pull), heartbeats=HEARTBEAT_PERIOD))
 
 
 @extension_router_v2.post("/{identifier}/install", status_code=status.HTTP_201_CREATED)
@@ -292,4 +292,4 @@ async def finalize_extension(
     new_extension = await Extension.finalize_temporary_extension(temp_extension, body)
 
     # Install the extension
-    return StreamingResponse(streamer(new_extension.install(pull=False), heartbeats=HEARTBEAT_PERIOD))
+    return StreamingResponse(streamer(new_extension.install(pull=PullPolicy.NEVER), heartbeats=HEARTBEAT_PERIOD))

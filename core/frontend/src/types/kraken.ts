@@ -82,6 +82,8 @@ export interface ExtensionData {
     }
 }
 
+export type PullPolicy = 'always' | 'if-missing' | 'never'
+
 export interface InstalledExtensionData {
     identifier: string
     name: string

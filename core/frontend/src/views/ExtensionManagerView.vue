@@ -443,8 +443,8 @@ import { aggregateStreamingResponse, parseStreamingResponse } from '@/utils/stre
 import resolveFinalizeResult from '@/utils/upload_finalize'
 
 import {
-  ExtensionData, ExtensionUploadMetadata, InstalledExtensionData, ProgressEvent, RunningContainer, SourceCandidate,
-  UploadProgressEvent,
+  ExtensionData, ExtensionUploadMetadata, InstalledExtensionData, ProgressEvent, PullPolicy,
+  RunningContainer, SourceCandidate, UploadProgressEvent,
 } from '../types/kraken'
 
 type TarInstallPhase = 'idle' | 'selected' | 'uploading' | 'processing' | 'ready' | 'installing' | 'success' | 'error'
@@ -930,7 +930,8 @@ export default Vue.extend({
         // This is from a file upload, use finalize endpoint
         await this.finalizeUploadedExtension(this.edited_extension)
       } else {
-        await this.install(this.edited_extension)
+        // Editing keeps the installed image. A new custom source must pull, because its tag may have moved
+        await this.install(this.edited_extension, this.edited_extension.editing ? 'never' : 'always')
       }
 
       this.show_dialog = false
@@ -1046,13 +1047,14 @@ export default Vue.extend({
       this.show_dialog = true
       this.selected_extension = extension
     },
-    async install(extension: InstalledExtensionData, manifest?: string) {
+    async install(extension: InstalledExtensionData, pull: PullPolicy, manifest?: string) {
       this.show_dialog = false
       this.show_pull_output = true
       const tracker = this.getTracker()
 
       kraken.installExtension(
         extension,
+        pull,
         (progressEvent) => this.handleDownloadProgress(progressEvent.event, tracker),
         manifest,
       )
@@ -1063,7 +1065,7 @@ export default Vue.extend({
           const conflict = parseSourceConflict(error)
           if (conflict) {
             this.openSourceChoice(extension.name, conflict.candidates, extension.identifier, (chosen) => {
-              this.install(extension, chosen)
+              this.install(extension, pull, chosen)
             })
             return
           }
@@ -1096,6 +1098,7 @@ export default Vue.extend({
       if (!this.selected_extension) {
         return
       }
+      // The catalog install sends no digest, so the tag may point to a newer image than the local one
       const extension = {
         identifier: this.selected_extension?.identifier,
         name: this.selected_extension?.name,
@@ -1111,11 +1114,11 @@ export default Vue.extend({
           extension.name,
           entryCandidates(this.selected_extension),
           extension.identifier,
-          (manifest) => this.install(extension, manifest),
+          (manifest) => this.install(extension, 'always', manifest),
         )
         return
       }
-      await this.install(extension)
+      await this.install(extension, 'always')
     },
     async uninstall(extension: InstalledExtensionData) {
       this.setLoading(extension, true)

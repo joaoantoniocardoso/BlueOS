@@ -119,12 +119,13 @@ test('install and finalize send an object for null permissions', async () => {
   const extension = {
     identifier: 'ab.cd', name: 'n', docker: 'd', tag: 't', permissions: null, user_permissions: null,
   } as any
-  await manager.installExtension(extension, () => {})
+  await manager.installExtension(extension, 'always', () => {})
   await manager.finalizeExtension(extension, 'temp', () => {})
   for (const call of calls) {
     expect(call.data.permissions).toBe('{}')
     expect(call.data.user_permissions).toBe('')
   }
+  expect(calls[0].data.pull).toBe('always')
 })
 
 test('the source listing carries the load error of a source and downloads no data', async () => {
