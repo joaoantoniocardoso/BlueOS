@@ -16,7 +16,7 @@ setup(
         "six==1.15.0",
         "idna==3.4",
         "urllib3==1.26.16",
-        "certifi==2023.7.22",
+        "certifi==2026.10.18",
         "charset-normalizer==2.0.12",
         "websocket-client==1.6.3",
     ],
