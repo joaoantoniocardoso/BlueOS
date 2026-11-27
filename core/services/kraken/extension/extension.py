@@ -32,7 +32,7 @@ from extension.exceptions import (
     ExtensionPullFailed,
     IncompatibleExtension,
 )
-from extension.models import ExtensionSource
+from extension.models import ExtensionSource, PullPolicy
 from harbor import ContainerManager, DockerCtx
 from harbor.exceptions import ContainerNotFound
 from manifest import ManifestManager
@@ -342,10 +342,14 @@ class Extension:
         to_clear = [version for version in to_clear if version.source.tag != self.tag]
         await asyncio.gather(*(version.uninstall() for version in to_clear))
 
-    async def install(self, clear_remaining_tags: bool = True, pull: bool = True) -> AsyncGenerator[bytes, None]:
-        logger.info(f"Installing extension {self.identifier}:{self.tag}")
+    async def install(
+        self, clear_remaining_tags: bool = True, pull: Optional[PullPolicy] = None
+    ) -> AsyncGenerator[bytes, None]:
+        # A tag may have moved, so only a digest (exact content) allows reusing what is local by default
+        pull = pull or (PullPolicy.IF_MISSING if self.digest else PullPolicy.ALWAYS)
+        logger.info(f"Installing extension {self.identifier}:{self.tag} (pull: {pull.value})")
 
-        if not pull:
+        if pull == PullPolicy.NEVER:
             async with DockerCtx() as client:
                 if await self._local_image_id(client, exact=True) is None:
                     raise ExtensionPullFailed(f"Image {self.source.docker}:{self.tag} is not available locally")
@@ -365,13 +369,17 @@ class Extension:
 
             async with DockerCtx() as client:
                 # A local digest image is the exact content, so only a tag-only install needs the registry
-                is_local = not pull or bool(self.digest) and await self._local_image_id(client, exact=True) is not None
+                is_local = pull == PullPolicy.NEVER or (
+                    pull == PullPolicy.IF_MISSING
+                    and bool(self.digest)
+                    and await self._local_image_id(client, exact=True) is not None
+                )
             if not is_local:
                 async for line in self._pull_docker_image(self._prepare_docker_auth()):
                     yield line
         except Exception as error:
             # In case of some external installs kraken shouldn't try to install it again so we remove from settings
-            if await self._can_use_local_image(running_ext, sibling_image_id):
+            if pull == PullPolicy.IF_MISSING and await self._can_use_local_image(running_ext, sibling_image_id):
                 logger.warning(
                     f"Pull failed but image {self.identifier}:{self.tag} is available locally, "
                     f"keeping other tags: {error}"

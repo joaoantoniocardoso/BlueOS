@@ -1,11 +1,18 @@
 import json
 import re
+from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, Field, validator
 
 from manifest.models import ExtensionVersion, RepositoryEntry
 from settings import ExtensionSettings
+
+
+class PullPolicy(str, Enum):
+    ALWAYS = "always"
+    IF_MISSING = "if-missing"
+    NEVER = "never"
 
 
 class ExtensionSourceAuth(BaseModel):
@@ -50,6 +57,16 @@ class ExtensionSource(BaseModel):
 
 class ExtensionInstallSource(ExtensionSource):
     """Manual-install body. Separate from ExtensionSource so already-installed values still list."""
+
+    pull: Optional[PullPolicy] = Field(
+        None,
+        description=(
+            "Image pull policy. `always`: pull, and a failed pull is an error. "
+            "`if-missing`: try the pull first, and use the local tag only when the pull fails. "
+            "`never`: use the local image, and fail if it is not local. "
+            "Default: `always` for this endpoint, because the request has no digest."
+        ),
+    )
 
     @validator("identifier", "docker", "tag")
     @classmethod
