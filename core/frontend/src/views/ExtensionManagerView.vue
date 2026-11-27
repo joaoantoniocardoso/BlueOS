@@ -440,6 +440,7 @@ import {
 } from '@/utils/extension_source'
 import PullTracker from '@/utils/pull_tracker'
 import { aggregateStreamingResponse, parseStreamingResponse } from '@/utils/streaming'
+import resolveFinalizeResult from '@/utils/upload_finalize'
 
 import {
   ExtensionData, ExtensionUploadMetadata, InstalledExtensionData, ProgressEvent, RunningContainer, SourceCandidate,
@@ -1254,8 +1255,14 @@ export default Vue.extend({
             }
           },
         )
-        this.setInstallFromFilePhase('success')
-        this.install_from_file_status_text = 'Extension installed successfully'
+        // The tracker already raised the alert and the notification for its own error.
+        const result = resolveFinalizeResult(undefined, tracker.error)
+        if (result.phase === 'error') {
+          this.applyInstallFromFileError(result.message)
+          return
+        }
+        this.setInstallFromFilePhase(result.phase)
+        this.install_from_file_status_text = result.statusText
         this.stopUploadKeepAlive()
         this.upload_temp_tag = null
         this.upload_metadata = null
