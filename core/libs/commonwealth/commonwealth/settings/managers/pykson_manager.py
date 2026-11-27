@@ -138,7 +138,7 @@ class PyksonManager:
                 self._save_blocked_by = blocked_by
                 return
             except SettingsFromTheFuture as exception:
-                logger.debug(f"Ignoring {valid_file}, going to try another file: {exception}")
+                logger.warning(f"Ignoring {valid_file}, going to try another file: {exception}")
             except OSError as exception:
                 # Not a sign of a corrupt file, so it is neither moved aside nor replaced by the defaults
                 logger.error(f"Failed to read {valid_file}, going to try another file: {exception}")

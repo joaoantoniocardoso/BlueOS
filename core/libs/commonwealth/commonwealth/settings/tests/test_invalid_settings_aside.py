@@ -100,7 +100,7 @@ def fixture_config_path(tmp_path: pathlib.Path) -> pathlib.Path:
 @pytest.fixture(name="logs")
 def fixture_logs() -> Any:
     messages: List[str] = []
-    handler_id = logger.add(lambda message: messages.append(str(message)), level="DEBUG")
+    handler_id = logger.add(lambda message: messages.append(f"{message.record['level'].name} {message}"), level="DEBUG")
     yield messages
     logger.remove(handler_id)
 
@@ -228,6 +228,39 @@ def test_future_version_file_is_kept_in_place(
     assert manager.settings.value == 42
     assert not list(folder.glob("*.invalid-*"))
     assert (folder / "settings-2.json").read_bytes() == content
+
+
+@pytest.mark.parametrize("manager_type,old_type", MANAGERS)
+def test_future_version_file_is_reported_as_a_warning(
+    config_path: pathlib.Path, logs: List[str], manager_type: Any, old_type: Type[Any]
+) -> None:
+    (config_path / "managertest" / "settings-2.json").write_bytes(b'{"VERSION": 2, "value": 7}')
+
+    manager_type("ManagerTest", old_type, config_path)
+
+    assert any(
+        message.startswith("WARNING") and "settings-2.json" in message and "future settings version" in message
+        for message in logs
+    )
+
+
+@pytest.mark.parametrize("manager_type,settings_type", MANAGERS)
+@pytest.mark.parametrize("content", INVALID_CONTENTS)
+def test_warning_names_the_file_the_copy_and_the_reason(
+    config_path: pathlib.Path, logs: List[str], manager_type: Any, settings_type: Type[Any], content: bytes
+) -> None:
+    folder = config_path / "managertest"
+    (folder / "settings-1.json").write_bytes(content)
+
+    manager_type("ManagerTest", settings_type, config_path)
+
+    (aside,) = folder.glob("settings-1.json.invalid-*")
+    warnings = [message for message in logs if message.startswith("WARNING")]
+    assert len(warnings) == 1
+    assert str(folder / "settings-1.json") in warnings[0]
+    assert str(aside) in warnings[0]
+    reason = warnings[0].split(str(folder / "settings-1.json"), 1)[1].split(") was kept as", 1)[0]
+    assert len(reason.strip(" (")) > 3
 
 
 @pytest.mark.parametrize("manager_type,settings_type", MANAGERS)
