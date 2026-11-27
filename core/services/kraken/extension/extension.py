@@ -662,8 +662,10 @@ class Extension:
             parsed = json.loads(labels[key])
             if isinstance(parsed, (dict, list)):
                 return cast(Dict[str, Any] | List[Any], parsed)
+            logger.warning(f"Ignoring label {key}: expected a JSON object or list, got {type(parsed).__name__}")
             return fallback
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, TypeError) as error:
+            logger.warning(f"Ignoring label {key}: not valid JSON: {error}")
             return fallback
 
     @staticmethod
