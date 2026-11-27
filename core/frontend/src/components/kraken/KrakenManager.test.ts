@@ -1,8 +1,8 @@
 import { beforeEach, expect, mock, test } from 'bun:test'
 
-const calls: { method?: string, url: string }[] = []
+const calls: { method?: string, url: string, data?: any }[] = []
 mock.module('@/utils/api', () => ({
-  default: async (config: { method?: string, url: string }) => {
+  default: async (config: { method?: string, url: string, data?: any }) => {
     calls.push(config)
     return { data: [] }
   },
@@ -30,4 +30,16 @@ test('extension URLs encode the identifier and the tag', async () => {
     `/kraken/v2.0/extension/${enc}/restart`,
     `/kraken/v2.0/extension/${enc}/1.0%2F..%2Fx`,
   ])
+})
+
+test('install and finalize send an object for null permissions', async () => {
+  const extension = {
+    identifier: 'ab.cd', name: 'n', docker: 'd', tag: 't', permissions: null, user_permissions: null,
+  } as any
+  await manager.installExtension(extension, () => {})
+  await manager.finalizeExtension(extension, 'temp', () => {})
+  for (const call of calls) {
+    expect(call.data.permissions).toBe('{}')
+    expect(call.data.user_permissions).toBe('')
+  }
 })

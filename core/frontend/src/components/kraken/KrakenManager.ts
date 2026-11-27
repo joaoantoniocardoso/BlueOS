@@ -8,7 +8,7 @@ import {
   UploadProgressEvent,
 } from '@/types/kraken'
 import back_axios from '@/utils/api'
-import { extensionUrl } from '@/utils/kraken_extension'
+import { extensionUrl, permissionsBody, userPermissionsBody } from '@/utils/kraken_extension'
 
 const KRAKEN_BASE_URL = '/kraken'
 const KRAKEN_API_V2_URL = `${KRAKEN_BASE_URL}/v2.0`
@@ -247,8 +247,8 @@ export async function finalizeExtension(
       docker: extension.docker,
       tag: extension.tag,
       enabled: true,
-      permissions: extension?.permissions ?? '',
-      user_permissions: extension?.user_permissions ?? '',
+      permissions: permissionsBody(extension?.permissions),
+      user_permissions: userPermissionsBody(extension?.user_permissions),
     },
     timeout: 120000,
     onDownloadProgress: progressHandler,
@@ -273,8 +273,8 @@ export async function installExtension(
       docker: extension.docker,
       tag: extension.tag,
       enabled: true,
-      permissions: extension?.permissions ?? '',
-      user_permissions: extension?.user_permissions ?? '',
+      permissions: permissionsBody(extension?.permissions),
+      user_permissions: userPermissionsBody(extension?.user_permissions),
     },
     timeout: 600000,
     onDownloadProgress: progressHandler,

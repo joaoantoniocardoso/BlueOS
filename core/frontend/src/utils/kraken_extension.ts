@@ -40,8 +40,27 @@ export function validateImageName(input: string): (true | string) {
   return true
 }
 
-export function parsePermissions(label: string | null | undefined): any {
-  return JSON.parse(label || '{}')
+export function isPermissionsObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+// The catalog has labels that are null or invalid JSON. The backend only accepts a JSON object.
+export function parsePermissions(label: string | null | undefined): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(label || '{}')
+    return isPermissionsObject(parsed) ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+export function permissionsBody(label: string | null | undefined): string {
+  return JSON.stringify(parsePermissions(label))
+}
+
+export function userPermissionsBody(label: string | null | undefined): string {
+  const parsed = parsePermissions(label)
+  return Object.keys(parsed).length > 0 ? JSON.stringify(parsed) : ''
 }
 
 export function extensionUrl(...segments: string[]): string {

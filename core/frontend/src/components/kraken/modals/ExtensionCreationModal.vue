@@ -106,7 +106,9 @@ import JsonEditor from '@/components/common/JsonEditor.vue'
 import { copyToClipboard } from '@/cosmos'
 import { InstalledExtensionData } from '@/types/kraken'
 import { VForm } from '@/types/vuetify'
-import { parsePermissions, validateIdentifier, validateImageName } from '@/utils/kraken_extension'
+import {
+  isPermissionsObject, parsePermissions, validateIdentifier, validateImageName,
+} from '@/utils/kraken_extension'
 
 export default Vue.extend({
   name: 'ExtensionCreationModal',
@@ -156,7 +158,7 @@ export default Vue.extend({
       return this.new_permissions !== this.extension?.permissions
     },
     valid_permissions() {
-      return this.new_permissions
+      return isPermissionsObject(this.new_permissions)
     },
   },
   watch: {
@@ -243,7 +245,7 @@ export default Vue.extend({
       return true
     },
     async saveExtension(): Promise<void> {
-      if (this.new_permissions) {
+      if (isPermissionsObject(this.new_permissions)) {
         this.new_extension.user_permissions = JSON.stringify(this.new_permissions)
       }
       this.new_extension.name = this.new_extension.name.trim()
