@@ -37,6 +37,14 @@ def registry_fixture(target: Target, blueos: BlueOS) -> Iterator[str]:
         f"&& sudo docker push -q {local}/slow:1 && sudo docker push -q {local}/stall:1 "
         f"&& sudo docker rmi {local}/slow:1 {local}/stall:1"
     )
+    cmd = '--change \'CMD ["/bin/registry", "--version"]\''
+    target.shell(
+        "sudo docker export e2e-registry > /tmp/hung.tar && cp /tmp/hung.tar /tmp/good.tar "
+        "&& echo good > /tmp/good.txt && tar -rf /tmp/good.tar -C /tmp good.txt "
+        f"&& sudo docker import {cmd} /tmp/hung.tar {local}/hung:1 && sudo docker import {cmd} /tmp/good.tar {local}/good:1 "
+        f"&& sudo docker push -q {local}/hung:1 && sudo docker push -q {local}/good:1 "
+        f"&& sudo docker rmi {local}/hung:1 {local}/good:1"
+    )
     target.ssh.put(PROXY, "/opt/e2e/slow_registry_proxy.py")
     target.shell("sudo docker cp /opt/e2e/slow_registry_proxy.py blueos-core:/tmp/slow_registry_proxy.py")
     target.shell(
@@ -59,9 +67,11 @@ def registry_fixture(target: Target, blueos: BlueOS) -> Iterator[str]:
     target.shell("sudo docker rm -f e2e-registry")
 
 
-def install_stream(blueos: BlueOS, docker_image: str, timeout: float) -> tuple[float, list[bytes]]:
-    body = {"identifier": "e2e.pull", "name": "e2e", "docker": docker_image, "tag": "1", "enabled": False,
-            "permissions": ""}  # fmt: skip
+def install_stream(
+    blueos: BlueOS, docker_image: str, timeout: float, enabled: bool = False
+) -> tuple[float, list[bytes]]:
+    body = {"identifier": f"e2e.{docker_image.rpartition('/')[2]}", "name": "e2e", "docker": docker_image, "tag": "1", "enabled": enabled,
+            "permissions": "{}"}  # fmt: skip
     request = urllib.request.Request(
         f"{blueos.base_url}/kraken/v2.0/extension/",
         data=json.dumps(body).encode(),
@@ -79,3 +89,22 @@ def test_stalled_pull_fails_after_the_idle_limit(blueos: BlueOS, registry: str) 
     assert IDLE_LIMIT_SECONDS <= elapsed < IDLE_LIMIT_SECONDS + 40, b"".join(lines)[-500:]
     assert any(b'"fragment": -1' in line for line in lines), "no heartbeat while Docker was silent"
     assert b"Failed to pull extension" in b"".join(lines)
+
+
+def container_exists(target: Target, name: str) -> None:
+    if not target.shell(f"sudo docker ps -a --filter name={name} --format {{{{.Names}}}}"):
+        raise RuntimeError(f"no container {name}")
+
+
+def test_hung_pull_does_not_stop_other_extensions_from_starting(blueos: BlueOS, registry: str, target: Target) -> None:
+    for name in ("hung", "good"):  # kraken starts the dead extensions in the order they were installed
+        install_stream(blueos, f"{registry}/{name}", timeout=120, enabled=True)
+    names = [f"extension-{registry}/{name}1".replace(":", "").replace("/", "") for name in ("hung", "good")]
+    target.shell(f"sudo docker rm -f {' '.join(names)}; sudo docker rmi -f {registry}/hung:1 {registry}/good:1; true")
+    target.shell("sudo docker exec blueos-core touch /tmp/hung")
+    wait_until(
+        lambda: container_exists(target, names[1]),
+        IDLE_LIMIT_SECONDS + 90,
+        errors=(RuntimeError,),
+        description="the healthy extension to start while the pull of the other hangs",
+    )
