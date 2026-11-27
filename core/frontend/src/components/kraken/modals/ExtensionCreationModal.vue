@@ -107,7 +107,7 @@ import { copyToClipboard } from '@/cosmos'
 import { InstalledExtensionData } from '@/types/kraken'
 import { VForm } from '@/types/vuetify'
 import {
-  isPermissionsObject, parsePermissions, validateIdentifier, validateImageName,
+  applyPastedConfig, isPermissionsObject, parsePermissions, validateIdentifier, validateImageName,
 } from '@/utils/kraken_extension'
 
 export default Vue.extend({
@@ -293,40 +293,18 @@ export default Vue.extend({
       }
     },
     handlePaste(event: ClipboardEvent) {
-      try {
-        // Get the pasted text
-        const pastedText = event.clipboardData?.getData('text')
-        if (!pastedText) return
+      const pastedText = event.clipboardData?.getData('text')
+      if (!pastedText) return
 
-        // Try to parse it as JSON
-        const config = JSON.parse(pastedText)
+      if (!this.new_extension) {
+        this.new_extension = {} as InstalledExtensionData & { editing: boolean }
+      }
+      const pasted = applyPastedConfig(this.new_extension, pastedText, this.is_editing)
+      if (!pasted) return
 
-        // Validate that it has the expected structure
-        if (config.identifier && config.name && config.docker && config.tag) {
-          // Prevent the default paste
-          event.preventDefault()
-
-          // Update the form data
-          if (!this.new_extension) {
-            this.new_extension = {} as InstalledExtensionData & { editing: boolean }
-          }
-
-          this.new_extension.identifier = config.identifier
-          this.new_extension.name = config.name
-          this.new_extension.docker = config.docker
-          this.new_extension.tag = config.tag
-
-          // Handle permissions if present
-          if (config.permissions) {
-            this.new_extension.permissions = typeof config.permissions === 'string'
-              ? config.permissions
-              : JSON.stringify(config.permissions)
-            this.new_permissions = JSON.parse(this.new_extension.permissions)
-          }
-        }
-      } catch (error) {
-        // Not valid JSON or doesn't match our format - ignore
-        console.debug('Pasted content was not valid extension configuration')
+      event.preventDefault()
+      if (pasted.permissions !== undefined) {
+        this.new_permissions = pasted.permissions
       }
     },
   },
