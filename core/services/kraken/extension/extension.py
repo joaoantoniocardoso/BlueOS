@@ -702,7 +702,7 @@ class Extension:
         """
 
         temp_tag = f"{TEMP_EXTENSION_TAG_PREFIX}{uuid.uuid4().hex[:8]}"
-        now = int(time.time())
+        now = int(time.monotonic())
 
         # Extract or set defaults
         DEFAULT_EXTENSION_NAME = "Unknown Extension"
@@ -785,7 +785,7 @@ class Extension:
         if temp_settings.identifier:
             raise ExtensionNotFound(f"Extension with tag {temp_tag} is not temporary")
 
-        now = int(time.time())
+        now = int(time.monotonic())
         created_at, _ = cls.temp_extension_activity.get(temp_tag, (now, now))
         cls.temp_extension_activity[temp_tag] = (created_at, now)
 
@@ -798,7 +798,7 @@ class Extension:
         temp_extensions = [ext for ext in extensions if not ext.identifier or ext.identifier == ""]
         active_temp_refs: Set[str] = {f"{ext.docker}:{ext.tag}" for ext in temp_extensions}
 
-        now = int(time.time())
+        now = int(time.monotonic())
         for ext in temp_extensions:
             timestamps = cls.temp_extension_activity.get(ext.tag)
             if timestamps is None:
