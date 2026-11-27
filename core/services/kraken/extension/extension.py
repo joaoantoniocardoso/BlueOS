@@ -215,18 +215,15 @@ class Extension:
         finally:
             cls.unlock(container_name)
 
-    async def _disable_running_extension(self) -> Optional["Extension"]:
-        """Disable any currently running extension with the same identifier."""
+    async def _running_extension(self) -> Optional["Extension"]:
+        """The enabled extension with the same identifier, if there is one."""
         try:
-            running_ext = await self.from_running(self.identifier)
-            if running_ext:
-                await running_ext.disable()
-            return running_ext
+            return await self.from_running(self.identifier)
         except (ExtensionNotRunning, ExtensionNotFound):
             return None
 
     def _create_extension_settings(self) -> ExtensionSettings:
-        """Create and save extension settings."""
+        """Create the enabled entry of this extension and save every pending change with it."""
         new_extension = ExtensionSettings(
             identifier=self.identifier,
             name=self.source.name,
@@ -236,7 +233,6 @@ class Extension:
             enabled=True,
             user_permissions=self.source.user_permissions,
         )
-        # Saved before pulling so the watchdog can pick it up; a failed install rolls it back
         self._save_settings(new_extension)
         return new_extension
 
@@ -296,26 +292,29 @@ class Extension:
         needs_sibling_check = not self.digest and running_ext and running_ext.unique_entry != self.unique_entry
         return not needs_sibling_check or (sibling_image_id is not None and local_id != sibling_image_id)
 
-    async def _rollback_failed_install(
-        self, running_ext: Optional["Extension"], prior_settings: Optional[ExtensionSettings]
-    ) -> None:
+    async def _switch_from(self, running_ext: Optional["Extension"]) -> None:
+        """Stop `running_ext`, then save it as disabled together with this extension as enabled.
+
+        A Kraken stop before the save leaves `running_ext` enabled, so the watchdog starts it again.
+        The single save is the switch: before it only `running_ext` is enabled, after it only this extension.
+        """
+        entries = copy.deepcopy(self._settings.extensions)
+        if running_ext:
+            self.lock(running_ext.unique_entry)
         try:
-            self._save_settings(prior_settings)
-            logger.info(
-                f"Rolled back {self.identifier}:{self.tag}"
-                + (f", re-enabling {running_ext.tag}" if running_ext else "")
-            )
-        except Exception as rollback_error:
-            logger.warning(f"Failed to roll back {self.identifier}:{self.tag} after pull failure: {rollback_error}")
-        if not running_ext:
-            return
-        try:
-            self.reset_start_attempt(running_ext.unique_entry)
-            await running_ext.enable()
-        except Exception as enable_error:
-            logger.warning(
-                f"Failed to re-enable {running_ext.identifier}:{running_ext.tag} after pull failure: {enable_error}"
-            )
+            if running_ext:
+                try:
+                    await self.remove(running_ext.settings.container_name(), False)
+                except ContainerNotFound:
+                    pass
+                running_ext.settings.enabled = False
+            self._create_extension_settings()
+        except Exception:
+            self._settings.extensions = entries
+            raise
+        finally:
+            if running_ext:
+                self.unlock(running_ext.unique_entry)
 
     async def _pull_docker_image(
         self, docker_auth: Optional[str], docker: Optional[Any] = None
@@ -350,43 +349,53 @@ class Extension:
                 if await self._local_image_id(client, exact=True) is None:
                     raise ExtensionPullFailed(f"Image {self.source.docker}:{self.tag} is not available locally")
 
-        try:
-            prior_settings: Optional[ExtensionSettings] = copy.deepcopy(self.settings)
-        except ExtensionNotFound:
-            prior_settings = None
-
-        # First we should make sure no other tag is running
-        running_ext = await self._disable_running_extension()
+        running_ext = await self._running_extension()
         sibling_image_id = await self._sibling_image_id(running_ext)
 
-        self._create_extension_settings()
+        pulled = True
         try:
             self.lock(self.unique_entry)
 
-            async with DockerCtx() as client:
-                # A local digest image is the exact content, so only a tag-only install needs the registry
-                is_local = not pull or bool(self.digest) and await self._local_image_id(client, exact=True) is not None
-            if not is_local:
-                async for line in self._pull_docker_image(self._prepare_docker_auth()):
-                    yield line
-        except Exception as error:
-            # In case of some external installs kraken shouldn't try to install it again so we remove from settings
-            if await self._can_use_local_image(running_ext, sibling_image_id):
+            try:
+                async with DockerCtx() as client:
+                    # A local digest image is the exact content, so only a tag-only install needs the registry
+                    is_local = (
+                        not pull or bool(self.digest) and await self._local_image_id(client, exact=True) is not None
+                    )
+                if not is_local:
+                    async for line in self._pull_docker_image(self._prepare_docker_auth()):
+                        yield line
+            except Exception as error:
+                # The settings and the running extension are untouched until the pull ends: nothing to undo
+                if not await self._can_use_local_image(running_ext, sibling_image_id):
+                    raise ExtensionPullFailed(
+                        f"Failed to pull extension {self.identifier}:{self.tag}: {error}"
+                    ) from error
                 logger.warning(
                     f"Pull failed but image {self.identifier}:{self.tag} is available locally, "
                     f"keeping other tags: {error}"
                 )
-                return
-            await self._rollback_failed_install(running_ext, prior_settings)
-            raise ExtensionPullFailed(f"Failed to pull extension {self.identifier}:{self.tag}: {error}") from error
+                pulled = False
+
+            try:
+                await self._switch_from(running_ext)
+            except Exception as error:
+                raise ExtensionPullFailed(
+                    f"Failed to enable extension {self.identifier}:{self.tag}: {error}"
+                ) from error
         finally:
             self.unlock(self.unique_entry)
             self.reset_start_attempt(self.unique_entry)
+        if not pulled:
+            return
 
         logger.info(f"Extension {self.identifier}:{self.tag} installed")
         # Uninstall all other tags in case user wants to clear them
         if clear_remaining_tags:
-            await self._clear_remaining_tags()
+            try:
+                await self._clear_remaining_tags()
+            except Exception as error:
+                logger.warning(f"Could not clear the other tags of {self.identifier}: {error}")
 
     async def update(self, clear_remaining_tags: bool) -> AsyncGenerator[bytes, None]:
         async for data in self.install(clear_remaining_tags):
