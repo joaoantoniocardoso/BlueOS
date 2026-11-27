@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import PlainTextResponse
 from fastapi_versioning import versioned_api_route
 
+from api.v2.routers.errors import internal_server_error
 from manifest import ManifestManager
 from manifest.exceptions import (
     ExtensionEntryNotFound,
@@ -49,7 +50,7 @@ def manifest_to_http_exception(endpoint: Callable[..., Any]) -> Callable[..., An
         except ManifestOperationNotAllowed as error:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
         except Exception as error:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(error)) from error
+            raise internal_server_error(endpoint, error) from error
 
     return wrapper
 
