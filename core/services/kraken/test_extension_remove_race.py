@@ -78,7 +78,9 @@ class FakeEngine:
         }  # fmt: skip
         return name
 
-    async def _list(self, filters: Dict[str, Any], all: bool = False) -> List[FakeContainer]:  # pylint: disable=redefined-builtin
+    async def _list(
+        self, filters: Dict[str, Any], all: bool = False
+    ) -> List[FakeContainer]:  # pylint: disable=redefined-builtin
         await asyncio.sleep(0)
         found = list(self.containers.items())
         if not all:

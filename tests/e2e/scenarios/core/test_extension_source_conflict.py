@@ -41,7 +41,9 @@ def entry(repo: str, digests: dict[str, str]) -> dict[str, Any]:
 
 
 @pytest.fixture(name="catalog", scope="module")
-def catalog_fixture(target: Target, blueos: BlueOS, tmp_path_factory: pytest.TempPathFactory) -> Iterator[dict[str, str]]:
+def catalog_fixture(
+    target: Target, blueos: BlueOS, tmp_path_factory: pytest.TempPathFactory
+) -> Iterator[dict[str, str]]:
     """Two manifest sources that list one identifier with two repos on a local registry.
 
     Returns the identifier of each source: the first one has the higher priority.
@@ -114,7 +116,11 @@ def installed(blueos: BlueOS) -> list[tuple[str, str]]:
 
 
 def test_catalog_lists_the_other_repo_as_conflict(blueos: BlueOS, catalog: dict[str, str]) -> None:
-    entries = [item for item in blueos_request("GET", kraken(blueos, "manifest/consolidated")) if item["identifier"] == IDENTIFIER]
+    entries = [
+        item
+        for item in blueos_request("GET", kraken(blueos, "manifest/consolidated"))
+        if item["identifier"] == IDENTIFIER
+    ]
 
     assert len(entries) == 1
     assert entries[0]["docker"] == PRIORITY_REPO
@@ -146,7 +152,14 @@ def test_update_keeps_the_installed_repo(blueos: BlueOS, catalog: dict[str, str]
 
 
 def test_installed_repo_in_no_source_needs_a_choice(blueos: BlueOS, catalog: dict[str, str]) -> None:
-    body = {"identifier": IDENTIFIER, "name": "e2e", "docker": THIRD_REPO, "tag": "1", "enabled": False, "permissions": ""}
+    body = {
+        "identifier": IDENTIFIER,
+        "name": "e2e",
+        "docker": THIRD_REPO,
+        "tag": "1",
+        "enabled": False,
+        "permissions": "",
+    }
     status, output = call(blueos, "POST", "extension/", body)
     assert status == 200, output
     assert (THIRD_REPO, "1") in installed(blueos)

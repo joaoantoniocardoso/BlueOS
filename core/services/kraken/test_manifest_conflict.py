@@ -24,7 +24,11 @@ for module_name in _saved:
 _stubbed: List[Any] = []
 # Another test module may already have put a stub without a spec in `sys.modules`, and `find_spec` refuses that.
 _loaded = sys.modules.get("fastapi_versioning")
-if (getattr(_loaded, "__spec__", None) is None) if _loaded is not None else importlib.util.find_spec("fastapi_versioning") is None:
+if (
+    (getattr(_loaded, "__spec__", None) is None)
+    if _loaded is not None
+    else importlib.util.find_spec("fastapi_versioning") is None
+):
     # Not a dev dependency: the routes only need `versioned_api_route` to give a route class.
     import types
     import fastapi.dependencies.utils as fastapi_utils
