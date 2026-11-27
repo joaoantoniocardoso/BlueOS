@@ -438,7 +438,9 @@ class Extension:
                 if image_id is None:
                     logger.info(f"Image not found locally, going to pull extension {self.identifier}:{self.tag}")
                     self.lock(self.unique_entry)
-                    async for _ in self._pull_docker_image(self._prepare_docker_auth(), client):
+                    docker_auth = self._prepare_docker_auth()
+                    pull_stream = self._pull_docker_image(docker_auth, client)
+                    async for _ in idle_timeout(pull_stream, PULL_IDLE_TIMEOUT_SECONDS):
                         pass
                     image_id = await self._local_image_id(client)
                     if image_id is None:

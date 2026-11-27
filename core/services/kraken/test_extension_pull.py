@@ -1,6 +1,7 @@
 # isort: skip_file
 import asyncio
 import sys
+import time
 from pathlib import Path
 from typing import Any, AsyncGenerator, Optional
 from unittest import mock
@@ -16,6 +17,7 @@ for module_name in _saved:
     sys.modules.pop(module_name, None)
 
 import extension.extension as extension_module  # noqa: E402
+from aiodocker.exceptions import DockerError  # noqa: E402
 from extension.exceptions import ExtensionPullFailed  # noqa: E402
 from extension.extension import Extension  # noqa: E402
 from extension.models import ExtensionInstallSource  # noqa: E402
@@ -79,3 +81,41 @@ async def test_install_keeps_going_while_the_pull_has_progress() -> None:
         extension._pull_docker_image = pull  # type: ignore
         extension._clear_remaining_tags = mock.AsyncMock()  # type: ignore
         assert [line async for line in extension.install()] == [b"0", b"1", b"2", b"3"]
+
+
+async def test_start_gives_up_on_a_pull_that_goes_silent() -> None:
+    extension = make_extension()
+    client = mock.AsyncMock()
+    client.images.inspect.side_effect = DockerError(404, {"message": "no such image"})  # type: ignore
+
+    async def stalled_stream() -> AsyncGenerator[dict[str, str], None]:
+        yield {"status": "Pulling"}
+        await asyncio.sleep(5)
+        yield {"status": "never"}
+
+    async def stalled_pull_call() -> list[dict[str, str]]:
+        await asyncio.sleep(5)
+        return []
+
+    def pull(*_args: Any, stream: bool = False, **_kwargs: Any) -> Any:
+        return stalled_stream() if stream else stalled_pull_call()
+
+    client.images.pull = pull
+    docker_ctx = mock.MagicMock()
+    docker_ctx.return_value.__aenter__.return_value = client
+    with mock.patch.multiple(
+        extension,
+        lock=mock.Mock(),
+        unlock=mock.Mock(),
+        mark_start_attempt=mock.Mock(),
+        _set_container_config_host_config=mock.Mock(),
+        _set_container_config_default_env_variables=mock.Mock(),
+    ), mock.patch.object(extension_module, "DockerCtx", docker_ctx), mock.patch.object(
+        extension_module, "PULL_IDLE_TIMEOUT_SECONDS", 0.1, create=True
+    ), mock.patch.object(
+        Extension, "settings", mock.MagicMock(), create=True
+    ):
+        started = time.monotonic()
+        with pytest.raises(ExtensionPullFailed):
+            await extension.start()
+        assert time.monotonic() - started < 2
