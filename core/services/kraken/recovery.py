@@ -118,6 +118,12 @@ def _catalog_permissions(catalog: Dict[str, Any], docker: str, tag: str) -> str:
     return json.dumps(version.permissions) if version and version.permissions is not None else ""
 
 
+def _container_names(docker: str, tag: str) -> Tuple[str, str]:
+    # Containers of older Kraken versions have the legacy name, `adopt_legacy_containers` renames them later
+    settings = ExtensionSettings(docker=docker, tag=tag)
+    return settings.container_name(), settings.legacy_container_name()
+
+
 def recovered_extension_from_inspect(
     inspect: Dict[str, Any], catalog: Optional[Dict[str, Any]] = None
 ) -> Optional[Dict[str, Any]]:
@@ -139,7 +145,7 @@ def recovered_extension_from_inspect(
     docker, tag = split
     if tag.startswith(TEMP_EXTENSION_TAG_PREFIX):
         return None
-    if ExtensionSettings(docker=docker, tag=tag).container_name() != container_name:
+    if container_name not in _container_names(docker, tag):
         return None
 
     labels = config.get("Labels") or {}
