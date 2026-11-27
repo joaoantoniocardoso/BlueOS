@@ -8,6 +8,7 @@ from fastapi.responses import Response, StreamingResponse
 from fastapi_versioning import versioned_api_route
 from loguru import logger
 
+from api.v2.routers.errors import internal_server_error
 from extension.exceptions import (
     ExtensionInsufficientStorage,
     ExtensionNotFound,
@@ -47,7 +48,7 @@ def extension_to_http_exception(endpoint: Callable[..., Any]) -> Callable[..., A
         except HTTPException as error:
             raise error
         except Exception as error:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(error)) from error
+            raise internal_server_error(endpoint, error) from error
 
     return wrapper
 
