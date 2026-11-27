@@ -12,7 +12,8 @@ from extension.extension import Extension
 from extension.models import ExtensionSource
 from harbor import ContainerManager, DockerCtx
 from jobs import JobsManager
-from jobs.models import Job, JobMethod
+from jobs.exceptions import JobNotFound
+from jobs.models import Job, JobMethod, JobStatus
 from manifest import ManifestManager
 from manifest.exceptions import ManifestBackendOffline
 from manifest.models import RepositoryEntry
@@ -199,10 +200,10 @@ class Kraken:
 
     def is_install_default_ext_job_created(self, identifier: str) -> bool:
         try:
-            JobsManager.get_by_identifier(identifier)
-        except Exception:
+            job = JobsManager.get_by_identifier(identifier)
+        except JobNotFound:
             return False
-        return True
+        return job.status != JobStatus.FAILED
 
     async def setup_default_extensions(self) -> None:
         extensions: List[ExtensionSettings] = Extension._fetch_settings()

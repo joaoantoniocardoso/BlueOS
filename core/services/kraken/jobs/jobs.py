@@ -4,12 +4,13 @@ from typing import List, Optional
 import aiohttp
 from loguru import logger
 
-from jobs.exceptions import JobNotFound, JobOperationNotAllowed
-from jobs.models import Job
+from jobs.exceptions import JobNotFound, JobOperationNotAllowed, JobRequestFailed
+from jobs.models import Job, JobStatus
 
 
 class JobsManager:
     _jobs: List[Job] = []
+    _failed: List[Job] = []
     _executing_job: Optional[Job] = None
 
     def __init__(self) -> None:
@@ -19,19 +20,25 @@ class JobsManager:
     async def execute_job(self, job: Job) -> None:
         job_name = f"{job.method.value} - {job.route}"
         logger.info(f"Executing job {job_name}")
+        last_error = "job has no retries"
         async with aiohttp.ClientSession() as session:
             for i in range(job.retries):
                 try:
                     async with session.request(
                         method=job.method, url=f"{self.base_host}/{job.route}", json=job.body
                     ) as response:
-                        response.raise_for_status()
+                        if response.status >= 400:
+                            raise JobRequestFailed(f"HTTP {response.status}: {await response.text()}")
                         await response.read()
                         return
-                except Exception:
-                    logger.warning(f"Failed job {job_name} attempt {i + 1}/{job.retries}")
+                except Exception as error:
+                    last_error = f"{type(error).__name__}: {error}"
+                    logger.warning(f"Failed job {job_name} attempt {i + 1}/{job.retries}: {last_error}")
                     await asyncio.sleep(5)
-            logger.error(f"Job {job_name} failed to be executed")
+            logger.error(f"Job {job_name} failed to be executed: {last_error}")
+            job.status = JobStatus.FAILED
+            job.error = last_error
+            JobsManager._failed.append(job)
 
     async def start(self) -> None:
         while self.is_running:
@@ -51,11 +58,12 @@ class JobsManager:
 
     @classmethod
     def add(cls, job: Job) -> None:
+        cls._failed = [failed for failed in cls._failed if failed.id != job.id]
         cls._jobs.append(job)
 
     @classmethod
     def get(cls) -> List[Job]:
-        return ([cls._executing_job] if cls._executing_job else []) + cls._jobs
+        return ([cls._executing_job] if cls._executing_job else []) + cls._jobs + cls._failed
 
     @classmethod
     def get_by_identifier(cls, identifier: str) -> Job:
@@ -69,4 +77,7 @@ class JobsManager:
         job = cls.get_by_identifier(identifier)
         if job is cls._executing_job:
             raise JobOperationNotAllowed(f"Job {identifier} is currently executing")
-        cls._jobs.remove(job)
+        if job in cls._failed:
+            cls._failed.remove(job)
+        else:
+            cls._jobs.remove(job)
