@@ -78,19 +78,23 @@ export interface PastedExtensionFields {
 }
 
 // Copies the fields of a pasted extension config into `extension`.
+// The identifier and docker fields are locked when editing, so they are kept.
 // Returns the parsed permissions to show in the editor, or null when the text is not an extension config.
 export function applyPastedConfig(
   extension: PastedExtensionFields,
   text: string,
+  isEditing: boolean,
 ): { permissions: unknown } | null {
   try {
     const config = JSON.parse(text)
     if (!(config.identifier && config.name && config.docker && config.tag)) {
       return null
     }
-    extension.identifier = config.identifier
+    if (!isEditing) {
+      extension.identifier = config.identifier
+      extension.docker = config.docker
+    }
     extension.name = config.name
-    extension.docker = config.docker
     extension.tag = config.tag
 
     if (!config.permissions) {

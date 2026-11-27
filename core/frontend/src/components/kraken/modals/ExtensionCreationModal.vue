@@ -299,7 +299,7 @@ export default Vue.extend({
       if (!this.new_extension) {
         this.new_extension = {} as InstalledExtensionData & { editing: boolean }
       }
-      const pasted = applyPastedConfig(this.new_extension, pastedText)
+      const pasted = applyPastedConfig(this.new_extension, pastedText, this.is_editing)
       if (!pasted) return
 
       event.preventDefault()

@@ -1,7 +1,8 @@
 import { expect, test } from 'bun:test'
 
 import {
-  isPermissionsObject, parsePermissions, permissionsBody, userPermissionsBody, validateIdentifier, validateImageName,
+  applyPastedConfig, isPermissionsObject, parsePermissions, permissionsBody, userPermissionsBody, validateIdentifier,
+  validateImageName,
 } from './kraken_extension'
 
 test('validateIdentifier rejects characters that break the extension URL', () => {
@@ -57,4 +58,38 @@ test('validateImageName accepts what the backend accepts', () => {
   for (const good of ['nginx', 'a/b', 'localhost:5000/team/img', 'Registry.Example.com/a/b.c_d__e-f']) {
     expect(validateImageName(good)).toBe(true)
   }
+})
+
+const pasted = JSON.stringify({
+  identifier: 'other.ext', name: 'Other', docker: 'other/img', tag: '2.0', permissions: { a: 1 },
+})
+const installed = () => ({
+  identifier: 'ab.cd', name: 'Mine', docker: 'mine/img', tag: '1.0', permissions: '{}',
+})
+
+test('applyPastedConfig fills every field when creating', () => {
+  const extension = installed()
+  const result = applyPastedConfig(extension, pasted, false)
+  expect(result).toEqual({ permissions: { a: 1 } })
+  expect(extension).toEqual({
+    identifier: 'other.ext', name: 'Other', docker: 'other/img', tag: '2.0', permissions: '{"a":1}',
+  })
+})
+
+test('applyPastedConfig keeps the locked identifier and docker when editing', () => {
+  const extension = installed()
+  const result = applyPastedConfig(extension, pasted, true)
+  expect(result).toEqual({ permissions: { a: 1 } })
+  expect(extension.identifier).toBe('ab.cd')
+  expect(extension.docker).toBe('mine/img')
+  expect(extension.tag).toBe('2.0')
+  expect(extension.name).toBe('Other')
+})
+
+test('applyPastedConfig ignores text that is not an extension config', () => {
+  const extension = installed()
+  for (const text of ['hello', '{"identifier":"a.b"}', '[]', 'null']) {
+    expect(applyPastedConfig(extension, text, false)).toBeNull()
+  }
+  expect(extension).toEqual(installed())
 })
