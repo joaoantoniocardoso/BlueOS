@@ -123,3 +123,14 @@ export function prettifySize(size_kb: number): string {
   const size_gb = size_mb / 1024
   return `${size_gb.toFixed(1)} GB`
 }
+
+export function prettifyDuration(seconds: number): string {
+  const total_minutes = Math.floor(seconds / 60)
+  const days = Math.floor(total_minutes / 1440)
+  const hours = Math.floor((total_minutes % 1440) / 60)
+  const minutes = total_minutes % 60
+  if (days > 0) {
+    return `${days}d ${hours}h`
+  }
+  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`
+}
