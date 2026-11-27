@@ -259,6 +259,7 @@
             :imgs-processed="imgs_processed"
             @selected="$emit('clicked', extension)"
             @update="update"
+            @show-conflicts="$emit('show-conflicts', $event)"
             @img-processed="addImgProcessed"
           />
         </div>

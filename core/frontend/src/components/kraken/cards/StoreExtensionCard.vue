@@ -25,6 +25,27 @@
       </v-chip>
     </div>
 
+    <v-tooltip bottom>
+      <template #activator="{ on, attrs }">
+        <v-chip
+          v-if="has_source_conflict"
+          color="warning"
+          small
+          label
+          class="conflict-chip"
+          v-bind="attrs"
+          v-on="on"
+          @click.stop="$emit('show-conflicts', extension)"
+        >
+          <v-icon small left>
+            mdi-alert
+          </v-icon>
+          {{ t`Many sources` }}
+        </v-chip>
+      </template>
+      <span>{{ t`More than one catalog lists this extension with a different repository.` }}</span>
+    </v-tooltip>
+
     <div
       :style="img_background_style"
       class="img-background"
@@ -120,6 +141,7 @@ import Vue, { PropType } from 'vue'
 
 import { getLatestVersion, isStable, updateAvailableTag } from '@/components/kraken/Utils'
 import { ExtensionData, InstalledExtensionData } from '@/types/kraken'
+import { needsSourceChoice } from '@/utils/extension_source'
 
 export interface ImgProcessedResult {
   url: string
@@ -154,6 +176,9 @@ export default Vue.extend({
   computed: {
     installed_extension(): InstalledExtensionData | undefined {
       return this.installed.find((installed) => installed.identifier === this.extension.identifier)
+    },
+    has_source_conflict(): boolean {
+      return needsSourceChoice(this.extension)
     },
     is_compatible(): boolean {
       return this.extension.is_compatible ?? true
@@ -511,6 +536,13 @@ export default Vue.extend({
   top: 20px;
   right: 20px;
   transform: translate(50%, -50%) rotateZ(45deg);
+  z-index: 5 !important;
+}
+
+.conflict-chip {
+  position: absolute;
+  top: 8px;
+  right: 8px;
   z-index: 5 !important;
 }
 
