@@ -1,5 +1,6 @@
 # isort: skip_file
 import asyncio
+import copy
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -17,8 +18,11 @@ for module_name in _saved:
     sys.modules.pop(module_name, None)
 
 from aiodocker.exceptions import DockerError  # noqa: E402
-from loguru import logger  # noqa: E402
-from extension.exceptions import ExtensionInstallInProgress, ExtensionPullFailed  # noqa: E402
+from extension.exceptions import (  # noqa: E402
+    ExtensionCleanupFailed,
+    ExtensionInstallInProgress,
+    ExtensionPullFailed,
+)
 from extension.extension import Extension  # noqa: E402
 from extension.models import ExtensionSource  # noqa: E402
 from kraken import Kraken  # noqa: E402
@@ -82,38 +86,28 @@ class FakeDocker:
 @pytest.fixture(name="env")
 def fixture_env() -> Any:
     settings = SimpleNamespace(extensions=[])
+    manager = mock.Mock()
     with (
         mock.patch.object(Extension, "_settings", settings),
-        mock.patch.object(Extension, "_manager", mock.Mock()),
+        mock.patch.object(Extension, "_manager", manager),
+        mock.patch.object(Extension, "remove", mock.AsyncMock()),
         mock.patch.object(Extension, "locked_entries", {}),
         mock.patch.object(Extension, "installing_identifiers", set()),
         mock.patch.object(Extension, "start_attempts", {}),
         mock.patch.object(Extension, "_clear_remaining_tags", mock.AsyncMock()) as clear,
     ):
-        yield SimpleNamespace(settings=settings, clear=clear)
+        yield SimpleNamespace(settings=settings, clear=clear, manager=manager)
 
 
-def use_docker(fake: FakeDocker, running: Optional[ExtensionSettings] = None) -> Any:
+def use_docker(fake: FakeDocker) -> Any:
     ctx = mock.MagicMock()
     ctx.return_value.__aenter__ = mock.AsyncMock(return_value=fake.client)
     ctx.return_value.__aexit__ = mock.AsyncMock(return_value=False)
-
-    async def disable_running() -> Optional[Extension]:
-        if running is None:
-            return None
-        running.enabled = False
-        return Extension(ExtensionSource.from_settings(running))
-
-    stack = mock.patch("extension.extension.DockerCtx", ctx)
-    stack2 = mock.patch.object(Extension, "_disable_running_extension", side_effect=disable_running)
-    return (stack, stack2)
+    return mock.patch("extension.extension.DockerCtx", ctx)
 
 
-async def run_install(
-    ext: Extension, fake: FakeDocker, running: Optional[ExtensionSettings] = None, pull: bool = True
-) -> None:
-    patch_ctx, patch_running = use_docker(fake, running)
-    with patch_ctx, patch_running:
+async def run_install(ext: Extension, fake: FakeDocker, pull: bool = True) -> None:
+    with use_docker(fake):
         async for _ in ext.install(pull=pull):
             pass
 
@@ -136,7 +130,7 @@ OK_LINES = [{"status": "Pulling fs layer"}, {"status": "Digest: sha256:abc"}]
 )
 async def test_pull_fails_on_in_band_error_or_missing_image(lines: List[Dict[str, Any]], message: str) -> None:
     fake = FakeDocker({}, lines)
-    patch_ctx, _ = use_docker(fake)
+    patch_ctx = use_docker(fake)
     yielded = []
     with patch_ctx, pytest.raises(RuntimeError, match=message):
         async for line in make_extension("2")._pull_docker_image(None):
@@ -146,7 +140,7 @@ async def test_pull_fails_on_in_band_error_or_missing_image(lines: List[Dict[str
 
 async def test_pull_accepts_a_stream_without_status_line_when_image_is_local() -> None:
     fake = FakeDocker({f"{DOCKER}:2": "id2"}, [{"status": "Pulling fs layer"}])
-    patch_ctx, _ = use_docker(fake)
+    patch_ctx = use_docker(fake)
     with patch_ctx:
         async for _ in make_extension("2")._pull_docker_image(None):
             pass
@@ -154,7 +148,7 @@ async def test_pull_accepts_a_stream_without_status_line_when_image_is_local() -
 
 async def test_digest_pull_retags_over_stale_tag() -> None:
     fake = FakeDocker({f"{DOCKER}:2": "old", f"{DOCKER}@{DIGEST}": "new"}, OK_LINES)
-    patch_ctx, _ = use_docker(fake)
+    patch_ctx = use_docker(fake)
     with patch_ctx:
         async for _ in make_extension("2", DIGEST)._pull_docker_image(None):
             pass
@@ -167,7 +161,7 @@ async def test_failed_update_restores_running_tag(env: Any) -> None:
     fake = FakeDocker({f"{DOCKER}:1": "id1"}, [{"error": "not found"}])
 
     with pytest.raises(ExtensionPullFailed):
-        await run_install(make_extension("2"), fake, running)
+        await run_install(make_extension("2"), fake)
 
     assert tags(env) == {"1": True}
     fake.client.images.delete.assert_not_awaited()
@@ -179,7 +173,7 @@ async def test_failed_pull_keeps_other_local_image(env: Any) -> None:
     env.settings.extensions = [running]
     fake = FakeDocker({f"{DOCKER}:1": "id1", f"{DOCKER}:2": "id2"}, [{"error": "offline"}])
 
-    await run_install(make_extension("2"), fake, running)
+    await run_install(make_extension("2"), fake)
 
     assert tags(env) == {"1": False, "2": True}
     env.clear.assert_not_awaited()
@@ -191,7 +185,7 @@ async def test_failed_pull_refuses_alias_of_running_image(env: Any) -> None:
     fake = FakeDocker({f"{DOCKER}:1": "id1", f"{DOCKER}:2": "id1"}, [{"error": "offline"}])
 
     with pytest.raises(ExtensionPullFailed):
-        await run_install(make_extension("2"), fake, running)
+        await run_install(make_extension("2"), fake)
 
     assert tags(env) == {"1": True}
 
@@ -206,7 +200,7 @@ async def test_failed_pull_refuses_when_running_image_unknown(env: Any, status: 
         fake.inspect_errors[f"{DOCKER}:1"] = status
 
     with pytest.raises(ExtensionPullFailed):
-        await run_install(make_extension("2"), fake, running)
+        await run_install(make_extension("2"), fake)
 
     assert tags(env) == {"1": True}
 
@@ -217,7 +211,7 @@ async def test_failed_pull_requires_exact_digest(env: Any) -> None:
     fake = FakeDocker({f"{DOCKER}:1": "id1", f"{DOCKER}:2": "stale"}, [{"error": "offline"}])
 
     with pytest.raises(ExtensionPullFailed):
-        await run_install(make_extension("2", DIGEST), fake, running)
+        await run_install(make_extension("2", DIGEST), fake)
 
     assert tags(env) == {"1": True}
 
@@ -227,7 +221,7 @@ async def test_same_tag_reinstall_keeps_new_permissions_when_image_is_local(env:
     env.settings.extensions = [running]
     fake = FakeDocker({f"{DOCKER}:1": "id1"}, [{"error": "offline"}])
 
-    await run_install(make_extension("1", permissions='{"a": 1}'), fake, running)
+    await run_install(make_extension("1", permissions='{"a": 1}'), fake)
 
     assert env.settings.extensions[0].permissions == '{"a": 1}'
     assert env.settings.extensions[0].enabled
@@ -254,26 +248,11 @@ async def test_same_tag_failed_reinstall_restores_enabled_entry_even_if_enable_f
     fake = FakeDocker({f"{DOCKER}:1": "id1"}, [{"error": "offline"}])
 
     with mock.patch.object(Extension, "enable", side_effect=RuntimeError("boom")), pytest.raises(ExtensionPullFailed):
-        await run_install(make_extension("1", DIGEST, permissions='{"a": 1}'), fake, running)
+        await run_install(make_extension("1", DIGEST, permissions='{"a": 1}'), fake)
 
     assert len(env.settings.extensions) == 1
     assert env.settings.extensions[0].permissions == "{}"
     assert env.settings.extensions[0].enabled
-
-
-@pytest.mark.parametrize("save_fails, expected", [(False, "Rolled back"), (True, "Failed to roll back")])
-async def test_rollback_only_reports_success_when_settings_were_restored(save_fails: bool, expected: str) -> None:
-    messages: List[str] = []
-    sink = logger.add(lambda message: messages.append(str(message)), level="INFO")
-    error = RuntimeError("disk full") if save_fails else None
-    try:
-        with mock.patch.object(Extension, "_save_settings", side_effect=error):
-            await make_extension("2")._rollback_failed_install(None, None)
-    finally:
-        logger.remove(sink)
-
-    assert any(expected in message for message in messages)
-    assert any("Rolled back" in message for message in messages) is not save_fails
 
 
 async def test_pull_reuses_the_callers_client() -> None:
@@ -315,7 +294,7 @@ async def test_watchdog_start_fails_when_the_pull_fails(
 ) -> None:
     env.settings.extensions = [make_settings("1")]
     fake = FakeDocker(images, lines)
-    patch_ctx, _ = use_docker(fake)
+    patch_ctx = use_docker(fake)
 
     with patch_ctx, pytest.raises(ExtensionPullFailed, match=message):
         await make_extension("1").start()
@@ -324,25 +303,13 @@ async def test_watchdog_start_fails_when_the_pull_fails(
     fake.client.containers.create.assert_not_called()
 
 
-async def test_rollback_resets_the_running_tags_start_backoff(env: Any) -> None:
-    running = make_settings("1")
-    env.settings.extensions = [running]
-    Extension.mark_start_attempt(f"{running.identifier}{running.tag}")
-    fake = FakeDocker({f"{DOCKER}:1": "id1"}, [{"error": "not found"}])
-
-    with pytest.raises(ExtensionPullFailed):
-        await run_install(make_extension("2"), fake, running)
-
-    assert f"{running.identifier}{running.tag}" not in Extension.start_attempts
-
-
 async def upload_finalize(env: Any, fake: FakeDocker, running: ExtensionSettings) -> Extension:
     temp = ExtensionSettings(
         identifier="", name="Ext", docker=DOCKER, tag="tmp", permissions="{}", enabled=False, user_permissions=""
     )  # fmt: skip
     env.settings.extensions = [running, temp]
     source = ExtensionSource(identifier="ext", tag="2", name="Ext", docker=DOCKER, enabled=False, permissions="{}")
-    patch_ctx, _ = use_docker(fake)
+    patch_ctx = use_docker(fake)
     temp_source = ExtensionSource(identifier="", tag="tmp", name="Ext", docker=DOCKER, enabled=False, permissions="{}")
     with patch_ctx:
         return await Extension.finalize_temporary_extension(Extension(temp_source), source)
@@ -352,9 +319,8 @@ async def test_upload_of_the_running_image_under_a_new_tag_replaces_the_old_tag(
     running = make_settings("1")
     fake = FakeDocker({f"{DOCKER}:1": "same", f"{DOCKER}:tmp": "same"}, [{"error": "manifest unknown"}])
     new_extension = await upload_finalize(env, fake, running)
-    patch_ctx, patch_running = use_docker(fake, running)
 
-    with patch_ctx, patch_running:
+    with use_docker(fake):
         async for _ in new_extension.install(pull=False):
             pass
 
@@ -369,7 +335,7 @@ async def test_install_without_pull_fails_before_touching_a_running_extension_wh
     fake = FakeDocker({f"{DOCKER}:1": "id1"})
 
     with pytest.raises(ExtensionPullFailed, match="not available locally"):
-        await run_install(make_extension("2"), fake, running, pull=False)
+        await run_install(make_extension("2"), fake, pull=False)
 
     assert tags(env) == {"1": True}
     assert fake.pulls == 0
@@ -382,7 +348,7 @@ async def test_failed_pull_after_upload_finalize_does_not_keep_the_new_entry(env
     new_extension = await upload_finalize(env, fake, running)
 
     with pytest.raises(ExtensionPullFailed):
-        await run_install(new_extension, fake, running)
+        await run_install(new_extension, fake)
 
     assert tags(env) == {"1": True}
 
@@ -438,7 +404,7 @@ async def test_second_install_of_the_same_extension_is_refused_while_one_runs(en
     await started.wait()
     with pytest.raises(ExtensionInstallInProgress):
         await asyncio.wait_for(run_install(make_extension("3"), fake, running), 2)
-    assert tags(env) == {"1": False, "2": True}
+    assert tags(env) == {"1": True}
     release.set()
     await first
 
@@ -483,3 +449,122 @@ async def test_unlock_of_one_owner_keeps_the_lock_of_another() -> None:
     assert "ext2" in Extension.locked_entries
     Extension.unlock("ext2")
     assert "ext2" not in Extension.locked_entries
+
+
+class KrakenStop(BaseException):
+    """A Kraken stop is not an Exception: no `except Exception` runs and the memory is lost, only the disk stays."""
+
+
+class Crashes:
+    """Counts the steps of an install that touch the outside world and stops Kraken at step `crash_at`."""
+
+    def __init__(self, env: Any, fake: FakeDocker, running: ExtensionSettings, crash_at: Optional[int] = None) -> None:
+        self.steps: List[str] = []
+        self.crash_at = crash_at
+        self.fake = fake
+        self.disk = copy.deepcopy([running])
+        self.containers = {running.tag}
+        env.settings.extensions = [running]
+        env.manager.save.side_effect = self._save
+        Extension.remove.side_effect = self._remove  # type: ignore
+        env.clear.side_effect = self._clear
+        fake.client.images.pull = self._pull
+
+    async def step(self, name: str) -> None:
+        self.steps.append(name)
+        if self.crash_at == len(self.steps) - 1:
+            raise KrakenStop(name)
+
+    def _save(self) -> None:
+        self.steps.append("save")
+        if self.crash_at == len(self.steps) - 1:
+            raise KrakenStop("save")
+        self.disk = copy.deepcopy(Extension._settings.extensions)
+        self.steps.append("saved")
+        if self.crash_at == len(self.steps) - 1:
+            raise KrakenStop("saved")
+
+    async def _clear(self) -> None:
+        await self.step("clear")
+
+    async def _remove(self, container_name: str, *_: Any) -> None:
+        await self.step("stop")
+        self.containers = {tag for tag in self.containers if make_settings(tag).container_name() != container_name}
+        await self.step("stopped")
+
+    async def _pull(self, *_: Any, **__: Any) -> AsyncIterator[Dict[str, Any]]:
+        for line in OK_LINES:
+            await self.step("pull")
+            yield line
+        self.fake.images[f"{DOCKER}:2"] = "id2"
+
+
+def assert_restart_is_consistent(crashes: Crashes) -> None:
+    """After a restart the watchdog starts the enabled tags of the disk. That must give one working extension."""
+    enabled = [ext.tag for ext in crashes.disk if ext.enabled]
+    assert len(enabled) == 1, f"enabled tags on disk: {enabled}"
+    assert f"{DOCKER}:{enabled[0]}" in crashes.fake.images, f"enabled tag {enabled[0]} has no local image"
+    assert crashes.containers <= set(enabled), f"container of a disabled tag runs: {crashes.containers}"
+
+
+async def crash_install(env: Any, crash_at: Optional[int]) -> Crashes:
+    crashes = Crashes(env, FakeDocker({f"{DOCKER}:1": "id1"}), make_settings("1"), crash_at)
+    try:
+        await run_install(make_extension("2"), crashes.fake)
+    except KrakenStop:
+        pass
+    return crashes
+
+
+async def test_kraken_stop_at_any_step_of_an_update_leaves_one_working_extension(env: Any) -> None:
+    complete = await crash_install(env, None)
+    assert {ext.tag: ext.enabled for ext in complete.disk} == {"1": False, "2": True}
+    assert complete.containers == set()
+    assert_restart_is_consistent(complete)
+
+    for crash_at in range(len(complete.steps)):
+        env.settings.extensions = []
+        crashed = await crash_install(env, crash_at)
+        assert len(crashed.steps) == crash_at + 1, "the crash step was not reached"
+        try:
+            assert_restart_is_consistent(crashed)
+        except AssertionError as error:
+            raise AssertionError(f"after a stop at step {crash_at} ({crashed.steps[-1]}): {error}") from error
+
+
+async def test_old_tag_keeps_running_and_enabled_during_the_pull(env: Any) -> None:
+    seen: List[Any] = []
+    crashes = Crashes(env, FakeDocker({f"{DOCKER}:1": "id1"}), make_settings("1"))
+    original = crashes._pull
+
+    async def watch(*args: Any, **kwargs: Any) -> AsyncIterator[Dict[str, Any]]:
+        seen.append((tags(env), set(crashes.containers), copy.deepcopy(crashes.disk)))
+        async for line in original(*args, **kwargs):
+            yield line
+
+    crashes.fake.client.images.pull = watch
+    await run_install(make_extension("2"), crashes.fake)
+
+    assert seen[0][0] == {"1": True}
+    assert seen[0][1] == {"1"}
+    assert [(ext.tag, ext.enabled) for ext in seen[0][2]] == [("1", True)]
+
+
+async def test_failed_settings_save_keeps_the_old_tag_enabled_in_memory(env: Any) -> None:
+    crashes = Crashes(env, FakeDocker({f"{DOCKER}:1": "id1"}), make_settings("1"))
+    env.manager.save.side_effect = OSError("disk full")
+
+    with pytest.raises(ExtensionPullFailed):
+        await run_install(make_extension("2"), crashes.fake)
+
+    assert tags(env) == {"1": True}
+    env.clear.assert_not_awaited()
+
+
+async def test_failed_cleanup_of_old_tags_does_not_fail_a_good_install(env: Any) -> None:
+    crashes = Crashes(env, FakeDocker({f"{DOCKER}:1": "id1"}), make_settings("1"))
+    env.clear.side_effect = RuntimeError("boom")
+
+    await run_install(make_extension("2"), crashes.fake)
+
+    assert {ext.tag: ext.enabled for ext in crashes.disk} == {"1": False, "2": True}

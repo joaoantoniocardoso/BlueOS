@@ -47,11 +47,9 @@ def stalled_pull(extension: Extension) -> Any:
     return mock.patch.multiple(
         extension,
         _pull_docker_image=pull,
-        _disable_running_extension=mock.AsyncMock(return_value=None),
-        _create_extension_settings=mock.Mock(),
+        _switch_from=mock.AsyncMock(return_value=None),
         _sibling_image_id=mock.AsyncMock(return_value=None),
         _can_use_local_image=mock.AsyncMock(return_value=False),
-        _rollback_failed_install=mock.AsyncMock(),
         lock=mock.Mock(),
         unlock=mock.Mock(),
         reset_start_attempt=mock.Mock(),
@@ -66,7 +64,7 @@ async def test_install_fails_when_the_pull_goes_silent() -> None:
             async for line in extension.install():
                 lines.append(line)
         assert lines == [b"first"]
-        extension._rollback_failed_install.assert_awaited_once()  # type: ignore
+        extension._switch_from.assert_not_awaited()  # type: ignore
 
 
 async def test_install_keeps_going_while_the_pull_has_progress() -> None:

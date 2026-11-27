@@ -223,10 +223,7 @@ async def test_install_stream_ends_with_the_cleanup_error_after_the_new_tag_is_i
     world.engine.add("1", running=False)
     world.engine.delete_error = DockerError(500, {"message": "device or resource busy"})  # type: ignore
 
-    with (
-        mock.patch.object(Extension, "_disable_running_extension", mock.AsyncMock(return_value=None)),
-        mock.patch.object(Extension, "_local_image_id", mock.AsyncMock(return_value="id")),
-    ):
+    with mock.patch.object(Extension, "_local_image_id", mock.AsyncMock(return_value="id")):
         lines = [line async for line in streamer(make_extension("2").install(pull=False))]
 
     last = json.loads(lines[-1].removesuffix("|\n\n|"))
