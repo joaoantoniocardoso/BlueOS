@@ -267,7 +267,8 @@ async def test_uninstall_keeps_the_entry_when_the_container_cannot_be_removed() 
     extension = await Extension.from_settings("a.b", "1")
 
     with mock.patch.object(Extension, "remove", mock.AsyncMock(side_effect=RuntimeError("docker is down"))):
-        await extension.uninstall()  # type: ignore
+        with pytest.raises(RuntimeError, match="docker is down"):
+            await extension.uninstall()  # type: ignore
     assert len(Extension._settings.extensions) == 1
 
     with mock.patch.object(Extension, "remove", mock.AsyncMock()):
