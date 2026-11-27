@@ -486,6 +486,13 @@ class Extension:
         self._save_settings(ext)
 
     async def enable(self) -> None:
+        siblings = [
+            Extension(ExtensionSource.from_settings(ext))
+            for ext in self._fetch_settings(self.identifier)
+            if ext.tag != self.tag and ext.enabled
+        ]
+        for sibling in siblings:
+            await sibling.disable()
         await self.set_enabled(True)
 
     async def disable(self) -> None:
