@@ -24,7 +24,7 @@ from aiodocker.exceptions import DockerError
 from commonwealth.settings.manager import Manager
 from loguru import logger
 
-from config import DEFAULT_INJECTED_ENV_VARIABLES, SERVICE_NAME
+from config import DEFAULT_INJECTED_ENV_VARIABLES
 from extension.exceptions import (
     ExtensionInsufficientStorage,
     ExtensionNotFound,
@@ -37,7 +37,7 @@ from harbor import ContainerManager, DockerCtx
 from harbor.exceptions import ContainerNotFound
 from manifest import ManifestManager
 from manifest.models import ExtensionVersion
-from settings import ExtensionSettings, SettingsV2
+from settings import ExtensionSettings, settings_manager
 from utils import has_enough_disk_space
 
 TEMP_EXTENSION_KEEPALIVE_TTL_SECONDS = 10 * 60
@@ -56,7 +56,7 @@ class Extension:
     start_attempts: Dict[str, Tuple[int, int]] = {}
     temp_extension_activity: Dict[str, Tuple[int, int]] = {}
 
-    _manager: Manager = Manager(SERVICE_NAME, SettingsV2)
+    _manager: Manager = settings_manager
     _settings = _manager.settings
 
     def __init__(self, source: ExtensionSource, digest: Optional[str] = None) -> None:
