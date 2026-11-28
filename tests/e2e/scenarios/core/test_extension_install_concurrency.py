@@ -64,7 +64,7 @@ def registry_fixture(target: Target, blueos: BlueOS) -> Iterator[str]:
 
 def install(blueos: BlueOS, docker_image: str, tag: str) -> bytes:
     body = {"identifier": IDENTIFIER, "name": "e2e", "docker": docker_image, "tag": tag, "enabled": False,
-            "permissions": ""}  # fmt: skip
+            "permissions": "{}"}  # fmt: skip
     request = urllib.request.Request(
         f"{blueos.base_url}/kraken/v2.0/extension/",
         data=json.dumps(body).encode(),

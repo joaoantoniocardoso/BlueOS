@@ -99,7 +99,7 @@ def container_exists(target: Target, name: str) -> None:
 def test_hung_pull_does_not_stop_other_extensions_from_starting(blueos: BlueOS, registry: str, target: Target) -> None:
     for name in ("hung", "good"):  # kraken starts the dead extensions in the order they were installed
         install_stream(blueos, f"{registry}/{name}", timeout=120, enabled=True)
-    names = [f"extension-{registry}/{name}1".replace(":", "").replace("/", "") for name in ("hung", "good")]
+    names = [f"extension-{registry}/{name}:1".replace(":", "_3a").replace("/", "_2f") for name in ("hung", "good")]
     target.shell(f"sudo docker rm -f {' '.join(names)}; sudo docker rmi -f {registry}/hung:1 {registry}/good:1; true")
     target.shell("sudo docker exec blueos-core touch /tmp/hung")
     wait_until(

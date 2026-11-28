@@ -6,7 +6,7 @@ from blueos.core import BlueOS
 from images import CORE
 from targets.target import Target
 
-CONTAINER = "extension-testcrashy10"
+CONTAINER = "extension-test_2fcrashy_3a1_2e0"
 OBSERVE_SECONDS = 60
 # Attempts 1 to 3 wait 12 s, 14 s and 18 s: starts at about 0, 15, 35 and 55 s. Without backoff there is one every 5 s.
 MAX_STARTS = 5
@@ -21,6 +21,7 @@ def test_crash_loop_backs_off(blueos: BlueOS, target: Target) -> None:
         "docker": "test/crashy",
         "tag": "1.0",
         "enabled": True,
+        "pull": "if-missing",
         "permissions": json.dumps({"Entrypoint": ["sh", "-c", "sleep 1"]}),
     }
     install = urllib.request.Request(

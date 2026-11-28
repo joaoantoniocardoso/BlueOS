@@ -87,7 +87,7 @@ def require(condition: bool) -> None:
 
 
 def container_name(tag: str) -> str:
-    return f"extension-localhost5000e2eext{tag}"
+    return f"extension-localhost_3a5000_2fe2e_2fext_3a{tag}"
 
 
 @pytest.mark.usefixtures("registry")

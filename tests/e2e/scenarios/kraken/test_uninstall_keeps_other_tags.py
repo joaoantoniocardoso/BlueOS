@@ -9,7 +9,7 @@ from utils.retry import wait_until
 
 IDENTIFIER = "sil.sharedimage"
 REPOSITORY = "silext/sharedimage"
-CONTAINER_PREFIX = "extension-silextsharedimage"
+CONTAINER_PREFIX = "extension-silext_2fsharedimage"
 SHARED_TAG = "shared"
 
 
@@ -50,6 +50,7 @@ def extension_with_moved_tag_fixture(blueos: BlueOS, target: Target) -> Iterator
             "permissions": json.dumps({"Entrypoint": ["sleep", "infinity"]}),
             "enabled": True,
             "user_permissions": "",
+            "pull": "if-missing",
         },
     )
     wait_until(lambda: require_containers(target, True), 120, description="extension container")

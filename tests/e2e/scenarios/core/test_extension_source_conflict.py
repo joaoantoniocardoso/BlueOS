@@ -161,7 +161,7 @@ def test_installed_repo_in_no_source_needs_a_choice(blueos: BlueOS) -> None:
         "docker": THIRD_REPO,
         "tag": "1",
         "enabled": False,
-        "permissions": "",
+        "permissions": "{}",
     }
     status, output = call(blueos, "POST", "extension/", body)
     assert status == 200, output

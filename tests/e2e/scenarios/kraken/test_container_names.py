@@ -48,6 +48,7 @@ def install(target: Target, tag: str) -> None:
         "tag": tag,
         "enabled": True,
         "permissions": "{}",
+        "pull": "if-missing",
     }
     # The pull of the fake repository fails and is ignored: the image is already in the VM
     target.shell(
@@ -58,8 +59,9 @@ def install(target: Target, tag: str) -> None:
 
 def prepare_images(target: Target, *tags: str) -> None:
     target.shell(f"sudo docker pull {SOURCE_IMAGE}")
+    # Each tag gets its own image id: a bare tag with the id of the running sibling is not accepted as a local install
     for tag in tags:
-        target.shell(f"sudo docker tag {SOURCE_IMAGE} {DOCKER}:{tag}")
+        target.shell(f"printf 'FROM {SOURCE_IMAGE}\\nLABEL tag={tag}\\n' | sudo docker build -q -t {DOCKER}:{tag} -")
 
 
 def test_uninstalling_a_tag_keeps_the_container_of_a_longer_tag(target: Target) -> None:

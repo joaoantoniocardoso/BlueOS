@@ -18,8 +18,8 @@ REGISTRY_PORT, PROXY_PORT = 5000, 5001
 LAYER_BYTES = 12 * 1024 * 1024
 BYTES_PER_SECOND = 100 * 1024
 IDENTIFIER = "e2e.update"
-DOCKER = f"localhost:{PROXY_PORT}/update"
-OLD_CONTAINER = f"extension-localhost{PROXY_PORT}update1"
+DOCKER = f"localhost:{PROXY_PORT}/slow"
+OLD_CONTAINER = f"extension-localhost_3a{PROXY_PORT}_2fslow_3a1"
 
 
 def expect(condition: bool, message: str = "condition not met") -> None:
@@ -42,14 +42,14 @@ def registry_fixture(target: Target, blueos: BlueOS) -> Iterator[None]:  # pylin
     # Tag 1 adds no layer, so its pull through the slow proxy ends at once. Tag 2 adds one slow layer
     target.shell(
         f"sudo docker create --name e2e-seed-1 --entrypoint sleep registry:2 infinity "
-        f"&& sudo docker commit e2e-seed-1 {local}/update:1 && sudo docker rm e2e-seed-1 "
+        f"&& sudo docker commit e2e-seed-1 {local}/slow:1 && sudo docker rm e2e-seed-1 "
         f"&& sudo docker run --name e2e-seed-2 --entrypoint sh registry:2 -c 'head -c {LAYER_BYTES} /dev/urandom > /blob' "
-        f"&& sudo docker commit -c 'ENTRYPOINT [\"sleep\"]' -c 'CMD [\"infinity\"]' e2e-seed-2 {local}/update:2 "
+        f"&& sudo docker commit -c 'ENTRYPOINT [\"sleep\"]' -c 'CMD [\"infinity\"]' e2e-seed-2 {local}/slow:2 "
         f"&& sudo docker rm e2e-seed-2 "
-        f"&& sudo docker push -q {local}/update:1 && sudo docker push -q {local}/update:2 "
-        f"&& sudo docker rmi {local}/update:2"
+        f"&& sudo docker push -q {local}/slow:1 && sudo docker push -q {local}/slow:2 "
+        f"&& sudo docker rmi {local}/slow:2"
     )
-    target.shell(f"sudo docker tag {local}/update:1 {DOCKER}:1")
+    target.shell(f"sudo docker tag {local}/slow:1 {DOCKER}:1")
     target.ssh.put(PROXY, "/opt/e2e/slow_registry_proxy.py")
     target.shell("sudo docker cp /opt/e2e/slow_registry_proxy.py blueos-core:/tmp/slow_registry_proxy.py")
     target.shell(
